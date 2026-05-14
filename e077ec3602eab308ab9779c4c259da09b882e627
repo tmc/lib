@@ -1,0 +1,17 @@
+commit: e077ec3602eab308ab9779c4c259da09b882e627
+date: 2026-05-14T22:26:15Z
+agent: codex
+claude-code-version: 2.1.140 (Claude Code)
+model: gpt-5
+tty: not-a-tty
+pid: 47464
+ITERM_SESSION_ID: w0t14p13:257A1280-9DA5-48D2-89CD-200AF2721E66
+notebook: 2d55be69-46ad-45ca-a858-cd71a203fe57
+source-codegen: 67638964-f286-448e-b149-87a96b88e4d1
+source-tmc-lib-focused: 53af7f20-18c8-408d-9c1e-9b41c7477a35
+source-pccl-reference: 1580b737-12f0-45ad-8a07-a55500a05c8f
+notebook-note: 9938ec68-6604-472f-9ad8-ebae8e1f4266 review: manual gate fail-closed placeholders
+scope: regenerated integration placeholders fail once manual gate env is set until real bodies are authored
+local-gates: go test ./...; go build ./...; provider tag helper tests without env; git diff --check
+manual-gate-verification: explicit GONCCL/GORCCL/GOPCCL/GOPCCL_MULTIRANK commands fail with exit=1 and manual body message
+manual-gates: physical provider/datapath gates unrun
