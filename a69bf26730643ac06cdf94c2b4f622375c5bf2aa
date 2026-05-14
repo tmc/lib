@@ -1,0 +1,15 @@
+commit: a69bf26730643ac06cdf94c2b4f622375c5bf2aa
+date: 2026-05-14T16:35:20Z
+agent: codex
+claude-code-version: 2.1.140 (Claude Code)
+model: gpt-5
+tty: not-a-tty
+pid: 38927
+ITERM_SESSION_ID: w0t14p13:257A1280-9DA5-48D2-89CD-200AF2721E66
+notebook: 2d55be69-46ad-45ca-a858-cd71a203fe57
+source-codegen: e23bfd6b-3fb1-4dbe-ba9c-3ab6a6f33109
+source-tmc-lib-focused: 32919850-7a31-47c3-8a0a-a69c90de4d22
+source-pccl-reference: 1580b737-12f0-45ad-8a07-a55500a05c8f
+scope: generated gonccl, gorccl, gopccl, gojaccl-contract artifacts and ccl package plans
+local-gates-before-commit: no binary files detected; go test ./...; go build ./...; staged diff --check
+manual-gates: GONCCL/GORCCL/GOPCCL hardware and multirank datapath gates unrun
