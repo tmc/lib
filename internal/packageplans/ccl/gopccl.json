@@ -1,0 +1,491 @@
+{
+  "package": {
+    "name": "gopccl",
+    "import_path": "github.com/tmc/lib/gopccl",
+    "doc": "Package gopccl provides Go-native PCCL collective operations.",
+    "public_api_note": "gopccl is a local PCCL-capable collective island below ccl/mgccl; provider, rendezvous, and transport details are internal boundaries.",
+    "capabilities": true
+  },
+  "parse": {
+    "headers": [
+      "pccl.h"
+    ]
+  },
+  "semantics": {
+    "sources": [
+      {
+        "path": "tmc/lib/pccl",
+        "kind": "reference",
+        "purpose": "current low-level generated PCCL ABI surface"
+      },
+      {
+        "path": "PrimeIntellect-ai/pccl",
+        "kind": "reference",
+        "purpose": "PCCL source API and behavior reference"
+      },
+      {
+        "path": "gojaccl/docs/go-jaccl-spec.md",
+        "kind": "reference",
+        "purpose": "Go-native collective API quality reference"
+      },
+      {
+        "path": "/tmp/collab-F61A-gopccl-interface-to-257A.md",
+        "kind": "reference",
+        "purpose": "gopccl public interface guidance"
+      },
+      {
+        "path": "/tmp/collab-F61A-ccl-bindings-to-257A.md",
+        "kind": "reference",
+        "purpose": "P0 CCL binding target roadmap"
+      }
+    ],
+    "notes": [
+      "gopccl uses non-generic Buffer metadata and explicit provider boundaries.",
+      "Rendezvous and transport state machines are semantic package inputs, not ABI parse inputs.",
+      "Real PCCL, NCCL, or RCCL providers remain build-tagged and manual-gated."
+    ]
+  },
+  "config": {
+    "fields": [
+      {
+        "name": "Backend",
+        "type": "string",
+        "env": "GOPCCL_BACKEND",
+        "doc": "Backend selects fake, auto, or a real provider."
+      },
+      {
+        "name": "Rank",
+        "type": "int",
+        "env": "GOPCCL_RANK",
+        "doc": "Rank is the local rank."
+      },
+      {
+        "name": "Size",
+        "type": "int",
+        "env": "GOPCCL_SIZE",
+        "doc": "Size is the number of ranks."
+      },
+      {
+        "name": "NodeID",
+        "type": "string",
+        "env": "GOPCCL_NODE_ID",
+        "doc": "NodeID identifies the local node."
+      },
+      {
+        "name": "Device",
+        "type": "string",
+        "env": "GOPCCL_DEVICE",
+        "doc": "Device selects local accelerator resources."
+      },
+      {
+        "name": "Rendezvous",
+        "type": "string",
+        "env": "GOPCCL_RENDEZVOUS",
+        "doc": "Rendezvous names the context-aware store endpoint."
+      },
+      {
+        "name": "Store",
+        "type": "Store",
+        "doc": "Store provides optional in-process rendezvous."
+      },
+      {
+        "name": "RetryLimit",
+        "type": "int",
+        "env": "GOPCCL_RETRY_LIMIT",
+        "doc": "RetryLimit bounds retry loops."
+      },
+      {
+        "name": "Coordinator",
+        "type": "string",
+        "env": "GOPCCL_COORDINATOR",
+        "doc": "Coordinator is the PCCL master host:port."
+      },
+      {
+        "name": "PeerGroup",
+        "type": "uint32",
+        "env": "GOPCCL_PEER_GROUP",
+        "doc": "PeerGroup selects the PCCL peer group."
+      },
+      {
+        "name": "P2PPoolSize",
+        "type": "uint32",
+        "env": "GOPCCL_P2P_POOL_SIZE",
+        "doc": "P2PPoolSize controls PCCL peer connection pooling."
+      },
+      {
+        "name": "StartMaster",
+        "type": "bool",
+        "env": "GOPCCL_START_MASTER",
+        "doc": "StartMaster starts a local PCCL master in this process."
+      }
+    ]
+  },
+  "rendezvous": {
+    "store_interface": "Store",
+    "fake": {
+      "enabled": true,
+      "behavior": "in-memory key/value rendezvous"
+    }
+  },
+  "capabilities": {
+    "provider_info": true,
+    "health": true
+  },
+  "transport": {
+    "fake": {
+      "enabled": true,
+      "state_machine": "deterministic-drop-retry",
+      "drop_every": 2,
+      "retry_limit": 1
+    }
+  },
+  "unsafe": {},
+  "abi": {
+    "package_path": "internal/abi",
+    "status_type": "pcclResult_t",
+    "library_base_name": "pccl",
+    "lib_path_env": "PCCL_LIB_PATH",
+    "skip_bindings_env": "CODEGEN_SKIP_BINDINGS",
+    "layout_tests": true
+  },
+  "resources": [
+    {
+      "name": "Group",
+      "abi_type": "backend",
+      "constructor": "Open",
+      "close_method": "Close",
+      "owned": true
+    }
+  ],
+  "operations": [
+    {
+      "name": "Barrier",
+      "signature": "func (g *Group) Barrier(ctx context.Context) error",
+      "receiver": "Group",
+      "backend_method": "barrier",
+      "blocking": true,
+      "context_policy": "required",
+      "validation": {}
+    },
+    {
+      "name": "AllReduce",
+      "c_name": "pcclAllReduce",
+      "signature": "func (g *Group) AllReduce(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "allReduce",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllGather",
+      "c_name": "pcclAllGather",
+      "signature": "func (g *Group) AllGather(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allGather",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "dst",
+            "equals": "src.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Broadcast",
+      "c_name": "pcclBroadcast",
+      "signature": "func (g *Group) Broadcast(ctx context.Context, dst, src Buffer, root int) error",
+      "receiver": "Group",
+      "backend_method": "broadcast",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "root",
+          "type": "int",
+          "role": "rank"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllToAll",
+      "c_name": "pcclAllToAll",
+      "signature": "func (g *Group) AllToAll(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allToAll",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "ReduceScatter",
+      "c_name": "pcclReduceScatter",
+      "signature": "func (g *Group) ReduceScatter(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "reduceScatter",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "src",
+            "equals": "dst.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Send",
+      "c_name": "pcclSend",
+      "signature": "func (g *Group) Send(ctx context.Context, peer int, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "send",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        },
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "Recv",
+      "c_name": "pcclRecv",
+      "signature": "func (g *Group) Recv(ctx context.Context, peer int, dst Buffer) error",
+      "receiver": "Group",
+      "backend_method": "recv",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "PeersPending",
+      "signature": "func (g *Group) PeersPending(ctx context.Context) (bool, error)",
+      "doc": "PeersPending reports whether the communicator has pending peers to accept.",
+      "receiver": "Group",
+      "backend_method": "peersPending",
+      "blocking": true,
+      "context_policy": "pre-post",
+      "validation": {}
+    },
+    {
+      "name": "UpdateTopology",
+      "signature": "func (g *Group) UpdateTopology(ctx context.Context) error",
+      "doc": "UpdateTopology applies pending peer and topology changes.",
+      "receiver": "Group",
+      "backend_method": "updateTopology",
+      "blocking": true,
+      "context_policy": "pre-post",
+      "validation": {}
+    },
+    {
+      "name": "OptimizeTopology",
+      "signature": "func (g *Group) OptimizeTopology(ctx context.Context) error",
+      "doc": "OptimizeTopology measures links and optimizes the collective order.",
+      "receiver": "Group",
+      "backend_method": "optimizeTopology",
+      "blocking": true,
+      "context_policy": "pre-post",
+      "validation": {}
+    },
+    {
+      "name": "SynchronizeState",
+      "signature": "func (g *Group) SynchronizeState(ctx context.Context, revision uint64, tensors []StateTensor, strategy SyncStrategy) (SyncInfo, error)",
+      "doc": "SynchronizeState reconciles named state tensors across the group.",
+      "receiver": "Group",
+      "backend_method": "synchronizeState",
+      "blocking": true,
+      "context_policy": "pre-post",
+      "inputs": [
+        {
+          "name": "revision",
+          "type": "uint64",
+          "role": "revision"
+        },
+        {
+          "name": "tensors",
+          "type": "[]StateTensor",
+          "role": "state"
+        },
+        {
+          "name": "strategy",
+          "type": "SyncStrategy",
+          "role": "sync-strategy"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "info",
+          "type": "SyncInfo",
+          "role": "sync-info"
+        }
+      ],
+      "validation": {}
+    }
+  ],
+  "backends": [
+    {
+      "name": "fake",
+      "fake": {
+        "enabled": true,
+        "behavior": "recorded-call assertions"
+      }
+    }
+  ],
+  "adapters": [
+    {
+      "name": "pccl",
+      "build_tag": "gopccl_pccl",
+      "manual_gate": "hardware",
+      "kind": "pccl",
+      "package": "github.com/tmc/lib/pccl",
+      "runtime": "pccl",
+      "device_kind": "DeviceCUDA"
+    },
+    {
+      "name": "nccl",
+      "build_tag": "gopccl_nccl",
+      "manual_gate": "hardware",
+      "kind": "nccl",
+      "package": "github.com/tmc/lib/nvidia/nccl",
+      "runtime": "cuda",
+      "device_kind": "DeviceCUDA"
+    },
+    {
+      "name": "rccl",
+      "build_tag": "gopccl_rccl",
+      "manual_gate": "hardware",
+      "kind": "rccl",
+      "package": "github.com/tmc/lib/rocm/rccl",
+      "runtime": "rocm",
+      "device_kind": "DeviceROCM"
+    }
+  ],
+  "manual_gates": [
+    {
+      "name": "hardware",
+      "env": "GOPCCL_TEST_HARDWARE",
+      "value": "1",
+      "build_tag": "gopccl_pccl",
+      "command": "GOPCCL_TEST_HARDWARE=1 go test -tags=gopccl_pccl -run '^TestIntegration' -count=1",
+      "description": "Runs real provider or datapath checks. This gate is never run by default.",
+      "skip_reason": "set GOPCCL_TEST_HARDWARE=1 to run hardware/provider integration tests"
+    },
+    {
+      "name": "multirank",
+      "env": "GOPCCL_TEST_MULTIRANK",
+      "value": "1",
+      "build_tag": "gopccl_pccl",
+      "command": "GOPCCL_TEST_MULTIRANK=1 GOPCCL_TEST_HARDWARE=1 go test -tags=gopccl_pccl -run '^TestIntegrationMultirankGate$' -count=1",
+      "description": "Multi-rank datapath acceptance test. Verifies PeersPending, UpdateTopology, OptimizeTopology, and SynchronizeState sequence under simulated load. Expects an external accept-pump harness to prevent FSDP-style deadlocks.",
+      "skip_reason": "set GOPCCL_TEST_MULTIRANK=1 with an external accept-pump harness to run multi-rank datapath acceptance tests"
+    }
+  ],
+  "artifacts": {
+    "output_dir": "docs/ccl/gopccl"
+  }
+}

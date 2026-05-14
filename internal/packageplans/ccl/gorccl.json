@@ -1,0 +1,361 @@
+{
+  "package": {
+    "name": "gorccl",
+    "import_path": "github.com/tmc/lib/gorccl",
+    "doc": "Package gorccl provides Go-native RCCL collective operations.",
+    "public_api_note": "The public package exposes Group, Buffer, and context-driven collectives; low-level ABI bindings stay below internal/abi or provider adapters.",
+    "capabilities": true
+  },
+  "parse": {
+    "headers": [
+      "rccl.h"
+    ]
+  },
+  "semantics": {
+    "sources": [
+      {
+        "path": "tmc/lib/rocm/rccl",
+        "kind": "reference",
+        "purpose": "current low-level generated ABI surface"
+      },
+      {
+        "path": "gojaccl/docs/go-jaccl-spec.md",
+        "kind": "reference",
+        "purpose": "Go-native collective API quality reference"
+      },
+      {
+        "path": "/tmp/collab-F61A-ccl-bindings-to-257A.md",
+        "kind": "reference",
+        "purpose": "P0 CCL binding target roadmap"
+      }
+    ],
+    "notes": [
+      "ROCm device buffers are caller-owned and described by Buffer metadata.",
+      "Blocking collectives require context.Context and must validate Buffer metadata before provider calls.",
+      "Real provider adapters remain build-tagged and manual-gated; fake tests run by default."
+    ]
+  },
+  "config": {
+    "fields": [
+      {
+        "name": "Backend",
+        "type": "string",
+        "env": "GORCCL_BACKEND",
+        "doc": "Backend selects fake, auto, or a real provider."
+      },
+      {
+        "name": "Rank",
+        "type": "int",
+        "env": "GORCCL_RANK",
+        "doc": "Rank is the local rank."
+      },
+      {
+        "name": "Size",
+        "type": "int",
+        "env": "GORCCL_SIZE",
+        "doc": "Size is the number of ranks."
+      },
+      {
+        "name": "NodeID",
+        "type": "string",
+        "env": "GORCCL_NODE_ID",
+        "doc": "NodeID identifies the local node."
+      },
+      {
+        "name": "Device",
+        "type": "string",
+        "env": "GORCCL_DEVICE",
+        "doc": "Device selects local accelerator resources."
+      },
+      {
+        "name": "Rendezvous",
+        "type": "string",
+        "env": "GORCCL_RENDEZVOUS",
+        "doc": "Rendezvous names the context-aware store endpoint."
+      },
+      {
+        "name": "Store",
+        "type": "Store",
+        "doc": "Store provides optional in-process rendezvous."
+      },
+      {
+        "name": "RetryLimit",
+        "type": "int",
+        "env": "GORCCL_RETRY_LIMIT",
+        "doc": "RetryLimit bounds retry loops."
+      }
+    ]
+  },
+  "rendezvous": {
+    "store_interface": "Store",
+    "fake": {
+      "enabled": true,
+      "behavior": "in-memory key/value rendezvous"
+    }
+  },
+  "capabilities": {
+    "provider_info": true,
+    "health": true
+  },
+  "transport": {
+    "fake": {}
+  },
+  "unsafe": {},
+  "abi": {
+    "package_path": "internal/abi",
+    "status_type": "ncclResult_t",
+    "library_base_name": "rccl",
+    "lib_path_env": "RCCL_LIB_PATH",
+    "skip_bindings_env": "CODEGEN_SKIP_BINDINGS",
+    "layout_tests": true
+  },
+  "resources": [
+    {
+      "name": "Group",
+      "abi_type": "backend",
+      "constructor": "Open",
+      "close_method": "Close",
+      "owned": true
+    }
+  ],
+  "operations": [
+    {
+      "name": "Barrier",
+      "signature": "func (g *Group) Barrier(ctx context.Context) error",
+      "receiver": "Group",
+      "backend_method": "barrier",
+      "blocking": true,
+      "context_policy": "required",
+      "validation": {}
+    },
+    {
+      "name": "AllReduce",
+      "c_name": "ncclAllReduce",
+      "signature": "func (g *Group) AllReduce(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "allReduce",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllGather",
+      "c_name": "ncclAllGather",
+      "signature": "func (g *Group) AllGather(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allGather",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "dst",
+            "equals": "src.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Broadcast",
+      "c_name": "ncclBroadcast",
+      "signature": "func (g *Group) Broadcast(ctx context.Context, dst, src Buffer, root int) error",
+      "receiver": "Group",
+      "backend_method": "broadcast",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "root",
+          "type": "int",
+          "role": "rank"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllToAll",
+      "c_name": "ncclAlltoAll",
+      "signature": "func (g *Group) AllToAll(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allToAll",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "ReduceScatter",
+      "c_name": "ncclReduceScatter",
+      "signature": "func (g *Group) ReduceScatter(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "reduceScatter",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "src",
+            "equals": "dst.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Send",
+      "c_name": "ncclSend",
+      "signature": "func (g *Group) Send(ctx context.Context, peer int, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "send",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        },
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "Recv",
+      "c_name": "ncclRecv",
+      "signature": "func (g *Group) Recv(ctx context.Context, peer int, dst Buffer) error",
+      "receiver": "Group",
+      "backend_method": "recv",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    }
+  ],
+  "backends": [
+    {
+      "name": "fake",
+      "fake": {
+        "enabled": true,
+        "behavior": "recorded-call assertions"
+      }
+    }
+  ],
+  "adapters": [
+    {
+      "name": "rccl",
+      "build_tag": "gorccl_hardware",
+      "manual_gate": "hardware",
+      "kind": "rccl",
+      "package": "github.com/tmc/lib/rocm/rccl",
+      "runtime": "rocm",
+      "device_kind": "DeviceROCM"
+    }
+  ],
+  "manual_gates": [
+    {
+      "name": "hardware",
+      "env": "GORCCL_TEST_HARDWARE",
+      "value": "1",
+      "build_tag": "gorccl_hardware",
+      "command": "GORCCL_TEST_HARDWARE=1 RCCL_LIB_PATH=/path/to/librccl.so go test -tags=gorccl_hardware -run '^TestIntegration' -count=1",
+      "description": "Runs real provider or datapath checks. This gate is never run by default.",
+      "skip_reason": "set GORCCL_TEST_HARDWARE=1 to run hardware/provider integration tests"
+    }
+  ],
+  "artifacts": {
+    "output_dir": "docs/ccl/gorccl"
+  }
+}

@@ -1,0 +1,375 @@
+{
+  "package": {
+    "name": "gojaccl",
+    "import_path": "github.com/tmc/gojaccl",
+    "doc": "Package gojaccl provides Go-native JACCL collective operations.",
+    "public_api_note": "This is a contract-alignment plan for the existing gojaccl package; it is not a replacement for the JACCL RDMA implementation.",
+    "capabilities": true
+  },
+  "parse": {
+    "headers": [
+      "jaccl.h"
+    ]
+  },
+  "semantics": {
+    "sources": [
+      {
+        "path": "gojaccl/docs/go-jaccl-spec.md",
+        "kind": "reference",
+        "purpose": "accepted Go JACCL public API"
+      },
+      {
+        "path": "gojaccl/docs/go-doc-output.txt",
+        "kind": "reference",
+        "purpose": "current public go doc output"
+      },
+      {
+        "path": "lib/jaccl/ring.cpp",
+        "kind": "c++",
+        "purpose": "ring collective semantics reference"
+      },
+      {
+        "path": "lib/jaccl/rdma.cpp",
+        "kind": "implementation",
+        "purpose": "manual RDMA gate semantics reference"
+      },
+      {
+        "path": "/tmp/collab-F61A-ccl-bindings-to-257A.md",
+        "kind": "reference",
+        "purpose": "P0 CCL binding target roadmap"
+      }
+    ],
+    "notes": [
+      "JACCL C++ and RDMA sources shape contract, capability, readiness, and health signals only.",
+      "Do not feed C++ implementation sources into ABI parsing.",
+      "Do not claim hardware proof without JACCL_TEST_RDMA and RTR gates."
+    ]
+  },
+  "config": {
+    "fields": [
+      {
+        "name": "Backend",
+        "type": "string",
+        "env": "GOJACCL_BACKEND",
+        "doc": "Backend selects fake, auto, or a real provider."
+      },
+      {
+        "name": "Rank",
+        "type": "int",
+        "env": "GOJACCL_RANK",
+        "doc": "Rank is the local rank."
+      },
+      {
+        "name": "Size",
+        "type": "int",
+        "env": "GOJACCL_SIZE",
+        "doc": "Size is the number of ranks."
+      },
+      {
+        "name": "NodeID",
+        "type": "string",
+        "env": "GOJACCL_NODE_ID",
+        "doc": "NodeID identifies the local node."
+      },
+      {
+        "name": "Device",
+        "type": "string",
+        "env": "GOJACCL_DEVICE",
+        "doc": "Device selects local accelerator resources."
+      },
+      {
+        "name": "Rendezvous",
+        "type": "string",
+        "env": "GOJACCL_RENDEZVOUS",
+        "doc": "Rendezvous names the context-aware store endpoint."
+      },
+      {
+        "name": "Store",
+        "type": "Store",
+        "doc": "Store provides optional in-process rendezvous."
+      },
+      {
+        "name": "RetryLimit",
+        "type": "int",
+        "env": "GOJACCL_RETRY_LIMIT",
+        "doc": "RetryLimit bounds retry loops."
+      }
+    ]
+  },
+  "rendezvous": {
+    "store_interface": "Store",
+    "fake": {
+      "enabled": true,
+      "behavior": "in-memory key/value rendezvous"
+    }
+  },
+  "capabilities": {
+    "provider_info": true,
+    "health": true
+  },
+  "transport": {
+    "fake": {}
+  },
+  "unsafe": {},
+  "abi": {
+    "package_path": "internal/abi",
+    "status_type": "jacclStatus_t",
+    "library_base_name": "jaccl",
+    "lib_path_env": "JACCL_LIB_PATH",
+    "skip_bindings_env": "CODEGEN_SKIP_BINDINGS",
+    "layout_tests": true
+  },
+  "resources": [
+    {
+      "name": "Group",
+      "abi_type": "backend",
+      "constructor": "NewGroup",
+      "close_method": "Close",
+      "owned": true
+    }
+  ],
+  "operations": [
+    {
+      "name": "Barrier",
+      "signature": "func (g *Group) Barrier(ctx context.Context) error",
+      "receiver": "Group",
+      "backend_method": "barrier",
+      "blocking": true,
+      "context_policy": "required",
+      "validation": {}
+    },
+    {
+      "name": "AllReduce",
+      "c_name": "jacclAllReduce",
+      "signature": "func (g *Group) AllReduce(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "allReduce",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllGather",
+      "c_name": "jacclAllGather",
+      "signature": "func (g *Group) AllGather(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allGather",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "dst",
+            "equals": "src.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Broadcast",
+      "c_name": "jacclBroadcast",
+      "signature": "func (g *Group) Broadcast(ctx context.Context, dst, src Buffer, root int) error",
+      "receiver": "Group",
+      "backend_method": "broadcast",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "root",
+          "type": "int",
+          "role": "rank"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "AllToAll",
+      "c_name": "jacclAllToAll",
+      "signature": "func (g *Group) AllToAll(ctx context.Context, dst, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "allToAll",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "ReduceScatter",
+      "c_name": "jacclReduceScatter",
+      "signature": "func (g *Group) ReduceScatter(ctx context.Context, dst, src Buffer, op ReduceOp) error",
+      "receiver": "Group",
+      "backend_method": "reduceScatter",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        },
+        {
+          "name": "op",
+          "type": "ReduceOp",
+          "role": "reduce-op"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {
+        "buffer_counts": [
+          {
+            "buffer": "src",
+            "equals": "dst.Count * uint(g.Size())"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Send",
+      "c_name": "jacclSend",
+      "signature": "func (g *Group) Send(ctx context.Context, peer int, src Buffer) error",
+      "receiver": "Group",
+      "backend_method": "send",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        },
+        {
+          "name": "src",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    },
+    {
+      "name": "Recv",
+      "c_name": "jacclRecv",
+      "signature": "func (g *Group) Recv(ctx context.Context, peer int, dst Buffer) error",
+      "receiver": "Group",
+      "backend_method": "recv",
+      "blocking": true,
+      "context_policy": "required",
+      "inputs": [
+        {
+          "name": "peer",
+          "type": "int",
+          "role": "peer"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "dst",
+          "type": "Buffer",
+          "role": "device-buffer"
+        }
+      ],
+      "validation": {}
+    }
+  ],
+  "backends": [
+    {
+      "name": "fake",
+      "fake": {
+        "enabled": true,
+        "behavior": "recorded-call assertions"
+      }
+    }
+  ],
+  "adapters": [
+    {
+      "name": "jaccl",
+      "build_tag": "gojaccl_rdma",
+      "manual_gate": "rdma"
+    }
+  ],
+  "manual_gates": [
+    {
+      "name": "rdma",
+      "env": "JACCL_TEST_RDMA",
+      "value": "1",
+      "build_tag": "gojaccl_rdma",
+      "command": "JACCL_TEST_RDMA=1 go test -tags=gojaccl_rdma -run '^TestIntegration' -count=1",
+      "description": "Runs real provider or datapath checks. This gate is never run by default.",
+      "skip_reason": "set JACCL_TEST_RDMA=1 to run hardware/provider integration tests"
+    },
+    {
+      "name": "rdma_rtr",
+      "env": "JACCL_TEST_RDMA_ALLOW_RTR",
+      "value": "1",
+      "command": "JACCL_TEST_RDMA=1 JACCL_TEST_RDMA_ALLOW_RTR=1 go test -run '^TestIntegration.*RTR' -count=1",
+      "description": "Runs real provider or datapath checks. This gate is never run by default.",
+      "skip_reason": "set JACCL_TEST_RDMA_ALLOW_RTR=1 to run hardware/provider integration tests"
+    }
+  ],
+  "artifacts": {
+    "output_dir": "docs/ccl/gojaccl-contract"
+  }
+}

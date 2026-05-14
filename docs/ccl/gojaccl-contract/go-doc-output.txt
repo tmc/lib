@@ -1,0 +1,15 @@
+package gojaccl
+
+Package gojaccl provides Go-native JACCL collective operations.
+
+type Group struct
+func NewGroup(...) (*Group, error)
+func (x *Group) Close() error
+func (g *Group) Barrier(ctx context.Context) error
+func (g *Group) AllReduce(ctx context.Context, dst, src Buffer, op ReduceOp) error
+func (g *Group) AllGather(ctx context.Context, dst, src Buffer) error
+func (g *Group) Broadcast(ctx context.Context, dst, src Buffer, root int) error
+func (g *Group) AllToAll(ctx context.Context, dst, src Buffer) error
+func (g *Group) ReduceScatter(ctx context.Context, dst, src Buffer, op ReduceOp) error
+func (g *Group) Send(ctx context.Context, peer int, src Buffer) error
+func (g *Group) Recv(ctx context.Context, peer int, dst Buffer) error
