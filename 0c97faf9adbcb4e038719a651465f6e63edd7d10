@@ -1,0 +1,15 @@
+commit: 0c97faf9adbcb4e038719a651465f6e63edd7d10
+date: 2026-05-14T16:32:06Z
+agent: codex
+claude-code-version: 2.1.140 (Claude Code)
+model: gpt-5
+tty: not-a-tty
+pid: 35288
+ITERM_SESSION_ID: w0t14p13:257A1280-9DA5-48D2-89CD-200AF2721E66
+notebook: 2d55be69-46ad-45ca-a858-cd71a203fe57
+source-codegen: 200f617f-7559-4636-b0e8-53c7cecc4894
+source-tmc-lib-focused: 32919850-7a31-47c3-8a0a-a69c90de4d22
+source-pccl-reference: 1580b737-12f0-45ad-8a07-a55500a05c8f
+scope: generated low-level NVIDIA, ROCm, and PCCL bindings plus module files
+local-gates-before-commit: no binary files detected; go test ./...; go build ./...
+manual-gates: provider/datapath hardware gates unrun
