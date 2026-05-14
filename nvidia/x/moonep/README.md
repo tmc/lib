@@ -1,0 +1,72 @@
+# moonep
+
+Go port of the host-side layer of [MoonEP](https://github.com/MoonshotAI/MoonEP),
+an expert-parallel MoE communication library. Built on
+`github.com/tmc/lib/nvidia/x/nvlshm` for the cross-process NVLink shared
+buffers; wire-compatible with MoonEP's device kernels (same buffer layout,
+offsets, and encodings, ported from `moonep/api.py` and verified against
+golden values).
+
+## What this is
+
+- **`Layout`** — every derived size and meta-buffer offset from MoonEP's
+  `_create_context` (NvS slot math, token-padding headroom, VMM/multicast
+  chunk padding, int32-overflow guards). Pure computation, testable without
+  a GPU.
+- **`Buffer`** — collective allocation of `hidden_buf` (token payload,
+  dispatch writes rows straight into remote ranks' chunks) and `meta_buf`
+  (weights / plan / barrier / src_info regions, with the multicast mapping
+  planning uses to broadcast the plan in one `multimem.st`), plus the local
+  scratch tensors, with the barrier region zeroed collectively.
+- **`CommPlan`** — plan output allocation with the 16-byte over-allocation
+  the vectorized kernel writes require.
+- **Kernel helpers** — `LoadModule`/`LoadModuleData`, `Params`,
+  `LaunchCooperative`.
+
+## What this is not (yet)
+
+The device kernels. MoonEP's kernels are CUTLASS CuTe-DSL JIT programs
+(planning, dispatch, dispatch epilogue, combine prologue, combine, prefetch,
+grad reduce) with Hopper-specific inline PTX; they cannot be built from Go.
+To run the full pipeline, export cubins once from the Python toolchain:
+
+1. Run the MoonEP Python package with `CUTE_DSL_CACHE_DIR` pointed at a
+   collection directory.
+2. Exercise the target configuration (S, K, E, R, H, B, num_sms) once —
+   each kernel is JIT-specialized on those constexprs.
+3. Collect the cached cubins and load them here with `LoadModule`; a cubin
+   is valid only for the exact `Layout` it was compiled for.
+
+The runtime synchronization protocol is entirely device-side (self-resetting
+flag barriers inside `meta_buf` and the two local counters), so once kernels
+are loaded the Go host only launches them — there is no host participation
+per iteration.
+
+## Usage
+
+```go
+b, _ := tcpboot.New(rank, world, addr) // any nvlshm.Bootstrap
+buf, err := moonep.NewBuffer(b, dev, moonep.Config{
+    S: 4096, H: 7168, K: 8, E: 256, R: world,
+})
+if err != nil { ... }
+defer buf.Close() // collective
+
+plan, _ := moonep.AllocatePlan(buf.Layout)
+defer plan.Close()
+
+// buf.Hidden, buf.Meta, buf.MetaMc(), buf.HiddenLocal(), plan.Dst, ...
+// are the pointers the (separately loaded) kernels take as parameters.
+```
+
+## Testing
+
+Layout math is covered by golden tests generated independently from the
+Python formulas; they run anywhere:
+
+    go test ./nvidia/x/moonep/
+
+`TestBufferGPU` is a multi-process integration test (one child per GPU over
+tcpboot) exercising buffer creation, cross-rank meta writes, and the
+multicast plan-broadcast path; it needs a multi-GPU Linux box with NVSwitch
+and skips otherwise.
