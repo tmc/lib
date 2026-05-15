@@ -1,0 +1,14 @@
+commit: fc7b93617e285e31cd02492522726f92bce49657
+date: 2026-05-15T16:10:06Z
+agent: codex
+model: GPT-5
+tty: not a tty
+not-a-tty
+pid: 85430
+iterm_session_id: w0t12p9:02249855-E216-4AF4-884D-E7B2DF09FB53
+notebook: 2d55be69-46ad-45ca-a858-cd71a203fe57
+notebook_note: a1116911-0d2d-472e-9fef-7cf94c41f17c
+codegen_commit: 64041364d659173b9de554fde673bfee076ff2c0
+codegen_source: d4293eec-dab4-450e-ba36-a6c0d35659de
+tmc_lib_source: 08b7e82b-0cfd-4d12-830f-a1c9e3f9aac4
+gates: go test ./...; go build ./...; no-env provider tag tests; explicit env gates fail closed with manual integration body is not registered until harness hook registered
