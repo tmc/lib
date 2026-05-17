@@ -1,0 +1,23 @@
+package ggml
+
+Package ggml provides low-level Go bindings for ggml tensors and compute graphs.
+
+type Context struct
+func (x *Context) Close() error
+type Tensor struct
+type Graph struct
+type BackendBuffer struct
+func (x *BackendBuffer) Close() error
+// NewTensor1D allocates a one-dimensional tensor in the context.
+func (c *Context) NewTensor1D(t DType, n0 int64) (*Tensor, error)
+// TensorData returns the backend-owned data pointer.
+func (t *Tensor) TensorData() unsafe.Pointer
+// Add appends an elementwise add node to the graph.
+func (c *Context) Add(a, rhs *Tensor) (*Tensor, error)
+// Mul appends an elementwise multiply node to the graph.
+func (c *Context) Mul(a, rhs *Tensor) (*Tensor, error)
+// BuildForward builds a forward compute graph rooted at t.
+func BuildForward(t *Tensor) (*Graph, error)
+// GraphCompute computes g on the CPU backend and stops waiting when ctx is canceled.
+func (c *Context) GraphCompute(ctx context.Context, g *Graph) error
+type Element interface { ~float32 | ~int32 }
