@@ -1,0 +1,17 @@
+package fuse
+
+Package fuse provides a pure-Go FUSE protocol and Linux device helper.
+
+type FileSystem interface { ... }
+type Frame struct { ... }
+type InHeader struct { ... }
+type OutHeader struct { ... }
+type Attr struct { ... }
+type Entry struct { ... }
+type Dirent struct { ... }
+func Serve(ctx context.Context, rw io.ReadWriter, fs FileSystem) error
+func HandleFrame(ctx context.Context, fs FileSystem, frame Frame) ([]byte, error)
+func ReadFrame(r io.Reader) (Frame, error)
+func WriteRequest(w io.Writer, h InHeader, data []byte) error
+func EncodeResponse(unique uint64, errno int32, payload []byte) []byte
+func OpenDevice(path string) (*Device, error)

@@ -1,0 +1,19 @@
+package virtiofs
+
+Package virtiofs provides pure-Go virtio-fs request helpers over the FUSE protocol.
+
+const MaxTagLen = 36
+const DefaultQueueSize = 128
+type Config struct { ... }
+func DefaultConfig(tag string) Config
+type Transport interface { RoundTrip(ctx context.Context, request []byte) ([]byte, error) }
+type Device struct { ... }
+func NewDevice(cfg Config, transport Transport) (*Device, error)
+func (d *Device) Config() Config
+func (d *Device) Tag() string
+func (d *Device) RoundTrip(ctx context.Context, frame fuse.Frame) (fuse.OutHeader, []byte, error)
+type Server struct { ... }
+func NewServer(fs fuse.FileSystem) (*Server, error)
+func (s *Server) Handle(ctx context.Context, request []byte) ([]byte, error)
+type MemoryTransport struct { ... }
+func NewMemoryTransport(fs fuse.FileSystem) (*MemoryTransport, error)
