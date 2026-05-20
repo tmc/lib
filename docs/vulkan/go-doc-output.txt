@@ -1,0 +1,28 @@
+package vulkan // import "github.com/tmc/lib/vulkan"
+
+Package vulkan provides generated pure-Go bindings for a small Vulkan loader and
+discovery surface.
+
+This first slice is intentionally narrow. It can load the platform Vulkan
+loader, create and destroy an instance, and enumerate physical devices. It does
+not expose logical devices, queues, command buffers, window-system integration,
+pNext chains, unions, or callbacks yet.
+
+Default tests do not load Vulkan or require a GPU. Runtime loader and GPU checks
+are explicit manual gates documented in manual-gates.md.
+
+const APIVersion10 = uint32(1 << 22)
+var ErrClosed = errors.New("vulkan: closed")
+func APIVersionMajor(v uint32) uint32
+func APIVersionMinor(v uint32) uint32
+func APIVersionPatch(v uint32) uint32
+func Load() error
+func MakeAPIVersion(variant, major, minor, patch uint32) uint32
+type ApplicationInfo struct{ ... }
+type Instance struct{ ... }
+    func CreateInstance(info *InstanceCreateInfo) (*Instance, error)
+type InstanceCreateFlags uint32
+type InstanceCreateInfo struct{ ... }
+type PhysicalDevice struct{ ... }
+type Result int32
+    const ErrorUnknown Result = -13 ...
