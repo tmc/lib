@@ -1,0 +1,5 @@
+github.com/tmc/lib/fuse v0.1.0/go.mod h1:qimMMWor1KZMJiasdjj3OqCeIuNP9v/QCeFlpvU7XxQ=
+github.com/tmc/lib/gopccl v0.1.0/go.mod h1:uypJaeKPB3mHYxMUxUxmk1gUw/6hnqeylA478oyPQ9c=
+github.com/tmc/lib/nvidia v0.1.0/go.mod h1:Mty38lp73kfmwTxldx1OIFA5c/rtO2k3POn3poRLipA=
+github.com/tmc/lib/pccl v0.1.0/go.mod h1:Kjmd2onpxlDzYTo2/kUGnv+Qyjr7JyApHKbdP88PJCI=
+github.com/tmc/lib/rocm v0.1.0/go.mod h1:ViGz99jpWtuKCCabfM4UfxEXEkMyd3E7ySHND1wjXFk=
