@@ -1,0 +1,29 @@
+package libp2p // import "github.com/tmc/lib/libp2p"
+
+Package libp2p provides a small Go facade over go-libp2p hosts and streams.
+
+func ConfigFromEnv() (Config, error)
+func DefaultConfig() Config
+func New(context.Context, Config, ...libp2p.Option) (*Node, error)
+func Wrap(host.Host) (*Node, error)
+func WrapStream(network.Stream) (Stream, error)
+type Config struct{ ... }
+type Handler func(Stream)
+type Node struct{ ... }
+    func (n *Node) Addrs() []multiaddr.Multiaddr
+    func (n *Node) AddrInfo() peer.AddrInfo
+    func (n *Node) Close() error
+    func (n *Node) Connect(context.Context, peer.AddrInfo) error
+    func (n *Node) Handle(protocol.ID, Handler) error
+    func (n *Node) Host() host.Host
+    func (n *Node) ID() peer.ID
+    func (n *Node) OpenStream(context.Context, peer.ID, protocol.ID) (Stream, error)
+    func (n *Node) RemoveHandler(protocol.ID)
+type Stream struct{ ... }
+    func (s Stream) Close() error
+    func (s Stream) Protocol() protocol.ID
+    func (s Stream) Raw() network.Stream
+    func (s Stream) Read([]byte) (int, error)
+    func (s Stream) RemotePeer() peer.ID
+    func (s Stream) Reset() error
+    func (s Stream) Write([]byte) (int, error)
