@@ -1,0 +1,20 @@
+go 1.27.0
+
+use (
+	./examples
+	./fuse
+	./ggml
+	./gonccl
+	./gopccl
+	./gorccl
+	./kvm
+	./libp2p
+	./lldb
+	./mgccl
+	./nbd
+	./nvidia
+	./pccl
+	./rocm
+	./virtiofs
+	./vulkan
+)
