@@ -32,12 +32,20 @@ func NewSession(w io.Writer) *Session {
 	}
 }
 
+// SetBinaryPath sets the target path for the synthesized ELF binary sidecar.
+func (s *Session) SetBinaryPath(path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetBinaryPath(path)
+}
+
 // SetMappingFile configures the binary/PTX file path for instruction disassembly resolution.
 func (s *Session) SetMappingFile(filename, buildID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.builder.SetMappingFile(filename, buildID)
 }
+
 
 // RecordSample adds a GPU sample correlated with Go context pprof labels and OS thread affinity.
 

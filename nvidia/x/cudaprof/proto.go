@@ -70,12 +70,14 @@ type SampleValues struct {
 
 // Builder constructs a pprof profile containing GPU kernel, PTX, and SASS samples.
 type Builder struct {
-	st        *stringTable
-	mappings  []mapping
-	locations []location
-	functions []function
-	funcMap   map[string]uint64
-	samples   []sample
+	st         *stringTable
+	mappings   []mapping
+	locations  []location
+	functions  []function
+	funcMap    map[string]uint64
+	symbols    map[string]*Symbol
+	binaryPath string
+	samples    []sample
 }
 
 type mapping struct {
@@ -118,13 +120,14 @@ func NewBuilder() *Builder {
 	b := &Builder{
 		st:      newStringTable(),
 		funcMap: make(map[string]uint64),
+		symbols: make(map[string]*Symbol),
 	}
 	b.mappings = append(b.mappings, mapping{
 		id:              1,
 		memoryStart:     0x7f000000,
 		memoryLimit:     0x7fffffff,
 		fileOffset:      0,
-		filename:        b.st.Index("cuda_kernels"),
+		filename:        b.st.Index("cuda_kernels.so"),
 		buildID:         b.st.Index("nvrtc_jit"),
 		hasFunctions:    true,
 		hasFilenames:    true,
@@ -132,6 +135,11 @@ func NewBuilder() *Builder {
 		hasInlineFrames: true,
 	})
 	return b
+}
+
+// SetBinaryPath sets the target path for the synthesized ELF binary sidecar.
+func (b *Builder) SetBinaryPath(path string) {
+	b.binaryPath = path
 }
 
 // SetMappingFile configures the binary/PTX file path for instruction disassembly resolution.
@@ -143,8 +151,6 @@ func (b *Builder) SetMappingFile(filename, buildID string) {
 		}
 	}
 }
-
-
 
 func (b *Builder) getOrCreateFunction(kernelName, filename string, startLine int64) uint64 {
 	key := fmt.Sprintf("%s:%s", kernelName, filename)
@@ -184,6 +190,22 @@ func (b *Builder) AddDetailedSample(kernelName, filename string, line int64, sas
 		line:       line,
 	})
 
+	// Track symbol address range
+	if sym, ok := b.symbols[kernelName]; !ok {
+		b.symbols[kernelName] = &Symbol{
+			Name:    kernelName,
+			Address: sassPC,
+			Size:    0x100,
+		}
+	} else {
+		if sassPC < sym.Address {
+			sym.Address = sassPC
+		}
+		if (sassPC + 0x20) > (sym.Address + sym.Size) {
+			sym.Size = (sassPC + 0x20) - sym.Address
+		}
+	}
+
 	metricVals := []int64{
 		vals.Samples,
 		vals.VRAMAllocBytes,
@@ -202,9 +224,24 @@ func (b *Builder) AddDetailedSample(kernelName, filename string, line int64, sas
 	})
 }
 
+
 // WriteGzip encodes the profile as a standard gzipped pprof profile with multiple metric dimensions.
 func (b *Builder) WriteGzip(w io.Writer) error {
+	// Synthesize ELF binary sidecar if binaryPath is specified
+	if b.binaryPath != "" && len(b.symbols) > 0 {
+		syms := make([]Symbol, 0, len(b.symbols))
+		for _, s := range b.symbols {
+			syms = append(syms, *s)
+		}
+		if err := WriteELFBinary(b.binaryPath, syms); err == nil {
+			if len(b.mappings) > 0 {
+				b.mappings[0].filename = b.st.Index(b.binaryPath)
+			}
+		}
+	}
+
 	var body []byte
+
 
 	// 1. SampleTypes: [samples/count, vram_alloc/bytes, dram_read/bytes, dram_write/bytes, shared_mem/bytes, tensor_warps/count, stall_scoreboard/count, stall_wait/count]
 	sampleTypes := []struct {
