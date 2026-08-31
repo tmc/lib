@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -48,9 +49,19 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	var strtabBuf bytes.Buffer
 	strtabBuf.WriteByte(0) // 0-th byte is null string
 
+	// Sort symbols ascending by virtual address for monotonic section layout
+	sortedSyms := make([]Symbol, len(symbols))
+	copy(sortedSyms, symbols)
+	sort.Slice(sortedSyms, func(i, j int) bool {
+		if sortedSyms[i].Address != sortedSyms[j].Address {
+			return sortedSyms[i].Address < sortedSyms[j].Address
+		}
+		return sortedSyms[i].Name < sortedSyms[j].Name
+	})
+
 	// Base virtual address
-	baseAddr := symbols[0].Address
-	for _, sym := range symbols {
+	baseAddr := sortedSyms[0].Address
+	for _, sym := range sortedSyms {
 		if sym.Address < baseAddr {
 			baseAddr = sym.Address
 		}
@@ -65,7 +76,7 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	var symEntries []symEntry
 
 	var totalCode bytes.Buffer
-	for _, sym := range symbols {
+	for _, sym := range sortedSyms {
 		nameOff := uint32(strtabBuf.Len())
 		strtabBuf.WriteString(sym.Name)
 		strtabBuf.WriteByte(0)
@@ -86,9 +97,8 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 			code = SynthesizeKernelInstructions(sym.Name)
 		}
 		totalCode.Write(code)
-		for uint64(len(code)) < sym.Size {
+		for uint64(len(code)) < sym.Size && uint64(totalCode.Len()) < offset+sym.Size {
 			totalCode.WriteByte(0x90)
-			code = append(code, 0x90)
 		}
 	}
 	for totalCode.Len()%16 != 0 {

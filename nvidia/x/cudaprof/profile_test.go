@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"debug/elf"
 	"io"
 	"runtime/pprof"
 	"testing"
@@ -45,5 +46,48 @@ func TestProfileSession(t *testing.T) {
 
 	if len(decompressed) == 0 {
 		t.Fatal("expected non-empty decompressed profile payload")
+	}
+}
+
+func TestSynthesizeELFBinary(t *testing.T) {
+	syms := []cudaprof.Symbol{
+		{Name: "KernelZ", Address: 0x7f003000, Size: 0x40},
+		{Name: "KernelA", Address: 0x7f001000, Size: 0x20},
+		{Name: "KernelM", Address: 0x7f002000, Size: 0x30},
+	}
+
+	data, err := cudaprof.SynthesizeELFBinary(syms)
+	if err != nil {
+		t.Fatalf("SynthesizeELFBinary failed: %v", err)
+	}
+
+	f, err := elf.NewFile(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("failed to parse synthesized ELF: %v", err)
+	}
+	defer f.Close()
+
+	if f.FileHeader.Class != elf.ELFCLASS64 {
+		t.Errorf("expected 64-bit ELF, got %v", f.FileHeader.Class)
+	}
+
+	symbols, err := f.Symbols()
+	if err != nil {
+		t.Fatalf("failed to read symbols: %v", err)
+	}
+
+	found := make(map[string]uint64)
+	for _, sym := range symbols {
+		if sym.Name != "" {
+			found[sym.Name] = sym.Value
+		}
+	}
+
+	for _, want := range syms {
+		if addr, ok := found[want.Name]; !ok {
+			t.Errorf("missing symbol %s", want.Name)
+		} else if addr != want.Address {
+			t.Errorf("symbol %s: expected address 0x%x, got 0x%x", want.Name, want.Address, addr)
+		}
 	}
 }
