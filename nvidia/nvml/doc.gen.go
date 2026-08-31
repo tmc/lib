@@ -8,7 +8,6 @@
 // # MIG Management
 //
 //   - [ComputeInstance.Destroy]: Destroy compute instance.
-//   - [ComputeInstance.GetInfo]: Get compute instance information.
 //   - [GpuInstance.CreateComputeInstance]: Create compute instance.
 //   - [GpuInstance.CreateComputeInstanceWithPlacement]: Create compute instance with the specified placement.
 //   - [GpuInstance.Destroy]: Destroy GPU instance.
@@ -40,13 +39,13 @@
 //   - [Device.GetAccountingBufferSize]: Returns the number of processes that the circular buffer with accounting pids can hold.
 //   - [Device.GetAccountingMode]: Queries the state of per process accounting mode.
 //   - [Device.GetAccountingPids]: Queries list of processes that can be queried for accounting stats.
-//   - [Device.GetAccountingStats]: Queries process's accounting stats.
+//   - [Device.GetAccountingStats]: Queries process's accounting stats (v2).
 //   - [Device.GetAdaptiveClockInfoStatus]: Gets the device's Adaptive Clock status
 //   - [Device.GetAddressingMode]: Get the addressing mode for a given GPU.
 //   - [Device.GetArchitecture]: Get architecture for device
-//   - [Device.GetAttributes]: Get attributes (engine counts etc.) for the given NVML device handle.
 //   - [Device.GetAutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled
 //   - [Device.GetBAR1MemoryInfo]: Gets Total, Available and Used size of BAR1 memory.
+//   - [Device.GetBBXTimeData]: Retrieves the cumulative number of seconds the GPU has had the driver loaded.
 //   - [Device.GetBoardId]: Retrieves the device boardId from 0-N.
 //   - [Device.GetBoardPartNumber]: Retrieves the the device board part number which is programmed into the board's InfoROM
 //   - [Device.GetBrand]: Retrieves the brand of this device.
@@ -59,13 +58,11 @@
 //   - [Device.GetClockOffsets]: Retrieve min, max and current clock offset of some clock domain for a given PState
 //   - [Device.GetComputeInstanceId]: Get compute instance ID for the given MIG device handle.
 //   - [Device.GetComputeMode]: Retrieves the current compute mode for the device or MIG device.
-//   - [Device.GetComputeRunningProcesses]: Get information about processes with a compute context on a device
 //   - [Device.GetConfComputeGpuAttestationReport]: Get Conf Computing GPU attestation report.
 //   - [Device.GetConfComputeGpuCertificate]: Get Conf Computing GPU certificate details.
 //   - [Device.GetConfComputeMemSizeInfo]: Get Conf Computing Protected and Unprotected Memory Sizes.
 //   - [Device.GetConfComputeProtectedMemoryUsage]: Get Conf Computing protected memory usage.
 //   - [Device.GetCoolerInfo]: Retrieves the cooler's information.
-//   - [DeviceGetCount]: Retrieves the number of compute devices in the system.
 //   - [Device.GetCpuAffinity]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity for the device For example, if processors 0, 1, 32, and 33 are ideal for the device and cpuSetSize == 2, result [0] = 0x3, result [1] = 0x3 This is equivalent to calling [Device.GetCpuAffinityWithinScope] with NVML_AFFINITY_SCOPE_NODE.
 //   - [Device.GetCpuAffinityWithinScope]: Retrieves an array of unsigned ints (sized to cpuSetSize) of bitmasks with the ideal CPU affinity within node or socket for the device.
 //   - [Device.GetCudaComputeCapability]: Retrieves the CUDA compute capability of the device.
@@ -79,7 +76,6 @@
 //   - [Device.GetDisplayActive]: Retrieves the display active state for the device.
 //   - [Device.GetDisplayMode]: Retrieves the display mode for the device.
 //   - [Device.GetDramEncryptionMode]: Retrieves the current and pending DRAM Encryption modes for the device.
-//   - [Device.GetDriverModel]: Retrieves the current and pending driver model for the device.
 //   - [Device.GetDynamicPstatesInfo]: Retrieve performance monitor samples from the associated subdevice.
 //   - [Device.GetEccMode]: Retrieves the current and pending ECC modes for the device.
 //   - [Device.GetEncoderCapacity]: Retrieves the current capacity of the device's encoder, as a percentage of maximum encoder capacity with valid values in the range 0-100.
@@ -98,7 +94,6 @@
 //   - [Device.GetGpuFabricInfoV]: Versioned wrapper around nvmlDeviceGetGpuFabricInfo that accepts a versioned [GpuFabricInfoV2] or later output structure.
 //   - [Device.GetGpuInstanceById]: Get GPU instances for given instance ID.
 //   - [Device.GetGpuInstanceId]: Get GPU instance ID for the given MIG device handle.
-//   - [Device.GetGpuInstancePossiblePlacements]: Get GPU instance placements.
 //   - [Device.GetGpuInstanceProfileInfo]: Get GPU instance profile information
 //   - [Device.GetGpuInstanceProfileInfoByIdV]: GPU instance profile query function that accepts profile ID, instead of profile name.
 //   - [Device.GetGpuInstanceProfileInfoV]: Versioned wrapper around [Device.GetGpuInstanceProfileInfo] that accepts a versioned [GpuInstanceProfileInfoV2] or later output structure.
@@ -106,12 +101,8 @@
 //   - [Device.GetGpuInstances]: Get GPU instances for given profile ID.
 //   - [Device.GetGpuMaxPcieLinkGeneration]: Retrieves the maximum PCIe link generation supported by this device
 //   - [Device.GetGpuOperationMode]: Retrieves the current GOM and pending GOM (the one that GPU will switch to after reboot).
-//   - [Device.GetGraphicsRunningProcesses]: Get information about processes with a graphics context on a device
-//   - [Device.GetGridLicensableFeatures]: Retrieve the vGPU Software licensable features.
 //   - [Device.GetGspFirmwareMode]: Retrieve GSP firmware mode.
 //   - [Device.GetGspFirmwareVersion]: Retrieve GSP firmware version.
-//   - [NewDeviceByIndex]: Acquire the handle for a particular device, based on its index.
-//   - [NewDeviceByPciBusId]: Acquire the handle for a particular device, based on its PCI bus id.
 //   - [NewDeviceByUUID]: Acquire the handle for a particular device, based on its globally unique immutable UUID (in ASCII format) associated with each device.
 //   - [NewDeviceByUUIDV]: Acquire the handle for a particular device, based on its globally unique immutable UUID (in either ASCII or binary format) associated with each device.
 //   - [Device.GetHostVgpuMode]: Queries if SR-IOV host operation is supported on a vGPU supported device.
@@ -123,7 +114,6 @@
 //   - [Device.GetIrqNum]: Gets the device's interrupt number
 //   - [Device.GetJpgUtilization]: Retrieves the current utilization and sampling size in microseconds for the JPG
 //   - [Device.GetLastBBXFlushTime]: Retrieves the timestamp and the duration of the last flush of the BBX (blackbox) infoROM object during the current run.
-//   - [Device.GetMPSComputeRunningProcesses]: Get information about processes with a Multi-Process Service (MPS) compute context on a device
 //   - [Device.GetMarginTemperature]: Retrieves the thermal margin temperature (distance to nearest slowdown threshold).
 //   - [Device.GetMaxClockInfo]: Retrieves the maximum clock speeds for the device.
 //   - [Device.GetMaxCustomerBoostClock]: Retrieves the customer defined maximum boost clock speed specified by the given clock type.
@@ -151,7 +141,6 @@
 //   - [Device.GetNvLinkErrorCounter]: Retrieves the specified error counter value Please refer to [NvLinkErrorCounter] for error counters that are available
 //   - [Device.GetNvLinkInfo]: Query NVLINK information associated with this device.
 //   - [Device.GetNvLinkRemoteDeviceType]: Get the NVLink device type of the remote device connected over the given link.
-//   - [Device.GetNvLinkRemotePciInfo]: Retrieves the PCI information for the remote node on a NvLink link Note: pciSubSystemId is not filled in this function and is indeterminate
 //   - [Device.GetNvLinkState]: Retrieves the state of the device's NvLink for the link specified
 //   - [Device.GetNvLinkVersion]: Retrieves the version of the device's NvLink for the link specified
 //   - [Device.GetNvlinkBwMode]: Get the NvLink Reduced Bandwidth Mode for the device
@@ -159,7 +148,6 @@
 //   - [Device.GetOfaUtilization]: Retrieves the current utilization and sampling size in microseconds for the OFA (Optical Flow Accelerator)
 //   - [Device.GetP2PStatus]: Retrieve the status for a given p2p capability index between a given pair of GPU
 //   - [Device.GetPciInfoExt]: Retrieves PCI attributes of this device.
-//   - [Device.GetPciInfo]: Retrieves the PCI attributes of this device.
 //   - [Device.GetPcieLinkMaxSpeed]: Gets the device's PCIE Max Link speed in MBPS
 //   - [Device.GetPcieReplayCounter]: Retrieve the PCIe replay counter.
 //   - [Device.GetPcieSpeed]: Gets the device's PCIe Link speed in Mbps
@@ -208,6 +196,16 @@
 //   - [Device.GetVgpuTypeSupportedPlacements]: Query the supported vGPU placement ID of the vGPU type.
 //   - [Device.GetVirtualizationMode]: This method is used to get the virtualization mode corresponding to the GPU.
 //
+// # Multi Instance GPU Management
+//
+//   - [Device.IsMigDeviceHandle]: Test if the given handle refers to a MIG device.
+//
+// # Power Smoothing Information
+//
+//   - [Device.PowerSmoothingActivatePresetProfile]: Activiate a specific preset profile for datacenter power smoothing.
+//   - [Device.PowerSmoothingSetState]: Enable or disable the Power Smoothing Feature.
+//   - [Device.PowerSmoothingUpdatePresetProfileParam]: Update the value of a specific profile parameter contained within [PowerSmoothingProfile].
+//
 // # Device Configuration
 //
 //   - [Device.SetAPIRestriction]: Changes the root/admin restructions on certain APIs.
@@ -239,11 +237,25 @@
 //   - [Device.SetVgpuHeterogeneousMode]: Enable or disable vGPU heterogeneous mode for the device.
 //   - [Device.SetVirtualizationMode]: This method is used to set the virtualization mode corresponding to the GPU.
 //
+// # CPU and Memory Affinity
+//
+//   - [Device.ValidateInforom]: Reads the infoROM from the flash and verifies the checksums.
+//   - [SystemSetConfComputeGpusReadyState]: Set Conf Computing GPUs ready state.
+//   - [SystemSetConfComputeKeyRotationThresholdInfo]: Set Conf Computing key rotation threshold.
+//
+// # vGPU APIs
+//
+//   - [Device.VgpuForceGspUnload]: Executes a forced GSP unload operation on a device
+//
 // # Event Management
 //
 //   - [NewEventSet]: Create an empty set of events.
 //   - [EventSet.Free]: Releases events in the set
-//   - [EventSet.Wait]: Waits on events and delivers events
+//
+// # Excluded GPU Queries
+//
+//   - [GetExcludedDeviceCount]: Retrieves the number of excluded GPU devices in the system.
+//   - [GetExcludedDeviceInfoByIndex]: Acquire the device information for an excluded GPU device, based on its index.
 //
 // # GPM Management
 //
@@ -259,11 +271,18 @@
 // # Initialization
 //
 //   - [InitWithFlags]: [InitWithFlags] is a variant of [Init], that allows passing a set of boolean values modifying the behaviour of [Init].
-//   - [Init]: Initialize NVML, but don't initialize any GPUs yet.
-//   - [Shutdown]: Shut down NVML by releasing all GPU resources previously allocated with [Init].
+//   - [Shutdown]: Shut down NVML by releasing all GPU resources previously allocated with nvmlInit_v2().
+//
+// # Event Handling Methods
+//
+//   - [SystemEventSetCreate]: Create an empty set of system events.
+//   - [SystemEventSetFree]: Releases system event set
+//   - [SystemEventSetWait]: Waits on system events and delivers events
+//   - [SystemRegisterEvents]: Starts recording of events on system and add the events to specified [SystemEventSet]
 //
 // # System Queries
 //
+//   - [SystemGetCPER]: Retrieves Common Platform Error Record (CPER) data.
 //   - [SystemGetConfComputeCapabilities]: Get Conf Computing System capabilities.
 //   - [SystemGetConfComputeGpusReadyState]: Get Conf Computing GPUs ready state.
 //   - [SystemGetConfComputeKeyRotationThresholdInfo]: Get Conf Computing key rotation threshold detail.
@@ -277,6 +296,10 @@
 //   - [SystemGetNvlinkBwMode]: Get the global nvlink bandwith mode
 //   - [SystemGetProcessName]: Gets name of the process with provided process id
 //   - [SystemGetTopologyGpuSet]: Retrieve the set of GPUs that have a CPU affinity with the given CPU number For all products.
+//
+// # NvLink Methods
+//
+//   - [SystemSetNvlinkBwMode]: Set the global nvlink bandwith mode
 //
 // # Unit Management
 //
@@ -296,24 +319,6 @@
 //   - [VgpuInstance.GetRuntimeStateSize]: Retrieve the currently used runtime state size of the vGPU instance
 //   - [VgpuTypeId.GetFbReservation]: Retrieve the static framebuffer reservation of the vGPU type in bytes
 //   - [VgpuTypeId.GetGspHeapSize]: Retrieve the static GSP heap size of the vGPU type in bytes
-//
-// # Other
-//
-//   - [Device.IsMigDeviceHandle]: Test if the given handle refers to a MIG device.
-//   - [Device.PowerSmoothingActivatePresetProfile]: Activiate a specific preset profile for datacenter power smoothing.
-//   - [Device.PowerSmoothingSetState]: Enable or disable the Power Smoothing Feature.
-//   - [Device.PowerSmoothingUpdatePresetProfileParam]: Update the value of a specific profile parameter contained within [PowerSmoothingProfileV1].
-//   - [Device.ValidateInforom]: Reads the infoROM from the flash and verifies the checksums.
-//   - [Device.VgpuForceGspUnload]: Executes a forced GSP unload operation on a device
-//   - [GetExcludedDeviceCount]: Retrieves the number of excluded GPU devices in the system.
-//   - [GetExcludedDeviceInfoByIndex]: Acquire the device information for an excluded GPU device, based on its index.
-//   - [SystemEventSetCreate]: Create an empty set of system events.
-//   - [SystemEventSetFree]: Releases system event set
-//   - [SystemEventSetWait]: Waits on system events and delivers events
-//   - [SystemRegisterEvents]: Starts recording of events on system and add the events to specified [SystemEventSet]
-//   - [SystemSetConfComputeGpusReadyState]: Set Conf Computing GPUs ready state.
-//   - [SystemSetConfComputeKeyRotationThresholdInfo]: Set Conf Computing key rotation threshold.
-//   - [SystemSetNvlinkBwMode]: Set the global nvlink bandwith mode
 //
 // [NVML API Reference]: https://docs.nvidia.com/deploy/nvml-api/
 package nvml

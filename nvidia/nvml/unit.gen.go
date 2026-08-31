@@ -2,21 +2,61 @@
 
 package nvml
 
+import (
+	"errors"
+)
+
+// NewUnitByIndex Acquire the handle for a particular unit, based on its index.
+//
+// For S-class products.
+// Valid indices are derived from the unitCount returned by [UnitGetCount]. For example, if unitCount is 2 the valid indices are 0 and 1, corresponding to UNIT 0 and UNIT 1.
+// The order in which NVML enumerates units has no guarantees of consistency between reboots.
+//
+//   - index: The index of the target unit, >= 0 and < unitCount
+//   - unit: Reference in which to return the unit handle
+//
+// Wraps nvmlUnitGetHandleByIndex.
+func NewUnitByIndex(index uint32) (Unit, error) {
+	return unitGetHandleByIndex(index)
+}
+
 // GetDevices Retrieves the set of GPU devices that are attached to the specified unit.
 //
-// For S-class products. The deviceCount argument is expected to be set to the size of the input devices array.
+// For S-class products.
+// The deviceCount argument is expected to be set to the size of the input devices array.
 //
 //   - deviceCount: Reference in which to provide the devices array size, and to return the number of attached GPU devices
 //   - devices: Reference in which to return the references to the attached GPU devices
 //
 // Wraps nvmlUnitGetDevices.
-func (u Unit) GetDevices(deviceCount *uint32, devices *Device) error {
-	return unitGetDevices(u, deviceCount, devices)
+//
+// The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+func (u Unit) GetDevices(buf []Device) ([]Device, error) {
+	count := uint32(cap(buf))
+	buf = buf[:cap(buf)]
+	var p *Device
+	if count > 0 {
+		p = &buf[0]
+	}
+	for {
+		n := count
+		err := unitGetDevices(u, &n, p)
+		if err == nil {
+			return buf[:n], nil
+		}
+		if !errors.Is(err, ErrInsufficientSize) {
+			return nil, err
+		}
+		count = n + n/2 + 4
+		buf = make([]Device, count)
+		p = &buf[0]
+	}
 }
 
 // GetFanSpeedInfo Retrieves the fan speed readings for the unit.
 //
-// For S-class products. See [UnitFanSpeeds] for details on available fan speed info.
+// For S-class products.
+// See [UnitFanSpeeds] for details on available fan speed info.
 //
 //   - fanSpeeds: Reference in which to return the fan speed information
 //
@@ -27,7 +67,11 @@ func (u Unit) GetFanSpeedInfo(fanSpeeds *UnitFanSpeeds) error {
 
 // GetLedState Retrieves the LED state associated with this unit.
 //
-// For S-class products. See [LedState] for details on allowed states. See also: [Unit.SetLedState]
+// For S-class products.
+// See [LedState] for details on allowed states.
+// See also: [Unit.SetLedState]
+//
+//   - state: Reference in which to return the current LED state
 //
 // Wraps nvmlUnitGetLedState.
 func (u Unit) GetLedState() (LedState, error) {
@@ -36,7 +80,8 @@ func (u Unit) GetLedState() (LedState, error) {
 
 // GetPsuInfo Retrieves the PSU stats for the unit.
 //
-// For S-class products. See [PSUInfo] for details on available PSU info.
+// For S-class products.
+// See [PSUInfo] for details on available PSU info.
 //
 //   - psu: Reference in which to return the PSU information
 //
@@ -47,7 +92,11 @@ func (u Unit) GetPsuInfo(psu *PSUInfo) error {
 
 // GetTemperature Retrieves the temperature readings for the unit, in degrees C.
 //
-// For S-class products. Depending on the product, readings may be available for intake (type=0), exhaust (type=1) and board (type=2).
+// For S-class products.
+// Depending on the product, readings may be available for intake (type=0), exhaust (type=1) and board (type=2).
+//
+//   - type_: The type of reading to take
+//   - temp: Reference in which to return the intake temperature
 //
 // Wraps nvmlUnitGetTemperature.
 func (u Unit) GetTemperature(type_ uint32) (uint32, error) {
@@ -56,7 +105,11 @@ func (u Unit) GetTemperature(type_ uint32) (uint32, error) {
 
 // GetUnitInfo Retrieves the static information associated with a unit.
 //
-// For S-class products. See [UnitInfo] for details on available unit info. < Previous | Next >
+// For S-class products.
+// See [UnitInfo] for details on available unit info.
+// < Previous | Next >
+//
+//   - info: Reference in which to return the unit information
 //
 // Wraps nvmlUnitGetUnitInfo.
 func (u Unit) GetUnitInfo() (UnitInfo, error) {
@@ -65,23 +118,16 @@ func (u Unit) GetUnitInfo() (UnitInfo, error) {
 
 // SetLedState Set the LED state for the unit.
 //
-// For S-class products. Requires root/admin permissions. This operation takes effect immediately. Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command. See [LedColor] for available colors. See also: [Unit.GetLedState] < Previous | Next >
+// For S-class products. Requires root/admin permissions.
+// This operation takes effect immediately.
+// Current S-Class products don't provide unique LEDs for each unit. As such, both front and back LEDs will be toggled in unison regardless of which unit is specified with this command.
+// See [LedColor] for available colors.
+// See also: [Unit.GetLedState]
+// < Previous | Next >
 //
 //   - color: The target LED color
 //
 // Wraps nvmlUnitSetLedState.
 func (u Unit) SetLedState(color LedColor) error {
 	return unitSetLedState(u, color)
-}
-
-// NewUnitByIndex Acquire the handle for a particular unit, based on its index.
-//
-// For S-class products. Valid indices are derived from the unitCount returned by [UnitGetCount]. For example, if unitCount is 2 the valid indices are 0 and 1, corresponding to UNIT 0 and UNIT 1. The order in which NVML enumerates units has no guarantees of consistency between reboots.
-//
-//   - index: The index of the target unit, >= 0 and < unitCount
-//   - unit: Reference in which to return the unit handle
-//
-// Wraps nvmlUnitGetHandleByIndex.
-func NewUnitByIndex(index uint32) (Unit, error) {
-	return unitGetHandleByIndex(index)
 }
