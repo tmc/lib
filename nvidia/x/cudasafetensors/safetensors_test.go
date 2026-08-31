@@ -62,3 +62,47 @@ func TestOpen(t *testing.T) {
 		t.Errorf("expected 16 bytes, got %d", len(rawBytes))
 	}
 }
+
+func TestOpenSharded(t *testing.T) {
+	tmpDir := t.TempDir()
+	shard1Path := filepath.Join(tmpDir, "model-00001.safetensors")
+
+	// Write shard 1
+	headerJSON := `{"layer1.weight":{"dtype":"F32","shape":[2,2],"data_offsets":[0,16]}}`
+	headerBytes := []byte(headerJSON)
+	headerLen := uint64(len(headerBytes))
+	data := make([]byte, 8+headerLen+16)
+	binary.LittleEndian.PutUint64(data[:8], headerLen)
+	copy(data[8:8+headerLen], headerBytes)
+	for i := 0; i < 4; i++ {
+		binary.LittleEndian.PutUint32(data[8+headerLen+uint64(i*4):], math.Float32bits(float32(i+1)))
+	}
+	if err := os.WriteFile(shard1Path, data, 0644); err != nil {
+		t.Fatalf("write shard: %v", err)
+	}
+
+	// Write index JSON
+	indexJSON := `{"metadata":{},"weight_map":{"layer1.weight":"model-00001.safetensors"}}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "model.safetensors.index.json"), []byte(indexJSON), 0644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+
+	sw, err := cudasafetensors.OpenSharded(tmpDir)
+	if err != nil {
+		t.Fatalf("OpenSharded failed: %v", err)
+	}
+	defer sw.Close()
+
+	if _, exists := sw.Tensors["layer1.weight"]; !exists {
+		t.Fatal("expected layer1.weight in sharded weights")
+	}
+
+	rawBytes, _, err := sw.TensorBytes("layer1.weight")
+	if err != nil {
+		t.Fatalf("TensorBytes failed: %v", err)
+	}
+	if len(rawBytes) != 16 {
+		t.Errorf("expected 16 bytes, got %d", len(rawBytes))
+	}
+}
+

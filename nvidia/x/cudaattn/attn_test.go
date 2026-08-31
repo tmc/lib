@@ -18,6 +18,17 @@ func TestCausalFlashAttentionTemplate(t *testing.T) {
 	}
 }
 
+func TestBatchedPagedAttentionTemplate(t *testing.T) {
+	tmpl := cudaattn.BatchedPagedAttentionTemplate
+	if !strings.Contains(tmpl, "BatchedPagedAttentionDecode") {
+		t.Error("expected BatchedPagedAttentionDecode in template")
+	}
+	if !strings.Contains(tmpl, "block_tables") {
+		t.Error("expected block_tables in template")
+	}
+}
+
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := cudaattn.DefaultConfig(32, 8, 128)
 	if cfg.NumQHeads != 32 || cfg.NumKVHeads != 8 || cfg.HeadDim != 128 {

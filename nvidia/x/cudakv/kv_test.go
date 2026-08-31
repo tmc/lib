@@ -43,3 +43,39 @@ func TestKVCacheAllocation(t *testing.T) {
 		t.Errorf("expected pos 0, got %d", cache.Pos())
 	}
 }
+
+func TestPagedCacheAllocation(t *testing.T) {
+	dev := cudatest.Require(t)
+	pc, err := cudakv.NewPagedCache(dev, 2, 4, 64, 16, 64)
+	if err != nil {
+		t.Fatalf("NewPagedCache failed: %v", err)
+	}
+	defer pc.Close()
+
+	if pc.NumFreeBlocks() != 64 {
+		t.Errorf("expected 64 free blocks, got %d", pc.NumFreeBlocks())
+	}
+
+	// Sequence 1: 30 tokens -> needs ceil(30/16) = 2 blocks
+	if err := pc.AllocSequence(1001, 30); err != nil {
+		t.Fatalf("AllocSequence failed: %v", err)
+	}
+	if pc.NumFreeBlocks() != 62 {
+		t.Errorf("expected 62 free blocks, got %d", pc.NumFreeBlocks())
+	}
+
+	// Append tokens to cross block boundary (from 30 to 32 -> 33 tokens -> needs 3rd block)
+	_ = pc.AppendToken(1001) // token 31
+	_ = pc.AppendToken(1001) // token 32
+	_ = pc.AppendToken(1001) // token 33 -> allocates 3rd block
+
+	if pc.NumFreeBlocks() != 61 {
+		t.Errorf("expected 61 free blocks after expansion, got %d", pc.NumFreeBlocks())
+	}
+
+	pc.FreeSequence(1001)
+	if pc.NumFreeBlocks() != 64 {
+		t.Errorf("expected 64 free blocks after recycle, got %d", pc.NumFreeBlocks())
+	}
+}
+
