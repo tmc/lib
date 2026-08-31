@@ -186,9 +186,14 @@ func (sw *ShardedWeights) TensorBytes(name string) ([]byte, TensorInfo, error) {
 	return shard.TensorBytes(name)
 }
 
-// LoadSlice allocates device memory on dev and copies tensor data to GPU.
-func LoadSlice[T any](w *Weights, name string, dev *cuda.Device) (cudamem.Slice[T], error) {
-	rawBytes, info, err := w.TensorBytes(name)
+// TensorProvider provides tensor metadata and raw bytes for model parameters.
+type TensorProvider interface {
+	TensorBytes(name string) ([]byte, TensorInfo, error)
+}
+
+// LoadSlice allocates device memory on dev and copies tensor data to GPU from any TensorProvider.
+func LoadSlice[T any](provider TensorProvider, name string, dev *cuda.Device) (cudamem.Slice[T], error) {
+	rawBytes, info, err := provider.TensorBytes(name)
 	if err != nil {
 		return cudamem.Slice[T]{}, err
 	}
@@ -222,13 +227,9 @@ func LoadSlice[T any](w *Weights, name string, dev *cuda.Device) (cudamem.Slice[
 
 // LoadShardedSlice loads a tensor directly from a sharded checkpoint onto dev.
 func LoadShardedSlice[T any](sw *ShardedWeights, name string, dev *cuda.Device) (cudamem.Slice[T], error) {
-	shardFile, exists := sw.tensorMap[name]
-	if !exists {
-		return cudamem.Slice[T]{}, fmt.Errorf("cudasafetensors: tensor %q not in weight map", name)
-	}
-	shard := sw.shards[shardFile]
-	return LoadSlice[T](shard, name, dev)
+	return LoadSlice[T](sw, name, dev)
 }
+
 
 // Close releases resources.
 func (w *Weights) Close() error {

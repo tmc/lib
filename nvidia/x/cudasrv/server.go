@@ -15,6 +15,13 @@ type Engine interface {
 	Generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) error
 }
 
+// Tokenizer encodes text strings into token IDs and decodes token IDs into text.
+type Tokenizer interface {
+	Encode(text string) ([]int32, error)
+	Decode(tokens []int32) (string, error)
+}
+
+
 // Server provides an HTTP handler for OpenAI-compatible LLM inference.
 type Server struct {
 	engine        Engine
