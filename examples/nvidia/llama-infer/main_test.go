@@ -1,55 +1,44 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/tmc/lib/nvidia/x/cuda"
-	"github.com/tmc/lib/nvidia/x/cudaattn"
-	"github.com/tmc/lib/nvidia/x/cudabench"
-	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudasample"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
-func TestSymbolicPlan(t *testing.T) {
-	plan := symbolicPlan(DefaultTinyLlamaConfig())
-	if plan.TotalBytes == 0 || len(plan.Offsets) == 0 {
-		t.Fatalf("empty plan: %#v", plan)
-	}
-}
+func TestForwardPass(t *testing.T) {
+	cfg := DefaultModelConfig()
+	weights := GenerateDeterministicWeights(&cfg)
+	headDim := cfg.HeadDim()
+	kvDim := cfg.NumKeyValueHeads * headDim
+	kvCache := NewKVCacheState(cfg.NumHiddenLayers, cfg.MaxSeqLen, kvDim)
 
-func TestSyntheticLogits(t *testing.T) {
-	for _, test := range []struct {
-		step int
-		want int32
-	}{
-		{step: 0, want: 7},
-		{step: 1, want: 24},
-		{step: 4, want: 75},
-	} {
-		logits, want := syntheticLogits(256, test.step)
-		if want != test.want {
-			t.Errorf("step %d: token = %d, want %d", test.step, want, test.want)
-		}
-		if got := cudasample.SampleArgmaxCPU(logits); got != want {
-			t.Errorf("step %d: argmax = %d, want %d", test.step, got, want)
-		}
+	// Step 0 forward pass
+	logits0 := Forward(weights, &cfg, kvCache, 42, 0)
+	if len(logits0) != cfg.VocabSize {
+		t.Fatalf("expected %d logits, got %d", cfg.VocabSize, len(logits0))
 	}
-}
 
-func TestCheckAttention(t *testing.T) {
-	if err := checkAttention([]float32{2, 2}, 2); err != nil {
-		t.Fatal(err)
+	tok0 := sampleArgmax(logits0)
+	if tok0 < 0 || int(tok0) >= cfg.VocabSize {
+		t.Errorf("sampled token out of bounds: %d", tok0)
 	}
-	if err := checkAttention([]float32{2, 3}, 2); err == nil {
-		t.Fatal("checkAttention accepted a wrong value")
+
+	// Step 1 forward pass
+	logits1 := Forward(weights, &cfg, kvCache, tok0, 1)
+	if len(logits1) != cfg.VocabSize {
+		t.Fatalf("expected %d logits, got %d", cfg.VocabSize, len(logits1))
+	}
+
+	tok1 := sampleArgmax(logits1)
+	if tok1 < 0 || int(tok1) >= cfg.VocabSize {
+		t.Errorf("sampled token out of bounds: %d", tok1)
 	}
 }
 
 func TestByteTokenizer(t *testing.T) {
 	tok := NewByteTokenizer()
-	prompt := "Hello LLaMA"
+	prompt := "Hello LLaMA 3.2"
 
 	tokens, err := tok.Encode(prompt)
 	if err != nil {
@@ -63,6 +52,46 @@ func TestByteTokenizer(t *testing.T) {
 
 	if decoded != prompt {
 		t.Errorf("expected %q, got %q", prompt, decoded)
+	}
+}
+
+func TestHFTokenizerParsing(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokFile := filepath.Join(tmpDir, "tokenizer.json")
+
+	jsonContent := `{
+		"model": {
+			"vocab": {
+				"Hello": 100,
+				" world": 101,
+				"!": 102
+			},
+			"merges": ["H ello"]
+		},
+		"added_tokens": [
+			{"id": 0, "content": "<unk>"},
+			{"id": 1, "content": "<s>"}
+		]
+	}`
+	if err := os.WriteFile(tokFile, []byte(jsonContent), 0644); err != nil {
+		t.Fatalf("write tokenizer.json: %v", err)
+	}
+
+	tok, err := LoadHFTokenizer(tokFile)
+	if err != nil {
+		t.Fatalf("LoadHFTokenizer failed: %v", err)
+	}
+
+	if tok.VocabSize() < 5 {
+		t.Errorf("expected at least 5 tokens in vocab, got %d", tok.VocabSize())
+	}
+
+	decoded, err := tok.Decode([]int32{100, 101, 102})
+	if err != nil {
+		t.Fatalf("Decode failed: %v", err)
+	}
+	if decoded != "Hello world!" {
+		t.Errorf("expected 'Hello world!', got %q", decoded)
 	}
 }
 
@@ -88,47 +117,15 @@ func BenchmarkByteTokenizerDecode(b *testing.B) {
 	}
 }
 
-func BenchmarkLlamaDecodeStep(b *testing.B) {
-	dev := cudatest.Require(b)
-	cudabench.Run(b, dev, func(cb *cudabench.B) {
-		major, minor, err := dev.ComputeCapability()
-		if err != nil {
-			b.Fatalf("ComputeCapability: %v", err)
-		}
+func BenchmarkModelForwardStep(b *testing.B) {
+	cfg := DefaultModelConfig()
+	weights := GenerateDeterministicWeights(&cfg)
+	headDim := cfg.HeadDim()
+	kvDim := cfg.NumKeyValueHeads * headDim
+	kvCache := NewKVCacheState(cfg.NumHiddenLayers, cfg.MaxSeqLen, kvDim)
 
-		attn, err := cudaattn.Compile(major, minor)
-		if err != nil {
-			b.Fatalf("Compile attn: %v", err)
-		}
-		attnMod, err := attn.Load(dev)
-		if err != nil {
-			b.Fatalf("Load attn: %v", err)
-		}
-		defer attnMod.Unload()
-		attnFn, err := attnMod.GetFunction("CausalFlashAttentionDecode")
-		if err != nil {
-			b.Fatalf("GetFunction: %v", err)
-		}
-
-		cfg := DefaultTinyLlamaConfig()
-		q, _ := cudamem.Alloc[float32](dev, cfg.NumHeads*cfg.HeadDim)
-		defer q.Free()
-		k, _ := cudamem.Alloc[float32](dev, cfg.MaxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
-		defer k.Free()
-		v, _ := cudamem.Alloc[float32](dev, cfg.MaxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
-		defer v.Free()
-		out, _ := cudamem.Alloc[float32](dev, cfg.NumHeads*cfg.HeadDim)
-		defer out.Free()
-
-		attnCfg := cudaattn.DefaultConfig(cfg.NumHeads, cfg.NumKVHeads, cfg.HeadDim)
-		cb.SetBytes(int64((cfg.NumHeads + 2*cfg.NumKVHeads) * cfg.HeadDim * 4))
-
-		cb.Time(func(stream *cuda.Stream) {
-			_ = cudalaunch.Kernel(attnFn).
-				Grid(uint32(cfg.NumHeads)).
-				Block(1).
-				SharedMem(uint32(cfg.MaxSeqLen * 4)).
-				Launch(q, k, v, out, int32(cfg.MaxSeqLen-1), int32(cfg.MaxSeqLen), int32(cfg.NumHeads), int32(cfg.NumKVHeads), int32(cfg.HeadDim), attnCfg.Scale)
-		})
-	})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = Forward(weights, &cfg, kvCache, 42, i%cfg.MaxSeqLen)
+	}
 }
