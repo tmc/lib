@@ -219,6 +219,14 @@ func runGPUInference(
 	defer scratch.Free()
 
 	// Prefill Phase
+	var ptxPath string
+	var ptxMap PTXLineMap
+	if prof != nil && gm != nil && gm.PTX() != "" {
+		ptxPath = strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".ptx"
+		_ = os.WriteFile(ptxPath, []byte(gm.PTX()), 0644)
+		ptxMap = parsePTXLines(gm.PTX())
+	}
+
 	fmt.Print("Streaming : ", *promptFlag)
 	var nextTokID int32
 
@@ -231,7 +239,7 @@ func runGPUInference(
 		nextTokID = tok
 
 		if prof != nil {
-			recordStepProfile(prof, cfg, pos)
+			recordStepProfile(prof, cfg, pos, ptxPath, ptxMap)
 		}
 	}
 	prefillDuration := time.Since(tPrefill0)
@@ -257,7 +265,7 @@ func runGPUInference(
 		nextTokID = tok
 
 		if prof != nil {
-			recordStepProfile(prof, cfg, curPos)
+			recordStepProfile(prof, cfg, curPos, ptxPath, ptxMap)
 		}
 
 		curPos++
@@ -292,7 +300,7 @@ func runCPUInference(
 	for pos, tokID := range promptTokens {
 		lastLogits = Forward(weights, cfg, kvCache, tokID, pos)
 		if prof != nil {
-			recordStepProfile(prof, cfg, pos)
+			recordStepProfile(prof, cfg, pos, "", PTXLineMap{})
 		}
 	}
 	prefillDuration := time.Since(tPrefill0)
@@ -326,11 +334,12 @@ func runCPUInference(
 		}
 
 		if prof != nil {
-			recordStepProfile(prof, cfg, curPos)
+			recordStepProfile(prof, cfg, curPos, "", PTXLineMap{})
 		}
 
 		curPos++
 	}
+
 	genDuration := time.Since(tGen0)
 
 	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
@@ -342,7 +351,7 @@ func runCPUInference(
 	return nil
 }
 
-func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
+func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int, ptxPath string, ptxMap PTXLineMap) {
 	ctx := pprof.WithLabels(context.Background(), pprof.Labels(
 		"pos", fmt.Sprintf("%d", pos),
 		"model.layers", fmt.Sprintf("%d", cfg.NumHiddenLayers),
@@ -350,26 +359,32 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 
 	forwardCU := findForwardCUPath()
 
-
 	headDim := cfg.HeadDim()
 	hiddenSize := cfg.HiddenSize
 	interSize := cfg.IntermediateSize
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	// 1. Embedding Lookup
+	// 1. Embedding Lookup (.cu and .ptx)
 	prof.RecordDetailedSample(ctx, "EmbeddingLookup", forwardCU, 24, 0x7f001020, cudaprof.SampleValues{
 		Samples:        32,
 		VRAMAllocBytes: int64(hiddenSize * 4),
 		DRAMReadBytes:  int64(hiddenSize * 4),
 		DRAMWriteBytes: int64(hiddenSize * 4),
 	})
+	if ptxPath != "" && ptxMap.EmbeddingLookup > 0 {
+		prof.RecordDetailedSample(ctx, "EmbeddingLookup (PTX)", ptxPath, ptxMap.EmbeddingLookup, 0x7f001020, cudaprof.SampleValues{
+			Samples:        32,
+			DRAMReadBytes:  int64(hiddenSize * 4),
+			DRAMWriteBytes: int64(hiddenSize * 4),
+		})
+	}
 
 	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumHiddenLayers; l++ {
 		layerCtx := pprof.WithLabels(ctx, pprof.Labels("layer", fmt.Sprintf("%d", l)))
 
-		// Input RMSNorm (lines 44, 54, 66)
+		// Input RMSNorm
 		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 44, 0x7f001110, cudaprof.SampleValues{
 			Samples:         64,
 			DRAMReadBytes:   int64(hiddenSize * 4),
@@ -384,8 +399,21 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 			Samples:        64,
 			DRAMWriteBytes: int64(hiddenSize * 4),
 		})
+		if ptxPath != "" && ptxMap.RMSNormLoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "RMSNorm (PTX)", ptxPath, ptxMap.RMSNormLoop, 0x7f001110, cudaprof.SampleValues{
+				Samples:         64,
+				DRAMReadBytes:   int64(hiddenSize * 4),
+				StallScoreboard: 16,
+			})
+			if ptxMap.RMSNormStore > 0 {
+				prof.RecordDetailedSample(layerCtx, "RMSNorm (PTX)", ptxPath, ptxMap.RMSNormStore, 0x7f001140, cudaprof.SampleValues{
+					Samples:        64,
+					DRAMWriteBytes: int64(hiddenSize * 4),
+				})
+			}
+		}
 
-		// QKV GEMVs (lines 79, 90, 95, 106)
+		// QKV GEMVs
 		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 79, 0x7f001210, cudaprof.SampleValues{
 			Samples:        128,
 			VRAMAllocBytes: int64((qDim + 2*kvDim) * 4),
@@ -405,20 +433,55 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 			Samples:        128,
 			DRAMWriteBytes: int64((qDim + 2*kvDim) * 4),
 		})
+		if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001230, cudaprof.SampleValues{
+				Samples:         512,
+				DRAMReadBytes:   int64((hiddenSize * (qDim + 2*kvDim)) * 4),
+				TensorWarps:     256,
+				StallScoreboard: 64,
+			})
+			if ptxMap.LinearGEMVShfl > 0 {
+				prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVShfl, 0x7f001240, cudaprof.SampleValues{
+					Samples:        64,
+					SharedMemBytes: 512,
+					StallWait:      16,
+				})
+			}
+			if ptxMap.LinearGEMVStore > 0 {
+				prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVStore, 0x7f001260, cudaprof.SampleValues{
+					Samples:        128,
+					DRAMWriteBytes: int64((qDim + 2*kvDim) * 4),
+				})
+			}
+		}
 
-		// RoPE (line 133)
+		// RoPE
 		prof.RecordDetailedSample(layerCtx, "ApplyRoPE", forwardCU, 133, 0x7f001320, cudaprof.SampleValues{
 			Samples:        48,
 			DRAMReadBytes:  int64(qDim * 4),
 			DRAMWriteBytes: int64(qDim * 4),
 		})
+		if ptxPath != "" && ptxMap.RoPELoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "ApplyRoPE (PTX)", ptxPath, ptxMap.RoPELoop, 0x7f001320, cudaprof.SampleValues{
+				Samples:        48,
+				DRAMReadBytes:  int64(qDim * 4),
+				DRAMWriteBytes: int64(qDim * 4),
+			})
+		}
 
-		// Store KV Cache (line 161)
+		// Store KV Cache
 		prof.RecordDetailedSample(layerCtx, "StoreKVCache", forwardCU, 161, 0x7f001390, cudaprof.SampleValues{
 			Samples:        32,
 			VRAMAllocBytes: int64(kvDim * 8),
 			DRAMWriteBytes: int64(kvDim * 8),
 		})
+		if ptxPath != "" && ptxMap.StoreKVLoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "StoreKVCache (PTX)", ptxPath, ptxMap.StoreKVLoop, 0x7f001390, cudaprof.SampleValues{
+				Samples:        32,
+				VRAMAllocBytes: int64(kvDim * 8),
+				DRAMWriteBytes: int64(kvDim * 8),
+			})
+		}
 
 		// FlashAttention Decode
 		prof.RecordDetailedSample(layerCtx, "CausalFlashAttentionDecode", "flash_attn.cu", 65, 0x7f002100, cudaprof.SampleValues{
@@ -429,7 +492,7 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 			StallScoreboard: 128,
 		})
 
-		// Out GEMV (lines 90, 106)
+		// Out GEMV
 		prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out", forwardCU, 90, 0x7f001270, cudaprof.SampleValues{
 			Samples:         256,
 			DRAMReadBytes:   int64(qDim * hiddenSize * 4),
@@ -440,15 +503,30 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 			Samples:        64,
 			DRAMWriteBytes: int64(hiddenSize * 4),
 		})
+		if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001270, cudaprof.SampleValues{
+				Samples:         256,
+				DRAMReadBytes:   int64(qDim * hiddenSize * 4),
+				TensorWarps:     128,
+				StallScoreboard: 32,
+			})
+		}
 
-		// Residual 1 (line 187)
+		// Residual
 		prof.RecordDetailedSample(layerCtx, "AddResidual", forwardCU, 187, 0x7f001410, cudaprof.SampleValues{
 			Samples:        32,
 			DRAMReadBytes:  int64(hiddenSize * 8),
 			DRAMWriteBytes: int64(hiddenSize * 4),
 		})
+		if ptxPath != "" && ptxMap.AddResidualLoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "AddResidual (PTX)", ptxPath, ptxMap.AddResidualLoop, 0x7f001410, cudaprof.SampleValues{
+				Samples:        32,
+				DRAMReadBytes:  int64(hiddenSize * 8),
+				DRAMWriteBytes: int64(hiddenSize * 4),
+			})
+		}
 
-		// SwiGLU (lines 174, 176)
+		// SwiGLU
 		prof.RecordDetailedSample(layerCtx, "SwiGLU", forwardCU, 174, 0x7f001450, cudaprof.SampleValues{
 			Samples:        128,
 			DRAMReadBytes:  int64(interSize * 8),
@@ -458,6 +536,13 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 			Samples:        128,
 			DRAMWriteBytes: int64(interSize * 4),
 		})
+		if ptxPath != "" && ptxMap.SwiGLULoop > 0 {
+			prof.RecordDetailedSample(layerCtx, "SwiGLU (PTX)", ptxPath, ptxMap.SwiGLULoop, 0x7f001450, cudaprof.SampleValues{
+				Samples:        128,
+				DRAMReadBytes:  int64(interSize * 8),
+				DRAMWriteBytes: int64(interSize * 4),
+			})
+		}
 	}
 
 	// 3. LM Head GEMV
@@ -472,6 +557,15 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 		Samples:        128,
 		DRAMWriteBytes: int64(cfg.VocabSize * 4),
 	})
+	if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
+		prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001290, cudaprof.SampleValues{
+			Samples:         1024,
+			VRAMAllocBytes:  int64(cfg.VocabSize * 4),
+			DRAMReadBytes:   int64(hiddenSize * cfg.VocabSize * 4),
+			TensorWarps:     512,
+			StallScoreboard: 256,
+		})
+	}
 
 	// 4. Argmax Sampling
 	prof.RecordDetailedSample(ctx, "ArgmaxLogits", "sample_argmax.cu", 35, 0x7f003150, cudaprof.SampleValues{
@@ -480,6 +574,89 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 		DRAMWriteBytes: 4,
 	})
 }
+
+type PTXLineMap struct {
+	EmbeddingLookup int64
+	RMSNormLoop     int64
+	RMSNormRSQRT    int64
+	RMSNormStore    int64
+	LinearGEMVLoop  int64
+	LinearGEMVShfl  int64
+	LinearGEMVStore int64
+	RoPELoop        int64
+	StoreKVLoop     int64
+	SwiGLULoop      int64
+	AddResidualLoop int64
+}
+
+func parsePTXLines(ptx string) PTXLineMap {
+	lines := strings.Split(ptx, "\n")
+	var m PTXLineMap
+	curEntry := ""
+	for i, l := range lines {
+		lineNum := int64(i + 1)
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, ".visible .entry ") || strings.HasPrefix(trimmed, ".entry ") {
+			switch {
+			case strings.Contains(trimmed, "EmbeddingLookup"):
+				curEntry = "EmbeddingLookup"
+				m.EmbeddingLookup = lineNum
+			case strings.Contains(trimmed, "RMSNorm"):
+				curEntry = "RMSNorm"
+			case strings.Contains(trimmed, "LinearGEMV"):
+				curEntry = "LinearGEMV"
+			case strings.Contains(trimmed, "ApplyRoPE"):
+				curEntry = "ApplyRoPE"
+			case strings.Contains(trimmed, "StoreKVCache"):
+				curEntry = "StoreKVCache"
+			case strings.Contains(trimmed, "SwiGLU"):
+				curEntry = "SwiGLU"
+			case strings.Contains(trimmed, "AddResidual"):
+				curEntry = "AddResidual"
+			}
+		}
+		switch curEntry {
+		case "LinearGEMV":
+			if strings.Contains(l, "fma.rn.f32") && m.LinearGEMVLoop == 0 {
+				m.LinearGEMVLoop = lineNum
+			}
+			if strings.Contains(l, "shfl.sync.down") && m.LinearGEMVShfl == 0 {
+				m.LinearGEMVShfl = lineNum
+			}
+			if strings.Contains(l, "st.global") && m.LinearGEMVStore == 0 {
+				m.LinearGEMVStore = lineNum
+			}
+		case "RMSNorm":
+			if strings.Contains(l, "fma.rn.f32") && m.RMSNormLoop == 0 {
+				m.RMSNormLoop = lineNum
+			}
+			if (strings.Contains(l, "rsqrt") || strings.Contains(l, "div")) && m.RMSNormRSQRT == 0 {
+				m.RMSNormRSQRT = lineNum
+			}
+			if strings.Contains(l, "st.global") && m.RMSNormStore == 0 {
+				m.RMSNormStore = lineNum
+			}
+		case "ApplyRoPE":
+			if strings.Contains(l, "fma.rn.f32") && m.RoPELoop == 0 {
+				m.RoPELoop = lineNum
+			}
+		case "StoreKVCache":
+			if strings.Contains(l, "st.global") && m.StoreKVLoop == 0 {
+				m.StoreKVLoop = lineNum
+			}
+		case "SwiGLU":
+			if (strings.Contains(l, "fma") || strings.Contains(l, "mul")) && m.SwiGLULoop == 0 {
+				m.SwiGLULoop = lineNum
+			}
+		case "AddResidual":
+			if strings.Contains(l, "add.f32") && m.AddResidualLoop == 0 {
+				m.AddResidualLoop = lineNum
+			}
+		}
+	}
+	return m
+}
+
 
 func findForwardCUPath() string {
 	candidates := []string{
