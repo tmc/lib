@@ -1,10 +1,8 @@
-#include <cuda_runtime.h>
-#include <math.h>
-
 #define WARP_SIZE 32
 #define FULL_MASK 0xffffffff
 
 // Warp-level sum reduction using shuffle intrinsics
+
 __device__ __forceinline__ float warp_sum(float val) {
     #pragma unroll
     for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {

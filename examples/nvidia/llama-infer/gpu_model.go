@@ -209,6 +209,14 @@ func GPUForwardPass(
 		return 0, err
 	}
 
+	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
+		if s.Len() == 0 {
+			return driver.DevicePtr(0)
+		}
+		return s.Ptr()
+	}
+	nullPtr := driver.DevicePtr(0)
+
 	// 1. Embedding lookup
 	if err := cudalaunch.Kernel(gm.embedFn).Grid(1).Block(256).
 		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
@@ -230,16 +238,16 @@ func GPUForwardPass(
 		}
 
 		// Step 2b: QKV Linear GEMVs
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(qHeads*headDim)).Block(128).
-			Launch(sp.NormX, layerW.WQ, layerW.QBias, sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
+		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(qHeads * headDim)).Block(128).
+			Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
 			return 0, err
 		}
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
-			Launch(sp.NormX, layerW.WK, layerW.KBias, sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+			Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 			return 0, err
 		}
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
-			Launch(sp.NormX, layerW.WV, layerW.VBias, sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+			Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 			return 0, err
 		}
 
@@ -264,7 +272,7 @@ func GPUForwardPass(
 
 		// Step 2f: Output GEMV
 		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
-			Launch(sp.AttnOut, layerW.WO, nil, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+			Launch(sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
 			return 0, err
 		}
 
@@ -282,11 +290,11 @@ func GPUForwardPass(
 
 		// Step 2i: Gate & Up GEMVs
 		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(interSize)).Block(128).
-			Launch(sp.NormX, layerW.WGate, nil, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
+			Launch(sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
 		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(interSize)).Block(128).
-			Launch(sp.NormX, layerW.WUp, nil, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
+			Launch(sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
 
@@ -298,7 +306,7 @@ func GPUForwardPass(
 
 		// Step 2k: Down GEMV
 		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
-			Launch(sp.FFNAct, layerW.WDown, nil, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
+			Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
 			return 0, err
 		}
 
@@ -317,7 +325,7 @@ func GPUForwardPass(
 
 	// 4. LM Head Logits GEMV
 	if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(vocabSize)).Block(128).
-		Launch(sp.NormX, gpuW.LMHead, nil, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
+		Launch(sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
 		return 0, err
 	}
 
