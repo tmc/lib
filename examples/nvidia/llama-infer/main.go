@@ -72,13 +72,11 @@ func run() error {
 		profSession = cudaprof.NewSession(f)
 		defer profSession.Close()
 
-		exePath, _ := os.Executable()
-		if exePath == "" {
-			exePath = "llama-infer"
-		}
-		profSession.SetMappingFile(exePath, "llama_infer_gpu")
-		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s\n", *profilePath)
+		binPath := strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".so"
+		profSession.SetBinaryPath(binPath)
+		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s (sidecar: %s)\n", *profilePath, binPath)
 	}
+
 
 
 	// 1. Load or initialize Tokenizer
