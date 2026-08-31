@@ -3,7 +3,13 @@ package main
 import (
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudabench"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasample"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func TestSymbolicPlan(t *testing.T) {
@@ -60,3 +66,69 @@ func TestByteTokenizer(t *testing.T) {
 	}
 }
 
+func BenchmarkByteTokenizerEncode(b *testing.B) {
+	tok := NewByteTokenizer()
+	prompt := "The quick brown fox jumps over the lazy dog. Antigravity inference engine in pure Go."
+	b.SetBytes(int64(len(prompt)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = tok.Encode(prompt)
+	}
+}
+
+func BenchmarkByteTokenizerDecode(b *testing.B) {
+	tok := NewByteTokenizer()
+	tokens := []int32{84, 104, 101, 32, 113, 117, 105, 99, 107, 32, 98, 114, 111, 119, 110}
+	b.SetBytes(int64(len(tokens)))
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, _ = tok.Decode(tokens)
+	}
+}
+
+func BenchmarkLlamaDecodeStep(b *testing.B) {
+	dev := cudatest.Require(b)
+	cudabench.Run(b, dev, func(cb *cudabench.B) {
+		major, minor, err := dev.ComputeCapability()
+		if err != nil {
+			b.Fatalf("ComputeCapability: %v", err)
+		}
+
+		attn, err := cudaattn.Compile(major, minor)
+		if err != nil {
+			b.Fatalf("Compile attn: %v", err)
+		}
+		attnMod, err := attn.Load(dev)
+		if err != nil {
+			b.Fatalf("Load attn: %v", err)
+		}
+		defer attnMod.Unload()
+		attnFn, err := attnMod.GetFunction("CausalFlashAttentionDecode")
+		if err != nil {
+			b.Fatalf("GetFunction: %v", err)
+		}
+
+		cfg := DefaultTinyLlamaConfig()
+		q, _ := cudamem.Alloc[float32](dev, cfg.NumHeads*cfg.HeadDim)
+		defer q.Free()
+		k, _ := cudamem.Alloc[float32](dev, cfg.MaxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+		defer k.Free()
+		v, _ := cudamem.Alloc[float32](dev, cfg.MaxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+		defer v.Free()
+		out, _ := cudamem.Alloc[float32](dev, cfg.NumHeads*cfg.HeadDim)
+		defer out.Free()
+
+		attnCfg := cudaattn.DefaultConfig(cfg.NumHeads, cfg.NumKVHeads, cfg.HeadDim)
+		cb.SetBytes(int64((cfg.NumHeads + 2*cfg.NumKVHeads) * cfg.HeadDim * 4))
+
+		cb.Time(func(stream *cuda.Stream) {
+			_ = cudalaunch.Kernel(attnFn).
+				Grid(uint32(cfg.NumHeads)).
+				Block(1).
+				SharedMem(uint32(cfg.MaxSeqLen * 4)).
+				Launch(q, k, v, out, int32(cfg.MaxSeqLen-1), int32(cfg.MaxSeqLen), int32(cfg.NumHeads), int32(cfg.NumKVHeads), int32(cfg.HeadDim), attnCfg.Scale)
+		})
+	})
+}

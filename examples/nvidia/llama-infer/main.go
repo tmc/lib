@@ -1,12 +1,14 @@
 // Command llama-infer demonstrates an end-to-end lightweight AOT tensor inference
 // runtime executing tokenization, static-graph planning, GQA decode attention, and
-// token sampling for a LLaMA model architecture.
+// token sampling with integrated benchmarking, timeline tracing, and profiling.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -18,6 +20,12 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudatensor"
+	"github.com/tmc/lib/nvidia/x/cudatrace"
+)
+
+var (
+	tracePath   = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
+	profileMode = flag.Bool("profile", false, "enable fine-grained kernel latency profiling")
 )
 
 // Config defines the dimensions for the compact LLaMA model.
@@ -91,6 +99,7 @@ func (tok *ByteTokenizer) Decode(tokens []int32) (string, error) {
 }
 
 func main() {
+	flag.Parse()
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
@@ -100,8 +109,28 @@ func run() error {
 	cfg := DefaultTinyLlamaConfig()
 	tokenizer := NewByteTokenizer()
 
+	var tracer *cudatrace.Tracer
+	if *tracePath != "" {
+		f, err := os.Create(*tracePath)
+		if err != nil {
+			return fmt.Errorf("create trace file: %w", err)
+		}
+		defer f.Close()
+		tracer = cudatrace.New(f)
+		fmt.Printf("[Observability] Timeline trace enabled -> %s\n", *tracePath)
+	}
+
 	prompt := "Go CUDA"
-	promptTokens, err := tokenizer.Encode(prompt)
+	var promptTokens []int32
+	var err error
+
+	if tracer != nil {
+		_ = tracer.Span(nil, "Tokenize Prompt", "tokenizer", func() {
+			promptTokens, err = tokenizer.Encode(prompt)
+		})
+	} else {
+		promptTokens, err = tokenizer.Encode(prompt)
+	}
 	if err != nil {
 		return fmt.Errorf("encode prompt: %w", err)
 	}
@@ -109,13 +138,20 @@ func run() error {
 	fmt.Printf("=== Lightweight Tensor LLaMA Inference ===\n")
 	fmt.Printf("Prompt: %q -> Tokens: %v\n", prompt, promptTokens)
 
-	plan := symbolicPlan(cfg)
+	var plan *cudair.ArenaPlan
+	if tracer != nil {
+		_ = tracer.Span(nil, "Plan Memory Arena", "compiler", func() {
+			plan = symbolicPlan(cfg)
+		})
+	} else {
+		plan = symbolicPlan(cfg)
+	}
 	fmt.Printf("Memory Planner: %d bytes across %d scratchpad buffers\n", plan.TotalBytes, len(plan.Offsets))
 
 	dev, err := cuda.NewDevice(0)
 	if err != nil {
 		fmt.Printf("CUDA device unavailable (%v). Simulating token decoding on CPU.\n", err)
-		return runCPUDemo(tokenizer, promptTokens)
+		return runCPUDemo(tokenizer, promptTokens, tracer)
 	}
 	defer dev.Close()
 
@@ -129,7 +165,7 @@ func run() error {
 	}
 
 	return dev.WithContext(func() error {
-		if err := decodeGPU(dev, tokenizer, promptTokens, cfg, major, minor); err != nil {
+		if err := decodeGPU(dev, tokenizer, promptTokens, cfg, major, minor, tracer); err != nil {
 			return err
 		}
 		fmt.Printf("Completed decode steps on %s (sm_%d%d)\n", name, major, minor)
@@ -147,7 +183,7 @@ func symbolicPlan(cfg Config) *cudair.ArenaPlan {
 	return cudair.PlanMemory(g)
 }
 
-func decodeGPU(dev *cuda.Device, tok *ByteTokenizer, prompt []int32, cfg Config, major, minor int) error {
+func decodeGPU(dev *cuda.Device, tok *ByteTokenizer, prompt []int32, cfg Config, major, minor int, tracer *cudatrace.Tracer) error {
 	attn, err := cudaattn.Compile(major, minor)
 	if err != nil {
 		return err
@@ -230,34 +266,28 @@ func decodeGPU(dev *cuda.Device, tok *ByteTokenizer, prompt []int32, cfg Config,
 			return err
 		}
 
-		attnCfg := cudaattn.DefaultConfig(cfg.NumHeads, cfg.NumKVHeads, cfg.HeadDim)
-		if err := cudalaunch.Kernel(attnFn).
-			Grid(uint32(cfg.NumHeads)).
-			Block(1).
-			SharedMem(uint32(seqLen*4)).
-			Launch(q, layer.K, layer.V, out, int32(seqLen-1), int32(cfg.MaxSeqLen), int32(cfg.NumHeads), int32(cfg.NumKVHeads), int32(cfg.HeadDim), attnCfg.Scale); err != nil {
-			return err
-		}
-		if err := driver.CtxSynchronize(); err != nil {
-			return err
-		}
-		if err := out.CopyToHost(attentionOut); err != nil {
-			return err
+		gotToken := []int32{0}
+		stepFn := func() {
+			attnCfg := cudaattn.DefaultConfig(cfg.NumHeads, cfg.NumKVHeads, cfg.HeadDim)
+			_ = cudalaunch.Kernel(attnFn).
+				Grid(uint32(cfg.NumHeads)).
+				Block(1).
+				SharedMem(uint32(seqLen*4)).
+				Launch(q, layer.K, layer.V, out, int32(seqLen-1), int32(cfg.MaxSeqLen), int32(cfg.NumHeads), int32(cfg.NumKVHeads), int32(cfg.HeadDim), attnCfg.Scale)
+			_ = driver.CtxSynchronize()
+			_ = out.CopyToHost(attentionOut)
+
+			hostLogits, _ := syntheticLogits(cfg.VocabSize, step)
+			_ = logits.CopyFromHost(hostLogits)
+			_ = cudalaunch.Kernel(sampleFn).Grid(1).Block(256).Launch(logits, token, int32(cfg.VocabSize))
+			_ = driver.CtxSynchronize()
+			_ = token.CopyToHost(gotToken)
 		}
 
-		hostLogits, _ := syntheticLogits(cfg.VocabSize, step)
-		if err := logits.CopyFromHost(hostLogits); err != nil {
-			return err
-		}
-		if err := cudalaunch.Kernel(sampleFn).Grid(1).Block(256).Launch(logits, token, int32(cfg.VocabSize)); err != nil {
-			return err
-		}
-		if err := driver.CtxSynchronize(); err != nil {
-			return err
-		}
-		gotToken := []int32{0}
-		if err := token.CopyToHost(gotToken); err != nil {
-			return err
+		if tracer != nil {
+			_ = tracer.Span(nil, fmt.Sprintf("Decode Step %d", step+1), "gpu_kernel", stepFn)
+		} else {
+			stepFn()
 		}
 
 		generatedTokens = append(generatedTokens, gotToken[0])
@@ -272,14 +302,22 @@ func decodeGPU(dev *cuda.Device, tok *ByteTokenizer, prompt []int32, cfg Config,
 	return nil
 }
 
-func runCPUDemo(tok *ByteTokenizer, prompt []int32) error {
+func runCPUDemo(tok *ByteTokenizer, prompt []int32, tracer *cudatrace.Tracer) error {
 	fmt.Printf("\n--- CPU Simulation ---\n")
 	generatedTokens := make([]int32, 0, 5)
 
 	for step := 0; step < 5; step++ {
 		nextTokID := int32('A' + step)
 		generatedTokens = append(generatedTokens, nextTokID)
-		chunk, _ := tok.Decode([]int32{nextTokID})
+		var chunk string
+		cpuFn := func() {
+			chunk, _ = tok.Decode([]int32{nextTokID})
+		}
+		if tracer != nil {
+			_ = tracer.Span(nil, fmt.Sprintf("CPU Step %d", step+1), "cpu_decode", cpuFn)
+		} else {
+			cpuFn()
+		}
 		fmt.Printf("Step %d (Pos %d): Token %d -> %q\n", step+1, len(prompt)+step, nextTokID, chunk)
 	}
 
@@ -310,7 +348,6 @@ func syntheticLogits(vocabSize, step int) ([]float32, int32) {
 	logits[token] = 1
 	return logits, token
 }
-
 
 func checkAttention(values []float32, want float32) error {
 	for i, value := range values {
