@@ -230,6 +230,168 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
+// dataSymbol resolves a C data symbol after loading the library.
+func dataSymbol(symbol string) (uintptr, error) {
+	if err := checkLib(); err != nil {
+		return 0, err
+	}
+	sym, err := purego.Dlsym(lib, symbol)
+	if err != nil || sym == 0 {
+		return 0, &SymbolError{Symbol: symbol}
+	}
+	return sym, nil
+}
+
+// dataSymbolPointer reinterprets an address returned by dlsym as a pointer.
+// dlsym addresses do not identify Go allocations.
+func dataSymbolPointer(addr uintptr) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&addr))
+}
+
+// ComputeDesc16BF returns the bfloat16 compute descriptor.
+func ComputeDesc16BF() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_16BF")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc16BF reports whether CUTENSOR_COMPUTE_DESC_16BF resolved in the loaded library.
+func HasComputeDesc16BF() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_16BF")
+	return err == nil
+}
+
+// ComputeDesc16F returns the half-precision compute descriptor.
+func ComputeDesc16F() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_16F")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc16F reports whether CUTENSOR_COMPUTE_DESC_16F resolved in the loaded library.
+func HasComputeDesc16F() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_16F")
+	return err == nil
+}
+
+// ComputeDesc32F returns the single-precision compute descriptor.
+func ComputeDesc32F() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_32F")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc32F reports whether CUTENSOR_COMPUTE_DESC_32F resolved in the loaded library.
+func HasComputeDesc32F() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_32F")
+	return err == nil
+}
+
+// ComputeDesc3XTF32 returns the three-component tensor-float-32 compute descriptor.
+func ComputeDesc3XTF32() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_3XTF32")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc3XTF32 reports whether CUTENSOR_COMPUTE_DESC_3XTF32 resolved in the loaded library.
+func HasComputeDesc3XTF32() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_3XTF32")
+	return err == nil
+}
+
+// ComputeDesc4X16F returns the two-component half-precision compute descriptor.
+func ComputeDesc4X16F() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_4X16F")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc4X16F reports whether CUTENSOR_COMPUTE_DESC_4X16F resolved in the loaded library.
+func HasComputeDesc4X16F() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_4X16F")
+	return err == nil
+}
+
+// ComputeDesc64F returns the double-precision compute descriptor.
+func ComputeDesc64F() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_64F")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc64F reports whether CUTENSOR_COMPUTE_DESC_64F resolved in the loaded library.
+func HasComputeDesc64F() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_64F")
+	return err == nil
+}
+
+// ComputeDesc8XInt8 returns the int8-based compute descriptor.
+func ComputeDesc8XInt8() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_8XINT8")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc8XInt8 reports whether CUTENSOR_COMPUTE_DESC_8XINT8 resolved in the loaded library.
+func HasComputeDesc8XInt8() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_8XINT8")
+	return err == nil
+}
+
+// ComputeDesc9X16BF returns the three-component bfloat16 compute descriptor.
+func ComputeDesc9X16BF() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_9X16BF")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDesc9X16BF reports whether CUTENSOR_COMPUTE_DESC_9X16BF resolved in the loaded library.
+func HasComputeDesc9X16BF() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_9X16BF")
+	return err == nil
+}
+
+// ComputeDescTF32 returns the tensor-float-32 compute descriptor.
+func ComputeDescTF32() (ComputeDescriptor, error) {
+	addr, err := dataSymbol("CUTENSOR_COMPUTE_DESC_TF32")
+	if err != nil {
+		var zero ComputeDescriptor
+		return zero, err
+	}
+	return *(*ComputeDescriptor)(dataSymbolPointer(addr)), nil
+}
+
+// HasComputeDescTF32 reports whether CUTENSOR_COMPUTE_DESC_TF32 resolved in the loaded library.
+func HasComputeDescTF32() bool {
+	_, err := dataSymbol("CUTENSOR_COMPUTE_DESC_TF32")
+	return err == nil
+}
+
 // registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cutensorGetErrorString")
