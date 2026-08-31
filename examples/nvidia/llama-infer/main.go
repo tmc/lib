@@ -333,55 +333,159 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
 		"model.layers", fmt.Sprintf("%d", cfg.NumHiddenLayers),
 	))
 
-	// 1. Embedding Lookup Sample
-	prof.RecordSample(ctx, "EmbeddingLookup", "forward.cu", 22, 0x7f001000, 1)
+	forwardCU := findForwardCUPath()
 
-	// 2. Multi-layer samples
+
+	headDim := cfg.HeadDim()
+	hiddenSize := cfg.HiddenSize
+	interSize := cfg.IntermediateSize
+	qDim := cfg.NumAttentionHeads * headDim
+	kvDim := cfg.NumKeyValueHeads * headDim
+
+	// 1. Embedding Lookup
+	prof.RecordDetailedSample(ctx, "EmbeddingLookup", forwardCU, 24, 0x7f001020, cudaprof.SampleValues{
+		Samples:        32,
+		VRAMAllocBytes: int64(hiddenSize * 4),
+		DRAMReadBytes:  int64(hiddenSize * 4),
+		DRAMWriteBytes: int64(hiddenSize * 4),
+	})
+
+	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumHiddenLayers; l++ {
 		layerCtx := pprof.WithLabels(ctx, pprof.Labels("layer", fmt.Sprintf("%d", l)))
-		// Pre-RMSNorm
-		prof.RecordSASSMetric(layerCtx, "RMSNorm", "forward.cu", 43, cudaprof.SASSMetric{
-			InstructionPC: 0x7f001120,
-			Opcode:        "FFMA",
-			StallReason:   "StallWait",
-			ExecutedWarps: 32,
+
+		// Input RMSNorm (lines 44, 54, 66)
+		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 44, 0x7f001110, cudaprof.SampleValues{
+			Samples:         64,
+			DRAMReadBytes:   int64(hiddenSize * 4),
+			StallScoreboard: 16,
 		})
-		// QKV GEMVs
-		prof.RecordSASSMetric(layerCtx, "LinearGEMV_QKV", "forward.cu", 85, cudaprof.SASSMetric{
-			InstructionPC: 0x7f001240,
-			Opcode:        "HMMA.16816.F32",
-			StallReason:   "StallNone",
-			ExecutedWarps: 128,
+		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 54, 0x7f001120, cudaprof.SampleValues{
+			Samples:        32,
+			SharedMemBytes: 128,
+			StallWait:      8,
 		})
-		// RoPE
-		prof.RecordSample(layerCtx, "ApplyRoPE", "forward.cu", 135, 0x7f001380, 16)
+		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 66, 0x7f001140, cudaprof.SampleValues{
+			Samples:        64,
+			DRAMWriteBytes: int64(hiddenSize * 4),
+		})
+
+		// QKV GEMVs (lines 79, 90, 95, 106)
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 79, 0x7f001210, cudaprof.SampleValues{
+			Samples:        128,
+			VRAMAllocBytes: int64((qDim + 2*kvDim) * 4),
+		})
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 90, 0x7f001230, cudaprof.SampleValues{
+			Samples:         512,
+			DRAMReadBytes:   int64((hiddenSize * (qDim + 2*kvDim)) * 4),
+			TensorWarps:     256,
+			StallScoreboard: 64,
+		})
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 95, 0x7f001240, cudaprof.SampleValues{
+			Samples:        64,
+			SharedMemBytes: 512,
+			StallWait:      16,
+		})
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 106, 0x7f001260, cudaprof.SampleValues{
+			Samples:        128,
+			DRAMWriteBytes: int64((qDim + 2*kvDim) * 4),
+		})
+
+		// RoPE (line 133)
+		prof.RecordDetailedSample(layerCtx, "ApplyRoPE", forwardCU, 133, 0x7f001320, cudaprof.SampleValues{
+			Samples:        48,
+			DRAMReadBytes:  int64(qDim * 4),
+			DRAMWriteBytes: int64(qDim * 4),
+		})
+
+		// Store KV Cache (line 161)
+		prof.RecordDetailedSample(layerCtx, "StoreKVCache", forwardCU, 161, 0x7f001390, cudaprof.SampleValues{
+			Samples:        32,
+			VRAMAllocBytes: int64(kvDim * 8),
+			DRAMWriteBytes: int64(kvDim * 8),
+		})
+
 		// FlashAttention Decode
-		prof.RecordSASSMetric(layerCtx, "CausalFlashAttentionDecode", "flash_attn.cu", 55, cudaprof.SASSMetric{
-			InstructionPC: 0x7f002100,
-			Opcode:        "FFMA",
-			StallReason:   "StallScoreboard",
-			ExecutedWarps: 256,
+		prof.RecordDetailedSample(layerCtx, "CausalFlashAttentionDecode", "flash_attn.cu", 65, 0x7f002100, cudaprof.SampleValues{
+			Samples:         1024,
+			DRAMReadBytes:   int64(kvDim * 4 * (pos + 1)),
+			SharedMemBytes:  int64((pos + 1) * 4),
+			TensorWarps:     512,
+			StallScoreboard: 128,
 		})
-		// Out GEMV
-		prof.RecordSample(layerCtx, "LinearGEMV_Out", "forward.cu", 85, 0x7f001260, 64)
-		// SwiGLU MLP
-		prof.RecordSASSMetric(layerCtx, "SwiGLU", "forward.cu", 195, cudaprof.SASSMetric{
-			InstructionPC: 0x7f001450,
-			Opcode:        "FMUL",
-			StallReason:   "StallNone",
-			ExecutedWarps: 96,
+
+		// Out GEMV (lines 90, 106)
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out", forwardCU, 90, 0x7f001270, cudaprof.SampleValues{
+			Samples:         256,
+			DRAMReadBytes:   int64(qDim * hiddenSize * 4),
+			TensorWarps:     128,
+			StallScoreboard: 32,
+		})
+		prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out", forwardCU, 106, 0x7f001280, cudaprof.SampleValues{
+			Samples:        64,
+			DRAMWriteBytes: int64(hiddenSize * 4),
+		})
+
+		// Residual 1 (line 187)
+		prof.RecordDetailedSample(layerCtx, "AddResidual", forwardCU, 187, 0x7f001410, cudaprof.SampleValues{
+			Samples:        32,
+			DRAMReadBytes:  int64(hiddenSize * 8),
+			DRAMWriteBytes: int64(hiddenSize * 4),
+		})
+
+		// SwiGLU (lines 174, 176)
+		prof.RecordDetailedSample(layerCtx, "SwiGLU", forwardCU, 174, 0x7f001450, cudaprof.SampleValues{
+			Samples:        128,
+			DRAMReadBytes:  int64(interSize * 8),
+			SharedMemBytes: 0,
+		})
+		prof.RecordDetailedSample(layerCtx, "SwiGLU", forwardCU, 176, 0x7f001460, cudaprof.SampleValues{
+			Samples:        128,
+			DRAMWriteBytes: int64(interSize * 4),
 		})
 	}
 
-	// 3. LM Head & Argmax Sampling
-	prof.RecordSample(ctx, "LinearGEMV_LMHead", "forward.cu", 85, 0x7f001280, 512)
-	prof.RecordSASSMetric(ctx, "ArgmaxLogits", "sample_argmax.cu", 32, cudaprof.SASSMetric{
-		InstructionPC: 0x7f003150,
-		Opcode:        "FSETP.GT",
-		StallReason:   "StallNone",
-		ExecutedWarps: 32,
+	// 3. LM Head GEMV
+	prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead", forwardCU, 90, 0x7f001290, cudaprof.SampleValues{
+		Samples:         1024,
+		VRAMAllocBytes:  int64(cfg.VocabSize * 4),
+		DRAMReadBytes:   int64(hiddenSize * cfg.VocabSize * 4),
+		TensorWarps:     512,
+		StallScoreboard: 256,
+	})
+	prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead", forwardCU, 106, 0x7f0012a0, cudaprof.SampleValues{
+		Samples:        128,
+		DRAMWriteBytes: int64(cfg.VocabSize * 4),
+	})
+
+	// 4. Argmax Sampling
+	prof.RecordDetailedSample(ctx, "ArgmaxLogits", "sample_argmax.cu", 35, 0x7f003150, cudaprof.SampleValues{
+		Samples:        64,
+		DRAMReadBytes:  int64(cfg.VocabSize * 4),
+		DRAMWriteBytes: 4,
 	})
 }
+
+func findForwardCUPath() string {
+	candidates := []string{
+		"forward.cu",
+		"nvidia/llama-infer/forward.cu",
+		"examples/nvidia/llama-infer/forward.cu",
+	}
+	for _, c := range candidates {
+		if abs, err := filepath.Abs(c); err == nil && fileExists(abs) {
+			return abs
+		}
+	}
+	return "forward.cu"
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+
 
 func sampleArgmax(logits []float32) int32 {
 	if len(logits) == 0 {

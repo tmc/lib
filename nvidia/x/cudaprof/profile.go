@@ -51,6 +51,25 @@ func (s *Session) RecordSample(ctx context.Context, kernelName, filename string,
 	s.builder.AddSample(kernelName, filename, line, sassPC, count, labels)
 }
 
+// RecordDetailedSample records multi-dimensional metrics (VRAM, DRAM read/write, Shared Memory, Tensor warps, Stalls).
+func (s *Session) RecordDetailedSample(ctx context.Context, kernelName, filename string, line int64, sassPC uint64, vals SampleValues) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	labels := make(map[string]string)
+	if ctx != nil {
+		pprof.ForLabels(ctx, func(key, value string) bool {
+			labels[key] = value
+			return true
+		})
+	}
+
+	s.builder.AddDetailedSample(kernelName, filename, line, sassPC, vals, labels)
+}
+
 // RecordSASSMetric records modern range-profiling / SASS instruction execution metric data.
 func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename string, line int64, m SASSMetric) {
 	runtime.LockOSThread()
@@ -73,7 +92,10 @@ func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename str
 		labels["sass.stall"] = m.StallReason
 	}
 
-	s.builder.AddSample(kernelName, filename, line, m.InstructionPC, m.ExecutedWarps, labels)
+	s.builder.AddDetailedSample(kernelName, filename, line, m.InstructionPC, SampleValues{
+		Samples:     m.ExecutedWarps,
+		TensorWarps: m.ExecutedWarps,
+	}, labels)
 }
 
 // Close finalizes and flushes the gzipped profile to the underlying writer.
