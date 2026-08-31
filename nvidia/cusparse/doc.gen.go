@@ -1,6 +1,184 @@
 // Package cusparse provides lazy-loaded bindings for the modern cuSPARSE generic API.
 //
 // The legacy typed cuSPARSE API is intentionally unbound because it is deprecated upstream.
+//
+// # Sparse Matrix Descriptors
+//
+//   - [SpMatDescr.BlockedEllGet].
+//   - [SpMatDescr.CooGet].
+//   - [SpMatDescr.CooSetPointers].
+//   - [SpMatDescr.CooSetStridedBatch].
+//   - [SpMatDescr.CscGet].
+//   - [SpMatDescr.CscSetPointers].
+//   - [SpMatDescr.CsrGet].
+//   - [SpMatDescr.CsrSetPointers].
+//   - [SpMatDescr.CsrSetStridedBatch].
+//   - [ConstSpMatDescr.SpMatGetAttribute].
+//   - [ConstSpMatDescr.SpMatGetFormat].
+//   - [ConstSpMatDescr.SpMatGetIndexBase].
+//   - [ConstSpMatDescr.SpMatGetSize].
+//   - [ConstSpMatDescr.SpMatGetStridedBatch].
+//   - [SpMatDescr.MatGetValues].
+//   - [SpMatDescr.MatSetAttribute].
+//   - [SpMatDescr.MatSetValues].
+//
+// # Read-Only Descriptors
+//
+//   - [ConstSpMatDescr.BlockedEllGet].
+//   - [ConstSpMatDescr.CooGet].
+//   - [ConstSpMatDescr.CscGet].
+//   - [ConstSpMatDescr.CsrGet].
+//   - [ConstDnMatDescr.DnMatGet].
+//   - [ConstDnMatDescr.DnMatGetValues].
+//   - [ConstDnVecDescr.DnVecGet].
+//   - [ConstDnVecDescr.DnVecGetValues].
+//   - [ConstSpMatDescr.SpMatGetValues].
+//   - [ConstSpVecDescr.SpVecGet].
+//   - [ConstSpVecDescr.SpVecGetValues].
+//
+// # Descriptor Lifecycle
+//
+//   - [Create].
+//   - [CreateBlockedEll].
+//   - [CreateBsr].
+//   - [CreateConstBlockedEll].
+//   - [CreateConstBsr].
+//   - [CreateConstCoo].
+//   - [CreateConstCsc].
+//   - [CreateConstCsr].
+//   - [CreateConstDnMat].
+//   - [CreateConstDnVec].
+//   - [CreateConstSlicedEll].
+//   - [CreateConstSpVec].
+//   - [CreateCoo].
+//   - [CreateCsc].
+//   - [CreateCsr].
+//   - [CreateDnMat].
+//   - [CreateDnVec].
+//   - [CreateSlicedEll].
+//   - [CreateSpVec].
+//   - [Handle.Destroy].
+//   - [ConstDnMatDescr.DestroyDnMat].
+//   - [ConstDnVecDescr.DestroyDnVec].
+//   - [ConstSpMatDescr.DestroySpMat].
+//   - [ConstSpVecDescr.DestroySpVec].
+//
+// # Format Conversion
+//
+//   - [Handle.DenseToSparseAnalysis].
+//   - [Handle.DenseToSparseBufferSize].
+//   - [Handle.DenseToSparseConvert].
+//   - [Handle.SparseToDense].
+//   - [Handle.SparseToDenseBufferSize].
+//
+// # Dense Matrix Descriptors
+//
+//   - [DnMatDescr.MatGet].
+//   - [ConstDnMatDescr.DnMatGetStridedBatch].
+//   - [DnMatDescr.MatGetValues].
+//   - [DnMatDescr.MatSetStridedBatch].
+//   - [DnMatDescr.MatSetValues].
+//
+// # Dense Vector Descriptors
+//
+//   - [DnVecDescr.VecGet].
+//   - [DnVecDescr.VecGetValues].
+//   - [DnVecDescr.VecSetValues].
+//
+// # Vector Operations
+//
+//   - [Handle.Gather].
+//   - [Handle.Scatter].
+//
+// # Library Queries
+//
+//   - [GetErrorName].
+//   - [GetErrorString].
+//   - [Handle.GetPointerMode].
+//   - [GetProperty].
+//   - [Handle.GetStream].
+//   - [Handle.GetVersion].
+//
+// # Logging
+//
+//   - [LoggerForceDisable].
+//   - [LoggerOpenFile].
+//   - [LoggerSetCallback].
+//   - [LoggerSetFile].
+//   - [LoggerSetLevel].
+//   - [LoggerSetMask].
+//
+// # Sampled Dense-Dense Multiplication
+//
+//   - [Handle.SDDMM].
+//   - [Handle.SDDMMBufferSize].
+//   - [Handle.SDDMMPreprocess].
+//
+// # Library Configuration
+//
+//   - [Handle.SetPointerMode].
+//   - [Handle.SetStream].
+//
+// # Sparse Matrix Products
+//
+//   - [Handle.SpGEMMCompute].
+//   - [Handle.SpGEMMCopy].
+//   - [SpGEMMCreateDescr].
+//   - [SpGEMMDescr.GEMMDestroyDescr].
+//   - [Handle.SpGEMMEstimateMemory].
+//   - [SpGEMMDescr.GEMMGetNumProducts].
+//   - [Handle.SpGEMMWorkEstimation].
+//   - [Handle.SpGEMMreuseCompute].
+//   - [Handle.SpGEMMreuseCopy].
+//   - [Handle.SpGEMMreuseNnz].
+//   - [Handle.SpGEMMreuseWorkEstimation].
+//
+// # Sparse Matrix-Matrix Operations
+//
+//   - [Handle.SpMM].
+//   - [Handle.SpMMBufferSize].
+//   - [Handle.SpMMPreprocess].
+//
+// # Sparse Matrix-Vector Operations
+//
+//   - [Handle.SpMV].
+//   - [Handle.SpMVBufferSize].
+//   - [Handle.SpMVOp].
+//   - [Handle.SpMVOpBufferSize].
+//   - [Handle.SpMVOpCreateDescr].
+//   - [Handle.SpMVOpCreatePlan].
+//   - [SpMVOpDescr.MVOpDestroyDescr].
+//   - [SpMVOpPlan.MVOpDestroyPlan].
+//   - [Handle.SpMVOpSetGlobalUserData].
+//   - [Handle.SpMVPreprocess].
+//
+// # Sparse Triangular Solves
+//
+//   - [Handle.SpSMAnalysis].
+//   - [Handle.SpSMBufferSize].
+//   - [SpSMCreateDescr].
+//   - [SpSMDescr.SMDestroyDescr].
+//   - [Handle.SpSMSolve].
+//   - [Handle.SpSMUpdateMatrix].
+//   - [Handle.SpSVAnalysis].
+//   - [Handle.SpSVBufferSize].
+//   - [SpSVCreateDescr].
+//   - [SpSVDescr.SVDestroyDescr].
+//   - [Handle.SpSVSolve].
+//   - [Handle.SpSVUpdateMatrix].
+//
+// # Sparse Vector Descriptors
+//
+//   - [SpVecDescr.VecGet].
+//   - [ConstSpVecDescr.SpVecGetIndexBase].
+//   - [SpVecDescr.VecGetValues].
+//   - [SpVecDescr.VecSetValues].
+//
+// # Other
+//
+//   - [SpMatDescr.BsrSetStridedBatch].
+//
+// [cuSPARSE Documentation]: https://docs.nvidia.com/cuda/cusparse/index.html
 package cusparse
 
 // Code generated by cusparse-survey from cusparse.h. DO NOT EDIT.
