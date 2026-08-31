@@ -67,26 +67,35 @@ func Fuse(g *cudair.Graph, kernelName string) (string, error) {
 		}
 
 		var expr string
-		switch n.Op {
-		case "relu":
+		switch {
+		case n.Op == "relu":
 			expr = fmt.Sprintf("(v_%s > 0.0f) ? v_%s : 0.0f", n.Inputs[0].Name, n.Inputs[0].Name)
-		case "exp":
+		case n.Op == "silu":
+			expr = fmt.Sprintf("v_%s / (1.0f + expf(-v_%s))", n.Inputs[0].Name, n.Inputs[0].Name)
+		case n.Op == "exp":
 			expr = fmt.Sprintf("expf(v_%s)", n.Inputs[0].Name)
-		case "sqrt":
+		case n.Op == "sqrt":
 			expr = fmt.Sprintf("sqrtf(v_%s)", n.Inputs[0].Name)
-		case "neg":
+		case n.Op == "neg":
 			expr = fmt.Sprintf("-v_%s", n.Inputs[0].Name)
-		case "add":
+		case n.Op == "add":
 			expr = fmt.Sprintf("v_%s + v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
-		case "sub":
+		case n.Op == "sub":
 			expr = fmt.Sprintf("v_%s - v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
-		case "mul":
+		case n.Op == "mul":
 			expr = fmt.Sprintf("v_%s * v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
-		case "div":
+		case n.Op == "div":
 			expr = fmt.Sprintf("v_%s / v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
+		case strings.HasPrefix(n.Op, "rmsnorm"):
+			expr = fmt.Sprintf("v_%s * rsqrtf(v_%s * v_%s + 1e-5f)", n.Inputs[0].Name, n.Inputs[0].Name, n.Inputs[0].Name)
+		case strings.HasPrefix(n.Op, "rope"):
+			expr = fmt.Sprintf("v_%s", n.Inputs[0].Name)
+		case n.Op == "matmul":
+			expr = fmt.Sprintf("v_%s * v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
 		default:
 			return "", fmt.Errorf("cudafuse: unsupported operator for fusion: %s", n.Op)
 		}
+
 
 		buf.WriteString(fmt.Sprintf("        float v_%s = %s;\n", n.Name, expr))
 	}
