@@ -12,6 +12,7 @@ func (v VgpuTypeId) GetBAR1Info(bar1Info *VgpuTypeBar1Info) error {
 // GetCapabilities wraps nvmlVgpuTypeGetCapabilities.
 //
 //   - capability: Specifies the [VgpuCapability] to be queried
+//   - capResult: A boolean for the queried capability indicating that feature is supported
 func (v VgpuTypeId) GetCapabilities(capability VgpuCapability) (uint32, error) {
 	return vgpuTypeGetCapabilities(v, capability)
 }
@@ -34,22 +35,30 @@ func (v VgpuTypeId) GetDeviceID(deviceID *uint64, subsystemID *uint64) error {
 
 // GetFbReservation Retrieve the static framebuffer reservation of the vGPU type in bytes
 //
+//   - fbReservation: Reference to return the framebuffer reservation
+//
 // Wraps nvmlVgpuTypeGetFbReservation.
 func (v VgpuTypeId) GetFbReservation() (uint64, error) {
 	return vgpuTypeGetFbReservation(v)
 }
 
 // GetFrameRateLimit wraps nvmlVgpuTypeGetFrameRateLimit.
+//
+//   - frameRateLimit: Reference to return the frame rate limit value
 func (v VgpuTypeId) GetFrameRateLimit() (uint32, error) {
 	return vgpuTypeGetFrameRateLimit(v)
 }
 
 // GetFramebufferSize wraps nvmlVgpuTypeGetFramebufferSize.
+//
+//   - fbSize: Pointer to framebuffer size in bytes
 func (v VgpuTypeId) GetFramebufferSize() (uint64, error) {
 	return vgpuTypeGetFramebufferSize(v)
 }
 
 // GetGpuInstanceProfileId wraps nvmlVgpuTypeGetGpuInstanceProfileId.
+//
+//   - gpuInstanceProfileId: GPU Instance Profile ID
 func (v VgpuTypeId) GetGpuInstanceProfileId() (uint32, error) {
 	return vgpuTypeGetGpuInstanceProfileId(v)
 }
@@ -58,12 +67,17 @@ func (v VgpuTypeId) GetGpuInstanceProfileId() (uint32, error) {
 //
 // < Previous | Next >
 //
+//   - gspHeapSize: Reference to return the GSP heap size value
+//
 // Wraps nvmlVgpuTypeGetGspHeapSize.
 func (v VgpuTypeId) GetGspHeapSize() (uint64, error) {
 	return vgpuTypeGetGspHeapSize(v)
 }
 
 // GetLicense wraps nvmlVgpuTypeGetLicense.
+//
+//   - vgpuTypeLicenseString: Pointer to buffer to return license info
+//   - size: Size of vgpuTypeLicenseString buffer
 func (v VgpuTypeId) GetLicense() (string, error) {
 	return vgpuTypeGetLicense(v)
 }
@@ -71,11 +85,14 @@ func (v VgpuTypeId) GetLicense() (string, error) {
 // GetMaxInstances wraps nvmlVgpuTypeGetMaxInstances.
 //
 //   - device: The identifier of the target device
+//   - vgpuInstanceCount: Pointer to get the max number of vGPU instances that can be created on a deicve for given vgpuTypeId
 func (v VgpuTypeId) GetMaxInstances(device Device) (uint32, error) {
 	return vgpuTypeGetMaxInstances(device, v)
 }
 
 // GetMaxInstancesPerVm wraps nvmlVgpuTypeGetMaxInstancesPerVm.
+//
+//   - vgpuInstanceCountPerVm: Pointer to get the max number of vGPU instances supported per VM for given vgpuTypeId
 func (v VgpuTypeId) GetMaxInstancesPerVm() (uint32, error) {
 	return vgpuTypeGetMaxInstancesPerVm(v)
 }
@@ -89,6 +106,8 @@ func (v VgpuTypeId) GetName(vgpuTypeName *byte, size *uint32) error {
 }
 
 // GetNumDisplayHeads wraps nvmlVgpuTypeGetNumDisplayHeads.
+//
+//   - numDisplayHeads: Pointer to number of display heads
 func (v VgpuTypeId) GetNumDisplayHeads() (uint32, error) {
 	return vgpuTypeGetNumDisplayHeads(v)
 }

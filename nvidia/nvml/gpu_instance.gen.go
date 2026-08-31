@@ -4,9 +4,11 @@ package nvml
 
 // CreateComputeInstance Create compute instance.
 //
-// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user. If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
+// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
+// If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
 //
 //   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - computeInstance: Returns the compute instance handle
 //
 // Wraps nvmlGpuInstanceCreateComputeInstance.
 func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, error) {
@@ -15,10 +17,12 @@ func (g GpuInstance) CreateComputeInstance(profileId uint32) (ComputeInstance, e
 
 // CreateComputeInstanceWithPlacement Create compute instance with the specified placement.
 //
-// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user. If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
+// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
+// If the parent device is unbound, reset or the parent GPU instance is destroyed or the compute instance is destroyed explicitly, the compute instance handle would become invalid. The compute instance must be recreated to acquire a valid handle.
 //
 //   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
 //   - placement: The requested placement. See [GpuInstance.GetComputeInstancePossiblePlacements]
+//   - computeInstance: Returns the compute instance handle
 //
 // Wraps nvmlGpuInstanceCreateComputeInstanceWithPlacement.
 func (g GpuInstance) CreateComputeInstanceWithPlacement(profileId uint32, placement *ComputeInstancePlacement) (ComputeInstance, error) {
@@ -46,6 +50,7 @@ func (g GpuInstance) GetActiveVgpus(pVgpuInstanceInfo *ActiveVgpuInstanceInfo) e
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - id: The compute instance ID
+//   - computeInstance: Returns compute instance
 //
 // Wraps nvmlGpuInstanceGetComputeInstanceById.
 func (g GpuInstance) GetComputeInstanceById(id uint32) (ComputeInstance, error) {
@@ -54,7 +59,8 @@ func (g GpuInstance) GetComputeInstanceById(id uint32) (ComputeInstance, error) 
 
 // GetComputeInstancePossiblePlacements Get compute instance placements.
 //
-// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user. A placement represents the location of a compute instance within a GPU instance. This API only returns all the possible placements for the given profile. A created compute instance occupies compute slices described by its placement. Creation of new compute instance will fail if there is overlap with the already occupied compute slices.
+// For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
+// A placement represents the location of a compute instance within a GPU instance. This API only returns all the possible placements for the given profile. A created compute instance occupies compute slices described by its placement. Creation of new compute instance will fail if there is overlap with the already occupied compute slices.
 //
 //   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
 //   - placements: Returns placements allowed for the profile. Can be NULL to discover number of allowed placements for this profile. If non-NULL must be large enough to accommodate the placements supported by the profile
@@ -67,10 +73,14 @@ func (g GpuInstance) GetComputeInstancePossiblePlacements(profileId uint32, plac
 
 // GetComputeInstanceProfileInfo Get compute instance profile information.
 //
-// Information provided by this API is immutable throughout the lifetime of a MIG mode. Note: This API can be used to enumerate all MIG profiles supported by NVML in a forward compatible way by invoking it on profile values starting from 0, until the API returns [ErrInvalidArgument]. For Ampere or newer fully supported devices. Supported on Linux only.
+// Information provided by this API is immutable throughout the lifetime of a MIG mode.
+// Note:
+// This API can be used to enumerate all MIG profiles supported by NVML in a forward compatible way by invoking it on profile values starting from 0, until the API returns [ErrInvalidArgument].
+// For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
+//   - info: Returns detailed profile information
 //
 // Wraps nvmlGpuInstanceGetComputeInstanceProfileInfo.
 func (g GpuInstance) GetComputeInstanceProfileInfo(profile uint32, engProfile uint32) (ComputeInstanceProfileInfo, error) {
@@ -79,10 +89,13 @@ func (g GpuInstance) GetComputeInstanceProfileInfo(profile uint32, engProfile ui
 
 // GetComputeInstanceProfileInfoV Versioned wrapper around [GpuInstance.GetComputeInstanceProfileInfo] that accepts a versioned [ComputeInstanceProfileInfoV2] or later output structure.
 //
-// Note: The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example: For Ampere or newer fully supported devices. Supported on Linux only.
+// Note:
+// The caller must set the [GpuInstanceProfileInfoV2].version field to the appropriate version prior to calling this function. For example:
+// For Ampere or newer fully supported devices. Supported on Linux only.
 //
 //   - profile: One of the NVML_COMPUTE_INSTANCE_PROFILE_*
 //   - engProfile: One of the NVML_COMPUTE_INSTANCE_ENGINE_PROFILE_*
+//   - info: Returns detailed profile information
 //
 // Wraps nvmlGpuInstanceGetComputeInstanceProfileInfoV.
 func (g GpuInstance) GetComputeInstanceProfileInfoV(profile uint32, engProfile uint32) (ComputeInstanceProfileInfoV2, error) {
@@ -106,11 +119,12 @@ func (g GpuInstance) GetComputeInstanceRemainingCapacity(profileId uint32, count
 // For Ampere or newer fully supported devices. Supported on Linux only. Requires privileged user.
 //
 //   - profileId: The compute instance profile ID. See [GpuInstance.GetComputeInstanceProfileInfo]
+//   - computeInstances: Returns pre-exiting compute instances, the buffer must be large enough to accommodate the instances supported by the profile. See [GpuInstance.GetComputeInstanceProfileInfo]
 //   - count: The count of returned compute instances
 //
 // Wraps nvmlGpuInstanceGetComputeInstances.
-func (g GpuInstance) GetComputeInstances(profileId uint32, count *uint32) (ComputeInstance, error) {
-	return gpuInstanceGetComputeInstances(g, profileId, count)
+func (g GpuInstance) GetComputeInstances(profileId uint32, computeInstances *ComputeInstance, count *uint32) error {
+	return gpuInstanceGetComputeInstances(g, profileId, computeInstances, count)
 }
 
 // GetCreatableVgpus wraps nvmlGpuInstanceGetCreatableVgpus.
@@ -122,7 +136,10 @@ func (g GpuInstance) GetCreatableVgpus(pVgpus *VgpuTypeIdInfo) error {
 
 // GetInfo Get GPU instance information.
 //
-// For Ampere or newer fully supported devices. Supported on Linux only. < Previous | Next >
+// For Ampere or newer fully supported devices. Supported on Linux only.
+// < Previous | Next >
+//
+//   - info: Return GPU instance information
 //
 // Wraps nvmlGpuInstanceGetInfo.
 func (g GpuInstance) GetInfo() (GpuInstanceInfo, error) {

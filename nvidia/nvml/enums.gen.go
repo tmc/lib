@@ -4,7 +4,31 @@ package nvml
 
 import "fmt"
 
-// DeviceAddressingModeType Enum to represent device addressing mode values
+// ProcessMode represents Enum to represent process mode..
+type ProcessMode int32
+
+const (
+	ProcessModeCompute  ProcessMode = 0 // Processes with a compute context
+	ProcessModeGraphics ProcessMode = 1 // Processes with a graphics context
+	ProcessModeMps      ProcessMode = 2 // Processes with a MPS (Multi-Process Service) compute context
+	ProcessModeAll      ProcessMode = 3 // All processes running on the GPU (compute, graphics, MPS, and other types)
+)
+
+func (e ProcessMode) String() string {
+	switch e {
+	case ProcessModeCompute:
+		return "ProcessModeCompute"
+	case ProcessModeGraphics:
+		return "ProcessModeGraphics"
+	case ProcessModeMps:
+		return "ProcessModeMps"
+	case ProcessModeAll:
+		return "ProcessModeAll"
+	}
+	return fmt.Sprintf("ProcessMode(%d)", e)
+}
+
+// DeviceAddressingModeType represents Enum to represent device addressing mode values.
 type DeviceAddressingModeType int32
 
 const (
@@ -25,7 +49,7 @@ func (e DeviceAddressingModeType) String() string {
 	return fmt.Sprintf("DeviceAddressingModeType(%d)", e)
 }
 
-// BridgeChipType Enum to represent type of bridge chip
+// BridgeChipType represents Enum to represent type of bridge chip.
 type BridgeChipType int32
 
 const (
@@ -43,7 +67,7 @@ func (e BridgeChipType) String() string {
 	return fmt.Sprintf("BridgeChipType(%d)", e)
 }
 
-// NvLinkUtilizationCountUnits Enum to represent the NvLink utilization counter packet units
+// NvLinkUtilizationCountUnits represents Enum to represent the NvLink utilization counter packet units.
 type NvLinkUtilizationCountUnits int32
 
 const (
@@ -70,7 +94,7 @@ func (e NvLinkUtilizationCountUnits) String() string {
 	return fmt.Sprintf("NvLinkUtilizationCountUnits(%d)", e)
 }
 
-// NvLinkUtilizationCountPktTypes Enum to represent the NvLink utilization counter packet types to count ** this is ONLY applicable with the units as packets or bytes ** as specified in [NvLinkUtilizationCountUnits] ** all packet filter descriptions are target GPU centric ** these can be "OR'd" together
+// NvLinkUtilizationCountPktTypes represents Enum to represent the NvLink utilization counter packet types to count ** this is ONLY applicable with the units as packets or bytes ** as specified in [NvLinkUtilizationCountUnits] ** all packet filter descriptions are target GPU centric ** these can be "OR'd" together.
 type NvLinkUtilizationCountPktTypes int32
 
 const (
@@ -109,7 +133,7 @@ func (e NvLinkUtilizationCountPktTypes) String() string {
 	return fmt.Sprintf("NvLinkUtilizationCountPktTypes(%d)", e)
 }
 
-// NvLinkCapability Enum to represent NvLink queryable capabilities
+// NvLinkCapability represents Enum to represent NvLink queryable capabilities.
 type NvLinkCapability int32
 
 const (
@@ -142,7 +166,7 @@ func (e NvLinkCapability) String() string {
 	return fmt.Sprintf("NvLinkCapability(%d)", e)
 }
 
-// NvLinkErrorCounter Enum to represent NvLink queryable error counters
+// NvLinkErrorCounter represents Enum to represent NvLink queryable error counters.
 type NvLinkErrorCounter int32
 
 const (
@@ -172,7 +196,7 @@ func (e NvLinkErrorCounter) String() string {
 	return fmt.Sprintf("NvLinkErrorCounter(%d)", e)
 }
 
-// IntNvLinkDeviceType Enum to represent NvLink's remote device type
+// IntNvLinkDeviceType represents Enum to represent NvLink's remote device type.
 type IntNvLinkDeviceType int32
 
 const (
@@ -196,7 +220,7 @@ func (e IntNvLinkDeviceType) String() string {
 	return fmt.Sprintf("IntNvLinkDeviceType(%d)", e)
 }
 
-// GpuTopologyLevel Represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships
+// GpuTopologyLevel represents Represents level relationships within a system between two GPUs The enums are spaced to allow for future relationships.
 type GpuTopologyLevel int32
 
 const (
@@ -204,9 +228,8 @@ const (
 	TopologySingle     GpuTopologyLevel = 10 // all devices that only need traverse a single PCIe switch
 	TopologyMultiple   GpuTopologyLevel = 20 // all devices that need not traverse a host bridge
 	TopologyHostbridge GpuTopologyLevel = 30 // all devices that are connected to the same host bridge
-	// TopologyNode: all devices that are connected to the same NUMA node but possibly multiple host bridges
-	TopologyNode   GpuTopologyLevel = 40
-	TopologySystem GpuTopologyLevel = 50 // all devices in the system
+	TopologyNode       GpuTopologyLevel = 40 // all devices that are connected to the same NUMA node but possibly multiple host bridges
+	TopologySystem     GpuTopologyLevel = 50 // all devices in the system
 )
 
 func (e GpuTopologyLevel) String() string {
@@ -227,7 +250,7 @@ func (e GpuTopologyLevel) String() string {
 	return fmt.Sprintf("GpuTopologyLevel(%d)", e)
 }
 
-// GpuP2PStatus specifies the gpu p2p status (nvmlGpuP2PStatus_t).
+// GpuP2PStatus represents nvmlGpuP2PStatus_t.
 type GpuP2PStatus int32
 
 const (
@@ -261,7 +284,7 @@ func (e GpuP2PStatus) String() string {
 	return fmt.Sprintf("GpuP2PStatus(%d)", e)
 }
 
-// GpuP2PCapsIndex specifies the gpu p2p caps index (nvmlGpuP2PCapsIndex_t).
+// GpuP2PCapsIndex represents nvmlGpuP2PCapsIndex_t.
 type GpuP2PCapsIndex int32
 
 const (
@@ -292,24 +315,21 @@ func (e GpuP2PCapsIndex) String() string {
 	return fmt.Sprintf("GpuP2PCapsIndex(%d)", e)
 }
 
-// SamplingType Represents Type of Sampling Event
+// SamplingType represents Represents Type of Sampling Event.
 type SamplingType int32
 
 const (
-	TotalPowerSamples SamplingType = 0 // To represent total power drawn by GPU
-	// GpuUtilizationSamples: To represent percent of time during which one or more kernels was executing on the GPU
-	GpuUtilizationSamples SamplingType = 1
-	// MemoryUtilizationSamples: To represent percent of time during which global (device) memory was being read or written
-	MemoryUtilizationSamples SamplingType = 2
+	TotalPowerSamples        SamplingType = 0 // To represent total power drawn by GPU
+	GpuUtilizationSamples    SamplingType = 1 // To represent percent of time during which one or more kernels was executing on the GPU
+	MemoryUtilizationSamples SamplingType = 2 // To represent percent of time during which global (device) memory was being read or written
 	EncUtilizationSamples    SamplingType = 3 // To represent percent of time during which NVENC remains busy
 	DecUtilizationSamples    SamplingType = 4 // To represent percent of time during which NVDEC remains busy
 	ProcessorClkSamples      SamplingType = 5 // To represent processor clock samples
 	MemoryClkSamples         SamplingType = 6 // To represent memory clock samples
-	// ModulePowerSamples: To represent module power samples for total module starting Grace Hopper
-	ModulePowerSamples    SamplingType = 7
-	JpgUtilizationSamples SamplingType = 8 // To represent percent of time during which NVJPG remains busy
-	OfaUtilizationSamples SamplingType = 9 // To represent percent of time during which NVOFA remains busy
-	SamplingtypeCount     SamplingType = 10
+	ModulePowerSamples       SamplingType = 7 // To represent module power samples for total module starting Grace Hopper
+	JpgUtilizationSamples    SamplingType = 8 // To represent percent of time during which NVJPG remains busy
+	OfaUtilizationSamples    SamplingType = 9 // To represent percent of time during which NVOFA remains busy
+	SamplingtypeCount        SamplingType = 10
 )
 
 func (e SamplingType) String() string {
@@ -340,7 +360,7 @@ func (e SamplingType) String() string {
 	return fmt.Sprintf("SamplingType(%d)", e)
 }
 
-// PcieUtilCounter Represents the queryable PCIe utilization counters
+// PcieUtilCounter represents Represents the queryable PCIe utilization counters.
 type PcieUtilCounter int32
 
 const (
@@ -361,7 +381,7 @@ func (e PcieUtilCounter) String() string {
 	return fmt.Sprintf("PcieUtilCounter(%d)", e)
 }
 
-// ValueType Represents the type for sample value returned
+// ValueType represents Represents the type for sample value returned.
 type ValueType int32
 
 const (
@@ -397,24 +417,17 @@ func (e ValueType) String() string {
 	return fmt.Sprintf("ValueType(%d)", e)
 }
 
-// PerfPolicyType Represents type of perf policy for which violation times can be queried
+// PerfPolicyType represents Represents type of perf policy for which violation times can be queried.
 type PerfPolicyType int32
 
 const (
-	// PerfPolicyPower: How long did power violations cause the GPU to be below application clocks
-	PerfPolicyPower PerfPolicyType = 0
-	// PerfPolicyThermal: How long did thermal violations cause the GPU to be below application clocks
-	PerfPolicyThermal PerfPolicyType = 1
-	// PerfPolicySyncBoost: How long did sync boost cause the GPU to be below application clocks
-	PerfPolicySyncBoost PerfPolicyType = 2
-	// PerfPolicyBoardLimit: How long did the board limit cause the GPU to be below application clocks
-	PerfPolicyBoardLimit PerfPolicyType = 3
-	// PerfPolicyLowUtilization: How long did low utilization cause the GPU to be below application clocks
-	PerfPolicyLowUtilization PerfPolicyType = 4
-	// PerfPolicyReliability: How long did the board reliability limit cause the GPU to be below application clocks
-	PerfPolicyReliability PerfPolicyType = 5
-	// PerfPolicyTotalAppClocks: Total time the GPU was held below application clocks by any limiter (0 - 5 above)
-	PerfPolicyTotalAppClocks  PerfPolicyType = 10
+	PerfPolicyPower           PerfPolicyType = 0  // How long did power violations cause the GPU to be below application clocks
+	PerfPolicyThermal         PerfPolicyType = 1  // How long did thermal violations cause the GPU to be below application clocks
+	PerfPolicySyncBoost       PerfPolicyType = 2  // How long did sync boost cause the GPU to be below application clocks
+	PerfPolicyBoardLimit      PerfPolicyType = 3  // How long did the board limit cause the GPU to be below application clocks
+	PerfPolicyLowUtilization  PerfPolicyType = 4  // How long did low utilization cause the GPU to be below application clocks
+	PerfPolicyReliability     PerfPolicyType = 5  // How long did the board reliability limit cause the GPU to be below application clocks
+	PerfPolicyTotalAppClocks  PerfPolicyType = 10 // Total time the GPU was held below application clocks by any limiter (0 - 5 above)
 	PerfPolicyTotalBaseClocks PerfPolicyType = 11 // Total time the GPU was held below base clocks
 	PerfPolicyCount           PerfPolicyType = 12
 )
@@ -443,23 +456,20 @@ func (e PerfPolicyType) String() string {
 	return fmt.Sprintf("PerfPolicyType(%d)", e)
 }
 
-// ThermalTarget Represents the thermal sensor targets
+// ThermalTarget represents Represents the thermal sensor targets.
 type ThermalTarget int32
 
 const (
 	ThermalTargetNone        ThermalTarget = 0
-	ThermalTargetGpu         ThermalTarget = 1 // GPU core temperature requires NvPhysicalGpuHandle
-	ThermalTargetMemory      ThermalTarget = 2 // GPU memory temperature requires NvPhysicalGpuHandle
-	ThermalTargetPowerSupply ThermalTarget = 4 // GPU power supply temperature requires NvPhysicalGpuHandle
-	ThermalTargetBoard       ThermalTarget = 8 // GPU board ambient temperature requires NvPhysicalGpuHandle
-	// ThermalTargetVcdBoard: Visual Computing Device Board temperature requires NvVisualComputingDeviceHandle
-	ThermalTargetVcdBoard ThermalTarget = 9
-	// ThermalTargetVcdInlet: Visual Computing Device Inlet temperature requires NvVisualComputingDeviceHandle
-	ThermalTargetVcdInlet ThermalTarget = 10
-	// ThermalTargetVcdOutlet: Visual Computing Device Outlet temperature requires NvVisualComputingDeviceHandle
-	ThermalTargetVcdOutlet ThermalTarget = 11
-	ThermalTargetAll       ThermalTarget = 15
-	ThermalTargetUnknown   ThermalTarget = -1
+	ThermalTargetGpu         ThermalTarget = 1  // GPU core temperature requires NvPhysicalGpuHandle
+	ThermalTargetMemory      ThermalTarget = 2  // GPU memory temperature requires NvPhysicalGpuHandle
+	ThermalTargetPowerSupply ThermalTarget = 4  // GPU power supply temperature requires NvPhysicalGpuHandle
+	ThermalTargetBoard       ThermalTarget = 8  // GPU board ambient temperature requires NvPhysicalGpuHandle
+	ThermalTargetVcdBoard    ThermalTarget = 9  // Visual Computing Device Board temperature requires NvVisualComputingDeviceHandle
+	ThermalTargetVcdInlet    ThermalTarget = 10 // Visual Computing Device Inlet temperature requires NvVisualComputingDeviceHandle
+	ThermalTargetVcdOutlet   ThermalTarget = 11 // Visual Computing Device Outlet temperature requires NvVisualComputingDeviceHandle
+	ThermalTargetAll         ThermalTarget = 15
+	ThermalTargetUnknown     ThermalTarget = -1
 )
 
 func (e ThermalTarget) String() string {
@@ -488,7 +498,7 @@ func (e ThermalTarget) String() string {
 	return fmt.Sprintf("ThermalTarget(%d)", e)
 }
 
-// ThermalController Represents the thermal sensor controllers
+// ThermalController represents Represents the thermal sensor controllers.
 type ThermalController int32
 
 const (
@@ -557,15 +567,13 @@ func (e ThermalController) String() string {
 	return fmt.Sprintf("ThermalController(%d)", e)
 }
 
-// CoolerControl Cooler control type
+// CoolerControl represents Cooler control type.
 type CoolerControl int32
 
 const (
-	ThermalCoolerSignalNone CoolerControl = 0 // This cooler has no control signal.
-	// ThermalCoolerSignalToggle: This cooler can only be toggled either ON or OFF (eg a switch).
-	ThermalCoolerSignalToggle CoolerControl = 1
-	// ThermalCoolerSignalVariable: This cooler's level can be adjusted from some minimum to some maximum (eg a knob).
-	ThermalCoolerSignalVariable CoolerControl = 2
+	ThermalCoolerSignalNone     CoolerControl = 0 // This cooler has no control signal.
+	ThermalCoolerSignalToggle   CoolerControl = 1 // This cooler can only be toggled either ON or OFF (eg a switch).
+	ThermalCoolerSignalVariable CoolerControl = 2 // This cooler's level can be adjusted from some minimum to some maximum (eg a knob).
 	ThermalCoolerSignalCount    CoolerControl = 3
 )
 
@@ -583,16 +591,15 @@ func (e CoolerControl) String() string {
 	return fmt.Sprintf("CoolerControl(%d)", e)
 }
 
-// CoolerTarget Cooler's target
+// CoolerTarget represents Cooler's target.
 type CoolerTarget int32
 
 const (
-	ThermalCoolerTargetNone        CoolerTarget = 1 << 0 // This cooler cools nothing.
-	ThermalCoolerTargetGpu         CoolerTarget = 1 << 1 // This cooler can cool the GPU.
-	ThermalCoolerTargetMemory      CoolerTarget = 1 << 2 // This cooler can cool the memory.
-	ThermalCoolerTargetPowerSupply CoolerTarget = 1 << 3 // This cooler can cool the power supply.
-	// ThermalCoolerTargetGpuRelated: This cooler cools all of the components related to its target gpu. GPU_RELATED = GPU | MEMORY | POWER_SUPPLY
-	ThermalCoolerTargetGpuRelated CoolerTarget = ThermalCoolerTargetGpu | ThermalCoolerTargetMemory | ThermalCoolerTargetPowerSupply
+	ThermalCoolerTargetNone        CoolerTarget = 1 << 0                                                                              // This cooler cools nothing.
+	ThermalCoolerTargetGpu         CoolerTarget = 1 << 1                                                                              // This cooler can cool the GPU.
+	ThermalCoolerTargetMemory      CoolerTarget = 1 << 2                                                                              // This cooler can cool the memory.
+	ThermalCoolerTargetPowerSupply CoolerTarget = 1 << 3                                                                              // This cooler can cool the power supply.
+	ThermalCoolerTargetGpuRelated  CoolerTarget = ThermalCoolerTargetGpu | ThermalCoolerTargetMemory | ThermalCoolerTargetPowerSupply // This cooler cools all of the components related to its target gpu. GPU_RELATED = GPU | MEMORY | POWER_SUPPLY
 )
 
 func (e CoolerTarget) String() string {
@@ -605,13 +612,11 @@ func (e CoolerTarget) String() string {
 		return "ThermalCoolerTargetMemory"
 	case ThermalCoolerTargetPowerSupply:
 		return "ThermalCoolerTargetPowerSupply"
-	case ThermalCoolerTargetGpuRelated:
-		return "ThermalCoolerTargetGpuRelated"
 	}
 	return fmt.Sprintf("CoolerTarget(%d)", e)
 }
 
-// UUIDType Enum to represent different UUID types
+// UUIDType represents Enum to represent different UUID types.
 type UUIDType int32
 
 const (
@@ -632,7 +637,7 @@ func (e UUIDType) String() string {
 	return fmt.Sprintf("UUIDType(%d)", e)
 }
 
-// EnableState Generic enable/disable enum.
+// EnableState represents Generic enable/disable enum..
 type EnableState int32
 
 const (
@@ -650,31 +655,29 @@ func (e EnableState) String() string {
 	return fmt.Sprintf("EnableState(%d)", e)
 }
 
-// BrandType * The Brand of the GPU
+// BrandType represents * The Brand of the GPU.
 type BrandType int32
 
 const (
-	BrandUnknown BrandType = 0
-	BrandQuadro  BrandType = 1
-	BrandTesla   BrandType = 2
-	BrandNvs     BrandType = 3
-	// BrandGrid: Deprecated from API reporting. Keeping definition for backward compatibility.
-	BrandGrid              BrandType = 4
+	BrandUnknown           BrandType = 0
+	BrandQuadro            BrandType = 1
+	BrandTesla             BrandType = 2
+	BrandNvs               BrandType = 3
+	BrandGrid              BrandType = 4 // Deprecated from API reporting. Keeping definition for backward compatibility.
 	BrandGeforce           BrandType = 5
 	BrandTitan             BrandType = 6
-	BrandNvidiaVapps       BrandType = 7  // NVIDIA Virtual Applications
-	BrandNvidiaVpc         BrandType = 8  // NVIDIA Virtual PC
-	BrandNvidiaVcs         BrandType = 9  // NVIDIA vGPU for Compute
-	BrandNvidiaVws         BrandType = 10 // NVIDIA RTX Virtual Workstation
-	BrandNvidiaCloudGaming BrandType = 11 // NVIDIA Cloud Gaming
-	// BrandNvidiaVgaming: Deprecated from API reporting. Keeping definition for backward compatibility.
-	BrandNvidiaVgaming BrandType = BrandNvidiaCloudGaming
-	BrandQuadroRtx     BrandType = 12
-	BrandNvidiaRtx     BrandType = 13
-	BrandNvidia        BrandType = 14
-	BrandGeforceRtx    BrandType = 15 // Unused
-	BrandTitanRtx      BrandType = 16 // Unused
-	BrandCount         BrandType = 18
+	BrandNvidiaVapps       BrandType = 7                      // NVIDIA Virtual Applications
+	BrandNvidiaVpc         BrandType = 8                      // NVIDIA Virtual PC
+	BrandNvidiaVcs         BrandType = 9                      // NVIDIA vGPU for Compute
+	BrandNvidiaVws         BrandType = 10                     // NVIDIA RTX Virtual Workstation
+	BrandNvidiaCloudGaming BrandType = 11                     // NVIDIA Cloud Gaming
+	BrandNvidiaVgaming     BrandType = BrandNvidiaCloudGaming // Deprecated from API reporting. Keeping definition for backward compatibility.
+	BrandQuadroRtx         BrandType = 12
+	BrandNvidiaRtx         BrandType = 13
+	BrandNvidia            BrandType = 14
+	BrandGeforceRtx        BrandType = 15 // Unused
+	BrandTitanRtx          BrandType = 16 // Unused
+	BrandCount             BrandType = 18
 )
 
 func (e BrandType) String() string {
@@ -719,7 +722,7 @@ func (e BrandType) String() string {
 	return fmt.Sprintf("BrandType(%d)", e)
 }
 
-// TemperatureThresholds Temperature thresholds.
+// TemperatureThresholds represents Temperature thresholds..
 type TemperatureThresholds int32
 
 const (
@@ -749,7 +752,7 @@ func (e TemperatureThresholds) String() string {
 	return fmt.Sprintf("TemperatureThresholds(%d)", e)
 }
 
-// TemperatureSensors Temperature sensors.
+// TemperatureSensors represents Temperature sensors..
 type TemperatureSensors int32
 
 const (
@@ -767,15 +770,14 @@ func (e TemperatureSensors) String() string {
 	return fmt.Sprintf("TemperatureSensors(%d)", e)
 }
 
-// ComputeMode Compute mode.
+// ComputeMode represents Compute mode..
 type ComputeMode int32
 
 const (
-	ComputemodeDefault         ComputeMode = 0 // Default compute mode -- multiple contexts per device
-	ComputemodeExclusiveThread ComputeMode = 1 // Support Removed
-	ComputemodeProhibited      ComputeMode = 2 // Compute-prohibited mode -- no contexts per device
-	// ComputemodeExclusiveProcess: Compute-exclusive-process mode -- only one context per device, usable from multiple threads at a time
-	ComputemodeExclusiveProcess ComputeMode = 3
+	ComputemodeDefault          ComputeMode = 0 // Default compute mode -- multiple contexts per device
+	ComputemodeExclusiveThread  ComputeMode = 1 // Support Removed
+	ComputemodeProhibited       ComputeMode = 2 // Compute-prohibited mode -- no contexts per device
+	ComputemodeExclusiveProcess ComputeMode = 3 // Compute-exclusive-process mode -- only one context per device, usable from multiple threads at a time
 	ComputemodeCount            ComputeMode = 4
 )
 
@@ -795,14 +797,12 @@ func (e ComputeMode) String() string {
 	return fmt.Sprintf("ComputeMode(%d)", e)
 }
 
-// MemoryErrorType Memory error types
+// MemoryErrorType represents Memory error types.
 type MemoryErrorType int32
 
 const (
-	// MemoryErrorTypeCorrected: A memory error that was corrected For ECC errors, these are single bit errors For Texture memory, these are errors fixed by resend
-	MemoryErrorTypeCorrected MemoryErrorType = 0
-	// MemoryErrorTypeUncorrected: A memory error that was not corrected For ECC errors, these are double bit errors For Texture memory, these are errors where the resend fails
-	MemoryErrorTypeUncorrected MemoryErrorType = 1
+	MemoryErrorTypeCorrected   MemoryErrorType = 0 // A memory error that was corrected For ECC errors, these are single bit errors For Texture memory, these are errors fixed by resend
+	MemoryErrorTypeUncorrected MemoryErrorType = 1 // A memory error that was not corrected For ECC errors, these are double bit errors For Texture memory, these are errors where the resend fails
 	MemoryErrorTypeCount       MemoryErrorType = 2 // Count of memory error types
 )
 
@@ -818,13 +818,12 @@ func (e MemoryErrorType) String() string {
 	return fmt.Sprintf("MemoryErrorType(%d)", e)
 }
 
-// EccCounterType ECC counter types.
+// EccCounterType represents ECC counter types..
 type EccCounterType int32
 
 const (
-	VolatileEcc EccCounterType = 0 // Volatile counts are reset each time the driver loads.
-	// AggregateEcc: Aggregate counts persist across reboots (i.e. for the lifetime of the device)
-	AggregateEcc        EccCounterType = 1
+	VolatileEcc         EccCounterType = 0 // Volatile counts are reset each time the driver loads.
+	AggregateEcc        EccCounterType = 1 // Aggregate counts persist across reboots (i.e. for the lifetime of the device)
 	EccCounterTypeCount EccCounterType = 2 // Count of memory counter types
 )
 
@@ -840,7 +839,7 @@ func (e EccCounterType) String() string {
 	return fmt.Sprintf("EccCounterType(%d)", e)
 }
 
-// ClockType Clock types.
+// ClockType represents Clock types..
 type ClockType int32
 
 const (
@@ -867,14 +866,14 @@ func (e ClockType) String() string {
 	return fmt.Sprintf("ClockType(%d)", e)
 }
 
-// ClockId Clock Ids.
+// ClockId represents Clock Ids..
 type ClockId int32
 
 const (
 	ClockIdCurrent         ClockId = 0 // Current actual clock value
 	ClockIdAppClockTarget  ClockId = 1 // Target application clock.
 	ClockIdAppClockDefault ClockId = 2 // Default application clock target
-	ClockIdCount           ClockId = 3 // Count of Clock Ids.
+	ClockIdCount           ClockId = 4 // Count of Clock Ids.
 )
 
 func (e ClockId) String() string {
@@ -891,15 +890,13 @@ func (e ClockId) String() string {
 	return fmt.Sprintf("ClockId(%d)", e)
 }
 
-// DriverModel Driver models.
+// DriverModel represents Driver models..
 type DriverModel int32
 
 const (
 	DriverWddm DriverModel = 0 // WDDM driver model -- GPU treated as a display device
-	// DriverWdm: WDM (TCC) model (deprecated) -- GPU treated as a generic compute device
-	DriverWdm DriverModel = 1
-	// DriverMcdm: MCDM driver model -- GPU treated as a Microsoft compute device
-	DriverMcdm DriverModel = 2
+	DriverWdm  DriverModel = 1 // WDM (TCC) model (deprecated) -- GPU treated as a generic compute device
+	DriverMcdm DriverModel = 2 // MCDM driver model -- GPU treated as a Microsoft compute device
 )
 
 func (e DriverModel) String() string {
@@ -914,7 +911,7 @@ func (e DriverModel) String() string {
 	return fmt.Sprintf("DriverModel(%d)", e)
 }
 
-// Pstates Allowed PStates.
+// Pstates represents Allowed PStates..
 type Pstates int32
 
 const (
@@ -977,14 +974,13 @@ func (e Pstates) String() string {
 	return fmt.Sprintf("Pstates(%d)", e)
 }
 
-// GpuOperationMode GPU Operation Mode GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features.
+// GpuOperationMode represents GPU Operation Mode GOM allows to reduce power usage and optimize GPU throughput by disabling GPU features..
 type GpuOperationMode int32
 
 const (
 	GomAllOn   GpuOperationMode = 0 // Everything is enabled and running at full speed
 	GomCompute GpuOperationMode = 1 // Designed for running only compute tasks. Graphics operations
-	// GomLowDp: Designed for running graphics applications that don't require
-	GomLowDp GpuOperationMode = 2
+	GomLowDp   GpuOperationMode = 2 // Designed for running graphics applications that don't require
 )
 
 func (e GpuOperationMode) String() string {
@@ -999,7 +995,7 @@ func (e GpuOperationMode) String() string {
 	return fmt.Sprintf("GpuOperationMode(%d)", e)
 }
 
-// InforomObject Available infoROM objects.
+// InforomObject represents Available infoROM objects..
 type InforomObject int32
 
 const (
@@ -1007,8 +1003,7 @@ const (
 	InforomEcc   InforomObject = 1 // The ECC object determining the level of ECC support
 	InforomPower InforomObject = 2 // The power management object
 	InforomDen   InforomObject = 3 // DRAM Encryption object
-	// InforomCount: This counts the number of infoROM objects the driver knows about
-	InforomCount InforomObject = 4
+	InforomCount InforomObject = 4 // This counts the number of infoROM objects the driver knows about
 )
 
 func (e InforomObject) String() string {
@@ -1027,7 +1022,7 @@ func (e InforomObject) String() string {
 	return fmt.Sprintf("InforomObject(%d)", e)
 }
 
-// MemoryLocation See [Device.GetMemoryErrorCounter]
+// MemoryLocation represents See [Device.GetMemoryErrorCounter].
 type MemoryLocation int32
 
 const (
@@ -1040,8 +1035,7 @@ const (
 	MemoryLocationTextureShm    MemoryLocation = 5 // Shared memory
 	MemoryLocationCbu           MemoryLocation = 6 // CBU
 	MemoryLocationSram          MemoryLocation = 7 // Turing+ SRAM
-	// MemoryLocationCount: This counts the number of memory locations the driver knows about
-	MemoryLocationCount MemoryLocation = 8
+	MemoryLocationCount         MemoryLocation = 8 // This counts the number of memory locations the driver knows about
 )
 
 func (e MemoryLocation) String() string {
@@ -1068,7 +1062,7 @@ func (e MemoryLocation) String() string {
 	return fmt.Sprintf("MemoryLocation(%d)", e)
 }
 
-// PageRetirementCause Causes for page retirement
+// PageRetirementCause represents Causes for page retirement.
 type PageRetirementCause int32
 
 const (
@@ -1089,12 +1083,11 @@ func (e PageRetirementCause) String() string {
 	return fmt.Sprintf("PageRetirementCause(%d)", e)
 }
 
-// RestrictedAPI API types that allow changes to default permission restrictions
+// RestrictedAPI represents API types that allow changes to default permission restrictions.
 type RestrictedAPI int32
 
 const (
-	// RestrictedApiSetApplicationClocks: APIs that change application clocks, see nvmlDeviceSetApplicationsClocks
-	RestrictedApiSetApplicationClocks RestrictedAPI = 0
+	RestrictedApiSetApplicationClocks RestrictedAPI = 0 // APIs that change application clocks, see nvmlDeviceSetApplicationsClocks
 	RestrictedApiSetAutoBoostedClocks RestrictedAPI = 1 // APIs that enable/disable Auto Boosted clocks
 	RestrictedApiCount                RestrictedAPI = 2
 )
@@ -1111,7 +1104,7 @@ func (e RestrictedAPI) String() string {
 	return fmt.Sprintf("RestrictedAPI(%d)", e)
 }
 
-// GpuUtilizationDomainId Represents the GPU utilization domains
+// GpuUtilizationDomainId represents Represents the GPU utilization domains.
 type GpuUtilizationDomainId int32
 
 const (
@@ -1135,7 +1128,7 @@ func (e GpuUtilizationDomainId) String() string {
 	return fmt.Sprintf("GpuUtilizationDomainId(%d)", e)
 }
 
-// GpuVirtualizationMode specifies the gpu virtualization mode (nvmlGpuVirtualizationMode_t).
+// GpuVirtualizationMode represents nvmlGpuVirtualizationMode_t.
 type GpuVirtualizationMode int32
 
 const (
@@ -1162,7 +1155,7 @@ func (e GpuVirtualizationMode) String() string {
 	return fmt.Sprintf("GpuVirtualizationMode(%d)", e)
 }
 
-// HostVgpuMode Host vGPU modes
+// HostVgpuMode represents Host vGPU modes.
 type HostVgpuMode int32
 
 const (
@@ -1180,7 +1173,7 @@ func (e HostVgpuMode) String() string {
 	return fmt.Sprintf("HostVgpuMode(%d)", e)
 }
 
-// VgpuVmIdType specifies the vgpu vm id type (nvmlVgpuVmIdType_t).
+// VgpuVmIdType represents nvmlVgpuVmIdType_t.
 type VgpuVmIdType int32
 
 const (
@@ -1198,7 +1191,7 @@ func (e VgpuVmIdType) String() string {
 	return fmt.Sprintf("VgpuVmIdType(%d)", e)
 }
 
-// VgpuGuestInfoState vGPU GUEST info state
+// VgpuGuestInfoState represents vGPU GUEST info state.
 type VgpuGuestInfoState int32
 
 const (
@@ -1216,7 +1209,7 @@ func (e VgpuGuestInfoState) String() string {
 	return fmt.Sprintf("VgpuGuestInfoState(%d)", e)
 }
 
-// GridLicenseFeatureCode vGPU software licensable features
+// GridLicenseFeatureCode represents vGPU software licensable features.
 type GridLicenseFeatureCode int32
 
 const (
@@ -1244,19 +1237,16 @@ func (e GridLicenseFeatureCode) String() string {
 	return fmt.Sprintf("GridLicenseFeatureCode(%d)", e)
 }
 
-// VgpuCapability vGPU queryable capabilities
+// VgpuCapability represents vGPU queryable capabilities.
 type VgpuCapability int32
 
 const (
-	VgpuCapNvlinkP2P VgpuCapability = 0 // P2P over NVLink is supported
-	VgpuCapGpudirect VgpuCapability = 1 // GPUDirect capability is supported
-	// VgpuCapMultiVgpuExclusive: vGPU profile cannot be mixed with other vGPU profiles in same VM
-	VgpuCapMultiVgpuExclusive VgpuCapability = 2
-	// VgpuCapExclusiveType: vGPU profile cannot run on a GPU alongside other profiles of different type
-	VgpuCapExclusiveType VgpuCapability = 3
-	// VgpuCapExclusiveSize: vGPU profile cannot run on a GPU alongside other profiles of different size
-	VgpuCapExclusiveSize VgpuCapability = 4
-	VgpuCapCount         VgpuCapability = 5
+	VgpuCapNvlinkP2P          VgpuCapability = 0 // P2P over NVLink is supported
+	VgpuCapGpudirect          VgpuCapability = 1 // GPUDirect capability is supported
+	VgpuCapMultiVgpuExclusive VgpuCapability = 2 // vGPU profile cannot be mixed with other vGPU profiles in same VM
+	VgpuCapExclusiveType      VgpuCapability = 3 // vGPU profile cannot run on a GPU alongside other profiles of different type
+	VgpuCapExclusiveSize      VgpuCapability = 4 // vGPU profile cannot run on a GPU alongside other profiles of different size
+	VgpuCapCount              VgpuCapability = 5
 )
 
 func (e VgpuCapability) String() string {
@@ -1277,15 +1267,13 @@ func (e VgpuCapability) String() string {
 	return fmt.Sprintf("VgpuCapability(%d)", e)
 }
 
-// VgpuDriverCapability vGPU driver queryable capabilities
+// VgpuDriverCapability represents vGPU driver queryable capabilities.
 type VgpuDriverCapability int32
 
 const (
-	// VgpuDriverCapHeterogeneousMultiVgpu: Supports mixing of different vGPU profiles within one guest VM
-	VgpuDriverCapHeterogeneousMultiVgpu VgpuDriverCapability = 0
-	// VgpuDriverCapWarmUpdate: Supports FSR and warm update of vGPU host driver without terminating the running guest VM
-	VgpuDriverCapWarmUpdate VgpuDriverCapability = 1
-	VgpuDriverCapCount      VgpuDriverCapability = 2
+	VgpuDriverCapHeterogeneousMultiVgpu VgpuDriverCapability = 0 // Supports mixing of different vGPU profiles within one guest VM
+	VgpuDriverCapWarmUpdate             VgpuDriverCapability = 1 // Supports FSR and warm update of vGPU host driver without terminating the running guest VM
+	VgpuDriverCapCount                  VgpuDriverCapability = 2
 )
 
 func (e VgpuDriverCapability) String() string {
@@ -1300,31 +1288,23 @@ func (e VgpuDriverCapability) String() string {
 	return fmt.Sprintf("VgpuDriverCapability(%d)", e)
 }
 
-// DeviceVgpuCapability Device vGPU queryable capabilities
+// DeviceVgpuCapability represents Device vGPU queryable capabilities.
 type DeviceVgpuCapability int32
 
 const (
-	// DeviceVgpuCapFractionalMultiVgpu: Query whether the fractional vGPU profiles on this GPU can be used in multi-vGPU configurations
-	DeviceVgpuCapFractionalMultiVgpu DeviceVgpuCapability = 0
-	// DeviceVgpuCapHeterogeneousTimesliceProfiles: Query whether the GPU support concurrent execution of timesliced vGPU profiles of differing types
-	DeviceVgpuCapHeterogeneousTimesliceProfiles DeviceVgpuCapability = 1
-	// DeviceVgpuCapHeterogeneousTimesliceSizes: Query whether the GPU support concurrent execution of timesliced vGPU profiles of differing framebuffer sizes
-	DeviceVgpuCapHeterogeneousTimesliceSizes DeviceVgpuCapability = 2
-	// DeviceVgpuCapReadDeviceBufferBw: Query the GPU's read_device_buffer expected bandwidth capacity in megabytes per second
-	DeviceVgpuCapReadDeviceBufferBw DeviceVgpuCapability = 3
-	// DeviceVgpuCapWriteDeviceBufferBw: Query the GPU's write_device_buffer expected bandwidth capacity in megabytes per second
-	DeviceVgpuCapWriteDeviceBufferBw DeviceVgpuCapability = 4
-	// DeviceVgpuCapDeviceStreaming: Query whether the vGPU profiles on the GPU supports migration data streaming
-	DeviceVgpuCapDeviceStreaming       DeviceVgpuCapability = 5
-	DeviceVgpuCapMiniQuarterGpu        DeviceVgpuCapability = 6 // Set/Get support for mini-quarter vGPU profiles
-	DeviceVgpuCapComputeMediaEngineGpu DeviceVgpuCapability = 7 // Set/Get support for compute media engine vGPU profiles
-	DeviceVgpuCapWarmUpdate            DeviceVgpuCapability = 8 // Query whether the GPU supports FSR and warm update
-	// DeviceVgpuCapHomogeneousPlacements: Query whether the GPU supports reporting of placements of timesliced vGPU profiles with identical framebuffer sizes
-	DeviceVgpuCapHomogeneousPlacements   DeviceVgpuCapability = 9
-	DeviceVgpuCapMigTimeslicingSupported DeviceVgpuCapability = 10 // Query whether the GPU supports timesliced vGPU on MIG
-	// DeviceVgpuCapMigTimeslicingEnabled: Set/Get MIG timesliced mode reporting, without impacting the underlying functionality
-	DeviceVgpuCapMigTimeslicingEnabled DeviceVgpuCapability = 11
-	DeviceVgpuCapCount                 DeviceVgpuCapability = 12
+	DeviceVgpuCapFractionalMultiVgpu            DeviceVgpuCapability = 0  // Query whether the fractional vGPU profiles on this GPU can be used in multi-vGPU configurations
+	DeviceVgpuCapHeterogeneousTimesliceProfiles DeviceVgpuCapability = 1  // Query whether the GPU support concurrent execution of timesliced vGPU profiles of differing types
+	DeviceVgpuCapHeterogeneousTimesliceSizes    DeviceVgpuCapability = 2  // Query whether the GPU support concurrent execution of timesliced vGPU profiles of differing framebuffer sizes
+	DeviceVgpuCapReadDeviceBufferBw             DeviceVgpuCapability = 3  // Query the GPU's read_device_buffer expected bandwidth capacity in megabytes per second
+	DeviceVgpuCapWriteDeviceBufferBw            DeviceVgpuCapability = 4  // Query the GPU's write_device_buffer expected bandwidth capacity in megabytes per second
+	DeviceVgpuCapDeviceStreaming                DeviceVgpuCapability = 5  // Query whether the vGPU profiles on the GPU supports migration data streaming
+	DeviceVgpuCapMiniQuarterGpu                 DeviceVgpuCapability = 6  // Set/Get support for mini-quarter vGPU profiles
+	DeviceVgpuCapComputeMediaEngineGpu          DeviceVgpuCapability = 7  // Set/Get support for compute media engine vGPU profiles
+	DeviceVgpuCapWarmUpdate                     DeviceVgpuCapability = 8  // Query whether the GPU supports FSR and warm update
+	DeviceVgpuCapHomogeneousPlacements          DeviceVgpuCapability = 9  // Query whether the GPU supports reporting of placements of timesliced vGPU profiles with identical framebuffer sizes
+	DeviceVgpuCapMigTimeslicingSupported        DeviceVgpuCapability = 10 // Query whether the GPU supports timesliced vGPU on MIG
+	DeviceVgpuCapMigTimeslicingEnabled          DeviceVgpuCapability = 11 // Set/Get MIG timesliced mode reporting, without impacting the underlying functionality
+	DeviceVgpuCapCount                          DeviceVgpuCapability = 12
 )
 
 func (e DeviceVgpuCapability) String() string {
@@ -1359,15 +1339,16 @@ func (e DeviceVgpuCapability) String() string {
 	return fmt.Sprintf("DeviceVgpuCapability(%d)", e)
 }
 
-// DeviceGpuRecoveryAction Enum describing the GPU Recovery Action
+// DeviceGpuRecoveryAction represents Enum describing the GPU Recovery Action.
 type DeviceGpuRecoveryAction int32
 
 const (
-	GpuRecoveryActionNone          DeviceGpuRecoveryAction = 0 // No action needed
-	GpuRecoveryActionGpuReset      DeviceGpuRecoveryAction = 1 // Reset Gpu
-	GpuRecoveryActionNodeReboot    DeviceGpuRecoveryAction = 2 // Reboot Node
-	GpuRecoveryActionDrainP2P      DeviceGpuRecoveryAction = 3 // Drain P2P
-	GpuRecoveryActionDrainAndReset DeviceGpuRecoveryAction = 4 // Drain P2P and Reset Gpu
+	GpuRecoveryActionNone              DeviceGpuRecoveryAction = 0 // No action needed
+	GpuRecoveryActionGpuReset          DeviceGpuRecoveryAction = 1 // Reset Gpu
+	GpuRecoveryActionNodeReboot        DeviceGpuRecoveryAction = 2 // Reboot Node
+	GpuRecoveryActionDrainP2P          DeviceGpuRecoveryAction = 3 // Drain P2P
+	GpuRecoveryActionDrainAndReset     DeviceGpuRecoveryAction = 4 // Drain P2P and Reset Gpu
+	GpuRecoveryActionRecoverImexDomain DeviceGpuRecoveryAction = 5 // Recover IMEX Domain.
 )
 
 func (e DeviceGpuRecoveryAction) String() string {
@@ -1382,11 +1363,13 @@ func (e DeviceGpuRecoveryAction) String() string {
 		return "GpuRecoveryActionDrainP2P"
 	case GpuRecoveryActionDrainAndReset:
 		return "GpuRecoveryActionDrainAndReset"
+	case GpuRecoveryActionRecoverImexDomain:
+		return "GpuRecoveryActionRecoverImexDomain"
 	}
 	return fmt.Sprintf("DeviceGpuRecoveryAction(%d)", e)
 }
 
-// FanState Fan state enum.
+// FanState represents Fan state enum..
 type FanState int32
 
 const (
@@ -1404,7 +1387,7 @@ func (e FanState) String() string {
 	return fmt.Sprintf("FanState(%d)", e)
 }
 
-// LedColor Led color enum.
+// LedColor represents Led color enum..
 type LedColor int32
 
 const (
@@ -1422,7 +1405,7 @@ func (e LedColor) String() string {
 	return fmt.Sprintf("LedColor(%d)", e)
 }
 
-// EncoderType Represents type of encoder for capacity can be queried
+// EncoderType represents Represents type of encoder for capacity can be queried.
 type EncoderType int32
 
 const (
@@ -1446,7 +1429,7 @@ func (e EncoderType) String() string {
 	return fmt.Sprintf("EncoderType(%d)", e)
 }
 
-// FBCSessionType Represents frame buffer capture session type
+// FBCSessionType represents Represents frame buffer capture session type.
 type FBCSessionType int32
 
 const (
@@ -1473,7 +1456,7 @@ func (e FBCSessionType) String() string {
 	return fmt.Sprintf("FBCSessionType(%d)", e)
 }
 
-// DetachGpuState Is the GPU device to be removed from the kernel by [DeviceRemoveGpu]
+// DetachGpuState represents Is the GPU device to be removed from the kernel by [DeviceRemoveGpu].
 type DetachGpuState int32
 
 const (
@@ -1491,7 +1474,7 @@ func (e DetachGpuState) String() string {
 	return fmt.Sprintf("DetachGpuState(%d)", e)
 }
 
-// PcieLinkState Parent bridge PCIe link state requested by [DeviceRemoveGpu]
+// PcieLinkState represents Parent bridge PCIe link state requested by [DeviceRemoveGpu].
 type PcieLinkState int32
 
 const (
@@ -1509,7 +1492,22 @@ func (e PcieLinkState) String() string {
 	return fmt.Sprintf("PcieLinkState(%d)", e)
 }
 
-// ClockLimitId specifies the clock limit id (nvmlClockLimitId_t).
+// CPERType represents Bitmask of CPER record types..
+type CPERType int32
+
+const (
+	CperAccessTypeGpu CPERType = 1 << 0 // Access GPU CPER records
+)
+
+func (e CPERType) String() string {
+	switch e {
+	case CperAccessTypeGpu:
+		return "CperAccessTypeGpu"
+	}
+	return fmt.Sprintf("CPERType(%d)", e)
+}
+
+// ClockLimitId represents nvmlClockLimitId_t.
 type ClockLimitId uint32
 
 const (
@@ -1530,7 +1528,7 @@ func (e ClockLimitId) String() string {
 	return fmt.Sprintf("ClockLimitId(%d)", e)
 }
 
-// NvlinkVersion Represents Nvlink Version
+// NvlinkVersion represents Represents Nvlink Version.
 type NvlinkVersion int32
 
 const (
@@ -1542,6 +1540,7 @@ const (
 	NvlinkVersion31      NvlinkVersion = 5 // NVLink Version 3.1
 	NvlinkVersion40      NvlinkVersion = 6 // NVLink Version 4.0
 	NvlinkVersion50      NvlinkVersion = 7 // NVLink Version 5.0
+	NvlinkVersion60      NvlinkVersion = 8 // NVLink Version 6.0
 )
 
 func (e NvlinkVersion) String() string {
@@ -1562,11 +1561,13 @@ func (e NvlinkVersion) String() string {
 		return "NvlinkVersion40"
 	case NvlinkVersion50:
 		return "NvlinkVersion50"
+	case NvlinkVersion60:
+		return "NvlinkVersion60"
 	}
 	return fmt.Sprintf("NvlinkVersion(%d)", e)
 }
 
-// VgpuVmCompatibility vGPU VM compatibility codes
+// VgpuVmCompatibility represents vGPU VM compatibility codes.
 type VgpuVmCompatibility int32
 
 const (
@@ -1593,7 +1594,7 @@ func (e VgpuVmCompatibility) String() string {
 	return fmt.Sprintf("VgpuVmCompatibility(%d)", e)
 }
 
-// VgpuPgpuCompatibilityLimitCode vGPU-pGPU compatibility limit codes
+// VgpuPgpuCompatibilityLimitCode represents vGPU-pGPU compatibility limit codes.
 type VgpuPgpuCompatibilityLimitCode uint32
 
 const (
@@ -1620,7 +1621,7 @@ func (e VgpuPgpuCompatibilityLimitCode) String() string {
 	return fmt.Sprintf("VgpuPgpuCompatibilityLimitCode(%d)", e)
 }
 
-// PRMCounterId PRM Counter IDs
+// PRMCounterId represents PRM Counter IDs.
 type PRMCounterId int32
 
 const (
@@ -1677,35 +1678,23 @@ func (e PRMCounterId) String() string {
 	return fmt.Sprintf("PRMCounterId(%d)", e)
 }
 
-// GpmMetricId GPM Metric Identifiers
+// GpmMetricId represents GPM Metric Identifiers.
 type GpmMetricId int32
 
 const (
-	// GpmMetricGraphicsUtil: Percentage of time any compute/graphics app was active on the GPU. 0.0 - 100.0
-	GpmMetricGraphicsUtil GpmMetricId = 1
-	GpmMetricSmUtil       GpmMetricId = 2 // Percentage of SMs that were busy. 0.0 - 100.0
-	// GpmMetricSmOccupancy: Percentage of warps that were active vs theoretical maximum. 0.0 - 100.0
-	GpmMetricSmOccupancy GpmMetricId = 3
-	// GpmMetricIntegerUtil: Percentage of time the GPU's SMs were doing integer operations. 0.0 - 100.0
-	GpmMetricIntegerUtil GpmMetricId = 4
-	// GpmMetricAnyTensorUtil: Percentage of time the GPU's SMs were doing ANY tensor operations. 0.0 - 100.0
-	GpmMetricAnyTensorUtil GpmMetricId = 5
-	// GpmMetricDfmaTensorUtil: Percentage of time the GPU's SMs were doing DFMA tensor operations. 0.0 - 100.0
-	GpmMetricDfmaTensorUtil GpmMetricId = 6
-	// GpmMetricHmmaTensorUtil: Percentage of time the GPU's SMs were doing HMMA tensor operations. 0.0 - 100.0
-	GpmMetricHmmaTensorUtil GpmMetricId = 7
-	// GpmMetricDmmaTensorUtil: Percentage of time the GPU's SMs were doing DMMA tensor operations. 0.0 - 100.0
-	GpmMetricDmmaTensorUtil GpmMetricId = 8
-	// GpmMetricImmaTensorUtil: Percentage of time the GPU's SMs were doing IMMA tensor operations. 0.0 - 100.0
-	GpmMetricImmaTensorUtil GpmMetricId = 9
-	// GpmMetricDramBwUtil: Percentage of DRAM bw used vs theoretical maximum. 0.0 - 100.0 */
-	GpmMetricDramBwUtil GpmMetricId = 10
-	// GpmMetricFP64Util: Percentage of time the GPU's SMs were doing non-tensor FP64 math. 0.0 - 100.0
-	GpmMetricFP64Util GpmMetricId = 11
-	// GpmMetricFP32Util: Percentage of time the GPU's SMs were doing non-tensor FP32 math. 0.0 - 100.0
-	GpmMetricFP32Util GpmMetricId = 12
-	// GpmMetricFP16Util: Percentage of time the GPU's SMs were doing non-tensor FP16 math. 0.0 - 100.0
-	GpmMetricFP16Util               GpmMetricId = 13
+	GpmMetricGraphicsUtil           GpmMetricId = 1  // Percentage of time any compute/graphics app was active on the GPU. 0.0 - 100.0
+	GpmMetricSmUtil                 GpmMetricId = 2  // Percentage of SMs that were busy. 0.0 - 100.0
+	GpmMetricSmOccupancy            GpmMetricId = 3  // Percentage of warps that were active vs theoretical maximum. 0.0 - 100.0
+	GpmMetricIntegerUtil            GpmMetricId = 4  // Percentage of time the GPU's SMs were doing integer operations. 0.0 - 100.0
+	GpmMetricAnyTensorUtil          GpmMetricId = 5  // Percentage of time the GPU's SMs were doing ANY tensor operations. 0.0 - 100.0
+	GpmMetricDfmaTensorUtil         GpmMetricId = 6  // Percentage of time the GPU's SMs were doing DFMA tensor operations. 0.0 - 100.0
+	GpmMetricHmmaTensorUtil         GpmMetricId = 7  // Percentage of time the GPU's SMs were doing HMMA tensor operations. 0.0 - 100.0
+	GpmMetricDmmaTensorUtil         GpmMetricId = 8  // Percentage of time the GPU's SMs were doing DMMA tensor operations. 0.0 - 100.0
+	GpmMetricImmaTensorUtil         GpmMetricId = 9  // Percentage of time the GPU's SMs were doing IMMA tensor operations. 0.0 - 100.0
+	GpmMetricDramBwUtil             GpmMetricId = 10 // Percentage of DRAM bw used vs theoretical maximum. 0.0 - 100.0 */
+	GpmMetricFP64Util               GpmMetricId = 11 // Percentage of time the GPU's SMs were doing non-tensor FP64 math. 0.0 - 100.0
+	GpmMetricFP32Util               GpmMetricId = 12 // Percentage of time the GPU's SMs were doing non-tensor FP32 math. 0.0 - 100.0
+	GpmMetricFP16Util               GpmMetricId = 13 // Percentage of time the GPU's SMs were doing non-tensor FP16 math. 0.0 - 100.0
 	GpmMetricPcieTxPerSec           GpmMetricId = 20 // PCIe traffic from this GPU in MiB/sec
 	GpmMetricPcieRxPerSec           GpmMetricId = 21 // PCIe traffic to this GPU in MiB/sec
 	GpmMetricNvdec0Util             GpmMetricId = 30 // Percent utilization of NVDEC 0. 0.0 - 100.0
@@ -1874,6 +1863,42 @@ const (
 	GpmMetricGR7CtxswRequests       GpmMetricId = 207
 	GpmMetricGR7CtxswCyclesPerReq   GpmMetricId = 208
 	GpmMetricGR7CtxswActivePct      GpmMetricId = 209
+	GpmMetricNvlinkL18RxPerSec      GpmMetricId = 212
+	GpmMetricNvlinkL18TxPerSec      GpmMetricId = 213
+	GpmMetricNvlinkL19RxPerSec      GpmMetricId = 214
+	GpmMetricNvlinkL19TxPerSec      GpmMetricId = 215
+	GpmMetricNvlinkL20RxPerSec      GpmMetricId = 216
+	GpmMetricNvlinkL20TxPerSec      GpmMetricId = 217
+	GpmMetricNvlinkL21RxPerSec      GpmMetricId = 218
+	GpmMetricNvlinkL21TxPerSec      GpmMetricId = 219
+	GpmMetricNvlinkL22RxPerSec      GpmMetricId = 220
+	GpmMetricNvlinkL22TxPerSec      GpmMetricId = 221
+	GpmMetricNvlinkL23RxPerSec      GpmMetricId = 222
+	GpmMetricNvlinkL23TxPerSec      GpmMetricId = 223
+	GpmMetricNvlinkL24RxPerSec      GpmMetricId = 224
+	GpmMetricNvlinkL24TxPerSec      GpmMetricId = 225
+	GpmMetricNvlinkL25RxPerSec      GpmMetricId = 226
+	GpmMetricNvlinkL25TxPerSec      GpmMetricId = 227
+	GpmMetricNvlinkL26RxPerSec      GpmMetricId = 228
+	GpmMetricNvlinkL26TxPerSec      GpmMetricId = 229
+	GpmMetricNvlinkL27RxPerSec      GpmMetricId = 230
+	GpmMetricNvlinkL27TxPerSec      GpmMetricId = 231
+	GpmMetricNvlinkL28RxPerSec      GpmMetricId = 232
+	GpmMetricNvlinkL28TxPerSec      GpmMetricId = 233
+	GpmMetricNvlinkL29RxPerSec      GpmMetricId = 234
+	GpmMetricNvlinkL29TxPerSec      GpmMetricId = 235
+	GpmMetricNvlinkL30RxPerSec      GpmMetricId = 236
+	GpmMetricNvlinkL30TxPerSec      GpmMetricId = 237
+	GpmMetricNvlinkL31RxPerSec      GpmMetricId = 238
+	GpmMetricNvlinkL31TxPerSec      GpmMetricId = 239
+	GpmMetricNvlinkL32RxPerSec      GpmMetricId = 240
+	GpmMetricNvlinkL32TxPerSec      GpmMetricId = 241
+	GpmMetricNvlinkL33RxPerSec      GpmMetricId = 242
+	GpmMetricNvlinkL33TxPerSec      GpmMetricId = 243
+	GpmMetricNvlinkL34RxPerSec      GpmMetricId = 244
+	GpmMetricNvlinkL34TxPerSec      GpmMetricId = 245
+	GpmMetricNvlinkL35RxPerSec      GpmMetricId = 246
+	GpmMetricNvlinkL35TxPerSec      GpmMetricId = 247
 	GpmMetricSmCyclesElapsed        GpmMetricId = 248 // The GPU's SM cycles elapsed since reboot
 	GpmMetricSmCyclesActive         GpmMetricId = 249 // The GPU's SM activity since reboot
 	GpmMetricMmaCyclesActive        GpmMetricId = 250 // The GPU's SM MMA tensor activity since reboot
@@ -1923,6 +1948,42 @@ const (
 	GpmMetricNvlinkL16Tx            GpmMetricId = 294 // NvLink write for link 16 in bytes since reboot
 	GpmMetricNvlinkL17Rx            GpmMetricId = 295 // NvLink read for link 17 in bytes since reboot
 	GpmMetricNvlinkL17Tx            GpmMetricId = 296 // NvLink write for link 17 in bytes since reboot
+	GpmMetricNvlinkL18Rx            GpmMetricId = 297 // NvLink read for link 18 in bytes since reboot
+	GpmMetricNvlinkL18Tx            GpmMetricId = 298 // NvLink write for link 18 in bytes since reboot
+	GpmMetricNvlinkL19Rx            GpmMetricId = 299 // NvLink read for link 19 in bytes since reboot
+	GpmMetricNvlinkL19Tx            GpmMetricId = 300 // NvLink write for link 19 in bytes since reboot
+	GpmMetricNvlinkL20Rx            GpmMetricId = 301 // NvLink read for link 20 in bytes since reboot
+	GpmMetricNvlinkL20Tx            GpmMetricId = 302 // NvLink write for link 20 in bytes since reboot
+	GpmMetricNvlinkL21Rx            GpmMetricId = 303 // NvLink read for link 21 in bytes since reboot
+	GpmMetricNvlinkL21Tx            GpmMetricId = 304 // NvLink write for link 21 in bytes since reboot
+	GpmMetricNvlinkL22Rx            GpmMetricId = 305 // NvLink read for link 22 in bytes since reboot
+	GpmMetricNvlinkL22Tx            GpmMetricId = 306 // NvLink write for link 22 in bytes since reboot
+	GpmMetricNvlinkL23Rx            GpmMetricId = 307 // NvLink read for link 23 in bytes since reboot
+	GpmMetricNvlinkL23Tx            GpmMetricId = 308 // NvLink write for link 23 in bytes since reboot
+	GpmMetricNvlinkL24Rx            GpmMetricId = 309 // NvLink read for link 24 in bytes since reboot
+	GpmMetricNvlinkL24Tx            GpmMetricId = 310 // NvLink write for link 24 in bytes since reboot
+	GpmMetricNvlinkL25Rx            GpmMetricId = 311 // NvLink read for link 25 in bytes since reboot
+	GpmMetricNvlinkL25Tx            GpmMetricId = 312 // NvLink write for link 25 in bytes since reboot
+	GpmMetricNvlinkL26Rx            GpmMetricId = 313 // NvLink read for link 26 in bytes since reboot
+	GpmMetricNvlinkL26Tx            GpmMetricId = 314 // NvLink write for link 26 in bytes since reboot
+	GpmMetricNvlinkL27Rx            GpmMetricId = 315 // NvLink read for link 27 in bytes since reboot
+	GpmMetricNvlinkL27Tx            GpmMetricId = 316 // NvLink write for link 27 in bytes since reboot
+	GpmMetricNvlinkL28Rx            GpmMetricId = 317 // NvLink read for link 28 in bytes since reboot
+	GpmMetricNvlinkL28Tx            GpmMetricId = 318 // NvLink write for link 28 in bytes since reboot
+	GpmMetricNvlinkL29Rx            GpmMetricId = 319 // NvLink read for link 29 in bytes since reboot
+	GpmMetricNvlinkL29Tx            GpmMetricId = 320 // NvLink write for link 29 in bytes since reboot
+	GpmMetricNvlinkL30Rx            GpmMetricId = 321 // NvLink read for link 30 in bytes since reboot
+	GpmMetricNvlinkL30Tx            GpmMetricId = 322 // NvLink write for link 30 in bytes since reboot
+	GpmMetricNvlinkL31Rx            GpmMetricId = 323 // NvLink read for link 31 in bytes since reboot
+	GpmMetricNvlinkL31Tx            GpmMetricId = 324 // NvLink write for link 31 in bytes since reboot
+	GpmMetricNvlinkL32Rx            GpmMetricId = 325 // NvLink read for link 32 in bytes since reboot
+	GpmMetricNvlinkL32Tx            GpmMetricId = 326 // NvLink write for link 32 in bytes since reboot
+	GpmMetricNvlinkL33Rx            GpmMetricId = 327 // NvLink read for link 33 in bytes since reboot
+	GpmMetricNvlinkL33Tx            GpmMetricId = 328 // NvLink write for link 33 in bytes since reboot
+	GpmMetricNvlinkL34Rx            GpmMetricId = 329 // NvLink read for link 34 in bytes since reboot
+	GpmMetricNvlinkL34Tx            GpmMetricId = 330 // NvLink write for link 34 in bytes since reboot
+	GpmMetricNvlinkL35Rx            GpmMetricId = 331 // NvLink read for link 35 in bytes since reboot
+	GpmMetricNvlinkL35Tx            GpmMetricId = 332 // NvLink write for link 35 in bytes since reboot
 )
 
 func (e GpmMetricId) String() string {
@@ -2289,6 +2350,78 @@ func (e GpmMetricId) String() string {
 		return "GpmMetricGR7CtxswCyclesPerReq"
 	case GpmMetricGR7CtxswActivePct:
 		return "GpmMetricGR7CtxswActivePct"
+	case GpmMetricNvlinkL18RxPerSec:
+		return "GpmMetricNvlinkL18RxPerSec"
+	case GpmMetricNvlinkL18TxPerSec:
+		return "GpmMetricNvlinkL18TxPerSec"
+	case GpmMetricNvlinkL19RxPerSec:
+		return "GpmMetricNvlinkL19RxPerSec"
+	case GpmMetricNvlinkL19TxPerSec:
+		return "GpmMetricNvlinkL19TxPerSec"
+	case GpmMetricNvlinkL20RxPerSec:
+		return "GpmMetricNvlinkL20RxPerSec"
+	case GpmMetricNvlinkL20TxPerSec:
+		return "GpmMetricNvlinkL20TxPerSec"
+	case GpmMetricNvlinkL21RxPerSec:
+		return "GpmMetricNvlinkL21RxPerSec"
+	case GpmMetricNvlinkL21TxPerSec:
+		return "GpmMetricNvlinkL21TxPerSec"
+	case GpmMetricNvlinkL22RxPerSec:
+		return "GpmMetricNvlinkL22RxPerSec"
+	case GpmMetricNvlinkL22TxPerSec:
+		return "GpmMetricNvlinkL22TxPerSec"
+	case GpmMetricNvlinkL23RxPerSec:
+		return "GpmMetricNvlinkL23RxPerSec"
+	case GpmMetricNvlinkL23TxPerSec:
+		return "GpmMetricNvlinkL23TxPerSec"
+	case GpmMetricNvlinkL24RxPerSec:
+		return "GpmMetricNvlinkL24RxPerSec"
+	case GpmMetricNvlinkL24TxPerSec:
+		return "GpmMetricNvlinkL24TxPerSec"
+	case GpmMetricNvlinkL25RxPerSec:
+		return "GpmMetricNvlinkL25RxPerSec"
+	case GpmMetricNvlinkL25TxPerSec:
+		return "GpmMetricNvlinkL25TxPerSec"
+	case GpmMetricNvlinkL26RxPerSec:
+		return "GpmMetricNvlinkL26RxPerSec"
+	case GpmMetricNvlinkL26TxPerSec:
+		return "GpmMetricNvlinkL26TxPerSec"
+	case GpmMetricNvlinkL27RxPerSec:
+		return "GpmMetricNvlinkL27RxPerSec"
+	case GpmMetricNvlinkL27TxPerSec:
+		return "GpmMetricNvlinkL27TxPerSec"
+	case GpmMetricNvlinkL28RxPerSec:
+		return "GpmMetricNvlinkL28RxPerSec"
+	case GpmMetricNvlinkL28TxPerSec:
+		return "GpmMetricNvlinkL28TxPerSec"
+	case GpmMetricNvlinkL29RxPerSec:
+		return "GpmMetricNvlinkL29RxPerSec"
+	case GpmMetricNvlinkL29TxPerSec:
+		return "GpmMetricNvlinkL29TxPerSec"
+	case GpmMetricNvlinkL30RxPerSec:
+		return "GpmMetricNvlinkL30RxPerSec"
+	case GpmMetricNvlinkL30TxPerSec:
+		return "GpmMetricNvlinkL30TxPerSec"
+	case GpmMetricNvlinkL31RxPerSec:
+		return "GpmMetricNvlinkL31RxPerSec"
+	case GpmMetricNvlinkL31TxPerSec:
+		return "GpmMetricNvlinkL31TxPerSec"
+	case GpmMetricNvlinkL32RxPerSec:
+		return "GpmMetricNvlinkL32RxPerSec"
+	case GpmMetricNvlinkL32TxPerSec:
+		return "GpmMetricNvlinkL32TxPerSec"
+	case GpmMetricNvlinkL33RxPerSec:
+		return "GpmMetricNvlinkL33RxPerSec"
+	case GpmMetricNvlinkL33TxPerSec:
+		return "GpmMetricNvlinkL33TxPerSec"
+	case GpmMetricNvlinkL34RxPerSec:
+		return "GpmMetricNvlinkL34RxPerSec"
+	case GpmMetricNvlinkL34TxPerSec:
+		return "GpmMetricNvlinkL34TxPerSec"
+	case GpmMetricNvlinkL35RxPerSec:
+		return "GpmMetricNvlinkL35RxPerSec"
+	case GpmMetricNvlinkL35TxPerSec:
+		return "GpmMetricNvlinkL35TxPerSec"
 	case GpmMetricSmCyclesElapsed:
 		return "GpmMetricSmCyclesElapsed"
 	case GpmMetricSmCyclesActive:
@@ -2387,11 +2520,83 @@ func (e GpmMetricId) String() string {
 		return "GpmMetricNvlinkL17Rx"
 	case GpmMetricNvlinkL17Tx:
 		return "GpmMetricNvlinkL17Tx"
+	case GpmMetricNvlinkL18Rx:
+		return "GpmMetricNvlinkL18Rx"
+	case GpmMetricNvlinkL18Tx:
+		return "GpmMetricNvlinkL18Tx"
+	case GpmMetricNvlinkL19Rx:
+		return "GpmMetricNvlinkL19Rx"
+	case GpmMetricNvlinkL19Tx:
+		return "GpmMetricNvlinkL19Tx"
+	case GpmMetricNvlinkL20Rx:
+		return "GpmMetricNvlinkL20Rx"
+	case GpmMetricNvlinkL20Tx:
+		return "GpmMetricNvlinkL20Tx"
+	case GpmMetricNvlinkL21Rx:
+		return "GpmMetricNvlinkL21Rx"
+	case GpmMetricNvlinkL21Tx:
+		return "GpmMetricNvlinkL21Tx"
+	case GpmMetricNvlinkL22Rx:
+		return "GpmMetricNvlinkL22Rx"
+	case GpmMetricNvlinkL22Tx:
+		return "GpmMetricNvlinkL22Tx"
+	case GpmMetricNvlinkL23Rx:
+		return "GpmMetricNvlinkL23Rx"
+	case GpmMetricNvlinkL23Tx:
+		return "GpmMetricNvlinkL23Tx"
+	case GpmMetricNvlinkL24Rx:
+		return "GpmMetricNvlinkL24Rx"
+	case GpmMetricNvlinkL24Tx:
+		return "GpmMetricNvlinkL24Tx"
+	case GpmMetricNvlinkL25Rx:
+		return "GpmMetricNvlinkL25Rx"
+	case GpmMetricNvlinkL25Tx:
+		return "GpmMetricNvlinkL25Tx"
+	case GpmMetricNvlinkL26Rx:
+		return "GpmMetricNvlinkL26Rx"
+	case GpmMetricNvlinkL26Tx:
+		return "GpmMetricNvlinkL26Tx"
+	case GpmMetricNvlinkL27Rx:
+		return "GpmMetricNvlinkL27Rx"
+	case GpmMetricNvlinkL27Tx:
+		return "GpmMetricNvlinkL27Tx"
+	case GpmMetricNvlinkL28Rx:
+		return "GpmMetricNvlinkL28Rx"
+	case GpmMetricNvlinkL28Tx:
+		return "GpmMetricNvlinkL28Tx"
+	case GpmMetricNvlinkL29Rx:
+		return "GpmMetricNvlinkL29Rx"
+	case GpmMetricNvlinkL29Tx:
+		return "GpmMetricNvlinkL29Tx"
+	case GpmMetricNvlinkL30Rx:
+		return "GpmMetricNvlinkL30Rx"
+	case GpmMetricNvlinkL30Tx:
+		return "GpmMetricNvlinkL30Tx"
+	case GpmMetricNvlinkL31Rx:
+		return "GpmMetricNvlinkL31Rx"
+	case GpmMetricNvlinkL31Tx:
+		return "GpmMetricNvlinkL31Tx"
+	case GpmMetricNvlinkL32Rx:
+		return "GpmMetricNvlinkL32Rx"
+	case GpmMetricNvlinkL32Tx:
+		return "GpmMetricNvlinkL32Tx"
+	case GpmMetricNvlinkL33Rx:
+		return "GpmMetricNvlinkL33Rx"
+	case GpmMetricNvlinkL33Tx:
+		return "GpmMetricNvlinkL33Tx"
+	case GpmMetricNvlinkL34Rx:
+		return "GpmMetricNvlinkL34Rx"
+	case GpmMetricNvlinkL34Tx:
+		return "GpmMetricNvlinkL34Tx"
+	case GpmMetricNvlinkL35Rx:
+		return "GpmMetricNvlinkL35Rx"
+	case GpmMetricNvlinkL35Tx:
+		return "GpmMetricNvlinkL35Tx"
 	}
 	return fmt.Sprintf("GpmMetricId(%d)", e)
 }
 
-// PowerProfileType specifies the power profile type (nvmlPowerProfileType_t).
+// PowerProfileType represents nvmlPowerProfileType_t.
 type PowerProfileType int32
 
 const (
@@ -2448,16 +2653,13 @@ func (e PowerProfileType) String() string {
 	return fmt.Sprintf("PowerProfileType(%d)", e)
 }
 
-// PowerProfileOperation Enum for operation to perform on the requested profiles
+// PowerProfileOperation represents Enum for operation to perform on the requested profiles.
 type PowerProfileOperation int32
 
 const (
-	// PowerProfileOperationClear: Remove the requested profiles from the existing list of requested profiles
-	PowerProfileOperationClear PowerProfileOperation = 0
-	// PowerProfileOperationSet: Add the requested profiles to the existing list of requested profiles
-	PowerProfileOperationSet PowerProfileOperation = 1
-	// PowerProfileOperationSetAndOverwrite: Overwrite the existing list of requested profiles with just the requested profiles
-	PowerProfileOperationSetAndOverwrite PowerProfileOperation = 2
+	PowerProfileOperationClear           PowerProfileOperation = 0 // Remove the requested profiles from the existing list of requested profiles
+	PowerProfileOperationSet             PowerProfileOperation = 1 // Add the requested profiles to the existing list of requested profiles
+	PowerProfileOperationSetAndOverwrite PowerProfileOperation = 2 // Overwrite the existing list of requested profiles with just the requested profiles
 )
 
 func (e PowerProfileOperation) String() string {

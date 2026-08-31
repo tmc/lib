@@ -2,6 +2,17 @@
 
 package nvml
 
+// NewGpmSample Allocate a sample buffer to be used with NVML GPM .
+//
+// For Hopper or newer fully supported devices.
+//
+//   - gpmSample: Where the allocated sample will be stored
+//
+// Wraps nvmlGpmSampleAlloc.
+func NewGpmSample() (GpmSample, error) {
+	return gpmSampleAlloc()
+}
+
 // Free Free an allocated sample buffer that was allocated with [NewGpmSample]
 //
 // For Hopper or newer fully supported devices.
@@ -13,22 +24,12 @@ func (g GpmSample) Free() error {
 
 // Get Read a sample of GPM metrics into the provided gpmSample buffer.
 //
-// For Hopper or newer fully supported devices. Note:
+// For Hopper or newer fully supported devices.
+// Note:
 //
 //   - device: The device handle or MIG device handle to get samples for
 //
 // Wraps nvmlGpmSampleGet.
 func (g GpmSample) Get(device Device) error {
 	return gpmSampleGet(device, g)
-}
-
-// NewGpmSample Allocate a sample buffer to be used with NVML GPM .
-//
-// For Hopper or newer fully supported devices.
-//
-//   - gpmSample: Where the allocated sample will be stored
-//
-// Wraps nvmlGpmSampleAlloc.
-func NewGpmSample() (GpmSample, error) {
-	return gpmSampleAlloc()
 }

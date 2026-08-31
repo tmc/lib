@@ -2,12 +2,18 @@
 
 package nvml
 
+import (
+	"errors"
+)
+
 // ClearAccountingPids wraps nvmlVgpuInstanceClearAccountingPids.
 func (v VgpuInstance) ClearAccountingPids() error {
 	return vgpuInstanceClearAccountingPids(v)
 }
 
 // GetAccountingMode wraps nvmlVgpuInstanceGetAccountingMode.
+//
+//   - mode: Reference in which to return the current accounting mode
 func (v VgpuInstance) GetAccountingMode() (EnableState, error) {
 	return vgpuInstanceGetAccountingMode(v)
 }
@@ -16,8 +22,28 @@ func (v VgpuInstance) GetAccountingMode() (EnableState, error) {
 //
 //   - count: Reference in which to provide the pids array size, and to return the number of elements ready to be queried
 //   - pids: Reference in which to return list of process ids
-func (v VgpuInstance) GetAccountingPids(count *uint32, pids *uint32) error {
-	return vgpuInstanceGetAccountingPids(v, count, pids)
+//
+// The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+func (v VgpuInstance) GetAccountingPids(buf []uint32) ([]uint32, error) {
+	count := uint32(cap(buf))
+	buf = buf[:cap(buf)]
+	var p *uint32
+	if count > 0 {
+		p = &buf[0]
+	}
+	for {
+		n := count
+		err := vgpuInstanceGetAccountingPids(v, &n, p)
+		if err == nil {
+			return buf[:n], nil
+		}
+		if !errors.Is(err, ErrInsufficientSize) {
+			return nil, err
+		}
+		count = n + n/2 + 4
+		buf = make([]uint32, count)
+		p = &buf[0]
+	}
 }
 
 // GetAccountingStats wraps nvmlVgpuInstanceGetAccountingStats.
@@ -36,6 +62,8 @@ func (v VgpuInstance) GetEccMode(eccMode *EnableState) error {
 }
 
 // GetEncoderCapacity wraps nvmlVgpuInstanceGetEncoderCapacity.
+//
+//   - encoderCapacity: Reference to an unsigned int for the encoder capacity
 func (v VgpuInstance) GetEncoderCapacity() (uint32, error) {
 	return vgpuInstanceGetEncoderCapacity(v)
 }
@@ -44,8 +72,28 @@ func (v VgpuInstance) GetEncoderCapacity() (uint32, error) {
 //
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference to caller supplied array in which the list of session information us returned
-func (v VgpuInstance) GetEncoderSessions(sessionCount *uint32, sessionInfo *EncoderSessionInfo) error {
-	return vgpuInstanceGetEncoderSessions(v, sessionCount, sessionInfo)
+//
+// The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+func (v VgpuInstance) GetEncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessionInfo, error) {
+	count := uint32(cap(buf))
+	buf = buf[:cap(buf)]
+	var p *EncoderSessionInfo
+	if count > 0 {
+		p = &buf[0]
+	}
+	for {
+		n := count
+		err := vgpuInstanceGetEncoderSessions(v, &n, p)
+		if err == nil {
+			return buf[:n], nil
+		}
+		if !errors.Is(err, ErrInsufficientSize) {
+			return nil, err
+		}
+		count = n + n/2 + 4
+		buf = make([]EncoderSessionInfo, count)
+		p = &buf[0]
+	}
 }
 
 // GetEncoderStats wraps nvmlVgpuInstanceGetEncoderStats.
@@ -61,8 +109,28 @@ func (v VgpuInstance) GetEncoderStats(sessionCount *uint32, averageFps *uint32, 
 //
 //   - sessionCount: Reference to caller supplied array size, and returns the number of sessions
 //   - sessionInfo: Reference in which to return the session information
-func (v VgpuInstance) GetFBCSessions(sessionCount *uint32, sessionInfo *FBCSessionInfo) error {
-	return vgpuInstanceGetFBCSessions(v, sessionCount, sessionInfo)
+//
+// The returned slice reuses buf's storage when it has sufficient capacity; pass nil to let the call allocate.
+func (v VgpuInstance) GetFBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error) {
+	count := uint32(cap(buf))
+	buf = buf[:cap(buf)]
+	var p *FBCSessionInfo
+	if count > 0 {
+		p = &buf[0]
+	}
+	for {
+		n := count
+		err := vgpuInstanceGetFBCSessions(v, &n, p)
+		if err == nil {
+			return buf[:n], nil
+		}
+		if !errors.Is(err, ErrInsufficientSize) {
+			return nil, err
+		}
+		count = n + n/2 + 4
+		buf = make([]FBCSessionInfo, count)
+		p = &buf[0]
+	}
 }
 
 // GetFBCStats wraps nvmlVgpuInstanceGetFBCStats.
@@ -73,16 +141,22 @@ func (v VgpuInstance) GetFBCStats(fbcStats *FBCStats) error {
 }
 
 // GetFbUsage wraps nvmlVgpuInstanceGetFbUsage.
+//
+//   - fbUsage: Pointer to framebuffer usage in bytes
 func (v VgpuInstance) GetFbUsage() (uint64, error) {
 	return vgpuInstanceGetFbUsage(v)
 }
 
 // GetFrameRateLimit wraps nvmlVgpuInstanceGetFrameRateLimit.
+//
+//   - frameRateLimit: Reference to return the frame rate limit
 func (v VgpuInstance) GetFrameRateLimit() (uint32, error) {
 	return vgpuInstanceGetFrameRateLimit(v)
 }
 
 // GetGpuInstanceId wraps nvmlVgpuInstanceGetGpuInstanceId.
+//
+//   - gpuInstanceId: GPU Instance ID
 func (v VgpuInstance) GetGpuInstanceId() (uint32, error) {
 	return vgpuInstanceGetGpuInstanceId(v)
 }
@@ -95,7 +169,7 @@ func (v VgpuInstance) GetGpuPciId(vgpuPciId *byte, length *uint32) error {
 	return vgpuInstanceGetGpuPciId(v, vgpuPciId, length)
 }
 
-// GetLicenseInfo wraps nvmlVgpuInstanceGetLicenseInfo_v2.
+// GetLicenseInfo wraps nvmlVgpuInstanceGetLicenseInfo, bound as nvmlVgpuInstanceGetLicenseInfo_v2.
 //
 //   - licenseInfo: Pointer to vGPU license information structure
 func (v VgpuInstance) GetLicenseInfo(licenseInfo *VgpuLicenseInfo) error {
@@ -112,6 +186,9 @@ func (v VgpuInstance) GetLicenseStatus(licensed *uint32) error {
 }
 
 // GetMdevUUID wraps nvmlVgpuInstanceGetMdevUUID.
+//
+//   - mdevUuid: Pointer to caller-supplied buffer to hold MDEV UUID
+//   - size: Size of buffer in bytes
 func (v VgpuInstance) GetMdevUUID() (string, error) {
 	return vgpuInstanceGetMdevUUID(v)
 }
@@ -137,7 +214,10 @@ func (v VgpuInstance) GetPlacementId(pPlacement *VgpuPlacementId) error {
 
 // GetRuntimeStateSize Retrieve the currently used runtime state size of the vGPU instance
 //
-// This size represents the maximum in-memory data size utilized by a vGPU instance during standard operation. This measurement is exclusive of frame buffer (FB) data size assigned to the vGPU instance. For Maxwell or newer fully supported devices.
+// This size represents the maximum in-memory data size utilized by a vGPU instance during standard operation. This measurement is exclusive of frame buffer (FB) data size assigned to the vGPU instance.
+// For Maxwell or newer fully supported devices.
+//
+//   - pState: Pointer to the vGPU runtime state's structure [VgpuRuntimeState]
 //
 // Wraps nvmlVgpuInstanceGetRuntimeStateSize.
 func (v VgpuInstance) GetRuntimeStateSize() (VgpuRuntimeState, error) {
@@ -145,16 +225,24 @@ func (v VgpuInstance) GetRuntimeStateSize() (VgpuRuntimeState, error) {
 }
 
 // GetType wraps nvmlVgpuInstanceGetType.
+//
+//   - vgpuTypeId: Reference to return the vgpuTypeId
 func (v VgpuInstance) GetType() (VgpuTypeId, error) {
 	return vgpuInstanceGetType(v)
 }
 
 // GetUUID wraps nvmlVgpuInstanceGetUUID.
+//
+//   - uuid: Pointer to caller-supplied buffer to hold vGPU UUID
+//   - size: Size of buffer in bytes
 func (v VgpuInstance) GetUUID() (string, error) {
 	return vgpuInstanceGetUUID(v)
 }
 
 // GetVmDriverVersion wraps nvmlVgpuInstanceGetVmDriverVersion.
+//
+//   - version: Caller-supplied buffer to return driver version string
+//   - length: Size of version buffer
 func (v VgpuInstance) GetVmDriverVersion() (string, error) {
 	return vgpuInstanceGetVmDriverVersion(v)
 }

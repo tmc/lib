@@ -2,7 +2,7 @@
 
 package nvml
 
-// PciInfoExt represents PCI information about a GPU device.
+// PciInfoExt represents PCI information about a GPU device..
 type PciInfoExt struct {
 	Version        uint32
 	Domain         uint32
@@ -15,7 +15,7 @@ type PciInfoExt struct {
 	BusId          [32]byte
 }
 
-// PciInfo represents PCI information about a GPU device.
+// PciInfo represents PCI information about a GPU device..
 type PciInfo struct {
 	BusIdLegacy    [16]byte
 	Domain         uint32
@@ -26,7 +26,7 @@ type PciInfo struct {
 	BusId          [32]byte
 }
 
-// EccErrorCounts represents Detailed ECC error counts for a device.
+// EccErrorCounts represents Detailed ECC error counts for a device..
 type EccErrorCounts struct {
 	L1Cache      uint64
 	L2Cache      uint64
@@ -34,20 +34,20 @@ type EccErrorCounts struct {
 	RegisterFile uint64
 }
 
-// Utilization represents Utilization information for a device.
+// Utilization represents Utilization information for a device..
 type Utilization struct {
 	Gpu    uint32
 	Memory uint32
 }
 
-// Memory represents Memory allocation information for a device (v1).
+// Memory represents Memory allocation information for a device (v1)..
 type Memory struct {
 	Total uint64
 	Free  uint64
 	Used  uint64
 }
 
-// MemoryV2 represents Memory allocation information for a device (v2).
+// MemoryV2 represents Memory allocation information for a device (v2)..
 type MemoryV2 struct {
 	Version  uint32
 	Total    uint64
@@ -63,7 +63,7 @@ type BAR1Memory struct {
 	Bar1Used  uint64
 }
 
-// ProcessInfoV1 represents Information about running compute processes on the GPU, legacy version for older versions of the API.
+// ProcessInfoV1 represents Information about running compute processes on the GPU, legacy version for older versions of the API..
 type ProcessInfoV1 struct {
 	Pid           uint32
 	UsedGpuMemory uint64
@@ -130,7 +130,7 @@ type UnrepairableMemoryStatusV1 struct {
 	BUnrepairableMemory uint32
 }
 
-// RowRemapperHistogramValues represents Possible values that classify the remap availability for each bank.
+// RowRemapperHistogramValues represents Possible values that classify the remap availability for each bank..
 type RowRemapperHistogramValues struct {
 	Max     uint32
 	High    uint32
@@ -151,16 +151,22 @@ type BridgeChipInfo struct {
 	FwVersion uint32
 }
 
-// BridgeChipHierarchy represents This structure stores the complete Hierarchy of the Bridge Chip within the board.
+// BridgeChipHierarchy represents This structure stores the complete Hierarchy of the Bridge Chip within the board..
 type BridgeChipHierarchy struct {
 	BridgeCount    uint8
 	BridgeChipInfo [128]BridgeChipInfo
 }
 
+// Value represents Union to represent different types of Value.
+type Value struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [1]uint64
+}
+
 // Sample represents Information for Sample.
 type Sample struct {
 	TimeStamp   uint64
-	SampleValue [1]uint64
+	SampleValue Value
 }
 
 // ViolationTime represents Struct to hold perf policy violation status data.
@@ -183,17 +189,28 @@ type CoolerInfo struct {
 	Target     CoolerTarget
 }
 
+// UUIDValue represents Union to represent different UUID values.
+type UUIDValue struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [41]byte
+}
+
 // UUID represents Struct to represent NVML UUID information.
 type UUID struct {
 	Version uint32
 	Type    uint32
-	Value   [41]byte
+	Value   UUIDValue
 }
 
 // Pdi represents Struct to represent the NVML PDI information.
 type Pdi struct {
 	Version uint32
 	Value   uint64
+}
+
+// BBXTimeDataV1 represents BBX Time Data.
+type BBXTimeDataV1 struct {
+	TimeRun uint32
 }
 
 // DramEncryptionInfo represents DRAM Encryption Info.
@@ -221,7 +238,7 @@ type ClkMonStatus struct {
 	ClkMonList     [32]ClkMonFaultInfo
 }
 
-// ClockOffset represents Clock offset info.
+// ClockOffset represents Clock offset info..
 type ClockOffset struct {
 	Version           uint32
 	Type              ClockType
@@ -231,7 +248,7 @@ type ClockOffset struct {
 	MaxClockOffsetMHz int32
 }
 
-// FanSpeedInfo represents Fan speed info.
+// FanSpeedInfo represents Fan speed info..
 type FanSpeedInfo struct {
 	Version uint32
 	Fan     uint32
@@ -304,7 +321,7 @@ type EccSramErrorStatus struct {
 	BThresholdExceeded      uint32
 }
 
-// PlatformInfoV1 represents Structure to store platform information @deprecated The [PlatformInfoV1] will be deprecated in the subsequent releases.
+// PlatformInfoV1 represents Structure to store platform information @deprecated The [PlatformInfoV1] will be deprecated in the subsequent releases..
 type PlatformInfoV1 struct {
 	Version                   uint32
 	IbGuid                    [16]uint8
@@ -349,6 +366,16 @@ type EccSramUniqueUncorrectedErrorCounts struct {
 	Version    uint32
 	EntryCount uint32
 	Entries    uintptr
+}
+
+// RemappedRowsInfoV2 represents nvmlRemappedRowsInfo_v2_t.
+type RemappedRowsInfoV2 struct {
+	CorrActiveRemaps   uint32
+	CorrInactiveRemaps uint32
+	UncActiveRemaps    uint32
+	UncInactiveRemaps  uint32
+	BPending           uint32
+	BFailureOccurred   uint32
 }
 
 // RusdSettingsV1 represents nvmlRusdSettings_v1_t.
@@ -409,22 +436,22 @@ type VgpuTypeBar1Info struct {
 type VgpuInstanceUtilizationSample struct {
 	VgpuInstance VgpuInstance
 	TimeStamp    uint64
-	SmUtil       [1]uint64
-	MemUtil      [1]uint64
-	EncUtil      [1]uint64
-	DecUtil      [1]uint64
+	SmUtil       Value
+	MemUtil      Value
+	EncUtil      Value
+	DecUtil      Value
 }
 
 // VgpuInstanceUtilizationInfoV1 represents Structure to store Utilization Value and vgpuInstance Info -- Version 1.
 type VgpuInstanceUtilizationInfoV1 struct {
 	TimeStamp    uint64
 	VgpuInstance VgpuInstance
-	SmUtil       [1]uint64
-	MemUtil      [1]uint64
-	EncUtil      [1]uint64
-	DecUtil      [1]uint64
-	JpgUtil      [1]uint64
-	OfaUtil      [1]uint64
+	SmUtil       Value
+	MemUtil      Value
+	EncUtil      Value
+	DecUtil      Value
+	JpgUtil      Value
+	OfaUtil      Value
 }
 
 // VgpuInstancesUtilizationInfo represents Structure to store recent utilization for vGPU instances running on a device -- version 1.
@@ -476,6 +503,12 @@ type VgpuRuntimeState struct {
 	Size    uint64
 }
 
+// VgpuSchedulerParams represents Union to represent the vGPU Scheduler Parameters.
+type VgpuSchedulerParams struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [2]uint32
+}
+
 // VgpuSchedulerLogEntry represents Structure to store the state and logs of a software runlist.
 type VgpuSchedulerLogEntry struct {
 	Timestamp                uint64
@@ -491,7 +524,7 @@ type VgpuSchedulerLog struct {
 	EngineId        uint32
 	SchedulerPolicy uint32
 	ArrMode         uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerParams
 	EntriesCount    uint32
 	LogEntries      [200]VgpuSchedulerLogEntry
 }
@@ -500,14 +533,20 @@ type VgpuSchedulerLog struct {
 type VgpuSchedulerGetState struct {
 	SchedulerPolicy uint32
 	ArrMode         uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerParams
+}
+
+// VgpuSchedulerSetParams represents Union to represent the vGPU Scheduler set Parameters.
+type VgpuSchedulerSetParams struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [2]uint32
 }
 
 // VgpuSchedulerSetState represents Structure to set the vGPU scheduler state.
 type VgpuSchedulerSetState struct {
 	SchedulerPolicy uint32
 	EnableARRMode   uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerSetParams
 }
 
 // VgpuSchedulerCapabilities represents Structure to store the vGPU scheduler capabilities.
@@ -595,7 +634,7 @@ type VgpuSchedulerState struct {
 	EngineId        uint32
 	SchedulerPolicy uint32
 	EnableARRMode   uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerSetParams
 }
 
 // VgpuSchedulerStateInfo represents Structure to store vGPU scheduler state information -- Version 1.
@@ -604,7 +643,7 @@ type VgpuSchedulerStateInfo struct {
 	EngineId        uint32
 	SchedulerPolicy uint32
 	ArrMode         uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerParams
 }
 
 // VgpuSchedulerLogInfo represents Structure to store vGPU scheduler log information -- Version 1.
@@ -613,7 +652,7 @@ type VgpuSchedulerLogInfo struct {
 	EngineId        uint32
 	SchedulerPolicy uint32
 	ArrMode         uint32
-	SchedulerParams [2]uint32
+	SchedulerParams VgpuSchedulerParams
 	EntriesCount    uint32
 	LogEntries      [200]VgpuSchedulerLogEntry
 }
@@ -677,7 +716,7 @@ type FieldValue struct {
 	LatencyUsec int64
 	ValueType   ValueType
 	NvmlReturn  Result
-	Value       [1]uint64
+	Value       Value
 }
 
 // HwbcEntry represents Description of HWBC entry.
@@ -686,13 +725,13 @@ type HwbcEntry struct {
 	FirmwareVersion [32]byte
 }
 
-// LedState represents LED states for an S-class unit.
+// LedState represents LED states for an S-class unit..
 type LedState struct {
 	Cause [256]byte
 	Color LedColor
 }
 
-// UnitInfo represents Static S-class unit info.
+// UnitInfo represents Static S-class unit info..
 type UnitInfo struct {
 	Name            [96]byte
 	Id              [96]byte
@@ -700,7 +739,7 @@ type UnitInfo struct {
 	FirmwareVersion [96]byte
 }
 
-// PSUInfo represents Power usage information for an S-class unit.
+// PSUInfo represents Power usage information for an S-class unit..
 type PSUInfo struct {
 	State   [256]byte
 	Current uint32
@@ -708,13 +747,13 @@ type PSUInfo struct {
 	Power   uint32
 }
 
-// UnitFanInfo represents Fan speed reading for a single fan in an S-class unit.
+// UnitFanInfo represents Fan speed reading for a single fan in an S-class unit..
 type UnitFanInfo struct {
 	Speed uint32
 	State FanState
 }
 
-// UnitFanSpeeds represents Fan speed readings for an entire S-class unit.
+// UnitFanSpeeds represents Fan speed readings for an entire S-class unit..
 type UnitFanSpeeds struct {
 	Fans  [24]UnitFanInfo
 	Count uint32
@@ -764,7 +803,7 @@ type SystemEventSetWaitRequest struct {
 	NumEvent  uint32
 }
 
-// AccountingStats represents Describes accounting statistics of a process.
+// AccountingStats represents Describes accounting statistics of a process..
 type AccountingStats struct {
 	GpuUtilization    uint32
 	MemoryUtilization uint32
@@ -773,6 +812,20 @@ type AccountingStats struct {
 	StartTime         uint64
 	IsRunning         uint32
 	Reserved          [5]uint32
+}
+
+// AccountingStatsV2 represents Describes accounting statistics (v2) of a process..
+type AccountingStatsV2 struct {
+	Pid               uint32
+	IsRunning         uint32
+	GpuUtilization    uint32
+	MemoryUtilization uint32
+	MaxMemoryUsage    uint64
+	SampleCount       uint32
+	SumGpuUtil        uint64
+	SumFbUtil         uint64
+	Time              uint64
+	StartTime         uint64
 }
 
 // EncoderSessionInfo represents Structure to hold encoder session data.
@@ -876,7 +929,7 @@ type GpuFabricInfo struct {
 	State       uint8
 }
 
-// GpuFabricInfoV2 represents GPU Fabric information (v2).
+// GpuFabricInfoV2 represents GPU Fabric information (v2)..
 type GpuFabricInfoV2 struct {
 	Version     uint32
 	ClusterUuid [16]uint8
@@ -886,7 +939,7 @@ type GpuFabricInfoV2 struct {
 	HealthMask  uint32
 }
 
-// GpuFabricInfoV represents GPU Fabric information (v3).
+// GpuFabricInfoV represents GPU Fabric information (v3)..
 type GpuFabricInfoV struct {
 	Version       uint32
 	ClusterUuid   [16]uint8
@@ -897,13 +950,27 @@ type GpuFabricInfoV struct {
 	HealthSummary uint8
 }
 
-// SystemDriverBranchInfo represents #define NVML_CUDA_DRIVER_VERSION_MAJOR ( v ) ((v)/1000)Macro to extract the major version number from the CUDA driver version. #define NVML_CUDA_DRIVER_VERSION_MINOR ( v ) (((v)%1000)/10)Macro to extract the minor version number from the CUDA driver version. #define nvmlSystemDriverBranchInfo_v1Version macro for [SystemDriverBranchInfoV1].
+// CPERCursorV1 represents CPER query and cursor parameters..
+type CPERCursorV1 struct {
+	CperTypeMask uint32
+	Uuid         [80]byte
+	Handle       uint64
+}
+
+// GetCPERV1 represents Input/output structure for [[SystemGetCPER]]..
+type GetCPERV1 struct {
+	Cursor     CPERCursorV1
+	Buffer     uintptr
+	BufferSize uint32
+}
+
+// SystemDriverBranchInfo represents Structure to store Driver branch information.
 type SystemDriverBranchInfo struct {
 	Version uint32
 	Branch  [80]byte
 }
 
-// Temperature represents #define nvmlTemperature_v1Version macro for [TemperatureV1].
+// Temperature represents Structure used to encapsulate temperature info.
 type Temperature struct {
 	Version     uint32
 	SensorType  TemperatureSensors
@@ -958,13 +1025,13 @@ type NvLinkInfo struct {
 	FirmwareInfo  NvlinkFirmwareInfo
 }
 
-// VgpuVersion represents Structure representing range of vGPU versions.
+// VgpuVersion represents Structure representing range of vGPU versions..
 type VgpuVersion struct {
 	MinVersion uint32
 	MaxVersion uint32
 }
 
-// VgpuMetadata represents vGPU metadata structure.
+// VgpuMetadata represents vGPU metadata structure..
 type VgpuMetadata struct {
 	Version                uint32
 	Revision               uint32
@@ -1018,7 +1085,7 @@ type PRMCounterInputV1 struct {
 type PRMCounterValueV1 struct {
 	Status      Result
 	OutputType  ValueType
-	OutputValue [1]uint64
+	OutputValue Value
 }
 
 // PRMCounterV1 represents PRM Counter Structure v1.
@@ -1040,7 +1107,7 @@ type GpuInstancePlacement struct {
 	Size  uint32
 }
 
-// GpuInstanceProfileInfo represents GPU instance profile information.
+// GpuInstanceProfileInfo represents GPU instance profile information..
 type GpuInstanceProfileInfo struct {
 	Id                  uint32
 	IsP2pSupported      uint32
@@ -1055,7 +1122,7 @@ type GpuInstanceProfileInfo struct {
 	MemorySizeMB        uint64
 }
 
-// GpuInstanceProfileInfoV2 represents GPU instance profile information (v2).
+// GpuInstanceProfileInfoV2 represents GPU instance profile information (v2)..
 type GpuInstanceProfileInfoV2 struct {
 	Version             uint32
 	Id                  uint32
@@ -1072,7 +1139,7 @@ type GpuInstanceProfileInfoV2 struct {
 	Name                [96]byte
 }
 
-// GpuInstanceProfileInfoV3 represents GPU instance profile information (v3).
+// GpuInstanceProfileInfoV3 represents GPU instance profile information (v3)..
 type GpuInstanceProfileInfoV3 struct {
 	Version             uint32
 	Id                  uint32
@@ -1103,7 +1170,7 @@ type ComputeInstancePlacement struct {
 	Size  uint32
 }
 
-// ComputeInstanceProfileInfo represents Compute instance profile information.
+// ComputeInstanceProfileInfo represents Compute instance profile information..
 type ComputeInstanceProfileInfo struct {
 	Id                    uint32
 	SliceCount            uint32
@@ -1116,7 +1183,7 @@ type ComputeInstanceProfileInfo struct {
 	SharedOfaCount        uint32
 }
 
-// ComputeInstanceProfileInfoV2 represents Compute instance profile information (v2).
+// ComputeInstanceProfileInfoV2 represents Compute instance profile information (v2)..
 type ComputeInstanceProfileInfoV2 struct {
 	Version               uint32
 	Id                    uint32
@@ -1131,7 +1198,7 @@ type ComputeInstanceProfileInfoV2 struct {
 	Name                  [96]byte
 }
 
-// ComputeInstanceProfileInfoV3 represents Compute instance profile information (v3).
+// ComputeInstanceProfileInfoV3 represents Compute instance profile information (v3)..
 type ComputeInstanceProfileInfoV3 struct {
 	Version               uint32
 	Id                    uint32
@@ -1156,7 +1223,7 @@ type ComputeInstanceInfo struct {
 	Placement   ComputeInstancePlacement
 }
 
-// GpmMetric represents GPM metric information.
+// GpmMetric represents GPM metric information..
 type GpmMetric struct {
 	MetricId   uint32
 	NvmlReturn Result
@@ -1164,7 +1231,7 @@ type GpmMetric struct {
 	MetricInfo [3]uint64
 }
 
-// GpmMetricsGetParams represents GPM buffer information.
+// GpmMetricsGetParams represents GPM buffer information..
 type GpmMetricsGetParams struct {
 	Version    uint32
 	NumMetrics uint32
@@ -1173,7 +1240,7 @@ type GpmMetricsGetParams struct {
 	Metrics    [333]GpmMetric
 }
 
-// GpmSupport represents GPM device information.
+// GpmSupport represents GPM device information..
 type GpmSupport struct {
 	Version           uint32
 	IsSupportedDevice uint32
@@ -1237,30 +1304,6 @@ type PowerSmoothingProfile struct {
 type PowerSmoothingState struct {
 	Version uint32
 	State   EnableState
-}
-
-// Value represents Union to represent different types of Value.
-type Value struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [1]uint64
-}
-
-// UUIDValue represents Union to represent different UUID values.
-type UUIDValue struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [41]byte
-}
-
-// VgpuSchedulerParams represents Union to represent the vGPU Scheduler Parameters.
-type VgpuSchedulerParams struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [2]uint32
-}
-
-// VgpuSchedulerSetParams represents Union to represent the vGPU Scheduler set Parameters.
-type VgpuSchedulerSetParams struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [2]uint32
 }
 
 // ActiveVgpuInstanceInfoV1 is an alias for ActiveVgpuInstanceInfo.

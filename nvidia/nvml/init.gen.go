@@ -232,7 +232,7 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
-// registerFuncs binds all raw function pointers to their library symbols.
+// registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnErrorString, "nvmlErrorString")
 	register(&fncomputeInstanceDestroy, "nvmlComputeInstanceDestroy")
@@ -244,18 +244,21 @@ func registerFuncs() {
 	register(&fndeviceCreateGpuInstance, "nvmlDeviceCreateGpuInstance")
 	register(&fndeviceCreateGpuInstanceWithPlacement, "nvmlDeviceCreateGpuInstanceWithPlacement")
 	register(&fnDeviceDiscoverGpus, "nvmlDeviceDiscoverGpus")
+	register(&fndeviceFreezeNvLinkUtilizationCounter, "nvmlDeviceFreezeNvLinkUtilizationCounter")
 	register(&fndeviceGetAPIRestriction, "nvmlDeviceGetAPIRestriction")
 	register(&fndeviceGetAccountingBufferSize, "nvmlDeviceGetAccountingBufferSize")
 	register(&fndeviceGetAccountingMode, "nvmlDeviceGetAccountingMode")
 	register(&fndeviceGetAccountingPids, "nvmlDeviceGetAccountingPids")
-	register(&fndeviceGetAccountingStats, "nvmlDeviceGetAccountingStats")
+	register(&fndeviceGetAccountingStats, "nvmlDeviceGetAccountingStats_v2")
 	register(&fndeviceGetActiveVgpus, "nvmlDeviceGetActiveVgpus")
 	register(&fndeviceGetAdaptiveClockInfoStatus, "nvmlDeviceGetAdaptiveClockInfoStatus")
 	register(&fndeviceGetAddressingMode, "nvmlDeviceGetAddressingMode")
+	register(&fndeviceGetApplicationsClock, "nvmlDeviceGetApplicationsClock")
 	register(&fndeviceGetArchitecture, "nvmlDeviceGetArchitecture")
 	register(&fndeviceGetAttributes, "nvmlDeviceGetAttributes_v2")
 	register(&fndeviceGetAutoBoostedClocksEnabled, "nvmlDeviceGetAutoBoostedClocksEnabled")
 	register(&fndeviceGetBAR1MemoryInfo, "nvmlDeviceGetBAR1MemoryInfo")
+	register(&fndeviceGetBBXTimeData, "nvmlDeviceGetBBXTimeData_v1")
 	register(&fndeviceGetBoardId, "nvmlDeviceGetBoardId")
 	register(&fndeviceGetBoardPartNumber, "nvmlDeviceGetBoardPartNumber")
 	register(&fndeviceGetBrand, "nvmlDeviceGetBrand")
@@ -284,8 +287,11 @@ func registerFuncs() {
 	register(&fndeviceGetCurrPcieLinkWidth, "nvmlDeviceGetCurrPcieLinkWidth")
 	register(&fndeviceGetCurrentClockFreqs, "nvmlDeviceGetCurrentClockFreqs")
 	register(&fndeviceGetCurrentClocksEventReasons, "nvmlDeviceGetCurrentClocksEventReasons")
+	register(&fndeviceGetCurrentClocksThrottleReasons, "nvmlDeviceGetCurrentClocksThrottleReasons")
 	register(&fndeviceGetDecoderUtilization, "nvmlDeviceGetDecoderUtilization")
+	register(&fndeviceGetDefaultApplicationsClock, "nvmlDeviceGetDefaultApplicationsClock")
 	register(&fndeviceGetDefaultEccMode, "nvmlDeviceGetDefaultEccMode")
+	register(&fndeviceGetDetailedEccErrors, "nvmlDeviceGetDetailedEccErrors")
 	register(&fndeviceGetDeviceHandleFromMigDeviceHandle, "nvmlDeviceGetDeviceHandleFromMigDeviceHandle")
 	register(&fndeviceGetDisplayActive, "nvmlDeviceGetDisplayActive")
 	register(&fndeviceGetDisplayMode, "nvmlDeviceGetDisplayMode")
@@ -306,6 +312,7 @@ func registerFuncs() {
 	register(&fndeviceGetFieldValues, "nvmlDeviceGetFieldValues")
 	register(&fndeviceGetGpcClkMinMaxVfOffset, "nvmlDeviceGetGpcClkMinMaxVfOffset")
 	register(&fndeviceGetGpcClkVfOffset, "nvmlDeviceGetGpcClkVfOffset")
+	register(&fndeviceGetGpuFabricInfo, "nvmlDeviceGetGpuFabricInfo")
 	register(&fndeviceGetGpuFabricInfoV, "nvmlDeviceGetGpuFabricInfoV")
 	register(&fndeviceGetGpuInstanceById, "nvmlDeviceGetGpuInstanceById")
 	register(&fndeviceGetGpuInstanceId, "nvmlDeviceGetGpuInstanceId")
@@ -323,6 +330,7 @@ func registerFuncs() {
 	register(&fndeviceGetGspFirmwareVersion, "nvmlDeviceGetGspFirmwareVersion")
 	register(&fndeviceGetHandleByIndex, "nvmlDeviceGetHandleByIndex_v2")
 	register(&fndeviceGetHandleByPciBusId, "nvmlDeviceGetHandleByPciBusId_v2")
+	register(&fndeviceGetHandleBySerial, "nvmlDeviceGetHandleBySerial")
 	register(&fndeviceGetHandleByUUID, "nvmlDeviceGetHandleByUUID")
 	register(&fndeviceGetHandleByUUIDV, "nvmlDeviceGetHandleByUUIDV")
 	register(&fndeviceGetHostVgpuMode, "nvmlDeviceGetHostVgpuMode")
@@ -346,7 +354,7 @@ func registerFuncs() {
 	register(&fndeviceGetMemoryAffinity, "nvmlDeviceGetMemoryAffinity")
 	register(&fndeviceGetMemoryBusWidth, "nvmlDeviceGetMemoryBusWidth")
 	register(&fndeviceGetMemoryErrorCounter, "nvmlDeviceGetMemoryErrorCounter")
-	register(&fndeviceGetMemoryInfo, "nvmlDeviceGetMemoryInfo")
+	register(&fndeviceGetMemoryInfo, "nvmlDeviceGetMemoryInfo_v2")
 	register(&fndeviceGetMigDeviceHandleByIndex, "nvmlDeviceGetMigDeviceHandleByIndex")
 	register(&fndeviceGetMigMode, "nvmlDeviceGetMigMode")
 	register(&fndeviceGetMinMaxClockOfPState, "nvmlDeviceGetMinMaxClockOfPState")
@@ -364,13 +372,15 @@ func registerFuncs() {
 	register(&fndeviceGetNvLinkRemoteDeviceType, "nvmlDeviceGetNvLinkRemoteDeviceType")
 	register(&fndeviceGetNvLinkRemotePciInfo, "nvmlDeviceGetNvLinkRemotePciInfo_v2")
 	register(&fndeviceGetNvLinkState, "nvmlDeviceGetNvLinkState")
+	register(&fndeviceGetNvLinkUtilizationControl, "nvmlDeviceGetNvLinkUtilizationControl")
+	register(&fndeviceGetNvLinkUtilizationCounter, "nvmlDeviceGetNvLinkUtilizationCounter")
 	register(&fndeviceGetNvLinkVersion, "nvmlDeviceGetNvLinkVersion")
 	register(&fndeviceGetNvlinkBwMode, "nvmlDeviceGetNvlinkBwMode")
 	register(&fndeviceGetNvlinkSupportedBwModes, "nvmlDeviceGetNvlinkSupportedBwModes")
 	register(&fndeviceGetOfaUtilization, "nvmlDeviceGetOfaUtilization")
 	register(&fndeviceGetP2PStatus, "nvmlDeviceGetP2PStatus")
-	register(&fndeviceGetPciInfoExt, "nvmlDeviceGetPciInfoExt")
 	register(&fndeviceGetPciInfo, "nvmlDeviceGetPciInfo_v3")
+	register(&fndeviceGetPciInfoExt, "nvmlDeviceGetPciInfoExt")
 	register(&fndeviceGetPcieLinkMaxSpeed, "nvmlDeviceGetPcieLinkMaxSpeed")
 	register(&fndeviceGetPcieReplayCounter, "nvmlDeviceGetPcieReplayCounter")
 	register(&fndeviceGetPcieSpeed, "nvmlDeviceGetPcieSpeed")
@@ -384,12 +394,14 @@ func registerFuncs() {
 	register(&fndeviceGetPowerManagementDefaultLimit, "nvmlDeviceGetPowerManagementDefaultLimit")
 	register(&fndeviceGetPowerManagementLimit, "nvmlDeviceGetPowerManagementLimit")
 	register(&fndeviceGetPowerManagementLimitConstraints, "nvmlDeviceGetPowerManagementLimitConstraints")
+	register(&fndeviceGetPowerManagementMode, "nvmlDeviceGetPowerManagementMode")
 	register(&fndeviceGetPowerMizerMode, "nvmlDeviceGetPowerMizerMode_v1")
 	register(&fndeviceGetPowerSource, "nvmlDeviceGetPowerSource")
+	register(&fndeviceGetPowerState, "nvmlDeviceGetPowerState")
 	register(&fndeviceGetPowerUsage, "nvmlDeviceGetPowerUsage")
 	register(&fndeviceGetProcessUtilization, "nvmlDeviceGetProcessUtilization")
 	register(&fndeviceGetProcessesUtilizationInfo, "nvmlDeviceGetProcessesUtilizationInfo")
-	register(&fndeviceGetRemappedRows, "nvmlDeviceGetRemappedRows")
+	register(&fndeviceGetRemappedRows, "nvmlDeviceGetRemappedRows_v2")
 	register(&fndeviceGetRepairStatus, "nvmlDeviceGetRepairStatus")
 	register(&fndeviceGetRetiredPagesPendingStatus, "nvmlDeviceGetRetiredPagesPendingStatus")
 	register(&fndeviceGetRetiredPages, "nvmlDeviceGetRetiredPages_v2")
@@ -400,12 +412,14 @@ func registerFuncs() {
 	register(&fndeviceGetSramEccErrorStatus, "nvmlDeviceGetSramEccErrorStatus")
 	register(&fndeviceGetSramUniqueUncorrectedEccErrorCounts, "nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts")
 	register(&fndeviceGetSupportedClocksEventReasons, "nvmlDeviceGetSupportedClocksEventReasons")
+	register(&fndeviceGetSupportedClocksThrottleReasons, "nvmlDeviceGetSupportedClocksThrottleReasons")
 	register(&fndeviceGetSupportedEventTypes, "nvmlDeviceGetSupportedEventTypes")
 	register(&fndeviceGetSupportedGraphicsClocks, "nvmlDeviceGetSupportedGraphicsClocks")
 	register(&fndeviceGetSupportedMemoryClocks, "nvmlDeviceGetSupportedMemoryClocks")
 	register(&fndeviceGetSupportedPerformanceStates, "nvmlDeviceGetSupportedPerformanceStates")
 	register(&fndeviceGetSupportedVgpus, "nvmlDeviceGetSupportedVgpus")
 	register(&fndeviceGetTargetFanSpeed, "nvmlDeviceGetTargetFanSpeed")
+	register(&fndeviceGetTemperature, "nvmlDeviceGetTemperature")
 	register(&fndeviceGetTemperatureThreshold, "nvmlDeviceGetTemperatureThreshold")
 	register(&fndeviceGetTemperatureV, "nvmlDeviceGetTemperatureV")
 	register(&fndeviceGetThermalSettings, "nvmlDeviceGetThermalSettings")
@@ -429,6 +443,7 @@ func registerFuncs() {
 	register(&fndeviceGetVgpuTypeCreatablePlacements, "nvmlDeviceGetVgpuTypeCreatablePlacements")
 	register(&fndeviceGetVgpuTypeSupportedPlacements, "nvmlDeviceGetVgpuTypeSupportedPlacements")
 	register(&fndeviceGetVgpuUtilization, "nvmlDeviceGetVgpuUtilization")
+	register(&fndeviceGetViolationStatus, "nvmlDeviceGetViolationStatus")
 	register(&fndeviceGetVirtualizationMode, "nvmlDeviceGetVirtualizationMode")
 	register(&fndeviceIsMigDeviceHandle, "nvmlDeviceIsMigDeviceHandle")
 	register(&fnDeviceModifyDrainState, "nvmlDeviceModifyDrainState")
@@ -441,11 +456,14 @@ func registerFuncs() {
 	register(&fndeviceReadWritePRM, "nvmlDeviceReadWritePRM_v1")
 	register(&fndeviceRegisterEvents, "nvmlDeviceRegisterEvents")
 	register(&fnDeviceRemoveGpu, "nvmlDeviceRemoveGpu_v2")
+	register(&fndeviceResetApplicationsClocks, "nvmlDeviceResetApplicationsClocks")
 	register(&fndeviceResetGpuLockedClocks, "nvmlDeviceResetGpuLockedClocks")
 	register(&fndeviceResetMemoryLockedClocks, "nvmlDeviceResetMemoryLockedClocks")
 	register(&fndeviceResetNvLinkErrorCounters, "nvmlDeviceResetNvLinkErrorCounters")
+	register(&fndeviceResetNvLinkUtilizationCounter, "nvmlDeviceResetNvLinkUtilizationCounter")
 	register(&fndeviceSetAPIRestriction, "nvmlDeviceSetAPIRestriction")
 	register(&fndeviceSetAccountingMode, "nvmlDeviceSetAccountingMode")
+	register(&fndeviceSetApplicationsClocks, "nvmlDeviceSetApplicationsClocks")
 	register(&fndeviceSetAutoBoostedClocksEnabled, "nvmlDeviceSetAutoBoostedClocksEnabled")
 	register(&fndeviceSetClockOffsets, "nvmlDeviceSetClockOffsets")
 	register(&fndeviceSetComputeMode, "nvmlDeviceSetComputeMode")
@@ -458,12 +476,15 @@ func registerFuncs() {
 	register(&fndeviceSetEccMode, "nvmlDeviceSetEccMode")
 	register(&fndeviceSetFanControlPolicy, "nvmlDeviceSetFanControlPolicy")
 	register(&fndeviceSetFanSpeed, "nvmlDeviceSetFanSpeed_v2")
+	register(&fndeviceSetGpcClkVfOffset, "nvmlDeviceSetGpcClkVfOffset")
 	register(&fndeviceSetGpuLockedClocks, "nvmlDeviceSetGpuLockedClocks")
 	register(&fndeviceSetGpuOperationMode, "nvmlDeviceSetGpuOperationMode")
 	register(&fndeviceSetHostname, "nvmlDeviceSetHostname_v1")
+	register(&fndeviceSetMemClkVfOffset, "nvmlDeviceSetMemClkVfOffset")
 	register(&fndeviceSetMemoryLockedClocks, "nvmlDeviceSetMemoryLockedClocks")
 	register(&fndeviceSetMigMode, "nvmlDeviceSetMigMode")
 	register(&fndeviceSetNvLinkDeviceLowPowerThreshold, "nvmlDeviceSetNvLinkDeviceLowPowerThreshold")
+	register(&fndeviceSetNvLinkUtilizationControl, "nvmlDeviceSetNvLinkUtilizationControl")
 	register(&fndeviceSetNvlinkBwMode, "nvmlDeviceSetNvlinkBwMode")
 	register(&fndeviceSetPersistenceMode, "nvmlDeviceSetPersistenceMode")
 	register(&fndeviceSetPowerManagementLimit, "nvmlDeviceSetPowerManagementLimit_v2")
@@ -476,8 +497,10 @@ func registerFuncs() {
 	register(&fndeviceSetVirtualizationMode, "nvmlDeviceSetVirtualizationMode")
 	register(&fndeviceValidateInforom, "nvmlDeviceValidateInforom")
 	register(&fndeviceVgpuForceGspUnload, "nvmlDeviceVgpuForceGspUnload")
+	register(&fndeviceWorkloadPowerProfileClearRequestedProfiles, "nvmlDeviceWorkloadPowerProfileClearRequestedProfiles")
 	register(&fndeviceWorkloadPowerProfileGetCurrentProfiles, "nvmlDeviceWorkloadPowerProfileGetCurrentProfiles")
 	register(&fndeviceWorkloadPowerProfileGetProfilesInfo, "nvmlDeviceWorkloadPowerProfileGetProfilesInfo")
+	register(&fndeviceWorkloadPowerProfileSetRequestedProfiles, "nvmlDeviceWorkloadPowerProfileSetRequestedProfiles")
 	register(&fndeviceWorkloadPowerProfileUpdateProfiles, "nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1")
 	register(&fneventSetCreate, "nvmlEventSetCreate")
 	register(&fneventSetFree, "nvmlEventSetFree")
@@ -513,13 +536,14 @@ func registerFuncs() {
 	register(&fngpuInstanceGetVgpuTypeCreatablePlacements, "nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
 	register(&fngpuInstanceSetVgpuHeterogeneousMode, "nvmlGpuInstanceSetVgpuHeterogeneousMode")
 	register(&fngpuInstanceSetVgpuSchedulerState, "nvmlGpuInstanceSetVgpuSchedulerState_v2")
-	register(&fnInitWithFlags, "nvmlInitWithFlags")
 	register(&fnInit, "nvmlInit_v2")
+	register(&fnInitWithFlags, "nvmlInitWithFlags")
 	register(&fnSetVgpuVersion, "nvmlSetVgpuVersion")
 	register(&fnShutdown, "nvmlShutdown")
 	register(&fnSystemEventSetCreate, "nvmlSystemEventSetCreate")
 	register(&fnSystemEventSetFree, "nvmlSystemEventSetFree")
 	register(&fnSystemEventSetWait, "nvmlSystemEventSetWait")
+	register(&fnSystemGetCPER, "nvmlSystemGetCPER_v1")
 	register(&fnSystemGetConfComputeCapabilities, "nvmlSystemGetConfComputeCapabilities")
 	register(&fnSystemGetConfComputeGpusReadyState, "nvmlSystemGetConfComputeGpusReadyState")
 	register(&fnSystemGetConfComputeKeyRotationThresholdInfo, "nvmlSystemGetConfComputeKeyRotationThresholdInfo")
@@ -561,6 +585,7 @@ func registerFuncs() {
 	register(&fnvgpuInstanceGetGpuInstanceId, "nvmlVgpuInstanceGetGpuInstanceId")
 	register(&fnvgpuInstanceGetGpuPciId, "nvmlVgpuInstanceGetGpuPciId")
 	register(&fnvgpuInstanceGetLicenseInfo, "nvmlVgpuInstanceGetLicenseInfo_v2")
+	register(&fnvgpuInstanceGetLicenseStatus, "nvmlVgpuInstanceGetLicenseStatus")
 	register(&fnvgpuInstanceGetMdevUUID, "nvmlVgpuInstanceGetMdevUUID")
 	register(&fnvgpuInstanceGetMetadata, "nvmlVgpuInstanceGetMetadata")
 	register(&fnvgpuInstanceGetPlacementId, "nvmlVgpuInstanceGetPlacementId")
@@ -588,7 +613,7 @@ func registerFuncs() {
 	register(&fnvgpuTypeGetResolution, "nvmlVgpuTypeGetResolution")
 }
 
-// clearFuncs unbinds all raw function pointers.
+// clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnErrorString = nil
 	fncomputeInstanceDestroy = nil
@@ -600,6 +625,7 @@ func clearFuncs() {
 	fndeviceCreateGpuInstance = nil
 	fndeviceCreateGpuInstanceWithPlacement = nil
 	fnDeviceDiscoverGpus = nil
+	fndeviceFreezeNvLinkUtilizationCounter = nil
 	fndeviceGetAPIRestriction = nil
 	fndeviceGetAccountingBufferSize = nil
 	fndeviceGetAccountingMode = nil
@@ -608,10 +634,12 @@ func clearFuncs() {
 	fndeviceGetActiveVgpus = nil
 	fndeviceGetAdaptiveClockInfoStatus = nil
 	fndeviceGetAddressingMode = nil
+	fndeviceGetApplicationsClock = nil
 	fndeviceGetArchitecture = nil
 	fndeviceGetAttributes = nil
 	fndeviceGetAutoBoostedClocksEnabled = nil
 	fndeviceGetBAR1MemoryInfo = nil
+	fndeviceGetBBXTimeData = nil
 	fndeviceGetBoardId = nil
 	fndeviceGetBoardPartNumber = nil
 	fndeviceGetBrand = nil
@@ -640,8 +668,11 @@ func clearFuncs() {
 	fndeviceGetCurrPcieLinkWidth = nil
 	fndeviceGetCurrentClockFreqs = nil
 	fndeviceGetCurrentClocksEventReasons = nil
+	fndeviceGetCurrentClocksThrottleReasons = nil
 	fndeviceGetDecoderUtilization = nil
+	fndeviceGetDefaultApplicationsClock = nil
 	fndeviceGetDefaultEccMode = nil
+	fndeviceGetDetailedEccErrors = nil
 	fndeviceGetDeviceHandleFromMigDeviceHandle = nil
 	fndeviceGetDisplayActive = nil
 	fndeviceGetDisplayMode = nil
@@ -662,6 +693,7 @@ func clearFuncs() {
 	fndeviceGetFieldValues = nil
 	fndeviceGetGpcClkMinMaxVfOffset = nil
 	fndeviceGetGpcClkVfOffset = nil
+	fndeviceGetGpuFabricInfo = nil
 	fndeviceGetGpuFabricInfoV = nil
 	fndeviceGetGpuInstanceById = nil
 	fndeviceGetGpuInstanceId = nil
@@ -679,6 +711,7 @@ func clearFuncs() {
 	fndeviceGetGspFirmwareVersion = nil
 	fndeviceGetHandleByIndex = nil
 	fndeviceGetHandleByPciBusId = nil
+	fndeviceGetHandleBySerial = nil
 	fndeviceGetHandleByUUID = nil
 	fndeviceGetHandleByUUIDV = nil
 	fndeviceGetHostVgpuMode = nil
@@ -720,13 +753,15 @@ func clearFuncs() {
 	fndeviceGetNvLinkRemoteDeviceType = nil
 	fndeviceGetNvLinkRemotePciInfo = nil
 	fndeviceGetNvLinkState = nil
+	fndeviceGetNvLinkUtilizationControl = nil
+	fndeviceGetNvLinkUtilizationCounter = nil
 	fndeviceGetNvLinkVersion = nil
 	fndeviceGetNvlinkBwMode = nil
 	fndeviceGetNvlinkSupportedBwModes = nil
 	fndeviceGetOfaUtilization = nil
 	fndeviceGetP2PStatus = nil
-	fndeviceGetPciInfoExt = nil
 	fndeviceGetPciInfo = nil
+	fndeviceGetPciInfoExt = nil
 	fndeviceGetPcieLinkMaxSpeed = nil
 	fndeviceGetPcieReplayCounter = nil
 	fndeviceGetPcieSpeed = nil
@@ -740,8 +775,10 @@ func clearFuncs() {
 	fndeviceGetPowerManagementDefaultLimit = nil
 	fndeviceGetPowerManagementLimit = nil
 	fndeviceGetPowerManagementLimitConstraints = nil
+	fndeviceGetPowerManagementMode = nil
 	fndeviceGetPowerMizerMode = nil
 	fndeviceGetPowerSource = nil
+	fndeviceGetPowerState = nil
 	fndeviceGetPowerUsage = nil
 	fndeviceGetProcessUtilization = nil
 	fndeviceGetProcessesUtilizationInfo = nil
@@ -756,12 +793,14 @@ func clearFuncs() {
 	fndeviceGetSramEccErrorStatus = nil
 	fndeviceGetSramUniqueUncorrectedEccErrorCounts = nil
 	fndeviceGetSupportedClocksEventReasons = nil
+	fndeviceGetSupportedClocksThrottleReasons = nil
 	fndeviceGetSupportedEventTypes = nil
 	fndeviceGetSupportedGraphicsClocks = nil
 	fndeviceGetSupportedMemoryClocks = nil
 	fndeviceGetSupportedPerformanceStates = nil
 	fndeviceGetSupportedVgpus = nil
 	fndeviceGetTargetFanSpeed = nil
+	fndeviceGetTemperature = nil
 	fndeviceGetTemperatureThreshold = nil
 	fndeviceGetTemperatureV = nil
 	fndeviceGetThermalSettings = nil
@@ -785,6 +824,7 @@ func clearFuncs() {
 	fndeviceGetVgpuTypeCreatablePlacements = nil
 	fndeviceGetVgpuTypeSupportedPlacements = nil
 	fndeviceGetVgpuUtilization = nil
+	fndeviceGetViolationStatus = nil
 	fndeviceGetVirtualizationMode = nil
 	fndeviceIsMigDeviceHandle = nil
 	fnDeviceModifyDrainState = nil
@@ -797,11 +837,14 @@ func clearFuncs() {
 	fndeviceReadWritePRM = nil
 	fndeviceRegisterEvents = nil
 	fnDeviceRemoveGpu = nil
+	fndeviceResetApplicationsClocks = nil
 	fndeviceResetGpuLockedClocks = nil
 	fndeviceResetMemoryLockedClocks = nil
 	fndeviceResetNvLinkErrorCounters = nil
+	fndeviceResetNvLinkUtilizationCounter = nil
 	fndeviceSetAPIRestriction = nil
 	fndeviceSetAccountingMode = nil
+	fndeviceSetApplicationsClocks = nil
 	fndeviceSetAutoBoostedClocksEnabled = nil
 	fndeviceSetClockOffsets = nil
 	fndeviceSetComputeMode = nil
@@ -814,12 +857,15 @@ func clearFuncs() {
 	fndeviceSetEccMode = nil
 	fndeviceSetFanControlPolicy = nil
 	fndeviceSetFanSpeed = nil
+	fndeviceSetGpcClkVfOffset = nil
 	fndeviceSetGpuLockedClocks = nil
 	fndeviceSetGpuOperationMode = nil
 	fndeviceSetHostname = nil
+	fndeviceSetMemClkVfOffset = nil
 	fndeviceSetMemoryLockedClocks = nil
 	fndeviceSetMigMode = nil
 	fndeviceSetNvLinkDeviceLowPowerThreshold = nil
+	fndeviceSetNvLinkUtilizationControl = nil
 	fndeviceSetNvlinkBwMode = nil
 	fndeviceSetPersistenceMode = nil
 	fndeviceSetPowerManagementLimit = nil
@@ -832,8 +878,10 @@ func clearFuncs() {
 	fndeviceSetVirtualizationMode = nil
 	fndeviceValidateInforom = nil
 	fndeviceVgpuForceGspUnload = nil
+	fndeviceWorkloadPowerProfileClearRequestedProfiles = nil
 	fndeviceWorkloadPowerProfileGetCurrentProfiles = nil
 	fndeviceWorkloadPowerProfileGetProfilesInfo = nil
+	fndeviceWorkloadPowerProfileSetRequestedProfiles = nil
 	fndeviceWorkloadPowerProfileUpdateProfiles = nil
 	fneventSetCreate = nil
 	fneventSetFree = nil
@@ -869,13 +917,14 @@ func clearFuncs() {
 	fngpuInstanceGetVgpuTypeCreatablePlacements = nil
 	fngpuInstanceSetVgpuHeterogeneousMode = nil
 	fngpuInstanceSetVgpuSchedulerState = nil
-	fnInitWithFlags = nil
 	fnInit = nil
+	fnInitWithFlags = nil
 	fnSetVgpuVersion = nil
 	fnShutdown = nil
 	fnSystemEventSetCreate = nil
 	fnSystemEventSetFree = nil
 	fnSystemEventSetWait = nil
+	fnSystemGetCPER = nil
 	fnSystemGetConfComputeCapabilities = nil
 	fnSystemGetConfComputeGpusReadyState = nil
 	fnSystemGetConfComputeKeyRotationThresholdInfo = nil
@@ -917,6 +966,7 @@ func clearFuncs() {
 	fnvgpuInstanceGetGpuInstanceId = nil
 	fnvgpuInstanceGetGpuPciId = nil
 	fnvgpuInstanceGetLicenseInfo = nil
+	fnvgpuInstanceGetLicenseStatus = nil
 	fnvgpuInstanceGetMdevUUID = nil
 	fnvgpuInstanceGetMetadata = nil
 	fnvgpuInstanceGetPlacementId = nil
@@ -949,43 +999,43 @@ func HasErrorString() bool {
 	return Has("nvmlErrorString")
 }
 
-// HascomputeInstanceDestroy reports whether nvmlComputeInstanceDestroy resolved in the loaded library.
-func HascomputeInstanceDestroy() bool {
+// HasComputeInstanceDestroy reports whether nvmlComputeInstanceDestroy resolved in the loaded library.
+func HasComputeInstanceDestroy() bool {
 	return Has("nvmlComputeInstanceDestroy")
 }
 
-// HascomputeInstanceGetInfo reports whether nvmlComputeInstanceGetInfo_v2 resolved in the loaded library.
-func HascomputeInstanceGetInfo() bool {
+// HasComputeInstanceGetInfo reports whether nvmlComputeInstanceGetInfo_v2 resolved in the loaded library.
+func HasComputeInstanceGetInfo() bool {
 	return Has("nvmlComputeInstanceGetInfo_v2")
 }
 
-// HasdeviceClearAccountingPids reports whether nvmlDeviceClearAccountingPids resolved in the loaded library.
-func HasdeviceClearAccountingPids() bool {
+// HasDeviceClearAccountingPids reports whether nvmlDeviceClearAccountingPids resolved in the loaded library.
+func HasDeviceClearAccountingPids() bool {
 	return Has("nvmlDeviceClearAccountingPids")
 }
 
-// HasdeviceClearCpuAffinity reports whether nvmlDeviceClearCpuAffinity resolved in the loaded library.
-func HasdeviceClearCpuAffinity() bool {
+// HasDeviceClearCpuAffinity reports whether nvmlDeviceClearCpuAffinity resolved in the loaded library.
+func HasDeviceClearCpuAffinity() bool {
 	return Has("nvmlDeviceClearCpuAffinity")
 }
 
-// HasdeviceClearEccErrorCounts reports whether nvmlDeviceClearEccErrorCounts resolved in the loaded library.
-func HasdeviceClearEccErrorCounts() bool {
+// HasDeviceClearEccErrorCounts reports whether nvmlDeviceClearEccErrorCounts resolved in the loaded library.
+func HasDeviceClearEccErrorCounts() bool {
 	return Has("nvmlDeviceClearEccErrorCounts")
 }
 
-// HasdeviceClearFieldValues reports whether nvmlDeviceClearFieldValues resolved in the loaded library.
-func HasdeviceClearFieldValues() bool {
+// HasDeviceClearFieldValues reports whether nvmlDeviceClearFieldValues resolved in the loaded library.
+func HasDeviceClearFieldValues() bool {
 	return Has("nvmlDeviceClearFieldValues")
 }
 
-// HasdeviceCreateGpuInstance reports whether nvmlDeviceCreateGpuInstance resolved in the loaded library.
-func HasdeviceCreateGpuInstance() bool {
+// HasDeviceCreateGpuInstance reports whether nvmlDeviceCreateGpuInstance resolved in the loaded library.
+func HasDeviceCreateGpuInstance() bool {
 	return Has("nvmlDeviceCreateGpuInstance")
 }
 
-// HasdeviceCreateGpuInstanceWithPlacement reports whether nvmlDeviceCreateGpuInstanceWithPlacement resolved in the loaded library.
-func HasdeviceCreateGpuInstanceWithPlacement() bool {
+// HasDeviceCreateGpuInstanceWithPlacement reports whether nvmlDeviceCreateGpuInstanceWithPlacement resolved in the loaded library.
+func HasDeviceCreateGpuInstanceWithPlacement() bool {
 	return Has("nvmlDeviceCreateGpuInstanceWithPlacement")
 }
 
@@ -994,158 +1044,173 @@ func HasDeviceDiscoverGpus() bool {
 	return Has("nvmlDeviceDiscoverGpus")
 }
 
-// HasdeviceGetAPIRestriction reports whether nvmlDeviceGetAPIRestriction resolved in the loaded library.
-func HasdeviceGetAPIRestriction() bool {
+// HasDeviceFreezeNvLinkUtilizationCounter reports whether nvmlDeviceFreezeNvLinkUtilizationCounter resolved in the loaded library.
+func HasDeviceFreezeNvLinkUtilizationCounter() bool {
+	return Has("nvmlDeviceFreezeNvLinkUtilizationCounter")
+}
+
+// HasDeviceGetAPIRestriction reports whether nvmlDeviceGetAPIRestriction resolved in the loaded library.
+func HasDeviceGetAPIRestriction() bool {
 	return Has("nvmlDeviceGetAPIRestriction")
 }
 
-// HasdeviceGetAccountingBufferSize reports whether nvmlDeviceGetAccountingBufferSize resolved in the loaded library.
-func HasdeviceGetAccountingBufferSize() bool {
+// HasDeviceGetAccountingBufferSize reports whether nvmlDeviceGetAccountingBufferSize resolved in the loaded library.
+func HasDeviceGetAccountingBufferSize() bool {
 	return Has("nvmlDeviceGetAccountingBufferSize")
 }
 
-// HasdeviceGetAccountingMode reports whether nvmlDeviceGetAccountingMode resolved in the loaded library.
-func HasdeviceGetAccountingMode() bool {
+// HasDeviceGetAccountingMode reports whether nvmlDeviceGetAccountingMode resolved in the loaded library.
+func HasDeviceGetAccountingMode() bool {
 	return Has("nvmlDeviceGetAccountingMode")
 }
 
-// HasdeviceGetAccountingPids reports whether nvmlDeviceGetAccountingPids resolved in the loaded library.
-func HasdeviceGetAccountingPids() bool {
+// HasDeviceGetAccountingPids reports whether nvmlDeviceGetAccountingPids resolved in the loaded library.
+func HasDeviceGetAccountingPids() bool {
 	return Has("nvmlDeviceGetAccountingPids")
 }
 
-// HasdeviceGetAccountingStats reports whether nvmlDeviceGetAccountingStats resolved in the loaded library.
-func HasdeviceGetAccountingStats() bool {
-	return Has("nvmlDeviceGetAccountingStats")
+// HasDeviceGetAccountingStats reports whether nvmlDeviceGetAccountingStats_v2 resolved in the loaded library.
+func HasDeviceGetAccountingStats() bool {
+	return Has("nvmlDeviceGetAccountingStats_v2")
 }
 
-// HasdeviceGetActiveVgpus reports whether nvmlDeviceGetActiveVgpus resolved in the loaded library.
-func HasdeviceGetActiveVgpus() bool {
+// HasDeviceGetActiveVgpus reports whether nvmlDeviceGetActiveVgpus resolved in the loaded library.
+func HasDeviceGetActiveVgpus() bool {
 	return Has("nvmlDeviceGetActiveVgpus")
 }
 
-// HasdeviceGetAdaptiveClockInfoStatus reports whether nvmlDeviceGetAdaptiveClockInfoStatus resolved in the loaded library.
-func HasdeviceGetAdaptiveClockInfoStatus() bool {
+// HasDeviceGetAdaptiveClockInfoStatus reports whether nvmlDeviceGetAdaptiveClockInfoStatus resolved in the loaded library.
+func HasDeviceGetAdaptiveClockInfoStatus() bool {
 	return Has("nvmlDeviceGetAdaptiveClockInfoStatus")
 }
 
-// HasdeviceGetAddressingMode reports whether nvmlDeviceGetAddressingMode resolved in the loaded library.
-func HasdeviceGetAddressingMode() bool {
+// HasDeviceGetAddressingMode reports whether nvmlDeviceGetAddressingMode resolved in the loaded library.
+func HasDeviceGetAddressingMode() bool {
 	return Has("nvmlDeviceGetAddressingMode")
 }
 
-// HasdeviceGetArchitecture reports whether nvmlDeviceGetArchitecture resolved in the loaded library.
-func HasdeviceGetArchitecture() bool {
+// HasDeviceGetApplicationsClock reports whether nvmlDeviceGetApplicationsClock resolved in the loaded library.
+func HasDeviceGetApplicationsClock() bool {
+	return Has("nvmlDeviceGetApplicationsClock")
+}
+
+// HasDeviceGetArchitecture reports whether nvmlDeviceGetArchitecture resolved in the loaded library.
+func HasDeviceGetArchitecture() bool {
 	return Has("nvmlDeviceGetArchitecture")
 }
 
-// HasdeviceGetAttributes reports whether nvmlDeviceGetAttributes_v2 resolved in the loaded library.
-func HasdeviceGetAttributes() bool {
+// HasDeviceGetAttributes reports whether nvmlDeviceGetAttributes_v2 resolved in the loaded library.
+func HasDeviceGetAttributes() bool {
 	return Has("nvmlDeviceGetAttributes_v2")
 }
 
-// HasdeviceGetAutoBoostedClocksEnabled reports whether nvmlDeviceGetAutoBoostedClocksEnabled resolved in the loaded library.
-func HasdeviceGetAutoBoostedClocksEnabled() bool {
+// HasDeviceGetAutoBoostedClocksEnabled reports whether nvmlDeviceGetAutoBoostedClocksEnabled resolved in the loaded library.
+func HasDeviceGetAutoBoostedClocksEnabled() bool {
 	return Has("nvmlDeviceGetAutoBoostedClocksEnabled")
 }
 
-// HasdeviceGetBAR1MemoryInfo reports whether nvmlDeviceGetBAR1MemoryInfo resolved in the loaded library.
-func HasdeviceGetBAR1MemoryInfo() bool {
+// HasDeviceGetBAR1MemoryInfo reports whether nvmlDeviceGetBAR1MemoryInfo resolved in the loaded library.
+func HasDeviceGetBAR1MemoryInfo() bool {
 	return Has("nvmlDeviceGetBAR1MemoryInfo")
 }
 
-// HasdeviceGetBoardId reports whether nvmlDeviceGetBoardId resolved in the loaded library.
-func HasdeviceGetBoardId() bool {
+// HasDeviceGetBBXTimeData reports whether nvmlDeviceGetBBXTimeData_v1 resolved in the loaded library.
+func HasDeviceGetBBXTimeData() bool {
+	return Has("nvmlDeviceGetBBXTimeData_v1")
+}
+
+// HasDeviceGetBoardId reports whether nvmlDeviceGetBoardId resolved in the loaded library.
+func HasDeviceGetBoardId() bool {
 	return Has("nvmlDeviceGetBoardId")
 }
 
-// HasdeviceGetBoardPartNumber reports whether nvmlDeviceGetBoardPartNumber resolved in the loaded library.
-func HasdeviceGetBoardPartNumber() bool {
+// HasDeviceGetBoardPartNumber reports whether nvmlDeviceGetBoardPartNumber resolved in the loaded library.
+func HasDeviceGetBoardPartNumber() bool {
 	return Has("nvmlDeviceGetBoardPartNumber")
 }
 
-// HasdeviceGetBrand reports whether nvmlDeviceGetBrand resolved in the loaded library.
-func HasdeviceGetBrand() bool {
+// HasDeviceGetBrand reports whether nvmlDeviceGetBrand resolved in the loaded library.
+func HasDeviceGetBrand() bool {
 	return Has("nvmlDeviceGetBrand")
 }
 
-// HasdeviceGetBridgeChipInfo reports whether nvmlDeviceGetBridgeChipInfo resolved in the loaded library.
-func HasdeviceGetBridgeChipInfo() bool {
+// HasDeviceGetBridgeChipInfo reports whether nvmlDeviceGetBridgeChipInfo resolved in the loaded library.
+func HasDeviceGetBridgeChipInfo() bool {
 	return Has("nvmlDeviceGetBridgeChipInfo")
 }
 
-// HasdeviceGetBusType reports whether nvmlDeviceGetBusType resolved in the loaded library.
-func HasdeviceGetBusType() bool {
+// HasDeviceGetBusType reports whether nvmlDeviceGetBusType resolved in the loaded library.
+func HasDeviceGetBusType() bool {
 	return Has("nvmlDeviceGetBusType")
 }
 
-// HasdeviceGetC2cModeInfoV reports whether nvmlDeviceGetC2cModeInfoV resolved in the loaded library.
-func HasdeviceGetC2cModeInfoV() bool {
+// HasDeviceGetC2cModeInfoV reports whether nvmlDeviceGetC2cModeInfoV resolved in the loaded library.
+func HasDeviceGetC2cModeInfoV() bool {
 	return Has("nvmlDeviceGetC2cModeInfoV")
 }
 
-// HasdeviceGetCapabilities reports whether nvmlDeviceGetCapabilities resolved in the loaded library.
-func HasdeviceGetCapabilities() bool {
+// HasDeviceGetCapabilities reports whether nvmlDeviceGetCapabilities resolved in the loaded library.
+func HasDeviceGetCapabilities() bool {
 	return Has("nvmlDeviceGetCapabilities")
 }
 
-// HasdeviceGetClkMonStatus reports whether nvmlDeviceGetClkMonStatus resolved in the loaded library.
-func HasdeviceGetClkMonStatus() bool {
+// HasDeviceGetClkMonStatus reports whether nvmlDeviceGetClkMonStatus resolved in the loaded library.
+func HasDeviceGetClkMonStatus() bool {
 	return Has("nvmlDeviceGetClkMonStatus")
 }
 
-// HasdeviceGetClock reports whether nvmlDeviceGetClock resolved in the loaded library.
-func HasdeviceGetClock() bool {
+// HasDeviceGetClock reports whether nvmlDeviceGetClock resolved in the loaded library.
+func HasDeviceGetClock() bool {
 	return Has("nvmlDeviceGetClock")
 }
 
-// HasdeviceGetClockInfo reports whether nvmlDeviceGetClockInfo resolved in the loaded library.
-func HasdeviceGetClockInfo() bool {
+// HasDeviceGetClockInfo reports whether nvmlDeviceGetClockInfo resolved in the loaded library.
+func HasDeviceGetClockInfo() bool {
 	return Has("nvmlDeviceGetClockInfo")
 }
 
-// HasdeviceGetClockOffsets reports whether nvmlDeviceGetClockOffsets resolved in the loaded library.
-func HasdeviceGetClockOffsets() bool {
+// HasDeviceGetClockOffsets reports whether nvmlDeviceGetClockOffsets resolved in the loaded library.
+func HasDeviceGetClockOffsets() bool {
 	return Has("nvmlDeviceGetClockOffsets")
 }
 
-// HasdeviceGetComputeInstanceId reports whether nvmlDeviceGetComputeInstanceId resolved in the loaded library.
-func HasdeviceGetComputeInstanceId() bool {
+// HasDeviceGetComputeInstanceId reports whether nvmlDeviceGetComputeInstanceId resolved in the loaded library.
+func HasDeviceGetComputeInstanceId() bool {
 	return Has("nvmlDeviceGetComputeInstanceId")
 }
 
-// HasdeviceGetComputeMode reports whether nvmlDeviceGetComputeMode resolved in the loaded library.
-func HasdeviceGetComputeMode() bool {
+// HasDeviceGetComputeMode reports whether nvmlDeviceGetComputeMode resolved in the loaded library.
+func HasDeviceGetComputeMode() bool {
 	return Has("nvmlDeviceGetComputeMode")
 }
 
-// HasdeviceGetComputeRunningProcesses reports whether nvmlDeviceGetComputeRunningProcesses_v3 resolved in the loaded library.
-func HasdeviceGetComputeRunningProcesses() bool {
+// HasDeviceGetComputeRunningProcesses reports whether nvmlDeviceGetComputeRunningProcesses_v3 resolved in the loaded library.
+func HasDeviceGetComputeRunningProcesses() bool {
 	return Has("nvmlDeviceGetComputeRunningProcesses_v3")
 }
 
-// HasdeviceGetConfComputeGpuAttestationReport reports whether nvmlDeviceGetConfComputeGpuAttestationReport resolved in the loaded library.
-func HasdeviceGetConfComputeGpuAttestationReport() bool {
+// HasDeviceGetConfComputeGpuAttestationReport reports whether nvmlDeviceGetConfComputeGpuAttestationReport resolved in the loaded library.
+func HasDeviceGetConfComputeGpuAttestationReport() bool {
 	return Has("nvmlDeviceGetConfComputeGpuAttestationReport")
 }
 
-// HasdeviceGetConfComputeGpuCertificate reports whether nvmlDeviceGetConfComputeGpuCertificate resolved in the loaded library.
-func HasdeviceGetConfComputeGpuCertificate() bool {
+// HasDeviceGetConfComputeGpuCertificate reports whether nvmlDeviceGetConfComputeGpuCertificate resolved in the loaded library.
+func HasDeviceGetConfComputeGpuCertificate() bool {
 	return Has("nvmlDeviceGetConfComputeGpuCertificate")
 }
 
-// HasdeviceGetConfComputeMemSizeInfo reports whether nvmlDeviceGetConfComputeMemSizeInfo resolved in the loaded library.
-func HasdeviceGetConfComputeMemSizeInfo() bool {
+// HasDeviceGetConfComputeMemSizeInfo reports whether nvmlDeviceGetConfComputeMemSizeInfo resolved in the loaded library.
+func HasDeviceGetConfComputeMemSizeInfo() bool {
 	return Has("nvmlDeviceGetConfComputeMemSizeInfo")
 }
 
-// HasdeviceGetConfComputeProtectedMemoryUsage reports whether nvmlDeviceGetConfComputeProtectedMemoryUsage resolved in the loaded library.
-func HasdeviceGetConfComputeProtectedMemoryUsage() bool {
+// HasDeviceGetConfComputeProtectedMemoryUsage reports whether nvmlDeviceGetConfComputeProtectedMemoryUsage resolved in the loaded library.
+func HasDeviceGetConfComputeProtectedMemoryUsage() bool {
 	return Has("nvmlDeviceGetConfComputeProtectedMemoryUsage")
 }
 
-// HasdeviceGetCoolerInfo reports whether nvmlDeviceGetCoolerInfo resolved in the loaded library.
-func HasdeviceGetCoolerInfo() bool {
+// HasDeviceGetCoolerInfo reports whether nvmlDeviceGetCoolerInfo resolved in the loaded library.
+func HasDeviceGetCoolerInfo() bool {
 	return Has("nvmlDeviceGetCoolerInfo")
 }
 
@@ -1154,778 +1219,838 @@ func HasDeviceGetCount() bool {
 	return Has("nvmlDeviceGetCount_v2")
 }
 
-// HasdeviceGetCpuAffinity reports whether nvmlDeviceGetCpuAffinity resolved in the loaded library.
-func HasdeviceGetCpuAffinity() bool {
+// HasDeviceGetCpuAffinity reports whether nvmlDeviceGetCpuAffinity resolved in the loaded library.
+func HasDeviceGetCpuAffinity() bool {
 	return Has("nvmlDeviceGetCpuAffinity")
 }
 
-// HasdeviceGetCpuAffinityWithinScope reports whether nvmlDeviceGetCpuAffinityWithinScope resolved in the loaded library.
-func HasdeviceGetCpuAffinityWithinScope() bool {
+// HasDeviceGetCpuAffinityWithinScope reports whether nvmlDeviceGetCpuAffinityWithinScope resolved in the loaded library.
+func HasDeviceGetCpuAffinityWithinScope() bool {
 	return Has("nvmlDeviceGetCpuAffinityWithinScope")
 }
 
-// HasdeviceGetCreatableVgpus reports whether nvmlDeviceGetCreatableVgpus resolved in the loaded library.
-func HasdeviceGetCreatableVgpus() bool {
+// HasDeviceGetCreatableVgpus reports whether nvmlDeviceGetCreatableVgpus resolved in the loaded library.
+func HasDeviceGetCreatableVgpus() bool {
 	return Has("nvmlDeviceGetCreatableVgpus")
 }
 
-// HasdeviceGetCudaComputeCapability reports whether nvmlDeviceGetCudaComputeCapability resolved in the loaded library.
-func HasdeviceGetCudaComputeCapability() bool {
+// HasDeviceGetCudaComputeCapability reports whether nvmlDeviceGetCudaComputeCapability resolved in the loaded library.
+func HasDeviceGetCudaComputeCapability() bool {
 	return Has("nvmlDeviceGetCudaComputeCapability")
 }
 
-// HasdeviceGetCurrPcieLinkGeneration reports whether nvmlDeviceGetCurrPcieLinkGeneration resolved in the loaded library.
-func HasdeviceGetCurrPcieLinkGeneration() bool {
+// HasDeviceGetCurrPcieLinkGeneration reports whether nvmlDeviceGetCurrPcieLinkGeneration resolved in the loaded library.
+func HasDeviceGetCurrPcieLinkGeneration() bool {
 	return Has("nvmlDeviceGetCurrPcieLinkGeneration")
 }
 
-// HasdeviceGetCurrPcieLinkWidth reports whether nvmlDeviceGetCurrPcieLinkWidth resolved in the loaded library.
-func HasdeviceGetCurrPcieLinkWidth() bool {
+// HasDeviceGetCurrPcieLinkWidth reports whether nvmlDeviceGetCurrPcieLinkWidth resolved in the loaded library.
+func HasDeviceGetCurrPcieLinkWidth() bool {
 	return Has("nvmlDeviceGetCurrPcieLinkWidth")
 }
 
-// HasdeviceGetCurrentClockFreqs reports whether nvmlDeviceGetCurrentClockFreqs resolved in the loaded library.
-func HasdeviceGetCurrentClockFreqs() bool {
+// HasDeviceGetCurrentClockFreqs reports whether nvmlDeviceGetCurrentClockFreqs resolved in the loaded library.
+func HasDeviceGetCurrentClockFreqs() bool {
 	return Has("nvmlDeviceGetCurrentClockFreqs")
 }
 
-// HasdeviceGetCurrentClocksEventReasons reports whether nvmlDeviceGetCurrentClocksEventReasons resolved in the loaded library.
-func HasdeviceGetCurrentClocksEventReasons() bool {
+// HasDeviceGetCurrentClocksEventReasons reports whether nvmlDeviceGetCurrentClocksEventReasons resolved in the loaded library.
+func HasDeviceGetCurrentClocksEventReasons() bool {
 	return Has("nvmlDeviceGetCurrentClocksEventReasons")
 }
 
-// HasdeviceGetDecoderUtilization reports whether nvmlDeviceGetDecoderUtilization resolved in the loaded library.
-func HasdeviceGetDecoderUtilization() bool {
+// HasDeviceGetCurrentClocksThrottleReasons reports whether nvmlDeviceGetCurrentClocksThrottleReasons resolved in the loaded library.
+func HasDeviceGetCurrentClocksThrottleReasons() bool {
+	return Has("nvmlDeviceGetCurrentClocksThrottleReasons")
+}
+
+// HasDeviceGetDecoderUtilization reports whether nvmlDeviceGetDecoderUtilization resolved in the loaded library.
+func HasDeviceGetDecoderUtilization() bool {
 	return Has("nvmlDeviceGetDecoderUtilization")
 }
 
-// HasdeviceGetDefaultEccMode reports whether nvmlDeviceGetDefaultEccMode resolved in the loaded library.
-func HasdeviceGetDefaultEccMode() bool {
+// HasDeviceGetDefaultApplicationsClock reports whether nvmlDeviceGetDefaultApplicationsClock resolved in the loaded library.
+func HasDeviceGetDefaultApplicationsClock() bool {
+	return Has("nvmlDeviceGetDefaultApplicationsClock")
+}
+
+// HasDeviceGetDefaultEccMode reports whether nvmlDeviceGetDefaultEccMode resolved in the loaded library.
+func HasDeviceGetDefaultEccMode() bool {
 	return Has("nvmlDeviceGetDefaultEccMode")
 }
 
-// HasdeviceGetDeviceHandleFromMigDeviceHandle reports whether nvmlDeviceGetDeviceHandleFromMigDeviceHandle resolved in the loaded library.
-func HasdeviceGetDeviceHandleFromMigDeviceHandle() bool {
+// HasDeviceGetDetailedEccErrors reports whether nvmlDeviceGetDetailedEccErrors resolved in the loaded library.
+func HasDeviceGetDetailedEccErrors() bool {
+	return Has("nvmlDeviceGetDetailedEccErrors")
+}
+
+// HasDeviceGetDeviceHandleFromMigDeviceHandle reports whether nvmlDeviceGetDeviceHandleFromMigDeviceHandle resolved in the loaded library.
+func HasDeviceGetDeviceHandleFromMigDeviceHandle() bool {
 	return Has("nvmlDeviceGetDeviceHandleFromMigDeviceHandle")
 }
 
-// HasdeviceGetDisplayActive reports whether nvmlDeviceGetDisplayActive resolved in the loaded library.
-func HasdeviceGetDisplayActive() bool {
+// HasDeviceGetDisplayActive reports whether nvmlDeviceGetDisplayActive resolved in the loaded library.
+func HasDeviceGetDisplayActive() bool {
 	return Has("nvmlDeviceGetDisplayActive")
 }
 
-// HasdeviceGetDisplayMode reports whether nvmlDeviceGetDisplayMode resolved in the loaded library.
-func HasdeviceGetDisplayMode() bool {
+// HasDeviceGetDisplayMode reports whether nvmlDeviceGetDisplayMode resolved in the loaded library.
+func HasDeviceGetDisplayMode() bool {
 	return Has("nvmlDeviceGetDisplayMode")
 }
 
-// HasdeviceGetDramEncryptionMode reports whether nvmlDeviceGetDramEncryptionMode resolved in the loaded library.
-func HasdeviceGetDramEncryptionMode() bool {
+// HasDeviceGetDramEncryptionMode reports whether nvmlDeviceGetDramEncryptionMode resolved in the loaded library.
+func HasDeviceGetDramEncryptionMode() bool {
 	return Has("nvmlDeviceGetDramEncryptionMode")
 }
 
-// HasdeviceGetDriverModel reports whether nvmlDeviceGetDriverModel_v2 resolved in the loaded library.
-func HasdeviceGetDriverModel() bool {
+// HasDeviceGetDriverModel reports whether nvmlDeviceGetDriverModel_v2 resolved in the loaded library.
+func HasDeviceGetDriverModel() bool {
 	return Has("nvmlDeviceGetDriverModel_v2")
 }
 
-// HasdeviceGetDynamicPstatesInfo reports whether nvmlDeviceGetDynamicPstatesInfo resolved in the loaded library.
-func HasdeviceGetDynamicPstatesInfo() bool {
+// HasDeviceGetDynamicPstatesInfo reports whether nvmlDeviceGetDynamicPstatesInfo resolved in the loaded library.
+func HasDeviceGetDynamicPstatesInfo() bool {
 	return Has("nvmlDeviceGetDynamicPstatesInfo")
 }
 
-// HasdeviceGetEccMode reports whether nvmlDeviceGetEccMode resolved in the loaded library.
-func HasdeviceGetEccMode() bool {
+// HasDeviceGetEccMode reports whether nvmlDeviceGetEccMode resolved in the loaded library.
+func HasDeviceGetEccMode() bool {
 	return Has("nvmlDeviceGetEccMode")
 }
 
-// HasdeviceGetEncoderCapacity reports whether nvmlDeviceGetEncoderCapacity resolved in the loaded library.
-func HasdeviceGetEncoderCapacity() bool {
+// HasDeviceGetEncoderCapacity reports whether nvmlDeviceGetEncoderCapacity resolved in the loaded library.
+func HasDeviceGetEncoderCapacity() bool {
 	return Has("nvmlDeviceGetEncoderCapacity")
 }
 
-// HasdeviceGetEncoderSessions reports whether nvmlDeviceGetEncoderSessions resolved in the loaded library.
-func HasdeviceGetEncoderSessions() bool {
+// HasDeviceGetEncoderSessions reports whether nvmlDeviceGetEncoderSessions resolved in the loaded library.
+func HasDeviceGetEncoderSessions() bool {
 	return Has("nvmlDeviceGetEncoderSessions")
 }
 
-// HasdeviceGetEncoderStats reports whether nvmlDeviceGetEncoderStats resolved in the loaded library.
-func HasdeviceGetEncoderStats() bool {
+// HasDeviceGetEncoderStats reports whether nvmlDeviceGetEncoderStats resolved in the loaded library.
+func HasDeviceGetEncoderStats() bool {
 	return Has("nvmlDeviceGetEncoderStats")
 }
 
-// HasdeviceGetEncoderUtilization reports whether nvmlDeviceGetEncoderUtilization resolved in the loaded library.
-func HasdeviceGetEncoderUtilization() bool {
+// HasDeviceGetEncoderUtilization reports whether nvmlDeviceGetEncoderUtilization resolved in the loaded library.
+func HasDeviceGetEncoderUtilization() bool {
 	return Has("nvmlDeviceGetEncoderUtilization")
 }
 
-// HasdeviceGetEnforcedPowerLimit reports whether nvmlDeviceGetEnforcedPowerLimit resolved in the loaded library.
-func HasdeviceGetEnforcedPowerLimit() bool {
+// HasDeviceGetEnforcedPowerLimit reports whether nvmlDeviceGetEnforcedPowerLimit resolved in the loaded library.
+func HasDeviceGetEnforcedPowerLimit() bool {
 	return Has("nvmlDeviceGetEnforcedPowerLimit")
 }
 
-// HasdeviceGetFBCSessions reports whether nvmlDeviceGetFBCSessions resolved in the loaded library.
-func HasdeviceGetFBCSessions() bool {
+// HasDeviceGetFBCSessions reports whether nvmlDeviceGetFBCSessions resolved in the loaded library.
+func HasDeviceGetFBCSessions() bool {
 	return Has("nvmlDeviceGetFBCSessions")
 }
 
-// HasdeviceGetFBCStats reports whether nvmlDeviceGetFBCStats resolved in the loaded library.
-func HasdeviceGetFBCStats() bool {
+// HasDeviceGetFBCStats reports whether nvmlDeviceGetFBCStats resolved in the loaded library.
+func HasDeviceGetFBCStats() bool {
 	return Has("nvmlDeviceGetFBCStats")
 }
 
-// HasdeviceGetFanControlPolicy reports whether nvmlDeviceGetFanControlPolicy_v2 resolved in the loaded library.
-func HasdeviceGetFanControlPolicy() bool {
+// HasDeviceGetFanControlPolicy reports whether nvmlDeviceGetFanControlPolicy_v2 resolved in the loaded library.
+func HasDeviceGetFanControlPolicy() bool {
 	return Has("nvmlDeviceGetFanControlPolicy_v2")
 }
 
-// HasdeviceGetFanSpeedRPM reports whether nvmlDeviceGetFanSpeedRPM resolved in the loaded library.
-func HasdeviceGetFanSpeedRPM() bool {
+// HasDeviceGetFanSpeedRPM reports whether nvmlDeviceGetFanSpeedRPM resolved in the loaded library.
+func HasDeviceGetFanSpeedRPM() bool {
 	return Has("nvmlDeviceGetFanSpeedRPM")
 }
 
-// HasdeviceGetFanSpeed reports whether nvmlDeviceGetFanSpeed_v2 resolved in the loaded library.
-func HasdeviceGetFanSpeed() bool {
+// HasDeviceGetFanSpeed reports whether nvmlDeviceGetFanSpeed_v2 resolved in the loaded library.
+func HasDeviceGetFanSpeed() bool {
 	return Has("nvmlDeviceGetFanSpeed_v2")
 }
 
-// HasdeviceGetFieldValues reports whether nvmlDeviceGetFieldValues resolved in the loaded library.
-func HasdeviceGetFieldValues() bool {
+// HasDeviceGetFieldValues reports whether nvmlDeviceGetFieldValues resolved in the loaded library.
+func HasDeviceGetFieldValues() bool {
 	return Has("nvmlDeviceGetFieldValues")
 }
 
-// HasdeviceGetGpcClkMinMaxVfOffset reports whether nvmlDeviceGetGpcClkMinMaxVfOffset resolved in the loaded library.
-func HasdeviceGetGpcClkMinMaxVfOffset() bool {
+// HasDeviceGetGpcClkMinMaxVfOffset reports whether nvmlDeviceGetGpcClkMinMaxVfOffset resolved in the loaded library.
+func HasDeviceGetGpcClkMinMaxVfOffset() bool {
 	return Has("nvmlDeviceGetGpcClkMinMaxVfOffset")
 }
 
-// HasdeviceGetGpcClkVfOffset reports whether nvmlDeviceGetGpcClkVfOffset resolved in the loaded library.
-func HasdeviceGetGpcClkVfOffset() bool {
+// HasDeviceGetGpcClkVfOffset reports whether nvmlDeviceGetGpcClkVfOffset resolved in the loaded library.
+func HasDeviceGetGpcClkVfOffset() bool {
 	return Has("nvmlDeviceGetGpcClkVfOffset")
 }
 
-// HasdeviceGetGpuFabricInfoV reports whether nvmlDeviceGetGpuFabricInfoV resolved in the loaded library.
-func HasdeviceGetGpuFabricInfoV() bool {
+// HasDeviceGetGpuFabricInfo reports whether nvmlDeviceGetGpuFabricInfo resolved in the loaded library.
+func HasDeviceGetGpuFabricInfo() bool {
+	return Has("nvmlDeviceGetGpuFabricInfo")
+}
+
+// HasDeviceGetGpuFabricInfoV reports whether nvmlDeviceGetGpuFabricInfoV resolved in the loaded library.
+func HasDeviceGetGpuFabricInfoV() bool {
 	return Has("nvmlDeviceGetGpuFabricInfoV")
 }
 
-// HasdeviceGetGpuInstanceById reports whether nvmlDeviceGetGpuInstanceById resolved in the loaded library.
-func HasdeviceGetGpuInstanceById() bool {
+// HasDeviceGetGpuInstanceById reports whether nvmlDeviceGetGpuInstanceById resolved in the loaded library.
+func HasDeviceGetGpuInstanceById() bool {
 	return Has("nvmlDeviceGetGpuInstanceById")
 }
 
-// HasdeviceGetGpuInstanceId reports whether nvmlDeviceGetGpuInstanceId resolved in the loaded library.
-func HasdeviceGetGpuInstanceId() bool {
+// HasDeviceGetGpuInstanceId reports whether nvmlDeviceGetGpuInstanceId resolved in the loaded library.
+func HasDeviceGetGpuInstanceId() bool {
 	return Has("nvmlDeviceGetGpuInstanceId")
 }
 
-// HasdeviceGetGpuInstancePossiblePlacements reports whether nvmlDeviceGetGpuInstancePossiblePlacements_v2 resolved in the loaded library.
-func HasdeviceGetGpuInstancePossiblePlacements() bool {
+// HasDeviceGetGpuInstancePossiblePlacements reports whether nvmlDeviceGetGpuInstancePossiblePlacements_v2 resolved in the loaded library.
+func HasDeviceGetGpuInstancePossiblePlacements() bool {
 	return Has("nvmlDeviceGetGpuInstancePossiblePlacements_v2")
 }
 
-// HasdeviceGetGpuInstanceProfileInfo reports whether nvmlDeviceGetGpuInstanceProfileInfo resolved in the loaded library.
-func HasdeviceGetGpuInstanceProfileInfo() bool {
+// HasDeviceGetGpuInstanceProfileInfo reports whether nvmlDeviceGetGpuInstanceProfileInfo resolved in the loaded library.
+func HasDeviceGetGpuInstanceProfileInfo() bool {
 	return Has("nvmlDeviceGetGpuInstanceProfileInfo")
 }
 
-// HasdeviceGetGpuInstanceProfileInfoByIdV reports whether nvmlDeviceGetGpuInstanceProfileInfoByIdV resolved in the loaded library.
-func HasdeviceGetGpuInstanceProfileInfoByIdV() bool {
+// HasDeviceGetGpuInstanceProfileInfoByIdV reports whether nvmlDeviceGetGpuInstanceProfileInfoByIdV resolved in the loaded library.
+func HasDeviceGetGpuInstanceProfileInfoByIdV() bool {
 	return Has("nvmlDeviceGetGpuInstanceProfileInfoByIdV")
 }
 
-// HasdeviceGetGpuInstanceProfileInfoV reports whether nvmlDeviceGetGpuInstanceProfileInfoV resolved in the loaded library.
-func HasdeviceGetGpuInstanceProfileInfoV() bool {
+// HasDeviceGetGpuInstanceProfileInfoV reports whether nvmlDeviceGetGpuInstanceProfileInfoV resolved in the loaded library.
+func HasDeviceGetGpuInstanceProfileInfoV() bool {
 	return Has("nvmlDeviceGetGpuInstanceProfileInfoV")
 }
 
-// HasdeviceGetGpuInstanceRemainingCapacity reports whether nvmlDeviceGetGpuInstanceRemainingCapacity resolved in the loaded library.
-func HasdeviceGetGpuInstanceRemainingCapacity() bool {
+// HasDeviceGetGpuInstanceRemainingCapacity reports whether nvmlDeviceGetGpuInstanceRemainingCapacity resolved in the loaded library.
+func HasDeviceGetGpuInstanceRemainingCapacity() bool {
 	return Has("nvmlDeviceGetGpuInstanceRemainingCapacity")
 }
 
-// HasdeviceGetGpuInstances reports whether nvmlDeviceGetGpuInstances resolved in the loaded library.
-func HasdeviceGetGpuInstances() bool {
+// HasDeviceGetGpuInstances reports whether nvmlDeviceGetGpuInstances resolved in the loaded library.
+func HasDeviceGetGpuInstances() bool {
 	return Has("nvmlDeviceGetGpuInstances")
 }
 
-// HasdeviceGetGpuMaxPcieLinkGeneration reports whether nvmlDeviceGetGpuMaxPcieLinkGeneration resolved in the loaded library.
-func HasdeviceGetGpuMaxPcieLinkGeneration() bool {
+// HasDeviceGetGpuMaxPcieLinkGeneration reports whether nvmlDeviceGetGpuMaxPcieLinkGeneration resolved in the loaded library.
+func HasDeviceGetGpuMaxPcieLinkGeneration() bool {
 	return Has("nvmlDeviceGetGpuMaxPcieLinkGeneration")
 }
 
-// HasdeviceGetGpuOperationMode reports whether nvmlDeviceGetGpuOperationMode resolved in the loaded library.
-func HasdeviceGetGpuOperationMode() bool {
+// HasDeviceGetGpuOperationMode reports whether nvmlDeviceGetGpuOperationMode resolved in the loaded library.
+func HasDeviceGetGpuOperationMode() bool {
 	return Has("nvmlDeviceGetGpuOperationMode")
 }
 
-// HasdeviceGetGraphicsRunningProcesses reports whether nvmlDeviceGetGraphicsRunningProcesses_v3 resolved in the loaded library.
-func HasdeviceGetGraphicsRunningProcesses() bool {
+// HasDeviceGetGraphicsRunningProcesses reports whether nvmlDeviceGetGraphicsRunningProcesses_v3 resolved in the loaded library.
+func HasDeviceGetGraphicsRunningProcesses() bool {
 	return Has("nvmlDeviceGetGraphicsRunningProcesses_v3")
 }
 
-// HasdeviceGetGridLicensableFeatures reports whether nvmlDeviceGetGridLicensableFeatures_v4 resolved in the loaded library.
-func HasdeviceGetGridLicensableFeatures() bool {
+// HasDeviceGetGridLicensableFeatures reports whether nvmlDeviceGetGridLicensableFeatures_v4 resolved in the loaded library.
+func HasDeviceGetGridLicensableFeatures() bool {
 	return Has("nvmlDeviceGetGridLicensableFeatures_v4")
 }
 
-// HasdeviceGetGspFirmwareMode reports whether nvmlDeviceGetGspFirmwareMode resolved in the loaded library.
-func HasdeviceGetGspFirmwareMode() bool {
+// HasDeviceGetGspFirmwareMode reports whether nvmlDeviceGetGspFirmwareMode resolved in the loaded library.
+func HasDeviceGetGspFirmwareMode() bool {
 	return Has("nvmlDeviceGetGspFirmwareMode")
 }
 
-// HasdeviceGetGspFirmwareVersion reports whether nvmlDeviceGetGspFirmwareVersion resolved in the loaded library.
-func HasdeviceGetGspFirmwareVersion() bool {
+// HasDeviceGetGspFirmwareVersion reports whether nvmlDeviceGetGspFirmwareVersion resolved in the loaded library.
+func HasDeviceGetGspFirmwareVersion() bool {
 	return Has("nvmlDeviceGetGspFirmwareVersion")
 }
 
-// HasdeviceGetHandleByIndex reports whether nvmlDeviceGetHandleByIndex_v2 resolved in the loaded library.
-func HasdeviceGetHandleByIndex() bool {
+// HasDeviceGetHandleByIndex reports whether nvmlDeviceGetHandleByIndex_v2 resolved in the loaded library.
+func HasDeviceGetHandleByIndex() bool {
 	return Has("nvmlDeviceGetHandleByIndex_v2")
 }
 
-// HasdeviceGetHandleByPciBusId reports whether nvmlDeviceGetHandleByPciBusId_v2 resolved in the loaded library.
-func HasdeviceGetHandleByPciBusId() bool {
+// HasDeviceGetHandleByPciBusId reports whether nvmlDeviceGetHandleByPciBusId_v2 resolved in the loaded library.
+func HasDeviceGetHandleByPciBusId() bool {
 	return Has("nvmlDeviceGetHandleByPciBusId_v2")
 }
 
-// HasdeviceGetHandleByUUID reports whether nvmlDeviceGetHandleByUUID resolved in the loaded library.
-func HasdeviceGetHandleByUUID() bool {
+// HasDeviceGetHandleBySerial reports whether nvmlDeviceGetHandleBySerial resolved in the loaded library.
+func HasDeviceGetHandleBySerial() bool {
+	return Has("nvmlDeviceGetHandleBySerial")
+}
+
+// HasDeviceGetHandleByUUID reports whether nvmlDeviceGetHandleByUUID resolved in the loaded library.
+func HasDeviceGetHandleByUUID() bool {
 	return Has("nvmlDeviceGetHandleByUUID")
 }
 
-// HasdeviceGetHandleByUUIDV reports whether nvmlDeviceGetHandleByUUIDV resolved in the loaded library.
-func HasdeviceGetHandleByUUIDV() bool {
+// HasDeviceGetHandleByUUIDV reports whether nvmlDeviceGetHandleByUUIDV resolved in the loaded library.
+func HasDeviceGetHandleByUUIDV() bool {
 	return Has("nvmlDeviceGetHandleByUUIDV")
 }
 
-// HasdeviceGetHostVgpuMode reports whether nvmlDeviceGetHostVgpuMode resolved in the loaded library.
-func HasdeviceGetHostVgpuMode() bool {
+// HasDeviceGetHostVgpuMode reports whether nvmlDeviceGetHostVgpuMode resolved in the loaded library.
+func HasDeviceGetHostVgpuMode() bool {
 	return Has("nvmlDeviceGetHostVgpuMode")
 }
 
-// HasdeviceGetHostname reports whether nvmlDeviceGetHostname_v1 resolved in the loaded library.
-func HasdeviceGetHostname() bool {
+// HasDeviceGetHostname reports whether nvmlDeviceGetHostname_v1 resolved in the loaded library.
+func HasDeviceGetHostname() bool {
 	return Has("nvmlDeviceGetHostname_v1")
 }
 
-// HasdeviceGetIndex reports whether nvmlDeviceGetIndex resolved in the loaded library.
-func HasdeviceGetIndex() bool {
+// HasDeviceGetIndex reports whether nvmlDeviceGetIndex resolved in the loaded library.
+func HasDeviceGetIndex() bool {
 	return Has("nvmlDeviceGetIndex")
 }
 
-// HasdeviceGetInforomConfigurationChecksum reports whether nvmlDeviceGetInforomConfigurationChecksum resolved in the loaded library.
-func HasdeviceGetInforomConfigurationChecksum() bool {
+// HasDeviceGetInforomConfigurationChecksum reports whether nvmlDeviceGetInforomConfigurationChecksum resolved in the loaded library.
+func HasDeviceGetInforomConfigurationChecksum() bool {
 	return Has("nvmlDeviceGetInforomConfigurationChecksum")
 }
 
-// HasdeviceGetInforomImageVersion reports whether nvmlDeviceGetInforomImageVersion resolved in the loaded library.
-func HasdeviceGetInforomImageVersion() bool {
+// HasDeviceGetInforomImageVersion reports whether nvmlDeviceGetInforomImageVersion resolved in the loaded library.
+func HasDeviceGetInforomImageVersion() bool {
 	return Has("nvmlDeviceGetInforomImageVersion")
 }
 
-// HasdeviceGetInforomVersion reports whether nvmlDeviceGetInforomVersion resolved in the loaded library.
-func HasdeviceGetInforomVersion() bool {
+// HasDeviceGetInforomVersion reports whether nvmlDeviceGetInforomVersion resolved in the loaded library.
+func HasDeviceGetInforomVersion() bool {
 	return Has("nvmlDeviceGetInforomVersion")
 }
 
-// HasdeviceGetIrqNum reports whether nvmlDeviceGetIrqNum resolved in the loaded library.
-func HasdeviceGetIrqNum() bool {
+// HasDeviceGetIrqNum reports whether nvmlDeviceGetIrqNum resolved in the loaded library.
+func HasDeviceGetIrqNum() bool {
 	return Has("nvmlDeviceGetIrqNum")
 }
 
-// HasdeviceGetJpgUtilization reports whether nvmlDeviceGetJpgUtilization resolved in the loaded library.
-func HasdeviceGetJpgUtilization() bool {
+// HasDeviceGetJpgUtilization reports whether nvmlDeviceGetJpgUtilization resolved in the loaded library.
+func HasDeviceGetJpgUtilization() bool {
 	return Has("nvmlDeviceGetJpgUtilization")
 }
 
-// HasdeviceGetLastBBXFlushTime reports whether nvmlDeviceGetLastBBXFlushTime resolved in the loaded library.
-func HasdeviceGetLastBBXFlushTime() bool {
+// HasDeviceGetLastBBXFlushTime reports whether nvmlDeviceGetLastBBXFlushTime resolved in the loaded library.
+func HasDeviceGetLastBBXFlushTime() bool {
 	return Has("nvmlDeviceGetLastBBXFlushTime")
 }
 
-// HasdeviceGetMPSComputeRunningProcesses reports whether nvmlDeviceGetMPSComputeRunningProcesses_v3 resolved in the loaded library.
-func HasdeviceGetMPSComputeRunningProcesses() bool {
+// HasDeviceGetMPSComputeRunningProcesses reports whether nvmlDeviceGetMPSComputeRunningProcesses_v3 resolved in the loaded library.
+func HasDeviceGetMPSComputeRunningProcesses() bool {
 	return Has("nvmlDeviceGetMPSComputeRunningProcesses_v3")
 }
 
-// HasdeviceGetMarginTemperature reports whether nvmlDeviceGetMarginTemperature resolved in the loaded library.
-func HasdeviceGetMarginTemperature() bool {
+// HasDeviceGetMarginTemperature reports whether nvmlDeviceGetMarginTemperature resolved in the loaded library.
+func HasDeviceGetMarginTemperature() bool {
 	return Has("nvmlDeviceGetMarginTemperature")
 }
 
-// HasdeviceGetMaxClockInfo reports whether nvmlDeviceGetMaxClockInfo resolved in the loaded library.
-func HasdeviceGetMaxClockInfo() bool {
+// HasDeviceGetMaxClockInfo reports whether nvmlDeviceGetMaxClockInfo resolved in the loaded library.
+func HasDeviceGetMaxClockInfo() bool {
 	return Has("nvmlDeviceGetMaxClockInfo")
 }
 
-// HasdeviceGetMaxCustomerBoostClock reports whether nvmlDeviceGetMaxCustomerBoostClock resolved in the loaded library.
-func HasdeviceGetMaxCustomerBoostClock() bool {
+// HasDeviceGetMaxCustomerBoostClock reports whether nvmlDeviceGetMaxCustomerBoostClock resolved in the loaded library.
+func HasDeviceGetMaxCustomerBoostClock() bool {
 	return Has("nvmlDeviceGetMaxCustomerBoostClock")
 }
 
-// HasdeviceGetMaxMigDeviceCount reports whether nvmlDeviceGetMaxMigDeviceCount resolved in the loaded library.
-func HasdeviceGetMaxMigDeviceCount() bool {
+// HasDeviceGetMaxMigDeviceCount reports whether nvmlDeviceGetMaxMigDeviceCount resolved in the loaded library.
+func HasDeviceGetMaxMigDeviceCount() bool {
 	return Has("nvmlDeviceGetMaxMigDeviceCount")
 }
 
-// HasdeviceGetMaxPcieLinkGeneration reports whether nvmlDeviceGetMaxPcieLinkGeneration resolved in the loaded library.
-func HasdeviceGetMaxPcieLinkGeneration() bool {
+// HasDeviceGetMaxPcieLinkGeneration reports whether nvmlDeviceGetMaxPcieLinkGeneration resolved in the loaded library.
+func HasDeviceGetMaxPcieLinkGeneration() bool {
 	return Has("nvmlDeviceGetMaxPcieLinkGeneration")
 }
 
-// HasdeviceGetMaxPcieLinkWidth reports whether nvmlDeviceGetMaxPcieLinkWidth resolved in the loaded library.
-func HasdeviceGetMaxPcieLinkWidth() bool {
+// HasDeviceGetMaxPcieLinkWidth reports whether nvmlDeviceGetMaxPcieLinkWidth resolved in the loaded library.
+func HasDeviceGetMaxPcieLinkWidth() bool {
 	return Has("nvmlDeviceGetMaxPcieLinkWidth")
 }
 
-// HasdeviceGetMemClkMinMaxVfOffset reports whether nvmlDeviceGetMemClkMinMaxVfOffset resolved in the loaded library.
-func HasdeviceGetMemClkMinMaxVfOffset() bool {
+// HasDeviceGetMemClkMinMaxVfOffset reports whether nvmlDeviceGetMemClkMinMaxVfOffset resolved in the loaded library.
+func HasDeviceGetMemClkMinMaxVfOffset() bool {
 	return Has("nvmlDeviceGetMemClkMinMaxVfOffset")
 }
 
-// HasdeviceGetMemClkVfOffset reports whether nvmlDeviceGetMemClkVfOffset resolved in the loaded library.
-func HasdeviceGetMemClkVfOffset() bool {
+// HasDeviceGetMemClkVfOffset reports whether nvmlDeviceGetMemClkVfOffset resolved in the loaded library.
+func HasDeviceGetMemClkVfOffset() bool {
 	return Has("nvmlDeviceGetMemClkVfOffset")
 }
 
-// HasdeviceGetMemoryAffinity reports whether nvmlDeviceGetMemoryAffinity resolved in the loaded library.
-func HasdeviceGetMemoryAffinity() bool {
+// HasDeviceGetMemoryAffinity reports whether nvmlDeviceGetMemoryAffinity resolved in the loaded library.
+func HasDeviceGetMemoryAffinity() bool {
 	return Has("nvmlDeviceGetMemoryAffinity")
 }
 
-// HasdeviceGetMemoryBusWidth reports whether nvmlDeviceGetMemoryBusWidth resolved in the loaded library.
-func HasdeviceGetMemoryBusWidth() bool {
+// HasDeviceGetMemoryBusWidth reports whether nvmlDeviceGetMemoryBusWidth resolved in the loaded library.
+func HasDeviceGetMemoryBusWidth() bool {
 	return Has("nvmlDeviceGetMemoryBusWidth")
 }
 
-// HasdeviceGetMemoryErrorCounter reports whether nvmlDeviceGetMemoryErrorCounter resolved in the loaded library.
-func HasdeviceGetMemoryErrorCounter() bool {
+// HasDeviceGetMemoryErrorCounter reports whether nvmlDeviceGetMemoryErrorCounter resolved in the loaded library.
+func HasDeviceGetMemoryErrorCounter() bool {
 	return Has("nvmlDeviceGetMemoryErrorCounter")
 }
 
-// HasdeviceGetMemoryInfo reports whether nvmlDeviceGetMemoryInfo resolved in the loaded library.
-func HasdeviceGetMemoryInfo() bool {
-	return Has("nvmlDeviceGetMemoryInfo")
+// HasDeviceGetMemoryInfo reports whether nvmlDeviceGetMemoryInfo_v2 resolved in the loaded library.
+func HasDeviceGetMemoryInfo() bool {
+	return Has("nvmlDeviceGetMemoryInfo_v2")
 }
 
-// HasdeviceGetMigDeviceHandleByIndex reports whether nvmlDeviceGetMigDeviceHandleByIndex resolved in the loaded library.
-func HasdeviceGetMigDeviceHandleByIndex() bool {
+// HasDeviceGetMigDeviceHandleByIndex reports whether nvmlDeviceGetMigDeviceHandleByIndex resolved in the loaded library.
+func HasDeviceGetMigDeviceHandleByIndex() bool {
 	return Has("nvmlDeviceGetMigDeviceHandleByIndex")
 }
 
-// HasdeviceGetMigMode reports whether nvmlDeviceGetMigMode resolved in the loaded library.
-func HasdeviceGetMigMode() bool {
+// HasDeviceGetMigMode reports whether nvmlDeviceGetMigMode resolved in the loaded library.
+func HasDeviceGetMigMode() bool {
 	return Has("nvmlDeviceGetMigMode")
 }
 
-// HasdeviceGetMinMaxClockOfPState reports whether nvmlDeviceGetMinMaxClockOfPState resolved in the loaded library.
-func HasdeviceGetMinMaxClockOfPState() bool {
+// HasDeviceGetMinMaxClockOfPState reports whether nvmlDeviceGetMinMaxClockOfPState resolved in the loaded library.
+func HasDeviceGetMinMaxClockOfPState() bool {
 	return Has("nvmlDeviceGetMinMaxClockOfPState")
 }
 
-// HasdeviceGetMinMaxFanSpeed reports whether nvmlDeviceGetMinMaxFanSpeed resolved in the loaded library.
-func HasdeviceGetMinMaxFanSpeed() bool {
+// HasDeviceGetMinMaxFanSpeed reports whether nvmlDeviceGetMinMaxFanSpeed resolved in the loaded library.
+func HasDeviceGetMinMaxFanSpeed() bool {
 	return Has("nvmlDeviceGetMinMaxFanSpeed")
 }
 
-// HasdeviceGetMinorNumber reports whether nvmlDeviceGetMinorNumber resolved in the loaded library.
-func HasdeviceGetMinorNumber() bool {
+// HasDeviceGetMinorNumber reports whether nvmlDeviceGetMinorNumber resolved in the loaded library.
+func HasDeviceGetMinorNumber() bool {
 	return Has("nvmlDeviceGetMinorNumber")
 }
 
-// HasdeviceGetModuleId reports whether nvmlDeviceGetModuleId resolved in the loaded library.
-func HasdeviceGetModuleId() bool {
+// HasDeviceGetModuleId reports whether nvmlDeviceGetModuleId resolved in the loaded library.
+func HasDeviceGetModuleId() bool {
 	return Has("nvmlDeviceGetModuleId")
 }
 
-// HasdeviceGetMultiGpuBoard reports whether nvmlDeviceGetMultiGpuBoard resolved in the loaded library.
-func HasdeviceGetMultiGpuBoard() bool {
+// HasDeviceGetMultiGpuBoard reports whether nvmlDeviceGetMultiGpuBoard resolved in the loaded library.
+func HasDeviceGetMultiGpuBoard() bool {
 	return Has("nvmlDeviceGetMultiGpuBoard")
 }
 
-// HasdeviceGetName reports whether nvmlDeviceGetName resolved in the loaded library.
-func HasdeviceGetName() bool {
+// HasDeviceGetName reports whether nvmlDeviceGetName resolved in the loaded library.
+func HasDeviceGetName() bool {
 	return Has("nvmlDeviceGetName")
 }
 
-// HasdeviceGetNumFans reports whether nvmlDeviceGetNumFans resolved in the loaded library.
-func HasdeviceGetNumFans() bool {
+// HasDeviceGetNumFans reports whether nvmlDeviceGetNumFans resolved in the loaded library.
+func HasDeviceGetNumFans() bool {
 	return Has("nvmlDeviceGetNumFans")
 }
 
-// HasdeviceGetNumGpuCores reports whether nvmlDeviceGetNumGpuCores resolved in the loaded library.
-func HasdeviceGetNumGpuCores() bool {
+// HasDeviceGetNumGpuCores reports whether nvmlDeviceGetNumGpuCores resolved in the loaded library.
+func HasDeviceGetNumGpuCores() bool {
 	return Has("nvmlDeviceGetNumGpuCores")
 }
 
-// HasdeviceGetNumaNodeId reports whether nvmlDeviceGetNumaNodeId resolved in the loaded library.
-func HasdeviceGetNumaNodeId() bool {
+// HasDeviceGetNumaNodeId reports whether nvmlDeviceGetNumaNodeId resolved in the loaded library.
+func HasDeviceGetNumaNodeId() bool {
 	return Has("nvmlDeviceGetNumaNodeId")
 }
 
-// HasdeviceGetNvLinkCapability reports whether nvmlDeviceGetNvLinkCapability resolved in the loaded library.
-func HasdeviceGetNvLinkCapability() bool {
+// HasDeviceGetNvLinkCapability reports whether nvmlDeviceGetNvLinkCapability resolved in the loaded library.
+func HasDeviceGetNvLinkCapability() bool {
 	return Has("nvmlDeviceGetNvLinkCapability")
 }
 
-// HasdeviceGetNvLinkErrorCounter reports whether nvmlDeviceGetNvLinkErrorCounter resolved in the loaded library.
-func HasdeviceGetNvLinkErrorCounter() bool {
+// HasDeviceGetNvLinkErrorCounter reports whether nvmlDeviceGetNvLinkErrorCounter resolved in the loaded library.
+func HasDeviceGetNvLinkErrorCounter() bool {
 	return Has("nvmlDeviceGetNvLinkErrorCounter")
 }
 
-// HasdeviceGetNvLinkInfo reports whether nvmlDeviceGetNvLinkInfo resolved in the loaded library.
-func HasdeviceGetNvLinkInfo() bool {
+// HasDeviceGetNvLinkInfo reports whether nvmlDeviceGetNvLinkInfo resolved in the loaded library.
+func HasDeviceGetNvLinkInfo() bool {
 	return Has("nvmlDeviceGetNvLinkInfo")
 }
 
-// HasdeviceGetNvLinkRemoteDeviceType reports whether nvmlDeviceGetNvLinkRemoteDeviceType resolved in the loaded library.
-func HasdeviceGetNvLinkRemoteDeviceType() bool {
+// HasDeviceGetNvLinkRemoteDeviceType reports whether nvmlDeviceGetNvLinkRemoteDeviceType resolved in the loaded library.
+func HasDeviceGetNvLinkRemoteDeviceType() bool {
 	return Has("nvmlDeviceGetNvLinkRemoteDeviceType")
 }
 
-// HasdeviceGetNvLinkRemotePciInfo reports whether nvmlDeviceGetNvLinkRemotePciInfo_v2 resolved in the loaded library.
-func HasdeviceGetNvLinkRemotePciInfo() bool {
+// HasDeviceGetNvLinkRemotePciInfo reports whether nvmlDeviceGetNvLinkRemotePciInfo_v2 resolved in the loaded library.
+func HasDeviceGetNvLinkRemotePciInfo() bool {
 	return Has("nvmlDeviceGetNvLinkRemotePciInfo_v2")
 }
 
-// HasdeviceGetNvLinkState reports whether nvmlDeviceGetNvLinkState resolved in the loaded library.
-func HasdeviceGetNvLinkState() bool {
+// HasDeviceGetNvLinkState reports whether nvmlDeviceGetNvLinkState resolved in the loaded library.
+func HasDeviceGetNvLinkState() bool {
 	return Has("nvmlDeviceGetNvLinkState")
 }
 
-// HasdeviceGetNvLinkVersion reports whether nvmlDeviceGetNvLinkVersion resolved in the loaded library.
-func HasdeviceGetNvLinkVersion() bool {
+// HasDeviceGetNvLinkUtilizationControl reports whether nvmlDeviceGetNvLinkUtilizationControl resolved in the loaded library.
+func HasDeviceGetNvLinkUtilizationControl() bool {
+	return Has("nvmlDeviceGetNvLinkUtilizationControl")
+}
+
+// HasDeviceGetNvLinkUtilizationCounter reports whether nvmlDeviceGetNvLinkUtilizationCounter resolved in the loaded library.
+func HasDeviceGetNvLinkUtilizationCounter() bool {
+	return Has("nvmlDeviceGetNvLinkUtilizationCounter")
+}
+
+// HasDeviceGetNvLinkVersion reports whether nvmlDeviceGetNvLinkVersion resolved in the loaded library.
+func HasDeviceGetNvLinkVersion() bool {
 	return Has("nvmlDeviceGetNvLinkVersion")
 }
 
-// HasdeviceGetNvlinkBwMode reports whether nvmlDeviceGetNvlinkBwMode resolved in the loaded library.
-func HasdeviceGetNvlinkBwMode() bool {
+// HasDeviceGetNvlinkBwMode reports whether nvmlDeviceGetNvlinkBwMode resolved in the loaded library.
+func HasDeviceGetNvlinkBwMode() bool {
 	return Has("nvmlDeviceGetNvlinkBwMode")
 }
 
-// HasdeviceGetNvlinkSupportedBwModes reports whether nvmlDeviceGetNvlinkSupportedBwModes resolved in the loaded library.
-func HasdeviceGetNvlinkSupportedBwModes() bool {
+// HasDeviceGetNvlinkSupportedBwModes reports whether nvmlDeviceGetNvlinkSupportedBwModes resolved in the loaded library.
+func HasDeviceGetNvlinkSupportedBwModes() bool {
 	return Has("nvmlDeviceGetNvlinkSupportedBwModes")
 }
 
-// HasdeviceGetOfaUtilization reports whether nvmlDeviceGetOfaUtilization resolved in the loaded library.
-func HasdeviceGetOfaUtilization() bool {
+// HasDeviceGetOfaUtilization reports whether nvmlDeviceGetOfaUtilization resolved in the loaded library.
+func HasDeviceGetOfaUtilization() bool {
 	return Has("nvmlDeviceGetOfaUtilization")
 }
 
-// HasdeviceGetP2PStatus reports whether nvmlDeviceGetP2PStatus resolved in the loaded library.
-func HasdeviceGetP2PStatus() bool {
+// HasDeviceGetP2PStatus reports whether nvmlDeviceGetP2PStatus resolved in the loaded library.
+func HasDeviceGetP2PStatus() bool {
 	return Has("nvmlDeviceGetP2PStatus")
 }
 
-// HasdeviceGetPciInfoExt reports whether nvmlDeviceGetPciInfoExt resolved in the loaded library.
-func HasdeviceGetPciInfoExt() bool {
-	return Has("nvmlDeviceGetPciInfoExt")
-}
-
-// HasdeviceGetPciInfo reports whether nvmlDeviceGetPciInfo_v3 resolved in the loaded library.
-func HasdeviceGetPciInfo() bool {
+// HasDeviceGetPciInfo reports whether nvmlDeviceGetPciInfo_v3 resolved in the loaded library.
+func HasDeviceGetPciInfo() bool {
 	return Has("nvmlDeviceGetPciInfo_v3")
 }
 
-// HasdeviceGetPcieLinkMaxSpeed reports whether nvmlDeviceGetPcieLinkMaxSpeed resolved in the loaded library.
-func HasdeviceGetPcieLinkMaxSpeed() bool {
+// HasDeviceGetPciInfoExt reports whether nvmlDeviceGetPciInfoExt resolved in the loaded library.
+func HasDeviceGetPciInfoExt() bool {
+	return Has("nvmlDeviceGetPciInfoExt")
+}
+
+// HasDeviceGetPcieLinkMaxSpeed reports whether nvmlDeviceGetPcieLinkMaxSpeed resolved in the loaded library.
+func HasDeviceGetPcieLinkMaxSpeed() bool {
 	return Has("nvmlDeviceGetPcieLinkMaxSpeed")
 }
 
-// HasdeviceGetPcieReplayCounter reports whether nvmlDeviceGetPcieReplayCounter resolved in the loaded library.
-func HasdeviceGetPcieReplayCounter() bool {
+// HasDeviceGetPcieReplayCounter reports whether nvmlDeviceGetPcieReplayCounter resolved in the loaded library.
+func HasDeviceGetPcieReplayCounter() bool {
 	return Has("nvmlDeviceGetPcieReplayCounter")
 }
 
-// HasdeviceGetPcieSpeed reports whether nvmlDeviceGetPcieSpeed resolved in the loaded library.
-func HasdeviceGetPcieSpeed() bool {
+// HasDeviceGetPcieSpeed reports whether nvmlDeviceGetPcieSpeed resolved in the loaded library.
+func HasDeviceGetPcieSpeed() bool {
 	return Has("nvmlDeviceGetPcieSpeed")
 }
 
-// HasdeviceGetPcieThroughput reports whether nvmlDeviceGetPcieThroughput resolved in the loaded library.
-func HasdeviceGetPcieThroughput() bool {
+// HasDeviceGetPcieThroughput reports whether nvmlDeviceGetPcieThroughput resolved in the loaded library.
+func HasDeviceGetPcieThroughput() bool {
 	return Has("nvmlDeviceGetPcieThroughput")
 }
 
-// HasdeviceGetPdi reports whether nvmlDeviceGetPdi resolved in the loaded library.
-func HasdeviceGetPdi() bool {
+// HasDeviceGetPdi reports whether nvmlDeviceGetPdi resolved in the loaded library.
+func HasDeviceGetPdi() bool {
 	return Has("nvmlDeviceGetPdi")
 }
 
-// HasdeviceGetPerformanceModes reports whether nvmlDeviceGetPerformanceModes resolved in the loaded library.
-func HasdeviceGetPerformanceModes() bool {
+// HasDeviceGetPerformanceModes reports whether nvmlDeviceGetPerformanceModes resolved in the loaded library.
+func HasDeviceGetPerformanceModes() bool {
 	return Has("nvmlDeviceGetPerformanceModes")
 }
 
-// HasdeviceGetPerformanceState reports whether nvmlDeviceGetPerformanceState resolved in the loaded library.
-func HasdeviceGetPerformanceState() bool {
+// HasDeviceGetPerformanceState reports whether nvmlDeviceGetPerformanceState resolved in the loaded library.
+func HasDeviceGetPerformanceState() bool {
 	return Has("nvmlDeviceGetPerformanceState")
 }
 
-// HasdeviceGetPersistenceMode reports whether nvmlDeviceGetPersistenceMode resolved in the loaded library.
-func HasdeviceGetPersistenceMode() bool {
+// HasDeviceGetPersistenceMode reports whether nvmlDeviceGetPersistenceMode resolved in the loaded library.
+func HasDeviceGetPersistenceMode() bool {
 	return Has("nvmlDeviceGetPersistenceMode")
 }
 
-// HasdeviceGetPgpuMetadataString reports whether nvmlDeviceGetPgpuMetadataString resolved in the loaded library.
-func HasdeviceGetPgpuMetadataString() bool {
+// HasDeviceGetPgpuMetadataString reports whether nvmlDeviceGetPgpuMetadataString resolved in the loaded library.
+func HasDeviceGetPgpuMetadataString() bool {
 	return Has("nvmlDeviceGetPgpuMetadataString")
 }
 
-// HasdeviceGetPlatformInfo reports whether nvmlDeviceGetPlatformInfo resolved in the loaded library.
-func HasdeviceGetPlatformInfo() bool {
+// HasDeviceGetPlatformInfo reports whether nvmlDeviceGetPlatformInfo resolved in the loaded library.
+func HasDeviceGetPlatformInfo() bool {
 	return Has("nvmlDeviceGetPlatformInfo")
 }
 
-// HasdeviceGetPowerManagementDefaultLimit reports whether nvmlDeviceGetPowerManagementDefaultLimit resolved in the loaded library.
-func HasdeviceGetPowerManagementDefaultLimit() bool {
+// HasDeviceGetPowerManagementDefaultLimit reports whether nvmlDeviceGetPowerManagementDefaultLimit resolved in the loaded library.
+func HasDeviceGetPowerManagementDefaultLimit() bool {
 	return Has("nvmlDeviceGetPowerManagementDefaultLimit")
 }
 
-// HasdeviceGetPowerManagementLimit reports whether nvmlDeviceGetPowerManagementLimit resolved in the loaded library.
-func HasdeviceGetPowerManagementLimit() bool {
+// HasDeviceGetPowerManagementLimit reports whether nvmlDeviceGetPowerManagementLimit resolved in the loaded library.
+func HasDeviceGetPowerManagementLimit() bool {
 	return Has("nvmlDeviceGetPowerManagementLimit")
 }
 
-// HasdeviceGetPowerManagementLimitConstraints reports whether nvmlDeviceGetPowerManagementLimitConstraints resolved in the loaded library.
-func HasdeviceGetPowerManagementLimitConstraints() bool {
+// HasDeviceGetPowerManagementLimitConstraints reports whether nvmlDeviceGetPowerManagementLimitConstraints resolved in the loaded library.
+func HasDeviceGetPowerManagementLimitConstraints() bool {
 	return Has("nvmlDeviceGetPowerManagementLimitConstraints")
 }
 
-// HasdeviceGetPowerMizerMode reports whether nvmlDeviceGetPowerMizerMode_v1 resolved in the loaded library.
-func HasdeviceGetPowerMizerMode() bool {
+// HasDeviceGetPowerManagementMode reports whether nvmlDeviceGetPowerManagementMode resolved in the loaded library.
+func HasDeviceGetPowerManagementMode() bool {
+	return Has("nvmlDeviceGetPowerManagementMode")
+}
+
+// HasDeviceGetPowerMizerMode reports whether nvmlDeviceGetPowerMizerMode_v1 resolved in the loaded library.
+func HasDeviceGetPowerMizerMode() bool {
 	return Has("nvmlDeviceGetPowerMizerMode_v1")
 }
 
-// HasdeviceGetPowerSource reports whether nvmlDeviceGetPowerSource resolved in the loaded library.
-func HasdeviceGetPowerSource() bool {
+// HasDeviceGetPowerSource reports whether nvmlDeviceGetPowerSource resolved in the loaded library.
+func HasDeviceGetPowerSource() bool {
 	return Has("nvmlDeviceGetPowerSource")
 }
 
-// HasdeviceGetPowerUsage reports whether nvmlDeviceGetPowerUsage resolved in the loaded library.
-func HasdeviceGetPowerUsage() bool {
+// HasDeviceGetPowerState reports whether nvmlDeviceGetPowerState resolved in the loaded library.
+func HasDeviceGetPowerState() bool {
+	return Has("nvmlDeviceGetPowerState")
+}
+
+// HasDeviceGetPowerUsage reports whether nvmlDeviceGetPowerUsage resolved in the loaded library.
+func HasDeviceGetPowerUsage() bool {
 	return Has("nvmlDeviceGetPowerUsage")
 }
 
-// HasdeviceGetProcessUtilization reports whether nvmlDeviceGetProcessUtilization resolved in the loaded library.
-func HasdeviceGetProcessUtilization() bool {
+// HasDeviceGetProcessUtilization reports whether nvmlDeviceGetProcessUtilization resolved in the loaded library.
+func HasDeviceGetProcessUtilization() bool {
 	return Has("nvmlDeviceGetProcessUtilization")
 }
 
-// HasdeviceGetProcessesUtilizationInfo reports whether nvmlDeviceGetProcessesUtilizationInfo resolved in the loaded library.
-func HasdeviceGetProcessesUtilizationInfo() bool {
+// HasDeviceGetProcessesUtilizationInfo reports whether nvmlDeviceGetProcessesUtilizationInfo resolved in the loaded library.
+func HasDeviceGetProcessesUtilizationInfo() bool {
 	return Has("nvmlDeviceGetProcessesUtilizationInfo")
 }
 
-// HasdeviceGetRemappedRows reports whether nvmlDeviceGetRemappedRows resolved in the loaded library.
-func HasdeviceGetRemappedRows() bool {
-	return Has("nvmlDeviceGetRemappedRows")
+// HasDeviceGetRemappedRows reports whether nvmlDeviceGetRemappedRows_v2 resolved in the loaded library.
+func HasDeviceGetRemappedRows() bool {
+	return Has("nvmlDeviceGetRemappedRows_v2")
 }
 
-// HasdeviceGetRepairStatus reports whether nvmlDeviceGetRepairStatus resolved in the loaded library.
-func HasdeviceGetRepairStatus() bool {
+// HasDeviceGetRepairStatus reports whether nvmlDeviceGetRepairStatus resolved in the loaded library.
+func HasDeviceGetRepairStatus() bool {
 	return Has("nvmlDeviceGetRepairStatus")
 }
 
-// HasdeviceGetRetiredPagesPendingStatus reports whether nvmlDeviceGetRetiredPagesPendingStatus resolved in the loaded library.
-func HasdeviceGetRetiredPagesPendingStatus() bool {
+// HasDeviceGetRetiredPagesPendingStatus reports whether nvmlDeviceGetRetiredPagesPendingStatus resolved in the loaded library.
+func HasDeviceGetRetiredPagesPendingStatus() bool {
 	return Has("nvmlDeviceGetRetiredPagesPendingStatus")
 }
 
-// HasdeviceGetRetiredPages reports whether nvmlDeviceGetRetiredPages_v2 resolved in the loaded library.
-func HasdeviceGetRetiredPages() bool {
+// HasDeviceGetRetiredPages reports whether nvmlDeviceGetRetiredPages_v2 resolved in the loaded library.
+func HasDeviceGetRetiredPages() bool {
 	return Has("nvmlDeviceGetRetiredPages_v2")
 }
 
-// HasdeviceGetRowRemapperHistogram reports whether nvmlDeviceGetRowRemapperHistogram resolved in the loaded library.
-func HasdeviceGetRowRemapperHistogram() bool {
+// HasDeviceGetRowRemapperHistogram reports whether nvmlDeviceGetRowRemapperHistogram resolved in the loaded library.
+func HasDeviceGetRowRemapperHistogram() bool {
 	return Has("nvmlDeviceGetRowRemapperHistogram")
 }
 
-// HasdeviceGetRunningProcessDetailList reports whether nvmlDeviceGetRunningProcessDetailList resolved in the loaded library.
-func HasdeviceGetRunningProcessDetailList() bool {
+// HasDeviceGetRunningProcessDetailList reports whether nvmlDeviceGetRunningProcessDetailList resolved in the loaded library.
+func HasDeviceGetRunningProcessDetailList() bool {
 	return Has("nvmlDeviceGetRunningProcessDetailList")
 }
 
-// HasdeviceGetSamples reports whether nvmlDeviceGetSamples resolved in the loaded library.
-func HasdeviceGetSamples() bool {
+// HasDeviceGetSamples reports whether nvmlDeviceGetSamples resolved in the loaded library.
+func HasDeviceGetSamples() bool {
 	return Has("nvmlDeviceGetSamples")
 }
 
-// HasdeviceGetSerial reports whether nvmlDeviceGetSerial resolved in the loaded library.
-func HasdeviceGetSerial() bool {
+// HasDeviceGetSerial reports whether nvmlDeviceGetSerial resolved in the loaded library.
+func HasDeviceGetSerial() bool {
 	return Has("nvmlDeviceGetSerial")
 }
 
-// HasdeviceGetSramEccErrorStatus reports whether nvmlDeviceGetSramEccErrorStatus resolved in the loaded library.
-func HasdeviceGetSramEccErrorStatus() bool {
+// HasDeviceGetSramEccErrorStatus reports whether nvmlDeviceGetSramEccErrorStatus resolved in the loaded library.
+func HasDeviceGetSramEccErrorStatus() bool {
 	return Has("nvmlDeviceGetSramEccErrorStatus")
 }
 
-// HasdeviceGetSramUniqueUncorrectedEccErrorCounts reports whether nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts resolved in the loaded library.
-func HasdeviceGetSramUniqueUncorrectedEccErrorCounts() bool {
+// HasDeviceGetSramUniqueUncorrectedEccErrorCounts reports whether nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts resolved in the loaded library.
+func HasDeviceGetSramUniqueUncorrectedEccErrorCounts() bool {
 	return Has("nvmlDeviceGetSramUniqueUncorrectedEccErrorCounts")
 }
 
-// HasdeviceGetSupportedClocksEventReasons reports whether nvmlDeviceGetSupportedClocksEventReasons resolved in the loaded library.
-func HasdeviceGetSupportedClocksEventReasons() bool {
+// HasDeviceGetSupportedClocksEventReasons reports whether nvmlDeviceGetSupportedClocksEventReasons resolved in the loaded library.
+func HasDeviceGetSupportedClocksEventReasons() bool {
 	return Has("nvmlDeviceGetSupportedClocksEventReasons")
 }
 
-// HasdeviceGetSupportedEventTypes reports whether nvmlDeviceGetSupportedEventTypes resolved in the loaded library.
-func HasdeviceGetSupportedEventTypes() bool {
+// HasDeviceGetSupportedClocksThrottleReasons reports whether nvmlDeviceGetSupportedClocksThrottleReasons resolved in the loaded library.
+func HasDeviceGetSupportedClocksThrottleReasons() bool {
+	return Has("nvmlDeviceGetSupportedClocksThrottleReasons")
+}
+
+// HasDeviceGetSupportedEventTypes reports whether nvmlDeviceGetSupportedEventTypes resolved in the loaded library.
+func HasDeviceGetSupportedEventTypes() bool {
 	return Has("nvmlDeviceGetSupportedEventTypes")
 }
 
-// HasdeviceGetSupportedGraphicsClocks reports whether nvmlDeviceGetSupportedGraphicsClocks resolved in the loaded library.
-func HasdeviceGetSupportedGraphicsClocks() bool {
+// HasDeviceGetSupportedGraphicsClocks reports whether nvmlDeviceGetSupportedGraphicsClocks resolved in the loaded library.
+func HasDeviceGetSupportedGraphicsClocks() bool {
 	return Has("nvmlDeviceGetSupportedGraphicsClocks")
 }
 
-// HasdeviceGetSupportedMemoryClocks reports whether nvmlDeviceGetSupportedMemoryClocks resolved in the loaded library.
-func HasdeviceGetSupportedMemoryClocks() bool {
+// HasDeviceGetSupportedMemoryClocks reports whether nvmlDeviceGetSupportedMemoryClocks resolved in the loaded library.
+func HasDeviceGetSupportedMemoryClocks() bool {
 	return Has("nvmlDeviceGetSupportedMemoryClocks")
 }
 
-// HasdeviceGetSupportedPerformanceStates reports whether nvmlDeviceGetSupportedPerformanceStates resolved in the loaded library.
-func HasdeviceGetSupportedPerformanceStates() bool {
+// HasDeviceGetSupportedPerformanceStates reports whether nvmlDeviceGetSupportedPerformanceStates resolved in the loaded library.
+func HasDeviceGetSupportedPerformanceStates() bool {
 	return Has("nvmlDeviceGetSupportedPerformanceStates")
 }
 
-// HasdeviceGetSupportedVgpus reports whether nvmlDeviceGetSupportedVgpus resolved in the loaded library.
-func HasdeviceGetSupportedVgpus() bool {
+// HasDeviceGetSupportedVgpus reports whether nvmlDeviceGetSupportedVgpus resolved in the loaded library.
+func HasDeviceGetSupportedVgpus() bool {
 	return Has("nvmlDeviceGetSupportedVgpus")
 }
 
-// HasdeviceGetTargetFanSpeed reports whether nvmlDeviceGetTargetFanSpeed resolved in the loaded library.
-func HasdeviceGetTargetFanSpeed() bool {
+// HasDeviceGetTargetFanSpeed reports whether nvmlDeviceGetTargetFanSpeed resolved in the loaded library.
+func HasDeviceGetTargetFanSpeed() bool {
 	return Has("nvmlDeviceGetTargetFanSpeed")
 }
 
-// HasdeviceGetTemperatureThreshold reports whether nvmlDeviceGetTemperatureThreshold resolved in the loaded library.
-func HasdeviceGetTemperatureThreshold() bool {
+// HasDeviceGetTemperature reports whether nvmlDeviceGetTemperature resolved in the loaded library.
+func HasDeviceGetTemperature() bool {
+	return Has("nvmlDeviceGetTemperature")
+}
+
+// HasDeviceGetTemperatureThreshold reports whether nvmlDeviceGetTemperatureThreshold resolved in the loaded library.
+func HasDeviceGetTemperatureThreshold() bool {
 	return Has("nvmlDeviceGetTemperatureThreshold")
 }
 
-// HasdeviceGetTemperatureV reports whether nvmlDeviceGetTemperatureV resolved in the loaded library.
-func HasdeviceGetTemperatureV() bool {
+// HasDeviceGetTemperatureV reports whether nvmlDeviceGetTemperatureV resolved in the loaded library.
+func HasDeviceGetTemperatureV() bool {
 	return Has("nvmlDeviceGetTemperatureV")
 }
 
-// HasdeviceGetThermalSettings reports whether nvmlDeviceGetThermalSettings resolved in the loaded library.
-func HasdeviceGetThermalSettings() bool {
+// HasDeviceGetThermalSettings reports whether nvmlDeviceGetThermalSettings resolved in the loaded library.
+func HasDeviceGetThermalSettings() bool {
 	return Has("nvmlDeviceGetThermalSettings")
 }
 
-// HasdeviceGetTopologyCommonAncestor reports whether nvmlDeviceGetTopologyCommonAncestor resolved in the loaded library.
-func HasdeviceGetTopologyCommonAncestor() bool {
+// HasDeviceGetTopologyCommonAncestor reports whether nvmlDeviceGetTopologyCommonAncestor resolved in the loaded library.
+func HasDeviceGetTopologyCommonAncestor() bool {
 	return Has("nvmlDeviceGetTopologyCommonAncestor")
 }
 
-// HasdeviceGetTopologyNearestGpus reports whether nvmlDeviceGetTopologyNearestGpus resolved in the loaded library.
-func HasdeviceGetTopologyNearestGpus() bool {
+// HasDeviceGetTopologyNearestGpus reports whether nvmlDeviceGetTopologyNearestGpus resolved in the loaded library.
+func HasDeviceGetTopologyNearestGpus() bool {
 	return Has("nvmlDeviceGetTopologyNearestGpus")
 }
 
-// HasdeviceGetTotalEccErrors reports whether nvmlDeviceGetTotalEccErrors resolved in the loaded library.
-func HasdeviceGetTotalEccErrors() bool {
+// HasDeviceGetTotalEccErrors reports whether nvmlDeviceGetTotalEccErrors resolved in the loaded library.
+func HasDeviceGetTotalEccErrors() bool {
 	return Has("nvmlDeviceGetTotalEccErrors")
 }
 
-// HasdeviceGetTotalEnergyConsumption reports whether nvmlDeviceGetTotalEnergyConsumption resolved in the loaded library.
-func HasdeviceGetTotalEnergyConsumption() bool {
+// HasDeviceGetTotalEnergyConsumption reports whether nvmlDeviceGetTotalEnergyConsumption resolved in the loaded library.
+func HasDeviceGetTotalEnergyConsumption() bool {
 	return Has("nvmlDeviceGetTotalEnergyConsumption")
 }
 
-// HasdeviceGetUUID reports whether nvmlDeviceGetUUID resolved in the loaded library.
-func HasdeviceGetUUID() bool {
+// HasDeviceGetUUID reports whether nvmlDeviceGetUUID resolved in the loaded library.
+func HasDeviceGetUUID() bool {
 	return Has("nvmlDeviceGetUUID")
 }
 
-// HasdeviceGetUnrepairableMemoryFlag reports whether nvmlDeviceGetUnrepairableMemoryFlag_v1 resolved in the loaded library.
-func HasdeviceGetUnrepairableMemoryFlag() bool {
+// HasDeviceGetUnrepairableMemoryFlag reports whether nvmlDeviceGetUnrepairableMemoryFlag_v1 resolved in the loaded library.
+func HasDeviceGetUnrepairableMemoryFlag() bool {
 	return Has("nvmlDeviceGetUnrepairableMemoryFlag_v1")
 }
 
-// HasdeviceGetUtilizationRates reports whether nvmlDeviceGetUtilizationRates resolved in the loaded library.
-func HasdeviceGetUtilizationRates() bool {
+// HasDeviceGetUtilizationRates reports whether nvmlDeviceGetUtilizationRates resolved in the loaded library.
+func HasDeviceGetUtilizationRates() bool {
 	return Has("nvmlDeviceGetUtilizationRates")
 }
 
-// HasdeviceGetVbiosVersion reports whether nvmlDeviceGetVbiosVersion resolved in the loaded library.
-func HasdeviceGetVbiosVersion() bool {
+// HasDeviceGetVbiosVersion reports whether nvmlDeviceGetVbiosVersion resolved in the loaded library.
+func HasDeviceGetVbiosVersion() bool {
 	return Has("nvmlDeviceGetVbiosVersion")
 }
 
-// HasdeviceGetVgpuCapabilities reports whether nvmlDeviceGetVgpuCapabilities resolved in the loaded library.
-func HasdeviceGetVgpuCapabilities() bool {
+// HasDeviceGetVgpuCapabilities reports whether nvmlDeviceGetVgpuCapabilities resolved in the loaded library.
+func HasDeviceGetVgpuCapabilities() bool {
 	return Has("nvmlDeviceGetVgpuCapabilities")
 }
 
-// HasdeviceGetVgpuHeterogeneousMode reports whether nvmlDeviceGetVgpuHeterogeneousMode resolved in the loaded library.
-func HasdeviceGetVgpuHeterogeneousMode() bool {
+// HasDeviceGetVgpuHeterogeneousMode reports whether nvmlDeviceGetVgpuHeterogeneousMode resolved in the loaded library.
+func HasDeviceGetVgpuHeterogeneousMode() bool {
 	return Has("nvmlDeviceGetVgpuHeterogeneousMode")
 }
 
-// HasdeviceGetVgpuInstancesUtilizationInfo reports whether nvmlDeviceGetVgpuInstancesUtilizationInfo resolved in the loaded library.
-func HasdeviceGetVgpuInstancesUtilizationInfo() bool {
+// HasDeviceGetVgpuInstancesUtilizationInfo reports whether nvmlDeviceGetVgpuInstancesUtilizationInfo resolved in the loaded library.
+func HasDeviceGetVgpuInstancesUtilizationInfo() bool {
 	return Has("nvmlDeviceGetVgpuInstancesUtilizationInfo")
 }
 
-// HasdeviceGetVgpuMetadata reports whether nvmlDeviceGetVgpuMetadata resolved in the loaded library.
-func HasdeviceGetVgpuMetadata() bool {
+// HasDeviceGetVgpuMetadata reports whether nvmlDeviceGetVgpuMetadata resolved in the loaded library.
+func HasDeviceGetVgpuMetadata() bool {
 	return Has("nvmlDeviceGetVgpuMetadata")
 }
 
-// HasdeviceGetVgpuProcessUtilization reports whether nvmlDeviceGetVgpuProcessUtilization resolved in the loaded library.
-func HasdeviceGetVgpuProcessUtilization() bool {
+// HasDeviceGetVgpuProcessUtilization reports whether nvmlDeviceGetVgpuProcessUtilization resolved in the loaded library.
+func HasDeviceGetVgpuProcessUtilization() bool {
 	return Has("nvmlDeviceGetVgpuProcessUtilization")
 }
 
-// HasdeviceGetVgpuProcessesUtilizationInfo reports whether nvmlDeviceGetVgpuProcessesUtilizationInfo resolved in the loaded library.
-func HasdeviceGetVgpuProcessesUtilizationInfo() bool {
+// HasDeviceGetVgpuProcessesUtilizationInfo reports whether nvmlDeviceGetVgpuProcessesUtilizationInfo resolved in the loaded library.
+func HasDeviceGetVgpuProcessesUtilizationInfo() bool {
 	return Has("nvmlDeviceGetVgpuProcessesUtilizationInfo")
 }
 
-// HasdeviceGetVgpuSchedulerCapabilities reports whether nvmlDeviceGetVgpuSchedulerCapabilities resolved in the loaded library.
-func HasdeviceGetVgpuSchedulerCapabilities() bool {
+// HasDeviceGetVgpuSchedulerCapabilities reports whether nvmlDeviceGetVgpuSchedulerCapabilities resolved in the loaded library.
+func HasDeviceGetVgpuSchedulerCapabilities() bool {
 	return Has("nvmlDeviceGetVgpuSchedulerCapabilities")
 }
 
-// HasdeviceGetVgpuSchedulerLog reports whether nvmlDeviceGetVgpuSchedulerLog_v2 resolved in the loaded library.
-func HasdeviceGetVgpuSchedulerLog() bool {
+// HasDeviceGetVgpuSchedulerLog reports whether nvmlDeviceGetVgpuSchedulerLog_v2 resolved in the loaded library.
+func HasDeviceGetVgpuSchedulerLog() bool {
 	return Has("nvmlDeviceGetVgpuSchedulerLog_v2")
 }
 
-// HasdeviceGetVgpuSchedulerState reports whether nvmlDeviceGetVgpuSchedulerState_v2 resolved in the loaded library.
-func HasdeviceGetVgpuSchedulerState() bool {
+// HasDeviceGetVgpuSchedulerState reports whether nvmlDeviceGetVgpuSchedulerState_v2 resolved in the loaded library.
+func HasDeviceGetVgpuSchedulerState() bool {
 	return Has("nvmlDeviceGetVgpuSchedulerState_v2")
 }
 
-// HasdeviceGetVgpuTypeCreatablePlacements reports whether nvmlDeviceGetVgpuTypeCreatablePlacements resolved in the loaded library.
-func HasdeviceGetVgpuTypeCreatablePlacements() bool {
+// HasDeviceGetVgpuTypeCreatablePlacements reports whether nvmlDeviceGetVgpuTypeCreatablePlacements resolved in the loaded library.
+func HasDeviceGetVgpuTypeCreatablePlacements() bool {
 	return Has("nvmlDeviceGetVgpuTypeCreatablePlacements")
 }
 
-// HasdeviceGetVgpuTypeSupportedPlacements reports whether nvmlDeviceGetVgpuTypeSupportedPlacements resolved in the loaded library.
-func HasdeviceGetVgpuTypeSupportedPlacements() bool {
+// HasDeviceGetVgpuTypeSupportedPlacements reports whether nvmlDeviceGetVgpuTypeSupportedPlacements resolved in the loaded library.
+func HasDeviceGetVgpuTypeSupportedPlacements() bool {
 	return Has("nvmlDeviceGetVgpuTypeSupportedPlacements")
 }
 
-// HasdeviceGetVgpuUtilization reports whether nvmlDeviceGetVgpuUtilization resolved in the loaded library.
-func HasdeviceGetVgpuUtilization() bool {
+// HasDeviceGetVgpuUtilization reports whether nvmlDeviceGetVgpuUtilization resolved in the loaded library.
+func HasDeviceGetVgpuUtilization() bool {
 	return Has("nvmlDeviceGetVgpuUtilization")
 }
 
-// HasdeviceGetVirtualizationMode reports whether nvmlDeviceGetVirtualizationMode resolved in the loaded library.
-func HasdeviceGetVirtualizationMode() bool {
+// HasDeviceGetViolationStatus reports whether nvmlDeviceGetViolationStatus resolved in the loaded library.
+func HasDeviceGetViolationStatus() bool {
+	return Has("nvmlDeviceGetViolationStatus")
+}
+
+// HasDeviceGetVirtualizationMode reports whether nvmlDeviceGetVirtualizationMode resolved in the loaded library.
+func HasDeviceGetVirtualizationMode() bool {
 	return Has("nvmlDeviceGetVirtualizationMode")
 }
 
-// HasdeviceIsMigDeviceHandle reports whether nvmlDeviceIsMigDeviceHandle resolved in the loaded library.
-func HasdeviceIsMigDeviceHandle() bool {
+// HasDeviceIsMigDeviceHandle reports whether nvmlDeviceIsMigDeviceHandle resolved in the loaded library.
+func HasDeviceIsMigDeviceHandle() bool {
 	return Has("nvmlDeviceIsMigDeviceHandle")
 }
 
@@ -1934,23 +2059,23 @@ func HasDeviceModifyDrainState() bool {
 	return Has("nvmlDeviceModifyDrainState")
 }
 
-// HasdeviceOnSameBoard reports whether nvmlDeviceOnSameBoard resolved in the loaded library.
-func HasdeviceOnSameBoard() bool {
+// HasDeviceOnSameBoard reports whether nvmlDeviceOnSameBoard resolved in the loaded library.
+func HasDeviceOnSameBoard() bool {
 	return Has("nvmlDeviceOnSameBoard")
 }
 
-// HasdevicePowerSmoothingActivatePresetProfile reports whether nvmlDevicePowerSmoothingActivatePresetProfile resolved in the loaded library.
-func HasdevicePowerSmoothingActivatePresetProfile() bool {
+// HasDevicePowerSmoothingActivatePresetProfile reports whether nvmlDevicePowerSmoothingActivatePresetProfile resolved in the loaded library.
+func HasDevicePowerSmoothingActivatePresetProfile() bool {
 	return Has("nvmlDevicePowerSmoothingActivatePresetProfile")
 }
 
-// HasdevicePowerSmoothingSetState reports whether nvmlDevicePowerSmoothingSetState resolved in the loaded library.
-func HasdevicePowerSmoothingSetState() bool {
+// HasDevicePowerSmoothingSetState reports whether nvmlDevicePowerSmoothingSetState resolved in the loaded library.
+func HasDevicePowerSmoothingSetState() bool {
 	return Has("nvmlDevicePowerSmoothingSetState")
 }
 
-// HasdevicePowerSmoothingUpdatePresetProfileParam reports whether nvmlDevicePowerSmoothingUpdatePresetProfileParam resolved in the loaded library.
-func HasdevicePowerSmoothingUpdatePresetProfileParam() bool {
+// HasDevicePowerSmoothingUpdatePresetProfileParam reports whether nvmlDevicePowerSmoothingUpdatePresetProfileParam resolved in the loaded library.
+func HasDevicePowerSmoothingUpdatePresetProfileParam() bool {
 	return Has("nvmlDevicePowerSmoothingUpdatePresetProfileParam")
 }
 
@@ -1959,18 +2084,18 @@ func HasDeviceQueryDrainState() bool {
 	return Has("nvmlDeviceQueryDrainState")
 }
 
-// HasdeviceReadPRMCounters reports whether nvmlDeviceReadPRMCounters_v1 resolved in the loaded library.
-func HasdeviceReadPRMCounters() bool {
+// HasDeviceReadPRMCounters reports whether nvmlDeviceReadPRMCounters_v1 resolved in the loaded library.
+func HasDeviceReadPRMCounters() bool {
 	return Has("nvmlDeviceReadPRMCounters_v1")
 }
 
-// HasdeviceReadWritePRM reports whether nvmlDeviceReadWritePRM_v1 resolved in the loaded library.
-func HasdeviceReadWritePRM() bool {
+// HasDeviceReadWritePRM reports whether nvmlDeviceReadWritePRM_v1 resolved in the loaded library.
+func HasDeviceReadWritePRM() bool {
 	return Has("nvmlDeviceReadWritePRM_v1")
 }
 
-// HasdeviceRegisterEvents reports whether nvmlDeviceRegisterEvents resolved in the loaded library.
-func HasdeviceRegisterEvents() bool {
+// HasDeviceRegisterEvents reports whether nvmlDeviceRegisterEvents resolved in the loaded library.
+func HasDeviceRegisterEvents() bool {
 	return Has("nvmlDeviceRegisterEvents")
 }
 
@@ -1979,208 +2104,248 @@ func HasDeviceRemoveGpu() bool {
 	return Has("nvmlDeviceRemoveGpu_v2")
 }
 
-// HasdeviceResetGpuLockedClocks reports whether nvmlDeviceResetGpuLockedClocks resolved in the loaded library.
-func HasdeviceResetGpuLockedClocks() bool {
+// HasDeviceResetApplicationsClocks reports whether nvmlDeviceResetApplicationsClocks resolved in the loaded library.
+func HasDeviceResetApplicationsClocks() bool {
+	return Has("nvmlDeviceResetApplicationsClocks")
+}
+
+// HasDeviceResetGpuLockedClocks reports whether nvmlDeviceResetGpuLockedClocks resolved in the loaded library.
+func HasDeviceResetGpuLockedClocks() bool {
 	return Has("nvmlDeviceResetGpuLockedClocks")
 }
 
-// HasdeviceResetMemoryLockedClocks reports whether nvmlDeviceResetMemoryLockedClocks resolved in the loaded library.
-func HasdeviceResetMemoryLockedClocks() bool {
+// HasDeviceResetMemoryLockedClocks reports whether nvmlDeviceResetMemoryLockedClocks resolved in the loaded library.
+func HasDeviceResetMemoryLockedClocks() bool {
 	return Has("nvmlDeviceResetMemoryLockedClocks")
 }
 
-// HasdeviceResetNvLinkErrorCounters reports whether nvmlDeviceResetNvLinkErrorCounters resolved in the loaded library.
-func HasdeviceResetNvLinkErrorCounters() bool {
+// HasDeviceResetNvLinkErrorCounters reports whether nvmlDeviceResetNvLinkErrorCounters resolved in the loaded library.
+func HasDeviceResetNvLinkErrorCounters() bool {
 	return Has("nvmlDeviceResetNvLinkErrorCounters")
 }
 
-// HasdeviceSetAPIRestriction reports whether nvmlDeviceSetAPIRestriction resolved in the loaded library.
-func HasdeviceSetAPIRestriction() bool {
+// HasDeviceResetNvLinkUtilizationCounter reports whether nvmlDeviceResetNvLinkUtilizationCounter resolved in the loaded library.
+func HasDeviceResetNvLinkUtilizationCounter() bool {
+	return Has("nvmlDeviceResetNvLinkUtilizationCounter")
+}
+
+// HasDeviceSetAPIRestriction reports whether nvmlDeviceSetAPIRestriction resolved in the loaded library.
+func HasDeviceSetAPIRestriction() bool {
 	return Has("nvmlDeviceSetAPIRestriction")
 }
 
-// HasdeviceSetAccountingMode reports whether nvmlDeviceSetAccountingMode resolved in the loaded library.
-func HasdeviceSetAccountingMode() bool {
+// HasDeviceSetAccountingMode reports whether nvmlDeviceSetAccountingMode resolved in the loaded library.
+func HasDeviceSetAccountingMode() bool {
 	return Has("nvmlDeviceSetAccountingMode")
 }
 
-// HasdeviceSetAutoBoostedClocksEnabled reports whether nvmlDeviceSetAutoBoostedClocksEnabled resolved in the loaded library.
-func HasdeviceSetAutoBoostedClocksEnabled() bool {
+// HasDeviceSetApplicationsClocks reports whether nvmlDeviceSetApplicationsClocks resolved in the loaded library.
+func HasDeviceSetApplicationsClocks() bool {
+	return Has("nvmlDeviceSetApplicationsClocks")
+}
+
+// HasDeviceSetAutoBoostedClocksEnabled reports whether nvmlDeviceSetAutoBoostedClocksEnabled resolved in the loaded library.
+func HasDeviceSetAutoBoostedClocksEnabled() bool {
 	return Has("nvmlDeviceSetAutoBoostedClocksEnabled")
 }
 
-// HasdeviceSetClockOffsets reports whether nvmlDeviceSetClockOffsets resolved in the loaded library.
-func HasdeviceSetClockOffsets() bool {
+// HasDeviceSetClockOffsets reports whether nvmlDeviceSetClockOffsets resolved in the loaded library.
+func HasDeviceSetClockOffsets() bool {
 	return Has("nvmlDeviceSetClockOffsets")
 }
 
-// HasdeviceSetComputeMode reports whether nvmlDeviceSetComputeMode resolved in the loaded library.
-func HasdeviceSetComputeMode() bool {
+// HasDeviceSetComputeMode reports whether nvmlDeviceSetComputeMode resolved in the loaded library.
+func HasDeviceSetComputeMode() bool {
 	return Has("nvmlDeviceSetComputeMode")
 }
 
-// HasdeviceSetConfComputeUnprotectedMemSize reports whether nvmlDeviceSetConfComputeUnprotectedMemSize resolved in the loaded library.
-func HasdeviceSetConfComputeUnprotectedMemSize() bool {
+// HasDeviceSetConfComputeUnprotectedMemSize reports whether nvmlDeviceSetConfComputeUnprotectedMemSize resolved in the loaded library.
+func HasDeviceSetConfComputeUnprotectedMemSize() bool {
 	return Has("nvmlDeviceSetConfComputeUnprotectedMemSize")
 }
 
-// HasdeviceSetCpuAffinity reports whether nvmlDeviceSetCpuAffinity resolved in the loaded library.
-func HasdeviceSetCpuAffinity() bool {
+// HasDeviceSetCpuAffinity reports whether nvmlDeviceSetCpuAffinity resolved in the loaded library.
+func HasDeviceSetCpuAffinity() bool {
 	return Has("nvmlDeviceSetCpuAffinity")
 }
 
-// HasdeviceSetDefaultAutoBoostedClocksEnabled reports whether nvmlDeviceSetDefaultAutoBoostedClocksEnabled resolved in the loaded library.
-func HasdeviceSetDefaultAutoBoostedClocksEnabled() bool {
+// HasDeviceSetDefaultAutoBoostedClocksEnabled reports whether nvmlDeviceSetDefaultAutoBoostedClocksEnabled resolved in the loaded library.
+func HasDeviceSetDefaultAutoBoostedClocksEnabled() bool {
 	return Has("nvmlDeviceSetDefaultAutoBoostedClocksEnabled")
 }
 
-// HasdeviceSetDefaultFanSpeed reports whether nvmlDeviceSetDefaultFanSpeed_v2 resolved in the loaded library.
-func HasdeviceSetDefaultFanSpeed() bool {
+// HasDeviceSetDefaultFanSpeed reports whether nvmlDeviceSetDefaultFanSpeed_v2 resolved in the loaded library.
+func HasDeviceSetDefaultFanSpeed() bool {
 	return Has("nvmlDeviceSetDefaultFanSpeed_v2")
 }
 
-// HasdeviceSetDramEncryptionMode reports whether nvmlDeviceSetDramEncryptionMode resolved in the loaded library.
-func HasdeviceSetDramEncryptionMode() bool {
+// HasDeviceSetDramEncryptionMode reports whether nvmlDeviceSetDramEncryptionMode resolved in the loaded library.
+func HasDeviceSetDramEncryptionMode() bool {
 	return Has("nvmlDeviceSetDramEncryptionMode")
 }
 
-// HasdeviceSetDriverModel reports whether nvmlDeviceSetDriverModel resolved in the loaded library.
-func HasdeviceSetDriverModel() bool {
+// HasDeviceSetDriverModel reports whether nvmlDeviceSetDriverModel resolved in the loaded library.
+func HasDeviceSetDriverModel() bool {
 	return Has("nvmlDeviceSetDriverModel")
 }
 
-// HasdeviceSetEccMode reports whether nvmlDeviceSetEccMode resolved in the loaded library.
-func HasdeviceSetEccMode() bool {
+// HasDeviceSetEccMode reports whether nvmlDeviceSetEccMode resolved in the loaded library.
+func HasDeviceSetEccMode() bool {
 	return Has("nvmlDeviceSetEccMode")
 }
 
-// HasdeviceSetFanControlPolicy reports whether nvmlDeviceSetFanControlPolicy resolved in the loaded library.
-func HasdeviceSetFanControlPolicy() bool {
+// HasDeviceSetFanControlPolicy reports whether nvmlDeviceSetFanControlPolicy resolved in the loaded library.
+func HasDeviceSetFanControlPolicy() bool {
 	return Has("nvmlDeviceSetFanControlPolicy")
 }
 
-// HasdeviceSetFanSpeed reports whether nvmlDeviceSetFanSpeed_v2 resolved in the loaded library.
-func HasdeviceSetFanSpeed() bool {
+// HasDeviceSetFanSpeed reports whether nvmlDeviceSetFanSpeed_v2 resolved in the loaded library.
+func HasDeviceSetFanSpeed() bool {
 	return Has("nvmlDeviceSetFanSpeed_v2")
 }
 
-// HasdeviceSetGpuLockedClocks reports whether nvmlDeviceSetGpuLockedClocks resolved in the loaded library.
-func HasdeviceSetGpuLockedClocks() bool {
+// HasDeviceSetGpcClkVfOffset reports whether nvmlDeviceSetGpcClkVfOffset resolved in the loaded library.
+func HasDeviceSetGpcClkVfOffset() bool {
+	return Has("nvmlDeviceSetGpcClkVfOffset")
+}
+
+// HasDeviceSetGpuLockedClocks reports whether nvmlDeviceSetGpuLockedClocks resolved in the loaded library.
+func HasDeviceSetGpuLockedClocks() bool {
 	return Has("nvmlDeviceSetGpuLockedClocks")
 }
 
-// HasdeviceSetGpuOperationMode reports whether nvmlDeviceSetGpuOperationMode resolved in the loaded library.
-func HasdeviceSetGpuOperationMode() bool {
+// HasDeviceSetGpuOperationMode reports whether nvmlDeviceSetGpuOperationMode resolved in the loaded library.
+func HasDeviceSetGpuOperationMode() bool {
 	return Has("nvmlDeviceSetGpuOperationMode")
 }
 
-// HasdeviceSetHostname reports whether nvmlDeviceSetHostname_v1 resolved in the loaded library.
-func HasdeviceSetHostname() bool {
+// HasDeviceSetHostname reports whether nvmlDeviceSetHostname_v1 resolved in the loaded library.
+func HasDeviceSetHostname() bool {
 	return Has("nvmlDeviceSetHostname_v1")
 }
 
-// HasdeviceSetMemoryLockedClocks reports whether nvmlDeviceSetMemoryLockedClocks resolved in the loaded library.
-func HasdeviceSetMemoryLockedClocks() bool {
+// HasDeviceSetMemClkVfOffset reports whether nvmlDeviceSetMemClkVfOffset resolved in the loaded library.
+func HasDeviceSetMemClkVfOffset() bool {
+	return Has("nvmlDeviceSetMemClkVfOffset")
+}
+
+// HasDeviceSetMemoryLockedClocks reports whether nvmlDeviceSetMemoryLockedClocks resolved in the loaded library.
+func HasDeviceSetMemoryLockedClocks() bool {
 	return Has("nvmlDeviceSetMemoryLockedClocks")
 }
 
-// HasdeviceSetMigMode reports whether nvmlDeviceSetMigMode resolved in the loaded library.
-func HasdeviceSetMigMode() bool {
+// HasDeviceSetMigMode reports whether nvmlDeviceSetMigMode resolved in the loaded library.
+func HasDeviceSetMigMode() bool {
 	return Has("nvmlDeviceSetMigMode")
 }
 
-// HasdeviceSetNvLinkDeviceLowPowerThreshold reports whether nvmlDeviceSetNvLinkDeviceLowPowerThreshold resolved in the loaded library.
-func HasdeviceSetNvLinkDeviceLowPowerThreshold() bool {
+// HasDeviceSetNvLinkDeviceLowPowerThreshold reports whether nvmlDeviceSetNvLinkDeviceLowPowerThreshold resolved in the loaded library.
+func HasDeviceSetNvLinkDeviceLowPowerThreshold() bool {
 	return Has("nvmlDeviceSetNvLinkDeviceLowPowerThreshold")
 }
 
-// HasdeviceSetNvlinkBwMode reports whether nvmlDeviceSetNvlinkBwMode resolved in the loaded library.
-func HasdeviceSetNvlinkBwMode() bool {
+// HasDeviceSetNvLinkUtilizationControl reports whether nvmlDeviceSetNvLinkUtilizationControl resolved in the loaded library.
+func HasDeviceSetNvLinkUtilizationControl() bool {
+	return Has("nvmlDeviceSetNvLinkUtilizationControl")
+}
+
+// HasDeviceSetNvlinkBwMode reports whether nvmlDeviceSetNvlinkBwMode resolved in the loaded library.
+func HasDeviceSetNvlinkBwMode() bool {
 	return Has("nvmlDeviceSetNvlinkBwMode")
 }
 
-// HasdeviceSetPersistenceMode reports whether nvmlDeviceSetPersistenceMode resolved in the loaded library.
-func HasdeviceSetPersistenceMode() bool {
+// HasDeviceSetPersistenceMode reports whether nvmlDeviceSetPersistenceMode resolved in the loaded library.
+func HasDeviceSetPersistenceMode() bool {
 	return Has("nvmlDeviceSetPersistenceMode")
 }
 
-// HasdeviceSetPowerManagementLimit reports whether nvmlDeviceSetPowerManagementLimit_v2 resolved in the loaded library.
-func HasdeviceSetPowerManagementLimit() bool {
+// HasDeviceSetPowerManagementLimit reports whether nvmlDeviceSetPowerManagementLimit_v2 resolved in the loaded library.
+func HasDeviceSetPowerManagementLimit() bool {
 	return Has("nvmlDeviceSetPowerManagementLimit_v2")
 }
 
-// HasdeviceSetPowerMizerMode reports whether nvmlDeviceSetPowerMizerMode_v1 resolved in the loaded library.
-func HasdeviceSetPowerMizerMode() bool {
+// HasDeviceSetPowerMizerMode reports whether nvmlDeviceSetPowerMizerMode_v1 resolved in the loaded library.
+func HasDeviceSetPowerMizerMode() bool {
 	return Has("nvmlDeviceSetPowerMizerMode_v1")
 }
 
-// HasdeviceSetRusdSettings reports whether nvmlDeviceSetRusdSettings_v1 resolved in the loaded library.
-func HasdeviceSetRusdSettings() bool {
+// HasDeviceSetRusdSettings reports whether nvmlDeviceSetRusdSettings_v1 resolved in the loaded library.
+func HasDeviceSetRusdSettings() bool {
 	return Has("nvmlDeviceSetRusdSettings_v1")
 }
 
-// HasdeviceSetTemperatureThreshold reports whether nvmlDeviceSetTemperatureThreshold resolved in the loaded library.
-func HasdeviceSetTemperatureThreshold() bool {
+// HasDeviceSetTemperatureThreshold reports whether nvmlDeviceSetTemperatureThreshold resolved in the loaded library.
+func HasDeviceSetTemperatureThreshold() bool {
 	return Has("nvmlDeviceSetTemperatureThreshold")
 }
 
-// HasdeviceSetVgpuCapabilities reports whether nvmlDeviceSetVgpuCapabilities resolved in the loaded library.
-func HasdeviceSetVgpuCapabilities() bool {
+// HasDeviceSetVgpuCapabilities reports whether nvmlDeviceSetVgpuCapabilities resolved in the loaded library.
+func HasDeviceSetVgpuCapabilities() bool {
 	return Has("nvmlDeviceSetVgpuCapabilities")
 }
 
-// HasdeviceSetVgpuHeterogeneousMode reports whether nvmlDeviceSetVgpuHeterogeneousMode resolved in the loaded library.
-func HasdeviceSetVgpuHeterogeneousMode() bool {
+// HasDeviceSetVgpuHeterogeneousMode reports whether nvmlDeviceSetVgpuHeterogeneousMode resolved in the loaded library.
+func HasDeviceSetVgpuHeterogeneousMode() bool {
 	return Has("nvmlDeviceSetVgpuHeterogeneousMode")
 }
 
-// HasdeviceSetVgpuSchedulerState reports whether nvmlDeviceSetVgpuSchedulerState_v2 resolved in the loaded library.
-func HasdeviceSetVgpuSchedulerState() bool {
+// HasDeviceSetVgpuSchedulerState reports whether nvmlDeviceSetVgpuSchedulerState_v2 resolved in the loaded library.
+func HasDeviceSetVgpuSchedulerState() bool {
 	return Has("nvmlDeviceSetVgpuSchedulerState_v2")
 }
 
-// HasdeviceSetVirtualizationMode reports whether nvmlDeviceSetVirtualizationMode resolved in the loaded library.
-func HasdeviceSetVirtualizationMode() bool {
+// HasDeviceSetVirtualizationMode reports whether nvmlDeviceSetVirtualizationMode resolved in the loaded library.
+func HasDeviceSetVirtualizationMode() bool {
 	return Has("nvmlDeviceSetVirtualizationMode")
 }
 
-// HasdeviceValidateInforom reports whether nvmlDeviceValidateInforom resolved in the loaded library.
-func HasdeviceValidateInforom() bool {
+// HasDeviceValidateInforom reports whether nvmlDeviceValidateInforom resolved in the loaded library.
+func HasDeviceValidateInforom() bool {
 	return Has("nvmlDeviceValidateInforom")
 }
 
-// HasdeviceVgpuForceGspUnload reports whether nvmlDeviceVgpuForceGspUnload resolved in the loaded library.
-func HasdeviceVgpuForceGspUnload() bool {
+// HasDeviceVgpuForceGspUnload reports whether nvmlDeviceVgpuForceGspUnload resolved in the loaded library.
+func HasDeviceVgpuForceGspUnload() bool {
 	return Has("nvmlDeviceVgpuForceGspUnload")
 }
 
-// HasdeviceWorkloadPowerProfileGetCurrentProfiles reports whether nvmlDeviceWorkloadPowerProfileGetCurrentProfiles resolved in the loaded library.
-func HasdeviceWorkloadPowerProfileGetCurrentProfiles() bool {
+// HasDeviceWorkloadPowerProfileClearRequestedProfiles reports whether nvmlDeviceWorkloadPowerProfileClearRequestedProfiles resolved in the loaded library.
+func HasDeviceWorkloadPowerProfileClearRequestedProfiles() bool {
+	return Has("nvmlDeviceWorkloadPowerProfileClearRequestedProfiles")
+}
+
+// HasDeviceWorkloadPowerProfileGetCurrentProfiles reports whether nvmlDeviceWorkloadPowerProfileGetCurrentProfiles resolved in the loaded library.
+func HasDeviceWorkloadPowerProfileGetCurrentProfiles() bool {
 	return Has("nvmlDeviceWorkloadPowerProfileGetCurrentProfiles")
 }
 
-// HasdeviceWorkloadPowerProfileGetProfilesInfo reports whether nvmlDeviceWorkloadPowerProfileGetProfilesInfo resolved in the loaded library.
-func HasdeviceWorkloadPowerProfileGetProfilesInfo() bool {
+// HasDeviceWorkloadPowerProfileGetProfilesInfo reports whether nvmlDeviceWorkloadPowerProfileGetProfilesInfo resolved in the loaded library.
+func HasDeviceWorkloadPowerProfileGetProfilesInfo() bool {
 	return Has("nvmlDeviceWorkloadPowerProfileGetProfilesInfo")
 }
 
-// HasdeviceWorkloadPowerProfileUpdateProfiles reports whether nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1 resolved in the loaded library.
-func HasdeviceWorkloadPowerProfileUpdateProfiles() bool {
+// HasDeviceWorkloadPowerProfileSetRequestedProfiles reports whether nvmlDeviceWorkloadPowerProfileSetRequestedProfiles resolved in the loaded library.
+func HasDeviceWorkloadPowerProfileSetRequestedProfiles() bool {
+	return Has("nvmlDeviceWorkloadPowerProfileSetRequestedProfiles")
+}
+
+// HasDeviceWorkloadPowerProfileUpdateProfiles reports whether nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1 resolved in the loaded library.
+func HasDeviceWorkloadPowerProfileUpdateProfiles() bool {
 	return Has("nvmlDeviceWorkloadPowerProfileUpdateProfiles_v1")
 }
 
-// HaseventSetCreate reports whether nvmlEventSetCreate resolved in the loaded library.
-func HaseventSetCreate() bool {
+// HasEventSetCreate reports whether nvmlEventSetCreate resolved in the loaded library.
+func HasEventSetCreate() bool {
 	return Has("nvmlEventSetCreate")
 }
 
-// HaseventSetFree reports whether nvmlEventSetFree resolved in the loaded library.
-func HaseventSetFree() bool {
+// HasEventSetFree reports whether nvmlEventSetFree resolved in the loaded library.
+func HasEventSetFree() bool {
 	return Has("nvmlEventSetFree")
 }
 
-// HaseventSetWait reports whether nvmlEventSetWait_v2 resolved in the loaded library.
-func HaseventSetWait() bool {
+// HasEventSetWait reports whether nvmlEventSetWait_v2 resolved in the loaded library.
+func HasEventSetWait() bool {
 	return Has("nvmlEventSetWait_v2")
 }
 
@@ -2214,139 +2379,139 @@ func HasGpmMetricsGet() bool {
 	return Has("nvmlGpmMetricsGet")
 }
 
-// HasgpmMigSampleGet reports whether nvmlGpmMigSampleGet resolved in the loaded library.
-func HasgpmMigSampleGet() bool {
+// HasGpmMigSampleGet reports whether nvmlGpmMigSampleGet resolved in the loaded library.
+func HasGpmMigSampleGet() bool {
 	return Has("nvmlGpmMigSampleGet")
 }
 
-// HasgpmQueryDeviceSupport reports whether nvmlGpmQueryDeviceSupport resolved in the loaded library.
-func HasgpmQueryDeviceSupport() bool {
+// HasGpmQueryDeviceSupport reports whether nvmlGpmQueryDeviceSupport resolved in the loaded library.
+func HasGpmQueryDeviceSupport() bool {
 	return Has("nvmlGpmQueryDeviceSupport")
 }
 
-// HasgpmQueryIfStreamingEnabled reports whether nvmlGpmQueryIfStreamingEnabled resolved in the loaded library.
-func HasgpmQueryIfStreamingEnabled() bool {
+// HasGpmQueryIfStreamingEnabled reports whether nvmlGpmQueryIfStreamingEnabled resolved in the loaded library.
+func HasGpmQueryIfStreamingEnabled() bool {
 	return Has("nvmlGpmQueryIfStreamingEnabled")
 }
 
-// HasgpmSampleAlloc reports whether nvmlGpmSampleAlloc resolved in the loaded library.
-func HasgpmSampleAlloc() bool {
+// HasGpmSampleAlloc reports whether nvmlGpmSampleAlloc resolved in the loaded library.
+func HasGpmSampleAlloc() bool {
 	return Has("nvmlGpmSampleAlloc")
 }
 
-// HasgpmSampleFree reports whether nvmlGpmSampleFree resolved in the loaded library.
-func HasgpmSampleFree() bool {
+// HasGpmSampleFree reports whether nvmlGpmSampleFree resolved in the loaded library.
+func HasGpmSampleFree() bool {
 	return Has("nvmlGpmSampleFree")
 }
 
-// HasgpmSampleGet reports whether nvmlGpmSampleGet resolved in the loaded library.
-func HasgpmSampleGet() bool {
+// HasGpmSampleGet reports whether nvmlGpmSampleGet resolved in the loaded library.
+func HasGpmSampleGet() bool {
 	return Has("nvmlGpmSampleGet")
 }
 
-// HasgpmSetStreamingEnabled reports whether nvmlGpmSetStreamingEnabled resolved in the loaded library.
-func HasgpmSetStreamingEnabled() bool {
+// HasGpmSetStreamingEnabled reports whether nvmlGpmSetStreamingEnabled resolved in the loaded library.
+func HasGpmSetStreamingEnabled() bool {
 	return Has("nvmlGpmSetStreamingEnabled")
 }
 
-// HasgpuInstanceCreateComputeInstance reports whether nvmlGpuInstanceCreateComputeInstance resolved in the loaded library.
-func HasgpuInstanceCreateComputeInstance() bool {
+// HasGpuInstanceCreateComputeInstance reports whether nvmlGpuInstanceCreateComputeInstance resolved in the loaded library.
+func HasGpuInstanceCreateComputeInstance() bool {
 	return Has("nvmlGpuInstanceCreateComputeInstance")
 }
 
-// HasgpuInstanceCreateComputeInstanceWithPlacement reports whether nvmlGpuInstanceCreateComputeInstanceWithPlacement resolved in the loaded library.
-func HasgpuInstanceCreateComputeInstanceWithPlacement() bool {
+// HasGpuInstanceCreateComputeInstanceWithPlacement reports whether nvmlGpuInstanceCreateComputeInstanceWithPlacement resolved in the loaded library.
+func HasGpuInstanceCreateComputeInstanceWithPlacement() bool {
 	return Has("nvmlGpuInstanceCreateComputeInstanceWithPlacement")
 }
 
-// HasgpuInstanceDestroy reports whether nvmlGpuInstanceDestroy resolved in the loaded library.
-func HasgpuInstanceDestroy() bool {
+// HasGpuInstanceDestroy reports whether nvmlGpuInstanceDestroy resolved in the loaded library.
+func HasGpuInstanceDestroy() bool {
 	return Has("nvmlGpuInstanceDestroy")
 }
 
-// HasgpuInstanceGetActiveVgpus reports whether nvmlGpuInstanceGetActiveVgpus resolved in the loaded library.
-func HasgpuInstanceGetActiveVgpus() bool {
+// HasGpuInstanceGetActiveVgpus reports whether nvmlGpuInstanceGetActiveVgpus resolved in the loaded library.
+func HasGpuInstanceGetActiveVgpus() bool {
 	return Has("nvmlGpuInstanceGetActiveVgpus")
 }
 
-// HasgpuInstanceGetComputeInstanceById reports whether nvmlGpuInstanceGetComputeInstanceById resolved in the loaded library.
-func HasgpuInstanceGetComputeInstanceById() bool {
+// HasGpuInstanceGetComputeInstanceById reports whether nvmlGpuInstanceGetComputeInstanceById resolved in the loaded library.
+func HasGpuInstanceGetComputeInstanceById() bool {
 	return Has("nvmlGpuInstanceGetComputeInstanceById")
 }
 
-// HasgpuInstanceGetComputeInstancePossiblePlacements reports whether nvmlGpuInstanceGetComputeInstancePossiblePlacements resolved in the loaded library.
-func HasgpuInstanceGetComputeInstancePossiblePlacements() bool {
+// HasGpuInstanceGetComputeInstancePossiblePlacements reports whether nvmlGpuInstanceGetComputeInstancePossiblePlacements resolved in the loaded library.
+func HasGpuInstanceGetComputeInstancePossiblePlacements() bool {
 	return Has("nvmlGpuInstanceGetComputeInstancePossiblePlacements")
 }
 
-// HasgpuInstanceGetComputeInstanceProfileInfo reports whether nvmlGpuInstanceGetComputeInstanceProfileInfo resolved in the loaded library.
-func HasgpuInstanceGetComputeInstanceProfileInfo() bool {
+// HasGpuInstanceGetComputeInstanceProfileInfo reports whether nvmlGpuInstanceGetComputeInstanceProfileInfo resolved in the loaded library.
+func HasGpuInstanceGetComputeInstanceProfileInfo() bool {
 	return Has("nvmlGpuInstanceGetComputeInstanceProfileInfo")
 }
 
-// HasgpuInstanceGetComputeInstanceProfileInfoV reports whether nvmlGpuInstanceGetComputeInstanceProfileInfoV resolved in the loaded library.
-func HasgpuInstanceGetComputeInstanceProfileInfoV() bool {
+// HasGpuInstanceGetComputeInstanceProfileInfoV reports whether nvmlGpuInstanceGetComputeInstanceProfileInfoV resolved in the loaded library.
+func HasGpuInstanceGetComputeInstanceProfileInfoV() bool {
 	return Has("nvmlGpuInstanceGetComputeInstanceProfileInfoV")
 }
 
-// HasgpuInstanceGetComputeInstanceRemainingCapacity reports whether nvmlGpuInstanceGetComputeInstanceRemainingCapacity resolved in the loaded library.
-func HasgpuInstanceGetComputeInstanceRemainingCapacity() bool {
+// HasGpuInstanceGetComputeInstanceRemainingCapacity reports whether nvmlGpuInstanceGetComputeInstanceRemainingCapacity resolved in the loaded library.
+func HasGpuInstanceGetComputeInstanceRemainingCapacity() bool {
 	return Has("nvmlGpuInstanceGetComputeInstanceRemainingCapacity")
 }
 
-// HasgpuInstanceGetComputeInstances reports whether nvmlGpuInstanceGetComputeInstances resolved in the loaded library.
-func HasgpuInstanceGetComputeInstances() bool {
+// HasGpuInstanceGetComputeInstances reports whether nvmlGpuInstanceGetComputeInstances resolved in the loaded library.
+func HasGpuInstanceGetComputeInstances() bool {
 	return Has("nvmlGpuInstanceGetComputeInstances")
 }
 
-// HasgpuInstanceGetCreatableVgpus reports whether nvmlGpuInstanceGetCreatableVgpus resolved in the loaded library.
-func HasgpuInstanceGetCreatableVgpus() bool {
+// HasGpuInstanceGetCreatableVgpus reports whether nvmlGpuInstanceGetCreatableVgpus resolved in the loaded library.
+func HasGpuInstanceGetCreatableVgpus() bool {
 	return Has("nvmlGpuInstanceGetCreatableVgpus")
 }
 
-// HasgpuInstanceGetInfo reports whether nvmlGpuInstanceGetInfo resolved in the loaded library.
-func HasgpuInstanceGetInfo() bool {
+// HasGpuInstanceGetInfo reports whether nvmlGpuInstanceGetInfo resolved in the loaded library.
+func HasGpuInstanceGetInfo() bool {
 	return Has("nvmlGpuInstanceGetInfo")
 }
 
-// HasgpuInstanceGetVgpuHeterogeneousMode reports whether nvmlGpuInstanceGetVgpuHeterogeneousMode resolved in the loaded library.
-func HasgpuInstanceGetVgpuHeterogeneousMode() bool {
+// HasGpuInstanceGetVgpuHeterogeneousMode reports whether nvmlGpuInstanceGetVgpuHeterogeneousMode resolved in the loaded library.
+func HasGpuInstanceGetVgpuHeterogeneousMode() bool {
 	return Has("nvmlGpuInstanceGetVgpuHeterogeneousMode")
 }
 
-// HasgpuInstanceGetVgpuSchedulerLog reports whether nvmlGpuInstanceGetVgpuSchedulerLog_v2 resolved in the loaded library.
-func HasgpuInstanceGetVgpuSchedulerLog() bool {
+// HasGpuInstanceGetVgpuSchedulerLog reports whether nvmlGpuInstanceGetVgpuSchedulerLog_v2 resolved in the loaded library.
+func HasGpuInstanceGetVgpuSchedulerLog() bool {
 	return Has("nvmlGpuInstanceGetVgpuSchedulerLog_v2")
 }
 
-// HasgpuInstanceGetVgpuSchedulerState reports whether nvmlGpuInstanceGetVgpuSchedulerState_v2 resolved in the loaded library.
-func HasgpuInstanceGetVgpuSchedulerState() bool {
+// HasGpuInstanceGetVgpuSchedulerState reports whether nvmlGpuInstanceGetVgpuSchedulerState_v2 resolved in the loaded library.
+func HasGpuInstanceGetVgpuSchedulerState() bool {
 	return Has("nvmlGpuInstanceGetVgpuSchedulerState_v2")
 }
 
-// HasgpuInstanceGetVgpuTypeCreatablePlacements reports whether nvmlGpuInstanceGetVgpuTypeCreatablePlacements resolved in the loaded library.
-func HasgpuInstanceGetVgpuTypeCreatablePlacements() bool {
+// HasGpuInstanceGetVgpuTypeCreatablePlacements reports whether nvmlGpuInstanceGetVgpuTypeCreatablePlacements resolved in the loaded library.
+func HasGpuInstanceGetVgpuTypeCreatablePlacements() bool {
 	return Has("nvmlGpuInstanceGetVgpuTypeCreatablePlacements")
 }
 
-// HasgpuInstanceSetVgpuHeterogeneousMode reports whether nvmlGpuInstanceSetVgpuHeterogeneousMode resolved in the loaded library.
-func HasgpuInstanceSetVgpuHeterogeneousMode() bool {
+// HasGpuInstanceSetVgpuHeterogeneousMode reports whether nvmlGpuInstanceSetVgpuHeterogeneousMode resolved in the loaded library.
+func HasGpuInstanceSetVgpuHeterogeneousMode() bool {
 	return Has("nvmlGpuInstanceSetVgpuHeterogeneousMode")
 }
 
-// HasgpuInstanceSetVgpuSchedulerState reports whether nvmlGpuInstanceSetVgpuSchedulerState_v2 resolved in the loaded library.
-func HasgpuInstanceSetVgpuSchedulerState() bool {
+// HasGpuInstanceSetVgpuSchedulerState reports whether nvmlGpuInstanceSetVgpuSchedulerState_v2 resolved in the loaded library.
+func HasGpuInstanceSetVgpuSchedulerState() bool {
 	return Has("nvmlGpuInstanceSetVgpuSchedulerState_v2")
-}
-
-// HasInitWithFlags reports whether nvmlInitWithFlags resolved in the loaded library.
-func HasInitWithFlags() bool {
-	return Has("nvmlInitWithFlags")
 }
 
 // HasInit reports whether nvmlInit_v2 resolved in the loaded library.
 func HasInit() bool {
 	return Has("nvmlInit_v2")
+}
+
+// HasInitWithFlags reports whether nvmlInitWithFlags resolved in the loaded library.
+func HasInitWithFlags() bool {
+	return Has("nvmlInitWithFlags")
 }
 
 // HasSetVgpuVersion reports whether nvmlSetVgpuVersion resolved in the loaded library.
@@ -2372,6 +2537,11 @@ func HasSystemEventSetFree() bool {
 // HasSystemEventSetWait reports whether nvmlSystemEventSetWait resolved in the loaded library.
 func HasSystemEventSetWait() bool {
 	return Has("nvmlSystemEventSetWait")
+}
+
+// HasSystemGetCPER reports whether nvmlSystemGetCPER_v1 resolved in the loaded library.
+func HasSystemGetCPER() bool {
+	return Has("nvmlSystemGetCPER_v1")
 }
 
 // HasSystemGetConfComputeCapabilities reports whether nvmlSystemGetConfComputeCapabilities resolved in the loaded library.
@@ -2464,218 +2634,223 @@ func HasUnitGetCount() bool {
 	return Has("nvmlUnitGetCount")
 }
 
-// HasunitGetDevices reports whether nvmlUnitGetDevices resolved in the loaded library.
-func HasunitGetDevices() bool {
+// HasUnitGetDevices reports whether nvmlUnitGetDevices resolved in the loaded library.
+func HasUnitGetDevices() bool {
 	return Has("nvmlUnitGetDevices")
 }
 
-// HasunitGetFanSpeedInfo reports whether nvmlUnitGetFanSpeedInfo resolved in the loaded library.
-func HasunitGetFanSpeedInfo() bool {
+// HasUnitGetFanSpeedInfo reports whether nvmlUnitGetFanSpeedInfo resolved in the loaded library.
+func HasUnitGetFanSpeedInfo() bool {
 	return Has("nvmlUnitGetFanSpeedInfo")
 }
 
-// HasunitGetHandleByIndex reports whether nvmlUnitGetHandleByIndex resolved in the loaded library.
-func HasunitGetHandleByIndex() bool {
+// HasUnitGetHandleByIndex reports whether nvmlUnitGetHandleByIndex resolved in the loaded library.
+func HasUnitGetHandleByIndex() bool {
 	return Has("nvmlUnitGetHandleByIndex")
 }
 
-// HasunitGetLedState reports whether nvmlUnitGetLedState resolved in the loaded library.
-func HasunitGetLedState() bool {
+// HasUnitGetLedState reports whether nvmlUnitGetLedState resolved in the loaded library.
+func HasUnitGetLedState() bool {
 	return Has("nvmlUnitGetLedState")
 }
 
-// HasunitGetPsuInfo reports whether nvmlUnitGetPsuInfo resolved in the loaded library.
-func HasunitGetPsuInfo() bool {
+// HasUnitGetPsuInfo reports whether nvmlUnitGetPsuInfo resolved in the loaded library.
+func HasUnitGetPsuInfo() bool {
 	return Has("nvmlUnitGetPsuInfo")
 }
 
-// HasunitGetTemperature reports whether nvmlUnitGetTemperature resolved in the loaded library.
-func HasunitGetTemperature() bool {
+// HasUnitGetTemperature reports whether nvmlUnitGetTemperature resolved in the loaded library.
+func HasUnitGetTemperature() bool {
 	return Has("nvmlUnitGetTemperature")
 }
 
-// HasunitGetUnitInfo reports whether nvmlUnitGetUnitInfo resolved in the loaded library.
-func HasunitGetUnitInfo() bool {
+// HasUnitGetUnitInfo reports whether nvmlUnitGetUnitInfo resolved in the loaded library.
+func HasUnitGetUnitInfo() bool {
 	return Has("nvmlUnitGetUnitInfo")
 }
 
-// HasunitSetLedState reports whether nvmlUnitSetLedState resolved in the loaded library.
-func HasunitSetLedState() bool {
+// HasUnitSetLedState reports whether nvmlUnitSetLedState resolved in the loaded library.
+func HasUnitSetLedState() bool {
 	return Has("nvmlUnitSetLedState")
 }
 
-// HasvgpuInstanceClearAccountingPids reports whether nvmlVgpuInstanceClearAccountingPids resolved in the loaded library.
-func HasvgpuInstanceClearAccountingPids() bool {
+// HasVgpuInstanceClearAccountingPids reports whether nvmlVgpuInstanceClearAccountingPids resolved in the loaded library.
+func HasVgpuInstanceClearAccountingPids() bool {
 	return Has("nvmlVgpuInstanceClearAccountingPids")
 }
 
-// HasvgpuInstanceGetAccountingMode reports whether nvmlVgpuInstanceGetAccountingMode resolved in the loaded library.
-func HasvgpuInstanceGetAccountingMode() bool {
+// HasVgpuInstanceGetAccountingMode reports whether nvmlVgpuInstanceGetAccountingMode resolved in the loaded library.
+func HasVgpuInstanceGetAccountingMode() bool {
 	return Has("nvmlVgpuInstanceGetAccountingMode")
 }
 
-// HasvgpuInstanceGetAccountingPids reports whether nvmlVgpuInstanceGetAccountingPids resolved in the loaded library.
-func HasvgpuInstanceGetAccountingPids() bool {
+// HasVgpuInstanceGetAccountingPids reports whether nvmlVgpuInstanceGetAccountingPids resolved in the loaded library.
+func HasVgpuInstanceGetAccountingPids() bool {
 	return Has("nvmlVgpuInstanceGetAccountingPids")
 }
 
-// HasvgpuInstanceGetAccountingStats reports whether nvmlVgpuInstanceGetAccountingStats resolved in the loaded library.
-func HasvgpuInstanceGetAccountingStats() bool {
+// HasVgpuInstanceGetAccountingStats reports whether nvmlVgpuInstanceGetAccountingStats resolved in the loaded library.
+func HasVgpuInstanceGetAccountingStats() bool {
 	return Has("nvmlVgpuInstanceGetAccountingStats")
 }
 
-// HasvgpuInstanceGetEccMode reports whether nvmlVgpuInstanceGetEccMode resolved in the loaded library.
-func HasvgpuInstanceGetEccMode() bool {
+// HasVgpuInstanceGetEccMode reports whether nvmlVgpuInstanceGetEccMode resolved in the loaded library.
+func HasVgpuInstanceGetEccMode() bool {
 	return Has("nvmlVgpuInstanceGetEccMode")
 }
 
-// HasvgpuInstanceGetEncoderCapacity reports whether nvmlVgpuInstanceGetEncoderCapacity resolved in the loaded library.
-func HasvgpuInstanceGetEncoderCapacity() bool {
+// HasVgpuInstanceGetEncoderCapacity reports whether nvmlVgpuInstanceGetEncoderCapacity resolved in the loaded library.
+func HasVgpuInstanceGetEncoderCapacity() bool {
 	return Has("nvmlVgpuInstanceGetEncoderCapacity")
 }
 
-// HasvgpuInstanceGetEncoderSessions reports whether nvmlVgpuInstanceGetEncoderSessions resolved in the loaded library.
-func HasvgpuInstanceGetEncoderSessions() bool {
+// HasVgpuInstanceGetEncoderSessions reports whether nvmlVgpuInstanceGetEncoderSessions resolved in the loaded library.
+func HasVgpuInstanceGetEncoderSessions() bool {
 	return Has("nvmlVgpuInstanceGetEncoderSessions")
 }
 
-// HasvgpuInstanceGetEncoderStats reports whether nvmlVgpuInstanceGetEncoderStats resolved in the loaded library.
-func HasvgpuInstanceGetEncoderStats() bool {
+// HasVgpuInstanceGetEncoderStats reports whether nvmlVgpuInstanceGetEncoderStats resolved in the loaded library.
+func HasVgpuInstanceGetEncoderStats() bool {
 	return Has("nvmlVgpuInstanceGetEncoderStats")
 }
 
-// HasvgpuInstanceGetFBCSessions reports whether nvmlVgpuInstanceGetFBCSessions resolved in the loaded library.
-func HasvgpuInstanceGetFBCSessions() bool {
+// HasVgpuInstanceGetFBCSessions reports whether nvmlVgpuInstanceGetFBCSessions resolved in the loaded library.
+func HasVgpuInstanceGetFBCSessions() bool {
 	return Has("nvmlVgpuInstanceGetFBCSessions")
 }
 
-// HasvgpuInstanceGetFBCStats reports whether nvmlVgpuInstanceGetFBCStats resolved in the loaded library.
-func HasvgpuInstanceGetFBCStats() bool {
+// HasVgpuInstanceGetFBCStats reports whether nvmlVgpuInstanceGetFBCStats resolved in the loaded library.
+func HasVgpuInstanceGetFBCStats() bool {
 	return Has("nvmlVgpuInstanceGetFBCStats")
 }
 
-// HasvgpuInstanceGetFbUsage reports whether nvmlVgpuInstanceGetFbUsage resolved in the loaded library.
-func HasvgpuInstanceGetFbUsage() bool {
+// HasVgpuInstanceGetFbUsage reports whether nvmlVgpuInstanceGetFbUsage resolved in the loaded library.
+func HasVgpuInstanceGetFbUsage() bool {
 	return Has("nvmlVgpuInstanceGetFbUsage")
 }
 
-// HasvgpuInstanceGetFrameRateLimit reports whether nvmlVgpuInstanceGetFrameRateLimit resolved in the loaded library.
-func HasvgpuInstanceGetFrameRateLimit() bool {
+// HasVgpuInstanceGetFrameRateLimit reports whether nvmlVgpuInstanceGetFrameRateLimit resolved in the loaded library.
+func HasVgpuInstanceGetFrameRateLimit() bool {
 	return Has("nvmlVgpuInstanceGetFrameRateLimit")
 }
 
-// HasvgpuInstanceGetGpuInstanceId reports whether nvmlVgpuInstanceGetGpuInstanceId resolved in the loaded library.
-func HasvgpuInstanceGetGpuInstanceId() bool {
+// HasVgpuInstanceGetGpuInstanceId reports whether nvmlVgpuInstanceGetGpuInstanceId resolved in the loaded library.
+func HasVgpuInstanceGetGpuInstanceId() bool {
 	return Has("nvmlVgpuInstanceGetGpuInstanceId")
 }
 
-// HasvgpuInstanceGetGpuPciId reports whether nvmlVgpuInstanceGetGpuPciId resolved in the loaded library.
-func HasvgpuInstanceGetGpuPciId() bool {
+// HasVgpuInstanceGetGpuPciId reports whether nvmlVgpuInstanceGetGpuPciId resolved in the loaded library.
+func HasVgpuInstanceGetGpuPciId() bool {
 	return Has("nvmlVgpuInstanceGetGpuPciId")
 }
 
-// HasvgpuInstanceGetLicenseInfo reports whether nvmlVgpuInstanceGetLicenseInfo_v2 resolved in the loaded library.
-func HasvgpuInstanceGetLicenseInfo() bool {
+// HasVgpuInstanceGetLicenseInfo reports whether nvmlVgpuInstanceGetLicenseInfo_v2 resolved in the loaded library.
+func HasVgpuInstanceGetLicenseInfo() bool {
 	return Has("nvmlVgpuInstanceGetLicenseInfo_v2")
 }
 
-// HasvgpuInstanceGetMdevUUID reports whether nvmlVgpuInstanceGetMdevUUID resolved in the loaded library.
-func HasvgpuInstanceGetMdevUUID() bool {
+// HasVgpuInstanceGetLicenseStatus reports whether nvmlVgpuInstanceGetLicenseStatus resolved in the loaded library.
+func HasVgpuInstanceGetLicenseStatus() bool {
+	return Has("nvmlVgpuInstanceGetLicenseStatus")
+}
+
+// HasVgpuInstanceGetMdevUUID reports whether nvmlVgpuInstanceGetMdevUUID resolved in the loaded library.
+func HasVgpuInstanceGetMdevUUID() bool {
 	return Has("nvmlVgpuInstanceGetMdevUUID")
 }
 
-// HasvgpuInstanceGetMetadata reports whether nvmlVgpuInstanceGetMetadata resolved in the loaded library.
-func HasvgpuInstanceGetMetadata() bool {
+// HasVgpuInstanceGetMetadata reports whether nvmlVgpuInstanceGetMetadata resolved in the loaded library.
+func HasVgpuInstanceGetMetadata() bool {
 	return Has("nvmlVgpuInstanceGetMetadata")
 }
 
-// HasvgpuInstanceGetPlacementId reports whether nvmlVgpuInstanceGetPlacementId resolved in the loaded library.
-func HasvgpuInstanceGetPlacementId() bool {
+// HasVgpuInstanceGetPlacementId reports whether nvmlVgpuInstanceGetPlacementId resolved in the loaded library.
+func HasVgpuInstanceGetPlacementId() bool {
 	return Has("nvmlVgpuInstanceGetPlacementId")
 }
 
-// HasvgpuInstanceGetRuntimeStateSize reports whether nvmlVgpuInstanceGetRuntimeStateSize resolved in the loaded library.
-func HasvgpuInstanceGetRuntimeStateSize() bool {
+// HasVgpuInstanceGetRuntimeStateSize reports whether nvmlVgpuInstanceGetRuntimeStateSize resolved in the loaded library.
+func HasVgpuInstanceGetRuntimeStateSize() bool {
 	return Has("nvmlVgpuInstanceGetRuntimeStateSize")
 }
 
-// HasvgpuInstanceGetType reports whether nvmlVgpuInstanceGetType resolved in the loaded library.
-func HasvgpuInstanceGetType() bool {
+// HasVgpuInstanceGetType reports whether nvmlVgpuInstanceGetType resolved in the loaded library.
+func HasVgpuInstanceGetType() bool {
 	return Has("nvmlVgpuInstanceGetType")
 }
 
-// HasvgpuInstanceGetUUID reports whether nvmlVgpuInstanceGetUUID resolved in the loaded library.
-func HasvgpuInstanceGetUUID() bool {
+// HasVgpuInstanceGetUUID reports whether nvmlVgpuInstanceGetUUID resolved in the loaded library.
+func HasVgpuInstanceGetUUID() bool {
 	return Has("nvmlVgpuInstanceGetUUID")
 }
 
-// HasvgpuInstanceGetVmDriverVersion reports whether nvmlVgpuInstanceGetVmDriverVersion resolved in the loaded library.
-func HasvgpuInstanceGetVmDriverVersion() bool {
+// HasVgpuInstanceGetVmDriverVersion reports whether nvmlVgpuInstanceGetVmDriverVersion resolved in the loaded library.
+func HasVgpuInstanceGetVmDriverVersion() bool {
 	return Has("nvmlVgpuInstanceGetVmDriverVersion")
 }
 
-// HasvgpuInstanceGetVmID reports whether nvmlVgpuInstanceGetVmID resolved in the loaded library.
-func HasvgpuInstanceGetVmID() bool {
+// HasVgpuInstanceGetVmID reports whether nvmlVgpuInstanceGetVmID resolved in the loaded library.
+func HasVgpuInstanceGetVmID() bool {
 	return Has("nvmlVgpuInstanceGetVmID")
 }
 
-// HasvgpuInstanceSetEncoderCapacity reports whether nvmlVgpuInstanceSetEncoderCapacity resolved in the loaded library.
-func HasvgpuInstanceSetEncoderCapacity() bool {
+// HasVgpuInstanceSetEncoderCapacity reports whether nvmlVgpuInstanceSetEncoderCapacity resolved in the loaded library.
+func HasVgpuInstanceSetEncoderCapacity() bool {
 	return Has("nvmlVgpuInstanceSetEncoderCapacity")
 }
 
-// HasvgpuTypeGetBAR1Info reports whether nvmlVgpuTypeGetBAR1Info resolved in the loaded library.
-func HasvgpuTypeGetBAR1Info() bool {
+// HasVgpuTypeGetBAR1Info reports whether nvmlVgpuTypeGetBAR1Info resolved in the loaded library.
+func HasVgpuTypeGetBAR1Info() bool {
 	return Has("nvmlVgpuTypeGetBAR1Info")
 }
 
-// HasvgpuTypeGetCapabilities reports whether nvmlVgpuTypeGetCapabilities resolved in the loaded library.
-func HasvgpuTypeGetCapabilities() bool {
+// HasVgpuTypeGetCapabilities reports whether nvmlVgpuTypeGetCapabilities resolved in the loaded library.
+func HasVgpuTypeGetCapabilities() bool {
 	return Has("nvmlVgpuTypeGetCapabilities")
 }
 
-// HasvgpuTypeGetClass reports whether nvmlVgpuTypeGetClass resolved in the loaded library.
-func HasvgpuTypeGetClass() bool {
+// HasVgpuTypeGetClass reports whether nvmlVgpuTypeGetClass resolved in the loaded library.
+func HasVgpuTypeGetClass() bool {
 	return Has("nvmlVgpuTypeGetClass")
 }
 
-// HasvgpuTypeGetDeviceID reports whether nvmlVgpuTypeGetDeviceID resolved in the loaded library.
-func HasvgpuTypeGetDeviceID() bool {
+// HasVgpuTypeGetDeviceID reports whether nvmlVgpuTypeGetDeviceID resolved in the loaded library.
+func HasVgpuTypeGetDeviceID() bool {
 	return Has("nvmlVgpuTypeGetDeviceID")
 }
 
-// HasvgpuTypeGetFbReservation reports whether nvmlVgpuTypeGetFbReservation resolved in the loaded library.
-func HasvgpuTypeGetFbReservation() bool {
+// HasVgpuTypeGetFbReservation reports whether nvmlVgpuTypeGetFbReservation resolved in the loaded library.
+func HasVgpuTypeGetFbReservation() bool {
 	return Has("nvmlVgpuTypeGetFbReservation")
 }
 
-// HasvgpuTypeGetFrameRateLimit reports whether nvmlVgpuTypeGetFrameRateLimit resolved in the loaded library.
-func HasvgpuTypeGetFrameRateLimit() bool {
+// HasVgpuTypeGetFrameRateLimit reports whether nvmlVgpuTypeGetFrameRateLimit resolved in the loaded library.
+func HasVgpuTypeGetFrameRateLimit() bool {
 	return Has("nvmlVgpuTypeGetFrameRateLimit")
 }
 
-// HasvgpuTypeGetFramebufferSize reports whether nvmlVgpuTypeGetFramebufferSize resolved in the loaded library.
-func HasvgpuTypeGetFramebufferSize() bool {
+// HasVgpuTypeGetFramebufferSize reports whether nvmlVgpuTypeGetFramebufferSize resolved in the loaded library.
+func HasVgpuTypeGetFramebufferSize() bool {
 	return Has("nvmlVgpuTypeGetFramebufferSize")
 }
 
-// HasvgpuTypeGetGpuInstanceProfileId reports whether nvmlVgpuTypeGetGpuInstanceProfileId resolved in the loaded library.
-func HasvgpuTypeGetGpuInstanceProfileId() bool {
+// HasVgpuTypeGetGpuInstanceProfileId reports whether nvmlVgpuTypeGetGpuInstanceProfileId resolved in the loaded library.
+func HasVgpuTypeGetGpuInstanceProfileId() bool {
 	return Has("nvmlVgpuTypeGetGpuInstanceProfileId")
 }
 
-// HasvgpuTypeGetGspHeapSize reports whether nvmlVgpuTypeGetGspHeapSize resolved in the loaded library.
-func HasvgpuTypeGetGspHeapSize() bool {
+// HasVgpuTypeGetGspHeapSize reports whether nvmlVgpuTypeGetGspHeapSize resolved in the loaded library.
+func HasVgpuTypeGetGspHeapSize() bool {
 	return Has("nvmlVgpuTypeGetGspHeapSize")
 }
 
-// HasvgpuTypeGetLicense reports whether nvmlVgpuTypeGetLicense resolved in the loaded library.
-func HasvgpuTypeGetLicense() bool {
+// HasVgpuTypeGetLicense reports whether nvmlVgpuTypeGetLicense resolved in the loaded library.
+func HasVgpuTypeGetLicense() bool {
 	return Has("nvmlVgpuTypeGetLicense")
 }
 
-// HasvgpuTypeGetMaxInstances reports whether nvmlVgpuTypeGetMaxInstances resolved in the loaded library.
-func HasvgpuTypeGetMaxInstances() bool {
+// HasVgpuTypeGetMaxInstances reports whether nvmlVgpuTypeGetMaxInstances resolved in the loaded library.
+func HasVgpuTypeGetMaxInstances() bool {
 	return Has("nvmlVgpuTypeGetMaxInstances")
 }
 
@@ -2684,22 +2859,22 @@ func HasVgpuTypeGetMaxInstancesPerGpuInstance() bool {
 	return Has("nvmlVgpuTypeGetMaxInstancesPerGpuInstance")
 }
 
-// HasvgpuTypeGetMaxInstancesPerVm reports whether nvmlVgpuTypeGetMaxInstancesPerVm resolved in the loaded library.
-func HasvgpuTypeGetMaxInstancesPerVm() bool {
+// HasVgpuTypeGetMaxInstancesPerVm reports whether nvmlVgpuTypeGetMaxInstancesPerVm resolved in the loaded library.
+func HasVgpuTypeGetMaxInstancesPerVm() bool {
 	return Has("nvmlVgpuTypeGetMaxInstancesPerVm")
 }
 
-// HasvgpuTypeGetName reports whether nvmlVgpuTypeGetName resolved in the loaded library.
-func HasvgpuTypeGetName() bool {
+// HasVgpuTypeGetName reports whether nvmlVgpuTypeGetName resolved in the loaded library.
+func HasVgpuTypeGetName() bool {
 	return Has("nvmlVgpuTypeGetName")
 }
 
-// HasvgpuTypeGetNumDisplayHeads reports whether nvmlVgpuTypeGetNumDisplayHeads resolved in the loaded library.
-func HasvgpuTypeGetNumDisplayHeads() bool {
+// HasVgpuTypeGetNumDisplayHeads reports whether nvmlVgpuTypeGetNumDisplayHeads resolved in the loaded library.
+func HasVgpuTypeGetNumDisplayHeads() bool {
 	return Has("nvmlVgpuTypeGetNumDisplayHeads")
 }
 
-// HasvgpuTypeGetResolution reports whether nvmlVgpuTypeGetResolution resolved in the loaded library.
-func HasvgpuTypeGetResolution() bool {
+// HasVgpuTypeGetResolution reports whether nvmlVgpuTypeGetResolution resolved in the loaded library.
+func HasVgpuTypeGetResolution() bool {
 	return Has("nvmlVgpuTypeGetResolution")
 }
