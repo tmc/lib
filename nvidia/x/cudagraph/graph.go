@@ -1,0 +1,181 @@
+package cudagraph
+
+import (
+	"errors"
+	"fmt"
+	"sort"
+	"sync"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+)
+
+// Graph represents an uninstantiated CUDA execution graph DAG.
+type Graph struct {
+	raw driver.Graph
+}
+
+// New creates an empty CUDA graph.
+func New() (*Graph, error) {
+	raw, err := driver.NewGraph(0)
+	if err != nil {
+		return nil, fmt.Errorf("cudagraph: create graph: %w", err)
+	}
+	return &Graph{raw: raw}, nil
+}
+
+// Capture executes fn on stream while recording all enqueued operations into a Graph.
+func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
+	if s == nil {
+		return nil, errors.New("cudagraph: nil stream passed to Capture")
+	}
+
+	if err := s.Raw().BeginCapture(driver.StreamCaptureModeGlobal); err != nil {
+		return nil, fmt.Errorf("cudagraph: begin capture: %w", err)
+	}
+
+	fn()
+
+	rawGraph, err := s.Raw().EndCapture()
+	if err != nil {
+		return nil, fmt.Errorf("cudagraph: end capture: %w", err)
+	}
+
+	return &Graph{raw: rawGraph}, nil
+}
+
+// Instantiate validates and instantiates the graph for execution on the GPU.
+func (g *Graph) Instantiate() (*Exec, error) {
+	rawExec, err := g.raw.Instantiate(0)
+	if err != nil {
+		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
+	}
+	return &Exec{raw: rawExec}, nil
+}
+
+// Raw returns the underlying driver.Graph handle.
+func (g *Graph) Raw() driver.Graph {
+	return g.raw
+}
+
+// Destroy destroys the uninstantiated graph.
+func (g *Graph) Destroy() error {
+	if g.raw == 0 {
+		return nil
+	}
+	if err := g.raw.Destroy(); err != nil {
+		return fmt.Errorf("cudagraph: destroy graph: %w", err)
+	}
+	g.raw = 0
+	return nil
+}
+
+// Exec represents an instantiated, executable CUDA graph.
+type Exec struct {
+	raw driver.GraphExec
+}
+
+// Launch enqueues execution of the instantiated graph on stream.
+func (e *Exec) Launch(s *cuda.Stream) error {
+	var streamHandle driver.Stream
+	if s != nil {
+		streamHandle = s.Raw()
+	}
+	if err := e.raw.GraphLaunch(streamHandle); err != nil {
+		return fmt.Errorf("cudagraph: launch graph: %w", err)
+	}
+	return nil
+}
+
+// Update updates the parameters of this executable graph from a topologically identical graph.
+func (e *Exec) Update(g *Graph) error {
+	if g == nil {
+		return errors.New("cudagraph: nil graph passed to Update")
+	}
+	var result driver.GraphExecUpdateResultInfo
+	if err := e.raw.Update(g.raw, &result); err != nil {
+		return fmt.Errorf("cudagraph: update graph (result=%v): %w", result.Result, err)
+	}
+	return nil
+}
+
+// Destroy destroys the executable graph.
+func (e *Exec) Destroy() error {
+	if e.raw == 0 {
+		return nil
+	}
+	if err := e.raw.Destroy(); err != nil {
+		return fmt.Errorf("cudagraph: destroy exec graph: %w", err)
+	}
+	e.raw = 0
+	return nil
+}
+
+// BucketManager manages a discrete lattice of instantiated graphs for dynamic tensor dimensions,
+// avoiding expensive runtime recaptures and topology change errors.
+type BucketManager struct {
+	mu      sync.RWMutex
+	buckets []int
+	builder func(s *cuda.Stream, dim int) (*Graph, error)
+	execs   map[int]*Exec
+}
+
+// NewBucketManager creates a new manager caching instantiated graphs across discrete dimension buckets.
+func NewBucketManager(buckets []int, builder func(s *cuda.Stream, dim int) (*Graph, error)) *BucketManager {
+	sortedBuckets := make([]int, len(buckets))
+	copy(sortedBuckets, buckets)
+	sort.Ints(sortedBuckets)
+
+	return &BucketManager{
+		buckets: sortedBuckets,
+		builder: builder,
+		execs:   make(map[int]*Exec),
+	}
+}
+
+// GetExec returns the executable graph matching the smallest bucket that accommodates dim.
+func (bm *BucketManager) GetExec(s *cuda.Stream, dim int) (*Exec, int, error) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
+	targetBucket := -1
+	for _, b := range bm.buckets {
+		if b >= dim {
+			targetBucket = b
+			break
+		}
+	}
+	if targetBucket == -1 {
+		return nil, 0, fmt.Errorf("cudagraph: dim %d exceeds maximum configured bucket %d", dim, bm.buckets[len(bm.buckets)-1])
+	}
+
+	if exec, exists := bm.execs[targetBucket]; exists {
+		return exec, targetBucket, nil
+	}
+
+	g, err := bm.builder(s, targetBucket)
+	if err != nil {
+		return nil, 0, fmt.Errorf("cudagraph: build graph for bucket %d: %w", targetBucket, err)
+	}
+	defer g.Destroy()
+
+	exec, err := g.Instantiate()
+	if err != nil {
+		return nil, 0, fmt.Errorf("cudagraph: instantiate bucket %d: %w", targetBucket, err)
+	}
+
+	bm.execs[targetBucket] = exec
+	return exec, targetBucket, nil
+}
+
+// Close destroys all cached instantiated graphs.
+func (bm *BucketManager) Close() error {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
+	for _, exec := range bm.execs {
+		_ = exec.Destroy()
+	}
+	bm.execs = make(map[int]*Exec)
+	return nil
+}
