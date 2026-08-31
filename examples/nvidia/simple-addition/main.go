@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand/v2"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -35,6 +36,9 @@ func main() {
 }
 
 func run() error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	if err := driver.Init(0); err != nil {
 		return fmt.Errorf("cuInit: %w", err)
 	}
