@@ -8,11 +8,15 @@ import (
 )
 
 func TestHeader(t *testing.T) {
-	if len(cudablock.Header) == 0 {
-		t.Fatal("expected non-empty cudablock.Header")
+	header := cudablock.Header
+	if !strings.Contains(header, "warp_reduce_sum") {
+		t.Error("expected warp_reduce_sum in header")
 	}
-	if !strings.Contains(cudablock.Header, "warp_reduce_sum") {
-		t.Error("expected cudablock.Header to define warp_reduce_sum")
+	if !strings.Contains(header, "tile_load_2d") {
+		t.Error("expected tile_load_2d in header")
+	}
+	if !strings.Contains(header, "dequant_int4") {
+		t.Error("expected dequant_int4 in header")
 	}
 }
 

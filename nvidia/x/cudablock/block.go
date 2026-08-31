@@ -7,6 +7,9 @@ const Header = `
 #ifndef CUDABLOCK_CUH
 #define CUDABLOCK_CUH
 
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+
 #define WARP_SIZE 32
 #define FULL_MASK 0xffffffff
 
@@ -62,9 +65,9 @@ __device__ __forceinline__ void tile_load_2d(
     int max_rows,
     int max_cols
 ) {
-    int tid = threadIdx.y * blockDim.x + threadIdx.x;
+    const int TOTAL_ELEMENTS = TILE_M * TILE_N;
     #pragma unroll
-    for (int idx = tid; idx < TILE_M * TILE_N; idx += BLOCK_THREADS) {
+    for (int idx = threadIdx.x; idx < TOTAL_ELEMENTS; idx += BLOCK_THREADS) {
         int r = idx / TILE_N;
         int c = idx % TILE_N;
         if (r < max_rows && c < max_cols) {
@@ -73,48 +76,50 @@ __device__ __forceinline__ void tile_load_2d(
             shared_tile[r][c] = T(0);
         }
     }
-    __syncthreads();
+}
+
+// INT4 dequantization to float32 using scale and zero-point
+__device__ __forceinline__ float dequant_int4(unsigned char packed_byte, int nibble_idx, float scale, float zero) {
+    int val = (nibble_idx == 0) ? (packed_byte & 0x0F) : ((packed_byte >> 4) & 0x0F);
+    return (float(val) - zero) * scale;
+}
+
+// Fast FP16 vector load
+__device__ __forceinline__ float2 load_half2_as_float2(const __half2* ptr) {
+    __half2 h = *ptr;
+    return make_float2(__half2float(h.x), __half2float(h.y));
 }
 
 #endif // CUDABLOCK_CUH
 `
 
-// ReductionOp specifies an associative collective reduction operation.
-type ReductionOp int
-
-const (
-	OpSum ReductionOp = iota
-	OpMax
-	OpMin
-	OpProd
-)
-
-// String returns the string representation of the reduction op.
-func (op ReductionOp) String() string {
-	switch op {
-	case OpSum:
-		return "Sum"
-	case OpMax:
-		return "Max"
-	case OpMin:
-		return "Min"
-	case OpProd:
-		return "Prod"
-	default:
-		return "Unknown"
-	}
-}
-
-// TileConfig describes block dimensions and shared-memory tile dimensions.
+// TileConfig defines dimensions for cooperative threadblock staging.
 type TileConfig struct {
-	BlockThreads int
 	TileM        int
 	TileN        int
 	TileK        int
+	BlockThreads int
 	ElemBytes    int
 }
 
-// SharedMemBytes calculates the required dynamic shared memory in bytes for the tile configuration.
+// SharedMemBytes calculates the required shared memory scratchpad size in bytes for A and B tiles.
 func (tc TileConfig) SharedMemBytes() int {
-	return (tc.TileM*tc.TileK + tc.TileK*tc.TileN) * tc.ElemBytes
+	elem := tc.ElemBytes
+	if elem == 0 {
+		elem = 4
+	}
+	return (tc.TileM*tc.TileK + tc.TileK*tc.TileN) * elem
 }
+
+
+// DefaultGEMMTile returns standard shared-memory tile dimensions for GEMM/GEMV.
+func DefaultGEMMTile() TileConfig {
+	return TileConfig{
+		TileM:        128,
+		TileN:        128,
+		TileK:        32,
+		BlockThreads: 256,
+		ElemBytes:    4,
+	}
+}
+
