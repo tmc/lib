@@ -19,10 +19,9 @@ func Example() {
 	defer h.Destroy()
 
 	var dRowOffsets, dColInd, dValues uintptr // device allocations
-	// DataType 0 is CUDA_R_32F (library_types.h).
 	mat, err := cusparse.CreateCsr(4, 4, 9, dRowOffsets, dColInd, dValues,
 		cusparse.Index32I, cusparse.Index32I,
-		cusparse.IndexBaseZero, cusparse.DataType(0))
+		cusparse.IndexBaseZero, cusparse.R32F)
 	if err != nil {
 		fmt.Println("csr:", err)
 		return
