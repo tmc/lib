@@ -101,8 +101,6 @@ func (s TemperatureSampler) Sample(logits []float32) int32 {
 
 // ArgmaxKernelTemplate is the embedded CUDA C++ kernel finding the maximum logit index across vocabulary on GPU.
 const ArgmaxKernelTemplate = `
-#include <cuda_runtime.h>
-
 extern "C" __global__ void ArgmaxLogits(
     const float* __restrict__ logits,
     int* __restrict__ out_token,

@@ -28,9 +28,6 @@ func DefaultConfig(numQHeads, numKVHeads, headDim int) Config {
 
 // CausalFlashAttentionTemplate is the embedded CUDA C++ kernel for causal single-sequence decode attention.
 const CausalFlashAttentionTemplate = `
-#include <cuda_runtime.h>
-#include <math.h>
-
 extern "C" __global__ void CausalFlashAttentionDecode(
     const float* __restrict__ q,       // [batch, num_q_heads, head_dim]
     const float* __restrict__ k_cache, // [batch, max_seq_len, num_kv_heads, head_dim]
