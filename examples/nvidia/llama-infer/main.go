@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -22,7 +23,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
+
 
 var (
 	modelPath   = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
@@ -31,6 +34,7 @@ var (
 	tempFlag    = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
 	tracePath   = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
 	profilePath = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
+	disasmFlag  = flag.String("disasm", "", "print JIT-compiled PTX and SASS disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 )
 
 func main() {
@@ -41,6 +45,10 @@ func main() {
 }
 
 func run() error {
+	if *disasmFlag != "" {
+		return printKernelDisassembly(*disasmFlag)
+	}
+
 	var tracer *cudatrace.Tracer
 	if *tracePath != "" {
 		f, err := os.Create(*tracePath)
@@ -61,8 +69,15 @@ func run() error {
 		defer f.Close()
 		profSession = cudaprof.NewSession(f)
 		defer profSession.Close()
+
+		exePath, _ := os.Executable()
+		if exePath == "" {
+			exePath = "llama-infer"
+		}
+		profSession.SetMappingFile(exePath, "llama_infer_gpu")
 		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s\n", *profilePath)
 	}
+
 
 	// 1. Load or initialize Tokenizer
 	var tokenizer Tokenizer
@@ -535,3 +550,48 @@ func sampleTemperature(logits []float32, temp float32) int32 {
 	}
 	return int32(len(logits) - 1)
 }
+
+func printKernelDisassembly(targetKernel string) error {
+	archMajor, archMinor := 8, 0
+	if dev, err := cuda.NewDevice(0); err == nil {
+		defer dev.Close()
+		archMajor, archMinor, _ = dev.ComputeCapability()
+	}
+
+	opts := []nvrtcx.Option{
+		nvrtcx.WithName("llama_forward.cu"),
+		nvrtcx.WithArch(archMajor, archMinor),
+	}
+	mod, err := nvrtcx.Compile(ForwardKernelsCUDA, opts...)
+	if err != nil {
+		return fmt.Errorf("compile for disasm: %w", err)
+	}
+
+	ptx := mod.PTX()
+	fmt.Printf("=== JIT-Compiled PTX Disassembly (sm_%d%d) ===\n", archMajor, archMinor)
+	if targetKernel == "all" {
+		fmt.Println(ptx)
+		return nil
+	}
+
+	lines := strings.Split(ptx, "\n")
+	inTarget := false
+	printed := 0
+	for _, l := range lines {
+		if strings.Contains(l, ".entry "+targetKernel) {
+			inTarget = true
+		} else if inTarget && strings.HasPrefix(l, ".visible .entry ") {
+			break
+		}
+		if inTarget {
+			fmt.Println(l)
+			printed++
+		}
+	}
+
+	if printed == 0 {
+		fmt.Printf("[Disasm Notice] Kernel %q not found in PTX.\nAvailable kernels: EmbeddingLookup, RMSNorm, LinearGEMV, ApplyRoPE, StoreKVCache, SwiGLU, AddResidual\n", targetKernel)
+	}
+	return nil
+}
+

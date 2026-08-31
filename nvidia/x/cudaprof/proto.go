@@ -134,6 +134,18 @@ func NewBuilder() *Builder {
 	return b
 }
 
+// SetMappingFile configures the binary/PTX file path for instruction disassembly resolution.
+func (b *Builder) SetMappingFile(filename, buildID string) {
+	if len(b.mappings) > 0 {
+		b.mappings[0].filename = b.st.Index(filename)
+		if buildID != "" {
+			b.mappings[0].buildID = b.st.Index(buildID)
+		}
+	}
+}
+
+
+
 func (b *Builder) getOrCreateFunction(kernelName, filename string, startLine int64) uint64 {
 	key := fmt.Sprintf("%s:%s", kernelName, filename)
 	if id, ok := b.funcMap[key]; ok {

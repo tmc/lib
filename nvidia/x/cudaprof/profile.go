@@ -32,7 +32,15 @@ func NewSession(w io.Writer) *Session {
 	}
 }
 
+// SetMappingFile configures the binary/PTX file path for instruction disassembly resolution.
+func (s *Session) SetMappingFile(filename, buildID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetMappingFile(filename, buildID)
+}
+
 // RecordSample adds a GPU sample correlated with Go context pprof labels and OS thread affinity.
+
 func (s *Session) RecordSample(ctx context.Context, kernelName, filename string, line int64, sassPC uint64, count int64) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
