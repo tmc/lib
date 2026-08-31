@@ -596,7 +596,7 @@ func parsePTXLines(ptx string) PTXLineMap {
 	for i, l := range lines {
 		lineNum := int64(i + 1)
 		trimmed := strings.TrimSpace(l)
-		if strings.HasPrefix(trimmed, ".visible .entry ") || strings.HasPrefix(trimmed, ".entry ") {
+		if strings.Contains(trimmed, ".entry ") || strings.Contains(trimmed, ".entry\t") {
 			switch {
 			case strings.Contains(trimmed, "EmbeddingLookup"):
 				curEntry = "EmbeddingLookup"
@@ -613,21 +613,23 @@ func parsePTXLines(ptx string) PTXLineMap {
 				curEntry = "SwiGLU"
 			case strings.Contains(trimmed, "AddResidual"):
 				curEntry = "AddResidual"
+			default:
+				curEntry = ""
 			}
 		}
 		switch curEntry {
 		case "LinearGEMV":
-			if strings.Contains(l, "fma.rn.f32") && m.LinearGEMVLoop == 0 {
+			if (strings.Contains(l, "fma") || strings.Contains(l, "mul.f32")) && m.LinearGEMVLoop == 0 {
 				m.LinearGEMVLoop = lineNum
 			}
-			if strings.Contains(l, "shfl.sync.down") && m.LinearGEMVShfl == 0 {
+			if (strings.Contains(l, "shfl.sync.down") || strings.Contains(l, "shfl.down")) && m.LinearGEMVShfl == 0 {
 				m.LinearGEMVShfl = lineNum
 			}
 			if strings.Contains(l, "st.global") && m.LinearGEMVStore == 0 {
 				m.LinearGEMVStore = lineNum
 			}
 		case "RMSNorm":
-			if strings.Contains(l, "fma.rn.f32") && m.RMSNormLoop == 0 {
+			if (strings.Contains(l, "fma") || strings.Contains(l, "mul.f32")) && m.RMSNormLoop == 0 {
 				m.RMSNormLoop = lineNum
 			}
 			if (strings.Contains(l, "rsqrt") || strings.Contains(l, "div")) && m.RMSNormRSQRT == 0 {
@@ -637,7 +639,7 @@ func parsePTXLines(ptx string) PTXLineMap {
 				m.RMSNormStore = lineNum
 			}
 		case "ApplyRoPE":
-			if strings.Contains(l, "fma.rn.f32") && m.RoPELoop == 0 {
+			if (strings.Contains(l, "fma") || strings.Contains(l, "mul")) && m.RoPELoop == 0 {
 				m.RoPELoop = lineNum
 			}
 		case "StoreKVCache":
@@ -649,7 +651,7 @@ func parsePTXLines(ptx string) PTXLineMap {
 				m.SwiGLULoop = lineNum
 			}
 		case "AddResidual":
-			if strings.Contains(l, "add.f32") && m.AddResidualLoop == 0 {
+			if (strings.Contains(l, "add.f32") || strings.Contains(l, "add.rn.f32")) && m.AddResidualLoop == 0 {
 				m.AddResidualLoop = lineNum
 			}
 		}

@@ -129,3 +129,59 @@ func BenchmarkModelForwardStep(b *testing.B) {
 		_ = Forward(weights, &cfg, kvCache, 42, i%cfg.MaxSeqLen)
 	}
 }
+
+func TestParsePTXLines(t *testing.T) {
+	ptxSample := `.version 8.0
+.target sm_90
+.address_size 64
+
+.visible .entry EmbeddingLookup(
+	.param .u64 p0
+)
+{
+	ret;
+}
+
+.visible .entry RMSNorm(
+	.param .u64 p0
+)
+{
+	fma.rn.f32 %f1, %f2, %f3, %f4;
+	rsqrt.approx.f32 %f5, %f1;
+	st.global.f32 [%rd1], %f5;
+	ret;
+}
+
+.entry LinearGEMV(
+	.param .u64 p0
+)
+{
+	fma.rn.f32 %f10, %f11, %f12, %f13;
+	shfl.sync.down.b32 %r1, %r2, 16, 31, 0xffffffff;
+	st.global.f32 [%rd2], %f10;
+	ret;
+}
+`
+	m := parsePTXLines(ptxSample)
+	if m.EmbeddingLookup != 5 {
+		t.Errorf("expected EmbeddingLookup at line 5, got %d", m.EmbeddingLookup)
+	}
+	if m.RMSNormLoop != 16 {
+		t.Errorf("expected RMSNormLoop at line 16, got %d", m.RMSNormLoop)
+	}
+	if m.RMSNormRSQRT != 17 {
+		t.Errorf("expected RMSNormRSQRT at line 17, got %d", m.RMSNormRSQRT)
+	}
+	if m.RMSNormStore != 18 {
+		t.Errorf("expected RMSNormStore at line 18, got %d", m.RMSNormStore)
+	}
+	if m.LinearGEMVLoop != 26 {
+		t.Errorf("expected LinearGEMVLoop at line 26, got %d", m.LinearGEMVLoop)
+	}
+	if m.LinearGEMVShfl != 27 {
+		t.Errorf("expected LinearGEMVShfl at line 27, got %d", m.LinearGEMVShfl)
+	}
+	if m.LinearGEMVStore != 28 {
+		t.Errorf("expected LinearGEMVStore at line 28, got %d", m.LinearGEMVStore)
+	}
+}
