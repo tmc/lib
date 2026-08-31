@@ -201,7 +201,6 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 	return sb.String(), nil
 }
 
-
 // VocabSize returns the total vocabulary size.
 func (tok *BpeTokenizer) VocabSize() int {
 	return len(tok.vocab)

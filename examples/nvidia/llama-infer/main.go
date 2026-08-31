@@ -1,6 +1,6 @@
 // Command llama-infer demonstrates an end-to-end tensor LLM inference runtime
-// executing full Hugging Face BPE tokenization, transformer decoder forward passes,
-// KV-cache management, GQA causal attention, SwiGLU MLP, and token generation.
+// executing full Hugging Face BPE tokenization, 100% GPU-resident transformer decoder
+// forward passes, KV-cache management, GQA causal attention, SwiGLU MLP, and token generation.
 package main
 
 import (
@@ -13,8 +13,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 )
+
 
 var (
 	modelPath   = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
@@ -107,12 +112,139 @@ func run() error {
 	fmt.Printf("Tokens    : %v\n", promptTokens)
 	fmt.Printf("Generating: %d tokens (temp=%.2f)\n\n", *stepsFlag, *tempFlag)
 
-	// 4. Initialize KV Cache
+	// Check if CUDA device is available for 100% GPU-resident execution
+	dev, err := cuda.NewDevice(0)
+	if err == nil {
+		defer dev.Close()
+		name, _ := dev.Name()
+		major, minor, _ := dev.ComputeCapability()
+		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
+
+		return dev.WithContext(func() error {
+			return runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer)
+		})
+	}
+
+	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
+	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer)
+}
+
+func runGPUInference(
+	dev *cuda.Device,
+	w *ModelWeights,
+	cfg *ModelConfig,
+	tokenizer Tokenizer,
+	promptTokens []int32,
+	major, minor int,
+	tracer *cudatrace.Tracer,
+) error {
+	// Compile GPU kernel modules
+	gm, err := CompileGPUModules(dev)
+	if err != nil {
+		return fmt.Errorf("compile gpu modules: %w", err)
+	}
+	defer gm.Close()
+
+	attnModCompiled, err := cudaattn.Compile(major, minor)
+	if err != nil {
+		return fmt.Errorf("compile attn: %w", err)
+	}
+	attnMod, err := attnModCompiled.Load(dev)
+	if err != nil {
+		return err
+	}
+	defer attnMod.Unload()
+	attnFn, _ := attnMod.GetFunction("CausalFlashAttentionDecode")
+
+	sampleModCompiled, err := cudasample.Compile(major, minor)
+	if err != nil {
+		return fmt.Errorf("compile sampler: %w", err)
+	}
+	sampleMod, err := sampleModCompiled.Load(dev)
+	if err != nil {
+		return err
+	}
+	defer sampleMod.Unload()
+	sampleFn, _ := sampleMod.GetFunction("ArgmaxLogits")
+
+
+	// Upload weights directly into GPU VRAM
+	gpuWeights, err := UploadModelToGPU(dev, w, cfg)
+	if err != nil {
+		return fmt.Errorf("upload weights to gpu: %w", err)
+	}
+
+	// Allocate GPU KV Cache & Scratchpad
+	headDim := cfg.HeadDim()
+	kvCache, err := cudakv.New(dev, cfg.NumHiddenLayers, cfg.NumKeyValueHeads, headDim, cfg.MaxSeqLen)
+	if err != nil {
+		return fmt.Errorf("alloc kv cache: %w", err)
+	}
+	defer kvCache.Close()
+
+	scratch, err := NewGPUScratchpad(dev, cfg)
+	if err != nil {
+		return fmt.Errorf("alloc scratchpad: %w", err)
+	}
+	defer scratch.Free()
+
+	// Prefill Phase
+	fmt.Print("Streaming : ", *promptFlag)
+	var nextTokID int32
+
+	tPrefill0 := time.Now()
+	for pos, tokID := range promptTokens {
+		tok, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+		if err != nil {
+			return fmt.Errorf("gpu prefill step %d: %w", pos, err)
+		}
+		nextTokID = tok
+	}
+	prefillDuration := time.Since(tPrefill0)
+
+	// Decode Phase
+	curPos := len(promptTokens)
+	generatedTokens := make([]int32, 0, *stepsFlag)
+
+	tGen0 := time.Now()
+	for step := 0; step < *stepsFlag; step++ {
+		if curPos >= cfg.MaxSeqLen {
+			break
+		}
+
+		generatedTokens = append(generatedTokens, nextTokID)
+		chunk, _ := tokenizer.Decode([]int32{nextTokID})
+		fmt.Print(chunk)
+
+		tok, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+		if err != nil {
+			return fmt.Errorf("gpu decode step %d: %w", step, err)
+		}
+		nextTokID = tok
+		curPos++
+	}
+	genDuration := time.Since(tGen0)
+
+	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
+	fmt.Printf("\n\n--- GPU Performance Metrics ---\n")
+	fmt.Printf("Prefill Time : %v (%d prompt tokens)\n", prefillDuration, len(promptTokens))
+	fmt.Printf("Decode Time  : %v (%d generated tokens)\n", genDuration, len(generatedTokens))
+	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
+
+	return nil
+}
+
+func runCPUInference(
+	weights *ModelWeights,
+	cfg *ModelConfig,
+	tokenizer Tokenizer,
+	promptTokens []int32,
+	tracer *cudatrace.Tracer,
+) error {
 	headDim := cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * headDim
 	kvCache := NewKVCacheState(cfg.NumHiddenLayers, cfg.MaxSeqLen, kvDim)
 
-	// 5. Prompt Prefill Phase
 	fmt.Print("Streaming : ", *promptFlag)
 	var lastLogits []float32
 
@@ -122,7 +254,6 @@ func run() error {
 	}
 	prefillDuration := time.Since(tPrefill0)
 
-	// 6. Autoregressive Generation Loop
 	curPos := len(promptTokens)
 	generatedTokens := make([]int32, 0, *stepsFlag)
 
@@ -143,7 +274,6 @@ func run() error {
 		chunk, _ := tokenizer.Decode([]int32{nextTokID})
 		fmt.Print(chunk)
 
-		// Forward next token
 		if tracer != nil {
 			_ = tracer.Span(nil, fmt.Sprintf("Decode Step %d", step+1), "forward_pass", func() {
 				lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
@@ -156,7 +286,6 @@ func run() error {
 	}
 	genDuration := time.Since(tGen0)
 
-	// 7. Performance Reporting
 	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
 	fmt.Printf("\n\n--- Performance Metrics ---\n")
 	fmt.Printf("Prefill Time : %v (%d prompt tokens)\n", prefillDuration, len(promptTokens))

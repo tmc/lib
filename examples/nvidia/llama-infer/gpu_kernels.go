@@ -1,0 +1,266 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
+)
+
+// ForwardKernelsCUDA is the unified CUDA C++ source defining all transformer layer primitives.
+const ForwardKernelsCUDA = `
+#include <cuda_runtime.h>
+#include <math.h>
+
+#define WARP_SIZE 32
+#define FULL_MASK 0xffffffff
+
+// Warp-level sum reduction
+__device__ __forceinline__ float warp_sum(float val) {
+    #pragma unroll
+    for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
+        val += __shfl_down_sync(FULL_MASK, val, offset);
+    }
+    return val;
+}
+
+// 1. Embedding lookup on GPU
+extern "C" __global__ void EmbeddingLookup(
+    const float* __restrict__ embed_table,
+    const int* __restrict__ token_id,
+    float* __restrict__ out,
+    int hidden_dim
+) {
+    int tok = *token_id;
+    const float* src = embed_table + tok * hidden_dim;
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x) {
+        out[i] = src[i];
+    }
+}
+
+// 2. RMSNorm with warp reduction
+extern "C" __global__ void RMSNorm(
+    const float* __restrict__ x,
+    const float* __restrict__ weight,
+    float* __restrict__ out,
+    int hidden_dim,
+    float eps
+) {
+    __shared__ float s_sum_sq[32];
+    int tid = threadIdx.x;
+    int lane = tid % WARP_SIZE;
+    int wid = tid / WARP_SIZE;
+
+    float sum_sq = 0.0f;
+    for (int i = tid; i < hidden_dim; i += blockDim.x) {
+        float v = x[i];
+        sum_sq += v * v;
+    }
+    sum_sq = warp_sum(sum_sq);
+
+    if (lane == 0) {
+        s_sum_sq[wid] = sum_sq;
+    }
+    __syncthreads();
+
+    float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum_sq[lane] : 0.0f;
+    if (wid == 0) {
+        block_sum = warp_sum(block_sum);
+    }
+    __shared__ float s_rsqrt;
+    if (tid == 0) {
+        s_rsqrt = rsqrtf(block_sum / float(hidden_dim) + eps);
+    }
+    __syncthreads();
+
+    float rsqrt_val = s_rsqrt;
+    for (int i = tid; i < hidden_dim; i += blockDim.x) {
+        float w = weight ? weight[i] : 1.0f;
+        out[i] = x[i] * rsqrt_val * w;
+    }
+}
+
+// 3. Matrix-Vector Multiplication (Linear Projection) with warp reduction
+extern "C" __global__ void LinearGEMV(
+    const float* __restrict__ x,
+    const float* __restrict__ w,
+    const float* __restrict__ bias,
+    float* __restrict__ out,
+    int in_dim,
+    int out_dim
+) {
+    int row = blockIdx.x; // each block computes one output row
+    if (row >= out_dim) return;
+
+    int tid = threadIdx.x;
+    int lane = tid % WARP_SIZE;
+    int wid = tid / WARP_SIZE;
+    __shared__ float s_sum[32];
+
+    const float* w_row = w + row * in_dim;
+    float sum = 0.0f;
+    for (int i = tid; i < in_dim; i += blockDim.x) {
+        sum += x[i] * w_row[i];
+    }
+    sum = warp_sum(sum);
+
+    if (lane == 0) {
+        s_sum[wid] = sum;
+    }
+    __syncthreads();
+
+    float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
+    if (wid == 0) {
+        block_sum = warp_sum(block_sum);
+    }
+
+    if (tid == 0) {
+        float b = bias ? bias[row] : 0.0f;
+        out[row] = block_sum + b;
+    }
+}
+
+// 4. Rotary Position Embedding (RoPE)
+extern "C" __global__ void ApplyRoPE(
+    float* __restrict__ q,
+    float* __restrict__ k,
+    int pos,
+    int q_heads,
+    int kv_heads,
+    int head_dim,
+    float theta
+) {
+    int h = blockIdx.x; // head index
+    int i = threadIdx.x; // index in 0..head_dim/2
+    if (i >= head_dim / 2) return;
+
+    float freq = 1.0f / powf(theta, (2.0f * i) / float(head_dim));
+    float val = float(pos) * freq;
+    float cos_val = cosf(val);
+    float sin_val = sinf(val);
+
+    if (h < q_heads) {
+        float* head_q = q + h * head_dim;
+        float v0 = head_q[i];
+        float v1 = head_q[i + head_dim / 2];
+        head_q[i] = v0 * cos_val - v1 * sin_val;
+        head_q[i + head_dim / 2] = v0 * sin_val + v1 * cos_val;
+    }
+
+    if (h < kv_heads) {
+        float* head_k = k + h * head_dim;
+        float v0 = head_k[i];
+        float v1 = head_k[i + head_dim / 2];
+        head_k[i] = v0 * cos_val - v1 * sin_val;
+        head_k[i + head_dim / 2] = v0 * sin_val + v1 * cos_val;
+    }
+}
+
+// 5. Store current K and V into KV Cache
+extern "C" __global__ void StoreKVCache(
+    const float* __restrict__ k,
+    const float* __restrict__ v,
+    float* __restrict__ k_cache,
+    float* __restrict__ v_cache,
+    int pos,
+    int num_kv_heads,
+    int head_dim
+) {
+    int kv_dim = num_kv_heads * head_dim;
+    float* k_dest = k_cache + pos * kv_dim;
+    float* v_dest = v_cache + pos * kv_dim;
+
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
+        k_dest[i] = k[i];
+        v_dest[i] = v[i];
+    }
+}
+
+// 6. SwiGLU Activation: out = silu(gate) * up
+extern "C" __global__ void SwiGLU(
+    const float* __restrict__ gate,
+    const float* __restrict__ up,
+    float* __restrict__ out,
+    int intermediate_dim
+) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < intermediate_dim; i += blockDim.x * gridDim.x) {
+        float g = gate[i];
+        float silu = g / (1.0f + expf(-g));
+        out[i] = silu * up[i];
+    }
+}
+
+// 7. Vector Add (Residual Connection): x += res
+extern "C" __global__ void AddResidual(
+    float* __restrict__ x,
+    const float* __restrict__ res,
+    int dim
+) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim; i += blockDim.x * gridDim.x) {
+        x[i] += res[i];
+    }
+}
+`
+
+// GPUModules holds compiled and loaded CUDA functions for model execution.
+type GPUModules struct {
+	mod       driver.Module
+	embedFn   driver.Function
+	normFn    driver.Function
+	gemvFn    driver.Function
+	ropeFn    driver.Function
+	storeKVFn driver.Function
+	swigluFn  driver.Function
+	addResFn  driver.Function
+}
+
+// CompileGPUModules compiles and loads the forward kernels onto dev.
+func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return nil, fmt.Errorf("compute capability: %w", err)
+	}
+
+	opts := []nvrtcx.Option{
+		nvrtcx.WithName("llama_forward.cu"),
+		nvrtcx.WithArch(major, minor),
+	}
+	mod, err := nvrtcx.Compile(ForwardKernelsCUDA, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("compile forward kernels: %w", err)
+	}
+
+	loaded, err := mod.Load(dev)
+	if err != nil {
+		return nil, fmt.Errorf("load module: %w", err)
+	}
+
+	embedFn, _ := loaded.GetFunction("EmbeddingLookup")
+	normFn, _ := loaded.GetFunction("RMSNorm")
+	gemvFn, _ := loaded.GetFunction("LinearGEMV")
+	ropeFn, _ := loaded.GetFunction("ApplyRoPE")
+	storeKVFn, _ := loaded.GetFunction("StoreKVCache")
+	swigluFn, _ := loaded.GetFunction("SwiGLU")
+	addResFn, _ := loaded.GetFunction("AddResidual")
+
+	return &GPUModules{
+		mod:       loaded,
+		embedFn:   embedFn,
+		normFn:    normFn,
+		gemvFn:    gemvFn,
+		ropeFn:    ropeFn,
+		storeKVFn: storeKVFn,
+		swigluFn:  swigluFn,
+		addResFn:  addResFn,
+	}, nil
+}
+
+// Close unloads the compiled CUDA module.
+func (gm *GPUModules) Close() error {
+	if gm.mod != 0 {
+		return gm.mod.Unload()
+	}
+	return nil
+}
+

@@ -12,15 +12,15 @@ import (
 
 // ModelConfig holds the architecture parameters for a LLaMA model.
 type ModelConfig struct {
-	HiddenSize         int     `json:"hidden_size"`
-	IntermediateSize   int     `json:"intermediate_size"`
-	NumHiddenLayers    int     `json:"num_hidden_layers"`
-	NumAttentionHeads  int     `json:"num_attention_heads"`
-	NumKeyValueHeads   int     `json:"num_key_value_heads"`
-	VocabSize          int     `json:"vocab_size"`
-	RmsNormEps         float32 `json:"rms_norm_eps"`
-	RopeTheta          float32 `json:"rope_theta"`
-	MaxSeqLen          int     `json:"max_position_embeddings"`
+	HiddenSize        int     `json:"hidden_size"`
+	IntermediateSize  int     `json:"intermediate_size"`
+	NumHiddenLayers   int     `json:"num_hidden_layers"`
+	NumAttentionHeads int     `json:"num_attention_heads"`
+	NumKeyValueHeads  int     `json:"num_key_value_heads"`
+	VocabSize         int     `json:"vocab_size"`
+	RmsNormEps        float32 `json:"rms_norm_eps"`
+	RopeTheta         float32 `json:"rope_theta"`
+	MaxSeqLen         int     `json:"max_position_embeddings"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -61,7 +61,6 @@ type LayerWeights struct {
 	WUp       []float32
 	WDown     []float32
 }
-
 
 // ModelWeights holds all parameters for the LLaMA model.
 type ModelWeights struct {
@@ -127,7 +126,6 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		}
 		return decodeTensorToFloat32(raw, info.DType), nil
 	}
-
 
 	embed, err := getTensor("model.embed_tokens.weight")
 	if err != nil {
@@ -264,7 +262,6 @@ func Forward(weights *ModelWeights, cfg *ModelConfig, kv *KVCacheState, tokenID 
 				v[i] += layer.VBias[i]
 			}
 		}
-
 
 		// Rotary Position Embedding (RoPE)
 		applyRoPE(q, pos, qHeads, headDim, cfg.RopeTheta)
@@ -456,4 +453,3 @@ func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 		return floats
 	}
 }
-
