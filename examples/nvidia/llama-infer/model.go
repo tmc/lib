@@ -53,11 +53,15 @@ type LayerWeights struct {
 	WQ        []float32
 	WK        []float32
 	WV        []float32
+	QBias     []float32
+	KBias     []float32
+	VBias     []float32
 	WO        []float32
 	WGate     []float32
 	WUp       []float32
 	WDown     []float32
 }
+
 
 // ModelWeights holds all parameters for the LLaMA model.
 type ModelWeights struct {
@@ -117,18 +121,13 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	defer sw.Close()
 
 	getTensor := func(name string) ([]float32, error) {
-		raw, _, err := sw.TensorBytes(name)
+		raw, info, err := sw.TensorBytes(name)
 		if err != nil {
 			return nil, err
 		}
-		// Convert byte slice to float32 slice
-		floats := make([]float32, len(raw)/4)
-		for i := range floats {
-			bits := uint32(raw[i*4]) | uint32(raw[i*4+1])<<8 | uint32(raw[i*4+2])<<16 | uint32(raw[i*4+3])<<24
-			floats[i] = math.Float32frombits(bits)
-		}
-		return floats, nil
+		return decodeTensorToFloat32(raw, info.DType), nil
 	}
+
 
 	embed, err := getTensor("model.embed_tokens.weight")
 	if err != nil {
@@ -154,6 +153,9 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		wq, _ := getTensor(prefix + "self_attn.q_proj.weight")
 		wk, _ := getTensor(prefix + "self_attn.k_proj.weight")
 		wv, _ := getTensor(prefix + "self_attn.v_proj.weight")
+		qbias, _ := getTensor(prefix + "self_attn.q_proj.bias")
+		kbias, _ := getTensor(prefix + "self_attn.k_proj.bias")
+		vbias, _ := getTensor(prefix + "self_attn.v_proj.bias")
 		wo, _ := getTensor(prefix + "self_attn.o_proj.weight")
 		wgate, _ := getTensor(prefix + "mlp.gate_proj.weight")
 		wup, _ := getTensor(prefix + "mlp.up_proj.weight")
@@ -165,11 +167,15 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 			WQ:        wq,
 			WK:        wk,
 			WV:        wv,
+			QBias:     qbias,
+			KBias:     kbias,
+			VBias:     vbias,
 			WO:        wo,
 			WGate:     wgate,
 			WUp:       wup,
 			WDown:     wdown,
 		}
+
 	}
 
 	return &ModelWeights{
@@ -239,9 +245,26 @@ func Forward(weights *ModelWeights, cfg *ModelConfig, kv *KVCacheState, tokenID 
 		normX := rmsNorm(x, layer.InputNorm, cfg.RmsNormEps)
 
 		// Q, K, V Projections
-		q := matmulVec(normX, layer.WQ, cfg.HiddenSize, cfg.HiddenSize)
+		q := matmulVec(normX, layer.WQ, cfg.HiddenSize, qHeads*headDim)
 		k := matmulVec(normX, layer.WK, cfg.HiddenSize, kvHeads*headDim)
 		v := matmulVec(normX, layer.WV, cfg.HiddenSize, kvHeads*headDim)
+
+		if len(layer.QBias) == len(q) {
+			for i := range q {
+				q[i] += layer.QBias[i]
+			}
+		}
+		if len(layer.KBias) == len(k) {
+			for i := range k {
+				k[i] += layer.KBias[i]
+			}
+		}
+		if len(layer.VBias) == len(v) {
+			for i := range v {
+				v[i] += layer.VBias[i]
+			}
+		}
+
 
 		// Rotary Position Embedding (RoPE)
 		applyRoPE(q, pos, qHeads, headDim, cfg.RopeTheta)
@@ -381,3 +404,56 @@ func matmulVec(x []float32, w []float32, inDim, outDim int) []float32 {
 	}
 	return out
 }
+
+func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
+	switch dtype {
+	case "BF16", "bfloat16":
+		n := len(raw) / 2
+		floats := make([]float32, n)
+		for i := 0; i < n; i++ {
+			bits := uint32(raw[i*2]) | uint32(raw[i*2+1])<<8
+			floats[i] = math.Float32frombits(bits << 16)
+		}
+		return floats
+	case "F16", "float16":
+		n := len(raw) / 2
+		floats := make([]float32, n)
+		for i := 0; i < n; i++ {
+			h := uint32(raw[i*2]) | uint32(raw[i*2+1])<<8
+			sign := (h & 0x8000) << 16
+			exp := (h & 0x7C00) >> 10
+			mant := h & 0x03FF
+			var fBits uint32
+			if exp == 0 {
+				if mant != 0 {
+					for mant&0x0400 == 0 {
+						mant <<= 1
+						exp--
+					}
+					exp++
+					mant &= 0x03FF
+					fBits = sign | ((exp + 112) << 23) | (mant << 13)
+				} else {
+					fBits = sign
+				}
+			} else if exp == 31 {
+				fBits = sign | (0xFF << 23) | (mant << 13)
+			} else {
+				fBits = sign | ((exp + 112) << 23) | (mant << 13)
+			}
+			floats[i] = math.Float32frombits(fBits)
+		}
+		return floats
+	case "F32", "float32":
+		fallthrough
+	default:
+		n := len(raw) / 4
+		floats := make([]float32, n)
+		for i := 0; i < n; i++ {
+			bits := uint32(raw[i*4]) | uint32(raw[i*4+1])<<8 | uint32(raw[i*4+2])<<16 | uint32(raw[i*4+3])<<24
+			floats[i] = math.Float32frombits(bits)
+		}
+		return floats
+	}
+}
+

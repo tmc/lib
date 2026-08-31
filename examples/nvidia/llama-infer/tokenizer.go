@@ -187,8 +187,10 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 					continue
 				}
 			}
-			// Replace sentencepiece   prefix with space
+			// Replace sentencepiece   prefix with space, and GPT-2 Ġ with space, Ċ with newline
 			clean := strings.ReplaceAll(s, " ", " ")
+			clean = strings.ReplaceAll(clean, "Ġ", " ")
+			clean = strings.ReplaceAll(clean, "Ċ", "\n")
 			sb.WriteString(clean)
 		} else if id >= 0 && id < 256 {
 			sb.WriteByte(byte(id))
@@ -198,6 +200,7 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 	}
 	return sb.String(), nil
 }
+
 
 // VocabSize returns the total vocabulary size.
 func (tok *BpeTokenizer) VocabSize() int {
