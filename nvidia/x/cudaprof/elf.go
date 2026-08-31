@@ -26,21 +26,28 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 
 	buf := new(bytes.Buffer)
 
-	// String tables
-	shstrtab := newStringTable()
-	shstrtab.Index("")
-	sText := shstrtab.Index(".text")
-	sSymtab := shstrtab.Index(".symtab")
-	sStrtab := shstrtab.Index(".strtab")
-	sShstrtab := shstrtab.Index(".shstrtab")
+	// Build .shstrtab (section name string table)
+	var shstrtabBuf bytes.Buffer
+	shstrtabBuf.WriteByte(0) // 0-th byte is null string
 
-	strtab := newStringTable()
-	strtab.Index("")
+	sTextOffset := uint32(shstrtabBuf.Len())
+	shstrtabBuf.WriteString(".text\x00")
 
-	// Compute base address and text size
+	sSymtabOffset := uint32(shstrtabBuf.Len())
+	shstrtabBuf.WriteString(".symtab\x00")
+
+	sStrtabOffset := uint32(shstrtabBuf.Len())
+	shstrtabBuf.WriteString(".strtab\x00")
+
+	sShstrtabOffset := uint32(shstrtabBuf.Len())
+	shstrtabBuf.WriteString(".shstrtab\x00")
+
+	// Build .strtab (symbol name string table)
+	var strtabBuf bytes.Buffer
+	strtabBuf.WriteByte(0) // 0-th byte is null string
+
+	// Base virtual address
 	baseAddr := symbols[0].Address
-	var totalCode bytes.Buffer
-
 	for _, sym := range symbols {
 		if sym.Address < baseAddr {
 			baseAddr = sym.Address
@@ -49,18 +56,22 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	baseAddr = baseAddr &^ 0xFFF // 4KB page align
 
 	type symEntry struct {
-		nameIndex uint32
-		addr      uint64
-		size      uint64
+		nameOffset uint32
+		addr       uint64
+		size       uint64
 	}
 	var symEntries []symEntry
 
+	var totalCode bytes.Buffer
 	for _, sym := range symbols {
-		nameIdx := uint32(strtab.Index(sym.Name))
+		nameOff := uint32(strtabBuf.Len())
+		strtabBuf.WriteString(sym.Name)
+		strtabBuf.WriteByte(0)
+
 		symEntries = append(symEntries, symEntry{
-			nameIndex: nameIdx,
-			addr:      sym.Address,
-			size:      sym.Size,
+			nameOffset: nameOff,
+			addr:       sym.Address,
+			size:       sym.Size,
 		})
 
 		// Pad up to sym.Address
@@ -71,13 +82,11 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 		if len(sym.Code) > 0 {
 			totalCode.Write(sym.Code)
 		} else {
-			// Default NOP instructions if no raw bytes
 			for i := uint64(0); i < sym.Size; i++ {
 				totalCode.WriteByte(0x90)
 			}
 		}
 	}
-	// Pad total code to 16 bytes
 	for totalCode.Len()%16 != 0 {
 		totalCode.WriteByte(0x90)
 	}
@@ -103,15 +112,10 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 		Phnum:     0,
 		Shentsize: 64,
 		Shnum:     5, // NULL, .text, .symtab, .strtab, .shstrtab
-		Shstrndx:  4, // .shstrtab is section 4
+		Shstrndx:  4, // .shstrtab is section index 4
 	}
 
-	// We'll place sections after section header table:
-	// Section 0: NULL (64 bytes)
-	// Section 1: .text
-	// Section 2: .symtab
-	// Section 3: .strtab
-	// Section 4: .shstrtab
+	// Offsets
 	shOffset := uint64(64)
 	shTableSize := uint64(hdr.Shnum) * 64
 	dataOffset := shOffset + shTableSize
@@ -120,27 +124,17 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	textOffset := dataOffset
 	textSize := uint64(totalCode.Len())
 
-	// 2. .symtab section (16 bytes per symbol entry in ELF64)
+	// 2. .symtab section (24 bytes per symbol in ELF64)
 	symtabOffset := textOffset + textSize
 	numSymbols := 1 + len(symEntries) // +1 for null symbol
 	symtabSize := uint64(numSymbols * 24)
 
 	// 3. .strtab section
 	strtabOffset := symtabOffset + symtabSize
-	var strtabBuf bytes.Buffer
-	for _, s := range strtab.strings {
-		strtabBuf.WriteString(s)
-		strtabBuf.WriteByte(0)
-	}
 	strtabSize := uint64(strtabBuf.Len())
 
 	// 4. .shstrtab section
 	shstrtabOffset := strtabOffset + strtabSize
-	var shstrtabBuf bytes.Buffer
-	for _, s := range shstrtab.strings {
-		shstrtabBuf.WriteString(s)
-		shstrtabBuf.WriteByte(0)
-	}
 	shstrtabSize := uint64(shstrtabBuf.Len())
 
 	// Write ELF Header
@@ -155,7 +149,7 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 
 	// 1: .text
 	textSec := elf.Section64{
-		Name:      uint32(sText),
+		Name:      sTextOffset,
 		Type:      uint32(elf.SHT_PROGBITS),
 		Flags:     uint64(elf.SHF_ALLOC | elf.SHF_EXECINSTR),
 		Addr:      baseAddr,
@@ -170,14 +164,14 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 
 	// 2: .symtab
 	symtabSec := elf.Section64{
-		Name:      uint32(sSymtab),
+		Name:      sSymtabOffset,
 		Type:      uint32(elf.SHT_SYMTAB),
 		Flags:     0,
 		Addr:      0,
 		Off:       symtabOffset,
 		Size:      symtabSize,
-		Link:      3, // Link to .strtab
-		Info:      1, // Number of local symbols
+		Link:      3, // Link to .strtab (section 3)
+		Info:      1, // 1 local symbol (the null symbol)
 		Addralign: 8,
 		Entsize:   24,
 	}
@@ -185,7 +179,7 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 
 	// 3: .strtab
 	strtabSec := elf.Section64{
-		Name:      uint32(sStrtab),
+		Name:      sStrtabOffset,
 		Type:      uint32(elf.SHT_STRTAB),
 		Flags:     0,
 		Addr:      0,
@@ -200,7 +194,7 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 
 	// 4: .shstrtab
 	shstrtabSec := elf.Section64{
-		Name:      uint32(sShstrtab),
+		Name:      sShstrtabOffset,
 		Type:      uint32(elf.SHT_STRTAB),
 		Flags:     0,
 		Addr:      0,
@@ -213,11 +207,10 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	}
 	_ = binary.Write(buf, binary.LittleEndian, &shstrtabSec)
 
-	// Write Section Data
-	// .text
+	// Write Section Contents
 	buf.Write(totalCode.Bytes())
 
-	// .symtab (Elf64_Sym: uint32 name, uint8 info, uint8 other, uint16 shndx, uint64 value, uint64 size)
+	// Write .symtab
 	type elf64Sym struct {
 		Name  uint32
 		Info  uint8
@@ -230,9 +223,10 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	// Null symbol
 	_ = binary.Write(buf, binary.LittleEndian, &elf64Sym{})
 
+	// Function symbols
 	for _, se := range symEntries {
 		symRec := elf64Sym{
-			Name:  se.nameIndex,
+			Name:  se.nameOffset,
 			Info:  (uint8(elf.STB_GLOBAL) << 4) | (uint8(elf.STT_FUNC) & 0xf),
 			Other: uint8(elf.STV_DEFAULT),
 			Shndx: 1, // .text section index
@@ -242,10 +236,10 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 		_ = binary.Write(buf, binary.LittleEndian, &symRec)
 	}
 
-	// .strtab
+	// Write .strtab
 	buf.Write(strtabBuf.Bytes())
 
-	// .shstrtab
+	// Write .shstrtab
 	buf.Write(shstrtabBuf.Bytes())
 
 	return buf.Bytes(), nil
