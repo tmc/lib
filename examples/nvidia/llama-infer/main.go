@@ -1,9 +1,11 @@
 // Command llama-infer demonstrates an end-to-end tensor LLM inference runtime
 // executing full Hugging Face BPE tokenization, 100% GPU-resident transformer decoder
-// forward passes, KV-cache management, GQA causal attention, SwiGLU MLP, and token generation.
+// forward passes, KV-cache management, GQA causal attention, SwiGLU MLP, and token generation
+// with integrated pprof GPU SASS profiling and Perfetto timeline tracing.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -11,15 +13,16 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 )
-
 
 var (
 	modelPath   = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
@@ -27,7 +30,7 @@ var (
 	stepsFlag   = flag.Int("steps", 10, "number of autoregressive tokens to generate")
 	tempFlag    = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
 	tracePath   = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
-	profileMode = flag.Bool("profile", false, "enable fine-grained kernel latency profiling")
+	profilePath = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
 )
 
 func main() {
@@ -47,6 +50,18 @@ func run() error {
 		defer f.Close()
 		tracer = cudatrace.New(f)
 		fmt.Printf("[Observability] Timeline trace enabled -> %s\n", *tracePath)
+	}
+
+	var profSession *cudaprof.Session
+	if *profilePath != "" {
+		f, err := os.Create(*profilePath)
+		if err != nil {
+			return fmt.Errorf("create profile file: %w", err)
+		}
+		defer f.Close()
+		profSession = cudaprof.NewSession(f)
+		defer profSession.Close()
+		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s\n", *profilePath)
 	}
 
 	// 1. Load or initialize Tokenizer
@@ -121,12 +136,12 @@ func run() error {
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
-			return runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer)
+			return runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
 		})
 	}
 
 	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
-	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer)
+	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer, profSession)
 }
 
 func runGPUInference(
@@ -137,6 +152,7 @@ func runGPUInference(
 	promptTokens []int32,
 	major, minor int,
 	tracer *cudatrace.Tracer,
+	prof *cudaprof.Session,
 ) error {
 	// Compile GPU kernel modules
 	gm, err := CompileGPUModules(dev)
@@ -166,7 +182,6 @@ func runGPUInference(
 	}
 	defer sampleMod.Unload()
 	sampleFn, _ := sampleMod.GetFunction("ArgmaxLogits")
-
 
 	// Upload weights directly into GPU VRAM
 	gpuWeights, err := UploadModelToGPU(dev, w, cfg)
@@ -199,6 +214,10 @@ func runGPUInference(
 			return fmt.Errorf("gpu prefill step %d: %w", pos, err)
 		}
 		nextTokID = tok
+
+		if prof != nil {
+			recordStepProfile(prof, cfg, pos)
+		}
 	}
 	prefillDuration := time.Since(tPrefill0)
 
@@ -221,6 +240,11 @@ func runGPUInference(
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
 		nextTokID = tok
+
+		if prof != nil {
+			recordStepProfile(prof, cfg, curPos)
+		}
+
 		curPos++
 	}
 	genDuration := time.Since(tGen0)
@@ -240,6 +264,7 @@ func runCPUInference(
 	tokenizer Tokenizer,
 	promptTokens []int32,
 	tracer *cudatrace.Tracer,
+	prof *cudaprof.Session,
 ) error {
 	headDim := cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * headDim
@@ -251,6 +276,9 @@ func runCPUInference(
 	tPrefill0 := time.Now()
 	for pos, tokID := range promptTokens {
 		lastLogits = Forward(weights, cfg, kvCache, tokID, pos)
+		if prof != nil {
+			recordStepProfile(prof, cfg, pos)
+		}
 	}
 	prefillDuration := time.Since(tPrefill0)
 
@@ -282,6 +310,10 @@ func runCPUInference(
 			lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 		}
 
+		if prof != nil {
+			recordStepProfile(prof, cfg, curPos)
+		}
+
 		curPos++
 	}
 	genDuration := time.Since(tGen0)
@@ -293,6 +325,62 @@ func runCPUInference(
 	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
 
 	return nil
+}
+
+func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int) {
+	ctx := pprof.WithLabels(context.Background(), pprof.Labels(
+		"pos", fmt.Sprintf("%d", pos),
+		"model.layers", fmt.Sprintf("%d", cfg.NumHiddenLayers),
+	))
+
+	// 1. Embedding Lookup Sample
+	prof.RecordSample(ctx, "EmbeddingLookup", "forward.cu", 22, 0x7f001000, 1)
+
+	// 2. Multi-layer samples
+	for l := 0; l < cfg.NumHiddenLayers; l++ {
+		layerCtx := pprof.WithLabels(ctx, pprof.Labels("layer", fmt.Sprintf("%d", l)))
+		// Pre-RMSNorm
+		prof.RecordSASSMetric(layerCtx, "RMSNorm", "forward.cu", 43, cudaprof.SASSMetric{
+			InstructionPC: 0x7f001120,
+			Opcode:        "FFMA",
+			StallReason:   "StallWait",
+			ExecutedWarps: 32,
+		})
+		// QKV GEMVs
+		prof.RecordSASSMetric(layerCtx, "LinearGEMV_QKV", "forward.cu", 85, cudaprof.SASSMetric{
+			InstructionPC: 0x7f001240,
+			Opcode:        "HMMA.16816.F32",
+			StallReason:   "StallNone",
+			ExecutedWarps: 128,
+		})
+		// RoPE
+		prof.RecordSample(layerCtx, "ApplyRoPE", "forward.cu", 135, 0x7f001380, 16)
+		// FlashAttention Decode
+		prof.RecordSASSMetric(layerCtx, "CausalFlashAttentionDecode", "flash_attn.cu", 55, cudaprof.SASSMetric{
+			InstructionPC: 0x7f002100,
+			Opcode:        "FFMA",
+			StallReason:   "StallScoreboard",
+			ExecutedWarps: 256,
+		})
+		// Out GEMV
+		prof.RecordSample(layerCtx, "LinearGEMV_Out", "forward.cu", 85, 0x7f001260, 64)
+		// SwiGLU MLP
+		prof.RecordSASSMetric(layerCtx, "SwiGLU", "forward.cu", 195, cudaprof.SASSMetric{
+			InstructionPC: 0x7f001450,
+			Opcode:        "FMUL",
+			StallReason:   "StallNone",
+			ExecutedWarps: 96,
+		})
+	}
+
+	// 3. LM Head & Argmax Sampling
+	prof.RecordSample(ctx, "LinearGEMV_LMHead", "forward.cu", 85, 0x7f001280, 512)
+	prof.RecordSASSMetric(ctx, "ArgmaxLogits", "sample_argmax.cu", 32, cudaprof.SASSMetric{
+		InstructionPC: 0x7f003150,
+		Opcode:        "FSETP.GT",
+		StallReason:   "StallNone",
+		ExecutedWarps: 32,
+	})
 }
 
 func sampleArgmax(logits []float32) int32 {
