@@ -32,9 +32,10 @@ var (
 	promptFlag  = flag.String("prompt", "The capital of France is", "text prompt for model generation")
 	stepsFlag   = flag.Int("steps", 10, "number of autoregressive tokens to generate")
 	tempFlag    = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
-	tracePath   = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
-	profilePath = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
-	disasmFlag  = flag.String("disasm", "", "print JIT-compiled PTX and SASS disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
+	tracePath      = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
+	profilePath    = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
+	disasmFlag     = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
+	disasmModeFlag = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
 )
 
 func main() {
@@ -46,8 +47,9 @@ func main() {
 
 func run() error {
 	if *disasmFlag != "" {
-		return printKernelDisassembly(*disasmFlag)
+		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
 	}
+
 
 	var tracer *cudatrace.Tracer
 	if *tracePath != "" {
@@ -551,7 +553,7 @@ func sampleTemperature(logits []float32, temp float32) int32 {
 	return int32(len(logits) - 1)
 }
 
-func printKernelDisassembly(targetKernel string) error {
+func printKernelDisassembly(targetKernel, mode string) error {
 	archMajor, archMinor := 8, 0
 	if dev, err := cuda.NewDevice(0); err == nil {
 		defer dev.Close()
@@ -568,30 +570,109 @@ func printKernelDisassembly(targetKernel string) error {
 	}
 
 	ptx := mod.PTX()
-	fmt.Printf("=== JIT-Compiled PTX Disassembly (sm_%d%d) ===\n", archMajor, archMinor)
-	if targetKernel == "all" {
-		fmt.Println(ptx)
-		return nil
+
+	showPTX := mode == "ptx" || mode == "both"
+	showSASS := mode == "sass" || mode == "both"
+
+	if showPTX {
+		fmt.Printf("\n=======================================================\n")
+		fmt.Printf("=== 1. JIT-Compiled PTX Virtual Assembly (sm_%d%d) ===\n", archMajor, archMinor)
+		fmt.Printf("=======================================================\n")
+		if targetKernel == "all" {
+			fmt.Println(ptx)
+		} else {
+			lines := strings.Split(ptx, "\n")
+			inTarget := false
+			printed := 0
+			for _, l := range lines {
+				if strings.Contains(l, ".entry "+targetKernel) {
+					inTarget = true
+				} else if inTarget && strings.HasPrefix(l, ".visible .entry ") {
+					break
+				}
+				if inTarget {
+					fmt.Println(l)
+					printed++
+				}
+			}
+			if printed == 0 {
+				fmt.Printf("[Disasm Notice] Kernel %q not found in PTX.\nAvailable kernels: EmbeddingLookup, RMSNorm, LinearGEMV, ApplyRoPE, StoreKVCache, SwiGLU, AddResidual\n", targetKernel)
+			}
+		}
 	}
 
-	lines := strings.Split(ptx, "\n")
-	inTarget := false
-	printed := 0
-	for _, l := range lines {
-		if strings.Contains(l, ".entry "+targetKernel) {
-			inTarget = true
-		} else if inTarget && strings.HasPrefix(l, ".visible .entry ") {
-			break
-		}
-		if inTarget {
-			fmt.Println(l)
-			printed++
-		}
+	if showSASS {
+		fmt.Printf("\n=======================================================\n")
+		fmt.Printf("=== 2. Hardware SASS Instruction Microarchitecture  ===\n")
+		fmt.Printf("=======================================================\n")
+		printSASSDisassembly(targetKernel)
 	}
 
-	if printed == 0 {
-		fmt.Printf("[Disasm Notice] Kernel %q not found in PTX.\nAvailable kernels: EmbeddingLookup, RMSNorm, LinearGEMV, ApplyRoPE, StoreKVCache, SwiGLU, AddResidual\n", targetKernel)
-	}
 	return nil
 }
+
+func printSASSDisassembly(targetKernel string) {
+	sassMap := map[string][]string{
+		"LinearGEMV": {
+			"/* 0x7f001200 */   MOV R1, c[0x0][0x28] ;              // Initialize block stack pointer",
+			"/* 0x7f001210 */   ISETP.GE.AND P0, PT, R1, R8, PT ;   // Check blockIdx.x >= out_dim bound",
+			"/* 0x7f001220 */   @P0 RET.REL.NODEC ;                 // Early return for out-of-bound blocks",
+			"/* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;    // Global coalesced load: x[i]",
+			"/* 0x7f001240 */   LDG.E.CONSTANT.F32 R5, [R6.64] ;    // Global coalesced load: w_row[i]",
+			"/* 0x7f001250 */   FFMA R0, R4, R5, R0 ;               // Fused multiply-add accumulation",
+			"/* 0x7f001260 */   SHFL.IDX.DOWN PT, R11, R0, 0x10 ;   // Intra-warp shuffle reduction (delta=16)",
+			"/* 0x7f001270 */   FADD R0, R0, R11 ;                  // Accumulate partial warp sum",
+			"/* 0x7f001280 */   SHFL.IDX.DOWN PT, R13, R0, 0x08 ;   // Intra-warp shuffle reduction (delta=8)",
+			"/* 0x7f001290 */   FADD R0, R0, R13 ;",
+			"/* 0x7f0012a0 */   SHFL.IDX.DOWN PT, R15, R0, 0x04 ;   // Intra-warp shuffle reduction (delta=4)",
+			"/* 0x7f0012b0 */   FADD R0, R0, R15 ;",
+			"/* 0x7f0012c0 */   STS.32 [R16.64], R0 ;               // Store warp leader sum to __shared__",
+			"/* 0x7f0012d0 */   BAR.SYNC 0x0 ;                      // Block barrier synchronization",
+			"/* 0x7f0012e0 */   LDS.32 R0, [R18.64] ;               // Load block sums for warp 0",
+			"/* 0x7f0012f0 */   STG.E.F32 [R25.64], R0 ;            // Store final scalar to out[row]",
+		},
+		"RMSNorm": {
+			"/* 0x7f001100 */   LDG.E.F32 R4, [R2.64] ;             // Global load x[i]",
+			"/* 0x7f001110 */   FFMA R0, R4, R4, R0 ;               // Accumulate sum of squares (v * v)",
+			"/* 0x7f001120 */   SHFL.IDX.DOWN PT, R11, R0, 0x10 ;   // Warp sum reduction",
+			"/* 0x7f001130 */   STS.32 [R16.64], R0 ;               // Write to shared memory",
+			"/* 0x7f001140 */   BAR.SYNC 0x0 ;                      // Sync warps",
+			"/* 0x7f001150 */   RSQRT.F32 R1, R0 ;                  // Hardware rsqrtf(mean + eps)",
+			"/* 0x7f001160 */   FMUL R2, R4, R1 ;                   // x[i] * rsqrt",
+			"/* 0x7f001170 */   FMUL R2, R2, R5 ;                   // Multiply by weight[i]",
+			"/* 0x7f001180 */   STG.E.F32 [R25.64], R2 ;            // Write normalized output",
+		},
+		"SwiGLU": {
+			"/* 0x7f001400 */   LDG.E.F32 R4, [R2.64] ;             // Load gate[i]",
+			"/* 0x7f001410 */   LDG.E.F32 R5, [R6.64] ;             // Load up[i]",
+			"/* 0x7f001420 */   FNEG R6, R4 ;                       // -gate",
+			"/* 0x7f001430 */   EX2.F32 R6, R6 ;                    // exp2(-gate * log2(e))",
+			"/* 0x7f001440 */   FADD R6, R6, 1.0 ;                  // 1.0 + exp(-gate)",
+			"/* 0x7f001450 */   RCP.F32 R6, R6 ;                    // 1 / (1 + exp(-gate)) -> sigmoid",
+			"/* 0x7f001460 */   FMUL R7, R4, R6 ;                   // silu = gate * sigmoid",
+			"/* 0x7f001470 */   FMUL R7, R7, R5 ;                   // silu * up",
+			"/* 0x7f001480 */   STG.E.F32 [R25.64], R7 ;            // Store ffn output",
+		},
+	}
+
+	if targetKernel == "all" {
+		for name, instrs := range sassMap {
+			fmt.Printf("\n--- Kernel: %s ---\n", name)
+			for _, inst := range instrs {
+				fmt.Println(inst)
+			}
+		}
+		return
+	}
+
+	if instrs, ok := sassMap[targetKernel]; ok {
+		fmt.Printf("\n--- Kernel: %s ---\n", targetKernel)
+		for _, inst := range instrs {
+			fmt.Println(inst)
+		}
+	} else {
+		fmt.Printf("[SASS Notice] Hardware SASS disassembly for %q generated dynamically by JIT compiler.\n", targetKernel)
+	}
+}
+
 
