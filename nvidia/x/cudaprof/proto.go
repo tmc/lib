@@ -128,7 +128,7 @@ func NewBuilder() *Builder {
 		memoryLimit:     0x7fffffff,
 		fileOffset:      0,
 		filename:        b.st.Index("cuda_kernels.so"),
-		buildID:         b.st.Index("nvrtc_jit"),
+		buildID:         0,
 		hasFunctions:    true,
 		hasFilenames:    true,
 		hasLineNumbers:  true,

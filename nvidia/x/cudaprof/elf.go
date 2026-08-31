@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -90,21 +91,34 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 		// Pad up to sym.Address
 		offset := sym.Address - baseAddr
 		for uint64(totalCode.Len()) < offset {
-			totalCode.WriteByte(0x90) // NOP padding
+			if runtime.GOARCH == "arm64" && offset-uint64(totalCode.Len()) >= 4 {
+				totalCode.Write([]byte{0x1f, 0x20, 0x03, 0xd5}) // ARM64 nop (0xd503201f)
+			} else {
+				totalCode.WriteByte(0x90) // x86 NOP padding
+			}
 		}
 		code := sym.Code
 		if len(code) == 0 {
 			code = SynthesizeKernelInstructions(sym.Name)
 		}
 		totalCode.Write(code)
-		for uint64(len(code)) < sym.Size && uint64(totalCode.Len()) < offset+sym.Size {
-			totalCode.WriteByte(0x90)
+		for uint64(totalCode.Len()) < offset+sym.Size {
+			if runtime.GOARCH == "arm64" && (offset+sym.Size)-uint64(totalCode.Len()) >= 4 {
+				totalCode.Write([]byte{0x1f, 0x20, 0x03, 0xd5})
+			} else {
+				totalCode.WriteByte(0x90)
+			}
 		}
 	}
 	for totalCode.Len()%16 != 0 {
 		totalCode.WriteByte(0x90)
 	}
 
+
+	machine := uint16(elf.EM_X86_64)
+	if runtime.GOARCH == "arm64" {
+		machine = uint16(elf.EM_AARCH64)
+	}
 
 	// ELF Header (64 bytes)
 	hdr := elf.Header64{
@@ -116,22 +130,24 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 			0, // System V ABI
 		},
 		Type:      uint16(elf.ET_DYN),
-		Machine:   uint16(elf.EM_X86_64),
+		Machine:   machine,
 		Version:   1,
 		Entry:     baseAddr,
-		Phoff:     0,
-		Shoff:     64, // Section headers follow ELF header immediately
+		Phoff:     64, // Program header table follows ELF header
+		Shoff:     64 + 56, // Section headers follow Program header table (56 bytes per Prog64)
 		Flags:     0,
 		Ehsize:    64,
-		Phentsize: 0,
-		Phnum:     0,
+		Phentsize: 56,
+		Phnum:     1, // 1 PT_LOAD segment
 		Shentsize: 64,
 		Shnum:     5, // NULL, .text, .symtab, .strtab, .shstrtab
 		Shstrndx:  4, // .shstrtab is section index 4
 	}
 
 	// Offsets
-	shOffset := uint64(64)
+	phOffset := uint64(64)
+	phTableSize := uint64(hdr.Phnum) * 56
+	shOffset := phOffset + phTableSize
 	shTableSize := uint64(hdr.Shnum) * 64
 	dataOffset := shOffset + shTableSize
 
@@ -152,8 +168,25 @@ func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	shstrtabOffset := strtabOffset + strtabSize
 	shstrtabSize := uint64(shstrtabBuf.Len())
 
+	// Program Header (1 PT_LOAD segment for .text)
+	loadProg := elf.Prog64{
+		Type:   uint32(elf.PT_LOAD),
+		Flags:  uint32(elf.PF_R | elf.PF_X),
+		Off:    textOffset,
+		Vaddr:  baseAddr,
+		Paddr:  baseAddr,
+		Filesz: textSize,
+		Memsz:  textSize,
+		Align:  4096,
+	}
+
 	// Write ELF Header
 	if err := binary.Write(buf, binary.LittleEndian, &hdr); err != nil {
+		return nil, err
+	}
+
+	// Write Program Header
+	if err := binary.Write(buf, binary.LittleEndian, &loadProg); err != nil {
 		return nil, err
 	}
 
@@ -271,6 +304,35 @@ func WriteELFBinary(path string, symbols []Symbol) error {
 
 // SynthesizeKernelInstructions generates realistic machine opcodes corresponding to the GPU kernel semantics.
 func SynthesizeKernelInstructions(kernelName string) []byte {
+	if runtime.GOARCH == "arm64" {
+		switch {
+		case strings.Contains(kernelName, "RMSNorm"):
+			return []byte{
+				0x00, 0x00, 0x40, 0x39, // ldrb w0, [x0]
+				0x00, 0x08, 0x20, 0x1e, // fmul s0, s0, s0
+				0x00, 0x58, 0x20, 0x1e, // fsqrt s0, s0
+				0x00, 0x18, 0x20, 0x1e, // fdiv s0, s0, s0
+				0xc0, 0x03, 0x5f, 0xd6, // ret
+			}
+		case strings.Contains(kernelName, "SwiGLU"):
+			return []byte{
+				0x00, 0x00, 0x40, 0x39, // ldrb w0, [x0]
+				0x21, 0x00, 0x40, 0x39, // ldrb w1, [x1]
+				0x00, 0x08, 0x21, 0x1e, // fmul s0, s0, s1
+				0xc0, 0x03, 0x5f, 0xd6, // ret
+			}
+		default:
+			// LinearGEMV / Attention / Vector operations
+			return []byte{
+				0x00, 0x00, 0x40, 0x39, // ldrb w0, [x0]
+				0x21, 0x00, 0x40, 0x39, // ldrb w1, [x1]
+				0x00, 0x08, 0x21, 0x1f, // fmadd s0, s0, s1, s0
+				0x00, 0x00, 0x00, 0x14, // b .
+				0xc0, 0x03, 0x5f, 0xd6, // ret
+			}
+		}
+	}
+
 	switch {
 	case strings.Contains(kernelName, "RMSNorm"):
 		return []byte{
