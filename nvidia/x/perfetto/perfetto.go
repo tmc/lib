@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
 	"sync"
 )
+
+
 
 // Standard Perfetto wire-format constants
 const (
@@ -27,15 +30,82 @@ const (
 	FieldTrackDescName       = 2
 	FieldTrackDescParentUUID = 5
 
-	FieldTrackEventCategories = 22
-	FieldTrackEventName       = 2
-	FieldTrackEventType       = 9
-	FieldTrackEventTrackUUID  = 11
+	FieldTrackEventCategories       = 22
+	FieldTrackEventName             = 2
+	FieldTrackEventType             = 9
+	FieldTrackEventTrackUUID        = 11
+	FieldTrackEventDebugAnnotations = 4
+	FieldTrackEventSourceLocation   = 33
+
+	FieldDebugAnnotationName        = 10
+	FieldDebugAnnotationBoolValue   = 2
+	FieldDebugAnnotationUintValue   = 3
+	FieldDebugAnnotationIntValue    = 4
+	FieldDebugAnnotationDoubleValue = 5
+	FieldDebugAnnotationStringValue = 6
+
+	FieldSourceLocationFileName     = 2
+	FieldSourceLocationFunctionName = 3
+	FieldSourceLocationLineNumber   = 4
 
 	TrackEventTypeSliceBegin = 1
 	TrackEventTypeSliceEnd   = 2
 	TrackEventTypeInstant    = 3
 )
+
+// AnnotationType denotes the value type stored in a DebugAnnotation.
+type AnnotationType int
+
+const (
+	AnnotationTypeString AnnotationType = iota
+	AnnotationTypeInt
+	AnnotationTypeUint
+	AnnotationTypeDouble
+	AnnotationTypeBool
+)
+
+// DebugAnnotation represents a structured metadata key-value annotation attached to a Perfetto slice.
+type DebugAnnotation struct {
+	Name        string
+	StringValue string
+	IntValue    int64
+	UintValue   uint64
+	DoubleValue float64
+	BoolValue   bool
+	Type        AnnotationType
+}
+
+// SourceLocation specifies source file and line coordinates for timeline slice inspection.
+type SourceLocation struct {
+	FileName     string
+	FunctionName string
+	LineNumber   uint32
+}
+
+// NewStringAnnotation creates a string debug annotation.
+func NewStringAnnotation(name, val string) DebugAnnotation {
+	return DebugAnnotation{Name: name, StringValue: val, Type: AnnotationTypeString}
+}
+
+// NewIntAnnotation creates an integer debug annotation.
+func NewIntAnnotation(name string, val int64) DebugAnnotation {
+	return DebugAnnotation{Name: name, IntValue: val, Type: AnnotationTypeInt}
+}
+
+// NewUintAnnotation creates an unsigned integer debug annotation.
+func NewUintAnnotation(name string, val uint64) DebugAnnotation {
+	return DebugAnnotation{Name: name, UintValue: val, Type: AnnotationTypeUint}
+}
+
+// NewDoubleAnnotation creates a floating-point debug annotation.
+func NewDoubleAnnotation(name string, val float64) DebugAnnotation {
+	return DebugAnnotation{Name: name, DoubleValue: val, Type: AnnotationTypeDouble}
+}
+
+// NewBoolAnnotation creates a boolean debug annotation.
+func NewBoolAnnotation(name string, val bool) DebugAnnotation {
+	return DebugAnnotation{Name: name, BoolValue: val, Type: AnnotationTypeBool}
+}
 
 // Writer encodes and writes Perfetto binary trace files.
 type Writer struct {
@@ -43,6 +113,7 @@ type Writer struct {
 	w   io.Writer
 	buf bytes.Buffer
 }
+
 
 // NewWriter returns a new Perfetto trace writer writing into w.
 func NewWriter(w io.Writer) *Writer {
@@ -186,3 +257,77 @@ func (pw *Writer) WriteInstant(trackUUID uint64, tsNs uint64, name string, categ
 	_, err := pw.w.Write(packet)
 	return err
 }
+
+func encodeDebugAnnotation(da DebugAnnotation) []byte {
+	var body []byte
+	if da.Name != "" {
+		body = append(body, encodeString(FieldDebugAnnotationName, da.Name)...)
+	}
+	switch da.Type {
+	case AnnotationTypeBool:
+		val := uint64(0)
+		if da.BoolValue {
+			val = 1
+		}
+		body = append(body, encodeVarint(FieldDebugAnnotationBoolValue, val)...)
+	case AnnotationTypeUint:
+		body = append(body, encodeVarint(FieldDebugAnnotationUintValue, da.UintValue)...)
+	case AnnotationTypeInt:
+		body = append(body, encodeVarint(FieldDebugAnnotationIntValue, uint64(da.IntValue))...)
+	case AnnotationTypeDouble:
+		bits := math.Float64bits(da.DoubleValue)
+		tag := uint64((FieldDebugAnnotationDoubleValue << 3) | 1)
+		var b [16]byte
+		n := binary.PutUvarint(b[:], tag)
+		binary.LittleEndian.PutUint64(b[n:], bits)
+		body = append(body, b[:n+8]...)
+	case AnnotationTypeString:
+		body = append(body, encodeString(FieldDebugAnnotationStringValue, da.StringValue)...)
+	}
+	return encodeLengthDelimited(FieldTrackEventDebugAnnotations, body)
+}
+
+func encodeSourceLocation(loc SourceLocation) []byte {
+	var body []byte
+	if loc.FileName != "" {
+		body = append(body, encodeString(FieldSourceLocationFileName, loc.FileName)...)
+	}
+	if loc.FunctionName != "" {
+		body = append(body, encodeString(FieldSourceLocationFunctionName, loc.FunctionName)...)
+	}
+	if loc.LineNumber != 0 {
+		body = append(body, encodeVarint(FieldSourceLocationLineNumber, uint64(loc.LineNumber))...)
+	}
+	return encodeLengthDelimited(FieldTrackEventSourceLocation, body)
+}
+
+// WriteSliceBeginWithAnnotations records the start of a timed slice with debug annotations and optional source location.
+func (pw *Writer) WriteSliceBeginWithAnnotations(trackUUID uint64, tsNs uint64, name string, category string, annotations []DebugAnnotation, loc *SourceLocation) error {
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackEventType, TrackEventTypeSliceBegin)...)
+	body = append(body, encodeVarint(FieldTrackEventTrackUUID, trackUUID)...)
+	if name != "" {
+		body = append(body, encodeString(FieldTrackEventName, name)...)
+	}
+	if category != "" {
+		body = append(body, encodeString(FieldTrackEventCategories, category)...)
+	}
+	for _, da := range annotations {
+		body = append(body, encodeDebugAnnotation(da)...)
+	}
+	if loc != nil {
+		body = append(body, encodeSourceLocation(*loc)...)
+	}
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
+
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+

@@ -220,6 +220,8 @@ func runGPUInference(
 	}
 	defer scratch.Free()
 
+	forwardCU := findForwardCUPath()
+
 	// Prefill Phase
 	var ptxPath string
 	var ptxMap PTXLineMap
@@ -234,7 +236,19 @@ func runGPUInference(
 
 	tPrefill0 := time.Now()
 	for pos, tokID := range promptTokens {
-		tok, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+		var tok int32
+		if tracer != nil {
+			_ = tracer.SpanSource(nil, fmt.Sprintf("Prefill Token %d", pos+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
+				"phase":    "prefill",
+				"pos":      pos,
+				"token_id": tokID,
+				"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
+			}, func() {
+				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+			})
+		} else {
+			tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+		}
 		if err != nil {
 			return fmt.Errorf("gpu prefill step %d: %w", pos, err)
 		}
@@ -260,7 +274,20 @@ func runGPUInference(
 		chunk, _ := tokenizer.Decode([]int32{nextTokID})
 		fmt.Print(chunk)
 
-		tok, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+		var tok int32
+		if tracer != nil {
+			_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
+				"phase":    "decode",
+				"step":     step + 1,
+				"pos":      curPos,
+				"token_id": nextTokID,
+				"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
+			}, func() {
+				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+			})
+		} else {
+			tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+		}
 		if err != nil {
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
@@ -272,6 +299,7 @@ func runGPUInference(
 
 		curPos++
 	}
+
 	genDuration := time.Since(tGen0)
 
 	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
