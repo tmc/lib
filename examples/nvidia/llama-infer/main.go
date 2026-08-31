@@ -21,6 +21,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
@@ -590,72 +591,31 @@ type PTXLineMap struct {
 }
 
 func parsePTXLines(ptx string) PTXLineMap {
-	lines := strings.Split(ptx, "\n")
-	var m PTXLineMap
-	curEntry := ""
-	for i, l := range lines {
-		lineNum := int64(i + 1)
-		trimmed := strings.TrimSpace(l)
-		if strings.Contains(trimmed, ".entry ") || strings.Contains(trimmed, ".entry\t") {
-			switch {
-			case strings.Contains(trimmed, "EmbeddingLookup"):
-				curEntry = "EmbeddingLookup"
-				m.EmbeddingLookup = lineNum
-			case strings.Contains(trimmed, "RMSNorm"):
-				curEntry = "RMSNorm"
-			case strings.Contains(trimmed, "LinearGEMV"):
-				curEntry = "LinearGEMV"
-			case strings.Contains(trimmed, "ApplyRoPE"):
-				curEntry = "ApplyRoPE"
-			case strings.Contains(trimmed, "StoreKVCache"):
-				curEntry = "StoreKVCache"
-			case strings.Contains(trimmed, "SwiGLU"):
-				curEntry = "SwiGLU"
-			case strings.Contains(trimmed, "AddResidual"):
-				curEntry = "AddResidual"
-			default:
-				curEntry = ""
-			}
-		}
-		switch curEntry {
-		case "LinearGEMV":
-			if (strings.Contains(l, "fma") || strings.Contains(l, "mul.f32")) && m.LinearGEMVLoop == 0 {
-				m.LinearGEMVLoop = lineNum
-			}
-			if (strings.Contains(l, "shfl.sync.down") || strings.Contains(l, "shfl.down")) && m.LinearGEMVShfl == 0 {
-				m.LinearGEMVShfl = lineNum
-			}
-			if strings.Contains(l, "st.global") && m.LinearGEMVStore == 0 {
-				m.LinearGEMVStore = lineNum
-			}
-		case "RMSNorm":
-			if (strings.Contains(l, "fma") || strings.Contains(l, "mul.f32")) && m.RMSNormLoop == 0 {
-				m.RMSNormLoop = lineNum
-			}
-			if (strings.Contains(l, "rsqrt") || strings.Contains(l, "div")) && m.RMSNormRSQRT == 0 {
-				m.RMSNormRSQRT = lineNum
-			}
-			if strings.Contains(l, "st.global") && m.RMSNormStore == 0 {
-				m.RMSNormStore = lineNum
-			}
-		case "ApplyRoPE":
-			if (strings.Contains(l, "fma") || strings.Contains(l, "mul")) && m.RoPELoop == 0 {
-				m.RoPELoop = lineNum
-			}
-		case "StoreKVCache":
-			if strings.Contains(l, "st.global") && m.StoreKVLoop == 0 {
-				m.StoreKVLoop = lineNum
-			}
-		case "SwiGLU":
-			if (strings.Contains(l, "fma") || strings.Contains(l, "mul")) && m.SwiGLULoop == 0 {
-				m.SwiGLULoop = lineNum
-			}
-		case "AddResidual":
-			if (strings.Contains(l, "add.f32") || strings.Contains(l, "add.rn.f32")) && m.AddResidualLoop == 0 {
-				m.AddResidualLoop = lineNum
-			}
-		}
+	mod, err := cudaptx.ParseString(ptx)
+	if err != nil {
+		return PTXLineMap{}
 	}
+
+	var m PTXLineMap
+	if k := mod.Kernel("EmbeddingLookup"); k != nil {
+		m.EmbeddingLookup = int64(k.StartLine)
+	}
+	m.RMSNormLoop = int64(mod.FirstOpcodeLine("RMSNorm", "fma"))
+	m.RMSNormRSQRT = int64(mod.FirstOpcodeLine("RMSNorm", "rsqrt"))
+	m.RMSNormStore = int64(mod.FirstOpcodeLine("RMSNorm", "st.global"))
+
+	m.LinearGEMVLoop = int64(mod.FirstOpcodeLine("LinearGEMV", "fma"))
+	m.LinearGEMVShfl = int64(mod.FirstOpcodeLine("LinearGEMV", "shfl"))
+	m.LinearGEMVStore = int64(mod.FirstOpcodeLine("LinearGEMV", "st.global"))
+
+	m.RoPELoop = int64(mod.FirstOpcodeLine("ApplyRoPE", "fma"))
+	m.StoreKVLoop = int64(mod.FirstOpcodeLine("StoreKVCache", "st.global"))
+	m.SwiGLULoop = int64(mod.FirstOpcodeLine("SwiGLU", "fma"))
+	if m.SwiGLULoop == 0 {
+		m.SwiGLULoop = int64(mod.FirstOpcodeLine("SwiGLU", "mul"))
+	}
+	m.AddResidualLoop = int64(mod.FirstOpcodeLine("AddResidual", "add"))
+
 	return m
 }
 
