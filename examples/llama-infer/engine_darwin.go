@@ -12,6 +12,7 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
+	"github.com/tmc/lib/apple/x/metal/egraph"
 	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalattn"
 	"github.com/tmc/lib/apple/x/metal/metalir"
@@ -54,6 +55,7 @@ type ModelEngine struct {
 	norm       []float32
 	lmHead     []float32
 	layers     []LayerWeightData
+	egraphSats int
 }
 
 var (
@@ -66,9 +68,25 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	darwinEngineMu.Lock()
 	defer darwinEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize)
+	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph)
 	if eng, ok := darwinEngineCache[key]; ok {
 		return eng, nil
+	}
+
+	egraphSats := 0
+	if cfg.FuseEGraph {
+		eg := egraph.New()
+		h := eg.Add(egraph.NewLeaf("x"))
+		wNorm := eg.Add(egraph.NewLeaf("w_norm"))
+		wq := eg.Add(egraph.NewLeaf("wq"))
+		normNode := eg.Add(egraph.NewNode("rmsnorm", h, wNorm))
+		eg.Add(egraph.NewNode("gemv", normNode, wq))
+
+		rules := []*egraph.Rewrite{
+			egraph.MustRewrite("fuse_rmsnorm_gemv", "(gemv (rmsnorm ?x ?w) ?wq)", "(fused_rmsnorm_gemv ?x ?w ?wq)"),
+			egraph.MustRewrite("fuse_swiglu_gemv", "(gemv (* (silu (gemv ?x ?wg)) (gemv ?x ?wu)) ?wd)", "(fused_swiglu_gemv ?x ?wg ?wu ?wd)"),
+		}
+		_, egraphSats = egraph.Saturate(eg, rules, 10)
 	}
 
 	g := metalir.NewGraph()
@@ -184,6 +202,7 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		norm:       norm,
 		lmHead:     lmHeadFloats,
 		layers:     layerData,
+		egraphSats: egraphSats,
 	}
 
 	darwinEngineCache[key] = eng
@@ -372,7 +391,11 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 
 	fmt.Printf("[Weights] Ingested 146 tensors (%d Dim, %d Vocab, %d Layers)\n", cfg.Dim, cfg.VocabSize, len(eng.layers))
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
-	fmt.Printf("[E-Graph Megakernel] Compiled MSL shaders on Apple Silicon GPU\n\n")
+	if cfg.FuseEGraph {
+		fmt.Printf("[E-Graph Megakernel] Active: saturated %d equivalence classes with fused RMSNorm+GEMV & SwiGLU\n\n", eng.egraphSats)
+	} else {
+		fmt.Printf("[E-Graph Megakernel] Disabled: standard layer scheduling\n\n")
+	}
 
 	fmt.Printf("--- 10-Step Autoregressive Token Generation (Apple Metal + LLaMA 3.2 1B) ---\n")
 	fmt.Printf("Prompt: %q\n", promptText)

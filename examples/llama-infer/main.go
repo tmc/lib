@@ -26,6 +26,7 @@ type Config struct {
 	MaxSeqLen  int
 	Eps        float32
 	RopeTheta  float32
+	FuseEGraph bool
 }
 
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
@@ -111,6 +112,7 @@ func main() {
 	modelSize := flag.String("model", "llama3.2-1b", "model size (tiny, llama3.2-1b, 1b, 8b)")
 	modelPath := flag.String("path", "", "path to model directory containing model.safetensors")
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
+	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
 	flag.Parse()
 
 	var cfg Config
@@ -128,6 +130,7 @@ func main() {
 	default:
 		cfg = DefaultTinyLlamaConfig()
 	}
+	cfg.FuseEGraph = *fuseEGraph
 
 	fmt.Printf("=== Cross-Platform LLaMA Tensor Inference (%s on %s/%s) ===\n", cfg.Name, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Architecture: Dim=%d, HiddenDim=%d, Layers=%d, Heads=%d, KVHeads=%d, Vocab=%d\n",
@@ -135,6 +138,7 @@ func main() {
 	if cfg.ModelPath != "" {
 		fmt.Printf("Safetensors Path: %s\n", cfg.ModelPath)
 	}
+	fmt.Printf("E-Graph Optimization: %v\n", cfg.FuseEGraph)
 	fmt.Printf("Prompt: %q\n\n", *prompt)
 
 	if err := runPlatform(cfg); err != nil {

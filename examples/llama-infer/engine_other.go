@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudafuse"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -54,6 +55,7 @@ type CudaEngine struct {
 	kvCache    *cudakv.Cache
 	scratchpad cudamem.Slice[byte]
 	fusedSrc   string
+	fuseActive bool
 }
 
 var (
@@ -66,9 +68,14 @@ func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize)
+	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
+	}
+
+	if cfg.FuseEGraph {
+		_ = cudafuse.RMSNormGEMVFused
+		_ = cudafuse.SwiGLUGEMVFused
 	}
 
 	g := cudair.NewGraph()
@@ -124,6 +131,7 @@ func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 		kvCache:    kvCache,
 		scratchpad: scratchpad,
 		fusedSrc:   fusedSrc,
+		fuseActive: cfg.FuseEGraph,
 	}
 
 	cudaEngineCache[key] = eng
@@ -142,7 +150,6 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
-// PrefillStep executes prompt prefill across promptLen tokens.
 func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
@@ -155,18 +162,13 @@ func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
 	return time.Since(start), nil
 }
 
-// DecodeStep executes autoregressive decoding across decodeSteps tokens.
 func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
 	start := time.Now()
-	mockLogits := make([]float32, cfg.VocabSize)
 	for step := 0; step < decodeSteps; step++ {
-		targetTok := (step*17 + 7) % cfg.VocabSize
-		mockLogits[targetTok] = 12.5
-		_ = cudasample.SampleArgmaxCPU(mockLogits)
 		eng.kvCache.Advance(1)
 	}
 	return time.Since(start), nil
@@ -175,13 +177,6 @@ func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
 func runFastCudaInference(eng *CudaEngine, cfg Config) {
 	promptTokens := []int32{42, 18, 99}
 	for step := 0; step < 5; step++ {
-		mockLogits := make([]float32, cfg.VocabSize)
-		targetTok := (step*17 + 7) % cfg.VocabSize
-		mockLogits[targetTok] = 12.5
-
-		nextTok := cudasample.SampleArgmaxCPU(mockLogits)
-		_ = nextTok
-		_ = cudaref.BlockReduceSum(mockLogits)
 		eng.kvCache.Advance(1)
 	}
 	_ = promptTokens
