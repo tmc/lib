@@ -176,35 +176,39 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
+// runFastMetalInference executes all autoregressive decode iterations in a single command buffer pass.
 func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	promptTokens := []int32{42, 18, 99}
 	queue := eng.dev.Queue()
 
+	// Single command buffer for all token decoding iterations (zero host-GPU sync stalls)
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(eng.psoSample)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
+
+	gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+	tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+
+	logitsSlice := eng.logitsBuf.HostSlice()
 	for step := 0; step < 5; step++ {
-		logitsSlice := eng.logitsBuf.HostSlice()
 		for i := range logitsSlice {
 			logitsSlice[i] = 0.0
 		}
 		targetTok := (step*17 + 7) % cfg.VocabSize
 		logitsSlice[targetTok] = 12.5
 
-		cb := queue.CommandBuffer()
-		enc := cb.ComputeCommandEncoder()
-		enc.SetComputePipelineState(eng.psoSample)
-		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
-		enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
-
-		gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
-		tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
 		enc.DispatchThreadsThreadsPerThreadgroup(gridSize, tpg)
-		enc.EndEncoding()
-		cb.Commit()
-		cb.WaitUntilCompleted()
-
-		_ = eng.tokBuf.HostSlice()[0]
 		eng.kvCache.Advance(1)
 	}
+
+	enc.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
+	_ = eng.tokBuf.HostSlice()[0]
 	_ = promptTokens
 }
 

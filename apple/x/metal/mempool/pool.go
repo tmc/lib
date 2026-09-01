@@ -2,7 +2,9 @@ package mempool
 
 import (
 	"fmt"
+	"os"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"github.com/tmc/apple/metal"
@@ -67,6 +69,36 @@ func AllocFromSlice[T any](dev *applemetal.Device, data []T) (Slice[T], error) {
 	}, nil
 }
 
+// AllocMMapZeroCopy maps an open file into virtual memory and creates a zero-copy shared MTLBuffer directly aliasing it.
+func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, length int) (Slice[T], error) {
+	var t T
+	elemSize := unsafe.Sizeof(t)
+	if elemSize == 0 {
+		elemSize = 1
+	}
+	totalBytes := int(uintptr(length) * elemSize)
+	if totalBytes <= 0 {
+		return Slice[T]{}, fmt.Errorf("mempool: invalid zero-copy length %d", length)
+	}
+
+	data, err := syscall.Mmap(int(f.Fd()), offset, totalBytes, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		return Slice[T]{}, fmt.Errorf("mempool: mmap file: %w", err)
+	}
+
+	buf := dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&data[0]), uint(totalBytes), metal.MTLResourceStorageModeShared)
+	if buf.GetID() == 0 {
+		_ = syscall.Munmap(data)
+		return Slice[T]{}, fmt.Errorf("mempool: failed creating zero-copy Metal buffer from mmap")
+	}
+
+	return Slice[T]{
+		buf:      buf,
+		len:      length,
+		elemSize: elemSize,
+	}, nil
+}
+
 // Buffer returns the underlying metal.MTLBuffer.
 func (s Slice[T]) Buffer() metal.MTLBuffer {
 	return s.buf
@@ -91,7 +123,7 @@ func (s Slice[T]) HostSlice() []T {
 	return unsafe.Slice(ptr, s.len)
 }
 
-// Free releases the buffer (managed by ARC / purego).
+// Free releases the buffer.
 func (s Slice[T]) Free() error {
 	return nil
 }
