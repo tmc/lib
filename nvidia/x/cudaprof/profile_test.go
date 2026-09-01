@@ -121,3 +121,48 @@ func TestRecordTraceback(t *testing.T) {
 	}
 }
 
+func TestFlightRecorder(t *testing.T) {
+	fr := cudaprof.NewFlightRecorder(
+		cudaprof.WithWindowSize(16),
+	)
+
+	if err := fr.Start(); err != nil {
+		t.Fatalf("fr.Start failed: %v", err)
+	}
+	defer fr.Stop()
+
+	if !fr.Enabled() {
+		t.Fatal("expected flight recorder to be enabled")
+	}
+
+	for i := 0; i < 20; i++ {
+		fr.Record(cudaprof.SampleRecord{
+			KernelName: "TestKernel",
+			CuFile:     "test.cu",
+			CuLine:     int64(i + 1),
+			PtxFile:    "test.ptx",
+			PtxLine:    int64(i + 10),
+			SassPC:     uint64(0x7f000000 + i*0x10),
+			Values: cudaprof.SampleValues{
+				Samples:       100,
+				DRAMReadBytes: 1024,
+			},
+		})
+	}
+
+	var pprofBuf bytes.Buffer
+	var perfettoBuf bytes.Buffer
+
+	if err := fr.WriteBoth(&pprofBuf, &perfettoBuf); err != nil {
+		t.Fatalf("fr.WriteBoth failed: %v", err)
+	}
+
+	if pprofBuf.Len() == 0 {
+		t.Fatal("expected non-empty pprof snapshot")
+	}
+	if perfettoBuf.Len() == 0 {
+		t.Fatal("expected non-empty perfetto snapshot")
+	}
+}
+
+

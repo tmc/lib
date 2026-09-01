@@ -14,26 +14,182 @@ type RangeID uint64
 // StringHandle represents an immutable registered string token in an NVTX domain.
 type StringHandle uintptr
 
+const (
+	nvtxVersion = 3
+
+	// Export Table IDs
+	etidCallbacks   = 1
+	etidVersionInfo = 3
+
+	// Callback Modules
+	cbModuleCore  = 1
+	cbModuleCore2 = 5
+
+	// Message Types
+	messageTypeAscii = 1
+)
+
+type eventAttributes struct {
+	version     uint16
+	size        uint16
+	category    uint32
+	colorType   int32
+	color       uint32
+	payloadType int32
+	reserved0   int32
+	payload     uint64
+	messageType int32
+	_           int32 // padding
+	messagePtr  uintptr
+}
+
+// Export table structs per NVTX v3 C specification
+type exportTableCallbacks struct {
+	structSize             uintptr
+	getModuleFunctionTable uintptr
+}
+
+type exportTableVersionInfo struct {
+	structSize              uintptr
+	version                 uint32
+	reserved0               uint32
+	setInjectionNvtxVersion uintptr
+}
+
 var (
 	initOnce sync.Once
 	enabled  bool
 
-	fnMarkA               func(*byte)
-	fnRangePushA          func(*byte) int32
-	fnRangePop            func() int32
-	fnRangeStartA         func(*byte) uint64
-	fnRangeEnd            func(uint64)
-	fnDomainCreateA       func(*byte) uintptr
-	fnDomainDestroy       func(uintptr)
-	fnDomainRangePushA    func(uintptr, *byte) int32
-	fnDomainRangePop      func(uintptr) int32
-	fnDomainRangeStartA   func(uintptr, *byte) uint64
-	fnDomainRangeEnd      func(uintptr, uint64)
-	fnDomainMarkA         func(uintptr, *byte)
-	fnDomainRegisterStringA func(uintptr, *byte) uintptr
-	fnNameOsThreadA       func(uint32, *byte)
-	fnNameCategoryA       func(uintptr, uint32, *byte)
+	// Global slot storage for function pointers populated by the injection tool
+	fnMarkEx                uintptr
+	fnMarkA                 uintptr
+	fnMarkW                 uintptr
+	fnRangeStartEx          uintptr
+	fnRangeStartA           uintptr
+	fnRangeStartW           uintptr
+	fnRangeEnd              uintptr
+	fnRangePushEx           uintptr
+	fnRangePushA            uintptr
+	fnRangePushW            uintptr
+	fnRangePop              uintptr
+	fnNameCategoryA         uintptr
+	fnNameCategoryW         uintptr
+	fnNameOsThreadA         uintptr
+	fnNameOsThreadW         uintptr
+
+	fnDomainMarkEx          uintptr
+	fnDomainRangeStartEx    uintptr
+	fnDomainRangeEnd        uintptr
+	fnDomainRangePushEx     uintptr
+	fnDomainRangePop        uintptr
+	fnDomainResourceCreate  uintptr
+	fnDomainResourceDestroy uintptr
+	fnDomainNameCategoryA   uintptr
+	fnDomainNameCategoryW   uintptr
+	fnDomainRegisterStringA uintptr
+	fnDomainRegisterStringW uintptr
+	fnDomainCreateA         uintptr
+	fnDomainCreateW         uintptr
+	fnDomainDestroy         uintptr
+	fnInitialize            uintptr
+
+	// Slot pointer tables passed to the injection library
+	tableCORE  [17]uintptr
+	tableCORE2 [17]uintptr
+
+	etblCallbacks   exportTableCallbacks
+	etblVersionInfo exportTableVersionInfo
 )
+
+func initTables() {
+	// Table CORE: indices correspond to NvtxCallbackIdCore
+	tableCORE[0] = 0
+	tableCORE[1] = uintptr(unsafe.Pointer(&fnMarkEx))
+	tableCORE[2] = uintptr(unsafe.Pointer(&fnMarkA))
+	tableCORE[3] = uintptr(unsafe.Pointer(&fnMarkW))
+	tableCORE[4] = uintptr(unsafe.Pointer(&fnRangeStartEx))
+	tableCORE[5] = uintptr(unsafe.Pointer(&fnRangeStartA))
+	tableCORE[6] = uintptr(unsafe.Pointer(&fnRangeStartW))
+	tableCORE[7] = uintptr(unsafe.Pointer(&fnRangeEnd))
+	tableCORE[8] = uintptr(unsafe.Pointer(&fnRangePushEx))
+	tableCORE[9] = uintptr(unsafe.Pointer(&fnRangePushA))
+	tableCORE[10] = uintptr(unsafe.Pointer(&fnRangePushW))
+	tableCORE[11] = uintptr(unsafe.Pointer(&fnRangePop))
+	tableCORE[12] = uintptr(unsafe.Pointer(&fnNameCategoryA))
+	tableCORE[13] = uintptr(unsafe.Pointer(&fnNameCategoryW))
+	tableCORE[14] = uintptr(unsafe.Pointer(&fnNameOsThreadA))
+	tableCORE[15] = uintptr(unsafe.Pointer(&fnNameOsThreadW))
+	tableCORE[16] = 0 // null terminator
+
+	// Table CORE2: indices correspond to NvtxCallbackIdCore2
+	tableCORE2[0] = 0
+	tableCORE2[1] = uintptr(unsafe.Pointer(&fnDomainMarkEx))
+	tableCORE2[2] = uintptr(unsafe.Pointer(&fnDomainRangeStartEx))
+	tableCORE2[3] = uintptr(unsafe.Pointer(&fnDomainRangeEnd))
+	tableCORE2[4] = uintptr(unsafe.Pointer(&fnDomainRangePushEx))
+	tableCORE2[5] = uintptr(unsafe.Pointer(&fnDomainRangePop))
+	tableCORE2[6] = uintptr(unsafe.Pointer(&fnDomainResourceCreate))
+	tableCORE2[7] = uintptr(unsafe.Pointer(&fnDomainResourceDestroy))
+	tableCORE2[8] = uintptr(unsafe.Pointer(&fnDomainNameCategoryA))
+	tableCORE2[9] = uintptr(unsafe.Pointer(&fnDomainNameCategoryW))
+	tableCORE2[10] = uintptr(unsafe.Pointer(&fnDomainRegisterStringA))
+	tableCORE2[11] = uintptr(unsafe.Pointer(&fnDomainRegisterStringW))
+	tableCORE2[12] = uintptr(unsafe.Pointer(&fnDomainCreateA))
+	tableCORE2[13] = uintptr(unsafe.Pointer(&fnDomainCreateW))
+	tableCORE2[14] = uintptr(unsafe.Pointer(&fnDomainDestroy))
+	tableCORE2[15] = uintptr(unsafe.Pointer(&fnInitialize))
+	tableCORE2[16] = 0 // null terminator
+
+	etblCallbacks = exportTableCallbacks{
+		structSize:             unsafe.Sizeof(exportTableCallbacks{}),
+		getModuleFunctionTable: purego.NewCallback(getModuleFunctionTable),
+	}
+
+	etblVersionInfo = exportTableVersionInfo{
+		structSize:              unsafe.Sizeof(exportTableVersionInfo{}),
+		version:                 nvtxVersion,
+		reserved0:               0,
+		setInjectionNvtxVersion: purego.NewCallback(setInjectionNvtxVersion),
+	}
+}
+
+func getModuleFunctionTable(callbackModule int32, outTable *uintptr, outSize *uint32) int32 {
+	switch callbackModule {
+	case cbModuleCore:
+		if outTable != nil {
+			*outTable = uintptr(unsafe.Pointer(&tableCORE[0]))
+		}
+		if outSize != nil {
+			*outSize = uint32(len(tableCORE) - 1)
+		}
+		return 1
+	case cbModuleCore2:
+		if outTable != nil {
+			*outTable = uintptr(unsafe.Pointer(&tableCORE2[0]))
+		}
+		if outSize != nil {
+			*outSize = uint32(len(tableCORE2) - 1)
+		}
+		return 1
+	default:
+		return 0
+	}
+}
+
+func setInjectionNvtxVersion(version uint32) {
+	_ = version
+}
+
+func getExportTable(exportTableId uint32) uintptr {
+	switch exportTableId {
+	case etidCallbacks:
+		return uintptr(unsafe.Pointer(&etblCallbacks))
+	case etidVersionInfo:
+		return uintptr(unsafe.Pointer(&etblVersionInfo))
+	default:
+		return 0
+	}
+}
 
 func initInjection() {
 	injectionPath := os.Getenv("NVTX_INJECTION64_PATH")
@@ -49,30 +205,21 @@ func initInjection() {
 		return
 	}
 
-	bind := func(name string, fptr any) {
-		sym, err := purego.Dlsym(handle, name)
-		if err == nil && sym != 0 {
-			purego.RegisterFunc(fptr, sym)
+	initFn, err := purego.Dlsym(handle, "InitializeInjectionNvtx2")
+	if err != nil || initFn == 0 {
+		initFn, err = purego.Dlsym(handle, "InitializeInjectionNvtx")
+		if err != nil || initFn == 0 {
+			return
 		}
 	}
 
-	bind("nvtxMarkA", &fnMarkA)
-	bind("nvtxRangePushA", &fnRangePushA)
-	bind("nvtxRangePop", &fnRangePop)
-	bind("nvtxRangeStartA", &fnRangeStartA)
-	bind("nvtxRangeEnd", &fnRangeEnd)
-	bind("nvtxDomainCreateA", &fnDomainCreateA)
-	bind("nvtxDomainDestroy", &fnDomainDestroy)
-	bind("nvtxDomainRangePushA", &fnDomainRangePushA)
-	bind("nvtxDomainRangePop", &fnDomainRangePop)
-	bind("nvtxDomainRangeStartA", &fnDomainRangeStartA)
-	bind("nvtxDomainRangeEnd", &fnDomainRangeEnd)
-	bind("nvtxDomainMarkA", &fnDomainMarkA)
-	bind("nvtxDomainRegisterStringA", &fnDomainRegisterStringA)
-	bind("nvtxNameOsThreadA", &fnNameOsThreadA)
-	bind("nvtxNameCategoryA", &fnNameCategoryA)
+	initTables()
+	cbGetExportTable := purego.NewCallback(getExportTable)
 
-	enabled = true
+	r, _, _ := purego.SyscallN(initFn, cbGetExportTable)
+	if r != 0 {
+		enabled = true
+	}
 }
 
 func ensureInit() {
@@ -96,30 +243,32 @@ func cString(s string) *byte {
 // Mark records an instantaneous event marker on the global timeline.
 func Mark(msg string) {
 	ensureInit()
-	if !enabled || fnMarkA == nil {
+	if !enabled || fnMarkA == 0 {
 		return
 	}
-	fnMarkA(cString(msg))
+	purego.SyscallN(fnMarkA, uintptr(unsafe.Pointer(cString(msg))))
 }
 
 // RangePush pushes a nested timeline range on the current thread.
 // Returns the 0-based depth level of the range being started.
 func RangePush(msg string) int {
 	ensureInit()
-	if !enabled || fnRangePushA == nil {
+	if !enabled || fnRangePushA == 0 {
 		return 0
 	}
-	return int(fnRangePushA(cString(msg)))
+	r, _, _ := purego.SyscallN(fnRangePushA, uintptr(unsafe.Pointer(cString(msg))))
+	return int(int32(r))
 }
 
 // RangePop pops the most recent nested timeline range from the current thread.
 // Returns the remaining stack depth.
 func RangePop() int {
 	ensureInit()
-	if !enabled || fnRangePop == nil {
+	if !enabled || fnRangePop == 0 {
 		return 0
 	}
-	return int(fnRangePop())
+	r, _, _ := purego.SyscallN(fnRangePop)
+	return int(int32(r))
 }
 
 // ScopedRange is a convenience helper for defer blocks:
@@ -135,19 +284,20 @@ func ScopedRange(msg string) func() {
 // RangeStart starts a non-nested range spanning across goroutines or asynchronous streams.
 func RangeStart(msg string) RangeID {
 	ensureInit()
-	if !enabled || fnRangeStartA == nil {
+	if !enabled || fnRangeStartA == 0 {
 		return 0
 	}
-	return RangeID(fnRangeStartA(cString(msg)))
+	r, _, _ := purego.SyscallN(fnRangeStartA, uintptr(unsafe.Pointer(cString(msg))))
+	return RangeID(r)
 }
 
 // RangeEnd ends a non-nested range previously started by RangeStart.
 func RangeEnd(id RangeID) {
 	ensureInit()
-	if !enabled || fnRangeEnd == nil || id == 0 {
+	if !enabled || fnRangeEnd == 0 || id == 0 {
 		return
 	}
-	fnRangeEnd(uint64(id))
+	purego.SyscallN(fnRangeEnd, uintptr(id))
 }
 
 // Domain represents an isolated NVTX instrumentation namespace.
@@ -160,42 +310,57 @@ type Domain struct {
 func CreateDomain(name string) *Domain {
 	ensureInit()
 	d := &Domain{name: name}
-	if enabled && fnDomainCreateA != nil {
-		d.raw = fnDomainCreateA(cString(name))
+	if enabled && fnDomainCreateA != 0 {
+		r, _, _ := purego.SyscallN(fnDomainCreateA, uintptr(unsafe.Pointer(cString(name))))
+		d.raw = r
 	}
 	return d
 }
 
 // Destroy destroys the custom domain and invalidates its resources.
 func (d *Domain) Destroy() {
-	if d.raw != 0 && fnDomainDestroy != nil {
-		fnDomainDestroy(d.raw)
+	if d.raw != 0 && fnDomainDestroy != 0 {
+		purego.SyscallN(fnDomainDestroy, d.raw)
 		d.raw = 0
 	}
 }
 
 // Mark records an instantaneous event marker within this domain.
 func (d *Domain) Mark(msg string) {
-	if !enabled || d.raw == 0 || fnDomainMarkA == nil {
+	if !enabled || d.raw == 0 || fnDomainMarkEx == 0 {
 		return
 	}
-	fnDomainMarkA(d.raw, cString(msg))
+	attrs := eventAttributes{
+		version:     nvtxVersion,
+		size:        uint16(unsafe.Sizeof(eventAttributes{})),
+		messageType: messageTypeAscii,
+		messagePtr:  uintptr(unsafe.Pointer(cString(msg))),
+	}
+	purego.SyscallN(fnDomainMarkEx, d.raw, uintptr(unsafe.Pointer(&attrs)))
 }
 
 // RangePush pushes a nested timeline range on the current thread within this domain.
 func (d *Domain) RangePush(msg string) int {
-	if !enabled || d.raw == 0 || fnDomainRangePushA == nil {
+	if !enabled || d.raw == 0 || fnDomainRangePushEx == 0 {
 		return 0
 	}
-	return int(fnDomainRangePushA(d.raw, cString(msg)))
+	attrs := eventAttributes{
+		version:     nvtxVersion,
+		size:        uint16(unsafe.Sizeof(eventAttributes{})),
+		messageType: messageTypeAscii,
+		messagePtr:  uintptr(unsafe.Pointer(cString(msg))),
+	}
+	r, _, _ := purego.SyscallN(fnDomainRangePushEx, d.raw, uintptr(unsafe.Pointer(&attrs)))
+	return int(int32(r))
 }
 
 // RangePop pops the most recent nested timeline range within this domain.
 func (d *Domain) RangePop() int {
-	if !enabled || d.raw == 0 || fnDomainRangePop == nil {
+	if !enabled || d.raw == 0 || fnDomainRangePop == 0 {
 		return 0
 	}
-	return int(fnDomainRangePop(d.raw))
+	r, _, _ := purego.SyscallN(fnDomainRangePop, d.raw)
+	return int(int32(r))
 }
 
 // ScopedRange is a convenience helper for defer blocks within this domain.
@@ -208,54 +373,59 @@ func (d *Domain) ScopedRange(msg string) func() {
 
 // RangeStart starts a non-nested range within this domain.
 func (d *Domain) RangeStart(msg string) RangeID {
-	if !enabled || d.raw == 0 || fnDomainRangeStartA == nil {
+	if !enabled || d.raw == 0 || fnDomainRangeStartEx == 0 {
 		return 0
 	}
-	return RangeID(fnDomainRangeStartA(d.raw, cString(msg)))
+	attrs := eventAttributes{
+		version:     nvtxVersion,
+		size:        uint16(unsafe.Sizeof(eventAttributes{})),
+		messageType: messageTypeAscii,
+		messagePtr:  uintptr(unsafe.Pointer(cString(msg))),
+	}
+	r, _, _ := purego.SyscallN(fnDomainRangeStartEx, d.raw, uintptr(unsafe.Pointer(&attrs)))
+	return RangeID(r)
 }
 
 // RangeEnd ends a non-nested range within this domain.
 func (d *Domain) RangeEnd(id RangeID) {
-	if !enabled || d.raw == 0 || fnDomainRangeEnd == nil || id == 0 {
+	if !enabled || d.raw == 0 || fnDomainRangeEnd == 0 || id == 0 {
 		return
 	}
-	fnDomainRangeEnd(d.raw, uint64(id))
+	purego.SyscallN(fnDomainRangeEnd, d.raw, uintptr(id))
 }
 
 // RegisterString registers an immutable string in the domain for zero-overhead repeated referencing.
 func (d *Domain) RegisterString(s string) StringHandle {
-	if !enabled || d.raw == 0 || fnDomainRegisterStringA == nil {
+	if !enabled || d.raw == 0 || fnDomainRegisterStringA == 0 {
 		return 0
 	}
-	return StringHandle(fnDomainRegisterStringA(d.raw, cString(s)))
+	r, _, _ := purego.SyscallN(fnDomainRegisterStringA, d.raw, uintptr(unsafe.Pointer(cString(s))))
+	return StringHandle(r)
 }
 
 // NameOSThread assigns a human-readable name to the specified operating system thread in Nsight timelines.
 func NameOSThread(threadID uint32, name string) {
 	ensureInit()
-	if !enabled || fnNameOsThreadA == nil {
+	if !enabled || fnNameOsThreadA == 0 {
 		return
 	}
-	fnNameOsThreadA(threadID, cString(name))
+	purego.SyscallN(fnNameOsThreadA, uintptr(threadID), uintptr(unsafe.Pointer(cString(name))))
 }
 
 // NameCategory assigns a name to an integer category ID within a domain.
 func NameCategory(d *Domain, category uint32, name string) {
 	ensureInit()
-	if !enabled || fnNameCategoryA == nil {
+	if !enabled || fnNameCategoryA == 0 {
 		return
 	}
 	var domainRaw uintptr
 	if d != nil {
 		domainRaw = d.raw
 	}
-	fnNameCategoryA(domainRaw, category, cString(name))
+	purego.SyscallN(fnNameCategoryA, domainRaw, uintptr(category), uintptr(unsafe.Pointer(cString(name))))
 }
 
 // Raw returns the underlying native NVTX domain handle.
 func (d *Domain) Raw() uintptr {
 	return d.raw
 }
-
-// Silence unused package warnings
-var _ = unsafe.Pointer(nil)
