@@ -17,6 +17,14 @@ type KernelEvent struct {
 	Labels      map[string]string
 }
 
+// TimelineEvent represents an execution interval on the GPU timeline.
+type TimelineEvent struct {
+	Name       string            `json:"name"`
+	StartNs    uint64            `json:"start_ns"`
+	DurationNs uint64            `json:"duration_ns"`
+	Labels     map[string]string `json:"labels,omitempty"`
+}
+
 // FlightRecorder maintains a continuous in-memory ring buffer of GPU kernel executions.
 type FlightRecorder struct {
 	mu       sync.RWMutex
@@ -74,6 +82,21 @@ func (fr *FlightRecorder) Events() []KernelEvent {
 	// Ring wrapped around
 	n1 := copy(out, fr.events[fr.head:])
 	copy(out[n1:], fr.events[:fr.head])
+	return out
+}
+
+// Timeline returns chronological timeline events from the recorder.
+func (fr *FlightRecorder) Timeline() []TimelineEvent {
+	events := fr.Events()
+	out := make([]TimelineEvent, len(events))
+	for i, ev := range events {
+		out[i] = TimelineEvent{
+			Name:       ev.Name,
+			StartNs:    ev.TimestampNs,
+			DurationNs: uint64(ev.Duration.Nanoseconds()),
+			Labels:     ev.Labels,
+		}
+	}
 	return out
 }
 
