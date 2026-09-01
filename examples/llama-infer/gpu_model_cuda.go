@@ -276,14 +276,14 @@ func GPUForwardPassStep(
 	vocabSize := cfg.VocabSize
 	seqLen := pos + 1
 
-	// Copy input token ID (4 bytes) to device
-	sp.HostTokenIn[0] = tokenID
+	// Copy input token ID (4 bytes) to device using an isolated per-step host slice to avoid async lifetime hazard
+	hostTokenIn := []int32{tokenID}
 	if stream != nil {
-		if err := sp.TokenIn.CopyFromHostAsync(sp.HostTokenIn, stream); err != nil {
+		if err := sp.TokenIn.CopyFromHostAsync(hostTokenIn, stream); err != nil {
 			return 0, err
 		}
 	} else {
-		if err := sp.TokenIn.CopyFromHost(sp.HostTokenIn); err != nil {
+		if err := sp.TokenIn.CopyFromHost(hostTokenIn); err != nil {
 			return 0, err
 		}
 	}

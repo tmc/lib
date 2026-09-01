@@ -507,21 +507,24 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 	if plan.DType != "f32" && plan.DType != "fp32" && plan.DType != "f16" && plan.DType != "fp16" {
 		return fmt.Errorf("unsupported plan dtype: %q", plan.DType)
 	}
-	if cfg.Dim > 0 && plan.HeadDim > 0 && cfg.HeadDim > 0 && plan.HeadDim != cfg.HeadDim {
-		return fmt.Errorf("plan HeadDim mismatch: plan=%d, cfg=%d", plan.HeadDim, cfg.HeadDim)
+
+	// 1. Strict dimension requirements
+	if plan.HeadDim <= 0 || (cfg.HeadDim > 0 && plan.HeadDim != cfg.HeadDim) {
+		return fmt.Errorf("plan HeadDim invalid: plan=%d, cfg=%d", plan.HeadDim, cfg.HeadDim)
 	}
-	if cfg.NumHeads > 0 && plan.NumHeads > 0 && plan.NumHeads != cfg.NumHeads {
-		return fmt.Errorf("plan NumHeads mismatch: plan=%d, cfg=%d", plan.NumHeads, cfg.NumHeads)
+	if plan.NumHeads <= 0 || (cfg.NumHeads > 0 && plan.NumHeads != cfg.NumHeads) {
+		return fmt.Errorf("plan NumHeads invalid: plan=%d, cfg=%d", plan.NumHeads, cfg.NumHeads)
 	}
-	if cfg.NumKVHeads > 0 && plan.NumKVHeads > 0 && plan.NumKVHeads != cfg.NumKVHeads {
-		return fmt.Errorf("plan NumKVHeads mismatch: plan=%d, cfg=%d", plan.NumKVHeads, cfg.NumKVHeads)
+	if plan.NumKVHeads <= 0 || (cfg.NumKVHeads > 0 && plan.NumKVHeads != cfg.NumKVHeads) {
+		return fmt.Errorf("plan NumKVHeads invalid: plan=%d, cfg=%d", plan.NumKVHeads, cfg.NumKVHeads)
 	}
-	if cfg.NumLayers > 0 && plan.NumLayers > 0 && plan.NumLayers != cfg.NumLayers {
-		return fmt.Errorf("plan NumLayers mismatch: plan=%d, cfg=%d", plan.NumLayers, cfg.NumLayers)
+	if plan.NumLayers <= 0 || (cfg.NumLayers > 0 && plan.NumLayers != cfg.NumLayers) {
+		return fmt.Errorf("plan NumLayers invalid: plan=%d, cfg=%d", plan.NumLayers, cfg.NumLayers)
 	}
-	if cfg.VocabSize > 0 && plan.VocabSize > 0 && plan.VocabSize != cfg.VocabSize {
-		return fmt.Errorf("plan VocabSize mismatch: plan=%d, cfg=%d", plan.VocabSize, cfg.VocabSize)
+	if plan.VocabSize <= 0 || (cfg.VocabSize > 0 && plan.VocabSize != cfg.VocabSize) {
+		return fmt.Errorf("plan VocabSize invalid: plan=%d, cfg=%d", plan.VocabSize, cfg.VocabSize)
 	}
+
 	validOps := map[string]bool{
 		"EmbeddingLookup":            true,
 		"ComputeRMSNorm":             true,
@@ -543,15 +546,36 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 		"ArgmaxSampling":             true,
 	}
 
+	// 2. Op vocabulary and layer index bound validation
 	for i, op := range plan.Ops {
 		if !validOps[op.Name] {
 			return fmt.Errorf("plan op %d: unknown operation %q", i, op.Name)
 		}
 		if op.Name != "EmbeddingLookup" && op.Name != "ComputeRMSNorm_Final" && op.Name != "FastGEMV_LMHead" && op.Name != "ArgmaxSampling" {
-			if op.LayerIndex < 0 || op.LayerIndex >= cfg.NumLayers {
-				return fmt.Errorf("plan op %d (%s): layer index %d out of bounds [0, %d)", i, op.Name, op.LayerIndex, cfg.NumLayers)
+			if op.LayerIndex < 0 || op.LayerIndex >= plan.NumLayers {
+				return fmt.Errorf("plan op %d (%s): layer index %d out of bounds [0, %d)", i, op.Name, op.LayerIndex, plan.NumLayers)
 			}
 		}
 	}
+
+	// 3. Topology grammar validation
+	if plan.Ops[0].Name != "EmbeddingLookup" {
+		return fmt.Errorf("plan topology error: first op must be EmbeddingLookup, got %q", plan.Ops[0].Name)
+	}
+	lastIdx := len(plan.Ops) - 1
+	if lastIdx < 3 || plan.Ops[lastIdx].Name != "ArgmaxSampling" || plan.Ops[lastIdx-1].Name != "FastGEMV_LMHead" || plan.Ops[lastIdx-2].Name != "ComputeRMSNorm_Final" {
+		return fmt.Errorf("plan topology error: trailing ops must be ComputeRMSNorm_Final -> FastGEMV_LMHead -> ArgmaxSampling")
+	}
+
+	// Verify layer sequencing
+	currentLayer := 0
+	for idx := 1; idx < lastIdx-2; idx++ {
+		op := plan.Ops[idx]
+		if op.LayerIndex < currentLayer {
+			return fmt.Errorf("plan topology error: out-of-order layer index %d after layer %d at op %d (%s)", op.LayerIndex, currentLayer, idx, op.Name)
+		}
+		currentLayer = op.LayerIndex
+	}
+
 	return nil
 }

@@ -889,7 +889,39 @@ func TestExecutionPlanFailClosedValidation(t *testing.T) {
 		t.Fatalf("expected error validating plan with unsupported dtype, got nil")
 	}
 
-	// 5. ExecutePlanWithLogits fails closed on invalid plan
+	// 5. Zero / invalid dimension fails validation
+	badDimPlan := BuildExecutionPlan(cfg)
+	badDimPlan.HeadDim = 0
+	if err := ValidatePlan(badDimPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with zero HeadDim, got nil")
+	}
+
+	// 6. Dimension mismatch against config fails validation
+	mismatchDimPlan := BuildExecutionPlan(cfg)
+	mismatchDimPlan.NumLayers = cfg.NumLayers + 1
+	if err := ValidatePlan(mismatchDimPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with mismatched NumLayers, got nil")
+	}
+
+	// 7. Topology violation: missing leading EmbeddingLookup fails validation
+	badTopoPlan := BuildExecutionPlan(cfg)
+	badTopoPlan.Ops[0] = OpDispatch{Name: "ComputeRMSNorm", Category: "norm", LayerIndex: 0}
+	if err := ValidatePlan(badTopoPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan missing leading EmbeddingLookup, got nil")
+	}
+
+	// 8. Topology violation: out-of-order layer sequencing fails validation
+	badSeqPlan := BuildExecutionPlan(cfg)
+	if len(badSeqPlan.Ops) > 10 {
+		// Swap layer 0 op with layer 1 op
+		badSeqPlan.Ops[2].LayerIndex = 1
+		badSeqPlan.Ops[8].LayerIndex = 0
+		if err := ValidatePlan(badSeqPlan, cfg); err == nil {
+			t.Fatalf("expected error validating plan with out-of-order layer sequencing, got nil")
+		}
+	}
+
+	// 9. ExecutePlanWithLogits fails closed on invalid plan
 	origPlan := eng.Plan
 	defer func() { eng.Plan = origPlan }()
 	eng.Plan = badOpPlan
