@@ -23,6 +23,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 	"github.com/tmc/lib/apple/x/metal/metalsample"
+	"github.com/tmc/lib/examples/llama-infer/gpuprof"
 )
 
 func init() {
@@ -970,10 +971,25 @@ func RunBenchSuite(cfg Config, count int) error {
 			prefillTokPerSec := float64(len(promptTokens)) / ttftDur.Seconds()
 			decTokPerSec := float64(numGen) / decDur.Seconds()
 
+			modelProf := gpuprof.ModelProfile{
+				Name:            cfg.Name,
+				HiddenDim:       cfg.Dim,
+				IntermediateDim: cfg.HiddenDim,
+				NumLayers:       cfg.NumLayers,
+				NumHeads:        cfg.NumHeads,
+				NumKVHeads:      cfg.NumKVHeads,
+				HeadDim:         cfg.HeadDim,
+				VocabSize:       cfg.VocabSize,
+				BytesPerParam:   4.0,
+			}
+			hwProf := gpuprof.DefaultHardwareProfile("metal")
+			prefStats := gpuprof.ComputeSaturation(modelProf, hwProf, len(promptTokens), ttftDur, true)
+			decStats := gpuprof.ComputeSaturation(modelProf, hwProf, numGen, decDur, false)
+
 			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
 			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
-			fmt.Printf("%s/prefill-1 1 %.6f tok/s\n", prefix, prefillTokPerSec)
-			fmt.Printf("%s/decode-1 1 %.6f tok/s\n", prefix, decTokPerSec)
+			fmt.Printf("%s/prefill-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, prefillTokPerSec, prefStats.BandwidthGBps, prefStats.BandwidthSaturationPct, prefStats.TFLOPs)
+			fmt.Printf("%s/decode-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, decTokPerSec, decStats.BandwidthGBps, decStats.BandwidthSaturationPct, decStats.TFLOPs)
 		}
 	}
 	return nil
