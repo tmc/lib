@@ -35,17 +35,19 @@ type TransformerLayer struct {
 }
 
 func (l *TransformerLayer) Forward(x cudatensor.Tensor, pos cudatensor.Tensor) cudatensor.Tensor {
-	normed := x.RMSNorm(l.AttnNorm, 1e-5)
-	q := normed.MatMul(l.WQ).RoPE(pos)
-	k := normed.MatMul(l.WK).RoPE(pos)
-	v := normed.MatMul(l.WV)
+	normX := x.RMSNorm(l.AttnNorm, 1e-5)
+	q := normX.MatMul(l.WQ).RoPE(pos, 10000.0)
+	k := normX.MatMul(l.WK).RoPE(pos, 10000.0)
+	v := normX.MatMul(l.WV)
 
-	attnOut := q.FlashAttention(k, v)
-	h := x.Add(attnOut.MatMul(l.WO))
+	attnScore := q.Add(k)
+	attnVal := attnScore.Add(v)
+	attnOut := attnVal.MatMul(l.WO)
+	h := x.Add(attnOut)
 
-	ffnNormed := h.RMSNorm(l.FFNNorm, 1e-5)
-	gate := ffnNormed.MatMul(l.WGate).SiLU()
-	up := ffnNormed.MatMul(l.WUp)
+	normH := h.RMSNorm(l.FFNNorm, 1e-5)
+	gate := normH.MatMul(l.WGate).Silu()
+	up := normH.MatMul(l.WUp)
 	ffnOut := gate.Mul(up).MatMul(l.WDown)
 
 	return h.Add(ffnOut)
