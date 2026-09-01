@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
 	"net/netip"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/tmc/go-iroh/iroh"
 	"github.com/tmc/go-iroh/key"
@@ -132,9 +137,50 @@ func (n *IrohClusterNode) probeSelfHardware() NodeTelemetry {
 
 // RegisterPeer manually registers a known peer's telemetry for role evaluation.
 func (n *IrohClusterNode) RegisterPeer(tel NodeTelemetry) {
+	if tel.NodeID == "" || tel.NodeID == n.self.NodeID {
+		return
+	}
 	n.peersMu.Lock()
 	defer n.peersMu.Unlock()
 	n.peers[tel.NodeID] = tel
+}
+
+// ConnectHTTPPeer sends a mesh join request to a peer HTTP endpoint and exchanges telemetry.
+func (n *IrohClusterNode) ConnectHTTPPeer(ctx context.Context, peerURL string) error {
+	if !strings.HasPrefix(peerURL, "http://") && !strings.HasPrefix(peerURL, "https://") {
+		peerURL = "http://" + peerURL
+	}
+	joinURL := strings.TrimRight(peerURL, "/") + "/api/mesh/join"
+
+	body, err := json.Marshal(n.self)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("peer join request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("peer returned status %d", resp.StatusCode)
+	}
+
+	var remotePeer NodeTelemetry
+	if err := json.NewDecoder(resp.Body).Decode(&remotePeer); err != nil {
+		return fmt.Errorf("decode peer telemetry: %w", err)
+	}
+
+	n.RegisterPeer(remotePeer)
+	return nil
 }
 
 // InferRoles evaluates the distributed E-Graph cost function to choose optimal Prefill and Decode nodes.

@@ -30,6 +30,8 @@ type Config struct {
 	Prompt     string
 	// HTTPAddr sets the optional address for the live telemetry HTTP server.
 	HTTPAddr   string
+	// PeerAddr sets an optional peer node to join into the P2P inference mesh.
+	PeerAddr   string
 	// ServeMode keeps the server running indefinitely to accept OpenAI requests.
 	ServeMode  bool
 	// BOSTokenID is prepended to the prompt when nonzero. LLaMA 3 conditions
@@ -124,6 +126,7 @@ func main() {
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
 	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
+	peerAddr := flag.String("peer", "", "peer HTTP address to join into P2P inference mesh (e.g. spark-31db:8080)")
 	serve := flag.Bool("serve", false, "run in continuous OpenAI-compatible serving mode")
 	flag.Parse()
 
@@ -145,6 +148,7 @@ func main() {
 	cfg.FuseEGraph = *fuseEGraph
 	cfg.Prompt = *prompt
 	cfg.HTTPAddr = *httpAddr
+	cfg.PeerAddr = *peerAddr
 	cfg.ServeMode = *serve
 
 	if *serve && cfg.HTTPAddr == "" {

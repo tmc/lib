@@ -55,6 +55,7 @@ func (s *TelemetryServer) SetClusterNode(node *IrohClusterNode) {
 func (s *TelemetryServer) routes() {
 	s.mux.HandleFunc("/", s.handleDashboard)
 	s.mux.HandleFunc("/api/telemetry", s.handleAPITelemetry)
+	s.mux.HandleFunc("/api/mesh/join", s.handleMeshJoin)
 
 	// OpenAI Compatible API Endpoints
 	s.mux.HandleFunc("/v1/models", s.handleV1Models)
@@ -70,6 +71,36 @@ func (s *TelemetryServer) routes() {
 
 	// GPU hardware FlightRecorder profile endpoint
 	s.mux.HandleFunc("/debug/pprof/gpu", s.handlePprof)
+}
+
+func (s *TelemetryServer) handleMeshJoin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var peer NodeTelemetry
+	if err := json.NewDecoder(r.Body).Decode(&peer); err != nil {
+		http.Error(w, fmt.Sprintf("invalid JSON payload: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if s.clusterNode != nil {
+		s.clusterNode.RegisterPeer(peer)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if s.clusterNode != nil {
+		_ = json.NewEncoder(w).Encode(s.clusterNode.SelfTelemetry())
+	} else {
+		_ = json.NewEncoder(w).Encode(s.getStats().ClusterMesh.SelfNode)
+	}
 }
 
 // ServeHTTP implements http.Handler.

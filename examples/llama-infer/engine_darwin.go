@@ -272,8 +272,28 @@ func runPlatform(cfg Config) error {
 		return fmt.Errorf("engine compile: %w", err)
 	}
 
+	cNode, err := NewIrohClusterNode(context.Background(), engine, cfg, 0)
+	if err == nil {
+		fmt.Printf("[go-iroh Mesh] Node ID: %s (Platform: %s, Compute: %.0f TFLOPs, Bandwidth: %.0f GB/s)\n",
+			cNode.NodeID(), cNode.SelfTelemetry().OS, cNode.SelfTelemetry().ComputeTFLOPs, cNode.SelfTelemetry().BandwidthGBS)
+		if cfg.PeerAddr != "" {
+			go func() {
+				for {
+					if err := cNode.ConnectHTTPPeer(context.Background(), cfg.PeerAddr); err == nil {
+						fmt.Printf("[go-iroh Mesh] Connected and registered peer %s into inference mesh!\n", cfg.PeerAddr)
+						break
+					}
+					time.Sleep(2 * time.Second)
+				}
+			}()
+		}
+	}
+
 	if cfg.HTTPAddr != "" {
 		srv := NewTelemetryServer(engine, cfg)
+		if cNode != nil {
+			srv.SetClusterNode(cNode)
+		}
 		go func() {
 			fmt.Printf("\n[Telemetry Server] Live E-Graph dashboard active at http://localhost%s\n", cfg.HTTPAddr)
 			if err := http.ListenAndServe(cfg.HTTPAddr, srv); err != nil {
@@ -282,7 +302,9 @@ func runPlatform(cfg Config) error {
 		}()
 	}
 
-	runFastMetalInference(engine, cfg)
+	if !cfg.ServeMode {
+		runFastMetalInference(engine, cfg)
+	}
 	return nil
 }
 

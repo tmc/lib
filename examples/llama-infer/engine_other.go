@@ -151,8 +151,28 @@ func runPlatform(cfg Config) error {
 		return nil
 	}
 
+	cNode, err := NewIrohClusterNode(context.Background(), eng, cfg, 0)
+	if err == nil {
+		fmt.Printf("[go-iroh Mesh] Node ID: %s (Platform: %s, Compute: %.0f TFLOPs, Bandwidth: %.0f GB/s)\n",
+			cNode.NodeID(), cNode.SelfTelemetry().OS, cNode.SelfTelemetry().ComputeTFLOPs, cNode.SelfTelemetry().BandwidthGBS)
+		if cfg.PeerAddr != "" {
+			go func() {
+				for {
+					if err := cNode.ConnectHTTPPeer(context.Background(), cfg.PeerAddr); err == nil {
+						fmt.Printf("[go-iroh Mesh] Connected and registered peer %s into inference mesh!\n", cfg.PeerAddr)
+						break
+					}
+					time.Sleep(2 * time.Second)
+				}
+			}()
+		}
+	}
+
 	if cfg.HTTPAddr != "" {
 		srv := NewTelemetryServer(eng, cfg)
+		if cNode != nil {
+			srv.SetClusterNode(cNode)
+		}
 		go func() {
 			fmt.Printf("\n[Telemetry Server] Live E-Graph dashboard active at http://localhost%s\n", cfg.HTTPAddr)
 			if err := http.ListenAndServe(cfg.HTTPAddr, srv); err != nil {
@@ -161,7 +181,9 @@ func runPlatform(cfg Config) error {
 		}()
 	}
 
-	runFastCudaInference(eng, cfg)
+	if !cfg.ServeMode {
+		runFastCudaInference(eng, cfg)
+	}
 	return nil
 }
 
