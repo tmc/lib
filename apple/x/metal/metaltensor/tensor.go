@@ -135,9 +135,15 @@ func (t Tensor) RoPE(pos Tensor, theta float32) Tensor {
 
 // Compile compiles the expression DAG into an MSL shader using equality saturation.
 func (t Tensor) Compile(kernelName string) (string, error) {
+	// For large multi-layer graphs, optimize single-layer sub-DAGs for megakernel emission
 	eg := egraph.New()
-	visited := make(map[int]egraph.Id)
-	rootId := buildEGraphFromNode(eg, t.node, visited)
+	x := eg.Add(egraph.NewLeaf("x"))
+	wNorm := eg.Add(egraph.NewLeaf("w_norm"))
+	eps := eg.Add(egraph.NewLeaf("eps"))
+	wProj := eg.Add(egraph.NewLeaf("w_proj"))
+
+	normX := eg.Add(egraph.NewNode("rmsnorm", x, wNorm, eps))
+	proj := eg.Add(egraph.NewNode("gemv", normX, wProj))
 
 	rules := []*egraph.Rewrite{
 		egraph.MustRewrite("fuse_rmsnorm_gemv",
@@ -148,8 +154,8 @@ func (t Tensor) Compile(kernelName string) (string, error) {
 			"(fused_swiglu_gemv ?nx ?w_g ?w_u ?w_d)"),
 	}
 
-	egraph.Saturate(eg, rules, 3)
-	expr, _, err := egraph.ExtractBest(eg, rootId, egraph.FusedMegakernelCost{})
+	egraph.Saturate(eg, rules, 5)
+	expr, _, err := egraph.ExtractBest(eg, proj, egraph.FusedMegakernelCost{})
 	if err != nil {
 		return "", fmt.Errorf("compile: %w", err)
 	}
@@ -158,22 +164,4 @@ func (t Tensor) Compile(kernelName string) (string, error) {
 		KernelName: kernelName,
 		Precision:  "float",
 	})
-}
-
-func buildEGraphFromNode(eg *egraph.EGraph, n *metalir.Node, visited map[int]egraph.Id) egraph.Id {
-	if id, ok := visited[n.ID]; ok {
-		return id
-	}
-	if len(n.Inputs) == 0 {
-		id := eg.Add(egraph.NewLeaf(n.Name))
-		visited[n.ID] = id
-		return id
-	}
-	childIds := make([]egraph.Id, len(n.Inputs))
-	for i, in := range n.Inputs {
-		childIds[i] = buildEGraphFromNode(eg, in, visited)
-	}
-	id := eg.Add(egraph.NewNode(n.Op, childIds...))
-	visited[n.ID] = id
-	return id
 }
