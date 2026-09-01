@@ -237,10 +237,13 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Format prompt from messages
+	// Format prompt from messages using standard chat header template
 	var promptBuilder strings.Builder
 	for _, m := range req.Messages {
-		promptBuilder.WriteString(fmt.Sprintf("%s: %s\n", m.Role, m.Content))
+		promptBuilder.WriteString(fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", m.Role, m.Content))
+	}
+	if len(req.Messages) > 0 {
+		promptBuilder.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
 	}
 	prompt := promptBuilder.String()
 	if prompt == "" {
@@ -253,6 +256,13 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
 		maxTokens = 64
+	}
+
+	promptTokensCount := len(prompt) / 4
+	if s.engine != nil && s.engine.tokenizer != nil {
+		if toks, err := s.engine.tokenizer.Encode(prompt); err == nil && len(toks) > 0 {
+			promptTokensCount = len(toks)
+		}
 	}
 
 	target, err := s.resolveExecutionTarget(req.ExecutionNodeID)
@@ -317,6 +327,9 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 
 		// Send stream terminator
 		finish := "stop"
+		if tokenCount >= maxTokens {
+			finish = "length"
+		}
 		finalChunk := ChatCompletionChunk{
 			ID:        reqID,
 			Object:    "chat.completion.chunk",
@@ -363,6 +376,11 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 		tokenCount = len(result.Tokens)
 	}
 
+	finishReason := "stop"
+	if tokenCount >= maxTokens {
+		finishReason = "length"
+	}
+
 	resp := ChatCompletionResponse{
 		ID:        reqID,
 		Object:    "chat.completion",
@@ -377,13 +395,13 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 					Role:    "assistant",
 					Content: fullText.String(),
 				},
-				FinishReason: "stop",
+				FinishReason: finishReason,
 			},
 		},
 		Usage: map[string]int{
-			"prompt_tokens":     len(prompt) / 4,
+			"prompt_tokens":     promptTokensCount,
 			"completion_tokens": tokenCount,
-			"total_tokens":      (len(prompt) / 4) + tokenCount,
+			"total_tokens":      promptTokensCount + tokenCount,
 		},
 	}
 

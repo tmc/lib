@@ -99,17 +99,17 @@ func NewKVCacheState(numLayers, maxSeqLen, kvDim int) *KVCacheState {
 	return &KVCacheState{K: k, V: v}
 }
 
-// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
-func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+// LoadModelConfig reads only the model architecture parameters from config.json.
+func LoadModelConfig(dir string) (*ModelConfig, error) {
 	configPath := filepath.Join(dir, "config.json")
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read config.json: %w", err)
+		return nil, fmt.Errorf("read config.json: %w", err)
 	}
 
 	var raw ModelConfig
 	if err := json.Unmarshal(cfgBytes, &raw); err != nil {
-		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, fmt.Errorf("parse config.json: %w", err)
 	}
 	cfg := raw
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
@@ -125,8 +125,17 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	if cfg.NumKeyValueHeads == 0 {
 		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
 	}
-	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
+	if cfg.MaxSeqLen == 0 {
 		cfg.MaxSeqLen = 2048
+	}
+	return &cfg, nil
+}
+
+// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
+func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+	cfg, err := LoadModelConfig(dir)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	sw, err := cudasafetensors.OpenSharded(dir)
@@ -223,7 +232,7 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		Layers:      layers,
 		Norm:        norm,
 		LMHead:      lmHead,
-	}, &cfg, nil
+	}, cfg, nil
 }
 
 // GenerateDeterministicWeights generates initialized weights for self-contained testing.

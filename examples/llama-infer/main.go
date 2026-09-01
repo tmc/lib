@@ -47,6 +47,8 @@ type Config struct {
 	// on a beginning-of-text token, and its absence skews the first generated
 	// token.
 	BOSTokenID int32
+	// EOSTokenID is the end-of-sequence token ID that terminates generation.
+	EOSTokenID int32
 	// GenTokens sets the number of autoregressive decode tokens to generate.
 	// If <= 0, defaults to 10.
 	GenTokens int
@@ -73,6 +75,7 @@ func DefaultTinyLlamaConfig() Config {
 		MaxSeqLen:  32,
 		Eps:        1e-5,
 		RopeTheta:  10000.0,
+		EOSTokenID: 2,
 	}
 }
 
@@ -92,6 +95,7 @@ func Llama3_2_1BConfig(modelPath string) Config {
 		Eps:        1e-5,
 		RopeTheta:  500000.0,
 		BOSTokenID: 128000,
+		EOSTokenID: 128001,
 	}
 }
 
@@ -158,7 +162,7 @@ func main() {
 
 	var cfg Config
 	if *modelPath != "" {
-		if _, loadedCfg, err := LoadModel(*modelPath); err == nil {
+		if loadedCfg, err := LoadModelConfig(*modelPath); err == nil {
 			name := filepath.Base(*modelPath)
 			if *modelSize == "llama3.2-1b" || *modelSize == "llama3.2" || *modelSize == "3.2-1b" {
 				name = "LLaMA-3.2-1B-Instruct"
