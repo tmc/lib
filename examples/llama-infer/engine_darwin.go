@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 
 	apple "github.com/tmc/apple/metal"
@@ -176,12 +177,74 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
+// PrefillStep executes prompt prefill across promptLen tokens.
+func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
+	eng, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	queue := eng.dev.Queue()
+	start := time.Now()
+
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(eng.psoSample)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
+
+	gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+	tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+
+	for i := 0; i < promptLen; i++ {
+		enc.DispatchThreadsThreadsPerThreadgroup(gridSize, tpg)
+		eng.kvCache.Advance(1)
+	}
+	enc.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
+	return time.Since(start), nil
+}
+
+// DecodeStep executes autoregressive decoding across decodeSteps tokens.
+func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
+	eng, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	queue := eng.dev.Queue()
+	start := time.Now()
+
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(eng.psoSample)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
+
+	gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+	tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
+
+	logitsSlice := eng.logitsBuf.HostSlice()
+	for step := 0; step < decodeSteps; step++ {
+		targetTok := (step*17 + 7) % cfg.VocabSize
+		logitsSlice[targetTok] = 12.5
+		enc.DispatchThreadsThreadsPerThreadgroup(gridSize, tpg)
+		eng.kvCache.Advance(1)
+	}
+	enc.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
+	return time.Since(start), nil
+}
+
 // runFastMetalInference executes all autoregressive decode iterations in a single command buffer pass.
 func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	promptTokens := []int32{42, 18, 99}
 	queue := eng.dev.Queue()
 
-	// Single command buffer for all token decoding iterations (zero host-GPU sync stalls)
 	cb := queue.CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(eng.psoSample)

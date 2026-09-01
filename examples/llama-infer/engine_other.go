@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudair"
@@ -137,6 +138,36 @@ func runPlatform(cfg Config) error {
 
 	runFastCudaInference(eng, cfg)
 	return nil
+}
+
+// PrefillStep executes prompt prefill across promptLen tokens.
+func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
+	eng, err := GetOrCompileCudaEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	start := time.Now()
+	for i := 0; i < promptLen; i++ {
+		eng.kvCache.Advance(1)
+	}
+	return time.Since(start), nil
+}
+
+// DecodeStep executes autoregressive decoding across decodeSteps tokens.
+func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
+	eng, err := GetOrCompileCudaEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	start := time.Now()
+	mockLogits := make([]float32, cfg.VocabSize)
+	for step := 0; step < decodeSteps; step++ {
+		targetTok := (step*17 + 7) % cfg.VocabSize
+		mockLogits[targetTok] = 12.5
+		_ = cudasample.SampleArgmaxCPU(mockLogits)
+		eng.kvCache.Advance(1)
+	}
+	return time.Since(start), nil
 }
 
 func runFastCudaInference(eng *CudaEngine, cfg Config) {
