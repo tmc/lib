@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/nvtx"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
+
 
 // SpanRecord represents a buffered trace slice for flight recording.
 type SpanRecord struct {
@@ -89,7 +91,13 @@ func (t *Tracer) Span(s *cuda.Stream, name string, category string, fn func()) e
 	region := trace.StartRegion(nil, name)
 	defer region.End()
 
+	if nvtx.Enabled() {
+		nvtx.RangePush(name)
+		defer nvtx.RangePop()
+	}
+
 	startNs := uint64(time.Now().UnixNano())
+
 	if err := t.pw.WriteSliceBegin(trackID, startNs, name, category); err != nil {
 		return err
 	}
@@ -183,6 +191,11 @@ func (t *Tracer) SpanSource(
 		}
 	}
 
+	if nvtx.Enabled() {
+		nvtx.RangePush(name)
+		defer nvtx.RangePop()
+	}
+
 	startNs := uint64(time.Now().UnixNano())
 	if err := t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc); err != nil {
 		return err
@@ -214,13 +227,17 @@ func (t *Tracer) SpanSource(
 	return nil
 }
 
-
 // Instant writes an instantaneous marker event on the stream's timeline.
 func (t *Tracer) Instant(s *cuda.Stream, name string, category string) error {
+	if nvtx.Enabled() {
+		nvtx.Mark(name)
+	}
+
 	var streamKey uintptr
 	if s != nil {
 		streamKey = uintptr(s.Raw())
 	}
+
 
 	t.mu.Lock()
 	trackID, exists := t.streamTracks[streamKey]
