@@ -644,6 +644,10 @@ func RunBenchSuite(cfg Config, count int) error {
 		searchDepths = []int{depth}
 	}
 
+	bytesPerParam := 4.0
+	if cfg.Precision == "f16" {
+		bytesPerParam = 2.0
+	}
 	modelProf := gpuprof.ModelProfile{
 		Name:            cfg.Name,
 		HiddenDim:       cfg.Dim,
@@ -654,7 +658,7 @@ func RunBenchSuite(cfg Config, count int) error {
 		HeadDim:         cfg.HeadDim,
 		VocabSize:       cfg.VocabSize,
 		TiedEmbeddings:  false,
-		BytesPerParam:   4.0,
+		BytesPerParam:   bytesPerParam,
 	}
 	hwProf := gpuprof.HardwareProfile{
 		Name:              "NVIDIA DGX Blackwell",

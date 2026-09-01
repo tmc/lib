@@ -31,25 +31,27 @@ type prefixSnapshot struct {
 type prefixCache struct {
 	mu sync.Mutex
 
-	radix     *metalkv.RadixTree
-	blockMap  map[int]*prefixSnapshot
-	entries   map[string]*prefixSnapshot
-	maxBytes  int64
-	maxItems  int
-	bytes     int64
-	hits      int64
-	misses    int64
-	saved     int64
-	nextBlock int
+	radix       *metalkv.RadixTree
+	blockMap    map[int]*prefixSnapshot
+	tokenBlocks map[string][]int
+	entries     map[string]*prefixSnapshot
+	maxBytes    int64
+	maxItems    int
+	bytes       int64
+	hits        int64
+	misses      int64
+	saved       int64
+	nextBlock   int
 }
 
 func newPrefixCache(maxBytes int64, maxItems int) *prefixCache {
 	return &prefixCache{
-		radix:    metalkv.NewRadixTree(maxItems*4, 1),
-		blockMap: make(map[int]*prefixSnapshot),
-		entries:  make(map[string]*prefixSnapshot),
-		maxBytes: maxBytes,
-		maxItems: maxItems,
+		radix:       metalkv.NewRadixTree(maxItems*4, 1),
+		blockMap:    make(map[int]*prefixSnapshot),
+		tokenBlocks: make(map[string][]int),
+		entries:     make(map[string]*prefixSnapshot),
+		maxBytes:    maxBytes,
+		maxItems:    maxItems,
 	}
 }
 
@@ -95,6 +97,17 @@ func (c *prefixCache) load(tokens []int32) (*prefixSnapshot, int, bool) {
 	return nil, 0, false
 }
 
+func (c *prefixCache) evictLocked(key string, snap *prefixSnapshot) {
+	delete(c.entries, key)
+	c.bytes -= snap.bytes
+	if blocks, ok := c.tokenBlocks[key]; ok {
+		for _, b := range blocks {
+			delete(c.blockMap, b)
+		}
+		delete(c.tokenBlocks, key)
+	}
+}
+
 func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 	if c == nil || len(tokens) == 0 || snapshot == nil || snapshot.bytes <= 0 || snapshot.bytes > c.maxBytes {
 		return
@@ -103,7 +116,7 @@ func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if previous := c.entries[key]; previous != nil {
-		c.bytes -= previous.bytes
+		c.evictLocked(key, previous)
 	}
 	for (len(c.entries) >= c.maxItems || c.bytes+snapshot.bytes > c.maxBytes) && len(c.entries) > 0 {
 		var oldestKey string
@@ -113,8 +126,7 @@ func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 				oldestKey, oldest = candidateKey, candidate
 			}
 		}
-		delete(c.entries, oldestKey)
-		c.bytes -= oldest.bytes
+		c.evictLocked(oldestKey, oldest)
 	}
 	if c.bytes+snapshot.bytes > c.maxBytes {
 		return
@@ -131,6 +143,7 @@ func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 			blocks[i] = blockID + i
 			c.blockMap[blocks[i]] = snapshot
 		}
+		c.tokenBlocks[key] = blocks
 		_ = c.radix.Insert(tokens, blocks)
 	}
 }

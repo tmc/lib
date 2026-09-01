@@ -5,6 +5,7 @@ package main
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 func TestDifferentialForwardPass(t *testing.T) {
@@ -406,19 +407,78 @@ func TestAuthoritativePlanDispatch(t *testing.T) {
 		t.Fatalf("expected ExecutionPlan to contain planned ops, got 0")
 	}
 
+	origPlan := eng.Plan
+	defer func() {
+		eng.Plan = origPlan
+	}()
+
+	// 1. Reference execution without plan
+	eng.Plan = nil
 	eng.ResetKV()
-	tok0 := GPUForwardPass(eng, cfg, 42, 0)
-	logits0, err := eng.ReadLogits()
+	tokRef := GPUForwardPass(eng, cfg, 42, 0)
+	logitsRef, err := eng.ReadLogits()
 	if err != nil {
-		t.Fatalf("ReadLogits failed: %v", err)
+		t.Fatalf("ReadLogits ref failed: %v", err)
 	}
 
-	if tok0 != 100 {
-		t.Errorf("expected token 100 from plan-driven forward pass, got %d", tok0)
+	// 2. Authoritative Plan execution
+	eng.Plan = origPlan
+	eng.ResetKV()
+	tokPlan := GPUForwardPass(eng, cfg, 42, 0)
+	logitsPlan, err := eng.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits plan failed: %v", err)
 	}
-	if len(logits0) != cfg.VocabSize {
-		t.Errorf("expected logits size %d, got %d", cfg.VocabSize, len(logits0))
+
+	if tokPlan != tokRef {
+		t.Fatalf("token mismatch: Ref %d vs Plan %d", tokRef, tokPlan)
 	}
+	for i := range logitsPlan {
+		diff := float32(math.Abs(float64(logitsPlan[i] - logitsRef[i])))
+		if diff > 1e-4 {
+			t.Fatalf("logit mismatch at index %d: Ref %f vs Plan %f (diff %f)", i, logitsRef[i], logitsPlan[i], diff)
+		}
+	}
+
+	// 3. Mutate / tamper with the plan by removing an essential internal layer op (e.g. down projection)
+	mutatedOps := make([]OpDispatch, 0, len(origPlan.Ops))
+	for _, op := range origPlan.Ops {
+		if op.Name != "FastGEMVResidual_Down" && op.Name != "FusedSwiGLUDown" {
+			mutatedOps = append(mutatedOps, op)
+		}
+	}
+	eng.Plan = &ExecutionPlan{
+		DType:      origPlan.DType,
+		FuseEGraph: origPlan.FuseEGraph,
+		BatchShape: origPlan.BatchShape,
+		HeadDim:    origPlan.HeadDim,
+		NumHeads:   origPlan.NumHeads,
+		NumKVHeads: origPlan.NumKVHeads,
+		NumLayers:  origPlan.NumLayers,
+		VocabSize:  origPlan.VocabSize,
+		Ops:        mutatedOps,
+		Buffers:    origPlan.Buffers,
+	}
+
+	eng.ResetKV()
+	_ = GPUForwardPass(eng, cfg, 42, 0)
+	logitsMutated, err := eng.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits mutated failed: %v", err)
+	}
+
+	// Verify that the mutated plan changes logits deterministically (fail-closed / authority check)
+	maxDiff := float32(0.0)
+	for i := range logitsMutated {
+		diff := float32(math.Abs(float64(logitsMutated[i] - logitsPlan[i])))
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+	if maxDiff < 1e-2 {
+		t.Fatalf("mutated plan failed authority gate: expected output divergence, got maxDiff %f", maxDiff)
+	}
+	t.Logf("Authoritative Plan Mutation Gate: Max Logit Divergence = %f", maxDiff)
 }
 
 func TestMultiSequenceBatchedDecodeEquivalence(t *testing.T) {
@@ -607,5 +667,80 @@ func TestBatchedDecodeScratchIsolation(t *testing.T) {
 		if singleOut[i] != batchOut[i] {
 			t.Fatalf("Seq %d scratch collision: Single %d != Batch %d", i, singleOut[i], batchOut[i])
 		}
+	}
+}
+
+func TestPrefixCacheEvictionAndColdWarmEquivalence(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	// 1. Cold reference generation from scratch for a prompt with divergent suffix
+	promptPrefix := []int32{1, 10, 20, 30}
+	promptA := append(append([]int32(nil), promptPrefix...), 88, 89)
+	promptB := append(append([]int32(nil), promptPrefix...), 98, 99)
+
+	eng.prefixes = newPrefixCache(64<<20, 2)
+	eng.ResetKV()
+
+	// Clean run of prompt B without any cache
+	skvCleanB, _ := eng.NewSequenceKV(cfg)
+	defer skvCleanB.Free()
+	tokPrefillB, _ := GPUBatchedPrefillPassKV(eng, cfg, skvCleanB, promptB, 0)
+	tokDecB0, _ := GPUForwardPassKV(eng, cfg, skvCleanB, tokPrefillB, len(promptB))
+	tokDecB1, _ := GPUForwardPassKV(eng, cfg, skvCleanB, tokDecB0, len(promptB)+1)
+	cleanTokensB := []int32{tokPrefillB, tokDecB0, tokDecB1}
+
+	// 2. Warm run: first run prompt A and store prefix snapshot
+	skvA, _ := eng.NewSequenceKV(cfg)
+	defer skvA.Free()
+	tokPrefillA, _ := GPUBatchedPrefillPassKV(eng, cfg, skvA, promptA, 0)
+	snapA := eng.capturePrefix(len(promptA), tokPrefillA, cfg)
+	eng.prefixes.store(promptA, snapA)
+
+	// Now run prompt B with radix cache lookup (it will match the 4-token shared prefix)
+	skvWarmB, _ := eng.NewSequenceKV(cfg)
+	defer skvWarmB.Free()
+	snapMatched, matched, found := eng.prefixes.load(promptB)
+	if !found || matched != len(promptPrefix) {
+		t.Fatalf("expected 4-token prefix match, got found=%t, matched=%d", found, matched)
+	}
+	if !skvWarmB.RestorePrefixPartial(snapMatched, matched, cfg) {
+		t.Fatalf("RestorePrefixPartial failed")
+	}
+	// Prefill remaining divergent suffix
+	tokWarmPrefillB, err := GPUBatchedPrefillPassKV(eng, cfg, skvWarmB, promptB[matched:], matched)
+	if err != nil {
+		t.Fatalf("warm divergent prefill failed: %v", err)
+	}
+	tokWarmDecB0, _ := GPUForwardPassKV(eng, cfg, skvWarmB, tokWarmPrefillB, len(promptB))
+	tokWarmDecB1, _ := GPUForwardPassKV(eng, cfg, skvWarmB, tokWarmDecB0, len(promptB)+1)
+	warmTokensB := []int32{tokWarmPrefillB, tokWarmDecB0, tokWarmDecB1}
+
+	t.Logf("Cold Tokens B: %v", cleanTokensB)
+	t.Logf("Warm Tokens B: %v", warmTokensB)
+	for i := range cleanTokensB {
+		if cleanTokensB[i] != warmTokensB[i] {
+			t.Fatalf("Cold vs Warm token mismatch at step %d: Cold %d vs Warm %d", i, cleanTokensB[i], warmTokensB[i])
+		}
+	}
+
+	// 3. Test LRU eviction and blockMap cleanup
+	promptC := []int32{5, 6, 7, 8, 9}
+	promptD := []int32{15, 16, 17, 18, 19}
+	snapC := &prefixSnapshot{tokens: 5, bytes: 512, lastUsed: time.Now().Add(-10 * time.Minute)}
+	snapD := &prefixSnapshot{tokens: 5, bytes: 512, lastUsed: time.Now().Add(-5 * time.Minute)}
+	eng.prefixes.store(promptC, snapC)
+	eng.prefixes.store(promptD, snapD)
+
+	// Cache capacity is maxItems=2, so promptA should have been evicted
+	m := eng.prefixes.metrics()
+	if m.Entries > 2 {
+		t.Fatalf("expected at most 2 cache entries, got %d", m.Entries)
+	}
+	if len(eng.prefixes.entries) > 2 {
+		t.Fatalf("expected at most 2 entries in map, got %d", len(eng.prefixes.entries))
 	}
 }
