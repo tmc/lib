@@ -10,9 +10,9 @@ import (
 func TestPackageMLModel(t *testing.T) {
 	prog := anemil.NewProgram()
 	prog.AddFunction(anemil.Function{
-		Name:      "main",
-		InputName: "x",
-		InputType: anemil.TensorType{DType: anemil.FP32, Shape: []int{1, 32, 1, 1}},
+		Name:       "main",
+		InputName:  "x",
+		InputType:  anemil.TensorType{DType: anemil.FP32, Shape: []int{1, 32, 1, 1}},
 		OutputName: "y",
 		Statements: []anemil.Statement{
 			{
@@ -44,4 +44,3 @@ func TestPackageMLModel(t *testing.T) {
 	}
 	t.Logf("Successfully created ANE model package at: %s", pkgPath)
 }
-

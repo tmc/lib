@@ -20,10 +20,10 @@ type ScheduledBatch struct {
 
 // PrefillChunk defines a slice of tokens to prefill in the current forward pass.
 type PrefillChunk struct {
-	SeqID     string
-	Tokens    []int32
-	StartPos  int
-	IsLast    bool
+	SeqID    string
+	Tokens   []int32
+	StartPos int
+	IsLast   bool
 }
 
 // ChunkedPrefillScheduler slices massive prompt prefills into uniform chunks

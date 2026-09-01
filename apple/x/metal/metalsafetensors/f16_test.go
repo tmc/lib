@@ -18,9 +18,9 @@ func TestF32ToF16RoundTrip(t *testing.T) {
 		{0.5, 0.5},
 		{2.5, 2.5},
 		{-0.09375, -0.09375},
-		{65504, 65504},                            // max finite half
-		{100000, float32(math.Inf(1))},            // overflow saturates
-		{6.103515625e-05, 6.103515625e-05},        // min normal half
+		{65504, 65504},                     // max finite half
+		{100000, float32(math.Inf(1))},     // overflow saturates
+		{6.103515625e-05, 6.103515625e-05}, // min normal half
 		{5.960464477539063e-08, 5.960464477539063e-08}, // min subnormal half
 	}
 	for _, tc := range cases {

@@ -8,9 +8,9 @@ import (
 func TestMILProgramSerialization(t *testing.T) {
 	prog := NewProgram()
 	fn := Function{
-		Name:      "main",
-		InputName: "x",
-		InputType: TensorType{DType: FP32, Shape: []int{1, 64, 1, 1}},
+		Name:       "main",
+		InputName:  "x",
+		InputType:  TensorType{DType: FP32, Shape: []int{1, 64, 1, 1}},
 		OutputName: "y",
 		Statements: []Statement{
 			{
