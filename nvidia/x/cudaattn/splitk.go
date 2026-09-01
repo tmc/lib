@@ -50,8 +50,16 @@ __global__ void SplitKFlashAttentionStage1(
 
     for (int t = start_pos + threadIdx.x; t < end_pos; t += blockDim.x) {
         const float* k_ptr = k_cache + (t * num_kv_heads + kv_head_idx) * head_dim;
+        const float4* q4 = reinterpret_cast<const float4*>(q_ptr);
+        const float4* k4 = reinterpret_cast<const float4*>(k_ptr);
+        int hdim4 = head_dim / 4;
         float dot = 0.0f;
-        for (int d = 0; d < head_dim; d++) {
+        for (int d = 0; d < hdim4; d++) {
+            float4 qv = q4[d];
+            float4 kv = k4[d];
+            dot += qv.x * kv.x + qv.y * kv.y + qv.z * kv.z + qv.w * kv.w;
+        }
+        for (int d = hdim4 * 4; d < head_dim; d++) {
             dot += q_ptr[d] * k_ptr[d];
         }
         dot *= scale;
