@@ -45,13 +45,13 @@ type EngineBenchmarkSummary struct {
 // StaticBaselineEngine represents a rigid graph engine that uses a fixed, pre-compiled
 // kernel layout regardless of dynamic workload shifts.
 type StaticBaselineEngine struct {
-	dev        *metal.Device
-	gemvPSO    apple.MTLComputePipelineState
-	dim        int
-	outDim     int
-	weightBuf  metalmem.Slice[float32]
-	inBuf      metalmem.Slice[float32]
-	outBuf     metalmem.Slice[float32]
+	dev       *metal.Device
+	gemvPSO   apple.MTLComputePipelineState
+	dim       int
+	outDim    int
+	weightBuf metalmem.Slice[float32]
+	inBuf     metalmem.Slice[float32]
+	outBuf    metalmem.Slice[float32]
 }
 
 // NewStaticBaselineEngine creates a static graph engine fixed to a single baseline kernel.

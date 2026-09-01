@@ -13,11 +13,11 @@ import (
 
 // GraphExec captures repeated GPU forward passes and replays them via reusable command encoders.
 type GraphExec struct {
-	dev        *metal.Device
-	queue      apple.MTLCommandQueue
-	mu         sync.Mutex
-	replays    int
-	stages     []Stage
+	dev     *metal.Device
+	queue   apple.MTLCommandQueue
+	mu      sync.Mutex
+	replays int
+	stages  []Stage
 }
 
 // Stage represents one recorded dispatch step in an execution sequence.

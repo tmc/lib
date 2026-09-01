@@ -172,4 +172,3 @@ func (c *FP8Cache) Layer(idx int) (FP8LayerCache, error) {
 func (c *FP8Cache) Close() error {
 	return nil
 }
-

@@ -6,14 +6,14 @@ import (
 
 // LayerConfig defines the hyperparameter dimensions for a transformer layer megakernel.
 type LayerConfig struct {
-	HiddenDim        int
-	IntermediateDim  int
-	NumQHeads        int
-	NumKVHeads       int
-	HeadDim          int
-	RmsNormEps       float32
-	RopeTheta        float32
-	MaxSeqLen        int
+	HiddenDim       int
+	IntermediateDim int
+	NumQHeads       int
+	NumKVHeads      int
+	HeadDim         int
+	RmsNormEps      float32
+	RopeTheta       float32
+	MaxSeqLen       int
 }
 
 // GenerateLayerMegakernelMSL generates a single fused MSL compute kernel that evaluates an entire transformer layer.

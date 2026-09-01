@@ -10,9 +10,9 @@ import (
 func Example() {
 	prog := anemil.NewProgram()
 	prog.AddFunction(anemil.Function{
-		Name:      "forward",
-		InputName: "in",
-		InputType: anemil.TensorType{DType: anemil.FP32, Shape: []int{1, 128, 1, 1}},
+		Name:       "forward",
+		InputName:  "in",
+		InputType:  anemil.TensorType{DType: anemil.FP32, Shape: []int{1, 128, 1, 1}},
 		OutputName: "out",
 		Statements: []anemil.Statement{
 			{
