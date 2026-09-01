@@ -29,6 +29,7 @@ type Config struct {
 	Eps        float32
 	RopeTheta  float32
 	FuseEGraph bool
+	Precision  string // "f32", "f16" (defaults to "f32" unless weights/config request "f16")
 	Prompt     string
 	// HTTPAddr sets the optional address for the live telemetry HTTP server.
 	HTTPAddr string

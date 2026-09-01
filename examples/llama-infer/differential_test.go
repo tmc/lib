@@ -257,3 +257,87 @@ func TestFusedVsUnfusedEquivalence(t *testing.T) {
 		t.Fatalf("fused token %d disagrees with unfused token %d", tokF, tokU)
 	}
 }
+
+func TestFP16VsFP32Equivalence(t *testing.T) {
+	cfgF32 := DefaultTinyLlamaConfig()
+	cfgF32.Precision = "f32"
+
+	cfgF16 := DefaultTinyLlamaConfig()
+	cfgF16.Precision = "f16"
+
+	engF32, err := GetOrCompileEngine(cfgF32)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine F32 failed: %v", err)
+	}
+	if engF32.IsF16() {
+		t.Fatal("expected engF32.IsF16() to be false")
+	}
+
+	engF16, err := GetOrCompileEngine(cfgF16)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine F16 failed: %v", err)
+	}
+	if !engF16.IsF16() {
+		t.Fatal("expected engF16.IsF16() to be true")
+	}
+
+	// Step 0 Forward pass comparison
+	tok32_0 := GPUForwardPass(engF32, cfgF32, 42, 0)
+	logits32_0, err := engF32.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits F32 step 0 failed: %v", err)
+	}
+
+	tok16_0 := GPUForwardPass(engF16, cfgF16, 42, 0)
+	logits16_0, err := engF16.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits F16 step 0 failed: %v", err)
+	}
+
+	if len(logits32_0) != len(logits16_0) {
+		t.Fatalf("logits length mismatch: F32 %d vs F16 %d", len(logits32_0), len(logits16_0))
+	}
+
+	var maxDiff0 float32
+	for i := range logits32_0 {
+		diff := float32(math.Abs(float64(logits32_0[i] - logits16_0[i])))
+		if diff > maxDiff0 {
+			maxDiff0 = diff
+		}
+	}
+	t.Logf("FP32 vs FP16 Step 0 Max Logit Diff: %f (F32 tok: %d, F16 tok: %d)", maxDiff0, tok32_0, tok16_0)
+	if maxDiff0 > 0.05 {
+		t.Fatalf("FP32 vs FP16 step 0 logit diff %f exceeds tolerance 0.05", maxDiff0)
+	}
+	if tok32_0 != tok16_0 {
+		t.Fatalf("step 0 token mismatch: F32 %d vs F16 %d", tok32_0, tok16_0)
+	}
+
+	// Step 1 Forward pass comparison
+	tok32_1 := GPUForwardPass(engF32, cfgF32, tok32_0, 1)
+	logits32_1, err := engF32.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits F32 step 1 failed: %v", err)
+	}
+
+	tok16_1 := GPUForwardPass(engF16, cfgF16, tok16_0, 1)
+	logits16_1, err := engF16.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits F16 step 1 failed: %v", err)
+	}
+
+	var maxDiff1 float32
+	for i := range logits32_1 {
+		diff := float32(math.Abs(float64(logits32_1[i] - logits16_1[i])))
+		if diff > maxDiff1 {
+			maxDiff1 = diff
+		}
+	}
+	t.Logf("FP32 vs FP16 Step 1 Max Logit Diff: %f (F32 tok: %d, F16 tok: %d)", maxDiff1, tok32_1, tok16_1)
+	if maxDiff1 > 0.05 {
+		t.Fatalf("FP32 vs FP16 step 1 logit diff %f exceeds tolerance 0.05", maxDiff1)
+	}
+	if tok32_1 != tok16_1 {
+		t.Fatalf("step 1 token mismatch: F32 %d vs F16 %d", tok32_1, tok16_1)
+	}
+}

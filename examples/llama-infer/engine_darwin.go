@@ -43,6 +43,18 @@ type GPULayerWeights struct {
 	WDown     mempool.Slice[float32]
 }
 
+type GPULayerWeightsF16 struct {
+	InputNorm mempool.Slice[uint16]
+	PostNorm  mempool.Slice[uint16]
+	WQ        mempool.Slice[uint16]
+	WK        mempool.Slice[uint16]
+	WV        mempool.Slice[uint16]
+	WO        mempool.Slice[uint16]
+	WGate     mempool.Slice[uint16]
+	WUp       mempool.Slice[uint16]
+	WDown     mempool.Slice[uint16]
+}
+
 // ModelEngine maintains cached Metal pipeline states and GPU-resident memory allocations.
 type ModelEngine struct {
 	dev            *metal.Device
@@ -86,11 +98,16 @@ type ModelEngine struct {
 	logitsBuf  mempool.Slice[float32]
 	tokBuf     mempool.Slice[int32]
 
-	// GPU Weights
-	embedTable mempool.Slice[float32]
-	finalNormW mempool.Slice[float32]
-	lmHeadW    mempool.Slice[float32]
-	layers     []GPULayerWeights
+	// GPU Weights (FP32 or FP16)
+	isF16         bool
+	embedTable    mempool.Slice[float32]
+	finalNormW    mempool.Slice[float32]
+	lmHeadW       mempool.Slice[float32]
+	layers        []GPULayerWeights
+	embedTableF16 mempool.Slice[uint16]
+	finalNormWF16 mempool.Slice[uint16]
+	lmHeadWF16    mempool.Slice[uint16]
+	layersF16     []GPULayerWeightsF16
 
 	tokenizer  Tokenizer
 	weights    *metalsafetensors.Weights
@@ -101,6 +118,14 @@ type ModelEngine struct {
 // FlightRecorder returns the active in-memory GPU telemetry recorder.
 func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 	return eng.recorder
+}
+
+// IsF16 reports whether the engine is executing over FP16 weights.
+func (eng *ModelEngine) IsF16() bool {
+	if eng == nil {
+		return false
+	}
+	return eng.isF16
 }
 
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
@@ -254,11 +279,19 @@ func GetOrCompileEngine(cfg Config) (*ModelEngine, error) {
 	return GetOrCompileDarwinEngine(cfg)
 }
 
+func f32SliceToF16(s []float32) []uint16 {
+	out := make([]uint16, len(s))
+	for i, v := range s {
+		out[i] = metalsafetensors.F32ToF16(v)
+	}
+	return out
+}
+
 func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	darwinEngineMu.Lock()
 	defer darwinEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph)
+	key := fmt.Sprintf("%s-%d-%d-%d-prec-%s-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.Precision, cfg.FuseEGraph)
 	if eng, ok := darwinEngineCache[key]; ok {
 		return eng, nil
 	}
@@ -360,8 +393,13 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 
 	var tok Tokenizer
 	var weights *metalsafetensors.Weights
+	isF16 := cfg.Precision == "f16"
+
 	var embedTable, finalNormW, lmHeadW mempool.Slice[float32]
 	gpuLayers := make([]GPULayerWeights, cfg.NumLayers)
+
+	var embedTableF16, finalNormWF16, lmHeadWF16 mempool.Slice[uint16]
+	gpuLayersF16 := make([]GPULayerWeightsF16, cfg.NumLayers)
 
 	if cfg.ModelPath != "" {
 		tokJsonPath := filepath.Join(cfg.ModelPath, "tokenizer.json")
@@ -374,68 +412,143 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			return nil, fmt.Errorf("open safetensors %q: %w", safetensorsPath, err)
 		}
 		weights = w
-		var errUpload error
-		embedTable, errUpload = w.TensorMetalSlice(dev, "model.embed_tokens.weight")
-		if errUpload != nil || embedTable.Len() == 0 {
-			return nil, fmt.Errorf("load embed_tokens: %w", errUpload)
-		}
-		finalNormW, errUpload = w.TensorMetalSlice(dev, "model.norm.weight")
-		if errUpload != nil || finalNormW.Len() == 0 {
-			return nil, fmt.Errorf("load norm weight: %w", errUpload)
-		}
-		lmHeadW, _ = w.TensorMetalSlice(dev, "lm_head.weight")
-		if lmHeadW.Len() == 0 {
-			lmHeadW = embedTable
+
+		// Auto-detect F16/BF16 from safetensors if not explicitly forced to f32
+		if cfg.Precision == "" && w.Tensors != nil {
+			if tInfo, ok := w.Tensors["model.embed_tokens.weight"]; ok && (tInfo.DType == "F16" || tInfo.DType == "BF16") {
+				isF16 = true
+			}
 		}
 
-		for i := 0; i < cfg.NumLayers; i++ {
-			inNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
+		if isF16 {
+			var errUpload error
+			embedTableF16, errUpload = w.TensorMetalSliceF16(dev, "model.embed_tokens.weight")
+			if errUpload != nil || embedTableF16.Len() == 0 {
+				return nil, fmt.Errorf("load embed_tokens f16: %w", errUpload)
 			}
-			pNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
+			finalNormWF16, errUpload = w.TensorMetalSliceF16(dev, "model.norm.weight")
+			if errUpload != nil || finalNormWF16.Len() == 0 {
+				return nil, fmt.Errorf("load norm weight f16: %w", errUpload)
 			}
-			wq, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wq: %w", i, err)
-			}
-			wk, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wk: %w", i, err)
-			}
-			wv, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wv: %w", i, err)
-			}
-			wo, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wo: %w", i, err)
-			}
-			wg, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
-			}
-			wu, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wup: %w", i, err)
-			}
-			wd, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
-			if err != nil {
-				return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
+			lmHeadWF16, _ = w.TensorMetalSliceF16(dev, "lm_head.weight")
+			if lmHeadWF16.Len() == 0 {
+				lmHeadWF16 = embedTableF16
 			}
 
-			gpuLayers[i] = GPULayerWeights{
-				InputNorm: inNorm,
-				PostNorm:  pNorm,
-				WQ:        wq,
-				WK:        wk,
-				WV:        wv,
-				WO:        wo,
-				WGate:     wg,
-				WUp:       wu,
-				WDown:     wd,
+			for i := 0; i < cfg.NumLayers; i++ {
+				inNorm, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
+				}
+				pNorm, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
+				}
+				wq, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wq: %w", i, err)
+				}
+				wk, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wk: %w", i, err)
+				}
+				wv, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wv: %w", i, err)
+				}
+				wo, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wo: %w", i, err)
+				}
+				wg, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
+				}
+				wu, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wup: %w", i, err)
+				}
+				wd, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
+				}
+
+				gpuLayersF16[i] = GPULayerWeightsF16{
+					InputNorm: inNorm,
+					PostNorm:  pNorm,
+					WQ:        wq,
+					WK:        wk,
+					WV:        wv,
+					WO:        wo,
+					WGate:     wg,
+					WUp:       wu,
+					WDown:     wd,
+				}
+			}
+		} else {
+			var errUpload error
+			embedTable, errUpload = w.TensorMetalSlice(dev, "model.embed_tokens.weight")
+			if errUpload != nil || embedTable.Len() == 0 {
+				return nil, fmt.Errorf("load embed_tokens: %w", errUpload)
+			}
+			finalNormW, errUpload = w.TensorMetalSlice(dev, "model.norm.weight")
+			if errUpload != nil || finalNormW.Len() == 0 {
+				return nil, fmt.Errorf("load norm weight: %w", errUpload)
+			}
+			lmHeadW, _ = w.TensorMetalSlice(dev, "lm_head.weight")
+			if lmHeadW.Len() == 0 {
+				lmHeadW = embedTable
+			}
+
+			for i := 0; i < cfg.NumLayers; i++ {
+				inNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
+				}
+				pNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
+				}
+				wq, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wq: %w", i, err)
+				}
+				wk, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wk: %w", i, err)
+				}
+				wv, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wv: %w", i, err)
+				}
+				wo, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wo: %w", i, err)
+				}
+				wg, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
+				}
+				wu, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wup: %w", i, err)
+				}
+				wd, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+				if err != nil {
+					return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
+				}
+
+				gpuLayers[i] = GPULayerWeights{
+					InputNorm: inNorm,
+					PostNorm:  pNorm,
+					WQ:        wq,
+					WK:        wk,
+					WV:        wv,
+					WO:        wo,
+					WGate:     wg,
+					WUp:       wu,
+					WDown:     wd,
+				}
 			}
 		}
 	} else if cfg.TestMode {
@@ -454,44 +567,74 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			mCfg.ExplicitHeadDim = cfg.HeadDim
 		}
 		detWeights := GenerateDeterministicWeights(&mCfg)
-		embedTable, _ = mempool.Alloc[float32](dev, len(detWeights.EmbedTokens))
-		copy(embedTable.HostSlice(), detWeights.EmbedTokens)
-		finalNormW, _ = mempool.Alloc[float32](dev, len(detWeights.Norm))
-		copy(finalNormW.HostSlice(), detWeights.Norm)
-		lmHeadW, _ = mempool.Alloc[float32](dev, len(detWeights.LMHead))
-		copy(lmHeadW.HostSlice(), detWeights.LMHead)
+		if isF16 {
+			embedTableF16, _ = mempool.AllocFromSlice(dev, f32SliceToF16(detWeights.EmbedTokens))
+			finalNormWF16, _ = mempool.AllocFromSlice(dev, f32SliceToF16(detWeights.Norm))
+			lmHeadWF16, _ = mempool.AllocFromSlice(dev, f32SliceToF16(detWeights.LMHead))
+			for i := 0; i < cfg.NumLayers; i++ {
+				lw := detWeights.Layers[i]
+				inNorm, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.InputNorm))
+				pNorm, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.PostNorm))
+				wq, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WQ))
+				wk, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WK))
+				wv, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WV))
+				wo, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WO))
+				wg, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WGate))
+				wu, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WUp))
+				wd, _ := mempool.AllocFromSlice(dev, f32SliceToF16(lw.WDown))
 
-		for i := 0; i < cfg.NumLayers; i++ {
-			lw := detWeights.Layers[i]
-			inNorm, _ := mempool.Alloc[float32](dev, len(lw.InputNorm))
-			copy(inNorm.HostSlice(), lw.InputNorm)
-			pNorm, _ := mempool.Alloc[float32](dev, len(lw.PostNorm))
-			copy(pNorm.HostSlice(), lw.PostNorm)
-			wq, _ := mempool.Alloc[float32](dev, len(lw.WQ))
-			copy(wq.HostSlice(), lw.WQ)
-			wk, _ := mempool.Alloc[float32](dev, len(lw.WK))
-			copy(wk.HostSlice(), lw.WK)
-			wv, _ := mempool.Alloc[float32](dev, len(lw.WV))
-			copy(wv.HostSlice(), lw.WV)
-			wo, _ := mempool.Alloc[float32](dev, len(lw.WO))
-			copy(wo.HostSlice(), lw.WO)
-			wg, _ := mempool.Alloc[float32](dev, len(lw.WGate))
-			copy(wg.HostSlice(), lw.WGate)
-			wu, _ := mempool.Alloc[float32](dev, len(lw.WUp))
-			copy(wu.HostSlice(), lw.WUp)
-			wd, _ := mempool.Alloc[float32](dev, len(lw.WDown))
-			copy(wd.HostSlice(), lw.WDown)
+				gpuLayersF16[i] = GPULayerWeightsF16{
+					InputNorm: inNorm,
+					PostNorm:  pNorm,
+					WQ:        wq,
+					WK:        wk,
+					WV:        wv,
+					WO:        wo,
+					WGate:     wg,
+					WUp:       wu,
+					WDown:     wd,
+				}
+			}
+		} else {
+			embedTable, _ = mempool.Alloc[float32](dev, len(detWeights.EmbedTokens))
+			copy(embedTable.HostSlice(), detWeights.EmbedTokens)
+			finalNormW, _ = mempool.Alloc[float32](dev, len(detWeights.Norm))
+			copy(finalNormW.HostSlice(), detWeights.Norm)
+			lmHeadW, _ = mempool.Alloc[float32](dev, len(detWeights.LMHead))
+			copy(lmHeadW.HostSlice(), detWeights.LMHead)
 
-			gpuLayers[i] = GPULayerWeights{
-				InputNorm: inNorm,
-				PostNorm:  pNorm,
-				WQ:        wq,
-				WK:        wk,
-				WV:        wv,
-				WO:        wo,
-				WGate:     wg,
-				WUp:       wu,
-				WDown:     wd,
+			for i := 0; i < cfg.NumLayers; i++ {
+				lw := detWeights.Layers[i]
+				inNorm, _ := mempool.Alloc[float32](dev, len(lw.InputNorm))
+				copy(inNorm.HostSlice(), lw.InputNorm)
+				pNorm, _ := mempool.Alloc[float32](dev, len(lw.PostNorm))
+				copy(pNorm.HostSlice(), lw.PostNorm)
+				wq, _ := mempool.Alloc[float32](dev, len(lw.WQ))
+				copy(wq.HostSlice(), lw.WQ)
+				wk, _ := mempool.Alloc[float32](dev, len(lw.WK))
+				copy(wk.HostSlice(), lw.WK)
+				wv, _ := mempool.Alloc[float32](dev, len(lw.WV))
+				copy(wv.HostSlice(), lw.WV)
+				wo, _ := mempool.Alloc[float32](dev, len(lw.WO))
+				copy(wo.HostSlice(), lw.WO)
+				wg, _ := mempool.Alloc[float32](dev, len(lw.WGate))
+				copy(wg.HostSlice(), lw.WGate)
+				wu, _ := mempool.Alloc[float32](dev, len(lw.WUp))
+				copy(wu.HostSlice(), lw.WUp)
+				wd, _ := mempool.Alloc[float32](dev, len(lw.WDown))
+				copy(wd.HostSlice(), lw.WDown)
+
+				gpuLayers[i] = GPULayerWeights{
+					InputNorm: inNorm,
+					PostNorm:  pNorm,
+					WQ:        wq,
+					WK:        wk,
+					WV:        wv,
+					WO:        wo,
+					WGate:     wg,
+					WUp:       wu,
+					WDown:     wd,
+				}
 			}
 		}
 	} else {
@@ -542,10 +685,15 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		vCacheBuf:      vCacheBuf,
 		logitsBuf:      logitsBuf,
 		tokBuf:         tokBuf,
+		isF16:          isF16,
 		embedTable:     embedTable,
 		finalNormW:     finalNormW,
 		lmHeadW:        lmHeadW,
 		layers:         gpuLayers,
+		embedTableF16:  embedTableF16,
+		finalNormWF16:  finalNormWF16,
+		lmHeadWF16:     lmHeadWF16,
+		layersF16:      gpuLayersF16,
 		tokenizer:      tok,
 		weights:        weights,
 		egraphSats:     egraphSats,
@@ -668,10 +816,14 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 	gemvThreads := 128
 	psoGEMV := eng.psoGEMV
 	psoGEMVRes := eng.psoGEMVRes
+	psoGEMVH := eng.psoGEMVH
+	psoGEMVResH := eng.psoGEMVResH
 	if eng.tuner != nil && eng.tuner.Width() == 64 {
 		gemvThreads = 64
 		psoGEMV = eng.psoGEMV64
 		psoGEMVRes = eng.psoGEMVRes64
+		psoGEMVH = eng.psoGEMV64H
+		psoGEMVResH = eng.psoGEMVRes64H
 	}
 
 	dimVal := uint32(cfg.Dim)
@@ -694,8 +846,13 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 	tokVal := uint32(tokenID)
 
 	// 1. Embedding lookup
-	enc.SetComputePipelineState(eng.psoEmbed)
-	enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	if eng.isF16 {
+		enc.SetComputePipelineState(eng.psoEmbedH)
+		enc.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
+	} else {
+		enc.SetComputePipelineState(eng.psoEmbed)
+		enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	}
 	enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 1)
 	setScalar(enc, tokVal, 2)
 	setScalar(enc, dimVal, 3)
@@ -706,6 +863,167 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 
 	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumLayers; l++ {
+		if eng.isF16 {
+			layer := &eng.layersF16[l]
+			if layer.InputNorm.Len() == 0 {
+				continue
+			}
+
+			// Input RMSNorm (half norm weights): xBuf -> normXBuf
+			enc.SetComputePipelineState(eng.psoNormH)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+			// Q Projection (half weights): normXBuf * WQ -> qBuf
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, qDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// K Projection (half weights): normXBuf * WK -> kBuf
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, kvDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// V Projection (half weights): normXBuf * WV -> vBuf
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, kvDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// Apply RoPE + Store KV cache
+			enc.SetComputePipelineState(eng.psoRoPE)
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 3)
+			enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 4)
+			setScalar(enc, posVal, 5)
+			setScalar(enc, headDimVal, 6)
+			setScalar(enc, qHeadsVal, 7)
+			setScalar(enc, kvHeadsVal, 8)
+			setScalar(enc, thetaVal, 9)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 64, Height: 1, Depth: 1},
+			)
+
+			// Causal FlashAttention Decode
+			enc.SetComputePipelineState(eng.psoAttn)
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 3)
+			setScalar(enc, curPosInt, 4)
+			setScalar(enc, maxSeqVal, 5)
+			setScalar(enc, qHeadsInt, 6)
+			setScalar(enc, kvHeadsInt, 7)
+			setScalar(enc, headDimInt, 8)
+			setScalar(enc, scaleVal, 9)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+			// Attention Out Proj & Residual: xBuf += WO * attnOutBuf
+			enc.SetComputePipelineState(psoGEMVResH)
+			enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WO.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, dimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// Post-Attention RMSNorm: xBuf -> normXBuf
+			enc.SetComputePipelineState(eng.psoNormH)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.PostNorm.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+			// SwiGLU Gate Proj
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, hiddenDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// SwiGLU Up Proj
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, hiddenDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+			// Fast SiLU Activation Mul: silu(gateBuf) * upBuf -> ffnActBuf
+			enc.SetComputePipelineState(eng.psoSiLUMul)
+			enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 2)
+			setScalar(enc, hiddenDimVal, 3)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim / 4), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+			// SwiGLU Down Proj & Residual: xBuf += WDown * ffnActBuf
+			enc.SetComputePipelineState(psoGEMVResH)
+			enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+			setScalar(enc, hiddenDimVal, 3)
+			setScalar(enc, dimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+			continue
+		}
+
 		layer := &eng.layers[l]
 		if layer.InputNorm.Len() == 0 {
 			continue
@@ -927,29 +1245,55 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 	}
 
 	if isLast {
-		// 3. Final RMSNorm: xBuf -> normXBuf
-		enc.SetComputePipelineState(eng.psoNorm)
-		enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
-		enc.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
-		setScalar(enc, dimVal, 3)
-		setScalar(enc, epsVal, 4)
-		enc.DispatchThreadgroupsThreadsPerThreadgroup(
-			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
-			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
-		)
+		if eng.isF16 {
+			// 3. Final RMSNorm (half norm weights): xBuf -> normXBuf
+			enc.SetComputePipelineState(eng.psoNormH)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.finalNormWF16.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
 
-		// 4. LM Head Logits Projection: normXBuf * LMHead -> logitsBuf
-		enc.SetComputePipelineState(psoGEMV)
-		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
-		enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
-		setScalar(enc, dimVal, 3)
-		setScalar(enc, vocabVal, 4)
-		enc.DispatchThreadgroupsThreadsPerThreadgroup(
-			apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
-			apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
-		)
+			// 4. LM Head Logits Projection (half weights): normXBuf * LMHead -> logitsBuf
+			enc.SetComputePipelineState(psoGEMVH)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, vocabVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+		} else {
+			// 3. Final RMSNorm: xBuf -> normXBuf
+			enc.SetComputePipelineState(eng.psoNorm)
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+			// 4. LM Head Logits Projection: normXBuf * LMHead -> logitsBuf
+			enc.SetComputePipelineState(psoGEMV)
+			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, vocabVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+		}
 
 		// 5. GPU Hardware Argmax Sampling
 		enc.SetComputePipelineState(eng.psoSample)

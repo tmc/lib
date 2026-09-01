@@ -53,6 +53,14 @@ func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 	return nil
 }
 
+// IsF16 reports whether the engine is executing over FP16 weights.
+func (eng *ModelEngine) IsF16() bool {
+	if eng == nil || eng.Plan == nil {
+		return false
+	}
+	return eng.Plan.DType == "f16"
+}
+
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
 	return nil
 }
@@ -157,7 +165,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v-path-%s", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph, cfg.ModelPath)
+	key := fmt.Sprintf("%s-%d-%d-%d-prec-%s-egraph-%v-path-%s", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.Precision, cfg.FuseEGraph, cfg.ModelPath)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
 	}

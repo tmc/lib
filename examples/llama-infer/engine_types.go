@@ -373,8 +373,12 @@ type BufferAllocation struct {
 
 // BuildExecutionPlan deterministically constructs the compiled execution plan for a model configuration.
 func BuildExecutionPlan(cfg Config) *ExecutionPlan {
+	dtype := "f32"
+	if cfg.Precision == "f16" {
+		dtype = "f16"
+	}
 	plan := &ExecutionPlan{
-		DType:      "f32",
+		DType:      dtype,
 		FuseEGraph: cfg.FuseEGraph,
 		BatchShape: [3]int{1, cfg.MaxSeqLen, cfg.Dim},
 		HeadDim:    cfg.HeadDim,
@@ -384,7 +388,7 @@ func BuildExecutionPlan(cfg Config) *ExecutionPlan {
 		VocabSize:  cfg.VocabSize,
 	}
 
-	elemBytes := int64(4) // float32
+	elemBytes := int64(4) // float32 activations
 
 	// Plan resident activation buffers
 	plan.Buffers = []BufferAllocation{
