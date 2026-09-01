@@ -19,12 +19,12 @@ type PGOFeedbackCostModel struct {
 
 // OpLatencyStat tracks execution time statistics for an operator or fused kernel.
 type OpLatencyStat struct {
-	Samples   int
-	TotalNs   int64
-	MinNs     int64
-	MaxNs     int64
-	SumSqNs   float64
-	LastSeen  time.Time
+	Samples  int
+	TotalNs  int64
+	MinNs    int64
+	MaxNs    int64
+	SumSqNs  float64
+	LastSeen time.Time
 }
 
 // NewPGOFeedbackCostModel creates a cost model that uses live measured latencies.
@@ -108,12 +108,12 @@ type HotSwapEvent struct {
 
 // OptimizationIteration records a progressive re-optimization milestone.
 type OptimizationIteration struct {
-	Index       int       `json:"index"`
-	Name        string    `json:"name"`
-	LatencyMs   float64   `json:"latency_ms"`
-	SpeedupPct  float64   `json:"speedup_pct"`
-	Active      bool      `json:"active"`
-	Timestamp   time.Time `json:"timestamp"`
+	Index      int       `json:"index"`
+	Name       string    `json:"name"`
+	LatencyMs  float64   `json:"latency_ms"`
+	SpeedupPct float64   `json:"speedup_pct"`
+	Active     bool      `json:"active"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 // PGOTelemetryData represents the complete M5 Profile-Guided Optimization runtime state.
