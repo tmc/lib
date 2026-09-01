@@ -7,7 +7,6 @@ use (
 	./examples
 	./ggml
 	./hfsync
+	./lm
 	./nvidia
 )
-
-
