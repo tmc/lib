@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -352,40 +353,76 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			tok = t
 		}
 		safetensorsPath := filepath.Join(cfg.ModelPath, "model.safetensors")
-		if w, err := metalsafetensors.Open(safetensorsPath); err == nil {
-			weights = w
-			embedTable, _ = w.TensorMetalSlice(dev, "model.embed_tokens.weight")
-			finalNormW, _ = w.TensorMetalSlice(dev, "model.norm.weight")
-			lmHeadW, _ = w.TensorMetalSlice(dev, "lm_head.weight")
-			if lmHeadW.Len() == 0 {
-				lmHeadW = embedTable
+		w, err := metalsafetensors.Open(safetensorsPath)
+		if err != nil {
+			return nil, fmt.Errorf("open safetensors %q: %w", safetensorsPath, err)
+		}
+		weights = w
+		var errUpload error
+		embedTable, errUpload = w.TensorMetalSlice(dev, "model.embed_tokens.weight")
+		if errUpload != nil || embedTable.Len() == 0 {
+			return nil, fmt.Errorf("load embed_tokens: %w", errUpload)
+		}
+		finalNormW, errUpload = w.TensorMetalSlice(dev, "model.norm.weight")
+		if errUpload != nil || finalNormW.Len() == 0 {
+			return nil, fmt.Errorf("load norm weight: %w", errUpload)
+		}
+		lmHeadW, _ = w.TensorMetalSlice(dev, "lm_head.weight")
+		if lmHeadW.Len() == 0 {
+			lmHeadW = embedTable
+		}
+
+		for i := 0; i < cfg.NumLayers; i++ {
+			inNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
+			}
+			pNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
+			}
+			wq, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wq: %w", i, err)
+			}
+			wk, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wk: %w", i, err)
+			}
+			wv, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wv: %w", i, err)
+			}
+			wo, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wo: %w", i, err)
+			}
+			wg, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
+			}
+			wu, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wup: %w", i, err)
+			}
+			wd, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+			if err != nil {
+				return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
 			}
 
-			for i := 0; i < cfg.NumLayers; i++ {
-				inNorm, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
-				pNorm, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
-				wq, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
-				wk, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
-				wv, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
-				wo, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
-				wg, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
-				wu, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
-				wd, _ := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
-
-				gpuLayers[i] = GPULayerWeights{
-					InputNorm: inNorm,
-					PostNorm:  pNorm,
-					WQ:        wq,
-					WK:        wk,
-					WV:        wv,
-					WO:        wo,
-					WGate:     wg,
-					WUp:       wu,
-					WDown:     wd,
-				}
+			gpuLayers[i] = GPULayerWeights{
+				InputNorm: inNorm,
+				PostNorm:  pNorm,
+				WQ:        wq,
+				WK:        wk,
+				WV:        wv,
+				WO:        wo,
+				WGate:     wg,
+				WUp:       wu,
+				WDown:     wd,
 			}
 		}
-	} else {
+	} else if cfg.TestMode || cfg.Name == "TinyLlama-Testing" || strings.HasPrefix(cfg.Name, "TinyLlama") || strings.HasPrefix(cfg.Name, "Deterministic") || strings.HasPrefix(cfg.Name, "Differential") {
 		mCfg := ModelConfig{
 			HiddenSize:        cfg.Dim,
 			IntermediateSize:  cfg.HiddenDim,

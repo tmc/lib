@@ -348,11 +348,14 @@ func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
 	}
 	var nextTok int32
 	for pos, tokID := range promptTokens {
-		tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream)
+		isLast := (pos == len(promptTokens)-1)
+		tok, err := GPUForwardPassStep(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast)
 		if err != nil {
 			return 0
 		}
-		nextTok = tok
+		if isLast {
+			nextTok = tok
+		}
 	}
 	return nextTok
 }

@@ -63,26 +63,58 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	alloc := func(n int) (cudamem.Slice[float32], error) {
-		return cudamem.Alloc[float32](dev, n)
-	}
-
-	x, err := alloc(cfg.HiddenSize)
+	x, err := cudamem.Alloc[float32](dev, cfg.HiddenSize)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("alloc x: %w", err)
 	}
-	normX, _ := alloc(cfg.HiddenSize)
-	q, _ := alloc(qDim)
-	k, _ := alloc(kvDim)
-	v, _ := alloc(kvDim)
-	attnOut, _ := alloc(cfg.HiddenSize)
-	gate, _ := alloc(cfg.IntermediateSize)
-	up, _ := alloc(cfg.IntermediateSize)
-	ffnAct, _ := alloc(cfg.IntermediateSize)
-	ffnOut, _ := alloc(cfg.HiddenSize)
-	logits, _ := alloc(cfg.VocabSize)
-	tokenIn, _ := cudamem.Alloc[int32](dev, 1)
-	tokenOut, _ := cudamem.Alloc[int32](dev, 1)
+	normX, err := cudamem.Alloc[float32](dev, cfg.HiddenSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc normX: %w", err)
+	}
+	q, err := cudamem.Alloc[float32](dev, qDim)
+	if err != nil {
+		return nil, fmt.Errorf("alloc q: %w", err)
+	}
+	k, err := cudamem.Alloc[float32](dev, kvDim)
+	if err != nil {
+		return nil, fmt.Errorf("alloc k: %w", err)
+	}
+	v, err := cudamem.Alloc[float32](dev, kvDim)
+	if err != nil {
+		return nil, fmt.Errorf("alloc v: %w", err)
+	}
+	attnOut, err := cudamem.Alloc[float32](dev, qDim)
+	if err != nil {
+		return nil, fmt.Errorf("alloc attnOut: %w", err)
+	}
+	gate, err := cudamem.Alloc[float32](dev, cfg.IntermediateSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc gate: %w", err)
+	}
+	up, err := cudamem.Alloc[float32](dev, cfg.IntermediateSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc up: %w", err)
+	}
+	ffnAct, err := cudamem.Alloc[float32](dev, cfg.IntermediateSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc ffnAct: %w", err)
+	}
+	ffnOut, err := cudamem.Alloc[float32](dev, cfg.HiddenSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc ffnOut: %w", err)
+	}
+	logits, err := cudamem.Alloc[float32](dev, cfg.VocabSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc logits: %w", err)
+	}
+	tokenIn, err := cudamem.Alloc[int32](dev, 1)
+	if err != nil {
+		return nil, fmt.Errorf("alloc tokenIn: %w", err)
+	}
+	tokenOut, err := cudamem.Alloc[int32](dev, 1)
+	if err != nil {
+		return nil, fmt.Errorf("alloc tokenOut: %w", err)
+	}
 
 	return &GPUScratchpad{
 		X:            x,
@@ -103,8 +135,11 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error
 	}, nil
 }
 
-// Free deallocates all GPU scratchpad memory.
+// Free releases all allocated GPU intermediate buffers.
 func (sp *GPUScratchpad) Free() {
+	if sp == nil {
+		return
+	}
 	_ = sp.X.Free()
 	_ = sp.NormX.Free()
 	_ = sp.Q.Free()
@@ -153,18 +188,45 @@ func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPU
 	layers := make([]GPULayerWeights, cfg.NumHiddenLayers)
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
 		hw := &w.Layers[i]
-		inNorm, _ := upload(hw.InputNorm)
-		postNorm, _ := upload(hw.PostNorm)
-		wq, _ := upload(hw.WQ)
-		wk, _ := upload(hw.WK)
-		wv, _ := upload(hw.WV)
+		inNorm, err := upload(hw.InputNorm)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d input_norm: %w", i, err)
+		}
+		postNorm, err := upload(hw.PostNorm)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d post_norm: %w", i, err)
+		}
+		wq, err := upload(hw.WQ)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wq: %w", i, err)
+		}
+		wk, err := upload(hw.WK)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wk: %w", i, err)
+		}
+		wv, err := upload(hw.WV)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wv: %w", i, err)
+		}
 		qbias, _ := upload(hw.QBias)
 		kbias, _ := upload(hw.KBias)
 		vbias, _ := upload(hw.VBias)
-		wo, _ := upload(hw.WO)
-		wgate, _ := upload(hw.WGate)
-		wup, _ := upload(hw.WUp)
-		wdown, _ := upload(hw.WDown)
+		wo, err := upload(hw.WO)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wo: %w", i, err)
+		}
+		wgate, err := upload(hw.WGate)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wgate: %w", i, err)
+		}
+		wup, err := upload(hw.WUp)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wup: %w", i, err)
+		}
+		wdown, err := upload(hw.WDown)
+		if err != nil {
+			return nil, fmt.Errorf("upload layer %d wdown: %w", i, err)
+		}
 
 		layers[i] = GPULayerWeights{
 			InputNorm: inNorm,
@@ -190,8 +252,9 @@ func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPU
 	}, nil
 }
 
-// GPUForwardPassStream executes one full transformer decoder forward step on the specified stream.
-func GPUForwardPassStream(
+// GPUForwardPassStep executes one full transformer decoder forward step on the specified stream,
+// with optional host synchronization.
+func GPUForwardPassStep(
 	gpuW *GPUModelWeights,
 	cfg *ModelConfig,
 	kv *cudakv.Cache,
@@ -202,6 +265,7 @@ func GPUForwardPassStream(
 	tokenID int32,
 	pos int,
 	stream *cuda.Stream,
+	syncHost bool,
 ) (int32, error) {
 
 	headDim := cfg.HeadDim()
@@ -376,6 +440,10 @@ func GPUForwardPassStream(
 		return 0, err
 	}
 
+	if !syncHost {
+		return 0, nil
+	}
+
 	if stream != nil {
 		if err := sp.TokenOut.CopyToHostAsync(sp.HostTokenOut, stream); err != nil {
 			return 0, err
@@ -391,4 +459,20 @@ func GPUForwardPassStream(
 	}
 
 	return sp.HostTokenOut[0], nil
+}
+
+// GPUForwardPassStream executes one full transformer decoder forward step with synchronous host copy.
+func GPUForwardPassStream(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn driver.Function,
+	sampleFn driver.Function,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+) (int32, error) {
+	return GPUForwardPassStep(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, true)
 }
