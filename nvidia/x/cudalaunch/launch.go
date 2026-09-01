@@ -107,6 +107,12 @@ func (l *Launcher) Launch(args ...any) error {
 }
 
 
+// PackArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
+// Struct arguments are guaranteed to have 16-byte alignment per NVCC ABI requirements.
+func PackArgs(args ...any) ([]unsafe.Pointer, func(), error) {
+	return packArgs(args)
+}
+
 // packArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
 func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 	if len(args) == 0 {
@@ -200,12 +206,21 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 				continue
 			}
 			if rv.Kind() == reflect.Struct {
-				// Allocate new heap copy of struct
+				sz := rv.Type().Size()
+				// Ensure 16-byte alignment for NVCC ABI compatibility (e.g. float4, uint4)
+				buf := make([]byte, sz+15)
+				offset := (16 - (uintptr(unsafe.Pointer(&buf[0])) % 16)) % 16
+				alignedPtr := unsafe.Pointer(uintptr(unsafe.Pointer(&buf[0])) + offset)
+
+				// Copy struct data into 16-byte aligned buffer
 				copyPtr := reflect.New(rv.Type())
 				copyPtr.Elem().Set(rv)
-				ptr := copyPtr.UnsafePointer()
-				params[i] = ptr
-				heapCopies[i] = copyPtr.Interface()
+				srcSlice := unsafe.Slice((*byte)(copyPtr.UnsafePointer()), sz)
+				dstSlice := unsafe.Slice((*byte)(alignedPtr), sz)
+				copy(dstSlice, srcSlice)
+
+				params[i] = alignedPtr
+				heapCopies[i] = buf
 				continue
 			}
 			return nil, nil, fmt.Errorf("arg %d has unsupported type %T", i, arg)

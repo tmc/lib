@@ -43,3 +43,33 @@ func TestLauncherBuilder(t *testing.T) {
 		t.Fatal("expected non-nil launcher")
 	}
 }
+
+type Float4 struct {
+	X, Y, Z, W float32
+}
+
+func TestPackArgs16ByteAlignment(t *testing.T) {
+	// Call PackArgs directly via Exported/Internal helper
+	f4 := Float4{X: 1.0, Y: 2.0, Z: 3.0, W: 4.0}
+	params, cleanup, err := cudalaunch.PackArgs(f4, int32(42), uint64(100))
+	if err != nil {
+		t.Fatalf("PackArgs failed: %v", err)
+	}
+	defer cleanup()
+
+	if len(params) != 3 {
+		t.Fatalf("expected 3 params, got %d", len(params))
+	}
+
+	// Verify struct param pointer is strictly 16-byte aligned
+	ptrVal := uintptr(params[0])
+	if ptrVal%16 != 0 {
+		t.Errorf("expected 16-byte aligned struct parameter, got ptr=0x%x (ptr %% 16 = %d)", ptrVal, ptrVal%16)
+	}
+
+	// Verify content correctness
+	recovered := *(*Float4)(params[0])
+	if recovered != f4 {
+		t.Errorf("recovered struct %+v != expected %+v", recovered, f4)
+	}
+}

@@ -177,6 +177,8 @@ func (s Slice[T]) CopyToHost(dst []T) error {
 }
 
 // CopyFromHostAsync asynchronously enqueues a host-to-device copy onto the specified stream.
+// The host slice memory is pinned and guaranteed to remain pinned until the stream finishes
+// synchronization or is destroyed.
 func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	if len(src) == 0 {
 		return nil
@@ -188,9 +190,11 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyFromHostAsync")
 	}
 
-	var pinner runtime.Pinner
+	pinner := new(runtime.Pinner)
 	pinner.Pin(&src[0])
-	defer pinner.Unpin()
+	stream.AddCleanup(func() {
+		pinner.Unpin()
+	})
 
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
@@ -202,6 +206,8 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 }
 
 // CopyToHostAsync asynchronously enqueues a device-to-host copy onto the specified stream.
+// The destination host slice memory is pinned and guaranteed to remain pinned until the stream finishes
+// synchronization or is destroyed.
 func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	if len(dst) == 0 {
 		return nil
@@ -213,9 +219,11 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyToHostAsync")
 	}
 
-	var pinner runtime.Pinner
+	pinner := new(runtime.Pinner)
 	pinner.Pin(&dst[0])
-	defer pinner.Unpin()
+	stream.AddCleanup(func() {
+		pinner.Unpin()
+	})
 
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
