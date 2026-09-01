@@ -3,29 +3,48 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/pprof"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 )
 
+// GenerationRecord captures latency, token throughput, and node routing attribution for a completion.
+type GenerationRecord struct {
+	ID              string    `json:"id"`
+	Timestamp       time.Time `json:"timestamp"`
+	Prompt          string    `json:"prompt"`
+	Completion      string    `json:"completion"`
+	TokensGenerated int       `json:"tokens_generated"`
+	DurationMs      float64   `json:"duration_ms"`
+	TokPerSec       float64   `json:"tok_per_sec"`
+	PrefillNode     string    `json:"prefill_node"`
+	PrefillPlatform string    `json:"prefill_platform"`
+	DecodeNode      string    `json:"decode_node"`
+	DecodePlatform  string    `json:"decode_platform"`
+	Reason          string    `json:"reason"`
+}
+
 // TelemetryResponse represents the JSON payload served at /api/telemetry.
 type TelemetryResponse struct {
-	ModelName       string                  `json:"model_name"`
-	HiddenDim       int                     `json:"hidden_dim"`
-	NumLayers       int                     `json:"num_layers"`
-	EGraphSats      int                     `json:"egraph_saturations"`
-	ActivePlan      string                  `json:"active_plan"`
-	TotalDispatches int                     `json:"total_dispatches"`
-	MeanLatencyUs   float64                 `json:"mean_latency_us"`
-	P50LatencyUs    float64                 `json:"p50_latency_us"`
-	P95LatencyUs    float64                 `json:"p95_latency_us"`
-	EffectiveTokS   float64                 `json:"effective_tok_s"`
-	ClusterMesh     ClusterMeshState        `json:"cluster_mesh"`
-	RecentEvents    []metalprof.KernelEvent `json:"recent_events"`
+	ModelName         string                  `json:"model_name"`
+	HiddenDim         int                     `json:"hidden_dim"`
+	NumLayers         int                     `json:"num_layers"`
+	EGraphSats        int                     `json:"egraph_saturations"`
+	ActivePlan        string                  `json:"active_plan"`
+	TotalDispatches   int                     `json:"total_dispatches"`
+	MeanLatencyUs     float64                 `json:"mean_latency_us"`
+	P50LatencyUs      float64                 `json:"p50_latency_us"`
+	P95LatencyUs      float64                 `json:"p95_latency_us"`
+	EffectiveTokS     float64                 `json:"effective_tok_s"`
+	ClusterMesh       ClusterMeshState        `json:"cluster_mesh"`
+	RecentGenerations []GenerationRecord      `json:"recent_generations"`
+	RecentEvents      []metalprof.KernelEvent `json:"recent_events"`
 }
 
 // TelemetryServer serves a live diagnostic dashboard for E-Graph and FlightRecorder telemetry.
@@ -34,6 +53,19 @@ type TelemetryServer struct {
 	clusterNode *IrohClusterNode
 	cfg         Config
 	mux         *http.ServeMux
+
+	historyMu sync.RWMutex
+	history   []GenerationRecord
+}
+
+// RecordGeneration appends a completed generation event with node routing attribution.
+func (s *TelemetryServer) RecordGeneration(rec GenerationRecord) {
+	s.historyMu.Lock()
+	defer s.historyMu.Unlock()
+	s.history = append(s.history, rec)
+	if len(s.history) > 20 {
+		s.history = s.history[len(s.history)-20:]
+	}
 }
 
 // NewTelemetryServer initializes a new diagnostic HTTP server.
@@ -172,19 +204,28 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 	}
 
 	return TelemetryResponse{
-		ModelName:       s.cfg.Name,
-		HiddenDim:       s.cfg.Dim,
-		NumLayers:       s.cfg.NumLayers,
-		EGraphSats:      s.engine.egraphSats,
-		ActivePlan:      activePlan,
-		TotalDispatches: len(events),
-		MeanLatencyUs:   meanUs,
-		P50LatencyUs:    p50Us,
-		P95LatencyUs:    p95Us,
-		EffectiveTokS:   tokS,
-		ClusterMesh:     mesh,
-		RecentEvents:    recent,
+		ModelName:         s.cfg.Name,
+		HiddenDim:         s.cfg.Dim,
+		NumLayers:         s.cfg.NumLayers,
+		EGraphSats:        s.engine.egraphSats,
+		ActivePlan:        activePlan,
+		TotalDispatches:   len(events),
+		MeanLatencyUs:     meanUs,
+		P50LatencyUs:      p50Us,
+		P95LatencyUs:      p95Us,
+		EffectiveTokS:     tokS,
+		ClusterMesh:       mesh,
+		RecentGenerations: s.getRecentGenerations(),
+		RecentEvents:      recent,
 	}
+}
+
+func (s *TelemetryServer) getRecentGenerations() []GenerationRecord {
+	s.historyMu.RLock()
+	defer s.historyMu.RUnlock()
+	res := make([]GenerationRecord, len(s.history))
+	copy(res, s.history)
+	return res
 }
 
 func (s *TelemetryServer) handleAPITelemetry(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +284,39 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
 		))
 	}
 
+	var genRows strings.Builder
+	for i := len(stats.RecentGenerations) - 1; i >= 0; i-- {
+		g := stats.RecentGenerations[i]
+		prefillShort := g.PrefillNode
+		if len(prefillShort) > 8 {
+			prefillShort = prefillShort[:8]
+		}
+		decodeShort := g.DecodeNode
+		if len(decodeShort) > 8 {
+			decodeShort = decodeShort[:8]
+		}
+		genRows.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td style="color:#8b949e;">%s</td>
+                        <td style="color:var(--text-bright); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="%s">%s</td>
+                        <td><span class="badge" style="background:#1f6feb;">%s</span> <code>%s</code></td>
+                        <td><span class="badge" style="background:#8957e5;">%s</span> <code>%s</code></td>
+                        <td style="color:#3fb950; font-weight:600;">%d tok (%.1f tok/s)</td>
+                        <td style="color:#8b949e;">%.1f ms</td>
+                    </tr>`,
+			g.Timestamp.Format("15:04:05"),
+			html.EscapeString(g.Prompt),
+			html.EscapeString(g.Prompt),
+			g.PrefillPlatform, prefillShort,
+			g.DecodePlatform, decodeShort,
+			g.TokensGenerated, g.TokPerSec,
+			g.DurationMs,
+		))
+	}
+	if genRows.Len() == 0 {
+		genRows.WriteString(`<tr><td colspan="6" style="text-align:center; color:#8b949e; padding:18px;">No generations recorded yet. Use the prompt box above to run inference.</td></tr>`)
+	}
+
 	var eventRows strings.Builder
 	for i := len(stats.RecentEvents) - 1; i >= 0; i-- {
 		ev := stats.RecentEvents[i]
@@ -277,6 +351,7 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
 		stats.ClusterMesh.TotalNodes, stats.ClusterMesh.ClusterTFLOPs, stats.ClusterMesh.ClusterBandwidthGBS,
 		stats.ClusterMesh.ActiveAssignment.Reason,
 		meshRows.String(),
+		genRows.String(),
 		eventRows.String(),
 	)
 
@@ -311,7 +386,7 @@ const htmlTemplate = `<!DOCTYPE html>
         .container { max-width: 1200px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
         h1 { margin: 0; font-size: 24px; color: var(--text-bright); }
-        .badge { background: #238636; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge { background: #238636; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
         .card-label { font-size: 12px; text-transform: uppercase; color: #8b949e; margin-bottom: 6px; }
@@ -336,12 +411,32 @@ const htmlTemplate = `<!DOCTYPE html>
                 document.getElementById('p95').innerText = data.p95_latency_us.toFixed(1) + ' µs';
                 document.getElementById('toks').innerText = data.effective_tok_s.toFixed(1) + ' tok/s';
                 document.getElementById('plan').innerText = data.active_plan;
+
+                if (data.recent_generations && data.recent_generations.length > 0) {
+                    const tbody = document.getElementById('gen-table');
+                    if (tbody) {
+                        tbody.innerHTML = data.recent_generations.slice().reverse().map(function(g) {
+                            const pShort = g.prefill_node ? g.prefill_node.slice(0, 8) : '';
+                            const dShort = g.decode_node ? g.decode_node.slice(0, 8) : '';
+                            const timeStr = new Date(g.timestamp).toLocaleTimeString();
+                            return '<tr>' +
+                                '<td style="color:#8b949e;">' + timeStr + '</td>' +
+                                '<td style="color:var(--text-bright); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' + g.prompt + '">' + g.prompt + '</td>' +
+                                '<td><span class="badge" style="background:#1f6feb;">' + g.prefill_platform + '</span> <code>' + pShort + '</code></td>' +
+                                '<td><span class="badge" style="background:#8957e5;">' + g.decode_platform + '</span> <code>' + dShort + '</code></td>' +
+                                '<td style="color:#3fb950; font-weight:600;">' + g.tokens_generated + ' tok (' + g.tok_per_sec.toFixed(1) + ' tok/s)</td>' +
+                                '<td style="color:#8b949e;">' + g.duration_ms.toFixed(1) + ' ms</td>' +
+                            '</tr>';
+                        }).join('');
+                    }
+                }
             } catch (e) {}
         }, 1000);
 
         async function sendPrompt() {
             const input = document.getElementById('prompt-input');
             const out = document.getElementById('output-box');
+            const badge = document.getElementById('routing-badge');
             const btn = document.getElementById('gen-btn');
             const prompt = input.value.trim();
             if (!prompt) return;
@@ -349,6 +444,7 @@ const htmlTemplate = `<!DOCTYPE html>
             btn.disabled = true;
             btn.innerText = 'Generating...';
             out.innerText = '';
+            badge.style.display = 'none';
 
             try {
                 const res = await fetch('/v1/chat/completions', {
@@ -377,6 +473,19 @@ const htmlTemplate = `<!DOCTYPE html>
                             const chunk = JSON.parse(payload);
                             const content = chunk.choices[0]?.delta?.content || '';
                             out.innerText += content;
+
+                            if (chunk.node_routing && badge) {
+                                const r = chunk.node_routing;
+                                badge.innerHTML = 
+                                    '<span style="color:var(--accent-green); font-weight:600;">⚡ Prefill Worker:</span> ' +
+                                    '<b>' + r.prefill_platform + '</b> (<code style="color:var(--accent);">' + r.prefill_node_id.slice(0, 8) + '</code>, ' + r.prefill_tflops + ' TFLOPs)' +
+                                    ' &nbsp;➔&nbsp; ' +
+                                    '<span style="color:var(--accent-purple); font-weight:600;">🔥 Decode Worker:</span> ' +
+                                    '<b>' + r.decode_platform + '</b> (<code style="color:var(--accent);">' + r.decode_node_id.slice(0, 8) + '</code>, ' + r.decode_bandwidth_gbs + ' GB/s)' +
+                                    ' &nbsp;·&nbsp; ' +
+                                    '<span style="color:#8b949e;">' + r.total_nodes + ' Nodes in Active Mesh</span>';
+                                badge.style.display = 'flex';
+                            }
                         } catch (err) {}
                     }
                 }
@@ -437,6 +546,7 @@ const htmlTemplate = `<!DOCTYPE html>
                 <button id="gen-btn" onclick="sendPrompt()" class="btn" style="background: #238636; color: white; font-weight: 600; cursor: pointer; border: none;">Generate (SSE Stream)</button>
             </div>
             <div id="output-box" style="background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px; min-height: 48px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; color: var(--text-bright);">Ready for inference. Click Generate to stream tokens live.</div>
+            <div id="routing-badge" style="display: none; align-items: center; gap: 8px; font-size: 12px; margin-top: 10px; padding: 8px 14px; background: #21262d; border-radius: 6px; border: 1px solid var(--border); color: #c9d1d9;"></div>
         </div>
 
         <div class="section">
@@ -459,6 +569,25 @@ const htmlTemplate = `<!DOCTYPE html>
                     </tr>
                 </thead>
                 <tbody>
+%s
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📜 Recent Cluster Generations &amp; Node Attribution</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Prompt</th>
+                        <th>Prefill Worker</th>
+                        <th>Decode Worker</th>
+                        <th>Tokens / Speed</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="gen-table">
 %s
                 </tbody>
             </table>
