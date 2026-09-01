@@ -85,8 +85,9 @@ func run() error {
 	var tokenizer Tokenizer
 	var tokType string
 
-	if *modelPath != "" {
-		tokFile := filepath.Join(*modelPath, "tokenizer.json")
+	effectivePath := findDefaultModelPath()
+	if effectivePath != "" {
+		tokFile := filepath.Join(effectivePath, "tokenizer.json")
 		if hfTok, err := LoadHFTokenizer(tokFile); err == nil {
 			tokenizer = hfTok
 			tokType = fmt.Sprintf("HuggingFace BPE (vocab: %d)", hfTok.VocabSize())
@@ -101,15 +102,15 @@ func run() error {
 	var weights *ModelWeights
 	var cfg *ModelConfig
 
-	if *modelPath != "" {
-		w, c, err := LoadModel(*modelPath)
+	if effectivePath != "" {
+		w, c, err := LoadModel(effectivePath)
 		if err != nil {
-			fmt.Printf("[Model Notice] Failed loading weights from %s (%v). Using initialized model.\n", *modelPath, err)
+			fmt.Printf("[Model Notice] Failed loading weights from %s (%v). Using initialized model.\n", effectivePath, err)
 		} else {
 			weights = w
 			cfg = c
 			fmt.Printf("[Model Loader] Loaded real weights from %s (layers: %d, hidden: %d)\n",
-				*modelPath, cfg.NumHiddenLayers, cfg.HiddenSize)
+				effectivePath, cfg.NumHiddenLayers, cfg.HiddenSize)
 		}
 	}
 
@@ -123,6 +124,7 @@ func run() error {
 
 	// 3. Tokenize Prompt
 	var promptTokens []int32
+
 	var err error
 	if tracer != nil {
 		_ = tracer.Span(nil, "Tokenize Prompt", "tokenizer", func() {
@@ -741,5 +743,36 @@ func printSASSDisassembly(targetKernel string) {
 		fmt.Printf("[SASS Notice] Hardware SASS disassembly for %q generated dynamically by JIT compiler.\n", targetKernel)
 	}
 }
+
+func findDefaultModelPath() string {
+	if *modelPath != "" {
+		return *modelPath
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	// 1. HuggingFace cache snapshots (TinyLlama-1.1B)
+	pattern := filepath.Join(home, ".cache/huggingface/hub/models--TinyLlama--TinyLlama-1.1B-Chat-v1.0/snapshots/*")
+	matches, _ := filepath.Glob(pattern)
+	for _, m := range matches {
+		if _, err := os.Stat(filepath.Join(m, "model.safetensors")); err == nil {
+			return m
+		}
+	}
+	// 2. Common model directories
+	candidates := []string{
+		filepath.Join(home, "models/TinyLlama-1.1B-Chat-v1.0"),
+		"/models/TinyLlama-1.1B-Chat-v1.0",
+		"/tmp/TinyLlama-1.1B-Chat-v1.0",
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(filepath.Join(c, "model.safetensors")); err == nil {
+			return c
+		}
+	}
+	return ""
+}
+
 
 
