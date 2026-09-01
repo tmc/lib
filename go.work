@@ -9,4 +9,5 @@ use (
 	./hfsync
 	./lm
 	./nvidia
+	./treesitter
 )

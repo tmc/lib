@@ -21,6 +21,7 @@ There is no root module. Each subdirectory is an independent Go module with its 
 | `nvidia` | `github.com/tmc/lib/nvidia` | Purego NVIDIA CUDA/driver bindings |
 | `pccl` | `github.com/tmc/lib/pccl` | Purego PCCL bindings |
 | `rocm` | `github.com/tmc/lib/rocm` | Purego ROCm/HIP/RCCL bindings |
+| `treesitter` | `github.com/tmc/lib/treesitter` | Purego tree-sitter parsing bindings |
 | `virtiofs` | `github.com/tmc/lib/virtiofs` | VirtioFS server and device framework |
 | `vulkan` | `github.com/tmc/lib/vulkan` | Purego Vulkan API bindings |
 
