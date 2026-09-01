@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"sync"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -190,22 +191,19 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyFromHostAsync")
 	}
 
-	var unpinned bool
+	var unpinOnce sync.Once
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&src[0])
-	stream.AddCleanup(func() {
-		if !unpinned {
-			pinner.Unpin()
-			unpinned = true
-		}
-	})
+	unpin := func() {
+		unpinOnce.Do(pinner.Unpin)
+	}
+	stream.AddCleanup(unpin)
 
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
 	if err := s.ptr.MemcpyHtoDAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
-		pinner.Unpin()
-		unpinned = true
+		unpin()
 		return fmt.Errorf("cudamem: async copy host to device: %w", err)
 	}
 	return nil
@@ -225,22 +223,19 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyToHostAsync")
 	}
 
-	var unpinned bool
+	var unpinOnce sync.Once
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&dst[0])
-	stream.AddCleanup(func() {
-		if !unpinned {
-			pinner.Unpin()
-			unpinned = true
-		}
-	})
+	unpin := func() {
+		unpinOnce.Do(pinner.Unpin)
+	}
+	stream.AddCleanup(unpin)
 
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
 	if err := s.ptr.MemcpyDtoHAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
-		pinner.Unpin()
-		unpinned = true
+		unpin()
 		return fmt.Errorf("cudamem: async copy device to host: %w", err)
 	}
 	return nil

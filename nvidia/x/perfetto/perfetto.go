@@ -27,8 +27,7 @@ const (
 
 	ClockRealtime  = 1
 	ClockMonotonic = 3
-	ClockGPU       = 6
-
+	ClockGPU       = 64
 	FieldTrackDescUUID       = 1
 	FieldTrackDescName       = 2
 	FieldTrackDescParentUUID = 5
