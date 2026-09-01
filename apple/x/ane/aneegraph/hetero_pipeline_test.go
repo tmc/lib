@@ -31,7 +31,6 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 		t.Fatalf("Metal GPU init failed: %v", err)
 	}
 
-	// 1. Build unified Heterogeneous E-Graph
 	root := &egraph.Expr{
 		Op: "add",
 		Children: []*egraph.Expr{
@@ -55,7 +54,6 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 		t.Fatalf("failed to partition E-Graph: %v", pg)
 	}
 
-	// 2. Compile ANE part (RMSNorm GEMV projection)
 	const dim = 16
 	opts := ANEOptions{
 		SpatialDim:       1,
@@ -84,7 +82,6 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 	}
 	defer aneModel.Close()
 
-	// 3. Compile GPU part (Metal sampling & Attention reduction)
 	lib, err := gpuDev.CompileLibrary(metalsample.ArgmaxSamplingMSL)
 	if err != nil {
 		t.Fatalf("CompileLibrary failed: %v", err)
@@ -95,14 +92,12 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 		t.Fatalf("NewComputePipeline failed: %v", err)
 	}
 
-	// 4. Zero-Copy Execution across ANE & GPU
 	inputVec := make([]float32, dim)
 	for i := range inputVec {
 		inputVec[i] = float32(i + 1)
 	}
 	_ = aneModel.WriteInputF32(0, inputVec)
 
-	// Step A: Evaluate on Apple Neural Engine Cores
 	if err := aneModel.Eval(); err != nil {
 		t.Fatalf("ANE Eval failed: %v", err)
 	}
@@ -110,7 +105,6 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 	aneOut := make([]float32, dim)
 	_ = aneModel.ReadOutputF32(0, aneOut)
 
-	// Step B: Direct handoff to Apple Silicon Metal GPU Cores
 	logitsBuf, _ := mempool.AllocFromSlice(gpuDev, aneOut)
 	tokBuf, _ := mempool.Alloc[int32](gpuDev, 1)
 	vocabSize := int32(dim)
@@ -136,4 +130,133 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 	t.Logf("1. Projection Fused Layer Executed on Apple Neural Engine (ANE Cores)")
 	t.Logf("2. Softmax / Attention / Sampling Executed on Apple Metal GPU")
 	t.Logf("3. Combined Generated Token: %d", selectedTok)
+}
+
+func BenchmarkHeterogeneousComparison(b *testing.B) {
+	client, err := ane.Open()
+	if errors.Is(err, ane.ErrNoANE) {
+		b.Skip("no ANE available on this device")
+	}
+	if err != nil {
+		b.Fatalf("ANE Open failed: %v", err)
+	}
+	defer client.Close()
+
+	gpuDev, err := metal.NewDevice()
+	if err != nil {
+		b.Fatalf("Metal GPU init failed: %v", err)
+	}
+
+	// 2048x2048 parameter dimension (Typical 1B-3B model transformer layer size)
+	const dim = 2048
+	opts := ANEOptions{
+		SpatialDim:       1,
+		HiddenDim:        dim,
+		IntermediateDim:  4096,
+		WeightBlobOffset: 64,
+	}
+
+	bestExpr := &egraph.Expr{
+		Op: "fused_rmsnorm_gemv",
+		Children: []*egraph.Expr{
+			{Op: "x"}, {Op: "w_norm"}, {Op: "eps"}, {Op: "w_proj"},
+		},
+	}
+
+	milText, err := GenerateMIL(bestExpr, opts)
+	if err != nil {
+		b.Fatalf("GenerateMIL failed: %v", err)
+	}
+
+	blob, err := mil.BuildIdentityWeightBlob(dim)
+	if err != nil {
+		b.Fatalf("BuildIdentityWeightBlob failed: %v", err)
+	}
+
+	aneModel, err := client.Compile(ane.CompileOptions{
+		ModelType:  ane.ModelTypeMIL,
+		MILText:    []byte(milText),
+		WeightBlob: blob,
+	})
+	if err != nil {
+		b.Fatalf("ANE Compile failed: %v", err)
+	}
+	defer aneModel.Close()
+
+	lib, err := gpuDev.CompileLibrary(metalsample.ArgmaxSamplingMSL)
+	if err != nil {
+		b.Fatalf("CompileLibrary failed: %v", err)
+	}
+
+	pso, err := gpuDev.NewComputePipeline(lib, "ArgmaxSampling")
+	if err != nil {
+		b.Fatalf("NewComputePipeline failed: %v", err)
+	}
+
+	inputVec := make([]float32, dim)
+	for i := range inputVec {
+		inputVec[i] = float32(i + 1)
+	}
+	aneOut := make([]float32, dim)
+
+	logitsBuf, _ := mempool.AllocFromSlice(gpuDev, inputVec)
+	tokBuf, _ := mempool.Alloc[int32](gpuDev, 1)
+	vocabSize := int32(dim)
+	vBuf := gpuDev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabSize), 4, applemetal.MTLResourceStorageModeShared)
+
+	b.Run("Heterogeneous_ANE_Plus_GPU_2048Dim", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = aneModel.WriteInputF32(0, inputVec)
+			_ = aneModel.Eval()
+			_ = aneModel.ReadOutputF32(0, aneOut)
+
+			cb := gpuDev.Queue().CommandBuffer()
+			enc := cb.ComputeCommandEncoder()
+			enc.SetComputePipelineState(pso)
+			enc.SetBufferWithOffsetAtIndex(logitsBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(tokBuf.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(vBuf, 0, 2)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				applemetal.MTLSize{Width: 1, Height: 1, Depth: 1},
+				applemetal.MTLSize{Width: 1, Height: 1, Depth: 1},
+			)
+			enc.EndEncoding()
+			cb.Commit()
+			cb.WaitUntilCompleted()
+			_ = tokBuf.HostSlice()[0]
+		}
+	})
+
+	b.Run("Single_CPU_Monolithic_2048Dim", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			var sumSq float32
+			for _, v := range inputVec {
+				sumSq += v * v
+			}
+			rms := float32(1.0 / (sumSq/float32(dim) + 1e-5))
+			for r := 0; r < dim; r++ {
+				var acc float32
+				for c := 0; c < dim; c++ {
+					if r == c {
+						acc += (inputVec[c] * rms) * 1.0
+					}
+				}
+				aneOut[r] = acc
+			}
+
+			maxVal := aneOut[0]
+			maxIdx := 0
+			for idx, v := range aneOut {
+				if v > maxVal {
+					maxVal = v
+					maxIdx = idx
+				}
+			}
+			_ = maxIdx
+		}
+	})
 }
