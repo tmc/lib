@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"net/http"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -268,6 +269,16 @@ func runPlatform(cfg Config) error {
 	engine, err := GetOrCompileDarwinEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("engine compile: %w", err)
+	}
+
+	if cfg.HTTPAddr != "" {
+		srv := NewTelemetryServer(engine, cfg)
+		go func() {
+			fmt.Printf("\n[Telemetry Server] Live E-Graph dashboard active at http://localhost%s\n", cfg.HTTPAddr)
+			if err := http.ListenAndServe(cfg.HTTPAddr, srv); err != nil {
+				fmt.Printf("[Telemetry Server] Error: %v\n", err)
+			}
+		}()
 	}
 
 	runFastMetalInference(engine, cfg)

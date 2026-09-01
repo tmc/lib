@@ -28,6 +28,8 @@ type Config struct {
 	RopeTheta  float32
 	FuseEGraph bool
 	Prompt     string
+	// HTTPAddr sets the optional address for the live telemetry HTTP server.
+	HTTPAddr   string
 	// BOSTokenID is prepended to the prompt when nonzero. LLaMA 3 conditions
 	// on a beginning-of-text token, and its absence skews the first generated
 	// token.
@@ -119,6 +121,7 @@ func main() {
 	modelPath := flag.String("path", "", "path to model directory containing model.safetensors")
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
+	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
 	flag.Parse()
 
 	var cfg Config
@@ -138,6 +141,7 @@ func main() {
 	}
 	cfg.FuseEGraph = *fuseEGraph
 	cfg.Prompt = *prompt
+	cfg.HTTPAddr = *httpAddr
 
 	fmt.Printf("=== Cross-Platform LLaMA Tensor Inference (%s on %s/%s) ===\n", cfg.Name, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Architecture: Dim=%d, HiddenDim=%d, Layers=%d, Heads=%d, KVHeads=%d, Vocab=%d\n",
