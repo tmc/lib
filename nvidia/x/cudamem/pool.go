@@ -3,14 +3,35 @@ package cudamem
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
+// BucketSize calculates the quantized allocation size to limit memory pool fragmentation
+// under variable sequence lengths:
+//   - <= 1 KiB: 256-byte granularity (matches GPU transaction size)
+//   - 1 KiB - 1 MiB: Next power-of-two
+//   - > 1 MiB: 2 MiB huge-page granularity
+func BucketSize(bytes uint) uint {
+	if bytes == 0 {
+		return 256
+	}
+	if bytes <= 1024 {
+		return (bytes + 255) &^ 255
+	}
+	if bytes <= 1024*1024 {
+		return 1 << uint(bits.Len64(uint64(bytes-1)))
+	}
+	const hugePage = 2 * 1024 * 1024
+	return (bytes + hugePage - 1) &^ (hugePage - 1)
+}
+
 // AllocAsync allocates a new typed Slice[T] of length elements ordered within stream.
-// It allocates from the default memory pool associated with stream's device.
+// It allocates from the default memory pool associated with stream's device, using
+// tiered size bucketing to prevent pool fragmentation.
 func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 	if length < 0 {
 		return Slice[T]{}, errors.New("cudamem: negative allocation length")
@@ -24,16 +45,17 @@ func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 		elemSize = 1
 	}
 	totalBytes := uint(uintptr(length) * elemSize)
+	allocBytes := BucketSize(totalBytes)
 
-	dptr, err := stream.Raw().MemAllocAsync(totalBytes)
+	dptr, err := stream.Raw().MemAllocAsync(allocBytes)
 	if err != nil {
-		return Slice[T]{}, fmt.Errorf("cudamem: async alloc %d elements (%d bytes): %w", length, totalBytes, err)
+		return Slice[T]{}, fmt.Errorf("cudamem: async alloc %d elements (%d bytes, bucket %d): %w", length, totalBytes, allocBytes, err)
 	}
 
 	return Slice[T]{
 		ptr:      dptr,
 		len:      length,
-		cap:      length,
+		cap:      int(uintptr(allocBytes) / elemSize),
 		elemSize: elemSize,
 	}, nil
 }

@@ -118,10 +118,12 @@ func (s *Stream) WaitEvent(e *Event) error {
 	return nil
 }
 
-// Destroy destroys the stream. Any unfinished work will continue to execute on the GPU,
-// but the stream handle becomes invalid for new command submissions.
+// Destroy waits for all in-flight work on the stream to complete before draining
+// registered cleanups and destroying the stream handle.
 func (s *Stream) Destroy() error {
-	defer s.drainCleanups()
+	// Ensure stream is fully idle before releasing host pinners/cleanups
+	_ = s.raw.Synchronize()
+	s.drainCleanups()
 	if err := s.raw.Destroy(); err != nil {
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}

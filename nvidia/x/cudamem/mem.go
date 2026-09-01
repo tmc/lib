@@ -190,16 +190,22 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyFromHostAsync")
 	}
 
+	var unpinned bool
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&src[0])
 	stream.AddCleanup(func() {
-		pinner.Unpin()
+		if !unpinned {
+			pinner.Unpin()
+			unpinned = true
+		}
 	})
 
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
 	if err := s.ptr.MemcpyHtoDAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
+		pinner.Unpin()
+		unpinned = true
 		return fmt.Errorf("cudamem: async copy host to device: %w", err)
 	}
 	return nil
@@ -219,16 +225,22 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 		return errors.New("cudamem: nil stream passed to CopyToHostAsync")
 	}
 
+	var unpinned bool
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&dst[0])
 	stream.AddCleanup(func() {
-		pinner.Unpin()
+		if !unpinned {
+			pinner.Unpin()
+			unpinned = true
+		}
 	})
 
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
 	if err := s.ptr.MemcpyDtoHAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
+		pinner.Unpin()
+		unpinned = true
 		return fmt.Errorf("cudamem: async copy device to host: %w", err)
 	}
 	return nil
