@@ -10,6 +10,8 @@ import (
 
 func main() {
 	maxIters := flag.Int("iters", 10, "Maximum equality saturation iterations")
+	bench := flag.Bool("bench", false, "Execute comparative GPU decoding benchmark")
+	benchSteps := flag.Int("steps", 100, "Number of benchmark decoding steps")
 	flag.Parse()
 
 	fmt.Println("=== Pure-Go E-Graph Megakernel Optimizer ===")
@@ -92,7 +94,6 @@ func main() {
 		return
 	}
 
-
 	fmt.Println("--- Extracted Hardware Plans ---")
 	fmt.Printf("1. Unfused Plan (Memory-Roundtrip Cost: %.2f):\n   %s\n\n", baselineCost, formatPlan(unfusedPlan.String(), 3))
 	fmt.Printf("2. Optimal Fused Megakernel Plan (Hardware Cost: %.2f):\n   %s\n\n", megakernelCost, formatPlan(fusedPlan.String(), 3))
@@ -101,9 +102,23 @@ func main() {
 	fmt.Println("✓ Fused RMSNorm + QKV Projection: Eliminated intermediate normalized activations buffer")
 	fmt.Println("✓ Fused RoPE + KV Cache Store: Eliminated temporary un-rotated query/key allocations")
 	fmt.Println("✓ Fused SwiGLU Megakernel: Eliminated gate/up intermediate VRAM roundtrips (register-resident)")
+
+	if *bench {
+		fmt.Println("\n=== Running GPU Hardware Decoding Benchmark ===")
+		res, err := RunComparisonBenchmark(*benchSteps)
+		if err != nil {
+			fmt.Printf("[Benchmark Error] %v\n", err)
+			return
+		}
+		fmt.Printf("Steps Executed        : %d decode steps\n", *benchSteps)
+		fmt.Printf("Unfused Schedule      : %8.2f ms (%8.1f tok/sec)\n", res.UnfusedDurationMs, res.UnfusedTokensPerSec)
+		fmt.Printf("E-Graph Fused Plan    : %8.2f ms (%8.1f tok/sec)\n", res.EGraphDurationMs, res.EGraphTokensPerSec)
+		fmt.Printf("Speedup via Megakernel: %8.2fx\n", res.SpeedupVsUnfused)
+	}
 }
 
 func formatPlan(s string, indent int) string {
 	s = strings.ReplaceAll(s, "(", "\n"+strings.Repeat(" ", indent)+"(")
 	return strings.TrimSpace(s)
 }
+
