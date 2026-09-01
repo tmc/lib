@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 // Config defines hyperparameters for a LLaMA model.
@@ -29,15 +31,28 @@ type Config struct {
 	FuseEGraph bool
 	Prompt     string
 	// HTTPAddr sets the optional address for the live telemetry HTTP server.
-	HTTPAddr   string
+	HTTPAddr string
 	// PeerAddr sets an optional peer node to join into the P2P inference mesh.
-	PeerAddr   string
+	PeerAddr string
+	// NodeKeyPath stores the persistent Iroh node key. An empty path uses an
+	// ephemeral identity, which is useful for tests.
+	NodeKeyPath string
+	// PeerStatePath stores registered mesh peers. An empty path keeps peer
+	// registrations in memory only, which is useful for tests.
+	PeerStatePath string
 	// ServeMode keeps the server running indefinitely to accept OpenAI requests.
-	ServeMode  bool
+	ServeMode bool
 	// BOSTokenID is prepended to the prompt when nonzero. LLaMA 3 conditions
 	// on a beginning-of-text token, and its absence skews the first generated
 	// token.
 	BOSTokenID int32
+	// GenTokens sets the number of autoregressive decode tokens to generate.
+	// If <= 0, defaults to 10.
+	GenTokens int
+	// SearchGraphs is the number of graph search candidates explored.
+	SearchGraphs int
+	// SearchDepths is an optional list of search depths to sweep during benchmarks.
+	SearchDepths []int
 }
 
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
@@ -124,32 +139,84 @@ func main() {
 	modelSize := flag.String("model", "llama3.2-1b", "model size (tiny, llama3.2-1b, 1b, 8b)")
 	modelPath := flag.String("path", "", "path to model directory containing model.safetensors")
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
+	genTokens := flag.Int("gen-tokens", 10, "number of tokens to generate during autoregressive decode")
 	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
 	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
 	peerAddr := flag.String("peer", "", "peer HTTP address to join into P2P inference mesh (e.g. spark-31db:8080)")
+	nodeKeyPath := flag.String("node-key", defaultNodeKeyPath(), "path to persistent Iroh node key")
+	peerStatePath := flag.String("peer-state", defaultPeerStatePath(), "path to persistent mesh peer registrations")
 	serve := flag.Bool("serve", false, "run in continuous OpenAI-compatible serving mode")
+	benchMode := flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
+	benchCount := flag.Int("bench-count", 10, "number of benchmark iterations to run")
+	searchGraphs := flag.Int("search-graphs", 100, "number of search graphs / depth for compiler optimization search")
+	searchDepthsFlag := flag.String("search-depths", "", "comma-separated list of search depths to sweep (e.g. 0,10,50,100,200,500)")
 	flag.Parse()
 
 	var cfg Config
-	switch *modelSize {
-	case "llama3.2-1b", "llama3.2", "3.2-1b":
-		path := *modelPath
-		if path == "" {
-			path = findDefaultLlama3_2_1BPath()
+	if *modelPath != "" {
+		if _, loadedCfg, err := LoadModel(*modelPath); err == nil {
+			cfg = Config{
+				Name:       filepath.Base(*modelPath),
+				ModelPath:  *modelPath,
+				VocabSize:  loadedCfg.VocabSize,
+				Dim:        loadedCfg.HiddenSize,
+				HiddenDim:  loadedCfg.IntermediateSize,
+				NumLayers:  loadedCfg.NumHiddenLayers,
+				NumHeads:   loadedCfg.NumAttentionHeads,
+				NumKVHeads: loadedCfg.NumKeyValueHeads,
+				HeadDim:    loadedCfg.HeadDim(),
+				MaxSeqLen:  loadedCfg.MaxSeqLen,
+				Eps:        loadedCfg.RmsNormEps,
+				RopeTheta:  loadedCfg.RopeTheta,
+			}
 		}
-		cfg = Llama3_2_1BConfig(path)
-	case "1b", "tinyllama":
-		cfg = TinyLlama_1_1BConfig()
-	case "8b", "llama3":
-		cfg = Llama3_8BConfig()
-	default:
-		cfg = DefaultTinyLlamaConfig()
 	}
+
+	if cfg.Dim == 0 {
+		switch *modelSize {
+		case "llama3.2-1b", "llama3.2", "3.2-1b":
+			path := *modelPath
+			if path == "" {
+				path = findDefaultLlama3_2_1BPath()
+			}
+			cfg = Llama3_2_1BConfig(path)
+		case "1b", "tinyllama":
+			cfg = TinyLlama_1_1BConfig()
+		case "8b", "llama3":
+			cfg = Llama3_8BConfig()
+		default:
+			cfg = DefaultTinyLlamaConfig()
+		}
+	}
+	cfg.GenTokens = *genTokens
 	cfg.FuseEGraph = *fuseEGraph
 	cfg.Prompt = *prompt
 	cfg.HTTPAddr = *httpAddr
 	cfg.PeerAddr = *peerAddr
+	cfg.NodeKeyPath = *nodeKeyPath
+	cfg.PeerStatePath = *peerStatePath
 	cfg.ServeMode = *serve
+	cfg.SearchGraphs = *searchGraphs
+
+	if *searchDepthsFlag != "" {
+		parts := strings.Split(*searchDepthsFlag, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if d, err := strconv.Atoi(p); err == nil {
+				cfg.SearchDepths = append(cfg.SearchDepths, d)
+			}
+		}
+	}
+	if len(cfg.SearchDepths) == 0 {
+		cfg.SearchDepths = []int{*searchGraphs}
+	}
+
+	if *benchMode {
+		if err := RunBenchSuite(cfg, *benchCount); err != nil {
+			log.Fatalf("llama-infer: %v", err)
+		}
+		return
+	}
 
 	if *serve && cfg.HTTPAddr == "" {
 		cfg.HTTPAddr = ":8080"

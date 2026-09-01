@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -23,6 +27,35 @@ import (
 const (
 	InferenceALPN = "tmc/llama-infer/v1"
 )
+
+const (
+	draftTargetKind    = "draft-target"
+	remoteGenerateKind = "generate"
+)
+
+// inferenceRequest is a message sent on an Iroh inference stream. Empty Kind
+// preserves the original telemetry handshake.
+type inferenceRequest struct {
+	Kind      string        `json:"kind,omitempty"`
+	Telemetry NodeTelemetry `json:"telemetry,omitempty"`
+	Prompt    string        `json:"prompt,omitempty"`
+	MaxTokens int           `json:"max_tokens,omitempty"`
+}
+
+type inferenceResponse struct {
+	Telemetry NodeTelemetry `json:"telemetry,omitempty"`
+	Tokens    []int32       `json:"tokens,omitempty"`
+	Text      string        `json:"text,omitempty"`
+	Error     string        `json:"error,omitempty"`
+}
+
+// RemoteGeneration is an inference result produced on a selected mesh node.
+// Text and token IDs are both returned by that node's engine.
+type RemoteGeneration struct {
+	NodeID string  `json:"node_id"`
+	Tokens []int32 `json:"tokens"`
+	Text   string  `json:"text"`
+}
 
 // NodeTelemetry represents the hardware capability and state of a cluster peer.
 type NodeTelemetry struct {
@@ -71,9 +104,11 @@ type IrohClusterNode struct {
 	peersMu   sync.RWMutex
 	peers     map[string]NodeTelemetry
 	peerAddrs map[string]netaddr.EndpointAddr
+	stateMu   sync.Mutex
 	secret    key.SecretKey
 	engine    *ModelEngine
 	cfg       Config
+	peerState string
 	hfStore   *hfsync.Store
 	hfServer  *hfsync.Server
 	hfClient  *hfsync.Client
@@ -81,9 +116,9 @@ type IrohClusterNode struct {
 
 // NewIrohClusterNode initializes a self-discovering P2P inference node.
 func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bindPort uint16) (*IrohClusterNode, error) {
-	sk, err := key.GenerateSecretKey()
+	sk, err := nodeSecretKey(cfg.NodeKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("generate secret key: %w", err)
+		return nil, fmt.Errorf("load node secret key: %w", err)
 	}
 
 	opts := []iroh.Option{
@@ -110,12 +145,17 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 		peerAddrs: make(map[string]netaddr.EndpointAddr),
 		engine:    engine,
 		cfg:       cfg,
+		peerState: cfg.PeerStatePath,
 		hfStore:   hfStore,
 		hfServer:  hfServer,
 		hfClient:  hfClient,
 	}
 
 	node.self = node.probeSelfHardware()
+	if err := node.loadPeers(); err != nil {
+		_ = ep.Shutdown(context.Background())
+		return nil, fmt.Errorf("load mesh peers: %w", err)
+	}
 	router, err := iroh.NewRouter(ep, map[string]iroh.ProtocolHandler{
 		InferenceALPN: iroh.ProtocolHandlerFunc(node.handleInferenceConnection),
 		hfsync.ALPN:   iroh.ProtocolHandlerFunc(hfServer.HandleConnection),
@@ -126,6 +166,122 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 	}
 	node.router = router
 	return node, nil
+}
+
+func defaultNodeKeyPath() string {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(cacheDir, "tmc", "llama-infer", "iroh.key")
+}
+
+func defaultPeerStatePath() string {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(cacheDir, "tmc", "llama-infer", "peers.json")
+}
+
+func (n *IrohClusterNode) loadPeers() error {
+	if n.peerState == "" {
+		return nil
+	}
+	data, err := os.ReadFile(n.peerState)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read %q: %w", n.peerState, err)
+	}
+	var peers []NodeTelemetry
+	if err := json.Unmarshal(data, &peers); err != nil {
+		return fmt.Errorf("decode %q: %w", n.peerState, err)
+	}
+	for _, peer := range peers {
+		if err := n.registerPeer(peer, false); err != nil {
+			return fmt.Errorf("restore peer %q: %w", peer.NodeID, err)
+		}
+	}
+	return nil
+}
+
+func (n *IrohClusterNode) savePeers(peers []NodeTelemetry) error {
+	if n.peerState == "" {
+		return nil
+	}
+	data, err := json.Marshal(peers)
+	if err != nil {
+		return fmt.Errorf("encode mesh peers: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(n.peerState), 0700); err != nil {
+		return fmt.Errorf("create peer state directory: %w", err)
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(n.peerState), ".peers-*")
+	if err != nil {
+		return fmt.Errorf("create peer state file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("set peer state permissions: %w", err)
+	}
+	if _, err := tmp.Write(append(data, '\n')); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write peer state: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close peer state: %w", err)
+	}
+	if err := os.Rename(tmpName, n.peerState); err != nil {
+		return fmt.Errorf("replace peer state: %w", err)
+	}
+	return nil
+}
+
+func nodeSecretKey(path string) (key.SecretKey, error) {
+	if path == "" {
+		return key.GenerateSecretKey()
+	}
+
+	data, err := os.ReadFile(path)
+	if err == nil {
+		sk, err := key.ParseSecretKey(strings.TrimSpace(string(data)))
+		if err != nil {
+			return key.SecretKey{}, fmt.Errorf("parse %q: %w", path, err)
+		}
+		return sk, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return key.SecretKey{}, fmt.Errorf("read %q: %w", path, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return key.SecretKey{}, fmt.Errorf("create key directory: %w", err)
+	}
+	sk, err := key.GenerateSecretKey()
+	if err != nil {
+		return key.SecretKey{}, err
+	}
+	seed := sk.Bytes()
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if errors.Is(err, os.ErrExist) {
+		return nodeSecretKey(path)
+	}
+	if err != nil {
+		return key.SecretKey{}, fmt.Errorf("create %q: %w", path, err)
+	}
+	_, writeErr := f.WriteString(hex.EncodeToString(seed[:]) + "\n")
+	closeErr := f.Close()
+	if writeErr != nil {
+		return key.SecretKey{}, fmt.Errorf("write %q: %w", path, writeErr)
+	}
+	if closeErr != nil {
+		return key.SecretKey{}, fmt.Errorf("close %q: %w", path, closeErr)
+	}
+	return sk, nil
 }
 
 // Close gracefully shuts down the Iroh endpoint and protocol router.
@@ -146,15 +302,200 @@ func (n *IrohClusterNode) handleInferenceConnection(ctx context.Context, conn *i
 	}
 	defer stream.Close()
 
-	var peerTel NodeTelemetry
-	if err := json.NewDecoder(stream).Decode(&peerTel); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(stream).Decode(&raw); err != nil {
 		return fmt.Errorf("decode peer telemetry: %w", err)
 	}
-	n.RegisterPeer(peerTel)
+	var request inferenceRequest
+	if err := json.Unmarshal(raw, &request); err != nil {
+		return fmt.Errorf("decode inference request: %w", err)
+	}
+	if request.Kind == draftTargetKind {
+		if err := n.RegisterPeer(request.Telemetry); err != nil {
+			return fmt.Errorf("register peer: %w", err)
+		}
+		if n.engine == nil {
+			return json.NewEncoder(stream).Encode(inferenceResponse{Error: "target engine unavailable"})
+		}
+		tokens, err := n.engine.GenerateTokenIDs(ctx, n.cfg, request.Prompt, request.MaxTokens)
+		if err != nil {
+			return json.NewEncoder(stream).Encode(inferenceResponse{Error: err.Error()})
+		}
+		return json.NewEncoder(stream).Encode(inferenceResponse{Tokens: tokens})
+	}
+	if request.Kind == remoteGenerateKind {
+		if err := n.RegisterPeer(request.Telemetry); err != nil {
+			return fmt.Errorf("register peer: %w", err)
+		}
+		if n.engine == nil {
+			return json.NewEncoder(stream).Encode(inferenceResponse{Error: "target engine unavailable"})
+		}
+		var text strings.Builder
+		var tokens []int32
+		err := n.engine.Generate(ctx, n.cfg, request.Prompt, request.MaxTokens, func(tokenID int32, tokenText string) bool {
+			tokens = append(tokens, tokenID)
+			text.WriteString(tokenText)
+			return true
+		})
+		if err != nil {
+			return json.NewEncoder(stream).Encode(inferenceResponse{Error: err.Error()})
+		}
+		return json.NewEncoder(stream).Encode(inferenceResponse{Tokens: tokens, Text: text.String()})
+	}
+
+	var peerTel NodeTelemetry
+	if err := json.Unmarshal(raw, &peerTel); err != nil {
+		return fmt.Errorf("decode peer telemetry: %w", err)
+	}
+	if err := n.RegisterPeer(peerTel); err != nil {
+		return fmt.Errorf("register peer: %w", err)
+	}
 	if err := json.NewEncoder(stream).Encode(n.SelfTelemetry()); err != nil {
 		return fmt.Errorf("send self telemetry: %w", err)
 	}
 	return nil
+}
+
+// RequestDraftTarget asks a registered peer to generate exact token IDs for a
+// prompt. The peer runs its own configured engine; this method never derives
+// target tokens from local model metadata.
+func (n *IrohClusterNode) RequestDraftTarget(ctx context.Context, nodeID, prompt string, maxTokens int) ([]int32, error) {
+	if n == nil || n.ep == nil {
+		return nil, errors.New("iroh node unavailable")
+	}
+	if nodeID == "" || nodeID == n.NodeID() {
+		return nil, errors.New("draft target must be a remote node")
+	}
+	if maxTokens <= 0 {
+		return nil, errors.New("draft token count must be positive")
+	}
+	addr, err := n.PeerAddr(nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve draft target: %w", err)
+	}
+	conn, err := n.connectInference(ctx, addr)
+	if err != nil {
+		return nil, fmt.Errorf("connect draft target: %w", err)
+	}
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open draft target stream: %w", err)
+	}
+	defer stream.Close()
+	request := inferenceRequest{
+		Kind:      draftTargetKind,
+		Telemetry: n.SelfTelemetry(),
+		Prompt:    prompt,
+		MaxTokens: maxTokens,
+	}
+	if err := json.NewEncoder(stream).Encode(request); err != nil {
+		return nil, fmt.Errorf("send draft target request: %w", err)
+	}
+	var response inferenceResponse
+	if err := json.NewDecoder(stream).Decode(&response); err != nil {
+		return nil, fmt.Errorf("receive draft target response: %w", err)
+	}
+	if response.Error != "" {
+		return nil, fmt.Errorf("draft target: %s", response.Error)
+	}
+	return response.Tokens, nil
+}
+
+// GenerateRemote runs a complete generation on a selected registered peer.
+// Streaming is intentionally not multiplexed through this request-response
+// protocol; callers receive a completed result from the selected node.
+func (n *IrohClusterNode) GenerateRemote(ctx context.Context, nodeID, prompt string, maxTokens int) (RemoteGeneration, error) {
+	if n == nil || n.ep == nil {
+		return RemoteGeneration{}, errors.New("iroh node unavailable")
+	}
+	if nodeID == "" || nodeID == n.NodeID() {
+		return RemoteGeneration{}, errors.New("remote execution node required")
+	}
+	if maxTokens <= 0 {
+		return RemoteGeneration{}, errors.New("maximum token count must be positive")
+	}
+	addr, err := n.PeerAddr(nodeID)
+	if err != nil {
+		return RemoteGeneration{}, fmt.Errorf("resolve execution node: %w", err)
+	}
+	conn, err := n.connectInference(ctx, addr)
+	if err != nil {
+		return RemoteGeneration{}, fmt.Errorf("connect execution node: %w", err)
+	}
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		return RemoteGeneration{}, fmt.Errorf("open execution stream: %w", err)
+	}
+	defer stream.Close()
+	request := inferenceRequest{
+		Kind:      remoteGenerateKind,
+		Telemetry: n.SelfTelemetry(),
+		Prompt:    prompt,
+		MaxTokens: maxTokens,
+	}
+	if err := json.NewEncoder(stream).Encode(request); err != nil {
+		return RemoteGeneration{}, fmt.Errorf("send generation request: %w", err)
+	}
+	var response inferenceResponse
+	if err := json.NewDecoder(stream).Decode(&response); err != nil {
+		return RemoteGeneration{}, fmt.Errorf("receive generation response: %w", err)
+	}
+	if response.Error != "" {
+		return RemoteGeneration{}, fmt.Errorf("remote generation: %s", response.Error)
+	}
+	return RemoteGeneration{NodeID: nodeID, Tokens: response.Tokens, Text: response.Text}, nil
+}
+
+// Speculate compares local draft tokens with exact tokens generated by a
+// registered remote target. The result is recorded only after both engines
+// completed their work.
+func (n *IrohClusterNode) Speculate(ctx context.Context, targetNodeID, prompt string, maxTokens int) (SpeculationTrace, error) {
+	if n == nil || n.engine == nil {
+		return SpeculationTrace{}, errors.New("draft engine unavailable")
+	}
+	draft, err := n.engine.GenerateTokenIDs(ctx, n.cfg, prompt, maxTokens)
+	if err != nil {
+		return SpeculationTrace{}, fmt.Errorf("generate draft tokens: %w", err)
+	}
+	target, err := n.RequestDraftTarget(ctx, targetNodeID, prompt, maxTokens)
+	if err != nil {
+		return SpeculationTrace{}, err
+	}
+	trace := SpeculationTrace{
+		When:         time.Now(),
+		DraftNodeID:  n.NodeID(),
+		TargetNodeID: targetNodeID,
+		Draft:        draft,
+		Target:       target,
+	}
+	for i, token := range draft {
+		parent := ""
+		if i > 0 {
+			parent = fmt.Sprintf("d%d", i-1)
+		}
+		state := "rejected"
+		if i < len(target) && token == target[i] {
+			state = "accepted"
+			trace.Accepted++
+		}
+		engine := "draft"
+		if state == "accepted" {
+			engine = "both"
+		}
+		trace.Nodes = append(trace.Nodes, SpeculationNode{
+			ID: fmt.Sprintf("d%d", i), Parent: parent, Token: token, Engine: engine, State: state,
+		})
+		if state == "rejected" {
+			if i < len(target) {
+				trace.Nodes = append(trace.Nodes, SpeculationNode{
+					ID: fmt.Sprintf("t%d", i), Parent: parent, Token: target[i], Engine: "target", State: "target",
+				})
+			}
+			break
+		}
+	}
+	n.engine.metrics.RecordSpeculation(trace)
+	return trace, nil
 }
 
 // Addr returns the complete netaddr.EndpointAddr including DERP relay URLs and direct IP endpoints.
@@ -165,9 +506,29 @@ func (n *IrohClusterNode) Addr() netaddr.EndpointAddr {
 	return n.ep.Addr()
 }
 
+func (n *IrohClusterNode) connectInference(ctx context.Context, addr netaddr.EndpointAddr) (*iroh.Conn, error) {
+	if n == nil || n.ep == nil {
+		return nil, errors.New("iroh node unavailable")
+	}
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		conn, err := n.ep.Connect(ctx, addr, InferenceALPN)
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return nil, fmt.Errorf("iroh connect after retries: %w", lastErr)
+}
+
 // ConnectIroh connects to a remote peer over pure Iroh using its EndpointAddr.
 func (n *IrohClusterNode) ConnectIroh(ctx context.Context, addr netaddr.EndpointAddr) error {
-	conn, err := n.ep.Connect(ctx, addr, InferenceALPN)
+	conn, err := n.connectInference(ctx, addr)
 	if err != nil {
 		return fmt.Errorf("iroh connect: %w", err)
 	}
@@ -187,7 +548,15 @@ func (n *IrohClusterNode) ConnectIroh(ctx context.Context, addr netaddr.Endpoint
 		return fmt.Errorf("receive peer telemetry: %w", err)
 	}
 
-	n.RegisterPeer(peerTel)
+	if err := n.RegisterPeer(peerTel); err != nil {
+		return fmt.Errorf("register peer: %w", err)
+	}
+	// Keep the address that just completed a handshake. A peer's advertised
+	// telemetry can contain only a relay address even when this connection used
+	// a working direct route.
+	n.peersMu.Lock()
+	n.peerAddrs[peerTel.NodeID] = addr
+	n.peersMu.Unlock()
 	return nil
 }
 
@@ -255,17 +624,39 @@ func (n *IrohClusterNode) SyncFromPeer(ctx context.Context, nodeID, modelID stri
 	return n.SyncModel(ctx, addr, modelID, onProgress)
 }
 
-// RegisterPeer manually registers a known peer's telemetry for role evaluation.
-func (n *IrohClusterNode) RegisterPeer(tel NodeTelemetry) {
-	if tel.NodeID == "" || tel.NodeID == n.self.NodeID {
-		return
+// RegisterPeer manually registers a known peer's telemetry for role evaluation
+// and saves it when peer-state persistence is configured.
+func (n *IrohClusterNode) RegisterPeer(tel NodeTelemetry) error {
+	return n.registerPeer(tel, true)
+}
+
+func (n *IrohClusterNode) registerPeer(tel NodeTelemetry, persist bool) error {
+	if tel.NodeID == "" {
+		return errors.New("peer node ID is empty")
+	}
+	if tel.NodeID == n.self.NodeID {
+		return nil
+	}
+	if persist {
+		n.stateMu.Lock()
+		defer n.stateMu.Unlock()
 	}
 	n.peersMu.Lock()
-	defer n.peersMu.Unlock()
 	n.peers[tel.NodeID] = tel
 	if addr, err := endpointAddrFromTelemetry(tel); err == nil {
 		n.peerAddrs[tel.NodeID] = addr
+	} else {
+		delete(n.peerAddrs, tel.NodeID)
 	}
+	peers := make([]NodeTelemetry, 0, len(n.peers))
+	for _, peer := range n.peers {
+		peers = append(peers, peer)
+	}
+	n.peersMu.Unlock()
+	if !persist {
+		return nil
+	}
+	return n.savePeers(peers)
 }
 
 // PeerAddr returns a mesh peer's advertised Iroh endpoint address.
@@ -338,7 +729,9 @@ func (n *IrohClusterNode) ConnectHTTPPeer(ctx context.Context, peerURL string) e
 		return fmt.Errorf("decode peer telemetry: %w", err)
 	}
 
-	n.RegisterPeer(remotePeer)
+	if err := n.RegisterPeer(remotePeer); err != nil {
+		return fmt.Errorf("register peer: %w", err)
+	}
 	return nil
 }
 

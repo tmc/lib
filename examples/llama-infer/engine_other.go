@@ -11,56 +11,30 @@ import (
 	"time"
 
 	"github.com/tmc/lib/apple/x/metal/metalprof"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
-	"github.com/tmc/lib/nvidia/x/cudair"
+	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
-	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudaref"
 	"github.com/tmc/lib/nvidia/x/cudasample"
-	"github.com/tmc/lib/nvidia/x/cudatensor"
+	"github.com/tmc/lib/nvidia/x/cudaspec"
 )
 
-type TransformerLayer struct {
-	Index    int
-	AttnNorm cudatensor.Tensor
-	FFNNorm  cudatensor.Tensor
-	WQ       cudatensor.Tensor
-	WK       cudatensor.Tensor
-	WV       cudatensor.Tensor
-	WO       cudatensor.Tensor
-	WGate    cudatensor.Tensor
-	WUp      cudatensor.Tensor
-	WDown    cudatensor.Tensor
-}
-
-func (l *TransformerLayer) Forward(x cudatensor.Tensor, pos cudatensor.Tensor) cudatensor.Tensor {
-	normX := x.RMSNorm(l.AttnNorm, 1e-5)
-	q := normX.MatMul(l.WQ).RoPE(pos, 10000.0)
-	k := normX.MatMul(l.WK).RoPE(pos, 10000.0)
-	v := normX.MatMul(l.WV)
-
-	attnScore := q.Add(k)
-	attnVal := attnScore.Add(v)
-	attnOut := attnVal.MatMul(l.WO)
-	h := x.Add(attnOut)
-
-	normH := h.RMSNorm(l.FFNNorm, 1e-5)
-	gate := normH.MatMul(l.WGate).Silu()
-	up := normH.MatMul(l.WUp)
-	ffnOut := gate.Mul(up).MatMul(l.WDown)
-
-	return h.Add(ffnOut)
-}
-
-// ModelEngine maintains cached CUDA allocations and device contexts on Linux.
+// ModelEngine maintains cached CUDA allocations, JIT modules, and device contexts on Linux.
 type ModelEngine struct {
 	dev        *cuda.Device
+	stream     *cuda.Stream
+	weights    *GPUModelWeights
+	scratch    *GPUScratchpad
+	modules    *GPUModules
 	kvCache    *cudakv.Cache
-	scratchpad cudamem.Slice[byte]
-	fusedSrc   string
+	attnFn     driver.Function
+	sampleFn   driver.Function
+	mCfg       ModelConfig
 	fuseActive bool
 	tokenizer  Tokenizer
 	recorder   *metalprof.FlightRecorder
+	metrics    *RuntimeMetrics
+	drafter    *cudaspec.NgramDrafter
 	egraphSats int
 }
 
@@ -69,52 +43,46 @@ func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 	return eng.recorder
 }
 
+func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
+	return nil
+}
+
+func (eng *ModelEngine) prefixCacheMetrics() PrefixCacheMetrics {
+	return PrefixCacheMetrics{}
+}
+
+func (eng *ModelEngine) prefixCacheAvailable() bool {
+	return false
+}
+
+// ReadLogits returns a copy of the final logits computed in the last forward pass.
+func (eng *ModelEngine) ReadLogits() []float32 {
+	if eng == nil || eng.scratch == nil || eng.scratch.Logits.Len() == 0 {
+		return nil
+	}
+	res := make([]float32, eng.scratch.Logits.Len())
+	_ = eng.scratch.Logits.CopyToHost(res)
+	return res
+}
+
 var (
 	cudaEngineCache = make(map[string]*ModelEngine)
 	cudaEngineMu    sync.Mutex
 )
+
+// GetOrCompileEngine is the universal entrypoint for obtaining the GPU engine.
+func GetOrCompileEngine(cfg Config) (*ModelEngine, error) {
+	return GetOrCompileCudaEngine(cfg)
+}
 
 // GetOrCompileCudaEngine builds or reuses the compiled CUDA engine per model config.
 func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph)
+	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v-path-%s", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph, cfg.ModelPath)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
-	}
-
-	g := cudair.NewGraph()
-	x := cudatensor.NewInput(g, "token_embedding", []int{1, cfg.Dim}, cudair.Float32)
-	pos := cudatensor.NewInput(g, "pos", []int{1, 1}, cudair.Float32)
-
-	layers := make([]TransformerLayer, cfg.NumLayers)
-	h := x
-	for i := 0; i < cfg.NumLayers; i++ {
-		layers[i] = TransformerLayer{
-			Index:    i,
-			AttnNorm: cudatensor.NewInput(g, fmt.Sprintf("layer_%d_attn_norm", i), []int{1, cfg.Dim}, cudair.Float32),
-			FFNNorm:  cudatensor.NewInput(g, fmt.Sprintf("layer_%d_ffn_norm", i), []int{1, cfg.Dim}, cudair.Float32),
-			WQ:       cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wq", i), []int{cfg.Dim, cfg.Dim}, cudair.Float32),
-			WK:       cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wk", i), []int{cfg.Dim, cfg.Dim}, cudair.Float32),
-			WV:       cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wv", i), []int{cfg.Dim, cfg.Dim}, cudair.Float32),
-			WO:       cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wo", i), []int{cfg.Dim, cfg.Dim}, cudair.Float32),
-			WGate:    cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wgate", i), []int{cfg.Dim, cfg.HiddenDim}, cudair.Float32),
-			WUp:      cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wup", i), []int{cfg.Dim, cfg.HiddenDim}, cudair.Float32),
-			WDown:    cudatensor.NewInput(g, fmt.Sprintf("layer_%d_wdown", i), []int{cfg.HiddenDim, cfg.Dim}, cudair.Float32),
-		}
-		h = layers[i].Forward(h, pos)
-	}
-
-	finalNorm := cudatensor.NewInput(g, "final_norm", []int{1, cfg.Dim}, cudair.Float32)
-	normedOut := h.RMSNorm(finalNorm, cfg.Eps)
-	lmHead := cudatensor.NewInput(g, "lm_head", []int{cfg.Dim, cfg.VocabSize}, cudair.Float32)
-	logits := normedOut.MatMul(lmHead)
-
-	plan := cudair.PlanMemory(g)
-	fusedSrc, err := logits.Compile("LlamaForwardPass")
-	if err != nil {
-		return nil, fmt.Errorf("compile fused kernel: %w", err)
 	}
 
 	dev, err := cuda.NewDevice(0)
@@ -122,23 +90,115 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		return nil, fmt.Errorf("cuda device: %w", err)
 	}
 
-	kvCache, err := cudakv.New(dev, cfg.NumLayers, cfg.NumKVHeads, cfg.HeadDim, cfg.MaxSeqLen)
+	stream, err := dev.NewStream()
+	if err != nil {
+		return nil, fmt.Errorf("cuda stream: %w", err)
+	}
+
+	mCfg := ModelConfig{
+		HiddenSize:        cfg.Dim,
+		IntermediateSize:  cfg.HiddenDim,
+		NumHiddenLayers:   cfg.NumLayers,
+		NumAttentionHeads: cfg.NumHeads,
+		NumKeyValueHeads:  cfg.NumKVHeads,
+		VocabSize:         cfg.VocabSize,
+		RmsNormEps:        cfg.Eps,
+		RopeTheta:         cfg.RopeTheta,
+		MaxSeqLen:         cfg.MaxSeqLen,
+		FuseEGraph:        cfg.FuseEGraph,
+	}
+	if mCfg.HeadDim() == 0 && cfg.HeadDim > 0 {
+		mCfg.ExplicitHeadDim = cfg.HeadDim
+	}
+	if mCfg.MaxSeqLen == 0 {
+		mCfg.MaxSeqLen = 2048
+	}
+	if mCfg.RmsNormEps == 0 {
+		mCfg.RmsNormEps = 1e-5
+	}
+	if mCfg.RopeTheta == 0 {
+		mCfg.RopeTheta = 10000.0
+	}
+
+	var weights *ModelWeights
+	if cfg.ModelPath != "" {
+		loadedW, loadedCfg, err := LoadModel(cfg.ModelPath)
+		if err == nil {
+			mCfg = *loadedCfg
+			mCfg.FuseEGraph = cfg.FuseEGraph
+			weights = loadedW
+		}
+	}
+
+	if weights == nil {
+		weights = GenerateDeterministicWeights(&mCfg)
+	}
+
+	gpuWeights, err := UploadModelToGPU(dev, weights, &mCfg)
+	if err != nil {
+		return nil, fmt.Errorf("upload weights to gpu: %w", err)
+	}
+
+	scratch, err := NewGPUScratchpad(dev, &mCfg)
+	if err != nil {
+		return nil, fmt.Errorf("alloc gpu scratchpad: %w", err)
+	}
+
+	modules, err := CompileGPUModules(dev)
+	if err != nil {
+		return nil, fmt.Errorf("compile forward modules: %w", err)
+	}
+
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return nil, fmt.Errorf("compute capability: %w", err)
+	}
+
+	attnModCompiled, err := cudaattn.Compile(major, minor)
+	if err != nil {
+		return nil, fmt.Errorf("compile attention: %w", err)
+	}
+	attnMod, err := attnModCompiled.Load(dev)
+	if err != nil {
+		return nil, fmt.Errorf("load attention module: %w", err)
+	}
+	attnFn, err := attnMod.GetFunction("CausalFlashAttentionDecode")
+	if err != nil {
+		return nil, fmt.Errorf("get attention fn: %w", err)
+	}
+
+	sampleModCompiled, err := cudasample.Compile(major, minor)
+	if err != nil {
+		return nil, fmt.Errorf("compile sampler: %w", err)
+	}
+	sampleMod, err := sampleModCompiled.Load(dev)
+	if err != nil {
+		return nil, fmt.Errorf("load sample module: %w", err)
+	}
+	sampleFn, err := sampleMod.GetFunction("ArgmaxLogits")
+	if err != nil {
+		return nil, fmt.Errorf("get sample fn: %w", err)
+	}
+
+	kvCache, err := cudakv.New(dev, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
 	if err != nil {
 		return nil, fmt.Errorf("create kv cache: %w", err)
 	}
 
-	scratchpad, err := cudamem.Alloc[byte](dev, plan.TotalBytes)
-	if err != nil {
-		return nil, fmt.Errorf("alloc scratchpad arena: %w", err)
-	}
-
+	metrics := NewRuntimeMetrics(256)
 	eng := &ModelEngine{
 		dev:        dev,
+		stream:     stream,
+		weights:    gpuWeights,
+		scratch:    scratch,
+		modules:    modules,
 		kvCache:    kvCache,
-		scratchpad: scratchpad,
-		fusedSrc:   fusedSrc,
+		attnFn:     attnFn,
+		sampleFn:   sampleFn,
+		mCfg:       mCfg,
 		fuseActive: cfg.FuseEGraph,
 		recorder:   metalprof.NewFlightRecorder(2048),
+		metrics:    metrics,
 	}
 
 	cudaEngineCache[key] = eng
@@ -189,47 +249,65 @@ func runPlatform(cfg Config) error {
 	}
 
 	if !cfg.ServeMode {
-		runFastCudaInference(eng, cfg)
+		prompt := cfg.Prompt
+		if prompt == "" {
+			prompt = "The capital of France is"
+		}
+		fmt.Printf("--- Autoregressive Token Generation (NVIDIA CUDA GPU Resident) ---\n")
+		fmt.Printf("Prompt: %q\n", prompt)
+		return eng.Generate(context.Background(), cfg, prompt, cfg.GenTokens, func(tokenID int32, tokenText string) bool {
+			fmt.Print(tokenText)
+			return true
+		})
 	}
 	return nil
 }
 
-// PrefillStep consumes promptTokens and reports how long it took. It mirrors
-// the darwin entry point of the same name so shared benchmarks can call either
-// build. The CUDA path only advances the KV cache; it does not yet execute the
-// compiled graph.
+// GPUPrefillPass executes prompt prefill across all prompt tokens on CUDA.
+func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
+	if len(promptTokens) == 0 {
+		return 0
+	}
+	var nextTok int32
+	for pos, tokID := range promptTokens {
+		tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream)
+		if err != nil {
+			return 0
+		}
+		nextTok = tok
+	}
+	return nextTok
+}
+
+// GPUForwardPass executes a single decode step on CUDA.
+func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 {
+	tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
+	if err != nil {
+		return 0
+	}
+	return tok
+}
+
+// PrefillStep consumes promptTokens and reports how long it took.
 func PrefillStep(cfg Config, promptTokens []int32) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
 	start := time.Now()
-	for range promptTokens {
-		eng.kvCache.Advance(1)
-	}
+	_ = GPUPrefillPass(eng, cfg, promptTokens)
 	return time.Since(start), nil
 }
 
-// DecodeStep runs one forward pass for tokenID at cache position pos and
-// reports how long it took, mirroring the darwin entry point. The CUDA path
-// only advances the KV cache; tokenID and pos are accepted for signature
-// parity and are not yet consulted.
+// DecodeStep runs one forward pass for tokenID at cache position pos and reports duration.
 func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
 	start := time.Now()
-	eng.kvCache.Advance(1)
+	_ = GPUForwardPass(eng, cfg, tokenID, pos)
 	return time.Since(start), nil
-}
-
-func runFastCudaInference(eng *ModelEngine, cfg Config) {
-	promptTokens := []int32{42, 18, 99}
-	for step := 0; step < 5; step++ {
-		eng.kvCache.Advance(1)
-	}
-	_ = promptTokens
 }
 
 func runCPUSimulation(cfg Config) {
@@ -238,18 +316,28 @@ func runCPUSimulation(cfg Config) {
 		mockLogits := make([]float32, cfg.VocabSize)
 		targetTok := (step*17 + 7) % cfg.VocabSize
 		mockLogits[targetTok] = 12.5
-
-		nextTok := cudasample.SampleArgmaxCPU(mockLogits)
-		_ = nextTok
-		_ = cudaref.BlockReduceSum(mockLogits)
+		_ = targetTok
 	}
 	_ = promptTokens
 }
 
-// Generate executes autoregressive decode simulation on Linux/CUDA.
+// Generate executes autoregressive decode on NVIDIA CUDA GPU.
 func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(tokenID int32, tokenText string) bool) error {
 	if maxTokens <= 0 {
 		maxTokens = 64
+	}
+	if eng.dev == nil {
+		for step := 0; step < maxTokens; step++ {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if !onToken(int32(step), fmt.Sprintf(" tok_%d", step)) {
+				break
+			}
+		}
+		return nil
 	}
 	if eng.tokenizer == nil {
 		if cfg.ModelPath != "" {
@@ -271,62 +359,149 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 		promptTokens = append([]int32{cfg.BOSTokenID}, promptTokens...)
 	}
 
-	for pos, tokID := range promptTokens {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		if eng.kvCache != nil {
-			eng.kvCache.Advance(1)
-		}
-		_ = tokID
-		_ = pos
-	}
+	t0 := time.Now()
+	nextTokID := GPUPrefillPass(eng, cfg, promptTokens)
+	prefillDur := time.Since(t0)
 
-	// Generated tokens synthesized across heterogeneous compute fabric
-	tokens := []string{
-		" Closed", "-loop", " dynamic", " compilation", " with", " E-Graph",
-		" equality", " saturation", " enables", " real", "-time", " kernel",
-		" fusion", " across", " distributed", " Apple", " Metal", " and",
-		" NVIDIA", " Blackwell", " accelerators.", " Prefill", " arithmetic",
-		" intensity", " is", " mapped", " to", " high", "-density", " Tensor",
-		" Cores,", " while", " autoregressive", " decode", " leverages", " high",
-		"-bandwidth", " Unified", " Memory", " fabrics.",
-	}
+	eng.metrics.RecordForward(ForwardMeasurement{
+		Position: len(promptTokens) - 1,
+		GPUTime:  prefillDur,
+		WallTime: prefillDur,
+		When:     time.Now(),
+	})
 
+	curPos := len(promptTokens)
+	tDec0 := time.Now()
 	for step := 0; step < maxTokens; step++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-		if eng.kvCache != nil {
-			eng.kvCache.Advance(1)
+		if curPos >= eng.mCfg.MaxSeqLen {
+			break
 		}
 
-		tokStr := tokens[step%len(tokens)]
-		tokIDs, _ := eng.tokenizer.Encode(tokStr)
-		var tokID int32 = int32(step)
-		if len(tokIDs) > 0 {
-			tokID = tokIDs[0]
-			decoded, err := eng.tokenizer.Decode([]int32{tokID})
-			if err == nil && decoded != "" {
-				tokStr = decoded
+		tokStr, _ := eng.tokenizer.Decode([]int32{nextTokID})
+		if !onToken(nextTokID, tokStr) {
+			break
+		}
+
+		tStep0 := time.Now()
+		tok, fErr := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, nextTokID, curPos, eng.stream)
+		if fErr != nil {
+			return fErr
+		}
+		stepDur := time.Since(tStep0)
+
+		eng.metrics.RecordForward(ForwardMeasurement{
+			Position: curPos,
+			GPUTime:  stepDur,
+			WallTime: stepDur,
+			When:     time.Now(),
+		})
+
+		nextTokID = tok
+		curPos++
+	}
+	decDur := time.Since(tDec0)
+
+	fmt.Printf("\n\n--- CUDA Performance Metrics ---\n")
+	fmt.Printf("Prefill Time : %v (%d prompt tokens)\n", prefillDur, len(promptTokens))
+	fmt.Printf("Decode Time  : %v (%d generated tokens)\n", decDur, maxTokens)
+	if decDur.Seconds() > 0 {
+		fmt.Printf("Throughput   : %.2f tokens/sec\n", float64(maxTokens)/decDur.Seconds())
+	}
+	return nil
+}
+
+// GenerateTokenIDs runs generation and returns the token IDs emitted by this engine.
+func (eng *ModelEngine) GenerateTokenIDs(ctx context.Context, cfg Config, prompt string, maxTokens int) ([]int32, error) {
+	var tokens []int32
+	err := eng.Generate(ctx, cfg, prompt, maxTokens, func(tokenID int32, _ string) bool {
+		tokens = append(tokens, tokenID)
+		return true
+	})
+	return tokens, err
+}
+
+// RunBenchSuite executes benchstat-compatible benchmark iterations on CUDA.
+func RunBenchSuite(cfg Config, count int) error {
+	eng, err := GetOrCompileCudaEngine(cfg)
+	if err != nil {
+		return fmt.Errorf("cuda engine: %w", err)
+	}
+
+	if eng.tokenizer == nil {
+		if cfg.ModelPath != "" {
+			tokPath := filepath.Join(cfg.ModelPath, "tokenizer.json")
+			if t, err := LoadHFTokenizer(tokPath); err == nil {
+				eng.tokenizer = t
 			}
 		}
-
-		if eng.recorder != nil {
-			eng.recorder.Record("CUDA_Forward_Pass", 320*time.Microsecond, [3]int{cfg.Dim, cfg.NumLayers, 1}, [3]int{128, 1, 1}, map[string]string{
-				"model": cfg.Name,
-				"pos":   fmt.Sprintf("%d", len(promptTokens)+step),
-			})
+		if eng.tokenizer == nil {
+			eng.tokenizer = NewByteTokenizer()
 		}
+	}
 
-		time.Sleep(15 * time.Millisecond) // realistic decode pacing (~65 tok/s)
-		if !onToken(tokID, tokStr) {
-			break
+	prompt := cfg.Prompt
+	if prompt == "" {
+		prompt = "The capital of France is"
+	}
+	promptTokens, err := eng.tokenizer.Encode(prompt)
+	if err != nil || len(promptTokens) == 0 {
+		promptTokens = []int32{1}
+	}
+	if cfg.BOSTokenID != 0 {
+		promptTokens = append([]int32{cfg.BOSTokenID}, promptTokens...)
+	}
+
+	numGen := cfg.GenTokens
+	if numGen <= 0 {
+		numGen = 16
+	}
+
+	// Warmup run
+	curr := GPUPrefillPass(eng, cfg, promptTokens)
+	for s := 0; s < 2; s++ {
+		curr = GPUForwardPass(eng, cfg, curr, len(promptTokens)+s)
+	}
+
+	searchDepths := cfg.SearchDepths
+	if len(searchDepths) == 0 {
+		depth := cfg.SearchGraphs
+		if depth <= 0 {
+			depth = 100
+		}
+		searchDepths = []int{depth}
+	}
+
+	for _, depth := range searchDepths {
+		prefix := fmt.Sprintf("Benchmark%s/backend=cuda/gen_tokens=%d/prompt=neural_network/search_graphs=%d", cfg.Name, numGen, depth)
+
+		for iter := 0; iter < count; iter++ {
+			t0 := time.Now()
+			currTok := GPUPrefillPass(eng, cfg, promptTokens)
+			ttftDur := time.Since(t0)
+
+			tDec0 := time.Now()
+			for step := 0; step < numGen; step++ {
+				pos := len(promptTokens) + step
+				currTok = GPUForwardPass(eng, cfg, currTok, pos)
+			}
+			decDur := time.Since(tDec0)
+
+			ttftNs := ttftDur.Nanoseconds()
+			tpotNs := (decDur / time.Duration(numGen)).Nanoseconds()
+			prefillTokPerSec := float64(len(promptTokens)) / ttftDur.Seconds()
+			decTokPerSec := float64(numGen) / decDur.Seconds()
+
+			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
+			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
+			fmt.Printf("%s/prefill-1 1 %.6f tok/s\n", prefix, prefillTokPerSec)
+			fmt.Printf("%s/decode-1 1 %.6f tok/s\n", prefix, decTokPerSec)
 		}
 	}
 	return nil
 }
+
