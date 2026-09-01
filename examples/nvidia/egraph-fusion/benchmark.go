@@ -13,11 +13,10 @@ import (
 )
 
 const benchKernelsCU = `
-#include <cuda_runtime.h>
-
 // --- Unfused Primitive Kernels ---
 
 extern "C" __global__ void kernel_rmsnorm(const float* __restrict__ x, const float* __restrict__ weight, float* __restrict__ out, int dim, float eps) {
+
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx >= dim) return;
     out[idx] = x[idx] * weight[idx];
