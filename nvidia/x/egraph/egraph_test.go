@@ -118,4 +118,16 @@ func TestCUDAMegakernelFusionRewrites(t *testing.T) {
 		t.Errorf("expected extracted best kernel to be 'fused_swiglu_gemv', got: %s", best.String())
 	}
 	t.Logf("Optimal Megakernel Plan extracted: %s (cost: %.2f)", best, cost)
+
+	// Test code generation from AST
+	cudaSrc, err := egraph.GenerateCUDA(best, egraph.CodegenOptions{
+		KernelName: "Kernel_FusedSwiGLU",
+		Precision:  "float",
+	})
+	if err != nil {
+		t.Fatalf("GenerateCUDA failed: %v", err)
+	}
+	if !strings.Contains(cudaSrc, "kernel_fused_swiglu") && !strings.Contains(cudaSrc, "Kernel_FusedSwiGLU") {
+		t.Errorf("expected generated CUDA source to contain Kernel_FusedSwiGLU:\n%s", cudaSrc)
+	}
 }
