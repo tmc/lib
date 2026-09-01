@@ -1,9 +1,13 @@
+//go:build darwin
+
 package main
 
 import (
 	"encoding/binary"
 	"sync"
 	"time"
+
+	"github.com/tmc/lib/apple/x/metal/metalkv"
 )
 
 // PrefixCacheMetrics reports cache activity from actual KV snapshot restores.
@@ -27,17 +31,22 @@ type prefixSnapshot struct {
 type prefixCache struct {
 	mu sync.Mutex
 
-	entries  map[string]*prefixSnapshot
-	maxBytes int64
-	maxItems int
-	bytes    int64
-	hits     int64
-	misses   int64
-	saved    int64
+	radix     *metalkv.RadixTree
+	blockMap  map[int]*prefixSnapshot
+	entries   map[string]*prefixSnapshot
+	maxBytes  int64
+	maxItems  int
+	bytes     int64
+	hits      int64
+	misses    int64
+	saved     int64
+	nextBlock int
 }
 
 func newPrefixCache(maxBytes int64, maxItems int) *prefixCache {
 	return &prefixCache{
+		radix:    metalkv.NewRadixTree(maxItems*4, 1),
+		blockMap: make(map[int]*prefixSnapshot),
 		entries:  make(map[string]*prefixSnapshot),
 		maxBytes: maxBytes,
 		maxItems: maxItems,
@@ -58,6 +67,20 @@ func (c *prefixCache) load(tokens []int32) (*prefixSnapshot, bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.radix != nil {
+		matchedCount, matchedBlocks, _ := c.radix.MatchPrefix(tokens)
+		if matchedCount > 0 && len(matchedBlocks) > 0 {
+			lastBlock := matchedBlocks[len(matchedBlocks)-1]
+			if entry, ok := c.blockMap[lastBlock]; ok && entry != nil {
+				entry.lastUsed = time.Now()
+				c.hits++
+				c.saved += int64(matchedCount)
+				return entry, true
+			}
+		}
+	}
+
 	for count := len(tokens); count > 0; count-- {
 		entry := c.entries[prefixKey(tokens[:count])]
 		if entry == nil {
@@ -99,6 +122,17 @@ func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 	snapshot.lastUsed = time.Now()
 	c.entries[key] = snapshot
 	c.bytes += snapshot.bytes
+
+	if c.radix != nil {
+		c.nextBlock++
+		blockID := c.nextBlock
+		blocks := make([]int, len(tokens))
+		for i := range blocks {
+			blocks[i] = blockID + i
+			c.blockMap[blocks[i]] = snapshot
+		}
+		_ = c.radix.Insert(tokens, blocks)
+	}
 }
 
 func (c *prefixCache) metrics() PrefixCacheMetrics {

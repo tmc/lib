@@ -356,6 +356,7 @@ type ExecutionPlan struct {
 type OpDispatch struct {
 	Name        string   `json:"name"`
 	Category    string   `json:"category"`
+	LayerIndex  int      `json:"layer_index,omitempty"`
 	Fused       bool     `json:"fused"`
 	Inputs      []string `json:"inputs"`
 	Outputs     []string `json:"outputs"`
@@ -416,40 +417,41 @@ func BuildExecutionPlan(cfg Config) *ExecutionPlan {
 	for l := 0; l < cfg.NumLayers; l++ {
 		if cfg.FuseEGraph {
 			plan.Ops = append(plan.Ops, OpDispatch{
-				Name:     "FusedRMSNormQKV",
-				Category: "norm_gemv_fusion",
-				Fused:    true,
-				Inputs:   []string{"x", "in_norm_w", "wq", "wk", "wv"},
-				Outputs:  []string{"q", "k", "v"},
+				Name:       "FusedRMSNormQKV",
+				Category:   "norm_gemv_fusion",
+				LayerIndex: l,
+				Fused:      true,
+				Inputs:     []string{"x", "in_norm_w", "wq", "wk", "wv"},
+				Outputs:    []string{"q", "k", "v"},
 			})
 		} else {
 			plan.Ops = append(plan.Ops,
-				OpDispatch{Name: "ComputeRMSNorm", Category: "norm", Inputs: []string{"x", "in_norm_w"}, Outputs: []string{"norm_x"}},
-				OpDispatch{Name: "FastGEMV_Q", Category: "gemv", Inputs: []string{"norm_x", "wq"}, Outputs: []string{"q"}},
-				OpDispatch{Name: "FastGEMV_K", Category: "gemv", Inputs: []string{"norm_x", "wk"}, Outputs: []string{"k"}},
-				OpDispatch{Name: "FastGEMV_V", Category: "gemv", Inputs: []string{"norm_x", "wv"}, Outputs: []string{"v"}},
+				OpDispatch{Name: "ComputeRMSNorm", Category: "norm", LayerIndex: l, Inputs: []string{"x", "in_norm_w"}, Outputs: []string{"norm_x"}},
+				OpDispatch{Name: "FastGEMV_Q", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wq"}, Outputs: []string{"q"}},
+				OpDispatch{Name: "FastGEMV_K", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wk"}, Outputs: []string{"k"}},
+				OpDispatch{Name: "FastGEMV_V", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wv"}, Outputs: []string{"v"}},
 			)
 		}
 
 		plan.Ops = append(plan.Ops,
-			OpDispatch{Name: "ApplyRoPEStoreKV", Category: "rope", Inputs: []string{"q", "k", "v"}, Outputs: []string{"k_cache", "v_cache"}},
-			OpDispatch{Name: "CausalFlashAttentionDecode", Category: "attention", Inputs: []string{"q", "k_cache", "v_cache"}, Outputs: []string{"attn_out"}},
-			OpDispatch{Name: "FastGEMVResidual_O", Category: "gemv", Inputs: []string{"attn_out", "wo"}, Outputs: []string{"x"}},
-			OpDispatch{Name: "ComputeRMSNorm_Post", Category: "norm", Inputs: []string{"x", "post_norm_w"}, Outputs: []string{"norm_x"}},
+			OpDispatch{Name: "ApplyRoPEStoreKV", Category: "rope", LayerIndex: l, Inputs: []string{"q", "k", "v"}, Outputs: []string{"k_cache", "v_cache"}},
+			OpDispatch{Name: "CausalFlashAttentionDecode", Category: "attention", LayerIndex: l, Inputs: []string{"q", "k_cache", "v_cache"}, Outputs: []string{"attn_out"}},
+			OpDispatch{Name: "FastGEMVResidual_O", Category: "gemv", LayerIndex: l, Inputs: []string{"attn_out", "wo"}, Outputs: []string{"x"}},
+			OpDispatch{Name: "ComputeRMSNorm_Post", Category: "norm", LayerIndex: l, Inputs: []string{"x", "post_norm_w"}, Outputs: []string{"norm_x"}},
 		)
 
 		if cfg.FuseEGraph {
 			plan.Ops = append(plan.Ops,
-				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
-				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
-				OpDispatch{Name: "FusedSwiGLUDown", Category: "swiglu_gemv_fusion", Fused: true, Inputs: []string{"ffn_gate", "ffn_up", "wdown"}, Outputs: []string{"x"}},
+				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
+				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
+				OpDispatch{Name: "FusedSwiGLUDown", Category: "swiglu_gemv_fusion", LayerIndex: l, Fused: true, Inputs: []string{"ffn_gate", "ffn_up", "wdown"}, Outputs: []string{"x"}},
 			)
 		} else {
 			plan.Ops = append(plan.Ops,
-				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
-				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
-				OpDispatch{Name: "FastSiLUMul", Category: "ffn", Inputs: []string{"ffn_gate", "ffn_up"}, Outputs: []string{"ffn_act"}},
-				OpDispatch{Name: "FastGEMVResidual_Down", Category: "gemv", Inputs: []string{"ffn_act", "wdown"}, Outputs: []string{"x"}},
+				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
+				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", LayerIndex: l, Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
+				OpDispatch{Name: "FastSiLUMul", Category: "ffn", LayerIndex: l, Inputs: []string{"ffn_gate", "ffn_up"}, Outputs: []string{"ffn_act"}},
+				OpDispatch{Name: "FastGEMVResidual_Down", Category: "gemv", LayerIndex: l, Inputs: []string{"ffn_act", "wdown"}, Outputs: []string{"x"}},
 			)
 		}
 	}

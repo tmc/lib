@@ -74,10 +74,17 @@ type ModelEngine struct {
 	psoRoPE        apple.MTLComputePipelineState
 	psoAttn        apple.MTLComputePipelineState
 	psoSiLUMul     apple.MTLComputePipelineState
-	psoFusedQKV    apple.MTLComputePipelineState
-	psoFusedSwiGLU apple.MTLComputePipelineState
-	psoSample      apple.MTLComputePipelineState
-	recorder       *metalprof.FlightRecorder
+	psoFusedQKV       apple.MTLComputePipelineState
+	psoFusedSwiGLU    apple.MTLComputePipelineState
+	psoSample         apple.MTLComputePipelineState
+	psoBatchedEmbed   apple.MTLComputePipelineState
+	psoBatchedNorm    apple.MTLComputePipelineState
+	psoBatchedGEMM    apple.MTLComputePipelineState
+	psoBatchedGEMMRes apple.MTLComputePipelineState
+	psoBatchedRoPE    apple.MTLComputePipelineState
+	psoBatchedAttn    apple.MTLComputePipelineState
+	psoBatchedSiLU    apple.MTLComputePipelineState
+	recorder          *metalprof.FlightRecorder
 	metrics        *RuntimeMetrics
 	generateMu     sync.Mutex
 	prefixes       *prefixCache
@@ -371,6 +378,13 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create ArgmaxSampling pipeline: %w", err)
 	}
+	psoBatchedEmbed, _ := dev.NewComputePipeline(lib, "BatchedEmbeddingLookup")
+	psoBatchedNorm, _ := dev.NewComputePipeline(lib, "BatchedRMSNorm")
+	psoBatchedGEMM, _ := dev.NewComputePipeline(lib, "BatchedGEMM")
+	psoBatchedGEMMRes, _ := dev.NewComputePipeline(lib, "BatchedGEMMResidual")
+	psoBatchedRoPE, _ := dev.NewComputePipeline(lib, "BatchedRoPE")
+	psoBatchedAttn, _ := dev.NewComputePipeline(lib, "BatchedCausalFlashAttention")
+	psoBatchedSiLU, _ := dev.NewComputePipeline(lib, "BatchedSiLUMul")
 
 	xBuf, _ := mempool.Alloc[float32](dev, cfg.Dim)
 	normXBuf, _ := mempool.Alloc[float32](dev, cfg.Dim)
@@ -669,10 +683,17 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		psoRoPE:        psoRoPE,
 		psoAttn:        psoAttn,
 		psoSiLUMul:     psoSiLUMul,
-		psoFusedQKV:    psoFusedQKV,
-		psoFusedSwiGLU: psoFusedSwiGLU,
-		psoSample:      psoSample,
-		xBuf:           xBuf,
+		psoFusedQKV:       psoFusedQKV,
+		psoFusedSwiGLU:    psoFusedSwiGLU,
+		psoSample:         psoSample,
+		psoBatchedEmbed:   psoBatchedEmbed,
+		psoBatchedNorm:    psoBatchedNorm,
+		psoBatchedGEMM:    psoBatchedGEMM,
+		psoBatchedGEMMRes: psoBatchedGEMMRes,
+		psoBatchedRoPE:    psoBatchedRoPE,
+		psoBatchedAttn:    psoBatchedAttn,
+		psoBatchedSiLU:    psoBatchedSiLU,
+		xBuf:              xBuf,
 		normXBuf:       normXBuf,
 		qBuf:           qBuf,
 		kBuf:           kBuf,
@@ -812,7 +833,466 @@ func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg
 	encodeForwardStepWithKV(enc, eng, cfg, eng.kCacheBuf, eng.vCacheBuf, tokenID, pos, isLast)
 }
 
+// ExecutePlan executes the authoritative, immutable ExecutionPlan on the GPU compute command encoder.
+func ExecutePlan(
+	enc apple.MTLComputeCommandEncoder,
+	eng *ModelEngine,
+	plan *ExecutionPlan,
+	cfg Config,
+	kCache, vCache []mempool.Slice[float32],
+	tokenID int32,
+	pos int,
+	isLast bool,
+) {
+	if plan == nil {
+		return
+	}
+
+	dimVal := uint32(cfg.Dim)
+	hiddenDimVal := uint32(cfg.HiddenDim)
+	qDimVal := uint32(cfg.NumHeads * cfg.HeadDim)
+	kvDimVal := uint32(cfg.NumKVHeads * cfg.HeadDim)
+	epsVal := cfg.Eps
+	thetaVal := cfg.RopeTheta
+	posVal := uint32(pos)
+	headDimVal := uint32(cfg.HeadDim)
+	qHeadsVal := uint32(cfg.NumHeads)
+	kvHeadsVal := uint32(cfg.NumKVHeads)
+	scaleVal := float32(1.0 / math.Sqrt(float64(cfg.HeadDim)))
+	vocabVal := uint32(cfg.VocabSize)
+	tokVal := uint32(tokenID)
+
+	gemvThreads := 128
+	psoGEMV := eng.psoGEMV
+	psoGEMVRes := eng.psoGEMVRes
+	psoGEMVH := eng.psoGEMVH
+	psoGEMVResH := eng.psoGEMVResH
+	if eng.tuner != nil && eng.tuner.Width() == 64 {
+		gemvThreads = 64
+		psoGEMV = eng.psoGEMV64
+		psoGEMVRes = eng.psoGEMVRes64
+		psoGEMVH = eng.psoGEMV64H
+		psoGEMVResH = eng.psoGEMVRes64H
+	}
+
+	for _, op := range plan.Ops {
+		l := op.LayerIndex
+		switch op.Name {
+		case "EmbeddingLookup":
+			if eng.isF16 {
+				enc.SetComputePipelineState(eng.psoEmbedH)
+				enc.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
+			} else {
+				enc.SetComputePipelineState(eng.psoEmbed)
+				enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 1)
+			setScalar(enc, tokVal, 2)
+			setScalar(enc, dimVal, 3)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "FusedRMSNormQKV":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(eng.psoNormH)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, epsVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+				)
+
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 2)
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, qDimVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+				)
+
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 2)
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, kvDimVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+				)
+
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, kvDimVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+				)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(eng.psoFusedQKV)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 2)
+				enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 3)
+				enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 4)
+				enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 5)
+				enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 6)
+				enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 7)
+				setScalar(enc, dimVal, 8)
+				setScalar(enc, qDimVal, 9)
+				setScalar(enc, kvDimVal, 10)
+				setScalar(enc, epsVal, 11)
+				maxRows := cfg.NumHeads * cfg.HeadDim
+				if cfg.NumKVHeads*cfg.HeadDim > maxRows {
+					maxRows = cfg.NumKVHeads * cfg.HeadDim
+				}
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(maxRows), Height: 1, Depth: 1},
+					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+				)
+			}
+
+		case "ComputeRMSNorm":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(eng.psoNormH)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(eng.psoNorm)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			}
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "FastGEMV_Q":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMV)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, qDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "FastGEMV_K":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMV)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, kvDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "FastGEMV_V":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMV)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, kvDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "ApplyRoPEStoreKV":
+			enc.SetComputePipelineState(eng.psoRoPE)
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 3)
+			enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 4)
+			setScalar(enc, posVal, 5)
+			setScalar(enc, headDimVal, 6)
+			setScalar(enc, qHeadsVal, 7)
+			setScalar(enc, kvHeadsVal, 8)
+			setScalar(enc, thetaVal, 9)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "CausalFlashAttentionDecode":
+			enc.SetComputePipelineState(eng.psoAttn)
+			enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 3)
+			setScalar(enc, int32(pos), 4)
+			setScalar(enc, int32(cfg.MaxSeqLen), 5)
+			setScalar(enc, int32(cfg.NumHeads), 6)
+			setScalar(enc, int32(cfg.NumKVHeads), 7)
+			setScalar(enc, int32(cfg.HeadDim), 8)
+			setScalar(enc, scaleVal, 9)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.NumHeads), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "FastGEMVResidual_O":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVResH)
+				enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WO.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMVRes)
+				enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WO.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, dimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "ComputeRMSNorm_Post":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(eng.psoNormH)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.PostNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(eng.psoNorm)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.PostNorm.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+			}
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, epsVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "FastGEMV_Gate":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMV)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, hiddenDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "FastGEMV_Up":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVH)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMV)
+				enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 2)
+			setScalar(enc, dimVal, 3)
+			setScalar(enc, hiddenDimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "FusedSwiGLUDown":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(eng.psoSiLUMul)
+				enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 2)
+				setScalar(enc, hiddenDimVal, 3)
+				enc.DispatchThreadsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+				)
+
+				enc.SetComputePipelineState(psoGEMVResH)
+				enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+				setScalar(enc, hiddenDimVal, 3)
+				setScalar(enc, dimVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+				)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(eng.psoFusedSwiGLU)
+				enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 1)
+				enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 2)
+				enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 3)
+				setScalar(enc, dimVal, 4)
+				setScalar(enc, hiddenDimVal, 5)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+				)
+			}
+
+		case "FastSiLUMul":
+			enc.SetComputePipelineState(eng.psoSiLUMul)
+			enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 0)
+			enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 1)
+			enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 2)
+			setScalar(enc, hiddenDimVal, 3)
+			enc.DispatchThreadsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+			)
+
+		case "FastGEMVResidual_Down":
+			if eng.isF16 {
+				layer := &eng.layersF16[l]
+				enc.SetComputePipelineState(psoGEMVResH)
+				enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+			} else {
+				layer := &eng.layers[l]
+				enc.SetComputePipelineState(psoGEMVRes)
+				enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+			}
+			enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+			setScalar(enc, hiddenDimVal, 3)
+			setScalar(enc, dimVal, 4)
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
+				apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
+				apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+			)
+
+		case "ComputeRMSNorm_Final":
+			if isLast {
+				if eng.isF16 {
+					enc.SetComputePipelineState(eng.psoNormH)
+					enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+					enc.SetBufferWithOffsetAtIndex(eng.finalNormWF16.Buffer(), 0, 1)
+					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+				} else {
+					enc.SetComputePipelineState(eng.psoNorm)
+					enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
+					enc.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
+					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+				}
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, epsVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+				)
+			}
+
+		case "FastGEMV_LMHead":
+			if isLast {
+				if eng.isF16 {
+					enc.SetComputePipelineState(psoGEMVH)
+					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+					enc.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 1)
+					enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+				} else {
+					enc.SetComputePipelineState(psoGEMV)
+					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+					enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
+					enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+				}
+				setScalar(enc, dimVal, 3)
+				setScalar(enc, vocabVal, 4)
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
+					apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
+					apple.MTLSize{Width: uint(gemvThreads), Height: 1, Depth: 1},
+				)
+			}
+
+		case "ArgmaxSampling":
+			if isLast {
+				enc.SetComputePipelineState(eng.psoSample)
+				enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+				setScalar(enc, vocabVal, 2)
+				enc.DispatchThreadsThreadsPerThreadgroup(
+					apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+					apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+				)
+			}
+		}
+	}
+}
+
 func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
+	if eng.Plan != nil {
+		ExecutePlan(enc, eng, eng.Plan, cfg, kCache, vCache, tokenID, pos, isLast)
+		return
+	}
+
 	gemvThreads := 128
 	psoGEMV := eng.psoGEMV
 	psoGEMVRes := eng.psoGEMVRes
@@ -1443,6 +1923,365 @@ func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, prompt
 	cb.Commit()
 	cb.WaitUntilCompleted()
 	return eng.tokBuf.HostSlice()[0], nil
+}
+
+// encodeBatchedPrefillWithKV executes true matrix-matrix GEMM prefill for a sequence of prompt tokens.
+func encodeBatchedPrefillWithKV(
+	enc apple.MTLComputeCommandEncoder,
+	eng *ModelEngine,
+	cfg Config,
+	kCache, vCache []mempool.Slice[float32],
+	promptTokens []int32,
+	startPos int,
+	xMat, normXMat, qMat, kMat, vMat, attnOutMat, gateMat, upMat, ffnActMat mempool.Slice[float32],
+	tokInBuf mempool.Slice[int32],
+) {
+	seqLen := len(promptTokens)
+	if seqLen == 0 {
+		return
+	}
+	copy(tokInBuf.HostSlice()[:seqLen], promptTokens)
+
+	seqLenVal := uint32(seqLen)
+	dimVal := uint32(cfg.Dim)
+	hiddenDimVal := uint32(cfg.HiddenDim)
+	qDimVal := uint32(cfg.NumHeads * cfg.HeadDim)
+	kvDimVal := uint32(cfg.NumKVHeads * cfg.HeadDim)
+	startPosVal := uint32(startPos)
+	headDimVal := uint32(cfg.HeadDim)
+	qHeadsVal := uint32(cfg.NumHeads)
+	kvHeadsVal := uint32(cfg.NumKVHeads)
+	thetaVal := cfg.RopeTheta
+	epsVal := cfg.Eps
+	scaleVal := float32(1.0 / math.Sqrt(float64(cfg.HeadDim)))
+	vocabVal := uint32(cfg.VocabSize)
+	totalFFNElems := uint32(seqLen * cfg.HiddenDim)
+
+	// 1. Batched Embedding Lookup
+	enc.SetComputePipelineState(eng.psoBatchedEmbed)
+	enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(tokInBuf.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), 0, 2)
+	setScalar(enc, seqLenVal, 3)
+	setScalar(enc, dimVal, 4)
+	enc.DispatchThreadsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(seqLen * cfg.Dim), Height: 1, Depth: 1},
+		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+	)
+
+	// 2. Transformer Decoder Layers
+	for l := 0; l < cfg.NumLayers; l++ {
+		layer := &eng.layers[l]
+		if layer.InputNorm.Len() == 0 {
+			continue
+		}
+
+		// (a) Batched Input RMSNorm
+		enc.SetComputePipelineState(eng.psoBatchedNorm)
+		enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, epsVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// (b) Batched Q, K, V Matrix Multiplications (GEMM)
+		enc.SetComputePipelineState(eng.psoBatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(qMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, qDimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		enc.SetComputePipelineState(eng.psoBatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(kMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, kvDimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		enc.SetComputePipelineState(eng.psoBatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(vMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, kvDimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// (c) Batched RoPE + Store KV cache
+		enc.SetComputePipelineState(eng.psoBatchedRoPE)
+		enc.SetBufferWithOffsetAtIndex(qMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(kMat.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(vMat.Buffer(), 0, 2)
+		enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 3)
+		enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 4)
+		setScalar(enc, seqLenVal, 5)
+		setScalar(enc, startPosVal, 6)
+		setScalar(enc, headDimVal, 7)
+		setScalar(enc, qHeadsVal, 8)
+		setScalar(enc, kvHeadsVal, 9)
+		setScalar(enc, thetaVal, 10)
+		enc.DispatchThreadsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		)
+
+		// (d) Batched Causal FlashAttention
+		enc.SetComputePipelineState(eng.psoBatchedAttn)
+		enc.SetBufferWithOffsetAtIndex(qMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 2)
+		enc.SetBufferWithOffsetAtIndex(attnOutMat.Buffer(), 0, 3)
+		setScalar(enc, seqLenVal, 4)
+		setScalar(enc, startPosVal, 5)
+		setScalar(enc, qHeadsVal, 6)
+		setScalar(enc, kvHeadsVal, 7)
+		setScalar(enc, headDimVal, 8)
+		setScalar(enc, scaleVal, 9)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.NumHeads), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// (e) Batched Out Proj + Residual Add
+		enc.SetComputePipelineState(eng.psoBatchedGEMMRes)
+		enc.SetBufferWithOffsetAtIndex(attnOutMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WO.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, dimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.Dim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// (f) Batched Post-Attention RMSNorm
+		enc.SetComputePipelineState(eng.psoBatchedNorm)
+		enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.PostNorm.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, epsVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// (g) Batched SwiGLU FFN: Gate + Up GEMMs
+		enc.SetComputePipelineState(eng.psoBatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(gateMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, hiddenDimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.HiddenDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		enc.SetComputePipelineState(eng.psoBatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(normXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(upMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, dimVal, 4)
+		setScalar(enc, hiddenDimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.HiddenDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// Elementwise silu(gate) * up
+		enc.SetComputePipelineState(eng.psoBatchedSiLU)
+		enc.SetBufferWithOffsetAtIndex(gateMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(upMat.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(ffnActMat.Buffer(), 0, 2)
+		setScalar(enc, totalFFNElems, 3)
+		enc.DispatchThreadsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(totalFFNElems), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// Down GEMM + Residual Add: xMat += ffnActMat * WDown^T
+		enc.SetComputePipelineState(eng.psoBatchedGEMMRes)
+		enc.SetBufferWithOffsetAtIndex(ffnActMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), 0, 2)
+		setScalar(enc, seqLenVal, 3)
+		setScalar(enc, hiddenDimVal, 4)
+		setScalar(enc, dimVal, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(seqLen * cfg.Dim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+	}
+
+	// 3. Final RMSNorm on the LAST token row (seqLen - 1)
+	lastRowOffset := uint((seqLen - 1) * cfg.Dim * 4) // bytes
+	enc.SetComputePipelineState(eng.psoNorm)
+	enc.SetBufferWithOffsetAtIndex(xMat.Buffer(), lastRowOffset, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+	setScalar(enc, dimVal, 3)
+	setScalar(enc, epsVal, 4)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+	)
+
+	// 4. LM Head Logits on the last token
+	enc.SetComputePipelineState(eng.psoGEMV)
+	enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+	setScalar(enc, dimVal, 3)
+	setScalar(enc, vocabVal, 4)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
+		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+	)
+
+	// 5. GPU Hardware Argmax Sampling
+	enc.SetComputePipelineState(eng.psoSample)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+	setScalar(enc, vocabVal, 2)
+	enc.DispatchThreadsThreadsPerThreadgroup(
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+	)
+}
+
+// GPUBatchedPrefillPass executes prompt prefill across all prompt tokens via matrix GEMMs.
+func GPUBatchedPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (int32, error) {
+	return GPUBatchedPrefillPassKV(eng, cfg, nil, promptTokens, 0)
+}
+
+// GPUBatchedPrefillPassKV executes prompt prefill via matrix GEMMs using an isolated SequenceKVCache.
+func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32, startPos int) (int32, error) {
+	seqLen := len(promptTokens)
+	if seqLen == 0 {
+		return 0, nil
+	}
+	if eng == nil {
+		return 0, errors.New("batched prefill pass: nil engine")
+	}
+
+	dev := eng.dev
+	xMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.Dim)
+	defer xMat.Free()
+	normXMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.Dim)
+	defer normXMat.Free()
+	qMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.NumHeads*cfg.HeadDim)
+	defer qMat.Free()
+	kMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.NumKVHeads*cfg.HeadDim)
+	defer kMat.Free()
+	vMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.NumKVHeads*cfg.HeadDim)
+	defer vMat.Free()
+	attnOutMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.Dim)
+	defer attnOutMat.Free()
+	gateMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.HiddenDim)
+	defer gateMat.Free()
+	upMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.HiddenDim)
+	defer upMat.Free()
+	ffnActMat, _ := mempool.Alloc[float32](dev, seqLen*cfg.HiddenDim)
+	defer ffnActMat.Free()
+	tokInBuf, _ := mempool.Alloc[int32](dev, seqLen)
+	defer tokInBuf.Free()
+
+	queue := dev.Queue()
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+
+	kCache := eng.kCacheBuf
+	vCache := eng.vCacheBuf
+	if skv != nil && len(skv.KCache) == cfg.NumLayers {
+		kCache = skv.KCache
+		vCache = skv.VCache
+	}
+
+	encodeBatchedPrefillWithKV(enc, eng, cfg, kCache, vCache, promptTokens, startPos,
+		xMat, normXMat, qMat, kMat, vMat, attnOutMat, gateMat, upMat, ffnActMat, tokInBuf)
+	enc.EndEncoding()
+
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
+	return eng.tokBuf.HostSlice()[0], nil
+}
+
+// GPUBatchDecodeStep executes concurrent single-token decode for multiple active sequences in a single command buffer.
+func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCache, batchTokens []int32, batchPositions []int) ([]int32, error) {
+	batchSize := len(batchTokens)
+	if batchSize == 0 {
+		return nil, nil
+	}
+	if len(batchPositions) != batchSize || len(batchKVs) != batchSize {
+		return nil, fmt.Errorf("batch size mismatch: tokens=%d, positions=%d, kvs=%d", batchSize, len(batchPositions), len(batchKVs))
+	}
+	if eng == nil {
+		return nil, errors.New("batch decode: nil engine")
+	}
+
+	dev := eng.dev
+	tokOutBuf, _ := mempool.Alloc[int32](dev, batchSize)
+	defer tokOutBuf.Free()
+
+	queue := dev.Queue()
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+
+	vocabVal := uint32(cfg.VocabSize)
+	for b := 0; b < batchSize; b++ {
+		skv := batchKVs[b]
+		kCache := eng.kCacheBuf
+		vCache := eng.vCacheBuf
+		if skv != nil && len(skv.KCache) == cfg.NumLayers {
+			kCache = skv.KCache
+			vCache = skv.VCache
+		}
+		encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, batchTokens[b], batchPositions[b], true)
+
+		outOffset := uint(b * 4)
+		enc.SetComputePipelineState(eng.psoSample)
+		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(tokOutBuf.Buffer(), outOffset, 1)
+		setScalar(enc, vocabVal, 2)
+		enc.DispatchThreadsThreadsPerThreadgroup(
+			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		)
+		enc.MemoryBarrierWithScope(apple.MTLBarrierScopeBuffers)
+	}
+	enc.EndEncoding()
+
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
+	outTokens := make([]int32, batchSize)
+	copy(outTokens, tokOutBuf.HostSlice()[:batchSize])
+	return outTokens, nil
 }
 
 // runFastMetalInference executes all autoregressive decode iterations.

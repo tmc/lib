@@ -1,3 +1,5 @@
+//go:build darwin
+
 package main
 
 import (
@@ -340,4 +342,176 @@ func TestFP16VsFP32Equivalence(t *testing.T) {
 	if tok32_1 != tok16_1 {
 		t.Fatalf("step 1 token mismatch: F32 %d vs F16 %d", tok32_1, tok16_1)
 	}
+}
+
+func TestBatchedVsSequentialPrefillEquivalence(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	engSeq, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	prompt := []int32{12, 45, 99, 102}
+
+	// 1. Sequential Prefill
+	engSeq.ResetKV()
+	tokSeq := GPUPrefillPass(engSeq, cfg, prompt)
+	logitsSeq, err := engSeq.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits sequential failed: %v", err)
+	}
+
+	// 2. True Batched Matrix-Matrix Prefill
+	engBatch, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+	engBatch.ResetKV()
+	tokBatch, err := GPUBatchedPrefillPass(engBatch, cfg, prompt)
+	if err != nil {
+		t.Fatalf("GPUBatchedPrefillPass failed: %v", err)
+	}
+	logitsBatch, err := engBatch.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits batched failed: %v", err)
+	}
+
+	var maxDiff float32
+	for i := range logitsSeq {
+		diff := float32(math.Abs(float64(logitsSeq[i] - logitsBatch[i])))
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+	t.Logf("Sequential vs Batched Prefill Max Diff: %f (Seq tok: %d, Batch tok: %d)", maxDiff, tokSeq, tokBatch)
+	if maxDiff > 0.01 {
+		t.Fatalf("Sequential vs Batched Prefill logit diff %f exceeds tolerance 0.01", maxDiff)
+	}
+	if tokSeq != tokBatch {
+		t.Fatalf("prefill token mismatch: Sequential %d vs Batched %d", tokSeq, tokBatch)
+	}
+}
+
+func TestAuthoritativePlanDispatch(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	if eng.Plan == nil {
+		t.Fatalf("expected non-nil ExecutionPlan on engine")
+	}
+	if len(eng.Plan.Ops) == 0 {
+		t.Fatalf("expected ExecutionPlan to contain planned ops, got 0")
+	}
+
+	eng.ResetKV()
+	tok0 := GPUForwardPass(eng, cfg, 42, 0)
+	logits0, err := eng.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits failed: %v", err)
+	}
+
+	if tok0 != 100 {
+		t.Errorf("expected token 100 from plan-driven forward pass, got %d", tok0)
+	}
+	if len(logits0) != cfg.VocabSize {
+		t.Errorf("expected logits size %d, got %d", cfg.VocabSize, len(logits0))
+	}
+}
+
+func TestMultiSequenceBatchedDecodeEquivalence(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	skvSingle0, _ := eng.NewSequenceKV(cfg)
+	defer skvSingle0.Free()
+	skvSingle1, _ := eng.NewSequenceKV(cfg)
+	defer skvSingle1.Free()
+
+	skvBatch0, _ := eng.NewSequenceKV(cfg)
+	defer skvBatch0.Free()
+	skvBatch1, _ := eng.NewSequenceKV(cfg)
+	defer skvBatch1.Free()
+
+	// Prefill sequences
+	_, _ = GPUPrefillPassKV(eng, cfg, skvSingle0, []int32{12, 45})
+	_, _ = GPUPrefillPassKV(eng, cfg, skvSingle1, []int32{88, 102})
+	_, _ = GPUPrefillPassKV(eng, cfg, skvBatch0, []int32{12, 45})
+	_, _ = GPUPrefillPassKV(eng, cfg, skvBatch1, []int32{88, 102})
+
+	// 1. Single forward pass for each sequence independently
+	tokSingle0, err := GPUForwardPassKV(eng, cfg, skvSingle0, 99, 2)
+	if err != nil {
+		t.Fatalf("Forward single seq 0 failed: %v", err)
+	}
+	tokSingle1, err := GPUForwardPassKV(eng, cfg, skvSingle1, 201, 2)
+	if err != nil {
+		t.Fatalf("Forward single seq 1 failed: %v", err)
+	}
+
+	// 2. Batch decode step for both sequences concurrently
+	batchTokens := []int32{99, 201}
+	batchPositions := []int{2, 2}
+	batchKVs := []*SequenceKVCache{skvBatch0, skvBatch1}
+
+	batchOut, err := GPUBatchDecodeStep(eng, cfg, batchKVs, batchTokens, batchPositions)
+	if err != nil {
+		t.Fatalf("GPUBatchDecodeStep failed: %v", err)
+	}
+
+	if len(batchOut) != 2 {
+		t.Fatalf("expected 2 batch outputs, got %d", len(batchOut))
+	}
+	t.Logf("Seq 0: Single=%d, Batch=%d | Seq 1: Single=%d, Batch=%d", tokSingle0, batchOut[0], tokSingle1, batchOut[1])
+	if batchOut[0] != tokSingle0 {
+		t.Fatalf("Seq 0 token mismatch: Single %d vs Batch %d", tokSingle0, batchOut[0])
+	}
+	if batchOut[1] != tokSingle1 {
+		t.Fatalf("Seq 1 token mismatch: Single %d vs Batch %d", tokSingle1, batchOut[1])
+	}
+}
+
+func TestRadixPrefixReuseIntegration(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	systemPrompt := []int32{1, 50, 60, 70, 80}
+	userPrompt1 := append(append([]int32(nil), systemPrompt...), 91, 92)
+	userPrompt2 := append(append([]int32(nil), systemPrompt...), 101, 102)
+
+	eng.prefixes = newPrefixCache(64<<20, 16)
+	eng.ResetKV()
+
+	// 1. First request with userPrompt1
+	_ = GPUPrefillPass(eng, cfg, userPrompt1)
+	snap1 := eng.capturePrefix(len(userPrompt1), 0, cfg)
+	eng.prefixes.store(userPrompt1, snap1)
+
+	m1 := eng.prefixes.metrics()
+	if m1.Entries != 1 {
+		t.Fatalf("expected 1 cache entry, got %d", m1.Entries)
+	}
+
+	// 2. Second request with userPrompt2 sharing the 5-token system prompt prefix
+	snapMatched, found := eng.prefixes.load(userPrompt2)
+	if !found || snapMatched == nil {
+		t.Fatalf("expected radix prefix match for shared system prompt")
+	}
+
+	m2 := eng.prefixes.metrics()
+	if m2.Hits < 1 {
+		t.Errorf("expected at least 1 prefix cache hit, got %d", m2.Hits)
+	}
+	if m2.SavedTokens < int64(len(systemPrompt)) {
+		t.Errorf("expected at least %d saved tokens, got %d", len(systemPrompt), m2.SavedTokens)
+	}
+	t.Logf("Radix Prefix Reuse: Hits=%d, SavedTokens=%d", m2.Hits, m2.SavedTokens)
 }

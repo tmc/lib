@@ -422,10 +422,37 @@ func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
 	return tok
 }
 
+// GPUBatchedPrefillPass executes prompt prefill on CUDA.
+func GPUBatchedPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (int32, error) {
+	return GPUPrefillPassKV(eng, cfg, nil, promptTokens)
+}
+
+// GPUBatchedPrefillPassKV executes prompt prefill on CUDA with explicit KV cache.
+func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32, startPos int) (int32, error) {
+	return GPUPrefillPassKV(eng, cfg, skv, promptTokens)
+}
+
 // GPUForwardPass executes a single decode step on CUDA.
 func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 {
 	tok, _ := GPUForwardPassKV(eng, cfg, nil, tokenID, pos)
 	return tok
+}
+
+// GPUBatchDecodeStep executes concurrent single-token decode for multiple active sequences on CUDA.
+func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCache, batchTokens []int32, batchPositions []int) ([]int32, error) {
+	batchSize := len(batchTokens)
+	if batchSize == 0 {
+		return nil, nil
+	}
+	outTokens := make([]int32, batchSize)
+	for b := 0; b < batchSize; b++ {
+		tok, err := GPUForwardPassKV(eng, cfg, batchKVs[b], batchTokens[b], batchPositions[b])
+		if err != nil {
+			return nil, err
+		}
+		outTokens[b] = tok
+	}
+	return outTokens, nil
 }
 
 // PrefillStep consumes promptTokens and reports how long it took.
