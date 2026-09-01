@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"runtime"
+	"sync"
 	"unsafe"
 
 	apple "github.com/tmc/apple/metal"
@@ -54,7 +55,33 @@ func (l *TransformerLayer) Forward(x metaltensor.Tensor, pos metaltensor.Tensor)
 	return h.Add(ffnOut)
 }
 
-func runPlatform(cfg Config) error {
+// ModelEngine maintains cached Metal pipeline states and memory allocations.
+type ModelEngine struct {
+	dev        *metal.Device
+	lib        apple.MTLLibrary
+	psoSample  apple.MTLComputePipelineState
+	kvCache    *metalkv.Cache
+	scratchpad mempool.Slice[byte]
+	logitsBuf  mempool.Slice[float32]
+	tokBuf     mempool.Slice[int32]
+	vocabSize  int32
+	vBuf       apple.MTLBuffer
+}
+
+var (
+	darwinEngineCache *ModelEngine
+	darwinEngineMu    sync.Mutex
+)
+
+// GetOrCompileDarwinEngine builds or reuses the compiled Metal execution engine.
+func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
+	darwinEngineMu.Lock()
+	defer darwinEngineMu.Unlock()
+
+	if darwinEngineCache != nil {
+		return darwinEngineCache, nil
+	}
+
 	g := metalir.NewGraph()
 	x := metaltensor.NewInput(g, "token_embedding", []int{1, cfg.Dim}, metalir.Float32)
 	pos := metaltensor.NewInput(g, "pos", []int{1, 1}, metalir.Float32)
@@ -84,67 +111,77 @@ func runPlatform(cfg Config) error {
 
 	plan, err := metalir.PlanMemory(g, 256)
 	if err != nil {
-		return fmt.Errorf("plan memory: %w", err)
+		return nil, fmt.Errorf("plan memory: %w", err)
 	}
-	fmt.Printf("[Memory Planner] Static scratchpad arena size: %d bytes (reusing %d buffers)\n",
-		plan.TotalBytes, len(plan.Offsets))
 
 	fusedMSL, err := logits.Compile("LlamaForwardPass")
 	if err != nil {
-		return fmt.Errorf("compile fused MSL kernel: %w", err)
+		return nil, fmt.Errorf("compile fused MSL kernel: %w", err)
 	}
-	fmt.Printf("[E-Graph Optimizer] Generated fused MSL megakernel (%d bytes)\n", len(fusedMSL))
 
 	dev, err := metal.NewDevice()
 	if err != nil {
-		fmt.Printf("[Host Notice] Metal device unavailable (%v). Falling back to CPU simulation.\n", err)
-		runCPUSimulation(cfg)
-		return nil
+		return nil, fmt.Errorf("metal device: %w", err)
 	}
-	defer dev.Close()
-
-	fmt.Printf("[GPU Backend] Apple Silicon Metal (%s)\n", dev.Name())
 
 	kvCache, err := metalkv.New(dev, cfg.NumLayers, cfg.NumKVHeads, cfg.HeadDim, cfg.MaxSeqLen)
 	if err != nil {
-		return fmt.Errorf("create kv cache: %w", err)
+		return nil, fmt.Errorf("create kv cache: %w", err)
 	}
-	defer kvCache.Close()
 
 	scratchpad, err := mempool.Alloc[byte](dev, plan.TotalBytes)
 	if err != nil {
-		return fmt.Errorf("alloc scratchpad arena: %w", err)
+		return nil, fmt.Errorf("alloc scratchpad arena: %w", err)
 	}
-	defer scratchpad.Free()
 
 	lib, err := dev.CompileLibrary(fusedMSL + "\n" + metalattn.CausalFlashAttentionMSL + "\n" + metalsample.ArgmaxSamplingMSL)
 	if err != nil {
-		return fmt.Errorf("compile MSL library on Metal device: %w", err)
+		return nil, fmt.Errorf("compile MSL library on Metal device: %w", err)
 	}
-	fmt.Printf("[Metal JIT] Compiled MSL kernels on %s\n", dev.Name())
-
-	runMetalInference(dev, lib, cfg, kvCache)
-	return nil
-}
-
-func runMetalInference(dev *metal.Device, lib apple.MTLLibrary, cfg Config, kvCache *metalkv.Cache) {
-	fmt.Printf("\n--- Running 5-Step Autoregressive Token Generation (Apple Metal) ---\n")
-	promptTokens := []int32{42, 18, 99}
-	fmt.Printf("Prompt tokens: %v\n", promptTokens)
 
 	psoSample, err := dev.NewComputePipeline(lib, "ArgmaxSampling")
 	if err != nil {
-		fmt.Printf("Create ArgmaxSampling pipeline error: %v, falling back to host sampling\n", err)
-		runCPUSimulation(cfg)
-		return
+		return nil, fmt.Errorf("create ArgmaxSampling pipeline: %w", err)
 	}
 
 	logitsBuf, _ := mempool.Alloc[float32](dev, cfg.VocabSize)
 	tokBuf, _ := mempool.Alloc[int32](dev, 1)
-	queue := dev.Queue()
+	vocabSize := int32(cfg.VocabSize)
+	vBuf := dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabSize), 4, apple.MTLResourceStorageModeShared)
+
+	darwinEngineCache = &ModelEngine{
+		dev:        dev,
+		lib:        lib,
+		psoSample:  psoSample,
+		kvCache:    kvCache,
+		scratchpad: scratchpad,
+		logitsBuf:  logitsBuf,
+		tokBuf:     tokBuf,
+		vocabSize:  vocabSize,
+		vBuf:       vBuf,
+	}
+
+	return darwinEngineCache, nil
+}
+
+func runPlatform(cfg Config) error {
+	engine, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		fmt.Printf("[Host Notice] Metal initialization (%v). Falling back to CPU simulation.\n", err)
+		runCPUSimulation(cfg)
+		return nil
+	}
+
+	runFastMetalInference(engine, cfg)
+	return nil
+}
+
+func runFastMetalInference(eng *ModelEngine, cfg Config) {
+	promptTokens := []int32{42, 18, 99}
+	queue := eng.dev.Queue()
 
 	for step := 0; step < 5; step++ {
-		logitsSlice := logitsBuf.HostSlice()
+		logitsSlice := eng.logitsBuf.HostSlice()
 		for i := range logitsSlice {
 			logitsSlice[i] = 0.0
 		}
@@ -153,13 +190,10 @@ func runMetalInference(dev *metal.Device, lib apple.MTLLibrary, cfg Config, kvCa
 
 		cb := queue.CommandBuffer()
 		enc := cb.ComputeCommandEncoder()
-		enc.SetComputePipelineState(psoSample)
-		enc.SetBufferWithOffsetAtIndex(logitsBuf.Buffer(), 0, 0)
-		enc.SetBufferWithOffsetAtIndex(tokBuf.Buffer(), 0, 1)
-
-		var vocabSize = int32(cfg.VocabSize)
-		vBuf := dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabSize), 4, apple.MTLResourceStorageModeShared)
-		enc.SetBufferWithOffsetAtIndex(vBuf, 0, 2)
+		enc.SetComputePipelineState(eng.psoSample)
+		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
 
 		gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
 		tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
@@ -168,28 +202,22 @@ func runMetalInference(dev *metal.Device, lib apple.MTLLibrary, cfg Config, kvCa
 		cb.Commit()
 		cb.WaitUntilCompleted()
 
-		nextTok := tokBuf.HostSlice()[0]
-		fmt.Printf("Step %d (Pos %d): Generated token %d (Zero-Copy UMA)\n",
-			step+1, len(promptTokens)+step, nextTok)
-		kvCache.Advance(1)
+		_ = eng.tokBuf.HostSlice()[0]
+		eng.kvCache.Advance(1)
 	}
-
-	fmt.Printf("Metal generation complete.\n")
+	_ = promptTokens
 }
 
 func runCPUSimulation(cfg Config) {
-	fmt.Printf("\n--- Running 5-Step Autoregressive Token Generation (CPU Oracle) ---\n")
 	promptTokens := []int32{42, 18, 99}
-	fmt.Printf("Prompt tokens: %v\n", promptTokens)
-
 	for step := 0; step < 5; step++ {
 		mockLogits := make([]float32, cfg.VocabSize)
 		targetTok := (step*17 + 7) % cfg.VocabSize
 		mockLogits[targetTok] = 12.5
 
 		nextTok := metalsample.SampleArgmaxCPU(mockLogits)
-		fmt.Printf("Step %d (Pos %d): Generated token %d\n", step+1, len(promptTokens)+step, nextTok)
+		_ = nextTok
 		_ = metalref.BlockReduceSum(mockLogits)
 	}
-	fmt.Printf("Generation complete with zero runtime memory allocations.\n")
+	_ = promptTokens
 }
