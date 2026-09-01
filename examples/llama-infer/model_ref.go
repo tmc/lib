@@ -23,9 +23,12 @@ type ModelConfig struct {
 	RmsNormEps        float32      `json:"rms_norm_eps"`
 	RopeTheta         float32      `json:"rope_theta"`
 	MaxSeqLen         int          `json:"max_position_embeddings"`
-	TieWordEmbeddings bool         `json:"tie_word_embeddings"`
-	FuseEGraph        bool         `json:"fuse_egraph"`
-	TextConfig        *ModelConfig `json:"text_config,omitempty"`
+	TieWordEmbeddings bool            `json:"tie_word_embeddings"`
+	FuseEGraph        bool            `json:"fuse_egraph"`
+	RawEOSTokenID     json.RawMessage `json:"eos_token_id"`
+	EOSTokenID        int32           `json:"-"`
+	EOSTokenIDs       []int32         `json:"-"`
+	TextConfig        *ModelConfig    `json:"text_config,omitempty"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -40,6 +43,8 @@ func DefaultModelConfig() ModelConfig {
 		RmsNormEps:        1e-5,
 		RopeTheta:         10000.0,
 		MaxSeqLen:         64,
+		EOSTokenID:        2,
+		EOSTokenIDs:       []int32{2},
 	}
 }
 
@@ -116,6 +121,34 @@ func LoadModelConfig(dir string) (*ModelConfig, error) {
 		cfg = *raw.TextConfig
 	}
 
+	parseEOS := func(rawMsg json.RawMessage) (int32, []int32) {
+		if len(rawMsg) == 0 {
+			return 0, nil
+		}
+		var single int32
+		if err := json.Unmarshal(rawMsg, &single); err == nil && single != 0 {
+			return single, []int32{single}
+		}
+		var multiple []int32
+		if err := json.Unmarshal(rawMsg, &multiple); err == nil && len(multiple) > 0 {
+			return multiple[0], multiple
+		}
+		return 0, nil
+	}
+
+	cfg.EOSTokenID, cfg.EOSTokenIDs = parseEOS(cfg.RawEOSTokenID)
+	if len(cfg.EOSTokenIDs) == 0 {
+		genConfigPath := filepath.Join(dir, "generation_config.json")
+		if genBytes, err := os.ReadFile(genConfigPath); err == nil {
+			var genRaw struct {
+				EOSTokenID json.RawMessage `json:"eos_token_id"`
+			}
+			if err := json.Unmarshal(genBytes, &genRaw); err == nil {
+				cfg.EOSTokenID, cfg.EOSTokenIDs = parseEOS(genRaw.EOSTokenID)
+			}
+		}
+	}
+
 	if cfg.RmsNormEps == 0 {
 		cfg.RmsNormEps = 1e-5
 	}
@@ -125,7 +158,7 @@ func LoadModelConfig(dir string) (*ModelConfig, error) {
 	if cfg.NumKeyValueHeads == 0 {
 		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
 	}
-	if cfg.MaxSeqLen == 0 {
+	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 8192 {
 		cfg.MaxSeqLen = 2048
 	}
 	return &cfg, nil

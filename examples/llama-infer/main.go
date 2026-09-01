@@ -47,8 +47,10 @@ type Config struct {
 	// on a beginning-of-text token, and its absence skews the first generated
 	// token.
 	BOSTokenID int32
-	// EOSTokenID is the end-of-sequence token ID that terminates generation.
+	// EOSTokenID is the primary end-of-sequence token ID that terminates generation.
 	EOSTokenID int32
+	// EOSTokenIDs is the full list of allowed end-of-sequence token IDs.
+	EOSTokenIDs []int32
 	// GenTokens sets the number of autoregressive decode tokens to generate.
 	// If <= 0, defaults to 10.
 	GenTokens int
@@ -60,83 +62,118 @@ type Config struct {
 	TestMode bool
 }
 
+// IsEOS reports whether tokenID is one of the configured end-of-sequence tokens.
+func (cfg Config) IsEOS(tokenID int32) bool {
+	if len(cfg.EOSTokenIDs) > 0 {
+		for _, eos := range cfg.EOSTokenIDs {
+			if tokenID == eos {
+				return true
+			}
+		}
+		return false
+	}
+	if cfg.EOSTokenID != 0 {
+		return tokenID == cfg.EOSTokenID
+	}
+	return false
+}
+
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
 func DefaultTinyLlamaConfig() Config {
 	return Config{
-		TestMode:   true,
-		Name:       "TinyLlama-Testing",
-		VocabSize:  256,
-		Dim:        64,
-		HiddenDim:  128,
-		NumLayers:  2,
-		NumHeads:   4,
-		NumKVHeads: 2,
-		HeadDim:    16,
-		MaxSeqLen:  32,
-		Eps:        1e-5,
-		RopeTheta:  10000.0,
-		EOSTokenID: 2,
+		TestMode:    true,
+		Name:        "TinyLlama-Testing",
+		VocabSize:   256,
+		Dim:         64,
+		HiddenDim:   128,
+		NumLayers:   2,
+		NumHeads:    4,
+		NumKVHeads:  2,
+		HeadDim:     16,
+		MaxSeqLen:   32,
+		Eps:         1e-5,
+		RopeTheta:   10000.0,
+		EOSTokenID:  2,
+		EOSTokenIDs: []int32{2},
 	}
 }
 
 // Llama3_2_1BConfig returns configuration for official LLaMA-3.2-1B.
 func Llama3_2_1BConfig(modelPath string) Config {
 	return Config{
-		Name:       "LLaMA-3.2-1B-Instruct",
-		ModelPath:  modelPath,
-		VocabSize:  128256,
-		Dim:        2048,
-		HiddenDim:  8192,
-		NumLayers:  16,
-		NumHeads:   32,
-		NumKVHeads: 8,
-		HeadDim:    64,
-		MaxSeqLen:  8192,
-		Eps:        1e-5,
-		RopeTheta:  500000.0,
-		BOSTokenID: 128000,
-		EOSTokenID: 128001,
+		Name:        "LLaMA-3.2-1B-Instruct",
+		ModelPath:   modelPath,
+		VocabSize:   128256,
+		Dim:         2048,
+		HiddenDim:   8192,
+		NumLayers:   16,
+		NumHeads:    32,
+		NumKVHeads:  8,
+		HeadDim:     64,
+		MaxSeqLen:   8192,
+		Eps:         1e-5,
+		RopeTheta:   500000.0,
+		BOSTokenID:  128000,
+		EOSTokenID:  128009,
+		EOSTokenIDs: []int32{128001, 128008, 128009},
 	}
 }
 
 // Llama3_8BConfig returns configuration for standard LLaMA-3-8B.
 func Llama3_8BConfig() Config {
 	return Config{
-		Name:       "LLaMA-3-8B",
-		VocabSize:  128256,
-		Dim:        4096,
-		HiddenDim:  14336,
-		NumLayers:  32,
-		NumHeads:   32,
-		NumKVHeads: 8,
-		HeadDim:    128,
-		MaxSeqLen:  8192,
-		Eps:        1e-5,
-		RopeTheta:  500000.0,
+		Name:        "LLaMA-3-8B",
+		VocabSize:   128256,
+		Dim:         4096,
+		HiddenDim:   14336,
+		NumLayers:   32,
+		NumHeads:    32,
+		NumKVHeads:  8,
+		HeadDim:     128,
+		MaxSeqLen:   8192,
+		Eps:         1e-5,
+		RopeTheta:   500000.0,
+		BOSTokenID:  128000,
+		EOSTokenID:  128009,
+		EOSTokenIDs: []int32{128001, 128008, 128009},
 	}
 }
 
 // TinyLlama_1_1BConfig returns configuration for TinyLlama-1.1B.
 func TinyLlama_1_1BConfig() Config {
 	return Config{
-		Name:       "TinyLlama-1.1B",
-		VocabSize:  32000,
-		Dim:        2048,
-		HiddenDim:  5632,
-		NumLayers:  22,
-		NumHeads:   32,
-		NumKVHeads: 4,
-		HeadDim:    64,
-		MaxSeqLen:  2048,
-		Eps:        1e-5,
-		RopeTheta:  10000.0,
+		Name:        "TinyLlama-1.1B",
+		VocabSize:   32000,
+		Dim:         2048,
+		HiddenDim:   5632,
+		NumLayers:   22,
+		NumHeads:    32,
+		NumKVHeads:  4,
+		HeadDim:     64,
+		MaxSeqLen:   2048,
+		Eps:         1e-5,
+		RopeTheta:   10000.0,
+		BOSTokenID:  1,
+		EOSTokenID:  2,
+		EOSTokenIDs: []int32{2},
 	}
 }
 
 func findDefaultLlama3_2_1BPath() string {
-	home, _ := os.UserHomeDir()
-	pattern := filepath.Join(home, ".cache/huggingface/hub/models--unsloth--Llama-3.2-1B-Instruct/snapshots/*")
-	matches, _ := filepath.Glob(pattern)
+	candidates := []string{
+		"../../models/Llama-3.2-1B-Instruct",
+		"../models/Llama-3.2-1B-Instruct",
+		"models/Llama-3.2-1B-Instruct",
+		os.ExpandEnv("$HOME/.llama/checkpoints/Llama-3.2-1B-Instruct"),
+		os.ExpandEnv("$HOME/models/Llama-3.2-1B-Instruct"),
+		os.ExpandEnv("$HOME/Downloads/Llama-3.2-1B-Instruct"),
+	}
+	for _, p := range candidates {
+		if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+			return p
+		}
+	}
+	matches, _ := filepath.Glob(os.ExpandEnv("$HOME/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/*"))
 	if len(matches) > 0 {
 		return matches[0]
 	}
@@ -148,6 +185,7 @@ func main() {
 	modelPath := flag.String("path", "", "path to model directory containing model.safetensors")
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	genTokens := flag.Int("gen-tokens", 10, "number of tokens to generate during autoregressive decode")
+	maxSeqLenFlag := flag.Int("max-seq-len", 2048, "maximum sequence length / KV cache context limit")
 	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
 	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
 	peerAddr := flag.String("peer", "", "peer HTTP address to join into P2P inference mesh (e.g. spark-31db:8080)")
@@ -167,19 +205,25 @@ func main() {
 			if *modelSize == "llama3.2-1b" || *modelSize == "llama3.2" || *modelSize == "3.2-1b" {
 				name = "LLaMA-3.2-1B-Instruct"
 			}
+			maxSeq := loadedCfg.MaxSeqLen
+			if maxSeq <= 0 || (maxSeq > *maxSeqLenFlag && *maxSeqLenFlag > 0) {
+				maxSeq = *maxSeqLenFlag
+			}
 			cfg = Config{
-				Name:       name,
-				ModelPath:  *modelPath,
-				VocabSize:  loadedCfg.VocabSize,
-				Dim:        loadedCfg.HiddenSize,
-				HiddenDim:  loadedCfg.IntermediateSize,
-				NumLayers:  loadedCfg.NumHiddenLayers,
-				NumHeads:   loadedCfg.NumAttentionHeads,
-				NumKVHeads: loadedCfg.NumKeyValueHeads,
-				HeadDim:    loadedCfg.HeadDim(),
-				MaxSeqLen:  loadedCfg.MaxSeqLen,
-				Eps:        loadedCfg.RmsNormEps,
-				RopeTheta:  loadedCfg.RopeTheta,
+				Name:        name,
+				ModelPath:   *modelPath,
+				VocabSize:   loadedCfg.VocabSize,
+				Dim:         loadedCfg.HiddenSize,
+				HiddenDim:   loadedCfg.IntermediateSize,
+				NumLayers:   loadedCfg.NumHiddenLayers,
+				NumHeads:    loadedCfg.NumAttentionHeads,
+				NumKVHeads:  loadedCfg.NumKeyValueHeads,
+				HeadDim:     loadedCfg.HeadDim(),
+				MaxSeqLen:   maxSeq,
+				Eps:         loadedCfg.RmsNormEps,
+				RopeTheta:   loadedCfg.RopeTheta,
+				EOSTokenID:  loadedCfg.EOSTokenID,
+				EOSTokenIDs: loadedCfg.EOSTokenIDs,
 			}
 		}
 	}

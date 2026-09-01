@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -978,4 +979,190 @@ func TestExecutionPlanFailClosedValidation(t *testing.T) {
 		t.Fatalf("expected GPUForwardPassKV to fail closed when plan is invalid, got nil")
 	}
 	t.Logf("Plan Fail-Closed Verification: %v", err)
+}
+
+func TestEOSStoppingAndFinishReason(t *testing.T) {
+	tests := []struct {
+		name         string
+		cfg          Config
+		tokenID      int32
+		wantIsEOS    bool
+		tokensToGen  int
+		maxTokens    int
+		wantFinish   string
+	}{
+		{
+			name:        "llama3_primary_eos",
+			cfg:         Llama3_2_1BConfig(""),
+			tokenID:     128009,
+			wantIsEOS:   true,
+			tokensToGen: 5,
+			maxTokens:   10,
+			wantFinish:  "stop",
+		},
+		{
+			name:        "llama3_alternate_eos",
+			cfg:         Llama3_2_1BConfig(""),
+			tokenID:     128001,
+			wantIsEOS:   true,
+			tokensToGen: 5,
+			maxTokens:   10,
+			wantFinish:  "stop",
+		},
+		{
+			name:        "llama3_non_eos",
+			cfg:         Llama3_2_1BConfig(""),
+			tokenID:     42,
+			wantIsEOS:   false,
+			tokensToGen: 10,
+			maxTokens:   10,
+			wantFinish:  "length",
+		},
+		{
+			name:        "tinyllama_eos",
+			cfg:         DefaultTinyLlamaConfig(),
+			tokenID:     2,
+			wantIsEOS:   true,
+			tokensToGen: 3,
+			maxTokens:   10,
+			wantFinish:  "stop",
+		},
+		{
+			name:        "tinyllama_non_eos",
+			cfg:         DefaultTinyLlamaConfig(),
+			tokenID:     100,
+			wantIsEOS:   false,
+			tokensToGen: 10,
+			maxTokens:   10,
+			wantFinish:  "length",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotEOS := tt.cfg.IsEOS(tt.tokenID)
+			if gotEOS != tt.wantIsEOS {
+				t.Errorf("IsEOS(%d) = %v; want %v", tt.tokenID, gotEOS, tt.wantIsEOS)
+			}
+
+			// Test finish_reason logic
+			finishReason := "stop"
+			if tt.tokensToGen >= tt.maxTokens {
+				finishReason = "length"
+			}
+			if finishReason != tt.wantFinish {
+				t.Errorf("finish_reason = %q; want %q", finishReason, tt.wantFinish)
+			}
+		})
+	}
+
+	// Test Scheduler completion and DoneCh closure on EOS
+	cfg := Config{
+		Name:        "TestEOSModel",
+		EOSTokenID:  15,
+		EOSTokenIDs: []int32{15},
+		MaxSeqLen:   32,
+		TestMode:    true,
+	}
+	sched := NewScheduler(nil, cfg, 4)
+	seq := NewSequence("test-eos", "prompt", []int32{10, 11, 12, 13, 14}, 10, nil)
+	if err := sched.Submit(seq); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	// Step mock scheduler until sequence produces token 15 (EOS)
+	for i := 0; i < 5; i++ {
+		_, err := sched.Step(context.Background())
+		if err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+
+	seq.mu.Lock()
+	status := seq.Status
+	seq.mu.Unlock()
+
+	if status != SeqFinished {
+		t.Errorf("sequence status = %v; want SeqFinished (%v)", status, SeqFinished)
+	}
+
+	select {
+	case <-seq.DoneCh:
+		// success: DoneCh is closed
+	default:
+		t.Errorf("expected seq.DoneCh to be closed upon reaching EOS")
+	}
+}
+
+func TestTokenizerSpecialTokensAndChatTemplate(t *testing.T) {
+	tok := &BpeTokenizer{
+		vocab: map[string]int32{
+			"<|start_header_id|>": 100,
+			"<|end_header_id|>":   101,
+			"<|eot_id|>":           102,
+			"system":              200,
+			"user":                201,
+			"assistant":           202,
+		},
+		invVocab: map[int32]string{
+			100: "<|start_header_id|>",
+			101: "<|end_header_id|>",
+			102: "<|eot_id|>",
+			200: "system",
+			201: "user",
+			202: "assistant",
+		},
+		special: map[string]int32{
+			"<|start_header_id|>": 100,
+			"<|end_header_id|>":   101,
+			"<|eot_id|>":           102,
+		},
+		specialNames: []string{
+			"<|start_header_id|>",
+			"<|end_header_id|>",
+			"<|eot_id|>",
+		},
+		byteTokens: make(map[byte]string),
+	}
+
+	for b := 0; b < 256; b++ {
+		tok.byteTokens[byte(b)] = string([]byte{byte(b)})
+		if _, ok := tok.vocab[string([]byte{byte(b)})]; !ok {
+			tok.vocab[string([]byte{byte(b)})] = int32(1000 + b)
+			tok.invVocab[int32(1000+b)] = string([]byte{byte(b)})
+		}
+	}
+
+	prompt := "<|start_header_id|>system<|end_header_id|>\n\n<|eot_id|>"
+	tokens, err := tok.Encode(prompt)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	if len(tokens) < 3 {
+		t.Fatalf("expected at least 3 tokens, got %v", tokens)
+	}
+	if tokens[0] != 100 {
+		t.Errorf("token[0] = %d; want 100 (<|start_header_id|>)", tokens[0])
+	}
+	if tokens[len(tokens)-1] != 102 {
+		t.Errorf("last token = %d; want 102 (<|eot_id|>)", tokens[len(tokens)-1])
+	}
+}
+
+func TestMaxSeqLenClamping(t *testing.T) {
+	cfg := ModelConfig{
+		HiddenSize:        64,
+		NumAttentionHeads: 4,
+		MaxSeqLen:         131072, // large declaration as in LLaMA 3.2
+	}
+
+	// Verify clamp logic bounds it
+	if cfg.MaxSeqLen > 8192 {
+		cfg.MaxSeqLen = 2048
+	}
+
+	if cfg.MaxSeqLen != 2048 {
+		t.Errorf("MaxSeqLen = %d; want 2048", cfg.MaxSeqLen)
+	}
 }

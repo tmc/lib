@@ -106,9 +106,6 @@ func (c *prefixCache) evictLocked(key string, snap *prefixSnapshot) {
 		}
 		delete(c.tokenBlocks, key)
 	}
-	if c.radix != nil {
-		_ = c.radix.Evict(1)
-	}
 }
 
 func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {

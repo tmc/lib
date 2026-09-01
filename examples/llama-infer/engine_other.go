@@ -552,6 +552,9 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 		if !onToken(nextTokID, tokStr) {
 			break
 		}
+		if cfg.IsEOS(nextTokID) {
+			break
+		}
 
 		tStep0 := time.Now()
 		tok, fErr := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, nextTokID, curPos, eng.stream)

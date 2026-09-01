@@ -2292,7 +2292,11 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 		promptTokens = append([]int32{cfg.BOSTokenID}, promptTokens...)
 	}
 
-	fmt.Printf("[Weights] Ingested %d tensors (%d Dim, %d Vocab, %d Layers)\n", cfg.NumLayers*9+2, cfg.Dim, cfg.VocabSize, len(eng.layers))
+	loadedTensors := cfg.NumLayers*9 + 2
+	if eng.weights != nil && len(eng.weights.Tensors) > 0 {
+		loadedTensors = len(eng.weights.Tensors)
+	}
+	fmt.Printf("[Weights] Ingested %d tensors (%d Dim, %d Vocab, %d Layers)\n", loadedTensors, cfg.Dim, cfg.VocabSize, len(eng.layers))
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
 	if cfg.FuseEGraph {
 		fmt.Printf("[E-Graph Megakernel] Active: saturated %d equivalence classes with fused RMSNorm+GEMV & SwiGLU\n\n", eng.egraphSats)
@@ -2546,10 +2550,7 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 		}
 		pos := len(promptTokens) + step
 		nextTok := GPUForwardPass(eng, cfg, currentTok, pos)
-		if cfg.EOSTokenID != 0 && nextTok == cfg.EOSTokenID {
-			break
-		}
-		if nextTok == 128001 || nextTok == 128009 || (cfg.EOSTokenID == 0 && nextTok == 2) {
+		if cfg.IsEOS(nextTok) {
 			break
 		}
 		tokStr, _ := eng.tokenizer.Decode([]int32{nextTok})

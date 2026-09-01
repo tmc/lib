@@ -291,6 +291,14 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 				nextTok := seq.CurrentToken + 1
 				seq.Pos++
 				cont := seq.appendTokenLocked(nextTok, fmt.Sprintf("%d", nextTok))
+				if s.cfg.IsEOS(nextTok) || !cont {
+					seq.Status = SeqFinished
+					select {
+					case <-seq.DoneCh:
+					default:
+						close(seq.DoneCh)
+					}
+				}
 				seq.mu.Unlock()
 
 				callbacks = append(callbacks, sequenceStepCallback{
@@ -298,11 +306,6 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 					tokenID:   nextTok,
 					tokenText: fmt.Sprintf("%d", nextTok),
 				})
-				if !cont {
-					seq.mu.Lock()
-					seq.Status = SeqFinished
-					seq.mu.Unlock()
-				}
 			}
 		}
 	}
@@ -324,9 +327,7 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 				seq.DecodeDuration += perSeqDur
 				seq.Pos++
 				cont := seq.appendTokenLocked(nextTok, fmt.Sprintf("%d", nextTok))
-				// EOS detection
-				if nextTok == s.cfg.EOSTokenID || nextTok == 128001 || nextTok == 128009 || (s.cfg.EOSTokenID == 0 && nextTok == 2) {
-					cont = false
+				if s.cfg.IsEOS(nextTok) || !cont {
 					seq.Status = SeqFinished
 					select {
 					case <-seq.DoneCh:
@@ -341,18 +342,6 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 					tokenID:   nextTok,
 					tokenText: fmt.Sprintf("%d", nextTok),
 				})
-				if !cont {
-					seq.mu.Lock()
-					if seq.Status == SeqDecoding {
-						seq.Status = SeqFinished
-						select {
-						case <-seq.DoneCh:
-						default:
-							close(seq.DoneCh)
-						}
-					}
-					seq.mu.Unlock()
-				}
 			}
 		}
 	}

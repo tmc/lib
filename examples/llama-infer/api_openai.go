@@ -237,13 +237,22 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Format prompt from messages using standard chat header template
+	// Format prompt from messages
+	isLlama3 := strings.Contains(strings.ToLower(s.cfg.Name), "llama-3") || strings.Contains(strings.ToLower(s.cfg.Name), "llama3")
 	var promptBuilder strings.Builder
 	for _, m := range req.Messages {
-		promptBuilder.WriteString(fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", m.Role, m.Content))
+		if isLlama3 {
+			promptBuilder.WriteString(fmt.Sprintf("<|start_header_id|>%s<|end_header_id|>\n\n%s<|eot_id|>", m.Role, m.Content))
+		} else {
+			promptBuilder.WriteString(fmt.Sprintf("%s: %s\n", m.Role, m.Content))
+		}
 	}
 	if len(req.Messages) > 0 {
-		promptBuilder.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
+		if isLlama3 {
+			promptBuilder.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
+		} else {
+			promptBuilder.WriteString("assistant: ")
+		}
 	}
 	prompt := promptBuilder.String()
 	if prompt == "" {

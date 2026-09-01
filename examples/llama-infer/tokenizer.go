@@ -17,10 +17,12 @@ type Tokenizer interface {
 
 // BpeTokenizer implements a Byte-Pair Encoding tokenizer compatible with Hugging Face tokenizer.json.
 type BpeTokenizer struct {
-	vocab      map[string]int32
-	invVocab   map[int32]string
-	merges     map[string]int
-	byteTokens map[byte]string
+	vocab        map[string]int32
+	invVocab     map[int32]string
+	merges       map[string]int
+	byteTokens   map[byte]string
+	special      map[string]int32
+	specialNames []string
 }
 
 type hfTokenizerSchema struct {
@@ -56,10 +58,19 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 	}
 
 	// Add special/added tokens
+	special := make(map[string]int32, len(schema.AddedTokens))
 	for _, at := range schema.AddedTokens {
 		vocab[at.Content] = at.ID
 		invVocab[at.ID] = at.Content
+		special[at.Content] = at.ID
 	}
+	specialNames := make([]string, 0, len(special))
+	for s := range special {
+		specialNames = append(specialNames, s)
+	}
+	sort.Slice(specialNames, func(i, j int) bool {
+		return len(specialNames[i]) > len(specialNames[j])
+	})
 
 	merges := make(map[string]int, len(schema.Model.Merges))
 	for rank, item := range schema.Model.Merges {
@@ -83,10 +94,12 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 	}
 
 	return &BpeTokenizer{
-		vocab:      vocab,
-		invVocab:   invVocab,
-		merges:     merges,
-		byteTokens: byteTokens,
+		vocab:        vocab,
+		invVocab:     invVocab,
+		merges:       merges,
+		byteTokens:   byteTokens,
+		special:      special,
+		specialNames: specialNames,
 	}, nil
 }
 
@@ -113,6 +126,43 @@ func NewByteTokenizer() *BpeTokenizer {
 
 // Encode converts a string prompt into an array of token IDs.
 func (tok *BpeTokenizer) Encode(text string) ([]int32, error) {
+	if len(tok.specialNames) > 0 {
+		var tokens []int32
+		remaining := text
+		for len(remaining) > 0 {
+			earliestIdx := -1
+			var matchedToken string
+			for _, st := range tok.specialNames {
+				idx := strings.Index(remaining, st)
+				if idx != -1 && (earliestIdx == -1 || idx < earliestIdx) {
+					earliestIdx = idx
+					matchedToken = st
+				}
+			}
+			if earliestIdx == -1 {
+				subTokens, err := tok.encodeTextChunk(remaining)
+				if err != nil {
+					return nil, err
+				}
+				tokens = append(tokens, subTokens...)
+				break
+			}
+			if earliestIdx > 0 {
+				subTokens, err := tok.encodeTextChunk(remaining[:earliestIdx])
+				if err != nil {
+					return nil, err
+				}
+				tokens = append(tokens, subTokens...)
+			}
+			tokens = append(tokens, tok.special[matchedToken])
+			remaining = remaining[earliestIdx+len(matchedToken):]
+		}
+		return tokens, nil
+	}
+	return tok.encodeTextChunk(text)
+}
+
+func (tok *BpeTokenizer) encodeTextChunk(text string) ([]int32, error) {
 	if len(tok.merges) == 0 {
 		// Fast-path byte tokenizer
 		bytes := []byte(text)
