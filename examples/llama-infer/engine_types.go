@@ -58,7 +58,7 @@ type Sequence struct {
 	mu              sync.Mutex
 
 	// Isolated KV cache state
-	KVCache *KVCacheState
+	KVCache *SequenceKVCache
 
 	// Metrics
 	PrefillDuration time.Duration
@@ -226,12 +226,30 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 		if status == SeqPendingPrefill {
 			// Ingest prompt
 			if s.engine != nil {
+				seq.mu.Lock()
+				if seq.KVCache == nil {
+					kv, err := s.engine.NewSequenceKV(s.cfg)
+					if err != nil {
+						seq.mu.Unlock()
+						seq.Fail(err)
+						continue
+					}
+					seq.KVCache = kv
+				}
+				pTokens := seq.PromptTokens
+				skv := seq.KVCache
+				seq.mu.Unlock()
+
 				start := time.Now()
-				nextTok := GPUPrefillPass(s.engine, s.cfg, seq.PromptTokens)
+				nextTok, err := GPUPrefillPassKV(s.engine, s.cfg, skv, pTokens)
+				if err != nil {
+					seq.Fail(err)
+					continue
+				}
 				seq.mu.Lock()
 				seq.PrefillDuration = time.Since(start)
 				seq.CurrentToken = nextTok
-				seq.Pos = len(seq.PromptTokens)
+				seq.Pos = len(pTokens)
 				seq.Status = SeqDecoding
 				seq.GeneratedTokens = append(seq.GeneratedTokens, nextTok)
 				seq.mu.Unlock()
@@ -256,10 +274,15 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 				seq.mu.Lock()
 				curTok := seq.CurrentToken
 				pos := seq.Pos
+				skv := seq.KVCache
 				seq.mu.Unlock()
 
 				start := time.Now()
-				nextTok := GPUForwardPass(s.engine, s.cfg, curTok, pos)
+				nextTok, err := GPUForwardPassKV(s.engine, s.cfg, skv, curTok, pos)
+				if err != nil {
+					seq.Fail(err)
+					continue
+				}
 				dur := time.Since(start)
 
 				seq.mu.Lock()
@@ -299,10 +322,15 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 	for _, seq := range s.active {
 		seq.mu.Lock()
 		st := seq.Status
-		seq.mu.Unlock()
-		if st == SeqPendingPrefill || st == SeqDecoding {
+		if st != SeqPendingPrefill && st != SeqDecoding {
+			if seq.KVCache != nil {
+				seq.KVCache.Free()
+				seq.KVCache = nil
+			}
+		} else {
 			remaining = append(remaining, seq)
 		}
+		seq.mu.Unlock()
 	}
 	s.active = remaining
 

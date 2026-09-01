@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -422,7 +421,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 				WDown:     wd,
 			}
 		}
-	} else if cfg.TestMode || cfg.Name == "TinyLlama-Testing" || strings.HasPrefix(cfg.Name, "TinyLlama") || strings.HasPrefix(cfg.Name, "Deterministic") || strings.HasPrefix(cfg.Name, "Differential") {
+	} else if cfg.TestMode {
 		mCfg := ModelConfig{
 			HiddenSize:        cfg.Dim,
 			IntermediateSize:  cfg.HiddenDim,
@@ -478,6 +477,8 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 				WDown:     wd,
 			}
 		}
+	} else {
+		return nil, errors.New("model path required (synthetic test weights require explicit TestMode=true)")
 	}
 	if tok == nil {
 		tok = NewByteTokenizer()
@@ -588,7 +589,56 @@ func setScalar[T any](enc apple.MTLComputeCommandEncoder, v T, index uint) {
 	enc.SetBytesLengthAtIndex(unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v)), index)
 }
 
+// SequenceKVCache holds isolated per-sequence Metal KV-cache allocations.
+type SequenceKVCache struct {
+	KCache []mempool.Slice[float32]
+	VCache []mempool.Slice[float32]
+}
+
+// NewSequenceKV allocates an isolated KV-cache for a sequence.
+func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
+	if eng == nil {
+		return nil, errors.New("new sequence kv: nil engine")
+	}
+	kCache := make([]mempool.Slice[float32], cfg.NumLayers)
+	vCache := make([]mempool.Slice[float32], cfg.NumLayers)
+	elemCount := cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim
+	for l := 0; l < cfg.NumLayers; l++ {
+		k, err := mempool.Alloc[float32](eng.dev, elemCount)
+		if err != nil {
+			return nil, fmt.Errorf("alloc k-cache layer %d: %w", l, err)
+		}
+		v, err := mempool.Alloc[float32](eng.dev, elemCount)
+		if err != nil {
+			return nil, fmt.Errorf("alloc v-cache layer %d: %w", l, err)
+		}
+		kCache[l] = k
+		vCache[l] = v
+	}
+	return &SequenceKVCache{
+		KCache: kCache,
+		VCache: vCache,
+	}, nil
+}
+
+// Free releases the isolated KV-cache buffers.
+func (skv *SequenceKVCache) Free() {
+	if skv == nil {
+		return
+	}
+	for i := range skv.KCache {
+		skv.KCache[i].Free()
+		skv.VCache[i].Free()
+	}
+	skv.KCache = nil
+	skv.VCache = nil
+}
+
 func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, tokenID int32, pos int, isLast bool) {
+	encodeForwardStepWithKV(enc, eng, cfg, eng.kCacheBuf, eng.vCacheBuf, tokenID, pos, isLast)
+}
+
+func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
 	gemvThreads := 128
 	psoGEMV := eng.psoGEMV
 	psoGEMVRes := eng.psoGEMVRes
@@ -688,8 +738,8 @@ func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg
 		enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 1)
 		enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
-		enc.SetBufferWithOffsetAtIndex(eng.kCacheBuf[l].Buffer(), 0, 3)
-		enc.SetBufferWithOffsetAtIndex(eng.vCacheBuf[l].Buffer(), 0, 4)
+		enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 3)
+		enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 4)
 		setScalar(enc, posVal, 5)
 		setScalar(enc, headDimVal, 6)
 		setScalar(enc, qHeadsVal, 7)
@@ -703,8 +753,8 @@ func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg
 		// Causal FlashAttention Decode
 		enc.SetComputePipelineState(eng.psoAttn)
 		enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
-		enc.SetBufferWithOffsetAtIndex(eng.kCacheBuf[l].Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(eng.vCacheBuf[l].Buffer(), 0, 2)
+		enc.SetBufferWithOffsetAtIndex(kCache[l].Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(vCache[l].Buffer(), 0, 2)
 		enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 3)
 		setScalar(enc, curPosInt, 4)
 		setScalar(enc, maxSeqVal, 5)
@@ -911,6 +961,57 @@ func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
 	}
 
 	return eng.tokBuf.HostSlice()[0]
+}
+
+// GPUForwardPassKV executes the GPU forward pass using an isolated SequenceKVCache.
+func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenID int32, pos int) (int32, error) {
+	if eng == nil {
+		return 0, errors.New("forward pass: nil engine")
+	}
+	queue := eng.dev.Queue()
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	kCache := eng.kCacheBuf
+	vCache := eng.vCacheBuf
+	if skv != nil && len(skv.KCache) == cfg.NumLayers {
+		kCache = skv.KCache
+		vCache = skv.VCache
+	}
+	encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokenID, pos, true)
+	enc.EndEncoding()
+
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	return eng.tokBuf.HostSlice()[0], nil
+}
+
+// GPUPrefillPassKV executes prompt prefill using an isolated SequenceKVCache.
+func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
+	if len(promptTokens) == 0 {
+		return 0, nil
+	}
+	if eng == nil {
+		return 0, errors.New("prefill pass: nil engine")
+	}
+	queue := eng.dev.Queue()
+	cb := queue.CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	kCache := eng.kCacheBuf
+	vCache := eng.vCacheBuf
+	if skv != nil && len(skv.KCache) == cfg.NumLayers {
+		kCache = skv.KCache
+		vCache = skv.VCache
+	}
+
+	for pos, tokID := range promptTokens {
+		isLast := (pos == len(promptTokens)-1)
+		encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokID, pos, isLast)
+	}
+	enc.EndEncoding()
+
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	return eng.tokBuf.HostSlice()[0], nil
 }
 
 // runFastMetalInference executes all autoregressive decode iterations.

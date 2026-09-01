@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -206,10 +205,10 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		mCfg = *loadedCfg
 		mCfg.FuseEGraph = cfg.FuseEGraph
 		weights = loadedW
-	} else if cfg.TestMode || cfg.Name == "TinyLlama-Deterministic" || strings.HasPrefix(cfg.Name, "TinyLlama") || strings.HasPrefix(cfg.Name, "Deterministic") || strings.HasPrefix(cfg.Name, "Differential") {
+	} else if cfg.TestMode {
 		weights = GenerateDeterministicWeights(&mCfg)
 	} else {
-		return nil, errors.New("model path required (synthetic test weights require explicit test configuration)")
+		return nil, errors.New("model path required: synthetic test weights require explicit TestMode=true")
 	}
 
 	gpuWeights, err := UploadModelToGPU(dev, weights, &mCfg)
@@ -283,12 +282,36 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	return eng, nil
 }
 
+// SequenceKVCache holds isolated per-sequence CUDA KV-cache allocations.
+type SequenceKVCache struct {
+	Cache *cudakv.Cache
+}
+
+// NewSequenceKV allocates an isolated KV-cache for a sequence on CUDA.
+func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
+	if eng == nil || eng.dev == nil {
+		return nil, errors.New("new sequence kv: nil engine or device")
+	}
+	cache, err := cudakv.New(eng.dev, eng.mCfg.NumHiddenLayers, eng.mCfg.NumKeyValueHeads, eng.mCfg.HeadDim(), eng.mCfg.MaxSeqLen)
+	if err != nil {
+		return nil, fmt.Errorf("alloc sequence kv cache: %w", err)
+	}
+	return &SequenceKVCache{Cache: cache}, nil
+}
+
+// Free releases the isolated KV-cache buffers on CUDA.
+func (skv *SequenceKVCache) Free() {
+	if skv == nil || skv.Cache == nil {
+		return
+	}
+	_ = skv.Cache.Close()
+	skv.Cache = nil
+}
+
 func runPlatform(cfg Config) error {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
-		fmt.Printf("[Host Notice] CUDA initialization (%v). Falling back to CPU simulation.\n", err)
-		runCPUSimulation(cfg)
-		return nil
+		return fmt.Errorf("cuda initialization: %w", err)
 	}
 
 	cNode, err := NewIrohClusterNode(context.Background(), eng, cfg, 0)
@@ -341,31 +364,57 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
-// GPUPrefillPass executes prompt prefill across all prompt tokens on CUDA.
-func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
+// GPUPrefillPassKV executes prompt prefill across promptTokens using an isolated SequenceKVCache.
+func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
 	if len(promptTokens) == 0 {
-		return 0
+		return 0, nil
+	}
+	if eng == nil {
+		return 0, errors.New("prefill pass: nil engine")
+	}
+	kv := eng.kvCache
+	if skv != nil && skv.Cache != nil {
+		kv = skv.Cache
 	}
 	var nextTok int32
 	for pos, tokID := range promptTokens {
 		isLast := (pos == len(promptTokens)-1)
-		tok, err := GPUForwardPassStep(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast)
+		tok, err := GPUForwardPassStep(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast)
 		if err != nil {
-			return 0
+			return 0, fmt.Errorf("cuda prefill step %d: %w", pos, err)
 		}
 		if isLast {
 			nextTok = tok
 		}
 	}
-	return nextTok
+	return nextTok, nil
+}
+
+// GPUForwardPassKV executes a single decode step using an isolated SequenceKVCache.
+func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenID int32, pos int) (int32, error) {
+	if eng == nil {
+		return 0, errors.New("forward pass: nil engine")
+	}
+	kv := eng.kvCache
+	if skv != nil && skv.Cache != nil {
+		kv = skv.Cache
+	}
+	tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
+	if err != nil {
+		return 0, fmt.Errorf("cuda forward step %d: %w", pos, err)
+	}
+	return tok, nil
+}
+
+// GPUPrefillPass executes prompt prefill across all prompt tokens on CUDA.
+func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
+	tok, _ := GPUPrefillPassKV(eng, cfg, nil, promptTokens)
+	return tok
 }
 
 // GPUForwardPass executes a single decode step on CUDA.
 func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 {
-	tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
-	if err != nil {
-		return 0
-	}
+	tok, _ := GPUForwardPassKV(eng, cfg, nil, tokenID, pos)
 	return tok
 }
 
@@ -376,7 +425,10 @@ func PrefillStep(cfg Config, promptTokens []int32) (time.Duration, error) {
 		return 0, err
 	}
 	start := time.Now()
-	_ = GPUPrefillPass(eng, cfg, promptTokens)
+	_, err = GPUPrefillPassKV(eng, cfg, nil, promptTokens)
+	if err != nil {
+		return 0, err
+	}
 	return time.Since(start), nil
 }
 
@@ -387,19 +439,11 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 		return 0, err
 	}
 	start := time.Now()
-	_ = GPUForwardPass(eng, cfg, tokenID, pos)
-	return time.Since(start), nil
-}
-
-func runCPUSimulation(cfg Config) {
-	promptTokens := []int32{42, 18, 99}
-	for step := 0; step < 5; step++ {
-		mockLogits := make([]float32, cfg.VocabSize)
-		targetTok := (step*17 + 7) % cfg.VocabSize
-		mockLogits[targetTok] = 12.5
-		_ = targetTok
+	_, err = GPUForwardPassKV(eng, cfg, nil, tokenID, pos)
+	if err != nil {
+		return 0, err
 	}
-	_ = promptTokens
+	return time.Since(start), nil
 }
 
 // Generate executes autoregressive decode on NVIDIA CUDA GPU.
@@ -407,7 +451,11 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 	if maxTokens <= 0 {
 		maxTokens = 64
 	}
+	if eng == nil {
+		return errors.New("cuda engine: nil engine")
+	}
 	if eng.dev == nil {
+		// Mock simulation fallback when initialized without GPU device (e.g. unit tests)
 		for step := 0; step < maxTokens; step++ {
 			select {
 			case <-ctx.Done():

@@ -162,18 +162,45 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	layers := make([]LayerWeights, cfg.NumHiddenLayers)
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
 		prefix := fmt.Sprintf("model.layers.%d.", i)
-		inNorm, _ := getTensor(prefix + "input_layernorm.weight")
-		postNorm, _ := getTensor(prefix + "post_attention_layernorm.weight")
-		wq, _ := getTensor(prefix + "self_attn.q_proj.weight")
-		wk, _ := getTensor(prefix + "self_attn.k_proj.weight")
-		wv, _ := getTensor(prefix + "self_attn.v_proj.weight")
+		inNorm, err := getTensor(prefix + "input_layernorm.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
+		}
+		postNorm, err := getTensor(prefix + "post_attention_layernorm.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
+		}
+		wq, err := getTensor(prefix + "self_attn.q_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wq: %w", i, err)
+		}
+		wk, err := getTensor(prefix + "self_attn.k_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wk: %w", i, err)
+		}
+		wv, err := getTensor(prefix + "self_attn.v_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wv: %w", i, err)
+		}
 		qbias, _ := getTensor(prefix + "self_attn.q_proj.bias")
 		kbias, _ := getTensor(prefix + "self_attn.k_proj.bias")
 		vbias, _ := getTensor(prefix + "self_attn.v_proj.bias")
-		wo, _ := getTensor(prefix + "self_attn.o_proj.weight")
-		wgate, _ := getTensor(prefix + "mlp.gate_proj.weight")
-		wup, _ := getTensor(prefix + "mlp.up_proj.weight")
-		wdown, _ := getTensor(prefix + "mlp.down_proj.weight")
+		wo, err := getTensor(prefix + "self_attn.o_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wo: %w", i, err)
+		}
+		wgate, err := getTensor(prefix + "mlp.gate_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wgate: %w", i, err)
+		}
+		wup, err := getTensor(prefix + "mlp.up_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wup: %w", i, err)
+		}
+		wdown, err := getTensor(prefix + "mlp.down_proj.weight")
+		if err != nil {
+			return nil, nil, fmt.Errorf("load layer %d wdown: %w", i, err)
+		}
 
 		layers[i] = LayerWeights{
 			InputNorm: inNorm,
@@ -189,7 +216,6 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 			WUp:       wup,
 			WDown:     wdown,
 		}
-
 	}
 
 	return &ModelWeights{

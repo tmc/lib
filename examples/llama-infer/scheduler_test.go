@@ -172,3 +172,103 @@ func TestSchedulerEngineStepping(t *testing.T) {
 		t.Errorf("expected DoneCh to be closed upon completion")
 	}
 }
+
+func TestSchedulerMultiSequenceInterleavedEquivalence(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	promptA := []int32{10, 20, 30}
+	promptB := []int32{40, 50}
+	maxTokA := 4
+	maxTokB := 3
+
+	// 1. Run Sequence A in isolation with fresh KV
+	kvA, err := eng.NewSequenceKV(cfg)
+	if err != nil {
+		t.Fatalf("new sequence kv A: %v", err)
+	}
+	defer kvA.Free()
+	nextA, err := GPUPrefillPassKV(eng, cfg, kvA, promptA)
+	if err != nil {
+		t.Fatalf("prefill A: %v", err)
+	}
+	wantA := []int32{nextA}
+	curA := nextA
+	for step := 0; step < maxTokA-1; step++ {
+		curA, err = GPUForwardPassKV(eng, cfg, kvA, curA, len(promptA)+step)
+		if err != nil {
+			t.Fatalf("decode A step %d: %v", step, err)
+		}
+		wantA = append(wantA, curA)
+	}
+
+	// 2. Run Sequence B in isolation with fresh KV
+	kvB, err := eng.NewSequenceKV(cfg)
+	if err != nil {
+		t.Fatalf("new sequence kv B: %v", err)
+	}
+	defer kvB.Free()
+	nextB, err := GPUPrefillPassKV(eng, cfg, kvB, promptB)
+	if err != nil {
+		t.Fatalf("prefill B: %v", err)
+	}
+	wantB := []int32{nextB}
+	curB := nextB
+	for step := 0; step < maxTokB-1; step++ {
+		curB, err = GPUForwardPassKV(eng, cfg, kvB, curB, len(promptB)+step)
+		if err != nil {
+			t.Fatalf("decode B step %d: %v", step, err)
+		}
+		wantB = append(wantB, curB)
+	}
+
+	// 3. Run both sequences simultaneously through Scheduler
+	sch := NewScheduler(eng, cfg, 4)
+	seqA := NewSequence("seq-A", "prompt A", promptA, maxTokA, nil)
+	seqB := NewSequence("seq-B", "prompt B", promptB, maxTokB, nil)
+
+	if err := sch.Submit(seqA); err != nil {
+		t.Fatalf("submit seqA: %v", err)
+	}
+	if err := sch.Submit(seqB); err != nil {
+		t.Fatalf("submit seqB: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	for step := 0; step < 20 && sch.ActiveCount() > 0; step++ {
+		_, err := sch.Step(ctx)
+		if err != nil {
+			t.Fatalf("interleaved step %d failed: %v", step, err)
+		}
+	}
+
+	if seqA.Status != SeqFinished {
+		t.Fatalf("seqA expected Finished, got %v", seqA.Status)
+	}
+	if seqB.Status != SeqFinished {
+		t.Fatalf("seqB expected Finished, got %v", seqB.Status)
+	}
+
+	if len(seqA.GeneratedTokens) != len(wantA) {
+		t.Fatalf("seqA length mismatch: got %d, want %d", len(seqA.GeneratedTokens), len(wantA))
+	}
+	for i := range wantA {
+		if seqA.GeneratedTokens[i] != wantA[i] {
+			t.Errorf("seqA token %d mismatch: got %d, want %d", i, seqA.GeneratedTokens[i], wantA[i])
+		}
+	}
+
+	if len(seqB.GeneratedTokens) != len(wantB) {
+		t.Fatalf("seqB length mismatch: got %d, want %d", len(seqB.GeneratedTokens), len(wantB))
+	}
+	for i := range wantB {
+		if seqB.GeneratedTokens[i] != wantB[i] {
+			t.Errorf("seqB token %d mismatch: got %d, want %d", i, seqB.GeneratedTokens[i], wantB[i])
+		}
+	}
+}
