@@ -155,9 +155,8 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 				int32(hiddenDim), int32(hiddenDim), int32(kvDim), float32(1e-5))
 
 		// (b) Fused SwiGLU Block (Zero intermediate DRAM writes)
-		_ = cudalaunch.Kernel(kFusedSwiGLU).Grid(uint32((hiddenDim + 127) / 128)).Block(128).
-			SharedMem(uint32(intermediateDim * 4)).
-			Launch(xBuf, wGateBuf, wUpBuf, wDownBuf, ffnOutBuf,
+		_ = cudalaunch.Kernel(kFusedSwiGLU).Grid(uint32(hiddenDim)).Block(128).
+			Launch(gateBuf, upBuf, wDownBuf, ffnOutBuf,
 				int32(hiddenDim), int32(intermediateDim))
 
 		// (c) Residual Add
