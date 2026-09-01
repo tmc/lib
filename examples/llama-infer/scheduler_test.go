@@ -121,3 +121,54 @@ func TestSchedulerCapacityReuse(t *testing.T) {
 		t.Errorf("expected 1 active sequence, got %d", sch.ActiveCount())
 	}
 }
+
+func TestSchedulerEngineStepping(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	sch := NewScheduler(eng, cfg, 4)
+
+	var emittedTokens []int32
+	onTok := func(tok int32, txt string) bool {
+		emittedTokens = append(emittedTokens, tok)
+		return true
+	}
+
+	seq := NewSequence("seq-real", "test", []int32{10, 20, 30}, 3, onTok)
+	if err := sch.Submit(seq); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Step through prefill and 3 decode steps
+	for step := 0; step < 10 && sch.ActiveCount() > 0; step++ {
+		n, err := sch.Step(ctx)
+		if err != nil {
+			t.Fatalf("step %d failed: %v", step, err)
+		}
+		t.Logf("Step %d: processed %d callbacks, active=%d", step, n, sch.ActiveCount())
+	}
+
+	if seq.Status != SeqFinished {
+		t.Fatalf("expected sequence to finish, got status %v", seq.Status)
+	}
+
+	if len(seq.GeneratedTokens) != 3 {
+		t.Fatalf("expected 3 generated tokens, got %d: %v", len(seq.GeneratedTokens), seq.GeneratedTokens)
+	}
+
+	if len(emittedTokens) != 3 {
+		t.Fatalf("expected 3 emitted tokens from callbacks, got %d: %v", len(emittedTokens), emittedTokens)
+	}
+
+	select {
+	case <-seq.DoneCh:
+	default:
+		t.Errorf("expected DoneCh to be closed upon completion")
+	}
+}

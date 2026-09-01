@@ -105,11 +105,7 @@ func (s *Sequence) Cancel() {
 	}
 }
 
-// AppendToken records a newly generated token and updates sequence status.
-func (s *Sequence) AppendToken(tokenID int32, tokenText string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *Sequence) appendTokenLocked(tokenID int32, tokenText string) bool {
 	if s.Status != SeqDecoding {
 		return false
 	}
@@ -127,6 +123,13 @@ func (s *Sequence) AppendToken(tokenID int32, tokenText string) bool {
 		return false
 	}
 	return true
+}
+
+// AppendToken records a newly generated token and updates sequence status.
+func (s *Sequence) AppendToken(tokenID int32, tokenText string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.appendTokenLocked(tokenID, tokenText)
 }
 
 // Fail marks the sequence as failed with the given error.
@@ -262,7 +265,7 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 				seq.mu.Lock()
 				seq.DecodeDuration += dur
 				seq.Pos++
-				cont := seq.AppendToken(nextTok, fmt.Sprintf("%d", nextTok))
+				cont := seq.appendTokenLocked(nextTok, fmt.Sprintf("%d", nextTok))
 				seq.mu.Unlock()
 
 				callbacks = append(callbacks, sequenceStepCallback{
