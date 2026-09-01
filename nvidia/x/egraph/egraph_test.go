@@ -131,3 +131,20 @@ func TestCUDAMegakernelFusionRewrites(t *testing.T) {
 		t.Errorf("expected generated CUDA source to contain Kernel_FusedSwiGLU:\n%s", cudaSrc)
 	}
 }
+
+func TestAutotuner(t *testing.T) {
+	eg := egraph.New()
+	x := eg.Add(egraph.NewLeaf("x"))
+	w := eg.Add(egraph.NewLeaf("w"))
+	mul := eg.Add(egraph.NewNode("matmul", x, w))
+
+	tuner := egraph.NewTuner(nil) // nil dev defaults to instant extraction
+	cand, err := tuner.SelectBest(nil, eg, mul, egraph.BudgetInstant)
+	if err != nil {
+		t.Fatalf("SelectBest failed: %v", err)
+	}
+
+	if cand == nil || cand.BlockDim != 128 {
+		t.Errorf("unexpected candidate: %+v", cand)
+	}
+}
