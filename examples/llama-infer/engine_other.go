@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
-	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudamem"
