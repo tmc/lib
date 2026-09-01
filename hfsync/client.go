@@ -38,6 +38,39 @@ func NewClient(ep *iroh.Endpoint, store *Store) *Client {
 	}
 }
 
+// ProgressFunc is invoked periodically to report download progress.
+type ProgressFunc func(file string, downloadedBytes, totalBytes int64, currentMBs float64)
+
+// ListModels queries the list of available model snapshots hosted on a remote peer.
+func (c *Client) ListModels(ctx context.Context, peerAddr netaddr.EndpointAddr) ([]ModelSummary, error) {
+	return c.ListModelsWithFilter(ctx, peerAddr, "")
+}
+
+// ListModelsWithFilter queries snapshots whose model ID has filter as a prefix.
+func (c *Client) ListModelsWithFilter(ctx context.Context, peerAddr netaddr.EndpointAddr, filter string) ([]ModelSummary, error) {
+	conn, err := c.ep.Connect(ctx, peerAddr, ALPN)
+	if err != nil {
+		return nil, fmt.Errorf("connect to peer %s: %w", peerAddr.ID, err)
+	}
+	defer conn.Close()
+
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open list models stream: %w", err)
+	}
+	defer stream.Close()
+
+	if err := writeJSONFrame(stream, msgTypeListModelsReq, ListModelsRequest{Filter: filter}); err != nil {
+		return nil, fmt.Errorf("send list models request: %w", err)
+	}
+
+	resp, err := readJSONFrame[ListModelsResponse](stream, msgTypeListModelsResp)
+	if err != nil {
+		return nil, fmt.Errorf("receive list models response: %w", err)
+	}
+	return resp.Models, nil
+}
+
 // FetchManifest retrieves the model's file layout and hashes from a peer.
 func (c *Client) FetchManifest(ctx context.Context, peerAddr netaddr.EndpointAddr, modelID string) (*Manifest, error) {
 	conn, err := c.ep.Connect(ctx, peerAddr, ALPN)
@@ -65,6 +98,11 @@ func (c *Client) FetchManifest(ctx context.Context, peerAddr netaddr.EndpointAdd
 
 // Sync synchronizes a model repository snapshot from a peer into the local Hugging Face store.
 func (c *Client) Sync(ctx context.Context, peerAddr netaddr.EndpointAddr, modelID string) (*SyncStats, error) {
+	return c.SyncWithProgress(ctx, peerAddr, modelID, nil)
+}
+
+// SyncWithProgress synchronizes a model snapshot while invoking onProgress callback.
+func (c *Client) SyncWithProgress(ctx context.Context, peerAddr netaddr.EndpointAddr, modelID string, onProgress ProgressFunc) (*SyncStats, error) {
 	start := time.Now()
 
 	conn, err := c.ep.Connect(ctx, peerAddr, ALPN)
@@ -111,7 +149,16 @@ func (c *Client) Sync(ctx context.Context, peerAddr netaddr.EndpointAddr, modelI
 			continue
 		}
 
-		// Pull chunks for this file
+		if fi.Size < 0 {
+			return nil, fmt.Errorf("invalid size for %s: %d", fi.Path, fi.Size)
+		}
+		if fi.Size == 0 {
+			if err := c.store.WriteChunk(manifest.ModelID, manifest.Revision, fi.Path, 0, 0, nil); err != nil {
+				return nil, fmt.Errorf("create empty file %s: %w", fi.Path, err)
+			}
+		}
+
+		// Pull chunks for this file.
 		var offset int64 = 0
 		for offset < fi.Size {
 			select {
@@ -136,6 +183,15 @@ func (c *Client) Sync(ctx context.Context, peerAddr netaddr.EndpointAddr, modelI
 
 			stats.BytesDownloaded += int64(len(chunkData))
 			offset += int64(len(chunkData))
+
+			if onProgress != nil {
+				elapsed := time.Since(start).Seconds()
+				curSpeed := 0.0
+				if elapsed > 0 {
+					curSpeed = (float64(stats.BytesDownloaded) / (1024 * 1024)) / elapsed
+				}
+				onProgress(fi.Path, offset, fi.Size, curSpeed)
+			}
 		}
 
 		// Verify downloaded file integrity
@@ -186,6 +242,12 @@ func (c *Client) fetchChunk(ctx context.Context, conn *iroh.Conn, modelID, relPa
 	}
 	if header.Status != "ok" {
 		return nil, fmt.Errorf("chunk error from server: %s", header.Status)
+	}
+	if header.Offset != offset {
+		return nil, fmt.Errorf("unexpected chunk offset: got %d, want %d", header.Offset, offset)
+	}
+	if header.Length <= 0 || header.Length > length {
+		return nil, fmt.Errorf("invalid chunk length %d for request length %d", header.Length, length)
 	}
 
 	data := make([]byte, header.Length)

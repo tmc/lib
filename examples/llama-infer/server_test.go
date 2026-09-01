@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,9 @@ func TestTelemetryServer(t *testing.T) {
 	body := wDash.Body.String()
 	if !stringsContains(body, "tmc/lib Adaptive E-Graph Telemetry") {
 		t.Errorf("expected dashboard title in HTML, got: %s", body)
+	}
+	if !stringsContains(body, "IROH P2P MODEL SYNC") || !stringsContains(body, "Node Detail") {
+		t.Error("dashboard is missing the P2P sync controls")
 	}
 
 	// 2. Test JSON API Telemetry Endpoint
@@ -91,6 +95,29 @@ func TestTelemetryServer(t *testing.T) {
 	}
 	if !stringsContains(wRuntimePprof.Body.String(), "Types of profiles available") {
 		t.Errorf("expected pprof index content in response, got: %s", wRuntimePprof.Body.String())
+	}
+
+	// 5. Mesh API rejects a sync without a running cluster node and exposes a
+	// stable, empty status list before any sync has started.
+	reqModels := httptest.NewRequest(http.MethodGet, "/api/mesh/models", nil)
+	wModels := httptest.NewRecorder()
+	srv.ServeHTTP(wModels, reqModels)
+	if wModels.Code != http.StatusOK {
+		t.Errorf("mesh models status = %d, want 200", wModels.Code)
+	}
+
+	reqSync := httptest.NewRequest(http.MethodPost, "/api/mesh/sync", strings.NewReader(`{"model_id":"example/model","source_node_id":"peer"}`))
+	wSync := httptest.NewRecorder()
+	srv.ServeHTTP(wSync, reqSync)
+	if wSync.Code != http.StatusServiceUnavailable {
+		t.Errorf("mesh sync status = %d, want 503", wSync.Code)
+	}
+
+	reqStatus := httptest.NewRequest(http.MethodGet, "/api/mesh/sync/status", nil)
+	wStatus := httptest.NewRecorder()
+	srv.ServeHTTP(wStatus, reqStatus)
+	if wStatus.Code != http.StatusOK || wStatus.Body.String() != "[]\n" {
+		t.Errorf("mesh sync status response = %d %q, want 200 []", wStatus.Code, wStatus.Body.String())
 	}
 }
 

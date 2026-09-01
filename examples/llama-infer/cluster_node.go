@@ -26,13 +26,15 @@ const (
 
 // NodeTelemetry represents the hardware capability and state of a cluster peer.
 type NodeTelemetry struct {
-	NodeID         string   `json:"node_id"`
-	OS             string   `json:"os"`
-	Arch           string   `json:"arch"`
-	ComputeTFLOPs  float64  `json:"compute_tflops"`
-	BandwidthGBS   float64  `json:"bandwidth_gbs"`
-	FreeVRAMMB     int64    `json:"free_vram_mb"`
-	CachedPrefixes []string `json:"cached_prefixes"`
+	NodeID          string                `json:"node_id"`
+	EndpointAddrs   []string              `json:"endpoint_addrs,omitempty"`
+	OS              string                `json:"os"`
+	Arch            string                `json:"arch"`
+	ComputeTFLOPs   float64               `json:"compute_tflops"`
+	BandwidthGBS    float64               `json:"bandwidth_gbs"`
+	FreeVRAMMB      int64                 `json:"free_vram_mb"`
+	CachedPrefixes  []string              `json:"cached_prefixes"`
+	AvailableModels []hfsync.ModelSummary `json:"available_models"`
 }
 
 // CharacteristicRatio returns the FLOP-to-Byte ratio (arithmetic intensity suitability).
@@ -63,16 +65,18 @@ type ClusterMeshState struct {
 
 // IrohClusterNode coordinates distributed P2P inference over go-iroh QUIC endpoints.
 type IrohClusterNode struct {
-	ep       *iroh.Endpoint
-	self     NodeTelemetry
-	peersMu  sync.RWMutex
-	peers    map[string]NodeTelemetry
-	secret   key.SecretKey
-	engine   *ModelEngine
-	cfg      Config
-	hfStore  *hfsync.Store
-	hfServer *hfsync.Server
-	hfClient *hfsync.Client
+	ep        *iroh.Endpoint
+	router    *iroh.Router
+	self      NodeTelemetry
+	peersMu   sync.RWMutex
+	peers     map[string]NodeTelemetry
+	peerAddrs map[string]netaddr.EndpointAddr
+	secret    key.SecretKey
+	engine    *ModelEngine
+	cfg       Config
+	hfStore   *hfsync.Store
+	hfServer  *hfsync.Server
+	hfClient  *hfsync.Client
 }
 
 // NewIrohClusterNode initializes a self-discovering P2P inference node.
@@ -84,7 +88,6 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 
 	opts := []iroh.Option{
 		iroh.WithSecretKey(sk),
-		iroh.WithALPNs(InferenceALPN, hfsync.ALPN),
 		iroh.WithRelayMode(relay.ModeDefault()),
 	}
 	if bindPort > 0 {
@@ -101,42 +104,57 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 	hfClient := hfsync.NewClient(ep, hfStore)
 
 	node := &IrohClusterNode{
-		ep:       ep,
-		secret:   sk,
-		peers:    make(map[string]NodeTelemetry),
-		engine:   engine,
-		cfg:      cfg,
-		hfStore:  hfStore,
-		hfServer: hfServer,
-		hfClient: hfClient,
+		ep:        ep,
+		secret:    sk,
+		peers:     make(map[string]NodeTelemetry),
+		peerAddrs: make(map[string]netaddr.EndpointAddr),
+		engine:    engine,
+		cfg:       cfg,
+		hfStore:   hfStore,
+		hfServer:  hfServer,
+		hfClient:  hfClient,
 	}
 
 	node.self = node.probeSelfHardware()
-	go node.acceptLoop(ctx)
-	go func() { _ = hfServer.Serve(ctx) }()
+	router, err := iroh.NewRouter(ep, map[string]iroh.ProtocolHandler{
+		InferenceALPN: iroh.ProtocolHandlerFunc(node.handleInferenceConnection),
+		hfsync.ALPN:   iroh.ProtocolHandlerFunc(hfServer.HandleConnection),
+	}, nil)
+	if err != nil {
+		_ = ep.Shutdown(context.Background())
+		return nil, fmt.Errorf("start iroh protocol router: %w", err)
+	}
+	node.router = router
 	return node, nil
 }
 
-func (n *IrohClusterNode) acceptLoop(ctx context.Context) {
-	for {
-		conn, err := n.ep.Accept(ctx)
-		if err != nil {
-			return
-		}
-		go func(c *iroh.Conn) {
-			stream, err := c.AcceptStream(ctx)
-			if err != nil {
-				return
-			}
-			defer stream.Close()
-
-			var peerTel NodeTelemetry
-			if err := json.NewDecoder(stream).Decode(&peerTel); err == nil {
-				n.RegisterPeer(peerTel)
-				_ = json.NewEncoder(stream).Encode(n.self)
-			}
-		}(conn)
+// Close gracefully shuts down the Iroh endpoint and protocol router.
+func (n *IrohClusterNode) Close() error {
+	if n.router != nil {
+		_ = n.router.Shutdown(context.Background())
 	}
+	if n.ep != nil {
+		return n.ep.Shutdown(context.Background())
+	}
+	return nil
+}
+
+func (n *IrohClusterNode) handleInferenceConnection(ctx context.Context, conn *iroh.Conn) error {
+	stream, err := conn.AcceptStream(ctx)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+
+	var peerTel NodeTelemetry
+	if err := json.NewDecoder(stream).Decode(&peerTel); err != nil {
+		return fmt.Errorf("decode peer telemetry: %w", err)
+	}
+	n.RegisterPeer(peerTel)
+	if err := json.NewEncoder(stream).Encode(n.SelfTelemetry()); err != nil {
+		return fmt.Errorf("send self telemetry: %w", err)
+	}
+	return nil
 }
 
 // Addr returns the complete netaddr.EndpointAddr including DERP relay URLs and direct IP endpoints.
@@ -180,6 +198,8 @@ func (n *IrohClusterNode) NodeID() string {
 
 // SelfTelemetry returns this node's measured telemetry.
 func (n *IrohClusterNode) SelfTelemetry() NodeTelemetry {
+	n.peersMu.RLock()
+	defer n.peersMu.RUnlock()
 	return n.self
 }
 
@@ -195,14 +215,44 @@ func (n *IrohClusterNode) probeSelfHardware() NodeTelemetry {
 		tflops = 120.0 // CUDA Tensor Cores default
 	}
 
-	return NodeTelemetry{
-		NodeID:        n.NodeID(),
-		OS:            runtime.GOOS,
-		Arch:          runtime.GOARCH,
-		ComputeTFLOPs: tflops,
-		BandwidthGBS:  bw,
-		FreeVRAMMB:    16384,
+	var models []hfsync.ModelSummary
+	if n.hfStore != nil {
+		models, _ = n.hfStore.ListModels()
 	}
+
+	return NodeTelemetry{
+		NodeID:          n.NodeID(),
+		EndpointAddrs:   endpointAddrStrings(n.Addr()),
+		OS:              runtime.GOOS,
+		Arch:            runtime.GOARCH,
+		ComputeTFLOPs:   tflops,
+		BandwidthGBS:    bw,
+		FreeVRAMMB:      16384,
+		AvailableModels: models,
+	}
+}
+
+// SyncModel synchronizes a model snapshot from a peer into the local Hugging Face store with progress tracking.
+func (n *IrohClusterNode) SyncModel(ctx context.Context, peerAddr netaddr.EndpointAddr, modelID string, onProgress hfsync.ProgressFunc) (*hfsync.SyncStats, error) {
+	if n.hfClient == nil {
+		return nil, fmt.Errorf("hfsync client unavailable")
+	}
+	stats, err := n.hfClient.SyncWithProgress(ctx, peerAddr, modelID, onProgress)
+	if err == nil {
+		n.peersMu.Lock()
+		n.self.AvailableModels, _ = n.hfStore.ListModels()
+		n.peersMu.Unlock()
+	}
+	return stats, err
+}
+
+// SyncFromPeer synchronizes a model from a mesh peer selected by node ID.
+func (n *IrohClusterNode) SyncFromPeer(ctx context.Context, nodeID, modelID string, onProgress hfsync.ProgressFunc) (*hfsync.SyncStats, error) {
+	addr, err := n.PeerAddr(nodeID)
+	if err != nil {
+		return nil, err
+	}
+	return n.SyncModel(ctx, addr, modelID, onProgress)
 }
 
 // RegisterPeer manually registers a known peer's telemetry for role evaluation.
@@ -213,6 +263,45 @@ func (n *IrohClusterNode) RegisterPeer(tel NodeTelemetry) {
 	n.peersMu.Lock()
 	defer n.peersMu.Unlock()
 	n.peers[tel.NodeID] = tel
+	if addr, err := endpointAddrFromTelemetry(tel); err == nil {
+		n.peerAddrs[tel.NodeID] = addr
+	}
+}
+
+// PeerAddr returns a mesh peer's advertised Iroh endpoint address.
+func (n *IrohClusterNode) PeerAddr(nodeID string) (netaddr.EndpointAddr, error) {
+	n.peersMu.RLock()
+	defer n.peersMu.RUnlock()
+	addr, ok := n.peerAddrs[nodeID]
+	if !ok || addr.IsEmpty() {
+		return netaddr.EndpointAddr{}, fmt.Errorf("peer %q has no Iroh endpoint address", nodeID)
+	}
+	return addr, nil
+}
+
+func endpointAddrStrings(addr netaddr.EndpointAddr) []string {
+	addrs := addr.Addrs()
+	out := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		out = append(out, addr.String())
+	}
+	return out
+}
+
+func endpointAddrFromTelemetry(tel NodeTelemetry) (netaddr.EndpointAddr, error) {
+	var id key.EndpointID
+	if err := id.UnmarshalText([]byte(tel.NodeID)); err != nil {
+		return netaddr.EndpointAddr{}, fmt.Errorf("parse peer node ID: %w", err)
+	}
+	transportAddrs := make([]netaddr.TransportAddr, 0, len(tel.EndpointAddrs))
+	for _, text := range tel.EndpointAddrs {
+		addr, err := netaddr.ParseTransportAddr(text)
+		if err != nil {
+			return netaddr.EndpointAddr{}, fmt.Errorf("parse peer endpoint address: %w", err)
+		}
+		transportAddrs = append(transportAddrs, addr)
+	}
+	return netaddr.NewEndpointAddr(id, transportAddrs...), nil
 }
 
 // ConnectHTTPPeer sends a mesh join request to a peer HTTP endpoint and exchanges telemetry.
@@ -341,15 +430,7 @@ func (n *IrohClusterNode) MeshState() ClusterMeshState {
 		Peers:               peersList,
 		TotalNodes:          len(peersList) + 1,
 		ClusterTFLOPs:       totalTFLOPs,
-		ClusterBandwidthGBS:  totalBW,
+		ClusterBandwidthGBS: totalBW,
 		ActiveAssignment:    assignment,
 	}
-}
-
-// Close gracefully shuts down the underlying go-iroh QUIC endpoint.
-func (n *IrohClusterNode) Close() error {
-	if n.ep != nil {
-		return n.ep.Shutdown(context.Background())
-	}
-	return nil
 }

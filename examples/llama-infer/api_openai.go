@@ -89,16 +89,31 @@ func (s *TelemetryServer) handleV1Models(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	resp := ModelsResponse{
-		Object: "list",
-		Data: []ModelObject{
+	var data []ModelObject
+	if s.clusterNode != nil {
+		for _, m := range s.clusterNode.SelfTelemetry().AvailableModels {
+			data = append(data, ModelObject{
+				ID:      m.ModelID,
+				Object:  "model",
+				Created: time.Now().Unix(),
+				OwnedBy: "huggingface",
+			})
+		}
+	}
+	if len(data) == 0 {
+		data = []ModelObject{
 			{
 				ID:      s.cfg.Name,
 				Object:  "model",
 				Created: time.Now().Unix(),
 				OwnedBy: "tmc/lib",
 			},
-		},
+		}
+	}
+
+	resp := ModelsResponse{
+		Object: "list",
+		Data:   data,
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }

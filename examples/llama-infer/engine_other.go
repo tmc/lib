@@ -155,6 +155,9 @@ func runPlatform(cfg Config) error {
 
 	cNode, err := NewIrohClusterNode(context.Background(), eng, cfg, 0)
 	if err == nil {
+		if !cfg.ServeMode {
+			defer cNode.Close()
+		}
 		nodeAddr := cNode.Addr()
 		fmt.Printf("[go-iroh Mesh] Node ID: %s (Platform: %s, Compute: %.0f TFLOPs, Bandwidth: %.0f GB/s)\n",
 			cNode.NodeID(), cNode.SelfTelemetry().OS, cNode.SelfTelemetry().ComputeTFLOPs, cNode.SelfTelemetry().BandwidthGBS)

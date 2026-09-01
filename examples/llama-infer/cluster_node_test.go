@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestIrohClusterNodeRoleInference(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	cfg := Config{
 		Name:      "Test-Llama-7B",
 		Dim:       4096,
@@ -21,6 +23,9 @@ func TestIrohClusterNodeRoleInference(t *testing.T) {
 
 	if node.NodeID() == "" {
 		t.Fatal("expected non-empty Ed25519 NodeID")
+	}
+	if len(node.SelfTelemetry().EndpointAddrs) == 0 {
+		t.Fatal("expected self telemetry to advertise Iroh endpoint addresses")
 	}
 
 	// Register a simulated Linux DGX peer with high compute (150 TFLOPs) and moderate bandwidth (300 GB/s)
@@ -53,5 +58,12 @@ func TestIrohClusterNodeRoleInference(t *testing.T) {
 	singleAssignment := singleNode.InferRoles(128, 128)
 	if singleAssignment.PrefillNodeID != singleNode.NodeID() || singleAssignment.DecodeNodeID != singleNode.NodeID() {
 		t.Errorf("expected standalone node to handle both roles, got: %+v", singleAssignment)
+	}
+
+	if err := node.ConnectIroh(ctx, singleNode.Addr()); err != nil {
+		t.Fatalf("connect inference peer: %v", err)
+	}
+	if _, err := node.PeerAddr(singleNode.NodeID()); err != nil {
+		t.Fatalf("resolve advertised peer address: %v", err)
 	}
 }

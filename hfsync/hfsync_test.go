@@ -34,6 +34,63 @@ func TestModelDirName(t *testing.T) {
 	}
 }
 
+func TestStoreListModelsUsesMainRefAndTargetFileSize(t *testing.T) {
+	root := t.TempDir()
+	modelID := "example/tiny-llama"
+	modelDir := filepath.Join(root, ModelDirName(modelID))
+	blobPath := filepath.Join(modelDir, "blobs", "weights")
+	if err := os.MkdirAll(filepath.Dir(blobPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	weights := bytes.Repeat([]byte("x"), 4096)
+	if err := os.WriteFile(blobPath, weights, 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, revision := range []string{"older", "main-revision"} {
+		if err := os.MkdirAll(filepath.Join(modelDir, "snapshots", revision), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "blobs", "weights"), filepath.Join(modelDir, "snapshots", "main-revision", "model.safetensors")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(modelDir, "refs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modelDir, "refs", "main"), []byte("main-revision\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	models, err := NewStore(root).ListModels()
+	if err != nil {
+		t.Fatalf("list models: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("listed %d models, want 1", len(models))
+	}
+	if got, want := models[0].Revision, "main-revision"; got != want {
+		t.Errorf("revision = %q, want %q", got, want)
+	}
+	if got, want := models[0].TotalBytes, int64(len(weights)); got != want {
+		t.Errorf("total bytes = %d, want %d", got, want)
+	}
+}
+
+func TestStoreWriteChunkPreallocates(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.WriteChunk("example/model", "revision", "weights.bin", 10, 5, []byte("world")); err != nil {
+		t.Fatalf("write chunk: %v", err)
+	}
+	path := filepath.Join(store.ModelPath("example/model"), "snapshots", "revision", "weights.bin")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat preallocated file: %v", err)
+	}
+	if got, want := info.Size(), int64(10); got != want {
+		t.Errorf("preallocated size = %d, want %d", got, want)
+	}
+}
+
 func setupMockHFRepo(t *testing.T, rootDir, modelID, snapshotID string) {
 	t.Helper()
 
@@ -118,7 +175,10 @@ func TestP2PHuggingFaceSync(t *testing.T) {
 
 	// 4. Perform Initial Synchronization
 	serverAddr := netaddr.NewEndpointAddr(serverEP.ID()).WithIP(serverEP.LocalAddr())
-	stats, err := client.Sync(ctx, serverAddr, modelID)
+	var progressCalls int
+	stats, err := client.SyncWithProgress(ctx, serverAddr, modelID, func(string, int64, int64, float64) {
+		progressCalls++
+	})
 	if err != nil {
 		t.Fatalf("sync failed: %v", err)
 	}
@@ -128,6 +188,9 @@ func TestP2PHuggingFaceSync(t *testing.T) {
 	}
 	if stats.BytesDownloaded <= 5*1024*1024 {
 		t.Errorf("expected >5MB downloaded, got %d bytes", stats.BytesDownloaded)
+	}
+	if progressCalls < 5 { // config, tokenizer, and three 2 MB weight chunks
+		t.Errorf("progress calls = %d, want at least 5", progressCalls)
 	}
 
 	t.Logf("Sync completed successfully: %d files, %.2f MB in %v (%.2f MB/s)",
@@ -154,5 +217,40 @@ func TestP2PHuggingFaceSync(t *testing.T) {
 	}
 	if cachedStats.BytesDownloaded != 0 {
 		t.Errorf("expected 0 bytes downloaded on cached sync, got %d", cachedStats.BytesDownloaded)
+	}
+
+	// 7. Corrupt a cached file. The next sync must reject the stale digest and
+	// download it again instead of treating its presence as a cache hit.
+	if err := os.WriteFile(filepath.Join(clientDir, ModelDirName(modelID), "snapshots", snapshotID, "model.safetensors"), []byte("corrupt"), 0644); err != nil {
+		t.Fatalf("corrupt cached weights: %v", err)
+	}
+	repairedStats, err := client.Sync(ctx, serverAddr, modelID)
+	if err != nil {
+		t.Fatalf("repair sync failed: %v", err)
+	}
+	if repairedStats.BytesDownloaded < 5*1024*1024 {
+		t.Errorf("repair downloaded %d bytes, want weight file", repairedStats.BytesDownloaded)
+	}
+
+	// 8. Test ListModels API and its prefix filter.
+	models, err := client.ListModels(ctx, serverAddr)
+	if err != nil {
+		t.Fatalf("list models: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model listed, got %d", len(models))
+	}
+	if models[0].ModelID != modelID {
+		t.Errorf("model ID mismatch: got %q, want %q", models[0].ModelID, modelID)
+	}
+	if models[0].FileCount != 3 {
+		t.Errorf("file count mismatch: got %d, want 3", models[0].FileCount)
+	}
+	models, err = client.ListModelsWithFilter(ctx, serverAddr, "other/")
+	if err != nil {
+		t.Fatalf("list filtered models: %v", err)
+	}
+	if len(models) != 0 {
+		t.Errorf("filtered model count = %d, want 0", len(models))
 	}
 }

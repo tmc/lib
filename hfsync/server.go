@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
+	"strings"
 
 	"github.com/tmc/go-iroh/iroh"
 )
@@ -14,9 +14,6 @@ import (
 type Server struct {
 	ep    *iroh.Endpoint
 	store *Store
-
-	mu     sync.Mutex
-	closed bool
 }
 
 // NewServer creates an hfsync Server associated with the given endpoint and store.
@@ -38,15 +35,20 @@ func (s *Server) Serve(ctx context.Context) error {
 			return fmt.Errorf("accept conn: %w", err)
 		}
 
-		go s.handleConnection(ctx, conn)
+		go s.HandleConnection(ctx, conn)
 	}
 }
 
-func (s *Server) handleConnection(ctx context.Context, conn *iroh.Conn) {
+// HandleConnection serves hfsync streams on an already accepted hfsync ALPN connection.
+// It is useful with an [iroh.Router] that dispatches multiple protocols.
+func (s *Server) HandleConnection(ctx context.Context, conn *iroh.Conn) error {
+	if conn.ALPN() != ALPN {
+		return fmt.Errorf("unexpected ALPN %q", conn.ALPN())
+	}
 	for {
 		stream, err := conn.AcceptStream(ctx)
 		if err != nil {
-			return
+			return nil
 		}
 
 		go s.handleStream(ctx, stream)
@@ -62,6 +64,26 @@ func (s *Server) handleStream(ctx context.Context, stream *iroh.Stream) {
 	}
 
 	switch msgType {
+	case msgTypeListModelsReq:
+		var req ListModelsRequest
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return
+		}
+		models, err := s.store.ListModels()
+		if err != nil {
+			models = nil
+		}
+		if req.Filter != "" {
+			filtered := models[:0]
+			for _, model := range models {
+				if strings.HasPrefix(model.ModelID, req.Filter) {
+					filtered = append(filtered, model)
+				}
+			}
+			models = filtered
+		}
+		_ = writeJSONFrame(stream, msgTypeListModelsResp, ListModelsResponse{Models: models})
+
 	case msgTypeManifestReq:
 		var req ManifestRequest
 		if err := json.Unmarshal(payload, &req); err != nil {
@@ -93,8 +115,23 @@ func (s *Server) handleStream(ctx context.Context, stream *iroh.Stream) {
 		}
 		defer f.Close()
 
+		if req.Offset < 0 {
+			header := ChunkHeader{Status: "invalid negative offset"}
+			_ = writeJSONFrame(stream, msgTypeChunkResp, header)
+			return
+		}
 		if req.Length <= 0 {
 			req.Length = DefaultChunkSize
+		}
+		if req.Length > DefaultChunkSize {
+			header := ChunkHeader{Status: fmt.Sprintf("chunk length exceeds %d bytes", DefaultChunkSize)}
+			_ = writeJSONFrame(stream, msgTypeChunkResp, header)
+			return
+		}
+		if info, err := f.Stat(); err != nil || req.Offset >= info.Size() {
+			header := ChunkHeader{Status: "requested range is outside file"}
+			_ = writeJSONFrame(stream, msgTypeChunkResp, header)
+			return
 		}
 
 		buf := make([]byte, req.Length)
