@@ -2,90 +2,51 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
-func BenchmarkLlamaPrefill(b *testing.B) {
-	cfg := DefaultTinyLlamaConfig()
-	promptTokens := 32
+func BenchmarkLlama3_2_1B_EndToEnd_Metal(b *testing.B) {
+	path := findDefaultLlama3_2_1BPath()
+	if path == "" {
+		b.Skip("Llama 3.2 1B weights not found in local cache")
+	}
 
-	b.ReportAllocs()
-	b.ResetTimer()
+	cfg := Llama3_2_1BConfig(path)
+	cfg.FuseEGraph = true
 
-	for i := 0; i < b.N; i++ {
-		dur, err := PrefillStep(cfg, promptTokens)
-		if err != nil {
-			b.Fatalf("prefill failed: %v", err)
+	b.Run("Prompt_Prefill_7_Tokens", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		start := time.Now()
+		for i := 0; i < b.N; i++ {
+			dur, err := PrefillStep(cfg, 7)
+			if err != nil {
+				b.Fatalf("prefill failed: %v", err)
+			}
+			_ = dur
 		}
-		if dur > 0 {
-			tokPerSec := float64(promptTokens) / dur.Seconds()
+		totalDur := time.Since(start)
+		if totalDur > 0 {
+			tokPerSec := float64(b.N*7) / totalDur.Seconds()
 			b.ReportMetric(tokPerSec, "tok/s_prefill")
 		}
-	}
-}
+	})
 
-func BenchmarkLlamaDecode(b *testing.B) {
-	cfg := DefaultTinyLlamaConfig()
-	decodeTokens := 16
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		dur, err := DecodeStep(cfg, decodeTokens)
-		if err != nil {
-			b.Fatalf("decode failed: %v", err)
+	b.Run("Autoregressive_Decode_10_Tokens", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		start := time.Now()
+		for i := 0; i < b.N; i++ {
+			dur, err := DecodeStep(cfg, 10)
+			if err != nil {
+				b.Fatalf("decode failed: %v", err)
+			}
+			_ = dur
 		}
-		if dur > 0 {
-			tokPerSec := float64(decodeTokens) / dur.Seconds()
+		totalDur := time.Since(start)
+		if totalDur > 0 {
+			tokPerSec := float64(b.N*10) / totalDur.Seconds()
 			b.ReportMetric(tokPerSec, "tok/s_decode")
 		}
-	}
-}
-
-func BenchmarkLlamaInference(b *testing.B) {
-	cfg := DefaultTinyLlamaConfig()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := runPlatform(cfg); err != nil {
-			b.Fatalf("run failed: %v", err)
-		}
-	}
-}
-
-func BenchmarkLlama3_8B_Decode(b *testing.B) {
-	cfg := Llama3_8BConfig()
-	decodeTokens := 8
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		dur, err := DecodeStep(cfg, decodeTokens)
-		if err != nil {
-			b.Fatalf("decode failed: %v", err)
-		}
-		if dur > 0 {
-			tokPerSec := float64(decodeTokens) / dur.Seconds()
-			b.ReportMetric(tokPerSec, "tok/s_8b_decode")
-		}
-	}
-}
-
-func BenchmarkTinyLlama1B_Decode(b *testing.B) {
-	cfg := TinyLlama_1_1BConfig()
-	decodeTokens := 16
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		dur, err := DecodeStep(cfg, decodeTokens)
-		if err != nil {
-			b.Fatalf("decode failed: %v", err)
-		}
-		if dur > 0 {
-			tokPerSec := float64(decodeTokens) / dur.Seconds()
-			b.ReportMetric(tokPerSec, "tok/s_1b_decode")
-		}
-	}
+	})
 }

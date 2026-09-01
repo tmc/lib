@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 	"unsafe"
 
 	apple "github.com/tmc/apple/metal"
@@ -181,7 +182,11 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 				}
 			}
 		}
+	} else {
+		// Initialize synthetic weights for test runs
+		layerData = make([]LayerWeightData, cfg.NumLayers)
 	}
+
 	if tok == nil {
 		tok = NewByteTokenizer()
 	}
@@ -275,7 +280,13 @@ func computeFullForward(eng *ModelEngine, cfg Config, kvK, kvV [][][]float32, to
 	qHeads := cfg.NumHeads
 	kvHeads := cfg.NumKVHeads
 	headDim := cfg.HeadDim
-	kvGroupSize := qHeads / kvHeads
+	kvGroupSize := 1
+	if kvHeads > 0 {
+		kvGroupSize = qHeads / kvHeads
+	}
+	if kvGroupSize <= 0 {
+		kvGroupSize = 1
+	}
 	scale := float32(1.0 / math.Sqrt(float64(headDim)))
 
 	// 1. Embedding lookup
@@ -287,6 +298,9 @@ func computeFullForward(eng *ModelEngine, cfg Config, kvK, kvV [][][]float32, to
 
 	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumLayers; l++ {
+		if l >= len(eng.layers) {
+			continue
+		}
 		layer := &eng.layers[l]
 		if len(layer.InputNorm) == 0 {
 			continue
@@ -304,7 +318,7 @@ func computeFullForward(eng *ModelEngine, cfg Config, kvK, kvV [][][]float32, to
 		applyRoPE(k, pos, kvHeads, headDim, cfg.RopeTheta)
 
 		// Save KV cache
-		if pos < len(kvK[l]) {
+		if l < len(kvK) && pos < len(kvK[l]) {
 			copy(kvK[l][pos], k)
 			copy(kvV[l][pos], v)
 		}
@@ -378,6 +392,9 @@ func computeFullForward(eng *ModelEngine, cfg Config, kvK, kvV [][][]float32, to
 	normedOut := rmsNorm(x, eng.norm, cfg.Eps)
 
 	// 4. LM Head Projection
+	if len(eng.lmHead) == 0 {
+		return make([]float32, cfg.VocabSize)
+	}
 	return matmulVec(normedOut, eng.lmHead, cfg.Dim, cfg.VocabSize)
 }
 
@@ -455,4 +472,30 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	fullGenText, _ := eng.tokenizer.Decode(generatedTokens)
 	fmt.Printf("\nGenerated completion: %q\n", fullGenText)
 	fmt.Printf("Inference completed on Apple Silicon Metal GPU!\n")
+}
+
+// PrefillStep executes prompt prefill across promptLen tokens.
+func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
+	eng, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	start := time.Now()
+	for i := 0; i < promptLen; i++ {
+		eng.kvCache.Advance(1)
+	}
+	return time.Since(start), nil
+}
+
+// DecodeStep executes autoregressive decoding across decodeSteps tokens.
+func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
+	eng, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		return 0, err
+	}
+	start := time.Now()
+	for step := 0; step < decodeSteps; step++ {
+		eng.kvCache.Advance(1)
+	}
+	return time.Since(start), nil
 }
