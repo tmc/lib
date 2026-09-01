@@ -58,7 +58,6 @@ func LoadConfig(path string) (*QwenConfig, error) {
 	return cfg, nil
 }
 
-
 // HeadDim returns the dimension per attention head.
 func (cfg *QwenConfig) HeadDim() int {
 	if cfg.HeadDimVal > 0 {

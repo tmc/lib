@@ -90,7 +90,6 @@ func main() {
 		fmt.Println("[Tokenizer] Initialized Byte-level fallback tokenizer")
 	}
 
-
 	// 3. Initialize CUDA Device and E-Graph Optimization
 	if err := driver.Init(0); err != nil {
 		fmt.Printf("[GPU Error] Failed initializing CUDA driver: %v\n", err)

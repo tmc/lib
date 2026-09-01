@@ -23,13 +23,12 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
-	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudasample"
+	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudaspec"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
-
 
 var (
 	modelPath      = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
@@ -47,7 +46,6 @@ var (
 	benchCountFlag = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 )
 
-
 func main() {
 	flag.Parse()
 	if err := run(); err != nil {
@@ -59,7 +57,6 @@ func run() error {
 	if *disasmFlag != "" {
 		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
 	}
-
 
 	var tracer *cudatrace.Tracer
 	if *tracePath != "" {
@@ -86,8 +83,6 @@ func run() error {
 		profSession.SetBinaryPath(binPath)
 		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s (sidecar: %s)\n", *profilePath, binPath)
 	}
-
-
 
 	// 1. Load or initialize Tokenizer
 	var tokenizer Tokenizer
@@ -417,8 +412,6 @@ func runGPUInference(
 		step++
 	}
 
-
-
 	genDuration := time.Since(tGen0)
 
 	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
@@ -487,7 +480,6 @@ func runCPUInference(
 			lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 		}
 
-
 		if prof != nil {
 			recordStepProfile(context.Background(), prof, cfg, curPos, "", PTXLineMap{})
 		}
@@ -516,7 +508,6 @@ func recordStepProfile(ctx context.Context, prof *cudaprof.Session, cfg *ModelCo
 	))
 
 	forwardCU := findForwardCUPath()
-
 
 	headDim := cfg.HeadDim()
 	hiddenSize := cfg.HiddenSize
@@ -614,7 +605,6 @@ func recordStepProfile(ctx context.Context, prof *cudaprof.Session, cfg *ModelCo
 	}, "ArgmaxLogits", "sample_argmax.cu", 35, "", 0, 0x7f003150)
 }
 
-
 type PTXLineMap struct {
 	EmbeddingLookup int64
 	RMSNormLoop     int64
@@ -658,7 +648,6 @@ func parsePTXLines(ptx string) PTXLineMap {
 	return m
 }
 
-
 func findForwardCUPath() string {
 	candidates := []string{
 		"forward.cu",
@@ -677,8 +666,6 @@ func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
-
-
 
 func sampleArgmax(logits []float32) int32 {
 	if len(logits) == 0 {
@@ -885,6 +872,3 @@ func findDefaultModelPath() string {
 	}
 	return ""
 }
-
-
-

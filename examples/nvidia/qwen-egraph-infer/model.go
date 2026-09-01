@@ -9,7 +9,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
 )
 
-
 // GPULayerWeights holds GPU-allocated parameter buffers for one transformer layer.
 type GPULayerWeights struct {
 	InputNorm cudamem.Slice[float32]
@@ -115,7 +114,6 @@ func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModel
 	return mw, nil
 }
 
-
 func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 	switch dtype {
 	case "BF16", "bfloat16":
@@ -167,4 +165,3 @@ func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 		return floats
 	}
 }
-

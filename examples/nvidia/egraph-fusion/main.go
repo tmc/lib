@@ -121,4 +121,3 @@ func formatPlan(s string, indent int) string {
 	s = strings.ReplaceAll(s, "(", "\n"+strings.Repeat(" ", indent)+"(")
 	return strings.TrimSpace(s)
 }
-

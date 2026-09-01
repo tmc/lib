@@ -78,7 +78,6 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 		}
 	}
 
-
 	byteTokens := make(map[byte]string, 256)
 	for b := 0; b < 256; b++ {
 		byteTokens[byte(b)] = fmt.Sprintf("<0x%02X>", b)
