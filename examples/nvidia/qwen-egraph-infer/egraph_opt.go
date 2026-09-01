@@ -1,0 +1,282 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/egraph"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
+)
+
+const qwenFusedMegakernelCU = `
+// --- Qwen JIT Fused Megakernels Optimized via E-Graph Saturation ---
+
+extern "C" __global__ void QwenEmbeddingLookup(
+    const float* __restrict__ embedTable,
+    const int32_t* __restrict__ tokenIn,
+    float* __restrict__ outX,
+    int hiddenSize
+) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= hiddenSize) return;
+    int tokenID = tokenIn[0];
+    outX[idx] = embedTable[tokenID * hiddenSize + idx];
+}
+
+extern "C" __global__ void QwenFusedRMSNormQKV(
+    const float* __restrict__ x,
+    const float* __restrict__ normWeight,
+    const float* __restrict__ W_q,
+    const float* __restrict__ W_k,
+    const float* __restrict__ W_v,
+    float* __restrict__ out_q,
+    float* __restrict__ out_k,
+    float* __restrict__ out_v,
+    int hiddenSize, int qDim, int kvDim, float eps
+) {
+    // 1. Warp cooperative RMSNorm calculation
+    __shared__ float s_variance;
+    float localSumSq = 0.0f;
+    for (int i = threadIdx.x; i < hiddenSize; i += blockDim.x) {
+        float val = x[i];
+        localSumSq += val * val;
+    }
+    // Warp shuffle reduction
+    for (int offset = 16; offset > 0; offset /= 2) {
+        localSumSq += __shfl_down_sync(0xffffffff, localSumSq, offset);
+    }
+    if (threadIdx.x == 0) {
+        s_variance = rsqrtf(localSumSq / (float)hiddenSize + eps);
+    }
+    __syncthreads();
+    float invRms = s_variance;
+
+    // 2. Fused Q, K, V Matrix-Vector Multiplications
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if (row < qDim) {
+        float sumQ = 0.0f;
+        for (int col = 0; col < hiddenSize; col++) {
+            float normVal = x[col] * normWeight[col] * invRms;
+            sumQ += normVal * W_q[row * hiddenSize + col];
+        }
+        out_q[row] = sumQ;
+    }
+    if (row < kvDim) {
+        float sumK = 0.0f;
+        float sumV = 0.0f;
+        for (int col = 0; col < hiddenSize; col++) {
+            float normVal = x[col] * normWeight[col] * invRms;
+            sumK += normVal * W_k[row * hiddenSize + col];
+            sumV += normVal * W_v[row * hiddenSize + col];
+        }
+        out_k[row] = sumK;
+        out_v[row] = sumV;
+    }
+}
+
+extern "C" __global__ void QwenFusedRoPEStoreKV(
+    float* __restrict__ Q,
+    float* __restrict__ K,
+    const float* __restrict__ V,
+    float* __restrict__ kCache,
+    float* __restrict__ vCache,
+    int pos, int numQHeads, int numKVHeads, int headDim, float ropeTheta, int maxSeqLen
+) {
+    int headIdx = blockIdx.x;
+    int pairIdx = threadIdx.x; // headDim / 2 pairs
+    if (headIdx >= numQHeads || pairIdx >= headDim / 2) return;
+
+    float freq = 1.0f / powf(ropeTheta, (float)(2 * pairIdx) / (float)headDim);
+    float val = (float)pos * freq;
+    float cosVal = cosf(val);
+    float sinVal = sinf(val);
+
+    // Rotate Q
+    int qOffset = headIdx * headDim + 2 * pairIdx;
+    float q0 = Q[qOffset];
+    float q1 = Q[qOffset + 1];
+    Q[qOffset]     = q0 * cosVal - q1 * sinVal;
+    Q[qOffset + 1] = q0 * sinVal + q1 * cosVal;
+
+    // Rotate K and store into KV cache
+    if (headIdx < numKVHeads) {
+        int kOffset = headIdx * headDim + 2 * pairIdx;
+        float k0 = K[kOffset];
+        float k1 = K[kOffset + 1];
+        float rotK0 = k0 * cosVal - k1 * sinVal;
+        float rotK1 = k0 * sinVal + k1 * cosVal;
+        K[kOffset]     = rotK0;
+        K[kOffset + 1] = rotK1;
+
+        // In-place KV cache store: shape [numKVHeads, maxSeqLen, headDim]
+        int cacheIdx0 = (headIdx * maxSeqLen + pos) * headDim + 2 * pairIdx;
+        kCache[cacheIdx0]     = rotK0;
+        kCache[cacheIdx0 + 1] = rotK1;
+
+        int vOffset = headIdx * headDim + 2 * pairIdx;
+        vCache[cacheIdx0]     = V[vOffset];
+        vCache[cacheIdx0 + 1] = V[vOffset + 1];
+    }
+}
+
+extern "C" __global__ void QwenFusedSwiGLUBlock(
+    const float* __restrict__ x,
+    const float* __restrict__ normWeight,
+    const float* __restrict__ W_gate,
+    const float* __restrict__ W_up,
+    const float* __restrict__ W_down,
+    float* __restrict__ outX,
+    int hiddenSize, int intermediateSize, float eps
+) {
+    // 1. Post-attention RMSNorm
+    __shared__ float s_variance;
+    float localSumSq = 0.0f;
+    for (int i = threadIdx.x; i < hiddenSize; i += blockDim.x) {
+        float val = x[i];
+        localSumSq += val * val;
+    }
+    for (int offset = 16; offset > 0; offset /= 2) {
+        localSumSq += __shfl_down_sync(0xffffffff, localSumSq, offset);
+    }
+    if (threadIdx.x == 0) {
+        s_variance = rsqrtf(localSumSq / (float)hiddenSize + eps);
+    }
+    __syncthreads();
+    float invRms = s_variance;
+
+    // 2. Fused Gate + Up + SiLU + Product + Down-Projection into outX (in-register)
+    int outIdx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (outIdx >= hiddenSize) return;
+
+    float acc = 0.0f;
+    for (int j = 0; j < intermediateSize; j++) {
+        float gate = 0.0f;
+        float up = 0.0f;
+        for (int k = 0; k < hiddenSize; k++) {
+            float normVal = x[k] * normWeight[k] * invRms;
+            gate += normVal * W_gate[j * hiddenSize + k];
+            up   += normVal * W_up[j * hiddenSize + k];
+        }
+        float silu = gate / (1.0f + expf(-gate));
+        acc += (silu * up) * W_down[outIdx * intermediateSize + j];
+    }
+    // Residual connection
+    outX[outIdx] = x[outIdx] + acc;
+}
+
+extern "C" __global__ void QwenArgmaxSampling(
+    const float* __restrict__ logits,
+    int32_t* __restrict__ tokenOut,
+    int vocabSize
+) {
+    if (threadIdx.x != 0 || blockIdx.x != 0) return;
+    int maxIdx = 0;
+    float maxVal = logits[0];
+    for (int i = 1; i < vocabSize; i++) {
+        if (logits[i] > maxVal) {
+            maxVal = logits[i];
+            maxIdx = i;
+        }
+    }
+    tokenOut[0] = maxIdx;
+}
+`
+
+// FusedQwenEngine holds compiled GPU functions derived from the E-Graph optimizer.
+type FusedQwenEngine struct {
+	embedFn      driver.Function
+	fusedNormQKV driver.Function
+	fusedRoPEKV  driver.Function
+	fusedSwiGLU  driver.Function
+	argmaxFn     driver.Function
+	planSummary  string
+}
+
+// OptimizeAndCompileQwen runs equality saturation on the Qwen layer DAG and compiles JIT megakernels.
+func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine, error) {
+	// 1. Build E-Graph representation of Qwen transformer layer
+	eg := egraph.New()
+
+	x := eg.Add(egraph.NewLeaf("x"))
+	wNorm := eg.Add(egraph.NewLeaf("w_norm"))
+	eps := eg.Add(egraph.NewLeaf("eps"))
+	wQ := eg.Add(egraph.NewLeaf("w_q"))
+	wK := eg.Add(egraph.NewLeaf("w_k"))
+	wV := eg.Add(egraph.NewLeaf("w_v"))
+	pos := eg.Add(egraph.NewLeaf("pos"))
+	theta := eg.Add(egraph.NewLeaf("theta"))
+	kvCache := eg.Add(egraph.NewLeaf("kv_cache"))
+
+	normX := eg.Add(egraph.NewNode("rmsnorm", x, wNorm, eps))
+	q := eg.Add(egraph.NewNode("gemv", normX, wQ))
+	k := eg.Add(egraph.NewNode("gemv", normX, wK))
+	v := eg.Add(egraph.NewNode("gemv", normX, wV))
+	qRope := eg.Add(egraph.NewNode("rope", q, pos, theta))
+	kRope := eg.Add(egraph.NewNode("rope", k, pos, theta))
+	kvStore := eg.Add(egraph.NewNode("store_kv", qRope, kRope, v, kvCache))
+
+	wGate := eg.Add(egraph.NewLeaf("w_gate"))
+	wUp := eg.Add(egraph.NewLeaf("w_up"))
+	wDown := eg.Add(egraph.NewLeaf("w_down"))
+	gateProj := eg.Add(egraph.NewNode("gemv", x, wGate))
+	upProj := eg.Add(egraph.NewNode("gemv", x, wUp))
+	siluNode := eg.Add(egraph.NewNode("silu", gateProj))
+	swigluMult := eg.Add(egraph.NewNode("mul", siluNode, upProj))
+	ffnOut := eg.Add(egraph.NewNode("gemv", swigluMult, wDown))
+
+	layerOut := eg.Add(egraph.NewNode("add", kvStore, ffnOut))
+
+	rules := []*egraph.Rewrite{
+		egraph.MustRewrite("fuse_rmsnorm_gemv",
+			"(gemv (rmsnorm ?x ?w_norm ?eps) ?w_proj)",
+			"(fused_rmsnorm_gemv ?x ?w_norm ?eps ?w_proj)"),
+		egraph.MustRewrite("fuse_rope_store_kv",
+			"(store_kv (rope ?q ?pos ?th) (rope ?k ?pos ?th) ?v ?cache)",
+			"(fused_rope_store_kv ?q ?k ?v ?pos ?th ?cache)"),
+		egraph.MustRewrite("fuse_swiglu_gemv",
+			"(gemv (mul (silu (gemv ?x ?w_g)) (gemv ?x ?w_u)) ?w_d)",
+			"(fused_swiglu_gemv ?x ?w_g ?w_u ?w_d)"),
+	}
+
+	egraph.Saturate(eg, rules, 10)
+	bestPlan, _, err := egraph.ExtractBest(eg, layerOut, egraph.FusedMegakernelCost{})
+	if err != nil {
+		return nil, fmt.Errorf("egraph extract plan: %w", err)
+	}
+
+	// 2. JIT Compile synthesized fused megakernels
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return nil, fmt.Errorf("device compute capability: %w", err)
+	}
+
+	opts := []nvrtcx.Option{
+		nvrtcx.WithName("qwen_megakernels.cu"),
+		nvrtcx.WithArch(major, minor),
+	}
+	compiled, err := nvrtcx.Compile(qwenFusedMegakernelCU, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("compile megakernels: %w", err)
+	}
+
+	loaded, err := compiled.Load(dev)
+	if err != nil {
+		return nil, fmt.Errorf("load module: %w", err)
+	}
+
+	kEmbed, _ := loaded.GetFunction("QwenEmbeddingLookup")
+	kNormQKV, _ := loaded.GetFunction("QwenFusedRMSNormQKV")
+	kRoPEKV, _ := loaded.GetFunction("QwenFusedRoPEStoreKV")
+	kSwiGLU, _ := loaded.GetFunction("QwenFusedSwiGLUBlock")
+	kArgmax, _ := loaded.GetFunction("QwenArgmaxSampling")
+
+	return &FusedQwenEngine{
+		embedFn:      kEmbed,
+		fusedNormQKV: kNormQKV,
+		fusedRoPEKV:  kRoPEKV,
+		fusedSwiGLU:  kSwiGLU,
+		argmaxFn:     kArgmax,
+		planSummary:  bestPlan.String(),
+	}, nil
+}
