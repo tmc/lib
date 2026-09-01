@@ -17,6 +17,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalattn"
 	"github.com/tmc/lib/apple/x/metal/metalmegakernel"
+	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 	"github.com/tmc/lib/apple/x/metal/metalsample"
 )
@@ -49,6 +50,7 @@ type ModelEngine struct {
 	psoAttn    apple.MTLComputePipelineState
 	psoSiLUMul apple.MTLComputePipelineState
 	psoSample  apple.MTLComputePipelineState
+	recorder   *metalprof.FlightRecorder
 
 	// GPU-Resident Unified Memory Buffers
 	xBuf       mempool.Slice[float32]
@@ -74,6 +76,11 @@ type ModelEngine struct {
 	tokenizer  Tokenizer
 	weights    *metalsafetensors.Weights
 	egraphSats int
+}
+
+// FlightRecorder returns the active in-memory GPU telemetry recorder.
+func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
+	return eng.recorder
 }
 
 var (
@@ -250,6 +257,7 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		tokenizer:  tok,
 		weights:    weights,
 		egraphSats: egraphSats,
+		recorder:   metalprof.NewFlightRecorder(2048),
 	}
 
 	darwinEngineCache[key] = eng
@@ -505,8 +513,16 @@ func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 
 	)
 
 	enc.EndEncoding()
+	t0 := time.Now()
 	cb.Commit()
 	cb.WaitUntilCompleted()
+
+	if eng.recorder != nil {
+		eng.recorder.Record("LLaMA_Forward_Pass_32L", time.Since(t0), [3]int{cfg.Dim, cfg.NumLayers, 1}, [3]int{128, 1, 1}, map[string]string{
+			"model": cfg.Name,
+			"pos":   fmt.Sprintf("%d", pos),
+		})
+	}
 
 	return eng.tokBuf.HostSlice()[0]
 }
