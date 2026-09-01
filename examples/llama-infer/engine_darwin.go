@@ -16,7 +16,6 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalattn"
 	"github.com/tmc/lib/apple/x/metal/metalir"
 	"github.com/tmc/lib/apple/x/metal/metalkv"
-	"github.com/tmc/lib/apple/x/metal/metalref"
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 	"github.com/tmc/lib/apple/x/metal/metalsample"
 	"github.com/tmc/lib/apple/x/metal/metaltensor"
@@ -24,38 +23,6 @@ import (
 
 func init() {
 	runtime.LockOSThread()
-}
-
-type TransformerLayer struct {
-	Index    int
-	AttnNorm metaltensor.Tensor
-	FFNNorm  metaltensor.Tensor
-	WQ       metaltensor.Tensor
-	WK       metaltensor.Tensor
-	WV       metaltensor.Tensor
-	WO       metaltensor.Tensor
-	WGate    metaltensor.Tensor
-	WUp      metaltensor.Tensor
-	WDown    metaltensor.Tensor
-}
-
-func (l *TransformerLayer) Forward(x metaltensor.Tensor, pos metaltensor.Tensor) metaltensor.Tensor {
-	normX := x.RMSNorm(l.AttnNorm, 1e-5)
-	q := normX.MatMul(l.WQ).RoPE(pos, 10000.0)
-	k := normX.MatMul(l.WK).RoPE(pos, 10000.0)
-	v := normX.MatMul(l.WV)
-
-	attnScore := q.MatMul(k)
-	attnVal := attnScore.MatMul(v)
-	attnOut := attnVal.MatMul(l.WO)
-	h := x.Add(attnOut)
-
-	normH := h.RMSNorm(l.FFNNorm, 1e-5)
-	gate := normH.MatMul(l.WGate).Silu()
-	up := normH.MatMul(l.WUp)
-	ffnOut := gate.Mul(up).MatMul(l.WDown)
-
-	return h.Add(ffnOut)
 }
 
 type LayerWeightData struct {
@@ -106,28 +73,8 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 
 	g := metalir.NewGraph()
 	x := metaltensor.NewInput(g, "token_embedding", []int{1, cfg.Dim}, metalir.Float32)
-	pos := metaltensor.NewInput(g, "pos", []int{1, 1}, metalir.Float32)
-
-	layers := make([]TransformerLayer, cfg.NumLayers)
-	h := x
-	for i := 0; i < cfg.NumLayers; i++ {
-		layers[i] = TransformerLayer{
-			Index:    i,
-			AttnNorm: metaltensor.NewInput(g, fmt.Sprintf("layer_%d_attn_norm", i), []int{1, cfg.Dim}, metalir.Float32),
-			FFNNorm:  metaltensor.NewInput(g, fmt.Sprintf("layer_%d_ffn_norm", i), []int{1, cfg.Dim}, metalir.Float32),
-			WQ:       metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wq", i), []int{cfg.Dim, cfg.Dim}, metalir.Float32),
-			WK:       metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wk", i), []int{cfg.Dim, cfg.Dim / 2}, metalir.Float32),
-			WV:       metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wv", i), []int{cfg.Dim, cfg.Dim / 2}, metalir.Float32),
-			WO:       metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wo", i), []int{cfg.Dim, cfg.Dim}, metalir.Float32),
-			WGate:    metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wgate", i), []int{cfg.Dim, cfg.HiddenDim}, metalir.Float32),
-			WUp:      metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wup", i), []int{cfg.Dim, cfg.HiddenDim}, metalir.Float32),
-			WDown:    metaltensor.NewInput(g, fmt.Sprintf("layer_%d_wdown", i), []int{cfg.HiddenDim, cfg.Dim}, metalir.Float32),
-		}
-		h = layers[i].Forward(h, pos)
-	}
-
 	finalNorm := metaltensor.NewInput(g, "final_norm", []int{1, cfg.Dim}, metalir.Float32)
-	normedOut := h.RMSNorm(finalNorm, cfg.Eps)
+	normedOut := x.RMSNorm(finalNorm, cfg.Eps)
 	lmHead := metaltensor.NewInput(g, "lm_head", []int{cfg.Dim, cfg.VocabSize}, metalir.Float32)
 	logits := normedOut.MatMul(lmHead)
 
@@ -246,54 +193,181 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 func runPlatform(cfg Config) error {
 	engine, err := GetOrCompileDarwinEngine(cfg)
 	if err != nil {
-		fmt.Printf("[Host Notice] Metal initialization (%v). Falling back to CPU simulation.\n", err)
-		runCPUSimulation(cfg)
-		return nil
+		return fmt.Errorf("engine compile: %w", err)
 	}
 
 	runFastMetalInference(engine, cfg)
 	return nil
 }
 
-func rmsNormSlice(x []float32, weight []float32, eps float32) []float32 {
+func rmsNorm(x, weight []float32, eps float32) []float32 {
 	out := make([]float32, len(x))
 	var sumSq float32
 	for _, v := range x {
 		sumSq += v * v
 	}
-	rms := float32(1.0 / math.Sqrt(float64(sumSq/float32(len(x))+eps)))
-	for i := range x {
+	meanSq := sumSq / float32(len(x))
+	rsqrt := float32(1.0 / math.Sqrt(float64(meanSq+eps)))
+	for i := range out {
 		w := float32(1.0)
 		if i < len(weight) {
 			w = weight[i]
 		}
-		out[i] = (x[i] * rms) * w
+		out[i] = x[i] * rsqrt * w
 	}
 	return out
 }
 
-func matmulRowMajor(x []float32, w []float32, inDim, outDim int) []float32 {
+func matmulVec(x []float32, w []float32, inDim, outDim int) []float32 {
 	out := make([]float32, outDim)
 	if len(w) < inDim*outDim {
 		return out
 	}
-	for r := 0; r < outDim; r++ {
-		var acc float32
-		wRow := w[r*inDim : (r+1)*inDim]
-		for c := 0; c < inDim; c++ {
-			acc += x[c] * wRow[c]
+	for o := 0; o < outDim; o++ {
+		var sum float32
+		wRow := w[o*inDim : (o+1)*inDim]
+		for i := 0; i < inDim; i++ {
+			sum += x[i] * wRow[i]
 		}
-		out[r] = acc
+		out[o] = sum
 	}
 	return out
 }
 
-// runFastMetalInference executes all autoregressive decode iterations in a single command buffer pass.
+func applyRoPE(vec []float32, pos int, numHeads, headDim int, theta float32) {
+	for h := 0; h < numHeads; h++ {
+		headVec := vec[h*headDim : (h+1)*headDim]
+		for i := 0; i < headDim/2; i++ {
+			freq := 1.0 / math.Pow(float64(theta), float64(2*i)/float64(headDim))
+			val := float64(pos) * freq
+			cos := float32(math.Cos(val))
+			sin := float32(math.Sin(val))
+
+			v0 := headVec[i]
+			v1 := headVec[i+headDim/2]
+			headVec[i] = v0*cos - v1*sin
+			headVec[i+headDim/2] = v0*sin + v1*cos
+		}
+	}
+}
+
+// computeFullForward executes the exact transformer forward pass for 1 token at position pos.
+func computeFullForward(eng *ModelEngine, cfg Config, kvK, kvV [][][]float32, tokenID int32, pos int) []float32 {
+	qHeads := cfg.NumHeads
+	kvHeads := cfg.NumKVHeads
+	headDim := cfg.HeadDim
+	kvGroupSize := qHeads / kvHeads
+	scale := float32(1.0 / math.Sqrt(float64(headDim)))
+
+	// 1. Embedding lookup
+	x := make([]float32, cfg.Dim)
+	embedOffset := int(tokenID) * cfg.Dim
+	if embedOffset >= 0 && embedOffset+cfg.Dim <= len(eng.embed) {
+		copy(x, eng.embed[embedOffset:embedOffset+cfg.Dim])
+	}
+
+	// 2. Transformer Decoder Layers
+	for l := 0; l < cfg.NumLayers; l++ {
+		layer := &eng.layers[l]
+		if len(layer.InputNorm) == 0 {
+			continue
+		}
+
+		// Attention Pre-Norm
+		normX := rmsNorm(x, layer.InputNorm, cfg.Eps)
+
+		// Q, K, V
+		q := matmulVec(normX, layer.WQ, cfg.Dim, qHeads*headDim)
+		k := matmulVec(normX, layer.WK, cfg.Dim, kvHeads*headDim)
+		v := matmulVec(normX, layer.WV, cfg.Dim, kvHeads*headDim)
+
+		applyRoPE(q, pos, qHeads, headDim, cfg.RopeTheta)
+		applyRoPE(k, pos, kvHeads, headDim, cfg.RopeTheta)
+
+		// Save KV cache
+		if pos < len(kvK[l]) {
+			copy(kvK[l][pos], k)
+			copy(kvV[l][pos], v)
+		}
+
+		// Grouped-Query Attention
+		attnOut := make([]float32, cfg.Dim)
+		seqLen := pos + 1
+
+		for h := 0; h < qHeads; h++ {
+			kvH := h / kvGroupSize
+			qPtr := q[h*headDim : (h+1)*headDim]
+
+			scores := make([]float32, seqLen)
+			maxScore := float32(-1e20)
+			for t := 0; t < seqLen; t++ {
+				kPtr := kvK[l][t][kvH*headDim : (kvH+1)*headDim]
+				var dot float32
+				for d := 0; d < headDim; d++ {
+					dot += qPtr[d] * kPtr[d]
+				}
+				dot *= scale
+				scores[t] = dot
+				if dot > maxScore {
+					maxScore = dot
+				}
+			}
+
+			sumExp := float32(0)
+			for t := 0; t < seqLen; t++ {
+				e := float32(math.Exp(float64(scores[t] - maxScore)))
+				scores[t] = e
+				sumExp += e
+			}
+
+			for d := 0; d < headDim; d++ {
+				var acc float32
+				for t := 0; t < seqLen; t++ {
+					vPtr := kvV[l][t][kvH*headDim : (kvH+1)*headDim]
+					acc += scores[t] * vPtr[d]
+				}
+				if sumExp > 0 {
+					acc /= sumExp
+				}
+				attnOut[h*headDim+d] = acc
+			}
+		}
+
+		// Output Projection & Residual 1
+		attnProj := matmulVec(attnOut, layer.WO, cfg.Dim, cfg.Dim)
+		for i := range x {
+			x[i] += attnProj[i]
+		}
+
+		// SwiGLU FFN & Residual 2
+		normH := rmsNorm(x, layer.PostNorm, cfg.Eps)
+		gate := matmulVec(normH, layer.WGate, cfg.Dim, cfg.HiddenDim)
+		up := matmulVec(normH, layer.WUp, cfg.Dim, cfg.HiddenDim)
+
+		ffnAct := make([]float32, cfg.HiddenDim)
+		for i := range ffnAct {
+			silu := gate[i] / (1.0 + float32(math.Exp(float64(-gate[i]))))
+			ffnAct[i] = silu * up[i]
+		}
+		ffnOut := matmulVec(ffnAct, layer.WDown, cfg.HiddenDim, cfg.Dim)
+		for i := range x {
+			x[i] += ffnOut[i]
+		}
+	}
+
+	// 3. Final RMSNorm
+	normedOut := rmsNorm(x, eng.norm, cfg.Eps)
+
+	// 4. LM Head Projection
+	return matmulVec(normedOut, eng.lmHead, cfg.Dim, cfg.VocabSize)
+}
+
+// runFastMetalInference executes all autoregressive decode iterations.
 func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	promptText := "The key to scalable AI architectures is"
 	promptTokens, err := eng.tokenizer.Encode(promptText)
 	if err != nil || len(promptTokens) == 0 {
-		promptTokens = []int32{791, 4167, 311, 44436, 15592, 19861, 374}
+		promptTokens = []int32{578, 1401, 311, 69311, 15592, 78335, 374}
 	}
 
 	fmt.Printf("[Weights] Ingested 146 tensors (%d Dim, %d Vocab, %d Layers)\n", cfg.Dim, cfg.VocabSize, len(eng.layers))
@@ -301,83 +375,37 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	fmt.Printf("[E-Graph Megakernel] Compiled MSL shaders on Apple Silicon GPU\n\n")
 
 	fmt.Printf("--- 10-Step Autoregressive Token Generation (Apple Metal + LLaMA 3.2 1B) ---\n")
-	fmt.Printf("Prompt: %q (tokens: %v)\n\n", promptText, promptTokens)
+	fmt.Printf("Prompt: %q\n", promptText)
+	fmt.Printf("Prompt tokens: %v (length: %d tokens)\n\n", promptTokens, len(promptTokens))
+
+	// Allocate KV Cache
+	kvK := make([][][]float32, cfg.NumLayers)
+	kvV := make([][][]float32, cfg.NumLayers)
+	for l := 0; l < cfg.NumLayers; l++ {
+		kvK[l] = make([][]float32, cfg.MaxSeqLen)
+		kvV[l] = make([][]float32, cfg.MaxSeqLen)
+		for t := 0; t < cfg.MaxSeqLen; t++ {
+			kvK[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+			kvV[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+		}
+	}
+
+	// 1. Prefill prompt tokens through full forward pass
+	for pos, tokID := range promptTokens {
+		computeFullForward(eng, cfg, kvK, kvV, tokID, pos)
+	}
 
 	queue := eng.dev.Queue()
 	currentTok := promptTokens[len(promptTokens)-1]
 	generatedTokens := make([]int32, 0, 10)
 
-	// Past key/value states in unified memory
-	kvState := make([][][]float32, cfg.NumLayers)
-	for i := range kvState {
-		kvState[i] = make([][]float32, cfg.MaxSeqLen)
-		for t := 0; t < cfg.MaxSeqLen; t++ {
-			kvState[i][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
-		}
-	}
-
-	// Warm up prompt tokens through KV cache
-	pos := len(promptTokens)
-
 	for step := 0; step < 10; step++ {
-		// 1. Embedding lookup
-		x := make([]float32, cfg.Dim)
-		if len(eng.embed) >= int(currentTok+1)*cfg.Dim {
-			offset := int(currentTok) * cfg.Dim
-			copy(x, eng.embed[offset:offset+cfg.Dim])
-		}
+		pos := len(promptTokens) + step
+		logits := computeFullForward(eng, cfg, kvK, kvV, currentTok, pos-1)
 
-		// 2. Transformer Decoder Layers
-		for lIdx := 0; lIdx < len(eng.layers); lIdx++ {
-			layer := &eng.layers[lIdx]
-			if len(layer.InputNorm) == 0 {
-				continue
-			}
+		// Copy logits into GPU buffer for hardware Argmax sampling
+		copy(eng.logitsBuf.HostSlice(), logits)
 
-			// Pre-norm
-			normX := rmsNormSlice(x, layer.InputNorm, cfg.Eps)
-
-			// Q, K, V
-			q := matmulRowMajor(normX, layer.WQ, cfg.Dim, cfg.NumHeads*cfg.HeadDim)
-			k := matmulRowMajor(normX, layer.WK, cfg.Dim, cfg.NumKVHeads*cfg.HeadDim)
-			v := matmulRowMajor(normX, layer.WV, cfg.Dim, cfg.NumKVHeads*cfg.HeadDim)
-
-			// Simple Residual + FFN
-			normH := rmsNormSlice(x, layer.PostNorm, cfg.Eps)
-			gate := matmulRowMajor(normH, layer.WGate, cfg.Dim, cfg.HiddenDim)
-			up := matmulRowMajor(normH, layer.WUp, cfg.Dim, cfg.HiddenDim)
-
-			ffnAct := make([]float32, cfg.HiddenDim)
-			for j := range ffnAct {
-				silu := gate[j] / (1.0 + float32(math.Exp(float64(-gate[j]))))
-				ffnAct[j] = silu * up[j]
-			}
-			ffnOut := matmulRowMajor(ffnAct, layer.WDown, cfg.HiddenDim, cfg.Dim)
-			for j := range x {
-				x[j] += ffnOut[j]
-			}
-			_ = q
-			_ = k
-			_ = v
-		}
-
-		// 3. Final Norm
-		normed := rmsNormSlice(x, eng.norm, cfg.Eps)
-
-		// 4. Compute LM Head Logits
-		logitsSlice := eng.logitsBuf.HostSlice()
-		if len(eng.lmHead) >= cfg.VocabSize*cfg.Dim {
-			for v := 0; v < cfg.VocabSize; v++ {
-				var dot float32
-				wOffset := v * cfg.Dim
-				for k := 0; k < cfg.Dim; k++ {
-					dot += normed[k] * eng.lmHead[wOffset+k]
-				}
-				logitsSlice[v] = dot
-			}
-		}
-
-		// 5. GPU Argmax Sampling
 		cb := queue.CommandBuffer()
 		enc := cb.ComputeCommandEncoder()
 		enc.SetComputePipelineState(eng.psoSample)
@@ -395,28 +423,13 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 		nextTok := eng.tokBuf.HostSlice()[0]
 		tokStr, _ := eng.tokenizer.Decode([]int32{nextTok})
 		fmt.Printf("Step %2d (Pos %2d): Token %6d -> %q\n",
-			step+1, pos+step, nextTok, tokStr)
+			step+1, pos, nextTok, tokStr)
 
 		generatedTokens = append(generatedTokens, nextTok)
 		currentTok = nextTok
-		eng.kvCache.Advance(1)
 	}
 
 	fullGenText, _ := eng.tokenizer.Decode(generatedTokens)
-	fmt.Printf("\nGenerated sequence: %q\n", fullGenText)
+	fmt.Printf("\nGenerated completion: %q\n", fullGenText)
 	fmt.Printf("Inference completed on Apple Silicon Metal GPU!\n")
-}
-
-func runCPUSimulation(cfg Config) {
-	promptTokens := []int32{42, 18, 99}
-	for step := 0; step < 5; step++ {
-		mockLogits := make([]float32, cfg.VocabSize)
-		targetTok := (step*17 + 7) % cfg.VocabSize
-		mockLogits[targetTok] = 12.5
-
-		nextTok := metalsample.SampleArgmaxCPU(mockLogits)
-		_ = nextTok
-		_ = metalref.BlockReduceSum(mockLogits)
-	}
-	_ = promptTokens
 }
