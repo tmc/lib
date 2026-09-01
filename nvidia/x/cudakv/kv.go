@@ -110,9 +110,96 @@ func (c *Cache) Close() error {
 	return nil
 }
 
+// FP8LayerCache holds 8-bit quantized K and V buffers and scaling factors for one layer.
+type FP8LayerCache struct {
+	LayerIndex int
+	K          cudamem.Slice[uint8]
+	V          cudamem.Slice[uint8]
+	KScale     cudamem.Slice[float32]
+	VScale     cudamem.Slice[float32]
+}
+
+// FP8Cache manages 8-bit quantized KV memory buffers for low-bandwidth inference.
+type FP8Cache struct {
+	dev        *cuda.Device
+	numLayers  int
+	numKVHeads int
+	headDim    int
+	maxSeqLen  int
+	layers     []FP8LayerCache
+	pos        int
+}
+
+// NewFP8 creates a new static FP8 KV-cache allocating per-layer 8-bit K and V buffers on dev.
+func NewFP8(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*FP8Cache, error) {
+	if dev == nil {
+		return nil, fmt.Errorf("cudakv: nil device")
+	}
+	if numLayers <= 0 || numKVHeads <= 0 || headDim <= 0 || maxSeqLen <= 0 {
+		return nil, fmt.Errorf("cudakv: invalid dimensions (layers=%d, kv_heads=%d, head_dim=%d, max_seq=%d)",
+			numLayers, numKVHeads, headDim, maxSeqLen)
+	}
+
+	elementsPerLayer := maxSeqLen * numKVHeads * headDim
+	layers := make([]FP8LayerCache, numLayers)
+
+	for i := 0; i < numLayers; i++ {
+		k, err := cudamem.Alloc[uint8](dev, elementsPerLayer)
+		if err != nil {
+			return nil, fmt.Errorf("cudakv: alloc layer %d FP8 K buffer: %w", i, err)
+		}
+		v, err := cudamem.Alloc[uint8](dev, elementsPerLayer)
+		if err != nil {
+			_ = k.Free()
+			return nil, fmt.Errorf("cudakv: alloc layer %d FP8 V buffer: %w", i, err)
+		}
+		kScale, _ := cudamem.Alloc[float32](dev, numKVHeads)
+		vScale, _ := cudamem.Alloc[float32](dev, numKVHeads)
+
+		layers[i] = FP8LayerCache{
+			LayerIndex: i,
+			K:          k,
+			V:          v,
+			KScale:     kScale,
+			VScale:     vScale,
+		}
+	}
+
+	return &FP8Cache{
+		dev:        dev,
+		numLayers:  numLayers,
+		numKVHeads: numKVHeads,
+		headDim:    headDim,
+		maxSeqLen:  maxSeqLen,
+		layers:     layers,
+		pos:        0,
+	}, nil
+}
+
+// Layer returns the FP8 KV buffers for the specified layer index.
+func (c *FP8Cache) Layer(idx int) (FP8LayerCache, error) {
+	if idx < 0 || idx >= len(c.layers) {
+		return FP8LayerCache{}, fmt.Errorf("cudakv: layer index %d out of bounds (total %d)", idx, len(c.layers))
+	}
+	return c.layers[idx], nil
+}
+
+// Close releases all GPU memory buffers allocated for the FP8 cache.
+func (c *FP8Cache) Close() error {
+	for i := range c.layers {
+		_ = c.layers[i].K.Free()
+		_ = c.layers[i].V.Free()
+		_ = c.layers[i].KScale.Free()
+		_ = c.layers[i].VScale.Free()
+	}
+	c.layers = nil
+	return nil
+}
+
 // PagedCache manages dynamic, non-contiguous physical KV memory blocks for multi-sequence continuous batching.
 type PagedCache struct {
 	mu          sync.Mutex
+
 	dev         *cuda.Device
 	numLayers   int
 	numKVHeads  int

@@ -19,27 +19,32 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudasample"
+	"github.com/tmc/lib/nvidia/x/cudaspec"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 
 var (
-	modelPath   = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
-	promptFlag  = flag.String("prompt", "The capital of France is", "text prompt for model generation")
-	stepsFlag   = flag.Int("steps", 10, "number of autoregressive tokens to generate")
-	tempFlag    = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
+	modelPath      = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
+	promptFlag     = flag.String("prompt", "The capital of France is", "text prompt for model generation")
+	stepsFlag      = flag.Int("steps", 10, "number of autoregressive tokens to generate")
+	tempFlag       = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
 	tracePath      = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
 	profilePath    = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
 	disasmFlag     = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 	disasmModeFlag = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
 	fuseEGraphFlag = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
+	graphFlag      = flag.Bool("graph", false, "enable CUDA Graph capture & single-launch replay for decoder forward pass")
+	specDraftFlag  = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
 )
+
 
 func main() {
 	flag.Parse()
@@ -269,13 +274,60 @@ func runGPUInference(
 	curPos := len(promptTokens)
 	generatedTokens := make([]int32, 0, *stepsFlag)
 
+	// Speculative decoding initialization
+	var drafter *cudaspec.NgramDrafter
+	if *specDraftFlag > 0 {
+		drafter = cudaspec.NewNgramDrafter(3)
+		drafter.Feed(promptTokens)
+		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
+	}
+
+	if *graphFlag {
+		fmt.Println("[CUDA Graph] Graph capture & single-launch replay active")
+	}
+
+	allContextTokens := append([]int32(nil), promptTokens...)
 	tGen0 := time.Now()
-	for step := 0; step < *stepsFlag; step++ {
+
+	for step := 0; step < *stepsFlag; {
 		if curPos >= cfg.MaxSeqLen {
 			break
 		}
 
+		if drafter != nil && *specDraftFlag > 0 {
+			draftCandidates := drafter.Draft(allContextTokens, *specDraftFlag)
+			if len(draftCandidates) > 0 {
+				targetSeq := make([]int32, 0, len(draftCandidates)+1)
+				for _, dTok := range append([]int32{nextTokID}, draftCandidates...) {
+					tok, fErr := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, dTok, curPos)
+					if fErr != nil {
+						break
+					}
+					targetSeq = append(targetSeq, tok)
+					curPos++
+				}
+				res := cudaspec.VerifyGreedy(targetSeq, draftCandidates)
+				for _, aTok := range res.AcceptedTokens {
+					generatedTokens = append(generatedTokens, aTok)
+					allContextTokens = append(allContextTokens, aTok)
+					chunk, _ := tokenizer.Decode([]int32{aTok})
+					fmt.Print(chunk)
+					step++
+				}
+				if res.BonusToken != -1 && step < *stepsFlag {
+					generatedTokens = append(generatedTokens, res.BonusToken)
+					allContextTokens = append(allContextTokens, res.BonusToken)
+					chunk, _ := tokenizer.Decode([]int32{res.BonusToken})
+					fmt.Print(chunk)
+					nextTokID = res.BonusToken
+					step++
+				}
+				continue
+			}
+		}
+
 		generatedTokens = append(generatedTokens, nextTokID)
+		allContextTokens = append(allContextTokens, nextTokID)
 		chunk, _ := tokenizer.Decode([]int32{nextTokID})
 		fmt.Print(chunk)
 
@@ -292,20 +344,41 @@ func runGPUInference(
 				}, func() {
 					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
 				})
+			} else if *graphFlag {
+				stream, _ := dev.NewStream()
+				defer stream.Destroy()
+				g, cErr := cudagraph.Capture(stream, func() {
+					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+				})
+				if cErr == nil {
+					exec, iErr := g.Instantiate()
+					if iErr == nil {
+						defer exec.Destroy()
+						_ = exec.Launch(stream)
+						_ = stream.Synchronize(context.Background())
+					}
+					_ = g.Destroy()
+				}
 			} else {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
 			}
 			if err == nil && prof != nil {
 				recordStepProfile(stepCtx, prof, cfg, curPos, ptxPath, ptxMap)
 			}
+
 		})
 		if err != nil {
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
 		nextTokID = tok
+		if drafter != nil {
+			drafter.Feed([]int32{tok})
+		}
 
 		curPos++
+		step++
 	}
+
 
 
 	genDuration := time.Since(tGen0)
