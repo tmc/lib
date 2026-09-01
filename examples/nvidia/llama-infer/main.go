@@ -38,6 +38,7 @@ var (
 	profilePath    = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
 	disasmFlag     = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 	disasmModeFlag = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
+	fuseEGraphFlag = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
 )
 
 func main() {

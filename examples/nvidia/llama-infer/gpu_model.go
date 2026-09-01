@@ -231,24 +231,33 @@ func GPUForwardPass(
 			return 0, err
 		}
 
-		// Step 2a: Input RMSNorm
-		if err := cudalaunch.Kernel(gm.normFn).Grid(1).Block(256).
-			Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
-		}
-
-		// Step 2b: QKV Linear GEMVs
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(qHeads * headDim)).Block(128).
-			Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
-			return 0, err
-		}
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
-			Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-			return 0, err
-		}
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
-			Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-			return 0, err
+		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
+		if *fuseEGraphFlag && gm.fusedQKVFn != 0 && layerW.QBias.Len() == 0 {
+			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
+			if err := cudalaunch.Kernel(gm.fusedQKVFn).Grid(uint32(qHeads * headDim)).Block(128).
+				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+					sp.Q, sp.K, sp.V,
+					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
+				return 0, err
+			}
+		} else {
+			// Unfused fallback path
+			if err := cudalaunch.Kernel(gm.normFn).Grid(1).Block(256).
+				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+				return 0, err
+			}
+			if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(qHeads * headDim)).Block(128).
+				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
+				return 0, err
+			}
+			if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return 0, err
+			}
+			if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return 0, err
+			}
 		}
 
 		// Step 2c: RoPE
@@ -298,16 +307,25 @@ func GPUForwardPass(
 			return 0, err
 		}
 
-		// Step 2j: SwiGLU: ffnAct = silu(gate) * up
-		if err := cudalaunch.Kernel(gm.swigluFn).Grid(1).Block(256).
-			Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
-			return 0, err
-		}
+		// Step 2j & 2k: Fused SwiGLU + Down GEMV
+		if *fuseEGraphFlag && gm.fusedSwiGLUFn != 0 {
+			// Fused SwiGLU Down Projection (Single kernel launch)
+			if err := cudalaunch.Kernel(gm.fusedSwiGLUFn).Grid(uint32(hiddenSize)).Block(128).
+				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
+				return 0, err
+			}
+		} else {
+			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
+			if err := cudalaunch.Kernel(gm.swigluFn).Grid(1).Block(256).
+				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
+				return 0, err
+			}
 
-		// Step 2k: Down GEMV
-		if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
-			Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
-			return 0, err
+			// Step 2k: Down GEMV
+			if err := cudalaunch.Kernel(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
+				Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
+				return 0, err
+			}
 		}
 
 		// Step 2l: Residual 2

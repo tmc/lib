@@ -187,3 +187,101 @@ extern "C" __global__ void AddResidual(
         x[i] += res[i];
     }
 }
+
+// 9. E-Graph Extracted Fused Megakernels
+
+extern "C" __global__ void FusedRMSNormQKV(
+    const float* __restrict__ x,
+    const float* __restrict__ weight,
+    const float* __restrict__ W_q,
+    const float* __restrict__ W_k,
+    const float* __restrict__ W_v,
+    float* __restrict__ out_q,
+    float* __restrict__ out_k,
+    float* __restrict__ out_v,
+    int in_dim, int q_dim, int kv_dim, float eps
+) {
+    int row = blockIdx.x;
+    int tid = threadIdx.x;
+    int lane = tid % WARP_SIZE;
+    int wid = tid / WARP_SIZE;
+    __shared__ float s_sum[32];
+
+    if (row < q_dim) {
+        const float* w_row = W_q + row * in_dim;
+        float sum = 0.0f;
+        for (int i = tid; i < in_dim; i += blockDim.x) {
+            sum += (x[i] * weight[i]) * w_row[i];
+        }
+        sum = warp_sum(sum);
+        if (lane == 0) s_sum[wid] = sum;
+        __syncthreads();
+
+        float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
+        if (wid == 0) block_sum = warp_sum(block_sum);
+        if (tid == 0) out_q[row] = block_sum;
+    }
+    if (row < kv_dim) {
+        const float* wk_row = W_k + row * in_dim;
+        const float* wv_row = W_v + row * in_dim;
+        float sumK = 0.0f;
+        float sumV = 0.0f;
+        for (int i = tid; i < in_dim; i += blockDim.x) {
+            float normed = x[i] * weight[i];
+            sumK += normed * wk_row[i];
+            sumV += normed * wv_row[i];
+        }
+        sumK = warp_sum(sumK);
+        sumV = warp_sum(sumV);
+        if (lane == 0) {
+            s_sum[wid] = sumK;
+            s_sum[wid + 16] = sumV;
+        }
+        __syncthreads();
+
+        float bk = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
+        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + 16] : 0.0f;
+        if (wid == 0) {
+            bk = warp_sum(bk);
+            bv = warp_sum(bv);
+        }
+        if (tid == 0) {
+            out_k[row] = bk;
+            out_v[row] = bv;
+        }
+    }
+}
+
+extern "C" __global__ void FusedSwiGLUDown(
+    const float* __restrict__ gate,
+    const float* __restrict__ up,
+    const float* __restrict__ W_down,
+    float* __restrict__ out,
+    int hidden_dim, int intermediate_dim
+) {
+    int row = blockIdx.x;
+    if (row >= hidden_dim) return;
+
+    int tid = threadIdx.x;
+    int lane = tid % WARP_SIZE;
+    int wid = tid / WARP_SIZE;
+    __shared__ float s_sum[32];
+
+    const float* w_row = W_down + row * intermediate_dim;
+    float sum = 0.0f;
+    for (int i = tid; i < intermediate_dim; i += blockDim.x) {
+        float g = gate[i];
+        float silu = g / (1.0f + expf(-g));
+        float act = silu * up[i];
+        sum += act * w_row[i];
+    }
+    sum = warp_sum(sum);
+
+    if (lane == 0) s_sum[wid] = sum;
+    __syncthreads();
+
+    float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
+    if (wid == 0) block_sum = warp_sum(block_sum);
+
+    if (tid == 0) out[row] = block_sum;
+}

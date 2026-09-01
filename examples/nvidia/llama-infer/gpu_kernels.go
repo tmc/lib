@@ -16,15 +16,17 @@ var ForwardKernelsCUDA string
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
-	mod       driver.Module
-	ptx       string
-	embedFn   driver.Function
-	normFn    driver.Function
-	gemvFn    driver.Function
-	ropeFn    driver.Function
-	storeKVFn driver.Function
-	swigluFn  driver.Function
-	addResFn  driver.Function
+	mod            driver.Module
+	ptx            string
+	embedFn        driver.Function
+	normFn         driver.Function
+	gemvFn         driver.Function
+	ropeFn         driver.Function
+	storeKVFn      driver.Function
+	swigluFn       driver.Function
+	addResFn       driver.Function
+	fusedQKVFn     driver.Function
+	fusedSwiGLUFn  driver.Function
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -60,17 +62,21 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 	storeKVFn, _ := loaded.GetFunction("StoreKVCache")
 	swigluFn, _ := loaded.GetFunction("SwiGLU")
 	addResFn, _ := loaded.GetFunction("AddResidual")
+	fusedQKVFn, _ := loaded.GetFunction("FusedRMSNormQKV")
+	fusedSwiGLUFn, _ := loaded.GetFunction("FusedSwiGLUDown")
 
 	return &GPUModules{
-		mod:       loaded,
-		ptx:       mod.PTX(),
-		embedFn:   embedFn,
-		normFn:    normFn,
-		gemvFn:    gemvFn,
-		ropeFn:    ropeFn,
-		storeKVFn: storeKVFn,
-		swigluFn:  swigluFn,
-		addResFn:  addResFn,
+		mod:           loaded,
+		ptx:           mod.PTX(),
+		embedFn:       embedFn,
+		normFn:        normFn,
+		gemvFn:        gemvFn,
+		ropeFn:        ropeFn,
+		storeKVFn:     storeKVFn,
+		swigluFn:      swigluFn,
+		addResFn:      addResFn,
+		fusedQKVFn:    fusedQKVFn,
+		fusedSwiGLUFn: fusedSwiGLUFn,
 	}, nil
 }
 
