@@ -13,9 +13,10 @@ import (
 
 // BenchmarkResult records GPU execution metrics for an empirical search run.
 type BenchmarkResult struct {
-	KernelName string
-	Duration   time.Duration
-	OpsPerSec  float64
+	KernelName  string
+	MSL         string
+	Duration    time.Duration
+	OpsPerSec   float64
 	BandwidthGB float64
 }
 
@@ -60,12 +61,13 @@ func (h *Harness) Time(iterations int, fn func(cb apple.MTLCommandBuffer)) time.
 	return total / time.Duration(iterations)
 }
 
-// AutoTune searches candidate MSL pipelines and selects the kernel with the lowest empirical execution latency.
+// Candidate defines a candidate compute shader kernel implementation.
 type Candidate struct {
 	Name string
 	MSL  string
 }
 
+// AutoTune searches candidate MSL pipelines and selects the kernel with the lowest empirical execution latency.
 func (h *Harness) AutoTune(candidates []Candidate, runs int, dispatch func(pso apple.MTLComputePipelineState, cb apple.MTLCommandBuffer)) (*BenchmarkResult, error) {
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("metalbench: no candidate kernels provided")
@@ -77,7 +79,7 @@ func (h *Harness) AutoTune(candidates []Candidate, runs int, dispatch func(pso a
 	for _, cand := range candidates {
 		lib, err := h.dev.CompileLibrary(cand.MSL)
 		if err != nil {
-			continue // Skip non-compiling variants
+			continue
 		}
 		pso, err := h.dev.NewComputePipeline(lib, cand.Name)
 		if err != nil {
@@ -105,6 +107,7 @@ func (h *Harness) AutoTune(candidates []Candidate, runs int, dispatch func(pso a
 
 	return &BenchmarkResult{
 		KernelName: best.Name,
+		MSL:        best.MSL,
 		Duration:   bestDur,
 		OpsPerSec:  opsPerSec,
 	}, nil
