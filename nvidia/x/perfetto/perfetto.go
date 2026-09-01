@@ -12,18 +12,21 @@ import (
 
 // Standard Perfetto wire-format constants
 const (
-	FieldTracePacket         = 1
-	FieldPacketTimestamp     = 8
-	FieldPacketTrackEvent    = 11
-	FieldPacketClockSnapshot = 35
-	FieldPacketTrackDesc     = 60
-	FieldPacketSequenceFlags = 89
+	FieldTracePacket            = 1
+	FieldPacketClockSnapshot    = 6
+	FieldPacketTimestamp        = 8
+	FieldPacketSequenceID       = 10
+	FieldPacketTrackEvent       = 11
+	FieldPacketSequenceFlags    = 13
+	FieldPacketTimestampClockId = 58
+	FieldPacketTrackDesc        = 60
 
 	FieldClockSnapshotClocks = 1
 	FieldClockID             = 1
 	FieldClockTimestamp      = 2
 
-	ClockMonotonic = 1
+	ClockRealtime  = 1
+	ClockMonotonic = 3
 	ClockGPU       = 6
 
 	FieldTrackDescUUID       = 1
@@ -31,13 +34,13 @@ const (
 	FieldTrackDescParentUUID = 5
 
 	FieldTrackEventCategories       = 22
-	FieldTrackEventName             = 2
+	FieldTrackEventName             = 23
 	FieldTrackEventType             = 9
 	FieldTrackEventTrackUUID        = 11
 	FieldTrackEventDebugAnnotations = 4
 	FieldTrackEventSourceLocation   = 33
 
-	FieldPacketSequenceID                = 10
+
 	DefaultSequenceID                    = 1
 	SequenceFlagIncrementalStateCleared = 1
 
@@ -170,7 +173,9 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 	snapshotBody = append(snapshotBody, encodeLengthDelimited(FieldClockSnapshotClocks, clock1)...)
 	snapshotBody = append(snapshotBody, encodeLengthDelimited(FieldClockSnapshotClocks, clock2)...)
 
-	packetBody := encodeLengthDelimited(FieldPacketClockSnapshot, snapshotBody)
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketClockSnapshot, snapshotBody)...)
 	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
 
 	pw.mu.Lock()
@@ -178,6 +183,7 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 	_, err := pw.w.Write(packet)
 	return err
 }
+
 
 // WriteTrackDescriptor registers a track in the trace timeline.
 func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint64) error {

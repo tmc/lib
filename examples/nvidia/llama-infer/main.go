@@ -356,12 +356,17 @@ func runCPUInference(
 		fmt.Print(chunk)
 
 		if tracer != nil {
-			_ = tracer.Span(nil, fmt.Sprintf("Decode Step %d", step+1), "forward_pass", func() {
+			_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", "examples/nvidia/llama-infer/model.go", 100, "", map[string]any{
+				"phase": "cpu_decode",
+				"step":  step + 1,
+				"pos":   curPos,
+			}, func() {
 				lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 			})
 		} else {
 			lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 		}
+
 
 		if prof != nil {
 			recordStepProfile(prof, cfg, curPos, "", PTXLineMap{})
