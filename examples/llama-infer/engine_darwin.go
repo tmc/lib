@@ -975,7 +975,7 @@ func ExecutePlanWithLogits(
 	if plan == nil || eng == nil {
 		return errors.New("execute plan: nil plan or engine")
 	}
-	if err := ValidatePlan(plan, cfg); err != nil {
+	if err := plan.Validate(cfg); err != nil {
 		return fmt.Errorf("execute plan validation: %w", err)
 	}
 	targetLogits := eng.logitsBuf
@@ -2424,9 +2424,13 @@ func RunBenchSuite(cfg Config, count int) error {
 		TiedEmbeddings:  false,
 		BytesPerParam:   bytesPerParam,
 	}
+	devName := "Apple Silicon Metal"
+	if eng.dev != nil && eng.dev.Name() != "" {
+		devName = eng.dev.Name()
+	}
 	hwProf := gpuprof.HardwareProfile{
-		Name:              "Apple Silicon Metal",
-		Source:            "assumed-m4-max",
+		Name:              devName,
+		Source:            "device-query",
 		PeakBandwidthGBps: 400.0,
 		PeakTFLOPs:        40.0,
 	}

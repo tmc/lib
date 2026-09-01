@@ -661,9 +661,15 @@ func RunBenchSuite(cfg Config, count int) error {
 		TiedEmbeddings:  false,
 		BytesPerParam:   bytesPerParam,
 	}
+	devName := "NVIDIA CUDA GPU"
+	if eng.dev != nil {
+		if name, err := eng.dev.Name(); err == nil && name != "" {
+			devName = name
+		}
+	}
 	hwProf := gpuprof.HardwareProfile{
-		Name:              "NVIDIA DGX Blackwell",
-		Source:            "assumed-gb10",
+		Name:              devName,
+		Source:            "device-query",
 		PeakBandwidthGBps: 300.0,
 		PeakTFLOPs:        120.0,
 	}

@@ -392,6 +392,23 @@ type ExecutionPlan struct {
 	VocabSize  int                `json:"vocab_size"`
 	Ops        []OpDispatch       `json:"ops"`
 	Buffers    []BufferAllocation `json:"buffers"`
+	validated  bool
+}
+
+// Validate validates the execution plan topology and dimensions against cfg.
+// Once successfully validated, subsequent calls are no-ops.
+func (p *ExecutionPlan) Validate(cfg Config) error {
+	if p == nil {
+		return errors.New("validate plan: nil plan")
+	}
+	if p.validated {
+		return nil
+	}
+	if err := ValidatePlan(p, cfg); err != nil {
+		return err
+	}
+	p.validated = true
+	return nil
 }
 
 // OpDispatch represents a single planned kernel execution step.
