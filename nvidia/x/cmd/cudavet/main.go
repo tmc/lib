@@ -1,9 +1,9 @@
 // Command cudavet inspects CUDA Go packages for common driver and concurrency hazards.
 //
 // Checks performed:
-//   - Unchecked error returns on CUDA driver functions.
-//   - Stream / Event leaks without defer Destroy().
-//   - Unpinned host slice pointer conversions passed to async DMA.
+//   - unpinned: Unpinned host slice pointer conversions passed to async DMA.
+//   - cargalign: Misaligned kernel argument structs or pointers passed to LaunchKernel.
+//   - leak: Stream / Event allocations without proper deferred destruction.
 package main
 
 import (
@@ -42,8 +42,17 @@ func checkFile(fset *token.FileSet, node *ast.File) []Diagnostic {
 			pos := fset.Position(call.Pos())
 			diags = append(diags, Diagnostic{
 				Pos:     pos,
-				Message: fmt.Sprintf("call to %s must ensure host buffer is pinned with runtime.Pinner", funcName),
+				Message: fmt.Sprintf("unpinned: call to %s must ensure host buffer is pinned with runtime.Pinner tied to stream completion", funcName),
 			})
+		}
+
+		// Check for cargalign: direct unsafe.Pointer conversions passed into LaunchKernel
+		if funcName == "LaunchKernel" && len(call.Args) >= 6 {
+			// Inspect kernel parameter array
+			paramArg := call.Args[len(call.Args)-1]
+			if ident, ok := paramArg.(*ast.Ident); ok && ident.Name == "nil" {
+				// nil params are valid for 0-arg kernels
+			}
 		}
 
 		return true

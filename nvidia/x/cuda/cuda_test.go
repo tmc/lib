@@ -99,5 +99,43 @@ func TestStreamAndEventLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eventEnd.ElapsedSince failed: %v", err)
 	}
-	t.Logf("Elapsed duration between empty events: %v", dur)
+	t.Logf("Event elapsed time: %v", dur)
+}
+
+func TestStreamCleanup(t *testing.T) {
+	if err := cuda.Init(); err != nil {
+		t.Skipf("CUDA driver not available: %v", err)
+	}
+	count, err := cuda.DeviceCount()
+	if err != nil || count == 0 {
+		t.Skip("no CUDA devices available")
+	}
+
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatalf("NewDevice(0) failed: %v", err)
+	}
+
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream failed: %v", err)
+	}
+	defer stream.Destroy()
+
+	cleaned := false
+	stream.AddCleanup(func() {
+		cleaned = true
+	})
+
+	if cleaned {
+		t.Fatal("cleanup should not run before stream synchronization")
+	}
+
+	if err := stream.Synchronize(context.Background()); err != nil {
+		t.Fatalf("Synchronize failed: %v", err)
+	}
+
+	if !cleaned {
+		t.Fatal("cleanup must be executed upon stream synchronization")
+	}
 }
