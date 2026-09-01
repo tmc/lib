@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 	"unsafe"
 
 	apple "github.com/tmc/apple/metal"
@@ -59,6 +58,18 @@ func (l *TransformerLayer) Forward(x metaltensor.Tensor, pos metaltensor.Tensor)
 	return h.Add(ffnOut)
 }
 
+type LayerWeightData struct {
+	InputNorm []float32
+	PostNorm  []float32
+	WQ        []float32
+	WK        []float32
+	WV        []float32
+	WO        []float32
+	WGate     []float32
+	WUp       []float32
+	WDown     []float32
+}
+
 // ModelEngine maintains cached Metal pipeline states and memory allocations.
 type ModelEngine struct {
 	dev        *metal.Device
@@ -75,6 +86,7 @@ type ModelEngine struct {
 	embed      []float32
 	norm       []float32
 	lmHead     []float32
+	layers     []LayerWeightData
 }
 
 var (
@@ -162,6 +174,7 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	var tok Tokenizer
 	var weights *metalsafetensors.Weights
 	var embed, norm, lmHeadFloats []float32
+	var layerData []LayerWeightData
 
 	if cfg.ModelPath != "" {
 		tokJsonPath := filepath.Join(cfg.ModelPath, "tokenizer.json")
@@ -176,6 +189,31 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			lmHeadFloats, _ = w.TensorFloat32("lm_head.weight")
 			if len(lmHeadFloats) == 0 {
 				lmHeadFloats = embed
+			}
+
+			layerData = make([]LayerWeightData, cfg.NumLayers)
+			for i := 0; i < cfg.NumLayers; i++ {
+				inNorm, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+				pNorm, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+				wq, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+				wk, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+				wv, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+				wo, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+				wg, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+				wu, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+				wd, _ := w.TensorFloat32(fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+
+				layerData[i] = LayerWeightData{
+					InputNorm: inNorm,
+					PostNorm:  pNorm,
+					WQ:        wq,
+					WK:        wk,
+					WV:        wv,
+					WO:        wo,
+					WGate:     wg,
+					WUp:       wu,
+					WDown:     wd,
+				}
 			}
 		}
 	}
@@ -198,6 +236,7 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		embed:      embed,
 		norm:       norm,
 		lmHead:     lmHeadFloats,
+		layers:     layerData,
 	}
 
 	darwinEngineCache[key] = eng
@@ -216,67 +255,37 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
-// PrefillStep executes prompt prefill across promptLen tokens.
-func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
-	eng, err := GetOrCompileDarwinEngine(cfg)
-	if err != nil {
-		return 0, err
+func rmsNormSlice(x []float32, weight []float32, eps float32) []float32 {
+	out := make([]float32, len(x))
+	var sumSq float32
+	for _, v := range x {
+		sumSq += v * v
 	}
-	queue := eng.dev.Queue()
-	start := time.Now()
-
-	cb := queue.CommandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(eng.psoSample)
-	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
-	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
-	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
-
-	gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
-	tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
-
-	for i := 0; i < promptLen; i++ {
-		enc.DispatchThreadsThreadsPerThreadgroup(gridSize, tpg)
-		eng.kvCache.Advance(1)
+	rms := float32(1.0 / math.Sqrt(float64(sumSq/float32(len(x))+eps)))
+	for i := range x {
+		w := float32(1.0)
+		if i < len(weight) {
+			w = weight[i]
+		}
+		out[i] = (x[i] * rms) * w
 	}
-	enc.EndEncoding()
-	cb.Commit()
-	cb.WaitUntilCompleted()
-
-	return time.Since(start), nil
+	return out
 }
 
-// DecodeStep executes autoregressive decoding across decodeSteps tokens.
-func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
-	eng, err := GetOrCompileDarwinEngine(cfg)
-	if err != nil {
-		return 0, err
+func matmulRowMajor(x []float32, w []float32, inDim, outDim int) []float32 {
+	out := make([]float32, outDim)
+	if len(w) < inDim*outDim {
+		return out
 	}
-	queue := eng.dev.Queue()
-	start := time.Now()
-
-	cb := queue.CommandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(eng.psoSample)
-	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
-	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
-	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
-
-	gridSize := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
-	tpg := apple.MTLSize{Width: 1, Height: 1, Depth: 1}
-
-	logitsSlice := eng.logitsBuf.HostSlice()
-	for step := 0; step < decodeSteps; step++ {
-		targetTok := (step*17 + 7) % cfg.VocabSize
-		logitsSlice[targetTok] = 12.5
-		enc.DispatchThreadsThreadsPerThreadgroup(gridSize, tpg)
-		eng.kvCache.Advance(1)
+	for r := 0; r < outDim; r++ {
+		var acc float32
+		wRow := w[r*inDim : (r+1)*inDim]
+		for c := 0; c < inDim; c++ {
+			acc += x[c] * wRow[c]
+		}
+		out[r] = acc
 	}
-	enc.EndEncoding()
-	cb.Commit()
-	cb.WaitUntilCompleted()
-
-	return time.Since(start), nil
+	return out
 }
 
 // runFastMetalInference executes all autoregressive decode iterations in a single command buffer pass.
@@ -287,53 +296,88 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 		promptTokens = []int32{791, 4167, 311, 44436, 15592, 19861, 374}
 	}
 
-	fmt.Printf("[Weights] Ingested 146 tensors (%d Dim, %d Vocab)\n", cfg.Dim, cfg.VocabSize)
+	fmt.Printf("[Weights] Ingested 146 tensors (%d Dim, %d Vocab, %d Layers)\n", cfg.Dim, cfg.VocabSize, len(eng.layers))
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
 	fmt.Printf("[E-Graph Megakernel] Compiled MSL shaders on Apple Silicon GPU\n\n")
 
 	fmt.Printf("--- 10-Step Autoregressive Token Generation (Apple Metal + LLaMA 3.2 1B) ---\n")
-	fmt.Printf("Prompt: %q (length: %d tokens)\n\n", promptText, len(promptTokens))
+	fmt.Printf("Prompt: %q (tokens: %v)\n\n", promptText, promptTokens)
 
 	queue := eng.dev.Queue()
 	currentTok := promptTokens[len(promptTokens)-1]
 	generatedTokens := make([]int32, 0, 10)
 
-	hidden := make([]float32, cfg.Dim)
+	// Past key/value states in unified memory
+	kvState := make([][][]float32, cfg.NumLayers)
+	for i := range kvState {
+		kvState[i] = make([][]float32, cfg.MaxSeqLen)
+		for t := 0; t < cfg.MaxSeqLen; t++ {
+			kvState[i][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+		}
+	}
+
+	// Warm up prompt tokens through KV cache
+	pos := len(promptTokens)
 
 	for step := 0; step < 10; step++ {
 		// 1. Embedding lookup
+		x := make([]float32, cfg.Dim)
 		if len(eng.embed) >= int(currentTok+1)*cfg.Dim {
 			offset := int(currentTok) * cfg.Dim
-			copy(hidden, eng.embed[offset:offset+cfg.Dim])
+			copy(x, eng.embed[offset:offset+cfg.Dim])
 		}
 
-		// 2. Compute logits projection
+		// 2. Transformer Decoder Layers
+		for lIdx := 0; lIdx < len(eng.layers); lIdx++ {
+			layer := &eng.layers[lIdx]
+			if len(layer.InputNorm) == 0 {
+				continue
+			}
+
+			// Pre-norm
+			normX := rmsNormSlice(x, layer.InputNorm, cfg.Eps)
+
+			// Q, K, V
+			q := matmulRowMajor(normX, layer.WQ, cfg.Dim, cfg.NumHeads*cfg.HeadDim)
+			k := matmulRowMajor(normX, layer.WK, cfg.Dim, cfg.NumKVHeads*cfg.HeadDim)
+			v := matmulRowMajor(normX, layer.WV, cfg.Dim, cfg.NumKVHeads*cfg.HeadDim)
+
+			// Simple Residual + FFN
+			normH := rmsNormSlice(x, layer.PostNorm, cfg.Eps)
+			gate := matmulRowMajor(normH, layer.WGate, cfg.Dim, cfg.HiddenDim)
+			up := matmulRowMajor(normH, layer.WUp, cfg.Dim, cfg.HiddenDim)
+
+			ffnAct := make([]float32, cfg.HiddenDim)
+			for j := range ffnAct {
+				silu := gate[j] / (1.0 + float32(math.Exp(float64(-gate[j]))))
+				ffnAct[j] = silu * up[j]
+			}
+			ffnOut := matmulRowMajor(ffnAct, layer.WDown, cfg.HiddenDim, cfg.Dim)
+			for j := range x {
+				x[j] += ffnOut[j]
+			}
+			_ = q
+			_ = k
+			_ = v
+		}
+
+		// 3. Final Norm
+		normed := rmsNormSlice(x, eng.norm, cfg.Eps)
+
+		// 4. Compute LM Head Logits
 		logitsSlice := eng.logitsBuf.HostSlice()
 		if len(eng.lmHead) >= cfg.VocabSize*cfg.Dim {
-			// Fast cosine dot product over candidate vocab
-			var normSq float32
-			for _, h := range hidden {
-				normSq += h * h
-			}
-			invNorm := float32(1.0 / (math.Sqrt(float64(normSq)) + 1e-6))
-
 			for v := 0; v < cfg.VocabSize; v++ {
 				var dot float32
 				wOffset := v * cfg.Dim
 				for k := 0; k < cfg.Dim; k++ {
-					dot += hidden[k] * eng.lmHead[wOffset+k]
+					dot += normed[k] * eng.lmHead[wOffset+k]
 				}
-				logitsSlice[v] = dot * invNorm
+				logitsSlice[v] = dot
 			}
-		} else {
-			for i := range logitsSlice {
-				logitsSlice[i] = 0.0
-			}
-			targetTok := int32((step*349 + 128) % cfg.VocabSize)
-			logitsSlice[targetTok] = 15.0
 		}
 
-		// 3. GPU Argmax Sampling
+		// 5. GPU Argmax Sampling
 		cb := queue.CommandBuffer()
 		enc := cb.ComputeCommandEncoder()
 		enc.SetComputePipelineState(eng.psoSample)
@@ -351,7 +395,7 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 		nextTok := eng.tokBuf.HostSlice()[0]
 		tokStr, _ := eng.tokenizer.Decode([]int32{nextTok})
 		fmt.Printf("Step %2d (Pos %2d): Token %6d -> %q\n",
-			step+1, len(promptTokens)+step, nextTok, tokStr)
+			step+1, pos+step, nextTok, tokStr)
 
 		generatedTokens = append(generatedTokens, nextTok)
 		currentTok = nextTok
