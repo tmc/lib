@@ -144,27 +144,33 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
-func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
+// PrefillStep consumes promptTokens and reports how long it took. It mirrors
+// the darwin entry point of the same name so shared benchmarks can call either
+// build. The CUDA path only advances the KV cache; it does not yet execute the
+// compiled graph.
+func PrefillStep(cfg Config, promptTokens []int32) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
 	start := time.Now()
-	for i := 0; i < promptLen; i++ {
+	for range promptTokens {
 		eng.kvCache.Advance(1)
 	}
 	return time.Since(start), nil
 }
 
-func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
+// DecodeStep runs one forward pass for tokenID at cache position pos and
+// reports how long it took, mirroring the darwin entry point. The CUDA path
+// only advances the KV cache; tokenID and pos are accepted for signature
+// parity and are not yet consulted.
+func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	eng, err := GetOrCompileCudaEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
 	start := time.Now()
-	for step := 0; step < decodeSteps; step++ {
-		eng.kvCache.Advance(1)
-	}
+	eng.kvCache.Advance(1)
 	return time.Since(start), nil
 }
 
