@@ -78,6 +78,27 @@ In Mixture-of-Experts (MoE) architectures where experts $E_0 \dots E_N$ are dist
   2. Once verified, the coordinator broadcasts a generation **Epoch Marker**.
   3. All nodes transition to the expanded $N+1$ topology simultaneously at the next autoregressive token boundary.
 
+### 3.4 Cross-Platform Substrate Mapping (NVIDIA & Apple Metal)
+
+The distributed runtime operates symmetrically across NVIDIA and Apple Silicon hardware:
+
+| Component | NVIDIA CUDA Architecture | Apple Silicon Metal Architecture |
+| :--- | :--- | :--- |
+| **Local Memory Substrate** | `cudamem.Slice[T]` (`cuMemAllocAsync`) | `mempool.Slice[T]` (`newBufferWithBytesNoCopy` / UMA) |
+| **Inter-Device Interconnect** | [`nvidia/x/nvlshm`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/nvlshm) (NVLink VMM + NVSwitch Multicast) | `apple/x/metal/metalio` + Thunderbolt / 100GbE TCP |
+| **Cross-Device Sync** | `cuStreamWaitValue32` / `cuStreamWriteValue32` | `MTLSharedEvent` / `MTLEvent` |
+| **Dynamic JIT Engine** | `nvidia/x/nvrtcx` (`libnvrtc.so`) | `metal.CompileLibrary` (`Metal.framework`) |
+| **Live Telemetry Plane** | [`nvidia/x/cudaprof`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaprof) + `x/perfetto` | [`apple/x/metal/metalprof`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalprof) (`MTLCounterSampleBuffer`) |
+
+### 3.5 Heterogeneous Cluster Optimization (NVIDIA + Apple Silicon)
+
+The distributed E-Graph uniquely unlocks **cross-architecture heterogeneous disaggregation**:
+1. **Disaggregated Prefill / Decode (EPD)**:
+   - **NVIDIA DGX**: Compute-bound chunked prefill on dense Tensor Cores.
+   - **Apple Silicon Cluster**: Memory-bandwidth-bound autoregressive single-token decode utilizing 192GB+ unified memory at high energy efficiency.
+2. **Heterogeneous Speculative Drafting**:
+   - Fast local draft generation running on Apple Silicon (Metal / ANE) streaming $K$-token candidate draft trees over `tcpboot` to NVIDIA target verifiers.
+
 ---
 
 ## 4. Prior Art & Architectural Synergy with `mlx-go-ccl`
