@@ -75,4 +75,3 @@ func TestExtractTopK(t *testing.T) {
 		t.Errorf("expected candidate 0 cost (%f) < candidate 1 cost (%f)", cands[0].Cost, cands[1].Cost)
 	}
 }
-
