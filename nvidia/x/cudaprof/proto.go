@@ -5,7 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"runtime"
+	"strings"
 )
+
 
 type stringTable struct {
 	strings []string
@@ -109,10 +112,18 @@ type location struct {
 	line       int64
 }
 
+// Frame represents a single callstack level (in Go host code, CUDA kernel, PTX virtual ISA, or SASS disassembly).
+type Frame struct {
+	FunctionName string
+	FileName     string
+	Line         int64
+	Address      uint64
+}
+
 type sample struct {
-	locationID uint64
-	values     []int64
-	labels     map[string]string
+	locationIDs []uint64
+	values      []int64
+	labels      map[string]string
 }
 
 // NewBuilder initializes a profile builder.
@@ -179,30 +190,49 @@ func (b *Builder) AddSample(kernelName, filename string, line int64, sassPC uint
 
 // AddDetailedSample records comprehensive multi-dimensional metrics across execution, VRAM, DRAM, and stalls.
 func (b *Builder) AddDetailedSample(kernelName, filename string, line int64, sassPC uint64, vals SampleValues, labels map[string]string) {
-	fnID := b.getOrCreateFunction(kernelName, filename, line)
+	b.AddStackSample(vals, []Frame{{
+		FunctionName: kernelName,
+		FileName:     filename,
+		Line:         line,
+		Address:      sassPC,
+	}}, labels)
+}
 
-	locID := uint64(len(b.locations) + 1)
-	b.locations = append(b.locations, location{
-		id:         locID,
-		mappingID:  1,
-		address:    sassPC,
-		functionID: fnID,
-		line:       line,
-	})
+// AddStackSample records a multi-frame callstack sample (ordered from leaf callee to root caller).
+func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[string]string) {
+	if len(frames) == 0 {
+		return
+	}
 
-	// Track symbol address range
-	if sym, ok := b.symbols[kernelName]; !ok {
-		b.symbols[kernelName] = &Symbol{
-			Name:    kernelName,
-			Address: sassPC,
-			Size:    0x100,
-		}
-	} else {
-		if sassPC < sym.Address {
-			sym.Address = sassPC
-		}
-		if (sassPC + 0x20) > (sym.Address + sym.Size) {
-			sym.Size = (sassPC + 0x20) - sym.Address
+	locIDs := make([]uint64, 0, len(frames))
+	for _, frame := range frames {
+		fnID := b.getOrCreateFunction(frame.FunctionName, frame.FileName, frame.Line)
+		locID := uint64(len(b.locations) + 1)
+		b.locations = append(b.locations, location{
+			id:         locID,
+			mappingID:  1,
+			address:    frame.Address,
+			functionID: fnID,
+			line:       frame.Line,
+		})
+		locIDs = append(locIDs, locID)
+
+		// Track symbol address range
+		if frame.Address > 0 && frame.FunctionName != "" {
+			if sym, ok := b.symbols[frame.FunctionName]; !ok {
+				b.symbols[frame.FunctionName] = &Symbol{
+					Name:    frame.FunctionName,
+					Address: frame.Address,
+					Size:    0x100,
+				}
+			} else {
+				if frame.Address < sym.Address {
+					sym.Address = frame.Address
+				}
+				if (frame.Address + 0x20) > (sym.Address + sym.Size) {
+					sym.Size = (frame.Address + 0x20) - sym.Address
+				}
+			}
 		}
 	}
 
@@ -218,11 +248,62 @@ func (b *Builder) AddDetailedSample(kernelName, filename string, line int64, sas
 	}
 
 	b.samples = append(b.samples, sample{
-		locationID: locID,
-		values:     metricVals,
-		labels:     labels,
+		locationIDs: locIDs,
+		values:      metricVals,
+		labels:      labels,
 	})
 }
+
+// AddTracebackSample records a unified multi-frame sample connecting SASS/PTX execution -> CUDA C++ kernel -> Go host callers.
+func (b *Builder) AddTracebackSample(
+	vals SampleValues,
+	kernelName string,
+	cuFile string,
+	cuLine int64,
+	ptxFile string,
+	ptxLine int64,
+	sassPC uint64,
+	labels map[string]string,
+) {
+	var frames []Frame
+	if ptxFile != "" && ptxLine > 0 {
+		frames = append(frames, Frame{
+			FunctionName: kernelName + "_PTX",
+			FileName:     ptxFile,
+			Line:         ptxLine,
+			Address:      sassPC,
+		})
+	}
+	if cuFile != "" && cuLine > 0 {
+		frames = append(frames, Frame{
+			FunctionName: kernelName,
+			FileName:     cuFile,
+			Line:         cuLine,
+			Address:      sassPC,
+		})
+	}
+
+	// Capture Go host frames
+	var pcs [16]uintptr
+	n := runtime.Callers(2, pcs[:])
+	goFrames := runtime.CallersFrames(pcs[:n])
+	for {
+		frame, more := goFrames.Next()
+		if frame.Function != "" && !strings.Contains(frame.Function, "runtime.") && !strings.Contains(frame.Function, "cudaprof.") {
+			frames = append(frames, Frame{
+				FunctionName: frame.Function,
+				FileName:     frame.File,
+				Line:         int64(frame.Line),
+			})
+		}
+		if !more {
+			break
+		}
+	}
+
+	b.AddStackSample(vals, frames, labels)
+}
+
 
 
 // WriteGzip encodes the profile as a standard gzipped pprof profile with multiple metric dimensions.
@@ -268,7 +349,9 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 	// 2. Samples
 	for _, s := range b.samples {
 		var sBody []byte
-		sBody = append(sBody, encodeVarint(1, s.locationID)...) // location_id
+		for _, locID := range s.locationIDs {
+			sBody = append(sBody, encodeVarint(1, locID)...) // location_id (repeated uint64)
+		}
 		for _, val := range s.values {
 			sBody = append(sBody, encodeVarint(2, uint64(val))...) // values (repeated int64)
 		}
@@ -281,6 +364,7 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		}
 		body = append(body, encodeLengthDelimited(2, sBody)...)
 	}
+
 
 	// 3. Mappings
 	for _, m := range b.mappings {

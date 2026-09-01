@@ -114,8 +114,56 @@ func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename str
 	}, labels)
 }
 
+// RecordStackSample records a multi-frame callstack sample with Go context labels.
+func (s *Session) RecordStackSample(ctx context.Context, vals SampleValues, frames []Frame) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	labels := make(map[string]string)
+	if ctx != nil {
+		pprof.ForLabels(ctx, func(key, value string) bool {
+			labels[key] = value
+			return true
+		})
+	}
+
+	s.builder.AddStackSample(vals, frames, labels)
+}
+
+// RecordTraceback records a unified Go -> CUDA (.cu) -> PTX -> SASS multi-frame callstack sample.
+func (s *Session) RecordTraceback(
+	ctx context.Context,
+	vals SampleValues,
+	kernelName string,
+	cuFile string,
+	cuLine int64,
+	ptxFile string,
+	ptxLine int64,
+	sassPC uint64,
+) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	labels := make(map[string]string)
+	if ctx != nil {
+		pprof.ForLabels(ctx, func(key, value string) bool {
+			labels[key] = value
+			return true
+		})
+	}
+
+	s.builder.AddTracebackSample(vals, kernelName, cuFile, cuLine, ptxFile, ptxLine, sassPC, labels)
+}
+
 // Close finalizes and flushes the gzipped profile to the underlying writer.
 func (s *Session) Close() error {
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

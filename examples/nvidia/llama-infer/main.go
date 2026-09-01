@@ -400,215 +400,96 @@ func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int, ptxPat
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	// 1. Embedding Lookup (.cu and .ptx)
-	prof.RecordDetailedSample(ctx, "EmbeddingLookup", forwardCU, 24, 0x7f001020, cudaprof.SampleValues{
+	// 1. Embedding Lookup
+	prof.RecordTraceback(ctx, cudaprof.SampleValues{
 		Samples:        32,
 		VRAMAllocBytes: int64(hiddenSize * 4),
 		DRAMReadBytes:  int64(hiddenSize * 4),
 		DRAMWriteBytes: int64(hiddenSize * 4),
-	})
-	if ptxPath != "" && ptxMap.EmbeddingLookup > 0 {
-		prof.RecordDetailedSample(ctx, "EmbeddingLookup (PTX)", ptxPath, ptxMap.EmbeddingLookup, 0x7f001020, cudaprof.SampleValues{
-			Samples:        32,
-			DRAMReadBytes:  int64(hiddenSize * 4),
-			DRAMWriteBytes: int64(hiddenSize * 4),
-		})
-	}
+	}, "EmbeddingLookup", forwardCU, 24, ptxPath, ptxMap.EmbeddingLookup, 0x7f001020)
 
 	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumHiddenLayers; l++ {
 		layerCtx := pprof.WithLabels(ctx, pprof.Labels("layer", fmt.Sprintf("%d", l)))
 
 		// Input RMSNorm
-		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 44, 0x7f001110, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:         64,
 			DRAMReadBytes:   int64(hiddenSize * 4),
 			StallScoreboard: 16,
-		})
-		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 54, 0x7f001120, cudaprof.SampleValues{
-			Samples:        32,
-			SharedMemBytes: 128,
-			StallWait:      8,
-		})
-		prof.RecordDetailedSample(layerCtx, "RMSNorm", forwardCU, 66, 0x7f001140, cudaprof.SampleValues{
-			Samples:        64,
-			DRAMWriteBytes: int64(hiddenSize * 4),
-		})
-		if ptxPath != "" && ptxMap.RMSNormLoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "RMSNorm (PTX)", ptxPath, ptxMap.RMSNormLoop, 0x7f001110, cudaprof.SampleValues{
-				Samples:         64,
-				DRAMReadBytes:   int64(hiddenSize * 4),
-				StallScoreboard: 16,
-			})
-			if ptxMap.RMSNormStore > 0 {
-				prof.RecordDetailedSample(layerCtx, "RMSNorm (PTX)", ptxPath, ptxMap.RMSNormStore, 0x7f001140, cudaprof.SampleValues{
-					Samples:        64,
-					DRAMWriteBytes: int64(hiddenSize * 4),
-				})
-			}
-		}
+		}, "RMSNorm", forwardCU, 44, ptxPath, ptxMap.RMSNormLoop, 0x7f001110)
 
 		// QKV GEMVs
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 79, 0x7f001210, cudaprof.SampleValues{
-			Samples:        128,
-			VRAMAllocBytes: int64((qDim + 2*kvDim) * 4),
-		})
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 90, 0x7f001230, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:         512,
 			DRAMReadBytes:   int64((hiddenSize * (qDim + 2*kvDim)) * 4),
 			TensorWarps:     256,
 			StallScoreboard: 64,
-		})
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 95, 0x7f001240, cudaprof.SampleValues{
-			Samples:        64,
-			SharedMemBytes: 512,
-			StallWait:      16,
-		})
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV", forwardCU, 106, 0x7f001260, cudaprof.SampleValues{
-			Samples:        128,
-			DRAMWriteBytes: int64((qDim + 2*kvDim) * 4),
-		})
-		if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001230, cudaprof.SampleValues{
-				Samples:         512,
-				DRAMReadBytes:   int64((hiddenSize * (qDim + 2*kvDim)) * 4),
-				TensorWarps:     256,
-				StallScoreboard: 64,
-			})
-			if ptxMap.LinearGEMVShfl > 0 {
-				prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVShfl, 0x7f001240, cudaprof.SampleValues{
-					Samples:        64,
-					SharedMemBytes: 512,
-					StallWait:      16,
-				})
-			}
-			if ptxMap.LinearGEMVStore > 0 {
-				prof.RecordDetailedSample(layerCtx, "LinearGEMV_QKV (PTX)", ptxPath, ptxMap.LinearGEMVStore, 0x7f001260, cudaprof.SampleValues{
-					Samples:        128,
-					DRAMWriteBytes: int64((qDim + 2*kvDim) * 4),
-				})
-			}
-		}
+		}, "LinearGEMV_QKV", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001230)
 
 		// RoPE
-		prof.RecordDetailedSample(layerCtx, "ApplyRoPE", forwardCU, 133, 0x7f001320, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:        48,
 			DRAMReadBytes:  int64(qDim * 4),
 			DRAMWriteBytes: int64(qDim * 4),
-		})
-		if ptxPath != "" && ptxMap.RoPELoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "ApplyRoPE (PTX)", ptxPath, ptxMap.RoPELoop, 0x7f001320, cudaprof.SampleValues{
-				Samples:        48,
-				DRAMReadBytes:  int64(qDim * 4),
-				DRAMWriteBytes: int64(qDim * 4),
-			})
-		}
+		}, "ApplyRoPE", forwardCU, 133, ptxPath, ptxMap.RoPELoop, 0x7f001320)
 
 		// Store KV Cache
-		prof.RecordDetailedSample(layerCtx, "StoreKVCache", forwardCU, 161, 0x7f001390, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:        32,
 			VRAMAllocBytes: int64(kvDim * 8),
 			DRAMWriteBytes: int64(kvDim * 8),
-		})
-		if ptxPath != "" && ptxMap.StoreKVLoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "StoreKVCache (PTX)", ptxPath, ptxMap.StoreKVLoop, 0x7f001390, cudaprof.SampleValues{
-				Samples:        32,
-				VRAMAllocBytes: int64(kvDim * 8),
-				DRAMWriteBytes: int64(kvDim * 8),
-			})
-		}
+		}, "StoreKVCache", forwardCU, 161, ptxPath, ptxMap.StoreKVLoop, 0x7f001390)
 
 		// FlashAttention Decode
-		prof.RecordDetailedSample(layerCtx, "CausalFlashAttentionDecode", "flash_attn.cu", 65, 0x7f002100, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:         1024,
 			DRAMReadBytes:   int64(kvDim * 4 * (pos + 1)),
 			SharedMemBytes:  int64((pos + 1) * 4),
 			TensorWarps:     512,
 			StallScoreboard: 128,
-		})
+		}, "CausalFlashAttentionDecode", "flash_attn.cu", 65, "", 0, 0x7f002100)
 
 		// Out GEMV
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out", forwardCU, 90, 0x7f001270, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:         256,
 			DRAMReadBytes:   int64(qDim * hiddenSize * 4),
 			TensorWarps:     128,
 			StallScoreboard: 32,
-		})
-		prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out", forwardCU, 106, 0x7f001280, cudaprof.SampleValues{
-			Samples:        64,
-			DRAMWriteBytes: int64(hiddenSize * 4),
-		})
-		if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "LinearGEMV_Out (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001270, cudaprof.SampleValues{
-				Samples:         256,
-				DRAMReadBytes:   int64(qDim * hiddenSize * 4),
-				TensorWarps:     128,
-				StallScoreboard: 32,
-			})
-		}
+		}, "LinearGEMV_Out", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001270)
 
 		// Residual
-		prof.RecordDetailedSample(layerCtx, "AddResidual", forwardCU, 187, 0x7f001410, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:        32,
 			DRAMReadBytes:  int64(hiddenSize * 8),
 			DRAMWriteBytes: int64(hiddenSize * 4),
-		})
-		if ptxPath != "" && ptxMap.AddResidualLoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "AddResidual (PTX)", ptxPath, ptxMap.AddResidualLoop, 0x7f001410, cudaprof.SampleValues{
-				Samples:        32,
-				DRAMReadBytes:  int64(hiddenSize * 8),
-				DRAMWriteBytes: int64(hiddenSize * 4),
-			})
-		}
+		}, "AddResidual", forwardCU, 187, ptxPath, ptxMap.AddResidualLoop, 0x7f001410)
 
 		// SwiGLU
-		prof.RecordDetailedSample(layerCtx, "SwiGLU", forwardCU, 174, 0x7f001450, cudaprof.SampleValues{
+		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
 			Samples:        128,
 			DRAMReadBytes:  int64(interSize * 8),
-			SharedMemBytes: 0,
-		})
-		prof.RecordDetailedSample(layerCtx, "SwiGLU", forwardCU, 176, 0x7f001460, cudaprof.SampleValues{
-			Samples:        128,
 			DRAMWriteBytes: int64(interSize * 4),
-		})
-		if ptxPath != "" && ptxMap.SwiGLULoop > 0 {
-			prof.RecordDetailedSample(layerCtx, "SwiGLU (PTX)", ptxPath, ptxMap.SwiGLULoop, 0x7f001450, cudaprof.SampleValues{
-				Samples:        128,
-				DRAMReadBytes:  int64(interSize * 8),
-				DRAMWriteBytes: int64(interSize * 4),
-			})
-		}
+		}, "SwiGLU", forwardCU, 174, ptxPath, ptxMap.SwiGLULoop, 0x7f001450)
 	}
 
 	// 3. LM Head GEMV
-	prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead", forwardCU, 90, 0x7f001290, cudaprof.SampleValues{
+	prof.RecordTraceback(ctx, cudaprof.SampleValues{
 		Samples:         1024,
 		VRAMAllocBytes:  int64(cfg.VocabSize * 4),
 		DRAMReadBytes:   int64(hiddenSize * cfg.VocabSize * 4),
 		TensorWarps:     512,
 		StallScoreboard: 256,
-	})
-	prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead", forwardCU, 106, 0x7f0012a0, cudaprof.SampleValues{
-		Samples:        128,
-		DRAMWriteBytes: int64(cfg.VocabSize * 4),
-	})
-	if ptxPath != "" && ptxMap.LinearGEMVLoop > 0 {
-		prof.RecordDetailedSample(ctx, "LinearGEMV_LMHead (PTX)", ptxPath, ptxMap.LinearGEMVLoop, 0x7f001290, cudaprof.SampleValues{
-			Samples:         1024,
-			VRAMAllocBytes:  int64(cfg.VocabSize * 4),
-			DRAMReadBytes:   int64(hiddenSize * cfg.VocabSize * 4),
-			TensorWarps:     512,
-			StallScoreboard: 256,
-		})
-	}
+	}, "LinearGEMV_LMHead", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001290)
 
 	// 4. Argmax Sampling
-	prof.RecordDetailedSample(ctx, "ArgmaxLogits", "sample_argmax.cu", 35, 0x7f003150, cudaprof.SampleValues{
+	prof.RecordTraceback(ctx, cudaprof.SampleValues{
 		Samples:        64,
 		DRAMReadBytes:  int64(cfg.VocabSize * 4),
 		DRAMWriteBytes: 4,
-	})
+	}, "ArgmaxLogits", "sample_argmax.cu", 35, "", 0, 0x7f003150)
 }
+
 
 type PTXLineMap struct {
 	EmbeddingLookup int64
