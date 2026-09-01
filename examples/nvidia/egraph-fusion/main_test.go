@@ -76,3 +76,24 @@ func TestTransformerLayerFusion(t *testing.T) {
 
 	t.Logf("Extracted optimal plan: %s (cost: %.2f)", planStr, cost)
 }
+
+func BenchmarkUnfusedVsEGraphMegakernel(b *testing.B) {
+	b.Run("Batch1/Unfused_Baseline", func(b *testing.B) {
+		res, err := RunBenchmarkComparison(1, b.N, egraph.BudgetInstant)
+		if err != nil {
+			b.Fatalf("benchmark failed: %v", err)
+		}
+		b.ReportMetric(res.UnfusedTokSec, "tokens/sec")
+		b.ReportMetric(res.UnfusedDurationMs/float64(b.N), "ms/step")
+	})
+
+	b.Run("Batch1/TMC_EGraph_Megakernel", func(b *testing.B) {
+		res, err := RunBenchmarkComparison(1, b.N, egraph.BudgetInstant)
+		if err != nil {
+			b.Fatalf("benchmark failed: %v", err)
+		}
+		b.ReportMetric(res.TmcEGraphTokSec, "tokens/sec")
+		b.ReportMetric(res.TmcEGraphDurationMs/float64(b.N), "ms/step")
+		b.ReportMetric(res.Speedup, "speedup_factor")
+	})
+}
