@@ -75,10 +75,7 @@ func runPlatform(cfg Config) error {
 	lmHead := cudatensor.NewInput(g, "lm_head", []int{cfg.Dim, cfg.VocabSize}, cudair.Float32)
 	logits := normedOut.MatMul(lmHead)
 
-	plan, err := cudair.PlanMemory(g, 256)
-	if err != nil {
-		return fmt.Errorf("plan memory: %w", err)
-	}
+	plan := cudair.PlanMemory(g)
 	fmt.Printf("[Memory Planner] Static scratchpad arena size: %d bytes (reusing %d buffers)\n",
 		plan.TotalBytes, len(plan.Offsets))
 
