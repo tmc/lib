@@ -258,15 +258,43 @@ func (eng *ModelEngine) capturePrefix(tokens int, current int32, cfg Config) *pr
 }
 
 func (eng *ModelEngine) restorePrefix(snapshot *prefixSnapshot) bool {
-	if eng == nil || snapshot == nil || len(snapshot.k) != len(eng.kCacheBuf) || len(snapshot.v) != len(eng.vCacheBuf) {
+	if eng == nil || snapshot == nil {
 		return false
 	}
+	return eng.restorePrefixPartial(snapshot, snapshot.tokens, Config{NumKVHeads: len(eng.kCacheBuf), HeadDim: 64})
+}
+
+// restorePrefixPartial restores exactly 'tokens' count of KV entries from the snapshot,
+// ensuring no stale downstream entries are left unmanaged.
+func (eng *ModelEngine) restorePrefixPartial(snapshot *prefixSnapshot, tokens int, cfg Config) bool {
+	if eng == nil || snapshot == nil || tokens <= 0 || len(snapshot.k) != len(eng.kCacheBuf) || len(snapshot.v) != len(eng.vCacheBuf) {
+		return false
+	}
+	valuesPerLayer := tokens * cfg.NumKVHeads * cfg.HeadDim
 	for layer := range eng.kCacheBuf {
-		if len(snapshot.k[layer]) > eng.kCacheBuf[layer].Len() || len(snapshot.v[layer]) > eng.vCacheBuf[layer].Len() {
+		if valuesPerLayer > len(snapshot.k[layer]) || valuesPerLayer > len(snapshot.v[layer]) ||
+			valuesPerLayer > eng.kCacheBuf[layer].Len() || valuesPerLayer > eng.vCacheBuf[layer].Len() {
 			return false
 		}
-		copy(eng.kCacheBuf[layer].HostSlice(), snapshot.k[layer])
-		copy(eng.vCacheBuf[layer].HostSlice(), snapshot.v[layer])
+		copy(eng.kCacheBuf[layer].HostSlice()[:valuesPerLayer], snapshot.k[layer][:valuesPerLayer])
+		copy(eng.vCacheBuf[layer].HostSlice()[:valuesPerLayer], snapshot.v[layer][:valuesPerLayer])
+	}
+	return true
+}
+
+// RestorePrefixPartial restores exactly 'tokens' count of KV entries into the isolated SequenceKVCache.
+func (skv *SequenceKVCache) RestorePrefixPartial(snapshot *prefixSnapshot, tokens int, cfg Config) bool {
+	if skv == nil || snapshot == nil || tokens <= 0 || len(snapshot.k) != len(skv.KCache) || len(snapshot.v) != len(skv.VCache) {
+		return false
+	}
+	valuesPerLayer := tokens * cfg.NumKVHeads * cfg.HeadDim
+	for layer := range skv.KCache {
+		if valuesPerLayer > len(snapshot.k[layer]) || valuesPerLayer > len(snapshot.v[layer]) ||
+			valuesPerLayer > skv.KCache[layer].Len() || valuesPerLayer > skv.VCache[layer].Len() {
+			return false
+		}
+		copy(skv.KCache[layer].HostSlice()[:valuesPerLayer], snapshot.k[layer][:valuesPerLayer])
+		copy(skv.VCache[layer].HostSlice()[:valuesPerLayer], snapshot.v[layer][:valuesPerLayer])
 	}
 	return true
 }
@@ -844,8 +872,30 @@ func ExecutePlan(
 	pos int,
 	isLast bool,
 ) {
-	if plan == nil {
+	if eng == nil {
 		return
+	}
+	ExecutePlanWithLogits(enc, eng, plan, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
+}
+
+// ExecutePlanWithLogits executes the authoritative plan directing output logits to a target buffer.
+func ExecutePlanWithLogits(
+	enc apple.MTLComputeCommandEncoder,
+	eng *ModelEngine,
+	plan *ExecutionPlan,
+	cfg Config,
+	kCache, vCache []mempool.Slice[float32],
+	logitsBuf mempool.Slice[float32],
+	tokenID int32,
+	pos int,
+	isLast bool,
+) {
+	if plan == nil || eng == nil {
+		return
+	}
+	targetLogits := eng.logitsBuf
+	if logitsBuf.Len() > 0 {
+		targetLogits = logitsBuf
 	}
 
 	dimVal := uint32(cfg.Dim)
@@ -1257,12 +1307,12 @@ func ExecutePlan(
 					enc.SetComputePipelineState(psoGEMVH)
 					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
 					enc.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 1)
-					enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+					enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 2)
 				} else {
 					enc.SetComputePipelineState(psoGEMV)
 					enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
 					enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
-					enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+					enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 2)
 				}
 				setScalar(enc, dimVal, 3)
 				setScalar(enc, vocabVal, 4)
@@ -1275,7 +1325,7 @@ func ExecutePlan(
 		case "ArgmaxSampling":
 			if isLast {
 				enc.SetComputePipelineState(eng.psoSample)
-				enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+				enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 0)
 				enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
 				setScalar(enc, vocabVal, 2)
 				enc.DispatchThreadsThreadsPerThreadgroup(
@@ -1288,9 +1338,21 @@ func ExecutePlan(
 }
 
 func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
-	if eng.Plan != nil {
-		ExecutePlan(enc, eng, eng.Plan, cfg, kCache, vCache, tokenID, pos, isLast)
+	if eng == nil {
 		return
+	}
+	encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
+}
+
+func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], logitsBuf mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
+	if eng.Plan != nil {
+		ExecutePlanWithLogits(enc, eng, eng.Plan, cfg, kCache, vCache, logitsBuf, tokenID, pos, isLast)
+		return
+	}
+
+	targetLogits := eng.logitsBuf
+	if logitsBuf.Len() > 0 {
+		targetLogits = logitsBuf
 	}
 
 	gemvThreads := 128
@@ -1738,11 +1800,11 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 			)
 
-			// 4. LM Head Logits Projection (half weights): normXBuf * LMHead -> logitsBuf
+			// 4. LM Head Logits Projection (half weights): normXBuf * LMHead -> targetLogits
 			enc.SetComputePipelineState(psoGEMVH)
 			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
 			enc.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 1)
-			enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 2)
 			setScalar(enc, dimVal, 3)
 			setScalar(enc, vocabVal, 4)
 			enc.DispatchThreadgroupsThreadsPerThreadgroup(
@@ -1762,11 +1824,11 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 			)
 
-			// 4. LM Head Logits Projection: normXBuf * LMHead -> logitsBuf
+			// 4. LM Head Logits Projection: normXBuf * LMHead -> targetLogits
 			enc.SetComputePipelineState(psoGEMV)
 			enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
 			enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
-			enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+			enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 2)
 			setScalar(enc, dimVal, 3)
 			setScalar(enc, vocabVal, 4)
 			enc.DispatchThreadgroupsThreadsPerThreadgroup(
@@ -1777,7 +1839,7 @@ func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngin
 
 		// 5. GPU Hardware Argmax Sampling
 		enc.SetComputePipelineState(eng.psoSample)
-		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(targetLogits.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
 		setScalar(enc, vocabVal, 2)
 		enc.DispatchThreadsThreadsPerThreadgroup(
@@ -1827,51 +1889,19 @@ func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 
 	return eng.tokBuf.HostSlice()[0]
 }
 
-// GPUPrefillPass executes prompt prefill across all prompt tokens in a single batched GPU command buffer.
+// GPUPrefillPass executes prompt prefill across all prompt tokens via matrix GEMM prefill.
 func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
 	if len(promptTokens) == 0 {
 		return 0
 	}
-	queue := eng.dev.Queue()
-	cb := queue.CommandBuffer()
-	enc := cb.ComputeCommandEncoder()
-
-	for pos, tokID := range promptTokens {
-		isLast := (pos == len(promptTokens)-1)
-		encodeForwardStep(enc, eng, cfg, tokID, pos, isLast)
-	}
-	enc.EndEncoding()
-
-	t0 := time.Now()
-	cb.Commit()
-	cb.WaitUntilCompleted()
-	wallTime := time.Since(t0)
-	gpuTime := time.Duration((cb.GPUEndTime() - cb.GPUStartTime()) * float64(time.Second))
-	if gpuTime < 0 {
-		gpuTime = 0
-	}
-	if eng.tuner != nil {
-		gemvThreads := 128
-		if eng.tuner.Width() == 64 {
-			gemvThreads = 64
+	if eng != nil && eng.psoBatchedAttn != nil {
+		tok, err := GPUBatchedPrefillPassKV(eng, cfg, nil, promptTokens, 0)
+		if err == nil {
+			return tok
 		}
-		eng.tuner.Record(gemvThreads, gpuTime)
 	}
-	eng.metrics.RecordForward(ForwardMeasurement{
-		Position: len(promptTokens) - 1,
-		GPUTime:  gpuTime,
-		WallTime: wallTime,
-		When:     time.Now(),
-	})
-
-	if eng.recorder != nil {
-		eng.recorder.Record("LLaMA_Prefill_Pass", gpuTime, [3]int{cfg.Dim, len(promptTokens), 1}, [3]int{128, 1, 1}, map[string]string{
-			"model": cfg.Name,
-			"len":   fmt.Sprintf("%d", len(promptTokens)),
-		})
-	}
-
-	return eng.tokBuf.HostSlice()[0]
+	tok, _ := GPUPrefillPassKV(eng, cfg, nil, promptTokens)
+	return tok
 }
 
 // GPUForwardPassKV executes the GPU forward pass using an isolated SequenceKVCache.
@@ -1896,7 +1926,7 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 	return eng.tokBuf.HostSlice()[0], nil
 }
 
-// GPUPrefillPassKV executes prompt prefill using an isolated SequenceKVCache.
+// GPUPrefillPassKV executes prompt prefill using an isolated SequenceKVCache via matrix GEMM prefill.
 func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
 	if len(promptTokens) == 0 {
 		return 0, nil
@@ -1904,6 +1934,10 @@ func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, prompt
 	if eng == nil {
 		return 0, errors.New("prefill pass: nil engine")
 	}
+	if eng.psoBatchedAttn != nil {
+		return GPUBatchedPrefillPassKV(eng, cfg, skv, promptTokens, 0)
+	}
+
 	queue := eng.dev.Queue()
 	cb := queue.CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
@@ -2225,8 +2259,28 @@ func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache,
 		xMat, normXMat, qMat, kMat, vMat, attnOutMat, gateMat, upMat, ffnActMat, tokInBuf)
 	enc.EndEncoding()
 
+	t0 := time.Now()
 	cb.Commit()
 	cb.WaitUntilCompleted()
+	wallTime := time.Since(t0)
+	gpuTime := time.Duration((cb.GPUEndTime() - cb.GPUStartTime()) * float64(time.Second))
+	if gpuTime < 0 {
+		gpuTime = 0
+	}
+	if eng.metrics != nil {
+		eng.metrics.RecordForward(ForwardMeasurement{
+			Position: startPos + seqLen - 1,
+			GPUTime:  gpuTime,
+			WallTime: wallTime,
+			When:     time.Now(),
+		})
+	}
+	if eng.recorder != nil {
+		eng.recorder.Record("LLaMA_Batched_Prefill_Pass", gpuTime, [3]int{cfg.Dim, seqLen, 1}, [3]int{128, 1, 1}, map[string]string{
+			"model": cfg.Name,
+			"len":   fmt.Sprintf("%d", seqLen),
+		})
+	}
 
 	return eng.tokBuf.HostSlice()[0], nil
 }
@@ -2248,6 +2302,16 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 	tokOutBuf, _ := mempool.Alloc[int32](dev, batchSize)
 	defer tokOutBuf.Free()
 
+	var batchLogits []mempool.Slice[float32]
+	if batchSize > 1 {
+		batchLogits = make([]mempool.Slice[float32], batchSize)
+		for b := 0; b < batchSize; b++ {
+			buf, _ := mempool.Alloc[float32](dev, cfg.VocabSize)
+			defer buf.Free()
+			batchLogits[b] = buf
+		}
+	}
+
 	queue := dev.Queue()
 	cb := queue.CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
@@ -2261,11 +2325,17 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 			kCache = skv.KCache
 			vCache = skv.VCache
 		}
-		encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, batchTokens[b], batchPositions[b], true)
+
+		logitsTarget := eng.logitsBuf
+		if batchLogits != nil {
+			logitsTarget = batchLogits[b]
+		}
+
+		encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, logitsTarget, batchTokens[b], batchPositions[b], true)
 
 		outOffset := uint(b * 4)
 		enc.SetComputePipelineState(eng.psoSample)
-		enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(logitsTarget.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(tokOutBuf.Buffer(), outOffset, 1)
 		setScalar(enc, vocabVal, 2)
 		enc.DispatchThreadsThreadsPerThreadgroup(
@@ -2517,20 +2587,27 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 
 	var currentTok int32
 	prefilled := 0
-	if snapshot, ok := eng.prefixes.load(promptTokens); ok && eng.restorePrefix(snapshot) {
+	if snapshot, matched, ok := eng.prefixes.load(promptTokens); ok && eng.restorePrefixPartial(snapshot, matched, cfg) {
 		currentTok = snapshot.current
-		prefilled = snapshot.tokens
-	}
-	for i, tokID := range promptTokens[prefilled:] {
-		pos := prefilled + i
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		currentTok = GPUForwardPass(eng, cfg, tokID, pos)
+		prefilled = matched
 	}
 	if prefilled < len(promptTokens) {
+		remaining := promptTokens[prefilled:]
+		tok, err := GPUBatchedPrefillPassKV(eng, cfg, nil, remaining, prefilled)
+		if err == nil {
+			currentTok = tok
+			prefilled = len(promptTokens)
+		} else {
+			for i, tokID := range remaining {
+				pos := prefilled + i
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+				currentTok = GPUForwardPass(eng, cfg, tokID, pos)
+			}
+		}
 		eng.prefixes.store(promptTokens, eng.capturePrefix(len(promptTokens), currentTok, cfg))
 	}
 

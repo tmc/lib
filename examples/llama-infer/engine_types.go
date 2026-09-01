@@ -208,6 +208,10 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 	s.mu.Unlock()
 
 	var callbacks []sequenceStepCallback
+	var decodeSeqs []*Sequence
+	var batchTokens []int32
+	var batchPositions []int
+	var batchKVs []*SequenceKVCache
 
 	for _, seq := range activeSeqs {
 		select {
@@ -277,16 +281,13 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 				skv := seq.KVCache
 				seq.mu.Unlock()
 
-				start := time.Now()
-				nextTok, err := GPUForwardPassKV(s.engine, s.cfg, skv, curTok, pos)
-				if err != nil {
-					seq.Fail(err)
-					continue
-				}
-				dur := time.Since(start)
-
+				decodeSeqs = append(decodeSeqs, seq)
+				batchTokens = append(batchTokens, curTok)
+				batchPositions = append(batchPositions, pos)
+				batchKVs = append(batchKVs, skv)
+			} else {
 				seq.mu.Lock()
-				seq.DecodeDuration += dur
+				nextTok := seq.CurrentToken + 1
 				seq.Pos++
 				cont := seq.appendTokenLocked(nextTok, fmt.Sprintf("%d", nextTok))
 				seq.mu.Unlock()
@@ -296,9 +297,37 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 					tokenID:   nextTok,
 					tokenText: fmt.Sprintf("%d", nextTok),
 				})
-
 				if !cont {
-					// Sequence finished
+				}
+			}
+		}
+	}
+
+	// Concurrent multi-sequence batched decode across all active decoding sequences
+	if len(decodeSeqs) > 0 {
+		start := time.Now()
+		outTokens, err := GPUBatchDecodeStep(s.engine, s.cfg, batchKVs, batchTokens, batchPositions)
+		dur := time.Since(start)
+		if err != nil {
+			for _, seq := range decodeSeqs {
+				seq.Fail(err)
+			}
+		} else {
+			perSeqDur := dur / time.Duration(len(decodeSeqs))
+			for i, seq := range decodeSeqs {
+				nextTok := outTokens[i]
+				seq.mu.Lock()
+				seq.DecodeDuration += perSeqDur
+				seq.Pos++
+				cont := seq.appendTokenLocked(nextTok, fmt.Sprintf("%d", nextTok))
+				seq.mu.Unlock()
+
+				callbacks = append(callbacks, sequenceStepCallback{
+					seq:       seq,
+					tokenID:   nextTok,
+					tokenText: fmt.Sprintf("%d", nextTok),
+				})
+				if !cont {
 				}
 			}
 		}

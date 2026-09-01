@@ -501,7 +501,7 @@ func TestRadixPrefixReuseIntegration(t *testing.T) {
 	}
 
 	// 2. Second request with userPrompt2 sharing the 5-token system prompt prefix
-	snapMatched, found := eng.prefixes.load(userPrompt2)
+	snapMatched, _, found := eng.prefixes.load(userPrompt2)
 	if !found || snapMatched == nil {
 		t.Fatalf("expected radix prefix match for shared system prompt")
 	}
@@ -514,4 +514,98 @@ func TestRadixPrefixReuseIntegration(t *testing.T) {
 		t.Errorf("expected at least %d saved tokens, got %d", len(systemPrompt), m2.SavedTokens)
 	}
 	t.Logf("Radix Prefix Reuse: Hits=%d, SavedTokens=%d", m2.Hits, m2.SavedTokens)
+}
+
+func TestPartialPrefixRestoreDivergence(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	prefix := []int32{1, 10, 20, 30, 40}
+	promptLong := append(append([]int32(nil), prefix...), 100, 101, 102)
+	promptDivergent := append(append([]int32(nil), prefix...), 200, 201, 202)
+
+	// 1. Reference from scratch (clean cache)
+	skvClean, _ := eng.NewSequenceKV(cfg)
+	defer skvClean.Free()
+	tokRef, err := GPUBatchedPrefillPassKV(eng, cfg, skvClean, promptDivergent, 0)
+	if err != nil {
+		t.Fatalf("clean prefill failed: %v", err)
+	}
+
+	// 2. Prefill promptLong on skvLong and capture snapshot
+	skvLong, _ := eng.NewSequenceKV(cfg)
+	defer skvLong.Free()
+	_, _ = GPUBatchedPrefillPassKV(eng, cfg, skvLong, promptLong, 0)
+	snapLong := eng.capturePrefix(len(promptLong), 0, cfg)
+
+	// 3. Restore only the 5-token prefix into skvDivergent and prefill remaining 3 divergent tokens
+	skvDivergent, _ := eng.NewSequenceKV(cfg)
+	defer skvDivergent.Free()
+	if !skvDivergent.RestorePrefixPartial(snapLong, len(prefix), cfg) {
+		t.Fatalf("RestorePrefixPartial failed")
+	}
+	tokRestored, err := GPUBatchedPrefillPassKV(eng, cfg, skvDivergent, promptDivergent[len(prefix):], len(prefix))
+	if err != nil {
+		t.Fatalf("divergent suffix prefill failed: %v", err)
+	}
+
+	t.Logf("Partial Prefix Restore Divergence: Clean Tok=%d, Restored Tok=%d", tokRef, tokRestored)
+	if tokRef != tokRestored {
+		t.Fatalf("token mismatch: clean %d vs restored partial prefix %d", tokRef, tokRestored)
+	}
+}
+
+func TestBatchedDecodeScratchIsolation(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	numSeqs := 4
+	prompts := [][]int32{
+		{5, 12, 19, 23},
+		{44, 55, 66, 77},
+		{101, 102, 103, 104},
+		{210, 220, 230, 240},
+	}
+	decodeTokens := []int32{99, 150, 201, 33}
+	positions := []int{4, 4, 4, 4}
+
+	// 1. Single forward pass reference for each sequence
+	singleOut := make([]int32, numSeqs)
+	batchKVs := make([]*SequenceKVCache, numSeqs)
+	for i := 0; i < numSeqs; i++ {
+		skv, _ := eng.NewSequenceKV(cfg)
+		defer skv.Free()
+		_, _ = GPUBatchedPrefillPassKV(eng, cfg, skv, prompts[i], 0)
+		singleTok, err := GPUForwardPassKV(eng, cfg, skv, decodeTokens[i], positions[i])
+		if err != nil {
+			t.Fatalf("single forward seq %d failed: %v", i, err)
+		}
+		singleOut[i] = singleTok
+	}
+
+	// 2. Batched decode step across all 4 sequences concurrently
+	for i := 0; i < numSeqs; i++ {
+		skv, _ := eng.NewSequenceKV(cfg)
+		defer skv.Free()
+		_, _ = GPUBatchedPrefillPassKV(eng, cfg, skv, prompts[i], 0)
+		batchKVs[i] = skv
+	}
+
+	batchOut, err := GPUBatchDecodeStep(eng, cfg, batchKVs, decodeTokens, positions)
+	if err != nil {
+		t.Fatalf("GPUBatchDecodeStep failed: %v", err)
+	}
+
+	for i := 0; i < numSeqs; i++ {
+		t.Logf("Seq %d: Single=%d, Batch=%d", i, singleOut[i], batchOut[i])
+		if singleOut[i] != batchOut[i] {
+			t.Fatalf("Seq %d scratch collision: Single %d != Batch %d", i, singleOut[i], batchOut[i])
+		}
+	}
 }

@@ -54,9 +54,9 @@ func prefixKey(tokens []int32) string {
 	return string(data)
 }
 
-func (c *prefixCache) load(tokens []int32) (*prefixSnapshot, bool) {
+func (c *prefixCache) load(tokens []int32) (*prefixSnapshot, int, bool) {
 	if c == nil || len(tokens) == 0 {
-		return nil, false
+		return nil, 0, false
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -69,10 +69,10 @@ func (c *prefixCache) load(tokens []int32) (*prefixSnapshot, bool) {
 		entry.lastUsed = time.Now()
 		c.hits++
 		c.saved += int64(count)
-		return entry, true
+		return entry, count, true
 	}
 	c.misses++
-	return nil, false
+	return nil, 0, false
 }
 
 func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {

@@ -28,9 +28,9 @@ func TestPrefixCacheLongestMatch(t *testing.T) {
 	cache := newPrefixCache(1024, 2)
 	cache.store([]int32{1, 2, 3}, &prefixSnapshot{tokens: 3, bytes: 24})
 	cache.store([]int32{1, 2, 3, 4}, &prefixSnapshot{tokens: 4, bytes: 32})
-	got, ok := cache.load([]int32{1, 2, 3, 4, 5})
-	if !ok || got.tokens != 4 {
-		t.Fatalf("load longest prefix = (%+v, %t), want 4-token hit", got, ok)
+	got, matched, ok := cache.load([]int32{1, 2, 3, 4, 5})
+	if !ok || got.tokens != 4 || matched != 4 {
+		t.Fatalf("load longest prefix = (%+v, %d, %t), want 4-token hit", got, matched, ok)
 	}
 	metrics := cache.metrics()
 	if metrics.Hits != 1 || metrics.Misses != 0 || metrics.SavedTokens != 4 {
