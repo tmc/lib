@@ -42,6 +42,11 @@ const CausalFlashAttentionMSL = `
 #include <metal_stdlib>
 using namespace metal;
 
+#ifndef METALATTN_REDUCE_HELPERS
+#define METALATTN_REDUCE_HELPERS
+
+// These are duplicated verbatim in every metalattn shader string so each one
+// compiles standalone; the guard keeps concatenating several of them legal.
 inline float attn_simd_sum(float v) {
     for (ushort off = 16; off > 0; off >>= 1) {
         v += simd_shuffle_down(v, off);
@@ -55,6 +60,8 @@ inline float attn_simd_max(float v) {
     }
     return v;
 }
+
+#endif
 
 constant constexpr int ATTN_TILE = 256;
 constant constexpr int ATTN_MAX_HEAD_DIM = 256;
