@@ -566,6 +566,13 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 		return fmt.Errorf("plan topology error: first op must be EmbeddingLookup, got %q", plan.Ops[0].Name)
 	}
 
+	opNameAt := func(i int) string {
+		if i >= 0 && i < len(plan.Ops) {
+			return plan.Ops[i].Name
+		}
+		return "<EOF>"
+	}
+
 	idx := 1
 	for l := 0; l < plan.NumLayers; l++ {
 		if idx >= len(plan.Ops) {
@@ -590,7 +597,7 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 			}
 			idx += 4
 		} else {
-			return fmt.Errorf("plan topology error: layer %d invalid attention QKV block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+			return fmt.Errorf("plan topology error: layer %d invalid attention QKV block at op %d (%s)", l, idx, opNameAt(idx))
 		}
 
 		// Parse Attention Core (ApplyRoPEStoreKV -> CausalFlashAttentionDecode -> FastGEMVResidual_O -> ComputeRMSNorm_Post)
@@ -599,7 +606,7 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 			plan.Ops[idx+1].Name != "CausalFlashAttentionDecode" ||
 			plan.Ops[idx+2].Name != "FastGEMVResidual_O" ||
 			plan.Ops[idx+3].Name != "ComputeRMSNorm_Post" {
-			return fmt.Errorf("plan topology error: layer %d invalid attention core block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+			return fmt.Errorf("plan topology error: layer %d invalid attention core block at op %d (%s)", l, idx, opNameAt(idx))
 		}
 		for k := 0; k < 4; k++ {
 			if plan.Ops[idx+k].LayerIndex != l {
@@ -609,6 +616,9 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 		idx += 4
 
 		// Parse FFN block
+		if idx >= len(plan.Ops) {
+			return fmt.Errorf("plan topology error: layer %d missing FFN block at op %d", l, idx)
+		}
 		if idx+2 < len(plan.Ops) &&
 			plan.Ops[idx].Name == "FastGEMV_Gate" &&
 			plan.Ops[idx+1].Name == "FastGEMV_Up" &&
@@ -631,7 +641,7 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 			}
 			idx += 4
 		} else {
-			return fmt.Errorf("plan topology error: layer %d invalid FFN block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+			return fmt.Errorf("plan topology error: layer %d invalid FFN block at op %d (%s)", l, idx, opNameAt(idx))
 		}
 	}
 

@@ -934,7 +934,41 @@ func TestExecutionPlanFailClosedValidation(t *testing.T) {
 		}
 	}
 
-	// 12. ExecutePlanWithLogits fails closed on invalid plan
+	// 12. Truncation boundary: truncated immediately after QKV block
+	truncQKVPlan := BuildExecutionPlan(cfg)
+	if len(truncQKVPlan.Ops) >= 5 {
+		truncQKVPlan.Ops = truncQKVPlan.Ops[:5]
+		if err := ValidatePlan(truncQKVPlan, cfg); err == nil {
+			t.Fatalf("expected error validating plan truncated after QKV, got nil")
+		}
+	}
+
+	// 13. Truncation boundary: truncated immediately after attention core block
+	truncCorePlan := BuildExecutionPlan(cfg)
+	if len(truncCorePlan.Ops) >= 9 {
+		truncCorePlan.Ops = truncCorePlan.Ops[:9]
+		if err := ValidatePlan(truncCorePlan, cfg); err == nil {
+			t.Fatalf("expected error validating plan truncated after attention core, got nil")
+		}
+	}
+
+	// 14. Topology violation: missing epilogue (truncated before final norm/lm_head/sampling)
+	missingEpiloguePlan := BuildExecutionPlan(cfg)
+	if len(missingEpiloguePlan.Ops) > 3 {
+		missingEpiloguePlan.Ops = missingEpiloguePlan.Ops[:len(missingEpiloguePlan.Ops)-3]
+		if err := ValidatePlan(missingEpiloguePlan, cfg); err == nil {
+			t.Fatalf("expected error validating plan with missing epilogue, got nil")
+		}
+	}
+
+	// 15. Topology violation: extra trailing operations after epilogue
+	extraTrailingPlan := BuildExecutionPlan(cfg)
+	extraTrailingPlan.Ops = append(extraTrailingPlan.Ops, OpDispatch{Name: "ComputeRMSNorm_Final", Category: "norm"})
+	if err := ValidatePlan(extraTrailingPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with extra trailing op, got nil")
+	}
+
+	// 16. ExecutePlanWithLogits fails closed on invalid plan
 	origPlan := eng.Plan
 	defer func() { eng.Plan = origPlan }()
 	eng.Plan = badOpPlan
