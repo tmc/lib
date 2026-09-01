@@ -41,8 +41,17 @@ kernel void ComputeRMSNorm(
     uint simd_lane                     [[thread_index_in_simdgroup]],
     uint simd_id                       [[simdgroup_index_in_threadgroup]]
 ) {
+    uint dim4 = dim / 4;
+    device const float4* x4 = (device const float4*)x;
+    device const float4* w4 = (device const float4*)weight;
+    device float4* out4 = (device float4*)out_normed;
+
     float local_sq = 0.0f;
-    for (uint i = tid; i < dim; i += 128) {
+    for (uint i = tid; i < dim4; i += 128) {
+        float4 v = x4[i];
+        local_sq += dot(v, v);
+    }
+    for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
         float v = x[i];
         local_sq += v * v;
     }
@@ -60,12 +69,16 @@ kernel void ComputeRMSNorm(
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
-    for (uint i = tid; i < dim; i += 128) {
-        out_normed[i] = x[i] * s_rms * weight[i];
+    float rms = s_rms;
+    for (uint i = tid; i < dim4; i += 128) {
+        out4[i] = x4[i] * rms * w4[i];
+    }
+    for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
+        out_normed[i] = x[i] * rms * weight[i];
     }
 }
 
-// 3. Fast GEMV Matrix-Vector Multiplication (Row-parallel with SIMD reduction)
+// 3. Fast GEMV Matrix-Vector Multiplication (Row-parallel with float4 SIMD reduction)
 kernel void FastGEMV(
     device const float* x              [[buffer(0)]], // [InDim]
     device const float* W              [[buffer(1)]], // [OutDim, InDim]
@@ -79,8 +92,15 @@ kernel void FastGEMV(
 ) {
     if (row < out_dim) {
         device const float* w_row = W + row * in_dim;
+        uint in_dim4 = in_dim / 4;
+        device const float4* w_row4 = (device const float4*)w_row;
+        device const float4* x4 = (device const float4*)x;
+
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim; i += 128) {
+        for (uint i = tid; i < in_dim4; i += 128) {
+            acc += dot(x4[i], w_row4[i]);
+        }
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 128) {
             acc += x[i] * w_row[i];
         }
         acc = simd_sum(acc);
@@ -108,8 +128,15 @@ kernel void FastGEMVResidual(
 ) {
     if (row < out_dim) {
         device const float* w_row = W + row * in_dim;
+        uint in_dim4 = in_dim / 4;
+        device const float4* w_row4 = (device const float4*)w_row;
+        device const float4* x4 = (device const float4*)x;
+
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim; i += 128) {
+        for (uint i = tid; i < in_dim4; i += 128) {
+            acc += dot(x4[i], w_row4[i]);
+        }
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 128) {
             acc += x[i] * w_row[i];
         }
         acc = simd_sum(acc);
@@ -118,6 +145,77 @@ kernel void FastGEMVResidual(
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
         float block_sum = (simd_id == 0 && simd_lane < 4) ? s_sum[simd_lane] : 0.0f;
+        if (simd_id == 0) block_sum = simd_sum(block_sum);
+        if (tid == 0) y_inout[row] += block_sum;
+    }
+}
+
+// 4b. 64-thread GEMV variants used by the runtime PGO tuner.
+kernel void FastGEMV64(
+    device const float* x              [[buffer(0)]],
+    device const float* W              [[buffer(1)]],
+    device float* y                    [[buffer(2)]],
+    constant uint& in_dim              [[buffer(3)]],
+    constant uint& out_dim             [[buffer(4)]],
+    uint row                           [[threadgroup_position_in_grid]],
+    uint tid                           [[thread_position_in_threadgroup]],
+    uint simd_lane                     [[thread_index_in_simdgroup]],
+    uint simd_id                       [[simdgroup_index_in_threadgroup]]
+) {
+    if (row < out_dim) {
+        device const float* w_row = W + row * in_dim;
+        uint in_dim4 = in_dim / 4;
+        device const float4* w_row4 = (device const float4*)w_row;
+        device const float4* x4 = (device const float4*)x;
+
+        float acc = 0.0f;
+        for (uint i = tid; i < in_dim4; i += 64) {
+            acc += dot(x4[i], w_row4[i]);
+        }
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 64) {
+            acc += x[i] * w_row[i];
+        }
+        acc = simd_sum(acc);
+        threadgroup float s_sum[2];
+        if (simd_lane == 0) s_sum[simd_id] = acc;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        float block_sum = (simd_id == 0 && simd_lane < 2) ? s_sum[simd_lane] : 0.0f;
+        if (simd_id == 0) block_sum = simd_sum(block_sum);
+        if (tid == 0) y[row] = block_sum;
+    }
+}
+
+kernel void FastGEMVResidual64(
+    device const float* x              [[buffer(0)]],
+    device const float* W              [[buffer(1)]],
+    device float* y_inout              [[buffer(2)]],
+    constant uint& in_dim              [[buffer(3)]],
+    constant uint& out_dim             [[buffer(4)]],
+    uint row                           [[threadgroup_position_in_grid]],
+    uint tid                           [[thread_position_in_threadgroup]],
+    uint simd_lane                     [[thread_index_in_simdgroup]],
+    uint simd_id                       [[simdgroup_index_in_threadgroup]]
+) {
+    if (row < out_dim) {
+        device const float* w_row = W + row * in_dim;
+        uint in_dim4 = in_dim / 4;
+        device const float4* w_row4 = (device const float4*)w_row;
+        device const float4* x4 = (device const float4*)x;
+
+        float acc = 0.0f;
+        for (uint i = tid; i < in_dim4; i += 64) {
+            acc += dot(x4[i], w_row4[i]);
+        }
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 64) {
+            acc += x[i] * w_row[i];
+        }
+        acc = simd_sum(acc);
+        threadgroup float s_sum[2];
+        if (simd_lane == 0) s_sum[simd_id] = acc;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        float block_sum = (simd_id == 0 && simd_lane < 2) ? s_sum[simd_lane] : 0.0f;
         if (simd_id == 0) block_sum = simd_sum(block_sum);
         if (tid == 0) y_inout[row] += block_sum;
     }
@@ -192,10 +290,15 @@ kernel void FastSiLUMul(
     constant uint& hidden_dim     [[buffer(3)]],
     uint tid                      [[thread_position_in_grid]]
 ) {
-    if (tid < hidden_dim) {
-        float g = gate[tid];
-        float silu = g / (1.0f + exp(-g));
-        out[tid] = silu * up[tid];
+    uint dim4 = hidden_dim / 4;
+    device const float4* g4 = (device const float4*)gate;
+    device const float4* u4 = (device const float4*)up;
+    device float4* o4 = (device float4*)out;
+
+    if (tid < dim4) {
+        float4 g = g4[tid];
+        float4 silu = g / (float4(1.0f) + exp(-g));
+        o4[tid] = silu * u4[tid];
     }
 }
 `
