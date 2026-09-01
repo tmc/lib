@@ -301,4 +301,165 @@ kernel void FastSiLUMul(
         o4[tid] = silu * u4[tid];
     }
 }
+
+// 7. Fused RMSNorm + QKV Projection (Single pass over x, computes Q, K, V in parallel)
+kernel void FusedRMSNormQKV(
+    device const float* x              [[buffer(0)]],
+    device const float* norm_weight    [[buffer(1)]],
+    device const float* WQ             [[buffer(2)]],
+    device const float* WK             [[buffer(3)]],
+    device const float* WV             [[buffer(4)]],
+    device float* q                    [[buffer(5)]],
+    device float* k                    [[buffer(6)]],
+    device float* v                    [[buffer(7)]],
+    constant uint& dim                 [[buffer(8)]],
+    constant uint& q_dim               [[buffer(9)]],
+    constant uint& kv_dim              [[buffer(10)]],
+    constant float& eps                [[buffer(11)]],
+    uint row                           [[threadgroup_position_in_grid]],
+    uint tid                           [[thread_position_in_threadgroup]],
+    uint simd_lane                     [[thread_index_in_simdgroup]],
+    uint simd_id                       [[simdgroup_index_in_threadgroup]]
+) {
+    uint dim4 = dim / 4;
+    device const float4* x4 = (device const float4*)x;
+
+    float local_sq = 0.0f;
+    for (uint i = tid; i < dim4; i += 128) {
+        float4 val = x4[i];
+        local_sq += dot(val, val);
+    }
+    for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
+        float val = x[i];
+        local_sq += val * val;
+    }
+    local_sq = simd_sum(local_sq);
+    threadgroup float s_sum[4];
+    if (simd_lane == 0) s_sum[simd_id] = local_sq;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    float total_sq = (simd_id == 0 && simd_lane < 4) ? s_sum[simd_lane] : 0.0f;
+    if (simd_id == 0) total_sq = simd_sum(total_sq);
+
+    threadgroup float s_rms;
+    if (tid == 0) {
+        s_rms = rsqrt(total_sq / float(dim) + eps);
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    float rms = s_rms;
+
+    // Compute Q for this row
+    if (row < q_dim) {
+        device const float* wq_row = WQ + row * dim;
+        device const float4* wq4 = (device const float4*)wq_row;
+        device const float4* nw4 = (device const float4*)norm_weight;
+        float acc = 0.0f;
+        for (uint i = tid; i < dim4; i += 128) {
+            float4 normed = x4[i] * rms * nw4[i];
+            acc += dot(normed, wq4[i]);
+        }
+        for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
+            float normed = x[i] * rms * norm_weight[i];
+            acc += normed * wq_row[i];
+        }
+        acc = simd_sum(acc);
+        threadgroup float s_acc[4];
+        if (simd_lane == 0) s_acc[simd_id] = acc;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float blk = (simd_id == 0 && simd_lane < 4) ? s_acc[simd_lane] : 0.0f;
+        if (simd_id == 0) blk = simd_sum(blk);
+        if (tid == 0) q[row] = blk;
+    }
+
+    // Compute K and V if row < kv_dim
+    if (row < kv_dim) {
+        device const float* wk_row = WK + row * dim;
+        device const float4* wk4 = (device const float4*)wk_row;
+        device const float4* nw4 = (device const float4*)norm_weight;
+        float acc_k = 0.0f;
+        for (uint i = tid; i < dim4; i += 128) {
+            float4 normed = x4[i] * rms * nw4[i];
+            acc_k += dot(normed, wk4[i]);
+        }
+        for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
+            float normed = x[i] * rms * norm_weight[i];
+            acc_k += normed * wk_row[i];
+        }
+        acc_k = simd_sum(acc_k);
+
+        device const float* wv_row = WV + row * dim;
+        device const float4* wv4 = (device const float4*)wv_row;
+        float acc_v = 0.0f;
+        for (uint i = tid; i < dim4; i += 128) {
+            float4 normed = x4[i] * rms * nw4[i];
+            acc_v += dot(normed, wv4[i]);
+        }
+        for (uint i = dim4 * 4 + tid; i < dim; i += 128) {
+            float normed = x[i] * rms * norm_weight[i];
+            acc_v += normed * wv_row[i];
+        }
+        acc_v = simd_sum(acc_v);
+
+        threadgroup float s_acc_k[4];
+        threadgroup float s_acc_v[4];
+        if (simd_lane == 0) {
+            s_acc_k[simd_id] = acc_k;
+            s_acc_v[simd_id] = acc_v;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float blk_k = (simd_id == 0 && simd_lane < 4) ? s_acc_k[simd_lane] : 0.0f;
+        if (simd_id == 0) blk_k = simd_sum(blk_k);
+        float blk_v = (simd_id == 0 && simd_lane < 4) ? s_acc_v[simd_lane] : 0.0f;
+        if (simd_id == 0) blk_v = simd_sum(blk_v);
+        if (tid == 0) {
+            k[row] = blk_k;
+            v[row] = blk_v;
+        }
+    }
+}
+
+// 8. Fused SwiGLU + Down Projection (Single pass over Gate and Up activations)
+kernel void FusedSwiGLUDown(
+    device const float* gate           [[buffer(0)]],
+    device const float* up             [[buffer(1)]],
+    device const float* WDown          [[buffer(2)]],
+    device float* x_inout              [[buffer(3)]],
+    constant uint& dim                 [[buffer(4)]],
+    constant uint& inter_dim           [[buffer(5)]],
+    uint row                           [[threadgroup_position_in_grid]],
+    uint tid                           [[thread_position_in_threadgroup]],
+    uint simd_lane                     [[thread_index_in_simdgroup]],
+    uint simd_id                       [[simdgroup_index_in_threadgroup]]
+) {
+    if (row < dim) {
+        device const float* wd_row = WDown + row * inter_dim;
+        uint inter4 = inter_dim / 4;
+        device const float4* wd4 = (device const float4*)wd_row;
+        device const float4* g4 = (device const float4*)gate;
+        device const float4* u4 = (device const float4*)up;
+
+        float acc = 0.0f;
+        for (uint i = tid; i < inter4; i += 128) {
+            float4 g = g4[i];
+            float4 silu = g / (float4(1.0f) + exp(-g));
+            float4 act = silu * u4[i];
+            acc += dot(act, wd4[i]);
+        }
+        for (uint i = inter4 * 4 + tid; i < inter_dim; i += 128) {
+            float g = gate[i];
+            float silu = g / (1.0f + exp(-g));
+            float act = silu * up[i];
+            acc += act * wd_row[i];
+        }
+        acc = simd_sum(acc);
+        threadgroup float s_acc[4];
+        if (simd_lane == 0) s_acc[simd_id] = acc;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        float blk = (simd_id == 0 && simd_lane < 4) ? s_acc[simd_lane] : 0.0f;
+        if (simd_id == 0) blk = simd_sum(blk);
+        if (tid == 0) x_inout[row] += blk;
+    }
+}
 `
