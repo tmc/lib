@@ -44,6 +44,16 @@ type DistributedRoleAssignment struct {
 	Reason             string  `json:"reason"`
 }
 
+// ClusterMeshState summarizes the current multi-node topology and aggregated capabilities.
+type ClusterMeshState struct {
+	SelfNode            NodeTelemetry             `json:"self_node"`
+	Peers               []NodeTelemetry           `json:"peers"`
+	TotalNodes          int                       `json:"total_nodes"`
+	ClusterTFLOPs       float64                   `json:"cluster_tflops"`
+	ClusterBandwidthGBS float64                   `json:"cluster_bandwidth_gbs"`
+	ActiveAssignment    DistributedRoleAssignment `json:"active_assignment"`
+}
+
 // IrohClusterNode coordinates distributed P2P inference over go-iroh QUIC endpoints.
 type IrohClusterNode struct {
 	ep       *iroh.Endpoint
@@ -190,6 +200,34 @@ func (n *IrohClusterNode) InferRoles(promptLen, genTokens int) DistributedRoleAs
 	}
 
 	return bestAssignment
+}
+
+// MeshState returns a snapshot of the current cluster topology and active role assignment.
+func (n *IrohClusterNode) MeshState() ClusterMeshState {
+	if n == nil {
+		return ClusterMeshState{}
+	}
+	n.peersMu.RLock()
+	peersList := make([]NodeTelemetry, 0, len(n.peers))
+	totalTFLOPs := n.self.ComputeTFLOPs
+	totalBW := n.self.BandwidthGBS
+	for _, p := range n.peers {
+		peersList = append(peersList, p)
+		totalTFLOPs += p.ComputeTFLOPs
+		totalBW += p.BandwidthGBS
+	}
+	n.peersMu.RUnlock()
+
+	assignment := n.InferRoles(2048, 64)
+
+	return ClusterMeshState{
+		SelfNode:            n.self,
+		Peers:               peersList,
+		TotalNodes:          len(peersList) + 1,
+		ClusterTFLOPs:       totalTFLOPs,
+		ClusterBandwidthGBS:  totalBW,
+		ActiveAssignment:    assignment,
+	}
 }
 
 // Close gracefully shuts down the underlying go-iroh QUIC endpoint.

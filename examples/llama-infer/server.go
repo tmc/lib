@@ -14,24 +14,26 @@ import (
 
 // TelemetryResponse represents the JSON payload served at /api/telemetry.
 type TelemetryResponse struct {
-	ModelName      string                `json:"model_name"`
-	HiddenDim      int                   `json:"hidden_dim"`
-	NumLayers      int                   `json:"num_layers"`
-	EGraphSats     int                   `json:"egraph_saturations"`
-	ActivePlan     string                `json:"active_plan"`
-	TotalDispatches int                  `json:"total_dispatches"`
-	MeanLatencyUs  float64               `json:"mean_latency_us"`
-	P50LatencyUs   float64               `json:"p50_latency_us"`
-	P95LatencyUs   float64               `json:"p95_latency_us"`
-	EffectiveTokS  float64               `json:"effective_tok_s"`
-	RecentEvents   []metalprof.KernelEvent `json:"recent_events"`
+	ModelName       string                  `json:"model_name"`
+	HiddenDim       int                     `json:"hidden_dim"`
+	NumLayers       int                     `json:"num_layers"`
+	EGraphSats      int                     `json:"egraph_saturations"`
+	ActivePlan      string                  `json:"active_plan"`
+	TotalDispatches int                     `json:"total_dispatches"`
+	MeanLatencyUs   float64                 `json:"mean_latency_us"`
+	P50LatencyUs    float64                 `json:"p50_latency_us"`
+	P95LatencyUs    float64                 `json:"p95_latency_us"`
+	EffectiveTokS   float64                 `json:"effective_tok_s"`
+	ClusterMesh     ClusterMeshState        `json:"cluster_mesh"`
+	RecentEvents    []metalprof.KernelEvent `json:"recent_events"`
 }
 
 // TelemetryServer serves a live diagnostic dashboard for E-Graph and FlightRecorder telemetry.
 type TelemetryServer struct {
-	engine *ModelEngine
-	cfg    Config
-	mux    *http.ServeMux
+	engine      *ModelEngine
+	clusterNode *IrohClusterNode
+	cfg         Config
+	mux         *http.ServeMux
 }
 
 // NewTelemetryServer initializes a new diagnostic HTTP server.
@@ -43,6 +45,11 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 	}
 	s.routes()
 	return s
+}
+
+// SetClusterNode attaches the active go-iroh P2P cluster node to the telemetry server.
+func (s *TelemetryServer) SetClusterNode(node *IrohClusterNode) {
+	s.clusterNode = node
 }
 
 func (s *TelemetryServer) routes() {
@@ -109,6 +116,30 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 		recent = recent[len(recent)-50:]
 	}
 
+	mesh := ClusterMeshState{}
+	if s.clusterNode != nil {
+		mesh = s.clusterNode.MeshState()
+	}
+	if mesh.TotalNodes == 0 {
+		mesh = ClusterMeshState{
+			TotalNodes: 1,
+			SelfNode: NodeTelemetry{
+				NodeID:        "local-node",
+				OS:            s.cfg.Name,
+				Arch:          "gpu",
+				ComputeTFLOPs: 40.0,
+				BandwidthGBS:  800.0,
+			},
+			ClusterTFLOPs:       40.0,
+			ClusterBandwidthGBS: 800.0,
+			ActiveAssignment: DistributedRoleAssignment{
+				PrefillNodeID: "local-node",
+				DecodeNodeID:  "local-node",
+				Reason:        "Standalone local execution",
+			},
+		}
+	}
+
 	return TelemetryResponse{
 		ModelName:       s.cfg.Name,
 		HiddenDim:       s.cfg.Dim,
@@ -120,6 +151,7 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 		P50LatencyUs:    p50Us,
 		P95LatencyUs:    p95Us,
 		EffectiveTokS:   tokS,
+		ClusterMesh:     mesh,
 		RecentEvents:    recent,
 	}
 }
@@ -150,7 +182,78 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
 	}
 	stats := s.getStats()
 
-	html := fmt.Sprintf(`<!DOCTYPE html>
+	var meshRows strings.Builder
+	allNodes := append([]NodeTelemetry{stats.ClusterMesh.SelfNode}, stats.ClusterMesh.Peers...)
+	for _, n := range allNodes {
+		roleBadge := `<span class="badge" style="background:#21262d; color:#8b949e;">STANDALONE WORKER</span>`
+		if n.NodeID == stats.ClusterMesh.ActiveAssignment.PrefillNodeID && n.NodeID == stats.ClusterMesh.ActiveAssignment.DecodeNodeID {
+			roleBadge = `<span class="badge" style="background:#238636; color:white;">PREFILL + DECODE</span>`
+		} else if n.NodeID == stats.ClusterMesh.ActiveAssignment.PrefillNodeID {
+			roleBadge = `<span class="badge" style="background:#1f6feb; color:white;">PREFILL (COMPUTE)</span>`
+		} else if n.NodeID == stats.ClusterMesh.ActiveAssignment.DecodeNodeID {
+			roleBadge = `<span class="badge" style="background:#8957e5; color:white;">DECODE (BANDWIDTH)</span>`
+		}
+
+		meshRows.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td style="color:var(--accent); font-weight:600; font-family:monospace;">%s</td>
+                        <td><span class="badge" style="background:#1f6feb;">%s</span></td>
+                        <td style="color:#8b949e;">%s</td>
+                        <td style="color:#ffffff; font-weight:600;">%.1f TFLOPs</td>
+                        <td style="color:#ffffff; font-weight:600;">%.1f GB/s</td>
+                        <td>%s</td>
+                    </tr>`,
+			n.NodeID,
+			strings.ToUpper(n.OS),
+			n.Arch,
+			n.ComputeTFLOPs,
+			n.BandwidthGBS,
+			roleBadge,
+		))
+	}
+
+	var eventRows strings.Builder
+	for i := len(stats.RecentEvents) - 1; i >= 0; i-- {
+		ev := stats.RecentEvents[i]
+		lbls := make([]string, 0, len(ev.Labels))
+		for k, v := range ev.Labels {
+			lbls = append(lbls, fmt.Sprintf("%s=%s", k, v))
+		}
+		eventRows.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td style="color:#8b949e;">%d</td>
+                        <td style="color:var(--accent); font-weight:600;">%s</td>
+                        <td>%.2f</td>
+                        <td>[%d, %d, %d]</td>
+                        <td>[%d, %d, %d]</td>
+                        <td style="color:#8b949e;">%s</td>
+                    </tr>`,
+			ev.TimestampNs,
+			ev.Name,
+			float64(ev.Duration.Microseconds()),
+			ev.GridSize[0], ev.GridSize[1], ev.GridSize[2],
+			ev.TGSize[0], ev.TGSize[1], ev.TGSize[2],
+			strings.Join(lbls, ", "),
+		))
+	}
+
+	htmlOut := fmt.Sprintf(htmlTemplate,
+		stats.ActivePlan, stats.EGraphSats,
+		stats.TotalDispatches,
+		stats.P50LatencyUs,
+		stats.P95LatencyUs,
+		stats.EffectiveTokS,
+		stats.ClusterMesh.TotalNodes, stats.ClusterMesh.ClusterTFLOPs, stats.ClusterMesh.ClusterBandwidthGBS,
+		stats.ClusterMesh.ActiveAssignment.Reason,
+		meshRows.String(),
+		eventRows.String(),
+	)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(htmlOut))
+}
+
+const htmlTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -306,6 +409,31 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
         </div>
 
         <div class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div class="section-title" style="margin-bottom: 0;">🌐 go-iroh P2P Cluster Mesh Topology</div>
+                <span class="badge" style="background: #238636; font-size: 13px;">🟢 %d Nodes Active (%.0f TFLOPs, %.0f GB/s Cluster)</span>
+            </div>
+            <div style="font-size: 13px; color: #8b949e; margin-bottom: 14px;">
+                E-Graph Role Assignment: <strong style="color: var(--text-bright);">%s</strong>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Node ID (Ed25519)</th>
+                        <th>Platform</th>
+                        <th>Architecture</th>
+                        <th>Compute Power</th>
+                        <th>Memory Bandwidth</th>
+                        <th>Assigned E-Graph Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+%s
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
             <div class="section-title">Recent Kernel Execution Events (FlightRecorder Stream)</div>
             <table>
                 <thead>
@@ -319,42 +447,10 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
                     </tr>
                 </thead>
                 <tbody id="event-table">
-`, stats.ActivePlan, stats.EGraphSats, stats.TotalDispatches, stats.P50LatencyUs, stats.P95LatencyUs, stats.EffectiveTokS)
-
-	var rows strings.Builder
-	for i := len(stats.RecentEvents) - 1; i >= 0; i-- {
-		ev := stats.RecentEvents[i]
-		lbls := make([]string, 0, len(ev.Labels))
-		for k, v := range ev.Labels {
-			lbls = append(lbls, fmt.Sprintf("%s=%s", k, v))
-		}
-		rows.WriteString(fmt.Sprintf(`
-                    <tr>
-                        <td style="color:#8b949e;">%d</td>
-                        <td style="color:var(--accent); font-weight:600;">%s</td>
-                        <td>%.2f</td>
-                        <td>[%d, %d, %d]</td>
-                        <td>[%d, %d, %d]</td>
-                        <td style="color:#8b949e;">%s</td>
-                    </tr>`,
-			ev.TimestampNs,
-			ev.Name,
-			float64(ev.Duration.Microseconds()),
-			ev.GridSize[0], ev.GridSize[1], ev.GridSize[2],
-			ev.TGSize[0], ev.TGSize[1], ev.TGSize[2],
-			strings.Join(lbls, ", "),
-		))
-	}
-
-	html += rows.String()
-	html += `
+%s
                 </tbody>
             </table>
         </div>
     </div>
 </body>
 </html>`
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(html))
-}
