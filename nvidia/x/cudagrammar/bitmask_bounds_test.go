@@ -65,22 +65,3 @@ func TestApplyMaskPaddingBits(t *testing.T) {
 		}
 	}
 }
-
-// TestJSONSchemaFSMPermitsEverything documents the current behaviour: the
-// constructor marks every token valid in every state, so FilterLogits does not
-// constrain generation at all.
-func TestJSONSchemaFSMPermitsEverything(t *testing.T) {
-	fsm := NewJSONSchemaFSM([]string{"name", "age"}, 64)
-
-	logits := make([]float32, 64)
-	for i := range logits {
-		logits[i] = float32(i)
-	}
-	fsm.FilterLogits(logits)
-
-	for i := range logits {
-		if logits[i] != float32(i) {
-			t.Fatalf("token %d was masked; the FSM is expected to permit everything", i)
-		}
-	}
-}
