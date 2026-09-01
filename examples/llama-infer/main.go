@@ -28,6 +28,10 @@ type Config struct {
 	RopeTheta  float32
 	FuseEGraph bool
 	Prompt     string
+	// BOSTokenID is prepended to the prompt when nonzero. LLaMA 3 conditions
+	// on a beginning-of-text token, and its absence skews the first generated
+	// token.
+	BOSTokenID int32
 }
 
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
@@ -62,6 +66,7 @@ func Llama3_2_1BConfig(modelPath string) Config {
 		MaxSeqLen:  8192,
 		Eps:        1e-5,
 		RopeTheta:  500000.0,
+		BOSTokenID: 128000,
 	}
 }
 

@@ -521,6 +521,9 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	if err != nil || len(promptTokens) == 0 {
 		promptTokens = []int32{578, 1401, 311, 69311, 15592, 78335, 374}
 	}
+	if cfg.BOSTokenID != 0 {
+		promptTokens = append([]int32{cfg.BOSTokenID}, promptTokens...)
+	}
 
 	fmt.Printf("[Weights] Ingested 146 tensors (%d Dim, %d Vocab, %d Layers)\n", cfg.Dim, cfg.VocabSize, len(eng.layers))
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
