@@ -155,8 +155,12 @@ func main() {
 	var cfg Config
 	if *modelPath != "" {
 		if _, loadedCfg, err := LoadModel(*modelPath); err == nil {
+			name := filepath.Base(*modelPath)
+			if *modelSize == "llama3.2-1b" || *modelSize == "llama3.2" || *modelSize == "3.2-1b" {
+				name = "LLaMA-3.2-1B-Instruct"
+			}
 			cfg = Config{
-				Name:       filepath.Base(*modelPath),
+				Name:       name,
 				ModelPath:  *modelPath,
 				VocabSize:  loadedCfg.VocabSize,
 				Dim:        loadedCfg.HiddenSize,
