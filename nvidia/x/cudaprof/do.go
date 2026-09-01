@@ -3,7 +3,10 @@ package cudaprof
 import (
 	"context"
 	"runtime/pprof"
+	"strings"
 	"sync/atomic"
+
+	"github.com/tmc/lib/nvidia/x/nvtx"
 )
 
 var nextCorrID uint64
@@ -14,7 +17,7 @@ var nextCorrID uint64
 func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) {
 	pprof.Do(ctx, labels, func(labeledCtx context.Context) {
 		corrID := atomic.AddUint64(&nextCorrID, 1)
-		pushCorrelation(corrID, labels)
+		pushCorrelation(labeledCtx, corrID)
 		defer popCorrelation(corrID)
 
 		f(labeledCtx)
@@ -31,10 +34,24 @@ func Label(ctx context.Context, key, value string) context.Context {
 	return pprof.WithLabels(ctx, pprof.Labels(key, value))
 }
 
-func pushCorrelation(id uint64, labels pprof.LabelSet) {
-	// NVTX / CUPTI correlation hooks
+func pushCorrelation(ctx context.Context, id uint64) {
+	if nvtx.Enabled() {
+		var parts []string
+		pprof.ForLabels(ctx, func(key, value string) bool {
+			parts = append(parts, key+"="+value)
+			return true
+		})
+		msg := "cudaprof.Do"
+		if len(parts) > 0 {
+			msg += " (" + strings.Join(parts, ", ") + ")"
+		}
+		nvtx.RangePush(msg)
+	}
 }
 
 func popCorrelation(id uint64) {
-	// NVTX / CUPTI correlation hooks
+	if nvtx.Enabled() {
+		nvtx.RangePop()
+	}
 }
+
