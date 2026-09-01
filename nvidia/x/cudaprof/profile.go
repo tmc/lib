@@ -24,6 +24,76 @@ type Session struct {
 	builder *Builder
 }
 
+type profileConfig struct {
+	binaryPath        string
+	mappingFile       string
+	pcSamplingPeriod  uint32
+	sourceAttribution bool
+}
+
+// Option configures GPU profiling parameters.
+type Option func(*profileConfig)
+
+// WithPCSampling enables live SM PC sampling at the given sample period.
+func WithPCSampling(samplePeriod uint32) Option {
+	return func(c *profileConfig) {
+		c.pcSamplingPeriod = samplePeriod
+	}
+}
+
+// WithBinaryPath sets the target path for the synthesized ELF binary sidecar.
+func WithBinaryPath(path string) Option {
+	return func(c *profileConfig) {
+		c.binaryPath = path
+	}
+}
+
+// WithSourceAttribution enables automatic ELF/Dwarf line resolution to .cu files.
+func WithSourceAttribution(enabled bool) Option {
+	return func(c *profileConfig) {
+		c.sourceAttribution = enabled
+	}
+}
+
+var (
+	globalMu      sync.Mutex
+	globalSession *Session
+)
+
+// Start begins live GPU profiling and writes the resulting profile to w upon Stop.
+func Start(w io.Writer, opts ...Option) error {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+
+	var cfg profileConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	s := NewSession(w)
+	if cfg.binaryPath != "" {
+		s.SetBinaryPath(cfg.binaryPath)
+	}
+	if cfg.mappingFile != "" {
+		s.SetMappingFile(cfg.mappingFile, "")
+	}
+	globalSession = s
+	return nil
+}
+
+// Stop flushes and finalizes the active GPU profile, writing it to the destination provided to Start.
+func Stop() error {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+
+	if globalSession == nil {
+		return nil
+	}
+	err := globalSession.Close()
+	globalSession = nil
+	return err
+}
+
 // NewSession creates a new profiling session writing to w.
 func NewSession(w io.Writer) *Session {
 	return &Session{
@@ -45,6 +115,7 @@ func (s *Session) SetMappingFile(filename, buildID string) {
 	defer s.mu.Unlock()
 	s.builder.SetMappingFile(filename, buildID)
 }
+
 
 
 // RecordSample adds a GPU sample correlated with Go context pprof labels and OS thread affinity.

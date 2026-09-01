@@ -237,26 +237,28 @@ func runGPUInference(
 	tPrefill0 := time.Now()
 	for pos, tokID := range promptTokens {
 		var tok int32
-		if tracer != nil {
-			_ = tracer.SpanSource(nil, fmt.Sprintf("Prefill Token %d", pos+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
-				"phase":    "prefill",
-				"pos":      pos,
-				"token_id": tokID,
-				"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
-			}, func() {
+		labels := cudaprof.Labels("phase", "prefill", "pos", fmt.Sprintf("%d", pos), "token_id", fmt.Sprintf("%d", tokID))
+		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
+			if tracer != nil {
+				_ = tracer.SpanSource(nil, fmt.Sprintf("Prefill Token %d", pos+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
+					"phase":    "prefill",
+					"pos":      pos,
+					"token_id": tokID,
+					"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
+				}, func() {
+					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+				})
+			} else {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
-			})
-		} else {
-			tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
-		}
+			}
+			if err == nil && prof != nil {
+				recordStepProfile(stepCtx, prof, cfg, pos, ptxPath, ptxMap)
+			}
+		})
 		if err != nil {
 			return fmt.Errorf("gpu prefill step %d: %w", pos, err)
 		}
 		nextTokID = tok
-
-		if prof != nil {
-			recordStepProfile(prof, cfg, pos, ptxPath, ptxMap)
-		}
 	}
 	prefillDuration := time.Since(tPrefill0)
 
@@ -275,30 +277,33 @@ func runGPUInference(
 		fmt.Print(chunk)
 
 		var tok int32
-		if tracer != nil {
-			_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
-				"phase":    "decode",
-				"step":     step + 1,
-				"pos":      curPos,
-				"token_id": nextTokID,
-				"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
-			}, func() {
+		labels := cudaprof.Labels("phase", "decode", "step", fmt.Sprintf("%d", step+1), "pos", fmt.Sprintf("%d", curPos), "token_id", fmt.Sprintf("%d", nextTokID))
+		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
+			if tracer != nil {
+				_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
+					"phase":    "decode",
+					"step":     step + 1,
+					"pos":      curPos,
+					"token_id": nextTokID,
+					"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
+				}, func() {
+					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+				})
+			} else {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
-			})
-		} else {
-			tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
-		}
+			}
+			if err == nil && prof != nil {
+				recordStepProfile(stepCtx, prof, cfg, curPos, ptxPath, ptxMap)
+			}
+		})
 		if err != nil {
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
 		nextTokID = tok
 
-		if prof != nil {
-			recordStepProfile(prof, cfg, curPos, ptxPath, ptxMap)
-		}
-
 		curPos++
 	}
+
 
 	genDuration := time.Since(tGen0)
 
@@ -330,9 +335,10 @@ func runCPUInference(
 	for pos, tokID := range promptTokens {
 		lastLogits = Forward(weights, cfg, kvCache, tokID, pos)
 		if prof != nil {
-			recordStepProfile(prof, cfg, pos, "", PTXLineMap{})
+			recordStepProfile(context.Background(), prof, cfg, pos, "", PTXLineMap{})
 		}
 	}
+
 	prefillDuration := time.Since(tPrefill0)
 
 	curPos := len(promptTokens)
@@ -369,7 +375,7 @@ func runCPUInference(
 
 
 		if prof != nil {
-			recordStepProfile(prof, cfg, curPos, "", PTXLineMap{})
+			recordStepProfile(context.Background(), prof, cfg, curPos, "", PTXLineMap{})
 		}
 
 		curPos++
@@ -386,13 +392,17 @@ func runCPUInference(
 	return nil
 }
 
-func recordStepProfile(prof *cudaprof.Session, cfg *ModelConfig, pos int, ptxPath string, ptxMap PTXLineMap) {
-	ctx := pprof.WithLabels(context.Background(), pprof.Labels(
+func recordStepProfile(ctx context.Context, prof *cudaprof.Session, cfg *ModelConfig, pos int, ptxPath string, ptxMap PTXLineMap) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = pprof.WithLabels(ctx, pprof.Labels(
 		"pos", fmt.Sprintf("%d", pos),
 		"model.layers", fmt.Sprintf("%d", cfg.NumHiddenLayers),
 	))
 
 	forwardCU := findForwardCUPath()
+
 
 	headDim := cfg.HeadDim()
 	hiddenSize := cfg.HiddenSize
