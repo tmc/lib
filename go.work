@@ -2,9 +2,11 @@ go 1.27.0
 
 use (
 	/Users/tmc/go/src/github.com/tmc/apple
+	/Users/tmc/go/src/github.com/tmc/modelir
 	./apple
 	./examples
 	./ggml
+	./hfsync
 	./nvidia
 )
 

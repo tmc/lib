@@ -6,6 +6,7 @@ require (
 	github.com/tmc/apple v0.0.0
 	github.com/tmc/go-iroh v0.0.0-00010101000000-000000000000
 	github.com/tmc/lib/apple v0.0.0
+	github.com/tmc/lib/hfsync v0.0.0
 	github.com/tmc/lib/nvidia v0.1.0
 	github.com/tmc/modelir v0.0.0
 )
@@ -21,6 +22,8 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
+
+replace github.com/tmc/lib/hfsync => ../hfsync
 
 replace github.com/tmc/lib/nvidia => ../nvidia
 

@@ -17,6 +17,7 @@ import (
 	"github.com/tmc/go-iroh/key"
 	"github.com/tmc/go-iroh/netaddr"
 	"github.com/tmc/go-iroh/relay"
+	"github.com/tmc/lib/hfsync"
 )
 
 const (
@@ -69,6 +70,9 @@ type IrohClusterNode struct {
 	secret   key.SecretKey
 	engine   *ModelEngine
 	cfg      Config
+	hfStore  *hfsync.Store
+	hfServer *hfsync.Server
+	hfClient *hfsync.Client
 }
 
 // NewIrohClusterNode initializes a self-discovering P2P inference node.
@@ -80,7 +84,7 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 
 	opts := []iroh.Option{
 		iroh.WithSecretKey(sk),
-		iroh.WithALPNs(InferenceALPN),
+		iroh.WithALPNs(InferenceALPN, hfsync.ALPN),
 		iroh.WithRelayMode(relay.ModeDefault()),
 	}
 	if bindPort > 0 {
@@ -92,16 +96,24 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 		return nil, fmt.Errorf("iroh bind: %w", err)
 	}
 
+	hfStore := hfsync.NewStore("")
+	hfServer := hfsync.NewServer(ep, hfStore)
+	hfClient := hfsync.NewClient(ep, hfStore)
+
 	node := &IrohClusterNode{
-		ep:     ep,
-		secret: sk,
-		peers:  make(map[string]NodeTelemetry),
-		engine: engine,
-		cfg:    cfg,
+		ep:       ep,
+		secret:   sk,
+		peers:    make(map[string]NodeTelemetry),
+		engine:   engine,
+		cfg:      cfg,
+		hfStore:  hfStore,
+		hfServer: hfServer,
+		hfClient: hfClient,
 	}
 
 	node.self = node.probeSelfHardware()
 	go node.acceptLoop(ctx)
+	go func() { _ = hfServer.Serve(ctx) }()
 	return node, nil
 }
 
