@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasrv"
 )
 
@@ -91,5 +92,34 @@ func TestServerMetrics(t *testing.T) {
 
 	if !strings.Contains(w.Body.String(), "gpu_requests_total") {
 		t.Errorf("expected gpu_requests_total in metrics output:\n%s", w.Body.String())
+	}
+}
+
+func TestServerPerfettoTrace(t *testing.T) {
+	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	fr := cudaprof.NewFlightRecorder(cudaprof.WithWindowSize(10))
+	_ = fr.Start()
+	fr.Record(cudaprof.SampleRecord{
+		KernelName:  "LinearGEMV",
+		TimestampNs: 1000000,
+		Values: cudaprof.SampleValues{
+			Samples: 100,
+		},
+	})
+	srv.SetFlightRecorder(fr)
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/trace.pftrace", nil)
+	w := httptest.NewRecorder()
+
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	if w.Header().Get("Content-Type") != "application/octet-stream" {
+		t.Errorf("unexpected content type: %s", w.Header().Get("Content-Type"))
+	}
+	if w.Body.Len() == 0 {
+		t.Fatal("expected non-empty trace body")
 	}
 }

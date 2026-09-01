@@ -47,3 +47,31 @@ func TestClockSnapshot(t *testing.T) {
 	}
 }
 
+func TestProcessThreadAndCounterTracks(t *testing.T) {
+	var buf bytes.Buffer
+	w := perfetto.NewWriter(&buf)
+
+	// Process & Thread
+	if err := w.WriteProcessDescriptor(100, 1234, "llama-infer"); err != nil {
+		t.Fatalf("WriteProcessDescriptor: %v", err)
+	}
+	if err := w.WriteThreadDescriptor(101, 1234, 5678, "cuda-worker-0"); err != nil {
+		t.Fatalf("WriteThreadDescriptor: %v", err)
+	}
+
+	// Counter track & events
+	if err := w.WriteCounterDescriptor(200, "VRAM Usage", "bytes", 100); err != nil {
+		t.Fatalf("WriteCounterDescriptor: %v", err)
+	}
+	if err := w.WriteCounterValue(200, 1000000, 1024*1024*512); err != nil {
+		t.Fatalf("WriteCounterValue: %v", err)
+	}
+	if err := w.WriteDoubleCounterValue(200, 2000000, 1024.5); err != nil {
+		t.Fatalf("WriteDoubleCounterValue: %v", err)
+	}
+
+	if buf.Len() == 0 {
+		t.Fatal("expected non-empty output")
+	}
+}
+

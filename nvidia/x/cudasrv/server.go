@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
 // Engine is the backend inference engine driving model generation.
@@ -21,13 +22,13 @@ type Tokenizer interface {
 	Decode(tokens []int32) (string, error)
 }
 
-
 // Server provides an HTTP handler for OpenAI-compatible LLM inference.
 type Server struct {
-	engine        Engine
-	modelName     string
-	requestsTotal uint64
-	tokensTotal   uint64
+	engine         Engine
+	modelName      string
+	flightRecorder *cudaprof.FlightRecorder
+	requestsTotal  uint64
+	tokensTotal    uint64
 }
 
 // New creates a new inference server wrapping engine.
@@ -38,12 +39,18 @@ func New(engine Engine, modelName string) *Server {
 	}
 }
 
+// SetFlightRecorder configures an in-memory GPU flight recorder for live trace export.
+func (s *Server) SetFlightRecorder(fr *cudaprof.FlightRecorder) {
+	s.flightRecorder = fr
+}
+
 // Handler returns the http.Handler serving API routes.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/metrics", s.handleMetrics)
+	mux.HandleFunc("/debug/trace.pftrace", s.handlePerfettoTrace)
 	return mux
 }
 
@@ -204,4 +211,16 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, "# TYPE gpu_requests_total counter\ngpu_requests_total %d\n", reqs)
 	_, _ = fmt.Fprintf(w, "# HELP gpu_tokens_generated_total Total number of tokens generated.\n")
 	_, _ = fmt.Fprintf(w, "# TYPE gpu_tokens_generated_total counter\ngpu_tokens_generated_total %d\n", toks)
+}
+
+func (s *Server) handlePerfettoTrace(w http.ResponseWriter, r *http.Request) {
+	if s.flightRecorder == nil {
+		http.Error(w, "Flight recorder not configured", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"trace.pftrace\"")
+	if err := s.flightRecorder.WritePerfettoTo(w); err != nil {
+		http.Error(w, fmt.Sprintf("Error writing Perfetto trace: %v", err), http.StatusInternalServerError)
+	}
 }

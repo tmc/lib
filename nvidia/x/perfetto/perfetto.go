@@ -33,13 +33,29 @@ const (
 	FieldTrackDescName       = 2
 	FieldTrackDescParentUUID = 5
 
+	FieldTrackDescProcessUUID = 3
+	FieldTrackDescThreadUUID  = 4
+	FieldTrackDescCounter     = 8
+
+	FieldCounterDescUnit           = 3
+	FieldCounterDescUnitName       = 6
+	FieldCounterDescUnitMultiplier = 4
+
+	FieldProcessDescPID  = 1
+	FieldProcessDescName = 6
+
+	FieldThreadDescTID  = 1
+	FieldThreadDescName = 5
+	FieldThreadDescPID  = 2
+
 	FieldTrackEventCategories       = 22
 	FieldTrackEventName             = 23
 	FieldTrackEventType             = 9
 	FieldTrackEventTrackUUID        = 11
+	FieldTrackEventCounterValue     = 30
+	FieldTrackEventDoubleCounterVal = 44
 	FieldTrackEventDebugAnnotations = 4
 	FieldTrackEventSourceLocation   = 33
-
 
 	DefaultSequenceID                    = 1
 	SequenceFlagIncrementalStateCleared = 1
@@ -51,7 +67,6 @@ const (
 	FieldDebugAnnotationDoubleValue = 5
 	FieldDebugAnnotationStringValue = 6
 
-
 	FieldSourceLocationFileName     = 2
 	FieldSourceLocationFunctionName = 3
 	FieldSourceLocationLineNumber   = 4
@@ -59,6 +74,7 @@ const (
 	TrackEventTypeSliceBegin = 1
 	TrackEventTypeSliceEnd   = 2
 	TrackEventTypeInstant    = 3
+	TrackEventTypeCounter    = 4
 )
 
 // AnnotationType denotes the value type stored in a DebugAnnotation.
@@ -203,6 +219,145 @@ func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint
 		pw.hasEmittedSeqFlags = true
 	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+
+// WriteProcessDescriptor registers a process track.
+func (pw *Writer) WriteProcessDescriptor(uuid uint64, pid int32, processName string) error {
+	var procBody []byte
+	if pid != 0 {
+		procBody = append(procBody, encodeVarint(FieldProcessDescPID, uint64(pid))...)
+	}
+	if processName != "" {
+		procBody = append(procBody, encodeString(FieldProcessDescName, processName)...)
+	}
+
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackDescUUID, uuid)...)
+	body = append(body, encodeLengthDelimited(FieldTrackDescProcessUUID, procBody)...)
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	if !pw.hasEmittedSeqFlags {
+		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
+		pw.hasEmittedSeqFlags = true
+	}
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+
+// WriteThreadDescriptor registers a thread track grouped under a process track.
+func (pw *Writer) WriteThreadDescriptor(uuid uint64, pid int32, tid int32, threadName string) error {
+	var thBody []byte
+	if tid != 0 {
+		thBody = append(thBody, encodeVarint(FieldThreadDescTID, uint64(tid))...)
+	}
+	if pid != 0 {
+		thBody = append(thBody, encodeVarint(FieldThreadDescPID, uint64(pid))...)
+	}
+	if threadName != "" {
+		thBody = append(thBody, encodeString(FieldThreadDescName, threadName)...)
+	}
+
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackDescUUID, uuid)...)
+	body = append(body, encodeLengthDelimited(FieldTrackDescThreadUUID, thBody)...)
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	if !pw.hasEmittedSeqFlags {
+		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
+		pw.hasEmittedSeqFlags = true
+	}
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+
+// WriteCounterDescriptor registers a continuous numerical counter track.
+func (pw *Writer) WriteCounterDescriptor(uuid uint64, name string, unitName string, parentUUID uint64) error {
+	var counterBody []byte
+	if unitName != "" {
+		counterBody = append(counterBody, encodeString(FieldCounterDescUnitName, unitName)...)
+	}
+
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackDescUUID, uuid)...)
+	if name != "" {
+		body = append(body, encodeString(FieldTrackDescName, name)...)
+	}
+	if parentUUID != 0 {
+		body = append(body, encodeVarint(FieldTrackDescParentUUID, parentUUID)...)
+	}
+	body = append(body, encodeLengthDelimited(FieldTrackDescCounter, counterBody)...)
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	if !pw.hasEmittedSeqFlags {
+		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
+		pw.hasEmittedSeqFlags = true
+	}
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+
+// WriteCounterValue records an integer counter value on a counter track at tsNs.
+func (pw *Writer) WriteCounterValue(trackUUID uint64, tsNs uint64, val int64) error {
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackEventType, TrackEventTypeCounter)...)
+	body = append(body, encodeVarint(FieldTrackEventTrackUUID, trackUUID)...)
+	body = append(body, encodeVarint(FieldTrackEventCounterValue, uint64(val))...)
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
+
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	_, err := pw.w.Write(packet)
+	return err
+}
+
+// WriteDoubleCounterValue records a floating point counter value on a counter track at tsNs.
+func (pw *Writer) WriteDoubleCounterValue(trackUUID uint64, tsNs uint64, val float64) error {
+	var body []byte
+	body = append(body, encodeVarint(FieldTrackEventType, TrackEventTypeCounter)...)
+	body = append(body, encodeVarint(FieldTrackEventTrackUUID, trackUUID)...)
+
+	bits := math.Float64bits(val)
+	tag := uint64((FieldTrackEventDoubleCounterVal << 3) | 1)
+	var b [16]byte
+	n := binary.PutUvarint(b[:], tag)
+	binary.LittleEndian.PutUint64(b[n:], bits)
+	body = append(body, b[:n+8]...)
+
+	var packetBody []byte
+	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
+	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
+	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
+
 	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
 
 	pw.mu.Lock()
