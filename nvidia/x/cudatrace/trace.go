@@ -253,6 +253,75 @@ func (t *Tracer) Instant(s *cuda.Stream, name string, category string) error {
 	return t.pw.WriteInstant(trackID, nowNs, name, category)
 }
 
+// RegisterTimeline creates a dedicated named timeline track, returning its unique track UUID.
+func (t *Tracer) RegisterTimeline(name string, parentUUID uint64) (uint64, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.nextTrackID++
+	trackID := t.nextTrackID
+	if err := t.pw.WriteTrackDescriptor(trackID, name, parentUUID); err != nil {
+		return 0, fmt.Errorf("cudatrace: register timeline: %w", err)
+	}
+	return trackID, nil
+}
+
+// RecordSpan records an explicitly timestamped completed span directly onto a timeline track.
+func (t *Tracer) RecordSpan(trackID uint64, startNs, endNs uint64, name, category string, annotations ...perfetto.DebugAnnotation) error {
+	if nvtx.Enabled() {
+		nvtx.Mark(name)
+	}
+
+	var loc *perfetto.SourceLocation
+	if err := t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc); err != nil {
+		return err
+	}
+	if err := t.pw.WriteSliceEnd(trackID, endNs); err != nil {
+		return err
+	}
+
+	t.mu.Lock()
+	record := SpanRecord{
+		TrackID:  trackID,
+		StartNs:  startNs,
+		EndNs:    endNs,
+		Name:     name,
+		Category: category,
+	}
+	if len(t.ringBuffer) < t.ringCap {
+		t.ringBuffer = append(t.ringBuffer, record)
+	} else {
+		t.ringBuffer[t.ringHead] = record
+		t.ringHead = (t.ringHead + 1) % t.ringCap
+	}
+	t.mu.Unlock()
+
+	return nil
+}
+
+// RegisterCounter registers a continuous counter track with units (e.g. bytes, count).
+func (t *Tracer) RegisterCounter(name, unitName string, parentUUID uint64) (uint64, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.nextTrackID++
+	counterID := t.nextTrackID
+	if err := t.pw.WriteCounterDescriptor(counterID, name, unitName, parentUUID); err != nil {
+		return 0, fmt.Errorf("cudatrace: register counter: %w", err)
+	}
+	return counterID, nil
+}
+
+// RecordCounter records a numerical counter sample on counterID at timestamp tsNs.
+func (t *Tracer) RecordCounter(counterID uint64, tsNs uint64, val int64) error {
+	return t.pw.WriteCounterValue(counterID, tsNs, val)
+}
+
+// RecordDoubleCounter records a floating-point counter sample on counterID at timestamp tsNs.
+func (t *Tracer) RecordDoubleCounter(counterID uint64, tsNs uint64, val float64) error {
+	return t.pw.WriteDoubleCounterValue(counterID, tsNs, val)
+}
+
 // DumpPostMortem immediately serializes the in-memory flight recording ring buffer to dest.
 // This executes safely without invoking any CUDA driver API calls even if CUcontext is invalidated.
 func (t *Tracer) DumpPostMortem(dest io.Writer) error {

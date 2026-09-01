@@ -160,6 +160,10 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 
 	pw := perfetto.NewWriter(w)
 	_ = pw.WriteTrackDescriptor(1000, "GPU Flight Recorder", 0)
+	_ = pw.WriteCounterDescriptor(1001, "VRAM Allocation", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1002, "DRAM Read Bandwidth", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1003, "DRAM Write Bandwidth", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1004, "Tensor Core Warps", "count", 1000)
 
 	n := len(fr.buffer)
 	for i := 0; i < n; i++ {
@@ -200,6 +204,20 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 
 		_ = pw.WriteSliceBeginWithAnnotations(1000, ts, rec.KernelName, "gpu_kernel", annotations, loc)
 		_ = pw.WriteSliceEnd(1000, ts+dur)
+
+		// Emit continuous hardware counter updates
+		if rec.Values.VRAMAllocBytes > 0 {
+			_ = pw.WriteCounterValue(1001, ts, rec.Values.VRAMAllocBytes)
+		}
+		if rec.Values.DRAMReadBytes > 0 {
+			_ = pw.WriteCounterValue(1002, ts, rec.Values.DRAMReadBytes)
+		}
+		if rec.Values.DRAMWriteBytes > 0 {
+			_ = pw.WriteCounterValue(1003, ts, rec.Values.DRAMWriteBytes)
+		}
+		if rec.Values.TensorWarps > 0 {
+			_ = pw.WriteCounterValue(1004, ts, rec.Values.TensorWarps)
+		}
 	}
 
 	return nil
