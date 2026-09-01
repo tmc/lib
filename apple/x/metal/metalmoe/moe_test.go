@@ -42,7 +42,9 @@ func TestExpertCacheManager(t *testing.T) {
 	defer mgr.Close()
 
 	dummyWeights := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	mgr.RegisterExpert(42, dummyWeights)
+	if err := mgr.RegisterExpert(42, dummyWeights); err != nil {
+		t.Fatalf("RegisterExpert failed: %v", err)
+	}
 
 	// Spill expert 42 to SSD
 	if err := mgr.EvictColdExpert(42); err != nil {
