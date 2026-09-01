@@ -86,9 +86,10 @@ func main() {
 		}
 	}
 	if tokenizer == nil {
-		tok, _ := LoadHFTokenizer("")
-		tokenizer = tok
+		tokenizer = NewByteTokenizer()
+		fmt.Println("[Tokenizer] Initialized Byte-level fallback tokenizer")
 	}
+
 
 	// 3. Initialize CUDA Device and E-Graph Optimization
 	if err := driver.Init(0); err != nil {

@@ -28,7 +28,7 @@ type BpeTokenizer struct {
 type hfTokenizerSchema struct {
 	Model struct {
 		Vocab  map[string]int32 `json:"vocab"`
-		Merges []string         `json:"merges"`
+		Merges []any            `json:"merges"`
 	} `json:"model"`
 	AddedTokens []struct {
 		ID      int32  `json:"id"`
@@ -63,9 +63,21 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 	}
 
 	merges := make(map[string]int, len(schema.Model.Merges))
-	for rank, m := range schema.Model.Merges {
-		merges[m] = rank
+	for rank, item := range schema.Model.Merges {
+		switch v := item.(type) {
+		case string:
+			merges[v] = rank
+		case []any:
+			if len(v) == 2 {
+				s0, ok0 := v[0].(string)
+				s1, ok1 := v[1].(string)
+				if ok0 && ok1 {
+					merges[s0+" "+s1] = rank
+				}
+			}
+		}
 	}
+
 
 	byteTokens := make(map[byte]string, 256)
 	for b := 0; b < 256; b++ {
@@ -98,8 +110,35 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 	}, nil
 }
 
+// NewByteTokenizer creates a default byte-level fallback tokenizer.
+func NewByteTokenizer() *BpeTokenizer {
+	vocab := make(map[string]int32, 256)
+	invVocab := make(map[int32]string, 256)
+	byteTokens := make(map[byte]string, 256)
+	for b := 0; b < 256; b++ {
+		str := string([]byte{byte(b)})
+		vocab[str] = int32(b)
+		invVocab[int32(b)] = str
+		byteTokens[byte(b)] = str
+	}
+	return &BpeTokenizer{
+		vocab:      vocab,
+		invVocab:   invVocab,
+		merges:     make(map[string]int),
+		byteTokens: byteTokens,
+	}
+}
+
 // Encode converts text into token IDs.
 func (tok *BpeTokenizer) Encode(text string) ([]int32, error) {
+	if len(tok.merges) == 0 {
+		bytes := []byte(text)
+		tokens := make([]int32, len(bytes))
+		for i, b := range bytes {
+			tokens[i] = int32(b)
+		}
+		return tokens, nil
+	}
 	var tokens []int32
 
 	// Check prefix convention

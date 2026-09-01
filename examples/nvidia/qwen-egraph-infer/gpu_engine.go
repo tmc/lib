@@ -12,9 +12,11 @@ import (
 // GPUScratchpad holds runtime activation tensors on the GPU.
 type GPUScratchpad struct {
 	X        cudamem.Slice[float32]
+	NormX    cudamem.Slice[float32]
 	Q        cudamem.Slice[float32]
 	K        cudamem.Slice[float32]
 	V        cudamem.Slice[float32]
+	FFNAct   cudamem.Slice[float32]
 	TokenIn  cudamem.Slice[int32]
 	TokenOut cudamem.Slice[int32]
 }
@@ -22,9 +24,11 @@ type GPUScratchpad struct {
 // Free releases scratchpad buffers.
 func (sp *GPUScratchpad) Free() {
 	sp.X.Free()
+	sp.NormX.Free()
 	sp.Q.Free()
 	sp.K.Free()
 	sp.V.Free()
+	sp.FFNAct.Free()
 	sp.TokenIn.Free()
 	sp.TokenOut.Free()
 }
@@ -36,17 +40,21 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *QwenConfig) (*GPUScratchpad, error)
 	kvDim := cfg.NumKeyValueHeads * headDim
 
 	x, _ := cudamem.Alloc[float32](dev, cfg.HiddenSize)
+	normX, _ := cudamem.Alloc[float32](dev, cfg.HiddenSize)
 	q, _ := cudamem.Alloc[float32](dev, qDim)
 	k, _ := cudamem.Alloc[float32](dev, kvDim)
 	v, _ := cudamem.Alloc[float32](dev, kvDim)
+	ffnAct, _ := cudamem.Alloc[float32](dev, cfg.IntermediateSize)
 	tIn, _ := cudamem.Alloc[int32](dev, 1)
 	tOut, _ := cudamem.Alloc[int32](dev, 1)
 
 	return &GPUScratchpad{
 		X:        x,
+		NormX:    normX,
 		Q:        q,
 		K:        k,
 		V:        v,
+		FFNAct:   ffnAct,
 		TokenIn:  tIn,
 		TokenOut: tOut,
 	}, nil
@@ -117,16 +125,26 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 			return 0, err
 		}
 
-		// (a) Fused RMSNorm + QKV Projection (Single Megakernel launch)
-		if err := cudalaunch.Kernel(rt.engine.fusedNormQKV).
-			Grid(uint32((qDim + 127) / 128)).Block(128).
-			Launch(rt.sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
-				rt.sp.Q, rt.sp.K, rt.sp.V,
-				int32(cfg.HiddenSize), int32(qDim), int32(kvDim), cfg.RmsNormEps); err != nil {
+		// (a) Pre-Attention RMSNorm
+		if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+			Launch(rt.sp.X, layerW.InputNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
 			return 0, err
 		}
 
-		// (b) Fused RoPE + Paged KV Cache Store (Single Megakernel launch)
+		// (b) Fused QKV GEMV Projections
+		maxQKV := qDim
+		if kvDim > maxQKV {
+			maxQKV = kvDim
+		}
+		if err := cudalaunch.Kernel(rt.engine.fusedQKVFn).
+			Grid(uint32((maxQKV + 127) / 128)).Block(128).
+			Launch(rt.sp.NormX, layerW.WQ, layerW.WK, layerW.WV,
+				rt.sp.Q, rt.sp.K, rt.sp.V,
+				int32(cfg.HiddenSize), int32(qDim), int32(kvDim)); err != nil {
+			return 0, err
+		}
+
+		// (c) Fused RoPE + Paged KV Cache Store
 		if err := cudalaunch.Kernel(rt.engine.fusedRoPEKV).
 			Grid(uint32(cfg.NumAttentionHeads)).Block(uint32(headDim / 2)).
 			Launch(rt.sp.Q, rt.sp.K, rt.sp.V,
@@ -136,11 +154,25 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 			return 0, err
 		}
 
-		// (c) Fused SwiGLU Block + Down-Projection + Residual Add (Single Megakernel launch)
-		if err := cudalaunch.Kernel(rt.engine.fusedSwiGLU).
+		// (d) Post-Attention RMSNorm
+		if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+			Launch(rt.sp.X, layerW.PostNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
+			return 0, err
+		}
+
+		// (e) Fused Gate + Up + SiLU + Product
+		if err := cudalaunch.Kernel(rt.engine.fusedGateUp).
+			Grid(uint32((cfg.IntermediateSize + 127) / 128)).Block(128).
+			Launch(rt.sp.NormX, layerW.WGate, layerW.WUp, rt.sp.FFNAct,
+				int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
+			return 0, err
+		}
+
+		// (f) Fused Down-Projection + Residual Add
+		if err := cudalaunch.Kernel(rt.engine.fusedDownAdd).
 			Grid(uint32((cfg.HiddenSize + 127) / 128)).Block(128).
-			Launch(rt.sp.X, layerW.PostNorm, layerW.WGate, layerW.WUp, layerW.WDown, rt.sp.X,
-				int32(cfg.HiddenSize), int32(cfg.IntermediateSize), cfg.RmsNormEps); err != nil {
+			Launch(rt.sp.FFNAct, layerW.WDown, rt.sp.X, rt.sp.X,
+				int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
 			return 0, err
 		}
 	}
@@ -169,4 +201,3 @@ func (rt *QwenInferenceRuntime) Close() {
 		_ = rt.kvCache.Close()
 	}
 }
-

@@ -35,23 +35,29 @@ func LoadConfig(path string) (*QwenConfig, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
-	// Handle nested text_config (e.g. Qwen3.8 / Qwen3_5)
+	var cfg *QwenConfig
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
-		return raw.TextConfig, nil
+		cfg = raw.TextConfig
+	} else {
+		cfg = &raw
 	}
 
-	if raw.RmsNormEps == 0 {
-		raw.RmsNormEps = 1e-6
+	if cfg.RmsNormEps == 0 {
+		cfg.RmsNormEps = 1e-6
 	}
-	if raw.RopeTheta == 0 {
-		raw.RopeTheta = 1000000.0
+	if cfg.RopeTheta == 0 {
+		cfg.RopeTheta = 1000000.0
 	}
-	if raw.NumKeyValueHeads == 0 {
-		raw.NumKeyValueHeads = raw.NumAttentionHeads
+	if cfg.NumKeyValueHeads == 0 {
+		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
+	}
+	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
+		cfg.MaxSeqLen = 4096
 	}
 
-	return &raw, nil
+	return cfg, nil
 }
+
 
 // HeadDim returns the dimension per attention head.
 func (cfg *QwenConfig) HeadDim() int {

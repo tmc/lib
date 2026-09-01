@@ -31,8 +31,9 @@ type TensorInfo struct {
 
 // Weights represents an opened single-file .safetensors model.
 type Weights struct {
-	data         []byte
+	f            *os.File
 	dataBase     int64
+	fileSize     int64
 	Tensors      map[string]TensorInfo
 	MetadataJSON map[string]string
 }
@@ -45,25 +46,44 @@ type ShardedWeights struct {
 	Tensors   map[string]TensorInfo
 }
 
-// Open reads the header of a .safetensors file and parses tensor metadata.
+// Open reads the header of a .safetensors file and parses tensor metadata without reading entire file into memory.
 func Open(path string) (*Weights, error) {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("cudasafetensors: read file: %w", err)
+		return nil, fmt.Errorf("cudasafetensors: open file: %w", err)
 	}
 
-	if len(data) < 8 {
-		return nil, fmt.Errorf("cudasafetensors: file too small (%d bytes)", len(data))
+	st, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("cudasafetensors: stat file: %w", err)
+	}
+	fileSize := st.Size()
+	if fileSize < 8 {
+		_ = f.Close()
+		return nil, fmt.Errorf("cudasafetensors: file too small (%d bytes)", fileSize)
 	}
 
-	headerLen := binary.LittleEndian.Uint64(data[:8])
-	if uint64(len(data)) < 8+headerLen {
-		return nil, fmt.Errorf("cudasafetensors: truncated header (expected %d bytes, got %d)", 8+headerLen, len(data))
+	var headerLenBuf [8]byte
+	if _, err := f.ReadAt(headerLenBuf[:], 0); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("cudasafetensors: read header length: %w", err)
+	}
+	headerLen := binary.LittleEndian.Uint64(headerLenBuf[:])
+	if uint64(fileSize) < 8+headerLen {
+		_ = f.Close()
+		return nil, fmt.Errorf("cudasafetensors: truncated header (expected %d bytes, got %d)", 8+headerLen, fileSize)
 	}
 
-	headerJSON := data[8 : 8+headerLen]
+	headerJSON := make([]byte, headerLen)
+	if _, err := f.ReadAt(headerJSON, 8); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("cudasafetensors: read header JSON: %w", err)
+	}
+
 	var rawHeader map[string]json.RawMessage
 	if err := json.Unmarshal(headerJSON, &rawHeader); err != nil {
+		_ = f.Close()
 		return nil, fmt.Errorf("cudasafetensors: unmarshal header: %w", err)
 	}
 
@@ -93,8 +113,9 @@ func Open(path string) (*Weights, error) {
 	}
 
 	return &Weights{
-		data:         data,
+		f:            f,
 		dataBase:     int64(8 + headerLen),
+		fileSize:     fileSize,
 		Tensors:      tensors,
 		MetadataJSON: metadata,
 	}, nil
@@ -166,12 +187,18 @@ func (w *Weights) TensorBytes(name string) ([]byte, TensorInfo, error) {
 	start := uint64(w.dataBase) + info.OffsetStart
 	end := uint64(w.dataBase) + info.OffsetEnd
 
-	if end > uint64(len(w.data)) || start > end {
+	if end > uint64(w.fileSize) || start > end {
 		return nil, TensorInfo{}, fmt.Errorf("cudasafetensors: tensor %q offset out of bounds", name)
 	}
 
-	return w.data[start:end], info, nil
+	buf := make([]byte, end-start)
+	if _, err := w.f.ReadAt(buf, int64(start)); err != nil {
+		return nil, TensorInfo{}, fmt.Errorf("cudasafetensors: read tensor %q: %w", name, err)
+	}
+
+	return buf, info, nil
 }
+
 
 // TensorBytes finds and returns raw bytes from the appropriate shard in a sharded model.
 func (sw *ShardedWeights) TensorBytes(name string) ([]byte, TensorInfo, error) {
@@ -233,9 +260,14 @@ func LoadShardedSlice[T any](sw *ShardedWeights, name string, dev *cuda.Device) 
 
 // Close releases resources.
 func (w *Weights) Close() error {
-	w.data = nil
+	if w.f != nil {
+		err := w.f.Close()
+		w.f = nil
+		return err
+	}
 	return nil
 }
+
 
 // Close releases all loaded shards.
 func (sw *ShardedWeights) Close() error {

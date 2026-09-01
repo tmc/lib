@@ -86,6 +86,7 @@ func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModel
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
+	fmt.Printf("[Model Loader] Streaming %d layers into GPU VRAM...\n", cfg.NumHiddenLayers)
 	mw := &GPUModelWeights{
 		EmbedTokens: getTensor("model.embed_tokens.weight", cfg.VocabSize*cfg.HiddenSize),
 		Norm:        getTensor("model.norm.weight", cfg.HiddenSize),
@@ -94,6 +95,9 @@ func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModel
 	}
 
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
+		if (i+1)%16 == 0 || i == cfg.NumHiddenLayers-1 {
+			fmt.Printf("  Transferred layer %d/%d to GPU\n", i+1, cfg.NumHiddenLayers)
+		}
 		prefix := fmt.Sprintf("model.layers.%d.", i)
 		mw.Layers[i] = GPULayerWeights{
 			InputNorm: getTensor(prefix+"input_layernorm.weight", cfg.HiddenSize),
@@ -110,6 +114,7 @@ func LoadGPUModel(dev *cuda.Device, modelDir string, cfg *QwenConfig) (*GPUModel
 
 	return mw, nil
 }
+
 
 func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 	switch dtype {
