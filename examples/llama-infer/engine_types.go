@@ -507,6 +507,21 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 	if plan.DType != "f32" && plan.DType != "fp32" && plan.DType != "f16" && plan.DType != "fp16" {
 		return fmt.Errorf("unsupported plan dtype: %q", plan.DType)
 	}
+	if cfg.Dim > 0 && plan.HeadDim > 0 && cfg.HeadDim > 0 && plan.HeadDim != cfg.HeadDim {
+		return fmt.Errorf("plan HeadDim mismatch: plan=%d, cfg=%d", plan.HeadDim, cfg.HeadDim)
+	}
+	if cfg.NumHeads > 0 && plan.NumHeads > 0 && plan.NumHeads != cfg.NumHeads {
+		return fmt.Errorf("plan NumHeads mismatch: plan=%d, cfg=%d", plan.NumHeads, cfg.NumHeads)
+	}
+	if cfg.NumKVHeads > 0 && plan.NumKVHeads > 0 && plan.NumKVHeads != cfg.NumKVHeads {
+		return fmt.Errorf("plan NumKVHeads mismatch: plan=%d, cfg=%d", plan.NumKVHeads, cfg.NumKVHeads)
+	}
+	if cfg.NumLayers > 0 && plan.NumLayers > 0 && plan.NumLayers != cfg.NumLayers {
+		return fmt.Errorf("plan NumLayers mismatch: plan=%d, cfg=%d", plan.NumLayers, cfg.NumLayers)
+	}
+	if cfg.VocabSize > 0 && plan.VocabSize > 0 && plan.VocabSize != cfg.VocabSize {
+		return fmt.Errorf("plan VocabSize mismatch: plan=%d, cfg=%d", plan.VocabSize, cfg.VocabSize)
+	}
 	validOps := map[string]bool{
 		"EmbeddingLookup":            true,
 		"ComputeRMSNorm":             true,

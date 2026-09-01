@@ -274,11 +274,11 @@ func (eng *ModelEngine) capturePrefix(tokens int, current int32, cfg Config) *pr
 	return snapshot
 }
 
-func (eng *ModelEngine) restorePrefix(snapshot *prefixSnapshot) bool {
+func (eng *ModelEngine) restorePrefix(snapshot *prefixSnapshot, cfg Config) bool {
 	if eng == nil || snapshot == nil {
 		return false
 	}
-	return eng.restorePrefixPartial(snapshot, snapshot.tokens, Config{NumKVHeads: len(eng.kCacheBuf), HeadDim: 64})
+	return eng.restorePrefixPartial(snapshot, snapshot.tokens, cfg)
 }
 
 // restorePrefixPartial restores exactly 'tokens' count of KV entries from the snapshot,
@@ -2678,14 +2678,23 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 	}
 
 	dev := eng.dev
-	tokOutBuf, _ := mempool.Alloc[int32](dev, batchSize)
+	tokOutBuf, err := mempool.Alloc[int32](dev, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("alloc batch token output: %w", err)
+	}
 	defer tokOutBuf.Free()
 
 	var batchLogits []mempool.Slice[float32]
 	if batchSize > 1 {
 		batchLogits = make([]mempool.Slice[float32], batchSize)
 		for b := 0; b < batchSize; b++ {
-			buf, _ := mempool.Alloc[float32](dev, cfg.VocabSize)
+			buf, err := mempool.Alloc[float32](dev, cfg.VocabSize)
+			if err != nil {
+				for i := 0; i < b; i++ {
+					batchLogits[i].Free()
+				}
+				return nil, fmt.Errorf("alloc batch logits %d: %w", b, err)
+			}
 			defer buf.Free()
 			batchLogits[b] = buf
 		}

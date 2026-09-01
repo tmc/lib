@@ -644,10 +644,8 @@ func RunBenchSuite(cfg Config, count int) error {
 		searchDepths = []int{depth}
 	}
 
+	// CUDA backend allocates float32 parameter buffers in GPUModelWeights.
 	bytesPerParam := 4.0
-	if cfg.Precision == "f16" {
-		bytesPerParam = 2.0
-	}
 	modelProf := gpuprof.ModelProfile{
 		Name:            cfg.Name,
 		HiddenDim:       cfg.Dim,

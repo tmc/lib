@@ -248,10 +248,10 @@ func TestSchedulerMultiSequenceInterleavedEquivalence(t *testing.T) {
 	}
 
 	if seqA.Status != SeqFinished {
-		t.Fatalf("seqA expected Finished, got %v", seqA.Status)
+		t.Fatalf("seqA expected Finished, got %v (err: %v)", seqA.Status, seqA.Error)
 	}
 	if seqB.Status != SeqFinished {
-		t.Fatalf("seqB expected Finished, got %v", seqB.Status)
+		t.Fatalf("seqB expected Finished, got %v (err: %v)", seqB.Status, seqB.Error)
 	}
 
 	if len(seqA.GeneratedTokens) != len(wantA) {
