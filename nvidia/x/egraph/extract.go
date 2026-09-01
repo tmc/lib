@@ -151,6 +151,9 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	case strings.HasPrefix(n.Op, "fused_"):
 		// Rewarded: Mega-kernel executing in registers/shared-mem
 		baseCost = 0.2
+	case n.Op == "cublaslt_gemm":
+		// Rewarded: High-throughput Tensor Core GEMM for batched matrix multiply
+		baseCost = 0.5
 	case n.Op == "gemv" || n.Op == "matmul":
 		baseCost = 2.0
 	case n.Op == "rmsnorm" || n.Op == "rope" || n.Op == "silu":
