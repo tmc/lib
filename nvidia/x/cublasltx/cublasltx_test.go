@@ -88,3 +88,36 @@ func BenchmarkCuBLASLtGEMM(b *testing.B) {
 	tflops := (float64(b.N) * flops / 1e12) / elapsed
 	b.ReportMetric(tflops, "TFLOPS")
 }
+
+func TestMatMulWithGELUBias(t *testing.T) {
+	dev := cudatest.Require(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatalf("NewStream failed: %v", err)
+	}
+	defer stream.Destroy()
+
+	engine, err := cublasltx.NewEngine(dev)
+	if err != nil {
+		t.Fatalf("NewEngine failed: %v", err)
+	}
+	defer engine.Close()
+
+	m, k, n := 32, 64, 32
+	aBuf, _ := cudamem.Alloc[float32](dev, m*k)
+	defer aBuf.Free()
+	bBuf, _ := cudamem.Alloc[float32](dev, k*n)
+	defer bBuf.Free()
+	biasBuf, _ := cudamem.Alloc[float32](dev, m)
+	defer biasBuf.Free()
+	dBuf, _ := cudamem.Alloc[float32](dev, m*n)
+	defer dBuf.Free()
+
+	if err := engine.MatMulWithGELUBias(stream, aBuf, m, k, bBuf, n, biasBuf, dBuf); err != nil {
+		t.Fatalf("MatMulWithGELUBias failed: %v", err)
+	}
+
+	if err := stream.Synchronize(nil); err != nil {
+		t.Fatalf("Synchronize failed: %v", err)
+	}
+}
