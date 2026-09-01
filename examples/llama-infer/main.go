@@ -53,11 +53,14 @@ type Config struct {
 	SearchGraphs int
 	// SearchDepths is an optional list of search depths to sweep during benchmarks.
 	SearchDepths []int
+	// TestMode explicitly permits synthetic deterministic test weights for unit testing.
+	TestMode bool
 }
 
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
 func DefaultTinyLlamaConfig() Config {
 	return Config{
+		TestMode:   true,
 		Name:       "TinyLlama-Testing",
 		VocabSize:  256,
 		Dim:        64,

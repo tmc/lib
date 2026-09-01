@@ -14,6 +14,7 @@ func TestSequenceLifecycle(t *testing.T) {
 		t.Errorf("expected initial status PendingPrefill, got %v", seq.Status)
 	}
 
+	seq.Status = SeqDecoding
 	cont := seq.AppendToken(10, " tok1")
 	if !cont {
 		t.Errorf("expected sequence to continue after token 1")
@@ -58,9 +59,65 @@ func TestSchedulerCapacityAndStep(t *testing.T) {
 	}
 
 	if sch.ActiveCount() != 2 {
-		t.Errorf("expected active count 2, got %d", sch.ActiveCount())
+		t.Errorf("expected 2 active sequences, got %d", sch.ActiveCount())
 	}
 
 	ctx := context.Background()
-	_ = sch.Step(ctx)
+	n, err := sch.Step(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error stepping scheduler: %v", err)
+	}
+	if sch.ActiveCount() != 0 {
+		t.Errorf("expected sequences without engine to finish on prefill, remaining %d (stepped %d)", sch.ActiveCount(), n)
+	}
+}
+
+func TestSchedulerCancellation(t *testing.T) {
+	sch := NewScheduler(nil, Config{}, 4)
+
+	seq1 := NewSequence("seq-cancel", "prompt", []int32{1, 2}, 10, nil)
+	if err := sch.Submit(seq1); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	seq1.Cancel()
+	if seq1.Status != SeqCanceled {
+		t.Errorf("expected status Canceled, got %v", seq1.Status)
+	}
+
+	ctx := context.Background()
+	_, err := sch.Step(ctx)
+	if err != nil {
+		t.Fatalf("step: %v", err)
+	}
+
+	if sch.ActiveCount() != 0 {
+		t.Errorf("expected canceled sequence to be pruned, got %d active", sch.ActiveCount())
+	}
+}
+
+func TestSchedulerCapacityReuse(t *testing.T) {
+	sch := NewScheduler(nil, Config{}, 1)
+
+	seq1 := NewSequence("seq-1", "p1", []int32{1}, 2, nil)
+	if err := sch.Submit(seq1); err != nil {
+		t.Fatalf("submit seq1: %v", err)
+	}
+
+	// Step to finish seq1
+	ctx := context.Background()
+	_, _ = sch.Step(ctx)
+
+	if sch.ActiveCount() != 0 {
+		t.Fatalf("expected 0 active, got %d", sch.ActiveCount())
+	}
+
+	// Should now be able to admit seq2
+	seq2 := NewSequence("seq-2", "p2", []int32{2}, 2, nil)
+	if err := sch.Submit(seq2); err != nil {
+		t.Fatalf("expected capacity to be reused for seq2: %v", err)
+	}
+	if sch.ActiveCount() != 1 {
+		t.Errorf("expected 1 active sequence, got %d", sch.ActiveCount())
+	}
 }

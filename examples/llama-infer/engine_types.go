@@ -11,12 +11,14 @@ import (
 type SequenceStatus int
 
 const (
-	// SeqPendingPrefill indicates the sequence is waiting for prompt ingestion and KV cache allocation.
+	// SeqPendingPrefill indicates the sequence is waiting for prompt ingestion.
 	SeqPendingPrefill SequenceStatus = iota
 	// SeqDecoding indicates the sequence is actively generating autoregressive tokens.
 	SeqDecoding
 	// SeqFinished indicates the sequence has completed generation.
 	SeqFinished
+	// SeqCanceled indicates the sequence was canceled by the client.
+	SeqCanceled
 	// SeqFailed indicates the sequence encountered an unrecoverable error during execution.
 	SeqFailed
 )
@@ -29,6 +31,8 @@ func (s SequenceStatus) String() string {
 		return "Decoding"
 	case SeqFinished:
 		return "Finished"
+	case SeqCanceled:
+		return "Canceled"
 	case SeqFailed:
 		return "Failed"
 	default:
@@ -37,19 +41,24 @@ func (s SequenceStatus) String() string {
 }
 
 // Sequence represents an isolated generation stream containing its own KV cache state,
-// sequence position, activation scratch references, and token history.
+// sequence position, and token history.
 type Sequence struct {
 	ID              string
 	Prompt          string
 	PromptTokens    []int32
 	GeneratedTokens []int32
+	CurrentToken    int32
 	Pos             int
 	MaxTokens       int
 	Status          SequenceStatus
 	Error           error
 	OnToken         func(tokenID int32, tokenText string) bool
 	DoneCh          chan struct{}
+	CancelCh        chan struct{}
 	mu              sync.Mutex
+
+	// Isolated KV cache state
+	KVCache *KVCacheState
 
 	// Metrics
 	PrefillDuration time.Duration
@@ -70,27 +79,51 @@ func NewSequence(id string, prompt string, promptTokens []int32, maxTokens int, 
 		Status:       SeqPendingPrefill,
 		OnToken:      onToken,
 		DoneCh:       make(chan struct{}),
+		CancelCh:     make(chan struct{}),
 		CreatedTime:  time.Now(),
 	}
 }
 
-// AppendToken records a newly generated token, invokes the streaming callback,
-// and updates the sequence status if generation has reached its limit.
+// Cancel requests early termination of the sequence.
+func (s *Sequence) Cancel() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.Status == SeqFinished || s.Status == SeqCanceled || s.Status == SeqFailed {
+		return
+	}
+	s.Status = SeqCanceled
+	select {
+	case <-s.CancelCh:
+	default:
+		close(s.CancelCh)
+	}
+	select {
+	case <-s.DoneCh:
+	default:
+		close(s.DoneCh)
+	}
+}
+
+// AppendToken records a newly generated token and updates sequence status.
 func (s *Sequence) AppendToken(tokenID int32, tokenText string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.GeneratedTokens = append(s.GeneratedTokens, tokenID)
-	s.Pos++
-
-	shouldContinue := true
-	if s.OnToken != nil {
-		shouldContinue = s.OnToken(tokenID, tokenText)
+	if s.Status != SeqDecoding {
+		return false
 	}
 
-	if len(s.GeneratedTokens) >= s.MaxTokens || !shouldContinue {
+	s.GeneratedTokens = append(s.GeneratedTokens, tokenID)
+	s.CurrentToken = tokenID
+
+	if len(s.GeneratedTokens) >= s.MaxTokens {
 		s.Status = SeqFinished
-		close(s.DoneCh)
+		select {
+		case <-s.DoneCh:
+		default:
+			close(s.DoneCh)
+		}
 		return false
 	}
 	return true
@@ -110,7 +143,7 @@ func (s *Sequence) Fail(err error) {
 	}
 }
 
-// Scheduler coordinates continuous batching, sequence lifecycles, and plan dispatches.
+// Scheduler coordinates continuous batching and sequence execution steps.
 type Scheduler struct {
 	engine   *ModelEngine
 	cfg      Config
@@ -151,46 +184,124 @@ func (s *Scheduler) ActiveCount() int {
 	return len(s.active)
 }
 
-// Step advances active sequences by one execution batch (prefill or decode step).
-func (s *Scheduler) Step(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+type sequenceStepCallback struct {
+	seq       *Sequence
+	tokenID   int32
+	tokenText string
+}
 
+// Step advances each active sequence by a single bounded step (prefill or decode token).
+// Callbacks are invoked outside the scheduler lock to avoid contention.
+func (s *Scheduler) Step(ctx context.Context) (int, error) {
+	s.mu.Lock()
 	if len(s.active) == 0 {
-		return nil
+		s.mu.Unlock()
+		return 0, nil
 	}
 
-	// 1. Prioritize any pending prefill sequence
-	for i, seq := range s.active {
-		if seq.Status == SeqPendingPrefill {
-			if s.engine == nil {
-				seq.Status = SeqFinished
-				select {
-				case <-seq.DoneCh:
-				default:
-					close(seq.DoneCh)
-				}
-				s.active = append(s.active[:i], s.active[i+1:]...)
-				return nil
-			}
-			start := time.Now()
-			err := s.engine.Generate(ctx, s.cfg, seq.Prompt, seq.MaxTokens, seq.OnToken)
-			if err != nil {
-				seq.Fail(err)
+	// Snapshot active sequences
+	activeSeqs := make([]*Sequence, len(s.active))
+	copy(activeSeqs, s.active)
+	s.mu.Unlock()
+
+	var callbacks []sequenceStepCallback
+
+	for _, seq := range activeSeqs {
+		select {
+		case <-ctx.Done():
+			seq.Cancel()
+			continue
+		case <-seq.CancelCh:
+			continue
+		default:
+		}
+
+		seq.mu.Lock()
+		status := seq.Status
+		seq.mu.Unlock()
+
+		if status == SeqPendingPrefill {
+			// Ingest prompt
+			if s.engine != nil {
+				start := time.Now()
+				nextTok := GPUPrefillPass(s.engine, s.cfg, seq.PromptTokens)
+				seq.mu.Lock()
+				seq.PrefillDuration = time.Since(start)
+				seq.CurrentToken = nextTok
+				seq.Pos = len(seq.PromptTokens)
+				seq.Status = SeqDecoding
+				seq.GeneratedTokens = append(seq.GeneratedTokens, nextTok)
+				seq.mu.Unlock()
+
+				callbacks = append(callbacks, sequenceStepCallback{
+					seq:       seq,
+					tokenID:   nextTok,
+					tokenText: fmt.Sprintf("%d", nextTok),
+				})
 			} else {
+				seq.mu.Lock()
 				seq.Status = SeqFinished
 				select {
 				case <-seq.DoneCh:
 				default:
 					close(seq.DoneCh)
 				}
+				seq.mu.Unlock()
 			}
-			seq.PrefillDuration = time.Since(start)
-			// Remove from active list
-			s.active = append(s.active[:i], s.active[i+1:]...)
-			return err
+		} else if status == SeqDecoding {
+			if s.engine != nil {
+				seq.mu.Lock()
+				curTok := seq.CurrentToken
+				pos := seq.Pos
+				seq.mu.Unlock()
+
+				start := time.Now()
+				nextTok := GPUForwardPass(s.engine, s.cfg, curTok, pos)
+				dur := time.Since(start)
+
+				seq.mu.Lock()
+				seq.DecodeDuration += dur
+				seq.Pos++
+				cont := seq.AppendToken(nextTok, fmt.Sprintf("%d", nextTok))
+				seq.mu.Unlock()
+
+				callbacks = append(callbacks, sequenceStepCallback{
+					seq:       seq,
+					tokenID:   nextTok,
+					tokenText: fmt.Sprintf("%d", nextTok),
+				})
+
+				if !cont {
+					// Sequence finished
+				}
+			}
 		}
 	}
 
-	return nil
+	// Dispatch callbacks outside scheduler lock
+	for _, cb := range callbacks {
+		if cb.seq.OnToken != nil {
+			cont := cb.seq.OnToken(cb.tokenID, cb.tokenText)
+			if !cont {
+				cb.seq.Cancel()
+			}
+		}
+	}
+
+	// Prune finished/canceled sequences
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	remaining := s.active[:0]
+	for _, seq := range s.active {
+		seq.mu.Lock()
+		st := seq.Status
+		seq.mu.Unlock()
+		if st == SeqPendingPrefill || st == SeqDecoding {
+			remaining = append(remaining, seq)
+		}
+	}
+	s.active = remaining
+
+	return len(callbacks), nil
 }

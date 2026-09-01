@@ -40,17 +40,17 @@ type GPUModelWeights struct {
 
 // GPUScratchpad holds intermediate GPU-resident activation and logit buffers.
 type GPUScratchpad struct {
-	X        cudamem.Slice[float32]
-	NormX    cudamem.Slice[float32]
-	Q        cudamem.Slice[float32]
-	K        cudamem.Slice[float32]
-	V        cudamem.Slice[float32]
-	AttnOut  cudamem.Slice[float32]
-	Gate     cudamem.Slice[float32]
-	Up       cudamem.Slice[float32]
-	FFNAct   cudamem.Slice[float32]
-	FFNOut   cudamem.Slice[float32]
-	Logits   cudamem.Slice[float32]
+	X            cudamem.Slice[float32]
+	NormX        cudamem.Slice[float32]
+	Q            cudamem.Slice[float32]
+	K            cudamem.Slice[float32]
+	V            cudamem.Slice[float32]
+	AttnOut      cudamem.Slice[float32]
+	Gate         cudamem.Slice[float32]
+	Up           cudamem.Slice[float32]
+	FFNAct       cudamem.Slice[float32]
+	FFNOut       cudamem.Slice[float32]
+	Logits       cudamem.Slice[float32]
 	TokenIn      cudamem.Slice[int32]
 	TokenOut     cudamem.Slice[int32]
 	HostTokenIn  []int32
@@ -257,7 +257,7 @@ func GPUForwardPassStream(
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
 		if cfg.FuseEGraph && gm.fusedQKVFn != 0 && layerW.QBias.Len() == 0 {
 			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
-			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads * headDim)).Block(128).
+			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim)).Block(128).
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
 					sp.Q, sp.K, sp.V,
 					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
@@ -269,15 +269,15 @@ func GPUForwardPassStream(
 				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(qHeads * headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(qHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads * headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
@@ -297,7 +297,7 @@ func GPUForwardPassStream(
 
 		// Step 2e: Causal FlashAttention Decode
 		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads)).Block(1).SharedMem(uint32(seqLen * 4)).
+		if err := launcher(attnFn).Grid(uint32(qHeads)).Block(1).SharedMem(uint32(seqLen*4)).
 			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 			return 0, err
 		}

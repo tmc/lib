@@ -18,17 +18,17 @@ var ForwardKernelsCUDA string
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
-	mod            driver.Module
-	ptx            string
-	embedFn        driver.Function
-	normFn         driver.Function
-	gemvFn         driver.Function
-	ropeFn         driver.Function
-	storeKVFn      driver.Function
-	swigluFn       driver.Function
-	addResFn       driver.Function
-	fusedQKVFn     driver.Function
-	fusedSwiGLUFn  driver.Function
+	mod           driver.Module
+	ptx           string
+	embedFn       driver.Function
+	normFn        driver.Function
+	gemvFn        driver.Function
+	ropeFn        driver.Function
+	storeKVFn     driver.Function
+	swigluFn      driver.Function
+	addResFn      driver.Function
+	fusedQKVFn    driver.Function
+	fusedSwiGLUFn driver.Function
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -81,7 +81,6 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 		fusedSwiGLUFn: fusedSwiGLUFn,
 	}, nil
 }
-
 
 // Close unloads the compiled CUDA module.
 func (gm *GPUModules) Close() error {

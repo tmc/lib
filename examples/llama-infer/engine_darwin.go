@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -135,13 +136,62 @@ func (eng *ModelEngine) prefixCacheAvailable() bool {
 }
 
 // ReadLogits returns a copy of the final logits computed in the last forward pass.
-func (eng *ModelEngine) ReadLogits() []float32 {
-	if eng == nil || eng.logitsBuf.Len() == 0 {
-		return nil
+func (eng *ModelEngine) ReadLogits() ([]float32, error) {
+	if eng == nil {
+		return nil, errors.New("read logits: nil engine")
+	}
+	if eng.logitsBuf.Len() == 0 {
+		return nil, errors.New("read logits: empty logits buffer")
 	}
 	res := make([]float32, eng.logitsBuf.Len())
 	copy(res, eng.logitsBuf.HostSlice())
-	return res
+	return res, nil
+}
+
+// MutateWeightForTest alters a single weight element in GPU memory and returns a restore function.
+func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta float32) (func(), error) {
+	if eng == nil {
+		return nil, errors.New("mutate weight: nil engine")
+	}
+	var slice []float32
+	if layerIndex < 0 {
+		if eng.embedTable.Len() == 0 {
+			return nil, errors.New("mutate weight: empty embed table")
+		}
+		slice = eng.embedTable.HostSlice()
+	} else {
+		if len(eng.layers) <= layerIndex {
+			return nil, errors.New("mutate weight: invalid layer index")
+		}
+		slice = eng.layers[layerIndex].WQ.HostSlice()
+	}
+	if len(slice) <= elemIndex {
+		return nil, errors.New("mutate weight: invalid element index")
+	}
+	orig := slice[elemIndex]
+	slice[elemIndex] += delta
+	return func() {
+		slice[elemIndex] = orig
+	}, nil
+}
+
+// ResetKV zeroes out the entire KV cache buffer across all layers.
+func (eng *ModelEngine) ResetKV() {
+	if eng == nil {
+		return
+	}
+	for _, kBuf := range eng.kCacheBuf {
+		slice := kBuf.HostSlice()
+		for i := range slice {
+			slice[i] = 0
+		}
+	}
+	for _, vBuf := range eng.vCacheBuf {
+		slice := vBuf.HostSlice()
+		for i := range slice {
+			slice[i] = 0
+		}
+	}
 }
 
 func (eng *ModelEngine) capturePrefix(tokens int, current int32, cfg Config) *prefixSnapshot {
@@ -936,7 +986,8 @@ func RunBenchSuite(cfg Config, count int) error {
 		numGen = 16
 	}
 
-	// Warmup run
+	// Warmup run with clean KV cache
+	eng.ResetKV()
 	curr := GPUPrefillPass(eng, cfg, promptTokens)
 	for s := 0; s < 2; s++ {
 		curr = GPUForwardPass(eng, cfg, curr, len(promptTokens)+s)
@@ -951,10 +1002,30 @@ func RunBenchSuite(cfg Config, count int) error {
 		searchDepths = []int{depth}
 	}
 
+	modelProf := gpuprof.ModelProfile{
+		Name:            cfg.Name,
+		HiddenDim:       cfg.Dim,
+		IntermediateDim: cfg.HiddenDim,
+		NumLayers:       cfg.NumLayers,
+		NumHeads:        cfg.NumHeads,
+		NumKVHeads:      cfg.NumKVHeads,
+		HeadDim:         cfg.HeadDim,
+		VocabSize:       cfg.VocabSize,
+		TiedEmbeddings:  false,
+		BytesPerParam:   4.0,
+	}
+	hwProf := gpuprof.HardwareProfile{
+		Name:              "Apple Silicon Metal",
+		Source:            "assumed-m4-max",
+		PeakBandwidthGBps: 400.0,
+		PeakTFLOPs:        40.0,
+	}
+
 	for _, depth := range searchDepths {
 		prefix := fmt.Sprintf("Benchmark%s/backend=metal/gen_tokens=%d/prompt=neural_network/search_graphs=%d", cfg.Name, numGen, depth)
 
 		for iter := 0; iter < count; iter++ {
+			eng.ResetKV()
 			t0 := time.Now()
 			currTok := GPUPrefillPass(eng, cfg, promptTokens)
 			ttftDur := time.Since(t0)
@@ -971,25 +1042,33 @@ func RunBenchSuite(cfg Config, count int) error {
 			prefillTokPerSec := float64(len(promptTokens)) / ttftDur.Seconds()
 			decTokPerSec := float64(numGen) / decDur.Seconds()
 
-			modelProf := gpuprof.ModelProfile{
-				Name:            cfg.Name,
-				HiddenDim:       cfg.Dim,
-				IntermediateDim: cfg.HiddenDim,
-				NumLayers:       cfg.NumLayers,
-				NumHeads:        cfg.NumHeads,
-				NumKVHeads:      cfg.NumKVHeads,
-				HeadDim:         cfg.HeadDim,
-				VocabSize:       cfg.VocabSize,
-				BytesPerParam:   4.0,
+			prefObs := gpuprof.Observation{
+				Duration:            ttftDur,
+				TokenCount:          len(promptTokens),
+				ThroughputTokPerSec: prefillTokPerSec,
 			}
-			hwProf := gpuprof.DefaultHardwareProfile("metal")
-			prefStats := gpuprof.ComputeSaturation(modelProf, hwProf, len(promptTokens), ttftDur, true)
-			decStats := gpuprof.ComputeSaturation(modelProf, hwProf, numGen, decDur, false)
+			decObs := gpuprof.Observation{
+				Duration:            decDur,
+				TokenCount:          numGen,
+				ThroughputTokPerSec: decTokPerSec,
+			}
+
+			prefEst, errPref := gpuprof.EstimateWorkload(modelProf, hwProf, len(promptTokens), ttftDur, true)
+			var pPrefEst *gpuprof.WorkloadEstimate
+			if errPref == nil {
+				pPrefEst = &prefEst
+			}
+
+			decEst, errDec := gpuprof.EstimateWorkload(modelProf, hwProf, numGen, decDur, false)
+			var pDecEst *gpuprof.WorkloadEstimate
+			if errDec == nil {
+				pDecEst = &decEst
+			}
 
 			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
 			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
-			fmt.Printf("%s/prefill-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, prefillTokPerSec, prefStats.BandwidthGBps, prefStats.BandwidthSaturationPct, prefStats.TFLOPs)
-			fmt.Printf("%s/decode-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, decTokPerSec, decStats.BandwidthGBps, decStats.BandwidthSaturationPct, decStats.TFLOPs)
+			fmt.Print(gpuprof.FormatBenchmarkMetricLine(prefix, "prefill", ttftNs, prefObs, pPrefEst))
+			fmt.Print(gpuprof.FormatBenchmarkMetricLine(prefix, "decode", decDur.Nanoseconds(), decObs, pDecEst))
 		}
 	}
 	return nil

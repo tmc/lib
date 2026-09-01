@@ -4,21 +4,29 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/tmc/lib/apple/x/metal/metalprof"
+	"github.com/tmc/lib/examples/llama-infer/gpuprof"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudaspec"
-	"github.com/tmc/lib/examples/llama-infer/gpuprof"
 )
+
+func init() {
+	runtime.LockOSThread()
+}
 
 // ModelEngine maintains cached CUDA allocations, JIT modules, and device contexts on Linux.
 type ModelEngine struct {
@@ -37,11 +45,12 @@ type ModelEngine struct {
 	metrics    *RuntimeMetrics
 	drafter    *cudaspec.NgramDrafter
 	egraphSats int
+	generateMu sync.Mutex
 }
 
-// FlightRecorder returns the active in-memory GPU telemetry recorder.
+// FlightRecorder returns nil on CUDA targets until unified event recorder is attached.
 func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
-	return eng.recorder
+	return nil
 }
 
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
@@ -57,16 +66,80 @@ func (eng *ModelEngine) prefixCacheAvailable() bool {
 }
 
 // ReadLogits returns a copy of the final logits computed in the last forward pass.
-func (eng *ModelEngine) ReadLogits() []float32 {
-	if eng == nil || eng.scratch == nil || eng.scratch.Logits.Len() == 0 {
+func (eng *ModelEngine) ReadLogits() ([]float32, error) {
+	if eng == nil {
+		return nil, errors.New("read logits: nil engine")
+	}
+	if eng.scratch == nil || eng.scratch.Logits.Len() == 0 {
+		return nil, errors.New("read logits: empty logits buffer")
+	}
+	var res []float32
+	err := eng.dev.WithContext(func() error {
+		if eng.stream != nil {
+			if err := eng.stream.Synchronize(context.Background()); err != nil {
+				return fmt.Errorf("read logits: stream synchronize: %w", err)
+			}
+		}
+		res = make([]float32, eng.scratch.Logits.Len())
+		if err := eng.scratch.Logits.CopyToHost(res); err != nil {
+			return fmt.Errorf("read logits: copy to host: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// ResetKV zeroes out the entire KV cache buffer on device and resets position.
+func (eng *ModelEngine) ResetKV() error {
+	if eng == nil || eng.kvCache == nil {
 		return nil
 	}
-	if eng.stream != nil {
-		_ = eng.stream.Synchronize(context.Background())
+	eng.kvCache.Reset()
+	return nil
+}
+
+// MutateWeightForTest alters a single weight element in GPU memory and returns a restore function.
+func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta float32) (func(), error) {
+	if eng == nil || eng.weights == nil {
+		return nil, errors.New("mutate weight: nil engine or weights")
 	}
-	res := make([]float32, eng.scratch.Logits.Len())
-	_ = eng.scratch.Logits.CopyToHost(res)
-	return res
+	var targetBuf cudamem.Slice[float32]
+	if layerIndex < 0 {
+		targetBuf = eng.weights.EmbedTokens
+	} else {
+		if len(eng.weights.Layers) <= layerIndex {
+			return nil, errors.New("mutate weight: invalid layer index")
+		}
+		targetBuf = eng.weights.Layers[layerIndex].WQ
+	}
+	if targetBuf.Len() <= elemIndex {
+		return nil, errors.New("mutate weight: invalid element index")
+	}
+	hostSlice := make([]float32, targetBuf.Len())
+	var orig float32
+	err := eng.dev.WithContext(func() error {
+		if err := targetBuf.CopyToHost(hostSlice); err != nil {
+			return fmt.Errorf("mutate weight read: %w", err)
+		}
+		orig = hostSlice[elemIndex]
+		hostSlice[elemIndex] += delta
+		if err := targetBuf.CopyFromHost(hostSlice); err != nil {
+			return fmt.Errorf("mutate weight write: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return func() {
+		_ = eng.dev.WithContext(func() error {
+			hostSlice[elemIndex] = orig
+			return targetBuf.CopyFromHost(hostSlice)
+		})
+	}, nil
 }
 
 var (
@@ -127,15 +200,16 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	var weights *ModelWeights
 	if cfg.ModelPath != "" {
 		loadedW, loadedCfg, err := LoadModel(cfg.ModelPath)
-		if err == nil {
-			mCfg = *loadedCfg
-			mCfg.FuseEGraph = cfg.FuseEGraph
-			weights = loadedW
+		if err != nil {
+			return nil, fmt.Errorf("load model %q: %w", cfg.ModelPath, err)
 		}
-	}
-
-	if weights == nil {
+		mCfg = *loadedCfg
+		mCfg.FuseEGraph = cfg.FuseEGraph
+		weights = loadedW
+	} else if cfg.TestMode || cfg.Name == "TinyLlama-Deterministic" || strings.HasPrefix(cfg.Name, "TinyLlama") || strings.HasPrefix(cfg.Name, "Deterministic") || strings.HasPrefix(cfg.Name, "Differential") {
 		weights = GenerateDeterministicWeights(&mCfg)
+	} else {
+		return nil, errors.New("model path required (synthetic test weights require explicit test configuration)")
 	}
 
 	gpuWeights, err := UploadModelToGPU(dev, weights, &mCfg)
@@ -466,6 +540,8 @@ func RunBenchSuite(cfg Config, count int) error {
 	}
 
 	// Warmup run
+	// Warmup run with clean KV cache
+	_ = eng.ResetKV()
 	curr := GPUPrefillPass(eng, cfg, promptTokens)
 	for s := 0; s < 2; s++ {
 		curr = GPUForwardPass(eng, cfg, curr, len(promptTokens)+s)
@@ -480,10 +556,30 @@ func RunBenchSuite(cfg Config, count int) error {
 		searchDepths = []int{depth}
 	}
 
+	modelProf := gpuprof.ModelProfile{
+		Name:            cfg.Name,
+		HiddenDim:       cfg.Dim,
+		IntermediateDim: cfg.HiddenDim,
+		NumLayers:       cfg.NumLayers,
+		NumHeads:        cfg.NumHeads,
+		NumKVHeads:      cfg.NumKVHeads,
+		HeadDim:         cfg.HeadDim,
+		VocabSize:       cfg.VocabSize,
+		TiedEmbeddings:  false,
+		BytesPerParam:   4.0,
+	}
+	hwProf := gpuprof.HardwareProfile{
+		Name:              "NVIDIA DGX Blackwell",
+		Source:            "assumed-gb10",
+		PeakBandwidthGBps: 300.0,
+		PeakTFLOPs:        120.0,
+	}
+
 	for _, depth := range searchDepths {
 		prefix := fmt.Sprintf("Benchmark%s/backend=cuda/gen_tokens=%d/prompt=neural_network/search_graphs=%d", cfg.Name, numGen, depth)
 
 		for iter := 0; iter < count; iter++ {
+			_ = eng.ResetKV()
 			t0 := time.Now()
 			currTok := GPUPrefillPass(eng, cfg, promptTokens)
 			ttftDur := time.Since(t0)
@@ -500,27 +596,34 @@ func RunBenchSuite(cfg Config, count int) error {
 			prefillTokPerSec := float64(len(promptTokens)) / ttftDur.Seconds()
 			decTokPerSec := float64(numGen) / decDur.Seconds()
 
-			modelProf := gpuprof.ModelProfile{
-				Name:            cfg.Name,
-				HiddenDim:       cfg.Dim,
-				IntermediateDim: cfg.HiddenDim,
-				NumLayers:       cfg.NumLayers,
-				NumHeads:        cfg.NumHeads,
-				NumKVHeads:      cfg.NumKVHeads,
-				HeadDim:         cfg.HeadDim,
-				VocabSize:       cfg.VocabSize,
-				BytesPerParam:   4.0,
+			prefObs := gpuprof.Observation{
+				Duration:            ttftDur,
+				TokenCount:          len(promptTokens),
+				ThroughputTokPerSec: prefillTokPerSec,
 			}
-			hwProf := gpuprof.DefaultHardwareProfile("cuda")
-			prefStats := gpuprof.ComputeSaturation(modelProf, hwProf, len(promptTokens), ttftDur, true)
-			decStats := gpuprof.ComputeSaturation(modelProf, hwProf, numGen, decDur, false)
+			decObs := gpuprof.Observation{
+				Duration:            decDur,
+				TokenCount:          numGen,
+				ThroughputTokPerSec: decTokPerSec,
+			}
+
+			prefEst, errPref := gpuprof.EstimateWorkload(modelProf, hwProf, len(promptTokens), ttftDur, true)
+			var pPrefEst *gpuprof.WorkloadEstimate
+			if errPref == nil {
+				pPrefEst = &prefEst
+			}
+
+			decEst, errDec := gpuprof.EstimateWorkload(modelProf, hwProf, numGen, decDur, false)
+			var pDecEst *gpuprof.WorkloadEstimate
+			if errDec == nil {
+				pDecEst = &decEst
+			}
 
 			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
 			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
-			fmt.Printf("%s/prefill-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, prefillTokPerSec, prefStats.BandwidthGBps, prefStats.BandwidthSaturationPct, prefStats.TFLOPs)
-			fmt.Printf("%s/decode-1 1 %.6f tok/s %.2f GB/s %.2f %%bw_sat %.3f TFLOPs/s\n", prefix, decTokPerSec, decStats.BandwidthGBps, decStats.BandwidthSaturationPct, decStats.TFLOPs)
+			fmt.Print(gpuprof.FormatBenchmarkMetricLine(prefix, "prefill", ttftNs, prefObs, pPrefEst))
+			fmt.Print(gpuprof.FormatBenchmarkMetricLine(prefix, "decode", decDur.Nanoseconds(), decObs, pDecEst))
 		}
 	}
 	return nil
 }
-

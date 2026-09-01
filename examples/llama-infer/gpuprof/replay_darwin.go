@@ -12,10 +12,10 @@ import (
 
 // HardwareReplayData summarizes GPU hardware performance telemetry parsed from a replay session.
 type HardwareReplayData struct {
-	ActiveTimeNS       int64
-	PeakGPRs           int
-	KernelCount        int
-	Report             *gpureplay.ReplayReport
+	ActiveTimeNS int64
+	PeakGPRs     int
+	KernelCount  int
+	Report       *gpureplay.ReplayReport
 }
 
 // ProfileReplay runs MTLReplayer on the provided trace bundle and extracts hardware stats.
