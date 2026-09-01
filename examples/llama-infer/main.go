@@ -27,6 +27,7 @@ type Config struct {
 	Eps        float32
 	RopeTheta  float32
 	FuseEGraph bool
+	Prompt     string
 }
 
 // DefaultTinyLlamaConfig returns configuration for a tiny testing model.
@@ -131,6 +132,7 @@ func main() {
 		cfg = DefaultTinyLlamaConfig()
 	}
 	cfg.FuseEGraph = *fuseEGraph
+	cfg.Prompt = *prompt
 
 	fmt.Printf("=== Cross-Platform LLaMA Tensor Inference (%s on %s/%s) ===\n", cfg.Name, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Architecture: Dim=%d, HiddenDim=%d, Layers=%d, Heads=%d, KVHeads=%d, Vocab=%d\n",

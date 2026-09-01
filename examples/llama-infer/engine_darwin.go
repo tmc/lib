@@ -39,38 +39,41 @@ type GPULayerWeights struct {
 
 // ModelEngine maintains cached Metal pipeline states and GPU-resident memory allocations.
 type ModelEngine struct {
-	dev         *metal.Device
-	lib         apple.MTLLibrary
-	psoEmbed    apple.MTLComputePipelineState
-	psoQKV      apple.MTLComputePipelineState
-	psoRoPE     apple.MTLComputePipelineState
-	psoAttn     apple.MTLComputePipelineState
-	psoOutProj  apple.MTLComputePipelineState
-	psoSwiGLU   apple.MTLComputePipelineState
-	psoFinal    apple.MTLComputePipelineState
-	psoSample   apple.MTLComputePipelineState
+	dev        *metal.Device
+	lib        apple.MTLLibrary
+	psoEmbed   apple.MTLComputePipelineState
+	psoNorm    apple.MTLComputePipelineState
+	psoGEMV    apple.MTLComputePipelineState
+	psoGEMVRes apple.MTLComputePipelineState
+	psoRoPE    apple.MTLComputePipelineState
+	psoAttn    apple.MTLComputePipelineState
+	psoSiLUMul apple.MTLComputePipelineState
+	psoSample  apple.MTLComputePipelineState
 
 	// GPU-Resident Unified Memory Buffers
-	xBuf        mempool.Slice[float32]
-	qBuf        mempool.Slice[float32]
-	kBuf        mempool.Slice[float32]
-	vBuf        mempool.Slice[float32]
-	attnOutBuf  mempool.Slice[float32]
-	ffnActBuf   mempool.Slice[float32]
-	kCacheBuf   []mempool.Slice[float32]
-	vCacheBuf   []mempool.Slice[float32]
-	logitsBuf   mempool.Slice[float32]
-	tokBuf      mempool.Slice[int32]
+	xBuf       mempool.Slice[float32]
+	normXBuf   mempool.Slice[float32]
+	qBuf       mempool.Slice[float32]
+	kBuf       mempool.Slice[float32]
+	vBuf       mempool.Slice[float32]
+	attnOutBuf mempool.Slice[float32]
+	gateBuf    mempool.Slice[float32]
+	upBuf      mempool.Slice[float32]
+	ffnActBuf  mempool.Slice[float32]
+	kCacheBuf  []mempool.Slice[float32]
+	vCacheBuf  []mempool.Slice[float32]
+	logitsBuf  mempool.Slice[float32]
+	tokBuf     mempool.Slice[int32]
 
 	// GPU Weights
-	embedTable  mempool.Slice[float32]
-	finalNormW  mempool.Slice[float32]
-	lmHeadW     mempool.Slice[float32]
-	layers      []GPULayerWeights
+	embedTable mempool.Slice[float32]
+	finalNormW mempool.Slice[float32]
+	lmHeadW    mempool.Slice[float32]
+	layers     []GPULayerWeights
 
-	tokenizer   Tokenizer
-	weights     *metalsafetensors.Weights
-	egraphSats  int
+	tokenizer  Tokenizer
+	weights    *metalsafetensors.Weights
+	egraphSats int
 }
 
 var (
@@ -109,7 +112,6 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		_, egraphSats = egraph.Saturate(eg, rules, 10)
 	}
 
-	// Compile all specialized compute shader pipelines
 	fullMSL := metalmegakernel.LlamaDecoderKernelsMSL + "\n" + metalattn.CausalFlashAttentionMSL + "\n" + metalsample.ArgmaxSamplingMSL
 	lib, err := dev.CompileLibrary(fullMSL)
 	if err != nil {
@@ -120,41 +122,43 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create EmbeddingLookup pipeline: %w", err)
 	}
-	psoQKV, err := dev.NewComputePipeline(lib, "FusedRMSNormQKV")
+	psoNorm, err := dev.NewComputePipeline(lib, "ComputeRMSNorm")
 	if err != nil {
-		return nil, fmt.Errorf("create FusedRMSNormQKV pipeline: %w", err)
+		return nil, fmt.Errorf("create ComputeRMSNorm pipeline: %w", err)
 	}
-	psoRoPE, err := dev.NewComputePipeline(lib, "FusedRoPEStoreKV")
+	psoGEMV, err := dev.NewComputePipeline(lib, "FastGEMV")
 	if err != nil {
-		return nil, fmt.Errorf("create FusedRoPEStoreKV pipeline: %w", err)
+		return nil, fmt.Errorf("create FastGEMV pipeline: %w", err)
+	}
+	psoGEMVRes, err := dev.NewComputePipeline(lib, "FastGEMVResidual")
+	if err != nil {
+		return nil, fmt.Errorf("create FastGEMVResidual pipeline: %w", err)
+	}
+	psoRoPE, err := dev.NewComputePipeline(lib, "ApplyRoPEStoreKV")
+	if err != nil {
+		return nil, fmt.Errorf("create ApplyRoPEStoreKV pipeline: %w", err)
 	}
 	psoAttn, err := dev.NewComputePipeline(lib, "CausalFlashAttentionDecode")
 	if err != nil {
 		return nil, fmt.Errorf("create CausalFlashAttentionDecode pipeline: %w", err)
 	}
-	psoOutProj, err := dev.NewComputePipeline(lib, "OutProjResidual")
+	psoSiLUMul, err := dev.NewComputePipeline(lib, "FastSiLUMul")
 	if err != nil {
-		return nil, fmt.Errorf("create OutProjResidual pipeline: %w", err)
-	}
-	psoSwiGLU, err := dev.NewComputePipeline(lib, "FusedSwiGLUResidual")
-	if err != nil {
-		return nil, fmt.Errorf("create FusedSwiGLUResidual pipeline: %w", err)
-	}
-	psoFinal, err := dev.NewComputePipeline(lib, "FusedFinalNormLMHead")
-	if err != nil {
-		return nil, fmt.Errorf("create FusedFinalNormLMHead pipeline: %w", err)
+		return nil, fmt.Errorf("create FastSiLUMul pipeline: %w", err)
 	}
 	psoSample, err := dev.NewComputePipeline(lib, "ArgmaxSampling")
 	if err != nil {
 		return nil, fmt.Errorf("create ArgmaxSampling pipeline: %w", err)
 	}
 
-	// Allocate GPU-resident activation memory
 	xBuf, _ := mempool.Alloc[float32](dev, cfg.Dim)
+	normXBuf, _ := mempool.Alloc[float32](dev, cfg.Dim)
 	qBuf, _ := mempool.Alloc[float32](dev, cfg.NumHeads*cfg.HeadDim)
 	kBuf, _ := mempool.Alloc[float32](dev, cfg.NumKVHeads*cfg.HeadDim)
 	vBuf, _ := mempool.Alloc[float32](dev, cfg.NumKVHeads*cfg.HeadDim)
 	attnOutBuf, _ := mempool.Alloc[float32](dev, cfg.Dim)
+	gateBuf, _ := mempool.Alloc[float32](dev, cfg.HiddenDim)
+	upBuf, _ := mempool.Alloc[float32](dev, cfg.HiddenDim)
 	ffnActBuf, _ := mempool.Alloc[float32](dev, cfg.HiddenDim)
 	logitsBuf, _ := mempool.Alloc[float32](dev, cfg.VocabSize)
 	tokBuf, _ := mempool.Alloc[int32](dev, 1)
@@ -216,33 +220,36 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	}
 
 	eng := &ModelEngine{
-		dev:         dev,
-		lib:         lib,
-		psoEmbed:    psoEmbed,
-		psoQKV:      psoQKV,
-		psoRoPE:     psoRoPE,
-		psoAttn:     psoAttn,
-		psoOutProj:  psoOutProj,
-		psoSwiGLU:   psoSwiGLU,
-		psoFinal:    psoFinal,
-		psoSample:   psoSample,
-		xBuf:        xBuf,
-		qBuf:        qBuf,
-		kBuf:        kBuf,
-		vBuf:        vBuf,
-		attnOutBuf:  attnOutBuf,
-		ffnActBuf:   ffnActBuf,
-		kCacheBuf:   kCacheBuf,
-		vCacheBuf:   vCacheBuf,
-		logitsBuf:   logitsBuf,
-		tokBuf:      tokBuf,
-		embedTable:  embedTable,
-		finalNormW:  finalNormW,
-		lmHeadW:     lmHeadW,
-		layers:      gpuLayers,
-		tokenizer:   tok,
-		weights:     weights,
-		egraphSats:  egraphSats,
+		dev:        dev,
+		lib:        lib,
+		psoEmbed:   psoEmbed,
+		psoNorm:    psoNorm,
+		psoGEMV:    psoGEMV,
+		psoGEMVRes: psoGEMVRes,
+		psoRoPE:    psoRoPE,
+		psoAttn:    psoAttn,
+		psoSiLUMul: psoSiLUMul,
+		psoSample:  psoSample,
+		xBuf:       xBuf,
+		normXBuf:   normXBuf,
+		qBuf:       qBuf,
+		kBuf:       kBuf,
+		vBuf:       vBuf,
+		attnOutBuf: attnOutBuf,
+		gateBuf:    gateBuf,
+		upBuf:      upBuf,
+		ffnActBuf:  ffnActBuf,
+		kCacheBuf:  kCacheBuf,
+		vCacheBuf:  vCacheBuf,
+		logitsBuf:  logitsBuf,
+		tokBuf:     tokBuf,
+		embedTable: embedTable,
+		finalNormW: finalNormW,
+		lmHeadW:    lmHeadW,
+		layers:     gpuLayers,
+		tokenizer:  tok,
+		weights:    weights,
+		egraphSats: egraphSats,
 	}
 
 	darwinEngineCache[key] = eng
@@ -259,7 +266,14 @@ func runPlatform(cfg Config) error {
 	return nil
 }
 
-// GPUForwardPass executes the 100% GPU-resident forward pass across all 16 layers in a single command buffer pass.
+// setScalar binds v directly into the encoder's argument table. Kernel scalar
+// arguments are small and change every pass, so copying them inline avoids
+// allocating a MTLBuffer per argument per token.
+func setScalar[T any](enc apple.MTLComputeCommandEncoder, v T, index uint) {
+	enc.SetBytesLengthAtIndex(unsafe.Slice((*byte)(unsafe.Pointer(&v)), unsafe.Sizeof(v)), index)
+}
+
+// GPUForwardPass executes the 100% GPU-resident forward pass across all 16 layers.
 func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 {
 	queue := eng.dev.Queue()
 	cb := queue.CommandBuffer()
@@ -282,77 +296,86 @@ func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 
 	qHeadsInt := int32(cfg.NumHeads)
 	kvHeadsInt := int32(cfg.NumKVHeads)
 	headDimInt := int32(cfg.HeadDim)
-
-	dimBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&dimVal), 4, apple.MTLResourceStorageModeShared)
-	hiddenDimBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&hiddenDimVal), 4, apple.MTLResourceStorageModeShared)
-	qDimBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&qDimVal), 4, apple.MTLResourceStorageModeShared)
-	kvDimBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&kvDimVal), 4, apple.MTLResourceStorageModeShared)
-	posBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&posVal), 4, apple.MTLResourceStorageModeShared)
-	headDimBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&headDimVal), 4, apple.MTLResourceStorageModeShared)
-	qHeadsBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&qHeadsVal), 4, apple.MTLResourceStorageModeShared)
-	kvHeadsBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&kvHeadsVal), 4, apple.MTLResourceStorageModeShared)
-	thetaBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&thetaVal), 4, apple.MTLResourceStorageModeShared)
-	epsBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&epsVal), 4, apple.MTLResourceStorageModeShared)
-	scaleBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&scaleVal), 4, apple.MTLResourceStorageModeShared)
-	vocabBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabVal), 4, apple.MTLResourceStorageModeShared)
-	maxSeqBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&maxSeqVal), 4, apple.MTLResourceStorageModeShared)
-	curPosBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&curPosInt), 4, apple.MTLResourceStorageModeShared)
-	qHeadsIntBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&qHeadsInt), 4, apple.MTLResourceStorageModeShared)
-	kvHeadsIntBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&kvHeadsInt), 4, apple.MTLResourceStorageModeShared)
-	headDimIntBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&headDimInt), 4, apple.MTLResourceStorageModeShared)
-
 	tokVal := uint32(tokenID)
-	tokInBuf := eng.dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&tokVal), 4, apple.MTLResourceStorageModeShared)
 
-	// 1. Embedding lookup on GPU
+	// 1. Embedding lookup
 	enc.SetComputePipelineState(eng.psoEmbed)
 	enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
 	enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 1)
-	enc.SetBufferWithOffsetAtIndex(tokInBuf, 0, 2)
-	enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 3)
+	setScalar(enc, tokVal, 2)
+	setScalar(enc, dimVal, 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(
 		apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
 		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 	)
 
-	// 2. Loop through all 16 decoder layers on GPU
+	// 2. Transformer Decoder Layers
 	for l := 0; l < cfg.NumLayers; l++ {
 		layer := &eng.layers[l]
 		if layer.InputNorm.Len() == 0 {
 			continue
 		}
 
-		// Fused RMSNorm + QKV Projection
-		enc.SetComputePipelineState(eng.psoQKV)
+		// Input RMSNorm: xBuf -> normXBuf
+		enc.SetComputePipelineState(eng.psoNorm)
 		enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(layer.InputNorm.Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 2)
-		enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 3)
-		enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 4)
-		enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 5)
-		enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 6)
-		enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 7)
-		enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 8)
-		enc.SetBufferWithOffsetAtIndex(qDimBuf, 0, 9)
-		enc.SetBufferWithOffsetAtIndex(kvDimBuf, 0, 10)
-		enc.SetBufferWithOffsetAtIndex(epsBuf, 0, 11)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, epsVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// Q Projection: normXBuf * WQ -> qBuf
+		enc.SetComputePipelineState(eng.psoGEMV)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WQ.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, qDimVal, 4)
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
 
-		// Fused RoPE + KV Cache Store
+		// K Projection: normXBuf * WK -> kBuf
+		enc.SetComputePipelineState(eng.psoGEMV)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WK.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, kvDimVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// V Projection: normXBuf * WV -> vBuf
+		enc.SetComputePipelineState(eng.psoGEMV)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WV.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, kvDimVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(cfg.NumKVHeads * cfg.HeadDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// Apply RoPE + Store KV cache
 		enc.SetComputePipelineState(eng.psoRoPE)
 		enc.SetBufferWithOffsetAtIndex(eng.qBuf.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(eng.kBuf.Buffer(), 0, 1)
 		enc.SetBufferWithOffsetAtIndex(eng.vBuf.Buffer(), 0, 2)
 		enc.SetBufferWithOffsetAtIndex(eng.kCacheBuf[l].Buffer(), 0, 3)
 		enc.SetBufferWithOffsetAtIndex(eng.vCacheBuf[l].Buffer(), 0, 4)
-		enc.SetBufferWithOffsetAtIndex(posBuf, 0, 5)
-		enc.SetBufferWithOffsetAtIndex(headDimBuf, 0, 6)
-		enc.SetBufferWithOffsetAtIndex(qHeadsBuf, 0, 7)
-		enc.SetBufferWithOffsetAtIndex(kvHeadsBuf, 0, 8)
-		enc.SetBufferWithOffsetAtIndex(thetaBuf, 0, 9)
+		setScalar(enc, posVal, 5)
+		setScalar(enc, headDimVal, 6)
+		setScalar(enc, qHeadsVal, 7)
+		setScalar(enc, kvHeadsVal, 8)
+		setScalar(enc, thetaVal, 9)
 		enc.DispatchThreadsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(cfg.NumHeads * cfg.HeadDim), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 64, Height: 1, Depth: 1},
@@ -364,64 +387,118 @@ func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 
 		enc.SetBufferWithOffsetAtIndex(eng.kCacheBuf[l].Buffer(), 0, 1)
 		enc.SetBufferWithOffsetAtIndex(eng.vCacheBuf[l].Buffer(), 0, 2)
 		enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 3)
-		enc.SetBufferWithOffsetAtIndex(curPosBuf, 0, 4)
-		enc.SetBufferWithOffsetAtIndex(maxSeqBuf, 0, 5)
-		enc.SetBufferWithOffsetAtIndex(qHeadsIntBuf, 0, 6)
-		enc.SetBufferWithOffsetAtIndex(kvHeadsIntBuf, 0, 7)
-		enc.SetBufferWithOffsetAtIndex(headDimIntBuf, 0, 8)
-		enc.SetBufferWithOffsetAtIndex(scaleBuf, 0, 9)
+		setScalar(enc, curPosInt, 4)
+		setScalar(enc, maxSeqVal, 5)
+		setScalar(enc, qHeadsInt, 6)
+		setScalar(enc, kvHeadsInt, 7)
+		setScalar(enc, headDimInt, 8)
+		setScalar(enc, scaleVal, 9)
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(cfg.NumHeads), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
 
-		// Attention Output Projection & Residual
-		enc.SetComputePipelineState(eng.psoOutProj)
+		// Attention Out Proj & Residual: xBuf += WO * attnOutBuf
+		enc.SetComputePipelineState(eng.psoGEMVRes)
 		enc.SetBufferWithOffsetAtIndex(eng.attnOutBuf.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(layer.WO.Buffer(), 0, 1)
 		enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
-		enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 3)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, dimVal, 4)
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
 
-		// Fused SwiGLU FFN + Residual Megakernel
-		enc.SetComputePipelineState(eng.psoSwiGLU)
+		// Post-Attention RMSNorm: xBuf -> normXBuf
+		enc.SetComputePipelineState(eng.psoNorm)
 		enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
 		enc.SetBufferWithOffsetAtIndex(layer.PostNorm.Buffer(), 0, 1)
-		enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 2)
-		enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 3)
-		enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 4)
-		enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 5)
-		enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 6)
-		enc.SetBufferWithOffsetAtIndex(hiddenDimBuf, 0, 7)
-		enc.SetBufferWithOffsetAtIndex(epsBuf, 0, 8)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, epsVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// SwiGLU Gate Proj: normXBuf * WGate -> gateBuf
+		enc.SetComputePipelineState(eng.psoGEMV)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WGate.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, hiddenDimVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// SwiGLU Up Proj: normXBuf * WUp -> upBuf
+		enc.SetComputePipelineState(eng.psoGEMV)
+		enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WUp.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 2)
+		setScalar(enc, dimVal, 3)
+		setScalar(enc, hiddenDimVal, 4)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// Fast SiLU Activation Mul: silu(gateBuf) * upBuf -> ffnActBuf
+		enc.SetComputePipelineState(eng.psoSiLUMul)
+		enc.SetBufferWithOffsetAtIndex(eng.gateBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(eng.upBuf.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 2)
+		setScalar(enc, hiddenDimVal, 3)
+		enc.DispatchThreadsThreadsPerThreadgroup(
+			apple.MTLSize{Width: uint(cfg.HiddenDim), Height: 1, Depth: 1},
+			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+		)
+
+		// SwiGLU Down Proj & Residual: xBuf += WDown * ffnActBuf
+		enc.SetComputePipelineState(eng.psoGEMVRes)
+		enc.SetBufferWithOffsetAtIndex(eng.ffnActBuf.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(layer.WDown.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 2)
+		setScalar(enc, hiddenDimVal, 3)
+		setScalar(enc, dimVal, 4)
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(cfg.Dim), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
 	}
 
-	// 3. Final RMSNorm + LM Head Logits Projection on GPU
-	enc.SetComputePipelineState(eng.psoFinal)
+	// 3. Final RMSNorm: xBuf -> normXBuf
+	enc.SetComputePipelineState(eng.psoNorm)
 	enc.SetBufferWithOffsetAtIndex(eng.xBuf.Buffer(), 0, 0)
 	enc.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
-	enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 2)
-	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 3)
-	enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 4)
-	enc.SetBufferWithOffsetAtIndex(vocabBuf, 0, 5)
-	enc.SetBufferWithOffsetAtIndex(epsBuf, 0, 6)
+	enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 2)
+	setScalar(enc, dimVal, 3)
+	setScalar(enc, epsVal, 4)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
+	)
+
+	// 4. LM Head Logits Projection: normXBuf * LMHead -> logitsBuf
+	enc.SetComputePipelineState(eng.psoGEMV)
+	enc.SetBufferWithOffsetAtIndex(eng.normXBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 2)
+	setScalar(enc, dimVal, 3)
+	setScalar(enc, vocabVal, 4)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(
 		apple.MTLSize{Width: uint(cfg.VocabSize), Height: 1, Depth: 1},
 		apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 	)
 
-	// 4. GPU Hardware Argmax Sampling
+	// 5. GPU Hardware Argmax Sampling
 	enc.SetComputePipelineState(eng.psoSample)
 	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
 	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
-	enc.SetBufferWithOffsetAtIndex(vocabBuf, 0, 2)
+	setScalar(enc, vocabVal, 2)
 	enc.DispatchThreadsThreadsPerThreadgroup(
 		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
 		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
@@ -436,7 +513,10 @@ func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 
 
 // runFastMetalInference executes all autoregressive decode iterations.
 func runFastMetalInference(eng *ModelEngine, cfg Config) {
-	promptText := "The key to scalable AI architectures is"
+	promptText := cfg.Prompt
+	if promptText == "" {
+		promptText = "The key to scalable AI architectures is"
+	}
 	promptTokens, err := eng.tokenizer.Encode(promptText)
 	if err != nil || len(promptTokens) == 0 {
 		promptTokens = []int32{578, 1401, 311, 69311, 15592, 78335, 374}
