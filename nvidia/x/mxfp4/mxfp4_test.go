@@ -106,3 +106,51 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 
 	t.Logf("Computed MXFP4 GEMV output sample: %v", outHost[:4])
 }
+
+func BenchmarkMXFP4GEMV_Qwen38_Layer(b *testing.B) {
+	if err := driver.Init(0); err != nil {
+		b.Skipf("skipping: CUDA driver not available: %v", err)
+	}
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		b.Skipf("skipping: CUDA device: %v", err)
+	}
+	defer dev.Close()
+
+	engine, err := NewEngine(dev)
+	if err != nil {
+		b.Fatalf("NewEngine: %v", err)
+	}
+	defer engine.Close()
+
+	// Qwen3.8 FFN Intermediate Dimension
+	inDim := 5120
+	outDim := 17408
+	groupSize := 32
+
+	xDev, _ := cudamem.Alloc[float32](dev, inDim)
+	defer xDev.Free()
+
+	packedDev, _ := cudamem.Alloc[uint8](dev, outDim*(inDim/2))
+	defer packedDev.Free()
+
+	scalesDev, _ := cudamem.Alloc[float32](dev, outDim*(inDim/groupSize))
+	defer scalesDev.Free()
+
+	outDev, _ := cudamem.Alloc[float32](dev, outDim)
+	defer outDev.Free()
+
+	stream, _ := dev.NewStream()
+	defer stream.Close()
+
+	b.SetBytes(int64(outDim * (inDim / 2))) // 4-bit weight bytes transferred per step
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
+			b.Fatalf("LinearGEMV: %v", err)
+		}
+	}
+	_ = dev.Synchronize()
+}
+
