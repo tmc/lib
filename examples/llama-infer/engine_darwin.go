@@ -183,7 +183,6 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			}
 		}
 	} else {
-		// Initialize synthetic weights for test runs
 		layerData = make([]LayerWeightData, cfg.NumLayers)
 	}
 
@@ -431,14 +430,17 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	}
 
 	// 1. Prefill prompt tokens through full forward pass
+	tPrefill0 := time.Now()
 	for pos, tokID := range promptTokens {
 		computeFullForward(eng, cfg, kvK, kvV, tokID, pos)
 	}
+	prefillDur := time.Since(tPrefill0)
 
 	queue := eng.dev.Queue()
 	currentTok := promptTokens[len(promptTokens)-1]
 	generatedTokens := make([]int32, 0, 10)
 
+	tDecode0 := time.Now()
 	for step := 0; step < 10; step++ {
 		pos := len(promptTokens) + step
 		logits := computeFullForward(eng, cfg, kvK, kvV, currentTok, pos-1)
@@ -468,34 +470,74 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 		generatedTokens = append(generatedTokens, nextTok)
 		currentTok = nextTok
 	}
+	decodeDur := time.Since(tDecode0)
 
 	fullGenText, _ := eng.tokenizer.Decode(generatedTokens)
 	fmt.Printf("\nGenerated completion: %q\n", fullGenText)
+	fmt.Printf("\n--- Metal Real Latency Metrics ---\n")
+	fmt.Printf("Prefill Time : %v (%d prompt tokens, %.2f tok/s)\n",
+		prefillDur, len(promptTokens), float64(len(promptTokens))/prefillDur.Seconds())
+	fmt.Printf("Decode Time  : %v (%d generated tokens, %.2f tok/s)\n",
+		decodeDur, len(generatedTokens), float64(len(generatedTokens))/decodeDur.Seconds())
 	fmt.Printf("Inference completed on Apple Silicon Metal GPU!\n")
 }
 
-// PrefillStep executes prompt prefill across promptLen tokens.
-func PrefillStep(cfg Config, promptLen int) (time.Duration, error) {
+// PrefillStep executes actual prompt prefill through full forward pass across promptTokens.
+func PrefillStep(cfg Config, promptTokens []int32) (time.Duration, error) {
 	eng, err := GetOrCompileDarwinEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
+	kvK := make([][][]float32, cfg.NumLayers)
+	kvV := make([][][]float32, cfg.NumLayers)
+	for l := 0; l < cfg.NumLayers; l++ {
+		kvK[l] = make([][]float32, cfg.MaxSeqLen)
+		kvV[l] = make([][]float32, cfg.MaxSeqLen)
+		for t := 0; t < cfg.MaxSeqLen; t++ {
+			kvK[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+			kvV[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+		}
+	}
 	start := time.Now()
-	for i := 0; i < promptLen; i++ {
-		eng.kvCache.Advance(1)
+	for pos, tokID := range promptTokens {
+		computeFullForward(eng, cfg, kvK, kvV, tokID, pos)
 	}
 	return time.Since(start), nil
 }
 
-// DecodeStep executes autoregressive decoding across decodeSteps tokens.
-func DecodeStep(cfg Config, decodeSteps int) (time.Duration, error) {
+// DecodeStep executes actual autoregressive decode step through full forward pass.
+func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	eng, err := GetOrCompileDarwinEngine(cfg)
 	if err != nil {
 		return 0, err
 	}
-	start := time.Now()
-	for step := 0; step < decodeSteps; step++ {
-		eng.kvCache.Advance(1)
+	kvK := make([][][]float32, cfg.NumLayers)
+	kvV := make([][][]float32, cfg.NumLayers)
+	for l := 0; l < cfg.NumLayers; l++ {
+		kvK[l] = make([][]float32, cfg.MaxSeqLen)
+		kvV[l] = make([][]float32, cfg.MaxSeqLen)
+		for t := 0; t < cfg.MaxSeqLen; t++ {
+			kvK[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+			kvV[l][t] = make([]float32, cfg.NumKVHeads*cfg.HeadDim)
+		}
 	}
+	start := time.Now()
+	logits := computeFullForward(eng, cfg, kvK, kvV, tokenID, pos)
+	copy(eng.logitsBuf.HostSlice(), logits)
+
+	cb := eng.dev.Queue().CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(eng.psoSample)
+	enc.SetBufferWithOffsetAtIndex(eng.logitsBuf.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.tokBuf.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.vBuf, 0, 2)
+	enc.DispatchThreadsThreadsPerThreadgroup(
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+		apple.MTLSize{Width: 1, Height: 1, Depth: 1},
+	)
+	enc.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+
 	return time.Since(start), nil
 }
