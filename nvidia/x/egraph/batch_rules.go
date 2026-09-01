@@ -19,5 +19,10 @@ func BatchGEMMRules() []*Rewrite {
 		MustRewrite("fuse_batched_qkv",
 			"(add (gemv ?x ?w_q) (add (gemv ?x ?w_k) (gemv ?x ?w_v)))",
 			"(fused_batched_qkv ?x ?w_q ?w_k ?w_v)"),
+
+		// 4. Scaled FP8 Quantized GEMV Fusion
+		MustRewrite("quantized_fp8_gemv",
+			"(gemv ?x (dequantize_fp8 ?w ?scale))",
+			"(scaled_fp8_gemv ?x ?w ?scale)"),
 	}
 }
