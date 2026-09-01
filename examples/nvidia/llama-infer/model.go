@@ -12,15 +12,18 @@ import (
 
 // ModelConfig holds the architecture parameters for a LLaMA model.
 type ModelConfig struct {
+	ModelType         string  `json:"model_type"`
 	HiddenSize        int     `json:"hidden_size"`
 	IntermediateSize  int     `json:"intermediate_size"`
 	NumHiddenLayers   int     `json:"num_hidden_layers"`
 	NumAttentionHeads int     `json:"num_attention_heads"`
 	NumKeyValueHeads  int     `json:"num_key_value_heads"`
+	ExplicitHeadDim   int     `json:"head_dim"`
 	VocabSize         int     `json:"vocab_size"`
 	RmsNormEps        float32 `json:"rms_norm_eps"`
 	RopeTheta         float32 `json:"rope_theta"`
 	MaxSeqLen         int     `json:"max_position_embeddings"`
+	TieWordEmbeddings bool    `json:"tie_word_embeddings"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -40,6 +43,9 @@ func DefaultModelConfig() ModelConfig {
 
 // HeadDim returns the dimension per attention head.
 func (cfg *ModelConfig) HeadDim() int {
+	if cfg.ExplicitHeadDim > 0 {
+		return cfg.ExplicitHeadDim
+	}
 	if cfg.NumAttentionHeads == 0 {
 		return 16
 	}
