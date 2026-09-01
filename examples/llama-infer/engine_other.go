@@ -61,6 +61,9 @@ func (eng *ModelEngine) ReadLogits() []float32 {
 	if eng == nil || eng.scratch == nil || eng.scratch.Logits.Len() == 0 {
 		return nil
 	}
+	if eng.stream != nil {
+		_ = eng.stream.Synchronize(context.Background())
+	}
 	res := make([]float32, eng.scratch.Logits.Len())
 	_ = eng.scratch.Logits.CopyToHost(res)
 	return res
