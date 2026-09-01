@@ -2,6 +2,8 @@
 #include <metal_simdgroup_matrix>
 using namespace metal;
 
+#ifndef METAL_SIMD_SUM_DEFINED
+#define METAL_SIMD_SUM_DEFINED
 inline float simd_sum(float val) {
     #pragma unroll
     for (ushort offset = 16; offset > 0; offset /= 2) {
@@ -9,6 +11,7 @@ inline float simd_sum(float val) {
     }
     return val;
 }
+#endif
 
 // 1. Embedding lookup
 kernel void EmbeddingLookup(
