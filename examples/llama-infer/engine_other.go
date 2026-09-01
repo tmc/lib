@@ -57,17 +57,18 @@ type CudaEngine struct {
 }
 
 var (
-	cudaEngineCache *CudaEngine
+	cudaEngineCache = make(map[string]*CudaEngine)
 	cudaEngineMu    sync.Mutex
 )
 
-// GetOrCompileCudaEngine builds or reuses the compiled CUDA engine.
+// GetOrCompileCudaEngine builds or reuses the compiled CUDA engine per model config.
 func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
-	if cudaEngineCache != nil {
-		return cudaEngineCache, nil
+	key := fmt.Sprintf("%s-%d-%d-%d", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize)
+	if eng, ok := cudaEngineCache[key]; ok {
+		return eng, nil
 	}
 
 	g := cudair.NewGraph()
@@ -118,14 +119,15 @@ func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 		return nil, fmt.Errorf("alloc scratchpad arena: %w", err)
 	}
 
-	cudaEngineCache = &CudaEngine{
+	eng := &CudaEngine{
 		dev:        dev,
 		kvCache:    kvCache,
 		scratchpad: scratchpad,
 		fusedSrc:   fusedSrc,
 	}
 
-	return cudaEngineCache, nil
+	cudaEngineCache[key] = eng
+	return eng, nil
 }
 
 func runPlatform(cfg Config) error {
