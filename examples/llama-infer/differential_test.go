@@ -461,24 +461,11 @@ func TestAuthoritativePlanDispatch(t *testing.T) {
 	}
 
 	eng.ResetKV()
-	_ = GPUForwardPass(eng, cfg, 42, 0)
-	logitsMutated, err := eng.ReadLogits()
-	if err != nil {
-		t.Fatalf("ReadLogits mutated failed: %v", err)
+	_, err = GPUForwardPassKV(eng, cfg, nil, 42, 0)
+	if err == nil {
+		t.Fatalf("mutated plan failed authority gate: expected GPUForwardPassKV to fail closed on invalid topology, got nil")
 	}
-
-	// Verify that the mutated plan changes logits deterministically (fail-closed / authority check)
-	maxDiff := float32(0.0)
-	for i := range logitsMutated {
-		diff := float32(math.Abs(float64(logitsMutated[i] - logitsPlan[i])))
-		if diff > maxDiff {
-			maxDiff = diff
-		}
-	}
-	if maxDiff < 1e-2 {
-		t.Fatalf("mutated plan failed authority gate: expected output divergence, got maxDiff %f", maxDiff)
-	}
-	t.Logf("Authoritative Plan Mutation Gate: Max Logit Divergence = %f", maxDiff)
+	t.Logf("Authoritative Plan Fail-Closed Mutation Gate: %v", err)
 }
 
 func TestMultiSequenceBatchedDecodeEquivalence(t *testing.T) {
@@ -910,18 +897,44 @@ func TestExecutionPlanFailClosedValidation(t *testing.T) {
 		t.Fatalf("expected error validating plan missing leading EmbeddingLookup, got nil")
 	}
 
-	// 8. Topology violation: out-of-order layer sequencing fails validation
+	// 8. Topology violation: missing layer op fails validation
+	missingOpPlan := BuildExecutionPlan(cfg)
+	// Remove an operation from layer 0 (e.g., CausalFlashAttentionDecode)
+	missingOpPlan.Ops = append(missingOpPlan.Ops[:5], missingOpPlan.Ops[6:]...)
+	if err := ValidatePlan(missingOpPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with missing layer operation, got nil")
+	}
+
+	// 9. Topology violation: duplicate layer op fails validation
+	dupOpPlan := BuildExecutionPlan(cfg)
+	// Duplicate an operation in layer 0
+	dupOpPlan.Ops = append(dupOpPlan.Ops[:5], append([]OpDispatch{dupOpPlan.Ops[4]}, dupOpPlan.Ops[5:]...)...)
+	if err := ValidatePlan(dupOpPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with duplicate layer operation, got nil")
+	}
+
+	// 10. Topology violation: same-layer op reordering fails validation
+	reorderOpPlan := BuildExecutionPlan(cfg)
+	// Swap FastGEMV_Q and FastGEMV_K
+	if len(reorderOpPlan.Ops) > 4 && reorderOpPlan.Ops[2].Name == "FastGEMV_Q" && reorderOpPlan.Ops[3].Name == "FastGEMV_K" {
+		reorderOpPlan.Ops[2], reorderOpPlan.Ops[3] = reorderOpPlan.Ops[3], reorderOpPlan.Ops[2]
+		if err := ValidatePlan(reorderOpPlan, cfg); err == nil {
+			t.Fatalf("expected error validating plan with same-layer op reordering, got nil")
+		}
+	}
+
+	// 11. Topology violation: out-of-order layer sequencing fails validation
 	badSeqPlan := BuildExecutionPlan(cfg)
-	if len(badSeqPlan.Ops) > 10 {
+	if len(badSeqPlan.Ops) > 15 {
 		// Swap layer 0 op with layer 1 op
 		badSeqPlan.Ops[2].LayerIndex = 1
-		badSeqPlan.Ops[8].LayerIndex = 0
+		badSeqPlan.Ops[12].LayerIndex = 0
 		if err := ValidatePlan(badSeqPlan, cfg); err == nil {
 			t.Fatalf("expected error validating plan with out-of-order layer sequencing, got nil")
 		}
 	}
 
-	// 9. ExecutePlanWithLogits fails closed on invalid plan
+	// 12. ExecutePlanWithLogits fails closed on invalid plan
 	origPlan := eng.Plan
 	defer func() { eng.Plan = origPlan }()
 	eng.Plan = badOpPlan

@@ -558,23 +558,89 @@ func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
 		}
 	}
 
-	// 3. Topology grammar validation
+	// 3. Exact topology grammar and per-layer sequence validation
+	if len(plan.Ops) < 4 {
+		return errors.New("plan topology error: insufficient operations")
+	}
 	if plan.Ops[0].Name != "EmbeddingLookup" {
 		return fmt.Errorf("plan topology error: first op must be EmbeddingLookup, got %q", plan.Ops[0].Name)
 	}
-	lastIdx := len(plan.Ops) - 1
-	if lastIdx < 3 || plan.Ops[lastIdx].Name != "ArgmaxSampling" || plan.Ops[lastIdx-1].Name != "FastGEMV_LMHead" || plan.Ops[lastIdx-2].Name != "ComputeRMSNorm_Final" {
-		return fmt.Errorf("plan topology error: trailing ops must be ComputeRMSNorm_Final -> FastGEMV_LMHead -> ArgmaxSampling")
+
+	idx := 1
+	for l := 0; l < plan.NumLayers; l++ {
+		if idx >= len(plan.Ops) {
+			return fmt.Errorf("plan topology error: missing operations for layer %d", l)
+		}
+
+		// Parse Attention Norm + QKV
+		if plan.Ops[idx].Name == "FusedRMSNormQKV" {
+			if plan.Ops[idx].LayerIndex != l {
+				return fmt.Errorf("plan topology error: layer %d expected FusedRMSNormQKV with layer %d, got %d", l, l, plan.Ops[idx].LayerIndex)
+			}
+			idx++
+		} else if idx+3 < len(plan.Ops) &&
+			plan.Ops[idx].Name == "ComputeRMSNorm" &&
+			plan.Ops[idx+1].Name == "FastGEMV_Q" &&
+			plan.Ops[idx+2].Name == "FastGEMV_K" &&
+			plan.Ops[idx+3].Name == "FastGEMV_V" {
+			for k := 0; k < 4; k++ {
+				if plan.Ops[idx+k].LayerIndex != l {
+					return fmt.Errorf("plan topology error: layer %d expected %s with layer %d, got %d", l, plan.Ops[idx+k].Name, l, plan.Ops[idx+k].LayerIndex)
+				}
+			}
+			idx += 4
+		} else {
+			return fmt.Errorf("plan topology error: layer %d invalid attention QKV block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+		}
+
+		// Parse Attention Core (ApplyRoPEStoreKV -> CausalFlashAttentionDecode -> FastGEMVResidual_O -> ComputeRMSNorm_Post)
+		if idx+3 >= len(plan.Ops) ||
+			plan.Ops[idx].Name != "ApplyRoPEStoreKV" ||
+			plan.Ops[idx+1].Name != "CausalFlashAttentionDecode" ||
+			plan.Ops[idx+2].Name != "FastGEMVResidual_O" ||
+			plan.Ops[idx+3].Name != "ComputeRMSNorm_Post" {
+			return fmt.Errorf("plan topology error: layer %d invalid attention core block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+		}
+		for k := 0; k < 4; k++ {
+			if plan.Ops[idx+k].LayerIndex != l {
+				return fmt.Errorf("plan topology error: layer %d expected %s with layer %d, got %d", l, plan.Ops[idx+k].Name, l, plan.Ops[idx+k].LayerIndex)
+			}
+		}
+		idx += 4
+
+		// Parse FFN block
+		if idx+2 < len(plan.Ops) &&
+			plan.Ops[idx].Name == "FastGEMV_Gate" &&
+			plan.Ops[idx+1].Name == "FastGEMV_Up" &&
+			plan.Ops[idx+2].Name == "FusedSwiGLUDown" {
+			for k := 0; k < 3; k++ {
+				if plan.Ops[idx+k].LayerIndex != l {
+					return fmt.Errorf("plan topology error: layer %d expected %s with layer %d, got %d", l, plan.Ops[idx+k].Name, l, plan.Ops[idx+k].LayerIndex)
+				}
+			}
+			idx += 3
+		} else if idx+3 < len(plan.Ops) &&
+			plan.Ops[idx].Name == "FastGEMV_Gate" &&
+			plan.Ops[idx+1].Name == "FastGEMV_Up" &&
+			plan.Ops[idx+2].Name == "FastSiLUMul" &&
+			plan.Ops[idx+3].Name == "FastGEMVResidual_Down" {
+			for k := 0; k < 4; k++ {
+				if plan.Ops[idx+k].LayerIndex != l {
+					return fmt.Errorf("plan topology error: layer %d expected %s with layer %d, got %d", l, plan.Ops[idx+k].Name, l, plan.Ops[idx+k].LayerIndex)
+				}
+			}
+			idx += 4
+		} else {
+			return fmt.Errorf("plan topology error: layer %d invalid FFN block at op %d (%s)", l, idx, plan.Ops[idx].Name)
+		}
 	}
 
-	// Verify layer sequencing
-	currentLayer := 0
-	for idx := 1; idx < lastIdx-2; idx++ {
-		op := plan.Ops[idx]
-		if op.LayerIndex < currentLayer {
-			return fmt.Errorf("plan topology error: out-of-order layer index %d after layer %d at op %d (%s)", op.LayerIndex, currentLayer, idx, op.Name)
-		}
-		currentLayer = op.LayerIndex
+	// Trailing epilogue: ComputeRMSNorm_Final -> FastGEMV_LMHead -> ArgmaxSampling
+	if idx+3 != len(plan.Ops) ||
+		plan.Ops[idx].Name != "ComputeRMSNorm_Final" ||
+		plan.Ops[idx+1].Name != "FastGEMV_LMHead" ||
+		plan.Ops[idx+2].Name != "ArgmaxSampling" {
+		return fmt.Errorf("plan topology error: expected epilogue ComputeRMSNorm_Final -> FastGEMV_LMHead -> ArgmaxSampling, got remaining %d ops", len(plan.Ops)-idx)
 	}
 
 	return nil
