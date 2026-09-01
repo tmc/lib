@@ -15,11 +15,31 @@ const (
 	DefaultChunkSize = 2 * 1024 * 1024
 
 	// Message type identifiers
-	msgTypeManifestReq  byte = 0x01
-	msgTypeManifestResp byte = 0x02
-	msgTypeChunkReq     byte = 0x03
-	msgTypeChunkResp    byte = 0x04
+	msgTypeManifestReq    byte = 0x01
+	msgTypeManifestResp   byte = 0x02
+	msgTypeChunkReq       byte = 0x03
+	msgTypeChunkResp      byte = 0x04
+	msgTypeListModelsReq  byte = 0x05
+	msgTypeListModelsResp byte = 0x06
 )
+
+// ModelSummary provides a high-level summary of a model snapshot in the cache.
+type ModelSummary struct {
+	ModelID    string `json:"model_id"`
+	Revision   string `json:"revision"`
+	TotalBytes int64  `json:"total_bytes"`
+	FileCount  int    `json:"file_count"`
+}
+
+// ListModelsRequest queries available models on a node.
+type ListModelsRequest struct {
+	Filter string `json:"filter,omitempty"`
+}
+
+// ListModelsResponse returns the list of available model summaries.
+type ListModelsResponse struct {
+	Models []ModelSummary `json:"models"`
+}
 
 // FileInfo describes a single file within a model snapshot.
 type FileInfo struct {
