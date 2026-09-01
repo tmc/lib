@@ -30,6 +30,8 @@ type Config struct {
 	Prompt     string
 	// HTTPAddr sets the optional address for the live telemetry HTTP server.
 	HTTPAddr   string
+	// ServeMode keeps the server running indefinitely to accept OpenAI requests.
+	ServeMode  bool
 	// BOSTokenID is prepended to the prompt when nonzero. LLaMA 3 conditions
 	// on a beginning-of-text token, and its absence skews the first generated
 	// token.
@@ -122,6 +124,7 @@ func main() {
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
 	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
+	serve := flag.Bool("serve", false, "run in continuous OpenAI-compatible serving mode")
 	flag.Parse()
 
 	var cfg Config
@@ -142,6 +145,11 @@ func main() {
 	cfg.FuseEGraph = *fuseEGraph
 	cfg.Prompt = *prompt
 	cfg.HTTPAddr = *httpAddr
+	cfg.ServeMode = *serve
+
+	if *serve && cfg.HTTPAddr == "" {
+		cfg.HTTPAddr = ":8080"
+	}
 
 	fmt.Printf("=== Cross-Platform LLaMA Tensor Inference (%s on %s/%s) ===\n", cfg.Name, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("Architecture: Dim=%d, HiddenDim=%d, Layers=%d, Heads=%d, KVHeads=%d, Vocab=%d\n",
@@ -150,9 +158,17 @@ func main() {
 		fmt.Printf("Safetensors Path: %s\n", cfg.ModelPath)
 	}
 	fmt.Printf("E-Graph Optimization: %v\n", cfg.FuseEGraph)
-	fmt.Printf("Prompt: %q\n\n", *prompt)
+	if *serve {
+		fmt.Printf("Serving Mode: Active (HTTP: %s, OpenAI API: http://localhost%s/v1/chat/completions)\n\n", cfg.HTTPAddr, cfg.HTTPAddr)
+	} else {
+		fmt.Printf("Prompt: %q\n\n", *prompt)
+	}
 
 	if err := runPlatform(cfg); err != nil {
 		log.Fatalf("llama-infer: %v", err)
+	}
+
+	if *serve {
+		select {} // Keep server running indefinitely
 	}
 }

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -214,4 +215,25 @@ func runCPUSimulation(cfg Config) {
 		_ = cudaref.BlockReduceSum(mockLogits)
 	}
 	_ = promptTokens
+}
+
+// Generate executes autoregressive decode simulation on Linux/CUDA.
+func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(tokenID int32, tokenText string) bool) error {
+	if maxTokens <= 0 {
+		maxTokens = 64
+	}
+	for step := 0; step < maxTokens; step++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if eng.kvCache != nil {
+			eng.kvCache.Advance(1)
+		}
+		if !onToken(int32(step), fmt.Sprintf(" tok_%d", step)) {
+			break
+		}
+	}
+	return nil
 }

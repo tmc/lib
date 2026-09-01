@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/http"
@@ -619,4 +620,61 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	start := time.Now()
 	GPUForwardPass(eng, cfg, tokenID, pos)
 	return time.Since(start), nil
+}
+
+// Generate executes autoregressive decode on GPU for prompt and streams generated tokens through onToken.
+func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(tokenID int32, tokenText string) bool) error {
+	if maxTokens <= 0 {
+		maxTokens = 64
+	}
+	if eng.tokenizer == nil {
+		eng.tokenizer = NewByteTokenizer()
+	}
+	if eng.dev == nil {
+		// Mock simulation fallback when initialized without GPU device
+		for step := 0; step < maxTokens; step++ {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			if !onToken(int32(step), fmt.Sprintf(" tok_%d", step)) {
+				break
+			}
+		}
+		return nil
+	}
+	promptTokens, err := eng.tokenizer.Encode(prompt)
+	if err != nil || len(promptTokens) == 0 {
+		promptTokens = []int32{1}
+	}
+	if cfg.BOSTokenID != 0 {
+		promptTokens = append([]int32{cfg.BOSTokenID}, promptTokens...)
+	}
+
+	var currentTok int32
+	for pos, tokID := range promptTokens {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		currentTok = GPUForwardPass(eng, cfg, tokID, pos)
+	}
+
+	for step := 0; step < maxTokens; step++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		pos := len(promptTokens) + step
+		nextTok := GPUForwardPass(eng, cfg, currentTok, pos)
+		tokStr, _ := eng.tokenizer.Decode([]int32{nextTok})
+		if !onToken(nextTok, tokStr) {
+			break
+		}
+		currentTok = nextTok
+	}
+	return nil
 }

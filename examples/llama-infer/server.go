@@ -49,6 +49,11 @@ func (s *TelemetryServer) routes() {
 	s.mux.HandleFunc("/", s.handleDashboard)
 	s.mux.HandleFunc("/api/telemetry", s.handleAPITelemetry)
 
+	// OpenAI Compatible API Endpoints
+	s.mux.HandleFunc("/v1/models", s.handleV1Models)
+	s.mux.HandleFunc("/v1/chat/completions", s.handleV1ChatCompletions)
+	s.mux.HandleFunc("/v1/completions", s.handleV1ChatCompletions)
+
 	// Standard Go runtime pprof endpoints
 	s.mux.HandleFunc("/debug/pprof/", pprof.Index)
 	s.mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
@@ -199,6 +204,55 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
                 document.getElementById('plan').innerText = data.active_plan;
             } catch (e) {}
         }, 1000);
+
+        async function sendPrompt() {
+            const input = document.getElementById('prompt-input');
+            const out = document.getElementById('output-box');
+            const btn = document.getElementById('gen-btn');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            btn.disabled = true;
+            btn.innerText = 'Generating...';
+            out.innerText = '';
+
+            try {
+                const res = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt, max_tokens: 64, stream: true })
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+                        const payload = trimmed.slice(6);
+                        if (payload === '[DONE]') break;
+                        try {
+                            const chunk = JSON.parse(payload);
+                            const content = chunk.choices[0]?.delta?.content || '';
+                            out.innerText += content;
+                        } catch (err) {}
+                    }
+                }
+            } catch (e) {
+                out.innerText = 'Error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Generate (SSE Stream)';
+            }
+        }
     </script>
 </head>
 <body>
@@ -206,7 +260,7 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
         <header>
             <div>
                 <h1>tmc/lib Adaptive E-Graph Telemetry</h1>
-                <div style="font-size: 13px; color: #8b949e; margin-top: 4px;">Live Closed-Loop Hardware Profiler &amp; JIT Monitor</div>
+                <div style="font-size: 13px; color: #8b949e; margin-top: 4px;">Live Closed-Loop Hardware Profiler &amp; OpenAI Compatible Serving Engine</div>
             </div>
             <div>
                 <a href="/debug/pprof/" class="btn" style="margin-right: 8px;">📊 Runtime pprof</a>
@@ -240,6 +294,15 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
                 <div class="card-value" id="toks" style="color: var(--accent-green);">%.1f tok/s</div>
                 <div class="card-sub">Layer Model Decode</div>
             </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">💬 Live Streaming Inference Playground (/v1/chat/completions)</div>
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <input type="text" id="prompt-input" placeholder="Type a prompt..." value="The key to scalable AI architectures is" style="flex: 1; background: #0d1117; border: 1px solid var(--border); color: var(--text-bright); padding: 10px 14px; border-radius: 6px; font-size: 14px;">
+                <button id="gen-btn" onclick="sendPrompt()" class="btn" style="background: #238636; color: white; font-weight: 600; cursor: pointer; border: none;">Generate (SSE Stream)</button>
+            </div>
+            <div id="output-box" style="background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px; min-height: 48px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; color: var(--text-bright);">Ready for inference. Click Generate to stream tokens live.</div>
         </div>
 
         <div class="section">
