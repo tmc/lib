@@ -173,3 +173,93 @@ func ExtractBest(g *EGraph, rootId Id, costModel CostModel) (*Expr, float64, err
 	ext := NewExtractor(g, costModel)
 	return ext.Extract(rootId)
 }
+
+// CandidateAST represents an extracted AST candidate along with its calculated heuristic cost.
+type CandidateAST struct {
+	Expr *Expr
+	Cost float64
+}
+
+// ExtractTopK extracts up to k structurally unique candidate ASTs from the root e-class,
+// ordered by cost.
+func (ext *Extractor) ExtractTopK(rootId Id, k int) ([]CandidateAST, error) {
+	if k <= 0 {
+		k = 1
+	}
+	canonicalRoot := ext.g.Find(rootId)
+	eclass, ok := ext.g.classes[canonicalRoot]
+	if !ok || len(eclass.Nodes) == 0 {
+		return nil, fmt.Errorf("egraph: cannot extract e-class %d (not found)", rootId)
+	}
+
+	type nodeCandidate struct {
+		expr *Expr
+		cost float64
+	}
+	var candidates []nodeCandidate
+	seen := make(map[string]bool)
+
+	for _, node := range eclass.Nodes {
+		childCosts := make([]float64, len(node.Children))
+		childExprs := make([]*Expr, len(node.Children))
+		valid := true
+		for i, c := range node.Children {
+			childID := ext.g.Find(c)
+			cost, ok := ext.costs[childID]
+			if !ok {
+				valid = false
+				break
+			}
+			childCosts[i] = cost
+			childExprs[i] = ext.buildExpr(childID)
+		}
+		if !valid {
+			continue
+		}
+		expr := &Expr{
+			Op:       node.Op,
+			Data:     node.Data,
+			Children: childExprs,
+		}
+		exprStr := expr.String()
+		if seen[exprStr] {
+			continue
+		}
+		seen[exprStr] = true
+
+		cost := ext.costModel.NodeCost(node, childCosts)
+		candidates = append(candidates, nodeCandidate{expr: expr, cost: cost})
+	}
+
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("egraph: no valid candidate expressions found for e-class %d", rootId)
+	}
+
+	// Sort candidates by cost ascending
+	for i := 0; i < len(candidates); i++ {
+		for j := i + 1; j < len(candidates); j++ {
+			if candidates[j].cost < candidates[i].cost {
+				candidates[i], candidates[j] = candidates[j], candidates[i]
+			}
+		}
+	}
+
+	if len(candidates) > k {
+		candidates = candidates[:k]
+	}
+
+	result := make([]CandidateAST, len(candidates))
+	for i, c := range candidates {
+		result[i] = CandidateAST{
+			Expr: c.expr,
+			Cost: c.cost,
+		}
+	}
+	return result, nil
+}
+
+// ExtractTopK is a package helper to extract the top-K candidate ASTs.
+func ExtractTopK(g *EGraph, rootId Id, k int, costModel CostModel) ([]CandidateAST, error) {
+	ext := NewExtractor(g, costModel)
+	return ext.ExtractTopK(rootId, k)
+}

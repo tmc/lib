@@ -148,3 +148,45 @@ func TestAutotuner(t *testing.T) {
 		t.Errorf("unexpected candidate: %+v", cand)
 	}
 }
+
+func TestExtractTopK(t *testing.T) {
+	eg := egraph.New()
+	x := eg.Add(egraph.NewLeaf("x"))
+	wG := eg.Add(egraph.NewLeaf("w_g"))
+	wU := eg.Add(egraph.NewLeaf("w_u"))
+	wD := eg.Add(egraph.NewLeaf("w_d"))
+
+	gX := eg.Add(egraph.NewNode("gemv", x, wG))
+	siluG := eg.Add(egraph.NewNode("silu", gX))
+	uX := eg.Add(egraph.NewNode("gemv", x, wU))
+	h := eg.Add(egraph.NewNode("mul", siluG, uX))
+	ffnOut := eg.Add(egraph.NewNode("gemv", h, wD))
+
+	rules := []*egraph.Rewrite{
+		egraph.MustRewrite("fuse_swiglu_block",
+			"(gemv (mul (silu (gemv ?x ?w_g)) (gemv ?x ?w_u)) ?w_d)",
+			"(fused_swiglu_gemv ?x ?w_g ?w_u ?w_d)"),
+	}
+
+	egraph.Saturate(eg, rules, 10)
+
+	cands, err := egraph.ExtractTopK(eg, ffnOut, 2, egraph.FusedMegakernelCost{})
+	if err != nil {
+		t.Fatalf("ExtractTopK failed: %v", err)
+	}
+
+	if len(cands) != 2 {
+		t.Fatalf("expected 2 candidates, got %d", len(cands))
+	}
+
+	if cands[0].Expr.Op != "fused_swiglu_gemv" {
+		t.Errorf("expected candidate 0 to be fused_swiglu_gemv, got %s", cands[0].Expr.Op)
+	}
+	if cands[1].Expr.Op != "gemv" {
+		t.Errorf("expected candidate 1 to be gemv, got %s", cands[1].Expr.Op)
+	}
+	if cands[0].Cost >= cands[1].Cost {
+		t.Errorf("expected candidate 0 cost (%f) < candidate 1 cost (%f)", cands[0].Cost, cands[1].Cost)
+	}
+}
+
