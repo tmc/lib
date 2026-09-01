@@ -103,12 +103,13 @@ func (c *JSONConstraint) Accept(tok string) {
 	}
 }
 
-// ApplyMask sets logits of disallowed token IDs to a large negative penalty (-1e20).
+// ApplyMask sets the logit of every token disallowed in the current state to
+// MaskedLogit.
 func (c *JSONConstraint) ApplyMask(logits []float32, vocab map[string]int32) {
 	for tokStr, id := range vocab {
 		if int(id) < len(logits) {
 			if !c.IsValidToken(tokStr) {
-				logits[id] = -1e20
+				logits[id] = MaskedLogit
 			}
 		}
 	}

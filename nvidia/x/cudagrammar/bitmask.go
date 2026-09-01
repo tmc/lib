@@ -2,8 +2,6 @@
 
 package cudagrammar
 
-import "math"
-
 // BitmaskTable stores pre-computed 64-bit boolean bitmasks for vocab token validity per FSM state.
 type BitmaskTable struct {
 	NumStates int
@@ -47,19 +45,26 @@ func (b *BitmaskTable) IsValid(state, tokenID int) bool {
 	return (b.Table[state][wordIdx] & (1 << bitIdx)) != 0
 }
 
-// ApplyMask sets logits of forbidden tokens to -infinity (-1e9) in <5µs.
+// MaskedLogit is the value assigned to a token the grammar forbids. It is a
+// large finite penalty rather than negative infinity, so that a state which
+// happens to forbid every token yields a uniform distribution instead of NaN.
+const MaskedLogit = float32(-1e9)
+
+// ApplyMask sets the logit of every token the grammar forbids in state to
+// MaskedLogit. Tokens at or beyond VocabSize are forbidden: the table has no
+// bit for them, so they were never permitted.
 func (b *BitmaskTable) ApplyMask(state int, logits []float32) {
 	if state < 0 || state >= b.NumStates || len(logits) == 0 {
 		return
 	}
 	mask := b.Table[state]
-	for i := 0; i < len(logits); i++ {
-		wordIdx := i / 64
-		bitIdx := uint(i % 64)
-		if wordIdx < len(mask) {
-			if (mask[wordIdx] & (1 << bitIdx)) == 0 {
-				logits[i] = -1e9
-			}
+	for i := range logits {
+		if i >= b.VocabSize {
+			logits[i] = MaskedLogit
+			continue
+		}
+		if mask[i/64]&(1<<uint(i%64)) == 0 {
+			logits[i] = MaskedLogit
 		}
 	}
 }
@@ -71,7 +76,12 @@ type JSONSchemaFSM struct {
 	CurrentState int
 }
 
-// NewJSONSchemaFSM creates an FSM constraining generation to specific schema keys and values.
+// NewJSONSchemaFSM creates an FSM sized for properties over a vocabulary of
+// vocabSize tokens.
+//
+// The returned FSM does not constrain anything yet: every token is marked valid
+// in every state, and Step advances the state on any token. Callers must clear
+// and populate BitmaskTable themselves; FilterLogits is a no-op until they do.
 func NewJSONSchemaFSM(properties []string, vocabSize int) *JSONSchemaFSM {
 	numStates := len(properties)*2 + 2
 	bt := NewBitmaskTable(numStates, vocabSize)
@@ -95,12 +105,10 @@ func (f *JSONSchemaFSM) FilterLogits(logits []float32) {
 	f.BitmaskTable.ApplyMask(f.CurrentState, logits)
 }
 
-// Step advances the FSM state based on the chosen token.
+// Step advances the FSM state. The transition ignores tokenID: the state is a
+// position counter, not a parse of the generated text.
 func (f *JSONSchemaFSM) Step(tokenID int) {
 	if f.CurrentState < f.BitmaskTable.NumStates-1 {
 		f.CurrentState++
 	}
 }
-
-// Float32NegInf is a constant representing negative infinity for masked logits.
-var Float32NegInf = float32(math.Inf(-1))

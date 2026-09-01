@@ -30,7 +30,7 @@ func TestBitmaskTable(t *testing.T) {
 	if logits[10] != 5.0 || logits[20] != 3.0 {
 		t.Errorf("valid tokens altered: logit[10]=%f, logit[20]=%f", logits[10], logits[20])
 	}
-	if logits[30] != -1e9 {
-		t.Errorf("invalid token 30 was not masked to -1e9: got %f", logits[30])
+	if logits[30] != MaskedLogit {
+		t.Errorf("invalid token 30 was not masked: got %g", logits[30])
 	}
 }

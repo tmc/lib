@@ -33,7 +33,7 @@ func TestJSONLogitMasking(t *testing.T) {
 	if logits[0] != 1.0 {
 		t.Errorf("expected '{' logit to remain 1.0, got %g", logits[0])
 	}
-	if logits[1] > -1e10 {
-		t.Errorf("expected 'hello' logit to be masked to -1e20, got %g", logits[1])
+	if logits[1] != cudagrammar.MaskedLogit {
+		t.Errorf("expected 'hello' logit to be masked, got %g", logits[1])
 	}
 }
