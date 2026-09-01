@@ -1,19 +1,42 @@
 package cudafuse
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
+
+// FusedKernel represents a synthesized CUDA C++ kernel with line-level source provenance.
+type FusedKernel struct {
+	Name    string
+	Source  string
+	LineMap map[int]cudair.SourceLocation // Maps generated C++ line number -> Go source location
+	Inputs  []string
+	Outputs []string
+}
+
 // Fuse generates a single fused CUDA C++ mega-kernel source for the given IR graph.
 func Fuse(g *cudair.Graph, kernelName string) (string, error) {
+	fk, err := FuseWithSourceMap(g, kernelName)
+	if err != nil {
+		return "", err
+	}
+	return fk.Source, nil
+}
+
+// FuseWithSourceMap generates a fused kernel and records exact source mappings from generated lines to Go callsites.
+func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) {
+	var fk FusedKernel
+	fk.Name = kernelName
+	fk.LineMap = make(map[int]cudair.SourceLocation)
+
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
-		return "", fmt.Errorf("cudafuse: empty graph")
+		return fk, fmt.Errorf("cudafuse: empty graph")
 	}
+
 
 	var inputs []*cudair.Node
 	var outputs []*cudair.Node
@@ -35,29 +58,45 @@ func Fuse(g *cudair.Graph, kernelName string) (string, error) {
 		}
 	}
 
-	var buf bytes.Buffer
-	buf.WriteString(`#include <cuda_runtime.h>` + "\n\n")
-	buf.WriteString(`extern "C" __global__ void ` + kernelName + "(\n")
+	for _, in := range inputs {
+		fk.Inputs = append(fk.Inputs, in.Name)
+	}
+	for _, out := range outputs {
+		fk.Outputs = append(fk.Outputs, out.Name)
+	}
+
+	var lines []string
+	addLine := func(s string, loc *cudair.SourceLocation) {
+		lines = append(lines, s)
+		if loc != nil && (loc.File != "" || loc.Line > 0) {
+			fk.LineMap[len(lines)] = *loc
+		}
+	}
+
+	addLine(`#include <cuda_runtime.h>`, nil)
+	addLine(``, nil)
+	addLine(`extern "C" __global__ void `+kernelName+`(`, nil)
 
 	// Input parameters
 	for _, in := range inputs {
-		buf.WriteString(fmt.Sprintf("    const float* __restrict__ %s,\n", in.Name))
+		addLine(fmt.Sprintf("    const float* __restrict__ %s,", in.Name), &in.SourceLoc)
 	}
 	// Output parameters
 	for i, out := range outputs {
-		buf.WriteString(fmt.Sprintf("    float* __restrict__ out_%s", out.Name))
-		if i < len(outputs)-1 || true {
-			buf.WriteString(",\n")
+		comma := ","
+		if i == len(outputs)-1 {
+			comma = ","
 		}
+		addLine(fmt.Sprintf("    float* __restrict__ out_%s%s", out.Name, comma), &out.SourceLoc)
 	}
-	buf.WriteString("    int n\n) {\n")
+	addLine("    int n\n) {", nil)
 
 	// Grid-stride loop
-	buf.WriteString("    for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n; idx += blockDim.x * gridDim.x) {\n")
+	addLine("    for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n; idx += blockDim.x * gridDim.x) {", nil)
 
 	// Load inputs into local variables
 	for _, in := range inputs {
-		buf.WriteString(fmt.Sprintf("        float v_%s = %s[idx];\n", in.Name, in.Name))
+		addLine(fmt.Sprintf("        float v_%s = %s[idx];", in.Name, in.Name), &in.SourceLoc)
 	}
 
 	// Compute intermediate expressions
@@ -93,18 +132,21 @@ func Fuse(g *cudair.Graph, kernelName string) (string, error) {
 		case n.Op == "matmul":
 			expr = fmt.Sprintf("v_%s * v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
 		default:
-			return "", fmt.Errorf("cudafuse: unsupported operator for fusion: %s", n.Op)
+			return fk, fmt.Errorf("cudafuse: unsupported operator for fusion: %s", n.Op)
 		}
 
-
-		buf.WriteString(fmt.Sprintf("        float v_%s = %s;\n", n.Name, expr))
+		addLine(fmt.Sprintf("        float v_%s = %s;", n.Name, expr), &n.SourceLoc)
 	}
 
 	// Store outputs
 	for _, out := range outputs {
-		buf.WriteString(fmt.Sprintf("        out_%s[idx] = v_%s;\n", out.Name, out.Name))
+		addLine(fmt.Sprintf("        out_%s[idx] = v_%s;", out.Name, out.Name), &out.SourceLoc)
 	}
 
-	buf.WriteString("    }\n}\n")
-	return strings.TrimSpace(buf.String()), nil
+	addLine("    }", nil)
+	addLine("}", nil)
+
+	fk.Source = strings.Join(lines, "\n")
+	return fk, nil
 }
+

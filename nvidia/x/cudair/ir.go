@@ -63,16 +63,25 @@ const (
 	KindReduce
 )
 
+// SourceLocation captures host Go source attribution for an IR node.
+type SourceLocation struct {
+	File     string
+	Line     int
+	Function string
+}
+
 // Node represents an operation or tensor in the IR graph.
 type Node struct {
-	ID     int
-	Name   string
-	Kind   NodeKind
-	Op     string
-	Inputs []*Node
-	Shape  []int
-	Type   DataType
+	ID        int
+	Name      string
+	Kind      NodeKind
+	Op        string
+	Inputs    []*Node
+	Shape     []int
+	Type      DataType
+	SourceLoc SourceLocation
 }
+
 
 // NumElements returns total number of elements in the tensor.
 func (n *Node) NumElements() int {
