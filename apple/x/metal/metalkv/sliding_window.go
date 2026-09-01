@@ -35,10 +35,16 @@ func NewRollingKVCache(cfg SlidingWindowConfig) (*RollingKVCache, error) {
 	}, nil
 }
 
-// PhysicalSlot maps a logical sequence position to its physical buffer slot in the ring buffer.
+// PhysicalSlot maps a logical sequence position to its physical buffer slot in
+// the ring buffer. It returns -1 for a negative position.
+//
+// The mapping is many-to-one: every windowSize positions share a slot, so a
+// slot holds the requested position only while that position is resident. Use
+// Slot to get the mapping and that check together.
 func (c *RollingKVCache) PhysicalSlot(logicalPos int) int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	if logicalPos < 0 {
+		return -1
+	}
 
 	// Initial sink tokens occupy fixed slots 0..sinkTokens-1
 	if logicalPos < c.sinkTokens {
@@ -49,6 +55,48 @@ func (c *RollingKVCache) PhysicalSlot(logicalPos int) int {
 	offset := logicalPos - c.sinkTokens
 	slot := c.sinkTokens + (offset % c.windowSize)
 	return slot
+}
+
+// WindowStart returns the oldest logical position still held in the rolling
+// window. Positions below it have been overwritten, except for the sink.
+func (c *RollingKVCache) WindowStart() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.windowStart()
+}
+
+// windowStart requires c.mu to be held.
+func (c *RollingKVCache) windowStart() int {
+	if start := c.totalSeen - c.windowSize; start > c.sinkTokens {
+		return start
+	}
+	return c.sinkTokens
+}
+
+// Resident reports whether logicalPos is still addressable. A position is
+// resident if it has been written, and either lies in the sink or has not yet
+// been lapped by the rolling window.
+func (c *RollingKVCache) Resident(logicalPos int) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if logicalPos < 0 || logicalPos >= c.totalSeen {
+		return false
+	}
+	if logicalPos < c.sinkTokens {
+		return true
+	}
+	return logicalPos >= c.windowStart()
+}
+
+// Slot returns the physical slot holding logicalPos, and whether that slot
+// still holds it. Callers must not read the slot when ok is false: the ring
+// has reused it for a later position.
+func (c *RollingKVCache) Slot(logicalPos int) (slot int, ok bool) {
+	if !c.Resident(logicalPos) {
+		return -1, false
+	}
+	return c.PhysicalSlot(logicalPos), true
 }
 
 // Advance records that new tokens have been written into the rolling cache.
