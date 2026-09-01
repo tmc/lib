@@ -19,13 +19,19 @@ extern "C" __global__ void EmbeddingLookup(
     int hidden_dim
 ) {
     int tok = *token_id;
-    const float* src = embed_table + tok * hidden_dim;
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x) {
-        out[i] = src[i];
+    const float4* src4 = reinterpret_cast<const float4*>(embed_table + tok * hidden_dim);
+    float4* out4 = reinterpret_cast<float4*>(out);
+    int dim4 = hidden_dim / 4;
+
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
+        out4[i] = src4[i];
+    }
+    for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x) {
+        out[i] = (embed_table + tok * hidden_dim)[i];
     }
 }
 
-// 2. RMSNorm with warp reduction
+// 2. RMSNorm with 128-bit float4 vectorized loads and warp reduction
 extern "C" __global__ void RMSNorm(
     const float* __restrict__ x,
     const float* __restrict__ weight,
@@ -38,8 +44,15 @@ extern "C" __global__ void RMSNorm(
     int lane = tid % WARP_SIZE;
     int wid = tid / WARP_SIZE;
 
+    const float4* x4 = reinterpret_cast<const float4*>(x);
+    int dim4 = hidden_dim / 4;
+
     float sum_sq = 0.0f;
-    for (int i = tid; i < hidden_dim; i += blockDim.x) {
+    for (int i = tid; i < dim4; i += blockDim.x) {
+        float4 v = x4[i];
+        sum_sq += v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
+    }
+    for (int i = dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
         float v = x[i];
         sum_sq += v * v;
     }
@@ -61,13 +74,26 @@ extern "C" __global__ void RMSNorm(
     __syncthreads();
 
     float rsqrt_val = s_rsqrt;
-    for (int i = tid; i < hidden_dim; i += blockDim.x) {
+    float4* out4 = reinterpret_cast<float4*>(out);
+    const float4* w4 = weight ? reinterpret_cast<const float4*>(weight) : nullptr;
+
+    for (int i = tid; i < dim4; i += blockDim.x) {
+        float4 xv = x4[i];
+        float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+        out4[i] = make_float4(
+            xv.x * rsqrt_val * wv.x,
+            xv.y * rsqrt_val * wv.y,
+            xv.z * rsqrt_val * wv.z,
+            xv.w * rsqrt_val * wv.w
+        );
+    }
+    for (int i = dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
         float w = weight ? weight[i] : 1.0f;
         out[i] = x[i] * rsqrt_val * w;
     }
 }
 
-// 3. Matrix-Vector Multiplication (Linear Projection) with warp reduction
+// 3. Matrix-Vector Multiplication (Linear Projection) with 128-bit float4 loads
 extern "C" __global__ void LinearGEMV(
     const float* __restrict__ x,
     const float* __restrict__ w,
@@ -84,10 +110,18 @@ extern "C" __global__ void LinearGEMV(
     int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
-    const float* w_row = w + row * in_dim;
+    const float4* w_row4 = reinterpret_cast<const float4*>(w + row * in_dim);
+    const float4* x4 = reinterpret_cast<const float4*>(x);
+    int in_dim4 = in_dim / 4;
+
     float sum = 0.0f;
-    for (int i = tid; i < in_dim; i += blockDim.x) {
-        sum += x[i] * w_row[i];
+    for (int i = tid; i < in_dim4; i += blockDim.x) {
+        float4 xv = x4[i];
+        float4 wv = w_row4[i];
+        sum += xv.x * wv.x + xv.y * wv.y + xv.z * wv.z + xv.w * wv.w;
+    }
+    for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
+        sum += x[i] * (w + row * in_dim)[i];
     }
     sum = warp_sum(sum);
 
@@ -143,7 +177,7 @@ extern "C" __global__ void ApplyRoPE(
     }
 }
 
-// 5. Store current K and V into KV Cache
+// 5. Store current K and V into KV Cache with float4 vectorized writes
 extern "C" __global__ void StoreKVCache(
     const float* __restrict__ k,
     const float* __restrict__ v,
@@ -154,41 +188,72 @@ extern "C" __global__ void StoreKVCache(
     int head_dim
 ) {
     int kv_dim = num_kv_heads * head_dim;
-    float* k_dest = k_cache + pos * kv_dim;
-    float* v_dest = v_cache + pos * kv_dim;
+    float4* k_dest4 = reinterpret_cast<float4*>(k_cache + pos * kv_dim);
+    float4* v_dest4 = reinterpret_cast<float4*>(v_cache + pos * kv_dim);
+    const float4* k4 = reinterpret_cast<const float4*>(k);
+    const float4* v4 = reinterpret_cast<const float4*>(v);
+    int dim4 = kv_dim / 4;
 
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
-        k_dest[i] = k[i];
-        v_dest[i] = v[i];
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
+        k_dest4[i] = k4[i];
+        v_dest4[i] = v4[i];
+    }
+    for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
+        (k_cache + pos * kv_dim)[i] = k[i];
+        (v_cache + pos * kv_dim)[i] = v[i];
     }
 }
 
-// 6. SwiGLU Activation: out = silu(gate) * up
+// 6. SwiGLU Activation: out = silu(gate) * up with float4 vectorization
 extern "C" __global__ void SwiGLU(
     const float* __restrict__ gate,
     const float* __restrict__ up,
     float* __restrict__ out,
     int intermediate_dim
 ) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < intermediate_dim; i += blockDim.x * gridDim.x) {
+    const float4* g4 = reinterpret_cast<const float4*>(gate);
+    const float4* u4 = reinterpret_cast<const float4*>(up);
+    float4* out4 = reinterpret_cast<float4*>(out);
+    int dim4 = intermediate_dim / 4;
+
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
+        float4 g = g4[i];
+        float4 u = u4[i];
+        out4[i] = make_float4(
+            (g.x / (1.0f + expf(-g.x))) * u.x,
+            (g.y / (1.0f + expf(-g.y))) * u.y,
+            (g.z / (1.0f + expf(-g.z))) * u.z,
+            (g.w / (1.0f + expf(-g.w))) * u.w
+        );
+    }
+    for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < intermediate_dim; i += blockDim.x * gridDim.x) {
         float g = gate[i];
         float silu = g / (1.0f + expf(-g));
         out[i] = silu * up[i];
     }
 }
 
-// 7. Vector Add (Residual Connection): x += res
+// 7. Vector Add (Residual Connection): x += res with float4 vectorization
 extern "C" __global__ void AddResidual(
     float* __restrict__ x,
     const float* __restrict__ res,
     int dim
 ) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim; i += blockDim.x * gridDim.x) {
+    float4* x4 = reinterpret_cast<float4*>(x);
+    const float4* res4 = reinterpret_cast<const float4*>(res);
+    int dim4 = dim / 4;
+
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
+        float4 xv = x4[i];
+        float4 rv = res4[i];
+        x4[i] = make_float4(xv.x + rv.x, xv.y + rv.y, xv.z + rv.z, xv.w + rv.w);
+    }
+    for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < dim; i += blockDim.x * gridDim.x) {
         x[i] += res[i];
     }
 }
 
-// 9. E-Graph Extracted Fused Megakernels
+// 8. E-Graph Extracted Fused Megakernels with float4 vectorization
 
 extern "C" __global__ void FusedRMSNormQKV(
     const float* __restrict__ x,
@@ -207,11 +272,19 @@ extern "C" __global__ void FusedRMSNormQKV(
     int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
+    const float4* x4 = reinterpret_cast<const float4*>(x);
+    const float4* w4 = weight ? reinterpret_cast<const float4*>(weight) : nullptr;
+    int in_dim4 = in_dim / 4;
+
     if (row < q_dim) {
-        const float* w_row = W_q + row * in_dim;
+        const float4* w_row4 = reinterpret_cast<const float4*>(W_q + row * in_dim);
         float sum = 0.0f;
-        for (int i = tid; i < in_dim; i += blockDim.x) {
-            sum += (x[i] * weight[i]) * w_row[i];
+        for (int i = tid; i < in_dim4; i += blockDim.x) {
+            float4 xv = x4[i];
+            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+            float4 norm_xv = make_float4(xv.x * wv.x, xv.y * wv.y, xv.z * wv.z, xv.w * wv.w);
+            float4 wrv = w_row4[i];
+            sum += norm_xv.x * wrv.x + norm_xv.y * wrv.y + norm_xv.z * wrv.z + norm_xv.w * wrv.w;
         }
         sum = warp_sum(sum);
         if (lane == 0) s_sum[wid] = sum;
@@ -222,14 +295,18 @@ extern "C" __global__ void FusedRMSNormQKV(
         if (tid == 0) out_q[row] = block_sum;
     }
     if (row < kv_dim) {
-        const float* wk_row = W_k + row * in_dim;
-        const float* wv_row = W_v + row * in_dim;
+        const float4* wk_row4 = reinterpret_cast<const float4*>(W_k + row * in_dim);
+        const float4* wv_row4 = reinterpret_cast<const float4*>(W_v + row * in_dim);
         float sumK = 0.0f;
         float sumV = 0.0f;
-        for (int i = tid; i < in_dim; i += blockDim.x) {
-            float normed = x[i] * weight[i];
-            sumK += normed * wk_row[i];
-            sumV += normed * wv_row[i];
+        for (int i = tid; i < in_dim4; i += blockDim.x) {
+            float4 xv = x4[i];
+            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+            float4 norm_xv = make_float4(xv.x * wv.x, xv.y * wv.y, xv.z * wv.z, xv.w * wv.w);
+            float4 wkv = wk_row4[i];
+            float4 wvv = wv_row4[i];
+            sumK += norm_xv.x * wkv.x + norm_xv.y * wkv.y + norm_xv.z * wkv.z + norm_xv.w * wkv.w;
+            sumV += norm_xv.x * wvv.x + norm_xv.y * wvv.y + norm_xv.z * wkv.w * wvv.w;
         }
         sumK = warp_sum(sumK);
         sumV = warp_sum(sumV);
@@ -267,13 +344,23 @@ extern "C" __global__ void FusedSwiGLUDown(
     int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
-    const float* w_row = W_down + row * intermediate_dim;
+    const float4* g4 = reinterpret_cast<const float4*>(gate);
+    const float4* u4 = reinterpret_cast<const float4*>(up);
+    const float4* w_row4 = reinterpret_cast<const float4*>(W_down + row * intermediate_dim);
+    int inter_dim4 = intermediate_dim / 4;
+
     float sum = 0.0f;
-    for (int i = tid; i < intermediate_dim; i += blockDim.x) {
-        float g = gate[i];
-        float silu = g / (1.0f + expf(-g));
-        float act = silu * up[i];
-        sum += act * w_row[i];
+    for (int i = tid; i < inter_dim4; i += blockDim.x) {
+        float4 g = g4[i];
+        float4 u = u4[i];
+        float4 act = make_float4(
+            (g.x / (1.0f + expf(-g.x))) * u.x,
+            (g.y / (1.0f + expf(-g.y))) * u.y,
+            (g.z / (1.0f + expf(-g.z))) * u.z,
+            (g.w / (1.0f + expf(-g.w))) * u.w
+        );
+        float4 wv = w_row4[i];
+        sum += act.x * wv.x + act.y * wv.y + act.z * wv.z + act.w * wv.w;
     }
     sum = warp_sum(sum);
 

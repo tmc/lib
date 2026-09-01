@@ -43,6 +43,8 @@ var (
 	fuseEGraphFlag = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
 	graphFlag      = flag.Bool("graph", false, "enable CUDA Graph capture & single-launch replay for decoder forward pass")
 	specDraftFlag  = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
+	benchFlag      = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
+	benchCountFlag = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 )
 
 
@@ -239,6 +241,41 @@ func runGPUInference(
 		ptxMap = parsePTXLines(gm.PTX())
 	}
 
+	if *benchFlag {
+		prefix := "BenchmarkLlama32_1B/backend=cuda_gb10/gen_tokens=16/prompt=neural_network/search_graphs=100"
+		// Warmup
+		for pos, tokID := range promptTokens {
+			_, _ = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+		}
+
+		for iter := 0; iter < *benchCountFlag; iter++ {
+			kvCache.Reset()
+
+			t0 := time.Now()
+			var currTok int32
+			for pos, tokID := range promptTokens {
+				currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+			}
+			ttftDur := time.Since(t0)
+
+			tDec0 := time.Now()
+			pos := len(promptTokens)
+			for step := 0; step < *stepsFlag; step++ {
+				currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, currTok, pos+step)
+			}
+			decDur := time.Since(tDec0)
+
+			ttftNs := ttftDur.Nanoseconds()
+			tpotNs := (decDur / time.Duration(*stepsFlag)).Nanoseconds()
+			tokPerSec := float64(*stepsFlag) / decDur.Seconds()
+
+			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
+			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
+			fmt.Printf("%s/decode-1 1 %.6f tok/s\n", prefix, tokPerSec)
+		}
+		return nil
+	}
+
 	fmt.Print("Streaming : ", *promptFlag)
 	var nextTokID int32
 
@@ -348,7 +385,7 @@ func runGPUInference(
 				stream, _ := dev.NewStream()
 				defer stream.Destroy()
 				g, cErr := cudagraph.Capture(stream, func() {
-					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+					_, err = GPUForwardPassStream(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos, stream)
 				})
 				if cErr == nil {
 					exec, iErr := g.Instantiate()
@@ -356,6 +393,7 @@ func runGPUInference(
 						defer exec.Destroy()
 						_ = exec.Launch(stream)
 						_ = stream.Synchronize(context.Background())
+						tok = scratch.HostTokenOut[0]
 					}
 					_ = g.Destroy()
 				}
