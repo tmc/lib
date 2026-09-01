@@ -10,11 +10,12 @@ import (
 
 func main() {
 	maxIters := flag.Int("iters", 10, "Maximum equality saturation iterations")
-	bench := flag.Bool("bench", false, "Execute comparative GPU decoding benchmark")
-	benchSteps := flag.Int("steps", 100, "Number of benchmark decoding steps")
+	bench := flag.Bool("bench", true, "Execute comparative GPU decoding benchmark")
+	benchSteps := flag.Int("steps", 200, "Number of benchmark decoding steps")
+	batchSize := flag.Int("batch", 1, "Batch size for decoding evaluation")
 	flag.Parse()
 
-	fmt.Println("=== Pure-Go E-Graph Megakernel Optimizer ===")
+	fmt.Println("=== Pure-Go E-Graph Megakernel Optimizer vs. Luminal Benchmark ===")
 
 	eg := egraph.New()
 
@@ -104,16 +105,15 @@ func main() {
 	fmt.Println("✓ Fused SwiGLU Megakernel: Eliminated gate/up intermediate VRAM roundtrips (register-resident)")
 
 	if *bench {
-		fmt.Println("\n=== Running GPU Hardware Decoding Benchmark ===")
-		res, err := RunComparisonBenchmark(*benchSteps)
+		fmt.Printf("\n=== Running GPU Hardware Decoding Benchmark (Batch=%d, Steps=%d) ===\n", *batchSize, *benchSteps)
+		res, err := RunBenchmarkComparison(*batchSize, *benchSteps, egraph.BudgetQuick)
 		if err != nil {
 			fmt.Printf("[Benchmark Error] %v\n", err)
 			return
 		}
-		fmt.Printf("Steps Executed        : %d decode steps\n", *benchSteps)
-		fmt.Printf("Unfused Schedule      : %8.2f ms (%8.1f tok/sec)\n", res.UnfusedDurationMs, res.UnfusedTokensPerSec)
-		fmt.Printf("E-Graph Fused Plan    : %8.2f ms (%8.1f tok/sec)\n", res.EGraphDurationMs, res.EGraphTokensPerSec)
-		fmt.Printf("Speedup via Megakernel: %8.2fx\n", res.SpeedupVsUnfused)
+		fmt.Printf("Unfused Host-Dispatched Baseline: %8.2f ms (%8.1f layer-tok/sec)\n", res.UnfusedDurationMs, res.UnfusedTokSec)
+		fmt.Printf("TMC Pure-Go E-Graph Megakernel  : %8.2f ms (%8.1f layer-tok/sec)\n", res.TmcEGraphDurationMs, res.TmcEGraphTokSec)
+		fmt.Printf("Speedup via Megakernel Fusion   : %8.2fx\n", res.Speedup)
 	}
 }
 
