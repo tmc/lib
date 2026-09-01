@@ -10,20 +10,21 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
 )
 
-// ModelConfig holds the architecture parameters for a LLaMA model.
+// ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
 type ModelConfig struct {
-	ModelType         string  `json:"model_type"`
-	HiddenSize        int     `json:"hidden_size"`
-	IntermediateSize  int     `json:"intermediate_size"`
-	NumHiddenLayers   int     `json:"num_hidden_layers"`
-	NumAttentionHeads int     `json:"num_attention_heads"`
-	NumKeyValueHeads  int     `json:"num_key_value_heads"`
-	ExplicitHeadDim   int     `json:"head_dim"`
-	VocabSize         int     `json:"vocab_size"`
-	RmsNormEps        float32 `json:"rms_norm_eps"`
-	RopeTheta         float32 `json:"rope_theta"`
-	MaxSeqLen         int     `json:"max_position_embeddings"`
-	TieWordEmbeddings bool    `json:"tie_word_embeddings"`
+	ModelType         string       `json:"model_type"`
+	HiddenSize        int          `json:"hidden_size"`
+	IntermediateSize  int          `json:"intermediate_size"`
+	NumHiddenLayers   int          `json:"num_hidden_layers"`
+	NumAttentionHeads int          `json:"num_attention_heads"`
+	NumKeyValueHeads  int          `json:"num_key_value_heads"`
+	ExplicitHeadDim   int          `json:"head_dim"`
+	VocabSize         int          `json:"vocab_size"`
+	RmsNormEps        float32      `json:"rms_norm_eps"`
+	RopeTheta         float32      `json:"rope_theta"`
+	MaxSeqLen         int          `json:"max_position_embeddings"`
+	TieWordEmbeddings bool         `json:"tie_word_embeddings"`
+	TextConfig        *ModelConfig `json:"text_config,omitempty"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -68,7 +69,7 @@ type LayerWeights struct {
 	WDown     []float32
 }
 
-// ModelWeights holds all parameters for the LLaMA model.
+// ModelWeights holds all parameters for a model.
 type ModelWeights struct {
 	EmbedTokens []float32
 	Layers      []LayerWeights
@@ -76,7 +77,7 @@ type ModelWeights struct {
 	LMHead      []float32
 }
 
-// KVCacheState holds the multi-layer KV memory cache for autoregressive inference.
+// KVCacheState holds the past key/value states across layers.
 type KVCacheState struct {
 	K [][][]float32 // [Layer][SeqLen][NumKVHeads * HeadDim]
 	V [][][]float32 // [Layer][SeqLen][NumKVHeads * HeadDim]
@@ -105,17 +106,25 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		return nil, nil, fmt.Errorf("read config.json: %w", err)
 	}
 
-	var cfg ModelConfig
-	if err := json.Unmarshal(cfgBytes, &cfg); err != nil {
+	var raw ModelConfig
+	if err := json.Unmarshal(cfgBytes, &raw); err != nil {
 		return nil, nil, fmt.Errorf("parse config.json: %w", err)
 	}
+	cfg := raw
+	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
+		cfg = *raw.TextConfig
+	}
+
 	if cfg.RmsNormEps == 0 {
 		cfg.RmsNormEps = 1e-5
 	}
 	if cfg.RopeTheta == 0 {
 		cfg.RopeTheta = 10000.0
 	}
-	if cfg.MaxSeqLen == 0 {
+	if cfg.NumKeyValueHeads == 0 {
+		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
+	}
+	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
 		cfg.MaxSeqLen = 2048
 	}
 

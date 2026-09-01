@@ -26,7 +26,7 @@ type BpeTokenizer struct {
 type hfTokenizerSchema struct {
 	Model struct {
 		Vocab  map[string]int32 `json:"vocab"`
-		Merges []string         `json:"merges"`
+		Merges []any            `json:"merges"`
 	} `json:"model"`
 	AddedTokens []struct {
 		ID      int32  `json:"id"`
@@ -62,9 +62,21 @@ func LoadHFTokenizer(path string) (*BpeTokenizer, error) {
 	}
 
 	merges := make(map[string]int, len(schema.Model.Merges))
-	for rank, m := range schema.Model.Merges {
-		merges[m] = rank
+	for rank, item := range schema.Model.Merges {
+		switch v := item.(type) {
+		case string:
+			merges[v] = rank
+		case []any:
+			if len(v) == 2 {
+				s0, ok0 := v[0].(string)
+				s1, ok1 := v[1].(string)
+				if ok0 && ok1 {
+					merges[s0+" "+s1] = rank
+				}
+			}
+		}
 	}
+
 
 	byteTokens := make(map[byte]string, 256)
 	for b := 0; b < 256; b++ {
