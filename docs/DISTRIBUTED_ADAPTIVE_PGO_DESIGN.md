@@ -1,7 +1,7 @@
 # Design Document: Elastic Topology-Adaptive Distributed JIT for Pure-Go GPU Inference
 
 **Status:** Draft for Peer Review  
-**Target Subsystems:** `ccl/topology`, `nvidia/x/nvlshm`, `nvidia/x/moonep`, `x/egraph`, `gonccl`, `gorccl`, `gopccl`  
+**Target Subsystems:** `ccl/topology`, `nvidia/x/nvlshm`, `nvidia/x/moonep`, `x/egraph`  
 **Authors:** tmc/lib Architecture Team  
 
 ---
@@ -16,7 +16,7 @@ This frozen architecture exhibits catastrophic failure modes in real-world heter
 3. **Elastic Node Joins**: Dynamically adding compute capacity (e.g. bursting onto idle spot instances or newly booted Apple Silicon / NVIDIA nodes via [`nvlshm/tcpboot`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/nvlshm/tcpboot)) requires tearing down and re-initializing the entire serving topology.
 
 ### The Pure-Go Dynamic Distributed Solution
-By integrating `tmc/lib`'s lightweight collective transports (`gonccl`, `nvlshm`, `tcpboot`), continuous transport telemetry, and the **E-Graph Equality Saturation Optimizer (`x/egraph`)**, we define an **Elastic Distributed JIT Runtime** that re-evaluates and hot-swaps distributed execution topologies on the fly.
+By integrating `tmc/lib`'s lightweight `nvidia/x/` collective transports ([`nvidia/x/nvlshm`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/nvlshm), [`nvidia/x/moonep`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/moonep), `tcpboot`), continuous transport telemetry, and the **E-Graph Equality Saturation Optimizer (`x/egraph`)**, we define an **Elastic Distributed JIT Runtime** that re-evaluates and hot-swaps distributed execution topologies on the fly without legacy C++ collective libraries.
 
 ---
 
@@ -25,7 +25,7 @@ By integrating `tmc/lib`'s lightweight collective transports (`gonccl`, `nvlshm`
 ```mermaid
 graph TD
     subgraph "1. Distributed Transport & Telemetry Plane"
-        A["Cluster GPU Nodes (NVIDIA / Apple Silicon)"] --> B["gonccl / nvlshm / tcpboot"]
+        A["Cluster GPU Nodes (NVIDIA / Apple Silicon)"] --> B["nvidia/x/nvlshm / tcpboot"]
         B --> C["Continuous Transport Probe (RTT, Jitter, Heartbeats, Throughput)"]
     end
 
@@ -89,7 +89,7 @@ This design directly leverages and refines battle-tested concepts developed in [
 2. **Corrective Live Planning (`mgccl/liveplan`)**:
    - Coordinates transition state machines, safe-points, and token-drain procedures (`liveplan.CorrectiveMembershipConfig`) so in-flight requests are not corrupted when nodes shift.
 3. **Dynamic Link Selection (`mgccl/linkselect`)**:
-   - Dynamic transport carrier scoring across shared memory (`nvlshm`), direct RDMA (`gonccl`), and TCP (`tcpboot`), falling back based on live latency/bandwidth probes.
+   - Dynamic transport carrier scoring across shared memory (`nvidia/x/nvlshm`), direct peer RDMA, and TCP (`tcpboot`), falling back based on live latency/bandwidth probes.
 4. **Decoupled Local Steps (`mgccl/diloco`)**:
    - DiLoCo-style asynchronous periodic synchronization, allowing stragglers to execute multiple local decode steps before syncing with the cluster.
 
@@ -124,7 +124,7 @@ tmc/lib/
 2. **MoE Quality Degradation under Pruning**:
    - *Question:* When an expert node drops, is dynamic Top-K re-masking sufficient for general text generation, or should we support local fallback surrogate weights for critical MLP layers?
 3. **Epoch Synchronization Overhead**:
-   - *Question:* Can epoch coordination markers be embedded directly into the communication ring buffer header (zero extra network roundtrips) using `nvlshm` / `gonccl` stream events?
+   - *Question:* Can epoch coordination markers be embedded directly into the communication ring buffer header (zero extra network roundtrips) using `nvidia/x/nvlshm` stream events?
 
 ---
 
