@@ -15,6 +15,7 @@ import (
 
 	"github.com/tmc/go-iroh/iroh"
 	"github.com/tmc/go-iroh/key"
+	"github.com/tmc/go-iroh/netaddr"
 	"github.com/tmc/go-iroh/relay"
 )
 
@@ -80,7 +81,7 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 	opts := []iroh.Option{
 		iroh.WithSecretKey(sk),
 		iroh.WithALPNs(InferenceALPN),
-		iroh.WithRelayMode(relay.ModeDisabled()),
+		iroh.WithRelayMode(relay.ModeDefault()),
 	}
 	if bindPort > 0 {
 		opts = append(opts, iroh.WithBindAddr(netip.AddrPortFrom(netip.IPv4Unspecified(), bindPort)))
@@ -100,7 +101,64 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 	}
 
 	node.self = node.probeSelfHardware()
+	go node.acceptLoop(ctx)
 	return node, nil
+}
+
+func (n *IrohClusterNode) acceptLoop(ctx context.Context) {
+	for {
+		conn, err := n.ep.Accept(ctx)
+		if err != nil {
+			return
+		}
+		go func(c *iroh.Conn) {
+			stream, err := c.AcceptStream(ctx)
+			if err != nil {
+				return
+			}
+			defer stream.Close()
+
+			var peerTel NodeTelemetry
+			if err := json.NewDecoder(stream).Decode(&peerTel); err == nil {
+				n.RegisterPeer(peerTel)
+				_ = json.NewEncoder(stream).Encode(n.self)
+			}
+		}(conn)
+	}
+}
+
+// Addr returns the complete netaddr.EndpointAddr including DERP relay URLs and direct IP endpoints.
+func (n *IrohClusterNode) Addr() netaddr.EndpointAddr {
+	if n.ep == nil {
+		return netaddr.EndpointAddr{}
+	}
+	return n.ep.Addr()
+}
+
+// ConnectIroh connects to a remote peer over pure Iroh using its EndpointAddr.
+func (n *IrohClusterNode) ConnectIroh(ctx context.Context, addr netaddr.EndpointAddr) error {
+	conn, err := n.ep.Connect(ctx, addr, InferenceALPN)
+	if err != nil {
+		return fmt.Errorf("iroh connect: %w", err)
+	}
+
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		return fmt.Errorf("iroh open stream: %w", err)
+	}
+	defer stream.Close()
+
+	if err := json.NewEncoder(stream).Encode(n.self); err != nil {
+		return fmt.Errorf("send telemetry: %w", err)
+	}
+
+	var peerTel NodeTelemetry
+	if err := json.NewDecoder(stream).Decode(&peerTel); err != nil {
+		return fmt.Errorf("receive peer telemetry: %w", err)
+	}
+
+	n.RegisterPeer(peerTel)
+	return nil
 }
 
 // NodeID returns the public Ed25519 string identifier for this node.

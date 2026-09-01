@@ -274,8 +274,10 @@ func runPlatform(cfg Config) error {
 
 	cNode, err := NewIrohClusterNode(context.Background(), engine, cfg, 0)
 	if err == nil {
+		nodeAddr := cNode.Addr()
 		fmt.Printf("[go-iroh Mesh] Node ID: %s (Platform: %s, Compute: %.0f TFLOPs, Bandwidth: %.0f GB/s)\n",
 			cNode.NodeID(), cNode.SelfTelemetry().OS, cNode.SelfTelemetry().ComputeTFLOPs, cNode.SelfTelemetry().BandwidthGBS)
+		fmt.Printf("[go-iroh Mesh] Node Addr: %s\n", nodeAddr.String())
 		if cfg.PeerAddr != "" {
 			go func() {
 				for {
