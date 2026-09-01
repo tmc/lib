@@ -2,9 +2,28 @@
 
 package cudaattn
 
+// TreeAttentionMaxNodes is the largest candidate tree a uint64 row bitmask can encode.
+const TreeAttentionMaxNodes = 64
+
+// TreeAttentionSharedBytes returns the dynamic shared memory, in bytes, that
+// TreeFlashAttentionCUDA needs for a tree of numNodes nodes launched with
+// blockSize threads per block. blockSize must be a power of two.
+func TreeAttentionSharedBytes(numNodes, blockSize int) int {
+	if numNodes > TreeAttentionMaxNodes {
+		numNodes = TreeAttentionMaxNodes
+	}
+	return 4 * (numNodes + blockSize)
+}
+
 // TreeAttentionCUDA is the CUDA C++ kernel executing 2D Causal Tree Attention with 64-bit row bitmasks.
+//
+// Launch it with grid (num_nodes, num_heads), a power-of-two block size, and
+// TreeAttentionSharedBytes of dynamic shared memory. Trees wider than
+// TreeAttentionMaxNodes have no bitmask representation and are truncated.
 const TreeAttentionCUDA = `
 extern "C" {
+
+#define TREE_ATTN_MAX_NODES 64
 
 __global__ void TreeFlashAttentionCUDA(
     const float* __restrict__ q,           // [num_nodes, num_heads, head_dim]
@@ -21,15 +40,20 @@ __global__ void TreeFlashAttentionCUDA(
     int head_id = blockIdx.y;
     if (node_id >= num_nodes || head_id >= num_heads) return;
 
+    // A row bitmask holds one bit per node, so wider trees are not addressable.
+    int n = num_nodes < TREE_ATTN_MAX_NODES ? num_nodes : TREE_ATTN_MAX_NODES;
+
     unsigned long long ancestor_mask = bitmasks[node_id];
     const float* q_ptr = q + (node_id * num_heads + head_id) * head_dim;
 
-    extern __shared__ float scores[];
-    float max_score = -1e20f;
+    // Dynamic shared memory holds n scores followed by blockDim.x reduction slots.
+    extern __shared__ float smem[];
+    float* scores = smem;
+    float* reduce = smem + n;
 
-    for (int t = threadIdx.x; t < num_nodes; t += blockDim.x) {
-        bool is_ancestor = (ancestor_mask & (1ULL << t)) != 0;
-        if (is_ancestor) {
+    float thread_max = -INFINITY;
+    for (int t = threadIdx.x; t < n; t += blockDim.x) {
+        if ((ancestor_mask >> t) & 1ULL) {
             const float* k_ptr = k_cache + (t * num_heads + head_id) * head_dim;
             float dot = 0.0f;
             for (int d = 0; d < head_dim; d++) {
@@ -37,36 +61,60 @@ __global__ void TreeFlashAttentionCUDA(
             }
             dot *= scale;
             scores[t] = dot;
-            if (dot > max_score) max_score = dot;
+            thread_max = fmaxf(thread_max, dot);
         } else {
-            scores[t] = -1e20f;
+            scores[t] = -INFINITY;
         }
     }
+
+    // Each thread saw only a strided slice of the row, so the running maximum
+    // has to be reduced across the whole block before it can rescale anything.
+    reduce[threadIdx.x] = thread_max;
+    __syncthreads();
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (threadIdx.x < s) {
+            reduce[threadIdx.x] = fmaxf(reduce[threadIdx.x], reduce[threadIdx.x + s]);
+        }
+        __syncthreads();
+    }
+    float max_score = reduce[0];
     __syncthreads();
 
-    float sum_exp = 0.0f;
-    for (int t = threadIdx.x; t < num_nodes; t += blockDim.x) {
-        if ((ancestor_mask & (1ULL << t)) != 0) {
-            float e = expf(scores[t] - max_score);
-            scores[t] = e;
-            sum_exp += e;
-        } else {
-            scores[t] = 0.0f;
+    float thread_sum = 0.0f;
+    for (int t = threadIdx.x; t < n; t += blockDim.x) {
+        float e = 0.0f;
+        if ((ancestor_mask >> t) & 1ULL) {
+            e = expf(scores[t] - max_score);
         }
+        scores[t] = e;
+        thread_sum += e;
     }
+
+    // The softmax denominator likewise spans the block, not one thread's slice.
+    reduce[threadIdx.x] = thread_sum;
     __syncthreads();
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (threadIdx.x < s) {
+            reduce[threadIdx.x] += reduce[threadIdx.x + s];
+        }
+        __syncthreads();
+    }
+    float sum_exp = reduce[0];
+    __syncthreads();
+
+    // An empty ancestor row emits zeros rather than a division by zero.
+    float inv_sum = sum_exp > 0.0f ? 1.0f / sum_exp : 0.0f;
 
     float* out_ptr = out + (node_id * num_heads + head_id) * head_dim;
     for (int d = threadIdx.x; d < head_dim; d += blockDim.x) {
         float acc = 0.0f;
-        for (int t = 0; t < num_nodes; t++) {
-            if ((ancestor_mask & (1ULL << t)) != 0) {
+        for (int t = 0; t < n; t++) {
+            if ((ancestor_mask >> t) & 1ULL) {
                 const float* v_ptr = v_cache + (t * num_heads + head_id) * head_dim;
                 acc += scores[t] * v_ptr[d];
             }
         }
-        if (sum_exp > 0.0f) acc /= sum_exp;
-        out_ptr[d] = acc;
+        out_ptr[d] = acc * inv_sum;
     }
 }
 
