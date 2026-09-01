@@ -94,11 +94,10 @@ extern "C" __global__ void kernel_fused_swiglu_gemv(
     float* __restrict__ out,
     int hiddenDim, int intermediateDim
 ) {
-    int outIdx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (outIdx >= hiddenDim) return;
-
-    float acc = 0.0f;
-    for (int j = 0; j < intermediateDim; j++) {
+    extern __shared__ float s_act[]; // size: intermediateDim
+    
+    // Step 1: Cooperatively compute intermediate activations across all threads
+    for (int j = threadIdx.x; j < intermediateDim; j += blockDim.x) {
         float gate = 0.0f;
         float up = 0.0f;
         for (int k = 0; k < hiddenDim; k++) {
@@ -106,10 +105,18 @@ extern "C" __global__ void kernel_fused_swiglu_gemv(
             up += x[k] * W_up[j * hiddenDim + k];
         }
         float silu = gate / (1.0f + expf(-gate));
-        float act = silu * up;
-        acc += act * W_down[outIdx * intermediateDim + j];
+        s_act[j] = silu * up;
     }
-    out[outIdx] = acc;
+    __syncthreads();
+
+    // Step 2: Compute down-projection output elements
+    for (int outIdx = blockIdx.x * blockDim.x + threadIdx.x; outIdx < hiddenDim; outIdx += gridDim.x * blockDim.x) {
+        float acc = 0.0f;
+        for (int j = 0; j < intermediateDim; j++) {
+            acc += s_act[j] * W_down[outIdx * intermediateDim + j];
+        }
+        out[outIdx] = acc;
+    }
 }
 `
 
@@ -278,6 +285,7 @@ func RunComparisonBenchmark(steps int) (*BenchmarkResults, error) {
 
 		// (b) Fused SwiGLU Block (Single kernel launch, zero intermediate DRAM writes)
 		_ = cudalaunch.Kernel(kFusedSwiGLU).Grid(uint32((hiddenDim + 127) / 128)).Block(128).
+			SharedMem(uint32(intermediateDim * 4)).
 			Launch(xBuf, wGateBuf, wUpBuf, wDownBuf, ffnOutBuf,
 				int32(hiddenDim), int32(intermediateDim))
 
