@@ -336,3 +336,125 @@ func (s *Scheduler) Step(ctx context.Context) (int, error) {
 
 	return len(callbacks), nil
 }
+
+// ExecutionPlan is an immutable compiled blueprint specifying tensor layouts,
+// memory buffer allocations, dependency sequences, and selected backend kernel operations.
+type ExecutionPlan struct {
+	DType      string             `json:"dtype"`
+	FuseEGraph bool               `json:"fuse_egraph"`
+	BatchShape [3]int             `json:"batch_shape"`
+	HeadDim    int                `json:"head_dim"`
+	NumHeads   int                `json:"num_heads"`
+	NumKVHeads int                `json:"num_kv_heads"`
+	NumLayers  int                `json:"num_layers"`
+	VocabSize  int                `json:"vocab_size"`
+	Ops        []OpDispatch       `json:"ops"`
+	Buffers    []BufferAllocation `json:"buffers"`
+}
+
+// OpDispatch represents a single planned kernel execution step.
+type OpDispatch struct {
+	Name        string   `json:"name"`
+	Category    string   `json:"category"`
+	Fused       bool     `json:"fused"`
+	Inputs      []string `json:"inputs"`
+	Outputs     []string `json:"outputs"`
+	Threadgroup [3]int   `json:"threadgroup,omitempty"`
+	Grid        [3]int   `json:"grid,omitempty"`
+}
+
+// BufferAllocation details a residency requirement for intermediate activations or KV states.
+type BufferAllocation struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"size_bytes"`
+	DType     string `json:"dtype"`
+	Resident  bool   `json:"resident"`
+}
+
+// BuildExecutionPlan deterministically constructs the compiled execution plan for a model configuration.
+func BuildExecutionPlan(cfg Config) *ExecutionPlan {
+	plan := &ExecutionPlan{
+		DType:      "f32",
+		FuseEGraph: cfg.FuseEGraph,
+		BatchShape: [3]int{1, cfg.MaxSeqLen, cfg.Dim},
+		HeadDim:    cfg.HeadDim,
+		NumHeads:   cfg.NumHeads,
+		NumKVHeads: cfg.NumKVHeads,
+		NumLayers:  cfg.NumLayers,
+		VocabSize:  cfg.VocabSize,
+	}
+
+	elemBytes := int64(4) // float32
+
+	// Plan resident activation buffers
+	plan.Buffers = []BufferAllocation{
+		{Name: "x", SizeBytes: int64(cfg.Dim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "norm_x", SizeBytes: int64(cfg.Dim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "q", SizeBytes: int64(cfg.NumHeads*cfg.HeadDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "k", SizeBytes: int64(cfg.NumKVHeads*cfg.HeadDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "v", SizeBytes: int64(cfg.NumKVHeads*cfg.HeadDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "attn_out", SizeBytes: int64(cfg.Dim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "ffn_gate", SizeBytes: int64(cfg.HiddenDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "ffn_up", SizeBytes: int64(cfg.HiddenDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "ffn_act", SizeBytes: int64(cfg.HiddenDim) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "logits", SizeBytes: int64(cfg.VocabSize) * elemBytes, DType: plan.DType, Resident: true},
+		{Name: "token_out", SizeBytes: 4, DType: "int32", Resident: true},
+	}
+
+	// Plan ops
+	plan.Ops = append(plan.Ops, OpDispatch{
+		Name:     "EmbeddingLookup",
+		Category: "embedding",
+		Inputs:   []string{"embed_table", "token_id"},
+		Outputs:  []string{"x"},
+	})
+
+	for l := 0; l < cfg.NumLayers; l++ {
+		if cfg.FuseEGraph {
+			plan.Ops = append(plan.Ops, OpDispatch{
+				Name:     "FusedRMSNormQKV",
+				Category: "norm_gemv_fusion",
+				Fused:    true,
+				Inputs:   []string{"x", "in_norm_w", "wq", "wk", "wv"},
+				Outputs:  []string{"q", "k", "v"},
+			})
+		} else {
+			plan.Ops = append(plan.Ops,
+				OpDispatch{Name: "ComputeRMSNorm", Category: "norm", Inputs: []string{"x", "in_norm_w"}, Outputs: []string{"norm_x"}},
+				OpDispatch{Name: "FastGEMV_Q", Category: "gemv", Inputs: []string{"norm_x", "wq"}, Outputs: []string{"q"}},
+				OpDispatch{Name: "FastGEMV_K", Category: "gemv", Inputs: []string{"norm_x", "wk"}, Outputs: []string{"k"}},
+				OpDispatch{Name: "FastGEMV_V", Category: "gemv", Inputs: []string{"norm_x", "wv"}, Outputs: []string{"v"}},
+			)
+		}
+
+		plan.Ops = append(plan.Ops,
+			OpDispatch{Name: "ApplyRoPEStoreKV", Category: "rope", Inputs: []string{"q", "k", "v"}, Outputs: []string{"k_cache", "v_cache"}},
+			OpDispatch{Name: "CausalFlashAttentionDecode", Category: "attention", Inputs: []string{"q", "k_cache", "v_cache"}, Outputs: []string{"attn_out"}},
+			OpDispatch{Name: "FastGEMVResidual_O", Category: "gemv", Inputs: []string{"attn_out", "wo"}, Outputs: []string{"x"}},
+			OpDispatch{Name: "ComputeRMSNorm_Post", Category: "norm", Inputs: []string{"x", "post_norm_w"}, Outputs: []string{"norm_x"}},
+		)
+
+		if cfg.FuseEGraph {
+			plan.Ops = append(plan.Ops,
+				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
+				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
+				OpDispatch{Name: "FusedSwiGLUDown", Category: "swiglu_gemv_fusion", Fused: true, Inputs: []string{"ffn_gate", "ffn_up", "wdown"}, Outputs: []string{"x"}},
+			)
+		} else {
+			plan.Ops = append(plan.Ops,
+				OpDispatch{Name: "FastGEMV_Gate", Category: "gemv", Inputs: []string{"norm_x", "wgate"}, Outputs: []string{"ffn_gate"}},
+				OpDispatch{Name: "FastGEMV_Up", Category: "gemv", Inputs: []string{"norm_x", "wup"}, Outputs: []string{"ffn_up"}},
+				OpDispatch{Name: "FastSiLUMul", Category: "ffn", Inputs: []string{"ffn_gate", "ffn_up"}, Outputs: []string{"ffn_act"}},
+				OpDispatch{Name: "FastGEMVResidual_Down", Category: "gemv", Inputs: []string{"ffn_act", "wdown"}, Outputs: []string{"x"}},
+			)
+		}
+	}
+
+	plan.Ops = append(plan.Ops,
+		OpDispatch{Name: "ComputeRMSNorm_Final", Category: "norm", Inputs: []string{"x", "final_norm_w"}, Outputs: []string{"norm_x"}},
+		OpDispatch{Name: "FastGEMV_LMHead", Category: "gemv", Inputs: []string{"norm_x", "lm_head_w"}, Outputs: []string{"logits"}},
+		OpDispatch{Name: "ArgmaxSampling", Category: "sampling", Inputs: []string{"logits"}, Outputs: []string{"token_out"}},
+	)
+
+	return plan
+}

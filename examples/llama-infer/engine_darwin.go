@@ -89,6 +89,7 @@ type ModelEngine struct {
 	tokenizer  Tokenizer
 	weights    *metalsafetensors.Weights
 	egraphSats int
+	Plan       *ExecutionPlan
 }
 
 // FlightRecorder returns the active in-memory GPU telemetry recorder.
@@ -534,6 +535,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		metrics:        metrics,
 		prefixes:       newPrefixCache(64<<20, 8),
 		tuner:          NewDispatchTuner(),
+		Plan:           BuildExecutionPlan(cfg),
 	}
 
 	darwinEngineCache[key] = eng

@@ -45,6 +45,7 @@ type ModelEngine struct {
 	drafter    *cudaspec.NgramDrafter
 	egraphSats int
 	generateMu sync.Mutex
+	Plan       *ExecutionPlan
 }
 
 // FlightRecorder returns nil on CUDA targets until unified event recorder is attached.
@@ -276,6 +277,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		fuseActive: cfg.FuseEGraph,
 		recorder:   metalprof.NewFlightRecorder(2048),
 		metrics:    metrics,
+		Plan:       BuildExecutionPlan(cfg),
 	}
 
 	cudaEngineCache[key] = eng

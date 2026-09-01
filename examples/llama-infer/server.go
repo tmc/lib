@@ -222,6 +222,7 @@ type TelemetryResponse struct {
 	NumLayers         int                       `json:"num_layers"`
 	EGraphSats        int                       `json:"egraph_saturations"`
 	ActivePlan        string                    `json:"active_plan"`
+	ExecutionPlan     *ExecutionPlan            `json:"execution_plan,omitempty"`
 	TotalDispatches   int                       `json:"total_dispatches"`
 	MeanLatencyUs     float64                   `json:"mean_latency_us"`
 	P50LatencyUs      float64                   `json:"p50_latency_us"`
@@ -857,6 +858,7 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 		NumLayers:         s.cfg.NumLayers,
 		EGraphSats:        s.engine.egraphSats,
 		ActivePlan:        activePlan,
+		ExecutionPlan:     s.engine.Plan,
 		TotalDispatches:   len(events),
 		MeanLatencyUs:     meanUs,
 		P50LatencyUs:      p50Us,
