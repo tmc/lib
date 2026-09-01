@@ -80,7 +80,22 @@ In Mixture-of-Experts (MoE) architectures where experts $E_0 \dots E_N$ are dist
 
 ---
 
-## 4. Subsystem Components & File Layout in `tmc/lib`
+## 4. Prior Art & Architectural Synergy with `mlx-go-ccl`
+
+This design directly leverages and refines battle-tested concepts developed in [`github.com/tmc/mlx-go-ccl`](file:///Users/tmc/go/src/github.com/tmc/mlx-go-ccl):
+
+1. **Topology Snapshot Diffing (`mgccl/topodiff`)**:
+   - Compares successive cluster connectivity snapshots (`topodiff.Diff(from, to)`), generating fine-grained delta operations (`AddPeer`, `RemovePeer`, `DegradeLink`).
+2. **Corrective Live Planning (`mgccl/liveplan`)**:
+   - Coordinates transition state machines, safe-points, and token-drain procedures (`liveplan.CorrectiveMembershipConfig`) so in-flight requests are not corrupted when nodes shift.
+3. **Dynamic Link Selection (`mgccl/linkselect`)**:
+   - Dynamic transport carrier scoring across shared memory (`nvlshm`), direct RDMA (`gonccl`), and TCP (`tcpboot`), falling back based on live latency/bandwidth probes.
+4. **Decoupled Local Steps (`mgccl/diloco`)**:
+   - DiLoCo-style asynchronous periodic synchronization, allowing stragglers to execute multiple local decode steps before syncing with the cluster.
+
+---
+
+## 5. Subsystem Components & File Layout in `tmc/lib`
 
 ```
 tmc/lib/
@@ -102,7 +117,7 @@ tmc/lib/
 
 ---
 
-## 5. Reviewer Discussion Points & Open Questions
+## 6. Reviewer Discussion Points & Open Questions
 
 1. **Topology Transition Granularity**:
    - *Question:* During a live transition from TP to PP under network degradation, should active in-flight KV caches be reshuffled immediately, or should the transition be applied on the next incoming request sequence?
@@ -113,7 +128,7 @@ tmc/lib/
 
 ---
 
-## 6. Reviewer Sign-Off Template
+## 7. Reviewer Sign-Off Template
 
 ```markdown
 ### Distributed PGO Review Feedback
