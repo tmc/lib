@@ -204,3 +204,19 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 
 	return nil
 }
+
+// WriteBoth snapshots the flight recording buffer to both a pprof writer and a Perfetto writer.
+func (fr *FlightRecorder) WriteBoth(pprofWriter io.Writer, perfettoWriter io.Writer) error {
+	if pprofWriter != nil {
+		if err := fr.WriteTo(pprofWriter); err != nil {
+			return err
+		}
+	}
+	if perfettoWriter != nil {
+		if err := fr.WritePerfettoTo(perfettoWriter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
