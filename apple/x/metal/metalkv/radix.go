@@ -4,16 +4,19 @@ package metalkv
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // RadixNode represents a branch or token segment within the Radix-Tree Prefix Cache.
 type RadixNode struct {
-	Tokens     []int32
-	BlockIDs   []int
-	Children   map[int32]*RadixNode
-	Parent     *RadixNode
-	LastAccess int64
+	Tokens   []int32
+	BlockIDs []int
+	Children map[int32]*RadixNode
+	Parent   *RadixNode
+	// LastAccess is stamped by MatchPrefix, which runs concurrently under a
+	// read lock, so it is accessed atomically rather than as a plain int64.
+	LastAccess atomic.Int64
 	RefCount   int
 }
 
@@ -77,7 +80,7 @@ func (r *RadixTree) MatchPrefix(tokens []int32) (int, []int, *RadixNode) {
 
 		matchedTokens += checkLen
 		matchedBlocks = append(matchedBlocks, child.BlockIDs...)
-		child.LastAccess = time.Now().UnixNano()
+		child.LastAccess.Store(time.Now().UnixNano())
 
 		if checkLen < segLen {
 			// Partial segment match
@@ -101,12 +104,12 @@ func (r *RadixTree) Insert(tokens []int32, blockIDs []int) {
 
 	firstTok := tokens[0]
 	node := &RadixNode{
-		Tokens:     tokens,
-		BlockIDs:   blockIDs,
-		Children:   make(map[int32]*RadixNode),
-		Parent:     r.Root,
-		LastAccess: time.Now().UnixNano(),
+		Tokens:   tokens,
+		BlockIDs: blockIDs,
+		Children: make(map[int32]*RadixNode),
+		Parent:   r.Root,
 	}
+	node.LastAccess.Store(time.Now().UnixNano())
 	r.Root.Children[firstTok] = node
 	for _, b := range blockIDs {
 		r.NodeMap[b] = node
