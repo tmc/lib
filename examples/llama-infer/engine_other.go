@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
-	"github.com/tmc/lib/nvidia/x/cudafuse"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -71,11 +70,6 @@ func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 	key := fmt.Sprintf("%s-%d-%d-%d-egraph-%v", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.FuseEGraph)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
-	}
-
-	if cfg.FuseEGraph {
-		_ = cudafuse.RMSNormGEMVFused
-		_ = cudafuse.SwiGLUGEMVFused
 	}
 
 	g := cudair.NewGraph()
