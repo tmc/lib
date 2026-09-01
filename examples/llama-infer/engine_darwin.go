@@ -53,6 +53,12 @@ type ModelEngine struct {
 	psoGEMVRes     apple.MTLComputePipelineState
 	psoGEMV64      apple.MTLComputePipelineState
 	psoGEMVRes64   apple.MTLComputePipelineState
+	psoEmbedH      apple.MTLComputePipelineState
+	psoNormH       apple.MTLComputePipelineState
+	psoGEMVH       apple.MTLComputePipelineState
+	psoGEMVResH    apple.MTLComputePipelineState
+	psoGEMV64H     apple.MTLComputePipelineState
+	psoGEMVRes64H  apple.MTLComputePipelineState
 	psoRoPE        apple.MTLComputePipelineState
 	psoAttn        apple.MTLComputePipelineState
 	psoSiLUMul     apple.MTLComputePipelineState
@@ -278,7 +284,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		_, egraphSats = egraph.Saturate(eg, rules, 10)
 	}
 
-	fullMSL := metalmegakernel.LlamaDecoderKernelsMSL + "\n" + metalattn.CausalFlashAttentionMSL + "\n" + metalsample.ArgmaxSamplingMSL
+	fullMSL := metalmegakernel.LlamaDecoderKernelsMSL + "\n" + metalmegakernel.HalfWeightKernelsMSL + "\n" + metalattn.CausalFlashAttentionMSL + "\n" + metalsample.ArgmaxSamplingMSL
 	lib, err := dev.CompileLibrary(fullMSL)
 	if err != nil {
 		return nil, fmt.Errorf("compile MSL library on Metal GPU: %w", err)
@@ -308,6 +314,12 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create FastGEMVResidual64 pipeline: %w", err)
 	}
+	psoEmbedH, _ := dev.NewComputePipeline(lib, "EmbeddingLookupH")
+	psoNormH, _ := dev.NewComputePipeline(lib, "ComputeRMSNormH")
+	psoGEMVH, _ := dev.NewComputePipeline(lib, "FastGEMVH")
+	psoGEMVResH, _ := dev.NewComputePipeline(lib, "FastGEMVResidualH")
+	psoGEMV64H, _ := dev.NewComputePipeline(lib, "FastGEMV64H")
+	psoGEMVRes64H, _ := dev.NewComputePipeline(lib, "FastGEMVResidual64H")
 	psoRoPE, err := dev.NewComputePipeline(lib, "ApplyRoPEStoreKV")
 	if err != nil {
 		return nil, fmt.Errorf("create ApplyRoPEStoreKV pipeline: %w", err)
@@ -505,6 +517,12 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		psoGEMVRes:     psoGEMVRes,
 		psoGEMV64:      psoGEMV64,
 		psoGEMVRes64:   psoGEMVRes64,
+		psoEmbedH:      psoEmbedH,
+		psoNormH:       psoNormH,
+		psoGEMVH:       psoGEMVH,
+		psoGEMVResH:    psoGEMVResH,
+		psoGEMV64H:     psoGEMV64H,
+		psoGEMVRes64H:  psoGEMVRes64H,
 		psoRoPE:        psoRoPE,
 		psoAttn:        psoAttn,
 		psoSiLUMul:     psoSiLUMul,

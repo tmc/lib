@@ -1,6 +1,17 @@
 #include <metal_stdlib>
 using namespace metal;
 
+#ifndef METAL_SIMD_SUM_DEFINED
+#define METAL_SIMD_SUM_DEFINED
+inline float simd_sum(float val) {
+    #pragma unroll
+    for (ushort offset = 16; offset > 0; offset /= 2) {
+        val += simd_shuffle_down(val, offset);
+    }
+    return val;
+}
+#endif
+
 // 1H. Embedding lookup over half weights
 kernel void EmbeddingLookupH(
     device const half* embed_table     [[buffer(0)]],
@@ -44,8 +55,9 @@ kernel void ComputeRMSNormH(
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
+    float rms = s_rms;
     for (uint i = tid; i < dim; i += 128) {
-        out_normed[i] = x[i] * s_rms * float(weight[i]);
+        out_normed[i] = x[i] * rms * float(weight[i]);
     }
 }
 
@@ -63,23 +75,19 @@ kernel void FastGEMVH(
 ) {
     if (row < out_dim) {
         device const half* w_row = W + row * in_dim;
-        uint in_dim8 = in_dim / 8;
-        device const half8* w_row8 = (device const half8*)w_row;
+        uint in_dim4 = in_dim / 4;
+        device const half4* w_row4 = (device const half4*)w_row;
 
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim8; i += 128) {
-            half8 w8 = w_row8[i];
-            uint base = i * 8;
-            acc += x[base+0] * float(w8[0]) +
-                   x[base+1] * float(w8[1]) +
-                   x[base+2] * float(w8[2]) +
-                   x[base+3] * float(w8[3]) +
-                   x[base+4] * float(w8[4]) +
-                   x[base+5] * float(w8[5]) +
-                   x[base+6] * float(w8[6]) +
-                   x[base+7] * float(w8[7]);
+        for (uint i = tid; i < in_dim4; i += 128) {
+            half4 w4 = w_row4[i];
+            uint base = i * 4;
+            acc += x[base+0] * float(w4[0]) +
+                   x[base+1] * float(w4[1]) +
+                   x[base+2] * float(w4[2]) +
+                   x[base+3] * float(w4[3]);
         }
-        for (uint i = in_dim8 * 8 + tid; i < in_dim; i += 128) {
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 128) {
             acc += x[i] * float(w_row[i]);
         }
         acc = simd_sum(acc);
@@ -107,23 +115,19 @@ kernel void FastGEMVResidualH(
 ) {
     if (row < out_dim) {
         device const half* w_row = W + row * in_dim;
-        uint in_dim8 = in_dim / 8;
-        device const half8* w_row8 = (device const half8*)w_row;
+        uint in_dim4 = in_dim / 4;
+        device const half4* w_row4 = (device const half4*)w_row;
 
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim8; i += 128) {
-            half8 w8 = w_row8[i];
-            uint base = i * 8;
-            acc += x[base+0] * float(w8[0]) +
-                   x[base+1] * float(w8[1]) +
-                   x[base+2] * float(w8[2]) +
-                   x[base+3] * float(w8[3]) +
-                   x[base+4] * float(w8[4]) +
-                   x[base+5] * float(w8[5]) +
-                   x[base+6] * float(w8[6]) +
-                   x[base+7] * float(w8[7]);
+        for (uint i = tid; i < in_dim4; i += 128) {
+            half4 w4 = w_row4[i];
+            uint base = i * 4;
+            acc += x[base+0] * float(w4[0]) +
+                   x[base+1] * float(w4[1]) +
+                   x[base+2] * float(w4[2]) +
+                   x[base+3] * float(w4[3]);
         }
-        for (uint i = in_dim8 * 8 + tid; i < in_dim; i += 128) {
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 128) {
             acc += x[i] * float(w_row[i]);
         }
         acc = simd_sum(acc);
@@ -151,23 +155,19 @@ kernel void FastGEMV64H(
 ) {
     if (row < out_dim) {
         device const half* w_row = W + row * in_dim;
-        uint in_dim8 = in_dim / 8;
-        device const half8* w_row8 = (device const half8*)w_row;
+        uint in_dim4 = in_dim / 4;
+        device const half4* w_row4 = (device const half4*)w_row;
 
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim8; i += 64) {
-            half8 w8 = w_row8[i];
-            uint base = i * 8;
-            acc += x[base+0] * float(w8[0]) +
-                   x[base+1] * float(w8[1]) +
-                   x[base+2] * float(w8[2]) +
-                   x[base+3] * float(w8[3]) +
-                   x[base+4] * float(w8[4]) +
-                   x[base+5] * float(w8[5]) +
-                   x[base+6] * float(w8[6]) +
-                   x[base+7] * float(w8[7]);
+        for (uint i = tid; i < in_dim4; i += 64) {
+            half4 w4 = w_row4[i];
+            uint base = i * 4;
+            acc += x[base+0] * float(w4[0]) +
+                   x[base+1] * float(w4[1]) +
+                   x[base+2] * float(w4[2]) +
+                   x[base+3] * float(w4[3]);
         }
-        for (uint i = in_dim8 * 8 + tid; i < in_dim; i += 64) {
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 64) {
             acc += x[i] * float(w_row[i]);
         }
         acc = simd_sum(acc);
@@ -194,23 +194,19 @@ kernel void FastGEMVResidual64H(
 ) {
     if (row < out_dim) {
         device const half* w_row = W + row * in_dim;
-        uint in_dim8 = in_dim / 8;
-        device const half8* w_row8 = (device const half8*)w_row;
+        uint in_dim4 = in_dim / 4;
+        device const half4* w_row4 = (device const half4*)w_row;
 
         float acc = 0.0f;
-        for (uint i = tid; i < in_dim8; i += 64) {
-            half8 w8 = w_row8[i];
-            uint base = i * 8;
-            acc += x[base+0] * float(w8[0]) +
-                   x[base+1] * float(w8[1]) +
-                   x[base+2] * float(w8[2]) +
-                   x[base+3] * float(w8[3]) +
-                   x[base+4] * float(w8[4]) +
-                   x[base+5] * float(w8[5]) +
-                   x[base+6] * float(w8[6]) +
-                   x[base+7] * float(w8[7]);
+        for (uint i = tid; i < in_dim4; i += 64) {
+            half4 w4 = w_row4[i];
+            uint base = i * 4;
+            acc += x[base+0] * float(w4[0]) +
+                   x[base+1] * float(w4[1]) +
+                   x[base+2] * float(w4[2]) +
+                   x[base+3] * float(w4[3]);
         }
-        for (uint i = in_dim8 * 8 + tid; i < in_dim; i += 64) {
+        for (uint i = in_dim4 * 4 + tid; i < in_dim; i += 64) {
             acc += x[i] * float(w_row[i]);
         }
         acc = simd_sum(acc);
