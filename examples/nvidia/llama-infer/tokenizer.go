@@ -116,16 +116,33 @@ func (tok *BpeTokenizer) Encode(text string) ([]int32, error) {
 		return tokens, nil
 	}
 
-	// Split by space/words for BPE
-	words := strings.Fields(text)
 	var tokens []int32
+	// Prepend BOS token if present
+	if bosID, ok := tok.vocab["<s>"]; ok {
+		tokens = append(tokens, bosID)
+	}
 
-	for _, w := range words {
+	// Check for SentencePiece prefix (\u2581) or GPT-2 prefix (Ġ)
+	spPrefix := ""
+	if _, ok := tok.vocab["\u2581The"]; ok {
+		spPrefix = "\u2581"
+	} else if _, ok := tok.vocab["ĠThe"]; ok {
+		spPrefix = "Ġ"
+	}
+
+	words := strings.Fields(text)
+	for i, w := range words {
+		if spPrefix != "" {
+			w = spPrefix + w
+		} else if i > 0 {
+			w = " " + w
+		}
+
 		// Initial character pieces
 		runes := []rune(w)
 		pieces := make([]string, len(runes))
-		for i, r := range runes {
-			pieces[i] = string(r)
+		for j, r := range runes {
+			pieces[j] = string(r)
 		}
 
 		// Iteratively merge BPE pairs with lowest rank
@@ -133,12 +150,12 @@ func (tok *BpeTokenizer) Encode(text string) ([]int32, error) {
 			bestRank := 1 << 30
 			bestIdx := -1
 
-			for i := 0; i < len(pieces)-1; i++ {
-				pair := pieces[i] + " " + pieces[i+1]
+			for j := 0; j < len(pieces)-1; j++ {
+				pair := pieces[j] + " " + pieces[j+1]
 				if rank, exists := tok.merges[pair]; exists {
 					if rank < bestRank {
 						bestRank = rank
-						bestIdx = i
+						bestIdx = j
 					}
 				}
 			}
@@ -180,6 +197,9 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 	var sb strings.Builder
 	for _, id := range tokens {
 		if s, ok := tok.invVocab[id]; ok {
+			if s == "<s>" || s == "</s>" {
+				continue
+			}
 			// Handle byte fallback <0xNN>
 			if strings.HasPrefix(s, "<0x") && strings.HasSuffix(s, ">") && len(s) == 6 {
 				if b, err := strconv.ParseUint(s[3:5], 16, 8); err == nil {
@@ -188,7 +208,8 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 				}
 			}
 			// Replace sentencepiece   prefix with space, and GPT-2 Ġ with space, Ċ with newline
-			clean := strings.ReplaceAll(s, " ", " ")
+			clean := strings.ReplaceAll(s, "\u2581", " ")
+			clean = strings.ReplaceAll(clean, " ", " ")
 			clean = strings.ReplaceAll(clean, "Ġ", " ")
 			clean = strings.ReplaceAll(clean, "Ċ", "\n")
 			sb.WriteString(clean)
@@ -200,6 +221,7 @@ func (tok *BpeTokenizer) Decode(tokens []int32) (string, error) {
 	}
 	return sb.String(), nil
 }
+
 
 // VocabSize returns the total vocabulary size.
 func (tok *BpeTokenizer) VocabSize() int {
