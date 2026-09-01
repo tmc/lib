@@ -69,16 +69,28 @@ func TestTelemetryServer(t *testing.T) {
 		t.Errorf("expected 4 egraph saturations, got %d", resp.EGraphSats)
 	}
 
-	// 3. Test pprof export endpoint
+	// 3. Test GPU FlightRecorder pprof endpoint
 	reqPprof := httptest.NewRequest("GET", "/debug/pprof/gpu", nil)
 	wPprof := httptest.NewRecorder()
 	srv.ServeHTTP(wPprof, reqPprof)
 
 	if wPprof.Code != http.StatusOK {
-		t.Fatalf("expected HTTP 200 for pprof, got %d", wPprof.Code)
+		t.Fatalf("expected HTTP 200 for gpu pprof, got %d", wPprof.Code)
 	}
 	if wPprof.Body.Len() == 0 {
 		t.Fatal("expected non-empty pprof profile bytes")
+	}
+
+	// 4. Test standard Go runtime pprof index endpoint
+	reqRuntimePprof := httptest.NewRequest("GET", "/debug/pprof/", nil)
+	wRuntimePprof := httptest.NewRecorder()
+	srv.ServeHTTP(wRuntimePprof, reqRuntimePprof)
+
+	if wRuntimePprof.Code != http.StatusOK {
+		t.Fatalf("expected HTTP 200 for runtime pprof index, got %d", wRuntimePprof.Code)
+	}
+	if !stringsContains(wRuntimePprof.Body.String(), "Types of profiles available") {
+		t.Errorf("expected pprof index content in response, got: %s", wRuntimePprof.Body.String())
 	}
 }
 

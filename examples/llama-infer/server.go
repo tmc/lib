@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"sort"
 	"strings"
 	"time"
@@ -47,6 +48,15 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 func (s *TelemetryServer) routes() {
 	s.mux.HandleFunc("/", s.handleDashboard)
 	s.mux.HandleFunc("/api/telemetry", s.handleAPITelemetry)
+
+	// Standard Go runtime pprof endpoints
+	s.mux.HandleFunc("/debug/pprof/", pprof.Index)
+	s.mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	s.mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	s.mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	s.mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	// GPU hardware FlightRecorder profile endpoint
 	s.mux.HandleFunc("/debug/pprof/gpu", s.handlePprof)
 }
 
@@ -199,7 +209,8 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
                 <div style="font-size: 13px; color: #8b949e; margin-top: 4px;">Live Closed-Loop Hardware Profiler &amp; JIT Monitor</div>
             </div>
             <div>
-                <a href="/debug/pprof/gpu" class="btn">⬇ Export pprof Profile</a>
+                <a href="/debug/pprof/" class="btn" style="margin-right: 8px;">📊 Runtime pprof</a>
+                <a href="/debug/pprof/gpu" class="btn">⬇ GPU FlightRecorder Profile</a>
             </div>
         </header>
 
