@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -34,6 +36,15 @@ type TuningCandidate struct {
 	CUDASource string
 }
 
+// Key returns a unique composite identifier for the candidate expression and launch configuration.
+func (c TuningCandidate) Key() string {
+	exprStr := ""
+	if c.Expr != nil {
+		exprStr = c.Expr.String()
+	}
+	return fmt.Sprintf("%s::b%d::g%d", exprStr, c.BlockDim, c.GridDim)
+}
+
 // AutotuneResult stores the benchmarked latency of a candidate kernel.
 type AutotuneResult struct {
 	Candidate TuningCandidate
@@ -58,6 +69,99 @@ func NewTuner(dev *cuda.Device) *Tuner {
 	}
 }
 
+// BenchmarkCandidate compiles, loads, warms up, and benchmarks the candidate on the GPU,
+// measuring pure execution duration (excluding compilation/load time).
+func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time.Duration, error) {
+	if dev == nil {
+		return 0, fmt.Errorf("egraph: nil CUDA device for benchmark")
+	}
+	if iters <= 0 {
+		iters = 5
+	}
+
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return 0, fmt.Errorf("egraph: compute capability: %w", err)
+	}
+
+	mod, err := nvrtcx.Compile(cand.CUDASource, nvrtcx.WithArch(major, minor))
+	if err != nil {
+		return 0, fmt.Errorf("egraph: compile candidate: %w", err)
+	}
+
+	loadedMod, err := mod.Load(dev)
+	if err != nil {
+		return 0, fmt.Errorf("egraph: load module: %w", err)
+	}
+	defer loadedMod.Unload()
+
+	fn, err := loadedMod.GetFunction(cand.KernelName)
+	if err != nil {
+		return 0, fmt.Errorf("egraph: get kernel function %q: %w", cand.KernelName, err)
+	}
+
+	stream, err := dev.NewStream()
+	if err != nil {
+		return 0, fmt.Errorf("egraph: create stream: %w", err)
+	}
+	defer stream.Destroy()
+
+	const testElements = 1024
+	inA, err := cudamem.Alloc[float32](dev, testElements)
+	if err != nil {
+		return 0, fmt.Errorf("egraph: alloc input A: %w", err)
+	}
+	defer inA.Free()
+
+	inB, err := cudamem.Alloc[float32](dev, testElements)
+	if err != nil {
+		return 0, fmt.Errorf("egraph: alloc input B: %w", err)
+	}
+	defer inB.Free()
+
+	outBuf, err := cudamem.Alloc[float32](dev, testElements)
+	if err != nil {
+		return 0, fmt.Errorf("egraph: alloc output buffer: %w", err)
+	}
+	defer outBuf.Free()
+
+	grid := uint32(cand.GridDim)
+	if grid == 0 {
+		grid = (testElements + uint32(cand.BlockDim) - 1) / uint32(cand.BlockDim)
+		if grid == 0 {
+			grid = 1
+		}
+	}
+	block := uint32(cand.BlockDim)
+	if block == 0 {
+		block = 128
+	}
+
+	launcher := cudalaunch.Kernel(fn).Grid(grid).Block(block).SharedMem(uint32(cand.SharedMem)).On(stream)
+
+	// 1. Warmup Execution
+	if err := launcher.Launch(inA.Ptr(), inB.Ptr(), outBuf.Ptr(), uint32(testElements)); err != nil {
+		return 0, fmt.Errorf("egraph: warmup launch: %w", err)
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		return 0, fmt.Errorf("egraph: warmup sync: %w", err)
+	}
+
+	// 2. Timed GPU Microbenchmark (pure execution time)
+	t0 := time.Now()
+	for i := 0; i < iters; i++ {
+		if err := launcher.Launch(inA.Ptr(), inB.Ptr(), outBuf.Ptr(), uint32(testElements)); err != nil {
+			return 0, fmt.Errorf("egraph: benchmark launch: %w", err)
+		}
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		return 0, fmt.Errorf("egraph: benchmark sync: %w", err)
+	}
+	elapsed := time.Since(t0) / time.Duration(iters)
+
+	return elapsed, nil
+}
+
 // SelectBest extracts the instant default plan and, if budget > 0, benchmarks candidate
 // tile/kernel configurations on the device to pick the fastest kernel.
 func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget) (*TuningCandidate, error) {
@@ -77,8 +181,9 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 		return &defaultCand, nil
 	}
 
+	cacheKey := fmt.Sprintf("%s::budget=%v", defaultExpr.String(), budget)
 	t.mu.RLock()
-	cached, ok := t.cache[defaultExpr.String()]
+	cached, ok := t.cache[cacheKey]
 	t.mu.RUnlock()
 	if ok {
 		return &cached, nil
@@ -111,29 +216,21 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 		}
 		cand.CUDASource = src
 
-		// Measure compilation & micro-execution time
-		t0 := time.Now()
-		major, minor, _ := t.dev.ComputeCapability()
-		mod, err := nvrtcx.Compile(src, nvrtcx.WithArch(major, minor))
+		// Measure real GPU execution latency on hardware
+		execDur, err := BenchmarkCandidate(t.dev, cand, 5)
 		if err != nil {
 			continue
 		}
-		loaded, err := mod.Load(t.dev)
-		if err != nil {
-			continue
-		}
-		_ = loaded
 
-		elapsed := time.Since(t0)
-		if elapsed < bestDur {
-			bestDur = elapsed
+		if execDur < bestDur {
+			bestDur = execDur
 			bestCand = cand
 		}
 	}
 
 	t.mu.Lock()
-	t.cache[defaultExpr.String()] = bestCand
-	t.bestScores[defaultExpr.String()] = bestDur
+	t.cache[cacheKey] = bestCand
+	t.bestScores[cacheKey] = bestDur
 	t.mu.Unlock()
 
 	return &bestCand, nil
