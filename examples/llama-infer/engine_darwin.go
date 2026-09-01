@@ -70,17 +70,18 @@ type ModelEngine struct {
 }
 
 var (
-	darwinEngineCache *ModelEngine
+	darwinEngineCache = make(map[string]*ModelEngine)
 	darwinEngineMu    sync.Mutex
 )
 
-// GetOrCompileDarwinEngine builds or reuses the compiled Metal execution engine.
+// GetOrCompileDarwinEngine builds or reuses the compiled Metal execution engine per model config.
 func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	darwinEngineMu.Lock()
 	defer darwinEngineMu.Unlock()
 
-	if darwinEngineCache != nil {
-		return darwinEngineCache, nil
+	key := fmt.Sprintf("%s-%d-%d-%d", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize)
+	if eng, ok := darwinEngineCache[key]; ok {
+		return eng, nil
 	}
 
 	g := metalir.NewGraph()
@@ -150,7 +151,7 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	vocabSize := int32(cfg.VocabSize)
 	vBuf := dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabSize), 4, apple.MTLResourceStorageModeShared)
 
-	darwinEngineCache = &ModelEngine{
+	eng := &ModelEngine{
 		dev:        dev,
 		lib:        lib,
 		psoSample:  psoSample,
@@ -162,7 +163,8 @@ func GetOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		vBuf:       vBuf,
 	}
 
-	return darwinEngineCache, nil
+	darwinEngineCache[key] = eng
+	return eng, nil
 }
 
 func runPlatform(cfg Config) error {
