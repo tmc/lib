@@ -99,6 +99,16 @@ func f32BitsToF16(bits uint32) uint16 {
 	return half
 }
 
+// F32ToF16 converts a float32 value into IEEE 754 half-precision bits.
+func F32ToF16(v float32) uint16 {
+	return f32BitsToF16(math.Float32bits(v))
+}
+
+// F16ToF32 converts IEEE 754 half-precision bits into a float32 value.
+func F16ToF32(h uint16) float32 {
+	return f16ToF32(h)
+}
+
 // f16ToF32 converts float16 bits to float32, for tests and readback.
 func f16ToF32(h uint16) float32 {
 	return math.Float32frombits(f16BitsToF32Bits(h))
