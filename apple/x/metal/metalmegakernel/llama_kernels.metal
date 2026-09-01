@@ -691,53 +691,61 @@ kernel void BatchedCausalFlashAttention(
 ) {
     uint t = group_idx / num_q_heads;
     uint q_head = group_idx % num_q_heads;
-    if (t < seq_len && q_head < num_q_heads) {
-        uint actual_pos = start_pos + t;
-        uint kv_group = num_q_heads / num_kv_heads;
-        uint kv_head = q_head / kv_group;
+    if (t >= seq_len || q_head >= num_q_heads) {
+        return;
+    }
 
-        uint q_offset = t * (num_q_heads * head_dim) + q_head * head_dim;
-        device const float* q_vec = q_all + q_offset;
-        device float* out_vec = out_all + q_offset;
+    uint actual_pos = start_pos + t;
+    uint kv_group = num_q_heads / num_kv_heads;
+    uint kv_head = q_head / kv_group;
 
-        float m_prev = -1e30f;
-        float l_prev = 0.0f;
-        float acc_v[128] = {0.0f};
+    uint q_offset = t * (num_q_heads * head_dim) + q_head * head_dim;
+    device const float* q_vec = q_all + q_offset;
+    device float* out_vec = out_all + q_offset;
 
-        for (uint p = 0; p <= actual_pos; p++) {
-            device const float* k_vec = k_cache + p * (num_kv_heads * head_dim) + kv_head * head_dim;
-            float score = 0.0f;
-            for (uint d = tid; d < head_dim; d += 128) {
-                score += q_vec[d] * k_vec[d];
-            }
-            score = simd_sum(score);
-            threadgroup float s_score[4];
-            if (simd_lane == 0) s_score[simd_id] = score;
-            threadgroup_barrier(mem_flags::mem_threadgroup);
+    threadgroup float s_red[4];
+    threadgroup float s_score_bcast;
 
-            float total_score = (simd_id == 0 && simd_lane < 4) ? s_score[simd_lane] : 0.0f;
-            if (simd_id == 0) total_score = simd_sum(total_score);
-            threadgroup_barrier(mem_flags::mem_threadgroup);
+    float m_prev = -1e30f;
+    float l_prev = 0.0f;
+    float acc_v[128] = {0.0f};
 
-            total_score *= scale;
-
-            float m_curr = max(m_prev, total_score);
-            float exp_prev = exp(m_prev - m_curr);
-            float exp_curr = exp(total_score - m_curr);
-            float l_curr = l_prev * exp_prev + exp_curr;
-
-            device const float* v_vec = v_cache + p * (num_kv_heads * head_dim) + kv_head * head_dim;
-            for (uint d = tid; d < head_dim; d += 128) {
-                acc_v[d] = acc_v[d] * exp_prev + exp_curr * v_vec[d];
-            }
-            m_prev = m_curr;
-            l_prev = l_curr;
-        }
-
-        float inv_l = (l_prev > 0.0f) ? (1.0f / l_prev) : 0.0f;
+    for (uint p = 0; p <= actual_pos; p++) {
+        device const float* k_vec = k_cache + p * (num_kv_heads * head_dim) + kv_head * head_dim;
+        float score = 0.0f;
         for (uint d = tid; d < head_dim; d += 128) {
-            out_vec[d] = acc_v[d] * inv_l;
+            score += q_vec[d] * k_vec[d];
         }
+        score = simd_sum(score);
+        if (simd_lane == 0) {
+            s_red[simd_id] = score;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        if (tid == 0) {
+            float total = s_red[0] + s_red[1] + s_red[2] + s_red[3];
+            s_score_bcast = total * scale;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+
+        float total_score = s_score_bcast;
+
+        float m_curr = max(m_prev, total_score);
+        float exp_prev = exp(m_prev - m_curr);
+        float exp_curr = exp(total_score - m_curr);
+        float l_curr = l_prev * exp_prev + exp_curr;
+
+        device const float* v_vec = v_cache + p * (num_kv_heads * head_dim) + kv_head * head_dim;
+        for (uint d = tid; d < head_dim; d += 128) {
+            acc_v[d] = acc_v[d] * exp_prev + exp_curr * v_vec[d];
+        }
+        m_prev = m_curr;
+        l_prev = l_curr;
+    }
+
+    float inv_l = (l_prev > 0.0f) ? (1.0f / l_prev) : 0.0f;
+    for (uint d = tid; d < head_dim; d += 128) {
+        out_vec[d] = acc_v[d] * inv_l;
     }
 }
 

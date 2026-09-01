@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -492,4 +493,50 @@ func BuildExecutionPlan(cfg Config) *ExecutionPlan {
 	)
 
 	return plan
+}
+
+// ValidatePlan verifies that an ExecutionPlan conforms to valid operations,
+// layer indices, dtype specifications, and dimension boundaries.
+func ValidatePlan(plan *ExecutionPlan, cfg Config) error {
+	if plan == nil {
+		return errors.New("plan is nil")
+	}
+	if len(plan.Ops) == 0 {
+		return errors.New("plan contains no operations")
+	}
+	if plan.DType != "f32" && plan.DType != "fp32" && plan.DType != "f16" && plan.DType != "fp16" {
+		return fmt.Errorf("unsupported plan dtype: %q", plan.DType)
+	}
+	validOps := map[string]bool{
+		"EmbeddingLookup":            true,
+		"ComputeRMSNorm":             true,
+		"FastGEMV_Q":                 true,
+		"FastGEMV_K":                 true,
+		"FastGEMV_V":                 true,
+		"FusedRMSNormQKV":            true,
+		"ApplyRoPEStoreKV":           true,
+		"CausalFlashAttentionDecode": true,
+		"FastGEMVResidual_O":         true,
+		"ComputeRMSNorm_Post":        true,
+		"FastGEMV_Gate":              true,
+		"FastGEMV_Up":                true,
+		"FusedSwiGLUDown":            true,
+		"FastSiLUMul":                true,
+		"FastGEMVResidual_Down":      true,
+		"ComputeRMSNorm_Final":       true,
+		"FastGEMV_LMHead":            true,
+		"ArgmaxSampling":             true,
+	}
+
+	for i, op := range plan.Ops {
+		if !validOps[op.Name] {
+			return fmt.Errorf("plan op %d: unknown operation %q", i, op.Name)
+		}
+		if op.Name != "EmbeddingLookup" && op.Name != "ComputeRMSNorm_Final" && op.Name != "FastGEMV_LMHead" && op.Name != "ArgmaxSampling" {
+			if op.LayerIndex < 0 || op.LayerIndex >= cfg.NumLayers {
+				return fmt.Errorf("plan op %d (%s): layer index %d out of bounds [0, %d)", i, op.Name, op.LayerIndex, cfg.NumLayers)
+			}
+		}
+	}
+	return nil
 }

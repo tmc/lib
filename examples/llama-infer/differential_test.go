@@ -692,12 +692,16 @@ func TestPrefixCacheEvictionAndColdWarmEquivalence(t *testing.T) {
 	tokDecB0, _ := GPUForwardPassKV(eng, cfg, skvCleanB, tokPrefillB, len(promptB))
 	tokDecB1, _ := GPUForwardPassKV(eng, cfg, skvCleanB, tokDecB0, len(promptB)+1)
 	cleanTokensB := []int32{tokPrefillB, tokDecB0, tokDecB1}
+	cleanLogitsB, _ := eng.ReadLogits()
 
-	// 2. Warm run: first run prompt A and store prefix snapshot
+	// 2. Warm run: first run prompt A on isolated SequenceKVCache and capture from skvA
 	skvA, _ := eng.NewSequenceKV(cfg)
 	defer skvA.Free()
 	tokPrefillA, _ := GPUBatchedPrefillPassKV(eng, cfg, skvA, promptA, 0)
-	snapA := eng.capturePrefix(len(promptA), tokPrefillA, cfg)
+	snapA := skvA.CapturePrefix(len(promptA), tokPrefillA, cfg)
+	if snapA == nil {
+		t.Fatalf("skvA.CapturePrefix returned nil")
+	}
 	eng.prefixes.store(promptA, snapA)
 
 	// Now run prompt B with radix cache lookup (it will match the 4-token shared prefix)
@@ -718,6 +722,7 @@ func TestPrefixCacheEvictionAndColdWarmEquivalence(t *testing.T) {
 	tokWarmDecB0, _ := GPUForwardPassKV(eng, cfg, skvWarmB, tokWarmPrefillB, len(promptB))
 	tokWarmDecB1, _ := GPUForwardPassKV(eng, cfg, skvWarmB, tokWarmDecB0, len(promptB)+1)
 	warmTokensB := []int32{tokWarmPrefillB, tokWarmDecB0, tokWarmDecB1}
+	warmLogitsB, _ := eng.ReadLogits()
 
 	t.Logf("Cold Tokens B: %v", cleanTokensB)
 	t.Logf("Warm Tokens B: %v", warmTokensB)
@@ -726,8 +731,41 @@ func TestPrefixCacheEvictionAndColdWarmEquivalence(t *testing.T) {
 			t.Fatalf("Cold vs Warm token mismatch at step %d: Cold %d vs Warm %d", i, cleanTokensB[i], warmTokensB[i])
 		}
 	}
+	for i := range cleanLogitsB {
+		diff := float32(math.Abs(float64(cleanLogitsB[i] - warmLogitsB[i])))
+		if diff > 1e-4 {
+			t.Fatalf("Cold vs Warm logit mismatch at index %d: Cold %f vs Warm %f", i, cleanLogitsB[i], warmLogitsB[i])
+		}
+	}
 
-	// 3. Test LRU eviction and blockMap cleanup
+	// 3. Mutation control: tamper with restored prefix KV entries and verify logits diverge
+	skvMutated, _ := eng.NewSequenceKV(cfg)
+	defer skvMutated.Free()
+	skvMutated.RestorePrefixPartial(snapMatched, matched, cfg)
+	tokMutatedPrefill, _ := GPUBatchedPrefillPassKV(eng, cfg, skvMutated, promptB[matched:], matched)
+	for i := 0; i < matched*cfg.NumKVHeads*cfg.HeadDim; i++ {
+		skvMutated.VCache[0].HostSlice()[i] += 50.0
+	}
+	_, _ = GPUForwardPassKV(eng, cfg, skvMutated, tokMutatedPrefill, len(promptB))
+	mutatedLogits, _ := eng.ReadLogits()
+	maxMutationDiff := float32(0.0)
+	for i := range mutatedLogits {
+		diff := float32(math.Abs(float64(mutatedLogits[i] - warmLogitsB[i])))
+		if diff > maxMutationDiff {
+			maxMutationDiff = diff
+		}
+	}
+	if maxMutationDiff < 1e-1 {
+		t.Fatalf("KV cache mutation control failed: expected logit divergence >= 0.1, got %f", maxMutationDiff)
+	}
+	t.Logf("KV Cache Mutation Control Divergence: %f", maxMutationDiff)
+
+	// 4. Test LRU eviction and verify evicted blockMap entries are deleted
+	evictedBlocks := append([]int(nil), eng.prefixes.tokenBlocks[prefixKey(promptA)]...)
+	if len(evictedBlocks) == 0 {
+		t.Fatalf("expected tracked tokenBlocks for promptA")
+	}
+
 	promptC := []int32{5, 6, 7, 8, 9}
 	promptD := []int32{15, 16, 17, 18, 19}
 	snapC := &prefixSnapshot{tokens: 5, bytes: 512, lastUsed: time.Now().Add(-10 * time.Minute)}
@@ -743,4 +781,122 @@ func TestPrefixCacheEvictionAndColdWarmEquivalence(t *testing.T) {
 	if len(eng.prefixes.entries) > 2 {
 		t.Fatalf("expected at most 2 entries in map, got %d", len(eng.prefixes.entries))
 	}
+	for _, blockID := range evictedBlocks {
+		if _, exists := eng.prefixes.blockMap[blockID]; exists {
+			t.Fatalf("evicted block ID %d still present in blockMap", blockID)
+		}
+	}
+}
+
+func TestHeadDim64BatchedPrefillEquivalence(t *testing.T) {
+	cfg := Config{
+		Name:         "HeadDim64TestModel",
+		Dim:          256,
+		HiddenDim:    512,
+		NumLayers:    2,
+		NumHeads:     4,
+		NumKVHeads:   2,
+		HeadDim:      64,
+		VocabSize:    256,
+		MaxSeqLen:    128,
+		Eps:          1e-5,
+		RopeTheta:    10000.0,
+		Precision:    "fp32",
+		FuseEGraph:   false,
+		TestMode:     true,
+	}
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	prompt := []int32{10, 20, 30, 40, 50, 60, 70, 80}
+
+	// 1. Sequential prefill via single forward steps
+	skvSeq, _ := eng.NewSequenceKV(cfg)
+	defer skvSeq.Free()
+	var tokSeq int32
+	for p, tok := range prompt {
+		tokSeq, err = GPUForwardPassKV(eng, cfg, skvSeq, tok, p)
+		if err != nil {
+			t.Fatalf("seq step %d failed: %v", p, err)
+		}
+	}
+	logitsSeq, err := eng.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits seq failed: %v", err)
+	}
+
+	// 2. Batched prefill
+	skvBatch, _ := eng.NewSequenceKV(cfg)
+	defer skvBatch.Free()
+	tokBatch, err := GPUBatchedPrefillPassKV(eng, cfg, skvBatch, prompt, 0)
+	if err != nil {
+		t.Fatalf("batched prefill failed: %v", err)
+	}
+	logitsBatch, err := eng.ReadLogits()
+	if err != nil {
+		t.Fatalf("ReadLogits batch failed: %v", err)
+	}
+
+	if tokSeq != tokBatch {
+		t.Fatalf("HeadDim=64 prefill token mismatch: Sequential %d vs Batched %d", tokSeq, tokBatch)
+	}
+	maxDiff := float32(0.0)
+	for i := range logitsSeq {
+		diff := float32(math.Abs(float64(logitsSeq[i] - logitsBatch[i])))
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+		if diff > 1e-4 {
+			t.Fatalf("HeadDim=64 logit mismatch at %d: Seq %f vs Batch %f (diff %f)", i, logitsSeq[i], logitsBatch[i], diff)
+		}
+	}
+	t.Logf("HeadDim=64 Batched vs Sequential Max Logit Diff: %f (Tok: %d)", maxDiff, tokBatch)
+}
+
+func TestExecutionPlanFailClosedValidation(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatalf("GetOrCompileEngine failed: %v", err)
+	}
+
+	// 1. Valid plan passes
+	validPlan := BuildExecutionPlan(cfg)
+	if err := ValidatePlan(validPlan, cfg); err != nil {
+		t.Fatalf("valid plan failed validation: %v", err)
+	}
+
+	// 2. Unknown op fails validation
+	badOpPlan := BuildExecutionPlan(cfg)
+	badOpPlan.Ops = append([]OpDispatch{{Name: "MalformedNonexistentOp", Category: "invalid"}}, badOpPlan.Ops...)
+	if err := ValidatePlan(badOpPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with unknown op, got nil")
+	}
+
+	// 3. Out-of-bounds layer fails validation
+	badLayerPlan := BuildExecutionPlan(cfg)
+	badLayerPlan.Ops = append([]OpDispatch{{Name: "ComputeRMSNorm", Category: "norm", LayerIndex: 999}}, badLayerPlan.Ops...)
+	if err := ValidatePlan(badLayerPlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with out-of-bounds layer, got nil")
+	}
+
+	// 4. Unsupported dtype fails validation
+	badDTypePlan := BuildExecutionPlan(cfg)
+	badDTypePlan.DType = "int8_unsupported"
+	if err := ValidatePlan(badDTypePlan, cfg); err == nil {
+		t.Fatalf("expected error validating plan with unsupported dtype, got nil")
+	}
+
+	// 5. ExecutePlanWithLogits fails closed on invalid plan
+	origPlan := eng.Plan
+	defer func() { eng.Plan = origPlan }()
+	eng.Plan = badOpPlan
+	eng.ResetKV()
+	_, err = GPUForwardPassKV(eng, cfg, nil, 42, 0)
+	if err == nil {
+		t.Fatalf("expected GPUForwardPassKV to fail closed when plan is invalid, got nil")
+	}
+	t.Logf("Plan Fail-Closed Verification: %v", err)
 }

@@ -136,8 +136,8 @@ func (c *prefixCache) store(tokens []int32, snapshot *prefixSnapshot) {
 	c.bytes += snapshot.bytes
 
 	if c.radix != nil {
-		c.nextBlock++
-		blockID := c.nextBlock
+		blockID := c.nextBlock + 1
+		c.nextBlock += len(tokens)
 		blocks := make([]int, len(tokens))
 		for i := range blocks {
 			blocks[i] = blockID + i

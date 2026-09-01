@@ -882,8 +882,31 @@ func (skv *SequenceKVCache) Free() {
 	skv.VCache = nil
 }
 
-func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, tokenID int32, pos int, isLast bool) {
-	encodeForwardStepWithKV(enc, eng, cfg, eng.kCacheBuf, eng.vCacheBuf, tokenID, pos, isLast)
+// CapturePrefix captures a prefix snapshot from the isolated SequenceKVCache.
+func (skv *SequenceKVCache) CapturePrefix(tokens int, current int32, cfg Config) *prefixSnapshot {
+	if skv == nil || tokens <= 0 || cfg.NumKVHeads <= 0 || cfg.HeadDim <= 0 {
+		return nil
+	}
+	valuesPerLayer := tokens * cfg.NumKVHeads * cfg.HeadDim
+	snapshot := &prefixSnapshot{
+		tokens:  tokens,
+		current: current,
+		k:       make([][]float32, len(skv.KCache)),
+		v:       make([][]float32, len(skv.VCache)),
+	}
+	for layer := range skv.KCache {
+		if valuesPerLayer > skv.KCache[layer].Len() || valuesPerLayer > skv.VCache[layer].Len() {
+			return nil
+		}
+		snapshot.k[layer] = append([]float32(nil), skv.KCache[layer].HostSlice()[:valuesPerLayer]...)
+		snapshot.v[layer] = append([]float32(nil), skv.VCache[layer].HostSlice()[:valuesPerLayer]...)
+		snapshot.bytes += int64(len(snapshot.k[layer])+len(snapshot.v[layer])) * 4
+	}
+	return snapshot
+}
+
+func encodeForwardStep(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, tokenID int32, pos int, isLast bool) error {
+	return encodeForwardStepWithKV(enc, eng, cfg, eng.kCacheBuf, eng.vCacheBuf, tokenID, pos, isLast)
 }
 
 // ExecutePlan executes the authoritative, immutable ExecutionPlan on the GPU compute command encoder.
@@ -896,11 +919,11 @@ func ExecutePlan(
 	tokenID int32,
 	pos int,
 	isLast bool,
-) {
+) error {
 	if eng == nil {
-		return
+		return errors.New("execute plan: nil engine")
 	}
-	ExecutePlanWithLogits(enc, eng, plan, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
+	return ExecutePlanWithLogits(enc, eng, plan, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
 }
 
 // ExecutePlanWithLogits executes the authoritative plan directing output logits to a target buffer.
@@ -914,9 +937,12 @@ func ExecutePlanWithLogits(
 	tokenID int32,
 	pos int,
 	isLast bool,
-) {
+) error {
 	if plan == nil || eng == nil {
-		return
+		return errors.New("execute plan: nil plan or engine")
+	}
+	if err := ValidatePlan(plan, cfg); err != nil {
+		return fmt.Errorf("execute plan validation: %w", err)
 	}
 	targetLogits := eng.logitsBuf
 	if logitsBuf.Len() > 0 {
@@ -1358,21 +1384,24 @@ func ExecutePlanWithLogits(
 					apple.MTLSize{Width: 1, Height: 1, Depth: 1},
 				)
 			}
+
+		default:
+			return fmt.Errorf("execute plan: unsupported operation %q", op.Name)
 		}
 	}
+	return nil
 }
 
-func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
+func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) error {
 	if eng == nil {
-		return
+		return errors.New("encode forward step: nil engine")
 	}
-	encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
+	return encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
 }
 
-func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], logitsBuf mempool.Slice[float32], tokenID int32, pos int, isLast bool) {
+func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], logitsBuf mempool.Slice[float32], tokenID int32, pos int, isLast bool) error {
 	if eng.Plan != nil {
-		ExecutePlanWithLogits(enc, eng, eng.Plan, cfg, kCache, vCache, logitsBuf, tokenID, pos, isLast)
-		return
+		return ExecutePlanWithLogits(enc, eng, eng.Plan, cfg, kCache, vCache, logitsBuf, tokenID, pos, isLast)
 	}
 
 	targetLogits := eng.logitsBuf
@@ -1872,6 +1901,7 @@ func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *M
 			apple.MTLSize{Width: 1, Height: 1, Depth: 1},
 		)
 	}
+	return nil
 }
 
 // GPUForwardPass executes the 100% GPU-resident forward pass for a single decode token.
@@ -1943,7 +1973,10 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 		kCache = skv.KCache
 		vCache = skv.VCache
 	}
-	encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokenID, pos, true)
+	if err := encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokenID, pos, true); err != nil {
+		enc.EndEncoding()
+		return 0, fmt.Errorf("encode forward step: %w", err)
+	}
 	enc.EndEncoding()
 
 	cb.Commit()
@@ -1975,7 +2008,10 @@ func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, prompt
 
 	for pos, tokID := range promptTokens {
 		isLast := (pos == len(promptTokens)-1)
-		encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokID, pos, isLast)
+		if err := encodeForwardStepWithKV(enc, eng, cfg, kCache, vCache, tokID, pos, isLast); err != nil {
+			enc.EndEncoding()
+			return 0, fmt.Errorf("prefill step pos %d: %w", pos, err)
+		}
 	}
 	enc.EndEncoding()
 
@@ -2674,7 +2710,10 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 			logitsTarget = batchLogits[b]
 		}
 
-		encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, logitsTarget, batchTokens[b], batchPositions[b], true)
+		if err := encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, logitsTarget, batchTokens[b], batchPositions[b], true); err != nil {
+			enc.EndEncoding()
+			return nil, fmt.Errorf("batch decode sequence %d: %w", b, err)
+		}
 
 		outOffset := uint(b * 4)
 		enc.SetComputePipelineState(eng.psoSample)
