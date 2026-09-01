@@ -4,9 +4,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakv"
@@ -48,22 +50,29 @@ func (l *TransformerLayer) Forward(x cudatensor.Tensor, pos cudatensor.Tensor) c
 	return h.Add(ffnOut)
 }
 
-// CudaEngine maintains cached CUDA allocations and device contexts.
-type CudaEngine struct {
+// ModelEngine maintains cached CUDA allocations and device contexts on Linux.
+type ModelEngine struct {
 	dev        *cuda.Device
 	kvCache    *cudakv.Cache
 	scratchpad cudamem.Slice[byte]
 	fusedSrc   string
 	fuseActive bool
+	recorder   *metalprof.FlightRecorder
+	egraphSats int
+}
+
+// FlightRecorder returns the active in-memory GPU telemetry recorder.
+func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
+	return eng.recorder
 }
 
 var (
-	cudaEngineCache = make(map[string]*CudaEngine)
+	cudaEngineCache = make(map[string]*ModelEngine)
 	cudaEngineMu    sync.Mutex
 )
 
 // GetOrCompileCudaEngine builds or reuses the compiled CUDA engine per model config.
-func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
+func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
@@ -120,12 +129,13 @@ func GetOrCompileCudaEngine(cfg Config) (*CudaEngine, error) {
 		return nil, fmt.Errorf("alloc scratchpad arena: %w", err)
 	}
 
-	eng := &CudaEngine{
+	eng := &ModelEngine{
 		dev:        dev,
 		kvCache:    kvCache,
 		scratchpad: scratchpad,
 		fusedSrc:   fusedSrc,
 		fuseActive: cfg.FuseEGraph,
+		recorder:   metalprof.NewFlightRecorder(2048),
 	}
 
 	cudaEngineCache[key] = eng
@@ -138,6 +148,16 @@ func runPlatform(cfg Config) error {
 		fmt.Printf("[Host Notice] CUDA initialization (%v). Falling back to CPU simulation.\n", err)
 		runCPUSimulation(cfg)
 		return nil
+	}
+
+	if cfg.HTTPAddr != "" {
+		srv := NewTelemetryServer(eng, cfg)
+		go func() {
+			fmt.Printf("\n[Telemetry Server] Live E-Graph dashboard active at http://localhost%s\n", cfg.HTTPAddr)
+			if err := http.ListenAndServe(cfg.HTTPAddr, srv); err != nil {
+				fmt.Printf("[Telemetry Server] Error: %v\n", err)
+			}
+		}()
 	}
 
 	runFastCudaInference(eng, cfg)
@@ -174,7 +194,7 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	return time.Since(start), nil
 }
 
-func runFastCudaInference(eng *CudaEngine, cfg Config) {
+func runFastCudaInference(eng *ModelEngine, cfg Config) {
 	promptTokens := []int32{42, 18, 99}
 	for step := 0; step < 5; step++ {
 		eng.kvCache.Advance(1)
