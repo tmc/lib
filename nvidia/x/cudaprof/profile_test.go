@@ -91,3 +91,33 @@ func TestSynthesizeELFBinary(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordTraceback(t *testing.T) {
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+
+	vals := cudaprof.SampleValues{
+		Samples:       1000,
+		DRAMReadBytes: 4096,
+	}
+
+	session.RecordTraceback(
+		context.Background(),
+		vals,
+		"LinearGEMV",
+		"forward.cu",
+		90,
+		"forward.ptx",
+		26,
+		0x7f001040,
+	)
+
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close failed: %v", err)
+	}
+
+	if buf.Len() == 0 {
+		t.Fatal("expected non-empty profile buffer")
+	}
+}
+
