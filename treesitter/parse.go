@@ -72,13 +72,18 @@ func (p *Parser) ParseReaderAt(r io.ReaderAt, size int64, old *Tree) (*Tree, err
 			n = rem
 		}
 		got, err := r.ReadAt(buf[:n], off)
-		if got == 0 && err != nil && err != io.EOF {
+		if err != nil && err != io.EOF {
+			// A short read past the end of the input is reported as
+			// io.EOF and ends the parse; anything else is a failure.
 			readErr = err
 			return nil
 		}
 		return buf[:got]
 	}, UTF8, old)
 	if readErr != nil {
+		if t != nil {
+			t.Close()
+		}
 		return nil, fmt.Errorf("treesitter: ParseReaderAt: %w", readErr)
 	}
 	return t, err

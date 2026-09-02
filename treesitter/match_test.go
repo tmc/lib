@@ -68,6 +68,45 @@ func TestMatches(t *testing.T) {
 	if want := "callee=add,callee=add"; strings.Join(got, ",") != want {
 		t.Errorf("captures = %q, want %q", strings.Join(got, ","), want)
 	}
+
+	// Breaking out of Captures releases its cursor too.
+	for range q.Captures(tree.RootNode()) {
+		break
+	}
+	n := 0
+	for range q.Captures(tree.RootNode()) {
+		n++
+	}
+	if n != 2 {
+		t.Errorf("second capture pass = %d, want 2", n)
+	}
+}
+
+// TestCapturesPredicate checks that a match rejected by a predicate has none
+// of its captures reported, including those that follow the rejection.
+func TestCapturesPredicate(t *testing.T) {
+	lang := testGrammar(t)
+	tree, err := Parse(lang, []byte(matchSrc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tree.Close()
+	q, err := NewQuery(lang, `(function_definition
+	  declarator: (function_declarator declarator: (identifier) @name)
+	  body: (compound_statement) @body
+	  (#eq? @name "main"))`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer q.Close()
+
+	var got []string
+	for _, c := range q.Captures(tree.RootNode()) {
+		got = append(got, c.Name)
+	}
+	if want := "name,body"; strings.Join(got, ",") != want {
+		t.Errorf("captures = %q, want %q", strings.Join(got, ","), want)
+	}
 }
 
 func TestPredicates(t *testing.T) {
@@ -368,6 +407,36 @@ func TestMatchesContext(t *testing.T) {
 	}
 	if !sawErr {
 		t.Error("cancelled context produced no error")
+	}
+
+	// Cancelling during iteration ends it with an error.
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	sawErr = false
+	for _, err := range q.MatchesContext(ctx, tree.RootNode()) {
+		if err != nil {
+			sawErr = true
+			break
+		}
+		cancel()
+	}
+	if !sawErr {
+		t.Error("cancelling during iteration produced no error")
+	}
+
+	// Breaking out releases the cursor, so a later pass is complete.
+	for range q.MatchesContext(context.Background(), tree.RootNode()) {
+		break
+	}
+	n = 0
+	for _, err := range q.MatchesContext(context.Background(), tree.RootNode()) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		n++
+	}
+	if n != 2 {
+		t.Errorf("after break, got %d matches, want 2", n)
 	}
 }
 
