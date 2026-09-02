@@ -15,7 +15,7 @@ import (
 // names one explicitly as "path:name"; otherwise the parsers Neovim installs
 // through Homebrew are tried. Tests skip when neither the library nor a
 // grammar is available.
-func testGrammar(t *testing.T) *Language {
+func testGrammar(t testing.TB) *Language {
 	t.Helper()
 	if err := Load(""); err != nil {
 		t.Skipf("libtree-sitter unavailable: %v", err)
@@ -33,7 +33,7 @@ func testGrammar(t *testing.T) *Language {
 
 // testGrammarSpec returns the path and name of the test grammar, or "" for
 // the path when none is available.
-func testGrammarSpec(t *testing.T) (path, name string) {
+func testGrammarSpec(t testing.TB) (path, name string) {
 	t.Helper()
 	if spec := os.Getenv("TREE_SITTER_TEST_GRAMMAR"); spec != "" {
 		p, n, ok := strings.Cut(spec, ":")
@@ -55,7 +55,7 @@ func testGrammarSpec(t *testing.T) (path, name string) {
 	return "", "c"
 }
 
-func testParser(t *testing.T) (*Parser, *Language) {
+func testParser(t testing.TB) (*Parser, *Language) {
 	t.Helper()
 	lang := testGrammar(t)
 	p, err := NewParser()
