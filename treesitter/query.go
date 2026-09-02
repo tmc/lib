@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"strings"
 	"unsafe"
 
@@ -281,6 +282,33 @@ func (c *QueryCursor) NextCapture() (m QueryMatch, captureIndex uint32, ok bool)
 		return QueryMatch{}, 0, false
 	}
 	return fromMatch(raw), idx, true
+}
+
+// Matches returns an iterator over the remaining matches of the current
+// execution, started by Exec or ExecContext. Ranging over it consumes the
+// matches; a later NextMatch continues where the loop stopped.
+func (c *QueryCursor) Matches() iter.Seq[QueryMatch] {
+	return func(yield func(QueryMatch) bool) {
+		for {
+			m, ok := c.NextMatch()
+			if !ok || !yield(m) {
+				return
+			}
+		}
+	}
+}
+
+// Captures returns an iterator over the remaining captures of the current
+// execution in document order, each paired with the match it belongs to.
+func (c *QueryCursor) Captures() iter.Seq2[QueryMatch, QueryCapture] {
+	return func(yield func(QueryMatch, QueryCapture) bool) {
+		for {
+			m, i, ok := c.NextCapture()
+			if !ok || !yield(m, m.Captures[i]) {
+				return
+			}
+		}
+	}
 }
 
 // RemoveMatch discards an in-progress match by id, freeing its resources.
