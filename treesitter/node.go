@@ -11,8 +11,12 @@ import (
 // every method accepts a null node and returns its zero result, so a
 // missing child or field can be used without checking first.
 type Node struct {
+	t *Tree
 	n ts.Node
 }
+
+// Tree returns the tree the node belongs to, or nil for a null node.
+func (n Node) Tree() *Tree { return n.t }
 
 // IsNull reports whether the node is null, which is how absent parents,
 // children, and siblings are reported.
@@ -63,16 +67,16 @@ func (n Node) Language() *Language {
 }
 
 // StartByte returns the byte offset where the node begins.
-func (n Node) StartByte() uint32 {
-	return ts.NodeStartByte(n.n)
+func (n Node) StartByte() int {
+	return int(ts.NodeStartByte(n.n))
 }
 
 // EndByte returns the byte offset just past the node's end.
-func (n Node) EndByte() uint32 {
+func (n Node) EndByte() int {
 	if n.IsNull() {
 		return 0
 	}
-	return ts.NodeEndByte(n.n)
+	return int(ts.NodeEndByte(n.n))
 }
 
 // StartPoint returns the position where the node begins.
@@ -98,13 +102,16 @@ func (n Node) Range() Range {
 	}
 }
 
-// Text returns the node's source text, given the document it was parsed
-// from. It returns nil for a null node or one that lies outside src.
-func (n Node) Text(src []byte) []byte {
+// Text returns the node's source text, taken from the source its tree was
+// parsed from. It returns nil for a null node, for a tree with no source,
+// and for a node that lies outside the source, which happens when the text
+// has been edited since the parse.
+func (n Node) Text() []byte {
 	if n.IsNull() {
 		return nil
 	}
-	start, end := int(n.StartByte()), int(n.EndByte())
+	src := n.t.Source()
+	start, end := n.StartByte(), n.EndByte()
 	if start > end || end > len(src) {
 		return nil
 	}
@@ -198,7 +205,7 @@ func (n Node) Parent() Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeParent(n.n)}
+	return Node{t: n.t, n: ts.NodeParent(n.n)}
 }
 
 // ChildWithDescendant returns the child that contains descendant.
@@ -206,39 +213,39 @@ func (n Node) ChildWithDescendant(descendant Node) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeChildWithDescendant(n.n, descendant.n)}
+	return Node{t: n.t, n: ts.NodeChildWithDescendant(n.n, descendant.n)}
 }
 
 // Child returns the i'th child, or a null node when out of range.
-func (n Node) Child(i uint32) Node {
-	if n.IsNull() {
+func (n Node) Child(i int) Node {
+	if n.IsNull() || i < 0 {
 		return Node{}
 	}
-	return Node{n: ts.NodeChild(n.n, i)}
+	return Node{t: n.t, n: ts.NodeChild(n.n, uint32(i))}
 }
 
 // ChildCount returns the number of children, named and anonymous.
-func (n Node) ChildCount() uint32 {
+func (n Node) ChildCount() int {
 	if n.IsNull() {
 		return 0
 	}
-	return ts.NodeChildCount(n.n)
+	return int(ts.NodeChildCount(n.n))
 }
 
 // NamedChild returns the i'th named child.
-func (n Node) NamedChild(i uint32) Node {
-	if n.IsNull() {
+func (n Node) NamedChild(i int) Node {
+	if n.IsNull() || i < 0 {
 		return Node{}
 	}
-	return Node{n: ts.NodeNamedChild(n.n, i)}
+	return Node{t: n.t, n: ts.NodeNamedChild(n.n, uint32(i))}
 }
 
 // NamedChildCount returns the number of named children.
-func (n Node) NamedChildCount() uint32 {
+func (n Node) NamedChildCount() int {
 	if n.IsNull() {
 		return 0
 	}
-	return ts.NodeNamedChildCount(n.n)
+	return int(ts.NodeNamedChildCount(n.n))
 }
 
 // Children returns an iterator over all children in order.
@@ -298,20 +305,20 @@ func (n Node) Descendants() iter.Seq[Node] {
 
 // FieldNameForChild returns the field name of the i'th child, or "" if
 // the child has none.
-func (n Node) FieldNameForChild(i uint32) string {
-	if n.IsNull() {
+func (n Node) FieldNameForChild(i int) string {
+	if n.IsNull() || i < 0 {
 		return ""
 	}
-	return ts.NodeFieldNameForChild(n.n, i)
+	return ts.NodeFieldNameForChild(n.n, uint32(i))
 }
 
 // FieldNameForNamedChild returns the field name of the i'th named child,
 // or "" if it has none.
-func (n Node) FieldNameForNamedChild(i uint32) string {
-	if n.IsNull() {
+func (n Node) FieldNameForNamedChild(i int) string {
+	if n.IsNull() || i < 0 {
 		return ""
 	}
-	return ts.NodeFieldNameForNamedChild(n.n, i)
+	return ts.NodeFieldNameForNamedChild(n.n, uint32(i))
 }
 
 // ChildByFieldName returns the child with the given field name, or a null
@@ -320,7 +327,7 @@ func (n Node) ChildByFieldName(name string) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeChildByFieldName(n.n, stringPtr(name), uint32(len(name)))}
+	return Node{t: n.t, n: ts.NodeChildByFieldName(n.n, stringPtr(name), uint32(len(name)))}
 }
 
 // ChildByFieldID returns the child with the given field id, or a null
@@ -329,7 +336,7 @@ func (n Node) ChildByFieldID(id FieldID) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeChildByFieldId(n.n, ts.FieldId(id))}
+	return Node{t: n.t, n: ts.NodeChildByFieldId(n.n, ts.FieldId(id))}
 }
 
 // NextSibling returns the following sibling, or a null node.
@@ -337,7 +344,7 @@ func (n Node) NextSibling() Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeNextSibling(n.n)}
+	return Node{t: n.t, n: ts.NodeNextSibling(n.n)}
 }
 
 // PrevSibling returns the preceding sibling, or a null node.
@@ -345,7 +352,7 @@ func (n Node) PrevSibling() Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodePrevSibling(n.n)}
+	return Node{t: n.t, n: ts.NodePrevSibling(n.n)}
 }
 
 // NextNamedSibling returns the following named sibling, or a null node.
@@ -353,7 +360,7 @@ func (n Node) NextNamedSibling() Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeNextNamedSibling(n.n)}
+	return Node{t: n.t, n: ts.NodeNextNamedSibling(n.n)}
 }
 
 // PrevNamedSibling returns the preceding named sibling, or a null node.
@@ -361,43 +368,43 @@ func (n Node) PrevNamedSibling() Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodePrevNamedSibling(n.n)}
+	return Node{t: n.t, n: ts.NodePrevNamedSibling(n.n)}
 }
 
 // FirstChildForByte returns the first child that extends past the byte
 // offset.
-func (n Node) FirstChildForByte(b uint32) Node {
+func (n Node) FirstChildForByte(b int) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeFirstChildForByte(n.n, b)}
+	return Node{t: n.t, n: ts.NodeFirstChildForByte(n.n, u32(b))}
 }
 
 // FirstNamedChildForByte returns the first named child that extends past
 // the byte offset.
-func (n Node) FirstNamedChildForByte(b uint32) Node {
+func (n Node) FirstNamedChildForByte(b int) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeFirstNamedChildForByte(n.n, b)}
+	return Node{t: n.t, n: ts.NodeFirstNamedChildForByte(n.n, u32(b))}
 }
 
 // DescendantCount returns the number of descendants, including the node
 // itself.
-func (n Node) DescendantCount() uint32 {
+func (n Node) DescendantCount() int {
 	if n.IsNull() {
 		return 0
 	}
-	return ts.NodeDescendantCount(n.n)
+	return int(ts.NodeDescendantCount(n.n))
 }
 
 // DescendantForByteRange returns the smallest descendant spanning the
 // byte range.
-func (n Node) DescendantForByteRange(start, end uint32) Node {
+func (n Node) DescendantForByteRange(start, end int) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeDescendantForByteRange(n.n, start, end)}
+	return Node{t: n.t, n: ts.NodeDescendantForByteRange(n.n, u32(start), u32(end))}
 }
 
 // DescendantForPointRange returns the smallest descendant spanning the
@@ -406,16 +413,16 @@ func (n Node) DescendantForPointRange(start, end Point) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeDescendantForPointRange(n.n, toPoint(start), toPoint(end))}
+	return Node{t: n.t, n: ts.NodeDescendantForPointRange(n.n, toPoint(start), toPoint(end))}
 }
 
 // NamedDescendantForByteRange returns the smallest named descendant
 // spanning the byte range.
-func (n Node) NamedDescendantForByteRange(start, end uint32) Node {
+func (n Node) NamedDescendantForByteRange(start, end int) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeNamedDescendantForByteRange(n.n, start, end)}
+	return Node{t: n.t, n: ts.NodeNamedDescendantForByteRange(n.n, u32(start), u32(end))}
 }
 
 // NamedDescendantForPointRange returns the smallest named descendant
@@ -424,7 +431,7 @@ func (n Node) NamedDescendantForPointRange(start, end Point) Node {
 	if n.IsNull() {
 		return Node{}
 	}
-	return Node{n: ts.NodeNamedDescendantForPointRange(n.n, toPoint(start), toPoint(end))}
+	return Node{t: n.t, n: ts.NodeNamedDescendantForPointRange(n.n, toPoint(start), toPoint(end))}
 }
 
 // Edit adjusts the node's position for an edit already applied to its

@@ -6,12 +6,13 @@ import "github.com/tmc/lib/treesitter/internal/ts"
 // cursor owns C memory and must be closed.
 type TreeCursor struct {
 	c    ts.TreeCursor
+	t    *Tree
 	open bool
 }
 
 // NewTreeCursor returns a cursor positioned at node.
 func NewTreeCursor(node Node) *TreeCursor {
-	return &TreeCursor{c: ts.TreeCursorNew(node.n), open: true}
+	return &TreeCursor{c: ts.TreeCursorNew(node.n), t: node.t, open: true}
 }
 
 // Close frees the cursor.
@@ -25,22 +26,24 @@ func (c *TreeCursor) Close() {
 
 // Reset repositions the cursor at node, which may be in another tree.
 func (c *TreeCursor) Reset(node Node) {
+	c.t = node.t
 	ts.TreeCursorReset(&c.c, node.n)
 }
 
 // ResetTo repositions the cursor at src's position.
 func (c *TreeCursor) ResetTo(src *TreeCursor) {
+	c.t = src.t
 	ts.TreeCursorResetTo(&c.c, &src.c)
 }
 
 // Copy returns a cursor at the same position.
 func (c *TreeCursor) Copy() *TreeCursor {
-	return &TreeCursor{c: ts.TreeCursorCopy(&c.c), open: true}
+	return &TreeCursor{c: ts.TreeCursorCopy(&c.c), t: c.t, open: true}
 }
 
 // CurrentNode returns the node the cursor is on.
 func (c *TreeCursor) CurrentNode() Node {
-	return Node{n: ts.TreeCursorCurrentNode(&c.c)}
+	return Node{t: c.t, n: ts.TreeCursorCurrentNode(&c.c)}
 }
 
 // CurrentFieldName returns the field name of the current node, or "".
@@ -55,14 +58,14 @@ func (c *TreeCursor) CurrentFieldID() FieldID {
 
 // CurrentDepth returns the depth of the current node below the node the
 // cursor was created at.
-func (c *TreeCursor) CurrentDepth() uint32 {
-	return ts.TreeCursorCurrentDepth(&c.c)
+func (c *TreeCursor) CurrentDepth() int {
+	return int(ts.TreeCursorCurrentDepth(&c.c))
 }
 
 // CurrentDescendantIndex returns the index of the current node among the
 // descendants of the node the cursor was created at, in pre-order.
-func (c *TreeCursor) CurrentDescendantIndex() uint32 {
-	return ts.TreeCursorCurrentDescendantIndex(&c.c)
+func (c *TreeCursor) CurrentDescendantIndex() int {
+	return int(ts.TreeCursorCurrentDescendantIndex(&c.c))
 }
 
 // GotoParent moves to the parent and reports whether there was one.
@@ -84,26 +87,26 @@ func (c *TreeCursor) GotoFirstChild() bool { return ts.TreeCursorGotoFirstChild(
 func (c *TreeCursor) GotoLastChild() bool { return ts.TreeCursorGotoLastChild(&c.c) }
 
 // GotoDescendant moves to the descendant with the given pre-order index.
-func (c *TreeCursor) GotoDescendant(index uint32) {
-	ts.TreeCursorGotoDescendant(&c.c, index)
+func (c *TreeCursor) GotoDescendant(index int) {
+	ts.TreeCursorGotoDescendant(&c.c, u32(index))
 }
 
 // GotoFirstChildForByte moves to the first child that extends past the
 // byte offset and returns its index, or ok false if there is none.
-func (c *TreeCursor) GotoFirstChildForByte(b uint32) (index uint32, ok bool) {
-	i := ts.TreeCursorGotoFirstChildForByte(&c.c, b)
+func (c *TreeCursor) GotoFirstChildForByte(b int) (index int, ok bool) {
+	i := ts.TreeCursorGotoFirstChildForByte(&c.c, u32(b))
 	if i < 0 {
 		return 0, false
 	}
-	return uint32(i), true
+	return int(i), true
 }
 
 // GotoFirstChildForPoint moves to the first child that extends past the
 // point and returns its index, or ok false if there is none.
-func (c *TreeCursor) GotoFirstChildForPoint(p Point) (index uint32, ok bool) {
+func (c *TreeCursor) GotoFirstChildForPoint(p Point) (index int, ok bool) {
 	i := ts.TreeCursorGotoFirstChildForPoint(&c.c, toPoint(p))
 	if i < 0 {
 		return 0, false
 	}
-	return uint32(i), true
+	return int(i), true
 }

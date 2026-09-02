@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -97,7 +98,7 @@ func (p *Parser) ParseEncoding(src []byte, enc InputEncoding, old *Tree) (*Tree,
 	if t == 0 {
 		return nil, ErrParseFailed
 	}
-	return &Tree{t: ts.Tree(t)}, nil
+	return &Tree{t: ts.Tree(t), src: src}, nil
 }
 
 // ParseContext is like Parse but stops when ctx is done, returning ctx's
@@ -126,14 +127,19 @@ func (p *Parser) ParseContext(ctx context.Context, src []byte, old *Tree) (*Tree
 		}
 		return nil, ErrParseFailed
 	}
-	return &Tree{t: ts.Tree(t)}, nil
+	return &Tree{t: ts.Tree(t), src: src}, nil
 }
 
 // ParseInput parses text supplied by read, which returns the text starting
 // at byteIndex, or nil at the end of the document. pos is the same position
 // as a point. read may return the text in chunks of any size; returned
 // slices are copied before tree-sitter sees them.
-func (p *Parser) ParseInput(read func(byteIndex uint32, pos Point) []byte, enc InputEncoding, old *Tree) (*Tree, error) {
+//
+// tree-sitter reads by byte offset and revisits earlier offsets, so read
+// must serve any offset it has already been asked for, not only advancing
+// ones. The resulting tree has no source, so [Node.Text] returns nil for
+// its nodes.
+func (p *Parser) ParseInput(read func(byteIndex int, pos Point) []byte, enc InputEncoding, old *Tree) (*Tree, error) {
 	if p.lang == nil {
 		return nil, ErrNoLanguage
 	}
@@ -191,7 +197,7 @@ func (p *Parser) SetIncludedRanges(ranges []Range) error {
 // reject, or -1. tree-sitter requires each range's end to be at or after
 // its start and each start to be at or after the previous end.
 func invalidRange(ranges []Range) int {
-	prevEnd := uint32(0)
+	prevEnd := 0
 	for i, r := range ranges {
 		if r.EndByte < r.StartByte || r.StartByte < prevEnd {
 			return i
@@ -229,6 +235,21 @@ func (p *Parser) SetLogger(fn func(kind LogType, msg string)) {
 	}
 	p.logID = register(p)
 	ts.ParserSetLogger(p.p, ts.Logger{Payload: p.logID, Log: logCallback()})
+}
+
+// SlogLogger adapts a [slog.Logger] to [Parser.SetLogger]:
+//
+//	p.SetLogger(treesitter.SlogLogger(logger))
+//
+// Messages are logged at debug level with a kind attribute of "parse" or
+// "lex"; tree-sitter emits one per parse step, so this is verbose.
+func SlogLogger(l *slog.Logger) func(LogType, string) {
+	if l == nil {
+		return nil
+	}
+	return func(kind LogType, msg string) {
+		l.Debug("tree-sitter", "kind", kind.String(), "msg", msg)
+	}
 }
 
 // PrintDotGraphs makes the parser write a Graphviz graph of its state to
@@ -324,7 +345,7 @@ func onLog(payload uintptr, kind ts.LogType, msg uintptr) {
 type inputState struct {
 	// Exactly one of src and read is set.
 	src  []byte
-	read func(byteIndex uint32, pos Point) []byte
+	read func(byteIndex int, pos Point) []byte
 	ctx  context.Context
 
 	// buf holds the chunk most recently handed to tree-sitter. Go heap
@@ -347,7 +368,7 @@ func onRead(payload uintptr, byteIndex uint32, pos ts.Point, bytesRead *uint32) 
 	in := v.(*inputState)
 	var chunk []byte
 	if in.read != nil {
-		chunk = in.read(byteIndex, fromPoint(pos))
+		chunk = in.read(int(byteIndex), fromPoint(pos))
 	} else if int(byteIndex) < len(in.src) {
 		chunk = in.src[byteIndex:]
 	}

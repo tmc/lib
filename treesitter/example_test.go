@@ -14,17 +14,8 @@ func Example() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	p, err := treesitter.NewParser()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer p.Close()
-	if err := p.SetLanguage(lang); err != nil {
-		log.Fatal(err)
-	}
-
 	src := []byte("int add(int a, int b) { return a + b; }\nint main() { return add(1, 2); }\n")
-	tree, err := p.Parse(src, nil)
+	tree, err := treesitter.Parse(lang, src)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,14 +27,21 @@ func Example() {
 		log.Fatal(err)
 	}
 	defer q.Close()
-	c, err := treesitter.NewQueryCursor()
+	for m := range q.Matches(tree.RootNode()) {
+		fmt.Printf("%s\n", m.Text("name"))
+	}
+}
+
+// ExampleParseFile parses a file chosen by its name and reports any
+// syntax errors it contains.
+func ExampleParseFile() {
+	tree, err := treesitter.ParseFile("main.go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer c.Close()
-	c.Exec(q, tree.RootNode())
-	for _, cap := range c.Captures() {
-		fmt.Println(string(cap.Node.Text(src)))
+	defer tree.Close()
+	for n := range tree.Errors() {
+		fmt.Printf("%v: %s\n", n.StartPoint(), n.Type())
 	}
 }
 
@@ -84,25 +82,18 @@ eval(grads)
 	if err != nil {
 		log.Fatal(err)
 	}
-	p, err := treesitter.NewParser()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer p.Close()
-	if err := p.SetLanguage(lang); err != nil {
-		log.Fatal(err)
-	}
-	tree, err := p.Parse(src, nil)
+	tree, err := treesitter.Parse(lang, src)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer tree.Close()
-	if tree.RootNode().HasError() {
+	if tree.HasError() {
 		log.Fatal("parse error")
 	}
 
-	// Declarations: a class or struct, and each function with its
-	// parameters' types.
+	// Declarations: a class or struct, each function with its parameters'
+	// types, and calls into the MLX namespace. The #eq? predicate on the
+	// last pattern is applied by Matches.
 	q, err := treesitter.NewQuery(lang, `
 (class_declaration name: (type_identifier) @class)
 (function_declaration name: (simple_identifier) @func)
@@ -116,44 +107,22 @@ eval(grads)
 		log.Fatal(err)
 	}
 	defer q.Close()
-	c, err := treesitter.NewQueryCursor()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer c.Close()
 
-	c.Exec(q, tree.RootNode())
-	for m := range c.Matches() {
-		for _, cap := range m.Captures {
-			name := q.CaptureName(cap.Index)
-			if name == "module" {
-				continue // matched by the #eq? guard below
+	for m := range q.Matches(tree.RootNode()) {
+		for _, c := range m.Captures {
+			if c.Name == "module" {
+				continue // reported through @member
 			}
-			// Predicates are not evaluated by tree-sitter itself: apply
-			// the #eq? on the module capture by hand.
-			if name == "member" && !matchesModule(m, q, src, "MLX") {
-				continue
-			}
-			fmt.Printf("%s %s at %v\n", name, cap.Node.Text(src), cap.Node.StartPoint())
+			fmt.Printf("%s %s at %v\n", c.Name, c.Node.Text(), c.Node.StartPoint())
 		}
 	}
 
 	// Walk the tree directly for the imports.
 	for n := range tree.RootNode().Children() {
 		if n.Type() == "import_declaration" {
-			fmt.Println("import", string(n.NamedChild(0).Text(src)))
+			fmt.Printf("import %s\n", n.NamedChild(0).Text())
 		}
 	}
-}
-
-// matchesModule reports whether the match's @module capture spells module.
-func matchesModule(m treesitter.QueryMatch, q *treesitter.Query, src []byte, module string) bool {
-	for _, cap := range m.Captures {
-		if q.CaptureName(cap.Index) == "module" {
-			return string(cap.Node.Text(src)) == module
-		}
-	}
-	return false
 }
 
 // ExampleTree_Edit re-parses a document incrementally after a change.

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"iter"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -45,27 +47,35 @@ func (k QueryErrorKind) String() string {
 
 // QueryError reports why a query failed to compile and where. Offset is
 // the byte offset into the query source; Row and Column locate the same
-// byte as a zero-based line and column.
+// byte as a zero-based line and column. Message, when set, says what was
+// wrong with a predicate.
 type QueryError struct {
-	Kind   QueryErrorKind
-	Offset uint32
-	Row    uint32
-	Column uint32
+	Kind    QueryErrorKind
+	Offset  int
+	Row     int
+	Column  int
+	Message string
 }
 
 func (e *QueryError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("treesitter: query %s error at %d:%d (byte %d): %s", e.Kind, e.Row, e.Column, e.Offset, e.Message)
+	}
 	return fmt.Sprintf("treesitter: query %s error at %d:%d (byte %d)", e.Kind, e.Row, e.Column, e.Offset)
 }
 
 // newQueryError locates offset within source.
-func newQueryError(kind ts.QueryError, source string, offset uint32) *QueryError {
-	e := &QueryError{Kind: QueryErrorKind(kind), Offset: offset}
-	if int(offset) > len(source) {
-		offset = uint32(len(source))
+func newQueryError(kind QueryErrorKind, source string, offset int) *QueryError {
+	e := &QueryError{Kind: kind, Offset: offset}
+	if offset > len(source) {
+		offset = len(source)
+	}
+	if offset < 0 {
+		offset = 0
 	}
 	before := source[:offset]
-	e.Row = uint32(strings.Count(before, "\n"))
-	e.Column = uint32(len(before) - (strings.LastIndexByte(before, '\n') + 1))
+	e.Row = strings.Count(before, "\n")
+	e.Column = len(before) - (strings.LastIndexByte(before, '\n') + 1)
 	return e
 }
 
@@ -73,6 +83,17 @@ func newQueryError(kind ts.QueryError, source string, offset uint32) *QueryError
 // must be closed.
 type Query struct {
 	q ts.Query
+
+	// names indexes capture names by capture id, so that a Match can
+	// report names without calling into C.
+	names []string
+
+	// preds and props hold the parsed predicates and properties of each
+	// pattern, in pattern order; text holds the compiled form of the
+	// predicates Satisfies evaluates.
+	preds [][]Predicate
+	props [][]Property
+	text  [][]textPredicate
 }
 
 // NewQuery compiles source, in tree-sitter's query language, for lang.
@@ -85,9 +106,35 @@ func NewQuery(lang *Language, source string) (*Query, error) {
 	var kind ts.QueryError
 	q := ts.QueryNew(lang.l, stringPtr(source), uint32(len(source)), &offset, &kind)
 	if q == 0 {
-		return nil, newQueryError(kind, source, offset)
+		return nil, newQueryError(QueryErrorKind(kind), source, int(offset))
 	}
-	return &Query{q: ts.Query(q)}, nil
+	out := &Query{q: ts.Query(q)}
+	names := make([]string, out.CaptureCount())
+	for i := range names {
+		var n uint32
+		names[i] = ts.QueryCaptureNameForId(out.q, u32(i), &n)
+	}
+	out.names = names
+	if err := out.parsePredicates(source); err != nil {
+		out.Close()
+		return nil, err
+	}
+	return out, nil
+}
+
+// NewQueryFS compiles the query stored at name in fsys. Queries are
+// ordinary text, so a query set can be kept in files and embedded with
+// go:embed.
+func NewQueryFS(lang *Language, fsys fs.FS, name string) (*Query, error) {
+	b, err := fs.ReadFile(fsys, name)
+	if err != nil {
+		return nil, fmt.Errorf("treesitter: read query: %w", err)
+	}
+	q, err := NewQuery(lang, string(b))
+	if err != nil {
+		return nil, fmt.Errorf("treesitter: %s: %w", name, err)
+	}
+	return q, nil
 }
 
 // Close frees the query.
@@ -100,49 +147,61 @@ func (q *Query) Close() {
 }
 
 // PatternCount returns the number of patterns.
-func (q *Query) PatternCount() uint32 { return ts.QueryPatternCount(q.q) }
+func (q *Query) PatternCount() int { return int(ts.QueryPatternCount(q.q)) }
 
 // CaptureCount returns the number of distinct capture names.
-func (q *Query) CaptureCount() uint32 { return ts.QueryCaptureCount(q.q) }
+func (q *Query) CaptureCount() int { return int(ts.QueryCaptureCount(q.q)) }
 
 // StringCount returns the number of distinct string literals.
-func (q *Query) StringCount() uint32 { return ts.QueryStringCount(q.q) }
+func (q *Query) StringCount() int { return int(ts.QueryStringCount(q.q)) }
 
 // StartByteForPattern returns where pattern i begins in the query source.
-func (q *Query) StartByteForPattern(i uint32) uint32 { return ts.QueryStartByteForPattern(q.q, i) }
+func (q *Query) StartByteForPattern(i int) int {
+	return int(ts.QueryStartByteForPattern(q.q, u32(i)))
+}
 
 // EndByteForPattern returns where pattern i ends in the query source.
-func (q *Query) EndByteForPattern(i uint32) uint32 { return ts.QueryEndByteForPattern(q.q, i) }
+func (q *Query) EndByteForPattern(i int) int {
+	return int(ts.QueryEndByteForPattern(q.q, u32(i)))
+}
 
 // IsPatternRooted reports whether pattern i has a single root node.
-func (q *Query) IsPatternRooted(i uint32) bool { return ts.QueryIsPatternRooted(q.q, i) }
+func (q *Query) IsPatternRooted(i int) bool { return ts.QueryIsPatternRooted(q.q, u32(i)) }
 
 // IsPatternNonLocal reports whether pattern i can match nodes that are
 // not direct descendants of a single node.
-func (q *Query) IsPatternNonLocal(i uint32) bool { return ts.QueryIsPatternNonLocal(q.q, i) }
+func (q *Query) IsPatternNonLocal(i int) bool { return ts.QueryIsPatternNonLocal(q.q, u32(i)) }
 
 // IsPatternGuaranteedAtStep reports whether a pattern is certain to match
 // once the query has reached the given byte offset of its source.
-func (q *Query) IsPatternGuaranteedAtStep(byteOffset uint32) bool {
-	return ts.QueryIsPatternGuaranteedAtStep(q.q, byteOffset)
+func (q *Query) IsPatternGuaranteedAtStep(byteOffset int) bool {
+	return ts.QueryIsPatternGuaranteedAtStep(q.q, u32(byteOffset))
 }
 
 // CaptureName returns the name of capture id.
-func (q *Query) CaptureName(id uint32) string {
+func (q *Query) CaptureName(id int) string {
+	if id >= 0 && id < len(q.names) {
+		return q.names[id]
+	}
 	var n uint32
-	return ts.QueryCaptureNameForId(q.q, id, &n)
+	return ts.QueryCaptureNameForId(q.q, u32(id), &n)
+}
+
+// CaptureNames returns the query's capture names, indexed by capture id.
+func (q *Query) CaptureNames() []string {
+	return slices.Clone(q.names)
 }
 
 // CaptureQuantifier returns how many times capture id may occur in
 // pattern.
-func (q *Query) CaptureQuantifier(pattern, id uint32) Quantifier {
-	return Quantifier(ts.QueryCaptureQuantifierForId(q.q, pattern, id))
+func (q *Query) CaptureQuantifier(pattern, id int) Quantifier {
+	return Quantifier(ts.QueryCaptureQuantifierForId(q.q, u32(pattern), u32(id)))
 }
 
 // StringValue returns the string literal with the given id.
-func (q *Query) StringValue(id uint32) string {
+func (q *Query) StringValue(id int) string {
 	var n uint32
-	return ts.QueryStringValueForId(q.q, id, &n)
+	return ts.QueryStringValueForId(q.q, u32(id), &n)
 }
 
 // DisableCapture stops the query from reporting the named capture.
@@ -151,54 +210,20 @@ func (q *Query) DisableCapture(name string) {
 }
 
 // DisablePattern stops the query from matching pattern i.
-func (q *Query) DisablePattern(i uint32) {
-	ts.QueryDisablePattern(q.q, i)
-}
-
-// PredicateStepType classifies the steps of a predicate.
-type PredicateStepType int32
-
-// Predicate step types. A Done step ends each predicate.
-const (
-	PredicateStepDone    PredicateStepType = PredicateStepType(ts.QueryPredicateStepDone)
-	PredicateStepCapture PredicateStepType = PredicateStepType(ts.QueryPredicateStepCapture)
-	PredicateStepString  PredicateStepType = PredicateStepType(ts.QueryPredicateStepString)
-)
-
-// PredicateStep is one token of a predicate such as (#eq? @a "b"). ValueID
-// is a capture id for a Capture step and a string id for a String step.
-type PredicateStep struct {
-	Type    PredicateStepType
-	ValueID uint32
-}
-
-// PredicatesForPattern returns the predicate steps of pattern i.
-// tree-sitter does not evaluate predicates; callers interpret them using
-// [Query.CaptureName] and [Query.StringValue].
-func (q *Query) PredicatesForPattern(i uint32) []PredicateStep {
-	var n uint32
-	p := ts.QueryPredicatesForPattern(q.q, i, &n)
-	if p == 0 || n == 0 {
-		return nil
-	}
-	src := unsafe.Slice((*ts.QueryPredicateStep)(cptr(p)), n)
-	out := make([]PredicateStep, n)
-	for j, s := range src {
-		out[j] = PredicateStep{Type: PredicateStepType(s.Type), ValueID: s.ValueId}
-	}
-	return out
+func (q *Query) DisablePattern(i int) {
+	ts.QueryDisablePattern(q.q, u32(i))
 }
 
 // QueryCapture is a node matched by a named capture.
 type QueryCapture struct {
 	Node  Node
-	Index uint32 // capture id; see Query.CaptureName
+	Index int // capture id; see Query.CaptureName
 }
 
 // QueryMatch is one match of one pattern.
 type QueryMatch struct {
-	ID           uint32
-	PatternIndex uint16
+	ID           int
+	PatternIndex int
 	Captures     []QueryCapture
 }
 
@@ -206,6 +231,10 @@ type QueryMatch struct {
 // must be closed. It may be reused for many queries.
 type QueryCursor struct {
 	c ts.QueryCursor
+
+	// t is the tree of the node passed to the current execution, so that
+	// matched nodes can report their source text.
+	t *Tree
 
 	// ctxID keys the context of an ExecContext run in the callback
 	// registry until the next Exec or Close.
@@ -238,6 +267,7 @@ func (c *QueryCursor) Close() {
 // or NextCapture.
 func (c *QueryCursor) Exec(q *Query, node Node) {
 	c.dropContext()
+	c.t = node.t
 	ts.QueryCursorExec(c.c, q.q, node.n)
 }
 
@@ -248,6 +278,7 @@ func (c *QueryCursor) Exec(q *Query, node Node) {
 // released by the next Exec, ExecContext, or Close.
 func (c *QueryCursor) ExecContext(ctx context.Context, q *Query, node Node) {
 	c.dropContext()
+	c.t = node.t
 	if ctx.Done() == nil {
 		ts.QueryCursorExec(c.c, q.q, node.n)
 		return
@@ -270,18 +301,18 @@ func (c *QueryCursor) NextMatch() (m QueryMatch, ok bool) {
 	if !ts.QueryCursorNextMatch(c.c, &raw) {
 		return QueryMatch{}, false
 	}
-	return fromMatch(raw), true
+	return fromMatch(raw, c.t), true
 }
 
 // NextCapture returns the next capture in document order along with the
 // match it belongs to, or ok false when there are no more.
-func (c *QueryCursor) NextCapture() (m QueryMatch, captureIndex uint32, ok bool) {
+func (c *QueryCursor) NextCapture() (m QueryMatch, captureIndex int, ok bool) {
 	var raw ts.QueryMatch
 	var idx uint32
 	if !ts.QueryCursorNextCapture(c.c, &raw, &idx) {
 		return QueryMatch{}, 0, false
 	}
-	return fromMatch(raw), idx, true
+	return fromMatch(raw, c.t), int(idx), true
 }
 
 // Matches returns an iterator over the remaining matches of the current
@@ -312,14 +343,14 @@ func (c *QueryCursor) Captures() iter.Seq2[QueryMatch, QueryCapture] {
 }
 
 // RemoveMatch discards an in-progress match by id, freeing its resources.
-func (c *QueryCursor) RemoveMatch(id uint32) {
-	ts.QueryCursorRemoveMatch(c.c, id)
+func (c *QueryCursor) RemoveMatch(id int) {
+	ts.QueryCursorRemoveMatch(c.c, u32(id))
 }
 
 // SetByteRange restricts results to nodes within the byte range. It
 // reports false if the range is invalid.
-func (c *QueryCursor) SetByteRange(start, end uint32) bool {
-	return ts.QueryCursorSetByteRange(c.c, start, end)
+func (c *QueryCursor) SetByteRange(start, end int) bool {
+	return ts.QueryCursorSetByteRange(c.c, u32(start), u32(end))
 }
 
 // SetPointRange restricts results to nodes within the point range. It
@@ -330,8 +361,8 @@ func (c *QueryCursor) SetPointRange(start, end Point) bool {
 
 // SetContainingByteRange restricts results to nodes that contain the byte
 // range. It reports false if the range is invalid.
-func (c *QueryCursor) SetContainingByteRange(start, end uint32) bool {
-	return ts.QueryCursorSetContainingByteRange(c.c, start, end)
+func (c *QueryCursor) SetContainingByteRange(start, end int) bool {
+	return ts.QueryCursorSetContainingByteRange(c.c, u32(start), u32(end))
 }
 
 // SetContainingPointRange restricts results to nodes that contain the
@@ -342,13 +373,13 @@ func (c *QueryCursor) SetContainingPointRange(start, end Point) bool {
 
 // SetMatchLimit caps the number of in-progress matches. The default is
 // unlimited.
-func (c *QueryCursor) SetMatchLimit(limit uint32) {
-	ts.QueryCursorSetMatchLimit(c.c, limit)
+func (c *QueryCursor) SetMatchLimit(limit int) {
+	ts.QueryCursorSetMatchLimit(c.c, u32(limit))
 }
 
 // MatchLimit returns the cap on in-progress matches.
-func (c *QueryCursor) MatchLimit() uint32 {
-	return ts.QueryCursorMatchLimit(c.c)
+func (c *QueryCursor) MatchLimit() int {
+	return int(ts.QueryCursorMatchLimit(c.c))
 }
 
 // DidExceedMatchLimit reports whether matches were dropped because the
@@ -359,19 +390,19 @@ func (c *QueryCursor) DidExceedMatchLimit() bool {
 
 // SetMaxStartDepth limits how far below the node passed to Exec a pattern
 // may start matching. Zero matches only that node.
-func (c *QueryCursor) SetMaxStartDepth(depth uint32) {
-	ts.QueryCursorSetMaxStartDepth(c.c, depth)
+func (c *QueryCursor) SetMaxStartDepth(depth int) {
+	ts.QueryCursorSetMaxStartDepth(c.c, u32(depth))
 }
 
 // fromMatch copies a match out of cursor-owned memory, which is valid only
 // until the next cursor call.
-func fromMatch(raw ts.QueryMatch) QueryMatch {
-	m := QueryMatch{ID: raw.Id, PatternIndex: raw.PatternIndex}
+func fromMatch(raw ts.QueryMatch, t *Tree) QueryMatch {
+	m := QueryMatch{ID: int(raw.Id), PatternIndex: int(raw.PatternIndex)}
 	if raw.Captures != 0 && raw.CaptureCount > 0 {
 		src := unsafe.Slice((*ts.QueryCapture)(cptr(raw.Captures)), raw.CaptureCount)
 		m.Captures = make([]QueryCapture, len(src))
 		for i, c := range src {
-			m.Captures[i] = QueryCapture{Node: Node{n: c.Node}, Index: c.Index}
+			m.Captures[i] = QueryCapture{Node: Node{t: t, n: c.Node}, Index: int(c.Index)}
 		}
 	}
 	return m
