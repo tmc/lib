@@ -9,6 +9,8 @@
 // tree_sitter_<name>. [FindLanguage] locates one by name in the directories
 // [GrammarDirs] lists and [LoadLanguage] opens one by path; [DetectLanguage]
 // guesses the name from a file name, and [ParseFile] puts the two together.
+// Package [github.com/tmc/lib/treesitter/grammars] builds a grammar from a
+// pinned source archive when none is installed.
 //
 // Typical use:
 //
