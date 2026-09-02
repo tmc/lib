@@ -141,12 +141,9 @@ func TestInstall(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	for _, name := range []string{"json", "go", "typescript"} {
-		t.Run(name, func(t *testing.T) {
-			g, ok := Lookup(name)
-			if !ok {
-				t.Fatalf("no pin for %s", name)
-			}
+	for _, g := range All() {
+		t.Run(g.Name, func(t *testing.T) {
+			name := g.Name
 			path, err := g.Build(context.Background(), dir)
 			if err != nil {
 				t.Fatal(err)
@@ -203,5 +200,70 @@ func TestInstall(t *testing.T) {
 		t.Error("Build accepted a mismatched checksum")
 	} else if !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Errorf("err = %v, want a checksum mismatch", err)
+	}
+}
+
+// samples are short but real programs for the grammars whose upstreams are
+// smallest or youngest. A grammar that builds and loads can still fail to
+// parse its own language, and a permissive grammar can report no error
+// while producing no structure, so check both.
+var samples = []struct {
+	name string
+	src  string
+	want string // a node type the tree must contain
+}{
+	{"cuda", "__global__ void add(float *a, int n) {\n  int i = blockIdx.x * blockDim.x + threadIdx.x;\n  if (i < n) a[i] += 1.0f;\n}\n", "function_definition"},
+	{"ptx", ".version 8.3\n.target sm_90a\n.visible .entry f(.param .u64 p0)\n{\n\t.reg .b64 %rd<2>;\n\tld.param.u64 %rd1, [p0];\n\tret;\n}\n", "instruction"},
+	{"starlark", "def rule(name, srcs = []):\n    native.cc_library(name = name, srcs = srcs)\n", "function_definition"},
+	{"query", "(call_expression function: (identifier) @callee\n  (#eq? @callee \"malloc\"))\n", "named_node"},
+	{"objc", "#import <Foundation/Foundation.h>\n@interface A : NSObject\n- (void)go;\n@end\n", "class_interface"},
+	{"zig", "const std = @import(\"std\");\npub fn main() void {}\n", "function_declaration"},
+	{"hcl", "resource \"aws_s3_bucket\" \"b\" {\n  bucket = \"x\"\n}\n", "block"},
+	{"swift", "import MLX\nfunc f(x: Int) -> Int { return x * 2 }\n", "function_declaration"},
+}
+
+// TestParseSamples builds each sampled grammar and parses real source with
+// it. It downloads and compiles, so it shares TestInstall's gate.
+func TestParseSamples(t *testing.T) {
+	if os.Getenv("TREE_SITTER_INSTALL_TEST") == "" {
+		t.Skip("set TREE_SITTER_INSTALL_TEST=1 to download and compile grammars")
+	}
+	if err := treesitter.Load(""); err != nil {
+		t.Skipf("libtree-sitter unavailable: %v", err)
+	}
+	dir := t.TempDir()
+	for _, s := range samples {
+		t.Run(s.name, func(t *testing.T) {
+			g, ok := Lookup(s.name)
+			if !ok {
+				t.Fatalf("no pin for %s", s.name)
+			}
+			path, err := g.Build(context.Background(), dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lang, err := treesitter.LoadLanguage(path, s.name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := treesitter.Parse(lang, []byte(s.src))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tree.Close()
+			for n := range tree.Errors() {
+				t.Errorf("%s at %v: %q", n.Type(), n.StartPoint(), n.Text())
+			}
+			found := false
+			for n := range tree.RootNode().Descendants() {
+				if n.Type() == s.want {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("no %s node; the grammar parsed without error but found no structure", s.want)
+			}
+		})
 	}
 }

@@ -64,6 +64,8 @@ SHA-256, compiles it, and writes the library where `FindLanguage` looks.
 Upstream publishes C source rather than binaries, so this needs a C
 compiler at install time; parsing still needs none. `grammars.All` lists
 what is pinned, and `Grammar.Build` installs a grammar that is not.
+The pins cover the common languages plus `cuda`, `ptx`, `glsl`, `hlsl`,
+`swift`, `objc`, `starlark`, and tree-sitter's own `query` language.
 The package is separate so that a program which only parses links no HTTP
 client and no parse can reach the network.
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/tmc/lib/treesitter"
 	"github.com/tmc/lib/treesitter/grammars"
@@ -23,26 +24,16 @@ func Example() {
 	fmt.Println(tree.RootNode().Type())
 }
 
-// ExampleAll lists the grammars that can be installed.
+// ExampleAll lists the grammars that can be installed. Each carries the
+// upstream version it is pinned to, which g.String reports.
 func ExampleAll() {
+	var names []string
 	for _, g := range grammars.All() {
-		fmt.Println(g)
+		names = append(names, g.Name)
 	}
+	fmt.Println(strings.Join(names, " "))
 	// Output:
-	// bash v0.25.1
-	// c v0.24.2
-	// cpp v0.23.4
-	// css v0.25.0
-	// go v0.25.0
-	// html v0.23.2
-	// java v0.23.5
-	// javascript v0.25.0
-	// json v0.24.8
-	// python v0.25.0
-	// ruby v0.23.1
-	// rust v0.24.2
-	// tsx v0.23.2
-	// typescript v0.23.2
+	// bash c cpp css cuda glsl go hcl hlsl html java javascript json lua markdown markdown_inline objc ptx python query ruby rust starlark swift toml tsx typescript yaml zig
 }
 
 // ExampleGrammar_Build installs a grammar that is not in the manifest.

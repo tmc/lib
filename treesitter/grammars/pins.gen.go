@@ -31,10 +31,34 @@ var pinned = []Grammar{
 		SHA256:  "03965344d8c0435dc54fb45b281578420bb7db8b99df4d34e7e74105a274cb79",
 	},
 	{
+		Name:    "cuda",
+		Version: "v0.21.1",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-cuda/archive/refs/tags/v0.21.1.tar.gz",
+		SHA256:  "8cb5f44b706cbefcb5b5bdad7cc7f8fd3e49aa14c37693895fd9f198c56ba4d9",
+	},
+	{
+		Name:    "glsl",
+		Version: "v0.2.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-glsl/archive/refs/tags/v0.2.0.tar.gz",
+		SHA256:  "65d098362f9ffd47e9bf5916133ed24ccf934b01027debdaeeb46ff3ec41caf0",
+	},
+	{
 		Name:    "go",
 		Version: "v0.25.0",
 		URL:     "https://github.com/tree-sitter/tree-sitter-go/archive/refs/tags/v0.25.0.tar.gz",
 		SHA256:  "2dc241b97872c53195e01b86542b411a3c1a6201d9c946c78d5c60c063bba1ef",
+	},
+	{
+		Name:    "hcl",
+		Version: "v1.2.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-hcl/archive/refs/tags/v1.2.0.tar.gz",
+		SHA256:  "a95bc6b00271e08dee9e63b895b2563dac802db0015fdf5a24a1b0244f2cb560",
+	},
+	{
+		Name:    "hlsl",
+		Version: "v0.2.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-hlsl/archive/refs/tags/v0.2.0.tar.gz",
+		SHA256:  "915ec84ddde4f5cf11f735de6f3e96ccf3355222f98d4d1e84436a743a519737",
 	},
 	{
 		Name:    "html",
@@ -61,10 +85,48 @@ var pinned = []Grammar{
 		SHA256:  "acf6e8362457e819ed8b613f2ad9a0e1b621a77556c296f3abea58f7880a9213",
 	},
 	{
+		Name:    "lua",
+		Version: "v0.5.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-lua/archive/refs/tags/v0.5.0.tar.gz",
+		SHA256:  "cf01b93f4b61b96a6d27942cf28eeda4cbce7d503c3bef773a8930b3d778a2d9",
+	},
+	{
+		Name:    "markdown",
+		Version: "v0.5.3",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-markdown/archive/refs/tags/v0.5.3.tar.gz",
+		SHA256:  "df845b1ab7c7c163ec57d7fa17170c92b04be199bddab02523636efec5224ab6",
+		Subdir:  "tree-sitter-markdown",
+	},
+	{
+		Name:    "markdown_inline",
+		Version: "v0.5.3",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-markdown/archive/refs/tags/v0.5.3.tar.gz",
+		SHA256:  "df845b1ab7c7c163ec57d7fa17170c92b04be199bddab02523636efec5224ab6",
+		Subdir:  "tree-sitter-markdown-inline",
+	},
+	{
+		Name:    "objc",
+		Version: "v3.0.2",
+		URL:     "https://github.com/amaanq/tree-sitter-objc/archive/refs/tags/v3.0.2.tar.gz",
+		SHA256:  "186d03ecb9ae41cde85efbe283dcbe67c277fff766a946f7efd6d51fee72370d",
+	},
+	{
+		Name:    "ptx",
+		Version: "a993c54d2c60a943b8c6bcfe0972ea1d9633f314",
+		URL:     "https://github.com/JuliaGPU/tree-sitter-ptx/archive/a993c54d2c60a943b8c6bcfe0972ea1d9633f314.tar.gz",
+		SHA256:  "a9f80fe91b43a46adf12a993489ad42faa70cad610db367b44d5923f29b62ad2",
+	},
+	{
 		Name:    "python",
 		Version: "v0.25.0",
 		URL:     "https://github.com/tree-sitter/tree-sitter-python/archive/refs/tags/v0.25.0.tar.gz",
 		SHA256:  "4609a3665a620e117acf795ff01b9e965880f81745f287a16336f4ca86cf270c",
+	},
+	{
+		Name:    "query",
+		Version: "v0.8.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-query/archive/refs/tags/v0.8.0.tar.gz",
+		SHA256:  "c2b23b9a54cffcc999ded4a5d3949daf338bebb7945dece229f832332e6e6a7d",
 	},
 	{
 		Name:    "ruby",
@@ -79,6 +141,24 @@ var pinned = []Grammar{
 		SHA256:  "061e90a539a55a6aa65dceb0ad6425c50ab1a6e3e6d4ba430e2795ed4550f10e",
 	},
 	{
+		Name:    "starlark",
+		Version: "v1.3.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-starlark/archive/refs/tags/v1.3.0.tar.gz",
+		SHA256:  "31c58a540d738a17b366f2046da298b66dfa0695bcbfa207f61fa63cfe5c03ed",
+	},
+	{
+		Name:    "swift",
+		Version: "0.7.3",
+		URL:     "https://github.com/alex-pinkus/tree-sitter-swift/releases/download/0.7.3/tree-sitter-swift.tar.gz",
+		SHA256:  "c595b41459b0816f246ec27f60e08392ff453135e12ef47a1852ed37fe6705fe",
+	},
+	{
+		Name:    "toml",
+		Version: "v0.7.0",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-toml/archive/refs/tags/v0.7.0.tar.gz",
+		SHA256:  "7d52a7d4884f307aabc872867c69084d94456d8afcdc63b0a73031a8b29036dc",
+	},
+	{
 		Name:    "tsx",
 		Version: "v0.23.2",
 		URL:     "https://github.com/tree-sitter/tree-sitter-typescript/archive/refs/tags/v0.23.2.tar.gz",
@@ -91,5 +171,17 @@ var pinned = []Grammar{
 		URL:     "https://github.com/tree-sitter/tree-sitter-typescript/archive/refs/tags/v0.23.2.tar.gz",
 		SHA256:  "2c4ce711ae8d1218a3b2f899189298159d672870b5b34dff5d937bed2f3e8983",
 		Subdir:  "typescript",
+	},
+	{
+		Name:    "yaml",
+		Version: "v0.7.2",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-yaml/archive/refs/tags/v0.7.2.tar.gz",
+		SHA256:  "aeaff5731bb8b66c7054c8aed33cd5edea5f4cd2ac71654f3f6c2ba2073d8fac",
+	},
+	{
+		Name:    "zig",
+		Version: "v1.1.2",
+		URL:     "https://github.com/tree-sitter-grammars/tree-sitter-zig/archive/refs/tags/v1.1.2.tar.gz",
+		SHA256:  "612d67059faa90ec7691e5d786d70d8f7c2c8b15b83de901b9b801122ad4cf25",
 	},
 }
