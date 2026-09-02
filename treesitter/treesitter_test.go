@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,26 +20,7 @@ func testGrammar(t *testing.T) *Language {
 	if err := Load(""); err != nil {
 		t.Skipf("libtree-sitter unavailable: %v", err)
 	}
-	path, name := "", "c"
-	if spec := os.Getenv("TREE_SITTER_TEST_GRAMMAR"); spec != "" {
-		p, n, ok := strings.Cut(spec, ":")
-		if !ok {
-			t.Fatalf("TREE_SITTER_TEST_GRAMMAR=%q: want path:name", spec)
-		}
-		path, name = p, n
-	} else {
-		prefixes := []string{os.Getenv("HOMEBREW_PREFIX"), "/opt/homebrew", "/usr/local", "/usr"}
-		for _, prefix := range prefixes {
-			if prefix == "" {
-				continue
-			}
-			candidate := filepath.Join(prefix, "lib", "nvim", "parser", "c.so")
-			if _, err := os.Stat(candidate); err == nil {
-				path = candidate
-				break
-			}
-		}
-	}
+	path, name := testGrammarSpec(t)
 	if path == "" {
 		t.Skip("no C grammar found; set TREE_SITTER_TEST_GRAMMAR=path:name")
 	}
@@ -47,6 +29,30 @@ func testGrammar(t *testing.T) *Language {
 		t.Fatalf("LoadLanguage(%s, %s): %v", path, name, err)
 	}
 	return lang
+}
+
+// testGrammarSpec returns the path and name of the test grammar, or "" for
+// the path when none is available.
+func testGrammarSpec(t *testing.T) (path, name string) {
+	t.Helper()
+	if spec := os.Getenv("TREE_SITTER_TEST_GRAMMAR"); spec != "" {
+		p, n, ok := strings.Cut(spec, ":")
+		if !ok {
+			t.Fatalf("TREE_SITTER_TEST_GRAMMAR=%q: want path:name", spec)
+		}
+		return p, n
+	}
+	prefixes := []string{os.Getenv("HOMEBREW_PREFIX"), "/opt/homebrew", "/usr/local", "/usr"}
+	for _, prefix := range prefixes {
+		if prefix == "" {
+			continue
+		}
+		candidate := filepath.Join(prefix, "lib", "nvim", "parser", "c.so")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, "c"
+		}
+	}
+	return "", "c"
 }
 
 func testParser(t *testing.T) (*Parser, *Language) {
@@ -61,6 +67,15 @@ func testParser(t *testing.T) (*Parser, *Language) {
 		t.Fatal(err)
 	}
 	return p, lang
+}
+
+// count drains an iterator.
+func count[T any](seq iter.Seq[T]) int {
+	n := 0
+	for range seq {
+		n++
+	}
+	return n
 }
 
 const helloC = "int main() {\n  return 0;\n}\n"
@@ -111,17 +126,44 @@ func TestParse(t *testing.T) {
 	if !strings.Contains(root.String(), "(function_definition") {
 		t.Errorf("S-expression %q lacks function_definition", root.String())
 	}
-	if got := len(root.Children()); got != 1 {
+	if got := count(root.Children()); got != 1 {
 		t.Errorf("Children() len = %d, want 1", got)
 	}
-	if got := len(fn.NamedChildren()); got != 3 {
+	if got := count(fn.NamedChildren()); got != 3 {
 		t.Errorf("NamedChildren() of function = %d, want 3 (type, declarator, body)", got)
+	}
+	if got, want := count(root.Descendants()), int(root.DescendantCount())-1; got != want {
+		t.Errorf("Descendants() len = %d, want %d", got, want)
+	}
+	var types []string
+	for d := range root.Descendants() {
+		if d.IsNamed() {
+			types = append(types, d.Type())
+		}
+	}
+	if got := strings.Join(types, " "); !strings.HasPrefix(got, "function_definition primitive_type function_declarator identifier") {
+		t.Errorf("Descendants() order = %q", got)
+	}
+	for c := range root.Children() {
+		if !c.Equal(fn) {
+			t.Errorf("first child = %v, want %v", c, fn)
+		}
+		break
 	}
 	if (Node{}).IsNull() != true {
 		t.Error("zero Node is not null")
 	}
 	if got := root.Parent(); !got.IsNull() {
 		t.Errorf("root parent = %v, want null", got)
+	}
+	// Null nodes are inert: every accessor returns its zero value.
+	null := fn.ChildByFieldName("no_such_field")
+	if !null.IsNull() || null.Type() != "" || null.EndByte() != 0 || null.Text(src) != nil ||
+		null.String() != "" || null.ChildCount() != 0 || !null.Parent().IsNull() || null.HasError() {
+		t.Errorf("null node accessors returned non-zero values")
+	}
+	if got := count(null.Children()); got != 0 {
+		t.Errorf("null.Children() len = %d", got)
 	}
 }
 
@@ -321,11 +363,7 @@ func TestQuery(t *testing.T) {
 	defer c.Close()
 	c.Exec(q, tree.RootNode())
 	var names []string
-	for {
-		m, ok := c.NextMatch()
-		if !ok {
-			break
-		}
+	for m := range c.Matches() {
 		for _, cap := range m.Captures {
 			if q.CaptureName(cap.Index) == "name" || q.CaptureName(cap.Index) == "callee" {
 				names = append(names, string(cap.Node.Text(src)))
@@ -334,6 +372,16 @@ func TestQuery(t *testing.T) {
 	}
 	if got := strings.Join(names, ","); got != "add,main,add" {
 		t.Errorf("captures = %q, want add,main,add", got)
+	}
+	c.Exec(q, tree.RootNode())
+	names = names[:0]
+	for m, cap := range c.Captures() {
+		if q.CaptureName(cap.Index) != "func" && m.PatternIndex < 2 {
+			names = append(names, string(cap.Node.Text(src)))
+		}
+	}
+	if got := strings.Join(names, ","); got != "add,main,add" {
+		t.Errorf("Captures() = %q, want add,main,add", got)
 	}
 
 	c.Exec(q, tree.RootNode())
@@ -578,10 +626,10 @@ func TestLookahead(t *testing.T) {
 	}
 	defer it.Close()
 	var names []string
-	for it.Next() {
+	for sym := range it.Symbols() {
 		names = append(names, it.CurrentSymbolName())
-		if lang.SymbolName(it.CurrentSymbol()) != it.CurrentSymbolName() {
-			t.Errorf("symbol %d name mismatch", it.CurrentSymbol())
+		if lang.SymbolName(sym) != it.CurrentSymbolName() {
+			t.Errorf("symbol %d name mismatch", sym)
 		}
 	}
 	if len(names) == 0 {

@@ -4,14 +4,20 @@ Go bindings for the [tree-sitter](https://tree-sitter.github.io/) parsing
 library, loaded at run time with purego. No cgo.
 
 ```go
-lang, err := treesitter.LoadLanguage("/opt/homebrew/lib/nvim/parser/c.so", "c")
+lang, err := treesitter.FindLanguage(treesitter.DetectLanguage("main.c")) // "c"
 p, err := treesitter.NewParser()
 defer p.Close()
 err = p.SetLanguage(lang)
 tree, err := p.Parse(src, nil)
 defer tree.Close()
-fmt.Println(tree.RootNode())
+for n := range tree.RootNode().NamedChildren() {
+	fmt.Println(n.Type(), n.StartPoint())
+}
 ```
+
+Children, descendants, query matches and captures, and lookahead symbols
+are range-over-func iterators. Node is a value type and every method
+accepts a null node, so `n.ChildByFieldName("x").Text(src)` is safe.
 
 The package covers parsing (whole-buffer, chunked, incremental, and
 context-cancellable), tree and node inspection, tree cursors, queries with
@@ -24,7 +30,15 @@ not bound.
 `libtree-sitter` is located through `TREE_SITTER_LIB_PATH`, then the
 platform default search path, then the common Homebrew paths on macOS.
 `Load` sets the path explicitly. Grammars are separate shared libraries
-exporting `tree_sitter_<name>`; `LoadLanguage` opens one by path.
+exporting `tree_sitter_<name>`. `FindLanguage` looks one up by name in
+`TREE_SITTER_GRAMMAR_PATH`, the tree-sitter CLI's library directory, the
+parser directories of Neovim and Emacs, and the system library directories
+(`GrammarDirs` lists them); `LoadLanguage` opens one by path.
+
+tree-sitter has no notion of which language a file is written in.
+`DetectLanguage` maps a file name to a grammar name using the extensions
+the common grammars declare, which is what the tree-sitter CLI does with
+its `file-types` lists.
 
 A grammar's ABI version must lie within the range this library supports
 (`MinCompatibleLanguageVersion` through `LanguageVersion`). Grammars built

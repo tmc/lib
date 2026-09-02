@@ -2,6 +2,7 @@ package treesitter
 
 import (
 	"errors"
+	"iter"
 
 	"github.com/tmc/lib/treesitter/internal/ts"
 )
@@ -55,6 +56,17 @@ func (it *LookaheadIterator) Language() *Language {
 // Next advances to the next symbol and reports whether there was one.
 func (it *LookaheadIterator) Next() bool {
 	return ts.LookaheadIteratorNext(it.it)
+}
+
+// Symbols returns an iterator over the remaining valid symbols.
+func (it *LookaheadIterator) Symbols() iter.Seq[Symbol] {
+	return func(yield func(Symbol) bool) {
+		for it.Next() {
+			if !yield(it.CurrentSymbol()) {
+				return
+			}
+		}
+	}
 }
 
 // CurrentSymbol returns the symbol the iterator is on.
