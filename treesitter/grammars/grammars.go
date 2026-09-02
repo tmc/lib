@@ -168,6 +168,14 @@ func (g Grammar) fetch(ctx context.Context) ([]byte, error) {
 // extract unpacks a gzipped tar into dir. It takes only regular files and
 // directories, and rejects any name that would escape dir.
 func extract(archive []byte, dir string) error {
+	// A GitHub tag archive wraps everything in one directory named for the
+	// repository and tag, which is not part of the layout a grammar
+	// declares. An archive attached to a release usually does not. Strip a
+	// wrapper only when there is exactly one.
+	root, err := commonRoot(archive)
+	if err != nil {
+		return err
+	}
 	zr, err := gzip.NewReader(bytes.NewReader(archive))
 	if err != nil {
 		return err
@@ -183,18 +191,16 @@ func extract(archive []byte, dir string) error {
 		if err != nil {
 			return err
 		}
-		name := path.Clean(strings.TrimPrefix(h.Name, "./"))
-		if path.IsAbs(name) || name == ".." || strings.HasPrefix(name, "../") {
-			return fmt.Errorf("archive entry %q is outside the archive", h.Name)
-		}
-		// GitHub archives wrap everything in one directory named for the
-		// repository and tag, which is not part of the layout the grammar
-		// declares, so drop it.
-		i := strings.Index(name, "/")
-		if i < 0 {
+		// Take only files and directories, so that a symbolic link or
+		// a pax header is skipped rather than rejected.
+		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeDir {
 			continue
 		}
-		if name = name[i+1:]; name == "" {
+		name, ok := entryName(h.Name, root)
+		if !ok {
+			return fmt.Errorf("archive entry %q is outside the archive", h.Name)
+		}
+		if name == "" {
 			continue
 		}
 		target := filepath.Join(dir, filepath.FromSlash(name))
@@ -222,6 +228,69 @@ func extract(archive []byte, dir string) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+}
+
+// entryName returns a tar entry's path relative to root, and reports
+// whether it stays inside the destination.
+func entryName(name, root string) (string, bool) {
+	name = path.Clean(strings.TrimPrefix(name, "./"))
+	if path.IsAbs(name) || name == ".." || strings.HasPrefix(name, "../") {
+		return "", false
+	}
+	if name == "." {
+		return "", true
+	}
+	if root == "" {
+		return name, true
+	}
+	if name == root {
+		return "", true
+	}
+	rest, ok := strings.CutPrefix(name, root+"/")
+	if !ok {
+		return "", false
+	}
+	return rest, true
+}
+
+// commonRoot returns the single top-level directory every entry lies
+// under, or "" when the entries are not wrapped in one.
+func commonRoot(archive []byte) (string, error) {
+	zr, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return "", err
+	}
+	defer zr.Close()
+	tr := tar.NewReader(zr)
+	root := ""
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return root, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		// Only the entries extract would take decide the layout. A
+		// GitHub archive leads with a pax global header, which is
+		// neither a file nor a directory.
+		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeDir {
+			continue
+		}
+		name := path.Clean(strings.TrimPrefix(h.Name, "./"))
+		if name == "." || name == "" {
+			continue
+		}
+		first, _, nested := strings.Cut(name, "/")
+		if !nested && h.Typeflag != tar.TypeDir {
+			return "", nil // a file at the top level, so no wrapper
+		}
+		if root == "" {
+			root = first
+		} else if root != first {
+			return "", nil
 		}
 	}
 }

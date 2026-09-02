@@ -111,8 +111,19 @@ TREE_SITTER_LIB_PATH=$P/lib/libtree-sitter.dylib \
 TREE_SITTER_INSTALL_TEST=1 go test -count=1 -v ./grammars
 ```
 
-It builds json, go, and typescript, checks that a second build reuses the
+It builds every pinned grammar, checks that a second build reuses the
 library rather than rebuilding it, parses through `FindLanguage` to prove
 the install path and the search path agree, and checks that a wrong
-checksum is refused. Last verified 2026-09-01 on macOS arm64 with Apple
-clang: three grammars downloaded and compiled in 3.4s.
+checksum is refused. `TestParseSamples` then parses real source with the
+grammars whose upstreams are smallest, and requires both no error nodes
+and a named node that proves the grammar found structure rather than
+matching permissively.
+
+That second check is not redundant. It is what disqualified the available
+Metal grammars: `jdc-pub/tree-sitter-metal` cannot parse `kernel`,
+`vertex`, or `fragment` at all, and `Lu-TheCoder/tree-sitter-metal`,
+which handles those, fails on a reference parameter such as
+`constant uint &N [[buffer(3)]]`. There is no Metal pin as a result.
+
+Last verified 2026-09-01 on macOS arm64 with Apple clang: 29 grammars
+downloaded, compiled, and loaded in 35s.
