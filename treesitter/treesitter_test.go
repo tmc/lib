@@ -99,7 +99,7 @@ func TestParse(t *testing.T) {
 	if root.HasError() {
 		t.Errorf("unexpected error in %s", root)
 	}
-	if got, want := root.EndByte(), uint32(len(src)); got != want {
+	if got, want := root.EndByte(), len(src); got != want {
 		t.Errorf("root end byte = %d, want %d", got, want)
 	}
 	if got, want := root.EndPoint(), (Point{Row: 3, Column: 0}); got != want {
@@ -120,7 +120,7 @@ func TestParse(t *testing.T) {
 		t.Fatalf("declarator = %v", decl)
 	}
 	name := decl.ChildByFieldName("declarator")
-	if got := string(name.Text(src)); got != "main" {
+	if got := string(name.Text()); got != "main" {
 		t.Errorf("function name = %q, want main", got)
 	}
 	if !strings.Contains(root.String(), "(function_definition") {
@@ -158,7 +158,7 @@ func TestParse(t *testing.T) {
 	}
 	// Null nodes are inert: every accessor returns its zero value.
 	null := fn.ChildByFieldName("no_such_field")
-	if !null.IsNull() || null.Type() != "" || null.EndByte() != 0 || null.Text(src) != nil ||
+	if !null.IsNull() || null.Type() != "" || null.EndByte() != 0 || null.Text() != nil ||
 		null.String() != "" || null.ChildCount() != 0 || !null.Parent().IsNull() || null.HasError() {
 		t.Errorf("null node accessors returned non-zero values")
 	}
@@ -348,9 +348,9 @@ func TestQuery(t *testing.T) {
 	if got := q.CaptureName(0); got != "name" {
 		t.Errorf("capture 0 = %q, want name", got)
 	}
-	steps := q.PredicatesForPattern(1)
-	if len(steps) != 4 || steps[0].Type != PredicateStepString || q.StringValue(steps[0].ValueID) != "eq?" || steps[3].Type != PredicateStepDone {
-		t.Errorf("predicates = %+v", steps)
+	preds := q.Predicates(1)
+	if len(preds) != 1 || preds[0].Operator != "eq?" || preds[0].String() != `(#eq? @callee "add")` {
+		t.Errorf("predicates = %+v", preds)
 	}
 	if !q.IsPatternRooted(0) {
 		t.Error("pattern 0 not rooted")
@@ -366,7 +366,7 @@ func TestQuery(t *testing.T) {
 	for m := range c.Matches() {
 		for _, cap := range m.Captures {
 			if q.CaptureName(cap.Index) == "name" || q.CaptureName(cap.Index) == "callee" {
-				names = append(names, string(cap.Node.Text(src)))
+				names = append(names, string(cap.Node.Text()))
 			}
 		}
 	}
@@ -377,7 +377,7 @@ func TestQuery(t *testing.T) {
 	names = names[:0]
 	for m, cap := range c.Captures() {
 		if q.CaptureName(cap.Index) != "func" && m.PatternIndex < 2 {
-			names = append(names, string(cap.Node.Text(src)))
+			names = append(names, string(cap.Node.Text()))
 		}
 	}
 	if got := strings.Join(names, ","); got != "add,main,add" {
@@ -385,7 +385,7 @@ func TestQuery(t *testing.T) {
 	}
 
 	c.Exec(q, tree.RootNode())
-	if !c.SetByteRange(40, uint32(len(src))) {
+	if !c.SetByteRange(40, len(src)) {
 		t.Fatal("SetByteRange rejected")
 	}
 	var count int
@@ -499,13 +499,12 @@ func TestParseInput(t *testing.T) {
 	p, _ := testParser(t)
 	src := []byte(helloC)
 	var calls int
-	read := func(byteIndex uint32, pos Point) []byte {
+	read := func(byteIndex int, pos Point) []byte {
 		calls++
-		if int(byteIndex) >= len(src) {
+		if byteIndex >= len(src) {
 			return nil
 		}
-		end := min(int(byteIndex)+4, len(src))
-		return src[byteIndex:end]
+		return src[byteIndex:min(byteIndex+4, len(src))]
 	}
 	tree, err := p.ParseInput(read, UTF8, nil)
 	if err != nil {

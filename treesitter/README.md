@@ -4,26 +4,41 @@ Go bindings for the [tree-sitter](https://tree-sitter.github.io/) parsing
 library, loaded at run time with purego. No cgo.
 
 ```go
-lang, err := treesitter.FindLanguage(treesitter.DetectLanguage("main.c")) // "c"
-p, err := treesitter.NewParser()
-defer p.Close()
-err = p.SetLanguage(lang)
-tree, err := p.Parse(src, nil)
+tree, err := treesitter.ParseFile("main.c")
 defer tree.Close()
-for n := range tree.RootNode().NamedChildren() {
-	fmt.Println(n.Type(), n.StartPoint())
+
+q, err := treesitter.NewQuery(tree.Language(), `
+    (call_expression function: (identifier) @callee
+      (#match? @callee "^str"))`)
+defer q.Close()
+
+for m := range q.Matches(tree.RootNode()) {
+	fmt.Printf("%s at %v\n", m.Text("callee"), m.Node("callee").StartPoint())
 }
 ```
 
-Children, descendants, query matches and captures, and lookahead symbols
-are range-over-func iterators. Node is a value type and every method
-accepts a null node, so `n.ChildByFieldName("x").Text(src)` is safe.
+The API is shaped for Go rather than translated from C:
 
-The package covers parsing (whole-buffer, chunked, incremental, and
-context-cancellable), tree and node inspection, tree cursors, queries with
-captures and predicate steps, lookahead iteration, and language
-introspection. The WebAssembly grammar loader and the custom allocator are
-not bound.
+- A tree remembers its source, so `Node.Text()` takes no argument.
+- Children, descendants, errors, matches, captures, and lookahead symbols
+  are range-over-func iterators.
+- Counts and byte offsets are `int`, not `uint32`.
+- Node is a value type and every method accepts a null node, so
+  `n.ChildByFieldName("x").Text()` is safe.
+- `Query.Matches` names captures and applies text predicates; a malformed
+  predicate is a compile error. `QueryCursor` still exposes the raw
+  tree-sitter behaviour.
+- `ParseFile` picks a grammar from the file name; `Parse` is a one-call
+  parser for a language you already have.
+- Streaming input is `io.ReaderAt`, because tree-sitter reads by byte
+  offset and revisits earlier offsets; a forward-only `io.Reader` cannot
+  serve it.
+
+The package covers parsing (whole-buffer, chunked, random-access,
+incremental, and context-cancellable), tree and node inspection, tree
+cursors, queries with named captures and predicate evaluation, lookahead
+iteration, and language introspection. The WebAssembly grammar loader and
+the custom allocator are not bound.
 
 ## Libraries
 

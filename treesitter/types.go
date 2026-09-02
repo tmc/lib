@@ -9,8 +9,8 @@ import (
 // Point is a position in source text: a zero-based row and a zero-based
 // byte column within that row.
 type Point struct {
-	Row    uint32
-	Column uint32
+	Row    int
+	Column int
 }
 
 // String returns the point as row:column.
@@ -22,16 +22,16 @@ func (p Point) String() string {
 type Range struct {
 	StartPoint Point
 	EndPoint   Point
-	StartByte  uint32
-	EndByte    uint32
+	StartByte  int
+	EndByte    int
 }
 
 // InputEdit describes a change to a source text. StartByte and StartPoint
 // must not exceed the old end byte and point.
 type InputEdit struct {
-	StartByte   uint32
-	OldEndByte  uint32
-	NewEndByte  uint32
+	StartByte   int
+	OldEndByte  int
+	NewEndByte  int
 	StartPoint  Point
 	OldEndPoint Point
 	NewEndPoint Point
@@ -132,29 +132,38 @@ func (q Quantifier) String() string {
 	return fmt.Sprintf("Quantifier(%d)", int32(q))
 }
 
-func fromPoint(p ts.Point) Point { return Point{Row: p.Row, Column: p.Column} }
-func toPoint(p Point) ts.Point   { return ts.Point{Row: p.Row, Column: p.Column} }
+// u32 converts a Go count or offset to the uint32 the C API uses,
+// clamping a negative value to zero.
+func u32(n int) uint32 {
+	if n < 0 {
+		return 0
+	}
+	return uint32(n)
+}
+
+func fromPoint(p ts.Point) Point { return Point{Row: int(p.Row), Column: int(p.Column)} }
+func toPoint(p Point) ts.Point   { return ts.Point{Row: u32(p.Row), Column: u32(p.Column)} }
 func fromRange(r ts.Range) Range {
 	return Range{
 		StartPoint: fromPoint(r.StartPoint),
 		EndPoint:   fromPoint(r.EndPoint),
-		StartByte:  r.StartByte,
-		EndByte:    r.EndByte,
+		StartByte:  int(r.StartByte),
+		EndByte:    int(r.EndByte),
 	}
 }
 func toRange(r Range) ts.Range {
 	return ts.Range{
 		StartPoint: toPoint(r.StartPoint),
 		EndPoint:   toPoint(r.EndPoint),
-		StartByte:  r.StartByte,
-		EndByte:    r.EndByte,
+		StartByte:  u32(r.StartByte),
+		EndByte:    u32(r.EndByte),
 	}
 }
 func toInputEdit(e InputEdit) ts.InputEdit {
 	return ts.InputEdit{
-		StartByte:   e.StartByte,
-		OldEndByte:  e.OldEndByte,
-		NewEndByte:  e.NewEndByte,
+		StartByte:   u32(e.StartByte),
+		OldEndByte:  u32(e.OldEndByte),
+		NewEndByte:  u32(e.NewEndByte),
 		StartPoint:  toPoint(e.StartPoint),
 		OldEndPoint: toPoint(e.OldEndPoint),
 		NewEndPoint: toPoint(e.NewEndPoint),

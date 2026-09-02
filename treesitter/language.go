@@ -74,8 +74,8 @@ func (l *Language) Name() string {
 }
 
 // ABIVersion returns the ABI version the grammar was generated with.
-func (l *Language) ABIVersion() uint32 {
-	return ts.LanguageAbiVersion(l.l)
+func (l *Language) ABIVersion() int {
+	return int(ts.LanguageAbiVersion(l.l))
 }
 
 // Version returns the grammar's semantic version. ok is false when the
@@ -90,18 +90,18 @@ func (l *Language) Version() (major, minor, patch uint8, ok bool) {
 }
 
 // SymbolCount returns the number of distinct node types.
-func (l *Language) SymbolCount() uint32 {
-	return ts.LanguageSymbolCount(l.l)
+func (l *Language) SymbolCount() int {
+	return int(ts.LanguageSymbolCount(l.l))
 }
 
 // StateCount returns the number of valid parse states.
-func (l *Language) StateCount() uint32 {
-	return ts.LanguageStateCount(l.l)
+func (l *Language) StateCount() int {
+	return int(ts.LanguageStateCount(l.l))
 }
 
 // FieldCount returns the number of distinct field names.
-func (l *Language) FieldCount() uint32 {
-	return ts.LanguageFieldCount(l.l)
+func (l *Language) FieldCount() int {
+	return int(ts.LanguageFieldCount(l.l))
 }
 
 // SymbolName returns the name of a node type.
