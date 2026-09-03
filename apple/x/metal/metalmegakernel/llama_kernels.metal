@@ -605,6 +605,53 @@ kernel void BatchedGEMMResidual(
     }
 }
 
+kernel void BatchedQKVProjection(
+    device const float* X [[buffer(0)]], device const float* WQ [[buffer(1)]],
+    device const float* WK [[buffer(2)]], device const float* WV [[buffer(3)]],
+    device float* Q [[buffer(4)]], device float* K [[buffer(5)]], device float* V [[buffer(6)]],
+    constant uint& rows [[buffer(7)]], constant uint& in_dim [[buffer(8)]],
+    constant uint& q_dim [[buffer(9)]], constant uint& kv_dim [[buffer(10)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]], uint simd [[simdgroup_index_in_threadgroup]]) {
+    uint span = q_dim + 2 * kv_dim;
+    uint row = group / span, col = group % span;
+    if (row >= rows) return;
+    device const float* weight;
+    device float* output;
+    uint out_dim, out_col;
+    if (col < q_dim) { weight=WQ; output=Q; out_dim=q_dim; out_col=col; }
+    else if (col < q_dim+kv_dim) { weight=WK; output=K; out_dim=kv_dim; out_col=col-q_dim; }
+    else { weight=WV; output=V; out_dim=kv_dim; out_col=col-q_dim-kv_dim; }
+    device const float* x = X + row * in_dim;
+    device const float* w = weight + out_col * in_dim;
+    uint n4=in_dim/4; device const float4* x4=(device const float4*)x; device const float4* w4=(device const float4*)w;
+    float acc=0;
+    for(uint i=tid;i<n4;i+=128) acc += dot(x4[i],w4[i]);
+    for(uint i=n4*4+tid;i<in_dim;i+=128) acc += x[i]*w[i];
+    acc=simd_sum(acc); threadgroup float sums[4]; if(lane==0) sums[simd]=acc;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    float total=(simd==0 && lane<4)?sums[lane]:0; if(simd==0) total=simd_sum(total);
+    if(tid==0) output[row*out_dim+out_col]=total;
+}
+
+kernel void BatchedGateUpProjection(
+    device const float* X [[buffer(0)]], device const float* WG [[buffer(1)]],
+    device const float* WU [[buffer(2)]], device float* G [[buffer(3)]], device float* U [[buffer(4)]],
+    constant uint& rows [[buffer(5)]], constant uint& in_dim [[buffer(6)]], constant uint& out_dim [[buffer(7)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]], uint simd [[simdgroup_index_in_threadgroup]]) {
+    uint span=2*out_dim, row=group/span, col=group%span; if(row>=rows) return;
+    bool up=col>=out_dim; uint out_col=up?col-out_dim:col;
+    device const float* w=(up?WU:WG)+out_col*in_dim; device const float* x=X+row*in_dim;
+    uint n4=in_dim/4; device const float4* x4=(device const float4*)x; device const float4* w4=(device const float4*)w;
+    float acc=0; for(uint i=tid;i<n4;i+=128) acc+=dot(x4[i],w4[i]);
+    for(uint i=n4*4+tid;i<in_dim;i+=128) acc+=x[i]*w[i];
+    acc=simd_sum(acc); threadgroup float sums[4]; if(lane==0) sums[simd]=acc;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    float total=(simd==0 && lane<4)?sums[lane]:0; if(simd==0) total=simd_sum(total);
+    if(tid==0) (up?U:G)[row*out_dim+out_col]=total;
+}
+
 kernel void BatchedArgmaxSampling(
     device const float* logits          [[buffer(0)]],
     device int* token_out               [[buffer(1)]],

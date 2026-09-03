@@ -95,6 +95,10 @@ type decodeKernels struct {
 	BatchedNormH      apple.MTLComputePipelineState `metal:"BatchedRMSNormH"`
 	BatchedGEMMH      apple.MTLComputePipelineState `metal:"BatchedGEMMH"`
 	BatchedGEMMResH   apple.MTLComputePipelineState `metal:"BatchedGEMMResidualH"`
+	BatchedQKVProj    apple.MTLComputePipelineState `metal:"BatchedQKVProjection"`
+	BatchedQKVProjH   apple.MTLComputePipelineState `metal:"BatchedQKVProjectionH"`
+	BatchedGateUp     apple.MTLComputePipelineState `metal:"BatchedGateUpProjection"`
+	BatchedGateUpH    apple.MTLComputePipelineState `metal:"BatchedGateUpProjectionH"`
 	RMSNormScale      apple.MTLComputePipelineState `metal:"RMSNormScale"`
 	LMHeadTileArgmax  apple.MTLComputePipelineState `metal:"LMHeadTileArgmax"`
 	LMHeadTileArgmaxH apple.MTLComputePipelineState `metal:"LMHeadTileArgmaxH"`
@@ -103,16 +107,17 @@ type decodeKernels struct {
 
 // ModelEngine maintains cached Metal pipeline states and GPU-resident memory allocations.
 type ModelEngine struct {
-	dev        *metal.Device
-	lib        apple.MTLLibrary
-	pso        decodeKernels
-	mem        *metalmem.Arena
-	recorder   *metalprof.FlightRecorder
-	metrics    *RuntimeMetrics
-	generateMu sync.Mutex
-	batchedMu  sync.Mutex
-	prefixes   *prefixCache
-	tuner      *DispatchTuner
+	dev                     *metal.Device
+	lib                     apple.MTLLibrary
+	pso                     decodeKernels
+	mem                     *metalmem.Arena
+	recorder                *metalprof.FlightRecorder
+	metrics                 *RuntimeMetrics
+	generateMu              sync.Mutex
+	batchedMu               sync.Mutex
+	disableProjectionFusion bool
+	prefixes                *prefixCache
+	tuner                   *DispatchTuner
 
 	// GPU-Resident Unified Memory Buffers
 	xBuf       mempool.Slice[float32]
@@ -514,11 +519,105 @@ type BatchedLayerChainResult struct {
 	DeviceBytes     int64
 }
 
+func encodeQKVProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l *GPULayerWeights, lf *GPULayerWeightsF16, cfg Config, b int) {
+	routes := modelProjectionRoutes(cfg, eng.isF16, projectionQKV)
+	if !eng.disableProjectionFusion && useProjectionFusion(projectionQKV, routes...) {
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedQKVProjH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedQKVProj)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WQ.Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex(lf.WK.Buffer(), 0, 2)
+			ce.SetBufferWithOffsetAtIndex(lf.WV.Buffer(), 0, 3)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WQ.Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex(l.WK.Buffer(), 0, 2)
+			ce.SetBufferWithOffsetAtIndex(l.WV.Buffer(), 0, 3)
+		}
+		for i, out := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat} {
+			ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, uint(i+4))
+		}
+		metal.SetScalar(ce, uint32(b), 7)
+		metal.SetScalar(ce, uint32(cfg.Dim), 8)
+		metal.SetScalar(ce, uint32(cfg.NumHeads*cfg.HeadDim), 9)
+		metal.SetScalar(ce, uint32(cfg.NumKVHeads*cfg.HeadDim), 10)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*(cfg.NumHeads+2*cfg.NumKVHeads)*cfg.HeadDim), metal.Threads(128))
+		return
+	}
+	for pi, p := range []struct {
+		out   mempool.Slice[float32]
+		width int
+	}{{eng.prefillQMat, cfg.NumHeads * cfg.HeadDim}, {eng.prefillKMat, cfg.NumKVHeads * cfg.HeadDim}, {eng.prefillVMat, cfg.NumKVHeads * cfg.HeadDim}} {
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[uint16]{lf.WQ, lf.WK, lf.WV}[pi].Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[float32]{l.WQ, l.WK, l.WV}[pi].Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(p.out.Buffer(), 0, 2)
+		metal.SetScalar(ce, uint32(b), 3)
+		metal.SetScalar(ce, uint32(cfg.Dim), 4)
+		metal.SetScalar(ce, uint32(p.width), 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*p.width), metal.Threads(128))
+	}
+}
+
+func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l *GPULayerWeights, lf *GPULayerWeightsF16, cfg Config, b int) {
+	routes := modelProjectionRoutes(cfg, eng.isF16, projectionGateUp)
+	if !eng.disableProjectionFusion && useProjectionFusion(projectionGateUp, routes...) {
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGateUpH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGateUp)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WGate.Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex(lf.WUp.Buffer(), 0, 2)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WGate.Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex(l.WUp.Buffer(), 0, 2)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillGateMat.Buffer(), 0, 3)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillUpMat.Buffer(), 0, 4)
+		metal.SetScalar(ce, uint32(b), 5)
+		metal.SetScalar(ce, uint32(cfg.Dim), 6)
+		metal.SetScalar(ce, uint32(cfg.HiddenDim), 7)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*2*cfg.HiddenDim), metal.Threads(128))
+		return
+	}
+	for pi, out := range []mempool.Slice[float32]{eng.prefillGateMat, eng.prefillUpMat} {
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[uint16]{lf.WGate, lf.WUp}[pi].Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[float32]{l.WGate, l.WUp}[pi].Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, 2)
+		metal.SetScalar(ce, uint32(b), 3)
+		metal.SetScalar(ce, uint32(cfg.Dim), 4)
+		metal.SetScalar(ce, uint32(cfg.HiddenDim), 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.HiddenDim), metal.Threads(128))
+	}
+}
+
 // RunBatchedLayerChain embeds once and executes every decoder layer without
-// intermediate host copies. It issues exactly 1+12*NumLayers dispatches.
+// intermediate host copies. It issues exactly 1+9*NumLayers dispatches.
 func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
 	b := len(tokens)
-	qd := cfg.NumHeads * cfg.HeadDim
 	kd := cfg.NumKVHeads * cfg.HeadDim
 	if eng == nil || eng.dev == nil || cache == nil {
 		return BatchedLayerChainResult{}, errors.New("batched layer chain: nil engine or cache")
@@ -564,7 +663,7 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		cache.positions.HostSlice()[i] = uint32(positions[i])
 		cache.rows.HostSlice()[i] = uint32(rows[i])
 	}
-	bv, dv, qv, kv, hv := uint32(b), uint32(cfg.Dim), uint32(qd), uint32(kd), uint32(cfg.HiddenDim)
+	bv, dv, hv := uint32(b), uint32(cfg.Dim), uint32(cfg.HiddenDim)
 	eps := cfg.Eps
 	theta := cfg.RopeTheta
 	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
@@ -603,29 +702,7 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		metal.SetScalar(ce, dv, 4)
 		metal.SetScalar(ce, eps, 5)
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
-		for pi, p := range []struct {
-			out   mempool.Slice[float32]
-			width uint32
-		}{{eng.prefillQMat, qv}, {eng.prefillKMat, kv}, {eng.prefillVMat, kv}} {
-			if eng.isF16 {
-				ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
-			} else {
-				ce.SetComputePipelineState(eng.pso.BatchedGEMM)
-			}
-			ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
-			if eng.isF16 {
-				weights := []mempool.Slice[uint16]{lf.WQ, lf.WK, lf.WV}
-				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
-			} else {
-				weights := []mempool.Slice[float32]{l.WQ, l.WK, l.WV}
-				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
-			}
-			ce.SetBufferWithOffsetAtIndex(p.out.Buffer(), 0, 2)
-			metal.SetScalar(ce, bv, 3)
-			metal.SetScalar(ce, dv, 4)
-			metal.SetScalar(ce, p.width, 5)
-			ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*int(p.width)), metal.Threads(128))
-		}
+		encodeQKVProjections(ce, eng, l, lf, cfg, b)
 		ce.SetComputePipelineState(eng.pso.RowRoPE)
 		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
@@ -687,26 +764,7 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		metal.SetScalar(ce, dv, 4)
 		metal.SetScalar(ce, eps, 5)
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
-		for pi, out := range []mempool.Slice[float32]{eng.prefillGateMat, eng.prefillUpMat} {
-			if eng.isF16 {
-				ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
-			} else {
-				ce.SetComputePipelineState(eng.pso.BatchedGEMM)
-			}
-			ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
-			if eng.isF16 {
-				weights := []mempool.Slice[uint16]{lf.WGate, lf.WUp}
-				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
-			} else {
-				weights := []mempool.Slice[float32]{l.WGate, l.WUp}
-				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
-			}
-			ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, 2)
-			metal.SetScalar(ce, bv, 3)
-			metal.SetScalar(ce, dv, 4)
-			metal.SetScalar(ce, hv, 5)
-			ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.HiddenDim), metal.Threads(128))
-		}
+		encodeGateUpProjections(ce, eng, l, lf, cfg, b)
 		total := uint32(b * cfg.HiddenDim)
 		ce.SetComputePipelineState(eng.pso.BatchedSiLU)
 		ce.SetBufferWithOffsetAtIndex(eng.prefillGateMat.Buffer(), 0, 0)
@@ -739,7 +797,11 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 	// batched engine operation. The model tail consumes the device buffer
 	// directly; exposing the alias keeps differential tests possible without a
 	// serving-path host copy.
-	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 1 + 12*cfg.NumLayers, DeviceBytes: bytes}, nil
+	dispatchesPerLayer := 9
+	if eng.disableProjectionFusion {
+		dispatchesPerLayer = 12
+	}
+	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 1 + dispatchesPerLayer*cfg.NumLayers, DeviceBytes: bytes}, nil
 }
 
 // RunBatchedLayer executes one complete FP32 decoder layer with shared weights.

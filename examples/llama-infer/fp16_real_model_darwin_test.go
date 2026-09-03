@@ -90,7 +90,7 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 		}
 		found := false
 		for _, observation := range srv.continuousEngine.Observations() {
-			if observation.Dispatches != 1+12*cfg.NumLayers+3 {
+			if observation.Dispatches != 1+9*cfg.NumLayers+3 {
 				t.Fatalf("width=%d observation=%+v", width, observation)
 			}
 			if observation.Batch == width {

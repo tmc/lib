@@ -80,7 +80,7 @@ func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
 	if !shared {
 		t.Fatalf("no shared decode batch: %+v", srv.continuous.Summary().BatchSizes)
 	}
-	wantDispatches := 1 + 12*cfg.NumLayers + 3
+	wantDispatches := 1 + 9*cfg.NumLayers + 3
 	for _, observation := range srv.continuousEngine.Observations() {
 		if observation.Dispatches != wantDispatches {
 			t.Fatalf("batch %d dispatches=%d, want %d", observation.Batch, observation.Dispatches, wantDispatches)
@@ -130,7 +130,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		}
 		found := false
 		for _, observation := range srv.continuousEngine.Observations() {
-			if observation.Dispatches != 1+12*cfg.NumLayers+3 {
+			if observation.Dispatches != 1+9*cfg.NumLayers+3 {
 				t.Fatalf("width=%d observation=%+v", width, observation)
 			}
 			if observation.Batch == width {

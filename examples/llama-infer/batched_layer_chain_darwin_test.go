@@ -31,7 +31,7 @@ func TestBatchedLayerChainMatchesCPU(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Dispatches != 1+12*cfg.NumLayers {
+			if got.Dispatches != 1+9*cfg.NumLayers {
 				t.Fatalf("B=%d dispatches=%d", b, got.Dispatches)
 			}
 			wantBytes := int64(2 * cfg.NumLayers * 4 * cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim * 4)
