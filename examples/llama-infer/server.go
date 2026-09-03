@@ -18,6 +18,7 @@ import (
 
 	"github.com/tmc/lib/apple/x/metal/egraph"
 	"github.com/tmc/lib/apple/x/metal/metalprof"
+	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
 
 // embeddedDashboardJS is the dashboard script used when no development copy is available.
@@ -253,6 +254,8 @@ type TelemetryServer struct {
 	pgoTracker *egraph.PGOTracker
 
 	requestScheduler *requestSlotScheduler
+	continuous       *continuousbatch.Scheduler
+	continuousEngine *scheduledEngineAdapter
 }
 
 // RecordGeneration appends a completed generation event with node routing attribution.
@@ -273,6 +276,12 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 		mux:              http.NewServeMux(),
 		syncJobs:         make(map[string]*SyncJobStatus),
 		requestScheduler: newRequestSlotScheduler(1),
+	}
+	if engine != nil && engine.tokenizer != nil {
+		if backend, err := newScheduledEngineAdapter(engine, cfg, 8); err == nil {
+			s.continuousEngine = backend
+			s.continuous, _ = continuousbatch.New(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})
+		}
 	}
 	s.routes()
 	return s

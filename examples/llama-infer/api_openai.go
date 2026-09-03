@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
 
 // ChatMessage represents a single message in the chat history.
@@ -286,10 +288,13 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 
 	reqID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
 	created := time.Now().Unix()
-	releaseSlot, err := s.acquireRequestSlot(r.Context(), reqID, strings.TrimSpace(req.User), "chat_completion", req.Stream)
-	if err != nil {
-		http.Error(w, "request canceled while waiting for inference slot", http.StatusRequestTimeout)
-		return
+	releaseSlot := func() {}
+	if !target.Local || s.continuous == nil {
+		releaseSlot, err = s.acquireRequestSlot(r.Context(), reqID, strings.TrimSpace(req.User), "chat_completion", req.Stream)
+		if err != nil {
+			http.Error(w, "request canceled while waiting for inference slot", http.StatusRequestTimeout)
+			return
+		}
 	}
 	defer releaseSlot()
 
@@ -307,7 +312,24 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 
 		var fullText strings.Builder
 		tokenCount := 0
-		if s.engine != nil {
+		if s.continuous != nil {
+			response, err := s.continuous.Submit(r.Context(), continuousbatch.Request{ID: reqID, Prompt: prompt, MaxTokens: maxTokens})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			for token := range response.Tokens {
+				fullText.WriteString(token.Text)
+				tokenCount++
+				chunk := ChatCompletionChunk{ID: reqID, Object: "chat.completion.chunk", Created: created, Model: s.cfg.Name, Execution: &target, Choices: []ChatCompletionChunkChoice{{Index: 0, Delta: ChatMessage{Role: "assistant", Content: token.Text}}}}
+				bytes, _ := json.Marshal(chunk)
+				fmt.Fprintf(w, "data: %s\n\n", bytes)
+				flusher.Flush()
+			}
+			if err := <-response.Done; err != nil {
+				return
+			}
+		} else if s.engine != nil {
 			_ = s.engine.Generate(r.Context(), s.cfg, prompt, maxTokens, func(tokenID int32, tokenText string) bool {
 				fullText.WriteString(tokenText)
 				tokenCount++
@@ -365,7 +387,22 @@ func (s *TelemetryServer) handleV1ChatCompletions(w http.ResponseWriter, r *http
 	var tokenIDs []int32
 	tokenCount := 0
 	if target.Local {
-		if s.engine != nil {
+		if s.continuous != nil {
+			response, err := s.continuous.Submit(r.Context(), continuousbatch.Request{ID: reqID, Prompt: prompt, MaxTokens: maxTokens})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			for token := range response.Tokens {
+				fullText.WriteString(token.Text)
+				tokenIDs = append(tokenIDs, token.ID)
+				tokenCount++
+			}
+			if err := <-response.Done; err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else if s.engine != nil {
 			_ = s.engine.Generate(r.Context(), s.cfg, prompt, maxTokens, func(tokenID int32, tokenText string) bool {
 				fullText.WriteString(tokenText)
 				tokenIDs = append(tokenIDs, tokenID)
