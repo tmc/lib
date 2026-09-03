@@ -8,13 +8,12 @@ import (
 	"math"
 )
 
-// QuantFormat specifies the sub-byte weight quantization format.
+// QuantFormat identifies a weight quantization format.
 type QuantFormat string
 
 const (
 	FormatQ4_0 QuantFormat = "Q4_0" // 4-bit symmetric with float16 scale per 32 elements
 	FormatQ8_0 QuantFormat = "Q8_0" // 8-bit symmetric with float16 scale per 32 elements
-	FormatAWQ  QuantFormat = "AWQ"  // 4-bit asymmetric with per-group FP16 scale and zero
 )
 
 // BlockQ4_0 represents a 32-element Q4_0 quantized block (18 bytes total).
@@ -29,11 +28,15 @@ type BlockQ8_0 struct {
 	Quants [32]int8 // 32 8-bit integers
 }
 
-// DequantizeQ4_0 unpacks a slice of Q4_0 blocks into float32 array.
+// DequantizeQ4_0 unpacks Q4_0 blocks into a float32 slice.
 func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
+	want, err := encodedLen(numElements, 18)
+	if err != nil {
+		return nil, err
+	}
 	numBlocks := numElements / 32
-	if len(data) < numBlocks*18 {
-		return nil, fmt.Errorf("cudaquant: buffer length %d insufficient for %d Q4_0 blocks", len(data), numBlocks)
+	if len(data) != want {
+		return nil, fmt.Errorf("cudaquant: buffer length %d, want exactly %d for %d Q4_0 blocks", len(data), want, numBlocks)
 	}
 
 	out := make([]float32, numElements)
@@ -41,6 +44,9 @@ func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
 		offset := b * 18
 		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("cudaquant: non-finite Q4_0 scale in block %d", b)
+		}
 
 		for i := 0; i < 16; i++ {
 			byteVal := data[offset+2+i]
@@ -54,11 +60,15 @@ func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
 	return out, nil
 }
 
-// DequantizeQ8_0 unpacks a slice of Q8_0 blocks into float32 array.
+// DequantizeQ8_0 unpacks Q8_0 blocks into a float32 slice.
 func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
+	want, err := encodedLen(numElements, 34)
+	if err != nil {
+		return nil, err
+	}
 	numBlocks := numElements / 32
-	if len(data) < numBlocks*34 {
-		return nil, fmt.Errorf("cudaquant: buffer length %d insufficient for %d Q8_0 blocks", len(data), numBlocks)
+	if len(data) != want {
+		return nil, fmt.Errorf("cudaquant: buffer length %d, want exactly %d for %d Q8_0 blocks", len(data), want, numBlocks)
 	}
 
 	out := make([]float32, numElements)
@@ -66,6 +76,9 @@ func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
 		offset := b * 34
 		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("cudaquant: non-finite Q8_0 scale in block %d", b)
+		}
 
 		for i := 0; i < 32; i++ {
 			q := int8(data[offset+2+i])
@@ -73,6 +86,24 @@ func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
 		}
 	}
 	return out, nil
+}
+
+func encodedLen(numElements, blockBytes int) (int, error) {
+	if numElements < 0 {
+		return 0, fmt.Errorf("cudaquant: negative element count %d", numElements)
+	}
+	if numElements%32 != 0 {
+		return 0, fmt.Errorf("cudaquant: %d elements is not a multiple of the 32-element block", numElements)
+	}
+	blocks := numElements / 32
+	if blocks > math.MaxInt/blockBytes {
+		return 0, fmt.Errorf("cudaquant: encoded length overflows int")
+	}
+	return blocks * blockBytes, nil
+}
+
+func finite(v float32) bool {
+	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
 }
 
 func float16ToFloat32(h uint16) float32 {
