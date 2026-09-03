@@ -23,6 +23,84 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaspec"
 )
 
+// BatchedQKVResult is unavailable on non-Metal platforms.
+type BatchedQKVResult struct {
+	Positions                      []int
+	Embedding, Normalized, Q, K, V []float32
+	Dispatches                     int
+}
+
+func RunBatchedQKV(*ModelEngine, Config, int, []int32, []int) (BatchedQKVResult, error) {
+	return BatchedQKVResult{}, errors.New("batched qkv: Metal backend required")
+}
+
+type BatchedAttentionCache struct{}
+
+func (*BatchedAttentionCache) ImportSequence(int, int, *SequenceKVCache) error {
+	return errors.New("import sequence requires darwin")
+}
+
+type SamplerConfig struct {
+	Method      string
+	Temperature float32
+}
+
+type BatchedModelTail struct{}
+
+type BatchedModelTailResult struct {
+	Normalized []float32
+	Logits     []float32
+	Tokens     []int32
+	Dispatches int
+}
+
+func (*ModelEngine) NewBatchedModelTail(Config, int) (*BatchedModelTail, error) {
+	return nil, errors.New("batched model tail requires darwin")
+}
+
+func (*BatchedModelTail) Free() {}
+
+func (*BatchedModelTail) Run(*ModelEngine, Config, []float32, []SamplerConfig) (BatchedModelTailResult, error) {
+	return BatchedModelTailResult{}, errors.New("batched model tail requires darwin")
+}
+
+func RunBatchedModelTailFromChain(*ModelEngine, Config, *BatchedModelTail, BatchedLayerChainResult, []SamplerConfig) (BatchedModelTailResult, error) {
+	return BatchedModelTailResult{}, errors.New("batched model tail requires darwin")
+}
+
+type BatchedAttentionResult struct {
+	Q, K, Attention []float32
+	Positions, Rows []int
+	Dispatches      int
+}
+type BatchedLayerResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+}
+type BatchedLayerChainResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+	DeviceBytes     int64
+}
+
+func RunBatchedLayerChain(*ModelEngine, Config, *BatchedAttentionCache, []int32, []int, []int) (BatchedLayerChainResult, error) {
+	return BatchedLayerChainResult{}, errors.New("batched layer chain: Metal backend required")
+}
+
+func RunBatchedLayer(*ModelEngine, Config, int, *BatchedAttentionCache, []int32, []int, []int) (BatchedLayerResult, error) {
+	return BatchedLayerResult{}, errors.New("batched layer: Metal backend required")
+}
+
+func (*ModelEngine) NewBatchedAttentionCache(Config, int) (*BatchedAttentionCache, error) {
+	return nil, errors.New("batched attention: Metal backend required")
+}
+func (*BatchedAttentionCache) Free() {}
+func RunBatchedAttention(*ModelEngine, Config, int, *BatchedAttentionCache, []float32, []float32, []float32, []int, []int) (BatchedAttentionResult, error) {
+	return BatchedAttentionResult{}, errors.New("batched attention: Metal backend required")
+}
+
 func init() {
 	runtime.LockOSThread()
 }

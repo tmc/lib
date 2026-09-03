@@ -81,17 +81,24 @@ type decodeKernels struct {
 	FusedSwiGLU apple.MTLComputePipelineState `metal:"FusedSwiGLUDown"`
 	Sample      apple.MTLComputePipelineState `metal:"ArgmaxSampling"`
 
-	BatchedEmbed    apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookup"`
-	BatchedNorm     apple.MTLComputePipelineState `metal:"BatchedRMSNorm"`
-	BatchedGEMM     apple.MTLComputePipelineState `metal:"BatchedGEMM"`
-	BatchedGEMMRes  apple.MTLComputePipelineState `metal:"BatchedGEMMResidual"`
-	BatchedRoPE     apple.MTLComputePipelineState `metal:"BatchedRoPE"`
-	BatchedAttn     apple.MTLComputePipelineState `metal:"BatchedCausalFlashAttention"`
-	BatchedSiLU     apple.MTLComputePipelineState `metal:"BatchedSiLUMul"`
-	BatchedEmbedH   apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookupH"`
-	BatchedNormH    apple.MTLComputePipelineState `metal:"BatchedRMSNormH"`
-	BatchedGEMMH    apple.MTLComputePipelineState `metal:"BatchedGEMMH"`
-	BatchedGEMMResH apple.MTLComputePipelineState `metal:"BatchedGEMMResidualH"`
+	BatchedEmbed      apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookup"`
+	BatchedNorm       apple.MTLComputePipelineState `metal:"BatchedRMSNorm"`
+	BatchedGEMM       apple.MTLComputePipelineState `metal:"BatchedGEMM"`
+	BatchedGEMMRes    apple.MTLComputePipelineState `metal:"BatchedGEMMResidual"`
+	BatchedRoPE       apple.MTLComputePipelineState `metal:"BatchedRoPE"`
+	BatchedAttn       apple.MTLComputePipelineState `metal:"BatchedCausalFlashAttention"`
+	RowRoPE           apple.MTLComputePipelineState `metal:"RowIndexedRoPEStoreKV"`
+	RowAttn           apple.MTLComputePipelineState `metal:"RowIndexedCausalAttention"`
+	BatchedSiLU       apple.MTLComputePipelineState `metal:"BatchedSiLUMul"`
+	BatchedSample     apple.MTLComputePipelineState `metal:"BatchedArgmaxSampling"`
+	BatchedEmbedH     apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookupH"`
+	BatchedNormH      apple.MTLComputePipelineState `metal:"BatchedRMSNormH"`
+	BatchedGEMMH      apple.MTLComputePipelineState `metal:"BatchedGEMMH"`
+	BatchedGEMMResH   apple.MTLComputePipelineState `metal:"BatchedGEMMResidualH"`
+	RMSNormScale      apple.MTLComputePipelineState `metal:"RMSNormScale"`
+	LMHeadTileArgmax  apple.MTLComputePipelineState `metal:"LMHeadTileArgmax"`
+	LMHeadTileArgmaxH apple.MTLComputePipelineState `metal:"LMHeadTileArgmaxH"`
+	ArgmaxTiles       apple.MTLComputePipelineState `metal:"ArgmaxTiles"`
 }
 
 // ModelEngine maintains cached Metal pipeline states and GPU-resident memory allocations.
@@ -103,6 +110,7 @@ type ModelEngine struct {
 	recorder   *metalprof.FlightRecorder
 	metrics    *RuntimeMetrics
 	generateMu sync.Mutex
+	batchedMu  sync.Mutex
 	prefixes   *prefixCache
 	tuner      *DispatchTuner
 
@@ -151,6 +159,808 @@ type ModelEngine struct {
 	egraphSats int
 	Plan       *ExecutionPlan
 	cacheKey   string
+}
+
+// BatchedQKVResult is the output of the shared-weight embedding, normalization,
+// and Q/K/V projection slice. Rows retain the caller's compacted order.
+type BatchedQKVResult struct {
+	Positions  []int
+	Embedding  []float32
+	Normalized []float32
+	Q, K, V    []float32
+	Dispatches int
+}
+
+// BatchedAttentionCache owns device KV storage in
+// [layer, row, sequence, KV-head, head-dimension] order.
+type BatchedAttentionCache struct {
+	mu                            sync.Mutex
+	K, V                          []mempool.Slice[float32]
+	positions, rows               mempool.Slice[uint32]
+	rowCapacity, maxSeqLen, kvDim int
+	freed                         bool
+}
+
+// NewBatchedAttentionCache allocates cache storage for independently positioned rows.
+func (eng *ModelEngine) NewBatchedAttentionCache(cfg Config, rowCapacity int) (*BatchedAttentionCache, error) {
+	if eng == nil || eng.dev == nil || rowCapacity <= 0 || cfg.MaxSeqLen <= 0 {
+		return nil, errors.New("new batched attention cache: invalid capacity")
+	}
+	c := &BatchedAttentionCache{rowCapacity: rowCapacity, maxSeqLen: cfg.MaxSeqLen, kvDim: cfg.NumKVHeads * cfg.HeadDim}
+	c.K = make([]mempool.Slice[float32], cfg.NumLayers)
+	c.V = make([]mempool.Slice[float32], cfg.NumLayers)
+	for l := range cfg.NumLayers {
+		var err error
+		c.K[l], err = mempool.Alloc[float32](eng.dev, rowCapacity*cfg.MaxSeqLen*c.kvDim)
+		if err != nil {
+			c.Free()
+			return nil, fmt.Errorf("alloc batched k-cache layer %d: %w", l, err)
+		}
+		c.V[l], err = mempool.Alloc[float32](eng.dev, rowCapacity*cfg.MaxSeqLen*c.kvDim)
+		if err != nil {
+			c.Free()
+			return nil, fmt.Errorf("alloc batched v-cache layer %d: %w", l, err)
+		}
+	}
+	var err error
+	c.positions, err = mempool.Alloc[uint32](eng.dev, rowCapacity)
+	if err != nil {
+		c.Free()
+		return nil, fmt.Errorf("alloc batched positions: %w", err)
+	}
+	c.rows, err = mempool.Alloc[uint32](eng.dev, rowCapacity)
+	if err != nil {
+		c.Free()
+		return nil, fmt.Errorf("alloc batched rows: %w", err)
+	}
+	return c, nil
+}
+
+// Free releases the cache. It waits for any in-flight RunBatchedAttention call.
+func (c *BatchedAttentionCache) Free() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.freed {
+		return
+	}
+	for i := range c.K {
+		c.K[i].Free()
+		c.V[i].Free()
+	}
+	c.positions.Free()
+	c.rows.Free()
+	c.freed = true
+}
+
+// ImportSequence copies synchronized prompt KV state into one stable cache row.
+func (c *BatchedAttentionCache) ImportSequence(row, tokens int, sequence *SequenceKVCache) error {
+	if c == nil || sequence == nil || row < 0 || row >= c.rowCapacity || tokens < 0 || tokens > c.maxSeqLen || len(sequence.KCache) != len(c.K) {
+		return errors.New("import sequence: invalid cache state")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.freed {
+		return errors.New("import sequence: cache is freed")
+	}
+	n := tokens * c.kvDim
+	offset := row * c.maxSeqLen * c.kvDim
+	for layer := range c.K {
+		copy(c.K[layer].HostSlice()[offset:offset+n], sequence.KCache[layer].HostSlice()[:n])
+		copy(c.V[layer].HostSlice()[offset:offset+n], sequence.VCache[layer].HostSlice()[:n])
+	}
+	return nil
+}
+
+// BatchedAttentionResult contains row-indexed RoPE outputs and causal attention.
+type BatchedAttentionResult struct {
+	Q, K, Attention []float32
+	Positions, Rows []int
+	Dispatches      int
+}
+
+// BatchedLayerResult is the dense active-row output of one decoder layer.
+type BatchedLayerResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+}
+
+// SamplerConfig is the request-local sampling contract for a model tail.
+// Only deterministic argmax is currently supported.
+type SamplerConfig struct {
+	Method      string
+	Temperature float32
+}
+
+// BatchedModelTail owns capacity-sized scratch buffers reused across steps.
+// In particular, logits are allocated once rather than B*vocab on every call.
+type BatchedModelTail struct {
+	mu                       sync.Mutex
+	norm, logits             mempool.Slice[float32]
+	scale, candidates        mempool.Slice[float32]
+	tokens                   mempool.Slice[int32]
+	capacity, dim, vocabSize int
+	freed                    bool
+}
+
+// BatchedModelTailResult contains row-major normalized states and logits.
+type BatchedModelTailResult struct {
+	Normalized []float32
+	Logits     []float32
+	Tokens     []int32
+	Dispatches int
+}
+
+// NewBatchedModelTail allocates reusable tail scratch for capacity active rows.
+func (eng *ModelEngine) NewBatchedModelTail(cfg Config, capacity int) (*BatchedModelTail, error) {
+	if eng == nil || eng.dev == nil || capacity <= 0 || cfg.Dim <= 0 || cfg.VocabSize <= 0 {
+		return nil, errors.New("new batched model tail: invalid shape")
+	}
+	t := &BatchedModelTail{capacity: capacity, dim: cfg.Dim, vocabSize: cfg.VocabSize}
+	var err error
+	t.norm, err = mempool.Alloc[float32](eng.dev, capacity*cfg.Dim)
+	if err == nil {
+		t.tokens, err = mempool.Alloc[int32](eng.dev, capacity)
+	}
+	if err == nil {
+		t.scale, err = mempool.Alloc[float32](eng.dev, capacity)
+	}
+	if err == nil {
+		t.candidates, err = mempool.Alloc[float32](eng.dev, capacity*((cfg.VocabSize+255)/256)*2)
+	}
+	if err != nil {
+		t.Free()
+		return nil, fmt.Errorf("new batched model tail: %w", err)
+	}
+	return t, nil
+}
+
+// Free releases the tail scratch after any in-flight Run call completes.
+func (t *BatchedModelTail) Free() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.freed {
+		return
+	}
+	t.norm.Free()
+	t.logits.Free()
+	t.tokens.Free()
+	t.scale.Free()
+	t.candidates.Free()
+	t.freed = true
+}
+
+// Run executes shared final RMSNorm, LM-head projection, and per-row argmax.
+// Its dispatch count is three for every non-empty supported batch.
+func (t *BatchedModelTail) Run(eng *ModelEngine, cfg Config, hidden []float32, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+	if eng == nil || eng.dev == nil || t == nil {
+		return BatchedModelTailResult{}, errors.New("batched model tail: nil engine or tail")
+	}
+	if len(hidden) == 0 || len(hidden)%cfg.Dim != 0 {
+		return BatchedModelTailResult{}, errors.New("batched model tail: inconsistent hidden shape")
+	}
+	b := len(hidden) / cfg.Dim
+	if b > t.capacity || t.dim != cfg.Dim || t.vocabSize != cfg.VocabSize {
+		return BatchedModelTailResult{}, errors.New("batched model tail: unsupported configuration")
+	}
+	if len(samplers) != 0 && len(samplers) != b {
+		return BatchedModelTailResult{}, errors.New("batched model tail: sampler count does not match batch")
+	}
+	for _, sampler := range samplers {
+		if (sampler.Method != "" && sampler.Method != "argmax") || sampler.Temperature != 0 {
+			return BatchedModelTailResult{}, errors.New("batched model tail: stochastic sampling unsupported")
+		}
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.freed {
+		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
+	}
+	if t.logits.Len() == 0 {
+		var err error
+		t.logits, err = mempool.Alloc[float32](eng.dev, t.capacity*t.vocabSize)
+		if err != nil {
+			return BatchedModelTailResult{}, fmt.Errorf("batched model tail: allocate diagnostic logits: %w", err)
+		}
+	}
+	copy(t.norm.HostSlice()[:len(hidden)], hidden)
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
+	if eng.isF16 {
+		ce.SetComputePipelineState(eng.pso.BatchedNormH)
+	} else {
+		ce.SetComputePipelineState(eng.pso.BatchedNorm)
+	}
+	ce.SetBufferWithOffsetAtIndex(t.norm.Buffer(), 0, 0)
+	if eng.isF16 {
+		ce.SetBufferWithOffsetAtIndex(eng.finalNormWF16.Buffer(), 0, 1)
+	} else {
+		ce.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
+	}
+	ce.SetBufferWithOffsetAtIndex(t.norm.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, dim, 4)
+	metal.SetScalar(ce, eps, 5)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+	if eng.isF16 {
+		ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
+	} else {
+		ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+	}
+	ce.SetBufferWithOffsetAtIndex(t.norm.Buffer(), 0, 0)
+	if eng.isF16 {
+		ce.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 1)
+	} else {
+		ce.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 1)
+	}
+	ce.SetBufferWithOffsetAtIndex(t.logits.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, dim, 4)
+	metal.SetScalar(ce, vocab, 5)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.VocabSize), metal.Threads(128))
+	ce.SetComputePipelineState(eng.pso.BatchedSample)
+	ce.SetBufferWithOffsetAtIndex(t.logits.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(t.tokens.Buffer(), 0, 1)
+	metal.SetScalar(ce, bv, 2)
+	metal.SetScalar(ce, vocab, 3)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+	ce.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	return BatchedModelTailResult{
+		Normalized: append([]float32(nil), t.norm.HostSlice()[:b*cfg.Dim]...),
+		Logits:     append([]float32(nil), t.logits.HostSlice()[:b*cfg.VocabSize]...),
+		Tokens:     append([]int32(nil), t.tokens.HostSlice()[:b]...),
+		Dispatches: 3,
+	}, nil
+}
+
+// RunBatchedModelTailFromChain executes the tail directly from the chain's
+// persistent device hidden buffer, without a device-to-host-to-device copy.
+func RunBatchedModelTailFromChain(eng *ModelEngine, cfg Config, tail *BatchedModelTail, chain BatchedLayerChainResult, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+	b := len(chain.Positions)
+	if b == 0 || len(chain.Hidden) != b*cfg.Dim || len(chain.Rows) != b {
+		return BatchedModelTailResult{}, errors.New("batched model tail from chain: invalid chain result")
+	}
+	return tail.runBuffer(eng, cfg, eng.prefillXMat, b, samplers)
+}
+
+func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool.Slice[float32], b int, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+	if eng == nil || eng.dev == nil || t == nil || b <= 0 || input.Len() < b*cfg.Dim {
+		return BatchedModelTailResult{}, errors.New("batched model tail: invalid device input")
+	}
+	if b > t.capacity || t.dim != cfg.Dim || t.vocabSize != cfg.VocabSize {
+		return BatchedModelTailResult{}, errors.New("batched model tail: unsupported configuration")
+	}
+	if len(samplers) != 0 && len(samplers) != b {
+		return BatchedModelTailResult{}, errors.New("batched model tail: sampler count does not match batch")
+	}
+	for _, sampler := range samplers {
+		if (sampler.Method != "" && sampler.Method != "argmax") || sampler.Temperature != 0 {
+			return BatchedModelTailResult{}, errors.New("batched model tail: stochastic sampling unsupported")
+		}
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.freed {
+		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
+	}
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
+	ce.SetComputePipelineState(eng.pso.RMSNormScale)
+	ce.SetBufferWithOffsetAtIndex(input.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(t.scale.Buffer(), 0, 1)
+	metal.SetScalar(ce, bv, 2)
+	metal.SetScalar(ce, dim, 3)
+	metal.SetScalar(ce, eps, 4)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+	if eng.isF16 {
+		ce.SetComputePipelineState(eng.pso.LMHeadTileArgmaxH)
+	} else {
+		ce.SetComputePipelineState(eng.pso.LMHeadTileArgmax)
+	}
+	ce.SetBufferWithOffsetAtIndex(input.Buffer(), 0, 0)
+	if eng.isF16 {
+		ce.SetBufferWithOffsetAtIndex(eng.finalNormWF16.Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(eng.lmHeadWF16.Buffer(), 0, 2)
+	} else {
+		ce.SetBufferWithOffsetAtIndex(eng.finalNormW.Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(eng.lmHeadW.Buffer(), 0, 2)
+	}
+	ce.SetBufferWithOffsetAtIndex(t.scale.Buffer(), 0, 3)
+	ce.SetBufferWithOffsetAtIndex(t.candidates.Buffer(), 0, 4)
+	metal.SetScalar(ce, dim, 5)
+	metal.SetScalar(ce, vocab, 6)
+	tiles := uint32((cfg.VocabSize + 255) / 256)
+	metal.SetScalar(ce, tiles, 7)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*int(tiles)), metal.Threads(256))
+	ce.SetComputePipelineState(eng.pso.ArgmaxTiles)
+	ce.SetBufferWithOffsetAtIndex(t.candidates.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(t.tokens.Buffer(), 0, 1)
+	metal.SetScalar(ce, bv, 2)
+	metal.SetScalar(ce, tiles, 3)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+	ce.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	return BatchedModelTailResult{
+		Tokens:     append([]int32(nil), t.tokens.HostSlice()[:b]...),
+		Dispatches: 3,
+	}, nil
+}
+
+// BatchedLayerChainResult is the final persistent-device hidden state after all layers.
+type BatchedLayerChainResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+	DeviceBytes     int64
+}
+
+// RunBatchedLayerChain embeds once and executes every decoder layer without
+// intermediate host copies. It issues exactly 1+12*NumLayers dispatches.
+func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
+	b := len(tokens)
+	qd := cfg.NumHeads * cfg.HeadDim
+	kd := cfg.NumKVHeads * cfg.HeadDim
+	if eng == nil || eng.dev == nil || cache == nil {
+		return BatchedLayerChainResult{}, errors.New("batched layer chain: nil engine or cache")
+	}
+	weightLayers := len(eng.layers)
+	if eng.isF16 {
+		weightLayers = len(eng.layersF16)
+	}
+	if b == 0 || len(positions) != b || len(rows) != b || weightLayers != cfg.NumLayers || len(cache.K) != cfg.NumLayers {
+		return BatchedLayerChainResult{}, errors.New("batched layer chain: inconsistent shape")
+	}
+	if cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 || b > cache.rowCapacity || cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
+		return BatchedLayerChainResult{}, errors.New("batched layer chain: unsupported configuration or cache shape")
+	}
+	cacheElements := cache.rowCapacity * cache.maxSeqLen * kd
+	if cache.positions.Len() < b || cache.rows.Len() < b {
+		return BatchedLayerChainResult{}, errors.New("batched layer chain: row metadata buffer too small")
+	}
+	for layer := range cache.K {
+		if cache.K[layer].Len() < cacheElements || cache.V[layer].Len() < cacheElements {
+			return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: cache buffer too small at layer %d", layer)
+		}
+	}
+	seen := make(map[int]bool, b)
+	for i, tok := range tokens {
+		if tok < 0 || int(tok) >= cfg.VocabSize || positions[i] < 0 || positions[i] >= cfg.MaxSeqLen || rows[i] < 0 || rows[i] >= cache.rowCapacity || seen[rows[i]] {
+			return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: invalid active row %d", i)
+		}
+		seen[rows[i]] = true
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.freed {
+		return BatchedLayerChainResult{}, errors.New("batched layer chain: cache freed")
+	}
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	if err := eng.ensurePrefillArena(b, cfg); err != nil {
+		return BatchedLayerChainResult{}, err
+	}
+	copy(eng.prefillTokIn.HostSlice()[:b], tokens)
+	for i := range b {
+		cache.positions.HostSlice()[i] = uint32(positions[i])
+		cache.rows.HostSlice()[i] = uint32(rows[i])
+	}
+	bv, dv, qv, kv, hv := uint32(b), uint32(cfg.Dim), uint32(qd), uint32(kd), uint32(cfg.HiddenDim)
+	eps := cfg.Eps
+	theta := cfg.RopeTheta
+	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	if eng.isF16 {
+		ce.SetComputePipelineState(eng.pso.BatchedEmbedH)
+		ce.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
+	} else {
+		ce.SetComputePipelineState(eng.pso.BatchedEmbed)
+		ce.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	}
+	ce.SetBufferWithOffsetAtIndex(eng.prefillTokIn.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, dv, 4)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	for li := range cfg.NumLayers {
+		var l *GPULayerWeights
+		var lf *GPULayerWeightsF16
+		if eng.isF16 {
+			lf = &eng.layersF16[li]
+			ce.SetComputePipelineState(eng.pso.BatchedNormH)
+		} else {
+			l = &eng.layers[li]
+			ce.SetComputePipelineState(eng.pso.BatchedNorm)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.InputNorm.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.InputNorm.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, bv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, eps, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+		for pi, p := range []struct {
+			out   mempool.Slice[float32]
+			width uint32
+		}{{eng.prefillQMat, qv}, {eng.prefillKMat, kv}, {eng.prefillVMat, kv}} {
+			if eng.isF16 {
+				ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
+			} else {
+				ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+			}
+			ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+			if eng.isF16 {
+				weights := []mempool.Slice[uint16]{lf.WQ, lf.WK, lf.WV}
+				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
+			} else {
+				weights := []mempool.Slice[float32]{l.WQ, l.WK, l.WV}
+				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
+			}
+			ce.SetBufferWithOffsetAtIndex(p.out.Buffer(), 0, 2)
+			metal.SetScalar(ce, bv, 3)
+			metal.SetScalar(ce, dv, 4)
+			metal.SetScalar(ce, p.width, 5)
+			ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*int(p.width)), metal.Threads(128))
+		}
+		ce.SetComputePipelineState(eng.pso.RowRoPE)
+		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
+			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+		}
+		ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 5)
+		ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 6)
+		metal.SetScalar(ce, bv, 7)
+		metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 8)
+		metal.SetScalar(ce, uint32(cfg.HeadDim), 9)
+		metal.SetScalar(ce, uint32(cfg.NumHeads), 10)
+		metal.SetScalar(ce, uint32(cfg.NumKVHeads), 11)
+		metal.SetScalar(ce, theta, 12)
+		metal.SetScalar(ce, uint32(cache.rowCapacity), 13)
+		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(1))
+		ce.SetComputePipelineState(eng.pso.RowAttn)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillQMat.Buffer(), 0, 0)
+		ce.SetBufferWithOffsetAtIndex(cache.K[li].Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(cache.V[li].Buffer(), 0, 2)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 3)
+		ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 4)
+		ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 5)
+		metal.SetScalar(ce, bv, 6)
+		metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 7)
+		metal.SetScalar(ce, uint32(cfg.NumHeads), 8)
+		metal.SetScalar(ce, uint32(cfg.NumKVHeads), 9)
+		metal.SetScalar(ce, uint32(cfg.HeadDim), 10)
+		metal.SetScalar(ce, scale, 11)
+		metal.SetScalar(ce, uint32(cache.rowCapacity), 12)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.NumHeads), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WO.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WO.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, bv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, dv, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedNormH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedNorm)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.PostNorm.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.PostNorm.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, bv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, eps, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+		for pi, out := range []mempool.Slice[float32]{eng.prefillGateMat, eng.prefillUpMat} {
+			if eng.isF16 {
+				ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
+			} else {
+				ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+			}
+			ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+			if eng.isF16 {
+				weights := []mempool.Slice[uint16]{lf.WGate, lf.WUp}
+				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
+			} else {
+				weights := []mempool.Slice[float32]{l.WGate, l.WUp}
+				ce.SetBufferWithOffsetAtIndex(weights[pi].Buffer(), 0, 1)
+			}
+			ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, 2)
+			metal.SetScalar(ce, bv, 3)
+			metal.SetScalar(ce, dv, 4)
+			metal.SetScalar(ce, hv, 5)
+			ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.HiddenDim), metal.Threads(128))
+		}
+		total := uint32(b * cfg.HiddenDim)
+		ce.SetComputePipelineState(eng.pso.BatchedSiLU)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillGateMat.Buffer(), 0, 0)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillUpMat.Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 2)
+		metal.SetScalar(ce, total, 3)
+		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(int(total)), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WDown.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WDown.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, bv, 3)
+		metal.SetScalar(ce, hv, 4)
+		metal.SetScalar(ce, dv, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	}
+	ce.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
+	// Hidden aliases persistent engine scratch and is valid until the next
+	// batched engine operation. The model tail consumes the device buffer
+	// directly; exposing the alias keeps differential tests possible without a
+	// serving-path host copy.
+	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 1 + 12*cfg.NumLayers, DeviceBytes: bytes}, nil
+}
+
+// RunBatchedLayer executes one complete FP32 decoder layer with shared weights.
+// Its dispatch count is thirteen for every non-empty batch.
+func RunBatchedLayer(eng *ModelEngine, cfg Config, layer int, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerResult, error) {
+	qkv, err := RunBatchedQKV(eng, cfg, layer, tokens, positions)
+	if err != nil {
+		return BatchedLayerResult{}, err
+	}
+	attn, err := RunBatchedAttention(eng, cfg, layer, cache, qkv.Q, qkv.K, qkv.V, positions, rows)
+	if err != nil {
+		return BatchedLayerResult{}, err
+	}
+	b := len(tokens)
+	d := uint32(cfg.Dim)
+	h := uint32(cfg.HiddenDim)
+	eps := cfg.Eps
+	l := &eng.layers[layer]
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	copy(eng.prefillXMat.HostSlice()[:len(qkv.Embedding)], qkv.Embedding)
+	copy(eng.prefillAttnOut.HostSlice()[:len(attn.Attention)], attn.Attention)
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	bv := uint32(b)
+	ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(l.WO.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, d, 4)
+	metal.SetScalar(ce, d, 5)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	ce.SetComputePipelineState(eng.pso.BatchedNorm)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(l.PostNorm.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, d, 4)
+	metal.SetScalar(ce, eps, 5)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+	for _, p := range []struct{ w, out mempool.Slice[float32] }{{l.WGate, eng.prefillGateMat}, {l.WUp, eng.prefillUpMat}} {
+		ce.SetComputePipelineState(eng.pso.BatchedGEMM)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		ce.SetBufferWithOffsetAtIndex(p.w.Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(p.out.Buffer(), 0, 2)
+		metal.SetScalar(ce, bv, 3)
+		metal.SetScalar(ce, d, 4)
+		metal.SetScalar(ce, h, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.HiddenDim), metal.Threads(128))
+	}
+	total := uint32(b * cfg.HiddenDim)
+	ce.SetComputePipelineState(eng.pso.BatchedSiLU)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillGateMat.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillUpMat.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 2)
+	metal.SetScalar(ce, total, 3)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(int(total)), metal.Threads(128))
+	ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(l.WDown.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+	metal.SetScalar(ce, bv, 3)
+	metal.SetScalar(ce, h, 4)
+	metal.SetScalar(ce, d, 5)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	ce.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	return BatchedLayerResult{Hidden: append([]float32(nil), eng.prefillXMat.HostSlice()[:b*cfg.Dim]...), Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: qkv.Dispatches + attn.Dispatches + 6}, nil
+}
+
+// RunBatchedAttention applies RoPE, writes per-row KV state, and computes causal
+// attention in exactly two dispatches. rows maps each dense active input to a
+// stable cache row; finished rows are omitted by the caller.
+func RunBatchedAttention(eng *ModelEngine, cfg Config, layer int, cache *BatchedAttentionCache, q, k, v []float32, positions, rows []int) (BatchedAttentionResult, error) {
+	b := len(positions)
+	qd := cfg.NumHeads * cfg.HeadDim
+	kd := cfg.NumKVHeads * cfg.HeadDim
+	if eng == nil || eng.dev == nil || cache == nil {
+		return BatchedAttentionResult{}, errors.New("batched attention: nil engine or cache")
+	}
+	if b == 0 || len(rows) != b || len(q) != b*qd || len(k) != b*kd || len(v) != b*kd {
+		return BatchedAttentionResult{}, errors.New("batched attention: inconsistent input lengths")
+	}
+	if layer < 0 || layer >= len(cache.K) || eng.isF16 || cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 {
+		return BatchedAttentionResult{}, errors.New("batched attention: unsupported configuration")
+	}
+	if b > cache.rowCapacity || cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
+		return BatchedAttentionResult{}, errors.New("batched attention: cache shape mismatch or active batch exceeds capacity")
+	}
+	cacheElements := cache.rowCapacity * cache.maxSeqLen * kd
+	if cache.positions.Len() < b || cache.rows.Len() < b || cache.K[layer].Len() < cacheElements || cache.V[layer].Len() < cacheElements {
+		return BatchedAttentionResult{}, errors.New("batched attention: cache buffer extent mismatch")
+	}
+	seen := make(map[int]bool, b)
+	for i := range b {
+		if positions[i] < 0 || positions[i] >= cfg.MaxSeqLen || rows[i] < 0 || rows[i] >= cache.rowCapacity || seen[rows[i]] {
+			return BatchedAttentionResult{}, fmt.Errorf("batched attention: invalid row %d position=%d cache-row=%d", i, positions[i], rows[i])
+		}
+		seen[rows[i]] = true
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.freed {
+		return BatchedAttentionResult{}, errors.New("batched attention: cache freed")
+	}
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	if err := eng.ensurePrefillArena(b, cfg); err != nil {
+		return BatchedAttentionResult{}, err
+	}
+	copy(eng.prefillQMat.HostSlice()[:len(q)], q)
+	copy(eng.prefillKMat.HostSlice()[:len(k)], k)
+	copy(eng.prefillVMat.HostSlice()[:len(v)], v)
+	for i := range b {
+		cache.positions.HostSlice()[i] = uint32(positions[i])
+		cache.rows.HostSlice()[i] = uint32(rows[i])
+	}
+	enc := eng.dev.Queue().CommandBuffer()
+	ce := enc.ComputeCommandEncoder()
+	ce.SetComputePipelineState(eng.pso.RowRoPE)
+	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
+		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+	}
+	ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 5)
+	ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 6)
+	metal.SetScalar(ce, uint32(b), 7)
+	metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 8)
+	metal.SetScalar(ce, uint32(cfg.HeadDim), 9)
+	metal.SetScalar(ce, uint32(cfg.NumHeads), 10)
+	metal.SetScalar(ce, uint32(cfg.NumKVHeads), 11)
+	metal.SetScalar(ce, cfg.RopeTheta, 12)
+	metal.SetScalar(ce, uint32(cache.rowCapacity), 13)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(1))
+	ce.SetComputePipelineState(eng.pso.RowAttn)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillQMat.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(cache.K[layer].Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(cache.V[layer].Buffer(), 0, 2)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 3)
+	ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 4)
+	ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 5)
+	metal.SetScalar(ce, uint32(b), 6)
+	metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 7)
+	metal.SetScalar(ce, uint32(cfg.NumHeads), 8)
+	metal.SetScalar(ce, uint32(cfg.NumKVHeads), 9)
+	metal.SetScalar(ce, uint32(cfg.HeadDim), 10)
+	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
+	metal.SetScalar(ce, scale, 11)
+	metal.SetScalar(ce, uint32(cache.rowCapacity), 12)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.NumHeads), metal.Threads(128))
+	ce.EndEncoding()
+	enc.Commit()
+	enc.WaitUntilCompleted()
+	copyOut := func(x []float32, n int) []float32 { return append([]float32(nil), x[:n]...) }
+	return BatchedAttentionResult{Q: copyOut(eng.prefillQMat.HostSlice(), len(q)), K: copyOut(eng.prefillKMat.HostSlice(), len(k)), Attention: copyOut(eng.prefillAttnOut.HostSlice(), b*qd), Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 2}, nil
+}
+
+// RunBatchedQKV executes five dispatches regardless of batch size: embedding,
+// RMS normalization, and one projection each for Q, K, and V. Projection
+// weights are bound once per projection and batch size changes only grid size.
+func RunBatchedQKV(eng *ModelEngine, cfg Config, layer int, tokens []int32, positions []int) (BatchedQKVResult, error) {
+	if eng == nil || eng.dev == nil {
+		return BatchedQKVResult{}, errors.New("batched qkv: nil engine")
+	}
+	if len(tokens) == 0 || len(tokens) != len(positions) {
+		return BatchedQKVResult{}, fmt.Errorf("batched qkv: tokens=%d positions=%d", len(tokens), len(positions))
+	}
+	if layer < 0 || layer >= len(eng.layers) || eng.isF16 {
+		return BatchedQKVResult{}, fmt.Errorf("batched qkv: unsupported layer or precision")
+	}
+	for i, token := range tokens {
+		if token < 0 || int(token) >= cfg.VocabSize || positions[i] < 0 || positions[i] >= cfg.MaxSeqLen {
+			return BatchedQKVResult{}, fmt.Errorf("batched qkv: invalid row %d token=%d position=%d", i, token, positions[i])
+		}
+	}
+
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	if err := eng.ensurePrefillArena(len(tokens), cfg); err != nil {
+		return BatchedQKVResult{}, err
+	}
+	copy(eng.prefillTokIn.HostSlice()[:len(tokens)], tokens)
+	b := uint32(len(tokens))
+	d := uint32(cfg.Dim)
+	qd := uint32(cfg.NumHeads * cfg.HeadDim)
+	kd := uint32(cfg.NumKVHeads * cfg.HeadDim)
+	eps := cfg.Eps
+	l := &eng.layers[layer]
+	started := time.Now()
+	cb := eng.dev.Queue().CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(eng.pso.BatchedEmbed)
+	enc.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(eng.prefillTokIn.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+	metal.SetScalar(enc, b, 3)
+	metal.SetScalar(enc, d, 4)
+	enc.DispatchThreadsThreadsPerThreadgroup(metal.Threads(len(tokens)*cfg.Dim), metal.Threads(128))
+	enc.SetComputePipelineState(eng.pso.BatchedNorm)
+	enc.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+	enc.SetBufferWithOffsetAtIndex(l.InputNorm.Buffer(), 0, 1)
+	enc.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+	metal.SetScalar(enc, b, 3)
+	metal.SetScalar(enc, d, 4)
+	metal.SetScalar(enc, eps, 5)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(len(tokens)), metal.Threads(128))
+	for _, projection := range []struct {
+		weight, output mempool.Slice[float32]
+		width          uint32
+	}{
+		{l.WQ, eng.prefillQMat, qd}, {l.WK, eng.prefillKMat, kd}, {l.WV, eng.prefillVMat, kd},
+	} {
+		enc.SetComputePipelineState(eng.pso.BatchedGEMM)
+		enc.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
+		enc.SetBufferWithOffsetAtIndex(projection.weight.Buffer(), 0, 1)
+		enc.SetBufferWithOffsetAtIndex(projection.output.Buffer(), 0, 2)
+		metal.SetScalar(enc, b, 3)
+		metal.SetScalar(enc, d, 4)
+		metal.SetScalar(enc, projection.width, 5)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(len(tokens)*int(projection.width)), metal.Threads(128))
+	}
+	enc.EndEncoding()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	if eng.recorder != nil {
+		eng.recorder.Record("BatchedQKVSlice", time.Since(started), [3]int{len(tokens), cfg.Dim, 1}, [3]int{128, 1, 1}, map[string]string{"dispatches": "5", "batch": fmt.Sprint(len(tokens))})
+	}
+	copyOut := func(src []float32, n int) []float32 { return append([]float32(nil), src[:n]...) }
+	return BatchedQKVResult{Positions: append([]int(nil), positions...), Embedding: copyOut(eng.prefillXMat.HostSlice(), len(tokens)*cfg.Dim), Normalized: copyOut(eng.prefillNormXMat.HostSlice(), len(tokens)*cfg.Dim), Q: copyOut(eng.prefillQMat.HostSlice(), len(tokens)*int(qd)), K: copyOut(eng.prefillKMat.HostSlice(), len(tokens)*int(kd)), V: copyOut(eng.prefillVMat.HostSlice(), len(tokens)*int(kd)), Dispatches: 5}, nil
 }
 
 // FlightRecorder returns the active in-memory GPU telemetry recorder.

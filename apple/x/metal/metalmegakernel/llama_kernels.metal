@@ -605,6 +605,49 @@ kernel void BatchedGEMMResidual(
     }
 }
 
+kernel void BatchedArgmaxSampling(
+    device const float* logits          [[buffer(0)]],
+    device int* token_out               [[buffer(1)]],
+    constant uint& batch                [[buffer(2)]],
+    constant uint& vocab_size           [[buffer(3)]],
+    uint row                             [[threadgroup_position_in_grid]],
+    uint tid                             [[thread_position_in_threadgroup]],
+    uint tg_size                         [[threads_per_threadgroup]]
+) {
+    // The host contract dispatches exactly 128 threads. Fixing the width keeps
+    // the reduction layout explicit and prevents partial reductions.
+    if (row >= batch || vocab_size == 0 || tg_size != 128) return;
+    threadgroup float values[128];
+    threadgroup int indices[128];
+    device const float* row_logits = logits + row * vocab_size;
+    float best_value = -INFINITY;
+    int best_index = -1;
+    for (uint i = tid; i < vocab_size; i += tg_size) {
+        float value = row_logits[i];
+        // NaNs are ignored. All-NaN and all-negative-infinity rows return 0.
+        if (!isnan(value) && (value > best_value ||
+            (value == best_value && (best_index < 0 || int(i) < best_index)))) {
+            best_value = value;
+            best_index = int(i);
+        }
+    }
+    values[tid] = best_value;
+    indices[tid] = best_index;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint width = tg_size / 2; width > 0; width /= 2) {
+        if (tid < width) {
+            float other = values[tid + width];
+            int other_index = indices[tid + width];
+            if (other > values[tid] || (other == values[tid] && other_index < indices[tid])) {
+                values[tid] = other;
+                indices[tid] = other_index;
+            }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (tid == 0) token_out[row] = max(indices[0], 0);
+}
+
 kernel void BatchedRoPE(
     device float* q_all                [[buffer(0)]],
     device float* k_all                [[buffer(1)]],
@@ -747,6 +790,65 @@ kernel void BatchedCausalFlashAttention(
     for (uint d = tid; d < head_dim; d += 128) {
         out_vec[d] = acc_v[d] * inv_l;
     }
+}
+
+kernel void RowIndexedRoPEStoreKV(
+    device float* q [[buffer(0)]], device float* k [[buffer(1)]],
+    device const float* v [[buffer(2)]], device float* kc [[buffer(3)]],
+    device float* vc [[buffer(4)]], device const uint* positions [[buffer(5)]],
+    device const uint* rows [[buffer(6)]], constant uint& batch [[buffer(7)]],
+    constant uint& max_seq [[buffer(8)]], constant uint& head_dim [[buffer(9)]],
+    constant uint& q_heads [[buffer(10)]], constant uint& kv_heads [[buffer(11)]],
+    constant float& theta [[buffer(12)]], constant uint& row_capacity [[buffer(13)]],
+    uint b [[thread_position_in_grid]]) {
+    if (b >= batch || head_dim == 0 || head_dim > 128 || (head_dim & 1) != 0 ||
+        q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 || theta <= 0) return;
+    uint pos=positions[b], row=rows[b];
+    if (pos >= max_seq || row >= row_capacity) return;
+    uint qdim=q_heads*head_dim, kdim=kv_heads*head_dim, half_dim=head_dim/2;
+    for (uint h=0; h<q_heads; h++) for (uint i=0; i<half_dim; i++) {
+        float a=float(pos)/pow(theta,float(2*i)/float(head_dim)), c=cos(a), s=sin(a);
+        uint x=b*qdim+h*head_dim+i, y=x+half_dim; float x0=q[x], x1=q[y]; q[x]=x0*c-x1*s; q[y]=x0*s+x1*c;
+    }
+    uint base=(row*max_seq+pos)*kdim;
+    for (uint h=0; h<kv_heads; h++) {
+        for (uint i=0; i<half_dim; i++) { float a=float(pos)/pow(theta,float(2*i)/float(head_dim)), c=cos(a), s=sin(a); uint x=b*kdim+h*head_dim+i,y=x+half_dim; float x0=k[x],x1=k[y]; k[x]=x0*c-x1*s;k[y]=x0*s+x1*c;kc[base+h*head_dim+i]=k[x];kc[base+h*head_dim+i+half_dim]=k[y]; }
+        for (uint i=0;i<head_dim;i++) vc[base+h*head_dim+i]=v[b*kdim+h*head_dim+i];
+    }
+}
+
+kernel void RowIndexedCausalAttention(
+    device const float* q [[buffer(0)]], device const float* kc [[buffer(1)]],
+    device const float* vc [[buffer(2)]], device float* out [[buffer(3)]],
+    device const uint* positions [[buffer(4)]], device const uint* rows [[buffer(5)]],
+    constant uint& batch [[buffer(6)]], constant uint& max_seq [[buffer(7)]],
+    constant uint& q_heads [[buffer(8)]], constant uint& kv_heads [[buffer(9)]],
+    constant uint& head_dim [[buffer(10)]], constant float& scale [[buffer(11)]],
+    constant uint& row_capacity [[buffer(12)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]],
+    uint tg_size [[threads_per_threadgroup]],
+    uint lane [[thread_index_in_simdgroup]], uint simd [[simdgroup_index_in_threadgroup]]) {
+    if (q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 ||
+        head_dim == 0 || head_dim > 128 || (head_dim & 1) != 0 ||
+        scale <= 0) return;
+    uint b=group/q_heads, qh=group%q_heads; if (b>=batch) return;
+    uint pos=positions[b], row=rows[b]; if (pos>=max_seq || row>=row_capacity) return;
+    uint kh=qh/(q_heads/kv_heads), kdim=kv_heads*head_dim;
+    device const float* qv=q+b*q_heads*head_dim+qh*head_dim;
+    if (tg_size != 128) return;
+    threadgroup float red[4]; threadgroup float score;
+    float m=-INFINITY,l=0,acc=0;
+    for(uint p=0;p<=pos;p++) {
+        uint base=(row*max_seq+p)*kdim+kh*head_dim;
+        float z=tid<head_dim ? qv[tid]*kc[base+tid] : 0;
+        z=simd_sum(z); if(lane==0) red[simd]=z;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if(tid==0) { float total=0; for(uint i=0;i<4;i++) total+=red[i]; score=total*scale; }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float nm=max(m,score),ep=exp(m-nm),ec=exp(score-nm);
+        if(tid<head_dim) acc=acc*ep+ec*vc[base+tid]; l=l*ep+ec; m=nm;
+    }
+    if(tid<head_dim) out[b*q_heads*head_dim+qh*head_dim+tid]=l>0 ? acc/l : 0;
 }
 
 kernel void BatchedSiLUMul(

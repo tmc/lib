@@ -1,6 +1,113 @@
 #include <metal_stdlib>
 using namespace metal;
 
+// TailCandidate is stored as two floats so Go can allocate the scratch with
+// the existing typed Metal allocator. The index is exactly representable for
+// the supported vocabulary sizes.
+static inline bool tail_better(float value, uint index, float best, uint best_index) {
+    return !isnan(value) && (value > best || (value == best && index < best_index));
+}
+
+kernel void RMSNormScale(
+    device const float* x [[buffer(0)]], device float* scale [[buffer(1)]],
+    constant uint& rows [[buffer(2)]], constant uint& dim [[buffer(3)]],
+    constant float& eps [[buffer(4)]], uint row [[threadgroup_position_in_grid]],
+    uint tid [[thread_position_in_threadgroup]], uint lane [[thread_index_in_simdgroup]],
+    uint simd [[simdgroup_index_in_threadgroup]]) {
+    if (row >= rows) return;
+    float sum = 0.0f;
+    for (uint i = tid; i < dim; i += 128) sum += x[row * dim + i] * x[row * dim + i];
+    sum = simd_sum(sum);
+    threadgroup float partial[4];
+    if (lane == 0) partial[simd] = sum;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    float total = (simd == 0 && lane < 4) ? partial[lane] : 0.0f;
+    if (simd == 0) total = simd_sum(total);
+    if (tid == 0) scale[row] = rsqrt(total / float(dim) + eps);
+}
+
+template<typename T>
+static inline void lm_head_tile_argmax(
+    device const float* x, device const T* norm_weight, device const T* lm_head,
+    device const float* scale, device float2* candidates, uint dim, uint vocab,
+    uint tile_count, uint group, uint tid, threadgroup float* values,
+    threadgroup uint* indices) {
+    uint row = group / tile_count;
+    uint token = (group % tile_count) * 256 + tid;
+    float value = -INFINITY;
+    if (token < vocab) {
+        value = 0.0f;
+        uint xbase = row * dim;
+        uint wbase = token * dim;
+        float s = scale[row];
+        for (uint i = 0; i < dim; i++)
+            value += (x[xbase+i] * s * float(norm_weight[i])) * float(lm_head[wbase+i]);
+    }
+    values[tid] = isnan(value) ? -INFINITY : value;
+    indices[tid] = token;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = 128; stride != 0; stride >>= 1) {
+        if (tid < stride && tail_better(values[tid+stride], indices[tid+stride], values[tid], indices[tid])) {
+            values[tid] = values[tid+stride];
+            indices[tid] = indices[tid+stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (tid == 0) candidates[group] = float2(values[0], float(indices[0]));
+}
+
+kernel void LMHeadTileArgmax(
+    device const float* x [[buffer(0)]], device const float* nw [[buffer(1)]],
+    device const float* head [[buffer(2)]], device const float* scale [[buffer(3)]],
+    device float2* out [[buffer(4)]], constant uint& dim [[buffer(5)]],
+    constant uint& vocab [[buffer(6)]], constant uint& tiles [[buffer(7)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]]) {
+    threadgroup float values[256];
+    threadgroup uint indices[256];
+    lm_head_tile_argmax(x, nw, head, scale, out, dim, vocab, tiles, group, tid, values, indices);
+}
+
+kernel void LMHeadTileArgmaxH(
+    device const float* x [[buffer(0)]], device const half* nw [[buffer(1)]],
+    device const half* head [[buffer(2)]], device const float* scale [[buffer(3)]],
+    device float2* out [[buffer(4)]], constant uint& dim [[buffer(5)]],
+    constant uint& vocab [[buffer(6)]], constant uint& tiles [[buffer(7)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]]) {
+    threadgroup float values[256];
+    threadgroup uint indices[256];
+    lm_head_tile_argmax(x, nw, head, scale, out, dim, vocab, tiles, group, tid, values, indices);
+}
+
+kernel void ArgmaxTiles(
+    device const float2* in [[buffer(0)]], device int* tokens [[buffer(1)]],
+    constant uint& rows [[buffer(2)]], constant uint& tiles [[buffer(3)]],
+    uint row [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]]) {
+    if (row >= rows) return;
+    float best = -INFINITY;
+    uint index = 0;
+    for (uint i = tid; i < tiles; i += 128) {
+        float2 candidate = in[row * tiles + i];
+        uint candidate_index = uint(candidate.y);
+        if (tail_better(candidate.x, candidate_index, best, index)) {
+            best = candidate.x;
+            index = candidate_index;
+        }
+    }
+    threadgroup float values[128];
+    threadgroup uint indices[128];
+    values[tid] = best;
+    indices[tid] = index;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint stride = 64; stride != 0; stride >>= 1) {
+        if (tid < stride && tail_better(values[tid+stride], indices[tid+stride], values[tid], indices[tid])) {
+            values[tid] = values[tid+stride];
+            indices[tid] = indices[tid+stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    if (tid == 0) tokens[row] = int(indices[0]);
+}
+
 #ifndef METAL_SIMD_SUM_DEFINED
 #define METAL_SIMD_SUM_DEFINED
 inline float simd_sum(float val) {
@@ -49,7 +156,7 @@ kernel void ComputeRMSNormH(
     float total_sq = (simd_id == 0 && simd_lane < 4) ? s_sum[simd_lane] : 0.0f;
     if (simd_id == 0) total_sq = simd_sum(total_sq);
 
-    threadgroup float s_rms;
+    threadgroup float s_rms = 0.0f;
     if (tid == 0) {
         s_rms = rsqrt(total_sq / float(dim) + eps);
     }
@@ -275,7 +382,7 @@ kernel void BatchedRMSNormH(
     float total_sq = (simd_id == 0 && simd_lane < 4) ? s_sum[simd_lane] : 0.0f;
     if (simd_id == 0) total_sq = simd_sum(total_sq);
 
-    threadgroup float s_rms;
+    threadgroup float s_rms = 0.0f;
     if (tid == 0) {
         s_rms = rsqrt(total_sq / float(dim) + eps);
     }
