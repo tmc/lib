@@ -451,7 +451,7 @@ func TestHTTPProductionMetalPrefixMixedWidths(t *testing.T) {
 				}
 			}
 			after := srv.continuousEngine.prefixes.Stats()
-			if after.Hits-before.Hits < int64(width) || after.Bytes != before.Bytes || after.Blocks != before.Blocks ||
+			if after.Hits-before.Hits < int64(width) || after.Entries != before.Entries+width || after.Bytes <= before.Bytes || after.Blocks <= before.Blocks ||
 				after.WorkspaceBytes != before.WorkspaceBytes || after.DescriptorAddress != before.DescriptorAddress || after.RowAddress != before.RowAddress {
 				t.Fatalf("prefix stats before=%+v after=%+v", before, after)
 			}

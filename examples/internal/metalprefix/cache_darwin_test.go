@@ -208,6 +208,207 @@ func TestLayerPinsSurviveFailureUntilReleased(t *testing.T) {
 	}
 }
 
+func TestCacheExtendBuffersPartialBlock(t *testing.T) {
+	c := testCache(t, 4096, 4)
+	baseTokens := []int32{1, 2, 3}
+	wantTokens := []int32{1, 2, 3, 4, 5}
+	baseK, baseV := kv(len(baseTokens), 7)
+	if err := c.Put(t.Context(), baseTokens, 4, baseK, baseV, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	base, ok, err := c.Acquire(wantTokens)
+	if err != nil || !ok {
+		t.Fatalf("Acquire base = %v, %v", ok, err)
+	}
+	defer base.Release()
+	baseBlocks := base.Blocks()
+	wantK, wantV := kv(len(wantTokens), 7)
+	k := make([]mempool.Slice[float32], c.cfg.Layers)
+	v := make([]mempool.Slice[float32], c.cfg.Layers)
+	for layer := range k {
+		sourceK := append([]float32(nil), wantK[layer]...)
+		sourceV := append([]float32(nil), wantV[layer]...)
+		clear(sourceK[:len(baseTokens)*c.valuesPerToken()])
+		clear(sourceV[:len(baseTokens)*c.valuesPerToken()])
+		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, sourceK)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, sourceV)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer k[layer].Free()
+		defer v[layer].Free()
+	}
+	if err := c.ExtendBuffers(t.Context(), base, wantTokens, 6, k, v, 0); err != nil {
+		t.Fatal(err)
+	}
+	extended, err := c.AcquireExact(wantTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer extended.Release()
+	gotK, gotV := kv(len(wantTokens), 0)
+	for layer := range gotK {
+		clear(gotK[layer])
+		clear(gotV[layer])
+	}
+	if err := extended.Restore(gotK, gotV, len(wantTokens)); err != nil {
+		t.Fatal(err)
+	}
+	for layer := range wantK {
+		for i := range wantK[layer] {
+			if gotK[layer][i] != wantK[layer][i] || gotV[layer][i] != wantV[layer][i] {
+				t.Fatalf("layer %d value %d = %g/%g, want %g/%g", layer, i, gotK[layer][i], gotV[layer][i], wantK[layer][i], wantV[layer][i])
+			}
+		}
+	}
+	extendedBlocks := extended.Blocks()
+	for layer := range c.cfg.Layers {
+		if extendedBlocks[layer].ID != baseBlocks[layer].ID || extendedBlocks[layer].Generation != baseBlocks[layer].Generation {
+			t.Fatalf("layer %d complete block was not shared: base=%+v extended=%+v", layer, baseBlocks[layer], extendedBlocks[layer])
+		}
+	}
+}
+
+func TestCacheExtendBuffersCollisionCancellationAndStale(t *testing.T) {
+	c := testCache(t, 4096, 4)
+	baseTokens := []int32{1, 2}
+	targetTokens := []int32{1, 2, 3}
+	baseK, baseV := kv(2, 1)
+	if err := c.Put(t.Context(), baseTokens, 3, baseK, baseV, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	base, _, err := c.Acquire(targetTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetK, targetV := kv(3, 10)
+	if err := c.Put(t.Context(), targetTokens, 4, targetK, targetV, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	before := c.Stats()
+	sourceK := make([]mempool.Slice[float32], c.cfg.Layers)
+	sourceV := make([]mempool.Slice[float32], c.cfg.Layers)
+	for layer := range sourceK {
+		sourceK[layer], err = mempool.AllocFromSlice(c.cfg.Device, make([]float32, 8))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sourceV[layer], err = mempool.AllocFromSlice(c.cfg.Device, make([]float32, 8))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sourceK[layer].Free()
+		defer sourceV[layer].Free()
+	}
+	if err := c.ExtendBuffers(t.Context(), base, targetTokens, 99, sourceK, sourceV, 0); err != nil {
+		t.Fatalf("collision: %v", err)
+	}
+	if got := c.Stats(); got.Bytes != before.Bytes || got.Blocks != before.Blocks || got.Entries != before.Entries {
+		t.Fatalf("collision changed allocation: before=%+v after=%+v", before, got)
+	}
+	collision, err := c.AcquireExact(targetTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if collision.Current() != 4 {
+		t.Fatalf("collision current = %d, want first publisher 4", collision.Current())
+	}
+	collision.Release()
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := c.ExtendBuffers(canceled, base, append(targetTokens, 4), 5, sourceK, sourceV, 0); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled extension: %v", err)
+	}
+	failureTokens := append(targetTokens, 4)
+	failureBefore := c.Stats()
+	c.waitCommandBuffer = func(ctx context.Context, cb apple.MTLCommandBuffer) error {
+		if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+			return err
+		}
+		return errInjectedCompletion
+	}
+	if err := c.ExtendBuffers(t.Context(), base, failureTokens, 5, sourceK, sourceV, 0); !errors.Is(err, errInjectedCompletion) {
+		t.Fatalf("failed completion extension: %v", err)
+	}
+	if got := c.Stats(); got != failureBefore {
+		t.Fatalf("failed completion changed cache: before=%+v after=%+v", failureBefore, got)
+	}
+	if _, err := c.AcquireExact(failureTokens); !errors.Is(err, kvcache.ErrStale) {
+		t.Fatalf("failed completion published target: %v", err)
+	}
+	c.waitCommandBuffer = metal.WaitCommandBuffer
+	c.mu.Lock()
+	good := base.refs[0].lease
+	base.refs[0].lease = kvcache.Lease{}
+	c.mu.Unlock()
+	if err := c.ExtendBuffers(t.Context(), base, append(targetTokens, 4), 5, sourceK, sourceV, 0); !errors.Is(err, kvcache.ErrStale) {
+		t.Fatalf("stale constituent extension: %v", err)
+	}
+	c.mu.Lock()
+	base.refs[0].lease = good
+	c.mu.Unlock()
+	base.Release()
+	if err := c.ExtendBuffers(t.Context(), base, append(targetTokens, 4), 5, sourceK, sourceV, 0); !errors.Is(err, kvcache.ErrStale) {
+		t.Fatalf("stale extension: %v", err)
+	}
+}
+
+func TestCacheExtendBuffersEvictsLookupKeepsBaseLease(t *testing.T) {
+	c := testCache(t, 4096, 1)
+	baseTokens := []int32{1, 2, 3}
+	targetTokens := []int32{1, 2, 3, 4}
+	baseK, baseV := kv(len(baseTokens), 2)
+	if err := c.Put(t.Context(), baseTokens, 4, baseK, baseV, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	base, _, err := c.Acquire(targetTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantK, wantV := kv(len(targetTokens), 2)
+	sourceK := make([]mempool.Slice[float32], c.cfg.Layers)
+	sourceV := make([]mempool.Slice[float32], c.cfg.Layers)
+	for layer := range sourceK {
+		dataK := append([]float32(nil), wantK[layer]...)
+		dataV := append([]float32(nil), wantV[layer]...)
+		clear(dataK[:len(baseTokens)*c.valuesPerToken()])
+		clear(dataV[:len(baseTokens)*c.valuesPerToken()])
+		sourceK[layer], err = mempool.AllocFromSlice(c.cfg.Device, dataK)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sourceV[layer], err = mempool.AllocFromSlice(c.cfg.Device, dataV)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sourceK[layer].Free()
+		defer sourceV[layer].Free()
+	}
+	if err := c.ExtendBuffers(t.Context(), base, targetTokens, 5, sourceK, sourceV, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := c.Acquire(baseTokens); err != nil || ok {
+		t.Fatalf("evicted base lookup = %v, %v; want miss", ok, err)
+	}
+	gotK, gotV := kv(len(baseTokens), 0)
+	for layer := range gotK {
+		clear(gotK[layer])
+		clear(gotV[layer])
+	}
+	if err := base.Restore(gotK, gotV, len(baseTokens)); err != nil {
+		t.Fatalf("live base after eviction: %v", err)
+	}
+	base.Release()
+	extended, err := c.AcquireExact(targetTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extended.Release()
+}
+
 func TestCacheCopyOnWriteSuffix(t *testing.T) {
 	c := testCache(t, 4096, 4)
 	k4, v4 := kv(4, 1)

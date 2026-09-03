@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
@@ -23,6 +24,7 @@ type scheduledEngineAdapter struct {
 	prefillBatches                      []fullBatchObservation
 	prefillDispatches                   uint64
 	prefixes                            *productionPrefixRuntime
+	prefillObserver                     func(*continuousbatch.State, *productionPrefixLease, []float32)
 }
 
 type scheduledSequenceState struct {
@@ -96,6 +98,7 @@ type scheduledPrefill struct {
 	next      int32
 	committed bool
 	prefix    *productionPrefixLease
+	logits    []float32
 }
 
 // PrefillBatch executes valid uncanceled prompts in shared GPU waves. Cache
@@ -274,8 +277,22 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 		if err != nil {
 			return prefillBatchError(results, pending, fmt.Errorf("prefill model tail: %w", err))
 		}
+		var diagnostic []float32
+		if a.prefillObserver != nil {
+			full, err := a.tail.Run(a.engine, a.cfg, chain.Hidden, samplers)
+			if err != nil {
+				return prefillBatchError(results, pending, fmt.Errorf("prefill diagnostic tail: %w", err))
+			}
+			if !slices.Equal(full.Tokens, tail.Tokens) {
+				return prefillBatchError(results, pending, errors.New("prefill diagnostic tail token mismatch"))
+			}
+			diagnostic = full.Logits
+		}
 		for i, item := range pending {
 			item.next = tail.Tokens[i]
+			if diagnostic != nil {
+				item.logits = append(item.logits[:0], diagnostic[i*a.cfg.VocabSize:(i+1)*a.cfg.VocabSize]...)
+			}
 		}
 		a.metricsMu.Lock()
 		a.prefillDispatches += uint64(chain.Dispatches + tail.Dispatches)
@@ -304,11 +321,26 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 				continue
 			}
 			item.prefix = lease
+		} else if item.prefix.Tokens() < len(item.tokens) {
+			if err := a.prefixes.Extend(item.input.Context, item.prefix, item.tokens, item.next, a.cache, item.row); err != nil {
+				results[item.index].Err = fmt.Errorf("prefill: extend Metal prefix: %w", err)
+				continue
+			}
+			lease, err := a.prefixes.AcquirePublished(item.tokens)
+			if err != nil || lease == nil {
+				results[item.index].Err = fmt.Errorf("prefill: acquire extended Metal prefix: %w", err)
+				continue
+			}
+			item.prefix.Release()
+			item.prefix = lease
 		}
 		item.input.State.KV = scheduledSequenceState{row: item.row, lease: item.lease, prefix: item.prefix}
 		item.input.State.Position = len(item.tokens)
 		item.committed = true
 		results[item.index].Token = continuousbatch.Token{ID: item.next, Text: text}
+		if a.prefillObserver != nil {
+			a.prefillObserver(item.input.State, item.prefix, item.logits)
+		}
 	}
 	return results
 }
@@ -371,9 +403,29 @@ func (a *scheduledEngineAdapter) prefillWithLeasedBlocks(results []continuousbat
 			}
 			return
 		}
+		var diagnostic []float32
+		if a.prefillObserver != nil {
+			full, err := a.tail.Run(a.engine, a.cfg, chain.Hidden, samplers)
+			if err != nil {
+				for _, item := range active {
+					results[item.index].Err = fmt.Errorf("prefill diagnostic tail: %w", err)
+				}
+				return
+			}
+			if !slices.Equal(full.Tokens, tail.Tokens) {
+				for _, item := range active {
+					results[item.index].Err = errors.New("prefill diagnostic tail token mismatch")
+				}
+				return
+			}
+			diagnostic = full.Logits
+		}
 		for i, item := range active {
 			item.start++
 			item.next = tail.Tokens[i]
+			if diagnostic != nil {
+				item.logits = append(item.logits[:0], diagnostic[i*a.cfg.VocabSize:(i+1)*a.cfg.VocabSize]...)
+			}
 		}
 		a.metricsMu.Lock()
 		a.prefillDispatches += uint64(chain.Dispatches + tail.Dispatches)

@@ -67,6 +67,14 @@ func (p *productionPrefixRuntime) Put(ctx context.Context, tokens []int32, curre
 	return p.cache.PutBuffers(ctx, tokens, current, cache.K, cache.V, offset)
 }
 
+func (p *productionPrefixRuntime) Extend(ctx context.Context, base *productionPrefixLease, tokens []int32, current int32, cache *BatchedAttentionCache, row int) error {
+	if base == nil {
+		return p.Put(ctx, tokens, current, cache, row)
+	}
+	offset := row * cache.maxSeqLen * cache.kvDim
+	return p.cache.ExtendBuffers(ctx, base.lease, tokens, current, cache.K, cache.V, offset)
+}
+
 func (p *productionPrefixRuntime) Run(ctx context.Context, engine *ModelEngine, cfg Config, cache *BatchedAttentionCache, leases []*productionPrefixLease, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
 	raw := make([]*metalprefix.Lease, len(leases))
 	for i, lease := range leases {

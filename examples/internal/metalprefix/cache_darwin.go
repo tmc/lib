@@ -370,6 +370,128 @@ func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k
 	return nil
 }
 
+// ExtendBuffers publishes tokens by sharing complete blocks from base and
+// copying the remaining base fragment and suffix directly between Metal
+// buffers. The source buffers need contain only suffix positions at and after
+// base.Tokens; earlier positions are never read.
+func (c *Cache) ExtendBuffers(ctx context.Context, base *Lease, tokens []int32, current int32, k, v []mempool.Slice[float32], sourceOffset int) error {
+	if ctx == nil || base == nil || base.cache != c || len(k) != c.cfg.Layers || len(v) != c.cfg.Layers || sourceOffset < 0 {
+		return errors.New("metalprefix: invalid buffer extension")
+	}
+	baseTokens := base.tokens
+	if baseTokens <= 0 || len(tokens) <= baseTokens {
+		return errors.New("metalprefix: extension does not continue base")
+	}
+	want := sourceOffset + len(tokens)*c.valuesPerToken()
+	for layer := range k {
+		if k[layer].Len() < want || v[layer].Len() < want {
+			return fmt.Errorf("metalprefix: layer %d extension buffer too small", layer)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return kvcache.ErrClosed
+	}
+	if len(base.refs) == 0 {
+		return kvcache.ErrStale
+	}
+	if len(base.keyTokens) != baseTokens || commonPrefix(base.keyTokens, tokens) != baseTokens {
+		return errors.New("metalprefix: extension does not continue base")
+	}
+	key := tokenKey(tokens)
+	if c.entries[key] != nil {
+		return nil
+	}
+	sharedTokens := baseTokens / c.cfg.BlockTokens * c.cfg.BlockTokens
+	refs := make([]blockRef, 0, c.cfg.Layers*((len(tokens)+c.cfg.BlockTokens-1)/c.cfg.BlockTokens))
+	rollback := func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			c.dropRefLocked(refs[i])
+		}
+	}
+	for _, ref := range base.refs {
+		if ref.b.end > sharedTokens {
+			continue
+		}
+		shared, err := c.store.Share(ref.lease)
+		if err != nil {
+			rollback()
+			return kvcache.ErrStale
+		}
+		ref.b.refs++
+		refs = append(refs, blockRef{b: ref.b, lease: shared})
+	}
+
+	newBytes := int64(0)
+	for start := sharedTokens; start < len(tokens); start += c.cfg.BlockTokens {
+		end := min(start+c.cfg.BlockTokens, len(tokens))
+		newBytes += int64(2*c.cfg.Layers*(end-start)*c.valuesPerToken()) * 4
+	}
+	for (len(c.entries) >= c.cfg.MaxEntries || c.bytes+newBytes > c.cfg.MaxBytes) && len(c.entries) != 0 {
+		if !c.evictOldestLocked(key) {
+			break
+		}
+	}
+	if c.bytes+newBytes > c.cfg.MaxBytes || len(c.entries) >= c.cfg.MaxEntries {
+		rollback()
+		return kvcache.ErrExhausted
+	}
+
+	valuesPerToken := c.valuesPerToken()
+	cb := c.cfg.Device.Queue().CommandBuffer()
+	blit := cb.BlitCommandEncoder()
+	for start := sharedTokens; start < len(tokens); start += c.cfg.BlockTokens {
+		end := min(start+c.cfg.BlockTokens, len(tokens))
+		oldEnd := min(end, baseTokens)
+		for layer := 0; layer < c.cfg.Layers; layer++ {
+			ref, err := c.allocEmptyBlockLocked(tokens, start, end, layer)
+			if err != nil {
+				blit.EndEncoding()
+				rollback()
+				return err
+			}
+			refs = append(refs, ref)
+			if oldEnd > start {
+				old := base.blockLocked(layer, start, oldEnd)
+				if old == nil {
+					blit.EndEncoding()
+					rollback()
+					return kvcache.ErrStale
+				}
+				bytes := uint((oldEnd - start) * valuesPerToken * 4)
+				blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(old.k.Buffer(), old.k.Offset()+uint((start-old.start)*valuesPerToken*4), ref.b.k.Buffer(), ref.b.k.Offset(), bytes)
+				blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(old.v.Buffer(), old.v.Offset()+uint((start-old.start)*valuesPerToken*4), ref.b.v.Buffer(), ref.b.v.Offset(), bytes)
+			}
+			suffixStart := max(start, baseTokens)
+			if suffixStart < end {
+				bytes := uint((end - suffixStart) * valuesPerToken * 4)
+				src := uint(sourceOffset+suffixStart*valuesPerToken) * 4
+				dst := ref.b.k.Offset() + uint((suffixStart-start)*valuesPerToken*4)
+				blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(k[layer].Buffer(), k[layer].Offset()+src, ref.b.k.Buffer(), dst, bytes)
+				dst = ref.b.v.Offset() + uint((suffixStart-start)*valuesPerToken*4)
+				blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(v[layer].Buffer(), v[layer].Offset()+src, ref.b.v.Buffer(), dst, bytes)
+			}
+		}
+	}
+	blit.EndEncoding()
+	if err := ctx.Err(); err != nil {
+		rollback()
+		return err
+	}
+	cb.Commit()
+	if err := c.waitCommandBuffer(ctx, cb); err != nil {
+		rollback()
+		return fmt.Errorf("metalprefix: copy buffer extension: %w", err)
+	}
+	c.entries[key] = &entry{tokens: append([]int32(nil), tokens...), current: current, blocks: refs, lastUsed: time.Now()}
+	return nil
+}
+
 func commonPrefix(a, b []int32) int {
 	n := min(len(a), len(b))
 	for i := 0; i < n; i++ {
@@ -424,11 +546,12 @@ func (c *Cache) allocEmptyBlockLocked(tokens []int32, start, end, layer int) (bl
 
 // Lease pins every physical block needed for one prefix. Its zero value is invalid.
 type Lease struct {
-	cache   *Cache
-	tokens  int
-	current int32
-	refs    []blockRef
-	once    sync.Once
+	cache     *Cache
+	tokens    int
+	current   int32
+	keyTokens []int32
+	refs      []blockRef
+	once      sync.Once
 }
 
 // Acquire returns the longest cached prefix of tokens. It either acquires all
@@ -488,7 +611,16 @@ func (c *Cache) acquireEntryLocked(found *entry) (*Lease, error) {
 		refs = append(refs, blockRef{b: ref.b, lease: shared})
 	}
 	found.lastUsed = time.Now()
-	return &Lease{cache: c, tokens: len(found.tokens), current: found.current, refs: refs}, nil
+	return &Lease{cache: c, tokens: len(found.tokens), current: found.current, keyTokens: append([]int32(nil), found.tokens...), refs: refs}, nil
+}
+
+func (l *Lease) blockLocked(layer, start, end int) *block {
+	for _, ref := range l.refs {
+		if ref.b.layer == layer && ref.b.start <= start && ref.b.end >= end {
+			return ref.b
+		}
+	}
+	return nil
 }
 
 // Tokens returns the matched token count.
@@ -626,6 +758,7 @@ func (l *Lease) Release() {
 			l.cache.dropRefLocked(l.refs[i])
 		}
 		l.refs = nil
+		l.keyTokens = nil
 	})
 }
 

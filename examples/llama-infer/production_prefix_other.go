@@ -37,6 +37,10 @@ func (*productionPrefixRuntime) Put(context.Context, []int32, int32, *BatchedAtt
 	return nil
 }
 
+func (*productionPrefixRuntime) Extend(context.Context, *productionPrefixLease, []int32, int32, *BatchedAttentionCache, int) error {
+	return nil
+}
+
 func (*productionPrefixRuntime) Run(_ context.Context, engine *ModelEngine, cfg Config, cache *BatchedAttentionCache, _ []*productionPrefixLease, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
 	return RunBatchedLayerChain(engine, cfg, cache, tokens, positions, rows)
 }
