@@ -7,6 +7,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
 
 func TestSegmentedLayerChainRealFP16(t *testing.T) {
@@ -89,6 +91,91 @@ func TestSegmentedLayerChainRealFP16(t *testing.T) {
 		checkClose(t, "real v cache", gotCache.V[layer].HostSlice(), wantCache.V[layer].HostSlice(), 5e-4)
 	}
 	t.Logf("tokens=%v logits=%d layers=%d", got.Tokens, len(gotDiagnostic.Logits), cfg.NumLayers)
+}
+
+func TestScheduledSegmentedPrefillRealFP16(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	cfg := Llama3_2_1BConfig(path)
+	cfg.Name += "-scheduled-segmented-test"
+	cfg.Precision = "f16"
+	cfg.MaxSeqLen = 128
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	states := []continuousbatch.State{
+		{ID: "short", PromptTokenIDs: []int32{128000}},
+		{ID: "long", PromptTokenIDs: []int32{128000, 22691}},
+	}
+	inputs := make([]continuousbatch.PrefillRequest, len(states))
+	for i := range states {
+		inputs[i] = continuousbatch.PrefillRequest{Context: t.Context(), State: &states[i]}
+	}
+	results := adapter.PrefillBatch(inputs)
+	gotTokens := make([]int32, len(results))
+	for i, result := range results {
+		if result.Err != nil {
+			t.Fatal(result.Err)
+		}
+		gotTokens[i] = result.Token.ID
+	}
+	gotHidden := append([]float32(nil), eng.prefillNormXMat.HostSlice()[:len(states)*cfg.Dim]...)
+	gotDiagnostic, err := adapter.tail.Run(eng, cfg, gotHidden, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(gotTokens, gotDiagnostic.Tokens) {
+		t.Fatalf("tiled tokens=%v diagnostic tokens=%v", gotTokens, gotDiagnostic.Tokens)
+	}
+	gotLogits := gotDiagnostic.Logits
+
+	wantCache, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantCache.Free()
+	wantTail, err := eng.NewBatchedModelTail(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantTail.Free()
+	wantTokens := make([]int32, 0, len(states))
+	wantLogits := make([]float32, 0, len(states)*cfg.VocabSize)
+	for row, state := range states {
+		var tail BatchedModelTailResult
+		for position, token := range state.PromptTokenIDs {
+			chain, err := RunBatchedLayerChain(eng, cfg, wantCache, []int32{token}, []int{position}, []int{row})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if position == len(state.PromptTokenIDs)-1 {
+				tail, err = wantTail.Run(eng, cfg, append([]float32(nil), chain.Hidden...), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		wantTokens = append(wantTokens, tail.Tokens...)
+		wantLogits = append(wantLogits, tail.Logits...)
+	}
+	if !reflect.DeepEqual(gotTokens, wantTokens) {
+		t.Fatalf("tokens=%v want %v", gotTokens, wantTokens)
+	}
+	checkClose(t, "scheduled real logits", gotLogits, wantLogits, 5e-4)
+	for layer := range cfg.NumLayers {
+		checkClose(t, "scheduled real k cache", adapter.cache.K[layer].HostSlice(), wantCache.K[layer].HostSlice(), 5e-4)
+		checkClose(t, "scheduled real v cache", adapter.cache.V[layer].HostSlice(), wantCache.V[layer].HostSlice(), 5e-4)
+	}
+	t.Logf("tokens=%v logits=%d layers=%d prefill=%+v", gotTokens, len(gotLogits), cfg.NumLayers, adapter.PrefillObservations())
 }
 
 func TestSegmentedLayerChainMatchesSequentialModel(t *testing.T) {

@@ -21,6 +21,31 @@ type fakeBackend struct {
 	failState string
 }
 
+type fakeBatchBackend struct {
+	fakeBackend
+	prefillBatches []int
+}
+
+func (b *fakeBatchBackend) PrefillBatch(requests []PrefillRequest) []Result {
+	b.mu.Lock()
+	b.prefillBatches = append(b.prefillBatches, len(requests))
+	b.mu.Unlock()
+	results := make([]Result, len(requests))
+	for i, request := range requests {
+		if err := request.Context.Err(); err != nil {
+			results[i].Err = err
+			continue
+		}
+		if request.State.ID == b.failState {
+			results[i].Err = errors.New("injected prefill failure")
+			continue
+		}
+		request.State.KV = new(int)
+		results[i].Token = Token{ID: 1, Text: "1"}
+	}
+	return results
+}
+
 func (b *fakeBackend) Prefill(ctx context.Context, state *State) (Token, error) {
 	select {
 	case <-time.After(b.prefill):
@@ -119,6 +144,38 @@ func TestCancellationAndFailureIsolation(t *testing.T) {
 	}
 	if _, err := collect(t, canceled); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancel error = %v", err)
+	}
+}
+
+func TestBatchedPrefillExcludesCanceledAndIsolatesFailure(t *testing.T) {
+	backend := &fakeBatchBackend{fakeBackend: fakeBackend{failState: "bad"}}
+	s := newTestScheduler(t, backend, Config{MaxActive: 4, MaxQueue: 4, MaxBatch: 4, BatchWait: 5 * time.Millisecond, TokenBuffer: 8, PrefillWorkers: 4})
+	good, err := s.Submit(context.Background(), Request{ID: "good", MaxTokens: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad, err := s.Submit(context.Background(), Request{ID: "bad", MaxTokens: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, err := s.Submit(context.Background(), Request{ID: "canceled", MaxTokens: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled.Cancel()
+	if tokens, err := collect(t, good); err != nil || len(tokens) != 2 {
+		t.Fatalf("good: tokens=%d err=%v", len(tokens), err)
+	}
+	if _, err := collect(t, bad); err == nil {
+		t.Fatal("injected prefill failure succeeded")
+	}
+	if _, err := collect(t, canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled error = %v", err)
+	}
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	if len(backend.prefillBatches) != 1 || backend.prefillBatches[0] != 2 {
+		t.Fatalf("prefill batches = %v, want [2]", backend.prefillBatches)
 	}
 }
 

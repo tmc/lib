@@ -19,6 +19,7 @@ type scheduledEngineAdapter struct {
 	leases                              map[int]uint64
 	nextLease                           uint64
 	batches                             []fullBatchObservation
+	prefillBatches                      []fullBatchObservation
 	prefillDispatches                   uint64
 }
 
@@ -62,78 +63,214 @@ func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
 }
 
 func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousbatch.State) (continuousbatch.Token, error) {
-	if err := ctx.Err(); err != nil {
-		return continuousbatch.Token{}, err
+	results := a.PrefillBatch([]continuousbatch.PrefillRequest{{Context: ctx, State: state}})
+	if len(results) != 1 {
+		return continuousbatch.Token{}, errors.New("prefill: invalid batch result")
 	}
-	a.rowsMu.Lock()
-	if len(a.freeRows) == 0 {
-		a.rowsMu.Unlock()
-		return continuousbatch.Token{}, errors.New("prefill: no cache row available")
+	return results[0].Token, results[0].Err
+}
+
+type scheduledPrefill struct {
+	input     continuousbatch.PrefillRequest
+	index     int
+	tokens    []int32
+	row       int
+	lease     uint64
+	start     int
+	next      int32
+	committed bool
+}
+
+// PrefillBatch executes all valid uncanceled prompt suffixes in one segmented
+// layer chain. Row leases become visible to the scheduler only after the GPU
+// wave and model tail have completed successfully.
+func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRequest) []continuousbatch.Result {
+	results := make([]continuousbatch.Result, len(inputs))
+	if len(inputs) == 0 {
+		return results
 	}
-	row := a.freeRows[len(a.freeRows)-1]
-	a.freeRows = a.freeRows[:len(a.freeRows)-1]
-	a.nextLease++
-	lease := a.nextLease
-	a.leases[row] = lease
-	a.rowsMu.Unlock()
-	releaseRow := true
-	defer func() {
-		if releaseRow {
-			a.rowsMu.Lock()
-			if a.leases[row] == lease {
-				delete(a.leases, row)
-				a.freeRows = append(a.freeRows, row)
-			}
-			a.rowsMu.Unlock()
-		}
-	}()
 	a.prefillMu.Lock()
 	defer a.prefillMu.Unlock()
 	a.gpuMu.Lock()
 	defer a.gpuMu.Unlock()
 	if a.engine == nil || a.engine.tokenizer == nil {
-		return continuousbatch.Token{}, errors.New("prefill: nil engine or tokenizer")
+		return batchError(results, errors.New("prefill: nil engine or tokenizer"))
 	}
-	tokens, err := prefillTokens(a.cfg, a.engine.tokenizer, state)
-	if err != nil {
-		return continuousbatch.Token{}, err
+
+	work := make([]*scheduledPrefill, 0, len(inputs))
+	for i, input := range inputs {
+		if input.State == nil {
+			results[i].Err = errors.New("prefill: nil state")
+			continue
+		}
+		if err := input.Context.Err(); err != nil {
+			results[i].Err = err
+			continue
+		}
+		tokens, err := prefillTokens(a.cfg, a.engine.tokenizer, input.State)
+		if err != nil {
+			results[i].Err = err
+			continue
+		}
+		if len(tokens) == 0 {
+			tokens = []int32{1}
+		}
+		if len(tokens) >= a.cfg.MaxSeqLen {
+			results[i].Err = errors.New("prefill: prompt exceeds cache capacity")
+			continue
+		}
+		valid := true
+		for _, token := range tokens {
+			if token < 0 || int(token) >= a.cfg.VocabSize {
+				results[i].Err = errors.New("prefill: invalid prompt token")
+				valid = false
+				break
+			}
+		}
+		if !valid {
+			continue
+		}
+		if _, ok := input.State.Sampler.(SamplerConfig); input.State.Sampler != nil && !ok {
+			results[i].Err = errors.New("prefill: unsupported sampler state")
+			continue
+		}
+		work = append(work, &scheduledPrefill{input: input, index: i, tokens: tokens})
 	}
-	if len(tokens) == 0 {
-		tokens = []int32{1}
+	if len(work) == 0 {
+		return results
 	}
-	if len(tokens) >= a.cfg.MaxSeqLen {
-		return continuousbatch.Token{}, errors.New("prefill: prompt exceeds cache capacity")
+
+	a.rowsMu.Lock()
+	if len(a.freeRows) < len(work) {
+		a.rowsMu.Unlock()
+		return prefillBatchError(results, work, errors.New("prefill: no cache row available"))
 	}
-	sequence, err := a.engine.NewSequenceKV(a.cfg)
-	if err != nil {
-		return continuousbatch.Token{}, fmt.Errorf("prefill allocate KV: %w", err)
+	for _, item := range work {
+		item.row = a.freeRows[len(a.freeRows)-1]
+		a.freeRows = a.freeRows[:len(a.freeRows)-1]
+		a.nextLease++
+		item.lease = a.nextLease
+		a.leases[item.row] = item.lease
 	}
-	start, next := a.engine.restoreScheduledPrefix(tokens, sequence, a.cfg)
-	prefillDispatches := 0
-	if start < len(tokens) {
-		next, err = GPUBatchedPrefillPassKV(a.engine, a.cfg, sequence, tokens[start:], start)
-		prefillDispatches = benchmarkPrefillDispatches(a.engine)
+	a.rowsMu.Unlock()
+	defer func() {
+		for _, item := range work {
+			if !item.committed {
+				a.releasePrefillRow(item)
+			}
+		}
+	}()
+
+	for _, item := range work {
+		item.start, item.next = a.engine.restoreScheduledPrefixRow(item.tokens, a.cache, item.row)
 	}
-	if err == nil {
-		err = a.cache.ImportSequence(row, len(tokens), sequence)
+	pending := append([]*scheduledPrefill(nil), work...)
+	for len(pending) > 0 {
+		segments := make([]PrefillSegment, 0, len(pending))
+		wave := pending[:0]
+		for _, item := range pending {
+			if err := item.input.Context.Err(); err != nil {
+				results[item.index].Err = err
+				a.releasePrefillRow(item)
+				continue
+			}
+			if item.start == len(item.tokens) {
+				continue
+			}
+			requestID := fmt.Sprintf("%s#%d", item.input.State.ID, item.index)
+			segments = append(segments, PrefillSegment{RequestID: requestID, Row: item.row, Tokens: item.tokens[item.start:], AbsoluteStart: item.start, RestoredPrefix: item.start})
+			wave = append(wave, item)
+		}
+		pending = wave
+		if len(pending) == 0 {
+			break
+		}
+		var packer PrefillPacker
+		packed, err := packer.Pack(context.Background(), segments, a.cfg.MaxSeqLen*len(segments), a.cache.rowCapacity, a.cfg.VocabSize, a.cfg.MaxSeqLen)
+		if err != nil {
+			return prefillBatchError(results, pending, err)
+		}
+		waveCtx, cancel := context.WithCancel(context.Background())
+		stops := make([]func() bool, len(pending))
+		for i, item := range pending {
+			stops[i] = context.AfterFunc(item.input.Context, cancel)
+		}
+		chain, err := RunSegmentedLayerChain(waveCtx, a.engine, a.cfg, a.cache, packed)
+		for _, stop := range stops {
+			stop()
+		}
+		cancel()
+		if errors.Is(err, context.Canceled) {
+			next := pending[:0]
+			for _, item := range pending {
+				if requestErr := item.input.Context.Err(); requestErr != nil {
+					results[item.index].Err = requestErr
+					a.releasePrefillRow(item)
+					continue
+				}
+				next = append(next, item)
+			}
+			if len(next) == len(pending) {
+				return prefillBatchError(results, pending, err)
+			}
+			pending = next
+			continue
+		}
+		if err != nil {
+			return prefillBatchError(results, pending, fmt.Errorf("prefill GPU state: %w", err))
+		}
+		samplers := make([]SamplerConfig, len(pending))
+		for i, item := range pending {
+			samplers[i], _ = item.input.State.Sampler.(SamplerConfig)
+		}
+		tail, err := RunSegmentedModelTailFromChain(a.engine, a.cfg, a.tail, chain, samplers)
+		if err != nil {
+			return prefillBatchError(results, pending, fmt.Errorf("prefill model tail: %w", err))
+		}
+		for i, item := range pending {
+			item.next = tail.Tokens[i]
+		}
+		a.metricsMu.Lock()
+		a.prefillDispatches += uint64(chain.Dispatches + tail.Dispatches)
+		a.prefillBatches = append(a.prefillBatches, fullBatchObservation{Batch: len(pending), Dispatches: chain.Dispatches + tail.Dispatches})
+		a.metricsMu.Unlock()
+		break
 	}
-	if err == nil {
-		a.engine.storeScheduledPrefix(tokens, sequence, next, a.cfg)
+
+	for _, item := range work {
+		if results[item.index].Err != nil {
+			continue
+		}
+		text, err := a.engine.tokenizer.Decode([]int32{item.next})
+		if err != nil {
+			results[item.index].Err = fmt.Errorf("prefill decode token: %w", err)
+			continue
+		}
+		item.input.State.KV = scheduledSequenceState{row: item.row, lease: item.lease}
+		item.input.State.Position = len(item.tokens)
+		item.committed = true
+		a.engine.storeScheduledPrefixRow(item.tokens, a.cache, item.row, item.next)
+		results[item.index].Token = continuousbatch.Token{ID: item.next, Text: text}
 	}
-	sequence.Free()
-	if err != nil {
-		return continuousbatch.Token{}, fmt.Errorf("prefill GPU state: %w", err)
+	return results
+}
+
+func (a *scheduledEngineAdapter) releasePrefillRow(item *scheduledPrefill) {
+	a.rowsMu.Lock()
+	if a.leases[item.row] == item.lease {
+		delete(a.leases, item.row)
+		a.freeRows = append(a.freeRows, item.row)
 	}
-	a.metricsMu.Lock()
-	a.prefillDispatches += uint64(prefillDispatches)
-	a.metricsMu.Unlock()
-	text, err := a.engine.tokenizer.Decode([]int32{next})
-	if err != nil {
-		return continuousbatch.Token{}, fmt.Errorf("prefill decode token: %w", err)
+	a.rowsMu.Unlock()
+}
+
+func prefillBatchError(results []continuousbatch.Result, work []*scheduledPrefill, err error) []continuousbatch.Result {
+	for _, item := range work {
+		if results[item.index].Err == nil {
+			results[item.index].Err = err
+		}
 	}
-	state.KV, state.Position = scheduledSequenceState{row: row, lease: lease}, len(tokens)
-	releaseRow = false
-	return continuousbatch.Token{ID: next, Text: text}, nil
+	return results
 }
 
 func prefillTokens(cfg Config, tokenizer Tokenizer, state *continuousbatch.State) ([]int32, error) {
@@ -210,6 +347,12 @@ func (a *scheduledEngineAdapter) Observations() []fullBatchObservation {
 	return append([]fullBatchObservation(nil), a.batches...)
 }
 
+func (a *scheduledEngineAdapter) PrefillObservations() []fullBatchObservation {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	return append([]fullBatchObservation(nil), a.prefillBatches...)
+}
+
 func (a *scheduledEngineAdapter) Dispatches() uint64 {
 	a.metricsMu.Lock()
 	defer a.metricsMu.Unlock()
@@ -221,3 +364,4 @@ func (a *scheduledEngineAdapter) Dispatches() uint64 {
 }
 
 var _ continuousbatch.Backend = (*scheduledEngineAdapter)(nil)
+var _ continuousbatch.BatchPrefiller = (*scheduledEngineAdapter)(nil)

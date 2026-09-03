@@ -151,6 +151,12 @@ type ModelEngine struct {
 	prefillUpMat     mempool.Slice[float32]
 	prefillFFNAct    mempool.Slice[float32]
 	prefillTokIn     mempool.Slice[int32]
+	prefillRequest   mempool.Slice[uint32]
+	prefillPositions mempool.Slice[uint32]
+	prefillOffsets   mempool.Slice[uint32]
+	prefillLengths   mempool.Slice[uint32]
+	prefillRows      mempool.Slice[uint32]
+	prefillRestored  mempool.Slice[uint32]
 
 	// GPU Weights (FP32 or FP16)
 	isF16         bool
@@ -270,6 +276,47 @@ func (c *BatchedAttentionCache) ImportSequence(row, tokens int, sequence *Sequen
 		copy(c.V[layer].HostSlice()[offset:offset+n], sequence.VCache[layer].HostSlice()[:n])
 	}
 	return nil
+}
+
+func (c *BatchedAttentionCache) restorePrefix(row, tokens int, snapshot *prefixSnapshot) bool {
+	if c == nil || snapshot == nil || row < 0 || row >= c.rowCapacity || tokens <= 0 || tokens > c.maxSeqLen || len(snapshot.k) != len(c.K) || len(snapshot.v) != len(c.V) {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.freed {
+		return false
+	}
+	n := tokens * c.kvDim
+	offset := row * c.maxSeqLen * c.kvDim
+	for layer := range c.K {
+		if n > len(snapshot.k[layer]) || n > len(snapshot.v[layer]) {
+			return false
+		}
+		copy(c.K[layer].HostSlice()[offset:offset+n], snapshot.k[layer][:n])
+		copy(c.V[layer].HostSlice()[offset:offset+n], snapshot.v[layer][:n])
+	}
+	return true
+}
+
+func (c *BatchedAttentionCache) capturePrefix(row, tokens int, current int32) *prefixSnapshot {
+	if c == nil || row < 0 || row >= c.rowCapacity || tokens <= 0 || tokens > c.maxSeqLen {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.freed {
+		return nil
+	}
+	n := tokens * c.kvDim
+	offset := row * c.maxSeqLen * c.kvDim
+	snapshot := &prefixSnapshot{tokens: tokens, current: current, k: make([][]float32, len(c.K)), v: make([][]float32, len(c.V))}
+	for layer := range c.K {
+		snapshot.k[layer] = append([]float32(nil), c.K[layer].HostSlice()[offset:offset+n]...)
+		snapshot.v[layer] = append([]float32(nil), c.V[layer].HostSlice()[offset:offset+n]...)
+		snapshot.bytes += int64(2*n) * 4
+	}
+	return snapshot
 }
 
 // BatchedAttentionResult contains row-indexed RoPE outputs and causal attention.
@@ -862,24 +909,13 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 	if err := eng.ensurePrefillArena(n, cfg); err != nil {
 		return SegmentedLayerChainResult{}, err
 	}
-	meta := metalmem.NewArena(eng.dev)
-	defer meta.Free()
-	requestIndex := metalmem.AllocIn[uint32](meta, "requestIndex", n)
-	positions := metalmem.AllocIn[uint32](meta, "positions", n)
-	offsets := metalmem.AllocIn[uint32](meta, "offsets", b)
-	lengths := metalmem.AllocIn[uint32](meta, "lengths", b)
-	rows := metalmem.AllocIn[uint32](meta, "rows", b)
-	restored := metalmem.AllocIn[uint32](meta, "restored", b)
-	if err := meta.Err(); err != nil {
-		return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain metadata: %w", err)
-	}
 	copy(eng.prefillTokIn.HostSlice()[:n], packed.Tokens)
-	copy(requestIndex.HostSlice(), packed.RequestIndex)
-	copy(positions.HostSlice(), packed.AbsolutePositions)
-	copy(offsets.HostSlice(), packed.Offsets)
-	copy(lengths.HostSlice(), packed.Lengths)
-	copy(rows.HostSlice(), packed.Rows)
-	copy(restored.HostSlice(), packed.RestoredPrefixes)
+	copy(eng.prefillRequest.HostSlice()[:n], packed.RequestIndex)
+	copy(eng.prefillPositions.HostSlice()[:n], packed.AbsolutePositions)
+	copy(eng.prefillOffsets.HostSlice()[:b], packed.Offsets)
+	copy(eng.prefillLengths.HostSlice()[:b], packed.Lengths)
+	copy(eng.prefillRows.HostSlice()[:b], packed.Rows)
+	copy(eng.prefillRestored.HostSlice()[:b], packed.RestoredPrefixes)
 	if err := ctx.Err(); err != nil {
 		return SegmentedLayerChainResult{}, err
 	}
@@ -926,7 +962,7 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 		}
-		for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+		for i, s := range []mempool.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(5+i))
 		}
 		metal.SetScalar(ce, nv, 11)
@@ -942,7 +978,7 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[li], cache.V[li], eng.prefillAttnOut} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 		}
-		for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+		for i, s := range []mempool.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(4+i))
 		}
 		metal.SetScalar(ce, nv, 10)
@@ -1014,8 +1050,8 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 	ce.SetComputePipelineState(eng.pso.SegmentedGather)
 	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
 	ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 1)
-	ce.SetBufferWithOffsetAtIndex(offsets.Buffer(), 0, 2)
-	ce.SetBufferWithOffsetAtIndex(lengths.Buffer(), 0, 3)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillOffsets.Buffer(), 0, 2)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillLengths.Buffer(), 0, 3)
 	metal.SetScalar(ce, bv, 4)
 	metal.SetScalar(ce, dv, 5)
 	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
@@ -2702,6 +2738,12 @@ func (eng *ModelEngine) ensurePrefillArena(seqLen int, cfg Config) error {
 	eng.prefillUpMat = metalmem.AllocIn[float32](a, "upMat", allocLen*cfg.HiddenDim)
 	eng.prefillFFNAct = metalmem.AllocIn[float32](a, "ffnAct", allocLen*cfg.HiddenDim)
 	eng.prefillTokIn = metalmem.AllocIn[int32](a, "tokIn", allocLen)
+	eng.prefillRequest = metalmem.AllocIn[uint32](a, "requestIndex", allocLen)
+	eng.prefillPositions = metalmem.AllocIn[uint32](a, "positions", allocLen)
+	eng.prefillOffsets = metalmem.AllocIn[uint32](a, "offsets", allocLen)
+	eng.prefillLengths = metalmem.AllocIn[uint32](a, "lengths", allocLen)
+	eng.prefillRows = metalmem.AllocIn[uint32](a, "rows", allocLen)
+	eng.prefillRestored = metalmem.AllocIn[uint32](a, "restored", allocLen)
 	if err := a.Err(); err != nil {
 		a.Free()
 		return fmt.Errorf("alloc prefill arena for %d tokens: %w", allocLen, err)

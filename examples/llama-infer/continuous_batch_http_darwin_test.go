@@ -4,11 +4,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -22,6 +25,7 @@ func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
 	srv := NewTelemetryServer(eng, cfg)
 	if srv.continuous == nil {
 		t.Fatal("continuous scheduler is disabled")
@@ -86,6 +90,192 @@ func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
 			t.Fatalf("batch %d dispatches=%d, want %d", observation.Batch, observation.Dispatches, wantDispatches)
 		}
 	}
+	prefills := srv.continuousEngine.PrefillObservations()
+	sharedPrefill := false
+	for _, observation := range prefills {
+		if observation.Batch > 1 {
+			sharedPrefill = true
+		}
+	}
+	if !sharedPrefill {
+		t.Fatalf("no shared prefill wave: %+v", prefills)
+	}
+}
+
+func TestScheduledSegmentedPrefillWidthsAndFailureIsolation(t *testing.T) {
+	for _, width := range []int{1, 2, 4} {
+		t.Run(fmt.Sprintf("B%d", width), func(t *testing.T) {
+			cfg := DefaultTinyLlamaConfig()
+			cfg.Name = fmt.Sprintf("segmented-scheduled-B%d", width)
+			eng, err := GetOrCompileEngine(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			eng.prefixes = newPrefixCache(64<<20, 8)
+			adapter, err := newScheduledEngineAdapter(eng, cfg, width)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer adapter.Close()
+			inputs := make([]continuousbatch.PrefillRequest, width)
+			states := make([]continuousbatch.State, width)
+			want := make([]int32, width)
+			for i := range width {
+				tokens := make([]int32, i+2)
+				for j := range tokens {
+					tokens[j] = int32(10 + i + j)
+				}
+				sequence, err := eng.NewSequenceKV(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want[i], err = GPUBatchedPrefillPassKV(eng, cfg, sequence, tokens, 0)
+				sequence.Free()
+				if err != nil {
+					t.Fatal(err)
+				}
+				states[i] = continuousbatch.State{ID: fmt.Sprintf("request-%d", i), PromptTokenIDs: tokens}
+				inputs[i] = continuousbatch.PrefillRequest{Context: t.Context(), State: &states[i]}
+			}
+			got := adapter.PrefillBatch(inputs)
+			for i := range got {
+				if got[i].Err != nil || got[i].Token.ID != want[i] || states[i].Position != len(states[i].PromptTokenIDs) {
+					t.Fatalf("request %d: got=%+v position=%d want_token=%d", i, got[i], states[i].Position, want[i])
+				}
+				adapter.Release(&states[i])
+			}
+			observations := adapter.PrefillObservations()
+			if len(observations) != 1 || observations[0].Batch != width {
+				t.Fatalf("prefill observations=%+v, want one B=%d wave", observations, width)
+			}
+		})
+	}
+}
+
+func TestScheduledSegmentedPrefillRejectsOneInvalidRequest(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.Name = "segmented-scheduled-partial-failure"
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	good := continuousbatch.State{ID: "good", PromptTokenIDs: []int32{3, 4}}
+	bad := continuousbatch.State{ID: "bad", PromptTokenIDs: []int32{int32(cfg.VocabSize)}}
+	results := adapter.PrefillBatch([]continuousbatch.PrefillRequest{{Context: t.Context(), State: &good}, {Context: t.Context(), State: &bad}})
+	if results[0].Err != nil || good.KV == nil {
+		t.Fatalf("good result=%+v KV=%v", results[0], good.KV)
+	}
+	if results[1].Err == nil || bad.KV != nil {
+		t.Fatalf("bad result=%+v KV=%v", results[1], bad.KV)
+	}
+	adapter.Release(&good)
+	adapter.rowsMu.Lock()
+	defer adapter.rowsMu.Unlock()
+	if len(adapter.freeRows) != 2 || len(adapter.leases) != 0 {
+		t.Fatalf("rows after partial failure: free=%d leases=%d", len(adapter.freeRows), len(adapter.leases))
+	}
+}
+
+func TestScheduledSegmentedPrefillUsesRowsAboveFreeCount(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.Name = "segmented-scheduled-occupied-row"
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	first := continuousbatch.State{ID: "first", PromptTokenIDs: []int32{3, 4}}
+	if _, err := adapter.Prefill(t.Context(), &first); err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Release(&first)
+	second := continuousbatch.State{ID: "second", PromptTokenIDs: []int32{5, 6}}
+	if _, err := adapter.Prefill(t.Context(), &second); err != nil {
+		t.Fatalf("prefill second stable row: %v", err)
+	}
+	adapter.Release(&second)
+}
+
+func TestScheduledSegmentedPrefillExcludesCanceledBeforeCommit(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.Name = "segmented-scheduled-cancel"
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	canceledContext, cancel := context.WithCancel(t.Context())
+	cancel()
+	good := continuousbatch.State{ID: "good", PromptTokenIDs: []int32{3, 4}}
+	canceled := continuousbatch.State{ID: "canceled", PromptTokenIDs: []int32{5, 6}}
+	results := adapter.PrefillBatch([]continuousbatch.PrefillRequest{{Context: t.Context(), State: &good}, {Context: canceledContext, State: &canceled}})
+	if results[0].Err != nil || good.KV == nil {
+		t.Fatalf("good result=%+v KV=%v", results[0], good.KV)
+	}
+	if !errors.Is(results[1].Err, context.Canceled) || canceled.KV != nil {
+		t.Fatalf("canceled result=%+v KV=%v", results[1], canceled.KV)
+	}
+	observations := adapter.PrefillObservations()
+	if len(observations) != 1 || observations[0].Batch != 1 {
+		t.Fatalf("prefill observations=%+v, want canceled request excluded", observations)
+	}
+	adapter.Release(&good)
+}
+
+func TestScheduledSegmentedPrefillRestores127And128Tokens(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.Name = "segmented-scheduled-prefix-boundary"
+	cfg.MaxSeqLen = 256
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	prefix := make([]int32, 127)
+	for i := range prefix {
+		prefix[i] = int32(i%200 + 3)
+	}
+	prime := continuousbatch.State{ID: "prime-127", PromptTokenIDs: prefix}
+	if _, err := adapter.Prefill(t.Context(), &prime); err != nil {
+		t.Fatal(err)
+	}
+	adapter.Release(&prime)
+	for _, n := range []int{128, 129} {
+		tokens := append([]int32(nil), prefix...)
+		for len(tokens) < n {
+			tokens = append(tokens, int32(len(tokens)%200+3))
+		}
+		state := continuousbatch.State{ID: fmt.Sprintf("prefix-%d", n), PromptTokenIDs: tokens}
+		if _, err := adapter.Prefill(t.Context(), &state); err != nil {
+			t.Fatal(err)
+		}
+		adapter.Release(&state)
+	}
+	metrics := eng.prefixes.metrics()
+	if metrics.Hits < 2 || metrics.SavedTokens < 255 {
+		t.Fatalf("prefix metrics=%+v, want 127 and 128 token restores", metrics)
+	}
 }
 
 func TestHTTPFullModelBatchWidths(t *testing.T) {
@@ -94,18 +284,24 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := cpuReceipt(t, eng, cfg, "same prompt", 4)
 	for _, width := range []int{1, 2, 4, 8} {
+		eng.prefixes = newPrefixCache(64<<20, 8)
 		srv := NewTelemetryServer(eng, cfg)
+		prompts := make([]string, width)
+		want := make([][]int32, width)
+		for i := range width {
+			prompts[i] = fmt.Sprintf("prompt-%d-%s", i, strings.Repeat("x", i))
+			want[i] = cpuReceipt(t, eng, cfg, prompts[i], 4)
+		}
 		start := make(chan struct{})
 		errs := make(chan error, width)
 		var wg sync.WaitGroup
-		for range width {
+		for i := range width {
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 				<-start
-				body, _ := json.Marshal(ChatCompletionRequest{Prompt: "same prompt", MaxTokens: 4})
+				body, _ := json.Marshal(ChatCompletionRequest{Prompt: prompts[i], MaxTokens: 4})
 				rec := httptest.NewRecorder()
 				srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)))
 				if rec.Code != http.StatusOK {
@@ -117,10 +313,10 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 					errs <- err
 					return
 				}
-				if !reflect.DeepEqual(response.TokenIDs, want) {
-					errs <- fmt.Errorf("tokens=%v, want %v", response.TokenIDs, want)
+				if !reflect.DeepEqual(response.TokenIDs, want[i]) {
+					errs <- fmt.Errorf("request %d tokens=%v, want %v", i, response.TokenIDs, want[i])
 				}
-			}()
+			}(i)
 		}
 		close(start)
 		wg.Wait()
@@ -140,7 +336,16 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		if !found {
 			t.Fatalf("width %d did not reach physical batch: %+v", width, srv.continuousEngine.Observations())
 		}
-		t.Logf("width=%d batches=%+v", width, srv.continuousEngine.Observations())
+		prefillFound := false
+		for _, observation := range srv.continuousEngine.PrefillObservations() {
+			if observation.Batch == width {
+				prefillFound = true
+			}
+		}
+		if !prefillFound {
+			t.Fatalf("width %d did not reach physical prefill batch: %+v", width, srv.continuousEngine.PrefillObservations())
+		}
+		t.Logf("width=%d prefills=%+v batches=%+v", width, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations())
 		srv.continuous.Close()
 		srv.continuousEngine.Close()
 	}

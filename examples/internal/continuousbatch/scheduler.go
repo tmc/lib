@@ -45,6 +45,18 @@ type Backend interface {
 	Release(*State)
 }
 
+// PrefillRequest binds one request context to its mutable scheduler state.
+type PrefillRequest struct {
+	Context context.Context
+	State   *State
+}
+
+// BatchPrefiller optionally executes queued prefills as one bounded device
+// wave. It must return one result for every request, in order.
+type BatchPrefiller interface {
+	PrefillBatch([]PrefillRequest) []Result
+}
+
 type Result struct {
 	Token Token
 	Done  bool
@@ -171,7 +183,11 @@ func New(backend Backend, cfg Config) (*Scheduler, error) {
 		live:    make(map[*sequence]struct{}),
 		metrics: Metrics{BatchSizes: make(map[int]uint64)},
 	}
-	for i := 0; i < cfg.PrefillWorkers; i++ {
+	workers := cfg.PrefillWorkers
+	if _, ok := backend.(BatchPrefiller); ok {
+		workers = 1
+	}
+	for i := 0; i < workers; i++ {
 		s.workers.Add(1)
 		go func() { defer s.workers.Done(); s.prefillLoop() }()
 	}
@@ -271,6 +287,10 @@ func (s *Scheduler) run() {
 }
 
 func (s *Scheduler) prefillLoop() {
+	if backend, ok := s.backend.(BatchPrefiller); ok {
+		s.prefillBatchLoop(backend)
+		return
+	}
 	for {
 		select {
 		case seq := <-s.prefill:
@@ -310,6 +330,98 @@ func (s *Scheduler) prefillLoop() {
 			return
 		}
 	}
+}
+
+func (s *Scheduler) prefillBatchLoop(backend BatchPrefiller) {
+	for {
+		var first *sequence
+		select {
+		case first = <-s.prefill:
+		case <-s.stop:
+			return
+		}
+		batch := []*sequence{first}
+		timer := time.NewTimer(s.cfg.BatchWait)
+	collect:
+		for len(batch) < s.cfg.MaxBatch {
+			select {
+			case seq := <-s.prefill:
+				batch = append(batch, seq)
+			case <-timer.C:
+				break collect
+			case <-s.stop:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				return
+			}
+		}
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+
+		requests := make([]PrefillRequest, 0, len(batch))
+		ready := make([]*sequence, 0, len(batch))
+		for _, seq := range batch {
+			if err := seq.ctx.Err(); err != nil {
+				s.finish(seq, err)
+				s.prefilled <- prefillResult{seq: seq}
+				continue
+			}
+			requests = append(requests, PrefillRequest{Context: seq.ctx, State: &seq.state})
+			ready = append(ready, seq)
+		}
+		if len(ready) == 0 {
+			continue
+		}
+		started := time.Now()
+		results := backend.PrefillBatch(requests)
+		if len(results) != len(ready) {
+			err := fmt.Errorf("prefill batch returned %d results for %d states", len(results), len(ready))
+			for _, seq := range ready {
+				s.finish(seq, err)
+				s.prefilled <- prefillResult{seq: seq}
+			}
+			continue
+		}
+		for i, seq := range ready {
+			s.mu.Lock()
+			s.metrics.Prefills++
+			s.metrics.QueueTime += started.Sub(seq.queuedAt)
+			s.mu.Unlock()
+			s.completePrefill(seq, results[i])
+		}
+	}
+}
+
+func (s *Scheduler) completePrefill(seq *sequence, result Result) {
+	if result.Err != nil {
+		s.finish(seq, fmt.Errorf("prefill: %w", result.Err))
+		s.prefilled <- prefillResult{seq: seq}
+		return
+	}
+	seq.state.Current = result.Token.ID
+	seq.state.Generated = 1
+	now := time.Now()
+	seq.firstAt, seq.lastAt = now, now
+	s.recordTTFT(now.Sub(seq.queuedAt))
+	if !s.emit(seq, result.Token) {
+		s.prefilled <- prefillResult{seq: seq}
+		return
+	}
+	if seq.state.Generated >= seq.state.Limit {
+		s.finish(seq, nil)
+		s.prefilled <- prefillResult{seq: seq}
+		return
+	}
+	s.prefilled <- prefillResult{seq: seq, active: true}
+	s.signal()
 }
 
 func (s *Scheduler) decode(active []*sequence) []*sequence {
