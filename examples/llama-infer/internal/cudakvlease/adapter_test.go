@@ -52,6 +52,61 @@ type fakeCompletion struct{ err error }
 
 func (f *fakeCompletion) Synchronize(context.Context) error { return f.err }
 
+type fakeHostBuffer struct {
+	data  []float32
+	freed *int
+}
+
+func (b *fakeHostBuffer) Slice() []float32 { return b.data }
+func (b *fakeHostBuffer) Free() error {
+	*b.freed++
+	b.data = nil
+	return nil
+}
+
+type fakeTierPages struct {
+	*fakePages
+	values       int
+	layers       int
+	data         map[[2]int][2][]float32
+	failToHost   int
+	failToDevice int
+	hostFrees    int
+}
+
+func newFakeTierPages(pages, layers, values int) *fakeTierPages {
+	return &fakeTierPages{
+		fakePages:    newFakePages(pages),
+		values:       values,
+		layers:       layers,
+		data:         make(map[[2]int][2][]float32),
+		failToHost:   -1,
+		failToDevice: -1,
+	}
+}
+
+func (p *fakeTierPages) AllocHost(n int) (hostBuffer, error) {
+	return &fakeHostBuffer{data: make([]float32, n), freed: &p.hostFrees}, nil
+}
+
+func (p *fakeTierPages) CopyPageToHost(layer, slot int, k, v []float32) error {
+	if layer == p.failToHost {
+		return errors.New("injected device-to-host failure")
+	}
+	pair := p.data[[2]int{layer, slot}]
+	copy(k, pair[0])
+	copy(v, pair[1])
+	return nil
+}
+
+func (p *fakeTierPages) CopyHostToPage(layer, slot int, k, v []float32) error {
+	if layer == p.failToDevice {
+		return errors.New("injected host-to-device failure")
+	}
+	p.data[[2]int{layer, slot}] = [2][]float32{append([]float32(nil), k...), append([]float32(nil), v...)}
+	return nil
+}
+
 type contextCompletion struct{}
 
 func (contextCompletion) Synchronize(ctx context.Context) error { return ctx.Err() }
@@ -243,5 +298,175 @@ func TestConcurrentBindComplete(t *testing.T) {
 	wg.Wait()
 	if err := a.Retire(context.Background(), allocation, &fakeCompletion{}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestOffloadRestoreRoundTripAndDeviceBound(t *testing.T) {
+	cfg := Config{NumLayers: 2, KVHeads: 1, HeadDim: 2, BlockSize: 2, TotalPages: 1, DType: "float32", Domain: "gpu0"}
+	pages := newFakeTierPages(1, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim)
+	a, err := New(pages, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := a.Allocate("first", kvcache.Range{Start: 0, End: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, generation := first.ID()
+	use, err := a.Bind(id, generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot, _ := use.Slot()
+	for layer := 0; layer < cfg.NumLayers; layer++ {
+		pages.data[[2]int{layer, slot}] = [2][]float32{
+			{float32(layer + 1), 2, 3, 4},
+			{-float32(layer + 1), -2, -3, -4},
+		}
+	}
+	want := make(map[[2]int][2][]float32)
+	for key, pair := range pages.data {
+		want[key] = [2][]float32{append([]float32(nil), pair[0]...), append([]float32(nil), pair[1]...)}
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Offload(context.Background(), first, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Bind(id, generation); !errors.Is(err, ErrNotDevice) {
+		t.Fatalf("Bind host block: %v, want ErrNotDevice", err)
+	}
+	stats := a.Stats()
+	if stats.DevicePages != 0 || stats.HostBlocks != 1 || stats.DeviceBytes != 0 || stats.PinnedHostBytes != 64 {
+		t.Fatalf("offloaded stats = %+v", stats)
+	}
+	second, err := a.Allocate("second", kvcache.Range{Start: 2, End: 4})
+	if err != nil {
+		t.Fatalf("Allocate with logical block offloaded: %v", err)
+	}
+	stats = a.Stats()
+	if stats.DevicePages != 1 || stats.DeviceBytes != 64 {
+		t.Fatalf("device bound stats = %+v", stats)
+	}
+	if err := a.Restore(context.Background(), first); err == nil {
+		t.Fatal("Restore succeeded without a free device page")
+	}
+	if err := a.Retire(context.Background(), second, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Restore(context.Background(), first); err != nil {
+		t.Fatal(err)
+	}
+	use, err = a.Bind(id, generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredSlot, _ := use.Slot()
+	for layer := 0; layer < cfg.NumLayers; layer++ {
+		got := pages.data[[2]int{layer, restoredSlot}]
+		original := want[[2]int{layer, slot}]
+		for i := range original[0] {
+			if got[0][i] != original[0][i] || got[1][i] != original[1][i] {
+				t.Fatalf("layer %d value %d = %g/%g, want %g/%g", layer, i, got[0][i], got[1][i], original[0][i], original[1][i])
+			}
+		}
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Retire(context.Background(), first, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Restore(context.Background(), first); !errors.Is(err, kvcache.ErrStale) {
+		t.Fatalf("Restore retired generation: %v, want ErrStale", err)
+	}
+}
+
+func TestOffloadFailureKeepsDeviceAuthoritative(t *testing.T) {
+	cfg := Config{NumLayers: 2, KVHeads: 1, HeadDim: 2, BlockSize: 2, TotalPages: 1, DType: "float32", Domain: "gpu0"}
+	pages := newFakeTierPages(1, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim)
+	pages.failToHost = 1
+	a, _ := New(pages, cfg)
+	allocation, _ := a.Allocate("request", kvcache.Range{Start: 0, End: 2})
+	if err := a.Offload(context.Background(), allocation, &fakeCompletion{}); err == nil {
+		t.Fatal("Offload succeeded after injected partial copy failure")
+	}
+	if pages.hostFrees != 1 {
+		t.Fatalf("host cleanup count = %d, want 1", pages.hostFrees)
+	}
+	residency, err := a.Residency(allocation)
+	if err != nil || residency.Tier != "device" {
+		t.Fatalf("Residency = %+v, %v; want device", residency, err)
+	}
+	id, generation := allocation.ID()
+	use, err := a.Bind(id, generation)
+	if err != nil {
+		t.Fatalf("Bind after failed offload: %v", err)
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Retire(context.Background(), allocation, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRestoreFailureKeepsHostAuthoritative(t *testing.T) {
+	cfg := Config{NumLayers: 2, KVHeads: 1, HeadDim: 2, BlockSize: 2, TotalPages: 1, DType: "float32", Domain: "gpu0"}
+	pages := newFakeTierPages(1, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim)
+	a, _ := New(pages, cfg)
+	allocation, _ := a.Allocate("request", kvcache.Range{Start: 0, End: 2})
+	if err := a.Offload(context.Background(), allocation, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	pages.failToDevice = 1
+	if err := a.Restore(context.Background(), allocation); err == nil {
+		t.Fatal("Restore succeeded after injected partial copy failure")
+	}
+	residency, err := a.Residency(allocation)
+	if err != nil || residency.Tier != "pinned-host" {
+		t.Fatalf("Residency = %+v, %v; want pinned-host", residency, err)
+	}
+	if stats := a.Stats(); stats.DevicePages != 0 || stats.HostBlocks != 1 {
+		t.Fatalf("failed restore stats = %+v", stats)
+	}
+	pages.failToDevice = -1
+	if err := a.Restore(context.Background(), allocation); err != nil {
+		t.Fatalf("retry Restore: %v", err)
+	}
+	if err := a.Retire(context.Background(), allocation, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOffloadRequiresSoleLeaseAndCompletion(t *testing.T) {
+	cfg := Config{NumLayers: 1, KVHeads: 1, HeadDim: 2, BlockSize: 2, TotalPages: 1, DType: "float32", Domain: "gpu0"}
+	pages := newFakeTierPages(1, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim)
+	a, _ := New(pages, cfg)
+	allocation, _ := a.Allocate("request", kvcache.Range{Start: 0, End: 2})
+	id, generation := allocation.ID()
+	use, _ := a.Bind(id, generation)
+	if err := a.Offload(context.Background(), allocation, &fakeCompletion{}); !errors.Is(err, kvcache.ErrBusy) {
+		t.Fatalf("Offload with consumer: %v, want ErrBusy", err)
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("completion failed")
+	if err := a.Offload(context.Background(), allocation, &fakeCompletion{err: want}); !errors.Is(err, want) {
+		t.Fatalf("Offload completion failure: %v, want injected error", err)
+	}
+	if stats := a.Stats(); stats.DevicePages != 1 || stats.HostBlocks != 0 {
+		t.Fatalf("completion failure stats = %+v", stats)
+	}
+	if err := a.Offload(context.Background(), allocation, &fakeCompletion{}); err != nil {
+		t.Fatalf("retry Offload: %v", err)
+	}
+	if err := a.Retire(context.Background(), allocation, &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	if pages.hostFrees != 1 || a.NumFreePages() != 1 {
+		t.Fatalf("host retirement: frees=%d free_pages=%d, want 1/1", pages.hostFrees, a.NumFreePages())
 	}
 }
