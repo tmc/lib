@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,5 +116,16 @@ func TestUnqualifiedHostLaunchesZeroTimedArms(t *testing.T) {
 	}
 	if launches != 0 {
 		t.Fatalf("timed arm launches = %d, want 0", launches)
+	}
+}
+
+func TestPhysicalTelemetryFailsClosed(t *testing.T) {
+	for _, batch := range []int{1, 2, 4} {
+		t.Run(fmt.Sprintf("B%d", batch), func(t *testing.T) {
+			err := benchmarkPhysicalTelemetry()
+			if err == nil || !strings.Contains(err.Error(), "exact dispatch and tier-byte counters") {
+				t.Fatalf("error = %v", err)
+			}
+		})
 	}
 }

@@ -123,6 +123,9 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if deviceID != identity.DeviceID {
 		return fmt.Errorf("inferbench: qualified device %q differs from runtime device %q", identity.DeviceID, deviceID)
 	}
+	if err := benchmarkPhysicalTelemetry(); err != nil {
+		return fmt.Errorf("inferbench: physical telemetry unavailable: %w", err)
+	}
 	identity.Precision = "f32"
 	if eng.IsF16() {
 		identity.Precision = "f16"
@@ -208,7 +211,6 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	if id == "" {
 		return inferbench.Sample{}, errors.New("inferbench: empty sample id")
 	}
-	dispatchesBefore := adapter.Dispatches()
 	cacheBefore := eng.prefixCacheMetrics()
 	started := time.Now()
 	responses := make([]*continuousbatch.Response, len(workload.PromptTokenIDs))
@@ -251,7 +253,6 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 		return inferbench.Sample{}, fmt.Errorf("inferbench: final device synchronize: %w", err)
 	}
 	ended := time.Now()
-	dispatches := adapter.Dispatches() - dispatchesBefore
 	var ttft, tpot time.Duration
 	var inter []time.Duration
 	for _, request := range timings {
@@ -284,7 +285,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	duration := ended.Sub(started)
 	cache := eng.prefixCacheMetrics()
-	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: map[string]uint64{"kv_host_to_device": 0}, TierWriteBytes: map[string]uint64{"kv_device_to_host": 0}, GeneratedTokenIDs: generated, OutputSHA256: hash, Requests: timings}, nil
+	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), GeneratedTokenIDs: generated, OutputSHA256: hash, Requests: timings}, nil
 }
 
 func decodeStrictJSON(path string, dst any) error {

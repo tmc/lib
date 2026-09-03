@@ -88,10 +88,12 @@ type Sample struct {
 	InterToken        []time.Duration   `json:"inter_token_ns"`
 	TokensPerSecond   float64           `json:"tokens_per_second"`
 	Dispatches        uint64            `json:"dispatches"`
+	DispatchMeasured  bool              `json:"dispatch_measured"`
 	CacheHits         uint64            `json:"cache_hits"`
 	CacheMisses       uint64            `json:"cache_misses"`
 	TierReadBytes     map[string]uint64 `json:"tier_read_bytes"`
 	TierWriteBytes    map[string]uint64 `json:"tier_write_bytes"`
+	TierBytesMeasured bool              `json:"tier_bytes_measured"`
 	GeneratedTokenIDs [][]int32         `json:"generated_token_ids"`
 	OutputSHA256      string            `json:"output_sha256"`
 	Requests          []RequestTiming   `json:"requests"`
@@ -211,7 +213,7 @@ func validateRun(r *Run) error {
 		if s.StartedAt.IsZero() || !s.EndedAt.After(s.StartedAt) {
 			return fmt.Errorf("sample %q: invalid interval", s.ID)
 		}
-		if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 {
+		if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 || !s.DispatchMeasured {
 			return fmt.Errorf("sample %q: incomplete timing", s.ID)
 		}
 		for _, d := range s.InterToken {
@@ -219,7 +221,7 @@ func validateRun(r *Run) error {
 				return fmt.Errorf("sample %q: invalid inter-token latency", s.ID)
 			}
 		}
-		if len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
+		if !s.TierBytesMeasured || len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
 			return fmt.Errorf("sample %q: incomplete telemetry", s.ID)
 		}
 		if len(s.Requests) != len(w.PromptTokenIDs) {
