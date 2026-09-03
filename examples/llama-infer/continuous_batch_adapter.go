@@ -265,6 +265,8 @@ func (a *scheduledEngineAdapter) releasePrefillRow(item *scheduledPrefill) {
 }
 
 func prefillBatchError(results []continuousbatch.Result, work []*scheduledPrefill, err error) []continuousbatch.Result {
+	// A committed command buffer is one fault domain. Without encoder-level
+	// evidence, a GPU execution failure cannot be attributed to one request.
 	for _, item := range work {
 		if results[item.index].Err == nil {
 			results[item.index].Err = err
@@ -336,6 +338,7 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 }
 
 func batchError(results []continuousbatch.Result, err error) []continuousbatch.Result {
+	// Decode rows share command buffers, so execution errors fail the wave.
 	for i := range results {
 		results[i].Err = err
 	}

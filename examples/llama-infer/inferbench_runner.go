@@ -133,6 +133,7 @@ func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 		}
 		run.Samples = append(run.Samples, sample)
 	}
+	run.Evidence.DeviceSynchronized = true
 	return inferbench.WriteJSONAtomic(spec.Output, armReceipt{SchemaVersion: inferbench.SchemaVersion, State: "collected", Run: run})
 }
 
@@ -175,7 +176,7 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 		return inferbench.Identity{}, inferbench.Evidence{}, err
 	}
 	identity := inferbench.Identity{BinarySHA256: computed["binary"], ModelSHA256: computed["model"], TokenizerSHA256: computed["tokenizer"], SourceSHA256: computed["source"], Backend: proof.Backend, DeviceID: proof.DeviceID}
-	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash}
+	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash}
 	return identity, evidence, nil
 }
 

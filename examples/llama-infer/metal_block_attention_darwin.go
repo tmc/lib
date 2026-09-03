@@ -107,6 +107,8 @@ func RunBlockTableAttention(ctx context.Context, eng *ModelEngine, cfg Config, l
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(cfg.NumHeads), metal.Threads(metalattn.DecodeThreadgroupSize))
 	ce.EndEncoding()
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+		return nil, fmt.Errorf("block attention: command buffer: %w", err)
+	}
 	return append([]float32(nil), out.HostSlice()...), nil
 }

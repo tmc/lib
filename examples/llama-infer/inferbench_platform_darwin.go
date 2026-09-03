@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	"errors"
+
+	"github.com/tmc/lib/apple/x/metal"
 )
 
 func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileDarwinEngine(cfg) }
@@ -43,6 +45,5 @@ func benchmarkSynchronize(ctx context.Context, eng *ModelEngine) error {
 	}
 	cb := eng.dev.Queue().CommandBuffer()
 	cb.Commit()
-	cb.WaitUntilCompleted()
-	return nil
+	return metal.WaitCommandBuffer(ctx, cb)
 }

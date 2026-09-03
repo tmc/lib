@@ -478,7 +478,9 @@ func (t *BatchedModelTail) Run(eng *ModelEngine, cfg Config, hidden []float32, s
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
 	ce.EndEncoding()
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return BatchedModelTailResult{}, fmt.Errorf("batched model tail: shared command buffer: %w", err)
+	}
 	return BatchedModelTailResult{
 		Normalized: append([]float32(nil), t.norm.HostSlice()[:b*cfg.Dim]...),
 		Logits:     append([]float32(nil), t.logits.HostSlice()[:b*cfg.VocabSize]...),
@@ -555,7 +557,9 @@ func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
 	ce.EndEncoding()
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return BatchedModelTailResult{}, fmt.Errorf("batched model tail: shared command buffer: %w", err)
+	}
 	return BatchedModelTailResult{
 		Tokens:     append([]int32(nil), t.tokens.HostSlice()[:b]...),
 		Dispatches: 3,
@@ -677,7 +681,8 @@ func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine
 }
 
 // RunBatchedLayerChain embeds once and executes every decoder layer without
-// intermediate host copies. It issues exactly 1+9*NumLayers dispatches.
+// intermediate host copies. It issues exactly 1+9*NumLayers dispatches. A
+// command buffer execution failure invalidates the whole batch.
 func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
 	b := len(tokens)
 	kd := cfg.NumKVHeads * cfg.HeadDim
@@ -853,7 +858,9 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 	}
 	ce.EndEncoding()
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: shared command buffer: %w", err)
+	}
 	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
 	// Hidden aliases persistent engine scratch and is valid until the next
 	// batched engine operation. The model tail consumes the device buffer
@@ -868,7 +875,8 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 
 // RunSegmentedLayerChain executes a packed prompt wave through every decoder
 // layer, then gathers the final token of each segment in request order. No GPU
-// work is submitted until the entire pack and cache shape have been checked.
+// work is submitted until the entire pack and cache shape have been checked. A
+// command buffer execution failure invalidates the whole packed wave.
 func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, packed PackedPrefill) (SegmentedLayerChainResult, error) {
 	n, b := len(packed.Tokens), len(packed.Offsets)
 	kd := cfg.NumKVHeads * cfg.HeadDim
@@ -1060,7 +1068,9 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 		return SegmentedLayerChainResult{}, err
 	}
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+		return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain: shared command buffer: %w", err)
+	}
 	toInts := func(x []uint32) []int {
 		y := make([]int, len(x))
 		for i := range x {
@@ -1342,7 +1352,9 @@ func RunSegmentedAttention(ctx context.Context, eng *ModelEngine, cfg Config, la
 		return BatchedAttentionResult{}, err
 	}
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+		return BatchedAttentionResult{}, fmt.Errorf("segmented attention: shared command buffer: %w", err)
+	}
 	toInts := func(x []uint32) []int {
 		y := make([]int, len(x))
 		for i := range x {
@@ -3269,7 +3281,9 @@ func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache,
 
 	t0 := time.Now()
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return 0, fmt.Errorf("batched prefill pass: command buffer: %w", err)
+	}
 	wallTime := time.Since(t0)
 	gpuTime := time.Duration((cb.GPUEndTime() - cb.GPUStartTime()) * float64(time.Second))
 	if gpuTime < 0 {
@@ -3367,7 +3381,9 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 	enc.EndEncoding()
 
 	cb.Commit()
-	cb.WaitUntilCompleted()
+	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return nil, fmt.Errorf("batch decode: shared command buffer: %w", err)
+	}
 
 	outTokens := make([]int32, batchSize)
 	copy(outTokens, tokOutBuf.HostSlice()[:batchSize])
