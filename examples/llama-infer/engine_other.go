@@ -107,23 +107,32 @@ func init() {
 
 // ModelEngine maintains cached CUDA allocations, JIT modules, and device contexts on Linux.
 type ModelEngine struct {
-	dev        *cuda.Device
-	stream     *cuda.Stream
-	weights    *GPUModelWeights
-	scratch    *GPUScratchpad
-	modules    *GPUModules
-	kvCache    *cudakv.Cache
-	attnFn     driver.Function
-	sampleFn   driver.Function
-	mCfg       ModelConfig
-	fuseActive bool
-	tokenizer  Tokenizer
-	recorder   *metalprof.FlightRecorder
-	metrics    *RuntimeMetrics
-	drafter    *cudaspec.NgramDrafter
-	egraphSats int
-	generateMu sync.Mutex
-	Plan       *ExecutionPlan
+	dev         *cuda.Device
+	stream      *cuda.Stream
+	weights     *GPUModelWeights
+	scratch     *GPUScratchpad
+	modules     *GPUModules
+	kvCache     *cudakv.Cache
+	attnFn      driver.Function
+	sampleFn    driver.Function
+	mCfg        ModelConfig
+	fuseActive  bool
+	tokenizer   Tokenizer
+	recorder    *metalprof.FlightRecorder
+	metrics     *RuntimeMetrics
+	drafter     *cudaspec.NgramDrafter
+	egraphSats  int
+	generateMu  sync.Mutex
+	Plan        *ExecutionPlan
+	consumption CheckpointReceipt
+}
+
+// CheckpointReceipt returns the validated tensor-consumption account.
+func (eng *ModelEngine) CheckpointReceipt() CheckpointReceipt {
+	if eng == nil {
+		return CheckpointReceipt{}
+	}
+	return eng.consumption
 }
 
 // FlightRecorder returns nil on CUDA targets until unified event recorder is attached.
@@ -351,19 +360,20 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 
 	metrics := NewRuntimeMetrics(256)
 	eng := &ModelEngine{
-		dev:        dev,
-		stream:     stream,
-		weights:    gpuWeights,
-		scratch:    scratch,
-		modules:    modules,
-		kvCache:    kvCache,
-		attnFn:     attnFn,
-		sampleFn:   sampleFn,
-		mCfg:       mCfg,
-		fuseActive: cfg.FuseEGraph,
-		recorder:   metalprof.NewFlightRecorder(2048),
-		metrics:    metrics,
-		Plan:       BuildExecutionPlan(cfg),
+		dev:         dev,
+		stream:      stream,
+		weights:     gpuWeights,
+		scratch:     scratch,
+		modules:     modules,
+		kvCache:     kvCache,
+		attnFn:      attnFn,
+		sampleFn:    sampleFn,
+		mCfg:        mCfg,
+		fuseActive:  cfg.FuseEGraph,
+		recorder:    metalprof.NewFlightRecorder(2048),
+		metrics:     metrics,
+		Plan:        BuildExecutionPlan(cfg),
+		consumption: weights.Consumption,
 	}
 
 	cudaEngineCache[key] = eng

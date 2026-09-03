@@ -154,11 +154,20 @@ type ModelEngine struct {
 	lmHeadWF16    mempool.Slice[uint16]
 	layersF16     []GPULayerWeightsF16
 
-	tokenizer  Tokenizer
-	weights    *metalsafetensors.Weights
-	egraphSats int
-	Plan       *ExecutionPlan
-	cacheKey   string
+	tokenizer   Tokenizer
+	weights     *metalsafetensors.Weights
+	egraphSats  int
+	Plan        *ExecutionPlan
+	cacheKey    string
+	consumption CheckpointReceipt
+}
+
+// CheckpointReceipt returns the validated tensor-consumption account.
+func (eng *ModelEngine) CheckpointReceipt() CheckpointReceipt {
+	if eng == nil {
+		return CheckpointReceipt{}
+	}
+	return eng.consumption
 }
 
 // BatchedQKVResult is the output of the shared-weight embedding, normalization,
@@ -1226,6 +1235,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 
 	var tok Tokenizer
 	var weights *metalsafetensors.Weights
+	var consumption CheckpointReceipt
 	isF16 := cfg.Precision == "f16"
 
 	var embedTable, finalNormW, lmHeadW mempool.Slice[float32]
@@ -1242,6 +1252,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		safetensorsPath := filepath.Join(cfg.ModelPath, "model.safetensors")
 		w, err := metalsafetensors.Open(safetensorsPath)
 		if err != nil {
+			mem.Free()
 			return nil, fmt.Errorf("open safetensors %q: %w", safetensorsPath, err)
 		}
 		weights = w
@@ -1251,6 +1262,24 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 			if tInfo, ok := w.Tensors["model.embed_tokens.weight"]; ok && (tInfo.DType == "F16" || tInfo.DType == "BF16") {
 				isF16 = true
 			}
+		}
+		modelCfg, err := LoadModelConfig(cfg.ModelPath)
+		if err != nil {
+			mem.Free()
+			return nil, fmt.Errorf("load model config for tensor audit: %w", err)
+		}
+		metadata := make(map[string]checkpointTensor, len(w.Tensors))
+		for name, info := range w.Tensors {
+			metadata[name] = checkpointTensor{DType: info.DType, Shape: info.Shape, Shard: filepath.Base(safetensorsPath)}
+		}
+		targetType := "F32"
+		if isF16 {
+			targetType = "F16"
+		}
+		consumption, err = auditCheckpoint(modelCfg, metadata, targetType)
+		if err != nil {
+			mem.Free()
+			return nil, err
 		}
 
 		if isF16 {
@@ -1497,6 +1526,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		tuner:         NewDispatchTuner(),
 		Plan:          BuildExecutionPlan(cfg),
 		cacheKey:      key,
+		consumption:   consumption,
 	}
 	if err := ValidatePlan(eng.Plan, cfg); err != nil {
 		return nil, fmt.Errorf("validate compiled plan: %w", err)

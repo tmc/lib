@@ -12,17 +12,17 @@ import (
 
 // ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
 type ModelConfig struct {
-	ModelType         string       `json:"model_type"`
-	HiddenSize        int          `json:"hidden_size"`
-	IntermediateSize  int          `json:"intermediate_size"`
-	NumHiddenLayers   int          `json:"num_hidden_layers"`
-	NumAttentionHeads int          `json:"num_attention_heads"`
-	NumKeyValueHeads  int          `json:"num_key_value_heads"`
-	ExplicitHeadDim   int          `json:"head_dim"`
-	VocabSize         int          `json:"vocab_size"`
-	RmsNormEps        float32      `json:"rms_norm_eps"`
-	RopeTheta         float32      `json:"rope_theta"`
-	MaxSeqLen         int          `json:"max_position_embeddings"`
+	ModelType         string          `json:"model_type"`
+	HiddenSize        int             `json:"hidden_size"`
+	IntermediateSize  int             `json:"intermediate_size"`
+	NumHiddenLayers   int             `json:"num_hidden_layers"`
+	NumAttentionHeads int             `json:"num_attention_heads"`
+	NumKeyValueHeads  int             `json:"num_key_value_heads"`
+	ExplicitHeadDim   int             `json:"head_dim"`
+	VocabSize         int             `json:"vocab_size"`
+	RmsNormEps        float32         `json:"rms_norm_eps"`
+	RopeTheta         float32         `json:"rope_theta"`
+	MaxSeqLen         int             `json:"max_position_embeddings"`
 	TieWordEmbeddings bool            `json:"tie_word_embeddings"`
 	FuseEGraph        bool            `json:"fuse_egraph"`
 	RawEOSTokenID     json.RawMessage `json:"eos_token_id"`
@@ -81,6 +81,7 @@ type ModelWeights struct {
 	Layers      []LayerWeights
 	Norm        []float32
 	LMHead      []float32
+	Consumption CheckpointReceipt
 }
 
 // KVCacheState holds the past key/value states across layers.
@@ -176,6 +177,14 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer sw.Close()
+	metadata := make(map[string]checkpointTensor, len(sw.Tensors))
+	for name, info := range sw.Tensors {
+		metadata[name] = checkpointTensor{DType: info.DType, Shape: info.Shape, Shard: info.ShardFile}
+	}
+	consumption, err := auditCheckpoint(cfg, metadata, "F32")
+	if err != nil {
+		return nil, nil, err
+	}
 
 	getTensor := func(name string) ([]float32, error) {
 		raw, info, err := sw.TensorBytes(name)
@@ -265,6 +274,7 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		Layers:      layers,
 		Norm:        norm,
 		LMHead:      lmHead,
+		Consumption: consumption,
 	}, cfg, nil
 }
 
