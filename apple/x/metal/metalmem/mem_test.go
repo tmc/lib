@@ -42,3 +42,44 @@ func TestAllocAndCopies(t *testing.T) {
 		}
 	}
 }
+
+func TestReleasedSliceFailsClosed(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := metalmem.Alloc[uint32](dev, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := s.Slice(1, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Free()
+	sub.Free()
+	if s.Buffer() != nil || s.HostSlice() != nil || sub.HostSlice() != nil {
+		t.Fatal("released allocation remains accessible")
+	}
+	if _, err := sub.Slice(0, 1); err == nil {
+		t.Fatal("slice of released allocation succeeded")
+	}
+	if err := sub.CopyFromHost([]uint32{1}); err == nil {
+		t.Fatal("copy to released allocation succeeded")
+	}
+}
+
+func TestCopyToHostChecksEmptyDestination(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := metalmem.Alloc[uint32](dev, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Free()
+	if err := s.CopyToHost(nil); err == nil {
+		t.Fatal("non-empty source copied to empty destination")
+	}
+}
