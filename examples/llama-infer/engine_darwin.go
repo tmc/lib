@@ -437,7 +437,7 @@ func (t *BatchedModelTail) Run(eng *ModelEngine, cfg Config, hidden []float32, s
 	}
 	copy(t.norm.HostSlice()[:len(hidden)], hidden)
 	cb := eng.dev.Queue().CommandBuffer()
-	ce := cb.ComputeCommandEncoder()
+	ce := countDispatches(cb.ComputeCommandEncoder())
 	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
 	if eng.isF16 {
 		ce.SetComputePipelineState(eng.pso.BatchedNormH)
@@ -486,7 +486,7 @@ func (t *BatchedModelTail) Run(eng *ModelEngine, cfg Config, hidden []float32, s
 		Normalized: append([]float32(nil), t.norm.HostSlice()[:b*cfg.Dim]...),
 		Logits:     append([]float32(nil), t.logits.HostSlice()[:b*cfg.VocabSize]...),
 		Tokens:     append([]int32(nil), t.tokens.HostSlice()[:b]...),
-		Dispatches: 3,
+		Dispatches: ce.dispatches,
 	}, nil
 }
 
@@ -521,7 +521,7 @@ func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool
 		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
 	}
 	cb := eng.dev.Queue().CommandBuffer()
-	ce := cb.ComputeCommandEncoder()
+	ce := countDispatches(cb.ComputeCommandEncoder())
 	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
 	ce.SetComputePipelineState(eng.pso.RMSNormScale)
 	ce.SetBufferWithOffsetAtIndex(input.Buffer(), 0, 0)
@@ -563,7 +563,7 @@ func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool
 	}
 	return BatchedModelTailResult{
 		Tokens:     append([]int32(nil), t.tokens.HostSlice()[:b]...),
-		Dispatches: 3,
+		Dispatches: ce.dispatches,
 	}, nil
 }
 
@@ -766,7 +766,7 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 	theta := cfg.RopeTheta
 	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
 	cb := eng.dev.Queue().CommandBuffer()
-	ce := cb.ComputeCommandEncoder()
+	ce := countDispatches(cb.ComputeCommandEncoder())
 	if eng.isF16 {
 		ce.SetComputePipelineState(eng.pso.BatchedEmbedH)
 		ce.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
@@ -904,11 +904,7 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 	// batched engine operation. The model tail consumes the device buffer
 	// directly; exposing the alias keeps differential tests possible without a
 	// serving-path host copy.
-	dispatchesPerLayer := 9
-	if eng.disableProjectionFusion {
-		dispatchesPerLayer = 12
-	}
-	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 1 + dispatchesPerLayer*cfg.NumLayers, DeviceBytes: bytes}, nil
+	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: ce.dispatches, DeviceBytes: bytes}, nil
 }
 
 // RunSegmentedLayerChain executes a packed prompt wave through every decoder
@@ -969,7 +965,7 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 	eps, theta := cfg.Eps, cfg.RopeTheta
 	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
 	cb := eng.dev.Queue().CommandBuffer()
-	ce := cb.ComputeCommandEncoder()
+	ce := countDispatches(cb.ComputeCommandEncoder())
 	if eng.isF16 {
 		ce.SetComputePipelineState(eng.pso.BatchedEmbedH)
 		ce.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
@@ -1120,12 +1116,8 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 	for i := range b {
 		last[i] = int(packed.RestoredPrefixes[i] + packed.Lengths[i] - 1)
 	}
-	dispatchesPerLayer := 9
-	if eng.disableProjectionFusion {
-		dispatchesPerLayer = 12
-	}
 	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
-	return SegmentedLayerChainResult{Hidden: eng.prefillNormXMat.HostSlice()[:b*cfg.Dim], Positions: last, Rows: toInts(packed.Rows), Dispatches: 2 + dispatchesPerLayer*cfg.NumLayers, DeviceBytes: bytes}, nil
+	return SegmentedLayerChainResult{Hidden: eng.prefillNormXMat.HostSlice()[:b*cfg.Dim], Positions: last, Rows: toInts(packed.Rows), Dispatches: ce.dispatches, DeviceBytes: bytes}, nil
 }
 
 // RunSegmentedModelTailFromChain executes the shared tiled model tail directly

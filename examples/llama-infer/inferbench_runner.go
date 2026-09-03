@@ -135,6 +135,7 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 		return fmt.Errorf("inferbench: serving adapter: %w", err)
 	}
 	defer adapter.Close()
+	adapter.enablePhysicalLedger()
 	scheduler, err := continuousbatch.New(adapter, continuousbatch.Config{MaxActive: spec.Workload.Concurrency, MaxQueue: spec.Workload.Concurrency, MaxBatch: spec.Workload.Concurrency, BatchWait: time.Millisecond, TokenBuffer: spec.Workload.GeneratedTokens + 1, PrefillWorkers: spec.Workload.Concurrency})
 	if err != nil {
 		return err
@@ -211,6 +212,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	if id == "" {
 		return inferbench.Sample{}, errors.New("inferbench: empty sample id")
 	}
+	physicalBefore := adapter.physical.Snapshot()
 	cacheBefore := eng.prefixCacheMetrics()
 	started := time.Now()
 	responses := make([]*continuousbatch.Response, len(workload.PromptTokenIDs))
@@ -285,7 +287,28 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	duration := ended.Sub(started)
 	cache := eng.prefixCacheMetrics()
-	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), GeneratedTokenIDs: generated, OutputSHA256: hash, Requests: timings}, nil
+	waves, err := adapter.physical.Since(physicalBefore)
+	if err != nil {
+		return inferbench.Sample{}, err
+	}
+	physicalWaves := make([]inferbench.PhysicalWave, len(waves))
+	tierRead := map[string]uint64{"metal_row_cache": 0}
+	tierWrite := map[string]uint64{"metal_prefix_cache": 0}
+	var dispatches uint64
+	for i, wave := range waves {
+		physicalWaves[i] = inferbench.PhysicalWave{Sequence: wave.Sequence, Kind: wave.Kind, Requests: wave.Requests, Dispatches: wave.Dispatches, TierReadBytes: wave.TierReadBytes, TierWriteBytes: wave.TierWriteBytes}
+		dispatches += wave.Dispatches
+		for k, v := range wave.TierReadBytes {
+			tierRead[k] += v
+		}
+		for k, v := range wave.TierWriteBytes {
+			tierWrite[k] += v
+		}
+	}
+	if dispatches == 0 {
+		return inferbench.Sample{}, errors.New("inferbench: physical ledger contains no dispatches")
+	}
+	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, DispatchMeasured: true, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: tierRead, TierWriteBytes: tierWrite, TierBytesMeasured: true, PhysicalWaves: physicalWaves, GeneratedTokenIDs: generated, OutputSHA256: hash, Requests: timings}, nil
 }
 
 func decodeStrictJSON(path string, dst any) error {

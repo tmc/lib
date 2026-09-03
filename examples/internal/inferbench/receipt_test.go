@@ -18,7 +18,8 @@ func validCampaign() Campaign {
 	for _, arm := range []string{"a", "b"} {
 		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2}}
 		for i := 0; i < 20; i++ {
-			r.Samples = append(r.Samples, Sample{ID: "sample-" + string(rune('A'+i)), TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 100, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
+			id := "sample-" + string(rune('A'+i))
+			r.Samples = append(r.Samples, Sample{ID: id, TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 100, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
 		}
 		runs = append(runs, r)
 	}
@@ -62,6 +63,11 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"missing tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierReadBytes = map[string]uint64{} }},
 		{"inferred dispatch counters", func(c *Campaign) { c.Runs[0].Samples[0].DispatchMeasured = false }},
 		{"placeholder tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierBytesMeasured = false }},
+		{"missing physical waves", func(c *Campaign) { c.Runs[0].Samples[0].PhysicalWaves = nil }},
+		{"double attributed dispatch", func(c *Campaign) { c.Runs[0].Samples[0].PhysicalWaves[0].Dispatches++ }},
+		{"duplicate wave member", func(c *Campaign) {
+			c.Runs[0].Samples[0].PhysicalWaves[0].Requests = append(c.Runs[0].Samples[0].PhysicalWaves[0].Requests, c.Runs[0].Samples[0].PhysicalWaves[0].Requests[0])
+		}},
 		{"different model", func(c *Campaign) { c.Runs[1].Identity.ModelSHA256 = strings.Repeat("b", 64) }},
 		{"different config", func(c *Campaign) { c.Runs[1].Identity.ConfigSHA256 = strings.Repeat("b", 64) }},
 		{"missing null control", func(c *Campaign) { c.Runs[0].Evidence.NullControlSHA256 = "" }},

@@ -25,12 +25,13 @@ type productionPrefixRuntime struct {
 }
 
 type productionPrefixStats struct {
-	Entries, Blocks               int
-	Bytes                         int64
-	Hits, Misses                  int64
-	SavedTokens                   int64
-	WorkspaceBytes                int64
-	DescriptorAddress, RowAddress uint64
+	Entries, Blocks                   int
+	Bytes                             int64
+	Hits, Misses                      int64
+	SavedTokens                       int64
+	WorkspaceBytes                    int64
+	DescriptorAddress, RowAddress     uint64
+	DeviceReadBytes, DeviceWriteBytes uint64
 }
 
 func newProductionPrefixRuntime(engine *ModelEngine, cfg Config, capacity int) (*productionPrefixRuntime, error) {
@@ -93,5 +94,5 @@ func (p *productionPrefixRuntime) Close() {
 func (p *productionPrefixRuntime) Stats() productionPrefixStats {
 	s := p.cache.Stats()
 	w := p.workspace.stats()
-	return productionPrefixStats{Entries: s.Entries, Blocks: s.Blocks, Bytes: s.Bytes, Hits: s.Hits, Misses: s.Misses, SavedTokens: s.SavedTokens, WorkspaceBytes: w.Bytes, DescriptorAddress: w.DescriptorAddress, RowAddress: w.RowAddress}
+	return productionPrefixStats{Entries: s.Entries, Blocks: s.Blocks, Bytes: s.Bytes, Hits: s.Hits, Misses: s.Misses, SavedTokens: s.SavedTokens, WorkspaceBytes: w.Bytes, DescriptorAddress: w.DescriptorAddress, RowAddress: w.RowAddress, DeviceReadBytes: s.DeviceReadBytes, DeviceWriteBytes: s.DeviceWriteBytes}
 }

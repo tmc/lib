@@ -222,6 +222,7 @@ func TestDecodeFailedCompletionFailsWaveAndSuppressesOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer adapter.Close()
+	adapter.enablePhysicalLedger()
 	states := []*continuousbatch.State{
 		{ID: "first", PromptTokenIDs: []int32{3, 4}},
 		{ID: "second", PromptTokenIDs: []int32{5, 6}},
@@ -235,6 +236,7 @@ func TestDecodeFailedCompletionFailsWaveAndSuppressesOutput(t *testing.T) {
 	adapter.prefixes.runLeased = func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, []int32, []int, []int) (BatchedLayerChainResult, error) {
 		return BatchedLayerChainResult{}, wantErr
 	}
+	beforeFailure := adapter.physical.Snapshot()
 	results := adapter.DecodeBatch(t.Context(), states)
 	for i, result := range results {
 		if !errors.Is(result.Err, wantErr) {
@@ -243,6 +245,9 @@ func TestDecodeFailedCompletionFailsWaveAndSuppressesOutput(t *testing.T) {
 		if result.Token != (continuousbatch.Token{}) || result.Done {
 			t.Fatalf("result %d exposed output after failure: %+v", i, result)
 		}
+	}
+	if waves, err := adapter.physical.Since(beforeFailure); err != nil || len(waves) != 0 {
+		t.Fatalf("failed wave was published: %+v, %v", waves, err)
 	}
 	for _, state := range states {
 		adapter.Release(state)
@@ -334,6 +339,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 	for _, width := range []int{1, 2, 4, 8} {
 		eng.prefixes = newPrefixCache(64<<20, 8)
 		srv := NewTelemetryServer(eng, cfg)
+		srv.continuousEngine.enablePhysicalLedger()
 		prompts := make([]string, width)
 		want := make([][]int32, width)
 		for i := range width {
@@ -341,6 +347,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 			want[i] = cpuReceipt(t, eng, cfg, prompts[i], 4)
 		}
 		start := make(chan struct{})
+		ledgerBefore := srv.continuousEngine.physical.Snapshot()
 		errs := make(chan error, width)
 		var wg sync.WaitGroup
 		for i := range width {
@@ -392,7 +399,20 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		if !prefillFound {
 			t.Fatalf("width %d did not reach physical prefill batch: %+v", width, srv.continuousEngine.PrefillObservations())
 		}
-		t.Logf("width=%d prefills=%+v batches=%+v", width, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations())
+		waves, err := srv.continuousEngine.physical.Since(ledgerBefore)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sharedDecode := false
+		for _, wave := range waves {
+			if wave.Kind == "decode-chain" && len(wave.Requests) == width {
+				sharedDecode = true
+			}
+		}
+		if !sharedDecode {
+			t.Fatalf("width %d missing shared decode ledger wave: %+v", width, waves)
+		}
+		t.Logf("width=%d prefills=%+v batches=%+v physical_waves=%+v", width, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations(), waves)
 		srv.continuous.Close()
 		srv.continuousEngine.Close()
 	}
@@ -452,7 +472,7 @@ func TestHTTPProductionMetalPrefixMixedWidths(t *testing.T) {
 				}
 			}
 			after := srv.continuousEngine.prefixes.Stats()
-			if after.Hits-before.Hits < int64(width) || after.Entries != before.Entries+width || after.Bytes <= before.Bytes || after.Blocks <= before.Blocks ||
+			if after.Hits-before.Hits < int64(width) || after.Entries != before.Entries+width || after.Bytes <= before.Bytes || after.Blocks <= before.Blocks || after.DeviceReadBytes <= before.DeviceReadBytes || after.DeviceWriteBytes <= before.DeviceWriteBytes ||
 				after.WorkspaceBytes != before.WorkspaceBytes || after.DescriptorAddress != before.DescriptorAddress || after.RowAddress != before.RowAddress {
 				t.Fatalf("prefix stats before=%+v after=%+v", before, after)
 			}

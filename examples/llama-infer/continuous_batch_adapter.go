@@ -25,6 +25,7 @@ type scheduledEngineAdapter struct {
 	prefillDispatches                   uint64
 	prefixes                            *productionPrefixRuntime
 	prefillObserver                     func(*continuousbatch.State, *productionPrefixLease, []float32)
+	physical                            *physicalWaveLedger
 }
 
 type scheduledSequenceState struct {
@@ -269,6 +270,10 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 		if err != nil {
 			return prefillBatchError(results, pending, fmt.Errorf("prefill GPU state: %w", err))
 		}
+		members := prefillRequestIDs(pending)
+		if err := a.recordPhysical("prefill-chain", members, uint64(chain.Dispatches), nil, nil); err != nil {
+			return prefillBatchError(results, pending, err)
+		}
 		samplers := make([]SamplerConfig, len(pending))
 		for i, item := range pending {
 			samplers[i], _ = item.input.State.Sampler.(SamplerConfig)
@@ -276,6 +281,9 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 		tail, err := RunSegmentedModelTailFromChain(a.engine, a.cfg, a.tail, chain, samplers)
 		if err != nil {
 			return prefillBatchError(results, pending, fmt.Errorf("prefill model tail: %w", err))
+		}
+		if err := a.recordPhysical("prefill-tail", members, uint64(tail.Dispatches), nil, nil); err != nil {
+			return prefillBatchError(results, pending, err)
 		}
 		var diagnostic []float32
 		if a.prefillObserver != nil {
@@ -311,8 +319,13 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 			continue
 		}
 		if item.prefix == nil {
+			beforeTransfer := a.prefixes.Stats()
 			if err := a.prefixes.Put(item.input.Context, item.tokens, item.next, a.cache, item.row); err != nil {
 				results[item.index].Err = fmt.Errorf("prefill: publish Metal prefix: %w", err)
+				continue
+			}
+			if err := a.recordPrefixTransfer(prefillRequestID(item), beforeTransfer); err != nil {
+				results[item.index].Err = err
 				continue
 			}
 			lease, err := a.prefixes.AcquirePublished(item.tokens)
@@ -322,8 +335,13 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 			}
 			item.prefix = lease
 		} else if item.prefix.Tokens() < len(item.tokens) {
+			beforeTransfer := a.prefixes.Stats()
 			if err := a.prefixes.Extend(item.input.Context, item.prefix, item.tokens, item.next, a.cache, item.row); err != nil {
 				results[item.index].Err = fmt.Errorf("prefill: extend Metal prefix: %w", err)
+				continue
+			}
+			if err := a.recordPrefixTransfer(prefillRequestID(item), beforeTransfer); err != nil {
+				results[item.index].Err = err
 				continue
 			}
 			lease, err := a.prefixes.AcquirePublished(item.tokens)
@@ -396,10 +414,23 @@ func (a *scheduledEngineAdapter) prefillWithLeasedBlocks(results []continuousbat
 			}
 			return
 		}
+		members := prefillRequestIDs(active)
+		if err := a.recordPhysical("prefill-prefix-chain", members, uint64(chain.Dispatches), nil, nil); err != nil {
+			for _, item := range active {
+				results[item.index].Err = err
+			}
+			return
+		}
 		tail, err := RunBatchedModelTailFromChain(a.engine, a.cfg, a.tail, chain, samplers)
 		if err != nil {
 			for _, item := range active {
 				results[item.index].Err = fmt.Errorf("prefill model tail: %w", err)
+			}
+			return
+		}
+		if err := a.recordPhysical("prefill-prefix-tail", members, uint64(tail.Dispatches), nil, nil); err != nil {
+			for _, item := range active {
+				results[item.index].Err = err
 			}
 			return
 		}
@@ -503,8 +534,15 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 	if err != nil {
 		return batchError(results, err)
 	}
+	members := stateRequestIDs(states)
+	if err := a.recordPhysical("decode-chain", members, uint64(chain.Dispatches), nil, nil); err != nil {
+		return batchError(results, err)
+	}
 	tail, err := RunBatchedModelTailFromChain(a.engine, a.cfg, a.tail, chain, samplers)
 	if err != nil {
+		return batchError(results, err)
+	}
+	if err := a.recordPhysical("decode-tail", members, uint64(tail.Dispatches), nil, nil); err != nil {
 		return batchError(results, err)
 	}
 	a.metricsMu.Lock()
@@ -524,6 +562,52 @@ func batchError(results []continuousbatch.Result, err error) []continuousbatch.R
 	}
 	return results
 }
+
+func prefillRequestIDs(work []*scheduledPrefill) []string {
+	ids := make([]string, len(work))
+	for i, item := range work {
+		ids[i] = prefillRequestID(item)
+	}
+	return ids
+}
+
+func prefillRequestID(item *scheduledPrefill) string {
+	return fmt.Sprintf("%s@%d/%d", item.input.State.ID, item.row, item.lease)
+}
+
+func stateRequestIDs(states []*continuousbatch.State) []string {
+	ids := make([]string, len(states))
+	for i, state := range states {
+		sequence, _ := state.KV.(scheduledSequenceState)
+		ids[i] = fmt.Sprintf("%s@%d/%d", state.ID, sequence.row, sequence.lease)
+	}
+	return ids
+}
+
+func (a *scheduledEngineAdapter) recordPrefixTransfer(request string, before productionPrefixStats) error {
+	after := a.prefixes.Stats()
+	if after.DeviceReadBytes < before.DeviceReadBytes || after.DeviceWriteBytes < before.DeviceWriteBytes {
+		return errors.New("physical ledger: prefix transfer counter reset")
+	}
+	read := after.DeviceReadBytes - before.DeviceReadBytes
+	write := after.DeviceWriteBytes - before.DeviceWriteBytes
+	if read == 0 && write == 0 {
+		return nil
+	}
+	return a.recordPhysical("prefix-publish", []string{request}, 0, map[string]uint64{"metal_row_cache": read}, map[string]uint64{"metal_prefix_cache": write})
+}
+
+func (a *scheduledEngineAdapter) enablePhysicalLedger() {
+	a.physical = new(physicalWaveLedger)
+}
+
+func (a *scheduledEngineAdapter) recordPhysical(kind string, requests []string, dispatches uint64, read, write map[string]uint64) error {
+	if a.physical == nil {
+		return nil
+	}
+	return a.physical.Record(kind, requests, dispatches, read, write)
+}
+
 func (a *scheduledEngineAdapter) Observations() []fullBatchObservation {
 	a.metricsMu.Lock()
 	defer a.metricsMu.Unlock()

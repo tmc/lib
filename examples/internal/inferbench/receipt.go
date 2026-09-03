@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 // Campaign contains every sample in one matched benchmark campaign.
 type Campaign struct {
@@ -94,9 +94,21 @@ type Sample struct {
 	TierReadBytes     map[string]uint64 `json:"tier_read_bytes"`
 	TierWriteBytes    map[string]uint64 `json:"tier_write_bytes"`
 	TierBytesMeasured bool              `json:"tier_bytes_measured"`
+	PhysicalWaves     []PhysicalWave    `json:"physical_waves"`
 	GeneratedTokenIDs [][]int32         `json:"generated_token_ids"`
 	OutputSHA256      string            `json:"output_sha256"`
 	Requests          []RequestTiming   `json:"requests"`
+}
+
+// PhysicalWave attributes one completed device wave to all participating
+// requests. Dispatches are wave totals and must not be repeated per request.
+type PhysicalWave struct {
+	Sequence       uint64            `json:"sequence"`
+	Kind           string            `json:"kind"`
+	Requests       []string          `json:"requests"`
+	Dispatches     uint64            `json:"dispatches"`
+	TierReadBytes  map[string]uint64 `json:"tier_read_bytes"`
+	TierWriteBytes map[string]uint64 `json:"tier_write_bytes"`
 }
 
 // RequestTiming preserves the submission and token-arrival boundary for one
@@ -224,6 +236,9 @@ func validateRun(r *Run) error {
 		if !s.TierBytesMeasured || len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
 			return fmt.Errorf("sample %q: incomplete telemetry", s.ID)
 		}
+		if err := validatePhysicalWaves(s, len(w.PromptTokenIDs)); err != nil {
+			return fmt.Errorf("sample %q: %w", s.ID, err)
+		}
 		if len(s.Requests) != len(w.PromptTokenIDs) {
 			return fmt.Errorf("sample %q: request timing count differs", s.ID)
 		}
@@ -250,6 +265,65 @@ func validateRun(r *Run) error {
 		}
 	}
 	return nil
+}
+
+func validatePhysicalWaves(s *Sample, requests int) error {
+	if len(s.PhysicalWaves) == 0 {
+		return errors.New("missing physical waves")
+	}
+	read := make(map[string]uint64)
+	write := make(map[string]uint64)
+	var dispatches, last uint64
+	seenMembers := make(map[string]bool)
+	seenRequests := make(map[string]bool)
+	for _, wave := range s.PhysicalWaves {
+		if wave.Sequence <= last || wave.Kind == "" || len(wave.Requests) == 0 || wave.Dispatches == 0 && sumByteMap(wave.TierReadBytes)+sumByteMap(wave.TierWriteBytes) == 0 {
+			return errors.New("invalid physical wave")
+		}
+		last = wave.Sequence
+		dispatches += wave.Dispatches
+		waveMembers := make(map[string]bool)
+		for _, request := range wave.Requests {
+			logical, _, ok := strings.Cut(request, "@")
+			if request == "" || !ok || !strings.HasPrefix(logical, s.ID+"-") || waveMembers[request] {
+				return errors.New("invalid physical wave member")
+			}
+			waveMembers[request] = true
+			seenMembers[request] = true
+			seenRequests[logical] = true
+		}
+		for k, v := range wave.TierReadBytes {
+			read[k] += v
+		}
+		for k, v := range wave.TierWriteBytes {
+			write[k] += v
+		}
+	}
+	if dispatches != s.Dispatches || !reflect.DeepEqual(read, nonzeroByteMap(s.TierReadBytes)) || !reflect.DeepEqual(write, nonzeroByteMap(s.TierWriteBytes)) {
+		return errors.New("physical wave totals differ")
+	}
+	if len(seenMembers) < requests || len(seenRequests) != requests {
+		return errors.New("physical waves omit requests")
+	}
+	return nil
+}
+
+func sumByteMap(m map[string]uint64) uint64 {
+	var n uint64
+	for _, v := range m {
+		n += v
+	}
+	return n
+}
+
+func nonzeroByteMap(m map[string]uint64) map[string]uint64 {
+	out := make(map[string]uint64)
+	for k, v := range m {
+		if v != 0 {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func sampleOutputs(samples []Sample) map[string]string {

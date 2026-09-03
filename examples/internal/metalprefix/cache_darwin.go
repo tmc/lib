@@ -63,10 +63,12 @@ type Config struct {
 // Stats reports physical allocation, including undiscoverable blocks pinned
 // by live leases.
 type Stats struct {
-	Entries, Blocks int
-	Bytes           int64
-	Hits, Misses    int64
-	SavedTokens     int64
+	Entries, Blocks  int
+	Bytes            int64
+	Hits, Misses     int64
+	SavedTokens      int64
+	DeviceReadBytes  uint64
+	DeviceWriteBytes uint64
 }
 
 // Identity identifies one immutable layer block allocation.
@@ -124,6 +126,8 @@ type Cache struct {
 	blocks              map[[2]uint64]*block
 	bytes               int64
 	hits, misses, saved int64
+	deviceReadBytes     uint64
+	deviceWriteBytes    uint64
 	closed              bool
 	waitCommandBuffer   func(context.Context, apple.MTLCommandBuffer) error
 }
@@ -362,6 +366,8 @@ func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k
 		rollback()
 		return fmt.Errorf("metalprefix: copy prefix buffers: %w", err)
 	}
+	c.deviceReadBytes += uint64(newBytes)
+	c.deviceWriteBytes += uint64(newBytes)
 	if old := c.entries[key]; old != nil {
 		delete(c.entries, key)
 		c.dropEntryLocked(old)
@@ -488,6 +494,8 @@ func (c *Cache) ExtendBuffers(ctx context.Context, base *Lease, tokens []int32, 
 		rollback()
 		return fmt.Errorf("metalprefix: copy buffer extension: %w", err)
 	}
+	c.deviceReadBytes += uint64(newBytes)
+	c.deviceWriteBytes += uint64(newBytes)
 	c.entries[key] = &entry{tokens: append([]int32(nil), tokens...), current: current, blocks: refs, lastUsed: time.Now()}
 	return nil
 }
@@ -809,7 +817,7 @@ func (c *Cache) evictOldestLocked(except string) bool {
 func (c *Cache) Stats() Stats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Stats{Entries: len(c.entries), Blocks: len(c.blocks), Bytes: c.bytes, Hits: c.hits, Misses: c.misses, SavedTokens: c.saved}
+	return Stats{Entries: len(c.entries), Blocks: len(c.blocks), Bytes: c.bytes, Hits: c.hits, Misses: c.misses, SavedTokens: c.saved, DeviceReadBytes: c.deviceReadBytes, DeviceWriteBytes: c.deviceWriteBytes}
 }
 
 // Close removes all entries from lookup. It returns kvcache.ErrBusy while a

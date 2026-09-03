@@ -244,6 +244,9 @@ func TestCacheExtendBuffersPartialBlock(t *testing.T) {
 	if err := c.ExtendBuffers(t.Context(), base, wantTokens, 6, k, v, 0); err != nil {
 		t.Fatal(err)
 	}
+	if got := c.Stats(); got.DeviceReadBytes != 96 || got.DeviceWriteBytes != 96 {
+		t.Fatalf("device copy bytes = %d/%d, want 96/96", got.DeviceReadBytes, got.DeviceWriteBytes)
+	}
 	extended, err := c.AcquireExact(wantTokens)
 	if err != nil {
 		t.Fatal(err)

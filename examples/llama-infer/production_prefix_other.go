@@ -13,12 +13,13 @@ func (*productionPrefixLease) Release()       {}
 type productionPrefixRuntime struct{}
 
 type productionPrefixStats struct {
-	Entries, Blocks               int
-	Bytes                         int64
-	Hits, Misses                  int64
-	SavedTokens                   int64
-	WorkspaceBytes                int64
-	DescriptorAddress, RowAddress uint64
+	Entries, Blocks                   int
+	Bytes                             int64
+	Hits, Misses                      int64
+	SavedTokens                       int64
+	WorkspaceBytes                    int64
+	DescriptorAddress, RowAddress     uint64
+	DeviceReadBytes, DeviceWriteBytes uint64
 }
 
 func newProductionPrefixRuntime(*ModelEngine, Config, int) (*productionPrefixRuntime, error) {

@@ -12,7 +12,7 @@ import (
 func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileDarwinEngine(cfg) }
 func benchmarkBackend() string                            { return "metal" }
 func benchmarkPhysicalTelemetry() error {
-	return errors.New("metal execution does not expose exact dispatch and tier-byte counters")
+	return nil
 }
 func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	if eng == nil || eng.dev == nil {
