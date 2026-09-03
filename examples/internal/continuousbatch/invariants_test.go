@@ -18,6 +18,64 @@ type auditBackend struct {
 
 type tokenPromptBackend struct{ got []int32 }
 
+type blockedPrefillBackend struct {
+	started chan string
+	gate    chan struct{}
+	decoded chan []string
+}
+
+type committedDecodeBackend struct {
+	entered  chan struct{}
+	complete chan struct{}
+	mu       sync.Mutex
+	releases int
+}
+
+func (*committedDecodeBackend) Prefill(context.Context, *State) (Token, error) {
+	return Token{ID: 1}, nil
+}
+
+func (b *committedDecodeBackend) DecodeBatch(_ context.Context, states []*State) []Result {
+	close(b.entered)
+	<-b.complete
+	results := make([]Result, len(states))
+	for i := range results {
+		results[i].Token = Token{ID: 2}
+	}
+	return results
+}
+
+func (b *committedDecodeBackend) Release(*State) {
+	b.mu.Lock()
+	b.releases++
+	b.mu.Unlock()
+}
+
+func (b *blockedPrefillBackend) Prefill(ctx context.Context, state *State) (Token, error) {
+	b.started <- state.ID
+	if state.ID == "blocked" {
+		select {
+		case <-b.gate:
+		case <-ctx.Done():
+			return Token{}, ctx.Err()
+		}
+	}
+	return Token{ID: 1}, nil
+}
+
+func (b *blockedPrefillBackend) DecodeBatch(_ context.Context, states []*State) []Result {
+	ids := make([]string, len(states))
+	results := make([]Result, len(states))
+	for i, state := range states {
+		ids[i] = state.ID
+		results[i].Token = Token{ID: state.Current + 1}
+	}
+	b.decoded <- ids
+	return results
+}
+
+func (*blockedPrefillBackend) Release(*State) {}
+
 func (b *tokenPromptBackend) Prefill(_ context.Context, state *State) (Token, error) {
 	b.got = append([]int32(nil), state.PromptTokenIDs...)
 	return Token{ID: 9}, nil
@@ -132,6 +190,92 @@ func TestRoundRobinFairnessWhenBatchIsSmallerThanActiveSet(t *testing.T) {
 		if i >= 4 {
 			t.Fatalf("request %s first scheduled at %d in %v", id, i, steps)
 		}
+	}
+}
+
+func TestDecodeDeadlineUsesVirtualArrivalTime(t *testing.T) {
+	start := time.Unix(100, 0)
+	deadline := keepDecodeDeadline(time.Time{}, start, 10*time.Second)
+	for _, arrival := range []time.Duration{time.Second, 3 * time.Second, 9 * time.Second} {
+		deadline = keepDecodeDeadline(deadline, start.Add(arrival), 10*time.Second)
+	}
+	if want := start.Add(10 * time.Second); !deadline.Equal(want) {
+		t.Fatalf("deadline = %v, want %v", deadline, want)
+	}
+}
+
+func TestBlockedPrefillDoesNotStarveActiveDecode(t *testing.T) {
+	backend := &blockedPrefillBackend{started: make(chan string, 3), gate: make(chan struct{}), decoded: make(chan []string, 1)}
+	s := newTestScheduler(t, backend, Config{MaxActive: 3, MaxQueue: 1, MaxBatch: 1, BatchWait: time.Millisecond, TokenBuffer: 4, PrefillWorkers: 1})
+	active, err := s.Submit(context.Background(), Request{ID: "active", MaxTokens: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id := <-backend.started; id != "active" {
+		t.Fatalf("first prefill = %q", id)
+	}
+	if token := <-active.Tokens; token.ID != 1 {
+		t.Fatalf("active prefill token = %d", token.ID)
+	}
+	blocked, err := s.Submit(context.Background(), Request{ID: "blocked", MaxTokens: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id := <-backend.started; id != "blocked" {
+		t.Fatalf("second prefill = %q", id)
+	}
+	queued, err := s.Submit(context.Background(), Request{ID: "queued", MaxTokens: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case ids := <-backend.decoded:
+		if !slices.Equal(ids, []string{"active"}) {
+			t.Fatalf("decode = %v, want active", ids)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("active decode starved behind unavailable prefill worker")
+	}
+	close(backend.gate)
+	for _, response := range []*Response{active, blocked, queued} {
+		if _, err := collect(t, response); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCancellationAfterDecodeCommitSuppressesOutputAndReleases(t *testing.T) {
+	backend := &committedDecodeBackend{entered: make(chan struct{}), complete: make(chan struct{})}
+	s := newTestScheduler(t, backend, Config{MaxActive: 1, MaxQueue: 1, MaxBatch: 1, BatchWait: time.Millisecond, TokenBuffer: 2})
+	response, err := s.Submit(context.Background(), Request{ID: "cancel-after-commit", MaxTokens: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token := <-response.Tokens; token.ID != 1 {
+		t.Fatalf("prefill token = %d", token.ID)
+	}
+	<-backend.entered
+	response.Cancel()
+	close(backend.complete)
+	if tokens, err := collect(t, response); !errors.Is(err, context.Canceled) || len(tokens) != 0 {
+		t.Fatalf("post-cancel tokens=%v err=%v", tokens, err)
+	}
+	backend.mu.Lock()
+	releases := backend.releases
+	backend.mu.Unlock()
+	if releases != 1 {
+		t.Fatalf("releases = %d, want 1", releases)
+	}
+	metrics := s.Metrics()
+	if metrics.Canceled != 1 {
+		t.Fatalf("terminal metrics = %+v", metrics)
+	}
+	replacement, err := s.Submit(context.Background(), Request{ID: "replacement", MaxTokens: 1})
+	if err != nil {
+		t.Fatalf("replacement admission: %v", err)
+	}
+	if _, err := collect(t, replacement); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -135,6 +135,7 @@ type Scheduler struct {
 	wake       chan struct{}
 	stop       chan struct{}
 	done       chan struct{}
+	shutdown   chan struct{}
 	workers    sync.WaitGroup
 	admission  chan struct{}
 	workCtx    context.Context
@@ -173,19 +174,19 @@ func New(backend Backend, cfg Config) (*Scheduler, error) {
 	if cfg.PrefillWorkers <= 0 {
 		cfg.PrefillWorkers = 1
 	}
-	workCtx, workCancel := context.WithCancel(context.Background())
-	s := &Scheduler{
-		backend: backend, cfg: cfg,
-		submit: make(chan *sequence, cfg.MaxActive+cfg.MaxQueue), prefill: make(chan *sequence),
-		prefilled: make(chan prefillResult, cfg.MaxActive), wake: make(chan struct{}, 1),
-		stop: make(chan struct{}), done: make(chan struct{}),
-		admission: make(chan struct{}, cfg.MaxActive+cfg.MaxQueue), workCtx: workCtx, workCancel: workCancel,
-		live:    make(map[*sequence]struct{}),
-		metrics: Metrics{BatchSizes: make(map[int]uint64)},
-	}
 	workers := cfg.PrefillWorkers
 	if _, ok := backend.(BatchPrefiller); ok {
 		workers = 1
+	}
+	workCtx, workCancel := context.WithCancel(context.Background())
+	s := &Scheduler{
+		backend: backend, cfg: cfg,
+		submit: make(chan *sequence, cfg.MaxActive+cfg.MaxQueue), prefill: make(chan *sequence, cfg.MaxActive),
+		prefilled: make(chan prefillResult, cfg.MaxActive), wake: make(chan struct{}, 1),
+		stop: make(chan struct{}), done: make(chan struct{}), shutdown: make(chan struct{}),
+		admission: make(chan struct{}, cfg.MaxActive+cfg.MaxQueue), workCtx: workCtx, workCancel: workCancel,
+		live:    make(map[*sequence]struct{}),
+		metrics: Metrics{BatchSizes: make(map[int]uint64)},
 	}
 	for i := 0; i < workers; i++ {
 		s.workers.Add(1)
@@ -227,27 +228,33 @@ func (s *Scheduler) Submit(ctx context.Context, req Request) (*Response, error) 
 }
 
 func (s *Scheduler) run() {
-	defer func() {
-		s.abortAll(ErrClosed)
-		close(s.done)
-	}()
+	defer close(s.done)
 	active := make([]*sequence, 0, s.cfg.MaxActive)
 	queued := make([]*sequence, 0, s.cfg.MaxQueue)
 	inflight := 0
+	var decodeAt time.Time
 	for {
+	dispatch:
 		for len(active)+inflight < s.cfg.MaxActive && len(queued) > 0 {
 			seq := queued[0]
-			queued = queued[1:]
 			select {
 			case s.prefill <- seq:
+				queued = queued[1:]
 				inflight++
 			case <-s.stop:
 				return
+			default:
+				break dispatch
 			}
 		}
 		s.setCounts(len(active), len(queued)+len(s.submit))
 		if len(active) > 0 {
-			timer := time.NewTimer(s.cfg.BatchWait)
+			decodeAt = keepDecodeDeadline(decodeAt, time.Now(), s.cfg.BatchWait)
+			wait := time.Until(decodeAt)
+			if wait < 0 {
+				wait = 0
+			}
+			timer := time.NewTimer(wait)
 			select {
 			case seq := <-s.submit:
 				queued = append(queued, seq)
@@ -268,9 +275,11 @@ func (s *Scheduler) run() {
 				return
 			case <-timer.C:
 			}
+			decodeAt = time.Time{}
 			active = s.decode(active)
 			continue
 		}
+		decodeAt = time.Time{}
 		select {
 		case seq := <-s.submit:
 			queued = append(queued, seq)
@@ -284,6 +293,16 @@ func (s *Scheduler) run() {
 			return
 		}
 	}
+}
+
+// keepDecodeDeadline starts one decode window and preserves it while admission
+// and prefill events arrive. Resetting the deadline on every arrival lets a
+// saturated submit stream starve active generation.
+func keepDecodeDeadline(deadline, now time.Time, wait time.Duration) time.Time {
+	if deadline.IsZero() {
+		return now.Add(wait)
+	}
+	return deadline
 }
 
 func (s *Scheduler) prefillLoop() {
@@ -460,6 +479,10 @@ func (s *Scheduler) decode(active []*sequence) []*sequence {
 	}
 	for i, result := range results {
 		seq := batch[i]
+		if err := seq.ctx.Err(); err != nil {
+			s.finish(seq, err)
+			continue
+		}
 		if result.Err != nil {
 			s.finish(seq, fmt.Errorf("decode: %w", result.Err))
 			continue
@@ -500,6 +523,12 @@ func (s *Scheduler) emit(seq *sequence, tok Token) bool {
 
 func (s *Scheduler) finish(seq *sequence, err error) {
 	seq.finish.Do(func() {
+		s.mu.Lock()
+		closed := s.closed
+		s.mu.Unlock()
+		if closed && errors.Is(err, context.Canceled) {
+			err = ErrClosed
+		}
 		seq.cancel()
 		s.backend.Release(&seq.state)
 		close(seq.tokens)
@@ -536,16 +565,24 @@ func (s *Scheduler) Close() error {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
-		<-s.done
-		s.workers.Wait()
+		<-s.shutdown
 		return nil
 	}
 	s.closed = true
 	s.workCancel()
 	close(s.stop)
+	live := make([]*sequence, 0, len(s.live))
+	for seq := range s.live {
+		live = append(live, seq)
+	}
 	s.mu.Unlock()
+	for _, seq := range live {
+		seq.cancel()
+	}
 	<-s.done
 	s.workers.Wait()
+	s.abortAll(ErrClosed)
+	close(s.shutdown)
 	return nil
 }
 

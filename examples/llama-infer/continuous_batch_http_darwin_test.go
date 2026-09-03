@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	apple "github.com/tmc/apple/metal"
 	libmetal "github.com/tmc/lib/apple/x/metal"
@@ -526,6 +527,110 @@ func TestScheduledMetalPrefixPartitionsHitAndMiss(t *testing.T) {
 		t.Fatalf("mixed prefix stats before=%+v after=%+v", beforeStats, afterStats)
 	}
 	t.Logf("observations=%+v prefix_before=%+v prefix_after=%+v", observations, beforeStats, afterStats)
+}
+
+func TestHTTPPrefixPressureFairness(t *testing.T) {
+	for _, width := range []int{1, 2, 4} {
+		t.Run(fmt.Sprintf("B%d", width), func(t *testing.T) {
+			cfg := DefaultTinyLlamaConfig()
+			eng, err := GetOrCompileEngine(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			srv := NewTelemetryServer(eng, cfg)
+			defer srv.continuous.Close()
+			defer srv.continuousEngine.Close()
+
+			bases := make([]string, 10)
+			for i := range bases {
+				bases[i] = fmt.Sprintf("pressure-prefix-%02d:", i)
+				primeHTTPPrompt(t, srv, bases[i])
+			}
+			if stats := srv.continuousEngine.prefixes.Stats(); stats.Entries != 8 {
+				t.Fatalf("eviction did not bound entries: %+v", stats)
+			}
+
+			requests := 2 * width
+			prompts := make([]string, requests)
+			limits := make([]int, requests)
+			want := make([][]int32, requests)
+			got := make([][]int32, requests)
+			before := srv.continuousEngine.prefixes.Stats()
+			for i := range requests {
+				if i < width {
+					prompts[i] = fmt.Sprintf("%s%c", bases[9-i], 'a'+i)
+				} else {
+					prompts[i] = fmt.Sprintf("cold-pressure-%d-%s", i, strings.Repeat("x", i+1))
+				}
+				limits[i] = 1 + i%4
+				want[i] = cpuReceipt(t, eng, cfg, prompts[i], limits[i])
+			}
+
+			start := make(chan struct{})
+			errs := make(chan error, requests)
+			var wg sync.WaitGroup
+			for i := range requests {
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					<-start
+					ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+					defer cancel()
+					body, _ := json.Marshal(ChatCompletionRequest{Prompt: prompts[i], MaxTokens: limits[i]})
+					rec := httptest.NewRecorder()
+					srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)).WithContext(ctx))
+					if rec.Code != http.StatusOK {
+						errs <- &httpError{code: rec.Code, body: rec.Body.String()}
+						return
+					}
+					var response ChatCompletionResponse
+					if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+						errs <- err
+						return
+					}
+					got[i] = response.TokenIDs
+				}(i)
+			}
+			close(start)
+			wg.Wait()
+			close(errs)
+			for err := range errs {
+				t.Fatal(err)
+			}
+			for i := range requests {
+				if !reflect.DeepEqual(got[i], want[i]) {
+					t.Fatalf("request %d tokens=%v, want %v", i, got[i], want[i])
+				}
+			}
+
+			canceled, cancel := context.WithCancel(t.Context())
+			cancel()
+			body, _ := json.Marshal(ChatCompletionRequest{Prompt: "canceled-before-prefill", MaxTokens: 4})
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)).WithContext(canceled))
+
+			after := srv.continuousEngine.prefixes.Stats()
+			if after.Hits <= before.Hits {
+				t.Fatalf("hot requests recorded no prefix hit: before=%+v after=%+v", before, after)
+			}
+			found := width == 1
+			for _, observation := range srv.continuousEngine.PrefillObservations() {
+				if observation.Batch == width {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("no physical B=%d prefill: %+v", width, srv.continuousEngine.PrefillObservations())
+			}
+			srv.continuousEngine.rowsMu.Lock()
+			freeRows, leases := len(srv.continuousEngine.freeRows), len(srv.continuousEngine.leases)
+			srv.continuousEngine.rowsMu.Unlock()
+			if freeRows != 8 || leases != 0 {
+				t.Fatalf("row cleanup free=%d leases=%d", freeRows, leases)
+			}
+			t.Logf("width=%d limits=%v prefix_before=%+v prefix_after=%+v prefills=%+v decode=%+v", width, limits, before, after, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations())
+		})
+	}
 }
 
 func primeHTTPPrompt(t *testing.T, srv *TelemetryServer, prompt string) {
