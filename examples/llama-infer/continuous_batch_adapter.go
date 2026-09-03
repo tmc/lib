@@ -61,7 +61,27 @@ func newScheduledEngineAdapter(engine *ModelEngine, cfg Config, capacity int) (*
 func (a *scheduledEngineAdapter) Close() {
 	a.cache.Free()
 	a.tail.Free()
-	a.prefixes.Close()
+	_ = a.prefixes.Close()
+}
+
+// resetPrefixes replaces the serving prefix runtime between benchmark
+// samples. Callers must have drained every request submitted to the adapter.
+func (a *scheduledEngineAdapter) resetPrefixes() error {
+	a.prefillMu.Lock()
+	defer a.prefillMu.Unlock()
+	a.gpuMu.Lock()
+	defer a.gpuMu.Unlock()
+
+	next, err := newProductionPrefixRuntime(a.engine, a.cfg, a.capacity)
+	if err != nil {
+		return fmt.Errorf("reset prefixes: create runtime: %w", err)
+	}
+	if err := a.prefixes.Close(); err != nil {
+		_ = next.Close()
+		return fmt.Errorf("reset prefixes: close runtime: %w", err)
+	}
+	a.prefixes = next
+	return nil
 }
 
 func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {

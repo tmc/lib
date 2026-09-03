@@ -156,6 +156,41 @@ func TestScheduledSegmentedPrefillWidthsAndFailureIsolation(t *testing.T) {
 	}
 }
 
+func TestScheduledPrefixResetMakesNextPrefillCold(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+
+	prefill := func(id string) {
+		state := continuousbatch.State{ID: id, PromptTokenIDs: []int32{3, 4}}
+		if _, err := adapter.Prefill(t.Context(), &state); err != nil {
+			t.Fatal(err)
+		}
+		adapter.Release(&state)
+	}
+	prefill("before-reset")
+	if got := adapter.prefixes.Stats(); got.Entries == 0 || got.DeviceWriteBytes == 0 {
+		t.Fatalf("warm prefix stats = %+v", got)
+	}
+	if err := adapter.resetPrefixes(); err != nil {
+		t.Fatal(err)
+	}
+	if got := adapter.prefixes.Stats(); got.Entries != 0 || got.DeviceReadBytes != 0 || got.DeviceWriteBytes != 0 {
+		t.Fatalf("reset prefix stats = %+v", got)
+	}
+	prefill("after-reset")
+	if got := adapter.prefixes.Stats(); got.Misses == 0 || got.DeviceWriteBytes == 0 {
+		t.Fatalf("cold prefix stats = %+v", got)
+	}
+}
+
 func TestScheduledSegmentedPrefillRejectsOneInvalidRequest(t *testing.T) {
 	cfg := DefaultTinyLlamaConfig()
 	cfg.Name = "segmented-scheduled-partial-failure"

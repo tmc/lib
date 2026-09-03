@@ -46,5 +46,5 @@ func (*productionPrefixRuntime) Run(_ context.Context, engine *ModelEngine, cfg 
 	return RunBatchedLayerChain(engine, cfg, cache, tokens, positions, rows)
 }
 
-func (*productionPrefixRuntime) Close()                       {}
+func (*productionPrefixRuntime) Close() error                 { return nil }
 func (*productionPrefixRuntime) Stats() productionPrefixStats { return productionPrefixStats{} }

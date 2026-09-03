@@ -86,9 +86,12 @@ func (p *productionPrefixRuntime) Run(ctx context.Context, engine *ModelEngine, 
 	return p.runLeased(ctx, engine, cfg, cache, p.workspace, raw, tokens, positions, rows)
 }
 
-func (p *productionPrefixRuntime) Close() {
+func (p *productionPrefixRuntime) Close() error {
+	if err := p.cache.Close(); err != nil {
+		return err
+	}
 	p.workspace.Free()
-	_ = p.cache.Close()
+	return nil
 }
 
 func (p *productionPrefixRuntime) Stats() productionPrefixStats {

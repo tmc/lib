@@ -150,6 +150,9 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	run := inferbench.Run{Arm: spec.Arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
 	for _, id := range spec.SampleIDs {
 		resetBenchmarkCaches(eng)
+		if err := adapter.resetPrefixes(); err != nil {
+			return fmt.Errorf("inferbench: reset serving prefixes: %w", err)
+		}
 		sample, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, id)
 		if err != nil {
 			return err
