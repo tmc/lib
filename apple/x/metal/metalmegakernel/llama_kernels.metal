@@ -964,6 +964,19 @@ kernel void SegmentedCausalAttention(
     if(tid<head_dim) out[t*q_heads*head_dim+qh*head_dim+tid]=l>0?acc/l:0;
 }
 
+// GatherSegmentTails copies the final hidden row of each packed segment into
+// dense request order for the shared model tail.
+kernel void GatherSegmentTails(
+    device const float* packed [[buffer(0)]], device float* tails [[buffer(1)]],
+    device const uint* offsets [[buffer(2)]], device const uint* lengths [[buffer(3)]],
+    constant uint& request_count [[buffer(4)]], constant uint& dim [[buffer(5)]],
+    uint i [[thread_position_in_grid]]) {
+    uint n=request_count*dim; if(i>=n || dim==0) return;
+    uint request=i/dim, column=i%dim, length=lengths[request]; if(length==0) return;
+    uint token=offsets[request]+length-1;
+    tails[i]=packed[token*dim+column];
+}
+
 kernel void BatchedSiLUMul(
     device const float* gate           [[buffer(0)]],
     device const float* up             [[buffer(1)]],
