@@ -38,15 +38,20 @@ kernel void IncrKernel(device float* data [[buffer(0)]], uint id [[thread_positi
 		t.Fatalf("AllocBuffer failed: %v", err)
 	}
 
-	graph := NewGraphExec(dev)
-	graph.AddStage(
+	graph, err := NewSequence(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := graph.AddDispatch(
 		pso,
 		apple.MTLSize{Width: 256, Height: 1, Depth: 1},
 		apple.MTLSize{Width: 32, Height: 1, Depth: 1},
 		BufferBinding{Buffer: buf, Offset: 0, Index: 0},
-	)
+	); err != nil {
+		t.Fatal(err)
+	}
 
-	// Replay 10 times with zero CPU re-encoding overhead
+	// Launch repeatedly. Each launch is CPU-encoded into a new command buffer.
 	for i := 0; i < 10; i++ {
 		if err := graph.Launch(); err != nil {
 			t.Fatalf("Launch failed at iteration %d: %v", i, err)
@@ -57,4 +62,20 @@ kernel void IncrKernel(device float* data [[buffer(0)]], uint id [[thread_positi
 		t.Errorf("expected 10 replays, got %d", graph.Replays())
 	}
 	t.Logf("GraphExec successfully executed %d GPU replays", graph.Replays())
+}
+
+func TestNewSequenceRejectsNilDevice(t *testing.T) {
+	if _, err := NewSequence(nil); err == nil {
+		t.Fatal("NewSequence(nil) succeeded")
+	}
+}
+
+func TestAddDispatchRejectsEmptyDimensions(t *testing.T) {
+	g := &Sequence{}
+	if err := g.AddDispatch(nil, apple.MTLSize{}, apple.MTLSize{Width: 1, Height: 1, Depth: 1}); err == nil {
+		t.Fatal("AddDispatch succeeded with an empty grid")
+	}
+	if err := g.AddDispatch(nil, apple.MTLSize{Width: 1, Height: 1, Depth: 1}, apple.MTLSize{}); err == nil {
+		t.Fatal("AddDispatch succeeded with an empty threadgroup")
+	}
 }

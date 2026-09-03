@@ -2,9 +2,48 @@ package metalmegakernel
 
 import (
 	"fmt"
+	"math"
 )
 
-// LayerConfig defines the hyperparameter dimensions for a transformer layer megakernel.
+// FusedFFNConfig configures the generated RMSNorm and feed-forward kernel.
+type FusedFFNConfig struct {
+	HiddenDim       int
+	IntermediateDim int
+	RMSNormEpsilon  float32
+}
+
+// FusedFFNThreads is the required number of threads in the single threadgroup
+// used to dispatch MetalFusedFFN.
+const FusedFFNThreads = 128
+
+// ScratchBytes reports the threadgroup-memory requirement of the generated
+// kernel.
+func (c FusedFFNConfig) ScratchBytes() int {
+	return 4 * (c.HiddenDim + c.IntermediateDim)
+}
+
+// GenerateFusedFFNMSL generates an MSL kernel that fuses RMS normalization,
+// SwiGLU, the down projection, and residual addition for one vector.
+// It does not implement attention or a complete transformer layer.
+// Dispatch it as one threadgroup of FusedFFNThreads threads and bind
+// cfg.ScratchBytes() bytes of threadgroup memory at index 0.
+func GenerateFusedFFNMSL(cfg FusedFFNConfig) (string, error) {
+	if cfg.HiddenDim <= 0 {
+		return "", fmt.Errorf("metalmegakernel: hidden dimension must be positive")
+	}
+	if cfg.IntermediateDim <= 0 {
+		return "", fmt.Errorf("metalmegakernel: intermediate dimension must be positive")
+	}
+	if cfg.RMSNormEpsilon <= 0 || math.IsNaN(float64(cfg.RMSNormEpsilon)) || math.IsInf(float64(cfg.RMSNormEpsilon), 0) {
+		return "", fmt.Errorf("metalmegakernel: RMS normalization epsilon must be finite and positive")
+	}
+	return generateFusedFFNMSL(cfg), nil
+}
+
+// LayerConfig is the legacy configuration for GenerateLayerMegakernelMSL.
+//
+// Deprecated: use FusedFFNConfig. Attention-related fields have never affected
+// the generated kernel.
 type LayerConfig struct {
 	HiddenDim       int
 	IntermediateDim int
@@ -16,9 +55,22 @@ type LayerConfig struct {
 	MaxSeqLen       int
 }
 
-// GenerateLayerMegakernelMSL generates a single fused MSL compute kernel that evaluates an entire transformer layer.
+// GenerateLayerMegakernelMSL generates the historical RMSNorm and feed-forward
+// kernel. It returns an empty string for invalid dimensions or epsilon.
+//
+// Deprecated: use GenerateFusedFFNMSL. This function has never generated a
+// complete transformer layer.
 func GenerateLayerMegakernelMSL(cfg LayerConfig) string {
-	return fmt.Sprintf(`// --- Metal Transformer Layer Megakernel ---
+	msl, _ := GenerateFusedFFNMSL(FusedFFNConfig{
+		HiddenDim:       cfg.HiddenDim,
+		IntermediateDim: cfg.IntermediateDim,
+		RMSNormEpsilon:  cfg.RmsNormEps,
+	})
+	return msl
+}
+
+func generateFusedFFNMSL(cfg FusedFFNConfig) string {
+	return fmt.Sprintf(`// --- Metal Fused RMSNorm and Feed-Forward Kernel ---
 #include <metal_stdlib>
 #include <metal_simdgroup_matrix>
 using namespace metal;
@@ -31,22 +83,13 @@ inline float simdgroup_sum(float val) {
     return val;
 }
 
-kernel void MetalLayerMegakernel(
+kernel void MetalFusedFFN(
     device float* x                    [[buffer(0)]],
     device const float* w_input_norm   [[buffer(1)]],
-    device const float* w_q            [[buffer(2)]],
-    device const float* w_k            [[buffer(3)]],
-    device const float* w_v            [[buffer(4)]],
-    device const float* w_o            [[buffer(5)]],
-    device const float* w_post_norm    [[buffer(6)]],
-    device const float* w_gate         [[buffer(7)]],
-    device const float* w_up           [[buffer(8)]],
-    device const float* w_down         [[buffer(9)]],
-    device float* k_cache              [[buffer(10)]],
-    device float* v_cache              [[buffer(11)]],
-    constant int& cur_pos              [[buffer(12)]],
+    device const float* w_gate         [[buffer(2)]],
+    device const float* w_up           [[buffer(3)]],
+    device const float* w_down         [[buffer(4)]],
     threadgroup float* s_scratch       [[threadgroup(0)]],
-    uint row                           [[threadgroup_position_in_grid]],
     uint tid                           [[thread_position_in_threadgroup]],
     uint simd_lane                     [[thread_index_in_simdgroup]],
     uint simd_id                       [[simdgroup_index_in_threadgroup]]
@@ -95,7 +138,7 @@ kernel void MetalLayerMegakernel(
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
     // Step 3: FFN Down projection and residual accumulate
-    if (row < hidden_dim) {
+    for (uint row = 0; row < hidden_dim; row++) {
         device const float* w_down_row = w_down + row * inter_dim;
         float acc = 0.0f;
         for (uint j = tid; j < inter_dim; j += 128) {
@@ -110,7 +153,8 @@ kernel void MetalLayerMegakernel(
         if (tid == 0) {
             x[row] += block_acc;
         }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 }
-`, cfg.HiddenDim, cfg.IntermediateDim, cfg.RmsNormEps)
+`, cfg.HiddenDim, cfg.IntermediateDim, cfg.RMSNormEpsilon)
 }
