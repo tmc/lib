@@ -3,8 +3,10 @@ package metaltensor
 import (
 	"fmt"
 	"runtime"
+	"sort"
+	"strings"
+	"unicode"
 
-	"github.com/tmc/lib/apple/x/metal/egraph"
 	"github.com/tmc/lib/apple/x/metal/metalir"
 )
 
@@ -88,11 +90,10 @@ func (t Tensor) Mul(other Tensor) Tensor {
 func (t Tensor) MatMul(other Tensor) Tensor {
 	n := t.graph.AddMatMul(t.node, other.node)
 	n.SourceLoc = captureSource()
-	outShape := []int{t.shape[0], other.shape[1]}
 	return Tensor{
 		graph: t.graph,
 		node:  n,
-		shape: outShape,
+		shape: n.Shape,
 		dtype: t.dtype,
 	}
 }
@@ -133,35 +134,87 @@ func (t Tensor) RoPE(pos Tensor, theta float32) Tensor {
 	}
 }
 
-// Compile compiles the expression DAG into an MSL shader using equality saturation.
+// Compile emits an elementwise MSL kernel for the expression ending at t.
+// MatMul, RMSNorm, and RoPE lowering is not yet supported.
 func (t Tensor) Compile(kernelName string) (string, error) {
-	// For large multi-layer graphs, optimize single-layer sub-DAGs for megakernel emission
-	eg := egraph.New()
-	x := eg.Add(egraph.NewLeaf("x"))
-	wNorm := eg.Add(egraph.NewLeaf("w_norm"))
-	eps := eg.Add(egraph.NewLeaf("eps"))
-	wProj := eg.Add(egraph.NewLeaf("w_proj"))
-
-	normX := eg.Add(egraph.NewNode("rmsnorm", x, wNorm, eps))
-	proj := eg.Add(egraph.NewNode("gemv", normX, wProj))
-
-	rules := []*egraph.Rewrite{
-		egraph.MustRewrite("fuse_rmsnorm_gemv",
-			"(gemv (rmsnorm ?x ?w_norm ?eps) ?w_proj)",
-			"(fused_rmsnorm_gemv ?x ?w_norm ?eps ?w_proj)"),
-		egraph.MustRewrite("fuse_swiglu_gemv",
-			"(gemv (mul (silu (gemv ?nx ?w_g)) (gemv ?nx ?w_u)) ?w_d)",
-			"(fused_swiglu_gemv ?nx ?w_g ?w_u ?w_d)"),
+	if t.graph == nil || t.node == nil {
+		return "", fmt.Errorf("compile: invalid tensor")
 	}
-
-	egraph.Saturate(eg, rules, 5)
-	expr, _, err := egraph.ExtractBest(eg, proj, egraph.FusedMegakernelCost{})
-	if err != nil {
+	if !identifier(kernelName) {
+		return "", fmt.Errorf("compile: invalid kernel name %q", kernelName)
+	}
+	if err := t.graph.Validate(); err != nil {
 		return "", fmt.Errorf("compile: %w", err)
 	}
+	reachable := make(map[*metalir.Node]bool)
+	var visit func(*metalir.Node)
+	visit = func(n *metalir.Node) {
+		if reachable[n] {
+			return
+		}
+		for _, in := range n.Inputs {
+			visit(in)
+		}
+		reachable[n] = true
+	}
+	visit(t.node)
+	var nodes []*metalir.Node
+	for _, n := range t.graph.Nodes {
+		if reachable[n] {
+			nodes = append(nodes, n)
+		}
+	}
+	var inputs []*metalir.Node
+	for _, n := range nodes {
+		if n.Type != metalir.Float32 {
+			return "", fmt.Errorf("compile: node %d: data type %s unsupported", n.ID, n.Type)
+		}
+		if n.Kind == metalir.KindInput {
+			inputs = append(inputs, n)
+			continue
+		}
+		if n.Kind != metalir.KindUnary && n.Kind != metalir.KindBinary {
+			return "", fmt.Errorf("compile: node %d: operation %q unsupported", n.ID, n.Op)
+		}
+		if n.Op != "add" && n.Op != "mul" && n.Op != "silu" {
+			return "", fmt.Errorf("compile: node %d: operation %q unsupported", n.ID, n.Op)
+		}
+	}
+	sort.Slice(inputs, func(i, j int) bool { return inputs[i].ID < inputs[j].ID })
+	var b strings.Builder
+	b.WriteString("#include <metal_stdlib>\nusing namespace metal;\n\nkernel void ")
+	b.WriteString(kernelName)
+	b.WriteString("(\n")
+	for i, n := range inputs {
+		fmt.Fprintf(&b, "    device const float* in%d [[buffer(%d)]],\n", n.ID, i)
+	}
+	fmt.Fprintf(&b, "    device float* out [[buffer(%d)]],\n    uint i [[thread_position_in_grid]]) {\n", len(inputs))
+	for _, n := range nodes {
+		switch n.Kind {
+		case metalir.KindInput:
+			fmt.Fprintf(&b, "    float v%d = in%d[i];\n", n.ID, n.ID)
+		case metalir.KindUnary:
+			fmt.Fprintf(&b, "    float v%d = v%d / (1.0f + exp(-v%d));\n", n.ID, n.Inputs[0].ID, n.Inputs[0].ID)
+		case metalir.KindBinary:
+			op := "+"
+			if n.Op == "mul" {
+				op = "*"
+			}
+			fmt.Fprintf(&b, "    float v%d = v%d %s v%d;\n", n.ID, n.Inputs[0].ID, op, n.Inputs[1].ID)
+		}
+	}
+	fmt.Fprintf(&b, "    out[i] = v%d;\n}\n", t.node.ID)
+	return b.String(), nil
+}
 
-	return egraph.GenerateMSL(expr, egraph.CodegenOptions{
-		KernelName: kernelName,
-		Precision:  "float",
-	})
+func identifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if !(r == '_' || unicode.IsLetter(r) || i > 0 && unicode.IsDigit(r)) {
+			return false
+		}
+	}
+	return true
 }

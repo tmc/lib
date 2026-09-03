@@ -2,6 +2,7 @@ package metalir
 
 import (
 	"fmt"
+	"math"
 )
 
 // DataType identifies tensor primitive data types.
@@ -28,7 +29,7 @@ func (dt DataType) SizeBytes() int {
 	case Uint8:
 		return 1
 	default:
-		return 4
+		return 0
 	}
 }
 
@@ -99,6 +100,99 @@ func (n *Node) SizeBytes() int {
 	return n.NumElements() * n.Type.SizeBytes()
 }
 
+// Validate reports malformed shapes, types, topology, and operator contracts.
+func (g *Graph) Validate() error {
+	if g == nil {
+		return fmt.Errorf("nil graph")
+	}
+	seen := make(map[*Node]bool)
+	for i, n := range g.Nodes {
+		if n == nil {
+			return fmt.Errorf("node %d: nil node", i)
+		}
+		if n.ID != i {
+			return fmt.Errorf("node %d: id is %d", i, n.ID)
+		}
+		if n.Type.SizeBytes() == 0 {
+			return fmt.Errorf("node %d: invalid data type %d", i, n.Type)
+		}
+		elements := 1
+		for _, d := range n.Shape {
+			if d <= 0 {
+				return fmt.Errorf("node %d: invalid dimension %d", i, d)
+			}
+			if elements > math.MaxInt/d {
+				return fmt.Errorf("node %d: shape size overflows int", i)
+			}
+			elements *= d
+		}
+		if elements > math.MaxInt/n.Type.SizeBytes() {
+			return fmt.Errorf("node %d: byte size overflows int", i)
+		}
+		for _, in := range n.Inputs {
+			if !seen[in] {
+				return fmt.Errorf("node %d: input is nil or not earlier in graph", i)
+			}
+		}
+		if err := validateOperator(n); err != nil {
+			return fmt.Errorf("node %d: %w", i, err)
+		}
+		seen[n] = true
+	}
+	return nil
+}
+
+func validateOperator(n *Node) error {
+	same := func(a, b *Node) bool {
+		if a.Type != b.Type || len(a.Shape) != len(b.Shape) {
+			return false
+		}
+		for i := range a.Shape {
+			if a.Shape[i] != b.Shape[i] {
+				return false
+			}
+		}
+		return true
+	}
+	switch n.Kind {
+	case KindInput, KindConstant:
+		if len(n.Inputs) != 0 {
+			return fmt.Errorf("input or constant has inputs")
+		}
+	case KindUnary:
+		if len(n.Inputs) != 1 || !same(n, n.Inputs[0]) {
+			return fmt.Errorf("unary shape or type mismatch")
+		}
+	case KindBinary:
+		if len(n.Inputs) != 2 || !same(n, n.Inputs[0]) {
+			return fmt.Errorf("binary result shape or type mismatch")
+		}
+		switch n.Op {
+		case "add", "mul", "rmsnorm":
+			if !same(n, n.Inputs[1]) {
+				return fmt.Errorf("binary operand shape or type mismatch")
+			}
+		case "rope":
+			if n.Inputs[1].Type != n.Type || n.Inputs[1].NumElements() != 1 {
+				return fmt.Errorf("rope position must be a scalar of matching type")
+			}
+		default:
+			return fmt.Errorf("binary operation %q unsupported", n.Op)
+		}
+	case KindMatMul:
+		if len(n.Inputs) != 2 || len(n.Inputs[0].Shape) != 2 || len(n.Inputs[1].Shape) != 2 {
+			return fmt.Errorf("matmul requires rank-2 operands")
+		}
+		a, b := n.Inputs[0], n.Inputs[1]
+		if a.Type != b.Type || n.Type != a.Type || a.Shape[1] != b.Shape[0] || len(n.Shape) != 2 || n.Shape[0] != a.Shape[0] || n.Shape[1] != b.Shape[1] {
+			return fmt.Errorf("matmul shape or type mismatch")
+		}
+	default:
+		return fmt.Errorf("invalid kind %d", n.Kind)
+	}
+	return nil
+}
+
 // Graph represents a directed acyclic graph (DAG) of tensor operations.
 type Graph struct {
 	Nodes []*Node
@@ -158,7 +252,10 @@ func (g *Graph) AddBinary(op string, a, b *Node) *Node {
 
 // AddMatMul creates a matrix multiplication node.
 func (g *Graph) AddMatMul(a, b *Node) *Node {
-	shape := []int{a.Shape[0], b.Shape[1]}
+	var shape []int
+	if a != nil && b != nil && len(a.Shape) == 2 && len(b.Shape) == 2 {
+		shape = []int{a.Shape[0], b.Shape[1]}
+	}
 	n := &Node{
 		ID:     len(g.Nodes),
 		Name:   fmt.Sprintf("matmul_%d", len(g.Nodes)),
