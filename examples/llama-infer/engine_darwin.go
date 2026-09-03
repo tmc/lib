@@ -89,6 +89,8 @@ type decodeKernels struct {
 	BatchedAttn       apple.MTLComputePipelineState `metal:"BatchedCausalFlashAttention"`
 	RowRoPE           apple.MTLComputePipelineState `metal:"RowIndexedRoPEStoreKV"`
 	RowAttn           apple.MTLComputePipelineState `metal:"RowIndexedCausalAttention"`
+	SegmentedRoPE     apple.MTLComputePipelineState `metal:"SegmentedRoPEStoreKV"`
+	SegmentedAttn     apple.MTLComputePipelineState `metal:"SegmentedCausalAttention"`
 	BatchedSiLU       apple.MTLComputePipelineState `metal:"BatchedSiLUMul"`
 	BatchedSample     apple.MTLComputePipelineState `metal:"BatchedArgmaxSampling"`
 	BatchedEmbedH     apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookupH"`
@@ -887,7 +889,7 @@ func RunBatchedAttention(eng *ModelEngine, cfg Config, layer int, cache *Batched
 	if b == 0 || len(rows) != b || len(q) != b*qd || len(k) != b*kd || len(v) != b*kd {
 		return BatchedAttentionResult{}, errors.New("batched attention: inconsistent input lengths")
 	}
-	if layer < 0 || layer >= len(cache.K) || eng.isF16 || cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 {
+	if layer < 0 || layer >= len(cache.K) || cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 {
 		return BatchedAttentionResult{}, errors.New("batched attention: unsupported configuration")
 	}
 	if b > cache.rowCapacity || cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
@@ -958,6 +960,118 @@ func RunBatchedAttention(eng *ModelEngine, cfg Config, layer int, cache *Batched
 	enc.WaitUntilCompleted()
 	copyOut := func(x []float32, n int) []float32 { return append([]float32(nil), x[:n]...) }
 	return BatchedAttentionResult{Q: copyOut(eng.prefillQMat.HostSlice(), len(q)), K: copyOut(eng.prefillKMat.HostSlice(), len(k)), Attention: copyOut(eng.prefillAttnOut.HostSlice(), b*qd), Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 2}, nil
+}
+
+// RunSegmentedAttention applies attention to N packed prompt tokens belonging
+// to B stable cache rows. The Metal kernels consume and check every segment
+// boundary before writing KV or reading attention state.
+func RunSegmentedAttention(ctx context.Context, eng *ModelEngine, cfg Config, layer int, cache *BatchedAttentionCache, packed PackedPrefill, q, k, v []float32) (BatchedAttentionResult, error) {
+	n, b := len(packed.Tokens), len(packed.Offsets)
+	qd, kd := cfg.NumHeads*cfg.HeadDim, cfg.NumKVHeads*cfg.HeadDim
+	if eng == nil || eng.dev == nil || cache == nil {
+		return BatchedAttentionResult{}, errors.New("segmented attention: nil engine or cache")
+	}
+	if err := packed.Validate(n, cache.rowCapacity, cfg.MaxSeqLen); err != nil {
+		return BatchedAttentionResult{}, fmt.Errorf("segmented attention: %w", err)
+	}
+	if len(q) != n*qd || len(k) != n*kd || len(v) != n*kd {
+		return BatchedAttentionResult{}, errors.New("segmented attention: inconsistent projections")
+	}
+	if layer < 0 || layer >= len(cache.K) || eng.isF16 || cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 {
+		return BatchedAttentionResult{}, errors.New("segmented attention: unsupported configuration")
+	}
+	if cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
+		return BatchedAttentionResult{}, errors.New("segmented attention: cache shape mismatch")
+	}
+	if err := ctx.Err(); err != nil {
+		return BatchedAttentionResult{}, err
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.freed {
+		return BatchedAttentionResult{}, errors.New("segmented attention: cache freed")
+	}
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	if err := eng.ensurePrefillArena(n, cfg); err != nil {
+		return BatchedAttentionResult{}, err
+	}
+	meta := metalmem.NewArena(eng.dev)
+	defer meta.Free()
+	requestIndex := metalmem.AllocIn[uint32](meta, "requestIndex", n)
+	positions := metalmem.AllocIn[uint32](meta, "positions", n)
+	offsets := metalmem.AllocIn[uint32](meta, "offsets", b)
+	lengths := metalmem.AllocIn[uint32](meta, "lengths", b)
+	rows := metalmem.AllocIn[uint32](meta, "rows", b)
+	restored := metalmem.AllocIn[uint32](meta, "restored", b)
+	if err := meta.Err(); err != nil {
+		return BatchedAttentionResult{}, fmt.Errorf("segmented attention metadata: %w", err)
+	}
+	copy(eng.prefillQMat.HostSlice()[:len(q)], q)
+	copy(eng.prefillKMat.HostSlice()[:len(k)], k)
+	copy(eng.prefillVMat.HostSlice()[:len(v)], v)
+	copy(requestIndex.HostSlice(), packed.RequestIndex)
+	copy(positions.HostSlice(), packed.AbsolutePositions)
+	copy(offsets.HostSlice(), packed.Offsets)
+	copy(lengths.HostSlice(), packed.Lengths)
+	copy(rows.HostSlice(), packed.Rows)
+	copy(restored.HostSlice(), packed.RestoredPrefixes)
+	if err := ctx.Err(); err != nil {
+		return BatchedAttentionResult{}, err
+	}
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	ce.SetComputePipelineState(eng.pso.SegmentedRoPE)
+	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
+		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+	}
+	for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(5+i))
+	}
+	metal.SetScalar(ce, uint32(n), 11)
+	metal.SetScalar(ce, uint32(b), 12)
+	metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 13)
+	metal.SetScalar(ce, uint32(cfg.HeadDim), 14)
+	metal.SetScalar(ce, uint32(cfg.NumHeads), 15)
+	metal.SetScalar(ce, uint32(cfg.NumKVHeads), 16)
+	metal.SetScalar(ce, cfg.RopeTheta, 17)
+	metal.SetScalar(ce, uint32(cache.rowCapacity), 18)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(1))
+	ce.SetComputePipelineState(eng.pso.SegmentedAttn)
+	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[layer], cache.V[layer], eng.prefillAttnOut} {
+		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+	}
+	for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(4+i))
+	}
+	metal.SetScalar(ce, uint32(n), 10)
+	metal.SetScalar(ce, uint32(b), 11)
+	metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 12)
+	metal.SetScalar(ce, uint32(cfg.NumHeads), 13)
+	metal.SetScalar(ce, uint32(cfg.NumKVHeads), 14)
+	metal.SetScalar(ce, uint32(cfg.HeadDim), 15)
+	metal.SetScalar(ce, float32(1/math.Sqrt(float64(cfg.HeadDim))), 16)
+	metal.SetScalar(ce, uint32(cache.rowCapacity), 17)
+	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n*cfg.NumHeads), metal.Threads(128))
+	ce.EndEncoding()
+	if err := ctx.Err(); err != nil {
+		return BatchedAttentionResult{}, err
+	}
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	toInts := func(x []uint32) []int {
+		y := make([]int, len(x))
+		for i := range x {
+			y[i] = int(x[i])
+		}
+		return y
+	}
+	return BatchedAttentionResult{
+		Q:         append([]float32(nil), eng.prefillQMat.HostSlice()[:len(q)]...),
+		K:         append([]float32(nil), eng.prefillKMat.HostSlice()[:len(k)]...),
+		Attention: append([]float32(nil), eng.prefillAttnOut.HostSlice()[:n*qd]...),
+		Positions: toInts(packed.AbsolutePositions), Rows: toInts(packed.Rows), Dispatches: 2,
+	}, nil
 }
 
 // RunBatchedQKV executes five dispatches regardless of batch size: embedding,

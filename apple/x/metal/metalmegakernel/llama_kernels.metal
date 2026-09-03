@@ -898,6 +898,72 @@ kernel void RowIndexedCausalAttention(
     if(tid<head_dim) out[b*q_heads*head_dim+qh*head_dim+tid]=l>0 ? acc/l : 0;
 }
 
+// SegmentedRoPEStoreKV maps each packed token to its stable request row. Every
+// piece of segment metadata participates in the bounds check before a write.
+kernel void SegmentedRoPEStoreKV(
+    device float* q [[buffer(0)]], device float* k [[buffer(1)]],
+    device const float* v [[buffer(2)]], device float* kc [[buffer(3)]],
+    device float* vc [[buffer(4)]], device const uint* request_index [[buffer(5)]],
+    device const uint* positions [[buffer(6)]], device const uint* offsets [[buffer(7)]],
+    device const uint* lengths [[buffer(8)]], device const uint* rows [[buffer(9)]],
+    device const uint* restored [[buffer(10)]], constant uint& token_count [[buffer(11)]],
+    constant uint& request_count [[buffer(12)]], constant uint& max_seq [[buffer(13)]],
+    constant uint& head_dim [[buffer(14)]], constant uint& q_heads [[buffer(15)]],
+    constant uint& kv_heads [[buffer(16)]], constant float& theta [[buffer(17)]],
+    constant uint& row_capacity [[buffer(18)]], uint t [[thread_position_in_grid]]) {
+    if (t >= token_count || head_dim == 0 || head_dim > 128 || (head_dim & 1) != 0 ||
+        q_heads == 0 || kv_heads == 0 || q_heads % kv_heads != 0 || theta <= 0) return;
+    uint request=request_index[t]; if(request>=request_count) return;
+    uint offset=offsets[request], length=lengths[request];
+    if(t<offset || t-offset>=length) return;
+    uint pos=positions[t], row=rows[request];
+    if(pos!=restored[request]+t-offset || pos>=max_seq || row>=row_capacity) return;
+    uint qdim=q_heads*head_dim, kdim=kv_heads*head_dim, half_dim=head_dim/2;
+    for(uint h=0;h<q_heads;h++) for(uint i=0;i<half_dim;i++) {
+        float a=float(pos)/pow(theta,float(2*i)/float(head_dim)),c=cos(a),s=sin(a);
+        uint x=t*qdim+h*head_dim+i,y=x+half_dim; float x0=q[x],x1=q[y]; q[x]=x0*c-x1*s;q[y]=x0*s+x1*c;
+    }
+    uint base=(row*max_seq+pos)*kdim;
+    for(uint h=0;h<kv_heads;h++) {
+        for(uint i=0;i<half_dim;i++) { float a=float(pos)/pow(theta,float(2*i)/float(head_dim)),c=cos(a),s=sin(a); uint x=t*kdim+h*head_dim+i,y=x+half_dim; float x0=k[x],x1=k[y];k[x]=x0*c-x1*s;k[y]=x0*s+x1*c;kc[base+h*head_dim+i]=k[x];kc[base+h*head_dim+i+half_dim]=k[y]; }
+        for(uint i=0;i<head_dim;i++) vc[base+h*head_dim+i]=v[t*kdim+h*head_dim+i];
+    }
+}
+
+kernel void SegmentedCausalAttention(
+    device const float* q [[buffer(0)]], device const float* kc [[buffer(1)]],
+    device const float* vc [[buffer(2)]], device float* out [[buffer(3)]],
+    device const uint* request_index [[buffer(4)]], device const uint* positions [[buffer(5)]],
+    device const uint* offsets [[buffer(6)]], device const uint* lengths [[buffer(7)]],
+    device const uint* rows [[buffer(8)]], device const uint* restored [[buffer(9)]],
+    constant uint& token_count [[buffer(10)]], constant uint& request_count [[buffer(11)]],
+    constant uint& max_seq [[buffer(12)]], constant uint& q_heads [[buffer(13)]],
+    constant uint& kv_heads [[buffer(14)]], constant uint& head_dim [[buffer(15)]],
+    constant float& scale [[buffer(16)]], constant uint& row_capacity [[buffer(17)]],
+    uint group [[threadgroup_position_in_grid]], uint tid [[thread_position_in_threadgroup]],
+    uint tg_size [[threads_per_threadgroup]], uint lane [[thread_index_in_simdgroup]],
+    uint simd [[simdgroup_index_in_threadgroup]]) {
+    if(q_heads==0 || kv_heads==0 || q_heads%kv_heads!=0 || head_dim==0 || head_dim>128 ||
+       (head_dim&1)!=0 || scale<=0 || tg_size!=128) return;
+    uint t=group/q_heads,qh=group%q_heads; if(t>=token_count) return;
+    uint request=request_index[t]; if(request>=request_count) return;
+    uint offset=offsets[request],length=lengths[request]; if(t<offset || t-offset>=length) return;
+    uint pos=positions[t],row=rows[request];
+    if(pos!=restored[request]+t-offset || pos>=max_seq || row>=row_capacity) return;
+    uint kh=qh/(q_heads/kv_heads),kdim=kv_heads*head_dim;
+    device const float* qv=q+t*q_heads*head_dim+qh*head_dim;
+    threadgroup float red[4]; threadgroup float score; float m=-INFINITY,l=0,acc=0;
+    for(uint p=0;p<=pos;p++) {
+        uint base=(row*max_seq+p)*kdim+kh*head_dim;
+        float z=tid<head_dim?qv[tid]*kc[base+tid]:0; z=simd_sum(z); if(lane==0) red[simd]=z;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if(tid==0) { float total=0;for(uint i=0;i<4;i++) total+=red[i];score=total*scale; }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        float nm=max(m,score),ep=exp(m-nm),ec=exp(score-nm); if(tid<head_dim) acc=acc*ep+ec*vc[base+tid];l=l*ep+ec;m=nm;
+    }
+    if(tid<head_dim) out[t*q_heads*head_dim+qh*head_dim+tid]=l>0?acc/l:0;
+}
+
 kernel void BatchedSiLUMul(
     device const float* gate           [[buffer(0)]],
     device const float* up             [[buffer(1)]],

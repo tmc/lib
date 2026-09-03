@@ -101,6 +101,10 @@ func RunBatchedAttention(*ModelEngine, Config, int, *BatchedAttentionCache, []fl
 	return BatchedAttentionResult{}, errors.New("batched attention: Metal backend required")
 }
 
+func RunSegmentedAttention(context.Context, *ModelEngine, Config, int, *BatchedAttentionCache, PackedPrefill, []float32, []float32, []float32) (BatchedAttentionResult, error) {
+	return BatchedAttentionResult{}, errors.New("segmented attention: Metal backend required")
+}
+
 func init() {
 	runtime.LockOSThread()
 }
