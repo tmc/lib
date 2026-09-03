@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -194,6 +195,7 @@ func main() {
 	serve := flag.Bool("serve", false, "run in continuous OpenAI-compatible serving mode")
 	benchMode := flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCount := flag.Int("bench-count", 10, "number of benchmark iterations to run")
+	inferbenchSpec := flag.String("inferbench-spec", "", "collect one fail-closed inference benchmark arm from JSON")
 	searchGraphs := flag.Int("search-graphs", 100, "number of search graphs / depth for compiler optimization search")
 	searchDepthsFlag := flag.String("search-depths", "", "comma-separated list of search depths to sweep (e.g. 0,10,50,100,200,500)")
 	flag.Parse()
@@ -269,6 +271,12 @@ func main() {
 
 	if *benchMode {
 		if err := RunBenchSuite(cfg, *benchCount); err != nil {
+			log.Fatalf("llama-infer: %v", err)
+		}
+		return
+	}
+	if *inferbenchSpec != "" {
+		if err := runInferbench(context.Background(), cfg, *inferbenchSpec); err != nil {
 			log.Fatalf("llama-infer: %v", err)
 		}
 		return

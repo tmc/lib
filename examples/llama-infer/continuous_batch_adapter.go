@@ -19,6 +19,7 @@ type scheduledEngineAdapter struct {
 	leases                              map[int]uint64
 	nextLease                           uint64
 	batches                             []fullBatchObservation
+	prefillDispatches                   uint64
 }
 
 type scheduledSequenceState struct {
@@ -93,15 +94,12 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	if a.engine == nil || a.engine.tokenizer == nil {
 		return continuousbatch.Token{}, errors.New("prefill: nil engine or tokenizer")
 	}
-	tokens, err := a.engine.tokenizer.Encode(state.Prompt)
+	tokens, err := prefillTokens(a.cfg, a.engine.tokenizer, state)
 	if err != nil {
-		return continuousbatch.Token{}, fmt.Errorf("prefill tokenize: %w", err)
+		return continuousbatch.Token{}, err
 	}
 	if len(tokens) == 0 {
 		tokens = []int32{1}
-	}
-	if a.cfg.BOSTokenID != 0 {
-		tokens = append([]int32{a.cfg.BOSTokenID}, tokens...)
 	}
 	if len(tokens) >= a.cfg.MaxSeqLen {
 		return continuousbatch.Token{}, errors.New("prefill: prompt exceeds cache capacity")
@@ -110,27 +108,25 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	if err != nil {
 		return continuousbatch.Token{}, fmt.Errorf("prefill allocate KV: %w", err)
 	}
-	next := int32(0)
-	start := 0
-	if snapshot, matched, ok := a.engine.prefixes.load(tokens); ok && sequence.RestorePrefixPartial(snapshot, matched, a.cfg) {
-		start = matched
-		if matched == len(tokens) && snapshot.tokens == matched {
-			next = snapshot.current
-		}
-	}
+	start, next := a.engine.restoreScheduledPrefix(tokens, sequence, a.cfg)
+	prefillDispatches := 0
 	if start < len(tokens) {
 		next, err = GPUBatchedPrefillPassKV(a.engine, a.cfg, sequence, tokens[start:], start)
+		prefillDispatches = benchmarkPrefillDispatches(a.engine)
 	}
 	if err == nil {
 		err = a.cache.ImportSequence(row, len(tokens), sequence)
 	}
 	if err == nil {
-		a.engine.prefixes.store(tokens, sequence.CapturePrefix(len(tokens), next, a.cfg))
+		a.engine.storeScheduledPrefix(tokens, sequence, next, a.cfg)
 	}
 	sequence.Free()
 	if err != nil {
 		return continuousbatch.Token{}, fmt.Errorf("prefill GPU state: %w", err)
 	}
+	a.metricsMu.Lock()
+	a.prefillDispatches += uint64(prefillDispatches)
+	a.metricsMu.Unlock()
 	text, err := a.engine.tokenizer.Decode([]int32{next})
 	if err != nil {
 		return continuousbatch.Token{}, fmt.Errorf("prefill decode token: %w", err)
@@ -138,6 +134,20 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	state.KV, state.Position = scheduledSequenceState{row: row, lease: lease}, len(tokens)
 	releaseRow = false
 	return continuousbatch.Token{ID: next, Text: text}, nil
+}
+
+func prefillTokens(cfg Config, tokenizer Tokenizer, state *continuousbatch.State) ([]int32, error) {
+	if len(state.PromptTokenIDs) != 0 {
+		return append([]int32(nil), state.PromptTokenIDs...), nil
+	}
+	tokens, err := tokenizer.Encode(state.Prompt)
+	if err != nil {
+		return nil, fmt.Errorf("prefill tokenize: %w", err)
+	}
+	if cfg.BOSTokenID != 0 {
+		tokens = append([]int32{cfg.BOSTokenID}, tokens...)
+	}
+	return tokens, nil
 }
 
 // DecodeBatch observes cancellation before dispatch. Once a Metal command buffer
@@ -198,6 +208,16 @@ func (a *scheduledEngineAdapter) Observations() []fullBatchObservation {
 	a.metricsMu.Lock()
 	defer a.metricsMu.Unlock()
 	return append([]fullBatchObservation(nil), a.batches...)
+}
+
+func (a *scheduledEngineAdapter) Dispatches() uint64 {
+	a.metricsMu.Lock()
+	defer a.metricsMu.Unlock()
+	total := a.prefillDispatches
+	for _, batch := range a.batches {
+		total += uint64(batch.Dispatches)
+	}
+	return total
 }
 
 var _ continuousbatch.Backend = (*scheduledEngineAdapter)(nil)

@@ -24,14 +24,17 @@ type Token struct {
 // State is the per-request state owned by the scheduler and passed to Backend.
 // Backend may store a device-specific KV cache in KV and sampler state in Sampler.
 type State struct {
-	ID        string
-	Prompt    string
-	Position  int
-	Current   int32
-	Generated int
-	Limit     int
-	KV        any
-	Sampler   any
+	ID     string
+	Prompt string
+	// PromptTokenIDs bypasses tokenization when non-empty. The slice is copied
+	// at submission so callers may reuse their input after Submit returns.
+	PromptTokenIDs []int32
+	Position       int
+	Current        int32
+	Generated      int
+	Limit          int
+	KV             any
+	Sampler        any
 }
 
 // Backend performs model work. DecodeBatch must isolate per-state failures by
@@ -49,10 +52,11 @@ type Result struct {
 }
 
 type Request struct {
-	ID        string
-	Prompt    string
-	MaxTokens int
-	Sampler   any
+	ID             string
+	Prompt         string
+	PromptTokenIDs []int32
+	MaxTokens      int
+	Sampler        any
 }
 
 type Response struct {
@@ -183,7 +187,7 @@ func (s *Scheduler) Submit(ctx context.Context, req Request) (*Response, error) 
 		return nil, errors.New("max tokens must be positive")
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	seq := &sequence{state: State{ID: req.ID, Prompt: req.Prompt, Limit: req.MaxTokens, Sampler: req.Sampler}, ctx: ctx, cancel: cancel, tokens: make(chan Token, s.cfg.TokenBuffer), done: make(chan error, 1), queuedAt: time.Now()}
+	seq := &sequence{state: State{ID: req.ID, Prompt: req.Prompt, PromptTokenIDs: append([]int32(nil), req.PromptTokenIDs...), Limit: req.MaxTokens, Sampler: req.Sampler}, ctx: ctx, cancel: cancel, tokens: make(chan Token, s.cfg.TokenBuffer), done: make(chan error, 1), queuedAt: time.Now()}
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()

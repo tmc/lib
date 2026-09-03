@@ -7,14 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 // Campaign contains every sample in one matched benchmark campaign.
 type Campaign struct {
@@ -38,6 +41,7 @@ type Identity struct {
 	BinarySHA256    string `json:"binary_sha256"`
 	ModelSHA256     string `json:"model_sha256"`
 	TokenizerSHA256 string `json:"tokenizer_sha256"`
+	SourceSHA256    string `json:"source_sha256"`
 	Backend         string `json:"backend"`
 	Precision       string `json:"precision"`
 	DeviceID        string `json:"device_id"`
@@ -51,6 +55,7 @@ type Workload struct {
 	Concurrency     int       `json:"concurrency"`
 	WarmupRuns      int       `json:"warmup_runs"`
 	Sampler         string    `json:"sampler"`
+	CacheState      string    `json:"cache_state"`
 }
 
 // Evidence records conditions needed to interpret timing as GPU execution.
@@ -81,6 +86,15 @@ type Sample struct {
 	TierWriteBytes    map[string]uint64 `json:"tier_write_bytes"`
 	GeneratedTokenIDs [][]int32         `json:"generated_token_ids"`
 	OutputSHA256      string            `json:"output_sha256"`
+	Requests          []RequestTiming   `json:"requests"`
+}
+
+// RequestTiming preserves the submission and token-arrival boundary for one
+// request within a concurrent sample.
+type RequestTiming struct {
+	StartedAt time.Time   `json:"started_at"`
+	TokenAt   []time.Time `json:"token_at"`
+	EndedAt   time.Time   `json:"ended_at"`
 }
 
 // ScheduledSample names a sample in its required execution order.
@@ -137,7 +151,7 @@ func (c *Campaign) Validate() error {
 }
 
 func validateRun(r *Run) error {
-	ids := []string{r.Identity.BinarySHA256, r.Identity.ModelSHA256, r.Identity.TokenizerSHA256}
+	ids := []string{r.Identity.BinarySHA256, r.Identity.ModelSHA256, r.Identity.TokenizerSHA256, r.Identity.SourceSHA256}
 	for _, sum := range ids {
 		if !validSHA256(sum) {
 			return errors.New("invalid identity hash")
@@ -150,7 +164,7 @@ func validateRun(r *Run) error {
 		return errors.New("incomplete identity")
 	}
 	w := r.Workload
-	if len(w.PromptTokenIDs) == 0 || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" {
+	if len(w.PromptTokenIDs) == 0 || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" {
 		return errors.New("incomplete workload")
 	}
 	for _, p := range w.PromptTokenIDs {
@@ -188,6 +202,21 @@ func validateRun(r *Run) error {
 		}
 		if len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
 			return fmt.Errorf("sample %q: incomplete telemetry", s.ID)
+		}
+		if len(s.Requests) != len(w.PromptTokenIDs) {
+			return fmt.Errorf("sample %q: request timing count differs", s.ID)
+		}
+		for _, request := range s.Requests {
+			if request.StartedAt.Before(s.StartedAt) || request.EndedAt.After(s.EndedAt) || request.EndedAt.Before(request.StartedAt) || len(request.TokenAt) != w.GeneratedTokens {
+				return fmt.Errorf("sample %q: invalid request timing", s.ID)
+			}
+			last := request.StartedAt
+			for _, at := range request.TokenAt {
+				if at.Before(last) || at.After(request.EndedAt) {
+					return fmt.Errorf("sample %q: unordered token timing", s.ID)
+				}
+				last = at
+			}
 		}
 		for _, tokens := range s.GeneratedTokenIDs {
 			if len(tokens) != w.GeneratedTokens {
@@ -270,6 +299,125 @@ func HashJSON(v any) (string, error) {
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// HashFile returns the SHA-256 of a regular file.
+func HashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("hash file: %w", err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("hash file: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// HashPath hashes a regular file, or a directory as sorted relative names,
+// modes, sizes, and file contents. Symlinks and non-regular files are rejected.
+func HashPath(path string) (string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", fmt.Errorf("hash path: %w", err)
+	}
+	if info.Mode().IsRegular() {
+		return HashFile(path)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Stat(path)
+		if err != nil || !target.Mode().IsRegular() {
+			return "", errors.New("hash path: symlink does not resolve to a regular file")
+		}
+		return HashFile(path)
+	}
+	if !info.IsDir() {
+		return "", errors.New("hash path: not a regular file or directory")
+	}
+	var names []string
+	err = filepath.WalkDir(path, func(name string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if name == path {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			info, err := os.Stat(name)
+			if err != nil || !info.Mode().IsRegular() {
+				return fmt.Errorf("hash path: symlink %s does not resolve to a regular file", name)
+			}
+		}
+		if entry.Type().IsRegular() || entry.Type()&os.ModeSymlink != 0 {
+			rel, err := filepath.Rel(path, name)
+			if err != nil {
+				return err
+			}
+			names = append(names, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("hash path: %w", err)
+	}
+	sort.Strings(names)
+	h := sha256.New()
+	for _, name := range names {
+		full := filepath.Join(path, filepath.FromSlash(name))
+		info, err := os.Stat(full)
+		if err != nil {
+			return "", fmt.Errorf("hash path: %w", err)
+		}
+		fmt.Fprintf(h, "%s\x00%d\x00%s\x00", name, info.Size(), strings.TrimSpace(info.Mode().String()))
+		f, err := os.Open(full)
+		if err != nil {
+			return "", fmt.Errorf("hash path: %w", err)
+		}
+		_, copyErr := io.Copy(h, f)
+		closeErr := f.Close()
+		if copyErr != nil {
+			return "", fmt.Errorf("hash path: %w", copyErr)
+		}
+		if closeErr != nil {
+			return "", fmt.Errorf("hash path: %w", closeErr)
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// WriteJSONAtomic writes v only after its complete JSON encoding is durable in
+// a sibling temporary file. It never exposes a partial benchmark receipt.
+func WriteJSONAtomic(path string, v any) error {
+	dir := filepath.Dir(path)
+	f, err := os.CreateTemp(dir, ".inferbench-*")
+	if err != nil {
+		return fmt.Errorf("create receipt: %w", err)
+	}
+	tmp := f.Name()
+	ok := false
+	defer func() {
+		f.Close()
+		if !ok {
+			os.Remove(tmp)
+		}
+	}()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return fmt.Errorf("encode receipt: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync receipt: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close receipt: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("publish receipt: %w", err)
+	}
+	ok = true
+	return nil
 }
 
 func validSHA256(s string) bool {

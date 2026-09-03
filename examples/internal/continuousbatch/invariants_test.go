@@ -3,6 +3,7 @@ package continuousbatch
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,34 @@ type auditBackend struct {
 	started chan string
 	steps   []string
 	gate    chan struct{}
+}
+
+type tokenPromptBackend struct{ got []int32 }
+
+func (b *tokenPromptBackend) Prefill(_ context.Context, state *State) (Token, error) {
+	b.got = append([]int32(nil), state.PromptTokenIDs...)
+	return Token{ID: 9}, nil
+}
+func (*tokenPromptBackend) DecodeBatch(_ context.Context, states []*State) []Result {
+	return make([]Result, len(states))
+}
+func (*tokenPromptBackend) Release(*State) {}
+
+func TestSubmitCopiesExplicitPromptTokens(t *testing.T) {
+	backend := new(tokenPromptBackend)
+	s := newTestScheduler(t, backend, Config{MaxActive: 1, MaxQueue: 1, MaxBatch: 1, TokenBuffer: 2})
+	prompt := []int32{1, 2, 3}
+	response, err := s.Submit(context.Background(), Request{ID: "tokens", PromptTokenIDs: prompt, MaxTokens: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt[0] = 99
+	if _, err := collect(t, response); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(backend.got, []int32{1, 2, 3}) {
+		t.Fatalf("prompt = %v", backend.got)
+	}
 }
 
 func (b *auditBackend) Prefill(ctx context.Context, state *State) (Token, error) {
