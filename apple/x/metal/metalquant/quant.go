@@ -8,13 +8,12 @@ import (
 	"math"
 )
 
-// QuantFormat specifies the sub-byte weight quantization format.
+// QuantFormat identifies a weight quantization format.
 type QuantFormat string
 
 const (
 	FormatQ4_0 QuantFormat = "Q4_0" // 4-bit symmetric with float16 scale per 32 elements
 	FormatQ8_0 QuantFormat = "Q8_0" // 8-bit symmetric with float16 scale per 32 elements
-	FormatAWQ  QuantFormat = "AWQ"  // 4-bit asymmetric with per-group FP16 scale and zero
 )
 
 // BlockQ4_0 represents a 32-element Q4_0 quantized block (18 bytes total).
@@ -43,11 +42,12 @@ const (
 // the high nibble, each biased by 8. len(values) must be a multiple of
 // BlockSize.
 func QuantizeQ4_0(values []float32) ([]byte, error) {
-	if len(values)%BlockSize != 0 {
-		return nil, fmt.Errorf("metalquant: %d values is not a multiple of the %d-element block", len(values), BlockSize)
+	outLen, err := encodedLen(len(values), blockBytesQ4_0)
+	if err != nil {
+		return nil, err
 	}
 
-	out := make([]byte, len(values)/BlockSize*blockBytesQ4_0)
+	out := make([]byte, outLen)
 	for b := 0; b*BlockSize < len(values); b++ {
 		block := values[b*BlockSize : (b+1)*BlockSize]
 		offset := b * blockBytesQ4_0
@@ -55,7 +55,10 @@ func QuantizeQ4_0(values []float32) ([]byte, error) {
 		// The scale is derived from the signed extreme so that it maps onto
 		// the asymmetric [-8, 7] range of a biased nibble.
 		var extreme, amax float32
-		for _, v := range block {
+		for i, v := range block {
+			if !finite(v) {
+				return nil, fmt.Errorf("metalquant: non-finite value at element %d", b*BlockSize+i)
+			}
 			if a := float32(math.Abs(float64(v))); a > amax {
 				amax, extreme = a, v
 			}
@@ -65,6 +68,9 @@ func QuantizeQ4_0(values []float32) ([]byte, error) {
 		// already-dequantized block reproduces these bytes exactly.
 		scaleBits := float32ToFloat16(extreme / -8)
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("metalquant: Q4_0 scale for block %d is not representable", b)
+		}
 		binary.LittleEndian.PutUint16(out[offset:offset+2], scaleBits)
 
 		var inv float32
@@ -95,17 +101,21 @@ func quantNibble(v, inv float32) byte {
 // QuantizeQ8_0 packs values into Q8_0 blocks: per 32 elements, an fp16 scale
 // followed by 32 int8 quants. len(values) must be a multiple of BlockSize.
 func QuantizeQ8_0(values []float32) ([]byte, error) {
-	if len(values)%BlockSize != 0 {
-		return nil, fmt.Errorf("metalquant: %d values is not a multiple of the %d-element block", len(values), BlockSize)
+	outLen, err := encodedLen(len(values), blockBytesQ8_0)
+	if err != nil {
+		return nil, err
 	}
 
-	out := make([]byte, len(values)/BlockSize*blockBytesQ8_0)
+	out := make([]byte, outLen)
 	for b := 0; b*BlockSize < len(values); b++ {
 		block := values[b*BlockSize : (b+1)*BlockSize]
 		offset := b * blockBytesQ8_0
 
 		var amax float32
-		for _, v := range block {
+		for i, v := range block {
+			if !finite(v) {
+				return nil, fmt.Errorf("metalquant: non-finite value at element %d", b*BlockSize+i)
+			}
 			if a := float32(math.Abs(float64(v))); a > amax {
 				amax = a
 			}
@@ -113,6 +123,9 @@ func QuantizeQ8_0(values []float32) ([]byte, error) {
 
 		scaleBits := float32ToFloat16(amax / 127)
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("metalquant: Q8_0 scale for block %d is not representable", b)
+		}
 		binary.LittleEndian.PutUint16(out[offset:offset+2], scaleBits)
 
 		var inv float32
@@ -133,14 +146,15 @@ func QuantizeQ8_0(values []float32) ([]byte, error) {
 	return out, nil
 }
 
-// DequantizeQ4_0 unpacks a slice of Q4_0 blocks into float32 array.
+// DequantizeQ4_0 unpacks Q4_0 blocks into a float32 slice.
 func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
-	if numElements%BlockSize != 0 {
-		return nil, fmt.Errorf("metalquant: %d elements is not a multiple of the %d-element block", numElements, BlockSize)
+	want, err := encodedLen(numElements, blockBytesQ4_0)
+	if err != nil {
+		return nil, err
 	}
-	numBlocks := numElements / 32
-	if len(data) < numBlocks*18 {
-		return nil, fmt.Errorf("metalquant: buffer length %d insufficient for %d Q4_0 blocks", len(data), numBlocks)
+	numBlocks := numElements / BlockSize
+	if len(data) != want {
+		return nil, fmt.Errorf("metalquant: buffer length %d, want exactly %d for %d Q4_0 blocks", len(data), want, numBlocks)
 	}
 
 	out := make([]float32, numElements)
@@ -148,6 +162,9 @@ func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
 		offset := b * 18
 		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("metalquant: non-finite Q4_0 scale in block %d", b)
+		}
 
 		for i := 0; i < 16; i++ {
 			byteVal := data[offset+2+i]
@@ -163,14 +180,15 @@ func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
 	return out, nil
 }
 
-// DequantizeQ8_0 unpacks a slice of Q8_0 blocks into float32 array.
+// DequantizeQ8_0 unpacks Q8_0 blocks into a float32 slice.
 func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
-	if numElements%BlockSize != 0 {
-		return nil, fmt.Errorf("metalquant: %d elements is not a multiple of the %d-element block", numElements, BlockSize)
+	want, err := encodedLen(numElements, blockBytesQ8_0)
+	if err != nil {
+		return nil, err
 	}
-	numBlocks := numElements / 32
-	if len(data) < numBlocks*34 {
-		return nil, fmt.Errorf("metalquant: buffer length %d insufficient for %d Q8_0 blocks", len(data), numBlocks)
+	numBlocks := numElements / BlockSize
+	if len(data) != want {
+		return nil, fmt.Errorf("metalquant: buffer length %d, want exactly %d for %d Q8_0 blocks", len(data), want, numBlocks)
 	}
 
 	out := make([]float32, numElements)
@@ -178,6 +196,9 @@ func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
 		offset := b * 34
 		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
 		scale := float16ToFloat32(scaleBits)
+		if !finite(scale) {
+			return nil, fmt.Errorf("metalquant: non-finite Q8_0 scale in block %d", b)
+		}
 
 		for i := 0; i < 32; i++ {
 			q := int8(data[offset+2+i])
@@ -185,6 +206,24 @@ func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
 		}
 	}
 	return out, nil
+}
+
+func encodedLen(numElements, blockBytes int) (int, error) {
+	if numElements < 0 {
+		return 0, fmt.Errorf("metalquant: negative element count %d", numElements)
+	}
+	if numElements%BlockSize != 0 {
+		return 0, fmt.Errorf("metalquant: %d elements is not a multiple of the %d-element block", numElements, BlockSize)
+	}
+	blocks := numElements / BlockSize
+	if blocks > math.MaxInt/blockBytes {
+		return 0, fmt.Errorf("metalquant: encoded length overflows int")
+	}
+	return blocks * blockBytes, nil
+}
+
+func finite(v float32) bool {
+	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
 }
 
 // float32ToFloat16 converts f to IEEE 754 binary16, rounding to nearest even.
