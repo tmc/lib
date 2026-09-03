@@ -1,3 +1,6 @@
-// Package metalgraphexec provides Metal Indirect Command Buffer (ICB) and compute graph
-// execution caching for single-launch multi-layer transformer dispatch on Apple Silicon GPUs.
+// Package metalgraphexec describes and validates static sequences of compute
+// dispatch metadata.
+//
+// The package does not bind pipelines, allocate Metal indirect command
+// buffers, or execute a graph.
 package metalgraphexec
