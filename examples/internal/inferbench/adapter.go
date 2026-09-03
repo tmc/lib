@@ -14,6 +14,9 @@ type AdapterCapabilities struct {
 	DeviceResidentKV          bool `json:"device_resident_kv"`
 	DispatchCounters          bool `json:"dispatch_counters"`
 	TierByteCounters          bool `json:"tier_byte_counters"`
+	CompileAndWarmupExcluded  bool `json:"compile_and_warmup_excluded"`
+	QualifiedNullControl      bool `json:"qualified_null_control"`
+	RawSampleArtifacts        bool `json:"raw_sample_artifacts"`
 }
 
 // AdapterRefusal is a machine-readable explanation that an arm cannot yet
@@ -41,6 +44,9 @@ func CheckAdapterCapabilities(arm string, c AdapterCapabilities) error {
 		{c.DeviceResidentKV, "device_resident_kv"},
 		{c.DispatchCounters, "dispatch_counters"},
 		{c.TierByteCounters, "tier_byte_counters"},
+		{c.CompileAndWarmupExcluded, "compile_and_warmup_excluded"},
+		{c.QualifiedNullControl, "qualified_null_control"},
+		{c.RawSampleArtifacts, "raw_sample_artifacts"},
 	}
 	for _, check := range checks {
 		if !check.ok {

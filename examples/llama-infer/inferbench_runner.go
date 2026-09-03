@@ -21,25 +21,31 @@ type inferbenchSpec struct {
 	Lease                   string              `json:"lease"`
 	SourcePath              string              `json:"source_path"`
 	TokenizerPath           string              `json:"tokenizer_path"`
+	ConfigPath              string              `json:"config_path"`
 	DeviceEvidencePath      string              `json:"device_evidence_path"`
 	ExpectedBinarySHA256    string              `json:"expected_binary_sha256"`
 	ExpectedModelSHA256     string              `json:"expected_model_sha256"`
 	ExpectedTokenizerSHA256 string              `json:"expected_tokenizer_sha256"`
+	ExpectedConfigSHA256    string              `json:"expected_config_sha256"`
 	ExpectedSourceSHA256    string              `json:"expected_source_sha256"`
 	SampleIDs               []string            `json:"sample_ids"`
 	Workload                inferbench.Workload `json:"workload"`
 }
 
 type deviceEvidence struct {
-	Backend          string    `json:"backend"`
-	DeviceID         string    `json:"device_id"`
-	Hostname         string    `json:"hostname"`
-	CapturedAt       time.Time `json:"captured_at"`
-	Command          []string  `json:"command"`
-	Output           string    `json:"output"`
-	HardwareVerified bool      `json:"hardware_verified"`
-	DeviceResidentKV bool      `json:"device_resident_kv"`
-	CPUFallback      bool      `json:"cpu_fallback"`
+	Backend            string        `json:"backend"`
+	DeviceID           string        `json:"device_id"`
+	Hostname           string        `json:"hostname"`
+	CapturedAt         time.Time     `json:"captured_at"`
+	Command            []string      `json:"command"`
+	Output             string        `json:"output"`
+	HardwareVerified   bool          `json:"hardware_verified"`
+	DeviceResidentKV   bool          `json:"device_resident_kv"`
+	CPUFallback        bool          `json:"cpu_fallback"`
+	NullControlPath    string        `json:"null_control_path"`
+	NullControlSamples int           `json:"null_control_samples"`
+	NullControlP95     time.Duration `json:"null_control_p95_ns"`
+	NullControlLimit   time.Duration `json:"null_control_limit_ns"`
 }
 
 type armReceipt struct {
@@ -49,6 +55,10 @@ type armReceipt struct {
 }
 
 func runInferbench(ctx context.Context, cfg Config, specPath string) error {
+	return runInferbenchWithEngine(ctx, cfg, specPath, getBenchmarkEngine)
+}
+
+func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, newEngine func(Config) (*ModelEngine, error)) error {
 	var spec inferbenchSpec
 	if err := decodeStrictJSON(specPath, &spec); err != nil {
 		return err
@@ -63,6 +73,14 @@ func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 	gotTokenizer, err := filepath.EvalSymlinks(spec.TokenizerPath)
 	if err != nil || gotTokenizer != wantTokenizer {
 		return errors.New("inferbench: tokenizer path is not the model tokenizer")
+	}
+	wantConfig, err := filepath.EvalSymlinks(filepath.Join(cfg.ModelPath, "config.json"))
+	if err != nil {
+		return fmt.Errorf("inferbench: resolve model config: %w", err)
+	}
+	gotConfig, err := filepath.EvalSymlinks(spec.ConfigPath)
+	if err != nil || gotConfig != wantConfig {
+		return errors.New("inferbench: config path is not the model config")
 	}
 	if spec.Output == "" || spec.Lease == "" || len(spec.SampleIDs) == 0 {
 		return errors.New("inferbench: incomplete output, lease, or sample ids")
@@ -94,7 +112,7 @@ func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 	if err != nil {
 		return err
 	}
-	eng, err := getBenchmarkEngine(cfg)
+	eng, err := newEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("inferbench: compile engine: %w", err)
 	}
@@ -124,6 +142,7 @@ func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 			return err
 		}
 	}
+	evidence.WarmupRunsCompleted = spec.Workload.WarmupRuns
 	run := inferbench.Run{Arm: spec.Arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
 	for _, id := range spec.SampleIDs {
 		resetBenchmarkCaches(eng)
@@ -147,6 +166,7 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 		{"binary", exe, spec.ExpectedBinarySHA256},
 		{"model", cfg.ModelPath, spec.ExpectedModelSHA256},
 		{"tokenizer", spec.TokenizerPath, spec.ExpectedTokenizerSHA256},
+		{"config", spec.ConfigPath, spec.ExpectedConfigSHA256},
 		{"source", spec.SourcePath, spec.ExpectedSourceSHA256},
 	}
 	for _, item := range paths {
@@ -168,15 +188,19 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 	}
 	hostname, hostErr := os.Hostname()
 	age := time.Since(proof.CapturedAt)
-	if proof.Backend != benchmarkBackend() || proof.DeviceID == "" || hostErr != nil || proof.Hostname != hostname || proof.CapturedAt.IsZero() || age < -time.Minute || age > 15*time.Minute || len(proof.Command) == 0 || proof.Output == "" || !proof.HardwareVerified || !proof.DeviceResidentKV || proof.CPUFallback {
+	if proof.Backend != benchmarkBackend() || proof.DeviceID == "" || hostErr != nil || proof.Hostname != hostname || proof.CapturedAt.IsZero() || age < -time.Minute || age > 15*time.Minute || len(proof.Command) == 0 || proof.Output == "" || !proof.HardwareVerified || !proof.DeviceResidentKV || proof.CPUFallback || proof.NullControlSamples < 20 || proof.NullControlP95 <= 0 || proof.NullControlLimit <= 0 || proof.NullControlP95 > proof.NullControlLimit {
 		return inferbench.Identity{}, inferbench.Evidence{}, errors.New("inferbench: hardware qualification refused")
+	}
+	nullHash, err := inferbench.HashFile(proof.NullControlPath)
+	if err != nil {
+		return inferbench.Identity{}, inferbench.Evidence{}, fmt.Errorf("inferbench: null control: %w", err)
 	}
 	proofHash, err := inferbench.HashFile(spec.DeviceEvidencePath)
 	if err != nil {
 		return inferbench.Identity{}, inferbench.Evidence{}, err
 	}
-	identity := inferbench.Identity{BinarySHA256: computed["binary"], ModelSHA256: computed["model"], TokenizerSHA256: computed["tokenizer"], SourceSHA256: computed["source"], Backend: proof.Backend, DeviceID: proof.DeviceID}
-	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash}
+	identity := inferbench.Identity{BinarySHA256: computed["binary"], ModelSHA256: computed["model"], TokenizerSHA256: computed["tokenizer"], ConfigSHA256: computed["config"], SourceSHA256: computed["source"], Backend: proof.Backend, DeviceID: proof.DeviceID}
+	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash, NullControlSHA256: nullHash, NullControlSamples: proof.NullControlSamples, NullControlP95: proof.NullControlP95, NullControlLimit: proof.NullControlLimit, PersistentRuntime: true, CompilationExcluded: true}
 	return identity, evidence, nil
 }
 

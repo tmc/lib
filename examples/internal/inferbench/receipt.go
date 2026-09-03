@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // Campaign contains every sample in one matched benchmark campaign.
 type Campaign struct {
@@ -41,6 +41,7 @@ type Identity struct {
 	BinarySHA256    string `json:"binary_sha256"`
 	ModelSHA256     string `json:"model_sha256"`
 	TokenizerSHA256 string `json:"tokenizer_sha256"`
+	ConfigSHA256    string `json:"config_sha256"`
 	SourceSHA256    string `json:"source_sha256"`
 	Backend         string `json:"backend"`
 	Precision       string `json:"precision"`
@@ -60,14 +61,21 @@ type Workload struct {
 
 // Evidence records conditions needed to interpret timing as GPU execution.
 type Evidence struct {
-	HardwareVerified     bool   `json:"hardware_verified"`
-	DeviceResidentKV     bool   `json:"device_resident_kv"`
-	CPUFallback          bool   `json:"cpu_fallback"`
-	TimingBoundary       string `json:"timing_boundary"`
-	DeviceSynchronized   bool   `json:"device_synchronized"`
-	IncludesQueueing     bool   `json:"includes_queueing"`
-	RunnerLease          string `json:"runner_lease"`
-	DeviceEvidenceSHA256 string `json:"device_evidence_sha256"`
+	HardwareVerified     bool          `json:"hardware_verified"`
+	DeviceResidentKV     bool          `json:"device_resident_kv"`
+	CPUFallback          bool          `json:"cpu_fallback"`
+	TimingBoundary       string        `json:"timing_boundary"`
+	DeviceSynchronized   bool          `json:"device_synchronized"`
+	IncludesQueueing     bool          `json:"includes_queueing"`
+	RunnerLease          string        `json:"runner_lease"`
+	DeviceEvidenceSHA256 string        `json:"device_evidence_sha256"`
+	NullControlSHA256    string        `json:"null_control_sha256"`
+	NullControlSamples   int           `json:"null_control_samples"`
+	NullControlP95       time.Duration `json:"null_control_p95_ns"`
+	NullControlLimit     time.Duration `json:"null_control_limit_ns"`
+	PersistentRuntime    bool          `json:"persistent_runtime"`
+	CompilationExcluded  bool          `json:"compilation_excluded"`
+	WarmupRunsCompleted  int           `json:"warmup_runs_completed"`
 }
 
 // Sample contains one completed, synchronized serving observation.
@@ -119,6 +127,7 @@ func (c *Campaign) Validate() error {
 	var identity Identity
 	var outputs map[string]string
 	var runnerLease string
+	var nullControlSHA256 string
 	for i := range c.Runs {
 		r := &c.Runs[i]
 		if r.Arm == "" || seenArms[r.Arm] {
@@ -129,14 +138,18 @@ func (c *Campaign) Validate() error {
 			workload = r.Workload
 			identity = r.Identity
 			runnerLease = r.Evidence.RunnerLease
+			nullControlSHA256 = r.Evidence.NullControlSHA256
 		} else if !reflect.DeepEqual(workload, r.Workload) {
 			return fmt.Errorf("arm %q: unequal workload", r.Arm)
 		}
-		if i > 0 && (r.Identity.ModelSHA256 != identity.ModelSHA256 || r.Identity.TokenizerSHA256 != identity.TokenizerSHA256 || r.Identity.Precision != identity.Precision) {
-			return fmt.Errorf("arm %q: unequal model, tokenizer, or precision", r.Arm)
+		if i > 0 && (r.Identity.ModelSHA256 != identity.ModelSHA256 || r.Identity.TokenizerSHA256 != identity.TokenizerSHA256 || r.Identity.ConfigSHA256 != identity.ConfigSHA256 || r.Identity.Precision != identity.Precision) {
+			return fmt.Errorf("arm %q: unequal model, tokenizer, config, or precision", r.Arm)
 		}
 		if i > 0 && r.Evidence.RunnerLease != runnerLease {
 			return fmt.Errorf("arm %q: unequal runner lease", r.Arm)
+		}
+		if i > 0 && r.Evidence.NullControlSHA256 != nullControlSHA256 {
+			return fmt.Errorf("arm %q: unequal null control", r.Arm)
 		}
 		if err := validateRun(r); err != nil {
 			return fmt.Errorf("arm %q: %w", r.Arm, err)
@@ -151,7 +164,7 @@ func (c *Campaign) Validate() error {
 }
 
 func validateRun(r *Run) error {
-	ids := []string{r.Identity.BinarySHA256, r.Identity.ModelSHA256, r.Identity.TokenizerSHA256, r.Identity.SourceSHA256}
+	ids := []string{r.Identity.BinarySHA256, r.Identity.ModelSHA256, r.Identity.TokenizerSHA256, r.Identity.ConfigSHA256, r.Identity.SourceSHA256}
 	for _, sum := range ids {
 		if !validSHA256(sum) {
 			return errors.New("invalid identity hash")
@@ -178,6 +191,12 @@ func validateRun(r *Run) error {
 	}
 	if e.TimingBoundary != "submit-to-final-device-synchronize" || !e.DeviceSynchronized || !e.IncludesQueueing || e.RunnerLease == "" || !validSHA256(e.DeviceEvidenceSHA256) {
 		return errors.New("unsafe timing boundary")
+	}
+	if !e.PersistentRuntime || !e.CompilationExcluded || e.WarmupRunsCompleted != w.WarmupRuns {
+		return errors.New("compile or warmup boundary not proven")
+	}
+	if !validSHA256(e.NullControlSHA256) || e.NullControlSamples < 20 || e.NullControlP95 <= 0 || e.NullControlLimit <= 0 || e.NullControlP95 > e.NullControlLimit {
+		return errors.New("host qualification not proven")
 	}
 	if len(r.Samples) < 20 {
 		return fmt.Errorf("only %d samples", len(r.Samples))

@@ -16,7 +16,7 @@ func validCampaign() Campaign {
 	var runs []Run
 	now := time.Unix(1, 0)
 	for _, arm := range []string{"a", "b"} {
-		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h}}
+		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2}}
 		for i := 0; i < 20; i++ {
 			r.Samples = append(r.Samples, Sample{ID: "sample-" + string(rune('A'+i)), TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 100, Dispatches: 1, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
 		}
@@ -61,6 +61,13 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"non-finite throughput", func(c *Campaign) { c.Runs[0].Samples[0].TokensPerSecond = math.NaN() }},
 		{"missing tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierReadBytes = map[string]uint64{} }},
 		{"different model", func(c *Campaign) { c.Runs[1].Identity.ModelSHA256 = strings.Repeat("b", 64) }},
+		{"different config", func(c *Campaign) { c.Runs[1].Identity.ConfigSHA256 = strings.Repeat("b", 64) }},
+		{"missing null control", func(c *Campaign) { c.Runs[0].Evidence.NullControlSHA256 = "" }},
+		{"different null control", func(c *Campaign) { c.Runs[1].Evidence.NullControlSHA256 = strings.Repeat("b", 64) }},
+		{"no persistent runtime", func(c *Campaign) { c.Runs[0].Evidence.PersistentRuntime = false }},
+		{"compile included", func(c *Campaign) { c.Runs[0].Evidence.CompilationExcluded = false }},
+		{"warmup incomplete", func(c *Campaign) { c.Runs[0].Evidence.WarmupRunsCompleted-- }},
+		{"noisy host", func(c *Campaign) { c.Runs[0].Evidence.NullControlP95 = 3 * time.Millisecond }},
 		{"different output", func(c *Campaign) { c.Runs[1].Samples[0].GeneratedTokenIDs[0][0]++ }},
 		{"reduced work", func(c *Campaign) {
 			c.Runs[0].Samples[0].GeneratedTokenIDs[0] = c.Runs[0].Samples[0].GeneratedTokenIDs[0][:2]

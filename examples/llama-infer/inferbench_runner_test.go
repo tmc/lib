@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,10 +35,14 @@ func TestPrefillTokensPreservesExplicitIDs(t *testing.T) {
 func TestBenchmarkIdentityRejectsSkippedHardware(t *testing.T) {
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model")
-	tokenizer := filepath.Join(dir, "tokenizer")
+	if err := os.Mkdir(model, 0700); err != nil {
+		t.Fatal(err)
+	}
+	tokenizer := filepath.Join(model, "tokenizer.json")
+	config := filepath.Join(model, "config.json")
 	source := filepath.Join(dir, "source")
 	proof := filepath.Join(dir, "proof.json")
-	for path, data := range map[string]string{model: "model", tokenizer: "tokenizer", source: "source"} {
+	for path, data := range map[string]string{tokenizer: "tokenizer", config: "config", source: "source"} {
 		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -47,7 +52,7 @@ func TestBenchmarkIdentityRejectsSkippedHardware(t *testing.T) {
 		t.Fatal(err)
 	}
 	exe, _ := os.Executable()
-	spec := inferbenchSpec{TokenizerPath: tokenizer, SourcePath: source, DeviceEvidencePath: proof}
+	spec := inferbenchSpec{TokenizerPath: tokenizer, ConfigPath: config, SourcePath: source, DeviceEvidencePath: proof}
 	var err error
 	spec.ExpectedBinarySHA256, err = inferbench.HashPath(exe)
 	if err != nil {
@@ -55,9 +60,60 @@ func TestBenchmarkIdentityRejectsSkippedHardware(t *testing.T) {
 	}
 	spec.ExpectedModelSHA256, _ = inferbench.HashPath(model)
 	spec.ExpectedTokenizerSHA256, _ = inferbench.HashPath(tokenizer)
+	spec.ExpectedConfigSHA256, _ = inferbench.HashPath(config)
 	spec.ExpectedSourceSHA256, _ = inferbench.HashPath(source)
 	_, _, err = benchmarkIdentity(Config{ModelPath: model}, spec)
 	if err == nil || !strings.Contains(err.Error(), "hardware qualification refused") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestUnqualifiedHostLaunchesZeroTimedArms(t *testing.T) {
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model")
+	if err := os.Mkdir(model, 0700); err != nil {
+		t.Fatal(err)
+	}
+	tokenizer := filepath.Join(model, "tokenizer.json")
+	config := filepath.Join(model, "config.json")
+	source := filepath.Join(dir, "source")
+	nullControl := filepath.Join(dir, "null-control.json")
+	for path, data := range map[string]string{tokenizer: "tokenizer", config: "config", source: "source", nullControl: "[]"} {
+		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proof := filepath.Join(dir, "proof.json")
+	if err := inferbench.WriteJSONAtomic(proof, deviceEvidence{Backend: benchmarkBackend(), DeviceID: "gpu0", Hostname: hostname, CapturedAt: time.Now(), Command: []string{"null-control"}, Output: "noisy", HardwareVerified: true, DeviceResidentKV: true, NullControlPath: nullControl, NullControlSamples: 20, NullControlP95: 3 * time.Millisecond, NullControlLimit: time.Millisecond}); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := inferbenchSpec{Arm: "llama-infer", Output: filepath.Join(dir, "arm.json"), Lease: filepath.Join(dir, "runner.lock"), SourcePath: source, TokenizerPath: tokenizer, ConfigPath: config, DeviceEvidencePath: proof, SampleIDs: []string{"sample-1"}, Workload: inferbench.Workload{PromptTokenIDs: [][]int32{{1}}, ContextTokens: 1, GeneratedTokens: 2, Concurrency: 1, WarmupRuns: 1, Sampler: "greedy-argmax", CacheState: "cold"}}
+	spec.ExpectedBinarySHA256, _ = inferbench.HashPath(exe)
+	spec.ExpectedModelSHA256, _ = inferbench.HashPath(model)
+	spec.ExpectedTokenizerSHA256, _ = inferbench.HashPath(tokenizer)
+	spec.ExpectedConfigSHA256, _ = inferbench.HashPath(config)
+	spec.ExpectedSourceSHA256, _ = inferbench.HashPath(source)
+	specPath := filepath.Join(dir, "spec.json")
+	if err := inferbench.WriteJSONAtomic(specPath, spec); err != nil {
+		t.Fatal(err)
+	}
+	launches := 0
+	err = runInferbenchWithEngine(t.Context(), Config{ModelPath: model}, specPath, func(Config) (*ModelEngine, error) {
+		launches++
+		return nil, errors.New("engine launched")
+	})
+	if err == nil || !strings.Contains(err.Error(), "hardware qualification refused") {
+		t.Fatalf("error = %v", err)
+	}
+	if launches != 0 {
+		t.Fatalf("timed arm launches = %d, want 0", launches)
 	}
 }

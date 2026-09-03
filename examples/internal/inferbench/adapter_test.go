@@ -16,6 +16,9 @@ func TestCheckAdapterCapabilities(t *testing.T) {
 		DeviceResidentKV:          true,
 		DispatchCounters:          true,
 		TierByteCounters:          true,
+		CompileAndWarmupExcluded:  true,
+		QualifiedNullControl:      true,
+		RawSampleArtifacts:        true,
 	}
 	if err := CheckAdapterCapabilities("arm", complete); err != nil {
 		t.Fatal(err)
