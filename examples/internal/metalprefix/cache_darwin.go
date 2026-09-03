@@ -63,9 +63,10 @@ type Config struct {
 // Stats reports physical allocation, including undiscoverable blocks pinned
 // by live leases.
 type Stats struct {
-	Entries int
-	Blocks  int
-	Bytes   int64
+	Entries, Blocks int
+	Bytes           int64
+	Hits, Misses    int64
+	SavedTokens     int64
 }
 
 // Identity identifies one immutable layer block allocation.
@@ -117,12 +118,13 @@ type entry struct {
 type Cache struct {
 	mu sync.Mutex
 
-	cfg     Config
-	store   *kvcache.Store
-	entries map[string]*entry
-	blocks  map[[2]uint64]*block
-	bytes   int64
-	closed  bool
+	cfg                 Config
+	store               *kvcache.Store
+	entries             map[string]*entry
+	blocks              map[[2]uint64]*block
+	bytes               int64
+	hits, misses, saved int64
+	closed              bool
 }
 
 // New returns an empty bounded cache.
@@ -253,6 +255,117 @@ func (c *Cache) Put(ctx context.Context, tokens []int32, current int32, k, v [][
 	return nil
 }
 
+// PutBuffers publishes a prefix by copying directly between Metal buffers.
+// sourceOffset is measured in float32 values and identifies token zero in
+// every source layer. The source buffers remain the caller's responsibility
+// until PutBuffers returns.
+func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k, v []mempool.Slice[float32], sourceOffset int) error {
+	if ctx == nil || len(tokens) == 0 || len(k) != c.cfg.Layers || len(v) != c.cfg.Layers || sourceOffset < 0 {
+		return errors.New("metalprefix: invalid buffer prefix")
+	}
+	want := sourceOffset + len(tokens)*c.valuesPerToken()
+	for layer := range k {
+		if k[layer].Len() < want || v[layer].Len() < want {
+			return fmt.Errorf("metalprefix: layer %d source buffer too small", layer)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return kvcache.ErrClosed
+	}
+	key := tokenKey(tokens)
+	var base *entry
+	baseTokens := 0
+	for otherKey, candidate := range c.entries {
+		if otherKey == key || len(candidate.tokens) >= len(tokens) {
+			continue
+		}
+		if commonPrefix(candidate.tokens, tokens) == len(candidate.tokens) {
+			n := len(candidate.tokens) / c.cfg.BlockTokens * c.cfg.BlockTokens
+			if n > baseTokens {
+				base, baseTokens = candidate, n
+			}
+		}
+	}
+
+	refs := make([]blockRef, 0, c.cfg.Layers*((len(tokens)+c.cfg.BlockTokens-1)/c.cfg.BlockTokens))
+	rollback := func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			c.dropRefLocked(refs[i])
+		}
+	}
+	if base != nil {
+		for _, ref := range base.blocks {
+			if ref.b.end > baseTokens {
+				continue
+			}
+			shared, err := c.store.Share(ref.lease)
+			if err != nil {
+				rollback()
+				return fmt.Errorf("metalprefix: share prefix block: %w", err)
+			}
+			ref.b.refs++
+			refs = append(refs, blockRef{b: ref.b, lease: shared})
+		}
+	}
+
+	newBytes := int64(0)
+	for start := baseTokens; start < len(tokens); start += c.cfg.BlockTokens {
+		end := min(start+c.cfg.BlockTokens, len(tokens))
+		newBytes += int64(2*c.cfg.Layers*(end-start)*c.valuesPerToken()) * 4
+	}
+	newEntry := c.entries[key] == nil
+	for ((newEntry && len(c.entries) >= c.cfg.MaxEntries) || c.bytes+newBytes > c.cfg.MaxBytes) && len(c.entries) != 0 {
+		if !c.evictOldestLocked(key) {
+			break
+		}
+	}
+	if c.bytes+newBytes > c.cfg.MaxBytes || (newEntry && len(c.entries) >= c.cfg.MaxEntries) {
+		rollback()
+		return kvcache.ErrExhausted
+	}
+
+	cb := c.cfg.Device.Queue().CommandBuffer()
+	blit := cb.BlitCommandEncoder()
+	for start := baseTokens; start < len(tokens); start += c.cfg.BlockTokens {
+		end := min(start+c.cfg.BlockTokens, len(tokens))
+		values := (end - start) * c.valuesPerToken()
+		sourceByteOffset := uint(sourceOffset+start*c.valuesPerToken()) * 4
+		for layer := 0; layer < c.cfg.Layers; layer++ {
+			ref, err := c.allocEmptyBlockLocked(tokens, start, end, layer)
+			if err != nil {
+				blit.EndEncoding()
+				rollback()
+				return err
+			}
+			refs = append(refs, ref)
+			blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(k[layer].Buffer(), k[layer].Offset()+sourceByteOffset, ref.b.k.Buffer(), ref.b.k.Offset(), uint(values*4))
+			blit.CopyFromBufferSourceOffsetToBufferDestinationOffsetSize(v[layer].Buffer(), v[layer].Offset()+sourceByteOffset, ref.b.v.Buffer(), ref.b.v.Offset(), uint(values*4))
+		}
+	}
+	blit.EndEncoding()
+	if err := ctx.Err(); err != nil {
+		rollback()
+		return err
+	}
+	cb.Commit()
+	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+		rollback()
+		return fmt.Errorf("metalprefix: copy prefix buffers: %w", err)
+	}
+	if old := c.entries[key]; old != nil {
+		delete(c.entries, key)
+		c.dropEntryLocked(old)
+	}
+	c.entries[key] = &entry{tokens: append([]int32(nil), tokens...), current: current, blocks: refs, lastUsed: time.Now()}
+	return nil
+}
+
 func commonPrefix(a, b []int32) int {
 	n := min(len(a), len(b))
 	for i := 0; i < n; i++ {
@@ -264,15 +377,26 @@ func commonPrefix(a, b []int32) int {
 }
 
 func (c *Cache) allocBlockLocked(tokens []int32, start, end, layer int, k, v []float32) (blockRef, error) {
-	bytes := int64(len(k)+len(v)) * 4
+	ref, err := c.allocEmptyBlockLocked(tokens, start, end, layer)
+	if err != nil {
+		return blockRef{}, err
+	}
+	copy(ref.b.k.HostSlice(), k)
+	copy(ref.b.v.HostSlice(), v)
+	return ref, nil
+}
+
+func (c *Cache) allocEmptyBlockLocked(tokens []int32, start, end, layer int) (blockRef, error) {
+	values := (end - start) * c.valuesPerToken()
+	bytes := int64(2*values) * 4
 	if c.bytes+bytes > c.cfg.MaxBytes {
 		return blockRef{}, kvcache.ErrExhausted
 	}
-	ks, err := mempool.AllocFromSlice(c.cfg.Device, k)
+	ks, err := mempool.Alloc[float32](c.cfg.Device, values)
 	if err != nil {
 		return blockRef{}, fmt.Errorf("metalprefix: allocate K block: %w", err)
 	}
-	vs, err := mempool.AllocFromSlice(c.cfg.Device, v)
+	vs, err := mempool.Alloc[float32](c.cfg.Device, values)
 	if err != nil {
 		ks.Free()
 		return blockRef{}, fmt.Errorf("metalprefix: allocate V block: %w", err)
@@ -319,8 +443,34 @@ func (c *Cache) Acquire(tokens []int32) (*Lease, bool, error) {
 		}
 	}
 	if found == nil {
+		c.misses++
 		return nil, false, nil
 	}
+	lease, err := c.acquireEntryLocked(found)
+	if err != nil {
+		return nil, false, err
+	}
+	c.hits++
+	c.saved += int64(len(found.tokens))
+	return lease, true, nil
+}
+
+// AcquireExact acquires tokens without recording a cache lookup. It is used by
+// a producer to retain the entry it just published.
+func (c *Cache) AcquireExact(tokens []int32) (*Lease, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed {
+		return nil, kvcache.ErrClosed
+	}
+	found := c.entries[tokenKey(tokens)]
+	if found == nil {
+		return nil, kvcache.ErrStale
+	}
+	return c.acquireEntryLocked(found)
+}
+
+func (c *Cache) acquireEntryLocked(found *entry) (*Lease, error) {
 	refs := make([]blockRef, 0, len(found.blocks))
 	for _, ref := range found.blocks {
 		shared, err := c.store.Share(ref.lease)
@@ -328,13 +478,13 @@ func (c *Cache) Acquire(tokens []int32) (*Lease, bool, error) {
 			for i := len(refs) - 1; i >= 0; i-- {
 				c.dropRefLocked(refs[i])
 			}
-			return nil, false, fmt.Errorf("metalprefix: acquire prefix: %w", err)
+			return nil, fmt.Errorf("metalprefix: acquire prefix: %w", err)
 		}
 		ref.b.refs++
 		refs = append(refs, blockRef{b: ref.b, lease: shared})
 	}
 	found.lastUsed = time.Now()
-	return &Lease{cache: c, tokens: len(found.tokens), current: found.current, refs: refs}, true, nil
+	return &Lease{cache: c, tokens: len(found.tokens), current: found.current, refs: refs}, nil
 }
 
 // Tokens returns the matched token count.
@@ -522,7 +672,7 @@ func (c *Cache) evictOldestLocked(except string) bool {
 func (c *Cache) Stats() Stats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return Stats{Entries: len(c.entries), Blocks: len(c.blocks), Bytes: c.bytes}
+	return Stats{Entries: len(c.entries), Blocks: len(c.blocks), Bytes: c.bytes, Hits: c.hits, Misses: c.misses, SavedTokens: c.saved}
 }
 
 // Close removes all entries from lookup. It returns kvcache.ErrBusy while a

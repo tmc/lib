@@ -272,9 +272,9 @@ func TestScheduledSegmentedPrefillRestores127And128Tokens(t *testing.T) {
 		}
 		adapter.Release(&state)
 	}
-	metrics := eng.prefixes.metrics()
-	if metrics.Hits < 2 || metrics.SavedTokens < 255 {
-		t.Fatalf("prefix metrics=%+v, want 127 and 128 token restores", metrics)
+	metrics := adapter.prefixes.Stats()
+	if metrics.Hits < 2 || metrics.SavedTokens < 254 {
+		t.Fatalf("prefix metrics=%+v, want two 127-token block hits", metrics)
 	}
 }
 
@@ -351,6 +351,147 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 	}
 }
 
+func TestHTTPProductionMetalPrefixMixedWidths(t *testing.T) {
+	for _, width := range []int{1, 2, 4} {
+		t.Run(fmt.Sprintf("B%d", width), func(t *testing.T) {
+			cfg := DefaultTinyLlamaConfig()
+			eng, err := GetOrCompileEngine(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			srv := NewTelemetryServer(eng, cfg)
+			defer srv.continuous.Close()
+			defer srv.continuousEngine.Close()
+			const common = "leased-prefix:"
+			primeHTTPPrompt(t, srv, common)
+			before := srv.continuousEngine.prefixes.Stats()
+			prompts := make([]string, width)
+			want := make([][]int32, width)
+			got := make([][]int32, width)
+			start := make(chan struct{})
+			errs := make(chan error, width)
+			var wg sync.WaitGroup
+			for i := range width {
+				prompts[i] = fmt.Sprintf("%s%c", common, 'a'+i)
+				want[i] = cpuReceipt(t, eng, cfg, prompts[i], 3)
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					<-start
+					body, _ := json.Marshal(ChatCompletionRequest{Prompt: prompts[i], MaxTokens: 3})
+					rec := httptest.NewRecorder()
+					srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)))
+					if rec.Code != http.StatusOK {
+						errs <- &httpError{code: rec.Code, body: rec.Body.String()}
+						return
+					}
+					var response ChatCompletionResponse
+					if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+						errs <- err
+						return
+					}
+					got[i] = response.TokenIDs
+				}(i)
+			}
+			close(start)
+			wg.Wait()
+			close(errs)
+			for err := range errs {
+				t.Fatal(err)
+			}
+			for i := range width {
+				if !reflect.DeepEqual(got[i], want[i]) {
+					t.Fatalf("request %d tokens=%v, want %v", i, got[i], want[i])
+				}
+			}
+			after := srv.continuousEngine.prefixes.Stats()
+			if after.Hits-before.Hits < int64(width) || after.Bytes != before.Bytes || after.Blocks != before.Blocks ||
+				after.WorkspaceBytes != before.WorkspaceBytes || after.DescriptorAddress != before.DescriptorAddress || after.RowAddress != before.RowAddress {
+				t.Fatalf("prefix stats before=%+v after=%+v", before, after)
+			}
+			found := width == 1
+			for _, observation := range srv.continuousEngine.PrefillObservations() {
+				if observation.Batch == width {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("B=%d did not reach a shared leased-prefix wave: %+v", width, srv.continuousEngine.PrefillObservations())
+			}
+			t.Logf("width=%d prefix=%+v prefills=%+v", width, after, srv.continuousEngine.PrefillObservations())
+		})
+	}
+}
+
+func TestScheduledMetalPrefixPartitionsHitAndMiss(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+
+	prime := continuousbatch.State{ID: "prime", PromptTokenIDs: []int32{3, 4, 5}}
+	if _, err := adapter.Prefill(t.Context(), &prime); err != nil {
+		t.Fatal(err)
+	}
+	adapter.Release(&prime)
+	beforeObservations := len(adapter.PrefillObservations())
+	beforeStats := adapter.prefixes.Stats()
+
+	states := []continuousbatch.State{
+		{ID: "hit", PromptTokenIDs: []int32{3, 4, 5, 6}},
+		{ID: "miss", PromptTokenIDs: []int32{100, 101, 102, 103, 104}},
+	}
+	want := make([]int32, len(states))
+	inputs := make([]continuousbatch.PrefillRequest, len(states))
+	for i := range states {
+		sequence, err := eng.NewSequenceKV(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want[i], err = GPUBatchedPrefillPassKV(eng, cfg, sequence, states[i].PromptTokenIDs, 0)
+		sequence.Free()
+		if err != nil {
+			t.Fatal(err)
+		}
+		inputs[i] = continuousbatch.PrefillRequest{Context: t.Context(), State: &states[i]}
+	}
+	results := adapter.PrefillBatch(inputs)
+	for i := range results {
+		if results[i].Err != nil || results[i].Token.ID != want[i] {
+			t.Fatalf("row %d result=%+v want token %d", i, results[i], want[i])
+		}
+		adapter.Release(&states[i])
+	}
+
+	observations := adapter.PrefillObservations()[beforeObservations:]
+	wantLeased := 1 + 9*cfg.NumLayers + 3
+	wantSegmented := 2 + 9*cfg.NumLayers + 3
+	if len(observations) != 2 || observations[0] != (fullBatchObservation{Batch: 1, Dispatches: wantLeased}) || observations[1] != (fullBatchObservation{Batch: 1, Dispatches: wantSegmented}) {
+		t.Fatalf("mixed observations=%+v, want one leased %d-dispatch wave and one segmented %d-dispatch wave", observations, wantLeased, wantSegmented)
+	}
+	afterStats := adapter.prefixes.Stats()
+	if afterStats.Hits-beforeStats.Hits != 1 || afterStats.Misses-beforeStats.Misses != 1 {
+		t.Fatalf("mixed prefix stats before=%+v after=%+v", beforeStats, afterStats)
+	}
+	t.Logf("observations=%+v prefix_before=%+v prefix_after=%+v", observations, beforeStats, afterStats)
+}
+
+func primeHTTPPrompt(t *testing.T, srv *TelemetryServer, prompt string) {
+	t.Helper()
+	body, _ := json.Marshal(ChatCompletionRequest{Prompt: prompt, MaxTokens: 1})
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prime prefix: %s", rec.Body.String())
+	}
+}
+
 func TestScheduledPrefixSnapshotRowLease(t *testing.T) {
 	cfg := DefaultTinyLlamaConfig()
 	eng, err := GetOrCompileEngine(cfg)
@@ -388,10 +529,10 @@ func TestScheduledPrefixSnapshotRowLease(t *testing.T) {
 	if secondToken.ID != firstToken.ID {
 		t.Fatalf("cached token=%d, want %d", secondToken.ID, firstToken.ID)
 	}
-	if got := adapter.cache.K[0].HostSlice()[offset]; got != want {
-		t.Fatalf("cached row mutation leaked: got %g, want %g", got, want)
+	if got := adapter.cache.K[0].HostSlice()[offset]; got != want+1000 {
+		t.Fatalf("dense row was restored from prefix blocks: got %g, want retained mutation %g", got, want+1000)
 	}
-	metrics := eng.prefixes.metrics()
+	metrics := adapter.prefixes.Stats()
 	if metrics.Hits != 1 || metrics.Entries != 1 || metrics.Bytes <= 0 || metrics.SavedTokens <= 0 {
 		t.Fatalf("prefix metrics=%+v", metrics)
 	}
@@ -425,15 +566,16 @@ func TestScheduledPrefixCacheEvictionIsBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer adapter.Close()
-	for _, prompt := range []string{"first prompt", "second distinct prompt"} {
+	for i := 0; i < 9; i++ {
+		prompt := fmt.Sprintf("distinct prompt %d", i)
 		state := &continuousbatch.State{Prompt: prompt}
 		if _, err := adapter.Prefill(t.Context(), state); err != nil {
 			t.Fatal(err)
 		}
 		adapter.Release(state)
 	}
-	metrics := eng.prefixes.metrics()
-	if metrics.Entries != 1 || metrics.Bytes <= 0 || metrics.Bytes > 64<<20 || metrics.Misses != 2 {
+	metrics := adapter.prefixes.Stats()
+	if metrics.Entries != 8 || metrics.Bytes <= 0 || metrics.Bytes > 64<<20 || metrics.Misses != 9 {
 		t.Fatalf("bounded prefix metrics=%+v", metrics)
 	}
 }

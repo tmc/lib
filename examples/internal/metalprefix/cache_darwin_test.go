@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/apple/x/metal"
+	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/lm/kvcache"
 )
 
@@ -76,6 +77,54 @@ func TestCachePartialBlockRoundTrip(t *testing.T) {
 	for _, id := range l.Blocks() {
 		if id.ID == 0 || id.Generation == 0 || id.Start < 0 || id.End <= id.Start || id.Layer < 0 {
 			t.Fatalf("invalid block identity: %+v", id)
+		}
+	}
+}
+
+func TestCachePutBuffersRoundTrip(t *testing.T) {
+	c := testCache(t, 4096, 4)
+	tokens := []int32{1, 2, 3}
+	wantK, wantV := kv(len(tokens), 7)
+	k := make([]mempool.Slice[float32], 2)
+	v := make([]mempool.Slice[float32], 2)
+	for layer := range k {
+		var err error
+		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantK[layer]...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantV[layer]...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer k[layer].Free()
+		defer v[layer].Free()
+	}
+	if err := c.PutBuffers(t.Context(), tokens, 9, k, v, 2); err != nil {
+		t.Fatal(err)
+	}
+	for layer := range k {
+		clear(k[layer].HostSlice())
+		clear(v[layer].HostSlice())
+	}
+	lease, ok, err := c.Acquire(tokens)
+	if err != nil || !ok {
+		t.Fatalf("Acquire = %v, %v", ok, err)
+	}
+	defer lease.Release()
+	gotK, gotV := kv(len(tokens), 0)
+	for layer := range gotK {
+		clear(gotK[layer])
+		clear(gotV[layer])
+	}
+	if err := lease.Restore(gotK, gotV, len(tokens)); err != nil {
+		t.Fatal(err)
+	}
+	for layer := range wantK {
+		for i := range wantK[layer] {
+			if gotK[layer][i] != wantK[layer][i] || gotV[layer][i] != wantV[layer][i] {
+				t.Fatalf("layer %d value %d = %g/%g, want %g/%g", layer, i, gotK[layer][i], gotV[layer][i], wantK[layer][i], wantV[layer][i])
+			}
 		}
 	}
 }

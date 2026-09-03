@@ -25,6 +25,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 	"github.com/tmc/lib/apple/x/metal/metalsample"
 	"github.com/tmc/lib/apple/x/metal/metalx"
+	"github.com/tmc/lib/examples/internal/metalprefix"
 	"github.com/tmc/lib/examples/llama-infer/gpuprof"
 )
 
@@ -684,6 +685,20 @@ func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine
 // intermediate host copies. It issues exactly 1+9*NumLayers dispatches. A
 // command buffer execution failure invalidates the whole batch.
 func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
+	return runBatchedLayerChain(context.Background(), eng, cfg, cache, nil, nil, tokens, positions, rows)
+}
+
+// RunLeasedBatchedLayerChain executes one token per row while reading cached
+// prefix K/V directly from leased Metal blocks. Newly produced suffix K/V is
+// stored in the row cache and both operations share one checked command buffer.
+func RunLeasedBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, workspace *metalBlockWorkspace, leases []*metalprefix.Lease, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
+	if workspace == nil || len(leases) != len(tokens) {
+		return BatchedLayerChainResult{}, errors.New("leased layer chain: invalid workspace or leases")
+	}
+	return runBatchedLayerChain(ctx, eng, cfg, cache, workspace, leases, tokens, positions, rows)
+}
+
+func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, workspace *metalBlockWorkspace, leases []*metalprefix.Lease, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
 	b := len(tokens)
 	kd := cfg.NumKVHeads * cfg.HeadDim
 	if eng == nil || eng.dev == nil || cache == nil {
@@ -715,6 +730,9 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		}
 		seen[rows[i]] = true
 	}
+	if err := ctx.Err(); err != nil {
+		return BatchedLayerChainResult{}, err
+	}
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if cache.freed {
@@ -722,8 +740,21 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 	}
 	eng.batchedMu.Lock()
 	defer eng.batchedMu.Unlock()
+	if workspace != nil {
+		workspace.mu.Lock()
+		defer workspace.mu.Unlock()
+	}
 	if err := eng.ensurePrefillArena(b, cfg); err != nil {
 		return BatchedLayerChainResult{}, err
+	}
+	var blockPins []*metalprefix.ViewLease
+	if workspace != nil {
+		var err error
+		blockPins, err = workspace.prepare(cfg, leases, positions, rows)
+		if err != nil {
+			return BatchedLayerChainResult{}, err
+		}
+		defer releaseMetalBlockPins(blockPins)
 	}
 	copy(eng.prefillTokIn.HostSlice()[:b], tokens)
 	for i := range b {
@@ -784,20 +815,24 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		metal.SetScalar(ce, theta, 12)
 		metal.SetScalar(ce, uint32(cache.rowCapacity), 13)
 		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(1))
-		ce.SetComputePipelineState(eng.pso.RowAttn)
-		ce.SetBufferWithOffsetAtIndex(eng.prefillQMat.Buffer(), 0, 0)
-		ce.SetBufferWithOffsetAtIndex(cache.K[li].Buffer(), 0, 1)
-		ce.SetBufferWithOffsetAtIndex(cache.V[li].Buffer(), 0, 2)
-		ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 3)
-		ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 4)
-		ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 5)
-		metal.SetScalar(ce, bv, 6)
-		metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 7)
-		metal.SetScalar(ce, uint32(cfg.NumHeads), 8)
-		metal.SetScalar(ce, uint32(cfg.NumKVHeads), 9)
-		metal.SetScalar(ce, uint32(cfg.HeadDim), 10)
-		metal.SetScalar(ce, scale, 11)
-		metal.SetScalar(ce, uint32(cache.rowCapacity), 12)
+		if workspace == nil {
+			ce.SetComputePipelineState(eng.pso.RowAttn)
+			ce.SetBufferWithOffsetAtIndex(eng.prefillQMat.Buffer(), 0, 0)
+			ce.SetBufferWithOffsetAtIndex(cache.K[li].Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex(cache.V[li].Buffer(), 0, 2)
+			ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 3)
+			ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 4)
+			ce.SetBufferWithOffsetAtIndex(cache.rows.Buffer(), 0, 5)
+			metal.SetScalar(ce, bv, 6)
+			metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 7)
+			metal.SetScalar(ce, uint32(cfg.NumHeads), 8)
+			metal.SetScalar(ce, uint32(cfg.NumKVHeads), 9)
+			metal.SetScalar(ce, uint32(cfg.HeadDim), 10)
+			metal.SetScalar(ce, scale, 11)
+			metal.SetScalar(ce, uint32(cache.rowCapacity), 12)
+		} else {
+			workspace.encodeAttention(ce, eng, cfg, cache, li, b, blockPins)
+		}
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.NumHeads), metal.Threads(128))
 		if eng.isF16 {
 			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
@@ -857,8 +892,11 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
 	}
 	ce.EndEncoding()
+	if err := ctx.Err(); err != nil {
+		return BatchedLayerChainResult{}, err
+	}
 	cb.Commit()
-	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
 		return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: shared command buffer: %w", err)
 	}
 	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
