@@ -24,12 +24,17 @@ type Range struct {
 // Format describes the interpretation of a block's K and V data.
 // Layout and DType are backend-defined names; the store does not interpret them.
 type Format struct {
-	Layer   int
+	Layer   int // AllLayers if one allocation spans every model layer.
 	DType   string
 	Layout  string
 	KVHeads int
 	HeadDim int
 }
+
+// AllLayers reports that one backend allocation contains the corresponding
+// block for every model layer. Backends whose pages span all layers use this
+// value instead of naming an arbitrary layer.
+const AllLayers = -1
 
 // Residency names the backend location containing a block.
 //
@@ -124,7 +129,7 @@ func NewStore(limit int) (*Store, error) {
 
 func validSpec(spec Spec) bool {
 	return spec.Owner != "" && spec.Tokens.Start >= 0 && spec.Tokens.End > spec.Tokens.Start &&
-		spec.Format.Layer >= 0 && spec.Format.DType != "" && spec.Format.Layout != "" &&
+		spec.Format.Layer >= AllLayers && spec.Format.DType != "" && spec.Format.Layout != "" &&
 		spec.Format.KVHeads > 0 && spec.Format.HeadDim > 0
 }
 
