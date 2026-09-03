@@ -134,3 +134,123 @@ kernel void CausalFlashAttentionDecode(
         out_ptr[d] = (denom > 0.0f) ? (s_acc[d] / denom) : 0.0f;
     }
 }
+
+// BlockTableCausalAttentionDecode reads an immutable prefix directly from up
+// to eight separately allocated blocks, followed by a writable contiguous
+// suffix. It deliberately does not provide an implicit repack path.
+struct BlockAttentionDescriptor {
+    uint start;
+    uint end;
+    uint slot;
+    uint _reserved;
+};
+
+struct BlockAttentionParams {
+    uint prefix_tokens;
+    uint suffix_tokens;
+    uint block_count;
+    uint num_q_heads;
+    uint num_kv_heads;
+    uint head_dim;
+    float scale;
+};
+
+kernel void BlockTableCausalAttentionDecode(
+    device const float* q [[buffer(0)]],
+    device const float* suffix_k [[buffer(1)]],
+    device const float* suffix_v [[buffer(2)]],
+    device float* out [[buffer(3)]],
+    device const BlockAttentionDescriptor* blocks [[buffer(4)]],
+    constant BlockAttentionParams& p [[buffer(5)]],
+    device const float* k0 [[buffer(6)]], device const float* k1 [[buffer(7)]],
+    device const float* k2 [[buffer(8)]], device const float* k3 [[buffer(9)]],
+    device const float* k4 [[buffer(10)]], device const float* k5 [[buffer(11)]],
+    device const float* k6 [[buffer(12)]], device const float* k7 [[buffer(13)]],
+    device const float* v0 [[buffer(14)]], device const float* v1 [[buffer(15)]],
+    device const float* v2 [[buffer(16)]], device const float* v3 [[buffer(17)]],
+    device const float* v4 [[buffer(18)]], device const float* v5 [[buffer(19)]],
+    device const float* v6 [[buffer(20)]], device const float* v7 [[buffer(21)]],
+    uint head_idx [[threadgroup_position_in_grid]],
+    uint tid [[thread_position_in_threadgroup]],
+    uint simd_lane [[thread_index_in_simdgroup]],
+    uint simd_id [[simdgroup_index_in_threadgroup]]
+) {
+    if (head_idx >= p.num_q_heads || p.head_dim > ATTN_MAX_HEAD_DIM || p.block_count > 8) return;
+    const uint kv_head = head_idx / (p.num_q_heads / p.num_kv_heads);
+    const uint total = p.prefix_tokens + p.suffix_tokens;
+    threadgroup float scores[ATTN_TILE];
+    threadgroup float acc[ATTN_MAX_HEAD_DIM];
+    threadgroup float red[4];
+    threadgroup float run_max;
+    threadgroup float run_sum;
+    for (uint d = tid; d < p.head_dim; d += 128) acc[d] = 0.0f;
+    if (tid == 0) { run_max = ATTN_NEG_INF; run_sum = 0.0f; }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    for (uint base = 0; base < total; base += ATTN_TILE) {
+        const uint tile = min(uint(ATTN_TILE), total - base);
+        float local_max = ATTN_NEG_INF;
+        for (uint j = tid; j < tile; j += 128) {
+            const uint token = base + j;
+            device const float* kp = suffix_k;
+            uint local = token - p.prefix_tokens;
+            if (token < p.prefix_tokens) {
+                for (uint bi = 0; bi < p.block_count; bi++) {
+                    if (token < blocks[bi].start || token >= blocks[bi].end) continue;
+                    local = token - blocks[bi].start;
+                    switch (blocks[bi].slot) {
+                    case 0: kp = k0; break; case 1: kp = k1; break;
+                    case 2: kp = k2; break; case 3: kp = k3; break;
+                    case 4: kp = k4; break; case 5: kp = k5; break;
+                    case 6: kp = k6; break; default: kp = k7; break;
+                    }
+                    break;
+                }
+            }
+            kp += (local * p.num_kv_heads + kv_head) * p.head_dim;
+            float dot = 0.0f;
+            for (uint d = 0; d < p.head_dim; d++) dot += q[head_idx*p.head_dim+d] * kp[d];
+            scores[j] = dot * p.scale;
+            local_max = max(local_max, scores[j]);
+        }
+        local_max = attn_simd_max(local_max);
+        if (simd_lane == 0) red[simd_id] = local_max;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        const float tile_max = max(max(red[0], red[1]), max(red[2], red[3]));
+        const float next_max = max(run_max, tile_max);
+        const float correction = run_max <= ATTN_NEG_INF ? 0.0f : exp(run_max-next_max);
+        float local_sum = 0.0f;
+        for (uint j = tid; j < tile; j += 128) { scores[j] = exp(scores[j]-next_max); local_sum += scores[j]; }
+        local_sum = attn_simd_sum(local_sum);
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (simd_lane == 0) red[simd_id] = local_sum;
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        const float tile_sum = red[0]+red[1]+red[2]+red[3];
+        for (uint d = tid; d < p.head_dim; d += 128) {
+            float sum = 0.0f;
+            for (uint j = 0; j < tile; j++) {
+                const uint token = base+j;
+                device const float* vp = suffix_v;
+                uint local = token-p.prefix_tokens;
+                if (token < p.prefix_tokens) {
+                    for (uint bi = 0; bi < p.block_count; bi++) {
+                        if (token < blocks[bi].start || token >= blocks[bi].end) continue;
+                        local = token-blocks[bi].start;
+                        switch (blocks[bi].slot) {
+                        case 0: vp=v0; break; case 1: vp=v1; break;
+                        case 2: vp=v2; break; case 3: vp=v3; break;
+                        case 4: vp=v4; break; case 5: vp=v5; break;
+                        case 6: vp=v6; break; default: vp=v7; break;
+                        }
+                        break;
+                    }
+                }
+                vp += (local*p.num_kv_heads+kv_head)*p.head_dim;
+                sum += scores[j]*vp[d];
+            }
+            acc[d] = acc[d]*correction+sum;
+        }
+        if (tid == 0) { run_max=next_max; run_sum=run_sum*correction+tile_sum; }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+    for (uint d=tid; d<p.head_dim; d+=128) out[head_idx*p.head_dim+d] = run_sum > 0 ? acc[d]/run_sum : 0;
+}

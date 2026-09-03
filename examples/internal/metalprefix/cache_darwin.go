@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/lm/kvcache"
@@ -74,6 +75,17 @@ type Identity struct {
 	Start      int
 	End        int
 	Layer      int
+}
+
+// BlockView describes one immutable Metal allocation pinned by a Lease. K and
+// V begin at Start; callers must not interpret them as sequence-zero buffers.
+// The buffers remain valid only until the Lease is released.
+type BlockView struct {
+	Identity
+	K       apple.MTLBuffer
+	V       apple.MTLBuffer
+	KOffset uint
+	VOffset uint
 }
 
 type block struct {
@@ -351,6 +363,75 @@ func (l *Lease) Blocks() []Identity {
 		ids[i] = Identity{ID: ref.b.id, Generation: ref.b.gen, Start: ref.b.start, End: ref.b.end, Layer: ref.b.layer}
 	}
 	return ids
+}
+
+// ViewLease pins one layer's physical block-table entries independently of the
+// prefix lease from which it was acquired.
+type ViewLease struct {
+	cache *Cache
+	refs  []blockRef
+	views []BlockView
+	once  sync.Once
+}
+
+// PinLayer returns the block-table entries for layer in token order. It
+// acquires independent references so the returned buffers remain live even if
+// the parent Lease is released concurrently. The caller must release the
+// returned ViewLease after the last Metal command using its buffers completes.
+func (l *Lease) PinLayer(layer int) (*ViewLease, error) {
+	if l == nil || l.cache == nil || layer < 0 || layer >= l.cache.cfg.Layers {
+		return nil, errors.New("metalprefix: invalid layer view")
+	}
+	l.cache.mu.Lock()
+	defer l.cache.mu.Unlock()
+	if len(l.refs) == 0 {
+		return nil, kvcache.ErrStale
+	}
+	var refs []blockRef
+	views := make([]BlockView, 0, (l.tokens+l.cache.cfg.BlockTokens-1)/l.cache.cfg.BlockTokens)
+	for _, ref := range l.refs {
+		if ref.b.layer != layer {
+			continue
+		}
+		shared, err := l.cache.store.Share(ref.lease)
+		if err != nil {
+			for i := len(refs) - 1; i >= 0; i-- {
+				l.cache.dropRefLocked(refs[i])
+			}
+			return nil, kvcache.ErrStale
+		}
+		ref.b.refs++
+		refs = append(refs, blockRef{b: ref.b, lease: shared})
+		views = append(views, BlockView{
+			Identity: Identity{ID: ref.b.id, Generation: ref.b.gen, Start: ref.b.start, End: ref.b.end, Layer: ref.b.layer},
+			K:        ref.b.k.Buffer(), V: ref.b.v.Buffer(), KOffset: ref.b.k.Offset(), VOffset: ref.b.v.Offset(),
+		})
+	}
+	return &ViewLease{cache: l.cache, refs: refs, views: views}, nil
+}
+
+// Views returns a copy of the pinned block-table entries.
+func (l *ViewLease) Views() []BlockView {
+	if l == nil {
+		return nil
+	}
+	return append([]BlockView(nil), l.views...)
+}
+
+// Release drops the independent layer pins. It is safe to call more than once.
+func (l *ViewLease) Release() {
+	if l == nil || l.cache == nil {
+		return
+	}
+	l.once.Do(func() {
+		l.cache.mu.Lock()
+		defer l.cache.mu.Unlock()
+		for i := len(l.refs) - 1; i >= 0; i-- {
+			l.cache.dropRefLocked(l.refs[i])
+		}
+		l.refs = nil
+		l.views = nil
+	})
 }
 
 // Restore copies n cached tokens into contiguous destination KV buffers.

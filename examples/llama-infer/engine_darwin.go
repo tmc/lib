@@ -76,6 +76,7 @@ type decodeKernels struct {
 
 	RoPE        apple.MTLComputePipelineState `metal:"ApplyRoPEStoreKV"`
 	Attn        apple.MTLComputePipelineState `metal:"CausalFlashAttentionDecode"`
+	BlockAttn   apple.MTLComputePipelineState `metal:"BlockTableCausalAttentionDecode"`
 	SiLUMul     apple.MTLComputePipelineState `metal:"FastSiLUMul"`
 	FusedQKV    apple.MTLComputePipelineState `metal:"FusedRMSNormQKV"`
 	FusedSwiGLU apple.MTLComputePipelineState `metal:"FusedSwiGLUDown"`
