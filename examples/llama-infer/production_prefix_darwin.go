@@ -8,6 +8,8 @@ import (
 	"github.com/tmc/lib/examples/internal/metalprefix"
 )
 
+type runLeasedPrefixFunc func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, []int32, []int, []int) (BatchedLayerChainResult, error)
+
 type productionPrefixLease struct {
 	lease *metalprefix.Lease
 }
@@ -19,6 +21,7 @@ func (l *productionPrefixLease) Release()       { l.lease.Release() }
 type productionPrefixRuntime struct {
 	cache     *metalprefix.Cache
 	workspace *metalBlockWorkspace
+	runLeased runLeasedPrefixFunc
 }
 
 type productionPrefixStats struct {
@@ -40,7 +43,7 @@ func newProductionPrefixRuntime(engine *ModelEngine, cfg Config, capacity int) (
 		_ = cache.Close()
 		return nil, err
 	}
-	return &productionPrefixRuntime{cache: cache, workspace: workspace}, nil
+	return &productionPrefixRuntime{cache: cache, workspace: workspace, runLeased: RunLeasedBatchedLayerChain}, nil
 }
 
 func (p *productionPrefixRuntime) Acquire(tokens []int32) (*productionPrefixLease, bool, error) {
@@ -71,7 +74,7 @@ func (p *productionPrefixRuntime) Run(ctx context.Context, engine *ModelEngine, 
 			raw[i] = lease.lease
 		}
 	}
-	return RunLeasedBatchedLayerChain(ctx, engine, cfg, cache, p.workspace, raw, tokens, positions, rows)
+	return p.runLeased(ctx, engine, cfg, cache, p.workspace, raw, tokens, positions, rows)
 }
 
 func (p *productionPrefixRuntime) Close() {

@@ -125,6 +125,7 @@ type Cache struct {
 	bytes               int64
 	hits, misses, saved int64
 	closed              bool
+	waitCommandBuffer   func(context.Context, apple.MTLCommandBuffer) error
 }
 
 // New returns an empty bounded cache.
@@ -137,7 +138,10 @@ func New(cfg Config) (*Cache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("metalprefix: create block store: %w", err)
 	}
-	return &Cache{cfg: cfg, store: store, entries: make(map[string]*entry), blocks: make(map[[2]uint64]*block)}, nil
+	return &Cache{
+		cfg: cfg, store: store, entries: make(map[string]*entry), blocks: make(map[[2]uint64]*block),
+		waitCommandBuffer: metal.WaitCommandBuffer,
+	}, nil
 }
 
 func tokenKey(tokens []int32) string {
@@ -354,7 +358,7 @@ func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k
 		return err
 	}
 	cb.Commit()
-	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+	if err := c.waitCommandBuffer(ctx, cb); err != nil {
 		rollback()
 		return fmt.Errorf("metalprefix: copy prefix buffers: %w", err)
 	}

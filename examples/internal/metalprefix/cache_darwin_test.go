@@ -7,10 +7,13 @@ import (
 	"errors"
 	"testing"
 
+	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/lm/kvcache"
 )
+
+var errInjectedCompletion = errors.New("injected terminal command-buffer failure")
 
 func testCache(t *testing.T, maxBytes int64, maxEntries int) *Cache {
 	t.Helper()
@@ -126,6 +129,82 @@ func TestCachePutBuffersRoundTrip(t *testing.T) {
 				t.Fatalf("layer %d value %d = %g/%g, want %g/%g", layer, i, gotK[layer][i], gotV[layer][i], wantK[layer][i], wantV[layer][i])
 			}
 		}
+	}
+}
+
+func TestPutBuffersFailedCompletionRollsBack(t *testing.T) {
+	c := testCache(t, 4096, 4)
+	kData, vData := kv(3, 7)
+	k := make([]mempool.Slice[float32], len(kData))
+	v := make([]mempool.Slice[float32], len(vData))
+	for layer := range k {
+		var err error
+		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, kData[layer])
+		if err != nil {
+			t.Fatal(err)
+		}
+		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, vData[layer])
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer k[layer].Free()
+		defer v[layer].Free()
+	}
+	c.waitCommandBuffer = func(ctx context.Context, cb apple.MTLCommandBuffer) error {
+		// Wait for the real blit to reach a terminal state before simulating the
+		// unsuccessful completion observed by the owning Go layer.
+		if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
+			return err
+		}
+		return errInjectedCompletion
+	}
+	err := c.PutBuffers(t.Context(), []int32{1, 2, 3}, 4, k, v, 0)
+	if !errors.Is(err, errInjectedCompletion) {
+		t.Fatalf("PutBuffers error = %v, want injected completion", err)
+	}
+	if got := c.Stats(); got != (Stats{}) {
+		t.Fatalf("stats after failed completion = %+v, want zero", got)
+	}
+	if _, ok, err := c.Acquire([]int32{1, 2, 3}); err != nil || ok {
+		t.Fatalf("Acquire after failed completion = %v, %v; want miss", ok, err)
+	}
+}
+
+func TestLayerPinsSurviveFailureUntilReleased(t *testing.T) {
+	c := testCache(t, 4096, 1)
+	k, v := kv(2, 1)
+	tokens := []int32{1, 2}
+	if err := c.Put(t.Context(), tokens, 3, k, v, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	lease, ok, err := c.Acquire(tokens)
+	if err != nil || !ok {
+		t.Fatalf("Acquire = %v, %v", ok, err)
+	}
+	view, err := lease.PinLayer(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := c.Stats()
+	// Replacement evicts the old entry. The parent lease and independent
+	// block-table view still pin its buffers when completion reports failure.
+	k2, v2 := kv(2, 9)
+	if err := c.Put(t.Context(), []int32{8, 9}, 10, k2, v2, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	lease.Release()
+	if got := c.Stats(); got.Bytes <= before.Bytes {
+		t.Fatalf("bytes with failed-wave view pin = %d, want more than %d", got.Bytes, before.Bytes)
+	}
+	// A terminal error does not itself release buffer references. Ownership
+	// ends when the command-buffer owner releases its view pins.
+	complete := func() error { return errInjectedCompletion }
+	if err := complete(); !errors.Is(err, errInjectedCompletion) {
+		t.Fatalf("completion error = %v, want injected failure", err)
+	}
+	view.Release()
+	if got := c.Stats(); got.Bytes != before.Bytes {
+		t.Fatalf("bytes after releasing failed-wave pins = %d, want %d", got.Bytes, before.Bytes)
 	}
 }
 

@@ -15,7 +15,10 @@ import (
 	"sync"
 	"testing"
 
+	apple "github.com/tmc/apple/metal"
+	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/examples/internal/continuousbatch"
+	"github.com/tmc/lib/examples/internal/metalprefix"
 )
 
 func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
@@ -205,6 +208,49 @@ func TestScheduledSegmentedPrefillUsesRowsAboveFreeCount(t *testing.T) {
 		t.Fatalf("prefill second stable row: %v", err)
 	}
 	adapter.Release(&second)
+}
+
+func TestDecodeFailedCompletionFailsWaveAndSuppressesOutput(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	states := []*continuousbatch.State{
+		{ID: "first", PromptTokenIDs: []int32{3, 4}},
+		{ID: "second", PromptTokenIDs: []int32{5, 6}},
+	}
+	for _, state := range states {
+		if _, err := adapter.Prefill(t.Context(), state); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantErr := &libmetal.CommandBufferError{Failure: libmetal.CommandBufferFailed, Status: apple.MTLCommandBufferStatusError, DeviceTerminal: true}
+	adapter.prefixes.runLeased = func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, []int32, []int, []int) (BatchedLayerChainResult, error) {
+		return BatchedLayerChainResult{}, wantErr
+	}
+	results := adapter.DecodeBatch(t.Context(), states)
+	for i, result := range results {
+		if !errors.Is(result.Err, wantErr) {
+			t.Fatalf("result %d error = %v, want shared completion failure", i, result.Err)
+		}
+		if result.Token != (continuousbatch.Token{}) || result.Done {
+			t.Fatalf("result %d exposed output after failure: %+v", i, result)
+		}
+	}
+	for _, state := range states {
+		adapter.Release(state)
+	}
+	adapter.rowsMu.Lock()
+	defer adapter.rowsMu.Unlock()
+	if len(adapter.freeRows) != 2 || len(adapter.leases) != 0 {
+		t.Fatalf("rows after failed wave release: free=%d leases=%d", len(adapter.freeRows), len(adapter.leases))
+	}
 }
 
 func TestScheduledSegmentedPrefillExcludesCanceledBeforeCommit(t *testing.T) {
