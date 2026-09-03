@@ -85,8 +85,23 @@ type BatchedLayerChainResult struct {
 	DeviceBytes     int64
 }
 
+type SegmentedLayerChainResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+	DeviceBytes     int64
+}
+
 func RunBatchedLayerChain(*ModelEngine, Config, *BatchedAttentionCache, []int32, []int, []int) (BatchedLayerChainResult, error) {
 	return BatchedLayerChainResult{}, errors.New("batched layer chain: Metal backend required")
+}
+
+func RunSegmentedLayerChain(context.Context, *ModelEngine, Config, *BatchedAttentionCache, PackedPrefill) (SegmentedLayerChainResult, error) {
+	return SegmentedLayerChainResult{}, errors.New("segmented layer chain: Metal backend required")
+}
+
+func RunSegmentedModelTailFromChain(*ModelEngine, Config, *BatchedModelTail, SegmentedLayerChainResult, []SamplerConfig) (BatchedModelTailResult, error) {
+	return BatchedModelTailResult{}, errors.New("segmented model tail requires darwin")
 }
 
 func RunBatchedLayer(*ModelEngine, Config, int, *BatchedAttentionCache, []int32, []int, []int) (BatchedLayerResult, error) {

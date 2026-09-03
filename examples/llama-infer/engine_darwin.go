@@ -91,6 +91,7 @@ type decodeKernels struct {
 	RowAttn           apple.MTLComputePipelineState `metal:"RowIndexedCausalAttention"`
 	SegmentedRoPE     apple.MTLComputePipelineState `metal:"SegmentedRoPEStoreKV"`
 	SegmentedAttn     apple.MTLComputePipelineState `metal:"SegmentedCausalAttention"`
+	SegmentedGather   apple.MTLComputePipelineState `metal:"GatherSegmentTails"`
 	BatchedSiLU       apple.MTLComputePipelineState `metal:"BatchedSiLUMul"`
 	BatchedSample     apple.MTLComputePipelineState `metal:"BatchedArgmaxSampling"`
 	BatchedEmbedH     apple.MTLComputePipelineState `metal:"BatchedEmbeddingLookupH"`
@@ -521,6 +522,17 @@ type BatchedLayerChainResult struct {
 	DeviceBytes     int64
 }
 
+// SegmentedLayerChainResult is the dense request-tail output of a packed
+// prompt wave. Hidden is ordered by segment, while Rows retains stable KV row
+// ownership. Hidden aliases engine scratch and remains valid only until the
+// next batched engine operation.
+type SegmentedLayerChainResult struct {
+	Hidden          []float32
+	Positions, Rows []int
+	Dispatches      int
+	DeviceBytes     int64
+}
+
 func encodeQKVProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l *GPULayerWeights, lf *GPULayerWeightsF16, cfg Config, b int) {
 	routes := modelProjectionRoutes(cfg, eng.isF16, projectionQKV)
 	if !eng.disableProjectionFusion && useProjectionFusion(projectionQKV, routes...) {
@@ -804,6 +816,241 @@ func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionC
 		dispatchesPerLayer = 12
 	}
 	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: 1 + dispatchesPerLayer*cfg.NumLayers, DeviceBytes: bytes}, nil
+}
+
+// RunSegmentedLayerChain executes a packed prompt wave through every decoder
+// layer, then gathers the final token of each segment in request order. No GPU
+// work is submitted until the entire pack and cache shape have been checked.
+func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, packed PackedPrefill) (SegmentedLayerChainResult, error) {
+	n, b := len(packed.Tokens), len(packed.Offsets)
+	kd := cfg.NumKVHeads * cfg.HeadDim
+	if eng == nil || eng.dev == nil || cache == nil {
+		return SegmentedLayerChainResult{}, errors.New("segmented layer chain: nil engine or cache")
+	}
+	if err := packed.Validate(n, cache.rowCapacity, cfg.MaxSeqLen); err != nil {
+		return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain: %w", err)
+	}
+	for i, token := range packed.Tokens {
+		if token < 0 || int(token) >= cfg.VocabSize {
+			return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain: invalid token at offset %d", i)
+		}
+	}
+	weightLayers := len(eng.layers)
+	if eng.isF16 {
+		weightLayers = len(eng.layersF16)
+	}
+	if weightLayers != cfg.NumLayers || len(cache.K) != cfg.NumLayers || cfg.Dim != cfg.NumHeads*cfg.HeadDim || cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 || cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
+		return SegmentedLayerChainResult{}, errors.New("segmented layer chain: unsupported configuration or cache shape")
+	}
+	cacheElements := cache.rowCapacity * cache.maxSeqLen * kd
+	for layer := range cache.K {
+		if cache.K[layer].Len() < cacheElements || cache.V[layer].Len() < cacheElements {
+			return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain: cache buffer too small at layer %d", layer)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return SegmentedLayerChainResult{}, err
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.freed {
+		return SegmentedLayerChainResult{}, errors.New("segmented layer chain: cache freed")
+	}
+	eng.batchedMu.Lock()
+	defer eng.batchedMu.Unlock()
+	if err := eng.ensurePrefillArena(n, cfg); err != nil {
+		return SegmentedLayerChainResult{}, err
+	}
+	meta := metalmem.NewArena(eng.dev)
+	defer meta.Free()
+	requestIndex := metalmem.AllocIn[uint32](meta, "requestIndex", n)
+	positions := metalmem.AllocIn[uint32](meta, "positions", n)
+	offsets := metalmem.AllocIn[uint32](meta, "offsets", b)
+	lengths := metalmem.AllocIn[uint32](meta, "lengths", b)
+	rows := metalmem.AllocIn[uint32](meta, "rows", b)
+	restored := metalmem.AllocIn[uint32](meta, "restored", b)
+	if err := meta.Err(); err != nil {
+		return SegmentedLayerChainResult{}, fmt.Errorf("segmented layer chain metadata: %w", err)
+	}
+	copy(eng.prefillTokIn.HostSlice()[:n], packed.Tokens)
+	copy(requestIndex.HostSlice(), packed.RequestIndex)
+	copy(positions.HostSlice(), packed.AbsolutePositions)
+	copy(offsets.HostSlice(), packed.Offsets)
+	copy(lengths.HostSlice(), packed.Lengths)
+	copy(rows.HostSlice(), packed.Rows)
+	copy(restored.HostSlice(), packed.RestoredPrefixes)
+	if err := ctx.Err(); err != nil {
+		return SegmentedLayerChainResult{}, err
+	}
+	nv, bv, dv, hv := uint32(n), uint32(b), uint32(cfg.Dim), uint32(cfg.HiddenDim)
+	eps, theta := cfg.Eps, cfg.RopeTheta
+	scale := float32(1 / math.Sqrt(float64(cfg.HeadDim)))
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := cb.ComputeCommandEncoder()
+	if eng.isF16 {
+		ce.SetComputePipelineState(eng.pso.BatchedEmbedH)
+		ce.SetBufferWithOffsetAtIndex(eng.embedTableF16.Buffer(), 0, 0)
+	} else {
+		ce.SetComputePipelineState(eng.pso.BatchedEmbed)
+		ce.SetBufferWithOffsetAtIndex(eng.embedTable.Buffer(), 0, 0)
+	}
+	ce.SetBufferWithOffsetAtIndex(eng.prefillTokIn.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+	metal.SetScalar(ce, nv, 3)
+	metal.SetScalar(ce, dv, 4)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(n*cfg.Dim), metal.Threads(128))
+	for li := range cfg.NumLayers {
+		var l *GPULayerWeights
+		var lf *GPULayerWeightsF16
+		if eng.isF16 {
+			lf = &eng.layersF16[li]
+			ce.SetComputePipelineState(eng.pso.BatchedNormH)
+		} else {
+			l = &eng.layers[li]
+			ce.SetComputePipelineState(eng.pso.BatchedNorm)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.InputNorm.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.InputNorm.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, nv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, eps, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(128))
+		encodeQKVProjections(ce, eng, l, lf, cfg, n)
+		ce.SetComputePipelineState(eng.pso.SegmentedRoPE)
+		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
+			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+		}
+		for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(5+i))
+		}
+		metal.SetScalar(ce, nv, 11)
+		metal.SetScalar(ce, bv, 12)
+		metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 13)
+		metal.SetScalar(ce, uint32(cfg.HeadDim), 14)
+		metal.SetScalar(ce, uint32(cfg.NumHeads), 15)
+		metal.SetScalar(ce, uint32(cfg.NumKVHeads), 16)
+		metal.SetScalar(ce, theta, 17)
+		metal.SetScalar(ce, uint32(cache.rowCapacity), 18)
+		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(1))
+		ce.SetComputePipelineState(eng.pso.SegmentedAttn)
+		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[li], cache.V[li], eng.prefillAttnOut} {
+			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
+		}
+		for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(4+i))
+		}
+		metal.SetScalar(ce, nv, 10)
+		metal.SetScalar(ce, bv, 11)
+		metal.SetScalar(ce, uint32(cfg.MaxSeqLen), 12)
+		metal.SetScalar(ce, uint32(cfg.NumHeads), 13)
+		metal.SetScalar(ce, uint32(cfg.NumKVHeads), 14)
+		metal.SetScalar(ce, uint32(cfg.HeadDim), 15)
+		metal.SetScalar(ce, scale, 16)
+		metal.SetScalar(ce, uint32(cache.rowCapacity), 17)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n*cfg.NumHeads), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillAttnOut.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WO.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WO.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, nv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, dv, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n*cfg.Dim), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedNormH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedNorm)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.PostNorm.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.PostNorm.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, nv, 3)
+		metal.SetScalar(ce, dv, 4)
+		metal.SetScalar(ce, eps, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(128))
+		encodeGateUpProjections(ce, eng, l, lf, cfg, n)
+		total := uint32(n * cfg.HiddenDim)
+		ce.SetComputePipelineState(eng.pso.BatchedSiLU)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillGateMat.Buffer(), 0, 0)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillUpMat.Buffer(), 0, 1)
+		ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 2)
+		metal.SetScalar(ce, total, 3)
+		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(int(total)), metal.Threads(128))
+		if eng.isF16 {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
+		} else {
+			ce.SetComputePipelineState(eng.pso.BatchedGEMMRes)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillFFNAct.Buffer(), 0, 0)
+		if eng.isF16 {
+			ce.SetBufferWithOffsetAtIndex(lf.WDown.Buffer(), 0, 1)
+		} else {
+			ce.SetBufferWithOffsetAtIndex(l.WDown.Buffer(), 0, 1)
+		}
+		ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 2)
+		metal.SetScalar(ce, nv, 3)
+		metal.SetScalar(ce, hv, 4)
+		metal.SetScalar(ce, dv, 5)
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n*cfg.Dim), metal.Threads(128))
+	}
+	ce.SetComputePipelineState(eng.pso.SegmentedGather)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillXMat.Buffer(), 0, 0)
+	ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 1)
+	ce.SetBufferWithOffsetAtIndex(offsets.Buffer(), 0, 2)
+	ce.SetBufferWithOffsetAtIndex(lengths.Buffer(), 0, 3)
+	metal.SetScalar(ce, bv, 4)
+	metal.SetScalar(ce, dv, 5)
+	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	ce.EndEncoding()
+	if err := ctx.Err(); err != nil {
+		return SegmentedLayerChainResult{}, err
+	}
+	cb.Commit()
+	cb.WaitUntilCompleted()
+	toInts := func(x []uint32) []int {
+		y := make([]int, len(x))
+		for i := range x {
+			y[i] = int(x[i])
+		}
+		return y
+	}
+	last := make([]int, b)
+	for i := range b {
+		last[i] = int(packed.RestoredPrefixes[i] + packed.Lengths[i] - 1)
+	}
+	dispatchesPerLayer := 9
+	if eng.disableProjectionFusion {
+		dispatchesPerLayer = 12
+	}
+	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
+	return SegmentedLayerChainResult{Hidden: eng.prefillNormXMat.HostSlice()[:b*cfg.Dim], Positions: last, Rows: toInts(packed.Rows), Dispatches: 2 + dispatchesPerLayer*cfg.NumLayers, DeviceBytes: bytes}, nil
+}
+
+// RunSegmentedModelTailFromChain executes the shared tiled model tail directly
+// from the gathered device rows.
+func RunSegmentedModelTailFromChain(eng *ModelEngine, cfg Config, tail *BatchedModelTail, chain SegmentedLayerChainResult, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+	b := len(chain.Positions)
+	if b == 0 || len(chain.Hidden) != b*cfg.Dim || len(chain.Rows) != b {
+		return BatchedModelTailResult{}, errors.New("segmented model tail from chain: invalid chain result")
+	}
+	return tail.runBuffer(eng, cfg, eng.prefillNormXMat, b, samplers)
 }
 
 // RunBatchedLayer executes one complete FP32 decoder layer with shared weights.

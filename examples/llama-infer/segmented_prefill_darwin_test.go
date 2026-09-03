@@ -4,9 +4,272 @@ package main
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"testing"
 )
+
+func TestSegmentedLayerChainRealFP16(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	cfg := Llama3_2_1BConfig(path)
+	cfg.Precision = "f16"
+	cfg.MaxSeqLen = 128
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotCache, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gotCache.Free()
+	wantCache, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantCache.Free()
+	segments := []PrefillSegment{
+		{RequestID: "short", Row: 1, Tokens: []int32{128000}},
+		{RequestID: "long", Row: 0, Tokens: []int32{128000, 22691}},
+	}
+	var packer PrefillPacker
+	packed, err := packer.Pack(t.Context(), segments, 3, 2, cfg.VocabSize, cfg.MaxSeqLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tail, err := eng.NewBatchedModelTail(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tail.Free()
+	chain, err := RunSegmentedLayerChain(t.Context(), eng, cfg, gotCache, packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotHidden := append([]float32(nil), chain.Hidden...)
+	got, err := RunSegmentedModelTailFromChain(eng, cfg, tail, chain, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotDiagnostic, err := tail.Run(eng, cfg, gotHidden, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.Tokens, gotDiagnostic.Tokens) {
+		t.Fatalf("tiled tokens=%v diagnostic tokens=%v", got.Tokens, gotDiagnostic.Tokens)
+	}
+	wantLogits := make([]float32, 0, 2*cfg.VocabSize)
+	wantTokens := make([]int32, 0, 2)
+	for _, segment := range segments {
+		var result BatchedModelTailResult
+		for i, token := range segment.Tokens {
+			one, err := RunBatchedLayerChain(eng, cfg, wantCache, []int32{token}, []int{i}, []int{segment.Row})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if i == len(segment.Tokens)-1 {
+				result, err = tail.Run(eng, cfg, append([]float32(nil), one.Hidden...), nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		wantLogits = append(wantLogits, result.Logits...)
+		wantTokens = append(wantTokens, result.Tokens...)
+	}
+	checkClose(t, "real logits", gotDiagnostic.Logits, wantLogits, 5e-4)
+	if !reflect.DeepEqual(gotDiagnostic.Tokens, wantTokens) {
+		t.Fatalf("tokens=%v want %v", gotDiagnostic.Tokens, wantTokens)
+	}
+	for layer := range cfg.NumLayers {
+		checkClose(t, "real k cache", gotCache.K[layer].HostSlice(), wantCache.K[layer].HostSlice(), 5e-4)
+		checkClose(t, "real v cache", gotCache.V[layer].HostSlice(), wantCache.V[layer].HostSlice(), 5e-4)
+	}
+	t.Logf("tokens=%v logits=%d layers=%d", got.Tokens, len(gotDiagnostic.Logits), cfg.NumLayers)
+}
+
+func TestSegmentedLayerChainMatchesSequentialModel(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		segments []PrefillSegment
+		maxSeq   int
+	}{
+		{"b1", []PrefillSegment{{RequestID: "a", Row: 1, Tokens: []int32{3, 4, 5}}}, 130},
+		{"b2-unequal", []PrefillSegment{{RequestID: "a", Row: 2, Tokens: []int32{3}}, {RequestID: "b", Row: 0, Tokens: []int32{4, 5, 6}}}, 130},
+		{"b4-unequal", []PrefillSegment{{RequestID: "a", Row: 3, Tokens: []int32{1}}, {RequestID: "b", Row: 0, Tokens: []int32{2, 3}}, {RequestID: "c", Row: 2, Tokens: []int32{4, 5, 6}}, {RequestID: "d", Row: 1, Tokens: []int32{7, 8, 9, 10}}}, 130},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultTinyLlamaConfig()
+			cfg.MaxSeqLen = tc.maxSeq
+			eng, err := GetOrCompileEngine(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotCache, err := eng.NewBatchedAttentionCache(cfg, 4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer gotCache.Free()
+			wantCache, err := eng.NewBatchedAttentionCache(cfg, 4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer wantCache.Free()
+			var packer PrefillPacker
+			packed, err := packer.Pack(t.Context(), tc.segments, 16, 4, cfg.VocabSize, cfg.MaxSeqLen)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tail, err := eng.NewBatchedModelTail(cfg, 4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tail.Free()
+			gotChain, err := RunSegmentedLayerChain(t.Context(), eng, cfg, gotCache, packed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotHidden := append([]float32(nil), gotChain.Hidden...)
+			got, err := RunSegmentedModelTailFromChain(eng, cfg, tail, gotChain, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotDiagnostic, err := tail.Run(eng, cfg, gotHidden, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got.Tokens, gotDiagnostic.Tokens) {
+				t.Fatalf("tiled tokens=%v diagnostic tokens=%v", got.Tokens, gotDiagnostic.Tokens)
+			}
+			wantLogits := make([]float32, 0, len(tc.segments)*cfg.VocabSize)
+			wantTokens := make([]int32, 0, len(tc.segments))
+			wantHidden := make([]float32, 0, len(tc.segments)*cfg.Dim)
+			for _, segment := range tc.segments {
+				var result BatchedModelTailResult
+				var chain BatchedLayerChainResult
+				for i, token := range segment.Tokens {
+					chain, err = RunBatchedLayerChain(eng, cfg, wantCache, []int32{token}, []int{segment.AbsoluteStart + i}, []int{segment.Row})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if i == len(segment.Tokens)-1 {
+						result, err = tail.Run(eng, cfg, append([]float32(nil), chain.Hidden...), nil)
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				wantLogits = append(wantLogits, result.Logits...)
+				wantTokens = append(wantTokens, result.Tokens...)
+				wantHidden = append(wantHidden, chain.Hidden...)
+			}
+			checkClose(t, "tail hidden", gotHidden, wantHidden, 3e-4)
+			checkClose(t, "logits", gotDiagnostic.Logits, wantLogits, 3e-4)
+			if !reflect.DeepEqual(got.Tokens, wantTokens) {
+				t.Fatalf("tokens=%v want %v", got.Tokens, wantTokens)
+			}
+			for layer := range cfg.NumLayers {
+				checkClose(t, "k cache", gotCache.K[layer].HostSlice(), wantCache.K[layer].HostSlice(), 3e-4)
+				checkClose(t, "v cache", gotCache.V[layer].HostSlice(), wantCache.V[layer].HostSlice(), 3e-4)
+			}
+		})
+	}
+}
+
+func TestSegmentedLayerChainRestoredPrefixBoundary(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.MaxSeqLen = 132
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotCache, err := eng.NewBatchedAttentionCache(cfg, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gotCache.Free()
+	wantCache, err := eng.NewBatchedAttentionCache(cfg, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantCache.Free()
+	for pos := range 127 {
+		token := int32(pos%11 + 1)
+		for _, cache := range []*BatchedAttentionCache{gotCache, wantCache} {
+			if _, err := RunBatchedLayerChain(eng, cfg, cache, []int32{token}, []int{pos}, []int{2}); err != nil {
+				t.Fatalf("prefix position %d: %v", pos, err)
+			}
+		}
+	}
+	segments := []PrefillSegment{
+		{RequestID: "boundary", Row: 2, Tokens: []int32{12, 13}, AbsoluteStart: 127, RestoredPrefix: 127},
+		{RequestID: "fresh", Row: 0, Tokens: []int32{14, 15, 16}, AbsoluteStart: 0},
+	}
+	var packer PrefillPacker
+	packed, err := packer.Pack(t.Context(), segments, 5, 3, cfg.VocabSize, cfg.MaxSeqLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := RunSegmentedLayerChain(t.Context(), eng, cfg, gotCache, packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotHidden := append([]float32(nil), got.Hidden...)
+	wantHidden := make([]float32, 0, 2*cfg.Dim)
+	for _, segment := range segments {
+		var chain BatchedLayerChainResult
+		for i, token := range segment.Tokens {
+			chain, err = RunBatchedLayerChain(eng, cfg, wantCache, []int32{token}, []int{segment.AbsoluteStart + i}, []int{segment.Row})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		wantHidden = append(wantHidden, chain.Hidden...)
+	}
+	checkClose(t, "boundary hidden", gotHidden, wantHidden, 3e-4)
+	for layer := range cfg.NumLayers {
+		checkClose(t, "boundary k cache", gotCache.K[layer].HostSlice(), wantCache.K[layer].HostSlice(), 3e-4)
+		checkClose(t, "boundary v cache", gotCache.V[layer].HostSlice(), wantCache.V[layer].HostSlice(), 3e-4)
+	}
+}
+
+func TestSegmentedLayerChainRejectsBeforeCommit(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cache.Free()
+	before := append([]float32(nil), cache.K[0].HostSlice()...)
+	bad := PackedPrefill{Tokens: []int32{1}, RequestIndex: []uint32{0}, AbsolutePositions: []uint32{1}, Offsets: []uint32{0}, Lengths: []uint32{1}, Rows: []uint32{0}, RestoredPrefixes: []uint32{0}, RequestIDs: []string{"bad"}}
+	if _, err := RunSegmentedLayerChain(t.Context(), eng, cfg, cache, bad); err == nil {
+		t.Fatal("malformed pack succeeded")
+	}
+	badToken := PackedPrefill{Tokens: []int32{int32(cfg.VocabSize)}, RequestIndex: []uint32{0}, AbsolutePositions: []uint32{0}, Offsets: []uint32{0}, Lengths: []uint32{1}, Rows: []uint32{0}, RestoredPrefixes: []uint32{0}, RequestIDs: []string{"bad-token"}}
+	if _, err := RunSegmentedLayerChain(t.Context(), eng, cfg, cache, badToken); err == nil {
+		t.Fatal("out-of-range token succeeded")
+	}
+	var packer PrefillPacker
+	packed, err := packer.Pack(t.Context(), []PrefillSegment{{RequestID: "valid", Row: 0, Tokens: []int32{1}}}, 1, 2, cfg.VocabSize, cfg.MaxSeqLen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := RunSegmentedLayerChain(canceled, eng, cfg, cache, packed); err == nil {
+		t.Fatal("canceled pack succeeded")
+	}
+	if !reflect.DeepEqual(before, cache.K[0].HostSlice()) {
+		t.Fatal("rejected chain mutated KV")
+	}
+}
 
 func TestSegmentedAttentionMatchesSequentialRows(t *testing.T) {
 	cfg := DefaultTinyLlamaConfig()
