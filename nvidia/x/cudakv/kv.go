@@ -198,7 +198,7 @@ func (c *FP8Cache) Close() error {
 
 // PagedCache manages dynamic, non-contiguous physical KV memory blocks for multi-sequence continuous batching.
 type PagedCache struct {
-	mu          sync.Mutex
+	mu sync.Mutex
 
 	dev         *cuda.Device
 	numLayers   int
@@ -211,6 +211,13 @@ type PagedCache struct {
 	seqLens     map[int64]int
 	kBlocks     []cudamem.Slice[float32]
 	vBlocks     []cudamem.Slice[float32]
+}
+
+// Page holds the K and V storage for one layer and one physical slot.
+// The slices are views into PagedCache storage and must not be freed.
+type Page struct {
+	K cudamem.Slice[float32]
+	V cudamem.Slice[float32]
 }
 
 // NewPagedCache creates a paged KV cache allocator with totalBlocks physical slots of blockSize tokens.
@@ -346,6 +353,22 @@ func (pc *PagedCache) BlockTable(seqID int64) []int {
 	res := make([]int, len(pc.blockTables[seqID]))
 	copy(res, pc.blockTables[seqID])
 	return res
+}
+
+// Page returns the storage for layer and physical slot. The returned views are
+// valid until Close and must not be freed.
+func (pc *PagedCache) Page(layer, slot int) (Page, error) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if layer < 0 || layer >= pc.numLayers {
+		return Page{}, fmt.Errorf("cudakv: layer index %d out of bounds (total %d)", layer, pc.numLayers)
+	}
+	if slot < 0 || slot >= pc.totalBlocks {
+		return Page{}, fmt.Errorf("cudakv: block index %d out of bounds (total %d)", slot, pc.totalBlocks)
+	}
+	elements := pc.blockSize * pc.numKVHeads * pc.headDim
+	start := slot * elements
+	return Page{K: pc.kBlocks[layer].Slice(start, start+elements), V: pc.vBlocks[layer].Slice(start, start+elements)}, nil
 }
 
 // Close deallocates all physical GPU memory buffers.

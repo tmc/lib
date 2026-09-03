@@ -326,6 +326,20 @@ func TestStoreValidation(t *testing.T) {
 	}
 }
 
+func TestStoreAllowsAllLayerFormat(t *testing.T) {
+	s, _ := NewStore(1)
+	lease, err := s.Allocate(Spec{
+		Owner: "request", Tokens: Range{Start: 0, End: 16},
+		Format: Format{Layer: AllLayers, DType: "float32", Layout: "cuda-paged-all-layers", KVHeads: 8, HeadDim: 64},
+	}, Residency{Backend: "cuda", Tier: "device", Domain: "gpu0"})
+	if err != nil {
+		t.Fatalf("Allocate: %v", err)
+	}
+	if err := s.Evict(context.Background(), lease, func(context.Context, Descriptor) error { return nil }); err != nil {
+		t.Fatalf("Evict: %v", err)
+	}
+}
+
 func ExampleStore() {
 	store, _ := NewStore(8)
 	lease, _ := store.Allocate(testSpec(0), Residency{Backend: "metal", Tier: "unified", Domain: "gpu-0"})
