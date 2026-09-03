@@ -156,6 +156,14 @@ func TestFlightRecorder(t *testing.T) {
 	if err := fr.WriteBoth(&pprofBuf, &perfettoBuf); err != nil {
 		t.Fatalf("fr.WriteBoth failed: %v", err)
 	}
+	var direct bytes.Buffer
+	n, err := fr.WriteTo(&direct)
+	if err != nil {
+		t.Fatalf("fr.WriteTo failed: %v", err)
+	}
+	if n != int64(direct.Len()) || n == 0 {
+		t.Fatalf("fr.WriteTo wrote %d bytes; buffer contains %d", n, direct.Len())
+	}
 
 	if pprofBuf.Len() == 0 {
 		t.Fatal("expected non-empty pprof snapshot")
@@ -164,5 +172,3 @@ func TestFlightRecorder(t *testing.T) {
 		t.Fatal("expected non-empty perfetto snapshot")
 	}
 }
-
-

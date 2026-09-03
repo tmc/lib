@@ -2,7 +2,6 @@ package nvtx
 
 import (
 	"testing"
-	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
@@ -96,7 +95,7 @@ func TestExportTableHandshake(t *testing.T) {
 	if ptrVer == 0 {
 		t.Fatal("expected non-null VERSIONINFO export table")
 	}
-	verInfo := (*exportTableVersionInfo)(unsafe.Pointer(ptrVer))
+	verInfo := &etblVersionInfo
 	if verInfo.version != 3 {
 		t.Errorf("expected NVTX version 3, got %d", verInfo.version)
 	}
@@ -106,7 +105,7 @@ func TestExportTableHandshake(t *testing.T) {
 	if ptrCb == 0 {
 		t.Fatal("expected non-null CALLBACKS export table")
 	}
-	cbInfo := (*exportTableCallbacks)(unsafe.Pointer(ptrCb))
+	cbInfo := &etblCallbacks
 	if cbInfo.getModuleFunctionTable == 0 {
 		t.Fatal("expected non-null GetModuleFunctionTable function pointer")
 	}
@@ -128,17 +127,15 @@ func TestExportTableHandshake(t *testing.T) {
 	}
 
 	// 5. Simulate Injection Provider Writing Slots
-	slotsCore := (*[17]*uintptr)(unsafe.Pointer(tableCore))
-	*slotsCore[2] = purego.NewCallback(mockMarkA)
-	*slotsCore[9] = purego.NewCallback(mockRangePushA)
-	*slotsCore[11] = purego.NewCallback(mockRangePop)
+	fnMarkA = purego.NewCallback(mockMarkA)
+	fnRangePushA = purego.NewCallback(mockRangePushA)
+	fnRangePop = purego.NewCallback(mockRangePop)
 
-	slotsCore2 := (*[17]*uintptr)(unsafe.Pointer(tableCore2))
-	*slotsCore2[1] = purego.NewCallback(mockDomainMarkEx)
-	*slotsCore2[4] = purego.NewCallback(mockDomainRangePushEx)
-	*slotsCore2[5] = purego.NewCallback(mockDomainRangePop)
-	*slotsCore2[12] = purego.NewCallback(mockDomainCreateA)
-	*slotsCore2[14] = purego.NewCallback(mockDomainDestroy)
+	fnDomainMarkEx = purego.NewCallback(mockDomainMarkEx)
+	fnDomainRangePushEx = purego.NewCallback(mockDomainRangePushEx)
+	fnDomainRangePop = purego.NewCallback(mockDomainRangePop)
+	fnDomainCreateA = purego.NewCallback(mockDomainCreateA)
+	fnDomainDestroy = purego.NewCallback(mockDomainDestroy)
 
 	enabled = true
 
