@@ -8,16 +8,19 @@ import (
 )
 
 func Example() {
-	cfg := metalmegakernel.LayerConfig{
+	cfg := metalmegakernel.FusedFFNConfig{
 		HiddenDim:       64,
 		IntermediateDim: 128,
-		RmsNormEps:      1e-5,
+		RMSNormEpsilon:  1e-5,
 	}
 
-	msl := metalmegakernel.GenerateLayerMegakernelMSL(cfg)
-	hasKernel := strings.Contains(msl, "MetalLayerMegakernel")
-	fmt.Printf("Generated MSL contains Megakernel: %t\n", hasKernel)
+	msl, err := metalmegakernel.GenerateFusedFFNMSL(cfg)
+	fmt.Println(err)
+	fmt.Println(strings.Contains(msl, "MetalFusedFFN"))
+	fmt.Println(cfg.ScratchBytes())
 
 	// Output:
-	// Generated MSL contains Megakernel: true
+	// <nil>
+	// true
+	// 768
 }
