@@ -124,9 +124,10 @@ func (fr *FlightRecorder) Record(rec SampleRecord) {
 }
 
 // WriteTo snapshots the active flight recording buffer as a standard gzipped pprof profile.
-func (fr *FlightRecorder) WriteTo(w io.Writer) error {
+func (fr *FlightRecorder) WriteTo(w io.Writer) (int64, error) {
 	fr.mu.Lock()
 	defer fr.mu.Unlock()
+	cw := &countingWriter{w: w}
 
 	b := NewBuilder()
 	if fr.binaryPath != "" {
@@ -150,7 +151,25 @@ func (fr *FlightRecorder) WriteTo(w io.Writer) error {
 		}
 	}
 
-	return b.WriteGzip(w)
+	err := b.WriteGzip(cw)
+	return cw.n, err
+}
+
+// WriteProfile writes a snapshot and reports only the write error.
+func (fr *FlightRecorder) WriteProfile(w io.Writer) error {
+	_, err := fr.WriteTo(w)
+	return err
+}
+
+type countingWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	w.n += int64(n)
+	return n, err
 }
 
 // WritePerfettoTo snapshots the flight recording buffer into a Perfetto .pftrace timeline.
@@ -226,7 +245,7 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 // WriteBoth snapshots the flight recording buffer to both a pprof writer and a Perfetto writer.
 func (fr *FlightRecorder) WriteBoth(pprofWriter io.Writer, perfettoWriter io.Writer) error {
 	if pprofWriter != nil {
-		if err := fr.WriteTo(pprofWriter); err != nil {
+		if _, err := fr.WriteTo(pprofWriter); err != nil {
 			return err
 		}
 	}
@@ -237,4 +256,3 @@ func (fr *FlightRecorder) WriteBoth(pprofWriter io.Writer, perfettoWriter io.Wri
 	}
 	return nil
 }
-

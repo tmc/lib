@@ -50,10 +50,9 @@ func ExampleFlightRecorder() {
 	})
 
 	// Snapshot ring buffer on demand without stopping execution
-	_ = fr.WriteTo(&buf)
+	_, _ = fr.WriteTo(&buf)
 	fmt.Printf("snapshot written: %v\n", buf.Len() > 0)
 
 	// Output:
 	// snapshot written: true
 }
-
