@@ -16,10 +16,15 @@ type scheduledEngineAdapter struct {
 	tail                                *BatchedModelTail
 	prefillMu, rowsMu, metricsMu, gpuMu sync.Mutex
 	freeRows                            []int
+	leases                              map[int]uint64
+	nextLease                           uint64
 	batches                             []fullBatchObservation
 }
 
-type scheduledSequenceState struct{ row int }
+type scheduledSequenceState struct {
+	row   int
+	lease uint64
+}
 type fullBatchObservation struct{ Batch, Dispatches int }
 
 func newScheduledEngineAdapter(engine *ModelEngine, cfg Config, capacity int) (*scheduledEngineAdapter, error) {
@@ -32,7 +37,7 @@ func newScheduledEngineAdapter(engine *ModelEngine, cfg Config, capacity int) (*
 		cache.Free()
 		return nil, err
 	}
-	a := &scheduledEngineAdapter{engine: engine, cfg: cfg, cache: cache, tail: tail, freeRows: make([]int, capacity)}
+	a := &scheduledEngineAdapter{engine: engine, cfg: cfg, cache: cache, tail: tail, freeRows: make([]int, capacity), leases: make(map[int]uint64)}
 	for i := range a.freeRows {
 		a.freeRows[i] = capacity - i - 1
 	}
@@ -47,7 +52,10 @@ func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
 		return
 	}
 	a.rowsMu.Lock()
-	a.freeRows = append(a.freeRows, sequence.row)
+	if a.leases[sequence.row] == sequence.lease {
+		delete(a.leases, sequence.row)
+		a.freeRows = append(a.freeRows, sequence.row)
+	}
 	a.rowsMu.Unlock()
 	state.KV = nil
 }
@@ -63,12 +71,18 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	}
 	row := a.freeRows[len(a.freeRows)-1]
 	a.freeRows = a.freeRows[:len(a.freeRows)-1]
+	a.nextLease++
+	lease := a.nextLease
+	a.leases[row] = lease
 	a.rowsMu.Unlock()
 	releaseRow := true
 	defer func() {
 		if releaseRow {
 			a.rowsMu.Lock()
-			a.freeRows = append(a.freeRows, row)
+			if a.leases[row] == lease {
+				delete(a.leases, row)
+				a.freeRows = append(a.freeRows, row)
+			}
 			a.rowsMu.Unlock()
 		}
 	}()
@@ -96,9 +110,22 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	if err != nil {
 		return continuousbatch.Token{}, fmt.Errorf("prefill allocate KV: %w", err)
 	}
-	next, err := GPUPrefillPassKV(a.engine, a.cfg, sequence, tokens)
+	next := int32(0)
+	start := 0
+	if snapshot, matched, ok := a.engine.prefixes.load(tokens); ok && sequence.RestorePrefixPartial(snapshot, matched, a.cfg) {
+		start = matched
+		if matched == len(tokens) && snapshot.tokens == matched {
+			next = snapshot.current
+		}
+	}
+	if start < len(tokens) {
+		next, err = GPUBatchedPrefillPassKV(a.engine, a.cfg, sequence, tokens[start:], start)
+	}
 	if err == nil {
 		err = a.cache.ImportSequence(row, len(tokens), sequence)
+	}
+	if err == nil {
+		a.engine.prefixes.store(tokens, sequence.CapturePrefix(len(tokens), next, a.cfg))
 	}
 	sequence.Free()
 	if err != nil {
@@ -108,11 +135,14 @@ func (a *scheduledEngineAdapter) Prefill(ctx context.Context, state *continuousb
 	if err != nil {
 		return continuousbatch.Token{}, fmt.Errorf("prefill decode token: %w", err)
 	}
-	state.KV, state.Position = scheduledSequenceState{row: row}, len(tokens)
+	state.KV, state.Position = scheduledSequenceState{row: row, lease: lease}, len(tokens)
 	releaseRow = false
 	return continuousbatch.Token{ID: next, Text: text}, nil
 }
 
+// DecodeBatch observes cancellation before dispatch. Once a Metal command buffer
+// is committed, cancellation suppresses its result and releases its rows after
+// completion; it does not preempt GPU execution.
 func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*continuousbatch.State) []continuousbatch.Result {
 	results := make([]continuousbatch.Result, len(states))
 	if err := ctx.Err(); err != nil {
@@ -122,10 +152,15 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 	positions := make([]int, len(states))
 	rows := make([]int, len(states))
 	samplers := make([]SamplerConfig, len(states))
+	a.rowsMu.Lock()
+	defer a.rowsMu.Unlock()
 	for i, state := range states {
 		sequence, ok := state.KV.(scheduledSequenceState)
 		if !ok {
 			return batchError(results, errors.New("decode: invalid cache state"))
+		}
+		if a.leases[sequence.row] != sequence.lease {
+			return batchError(results, errors.New("decode: stale cache row lease"))
 		}
 		sampler, ok := state.Sampler.(SamplerConfig)
 		if state.Sampler != nil && !ok {

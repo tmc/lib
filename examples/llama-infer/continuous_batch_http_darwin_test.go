@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
 
 func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
@@ -141,6 +143,93 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		t.Logf("width=%d batches=%+v", width, srv.continuousEngine.Observations())
 		srv.continuous.Close()
 		srv.continuousEngine.Close()
+	}
+}
+
+func TestScheduledPrefixSnapshotRowLease(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := eng.prefixes
+	eng.prefixes = newPrefixCache(64<<20, 2)
+	t.Cleanup(func() { eng.prefixes = previous })
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	first := &continuousbatch.State{Prompt: "same prompt"}
+	firstToken, err := adapter.Prefill(t.Context(), first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstLease := first.KV.(scheduledSequenceState)
+	offset := firstLease.row * adapter.cache.maxSeqLen * adapter.cache.kvDim
+	want := adapter.cache.K[0].HostSlice()[offset]
+	adapter.cache.K[0].HostSlice()[offset] = want + 1000
+	stale := *first
+	adapter.Release(first)
+	second := &continuousbatch.State{Prompt: "same prompt"}
+	secondToken, err := adapter.Prefill(t.Context(), second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondLease := second.KV.(scheduledSequenceState)
+	if secondLease.row != firstLease.row || secondLease.lease == firstLease.lease {
+		t.Fatalf("row leases first=%+v second=%+v", firstLease, secondLease)
+	}
+	if secondToken.ID != firstToken.ID {
+		t.Fatalf("cached token=%d, want %d", secondToken.ID, firstToken.ID)
+	}
+	if got := adapter.cache.K[0].HostSlice()[offset]; got != want {
+		t.Fatalf("cached row mutation leaked: got %g, want %g", got, want)
+	}
+	metrics := eng.prefixes.metrics()
+	if metrics.Hits != 1 || metrics.Entries != 1 || metrics.Bytes <= 0 || metrics.SavedTokens <= 0 {
+		t.Fatalf("prefix metrics=%+v", metrics)
+	}
+	adapter.Release(&stale)
+	adapter.rowsMu.Lock()
+	free, leased := len(adapter.freeRows), len(adapter.leases)
+	adapter.rowsMu.Unlock()
+	if free != 0 || leased != 1 {
+		t.Fatalf("stale release: free=%d leased=%d, want 0,1", free, leased)
+	}
+	adapter.Release(second)
+	adapter.rowsMu.Lock()
+	free, leased = len(adapter.freeRows), len(adapter.leases)
+	adapter.rowsMu.Unlock()
+	if free != 1 || leased != 0 {
+		t.Fatalf("final release: free=%d leased=%d, want 1,0", free, leased)
+	}
+}
+
+func TestScheduledPrefixCacheEvictionIsBounded(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := eng.prefixes
+	eng.prefixes = newPrefixCache(64<<20, 1)
+	t.Cleanup(func() { eng.prefixes = previous })
+	adapter, err := newScheduledEngineAdapter(eng, cfg, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer adapter.Close()
+	for _, prompt := range []string{"first prompt", "second distinct prompt"} {
+		state := &continuousbatch.State{Prompt: prompt}
+		if _, err := adapter.Prefill(t.Context(), state); err != nil {
+			t.Fatal(err)
+		}
+		adapter.Release(state)
+	}
+	metrics := eng.prefixes.metrics()
+	if metrics.Entries != 1 || metrics.Bytes <= 0 || metrics.Bytes > 64<<20 || metrics.Misses != 2 {
+		t.Fatalf("bounded prefix metrics=%+v", metrics)
 	}
 }
 

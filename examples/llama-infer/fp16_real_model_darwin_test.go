@@ -31,6 +31,9 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	previousPrefixes := eng.prefixes
+	eng.prefixes = newPrefixCache(64<<20, 8)
+	t.Cleanup(func() { eng.prefixes = previousPrefixes })
 	if !eng.isF16 || len(eng.layersF16) != cfg.NumLayers {
 		t.Fatalf("loaded precision f16=%v layers=%d, want %d", eng.isF16, len(eng.layersF16), cfg.NumLayers)
 	}
@@ -108,6 +111,11 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 	}
 	kvBytes := int64(2 * cfg.NumLayers * 8 * cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim * 4)
 	t.Logf("weights=shared-f16 cache_rows=8 kv_bytes=%d vocab=%d tiles_per_row=%d", kvBytes, cfg.VocabSize, (cfg.VocabSize+255)/256)
+	if metrics := eng.prefixes.metrics(); metrics.Entries != 1 || metrics.Hits < 1 || metrics.Bytes <= 0 {
+		t.Fatalf("explicit prefix cache metrics=%+v", metrics)
+	} else {
+		t.Logf("explicit_prefix_cache=%+v", metrics)
+	}
 }
 
 type prefillGate struct {
