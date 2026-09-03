@@ -84,6 +84,92 @@ func TestBlockTableAttentionMatchesContiguous(t *testing.T) {
 	t.Logf("physical_block_table=true prefix_blocks_per_layer=3 partial_block=true layers=%d stats=%+v", cfg.NumLayers, stats)
 }
 
+func TestBlockTableAttentionBatchMixedPrefixes(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache, err := metalprefix.New(metalprefix.Config{Device: eng.dev, MaxBytes: 16 << 20, MaxEntries: 8, BlockTokens: 2, Layers: cfg.NumLayers, KVHeads: cfg.NumKVHeads, HeadDim: cfg.HeadDim})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	}()
+
+	prefixLengths := []int{2, 17, 8, 11} // Row 1 proves the old eight-block limit is gone.
+	leases := make([]*metalprefix.Lease, len(prefixLengths))
+	prefixK := make([][][]float32, len(prefixLengths))
+	prefixV := make([][][]float32, len(prefixLengths))
+	for row, n := range prefixLengths {
+		tokens := make([]int32, n)
+		for i := range tokens {
+			tokens[i] = int32(1000*row + i + 1)
+		}
+		if row == 1 {
+			tokens[0], tokens[1] = 1, 2
+		}
+		prefixK[row], prefixV[row] = blockAttentionData(cfg, n, 0.007*float32(row+1))
+		if row == 1 {
+			for layer := range cfg.NumLayers {
+				copy(prefixK[row][layer][:2*cfg.NumKVHeads*cfg.HeadDim], prefixK[0][layer][:2*cfg.NumKVHeads*cfg.HeadDim])
+				copy(prefixV[row][layer][:2*cfg.NumKVHeads*cfg.HeadDim], prefixV[0][layer][:2*cfg.NumKVHeads*cfg.HeadDim])
+			}
+		}
+		if err := cache.Put(context.Background(), tokens, int32(9000+row), prefixK[row], prefixV[row], metalprefix.CompletedFence()); err != nil {
+			t.Fatalf("row %d Put: %v", row, err)
+		}
+		lease, ok, err := cache.Acquire(append(tokens, 99))
+		if err != nil || !ok {
+			t.Fatalf("row %d Acquire = %v, %v", row, ok, err)
+		}
+		leases[row] = lease
+		defer lease.Release()
+	}
+	if leases[0].Blocks()[0].ID != leases[1].Blocks()[0].ID {
+		t.Fatal("divergent prefixes did not share their immutable full block")
+	}
+
+	qd := cfg.NumHeads * cfg.HeadDim
+	kd := cfg.NumKVHeads * cfg.HeadDim
+	for _, b := range []int{1, 2, 4} {
+		q := make([][]float32, b)
+		sk := make([][]float32, b)
+		sv := make([][]float32, b)
+		for row := range b {
+			q[row] = make([]float32, qd)
+			for i := range q[row] {
+				q[row][i] = float32((i+row)%13-6) * 0.019
+			}
+			suffixTokens := row%3 + 1
+			sk[row] = make([]float32, suffixTokens*kd)
+			sv[row] = make([]float32, suffixTokens*kd)
+			for i := range sk[row] {
+				sk[row][i] = float32((i+5*row)%11-5) * 0.021
+				sv[row][i] = float32((i+7*row)%9-4) * 0.017
+			}
+		}
+		for layer := range cfg.NumLayers {
+			got, err := RunBlockTableAttentionBatch(context.Background(), eng, cfg, leases[:b], layer, q, sk, sv)
+			if err != nil {
+				t.Fatalf("B%d layer %d: %v", b, layer, err)
+			}
+			for row := range b {
+				want := contiguousAttention(cfg, q[row], append(append([]float32(nil), prefixK[row][layer]...), sk[row]...), append(append([]float32(nil), prefixV[row][layer]...), sv[row]...))
+				for i := range want {
+					if d := math.Abs(float64(got[row][i] - want[i])); d > 2e-5 {
+						t.Fatalf("B%d layer %d row %d output[%d] diff %g", b, layer, row, i, d)
+					}
+				}
+			}
+		}
+	}
+	t.Logf("shared_dispatch=true batches=1,2,4 mixed_prefix=true max_blocks=9 partial_blocks=true")
+}
+
 func TestBlockTableAttentionRealFP16KV(t *testing.T) {
 	model := os.Getenv("LLAMA_INFER_TEST_MODEL")
 	if model == "" {
