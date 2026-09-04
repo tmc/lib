@@ -1,6 +1,7 @@
 package cublasltx
 
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -18,8 +19,23 @@ func (e *Engine) MatMulWithGELUBias(
 	bias cudamem.Slice[float32],
 	d cudamem.Slice[float32],
 ) error {
+	if e == nil {
+		return errors.New("cublasltx: nil engine")
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.handle == 0 {
+		return errors.New("cublasltx: closed engine")
+	}
+	if err := validateMatMulLengths(a.Len(), m, k, b.Len(), n, d.Len()); err != nil {
+		return err
+	}
+	if bias.Len() < n {
+		return fmt.Errorf("cublasltx: bias length %d is smaller than %d", bias.Len(), n)
+	}
+	if s != nil && s.Device() != e.dev {
+		return errors.New("cublasltx: stream belongs to another device")
+	}
 
 	return e.dev.WithContext(func() error {
 		opDesc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
