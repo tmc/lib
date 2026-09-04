@@ -22,20 +22,20 @@ type DecoderLayer struct {
 	Epsilon        float32
 }
 
-// PackedDecoderLayer describes a complete pre-attention projection, paged KV
-// update, attention, and post-attention projection transaction.
-type PackedDecoderLayer struct {
+// PackedAttentionBlock describes pre-attention projection, paged KV update,
+// attention, and post-attention projection. It does not include an MLP block.
+type PackedAttentionBlock struct {
 	DecoderLayer
 	RMSNormQKV driver.Function
 	RoPEStore  driver.Function
 	RoPETheta  float32
 }
 
-// RunPackedDecoderLayer executes a complete packed decoder layer on one stream.
+// RunPackedAttentionBlock executes one packed attention block on one stream.
 // The weight matrices are shared by every token row. Scratch storage and the
 // batch's page pins must remain live until this call returns; batch completion
 // remains the caller's responsibility.
-func (b *PackedBatch) RunPackedDecoderLayer(ctx context.Context, stream *cuda.Stream, op PackedDecoderLayer,
+func (b *PackedBatch) RunPackedAttentionBlock(ctx context.Context, stream *cuda.Stream, op PackedAttentionBlock,
 	input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut,
 	projection, outputNormWeight, output, outputNorm cudamem.Slice[float32]) ([]int32, error) {
 	if b == nil || b.owner == nil || ctx == nil || stream == nil {

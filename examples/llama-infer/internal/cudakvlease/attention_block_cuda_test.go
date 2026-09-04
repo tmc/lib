@@ -13,18 +13,18 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalayer"
 )
 
-func TestCUDAPackedFullDecoderLayer(t *testing.T) {
+func TestCUDAPackedAttentionBlock(t *testing.T) {
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") != "1" {
 		t.Skip("set LIB_CUDA_HARDWARE_TEST=1 on a CUDA host")
 	}
 	for _, lengths := range [][]int{{3}, {3, 5}, {3, 5, 2, 6}} {
 		t.Run(fmt.Sprintf("B%d", len(lengths)), func(t *testing.T) {
-			testCUDAPackedFullDecoderLayer(t, lengths)
+			testCUDAPackedAttentionBlock(t, lengths)
 		})
 	}
 }
 
-func testCUDAPackedFullDecoderLayer(t *testing.T, lengths []int) {
+func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	const blockSize, qHeads, kvHeads, headDim = 2, 2, 1, 4
 	const theta, epsilon = float32(10000), float32(1e-5)
 	dim, kvDim := qHeads*headDim, kvHeads*headDim
@@ -136,16 +136,16 @@ func testCUDAPackedFullDecoderLayer(t *testing.T, lengths []int) {
 		t.Fatal(err)
 	}
 	defer stream.Destroy()
-	op := PackedDecoderLayer{DecoderLayer: DecoderLayer{
+	op := PackedAttentionBlock{DecoderLayer: DecoderLayer{
 		Attention:      CausalAttention{Kernel: attentionKernel, Layer: 0, QHeads: qHeads, KVHeads: kvHeads, HeadDim: headDim, MaxSeqLen: maxLen, Threads: 32, Scale: float32(1 / math.Sqrt(headDim))},
 		ProjectionNorm: projectionKernel, Dim: dim, Threads: 32, Epsilon: epsilon,
 	}, RMSNormQKV: qkvKernel, RoPEStore: ropeKernel, RoPETheta: theta}
 	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := batch.RunPackedDecoderLayer(canceled, stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm); !errors.Is(err, context.Canceled) {
+	if _, err := batch.RunPackedAttentionBlock(canceled, stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm); !errors.Is(err, context.Canceled) {
 		t.Fatalf("pre-submit cancellation = %v", err)
 	}
-	status, err := batch.RunPackedDecoderLayer(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
+	status, err := batch.RunPackedAttentionBlock(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func testCUDAPackedFullDecoderLayer(t *testing.T, lengths []int) {
 			t.Fatalf("status[%d] = %d", row, status[row])
 		}
 	}
-	wantOutput, wantNorm := fullLayerReference(input, inputNormWeight, qWeight, kWeight, vWeight, projection, outputNormWeight, lengths, qHeads, kvHeads, headDim, theta, epsilon)
+	wantOutput, wantNorm := attentionBlockReference(input, inputNormWeight, qWeight, kWeight, vWeight, projection, outputNormWeight, lengths, qHeads, kvHeads, headDim, theta, epsilon)
 	checkLayerOutput(t, dev, doutput, wantOutput, 2e-5)
 	checkLayerOutput(t, dev, doutputNorm, wantNorm, 2e-5)
 
@@ -197,7 +197,7 @@ func testCUDAPackedFullDecoderLayer(t *testing.T, lengths []int) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	status, err = batch.RunPackedDecoderLayer(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
+	status, err = batch.RunPackedAttentionBlock(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func values(n, period, offset, divisor int) []float32 {
 	return v
 }
 
-func fullLayerReference(input, inputNormWeight, qWeight, kWeight, vWeight, projection, outputNormWeight []float32, lengths []int, qHeads, kvHeads, headDim int, theta, epsilon float32) ([]float32, []float32) {
+func attentionBlockReference(input, inputNormWeight, qWeight, kWeight, vWeight, projection, outputNormWeight []float32, lengths []int, qHeads, kvHeads, headDim int, theta, epsilon float32) ([]float32, []float32) {
 	dim, kvDim := qHeads*headDim, kvHeads*headDim
 	tokens := len(input) / dim
 	q, k, v := make([]float32, tokens*dim), make([]float32, tokens*kvDim), make([]float32, tokens*kvDim)
