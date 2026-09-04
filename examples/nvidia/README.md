@@ -11,6 +11,7 @@ needed for its package.
 | cuRAND | `curand-host` |
 | cuBLAS | `cublas-sgemm` |
 | cuBLASLt | `cublaslt-layout` |
+| cuFFT | `cufft-impulse` |
 | CUPTI | `cupti-version` |
 | cuSOLVER | `cusolver-version` |
 | cuSPARSE | `cusparse-version` |
