@@ -14,14 +14,21 @@ import (
 // The zero Arena is not usable; obtain one from [NewArena]. An Arena is not
 // safe for concurrent use.
 type Arena struct {
-	dev   *applemetal.Device
-	err   error
-	frees []func()
+	dev     *applemetal.Device
+	tracker *Tracker
+	err     error
+	frees   []func()
 }
 
 // NewArena returns an empty Arena allocating from dev.
 func NewArena(dev *applemetal.Device) *Arena {
 	return &Arena{dev: dev}
+}
+
+// NewTrackedArena returns an Arena whose successful allocations are charged
+// to tracker until their shared Slice owner is released.
+func NewTrackedArena(dev *applemetal.Device, tracker *Tracker) *Arena {
+	return &Arena{dev: dev, tracker: tracker}
 }
 
 // Device returns the device the arena allocates from.
@@ -40,7 +47,7 @@ func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
 	if a.err != nil {
 		return Slice[T]{}
 	}
-	s, err := Alloc[T](a.dev, length)
+	s, err := alloc[T](a.dev, length, a.tracker)
 	if err != nil {
 		a.err = fmt.Errorf("metalmem: arena alloc %s: %w", name, err)
 		return Slice[T]{}
@@ -57,7 +64,7 @@ func UploadIn[T any](a *Arena, name string, data []T) Slice[T] {
 	if a.err != nil {
 		return Slice[T]{}
 	}
-	s, err := AllocFromSlice[T](a.dev, data)
+	s, err := allocFromSlice[T](a.dev, data, a.tracker)
 	if err != nil {
 		a.err = fmt.Errorf("metalmem: arena upload %s: %w", name, err)
 		return Slice[T]{}
