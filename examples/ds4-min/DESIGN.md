@@ -81,12 +81,38 @@ an input.
 The intended model is Hugging Face repository
 `antirez/deepseek-v4-gguf`, file
 `DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf`.
-At contract freeze the file was not available on the local Apple host, so byte
-length, SHA-256, GGUF metadata digest, quantization manifest, and tokenizer
-digest remain deliberately unset. No marketing alias identifies a model. Model
-execution and GPU implementation are blocked until one exact file is available
-and those fields are captured from it. A different checkpoint is not a
+No marketing alias identifies a model, and a different checkpoint is not a
 substitute.
+
+This section previously said the file was not available on the local Apple
+host, so byte length, SHA-256, GGUF metadata digest, quantization manifest, and
+tokenizer digest remained deliberately unset, and that model execution and GPU
+implementation were blocked until they were captured. That is no longer true.
+The file was obtained and the identities are captured in `gguf.go`:
+
+    byte length                86720111488
+    SHA-256                    ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0
+    GGUF metadata manifest     857d48d201da0faaaa6f2af0cdf0aa5fef523323217e29a902579130c24a32b5
+    tensor manifest            0bcce58e7234ba89f247bfab49387121f375e8322d843fc166fb95ed12db99ca
+    quantization manifest      b07c8ece42d1ff0273a8b7db85514e66ae6aca48dc55ea5b33d50f8f02380788
+    tokenizer manifest         d58f8cbcd40bfa9319e0954e01ad619c179567cf001258423713d3d604998eec
+
+The manifest digests cover, respectively, every metadata key, every tensor's
+name/shape/type/offset/size, the per-quantization-type byte and tensor totals,
+and the `tokenizer.`-prefixed metadata alone, each serialized under the schema
+tag `ds4-min-gguf-manifest-v1`.
+
+The enforcement is deliberately split. `validatePinnedProfile` checks the byte
+length and the four manifest digests, and every load path calls it: the command
+in `main.go`, the Metal runtime, and the CUDA runtime. Full-file SHA-256 is
+*not* on that path. It lives in `validatePinnedModel`, which is called only
+from `TestPinnedProfile`, because hashing 81 GiB on every run is not a load-time
+cost the command accepts. So a load rejects any file whose header does not match
+the pinned profile, while byte-for-byte identity of the tensor payload is
+established by that opt-in test, not by the command.
+
+The identity gate is therefore satisfied. Physical execution receipts are a
+separate gate and are governed by the Evidence section below.
 
 ## Scope
 

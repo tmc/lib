@@ -6,11 +6,12 @@ oracle.git github.com/antirez/ds4
 oracle.commit b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd
 model.repo antirez/deepseek-v4-gguf
 model.file DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
-model.bytes BLOCKED:not-present
-model.sha256 BLOCKED:not-present
-model.gguf-metadata-sha256 BLOCKED:not-present
-model.tensor-manifest-sha256 BLOCKED:not-present
-model.tokenizer-sha256 BLOCKED:not-present
+model.bytes 86720111488
+model.sha256 ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0
+model.gguf-metadata-sha256 857d48d201da0faaaa6f2af0cdf0aa5fef523323217e29a902579130c24a32b5
+model.tensor-manifest-sha256 0bcce58e7234ba89f247bfab49387121f375e8322d843fc166fb95ed12db99ca
+model.quant-manifest-sha256 b07c8ece42d1ff0273a8b7db85514e66ae6aca48dc55ea5b33d50f8f02380788
+model.tokenizer-sha256 d58f8cbcd40bfa9319e0954e01ad619c179567cf001258423713d3d604998eec
 
 synthetic.seed 4477748
 synthetic.config {"dim":4,"vocab":6,"experts":4,"top_k":2,"intermediate":3,"hc_streams":2,"sinkhorn_iterations":20,"raw_window":2,"compression_ratio":4,"prompt":[0,2,4],"decode_steps":4,"atol":0.0001,"rtol":0.0001,"stack":{"layers":6,"raw_window":2,"fine_ratio":4,"coarse_ratio":8,"selected_row_cap":1,"prompt":[0,2,4],"decode_steps":13}}
