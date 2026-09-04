@@ -17,5 +17,22 @@
 //
 // [Launcher.Launch] automatically packs Go arguments into the array-of-pointers layout
 // expected by cuLaunchKernel. Supported argument types include Go integers, floats,
-// [driver.DevicePtr], structs, pointers, and types implementing [cudamem.Slice].
+// [driver.DevicePtr], structs, pointers, and any [DevicePtrProvider] such as
+// [github.com/tmc/lib/nvidia/x/cudamem.Slice]. An empty [DeviceSlice] packs as a null
+// device pointer, so an optional argument such as a missing bias vector is passed as a
+// zero Slice rather than a hand-rolled null sentinel.
+//
+// # Kernel Binding
+//
+// [Bind] resolves a whole set of kernels from a loaded module into the fields of a
+// struct, naming each kernel with a "cuda" struct tag:
+//
+//	type kernels struct {
+//		Embed driver.Function `cuda:"EmbeddingLookup"`
+//		Norm  driver.Function `cuda:"RMSNorm"`
+//	}
+//	var k kernels
+//	if err := cudalaunch.Bind(mod, &k); err != nil {
+//		return err
+//	}
 package cudalaunch

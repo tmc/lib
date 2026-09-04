@@ -73,3 +73,36 @@ func TestPackArgs16ByteAlignment(t *testing.T) {
 		t.Errorf("recovered struct %+v != expected %+v", recovered, f4)
 	}
 }
+
+type mockDeviceSlice struct {
+	ptr driver.DevicePtr
+	n   int
+}
+
+func (m mockDeviceSlice) Ptr() driver.DevicePtr { return m.ptr }
+func (m mockDeviceSlice) Len() int              { return m.n }
+
+func TestPackArgsNullSlice(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  any
+		want driver.DevicePtr
+	}{
+		{"zero slice", mockDeviceSlice{}, 0},
+		{"empty subslice of live buffer", mockDeviceSlice{ptr: 0x1000, n: 0}, 0},
+		{"populated slice", mockDeviceSlice{ptr: 0x1000, n: 8}, 0x1000},
+		{"plain provider", mockSlice{ptr: 0x2000}, 0x2000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params, cleanup, err := cudalaunch.PackArgs(tt.arg)
+			if err != nil {
+				t.Fatalf("PackArgs(%v) failed: %v", tt.arg, err)
+			}
+			defer cleanup()
+			if got := *(*driver.DevicePtr)(params[0]); got != tt.want {
+				t.Errorf("PackArgs(%v) packed 0x%x, want 0x%x", tt.arg, got, tt.want)
+			}
+		})
+	}
+}
