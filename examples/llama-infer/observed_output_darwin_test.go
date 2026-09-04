@@ -25,6 +25,7 @@ func TestObservedOutputBenchmarkCapturesFinalLogitsAndPopulatedKV(t *testing.T) 
 			defer adapter.Close()
 			adapter.enablePhysicalLedger()
 			adapter.observedOutputs = newObservedOutputCollector()
+			baseline, _ := eng.memory.Snapshot()
 			scheduler, err := continuousbatch.New(adapter, continuousbatch.Config{MaxActive: width, MaxQueue: width, MaxBatch: width, BatchWait: time.Microsecond, TokenBuffer: 3, PrefillWorkers: width})
 			if err != nil {
 				t.Fatal(err)
@@ -42,6 +43,9 @@ func TestObservedOutputBenchmarkCapturesFinalLogitsAndPopulatedKV(t *testing.T) 
 			}
 			if len(sample.ObservedOutputs) != width || sample.ObservedSHA256 == "" {
 				t.Fatalf("observed outputs = %+v hash=%q", sample.ObservedOutputs, sample.ObservedSHA256)
+			}
+			if sample.PeakMemoryBytes < baseline || sample.PeakMemoryBytes == 0 {
+				t.Fatalf("peak memory = %d, want at least persistent allocation %d", sample.PeakMemoryBytes, baseline)
 			}
 			for i, output := range sample.ObservedOutputs {
 				wantKV := 2 * cfg.NumLayers * (workload.ContextTokens + workload.GeneratedTokens - 1) * cfg.NumKVHeads * cfg.HeadDim

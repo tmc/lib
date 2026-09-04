@@ -1346,7 +1346,7 @@ func RunSegmentedAttention(ctx context.Context, eng *ModelEngine, cfg Config, la
 	if err := eng.ensurePrefillArena(n, cfg); err != nil {
 		return BatchedAttentionResult{}, err
 	}
-	meta := metalmem.NewArena(eng.dev)
+	meta := metalmem.NewTrackedArena(eng.dev, eng.memory)
 	defer meta.Free()
 	requestIndex := metalmem.AllocIn[uint32](meta, "requestIndex", n)
 	positions := metalmem.AllocIn[uint32](meta, "positions", n)
@@ -2161,6 +2161,7 @@ func runPlatform(cfg Config) error {
 type SequenceKVCache struct {
 	KCache []mempool.Slice[float32]
 	VCache []mempool.Slice[float32]
+	arena  *metalmem.Arena
 }
 
 // NewSequenceKV allocates an isolated KV-cache for a sequence.
@@ -2168,24 +2169,22 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 	if eng == nil {
 		return nil, errors.New("new sequence kv: nil engine")
 	}
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
 	kCache := make([]mempool.Slice[float32], cfg.NumLayers)
 	vCache := make([]mempool.Slice[float32], cfg.NumLayers)
 	elemCount := cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim
 	for l := 0; l < cfg.NumLayers; l++ {
-		k, err := mempool.Alloc[float32](eng.dev, elemCount)
-		if err != nil {
-			return nil, fmt.Errorf("alloc k-cache layer %d: %w", l, err)
+		kCache[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("k[%d]", l), elemCount)
+		vCache[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("v[%d]", l), elemCount)
+		if err := a.Err(); err != nil {
+			a.Free()
+			return nil, fmt.Errorf("alloc sequence kv layer %d: %w", l, err)
 		}
-		v, err := mempool.Alloc[float32](eng.dev, elemCount)
-		if err != nil {
-			return nil, fmt.Errorf("alloc v-cache layer %d: %w", l, err)
-		}
-		kCache[l] = k
-		vCache[l] = v
 	}
 	return &SequenceKVCache{
 		KCache: kCache,
 		VCache: vCache,
+		arena:  a,
 	}, nil
 }
 
@@ -2194,9 +2193,14 @@ func (skv *SequenceKVCache) Free() {
 	if skv == nil {
 		return
 	}
-	for i := range skv.KCache {
-		skv.KCache[i].Free()
-		skv.VCache[i].Free()
+	if skv.arena != nil {
+		skv.arena.Free()
+		skv.arena = nil
+	} else {
+		for i := range skv.KCache {
+			skv.KCache[i].Free()
+			skv.VCache[i].Free()
+		}
 	}
 	skv.KCache = nil
 	skv.VCache = nil

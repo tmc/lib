@@ -14,6 +14,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalattn"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/examples/internal/metalprefix"
 )
 
@@ -37,6 +38,7 @@ type metalBlockWorkspace struct {
 	rows                        mempool.Slice[metalBlockRow]
 	layers, capacity, maxBlocks int
 	freed                       bool
+	arena                       *metalmem.Arena
 }
 
 type metalBlockWorkspaceStats struct {
@@ -61,16 +63,13 @@ func newMetalBlockWorkspace(eng *ModelEngine, cfg Config, capacity int) (*metalB
 	if eng == nil || eng.dev == nil || cfg.NumLayers <= 0 || cfg.MaxSeqLen <= 0 || capacity <= 0 {
 		return nil, errors.New("block workspace: invalid configuration")
 	}
-	w := &metalBlockWorkspace{layers: cfg.NumLayers, capacity: capacity, maxBlocks: cfg.MaxSeqLen}
-	var err error
-	w.descriptors, err = mempool.Alloc[metalBlockDescriptor](eng.dev, w.layers*w.capacity*w.maxBlocks)
-	if err != nil {
-		return nil, fmt.Errorf("block workspace: allocate descriptors: %w", err)
-	}
-	w.rows, err = mempool.Alloc[metalBlockRow](eng.dev, w.layers*w.capacity)
-	if err != nil {
-		w.descriptors.Free()
-		return nil, fmt.Errorf("block workspace: allocate rows: %w", err)
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
+	w := &metalBlockWorkspace{layers: cfg.NumLayers, capacity: capacity, maxBlocks: cfg.MaxSeqLen, arena: a}
+	w.descriptors = metalmem.AllocIn[metalBlockDescriptor](a, "descriptors", w.layers*w.capacity*w.maxBlocks)
+	w.rows = metalmem.AllocIn[metalBlockRow](a, "rows", w.layers*w.capacity)
+	if err := a.Err(); err != nil {
+		a.Free()
+		return nil, fmt.Errorf("block workspace: %w", err)
 	}
 	return w, nil
 }
@@ -84,8 +83,13 @@ func (w *metalBlockWorkspace) Free() {
 	if w.freed {
 		return
 	}
-	w.descriptors.Free()
-	w.rows.Free()
+	if w.arena != nil {
+		w.arena.Free()
+		w.arena = nil
+	} else {
+		w.descriptors.Free()
+		w.rows.Free()
+	}
 	w.freed = true
 }
 
@@ -233,36 +237,17 @@ func RunBlockTableAttentionBatch(ctx context.Context, eng *ModelEngine, cfg Conf
 		suffixV = append(suffixV, suffixVRows[i]...)
 	}
 
-	qbuf, err := mempool.AllocFromSlice(eng.dev, q)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate q: %w", err)
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
+	defer a.Free()
+	qbuf := metalmem.UploadIn(a, "q", q)
+	kbuf := metalmem.UploadIn(a, "suffix K", suffixK)
+	vbuf := metalmem.UploadIn(a, "suffix V", suffixV)
+	out := metalmem.AllocIn[float32](a, "output", b*qd)
+	dbuf := metalmem.UploadIn(a, "descriptors", desc)
+	rbuf := metalmem.UploadIn(a, "rows", rows)
+	if err := a.Err(); err != nil {
+		return nil, fmt.Errorf("block attention: %w", err)
 	}
-	defer qbuf.Free()
-	kbuf, err := mempool.AllocFromSlice(eng.dev, suffixK)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate suffix K: %w", err)
-	}
-	defer kbuf.Free()
-	vbuf, err := mempool.AllocFromSlice(eng.dev, suffixV)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate suffix V: %w", err)
-	}
-	defer vbuf.Free()
-	out, err := mempool.Alloc[float32](eng.dev, b*qd)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate output: %w", err)
-	}
-	defer out.Free()
-	dbuf, err := mempool.AllocFromSlice(eng.dev, desc)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate descriptors: %w", err)
-	}
-	defer dbuf.Free()
-	rbuf, err := mempool.AllocFromSlice(eng.dev, rows)
-	if err != nil {
-		return nil, fmt.Errorf("block attention: allocate rows: %w", err)
-	}
-	defer rbuf.Free()
 
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("block attention: %w", err)

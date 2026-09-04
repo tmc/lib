@@ -10,10 +10,42 @@ import (
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/lm/kvcache"
 )
 
 var errInjectedCompletion = errors.New("injected terminal command-buffer failure")
+
+func TestCacheTracksPhysicalBlocks(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Skipf("Metal unavailable: %v", err)
+	}
+	defer dev.Close()
+	var tracker metalmem.Tracker
+	c, err := New(Config{Device: dev, Tracker: &tracker, MaxBytes: 4096, MaxEntries: 4, BlockTokens: 2, Layers: 2, KVHeads: 1, HeadDim: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens := []int32{1, 2, 3}
+	k, v := kv(len(tokens), 7)
+	if err := c.Put(t.Context(), tokens, 9, k, v, CompletedFence()); err != nil {
+		t.Fatal(err)
+	}
+	const want = 2 * 2 * 3 * 2 * 4
+	if current, peak := tracker.Snapshot(); current != want || peak != want {
+		t.Fatalf("tracked blocks = %d, %d, want %d", current, peak, want)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if current, peak := tracker.Snapshot(); current != 0 || peak != want {
+		t.Fatalf("tracked blocks after Close = %d, %d, want 0, %d", current, peak, want)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func testCache(t *testing.T, maxBytes int64, maxEntries int) *Cache {
 	t.Helper()

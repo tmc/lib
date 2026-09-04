@@ -15,14 +15,28 @@ func benchmarkObservedOutputSupported() bool              { return true }
 func benchmarkPhysicalTelemetry() error {
 	return nil
 }
-func benchmarkPeakMemorySupport(*ModelEngine) error {
-	return errors.New("Metal interval peak device allocation is not instrumented")
-}
-func benchmarkMemoryReset(context.Context, *ModelEngine) error {
+func benchmarkPeakMemorySupport(eng *ModelEngine) error {
+	if eng == nil || eng.memory == nil {
+		return errors.New("Metal engine allocation tracker is unavailable")
+	}
 	return nil
 }
-func benchmarkPeakMemory(*ModelEngine) (uint64, error) {
-	return 0, nil
+func benchmarkMemoryReset(ctx context.Context, eng *ModelEngine) error {
+	if err := benchmarkSynchronize(ctx, eng); err != nil {
+		return err
+	}
+	eng.memory.ResetPeak()
+	return nil
+}
+func benchmarkPeakMemory(eng *ModelEngine) (uint64, error) {
+	if eng == nil || eng.memory == nil {
+		return 0, errors.New("Metal engine allocation tracker is unavailable")
+	}
+	_, peak := eng.memory.Snapshot()
+	if peak == 0 {
+		return 0, errors.New("Metal engine allocation peak is zero")
+	}
+	return peak, nil
 }
 func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	if eng == nil || eng.dev == nil {

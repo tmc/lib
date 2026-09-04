@@ -15,6 +15,7 @@ import (
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/lm/kvcache"
 )
 
@@ -58,6 +59,7 @@ type Config struct {
 	Layers      int
 	KVHeads     int
 	HeadDim     int
+	Tracker     *metalmem.Tracker
 }
 
 // Stats reports physical allocation, including undiscoverable blocks pinned
@@ -100,6 +102,7 @@ type block struct {
 	layer int
 	k     mempool.Slice[float32]
 	v     mempool.Slice[float32]
+	arena *metalmem.Arena
 	refs  int
 }
 
@@ -526,14 +529,12 @@ func (c *Cache) allocEmptyBlockLocked(tokens []int32, start, end, layer int) (bl
 	if c.bytes+bytes > c.cfg.MaxBytes {
 		return blockRef{}, kvcache.ErrExhausted
 	}
-	ks, err := mempool.Alloc[float32](c.cfg.Device, values)
-	if err != nil {
-		return blockRef{}, fmt.Errorf("metalprefix: allocate K block: %w", err)
-	}
-	vs, err := mempool.Alloc[float32](c.cfg.Device, values)
-	if err != nil {
-		ks.Free()
-		return blockRef{}, fmt.Errorf("metalprefix: allocate V block: %w", err)
+	a := metalmem.NewTrackedArena(c.cfg.Device, c.cfg.Tracker)
+	ks := metalmem.AllocIn[float32](a, "K block", values)
+	vs := metalmem.AllocIn[float32](a, "V block", values)
+	if err := a.Err(); err != nil {
+		a.Free()
+		return blockRef{}, fmt.Errorf("metalprefix: allocate block: %w", err)
 	}
 	owner, err := c.store.Allocate(kvcache.Spec{
 		Owner:  tokenKey(tokens[:end]),
@@ -541,12 +542,11 @@ func (c *Cache) allocEmptyBlockLocked(tokens []int32, start, end, layer int) (bl
 		Format: kvcache.Format{Layer: layer, DType: "float32", Layout: "token-kvhead-head", KVHeads: c.cfg.KVHeads, HeadDim: c.cfg.HeadDim},
 	}, kvcache.Residency{Backend: "metal", Tier: "unified", Domain: c.cfg.Device.Name()})
 	if err != nil {
-		ks.Free()
-		vs.Free()
+		a.Free()
 		return blockRef{}, fmt.Errorf("metalprefix: record block: %w", err)
 	}
 	id, gen := owner.ID()
-	b := &block{owner: owner, id: id, gen: gen, start: start, end: end, layer: layer, k: ks, v: vs, refs: 1}
+	b := &block{owner: owner, id: id, gen: gen, start: start, end: end, layer: layer, k: ks, v: vs, arena: a, refs: 1}
 	c.blocks[[2]uint64{uint64(id), uint64(gen)}] = b
 	c.bytes += bytes
 	return blockRef{b: b, lease: owner}, nil
@@ -780,8 +780,8 @@ func (c *Cache) dropRefLocked(ref blockRef) {
 		return
 	}
 	_ = c.store.Evict(context.Background(), ref.lease, func(context.Context, kvcache.Descriptor) error {
-		ref.b.k.Free()
-		ref.b.v.Free()
+		ref.b.arena.Free()
+		ref.b.arena = nil
 		return nil
 	})
 	delete(c.blocks, [2]uint64{uint64(ref.b.id), uint64(ref.b.gen)})
