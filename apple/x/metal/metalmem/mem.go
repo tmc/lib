@@ -66,11 +66,27 @@ func elemSizeOf[T any]() uintptr {
 	return 1
 }
 
+// byteLen returns the number of bytes needed for length elements. Metal's
+// allocation entry points take int byte counts, so reject values that would
+// wrap when converted from uintptr.
+func byteLen(length int, elemSize uintptr) (int, error) {
+	if length < 0 {
+		return 0, fmt.Errorf("negative allocation length %d", length)
+	}
+	const maxInt = int(^uint(0) >> 1)
+	if uintptr(length) > uintptr(maxInt)/elemSize {
+		return 0, fmt.Errorf("allocation size overflows for %d elements", length)
+	}
+	return int(uintptr(length) * elemSize), nil
+}
+
 // Alloc allocates a Slice[T] of length elements in shared unified memory. A
 // length of zero allocates nothing and returns the zero Slice.
 func Alloc[T any](dev *applemetal.Device, length int) (Slice[T], error) {
-	if length < 0 {
-		return Slice[T]{}, fmt.Errorf("metalmem: negative allocation length %d", length)
+	elemSize := elemSizeOf[T]()
+	totalBytes, err := byteLen(length, elemSize)
+	if err != nil {
+		return Slice[T]{}, fmt.Errorf("metalmem: %w", err)
 	}
 	if length == 0 {
 		return Slice[T]{}, nil
@@ -78,11 +94,7 @@ func Alloc[T any](dev *applemetal.Device, length int) (Slice[T], error) {
 	if dev == nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: nil device")
 	}
-	elemSize := elemSizeOf[T]()
-	if uintptr(length) > ^uintptr(0)/elemSize || uintptr(length)*elemSize > uintptr(^uint(0)) {
-		return Slice[T]{}, fmt.Errorf("metalmem: allocation size overflows for %d elements", length)
-	}
-	buf, err := dev.AllocBuffer(int(uintptr(length) * elemSize))
+	buf, err := dev.AllocBuffer(totalBytes)
 	if err != nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: alloc %d elements: %w", length, err)
 	}
@@ -119,9 +131,15 @@ func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, 
 		return Slice[T]{}, fmt.Errorf("metalmem: nil device")
 	}
 	elemSize := elemSizeOf[T]()
-	totalBytes := int(uintptr(length) * elemSize)
-	if length <= 0 || totalBytes <= 0 {
+	totalBytes, err := byteLen(length, elemSize)
+	if err != nil {
+		return Slice[T]{}, fmt.Errorf("metalmem: %w", err)
+	}
+	if length == 0 {
 		return Slice[T]{}, fmt.Errorf("metalmem: invalid zero-copy length %d", length)
+	}
+	if f == nil {
+		return Slice[T]{}, fmt.Errorf("metalmem: nil mmap file")
 	}
 
 	data, err := syscall.Mmap(int(f.Fd()), offset, totalBytes, syscall.PROT_READ, syscall.MAP_SHARED)
