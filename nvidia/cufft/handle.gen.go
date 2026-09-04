@@ -30,7 +30,7 @@ func (h Handle) Destroy() error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
-func (h Handle) ExecC2C(idata *Complex, odata *Complex, direction int32) error {
+func (h Handle) ExecC2C(idata uintptr, odata uintptr, direction int32) error {
 	return execC2C(h, idata, odata, direction)
 }
 
@@ -47,7 +47,7 @@ func (h Handle) ExecC2C(idata *Complex, odata *Complex, direction int32) error {
 //   - Success: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecC2R.
-func (h Handle) ExecC2R(idata *Complex, odata *Real) error {
+func (h Handle) ExecC2R(idata uintptr, odata uintptr) error {
 	return execC2R(h, idata, odata)
 }
 
@@ -64,7 +64,7 @@ func (h Handle) ExecC2R(idata *Complex, odata *Real) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecD2Z.
-func (h Handle) ExecD2Z(idata *DoubleReal, odata *DoubleComplex) error {
+func (h Handle) ExecD2Z(idata uintptr, odata uintptr) error {
 	return execD2Z(h, idata, odata)
 }
 
@@ -81,7 +81,7 @@ func (h Handle) ExecD2Z(idata *DoubleReal, odata *DoubleComplex) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecR2C.
-func (h Handle) ExecR2C(idata *Real, odata *Complex) error {
+func (h Handle) ExecR2C(idata uintptr, odata uintptr) error {
 	return execR2C(h, idata, odata)
 }
 
@@ -98,7 +98,7 @@ func (h Handle) ExecR2C(idata *Real, odata *Complex) error {
 //   - Success: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecZ2D.
-func (h Handle) ExecZ2D(idata *DoubleComplex, odata *DoubleReal) error {
+func (h Handle) ExecZ2D(idata uintptr, odata uintptr) error {
 	return execZ2D(h, idata, odata)
 }
 
@@ -117,7 +117,7 @@ func (h Handle) ExecZ2D(idata *DoubleComplex, odata *DoubleReal) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
-func (h Handle) ExecZ2Z(idata *DoubleComplex, odata *DoubleComplex, direction int32) error {
+func (h Handle) ExecZ2Z(idata uintptr, odata uintptr, direction int32) error {
 	return execZ2Z(h, idata, odata, direction)
 }
 

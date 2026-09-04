@@ -10,12 +10,12 @@ var (
 	fnEstimate2d           func(int32, int32, Type, *uint) Result
 	fnEstimate3d           func(int32, int32, int32, Type, *uint) Result
 	fnEstimateMany         func(int32, *int32, *int32, int32, int32, *int32, int32, int32, Type, int32, *uint) Result
-	fnexecC2C              func(Handle, *Complex, *Complex, int32) Result
-	fnexecC2R              func(Handle, *Complex, *Real) Result
-	fnexecD2Z              func(Handle, *DoubleReal, *DoubleComplex) Result
-	fnexecR2C              func(Handle, *Real, *Complex) Result
-	fnexecZ2D              func(Handle, *DoubleComplex, *DoubleReal) Result
-	fnexecZ2Z              func(Handle, *DoubleComplex, *DoubleComplex, int32) Result
+	fnexecC2C              func(Handle, uintptr, uintptr, int32) Result
+	fnexecC2R              func(Handle, uintptr, uintptr) Result
+	fnexecD2Z              func(Handle, uintptr, uintptr) Result
+	fnexecR2C              func(Handle, uintptr, uintptr) Result
+	fnexecZ2D              func(Handle, uintptr, uintptr) Result
+	fnexecZ2Z              func(Handle, uintptr, uintptr, int32) Result
 	fngetPlanPropertyInt64 func(Handle, Property, *int64) Result
 	fnGetProperty          func(LibraryPropertyType, *int32) Result
 	fngetSize              func(Handle, *uint) Result
@@ -237,7 +237,7 @@ func EstimateMany(rank int32, n *int32, inembed *int32, istride int32, idist int
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
-func execC2C(plan Handle, idata *Complex, odata *Complex, direction int32) error {
+func execC2C(plan Handle, idata uintptr, odata uintptr, direction int32) error {
 	if err := checkLibSym("cufftExecC2C"); err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func execC2C(plan Handle, idata *Complex, odata *Complex, direction int32) error
 //   - Success: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecC2R.
-func execC2R(plan Handle, idata *Complex, odata *Real) error {
+func execC2R(plan Handle, idata uintptr, odata uintptr) error {
 	if err := checkLibSym("cufftExecC2R"); err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func execC2R(plan Handle, idata *Complex, odata *Real) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecD2Z.
-func execD2Z(plan Handle, idata *DoubleReal, odata *DoubleComplex) error {
+func execD2Z(plan Handle, idata uintptr, odata uintptr) error {
 	if err := checkLibSym("cufftExecD2Z"); err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func execD2Z(plan Handle, idata *DoubleReal, odata *DoubleComplex) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecR2C.
-func execR2C(plan Handle, idata *Real, odata *Complex) error {
+func execR2C(plan Handle, idata uintptr, odata uintptr) error {
 	if err := checkLibSym("cufftExecR2C"); err != nil {
 		return err
 	}
@@ -325,7 +325,7 @@ func execR2C(plan Handle, idata *Real, odata *Complex) error {
 //   - Success: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecZ2D.
-func execZ2D(plan Handle, idata *DoubleComplex, odata *DoubleReal) error {
+func execZ2D(plan Handle, idata uintptr, odata uintptr) error {
 	if err := checkLibSym("cufftExecZ2D"); err != nil {
 		return err
 	}
@@ -348,7 +348,7 @@ func execZ2D(plan Handle, idata *DoubleComplex, odata *DoubleReal) error {
 //   - Success: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
-func execZ2Z(plan Handle, idata *DoubleComplex, odata *DoubleComplex, direction int32) error {
+func execZ2Z(plan Handle, idata uintptr, odata uintptr, direction int32) error {
 	if err := checkLibSym("cufftExecZ2Z"); err != nil {
 		return err
 	}

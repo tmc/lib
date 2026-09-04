@@ -7,6 +7,9 @@ import (
 	"unsafe"
 )
 
+// Parsed by: clang
+// Layouts: clang record dump for the host
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(Complex{}); got != 8 {
 		t.Errorf("sizeof(Complex) = %d, want 8", got)

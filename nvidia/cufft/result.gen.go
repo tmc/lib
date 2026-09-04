@@ -10,23 +10,23 @@ type Result int32
 // cufft error codes from cufft.h.
 const (
 	Success              Result = 0x0
-	ErrInvalidPlan       Result = 0x1
-	ErrAllocFailed       Result = 0x2
-	ErrInvalidType       Result = 0x3
-	ErrInvalidValue      Result = 0x4
-	ErrInternalError     Result = 0x5
-	ErrExecFailed        Result = 0x6
-	ErrSetupFailed       Result = 0x7
-	ErrInvalidSize       Result = 0x8
-	ErrUnalignedData     Result = 0x9
-	ErrInvalidDevice     Result = 0xB
-	ErrNoWorkspace       Result = 0xD
-	ErrNotImplemented    Result = 0xE
-	ErrNotSupported      Result = 0x10
-	ErrMissingDependency Result = 0x11
-	ErrNvrtcFailure      Result = 0x12
-	ErrNvjitlinkFailure  Result = 0x13
-	ErrNvshmemFailure    Result = 0x14
+	ErrInvalidPlan       Result = 0x1  // the plan is invalid
+	ErrAllocFailed       Result = 0x2  // memory allocation failed
+	ErrInvalidType       Result = 0x3  // the type is not supported
+	ErrInvalidValue      Result = 0x4  // an invalid value was used as an argument
+	ErrInternalError     Result = 0x5  // an internal driver error occurred
+	ErrExecFailed        Result = 0x6  // the FFT execution failed
+	ErrSetupFailed       Result = 0x7  // the FFT library failed to initialize
+	ErrInvalidSize       Result = 0x8  // an invalid transform size was used
+	ErrUnalignedData     Result = 0x9  // data is not properly aligned
+	ErrInvalidDevice     Result = 0xB  // an invalid device was specified
+	ErrNoWorkspace       Result = 0xD  // no workspace has been provided
+	ErrNotImplemented    Result = 0xE  // the requested feature is not implemented
+	ErrNotSupported      Result = 0x10 // the requested feature is not supported
+	ErrMissingDependency Result = 0x11 // a required dependency is missing
+	ErrNvrtcFailure      Result = 0x12 // NVRTC compilation failed
+	ErrNvjitlinkFailure  Result = 0x13 // NVJitLink linking failed
+	ErrNvshmemFailure    Result = 0x14 // NVSHMEM operation failed
 )
 
 // Error implements the error interface.
