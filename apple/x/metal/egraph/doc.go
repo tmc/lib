@@ -1,3 +1,5 @@
-// Package egraph provides equality saturation rewrite rules, AST extraction,
-// and Metal Shading Language (MSL) code generation for Apple Silicon GPUs.
+// Package egraph provides equality saturation, expression extraction, and
+// Metal Shading Language source generation.
+//
+// The package does not compile or execute generated Metal source.
 package egraph

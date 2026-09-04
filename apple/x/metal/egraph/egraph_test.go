@@ -1,8 +1,36 @@
 package egraph
 
 import (
+	"strings"
 	"testing"
 )
+
+func TestNewRewriteVariables(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		lhs  string
+		rhs  string
+		want string
+	}{
+		{"bound", "(+ ?x ?y)", "(+ ?y ?x)", ""},
+		{"repeated", "(+ ?x ?x)", "?x", ""},
+		{"unbound", "(+ ?x 0)", "(+ ?x ?y)", "?y"},
+		{"deterministic", "?x", "(+ ?z ?y)", "?y, ?z"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewRewrite(test.name, test.lhs, test.rhs)
+			if test.want == "" {
+				if err != nil {
+					t.Fatalf("NewRewrite: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("NewRewrite error = %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
 
 func TestEGraphSaturation(t *testing.T) {
 	eg := New()
