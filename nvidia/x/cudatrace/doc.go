@@ -1,11 +1,12 @@
-// Package cudatrace correlates Go runtime tracing, flight recording, and CUDA driver
-// kernel execution into unified timeline traces viewable in Perfetto.
+// Package cudatrace records host-side CUDA submission regions and explicit
+// timestamped GPU spans in Perfetto traces.
 //
 // # Timeline Correlation
 //
-// cudatrace instruments kernel dispatches and stream memory transfers with GPU events
-// to measure exact hardware start and end timestamps, translating them into calibrated
-// host nanoseconds and exporting to [perfetto.Writer].
+// Span and SpanSource use the host clock around the supplied function. They do
+// not insert CUDA events or synchronize a stream, so they do not measure GPU
+// execution. Use RecordSpan with externally measured and calibrated GPU
+// timestamps when a hardware interval is available.
 //
 // # Go runtime/trace Integration
 //

@@ -2,6 +2,7 @@ package cudatrace_test
 
 import (
 	"bytes"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,6 +44,39 @@ func TestTracer(t *testing.T) {
 	}
 }
 
+func TestTracerConcurrentWrites(t *testing.T) {
+	var buf bytes.Buffer
+	tracer := cudatrace.New(&buf)
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := tracer.Span(nil, "submit", "cuda", func() {}); err != nil {
+				t.Errorf("Span: %v", err)
+			}
+			if err := tracer.Instant(nil, "queued", "cuda"); err != nil {
+				t.Errorf("Instant: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+	if buf.Len() == 0 {
+		t.Fatal("empty trace")
+	}
+}
+
+func TestRecordSpanRejectsReverseTime(t *testing.T) {
+	tracer := cudatrace.New(new(bytes.Buffer))
+	track, err := tracer.RegisterTimeline("gpu", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tracer.RecordSpan(track, 2, 1, "kernel", "gpu"); err == nil {
+		t.Fatal("RecordSpan accepted end before start")
+	}
+}
+
 func TestExplicitTimelineAndCounters(t *testing.T) {
 	var buf bytes.Buffer
 	tracer := cudatrace.New(&buf)
@@ -74,4 +108,3 @@ func TestExplicitTimelineAndCounters(t *testing.T) {
 		t.Fatal("expected non-empty output")
 	}
 }
-
