@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	apple "github.com/tmc/apple/metal"
+	"github.com/tmc/apple/objectivec"
 	"github.com/tmc/lib/apple/x/metal"
 )
 
@@ -31,7 +32,9 @@ var pipelineType = reflect.TypeOf((*apple.MTLComputePipelineState)(nil)).Elem()
 //	}
 //
 // Fields of other types are ignored unless they carry a "metal" tag, which is
-// reported as an error.
+// reported as an error. On success, the caller owns every populated pipeline
+// and must release it after submitted work completes. On failure, Bind releases
+// and clears every pipeline it populated.
 func Bind(dev *metal.Device, lib apple.MTLLibrary, kernels any) error {
 	rv := reflect.ValueOf(kernels)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
@@ -51,12 +54,20 @@ func Bind(dev *metal.Device, lib apple.MTLLibrary, kernels any) error {
 	if lib == nil {
 		return fmt.Errorf("metalx: bind: nil library")
 	}
+	var populated []int
 	for _, f := range fields {
 		pso, err := dev.NewComputePipeline(lib, f.kernel)
 		if err != nil {
+			for _, index := range populated {
+				field := rv.Field(index)
+				owned := field.Interface().(apple.MTLComputePipelineState)
+				objectivec.ObjectFromID(owned.GetID()).Release()
+				field.Set(reflect.Zero(field.Type()))
+			}
 			return fmt.Errorf("metalx: bind kernel %q (field %s): %w", f.kernel, f.field, err)
 		}
 		rv.Field(f.index).Set(reflect.ValueOf(pso))
+		populated = append(populated, f.index)
 	}
 	return nil
 }

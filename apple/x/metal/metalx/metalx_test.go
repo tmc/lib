@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	apple "github.com/tmc/apple/metal"
+	"github.com/tmc/apple/objectivec"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalx"
 )
@@ -116,6 +118,43 @@ func TestCompilerRejectsNil(t *testing.T) {
 	}
 	if err := compiler.Close(); err != nil {
 		t.Fatalf("nil Compiler.Close: %v", err)
+	}
+}
+
+func TestCompileLibraryRejectsClosedDevice(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Skipf("Metal device not available: %v", err)
+	}
+	if err := dev.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := metalx.CompileLibrary(dev, sampleKernel); !errors.Is(err, metal.ErrClosed) {
+		t.Fatalf("CompileLibrary after device Close = %v, want metal.ErrClosed", err)
+	}
+}
+
+func TestBindFailureClearsCreatedPipelines(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Skipf("Metal device not available: %v", err)
+	}
+	defer dev.Close()
+	lib, err := dev.CompileLibrary(sampleKernel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer objectivec.ObjectFromID(lib.GetID()).Release()
+	type kernels struct {
+		Created apple.MTLComputePipelineState `metal:"VectorAdd"`
+		Missing apple.MTLComputePipelineState `metal:"Missing"`
+	}
+	var got kernels
+	if err := metalx.Bind(dev, lib, &got); err == nil {
+		t.Fatal("Bind succeeded with a missing kernel")
+	}
+	if got.Created != nil || got.Missing != nil {
+		t.Fatalf("Bind retained pipelines after failure: %+v", got)
 	}
 }
 
