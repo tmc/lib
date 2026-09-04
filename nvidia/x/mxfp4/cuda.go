@@ -1,6 +1,7 @@
 package mxfp4
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -101,13 +102,16 @@ extern "C" __global__ void MXFP4LinearGEMV(
 
 // Engine manages compiled GPU functions for MXFP4 operations.
 type Engine struct {
-	mod          driver.Module
-	dequantFn    driver.Function
-	fusedGEMVFn  driver.Function
+	mod         driver.Module
+	dequantFn   driver.Function
+	fusedGEMVFn driver.Function
 }
 
 // NewEngine compiles and loads MXFP4 GPU kernels on dev.
 func NewEngine(dev *cuda.Device) (*Engine, error) {
+	if dev == nil {
+		return nil, errors.New("mxfp4: nil device")
+	}
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		return nil, fmt.Errorf("mxfp4: compute capability: %w", err)
@@ -127,8 +131,16 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 		return nil, fmt.Errorf("mxfp4: load module: %w", err)
 	}
 
-	dequantFn, _ := loaded.GetFunction("MXFP4Dequantize")
-	fusedGEMVFn, _ := loaded.GetFunction("MXFP4LinearGEMV")
+	dequantFn, err := loaded.GetFunction("MXFP4Dequantize")
+	if err != nil {
+		_ = loaded.Unload()
+		return nil, fmt.Errorf("mxfp4: load dequantize kernel: %w", err)
+	}
+	fusedGEMVFn, err := loaded.GetFunction("MXFP4LinearGEMV")
+	if err != nil {
+		_ = loaded.Unload()
+		return nil, fmt.Errorf("mxfp4: load linear kernel: %w", err)
+	}
 
 	return &Engine{
 		mod:         loaded,
@@ -145,8 +157,11 @@ func (e *Engine) LinearGEMV(
 	outY cudamem.Slice[float32],
 	inDim, outDim, groupSize int,
 ) error {
-	if groupSize <= 0 {
-		groupSize = DefaultGroupSize
+	if e == nil {
+		return errors.New("mxfp4: nil engine")
+	}
+	if err := validateLinear(x.Len(), packed.Len(), scales.Len(), outY.Len(), inDim, outDim, groupSize); err != nil {
+		return err
 	}
 	return cudalaunch.Kernel(e.fusedGEMVFn).
 		Grid(uint32(outDim)).Block(128).
@@ -160,19 +175,53 @@ func (e *Engine) Dequantize(
 	out cudamem.Slice[float32],
 	totalElements, groupSize int,
 ) error {
-	if groupSize <= 0 {
-		groupSize = DefaultGroupSize
+	if e == nil {
+		return errors.New("mxfp4: nil engine")
+	}
+	if err := validateDequantize(packed.Len(), scales.Len(), out.Len(), totalElements, groupSize); err != nil {
+		return err
 	}
 	numPairs := (totalElements + 1) / 2
 	return cudalaunch.Kernel(e.dequantFn).
-		Grid(uint32((numPairs + 127) / 128)).Block(128).
+		Grid(uint32((numPairs+127)/128)).Block(128).
 		Launch(packed, scales, out, int32(totalElements), int32(groupSize))
 }
 
 // Close releases the loaded CUDA module.
 func (e *Engine) Close() error {
+	if e == nil {
+		return nil
+	}
 	if e.mod != 0 {
 		return e.mod.Unload()
 	}
 	return nil
+}
+
+func validateLinear(x, packed, scales, out, inDim, outDim, groupSize int) error {
+	if inDim <= 0 || outDim <= 0 || groupSize <= 0 || groupSize%2 != 0 || inDim%groupSize != 0 {
+		return errors.New("mxfp4: invalid linear dimensions")
+	}
+	weights, ok := multiply(inDim, outDim)
+	if !ok || x != inDim || packed != weights/2 || scales != weights/groupSize || out != outDim {
+		return errors.New("mxfp4: linear slice dimensions do not match")
+	}
+	return nil
+}
+
+func validateDequantize(packed, scales, out, totalElements, groupSize int) error {
+	if totalElements <= 0 || totalElements%2 != 0 || groupSize <= 0 || groupSize%2 != 0 || totalElements%groupSize != 0 {
+		return errors.New("mxfp4: invalid dequantize dimensions")
+	}
+	if packed != totalElements/2 || scales != totalElements/groupSize || out != totalElements {
+		return errors.New("mxfp4: dequantize slice dimensions do not match")
+	}
+	return nil
+}
+
+func multiply(x, y int) (int, bool) {
+	if x > int(^uint(0)>>1)/y {
+		return 0, false
+	}
+	return x * y, true
 }

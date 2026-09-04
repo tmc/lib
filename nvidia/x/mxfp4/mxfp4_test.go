@@ -5,7 +5,6 @@ import (
 	"math"
 	"testing"
 
-
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -100,6 +99,31 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 	if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
 		t.Fatalf("LinearGEMV failed: %v", err)
 	}
+	if err := engine.LinearGEMV(xDev, packedDev.Slice(0, packedDev.Len()-1), scalesDev, outDev, inDim, outDim, groupSize); err == nil {
+		t.Fatal("LinearGEMV accepted a short packed slice")
+	}
+
+	dequantDev, err := cudamem.Alloc[float32](dev, len(wHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dequantDev.Free()
+	if err := engine.Dequantize(packedDev, scalesDev, dequantDev, len(wHost), groupSize); err != nil {
+		t.Fatalf("Dequantize failed: %v", err)
+	}
+	dequantHost := make([]float32, len(wHost))
+	if err := dequantDev.CopyToHost(dequantHost); err != nil {
+		t.Fatal(err)
+	}
+	wantDequant := make([]float32, len(wHost))
+	if err := Dequantize(qm.Packed, qm.Scales, groupSize, wantDequant); err != nil {
+		t.Fatal(err)
+	}
+	for i := range wantDequant {
+		if dequantHost[i] != wantDequant[i] {
+			t.Fatalf("dequantized[%d] = %v, want %v", i, dequantHost[i], wantDequant[i])
+		}
+	}
 
 	outHost := make([]float32, outDim)
 	if err := outDev.CopyToHost(outHost); err != nil {
@@ -155,5 +179,3 @@ func BenchmarkMXFP4GEMV_Qwen38_Layer(b *testing.B) {
 	}
 	_ = stream.Synchronize(context.Background())
 }
-
-
