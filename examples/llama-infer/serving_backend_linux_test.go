@@ -5,6 +5,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +19,76 @@ type fakeServingBackend struct {
 	mu      sync.Mutex
 	closed  bool
 	prefill chan prefillObservation
+}
+
+func TestRealCUDAContinuousServing(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	cfg := Llama3_2_1BConfig(path)
+	cfg.MaxSeqLen = 8
+	engine, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompts := [][]int32{{41, 42}, {43, 44}}
+	want := make([][]int32, len(prompts))
+	for i, prompt := range prompts {
+		cache, err := engine.NewSequenceKV(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		first, err := GPUPrefillPassKV(engine, cfg, cache, prompt)
+		if err == nil {
+			want[i] = append(want[i], first)
+			for position := len(prompt); position < len(prompt)+2; position++ {
+				next, decodeErr := GPUForwardPassKV(engine, cfg, cache, want[i][len(want[i])-1], position)
+				if decodeErr != nil {
+					err = decodeErr
+					break
+				}
+				want[i] = append(want[i], next)
+			}
+		}
+		cache.Free()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	server := NewTelemetryServer(engine, cfg)
+	if server.continuous == nil {
+		t.Fatal("CUDA continuous scheduler is unavailable")
+	}
+	backend, ok := server.continuousEngine.(*cudaServingBackend)
+	if !ok {
+		t.Fatalf("serving backend = %T, want *cudaServingBackend", server.continuousEngine)
+	}
+	defer backend.Close()
+	defer server.continuous.Close()
+	responses := make([]*continuousbatch.Response, len(prompts))
+	for i, prompt := range prompts {
+		responses[i], err = server.continuous.Submit(t.Context(), continuousbatch.Request{
+			ID: fmt.Sprintf("cuda-real-%d", i), PromptTokenIDs: prompt, MaxTokens: 3,
+			Sampler: SamplerConfig{Method: "argmax"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i, response := range responses {
+		var got []int32
+		for token := range response.Tokens {
+			got = append(got, token.ID)
+		}
+		if !slices.Equal(got, want[i]) {
+			t.Errorf("request %d tokens = %v, want %v", i, got, want[i])
+		}
+		if err := <-response.Done; err != nil {
+			t.Errorf("request %d: %v", i, err)
+		}
+	}
 }
 
 type prefillObservation struct {
@@ -58,10 +131,31 @@ func (b *fakeServingBackend) Close() {
 	b.mu.Unlock()
 }
 
-func TestLinuxServingBackendUnavailable(t *testing.T) {
+func TestLinuxServingBackendRejectsIncompleteEngine(t *testing.T) {
 	backend, err := newPlatformServingBackend(nil, Config{}, 1)
 	if !errors.Is(err, errServingBackendUnavailable) || backend != nil {
 		t.Fatalf("backend = %T, %v; want unavailable", backend, err)
+	}
+}
+
+func TestValidateCUDASampler(t *testing.T) {
+	tests := []struct {
+		name    string
+		sampler any
+		wantErr bool
+	}{
+		{name: "default"},
+		{name: "argmax", sampler: SamplerConfig{Method: "argmax"}},
+		{name: "temperature", sampler: SamplerConfig{Method: "argmax", Temperature: 1}, wantErr: true},
+		{name: "unsupported method", sampler: SamplerConfig{Method: "top-p"}, wantErr: true},
+		{name: "unsupported type", sampler: struct{}{}, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateCUDASampler(test.sampler); (err != nil) != test.wantErr {
+				t.Fatalf("validateCUDASampler(%#v) = %v, wantErr %v", test.sampler, err, test.wantErr)
+			}
+		})
 	}
 }
 

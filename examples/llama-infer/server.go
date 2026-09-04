@@ -277,7 +277,7 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 		syncJobs:         make(map[string]*SyncJobStatus),
 		requestScheduler: newRequestSlotScheduler(1),
 	}
-	if engine != nil && engine.tokenizer != nil {
+	if engine != nil {
 		if backend, err := newPlatformServingBackend(engine, cfg, 8); err == nil {
 			s.continuousEngine = backend
 			s.continuous, _ = newServingScheduler(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})

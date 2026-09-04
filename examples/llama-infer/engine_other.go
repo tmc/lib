@@ -336,6 +336,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	}
 
 	var weights *ModelWeights
+	var tokenizer Tokenizer
 	if cfg.ModelPath != "" {
 		loadedW, loadedCfg, err := LoadModel(cfg.ModelPath)
 		if err != nil {
@@ -343,9 +344,17 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		}
 		mCfg = *loadedCfg
 		mCfg.FuseEGraph = cfg.FuseEGraph
+		if cfg.MaxSeqLen > 0 && cfg.MaxSeqLen < mCfg.MaxSeqLen {
+			mCfg.MaxSeqLen = cfg.MaxSeqLen
+		}
 		weights = loadedW
+		tokenizer, err = LoadHFTokenizer(filepath.Join(cfg.ModelPath, "tokenizer.json"))
+		if err != nil {
+			return nil, fmt.Errorf("load tokenizer: %w", err)
+		}
 	} else if cfg.TestMode {
 		weights = GenerateDeterministicWeights(&mCfg)
+		tokenizer = NewByteTokenizer()
 	} else {
 		return nil, errors.New("model path required: synthetic test weights require explicit TestMode=true")
 	}
@@ -413,6 +422,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		sampleFn:    sampleFn,
 		mCfg:        mCfg,
 		fuseActive:  cfg.FuseEGraph,
+		tokenizer:   tokenizer,
 		recorder:    metalprof.NewFlightRecorder(2048),
 		metrics:     metrics,
 		Plan:        BuildExecutionPlan(cfg),
@@ -622,6 +632,8 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 	if eng == nil {
 		return errors.New("cuda engine: nil engine")
 	}
+	eng.generateMu.Lock()
+	defer eng.generateMu.Unlock()
 	if eng.dev == nil {
 		// Mock simulation fallback when initialized without GPU device (e.g. unit tests)
 		for step := 0; step < maxTokens; step++ {
