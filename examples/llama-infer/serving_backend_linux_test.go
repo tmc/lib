@@ -192,7 +192,8 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 					}
 				}
 				launches := backend.lastBatchLaunches()
-				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches || launches.MatrixLaunches != 1 {
+				wantMatrixLaunches := 2*engine.mCfg.NumHiddenLayers + 1
+				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches || launches.MatrixLaunches != wantMatrixLaunches {
 					t.Fatalf("launch receipt = %+v", launches)
 				}
 				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d matrix_launches=%d", width, launches.WeightLaunches, launches.IndependentWeightLaunches, launches.MatrixLaunches)

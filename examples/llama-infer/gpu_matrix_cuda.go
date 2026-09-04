@@ -19,6 +19,7 @@ const cudaMatrixWorkspaceBytes = 32 << 20
 type cudaMatrixProjection struct {
 	handle    cublaslt.Handle
 	plans     []cudaMatrixPlan
+	extra     [][]cudaMatrixPlan
 	workspace cudamem.Slice[byte]
 }
 
@@ -62,7 +63,25 @@ func newCUDAMatrixProjection(dev *cuda.Device, arena *cudamem.Arena, input, outp
 }
 
 func (p *cudaMatrixProjection) initPlan(batch, input, output int) error {
-	plan := &p.plans[batch]
+	return p.initPlanIn(p.plans, batch, input, output)
+}
+
+func (p *cudaMatrixProjection) addPlanSet(input, output, capacity int) ([]cudaMatrixPlan, error) {
+	if p == nil || input <= 0 || output <= 0 || capacity <= 0 {
+		return nil, errors.New("cuda matrix projection: invalid plan set")
+	}
+	plans := make([]cudaMatrixPlan, capacity+1)
+	p.extra = append(p.extra, plans)
+	for batch := 1; batch <= capacity; batch++ {
+		if err := p.initPlanIn(plans, batch, input, output); err != nil {
+			return nil, err
+		}
+	}
+	return plans, nil
+}
+
+func (p *cudaMatrixProjection) initPlanIn(plans []cudaMatrixPlan, batch, input, output int) error {
+	plan := &plans[batch]
 	var err error
 	plan.desc, err = cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 	if err != nil {
@@ -120,10 +139,14 @@ func newCUDARowMajorLayout(rows, columns uint64, leadingDimension int64) (cublas
 }
 
 func (p *cudaMatrixProjection) run(stream *cuda.Stream, input, weight, output cudamem.Slice[float32], batch int) error {
-	if p == nil || stream == nil || batch <= 0 || batch >= len(p.plans) {
+	return p.runPlanSet(p.plans, stream, input, weight, output, batch)
+}
+
+func (p *cudaMatrixProjection) runPlanSet(plans []cudaMatrixPlan, stream *cuda.Stream, input, weight, output cudamem.Slice[float32], batch int) error {
+	if p == nil || stream == nil || batch <= 0 || batch >= len(plans) {
 		return errors.New("cuda matrix projection: invalid launch")
 	}
-	plan := &p.plans[batch]
+	plan := &plans[batch]
 	alpha, beta := float32(1), float32(0)
 	err := p.handle.Matmul(plan.desc,
 		uintptr(unsafe.Pointer(&alpha)), uintptr(input.Ptr()), plan.input,
@@ -142,19 +165,22 @@ func (p *cudaMatrixProjection) close() error {
 		return nil
 	}
 	var err error
-	for i := range p.plans {
-		plan := &p.plans[i]
-		if plan.output != 0 {
-			err = errors.Join(err, plan.output.Destroy())
-		}
-		if plan.weight != 0 {
-			err = errors.Join(err, plan.weight.Destroy())
-		}
-		if plan.input != 0 {
-			err = errors.Join(err, plan.input.Destroy())
-		}
-		if plan.desc != 0 {
-			err = errors.Join(err, plan.desc.Destroy())
+	sets := append([][]cudaMatrixPlan{p.plans}, p.extra...)
+	for _, plans := range sets {
+		for i := range plans {
+			plan := &plans[i]
+			if plan.output != 0 {
+				err = errors.Join(err, plan.output.Destroy())
+			}
+			if plan.weight != 0 {
+				err = errors.Join(err, plan.weight.Destroy())
+			}
+			if plan.input != 0 {
+				err = errors.Join(err, plan.input.Destroy())
+			}
+			if plan.desc != 0 {
+				err = errors.Join(err, plan.desc.Destroy())
+			}
 		}
 	}
 	if p.handle != 0 {
