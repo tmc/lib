@@ -33,7 +33,33 @@ func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (s
 	if engine.tokenizer == nil {
 		return nil, fmt.Errorf("%w: tokenizer unavailable", errServingBackendUnavailable)
 	}
-	return &cudaServingBackend{engine: engine, cfg: cfg}, nil
+	return &cudaServingBackend{engine: engine, cfg: cudaServingConfig(engine, cfg)}, nil
+}
+
+// cudaServingConfig takes model semantics from the compiled engine while
+// retaining caller-owned runtime options such as BOS handling and endpoints.
+func cudaServingConfig(engine *ModelEngine, cfg Config) Config {
+	model := engine.mCfg
+	cfg.Dim = model.HiddenSize
+	cfg.HiddenDim = model.IntermediateSize
+	cfg.NumLayers = model.NumHiddenLayers
+	cfg.NumHeads = model.NumAttentionHeads
+	cfg.NumKVHeads = model.NumKeyValueHeads
+	cfg.HeadDim = model.HeadDim()
+	cfg.VocabSize = model.VocabSize
+	cfg.MaxSeqLen = model.MaxSeqLen
+	cfg.Eps = model.RmsNormEps
+	cfg.RopeTheta = model.RopeTheta
+	cfg.EOSTokenID = model.EOSTokenID
+	cfg.EOSTokenIDs = append([]int32(nil), model.EOSTokenIDs...)
+	return cfg
+}
+
+func cudaContextErr(ctx context.Context, operation string) error {
+	if ctx == nil {
+		return fmt.Errorf("%s: nil context", operation)
+	}
+	return ctx.Err()
 }
 
 func (b *cudaServingBackend) Prefill(ctx context.Context, state *continuousbatch.State) (continuousbatch.Token, error) {
@@ -55,11 +81,11 @@ func (b *cudaServingBackend) PrefillBatch(requests []continuousbatch.PrefillRequ
 }
 
 func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch.State) continuousbatch.Result {
+	if err := cudaContextErr(ctx, "cuda prefill"); err != nil {
+		return continuousbatch.Result{Err: err}
+	}
 	if state == nil {
 		return continuousbatch.Result{Err: errors.New("cuda prefill: nil state")}
-	}
-	if err := ctx.Err(); err != nil {
-		return continuousbatch.Result{Err: err}
 	}
 	if err := validateCUDASampler(state.Sampler); err != nil {
 		return continuousbatch.Result{Err: err}
@@ -84,7 +110,7 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
 	}
 	b.engine.generateMu.Lock()
-	if err = ctx.Err(); err != nil {
+	if err = cudaContextErr(ctx, "cuda prefill"); err != nil {
 		b.engine.generateMu.Unlock()
 		cache.Free()
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
@@ -107,8 +133,11 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 
 func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuousbatch.State) []continuousbatch.Result {
 	results := make([]continuousbatch.Result, len(states))
+	if err := cudaContextErr(ctx, "cuda decode"); err != nil {
+		return batchError(results, err)
+	}
 	for i, state := range states {
-		if err := ctx.Err(); err != nil {
+		if err := cudaContextErr(ctx, "cuda decode"); err != nil {
 			results[i].Err = err
 			continue
 		}

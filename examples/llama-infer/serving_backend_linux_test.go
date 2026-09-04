@@ -159,6 +159,44 @@ func TestValidateCUDASampler(t *testing.T) {
 	}
 }
 
+func TestCUDAServingConfigUsesCompiledModel(t *testing.T) {
+	engine := &ModelEngine{mCfg: ModelConfig{
+		HiddenSize: 16, IntermediateSize: 32, NumHiddenLayers: 3,
+		NumAttentionHeads: 4, NumKeyValueHeads: 2, ExplicitHeadDim: 4,
+		VocabSize: 64, MaxSeqLen: 128, RmsNormEps: 1e-6, RopeTheta: 500000,
+		EOSTokenID: 9, EOSTokenIDs: []int32{7, 9},
+	}}
+	cfg := cudaServingConfig(engine, Config{BOSTokenID: 5, HTTPAddr: ":8080", VocabSize: 1, MaxSeqLen: 2, EOSTokenID: 3})
+	if cfg.Dim != 16 || cfg.HiddenDim != 32 || cfg.NumLayers != 3 || cfg.NumHeads != 4 || cfg.NumKVHeads != 2 || cfg.HeadDim != 4 {
+		t.Fatalf("compiled dimensions were not retained: %+v", cfg)
+	}
+	if cfg.VocabSize != 64 || cfg.MaxSeqLen != 128 || cfg.EOSTokenID != 9 || !slices.Equal(cfg.EOSTokenIDs, []int32{7, 9}) {
+		t.Fatalf("compiled token semantics were not retained: %+v", cfg)
+	}
+	if cfg.BOSTokenID != 5 || cfg.HTTPAddr != ":8080" {
+		t.Fatalf("runtime options were not retained: %+v", cfg)
+	}
+	engine.mCfg.EOSTokenIDs[0] = 11
+	if cfg.EOSTokenIDs[0] != 7 {
+		t.Fatal("serving EOS token IDs alias engine configuration")
+	}
+}
+
+func TestCUDAServingBackendRejectsNilContexts(t *testing.T) {
+	backend := new(cudaServingBackend)
+	if _, err := backend.Prefill(nil, new(continuousbatch.State)); err == nil {
+		t.Fatal("Prefill(nil) succeeded")
+	}
+	results := backend.PrefillBatch([]continuousbatch.PrefillRequest{{State: new(continuousbatch.State)}})
+	if len(results) != 1 || results[0].Err == nil {
+		t.Fatalf("PrefillBatch(nil context) = %+v", results)
+	}
+	results = backend.DecodeBatch(nil, []*continuousbatch.State{{}})
+	if len(results) != 1 || results[0].Err == nil {
+		t.Fatalf("DecodeBatch(nil) = %+v", results)
+	}
+}
+
 func TestServingBackendBoundaryPreservesRequestContexts(t *testing.T) {
 	backend := &fakeServingBackend{prefill: make(chan prefillObservation, 1)}
 	scheduler, err := newServingScheduler(backend, continuousbatch.Config{
