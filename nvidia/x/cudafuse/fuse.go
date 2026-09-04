@@ -2,10 +2,13 @@ package cudafuse
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
+
+var identifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // FusedKernel represents a synthesized CUDA C++ kernel with line-level source provenance.
 type FusedKernel struct {
@@ -33,10 +36,21 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	if g == nil {
 		return fk, fmt.Errorf("cudafuse: nil graph")
 	}
+	if err := g.Validate(); err != nil {
+		return fk, fmt.Errorf("cudafuse: invalid graph: %w", err)
+	}
+	if !identifier.MatchString(kernelName) {
+		return fk, fmt.Errorf("cudafuse: invalid kernel name %q", kernelName)
+	}
 
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
 		return fk, fmt.Errorf("cudafuse: empty graph")
+	}
+	for _, n := range nodes {
+		if n.Type != cudair.Float32 {
+			return fk, fmt.Errorf("cudafuse: data type %s is not implemented", n.Type)
+		}
 	}
 
 	var inputs []*cudair.Node
@@ -127,11 +141,11 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 		case n.Op == "div":
 			expr = fmt.Sprintf("v_%s / v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
 		case strings.HasPrefix(n.Op, "rmsnorm"):
-			expr = fmt.Sprintf("v_%s * rsqrtf(v_%s * v_%s + 1e-5f)", n.Inputs[0].Name, n.Inputs[0].Name, n.Inputs[0].Name)
+			return fk, fmt.Errorf("cudafuse: RMS normalization fusion is not implemented")
 		case strings.HasPrefix(n.Op, "rope"):
-			expr = fmt.Sprintf("v_%s", n.Inputs[0].Name)
+			return fk, fmt.Errorf("cudafuse: rotary embedding fusion is not implemented")
 		case n.Op == "matmul":
-			expr = fmt.Sprintf("v_%s * v_%s", n.Inputs[0].Name, n.Inputs[1].Name)
+			return fk, fmt.Errorf("cudafuse: matrix multiplication fusion is not implemented")
 		default:
 			return fk, fmt.Errorf("cudafuse: unsupported operator for fusion: %s", n.Op)
 		}

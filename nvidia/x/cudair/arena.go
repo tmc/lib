@@ -1,5 +1,10 @@
 package cudair
 
+import (
+	"fmt"
+	"math"
+)
+
 // ArenaPlan represents the planned memory layout for tensor scratchpads.
 type ArenaPlan struct {
 	TotalBytes int
@@ -8,13 +13,16 @@ type ArenaPlan struct {
 
 // PlanMemory computes a memory arena layout that reuses intermediate buffers
 // after their last consumer has finished.
-func PlanMemory(g *Graph) *ArenaPlan {
+func PlanMemory(g *Graph) (*ArenaPlan, error) {
+	if err := g.Validate(); err != nil {
+		return nil, fmt.Errorf("plan memory: %w", err)
+	}
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
 		return &ArenaPlan{
 			TotalBytes: 0,
 			Offsets:    make(map[*Node]int),
-		}
+		}, nil
 	}
 
 	// Calculate last consumer index for each node
@@ -45,6 +53,9 @@ func PlanMemory(g *Graph) *ArenaPlan {
 		size := n.SizeBytes()
 		// 256-byte alignment for fast GPU vectorized loads
 		align := 256
+		if size > math.MaxInt-(align-1) {
+			return nil, fmt.Errorf("plan memory: node %d aligned size overflows int", n.ID)
+		}
 		alignedSize := (size + align - 1) &^ (align - 1)
 
 		// Search for reusable free block
@@ -64,6 +75,9 @@ func PlanMemory(g *Graph) *ArenaPlan {
 			offsets[n] = allocated[found].offset
 			allocated[found].freeStep = freeStep
 		} else {
+			if totalBytes > math.MaxInt-alignedSize {
+				return nil, fmt.Errorf("plan memory: arena size overflows int")
+			}
 			offset := totalBytes
 			offsets[n] = offset
 			totalBytes += alignedSize
@@ -78,5 +92,5 @@ func PlanMemory(g *Graph) *ArenaPlan {
 	return &ArenaPlan{
 		TotalBytes: totalBytes,
 		Offsets:    offsets,
-	}
+	}, nil
 }
