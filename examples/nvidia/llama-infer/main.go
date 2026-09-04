@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	cudaspec "github.com/tmc/lib/lm/speculative"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -25,7 +26,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudasass"
-	"github.com/tmc/lib/nvidia/x/cudaspec"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )

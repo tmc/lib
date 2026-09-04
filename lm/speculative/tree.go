@@ -49,11 +49,13 @@ func (t *DraftTree) AddNode(parentID int, token int32) *TreeNode {
 }
 
 // BuildCausalTreeMask generates the N x N causal 2D attention mask for single-pass verification.
+// An element mask[i][j] is true (attendable) iff node j is an ancestor of node i or j == i.
 func (t *DraftTree) BuildCausalTreeMask() [][]bool {
 	n := len(t.Nodes)
 	mask := make([][]bool, n)
 	for i := 0; i < n; i++ {
 		mask[i] = make([]bool, n)
+		// Trace ancestor path from node i up to root
 		curr := i
 		for curr != -1 {
 			mask[i][curr] = true
@@ -93,8 +95,9 @@ func VerifyTree(tree *DraftTree, targetLogits [][]float32) TreeVerificationResul
 		return TreeVerificationResult{}
 	}
 
+	// For each node in the tree, check if target predicts it
 	nodeValid := make([]bool, len(tree.Nodes))
-	nodeValid[0] = true
+	nodeValid[0] = true // Root is guaranteed valid
 
 	for i := 1; i < len(tree.Nodes); i++ {
 		if i >= len(targetLogits) {
@@ -109,6 +112,7 @@ func VerifyTree(tree *DraftTree, targetLogits [][]float32) TreeVerificationResul
 		}
 	}
 
+	// Find the deepest valid leaf in the tree
 	bestNodeID := 0
 	maxDepth := 0
 	for i, valid := range nodeValid {
@@ -118,6 +122,7 @@ func VerifyTree(tree *DraftTree, targetLogits [][]float32) TreeVerificationResul
 		}
 	}
 
+	// Trace back path from bestNodeID to root
 	path := make([]int32, 0, maxDepth+1)
 	pathIDs := make([]int, 0, maxDepth+1)
 	curr := bestNodeID
@@ -127,11 +132,13 @@ func VerifyTree(tree *DraftTree, targetLogits [][]float32) TreeVerificationResul
 		curr = tree.Nodes[curr].ParentID
 	}
 
+	// Reverse path to root -> leaf order
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]
 		pathIDs[i], pathIDs[j] = pathIDs[j], pathIDs[i]
 	}
 
+	// Sample bonus token from the best node's prediction
 	var bonus int32
 	if bestNodeID < len(targetLogits) {
 		bonus = argmax(targetLogits[bestNodeID])

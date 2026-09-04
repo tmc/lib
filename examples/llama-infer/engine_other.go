@@ -14,13 +14,13 @@ import (
 
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/examples/llama-infer/gpuprof"
+	cudaspec "github.com/tmc/lib/lm/speculative"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasample"
-	"github.com/tmc/lib/nvidia/x/cudaspec"
 )
 
 // BatchedQKVResult is unavailable on non-Metal platforms.
