@@ -19,9 +19,9 @@ import (
 )
 
 type productionHTTPReceipt struct {
-	logits []float32
-	k, v   [][]float32
-	tokens []int32
+	logits     []float32
+	k, v       [][]float32
+	tokenCount int
 }
 
 type productionHTTPRecorder struct {
@@ -50,7 +50,7 @@ func newProductionHTTPRecorder(adapter *scheduledEngineAdapter, cfg Config) *pro
 			r.err = err
 			return
 		}
-		r.receipts[state.Prompt] = productionHTTPReceipt{logits: append([]float32(nil), logits...), k: k, v: v}
+		r.receipts[state.Prompt] = productionHTTPReceipt{logits: append([]float32(nil), logits...), k: k, v: v, tokenCount: state.Position}
 	}
 	return r
 }
@@ -102,6 +102,11 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 
 			cold, coldRecorder := newProductionHTTPTestServer(t, eng, cfg, width)
 			coldTokens := runProductionHTTPBatch(t, cold, prompts)
+			coldBackend := scheduledBackend(t, cold.continuousEngine)
+			coldStats := coldBackend.prefixes.Stats()
+			if coldStats.Hits != 0 || coldStats.Misses != int64(width) || coldStats.SavedTokens != 0 {
+				t.Fatalf("cold prefix stats=%+v, want %d misses and no reuse", coldStats, width)
+			}
 			coldReceipts, err := coldRecorder.snapshot()
 			if err != nil {
 				t.Fatal(err)
@@ -111,11 +116,23 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 
 			warm, warmRecorder := newProductionHTTPTestServer(t, eng, cfg, width)
 			primeHTTPPrompt(t, warm, common)
+			warmBackend := scheduledBackend(t, warm.continuousEngine)
+			beforeWarm := warmBackend.prefixes.Stats()
 			warmRecorder.mu.Lock()
 			warmRecorder.receipts = make(map[string]productionHTTPReceipt)
 			warmRecorder.mu.Unlock()
 			warmTokens := runProductionHTTPBatch(t, warm, prompts)
-			servingStats := scheduledBackend(t, warm.continuousEngine).prefixes.Stats()
+			servingStats := warmBackend.prefixes.Stats()
+			commonTokens, err := prefillTokens(cfg, eng.tokenizer, &continuousbatch.State{Prompt: common})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := servingStats.Hits - beforeWarm.Hits; got != int64(width) {
+				t.Fatalf("warm prefix hits=%d, want %d; before=%+v after=%+v", got, width, beforeWarm, servingStats)
+			}
+			if got, want := servingStats.SavedTokens-beforeWarm.SavedTokens, int64(width*len(commonTokens)); got < want {
+				t.Fatalf("warm saved tokens=%d, want at least %d; before=%+v after=%+v", got, want, beforeWarm, servingStats)
+			}
 			telemetry := warm.memoryTelemetry().PrefixCache
 			if telemetry.State != "observed" || telemetry.Entries != servingStats.Entries || telemetry.Hits != servingStats.Hits || telemetry.Misses != servingStats.Misses || telemetry.SavedTokens != servingStats.SavedTokens {
 				t.Fatalf("prefix telemetry=%+v, want active serving stats=%+v", telemetry, servingStats)
@@ -145,31 +162,126 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 			for _, prompt := range prompts {
 				coldReceipt, coldOK := coldReceipts[prompt]
 				warmReceipt, warmOK := warmReceipts[prompt]
-				if !coldOK || !warmOK || len(coldReceipt.logits) != cfg.VocabSize || len(warmReceipt.logits) != cfg.VocabSize {
-					t.Fatalf("prompt %q receipt cold=%v warm=%v logits=%d/%d", prompt, coldOK, warmOK, len(coldReceipt.logits), len(warmReceipt.logits))
+				if !coldOK || !warmOK {
+					t.Fatalf("prompt %q receipt cold=%v warm=%v", prompt, coldOK, warmOK)
 				}
-				for i := range coldReceipt.logits {
-					maxLogit = max(maxLogit, float32(math.Abs(float64(coldReceipt.logits[i]-warmReceipt.logits[i]))))
+				logitDiff, kvDiff, n, err := compareProductionHTTPReceipt(cfg, coldReceipt, warmReceipt)
+				if err != nil {
+					t.Fatalf("prompt %q: %v", prompt, err)
 				}
-				if len(coldReceipt.k) != cfg.NumLayers || len(warmReceipt.k) != cfg.NumLayers {
-					t.Fatalf("prompt %q layer count differs", prompt)
-				}
-				for layer := range cfg.NumLayers {
-					if len(coldReceipt.k[layer]) != len(warmReceipt.k[layer]) || len(coldReceipt.v[layer]) != len(warmReceipt.v[layer]) {
-						t.Fatalf("prompt %q layer %d KV shape differs", prompt, layer)
-					}
-					for i := range coldReceipt.k[layer] {
-						maxKV = max(maxKV, float32(math.Abs(float64(coldReceipt.k[layer][i]-warmReceipt.k[layer][i]))))
-						maxKV = max(maxKV, float32(math.Abs(float64(coldReceipt.v[layer][i]-warmReceipt.v[layer][i]))))
-					}
-					coordinates += len(coldReceipt.k[layer]) + len(coldReceipt.v[layer])
-				}
+				maxLogit = max(maxLogit, logitDiff)
+				maxKV = max(maxKV, kvDiff)
+				coordinates += n
 			}
 			if maxLogit > 5e-4 || maxKV > 5e-4 {
 				t.Fatalf("max logit=%g KV=%g", maxLogit, maxKV)
 			}
-			t.Logf("width=%d model=%s logits=%d kv_coordinates=%d max_logit=%g max_kv=%g observations=%+v", width, model, width*cfg.VocabSize, coordinates, maxLogit, maxKV, observations)
+			t.Logf("width=%d model=%s logits=%d kv_coordinates=%d max_logit=%g max_kv=%g cold_prefix=%+v warm_before=%+v warm_after=%+v observations=%+v", width, model, width*cfg.VocabSize, coordinates, maxLogit, maxKV, coldStats, beforeWarm, servingStats, observations)
 		})
+	}
+}
+
+func compareProductionHTTPReceipt(cfg Config, cold, warm productionHTTPReceipt) (maxLogit, maxKV float32, coordinates int, err error) {
+	if len(cold.logits) != cfg.VocabSize || len(warm.logits) != cfg.VocabSize {
+		return 0, 0, 0, fmt.Errorf("logit lengths=%d/%d, want %d", len(cold.logits), len(warm.logits), cfg.VocabSize)
+	}
+	maxLogit, err = finiteMaxAbsDiff32(cold.logits, warm.logits)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("logits: %w", err)
+	}
+	if cold.tokenCount <= 0 || cold.tokenCount != warm.tokenCount {
+		return 0, 0, 0, fmt.Errorf("token counts=%d/%d", cold.tokenCount, warm.tokenCount)
+	}
+	if len(cold.k) != cfg.NumLayers || len(cold.v) != cfg.NumLayers || len(warm.k) != cfg.NumLayers || len(warm.v) != cfg.NumLayers {
+		return 0, 0, 0, fmt.Errorf("KV layer counts cold=%d/%d warm=%d/%d, want %d", len(cold.k), len(cold.v), len(warm.k), len(warm.v), cfg.NumLayers)
+	}
+	want := cold.tokenCount * cfg.NumKVHeads * cfg.HeadDim
+	if want <= 0 {
+		return 0, 0, 0, fmt.Errorf("invalid KV geometry: tokens=%d heads=%d dim=%d", cold.tokenCount, cfg.NumKVHeads, cfg.HeadDim)
+	}
+	for layer := range cfg.NumLayers {
+		vectors := []struct {
+			name       string
+			cold, warm []float32
+		}{
+			{"K", cold.k[layer], warm.k[layer]},
+			{"V", cold.v[layer], warm.v[layer]},
+		}
+		for _, vector := range vectors {
+			if len(vector.cold) != want || len(vector.warm) != want {
+				return 0, 0, 0, fmt.Errorf("layer %d %s lengths=%d/%d, want %d", layer, vector.name, len(vector.cold), len(vector.warm), want)
+			}
+			diff, diffErr := finiteMaxAbsDiff32(vector.cold, vector.warm)
+			if diffErr != nil {
+				return 0, 0, 0, fmt.Errorf("layer %d %s: %w", layer, vector.name, diffErr)
+			}
+			maxKV = max(maxKV, diff)
+			coordinates += len(vector.cold)
+		}
+	}
+	return maxLogit, maxKV, coordinates, nil
+}
+
+func finiteMaxAbsDiff32(a, b []float32) (float32, error) {
+	if len(a) == 0 || len(a) != len(b) {
+		return 0, fmt.Errorf("lengths=%d/%d", len(a), len(b))
+	}
+	var maxDiff float32
+	for i := range a {
+		if math.IsNaN(float64(a[i])) || math.IsInf(float64(a[i]), 0) || math.IsNaN(float64(b[i])) || math.IsInf(float64(b[i]), 0) {
+			return 0, fmt.Errorf("non-finite value at %d: %g/%g", i, a[i], b[i])
+		}
+		diff := float32(math.Abs(float64(a[i] - b[i])))
+		if math.IsNaN(float64(diff)) || math.IsInf(float64(diff), 0) {
+			return 0, fmt.Errorf("non-finite difference at %d: %g", i, diff)
+		}
+		maxDiff = max(maxDiff, diff)
+	}
+	return maxDiff, nil
+}
+
+func TestCompareProductionHTTPReceiptRejectsInvalidData(t *testing.T) {
+	cfg := Config{VocabSize: 2, NumLayers: 1, NumKVHeads: 1, HeadDim: 2}
+	valid := productionHTTPReceipt{logits: []float32{1, 2}, k: [][]float32{{3, 4}}, v: [][]float32{{5, 6}}, tokenCount: 1}
+	clone := func() productionHTTPReceipt {
+		return productionHTTPReceipt{
+			logits:     append([]float32(nil), valid.logits...),
+			k:          [][]float32{append([]float32(nil), valid.k[0]...)},
+			v:          [][]float32{append([]float32(nil), valid.v[0]...)},
+			tokenCount: valid.tokenCount,
+		}
+	}
+	if _, _, _, err := compareProductionHTTPReceipt(cfg, valid, clone()); err != nil {
+		t.Fatalf("valid receipt: %v", err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*productionHTTPReceipt)
+	}{
+		{"cold NaN", func(r *productionHTTPReceipt) { r.logits[0] = float32(math.NaN()) }},
+		{"warm infinity", func(r *productionHTTPReceipt) { r.v[0][0] = float32(math.Inf(1)) }},
+		{"empty logits", func(r *productionHTTPReceipt) { r.logits = nil }},
+		{"short logits", func(r *productionHTTPReceipt) { r.logits = r.logits[:1] }},
+		{"empty K", func(r *productionHTTPReceipt) { r.k[0] = nil }},
+		{"empty V", func(r *productionHTTPReceipt) { r.v[0] = nil }},
+		{"short V", func(r *productionHTTPReceipt) { r.v[0] = r.v[0][:1] }},
+		{"missing V layer", func(r *productionHTTPReceipt) { r.v = nil }},
+		{"zero tokens", func(r *productionHTTPReceipt) { r.tokenCount = 0 }},
+	}
+	for _, test := range tests {
+		for _, arm := range []string{"cold", "warm"} {
+			t.Run(test.name+"/"+arm, func(t *testing.T) {
+				cold, warm := clone(), clone()
+				if arm == "cold" {
+					test.mutate(&cold)
+				} else {
+					test.mutate(&warm)
+				}
+				if _, _, _, err := compareProductionHTTPReceipt(cfg, cold, warm); err == nil {
+					t.Fatal("invalid receipt passed")
+				}
+			})
+		}
 	}
 }
 

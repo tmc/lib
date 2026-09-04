@@ -106,15 +106,20 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 		tiles := (cfg.VocabSize + 255) / 256
 		t.Logf("width=%d serving_candidates=%d candidate_bytes=%d diagnostic_logits=0", width, width*tiles, width*tiles*2*4)
 		t.Logf("width=%d tokens=%v batches=%+v", width, want, scheduledBackend(t, srv.continuousEngine).Observations())
+		if stats := scheduledBackend(t, srv.continuousEngine).prefixes.Stats(); stats.Entries <= 0 || stats.Bytes <= 0 || stats.Blocks <= 0 || stats.DeviceWriteBytes <= 0 {
+			t.Fatalf("width=%d serving prefix stats=%+v, want observed device blocks", width, stats)
+		} else {
+			t.Logf("width=%d serving_prefix=%+v", width, stats)
+		}
 		srv.continuous.Close()
 		scheduledBackend(t, srv.continuousEngine).Close()
 	}
 	kvBytes := int64(2 * cfg.NumLayers * 8 * cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim * 4)
 	t.Logf("weights=shared-f16 cache_rows=8 kv_bytes=%d vocab=%d tiles_per_row=%d", kvBytes, cfg.VocabSize, (cfg.VocabSize+255)/256)
-	if metrics := eng.prefixes.metrics(); metrics.Entries != 1 || metrics.Hits < 1 || metrics.Bytes <= 0 {
-		t.Fatalf("explicit prefix cache metrics=%+v", metrics)
-	} else {
-		t.Logf("explicit_prefix_cache=%+v", metrics)
+	// Serving owns the device-block prefix cache; the snapshot cache belongs to
+	// ModelEngine.Generate alone. Its counters must stay untouched here.
+	if metrics := eng.prefixes.metrics(); metrics != (PrefixCacheMetrics{}) {
+		t.Fatalf("serving touched the direct-generation prefix cache: %+v", metrics)
 	}
 }
 
