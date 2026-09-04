@@ -1,5 +1,5 @@
-// Package cudatest provides test harness utilities, hardware capability assertions,
-// and GPU resource leak detection for CUDA Go testing.
+// Package cudatest provides CUDA hardware requirements and scoped device-memory
+// checks for tests.
 //
 // # Hardware Capability Filters
 //
@@ -11,7 +11,19 @@
 //			cudatest.MinCompute(8, 0),
 //			cudatest.MinVRAM(4 * 1024 * 1024 * 1024),
 //		)
-//		defer cudatest.VerifyNoLeaks(t)
+//		check, err := cudatest.BeginDeviceMemoryCheck(dev, 0)
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		defer func() {
+//			if err := check.Check(); err != nil {
+//				t.Error(err)
+//			}
+//		}()
 //		// ... test implementation ...
 //	}
+//
+// A memory check compares process-global free device memory around a serialized
+// scope. It does not prove that contexts, modules, streams, events, host memory,
+// or allocations outside the CUDA context were released.
 package cudatest
