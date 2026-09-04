@@ -20,6 +20,7 @@ var ErrSimulatedOOM = errors.New("runtime: out of memory (allocation exceeds hea
 // RigidStaticEngine simulates standard runtimes with fixed batch memory demands.
 type RigidStaticEngine struct {
 	dev        *metal.Device
+	compiler   *metalx.Compiler
 	dim        int
 	outDim     int
 	memoryCap  int // Max allowed buffer bytes in simulated constrained environment
@@ -30,20 +31,28 @@ type RigidStaticEngine struct {
 
 func NewRigidStaticEngine(dev *metal.Device, dim, outDim, memoryCap int) (*RigidStaticEngine, error) {
 	msl := generateTiledGEMVMSL("Rigid_GEMV", 1)
-	pso, err := metalx.Compile(dev, msl, "Rigid_GEMV")
+	compiler, err := metalx.NewCompiler(dev)
 	if err != nil {
+		return nil, err
+	}
+	pso, err := compiler.Compile(msl, "Rigid_GEMV")
+	if err != nil {
+		_ = compiler.Close()
 		return nil, err
 	}
 	wBytes := dim * outDim * 4
 	if wBytes > memoryCap {
+		_ = compiler.Close()
 		return nil, ErrSimulatedOOM
 	}
 	w, err := metalmem.Alloc[float32](dev, dim*outDim)
 	if err != nil {
+		_ = compiler.Close()
 		return nil, err
 	}
 	return &RigidStaticEngine{
 		dev:        dev,
+		compiler:   compiler,
 		dim:        dim,
 		outDim:     outDim,
 		memoryCap:  memoryCap,
@@ -51,6 +60,11 @@ func NewRigidStaticEngine(dev *metal.Device, dim, outDim, memoryCap int) (*Rigid
 		pso:        pso,
 		w:          w,
 	}, nil
+}
+
+func (r *RigidStaticEngine) Close() error {
+	r.w.Free()
+	return r.compiler.Close()
 }
 
 // SetMemoryLimit simulates dynamic OS/cgroups memory contraction.
@@ -72,10 +86,12 @@ func (r *RigidStaticEngine) ProcessBatch(batchSize int) error {
 	if err != nil {
 		return err
 	}
+	defer in.Free()
 	out, err := metalmem.Alloc[float32](r.dev, batchSize*r.outDim)
 	if err != nil {
 		return err
 	}
+	defer out.Free()
 
 	cb := r.dev.Queue().CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
@@ -98,6 +114,7 @@ func (r *RigidStaticEngine) ProcessBatch(batchSize int) error {
 // ElasticDegradationEngine adapts dynamically to shrinking memory headroom.
 type ElasticDegradationEngine struct {
 	dev        *metal.Device
+	compiler   *metalx.Compiler
 	dim        int
 	outDim     int
 	memoryCap  int
@@ -109,16 +126,23 @@ type ElasticDegradationEngine struct {
 
 func NewElasticDegradationEngine(dev *metal.Device, dim, outDim, memoryCap int) (*ElasticDegradationEngine, error) {
 	msl := generateTiledGEMVMSL("Elastic_GEMV", 4)
-	pso, err := metalx.Compile(dev, msl, "Elastic_GEMV")
+	compiler, err := metalx.NewCompiler(dev)
 	if err != nil {
+		return nil, err
+	}
+	pso, err := compiler.Compile(msl, "Elastic_GEMV")
+	if err != nil {
+		_ = compiler.Close()
 		return nil, err
 	}
 	w, err := metalmem.Alloc[float32](dev, dim*outDim)
 	if err != nil {
+		_ = compiler.Close()
 		return nil, err
 	}
 	return &ElasticDegradationEngine{
 		dev:        dev,
+		compiler:   compiler,
 		dim:        dim,
 		outDim:     outDim,
 		memoryCap:  memoryCap,
@@ -127,6 +151,12 @@ func NewElasticDegradationEngine(dev *metal.Device, dim, outDim, memoryCap int) 
 		w:          w,
 		pool:       metalmem.NewPool(dev),
 	}, nil
+}
+
+func (e *ElasticDegradationEngine) Close() error {
+	e.pool.Free()
+	e.w.Free()
+	return e.compiler.Close()
 }
 
 func (e *ElasticDegradationEngine) SetMemoryLimit(newCap int) {
@@ -140,6 +170,7 @@ func (e *ElasticDegradationEngine) ProcessBatch(batchSize int) (int, error) {
 	availableHeadroom := e.memoryCap - e.usedMemory
 	if availableHeadroom < (e.dim+e.outDim)*4 {
 		// Flush recycling pools and transient slabs to recover headroom
+		e.pool.Free()
 		e.pool = metalmem.NewPool(e.dev)
 	}
 
@@ -164,6 +195,7 @@ func (e *ElasticDegradationEngine) ProcessBatch(batchSize int) (int, error) {
 		}
 		out, err := metalmem.Alloc[float32](e.dev, step*e.outDim)
 		if err != nil {
+			in.Free()
 			return tokensCompleted, err
 		}
 
@@ -182,6 +214,8 @@ func (e *ElasticDegradationEngine) ProcessBatch(batchSize int) (int, error) {
 		enc.EndEncoding()
 		cb.Commit()
 		cb.WaitUntilCompleted()
+		in.Free()
+		out.Free()
 
 		tokensCompleted += step
 		remaining -= step
@@ -209,11 +243,13 @@ func TestMemoryPressureDegradation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed creating rigid engine: %v", err)
 	}
+	defer rigidEngine.Close()
 
 	elasticEngine, err := NewElasticDegradationEngine(dev, dim, outDim, initialCap)
 	if err != nil {
 		t.Fatalf("Failed creating elastic engine: %v", err)
 	}
+	defer elasticEngine.Close()
 
 	t.Logf("==========================================================================================")
 	t.Logf("             DYNAMIC MEMORY PRESSURE & OOM-CRASH AVOIDANCE BENCHMARK                      ")
