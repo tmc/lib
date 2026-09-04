@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -44,11 +45,29 @@ type DeviceSlice interface {
 
 // Launcher builds and executes a CUDA kernel dispatch.
 type Launcher struct {
-	fn     driver.Function
-	grid   Dim3
-	block  Dim3
-	shmem  uint32
-	stream *cuda.Stream
+	fn      driver.Function
+	grid    Dim3
+	block   Dim3
+	shmem   uint32
+	stream  *cuda.Stream
+	counter *Counter
+}
+
+// Counter counts successful CUDA kernel submissions.
+type Counter struct{ n atomic.Uint64 }
+
+// Count adds successful launches to counter.
+func (l *Launcher) Count(counter *Counter) *Launcher {
+	l.counter = counter
+	return l
+}
+
+// Value returns the number of successful launches.
+func (c *Counter) Value() uint64 {
+	if c == nil {
+		return 0
+	}
+	return c.n.Load()
 }
 
 // Kernel creates a new Launcher for the specified driver function.
@@ -109,6 +128,9 @@ func (l *Launcher) Launch(args ...any) error {
 	)
 	if err != nil {
 		return fmt.Errorf("cudalaunch: launch kernel: %w", err)
+	}
+	if l.counter != nil {
+		l.counter.n.Add(1)
 	}
 	return nil
 }
