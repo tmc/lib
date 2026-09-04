@@ -6,8 +6,8 @@ type ArenaPlan struct {
 	Offsets    map[*Node]int
 }
 
-// PlanMemory computes an optimal memory arena layout reusing intermediate buffers
-// based on tensor lifetime analysis.
+// PlanMemory computes a memory arena layout that reuses intermediate buffers
+// after their last consumer has finished.
 func PlanMemory(g *Graph) *ArenaPlan {
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
@@ -50,15 +50,19 @@ func PlanMemory(g *Graph) *ArenaPlan {
 		// Search for reusable free block
 		found := -1
 		for bIdx, b := range allocated {
-			if b.freeStep <= i && b.size >= alignedSize {
+			if b.freeStep < i && b.size >= alignedSize {
 				found = bIdx
 				break
 			}
 		}
+		freeStep, ok := lastUse[n]
+		if !ok {
+			freeStep = len(nodes)
+		}
 
 		if found >= 0 {
 			offsets[n] = allocated[found].offset
-			allocated[found].freeStep = lastUse[n]
+			allocated[found].freeStep = freeStep
 		} else {
 			offset := totalBytes
 			offsets[n] = offset
@@ -66,7 +70,7 @@ func PlanMemory(g *Graph) *ArenaPlan {
 			allocated = append(allocated, block{
 				offset:   offset,
 				size:     alignedSize,
-				freeStep: lastUse[n],
+				freeStep: freeStep,
 			})
 		}
 	}
