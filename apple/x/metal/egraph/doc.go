@@ -1,5 +1,6 @@
 // Package egraph provides equality saturation, expression extraction, and
-// Metal Shading Language source generation.
+// execution-plan telemetry.
 //
-// The package does not compile or execute generated Metal source.
+// An EGraph is mutable and is not safe for concurrent use. PGO feedback and
+// telemetry types document their own concurrency guarantees.
 package egraph
