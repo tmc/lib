@@ -1,11 +1,58 @@
 package metalmem_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
+
+func TestAllocationInputsFailClosed(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooMany := int(^uint(0)>>1)/8 + 1
+	tests := []struct {
+		name string
+		fn   func() error
+		want string
+	}{
+		{
+			name: "alloc byte count overflows int",
+			fn: func() error {
+				_, err := metalmem.Alloc[uint64](dev, tooMany)
+				return err
+			},
+			want: "allocation size overflows",
+		},
+		{
+			name: "mmap byte count overflows int",
+			fn: func() error {
+				_, err := metalmem.AllocMMapZeroCopy[uint64](dev, nil, 0, tooMany)
+				return err
+			},
+			want: "allocation size overflows",
+		},
+		{
+			name: "nil mmap file",
+			fn: func() error {
+				_, err := metalmem.AllocMMapZeroCopy[byte](dev, nil, 0, 1)
+				return err
+			},
+			want: "nil mmap file",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.fn()
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
 
 func TestAllocAndCopies(t *testing.T) {
 	dev, err := metal.NewDevice()
