@@ -10,7 +10,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
-
 // Dim3 specifies 3-dimensional execution configurations for grids and blocks.
 type Dim3 struct {
 	X uint32
@@ -33,6 +32,14 @@ func Dims(x uint32, yz ...uint32) Dim3 {
 // DevicePtrProvider represents any type that exposes a raw GPU device pointer.
 type DevicePtrProvider interface {
 	Ptr() driver.DevicePtr
+}
+
+// DeviceSlice represents a device buffer that also reports its length, such as
+// [github.com/tmc/lib/nvidia/x/cudamem.Slice]. An empty buffer packs as a null
+// device pointer, so an optional kernel argument can be passed as a zero Slice.
+type DeviceSlice interface {
+	DevicePtrProvider
+	Len() int
 }
 
 // Launcher builds and executes a CUDA kernel dispatch.
@@ -106,7 +113,6 @@ func (l *Launcher) Launch(args ...any) error {
 	return nil
 }
 
-
 // PackArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
 // Struct arguments are guaranteed to have 16-byte alignment per NVCC ABI requirements.
 func PackArgs(args ...any) ([]unsafe.Pointer, func(), error) {
@@ -128,9 +134,14 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 			return nil, nil, fmt.Errorf("arg %d is nil", i)
 		}
 
-		// Check if argument satisfies DevicePtrProvider (e.g. cudamem.Slice)
+		// Check if argument satisfies DevicePtrProvider (e.g. cudamem.Slice).
+		// An empty DeviceSlice packs as a null pointer so that optional kernel
+		// arguments can be passed as a zero slice.
 		if provider, ok := arg.(DevicePtrProvider); ok {
 			ptrVal := provider.Ptr()
+			if s, ok := arg.(DeviceSlice); ok && s.Len() == 0 {
+				ptrVal = 0
+			}
 			if uintptr(ptrVal)%8 != 0 {
 				return nil, nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, ptrVal)
 			}
@@ -246,4 +257,3 @@ func OccupancyMaxPotentialBlockSize(fn driver.Function, dynamicSMemBytes uint, b
 	}
 	return int(minGrid), int(block), nil
 }
-
