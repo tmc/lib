@@ -799,6 +799,7 @@ func compareOracleFP8F32(t *testing.T, name string, got []float32, path string) 
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
+		checkFinite(t, name, i, got[i], want)
 		delta := math.Abs(float64(got[i] - want))
 		limit := fp8ComparisonLimit(got[i], want)
 		if delta > limit {
@@ -828,6 +829,7 @@ func compareOracleF32Tolerance(t *testing.T, name string, got []float32, path st
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
+		checkFinite(t, name, i, got[i], want)
 		delta := math.Abs(float64(got[i] - want))
 		limit := atol + rtol*math.Abs(float64(want))
 		if delta > limit {
@@ -880,8 +882,11 @@ func testFloat16(h uint16) float32 {
 // chainedDriftBudget bounds the relative divergence of the free-running
 // residual stream from the teacher-forced oracle. Measured growth is smooth and
 // roughly geometric -- 5.2e-4 at layer 1 rising to 6.6e-2 at layer 42, about
-// 1.12x per layer with no step at any single layer. The budget leaves headroom
-// for that curve while still failing on any layer that amplifies error sharply.
+// 1.12x per layer with no step at any single layer. This is a flat ceiling, not
+// an amplification bound: it catches a layer that drives drift past the ceiling,
+// but a sharp jump that stays underneath it -- 5e-4 to 1.4e-1 at one layer, say
+// -- passes. Bounding per-layer growth would need a per-layer budget derived
+// from that curve, which is not yet registered as a contract.
 // Measured against the pinned DeepSeek-V4-Flash IQ2_XXS checkpoint at prefill
 // position 0, the oracle DS4_ALL_LAYERS_ORACLE_DIR captures.
 const chainedDriftBudget = 1.5e-1
@@ -907,13 +912,27 @@ func relativeDrift(t *testing.T, got, want []float32) float64 {
 // residualULPBudget is how many float32 ULPs of a residual tensor's own peak
 // magnitude the comparison allows. The hyper-connection residual stream grows
 // with depth, peaking near 6.3e4 by layer 42, where one float32 ULP is already
-// 7.8e-3 -- larger than the fixed 3e-3 absolute tolerance the earlier stages
+// 3.9e-3 -- larger than the fixed 3e-3 absolute tolerance the earlier stages
 // use. An element's error is set by the scale of the accumulation it came out
 // of, not by its own magnitude, so a mid-magnitude element in a tensor with
 // that peak cannot be resolved to 3e-3 in float32 by any implementation.
 // Measured worst deviations against the same pinned checkpoint and oracle as
 // chainedDriftBudget are 0.7 ULP at layer 40 and 4.2 ULP at layer 42; every
 // other layer is exact within the fixed tolerance.
+
+// checkFinite rejects a non-finite candidate or oracle value. Every comparison
+// below is of the form delta > limit, which is false when delta is NaN, so a
+// NaN would otherwise pass silently.
+func checkFinite(t *testing.T, name string, i int, got, want float32) {
+	t.Helper()
+	if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) {
+		t.Fatalf("%s[%d] = %g is not finite", name, i, got)
+	}
+	if math.IsNaN(float64(want)) || math.IsInf(float64(want), 0) {
+		t.Fatalf("%s[%d] oracle value %g is not finite", name, i, want)
+	}
+}
+
 const (
 	residualAtol = 3e-3
 	residualRtol = 5e-4
@@ -942,6 +961,7 @@ func compareOracleResidual(t *testing.T, name string, got []float32, path string
 	}
 	scale := residualAtol + residualULPBudget*ulp
 	for i := range got {
+		checkFinite(t, name, i, got[i], want[i])
 		limit := scale + residualRtol*math.Abs(float64(want[i]))
 		if delta := math.Abs(float64(got[i] - want[i])); delta > limit {
 			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g at peak %g)", name, i, got[i], want[i], delta, limit, peak)
