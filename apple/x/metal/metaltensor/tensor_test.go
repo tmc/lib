@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -103,5 +104,67 @@ func TestCompileRejectsUnsupportedOrInvalid(t *testing.T) {
 				t.Fatal("Compile succeeded")
 			}
 		})
+	}
+}
+
+func TestTensorErrorsDoNotPanic(t *testing.T) {
+	tests := []struct {
+		name  string
+		build func() Tensor
+	}{
+		{"nil graph", func() Tensor { return NewInput(nil, "x", []int{1}, metalir.Float32) }},
+		{"zero tensor", func() Tensor { return (Tensor{}).Silu() }},
+		{"different graphs", func() Tensor {
+			a := NewInput(metalir.NewGraph(), "a", []int{1}, metalir.Float32)
+			b := NewInput(metalir.NewGraph(), "b", []int{1}, metalir.Float32)
+			return a.Add(b)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.build()
+			if got.Err() == nil {
+				t.Fatal("Err returned nil")
+			}
+			if _, err := got.Compile("k"); err == nil {
+				t.Fatal("Compile succeeded")
+			}
+		})
+	}
+}
+
+func TestShapeReturnsCopy(t *testing.T) {
+	shape := []int{2, 3}
+	tensor := NewInput(metalir.NewGraph(), "x", shape, metalir.Float32)
+	shape[0] = 99
+	if tensor.Node().Shape[0] != 2 {
+		t.Fatalf("node shape aliases input: %v", tensor.Node().Shape)
+	}
+	got := tensor.Shape()
+	got[1] = 99
+	if want := []int{2, 3}; !slices.Equal(tensor.Shape(), want) {
+		t.Fatalf("Shape = %v, want %v", tensor.Shape(), want)
+	}
+}
+
+func TestNormalizationParametersAreRepresented(t *testing.T) {
+	g := metalir.NewGraph()
+	x := NewInput(g, "x", []int{2, 3}, metalir.Float32)
+	w := NewInput(g, "w", []int{2, 3}, metalir.Float32)
+	norm := x.RMSNorm(w, 1e-5)
+	if got := norm.Node().Parameters["epsilon"]; got != float64(float32(1e-5)) {
+		t.Fatalf("epsilon = %g", got)
+	}
+	if err := g.Validate(); err != nil {
+		t.Fatal(err)
+	}
+
+	position := NewInput(g, "position", []int{1}, metalir.Float32)
+	rope := x.RoPE(position, 10000)
+	if got := rope.Node().Parameters["theta"]; got != 10000 {
+		t.Fatalf("theta = %g", got)
+	}
+	if err := g.Validate(); err != nil {
+		t.Fatal(err)
 	}
 }
