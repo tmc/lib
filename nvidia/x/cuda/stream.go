@@ -17,6 +17,8 @@ type Stream struct {
 	isDefault bool
 	mu        sync.Mutex
 	cleanups  []func()
+	lifeMu    sync.Mutex
+	destroyed bool
 }
 
 // Raw returns the underlying driver.Stream handle.
@@ -54,7 +56,15 @@ func (s *Stream) drainCleanups() {
 // Query reports whether all previously enqueued operations on the stream have completed.
 // It returns true if the stream is idle, or false if work is still pending.
 func (s *Stream) Query() (bool, error) {
-	err := s.raw.Query()
+	var queryErr error
+	err := s.device.WithContext(func() error {
+		queryErr = s.raw.Query()
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	err = queryErr
 	if err == nil {
 		return true, nil
 	}
@@ -70,7 +80,7 @@ func (s *Stream) Query() (bool, error) {
 // active kernel finishes.
 func (s *Stream) Synchronize(ctx context.Context) error {
 	if ctx == nil || ctx.Done() == nil {
-		if err := s.raw.Synchronize(); err != nil {
+		if err := s.device.WithContext(s.raw.Synchronize); err != nil {
 			return fmt.Errorf("cuda: stream synchronize: %w", err)
 		}
 		s.drainCleanups()
@@ -113,7 +123,7 @@ func (s *Stream) WaitEvent(e *Event) error {
 	if e == nil {
 		return errors.New("cuda: nil event passed to WaitEvent")
 	}
-	if err := s.raw.WaitEvent(e.raw, 0); err != nil {
+	if err := s.device.WithContext(func() error { return s.raw.WaitEvent(e.raw, 0) }); err != nil {
 		return fmt.Errorf("cuda: stream wait event: %w", err)
 	}
 	return nil
@@ -122,16 +132,24 @@ func (s *Stream) WaitEvent(e *Event) error {
 // Destroy waits for all in-flight work on the stream to complete before draining
 // registered cleanups and destroying the stream handle. Destroying the stream
 // returned by [Device.DefaultStream] drains its cleanups but keeps the handle,
-// which belongs to the driver rather than to the caller.
+// which belongs to the driver rather than to the caller. Repeated calls are safe.
 func (s *Stream) Destroy() error {
-	// Ensure stream is fully idle before releasing host pinners/cleanups
-	_ = s.raw.Synchronize()
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	if s.destroyed {
+		return nil
+	}
+	// Do not release host pinners unless completion was established.
+	if err := s.device.WithContext(s.raw.Synchronize); err != nil {
+		return fmt.Errorf("cuda: stream synchronize before destroy: %w", err)
+	}
 	s.drainCleanups()
 	if s.isDefault {
 		return nil
 	}
-	if err := s.raw.Destroy(); err != nil {
+	if err := s.device.WithContext(s.raw.Destroy); err != nil {
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}
+	s.destroyed = true
 	return nil
 }
