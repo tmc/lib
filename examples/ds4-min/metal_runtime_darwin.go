@@ -25,20 +25,21 @@ const (
 // metalRuntime owns the immutable model bindings and mutable buffers for one
 // DS4 session.
 type metalRuntime struct {
-	file             *os.File
-	dev              *libmetal.Device
-	views            *metalModelViews
-	ops              *metalPinnedOps
-	arena            *metalmem.Arena
-	model            *ggufFile
-	layers           [ds4Layers]metalLayer
-	output           metalOutput
-	state            metalSessionState
-	ctx              int
-	pos              int
-	lastOpeningBatch metalBatchStats
-	lastFFNBatches   metalBatchStats
-	lastRoutedBatch  metalBatchStats
+	file               *os.File
+	dev                *libmetal.Device
+	views              *metalModelViews
+	ops                *metalPinnedOps
+	arena              *metalmem.Arena
+	model              *ggufFile
+	layers             [ds4Layers]metalLayer
+	output             metalOutput
+	state              metalSessionState
+	ctx                int
+	pos                int
+	lastOpeningBatch   metalBatchStats
+	lastAttentionBatch metalBatchStats
+	lastFFNBatches     metalBatchStats
+	lastRoutedBatch    metalBatchStats
 }
 
 var _ sessionBackend = (*metalRuntime)(nil)
@@ -525,29 +526,42 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	low := make([]float32, 0, 8192)
+	if err := r.state.heads.CopyFromHost(heads); err != nil {
+		return nil, fmt.Errorf("attention closing: copy heads: %w", err)
+	}
+	closing, err := newMetalBatch(r.ops)
+	if err != nil {
+		return nil, err
+	}
 	for group := range 8 {
 		rows, err := layer.attnOutA.Rows(group*1024, 1024)
 		if err != nil {
 			return nil, err
 		}
-		part, err := r.ops.MatvecQ80(rows, heads[group*4096:(group+1)*4096])
+		head, err := r.state.heads.Slice(group*4096, (group+1)*4096)
 		if err != nil {
 			return nil, err
 		}
-		low = append(low, part...)
+		low, err := r.state.attnLow.Slice(group*1024, (group+1)*1024)
+		if err != nil {
+			return nil, err
+		}
+		if err := closing.EncodeMatvecQ80(rows, head, low); err != nil {
+			return nil, err
+		}
 	}
-	attnOut, err := r.ops.MatvecQ80(layer.attnOutB, low)
-	if err != nil {
+	if err := closing.EncodeMatvecQ80(layer.attnOutB, r.state.attnLow, r.state.attnOut); err != nil {
 		return nil, err
 	}
-	hc, err = r.ops.HCPost(hc, attnOut, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase)
-	if err != nil {
+	attentionState := r.state.hc[(i+1)%len(r.state.hc)]
+	if err := closing.EncodeHCPost(stateIn, r.state.attnOut, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, attentionState); err != nil {
 		return nil, err
 	}
-	if err := stateIn.CopyFromHost(hc); err != nil {
-		return nil, fmt.Errorf("FFN opening: copy state: %w", err)
+	if err := closing.Wait(context.Background()); err != nil {
+		return nil, err
 	}
+	r.lastAttentionBatch = closing.Stats()
+	stateIn = attentionState
 	r.lastFFNBatches = metalBatchStats{}
 	ffnOpening, err := newMetalBatch(r.ops)
 	if err != nil {
@@ -653,7 +667,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffnClosing.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {
 		return nil, err
 	}
-	stateOut := r.state.hc[(i+1)%len(r.state.hc)]
+	stateOut := r.state.hc[i%len(r.state.hc)]
 	if err := ffnClosing.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
 		return nil, err
 	}
