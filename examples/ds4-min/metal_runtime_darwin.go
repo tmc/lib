@@ -37,6 +37,7 @@ type metalRuntime struct {
 	ctx              int
 	pos              int
 	lastOpeningBatch metalBatchStats
+	lastFFNBatches   metalBatchStats
 }
 
 var _ sessionBackend = (*metalRuntime)(nil)
@@ -122,6 +123,8 @@ type metalSessionState struct {
 	heads      metalmem.Slice[float32]
 	attnLow    metalmem.Slice[float32]
 	attnOut    metalmem.Slice[float32]
+	ffnPre     metalmem.Slice[float32]
+	ffnCur     metalmem.Slice[float32]
 	ffnNorm    metalmem.Slice[float32]
 	router     metalmem.Slice[float32]
 	probs      metalmem.Slice[float32]
@@ -135,6 +138,9 @@ type metalSessionState struct {
 	expertUp   metalmem.Slice[float32]
 	expertMid  metalmem.Slice[float32]
 	expertDown metalmem.Slice[float32]
+	routedOut  metalmem.Slice[float32]
+	ffnBlocks  metalmem.Slice[float32]
+	ffnOut     metalmem.Slice[float32]
 	q8         metalmem.Slice[byte]
 	outputNorm metalmem.Slice[float32]
 	logits     metalmem.Slice[float32]
@@ -303,7 +309,9 @@ func (r *metalRuntime) allocState() {
 	s.heads = metalmem.AllocIn[float32](a, "attention-heads", 64*ds4KVWidth)
 	s.attnLow = metalmem.AllocIn[float32](a, "attention-low", 8192)
 	s.attnOut = metalmem.AllocIn[float32](a, "attention-output", ds4Width)
-	s.ffnNorm = metalmem.AllocIn[float32](a, "ffn-norm", ds4Width)
+	s.ffnPre = metalmem.AllocIn[float32](a, "ffn-pre", 2*ds4Width)
+	s.ffnCur, _ = s.ffnPre.Slice(0, ds4Width)
+	s.ffnNorm, _ = s.ffnPre.Slice(ds4Width, 2*ds4Width)
 	s.router = metalmem.AllocIn[float32](a, "router", 256)
 	s.probs = metalmem.AllocIn[float32](a, "router-probabilities", 256)
 	s.expertIDs = metalmem.AllocIn[int32](a, "expert-ids", 6)
@@ -311,11 +319,14 @@ func (r *metalRuntime) allocState() {
 	s.sharedGate = metalmem.AllocIn[float32](a, "shared-gate", 2048)
 	s.sharedUp = metalmem.AllocIn[float32](a, "shared-up", 2048)
 	s.sharedMid = metalmem.AllocIn[float32](a, "shared-middle", 2048)
-	s.sharedOut = metalmem.AllocIn[float32](a, "shared-output", ds4Width)
+	s.ffnBlocks = metalmem.AllocIn[float32](a, "ffn-blocks", 2*ds4Width)
+	s.routedOut, _ = s.ffnBlocks.Slice(0, ds4Width)
+	s.sharedOut, _ = s.ffnBlocks.Slice(ds4Width, 2*ds4Width)
 	s.expertGate = metalmem.AllocIn[float32](a, "expert-gate", 6*2048)
 	s.expertUp = metalmem.AllocIn[float32](a, "expert-up", 6*2048)
 	s.expertMid = metalmem.AllocIn[float32](a, "expert-middle", 6*2048)
 	s.expertDown = metalmem.AllocIn[float32](a, "expert-down", 6*ds4Width)
+	s.ffnOut = metalmem.AllocIn[float32](a, "ffn-output", ds4Width)
 	s.q8 = metalmem.AllocIn[byte](a, "q8-scratch", ds4Width/256*292)
 	s.outputNorm = metalmem.AllocIn[float32](a, "output-norm", ds4Width)
 	s.logits = metalmem.AllocIn[float32](a, "logits", 129280)
@@ -529,14 +540,31 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	_, ffnNorm, err := r.ops.HCPre(hc, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm)
+	if err := stateIn.CopyFromHost(hc); err != nil {
+		return nil, fmt.Errorf("FFN opening: copy state: %w", err)
+	}
+	r.lastFFNBatches = metalBatchStats{}
+	ffnOpening, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	router, err := r.ops.MatvecF16(layer.router, ffnNorm)
-	if err != nil {
+	if err := ffnOpening.EncodeHCPre(stateIn, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm, r.state.ffnPre); err != nil {
 		return nil, err
 	}
+	if err := ffnOpening.EncodeMatvecF16(layer.router, r.state.ffnNorm, r.state.router); err != nil {
+		return nil, err
+	}
+	if err := ffnOpening.EncodeMatvecQ80(layer.sharedGate, r.state.ffnNorm, r.state.sharedGate); err != nil {
+		return nil, err
+	}
+	if err := ffnOpening.EncodeMatvecQ80(layer.sharedUp, r.state.ffnNorm, r.state.sharedUp); err != nil {
+		return nil, err
+	}
+	if err := ffnOpening.Wait(context.Background()); err != nil {
+		return nil, err
+	}
+	r.addFFNBatch(ffnOpening)
+	router := r.state.router.HostSlice()
 	var selected []int32
 	var weights []float32
 	if i < 3 {
@@ -547,22 +575,21 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	sharedGate, err := r.ops.MatvecQ80(layer.sharedGate, ffnNorm)
+	shared, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	sharedUp, err := r.ops.MatvecQ80(layer.sharedUp, ffnNorm)
-	if err != nil {
+	if err := shared.EncodeSwiGLU(r.state.sharedGate, r.state.sharedUp, r.state.sharedMid); err != nil {
 		return nil, err
 	}
-	sharedMid, err := r.ops.SwiGLU(sharedGate, sharedUp)
-	if err != nil {
+	if err := shared.EncodeMatvecQ80(layer.sharedDown, r.state.sharedMid, r.state.sharedOut); err != nil {
 		return nil, err
 	}
-	sharedOut, err := r.ops.MatvecQ80(layer.sharedDown, sharedMid)
-	if err != nil {
+	if err := shared.Wait(context.Background()); err != nil {
 		return nil, err
 	}
+	r.addFFNBatch(shared)
+	ffnNorm := r.state.ffnNorm.HostSlice()
 	mids := make([]float32, 0, 6*2048)
 	for slot, id := range selected {
 		gate, err := layer.expertGate.Expert(id)
@@ -603,15 +630,35 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		}
 		downs = append(downs, part...)
 	}
-	routedOut, err := r.ops.SumVectors(downs, 6)
+	if err := r.state.expertDown.CopyFromHost(downs); err != nil {
+		return nil, fmt.Errorf("FFN closing: copy expert outputs: %w", err)
+	}
+	ffnClosing, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	ffnOut, err := r.ops.SumVectors(append(routedOut, sharedOut...), 2)
-	if err != nil {
+	if err := ffnClosing.EncodeSumVectors(r.state.expertDown, r.state.routedOut, 6); err != nil {
 		return nil, err
 	}
-	return r.ops.HCPost(hc, ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase)
+	if err := ffnClosing.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {
+		return nil, err
+	}
+	stateOut := r.state.hc[(i+1)%len(r.state.hc)]
+	if err := ffnClosing.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
+		return nil, err
+	}
+	if err := ffnClosing.Wait(context.Background()); err != nil {
+		return nil, err
+	}
+	r.addFFNBatch(ffnClosing)
+	return stateOut.HostSlice(), nil
+}
+
+func (r *metalRuntime) addFFNBatch(batch *metalBatch) {
+	stats := batch.Stats()
+	r.lastFFNBatches.Encoded += stats.Encoded
+	r.lastFFNBatches.Commits += stats.Commits
+	r.lastFFNBatches.Waits += stats.Waits
 }
 
 func (r *metalRuntime) outputLogits(hc []float32) ([]float32, error) {
