@@ -381,6 +381,51 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	}
 }
 
+func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	if model == "" {
+		t.Skip("model path not set")
+	}
+	r, err := newMetalRuntime(model, 128)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	tok, err := newTokenizer(r.model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompt, err := tok.RenderNonThinking("You are a helpful assistant", "a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := newSession(r, 128, tok.eos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Sync(prompt); err != nil {
+		t.Fatal(err)
+	}
+	want := []int{19923, 3, 1730, 588, 342}
+	for step := range len(want) {
+		id := greedyToken(s.logits)
+		text, err := tok.Decode([]int{id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("step %d: %d %q", step, id, text)
+		if id != want[step] {
+			t.Fatalf("step %d token = %d, want %d", step, id, want[step])
+		}
+		if id == tok.eos {
+			break
+		}
+		if _, err := s.Accept(id); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func validatePinnedLateTransition(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, layer int, oracleDir string) {
 	t.Helper()
 	attnNorm := readOracleF32(t, fmt.Sprintf("%s/stage_attn_norm-%d_pos0.bin", oracleDir, layer))

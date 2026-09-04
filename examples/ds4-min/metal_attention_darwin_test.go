@@ -429,7 +429,7 @@ func TestMetalRawAttentionPositionOneOracle(t *testing.T) {
 	}
 	compareOracleF32(t, "Qcur", q, oracle+"/stage_Qcur-0_pos1.bin")
 	compareOracleFP8F32(t, "KVcur", kv, oracle+"/stage_KVcur-0_pos1.bin")
-	compareOracleFP8F32(t, "kqv_out", heads, oracle+"/stage_kqv_out-0_pos1.bin")
+	compareOracleFP8F32(t, "kqv_back", heads, oracle+"/stage_kqv_back-0_pos1.bin")
 }
 
 func TestMetalRawAttentionKeepsHistory(t *testing.T) {

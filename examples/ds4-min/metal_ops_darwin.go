@@ -1767,6 +1767,13 @@ kernel void rope_attention_raw(
     }
     out[33280+qoff+i]=value/denom;
   }
+  theta=float(position);
+  for(uint i=0;i<64;i+=2){
+    const uint oi=33280+qoff+448+i;
+    float c=cos(theta),s=-sin(theta),a=out[oi],b=out[oi+1];
+    out[oi]=a*c-b*s;out[oi+1]=a*s+b*c;
+    theta*=theta_scale;
+  }
 }
 
 kernel void rope_attention_one(
