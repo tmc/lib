@@ -106,7 +106,7 @@ func TestValidateAcceptsScalarRoPEPosition(t *testing.T) {
 	g := NewGraph()
 	x := g.AddInput("x", []int{2, 8}, Float32)
 	position := g.AddInput("position", []int{1, 1}, Float32)
-	g.AddBinary("rope", x, position)
+	g.AddRoPE(x, position, 10000)
 	if err := g.Validate(); err != nil {
 		t.Fatal(err)
 	}

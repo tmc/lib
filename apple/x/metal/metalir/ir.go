@@ -73,14 +73,15 @@ type SourceLocation struct {
 
 // Node represents an operation or tensor in the IR graph.
 type Node struct {
-	ID        int
-	Name      string
-	Kind      NodeKind
-	Op        string
-	Inputs    []*Node
-	Shape     []int
-	Type      DataType
-	SourceLoc SourceLocation
+	ID         int
+	Name       string
+	Kind       NodeKind
+	Op         string
+	Inputs     []*Node
+	Shape      []int
+	Type       DataType
+	Parameters map[string]float64
+	SourceLoc  SourceLocation
 }
 
 // NumElements returns total number of elements in the tensor.
@@ -168,13 +169,25 @@ func validateOperator(n *Node) error {
 			return fmt.Errorf("binary result shape or type mismatch")
 		}
 		switch n.Op {
-		case "add", "mul", "rmsnorm":
+		case "add", "mul":
 			if !same(n, n.Inputs[1]) {
 				return fmt.Errorf("binary operand shape or type mismatch")
+			}
+		case "rmsnorm":
+			if !same(n, n.Inputs[1]) {
+				return fmt.Errorf("binary operand shape or type mismatch")
+			}
+			epsilon := n.Parameters["epsilon"]
+			if !(epsilon > 0) || math.IsNaN(epsilon) || math.IsInf(epsilon, 0) {
+				return fmt.Errorf("rmsnorm epsilon must be finite and positive")
 			}
 		case "rope":
 			if n.Inputs[1].Type != n.Type || n.Inputs[1].NumElements() != 1 {
 				return fmt.Errorf("rope position must be a scalar of matching type")
+			}
+			theta := n.Parameters["theta"]
+			if !(theta > 0) || math.IsNaN(theta) || math.IsInf(theta, 0) {
+				return fmt.Errorf("rope theta must be finite and positive")
 			}
 		default:
 			return fmt.Errorf("binary operation %q unsupported", n.Op)
@@ -250,9 +263,27 @@ func (g *Graph) AddBinary(op string, a, b *Node) *Node {
 	return n
 }
 
+// AddRMSNorm creates an RMS normalization node with an explicit epsilon.
+func (g *Graph) AddRMSNorm(in, weight *Node, epsilon float32) *Node {
+	n := g.AddBinary("rmsnorm", in, weight)
+	n.Parameters = map[string]float64{"epsilon": float64(epsilon)}
+	return n
+}
+
+// AddRoPE creates a rotary-position-embedding node with an explicit theta.
+func (g *Graph) AddRoPE(in, position *Node, theta float32) *Node {
+	n := g.AddBinary("rope", in, position)
+	n.Parameters = map[string]float64{"theta": float64(theta)}
+	return n
+}
+
 // AddMatMul creates a matrix multiplication node.
 func (g *Graph) AddMatMul(a, b *Node) *Node {
 	var shape []int
+	var dtype DataType
+	if a != nil {
+		dtype = a.Type
+	}
 	if a != nil && b != nil && len(a.Shape) == 2 && len(b.Shape) == 2 {
 		shape = []int{a.Shape[0], b.Shape[1]}
 	}
@@ -262,7 +293,7 @@ func (g *Graph) AddMatMul(a, b *Node) *Node {
 		Kind:   KindMatMul,
 		Op:     "matmul",
 		Shape:  shape,
-		Type:   a.Type,
+		Type:   dtype,
 		Inputs: []*Node{a, b},
 	}
 	g.Nodes = append(g.Nodes, n)

@@ -16,6 +16,7 @@ type Tensor struct {
 	node  *metalir.Node
 	shape []int
 	dtype metalir.DataType
+	err   error
 }
 
 func captureSource() metalir.SourceLocation {
@@ -32,12 +33,16 @@ func captureSource() metalir.SourceLocation {
 
 // NewInput creates a new input tensor within the given graph.
 func NewInput(g *metalir.Graph, name string, shape []int, dtype metalir.DataType) Tensor {
-	n := g.AddInput(name, shape, dtype)
+	if g == nil {
+		return Tensor{err: fmt.Errorf("metaltensor: nil graph")}
+	}
+	inputShape := append([]int(nil), shape...)
+	n := g.AddInput(name, inputShape, dtype)
 	n.SourceLoc = captureSource()
 	return Tensor{
 		graph: g,
 		node:  n,
-		shape: shape,
+		shape: append([]int(nil), inputShape...),
 		dtype: dtype,
 	}
 }
@@ -54,7 +59,7 @@ func (t Tensor) Node() *metalir.Node {
 
 // Shape returns the tensor dimensions.
 func (t Tensor) Shape() []int {
-	return t.shape
+	return append([]int(nil), t.shape...)
 }
 
 // DataType returns the tensor data type.
@@ -62,8 +67,16 @@ func (t Tensor) DataType() metalir.DataType {
 	return t.dtype
 }
 
+// Err reports an error accumulated while building t.
+func (t Tensor) Err() error {
+	return t.err
+}
+
 // Add computes elementwise addition t + other.
 func (t Tensor) Add(other Tensor) Tensor {
+	if err := compatible(t, other); err != nil {
+		return Tensor{err: err}
+	}
 	n := t.graph.AddBinary("add", t.node, other.node)
 	n.SourceLoc = captureSource()
 	return Tensor{
@@ -76,6 +89,9 @@ func (t Tensor) Add(other Tensor) Tensor {
 
 // Mul computes elementwise multiplication t * other.
 func (t Tensor) Mul(other Tensor) Tensor {
+	if err := compatible(t, other); err != nil {
+		return Tensor{err: err}
+	}
 	n := t.graph.AddBinary("mul", t.node, other.node)
 	n.SourceLoc = captureSource()
 	return Tensor{
@@ -88,6 +104,9 @@ func (t Tensor) Mul(other Tensor) Tensor {
 
 // MatMul computes matrix multiplication t x other.
 func (t Tensor) MatMul(other Tensor) Tensor {
+	if err := compatible(t, other); err != nil {
+		return Tensor{err: err}
+	}
 	n := t.graph.AddMatMul(t.node, other.node)
 	n.SourceLoc = captureSource()
 	return Tensor{
@@ -100,7 +119,10 @@ func (t Tensor) MatMul(other Tensor) Tensor {
 
 // RMSNorm computes Root Mean Square layer normalization.
 func (t Tensor) RMSNorm(weight Tensor, eps float32) Tensor {
-	n := t.graph.AddBinary("rmsnorm", t.node, weight.node)
+	if err := compatible(t, weight); err != nil {
+		return Tensor{err: err}
+	}
+	n := t.graph.AddRMSNorm(t.node, weight.node, eps)
 	n.SourceLoc = captureSource()
 	return Tensor{
 		graph: t.graph,
@@ -112,6 +134,12 @@ func (t Tensor) RMSNorm(weight Tensor, eps float32) Tensor {
 
 // Silu computes SiLU (Swish-1) activation.
 func (t Tensor) Silu() Tensor {
+	if t.err != nil {
+		return t
+	}
+	if t.graph == nil || t.node == nil {
+		return Tensor{err: fmt.Errorf("metaltensor: invalid tensor")}
+	}
 	n := t.graph.AddUnary("silu", t.node)
 	n.SourceLoc = captureSource()
 	return Tensor{
@@ -124,7 +152,10 @@ func (t Tensor) Silu() Tensor {
 
 // RoPE computes Rotary Position Embedding.
 func (t Tensor) RoPE(pos Tensor, theta float32) Tensor {
-	n := t.graph.AddBinary("rope", t.node, pos.node)
+	if err := compatible(t, pos); err != nil {
+		return Tensor{err: err}
+	}
+	n := t.graph.AddRoPE(t.node, pos.node, theta)
 	n.SourceLoc = captureSource()
 	return Tensor{
 		graph: t.graph,
@@ -137,6 +168,9 @@ func (t Tensor) RoPE(pos Tensor, theta float32) Tensor {
 // Compile emits an elementwise MSL kernel for the expression ending at t.
 // MatMul, RMSNorm, and RoPE lowering is not yet supported.
 func (t Tensor) Compile(kernelName string) (string, error) {
+	if t.err != nil {
+		return "", t.err
+	}
 	if t.graph == nil || t.node == nil {
 		return "", fmt.Errorf("compile: invalid tensor")
 	}
@@ -205,6 +239,22 @@ func (t Tensor) Compile(kernelName string) (string, error) {
 	}
 	fmt.Fprintf(&b, "    out[i] = v%d;\n}\n", t.node.ID)
 	return b.String(), nil
+}
+
+func compatible(a, b Tensor) error {
+	if a.err != nil {
+		return a.err
+	}
+	if b.err != nil {
+		return b.err
+	}
+	if a.graph == nil || a.node == nil || b.graph == nil || b.node == nil {
+		return fmt.Errorf("metaltensor: invalid tensor")
+	}
+	if a.graph != b.graph {
+		return fmt.Errorf("metaltensor: tensors belong to different graphs")
+	}
+	return nil
 }
 
 func identifier(s string) bool {
