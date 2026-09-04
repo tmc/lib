@@ -171,7 +171,7 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	}
 	defer scheduler.Close()
 	if len(spec.Arms) != 0 {
-		return runInferbenchCampaign(ctx, spec, identity, evidence, eng, adapter, scheduler)
+		return runInferbenchCampaign(ctx, cfg, spec, identity, evidence, eng, adapter, scheduler)
 	}
 	for i := 0; i < spec.Workload.WarmupRuns; i++ {
 		if _, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
@@ -235,7 +235,7 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 	}
 }
 
-func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
+func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
 	if err := benchmarkPeakMemorySupport(); err != nil {
 		return fmt.Errorf("inferbench: peak memory evidence: %w", err)
 	}
@@ -285,10 +285,64 @@ func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity in
 	if err != nil {
 		return err
 	}
+	// Rehash outside every timed interval. Besides catching persistent input
+	// drift, this avoids making model size part of the interleaved schedule.
+	if err := verifyBenchmarkInputs(cfg, spec, identity, evidence); err != nil {
+		return err
+	}
 	if err := campaign.BindRawSet(spec.RawDir); err != nil {
 		return err
 	}
 	return inferbench.WriteJSONAtomic(spec.Output, campaign)
+}
+
+func verifyBenchmarkInputs(cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("inferbench: recheck binary identity: %w", err)
+	}
+	paths := []struct {
+		name string
+		path string
+		want string
+		dir  bool
+	}{
+		{"binary", exe, identity.BinarySHA256, true},
+		{"model", cfg.ModelPath, identity.ModelSHA256, true},
+		{"tokenizer", spec.TokenizerPath, identity.TokenizerSHA256, true},
+		{"config", spec.ConfigPath, identity.ConfigSHA256, true},
+		{"source", spec.SourcePath, identity.SourceSHA256, true},
+		{"device evidence", spec.DeviceEvidencePath, evidence.DeviceEvidenceSHA256, false},
+	}
+	for _, item := range paths {
+		var (
+			got string
+			err error
+		)
+		if item.dir {
+			got, err = inferbench.HashPath(item.path)
+		} else {
+			got, err = inferbench.HashFile(item.path)
+		}
+		if err != nil {
+			return fmt.Errorf("inferbench: recheck %s identity: %w", item.name, err)
+		}
+		if got != item.want {
+			return fmt.Errorf("inferbench: %s identity changed during campaign", item.name)
+		}
+	}
+	var proof deviceEvidence
+	if err := decodeStrictJSON(spec.DeviceEvidencePath, &proof); err != nil {
+		return err
+	}
+	nullHash, err := inferbench.HashFile(proof.NullControlPath)
+	if err != nil {
+		return fmt.Errorf("inferbench: recheck null control identity: %w", err)
+	}
+	if nullHash != evidence.NullControlSHA256 {
+		return errors.New("inferbench: null control identity changed during campaign")
+	}
+	return nil
 }
 
 func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, inferbench.Evidence, error) {

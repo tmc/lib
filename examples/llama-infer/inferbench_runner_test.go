@@ -69,6 +69,50 @@ func TestBenchmarkIdentityRejectsSkippedHardware(t *testing.T) {
 	}
 }
 
+func TestVerifyBenchmarkInputsRejectsDrift(t *testing.T) {
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model")
+	if err := os.Mkdir(model, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	tokenizer := filepath.Join(model, "tokenizer.json")
+	config := filepath.Join(model, "config.json")
+	source := filepath.Join(dir, "source")
+	proof := filepath.Join(dir, "proof.json")
+	nullControl := filepath.Join(dir, "null-control.json")
+	for path, data := range map[string]string{tokenizer: "tokenizer", config: "config", source: "source", nullControl: "[]"} {
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := inferbench.WriteJSONAtomic(proof, deviceEvidence{NullControlPath: nullControl}); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := inferbench.Identity{}
+	identity.BinarySHA256, _ = inferbench.HashPath(exe)
+	identity.ModelSHA256, _ = inferbench.HashPath(model)
+	identity.TokenizerSHA256, _ = inferbench.HashPath(tokenizer)
+	identity.ConfigSHA256, _ = inferbench.HashPath(config)
+	identity.SourceSHA256, _ = inferbench.HashPath(source)
+	evidence := inferbench.Evidence{}
+	evidence.DeviceEvidenceSHA256, _ = inferbench.HashFile(proof)
+	evidence.NullControlSHA256, _ = inferbench.HashFile(nullControl)
+	spec := inferbenchSpec{TokenizerPath: tokenizer, ConfigPath: config, SourcePath: source, DeviceEvidencePath: proof}
+	if err := verifyBenchmarkInputs(Config{ModelPath: model}, spec, identity, evidence); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("changed"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyBenchmarkInputs(Config{ModelPath: model}, spec, identity, evidence); err == nil || !strings.Contains(err.Error(), "source identity changed") {
+		t.Fatalf("source drift error = %v", err)
+	}
+}
+
 func TestUnqualifiedHostLaunchesZeroTimedArms(t *testing.T) {
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model")
