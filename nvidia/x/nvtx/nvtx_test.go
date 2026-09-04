@@ -1,6 +1,7 @@
 package nvtx
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/ebitengine/purego"
@@ -12,6 +13,8 @@ var (
 	mockRangePopCount   int
 	mockDomainPushCount int
 	mockDomainMarkCount int
+	mockCategory        uint32
+	mockDomainCategory  uint32
 )
 
 func mockMarkA(msg *byte) {
@@ -46,6 +49,14 @@ func mockDomainCreateA(name *byte) uintptr {
 }
 
 func mockDomainDestroy(domain uintptr) {}
+
+func mockNameCategoryA(category uint32, name *byte) {
+	mockCategory = category
+}
+
+func mockDomainNameCategoryA(domain uintptr, category uint32, name *byte) {
+	mockDomainCategory = category
+}
 
 func TestNoOpPath(t *testing.T) {
 	// With enabled == false, all calls must be safe no-ops
@@ -84,7 +95,8 @@ func TestNoOpPath(t *testing.T) {
 		t.Errorf("expected 0 handle in no-op mode, got %v", handle)
 	}
 
-	NameCategory(dom, 1, "Compute")
+	NameCategory(1, "Compute")
+	dom.NameCategory(2, "Transfer")
 }
 
 func TestExportTableHandshake(t *testing.T) {
@@ -136,6 +148,8 @@ func TestExportTableHandshake(t *testing.T) {
 	fnDomainRangePop = purego.NewCallback(mockDomainRangePop)
 	fnDomainCreateA = purego.NewCallback(mockDomainCreateA)
 	fnDomainDestroy = purego.NewCallback(mockDomainDestroy)
+	fnNameCategoryA = purego.NewCallback(mockNameCategoryA)
+	fnDomainNameCategoryA = purego.NewCallback(mockDomainNameCategoryA)
 
 	enabled = true
 
@@ -170,5 +184,55 @@ func TestExportTableHandshake(t *testing.T) {
 		t.Errorf("expected mockDomainPushCount 1, got %d", mockDomainPushCount)
 	}
 	dom.RangePop()
+	NameCategory(7, "Compute")
+	dom.NameCategory(9, "Transfer")
+	if mockCategory != 7 || mockDomainCategory != 9 {
+		t.Fatalf("category callbacks = global %d, domain %d", mockCategory, mockDomainCategory)
+	}
 	dom.Destroy()
+}
+
+func TestScopedRangeClosesOnce(t *testing.T) {
+	initTables()
+	fnRangePushA = purego.NewCallback(mockRangePushA)
+	fnRangePop = purego.NewCallback(mockRangePop)
+	enabled = true
+	mockRangePushCount = 0
+	mockRangePopCount = 0
+
+	done := ScopedRange("scope")
+	done()
+	done()
+	if mockRangePushCount != 1 || mockRangePopCount != 1 {
+		t.Fatalf("callbacks = push %d, pop %d", mockRangePushCount, mockRangePopCount)
+	}
+}
+
+func TestDomainDestroyWaitsForScopedRange(t *testing.T) {
+	initTables()
+	fnDomainRangePushEx = purego.NewCallback(mockDomainRangePushEx)
+	fnDomainRangePop = purego.NewCallback(mockDomainRangePop)
+	fnDomainDestroy = purego.NewCallback(mockDomainDestroy)
+	enabled = true
+	d := &Domain{raw: 1}
+	done := d.ScopedRange("scope")
+	destroyed := make(chan struct{})
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		d.Destroy()
+		close(destroyed)
+	}()
+	<-started
+	runtime.Gosched()
+	select {
+	case <-destroyed:
+		t.Fatal("Destroy returned while scoped range was active")
+	default:
+	}
+	done()
+	<-destroyed
+	if d.Raw() != 0 {
+		t.Fatalf("Raw = %x after Destroy", d.Raw())
+	}
 }
