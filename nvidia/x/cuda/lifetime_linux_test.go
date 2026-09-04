@@ -45,6 +45,21 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 	if current != 0 {
 		t.Fatalf("current context after Run = %v, want none", current)
 	}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("Run callback did not panic")
+			}
+		}()
+		_ = ctx.Run(func() error { panic("sentinel") })
+	}()
+	current, err = driver.NewContextGetCurrent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current != 0 {
+		t.Fatalf("current context after panic = %v, want none", current)
+	}
 }
 
 func TestRepeatedRelease(t *testing.T) {

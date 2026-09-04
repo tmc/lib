@@ -32,7 +32,7 @@ func (c *Context) Device() *Device {
 // for the calling OS thread. It guarantees that the goroutine will not be migrated
 // to another OS thread during execution via runtime.LockOSThread. Run restores the
 // context that was current on that thread before it returns.
-func (c *Context) Run(fn func() error) error {
+func (c *Context) Run(fn func() error) (err error) {
 	if c == nil {
 		return errors.New("cuda: nil context")
 	}
@@ -52,12 +52,12 @@ func (c *Context) Run(fn func() error) error {
 	if err := c.raw.SetCurrent(); err != nil {
 		return fmt.Errorf("cuda: set current context: %w", err)
 	}
-	err = fn()
-	if restoreErr := previous.SetCurrent(); restoreErr != nil {
-		restoreErr = fmt.Errorf("cuda: restore current context: %w", restoreErr)
-		return errors.Join(err, restoreErr)
-	}
-	return err
+	defer func() {
+		if restoreErr := previous.SetCurrent(); restoreErr != nil {
+			err = errors.Join(err, fmt.Errorf("cuda: restore current context: %w", restoreErr))
+		}
+	}()
+	return fn()
 }
 
 // Synchronize blocks the host until all preceding commands in the context have finished.
