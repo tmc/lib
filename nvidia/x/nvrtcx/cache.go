@@ -97,6 +97,9 @@ func lookupCache(key string) (*CompiledModule, bool) {
 
 	cubinPath := filepath.Join(dir, key+".cubin")
 	cubinBytes, _ := os.ReadFile(cubinPath)
+	if len(ptxBytes) == 0 && len(cubinBytes) == 0 {
+		return nil, false
+	}
 
 	mod := &CompiledModule{
 		ptx:   string(ptxBytes),

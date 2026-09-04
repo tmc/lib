@@ -74,6 +74,21 @@ func TestClearCachePreservesUnrelatedFiles(t *testing.T) {
 	}
 }
 
+func TestLookupCacheRejectsEmptyImage(t *testing.T) {
+	useTestCache(t)
+	dir, err := getCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const key = "empty"
+	if err := os.WriteFile(filepath.Join(dir, key+".ptx"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if module, ok := lookupCache(key); ok {
+		t.Fatalf("lookupCache returned empty module %v", module)
+	}
+}
+
 func TestCompileRejectsInvalidOptions(t *testing.T) {
 	tests := []struct {
 		name string
