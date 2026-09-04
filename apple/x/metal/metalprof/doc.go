@@ -21,4 +21,6 @@
 //
 // [StartCapture] and [ReplayTrace] enable automated GPU trace captures (.gputrace)
 // and headless replay profiling via macOS MTLReplayer without opening Xcode.
+// Capture requires MTL_CAPTURE_ENABLED=1 in the process environment. Replay
+// writes the replayer's raw profiler payloads; metalprof does not decode them.
 package metalprof
