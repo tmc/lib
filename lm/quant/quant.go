@@ -8,6 +8,15 @@ import (
 	"math"
 )
 
+// BlockSize is the number of elements every block format quantizes together.
+const BlockSize = 32
+
+// Bytes per quantized block: an fp16 scale followed by the packed quants.
+const (
+	blockBytesQ4_0 = 2 + BlockSize/2
+	blockBytesQ8_0 = 2 + BlockSize
+)
+
 // QuantFormat specifies the sub-byte weight quantization format.
 type QuantFormat string
 
@@ -17,59 +26,65 @@ const (
 	FormatAWQ  QuantFormat = "AWQ"  // 4-bit asymmetric with per-group FP16 scale and zero
 )
 
-// BlockQ4_0 represents a 32-element Q4_0 quantized block (18 bytes total).
+// BlockQ4_0 is one Q4_0 block: an fp16 scale and [BlockSize] 4-bit nibbles.
 type BlockQ4_0 struct {
-	Scale  uint16   // float16 scale factor
-	Quants [16]byte // 32 4-bit nibbles (low/high)
+	Scale  uint16              // float16 scale factor
+	Quants [BlockSize / 2]byte // BlockSize nibbles, low half then high half
 }
 
-// BlockQ8_0 represents a 32-element Q8_0 quantized block (34 bytes total).
+// BlockQ8_0 is one Q8_0 block: an fp16 scale and [BlockSize] int8 quants.
 type BlockQ8_0 struct {
-	Scale  uint16   // float16 scale factor
-	Quants [32]int8 // 32 8-bit integers
+	Scale  uint16          // float16 scale factor
+	Quants [BlockSize]int8 // BlockSize 8-bit integers
 }
 
-// DequantizeQ4_0 unpacks a slice of Q4_0 blocks into float32 array.
+// DequantizeQ4_0 unpacks numElements values from Q4_0 blocks. numElements must
+// be a multiple of [BlockSize]: a block is the smallest unit that carries a
+// scale, so a partial one cannot be decoded.
 func DequantizeQ4_0(data []byte, numElements int) ([]float32, error) {
-	numBlocks := numElements / 32
-	if len(data) < numBlocks*18 {
+	if numElements < 0 || numElements%BlockSize != 0 {
+		return nil, fmt.Errorf("quant: %d elements is not a multiple of the %d-element block", numElements, BlockSize)
+	}
+	numBlocks := numElements / BlockSize
+	if len(data) < numBlocks*blockBytesQ4_0 {
 		return nil, fmt.Errorf("quant: buffer length %d insufficient for %d Q4_0 blocks", len(data), numBlocks)
 	}
 
 	out := make([]float32, numElements)
-	for b := 0; b < numBlocks; b++ {
-		offset := b * 18
-		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
-		scale := Float16ToFloat32(scaleBits)
+	for b := range numBlocks {
+		offset := b * blockBytesQ4_0
+		scale := Float16ToFloat32(binary.LittleEndian.Uint16(data[offset : offset+2]))
 
-		for i := 0; i < 16; i++ {
+		for i := range BlockSize / 2 {
 			byteVal := data[offset+2+i]
-			q0 := int8(byteVal&0x0F) - 8
-			q1 := int8(byteVal>>4) - 8
+			lo := int8(byteVal&0x0F) - 8
+			hi := int8(byteVal>>4) - 8
 
-			out[b*32+i] = float32(q0) * scale
-			out[b*32+16+i] = float32(q1) * scale
+			out[b*BlockSize+i] = float32(lo) * scale
+			out[b*BlockSize+BlockSize/2+i] = float32(hi) * scale
 		}
 	}
 	return out, nil
 }
 
-// DequantizeQ8_0 unpacks a slice of Q8_0 blocks into float32 array.
+// DequantizeQ8_0 unpacks numElements values from Q8_0 blocks. numElements must
+// be a multiple of [BlockSize].
 func DequantizeQ8_0(data []byte, numElements int) ([]float32, error) {
-	numBlocks := numElements / 32
-	if len(data) < numBlocks*34 {
+	if numElements < 0 || numElements%BlockSize != 0 {
+		return nil, fmt.Errorf("quant: %d elements is not a multiple of the %d-element block", numElements, BlockSize)
+	}
+	numBlocks := numElements / BlockSize
+	if len(data) < numBlocks*blockBytesQ8_0 {
 		return nil, fmt.Errorf("quant: buffer length %d insufficient for %d Q8_0 blocks", len(data), numBlocks)
 	}
 
 	out := make([]float32, numElements)
-	for b := 0; b < numBlocks; b++ {
-		offset := b * 34
-		scaleBits := binary.LittleEndian.Uint16(data[offset : offset+2])
-		scale := Float16ToFloat32(scaleBits)
+	for b := range numBlocks {
+		offset := b * blockBytesQ8_0
+		scale := Float16ToFloat32(binary.LittleEndian.Uint16(data[offset : offset+2]))
 
-		for i := 0; i < 32; i++ {
-			q := int8(data[offset+2+i])
-			out[b*32+i] = float32(q) * scale
+		for i := range BlockSize {
+			out[b*BlockSize+i] = float32(int8(data[offset+2+i])) * scale
 		}
 	}
 	return out, nil
