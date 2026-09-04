@@ -125,7 +125,7 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 		t.Skip("LLAMA_MODEL_PATH is empty")
 	}
 	for _, fused := range []bool{false, true} {
-		for _, width := range []int{2, 4} {
+		for _, width := range []int{2, 4, 8} {
 			t.Run(fmt.Sprintf("fused=%t/B%d", fused, width), func(t *testing.T) {
 				cfg := Llama3_2_1BConfig(path)
 				cfg.MaxSeqLen = 8
@@ -187,15 +187,15 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 					}
 					checkCUDAFloatSlice(t, fmt.Sprintf("row %d logits", row), gotLogits[row*cfg.VocabSize:(row+1)*cfg.VocabSize], refLogits[row], 2e-3)
 					sequence := states[row].KV.(cudaSequenceState)
-					for _, layer := range []int{0, engine.mCfg.NumHiddenLayers - 1} {
+					for layer := 0; layer < engine.mCfg.NumHiddenLayers; layer++ {
 						checkCUDAKVCoordinate(t, sequence.cache, refCaches[row], layer, 2, engine.mCfg.NumKeyValueHeads*engine.mCfg.HeadDim(), 2e-3)
 					}
 				}
 				launches := backend.lastBatchLaunches()
-				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches {
+				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches || launches.MatrixLaunches != 1 {
 					t.Fatalf("launch receipt = %+v", launches)
 				}
-				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d", width, launches.WeightLaunches, launches.IndependentWeightLaunches)
+				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d matrix_launches=%d", width, launches.WeightLaunches, launches.IndependentWeightLaunches, launches.MatrixLaunches)
 			})
 		}
 	}

@@ -20,6 +20,7 @@ type cudaBatchLaunches struct {
 	Rows                      int
 	WeightLaunches            int
 	IndependentWeightLaunches int
+	MatrixLaunches            int
 }
 
 // GPUBatchScratchpad owns fixed-capacity packed [B,D] activation storage.
@@ -31,6 +32,7 @@ type GPUBatchScratchpad struct {
 	hostTokenIn, hostTokenOut  []int32
 	capacity                   int
 	arena                      *cudamem.Arena
+	lmHead                     *cudaMatrixProjection
 }
 
 func newGPUBatchScratchpad(dev *cuda.Device, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
@@ -87,6 +89,11 @@ func newGPUBatchScratchpad(dev *cuda.Device, cfg *ModelConfig, capacity int) (*G
 		_ = a.Free()
 		return nil, fmt.Errorf("cuda batch scratchpad: %w", err)
 	}
+	sp.lmHead, err = newCUDAMatrixProjection(dev, a, cfg.HiddenSize, cfg.VocabSize, capacity)
+	if err != nil {
+		_ = a.Free()
+		return nil, err
+	}
 	return sp, nil
 }
 
@@ -105,6 +112,8 @@ func (sp *GPUBatchScratchpad) Free() {
 	if sp != nil && sp.arena != nil {
 		a := sp.arena
 		sp.arena = nil
+		_ = sp.lmHead.close()
+		sp.lmHead = nil
 		_ = a.Free()
 	}
 }
@@ -246,8 +255,7 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 		Launch(sp.X, eng.weights.Norm, sp.NormX, int32(hidden), int32(batch), cfg.RmsNormEps); err != nil {
 		return nil, stats, err
 	}
-	if err := launcher(eng.modules.BatchGEMV).Grid(uint32(cfg.VocabSize), uint32(batch)).Block(128).
-		Launch(sp.NormX, eng.weights.LMHead, noBias, sp.Logits, int32(hidden), int32(cfg.VocabSize), int32(batch)); err != nil {
+	if err := sp.lmHead.run(eng.stream, sp.NormX, eng.weights.LMHead, sp.Logits, batch); err != nil {
 		return nil, stats, err
 	}
 	if err := launcher(eng.modules.BatchArgmax).Grid(uint32(batch)).Block(256).
@@ -255,6 +263,7 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 		return nil, stats, err
 	}
 	weightLaunches += 2
+	stats.MatrixLaunches = 1
 	if err := sp.TokenOut.Slice(0, batch).CopyToHostAsync(sp.hostTokenOut[:batch], eng.stream); err != nil {
 		return nil, stats, err
 	}
