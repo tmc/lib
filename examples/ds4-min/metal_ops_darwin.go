@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/apple/objectivec"
@@ -12,6 +13,149 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/apple/x/metal/metalx"
 )
+
+func (o *metalPinnedOps) IndexerAllowed(qrNorm, current []float32, qWeight, headWeight boundMetalTensor, cache metalmem.Slice[float32], nComp, position, layer int) ([]uint32, error) {
+	if len(qrNorm) != 1024 || len(current) != ds4Width || nComp < 0 || nComp > cache.Len()/128 || position < 0 || layer < 2 || layer%2 != 0 {
+		return nil, fmt.Errorf("attention indexer: invalid shape")
+	}
+	allowed := make([]uint32, nComp)
+	if nComp <= 512 {
+		for i := range allowed {
+			allowed[i] = 1
+		}
+		return allowed, nil
+	}
+	var q []float32
+	var err error
+	switch qWeight.typeID {
+	case 1:
+		q, err = o.MatvecF16(qWeight, qrNorm)
+	case 8:
+		q, err = o.MatvecQ80(qWeight, qrNorm)
+	default:
+		err = fmt.Errorf("attention indexer: unsupported query weight type %d", qWeight.typeID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	weights, err := o.MatvecF16(headWeight, current)
+	if err != nil {
+		return nil, err
+	}
+	if len(q) != 64*128 || len(weights) != 64 {
+		return nil, fmt.Errorf("attention indexer: invalid projection result")
+	}
+	for h := range 64 {
+		row := q[h*128 : (h+1)*128]
+		ropeCompressedTail(row, position, false)
+		indexerQAT(row)
+		weights[h] *= 1 / float32(math.Sqrt(64*128))
+	}
+	scores := make([]float32, nComp)
+	rows := cache.HostSlice()
+	for c := range scores {
+		row := rows[c*128 : (c+1)*128]
+		var score float32
+		for h := range 64 {
+			var dot float32
+			for i, value := range row {
+				dot += value * q[h*128+i]
+			}
+			if dot > 0 {
+				score += dot * weights[h]
+			}
+		}
+		scores[c] = score
+	}
+	return selectIndexerRows(scores, 512), nil
+}
+
+func selectIndexerRows(scores []float32, k int) []uint32 {
+	allowed := make([]uint32, len(scores))
+	k = min(k, len(scores))
+	for range k {
+		best := 0
+		bestScore := float32(-1e30)
+		for i, score := range scores {
+			if allowed[i] == 0 && score > bestScore {
+				best = i
+				bestScore = score
+			}
+		}
+		allowed[best] = 1
+	}
+	return allowed
+}
+
+func ropeCompressedTail(x []float32, position int, inverse bool) {
+	start := len(x) - 64
+	sign := 1.0
+	if inverse {
+		sign = -1
+	}
+	for r := 0; r < 64; r += 2 {
+		extrap := float64(position) * math.Pow(160000, -float64(r)/64)
+		low := math.Max(0, math.Floor(64*math.Log(65536/(32*2*math.Pi))/(2*math.Log(160000))))
+		high := math.Min(63, math.Ceil(64*math.Log(65536/(1*2*math.Pi))/(2*math.Log(160000))))
+		y := (float64(r/2) - low) / math.Max(0.001, high-low)
+		ramp := 1 - min(1, max(0, y))
+		theta := extrap * (0.0625*(1-ramp) + ramp)
+		c, s := float32(math.Cos(theta)), float32(sign*math.Sin(theta))
+		a, b := x[start+r], x[start+r+1]
+		x[start+r] = a*c - b*s
+		x[start+r+1] = a*s + b*c
+	}
+}
+
+func indexerQAT(x []float32) {
+	for stride := 1; stride < 128; stride <<= 1 {
+		for base := 0; base < 128; base += 2 * stride {
+			for i := range stride {
+				a, b := x[base+i], x[base+stride+i]
+				x[base+i] = a + b
+				x[base+stride+i] = a - b
+			}
+		}
+	}
+	for i := range x {
+		x[i] *= 0.08838834764831845
+	}
+	for off := 0; off < len(x); off += 32 {
+		var amax float32
+		for _, value := range x[off : off+32] {
+			amax = max(amax, abs32(value))
+		}
+		amax = max(amax, 7.052966104933725e-38)
+		scale := float32(math.Exp2(math.Ceil(math.Log2(float64(amax / 6)))))
+		for i := off; i < off+32; i++ {
+			x[i] = roundE2M1(max(-6, min(6, x[i]/scale))) * scale
+		}
+	}
+}
+
+func abs32(x float32) float32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func roundE2M1(x float32) float32 {
+	values := [...]float32{0, .5, 1, 1.5, 2, 3, 4, 6}
+	sign := float32(1)
+	if x < 0 {
+		sign, x = -1, -x
+	}
+	best := 0
+	bestDiff := abs32(x - values[0])
+	for i := 1; i < len(values); i++ {
+		diff := abs32(x - values[i])
+		if diff < bestDiff || diff == bestDiff && i%2 == 0 && best%2 != 0 {
+			best, bestDiff = i, diff
+		}
+	}
+	return sign * values[best]
+}
 
 type metalPinnedKernels struct {
 	GetRowF16        apple.MTLComputePipelineState `metal:"get_row_f16"`

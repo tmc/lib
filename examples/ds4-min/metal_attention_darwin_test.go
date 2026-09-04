@@ -317,6 +317,89 @@ func TestMetalIndexerCompressorAppliesQAT(t *testing.T) {
 	}
 }
 
+func TestSelectIndexerRowsTiesPreferLowerIndex(t *testing.T) {
+	scores := make([]float32, 513)
+	allowed := selectIndexerRows(scores, 512)
+	for i := range 512 {
+		if allowed[i] != 1 {
+			t.Fatalf("allowed[%d] = %d, want 1", i, allowed[i])
+		}
+	}
+	if allowed[512] != 0 {
+		t.Fatalf("allowed[512] = %d, want 0", allowed[512])
+	}
+}
+
+func TestMetalIndexerAllowsAllEarlyRowsWithoutWeights(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	cache := metalmem.AllocIn[float32](a, "index-cache", 512*128)
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	allowed, err := ops.IndexerAllowed(make([]float32, 1024), make([]float32, ds4Width), boundMetalTensor{}, boundMetalTensor{}, cache, 512, 2047, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, value := range allowed {
+		if value != 1 {
+			t.Fatalf("allowed[%d] = %d, want 1", i, value)
+		}
+	}
+}
+
+func TestMetalIndexerTop512PinnedWeights(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	if model == "" {
+		t.Skip("model path not set")
+	}
+	r, err := newMetalRuntime(model, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	layer := &r.layers[2]
+	state := &r.state.layers[2].indexer
+	allowed, err := r.ops.IndexerAllowed(make([]float32, 1024), make([]float32, ds4Width), layer.indexerQB, layer.indexerProj, state.cache, 513, 2051, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range 512 {
+		if allowed[i] != 1 {
+			t.Fatalf("allowed[%d] = %d, want 1", i, allowed[i])
+		}
+	}
+	if allowed[512] != 0 {
+		t.Fatalf("allowed[512] = %d, want 0", allowed[512])
+	}
+}
+
+func TestIndexerQAT(t *testing.T) {
+	x := make([]float32, 128)
+	for i := range x {
+		x[i] = 1
+	}
+	indexerQAT(x)
+	if x[0] != 12 {
+		t.Fatalf("QAT[0] = %g, want 12", x[0])
+	}
+	for i, value := range x[1:] {
+		if value != 0 {
+			t.Fatalf("QAT[%d] = %g, want 0", i+1, value)
+		}
+	}
+}
+
 func TestMetalRawAttentionPositionOneOracle(t *testing.T) {
 	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
 	oracle := os.Getenv("DS4_LAYER0_POS1_ORACLE_DIR")
