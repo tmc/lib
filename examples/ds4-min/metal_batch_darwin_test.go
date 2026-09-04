@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"testing"
 
@@ -650,6 +651,105 @@ func TestMetalBatchSelectedRoutedExperts(t *testing.T) {
 	}
 	closeSlice(t, "routed downs", downs.HostSlice(), wantDowns)
 	closeSlice(t, "routed sum", sum.HostSlice(), wantSum)
+}
+
+func TestMetalBatchCompressedMixedAttention(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	newState := func(name string) metalCompressedState {
+		state := metalCompressedState{
+			cache:      metalmem.AllocIn[float32](a, name+"-cache", 2*512),
+			stateKV:    metalmem.AllocIn[float32](a, name+"-state-kv", 8*1024),
+			stateScore: metalmem.AllocIn[float32](a, name+"-state-score", 8*1024),
+			pooled:     metalmem.AllocIn[float32](a, name+"-pooled", 512),
+			headDim:    512,
+			width:      1024,
+			ratio:      4,
+			cap:        2,
+		}
+		resetCompressedState(&state)
+		return state
+	}
+	wantState, gotState := newState("want"), newState("got")
+	ape := testBatchTensor(a, "ape", 1, []uint64{1024, 4}, 4*1024*2)
+	norm := testBatchF32Tensor(a, "norm", batchWeights(512))
+	sinks := testBatchF32Tensor(a, "sinks", make([]float32, 64))
+	qValues := make([]float32, 64*512)
+	kvValues := make([]float32, 1024)
+	scoreValues := make([]float32, 1024)
+	for i := range qValues {
+		qValues[i] = float32(i%17-8) / 64
+	}
+	for i := range kvValues {
+		kvValues[i] = 1 + float32(i%11)/32
+		scoreValues[i] = float32(i%13-6) / 16
+	}
+	q := metalmem.UploadIn(a, "q", qValues)
+	kv := metalmem.UploadIn(a, "kv", kvValues[:512])
+	compKV := metalmem.UploadIn(a, "compressor-kv", kvValues)
+	compScore := metalmem.UploadIn(a, "compressor-score", scoreValues)
+	raw := metalmem.AllocIn[float32](a, "raw", 4*512)
+	wantRaw := metalmem.AllocIn[float32](a, "want-raw", 4*512)
+	allowed := metalmem.UploadIn(a, "allowed", []uint32{1, 1})
+	scores := metalmem.AllocIn[float32](a, "scores", 64*6)
+	out := metalmem.AllocIn[float32](a, "out", 32768+512+32768)
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	for position := range 4 {
+		_, wantEmit, err := ops.CompressorAttention(kvValues, scoreValues, ape, norm, &wantState, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, wantHeads, err := ops.RopeAttentionMixed(qValues, kvValues[:512], sinks, wantRaw, wantState.cache, wantState.n, nil, position, 2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		batch, err := newMetalBatch(ops)
+		if err != nil {
+			t.Fatal(err)
+		}
+		emit, err := batch.EncodeCompressor(compKV, compScore, ape, norm, &gotState, position, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if emit != wantEmit {
+			t.Fatalf("position %d emitted = %t, want %t", position, emit, wantEmit)
+		}
+		nComp := gotState.n
+		if emit {
+			nComp++
+		}
+		if err := batch.EncodeRopeAttentionMixed(q, kv, sinks, raw, gotState.cache, nComp, allowed, scores, out, position, 2); err != nil {
+			t.Fatal(err)
+		}
+		if err := batch.Wait(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if emit {
+			gotState.n++
+		}
+		wantEncoded := 2
+		if emit {
+			wantEncoded++
+		}
+		if got := batch.Stats(); got != (metalBatchStats{Encoded: wantEncoded, Commits: 1, Waits: 1}) {
+			t.Fatalf("position %d stats = %+v", position, got)
+		}
+		heads := out.HostSlice()[32768+512:]
+		closeSlice(t, fmt.Sprintf("position %d heads", position), heads, wantHeads)
+		closeSlice(t, fmt.Sprintf("position %d cache", position), gotState.cache.HostSlice(), wantState.cache.HostSlice())
+	}
 }
 
 func batchWeights(n int) []float32 {

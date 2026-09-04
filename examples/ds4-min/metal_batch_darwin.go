@@ -157,6 +157,98 @@ func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks
 	return nil
 }
 
+// EncodeCompressor appends one compressor update and, at emission positions,
+// writes the completed row to the compressed cache. The caller advances state.n
+// only after the batch completes successfully.
+func (b *metalBatch) EncodeCompressor(kv, score metalmem.Slice[float32], ape, norm boundMetalTensor, state *metalCompressedState, position int, indexer bool) (bool, error) {
+	if err := b.ready(); err != nil {
+		return false, err
+	}
+	wantHeadDim := 512
+	if indexer {
+		wantHeadDim = 128
+	}
+	if state == nil || state.headDim != wantHeadDim || (state.ratio != 4 && state.ratio != 128) ||
+		kv.Len() != state.width || score.Len() != state.width || position < 0 ||
+		ape.typeID != 1 || norm.typeID != 0 || len(ape.dimensions) != 2 ||
+		ape.dimensions[0] != uint64(state.width) || ape.dimensions[1] != uint64(state.ratio) {
+		return false, fmt.Errorf("attention compressor: invalid shape")
+	}
+	emit := (position+1)%state.ratio == 0
+	if emit && state.n >= state.cap {
+		return false, fmt.Errorf("attention compressor: cache capacity exceeded")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.CompressorPool)
+	for i, data := range []metalmem.Slice[float32]{kv, score, state.stateKV, state.stateScore, state.pooled} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(ape.data.Buffer(), ape.data.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(state.headDim), 6)
+	libmetal.SetScalar(enc, uint32(state.width), 7)
+	libmetal.SetScalar(enc, uint32(state.ratio), 8)
+	libmetal.SetScalar(enc, uint32(position), 9)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(state.headDim))
+	enc.EndEncoding()
+	b.encoded++
+	if !emit {
+		return false, nil
+	}
+	enc = b.buffer.ComputeCommandEncoder()
+	if indexer {
+		enc.SetComputePipelineState(b.ops.kernels.IndexerFinish)
+	} else {
+		enc.SetComputePipelineState(b.ops.kernels.CompressorFinish)
+	}
+	enc.SetBufferWithOffsetAtIndex(state.pooled.Buffer(), state.pooled.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(norm.data.Buffer(), norm.data.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(state.cache.Buffer(), state.cache.Offset(), 2)
+	libmetal.SetScalar(enc, uint32(state.n), 3)
+	libmetal.SetScalar(enc, uint32(position+1-state.ratio), 4)
+	scratch := 32 * 4
+	if indexer {
+		scratch = 256 * 4
+	}
+	enc.SetThreadgroupMemoryLengthAtIndex(uint(scratch), 0)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(128))
+	enc.EndEncoding()
+	b.encoded++
+	return true, nil
+}
+
+// EncodeRopeAttentionMixed appends attention over raw and compressed caches.
+func (b *metalBatch) EncodeRopeAttentionMixed(q, kv metalmem.Slice[float32], sinks boundMetalTensor, raw, comp metalmem.Slice[float32], nComp int, allowed metalmem.Slice[uint32], scores, out metalmem.Slice[float32], position, layer int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	rowCap := raw.Len() / 512
+	nRaw := min(position+1, rowCap)
+	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
+		rowCap == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 ||
+		allowed.Len() < max(1, nComp) || scores.Len() < 64*(nRaw+nComp) || out.Len() != 32768+512+32768 || position < 0 || layer < 2 {
+		return fmt.Errorf("mixed attention: invalid shape")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionMix)
+	for i, data := range []metalmem.Slice[float32]{q, kv} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(allowed.Buffer(), allowed.Offset(), 5)
+	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 6)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 7)
+	libmetal.SetScalar(enc, uint32(position), 8)
+	libmetal.SetScalar(enc, uint32(layer), 9)
+	libmetal.SetScalar(enc, uint32(rowCap), 10)
+	libmetal.SetScalar(enc, uint32(nComp), 11)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
 // EncodeMatvecIQ2Selected appends paired IQ2_XXS projections for GPU-selected experts.
 func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertIDs metalmem.Slice[int32], in, gateOut, upOut metalmem.Slice[float32]) error {
 	if err := b.ready(); err != nil {

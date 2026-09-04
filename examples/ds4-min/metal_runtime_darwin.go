@@ -38,6 +38,8 @@ type metalRuntime struct {
 	pos                 int
 	lastOpeningBatch    metalBatchStats
 	lastRawOpeningBatch metalBatchStats
+	lastCompressedOdd   metalBatchStats
+	lastCompressedEven  metalBatchStats
 	lastAttentionBatch  metalBatchStats
 	lastFFNBatches      metalBatchStats
 	lastRoutedBatch     metalBatchStats
@@ -115,43 +117,50 @@ type metalLayerState struct {
 }
 
 type metalSessionState struct {
-	hc            [2]metalmem.Slice[float32]
-	attnPre       metalmem.Slice[float32]
-	attnCur       metalmem.Slice[float32]
-	attnNorm      metalmem.Slice[float32]
-	qLora         metalmem.Slice[float32]
-	qHeads        metalmem.Slice[float32]
-	kvRaw         metalmem.Slice[float32]
-	kvCur         metalmem.Slice[float32]
-	heads         metalmem.Slice[float32]
-	rawScores     metalmem.Slice[float32]
-	rawOutput     metalmem.Slice[float32]
-	attnLow       metalmem.Slice[float32]
-	attnOut       metalmem.Slice[float32]
-	ffnPre        metalmem.Slice[float32]
-	ffnCur        metalmem.Slice[float32]
-	ffnNorm       metalmem.Slice[float32]
-	router        metalmem.Slice[float32]
-	probs         metalmem.Slice[float32]
-	expertIDs     metalmem.Slice[int32]
-	expertW       metalmem.Slice[float32]
-	sharedGate    metalmem.Slice[float32]
-	sharedUp      metalmem.Slice[float32]
-	sharedMid     metalmem.Slice[float32]
-	sharedOut     metalmem.Slice[float32]
-	expertGate    metalmem.Slice[float32]
-	expertUp      metalmem.Slice[float32]
-	expertGateRaw metalmem.Slice[float32]
-	expertUpRaw   metalmem.Slice[float32]
-	expertMid     metalmem.Slice[float32]
-	expertDown    metalmem.Slice[float32]
-	routedOut     metalmem.Slice[float32]
-	ffnBlocks     metalmem.Slice[float32]
-	ffnOut        metalmem.Slice[float32]
-	q8            metalmem.Slice[byte]
-	outputNorm    metalmem.Slice[float32]
-	logits        metalmem.Slice[float32]
-	layers        [ds4Layers]metalLayerState
+	hc             [2]metalmem.Slice[float32]
+	attnPre        metalmem.Slice[float32]
+	attnCur        metalmem.Slice[float32]
+	attnNorm       metalmem.Slice[float32]
+	qLora          metalmem.Slice[float32]
+	qHeads         metalmem.Slice[float32]
+	kvRaw          metalmem.Slice[float32]
+	kvCur          metalmem.Slice[float32]
+	compressorKV   metalmem.Slice[float32]
+	compressorGate metalmem.Slice[float32]
+	indexerKV      metalmem.Slice[float32]
+	indexerGate    metalmem.Slice[float32]
+	heads          metalmem.Slice[float32]
+	rawScores      metalmem.Slice[float32]
+	rawOutput      metalmem.Slice[float32]
+	mixedScores    metalmem.Slice[float32]
+	mixedOutput    metalmem.Slice[float32]
+	allowed        metalmem.Slice[uint32]
+	attnLow        metalmem.Slice[float32]
+	attnOut        metalmem.Slice[float32]
+	ffnPre         metalmem.Slice[float32]
+	ffnCur         metalmem.Slice[float32]
+	ffnNorm        metalmem.Slice[float32]
+	router         metalmem.Slice[float32]
+	probs          metalmem.Slice[float32]
+	expertIDs      metalmem.Slice[int32]
+	expertW        metalmem.Slice[float32]
+	sharedGate     metalmem.Slice[float32]
+	sharedUp       metalmem.Slice[float32]
+	sharedMid      metalmem.Slice[float32]
+	sharedOut      metalmem.Slice[float32]
+	expertGate     metalmem.Slice[float32]
+	expertUp       metalmem.Slice[float32]
+	expertGateRaw  metalmem.Slice[float32]
+	expertUpRaw    metalmem.Slice[float32]
+	expertMid      metalmem.Slice[float32]
+	expertDown     metalmem.Slice[float32]
+	routedOut      metalmem.Slice[float32]
+	ffnBlocks      metalmem.Slice[float32]
+	ffnOut         metalmem.Slice[float32]
+	q8             metalmem.Slice[byte]
+	outputNorm     metalmem.Slice[float32]
+	logits         metalmem.Slice[float32]
+	layers         [ds4Layers]metalLayerState
 }
 
 func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
@@ -314,9 +323,20 @@ func (r *metalRuntime) allocState() {
 	s.qHeads = metalmem.AllocIn[float32](a, "query-heads", 64*ds4KVWidth)
 	s.kvRaw = metalmem.AllocIn[float32](a, "kv-raw", ds4KVWidth)
 	s.kvCur = metalmem.AllocIn[float32](a, "kv-current", ds4KVWidth)
+	s.compressorKV = metalmem.AllocIn[float32](a, "compressor-kv", 1024)
+	s.compressorGate = metalmem.AllocIn[float32](a, "compressor-gate", 1024)
+	s.indexerKV = metalmem.AllocIn[float32](a, "indexer-kv", 256)
+	s.indexerGate = metalmem.AllocIn[float32](a, "indexer-gate", 256)
 	s.heads = metalmem.AllocIn[float32](a, "attention-heads", 64*ds4KVWidth)
 	s.rawScores = metalmem.AllocIn[float32](a, "raw-attention-scores", 64*rawCap)
 	s.rawOutput = metalmem.AllocIn[float32](a, "raw-attention-output", 32768+512+32768)
+	maxComp := r.ctx/4 + 2
+	s.mixedScores = metalmem.AllocIn[float32](a, "mixed-attention-scores", 64*(rawCap+maxComp))
+	s.mixedOutput = metalmem.AllocIn[float32](a, "mixed-attention-output", 32768+512+32768)
+	s.allowed = metalmem.AllocIn[uint32](a, "mixed-attention-allowed", max(1, maxComp))
+	for i := range s.allowed.HostSlice() {
+		s.allowed.HostSlice()[i] = 1
+	}
 	s.attnLow = metalmem.AllocIn[float32](a, "attention-low", 8192)
 	s.attnOut = metalmem.AllocIn[float32](a, "attention-output", ds4Width)
 	s.ffnPre = metalmem.AllocIn[float32](a, "ffn-pre", 2*ds4Width)
@@ -486,6 +506,9 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	}
 	state := &r.state.layers[i]
 	headsGPU := r.state.heads
+	indexerWillEmit := i >= 2 && i%2 == 0 && (position+1)%state.indexer.ratio == 0
+	batchedCompressed := i >= 2 && (i%2 != 0 || state.indexer.n < 512 || state.indexer.n == 512 && !indexerWillEmit)
+	attnEmit, indexerEmit := false, false
 	if i < 2 {
 		if err := batch.EncodeRopeAttentionRaw(r.state.qHeads, r.state.kvCur, layer.attnSinks, state.rawKV, r.state.rawScores, r.state.rawOutput, position); err != nil {
 			return nil, err
@@ -494,16 +517,64 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err != nil {
 			return nil, err
 		}
+	} else if batchedCompressed {
+		compKV, e := r.state.compressorKV.Slice(0, state.attn.width)
+		if e != nil {
+			return nil, e
+		}
+		compGate, e := r.state.compressorGate.Slice(0, state.attn.width)
+		if e != nil {
+			return nil, e
+		}
+		if err := batch.EncodeMatvecF16(layer.attnCompressorKV, r.state.attnNorm, compKV); err != nil {
+			return nil, err
+		}
+		if err := batch.EncodeMatvecF16(layer.attnCompressorGate, r.state.attnNorm, compGate); err != nil {
+			return nil, err
+		}
+		attnEmit, err = batch.EncodeCompressor(compKV, compGate, layer.attnCompressorAPE, layer.attnCompressorNorm, &state.attn, position, false)
+		if err != nil {
+			return nil, err
+		}
+		if i%2 == 0 {
+			if err := batch.EncodeMatvecF16(layer.indexerCompressorKV, r.state.attnNorm, r.state.indexerKV); err != nil {
+				return nil, err
+			}
+			if err := batch.EncodeMatvecF16(layer.indexerCompressorGate, r.state.attnNorm, r.state.indexerGate); err != nil {
+				return nil, err
+			}
+			indexerEmit, err = batch.EncodeCompressor(r.state.indexerKV, r.state.indexerGate, layer.indexerCompressorAPE, layer.indexerCompressorNorm, &state.indexer, position, true)
+			if err != nil {
+				return nil, err
+			}
+		}
+		nComp := state.attn.n
+		if attnEmit {
+			nComp++
+		}
+		if err := batch.EncodeRopeAttentionMixed(r.state.qHeads, r.state.kvCur, layer.attnSinks, state.rawKV, state.attn.cache, nComp, r.state.allowed, r.state.mixedScores, r.state.mixedOutput, position, i); err != nil {
+			return nil, err
+		}
+		headsGPU, err = r.state.mixedOutput.Slice(32768+512, 32768+512+32768)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := batch.Wait(context.Background()); err != nil {
 		return nil, err
+	}
+	if attnEmit {
+		state.attn.n++
+	}
+	if indexerEmit {
+		state.indexer.n++
 	}
 	r.lastOpeningBatch = batch.Stats()
 	if i < 2 {
 		r.lastRawOpeningBatch = batch.Stats()
 	}
 	var heads []float32
-	if i >= 2 {
+	if i >= 2 && !batchedCompressed {
 		attnNorm := r.state.attnNorm.HostSlice()
 		qNorm := r.state.qLora.HostSlice()
 		q := r.state.qHeads.HostSlice()
@@ -542,9 +613,16 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	if i >= 2 {
+	if i >= 2 && !batchedCompressed {
 		if err := headsGPU.CopyFromHost(heads); err != nil {
 			return nil, fmt.Errorf("attention closing: copy heads: %w", err)
+		}
+	}
+	if i >= 2 && batchedCompressed {
+		if i%2 == 0 {
+			r.lastCompressedEven = batch.Stats()
+		} else {
+			r.lastCompressedOdd = batch.Stats()
 		}
 	}
 	closing, err := newMetalBatch(r.ops)
