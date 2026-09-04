@@ -48,7 +48,9 @@ keeps context creation, allocation, launch, copies, and cleanup on the owning
 context and records device name and compute capability. A compile, skip, device
 count, or successful kernel compilation is not a physical pass.
 
-Use `PASS`, `PARTIAL`, `UNMEASURED`, `FAIL`, or `BLOCKED` exactly. At contract
-freeze, the identity prerequisite is `BLOCKED` because the pinned GGUF was not
-present locally and its exact identity could not be captured. Full-model,
-Metal, and CUDA execution are therefore `UNMEASURED`.
+Use `PASS`, `PARTIAL`, `UNMEASURED`, `FAIL`, or `BLOCKED` exactly. This section
+previously said the identity prerequisite was `BLOCKED` because the pinned GGUF
+was not present locally, and that full-model, Metal, and CUDA execution were
+therefore `UNMEASURED`. The file is now present and its identities are pinned in
+`gguf.go`, so the identity prerequisite is met; see DESIGN.md, Pinned
+identities. The execution gates still require their own physical receipts.
