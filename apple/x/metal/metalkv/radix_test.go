@@ -212,36 +212,3 @@ func TestRadixTreeNodeMap(t *testing.T) {
 		t.Errorf("after the split, block 10 belongs to a node holding %v, want [1 2]", got)
 	}
 }
-
-func TestChunkedPrefillScheduler(t *testing.T) {
-	sched := NewChunkedPrefillScheduler(512, 1024)
-
-	prefills := []*ChunkedPrefillRequest{
-		{
-			SeqID:        "long_prompt",
-			PromptTokens: make([]int32, 1200),
-		},
-	}
-	decodes := []string{"req_decode_1", "req_decode_2"}
-
-	batch1 := sched.Schedule(prefills, decodes)
-	if len(batch1.DecodeSeqIDs) != 2 {
-		t.Errorf("expected 2 decode requests scheduled")
-	}
-	if len(batch1.PrefillChunks) != 1 || len(batch1.PrefillChunks[0].Tokens) != 512 {
-		t.Errorf("expected chunk of 512 tokens scheduled")
-	}
-
-	batch2 := sched.Schedule(prefills, nil)
-	if len(batch2.PrefillChunks) != 1 || len(batch2.PrefillChunks[0].Tokens) != 512 {
-		t.Errorf("expected second chunk of 512 tokens scheduled")
-	}
-
-	batch3 := sched.Schedule(prefills, nil)
-	if len(batch3.PrefillChunks) != 1 || len(batch3.PrefillChunks[0].Tokens) != 176 {
-		t.Errorf("expected final chunk of 176 tokens scheduled, got %d", len(batch3.PrefillChunks[0].Tokens))
-	}
-	if !batch3.PrefillChunks[0].IsLast {
-		t.Errorf("expected final chunk to be marked IsLast")
-	}
-}

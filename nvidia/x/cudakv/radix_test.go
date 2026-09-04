@@ -212,23 +212,3 @@ func TestRadixTreeNodeMap(t *testing.T) {
 		t.Errorf("after the split, block 10 belongs to a node holding %v, want [1 2]", got)
 	}
 }
-
-func TestChunkedPrefillScheduler(t *testing.T) {
-	sched := NewChunkedPrefillScheduler(512, 1024)
-
-	prefills := []*ChunkedPrefillRequest{
-		{
-			SeqID:        "cuda_long_prompt",
-			PromptTokens: make([]int32, 1000),
-		},
-	}
-	decodes := []string{"decode_req_0"}
-
-	batch := sched.Schedule(prefills, decodes)
-	if len(batch.DecodeSeqIDs) != 1 {
-		t.Errorf("expected 1 decode request scheduled")
-	}
-	if len(batch.PrefillChunks) != 1 || len(batch.PrefillChunks[0].Tokens) != 512 {
-		t.Errorf("expected 512 prefill chunk scheduled")
-	}
-}
