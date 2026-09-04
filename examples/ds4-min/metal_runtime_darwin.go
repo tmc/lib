@@ -46,7 +46,10 @@ type metalRuntime struct {
 	lastRoutedBatch     metalBatchStats
 }
 
-var _ sessionBackend = (*metalRuntime)(nil)
+var (
+	_ sessionBackend = (*metalRuntime)(nil)
+	_ batchEvaluator = (*metalRuntime)(nil)
+)
 
 type metalLayer struct {
 	attnSinks boundMetalTensor
@@ -433,6 +436,15 @@ func resetCompressedState(s *metalCompressedState) {
 }
 
 func (r *metalRuntime) evalToken(token int32, position int) ([]float32, error) {
+	return r.evalPosition(token, position, true)
+}
+
+// evalPosition advances the session by one token. When logits is false the
+// output projection is skipped: it reads the whole output weight tensor, the
+// single largest weight read of a step, and its result is discarded for every
+// position of a prefill run but the last. Nothing else differs, so the state
+// this leaves behind is bit-identical to the logits path.
+func (r *metalRuntime) evalPosition(token int32, position int, logits bool) ([]float32, error) {
 	if position != r.pos || position < 0 || position >= r.ctx {
 		return nil, fmt.Errorf("Metal runtime: position %d does not follow %d", position, r.pos)
 	}
@@ -453,18 +465,35 @@ func (r *metalRuntime) evalToken(token int32, position int) ([]float32, error) {
 			return nil, fmt.Errorf("Metal runtime: layer %d: %w", i, err)
 		}
 	}
-	logits, err := r.outputLogits(hc)
+	if !logits {
+		r.pos++
+		return nil, nil
+	}
+	out, err := r.outputLogits(hc)
 	if err != nil {
 		return nil, fmt.Errorf("Metal runtime: output: %w", err)
 	}
 	r.pos++
-	copy(r.state.logits.HostSlice(), logits)
-	return logits, nil
+	copy(r.state.logits.HostSlice(), out)
+	return out, nil
 }
 
 func (r *metalRuntime) Eval(token, position int) error {
 	_, err := r.evalToken(int32(token), position)
 	return err
+}
+
+// EvalBatch evaluates a prefill run. Every position runs the same layer
+// pipeline in the same order as Eval; only the discarded output projections of
+// the run's earlier positions are skipped, so the final logits are identical
+// to those of the single-token loop.
+func (r *metalRuntime) EvalBatch(tokens []int, position int) error {
+	for i, token := range tokens {
+		if _, err := r.evalPosition(int32(token), position+i, i == len(tokens)-1); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *metalRuntime) Logits() []float32 {

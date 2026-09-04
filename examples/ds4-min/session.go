@@ -17,6 +17,16 @@ type sessionBackend interface {
 	Logits() []float32
 }
 
+// A batchEvaluator evaluates a whole run of tokens starting at position. A
+// backend implements it when the run costs less than the sum of its Eval
+// calls. The result must be indistinguishable from calling Eval for each token
+// in order: the same timeline advance, and the same Logits afterwards as after
+// evaluating the final token of the run. Logits for the earlier positions of a
+// run are never observed, so a backend may skip work only those logits need.
+type batchEvaluator interface {
+	EvalBatch(tokens []int, position int) error
+}
+
 type session struct {
 	backend sessionBackend
 	context int
@@ -54,11 +64,11 @@ func (s *session) Sync(prompt []int) error {
 		s.logits = nil
 		common = 0
 	}
-	for i := common; i < len(prompt); i++ {
-		if err := s.backend.Eval(prompt[i], i); err != nil {
-			return fmt.Errorf("evaluate token %d: %w", i, err)
+	if run := prompt[common:]; len(run) != 0 {
+		if err := s.evalRun(run, common); err != nil {
+			return err
 		}
-		s.tokens = append(s.tokens, prompt[i])
+		s.tokens = append(s.tokens, run...)
 	}
 	if common != len(prompt) || s.logits == nil {
 		s.logits = append(s.logits[:0], s.backend.Logits()...)
@@ -79,6 +89,23 @@ func (s *session) Accept(token int) (stop bool, err error) {
 	s.tokens = append(s.tokens, token)
 	s.logits = append(s.logits[:0], s.backend.Logits()...)
 	return false, nil
+}
+
+// evalRun evaluates tokens starting at position, preferring the backend's
+// batched prefill when it has one.
+func (s *session) evalRun(tokens []int, position int) error {
+	if b, ok := s.backend.(batchEvaluator); ok {
+		if err := b.EvalBatch(tokens, position); err != nil {
+			return fmt.Errorf("evaluate tokens %d through %d: %w", position, position+len(tokens)-1, err)
+		}
+		return nil
+	}
+	for i, token := range tokens {
+		if err := s.backend.Eval(token, position+i); err != nil {
+			return fmt.Errorf("evaluate token %d: %w", position+i, err)
+		}
+	}
+	return nil
 }
 
 func commonPrefix(a, b []int) int {

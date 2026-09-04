@@ -42,6 +42,23 @@ token. Generation takes their deterministic argmax, checks the stop-token set,
 emits the token bytes, and only then evaluates a non-stop token. It never
 evaluates past EOS.
 
+Evaluating a prompt suffix is a *run*, not a sequence of unrelated steps. A
+backend may implement `batchEvaluator` to evaluate a run as a whole; the session
+prefers it and otherwise falls back to calling `Eval` per token. A batched run
+must be indistinguishable from that loop: the same timeline advance and the same
+logits afterwards. Because the session reads logits only after the final token
+of a run, a backend may skip work that only the earlier positions' logits would
+need, and nothing else.
+
+The Metal backend implements exactly that much today. It runs the same layer
+pipeline per position, in the same order, and skips only the discarded output
+projections of a run's earlier positions. It does *not* yet evaluate several
+positions per kernel launch: every matrix operation in `metal_ops_darwin.go` is
+a matrix-vector product, and true multi-token prefill needs matrix-matrix
+kernels for the F16, Q8_0, IQ2_XXS, and Q2_K weights along with a multi-position
+attention, compressor, and router. That work is not done, and the seam above is
+where it goes.
+
 The stop-token set is derived from the model's tokenizer metadata, never from a
 hard-coded id. It contains the vocabulary's `<｜end▁of▁sentence｜>` token
 together with each of `tokenizer.ggml.eos_token_id`,
