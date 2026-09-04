@@ -8,6 +8,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -16,19 +17,24 @@ import (
 //go:embed forward.cu
 var ForwardKernelsCUDA string
 
+// Kernels names the transformer primitives defined by ForwardKernelsCUDA.
+type Kernels struct {
+	Embed       driver.Function `cuda:"EmbeddingLookup"`
+	Norm        driver.Function `cuda:"RMSNorm"`
+	GEMV        driver.Function `cuda:"LinearGEMV"`
+	RoPE        driver.Function `cuda:"ApplyRoPE"`
+	StoreKV     driver.Function `cuda:"StoreKVCache"`
+	SwiGLU      driver.Function `cuda:"SwiGLU"`
+	AddResidual driver.Function `cuda:"AddResidual"`
+	FusedQKV    driver.Function `cuda:"FusedRMSNormQKV"`
+	FusedSwiGLU driver.Function `cuda:"FusedSwiGLUDown"`
+}
+
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
-	mod           driver.Module
-	ptx           string
-	embedFn       driver.Function
-	normFn        driver.Function
-	gemvFn        driver.Function
-	ropeFn        driver.Function
-	storeKVFn     driver.Function
-	swigluFn      driver.Function
-	addResFn      driver.Function
-	fusedQKVFn    driver.Function
-	fusedSwiGLUFn driver.Function
+	Kernels
+	mod driver.Module
+	ptx string
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -57,29 +63,12 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
-	embedFn, _ := loaded.GetFunction("EmbeddingLookup")
-	normFn, _ := loaded.GetFunction("RMSNorm")
-	gemvFn, _ := loaded.GetFunction("LinearGEMV")
-	ropeFn, _ := loaded.GetFunction("ApplyRoPE")
-	storeKVFn, _ := loaded.GetFunction("StoreKVCache")
-	swigluFn, _ := loaded.GetFunction("SwiGLU")
-	addResFn, _ := loaded.GetFunction("AddResidual")
-	fusedQKVFn, _ := loaded.GetFunction("FusedRMSNormQKV")
-	fusedSwiGLUFn, _ := loaded.GetFunction("FusedSwiGLUDown")
-
-	return &GPUModules{
-		mod:           loaded,
-		ptx:           mod.PTX(),
-		embedFn:       embedFn,
-		normFn:        normFn,
-		gemvFn:        gemvFn,
-		ropeFn:        ropeFn,
-		storeKVFn:     storeKVFn,
-		swigluFn:      swigluFn,
-		addResFn:      addResFn,
-		fusedQKVFn:    fusedQKVFn,
-		fusedSwiGLUFn: fusedSwiGLUFn,
-	}, nil
+	gm := &GPUModules{mod: loaded, ptx: mod.PTX()}
+	if err := cudalaunch.Bind(loaded, &gm.Kernels); err != nil {
+		_ = loaded.Unload()
+		return nil, fmt.Errorf("bind forward kernels: %w", err)
+	}
+	return gm, nil
 }
 
 // Close unloads the compiled CUDA module.
