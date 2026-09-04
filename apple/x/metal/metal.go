@@ -3,7 +3,6 @@ package metal
 import (
 	"fmt"
 	"runtime"
-	"sync"
 	"unsafe"
 
 	"github.com/tmc/apple/metal"
@@ -13,7 +12,6 @@ import (
 type Device struct {
 	raw   metal.MTLDevice
 	queue metal.MTLCommandQueue
-	mu    sync.Mutex
 }
 
 // NewDevice returns the system default Metal GPU device.
@@ -43,12 +41,18 @@ func (d *Device) Raw() metal.MTLDevice {
 	return d.raw
 }
 
-// Queue returns the default command queue.
+// Queue returns the device's default command queue. It is never nil: a Device
+// that could not make one is never returned by [NewDevice], so callers need no
+// nil check before encoding.
 func (d *Device) Queue() metal.MTLCommandQueue {
 	return d.queue
 }
 
-// Close releases any allocated resources associated with the device.
+// Close releases resources associated with the device.
+//
+// It currently releases nothing: the default command queue outlives any
+// command buffer built from it, and this package has no way to know when the
+// last one has completed.
 func (d *Device) Close() error {
 	return nil
 }
