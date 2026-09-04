@@ -17,7 +17,12 @@ import (
 	"time"
 )
 
-const SchemaVersion = 4
+const SchemaVersion = 5
+
+const (
+	PersistentEnginePolicy = "one-compiled-engine-warmed-per-arm"
+	ColdIntervalPolicy     = "reset-serving-and-prefix-caches-before-each-interval"
+)
 
 // Campaign contains every sample in one matched benchmark campaign.
 type Campaign struct {
@@ -76,6 +81,8 @@ type Evidence struct {
 	PersistentRuntime    bool          `json:"persistent_runtime"`
 	CompilationExcluded  bool          `json:"compilation_excluded"`
 	WarmupRunsCompleted  int           `json:"warmup_runs_completed"`
+	RuntimePolicy        string        `json:"runtime_policy"`
+	AllocationPolicy     string        `json:"allocation_policy"`
 }
 
 // Sample contains one completed, synchronized serving observation.
@@ -178,6 +185,28 @@ func (c *Campaign) Validate() error {
 }
 
 func validateRun(r *Run) error {
+	if err := validateRunHeader(r); err != nil {
+		return err
+	}
+	w := r.Workload
+	if len(r.Samples) < 20 {
+		return fmt.Errorf("only %d samples", len(r.Samples))
+	}
+	seen := make(map[string]bool)
+	for i := range r.Samples {
+		s := &r.Samples[i]
+		if s.ID == "" || seen[s.ID] {
+			return errors.New("invalid sample id")
+		}
+		seen[s.ID] = true
+		if err := validateSample(s, w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRunHeader(r *Run) error {
 	ids := []string{r.Identity.BinarySHA256, r.Identity.ModelSHA256, r.Identity.TokenizerSHA256, r.Identity.ConfigSHA256, r.Identity.SourceSHA256}
 	for _, sum := range ids {
 		if !validSHA256(sum) {
@@ -209,60 +238,56 @@ func validateRun(r *Run) error {
 	if !e.PersistentRuntime || !e.CompilationExcluded || e.WarmupRunsCompleted != w.WarmupRuns {
 		return errors.New("compile or warmup boundary not proven")
 	}
+	if e.RuntimePolicy != PersistentEnginePolicy || e.AllocationPolicy != ColdIntervalPolicy {
+		return errors.New("runtime or allocation policy not proven")
+	}
 	if !validSHA256(e.NullControlSHA256) || e.NullControlSamples < 20 || e.NullControlP95 <= 0 || e.NullControlLimit <= 0 || e.NullControlP95 > e.NullControlLimit {
 		return errors.New("host qualification not proven")
 	}
-	if len(r.Samples) < 20 {
-		return fmt.Errorf("only %d samples", len(r.Samples))
+	return nil
+}
+
+func validateSample(s *Sample, w Workload) error {
+	if s.StartedAt.IsZero() || !s.EndedAt.After(s.StartedAt) {
+		return fmt.Errorf("sample %q: invalid interval", s.ID)
 	}
-	seen := make(map[string]bool)
-	for i := range r.Samples {
-		s := &r.Samples[i]
-		if s.ID == "" || seen[s.ID] {
-			return errors.New("invalid sample id")
+	if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 || !s.DispatchMeasured {
+		return fmt.Errorf("sample %q: incomplete timing", s.ID)
+	}
+	for _, d := range s.InterToken {
+		if d <= 0 {
+			return fmt.Errorf("sample %q: invalid inter-token latency", s.ID)
 		}
-		seen[s.ID] = true
-		if s.StartedAt.IsZero() || !s.EndedAt.After(s.StartedAt) {
-			return fmt.Errorf("sample %q: invalid interval", s.ID)
+	}
+	if !s.TierBytesMeasured || len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
+		return fmt.Errorf("sample %q: incomplete telemetry", s.ID)
+	}
+	if err := validatePhysicalWaves(s, len(w.PromptTokenIDs)); err != nil {
+		return fmt.Errorf("sample %q: %w", s.ID, err)
+	}
+	if len(s.Requests) != len(w.PromptTokenIDs) {
+		return fmt.Errorf("sample %q: request timing count differs", s.ID)
+	}
+	for _, request := range s.Requests {
+		if request.StartedAt.Before(s.StartedAt) || request.EndedAt.After(s.EndedAt) || request.EndedAt.Before(request.StartedAt) || len(request.TokenAt) != w.GeneratedTokens {
+			return fmt.Errorf("sample %q: invalid request timing", s.ID)
 		}
-		if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 || !s.DispatchMeasured {
-			return fmt.Errorf("sample %q: incomplete timing", s.ID)
-		}
-		for _, d := range s.InterToken {
-			if d <= 0 {
-				return fmt.Errorf("sample %q: invalid inter-token latency", s.ID)
+		last := request.StartedAt
+		for _, at := range request.TokenAt {
+			if at.Before(last) || at.After(request.EndedAt) {
+				return fmt.Errorf("sample %q: unordered token timing", s.ID)
 			}
+			last = at
 		}
-		if !s.TierBytesMeasured || len(s.TierReadBytes) == 0 || len(s.TierWriteBytes) == 0 || len(s.GeneratedTokenIDs) != len(w.PromptTokenIDs) || !validSHA256(s.OutputSHA256) {
-			return fmt.Errorf("sample %q: incomplete telemetry", s.ID)
+	}
+	for _, tokens := range s.GeneratedTokenIDs {
+		if len(tokens) != w.GeneratedTokens {
+			return fmt.Errorf("sample %q: generated token count differs", s.ID)
 		}
-		if err := validatePhysicalWaves(s, len(w.PromptTokenIDs)); err != nil {
-			return fmt.Errorf("sample %q: %w", s.ID, err)
-		}
-		if len(s.Requests) != len(w.PromptTokenIDs) {
-			return fmt.Errorf("sample %q: request timing count differs", s.ID)
-		}
-		for _, request := range s.Requests {
-			if request.StartedAt.Before(s.StartedAt) || request.EndedAt.After(s.EndedAt) || request.EndedAt.Before(request.StartedAt) || len(request.TokenAt) != w.GeneratedTokens {
-				return fmt.Errorf("sample %q: invalid request timing", s.ID)
-			}
-			last := request.StartedAt
-			for _, at := range request.TokenAt {
-				if at.Before(last) || at.After(request.EndedAt) {
-					return fmt.Errorf("sample %q: unordered token timing", s.ID)
-				}
-				last = at
-			}
-		}
-		for _, tokens := range s.GeneratedTokenIDs {
-			if len(tokens) != w.GeneratedTokens {
-				return fmt.Errorf("sample %q: generated token count differs", s.ID)
-			}
-		}
-		sum, err := HashJSON(s.GeneratedTokenIDs)
-		if err != nil || sum != s.OutputSHA256 {
-			return fmt.Errorf("sample %q: incorrect output hash", s.ID)
-		}
+	}
+	sum, err := HashJSON(s.GeneratedTokenIDs)
+	if err != nil || sum != s.OutputSHA256 {
+		return fmt.Errorf("sample %q: incorrect output hash", s.ID)
 	}
 	return nil
 }
