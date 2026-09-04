@@ -357,6 +357,30 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	}
 }
 
+func TestMetalRuntimePositionZeroExecution(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	if model == "" {
+		t.Skip("model path not set")
+	}
+	r, err := newMetalRuntime(model, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	logits, err := r.evalToken(0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(logits) != 129280 || r.pos != 1 {
+		t.Fatalf("logits/position = %d/%d, want 129280/1", len(logits), r.pos)
+	}
+	for i, value := range logits {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			t.Fatalf("logits[%d] = %g", i, value)
+		}
+	}
+}
+
 func validatePinnedLateTransition(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, layer int, oracleDir string) {
 	t.Helper()
 	attnNorm := readOracleF32(t, fmt.Sprintf("%s/stage_attn_norm-%d_pos0.bin", oracleDir, layer))

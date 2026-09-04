@@ -199,7 +199,9 @@ func (o *metalPinnedOps) RopeAttentionMixed(q, kv []float32, sinks boundMetalTen
 		return nil, nil, nil, err
 	}
 	defer kvbuf.Free()
-	if allowed == nil {
+	if nComp == 0 {
+		allowed = []uint32{1}
+	} else if allowed == nil {
 		allowed = make([]uint32, max(1, nComp))
 		for i := range allowed {
 			allowed[i] = 1

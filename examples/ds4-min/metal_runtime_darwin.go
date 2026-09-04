@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -21,9 +22,7 @@ const (
 )
 
 // metalRuntime owns the immutable model bindings and mutable buffers for one
-// DS4 session. It deliberately does not implement sessionBackend yet: doing so
-// before multi-token attention and cache updates exist would make token two
-// silently incorrect.
+// DS4 session.
 type metalRuntime struct {
 	file   *os.File
 	dev    *libmetal.Device
@@ -37,6 +36,8 @@ type metalRuntime struct {
 	ctx    int
 	pos    int
 }
+
+var _ sessionBackend = (*metalRuntime)(nil)
 
 type metalLayer struct {
 	attnSinks boundMetalTensor
@@ -361,6 +362,7 @@ func (r *metalRuntime) Reset() error {
 	r.pos = 0
 	clear(r.state.hc[0].HostSlice())
 	clear(r.state.hc[1].HostSlice())
+	clear(r.state.logits.HostSlice())
 	for i := range r.state.layers {
 		clear(r.state.layers[i].rawKV.HostSlice())
 		resetCompressedState(&r.state.layers[i].attn)
@@ -381,6 +383,259 @@ func resetCompressedState(s *metalCompressedState) {
 	for i := range scores {
 		scores[i] = float32(math.Inf(-1))
 	}
+}
+
+func (r *metalRuntime) evalToken(token int32, position int) ([]float32, error) {
+	if position != r.pos || position < 0 || position >= r.ctx {
+		return nil, fmt.Errorf("Metal runtime: position %d does not follow %d", position, r.pos)
+	}
+	if token < 0 || uint64(token) >= r.output.embedding.dimensions[1] {
+		return nil, fmt.Errorf("Metal runtime: token %d out of range", token)
+	}
+	embedding, err := r.ops.GetRowF16(r.output.embedding, uint32(token))
+	if err != nil {
+		return nil, err
+	}
+	hc := make([]float32, ds4HCWidth)
+	for stream := range 4 {
+		copy(hc[stream*ds4Width:], embedding)
+	}
+	for i := range r.layers {
+		hc, err = r.evalLayer(hc, i, token, position)
+		if err != nil {
+			return nil, fmt.Errorf("Metal runtime: layer %d: %w", i, err)
+		}
+	}
+	logits, err := r.outputLogits(hc)
+	if err != nil {
+		return nil, fmt.Errorf("Metal runtime: output: %w", err)
+	}
+	r.pos++
+	copy(r.state.logits.HostSlice(), logits)
+	return logits, nil
+}
+
+func (r *metalRuntime) Eval(token, position int) error {
+	_, err := r.evalToken(int32(token), position)
+	return err
+}
+
+func (r *metalRuntime) Logits() []float32 {
+	if r == nil || r.arena == nil || r.pos == 0 {
+		return nil
+	}
+	return r.state.logits.HostSlice()
+}
+
+func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int) ([]float32, error) {
+	layer := &r.layers[i]
+	_, attnNorm, err := r.ops.HCPre(hc, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, layer.attnNorm)
+	if err != nil {
+		return nil, err
+	}
+	qLora, err := r.ops.MatvecQ80(layer.attnQA, attnNorm)
+	if err != nil {
+		return nil, err
+	}
+	qNorm, err := r.ops.RMS(qLora, layer.attnQANorm, 1, true)
+	if err != nil {
+		return nil, err
+	}
+	q, err := r.ops.MatvecQ80(layer.attnQB, qNorm)
+	if err != nil {
+		return nil, err
+	}
+	q, err = r.ops.RMS(q, layer.attnQANorm, 64, false)
+	if err != nil {
+		return nil, err
+	}
+	kv, err := r.ops.MatvecQ80(layer.attnKV, attnNorm)
+	if err != nil {
+		return nil, err
+	}
+	kv, err = r.ops.RMS(kv, layer.attnKVNorm, 1, true)
+	if err != nil {
+		return nil, err
+	}
+	state := &r.state.layers[i]
+	var heads []float32
+	if i < 2 {
+		_, _, heads, err = r.ops.RopeAttentionRaw(q, kv, layer.attnSinks, state.rawKV, position)
+	} else {
+		compKV, e := r.ops.MatvecF16(layer.attnCompressorKV, attnNorm)
+		if e != nil {
+			return nil, e
+		}
+		compScore, e := r.ops.MatvecF16(layer.attnCompressorGate, attnNorm)
+		if e != nil {
+			return nil, e
+		}
+		if _, _, e = r.ops.CompressorAttention(compKV, compScore, layer.attnCompressorAPE, layer.attnCompressorNorm, &state.attn, position); e != nil {
+			return nil, e
+		}
+		var allowed []uint32
+		if i%2 == 0 {
+			indexKV, e := r.ops.MatvecF16(layer.indexerCompressorKV, attnNorm)
+			if e != nil {
+				return nil, e
+			}
+			indexScore, e := r.ops.MatvecF16(layer.indexerCompressorGate, attnNorm)
+			if e != nil {
+				return nil, e
+			}
+			if _, _, e = r.ops.CompressorIndexer(indexKV, indexScore, layer.indexerCompressorAPE, layer.indexerCompressorNorm, &state.indexer, position); e != nil {
+				return nil, e
+			}
+			allowed, e = r.ops.IndexerAllowed(qNorm, attnNorm, layer.indexerQB, layer.indexerProj, state.indexer.cache, state.indexer.n, position, i)
+			if e != nil {
+				return nil, e
+			}
+		}
+		_, _, heads, err = r.ops.RopeAttentionMixed(q, kv, layer.attnSinks, state.rawKV, state.attn.cache, state.attn.n, allowed, position, i)
+	}
+	if err != nil {
+		return nil, err
+	}
+	low := make([]float32, 0, 8192)
+	for group := range 8 {
+		rows, err := layer.attnOutA.Rows(group*1024, 1024)
+		if err != nil {
+			return nil, err
+		}
+		part, err := r.ops.MatvecQ80(rows, heads[group*4096:(group+1)*4096])
+		if err != nil {
+			return nil, err
+		}
+		low = append(low, part...)
+	}
+	attnOut, err := r.ops.MatvecQ80(layer.attnOutB, low)
+	if err != nil {
+		return nil, err
+	}
+	hc, err = r.ops.HCPost(hc, attnOut, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase)
+	if err != nil {
+		return nil, err
+	}
+	_, ffnNorm, err := r.ops.HCPre(hc, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm)
+	if err != nil {
+		return nil, err
+	}
+	router, err := r.ops.MatvecF16(layer.router, ffnNorm)
+	if err != nil {
+		return nil, err
+	}
+	var selected []int32
+	var weights []float32
+	if i < 3 {
+		_, selected, weights, err = r.ops.RouterHash(router, layer.expertMap, uint32(token))
+	} else {
+		_, selected, weights, err = r.ops.RouterBiased(router, layer.expertBias)
+	}
+	if err != nil {
+		return nil, err
+	}
+	sharedGate, err := r.ops.MatvecQ80(layer.sharedGate, ffnNorm)
+	if err != nil {
+		return nil, err
+	}
+	sharedUp, err := r.ops.MatvecQ80(layer.sharedUp, ffnNorm)
+	if err != nil {
+		return nil, err
+	}
+	sharedMid, err := r.ops.SwiGLU(sharedGate, sharedUp)
+	if err != nil {
+		return nil, err
+	}
+	sharedOut, err := r.ops.MatvecQ80(layer.sharedDown, sharedMid)
+	if err != nil {
+		return nil, err
+	}
+	mids := make([]float32, 0, 6*2048)
+	for slot, id := range selected {
+		gate, err := layer.expertGate.Expert(id)
+		if err != nil {
+			return nil, err
+		}
+		up, err := layer.expertUp.Expert(id)
+		if err != nil {
+			return nil, err
+		}
+		g, u, err := r.ops.MatvecIQ2PairF32(gate, up, ffnNorm)
+		if err != nil {
+			return nil, err
+		}
+		g, err = r.ops.ClampGate10(g)
+		if err != nil {
+			return nil, err
+		}
+		u, err = r.ops.Clamp10(u)
+		if err != nil {
+			return nil, err
+		}
+		mid, err := r.ops.SwiGLUWeighted(g, u, weights[slot])
+		if err != nil {
+			return nil, err
+		}
+		mids = append(mids, mid...)
+	}
+	downs := make([]float32, 0, 6*ds4Width)
+	for slot, id := range selected {
+		down, err := layer.expertDown.Expert(id)
+		if err != nil {
+			return nil, err
+		}
+		part, err := r.ops.MatvecQ2KF32(down, mids[slot*2048:(slot+1)*2048])
+		if err != nil {
+			return nil, err
+		}
+		downs = append(downs, part...)
+	}
+	routedOut, err := r.ops.SumVectors(downs, 6)
+	if err != nil {
+		return nil, err
+	}
+	ffnOut, err := r.ops.SumVectors(append(routedOut, sharedOut...), 2)
+	if err != nil {
+		return nil, err
+	}
+	return r.ops.HCPost(hc, ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase)
+}
+
+func (r *metalRuntime) outputLogits(hc []float32) ([]float32, error) {
+	flat, err := r.ops.RMS(hc, r.output.norm, 1, false)
+	if err != nil {
+		return nil, err
+	}
+	pre, err := r.ops.MatvecF16(r.output.hcFn, flat)
+	if err != nil {
+		return nil, err
+	}
+	base := boundF32(r.output.hcBase)
+	scale := boundF32(r.output.hcScale)
+	if len(base) != 4 || len(scale) != 1 {
+		return nil, errors.New("invalid output HC weights")
+	}
+	out := make([]float32, ds4Width)
+	for stream := range 4 {
+		weight := float32(1/(1+math.Exp(-float64(pre[stream]*scale[0]+base[stream]))) + 1e-6)
+		for i, value := range hc[stream*ds4Width : (stream+1)*ds4Width] {
+			out[i] += value * weight
+		}
+	}
+	out, err = r.ops.RMS(out, r.output.norm, 1, true)
+	if err != nil {
+		return nil, err
+	}
+	return r.ops.MatvecQ80(r.output.weight, out)
+}
+
+func boundF32(t boundMetalTensor) []float32 {
+	b := t.data.HostSlice()
+	out := make([]float32, len(b)/4)
+	for i := range out {
+		out[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
+	}
+	return out
 }
 
 func (r *metalRuntime) Close() error {
