@@ -175,7 +175,7 @@ and never in post-passes; and the reference runtime is the semantic oracle.
 | Dynamic dims and shape buckets | none; prefill arena resized on demand, decode fixed at one token | no bucket concept, no per-shape specialization |
 | Candidate validation (resources, aliasing, layout) | `ValidatePlan` checks op vocabulary and ordering of a plan the executor itself generated | validates grammar, not resources; runs per dispatch |
 | Profiling search over candidates | `DispatchTuner`: 2 variants, 3 samples, whole-pass timing, then locked | no per-kernel timing, no re-ranking |
-| Arena from live ranges, stable bindings | fixed engine buffers plus per-step `mempool.Alloc` in batch decode | no lifetimes; allocation in the decode loop |
+| Arena from live ranges, stable bindings | fixed engine buffers plus per-step `metalmem.Alloc` in batch decode | no lifetimes; allocation in the decode loop |
 | CUDA Graph replay | none | every token re-encodes and re-launches |
 | Reference runtime | `model_ref.go` CPU `Forward` with differential tests | present; keep |
 | KV as graph tensors with scatter/gather and a page table (`examples/paged_llama`) | dense per-sequence buffers, host-side snapshot copies | no paging, no sharing |
@@ -256,9 +256,8 @@ nominal 400 GB/s (a modeled figure, not a measurement):
 | 32 | 80 GB | 2.5 GB |
 
 **F8 (S3) Allocation inside the decode loop.** Each batch step allocates a
-token buffer and B logits buffers with `mempool.Alloc` and frees them on
-return (`engine_darwin.go:2681-2701`). `mempool` is a thin alias over
-`metalmem.Alloc`, so this is a real `MTLBuffer` allocation per step.
+token buffer and B logits buffers with `metalmem.Alloc` and frees them on
+return. This is a real `MTLBuffer` allocation per step.
 
 **F9 (S2) Per-sequence KV is dense and float32.** `NewSequenceKV` allocates
 `MaxSeqLen * NumKVHeads * HeadDim` float32 per layer for K and V

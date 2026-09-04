@@ -13,7 +13,7 @@ current-tree audit.
 | Concern | Current package | Status relevant to inference |
 | --- | --- | --- |
 | Metal bridge | `apple/x/metal` | Device, queue, library, pipeline, buffer, and command APIs exist |
-| Memory | `apple/x/metal/metalmem`, `mempool` | Shared and pooled storage helpers exist; ownership and lifetime still need plan-level contracts |
+| Memory | `apple/x/metal/metalmem` | Shared and pooled storage helpers exist; ownership and lifetime still need plan-level contracts |
 | Model tensors | `apple/x/metal/metalsafetensors` | Safetensor support exists |
 | Decoder kernels | `apple/x/metal/metalmegakernel` | Standalone and fused Llama-oriented kernels exist |
 | Attention | `apple/x/metal/metalattn` | Decode-oriented attention kernels exist |
