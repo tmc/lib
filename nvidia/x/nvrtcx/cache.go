@@ -1,6 +1,7 @@
 package nvrtcx
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"sync"
 )
+
+const cacheMagic = "nvrtcx\x00\x03"
 
 var (
 	memCacheMu sync.RWMutex
@@ -89,22 +92,13 @@ func lookupCache(key string) (*CompiledModule, bool) {
 		return nil, false
 	}
 
-	ptxPath := filepath.Join(dir, key+".ptx")
-	ptxBytes, err := os.ReadFile(ptxPath)
+	data, err := os.ReadFile(filepath.Join(dir, key+".cache"))
 	if err != nil {
 		return nil, false
 	}
-
-	cubinPath := filepath.Join(dir, key+".cubin")
-	cubinBytes, _ := os.ReadFile(cubinPath)
-	if len(ptxBytes) == 0 && len(cubinBytes) == 0 {
+	mod, err := decodeCacheEntry(key, data)
+	if err != nil {
 		return nil, false
-	}
-
-	mod := &CompiledModule{
-		ptx:   string(ptxBytes),
-		cubin: cubinBytes,
-		key:   key,
 	}
 
 	memCacheMu.Lock()
@@ -120,20 +114,58 @@ func storeCache(key string, cm *CompiledModule) error {
 		return err
 	}
 
-	if cm.ptx != "" {
-		if err := writeCacheFile(filepath.Join(dir, key+".ptx"), []byte(cm.ptx)); err != nil {
-			return err
-		}
+	data, err := encodeCacheEntry(cm)
+	if err != nil {
+		return err
 	}
-	if len(cm.cubin) > 0 {
-		if err := writeCacheFile(filepath.Join(dir, key+".cubin"), cm.cubin); err != nil {
-			return err
-		}
+	if err := writeCacheFile(filepath.Join(dir, key+".cache"), data); err != nil {
+		return err
 	}
 	memCacheMu.Lock()
 	memCache[key] = cm
 	memCacheMu.Unlock()
 	return nil
+}
+
+func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
+	if cm == nil || cm.ptx == "" && len(cm.cubin) == 0 {
+		return nil, fmt.Errorf("nvrtcx: module contains no ptx or cubin image")
+	}
+	var b bytes.Buffer
+	b.WriteString(cacheMagic)
+	var lengths [16]byte
+	binary.LittleEndian.PutUint64(lengths[:8], uint64(len(cm.ptx)))
+	binary.LittleEndian.PutUint64(lengths[8:], uint64(len(cm.cubin)))
+	b.Write(lengths[:])
+	b.WriteString(cm.ptx)
+	b.Write(cm.cubin)
+	sum := sha256.Sum256(b.Bytes())
+	b.Write(sum[:])
+	return b.Bytes(), nil
+}
+
+func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
+	const headerSize = len(cacheMagic) + 16
+	if len(data) < headerSize+sha256.Size || string(data[:len(cacheMagic)]) != cacheMagic {
+		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
+	}
+	want := data[len(data)-sha256.Size:]
+	got := sha256.Sum256(data[:len(data)-sha256.Size])
+	if !bytes.Equal(got[:], want) {
+		return nil, fmt.Errorf("nvrtcx: corrupt cache entry")
+	}
+	ptxLen := binary.LittleEndian.Uint64(data[len(cacheMagic) : len(cacheMagic)+8])
+	cubinLen := binary.LittleEndian.Uint64(data[len(cacheMagic)+8 : headerSize])
+	payloadLen := uint64(len(data) - headerSize - sha256.Size)
+	if ptxLen > payloadLen || cubinLen != payloadLen-ptxLen || ptxLen == 0 && cubinLen == 0 {
+		return nil, fmt.Errorf("nvrtcx: invalid cache entry lengths")
+	}
+	payload := data[headerSize : len(data)-sha256.Size]
+	return &CompiledModule{
+		ptx:   string(payload[:ptxLen]),
+		cubin: append([]byte(nil), payload[ptxLen:]...),
+		key:   key,
+	}, nil
 }
 
 func writeCacheFile(path string, data []byte) error {
@@ -160,6 +192,14 @@ func writeCacheFile(path string, data []byte) error {
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("nvrtcx: install cache file: %w", err)
+	}
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return fmt.Errorf("nvrtcx: open cache directory: %w", err)
+	}
+	defer dir.Close()
+	if err := dir.Sync(); err != nil {
+		return fmt.Errorf("nvrtcx: sync cache directory: %w", err)
 	}
 	return nil
 }
@@ -205,8 +245,8 @@ func ClearCache() error {
 	var errs []error
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.Type().IsRegular() && (strings.HasSuffix(name, ".ptx") || strings.HasSuffix(name, ".cubin")) {
-			if err := os.Remove(filepath.Join(dir, name)); err != nil {
+		if entry.Type().IsRegular() && (strings.HasSuffix(name, ".cache") || strings.HasSuffix(name, ".ptx") || strings.HasSuffix(name, ".cubin")) {
+			if err := os.Remove(filepath.Join(dir, name)); err != nil && !os.IsNotExist(err) {
 				errs = append(errs, fmt.Errorf("nvrtcx: remove cache entry %q: %w", name, err))
 			}
 		}

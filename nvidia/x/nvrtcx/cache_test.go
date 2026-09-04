@@ -1,6 +1,7 @@
 package nvrtcx
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"slices"
@@ -81,11 +82,81 @@ func TestLookupCacheRejectsEmptyImage(t *testing.T) {
 		t.Fatal(err)
 	}
 	const key = "empty"
-	if err := os.WriteFile(filepath.Join(dir, key+".ptx"), nil, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, key+".cache"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if module, ok := lookupCache(key); ok {
 		t.Fatalf("lookupCache returned empty module %v", module)
+	}
+}
+
+func TestCacheEntryRoundTrip(t *testing.T) {
+	want := &CompiledModule{ptx: "ptx", cubin: []byte{1, 2, 3}, key: "key"}
+	data, err := encodeCacheEntry(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := decodeCacheEntry(want.key, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ptx != want.ptx || !bytes.Equal(got.cubin, want.cubin) || got.key != want.key {
+		t.Fatalf("decodeCacheEntry = %#v, want %#v", got, want)
+	}
+}
+
+func TestLookupCacheRejectsTruncatedEntry(t *testing.T) {
+	useTestCache(t)
+	dir, err := getCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := encodeCacheEntry(&CompiledModule{ptx: "valid", key: "key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "key.cache"), data[:len(data)-1], 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if module, ok := lookupCache("key"); ok {
+		t.Fatalf("lookupCache returned truncated module %v", module)
+	}
+}
+
+func TestLookupCacheRejectsCorruptEntry(t *testing.T) {
+	useTestCache(t)
+	dir, err := getCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := encodeCacheEntry(&CompiledModule{ptx: "valid", key: "key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data[len(cacheMagic)+16] ^= 0xff
+	if err := os.WriteFile(filepath.Join(dir, "key.cache"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if module, ok := lookupCache("key"); ok {
+		t.Fatalf("lookupCache returned corrupt module %v", module)
+	}
+}
+
+func TestStoreCachePublishesOneEntry(t *testing.T) {
+	useTestCache(t)
+	if err := storeCache("key", &CompiledModule{ptx: "ptx", cubin: []byte{1}, key: "key"}); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := getCacheDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "key.cache" {
+		t.Fatalf("cache entries = %v, want key.cache", entries)
 	}
 }
 
