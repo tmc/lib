@@ -59,9 +59,10 @@ func (d *Device) Raw() metal.MTLDevice {
 	return d.raw
 }
 
-// Queue returns the device's default command queue. It is never nil: a Device
-// that could not make one is never returned by [NewDevice], so callers need no
-// nil check before encoding.
+// Queue returns the device's borrowed default command queue. It returns nil
+// after Close. Before Close it is non-nil because [NewDevice] rejects a device
+// that cannot create a queue. The result must not be used concurrently with
+// Close.
 func (d *Device) Queue() metal.MTLCommandQueue {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
