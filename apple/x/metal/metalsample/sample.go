@@ -2,20 +2,24 @@ package metalsample
 
 import (
 	_ "embed"
+	"math"
 )
 
-// SampleArgmaxCPU returns index of maximum logit value (greedy sampling).
+// SampleArgmaxCPU returns the index of the maximum finite or infinite logit.
+// It ignores NaNs and returns zero when logits is empty or has no value greater
+// than negative infinity. Ties favor the lowest index. These rules match
+// [ArgmaxSamplingMSL].
 func SampleArgmaxCPU(logits []float32) int32 {
-	if len(logits) == 0 {
-		return 0
-	}
-	bestIdx := 0
-	bestVal := logits[0]
-	for i := 1; i < len(logits); i++ {
+	bestIdx := -1
+	bestVal := float32(math.Inf(-1))
+	for i := 0; i < len(logits); i++ {
 		if logits[i] > bestVal {
 			bestVal = logits[i]
 			bestIdx = i
 		}
+	}
+	if bestIdx < 0 {
+		return 0
 	}
 	return int32(bestIdx)
 }

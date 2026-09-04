@@ -1,2 +1,2 @@
-// Package metalsample provides token sampling algorithms for Apple Metal GPU computation.
+// Package metalsample provides greedy argmax selection for Apple Metal.
 package metalsample
