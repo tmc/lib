@@ -7,6 +7,14 @@
 // It is intentionally simple — no reconnects, no elasticity. Production
 // deployments should implement nvlshm.Bootstrap over their launcher's
 // rendezvous (MPI, a collective library, etc.).
+//
+// # Failure isolation
+//
+// A collective blocks until every rank contributes, so one rank that dies or
+// stalls would otherwise hang the whole world. Set RoundTimeout before the
+// first collective to bound each round: a rank whose round expires returns an
+// error and, once it closes, releases the ranks still waiting on it.
+// Each peer must set its own timeout; a timeout does not close the connection.
 package tcpboot
 
 import (
@@ -23,13 +31,23 @@ const dialTimeout = 30 * time.Second
 
 // A Bootstrap coordinates world ranks through a hub on rank 0.
 // It implements nvlshm.Bootstrap.
+// Collective calls and Close must not run concurrently.
 type Bootstrap struct {
+	// RoundTimeout bounds each collective round. Zero means unbounded, in
+	// which case a dead or stalled rank blocks its peers indefinitely. Set it
+	// before the first collective and do not modify it afterwards.
+	RoundTimeout time.Duration
+
 	rank  int
 	world int
 	seq   int
 	conn  net.Conn
 	r     *bufio.Reader
 	hub   *hub // non-nil on rank 0
+	// failed records the error that broke lockstep. A stream that has lost a
+	// round is unusable: the peer may still deliver the missed reply, so a
+	// later round would read it as its own.
+	failed error
 }
 
 // New connects rank rank of world ranks through a hub at addr
@@ -79,25 +97,44 @@ func (b *Bootstrap) WorldSize() int { return b.world }
 // round runs one lockstep collective round, contributing payload and
 // returning the hub's combined result (the unique non-empty payload, or "").
 func (b *Bootstrap) round(payload string) (string, error) {
+	if b.failed != nil {
+		return "", b.failed
+	}
 	b.seq++
+	if b.RoundTimeout > 0 {
+		if err := b.conn.SetDeadline(time.Now().Add(b.RoundTimeout)); err != nil {
+			return "", b.fail(fmt.Errorf("tcpboot: set round %d deadline: %w", b.seq, err))
+		}
+	}
 	enc := base64.StdEncoding.EncodeToString([]byte(payload))
 	if _, err := fmt.Fprintf(b.conn, "%d %s\n", b.seq, enc); err != nil {
-		return "", fmt.Errorf("tcpboot: send round %d: %w", b.seq, err)
+		return "", b.fail(fmt.Errorf("tcpboot: send round %d: %w", b.seq, err))
 	}
 	line, err := b.r.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("tcpboot: receive round %d: %w", b.seq, err)
+		return "", b.fail(fmt.Errorf("tcpboot: receive round %d: %w", b.seq, err))
 	}
 	seqStr, encResp, _ := strings.Cut(strings.TrimSpace(line), " ")
 	seq, err := strconv.Atoi(seqStr)
 	if err != nil || seq != b.seq {
-		return "", fmt.Errorf("tcpboot: round mismatch: sent %d, got %q", b.seq, line)
+		return "", b.fail(fmt.Errorf("tcpboot: round mismatch: sent %d, got %q", b.seq, line))
 	}
 	resp, err := base64.StdEncoding.DecodeString(encResp)
 	if err != nil {
-		return "", fmt.Errorf("tcpboot: decode round %d: %w", b.seq, err)
+		return "", b.fail(fmt.Errorf("tcpboot: decode round %d: %w", b.seq, err))
+	}
+	if b.RoundTimeout > 0 {
+		if err := b.conn.SetDeadline(time.Time{}); err != nil {
+			return "", b.fail(fmt.Errorf("tcpboot: clear round %d deadline: %w", b.seq, err))
+		}
 	}
 	return string(resp), nil
+}
+
+// fail records err as the reason lockstep broke and returns it.
+func (b *Bootstrap) fail(err error) error {
+	b.failed = err
+	return err
 }
 
 // Barrier blocks until every rank has called Barrier.
