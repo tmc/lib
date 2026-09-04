@@ -168,6 +168,7 @@ type metalPinnedKernels struct {
 	RouterHash        apple.MTLComputePipelineState `metal:"router_hash"`
 	RouterBiased      apple.MTLComputePipelineState `metal:"router_biased"`
 	SwiGLU            apple.MTLComputePipelineState `metal:"swiglu"`
+	SwiGLUWeights     apple.MTLComputePipelineState `metal:"swiglu_weighted_slots"`
 	MatvecIQ2Pair     apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair"`
 	MatvecIQ2PairF32  apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_f32"`
 	MatvecIQ2Selected apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_selected_f32"`
@@ -667,7 +668,7 @@ func (o *metalPinnedOps) RouterHash(logits []float32, table boundMetalTensor, to
 		return nil, nil, nil, err
 	}
 	defer in.Free()
-	out, err := metalmem.Alloc[float32](o.dev, 262)
+	out, err := metalmem.Alloc[float32](o.dev, 256)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -677,6 +678,11 @@ func (o *metalPinnedOps) RouterHash(logits []float32, table boundMetalTensor, to
 		return nil, nil, nil, err
 	}
 	defer selected.Free()
+	weights, err := metalmem.Alloc[float32](o.dev, 6)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer weights.Free()
 	cb := o.dev.Queue().CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RouterHash)
@@ -684,15 +690,15 @@ func (o *metalPinnedOps) RouterHash(logits []float32, table boundMetalTensor, to
 	enc.SetBufferWithOffsetAtIndex(table.data.Buffer(), table.data.Offset(), 1)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
 	enc.SetBufferWithOffsetAtIndex(selected.Buffer(), selected.Offset(), 3)
-	libmetal.SetScalar(enc, token, 4)
+	enc.SetBufferWithOffsetAtIndex(weights.Buffer(), weights.Offset(), 4)
+	libmetal.SetScalar(enc, token, 5)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
 	cb.Commit()
 	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("router hash: %w", err)
 	}
-	host := out.HostSlice()
-	return append([]float32(nil), host[:256]...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), host[256:]...), nil
+	return append([]float32(nil), out.HostSlice()...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), weights.HostSlice()...), nil
 }
 
 func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) ([]float32, []int32, []float32, error) {
@@ -704,7 +710,7 @@ func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) (
 		return nil, nil, nil, err
 	}
 	defer in.Free()
-	out, err := metalmem.Alloc[float32](o.dev, 262)
+	out, err := metalmem.Alloc[float32](o.dev, 256)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -714,6 +720,11 @@ func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) (
 		return nil, nil, nil, err
 	}
 	defer selected.Free()
+	weights, err := metalmem.Alloc[float32](o.dev, 6)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer weights.Free()
 	cb := o.dev.Queue().CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RouterBiased)
@@ -721,14 +732,14 @@ func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) (
 	enc.SetBufferWithOffsetAtIndex(bias.data.Buffer(), bias.data.Offset(), 1)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
 	enc.SetBufferWithOffsetAtIndex(selected.Buffer(), selected.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(weights.Buffer(), weights.Offset(), 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
 	cb.Commit()
 	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("biased router: %w", err)
 	}
-	host := out.HostSlice()
-	return append([]float32(nil), host[:256]...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), host[256:]...), nil
+	return append([]float32(nil), out.HostSlice()...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), weights.HostSlice()...), nil
 }
 
 func (o *metalPinnedOps) Layer0AttentionPost(embedding boundMetalTensor, block []float32, hcFn, hcScale, hcBase boundMetalTensor, token uint32) ([]float32, error) {
@@ -1070,7 +1081,7 @@ func (o *metalPinnedOps) Close() {
 	if o == nil {
 		return
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.HCPre, o.kernels.HCPost, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.RMS, o.kernels.RopeAttention} {
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.HCPre, o.kernels.HCPost, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -1195,7 +1206,7 @@ kernel void matvec_f16(device const half *weights [[buffer(0)]], device const fl
 
 kernel void router_hash(device const float *logits [[buffer(0)]], device const int *table [[buffer(1)]],
                         device float *out [[buffer(2)]], device int *selected [[buffer(3)]],
-                        constant uint &token [[buffer(4)]]) {
+                        device float *weights [[buffer(4)]], constant uint &token [[buffer(5)]]) {
   float sum=0.0f;
   for(uint i=0;i<256;i++){
     float x=logits[i];
@@ -1204,16 +1215,17 @@ kernel void router_hash(device const float *logits [[buffer(0)]], device const i
   }
   for(uint i=0;i<6;i++){int id=table[uint64_t(token)*6+i];selected[i]=id;sum+=out[id];}
   sum=max(sum,6.103515625e-5f);
-  for(uint i=0;i<6;i++)out[256+i]=out[selected[i]]/sum*1.5f;
+  for(uint i=0;i<6;i++)weights[i]=out[selected[i]]/sum*1.5f;
 }
 
 kernel void router_biased(device const float *logits [[buffer(0)]], device const float *bias [[buffer(1)]],
-                          device float *out [[buffer(2)]], device int *selected [[buffer(3)]]) {
+                          device float *out [[buffer(2)]], device int *selected [[buffer(3)]],
+                          device float *weights [[buffer(4)]]) {
   float selection[256];
   for(uint i=0;i<256;i++){float x=logits[i];float sp=x>20.0f?x:log(1.0f+exp(x));out[i]=sqrt(sp);selection[i]=out[i]+bias[i];}
   for(uint k=0;k<6;k++){int best=-1;for(uint i=0;i<256;i++){bool used=false;for(uint j=0;j<k;j++)used=used||selected[j]==int(i);if(!used&&(best<0||selection[i]>selection[best]))best=int(i);}selected[k]=best;}
   float sum=0.0f;for(uint k=0;k<6;k++)sum+=out[selected[k]];sum=max(sum,6.103515625e-5f);
-  for(uint k=0;k<6;k++)out[256+k]=out[selected[k]]/sum*1.5f;
+  for(uint k=0;k<6;k++)weights[k]=out[selected[k]]/sum*1.5f;
 }
 
 kernel void swiglu(device const float *gate [[buffer(0)]], device const float *up [[buffer(1)]],
@@ -1221,6 +1233,15 @@ kernel void swiglu(device const float *gate [[buffer(0)]], device const float *u
                    constant float &weight [[buffer(4)]],
                    uint i [[thread_position_in_grid]]) {
   if(i<n){float x=min(gate[i],10.0f);float y=clamp(up[i],-10.0f,10.0f);out[i]=(x/(1.0f+exp(-x)))*y*weight;}
+}
+
+kernel void swiglu_weighted_slots(
+    device const float *gate [[buffer(0)]], device const float *up [[buffer(1)]],
+    device const float *weights [[buffer(2)]], device float *out [[buffer(3)]],
+    constant uint &width [[buffer(4)]], constant uint &slots [[buffer(5)]],
+    uint i [[thread_position_in_grid]]) {
+  uint n=width*slots;
+  if(i<n){float x=min(gate[i],10.0f);float y=clamp(up[i],-10.0f,10.0f);out[i]=(x/(1.0f+exp(-x)))*y*weights[i/width];}
 }
 
 kernel void matvec_q8_0(

@@ -350,6 +350,72 @@ func (b *metalBatch) EncodeSwiGLUWeighted(gate, up, out metalmem.Slice[float32],
 	return b.encodeSwiGLU(gate, up, out, weight)
 }
 
+// EncodeSwiGLUWeightedSlots appends a slot-major SwiGLU operation whose
+// weights remain GPU-resident.
+func (b *metalBatch) EncodeSwiGLUWeightedSlots(gate, up, weights, out metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if gate.Len() == 0 || up.Len() != gate.Len() || out.Len() != gate.Len() || weights.Len() == 0 || gate.Len()%weights.Len() != 0 {
+		return fmt.Errorf("weighted SwiGLU slots: invalid shape")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.SwiGLUWeights)
+	enc.SetBufferWithOffsetAtIndex(gate.Buffer(), gate.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(up.Buffer(), up.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(weights.Buffer(), weights.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
+	libmetal.SetScalar(enc, uint32(gate.Len()/weights.Len()), 4)
+	libmetal.SetScalar(enc, uint32(weights.Len()), 5)
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(gate.Len()), libmetal.Threads(min(gate.Len(), 256)))
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
+// EncodeRouterHash appends hash routing into caller-owned GPU storage.
+func (b *metalBatch) EncodeRouterHash(logits metalmem.Slice[float32], table boundMetalTensor, token uint32, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if logits.Len() != 256 || probs.Len() != 256 || expertIDs.Len() != 6 || expertW.Len() != 6 || table.typeID != 26 || len(table.dimensions) != 2 || table.dimensions[0] != 6 || uint64(token) >= table.dimensions[1] {
+		return fmt.Errorf("router hash: invalid tensor profile")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.RouterHash)
+	enc.SetBufferWithOffsetAtIndex(logits.Buffer(), logits.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(table.data.Buffer(), table.data.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(probs.Buffer(), probs.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(expertW.Buffer(), expertW.Offset(), 4)
+	libmetal.SetScalar(enc, token, 5)
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
+// EncodeRouterBiased appends biased top-six routing into caller-owned GPU storage.
+func (b *metalBatch) EncodeRouterBiased(logits metalmem.Slice[float32], bias boundMetalTensor, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if logits.Len() != 256 || probs.Len() != 256 || expertIDs.Len() != 6 || expertW.Len() != 6 || bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
+		return fmt.Errorf("biased router: invalid tensor profile")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.RouterBiased)
+	enc.SetBufferWithOffsetAtIndex(logits.Buffer(), logits.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(bias.data.Buffer(), bias.data.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(probs.Buffer(), probs.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(expertW.Buffer(), expertW.Offset(), 4)
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
 func (b *metalBatch) encodeSwiGLU(gate, up, out metalmem.Slice[float32], weight float32) error {
 	if err := b.ready(); err != nil {
 		return err

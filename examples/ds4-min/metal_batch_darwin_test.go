@@ -653,6 +653,189 @@ func TestMetalBatchSelectedRoutedExperts(t *testing.T) {
 	closeSlice(t, "routed sum", sum.HostSlice(), wantSum)
 }
 
+func TestMetalBatchGPURoutedExperts(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+
+	const (
+		width   = 256
+		outRows = 13
+		experts = 256
+		slots   = 6
+	)
+	logits := make([]float32, width)
+	biasValues := make([]float32, width)
+	for i := range width {
+		logits[i] = float32((i*37)%101-50) / 13
+		biasValues[i] = float32((i*19)%29-14) / 31
+	}
+	inValues := make([]float32, width)
+	for i := range inValues {
+		inValues[i] = float32(i%29-14) / 16
+	}
+
+	for _, test := range []struct {
+		name string
+		hash bool
+	}{
+		{name: "hash", hash: true},
+		{name: "biased"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			arena := metalmem.NewArena(dev)
+			defer arena.Free()
+			logitsGPU := metalmem.UploadIn(arena, "router-logits", logits)
+			probs := metalmem.AllocIn[float32](arena, "router-probs", width)
+			ids := metalmem.AllocIn[int32](arena, "router-ids", slots)
+			weights := metalmem.AllocIn[float32](arena, "router-weights", slots)
+			probsAgain := metalmem.AllocIn[float32](arena, "router-probs-again", width)
+			idsAgain := metalmem.AllocIn[int32](arena, "router-ids-again", slots)
+			weightsAgain := metalmem.AllocIn[float32](arena, "router-weights-again", slots)
+			bias := testBatchF32Tensor(arena, "router-bias", biasValues)
+			tableData := metalmem.AllocIn[byte](arena, "router-table", slots*4)
+			for i, id := range []int32{7, 1, 6, 2, 5, 3} {
+				binary.LittleEndian.PutUint32(tableData.HostSlice()[4*i:], uint32(id))
+			}
+			table := boundMetalTensor{name: "router-table", typeID: 26, dimensions: []uint64{slots, 1}, data: tableData}
+
+			var wantProbs, wantWeights []float32
+			var wantIDs []int32
+			if test.hash {
+				wantProbs, wantIDs, wantWeights, err = ops.RouterHash(logits, table, 0)
+			} else {
+				wantProbs, wantIDs, wantWeights, err = ops.RouterBiased(logits, bias)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertNonzeroFinite(t, "router probabilities", wantProbs)
+			assertNonzeroFinite(t, "router weights", wantWeights)
+
+			gate := testBatchIQ2Experts(arena, "gpu-routed-gate", width, width, experts, 5)
+			up := testBatchIQ2Experts(arena, "gpu-routed-up", width, width, experts, 13)
+			down := testBatchQ2KExperts(arena, "gpu-routed-down", width, outRows, experts, 17)
+			in := metalmem.UploadIn(arena, "gpu-routed-input", inValues)
+			gateRaw := metalmem.AllocIn[float32](arena, "gpu-routed-gate-raw", slots*width)
+			upRaw := metalmem.AllocIn[float32](arena, "gpu-routed-up-raw", slots*width)
+			gateClamped := metalmem.AllocIn[float32](arena, "gpu-routed-gate-clamped", slots*width)
+			upClamped := metalmem.AllocIn[float32](arena, "gpu-routed-up-clamped", slots*width)
+			mids := metalmem.AllocIn[float32](arena, "gpu-routed-mids", slots*width)
+			downs := metalmem.AllocIn[float32](arena, "gpu-routed-downs", slots*outRows)
+			sum := metalmem.AllocIn[float32](arena, "gpu-routed-sum", outRows)
+			if err := arena.Err(); err != nil {
+				t.Fatal(err)
+			}
+
+			wantDowns := make([]float32, 0, slots*outRows)
+			for slot, id := range wantIDs {
+				gateExpert, err := gate.Expert(id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				upExpert, err := up.Expert(id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				g, u, err := ops.MatvecIQ2PairF32(gateExpert, upExpert, inValues)
+				if err != nil {
+					t.Fatal(err)
+				}
+				g, err = ops.ClampGate10(g)
+				if err != nil {
+					t.Fatal(err)
+				}
+				u, err = ops.Clamp10(u)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mid, err := ops.SwiGLUWeighted(g, u, wantWeights[slot])
+				if err != nil {
+					t.Fatal(err)
+				}
+				downExpert, err := down.Expert(id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				values, err := ops.MatvecQ2KF32(downExpert, mid)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantDowns = append(wantDowns, values...)
+			}
+			wantSum, err := ops.SumVectors(wantDowns, slots)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertNonzeroFinite(t, "GPU routed down reference", wantDowns)
+			assertNonzeroFinite(t, "GPU routed sum reference", wantSum)
+
+			batch, err := newMetalBatch(ops)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encodeRouter := func(p metalmem.Slice[float32], selected metalmem.Slice[int32], w metalmem.Slice[float32]) error {
+				if test.hash {
+					return batch.EncodeRouterHash(logitsGPU, table, 0, p, selected, w)
+				}
+				return batch.EncodeRouterBiased(logitsGPU, bias, p, selected, w)
+			}
+			if err := encodeRouter(probs, ids, weights); err != nil {
+				t.Fatal(err)
+			}
+			if err := encodeRouter(probsAgain, idsAgain, weightsAgain); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeMatvecIQ2Selected(gate, up, ids, in, gateRaw, upRaw); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeClampGate10(gateRaw, gateClamped); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeClamp10(upRaw, upClamped); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeSwiGLUWeightedSlots(gateClamped, upClamped, weights, mids); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeMatvecQ2KSelected(down, ids, mids, downs); err != nil {
+				t.Fatal(err)
+			}
+			if err := batch.EncodeSumVectors(downs, sum, slots); err != nil {
+				t.Fatal(err)
+			}
+			if got := batch.Stats(); got != (metalBatchStats{Encoded: 8}) {
+				t.Fatalf("stats before wait = %+v, want {Encoded:8}", got)
+			}
+			if err := batch.Wait(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			if got := batch.Stats(); got != (metalBatchStats{Encoded: 8, Commits: 1, Waits: 1}) {
+				t.Fatalf("stats after wait = %+v, want {Encoded:8 Commits:1 Waits:1}", got)
+			}
+			closeSlice(t, "router probabilities", probs.HostSlice(), wantProbs)
+			closeSlice(t, "router weights", weights.HostSlice(), wantWeights)
+			closeSlice(t, "repeated router probabilities", probsAgain.HostSlice(), wantProbs)
+			closeSlice(t, "repeated router weights", weightsAgain.HostSlice(), wantWeights)
+			if got := append([]int32(nil), ids.HostSlice()...); fmt.Sprint(got) != fmt.Sprint(wantIDs) {
+				t.Fatalf("router IDs = %v, want %v", got, wantIDs)
+			}
+			if got := append([]int32(nil), idsAgain.HostSlice()...); fmt.Sprint(got) != fmt.Sprint(wantIDs) {
+				t.Fatalf("repeated router IDs = %v, want %v", got, wantIDs)
+			}
+			closeSlice(t, "GPU routed downs", downs.HostSlice(), wantDowns)
+			closeSlice(t, "GPU routed sum", sum.HostSlice(), wantSum)
+		})
+	}
+}
+
 func TestMetalBatchCompressedMixedAttention(t *testing.T) {
 	dev, err := libmetal.NewDevice()
 	if err != nil {
