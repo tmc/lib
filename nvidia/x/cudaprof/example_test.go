@@ -12,11 +12,10 @@ import (
 func ExampleDo() {
 	ctx := context.Background()
 
-	// Wrap execution in cudaprof.Do to propagate labels to Go context,
-	// NVTX ranges, and CUPTI hardware activity correlations.
+	// Wrap execution in cudaprof.Do to attach Go labels and an NVTX range.
 	labels := cudaprof.Labels("layer", "0", "phase", "decode")
 	cudaprof.Do(ctx, labels, func(ctx context.Context) {
-		// GPU kernel launches and SM PC samples inherit these labels.
+		// Pass ctx to recording methods to attach these labels to observations.
 		fmt.Println("executing kernel with labels")
 	})
 
@@ -27,7 +26,7 @@ func ExampleDo() {
 func ExampleFlightRecorder() {
 	var buf bytes.Buffer
 
-	// Create and start continuous in-memory GPU flight recorder
+	// Create and start a bounded in-memory recorder.
 	fr := cudaprof.NewFlightRecorder(
 		cudaprof.WithWindowSize(1024),
 		cudaprof.WithWindowDuration(10*time.Second),
@@ -35,7 +34,7 @@ func ExampleFlightRecorder() {
 	_ = fr.Start()
 	defer fr.Stop()
 
-	// Record sample into ring buffer
+	// Record a caller-supplied sample into the ring buffer.
 	fr.Record(cudaprof.SampleRecord{
 		KernelName: "LinearGEMV",
 		CuFile:     "forward.cu",
