@@ -1,6 +1,7 @@
 package cublasltx
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"unsafe"
@@ -53,18 +54,30 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 
 // Close destroys the underlying cuBLASLt handle and frees workspace memory.
 func (e *Engine) Close() error {
+	if e == nil {
+		return nil
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	var errs []error
 	if e.handle != 0 {
-		_ = e.dev.WithContext(func() error {
+		err := e.dev.WithContext(func() error {
 			return e.handle.Destroy()
 		})
-		e.handle = 0
+		if err != nil {
+			errs = append(errs, fmt.Errorf("cublasltx: destroy handle: %w", err))
+		} else {
+			e.handle = 0
+		}
 	}
 	if e.workspace.Len() > 0 {
-		_ = e.workspace.Free()
+		if err := e.workspace.Free(); err != nil {
+			errs = append(errs, fmt.Errorf("cublasltx: free workspace: %w", err))
+		} else {
+			e.workspace = cudamem.Slice[byte]{}
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // MatMul executes high-throughput 2D Tensor Core GEMM using hardware heuristic algorithm selection:
@@ -75,8 +88,20 @@ func (e *Engine) MatMul(
 	b cudamem.Slice[float32], n int,
 	d cudamem.Slice[float32],
 ) error {
+	if e == nil {
+		return errors.New("cublasltx: nil engine")
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.handle == 0 {
+		return errors.New("cublasltx: closed engine")
+	}
+	if err := validateMatMulLengths(a.Len(), m, k, b.Len(), n, d.Len()); err != nil {
+		return err
+	}
+	if s != nil && s.Device() != e.dev {
+		return errors.New("cublasltx: stream belongs to another device")
+	}
 
 	return e.dev.WithContext(func() error {
 		// Use FastAccum for peak Tensor Core arithmetic utilization
@@ -154,4 +179,23 @@ func (e *Engine) MatMul(
 		}
 		return nil
 	})
+}
+
+func validateMatMulLengths(aLen, m, k, bLen, n, dLen int) error {
+	if m <= 0 || k <= 0 || n <= 0 {
+		return fmt.Errorf("cublasltx: matrix dimensions must be positive: m=%d k=%d n=%d", m, k, n)
+	}
+	if m > int(^uint(0)>>1)/k || k > int(^uint(0)>>1)/n || m > int(^uint(0)>>1)/n {
+		return fmt.Errorf("cublasltx: matrix dimensions overflow: m=%d k=%d n=%d", m, k, n)
+	}
+	if aLen < m*k {
+		return fmt.Errorf("cublasltx: matrix A length %d is smaller than %d", aLen, m*k)
+	}
+	if bLen < k*n {
+		return fmt.Errorf("cublasltx: matrix B length %d is smaller than %d", bLen, k*n)
+	}
+	if dLen < m*n {
+		return fmt.Errorf("cublasltx: matrix D length %d is smaller than %d", dLen, m*n)
+	}
+	return nil
 }
