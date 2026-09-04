@@ -54,7 +54,9 @@ func TestKVCacheAllocation(t *testing.T) {
 	if cache.Pos() != 0 {
 		t.Errorf("expected initial pos 0, got %d", cache.Pos())
 	}
-	cache.Advance(1)
+	if err := cache.Advance(1); err != nil {
+		t.Fatal(err)
+	}
 	if cache.Pos() != 1 {
 		t.Errorf("expected pos 1, got %d", cache.Pos())
 	}

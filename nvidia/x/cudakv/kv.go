@@ -96,8 +96,15 @@ func (c *Cache) Pos() int {
 }
 
 // Advance advances the token sequence position by n.
-func (c *Cache) Advance(n int) {
+func (c *Cache) Advance(n int) error {
+	if c.layers == nil {
+		return fmt.Errorf("cudakv: cache closed")
+	}
+	if n < 0 || n > c.maxSeqLen-c.pos {
+		return fmt.Errorf("cudakv: advance %d from %d exceeds sequence capacity %d", n, c.pos, c.maxSeqLen)
+	}
 	c.pos += n
+	return nil
 }
 
 // Reset rewinds the token sequence position to zero.

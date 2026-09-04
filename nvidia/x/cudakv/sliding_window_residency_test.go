@@ -25,7 +25,9 @@ func TestRollingKVCacheResidency(t *testing.T) {
 	}
 
 	// After 12 tokens the whole capacity is live and nothing has been lapped.
-	cache.Advance(12)
+	if err := cache.Advance(12); err != nil {
+		t.Fatal(err)
+	}
 	if got := cache.WindowStart(); got != 4 {
 		t.Errorf("WindowStart = %d, want 4", got)
 	}
@@ -39,7 +41,9 @@ func TestRollingKVCacheResidency(t *testing.T) {
 	}
 
 	// Writing position 12 overwrites position 4's slot. The sink is untouched.
-	cache.Advance(1)
+	if err := cache.Advance(1); err != nil {
+		t.Fatal(err)
+	}
 	if got := cache.WindowStart(); got != 5 {
 		t.Errorf("WindowStart = %d, want 5", got)
 	}
@@ -66,7 +70,9 @@ func TestRollingKVCacheResidency(t *testing.T) {
 	}
 
 	// Exactly capacity positions are resident once the stream is long.
-	cache.Advance(1000)
+	if err := cache.Advance(1000); err != nil {
+		t.Fatal(err)
+	}
 	live := 0
 	for pos := 0; pos < cache.TotalSeen(); pos++ {
 		if cache.Resident(pos) {
@@ -102,7 +108,9 @@ func TestRollingKVCacheNegativePosition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRollingKVCache failed: %v", err)
 	}
-	cache.Advance(100)
+	if err := cache.Advance(100); err != nil {
+		t.Fatal(err)
+	}
 
 	if got := cache.PhysicalSlot(-1); got != -1 {
 		t.Errorf("PhysicalSlot(-1) = %d, want -1", got)
@@ -117,7 +125,9 @@ func TestRollingKVCacheNoSink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRollingKVCache failed: %v", err)
 	}
-	cache.Advance(10)
+	if err := cache.Advance(10); err != nil {
+		t.Fatal(err)
+	}
 
 	if got := cache.WindowStart(); got != 6 {
 		t.Errorf("WindowStart = %d, want 6", got)

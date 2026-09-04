@@ -33,7 +33,9 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		cache.Advance(3)
+		if err := cache.Advance(3); err != nil {
+			return err
+		}
 		fmt.Printf("allocated %d K elements and %d V elements; decode position %d\n", layer.K.Len(), layer.V.Len(), cache.Pos())
 		return nil
 	})

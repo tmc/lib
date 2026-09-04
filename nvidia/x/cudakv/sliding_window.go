@@ -4,6 +4,7 @@ package cudakv
 
 import (
 	"fmt"
+	"math"
 	"sync"
 )
 
@@ -99,11 +100,15 @@ func (c *RollingKVCache) Slot(logicalPos int) (slot int, ok bool) {
 	return c.PhysicalSlot(logicalPos), true
 }
 
-// Advance records that new tokens have been written into the rolling cache.
-func (c *RollingKVCache) Advance(n int) {
+// Advance records that n new tokens have been written into the rolling cache.
+func (c *RollingKVCache) Advance(n int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if n < 0 || n > math.MaxInt-c.totalSeen {
+		return fmt.Errorf("cudakv: invalid advance %d from %d", n, c.totalSeen)
+	}
 	c.totalSeen += n
+	return nil
 }
 
 // ActiveTokens returns the total number of currently active tokens.
