@@ -38,6 +38,7 @@ type metalRuntime struct {
 	pos              int
 	lastOpeningBatch metalBatchStats
 	lastFFNBatches   metalBatchStats
+	lastRoutedBatch  metalBatchStats
 }
 
 var _ sessionBackend = (*metalRuntime)(nil)
@@ -112,39 +113,41 @@ type metalLayerState struct {
 }
 
 type metalSessionState struct {
-	hc         [2]metalmem.Slice[float32]
-	attnPre    metalmem.Slice[float32]
-	attnCur    metalmem.Slice[float32]
-	attnNorm   metalmem.Slice[float32]
-	qLora      metalmem.Slice[float32]
-	qHeads     metalmem.Slice[float32]
-	kvRaw      metalmem.Slice[float32]
-	kvCur      metalmem.Slice[float32]
-	heads      metalmem.Slice[float32]
-	attnLow    metalmem.Slice[float32]
-	attnOut    metalmem.Slice[float32]
-	ffnPre     metalmem.Slice[float32]
-	ffnCur     metalmem.Slice[float32]
-	ffnNorm    metalmem.Slice[float32]
-	router     metalmem.Slice[float32]
-	probs      metalmem.Slice[float32]
-	expertIDs  metalmem.Slice[int32]
-	expertW    metalmem.Slice[float32]
-	sharedGate metalmem.Slice[float32]
-	sharedUp   metalmem.Slice[float32]
-	sharedMid  metalmem.Slice[float32]
-	sharedOut  metalmem.Slice[float32]
-	expertGate metalmem.Slice[float32]
-	expertUp   metalmem.Slice[float32]
-	expertMid  metalmem.Slice[float32]
-	expertDown metalmem.Slice[float32]
-	routedOut  metalmem.Slice[float32]
-	ffnBlocks  metalmem.Slice[float32]
-	ffnOut     metalmem.Slice[float32]
-	q8         metalmem.Slice[byte]
-	outputNorm metalmem.Slice[float32]
-	logits     metalmem.Slice[float32]
-	layers     [ds4Layers]metalLayerState
+	hc            [2]metalmem.Slice[float32]
+	attnPre       metalmem.Slice[float32]
+	attnCur       metalmem.Slice[float32]
+	attnNorm      metalmem.Slice[float32]
+	qLora         metalmem.Slice[float32]
+	qHeads        metalmem.Slice[float32]
+	kvRaw         metalmem.Slice[float32]
+	kvCur         metalmem.Slice[float32]
+	heads         metalmem.Slice[float32]
+	attnLow       metalmem.Slice[float32]
+	attnOut       metalmem.Slice[float32]
+	ffnPre        metalmem.Slice[float32]
+	ffnCur        metalmem.Slice[float32]
+	ffnNorm       metalmem.Slice[float32]
+	router        metalmem.Slice[float32]
+	probs         metalmem.Slice[float32]
+	expertIDs     metalmem.Slice[int32]
+	expertW       metalmem.Slice[float32]
+	sharedGate    metalmem.Slice[float32]
+	sharedUp      metalmem.Slice[float32]
+	sharedMid     metalmem.Slice[float32]
+	sharedOut     metalmem.Slice[float32]
+	expertGate    metalmem.Slice[float32]
+	expertUp      metalmem.Slice[float32]
+	expertGateRaw metalmem.Slice[float32]
+	expertUpRaw   metalmem.Slice[float32]
+	expertMid     metalmem.Slice[float32]
+	expertDown    metalmem.Slice[float32]
+	routedOut     metalmem.Slice[float32]
+	ffnBlocks     metalmem.Slice[float32]
+	ffnOut        metalmem.Slice[float32]
+	q8            metalmem.Slice[byte]
+	outputNorm    metalmem.Slice[float32]
+	logits        metalmem.Slice[float32]
+	layers        [ds4Layers]metalLayerState
 }
 
 func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
@@ -322,6 +325,8 @@ func (r *metalRuntime) allocState() {
 	s.ffnBlocks = metalmem.AllocIn[float32](a, "ffn-blocks", 2*ds4Width)
 	s.routedOut, _ = s.ffnBlocks.Slice(0, ds4Width)
 	s.sharedOut, _ = s.ffnBlocks.Slice(ds4Width, 2*ds4Width)
+	s.expertGateRaw = metalmem.AllocIn[float32](a, "expert-gate-raw", 6*2048)
+	s.expertUpRaw = metalmem.AllocIn[float32](a, "expert-up-raw", 6*2048)
 	s.expertGate = metalmem.AllocIn[float32](a, "expert-gate", 6*2048)
 	s.expertUp = metalmem.AllocIn[float32](a, "expert-up", 6*2048)
 	s.expertMid = metalmem.AllocIn[float32](a, "expert-middle", 6*2048)
@@ -575,6 +580,15 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
+	if len(selected) != r.state.expertIDs.Len() || len(weights) != r.state.expertW.Len() {
+		return nil, fmt.Errorf("routed experts: got %d IDs and %d weights, want %d", len(selected), len(weights), r.state.expertIDs.Len())
+	}
+	if err := r.state.expertIDs.CopyFromHost(selected); err != nil {
+		return nil, fmt.Errorf("routed experts: copy IDs: %w", err)
+	}
+	if err := r.state.expertW.CopyFromHost(weights); err != nil {
+		return nil, fmt.Errorf("routed experts: copy weights: %w", err)
+	}
 	shared, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
@@ -589,55 +603,51 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		return nil, err
 	}
 	r.addFFNBatch(shared)
-	ffnNorm := r.state.ffnNorm.HostSlice()
-	mids := make([]float32, 0, 6*2048)
-	for slot, id := range selected {
-		gate, err := layer.expertGate.Expert(id)
-		if err != nil {
-			return nil, err
-		}
-		up, err := layer.expertUp.Expert(id)
-		if err != nil {
-			return nil, err
-		}
-		g, u, err := r.ops.MatvecIQ2PairF32(gate, up, ffnNorm)
-		if err != nil {
-			return nil, err
-		}
-		g, err = r.ops.ClampGate10(g)
-		if err != nil {
-			return nil, err
-		}
-		u, err = r.ops.Clamp10(u)
-		if err != nil {
-			return nil, err
-		}
-		mid, err := r.ops.SwiGLUWeighted(g, u, weights[slot])
-		if err != nil {
-			return nil, err
-		}
-		mids = append(mids, mid...)
-	}
-	downs := make([]float32, 0, 6*ds4Width)
-	for slot, id := range selected {
-		down, err := layer.expertDown.Expert(id)
-		if err != nil {
-			return nil, err
-		}
-		part, err := r.ops.MatvecQ2KF32(down, mids[slot*2048:(slot+1)*2048])
-		if err != nil {
-			return nil, err
-		}
-		downs = append(downs, part...)
-	}
-	if err := r.state.expertDown.CopyFromHost(downs); err != nil {
-		return nil, fmt.Errorf("FFN closing: copy expert outputs: %w", err)
-	}
-	ffnClosing, err := newMetalBatch(r.ops)
+	routed, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	if err := ffnClosing.EncodeSumVectors(r.state.expertDown, r.state.routedOut, 6); err != nil {
+	if err := routed.EncodeMatvecIQ2Selected(layer.expertGate, layer.expertUp, r.state.expertIDs, r.state.ffnNorm, r.state.expertGateRaw, r.state.expertUpRaw); err != nil {
+		return nil, err
+	}
+	if err := routed.EncodeClampGate10(r.state.expertGateRaw, r.state.expertGate); err != nil {
+		return nil, err
+	}
+	if err := routed.EncodeClamp10(r.state.expertUpRaw, r.state.expertUp); err != nil {
+		return nil, err
+	}
+	for slot, weight := range weights {
+		start := slot * 2048
+		end := start + 2048
+		gate, err := r.state.expertGate.Slice(start, end)
+		if err != nil {
+			return nil, err
+		}
+		up, err := r.state.expertUp.Slice(start, end)
+		if err != nil {
+			return nil, err
+		}
+		mid, err := r.state.expertMid.Slice(start, end)
+		if err != nil {
+			return nil, err
+		}
+		if err := routed.EncodeSwiGLUWeighted(gate, up, mid, weight); err != nil {
+			return nil, err
+		}
+	}
+	if err := routed.EncodeMatvecQ2KSelected(layer.expertDown, r.state.expertIDs, r.state.expertMid, r.state.expertDown); err != nil {
+		return nil, err
+	}
+	if err := routed.EncodeSumVectors(r.state.expertDown, r.state.routedOut, 6); err != nil {
+		return nil, err
+	}
+	if err := routed.Wait(context.Background()); err != nil {
+		return nil, err
+	}
+	r.lastRoutedBatch = routed.Stats()
+	r.addFFNBatch(routed)
+	ffnClosing, err := newMetalBatch(r.ops)
+	if err != nil {
 		return nil, err
 	}
 	if err := ffnClosing.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {

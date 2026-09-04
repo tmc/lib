@@ -377,8 +377,11 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if got := r.lastOpeningBatch; got != (metalBatchStats{Encoded: 7, Commits: 1, Waits: 1}) {
 		t.Fatalf("last opening batch = %+v, want {Encoded:7 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 9, Commits: 3, Waits: 3}) {
-		t.Fatalf("last FFN batches = %+v, want {Encoded:9 Commits:3 Waits:3}", got)
+	if got := r.lastRoutedBatch; got != (metalBatchStats{Encoded: 11, Commits: 1, Waits: 1}) {
+		t.Fatalf("last routed batch = %+v, want {Encoded:11 Commits:1 Waits:1}", got)
+	}
+	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 19, Commits: 4, Waits: 4}) {
+		t.Fatalf("last FFN batches = %+v, want {Encoded:19 Commits:4 Waits:4}", got)
 	}
 	for i, value := range logits {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
