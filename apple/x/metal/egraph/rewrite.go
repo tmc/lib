@@ -2,6 +2,8 @@ package egraph
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 )
 
 // Rewrite defines an equivalence rewrite rule from a left-hand pattern to a right-hand pattern.
@@ -21,11 +23,35 @@ func NewRewrite(name, lhsStr, rhsStr string) (*Rewrite, error) {
 	if err != nil {
 		return nil, fmt.Errorf("egraph: parse rhs %q: %w", rhsStr, err)
 	}
+	lhsVars := make(map[string]bool)
+	collectVariables(lhs, lhsVars)
+	rhsVars := make(map[string]bool)
+	collectVariables(rhs, rhsVars)
+	var unbound []string
+	for name := range rhsVars {
+		if !lhsVars[name] {
+			unbound = append(unbound, name)
+		}
+	}
+	if len(unbound) > 0 {
+		sort.Strings(unbound)
+		return nil, fmt.Errorf("egraph: rhs variables not bound by lhs: %s", strings.Join(unbound, ", "))
+	}
 	return &Rewrite{
 		Name: name,
 		LHS:  lhs,
 		RHS:  rhs,
 	}, nil
+}
+
+func collectVariables(p *Pattern, variables map[string]bool) {
+	if p.IsVar {
+		variables[p.Op] = true
+		return
+	}
+	for _, child := range p.Children {
+		collectVariables(child, variables)
+	}
 }
 
 // MustRewrite creates a Rewrite or panics if parsing fails.
