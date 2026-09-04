@@ -15,17 +15,21 @@ func TestPadTo(t *testing.T) {
 		{100, 1, 100},
 	}
 	for _, tt := range tests {
-		if got := PadTo(tt.n, tt.gran); got != tt.want {
+		if got, err := PadTo(tt.n, tt.gran); err != nil || got != tt.want {
 			t.Errorf("PadTo(%d, %d) = %d, want %d", tt.n, tt.gran, got, tt.want)
 		}
 	}
 }
 
-func TestPadToZeroGranularityPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("PadTo(1, 0): want panic")
-		}
-	}()
-	PadTo(1, 0)
+func TestPadToErrors(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		n, gran uintptr
+	}{{"zero granularity", 1, 0}, {"overflow", ^uintptr(0), 2}} {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := PadTo(tt.n, tt.gran); err == nil {
+				t.Fatal("PadTo succeeded")
+			}
+		})
+	}
 }

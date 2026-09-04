@@ -113,7 +113,10 @@ func gpuChildMain() int {
 	if err != nil {
 		return fail("granularity: %v", err)
 	}
-	chunk := PadTo(1<<20, gran)
+	chunk, err := PadTo(1<<20, gran)
+	if err != nil {
+		return fail("pad chunk: %v", err)
+	}
 
 	buf, err := DistAlloc(b, dev, chunk)
 	if err != nil {
@@ -124,7 +127,11 @@ func gpuChildMain() int {
 	// cross-GPU NVLink write), then everyone verifies its own chunk.
 	peer := (rank + 1) % world
 	pattern := uint8(0xA0 + peer)
-	if err := buf.ChunkPtr(peer).MemsetD8(pattern, uint(chunk)); err != nil {
+	peerPtr, err := buf.ChunkPtr(peer)
+	if err != nil {
+		return fail("peer chunk: %v", err)
+	}
+	if err := peerPtr.MemsetD8(pattern, uint(chunk)); err != nil {
 		return fail("remote memset: %v", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {
@@ -135,7 +142,11 @@ func gpuChildMain() int {
 	}
 
 	got := make([]byte, 4096)
-	if err := buf.LocalPtr().MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
+	localPtr, err := buf.LocalPtr()
+	if err != nil {
+		return fail("local chunk: %v", err)
+	}
+	if err := localPtr.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))); err != nil {
 		return fail("copy back: %v", err)
 	}
 	want := uint8(0xA0 + rank)
@@ -151,7 +162,10 @@ func gpuChildMain() int {
 		if err != nil {
 			return fail("mc granularity: %v", err)
 		}
-		mcChunk := PadTo(chunk, mcGran)
+		mcChunk, err := PadTo(chunk, mcGran)
+		if err != nil {
+			return fail("pad multicast chunk: %v", err)
+		}
 		mcBuf, err := DistAllocMulticast(b, dev, mcChunk)
 		if err != nil {
 			return fail("DistAllocMulticast: %v", err)
@@ -168,7 +182,11 @@ func gpuChildMain() int {
 		if err := b.Barrier(); err != nil {
 			return fail("mc barrier: %v", err)
 		}
-		if err := mcBuf.LocalPtr().MemcpyDtoH(unsafe.Pointer(&got[0]), 4096); err != nil {
+		mcLocal, err := mcBuf.LocalPtr()
+		if err != nil {
+			return fail("multicast local chunk: %v", err)
+		}
+		if err := mcLocal.MemcpyDtoH(unsafe.Pointer(&got[0]), 4096); err != nil {
 			return fail("mc copy back: %v", err)
 		}
 		for i, v := range got {

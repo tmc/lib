@@ -89,7 +89,11 @@ func NewBuffer(b nvlshm.Bootstrap, dev driver.Device, cfg Config) (*Buffer, erro
 	// in every rank's chunk (redundant but harmless, as in MoonEP), then
 	// all ranks synchronize.
 	for r := 0; r < l.R; r++ {
-		p := buf.Meta.ChunkPtr(r) + driver.DevicePtr(l.BarrierOff*int32Bytes)
+		p, err := buf.Meta.ChunkPtr(r)
+		if err != nil {
+			return fail(fmt.Errorf("moonep: barrier chunk %d: %w", r, err))
+		}
+		p += driver.DevicePtr(l.BarrierOff * int32Bytes)
 		if err := p.MemsetD32(0, barrierSlots); err != nil {
 			return fail(fmt.Errorf("moonep: zero barrier region (rank %d): %w", r, err))
 		}
@@ -137,13 +141,17 @@ func NewBuffer(b nvlshm.Bootstrap, dev driver.Device, cfg Config) (*Buffer, erro
 }
 
 // HiddenLocal returns this rank's [NvS, H] shard within Hidden.
-func (b *Buffer) HiddenLocal() driver.DevicePtr {
+func (b *Buffer) HiddenLocal() (driver.DevicePtr, error) {
 	return b.Hidden.LocalPtr()
 }
 
 // WeightsLocal returns this rank's [NvS] fp32 route-weight region within Meta.
-func (b *Buffer) WeightsLocal() driver.DevicePtr {
-	return b.Meta.LocalPtr() + driver.DevicePtr(b.Layout.WeightsOff*int32Bytes)
+func (b *Buffer) WeightsLocal() (driver.DevicePtr, error) {
+	p, err := b.Meta.LocalPtr()
+	if err != nil {
+		return 0, err
+	}
+	return p + driver.DevicePtr(b.Layout.WeightsOff*int32Bytes), nil
 }
 
 // MetaMc returns the multicast address of the meta buffer (one chunk wide):

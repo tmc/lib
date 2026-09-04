@@ -143,7 +143,11 @@ func NewLayout(cfg Config, vmmGran, mcGran uintptr) (*Layout, error) {
 	// exactly (port of pad_dim0_for_alignment).
 	rowBytes := cfg.H * bf16Bytes
 	nbytes := l.NvS * rowBytes
-	paddedBytes := int(nvlshm.PadTo(uintptr(nbytes), vmmGran))
+	padded, err := nvlshm.PadTo(uintptr(nbytes), vmmGran)
+	if err != nil || padded > uintptr(int32Max) {
+		return nil, fmt.Errorf("moonep: pad hidden chunk: %w", err)
+	}
+	paddedBytes := int(padded)
 	dim0 := paddedBytes / rowBytes
 	for dim0*rowBytes%int(vmmGran) != 0 {
 		dim0++
@@ -177,7 +181,11 @@ func NewLayout(cfg Config, vmmGran, mcGran uintptr) (*Layout, error) {
 	if mcGran > chunkAlign {
 		chunkAlign = mcGran
 	}
-	l.MetaChunkPadded = int(nvlshm.PadTo(uintptr(l.MetaChunkLogical)*int32Bytes, chunkAlign)) / int32Bytes
+	metaPadded, err := nvlshm.PadTo(uintptr(l.MetaChunkLogical)*int32Bytes, chunkAlign)
+	if err != nil || metaPadded > uintptr(int32Max)*int32Bytes {
+		return nil, fmt.Errorf("moonep: pad meta chunk: %w", err)
+	}
+	l.MetaChunkPadded = int(metaPadded) / int32Bytes
 
 	// Device kernels multiply a runtime rank by these constexpr strides in
 	// int32 arithmetic; guard the largest reachable non-negative index.

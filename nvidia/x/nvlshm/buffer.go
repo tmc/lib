@@ -32,7 +32,12 @@ func (b *DistBuffer) Ptr() driver.DevicePtr { return b.base }
 func (b *DistBuffer) ChunkBytes() uintptr { return b.chunkBytes }
 
 // TotalBytes returns the size of the full mapping (ChunkBytes × WorldSize).
-func (b *DistBuffer) TotalBytes() uintptr { return b.chunkBytes * uintptr(b.world) }
+func (b *DistBuffer) TotalBytes() (uintptr, error) {
+	if b == nil || b.world < 0 || (b.world != 0 && b.chunkBytes > ^uintptr(0)/uintptr(b.world)) {
+		return 0, errors.New("nvlshm: total size overflows uintptr")
+	}
+	return b.chunkBytes * uintptr(b.world), nil
+}
 
 // WorldSize returns the number of chunks.
 func (b *DistBuffer) WorldSize() int { return b.world }
@@ -41,16 +46,19 @@ func (b *DistBuffer) WorldSize() int { return b.world }
 func (b *DistBuffer) Rank() int { return b.rank }
 
 // ChunkPtr returns the address of rank r's chunk within the mapping.
-// It panics if r is out of range.
-func (b *DistBuffer) ChunkPtr(r int) driver.DevicePtr {
-	if r < 0 || r >= b.world {
-		panic("nvlshm: chunk rank out of range")
+func (b *DistBuffer) ChunkPtr(r int) (driver.DevicePtr, error) {
+	if b == nil || r < 0 || r >= b.world {
+		return 0, errors.New("nvlshm: chunk rank out of range")
 	}
-	return b.base + driver.DevicePtr(uintptr(r)*b.chunkBytes)
+	off := uintptr(r) * b.chunkBytes
+	if r != 0 && off/uintptr(r) != b.chunkBytes || uintptr(b.base) > ^uintptr(0)-off {
+		return 0, errors.New("nvlshm: chunk address overflows uintptr")
+	}
+	return b.base + driver.DevicePtr(off), nil
 }
 
 // LocalPtr returns the address of this rank's own chunk.
-func (b *DistBuffer) LocalPtr() driver.DevicePtr { return b.ChunkPtr(b.rank) }
+func (b *DistBuffer) LocalPtr() (driver.DevicePtr, error) { return b.ChunkPtr(b.rank) }
 
 // McPtr returns the multicast (multimem) address and true when the buffer
 // was created with [DistAllocMulticast]. A store to McPtr()+off is fanned
@@ -86,7 +94,11 @@ func (b *DistBuffer) Close() error {
 		va := b.base + driver.DevicePtr(uintptr(i)*b.chunkBytes)
 		errs = append(errs, va.MemUnmap(uint(b.chunkBytes)))
 	}
-	errs = append(errs, b.base.MemAddressFree(uint(b.TotalBytes())))
+	total, totalErr := b.TotalBytes()
+	errs = append(errs, totalErr)
+	if totalErr == nil {
+		errs = append(errs, b.base.MemAddressFree(uint(total)))
+	}
 	b.base = 0
 	return errors.Join(errs...)
 }

@@ -39,6 +39,9 @@ func allocChunk(dev driver.Device, size uintptr) (handle uint64, fd int, err err
 // On success the caller owns the reservation; unmap each chunk then free the
 // reservation to release it. mapChunks does not close the fds.
 func mapChunks(dev driver.Device, chunkBytes uintptr, fds []int) (driver.DevicePtr, error) {
+	if chunkBytes == 0 || len(fds) == 0 || chunkBytes > ^uintptr(0)/uintptr(len(fds)) {
+		return 0, fmt.Errorf("nvlshm: mapped size overflows uintptr")
+	}
 	total := chunkBytes * uintptr(len(fds))
 	base, err := driver.DevicePtr(0).MemAddressReserve(uint(total), 0, 0)
 	if err != nil {
@@ -129,7 +132,16 @@ func DistAllocMulticast(b Bootstrap, dev driver.Device, chunkBytes uintptr) (*Di
 }
 
 func distAlloc(b Bootstrap, dev driver.Device, chunkBytes uintptr, multicast bool) (*DistBuffer, error) {
+	if b == nil {
+		return nil, fmt.Errorf("nvlshm: nil bootstrap")
+	}
 	world := b.WorldSize()
+	if world <= 0 || b.Rank() < 0 || b.Rank() >= world {
+		return nil, fmt.Errorf("nvlshm: invalid bootstrap rank %d world %d", b.Rank(), world)
+	}
+	if chunkBytes != 0 && uintptr(world) > ^uintptr(0)/chunkBytes {
+		return nil, fmt.Errorf("nvlshm: total size overflows uintptr")
+	}
 	mcDevices := 0
 	if multicast {
 		mcDevices = world
@@ -205,7 +217,13 @@ func distAlloc(b Bootstrap, dev driver.Device, chunkBytes uintptr, multicast boo
 // bytes must be a multiple of [Granularity] and identical on all ranks. All
 // ranks must call SingleOwnerAlloc together.
 func SingleOwnerAlloc(b Bootstrap, dev driver.Device, bytes uintptr, owner int) (*OwnedBuffer, error) {
+	if b == nil {
+		return nil, fmt.Errorf("nvlshm: nil bootstrap")
+	}
 	world := b.WorldSize()
+	if world <= 0 || b.Rank() < 0 || b.Rank() >= world {
+		return nil, fmt.Errorf("nvlshm: invalid bootstrap rank %d world %d", b.Rank(), world)
+	}
 	if owner < 0 || owner >= world {
 		return nil, fmt.Errorf("nvlshm: owner rank %d out of range [0,%d)", owner, world)
 	}

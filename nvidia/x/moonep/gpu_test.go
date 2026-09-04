@@ -110,7 +110,11 @@ func bufferChildMain() int {
 	// The barrier region must read zero in this rank's own chunk (every
 	// rank zeroed every chunk during NewBuffer).
 	var slots [barrierSlots]int32
-	barrier := buf.Meta.LocalPtr() + driver.DevicePtr(buf.Layout.BarrierOff*int32Bytes)
+	local, err := buf.Meta.LocalPtr()
+	if err != nil {
+		return fail("local meta: %v", err)
+	}
+	barrier := local + driver.DevicePtr(buf.Layout.BarrierOff*int32Bytes)
 	if err := barrier.MemcpyDtoH(unsafe.Pointer(&slots[0]), barrierSlots*int32Bytes); err != nil {
 		return fail("read barrier region: %v", err)
 	}
@@ -123,7 +127,11 @@ func bufferChildMain() int {
 	// Cross-rank visibility through the meta buffer: rank r stamps its
 	// rank into peer (r+1)'s src_info region; each rank verifies.
 	peer := (rank + 1) % world
-	src := buf.Meta.ChunkPtr(peer) + driver.DevicePtr(buf.Layout.SrcInfoOff*int32Bytes)
+	src, err := buf.Meta.ChunkPtr(peer)
+	if err != nil {
+		return fail("peer meta: %v", err)
+	}
+	src += driver.DevicePtr(buf.Layout.SrcInfoOff * int32Bytes)
 	if err := src.MemsetD32(uint32(rank+100), 4); err != nil {
 		return fail("remote src_info write: %v", err)
 	}
@@ -134,7 +142,11 @@ func bufferChildMain() int {
 		return fail("barrier: %v", err)
 	}
 	var got [4]int32
-	mine := buf.Meta.LocalPtr() + driver.DevicePtr(buf.Layout.SrcInfoOff*int32Bytes)
+	mine, err := buf.Meta.LocalPtr()
+	if err != nil {
+		return fail("local meta: %v", err)
+	}
+	mine += driver.DevicePtr(buf.Layout.SrcInfoOff * int32Bytes)
 	if err := mine.MemcpyDtoH(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
 		return fail("read src_info: %v", err)
 	}
@@ -159,7 +171,11 @@ func bufferChildMain() int {
 	if err := b.Barrier(); err != nil {
 		return fail("mc barrier: %v", err)
 	}
-	plan := buf.Meta.LocalPtr() + driver.DevicePtr(buf.Layout.PlanOff*int32Bytes)
+	plan, err := buf.Meta.LocalPtr()
+	if err != nil {
+		return fail("local meta: %v", err)
+	}
+	plan += driver.DevicePtr(buf.Layout.PlanOff * int32Bytes)
 	if err := plan.MemcpyDtoH(unsafe.Pointer(&got[0]), 4*int32Bytes); err != nil {
 		return fail("read plan region: %v", err)
 	}
