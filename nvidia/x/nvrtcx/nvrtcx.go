@@ -100,7 +100,8 @@ func WithName(name string) Option {
 	}
 }
 
-// WithArch configures the target compute architecture (e.g. sm_80 for major=8, minor=0).
+// WithArch configures the target virtual compute architecture (for example,
+// compute_80 for major=8, minor=0).
 func WithArch(major, minor int) Option {
 	return func(o *options) {
 		if major <= 0 || minor < 0 {
