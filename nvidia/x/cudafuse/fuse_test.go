@@ -8,6 +8,22 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
+func TestFuseNilGraph(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		fuse func() error
+	}{
+		{"source", func() error { _, err := cudafuse.Fuse(nil, "kernel"); return err }},
+		{"source map", func() error { _, err := cudafuse.FuseWithSourceMap(nil, "kernel"); return err }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.fuse(); err == nil || err.Error() != "cudafuse: nil graph" {
+				t.Fatalf("error = %v, want cudafuse: nil graph", err)
+			}
+		})
+	}
+}
+
 func TestFuse(t *testing.T) {
 	g := cudair.NewGraph()
 
@@ -65,4 +81,3 @@ func TestFuseWithSourceMap(t *testing.T) {
 		t.Errorf("expected to find model.go:43 in LineMap, got: %+v", fk.LineMap)
 	}
 }
-

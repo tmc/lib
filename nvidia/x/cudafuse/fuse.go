@@ -7,7 +7,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
-
 // FusedKernel represents a synthesized CUDA C++ kernel with line-level source provenance.
 type FusedKernel struct {
 	Name    string
@@ -31,12 +30,14 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	var fk FusedKernel
 	fk.Name = kernelName
 	fk.LineMap = make(map[int]cudair.SourceLocation)
+	if g == nil {
+		return fk, fmt.Errorf("cudafuse: nil graph")
+	}
 
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
 		return fk, fmt.Errorf("cudafuse: empty graph")
 	}
-
 
 	var inputs []*cudair.Node
 	var outputs []*cudair.Node
@@ -149,4 +150,3 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	fk.Source = strings.Join(lines, "\n")
 	return fk, nil
 }
-
