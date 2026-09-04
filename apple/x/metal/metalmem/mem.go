@@ -39,6 +39,7 @@ type owner struct {
 	released atomic.Bool
 	buf      metal.MTLBuffer
 	mmap     []byte // the mapping to unmap, for zero-copy slices
+	charge   *charge
 }
 
 func (o *owner) release() {
@@ -53,6 +54,7 @@ func (o *owner) release() {
 		if o.mmap != nil {
 			_ = syscall.Munmap(o.mmap)
 		}
+		o.charge.release()
 	})
 }
 
@@ -83,6 +85,10 @@ func byteLen(length int, elemSize uintptr) (int, error) {
 // Alloc allocates a Slice[T] of length elements in shared unified memory. A
 // length of zero allocates nothing and returns the zero Slice.
 func Alloc[T any](dev *applemetal.Device, length int) (Slice[T], error) {
+	return alloc[T](dev, length, nil)
+}
+
+func alloc[T any](dev *applemetal.Device, length int, tracker *Tracker) (Slice[T], error) {
 	elemSize := elemSizeOf[T]()
 	totalBytes, err := byteLen(length, elemSize)
 	if err != nil {
@@ -98,12 +104,16 @@ func Alloc[T any](dev *applemetal.Device, length int) (Slice[T], error) {
 	if err != nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: alloc %d elements: %w", length, err)
 	}
-	return newSlice[T](buf, length, elemSize, nil), nil
+	return newSlice[T](buf, length, elemSize, nil, tracker.acquire(uint64(totalBytes))), nil
 }
 
 // AllocFromSlice allocates a Slice[T] holding a copy of data. An empty data
 // allocates nothing and returns the zero Slice.
 func AllocFromSlice[T any](dev *applemetal.Device, data []T) (Slice[T], error) {
+	return allocFromSlice[T](dev, data, nil)
+}
+
+func allocFromSlice[T any](dev *applemetal.Device, data []T, tracker *Tracker) (Slice[T], error) {
 	if len(data) == 0 {
 		return Slice[T]{}, nil
 	}
@@ -116,7 +126,7 @@ func AllocFromSlice[T any](dev *applemetal.Device, data []T) (Slice[T], error) {
 	if buf == nil || buf.GetID() == 0 {
 		return Slice[T]{}, fmt.Errorf("metalmem: alloc buffer for %d elements failed", len(data))
 	}
-	return newSlice[T](buf, len(data), elemSize, nil), nil
+	return newSlice[T](buf, len(data), elemSize, nil, tracker.acquire(uint64(totalBytes))), nil
 }
 
 // AllocMMapZeroCopy maps length elements of f starting at offset and wraps the
@@ -152,17 +162,17 @@ func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, 
 		_ = syscall.Munmap(data)
 		return Slice[T]{}, fmt.Errorf("metalmem: create Metal buffer from mapping of %d bytes failed", totalBytes)
 	}
-	return newSlice[T](buf, length, elemSize, data), nil
+	return newSlice[T](buf, length, elemSize, data, nil), nil
 }
 
 // newSlice wraps a freshly created buffer, which the returned Slice owns.
-func newSlice[T any](buf metal.MTLBuffer, length int, elemSize uintptr, mmap []byte) Slice[T] {
+func newSlice[T any](buf metal.MTLBuffer, length int, elemSize uintptr, mmap []byte, charge *charge) Slice[T] {
 	return Slice[T]{
 		buf:      buf,
 		len:      length,
 		cap:      length,
 		elemSize: elemSize,
-		owner:    &owner{buf: buf, mmap: mmap},
+		owner:    &owner{buf: buf, mmap: mmap, charge: charge},
 	}
 }
 
