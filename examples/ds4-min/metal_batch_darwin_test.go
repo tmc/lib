@@ -211,6 +211,125 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	closeSlice(t, "batched key-value norm", kvNorm.HostSlice(), wantKVNorm)
 }
 
+func TestMetalBatchFFNElementwiseResidual(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+
+	const width = 4096
+	arena := metalmem.NewArena(dev)
+	defer arena.Free()
+	gateValues := make([]float32, width)
+	upValues := make([]float32, width)
+	stateValues := make([]float32, 4*width)
+	for i := range width {
+		gateValues[i] = float32(i%31-15) / 2
+		upValues[i] = float32(i%23-11) / 2
+	}
+	for i := range stateValues {
+		stateValues[i] = float32(i%17-8) / 16
+	}
+	gate := metalmem.UploadIn(arena, "gate", gateValues)
+	up := metalmem.UploadIn(arena, "up", upValues)
+	clampedGate := metalmem.AllocIn[float32](arena, "clamped-gate", width)
+	clampedUp := metalmem.AllocIn[float32](arena, "clamped-up", width)
+	mids := metalmem.AllocIn[float32](arena, "expert-mids", 2*width)
+	weightedMid, err := mids.Slice(0, width)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainMid, err := mids.Slice(width, 2*width)
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := metalmem.AllocIn[float32](arena, "block", width)
+	state := metalmem.UploadIn(arena, "state", stateValues)
+	out := metalmem.AllocIn[float32](arena, "residual", len(stateValues))
+	hcFn := testBatchTensor(arena, "hc-fn", 1, []uint64{4 * width, 24}, 2*24*4*width)
+	hcScale := testBatchF32Tensor(arena, "hc-scale", []float32{1, 1, 1})
+	hcBase := testBatchF32Tensor(arena, "hc-base", make([]float32, 24))
+
+	wantGate, err := ops.ClampGate10(gateValues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantUp, err := ops.Clamp10(upValues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantWeighted, err := ops.SwiGLUWeighted(wantGate, wantUp, 0.375)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPlain, err := ops.SwiGLU(wantGate, wantUp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBlock, err := ops.SumVectors(append(append([]float32(nil), wantWeighted...), wantPlain...), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOut, err := ops.HCPost(stateValues, wantBlock, hcFn, hcScale, hcBase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, values := range map[string][]float32{
+		"clamped gate": wantGate,
+		"clamped up":   wantUp,
+		"weighted mid": wantWeighted,
+		"plain mid":    wantPlain,
+		"block":        wantBlock,
+		"residual":     wantOut,
+	} {
+		assertNonzeroFinite(t, name, values)
+	}
+
+	batch, err := newMetalBatch(ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeClampGate10(gate, clampedGate); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeClamp10(up, clampedUp); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeSwiGLUWeighted(clampedGate, clampedUp, weightedMid, 0.375); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeSwiGLU(clampedGate, clampedUp, plainMid); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeSumVectors(mids, block, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeHCPost(state, block, hcFn, hcScale, hcBase, out); err != nil {
+		t.Fatal(err)
+	}
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 6}) {
+		t.Fatalf("stats before wait = %+v, want {Encoded:6}", got)
+	}
+	if err := batch.Wait(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 6, Commits: 1, Waits: 1}) {
+		t.Fatalf("stats after wait = %+v, want {Encoded:6 Commits:1 Waits:1}", got)
+	}
+	closeSlice(t, "batched clamped gate", clampedGate.HostSlice(), wantGate)
+	closeSlice(t, "batched clamped up", clampedUp.HostSlice(), wantUp)
+	closeSlice(t, "batched weighted mid", weightedMid.HostSlice(), wantWeighted)
+	closeSlice(t, "batched plain mid", plainMid.HostSlice(), wantPlain)
+	closeSlice(t, "batched block", block.HostSlice(), wantBlock)
+	closeSlice(t, "batched residual", out.HostSlice(), wantOut)
+}
+
 func batchWeights(n int) []float32 {
 	weights := make([]float32, n)
 	for i := range weights {
