@@ -13,7 +13,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalayer"
 )
 
-func TestCUDAPackedAttentionBlock(t *testing.T) {
+func TestCUDAPackedDecoderLayerComplete(t *testing.T) {
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") != "1" {
 		t.Skip("set LIB_CUDA_HARDWARE_TEST=1 on a CUDA host")
 	}
@@ -25,7 +25,7 @@ func TestCUDAPackedAttentionBlock(t *testing.T) {
 }
 
 func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
-	const blockSize, qHeads, kvHeads, headDim = 2, 2, 1, 4
+	const blockSize, qHeads, kvHeads, headDim, intermediateDim = 2, 2, 1, 4, 11
 	const theta, epsilon = float32(10000), float32(1e-5)
 	dim, kvDim := qHeads*headDim, kvHeads*headDim
 	pages, tokens, maxLen := 0, 0, 0
@@ -75,6 +75,9 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	vWeight := values(kvDim*dim, 9, 4, 37)
 	projection := values(dim*dim, 15, 7, 41)
 	outputNormWeight := values(dim, 10, 4, 17)
+	gateWeight := values(intermediateDim*dim, 17, 8, 43)
+	upWeight := values(intermediateDim*dim, 19, 9, 47)
+	downWeight := values(dim*intermediateDim, 23, 11, 53)
 	dinput := cudaAttentionSlice(t, dev, input)
 	dinputNorm := cudaAttentionSlice(t, dev, make([]float32, tokens*dim))
 	dinputNormWeight := cudaAttentionSlice(t, dev, inputNormWeight)
@@ -90,7 +93,14 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	doutputNormWeight := cudaAttentionSlice(t, dev, outputNormWeight)
 	doutput := cudaAttentionSlice(t, dev, make([]float32, tokens*dim))
 	doutputNorm := cudaAttentionSlice(t, dev, make([]float32, tokens*dim))
-	for _, free := range []func() error{dinput.Free, dinputNorm.Free, dinputNormWeight.Free, dqWeight.Free, dkWeight.Free, dvWeight.Free, dq.Free, dk.Free, dv.Free, dqRoPE.Free, dattention.Free, dprojection.Free, doutputNormWeight.Free, doutput.Free, doutputNorm.Free} {
+	dgateWeight := cudaAttentionSlice(t, dev, gateWeight)
+	dupWeight := cudaAttentionSlice(t, dev, upWeight)
+	ddownWeight := cudaAttentionSlice(t, dev, downWeight)
+	dgate := cudaAttentionSlice(t, dev, make([]float32, tokens*intermediateDim))
+	dup := cudaAttentionSlice(t, dev, make([]float32, tokens*intermediateDim))
+	dactivation := cudaAttentionSlice(t, dev, make([]float32, tokens*intermediateDim))
+	dlayerOutput := cudaAttentionSlice(t, dev, make([]float32, tokens*dim))
+	for _, free := range []func() error{dinput.Free, dinputNorm.Free, dinputNormWeight.Free, dqWeight.Free, dkWeight.Free, dvWeight.Free, dq.Free, dk.Free, dv.Free, dqRoPE.Free, dattention.Free, dprojection.Free, doutputNormWeight.Free, doutput.Free, doutputNorm.Free, dgateWeight.Free, dupWeight.Free, ddownWeight.Free, dgate.Free, dup.Free, dactivation.Free, dlayerOutput.Free} {
 		defer free()
 	}
 	major, minor, err := dev.ComputeCapability()
@@ -131,21 +141,29 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	gateUpKernel, err := layerModule.GetFunction("GateUpSiLU")
+	if err != nil {
+		t.Fatal(err)
+	}
+	downKernel, err := layerModule.GetFunction("DownResidual")
+	if err != nil {
+		t.Fatal(err)
+	}
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer stream.Destroy()
-	op := PackedAttentionBlock{DecoderLayer: DecoderLayer{
+	op := PackedDecoderLayer{PackedAttentionBlock: PackedAttentionBlock{DecoderLayer: DecoderLayer{
 		Attention:      CausalAttention{Kernel: attentionKernel, Layer: 0, QHeads: qHeads, KVHeads: kvHeads, HeadDim: headDim, MaxSeqLen: maxLen, Threads: 32, Scale: float32(1 / math.Sqrt(headDim))},
 		ProjectionNorm: projectionKernel, Dim: dim, Threads: 32, Epsilon: epsilon,
-	}, RMSNormQKV: qkvKernel, RoPEStore: ropeKernel, RoPETheta: theta}
+	}, RMSNormQKV: qkvKernel, RoPEStore: ropeKernel, RoPETheta: theta}, GateUpSiLU: gateUpKernel, DownResidual: downKernel, IntermediateDim: intermediateDim}
 	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := batch.RunPackedAttentionBlock(canceled, stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm); !errors.Is(err, context.Canceled) {
+	if _, err := batch.RunPackedDecoderLayer(canceled, stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm, dgateWeight, dupWeight, ddownWeight, dgate, dup, dactivation, dlayerOutput); !errors.Is(err, context.Canceled) {
 		t.Fatalf("pre-submit cancellation = %v", err)
 	}
-	status, err := batch.RunPackedAttentionBlock(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
+	status, err := batch.RunPackedDecoderLayer(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm, dgateWeight, dupWeight, ddownWeight, dgate, dup, dactivation, dlayerOutput)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,8 +173,10 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 		}
 	}
 	wantOutput, wantNorm := attentionBlockReference(input, inputNormWeight, qWeight, kWeight, vWeight, projection, outputNormWeight, lengths, qHeads, kvHeads, headDim, theta, epsilon)
+	wantLayerOutput := decoderMLPReference(wantOutput, wantNorm, gateWeight, upWeight, downWeight, dim, intermediateDim)
 	checkLayerOutput(t, dev, doutput, wantOutput, 2e-5)
 	checkLayerOutput(t, dev, doutputNorm, wantNorm, 2e-5)
+	checkLayerOutput(t, dev, dlayerOutput, wantLayerOutput, 3e-5)
 
 	firstID, firstGeneration := admitted[0].ID()
 	firstUse, err := adapter.Bind(firstID, firstGeneration)
@@ -197,7 +217,7 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	status, err = batch.RunPackedAttentionBlock(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm)
+	status, err = batch.RunPackedDecoderLayer(t.Context(), stream, op, dinput, dinputNorm, dinputNormWeight, dqWeight, dkWeight, dvWeight, dq, dk, dv, dqRoPE, dattention, dprojection, doutputNormWeight, doutput, doutputNorm, dgateWeight, dupWeight, ddownWeight, dgate, dup, dactivation, dlayerOutput)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +242,7 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 		t.Fatal(err)
 	}
 	got := make([]float32, tokens*dim)
-	if err := dev.WithContext(func() error { return doutputNorm.CopyToHost(got) }); err != nil {
+	if err := dev.WithContext(func() error { return dlayerOutput.CopyToHost(got) }); err != nil {
 		t.Fatal(err)
 	}
 	firstOther := lengths[0]
@@ -232,8 +252,8 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 		}
 	}
 	for i := firstOther * dim; i < len(got); i++ {
-		if diff := math.Abs(float64(got[i] - wantNorm[i])); diff > 2e-5 {
-			t.Fatalf("isolated output[%d] = %g, want %g", i, got[i], wantNorm[i])
+		if diff := math.Abs(float64(got[i] - wantLayerOutput[i])); diff > 3e-5 {
+			t.Fatalf("isolated output[%d] = %g, want %g", i, got[i], wantLayerOutput[i])
 		}
 	}
 	if err := batch.Complete(t.Context(), &fakeCompletion{}); err != nil {
@@ -250,7 +270,32 @@ func testCUDAPackedAttentionBlock(t *testing.T, lengths []int) {
 	if err := adapter.Close(); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("receipt batch=%d tokens=%d coordinates=%d tolerance=2e-5 shared_weights=true heterogeneous_positions=true row_fault_isolated=true one_terminal_sync=true pins_outer_owned=true", len(lengths), tokens, len(wantNorm))
+	t.Logf("receipt batch=%d tokens=%d coordinates=%d tolerance=3e-5 complete_layer=true shared_weights=true heterogeneous_positions=true row_fault_isolated=true one_terminal_sync=true pins_outer_owned=true", len(lengths), tokens, len(wantLayerOutput))
+}
+
+func decoderMLPReference(residual, normalized, gateWeight, upWeight, downWeight []float32, dim, intermediate int) []float32 {
+	tokens := len(residual) / dim
+	output := make([]float32, len(residual))
+	for token := 0; token < tokens; token++ {
+		activation := make([]float32, intermediate)
+		for out := 0; out < intermediate; out++ {
+			var gate, up float32
+			for in := 0; in < dim; in++ {
+				x := normalized[token*dim+in]
+				gate += x * gateWeight[out*dim+in]
+				up += x * upWeight[out*dim+in]
+			}
+			activation[out] = gate / (1 + float32(math.Exp(float64(-gate)))) * up
+		}
+		for out := 0; out < dim; out++ {
+			sum := residual[token*dim+out]
+			for in := 0; in < intermediate; in++ {
+				sum += activation[in] * downWeight[out*intermediate+in]
+			}
+			output[token*dim+out] = sum
+		}
+	}
+	return output
 }
 
 func values(n, period, offset, divisor int) []float32 {

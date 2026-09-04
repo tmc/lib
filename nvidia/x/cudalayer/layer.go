@@ -160,6 +160,73 @@ extern "C" __global__ void ProjectionResidualRMSNorm(
         normalized[token * dim + i] = y[i] * scale * norm_weight[i];
     }
 }
+
+extern "C" __global__ void GateUpSiLU(
+    const float* __restrict__ normalized,
+    const float* __restrict__ gate_weight,
+    const float* __restrict__ up_weight,
+    const int* __restrict__ token_rows,
+    const int* __restrict__ row_status,
+    float* __restrict__ gate,
+    float* __restrict__ up,
+    float* __restrict__ activation,
+    int dim,
+    int intermediate_dim,
+    int num_tokens,
+    int metadata_rows
+) {
+    int token = blockIdx.x;
+    if (token >= num_tokens) return;
+    int row = token_rows[token];
+    bool valid = row >= 0 && row < metadata_rows && row_status[row] == 0 &&
+        dim > 0 && intermediate_dim > 0;
+    const float* x = normalized + token * dim;
+    for (int out = threadIdx.x; out < intermediate_dim; out += blockDim.x) {
+        float g = 0.0f, u = 0.0f;
+        if (valid) {
+            const float* gw = gate_weight + out * dim;
+            const float* uw = up_weight + out * dim;
+            for (int in = 0; in < dim; in++) {
+                g += x[in] * gw[in];
+                u += x[in] * uw[in];
+            }
+        } else {
+            g = nanf("");
+            u = nanf("");
+        }
+        gate[token * intermediate_dim + out] = g;
+        up[token * intermediate_dim + out] = u;
+        activation[token * intermediate_dim + out] = g / (1.0f + expf(-g)) * u;
+    }
+}
+
+extern "C" __global__ void DownResidual(
+    const float* __restrict__ activation,
+    const float* __restrict__ residual,
+    const float* __restrict__ down_weight,
+    const int* __restrict__ token_rows,
+    const int* __restrict__ row_status,
+    float* __restrict__ output,
+    int dim,
+    int intermediate_dim,
+    int num_tokens,
+    int metadata_rows
+) {
+    int token = blockIdx.x;
+    if (token >= num_tokens) return;
+    int row = token_rows[token];
+    bool valid = row >= 0 && row < metadata_rows && row_status[row] == 0 &&
+        dim > 0 && intermediate_dim > 0;
+    for (int out = threadIdx.x; out < dim; out += blockDim.x) {
+        float sum = valid ? residual[token * dim + out] : nanf("");
+        if (valid) {
+            const float* w = down_weight + out * intermediate_dim;
+            const float* a = activation + token * intermediate_dim;
+            for (int in = 0; in < intermediate_dim; in++) sum += a[in] * w[in];
+        }
+        output[token * dim + out] = sum;
+    }
+}
 `
 
 // Compile builds the decoder-layer JIT module for a CUDA architecture.

@@ -31,6 +31,21 @@ type PackedAttentionBlock struct {
 	RoPETheta  float32
 }
 
+// PackedDecoderLayer describes every operation in one Llama decoder layer.
+type PackedDecoderLayer struct {
+	PackedAttentionBlock
+	GateUpSiLU      driver.Function
+	DownResidual    driver.Function
+	IntermediateDim int
+}
+
+type packedMLP struct {
+	op                           PackedDecoderLayer
+	gateWeight, upWeight         cudamem.Slice[float32]
+	downWeight                   cudamem.Slice[float32]
+	gate, up, activation, output cudamem.Slice[float32]
+}
+
 // RunPackedAttentionBlock executes one packed attention block on one stream.
 // The weight matrices are shared by every token row. Scratch storage and the
 // batch's page pins must remain live until this call returns; batch completion
@@ -38,6 +53,28 @@ type PackedAttentionBlock struct {
 func (b *PackedBatch) RunPackedAttentionBlock(ctx context.Context, stream *cuda.Stream, op PackedAttentionBlock,
 	input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut,
 	projection, outputNormWeight, output, outputNorm cudamem.Slice[float32]) ([]int32, error) {
+	return b.runPackedDecoderLayer(ctx, stream, op, input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight,
+		q, k, v, qRoPE, attentionOut, projection, outputNormWeight, output, outputNorm, nil)
+}
+
+// RunPackedDecoderLayer executes one complete Llama decoder layer on one
+// stream. Weight matrices are shared across token rows. Scratch storage and
+// page pins remain live through the sole terminal synchronization; the caller
+// retains batch completion ownership.
+func (b *PackedBatch) RunPackedDecoderLayer(ctx context.Context, stream *cuda.Stream, op PackedDecoderLayer,
+	input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut,
+	projection, outputNormWeight, attentionResidual, outputNorm, gateWeight, upWeight, downWeight,
+	gate, up, activation, output cudamem.Slice[float32]) ([]int32, error) {
+	mlp := &packedMLP{op: op, gateWeight: gateWeight, upWeight: upWeight, downWeight: downWeight,
+		gate: gate, up: up, activation: activation, output: output}
+	return b.runPackedDecoderLayer(ctx, stream, op.PackedAttentionBlock, input, inputNorm, inputNormWeight,
+		qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut, projection, outputNormWeight,
+		attentionResidual, outputNorm, mlp)
+}
+
+func (b *PackedBatch) runPackedDecoderLayer(ctx context.Context, stream *cuda.Stream, op PackedAttentionBlock,
+	input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut,
+	projection, outputNormWeight, attentionResidual, outputNorm cudamem.Slice[float32], mlp *packedMLP) ([]int32, error) {
 	if b == nil || b.owner == nil || ctx == nil || stream == nil {
 		return nil, ErrInvalid
 	}
@@ -60,14 +97,25 @@ func (b *PackedBatch) RunPackedAttentionBlock(ctx context.Context, stream *cuda.
 	qWeights, qwOK := product(qDim, dim)
 	kvWeights, kvwOK := product(kvDim, dim)
 	projectionLen, projectionOK := product(dim, dim)
+	mlpOK := true
+	if mlp != nil {
+		intermediate := mlp.op.IntermediateDim
+		wantIntermediate, intermediateOK := product(tokens, intermediate)
+		intermediateWeights, weightOK := product(intermediate, dim)
+		downWeights, downOK := product(dim, intermediate)
+		mlpOK = intermediateOK && weightOK && downOK && mlp.op.GateUpSiLU != 0 && mlp.op.DownResidual != 0 &&
+			mlp.gateWeight.Len() == intermediateWeights && mlp.upWeight.Len() == intermediateWeights &&
+			mlp.downWeight.Len() == downWeights && mlp.gate.Len() == wantIntermediate &&
+			mlp.up.Len() == wantIntermediate && mlp.activation.Len() == wantIntermediate && mlp.output.Len() == wantInput
+	}
 	config := cudalayer.ProjectionNormConfig{Dim: dim, Threads: op.Threads, Epsilon: op.Epsilon}
 	shared, sharedErr := config.SharedMemoryBytes()
 	if sharedErr != nil || !inputOK || !qOK || !kvOK || !qwOK || !kvwOK || !projectionOK ||
-		op.RMSNormQKV == 0 || op.RoPEStore == 0 || op.ProjectionNorm == 0 || !(op.RoPETheta > 0) ||
+		op.RMSNormQKV == 0 || op.RoPEStore == 0 || op.ProjectionNorm == 0 || !(op.RoPETheta > 0) || !mlpOK ||
 		dim != qDim || input.Len() != wantInput || inputNorm.Len() != wantInput || inputNormWeight.Len() != dim ||
 		qWeight.Len() != qWeights || kWeight.Len() != kvWeights || vWeight.Len() != kvWeights ||
 		q.Len() != wantQ || k.Len() != wantKV || v.Len() != wantKV || qRoPE.Len() != wantQ || attentionOut.Len() != wantQ ||
-		projection.Len() != projectionLen || outputNormWeight.Len() != dim || output.Len() != wantInput || outputNorm.Len() != wantInput {
+		projection.Len() != projectionLen || outputNormWeight.Len() != dim || attentionResidual.Len() != wantInput || outputNorm.Len() != wantInput {
 		return nil, ErrInvalid
 	}
 	owner := b.owner
@@ -111,8 +159,21 @@ func (b *PackedBatch) RunPackedAttentionBlock(ctx context.Context, stream *cuda.
 		}
 		if err := cudalaunch.Kernel(op.ProjectionNorm).Grid(uint32(tokens)).Block(uint32(op.Threads)).SharedMem(uint32(shared)).On(stream).
 			Launch(attentionOut, input, projection, outputNormWeight, m.TokenRows, deviceStatus,
-				output, outputNorm, int32(dim), int32(tokens), int32(rows), op.Epsilon); err != nil {
+				attentionResidual, outputNorm, int32(dim), int32(tokens), int32(rows), op.Epsilon); err != nil {
 			return err
+		}
+		if mlp != nil {
+			intermediate := mlp.op.IntermediateDim
+			if err := cudalaunch.Kernel(mlp.op.GateUpSiLU).Grid(uint32(tokens)).Block(uint32(op.Threads)).On(stream).
+				Launch(outputNorm, mlp.gateWeight, mlp.upWeight, m.TokenRows, deviceStatus, mlp.gate, mlp.up,
+					mlp.activation, int32(dim), int32(intermediate), int32(tokens), int32(rows)); err != nil {
+				return err
+			}
+			if err := cudalaunch.Kernel(mlp.op.DownResidual).Grid(uint32(tokens)).Block(uint32(op.Threads)).On(stream).
+				Launch(mlp.activation, attentionResidual, mlp.downWeight, m.TokenRows, deviceStatus, mlp.output,
+					int32(dim), int32(intermediate), int32(tokens), int32(rows)); err != nil {
+				return err
+			}
 		}
 		return deviceStatus.CopyToHostAsync(status, stream)
 	})
