@@ -1,10 +1,12 @@
-// Package metalmlx is a minimal Go conversion of the host-side runtime of
-// MLX's Metal backend (mlx/backend/metal), built on the pure-Go Metal
+// Package metalmlx is an experimental, minimal Go conversion of the host-side
+// runtime of MLX's Metal backend (mlx/backend/metal), built on the pure-Go Metal
 // bindings. It carries over the backend's architecture — a caching allocator
 // over shared-storage buffers, residency sets that keep allocations wired,
 // library and pipeline caches, and a command encoder that tracks what each
 // dispatch reads and writes — without the MLX array, scheduler, or primitive
 // layers.
+//
+// The repository does not currently use this package in a production path.
 //
 // Mapping from the C++ sources:
 //
