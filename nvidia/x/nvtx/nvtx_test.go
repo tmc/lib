@@ -3,6 +3,7 @@ package nvtx
 import (
 	"runtime"
 	"testing"
+	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
@@ -190,6 +191,62 @@ func TestExportTableHandshake(t *testing.T) {
 		t.Fatalf("category callbacks = global %d, domain %d", mockCategory, mockDomainCategory)
 	}
 	dom.Destroy()
+}
+
+func TestCallbackTableBounds(t *testing.T) {
+	initTables()
+	tests := []struct {
+		name   string
+		module int32
+		want   uint32
+		table  []uintptr
+		last   *uintptr
+	}{
+		// Sizes are NVTX_CBID_*_SIZE from NVIDIA NVTX release-v3.
+		{"core", cbModuleCore, 16, tableCORE[:], &fnNameOsThreadW},
+		{"cuda", cbModuleCUDA, 9, tableCUDA[:], &slotsCUDA[len(slotsCUDA)-1]},
+		{"opencl", cbModuleOpenCL, 15, tableOpenCL[:], &slotsOpenCL[len(slotsOpenCL)-1]},
+		{"cudart", cbModuleCUDART, 7, tableCUDART[:], &slotsCUDART[len(slotsCUDART)-1]},
+		{"core2", cbModuleCore2, 16, tableCORE2[:], &fnInitialize},
+		{"sync", cbModuleSync, 7, tableSync[:], &slotsSync[len(slotsSync)-1]},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if len(test.table) != int(test.want)+1 {
+				t.Fatalf("backing table length = %d, want %d including trailing guard", len(test.table), test.want+1)
+			}
+			var table uintptr
+			var size uint32
+			if got := getModuleFunctionTable(test.module, &table, &size); got != 1 {
+				t.Fatalf("result = %d, want 1", got)
+			}
+			if table != uintptr(unsafe.Pointer(&test.table[0])) || size != test.want {
+				t.Fatalf("table = %x, size = %d, want nonzero table and size %d", table, size, test.want)
+			}
+			entries := test.table
+			if entries[0] != 0 {
+				t.Fatalf("invalid callback slot = %x, want 0", entries[0])
+			}
+			if entries[size] != 0 {
+				t.Fatalf("trailing guard = %x, want 0", entries[size])
+			}
+			for i := uint32(1); i < size; i++ {
+				if entries[i] == 0 {
+					t.Fatalf("callback slot %d is nil", i)
+				}
+			}
+			if entries[size-1] != uintptr(unsafe.Pointer(test.last)) {
+				t.Fatalf("maximum valid slot points to %x, want %x", entries[size-1], test.last)
+			}
+			old := *test.last
+			const marker = uintptr(0xfeedface)
+			*test.last = marker
+			if *test.last != marker || entries[size] != 0 {
+				t.Fatal("maximum valid provider write changed the trailing guard")
+			}
+			*test.last = old
+		})
+	}
 }
 
 func TestScopedRangeClosesOnce(t *testing.T) {
