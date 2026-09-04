@@ -257,9 +257,33 @@ func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta flo
 }
 
 var (
-	cudaEngineCache = make(map[string]*ModelEngine)
+	cudaEngineCache = make(map[cudaEngineKey]*ModelEngine)
 	cudaEngineMu    sync.Mutex
 )
+
+type cudaEngineKey struct {
+	name       string
+	modelPath  string
+	dim        int
+	hiddenDim  int
+	vocabSize  int
+	maxSeqLen  int
+	precision  string
+	fuseEGraph bool
+}
+
+func cudaEngineCacheKey(cfg Config) cudaEngineKey {
+	return cudaEngineKey{
+		name:       cfg.Name,
+		modelPath:  cfg.ModelPath,
+		dim:        cfg.Dim,
+		hiddenDim:  cfg.HiddenDim,
+		vocabSize:  cfg.VocabSize,
+		maxSeqLen:  cfg.MaxSeqLen,
+		precision:  cfg.Precision,
+		fuseEGraph: cfg.FuseEGraph,
+	}
+}
 
 // GetOrCompileEngine is the universal entrypoint for obtaining the GPU engine.
 func GetOrCompileEngine(cfg Config) (*ModelEngine, error) {
@@ -271,7 +295,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
-	key := fmt.Sprintf("%s-%d-%d-%d-prec-%s-egraph-%v-path-%s", cfg.Name, cfg.Dim, cfg.HiddenDim, cfg.VocabSize, cfg.Precision, cfg.FuseEGraph, cfg.ModelPath)
+	key := cudaEngineCacheKey(cfg)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
 	}
