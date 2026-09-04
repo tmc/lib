@@ -90,10 +90,14 @@ type metalOutput struct {
 }
 
 type metalCompressedState struct {
-	kv    metalmem.Slice[float32]
-	score metalmem.Slice[float32]
-	width int
-	cap   int
+	cache      metalmem.Slice[float32]
+	stateKV    metalmem.Slice[float32]
+	stateScore metalmem.Slice[float32]
+	headDim    int
+	width      int
+	ratio      int
+	cap        int
+	n          int
 }
 
 type metalLayerState struct {
@@ -319,19 +323,29 @@ func (r *metalRuntime) allocState() {
 		if i%2 != 0 {
 			ratio, width = 128, 512
 		}
-		cap := (r.ctx + ratio - 1) / ratio
+		cap := r.ctx/ratio + 2
+		rows := ratio
+		if ratio == 4 {
+			rows = 2 * ratio
+		}
 		s.layers[i].attn = metalCompressedState{
-			kv:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-kv", i), cap*width),
-			score: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-score", i), cap*width),
-			width: width,
-			cap:   cap,
+			cache:      metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-cache", i), cap*ds4KVWidth),
+			stateKV:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-state-kv", i), rows*width),
+			stateScore: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-state-score", i), rows*width),
+			headDim:    ds4KVWidth,
+			width:      width,
+			ratio:      ratio,
+			cap:        cap,
 		}
 		if ratio == 4 {
 			s.layers[i].indexer = metalCompressedState{
-				kv:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-kv", i), cap*256),
-				score: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-score", i), cap*256),
-				width: 256,
-				cap:   cap,
+				cache:      metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-cache", i), cap*128),
+				stateKV:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-state-kv", i), 2*ratio*256),
+				stateScore: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-state-score", i), 2*ratio*256),
+				headDim:    128,
+				width:      256,
+				ratio:      ratio,
+				cap:        cap,
 			}
 		}
 	}
@@ -356,9 +370,12 @@ func resetCompressedState(s *metalCompressedState) {
 	if s.cap == 0 {
 		return
 	}
-	clear(s.kv.HostSlice())
-	for i := range s.score.HostSlice() {
-		s.score.HostSlice()[i] = float32(math.Inf(-1))
+	s.n = 0
+	clear(s.cache.HostSlice())
+	clear(s.stateKV.HostSlice())
+	scores := s.stateScore.HostSlice()
+	for i := range scores {
+		scores[i] = float32(math.Inf(-1))
 	}
 }
 

@@ -1251,7 +1251,7 @@ kernel void rope_attention_raw(
       for(uint i=0;i<64;i++)out[32768+off+i]=e4m3fn_round(clamp(out[32768+off+i]/scale,-448.0f,448.0f))*scale;
     }
     const uint row=position%cache_cap;
-    for(uint i=0;i<512;i++)cache[row*512+i]=out[32768+i];
+    for(uint i=0;i<512;i++)cache[row*512+i]=float(half(out[32768+i]));
   }
   threadgroup_barrier(mem_flags::mem_device);
   const uint count=min(position+1,cache_cap);
