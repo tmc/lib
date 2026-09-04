@@ -7,6 +7,56 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
+func ExampleAlloc() {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer dev.Close()
+
+	values, err := metalmem.AllocFromSlice(dev, []uint32{2, 3, 5})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer values.Free()
+
+	fmt.Println(values.HostSlice())
+	// Output: [2 3 5]
+}
+
+func ExamplePool() {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer dev.Close()
+
+	pool := metalmem.NewPool(dev)
+	defer pool.Free()
+	buf, err := pool.Get(1500)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if err := pool.Put(buf, 1500); err != nil {
+		fmt.Println(err)
+		return
+	}
+	reused, err := pool.Get(1500)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(buf.GetID() == reused.GetID())
+	if err := pool.Put(reused, 1500); err != nil {
+		fmt.Println(err)
+	}
+	// Output: true
+}
+
 // scratch holds the activation buffers one decode step writes through.
 type scratch struct {
 	X      metalmem.Slice[float32]
