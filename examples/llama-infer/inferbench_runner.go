@@ -73,6 +73,46 @@ type inferbenchServing interface {
 	benchmarkOutputs([]string) ([]inferbench.ObservedOutput, error)
 }
 
+// benchmarkPhaseServing places profiler ranges on the scheduler goroutines
+// that submit device work. A range on the collecting goroutine alone cannot
+// delimit launches made by the prefill and decode workers.
+type benchmarkPhaseServing struct {
+	inferbenchServing
+	mu    sync.RWMutex
+	phase string
+}
+
+func (b *benchmarkPhaseServing) setPhase(phase string) {
+	b.mu.Lock()
+	b.phase = phase
+	b.mu.Unlock()
+}
+
+func (b *benchmarkPhaseServing) phaseRange() func() {
+	b.mu.RLock()
+	phase := b.phase
+	b.mu.RUnlock()
+	return benchmarkPhaseRange(phase)
+}
+
+func (b *benchmarkPhaseServing) Prefill(ctx context.Context, state *continuousbatch.State) (continuousbatch.Token, error) {
+	end := b.phaseRange()
+	defer end()
+	return b.inferbenchServing.Prefill(ctx, state)
+}
+
+func (b *benchmarkPhaseServing) PrefillBatch(requests []continuousbatch.PrefillRequest) []continuousbatch.Result {
+	end := b.phaseRange()
+	defer end()
+	return b.inferbenchServing.PrefillBatch(requests)
+}
+
+func (b *benchmarkPhaseServing) DecodeBatch(ctx context.Context, states []*continuousbatch.State) []continuousbatch.Result {
+	end := b.phaseRange()
+	defer end()
+	return b.inferbenchServing.DecodeBatch(ctx, states)
+}
+
 func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 	return runInferbenchWithEngine(ctx, cfg, specPath, getBenchmarkEngine)
 }
@@ -173,11 +213,12 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if err != nil {
 		return fmt.Errorf("inferbench: serving adapter: %w", err)
 	}
-	bench, ok := adapter.(inferbenchServing)
+	rawBench, ok := adapter.(inferbenchServing)
 	if !ok {
 		adapter.Close()
 		return fmt.Errorf("inferbench: serving adapter %T lacks benchmark evidence", adapter)
 	}
+	bench := &benchmarkPhaseServing{inferbenchServing: rawBench}
 	defer bench.Close()
 	bench.enableBenchmarkLedger()
 	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
@@ -198,7 +239,8 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 		return err
 	}
 	for i := 0; i < spec.Workload.WarmupRuns; i++ {
-		if _, err := benchmarkSample(ctx, scheduler, bench, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
+		id := fmt.Sprintf("warmup-%d", i)
+		if _, err := benchmarkPhasedSample(ctx, scheduler, bench, eng, spec.Workload, benchmarkPhaseName("warmup", spec.Arm, id), id); err != nil {
 			return err
 		}
 	}
@@ -209,7 +251,7 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 		if err := bench.resetBenchmarkPrefixes(); err != nil {
 			return fmt.Errorf("inferbench: reset serving prefixes: %w", err)
 		}
-		sample, err := benchmarkSample(ctx, scheduler, bench, eng, spec.Workload, id)
+		sample, err := benchmarkPhasedSample(ctx, scheduler, bench, eng, spec.Workload, benchmarkPhaseName("measured", spec.Arm, id), id)
 		if err != nil {
 			return err
 		}
@@ -262,7 +304,7 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 	}
 }
 
-func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter inferbenchServing, scheduler *continuousbatch.Scheduler) error {
+func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *benchmarkPhaseServing, scheduler *continuousbatch.Scheduler) error {
 	if err := benchmarkPeakMemorySupport(eng); err != nil {
 		return fmt.Errorf("inferbench: peak memory evidence: %w", err)
 	}
@@ -289,7 +331,8 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 			return err
 		}
 		for i := 0; i < spec.Workload.WarmupRuns; i++ {
-			if _, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, fmt.Sprintf("warmup-%s-%d", arm, i)); err != nil {
+			id := fmt.Sprintf("warmup-%s-%d", arm, i)
+			if _, err := benchmarkPhasedSample(ctx, scheduler, adapter, eng, spec.Workload, benchmarkPhaseName("warmup", arm, id), id); err != nil {
 				return err
 			}
 		}
@@ -305,7 +348,7 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 		if err := adapter.resetBenchmarkPrefixes(); err != nil {
 			return inferbench.Sample{}, fmt.Errorf("inferbench: reset serving prefixes: %w", err)
 		}
-		return benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, k.ID)
+		return benchmarkPhasedSample(ctx, scheduler, adapter, eng, spec.Workload, benchmarkPhaseName("measured", k.Arm, k.ID), k.ID)
 	}, func(raw inferbench.IntervalReceipt) error {
 		index := interval
 		path := filepath.Join(spec.RawDir, fmt.Sprintf("%06d.json", index))
@@ -355,6 +398,16 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 		return fmt.Errorf("inferbench: verify periodic sentinels: %w", err)
 	}
 	return inferbench.WriteJSONAtomic(spec.Output, campaign)
+}
+
+func benchmarkPhaseName(phase, arm, id string) string {
+	return "inferbench/" + phase + "/" + arm + "/" + id
+}
+
+func benchmarkPhasedSample(ctx context.Context, scheduler *continuousbatch.Scheduler, adapter *benchmarkPhaseServing, eng *ModelEngine, workload inferbench.Workload, phase, id string) (inferbench.Sample, error) {
+	adapter.setPhase(phase)
+	defer adapter.setPhase("")
+	return benchmarkSample(ctx, scheduler, adapter, eng, workload, id)
 }
 
 func verifyBenchmarkInputs(cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence) error {

@@ -5,6 +5,8 @@ package main
 import (
 	"context"
 	"errors"
+
+	"github.com/tmc/lib/nvidia/x/nvtx"
 )
 
 func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileCudaEngine(cfg) }
@@ -44,6 +46,12 @@ func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 }
 func resetBenchmarkCaches(*ModelEngine)           {}
 func benchmarkPrefillDispatches(*ModelEngine) int { return 0 }
+func benchmarkPhaseRange(name string) func() {
+	if name == "" {
+		return func() {}
+	}
+	return nvtx.ScopedRange(name)
+}
 func benchmarkSynchronize(ctx context.Context, eng *ModelEngine) error {
 	if eng == nil || eng.stream == nil {
 		return errors.New("nil CUDA engine")

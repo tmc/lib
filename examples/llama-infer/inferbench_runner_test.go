@@ -215,3 +215,21 @@ func benchmarkSampleIDs(n int) []string {
 	}
 	return ids
 }
+
+func TestBenchmarkPhaseName(t *testing.T) {
+	tests := []struct {
+		phase string
+		arm   string
+		id    string
+		want  string
+	}{
+		{"warmup", "llama-infer", "warmup-0", "inferbench/warmup/llama-infer/warmup-0"},
+		{"measured", "llama-infer", "sample-00", "inferbench/measured/llama-infer/sample-00"},
+		{"measured", "llama-infer-serial", "sample-00", "inferbench/measured/llama-infer-serial/sample-00"},
+	}
+	for _, test := range tests {
+		if got := benchmarkPhaseName(test.phase, test.arm, test.id); got != test.want {
+			t.Errorf("benchmarkPhaseName(%q, %q, %q) = %q, want %q", test.phase, test.arm, test.id, got, test.want)
+		}
+	}
+}
