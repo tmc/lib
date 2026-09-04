@@ -1,7 +1,5 @@
-// Package cudafuse compiles sub-graphs of elementwise and reduction operations into
-// single fused CUDA mega-kernels.
+// Package cudafuse generates CUDA C++ source for fused elementwise graphs.
 //
-// Fusing multiple memory-bandwidth-bound operators (e.g. Add + ReLU + Multiply + Exp)
-// keeps intermediate values entirely in GPU register files and shared memory, eliminating
-// global memory DRAM round-trips and achieving near-roofline memory efficiency.
+// The package does not compile, load, or execute the generated source. Callers
+// are responsible for validating it with a CUDA compiler and execution runtime.
 package cudafuse
