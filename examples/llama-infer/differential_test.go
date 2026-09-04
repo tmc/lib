@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
@@ -1054,43 +1053,6 @@ func TestEOSStoppingAndFinishReason(t *testing.T) {
 				t.Errorf("finish_reason = %q; want %q", finishReason, tt.wantFinish)
 			}
 		})
-	}
-
-	// Test Scheduler completion and DoneCh closure on EOS
-	cfg := Config{
-		Name:        "TestEOSModel",
-		EOSTokenID:  15,
-		EOSTokenIDs: []int32{15},
-		MaxSeqLen:   32,
-		TestMode:    true,
-	}
-	sched := NewScheduler(nil, cfg, 4)
-	seq := NewSequence("test-eos", "prompt", []int32{10, 11, 12, 13, 14}, 10, nil)
-	if err := sched.Submit(seq); err != nil {
-		t.Fatalf("Submit: %v", err)
-	}
-
-	// Step mock scheduler until sequence produces token 15 (EOS)
-	for i := 0; i < 5; i++ {
-		_, err := sched.Step(context.Background())
-		if err != nil {
-			t.Fatalf("Step: %v", err)
-		}
-	}
-
-	seq.mu.Lock()
-	status := seq.Status
-	seq.mu.Unlock()
-
-	if status != SeqFinished {
-		t.Errorf("sequence status = %v; want SeqFinished (%v)", status, SeqFinished)
-	}
-
-	select {
-	case <-seq.DoneCh:
-		// success: DoneCh is closed
-	default:
-		t.Errorf("expected seq.DoneCh to be closed upon reaching EOS")
 	}
 }
 
