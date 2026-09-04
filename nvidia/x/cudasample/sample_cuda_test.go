@@ -39,8 +39,8 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stream.Destroy()
-	wideTie := make([]float32, 258)
-	wideTie[2], wideTie[257] = 5, 5
+	wideTie := make([]float32, 259)
+	wideTie[1], wideTie[258] = 5, 5
 	tests := []struct {
 		name   string
 		logits []float32
