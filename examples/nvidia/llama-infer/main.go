@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
-	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
@@ -225,13 +223,13 @@ func runGPUInference(
 
 	forwardCU := findForwardCUPath()
 
-	// Prefill Phase
-	var ptxPath string
-	var ptxMap PTXLineMap
-	if prof != nil && gm != nil && gm.PTX() != "" {
-		ptxPath = strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".ptx"
-		_ = os.WriteFile(ptxPath, []byte(gm.PTX()), 0644)
-		ptxMap = parsePTXLines(gm.PTX())
+	var timer *stepTimer
+	if prof != nil || tracer != nil {
+		timer, err = newStepTimer(dev, prof, tracer, forwardCU)
+		if err != nil {
+			return fmt.Errorf("start step timer: %w", err)
+		}
+		defer timer.close()
 	}
 
 	if *benchFlag {
@@ -277,20 +275,17 @@ func runGPUInference(
 		var tok int32
 		labels := cudaprof.Labels("phase", "prefill", "pos", fmt.Sprintf("%d", pos), "token_id", fmt.Sprintf("%d", tokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
-			if tracer != nil {
-				_ = tracer.SpanSource(nil, fmt.Sprintf("Prefill Token %d", pos+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
-					"phase":    "prefill",
-					"pos":      pos,
-					"token_id": tokID,
-					"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
-				}, func() {
-					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
-				})
-			} else {
+			if timer == nil {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+				return
 			}
-			if err == nil && prof != nil {
-				recordStepProfile(stepCtx, prof, cfg, pos, ptxPath, ptxMap)
+			err = timer.measure(stepCtx, fmt.Sprintf("Prefill Token %d", pos+1), stepAnnotations("prefill", pos, tokID, major, minor), func(stream *cuda.Stream) error {
+				var ferr error
+				_, ferr = enqueueGPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos, stream)
+				return ferr
+			})
+			if err == nil {
+				tok = scratch.HostTokenOut[0]
 			}
 		})
 		if err != nil {
@@ -360,23 +355,18 @@ func runGPUInference(
 		var tok int32
 		labels := cudaprof.Labels("phase", "decode", "step", fmt.Sprintf("%d", step+1), "pos", fmt.Sprintf("%d", curPos), "token_id", fmt.Sprintf("%d", nextTokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
-			if tracer != nil {
-				_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", forwardCU, 90, "fma.rn.f32 %f36, %f12, %f13, %f36", map[string]any{
-					"phase":    "decode",
-					"step":     step + 1,
-					"pos":      curPos,
-					"token_id": nextTokID,
-					"gpu.arch": fmt.Sprintf("sm_%d%d", major, minor),
-				}, func() {
-					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
-				})
-			} else {
+			if timer == nil {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
+				return
 			}
-			if err == nil && prof != nil {
-				recordStepProfile(stepCtx, prof, cfg, curPos, ptxPath, ptxMap)
+			err = timer.measure(stepCtx, fmt.Sprintf("Decode Token %d", step+1), stepAnnotations("decode", curPos, nextTokID, major, minor), func(stream *cuda.Stream) error {
+				var ferr error
+				_, ferr = enqueueGPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos, stream)
+				return ferr
+			})
+			if err == nil {
+				tok = scratch.HostTokenOut[0]
 			}
-
 		})
 		if err != nil {
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
@@ -419,9 +409,6 @@ func runCPUInference(
 	tPrefill0 := time.Now()
 	for pos, tokID := range promptTokens {
 		lastLogits = Forward(weights, cfg, kvCache, tokID, pos)
-		if prof != nil {
-			recordStepProfile(context.Background(), prof, cfg, pos, "", PTXLineMap{})
-		}
 	}
 
 	prefillDuration := time.Since(tPrefill0)
@@ -458,10 +445,6 @@ func runCPUInference(
 			lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 		}
 
-		if prof != nil {
-			recordStepProfile(context.Background(), prof, cfg, curPos, "", PTXLineMap{})
-		}
-
 		curPos++
 	}
 
@@ -474,156 +457,6 @@ func runCPUInference(
 	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
 
 	return nil
-}
-
-func recordStepProfile(ctx context.Context, prof *cudaprof.Session, cfg *ModelConfig, pos int, ptxPath string, ptxMap PTXLineMap) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	ctx = pprof.WithLabels(ctx, pprof.Labels(
-		"pos", fmt.Sprintf("%d", pos),
-		"model.layers", fmt.Sprintf("%d", cfg.NumHiddenLayers),
-	))
-
-	forwardCU := findForwardCUPath()
-
-	headDim := cfg.HeadDim()
-	hiddenSize := cfg.HiddenSize
-	interSize := cfg.IntermediateSize
-	qDim := cfg.NumAttentionHeads * headDim
-	kvDim := cfg.NumKeyValueHeads * headDim
-
-	// 1. Embedding Lookup
-	prof.RecordTraceback(ctx, cudaprof.SampleValues{
-		Samples:        32,
-		VRAMAllocBytes: int64(hiddenSize * 4),
-		DRAMReadBytes:  int64(hiddenSize * 4),
-		DRAMWriteBytes: int64(hiddenSize * 4),
-	}, "EmbeddingLookup", forwardCU, 24, ptxPath, ptxMap.EmbeddingLookup, 0x7f001020)
-
-	// 2. Transformer Decoder Layers
-	for l := 0; l < cfg.NumHiddenLayers; l++ {
-		layerCtx := pprof.WithLabels(ctx, pprof.Labels("layer", fmt.Sprintf("%d", l)))
-
-		// Input RMSNorm
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:         64,
-			DRAMReadBytes:   int64(hiddenSize * 4),
-			StallScoreboard: 16,
-		}, "RMSNorm", forwardCU, 44, ptxPath, ptxMap.RMSNormLoop, 0x7f001110)
-
-		// QKV GEMVs
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:         512,
-			DRAMReadBytes:   int64((hiddenSize * (qDim + 2*kvDim)) * 4),
-			TensorWarps:     256,
-			StallScoreboard: 64,
-		}, "LinearGEMV_QKV", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001230)
-
-		// RoPE
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:        48,
-			DRAMReadBytes:  int64(qDim * 4),
-			DRAMWriteBytes: int64(qDim * 4),
-		}, "ApplyRoPE", forwardCU, 133, ptxPath, ptxMap.RoPELoop, 0x7f001320)
-
-		// Store KV Cache
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:        32,
-			VRAMAllocBytes: int64(kvDim * 8),
-			DRAMWriteBytes: int64(kvDim * 8),
-		}, "StoreKVCache", forwardCU, 161, ptxPath, ptxMap.StoreKVLoop, 0x7f001390)
-
-		// FlashAttention Decode
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:         1024,
-			DRAMReadBytes:   int64(kvDim * 4 * (pos + 1)),
-			SharedMemBytes:  int64((pos + 1) * 4),
-			TensorWarps:     512,
-			StallScoreboard: 128,
-		}, "CausalFlashAttentionDecode", "flash_attn.cu", 65, "", 0, 0x7f002100)
-
-		// Out GEMV
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:         256,
-			DRAMReadBytes:   int64(qDim * hiddenSize * 4),
-			TensorWarps:     128,
-			StallScoreboard: 32,
-		}, "LinearGEMV_Out", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001270)
-
-		// Residual
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:        32,
-			DRAMReadBytes:  int64(hiddenSize * 8),
-			DRAMWriteBytes: int64(hiddenSize * 4),
-		}, "AddResidual", forwardCU, 187, ptxPath, ptxMap.AddResidualLoop, 0x7f001410)
-
-		// SwiGLU
-		prof.RecordTraceback(layerCtx, cudaprof.SampleValues{
-			Samples:        128,
-			DRAMReadBytes:  int64(interSize * 8),
-			DRAMWriteBytes: int64(interSize * 4),
-		}, "SwiGLU", forwardCU, 174, ptxPath, ptxMap.SwiGLULoop, 0x7f001450)
-	}
-
-	// 3. LM Head GEMV
-	prof.RecordTraceback(ctx, cudaprof.SampleValues{
-		Samples:         1024,
-		VRAMAllocBytes:  int64(cfg.VocabSize * 4),
-		DRAMReadBytes:   int64(hiddenSize * cfg.VocabSize * 4),
-		TensorWarps:     512,
-		StallScoreboard: 256,
-	}, "LinearGEMV_LMHead", forwardCU, 90, ptxPath, ptxMap.LinearGEMVLoop, 0x7f001290)
-
-	// 4. Argmax Sampling
-	prof.RecordTraceback(ctx, cudaprof.SampleValues{
-		Samples:        64,
-		DRAMReadBytes:  int64(cfg.VocabSize * 4),
-		DRAMWriteBytes: 4,
-	}, "ArgmaxLogits", "sample_argmax.cu", 35, "", 0, 0x7f003150)
-}
-
-type PTXLineMap struct {
-	EmbeddingLookup int64
-	RMSNormLoop     int64
-	RMSNormRSQRT    int64
-	RMSNormStore    int64
-	LinearGEMVLoop  int64
-	LinearGEMVShfl  int64
-	LinearGEMVStore int64
-	RoPELoop        int64
-	StoreKVLoop     int64
-	SwiGLULoop      int64
-	AddResidualLoop int64
-}
-
-func parsePTXLines(ptx string) PTXLineMap {
-	mod, err := cudaptx.ParseString(ptx)
-	if err != nil {
-		return PTXLineMap{}
-	}
-
-	var m PTXLineMap
-	if k := mod.Kernel("EmbeddingLookup"); k != nil {
-		m.EmbeddingLookup = int64(k.StartLine)
-	}
-	m.RMSNormLoop = int64(mod.FirstOpcodeLine("RMSNorm", "fma"))
-	m.RMSNormRSQRT = int64(mod.FirstOpcodeLine("RMSNorm", "rsqrt"))
-	m.RMSNormStore = int64(mod.FirstOpcodeLine("RMSNorm", "st.global"))
-
-	m.LinearGEMVLoop = int64(mod.FirstOpcodeLine("LinearGEMV", "fma"))
-	m.LinearGEMVShfl = int64(mod.FirstOpcodeLine("LinearGEMV", "shfl"))
-	m.LinearGEMVStore = int64(mod.FirstOpcodeLine("LinearGEMV", "st.global"))
-
-	m.RoPELoop = int64(mod.FirstOpcodeLine("ApplyRoPE", "fma"))
-	m.StoreKVLoop = int64(mod.FirstOpcodeLine("StoreKVCache", "st.global"))
-	m.SwiGLULoop = int64(mod.FirstOpcodeLine("SwiGLU", "fma"))
-	if m.SwiGLULoop == 0 {
-		m.SwiGLULoop = int64(mod.FirstOpcodeLine("SwiGLU", "mul"))
-	}
-	m.AddResidualLoop = int64(mod.FirstOpcodeLine("AddResidual", "add"))
-
-	return m
 }
 
 func findForwardCUPath() string {

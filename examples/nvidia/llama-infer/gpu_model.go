@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -215,6 +216,36 @@ func GPUForwardPassStream(
 	pos int,
 	stream *cuda.Stream,
 ) (int32, error) {
+	token, err := enqueueGPUForwardPass(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream)
+	if stream == nil {
+		return token, err
+	}
+	// Even an enqueue error may leave work using the scratch buffers. Drain
+	// before returning ownership to the caller.
+	if waitErr := stream.Synchronize(context.Background()); err == nil {
+		err = waitErr
+	}
+	if err != nil {
+		return 0, err
+	}
+	return sp.HostTokenOut[0], nil
+}
+
+// enqueueGPUForwardPass leaves stream work pending when stream is non-nil.
+// The caller must drain it before reading HostTokenOut or releasing buffers.
+// With a nil stream it performs the synchronous default-stream operation.
+func enqueueGPUForwardPass(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn driver.Function,
+	sampleFn driver.Function,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+) (int32, error) {
 
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
@@ -392,7 +423,7 @@ func GPUForwardPassStream(
 		if err := sp.TokenOut.CopyToHostAsync(sp.HostTokenOut, stream); err != nil {
 			return 0, err
 		}
-		return sp.HostTokenOut[0], nil
+		return 0, nil
 	}
 
 	// Synchronize GPU stream and read back only the 1 single token ID

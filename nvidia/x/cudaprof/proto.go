@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 type stringTable struct {
 	strings []string
 	lookup  map[string]int64
@@ -59,7 +58,9 @@ func encodeString(fieldNum int, s string) []byte {
 	return encodeLengthDelimited(fieldNum, []byte(s))
 }
 
-// SampleValues contains multi-dimensional hardware metrics for an instruction or source line.
+// SampleValues contains caller-supplied metrics for an instruction or source
+// line. The caller is responsible for measurement and attribution; the builder
+// does not collect or verify hardware counters. Leave unmeasured fields zero.
 type SampleValues struct {
 	Samples         int64 // Execution clock cycles / sample hits
 	VRAMAllocBytes  int64 // VRAM allocated / staged (bytes)
@@ -69,6 +70,7 @@ type SampleValues struct {
 	TensorWarps     int64 // Tensor Core (HMMA/IMMA) warp executions
 	StallScoreboard int64 // Warps stalled on register/memory scoreboard
 	StallWait       int64 // Warps stalled on synchronization barrier (__syncthreads)
+	GPUNanos        int64 // Observed device timeline interval (nanoseconds)
 }
 
 // Builder constructs a pprof profile containing GPU kernel, PTX, and SASS samples.
@@ -245,6 +247,7 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 		vals.TensorWarps,
 		vals.StallScoreboard,
 		vals.StallWait,
+		vals.GPUNanos,
 	}
 
 	b.samples = append(b.samples, sample{
@@ -304,8 +307,6 @@ func (b *Builder) AddTracebackSample(
 	b.AddStackSample(vals, frames, labels)
 }
 
-
-
 // WriteGzip encodes the profile as a standard gzipped pprof profile with multiple metric dimensions.
 func (b *Builder) WriteGzip(w io.Writer) error {
 	// Synthesize ELF binary sidecar if binaryPath is specified
@@ -323,8 +324,8 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 
 	var body []byte
 
-
-	// 1. SampleTypes: [samples/count, vram_alloc/bytes, dram_read/bytes, dram_write/bytes, shared_mem/bytes, tensor_warps/count, stall_scoreboard/count, stall_wait/count]
+	// 1. SampleTypes: [samples/count, vram_alloc/bytes, dram_read/bytes, dram_write/bytes, shared_mem/bytes, tensor_warps/count, stall_scoreboard/count, stall_wait/count, gpu_time/nanoseconds]
+	// gpu_time is last so pprof selects it by default.
 	sampleTypes := []struct {
 		typ  string
 		unit string
@@ -337,6 +338,7 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		{"tensor_warps", "count"},
 		{"stall_scoreboard", "count"},
 		{"stall_wait", "count"},
+		{"gpu_time", "nanoseconds"},
 	}
 
 	for _, st := range sampleTypes {
@@ -364,7 +366,6 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		}
 		body = append(body, encodeLengthDelimited(2, sBody)...)
 	}
-
 
 	// 3. Mappings
 	for _, m := range b.mappings {
