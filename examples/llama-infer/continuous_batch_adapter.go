@@ -11,22 +11,25 @@ import (
 )
 
 type scheduledEngineAdapter struct {
-	engine                              *ModelEngine
-	cfg                                 Config
-	cache                               *BatchedAttentionCache
-	tail                                *BatchedModelTail
-	capacity                            int
-	prefillMu, rowsMu, metricsMu, gpuMu sync.Mutex
-	freeRows                            []int
-	leases                              map[int]uint64
-	nextLease                           uint64
-	batches                             []fullBatchObservation
-	prefillBatches                      []fullBatchObservation
-	prefillDispatches                   uint64
-	prefixes                            *productionPrefixRuntime
-	prefillObserver                     func(*continuousbatch.State, *productionPrefixLease, []float32)
-	observedOutputs                     *observedOutputCollector
-	physical                            *physicalWaveLedger
+	engine            *ModelEngine
+	cfg               Config
+	cache             *BatchedAttentionCache
+	tail              *BatchedModelTail
+	capacity          int
+	prefillMu         sync.Mutex
+	gpuMu             sync.Mutex // Acquired before rowsMu when an operation needs both.
+	rowsMu            sync.Mutex
+	metricsMu         sync.Mutex
+	freeRows          []int
+	leases            map[int]uint64
+	nextLease         uint64
+	batches           []fullBatchObservation
+	prefillBatches    []fullBatchObservation
+	prefillDispatches uint64
+	prefixes          *productionPrefixRuntime
+	prefillObserver   func(*continuousbatch.State, *productionPrefixLease, []float32)
+	observedOutputs   *observedOutputCollector
+	physical          *physicalWaveLedger
 }
 
 type scheduledSequenceState struct {
@@ -535,13 +538,13 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 	if err := ctx.Err(); err != nil {
 		return batchError(results, err)
 	}
+	a.lockDecode()
+	defer a.unlockDecode()
 	tokens := make([]int32, len(states))
 	positions := make([]int, len(states))
 	rows := make([]int, len(states))
 	samplers := make([]SamplerConfig, len(states))
 	prefixes := make([]*productionPrefixLease, len(states))
-	a.rowsMu.Lock()
-	defer a.rowsMu.Unlock()
 	for i, state := range states {
 		sequence, ok := state.KV.(scheduledSequenceState)
 		if !ok {
@@ -556,8 +559,6 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 		}
 		tokens[i], positions[i], rows[i], samplers[i], prefixes[i] = state.Current, state.Position, sequence.row, sampler, sequence.prefix
 	}
-	a.gpuMu.Lock()
-	defer a.gpuMu.Unlock()
 	chain, err := a.prefixes.Run(ctx, a.engine, a.cfg, a.cache, prefixes, tokens, positions, rows)
 	if err != nil {
 		return batchError(results, err)
@@ -597,6 +598,16 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 		results[i] = continuousbatch.Result{Token: continuousbatch.Token{ID: token, Text: text}, Done: a.cfg.IsEOS(token), Err: err}
 	}
 	return results
+}
+
+func (a *scheduledEngineAdapter) lockDecode() {
+	a.gpuMu.Lock()
+	a.rowsMu.Lock()
+}
+
+func (a *scheduledEngineAdapter) unlockDecode() {
+	a.rowsMu.Unlock()
+	a.gpuMu.Unlock()
 }
 
 func batchError(results []continuousbatch.Result, err error) []continuousbatch.Result {
