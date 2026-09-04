@@ -244,10 +244,11 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	}
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
+	dev := stream.Device()
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
-			return stream.Device().WithContext(func() error {
+			return dev.WithContext(func() error {
 				return ptr.MemcpyHtoDAsync(hostPtr, totalBytes, handle)
 			})
 		})
@@ -282,10 +283,11 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	}
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
+	dev := stream.Device()
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
-			return stream.Device().WithContext(func() error {
+			return dev.WithContext(func() error {
 				return ptr.MemcpyDtoHAsync(hostPtr, totalBytes, handle)
 			})
 		})
@@ -327,9 +329,10 @@ func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) err
 		return errors.New("cudamem: nil stream passed to CopyDeviceToDeviceAsync")
 	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
+	dev := stream.Device()
 	if err := s.withSource(src, func(dst, src driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
-			return stream.Device().WithContext(func() error {
+			return dev.WithContext(func() error {
 				return dst.MemcpyDtoDAsync(src, totalBytes, handle)
 			})
 		})

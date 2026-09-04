@@ -109,8 +109,9 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 	if s == nil {
 		err = e.withContext(func() error { return launch(0) })
 	} else {
+		dev := s.Device()
 		err = s.WithHandle(func(stream driver.Stream) error {
-			return s.Device().WithContext(func() error { return launch(stream) })
+			return dev.WithContext(func() error { return launch(stream) })
 		})
 	}
 	if err != nil {

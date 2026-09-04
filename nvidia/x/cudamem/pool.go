@@ -46,10 +46,11 @@ func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 	}
 	totalBytes := uint(uintptr(length) * elemSize)
 	allocBytes := BucketSize(totalBytes)
+	dev := stream.Device()
 
 	var dptr driver.DevicePtr
 	err := stream.WithHandle(func(handle driver.Stream) error {
-		return stream.Device().WithContext(func() error {
+		return dev.WithContext(func() error {
 			var err error
 			dptr, err = handle.MemAllocAsync(allocBytes)
 			return err
@@ -86,8 +87,9 @@ func (s Slice[T]) FreeAsync(stream *cuda.Stream) error {
 	if s.alloc.ptr == 0 {
 		return nil
 	}
+	dev := stream.Device()
 	if err := stream.WithHandle(func(handle driver.Stream) error {
-		return stream.Device().WithContext(func() error {
+		return dev.WithContext(func() error {
 			return s.alloc.ptr.MemFreeAsync(handle)
 		})
 	}); err != nil {
