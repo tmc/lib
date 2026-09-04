@@ -235,6 +235,37 @@ func TestAsyncFreeAccountsAtCompletion(t *testing.T) {
 	}
 }
 
+func TestAsyncCopyCallerRetainsDeviceAllocation(t *testing.T) {
+	dev := testDevice(t)
+	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Destroy()
+	var tracker Tracker
+	s, err := AllocTracked[byte](dev, &tracker, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CopyFromHostAsync(make([]byte, 4096), stream); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := tracker.Snapshot()
+	if current != 4096 {
+		t.Fatalf("allocation before caller release = %d, want 4096", current)
+	}
+	if err := s.Free(); err != nil {
+		t.Fatal(err)
+	}
+	current, _ = tracker.Snapshot()
+	if current != 0 {
+		t.Fatalf("allocation after caller release = %d, want 0", current)
+	}
+}
+
 func TestConcurrentStreamsAsyncCopiesAndCancellation(t *testing.T) {
 	dev := testDevice(t)
 	const n = 4 << 20
