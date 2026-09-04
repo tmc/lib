@@ -128,9 +128,13 @@ extern "C" __global__ void ArgmaxLogits(
     // Reduction in shared memory
     for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
         if (tid < stride) {
-            if (s_max_val[tid + stride] > s_max_val[tid]) {
+            float other_val = s_max_val[tid + stride];
+            int other_idx = s_max_idx[tid + stride];
+            if (other_val > s_max_val[tid] ||
+                (other_val == s_max_val[tid] && other_idx >= 0 &&
+                 (s_max_idx[tid] < 0 || other_idx < s_max_idx[tid]))) {
                 s_max_val[tid] = s_max_val[tid + stride];
-                s_max_idx[tid] = s_max_idx[tid + stride];
+                s_max_idx[tid] = other_idx;
             }
         }
         __syncthreads();

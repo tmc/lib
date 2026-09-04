@@ -39,9 +39,23 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stream.Destroy()
-	tests := [][]float32{{float32(math.NaN()), 4, 3}, {-2e20, -3e20}, {float32(math.NaN())}, {float32(math.Inf(-1))}, {5, 5, 3}}
+	wideTie := make([]float32, 258)
+	wideTie[2], wideTie[257] = 5, 5
+	tests := []struct {
+		name   string
+		logits []float32
+	}{
+		{"leading NaN", []float32{float32(math.NaN()), 4, 3}},
+		{"large negative", []float32{-2e20, -3e20}},
+		{"all NaN", []float32{float32(math.NaN()), float32(math.NaN())}},
+		{"all negative infinity", []float32{float32(math.Inf(-1)), float32(math.Inf(-1))}},
+		{"adjacent tie", []float32{5, 5, 3}},
+		{"cross-warp tie", wideTie},
+		{"positive infinity", []float32{1, float32(math.Inf(1)), 2}},
+	}
 	if err := dev.WithContext(func() error {
-		for _, logits := range tests {
+		for _, tt := range tests {
+			logits := tt.logits
 			in, err := cudamem.Alloc[float32](dev, len(logits))
 			if err != nil {
 				return err
@@ -65,7 +79,7 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 			_ = in.Free()
 			_ = out.Free()
 			if got[0] != want {
-				t.Fatalf("logits=%v GPU=%d CPU=%d", logits, got[0], want)
+				t.Fatalf("%s: GPU=%d CPU=%d", tt.name, got[0], want)
 			}
 		}
 		return nil
