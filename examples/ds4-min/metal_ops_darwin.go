@@ -34,6 +34,66 @@ type metalPinnedKernels struct {
 	RMS              apple.MTLComputePipelineState `metal:"rms_norm"`
 	RopeAttention    apple.MTLComputePipelineState `metal:"rope_attention_one"`
 	RopeAttentionRaw apple.MTLComputePipelineState `metal:"rope_attention_raw"`
+	CompressorPool   apple.MTLComputePipelineState `metal:"compressor_pool"`
+	CompressorFinish apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
+}
+
+func (o *metalPinnedOps) CompressorAttention(kv, score []float32, ape, norm boundMetalTensor, state *metalCompressedState, position int) ([]float32, bool, error) {
+	if state == nil || state.headDim != 512 || (state.ratio != 4 && state.ratio != 128) ||
+		len(kv) != state.width || len(score) != state.width || position < 0 ||
+		ape.typeID != 1 || norm.typeID != 0 || len(ape.dimensions) != 2 ||
+		ape.dimensions[0] != uint64(state.width) || ape.dimensions[1] != uint64(state.ratio) {
+		return nil, false, fmt.Errorf("attention compressor: invalid shape")
+	}
+	emit := (position+1)%state.ratio == 0
+	if emit && state.n >= state.cap {
+		return nil, false, fmt.Errorf("attention compressor: cache capacity exceeded")
+	}
+	kvbuf, err := metalmem.AllocFromSlice(o.dev, kv)
+	if err != nil {
+		return nil, false, err
+	}
+	defer kvbuf.Free()
+	scorebuf, err := metalmem.AllocFromSlice(o.dev, score)
+	if err != nil {
+		return nil, false, err
+	}
+	defer scorebuf.Free()
+	cb := o.dev.Queue().CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(o.kernels.CompressorPool)
+	for i, data := range []metalmem.Slice[float32]{kvbuf, scorebuf, state.stateKV, state.stateScore, state.pooled} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(ape.data.Buffer(), ape.data.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(state.headDim), 6)
+	libmetal.SetScalar(enc, uint32(state.width), 7)
+	libmetal.SetScalar(enc, uint32(state.ratio), 8)
+	libmetal.SetScalar(enc, uint32(position), 9)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(state.headDim))
+	enc.EndEncoding()
+	if emit {
+		enc = cb.ComputeCommandEncoder()
+		enc.SetComputePipelineState(o.kernels.CompressorFinish)
+		enc.SetBufferWithOffsetAtIndex(state.pooled.Buffer(), state.pooled.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(norm.data.Buffer(), norm.data.Offset(), 1)
+		enc.SetBufferWithOffsetAtIndex(state.cache.Buffer(), state.cache.Offset(), 2)
+		libmetal.SetScalar(enc, uint32(state.n), 3)
+		libmetal.SetScalar(enc, uint32(position+1-state.ratio), 4)
+		enc.SetThreadgroupMemoryLengthAtIndex(32*4, 0)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(128))
+		enc.EndEncoding()
+	}
+	cb.Commit()
+	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return nil, false, fmt.Errorf("attention compressor: %w", err)
+	}
+	if !emit {
+		return nil, false, nil
+	}
+	out := append([]float32(nil), state.cache.HostSlice()[state.n*state.headDim:(state.n+1)*state.headDim]...)
+	state.n++
+	return out, true, nil
 }
 
 func (o *metalPinnedOps) RopeAttentionRaw(q, kv []float32, sinks boundMetalTensor, cache metalmem.Slice[float32], position int) ([]float32, []float32, []float32, error) {
@@ -1219,6 +1279,108 @@ inline float e4m3fn_round(float value) {
   int best=lo;
   if(best<126){float bv=e4m3fn_value(best),nv=e4m3fn_value(best+1),bd=abs(ax-bv),nd=abs(ax-nv);if(nd<bd||(nd==bd&&((best+1)&1)==0&&(best&1)!=0))best++;}
   return sign*e4m3fn_value(best);
+}
+
+kernel void compressor_pool(
+    device const float *kv_cur [[buffer(0)]],
+    device const float *score_cur [[buffer(1)]],
+    device float *state_kv [[buffer(2)]],
+    device float *state_score [[buffer(3)]],
+    device float *pooled [[buffer(4)]],
+    device const half *ape [[buffer(5)]],
+    constant uint &head_dim [[buffer(6)]],
+    constant uint &width [[buffer(7)]],
+    constant uint &ratio [[buffer(8)]],
+    constant uint &position [[buffer(9)]],
+    uint j [[thread_position_in_threadgroup]]) {
+  if(j>=head_dim)return;
+  const uint lanes=ratio==4?2:1,pos_mod=position%ratio,row=ratio==4?ratio+pos_mod:pos_mod;
+  for(uint lane=0;lane<lanes;lane++){
+    const uint i=lane*head_dim+j;
+    state_kv[row*width+i]=kv_cur[i];
+    state_score[row*width+i]=score_cur[i]+float(ape[pos_mod*width+i]);
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  if((position+1)%ratio!=0)return;
+  float maximum=-INFINITY;
+  if(ratio==4){
+    for(uint r=0;r<ratio;r++){
+      maximum=max(maximum,state_score[r*width+j]);
+      maximum=max(maximum,state_score[(ratio+r)*width+head_dim+j]);
+    }
+  }else{
+    for(uint r=0;r<ratio;r++)maximum=max(maximum,state_score[r*width+j]);
+  }
+  float denom=0.0f,sum=0.0f;
+  if(ratio==4){
+    for(uint r=0;r<ratio;r++){
+      float wp=exp(state_score[r*width+j]-maximum),wc=exp(state_score[(ratio+r)*width+head_dim+j]-maximum);
+      denom+=wp+wc;sum+=wp*state_kv[r*width+j]+wc*state_kv[(ratio+r)*width+head_dim+j];
+    }
+  }else{
+    for(uint r=0;r<ratio;r++){float w=exp(state_score[r*width+j]-maximum);denom+=w;sum+=w*state_kv[r*width+j];}
+  }
+  pooled[j]=denom>0.0f?sum/denom:0.0f;
+  if(ratio==4){
+    for(uint r=0;r<ratio;r++)for(uint lane=0;lane<2;lane++){
+      const uint i=lane*head_dim+j;
+      state_kv[r*width+i]=state_kv[(ratio+r)*width+i];
+      state_score[r*width+i]=state_score[(ratio+r)*width+i];
+    }
+    threadgroup_barrier(mem_flags::mem_device);
+    for(uint r=0;r<ratio;r++)for(uint lane=0;lane<2;lane++){
+      const uint i=lane*head_dim+j;
+      state_kv[(ratio+r)*width+i]=state_kv[r*width+i];
+      state_score[(ratio+r)*width+i]=state_score[r*width+i];
+    }
+  }
+}
+
+inline float yarn_corr_factor(float rotations) {
+  return 64.0f*log(65536.0f/(rotations*2.0f*M_PI_F))/(2.0f*log(160000.0f));
+}
+
+inline float compressed_rope_theta(uint position,uint r) {
+  const float extrap=float(position)*pow(160000.0f,-float(r)/64.0f);
+  const float low=max(0.0f,floor(yarn_corr_factor(32.0f))),high=min(63.0f,ceil(yarn_corr_factor(1.0f)));
+  const float y=(float(r/2)-low)/max(0.001f,high-low);
+  const float ramp=1.0f-clamp(y,0.0f,1.0f);
+  return extrap*(0.0625f*(1.0f-ramp)+ramp);
+}
+
+kernel void compressor_finish_attention(
+    device float *pooled [[buffer(0)]],
+    device const float *weight [[buffer(1)]],
+    device float *cache [[buffer(2)]],
+    constant uint &cache_row [[buffer(3)]],
+    constant uint &position [[buffer(4)]],
+    threadgroup float *scratch [[threadgroup(0)]],
+    uint tid [[thread_position_in_threadgroup]],
+    ushort lane [[thread_index_in_simdgroup]],
+    ushort simdgroup [[simdgroup_index_in_threadgroup]]) {
+  if(simdgroup==0)scratch[lane]=0.0f;
+  float ss=0.0f;device float4 *p4=reinterpret_cast<device float4 *>(pooled);
+  for(uint i=tid;i<128;i+=128)ss+=dot(p4[i],p4[i]);
+  ss=simd_sum(ss);
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  if(lane==0)scratch[simdgroup]=ss;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  ss=simd_sum(scratch[lane]);
+  const float inv=1.0f/sqrt(ss/512.0f+1.0e-6f);
+  for(uint i=tid;i<512;i+=128)pooled[i]=pooled[i]*inv*weight[i];
+  threadgroup_barrier(mem_flags::mem_device);
+  if(tid<32){
+    const uint r=2*tid,i=448+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=sin(theta),a=pooled[i],b=pooled[i+1];
+    pooled[i]=a*c-b*s;pooled[i+1]=a*s+b*c;
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  if(tid<7){
+    const uint off=tid*64;float amax=1.0e-4f;for(uint i=0;i<64;i++)amax=max(amax,abs(pooled[off+i]));
+    const float scale=exp2(ceil(log2(amax/448.0f)));
+    for(uint i=0;i<64;i++)pooled[off+i]=e4m3fn_round(clamp(pooled[off+i]/scale,-448.0f,448.0f))*scale;
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  for(uint i=tid;i<512;i+=128)cache[cache_row*512+i]=float(half(pooled[i]));
 }
 
 kernel void rope_attention_raw(

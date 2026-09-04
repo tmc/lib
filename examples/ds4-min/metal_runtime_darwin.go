@@ -93,6 +93,7 @@ type metalCompressedState struct {
 	cache      metalmem.Slice[float32]
 	stateKV    metalmem.Slice[float32]
 	stateScore metalmem.Slice[float32]
+	pooled     metalmem.Slice[float32]
 	headDim    int
 	width      int
 	ratio      int
@@ -332,6 +333,7 @@ func (r *metalRuntime) allocState() {
 			cache:      metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-cache", i), cap*ds4KVWidth),
 			stateKV:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-state-kv", i), rows*width),
 			stateScore: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-state-score", i), rows*width),
+			pooled:     metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-attn-pooled", i), ds4KVWidth),
 			headDim:    ds4KVWidth,
 			width:      width,
 			ratio:      ratio,
@@ -342,6 +344,7 @@ func (r *metalRuntime) allocState() {
 				cache:      metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-cache", i), cap*128),
 				stateKV:    metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-state-kv", i), 2*ratio*256),
 				stateScore: metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-state-score", i), 2*ratio*256),
+				pooled:     metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-indexer-pooled", i), 128),
 				headDim:    128,
 				width:      256,
 				ratio:      ratio,
@@ -373,6 +376,7 @@ func resetCompressedState(s *metalCompressedState) {
 	s.n = 0
 	clear(s.cache.HostSlice())
 	clear(s.stateKV.HostSlice())
+	clear(s.pooled.HostSlice())
 	scores := s.stateScore.HostSlice()
 	for i := range scores {
 		scores[i] = float32(math.Inf(-1))

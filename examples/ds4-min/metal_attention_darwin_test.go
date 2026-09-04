@@ -3,13 +3,110 @@
 package main
 
 import (
+	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
+
+func TestMetalRatio4CompressorOracle(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	dirs := strings.Split(os.Getenv("DS4_LAYER2_COMPRESSOR_ORACLE_DIRS"), ":")
+	if model == "" || len(dirs) != 4 || dirs[0] == "" {
+		t.Skip("model and four compressor oracle paths not set")
+	}
+	r, err := newMetalRuntime(model, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	state := &r.state.layers[2].attn
+	layer := &r.layers[2]
+	for position, dir := range dirs {
+		kv := readOracleF32(t, dir+fmt.Sprintf("/stage_attn_comp_kv_raw-2_pos%d.bin", position))
+		score := readOracleF32(t, dir+fmt.Sprintf("/stage_attn_comp_score_raw-2_pos%d.bin", position))
+		got, emitted, err := r.ops.CompressorAttention(kv, score, layer.attnCompressorAPE, layer.attnCompressorNorm, state, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if emitted != (position == 3) {
+			t.Fatalf("position %d emitted = %t", position, emitted)
+		}
+		if emitted {
+			compareOracleFP8F32(t, "KVcompress", got, dir+"/stage_KVcompress-2_pos3.bin")
+		}
+	}
+}
+
+func TestMetalRatio4CompressorEmitsFourthToken(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	state := metalCompressedState{
+		cache:      metalmem.AllocIn[float32](a, "cache", 6*512),
+		stateKV:    metalmem.AllocIn[float32](a, "state-kv", 8*1024),
+		stateScore: metalmem.AllocIn[float32](a, "state-score", 8*1024),
+		pooled:     metalmem.AllocIn[float32](a, "pooled", 512),
+		headDim:    512,
+		width:      1024,
+		ratio:      4,
+		cap:        6,
+	}
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	resetCompressedState(&state)
+	apeData := metalmem.UploadIn(a, "ape", make([]byte, 4*1024*2))
+	normBytes := make([]byte, 512*4)
+	for i := range 512 {
+		binary.LittleEndian.PutUint32(normBytes[4*i:], math.Float32bits(1))
+	}
+	normData := metalmem.UploadIn(a, "norm", normBytes)
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	ape := boundMetalTensor{name: "ape", typeID: 1, dimensions: []uint64{1024, 4}, data: apeData}
+	norm := boundMetalTensor{name: "norm", typeID: 0, dimensions: []uint64{512}, data: normData}
+	kv := make([]float32, 1024)
+	score := make([]float32, 1024)
+	for i := range kv {
+		kv[i] = 1
+	}
+	for position := range 4 {
+		got, emitted, err := ops.CompressorAttention(kv, score, ape, norm, &state, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if emitted != (position == 3) {
+			t.Fatalf("position %d emitted = %t", position, emitted)
+		}
+		if !emitted {
+			continue
+		}
+		for i, value := range got {
+			if math.Abs(float64(value-1)) > 1e-5 {
+				t.Fatalf("compressed[%d] = %g, want 1", i, value)
+			}
+		}
+	}
+	if state.n != 1 {
+		t.Fatalf("compressed rows = %d, want 1", state.n)
+	}
+}
 
 func TestMetalRawAttentionPositionOneOracle(t *testing.T) {
 	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
