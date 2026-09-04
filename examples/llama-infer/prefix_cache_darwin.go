@@ -162,3 +162,20 @@ func (c *prefixCache) metrics() PrefixCacheMetrics {
 		SavedTokens: c.saved,
 	}
 }
+
+func (c *prefixCache) reset() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.radix = metalkv.NewRadixTree(c.maxItems*4, 1)
+	c.blockMap = make(map[int]*prefixSnapshot)
+	c.tokenBlocks = make(map[string][]int)
+	c.entries = make(map[string]*prefixSnapshot)
+	c.bytes = 0
+	c.hits = 0
+	c.misses = 0
+	c.saved = 0
+	c.nextBlock = 0
+}

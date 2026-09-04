@@ -115,6 +115,16 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if err != nil {
 		return err
 	}
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return fmt.Errorf("inferbench: user cache directory: %w", err)
+	}
+	deviceLease, err := inferbench.AcquireDeviceLease(filepath.Join(cacheDir, "tmc-lib", "inferbench"), identity.Backend, identity.DeviceID)
+	if err != nil {
+		return err
+	}
+	defer deviceLease.Close()
+	evidence.RunnerLease = deviceLease.Path()
 	eng, err := newEngine(cfg)
 	if err != nil {
 		return fmt.Errorf("inferbench: compile engine: %w", err)
@@ -203,6 +213,17 @@ func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity in
 	evidence.WarmupRunsCompleted = spec.Workload.WarmupRuns
 	plan := inferbench.Campaign{SchemaVersion: inferbench.SchemaVersion, RandomSeed: spec.RandomSeed}
 	for _, arm := range spec.Arms {
+		run := inferbench.Run{Arm: arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
+		for _, id := range spec.SampleIDs {
+			run.Samples = append(run.Samples, inferbench.Sample{ID: id})
+		}
+		plan.Runs = append(plan.Runs, run)
+	}
+	plan.Order = inferbench.Schedule(plan.Runs, plan.RandomSeed)
+	if err := inferbench.WriteJSONAtomic(filepath.Join(spec.RawDir, "plan.json"), plan); err != nil {
+		return fmt.Errorf("inferbench: write campaign plan: %w", err)
+	}
+	for _, arm := range spec.Arms {
 		if err := configureBenchmarkArm(eng, arm); err != nil {
 			return err
 		}
@@ -211,13 +232,7 @@ func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity in
 				return err
 			}
 		}
-		run := inferbench.Run{Arm: arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
-		for _, id := range spec.SampleIDs {
-			run.Samples = append(run.Samples, inferbench.Sample{ID: id})
-		}
-		plan.Runs = append(plan.Runs, run)
 	}
-	plan.Order = inferbench.Schedule(plan.Runs, plan.RandomSeed)
 	interval := 0
 	campaign, err := inferbench.Collect(plan, func(k inferbench.ScheduledSample) (inferbench.Sample, error) {
 		if err := configureBenchmarkArm(eng, k.Arm); err != nil {

@@ -38,6 +38,21 @@ func TestPrefixCacheLongestMatch(t *testing.T) {
 	}
 }
 
+func TestPrefixCacheResetClearsEntriesAndMetrics(t *testing.T) {
+	cache := newPrefixCache(1024, 2)
+	cache.store([]int32{1, 2, 3}, &prefixSnapshot{tokens: 3, bytes: 24})
+	if _, _, ok := cache.load([]int32{1, 2, 3}); !ok {
+		t.Fatal("prefix missing before reset")
+	}
+	cache.reset()
+	if got := cache.metrics(); got != (PrefixCacheMetrics{}) {
+		t.Fatalf("metrics after reset = %+v", got)
+	}
+	if _, _, ok := cache.load([]int32{1, 2, 3}); ok {
+		t.Fatal("prefix survived reset")
+	}
+}
+
 func TestDispatchTunerLocksMeasuredVariants(t *testing.T) {
 	tuner := NewDispatchTuner()
 	for i := 0; i < 3; i++ {

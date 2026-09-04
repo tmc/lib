@@ -20,7 +20,7 @@ func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	}
 	return eng.dev.Name(), nil
 }
-func resetBenchmarkCaches(eng *ModelEngine) { eng.prefixes = newPrefixCache(64<<20, 8) }
+func resetBenchmarkCaches(eng *ModelEngine) { eng.prefixes.reset() }
 func benchmarkPrefillDispatches(eng *ModelEngine) int {
 	if eng.isF16 {
 		active := 0
