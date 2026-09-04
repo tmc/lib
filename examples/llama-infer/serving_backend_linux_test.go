@@ -95,6 +95,260 @@ func TestRealCUDAContinuousServing(t *testing.T) {
 	}
 }
 
+func TestRealCUDAProductionServingStress(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	cfg := Llama3_2_1BConfig(path)
+	cfg.MaxSeqLen = 16
+	engine, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, _ := engine.memory.Snapshot()
+	requests := []continuousbatch.Request{
+		{ID: "cancel-decode", PromptTokenIDs: []int32{41}, MaxTokens: 8, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "short", PromptTokenIDs: []int32{42}, MaxTokens: 3, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "medium-a", PromptTokenIDs: []int32{43, 44}, MaxTokens: 5, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "medium-b", PromptTokenIDs: []int32{45, 46}, MaxTokens: 6, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "long", PromptTokenIDs: []int32{47, 48, 49, 50}, MaxTokens: 7, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "fail", PromptTokenIDs: []int32{51, 52, 53}, MaxTokens: 4, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "late-a", PromptTokenIDs: []int32{54}, MaxTokens: 3, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "late-b", PromptTokenIDs: []int32{55, 56}, MaxTokens: 4, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "late-c", PromptTokenIDs: []int32{57, 58, 59}, MaxTokens: 5, Sampler: SamplerConfig{Method: "argmax"}},
+		{ID: "late-d", PromptTokenIDs: []int32{60, 61, 62, 63}, MaxTokens: 6, Sampler: SamplerConfig{Method: "argmax"}},
+	}
+	wants := make(map[string][]int32, len(requests))
+	for _, request := range requests {
+		if request.ID != "cancel-decode" && request.ID != "fail" {
+			wants[request.ID] = referenceCUDARequest(t, engine, cfg, request.PromptTokenIDs, request.MaxTokens)
+		}
+	}
+
+	backendValue, err := newPlatformServingBackend(engine, cfg, 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := backendValue.(*cudaServingBackend)
+	raw.enableBenchmarkLedger()
+	ledgerStart := raw.benchmarkLedgerSnapshot()
+	backend := &servingStressBackend{
+		cudaServingBackend: raw,
+		failID:             "fail",
+		decodeEntered:      make(chan []string, 1),
+		decodeGate:         make(chan struct{}),
+	}
+	scheduler, err := newServingScheduler(backend, continuousbatch.Config{
+		MaxActive: 8, MaxQueue: 2, MaxBatch: 8, BatchWait: 10 * time.Millisecond,
+		TokenBuffer: 16, PrefillWorkers: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := scheduler.Submit(canceled, continuousbatch.Request{ID: "before-admission", MaxTokens: 2}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("pre-admission cancellation = %v", err)
+	}
+
+	responses := make(map[string]*continuousbatch.Response, len(requests))
+	for i, request := range requests {
+		response, err := scheduler.Submit(t.Context(), request)
+		if err != nil {
+			t.Fatalf("submit %s: %v", request.ID, err)
+		}
+		responses[request.ID] = response
+		if i == 0 {
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if _, err := scheduler.Submit(t.Context(), continuousbatch.Request{ID: "overflow", PromptTokenIDs: []int32{64}, MaxTokens: 2}); !errors.Is(err, continuousbatch.ErrQueueFull) {
+		t.Fatalf("queue pressure = %v, want queue full", err)
+	}
+
+	var firstDecode []string
+	select {
+	case firstDecode = <-backend.decodeEntered:
+	case <-time.After(30 * time.Second):
+		t.Fatal("CUDA decode did not start")
+	}
+	if !slices.Contains(firstDecode, "cancel-decode") {
+		t.Fatalf("first decode %v omits cancellation target", firstDecode)
+	}
+	responses["cancel-decode"].Cancel()
+	close(backend.decodeGate)
+
+	for _, request := range requests {
+		response := responses[request.ID]
+		var got []int32
+		for token := range response.Tokens {
+			got = append(got, token.ID)
+		}
+		err := <-response.Done
+		switch request.ID {
+		case "cancel-decode":
+			if !errors.Is(err, context.Canceled) || len(got) != 1 {
+				t.Errorf("decode cancellation tokens=%v err=%v, want one prefill token and cancellation", got, err)
+			}
+		case "fail":
+			if err == nil || !strings.Contains(err.Error(), "injected request failure") || len(got) != 0 {
+				t.Errorf("injected failure tokens=%v err=%v", got, err)
+			}
+		default:
+			if err != nil {
+				t.Errorf("request %s: %v", request.ID, err)
+			}
+			want := wants[request.ID]
+			if !slices.Equal(got, want) {
+				t.Errorf("request %s tokens=%v want=%v", request.ID, got, want)
+			}
+		}
+	}
+	cohort := make([]*continuousbatch.Response, 8)
+	for i := range cohort {
+		cohort[i], err = scheduler.Submit(t.Context(), continuousbatch.Request{
+			ID: fmt.Sprintf("width-8-%d", i), PromptTokenIDs: []int32{42}, MaxTokens: 3,
+			Sampler: SamplerConfig{Method: "argmax"},
+		})
+		if err != nil {
+			t.Fatalf("submit width-8 cohort: %v", err)
+		}
+	}
+	for i, response := range cohort {
+		var got []int32
+		for token := range response.Tokens {
+			got = append(got, token.ID)
+		}
+		if err := <-response.Done; err != nil || !slices.Equal(got, wants["short"]) {
+			t.Errorf("width-8 request %d tokens=%v err=%v want=%v", i, got, err, wants["short"])
+		}
+	}
+	metrics := scheduler.Metrics()
+	if metrics.Rejected != 1 || metrics.Canceled != 1 || metrics.Failed != 1 || metrics.Completed != 16 {
+		t.Fatalf("terminal metrics = %+v", metrics)
+	}
+	waves, err := raw.benchmarkLedgerSince(ledgerStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared := false
+	decodeWidths := make(map[int]int)
+	for _, wave := range waves {
+		if wave.Kind == "cuda-decode" {
+			decodeWidths[len(wave.Requests)]++
+			if len(wave.Requests) > 1 {
+				shared = true
+			}
+		}
+	}
+	if !shared {
+		t.Fatalf("physical waves contain no shared-weight decode: %+v", waves)
+	}
+	for _, width := range []int{1, 4, 8} {
+		if decodeWidths[width] == 0 {
+			t.Fatalf("decode widths = %v, want physical B1/B4/B8", decodeWidths)
+		}
+	}
+	if err := scheduler.Close(); err != nil {
+		t.Fatal(err)
+	}
+	backend.Close()
+	current, _ := engine.memory.Snapshot()
+	if current != baseline {
+		t.Fatalf("allocation current=%d want baseline=%d", current, baseline)
+	}
+	t.Logf("receipt arrivals=staggered decode_widths=%v canceled_before_admission=true canceled_during_decode=true queue_rejected=1 failure_isolated=true survivors=16 shared_decode=true allocation_baseline=%d waves=%d", decodeWidths, baseline, len(waves))
+}
+
+func TestRealCUDAProductionServingShutdown(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	cfg := Llama3_2_1BConfig(path)
+	cfg.MaxSeqLen = 16
+	engine, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, _ := engine.memory.Snapshot()
+	backendValue, err := newPlatformServingBackend(engine, cfg, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &servingStressBackend{
+		cudaServingBackend: backendValue.(*cudaServingBackend),
+		decodeEntered:      make(chan []string, 1),
+		decodeGate:         make(chan struct{}),
+	}
+	scheduler, err := newServingScheduler(backend, continuousbatch.Config{
+		MaxActive: 1, MaxQueue: 1, MaxBatch: 1, BatchWait: time.Millisecond,
+		TokenBuffer: 4, PrefillWorkers: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := scheduler.Submit(t.Context(), continuousbatch.Request{
+		ID: "shutdown", PromptTokenIDs: []int32{41, 42}, MaxTokens: 8,
+		Sampler: SamplerConfig{Method: "argmax"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-backend.decodeEntered:
+	case <-time.After(30 * time.Second):
+		t.Fatal("CUDA decode did not start")
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- scheduler.Close() }()
+	close(backend.decodeGate)
+	if err := <-closed; err != nil {
+		t.Fatal(err)
+	}
+	var tokens []int32
+	for token := range response.Tokens {
+		tokens = append(tokens, token.ID)
+	}
+	if err := <-response.Done; !errors.Is(err, continuousbatch.ErrClosed) || len(tokens) != 1 {
+		t.Fatalf("shutdown tokens=%v err=%v, want one committed prefill token and closed", tokens, err)
+	}
+	metrics := scheduler.Metrics()
+	if metrics.Active != 0 || metrics.Queued != 0 || metrics.Failed != 1 {
+		t.Fatalf("shutdown metrics = %+v", metrics)
+	}
+	backend.Close()
+	current, _ := engine.memory.Snapshot()
+	if current != baseline {
+		t.Fatalf("allocation current=%d want baseline=%d", current, baseline)
+	}
+	t.Logf("receipt shutdown_in_flight=true post_shutdown_tokens=0 allocation_baseline=%d", baseline)
+}
+
+func referenceCUDARequest(t *testing.T, engine *ModelEngine, cfg Config, prompt []int32, limit int) []int32 {
+	t.Helper()
+	cache, err := engine.NewSequenceKV(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cache.Free()
+	next, err := GPUPrefillPassKV(engine, cfg, cache, prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []int32{next}
+	for position := len(prompt); len(got) < limit && !cfg.IsEOS(next); position++ {
+		next, err = GPUForwardPassKV(engine, cfg, cache, next, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, next)
+	}
+	return got
+}
+
 func TestBatchElements(t *testing.T) {
 	for _, test := range []struct {
 		name    string
@@ -342,6 +596,38 @@ func checkCUDAKVCoordinate(t *testing.T, got, want *SequenceKVCache, layer, posi
 type prefillObservation struct {
 	requestIDs []string
 	errors     []error
+}
+
+type servingStressBackend struct {
+	*cudaServingBackend
+	failID        string
+	decodeEntered chan []string
+	decodeGate    chan struct{}
+	decodeOnce    sync.Once
+}
+
+func (b *servingStressBackend) PrefillBatch(requests []continuousbatch.PrefillRequest) []continuousbatch.Result {
+	results := b.cudaServingBackend.PrefillBatch(requests)
+	for i, request := range requests {
+		if request.State.ID == b.failID && results[i].Err == nil {
+			results[i].Err = errors.New("injected request failure")
+		}
+	}
+	return results
+}
+
+func (b *servingStressBackend) DecodeBatch(ctx context.Context, states []*continuousbatch.State) []continuousbatch.Result {
+	b.decodeOnce.Do(func() {
+		ids := make([]string, len(states))
+		for i, state := range states {
+			ids[i] = state.ID
+		}
+		b.decodeEntered <- ids
+		<-b.decodeGate
+	})
+	end := benchmarkPhaseRange("llama-infer/serving-stress/decode")
+	defer end()
+	return b.cudaServingBackend.DecodeBatch(ctx, states)
 }
 
 func (b *fakeServingBackend) Prefill(ctx context.Context, state *continuousbatch.State) (continuousbatch.Token, error) {
