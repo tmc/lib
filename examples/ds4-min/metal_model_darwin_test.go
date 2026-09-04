@@ -340,15 +340,30 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	transitionRoot := os.Getenv("DS4_TRANSITION_ORACLE_ROOT")
 	allLayersOracle := os.Getenv("DS4_ALL_LAYERS_ORACLE_DIR")
 	if allLayersOracle != "" {
-		state := hcFFN
+		// Each layer is checked twice. The teacher-forced pass feeds every
+		// layer the oracle's own input state, so a strict per-stage tolerance
+		// isolates that one layer's arithmetic. The chained pass then runs the
+		// layers free-running from layer 0 and bounds how fast the residual
+		// stream may diverge; a fixed per-stage tolerance cannot survive 42
+		// chained layers, but an amplification bound can.
 		for layer := 1; layer < 43; layer++ {
-			t.Run(fmt.Sprintf("layer-%d", layer), func(t *testing.T) {
-				state = runPinnedHashLayer(t, ops, bind, state, layer, allLayersOracle)
+			t.Run(fmt.Sprintf("forced-layer-%d", layer), func(t *testing.T) {
+				prior := fmt.Sprintf("%s/stage_hc_ffn_post-%d_pos0.bin", allLayersOracle, layer-1)
+				runPinnedHashLayer(t, ops, bind, readOracleF32(t, prior), layer, allLayersOracle)
 			})
-			if t.Failed() {
-				break
-			}
 		}
+		t.Run("chained-drift", func(t *testing.T) {
+			state := hcFFN
+			for layer := 1; layer < 43; layer++ {
+				state = runPinnedHashLayerNoCompare(t, ops, bind, state, layer)
+				want := readOracleF32(t, fmt.Sprintf("%s/stage_hc_ffn_post-%d_pos0.bin", allLayersOracle, layer))
+				drift := relativeDrift(t, state, want)
+				t.Logf("layer %d chained drift %.3e", layer, drift)
+				if drift > chainedDriftBudget {
+					t.Fatalf("layer %d chained drift %.3e exceeds budget %.3e", layer, drift, chainedDriftBudget)
+				}
+			}
+		})
 	} else if transitionRoot != "" {
 		layer1 := runPinnedHashLayer(t, ops, bind, hcFFN, 1, transitionRoot+"/layer-1")
 		layer2 := runPinnedHashLayer(t, ops, bind, layer1, 2, transitionRoot+"/layer-2")
@@ -485,6 +500,40 @@ func readOracleF32(t *testing.T, path string) []float32 {
 
 func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string) []float32 {
 	t.Helper()
+	return runPinnedHashLayerStrict(t, ops, bind, state, layer, oracleDir, true)
+}
+
+// runPinnedHashLayerNoCompare runs one layer without any oracle comparison. The
+// chained drift check uses it so that only the residual stream is measured.
+func runPinnedHashLayerNoCompare(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int) []float32 {
+	t.Helper()
+	return runPinnedHashLayerStrict(t, ops, bind, state, layer, "", false)
+}
+
+func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string, strict bool) []float32 {
+	t.Helper()
+	// The chained drift pass reuses this body with strict comparison off, so
+	// every stage check goes through these guards.
+	checkF32 := func(name string, got []float32, path string) {
+		if strict {
+			compareOracleF32(t, name, got, path)
+		}
+	}
+	checkFP8 := func(name string, got []float32, path string) {
+		if strict {
+			compareOracleFP8F32(t, name, got, path)
+		}
+	}
+	checkI32 := func(name string, got []int32, path string) {
+		if strict {
+			compareOracleI32(t, name, got, path)
+		}
+	}
+	checkResidual := func(name string, got []float32, path string) {
+		if strict {
+			compareOracleResidual(t, name, got, path)
+		}
+	}
 	name := func(s string) string { return fmt.Sprintf("blk.%d.%s", layer, s) }
 	oracle := func(stage string) string {
 		return fmt.Sprintf("%s/stage_%s-%d_pos0.bin", oracleDir, stage, layer)
@@ -493,49 +542,49 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "hc_attn_pre", pre, oracle("hc_attn_pre"))
-	compareOracleF32(t, "attn_norm", attnNorm, oracle("attn_norm"))
-	if layer >= 2 {
+	checkF32("hc_attn_pre", pre, oracle("hc_attn_pre"))
+	checkF32("attn_norm", attnNorm, oracle("attn_norm"))
+	if strict && layer >= 2 {
 		validatePinnedCompressors(t, ops, bind, attnNorm, layer, oracleDir)
 	}
 	qRaw, err := ops.MatvecQ80(bind(name("attn_q_a.weight")), attnNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "q_lora", qRaw, oracle("q_lora"))
+	checkF32("q_lora", qRaw, oracle("q_lora"))
 	qNormWeight := bind(name("attn_q_a_norm.weight"))
 	qNorm, err := ops.RMS(qRaw, qNormWeight, 1, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "q_lora_norm", qNorm, oracle("q_lora_norm"))
+	checkF32("q_lora_norm", qNorm, oracle("q_lora_norm"))
 	qHeadsRaw, err := ops.MatvecQ80(bind(name("attn_q_b.weight")), qNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "Qraw", qHeadsRaw, oracle("Qraw"))
+	checkF32("Qraw", qHeadsRaw, oracle("Qraw"))
 	qHeads, err := ops.RMS(qHeadsRaw, qNormWeight, 64, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "Qnorm", qHeads, oracle("Qnorm"))
+	checkF32("Qnorm", qHeads, oracle("Qnorm"))
 	kvRaw, err := ops.MatvecQ80(bind(name("attn_kv.weight")), attnNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "KVraw", kvRaw, oracle("KVraw"))
+	checkF32("KVraw", kvRaw, oracle("KVraw"))
 	kvNorm, err := ops.RMS(kvRaw, bind(name("attn_kv_a_norm.weight")), 1, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "KVnorm", kvNorm, oracle("KVnorm"))
+	checkF32("KVnorm", kvNorm, oracle("KVnorm"))
 	qCur, kvCur, heads, err := ops.RopeAttentionOne(qHeads, kvNorm, bind(name("attn_sinks.weight")), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "Qcur", qCur, oracle("Qcur"))
-	compareOracleFP8F32(t, "KVcur", kvCur, oracle("KVcur"))
-	compareOracleFP8F32(t, "kqv_out", heads, oracle("kqv_out"))
+	checkF32("Qcur", qCur, oracle("Qcur"))
+	checkFP8("KVcur", kvCur, oracle("KVcur"))
+	checkFP8("kqv_out", heads, oracle("kqv_out"))
 	projectionA := bind(name("attn_output_a.weight"))
 	low := make([]float32, 0, 8192)
 	for group := range 8 {
@@ -549,27 +598,27 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 		}
 		low = append(low, part...)
 	}
-	compareOracleF32(t, "attn_low", low, oracle("attn_low"))
+	checkF32("attn_low", low, oracle("attn_low"))
 	attnOut, err := ops.MatvecQ80(bind(name("attn_output_b.weight")), low)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "attn_out", attnOut, oracle("attn_out"))
+	checkF32("attn_out", attnOut, oracle("attn_out"))
 	hc, err := ops.HCPost(state, attnOut, bind(name("hc_attn_fn.weight")), bind(name("hc_attn_scale.weight")), bind(name("hc_attn_base.weight")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "hc_attn_post", hc, oracle("hc_attn_post"))
+	checkF32("hc_attn_post", hc, oracle("hc_attn_post"))
 	_, ffnNorm, err := ops.HCPre(hc, bind(name("hc_ffn_fn.weight")), bind(name("hc_ffn_scale.weight")), bind(name("hc_ffn_base.weight")), bind(name("ffn_norm.weight")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_norm", ffnNorm, oracle("ffn_norm"))
+	checkF32("ffn_norm", ffnNorm, oracle("ffn_norm"))
 	logits, err := ops.MatvecF16(bind(name("ffn_gate_inp.weight")), ffnNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_moe_logits", logits, oracle("ffn_moe_logits"))
+	checkF32("ffn_moe_logits", logits, oracle("ffn_moe_logits"))
 	var probs, weights []float32
 	var selected []int32
 	if layer < 3 {
@@ -580,9 +629,9 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_moe_probs", probs, oracle("ffn_moe_probs"))
-	compareOracleI32(t, "ffn_moe_topk", selected, fmt.Sprintf("%s/stage_ffn_moe_topk-%d_pos0.i32", oracleDir, layer))
-	compareOracleF32(t, "ffn_moe_weights_scaled", weights, oracle("ffn_moe_weights_scaled"))
+	checkF32("ffn_moe_probs", probs, oracle("ffn_moe_probs"))
+	checkI32("ffn_moe_topk", selected, fmt.Sprintf("%s/stage_ffn_moe_topk-%d_pos0.i32", oracleDir, layer))
+	checkF32("ffn_moe_weights_scaled", weights, oracle("ffn_moe_weights_scaled"))
 	sharedGate, err := ops.MatvecQ80(bind(name("ffn_gate_shexp.weight")), ffnNorm)
 	if err != nil {
 		t.Fatal(err)
@@ -599,7 +648,7 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_shexp", sharedOut, oracle("ffn_shexp"))
+	checkF32("ffn_shexp", sharedOut, oracle("ffn_shexp"))
 	gateExperts, upExperts, downExperts := bind(name("ffn_gate_exps.weight")), bind(name("ffn_up_exps.weight")), bind(name("ffn_down_exps.weight"))
 	var mids []float32
 	for slot, id := range selected {
@@ -629,7 +678,7 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 		}
 		mids = append(mids, mid...)
 	}
-	compareOracleF32(t, "ffn_moe_weighted_swiglu", mids, oracle("ffn_moe_weighted_swiglu"))
+	checkF32("ffn_moe_weighted_swiglu", mids, oracle("ffn_moe_weighted_swiglu"))
 	var downs []float32
 	for slot, id := range selected {
 		downExpert, err := downExperts.Expert(id)
@@ -646,17 +695,17 @@ func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) bou
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_moe_out", routedOut, oracle("ffn_moe_out"))
+	checkF32("ffn_moe_out", routedOut, oracle("ffn_moe_out"))
 	ffnOut, err := ops.SumVectors(append(append([]float32(nil), routedOut...), sharedOut...), 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "ffn_out", ffnOut, oracle("ffn_out"))
+	checkF32("ffn_out", ffnOut, oracle("ffn_out"))
 	out, err := ops.HCPost(hc, ffnOut, bind(name("hc_ffn_fn.weight")), bind(name("hc_ffn_scale.weight")), bind(name("hc_ffn_base.weight")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	compareOracleF32(t, "hc_ffn_post", out, oracle("hc_ffn_post"))
+	checkResidual("hc_ffn_post", out, oracle("hc_ffn_post"))
 	return out
 }
 
@@ -824,5 +873,77 @@ func testFloat16(h uint16) float32 {
 		return math.Float32frombits(sign | 0x7f800000 | frac<<13)
 	default:
 		return math.Float32frombits(sign | (exp+112)<<23 | frac<<13)
+	}
+}
+
+// chainedDriftBudget bounds the relative divergence of the free-running
+// residual stream from the teacher-forced oracle. Measured growth is smooth and
+// roughly geometric -- 5.2e-4 at layer 1 rising to 6.6e-2 at layer 42, about
+// 1.12x per layer with no step at any single layer. The budget leaves headroom
+// for that curve while still failing on any layer that amplifies error sharply.
+// Measured against the pinned DeepSeek-V4-Flash IQ2_XXS checkpoint at prefill
+// position 0, the oracle DS4_ALL_LAYERS_ORACLE_DIR captures.
+const chainedDriftBudget = 1.5e-1
+
+// relativeDrift reports the largest relative deviation of got from want,
+// ignoring want values too small for a relative measure to be meaningful.
+func relativeDrift(t *testing.T, got, want []float32) float64 {
+	t.Helper()
+	if len(want) < len(got) {
+		t.Fatalf("drift oracle has %d values, need %d", len(want), len(got))
+	}
+	worst := 0.0
+	for i := range got {
+		w := math.Abs(float64(want[i]))
+		if w <= 0.1 {
+			continue
+		}
+		worst = max(worst, math.Abs(float64(got[i]-want[i]))/w)
+	}
+	return worst
+}
+
+// residualULPBudget is how many float32 ULPs of a residual tensor's own peak
+// magnitude the comparison allows. The hyper-connection residual stream grows
+// with depth, peaking near 6.3e4 by layer 42, where one float32 ULP is already
+// 7.8e-3 -- larger than the fixed 3e-3 absolute tolerance the earlier stages
+// use. An element's error is set by the scale of the accumulation it came out
+// of, not by its own magnitude, so a mid-magnitude element in a tensor with
+// that peak cannot be resolved to 3e-3 in float32 by any implementation.
+// Measured worst deviations against the same pinned checkpoint and oracle as
+// chainedDriftBudget are 0.7 ULP at layer 40 and 4.2 ULP at layer 42; every
+// other layer is exact within the fixed tolerance.
+const (
+	residualAtol = 3e-3
+	residualRtol = 5e-4
+
+	residualULPBudget = 8
+)
+
+// compareOracleResidual compares a hyper-connection residual tensor. It applies
+// the same absolute and relative tolerances as compareOracleF32 plus a term for
+// the tensor's dynamic range. Stages that are not residual accumulations keep
+// the fixed tolerance alone.
+func compareOracleResidual(t *testing.T, name string, got []float32, path string) {
+	t.Helper()
+	want := readOracleF32(t, path)
+	if len(want) < len(got) {
+		t.Fatalf("%s oracle has %d values, need %d", name, len(want), len(got))
+	}
+	peak := 0.0
+	for i := range got {
+		peak = max(peak, math.Abs(float64(want[i])))
+	}
+	ulp := 0.0
+	if peak != 0 {
+		_, exponent := math.Frexp(peak)
+		ulp = math.Ldexp(1, exponent-24)
+	}
+	scale := residualAtol + residualULPBudget*ulp
+	for i := range got {
+		limit := scale + residualRtol*math.Abs(float64(want[i]))
+		if delta := math.Abs(float64(got[i] - want[i])); delta > limit {
+			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g at peak %g)", name, i, got[i], want[i], delta, limit, peak)
+		}
 	}
 }
