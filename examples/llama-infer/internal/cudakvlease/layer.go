@@ -44,8 +44,9 @@ func (b *PackedBatch) RunDecoderLayer(ctx context.Context, stream *cuda.Stream, 
 		return nil, ErrInvalid
 	}
 	tokens := b.metadata.TokenCount
-	want := tokens * op.Dim
-	if attentionOut.Len() != want || residual.Len() != want || projection.Len() != op.Dim*op.Dim ||
+	want, ok := product(tokens, op.Dim)
+	projectionLen, projectionOK := product(op.Dim, op.Dim)
+	if !ok || !projectionOK || attentionOut.Len() != want || residual.Len() != want || projection.Len() != projectionLen ||
 		normWeight.Len() != op.Dim || output.Len() != want || normalized.Len() != want {
 		return nil, ErrInvalid
 	}
@@ -91,4 +92,11 @@ func (b *PackedBatch) RunDecoderLayer(ctx context.Context, stream *cuda.Stream, 
 		return nil, err
 	}
 	return status, nil
+}
+
+func product(a, b int) (int, bool) {
+	if a <= 0 || b <= 0 || a > int(^uint(0)>>1)/b {
+		return 0, false
+	}
+	return a * b, true
 }
