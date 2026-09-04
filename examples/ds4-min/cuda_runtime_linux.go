@@ -171,6 +171,302 @@ extern "C" __global__ void ds4_hc_pre(
   __syncthreads();
   for (unsigned int d = threadIdx.x; d < 4096; d += blockDim.x)
     out[4096 + d] = out[d] * inv * norm_weight[d];
+}
+
+// ds4_hc_split4 derives the hyper-connection output gate and the Sinkhorn
+// normalized 4x4 combination matrix from one mixing vector. It matches the
+// pinned 20 Sinkhorn iterations of the CPU fixture.
+__device__ void ds4_hc_split4(
+    const float *mix, const float *scale, const float *base,
+    float *post, float *comb) {
+  for (unsigned int h = 0; h < 4; h++)
+    post[h] = 2.0f / (1.0f + expf(-(mix[4 + h] * scale[1] + base[4 + h])));
+  for (unsigned int dst = 0; dst < 4; dst++) {
+    float mx = -3.402823466e+38f;
+    for (unsigned int src = 0; src < 4; src++) {
+      const unsigned int i = src + dst * 4;
+      comb[i] = mix[8 + i] * scale[2] + base[8 + i];
+      mx = fmaxf(mx, comb[i]);
+    }
+    float sum = 0.0f;
+    for (unsigned int src = 0; src < 4; src++) {
+      const unsigned int i = src + dst * 4;
+      comb[i] = expf(comb[i] - mx);
+      sum += comb[i];
+    }
+    for (unsigned int src = 0; src < 4; src++) {
+      const unsigned int i = src + dst * 4;
+      comb[i] = comb[i] / sum + 1.0e-6f;
+    }
+  }
+  for (unsigned int src = 0; src < 4; src++) {
+    float sum = 0.0f;
+    for (unsigned int dst = 0; dst < 4; dst++) sum += comb[src + dst * 4];
+    for (unsigned int dst = 0; dst < 4; dst++) comb[src + dst * 4] /= sum + 1.0e-6f;
+  }
+  for (unsigned int iter = 1; iter < 20; iter++) {
+    for (unsigned int dst = 0; dst < 4; dst++) {
+      float sum = 0.0f;
+      for (unsigned int src = 0; src < 4; src++) sum += comb[src + dst * 4];
+      for (unsigned int src = 0; src < 4; src++) comb[src + dst * 4] /= sum + 1.0e-6f;
+    }
+    for (unsigned int src = 0; src < 4; src++) {
+      float sum = 0.0f;
+      for (unsigned int dst = 0; dst < 4; dst++) sum += comb[src + dst * 4];
+      for (unsigned int dst = 0; dst < 4; dst++) comb[src + dst * 4] /= sum + 1.0e-6f;
+    }
+  }
+}
+
+// ds4_hc_post writes the hyper-connection residual update: every output stream
+// mixes the block output through its own gate and the four input streams
+// through the combination matrix.
+extern "C" __global__ void ds4_hc_post(
+    const float *state, const float *block, const unsigned short *hc_fn,
+    const float *scale, const float *base, float *out) {
+  if (blockIdx.x != 0) return;
+  __shared__ float partial[256];
+  __shared__ float mix[24];
+  __shared__ float post[4];
+  __shared__ float comb[16];
+  __shared__ float inv;
+  float ss = 0.0f;
+  for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
+    ss += state[i] * state[i];
+  partial[threadIdx.x] = ss;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) inv = rsqrtf(partial[0] / 16384.0f + 1.0e-6f);
+  __syncthreads();
+  for (unsigned int row = 0; row < 24; row++) {
+    float sum = 0.0f;
+    const unsigned long long off = (unsigned long long)row * 16384;
+    for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
+      sum += ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
+    partial[threadIdx.x] = sum;
+    __syncthreads();
+    for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+      if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+      __syncthreads();
+    }
+    if (threadIdx.x == 0) mix[row] = partial[0];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) ds4_hc_split4(mix, scale, base, post, comb);
+  __syncthreads();
+  for (unsigned int i = threadIdx.x; i < 4 * 4096; i += blockDim.x) {
+    const unsigned int dst = i / 4096, d = i % 4096;
+    float v = block[d] * post[dst];
+    for (unsigned int src = 0; src < 4; src++)
+      v += comb[dst + src * 4] * state[src * 4096 + d];
+    out[i] = v;
+  }
+}
+
+// ds4_get_row_f16 widens one F16 matrix row, which is how a token embedding
+// enters the layer loop.
+extern "C" __global__ void ds4_get_row_f16(
+    const unsigned short *weights, float *out, unsigned int row, unsigned int cols) {
+  const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i < cols) out[i] = ds4_half_to_float(weights[(unsigned long long)row * cols + i]);
+}
+
+// ds4_half_round returns value after one round trip through IEEE binary16,
+// which is how raw key-value rows are stored in the attention cache.
+__device__ float ds4_half_round(float value) {
+  const unsigned int x = __float_as_uint(value);
+  const unsigned int sign = (x >> 16) & 0x8000u;
+  const unsigned int mag = x & 0x7fffffffu;
+  if (mag >= 0x7f800000u) return value;
+  if (mag >= 0x477ff000u) return ds4_half_to_float((unsigned short)(sign | 0x7c00u));
+  if (mag >= 0x38800000u) {
+    const unsigned int bits = mag + 0x00000fffu + ((mag >> 13) & 1u);
+    return ds4_half_to_float((unsigned short)(sign | (bits - 0x38000000u) >> 13));
+  }
+  if (mag >= 0x33000000u) {
+    const int shift = 126 - (int)(mag >> 23);
+    const unsigned int m = (mag & 0x007fffffu) | 0x00800000u;
+    unsigned int h = m >> shift;
+    const unsigned int rem = m & ((1u << shift) - 1u);
+    const unsigned int mid = 1u << (shift - 1);
+    if (rem > mid || (rem == mid && (h & 1u))) h++;
+    return ds4_half_to_float((unsigned short)(sign | h));
+  }
+  return ds4_half_to_float((unsigned short)sign);
+}
+
+__device__ float ds4_e4m3fn_value(int code) {
+  const int e = (code >> 3) & 15, m = code & 7;
+  return e == 0 ? (float)m * 0.001953125f : (1.0f + (float)m * 0.125f) * exp2f((float)(e - 7));
+}
+
+// ds4_e4m3fn_round rounds one value to the nearest representable E4M3FN
+// magnitude, matching the checkpoint's FP8 key-value quantization.
+__device__ float ds4_e4m3fn_round(float value) {
+  const float sign = value < 0.0f ? -1.0f : 1.0f;
+  const float ax = fminf(fabsf(value), 448.0f);
+  int lo = 0, hi = 126;
+  while (lo < hi) {
+    const int mid = (lo + hi + 1) >> 1;
+    if (ds4_e4m3fn_value(mid) <= ax) lo = mid; else hi = mid - 1;
+  }
+  int best = lo;
+  if (best < 126) {
+    const float bd = fabsf(ax - ds4_e4m3fn_value(best));
+    const float nd = fabsf(ax - ds4_e4m3fn_value(best + 1));
+    if (nd < bd || (nd == bd && ((best + 1) & 1) == 0 && (best & 1) != 0)) best++;
+  }
+  return sign * ds4_e4m3fn_value(best);
+}
+
+// ds4_rope_attention_raw is the layer 0 and 1 attention path. It rotates the
+// query and key-value vectors, quantizes and stores the key-value row in the
+// rolling raw cache, attends with an additive sink, and inverse rotates the
+// head outputs. One thread per head. Out holds the rotated queries, the stored
+// key-value row, and the head outputs, in that order.
+extern "C" __global__ void ds4_rope_attention_raw(
+    const float *q, const float *kv, const float *sinks, float *cache,
+    float *scores, float *out, unsigned int position, unsigned int cache_cap) {
+  const unsigned int head = threadIdx.x;
+  if (blockIdx.x != 0 || head >= 64) return;
+  const unsigned int qoff = head * 512;
+  for (unsigned int i = 0; i < 512; i++) out[qoff + i] = q[qoff + i];
+  if (head == 0)
+    for (unsigned int i = 0; i < 512; i++) out[32768 + i] = kv[i];
+  const float theta_scale = powf(10000.0f, -2.0f / 64.0f);
+  float theta = (float)position;
+  for (unsigned int i = 0; i < 64; i += 2) {
+    const unsigned int qi = qoff + 448 + i;
+    const float c = cosf(theta), s = sinf(theta);
+    float a = out[qi], b = out[qi + 1];
+    out[qi] = a * c - b * s;
+    out[qi + 1] = a * s + b * c;
+    if (head == 0) {
+      const unsigned int ki = 32768 + 448 + i;
+      a = out[ki];
+      b = out[ki + 1];
+      out[ki] = a * c - b * s;
+      out[ki + 1] = a * s + b * c;
+    }
+    theta *= theta_scale;
+  }
+  __syncthreads();
+  if (head == 0) {
+    for (unsigned int off = 0; off < 448; off += 64) {
+      float amax = 1.0e-4f;
+      for (unsigned int i = 0; i < 64; i++) amax = fmaxf(amax, fabsf(out[32768 + off + i]));
+      const float scale = exp2f(ceilf(log2f(amax / 448.0f)));
+      for (unsigned int i = 0; i < 64; i++)
+        out[32768 + off + i] =
+            ds4_e4m3fn_round(fminf(fmaxf(out[32768 + off + i] / scale, -448.0f), 448.0f)) * scale;
+    }
+    const unsigned int row = position % cache_cap;
+    for (unsigned int i = 0; i < 512; i++)
+      cache[row * 512 + i] = ds4_half_round(out[32768 + i]);
+  }
+  __syncthreads();
+  const unsigned int count = min(position + 1, cache_cap);
+  const unsigned int first = position + 1 - count;
+  float maximum = sinks[head];
+  for (unsigned int t = 0; t < count; t++) {
+    const unsigned int row = (first + t) % cache_cap;
+    float score = 0.0f;
+    for (unsigned int i = 0; i < 512; i++) score += out[qoff + i] * cache[row * 512 + i];
+    score /= sqrtf(512.0f);
+    scores[head * cache_cap + t] = score;
+    maximum = fmaxf(maximum, score);
+  }
+  float denom = expf(sinks[head] - maximum);
+  for (unsigned int t = 0; t < count; t++)
+    denom += expf(scores[head * cache_cap + t] - maximum);
+  for (unsigned int i = 0; i < 512; i++) {
+    float value = 0.0f;
+    for (unsigned int t = 0; t < count; t++) {
+      const unsigned int row = (first + t) % cache_cap;
+      value += expf(scores[head * cache_cap + t] - maximum) * cache[row * 512 + i];
+    }
+    out[33280 + qoff + i] = value / denom;
+  }
+  theta = (float)position;
+  for (unsigned int i = 0; i < 64; i += 2) {
+    const unsigned int oi = 33280 + qoff + 448 + i;
+    const float c = cosf(theta), s = -sinf(theta);
+    const float a = out[oi], b = out[oi + 1];
+    out[oi] = a * c - b * s;
+    out[oi + 1] = a * s + b * c;
+    theta *= theta_scale;
+  }
+}
+
+// ds4_router_hash selects the six experts of a dense layer from the token's
+// row of the identity map. Mixture weights use the unbiased scores.
+extern "C" __global__ void ds4_router_hash(
+    const float *logits, const int *table, float *out, int *selected,
+    float *weights, unsigned int token) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) return;
+  for (unsigned int i = 0; i < 256; i++) {
+    const float x = logits[i];
+    out[i] = sqrtf(x > 20.0f ? x : logf(1.0f + expf(x)));
+  }
+  float sum = 0.0f;
+  for (unsigned int i = 0; i < 6; i++) {
+    const int id = table[(unsigned long long)token * 6 + i];
+    selected[i] = id;
+    sum += out[id];
+  }
+  sum = fmaxf(sum, 6.103515625e-5f);
+  for (unsigned int i = 0; i < 6; i++) weights[i] = out[selected[i]] / sum * 1.5f;
+}
+
+// ds4_router_biased selects the six routed experts by biased score and weights
+// them by their unbiased scores, as the contract requires.
+extern "C" __global__ void ds4_router_biased(
+    const float *logits, const float *bias, float *out, int *selected, float *weights) {
+  if (blockIdx.x != 0 || threadIdx.x != 0) return;
+  float selection[256];
+  for (unsigned int i = 0; i < 256; i++) {
+    const float x = logits[i];
+    out[i] = sqrtf(x > 20.0f ? x : logf(1.0f + expf(x)));
+    selection[i] = out[i] + bias[i];
+  }
+  for (unsigned int k = 0; k < 6; k++) {
+    int best = -1;
+    for (unsigned int i = 0; i < 256; i++) {
+      bool used = false;
+      for (unsigned int j = 0; j < k; j++) used = used || selected[j] == (int)i;
+      if (!used && (best < 0 || selection[i] > selection[best])) best = (int)i;
+    }
+    selected[k] = best;
+  }
+  float sum = 0.0f;
+  for (unsigned int k = 0; k < 6; k++) sum += out[selected[k]];
+  sum = fmaxf(sum, 6.103515625e-5f);
+  for (unsigned int k = 0; k < 6; k++) weights[k] = out[selected[k]] / sum * 1.5f;
+}
+
+// ds4_swiglu applies the clamped SwiGLU activation. Slots take either one
+// scalar weight or a device vector holding one weight per slot.
+extern "C" __global__ void ds4_swiglu(
+    const float *gate, const float *up, float *out,
+    unsigned int width, unsigned int slots, float weight, const float *weights) {
+  const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= width * slots) return;
+  const float x = fminf(gate[i], 10.0f);
+  const float y = fminf(fmaxf(up[i], -10.0f), 10.0f);
+  out[i] = (x / (1.0f + expf(-x))) * y * (weights ? weights[i / width] : weight);
+}
+
+// ds4_sum_vectors reduces count adjacent vectors of the same width.
+extern "C" __global__ void ds4_sum_vectors(
+    const float *x, float *out, unsigned int width, unsigned int count) {
+  const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= width) return;
+  float v = 0.0f;
+  for (unsigned int row = 0; row < count; row++) v += x[(unsigned long long)row * width + i];
+  out[i] = v;
 }`
 
 const (
@@ -222,6 +518,14 @@ type cudaFoundation struct {
 	rmsFn       driver.Function
 	f16Fn       driver.Function
 	hcPreFn     driver.Function
+
+	hcPostFn       driver.Function
+	rowFn          driver.Function
+	rawAttentionFn driver.Function
+	routerHashFn   driver.Function
+	routerBiasedFn driver.Function
+	swigluFn       driver.Function
+	sumVectorsFn   driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -621,8 +925,173 @@ func (r *cudaFoundation) encodeHCPre(state cudamem.Slice[float32], hcFn, scale, 
 	})
 }
 
+// cudaKernels names every kernel the layer loop needs, in load order.
+// encodeHCPost appends the DS4 hyper-connection residual update, folding one
+// block output back into the four-stream state.
+func (r *cudaFoundation) encodeHCPost(state, block cudamem.Slice[float32], hcFn, scale, base cudaModelTensor, out cudamem.Slice[float32]) error {
+	if state.Len() != 4*4096 || block.Len() != 4096 || out.Len() != state.Len() ||
+		hcFn.typeID != 1 || len(hcFn.dimensions) != 2 || hcFn.dimensions[0] != 4*4096 || hcFn.dimensions[1] != 24 ||
+		scale.typeID != 0 || len(scale.dimensions) != 1 || scale.dimensions[0] != 3 ||
+		base.typeID != 0 || len(base.dimensions) != 1 || base.dimensions[0] != 24 {
+		return fmt.Errorf("cuda: HC post: invalid tensor profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.hcPostFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+			state, block, hcFn.device, scale.device, base.device, out); err != nil {
+			return fmt.Errorf("cuda: launch HC post: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeEmbeddingRow appends the widening of one F16 embedding row.
+func (r *cudaFoundation) encodeEmbeddingRow(t cudaModelTensor, row uint32, out cudamem.Slice[float32]) error {
+	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(out.Len()) != t.dimensions[0] || uint64(row) >= t.dimensions[1] {
+		return fmt.Errorf("cuda: embedding row %d of %q: invalid tensor or row", row, t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		cols := uint32(t.dimensions[0])
+		if err := cudalaunch.Kernel(r.rowFn).Grid((cols+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+			t.device, out, row, cols); err != nil {
+			return fmt.Errorf("cuda: launch embedding row: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeRawAttention appends the uncompressed rotary attention used by layers
+// 0 and 1. Out holds the rotated queries, the stored key-value row, and the
+// inverse-rotated head outputs, in that order.
+func (r *cudaFoundation) encodeRawAttention(q, kv cudamem.Slice[float32], sinks cudaModelTensor, cache, scores, out cudamem.Slice[float32], position int) error {
+	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
+		cache.Len() == 0 || cache.Len()%512 != 0 || scores.Len() != 64*(cache.Len()/512) ||
+		out.Len() != 32768+512+32768 || position < 0 {
+		return fmt.Errorf("cuda: raw attention: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.rawAttentionFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(
+			q, kv, sinks.device, cache, scores, out, uint32(position), uint32(cache.Len()/512)); err != nil {
+			return fmt.Errorf("cuda: launch raw attention: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeRouterHash appends the dense-layer expert selection, which reads the
+// token's row of the identity map.
+func (r *cudaFoundation) encodeRouterHash(logits cudamem.Slice[float32], table cudaModelTensor, scores cudamem.Slice[float32], selected cudamem.Slice[int32], weights cudamem.Slice[float32], token uint32) error {
+	if logits.Len() != 256 || scores.Len() != 256 || selected.Len() != 6 || weights.Len() != 6 ||
+		table.typeID != 26 || len(table.dimensions) != 2 || table.dimensions[0] != 6 || uint64(token) >= table.dimensions[1] {
+		return fmt.Errorf("cuda: router hash: invalid tensor profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.routerHashFn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(
+			logits, table.device, scores, selected, weights, token); err != nil {
+			return fmt.Errorf("cuda: launch router hash: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeRouterBiased appends the routed-layer expert selection. Bias picks the
+// six experts; their unbiased scores set the mixture weights.
+func (r *cudaFoundation) encodeRouterBiased(logits cudamem.Slice[float32], bias cudaModelTensor, scores cudamem.Slice[float32], selected cudamem.Slice[int32], weights cudamem.Slice[float32]) error {
+	if logits.Len() != 256 || scores.Len() != 256 || selected.Len() != 6 || weights.Len() != 6 ||
+		bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
+		return fmt.Errorf("cuda: router biased: invalid tensor profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.routerBiasedFn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(
+			logits, bias.device, scores, selected, weights); err != nil {
+			return fmt.Errorf("cuda: launch router biased: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeSwiGLU appends the clamped SwiGLU activation scaled by one weight.
+func (r *cudaFoundation) encodeSwiGLU(gate, up, out cudamem.Slice[float32], weight float32) error {
+	return r.encodeSwiGLUSlots(gate, up, cudamem.Slice[float32]{}, out, 1, weight)
+}
+
+// encodeSwiGLUSlots appends the clamped SwiGLU activation over slots adjacent
+// expert lanes. A non-empty weights vector supplies one weight per slot and
+// keeps the mixture weights on the device.
+func (r *cudaFoundation) encodeSwiGLUSlots(gate, up, weights, out cudamem.Slice[float32], slots int, weight float32) error {
+	if slots <= 0 || gate.Len() == 0 || gate.Len()%slots != 0 || up.Len() != gate.Len() || out.Len() != gate.Len() ||
+		(weights.Len() != 0 && weights.Len() != slots) {
+		return fmt.Errorf("cuda: SwiGLU: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		n := uint32(gate.Len())
+		if err := cudalaunch.Kernel(r.swigluFn).Grid((n+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+			gate, up, out, n/uint32(slots), uint32(slots), weight, weights); err != nil {
+			return fmt.Errorf("cuda: launch SwiGLU: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeSumVectors appends a reduction across count adjacent vectors.
+func (r *cudaFoundation) encodeSumVectors(in, out cudamem.Slice[float32], count int) error {
+	if count <= 0 || in.Len() == 0 || in.Len()%count != 0 || out.Len() != in.Len()/count {
+		return fmt.Errorf("cuda: sum vectors: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		width := uint32(out.Len())
+		if err := cudalaunch.Kernel(r.sumVectorsFn).Grid((width+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+			in, out, width, uint32(count)); err != nil {
+			return fmt.Errorf("cuda: launch sum vectors: %w", err)
+		}
+		return nil
+	})
+}
+
+func (r *cudaFoundation) cudaKernels() []struct {
+	name string
+	dst  *driver.Function
+} {
+	return []struct {
+		name string
+		dst  *driver.Function
+	}{
+		{"ds4_q8_0_matvec", &r.matrixFn},
+		{"ds4_rms", &r.rmsFn},
+		{"ds4_f16_matvec", &r.f16Fn},
+		{"ds4_hc_pre", &r.hcPreFn},
+		{"ds4_hc_post", &r.hcPostFn},
+		{"ds4_get_row_f16", &r.rowFn},
+		{"ds4_rope_attention_raw", &r.rawAttentionFn},
+		{"ds4_router_hash", &r.routerHashFn},
+		{"ds4_router_biased", &r.routerBiasedFn},
+		{"ds4_swiglu", &r.swigluFn},
+		{"ds4_sum_vectors", &r.sumVectorsFn},
+	}
+}
+
 func (r *cudaFoundation) loadMathKernels() error {
-	if r.matrixFn != 0 && r.rmsFn != 0 && r.f16Fn != 0 && r.hcPreFn != 0 {
+	if r.matrixMod != 0 {
 		return nil
 	}
 	compiled, err := nvrtcx.Compile(cudaProbeSource,
@@ -636,32 +1105,23 @@ func (r *cudaFoundation) loadMathKernels() error {
 	if err != nil {
 		return fmt.Errorf("cuda: load math kernels: %w", err)
 	}
-	matrixFn, err := mod.GetFunction("ds4_q8_0_matvec")
-	if err != nil {
-		_ = mod.Unload()
-		return fmt.Errorf("cuda: find Q8_0 matrix: %w", err)
-	}
-	rmsFn, err := mod.GetFunction("ds4_rms")
-	if err != nil {
-		_ = mod.Unload()
-		return fmt.Errorf("cuda: find RMS: %w", err)
-	}
-	f16Fn, err := mod.GetFunction("ds4_f16_matvec")
-	if err != nil {
-		_ = mod.Unload()
-		return fmt.Errorf("cuda: find F16 matrix: %w", err)
-	}
-	hcPreFn, err := mod.GetFunction("ds4_hc_pre")
-	if err != nil {
-		_ = mod.Unload()
-		return fmt.Errorf("cuda: find HC pre: %w", err)
+	for _, kernel := range r.cudaKernels() {
+		fn, err := mod.GetFunction(kernel.name)
+		if err != nil {
+			_ = mod.Unload()
+			r.clearMathKernels()
+			return fmt.Errorf("cuda: find kernel %q: %w", kernel.name, err)
+		}
+		*kernel.dst = fn
 	}
 	r.matrixMod = mod
-	r.matrixFn = matrixFn
-	r.rmsFn = rmsFn
-	r.f16Fn = f16Fn
-	r.hcPreFn = hcPreFn
 	return nil
+}
+
+func (r *cudaFoundation) clearMathKernels() {
+	for _, kernel := range r.cudaKernels() {
+		*kernel.dst = 0
+	}
 }
 
 // q80Row computes the first registered Q8_0 tensor row. The caller owns x and
@@ -709,10 +1169,7 @@ func (r *cudaFoundation) Close() error {
 		err := r.device.WithContext(func() error { return r.matrixMod.Unload() })
 		errs = append(errs, err)
 		r.matrixMod = 0
-		r.matrixFn = 0
-		r.rmsFn = 0
-		r.f16Fn = 0
-		r.hcPreFn = 0
+		r.clearMathKernels()
 	}
 	if r.mapped.host != 0 && r.device != nil {
 		err := r.device.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })
