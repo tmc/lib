@@ -43,3 +43,24 @@ func Example() {
 
 	fmt.Printf("Received: %v\n", dst)
 }
+
+// An Arena gives a group of buffers one error check and one cleanup path.
+func ExampleArena() {
+	devs, err := cuda.Devices()
+	if err != nil || len(devs) == 0 {
+		fmt.Println("No CUDA devices found")
+		return
+	}
+
+	a := cudamem.NewArena(devs[0])
+	x := cudamem.AllocIn[float32](a, "x", 4096)
+	y := cudamem.AllocIn[float32](a, "y", 4096)
+	tokens := cudamem.AllocIn[int32](a, "tokens", 1)
+	if err := a.Err(); err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer a.Free()
+
+	fmt.Println(x.Len(), y.Len(), tokens.Len())
+}

@@ -7,6 +7,12 @@
 // It wraps a [driver.DevicePtr] with element-size and bounds information, preventing
 // out-of-bounds access and pointer arithmetic bugs.
 //
+// # Grouped Allocations
+//
+// [Arena] holds allocations that share a lifetime. Buffers come from [AllocIn], which
+// records the first failure instead of returning it, so a structure of many buffers is
+// checked once with [Arena.Err] and released once with [Arena.Free].
+//
 // # Garbage Collection & Memory Pinning
 //
 // When transferring data between host Go memory and GPU device memory ([Slice.CopyFromHost],
