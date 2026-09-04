@@ -1,214 +1,191 @@
-# Design Document: Closed-Loop Adaptive Profile-Guided Optimization (PGO) for Pure-Go GPU Inference
+# Adaptive profile-guided plan selection
 
-**Status:** Draft for Peer Review  
-**Target Subsystems:** `apple/x/metal/egraph`, `apple/x/metal/metalprof`, `nvidia/x/egraph`, `nvidia/x/cudaprof`, `examples/llama-infer`  
-**Authors:** tmc/lib Architecture Team  
+This document proposes bounded profile-guided optimization for the Metal and
+CUDA inference backends. It does not specify compilation on live request paths,
+and it does not promise a latency improvement.
 
----
+Status: proposal. The source snapshot used for this revision was commit
+`501e487`.
 
-## 1. Executive Summary & Core Problem
+## Current substrate
 
-Existing high-performance inference runtimes (e.g. vLLM, TensorRT-LLM, PyTorch Inductor) rely almost exclusively on **Static Ahead-Of-Time (AOT) Compilation and Tuning**. Prior to deployment, they run heavy offline search scripts for specific batch sizes and hardware architectures, generating frozen compute graphs.
+The repository contains useful pieces, but not the closed-loop system described
+here:
 
-When deployed in dynamic production environments, static engines suffer from fundamental performance cliffs:
-1. **The Batch-Size Crossover ($B=1 \to B=32$)**: At $B=1$ (single-token decode), memory bandwidth dominates; a custom fused GEMV + in-register activation kernel is optimal. At $B \ge 16$, compute dominates; discrete matrix-multiplication kernels utilizing hardware matrix cores (MPS / Tensor Cores) surpass fused memory-streaming kernels.
-2. **Context Horizon Expansion ($S=128 \to S=32\text{k}$)**: Short contexts are dominated by FFN execution ($<10\%$ attention time); long contexts shift $>60\%$ of execution time into attention and KV-cache reads, requiring sliding window or chunked tree-attention kernels.
-3. **Speculative Decoding Acceptance Volatility**: High acceptance rates favor parallel multi-token tree verification; low acceptance rates favor low-overhead greedy decode.
-4. **Thermal Throttling & DVFS Frequency Modulation**: When mobile or workstation GPUs thermally throttle, the ratio of compute throughput to memory bandwidth shifts dynamically.
+| Component | Current behavior | Limit |
+| --- | --- | --- |
+| `DispatchTuner` | Compares threadgroup widths 64 and 128 after a small number of samples | It does not compile plans, extract top-K candidates, or hot-swap a model plan |
+| `PGOFeedbackCostModel` and `PGOTracker` | Store timing-oriented feedback and trial records | Recording feedback is not plan selection or execution |
+| Metal `FlightRecorder` | Retains bounded dispatch timing records | Label recording allocates; timing does not provide observed DRAM bytes or FLOPs |
+| Metal sample timestamps | Resolve device timestamps when supported | The fallback synthesizes timestamps from host time and must not be called a hardware observation |
+| `metalbench.DynamicHarness` | Exercises an experimental batch-threshold choice | It is not a serving-runtime policy |
+| Backend fused paths | Offer selected handwritten fused kernels | Selection is configuration-driven, not extracted from an e-graph plan |
 
-### The Pure-Go Closed-Loop Solution
-Because `tmc/lib` is built on a pure-Go architecture with dynamic JIT compilation (`metal.CompileLibrary` on Apple Silicon, `nvrtcx.Compile` on NVIDIA), JIT-compiling a specialized compute shader takes **$<5\text{ ms}$** in background memory without touching disk or invoking heavy external C++ toolchains.
+No current `OffloadLayer` API, background megakernel compiler, atomic plan-set
+swap, or cross-backend calibration cache should be inferred from these pieces.
 
-By closing the loop between our **E-Graph Equality Saturation Optimizer (`x/egraph`)** and our **Low-Overhead GPU Hardware Telemetry (`metalprof` / `cudaprof`)**, we can create an **Autonomous, Self-Healing Dynamic Optimization Runtime** that re-evaluates execution graphs live and hot-swaps optimal GPU kernels with zero stall bubbles.
+## Goal
 
----
+Select a previously validated execution plan for a stable workload bucket using
+measurements from the same deployment path that will execute it.
 
-## 2. System Architecture & The Feedback Loop
+The first useful version is offline or startup calibration. It answers a narrow
+question: among semantically equivalent plans already admitted for this device
+and bucket, which one has the best robust device time without violating memory
+or latency limits?
 
-```mermaid
-graph TD
-    subgraph "1. GPU Inference Fast-Path (0-Overhead)"
-        A["Inference Step (Prefill / Decode)"] --> B["Command Encoder Dispatch"]
-        B --> C["FlightRecorder (Hardware Timestamps & Dimensions)"]
-    end
+Live adaptation is a later option. It must not compile unbounded candidates or
+experiment with unvalidated plans on user requests.
 
-    subgraph "2. Continuous Telemetry & Shift Detection"
-        C --> D{"Workload Regime Shift Detected?"}
-        D -->|No: Latency on Budget| A
-        D -->|Yes: (Batch, SeqLen, Drift)| E["Adaptive Optimizer Controller"]
-    end
+## Plan and bucket identity
 
-    subgraph "3. E-Graph Pareto Extraction & Background JIT"
-        E --> F["E-Graph: Extract Top-K Structurally Distinct ASTs"]
-        F --> G["Asynchronous JIT Compiler (MSL / PTX in Background)"]
-        G --> H["Warmup Micro-Benchmark (metalprof.SampleBuffer)"]
-        H --> I["PGO Calibration Cache (Device, Batch, SeqLen)"]
-    end
+A plan identity includes:
 
-    subgraph "4. Atomic Hot-Swap"
-        I --> J["Atomic Pointer Swap (ModelEngine.activePipeline)"]
-        J --> A
-    end
+- semantic graph and model revision;
+- backend, device capability, driver, and compiler version;
+- phase: prefill or decode;
+- batch, prompt-length, and context-length bucket;
+- dtype and tensor layouts;
+- operation variants and launch geometry;
+- stable buffer layout; and
+- compiler and rewrite versions.
+
+A calibration result is reusable only when every compatibility field matches.
+Unknown fields cause a cache miss.
+
+## Candidate pipeline
+
+```text
+generate legal alternatives
+        |
+        v
+compile and resource-check
+        |
+        v
+compare with semantic reference
+        |
+        v
+warm the deployment path
+        |
+        v
+collect repeated device and wall observations
+        |
+        v
+reject unstable or constraint-violating candidates
+        |
+        v
+select and persist an immutable plan set
 ```
 
----
+Generation may use e-graph extraction, explicit templates, vendor libraries, or
+all three. Graph matching and fusion selection belong in the graph rewrite and
+extraction layer; the runtime validates and profiles the resulting candidates.
 
-## 3. Detailed Subsystem Specifications
+Every candidate has a recorded outcome: `accepted`, `rejected`, `invalid`,
+`timed_out`, or `unsupported`. Empty candidate sets and compilation failures are
+errors.
 
-### 3.1 E-Graph Pareto Subgraph Extractor (`TopKExtractor`)
+## Measurement
 
-**Limitation in Current Design:**  
-The existing `ExtractBest(g, root, costModel)` computes a single AST based on static heuristic scalar costs (e.g. `fused_silu_mul = 1.0`, `matmul = 12.0`). If the heuristic misjudges register spilling or memory bandwidth limits, the optimizer gets locked into the wrong graph.
+Use device timestamps for candidate timing when the backend provides them, with
+host wall time as a separate field. A robust comparison needs warmup, repeated
+samples, and an estimator resistant to occasional scheduling noise. Record the
+sample count and distribution; do not retain only the winner.
 
-**Proposed Enhancement (`TopKExtractor`):**  
-Extract the top-$K$ structurally distinct expressions from the root E-Class:
-1. **Candidate 1 (Full Fusion Megakernel)**: Fused RMSNorm + GEMV + RoPE + Attention + SwiGLU + Residual.
-2. **Candidate 2 (3-Stage Discrete Pipeline)**: RMSNorm+GEMV $\to$ Discrete FlashAttention $\to$ Fused SwiGLU FFN.
-3. **Candidate 3 (Tensor/Matrix Core Hybrid)**: MPS/cuBLASLt Matrix Multiplication + Fused Epilogue Activations.
+Measurements include:
 
-```go
-type CandidateAST struct {
-    Expr         *Expr
-    StructuralID string
-    HeuristicCost float64
-}
+- plan and bucket identity;
+- device and wall durations;
+- allocation high-water mark;
+- compilation and graph-materialization cost;
+- synchronization boundaries;
+- correctness result and tolerance; and
+- telemetry provenance.
 
-// ExtractTopK returns the K lowest-cost structurally unique ASTs for an E-Class.
-func (ext *TopKExtractor) ExtractTopK(root Id, k int) ([]CandidateAST, error)
-```
+Analytical model-weight traffic and dense FLOPs may help explain a result, but
+they are `modeled`. A timing record does not turn them into observed counters.
 
----
+No fixed limits such as “less than 5 ms JIT,” “less than 50 ns lookup,” or
+“zero stall” are architectural guarantees. Budgets must be chosen from a
+measured serving objective and enforced as acceptance tests.
 
-### 3.2 Hardware Telemetry Bridging (`metalprof` & `cudaprof`)
+## Selection policy
 
-The profiling packages provide the exact empirical ground truth needed to calibrate the E-Graph:
+Selection is constrained before it is optimized. A candidate is ineligible if
+it:
 
-1. **In-Flight Duration & Hardware Counters**:
-   - [`metalprof.SampleBuffer`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalprof/counters.go): Resolves exact GPU timestamps per dispatch without CPU stalls.
-   - [`metalprof.FlightRecorder`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalprof/flightrecorder.go): Tracks rolling execution latency and dimensions in a cyclic ring buffer.
-2. **pprof Context Label Integration**:
-   - `pprof.Labels` (`model`, `layer`, `batch_size`, `seq_len`) are bound to GPU execution events, allowing the tuner to attribute latency directly to specific operator nodes in the graph.
+- fails the semantic comparison;
+- exceeds device resource or arena limits;
+- changes output dtype or model semantics without an explicit policy;
+- requires unsupported alignment, shape, or alias behavior;
+- increases a configured tail-latency or memory limit; or
+- has insufficient or unstable samples.
 
----
+Among eligible candidates, optimize a declared objective such as median device
+time with a p95 guard. Do not combine incomparable prefill and decode samples
+into one score.
 
-### 3.3 Dynamic PGO Calibration Table (`CalibrationCache`)
+## Publication and lifetime
 
-The runtime maintains a thread-safe, content-addressed calibration cache:
+Selected plans are immutable. Publish a complete compatible plan set with one
+atomic pointer update; never mutate an executing plan in place. The runtime
+holds an epoch or reference for the duration of a step. Old code objects and
+buffers are released only after their last user exits.
 
-```go
-type WorkloadSignature struct {
-    DeviceIdentifier string // e.g. "Apple M4 Max / 128GB"
-    BatchSize        int    // e.g. 1, 4, 16, 32
-    SeqLenBucket     int    // e.g. 512, 2048, 8192, 32768
-    HiddenDim        int    // e.g. 2048, 4096
-    DType            string // "F16", "BF16", "MXFP4"
-}
+If validation, compilation, or publication fails, keep the last admitted plan.
+If no admitted plan exists, return an error or use a separately validated
+reference plan. Do not silently install a synthetic or partially compiled plan.
 
-type CalibrationCache struct {
-    mu      sync.RWMutex
-    winners map[WorkloadSignature]*CompiledPipeline
-}
-```
+## Live adaptation, if enabled
 
-- **Lookup ($O(1)$)**: Fast-path execution queries the cache in $<50\text{ ns}$ using read-locks or atomic maps.
-- **Cache Miss**: If a novel workload signature appears (e.g. batch size expands from 1 to 16 for the first time), the engine immediately uses the heuristic default graph, while queuing a background calibration task.
+Live adaptation is opt-in and bounded:
 
----
+- only prevalidated candidates may receive user traffic;
+- exploration has a fixed request and time budget;
+- samples are tagged by bucket and current thermal/power context when known;
+- regressions trip an automatic rollback to the last admitted plan; and
+- background compilation has bounded CPU, memory, and compiler concurrency.
 
-### 3.4 Concurrency & Atomic Hot-Swapping
+Prefer shadow or canary workloads when a plan can affect correctness. Offline
+or startup calibration remains the default until live exploration demonstrates
+a benefit under production-like load.
 
-To maintain zero stalls on the active inference stream:
+## Memory pressure
 
-```go
-type ModelEngine struct {
-    // Active pipeline states accessed by concurrent forward passes
-    activePipeline atomic.Pointer[CompiledPipeline]
-    
-    // Background tuner queue
-    tuningQueue chan WorkloadSignature
-    recorder    *metalprof.FlightRecorder
-}
+Memory recovery is separate from plan optimization. Safe recovery may evict
+unused compiled plans, calibration entries, or reclaimable cache pages according
+to explicit lifetime rules.
 
-func (eng *ModelEngine) DecodeStep(tokenID int32, pos int) (time.Duration, error) {
-    pipe := eng.activePipeline.Load()
-    
-    // Execute current pipeline on GPU command queue
-    dur, err := pipe.Dispatch(tokenID, pos)
-    
-    // Record telemetry into ring buffer
-    eng.recorder.Record(pipe.Name, dur, pipe.Grid, pipe.TG, nil)
-    
-    return dur, err
-}
-```
+Changing weight precision, dropping cache state, or spilling active tensors to
+storage changes accuracy or latency and requires a distinct degraded-service
+policy. It is not an automatic OOM recovery action.
 
-1. Background goroutine JIT-compiles new candidate shaders using `metal.CompileLibrary`.
-2. Evaluates candidates in a private scratch command buffer.
-3. Once verified, atomically updates `activePipeline.Store(winner)`.
-4. Subsequent decode iterations seamlessly execute the new optimal kernel without synchronization locks or GC pauses.
+## Backend symmetry
 
----
+Metal and CUDA share plan, bucket, observation, and publication contracts. They
+do not need identical implementation mechanisms:
 
-### 3.5 Dynamic Memory Elasticity & OOM Crash Avoidance
+- CUDA may compile with NVRTC, time with CUDA events, and materialize a CUDA
+  Graph after stable bindings exist.
+- Metal may compile MSL libraries, time supported command-buffer intervals, and
+  reuse pipeline and binding state appropriate to Metal.
 
-Traditional inference runtimes terminate the process with a fatal Out-Of-Memory (OOM) error when memory drops below startup allocation requirements. The dynamic runtime introduces a **4-tier graceful memory degradation protocol** verified on GPU hardware:
+A result from one backend is not portable to the other. Cache keys include the
+backend and exact device capability.
 
-```mermaid
-graph TD
-    A["VRAM Headroom Contraction Event"] --> B{"Memory Headroom Level"}
-    B -->|Level 1: Transient Contraction| C["Reclaim Idle Pool Slabs (metalmem.Pool / cudamem.BucketSize)"]
-    B -->|Level 2: Long Context Pressure| D["Tiered KV-Cache SSD Spillover (metalkv & cudakv)"]
-    B -->|Level 3: Intermediate Pressure| E["Dynamic Activation Quantization (FP16 -> MXFP4 / INT8)"]
-    B -->|Level 4: Critical Constraint| F["Dynamic Micro-Batch Serialization (B=32 -> serial B=4..1)"]
-    C --> G["100% Request Completion Rate (0 Crashes)"]
-    D --> G
-    E --> G
-    F --> G
-```
+## Acceptance plan
 
-1. **Pre-Allocation Headroom Inspection**:
-   - macOS: [`dev.RecommendedMaxWorkingSetSize()`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal)
-   - Linux / CUDA: [`cuda.MemGetInfo()`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cuda)
-2. **Dynamic Micro-Batch Serialization**:
-   - If a batch of size $B=32$ exceeds immediate activation headroom, the scheduler dynamically serializes the forward pass into $N$ smaller micro-batches ($B=4 \dots 1$) over the GPU stream.
-   - Preserves 100% request completion rate with zero process crashes.
-3. **Tiered KV-Cache Spillover**:
-   - [`apple/x/metal/metalkv.Cache.OffloadLayer`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalkv/kv.go#L60) and [`nvidia/x/cudakv.Cache.OffloadLayer`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudakv/kv.go#L60) asynchronously stream cold context prefixes to SSD/NVMe via direct zero-copy I/O.
+1. Define immutable plan and bucket identities.
+2. Add a calibration file format with strict compatibility checks and atomic
+   replacement.
+3. Calibrate a small, fixed set of already-correct launch variants offline.
+4. Prove selection with a deliberately slower valid candidate and a mutation
+   control that makes an invalid candidate fail.
+5. Re-rank through the actual stable-buffer deployment path.
+6. Add concurrent readers, publication, invalidation, and reclamation tests.
+7. Measure startup cost, steady-state benefit, cache-hit behavior, and rollback.
+8. Consider bounded live adaptation only after the offline path is useful.
 
-### 3.6 Cross-Platform Hardware Symmetry (CUDA & Metal)
-
-| Elastic Subsystem | Apple Silicon Metal (`apple/x/metal/*`) | NVIDIA CUDA (`nvidia/x/*`) |
-| :--- | :--- | :--- |
-| **Typed Memory & Pools** | [`metalmem.Slice[T]`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalmem/mem.go) + [`metalmem.Pool`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalmem/mem.go#L143) | [`cudamem.Slice[T]`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudamem/mem.go) + `cuMemPool` (quantized 3-tier bucketing) |
-| **Runtime JIT Compiler** | [`metalx.Compile`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalx/metalx.go#L28) (MSL) | [`nvrtcx.Compile`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/nvrtcx/nvrtcx.go) (PTX) |
-| **Tiered KV Cache** | [`metalkv.Cache`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalkv/kv.go) (SSD offload + radix prefix) | [`cudakv.Cache`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudakv/kv.go) (GPUDirect Storage + radix prefix) |
-| **Telemetry & Profiler** | [`metalprof.FlightRecorder`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalprof/flightrecorder.go) | [`cudaprof.FlightRecorder`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaprof/flightrecorder.go) |
-| **Attention Kernel** | [`metalattn.TreeAttention`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalattn) | [`cudaattn.TreeAttention`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaattn) |
-| **Autotuner Benchmark** | [`metalbench.Harness`](file:///Users/tmc/go/src/github.com/tmc/lib/apple/x/metal/metalbench/bench.go) | [`egraph.BenchmarkCandidate`](file:///Users/tmc/go/src/github.com/tmc/lib/nvidia/x/egraph/autotune.go#L72) |
-
----
-
-## 4. Specific Discussion Points for Peer Review
-
-We solicit feedback and peer evaluation on the following design choices:
-
-1. **Top-K Extraction Complexity**:
-   - *Question:* What is the optimal value of $K$? Is $K=3\dots 5$ sufficient to capture the Pareto frontier of full-fusion vs. discrete vs. tensor-core matrix multiplication without bloating JIT memory?
-2. **Warmup & Micro-Benchmarking Overhead**:
-   - *Question:* Should candidate micro-benchmarking be performed during server startup / warm-up prompts, or opportunistically interleaved into idle GPU intervals between user requests?
-3. **Thresholds for Dynamic Re-Optimization**:
-   - *Question:* Thresholds must be derived at runtime from measured quantities ($\tau = f(\text{budget}, \text{latency}, \text{roundtrips})$) rather than static constants.
-4. **Token-Boundary Swap Points**:
-   - *Question:* Single-node hot-swapping adopts the epoch marker token-boundary discipline to guarantee zero-stall in-flight generation.
-
----
-
-## 5. Reviewer Sign-Off & Verdict Template
-
-```markdown
-### Review Feedback
-- **Reviewer:** [Session ID / Name]
-- **Verdict:** [GREEN / AMENDMENT / RED]
-- **Comments on Section 3 (Architecture):**
-- **Comments on Section 4 (Questions):**
-```
+This work follows authoritative plan extraction, native dtype support, and real
+prefill/decode batching. Before those foundations exist, tuning launch details
+has a smaller and less stable performance ceiling.
