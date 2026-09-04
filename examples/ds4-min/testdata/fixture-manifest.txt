@@ -12,6 +12,8 @@ model.gguf-metadata-sha256 BLOCKED:not-present
 model.tensor-manifest-sha256 BLOCKED:not-present
 model.tokenizer-sha256 BLOCKED:not-present
 
-synthetic.seed pending-slice-4
-synthetic.config-sha256 pending-slice-4
-synthetic.generated-manifest-sha256 pending-slice-4
+synthetic.seed 4477748
+synthetic.config {"dim":4,"vocab":6,"experts":4,"top_k":2,"intermediate":3,"hc_streams":2,"sinkhorn_iterations":20,"raw_window":2,"compression_ratio":4,"prompt":[0,2,4],"decode_steps":4,"atol":0.0001,"rtol":0.0001}
+synthetic.config-sha256 72f17034826555ed7c94e52c3557b884110a7ab7d4e826ff5494ebdf2f603fc4
+synthetic.payload-sha256 97952160c6b4d4b9115557ebf96c74af7d8657ecf70a0f114b359cc6b5a5725b
+synthetic.generated-manifest-sha256 45f82ca25b8836bd2cec6902c1458dadae579adf3aee58a4e6e513b3f6977f44

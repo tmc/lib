@@ -99,6 +99,17 @@ one physical pass without the other is `PARTIAL`. Compilation, device
 visibility, skipped tests, plausible output, and zero-sample profiles do not
 establish physical execution.
 
+## CPU fixture scope
+
+The deterministic CPU fixture evaluates separate learned attention and FFN mHC
+control projections with the pinned 20 Sinkhorn iterations,
+attention and indexer compressor KV/gate/APE/norm projections, ratio-4 rolling
+state, ratio-128 boundaries, index scoring, MoE routing, and output logits in
+float32. It includes the attention sink and inverse rotary transform. The
+pinned checkpoint's FP8 KV and indexer QAT round trips remain part of the
+quantized GPU/full-model stage; the float32 fixture neither simulates them nor
+claims quantized parity.
+
 ## Slice 0 review dispositions
 
 - `KEEP`: the narrow command, immutable-model/mutable-session split, sync and
