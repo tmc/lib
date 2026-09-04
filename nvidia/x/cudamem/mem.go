@@ -299,12 +299,10 @@ func (s Slice[T]) CopyDeviceToDevice(src Slice[T]) error {
 	if src.len > s.len {
 		return fmt.Errorf("cudamem: source length %d exceeds destination capacity %d", src.len, s.len)
 	}
-	srcPtr := src.Ptr()
-	if srcPtr == 0 {
-		return errors.New("cudamem: source allocation is freed")
-	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
-	if err := s.withPointer(func(ptr driver.DevicePtr) error { return ptr.MemcpyDtoD(srcPtr, totalBytes) }); err != nil {
+	if err := s.withSource(src, func(dst, src driver.DevicePtr) error {
+		return dst.MemcpyDtoD(src, totalBytes)
+	}); err != nil {
 		return fmt.Errorf("cudamem: copy device to device: %w", err)
 	}
 	return nil
@@ -321,14 +319,10 @@ func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) err
 	if stream == nil {
 		return errors.New("cudamem: nil stream passed to CopyDeviceToDeviceAsync")
 	}
-	srcPtr := src.Ptr()
-	if srcPtr == 0 {
-		return errors.New("cudamem: source allocation is freed")
-	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
-	if err := s.withPointer(func(ptr driver.DevicePtr) error {
+	if err := s.withSource(src, func(dst, src driver.DevicePtr) error {
 		return stream.Device().WithContext(func() error {
-			return ptr.MemcpyDtoDAsync(srcPtr, totalBytes, stream.Raw())
+			return dst.MemcpyDtoDAsync(src, totalBytes, stream.Raw())
 		})
 	}); err != nil {
 		return fmt.Errorf("cudamem: async copy device to device: %w", err)
@@ -405,7 +399,9 @@ func (ha HostAllocation[T]) Len() int {
 	return ha.len
 }
 
-// Slice returns the accessible Go slice view of the pinned memory.
+// Slice returns the accessible Go slice view of the pinned memory. The view is
+// valid only until Free is called through any copy of ha. Callers must
+// serialize all access to the returned slice with Free.
 func (ha HostAllocation[T]) Slice() []T {
 	if ha.alloc != nil {
 		ha.alloc.mu.Lock()
@@ -448,4 +444,33 @@ func (s Slice[T]) withPointer(fn func(driver.DevicePtr) error) error {
 		return errors.New("cudamem: allocation is freed")
 	}
 	return s.alloc.device.WithContext(func() error { return fn(s.ptr) })
+}
+
+func (s Slice[T]) withSource(src Slice[T], fn func(dst, src driver.DevicePtr) error) error {
+	if s.alloc == nil || src.alloc == nil {
+		return errors.New("cudamem: allocation has no ownership record")
+	}
+	if s.alloc == src.alloc {
+		s.alloc.mu.Lock()
+		defer s.alloc.mu.Unlock()
+		if s.alloc.ptr == 0 {
+			return errors.New("cudamem: allocation is freed")
+		}
+		return s.alloc.device.WithContext(func() error { return fn(s.ptr, src.ptr) })
+	}
+	first, second := s.alloc, src.alloc
+	if uintptr(unsafe.Pointer(first)) > uintptr(unsafe.Pointer(second)) {
+		first, second = second, first
+	}
+	first.mu.Lock()
+	defer first.mu.Unlock()
+	second.mu.Lock()
+	defer second.mu.Unlock()
+	if s.alloc.ptr == 0 {
+		return errors.New("cudamem: destination allocation is freed")
+	}
+	if src.alloc.ptr == 0 {
+		return errors.New("cudamem: source allocation is freed")
+	}
+	return s.alloc.device.WithContext(func() error { return fn(s.ptr, src.ptr) })
 }

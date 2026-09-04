@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -122,6 +123,64 @@ func TestReleasedSliceMethodsFail(t *testing.T) {
 				t.Fatal("operation on released alias succeeded")
 			}
 		})
+	}
+}
+
+func TestDeviceCopyHoldsBothAllocations(t *testing.T) {
+	dev := testDevice(t)
+	src, err := Alloc[byte](dev, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst, err := Alloc[byte](dev, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dst.Free()
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	copyDone := make(chan error, 1)
+	go func() {
+		copyDone <- dst.withSource(src, func(_, _ driver.DevicePtr) error {
+			close(entered)
+			<-release
+			return nil
+		})
+	}()
+	<-entered
+	freeDone := make(chan error, 1)
+	go func() { freeDone <- src.Free() }()
+	select {
+	case err := <-freeDone:
+		t.Fatalf("source Free completed during copy critical section: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-copyDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-freeDone; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeviceSelfCopyDoesNotDeadlock(t *testing.T) {
+	dev := testDevice(t)
+	s, err := Alloc[byte](dev, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Free()
+	done := make(chan error, 1)
+	go func() { done <- s.CopyDeviceToDevice(s) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("self-copy deadlocked")
 	}
 }
 
