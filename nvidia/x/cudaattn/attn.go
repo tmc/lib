@@ -220,6 +220,113 @@ extern "C" __global__ void BatchedPagedAttentionDecode(
     }
 }
 
+// BatchedPagedAttentionCausal consumes compact packed-token metadata. Token
+// positions and causal lengths are independent: positions identify the query,
+// while causal lengths bound the KV prefix visible to it. Status is per stable
+// request row, so one bad row cannot make another row's output look failed.
+extern "C" __global__ void BatchedPagedAttentionCausal(
+    const float* __restrict__ q,
+    const float* __restrict__ k_blocks,
+    const float* __restrict__ v_blocks,
+    const int* __restrict__ block_tables,
+    const int* __restrict__ final_seq_lens,
+    const unsigned long long* __restrict__ row_generations,
+    const int* __restrict__ token_rows,
+    const int* __restrict__ token_positions,
+    const int* __restrict__ causal_lens,
+    const unsigned long long* __restrict__ token_generations,
+    float* __restrict__ out,
+    int max_blocks_per_seq,
+    int block_size,
+    int num_q_heads,
+    int num_kv_heads,
+    int head_dim,
+    float scale,
+    int num_tokens,
+    int metadata_rows,
+    int total_blocks,
+    int max_seq_len,
+    int* __restrict__ row_status
+) {
+    int token_idx = blockIdx.y;
+    int head_idx = blockIdx.x;
+    if (token_idx >= num_tokens || head_idx >= num_q_heads) return;
+
+    int row = token_rows[token_idx];
+    float* out_ptr = out + (token_idx * num_q_heads + head_idx) * head_dim;
+    bool valid_row = row >= 0 && row < metadata_rows;
+    int position = valid_row ? token_positions[token_idx] : -1;
+    int seq_len = valid_row ? causal_lens[token_idx] : 0;
+    bool valid = valid_row && blockDim.x > 0 && (blockDim.x & (blockDim.x - 1)) == 0 &&
+        block_size > 0 && max_blocks_per_seq > 0 && total_blocks > 0 &&
+        num_kv_heads > 0 && head_dim > 0 && num_q_heads % num_kv_heads == 0 &&
+        position >= 0 && position < final_seq_lens[row] &&
+        seq_len > 0 && seq_len <= final_seq_lens[row] && seq_len <= max_seq_len &&
+		(seq_len + block_size - 1) / block_size <= max_blocks_per_seq &&
+        token_generations[token_idx] != 0 && token_generations[token_idx] == row_generations[row];
+    if (!valid) {
+        if (threadIdx.x == 0 && metadata_rows > 0) atomicExch(row_status + (valid_row ? row : 0), 1);
+        for (int d = threadIdx.x; d < head_dim; d += blockDim.x) out_ptr[d] = nanf("");
+        return;
+    }
+
+    int kv_head_idx = head_idx / (num_q_heads / num_kv_heads);
+    const int* table = block_tables + row * max_blocks_per_seq;
+    const float* q_ptr = q + (token_idx * num_q_heads + head_idx) * head_dim;
+    extern __shared__ float smem[];
+    float* scores = smem;
+    float* reduce = scores + seq_len;
+
+    for (int t = 0; t < seq_len; t++) {
+        int block_idx = table[t / block_size];
+        int block_offset = t % block_size;
+        bool valid_block = block_idx >= 0 && block_idx < total_blocks;
+        float dot = 0.0f;
+        if (valid_block) {
+            const float* k_ptr = k_blocks + ((block_idx * block_size + block_offset) * num_kv_heads + kv_head_idx) * head_dim;
+            for (int d = threadIdx.x; d < head_dim; d += blockDim.x) dot += q_ptr[d] * k_ptr[d];
+        }
+        reduce[threadIdx.x] = dot;
+        __syncthreads();
+        for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+            if (threadIdx.x < stride) reduce[threadIdx.x] += reduce[threadIdx.x + stride];
+            __syncthreads();
+        }
+        if (threadIdx.x == 0) {
+            if (!valid_block) atomicExch(row_status + row, 1);
+            scores[t] = valid_block ? reduce[0] * scale : nanf("");
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.x == 0) {
+        float max_score = -3.402823466e+38F;
+        for (int t = 0; t < seq_len; t++) max_score = fmaxf(max_score, scores[t]);
+        float sum_exp = 0.0f;
+        for (int t = 0; t < seq_len; t++) {
+            scores[t] = expf(scores[t] - max_score);
+            sum_exp += scores[t];
+        }
+        for (int t = 0; t < seq_len; t++) scores[t] /= sum_exp;
+    }
+    __syncthreads();
+
+    for (int d = threadIdx.x; d < head_dim; d += blockDim.x) {
+        float acc = 0.0f;
+        for (int t = 0; t < seq_len; t++) {
+            int block_idx = table[t / block_size];
+            int block_offset = t % block_size;
+            if (block_idx < 0 || block_idx >= total_blocks) {
+                acc = nanf("");
+                break;
+            }
+            const float* v_ptr = v_blocks + ((block_idx * block_size + block_offset) * num_kv_heads + kv_head_idx) * head_dim;
+            acc += scores[t] * v_ptr[d];
+        }
+        out_ptr[d] = acc;
+    }
+}
+
 extern "C" __global__ void PagedRoPEStoreKV(
 	const float* __restrict__ q,
 	const float* __restrict__ k,

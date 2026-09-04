@@ -32,6 +32,11 @@ func TestBatchedPagedAttentionTemplate(t *testing.T) {
 			t.Errorf("template does not contain %q", name)
 		}
 	}
+	for _, name := range []string{"BatchedPagedAttentionCausal", "token_positions", "row_status + row"} {
+		if !strings.Contains(tmpl, name) {
+			t.Errorf("packed causal template does not contain %q", name)
+		}
+	}
 }
 
 func TestDefaultConfig(t *testing.T) {
