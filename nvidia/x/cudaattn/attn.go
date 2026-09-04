@@ -50,13 +50,16 @@ func PagedSharedMemoryBytes(maxSeqLen, threads int) (int, error) {
 	return 4 * (maxSeqLen + threads), nil
 }
 
-// CausalFlashAttentionTemplate is the embedded CUDA C++ kernel for causal single-sequence decode attention.
+// CausalFlashAttentionTemplate is the embedded CUDA C++ kernel for causal
+// single-sequence decode attention. The kernel requires one single-thread block
+// per query head and shared memory for curPos+1 float32 scores. Use
+// [BatchedPagedAttentionTemplate] for multiple sequences.
 const CausalFlashAttentionTemplate = `
 extern "C" __global__ void CausalFlashAttentionDecode(
-    const float* __restrict__ q,       // [batch, num_q_heads, head_dim]
-    const float* __restrict__ k_cache, // [batch, max_seq_len, num_kv_heads, head_dim]
-    const float* __restrict__ v_cache, // [batch, max_seq_len, num_kv_heads, head_dim]
-    float* __restrict__ out,           // [batch, num_q_heads, head_dim]
+    const float* __restrict__ q,       // [num_q_heads, head_dim]
+    const float* __restrict__ k_cache, // [max_seq_len, num_kv_heads, head_dim]
+    const float* __restrict__ v_cache, // [max_seq_len, num_kv_heads, head_dim]
+    float* __restrict__ out,           // [num_q_heads, head_dim]
     int cur_pos,
     int max_seq_len,
     int num_q_heads,
