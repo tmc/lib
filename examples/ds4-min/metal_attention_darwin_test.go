@@ -4,11 +4,44 @@ package main
 
 import (
 	"math"
+	"os"
 	"testing"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
+
+func TestMetalRawAttentionPositionOneOracle(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	oracle := os.Getenv("DS4_LAYER0_POS1_ORACLE_DIR")
+	if model == "" || oracle == "" {
+		t.Skip("model and position 1 oracle paths not set")
+	}
+	r, err := newMetalRuntime(model, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	cache := r.state.layers[0].rawKV
+	raw := readOracleF32(t, oracle+"/stage_raw_cache-0_pos1.bin")
+	if len(raw) != 2*ds4KVWidth {
+		t.Fatalf("raw cache length = %d, want %d", len(raw), 2*ds4KVWidth)
+	}
+	copy(cache.HostSlice(), raw[:ds4KVWidth])
+	q, kv, heads, err := r.ops.RopeAttentionRaw(
+		readOracleF32(t, oracle+"/stage_Qnorm-0_pos1.bin"),
+		readOracleF32(t, oracle+"/stage_KVnorm-0_pos1.bin"),
+		r.layers[0].attnSinks,
+		cache,
+		1,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareOracleF32(t, "Qcur", q, oracle+"/stage_Qcur-0_pos1.bin")
+	compareOracleFP8F32(t, "KVcur", kv, oracle+"/stage_KVcur-0_pos1.bin")
+	compareOracleFP8F32(t, "kqv_out", heads, oracle+"/stage_kqv_out-0_pos1.bin")
+}
 
 func TestMetalRawAttentionKeepsHistory(t *testing.T) {
 	dev, err := libmetal.NewDevice()
