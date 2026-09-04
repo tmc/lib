@@ -1542,6 +1542,13 @@ func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
 	return dtypes
 }
 
+// fusionActive reports whether the engine dispatches the fused e-graph kernels.
+// The f16 layer path lowers the fused plan ops back to the discrete kernels, so
+// saturating the fusion rewrites only changes execution for f32 weights.
+func (eng *ModelEngine) fusionActive() bool {
+	return eng != nil && eng.Plan != nil && eng.Plan.FuseEGraph && !eng.isF16
+}
+
 func (eng *ModelEngine) prefixCacheMetrics() PrefixCacheMetrics {
 	if eng == nil || eng.prefixes == nil {
 		return PrefixCacheMetrics{}
@@ -3537,9 +3544,12 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	}
 	fmt.Printf("[Weights] Ingested %d tensors (%d Dim, %d Vocab, %d Layers)\n", loadedTensors, cfg.Dim, cfg.VocabSize, len(eng.layers))
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
-	if cfg.FuseEGraph {
+	switch {
+	case eng.fusionActive():
 		fmt.Printf("[E-Graph Megakernel] Active: saturated %d equivalence classes with fused RMSNorm+GEMV & SwiGLU\n\n", eng.egraphSats)
-	} else {
+	case cfg.FuseEGraph:
+		fmt.Printf("[E-Graph Megakernel] Saturated %d equivalence classes; f16 weights execute the discrete kernels\n\n", eng.egraphSats)
+	default:
 		fmt.Printf("[E-Graph Megakernel] Disabled: standard layer scheduling\n\n")
 	}
 

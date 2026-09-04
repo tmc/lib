@@ -561,7 +561,7 @@ func (s *TelemetryServer) graphPlan() (GraphPlan, error) {
 	}
 
 	return GraphPlan{
-		Fused:       s.cfg.FuseEGraph,
+		Fused:       s.engine.fusionActive(),
 		Saturations: s.engine.egraphSats,
 		Before:      planNode(before, nil),
 		After:       planNode(after, egraph.HeterogeneousPartition(after)),
@@ -822,7 +822,7 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 	}
 
 	activePlan := "Fused Megakernel (RMSNorm + GEMV + SwiGLU)"
-	if !s.cfg.FuseEGraph {
+	if !s.engine.fusionActive() {
 		activePlan = "Discrete Multi-Pass Pipeline"
 	}
 

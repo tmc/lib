@@ -174,6 +174,11 @@ func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
 	return nil
 }
 
+// fusionActive reports whether the engine dispatches the fused e-graph kernels.
+func (eng *ModelEngine) fusionActive() bool {
+	return eng != nil && eng.fuseActive
+}
+
 func (eng *ModelEngine) prefixCacheMetrics() PrefixCacheMetrics {
 	return PrefixCacheMetrics{}
 }
