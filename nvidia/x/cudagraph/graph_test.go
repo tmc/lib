@@ -192,6 +192,30 @@ func TestBucketManagerRejectsInvalidConfiguration(t *testing.T) {
 	}
 }
 
+func TestClosedHandlesRejectOperations(t *testing.T) {
+	var graph *cudagraph.Graph
+	if graph.Raw() != 0 {
+		t.Fatal("nil graph has nonzero raw handle")
+	}
+	if err := graph.Destroy(); err != nil {
+		t.Fatalf("nil Graph.Destroy: %v", err)
+	}
+	if _, err := graph.Instantiate(); err == nil || !strings.Contains(err.Error(), "graph is closed") {
+		t.Fatalf("nil Graph.Instantiate error = %v", err)
+	}
+
+	var exec *cudagraph.Exec
+	if err := exec.Destroy(); err != nil {
+		t.Fatalf("nil Exec.Destroy: %v", err)
+	}
+	if err := exec.Launch(nil); err == nil || !strings.Contains(err.Error(), "executable graph is closed") {
+		t.Fatalf("nil Exec.Launch error = %v", err)
+	}
+	if err := exec.Update(nil); err == nil || !strings.Contains(err.Error(), "executable graph is closed") {
+		t.Fatalf("nil Exec.Update error = %v", err)
+	}
+}
+
 func TestBucketManagerBuildDoesNotHoldManagerLock(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
