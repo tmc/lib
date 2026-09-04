@@ -126,8 +126,9 @@ func (l *Launcher) Launch(args ...any) error {
 	if l.stream == nil {
 		err = launch(0)
 	} else {
+		dev := l.stream.Device()
 		err = l.stream.WithHandle(func(stream driver.Stream) error {
-			return l.stream.Device().WithContext(func() error { return launch(stream) })
+			return dev.WithContext(func() error { return launch(stream) })
 		})
 	}
 	if err != nil {
