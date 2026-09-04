@@ -20,7 +20,6 @@ import (
 	"github.com/tmc/lib/lm/speculative"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
-	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
@@ -40,7 +39,6 @@ var (
 	disasmFlag     = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 	disasmModeFlag = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
 	fuseEGraphFlag = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
-	graphFlag      = flag.Bool("graph", false, "enable CUDA Graph capture & single-launch replay for decoder forward pass")
 	specDraftFlag  = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
 	benchFlag      = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag = flag.Int("bench-count", 10, "number of benchmark iterations to run")
@@ -314,10 +312,6 @@ func runGPUInference(
 		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
 	}
 
-	if *graphFlag {
-		fmt.Println("[CUDA Graph] Graph capture & single-launch replay active")
-	}
-
 	allContextTokens := append([]int32(nil), promptTokens...)
 	tGen0 := time.Now()
 
@@ -376,22 +370,6 @@ func runGPUInference(
 				}, func() {
 					tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
 				})
-			} else if *graphFlag {
-				stream, _ := dev.NewStream()
-				defer stream.Destroy()
-				g, cErr := cudagraph.Capture(stream, func() {
-					_, err = GPUForwardPassStream(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos, stream)
-				})
-				if cErr == nil {
-					exec, iErr := g.Instantiate()
-					if iErr == nil {
-						defer exec.Destroy()
-						_ = exec.Launch(stream)
-						_ = stream.Synchronize(context.Background())
-						tok = scratch.HostTokenOut[0]
-					}
-					_ = g.Destroy()
-				}
 			} else {
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
 			}
