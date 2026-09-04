@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	apple "github.com/tmc/apple/metal"
+	"github.com/tmc/apple/objectivec"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalx"
 )
@@ -32,12 +33,16 @@ func ExampleBind() {
 		fmt.Println(err)
 		return
 	}
+	defer objectivec.ObjectFromID(lib.GetID()).Release()
 
 	var k decodeKernels
 	if err := metalx.Bind(dev, lib, &k); err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer objectivec.ObjectFromID(k.Embed.GetID()).Release()
+	defer objectivec.ObjectFromID(k.Norm.GetID()).Release()
+	defer objectivec.ObjectFromID(k.GEMV.GetID()).Release()
 	fmt.Println(k.Embed != nil, k.Norm != nil, k.GEMV != nil)
 }
 

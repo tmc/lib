@@ -53,12 +53,14 @@ func (c *Compiler) Close() error {
 	return nil
 }
 
-// CompileLibrary compiles MSL source code into an MTLLibrary.
+// CompileLibrary compiles MSL source code into a library owned by the caller.
+// The caller must release the library after its functions and pipelines have
+// been created. Compiler handles this ownership automatically for Compile.
 func CompileLibrary(dev *metal.Device, source string) (apple.MTLLibrary, error) {
-	if dev == nil || dev.Raw().GetID() == 0 {
+	if dev == nil {
 		return nil, fmt.Errorf("metalx: nil or uninitialized Metal device")
 	}
-	lib, err := dev.Raw().NewLibraryWithSourceOptionsError(source, apple.MTLCompileOptions{})
+	lib, err := dev.CompileLibrary(source)
 	if err != nil {
 		return nil, fmt.Errorf("metalx: compile MSL library: %w", err)
 	}
@@ -90,13 +92,7 @@ func (c *Compiler) Compile(source, kernelName string) (apple.MTLComputePipelineS
 	}
 	defer objectivec.ObjectFromID(lib.GetID()).Release()
 
-	fn := lib.NewFunctionWithName(kernelName)
-	if fn.GetID() == 0 {
-		return nil, fmt.Errorf("metalx: kernel %q not found in compiled library", kernelName)
-	}
-	defer objectivec.ObjectFromID(fn.GetID()).Release()
-
-	newPso, err := c.dev.Raw().NewComputePipelineStateWithFunctionError(fn)
+	newPso, err := c.dev.NewComputePipeline(lib, kernelName)
 	if err != nil {
 		return nil, fmt.Errorf("metalx: create compute pipeline %q: %w", kernelName, err)
 	}
