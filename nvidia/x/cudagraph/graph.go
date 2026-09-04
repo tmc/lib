@@ -118,6 +118,7 @@ type BucketManager struct {
 	buckets []int
 	builder func(s *cuda.Stream, dim int) (*Graph, error)
 	execs   map[int]*Exec
+	err     error
 }
 
 // NewBucketManager creates a new manager caching instantiated graphs across discrete dimension buckets.
@@ -126,17 +127,43 @@ func NewBucketManager(buckets []int, builder func(s *cuda.Stream, dim int) (*Gra
 	copy(sortedBuckets, buckets)
 	sort.Ints(sortedBuckets)
 
-	return &BucketManager{
+	bm := &BucketManager{
 		buckets: sortedBuckets,
 		builder: builder,
 		execs:   make(map[int]*Exec),
 	}
+	switch {
+	case len(sortedBuckets) == 0:
+		bm.err = errors.New("cudagraph: no buckets configured")
+	case builder == nil:
+		bm.err = errors.New("cudagraph: nil bucket builder")
+	}
+	for i, bucket := range sortedBuckets {
+		if bucket <= 0 {
+			bm.err = fmt.Errorf("cudagraph: invalid bucket %d", bucket)
+			break
+		}
+		if i > 0 && bucket == sortedBuckets[i-1] {
+			bm.err = fmt.Errorf("cudagraph: duplicate bucket %d", bucket)
+			break
+		}
+	}
+	return bm
 }
 
 // GetExec returns the executable graph matching the smallest bucket that accommodates dim.
 func (bm *BucketManager) GetExec(s *cuda.Stream, dim int) (*Exec, int, error) {
+	if bm == nil {
+		return nil, 0, errors.New("cudagraph: nil bucket manager")
+	}
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
+	if bm.err != nil {
+		return nil, 0, bm.err
+	}
+	if dim <= 0 {
+		return nil, 0, fmt.Errorf("cudagraph: invalid dimension %d", dim)
+	}
 
 	targetBucket := -1
 	for _, b := range bm.buckets {
@@ -170,12 +197,18 @@ func (bm *BucketManager) GetExec(s *cuda.Stream, dim int) (*Exec, int, error) {
 
 // Close destroys all cached instantiated graphs.
 func (bm *BucketManager) Close() error {
+	if bm == nil {
+		return nil
+	}
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
+	var errs []error
 	for _, exec := range bm.execs {
-		_ = exec.Destroy()
+		if err := exec.Destroy(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	bm.execs = make(map[int]*Exec)
-	return nil
+	return errors.Join(errs...)
 }
