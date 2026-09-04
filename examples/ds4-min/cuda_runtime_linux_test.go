@@ -3,13 +3,19 @@
 package main
 
 import (
+	"bufio"
 	"encoding/binary"
 	"math"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 func TestCUDAFoundation(t *testing.T) {
@@ -32,16 +38,125 @@ func TestCUDAFoundation(t *testing.T) {
 	if r.name == "" || r.major == 0 {
 		t.Fatalf("invalid CUDA identity %q sm_%d%d", r.name, r.major, r.minor)
 	}
-	if r.mapped.host == 0 || r.mapped.device == 0 || r.mapped.bytes == 0 {
-		t.Fatalf("model range was not registered: %+v", r.mapped)
-	}
-	if r.mapped.bytes > cudaMaxRegisteredModelRange+uint(os.Getpagesize()) {
-		t.Fatalf("registered bytes = %d, want a bounded range", r.mapped.bytes)
+	if r.hmm {
+		if r.mapped.bytes != 0 {
+			t.Fatalf("HMM registered bytes = %d, want 0", r.mapped.bytes)
+		}
+	} else {
+		if r.mapped.host == 0 || r.mapped.device == 0 || r.mapped.bytes == 0 {
+			t.Fatalf("model range was not registered: %+v", r.mapped)
+		}
+		if r.mapped.bytes > cudaMaxRegisteredModelRange+uint(os.Getpagesize()) {
+			t.Fatalf("registered bytes = %d, want a bounded range", r.mapped.bytes)
+		}
 	}
 	if r.probeTensor == "" || r.probeDevice != r.probeHost {
 		t.Fatalf("CUDA read of %q = %#04x, host = %#04x", r.probeTensor, r.probeDevice, r.probeHost)
 	}
-	t.Logf("CUDA read of %q = host %#04x, device %#04x; registered %d bytes", r.probeTensor, r.probeHost, r.probeDevice, r.mapped.bytes)
+	t.Logf("CUDA read of %q = host %#04x, device %#04x; HMM=%t registered=%d bytes", r.probeTensor, r.probeHost, r.probeDevice, r.hmm, r.mapped.bytes)
+}
+
+func TestCUDAHMMTensorViews(t *testing.T) {
+	path := os.Getenv("DS4_MODEL")
+	if path == "" {
+		t.Skip("DS4_MODEL is not set")
+	}
+	beforeRSS := cudaTestProcKB(t, "/proc/self/status", "VmRSS:")
+	beforeAvailable := cudaTestProcKB(t, "/proc/meminfo", "MemAvailable:")
+	r, err := newCUDAFoundation(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := r.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !r.hmm {
+		t.Skipf("device does not provide integrated UVA pageable host-page-table access; registered=%d", r.mapped.bytes)
+	}
+	if r.mapped.bytes != 0 {
+		t.Fatalf("registered bytes = %d, want 0", r.mapped.bytes)
+	}
+
+	// Choose tensors whose file offsets span the model, then sample separate
+	// pages at each tensor's beginning, middle, and end.
+	wantAt := []int{0, len(r.gguf.tensors) / 2, len(r.gguf.tensors) - 1}
+	compiled, err := nvrtcx.Compile(cudaProbeSource,
+		nvrtcx.WithName("ds4_hmm_views.cu"),
+		nvrtcx.WithArch(r.major, r.minor),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = r.device.WithContext(func() error {
+		mod, err := compiled.Load(r.device)
+		if err != nil {
+			return err
+		}
+		defer mod.Unload()
+		fn, err := mod.GetFunction("ds4_read_u8")
+		if err != nil {
+			return err
+		}
+		out, err := cudamem.Alloc[uint32](r.device, 1)
+		if err != nil {
+			return err
+		}
+		defer out.Free()
+		for _, index := range wantAt {
+			tensor, err := r.tensor(r.gguf.tensors[index].name)
+			if err != nil {
+				return err
+			}
+			for _, sample := range []uint64{0, tensor.bytes / 2, tensor.bytes - 1} {
+				if err := cudalaunch.Kernel(fn).Launch(tensor.device, sample, out); err != nil {
+					return err
+				}
+				if err := driver.CtxSynchronize(); err != nil {
+					return err
+				}
+				var got [1]uint32
+				if err := out.CopyToHost(got[:]); err != nil {
+					return err
+				}
+				want := r.model[tensor.fileOffset+sample]
+				if got[0] != uint32(want) {
+					t.Errorf("%s byte %d = %#02x, want %#02x", tensor.name, sample, got[0], want)
+				}
+			}
+			t.Logf("read %q at [%d,%d), %d bytes", tensor.name, tensor.fileOffset, tensor.fileOffset+tensor.bytes, tensor.bytes)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterRSS := cudaTestProcKB(t, "/proc/self/status", "VmRSS:")
+	afterAvailable := cudaTestProcKB(t, "/proc/meminfo", "MemAvailable:")
+	t.Logf("memory kB: RSS %d -> %d; available %d -> %d; registered=0", beforeRSS, afterRSS, beforeAvailable, afterAvailable)
+}
+
+func cudaTestProcKB(t *testing.T, path, key string) uint64 {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Logf("read memory receipt %s: %v", path, err)
+		return 0
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		fields := strings.Fields(s.Text())
+		if len(fields) < 2 || fields[0] != key {
+			continue
+		}
+		value, err := strconv.ParseUint(fields[1], 10, 64)
+		if err == nil {
+			return value
+		}
+	}
+	return 0
 }
 
 func TestCUDAQ80Row(t *testing.T) {

@@ -41,6 +41,10 @@ extern "C" __global__ void ds4_read_u16(const unsigned short *p, unsigned int *o
   if (blockIdx.x == 0 && threadIdx.x == 0) out[0] = p[0];
 }
 
+extern "C" __global__ void ds4_read_u8(const unsigned char *p, unsigned long long offset, unsigned int *out) {
+  if (blockIdx.x == 0 && threadIdx.x == 0) out[0] = p[offset];
+}
+
 // ds4_q8_0_matvec computes one output row per CUDA block directly from GGUF
 // Q8_0 blocks. The input and output are ordinary device allocations owned by
 // the caller.
@@ -83,6 +87,13 @@ type cudaModelRange struct {
 	view       []byte
 }
 
+type cudaModelTensor struct {
+	name       string
+	device     driver.DevicePtr
+	fileOffset uint64
+	bytes      uint64
+}
+
 // cudaFoundation owns the resources needed to begin a CUDA model runtime.
 // It deliberately does not implement sessionBackend until token evaluation is
 // available on CUDA.
@@ -93,6 +104,8 @@ type cudaFoundation struct {
 	name   string
 	major  int
 	minor  int
+	hmm    bool
+	gguf   *ggufFile
 	mapped cudaModelRange
 
 	probeTensor string
@@ -158,7 +171,11 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &cudaFoundation{device: dev, file: f, model: model, name: name, major: major, minor: minor}
+	hmm, err := cudaSupportsHostPageTables(dev)
+	if err != nil {
+		return nil, err
+	}
+	r := &cudaFoundation{device: dev, file: f, model: model, name: name, major: major, minor: minor, hmm: hmm, gguf: g}
 	if err := r.probe(); err != nil {
 		return nil, err
 	}
@@ -171,6 +188,67 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// cudaSupportsHostPageTables reports whether ordinary system allocations use
+// the same virtual addresses on the CPU and GPU. All four properties are
+// required: accepting a host pointer based only on UVA is not sufficient.
+func cudaSupportsHostPageTables(dev *cuda.Device) (bool, error) {
+	attrs := [...]driver.DeviceAttribute{
+		driver.DevAttrIntegrated,
+		driver.DevAttrUnifiedAddressing,
+		driver.DevAttrPageableMemoryAccess,
+		driver.DevAttrPageableMemoryAccessUsesHostPageTables,
+	}
+	for _, attr := range attrs {
+		value, err := dev.Attribute(attr)
+		if err != nil {
+			return false, fmt.Errorf("cuda: query HMM capability %v: %w", attr, err)
+		}
+		if value == 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// modelRange returns a device view of bytes in the stable GGUF mapping. On an
+// integrated device using the host page tables this is the mmap address itself
+// and requires neither registration nor a CUDA allocation. Other devices use
+// the bounded registered fallback.
+func (r *cudaFoundation) modelRange(fileOffset, length uint64) (driver.DevicePtr, error) {
+	if length == 0 {
+		return 0, fmt.Errorf("cuda: empty model range")
+	}
+	if fileOffset > uint64(len(r.model)) || length > uint64(len(r.model))-fileOffset {
+		return 0, fmt.Errorf("cuda: model range [%d,%d) outside mapping", fileOffset, fileOffset+length)
+	}
+	if r.hmm {
+		return driver.DevicePtr(uintptr(unsafe.Pointer(&r.model[fileOffset]))), nil
+	}
+	return r.mapModelRange(fileOffset, length)
+}
+
+func (r *cudaFoundation) tensor(name string) (cudaModelTensor, error) {
+	if r.gguf == nil {
+		return cudaModelTensor{}, fmt.Errorf("cuda: model is closed")
+	}
+	for _, tensor := range r.gguf.tensors {
+		if tensor.name != name {
+			continue
+		}
+		bytes, err := tensorBytes(tensor)
+		if err != nil {
+			return cudaModelTensor{}, fmt.Errorf("cuda: size tensor %q: %w", name, err)
+		}
+		offset := r.gguf.dataOffset + tensor.offset
+		ptr, err := r.modelRange(offset, bytes)
+		if err != nil {
+			return cudaModelTensor{}, fmt.Errorf("cuda: bind tensor %q: %w", name, err)
+		}
+		return cudaModelTensor{name: name, device: ptr, fileOffset: offset, bytes: bytes}, nil
+	}
+	return cudaModelTensor{}, fmt.Errorf("cuda: model has no tensor %q", name)
 }
 
 func (r *cudaFoundation) probe() error {
@@ -282,7 +360,7 @@ func (r *cudaFoundation) probeModel(g *ggufFile) error {
 	}
 	offset := g.dataOffset + tensor.offset
 	want := uint16(r.model[offset]) | uint16(r.model[offset+1])<<8
-	ptr, err := r.mapModelRange(offset, tensorBytes)
+	ptr, err := r.modelRange(offset, tensorBytes)
 	if err != nil {
 		return fmt.Errorf("cuda: bind tensor %q: %w", tensor.name, err)
 	}
@@ -434,6 +512,7 @@ func (r *cudaFoundation) Close() error {
 		errs = append(errs, syscall.Munmap(r.model))
 		r.model = nil
 	}
+	r.gguf = nil
 	if r.file != nil {
 		errs = append(errs, r.file.Close())
 		r.file = nil
