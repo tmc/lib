@@ -21,7 +21,7 @@ type Engine struct {
 	workspaceSize uint
 }
 
-// NewEngine initializes a high-performance cuBLASLt engine with a 32MB workspace buffer.
+// NewEngine initializes a cuBLASLt engine with a 32MB workspace buffer.
 func NewEngine(dev *cuda.Device) (*Engine, error) {
 	if dev == nil {
 		return nil, fmt.Errorf("cublasltx: nil device")
@@ -81,8 +81,7 @@ func (e *Engine) Close() error {
 	return errors.Join(errs...)
 }
 
-// MatMul executes high-throughput 2D Tensor Core GEMM using hardware heuristic algorithm selection:
-// D = alpha * (A * B) + beta * C
+// MatMul computes D = A*B for column-major float32 matrices.
 func (e *Engine) MatMul(
 	s *cuda.Stream,
 	a cudamem.Slice[float32], m, k int,
@@ -105,14 +104,9 @@ func (e *Engine) MatMul(
 	}
 
 	return e.dev.WithContext(func() error {
-		// Use FastAccum for peak Tensor Core arithmetic utilization
-		opDesc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32FFast16F, cublaslt.R32F)
+		opDesc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 		if err != nil {
-			// Fallback to standard 32F if FastAccum is unsupported
-			opDesc, err = cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
-			if err != nil {
-				return fmt.Errorf("create matmul desc: %w", err)
-			}
+			return fmt.Errorf("create matmul desc: %w", err)
 		}
 		defer opDesc.Destroy()
 

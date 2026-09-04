@@ -10,8 +10,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
-// MatMulWithGELUBias executes fused Matrix Multiplication + Bias addition + GELU activation in a single pass:
-// D = GELU( (A * B) + Bias )
+// MatMulWithGELUBias computes D = GELU(A*B+bias) for column-major
+// float32 matrices. Bias contains one value for each row of D.
 func (e *Engine) MatMulWithGELUBias(
 	s *cuda.Stream,
 	a cudamem.Slice[float32], m, k int,
@@ -30,8 +30,8 @@ func (e *Engine) MatMulWithGELUBias(
 	if err := validateMatMulLengths(a.Len(), m, k, b.Len(), n, d.Len()); err != nil {
 		return err
 	}
-	if bias.Len() < n {
-		return fmt.Errorf("cublasltx: bias length %d is smaller than %d", bias.Len(), n)
+	if bias.Len() < m {
+		return fmt.Errorf("cublasltx: bias length %d is smaller than %d", bias.Len(), m)
 	}
 	if s != nil && s.Device() != e.dev {
 		return errors.New("cublasltx: stream belongs to another device")
