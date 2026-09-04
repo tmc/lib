@@ -1,5 +1,11 @@
-// Package cudalaunch provides an ergonomic, type-safe builder for launching CUDA kernels
-// and automatic parameter marshalling without unsafe pointer bookkeeping.
+// Package cudalaunch configures CUDA kernel launches and marshals Go values as
+// kernel parameters.
+//
+// A Launcher borrows its function, module, stream, and device buffers. The
+// caller must keep them live through stream completion. A Launcher may be
+// reused after a launch completes, but its configuration methods and Launch
+// must not be called concurrently. Separate launchers may submit concurrently
+// to separate streams.
 //
 // # Kernel Execution Builder
 //
