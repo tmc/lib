@@ -34,9 +34,77 @@ type metalPinnedKernels struct {
 	RMS              apple.MTLComputePipelineState `metal:"rms_norm"`
 	RopeAttention    apple.MTLComputePipelineState `metal:"rope_attention_one"`
 	RopeAttentionRaw apple.MTLComputePipelineState `metal:"rope_attention_raw"`
+	RopeAttentionMix apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
 	CompressorPool   apple.MTLComputePipelineState `metal:"compressor_pool"`
 	CompressorFinish apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
 	IndexerFinish    apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
+}
+
+func (o *metalPinnedOps) RopeAttentionMixed(q, kv []float32, sinks boundMetalTensor, raw, comp metalmem.Slice[float32], nComp int, allowed []uint32, position int, layer int) ([]float32, []float32, []float32, error) {
+	if len(q) != 64*512 || len(kv) != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
+		raw.Len() == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 || position < 0 || layer < 2 {
+		return nil, nil, nil, fmt.Errorf("mixed attention: invalid shape")
+	}
+	qbuf, err := metalmem.AllocFromSlice(o.dev, q)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer qbuf.Free()
+	kvbuf, err := metalmem.AllocFromSlice(o.dev, kv)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer kvbuf.Free()
+	if allowed == nil {
+		allowed = make([]uint32, max(1, nComp))
+		for i := range allowed {
+			allowed[i] = 1
+		}
+	}
+	if len(allowed) < max(1, nComp) {
+		return nil, nil, nil, fmt.Errorf("mixed attention: invalid allowed mask")
+	}
+	allowbuf, err := metalmem.AllocFromSlice(o.dev, allowed)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer allowbuf.Free()
+	rowCap := raw.Len() / 512
+	nRaw := min(position+1, rowCap)
+	scores, err := metalmem.Alloc[float32](o.dev, 64*(nRaw+nComp))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer scores.Free()
+	out, err := metalmem.Alloc[float32](o.dev, 2*len(q)+len(kv))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer out.Free()
+	cb := o.dev.Queue().CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(o.kernels.RopeAttentionMix)
+	for i, data := range []metalmem.Slice[float32]{qbuf, kvbuf} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(allowbuf.Buffer(), allowbuf.Offset(), 5)
+	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 6)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 7)
+	libmetal.SetScalar(enc, uint32(position), 8)
+	libmetal.SetScalar(enc, uint32(layer), 9)
+	libmetal.SetScalar(enc, uint32(rowCap), 10)
+	libmetal.SetScalar(enc, uint32(nComp), 11)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	enc.EndEncoding()
+	cb.Commit()
+	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return nil, nil, nil, fmt.Errorf("mixed attention: %w", err)
+	}
+	host := out.HostSlice()
+	return append([]float32(nil), host[:len(q)]...), append([]float32(nil), host[len(q):len(q)+len(kv)]...), append([]float32(nil), host[len(q)+len(kv):]...), nil
 }
 
 func (o *metalPinnedOps) CompressorAttention(kv, score []float32, ape, norm boundMetalTensor, state *metalCompressedState, position int) ([]float32, bool, error) {
@@ -1439,6 +1507,67 @@ kernel void compressor_finish_indexer(
   float amax=max(absbuf[base],7.052966104933725e-38f),scale=exp2(ceil(log2(amax/6.0f)));
   float out=e2m1fn_round(clamp(v/scale,-6.0f,6.0f))*scale;
   pooled[tid]=out;cache[cache_row*128+tid]=float(half(out));
+}
+
+kernel void rope_attention_mixed(
+    device const float *q [[buffer(0)]],
+    device const float *kv [[buffer(1)]],
+    device const float *sinks [[buffer(2)]],
+    device float *raw [[buffer(3)]],
+    device const float *comp [[buffer(4)]],
+    device const uint *allowed [[buffer(5)]],
+    device float *scores [[buffer(6)]],
+    device float *out [[buffer(7)]],
+    constant uint &position [[buffer(8)]],
+    constant uint &layer [[buffer(9)]],
+    constant uint &raw_cap [[buffer(10)]],
+    constant uint &n_comp [[buffer(11)]],
+    uint head [[thread_position_in_threadgroup]]) {
+  const uint qoff=head*512;
+  for(uint i=0;i<512;i++)out[qoff+i]=q[qoff+i];
+  if(head==0)for(uint i=0;i<512;i++)out[32768+i]=kv[i];
+  for(uint r=0;r<64;r+=2){
+    const uint qi=qoff+448+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=sin(theta),a=out[qi],b=out[qi+1];
+    out[qi]=a*c-b*s;out[qi+1]=a*s+b*c;
+    if(head==0){uint ki=32768+448+r;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  if(head==0){
+    for(uint off=0;off<448;off+=64){
+      float amax=1.0e-4f;for(uint i=0;i<64;i++)amax=max(amax,abs(out[32768+off+i]));
+      const float scale=exp2(ceil(log2(amax/448.0f)));
+      for(uint i=0;i<64;i++)out[32768+off+i]=e4m3fn_round(clamp(out[32768+off+i]/scale,-448.0f,448.0f))*scale;
+    }
+    const uint row=position%raw_cap;
+    for(uint i=0;i<512;i++)raw[row*512+i]=float(half(out[32768+i]));
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  const uint n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+  float maximum=sinks[head];
+  for(uint t=0;t<n_raw;t++){
+    const uint row=(first+t)%raw_cap;float score=0.0f;
+    for(uint i=0;i<512;i++)score+=out[qoff+i]*raw[row*512+i];
+    score*=0.04419417382415922f;scores[head*total+t]=score;maximum=max(maximum,score);
+  }
+  for(uint cidx=0;cidx<n_comp;cidx++){
+    float score=-1.0e30f;
+    if(allowed[cidx]){score=0.0f;for(uint i=0;i<512;i++)score+=out[qoff+i]*comp[cidx*512+i];score*=0.04419417382415922f;maximum=max(maximum,score);}
+    scores[head*total+n_raw+cidx]=score;
+  }
+  float denom=exp(sinks[head]-maximum);
+  for(uint t=0;t<n_raw;t++)denom+=exp(scores[head*total+t]-maximum);
+  for(uint cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])denom+=exp(scores[head*total+n_raw+cidx]-maximum);
+  for(uint i=0;i<512;i++){
+    float value=0.0f;
+    for(uint t=0;t<n_raw;t++){const uint row=(first+t)%raw_cap;value+=exp(scores[head*total+t]-maximum)*raw[row*512+i];}
+    for(uint cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])value+=exp(scores[head*total+n_raw+cidx]-maximum)*comp[cidx*512+i];
+    out[33280+qoff+i]=value/denom;
+  }
+  for(uint r=0;r<64;r+=2){
+    const uint oi=33280+qoff+448+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=-sin(theta),a=out[oi],b=out[oi+1];
+    out[oi]=a*c-b*s;out[oi+1]=a*s+b*c;
+  }
+  (void)layer;
 }
 
 kernel void rope_attention_raw(

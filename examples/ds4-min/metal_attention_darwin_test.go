@@ -43,6 +43,89 @@ func TestMetalRatio4CompressorOracle(t *testing.T) {
 	}
 }
 
+func TestMetalMixedAttentionIncludesRawCompressedAndSink(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	raw := metalmem.AllocIn[float32](a, "raw", 4*512)
+	comp := metalmem.AllocIn[float32](a, "compressed", 512)
+	for i := range comp.HostSlice() {
+		comp.HostSlice()[i] = 2
+	}
+	sinkData := metalmem.UploadIn(a, "sinks", make([]byte, 64*4))
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	sinks := boundMetalTensor{name: "sinks", typeID: 0, dimensions: []uint64{64}, data: sinkData}
+	kv := make([]float32, 512)
+	for i := range kv {
+		kv[i] = 1
+	}
+	_, gotKV, heads, err := ops.RopeAttentionMixed(make([]float32, 64*512), kv, sinks, raw, comp, 1, []uint32{1}, 0, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, value := range gotKV {
+		if value != 1 {
+			t.Fatalf("kv[%d] = %g, want 1", i, value)
+		}
+	}
+	for i, value := range heads {
+		if math.Abs(float64(value-1)) > 1e-6 {
+			t.Fatalf("heads[%d] = %g, want 1", i, value)
+		}
+	}
+}
+
+func TestMetalMixedAttentionRatio4RopeOracle(t *testing.T) {
+	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
+	dirs := strings.Split(os.Getenv("DS4_LAYER2_COMPRESSOR_ORACLE_DIRS"), ":")
+	if model == "" || len(dirs) != 4 || dirs[0] == "" {
+		t.Skip("model and four compressor oracle paths not set")
+	}
+	r, err := newMetalRuntime(model, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	raw := r.state.layers[2].rawKV
+	comp, err := r.state.layers[2].attn.cache.Slice(0, 512)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copy(comp.HostSlice(), readOracleF32(t, dirs[3]+"/stage_KVcompress-2_pos3.bin"))
+	q, kv, heads, err := r.ops.RopeAttentionMixed(
+		readOracleF32(t, dirs[3]+"/stage_Qnorm-2_pos3.bin"),
+		readOracleF32(t, dirs[3]+"/stage_KVnorm-2_pos3.bin"),
+		r.layers[2].attnSinks,
+		raw,
+		comp,
+		1,
+		[]uint32{1},
+		3,
+		2,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareOracleF32(t, "Qcur", q, dirs[3]+"/stage_Qcur-2_pos3.bin")
+	compareOracleFP8F32(t, "KVcur", kv, dirs[3]+"/stage_KVcur-2_pos3.bin")
+	for i, value := range heads {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			t.Fatalf("heads[%d] = %g", i, value)
+		}
+	}
+}
+
 func TestMetalRatio4CompressorEmitsFourthToken(t *testing.T) {
 	dev, err := libmetal.NewDevice()
 	if err != nil {
