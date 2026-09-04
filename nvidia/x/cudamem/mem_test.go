@@ -55,6 +55,53 @@ func TestAllocAndCopies(t *testing.T) {
 	}
 }
 
+func TestTrackedAllocation(t *testing.T) {
+	if err := cuda.Init(); err != nil {
+		t.Skipf("CUDA driver not available: %v", err)
+	}
+	count, err := cuda.DeviceCount()
+	if err != nil || count == 0 {
+		t.Skip("no CUDA devices available")
+	}
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+
+	var tracker cudamem.Tracker
+	a, err := cudamem.AllocTracked[float32](dev, &tracker, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current, peak := tracker.Snapshot(); current != 4096 || peak != 4096 {
+		t.Fatalf("after first allocation = %d, %d, want 4096, 4096", current, peak)
+	}
+	tracker.Reset()
+	b, err := cudamem.AllocTracked[byte](dev, &tracker, 17)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current, peak := tracker.Snapshot(); current != 4113 || peak != 4113 {
+		t.Fatalf("after second allocation = %d, %d, want 4113, 4113", current, peak)
+	}
+	if err := b.Free(); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Free(); err != nil {
+		t.Fatalf("second Free: %v", err)
+	}
+	if current, peak := tracker.Snapshot(); current != 4096 || peak != 4113 {
+		t.Fatalf("after free = %d, %d, want 4096, 4113", current, peak)
+	}
+	if err := a.Free(); err != nil {
+		t.Fatal(err)
+	}
+	if current, peak := tracker.Snapshot(); current != 0 || peak != 4113 {
+		t.Fatalf("after final free = %d, %d, want 0, 4113", current, peak)
+	}
+}
+
 func TestHostAllocation(t *testing.T) {
 	if err := cuda.Init(); err != nil {
 		t.Skipf("CUDA driver not available: %v", err)
