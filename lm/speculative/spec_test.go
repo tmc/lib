@@ -1,63 +1,56 @@
-// SPDX-License-Identifier: Apache-2.0
-
-package speculative_test
+package speculative
 
 import (
 	"testing"
-
-	"github.com/tmc/lib/lm/speculative"
 )
 
 func TestNgramDrafter(t *testing.T) {
-	drafter := speculative.NewNgramDrafter(2)
-	history := []int32{1, 2, 3, 4, 1, 2}
-	drafts, err := drafter.Draft(history, 2)
-	if err != nil {
-		t.Fatalf("Draft failed: %v", err)
+	drafter := NewNgramDrafter(3)
+
+	// Feed prompt text tokens: "The capital of France is Paris. The capital of France is Paris."
+	tokens := []int32{1, 10, 20, 30, 40, 50, 2, 1, 10, 20, 30, 40, 50, 2}
+	drafter.Feed(tokens)
+
+	// Context: "The capital of" -> should draft "France is Paris"
+	context := []int32{1, 10, 20}
+	draft := drafter.Draft(context, 3)
+
+	if len(draft) != 3 {
+		t.Fatalf("expected 3 draft tokens, got %d", len(draft))
 	}
-	if len(drafts) != 2 || drafts[0] != 3 || drafts[1] != 4 {
-		t.Errorf("drafts = %v, want [3 4]", drafts)
+	if draft[0] != 30 || draft[1] != 40 || draft[2] != 50 {
+		t.Errorf("unexpected draft tokens: %v", draft)
 	}
 }
 
-func TestDraftTreeCausalMask(t *testing.T) {
-	tree := speculative.NewDraftTree(10)
-	n1 := tree.AddNode(0, 20)
-	tree.AddNode(0, 30)
-	tree.AddNode(n1.ID, 25)
+func TestVerifyGreedyAllAccepted(t *testing.T) {
+	draft := []int32{10, 20, 30}
+	targetPredictions := []int32{10, 20, 30, 40}
 
-	mask := tree.BuildCausalTreeMask()
-	if len(mask) != 4 || len(mask[0]) != 4 {
-		t.Fatalf("mask dimensions = %dx%d, want 4x4", len(mask), len(mask[0]))
+	result := VerifyGreedy(targetPredictions, draft)
+	if result.AcceptedCount != 3 {
+		t.Errorf("expected 3 accepted tokens, got %d", result.AcceptedCount)
 	}
-	if !mask[3][0] || !mask[3][1] || !mask[3][3] {
-		t.Errorf("Node 3 ancestor mask incorrect: %v", mask[3])
+	if result.BonusToken != 40 {
+		t.Errorf("expected bonus token 40, got %d", result.BonusToken)
+	}
+	if result.TotalEmitted != 4 {
+		t.Errorf("expected 4 total emitted tokens, got %d", result.TotalEmitted)
 	}
 }
 
-func TestVerifyTree(t *testing.T) {
-	tree := speculative.NewDraftTree(100)
-	n1 := tree.AddNode(0, 101)
-	tree.AddNode(0, 102)
-	tree.AddNode(n1.ID, 103)
+func TestVerifyGreedyPartialReject(t *testing.T) {
+	draft := []int32{10, 20, 99} // 3rd token is wrong
+	targetPredictions := []int32{10, 20, 30, 40}
 
-	logits := make([][]float32, 4)
-	for i := range logits {
-		logits[i] = make([]float32, 200)
+	result := VerifyGreedy(targetPredictions, draft)
+	if result.AcceptedCount != 2 {
+		t.Errorf("expected 2 accepted tokens, got %d", result.AcceptedCount)
 	}
-	logits[0][101] = 10.0
-	logits[1][103] = 10.0
-	logits[2][99] = 10.0
-	logits[3][104] = 10.0
-
-	res := speculative.VerifyTree(tree, logits)
-	if res.BestPathLen != 3 {
-		t.Errorf("BestPathLen = %d, want 3", res.BestPathLen)
+	if result.BonusToken != 30 {
+		t.Errorf("expected correction token 30, got %d", result.BonusToken)
 	}
-	if res.AcceptedPath[0] != 100 || res.AcceptedPath[1] != 101 || res.AcceptedPath[2] != 103 {
-		t.Errorf("AcceptedPath = %v, want [100 101 103]", res.AcceptedPath)
-	}
-	if res.BonusToken != 104 {
-		t.Errorf("BonusToken = %d, want 104", res.BonusToken)
+	if result.TotalEmitted != 3 {
+		t.Errorf("expected 3 total emitted tokens, got %d", result.TotalEmitted)
 	}
 }

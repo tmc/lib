@@ -1,19 +1,28 @@
-// SPDX-License-Identifier: Apache-2.0
-
 package speculative_test
 
 import (
 	"fmt"
 
-	"github.com/tmc/lib/lm/speculative"
+	cudaspec "github.com/tmc/lib/lm/speculative"
 )
 
-func ExampleVerifyGreedy() {
-	targetPreds := []int32{101, 102, 103, 104}
-	draftTokens := []int32{101, 102}
+func Example() {
+	drafter := cudaspec.NewNgramDrafter(3)
 
-	res := speculative.VerifyGreedy(targetPreds, draftTokens)
-	fmt.Printf("Accepted: %v, Bonus: %d\n", res.AcceptedTokens, res.BonusToken)
+	// Ingest past prompt/system context
+	drafter.Feed([]int32{100, 200, 300, 400, 500, 600})
+
+	// Current context ends with [200, 300, 400]
+	draft := drafter.Draft([]int32{200, 300, 400}, 2)
+	fmt.Printf("Draft tokens: %v\n", draft)
+
+	// Target model verifies candidate sequence in one batched forward pass
+	targetVerification := []int32{500, 600, 700}
+	res := cudaspec.VerifyGreedy(targetVerification, draft)
+
+	fmt.Printf("Accepted: %v, Bonus: %d, Emitted Count: %d\n", res.AcceptedTokens, res.BonusToken, res.TotalEmitted)
+
 	// Output:
-	// Accepted: [101 102], Bonus: 103
+	// Draft tokens: [500 600]
+	// Accepted: [500 600], Bonus: 700, Emitted Count: 3
 }
