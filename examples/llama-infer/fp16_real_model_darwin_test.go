@@ -43,16 +43,16 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 	testFP16RealModelLogits(t, eng, cfg, prompt)
 	for _, width := range []int{1, 2, 4} {
 		srv := NewTelemetryServer(eng, cfg)
-		if srv.continuousEngine == nil {
+		if scheduledBackend(t, srv.continuousEngine) == nil {
 			t.Fatal("FP16 batch backend is disabled")
 		}
 		srv.continuous.Close()
-		srv.continuous, err = continuousbatch.New(srv.continuousEngine, continuousbatch.Config{MaxActive: 8, MaxQueue: 8, MaxBatch: 8, BatchWait: 100 * time.Millisecond, TokenBuffer: 8, PrefillWorkers: 4})
+		srv.continuous, err = continuousbatch.New(scheduledBackend(t, srv.continuousEngine), continuousbatch.Config{MaxActive: 8, MaxQueue: 8, MaxBatch: 8, BatchWait: 100 * time.Millisecond, TokenBuffer: 8, PrefillWorkers: 4})
 		if err != nil {
 			t.Fatal(err)
 		}
 		start := make(chan struct{})
-		gate := newPrefillGate(srv.continuousEngine, width)
+		gate := newPrefillGate(scheduledBackend(t, srv.continuousEngine), width)
 		srv.continuous.Close()
 		srv.continuous, err = continuousbatch.New(gate, continuousbatch.Config{MaxActive: 8, MaxQueue: 8, MaxBatch: 8, BatchWait: 100 * time.Millisecond, TokenBuffer: 8, PrefillWorkers: 4})
 		if err != nil {
@@ -89,7 +89,7 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 			t.Fatal(err)
 		}
 		found := false
-		for _, observation := range srv.continuousEngine.Observations() {
+		for _, observation := range scheduledBackend(t, srv.continuousEngine).Observations() {
 			if observation.Dispatches != 1+9*cfg.NumLayers+3 {
 				t.Fatalf("width=%d observation=%+v", width, observation)
 			}
@@ -98,16 +98,16 @@ func TestFP16RealModelBatchedHTTPMatchesSequentialGPU(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Fatalf("width %d did not reach physical batch: %+v", width, srv.continuousEngine.Observations())
+			t.Fatalf("width %d did not reach physical batch: %+v", width, scheduledBackend(t, srv.continuousEngine).Observations())
 		}
-		if srv.continuousEngine.tail.logits.Len() != 0 {
-			t.Fatalf("width=%d serving tail allocated %d diagnostic logits", width, srv.continuousEngine.tail.logits.Len())
+		if scheduledBackend(t, srv.continuousEngine).tail.logits.Len() != 0 {
+			t.Fatalf("width=%d serving tail allocated %d diagnostic logits", width, scheduledBackend(t, srv.continuousEngine).tail.logits.Len())
 		}
 		tiles := (cfg.VocabSize + 255) / 256
 		t.Logf("width=%d serving_candidates=%d candidate_bytes=%d diagnostic_logits=0", width, width*tiles, width*tiles*2*4)
-		t.Logf("width=%d tokens=%v batches=%+v", width, want, srv.continuousEngine.Observations())
+		t.Logf("width=%d tokens=%v batches=%+v", width, want, scheduledBackend(t, srv.continuousEngine).Observations())
 		srv.continuous.Close()
-		srv.continuousEngine.Close()
+		scheduledBackend(t, srv.continuousEngine).Close()
 	}
 	kvBytes := int64(2 * cfg.NumLayers * 8 * cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim * 4)
 	t.Logf("weights=shared-f16 cache_rows=8 kv_bytes=%d vocab=%d tiles_per_row=%d", kvBytes, cfg.VocabSize, (cfg.VocabSize+255)/256)

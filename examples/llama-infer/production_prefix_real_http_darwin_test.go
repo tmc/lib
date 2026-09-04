@@ -107,7 +107,7 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 				t.Fatal(err)
 			}
 			cold.continuous.Close()
-			cold.continuousEngine.Close()
+			scheduledBackend(t, cold.continuousEngine).Close()
 
 			warm, warmRecorder := newProductionHTTPTestServer(t, eng, cfg, width)
 			primeHTTPPrompt(t, warm, common)
@@ -119,9 +119,9 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			observations := warm.continuousEngine.PrefillObservations()
+			observations := scheduledBackend(t, warm.continuousEngine).PrefillObservations()
 			warm.continuous.Close()
-			warm.continuousEngine.Close()
+			scheduledBackend(t, warm.continuousEngine).Close()
 			if !reflect.DeepEqual(warmTokens, coldTokens) {
 				t.Fatalf("warm tokens=%v cold=%v", warmTokens, coldTokens)
 			}
@@ -172,11 +172,11 @@ func newProductionHTTPTestServer(t *testing.T, eng *ModelEngine, cfg Config, wid
 	t.Helper()
 	srv := NewTelemetryServer(eng, cfg)
 	srv.continuous.Close()
-	recorder := newProductionHTTPRecorder(srv.continuousEngine, cfg)
+	recorder := newProductionHTTPRecorder(scheduledBackend(t, srv.continuousEngine), cfg)
 	var err error
-	srv.continuous, err = continuousbatch.New(srv.continuousEngine, continuousbatch.Config{MaxActive: 8, MaxQueue: 8, MaxBatch: 8, BatchWait: 100 * time.Millisecond, TokenBuffer: 2, PrefillWorkers: width})
+	srv.continuous, err = continuousbatch.New(scheduledBackend(t, srv.continuousEngine), continuousbatch.Config{MaxActive: 8, MaxQueue: 8, MaxBatch: 8, BatchWait: 100 * time.Millisecond, TokenBuffer: 2, PrefillWorkers: width})
 	if err != nil {
-		srv.continuousEngine.Close()
+		scheduledBackend(t, srv.continuousEngine).Close()
 		t.Fatal(err)
 	}
 	return srv, recorder

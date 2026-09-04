@@ -34,7 +34,7 @@ func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
 	if srv.continuous == nil {
 		t.Fatal("continuous scheduler is disabled")
 	}
-	if srv.continuousEngine == nil {
+	if scheduledBackend(t, srv.continuousEngine) == nil {
 		t.Fatal("full-model batch backend is disabled")
 	}
 
@@ -89,12 +89,12 @@ func TestConcurrentHTTPUsesMetalBatchDecode(t *testing.T) {
 		t.Fatalf("no shared decode batch: %+v", srv.continuous.Summary().BatchSizes)
 	}
 	wantDispatches := 1 + 9*cfg.NumLayers + 3
-	for _, observation := range srv.continuousEngine.Observations() {
+	for _, observation := range scheduledBackend(t, srv.continuousEngine).Observations() {
 		if observation.Dispatches != wantDispatches {
 			t.Fatalf("batch %d dispatches=%d, want %d", observation.Batch, observation.Dispatches, wantDispatches)
 		}
 	}
-	prefills := srv.continuousEngine.PrefillObservations()
+	prefills := scheduledBackend(t, srv.continuousEngine).PrefillObservations()
 	sharedPrefill := false
 	for _, observation := range prefills {
 		if observation.Batch > 1 {
@@ -374,7 +374,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 	for _, width := range []int{1, 2, 4, 8} {
 		eng.prefixes = newPrefixCache(64<<20, 8)
 		srv := NewTelemetryServer(eng, cfg)
-		srv.continuousEngine.enablePhysicalLedger()
+		scheduledBackend(t, srv.continuousEngine).enablePhysicalLedger()
 		prompts := make([]string, width)
 		want := make([][]int32, width)
 		for i := range width {
@@ -382,7 +382,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 			want[i] = cpuReceipt(t, eng, cfg, prompts[i], 4)
 		}
 		start := make(chan struct{})
-		ledgerBefore := srv.continuousEngine.physical.Snapshot()
+		ledgerBefore := scheduledBackend(t, srv.continuousEngine).physical.Snapshot()
 		errs := make(chan error, width)
 		var wg sync.WaitGroup
 		for i := range width {
@@ -414,7 +414,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 			t.Fatal(err)
 		}
 		found := false
-		for _, observation := range srv.continuousEngine.Observations() {
+		for _, observation := range scheduledBackend(t, srv.continuousEngine).Observations() {
 			if observation.Dispatches != 1+9*cfg.NumLayers+3 {
 				t.Fatalf("width=%d observation=%+v", width, observation)
 			}
@@ -423,18 +423,18 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Fatalf("width %d did not reach physical batch: %+v", width, srv.continuousEngine.Observations())
+			t.Fatalf("width %d did not reach physical batch: %+v", width, scheduledBackend(t, srv.continuousEngine).Observations())
 		}
 		prefillFound := false
-		for _, observation := range srv.continuousEngine.PrefillObservations() {
+		for _, observation := range scheduledBackend(t, srv.continuousEngine).PrefillObservations() {
 			if observation.Batch == width {
 				prefillFound = true
 			}
 		}
 		if !prefillFound {
-			t.Fatalf("width %d did not reach physical prefill batch: %+v", width, srv.continuousEngine.PrefillObservations())
+			t.Fatalf("width %d did not reach physical prefill batch: %+v", width, scheduledBackend(t, srv.continuousEngine).PrefillObservations())
 		}
-		waves, err := srv.continuousEngine.physical.Since(ledgerBefore)
+		waves, err := scheduledBackend(t, srv.continuousEngine).physical.Since(ledgerBefore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -447,9 +447,9 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		if !sharedDecode {
 			t.Fatalf("width %d missing shared decode ledger wave: %+v", width, waves)
 		}
-		t.Logf("width=%d prefills=%+v batches=%+v physical_waves=%+v", width, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations(), waves)
+		t.Logf("width=%d prefills=%+v batches=%+v physical_waves=%+v", width, scheduledBackend(t, srv.continuousEngine).PrefillObservations(), scheduledBackend(t, srv.continuousEngine).Observations(), waves)
 		srv.continuous.Close()
-		srv.continuousEngine.Close()
+		scheduledBackend(t, srv.continuousEngine).Close()
 	}
 }
 
@@ -463,10 +463,10 @@ func TestHTTPProductionMetalPrefixMixedWidths(t *testing.T) {
 			}
 			srv := NewTelemetryServer(eng, cfg)
 			defer srv.continuous.Close()
-			defer srv.continuousEngine.Close()
+			defer scheduledBackend(t, srv.continuousEngine).Close()
 			const common = "leased-prefix:"
 			primeHTTPPrompt(t, srv, common)
-			before := srv.continuousEngine.prefixes.Stats()
+			before := scheduledBackend(t, srv.continuousEngine).prefixes.Stats()
 			prompts := make([]string, width)
 			want := make([][]int32, width)
 			got := make([][]int32, width)
@@ -506,21 +506,21 @@ func TestHTTPProductionMetalPrefixMixedWidths(t *testing.T) {
 					t.Fatalf("request %d tokens=%v, want %v", i, got[i], want[i])
 				}
 			}
-			after := srv.continuousEngine.prefixes.Stats()
+			after := scheduledBackend(t, srv.continuousEngine).prefixes.Stats()
 			if after.Hits-before.Hits < int64(width) || after.Entries != before.Entries+width || after.Bytes <= before.Bytes || after.Blocks <= before.Blocks || after.DeviceReadBytes <= before.DeviceReadBytes || after.DeviceWriteBytes <= before.DeviceWriteBytes ||
 				after.WorkspaceBytes != before.WorkspaceBytes || after.DescriptorAddress != before.DescriptorAddress || after.RowAddress != before.RowAddress {
 				t.Fatalf("prefix stats before=%+v after=%+v", before, after)
 			}
 			found := width == 1
-			for _, observation := range srv.continuousEngine.PrefillObservations() {
+			for _, observation := range scheduledBackend(t, srv.continuousEngine).PrefillObservations() {
 				if observation.Batch == width {
 					found = true
 				}
 			}
 			if !found {
-				t.Fatalf("B=%d did not reach a shared leased-prefix wave: %+v", width, srv.continuousEngine.PrefillObservations())
+				t.Fatalf("B=%d did not reach a shared leased-prefix wave: %+v", width, scheduledBackend(t, srv.continuousEngine).PrefillObservations())
 			}
-			t.Logf("width=%d prefix=%+v prefills=%+v", width, after, srv.continuousEngine.PrefillObservations())
+			t.Logf("width=%d prefix=%+v prefills=%+v", width, after, scheduledBackend(t, srv.continuousEngine).PrefillObservations())
 		})
 	}
 }
@@ -594,14 +594,14 @@ func TestHTTPPrefixPressureFairness(t *testing.T) {
 			}
 			srv := NewTelemetryServer(eng, cfg)
 			defer srv.continuous.Close()
-			defer srv.continuousEngine.Close()
+			defer scheduledBackend(t, srv.continuousEngine).Close()
 
 			bases := make([]string, 10)
 			for i := range bases {
 				bases[i] = fmt.Sprintf("pressure-prefix-%02d:", i)
 				primeHTTPPrompt(t, srv, bases[i])
 			}
-			if stats := srv.continuousEngine.prefixes.Stats(); stats.Entries != 8 {
+			if stats := scheduledBackend(t, srv.continuousEngine).prefixes.Stats(); stats.Entries != 8 {
 				t.Fatalf("eviction did not bound entries: %+v", stats)
 			}
 
@@ -610,7 +610,7 @@ func TestHTTPPrefixPressureFairness(t *testing.T) {
 			limits := make([]int, requests)
 			want := make([][]int32, requests)
 			got := make([][]int32, requests)
-			before := srv.continuousEngine.prefixes.Stats()
+			before := scheduledBackend(t, srv.continuousEngine).prefixes.Stats()
 			for i := range requests {
 				if i < width {
 					prompts[i] = fmt.Sprintf("%s%c", bases[9-i], 'a'+i)
@@ -664,26 +664,26 @@ func TestHTTPPrefixPressureFairness(t *testing.T) {
 			rec := httptest.NewRecorder()
 			srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body)).WithContext(canceled))
 
-			after := srv.continuousEngine.prefixes.Stats()
+			after := scheduledBackend(t, srv.continuousEngine).prefixes.Stats()
 			if after.Hits <= before.Hits {
 				t.Fatalf("hot requests recorded no prefix hit: before=%+v after=%+v", before, after)
 			}
 			found := width == 1
-			for _, observation := range srv.continuousEngine.PrefillObservations() {
+			for _, observation := range scheduledBackend(t, srv.continuousEngine).PrefillObservations() {
 				if observation.Batch == width {
 					found = true
 				}
 			}
 			if !found {
-				t.Fatalf("no physical B=%d prefill: %+v", width, srv.continuousEngine.PrefillObservations())
+				t.Fatalf("no physical B=%d prefill: %+v", width, scheduledBackend(t, srv.continuousEngine).PrefillObservations())
 			}
-			srv.continuousEngine.rowsMu.Lock()
-			freeRows, leases := len(srv.continuousEngine.freeRows), len(srv.continuousEngine.leases)
-			srv.continuousEngine.rowsMu.Unlock()
+			scheduledBackend(t, srv.continuousEngine).rowsMu.Lock()
+			freeRows, leases := len(scheduledBackend(t, srv.continuousEngine).freeRows), len(scheduledBackend(t, srv.continuousEngine).leases)
+			scheduledBackend(t, srv.continuousEngine).rowsMu.Unlock()
 			if freeRows != 8 || leases != 0 {
 				t.Fatalf("row cleanup free=%d leases=%d", freeRows, leases)
 			}
-			t.Logf("width=%d limits=%v prefix_before=%+v prefix_after=%+v prefills=%+v decode=%+v", width, limits, before, after, srv.continuousEngine.PrefillObservations(), srv.continuousEngine.Observations())
+			t.Logf("width=%d limits=%v prefix_before=%+v prefix_after=%+v prefills=%+v decode=%+v", width, limits, before, after, scheduledBackend(t, srv.continuousEngine).PrefillObservations(), scheduledBackend(t, srv.continuousEngine).Observations())
 		})
 	}
 }

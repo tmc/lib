@@ -255,7 +255,7 @@ type TelemetryServer struct {
 
 	requestScheduler *requestSlotScheduler
 	continuous       *continuousbatch.Scheduler
-	continuousEngine *scheduledEngineAdapter
+	continuousEngine servingBackend
 }
 
 // RecordGeneration appends a completed generation event with node routing attribution.
@@ -278,9 +278,9 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 		requestScheduler: newRequestSlotScheduler(1),
 	}
 	if engine != nil && engine.tokenizer != nil {
-		if backend, err := newScheduledEngineAdapter(engine, cfg, 8); err == nil {
+		if backend, err := newPlatformServingBackend(engine, cfg, 8); err == nil {
 			s.continuousEngine = backend
-			s.continuous, _ = continuousbatch.New(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})
+			s.continuous, _ = newServingScheduler(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})
 		}
 	}
 	s.routes()
