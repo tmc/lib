@@ -4,7 +4,6 @@ package moe_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/tmc/lib/lm/moe"
@@ -33,8 +32,7 @@ func TestGroupedTopKRouter(t *testing.T) {
 }
 
 func TestExpertCacheManager(t *testing.T) {
-	tempDir, _ := os.MkdirTemp("", "lm-moe-test-*")
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	mgr, err := moe.NewExpertCacheManager(tempDir, 4)
 	if err != nil {
@@ -43,7 +41,9 @@ func TestExpertCacheManager(t *testing.T) {
 	defer mgr.Close()
 
 	dummyWeights := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	mgr.RegisterExpert(42, dummyWeights)
+	if err := mgr.RegisterExpert(42, dummyWeights); err != nil {
+		t.Fatalf("RegisterExpert failed: %v", err)
+	}
 
 	if err := mgr.EvictColdExpert(42); err != nil {
 		t.Fatalf("EvictColdExpert failed: %v", err)
