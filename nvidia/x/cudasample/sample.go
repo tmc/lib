@@ -110,7 +110,7 @@ extern "C" __global__ void ArgmaxLogits(
     __shared__ int s_max_idx[256];
 
     int tid = threadIdx.x;
-    float my_max = -1e20f;
+    float my_max = -__int_as_float(0x7f800000);
     int my_idx = -1;
 
     for (int i = tid; i < vocab_size; i += blockDim.x) {
@@ -142,13 +142,12 @@ extern "C" __global__ void ArgmaxLogits(
 }
 `
 
-// SampleArgmaxCPU provides a CPU reference implementation of greedy argmax token selection.
+// SampleArgmaxCPU returns the index of the maximum logit using the same rules
+// as ArgmaxLogits. NaNs are ignored, ties favor the lowest index, and empty or
+// all-NaN/all-negative-infinity input returns -1.
 func SampleArgmaxCPU(logits []float32) int32 {
-	if len(logits) == 0 {
-		return -1
-	}
-	maxIdx := 0
-	maxVal := logits[0]
+	maxIdx := -1
+	maxVal := float32(math.Inf(-1))
 	for i, v := range logits {
 		if v > maxVal {
 			maxVal = v

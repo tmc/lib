@@ -1,3 +1,3 @@
-// Package cudasample provides in-GPU token sampling, greedy argmax, temperature scaling,
-// Top-P (nucleus), and Top-K selection over vocabulary logits.
+// Package cudasample provides CUDA greedy argmax and CPU temperature, top-p,
+// and top-k sampling over logits.
 package cudasample
