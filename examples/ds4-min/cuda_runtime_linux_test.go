@@ -456,7 +456,13 @@ func cudaTestF16Matvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, 
 		t.Fatalf("invalid F16 test tensor %q", tensor.name)
 	}
 	p := r.model[tensor.fileOffset : tensor.fileOffset+tensor.bytes]
-	out := make([]float32, tensor.dimensions[1])
+	return cudaTestF16MatvecBytes(p, x, int(tensor.dimensions[1]))
+}
+
+// cudaTestF16MatvecBytes is the row-major F16 matrix-vector reference over raw
+// tensor bytes, so it serves both mapped and synthetic weights.
+func cudaTestF16MatvecBytes(p []byte, x []float32, rows int) []float32 {
+	out := make([]float32, rows)
 	for row := range out {
 		var sum float32
 		for col, v := range x {
