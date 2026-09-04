@@ -3,16 +3,20 @@
 package metalsafetensors
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"syscall"
 
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/mempool"
 )
+
+const maxHeaderSize = 100 << 20
 
 // TensorHeader describes a single tensor entry in the safetensors JSON header.
 type TensorHeader struct {
@@ -50,11 +54,23 @@ func Open(path string) (*Weights, error) {
 		_ = f.Close()
 		return nil, fmt.Errorf("metalsafetensors: stat file: %w", err)
 	}
+	if !st.Mode().IsRegular() {
+		_ = f.Close()
+		return nil, fmt.Errorf("metalsafetensors: file is not regular")
+	}
+	if st.Size() < 8 {
+		_ = f.Close()
+		return nil, fmt.Errorf("metalsafetensors: file too small")
+	}
 
 	var headerLen uint64
 	if err := binary.Read(f, binary.LittleEndian, &headerLen); err != nil {
 		_ = f.Close()
 		return nil, fmt.Errorf("metalsafetensors: read header len: %w", err)
+	}
+	if headerLen == 0 || headerLen > maxHeaderSize || headerLen > uint64(st.Size()-8) {
+		_ = f.Close()
+		return nil, fmt.Errorf("metalsafetensors: invalid header length %d", headerLen)
 	}
 
 	headerBytes := make([]byte, headerLen)
@@ -75,8 +91,36 @@ func Open(path string) (*Weights, error) {
 			continue
 		}
 		var th TensorHeader
-		if err := json.Unmarshal(v, &th); err != nil {
-			continue
+		dec := json.NewDecoder(bytes.NewReader(v))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&th); err != nil {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: %w", k, err)
+		}
+		if k == "" {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: empty tensor name")
+		}
+		if len(th.DataOffsets) != 2 || th.DataOffsets[0] > th.DataOffsets[1] {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: invalid data offsets", k)
+		}
+		elemSize, ok := tensorElementSize(th.DType)
+		if !ok {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: unsupported dtype %q", k, th.DType)
+		}
+		count := uint64(1)
+		for _, dim := range th.Shape {
+			if dim < 0 || (dim != 0 && count > math.MaxUint64/uint64(dim)) {
+				_ = f.Close()
+				return nil, fmt.Errorf("metalsafetensors: tensor %q: invalid shape", k)
+			}
+			count *= uint64(dim)
+		}
+		if count > math.MaxUint64/elemSize || th.DataOffsets[1]-th.DataOffsets[0] != count*elemSize {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: byte length does not match shape and dtype", k)
 		}
 		tensors[k] = TensorInfo{
 			Name:        k,
@@ -88,6 +132,37 @@ func Open(path string) (*Weights, error) {
 	}
 
 	dataBase := int64(8 + headerLen)
+	dataSize := uint64(st.Size()) - 8 - headerLen
+	type span struct {
+		name       string
+		start, end uint64
+	}
+	spans := make([]span, 0, len(tensors))
+	for name, info := range tensors {
+		if info.OffsetEnd > dataSize {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: data offset exceeds file", name)
+		}
+		spans = append(spans, span{name, info.OffsetStart, info.OffsetEnd})
+	}
+	sort.Slice(spans, func(i, j int) bool {
+		if spans[i].start != spans[j].start {
+			return spans[i].start < spans[j].start
+		}
+		return spans[i].end < spans[j].end
+	})
+	next := uint64(0)
+	for _, s := range spans {
+		if s.start != next {
+			_ = f.Close()
+			return nil, fmt.Errorf("metalsafetensors: tensor %q: data is not contiguous at offset %d", s.name, next)
+		}
+		next = s.end
+	}
+	if next != dataSize {
+		_ = f.Close()
+		return nil, fmt.Errorf("metalsafetensors: tensor data covers %d bytes, file contains %d", next, dataSize)
+	}
 	totalSize := int(st.Size())
 
 	dataMMap, err := syscall.Mmap(int(f.Fd()), 0, totalSize, syscall.PROT_READ, syscall.MAP_SHARED)
@@ -102,6 +177,16 @@ func Open(path string) (*Weights, error) {
 		dataMMap: dataMMap,
 		Tensors:  tensors,
 	}, nil
+}
+
+func tensorElementSize(dtype string) (uint64, bool) {
+	switch dtype {
+	case "F16", "BF16":
+		return 2, true
+	case "F32":
+		return 4, true
+	}
+	return 0, false
 }
 
 // Close unmaps memory and closes the underlying file handle.
@@ -133,6 +218,10 @@ func (w *Weights) TensorFloat32(name string) ([]float32, error) {
 	}
 
 	raw := w.dataMMap[start:end]
+	elemSize, ok := tensorElementSize(info.DType)
+	if !ok || uint64(len(raw))%elemSize != 0 {
+		return nil, fmt.Errorf("metalsafetensors: tensor %q: invalid %s byte length %d", name, info.DType, len(raw))
+	}
 	return decodeToFloat32(raw, info.DType), nil
 }
 
