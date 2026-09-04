@@ -103,16 +103,23 @@ func TestTrackedAllocation(t *testing.T) {
 }
 
 func TestHostAllocation(t *testing.T) {
-	if err := cuda.Init(); err != nil {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
 		t.Skipf("CUDA driver not available: %v", err)
 	}
+	defer dev.Close()
 
 	n := 512
-	ha, err := cudamem.AllocHost[int32](n)
+	var ha cudamem.HostAllocation[int32]
+	err = dev.WithContext(func() error {
+		var err error
+		ha, err = cudamem.AllocHost[int32](n)
+		return err
+	})
 	if err != nil {
 		t.Fatalf("AllocHost failed: %v", err)
 	}
-	defer ha.Free()
+	defer dev.WithContext(ha.Free)
 
 	slice := ha.Slice()
 	for i := 0; i < n; i++ {
