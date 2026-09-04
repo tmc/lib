@@ -14,7 +14,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
 
-
 // SpanRecord represents a buffered trace slice for flight recording.
 type SpanRecord struct {
 	TrackID  uint64
@@ -27,12 +26,19 @@ type SpanRecord struct {
 // Tracer manages trace capture, timeline tracks, and post-mortem flight recording.
 type Tracer struct {
 	mu           sync.Mutex
+	writeMu      sync.Mutex
 	pw           *perfetto.Writer
 	streamTracks map[uintptr]uint64
 	nextTrackID  uint64
 	ringBuffer   []SpanRecord
 	ringHead     int
 	ringCap      int
+}
+
+func (t *Tracer) write(fn func() error) error {
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
+	return fn()
 }
 
 // New creates a Tracer writing into w.
@@ -64,13 +70,14 @@ func (t *Tracer) RegisterStream(s *cuda.Stream, name string) (uint64, error) {
 	trackID := t.nextTrackID
 	t.streamTracks[streamKey] = trackID
 
-	if err := t.pw.WriteTrackDescriptor(trackID, name, 0); err != nil {
+	if err := t.write(func() error { return t.pw.WriteTrackDescriptor(trackID, name, 0) }); err != nil {
 		return 0, fmt.Errorf("cudatrace: write track descriptor: %w", err)
 	}
 	return trackID, nil
 }
 
-// Span executes fn while recording a correlated trace slice on stream's track and Go runtime/trace.
+// Span executes fn while recording its host-side duration on stream's track
+// and in Go runtime/trace. It does not measure GPU execution.
 func (t *Tracer) Span(s *cuda.Stream, name string, category string, fn func()) error {
 	var streamKey uintptr
 	if s != nil {
@@ -83,7 +90,10 @@ func (t *Tracer) Span(s *cuda.Stream, name string, category string, fn func()) e
 		t.nextTrackID++
 		trackID = t.nextTrackID
 		t.streamTracks[streamKey] = trackID
-		_ = t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0)
+		if err := t.write(func() error { return t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0) }); err != nil {
+			t.mu.Unlock()
+			return fmt.Errorf("cudatrace: write track descriptor: %w", err)
+		}
 	}
 	t.mu.Unlock()
 
@@ -98,14 +108,14 @@ func (t *Tracer) Span(s *cuda.Stream, name string, category string, fn func()) e
 
 	startNs := uint64(time.Now().UnixNano())
 
-	if err := t.pw.WriteSliceBegin(trackID, startNs, name, category); err != nil {
+	if err := t.write(func() error { return t.pw.WriteSliceBegin(trackID, startNs, name, category) }); err != nil {
 		return err
 	}
 
 	fn()
 
 	endNs := uint64(time.Now().UnixNano())
-	if err := t.pw.WriteSliceEnd(trackID, endNs); err != nil {
+	if err := t.write(func() error { return t.pw.WriteSliceEnd(trackID, endNs) }); err != nil {
 		return err
 	}
 
@@ -128,7 +138,8 @@ func (t *Tracer) Span(s *cuda.Stream, name string, category string, fn func()) e
 	return nil
 }
 
-// SpanSource executes fn while recording a correlated trace slice annotated with .cu source location, PTX instruction snippet, and hardware performance metrics.
+// SpanSource is like Span and adds source and metric annotations. Its
+// timestamps remain host-side and are not CUDA event measurements.
 func (t *Tracer) SpanSource(
 	s *cuda.Stream,
 	name string,
@@ -150,7 +161,10 @@ func (t *Tracer) SpanSource(
 		t.nextTrackID++
 		trackID = t.nextTrackID
 		t.streamTracks[streamKey] = trackID
-		_ = t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0)
+		if err := t.write(func() error { return t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0) }); err != nil {
+			t.mu.Unlock()
+			return fmt.Errorf("cudatrace: write track descriptor: %w", err)
+		}
 	}
 	t.mu.Unlock()
 
@@ -197,14 +211,16 @@ func (t *Tracer) SpanSource(
 	}
 
 	startNs := uint64(time.Now().UnixNano())
-	if err := t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc); err != nil {
+	if err := t.write(func() error {
+		return t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc)
+	}); err != nil {
 		return err
 	}
 
 	fn()
 
 	endNs := uint64(time.Now().UnixNano())
-	if err := t.pw.WriteSliceEnd(trackID, endNs); err != nil {
+	if err := t.write(func() error { return t.pw.WriteSliceEnd(trackID, endNs) }); err != nil {
 		return err
 	}
 
@@ -238,19 +254,21 @@ func (t *Tracer) Instant(s *cuda.Stream, name string, category string) error {
 		streamKey = uintptr(s.Raw())
 	}
 
-
 	t.mu.Lock()
 	trackID, exists := t.streamTracks[streamKey]
 	if !exists {
 		t.nextTrackID++
 		trackID = t.nextTrackID
 		t.streamTracks[streamKey] = trackID
-		_ = t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0)
+		if err := t.write(func() error { return t.pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d", streamKey), 0) }); err != nil {
+			t.mu.Unlock()
+			return fmt.Errorf("cudatrace: write track descriptor: %w", err)
+		}
 	}
 	t.mu.Unlock()
 
 	nowNs := uint64(time.Now().UnixNano())
-	return t.pw.WriteInstant(trackID, nowNs, name, category)
+	return t.write(func() error { return t.pw.WriteInstant(trackID, nowNs, name, category) })
 }
 
 // RegisterTimeline creates a dedicated named timeline track, returning its unique track UUID.
@@ -260,23 +278,29 @@ func (t *Tracer) RegisterTimeline(name string, parentUUID uint64) (uint64, error
 
 	t.nextTrackID++
 	trackID := t.nextTrackID
-	if err := t.pw.WriteTrackDescriptor(trackID, name, parentUUID); err != nil {
+	if err := t.write(func() error { return t.pw.WriteTrackDescriptor(trackID, name, parentUUID) }); err != nil {
 		return 0, fmt.Errorf("cudatrace: register timeline: %w", err)
 	}
 	return trackID, nil
 }
 
-// RecordSpan records an explicitly timestamped completed span directly onto a timeline track.
+// RecordSpan records an explicitly timestamped completed span. The caller owns
+// timestamp calibration and ordering.
 func (t *Tracer) RecordSpan(trackID uint64, startNs, endNs uint64, name, category string, annotations ...perfetto.DebugAnnotation) error {
 	if nvtx.Enabled() {
 		nvtx.Mark(name)
 	}
 
 	var loc *perfetto.SourceLocation
-	if err := t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc); err != nil {
+	if endNs < startNs {
+		return fmt.Errorf("cudatrace: span end %d before start %d", endNs, startNs)
+	}
+	if err := t.write(func() error {
+		return t.pw.WriteSliceBeginWithAnnotations(trackID, startNs, name, category, annotations, loc)
+	}); err != nil {
 		return err
 	}
-	if err := t.pw.WriteSliceEnd(trackID, endNs); err != nil {
+	if err := t.write(func() error { return t.pw.WriteSliceEnd(trackID, endNs) }); err != nil {
 		return err
 	}
 
@@ -306,7 +330,7 @@ func (t *Tracer) RegisterCounter(name, unitName string, parentUUID uint64) (uint
 
 	t.nextTrackID++
 	counterID := t.nextTrackID
-	if err := t.pw.WriteCounterDescriptor(counterID, name, unitName, parentUUID); err != nil {
+	if err := t.write(func() error { return t.pw.WriteCounterDescriptor(counterID, name, unitName, parentUUID) }); err != nil {
 		return 0, fmt.Errorf("cudatrace: register counter: %w", err)
 	}
 	return counterID, nil
@@ -314,12 +338,12 @@ func (t *Tracer) RegisterCounter(name, unitName string, parentUUID uint64) (uint
 
 // RecordCounter records a numerical counter sample on counterID at timestamp tsNs.
 func (t *Tracer) RecordCounter(counterID uint64, tsNs uint64, val int64) error {
-	return t.pw.WriteCounterValue(counterID, tsNs, val)
+	return t.write(func() error { return t.pw.WriteCounterValue(counterID, tsNs, val) })
 }
 
 // RecordDoubleCounter records a floating-point counter sample on counterID at timestamp tsNs.
 func (t *Tracer) RecordDoubleCounter(counterID uint64, tsNs uint64, val float64) error {
-	return t.pw.WriteDoubleCounterValue(counterID, tsNs, val)
+	return t.write(func() error { return t.pw.WriteDoubleCounterValue(counterID, tsNs, val) })
 }
 
 // DumpPostMortem immediately serializes the in-memory flight recording ring buffer to dest.
