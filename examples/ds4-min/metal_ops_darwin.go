@@ -33,6 +33,55 @@ type metalPinnedKernels struct {
 	SumVectors       apple.MTLComputePipelineState `metal:"sum_vectors"`
 	RMS              apple.MTLComputePipelineState `metal:"rms_norm"`
 	RopeAttention    apple.MTLComputePipelineState `metal:"rope_attention_one"`
+	RopeAttentionRaw apple.MTLComputePipelineState `metal:"rope_attention_raw"`
+}
+
+func (o *metalPinnedOps) RopeAttentionRaw(q, kv []float32, sinks boundMetalTensor, cache metalmem.Slice[float32], position int) ([]float32, []float32, []float32, error) {
+	if len(q) != 64*512 || len(kv) != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
+		cache.Len() == 0 || cache.Len()%512 != 0 || position < 0 {
+		return nil, nil, nil, fmt.Errorf("raw attention: invalid shape")
+	}
+	qbuf, err := metalmem.AllocFromSlice(o.dev, q)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer qbuf.Free()
+	kvbuf, err := metalmem.AllocFromSlice(o.dev, kv)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer kvbuf.Free()
+	cap := cache.Len() / 512
+	scores, err := metalmem.Alloc[float32](o.dev, 64*cap)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer scores.Free()
+	out, err := metalmem.Alloc[float32](o.dev, 32768+512+32768)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer out.Free()
+	cb := o.dev.Queue().CommandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(o.kernels.RopeAttentionRaw)
+	for i, data := range []metalmem.Slice[float32]{qbuf, kvbuf} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(cache.Buffer(), cache.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(position), 6)
+	libmetal.SetScalar(enc, uint32(cap), 7)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	enc.EndEncoding()
+	cb.Commit()
+	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return nil, nil, nil, fmt.Errorf("raw attention: %w", err)
+	}
+	host := out.HostSlice()
+	return append([]float32(nil), host[:32768]...), append([]float32(nil), host[32768:33280]...), append([]float32(nil), host[33280:]...), nil
 }
 
 func (o *metalPinnedOps) MatvecQ2KF32(t boundMetalTensor, x []float32) ([]float32, error) {
@@ -1156,6 +1205,73 @@ kernel void rms_norm(
   ss=simd_sum(scratch[lane]);
   const float inv=1.0f/sqrt(ss/float(width)+1.0e-6f);
   for(uint i=tid;i<width;i+=256)out[off+i]=x[off+i]*inv*(weighted?weight[i]:1.0f);
+}
+
+inline float e4m3fn_value(int code) {
+  int e=(code>>3)&15,m=code&7;
+  return e==0?float(m)*0.001953125f:(1.0f+float(m)*0.125f)*exp2(float(e-7));
+}
+
+inline float e4m3fn_round(float value) {
+  float sign=value<0?-1.0f:1.0f,ax=min(abs(value),448.0f);
+  int lo=0,hi=126;
+  while(lo<hi){int mid=(lo+hi+1)>>1;if(e4m3fn_value(mid)<=ax)lo=mid;else hi=mid-1;}
+  int best=lo;
+  if(best<126){float bv=e4m3fn_value(best),nv=e4m3fn_value(best+1),bd=abs(ax-bv),nd=abs(ax-nv);if(nd<bd||(nd==bd&&((best+1)&1)==0&&(best&1)!=0))best++;}
+  return sign*e4m3fn_value(best);
+}
+
+kernel void rope_attention_raw(
+    device const float *q [[buffer(0)]],
+    device const float *kv [[buffer(1)]],
+    device const float *sinks [[buffer(2)]],
+    device float *cache [[buffer(3)]],
+    device float *scores [[buffer(4)]],
+    device float *out [[buffer(5)]],
+    constant uint &position [[buffer(6)]],
+    constant uint &cache_cap [[buffer(7)]],
+    uint head [[thread_position_in_threadgroup]]) {
+  const uint qoff=head*512;
+  for(uint i=0;i<512;i++)out[qoff+i]=q[qoff+i];
+  if(head==0)for(uint i=0;i<512;i++)out[32768+i]=kv[i];
+  float theta=float(position);
+  const float theta_scale=pow(10000.0f,-2.0f/64.0f);
+  for(uint i=0;i<64;i+=2){
+    const uint qi=qoff+448+i;
+    float c=cos(theta),s=sin(theta),a=out[qi],b=out[qi+1];
+    out[qi]=a*c-b*s;out[qi+1]=a*s+b*c;
+    if(head==0){uint ki=32768+448+i;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
+    theta*=theta_scale;
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  if(head==0){
+    for(uint off=0;off<448;off+=64){
+      float amax=1.0e-4f;for(uint i=0;i<64;i++)amax=max(amax,abs(out[32768+off+i]));
+      const float scale=exp2(ceil(log2(amax/448.0f)));
+      for(uint i=0;i<64;i++)out[32768+off+i]=e4m3fn_round(clamp(out[32768+off+i]/scale,-448.0f,448.0f))*scale;
+    }
+    const uint row=position%cache_cap;
+    for(uint i=0;i<512;i++)cache[row*512+i]=out[32768+i];
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  const uint count=min(position+1,cache_cap);
+  const uint first=position+1-count;
+  float maximum=sinks[head];
+  for(uint t=0;t<count;t++){
+    const uint row=(first+t)%cache_cap;
+    float score=0.0f;for(uint i=0;i<512;i++)score+=out[qoff+i]*cache[row*512+i];
+    score/=sqrt(512.0f);scores[head*cache_cap+t]=score;maximum=max(maximum,score);
+  }
+  float denom=exp(sinks[head]-maximum);
+  for(uint t=0;t<count;t++)denom+=exp(scores[head*cache_cap+t]-maximum);
+  for(uint i=0;i<512;i++){
+    float value=0.0f;
+    for(uint t=0;t<count;t++){
+      const uint row=(first+t)%cache_cap;
+      value+=exp(scores[head*cache_cap+t]-maximum)*cache[row*512+i];
+    }
+    out[33280+qoff+i]=value/denom;
+  }
 }
 
 kernel void rope_attention_one(

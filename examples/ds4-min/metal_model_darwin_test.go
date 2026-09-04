@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 func TestFP8ComparisonLimit(t *testing.T) {
@@ -184,6 +185,18 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		t.Fatalf("attention heads length = %d, want %d", len(heads), len(qHeads))
 	}
 	compareOracleF32(t, "kqv_out", heads, oracleDir+"/stage_kqv_out-0_pos0.bin")
+	rawCache, err := metalmem.Alloc[float32](dev, ds4RawCap*ds4KVWidth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rawCache.Free()
+	rawQ, rawKV, rawHeads, err := ops.RopeAttentionRaw(qHeads, kvNorm, bind("blk.0.attn_sinks.weight"), rawCache, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareOracleF32(t, "raw Qcur", rawQ, oracleDir+"/stage_Qcur-0_pos0.bin")
+	compareOracleFP8F32(t, "raw KVcur", rawKV, oracleDir+"/stage_KVcur-0_pos0.bin")
+	compareOracleF32(t, "raw kqv_out", rawHeads, oracleDir+"/stage_kqv_out-0_pos0.bin")
 	projectionA := bind("blk.0.attn_output_a.weight")
 	low := make([]float32, 0, 8192)
 	for group := range 8 {
