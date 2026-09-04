@@ -3,6 +3,7 @@ package cudakvlease
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -19,6 +20,116 @@ type DecoderLayer struct {
 	Dim            int
 	Threads        int
 	Epsilon        float32
+}
+
+// PackedDecoderLayer describes a complete pre-attention projection, paged KV
+// update, attention, and post-attention projection transaction.
+type PackedDecoderLayer struct {
+	DecoderLayer
+	RMSNormQKV driver.Function
+	RoPEStore  driver.Function
+	RoPETheta  float32
+}
+
+// RunPackedDecoderLayer executes a complete packed decoder layer on one stream.
+// The weight matrices are shared by every token row. Scratch storage and the
+// batch's page pins must remain live until this call returns; batch completion
+// remains the caller's responsibility.
+func (b *PackedBatch) RunPackedDecoderLayer(ctx context.Context, stream *cuda.Stream, op PackedDecoderLayer,
+	input, inputNorm, inputNormWeight, qWeight, kWeight, vWeight, q, k, v, qRoPE, attentionOut,
+	projection, outputNormWeight, output, outputNorm cudamem.Slice[float32]) ([]int32, error) {
+	if b == nil || b.owner == nil || ctx == nil || stream == nil {
+		return nil, ErrInvalid
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.done {
+		return nil, ErrStale
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	attention := op.Attention
+	dim := op.Dim
+	qDim := attention.QHeads * attention.HeadDim
+	kvDim := attention.KVHeads * attention.HeadDim
+	tokens := b.metadata.TokenCount
+	wantInput, inputOK := product(tokens, dim)
+	wantQ, qOK := product(tokens, qDim)
+	wantKV, kvOK := product(tokens, kvDim)
+	qWeights, qwOK := product(qDim, dim)
+	kvWeights, kvwOK := product(kvDim, dim)
+	projectionLen, projectionOK := product(dim, dim)
+	config := cudalayer.ProjectionNormConfig{Dim: dim, Threads: op.Threads, Epsilon: op.Epsilon}
+	shared, sharedErr := config.SharedMemoryBytes()
+	if sharedErr != nil || !inputOK || !qOK || !kvOK || !qwOK || !kvwOK || !projectionOK ||
+		op.RMSNormQKV == 0 || op.RoPEStore == 0 || op.ProjectionNorm == 0 || !(op.RoPETheta > 0) ||
+		dim != qDim || input.Len() != wantInput || inputNorm.Len() != wantInput || inputNormWeight.Len() != dim ||
+		qWeight.Len() != qWeights || kWeight.Len() != kvWeights || vWeight.Len() != kvWeights ||
+		q.Len() != wantQ || k.Len() != wantKV || v.Len() != wantKV || qRoPE.Len() != wantQ || attentionOut.Len() != wantQ ||
+		projection.Len() != projectionLen || outputNormWeight.Len() != dim || output.Len() != wantInput || outputNorm.Len() != wantInput {
+		return nil, ErrInvalid
+	}
+	owner := b.owner
+	adapter := owner.requests.adapter
+	pages, ok := adapter.pages.(*cudaPages)
+	if !ok || pages.dev != owner.dev || stream.Device() != owner.dev || attention.Layer < 0 || attention.Layer >= adapter.config.NumLayers {
+		return nil, ErrInvalid
+	}
+	page, err := pages.Page(attention.Layer, 0)
+	if err != nil {
+		return nil, fmt.Errorf("cudakvlease: resolve decoder arena: %w", err)
+	}
+	rows := owner.requests.maxRows
+	status := make([]int32, rows)
+	var deviceStatus cudamem.Slice[int32]
+	err = owner.dev.WithContext(func() error {
+		var err error
+		deviceStatus, err = cudamem.Alloc[int32](owner.dev, rows)
+		if err != nil {
+			return err
+		}
+		if err := deviceStatus.CopyFromHostAsync(status, stream); err != nil {
+			return err
+		}
+		m := b.metadata
+		if err := cudalaunch.Kernel(op.RMSNormQKV).Grid(uint32(tokens)).Block(uint32(op.Threads)).SharedMem(uint32(shared)).On(stream).
+			Launch(input, inputNormWeight, qWeight, kWeight, vWeight, m.TokenRows, m.Generations, m.TokenGenerations,
+				deviceStatus, inputNorm, q, k, v, int32(dim), int32(qDim), int32(kvDim), int32(tokens), int32(rows), op.Epsilon); err != nil {
+			return err
+		}
+		width := max(qDim, kvDim)
+		blocks := (width + op.Threads - 1) / op.Threads
+		if err := cudalaunch.Kernel(op.RoPEStore).Grid(uint32(blocks), uint32(tokens)).Block(uint32(op.Threads)).On(stream).
+			Launch(q, k, v, qRoPE, page.K, page.V, m.BlockTables, m.Lengths, m.Generations, m.TokenRows,
+				m.TokenPositions, m.TokenGenerations, int32(tokens), int32(rows), int32(m.MaxBlocks), int32(adapter.config.BlockSize),
+				int32(attention.QHeads), int32(attention.KVHeads), int32(attention.HeadDim), int32(adapter.config.TotalPages), op.RoPETheta, deviceStatus); err != nil {
+			return err
+		}
+		if err := b.launchCausalLocked(stream, attention, qRoPE, attentionOut, deviceStatus); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(op.ProjectionNorm).Grid(uint32(tokens)).Block(uint32(op.Threads)).SharedMem(uint32(shared)).On(stream).
+			Launch(attentionOut, input, projection, outputNormWeight, m.TokenRows, deviceStatus,
+				output, outputNorm, int32(dim), int32(tokens), int32(rows), op.Epsilon); err != nil {
+			return err
+		}
+		return deviceStatus.CopyToHostAsync(status, stream)
+	})
+	if err != nil {
+		syncErr := stream.Synchronize(context.Background())
+		freeErr := owner.dev.WithContext(deviceStatus.Free)
+		return nil, errors.Join(err, syncErr, freeErr)
+	}
+	syncErr := stream.Synchronize(ctx)
+	if syncErr != nil {
+		syncErr = errors.Join(syncErr, stream.Synchronize(context.Background()))
+	}
+	freeErr := owner.dev.WithContext(deviceStatus.Free)
+	if err := errors.Join(syncErr, freeErr); err != nil {
+		return nil, err
+	}
+	return status, nil
 }
 
 // RunDecoderLayer executes one packed decoder-layer transaction. It enqueues

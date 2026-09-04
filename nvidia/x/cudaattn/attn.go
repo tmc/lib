@@ -390,6 +390,77 @@ extern "C" __global__ void PagedRoPEStoreKV(
 		v_blocks[dst] = v[token * kv_dim + i];
 	}
 }
+
+// PackedPagedRoPEStoreKV writes only generation-valid packed tokens into the
+// private physical pages already pinned by the batch transaction.
+extern "C" __global__ void PackedPagedRoPEStoreKV(
+    const float* __restrict__ q,
+    const float* __restrict__ k,
+    const float* __restrict__ v,
+    float* __restrict__ q_rope,
+    float* __restrict__ k_blocks,
+    float* __restrict__ v_blocks,
+    const int* __restrict__ block_tables,
+    const int* __restrict__ final_seq_lens,
+    const unsigned long long* __restrict__ row_generations,
+    const int* __restrict__ token_rows,
+    const int* __restrict__ token_positions,
+    const unsigned long long* __restrict__ token_generations,
+    int num_tokens,
+    int metadata_rows,
+    int max_blocks_per_seq,
+    int block_size,
+    int num_q_heads,
+    int num_kv_heads,
+    int head_dim,
+    int total_blocks,
+    float theta,
+    int* __restrict__ row_status
+) {
+    int token = blockIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (token >= num_tokens) return;
+    int row = token_rows[token];
+    bool valid_row = row >= 0 && row < metadata_rows;
+    int pos = valid_row ? token_positions[token] : -1;
+    int block_number = pos >= 0 && block_size > 0 ? pos / block_size : -1;
+    bool valid = valid_row && pos >= 0 && pos < final_seq_lens[row] && block_size > 0 &&
+        max_blocks_per_seq > 0 && block_number < max_blocks_per_seq && head_dim > 0 &&
+        (head_dim & 1) == 0 && num_q_heads > 0 && num_kv_heads > 0 && theta > 0.0f &&
+        token_generations[token] != 0 && token_generations[token] == row_generations[row];
+    int slot = valid ? block_tables[row * max_blocks_per_seq + block_number] : -1;
+    valid = valid && slot >= 0 && slot < total_blocks && row_status[row] == 0;
+    if (!valid) {
+        if (i == 0 && metadata_rows > 0) atomicExch(row_status + (valid_row ? row : 0), 1);
+        int q_dim = num_q_heads * head_dim;
+        if (i < q_dim) q_rope[token * q_dim + i] = nanf("");
+        return;
+    }
+    int half = head_dim / 2;
+    int q_dim = num_q_heads * head_dim;
+    if (i < q_dim) {
+        int d = i % head_dim;
+        int pair_d = d < half ? d + half : d - half;
+        int freq_d = d < half ? d : pair_d;
+        float angle = (float)pos / powf(theta, (2.0f * freq_d) / (float)head_dim);
+        float a = q[token * q_dim + i];
+        float b = q[token * q_dim + (i - d) + pair_d];
+        q_rope[token * q_dim + i] = d < half ? a * cosf(angle) - b * sinf(angle) : b * sinf(angle) + a * cosf(angle);
+    }
+    int kv_dim = num_kv_heads * head_dim;
+    if (i < kv_dim) {
+        int d = i % head_dim;
+        int pair_d = d < half ? d + half : d - half;
+        int freq_d = d < half ? d : pair_d;
+        float angle = (float)pos / powf(theta, (2.0f * freq_d) / (float)head_dim);
+        float a = k[token * kv_dim + i];
+        float b = k[token * kv_dim + (i - d) + pair_d];
+        float rotated = d < half ? a * cosf(angle) - b * sinf(angle) : b * sinf(angle) + a * cosf(angle);
+        int dst = ((slot * block_size + pos % block_size) * num_kv_heads * head_dim) + i;
+        k_blocks[dst] = rotated;
+        v_blocks[dst] = v[token * kv_dim + i];
+    }
+}
 `
 
 // Compile builds the JIT FlashAttention decode module.
