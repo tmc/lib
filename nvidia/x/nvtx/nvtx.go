@@ -2,6 +2,7 @@ package nvtx
 
 import (
 	"os"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -61,21 +62,21 @@ var (
 	enabled  bool
 
 	// Global slot storage for function pointers populated by the injection tool
-	fnMarkEx                uintptr
-	fnMarkA                 uintptr
-	fnMarkW                 uintptr
-	fnRangeStartEx          uintptr
-	fnRangeStartA           uintptr
-	fnRangeStartW           uintptr
-	fnRangeEnd              uintptr
-	fnRangePushEx           uintptr
-	fnRangePushA            uintptr
-	fnRangePushW            uintptr
-	fnRangePop              uintptr
-	fnNameCategoryA         uintptr
-	fnNameCategoryW         uintptr
-	fnNameOsThreadA         uintptr
-	fnNameOsThreadW         uintptr
+	fnMarkEx        uintptr
+	fnMarkA         uintptr
+	fnMarkW         uintptr
+	fnRangeStartEx  uintptr
+	fnRangeStartA   uintptr
+	fnRangeStartW   uintptr
+	fnRangeEnd      uintptr
+	fnRangePushEx   uintptr
+	fnRangePushA    uintptr
+	fnRangePushW    uintptr
+	fnRangePop      uintptr
+	fnNameCategoryA uintptr
+	fnNameCategoryW uintptr
+	fnNameOsThreadA uintptr
+	fnNameOsThreadW uintptr
 
 	fnDomainMarkEx          uintptr
 	fnDomainRangeStartEx    uintptr
@@ -271,13 +272,28 @@ func RangePop() int {
 	return int(int32(r))
 }
 
-// ScopedRange is a convenience helper for defer blocks:
+// ScopedRange starts a nested range and pins the calling goroutine to its
+// current operating-system thread until the returned function is called. Call
+// the returned function from the same goroutine, normally with defer:
 //
 //	defer nvtx.ScopedRange("MatMul")()
 func ScopedRange(msg string) func() {
-	RangePush(msg)
+	ensureInit()
+	if !enabled || fnRangePushA == 0 || fnRangePop == 0 {
+		return func() {}
+	}
+	runtime.LockOSThread()
+	r, _, _ := purego.SyscallN(fnRangePushA, uintptr(unsafe.Pointer(cString(msg))))
+	if int32(r) < 0 {
+		runtime.UnlockOSThread()
+		return func() {}
+	}
+	var once sync.Once
 	return func() {
-		RangePop()
+		once.Do(func() {
+			purego.SyscallN(fnRangePop)
+			runtime.UnlockOSThread()
+		})
 	}
 }
 
@@ -300,8 +316,11 @@ func RangeEnd(id RangeID) {
 	purego.SyscallN(fnRangeEnd, uintptr(id))
 }
 
-// Domain represents an isolated NVTX instrumentation namespace.
+// Domain represents an isolated NVTX instrumentation namespace. Its methods
+// may be called concurrently. Destroy waits for active scoped ranges and
+// native calls, then makes subsequent calls no-ops.
 type Domain struct {
+	mu   sync.RWMutex
 	raw  uintptr
 	name string
 }
@@ -319,15 +338,27 @@ func CreateDomain(name string) *Domain {
 
 // Destroy destroys the custom domain and invalidates its resources.
 func (d *Domain) Destroy() {
-	if d.raw != 0 && fnDomainDestroy != 0 {
-		purego.SyscallN(fnDomainDestroy, d.raw)
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.raw != 0 {
+		if fnDomainDestroy != 0 {
+			purego.SyscallN(fnDomainDestroy, d.raw)
+		}
 		d.raw = 0
 	}
 }
 
 // Mark records an instantaneous event marker within this domain.
 func (d *Domain) Mark(msg string) {
-	if !enabled || d.raw == 0 || fnDomainMarkEx == 0 {
+	if d == nil || !enabled || fnDomainMarkEx == 0 {
+		return
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return
 	}
 	attrs := eventAttributes{
@@ -341,7 +372,12 @@ func (d *Domain) Mark(msg string) {
 
 // RangePush pushes a nested timeline range on the current thread within this domain.
 func (d *Domain) RangePush(msg string) int {
-	if !enabled || d.raw == 0 || fnDomainRangePushEx == 0 {
+	if d == nil || !enabled || fnDomainRangePushEx == 0 {
+		return 0
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return 0
 	}
 	attrs := eventAttributes{
@@ -356,24 +392,62 @@ func (d *Domain) RangePush(msg string) int {
 
 // RangePop pops the most recent nested timeline range within this domain.
 func (d *Domain) RangePop() int {
-	if !enabled || d.raw == 0 || fnDomainRangePop == 0 {
+	if d == nil || !enabled || fnDomainRangePop == 0 {
+		return 0
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return 0
 	}
 	r, _, _ := purego.SyscallN(fnDomainRangePop, d.raw)
 	return int(int32(r))
 }
 
-// ScopedRange is a convenience helper for defer blocks within this domain.
+// ScopedRange starts a nested range in d and pins the calling goroutine to its
+// current operating-system thread until the returned function is called. It
+// also keeps d alive for the range lifetime. Call the returned function from
+// the same goroutine, normally with defer.
 func (d *Domain) ScopedRange(msg string) func() {
-	d.RangePush(msg)
+	if d == nil || !enabled || fnDomainRangePushEx == 0 || fnDomainRangePop == 0 {
+		return func() {}
+	}
+	d.mu.RLock()
+	if d.raw == 0 {
+		d.mu.RUnlock()
+		return func() {}
+	}
+	raw := d.raw
+	runtime.LockOSThread()
+	r, _, _ := purego.SyscallN(fnDomainRangePushEx, raw, uintptr(unsafe.Pointer(&eventAttributes{
+		version:     nvtxVersion,
+		size:        uint16(unsafe.Sizeof(eventAttributes{})),
+		messageType: messageTypeAscii,
+		messagePtr:  uintptr(unsafe.Pointer(cString(msg))),
+	})))
+	if int32(r) < 0 {
+		runtime.UnlockOSThread()
+		d.mu.RUnlock()
+		return func() {}
+	}
+	var once sync.Once
 	return func() {
-		d.RangePop()
+		once.Do(func() {
+			purego.SyscallN(fnDomainRangePop, raw)
+			runtime.UnlockOSThread()
+			d.mu.RUnlock()
+		})
 	}
 }
 
 // RangeStart starts a non-nested range within this domain.
 func (d *Domain) RangeStart(msg string) RangeID {
-	if !enabled || d.raw == 0 || fnDomainRangeStartEx == 0 {
+	if d == nil || !enabled || fnDomainRangeStartEx == 0 {
+		return 0
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return 0
 	}
 	attrs := eventAttributes{
@@ -388,7 +462,12 @@ func (d *Domain) RangeStart(msg string) RangeID {
 
 // RangeEnd ends a non-nested range within this domain.
 func (d *Domain) RangeEnd(id RangeID) {
-	if !enabled || d.raw == 0 || fnDomainRangeEnd == 0 || id == 0 {
+	if d == nil || !enabled || fnDomainRangeEnd == 0 || id == 0 {
+		return
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return
 	}
 	purego.SyscallN(fnDomainRangeEnd, d.raw, uintptr(id))
@@ -396,7 +475,12 @@ func (d *Domain) RangeEnd(id RangeID) {
 
 // RegisterString registers an immutable string in the domain for zero-overhead repeated referencing.
 func (d *Domain) RegisterString(s string) StringHandle {
-	if !enabled || d.raw == 0 || fnDomainRegisterStringA == 0 {
+	if d == nil || !enabled || fnDomainRegisterStringA == 0 {
+		return 0
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
 		return 0
 	}
 	r, _, _ := purego.SyscallN(fnDomainRegisterStringA, d.raw, uintptr(unsafe.Pointer(cString(s))))
@@ -412,20 +496,34 @@ func NameOSThread(threadID uint32, name string) {
 	purego.SyscallN(fnNameOsThreadA, uintptr(threadID), uintptr(unsafe.Pointer(cString(name))))
 }
 
-// NameCategory assigns a name to an integer category ID within a domain.
-func NameCategory(d *Domain, category uint32, name string) {
+// NameCategory assigns a name to a global integer category ID.
+func NameCategory(category uint32, name string) {
 	ensureInit()
 	if !enabled || fnNameCategoryA == 0 {
 		return
 	}
-	var domainRaw uintptr
-	if d != nil {
-		domainRaw = d.raw
+	purego.SyscallN(fnNameCategoryA, uintptr(category), uintptr(unsafe.Pointer(cString(name))))
+}
+
+// NameCategory assigns a name to an integer category ID in d.
+func (d *Domain) NameCategory(category uint32, name string) {
+	if d == nil || !enabled || fnDomainNameCategoryA == 0 {
+		return
 	}
-	purego.SyscallN(fnNameCategoryA, domainRaw, uintptr(category), uintptr(unsafe.Pointer(cString(name))))
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.raw == 0 {
+		return
+	}
+	purego.SyscallN(fnDomainNameCategoryA, d.raw, uintptr(category), uintptr(unsafe.Pointer(cString(name))))
 }
 
 // Raw returns the underlying native NVTX domain handle.
 func (d *Domain) Raw() uintptr {
+	if d == nil {
+		return 0
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.raw
 }
