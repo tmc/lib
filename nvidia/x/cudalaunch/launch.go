@@ -108,24 +108,28 @@ func (l *Launcher) Launch(args ...any) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	var streamHandle driver.Stream
-	if l.stream != nil {
-		streamHandle = l.stream.Raw()
-	}
-
 	kernelParams, cleanup, err := packArgs(args)
 	if err != nil {
 		return fmt.Errorf("cudalaunch: pack args: %w", err)
 	}
 	defer cleanup()
 
-	err = l.fn.LaunchKernel(
-		l.grid.X, l.grid.Y, l.grid.Z,
-		l.block.X, l.block.Y, l.block.Z,
-		l.shmem,
-		streamHandle,
-		kernelParams,
-	)
+	launch := func(stream driver.Stream) error {
+		return l.fn.LaunchKernel(
+			l.grid.X, l.grid.Y, l.grid.Z,
+			l.block.X, l.block.Y, l.block.Z,
+			l.shmem,
+			stream,
+			kernelParams,
+		)
+	}
+	if l.stream == nil {
+		err = launch(0)
+	} else {
+		err = l.stream.WithHandle(func(stream driver.Stream) error {
+			return l.stream.Device().WithContext(func() error { return launch(stream) })
+		})
+	}
 	if err != nil {
 		return fmt.Errorf("cudalaunch: launch kernel: %w", err)
 	}

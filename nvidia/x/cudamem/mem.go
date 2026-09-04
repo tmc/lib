@@ -223,7 +223,8 @@ func (s Slice[T]) CopyToHost(dst []T) error {
 
 // CopyFromHostAsync asynchronously enqueues a host-to-device copy onto the specified stream.
 // The host slice memory is pinned and guaranteed to remain pinned until the stream finishes
-// synchronization or is destroyed.
+// synchronization or is destroyed. The device allocation must remain live until
+// the stream completes.
 func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	if len(src) == 0 {
 		return nil
@@ -245,8 +246,10 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
-		return stream.Device().WithContext(func() error {
-			return ptr.MemcpyHtoDAsync(hostPtr, totalBytes, stream.Raw())
+		return stream.WithHandle(func(handle driver.Stream) error {
+			return stream.Device().WithContext(func() error {
+				return ptr.MemcpyHtoDAsync(hostPtr, totalBytes, handle)
+			})
 		})
 	}); err != nil {
 		unpin()
@@ -258,7 +261,8 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 
 // CopyToHostAsync asynchronously enqueues a device-to-host copy onto the specified stream.
 // The destination host slice memory is pinned and guaranteed to remain pinned until the stream finishes
-// synchronization or is destroyed.
+// synchronization or is destroyed. The device allocation must remain live until
+// the stream completes.
 func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	if len(dst) == 0 {
 		return nil
@@ -280,8 +284,10 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
-		return stream.Device().WithContext(func() error {
-			return ptr.MemcpyDtoHAsync(hostPtr, totalBytes, stream.Raw())
+		return stream.WithHandle(func(handle driver.Stream) error {
+			return stream.Device().WithContext(func() error {
+				return ptr.MemcpyDtoHAsync(hostPtr, totalBytes, handle)
+			})
 		})
 	}); err != nil {
 		unpin()
@@ -309,6 +315,7 @@ func (s Slice[T]) CopyDeviceToDevice(src Slice[T]) error {
 }
 
 // CopyDeviceToDeviceAsync asynchronously enqueues a device-to-device copy onto the specified stream.
+// Both allocations must remain live until the stream completes.
 func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) error {
 	if src.len == 0 {
 		return nil
@@ -321,8 +328,10 @@ func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) err
 	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
 	if err := s.withSource(src, func(dst, src driver.DevicePtr) error {
-		return stream.Device().WithContext(func() error {
-			return dst.MemcpyDtoDAsync(src, totalBytes, stream.Raw())
+		return stream.WithHandle(func(handle driver.Stream) error {
+			return stream.Device().WithContext(func() error {
+				return dst.MemcpyDtoDAsync(src, totalBytes, handle)
+			})
 		})
 	}); err != nil {
 		return fmt.Errorf("cudamem: async copy device to device: %w", err)
