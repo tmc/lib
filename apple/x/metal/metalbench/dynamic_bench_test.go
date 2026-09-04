@@ -33,11 +33,13 @@ func TestDynamicScalingHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize static engine: %v", err)
 	}
+	defer staticEngine.Free()
 
 	adaptiveEngine, err := NewAdaptivePGOEngine(dev, dim, outDim)
 	if err != nil {
 		t.Fatalf("Failed to initialize adaptive engine: %v", err)
 	}
+	defer adaptiveEngine.Free()
 
 	t.Logf("==========================================================================================")
 	t.Logf("              DYNAMIC INFERENCE SCALING BENCHMARK: STATIC VS ADAPTIVE PGO                 ")
