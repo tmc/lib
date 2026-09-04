@@ -116,6 +116,7 @@ type ModelEngine struct {
 	lib                     apple.MTLLibrary
 	pso                     decodeKernels
 	mem                     *metalmem.Arena
+	memory                  *metalmem.Tracker
 	recorder                *metalprof.FlightRecorder
 	metrics                 *RuntimeMetrics
 	generateMu              sync.Mutex
@@ -205,6 +206,7 @@ type BatchedAttentionCache struct {
 	positions, rows               mempool.Slice[uint32]
 	rowCapacity, maxSeqLen, kvDim int
 	freed                         bool
+	arena                         *metalmem.Arena
 }
 
 // NewBatchedAttentionCache allocates cache storage for independently positioned rows.
@@ -212,30 +214,29 @@ func (eng *ModelEngine) NewBatchedAttentionCache(cfg Config, rowCapacity int) (*
 	if eng == nil || eng.dev == nil || rowCapacity <= 0 || cfg.MaxSeqLen <= 0 {
 		return nil, errors.New("new batched attention cache: invalid capacity")
 	}
-	c := &BatchedAttentionCache{rowCapacity: rowCapacity, maxSeqLen: cfg.MaxSeqLen, kvDim: cfg.NumKVHeads * cfg.HeadDim}
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
+	c := &BatchedAttentionCache{rowCapacity: rowCapacity, maxSeqLen: cfg.MaxSeqLen, kvDim: cfg.NumKVHeads * cfg.HeadDim, arena: a}
 	c.K = make([]mempool.Slice[float32], cfg.NumLayers)
 	c.V = make([]mempool.Slice[float32], cfg.NumLayers)
 	for l := range cfg.NumLayers {
-		var err error
-		c.K[l], err = mempool.Alloc[float32](eng.dev, rowCapacity*cfg.MaxSeqLen*c.kvDim)
-		if err != nil {
+		c.K[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("k[%d]", l), rowCapacity*cfg.MaxSeqLen*c.kvDim)
+		if err := a.Err(); err != nil {
 			c.Free()
 			return nil, fmt.Errorf("alloc batched k-cache layer %d: %w", l, err)
 		}
-		c.V[l], err = mempool.Alloc[float32](eng.dev, rowCapacity*cfg.MaxSeqLen*c.kvDim)
-		if err != nil {
+		c.V[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("v[%d]", l), rowCapacity*cfg.MaxSeqLen*c.kvDim)
+		if err := a.Err(); err != nil {
 			c.Free()
 			return nil, fmt.Errorf("alloc batched v-cache layer %d: %w", l, err)
 		}
 	}
-	var err error
-	c.positions, err = mempool.Alloc[uint32](eng.dev, rowCapacity)
-	if err != nil {
+	c.positions = metalmem.AllocIn[uint32](a, "positions", rowCapacity)
+	if err := a.Err(); err != nil {
 		c.Free()
 		return nil, fmt.Errorf("alloc batched positions: %w", err)
 	}
-	c.rows, err = mempool.Alloc[uint32](eng.dev, rowCapacity)
-	if err != nil {
+	c.rows = metalmem.AllocIn[uint32](a, "rows", rowCapacity)
+	if err := a.Err(); err != nil {
 		c.Free()
 		return nil, fmt.Errorf("alloc batched rows: %w", err)
 	}
@@ -252,12 +253,7 @@ func (c *BatchedAttentionCache) Free() {
 	if c.freed {
 		return
 	}
-	for i := range c.K {
-		c.K[i].Free()
-		c.V[i].Free()
-	}
-	c.positions.Free()
-	c.rows.Free()
+	c.arena.Free()
 	c.freed = true
 }
 
@@ -351,6 +347,7 @@ type BatchedModelTail struct {
 	tokens                   mempool.Slice[int32]
 	capacity, dim, vocabSize int
 	freed                    bool
+	arena                    *metalmem.Arena
 }
 
 // BatchedModelTailResult contains row-major normalized states and logits.
@@ -366,19 +363,13 @@ func (eng *ModelEngine) NewBatchedModelTail(cfg Config, capacity int) (*BatchedM
 	if eng == nil || eng.dev == nil || capacity <= 0 || cfg.Dim <= 0 || cfg.VocabSize <= 0 {
 		return nil, errors.New("new batched model tail: invalid shape")
 	}
-	t := &BatchedModelTail{capacity: capacity, dim: cfg.Dim, vocabSize: cfg.VocabSize}
-	var err error
-	t.norm, err = mempool.Alloc[float32](eng.dev, capacity*cfg.Dim)
-	if err == nil {
-		t.tokens, err = mempool.Alloc[int32](eng.dev, capacity)
-	}
-	if err == nil {
-		t.scale, err = mempool.Alloc[float32](eng.dev, capacity)
-	}
-	if err == nil {
-		t.candidates, err = mempool.Alloc[float32](eng.dev, capacity*((cfg.VocabSize+255)/256)*2)
-	}
-	if err != nil {
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
+	t := &BatchedModelTail{capacity: capacity, dim: cfg.Dim, vocabSize: cfg.VocabSize, arena: a}
+	t.norm = metalmem.AllocIn[float32](a, "norm", capacity*cfg.Dim)
+	t.tokens = metalmem.AllocIn[int32](a, "tokens", capacity)
+	t.scale = metalmem.AllocIn[float32](a, "scale", capacity)
+	t.candidates = metalmem.AllocIn[float32](a, "candidates", capacity*((cfg.VocabSize+255)/256)*2)
+	if err := a.Err(); err != nil {
 		t.Free()
 		return nil, fmt.Errorf("new batched model tail: %w", err)
 	}
@@ -395,11 +386,7 @@ func (t *BatchedModelTail) Free() {
 	if t.freed {
 		return
 	}
-	t.norm.Free()
-	t.logits.Free()
-	t.tokens.Free()
-	t.scale.Free()
-	t.candidates.Free()
+	t.arena.Free()
 	t.freed = true
 }
 
@@ -430,9 +417,8 @@ func (t *BatchedModelTail) Run(eng *ModelEngine, cfg Config, hidden []float32, s
 		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
 	}
 	if t.logits.Len() == 0 {
-		var err error
-		t.logits, err = mempool.Alloc[float32](eng.dev, t.capacity*t.vocabSize)
-		if err != nil {
+		t.logits = metalmem.AllocIn[float32](t.arena, "logits", t.capacity*t.vocabSize)
+		if err := t.arena.Err(); err != nil {
 			return BatchedModelTailResult{}, fmt.Errorf("batched model tail: allocate diagnostic logits: %w", err)
 		}
 	}
@@ -1750,7 +1736,8 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 
 	// One arena for every buffer whose lifetime is the engine's: checked once,
 	// released once, and nothing leaks when a later allocation fails.
-	mem := metalmem.NewArena(dev)
+	memory := new(metalmem.Tracker)
+	mem := metalmem.NewTrackedArena(dev, memory)
 	committed := false
 	var weights *metalsafetensors.Weights
 	defer func() {
@@ -2079,6 +2066,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		lib:           lib,
 		pso:           pso,
 		mem:           mem,
+		memory:        memory,
 		xBuf:          xBuf,
 		normXBuf:      normXBuf,
 		qBuf:          qBuf,
@@ -2849,10 +2837,11 @@ func (eng *ModelEngine) ensurePrefillArena(seqLen int, cfg Config) error {
 	if eng.prefillMaxSeqLen >= seqLen {
 		return nil
 	}
+	eng.synchronize()
 	eng.freePrefillArena()
 
 	allocLen := max(seqLen, 128)
-	a := metalmem.NewArena(eng.dev)
+	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
 	eng.prefillXMat = metalmem.AllocIn[float32](a, "xMat", allocLen*cfg.Dim)
 	eng.prefillNormXMat = metalmem.AllocIn[float32](a, "normXMat", allocLen*cfg.Dim)
 	eng.prefillQMat = metalmem.AllocIn[float32](a, "qMat", allocLen*cfg.NumHeads*cfg.HeadDim)
@@ -2879,6 +2868,16 @@ func (eng *ModelEngine) ensurePrefillArena(seqLen int, cfg Config) error {
 	return nil
 }
 
+// synchronize waits for all work previously submitted to the engine queue.
+func (eng *ModelEngine) synchronize() {
+	if eng == nil || eng.dev == nil {
+		return
+	}
+	cb := eng.dev.Queue().CommandBuffer()
+	cb.Commit()
+	cb.WaitUntilCompleted()
+}
+
 // freePrefillArena releases the batched-prefill scratch buffers.
 func (eng *ModelEngine) freePrefillArena() {
 	if eng.prefill != nil {
@@ -2902,6 +2901,7 @@ func (eng *ModelEngine) Free() {
 		defer eng.generateMu.Unlock()
 		eng.batchedMu.Lock()
 		defer eng.batchedMu.Unlock()
+		eng.synchronize()
 		eng.freePrefillArena()
 		if eng.mem != nil {
 			eng.mem.Free()
