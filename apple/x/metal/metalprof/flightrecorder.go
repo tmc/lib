@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-// KernelEvent records a single Metal compute kernel dispatch event.
+// KernelEvent records caller-supplied information about a Metal compute event.
+// Duration has the clock semantics of the value passed to [FlightRecorder.Record].
+// TimestampNs is host wall time recorded when Record is called.
 type KernelEvent struct {
 	Name        string
 	Duration    time.Duration
@@ -17,7 +19,7 @@ type KernelEvent struct {
 	Labels      map[string]string
 }
 
-// TimelineEvent represents an execution interval on the GPU timeline.
+// TimelineEvent represents a caller-supplied interval anchored to host wall time.
 type TimelineEvent struct {
 	Name       string            `json:"name"`
 	StartNs    uint64            `json:"start_ns"`
@@ -25,7 +27,7 @@ type TimelineEvent struct {
 	Labels     map[string]string `json:"labels,omitempty"`
 }
 
-// FlightRecorder maintains a continuous in-memory ring buffer of GPU kernel executions.
+// FlightRecorder maintains an in-memory ring buffer of caller-supplied events.
 type FlightRecorder struct {
 	mu       sync.RWMutex
 	events   []KernelEvent
@@ -45,7 +47,8 @@ func NewFlightRecorder(capacity int) *FlightRecorder {
 	}
 }
 
-// Record captures a kernel launch into the in-memory ring buffer.
+// Record adds an event to the in-memory ring buffer. Record does not measure
+// dur or verify that it came from a GPU clock.
 func (fr *FlightRecorder) Record(name string, dur time.Duration, grid, tg [3]int, labels map[string]string) {
 	fr.mu.Lock()
 	defer fr.mu.Unlock()
@@ -148,7 +151,7 @@ func (fr *FlightRecorder) SnapshotSummary() string {
 		totalDuration += ev.Duration
 	}
 
-	res := fmt.Sprintf("=== Metal FlightRecorder: %d Dispatches (Total GPU Time: %v) ===\n", len(events), totalDuration)
+	res := fmt.Sprintf("=== Metal FlightRecorder: %d Events (Total Recorded Time: %v) ===\n", len(events), totalDuration)
 	for name, dur := range kernelTotals {
 		cnt := kernelCounts[name]
 		avg := dur / time.Duration(cnt)

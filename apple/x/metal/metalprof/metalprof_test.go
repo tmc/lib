@@ -82,7 +82,7 @@ func TestFlightRecorderRingBuffer(t *testing.T) {
 	}
 
 	summary := fr.SnapshotSummary()
-	if !strings.Contains(summary, "Metal FlightRecorder") || !strings.Contains(summary, "Kernel_C") {
+	if !strings.Contains(summary, "Total Recorded Time") || !strings.Contains(summary, "Kernel_C") {
 		t.Errorf("unexpected summary text: %s", summary)
 	}
 }

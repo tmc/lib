@@ -4,14 +4,19 @@ package metalprof
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"time"
 	"unsafe"
 
 	"github.com/tmc/apple/foundation"
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 )
+
+// ErrTimestampCountersUnavailable reports that a device cannot create a
+// timestamp counter sample buffer. Callers must not substitute host time for
+// GPU counter values.
+var ErrTimestampCountersUnavailable = errors.New("metalprof: timestamp counters unavailable")
 
 // SampleBuffer wraps an MTLCounterSampleBuffer for hardware timestamps.
 type SampleBuffer struct {
@@ -31,26 +36,31 @@ func NewSampleBuffer(dev *metal.Device, capacity int) (*SampleBuffer, error) {
 	// Find the timestamp counter set
 	var timestampSet apple.MTLCounterSet
 	for _, cs := range dev.Raw().CounterSets() {
-		if csObj, ok := cs.(apple.MTLCounterSet); ok {
-			if csObj.Name() == "MTLCommonCounterSetTimestamp" || csObj.Name() == "timestamp" {
-				timestampSet = csObj
-				break
-			}
+		if cs == nil || cs.GetID() == 0 {
+			continue
 		}
+		set := apple.MTLCounterSetObjectFromID(cs.GetID())
+		if set.Name() == "MTLCommonCounterSetTimestamp" || set.Name() == "timestamp" {
+			timestampSet = set
+			break
+		}
+	}
+	if timestampSet == nil || timestampSet.GetID() == 0 {
+		return nil, ErrTimestampCountersUnavailable
 	}
 
 	desc := apple.GetMTLCounterSampleBufferDescriptorClass().Alloc().Init()
 	desc.SetSampleCount(uint(capacity))
 	desc.SetStorageMode(apple.MTLStorageModeShared)
 	desc.SetLabel("metalprof_timestamps")
-	if timestampSet != nil && timestampSet.GetID() != 0 {
-		desc.SetCounterSet(timestampSet)
-	}
+	desc.SetCounterSet(timestampSet)
 
 	sb, err := dev.Raw().NewCounterSampleBufferWithDescriptorError(desc)
-	if err != nil || sb.GetID() == 0 {
-		// Fallback: create soft sample buffer structure if hardware counter sets are constrained
-		return &SampleBuffer{count: capacity}, nil
+	if err != nil {
+		return nil, fmt.Errorf("metalprof: create timestamp counter sample buffer: %w", err)
+	}
+	if sb.GetID() == 0 {
+		return nil, ErrTimestampCountersUnavailable
 	}
 
 	return &SampleBuffer{
@@ -71,14 +81,11 @@ func (sb *SampleBuffer) SampleCount() int {
 
 // ResolveTimestamps extracts resolved GPU timestamp values from the sample buffer.
 func (sb *SampleBuffer) ResolveTimestamps(start, count int) ([]uint64, error) {
-	if sb.raw.GetID() == 0 {
-		// Hardware counter not active, return synthetic wallclock estimate
-		out := make([]uint64, count)
-		now := uint64(time.Now().UnixNano())
-		for i := range out {
-			out[i] = now + uint64(i*1000)
-		}
-		return out, nil
+	if sb == nil || sb.raw == nil || sb.raw.GetID() == 0 {
+		return nil, ErrTimestampCountersUnavailable
+	}
+	if start < 0 || count <= 0 || start > sb.count-count {
+		return nil, fmt.Errorf("metalprof: invalid counter sample range [%d, %d] for capacity %d", start, count, sb.count)
 	}
 
 	nsData := sb.raw.ResolveCounterRange(foundation.NSRange{
