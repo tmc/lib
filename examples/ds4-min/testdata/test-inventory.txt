@@ -1,0 +1,9 @@
+CLI: help; stdin; prompt; prompt-file; flag conflict; extra arguments; invalid backend; unsupported backend; unreadable input; non-positive limits; auto refusal
+GGUF: truncation; malformed counts and lengths; offset overflow; alignment; wrong architecture; missing tensor; wrong name; wrong dimensions; wrong quantization; exact manifest
+Tokenizer: exact prompt IDs; empty prompt; special tokens; UTF-8 fragments; decoded bytes; no approximate fallback
+Session: suffix reuse; divergent-prefix reset; common-prefix rewind; post-sync logits; emit-before-eval; EOS first; no eval after EOS; context overflow
+Operators: RMS norm; rotary; dense matvec; raw and compressed causal attention; compression; index scoring; top-k index ties and overflow; SwiGLU; biased selection with unbiased weights; expert ties; expert accumulation; mHC; output norm; logits; extreme finite and zero logits
+Fixture: deterministic independent generator; regeneration twice; 4 decode steps; raw-window crossing; ratio-4 boundary; ratio-128 boundary; stage tolerances; malformed shapes
+Metal: physical fixture parity; full-model 16-token parity; nonzero GPU evidence; EOS; repeated teardown; no CPU fallback
+CUDA: physical fixture parity; full-model 16-token parity; nonzero event evidence; device identity; context ownership; teardown; no CPU fallback
+Cross-backend: immutable identities; prompt IDs; bounded logits and top-20; greedy IDs; stop point; decoded bytes; independent gate classification

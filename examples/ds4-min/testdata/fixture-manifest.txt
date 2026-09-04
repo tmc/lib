@@ -1,0 +1,17 @@
+format ds4-min-fixture-manifest-v1
+storage text-only
+binary-fixtures forbidden
+
+oracle.git github.com/antirez/ds4
+oracle.commit b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd
+model.repo antirez/deepseek-v4-gguf
+model.file DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+model.bytes BLOCKED:not-present
+model.sha256 BLOCKED:not-present
+model.gguf-metadata-sha256 BLOCKED:not-present
+model.tensor-manifest-sha256 BLOCKED:not-present
+model.tokenizer-sha256 BLOCKED:not-present
+
+synthetic.seed pending-slice-4
+synthetic.config-sha256 pending-slice-4
+synthetic.generated-manifest-sha256 pending-slice-4
