@@ -12,7 +12,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
-// Slice represents a typed, contiguous slice of memory on the GPU.
+// Slice represents a typed, contiguous slice of memory on the GPU. Copies and
+// subslices share ownership: freeing any one releases the whole allocation once,
+// after which none of them may be used.
 type Slice[T any] struct {
 	ptr      driver.DevicePtr
 	len      int
@@ -26,6 +28,7 @@ type allocation struct {
 	ptr     driver.DevicePtr
 	bytes   uint64
 	tracker *Tracker
+	device  *cuda.Device
 }
 
 // Alloc allocates a new typed Slice[T] of length elements in GPU device memory.
@@ -67,7 +70,7 @@ func AllocTracked[T any](dev *cuda.Device, tracker *Tracker, length int) (Slice[
 		len:      length,
 		cap:      length,
 		elemSize: elemSize,
-		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), tracker: tracker},
+		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), tracker: tracker, device: dev},
 	}, nil
 }
 
@@ -101,6 +104,7 @@ func AllocManaged[T any](dev *cuda.Device, length int) (Slice[T], error) {
 		len:      length,
 		cap:      length,
 		elemSize: elemSize,
+		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), device: dev},
 	}, nil
 }
 
@@ -135,10 +139,12 @@ func (s Slice[T]) Slice(low, high int) Slice[T] {
 		len:      high - low,
 		cap:      s.cap - low,
 		elemSize: s.elemSize,
+		alloc:    s.alloc,
 	}
 }
 
-// Free deallocates the device memory.
+// Free deallocates the device memory. Repeated calls through copies or subslices
+// of s are safe.
 func (s Slice[T]) Free() error {
 	if s.ptr == 0 {
 		return nil
@@ -149,7 +155,7 @@ func (s Slice[T]) Free() error {
 		if s.alloc.ptr == 0 {
 			return nil
 		}
-		if err := s.alloc.ptr.MemFree(); err != nil {
+		if err := s.alloc.device.WithContext(s.alloc.ptr.MemFree); err != nil {
 			return fmt.Errorf("cudamem: free device memory: %w", err)
 		}
 		s.alloc.ptr = 0
@@ -179,7 +185,7 @@ func (s Slice[T]) CopyFromHost(src []T) error {
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
-	if err := s.ptr.MemcpyHtoD(hostPtr, totalBytes); err != nil {
+	if err := s.withContext(func() error { return s.ptr.MemcpyHtoD(hostPtr, totalBytes) }); err != nil {
 		return fmt.Errorf("cudamem: copy host to device: %w", err)
 	}
 	return nil
@@ -202,7 +208,7 @@ func (s Slice[T]) CopyToHost(dst []T) error {
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
-	if err := s.ptr.MemcpyDtoH(hostPtr, totalBytes); err != nil {
+	if err := s.withContext(func() error { return s.ptr.MemcpyDtoH(hostPtr, totalBytes) }); err != nil {
 		return fmt.Errorf("cudamem: copy device to host: %w", err)
 	}
 	return nil
@@ -228,15 +234,16 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	unpin := func() {
 		unpinOnce.Do(pinner.Unpin)
 	}
-	stream.AddCleanup(unpin)
-
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 
-	if err := s.ptr.MemcpyHtoDAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
+	if err := stream.Device().WithContext(func() error {
+		return s.ptr.MemcpyHtoDAsync(hostPtr, totalBytes, stream.Raw())
+	}); err != nil {
 		unpin()
 		return fmt.Errorf("cudamem: async copy host to device: %w", err)
 	}
+	stream.AddCleanup(unpin)
 	return nil
 }
 
@@ -260,15 +267,16 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	unpin := func() {
 		unpinOnce.Do(pinner.Unpin)
 	}
-	stream.AddCleanup(unpin)
-
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 
-	if err := s.ptr.MemcpyDtoHAsync(hostPtr, totalBytes, stream.Raw()); err != nil {
+	if err := stream.Device().WithContext(func() error {
+		return s.ptr.MemcpyDtoHAsync(hostPtr, totalBytes, stream.Raw())
+	}); err != nil {
 		unpin()
 		return fmt.Errorf("cudamem: async copy device to host: %w", err)
 	}
+	stream.AddCleanup(unpin)
 	return nil
 }
 
@@ -281,7 +289,7 @@ func (s Slice[T]) CopyDeviceToDevice(src Slice[T]) error {
 		return fmt.Errorf("cudamem: source length %d exceeds destination capacity %d", src.len, s.len)
 	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
-	if err := s.ptr.MemcpyDtoD(src.ptr, totalBytes); err != nil {
+	if err := s.withContext(func() error { return s.ptr.MemcpyDtoD(src.ptr, totalBytes) }); err != nil {
 		return fmt.Errorf("cudamem: copy device to device: %w", err)
 	}
 	return nil
@@ -299,17 +307,27 @@ func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) err
 		return errors.New("cudamem: nil stream passed to CopyDeviceToDeviceAsync")
 	}
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
-	if err := s.ptr.MemcpyDtoDAsync(src.ptr, totalBytes, stream.Raw()); err != nil {
+	if err := stream.Device().WithContext(func() error {
+		return s.ptr.MemcpyDtoDAsync(src.ptr, totalBytes, stream.Raw())
+	}); err != nil {
 		return fmt.Errorf("cudamem: async copy device to device: %w", err)
 	}
 	return nil
 }
 
 // HostAllocation represents page-locked (pinned) host memory accessible to both the CPU and GPU.
+// Copies share ownership and may release the allocation at most once.
 type HostAllocation[T any] struct {
 	ptr   uintptr
 	len   int
 	slice []T
+	alloc *hostAllocation
+}
+
+type hostAllocation struct {
+	mu     sync.Mutex
+	ptr    uintptr
+	device *cuda.Device
 }
 
 // AllocHost allocates page-locked host memory accessible by CUDA devices.
@@ -324,8 +342,13 @@ func AllocHost[T any](length int) (HostAllocation[T], error) {
 	}
 	totalBytes := uint(uintptr(length) * elemSize)
 
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		return HostAllocation[T]{}, fmt.Errorf("cudamem: alloc host: %w", err)
+	}
 	var rawPtr uintptr
-	if err := driver.MemAllocHost(&rawPtr, totalBytes); err != nil {
+	if err := dev.WithContext(func() error { return driver.MemAllocHost(&rawPtr, totalBytes) }); err != nil {
+		_ = dev.Close()
 		return HostAllocation[T]{}, fmt.Errorf("cudamem: alloc host %d elements (%d bytes): %w", length, totalBytes, err)
 	}
 
@@ -339,6 +362,7 @@ func AllocHost[T any](length int) (HostAllocation[T], error) {
 		ptr:   rawPtr,
 		len:   length,
 		slice: slice,
+		alloc: &hostAllocation{ptr: rawPtr, device: dev},
 	}, nil
 }
 
@@ -357,13 +381,30 @@ func (ha HostAllocation[T]) Slice() []T {
 	return ha.slice
 }
 
-// Free deallocates the page-locked host memory.
+// Free deallocates the page-locked host memory. Repeated calls through copies of
+// ha are safe.
 func (ha HostAllocation[T]) Free() error {
 	if ha.ptr == 0 {
 		return nil
 	}
-	if err := driver.MemFreeHost(ha.ptr); err != nil {
+	if ha.alloc == nil {
+		return errors.New("cudamem: host allocation has no ownership record")
+	}
+	ha.alloc.mu.Lock()
+	defer ha.alloc.mu.Unlock()
+	if ha.alloc.ptr == 0 {
+		return nil
+	}
+	if err := ha.alloc.device.WithContext(func() error { return driver.MemFreeHost(ha.alloc.ptr) }); err != nil {
 		return fmt.Errorf("cudamem: free host memory: %w", err)
 	}
-	return nil
+	ha.alloc.ptr = 0
+	return ha.alloc.device.Close()
+}
+
+func (s Slice[T]) withContext(fn func() error) error {
+	if s.alloc != nil && s.alloc.device != nil {
+		return s.alloc.device.WithContext(fn)
+	}
+	return fn()
 }

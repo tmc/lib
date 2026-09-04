@@ -57,10 +57,13 @@ func AllocAsync[T any](stream *cuda.Stream, length int) (Slice[T], error) {
 		len:      length,
 		cap:      int(uintptr(allocBytes) / elemSize),
 		elemSize: elemSize,
+		alloc:    &allocation{ptr: dptr, bytes: uint64(allocBytes), device: stream.Device()},
 	}, nil
 }
 
 // FreeAsync asynchronously deallocates the device memory within the specified stream.
+// Repeated calls through copies or subslices of s are safe. Tracked bytes remain live
+// until the stream is synchronized.
 func (s Slice[T]) FreeAsync(stream *cuda.Stream) error {
 	if s.ptr == 0 {
 		return nil
@@ -68,9 +71,22 @@ func (s Slice[T]) FreeAsync(stream *cuda.Stream) error {
 	if stream == nil {
 		return errors.New("cudamem: nil stream passed to FreeAsync")
 	}
-	if err := s.ptr.MemFreeAsync(stream.Raw()); err != nil {
+	if s.alloc == nil {
+		return errors.New("cudamem: async allocation has no ownership record")
+	}
+	s.alloc.mu.Lock()
+	defer s.alloc.mu.Unlock()
+	if s.alloc.ptr == 0 {
+		return nil
+	}
+	if err := stream.Device().WithContext(func() error {
+		return s.alloc.ptr.MemFreeAsync(stream.Raw())
+	}); err != nil {
 		return fmt.Errorf("cudamem: async free device memory: %w", err)
 	}
+	s.alloc.ptr = 0
+	tracker, bytes := s.alloc.tracker, s.alloc.bytes
+	stream.AddCleanup(func() { tracker.freed(bytes) })
 	return nil
 }
 
