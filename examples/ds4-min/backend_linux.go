@@ -10,10 +10,8 @@ import (
 
 func selectBackend(name string) (string, error) {
 	switch name {
-	case "cuda":
+	case "auto", "cuda":
 		return "cuda", nil
-	case "auto":
-		return "", errors.New("automatic CUDA detection not implemented; select cuda or cpu explicitly")
 	case "cpu":
 		return "cpu", nil
 	case "metal":
@@ -24,5 +22,13 @@ func selectBackend(name string) (string, error) {
 }
 
 func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
-	return nil, nil, fmt.Errorf("%s backend execution not implemented", cfg.backend)
+	if cfg.backend != "cuda" {
+		return nil, nil, fmt.Errorf("%s backend execution not implemented", cfg.backend)
+	}
+	r, err := newCUDAFoundation(cfg.model)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer r.Close()
+	return nil, nil, fmt.Errorf("cuda device %q sm_%d%d qualified; token evaluation not implemented", r.name, r.major, r.minor)
 }
