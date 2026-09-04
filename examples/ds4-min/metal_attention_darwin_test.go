@@ -108,6 +108,132 @@ func TestMetalRatio4CompressorEmitsFourthToken(t *testing.T) {
 	}
 }
 
+func TestMetalRatio128CompressorEmits128thToken(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	state := metalCompressedState{
+		cache:      metalmem.AllocIn[float32](a, "cache", 4*512),
+		stateKV:    metalmem.AllocIn[float32](a, "state-kv", 128*512),
+		stateScore: metalmem.AllocIn[float32](a, "state-score", 128*512),
+		pooled:     metalmem.AllocIn[float32](a, "pooled", 512),
+		headDim:    512,
+		width:      512,
+		ratio:      128,
+		cap:        4,
+	}
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	resetCompressedState(&state)
+	apeData := metalmem.UploadIn(a, "ape", make([]byte, 128*512*2))
+	normBytes := make([]byte, 512*4)
+	for i := range 512 {
+		binary.LittleEndian.PutUint32(normBytes[4*i:], math.Float32bits(1))
+	}
+	normData := metalmem.UploadIn(a, "norm", normBytes)
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	ape := boundMetalTensor{name: "ape", typeID: 1, dimensions: []uint64{512, 128}, data: apeData}
+	norm := boundMetalTensor{name: "norm", typeID: 0, dimensions: []uint64{512}, data: normData}
+	kv := make([]float32, 512)
+	score := make([]float32, 512)
+	for i := range kv {
+		kv[i] = 1
+	}
+	for position := range 128 {
+		got, emitted, err := ops.CompressorAttention(kv, score, ape, norm, &state, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if emitted != (position == 127) {
+			t.Fatalf("position %d emitted = %t", position, emitted)
+		}
+		if emitted {
+			for i, value := range got {
+				if math.Abs(float64(value-1)) > 1e-5 {
+					t.Fatalf("compressed[%d] = %g, want 1", i, value)
+				}
+			}
+		}
+	}
+}
+
+func TestMetalIndexerCompressorAppliesQAT(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+	a := metalmem.NewArena(dev)
+	defer a.Free()
+	state := metalCompressedState{
+		cache:      metalmem.AllocIn[float32](a, "cache", 6*128),
+		stateKV:    metalmem.AllocIn[float32](a, "state-kv", 8*256),
+		stateScore: metalmem.AllocIn[float32](a, "state-score", 8*256),
+		pooled:     metalmem.AllocIn[float32](a, "pooled", 128),
+		headDim:    128,
+		width:      256,
+		ratio:      4,
+		cap:        6,
+	}
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	resetCompressedState(&state)
+	apeData := metalmem.UploadIn(a, "ape", make([]byte, 4*256*2))
+	normBytes := make([]byte, 128*4)
+	for i := range 128 {
+		binary.LittleEndian.PutUint32(normBytes[4*i:], math.Float32bits(1))
+	}
+	normData := metalmem.UploadIn(a, "norm", normBytes)
+	if err := a.Err(); err != nil {
+		t.Fatal(err)
+	}
+	ape := boundMetalTensor{name: "ape", typeID: 1, dimensions: []uint64{256, 4}, data: apeData}
+	norm := boundMetalTensor{name: "norm", typeID: 0, dimensions: []uint64{128}, data: normData}
+	kv := make([]float32, 256)
+	score := make([]float32, 256)
+	for i := range kv {
+		kv[i] = 1
+	}
+	for position := range 4 {
+		got, emitted, err := ops.CompressorIndexer(kv, score, ape, norm, &state, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if emitted != (position == 3) {
+			t.Fatalf("position %d emitted = %t", position, emitted)
+		}
+		if !emitted {
+			continue
+		}
+		if got[0] != 12 {
+			t.Fatalf("QAT[0] = %g, want 12", got[0])
+		}
+		for i, value := range got[1:] {
+			if value != 0 {
+				t.Fatalf("QAT[%d] = %g, want 0", i+1, value)
+			}
+		}
+	}
+}
+
 func TestMetalRawAttentionPositionOneOracle(t *testing.T) {
 	model := os.Getenv("DS4_GGUF_PROFILE_MODEL")
 	oracle := os.Getenv("DS4_LAYER0_POS1_ORACLE_DIR")

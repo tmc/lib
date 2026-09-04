@@ -36,10 +36,23 @@ type metalPinnedKernels struct {
 	RopeAttentionRaw apple.MTLComputePipelineState `metal:"rope_attention_raw"`
 	CompressorPool   apple.MTLComputePipelineState `metal:"compressor_pool"`
 	CompressorFinish apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
+	IndexerFinish    apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
 }
 
 func (o *metalPinnedOps) CompressorAttention(kv, score []float32, ape, norm boundMetalTensor, state *metalCompressedState, position int) ([]float32, bool, error) {
-	if state == nil || state.headDim != 512 || (state.ratio != 4 && state.ratio != 128) ||
+	return o.compressor(kv, score, ape, norm, state, position, false)
+}
+
+func (o *metalPinnedOps) CompressorIndexer(kv, score []float32, ape, norm boundMetalTensor, state *metalCompressedState, position int) ([]float32, bool, error) {
+	return o.compressor(kv, score, ape, norm, state, position, true)
+}
+
+func (o *metalPinnedOps) compressor(kv, score []float32, ape, norm boundMetalTensor, state *metalCompressedState, position int, indexer bool) ([]float32, bool, error) {
+	wantHeadDim := 512
+	if indexer {
+		wantHeadDim = 128
+	}
+	if state == nil || state.headDim != wantHeadDim || (state.ratio != 4 && state.ratio != 128) ||
 		len(kv) != state.width || len(score) != state.width || position < 0 ||
 		ape.typeID != 1 || norm.typeID != 0 || len(ape.dimensions) != 2 ||
 		ape.dimensions[0] != uint64(state.width) || ape.dimensions[1] != uint64(state.ratio) {
@@ -74,13 +87,21 @@ func (o *metalPinnedOps) CompressorAttention(kv, score []float32, ape, norm boun
 	enc.EndEncoding()
 	if emit {
 		enc = cb.ComputeCommandEncoder()
-		enc.SetComputePipelineState(o.kernels.CompressorFinish)
+		if indexer {
+			enc.SetComputePipelineState(o.kernels.IndexerFinish)
+		} else {
+			enc.SetComputePipelineState(o.kernels.CompressorFinish)
+		}
 		enc.SetBufferWithOffsetAtIndex(state.pooled.Buffer(), state.pooled.Offset(), 0)
 		enc.SetBufferWithOffsetAtIndex(norm.data.Buffer(), norm.data.Offset(), 1)
 		enc.SetBufferWithOffsetAtIndex(state.cache.Buffer(), state.cache.Offset(), 2)
 		libmetal.SetScalar(enc, uint32(state.n), 3)
 		libmetal.SetScalar(enc, uint32(position+1-state.ratio), 4)
-		enc.SetThreadgroupMemoryLengthAtIndex(32*4, 0)
+		scratch := 32 * 4
+		if indexer {
+			scratch = 256 * 4
+		}
+		enc.SetThreadgroupMemoryLengthAtIndex(uint(scratch), 0)
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(128))
 		enc.EndEncoding()
 	}
@@ -1381,6 +1402,43 @@ kernel void compressor_finish_attention(
   }
   threadgroup_barrier(mem_flags::mem_device);
   for(uint i=tid;i<512;i+=128)cache[cache_row*512+i]=float(half(pooled[i]));
+}
+
+inline float e2m1fn_round(float value) {
+  constexpr float values[8]={0.0f,0.5f,1.0f,1.5f,2.0f,3.0f,4.0f,6.0f};
+  float sign=value<0?-1.0f:1.0f,ax=min(abs(value),6.0f),best_diff=abs(ax-values[0]);int best=0;
+  for(int i=1;i<8;i++){float d=abs(ax-values[i]);if(d<best_diff||(d==best_diff&&(i&1)==0&&(best&1)!=0)){best=i;best_diff=d;}}
+  return sign*values[best];
+}
+
+kernel void compressor_finish_indexer(
+    device float *pooled [[buffer(0)]],
+    device const float *weight [[buffer(1)]],
+    device float *cache [[buffer(2)]],
+    constant uint &cache_row [[buffer(3)]],
+    constant uint &position [[buffer(4)]],
+    threadgroup float *scratch [[threadgroup(0)]],
+    uint tid [[thread_position_in_threadgroup]],
+    ushort lane [[thread_index_in_simdgroup]],
+    ushort simdgroup [[simdgroup_index_in_threadgroup]]) {
+  (void)position;
+  threadgroup float *vals=scratch,*absbuf=scratch+128;
+  float ss=pooled[tid]*pooled[tid];ss=simd_sum(ss);
+  if(lane==0)absbuf[simdgroup]=ss;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  ss=simd_sum(absbuf[lane]);
+  vals[tid]=pooled[tid]*(1.0f/sqrt(ss/128.0f+1.0e-6f))*weight[tid];
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  for(uint stride=1;stride<128;stride<<=1){
+    if((tid&stride)==0){uint base=(tid&~(2*stride-1))+(tid&(stride-1));float a=vals[base],b=vals[base+stride];vals[base]=a+b;vals[base+stride]=a-b;}
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+  }
+  float v=vals[tid]*0.08838834764831845f;uint block=tid>>5,lane32=tid&31,base=block*32;absbuf[tid]=abs(v);
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  for(uint stride=16;stride>0;stride>>=1){if(lane32<stride)absbuf[base+lane32]=max(absbuf[base+lane32],absbuf[base+lane32+stride]);threadgroup_barrier(mem_flags::mem_threadgroup);}
+  float amax=max(absbuf[base],7.052966104933725e-38f),scale=exp2(ceil(log2(amax/6.0f)));
+  float out=e2m1fn_round(clamp(v/scale,-6.0f,6.0f))*scale;
+  pooled[tid]=out;cache[cache_row*128+tid]=float(half(out));
 }
 
 kernel void rope_attention_raw(
