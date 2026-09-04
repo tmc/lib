@@ -380,6 +380,57 @@ func TestCUDAServingBackendRejectsStaleGeneration(t *testing.T) {
 	}
 }
 
+func TestCUDAServingBackendReleaseWaitsForDeviceOwner(t *testing.T) {
+	engine := new(ModelEngine)
+	backend := &cudaServingBackend{engine: engine, live: make(map[*SequenceKVCache]uint64)}
+	state := &continuousbatch.State{KV: cudaSequenceState{cache: new(SequenceKVCache), generation: 1}}
+
+	engine.generateMu.Lock()
+	done := make(chan struct{})
+	go func() {
+		backend.Release(state)
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatal("Release completed while device owner was active")
+	case <-time.After(20 * time.Millisecond):
+	}
+	engine.generateMu.Unlock()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Release did not complete after device owner released")
+	}
+}
+
+func TestCUDAServingBackendCloseIsSerializedAndIdempotent(t *testing.T) {
+	engine := new(ModelEngine)
+	backend := &cudaServingBackend{engine: engine, live: make(map[*SequenceKVCache]uint64)}
+	engine.generateMu.Lock()
+	done := make(chan struct{})
+	go func() {
+		backend.Close()
+		backend.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Fatal("Close completed while device owner was active")
+	case <-time.After(20 * time.Millisecond):
+	}
+	engine.generateMu.Unlock()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Close did not complete after device owner released")
+	}
+	results := backend.DecodeBatch(t.Context(), []*continuousbatch.State{{}})
+	if len(results) != 1 || results[0].Err == nil || !strings.Contains(results[0].Err.Error(), "backend closed") {
+		t.Fatalf("DecodeBatch after Close = %+v", results)
+	}
+}
+
 func TestServingBackendBoundaryPreservesRequestContexts(t *testing.T) {
 	backend := &fakeServingBackend{prefill: make(chan prefillObservation, 1)}
 	scheduler, err := newServingScheduler(backend, continuousbatch.Config{

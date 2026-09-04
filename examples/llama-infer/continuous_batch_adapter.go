@@ -30,6 +30,7 @@ type scheduledEngineAdapter struct {
 	prefillObserver   func(*continuousbatch.State, *productionPrefixLease, []float32)
 	observedOutputs   *observedOutputCollector
 	physical          *physicalWaveLedger
+	closed            bool // guarded by rowsMu; resources are freed under all operation locks
 }
 
 type scheduledSequenceState struct {
@@ -63,9 +64,28 @@ func newScheduledEngineAdapter(engine *ModelEngine, cfg Config, capacity int) (*
 }
 
 func (a *scheduledEngineAdapter) Close() {
-	a.cache.Free()
-	a.tail.Free()
-	_ = a.prefixes.Close()
+	if a == nil {
+		return
+	}
+	a.prefillMu.Lock()
+	defer a.prefillMu.Unlock()
+	a.gpuMu.Lock()
+	defer a.gpuMu.Unlock()
+	a.rowsMu.Lock()
+	defer a.rowsMu.Unlock()
+	if a.closed {
+		return
+	}
+	a.closed = true
+	if a.cache != nil {
+		a.cache.Free()
+	}
+	if a.tail != nil {
+		a.tail.Free()
+	}
+	if a.prefixes != nil {
+		_ = a.prefixes.Close()
+	}
 }
 
 // resetPrefixes replaces the serving prefix runtime between benchmark
@@ -89,18 +109,24 @@ func (a *scheduledEngineAdapter) resetPrefixes() error {
 }
 
 func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
+	if state == nil {
+		return
+	}
 	sequence, ok := state.KV.(scheduledSequenceState)
 	if !ok {
 		return
 	}
-	if a.observedOutputs != nil {
+	a.gpuMu.Lock()
+	defer a.gpuMu.Unlock()
+	a.rowsMu.Lock()
+	defer a.rowsMu.Unlock()
+	if !a.closed && a.observedOutputs != nil {
 		a.observedOutputs.observeKV(state, a.cache, a.cfg)
 		read := uint64(2 * a.cfg.NumLayers * state.Position * a.cfg.NumKVHeads * a.cfg.HeadDim * 4)
 		if err := a.recordPhysical("observed-output-kv", []string{fmt.Sprintf("%s@%d/%d", state.ID, sequence.row, sequence.lease)}, 0, map[string]uint64{"observed_kv_host": read}, nil); err != nil {
 			a.observedOutputs.fail(err)
 		}
 	}
-	a.rowsMu.Lock()
 	if a.leases[sequence.row] == sequence.lease {
 		delete(a.leases, sequence.row)
 		a.freeRows = append(a.freeRows, sequence.row)
@@ -108,7 +134,6 @@ func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
 			sequence.prefix.Release()
 		}
 	}
-	a.rowsMu.Unlock()
 	state.KV = nil
 }
 
@@ -145,6 +170,12 @@ func (a *scheduledEngineAdapter) PrefillBatch(inputs []continuousbatch.PrefillRe
 	defer a.prefillMu.Unlock()
 	a.gpuMu.Lock()
 	defer a.gpuMu.Unlock()
+	a.rowsMu.Lock()
+	closed := a.closed
+	a.rowsMu.Unlock()
+	if closed {
+		return batchError(results, errors.New("prefill: backend closed"))
+	}
 	if a.engine == nil || a.engine.tokenizer == nil {
 		return batchError(results, errors.New("prefill: nil engine or tokenizer"))
 	}
@@ -540,6 +571,9 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 	}
 	a.lockDecode()
 	defer a.unlockDecode()
+	if a.closed {
+		return batchError(results, errors.New("decode: backend closed"))
+	}
 	tokens := make([]int32, len(states))
 	positions := make([]int, len(states))
 	rows := make([]int, len(states))
