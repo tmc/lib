@@ -138,7 +138,8 @@ func (s *Session) RecordSample(ctx context.Context, kernelName, filename string,
 	s.builder.AddSample(kernelName, filename, line, sassPC, count, labels)
 }
 
-// RecordDetailedSample records multi-dimensional metrics (VRAM, DRAM read/write, Shared Memory, Tensor warps, Stalls).
+// RecordDetailedSample records caller-supplied counters and device intervals.
+// It does not measure or verify them. Leave unmeasured dimensions zero.
 func (s *Session) RecordDetailedSample(ctx context.Context, kernelName, filename string, line int64, sassPC uint64, vals SampleValues) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
