@@ -17,6 +17,9 @@ import (
 
 type inferbenchSpec struct {
 	Arm                     string              `json:"arm"`
+	Arms                    []string            `json:"arms,omitempty"`
+	RandomSeed              uint64              `json:"random_seed,omitempty"`
+	RawDir                  string              `json:"raw_dir,omitempty"`
 	Output                  string              `json:"output"`
 	Lease                   string              `json:"lease"`
 	SourcePath              string              `json:"source_path"`
@@ -63,8 +66,8 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if err := decodeStrictJSON(specPath, &spec); err != nil {
 		return err
 	}
-	if spec.Arm != "llama-infer" {
-		return fmt.Errorf("inferbench: unsupported arm %q", spec.Arm)
+	if err := validateBenchmarkArms(spec); err != nil {
+		return err
 	}
 	wantTokenizer, err := filepath.EvalSymlinks(filepath.Join(cfg.ModelPath, "tokenizer.json"))
 	if err != nil {
@@ -141,6 +144,9 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 		return err
 	}
 	defer scheduler.Close()
+	if len(spec.Arms) != 0 {
+		return runInferbenchCampaign(ctx, spec, identity, evidence, eng, adapter, scheduler)
+	}
 	for i := 0; i < spec.Workload.WarmupRuns; i++ {
 		if _, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
 			return err
@@ -161,6 +167,76 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	}
 	run.Evidence.DeviceSynchronized = true
 	return inferbench.WriteJSONAtomic(spec.Output, armReceipt{SchemaVersion: inferbench.SchemaVersion, State: "collected", Run: run})
+}
+
+func validateBenchmarkArms(spec inferbenchSpec) error {
+	if len(spec.Arms) == 0 {
+		if spec.Arm != "llama-infer" {
+			return fmt.Errorf("inferbench: unsupported arm %q", spec.Arm)
+		}
+		return nil
+	}
+	if spec.Arm != "" || spec.RandomSeed == 0 || spec.RawDir == "" || len(spec.Arms) < 2 {
+		return errors.New("inferbench: incomplete multi-arm campaign")
+	}
+	if len(spec.SampleIDs) < 20 {
+		return fmt.Errorf("inferbench: only %d planned samples per arm", len(spec.SampleIDs))
+	}
+	seen := make(map[string]bool)
+	for _, arm := range spec.Arms {
+		if seen[arm] {
+			return fmt.Errorf("inferbench: duplicate arm %q", arm)
+		}
+		seen[arm] = true
+		if err := configureBenchmarkArm(nil, arm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
+	if err := os.Mkdir(spec.RawDir, 0o700); err != nil {
+		return fmt.Errorf("inferbench: create raw receipt directory: %w", err)
+	}
+	evidence.DeviceSynchronized = true
+	evidence.WarmupRunsCompleted = spec.Workload.WarmupRuns
+	plan := inferbench.Campaign{SchemaVersion: inferbench.SchemaVersion, RandomSeed: spec.RandomSeed}
+	for _, arm := range spec.Arms {
+		if err := configureBenchmarkArm(eng, arm); err != nil {
+			return err
+		}
+		for i := 0; i < spec.Workload.WarmupRuns; i++ {
+			if _, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, fmt.Sprintf("warmup-%s-%d", arm, i)); err != nil {
+				return err
+			}
+		}
+		run := inferbench.Run{Arm: arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
+		for _, id := range spec.SampleIDs {
+			run.Samples = append(run.Samples, inferbench.Sample{ID: id})
+		}
+		plan.Runs = append(plan.Runs, run)
+	}
+	plan.Order = inferbench.Schedule(plan.Runs, plan.RandomSeed)
+	interval := 0
+	campaign, err := inferbench.Collect(plan, func(k inferbench.ScheduledSample) (inferbench.Sample, error) {
+		if err := configureBenchmarkArm(eng, k.Arm); err != nil {
+			return inferbench.Sample{}, err
+		}
+		resetBenchmarkCaches(eng)
+		if err := adapter.resetPrefixes(); err != nil {
+			return inferbench.Sample{}, fmt.Errorf("inferbench: reset serving prefixes: %w", err)
+		}
+		return benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, k.ID)
+	}, func(raw inferbench.IntervalReceipt) error {
+		path := filepath.Join(spec.RawDir, fmt.Sprintf("%06d.json", interval))
+		interval++
+		return inferbench.WriteJSONAtomic(path, raw)
+	})
+	if err != nil {
+		return err
+	}
+	return inferbench.WriteJSONAtomic(spec.Output, campaign)
 }
 
 func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, inferbench.Evidence, error) {
@@ -207,7 +283,7 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 		return inferbench.Identity{}, inferbench.Evidence{}, err
 	}
 	identity := inferbench.Identity{BinarySHA256: computed["binary"], ModelSHA256: computed["model"], TokenizerSHA256: computed["tokenizer"], ConfigSHA256: computed["config"], SourceSHA256: computed["source"], Backend: proof.Backend, DeviceID: proof.DeviceID}
-	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash, NullControlSHA256: nullHash, NullControlSamples: proof.NullControlSamples, NullControlP95: proof.NullControlP95, NullControlLimit: proof.NullControlLimit, PersistentRuntime: true, CompilationExcluded: true}
+	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash, NullControlSHA256: nullHash, NullControlSamples: proof.NullControlSamples, NullControlP95: proof.NullControlP95, NullControlLimit: proof.NullControlLimit, PersistentRuntime: true, CompilationExcluded: true, RuntimePolicy: inferbench.PersistentEnginePolicy, AllocationPolicy: inferbench.ColdIntervalPolicy}
 	return identity, evidence, nil
 }
 

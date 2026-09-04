@@ -132,3 +132,40 @@ func TestPhysicalTelemetryCapability(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateBenchmarkArms(t *testing.T) {
+	tests := []struct {
+		name string
+		spec inferbenchSpec
+		ok   bool
+	}{
+		{"single", inferbenchSpec{Arm: "llama-infer"}, true},
+		{"zero seed", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RawDir: "raw"}, false},
+		{"duplicate", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer"}, RandomSeed: 1, RawDir: "raw"}, false},
+		{"single multiarm", inferbenchSpec{Arms: []string{"llama-infer"}, RandomSeed: 1, RawDir: "raw"}, false},
+		{"mixed modes", inferbenchSpec{Arm: "llama-infer", Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw"}, false},
+	}
+	if benchmarkBackend() == "metal" {
+		tests = append(tests, struct {
+			name string
+			spec inferbenchSpec
+			ok   bool
+		}{"campaign", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", SampleIDs: benchmarkSampleIDs(20)}, true})
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateBenchmarkArms(test.spec)
+			if (err == nil) != test.ok {
+				t.Fatalf("error = %v, want success %t", err, test.ok)
+			}
+		})
+	}
+}
+
+func benchmarkSampleIDs(n int) []string {
+	ids := make([]string, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("sample-%d", i)
+	}
+	return ids
+}
