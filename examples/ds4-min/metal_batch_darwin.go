@@ -129,6 +129,39 @@ func (b *metalBatch) EncodeMatvecQ80(t boundMetalTensor, in, out metalmem.Slice[
 	return nil
 }
 
+// EncodeMatvecIQ2Selected appends paired IQ2_XXS projections for GPU-selected experts.
+func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertIDs metalmem.Slice[int32], in, gateOut, upOut metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if gate.typeID != 16 || up.typeID != 16 || len(gate.dimensions) != 3 || len(up.dimensions) != 3 ||
+		gate.dimensions[0] != up.dimensions[0] || gate.dimensions[1] != up.dimensions[1] || gate.dimensions[2] != up.dimensions[2] ||
+		gate.dimensions[0]%256 != 0 || uint64(in.Len()) != gate.dimensions[0] || expertIDs.Len() == 0 ||
+		uint64(gateOut.Len()) != gate.dimensions[1]*uint64(expertIDs.Len()) || upOut.Len() != gateOut.Len() {
+		return fmt.Errorf("IQ2_XXS selected pair: invalid tensor profile")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.MatvecIQ2Selected)
+	for i, tensor := range []boundMetalTensor{gate, up} {
+		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(gateOut.Buffer(), gateOut.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(upOut.Buffer(), upOut.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(in.Len()), 6)
+	libmetal.SetScalar(enc, uint32(gate.dimensions[1]), 7)
+	libmetal.SetScalar(enc, uint32(gate.dimensions[2]), 8)
+	libmetal.SetScalar(enc, uint32(expertIDs.Len()), 9)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(gate.dimensions[1]), Height: uint(expertIDs.Len()), Depth: 1},
+		libmetal.Threads(32),
+	)
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
 // EncodeClamp10 appends an element-wise clamp to [-10, 10].
 func (b *metalBatch) EncodeClamp10(in, out metalmem.Slice[float32]) error {
 	return b.encodeClamp10(in, out, false)

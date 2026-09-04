@@ -158,30 +158,31 @@ func roundE2M1(x float32) float32 {
 }
 
 type metalPinnedKernels struct {
-	GetRowF16        apple.MTLComputePipelineState `metal:"get_row_f16"`
-	MatvecF16        apple.MTLComputePipelineState `metal:"matvec_f16"`
-	MatvecQ80        apple.MTLComputePipelineState `metal:"matvec_q8_0"`
-	Layer0Attention  apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
-	Layer0Post       apple.MTLComputePipelineState `metal:"layer0_attention_post"`
-	HCPre            apple.MTLComputePipelineState `metal:"hc_pre"`
-	HCPost           apple.MTLComputePipelineState `metal:"hc_post"`
-	RouterHash       apple.MTLComputePipelineState `metal:"router_hash"`
-	RouterBiased     apple.MTLComputePipelineState `metal:"router_biased"`
-	SwiGLU           apple.MTLComputePipelineState `metal:"swiglu"`
-	MatvecIQ2Pair    apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair"`
-	MatvecIQ2PairF32 apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_f32"`
-	QuantQ8K         apple.MTLComputePipelineState `metal:"quant_q8_k"`
-	Clamp10          apple.MTLComputePipelineState `metal:"clamp10"`
-	MatvecQ2K        apple.MTLComputePipelineState `metal:"matvec_q2_k"`
-	MatvecQ2KF32     apple.MTLComputePipelineState `metal:"matvec_q2_k_f32"`
-	SumVectors       apple.MTLComputePipelineState `metal:"sum_vectors"`
-	RMS              apple.MTLComputePipelineState `metal:"rms_norm"`
-	RopeAttention    apple.MTLComputePipelineState `metal:"rope_attention_one"`
-	RopeAttentionRaw apple.MTLComputePipelineState `metal:"rope_attention_raw"`
-	RopeAttentionMix apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
-	CompressorPool   apple.MTLComputePipelineState `metal:"compressor_pool"`
-	CompressorFinish apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
-	IndexerFinish    apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
+	GetRowF16         apple.MTLComputePipelineState `metal:"get_row_f16"`
+	MatvecF16         apple.MTLComputePipelineState `metal:"matvec_f16"`
+	MatvecQ80         apple.MTLComputePipelineState `metal:"matvec_q8_0"`
+	Layer0Attention   apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
+	Layer0Post        apple.MTLComputePipelineState `metal:"layer0_attention_post"`
+	HCPre             apple.MTLComputePipelineState `metal:"hc_pre"`
+	HCPost            apple.MTLComputePipelineState `metal:"hc_post"`
+	RouterHash        apple.MTLComputePipelineState `metal:"router_hash"`
+	RouterBiased      apple.MTLComputePipelineState `metal:"router_biased"`
+	SwiGLU            apple.MTLComputePipelineState `metal:"swiglu"`
+	MatvecIQ2Pair     apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair"`
+	MatvecIQ2PairF32  apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_f32"`
+	MatvecIQ2Selected apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_selected_f32"`
+	QuantQ8K          apple.MTLComputePipelineState `metal:"quant_q8_k"`
+	Clamp10           apple.MTLComputePipelineState `metal:"clamp10"`
+	MatvecQ2K         apple.MTLComputePipelineState `metal:"matvec_q2_k"`
+	MatvecQ2KF32      apple.MTLComputePipelineState `metal:"matvec_q2_k_f32"`
+	SumVectors        apple.MTLComputePipelineState `metal:"sum_vectors"`
+	RMS               apple.MTLComputePipelineState `metal:"rms_norm"`
+	RopeAttention     apple.MTLComputePipelineState `metal:"rope_attention_one"`
+	RopeAttentionRaw  apple.MTLComputePipelineState `metal:"rope_attention_raw"`
+	RopeAttentionMix  apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
+	CompressorPool    apple.MTLComputePipelineState `metal:"compressor_pool"`
+	CompressorFinish  apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
+	IndexerFinish     apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
 }
 
 func (o *metalPinnedOps) RopeAttentionMixed(q, kv []float32, sinks boundMetalTensor, raw, comp metalmem.Slice[float32], nComp int, allowed []uint32, position int, layer int) ([]float32, []float32, []float32, error) {
@@ -1340,6 +1341,41 @@ kernel void matvec_iq2_xxs_pair_f32(
     up_sum+=float(*reinterpret_cast<device const half *>(pu))*(0.5f+float(su>>28))*vu;
   }
   gate_sum=simd_sum(gate_sum)*0.25f;up_sum=simd_sum(up_sum)*0.25f;if(lane==0){out[row]=gate_sum;out[rows+row]=up_sum;}
+}
+
+kernel void matvec_iq2_xxs_pair_selected_f32(
+    device const uchar *gate [[buffer(0)]], device const uchar *up [[buffer(1)]],
+    device const int *expert_ids [[buffer(2)]], device const float *x [[buffer(3)]],
+    device float *gate_out [[buffer(4)]], device float *up_out [[buffer(5)]],
+    constant uint &cols [[buffer(6)]], constant uint &rows [[buffer(7)]],
+    constant uint &experts [[buffer(8)]], constant uint &slots [[buffer(9)]],
+    uint2 group [[threadgroup_position_in_grid]], ushort lane [[thread_index_in_simdgroup]]) {
+  uint row=group.x,slot=group.y;if(row>=rows||slot>=slots)return;
+  int expert=expert_ids[slot];if(expert<0||uint(expert)>=experts)return;
+  const uint blocks=cols/256,parts=cols/32;
+  const uint64_t expert_stride=uint64_t(rows)*blocks*66;
+  const device uchar *selected_gate=gate+uint64_t(expert)*expert_stride;
+  const device uchar *selected_up=up+uint64_t(expert)*expert_stride;
+  float gate_sum=0.0f,up_sum=0.0f;
+  for(uint part=lane;part<parts;part+=32){
+    float xv[32];for(ushort i=0;i<32;i++)xv[i]=x[part*32+i];uint block=part/8,sub=part%8;
+    const device uchar *pg=selected_gate+uint64_t(row)*blocks*66+uint64_t(block)*66;
+    const device uchar *pu=selected_up+uint64_t(row)*blocks*66+uint64_t(block)*66;
+    const device ushort *qg=reinterpret_cast<device const ushort *>(pg+2)+4*sub;
+    const device ushort *qu=reinterpret_cast<device const ushort *>(pu+2)+4*sub;
+    device const uchar *ag=reinterpret_cast<device const uchar *>(qg);device const uchar *au=reinterpret_cast<device const uchar *>(qu);
+    uint sg=uint(qg[2])|(uint(qg[3])<<16),su=uint(qu[2])|(uint(qu[3])<<16);float vg=0.0f,vu=0.0f;
+    for(ushort l=0;l<4;l++){
+      constant const uchar *gg=reinterpret_cast<constant const uchar *>(ds4_metal_iq2xxs_grid+ag[l]);
+      constant const uchar *gu=reinterpret_cast<constant const uchar *>(ds4_metal_iq2xxs_grid+au[l]);
+      uchar signg=ds4_metal_ksigns_iq2xs[(sg>>(7*l))&127],signu=ds4_metal_ksigns_iq2xs[(su>>(7*l))&127];
+      for(ushort j=0;j<8;j++){float v=xv[8*l+j];uchar mask=uchar(1u<<j);vg+=v*float(gg[j])*((signg&mask)?-1.0f:1.0f);vu+=v*float(gu[j])*((signu&mask)?-1.0f:1.0f);}
+    }
+    gate_sum+=float(*reinterpret_cast<device const half *>(pg))*(0.5f+float(sg>>28))*vg;
+    up_sum+=float(*reinterpret_cast<device const half *>(pu))*(0.5f+float(su>>28))*vu;
+  }
+  gate_sum=simd_sum(gate_sum)*0.25f;up_sum=simd_sum(up_sum)*0.25f;
+  if(lane==0){uint64_t i=uint64_t(slot)*rows+row;gate_out[i]=gate_sum;up_out[i]=up_sum;}
 }
 
 kernel void matvec_q2_k(device const uchar *weights [[buffer(0)]], device const uchar *q8 [[buffer(1)]],

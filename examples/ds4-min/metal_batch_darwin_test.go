@@ -330,6 +330,78 @@ func TestMetalBatchFFNElementwiseResidual(t *testing.T) {
 	closeSlice(t, "batched residual", out.HostSlice(), wantOut)
 }
 
+func TestMetalBatchIQ2SelectedExperts(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+
+	const (
+		cols    = 256
+		rows    = 7
+		experts = 5
+	)
+	selected := []int32{4, 1, 3, 0, 2, 4}
+	arena := metalmem.NewArena(dev)
+	defer arena.Free()
+	inValues := make([]float32, cols)
+	for i := range inValues {
+		inValues[i] = float32(i%19-9) / 8
+	}
+	in := metalmem.UploadIn(arena, "selected-input", inValues)
+	ids := metalmem.UploadIn(arena, "selected-expert-ids", selected)
+	gate := testBatchIQ2Experts(arena, "expert-gate", cols, rows, experts, 3)
+	up := testBatchIQ2Experts(arena, "expert-up", cols, rows, experts, 11)
+	gateOut := metalmem.AllocIn[float32](arena, "selected-gate", len(selected)*rows)
+	upOut := metalmem.AllocIn[float32](arena, "selected-up", len(selected)*rows)
+
+	wantGate := make([]float32, 0, len(selected)*rows)
+	wantUp := make([]float32, 0, len(selected)*rows)
+	for _, id := range selected {
+		gateExpert, err := gate.Expert(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		upExpert, err := up.Expert(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		g, u, err := ops.MatvecIQ2PairF32(gateExpert, upExpert, inValues)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantGate = append(wantGate, g...)
+		wantUp = append(wantUp, u...)
+	}
+	assertNonzeroFinite(t, "selected gate reference", wantGate)
+	assertNonzeroFinite(t, "selected up reference", wantUp)
+
+	batch, err := newMetalBatch(ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeMatvecIQ2Selected(gate, up, ids, in, gateOut, upOut); err != nil {
+		t.Fatal(err)
+	}
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 1}) {
+		t.Fatalf("stats before wait = %+v, want {Encoded:1}", got)
+	}
+	if err := batch.Wait(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 1, Commits: 1, Waits: 1}) {
+		t.Fatalf("stats after wait = %+v, want {Encoded:1 Commits:1 Waits:1}", got)
+	}
+	closeSlice(t, "selected gate", gateOut.HostSlice(), wantGate)
+	closeSlice(t, "selected up", upOut.HostSlice(), wantUp)
+}
+
 func batchWeights(n int) []float32 {
 	weights := make([]float32, n)
 	for i := range weights {
@@ -377,4 +449,21 @@ func testBatchQ80Tensor(arena *metalmem.Arena, name string, cols, rows int) boun
 		}
 	}
 	return boundMetalTensor{name: name, typeID: 8, dimensions: []uint64{uint64(cols), uint64(rows)}, data: data}
+}
+
+func testBatchIQ2Experts(arena *metalmem.Arena, name string, cols, rows, experts, seed int) boundMetalTensor {
+	blocks := cols / 256
+	data := metalmem.AllocIn[byte](arena, name, experts*rows*blocks*66)
+	for expert := range experts {
+		for row := range rows {
+			for block := range blocks {
+				p := data.HostSlice()[((expert*rows+row)*blocks+block)*66:]
+				binary.LittleEndian.PutUint16(p, uint16(0x3000+(expert%4)*0x0200))
+				for i := 2; i < 66; i++ {
+					p[i] = byte(seed + 17*expert + 7*row + 3*block + i)
+				}
+			}
+		}
+	}
+	return boundMetalTensor{name: name, typeID: 16, dimensions: []uint64{uint64(cols), uint64(rows), uint64(experts)}, data: data}
 }
