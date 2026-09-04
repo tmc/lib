@@ -24,9 +24,27 @@ type fixturePayload struct {
 	Traces []tinyTrace `json:"traces"`
 }
 
+// stackPayload is the multi-layer half of the fixture. The single-layer payload
+// above stays the kernel oracle for the Metal and CUDA tiny backends; the stack
+// exercises the layer-type alternation and the two compressed attention paths.
+type stackPayload struct {
+	Schema         string           `json:"schema"`
+	Seed           uint64           `json:"seed"`
+	Layers         int              `json:"layers"`
+	RawWindow      int              `json:"raw_window"`
+	FineRatio      int              `json:"fine_ratio"`
+	CoarseRatio    int              `json:"coarse_ratio"`
+	SelectedRowCap int              `json:"selected_row_cap"`
+	Prompt         []int            `json:"prompt"`
+	Decode         []int            `json:"decode"`
+	Traces         []tinyStackTrace `json:"traces"`
+}
+
 type fixtureManifest struct {
-	Payload fixturePayload `json:"payload"`
-	SHA256  string         `json:"payload_sha256"`
+	Payload     fixturePayload `json:"payload"`
+	SHA256      string         `json:"payload_sha256"`
+	Stack       stackPayload   `json:"stack"`
+	StackSHA256 string         `json:"stack_sha256"`
 }
 
 func TestTinyCPUFixture(t *testing.T) {
@@ -273,6 +291,19 @@ func readFixture(t *testing.T, path string) fixtureManifest {
 	sum := sha256.Sum256(payload)
 	if hex.EncodeToString(sum[:]) != m.SHA256 {
 		t.Fatal("fixture payload SHA-256 mismatch")
+	}
+	stack, err := json.Marshal(m.Stack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum = sha256.Sum256(stack)
+	if hex.EncodeToString(sum[:]) != m.StackSHA256 {
+		t.Fatal("fixture stack SHA-256 mismatch")
+	}
+	if m.Stack.Layers != tinyStackLayers || m.Stack.RawWindow != tinyStackRawWindow ||
+		m.Stack.FineRatio != tinyStackFineRatio || m.Stack.CoarseRatio != tinyStackCoarseRatio ||
+		m.Stack.SelectedRowCap != tinyStackRowCap {
+		t.Fatalf("fixture stack configuration %+v does not match the package constants", m.Stack)
 	}
 	return m
 }

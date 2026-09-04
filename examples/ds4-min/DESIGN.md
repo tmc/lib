@@ -110,6 +110,22 @@ pinned checkpoint's FP8 KV and indexer QAT round trips remain part of the
 quantized GPU/full-model stage; the float32 fixture neither simulates them nor
 claims quantized parity.
 
+A second fixture stacks six tiny layers so the layer-type alternation is
+covered: layers 0 and 1 are raw, layers 2 and 4 run the dual-lane fine
+compressor with an indexer and a capped row selection, and layers 3 and 5 run
+the single-lane coarse compressor with no indexer. Three constants are scaled
+so a sixteen-token sequence can cross them: the raw window is 2 rather than
+128, the coarse ratio is 8 rather than 128, and the selected-row cap is 1
+rather than 512. The fine ratio 4, the alternation rule, and the indexer rule
+are the real ones. The stack is written as a real GGUF file into the test's
+temporary directory and reloaded through the GGUF parser, so tensor names,
+metadata, and float32 tensor layout are exercised rather than bypassed. That
+file is synthetic, so `validatePinnedProfile` rejects it; the test asserts the
+rejection and loads through `readGGUF` directly. The gate on the command path
+is unchanged. The stack fixture is float32 and unquantized: it does not cover
+the pinned checkpoint's quantized tensor types, its tokenizer, or its 43-layer
+and 128-token scale.
+
 ## Slice 0 review dispositions
 
 - `KEEP`: the narrow command, immutable-model/mutable-session split, sync and

@@ -4,6 +4,7 @@ Tokenizer: exact prompt IDs; empty prompt; special tokens; UTF-8 fragments; deco
 Session: suffix reuse; divergent-prefix reset; common-prefix rewind; post-sync logits; emit-before-eval; EOS first; no eval after EOS; context overflow
 Operators: RMS norm; rotary; dense matvec; raw and compressed causal attention; compression; index scoring; top-k index ties and overflow; SwiGLU; biased selection with unbiased weights; expert ties; expert accumulation; mHC; output norm; logits; extreme finite and zero logits
 Fixture: deterministic independent generator; regeneration twice; 4 decode steps; raw-window crossing; ratio-4 boundary; ratio-128 boundary; stage tolerances; malformed shapes
+Stack fixture: 6-layer alternation; raw layers 0 and 1; fine indexed layers 2 and 4; coarse unindexed layers 3 and 5; capped row selection; GGUF round trip; pinned-gate rejection; shape-mismatch refusal
 Metal: physical fixture parity; full-model 16-token parity; nonzero GPU evidence; EOS; repeated teardown; no CPU fallback
 CUDA: physical fixture parity; full-model 16-token parity; nonzero event evidence; device identity; context ownership; teardown; no CPU fallback
 Cross-backend: immutable identities; prompt IDs; bounded logits and top-20; greedy IDs; stop point; decoded bytes; independent gate classification

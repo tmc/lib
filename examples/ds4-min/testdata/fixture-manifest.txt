@@ -13,7 +13,20 @@ model.tensor-manifest-sha256 BLOCKED:not-present
 model.tokenizer-sha256 BLOCKED:not-present
 
 synthetic.seed 4477748
-synthetic.config {"dim":4,"vocab":6,"experts":4,"top_k":2,"intermediate":3,"hc_streams":2,"sinkhorn_iterations":20,"raw_window":2,"compression_ratio":4,"prompt":[0,2,4],"decode_steps":4,"atol":0.0001,"rtol":0.0001}
-synthetic.config-sha256 72f17034826555ed7c94e52c3557b884110a7ab7d4e826ff5494ebdf2f603fc4
+synthetic.config {"dim":4,"vocab":6,"experts":4,"top_k":2,"intermediate":3,"hc_streams":2,"sinkhorn_iterations":20,"raw_window":2,"compression_ratio":4,"prompt":[0,2,4],"decode_steps":4,"atol":0.0001,"rtol":0.0001,"stack":{"layers":6,"raw_window":2,"fine_ratio":4,"coarse_ratio":8,"selected_row_cap":1,"prompt":[0,2,4],"decode_steps":13}}
+synthetic.config-sha256 fb7f76bda8258c6b916e146f582d028642f89d7461a28e35e0c5edff05f016d2
 synthetic.payload-sha256 97952160c6b4d4b9115557ebf96c74af7d8657ecf70a0f114b359cc6b5a5725b
-synthetic.generated-manifest-sha256 45f82ca25b8836bd2cec6902c1458dadae579adf3aee58a4e6e513b3f6977f44
+synthetic.stack-sha256 bf90455be067cac2e45e8e801189c7b34fafbbea97087cdbd860a5ce8b015d7a
+synthetic.generated-manifest-sha256 271e6a82fbf8552825bc28c2e9a5bb6a42b4f4d662f155bd7bb6aa8e51dbf128
+
+# The stack substitutes two constants that a sixteen-token sequence cannot
+# reach: coarse_ratio stands in for the architecture's ratio-128 compressor on
+# odd layers from 3, and selected_row_cap stands in for its 512 selected
+# compressed rows on even layers from 2. raw_window 2 stands in for 128. The
+# fine ratio (4), the layer-type alternation, and the indexer rule are real.
+#
+# The stack is also emitted as a real GGUF file and reloaded through readGGUF.
+# That file is generated into the test's temporary directory and never checked
+# in, per binary-fixtures forbidden above. It is synthetic, so the pinned
+# identity gate (validatePinnedProfile) rejects it; the test asserts that
+# rejection instead of relaxing the gate.

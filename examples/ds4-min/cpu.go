@@ -70,8 +70,14 @@ type compressorState struct {
 	kv, score []float32
 }
 
+// compressedAttention holds one layer's attention state. Three shapes exist,
+// mirroring the accepted architecture: ratio == 0 is the raw sliding window of
+// layers 0 and 1, an indexed dual-lane compressor is the fine path of even
+// layers from 2, and a single-lane compressor without an indexer is the coarse
+// path of odd layers from 3.
 type compressedAttention struct {
 	dim, hidden, window, ratio int
+	dual, indexed              bool
 	attention, indexer         compressorWeights
 	attentionState, indexState compressorState
 	indexQuery                 []float32
@@ -82,13 +88,10 @@ type compressedAttention struct {
 }
 
 func newCompressedAttention(dim, hidden, window, ratio int, attention, indexer compressorWeights, indexQuery, indexWeight []float32, sink float32) (*compressedAttention, error) {
-	width := dim
-	if ratio == 4 {
-		width *= 2
-	}
-	rows := ratio
-	if ratio == 4 {
-		rows *= 2
+	dual := ratio == 4
+	width, rows := dim, ratio
+	if dual {
+		width, rows = dim*2, ratio*2
 	}
 	valid := func(w compressorWeights) bool {
 		return len(w.kv) == width*hidden && len(w.gate) == width*hidden && len(w.ape) == ratio*width && len(w.norm) == dim
@@ -102,9 +105,34 @@ func newCompressedAttention(dim, hidden, window, ratio int, attention, indexer c
 		attentionState.score[i] = -math.MaxFloat32
 		indexState.score[i] = -math.MaxFloat32
 	}
-	return &compressedAttention{dim: dim, hidden: hidden, window: window, ratio: ratio,
+	return &compressedAttention{dim: dim, hidden: hidden, window: window, ratio: ratio, dual: dual, indexed: true,
 		attention: attention, indexer: indexer, indexQuery: indexQuery, indexWeight: indexWeight, sink: sink,
 		attentionState: attentionState, indexState: indexState}, nil
+}
+
+// newRawAttention returns the sliding-window attention of layers 0 and 1.
+func newRawAttention(dim, window int, sink float32) (*compressedAttention, error) {
+	if dim <= 0 || window <= 0 {
+		return nil, errShape
+	}
+	return &compressedAttention{dim: dim, hidden: dim, window: window, sink: sink}, nil
+}
+
+// newCoarseAttention returns the single-lane compressed attention of odd layers
+// from 3. It has no indexer, so every compressed row older than the raw window
+// attends.
+func newCoarseAttention(dim, hidden, window, ratio int, attention compressorWeights, sink float32) (*compressedAttention, error) {
+	if dim <= 0 || hidden <= 0 || window <= 0 || ratio <= 0 ||
+		len(attention.kv) != dim*hidden || len(attention.gate) != dim*hidden ||
+		len(attention.ape) != ratio*dim || len(attention.norm) != dim {
+		return nil, errShape
+	}
+	state := compressorState{make([]float32, ratio*dim), make([]float32, ratio*dim)}
+	for i := range state.score {
+		state.score[i] = -math.MaxFloat32
+	}
+	return &compressedAttention{dim: dim, hidden: hidden, window: window, ratio: ratio,
+		attention: attention, sink: sink, attentionState: state}, nil
 }
 
 func (s *compressedAttention) Add(x, kv []float32, position int) error {
@@ -116,16 +144,23 @@ func (s *compressedAttention) Add(x, kv []float32, position int) error {
 	if len(s.raw) > s.window {
 		s.raw = s.raw[len(s.raw)-s.window:]
 	}
-	compressed, emit, err := compressorUpdate(x, position, s.dim, s.hidden, s.ratio, s.attention, &s.attentionState)
+	if s.ratio == 0 {
+		return nil
+	}
+	compressed, emit, err := compressorUpdate(x, position, s.dim, s.hidden, s.ratio, s.dual, s.attention, &s.attentionState)
 	if err != nil {
 		return err
 	}
-	indexed, indexEmit, err := compressorUpdate(x, position, s.dim, s.hidden, s.ratio, s.indexer, &s.indexState)
-	if err != nil {
-		return fmt.Errorf("update index compressor: %w", err)
-	}
-	if emit != indexEmit {
-		return errors.New("compressor lanes disagree")
+	var indexed []float32
+	if s.indexed {
+		var indexEmit bool
+		indexed, indexEmit, err = compressorUpdate(x, position, s.dim, s.hidden, s.ratio, s.dual, s.indexer, &s.indexState)
+		if err != nil {
+			return fmt.Errorf("update index compressor: %w", err)
+		}
+		if emit != indexEmit {
+			return errors.New("compressor lanes disagree")
+		}
 	}
 	if emit {
 		s.compressed = append(s.compressed, attentionRow{compressed, append([]float32(nil), compressed...), indexed, position})
@@ -140,19 +175,20 @@ func (s *compressedAttention) Attend(query, cur, qrNorm []float32, position, top
 	if len(s.raw) == 0 {
 		return nil, nil, errors.New("empty attention state")
 	}
-	indexQuery, err := matvec(s.indexQuery, qrNorm, s.dim, s.hidden)
-	if err != nil {
-		return nil, nil, err
+	var indexQuery, indexWeight []float32
+	if s.indexed {
+		var err error
+		if indexQuery, err = matvec(s.indexQuery, qrNorm, s.dim, s.hidden); err != nil {
+			return nil, nil, err
+		}
+		if indexQuery, err = rotary(indexQuery, position, 10000); err != nil {
+			return nil, nil, err
+		}
+		if indexWeight, err = matvec(s.indexWeight, cur, 1, s.hidden); err != nil {
+			return nil, nil, err
+		}
+		indexWeight[0] /= float32(math.Sqrt(float64(s.dim)))
 	}
-	indexQuery, err = rotary(indexQuery, position, 10000)
-	if err != nil {
-		return nil, nil, err
-	}
-	indexWeight, err := matvec(s.indexWeight, cur, 1, s.hidden)
-	if err != nil {
-		return nil, nil, err
-	}
-	indexWeight[0] /= float32(math.Sqrt(float64(s.dim)))
 	oldestRaw := s.raw[0].end
 	type scored struct {
 		row   attentionRow
@@ -161,19 +197,28 @@ func (s *compressedAttention) Attend(query, cur, qrNorm []float32, position, top
 	}
 	var candidates []scored
 	for i, row := range s.compressed {
-		if row.end < oldestRaw {
-			score := max(float32(0), dot(indexQuery, row.index)) * indexWeight[0]
-			candidates = append(candidates, scored{row, i, score})
+		if row.end >= oldestRaw {
+			continue
 		}
+		var score float32
+		if s.indexed {
+			score = max(float32(0), dot(indexQuery, row.index)) * indexWeight[0]
+		}
+		candidates = append(candidates, scored{row, i, score})
 	}
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].score != candidates[j].score {
-			return candidates[i].score > candidates[j].score
+	// Only the indexed path scores and caps rows. The coarse path attends to
+	// every compressed row older than the raw window, as layer_attention_mixed
+	// does when no indexer gates it.
+	if s.indexed {
+		sort.Slice(candidates, func(i, j int) bool {
+			if candidates[i].score != candidates[j].score {
+				return candidates[i].score > candidates[j].score
+			}
+			return candidates[i].index < candidates[j].index
+		})
+		if topK < len(candidates) {
+			candidates = candidates[:topK]
 		}
-		return candidates[i].index < candidates[j].index
-	})
-	if topK < len(candidates) {
-		candidates = candidates[:topK]
 	}
 	rows := make([]attentionRow, 0, len(candidates)+len(s.raw))
 	selected := make([]int, len(candidates))
@@ -207,10 +252,9 @@ func (s *compressedAttention) Attend(query, cur, qrNorm []float32, position, top
 	return out, selected, nil
 }
 
-func compressorUpdate(x []float32, position, dim, hidden, ratio int, weights compressorWeights, state *compressorState) ([]float32, bool, error) {
-	width := dim
-	rows := ratio
-	if ratio == 4 {
+func compressorUpdate(x []float32, position, dim, hidden, ratio int, dual bool, weights compressorWeights, state *compressorState) ([]float32, bool, error) {
+	width, rows := dim, ratio
+	if dual {
 		width *= 2
 		rows *= 2
 	}
@@ -227,7 +271,7 @@ func compressorUpdate(x []float32, position, dim, hidden, ratio int, weights com
 		score[j] += weights.ape[mod*width+j]
 	}
 	row := mod
-	if ratio == 4 {
+	if dual {
 		row += ratio
 	}
 	copy(state.kv[row*width:], kv)
@@ -240,7 +284,7 @@ func compressorUpdate(x []float32, position, dim, hidden, ratio int, weights com
 		maxScore := float32(-math.MaxFloat32)
 		for r := range ratio {
 			maxScore = max(maxScore, state.score[r*width+j])
-			if ratio == 4 {
+			if dual {
 				maxScore = max(maxScore, state.score[(ratio+r)*width+dim+j])
 			}
 		}
@@ -249,7 +293,7 @@ func compressorUpdate(x []float32, position, dim, hidden, ratio int, weights com
 			weight := float32(math.Exp(float64(state.score[r*width+j] - maxScore)))
 			denom += weight
 			sum += weight * state.kv[r*width+j]
-			if ratio == 4 {
+			if dual {
 				weight = float32(math.Exp(float64(state.score[(ratio+r)*width+dim+j] - maxScore)))
 				denom += weight
 				sum += weight * state.kv[(ratio+r)*width+dim+j]
@@ -262,7 +306,7 @@ func compressorUpdate(x []float32, position, dim, hidden, ratio int, weights com
 		return nil, false, err
 	}
 	pooled, err = rotary(pooled, position+1-ratio, 10000)
-	if ratio == 4 {
+	if dual {
 		// Seed both lanes with the completed current window. Later tokens replace
 		// rows in the upper lane one at a time, matching compressor_decode_one.
 		copy(state.kv[:ratio*width], state.kv[ratio*width:])
