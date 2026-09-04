@@ -79,9 +79,11 @@ type identity struct {
 }
 
 type allocation struct {
-	seqID int64
-	slot  int
-	host  hostBuffer
+	seqID        int64
+	slot         int
+	host         hostBuffer
+	lastComplete uint64
+	lease        kvcache.Lease
 }
 
 // Adapter owns a CUDA page allocator and its corresponding logical block store.
@@ -94,6 +96,7 @@ type Adapter struct {
 	store   *kvcache.Store
 	config  Config
 	nextSeq int64
+	clock   uint64
 	blocks  map[identity]allocation
 	closed  bool
 }
@@ -140,6 +143,24 @@ type Allocation struct {
 	lease   kvcache.Lease
 }
 
+// Reservation excludes consumers and retirement while one exact physical
+// allocation is being considered for migration. Its zero value is invalid.
+type Reservation struct {
+	mu       sync.Mutex
+	adapter  *Adapter
+	logical  kvcache.Reservation
+	lease    kvcache.Lease
+	key      identity
+	seqID    int64
+	slot     int
+	finished bool
+}
+
+// ReservationSet is an atomically selected set of victim generations.
+type ReservationSet struct {
+	reservations []*Reservation
+}
+
 // ID returns the logical identity and generation associated with the page.
 func (a Allocation) ID() (kvcache.ID, kvcache.Generation) { return a.lease.ID() }
 
@@ -173,7 +194,7 @@ func (a *Adapter) Allocate(owner string, tokens kvcache.Range) (Allocation, erro
 		return Allocation{}, fmt.Errorf("cudakvlease: allocate logical block: %w", err)
 	}
 	id, generation := lease.ID()
-	a.blocks[identity{id, generation}] = allocation{seqID: seqID, slot: table[0]}
+	a.blocks[identity{id, generation}] = allocation{seqID: seqID, slot: table[0], lease: lease}
 	return Allocation{adapter: a, lease: lease}, nil
 }
 
@@ -220,28 +241,180 @@ func (a *Adapter) Residency(allocation Allocation) (kvcache.Residency, error) {
 	return desc.Residency, nil
 }
 
-// Offload copies one device-resident page for every layer to a single pinned
-// host allocation, then returns the physical page to the allocator. Migration
-// requires the owning lease to be the sole reference. completion must cover
-// every earlier CUDA use of the page.
-func (a *Adapter) Offload(ctx context.Context, allocation Allocation, completion Completion) error {
-	if ctx == nil || completion == nil || allocation.adapter != a {
+// ReserveVictim reserves the least recently completed device allocation not
+// listed in exclude. Ties are ordered by logical ID and generation. Busy
+// generations are skipped without changing their order or state.
+func (a *Adapter) ReserveVictim(exclude ...Allocation) (*Reservation, error) {
+	set, err := a.ReserveVictims(1, exclude...)
+	if err != nil {
+		return nil, err
+	}
+	return set.reservations[0], nil
+}
+
+// ReserveVictims atomically reserves count victims in deterministic order.
+// If count candidates cannot be reserved, every acquired reservation is
+// aborted before ReserveVictims returns.
+func (a *Adapter) ReserveVictims(count int, exclude ...Allocation) (*ReservationSet, error) {
+	if count <= 0 {
+		return nil, ErrInvalid
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return nil, ErrClosed
+	}
+	excluded := make(map[identity]bool, len(exclude))
+	for _, allocation := range exclude {
+		if allocation.adapter != a {
+			return nil, ErrInvalid
+		}
+		excluded[identityOf(allocation)] = true
+	}
+	reservations := make([]*Reservation, 0, count)
+	for len(reservations) < count {
+		var best identity
+		var physical allocation
+		found := false
+		for key, candidate := range a.blocks {
+			if excluded[key] || candidate.host != nil {
+				continue
+			}
+			if !found || candidate.lastComplete < physical.lastComplete ||
+				(candidate.lastComplete == physical.lastComplete && (key.id < best.id ||
+					(key.id == best.id && key.generation < best.generation))) {
+				best, physical, found = key, candidate, true
+			}
+		}
+		if !found {
+			for _, reservation := range reservations {
+				_ = reservation.logical.Abort()
+				reservation.finished = true
+			}
+			return nil, kvcache.ErrExhausted
+		}
+		logical, err := a.store.Reserve(physical.lease)
+		if errors.Is(err, kvcache.ErrBusy) {
+			excluded[best] = true
+			continue
+		}
+		if err != nil {
+			for _, reservation := range reservations {
+				_ = reservation.logical.Abort()
+				reservation.finished = true
+			}
+			return nil, fmt.Errorf("cudakvlease: reserve victim: %w", err)
+		}
+		reservations = append(reservations, &Reservation{adapter: a, logical: logical, lease: physical.lease, key: best, seqID: physical.seqID, slot: physical.slot})
+		excluded[best] = true
+	}
+	return &ReservationSet{reservations: reservations}, nil
+}
+
+// Abort releases every unfinished reservation in the set.
+func (s *ReservationSet) Abort() error {
+	if s == nil || len(s.reservations) == 0 {
 		return ErrInvalid
 	}
+	var errs []error
+	for _, reservation := range s.reservations {
+		if err := reservation.Abort(); err != nil && !errors.Is(err, ErrStale) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Offload migrates every reserved victim. If a later migration fails, earlier
+// migrations are restored in reverse order before Offload returns.
+func (s *ReservationSet) Offload(ctx context.Context, completion Completion) error {
+	if s == nil || len(s.reservations) == 0 || ctx == nil || completion == nil {
+		return ErrInvalid
+	}
+	completed := make([]Allocation, 0, len(s.reservations))
+	for i, reservation := range s.reservations {
+		if err := reservation.Offload(ctx, completion); err != nil {
+			for _, pending := range s.reservations[i+1:] {
+				_ = pending.Abort()
+			}
+			var rollback []error
+			for j := len(completed) - 1; j >= 0; j-- {
+				if restoreErr := completed[j].adapter.Restore(context.WithoutCancel(ctx), completed[j]); restoreErr != nil {
+					rollback = append(rollback, fmt.Errorf("restore victim %d: %w", j, restoreErr))
+				}
+			}
+			return errors.Join(err, errors.Join(rollback...))
+		}
+		completed = append(completed, Allocation{adapter: reservation.adapter, lease: reservation.lease})
+	}
+	return nil
+}
+
+func (a *Adapter) reserve(allocation Allocation) (*Reservation, error) {
+	if allocation.adapter != a {
+		return nil, ErrInvalid
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return nil, ErrClosed
+	}
+	key := identityOf(allocation)
+	physical, ok := a.blocks[key]
+	if !ok {
+		return nil, kvcache.ErrStale
+	}
+	logical, err := a.store.Reserve(allocation.lease)
+	if err != nil {
+		return nil, err
+	}
+	return &Reservation{adapter: a, logical: logical, lease: allocation.lease, key: key, seqID: physical.seqID, slot: physical.slot}, nil
+}
+
+// Abort releases a victim reservation without changing physical residency.
+func (r *Reservation) Abort() error {
+	if r == nil || r.adapter == nil {
+		return ErrInvalid
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.finished {
+		return ErrStale
+	}
+	if err := r.logical.Abort(); err != nil {
+		return err
+	}
+	r.finished = true
+	return nil
+}
+
+// Offload migrates the reserved device allocation to pinned host memory.
+// completion must cover every earlier CUDA use of the page.
+func (r *Reservation) Offload(ctx context.Context, completion Completion) error {
+	if r == nil || r.adapter == nil || ctx == nil || completion == nil {
+		return ErrInvalid
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.finished {
+		return ErrStale
+	}
+	a := r.adapter
 	tiered, ok := a.pages.(tieredPages)
 	if !ok {
+		_ = r.logical.Abort()
+		r.finished = true
 		return ErrNoTiering
 	}
 	target := kvcache.Residency{Backend: "cuda", Tier: "pinned-host", Domain: a.config.Domain}
-	return a.store.Migrate(ctx, allocation.lease, target, func(ctx context.Context, _ kvcache.Descriptor, _ kvcache.Residency) error {
+	err := r.logical.Migrate(ctx, target, func(ctx context.Context, _ kvcache.Descriptor, _ kvcache.Residency) error {
 		if err := completion.Synchronize(ctx); err != nil {
 			return fmt.Errorf("cudakvlease: wait before offload: %w", err)
 		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		key := identityOf(allocation)
-		physical, ok := a.blocks[key]
-		if !ok {
+		physical, ok := a.blocks[r.key]
+		if !ok || physical.seqID != r.seqID || physical.slot != r.slot {
 			return ErrStale
 		}
 		if physical.host != nil {
@@ -270,29 +443,39 @@ func (a *Adapter) Offload(ctx context.Context, allocation Allocation, completion
 		}
 		a.pages.FreeSequence(physical.seqID)
 		physical.seqID, physical.slot, physical.host = 0, -1, host
-		a.blocks[key] = physical
+		a.blocks[r.key] = physical
 		keep = true
 		return nil
 	})
+	r.finished = true
+	return err
 }
 
-// Restore copies an offloaded block into a newly allocated device page. The
-// pinned source remains authoritative until all layer copies succeed.
-func (a *Adapter) Restore(ctx context.Context, allocation Allocation) error {
-	if ctx == nil || allocation.adapter != a {
+// Restore migrates the reserved host allocation to a complete device page.
+// The pinned source remains authoritative until every synchronous copy and
+// the logical residency publication succeed.
+func (r *Reservation) Restore(ctx context.Context) error {
+	if r == nil || r.adapter == nil || ctx == nil {
 		return ErrInvalid
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.finished {
+		return ErrStale
+	}
+	a := r.adapter
 	tiered, ok := a.pages.(tieredPages)
 	if !ok {
+		_ = r.logical.Abort()
+		r.finished = true
 		return ErrNoTiering
 	}
 	target := kvcache.Residency{Backend: "cuda", Tier: "device", Domain: a.config.Domain}
-	return a.store.Migrate(ctx, allocation.lease, target, func(ctx context.Context, desc kvcache.Descriptor, _ kvcache.Residency) error {
+	err := r.logical.Migrate(ctx, target, func(ctx context.Context, desc kvcache.Descriptor, _ kvcache.Residency) error {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		key := identityOf(allocation)
-		physical, ok := a.blocks[key]
-		if !ok {
+		physical, ok := a.blocks[r.key]
+		if !ok || physical.seqID != r.seqID || physical.slot != r.slot {
 			return ErrStale
 		}
 		if physical.host == nil {
@@ -327,9 +510,33 @@ func (a *Adapter) Restore(ctx context.Context, allocation Allocation) error {
 			return fmt.Errorf("cudakvlease: free pinned host page: %w", err)
 		}
 		physical.seqID, physical.slot, physical.host = seqID, table[0], nil
-		a.blocks[key] = physical
+		a.blocks[r.key] = physical
 		return nil
 	})
+	r.finished = true
+	return err
+}
+
+// Offload copies one device-resident page for every layer to a single pinned
+// host allocation, then returns the physical page to the allocator. Migration
+// requires the owning lease to be the sole reference. completion must cover
+// every earlier CUDA use of the page.
+func (a *Adapter) Offload(ctx context.Context, allocation Allocation, completion Completion) error {
+	reservation, err := a.reserve(allocation)
+	if err != nil {
+		return err
+	}
+	return reservation.Offload(ctx, completion)
+}
+
+// Restore copies an offloaded block into a newly allocated device page. The
+// pinned source remains authoritative until all layer copies succeed.
+func (a *Adapter) Restore(ctx context.Context, allocation Allocation) error {
+	reservation, err := a.reserve(allocation)
+	if err != nil {
+		return err
+	}
+	return reservation.Restore(ctx)
 }
 
 func identityOf(a Allocation) identity {
@@ -393,9 +600,19 @@ func (u *Use) Complete(ctx context.Context, completion Completion) error {
 	if err := completion.Synchronize(ctx); err != nil {
 		return fmt.Errorf("cudakvlease: wait for consumer: %w", err)
 	}
+	u.adapter.mu.Lock()
+	defer u.adapter.mu.Unlock()
 	if err := u.lease.Release(); err != nil {
 		return fmt.Errorf("cudakvlease: release consumer: %w", err)
 	}
+	key := identityOf(Allocation{adapter: u.adapter, lease: u.lease})
+	physical, ok := u.adapter.blocks[key]
+	if !ok {
+		return ErrStale
+	}
+	u.adapter.clock++
+	physical.lastComplete = u.adapter.clock
+	u.adapter.blocks[key] = physical
 	u.done = true
 	return nil
 }

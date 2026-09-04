@@ -52,6 +52,19 @@ type fakeCompletion struct{ err error }
 
 func (f *fakeCompletion) Synchronize(context.Context) error { return f.err }
 
+type nthCompletion struct {
+	count int
+	fail  int
+}
+
+func (c *nthCompletion) Synchronize(context.Context) error {
+	c.count++
+	if c.count == c.fail {
+		return errors.New("injected completion failure")
+	}
+	return nil
+}
+
 type fakeHostBuffer struct {
 	data  []float32
 	freed *int
@@ -468,5 +481,126 @@ func TestOffloadRequiresSoleLeaseAndCompletion(t *testing.T) {
 	}
 	if pages.hostFrees != 1 || a.NumFreePages() != 1 {
 		t.Fatalf("host retirement: frees=%d free_pages=%d, want 1/1", pages.hostFrees, a.NumFreePages())
+	}
+}
+
+func TestReserveVictimUsesCompletedOrderAndExcludesConsumers(t *testing.T) {
+	cfg := Config{NumLayers: 1, KVHeads: 1, HeadDim: 2, BlockSize: 16, TotalPages: 3, DType: "float32", Domain: "gpu0"}
+	a, err := New(newFakeTierPages(3, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allocations := []Allocation{
+		allocate(t, a, "first"),
+		allocate(t, a, "second"),
+		allocate(t, a, "third"),
+	}
+	// Completion order, rather than bind or allocation order, is authoritative.
+	for _, i := range []int{1, 0, 2} {
+		id, generation := allocations[i].ID()
+		use, err := a.Bind(id, generation)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reservation, err := a.ReserveVictim()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, generation := allocations[1].ID()
+	if _, err := a.Bind(id, generation); !errors.Is(err, kvcache.ErrBusy) {
+		t.Fatalf("Bind reserved victim: %v, want ErrBusy", err)
+	}
+	if err := reservation.Abort(); err != nil {
+		t.Fatal(err)
+	}
+	use, err := a.Bind(id, generation)
+	if err != nil {
+		t.Fatalf("Bind after abort: %v", err)
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+
+	reservation, err = a.ReserveVictim(allocations[0], allocations[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reservation.Offload(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+	residency, err := a.Residency(allocations[2])
+	if err != nil || residency.Tier != "pinned-host" {
+		t.Fatalf("excluded victim residency = %+v, %v; want pinned-host", residency, err)
+	}
+	if err := reservation.Abort(); !errors.Is(err, ErrStale) {
+		t.Fatalf("Abort completed reservation: %v, want ErrStale", err)
+	}
+}
+
+func TestReserveVictimSkipsLiveUseAndCancellationPreservesPage(t *testing.T) {
+	cfg := Config{NumLayers: 1, KVHeads: 1, HeadDim: 2, BlockSize: 16, TotalPages: 2, DType: "float32", Domain: "gpu0"}
+	a, _ := New(newFakeTierPages(2, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim), cfg)
+	first := allocate(t, a, "first")
+	second := allocate(t, a, "second")
+	id, generation := first.ID()
+	use, err := a.Bind(id, generation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reservation, err := a.ReserveVictim()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := reservation.Offload(ctx, &fakeCompletion{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Offload canceled reservation: %v, want context.Canceled", err)
+	}
+	residency, err := a.Residency(second)
+	if err != nil || residency.Tier != "device" {
+		t.Fatalf("canceled victim residency = %+v, %v; want device", residency, err)
+	}
+	if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReserveVictimsIsAtomicAndRollsBackPartialOffload(t *testing.T) {
+	cfg := Config{NumLayers: 1, KVHeads: 1, HeadDim: 2, BlockSize: 16, TotalPages: 2, DType: "float32", Domain: "gpu0"}
+	a, _ := New(newFakeTierPages(2, cfg.NumLayers, cfg.BlockSize*cfg.KVHeads*cfg.HeadDim), cfg)
+	first := allocate(t, a, "first")
+	second := allocate(t, a, "second")
+	if _, err := a.ReserveVictims(3); !errors.Is(err, kvcache.ErrExhausted) {
+		t.Fatalf("ReserveVictims(3): %v, want ErrExhausted", err)
+	}
+	for _, allocation := range []Allocation{first, second} {
+		id, generation := allocation.ID()
+		use, err := a.Bind(id, generation)
+		if err != nil {
+			t.Fatalf("Bind after failed set reservation: %v", err)
+		}
+		if err := use.Complete(context.Background(), &fakeCompletion{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set, err := a.ReserveVictims(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Offload(context.Background(), &nthCompletion{fail: 2}); err == nil {
+		t.Fatal("multi-page offload succeeded after second completion failed")
+	}
+	for _, allocation := range []Allocation{first, second} {
+		residency, err := a.Residency(allocation)
+		if err != nil || residency.Tier != "device" {
+			t.Fatalf("rollback residency = %+v, %v; want device", residency, err)
+		}
+	}
+	if stats := a.Stats(); stats.DevicePages != 2 || stats.HostBlocks != 0 {
+		t.Fatalf("rollback stats = %+v, want two device pages", stats)
 	}
 }
