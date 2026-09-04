@@ -1,5 +1,5 @@
-// Package metalprof provides deep Apple Metal GPU profiling, hardware timestamp
-// sampling, and pprof integration for Go applications on Apple Silicon.
+// Package metalprof provides Apple Metal capture helpers, hardware timestamp
+// sampling, caller-supplied event recording, and pprof integration.
 //
 // # Context Labels & pprof.Do Integration
 //
@@ -10,8 +10,9 @@
 //
 // # Continuous GPU Flight Recording
 //
-// [FlightRecorder] provides continuous in-memory ring-buffer capture of Metal kernel
-// execution events, hardware durations, and threadgroup dimensions. In-memory buffers can
+// [FlightRecorder] stores caller-supplied Metal event durations and threadgroup
+// dimensions in an in-memory ring buffer. It does not measure those durations;
+// callers must retain the clock source separately. In-memory buffers can
 // be snapshotted on demand (e.g. during a latency spike, numerical anomaly, or test
 // failure) into standard gzipped profile.proto (for go tool pprof) or Perfetto .pftrace
 // formats.
