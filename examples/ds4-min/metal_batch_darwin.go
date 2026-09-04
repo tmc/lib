@@ -129,6 +129,34 @@ func (b *metalBatch) EncodeMatvecQ80(t boundMetalTensor, in, out metalmem.Slice[
 	return nil
 }
 
+// EncodeRopeAttentionRaw appends rotary attention over the uncompressed cache.
+// out holds the rotated query, rotated key-value vector, and inverse-rotated
+// attention heads, in that order.
+func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks boundMetalTensor, cache, scores, out metalmem.Slice[float32], position int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
+		cache.Len() == 0 || cache.Len()%512 != 0 || scores.Len() != 64*(cache.Len()/512) || out.Len() != 32768+512+32768 || position < 0 {
+		return fmt.Errorf("raw attention: invalid shape")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionRaw)
+	for i, data := range []metalmem.Slice[float32]{q, kv} {
+		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	}
+	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(cache.Buffer(), cache.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(position), 6)
+	libmetal.SetScalar(enc, uint32(cache.Len()/512), 7)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
 // EncodeMatvecIQ2Selected appends paired IQ2_XXS projections for GPU-selected experts.
 func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertIDs metalmem.Slice[int32], in, gateOut, upOut metalmem.Slice[float32]) error {
 	if err := b.ready(); err != nil {

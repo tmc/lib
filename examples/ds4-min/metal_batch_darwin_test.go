@@ -211,6 +211,69 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	closeSlice(t, "batched key-value norm", kvNorm.HostSlice(), wantKVNorm)
 }
 
+func TestMetalBatchRopeAttentionRaw(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+
+	arena := metalmem.NewArena(dev)
+	defer arena.Free()
+	q := metalmem.AllocIn[float32](arena, "query", 64*512)
+	kv := metalmem.AllocIn[float32](arena, "key-value", 512)
+	cache := metalmem.AllocIn[float32](arena, "cache", 2*512)
+	wantCache := metalmem.AllocIn[float32](arena, "adapter-cache", 2*512)
+	scores := metalmem.AllocIn[float32](arena, "scores", 64*2)
+	out := metalmem.AllocIn[float32](arena, "output", 32768+512+32768)
+	sinkValues := make([]float32, 64)
+	for i := range sinkValues {
+		sinkValues[i] = float32(i%9-4) / 8
+	}
+	sinks := testBatchF32Tensor(arena, "sinks", sinkValues)
+
+	for position := range 2 {
+		qValues := q.HostSlice()
+		for i := range qValues {
+			qValues[i] = float32((i+17*position)%67-33) / 32
+		}
+		kvValues := kv.HostSlice()
+		for i := range kvValues {
+			kvValues[i] = float32((3*i+11*position)%53-26) / 16
+		}
+		wantQ, wantKV, wantHeads, err := ops.RopeAttentionRaw(append([]float32(nil), qValues...), append([]float32(nil), kvValues...), sinks, wantCache, position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		batch, err := newMetalBatch(ops)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := batch.EncodeRopeAttentionRaw(q, kv, sinks, cache, scores, out, position); err != nil {
+			t.Fatal(err)
+		}
+		if got := batch.Stats(); got != (metalBatchStats{Encoded: 1}) {
+			t.Fatalf("position %d stats before wait = %+v, want {Encoded:1}", position, got)
+		}
+		if err := batch.Wait(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if got := batch.Stats(); got != (metalBatchStats{Encoded: 1, Commits: 1, Waits: 1}) {
+			t.Fatalf("position %d stats after wait = %+v, want {Encoded:1 Commits:1 Waits:1}", position, got)
+		}
+		host := out.HostSlice()
+		closeSlice(t, "batched rotated query", host[:32768], wantQ)
+		closeSlice(t, "batched rotated key-value", host[32768:33280], wantKV)
+		closeSlice(t, "batched attention heads", host[33280:], wantHeads)
+		closeSlice(t, "batched raw cache", cache.HostSlice(), wantCache.HostSlice())
+	}
+}
+
 func TestMetalBatchFFNElementwiseResidual(t *testing.T) {
 	dev, err := libmetal.NewDevice()
 	if err != nil {

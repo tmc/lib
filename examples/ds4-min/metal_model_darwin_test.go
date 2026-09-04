@@ -377,6 +377,9 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if got := r.lastOpeningBatch; got != (metalBatchStats{Encoded: 7, Commits: 1, Waits: 1}) {
 		t.Fatalf("last opening batch = %+v, want {Encoded:7 Commits:1 Waits:1}", got)
 	}
+	if got := r.lastRawOpeningBatch; got != (metalBatchStats{Encoded: 8, Commits: 1, Waits: 1}) {
+		t.Fatalf("last raw opening batch = %+v, want {Encoded:8 Commits:1 Waits:1}", got)
+	}
 	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 10, Commits: 1, Waits: 1}) {
 		t.Fatalf("last attention batch = %+v, want {Encoded:10 Commits:1 Waits:1}", got)
 	}

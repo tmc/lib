@@ -25,21 +25,22 @@ const (
 // metalRuntime owns the immutable model bindings and mutable buffers for one
 // DS4 session.
 type metalRuntime struct {
-	file               *os.File
-	dev                *libmetal.Device
-	views              *metalModelViews
-	ops                *metalPinnedOps
-	arena              *metalmem.Arena
-	model              *ggufFile
-	layers             [ds4Layers]metalLayer
-	output             metalOutput
-	state              metalSessionState
-	ctx                int
-	pos                int
-	lastOpeningBatch   metalBatchStats
-	lastAttentionBatch metalBatchStats
-	lastFFNBatches     metalBatchStats
-	lastRoutedBatch    metalBatchStats
+	file                *os.File
+	dev                 *libmetal.Device
+	views               *metalModelViews
+	ops                 *metalPinnedOps
+	arena               *metalmem.Arena
+	model               *ggufFile
+	layers              [ds4Layers]metalLayer
+	output              metalOutput
+	state               metalSessionState
+	ctx                 int
+	pos                 int
+	lastOpeningBatch    metalBatchStats
+	lastRawOpeningBatch metalBatchStats
+	lastAttentionBatch  metalBatchStats
+	lastFFNBatches      metalBatchStats
+	lastRoutedBatch     metalBatchStats
 }
 
 var _ sessionBackend = (*metalRuntime)(nil)
@@ -123,6 +124,8 @@ type metalSessionState struct {
 	kvRaw         metalmem.Slice[float32]
 	kvCur         metalmem.Slice[float32]
 	heads         metalmem.Slice[float32]
+	rawScores     metalmem.Slice[float32]
+	rawOutput     metalmem.Slice[float32]
 	attnLow       metalmem.Slice[float32]
 	attnOut       metalmem.Slice[float32]
 	ffnPre        metalmem.Slice[float32]
@@ -301,6 +304,7 @@ func (r *metalRuntime) bindLayer(i int, bind func(string) (boundMetalTensor, err
 func (r *metalRuntime) allocState() {
 	a := r.arena
 	s := &r.state
+	rawCap := min(r.ctx, ds4RawCap)
 	s.hc[0] = metalmem.AllocIn[float32](a, "hc-a", ds4HCWidth)
 	s.hc[1] = metalmem.AllocIn[float32](a, "hc-b", ds4HCWidth)
 	s.attnPre = metalmem.AllocIn[float32](a, "attention-pre", 2*ds4Width)
@@ -311,6 +315,8 @@ func (r *metalRuntime) allocState() {
 	s.kvRaw = metalmem.AllocIn[float32](a, "kv-raw", ds4KVWidth)
 	s.kvCur = metalmem.AllocIn[float32](a, "kv-current", ds4KVWidth)
 	s.heads = metalmem.AllocIn[float32](a, "attention-heads", 64*ds4KVWidth)
+	s.rawScores = metalmem.AllocIn[float32](a, "raw-attention-scores", 64*rawCap)
+	s.rawOutput = metalmem.AllocIn[float32](a, "raw-attention-output", 32768+512+32768)
 	s.attnLow = metalmem.AllocIn[float32](a, "attention-low", 8192)
 	s.attnOut = metalmem.AllocIn[float32](a, "attention-output", ds4Width)
 	s.ffnPre = metalmem.AllocIn[float32](a, "ffn-pre", 2*ds4Width)
@@ -336,7 +342,6 @@ func (r *metalRuntime) allocState() {
 	s.q8 = metalmem.AllocIn[byte](a, "q8-scratch", ds4Width/256*292)
 	s.outputNorm = metalmem.AllocIn[float32](a, "output-norm", ds4Width)
 	s.logits = metalmem.AllocIn[float32](a, "logits", 129280)
-	rawCap := min(r.ctx, ds4RawCap)
 	for i := range s.layers {
 		s.layers[i].rawKV = metalmem.AllocIn[float32](a, fmt.Sprintf("layer-%d-raw-kv", i), rawCap*ds4KVWidth)
 		if i < 2 {
@@ -479,19 +484,30 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := batch.EncodeRMS(r.state.kvRaw, layer.attnKVNorm, r.state.kvCur, 1, true); err != nil {
 		return nil, err
 	}
+	state := &r.state.layers[i]
+	headsGPU := r.state.heads
+	if i < 2 {
+		if err := batch.EncodeRopeAttentionRaw(r.state.qHeads, r.state.kvCur, layer.attnSinks, state.rawKV, r.state.rawScores, r.state.rawOutput, position); err != nil {
+			return nil, err
+		}
+		headsGPU, err = r.state.rawOutput.Slice(32768+512, 32768+512+32768)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err := batch.Wait(context.Background()); err != nil {
 		return nil, err
 	}
 	r.lastOpeningBatch = batch.Stats()
-	attnNorm := r.state.attnNorm.HostSlice()
-	qNorm := r.state.qLora.HostSlice()
-	q := r.state.qHeads.HostSlice()
-	kv := r.state.kvCur.HostSlice()
-	state := &r.state.layers[i]
-	var heads []float32
 	if i < 2 {
-		_, _, heads, err = r.ops.RopeAttentionRaw(q, kv, layer.attnSinks, state.rawKV, position)
-	} else {
+		r.lastRawOpeningBatch = batch.Stats()
+	}
+	var heads []float32
+	if i >= 2 {
+		attnNorm := r.state.attnNorm.HostSlice()
+		qNorm := r.state.qLora.HostSlice()
+		q := r.state.qHeads.HostSlice()
+		kv := r.state.kvCur.HostSlice()
 		compKV, e := r.ops.MatvecF16(layer.attnCompressorKV, attnNorm)
 		if e != nil {
 			return nil, e
@@ -526,8 +542,10 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	if err := r.state.heads.CopyFromHost(heads); err != nil {
-		return nil, fmt.Errorf("attention closing: copy heads: %w", err)
+	if i >= 2 {
+		if err := headsGPU.CopyFromHost(heads); err != nil {
+			return nil, fmt.Errorf("attention closing: copy heads: %w", err)
+		}
 	}
 	closing, err := newMetalBatch(r.ops)
 	if err != nil {
@@ -538,7 +556,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err != nil {
 			return nil, err
 		}
-		head, err := r.state.heads.Slice(group*4096, (group+1)*4096)
+		head, err := headsGPU.Slice(group*4096, (group+1)*4096)
 		if err != nil {
 			return nil, err
 		}
