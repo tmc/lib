@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -11,8 +12,10 @@ import (
 
 // Event represents a marker in a CUDA stream used for synchronization and timing.
 type Event struct {
-	raw    driver.Event
-	device *Device
+	raw       driver.Event
+	device    *Device
+	mu        sync.Mutex
+	destroyed bool
 }
 
 // Raw returns the underlying driver.Event handle.
@@ -30,7 +33,7 @@ func (e *Event) Record(s *Stream) error {
 	if s == nil {
 		return errors.New("cuda: nil stream passed to Record")
 	}
-	if err := e.raw.Record(s.raw); err != nil {
+	if err := e.device.WithContext(func() error { return e.raw.Record(s.raw) }); err != nil {
 		return fmt.Errorf("cuda: record event: %w", err)
 	}
 	return nil
@@ -39,7 +42,15 @@ func (e *Event) Record(s *Stream) error {
 // Query reports whether all captured work preceding this event has completed.
 // It returns true if the event has been completed, or false if work is still in progress.
 func (e *Event) Query() (bool, error) {
-	err := e.raw.Query()
+	var queryErr error
+	err := e.device.WithContext(func() error {
+		queryErr = e.raw.Query()
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	err = queryErr
 	if err == nil {
 		return true, nil
 	}
@@ -52,7 +63,7 @@ func (e *Event) Query() (bool, error) {
 // Synchronize blocks the host until all captured work in this event has completed.
 func (e *Event) Synchronize(ctx context.Context) error {
 	if ctx == nil || ctx.Done() == nil {
-		if err := e.raw.Synchronize(); err != nil {
+		if err := e.device.WithContext(e.raw.Synchronize); err != nil {
 			return fmt.Errorf("cuda: event synchronize: %w", err)
 		}
 		return nil
@@ -92,7 +103,12 @@ func (e *Event) ElapsedSince(start *Event) (time.Duration, error) {
 	if start == nil {
 		return 0, errors.New("cuda: nil start event passed to ElapsedSince")
 	}
-	ms, err := start.raw.ElapsedTime(e.raw)
+	var ms float32
+	err := e.device.WithContext(func() error {
+		var err error
+		ms, err = start.raw.ElapsedTime(e.raw)
+		return err
+	})
 	if err != nil {
 		return 0, fmt.Errorf("cuda: event elapsed time: %w", err)
 	}
@@ -122,10 +138,16 @@ func (e *Event) Done() <-chan struct{} {
 	return ch
 }
 
-// Destroy destroys the event.
+// Destroy destroys the event. Repeated calls are safe.
 func (e *Event) Destroy() error {
-	if err := e.raw.Destroy(); err != nil {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.destroyed {
+		return nil
+	}
+	if err := e.device.WithContext(e.raw.Destroy); err != nil {
 		return fmt.Errorf("cuda: destroy event: %w", err)
 	}
+	e.destroyed = true
 	return nil
 }
