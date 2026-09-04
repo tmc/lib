@@ -82,7 +82,7 @@ func TestCUDAHMMTensorViews(t *testing.T) {
 
 	// Choose tensors whose file offsets span the model, then sample separate
 	// pages at each tensor's beginning, middle, and end.
-	wantAt := []int{0, len(r.gguf.tensors) / 2, len(r.gguf.tensors) - 1}
+	wantAt := []int{0, len(r.gguf.Tensors) / 2, len(r.gguf.Tensors) - 1}
 	compiled, err := nvrtcx.Compile(cudaProbeSource,
 		nvrtcx.WithName("ds4_hmm_views.cu"),
 		nvrtcx.WithArch(r.major, r.minor),
@@ -106,7 +106,7 @@ func TestCUDAHMMTensorViews(t *testing.T) {
 		}
 		defer out.Free()
 		for _, index := range wantAt {
-			tensor, err := r.tensor(r.gguf.tensors[index].name)
+			tensor, err := r.tensor(r.gguf.Tensors[index].Name)
 			if err != nil {
 				return err
 			}

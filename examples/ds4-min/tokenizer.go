@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/tmc/lib/gguf"
 )
 
 const (
@@ -30,7 +32,7 @@ type tokenizer struct {
 	thinkingEnd int
 }
 
-func newTokenizer(g *ggufFile) (*tokenizer, error) {
+func newTokenizer(g *gguf.File) (*tokenizer, error) {
 	model, err := metadataString(g, "tokenizer.ggml.model")
 	if err != nil || model != "gpt2" {
 		return nil, fmt.Errorf("%w: model %q", errInvalidTokenizer, model)
@@ -92,24 +94,24 @@ func newTokenizer(g *ggufFile) (*tokenizer, error) {
 	return t, nil
 }
 
-func metadataString(g *ggufFile, key string) (string, error) {
-	v, ok := g.metadata[key]
-	if !ok || v.typeID != 8 {
+func metadataString(g *gguf.File, key string) (string, error) {
+	v, ok := g.Metadata[key]
+	if !ok || v.TypeID != gguf.TypeString {
 		return "", fmt.Errorf("%w: missing string %q", errInvalidTokenizer, key)
 	}
-	s, ok := v.value.(string)
+	s, ok := v.Value.(string)
 	if !ok {
 		return "", fmt.Errorf("%w: string %q", errInvalidTokenizer, key)
 	}
 	return s, nil
 }
 
-func metadataStrings(g *ggufFile, key string) ([]string, error) {
-	v, ok := g.metadata[key]
-	if !ok || v.typeID != 9 {
+func metadataStrings(g *gguf.File, key string) ([]string, error) {
+	v, ok := g.Metadata[key]
+	if !ok || v.TypeID != gguf.TypeArray {
 		return nil, fmt.Errorf("%w: missing array %q", errInvalidTokenizer, key)
 	}
-	values, ok := v.value.([]any)
+	values, ok := v.Value.([]any)
 	if !ok {
 		return nil, fmt.Errorf("%w: array %q", errInvalidTokenizer, key)
 	}

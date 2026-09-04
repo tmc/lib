@@ -8,6 +8,7 @@ import (
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
+	"github.com/tmc/lib/gguf"
 )
 
 type metalModelView struct {
@@ -30,7 +31,7 @@ func (t boundMetalTensor) Rows(start, count int) (boundMetalTensor, error) {
 	if len(t.dimensions) != 2 || start < 0 || count <= 0 || uint64(start+count) > t.dimensions[1] {
 		return boundMetalTensor{}, fmt.Errorf("tensor %q: invalid row range", t.name)
 	}
-	total, err := tensorBytes(ggufTensor{name: t.name, typeID: t.typeID, dimensions: t.dimensions})
+	total, err := gguf.Tensor{Name: t.name, TypeID: t.typeID, Dimensions: t.dimensions}.Bytes()
 	if err != nil {
 		return boundMetalTensor{}, err
 	}
@@ -46,7 +47,7 @@ func (t boundMetalTensor) Expert(id int32) (boundMetalTensor, error) {
 	if len(t.dimensions) != 3 || id < 0 || uint64(id) >= t.dimensions[2] {
 		return boundMetalTensor{}, fmt.Errorf("tensor %q: invalid expert %d", t.name, id)
 	}
-	total, err := tensorBytes(ggufTensor{name: t.name, typeID: t.typeID, dimensions: t.dimensions})
+	total, err := gguf.Tensor{Name: t.name, TypeID: t.typeID, Dimensions: t.dimensions}.Bytes()
 	if err != nil {
 		return boundMetalTensor{}, err
 	}
@@ -58,23 +59,23 @@ func (t boundMetalTensor) Expert(id int32) (boundMetalTensor, error) {
 	return boundMetalTensor{t.name, t.typeID, append([]uint64(nil), t.dimensions[:2]...), data}, nil
 }
 
-func (m *metalModelViews) Bind(g *ggufFile, name string) (boundMetalTensor, error) {
+func (m *metalModelViews) Bind(g *gguf.File, name string) (boundMetalTensor, error) {
 	if g == nil {
 		return boundMetalTensor{}, fmt.Errorf("bind tensor %q: missing GGUF", name)
 	}
-	for _, tensor := range g.tensors {
-		if tensor.name != name {
+	for _, tensor := range g.Tensors {
+		if tensor.Name != name {
 			continue
 		}
-		n, err := tensorBytes(tensor)
+		n, err := tensor.Bytes()
 		if err != nil {
 			return boundMetalTensor{}, err
 		}
-		data, err := m.Tensor(g.dataOffset+tensor.offset, n)
+		data, err := m.Tensor(g.DataOffset+tensor.Offset, n)
 		if err != nil {
 			return boundMetalTensor{}, fmt.Errorf("bind tensor %q: %w", name, err)
 		}
-		return boundMetalTensor{name, tensor.typeID, append([]uint64(nil), tensor.dimensions...), data}, nil
+		return boundMetalTensor{name, tensor.TypeID, append([]uint64(nil), tensor.Dimensions...), data}, nil
 	}
 	return boundMetalTensor{}, fmt.Errorf("bind tensor %q: not found", name)
 }

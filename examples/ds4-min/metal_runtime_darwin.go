@@ -12,6 +12,7 @@ import (
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
+	"github.com/tmc/lib/gguf"
 )
 
 const (
@@ -30,7 +31,7 @@ type metalRuntime struct {
 	views               *metalModelViews
 	ops                 *metalPinnedOps
 	arena               *metalmem.Arena
-	model               *ggufFile
+	model               *gguf.File
 	layers              [ds4Layers]metalLayer
 	output              metalOutput
 	state               metalSessionState
@@ -181,7 +182,7 @@ func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("Metal runtime: stat model: %w", err)
 	}
-	r.model, err = readGGUF(f, info.Size())
+	r.model, err = gguf.Read(f, info.Size())
 	if err != nil {
 		return nil, fmt.Errorf("Metal runtime: read model: %w", err)
 	}
@@ -189,8 +190,8 @@ func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
 		return nil, fmt.Errorf("Metal runtime: model profile: %w", err)
 	}
 	var maxTensor uint64
-	for _, tensor := range r.model.tensors {
-		n, err := tensorBytes(tensor)
+	for _, tensor := range r.model.Tensors {
+		n, err := tensor.Bytes()
 		if err != nil {
 			return nil, err
 		}

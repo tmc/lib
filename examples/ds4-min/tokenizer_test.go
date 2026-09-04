@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/tmc/lib/gguf"
 )
 
 func TestPinnedTokenizerOracle(t *testing.T) {
@@ -23,7 +25,7 @@ func TestPinnedTokenizerOracle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g, err := readGGUF(f, info.Size())
+	g, err := gguf.Read(f, info.Size())
 	if err != nil {
 		t.Fatal(err)
 	}

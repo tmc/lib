@@ -11,6 +11,7 @@ import (
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
+	"github.com/tmc/lib/gguf"
 )
 
 func TestFP8ComparisonLimit(t *testing.T) {
@@ -47,13 +48,13 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g, err := readGGUF(f, info.Size())
+	g, err := gguf.Read(f, info.Size())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var maxTensor uint64
-	for _, tensor := range g.tensors {
-		n, err := tensorBytes(tensor)
+	for _, tensor := range g.Tensors {
+		n, err := tensor.Bytes()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,20 +70,20 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer views.Close()
-	for _, tensor := range g.tensors {
-		n, err := tensorBytes(tensor)
+	for _, tensor := range g.Tensors {
+		n, err := tensor.Bytes()
 		if err != nil {
 			t.Fatal(err)
 		}
-		view, err := views.Tensor(g.dataOffset+tensor.offset, n)
+		view, err := views.Tensor(g.DataOffset+tensor.Offset, n)
 		if err != nil {
-			t.Fatalf("tensor %q: %v", tensor.name, err)
+			t.Fatalf("tensor %q: %v", tensor.Name, err)
 		}
 		if uint64(view.Len()) != n {
-			t.Fatalf("tensor %q view length = %d, want %d", tensor.name, view.Len(), n)
+			t.Fatalf("tensor %q view length = %d, want %d", tensor.Name, view.Len(), n)
 		}
 	}
-	t.Logf("device=%s views=%d tensors=%d max_tensor=%d", dev.Name(), len(views.views), len(g.tensors), maxTensor)
+	t.Logf("device=%s views=%d tensors=%d max_tensor=%d", dev.Name(), len(views.views), len(g.Tensors), maxTensor)
 	ops, err := newMetalPinnedOps(dev)
 	if err != nil {
 		t.Fatal(err)

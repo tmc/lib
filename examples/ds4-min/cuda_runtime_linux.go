@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/tmc/lib/gguf"
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -205,7 +206,7 @@ type cudaFoundation struct {
 	major  int
 	minor  int
 	hmm    bool
-	gguf   *ggufFile
+	gguf   *gguf.File
 	mapped cudaModelRange
 
 	probeTensor string
@@ -240,7 +241,7 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 	if info.Size() != pinnedModelBytes {
 		return nil, fmt.Errorf("cuda: model size %d, want %d", info.Size(), int64(pinnedModelBytes))
 	}
-	g, err := readGGUF(f, info.Size())
+	g, err := gguf.Read(f, info.Size())
 	if err != nil {
 		return nil, fmt.Errorf("cuda: read model: %w", err)
 	}
@@ -336,20 +337,20 @@ func (r *cudaFoundation) tensor(name string) (cudaModelTensor, error) {
 	if r.gguf == nil {
 		return cudaModelTensor{}, fmt.Errorf("cuda: model is closed")
 	}
-	for _, tensor := range r.gguf.tensors {
-		if tensor.name != name {
+	for _, tensor := range r.gguf.Tensors {
+		if tensor.Name != name {
 			continue
 		}
-		bytes, err := tensorBytes(tensor)
+		bytes, err := tensor.Bytes()
 		if err != nil {
 			return cudaModelTensor{}, fmt.Errorf("cuda: size tensor %q: %w", name, err)
 		}
-		offset := r.gguf.dataOffset + tensor.offset
+		offset := r.gguf.DataOffset + tensor.Offset
 		ptr, err := r.modelRange(offset, bytes)
 		if err != nil {
 			return cudaModelTensor{}, fmt.Errorf("cuda: bind tensor %q: %w", name, err)
 		}
-		return cudaModelTensor{name: name, typeID: tensor.typeID, dimensions: append([]uint64(nil), tensor.dimensions...), device: ptr, fileOffset: offset, bytes: bytes}, nil
+		return cudaModelTensor{name: name, typeID: tensor.TypeID, dimensions: append([]uint64(nil), tensor.Dimensions...), device: ptr, fileOffset: offset, bytes: bytes}, nil
 	}
 	return cudaModelTensor{}, fmt.Errorf("cuda: model has no tensor %q", name)
 }
@@ -440,32 +441,32 @@ func (r *cudaFoundation) mapModelRange(fileOffset, length uint64) (driver.Device
 	return r.mapped.device + driver.DevicePtr(fileOffset-start), nil
 }
 
-func (r *cudaFoundation) probeModel(g *ggufFile) error {
-	var tensor *ggufTensor
-	for i := range g.tensors {
-		if g.tensors[i].name == "blk.0.attn_kv.weight" {
-			tensor = &g.tensors[i]
+func (r *cudaFoundation) probeModel(g *gguf.File) error {
+	var tensor *gguf.Tensor
+	for i := range g.Tensors {
+		if g.Tensors[i].Name == "blk.0.attn_kv.weight" {
+			tensor = &g.Tensors[i]
 			break
 		}
 	}
 	if tensor == nil {
 		return fmt.Errorf("cuda: model has no tensor %q", "blk.0.attn_kv.weight")
 	}
-	if tensor.typeID != 8 || len(tensor.dimensions) != 2 || tensor.dimensions[0]%32 != 0 {
-		return fmt.Errorf("cuda: tensor %q is not a Q8_0 matrix", tensor.name)
+	if tensor.TypeID != 8 || len(tensor.Dimensions) != 2 || tensor.Dimensions[0]%32 != 0 {
+		return fmt.Errorf("cuda: tensor %q is not a Q8_0 matrix", tensor.Name)
 	}
-	tensorBytes, err := tensorBytes(*tensor)
+	tensorBytes, err := tensor.Bytes()
 	if err != nil {
-		return fmt.Errorf("cuda: size tensor %q: %w", tensor.name, err)
+		return fmt.Errorf("cuda: size tensor %q: %w", tensor.Name, err)
 	}
 	if tensorBytes > cudaMaxRegisteredModelRange {
-		return fmt.Errorf("cuda: Q8_0 tensor %q is %d bytes, limit %d", tensor.name, tensorBytes, cudaMaxRegisteredModelRange)
+		return fmt.Errorf("cuda: Q8_0 tensor %q is %d bytes, limit %d", tensor.Name, tensorBytes, cudaMaxRegisteredModelRange)
 	}
-	offset := g.dataOffset + tensor.offset
+	offset := g.DataOffset + tensor.Offset
 	want := uint16(r.model[offset]) | uint16(r.model[offset+1])<<8
 	ptr, err := r.modelRange(offset, tensorBytes)
 	if err != nil {
-		return fmt.Errorf("cuda: bind tensor %q: %w", tensor.name, err)
+		return fmt.Errorf("cuda: bind tensor %q: %w", tensor.Name, err)
 	}
 	compiled, err := nvrtcx.Compile(cudaProbeSource,
 		nvrtcx.WithName("ds4_model_probe.cu"),
@@ -502,11 +503,11 @@ func (r *cudaFoundation) probeModel(g *ggufFile) error {
 		if got[0] != uint32(want) {
 			return fmt.Errorf("cuda: model probe result %#x, want %#x", got[0], want)
 		}
-		r.probeTensor = tensor.name
+		r.probeTensor = tensor.Name
 		r.probeHost = want
 		r.probeDevice = uint16(got[0])
-		r.probeCols = uint32(tensor.dimensions[0])
-		r.probeRows = uint32(tensor.dimensions[1])
+		r.probeCols = uint32(tensor.Dimensions[0])
+		r.probeRows = uint32(tensor.Dimensions[1])
 		r.probeBytes = tensorBytes
 		r.probeOffset = offset
 		r.probePtr = ptr

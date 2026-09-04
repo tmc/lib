@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/tmc/lib/gguf"
 )
 
 const usage = `usage: ds4-min -model file [-backend auto|metal|cuda|cpu] [-prompt text | -prompt-file file] [-tokens n] [-ctx n]
@@ -58,7 +60,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		f.Close()
 		return fmt.Errorf("stat model: %w", err)
 	}
-	g, err := readGGUF(f, info.Size())
+	g, err := gguf.Read(f, info.Size())
 	f.Close()
 	if err != nil {
 		return fmt.Errorf("read model: %w", err)
