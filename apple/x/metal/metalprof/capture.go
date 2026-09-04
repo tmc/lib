@@ -18,7 +18,10 @@ type CaptureSession struct {
 	outputURL string
 }
 
-// StartCapture initiates programmatic capture of Metal GPU workloads to a .gputrace directory.
+// StartCapture initiates programmatic capture of Metal GPU workloads to a
+// .gputrace directory. Metal only inserts the capture layer when the process
+// starts with MTL_CAPTURE_ENABLED=1 in its environment; without it StartCapture
+// reports that the capture layer is not inserted.
 func StartCapture(dev *metal.Device, outputDirectory string) (*CaptureSession, error) {
 	if dev == nil || dev.Raw().GetID() == 0 {
 		return nil, fmt.Errorf("metalprof: nil or uninitialized device")
@@ -66,8 +69,11 @@ func (cs *CaptureSession) Stop() error {
 	return nil
 }
 
-// ReplayTrace invokes the macOS system MTLReplayer headlessly to profile and extract hardware counters.
-// Uses the recipe discovered in gputrace: open -W -n -a MTLReplayer.app --args -CLI in.gputrace ...
+// ReplayTrace invokes the macOS system MTLReplayer headlessly to profile a
+// captured trace. It writes <outTracePath>/<trace base name>.gpuprofiler_raw,
+// holding the replayer's per-frame counter, timeline, and shader profiler
+// payloads. ReplayTrace does not parse them; it reports only whether the
+// replayer ran.
 func ReplayTrace(inTracePath, outTracePath string) error {
 	if _, err := os.Stat(inTracePath); err != nil {
 		return fmt.Errorf("metalprof: input trace not found: %w", err)
