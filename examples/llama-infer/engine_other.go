@@ -144,6 +144,7 @@ type ModelEngine struct {
 	generateMu  sync.Mutex
 	Plan        *ExecutionPlan
 	consumption CheckpointReceipt
+	memory      *cudamem.Tracker
 }
 
 // CheckpointReceipt returns the validated tensor-consumption account.
@@ -307,8 +308,43 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 
 	stream, err := dev.NewStream()
 	if err != nil {
+		_ = dev.Close()
 		return nil, fmt.Errorf("cuda stream: %w", err)
 	}
+	var (
+		gpuWeights *GPUModelWeights
+		scratch    *GPUScratchpad
+		modules    *GPUModules
+		attnMod    driver.Module
+		sampleMod  driver.Module
+		kvCache    *cudakv.Cache
+		committed  bool
+	)
+	defer func() {
+		if committed {
+			return
+		}
+		if kvCache != nil {
+			_ = kvCache.Close()
+		}
+		if sampleMod != 0 {
+			_ = sampleMod.Unload()
+		}
+		if attnMod != 0 {
+			_ = attnMod.Unload()
+		}
+		if modules != nil {
+			_ = modules.Close()
+		}
+		if scratch != nil {
+			scratch.Free()
+		}
+		if gpuWeights != nil {
+			gpuWeights.Free()
+		}
+		_ = stream.Destroy()
+		_ = dev.Close()
+	}()
 
 	mCfg := ModelConfig{
 		HiddenSize:        cfg.Dim,
@@ -359,17 +395,18 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		return nil, errors.New("model path required: synthetic test weights require explicit TestMode=true")
 	}
 
-	gpuWeights, err := UploadModelToGPU(dev, weights, &mCfg)
+	memory := new(cudamem.Tracker)
+	gpuWeights, err = UploadModelToGPU(dev, memory, weights, &mCfg)
 	if err != nil {
 		return nil, fmt.Errorf("upload weights to gpu: %w", err)
 	}
 
-	scratch, err := NewGPUScratchpad(dev, &mCfg)
+	scratch, err = NewGPUScratchpad(dev, memory, &mCfg)
 	if err != nil {
 		return nil, fmt.Errorf("alloc gpu scratchpad: %w", err)
 	}
 
-	modules, err := CompileGPUModules(dev)
+	modules, err = CompileGPUModules(dev)
 	if err != nil {
 		return nil, fmt.Errorf("compile forward modules: %w", err)
 	}
@@ -383,7 +420,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile attention: %w", err)
 	}
-	attnMod, err := attnModCompiled.Load(dev)
+	attnMod, err = attnModCompiled.Load(dev)
 	if err != nil {
 		return nil, fmt.Errorf("load attention module: %w", err)
 	}
@@ -396,7 +433,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile sampler: %w", err)
 	}
-	sampleMod, err := sampleModCompiled.Load(dev)
+	sampleMod, err = sampleModCompiled.Load(dev)
 	if err != nil {
 		return nil, fmt.Errorf("load sample module: %w", err)
 	}
@@ -405,7 +442,7 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		return nil, fmt.Errorf("get sample fn: %w", err)
 	}
 
-	kvCache, err := cudakv.New(dev, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
+	kvCache, err = cudakv.NewTracked(dev, memory, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
 	if err != nil {
 		return nil, fmt.Errorf("create kv cache: %w", err)
 	}
@@ -427,9 +464,11 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		metrics:     metrics,
 		Plan:        BuildExecutionPlan(cfg),
 		consumption: weights.Consumption,
+		memory:      memory,
 	}
 
 	cudaEngineCache[key] = eng
+	committed = true
 	return eng, nil
 }
 
@@ -443,7 +482,7 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 	if eng == nil || eng.dev == nil {
 		return nil, errors.New("new sequence kv: nil engine or device")
 	}
-	cache, err := cudakv.New(eng.dev, eng.mCfg.NumHiddenLayers, eng.mCfg.NumKeyValueHeads, eng.mCfg.HeadDim(), eng.mCfg.MaxSeqLen)
+	cache, err := cudakv.NewTracked(eng.dev, eng.memory, eng.mCfg.NumHiddenLayers, eng.mCfg.NumKeyValueHeads, eng.mCfg.HeadDim(), eng.mCfg.MaxSeqLen)
 	if err != nil {
 		return nil, fmt.Errorf("alloc sequence kv cache: %w", err)
 	}

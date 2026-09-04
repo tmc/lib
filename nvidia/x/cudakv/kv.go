@@ -28,6 +28,11 @@ type Cache struct {
 
 // New creates a new static KV-cache allocating per-layer K and V buffers on dev.
 func New(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*Cache, error) {
+	return NewTracked(dev, nil, numLayers, numKVHeads, headDim, maxSeqLen)
+}
+
+// NewTracked creates a cache whose device allocations are accounted by tracker.
+func NewTracked(dev *cuda.Device, tracker *cudamem.Tracker, numLayers, numKVHeads, headDim, maxSeqLen int) (*Cache, error) {
 	if dev == nil {
 		return nil, fmt.Errorf("cudakv: nil device")
 	}
@@ -40,7 +45,7 @@ func New(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*Cach
 	layers := make([]LayerCache, numLayers)
 
 	for i := 0; i < numLayers; i++ {
-		k, err := cudamem.Alloc[float32](dev, elementsPerLayer)
+		k, err := cudamem.AllocTracked[float32](dev, tracker, elementsPerLayer)
 		if err != nil {
 			for j := 0; j < i; j++ {
 				_ = layers[j].K.Free()
@@ -49,7 +54,7 @@ func New(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*Cach
 			return nil, fmt.Errorf("cudakv: alloc layer %d K buffer: %w", i, err)
 		}
 
-		v, err := cudamem.Alloc[float32](dev, elementsPerLayer)
+		v, err := cudamem.AllocTracked[float32](dev, tracker, elementsPerLayer)
 		if err != nil {
 			_ = k.Free()
 			for j := 0; j < i; j++ {

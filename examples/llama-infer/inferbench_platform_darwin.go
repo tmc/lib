@@ -14,8 +14,14 @@ func benchmarkBackend() string                            { return "metal" }
 func benchmarkPhysicalTelemetry() error {
 	return nil
 }
-func benchmarkPeakMemorySupport() error {
+func benchmarkPeakMemorySupport(*ModelEngine) error {
 	return errors.New("Metal interval peak device allocation is not instrumented")
+}
+func benchmarkMemoryReset(context.Context, *ModelEngine) error {
+	return nil
+}
+func benchmarkPeakMemory(*ModelEngine) (uint64, error) {
+	return 0, nil
 }
 func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	if eng == nil || eng.dev == nil {

@@ -23,7 +23,7 @@ func TestCUDAProjectionFamilyCeilingProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sp, err := newGPUBatchScratchpad(eng.dev, &eng.mCfg, 8)
+	sp, err := newGPUBatchScratchpad(eng.dev, eng.memory, &eng.mCfg, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestCUDALMHeadMatrixCeilingProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sp, err := newGPUBatchScratchpad(eng.dev, &eng.mCfg, 8)
+	sp, err := newGPUBatchScratchpad(eng.dev, eng.memory, &eng.mCfg, 8)
 	if err != nil {
 		t.Fatal(err)
 	}

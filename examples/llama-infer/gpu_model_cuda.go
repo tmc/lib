@@ -36,6 +36,17 @@ type GPUModelWeights struct {
 	Layers      []GPULayerWeights
 	Norm        cudamem.Slice[float32]
 	LMHead      cudamem.Slice[float32]
+	arena       *cudamem.Arena
+}
+
+// Free releases all model parameter storage. It is safe to call more than once.
+func (w *GPUModelWeights) Free() {
+	if w == nil || w.arena == nil {
+		return
+	}
+	arena := w.arena
+	w.arena = nil
+	_ = arena.Free()
 }
 
 // GPUScratchpad holds intermediate GPU-resident activation and logit buffers.
@@ -60,12 +71,12 @@ type GPUScratchpad struct {
 }
 
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
-func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error) {
+func NewGPUScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig) (*GPUScratchpad, error) {
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	a := cudamem.NewArena(dev)
+	a := cudamem.NewTrackedArena(dev, tracker)
 	sp := &GPUScratchpad{
 		X:            cudamem.AllocIn[float32](a, "x", cfg.HiddenSize),
 		NormX:        cudamem.AllocIn[float32](a, "normX", cfg.HiddenSize),
@@ -100,17 +111,23 @@ func (sp *GPUScratchpad) Free() {
 }
 
 // UploadModelToGPU transfers all host model weights directly into GPU VRAM.
-func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
+func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
+	arena := cudamem.NewTrackedArena(dev, tracker)
+	committed := false
+	defer func() {
+		if !committed {
+			_ = arena.Free()
+		}
+	}()
 	upload := func(host []float32) (cudamem.Slice[float32], error) {
 		if len(host) == 0 {
 			return cudamem.Slice[float32]{}, nil
 		}
-		s, err := cudamem.Alloc[float32](dev, len(host))
-		if err != nil {
+		s := cudamem.AllocIn[float32](arena, "model-weight", len(host))
+		if err := arena.Err(); err != nil {
 			return cudamem.Slice[float32]{}, err
 		}
 		if err := s.CopyFromHost(host); err != nil {
-			_ = s.Free()
 			return cudamem.Slice[float32]{}, err
 		}
 		return s, nil
@@ -188,11 +205,13 @@ func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPU
 		}
 	}
 
+	committed = true
 	return &GPUModelWeights{
 		EmbedTokens: embed,
 		Layers:      layers,
 		Norm:        norm,
 		LMHead:      lmHead,
+		arena:       arena,
 	}, nil
 }
 

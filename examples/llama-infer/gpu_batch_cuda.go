@@ -36,7 +36,7 @@ type GPUBatchScratchpad struct {
 	gateUp                     []cudaMatrixPlan
 }
 
-func newGPUBatchScratchpad(dev *cuda.Device, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
+func newGPUBatchScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
 	if dev == nil || cfg == nil || capacity <= 0 {
 		return nil, errors.New("cuda batch scratchpad: invalid configuration")
 	}
@@ -68,7 +68,7 @@ func newGPUBatchScratchpad(dev *cuda.Device, cfg *ModelConfig, capacity int) (*G
 	if err != nil {
 		return nil, err
 	}
-	a := cudamem.NewArena(dev)
+	a := cudamem.NewTrackedArena(dev, tracker)
 	sp := &GPUBatchScratchpad{
 		X:           cudamem.AllocIn[float32](a, "batch-x", hiddenLen),
 		NormX:       cudamem.AllocIn[float32](a, "batch-norm-x", hiddenLen),

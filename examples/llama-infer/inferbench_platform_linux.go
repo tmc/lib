@@ -12,8 +12,28 @@ func benchmarkBackend() string                            { return "cuda" }
 func benchmarkPhysicalTelemetry() error {
 	return errors.New("cuda execution does not expose exact dispatch and tier-byte counters")
 }
-func benchmarkPeakMemorySupport() error {
-	return errors.New("CUDA interval peak device allocation is not instrumented")
+func benchmarkPeakMemorySupport(eng *ModelEngine) error {
+	if eng == nil || eng.memory == nil {
+		return errors.New("CUDA engine allocation tracker is unavailable")
+	}
+	return nil
+}
+func benchmarkMemoryReset(ctx context.Context, eng *ModelEngine) error {
+	if err := benchmarkSynchronize(ctx, eng); err != nil {
+		return err
+	}
+	eng.memory.Reset()
+	return nil
+}
+func benchmarkPeakMemory(eng *ModelEngine) (uint64, error) {
+	if eng == nil || eng.memory == nil {
+		return 0, errors.New("CUDA engine allocation tracker is unavailable")
+	}
+	_, peak := eng.memory.Snapshot()
+	if peak == 0 {
+		return 0, errors.New("CUDA engine allocation peak is zero")
+	}
+	return peak, nil
 }
 func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	if eng == nil || eng.dev == nil {

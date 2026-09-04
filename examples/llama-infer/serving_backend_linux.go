@@ -41,7 +41,7 @@ func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (s
 	if engine.tokenizer == nil {
 		return nil, fmt.Errorf("%w: tokenizer unavailable", errServingBackendUnavailable)
 	}
-	batch, err := newGPUBatchScratchpad(engine.dev, &engine.mCfg, capacity)
+	batch, err := newGPUBatchScratchpad(engine.dev, engine.memory, &engine.mCfg, capacity)
 	if err != nil {
 		return nil, fmt.Errorf("cuda serving backend: allocate batch scratch: %w", err)
 	}

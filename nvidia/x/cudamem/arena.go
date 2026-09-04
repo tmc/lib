@@ -15,14 +15,20 @@ import (
 // The zero Arena is not usable; obtain one from [NewArena]. An Arena is not safe for
 // concurrent use.
 type Arena struct {
-	dev   *cuda.Device
-	err   error
-	frees []func() error
+	dev     *cuda.Device
+	tracker *Tracker
+	err     error
+	frees   []func() error
 }
 
 // NewArena returns an empty Arena allocating from dev.
 func NewArena(dev *cuda.Device) *Arena {
 	return &Arena{dev: dev}
+}
+
+// NewTrackedArena returns an arena whose allocations are accounted by tracker.
+func NewTrackedArena(dev *cuda.Device, tracker *Tracker) *Arena {
+	return &Arena{dev: dev, tracker: tracker}
 }
 
 // Device returns the device the arena allocates from.
@@ -40,7 +46,7 @@ func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
 	if a.err != nil {
 		return Slice[T]{}
 	}
-	s, err := Alloc[T](a.dev, length)
+	s, err := AllocTracked[T](a.dev, a.tracker, length)
 	if err != nil {
 		a.err = fmt.Errorf("cudamem: arena alloc %s: %w", name, err)
 		return Slice[T]{}

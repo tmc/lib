@@ -236,7 +236,7 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 }
 
 func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
-	if err := benchmarkPeakMemorySupport(); err != nil {
+	if err := benchmarkPeakMemorySupport(eng); err != nil {
 		return fmt.Errorf("inferbench: peak memory evidence: %w", err)
 	}
 	if err := os.Mkdir(spec.RawDir, 0o700); err != nil {
@@ -401,6 +401,9 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	if id == "" {
 		return inferbench.Sample{}, errors.New("inferbench: empty sample id")
 	}
+	if err := benchmarkMemoryReset(ctx, eng); err != nil {
+		return inferbench.Sample{}, fmt.Errorf("inferbench: reset memory interval: %w", err)
+	}
 	physicalBefore := adapter.physical.Snapshot()
 	cacheBefore := eng.prefixCacheMetrics()
 	started := time.Now()
@@ -444,6 +447,10 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	if err := benchmarkSynchronize(ctx, eng); err != nil {
 		return inferbench.Sample{}, fmt.Errorf("inferbench: final device synchronize: %w", err)
+	}
+	peakMemory, err := benchmarkPeakMemory(eng)
+	if err != nil {
+		return inferbench.Sample{}, fmt.Errorf("inferbench: snapshot memory interval: %w", err)
 	}
 	var observed []inferbench.ObservedOutput
 	var observedHash string
@@ -515,7 +522,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	if dispatches == 0 {
 		return inferbench.Sample{}, errors.New("inferbench: physical ledger contains no dispatches")
 	}
-	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, DispatchMeasured: true, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: tierRead, TierWriteBytes: tierWrite, TierBytesMeasured: true, PhysicalWaves: physicalWaves, GeneratedTokenIDs: generated, OutputSHA256: hash, ObservedOutputs: observed, ObservedSHA256: observedHash, Requests: timings}, nil
+	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, DispatchMeasured: true, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: tierRead, TierWriteBytes: tierWrite, TierBytesMeasured: true, PhysicalWaves: physicalWaves, GeneratedTokenIDs: generated, OutputSHA256: hash, ObservedOutputs: observed, ObservedSHA256: observedHash, Requests: timings, PeakMemoryBytes: peakMemory}, nil
 }
 
 func decodeStrictJSON(path string, dst any) error {

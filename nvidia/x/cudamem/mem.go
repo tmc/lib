@@ -18,10 +18,23 @@ type Slice[T any] struct {
 	len      int
 	cap      int
 	elemSize uintptr
+	alloc    *allocation
+}
+
+type allocation struct {
+	mu      sync.Mutex
+	ptr     driver.DevicePtr
+	bytes   uint64
+	tracker *Tracker
 }
 
 // Alloc allocates a new typed Slice[T] of length elements in GPU device memory.
 func Alloc[T any](dev *cuda.Device, length int) (Slice[T], error) {
+	return AllocTracked[T](dev, nil, length)
+}
+
+// AllocTracked allocates device memory and accounts for its lifetime in tracker.
+func AllocTracked[T any](dev *cuda.Device, tracker *Tracker, length int) (Slice[T], error) {
 	if length < 0 {
 		return Slice[T]{}, errors.New("cudamem: negative allocation length")
 	}
@@ -29,6 +42,9 @@ func Alloc[T any](dev *cuda.Device, length int) (Slice[T], error) {
 	elemSize := unsafe.Sizeof(t)
 	if elemSize == 0 {
 		elemSize = 1
+	}
+	if uintptr(length) > uintptr(^uint(0))/elemSize {
+		return Slice[T]{}, fmt.Errorf("cudamem: allocation size overflows for %d elements", length)
 	}
 	totalBytes := uint(uintptr(length) * elemSize)
 
@@ -45,11 +61,13 @@ func Alloc[T any](dev *cuda.Device, length int) (Slice[T], error) {
 		return Slice[T]{}, fmt.Errorf("cudamem: alloc %d elements (%d bytes): %w", length, totalBytes, err)
 	}
 
+	tracker.allocated(uint64(totalBytes))
 	return Slice[T]{
 		ptr:      dptr,
 		len:      length,
 		cap:      length,
 		elemSize: elemSize,
+		alloc:    &allocation{ptr: dptr, bytes: uint64(totalBytes), tracker: tracker},
 	}, nil
 }
 
@@ -123,6 +141,19 @@ func (s Slice[T]) Slice(low, high int) Slice[T] {
 // Free deallocates the device memory.
 func (s Slice[T]) Free() error {
 	if s.ptr == 0 {
+		return nil
+	}
+	if s.alloc != nil {
+		s.alloc.mu.Lock()
+		defer s.alloc.mu.Unlock()
+		if s.alloc.ptr == 0 {
+			return nil
+		}
+		if err := s.alloc.ptr.MemFree(); err != nil {
+			return fmt.Errorf("cudamem: free device memory: %w", err)
+		}
+		s.alloc.ptr = 0
+		s.alloc.tracker.freed(s.alloc.bytes)
 		return nil
 	}
 	if err := s.ptr.MemFree(); err != nil {
