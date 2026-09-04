@@ -1,9 +1,13 @@
 package cudagraph_test
 
 import (
+	"errors"
 	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -185,5 +189,77 @@ func TestBucketManagerRejectsInvalidConfiguration(t *testing.T) {
 				t.Fatalf("Close: %v", err)
 			}
 		})
+	}
+}
+
+func TestBucketManagerBuildDoesNotHoldManagerLock(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	bm := cudagraph.NewBucketManager([]int{1}, func(*cuda.Stream, int) (*cudagraph.Graph, error) {
+		close(started)
+		<-release
+		return nil, errors.New("stopped")
+	})
+	result := make(chan error, 1)
+	go func() {
+		_, _, err := bm.GetExec(nil, 1)
+		result <- err
+	}()
+	<-started
+	closed := make(chan error, 1)
+	go func() { closed <- bm.Close() }()
+	select {
+	case <-closed:
+		t.Fatal("Close returned before the active build stopped")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(release)
+	if err := <-closed; err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if err := <-result; err == nil || !strings.Contains(err.Error(), "stopped") {
+		t.Fatalf("GetExec error = %v, want stopped", err)
+	}
+}
+
+func TestBucketManagerDeduplicatesConcurrentBuild(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var calls atomic.Int32
+	bm := cudagraph.NewBucketManager([]int{1}, func(*cuda.Stream, int) (*cudagraph.Graph, error) {
+		if calls.Add(1) == 1 {
+			close(started)
+		}
+		<-release
+		return nil, errors.New("build failed")
+	})
+	const callers = 8
+	errs := make(chan error, callers)
+	var ready sync.WaitGroup
+	ready.Add(callers)
+	start := make(chan struct{})
+	for range callers {
+		go func() {
+			ready.Done()
+			<-start
+			_, _, err := bm.GetExec(nil, 1)
+			errs <- err
+		}()
+	}
+	ready.Wait()
+	close(start)
+	<-started
+	time.Sleep(20 * time.Millisecond)
+	close(release)
+	for range callers {
+		if err := <-errs; err == nil || !strings.Contains(err.Error(), "build failed") {
+			t.Fatalf("GetExec error = %v, want build failed", err)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("builder calls = %d, want 1", got)
+	}
+	if err := bm.Close(); err != nil {
+		t.Fatal(err)
 	}
 }

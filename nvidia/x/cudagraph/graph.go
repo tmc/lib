@@ -114,11 +114,21 @@ func (e *Exec) Destroy() error {
 // BucketManager manages a discrete lattice of instantiated graphs for dynamic tensor dimensions,
 // avoiding expensive runtime recaptures and topology change errors.
 type BucketManager struct {
-	mu      sync.RWMutex
-	buckets []int
-	builder func(s *cuda.Stream, dim int) (*Graph, error)
-	execs   map[int]*Exec
-	err     error
+	mu       sync.Mutex
+	buckets  []int
+	builder  func(s *cuda.Stream, dim int) (*Graph, error)
+	execs    map[int]*Exec
+	builds   map[int]*bucketBuild
+	err      error
+	closed   bool
+	close    chan struct{}
+	closeErr error
+}
+
+type bucketBuild struct {
+	done chan struct{}
+	exec *Exec
+	err  error
 }
 
 // NewBucketManager creates a new manager caching instantiated graphs across discrete dimension buckets.
@@ -131,6 +141,8 @@ func NewBucketManager(buckets []int, builder func(s *cuda.Stream, dim int) (*Gra
 		buckets: sortedBuckets,
 		builder: builder,
 		execs:   make(map[int]*Exec),
+		builds:  make(map[int]*bucketBuild),
+		close:   make(chan struct{}),
 	}
 	switch {
 	case len(sortedBuckets) == 0:
@@ -157,12 +169,17 @@ func (bm *BucketManager) GetExec(s *cuda.Stream, dim int) (*Exec, int, error) {
 		return nil, 0, errors.New("cudagraph: nil bucket manager")
 	}
 	bm.mu.Lock()
-	defer bm.mu.Unlock()
 	if bm.err != nil {
+		bm.mu.Unlock()
 		return nil, 0, bm.err
 	}
 	if dim <= 0 {
+		bm.mu.Unlock()
 		return nil, 0, fmt.Errorf("cudagraph: invalid dimension %d", dim)
+	}
+	if bm.closed {
+		bm.mu.Unlock()
+		return nil, 0, errors.New("cudagraph: bucket manager closed")
 	}
 
 	targetBucket := -1
@@ -173,26 +190,62 @@ func (bm *BucketManager) GetExec(s *cuda.Stream, dim int) (*Exec, int, error) {
 		}
 	}
 	if targetBucket == -1 {
+		bm.mu.Unlock()
 		return nil, 0, fmt.Errorf("cudagraph: dim %d exceeds maximum configured bucket %d", dim, bm.buckets[len(bm.buckets)-1])
 	}
 
 	if exec, exists := bm.execs[targetBucket]; exists {
+		bm.mu.Unlock()
 		return exec, targetBucket, nil
 	}
+	if build := bm.builds[targetBucket]; build != nil {
+		bm.mu.Unlock()
+		<-build.done
+		return build.exec, targetBucket, build.err
+	}
+	build := &bucketBuild{done: make(chan struct{})}
+	bm.builds[targetBucket] = build
+	bm.mu.Unlock()
 
 	g, err := bm.builder(s, targetBucket)
 	if err != nil {
-		return nil, 0, fmt.Errorf("cudagraph: build graph for bucket %d: %w", targetBucket, err)
+		err = fmt.Errorf("cudagraph: build graph for bucket %d: %w", targetBucket, err)
+	} else if g == nil {
+		err = fmt.Errorf("cudagraph: builder returned nil graph for bucket %d", targetBucket)
 	}
-	defer g.Destroy()
-
-	exec, err := g.Instantiate()
-	if err != nil {
-		return nil, 0, fmt.Errorf("cudagraph: instantiate bucket %d: %w", targetBucket, err)
+	var exec *Exec
+	if err == nil {
+		exec, err = g.Instantiate()
+		if err != nil {
+			err = fmt.Errorf("cudagraph: instantiate bucket %d: %w", targetBucket, err)
+		}
+		if destroyErr := g.Destroy(); destroyErr != nil {
+			if exec != nil {
+				_ = exec.Destroy()
+				exec = nil
+			}
+			err = errors.Join(err, fmt.Errorf("cudagraph: destroy source graph for bucket %d: %w", targetBucket, destroyErr))
+		}
 	}
 
-	bm.execs[targetBucket] = exec
-	return exec, targetBucket, nil
+	bm.mu.Lock()
+	if bm.closed && err == nil {
+		err = errors.New("cudagraph: bucket manager closed")
+	}
+	if err == nil {
+		bm.execs[targetBucket] = exec
+	}
+	build.exec, build.err = exec, err
+	bm.mu.Unlock()
+	if err != nil && exec != nil {
+		_ = exec.Destroy()
+		build.exec = nil
+	}
+	bm.mu.Lock()
+	delete(bm.builds, targetBucket)
+	close(build.done)
+	bm.mu.Unlock()
+	return build.exec, targetBucket, build.err
 }
 
 // Close destroys all cached instantiated graphs.
@@ -201,14 +254,35 @@ func (bm *BucketManager) Close() error {
 		return nil
 	}
 	bm.mu.Lock()
-	defer bm.mu.Unlock()
+	if bm.closed {
+		done := bm.close
+		bm.mu.Unlock()
+		<-done
+		return bm.closeErr
+	}
+	bm.closed = true
+	builds := make([]<-chan struct{}, 0, len(bm.builds))
+	for _, build := range bm.builds {
+		builds = append(builds, build.done)
+	}
+	execs := bm.execs
+	bm.execs = make(map[int]*Exec)
+	bm.mu.Unlock()
+
+	for _, done := range builds {
+		<-done
+	}
 
 	var errs []error
-	for _, exec := range bm.execs {
+	for _, exec := range execs {
 		if err := exec.Destroy(); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	bm.execs = make(map[int]*Exec)
-	return errors.Join(errs...)
+	err := errors.Join(errs...)
+	bm.mu.Lock()
+	bm.closeErr = err
+	close(bm.close)
+	bm.mu.Unlock()
+	return err
 }
