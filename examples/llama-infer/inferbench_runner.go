@@ -427,12 +427,14 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	physicalBefore := adapter.benchmarkLedgerSnapshot()
 	cacheBefore := eng.prefixCacheMetrics()
-	started := time.Now()
+	// Receipt times must round-trip through JSON. Strip the monotonic reading so
+	// derived rates use the same interval a validator reconstructs from disk.
+	started := time.Now().Round(0)
 	responses := make([]*continuousbatch.Response, len(workload.PromptTokenIDs))
 	requestIDs := make([]string, len(responses))
 	timings := make([]inferbench.RequestTiming, len(responses))
 	for i, prompt := range workload.PromptTokenIDs {
-		timings[i].StartedAt = time.Now()
+		timings[i].StartedAt = time.Now().Round(0)
 		requestIDs[i] = fmt.Sprintf("%s-%d", id, i)
 		response, err := scheduler.Submit(ctx, continuousbatch.Request{ID: requestIDs[i], PromptTokenIDs: prompt, MaxTokens: workload.GeneratedTokens, Sampler: SamplerConfig{Method: "argmax"}})
 		if err != nil {
@@ -449,13 +451,13 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 			defer wg.Done()
 			for token := range response.Tokens {
 				generated[i] = append(generated[i], token.ID)
-				timings[i].TokenAt = append(timings[i].TokenAt, time.Now())
+				timings[i].TokenAt = append(timings[i].TokenAt, time.Now().Round(0))
 			}
 			if err := <-response.Done; err != nil {
 				errs <- fmt.Errorf("inferbench: request %d: %w", i, err)
 				return
 			}
-			timings[i].EndedAt = time.Now()
+			timings[i].EndedAt = time.Now().Round(0)
 			if len(generated[i]) != workload.GeneratedTokens {
 				errs <- fmt.Errorf("inferbench: request %d generated %d tokens, want %d", i, len(generated[i]), workload.GeneratedTokens)
 			}
@@ -486,7 +488,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 			return inferbench.Sample{}, err
 		}
 	}
-	ended := time.Now()
+	ended := time.Now().Round(0)
 	var ttft, tpot time.Duration
 	var inter []time.Duration
 	for _, request := range timings {
