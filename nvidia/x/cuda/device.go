@@ -11,6 +11,7 @@ import (
 type Device struct {
 	ordinal int
 	raw     driver.Device
+	mu      sync.RWMutex
 	ctx     *Context
 
 	defaultOnce   sync.Once
@@ -109,7 +110,12 @@ func (d *Device) PrimaryContext() (*Context, error) {
 // WithContext executes the given closure with the device's primary context bound
 // to the current OS thread, guaranteeing OS thread affinity for the duration of the call.
 func (d *Device) WithContext(fn func() error) error {
-	if d == nil || d.ctx == nil {
+	if d == nil {
+		return fmt.Errorf("cuda: nil or closed device")
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.ctx == nil {
 		return fmt.Errorf("cuda: nil or closed device")
 	}
 	return d.ctx.Run(fn)
@@ -118,11 +124,18 @@ func (d *Device) WithContext(fn func() error) error {
 // Close releases the primary-context reference retained by NewDevice.
 // A Device must not be used after Close returns.
 func (d *Device) Close() error {
-	if d == nil || d.ctx == nil {
+	if d == nil {
+		return nil
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.ctx == nil {
 		return nil
 	}
 	err := d.ctx.Release()
-	d.ctx = nil
+	if err == nil {
+		d.ctx = nil
+	}
 	return err
 }
 

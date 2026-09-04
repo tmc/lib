@@ -4,11 +4,44 @@ package cuda_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
+
+func TestConcurrentWithContextAndClose(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for range 100 {
+				if err := dev.WithContext(func() error { return nil }); err != nil {
+					return
+				}
+			}
+		}()
+	}
+	close(start)
+	if err := dev.Close(); err != nil {
+		t.Fatal(err)
+	}
+	wg.Wait()
+	if err := dev.WithContext(func() error { return nil }); err == nil {
+		t.Fatal("WithContext succeeded after Close")
+	}
+	if err := dev.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+}
 
 func TestContextRunRestoresCurrent(t *testing.T) {
 	dev, err := cuda.NewDevice(0)
