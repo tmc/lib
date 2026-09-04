@@ -203,6 +203,9 @@ func (s *Scheduler) Submit(ctx context.Context, req Request) (*Response, error) 
 	if req.MaxTokens <= 0 {
 		return nil, errors.New("max tokens must be positive")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	seq := &sequence{state: State{ID: req.ID, Prompt: req.Prompt, PromptTokenIDs: append([]int32(nil), req.PromptTokenIDs...), Limit: req.MaxTokens, Sampler: req.Sampler}, ctx: ctx, cancel: cancel, tokens: make(chan Token, s.cfg.TokenBuffer), done: make(chan error, 1), queuedAt: time.Now()}
 	s.mu.Lock()

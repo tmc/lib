@@ -26,6 +26,26 @@ type fakeBatchBackend struct {
 	prefillBatches []int
 }
 
+type pressurePrefillBackend struct {
+	started chan struct{}
+	unblock chan struct{}
+	once    sync.Once
+}
+
+func (b *pressurePrefillBackend) Prefill(ctx context.Context, state *State) (Token, error) {
+	b.once.Do(func() { close(b.started) })
+	select {
+	case <-b.unblock:
+		state.KV = new(int)
+		return Token{ID: 1, Text: "1"}, nil
+	case <-ctx.Done():
+		return Token{}, ctx.Err()
+	}
+}
+
+func (*pressurePrefillBackend) DecodeBatch(context.Context, []*State) []Result { return nil }
+func (*pressurePrefillBackend) Release(*State)                                 {}
+
 func (b *fakeBatchBackend) PrefillBatch(requests []PrefillRequest) []Result {
 	b.mu.Lock()
 	b.prefillBatches = append(b.prefillBatches, len(requests))
@@ -203,6 +223,32 @@ func TestSlowConsumerAndQueuePressure(t *testing.T) {
 	}
 	blocker.Cancel()
 	queued.Cancel()
+}
+
+func TestCanceledSubmitDoesNotConsumeQueueCapacity(t *testing.T) {
+	backend := &pressurePrefillBackend{started: make(chan struct{}), unblock: make(chan struct{})}
+	s := newTestScheduler(t, backend, Config{MaxActive: 1, MaxQueue: 1, MaxBatch: 1})
+	first, err := s.Submit(context.Background(), Request{ID: "running", MaxTokens: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-backend.started
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := s.Submit(canceled, Request{ID: "already-canceled", MaxTokens: 1}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled submit error = %v, want context.Canceled", err)
+	}
+	queued, err := s.Submit(context.Background(), Request{ID: "queued", MaxTokens: 1})
+	if err != nil {
+		t.Fatalf("healthy submit behind canceled request: %v", err)
+	}
+	close(backend.unblock)
+	if _, err := collect(t, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := collect(t, queued); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestHTTPRequestsReachSharedDecodeBatch(t *testing.T) {
