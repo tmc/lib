@@ -304,4 +304,8 @@ func TestShutdownFinishesRequests(t *testing.T) {
 	if err := <-response.Done; !errors.Is(err, ErrClosed) {
 		t.Fatalf("shutdown error = %v", err)
 	}
+	metrics := s.Metrics()
+	if metrics.Active != 0 || metrics.Queued != 0 {
+		t.Fatalf("terminal gauges = active %d queued %d, want zero", metrics.Active, metrics.Queued)
+	}
 }

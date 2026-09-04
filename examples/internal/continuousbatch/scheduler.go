@@ -585,6 +585,7 @@ func (s *Scheduler) Close() error {
 	<-s.done
 	s.workers.Wait()
 	s.abortAll(ErrClosed)
+	s.setCounts(0, 0)
 	close(s.shutdown)
 	return nil
 }
