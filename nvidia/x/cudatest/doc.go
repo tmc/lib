@@ -1,6 +1,11 @@
 // Package cudatest provides CUDA hardware requirements and scoped device-memory
 // checks for tests.
 //
+// This package is a test-support mechanism, not a production CUDA runtime.
+// Several NVIDIA packages use it from their hardware tests. A skipped Require
+// call establishes no physical evidence; callers that require CUDA execution
+// must check retained test output for an actual run.
+//
 // # Hardware Capability Filters
 //
 // Tests using GPU hardware can use [Require] to cleanly skip tests when running
