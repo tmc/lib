@@ -15,3 +15,16 @@ func ExampleJSONConstraint() {
 	// Output:
 	// true
 }
+
+func ExampleBitmaskTable() {
+	// Two FSM states over a four-token vocabulary; only token 2 is allowed in
+	// state 1.
+	table := grammar.NewBitmaskTable(2, 4)
+	table.SetValid(1, 2)
+
+	logits := []float32{1, 2, 3, 4}
+	table.ApplyMask(1, logits)
+	fmt.Println(logits)
+	// Output:
+	// [-1e+09 -1e+09 3 -1e+09]
+}
