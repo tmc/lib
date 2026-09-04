@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -24,17 +25,18 @@ const (
 // metalRuntime owns the immutable model bindings and mutable buffers for one
 // DS4 session.
 type metalRuntime struct {
-	file   *os.File
-	dev    *libmetal.Device
-	views  *metalModelViews
-	ops    *metalPinnedOps
-	arena  *metalmem.Arena
-	model  *ggufFile
-	layers [ds4Layers]metalLayer
-	output metalOutput
-	state  metalSessionState
-	ctx    int
-	pos    int
+	file             *os.File
+	dev              *libmetal.Device
+	views            *metalModelViews
+	ops              *metalPinnedOps
+	arena            *metalmem.Arena
+	model            *ggufFile
+	layers           [ds4Layers]metalLayer
+	output           metalOutput
+	state            metalSessionState
+	ctx              int
+	pos              int
+	lastOpeningBatch metalBatchStats
 }
 
 var _ sessionBackend = (*metalRuntime)(nil)
@@ -110,6 +112,7 @@ type metalLayerState struct {
 
 type metalSessionState struct {
 	hc         [2]metalmem.Slice[float32]
+	attnPre    metalmem.Slice[float32]
 	attnCur    metalmem.Slice[float32]
 	attnNorm   metalmem.Slice[float32]
 	qLora      metalmem.Slice[float32]
@@ -290,8 +293,9 @@ func (r *metalRuntime) allocState() {
 	s := &r.state
 	s.hc[0] = metalmem.AllocIn[float32](a, "hc-a", ds4HCWidth)
 	s.hc[1] = metalmem.AllocIn[float32](a, "hc-b", ds4HCWidth)
-	s.attnCur = metalmem.AllocIn[float32](a, "attention-current", ds4Width)
-	s.attnNorm = metalmem.AllocIn[float32](a, "attention-norm", ds4Width)
+	s.attnPre = metalmem.AllocIn[float32](a, "attention-pre", 2*ds4Width)
+	s.attnCur, _ = s.attnPre.Slice(0, ds4Width)
+	s.attnNorm, _ = s.attnPre.Slice(ds4Width, 2*ds4Width)
 	s.qLora = metalmem.AllocIn[float32](a, "query-lora", 1024)
 	s.qHeads = metalmem.AllocIn[float32](a, "query-heads", 64*ds4KVWidth)
 	s.kvRaw = metalmem.AllocIn[float32](a, "kv-raw", ds4KVWidth)
@@ -429,34 +433,43 @@ func (r *metalRuntime) Logits() []float32 {
 
 func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int) ([]float32, error) {
 	layer := &r.layers[i]
-	_, attnNorm, err := r.ops.HCPre(hc, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, layer.attnNorm)
+	stateIn := r.state.hc[i%len(r.state.hc)]
+	if err := stateIn.CopyFromHost(hc); err != nil {
+		return nil, fmt.Errorf("attention opening: copy state: %w", err)
+	}
+	batch, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	qLora, err := r.ops.MatvecQ80(layer.attnQA, attnNorm)
-	if err != nil {
+	if err := batch.EncodeHCPre(stateIn, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, layer.attnNorm, r.state.attnPre); err != nil {
 		return nil, err
 	}
-	qNorm, err := r.ops.RMS(qLora, layer.attnQANorm, 1, true)
-	if err != nil {
+	if err := batch.EncodeMatvecQ80(layer.attnQA, r.state.attnNorm, r.state.qLora); err != nil {
 		return nil, err
 	}
-	q, err := r.ops.MatvecQ80(layer.attnQB, qNorm)
-	if err != nil {
+	if err := batch.EncodeRMS(r.state.qLora, layer.attnQANorm, r.state.qLora, 1, true); err != nil {
 		return nil, err
 	}
-	q, err = r.ops.RMS(q, layer.attnQANorm, 64, false)
-	if err != nil {
+	if err := batch.EncodeMatvecQ80(layer.attnQB, r.state.qLora, r.state.qHeads); err != nil {
 		return nil, err
 	}
-	kv, err := r.ops.MatvecQ80(layer.attnKV, attnNorm)
-	if err != nil {
+	if err := batch.EncodeRMS(r.state.qHeads, layer.attnQANorm, r.state.qHeads, 64, false); err != nil {
 		return nil, err
 	}
-	kv, err = r.ops.RMS(kv, layer.attnKVNorm, 1, true)
-	if err != nil {
+	if err := batch.EncodeMatvecQ80(layer.attnKV, r.state.attnNorm, r.state.kvRaw); err != nil {
 		return nil, err
 	}
+	if err := batch.EncodeRMS(r.state.kvRaw, layer.attnKVNorm, r.state.kvCur, 1, true); err != nil {
+		return nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
+		return nil, err
+	}
+	r.lastOpeningBatch = batch.Stats()
+	attnNorm := r.state.attnNorm.HostSlice()
+	qNorm := r.state.qLora.HostSlice()
+	q := r.state.qHeads.HostSlice()
+	kv := r.state.kvCur.HostSlice()
 	state := &r.state.layers[i]
 	var heads []float32
 	if i < 2 {

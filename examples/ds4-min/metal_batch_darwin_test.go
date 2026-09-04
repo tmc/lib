@@ -110,8 +110,6 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 		t.Fatal(err)
 	}
 	qLora := metalmem.AllocIn[float32](arena, "query-lora", 64)
-	qNorm := metalmem.AllocIn[float32](arena, "query-norm", 64)
-	qHeadsRaw := metalmem.AllocIn[float32](arena, "query-heads-raw", 128)
 	qHeads := metalmem.AllocIn[float32](arena, "query-heads", 128)
 	kvRaw := metalmem.AllocIn[float32](arena, "key-value-raw", 32)
 	kvNorm := metalmem.AllocIn[float32](arena, "key-value-norm", 32)
@@ -181,13 +179,13 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	if err := batch.EncodeMatvecQ80(qa, attnNorm, qLora); err != nil {
 		t.Fatal(err)
 	}
-	if err := batch.EncodeRMS(qLora, qaNorm, qNorm, 1, true); err != nil {
+	if err := batch.EncodeRMS(qLora, qaNorm, qLora, 1, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := batch.EncodeMatvecQ80(qb, qNorm, qHeadsRaw); err != nil {
+	if err := batch.EncodeMatvecQ80(qb, qLora, qHeads); err != nil {
 		t.Fatal(err)
 	}
-	if err := batch.EncodeRMS(qHeadsRaw, qaNorm, qHeads, 64, false); err != nil {
+	if err := batch.EncodeRMS(qHeads, qaNorm, qHeads, 64, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := batch.EncodeMatvecQ80(kv, attnNorm, kvRaw); err != nil {
@@ -207,9 +205,7 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	}
 	closeSlice(t, "batched HC projection", hcProjected.HostSlice(), wantHC)
 	closeSlice(t, "batched HC norm", attnNorm.HostSlice(), wantNorm)
-	closeSlice(t, "batched query LoRA", qLora.HostSlice(), wantQLora)
-	closeSlice(t, "batched query norm", qNorm.HostSlice(), wantQNorm)
-	closeSlice(t, "batched raw query heads", qHeadsRaw.HostSlice(), wantQHeadsRaw)
+	closeSlice(t, "batched query norm", qLora.HostSlice(), wantQNorm)
 	closeSlice(t, "batched query heads", qHeads.HostSlice(), wantQHeads)
 	closeSlice(t, "batched raw key-value", kvRaw.HostSlice(), wantKVRaw)
 	closeSlice(t, "batched key-value norm", kvNorm.HostSlice(), wantKVNorm)

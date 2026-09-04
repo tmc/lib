@@ -374,6 +374,9 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if len(logits) != 129280 || r.pos != 1 {
 		t.Fatalf("logits/position = %d/%d, want 129280/1", len(logits), r.pos)
 	}
+	if got := r.lastOpeningBatch; got != (metalBatchStats{Encoded: 7, Commits: 1, Waits: 1}) {
+		t.Fatalf("last opening batch = %+v, want {Encoded:7 Commits:1 Waits:1}", got)
+	}
 	for i, value := range logits {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
 			t.Fatalf("logits[%d] = %g", i, value)
