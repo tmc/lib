@@ -301,29 +301,50 @@ func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
 		t.Skip("layer projection chain requires HMM tensor views")
 	}
 
+	hcFn := cudaTestTensor(t, r, "blk.0.hc_attn_fn.weight")
+	hcScale := cudaTestTensor(t, r, "blk.0.hc_attn_scale.weight")
+	hcBase := cudaTestTensor(t, r, "blk.0.hc_attn_base.weight")
+	attnNorm := cudaTestTensor(t, r, "blk.0.attn_norm.weight")
 	qa := cudaTestTensor(t, r, "blk.0.attn_q_a.weight")
 	qaNorm := cudaTestTensor(t, r, "blk.0.attn_q_a_norm.weight")
 	qb := cudaTestTensor(t, r, "blk.0.attn_q_b.weight")
 	kv := cudaTestTensor(t, r, "blk.0.attn_kv.weight")
 	kvNorm := cudaTestTensor(t, r, "blk.0.attn_kv_a_norm.weight")
-	x := make([]float32, 4096)
-	for i := range x {
-		x[i] = float32((i*37+11)%257-128) / 128
+	state := make([]float32, 4*4096)
+	for i := range state {
+		state[i] = float32((i*37+11)%257-128) / 128
 	}
 
-	dx := cudaTestAlloc(t, r, len(x))
+	dState := cudaTestAlloc(t, r, len(state))
+	dStateNorm := cudaTestAlloc(t, r, len(state))
+	mix := cudaTestAlloc(t, r, 24)
+	hcOut := cudaTestAlloc(t, r, 2*4096)
+	x := hcOut.Slice(4096, 8192)
 	qRaw := cudaTestAlloc(t, r, int(qa.dimensions[1]))
 	qNorm := cudaTestAlloc(t, r, int(qa.dimensions[1]))
 	qHeadsRaw := cudaTestAlloc(t, r, int(qb.dimensions[1]))
 	qHeads := cudaTestAlloc(t, r, int(qb.dimensions[1]))
 	kvRaw := cudaTestAlloc(t, r, int(kv.dimensions[1]))
 	kvOut := cudaTestAlloc(t, r, int(kv.dimensions[1]))
-	if err := dx.CopyFromHost(x); err != nil {
+	if err := dState.CopyFromHost(state); err != nil {
+		t.Fatal(err)
+	}
+	wantStateNorm := cudaTestRMS(state, nil, 1)
+	if err := dStateNorm.CopyFromHost(wantStateNorm); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.loadMathKernels(); err != nil {
 		t.Fatal(err)
 	}
 
 	start := time.Now()
-	if err := r.encodeQ80Matvec(qa, dx, qRaw); err != nil {
+	if err := r.encodeF16Matvec(hcFn, dStateNorm, mix); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeHCPre(dState, hcFn, hcScale, hcBase, attnNorm, hcOut); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeQ80Matvec(qa, x, qRaw); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.encodeRMS(qRaw, qaNorm, qNorm, 1, true); err != nil {
@@ -335,7 +356,7 @@ func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
 	if err := r.encodeRMS(qHeadsRaw, cudaModelTensor{}, qHeads, 64, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.encodeQ80Matvec(kv, dx, kvRaw); err != nil {
+	if err := r.encodeQ80Matvec(kv, x, kvRaw); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.encodeRMS(kvRaw, kvNorm, kvOut, 1, true); err != nil {
@@ -346,25 +367,32 @@ func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
 	}
 	elapsed := time.Since(start)
 
+	gotMix := cudaTestRead(t, mix)
+	gotHC := cudaTestRead(t, hcOut)
 	gotQRaw := cudaTestRead(t, qRaw)
 	gotQNorm := cudaTestRead(t, qNorm)
 	gotQHeadsRaw := cudaTestRead(t, qHeadsRaw)
 	gotQHeads := cudaTestRead(t, qHeads)
 	gotKVRaw := cudaTestRead(t, kvRaw)
 	gotKV := cudaTestRead(t, kvOut)
-	wantQRaw := cudaTestQ80Tensor(t, r, qa, x)
+	wantMix := cudaTestF16Matvec(t, r, hcFn, wantStateNorm)
+	wantCur, wantX := cudaTestHCPre(state, wantMix, cudaTestF32Tensor(t, r, hcScale), cudaTestF32Tensor(t, r, hcBase), cudaTestF32Tensor(t, r, attnNorm))
+	wantHC := append(wantCur, wantX...)
+	wantQRaw := cudaTestQ80Tensor(t, r, qa, wantX)
 	wantQNorm := cudaTestRMS(wantQRaw, cudaTestF32Tensor(t, r, qaNorm), 1)
 	wantQHeadsRaw := cudaTestQ80Tensor(t, r, qb, wantQNorm)
 	wantQHeads := cudaTestRMS(wantQHeadsRaw, nil, 64)
-	wantKVRaw := cudaTestQ80Tensor(t, r, kv, x)
+	wantKVRaw := cudaTestQ80Tensor(t, r, kv, wantX)
 	wantKV := cudaTestRMS(wantKVRaw, cudaTestF32Tensor(t, r, kvNorm), 1)
+	cudaTestClose(t, "HC F16 projection", gotMix, wantMix)
+	cudaTestClose(t, "HC pre", gotHC, wantHC)
 	cudaTestClose(t, "attnQA", gotQRaw, wantQRaw)
 	cudaTestClose(t, "attnQA RMS", gotQNorm, wantQNorm)
 	cudaTestClose(t, "attnQB", gotQHeadsRaw, wantQHeadsRaw)
 	cudaTestClose(t, "query head RMS", gotQHeads, wantQHeads)
 	cudaTestClose(t, "attnKV", gotKVRaw, wantKVRaw)
 	cudaTestClose(t, "attnKV RMS", gotKV, wantKV)
-	t.Logf("layer 0 attention projection chain: 6 launches, 1 stream synchronization, %s", elapsed)
+	t.Logf("layer 0 HC and attention projection chain: 8 launches, 1 stream synchronization, %s", elapsed)
 }
 
 func cudaTestTensor(t *testing.T, r *cudaFoundation, name string) cudaModelTensor {
@@ -420,6 +448,86 @@ func cudaTestF32Tensor(t *testing.T, r *cudaFoundation, tensor cudaModelTensor) 
 		out[i] = math.Float32frombits(binary.LittleEndian.Uint32(p[i*4:]))
 	}
 	return out
+}
+
+func cudaTestF16Matvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, x []float32) []float32 {
+	t.Helper()
+	if tensor.typeID != 1 || len(tensor.dimensions) != 2 || uint64(len(x)) != tensor.dimensions[0] {
+		t.Fatalf("invalid F16 test tensor %q", tensor.name)
+	}
+	p := r.model[tensor.fileOffset : tensor.fileOffset+tensor.bytes]
+	out := make([]float32, tensor.dimensions[1])
+	for row := range out {
+		var sum float32
+		for col, v := range x {
+			off := 2 * (row*len(x) + col)
+			sum += cudaTestFloat16(binary.LittleEndian.Uint16(p[off:])) * v
+		}
+		out[row] = sum
+	}
+	return out
+}
+
+func cudaTestHCPre(state, mix, scale, base, norm []float32) ([]float32, []float32) {
+	pre := make([]float32, 4)
+	comb := make([]float32, 16)
+	for h := range 4 {
+		pre[h] = float32(1/(1+math.Exp(-float64(mix[h]*scale[0]+base[h]))) + 1e-6)
+	}
+	for dst := range 4 {
+		mx := float32(-math.MaxFloat32)
+		for src := range 4 {
+			i := src + dst*4
+			comb[i] = mix[8+i]*scale[2] + base[8+i]
+			mx = max(mx, comb[i])
+		}
+		var sum float32
+		for src := range 4 {
+			i := src + dst*4
+			comb[i] = float32(math.Exp(float64(comb[i] - mx)))
+			sum += comb[i]
+		}
+		for src := range 4 {
+			i := src + dst*4
+			comb[i] = comb[i]/sum + 1e-6
+		}
+	}
+	for src := range 4 {
+		var sum float32
+		for dst := range 4 {
+			sum += comb[src+dst*4]
+		}
+		for dst := range 4 {
+			comb[src+dst*4] /= sum + 1e-6
+		}
+	}
+	for range 19 {
+		for dst := range 4 {
+			var sum float32
+			for src := range 4 {
+				sum += comb[src+dst*4]
+			}
+			for src := range 4 {
+				comb[src+dst*4] /= sum + 1e-6
+			}
+		}
+		for src := range 4 {
+			var sum float32
+			for dst := range 4 {
+				sum += comb[src+dst*4]
+			}
+			for dst := range 4 {
+				comb[src+dst*4] /= sum + 1e-6
+			}
+		}
+	}
+	cur := make([]float32, 4096)
+	for d := range cur {
+		for h := range 4 {
+			cur[d] += state[h*4096+d] * pre[h]
+		}
+	}
+	return cur, cudaTestRMS(cur, norm, 1)
 }
 
 func cudaTestRMS(x, weight []float32, groups int) []float32 {

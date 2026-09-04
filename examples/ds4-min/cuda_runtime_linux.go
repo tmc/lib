@@ -95,6 +95,81 @@ extern "C" __global__ void ds4_rms(
   const float inv = rsqrtf(partial[0] / float(width) + 1.0e-6f);
   for (unsigned int i = threadIdx.x; i < width; i += blockDim.x)
     out[offset + i] = x[offset + i] * inv * (weighted ? weight[i] : 1.0f);
+}
+
+extern "C" __global__ void ds4_f16_matvec(
+    const unsigned short *weights, const float *x, float *out,
+    unsigned int cols, unsigned int rows) {
+  const unsigned int row = blockIdx.x;
+  if (row >= rows) return;
+  __shared__ float partial[256];
+  float sum = 0.0f;
+  const unsigned long long offset = (unsigned long long)row * cols;
+  for (unsigned int i = threadIdx.x; i < cols; i += blockDim.x)
+    sum += ds4_half_to_float(weights[offset + i]) * x[i];
+  partial[threadIdx.x] = sum;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) out[row] = partial[0];
+}
+
+// ds4_hc_pre applies the four-stream hyper-connection input transform and
+// writes the 4096-value current stream followed by its weighted RMS norm.
+// Only the first four projection rows contribute to the input transform. The
+// remaining rows describe the output transform and are consumed by HCPost.
+extern "C" __global__ void ds4_hc_pre(
+    const float *state, const unsigned short *hc_fn, const float *scale,
+    const float *base, const float *norm_weight, float *out) {
+  if (blockIdx.x != 0) return;
+  __shared__ float partial[256];
+  __shared__ float inv;
+  __shared__ float pre[4];
+  float ss = 0.0f;
+  for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
+    ss += state[i] * state[i];
+  partial[threadIdx.x] = ss;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) inv = rsqrtf(partial[0] / 16384.0f + 1.0e-6f);
+  __syncthreads();
+  for (unsigned int row = 0; row < 4; row++) {
+    float sum = 0.0f;
+    const unsigned long long off = (unsigned long long)row * 16384;
+    for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
+      sum += ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
+    partial[threadIdx.x] = sum;
+    __syncthreads();
+    for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+      if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+      __syncthreads();
+    }
+    if (threadIdx.x == 0)
+      pre[row] = 1.0f / (1.0f + expf(-(partial[0] * scale[0] + base[row]))) + 1.0e-6f;
+    __syncthreads();
+  }
+  float cur_ss = 0.0f;
+  for (unsigned int d = threadIdx.x; d < 4096; d += blockDim.x) {
+    float v = 0.0f;
+    for (unsigned int h = 0; h < 4; h++) v += state[h * 4096 + d] * pre[h];
+    out[d] = v;
+    cur_ss += v * v;
+  }
+  partial[threadIdx.x] = cur_ss;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) inv = rsqrtf(partial[0] / 4096.0f + 1.0e-6f);
+  __syncthreads();
+  for (unsigned int d = threadIdx.x; d < 4096; d += blockDim.x)
+    out[4096 + d] = out[d] * inv * norm_weight[d];
 }`
 
 const (
@@ -144,6 +219,8 @@ type cudaFoundation struct {
 	matrixMod   driver.Module
 	matrixFn    driver.Function
 	rmsFn       driver.Function
+	f16Fn       driver.Function
+	hcPreFn     driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -506,8 +583,45 @@ func (r *cudaFoundation) encodeRMS(x cudamem.Slice[float32], weight cudaModelTen
 	})
 }
 
+// encodeF16Matvec appends an F16 matrix-vector product to the default stream.
+func (r *cudaFoundation) encodeF16Matvec(t cudaModelTensor, x, out cudamem.Slice[float32]) error {
+	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(x.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
+		return fmt.Errorf("cuda: matvec %q: invalid F16 tensor or input", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.f16Fn).Grid(uint32(t.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
+			t.device, x, out, uint32(t.dimensions[0]), uint32(t.dimensions[1])); err != nil {
+			return fmt.Errorf("cuda: launch matvec %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
+
+// encodeHCPre appends the DS4 hyper-connection input transform. Out contains
+// the current stream followed by its attention-normalized form.
+func (r *cudaFoundation) encodeHCPre(state cudamem.Slice[float32], hcFn, scale, base, norm cudaModelTensor, out cudamem.Slice[float32]) error {
+	if state.Len() != 4*4096 || out.Len() != 2*4096 || hcFn.typeID != 1 || len(hcFn.dimensions) != 2 || hcFn.dimensions[0] != 4*4096 || hcFn.dimensions[1] != 24 ||
+		scale.typeID != 0 || base.typeID != 0 || norm.typeID != 0 || len(scale.dimensions) != 1 || scale.dimensions[0] != 3 ||
+		len(base.dimensions) != 1 || base.dimensions[0] != 24 || len(norm.dimensions) != 1 || norm.dimensions[0] != 4096 {
+		return fmt.Errorf("cuda: HC pre: invalid tensor profile")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+			state, hcFn.device, scale.device, base.device, norm.device, out); err != nil {
+			return fmt.Errorf("cuda: launch HC pre: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *cudaFoundation) loadMathKernels() error {
-	if r.matrixFn != 0 && r.rmsFn != 0 {
+	if r.matrixFn != 0 && r.rmsFn != 0 && r.f16Fn != 0 && r.hcPreFn != 0 {
 		return nil
 	}
 	compiled, err := nvrtcx.Compile(cudaProbeSource,
@@ -531,9 +645,21 @@ func (r *cudaFoundation) loadMathKernels() error {
 		_ = mod.Unload()
 		return fmt.Errorf("cuda: find RMS: %w", err)
 	}
+	f16Fn, err := mod.GetFunction("ds4_f16_matvec")
+	if err != nil {
+		_ = mod.Unload()
+		return fmt.Errorf("cuda: find F16 matrix: %w", err)
+	}
+	hcPreFn, err := mod.GetFunction("ds4_hc_pre")
+	if err != nil {
+		_ = mod.Unload()
+		return fmt.Errorf("cuda: find HC pre: %w", err)
+	}
 	r.matrixMod = mod
 	r.matrixFn = matrixFn
 	r.rmsFn = rmsFn
+	r.f16Fn = f16Fn
+	r.hcPreFn = hcPreFn
 	return nil
 }
 
@@ -584,6 +710,8 @@ func (r *cudaFoundation) Close() error {
 		r.matrixMod = 0
 		r.matrixFn = 0
 		r.rmsFn = 0
+		r.f16Fn = 0
+		r.hcPreFn = 0
 	}
 	if r.mapped.host != 0 && r.device != nil {
 		err := r.device.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })
