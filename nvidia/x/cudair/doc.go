@@ -7,6 +7,9 @@
 // MatMul, Reduce). The topological structure allows compiler passes such as dead-code
 // elimination, kernel fusion ([github.com/tmc/lib/nvidia/x/cudafuse]), and
 // memory buffer reuse planning.
+// Graph construction does not report errors. Call [Graph.Validate] before
+// consuming a graph; [PlanMemory] and cudafuse do this automatically. Graphs
+// and their nodes must not be mutated concurrently.
 //
 // # Arena Allocation Planning
 //

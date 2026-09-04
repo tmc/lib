@@ -81,3 +81,58 @@ func TestFuseWithSourceMap(t *testing.T) {
 		t.Errorf("expected to find model.go:43 in LineMap, got: %+v", fk.LineMap)
 	}
 }
+
+func TestFuseRejectsInvalidGraph(t *testing.T) {
+	g := cudair.NewGraph()
+	a := g.AddInput("a", []int{2}, cudair.Float32)
+	b := g.AddInput("b", []int{3}, cudair.Float32)
+	g.AddBinary("add", a, b)
+	if _, err := cudafuse.Fuse(g, "invalid"); err == nil {
+		t.Fatal("Fuse succeeded")
+	}
+}
+
+func TestFuseRejectsMatMul(t *testing.T) {
+	g := cudair.NewGraph()
+	a := g.AddInput("a", []int{2, 3}, cudair.Float32)
+	b := g.AddInput("b", []int{3, 4}, cudair.Float32)
+	g.AddMatMul(a, b)
+	if _, err := cudafuse.Fuse(g, "matmul"); err == nil {
+		t.Fatal("Fuse succeeded")
+	}
+}
+
+func TestFuseRejectsInvalidKernelName(t *testing.T) {
+	g := cudair.NewGraph()
+	g.AddInput("a", []int{2}, cudair.Float32)
+	if _, err := cudafuse.Fuse(g, "bad() {}"); err == nil {
+		t.Fatal("Fuse succeeded")
+	}
+}
+
+func TestFuseRejectsUnsupportedSemantics(t *testing.T) {
+	tests := []struct {
+		name  string
+		build func(*cudair.Graph)
+	}{
+		{"float16", func(g *cudair.Graph) { g.AddInput("a", []int{2}, cudair.Float16) }},
+		{"rmsnorm", func(g *cudair.Graph) {
+			a := g.AddInput("a", []int{2}, cudair.Float32)
+			g.AddUnary("rmsnorm_eps=1e-05", a)
+		}},
+		{"rope", func(g *cudair.Graph) {
+			a := g.AddInput("a", []int{2}, cudair.Float32)
+			b := g.AddInput("b", []int{2}, cudair.Float32)
+			g.AddBinary("rope_theta=10000", a, b)
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := cudair.NewGraph()
+			test.build(g)
+			if _, err := cudafuse.Fuse(g, "kernel"); err == nil {
+				t.Fatal("Fuse succeeded")
+			}
+		})
+	}
+}
