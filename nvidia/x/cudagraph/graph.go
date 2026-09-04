@@ -29,6 +29,9 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 	if s == nil {
 		return nil, errors.New("cudagraph: nil stream passed to Capture")
 	}
+	if fn == nil {
+		return nil, errors.New("cudagraph: nil capture function")
+	}
 
 	if err := s.Raw().BeginCapture(driver.StreamCaptureModeGlobal); err != nil {
 		return nil, fmt.Errorf("cudagraph: begin capture: %w", err)
@@ -46,6 +49,9 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 
 // Instantiate validates and instantiates the graph for execution on the GPU.
 func (g *Graph) Instantiate() (*Exec, error) {
+	if g == nil || g.raw == 0 {
+		return nil, errors.New("cudagraph: graph is closed")
+	}
 	rawExec, err := g.raw.Instantiate(0)
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
@@ -55,12 +61,15 @@ func (g *Graph) Instantiate() (*Exec, error) {
 
 // Raw returns the underlying driver.Graph handle.
 func (g *Graph) Raw() driver.Graph {
+	if g == nil {
+		return 0
+	}
 	return g.raw
 }
 
 // Destroy destroys the uninstantiated graph.
 func (g *Graph) Destroy() error {
-	if g.raw == 0 {
+	if g == nil || g.raw == 0 {
 		return nil
 	}
 	if err := g.raw.Destroy(); err != nil {
@@ -77,6 +86,9 @@ type Exec struct {
 
 // Launch enqueues execution of the instantiated graph on stream.
 func (e *Exec) Launch(s *cuda.Stream) error {
+	if e == nil || e.raw == 0 {
+		return errors.New("cudagraph: executable graph is closed")
+	}
 	var streamHandle driver.Stream
 	if s != nil {
 		streamHandle = s.Raw()
@@ -89,8 +101,14 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 
 // Update updates the parameters of this executable graph from a topologically identical graph.
 func (e *Exec) Update(g *Graph) error {
+	if e == nil || e.raw == 0 {
+		return errors.New("cudagraph: executable graph is closed")
+	}
 	if g == nil {
 		return errors.New("cudagraph: nil graph passed to Update")
+	}
+	if g.raw == 0 {
+		return errors.New("cudagraph: graph is closed")
 	}
 	var result driver.GraphExecUpdateResultInfo
 	if err := e.raw.Update(g.raw, &result); err != nil {
@@ -101,7 +119,7 @@ func (e *Exec) Update(g *Graph) error {
 
 // Destroy destroys the executable graph.
 func (e *Exec) Destroy() error {
-	if e.raw == 0 {
+	if e == nil || e.raw == 0 {
 		return nil
 	}
 	if err := e.raw.Destroy(); err != nil {
