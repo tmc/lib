@@ -1,0 +1,8 @@
+date: 2026-09-04
+client: Claude Code (agent teammate, dgx lane)
+model: claude-opus-5[1m]
+host: spark-31db (NVIDIA GB10, aarch64, go1.27.0)
+checkpoint: unsloth/Llama-3.2-1B-Instruct snapshot 5a8abab4a5d6f164389b1079fb721cfab8d7126c
+session: 00586501-4ba4-44f5-a2c0-db865576128f
+session_url: https://claude.ai/code/session_01UEdKF6oPsLNQyWcM3ES8DG
+gates: GOWORK=off go vet/test/-race in examples (race run 431.234s, ok)
