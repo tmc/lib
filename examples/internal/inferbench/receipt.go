@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const SchemaVersion = 6
+const SchemaVersion = 7
 
 const (
 	PersistentEnginePolicy = "one-compiled-engine-warmed-per-arm"
@@ -249,7 +249,7 @@ func validateRunHeader(r *Run) error {
 		return errors.New("incomplete identity")
 	}
 	w := r.Workload
-	if len(w.PromptTokenIDs) == 0 || len(w.PromptTokenIDs) != w.Concurrency || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" || w.OutputMode != ThroughputOutputMode && w.OutputMode != ObservedOutputMode {
+	if len(w.PromptTokenIDs) == 0 || len(w.PromptTokenIDs) != w.Concurrency || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler != "greedy-argmax" || w.CacheState != "cold" || w.OutputMode != ThroughputOutputMode && w.OutputMode != ObservedOutputMode {
 		return errors.New("incomplete workload")
 	}
 	for _, p := range w.PromptTokenIDs {
@@ -335,6 +335,10 @@ func validateSample(s *Sample, w Workload) error {
 			last = at
 		}
 	}
+	ttft, tpot, interToken := requestMetrics(s.Requests, w.GeneratedTokens)
+	if s.TTFT != ttft || s.TPOT != tpot || !reflect.DeepEqual(s.InterToken, interToken) {
+		return fmt.Errorf("sample %q: summary timing differs from request timing", s.ID)
+	}
 	for _, tokens := range s.GeneratedTokenIDs {
 		if len(tokens) != w.GeneratedTokens {
 			return fmt.Errorf("sample %q: generated token count differs", s.ID)
@@ -345,6 +349,24 @@ func validateSample(s *Sample, w Workload) error {
 		return fmt.Errorf("sample %q: incorrect output hash", s.ID)
 	}
 	return nil
+}
+
+func requestMetrics(requests []RequestTiming, generatedTokens int) (ttft, tpot time.Duration, interToken []time.Duration) {
+	interToken = make([]time.Duration, generatedTokens-1)
+	for _, request := range requests {
+		ttft += request.TokenAt[0].Sub(request.StartedAt)
+		for i := range interToken {
+			d := request.TokenAt[i+1].Sub(request.TokenAt[i])
+			tpot += d
+			interToken[i] += d
+		}
+	}
+	ttft /= time.Duration(len(requests))
+	tpot /= time.Duration(len(requests) * (generatedTokens - 1))
+	for i := range interToken {
+		interToken[i] /= time.Duration(len(requests))
+	}
+	return ttft, tpot, interToken
 }
 
 func validateObservedOutputs(s *Sample, w Workload) error {
@@ -413,6 +435,10 @@ func validatePhysicalWaves(s *Sample, requests int) error {
 	var dispatches, last uint64
 	seenMembers := make(map[string]bool)
 	seenRequests := make(map[string]bool)
+	wantRequests := make(map[string]bool, requests)
+	for i := 0; i < requests; i++ {
+		wantRequests[fmt.Sprintf("%s-%d", s.ID, i)] = true
+	}
 	for _, wave := range s.PhysicalWaves {
 		if wave.Sequence <= last || wave.Kind == "" || len(wave.Requests) == 0 || wave.Dispatches == 0 && sumByteMap(wave.TierReadBytes)+sumByteMap(wave.TierWriteBytes) == 0 {
 			return errors.New("invalid physical wave")
@@ -422,7 +448,7 @@ func validatePhysicalWaves(s *Sample, requests int) error {
 		waveMembers := make(map[string]bool)
 		for _, request := range wave.Requests {
 			logical, _, ok := strings.Cut(request, "@")
-			if request == "" || !ok || !strings.HasPrefix(logical, s.ID+"-") || waveMembers[request] {
+			if request == "" || !ok || !wantRequests[logical] || waveMembers[request] {
 				return errors.New("invalid physical wave member")
 			}
 			waveMembers[request] = true
@@ -439,7 +465,7 @@ func validatePhysicalWaves(s *Sample, requests int) error {
 	if dispatches != s.Dispatches || !reflect.DeepEqual(read, nonzeroByteMap(s.TierReadBytes)) || !reflect.DeepEqual(write, nonzeroByteMap(s.TierWriteBytes)) {
 		return errors.New("physical wave totals differ")
 	}
-	if len(seenMembers) < requests || len(seenRequests) != requests {
+	if len(seenMembers) < requests || !reflect.DeepEqual(seenRequests, wantRequests) {
 		return errors.New("physical waves omit requests")
 	}
 	return nil

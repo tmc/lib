@@ -13,14 +13,14 @@ import (
 func validCampaign() Campaign {
 	h := strings.Repeat("a", 64)
 	outputHash, _ := HashJSON([][]int32{{4, 5, 6}})
-	w := Workload{PromptTokenIDs: [][]int32{{1, 2, 3}}, ContextTokens: 3, GeneratedTokens: 3, Concurrency: 1, WarmupRuns: 2, Sampler: "greedy", CacheState: "cold", OutputMode: ThroughputOutputMode}
+	w := Workload{PromptTokenIDs: [][]int32{{1, 2, 3}}, ContextTokens: 3, GeneratedTokens: 3, Concurrency: 1, WarmupRuns: 2, Sampler: "greedy-argmax", CacheState: "cold", OutputMode: ThroughputOutputMode}
 	var runs []Run
 	now := time.Unix(1, 0)
 	for _, arm := range []string{"a", "b"} {
 		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy, OutputContract: ThroughputOutputMode}}
 		for i := 0; i < 20; i++ {
 			id := "sample-" + string(rune('A'+i))
-			r.Samples = append(r.Samples, Sample{ID: id, TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
+			r.Samples = append(r.Samples, Sample{ID: id, TTFT: 250 * time.Microsecond, TPOT: 250 * time.Microsecond, InterToken: []time.Duration{250 * time.Microsecond, 250 * time.Microsecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
 		}
 		runs = append(runs, r)
 	}
@@ -36,7 +36,8 @@ func validCampaign() Campaign {
 					c.Runs[ri].Samples[si].StartedAt = now
 					now = now.Add(time.Millisecond)
 					c.Runs[ri].Samples[si].EndedAt = now
-					c.Runs[ri].Samples[si].Requests = []RequestTiming{{StartedAt: c.Runs[ri].Samples[si].StartedAt, TokenAt: []time.Time{c.Runs[ri].Samples[si].StartedAt, c.Runs[ri].Samples[si].StartedAt, now}, EndedAt: now}}
+					started := c.Runs[ri].Samples[si].StartedAt
+					c.Runs[ri].Samples[si].Requests = []RequestTiming{{StartedAt: started, TokenAt: []time.Time{started.Add(250 * time.Microsecond), started.Add(500 * time.Microsecond), started.Add(750 * time.Microsecond)}, EndedAt: now}}
 				}
 			}
 		}
@@ -85,12 +86,21 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		change func(*Campaign)
 	}{
 		{"unequal work", func(c *Campaign) { c.Runs[1].Workload.GeneratedTokens++ }},
+		{"different sampler", func(c *Campaign) { c.Runs[1].Workload.Sampler = "temperature" }},
+		{"unsupported sampler", func(c *Campaign) {
+			for i := range c.Runs {
+				c.Runs[i].Workload.Sampler = "temperature"
+			}
+		}},
 		{"too few samples", func(c *Campaign) { c.Runs[0].Samples = c.Runs[0].Samples[:1]; c.Order = Schedule(c.Runs, c.RandomSeed) }},
 		{"cpu fallback", func(c *Campaign) { c.Runs[0].Evidence.CPUFallback = true }},
 		{"unsynchronized", func(c *Campaign) { c.Runs[0].Evidence.DeviceSynchronized = false }},
 		{"non-finite throughput", func(c *Campaign) { c.Runs[0].Samples[0].TokensPerSecond = math.NaN() }},
 		{"throughput outside interval", func(c *Campaign) { c.Runs[0].Samples[0].TokensPerSecond = 100 }},
 		{"ttft outside interval", func(c *Campaign) { c.Runs[0].Samples[0].TTFT = 2 * time.Millisecond }},
+		{"forged ttft", func(c *Campaign) { c.Runs[0].Samples[0].TTFT += time.Nanosecond }},
+		{"forged tpot", func(c *Campaign) { c.Runs[0].Samples[0].TPOT += time.Nanosecond }},
+		{"forged inter-token latency", func(c *Campaign) { c.Runs[0].Samples[0].InterToken[0] += time.Nanosecond }},
 		{"missing tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierReadBytes = map[string]uint64{} }},
 		{"inferred dispatch counters", func(c *Campaign) { c.Runs[0].Samples[0].DispatchMeasured = false }},
 		{"placeholder tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierBytesMeasured = false }},
@@ -98,6 +108,9 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"double attributed dispatch", func(c *Campaign) { c.Runs[0].Samples[0].PhysicalWaves[0].Dispatches++ }},
 		{"duplicate wave member", func(c *Campaign) {
 			c.Runs[0].Samples[0].PhysicalWaves[0].Requests = append(c.Runs[0].Samples[0].PhysicalWaves[0].Requests, c.Runs[0].Samples[0].PhysicalWaves[0].Requests[0])
+		}},
+		{"wrong wave member", func(c *Campaign) {
+			c.Runs[0].Samples[0].PhysicalWaves[0].Requests[0] = c.Runs[0].Samples[0].ID + "-99@generation-1"
 		}},
 		{"different model", func(c *Campaign) { c.Runs[1].Identity.ModelSHA256 = strings.Repeat("b", 64) }},
 		{"different config", func(c *Campaign) { c.Runs[1].Identity.ConfigSHA256 = strings.Repeat("b", 64) }},
