@@ -53,3 +53,19 @@ func TestArenaPlanner(t *testing.T) {
 		t.Errorf("expected memory reuse savings, allocated %d bytes", plan.TotalBytes)
 	}
 }
+
+func TestArenaPlannerPreservesLiveBuffers(t *testing.T) {
+	g := cudair.NewGraph()
+	in := g.AddInput("in", []int{64}, cudair.Float32)
+	first := g.AddUnary("relu", in)
+	second := g.AddUnary("exp", first)
+	terminal := g.AddUnary("neg", in)
+
+	plan := cudair.PlanMemory(g)
+	if plan.Offsets[first] == plan.Offsets[second] {
+		t.Fatal("output aliases an input consumed by the same operation")
+	}
+	if plan.Offsets[second] == plan.Offsets[terminal] {
+		t.Fatal("distinct terminal outputs alias")
+	}
+}
