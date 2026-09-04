@@ -1,7 +1,9 @@
 package cudatest
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -78,12 +80,104 @@ func Require(t testing.TB, reqs ...Requirement) *cuda.Device {
 	return nil
 }
 
-// VerifyNoLeaks checks that no unreleased memory or contexts leaked during the test.
-func VerifyNoLeaks(t testing.TB) {
-	t.Helper()
-	_, _, err := driver.MemGetInfo()
-	if err != nil {
-		return // Driver not initialized or no context; skip
-	}
+type memoryTelemetry interface {
+	Synchronize() error
+	Memory() (free, total uint64, err error)
 }
 
+type deviceMemoryTelemetry struct{ device *cuda.Device }
+
+func (m deviceMemoryTelemetry) Synchronize() error {
+	return m.device.WithContext(driver.CtxSynchronize)
+}
+
+func (m deviceMemoryTelemetry) Memory() (uint64, uint64, error) {
+	var free, total uint
+	err := m.device.WithContext(func() error {
+		var err error
+		free, total, err = driver.MemGetInfo()
+		return err
+	})
+	return uint64(free), uint64(total), err
+}
+
+var memoryScopeLocks sync.Map // device ordinal -> *sync.Mutex
+
+// DeviceMemoryCheck compares free device memory before and after a test scope.
+// It does not observe contexts, modules, host allocations, or allocation
+// ownership. Check serializes participating scopes for the same device, but
+// allocations made outside cudatest can still affect its process-global
+// measurement.
+type DeviceMemoryCheck struct {
+	telemetry memoryTelemetry
+	lock      *sync.Mutex
+	baseline  uint64
+	total     uint64
+	tolerance uint64
+
+	mu   sync.Mutex
+	done bool
+}
+
+// BeginDeviceMemoryCheck synchronizes device, captures its free-memory
+// baseline, and starts a serialized check scope. tolerance is the maximum
+// permitted decrease in free device memory. The caller must call Check even
+// when the test body fails so the scope lock is released.
+func BeginDeviceMemoryCheck(device *cuda.Device, tolerance uint64) (*DeviceMemoryCheck, error) {
+	if device == nil {
+		return nil, errors.New("cudatest: nil device")
+	}
+	lock, _ := memoryScopeLocks.LoadOrStore(device.Ordinal(), new(sync.Mutex))
+	return beginDeviceMemoryCheck(deviceMemoryTelemetry{device}, lock.(*sync.Mutex), tolerance)
+}
+
+func beginDeviceMemoryCheck(telemetry memoryTelemetry, lock *sync.Mutex, tolerance uint64) (*DeviceMemoryCheck, error) {
+	if telemetry == nil || lock == nil {
+		return nil, errors.New("cudatest: invalid memory check backend")
+	}
+	lock.Lock()
+	if err := telemetry.Synchronize(); err != nil {
+		lock.Unlock()
+		return nil, fmt.Errorf("cudatest: synchronize before memory check: %w", err)
+	}
+	free, total, err := telemetry.Memory()
+	if err != nil {
+		lock.Unlock()
+		return nil, fmt.Errorf("cudatest: capture memory baseline: %w", err)
+	}
+	if total == 0 || free > total {
+		lock.Unlock()
+		return nil, errors.New("cudatest: invalid memory baseline")
+	}
+	return &DeviceMemoryCheck{telemetry: telemetry, lock: lock, baseline: free, total: total, tolerance: tolerance}, nil
+}
+
+// Check synchronizes the device and reports a retained decrease in free
+// device memory greater than the configured tolerance. Check must be called
+// exactly once.
+func (c *DeviceMemoryCheck) Check() error {
+	if c == nil {
+		return errors.New("cudatest: nil memory check")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.done {
+		return errors.New("cudatest: memory check already completed")
+	}
+	c.done = true
+	defer c.lock.Unlock()
+	if err := c.telemetry.Synchronize(); err != nil {
+		return fmt.Errorf("cudatest: synchronize after memory check: %w", err)
+	}
+	free, total, err := c.telemetry.Memory()
+	if err != nil {
+		return fmt.Errorf("cudatest: capture final memory state: %w", err)
+	}
+	if total != c.total || free > total {
+		return fmt.Errorf("cudatest: device memory telemetry changed: total %d, want %d", total, c.total)
+	}
+	if free >= c.baseline || c.baseline-free <= c.tolerance {
+		return nil
+	}
+	return fmt.Errorf("cudatest: retained device memory grew by %d bytes (tolerance %d)", c.baseline-free, c.tolerance)
+}

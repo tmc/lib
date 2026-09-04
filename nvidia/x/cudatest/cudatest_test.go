@@ -9,7 +9,15 @@ import (
 func TestRequireFilters(t *testing.T) {
 	dev := cudatest.Require(t, cudatest.MinCompute(7, 0))
 	if dev != nil {
-		defer cudatest.VerifyNoLeaks(t)
+		check, err := cudatest.BeginDeviceMemoryCheck(dev, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := check.Check(); err != nil {
+				t.Error(err)
+			}
+		}()
 		t.Logf("Acquired device: %d", dev.Ordinal())
 	}
 }
