@@ -31,6 +31,9 @@ type inferbenchSpec struct {
 	ExpectedTokenizerSHA256 string              `json:"expected_tokenizer_sha256"`
 	ExpectedConfigSHA256    string              `json:"expected_config_sha256"`
 	ExpectedSourceSHA256    string              `json:"expected_source_sha256"`
+	PeriodicSentinelPath    string              `json:"periodic_sentinel_path,omitempty"`
+	PeriodicSentinelEvery   int                 `json:"periodic_sentinel_every,omitempty"`
+	PeriodicSentinelLimit   time.Duration       `json:"periodic_sentinel_limit_ns,omitempty"`
 	SampleIDs               []string            `json:"sample_ids"`
 	Workload                inferbench.Workload `json:"workload"`
 }
@@ -226,6 +229,9 @@ func validateBenchmarkArms(spec inferbenchSpec) error {
 	if spec.Arm != "" || spec.RandomSeed == 0 || spec.RawDir == "" || len(spec.Arms) < 2 {
 		return errors.New("inferbench: incomplete multi-arm campaign")
 	}
+	if spec.PeriodicSentinelPath == "" || spec.PeriodicSentinelEvery <= 0 || spec.PeriodicSentinelLimit <= 0 {
+		return errors.New("inferbench: incomplete periodic sentinel contract")
+	}
 	if len(spec.SampleIDs) < 20 {
 		return fmt.Errorf("inferbench: only %d planned samples per arm", len(spec.SampleIDs))
 	}
@@ -289,6 +295,8 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 		}
 	}
 	interval := 0
+	sentinelSequence := 0
+	previousSentinel := ""
 	campaign, err := inferbench.Collect(plan, func(k inferbench.ScheduledSample) (inferbench.Sample, error) {
 		if err := configureBenchmarkArm(eng, k.Arm); err != nil {
 			return inferbench.Sample{}, err
@@ -299,9 +307,38 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 		}
 		return benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, k.ID)
 	}, func(raw inferbench.IntervalReceipt) error {
-		path := filepath.Join(spec.RawDir, fmt.Sprintf("%06d.json", interval))
+		index := interval
+		path := filepath.Join(spec.RawDir, fmt.Sprintf("%06d.json", index))
 		interval++
-		return inferbench.WriteJSONAtomic(path, raw)
+		if err := inferbench.WriteJSONAtomic(path, raw); err != nil {
+			return err
+		}
+		if interval%spec.PeriodicSentinelEvery != 0 && interval != len(plan.Order) {
+			return nil
+		}
+		predecessor, err := inferbench.HashFile(path)
+		if err != nil {
+			return err
+		}
+		started := time.Now().Round(0)
+		if err := benchmarkSynchronize(ctx, eng); err != nil {
+			return fmt.Errorf("inferbench: periodic sentinel: %w", err)
+		}
+		duration := time.Since(started)
+		if duration <= 0 || duration > spec.PeriodicSentinelLimit {
+			return fmt.Errorf("inferbench: periodic sentinel %d outside limit: %v", sentinelSequence, duration)
+		}
+		record := inferbench.SentinelRecord{Sequence: sentinelSequence, AfterIndex: index, CapturedAt: time.Now().Round(0), DeviceID: identity.DeviceID, PredecessorSHA256: predecessor, PreviousSHA256: previousSentinel, Duration: duration}
+		if err := inferbench.AppendSentinel(spec.PeriodicSentinelPath, record); err != nil {
+			return err
+		}
+		records, err := inferbench.ReadSentinelChain(spec.PeriodicSentinelPath, spec.RawDir, identity.DeviceID, spec.PeriodicSentinelEvery, interval)
+		if err != nil {
+			return err
+		}
+		previousSentinel = records[len(records)-1].SHA256
+		sentinelSequence++
+		return nil
 	})
 	if err != nil {
 		return err
@@ -313,6 +350,9 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 	}
 	if err := campaign.BindRawSet(spec.RawDir); err != nil {
 		return err
+	}
+	if _, err := inferbench.ReadSentinelChain(spec.PeriodicSentinelPath, spec.RawDir, identity.DeviceID, spec.PeriodicSentinelEvery, len(plan.Order)); err != nil {
+		return fmt.Errorf("inferbench: verify periodic sentinels: %w", err)
 	}
 	return inferbench.WriteJSONAtomic(spec.Output, campaign)
 }

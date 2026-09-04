@@ -196,7 +196,7 @@ func TestValidateBenchmarkArms(t *testing.T) {
 			name string
 			spec inferbenchSpec
 			ok   bool
-		}{"campaign", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", SampleIDs: benchmarkSampleIDs(20), Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, true})
+		}{"campaign", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", PeriodicSentinelPath: "sentinels.jsonl", PeriodicSentinelEvery: 10, PeriodicSentinelLimit: time.Millisecond, SampleIDs: benchmarkSampleIDs(20), Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, true})
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
