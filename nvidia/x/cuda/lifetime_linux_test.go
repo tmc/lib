@@ -6,6 +6,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -69,15 +70,60 @@ func TestStreamOperationSerializedWithDestroy(t *testing.T) {
 	}()
 	select {
 	case err := <-queryDone:
-		t.Fatalf("Query crossed concurrent Destroy: %v", err)
-	default:
+		if err == nil {
+			t.Fatal("Query crossed concurrent Destroy")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Query remained blocked during cleanup callback")
 	}
 	close(release)
 	if err := <-destroyDone; err != nil {
 		t.Fatal(err)
 	}
-	if err := <-queryDone; err == nil {
-		t.Fatal("Query after Destroy succeeded")
+}
+
+func TestWithHandleExcludesDestroy(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	submitDone := make(chan error, 1)
+	go func() {
+		submitDone <- stream.WithHandle(func(driver.Stream) error {
+			close(entered)
+			<-release
+			return nil
+		})
+	}()
+	<-entered
+	destroyDone := make(chan error, 1)
+	go func() { destroyDone <- stream.Destroy() }()
+	select {
+	case err := <-destroyDone:
+		t.Fatalf("Destroy crossed live-handle submission: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-submitDone; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-destroyDone:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Destroy remained blocked after submission returned")
+	}
+	if err := stream.WithHandle(func(driver.Stream) error { return nil }); err == nil {
+		t.Fatal("WithHandle succeeded after Destroy")
 	}
 }
 

@@ -28,6 +28,22 @@ func (s *Stream) Raw() driver.Stream {
 	return s.raw
 }
 
+// WithHandle calls fn with the live driver handle while excluding Destroy.
+// It protects only the host-side call: resources referenced by asynchronous
+// work must remain live until the stream completes. The callback must not call
+// methods on s.
+func (s *Stream) WithHandle(fn func(driver.Stream) error) error {
+	if fn == nil {
+		return errors.New("cuda: nil stream handle function")
+	}
+	s.lifeMu.RLock()
+	defer s.lifeMu.RUnlock()
+	if s.destroyed {
+		return errors.New("cuda: stream is destroyed")
+	}
+	return fn(s.raw)
+}
+
 // Device returns the device on which this stream was created.
 func (s *Stream) Device() *Device {
 	return s.device
@@ -52,14 +68,17 @@ func (s *Stream) AddCleanup(fn func()) {
 }
 
 func (s *Stream) drainCleanups() {
+	for _, fn := range s.takeCleanups() {
+		fn()
+	}
+}
+
+func (s *Stream) takeCleanups() []func() {
 	s.mu.Lock()
 	cleanups := s.cleanups
 	s.cleanups = nil
 	s.mu.Unlock()
-
-	for _, fn := range cleanups {
-		fn()
-	}
+	return cleanups
 }
 
 // Query reports whether all previously enqueued operations on the stream have completed.
@@ -98,20 +117,26 @@ func (s *Stream) query() (bool, error) {
 // active kernel finishes.
 func (s *Stream) Synchronize(ctx context.Context) error {
 	s.lifeMu.Lock()
-	defer s.lifeMu.Unlock()
 	if s.destroyed {
+		s.lifeMu.Unlock()
 		return errors.New("cuda: stream is destroyed")
 	}
 	if ctx == nil || ctx.Done() == nil {
 		if err := s.device.WithContext(s.raw.Synchronize); err != nil {
+			s.lifeMu.Unlock()
 			return fmt.Errorf("cuda: stream synchronize: %w", err)
 		}
-		s.drainCleanups()
+		cleanups := s.takeCleanups()
+		s.lifeMu.Unlock()
+		for _, fn := range cleanups {
+			fn()
+		}
 		return nil
 	}
 
 	// Check if already cancelled
 	if err := ctx.Err(); err != nil {
+		s.lifeMu.Unlock()
 		return err
 	}
 
@@ -122,15 +147,21 @@ func (s *Stream) Synchronize(ctx context.Context) error {
 	for {
 		idle, err := s.query()
 		if err != nil {
+			s.lifeMu.Unlock()
 			return err
 		}
 		if idle {
-			s.drainCleanups()
+			cleanups := s.takeCleanups()
+			s.lifeMu.Unlock()
+			for _, fn := range cleanups {
+				fn()
+			}
 			return nil
 		}
 
 		select {
 		case <-ctx.Done():
+			s.lifeMu.Unlock()
 			return ctx.Err()
 		case <-time.After(backoff):
 			backoff *= 2
@@ -168,21 +199,31 @@ func (s *Stream) WaitEvent(e *Event) error {
 // which belongs to the driver rather than to the caller. Repeated calls are safe.
 func (s *Stream) Destroy() error {
 	s.lifeMu.Lock()
-	defer s.lifeMu.Unlock()
 	if s.destroyed {
+		s.lifeMu.Unlock()
 		return nil
 	}
 	// Do not release host pinners unless completion was established.
 	if err := s.device.WithContext(s.raw.Synchronize); err != nil {
+		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream synchronize before destroy: %w", err)
 	}
-	s.drainCleanups()
+	cleanups := s.takeCleanups()
 	if s.isDefault {
+		s.lifeMu.Unlock()
+		for _, fn := range cleanups {
+			fn()
+		}
 		return nil
 	}
 	if err := s.device.WithContext(s.raw.Destroy); err != nil {
+		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}
 	s.destroyed = true
+	s.lifeMu.Unlock()
+	for _, fn := range cleanups {
+		fn()
+	}
 	return nil
 }
