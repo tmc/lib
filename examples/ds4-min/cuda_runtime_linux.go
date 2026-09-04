@@ -72,6 +72,29 @@ extern "C" __global__ void ds4_q8_0_matvec(
     __syncthreads();
   }
   if (threadIdx.x == 0) out[row] = partial[0];
+}
+
+extern "C" __global__ void ds4_rms(
+    const float *x, const float *weight, float *out,
+    unsigned int width, unsigned int groups, unsigned int weighted) {
+  const unsigned int group = blockIdx.x;
+  if (group >= groups) return;
+  __shared__ float partial[256];
+  const unsigned int offset = group * width;
+  float sum = 0.0f;
+  for (unsigned int i = threadIdx.x; i < width; i += blockDim.x) {
+    const float v = x[offset + i];
+    sum += v * v;
+  }
+  partial[threadIdx.x] = sum;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  const float inv = rsqrtf(partial[0] / float(width) + 1.0e-6f);
+  for (unsigned int i = threadIdx.x; i < width; i += blockDim.x)
+    out[offset + i] = x[offset + i] * inv * (weighted ? weight[i] : 1.0f);
 }`
 
 const (
@@ -89,6 +112,8 @@ type cudaModelRange struct {
 
 type cudaModelTensor struct {
 	name       string
+	typeID     uint32
+	dimensions []uint64
 	device     driver.DevicePtr
 	fileOffset uint64
 	bytes      uint64
@@ -118,6 +143,7 @@ type cudaFoundation struct {
 	probePtr    driver.DevicePtr
 	matrixMod   driver.Module
 	matrixFn    driver.Function
+	rmsFn       driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -246,7 +272,7 @@ func (r *cudaFoundation) tensor(name string) (cudaModelTensor, error) {
 		if err != nil {
 			return cudaModelTensor{}, fmt.Errorf("cuda: bind tensor %q: %w", name, err)
 		}
-		return cudaModelTensor{name: name, device: ptr, fileOffset: offset, bytes: bytes}, nil
+		return cudaModelTensor{name: name, typeID: tensor.typeID, dimensions: append([]uint64(nil), tensor.dimensions...), device: ptr, fileOffset: offset, bytes: bytes}, nil
 	}
 	return cudaModelTensor{}, fmt.Errorf("cuda: model has no tensor %q", name)
 }
@@ -421,25 +447,8 @@ func (r *cudaFoundation) q80Matvec(x, out cudamem.Slice[float32]) error {
 		return fmt.Errorf("cuda: Q8_0 matrix input/output lengths %d/%d, want %d/%d", x.Len(), out.Len(), r.probeCols, r.probeRows)
 	}
 	return r.device.WithContext(func() error {
-		if r.matrixFn == 0 {
-			compiled, err := nvrtcx.Compile(cudaProbeSource,
-				nvrtcx.WithName("ds4_q8_0_matvec.cu"),
-				nvrtcx.WithArch(r.major, r.minor),
-			)
-			if err != nil {
-				return fmt.Errorf("cuda: compile Q8_0 matrix: %w", err)
-			}
-			mod, err := compiled.Load(r.device)
-			if err != nil {
-				return fmt.Errorf("cuda: load Q8_0 matrix: %w", err)
-			}
-			fn, err := mod.GetFunction("ds4_q8_0_matvec")
-			if err != nil {
-				_ = mod.Unload()
-				return fmt.Errorf("cuda: find Q8_0 matrix: %w", err)
-			}
-			r.matrixMod = mod
-			r.matrixFn = fn
+		if err := r.loadMathKernels(); err != nil {
+			return err
 		}
 		if err := cudalaunch.Kernel(r.matrixFn).Grid(r.probeRows).Block(256).Launch(r.probePtr, x, out, r.probeCols, r.probeRows); err != nil {
 			return fmt.Errorf("cuda: launch Q8_0 matrix: %w", err)
@@ -449,6 +458,83 @@ func (r *cudaFoundation) q80Matvec(x, out cudamem.Slice[float32]) error {
 		}
 		return nil
 	})
+}
+
+// encodeQ80Matvec appends a matrix-vector product to the foundation's CUDA
+// stream. It does not synchronize or copy results to the host.
+func (r *cudaFoundation) encodeQ80Matvec(t cudaModelTensor, x, out cudamem.Slice[float32]) error {
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.dimensions[0]%32 != 0 ||
+		uint64(x.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
+		return fmt.Errorf("cuda: matvec %q: invalid Q8_0 tensor or input", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.matrixFn).Grid(uint32(t.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
+			t.device, x, out, uint32(t.dimensions[0]), uint32(t.dimensions[1])); err != nil {
+			return fmt.Errorf("cuda: launch matvec %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
+
+// encodeRMS appends grouped RMS normalization to the foundation's CUDA
+// stream. Weight must be an F32 vector when weighted is true.
+func (r *cudaFoundation) encodeRMS(x cudamem.Slice[float32], weight cudaModelTensor, out cudamem.Slice[float32], groups int, weighted bool) error {
+	if x.Len() == 0 || out.Len() != x.Len() || groups <= 0 || x.Len()%groups != 0 ||
+		(weighted && (weight.typeID != 0 || len(weight.dimensions) != 1 || weight.dimensions[0] != uint64(x.Len()/groups))) {
+		return fmt.Errorf("cuda: RMS: invalid input, weight, or groups")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		var weightPtr driver.DevicePtr
+		if weighted {
+			weightPtr = weight.device
+		}
+		weightedArg := uint32(0)
+		if weighted {
+			weightedArg = 1
+		}
+		if err := cudalaunch.Kernel(r.rmsFn).Grid(uint32(groups)).Block(256).On(r.device.DefaultStream()).Launch(
+			x, weightPtr, out, uint32(x.Len()/groups), uint32(groups), weightedArg); err != nil {
+			return fmt.Errorf("cuda: launch RMS: %w", err)
+		}
+		return nil
+	})
+}
+
+func (r *cudaFoundation) loadMathKernels() error {
+	if r.matrixFn != 0 && r.rmsFn != 0 {
+		return nil
+	}
+	compiled, err := nvrtcx.Compile(cudaProbeSource,
+		nvrtcx.WithName("ds4_math.cu"),
+		nvrtcx.WithArch(r.major, r.minor),
+	)
+	if err != nil {
+		return fmt.Errorf("cuda: compile math kernels: %w", err)
+	}
+	mod, err := compiled.Load(r.device)
+	if err != nil {
+		return fmt.Errorf("cuda: load math kernels: %w", err)
+	}
+	matrixFn, err := mod.GetFunction("ds4_q8_0_matvec")
+	if err != nil {
+		_ = mod.Unload()
+		return fmt.Errorf("cuda: find Q8_0 matrix: %w", err)
+	}
+	rmsFn, err := mod.GetFunction("ds4_rms")
+	if err != nil {
+		_ = mod.Unload()
+		return fmt.Errorf("cuda: find RMS: %w", err)
+	}
+	r.matrixMod = mod
+	r.matrixFn = matrixFn
+	r.rmsFn = rmsFn
+	return nil
 }
 
 // q80Row computes the first registered Q8_0 tensor row. The caller owns x and
@@ -497,6 +583,7 @@ func (r *cudaFoundation) Close() error {
 		errs = append(errs, err)
 		r.matrixMod = 0
 		r.matrixFn = 0
+		r.rmsFn = 0
 	}
 	if r.mapped.host != 0 && r.device != nil {
 		err := r.device.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })

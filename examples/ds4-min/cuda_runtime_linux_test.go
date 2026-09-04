@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"math"
 	"os"
@@ -280,6 +281,184 @@ func TestCUDAQ80Matvec(t *testing.T) {
 	}
 	t.Logf("Q8_0 tensor %q: %dx%d, %d bytes, all %d rows matched; max delta=%g limit=%g; setup=%s warm launch+sync=%s",
 		r.probeTensor, r.probeRows, r.probeCols, r.probeBytes, r.probeRows, maxDelta, maxLimit, setupElapsed, warmElapsed)
+}
+
+func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
+	path := os.Getenv("DS4_MODEL")
+	if path == "" {
+		t.Skip("DS4_MODEL is not set")
+	}
+	r, err := newCUDAFoundation(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := r.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !r.hmm {
+		t.Skip("layer projection chain requires HMM tensor views")
+	}
+
+	qa := cudaTestTensor(t, r, "blk.0.attn_q_a.weight")
+	qaNorm := cudaTestTensor(t, r, "blk.0.attn_q_a_norm.weight")
+	qb := cudaTestTensor(t, r, "blk.0.attn_q_b.weight")
+	kv := cudaTestTensor(t, r, "blk.0.attn_kv.weight")
+	kvNorm := cudaTestTensor(t, r, "blk.0.attn_kv_a_norm.weight")
+	x := make([]float32, 4096)
+	for i := range x {
+		x[i] = float32((i*37+11)%257-128) / 128
+	}
+
+	dx := cudaTestAlloc(t, r, len(x))
+	qRaw := cudaTestAlloc(t, r, int(qa.dimensions[1]))
+	qNorm := cudaTestAlloc(t, r, int(qa.dimensions[1]))
+	qHeadsRaw := cudaTestAlloc(t, r, int(qb.dimensions[1]))
+	qHeads := cudaTestAlloc(t, r, int(qb.dimensions[1]))
+	kvRaw := cudaTestAlloc(t, r, int(kv.dimensions[1]))
+	kvOut := cudaTestAlloc(t, r, int(kv.dimensions[1]))
+	if err := dx.CopyFromHost(x); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+	if err := r.encodeQ80Matvec(qa, dx, qRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeRMS(qRaw, qaNorm, qNorm, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeQ80Matvec(qb, qNorm, qHeadsRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeRMS(qHeadsRaw, cudaModelTensor{}, qHeads, 64, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeQ80Matvec(kv, dx, kvRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeRMS(kvRaw, kvNorm, kvOut, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	elapsed := time.Since(start)
+
+	gotQRaw := cudaTestRead(t, qRaw)
+	gotQNorm := cudaTestRead(t, qNorm)
+	gotQHeadsRaw := cudaTestRead(t, qHeadsRaw)
+	gotQHeads := cudaTestRead(t, qHeads)
+	gotKVRaw := cudaTestRead(t, kvRaw)
+	gotKV := cudaTestRead(t, kvOut)
+	wantQRaw := cudaTestQ80Tensor(t, r, qa, x)
+	wantQNorm := cudaTestRMS(wantQRaw, cudaTestF32Tensor(t, r, qaNorm), 1)
+	wantQHeadsRaw := cudaTestQ80Tensor(t, r, qb, wantQNorm)
+	wantQHeads := cudaTestRMS(wantQHeadsRaw, nil, 64)
+	wantKVRaw := cudaTestQ80Tensor(t, r, kv, x)
+	wantKV := cudaTestRMS(wantKVRaw, cudaTestF32Tensor(t, r, kvNorm), 1)
+	cudaTestClose(t, "attnQA", gotQRaw, wantQRaw)
+	cudaTestClose(t, "attnQA RMS", gotQNorm, wantQNorm)
+	cudaTestClose(t, "attnQB", gotQHeadsRaw, wantQHeadsRaw)
+	cudaTestClose(t, "query head RMS", gotQHeads, wantQHeads)
+	cudaTestClose(t, "attnKV", gotKVRaw, wantKVRaw)
+	cudaTestClose(t, "attnKV RMS", gotKV, wantKV)
+	t.Logf("layer 0 attention projection chain: 6 launches, 1 stream synchronization, %s", elapsed)
+}
+
+func cudaTestTensor(t *testing.T, r *cudaFoundation, name string) cudaModelTensor {
+	t.Helper()
+	tensor, err := r.tensor(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tensor
+}
+
+func cudaTestAlloc(t *testing.T, r *cudaFoundation, n int) cudamem.Slice[float32] {
+	t.Helper()
+	s, err := cudamem.Alloc[float32](r.device, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Free() })
+	return s
+}
+
+func cudaTestRead(t *testing.T, s cudamem.Slice[float32]) []float32 {
+	t.Helper()
+	v := make([]float32, s.Len())
+	if err := s.CopyToHost(v); err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+func cudaTestQ80Tensor(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, x []float32) []float32 {
+	t.Helper()
+	if tensor.typeID != 8 || len(tensor.dimensions) != 2 || uint64(len(x)) != tensor.dimensions[0] {
+		t.Fatalf("invalid Q8_0 test tensor %q", tensor.name)
+	}
+	p := r.model[tensor.fileOffset : tensor.fileOffset+tensor.bytes]
+	rowBytes := len(x) / 32 * 34
+	out := make([]float32, tensor.dimensions[1])
+	for row := range out {
+		out[row] = cudaTestQ80Row(p[row*rowBytes:], x)
+	}
+	return out
+}
+
+func cudaTestF32Tensor(t *testing.T, r *cudaFoundation, tensor cudaModelTensor) []float32 {
+	t.Helper()
+	if tensor.typeID != 0 || len(tensor.dimensions) != 1 {
+		t.Fatalf("invalid F32 test tensor %q", tensor.name)
+	}
+	p := r.model[tensor.fileOffset : tensor.fileOffset+tensor.bytes]
+	out := make([]float32, tensor.dimensions[0])
+	for i := range out {
+		out[i] = math.Float32frombits(binary.LittleEndian.Uint32(p[i*4:]))
+	}
+	return out
+}
+
+func cudaTestRMS(x, weight []float32, groups int) []float32 {
+	out := make([]float32, len(x))
+	width := len(x) / groups
+	for group := range groups {
+		var sum float32
+		for _, v := range x[group*width : (group+1)*width] {
+			sum += v * v
+		}
+		inv := float32(1 / math.Sqrt(float64(sum/float32(width)+1e-6)))
+		for i, v := range x[group*width : (group+1)*width] {
+			w := float32(1)
+			if weight != nil {
+				w = weight[i]
+			}
+			out[group*width+i] = v * inv * w
+		}
+	}
+	return out
+}
+
+func cudaTestClose(t *testing.T, name string, got, want []float32) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s length = %d, want %d", name, len(got), len(want))
+	}
+	var maxDelta float64
+	for i := range got {
+		delta := math.Abs(float64(got[i] - want[i]))
+		limit := 2e-3 + 2e-4*math.Abs(float64(want[i]))
+		if delta > maxDelta {
+			maxDelta = delta
+		}
+		if delta > limit {
+			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g)", name, i, got[i], want[i], delta, limit)
+		}
+	}
+	t.Logf("%s: %d values matched, max delta=%g", name, len(got), maxDelta)
 }
 
 func cudaTestQ80Row(p []byte, x []float32) float32 {
