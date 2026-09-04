@@ -1,3 +1,2 @@
-// Package cudaattn provides FlashAttention-2 and Grouped Query Attention (GQA)
-// causal attention primitives, JIT templates, and decode kernels.
+// Package cudaattn provides causal attention CUDA source and JIT compilation.
 package cudaattn
