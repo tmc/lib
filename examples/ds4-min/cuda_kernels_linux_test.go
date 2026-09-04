@@ -259,6 +259,70 @@ func TestCUDASwiGLUAndSum(t *testing.T) {
 	cudaTestClose(t, "sum vectors", cudaTestRead(t, dSum), wantSum)
 }
 
+func TestCUDAOutputHead(t *testing.T) {
+	path := os.Getenv("DS4_MODEL")
+	if path == "" {
+		t.Skip("DS4_MODEL is not set")
+	}
+	r, err := newCUDAFoundation(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := r.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !r.hmm {
+		t.Skip("the output head requires HMM tensor views")
+	}
+	m, err := r.bindModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state := make([]float32, 4*4096)
+	for i := range state {
+		state[i] = float32((i*41+19)%263-131) / 131
+	}
+	dState := cudaTestAlloc(t, r, len(state))
+	dMixed := cudaTestAlloc(t, r, 2*4096)
+	dLogits := cudaTestAlloc(t, r, int(m.output.weight.dimensions[1]))
+	if err := dState.CopyFromHost(state); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeOutputHead(dState, m.output, dMixed, dLogits); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	mix := cudaTestF16Matvec(t, r, m.output.hcFn, cudaTestRMS(state, nil, 1))
+	flat, normalized := cudaTestHCMix(state, mix,
+		cudaTestF32Tensor(t, r, m.output.hcScale), cudaTestF32Tensor(t, r, m.output.hcBase),
+		cudaTestF32Tensor(t, r, m.output.norm))
+	cudaTestClose(t, "output transform", cudaTestRead(t, dMixed), append(flat, normalized...))
+
+	// Checking every one of the 129280 rows on the CPU would dominate the
+	// test, so compare a leading window and require the rest to be finite.
+	const window = 64
+	got := cudaTestRead(t, dLogits)
+	weights := r.model[m.output.weight.fileOffset : m.output.weight.fileOffset+m.output.weight.bytes]
+	rowBytes := len(normalized) / 32 * 34
+	want := make([]float32, window)
+	for row := range want {
+		want[row] = cudaTestQ80Row(weights[row*rowBytes:], normalized)
+	}
+	cudaTestClose(t, "leading logits", got[:window], want)
+	for i, v := range got {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			t.Fatalf("logit %d = %g", i, v)
+		}
+	}
+	t.Logf("output head: %d logits, %d compared against the CPU reference", len(got), window)
+}
+
 // TestCUDAFloat16RoundReference checks the half round-trip reference against
 // the widening reference that the Q8_0 and F16 kernels already share. It needs
 // no device.
@@ -362,6 +426,23 @@ func cudaTestHCPost(state, block, mix, scale, base []float32) []float32 {
 		}
 	}
 	return out
+}
+
+// cudaTestHCMix mirrors the input half of ds4_hc_pre: it collapses the four
+// streams through the first four projection rows and returns that stream
+// followed by its weighted RMS norm.
+func cudaTestHCMix(state, mix, scale, base, norm []float32) (flat, normalized []float32) {
+	pre := make([]float32, 4)
+	for h := range pre {
+		pre[h] = float32(1/(1+math.Exp(-float64(mix[h]*scale[0]+base[h]))) + 1e-6)
+	}
+	flat = make([]float32, 4096)
+	for d := range flat {
+		for h := range 4 {
+			flat[d] += state[h*4096+d] * pre[h]
+		}
+	}
+	return flat, cudaTestRMS(flat, norm, 1)
 }
 
 func cudaTestHCSplit(mix, scale, base []float32) (post, comb []float32) {

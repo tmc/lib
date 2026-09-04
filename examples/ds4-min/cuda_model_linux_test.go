@@ -39,9 +39,6 @@ func TestCUDABindModel(t *testing.T) {
 		dimensions []uint64
 	}{
 		{"output norm", m.output.norm, 0, []uint64{cudaWidth}},
-		{"output HC scale", m.output.hcScale, 0, []uint64{3}},
-		{"output HC base", m.output.hcBase, 0, []uint64{24}},
-		{"output HC projection", m.output.hcFn, 1, []uint64{cudaHCWidth, 24}},
 	} {
 		if tt.tensor.typeID != tt.typeID {
 			t.Errorf("%s type = %d, want %d", tt.name, tt.tensor.typeID, tt.typeID)
@@ -56,6 +53,13 @@ func TestCUDABindModel(t *testing.T) {
 				break
 			}
 		}
+	}
+
+	if e := m.output.embedding; e.typeID != 1 || len(e.dimensions) != 2 || e.dimensions[0] != cudaWidth {
+		t.Errorf("token embedding = %+v, want an F16 matrix of %d columns", e, cudaWidth)
+	}
+	if w := m.output.weight; w.typeID != 8 || len(w.dimensions) != 2 || w.dimensions[0] != cudaWidth {
+		t.Errorf("output projection = %+v, want a Q8_0 matrix of %d columns", w, cudaWidth)
 	}
 
 	for i := range m.layers {

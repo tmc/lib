@@ -947,6 +947,41 @@ func (r *cudaFoundation) encodeHCPost(state, block cudamem.Slice[float32], hcFn,
 	})
 }
 
+// encodeOutputHead appends the final hyper-connection transform and the logits
+// projection. Mixed receives the flattened stream followed by its normalized
+// form; logits receives one score per vocabulary entry.
+//
+// The output head reuses the layer input transform: both collapse the four
+// streams through the first four projection rows and normalize the result. The
+// head's own gate and base vectors are shorter than a layer's, so its tensor
+// profile is checked here rather than in encodeHCPre.
+func (r *cudaFoundation) encodeOutputHead(state cudamem.Slice[float32], out cudaOutput, mixed, logits cudamem.Slice[float32]) error {
+	if state.Len() != 4*4096 || mixed.Len() != 2*4096 ||
+		out.hcFn.typeID != 1 || len(out.hcFn.dimensions) != 2 || out.hcFn.dimensions[0] != 4*4096 || out.hcFn.dimensions[1] < 4 ||
+		out.hcScale.typeID != 0 || len(out.hcScale.dimensions) != 1 || out.hcScale.dimensions[0] < 1 ||
+		out.hcBase.typeID != 0 || len(out.hcBase.dimensions) != 1 || out.hcBase.dimensions[0] < 4 ||
+		out.norm.typeID != 0 || len(out.norm.dimensions) != 1 || out.norm.dimensions[0] != 4096 ||
+		out.weight.typeID != 8 || len(out.weight.dimensions) != 2 || out.weight.dimensions[0] != 4096 ||
+		uint64(logits.Len()) != out.weight.dimensions[1] {
+		return fmt.Errorf("cuda: output head: invalid tensor profile")
+	}
+	normalized := mixed.Slice(4096, 2*4096)
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+			state, out.hcFn.device, out.hcScale.device, out.hcBase.device, out.norm.device, mixed); err != nil {
+			return fmt.Errorf("cuda: launch output transform: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.matrixFn).Grid(uint32(out.weight.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
+			out.weight.device, normalized, logits, uint32(out.weight.dimensions[0]), uint32(out.weight.dimensions[1])); err != nil {
+			return fmt.Errorf("cuda: launch logits: %w", err)
+		}
+		return nil
+	})
+}
+
 // encodeEmbeddingRow appends the widening of one F16 embedding row.
 func (r *cudaFoundation) encodeEmbeddingRow(t cudaModelTensor, row uint32, out cudamem.Slice[float32]) error {
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(out.Len()) != t.dimensions[0] || uint64(row) >= t.dimensions[1] {
