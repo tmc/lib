@@ -11,9 +11,9 @@ import (
 
 var nextCorrID uint64
 
-// Do calls f with a context containing labels. GPU activities, CUPTI PC samples,
-// and CUDA driver launches initiated inside f automatically inherit these labels
-// in both pprof profiles and Perfetto timeline traces.
+// Do calls f with a context containing labels and brackets the call with an
+// NVTX range when NVTX is available. Recorded GPU observations inherit labels
+// only when the caller passes the labeled context to the recording method.
 func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) {
 	pprof.Do(ctx, labels, func(labeledCtx context.Context) {
 		corrID := atomic.AddUint64(&nextCorrID, 1)
@@ -54,4 +54,3 @@ func popCorrelation(id uint64) {
 		nvtx.RangePop()
 	}
 }
-
