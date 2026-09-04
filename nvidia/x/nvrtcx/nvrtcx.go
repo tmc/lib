@@ -20,21 +20,33 @@ type CompiledModule struct {
 
 // PTX returns the compiled PTX assembly text.
 func (cm *CompiledModule) PTX() string {
+	if cm == nil {
+		return ""
+	}
 	return cm.ptx
 }
 
 // CUBIN returns the compiled CUBIN binary if compiled for a physical architecture.
 func (cm *CompiledModule) CUBIN() []byte {
-	return cm.cubin
+	if cm == nil {
+		return nil
+	}
+	return append([]byte(nil), cm.cubin...)
 }
 
 // Log returns the compiler diagnostic log.
 func (cm *CompiledModule) Log() string {
+	if cm == nil {
+		return ""
+	}
 	return cm.log
 }
 
 // Load loads the compiled module into the CUDA driver on dev.
 func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
+	if cm == nil {
+		return 0, fmt.Errorf("nvrtcx: nil compiled module")
+	}
 	if dev == nil {
 		return 0, fmt.Errorf("nvrtcx: nil device passed to Load")
 	}
@@ -66,12 +78,12 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	return mod, nil
 }
 
-
 type options struct {
 	name     string
 	flags    []string
 	headers  map[string]string
 	useCache bool
+	err      error
 }
 
 // Option configures JIT compilation.
@@ -80,6 +92,10 @@ type Option func(*options)
 // WithName specifies the virtual filename of the CUDA program.
 func WithName(name string) Option {
 	return func(o *options) {
+		if name == "" {
+			o.err = fmt.Errorf("nvrtcx: empty program name")
+			return
+		}
 		o.name = name
 	}
 }
@@ -87,6 +103,10 @@ func WithName(name string) Option {
 // WithArch configures the target compute architecture (e.g. sm_80 for major=8, minor=0).
 func WithArch(major, minor int) Option {
 	return func(o *options) {
+		if major <= 0 || minor < 0 {
+			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
+			return
+		}
 		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=compute_%d%d", major, minor))
 	}
 }
@@ -94,6 +114,10 @@ func WithArch(major, minor int) Option {
 // WithFlag adds a compiler flag to the NVRTC compilation.
 func WithFlag(flag string) Option {
 	return func(o *options) {
+		if flag == "" {
+			o.err = fmt.Errorf("nvrtcx: empty compiler flag")
+			return
+		}
 		o.flags = append(o.flags, flag)
 	}
 }
@@ -101,6 +125,10 @@ func WithFlag(flag string) Option {
 // WithHeader adds an in-memory header that can be included by the source code.
 func WithHeader(name, content string) Option {
 	return func(o *options) {
+		if name == "" {
+			o.err = fmt.Errorf("nvrtcx: empty header name")
+			return
+		}
 		if o.headers == nil {
 			o.headers = make(map[string]string)
 		}
@@ -117,12 +145,21 @@ func WithNoCache() Option {
 
 // Compile compiles the given CUDA C++ source code into a CompiledModule.
 func Compile(src string, opts ...Option) (*CompiledModule, error) {
+	if src == "" {
+		return nil, fmt.Errorf("nvrtcx: empty source")
+	}
 	cfg := options{
 		name:     "jit_program.cu",
 		useCache: true,
 	}
 	for _, opt := range opts {
+		if opt == nil {
+			return nil, fmt.Errorf("nvrtcx: nil option")
+		}
 		opt(&cfg)
+	}
+	if cfg.err != nil {
+		return nil, cfg.err
 	}
 
 	key := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
@@ -166,7 +203,10 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			return nil, fmt.Errorf("nvrtcx: compile error: %w\ncompiler log:\n%s", compileErr, log)
 		}
 
-		ptxBytes, _ := prog.GetPTX()
+		ptxBytes, err := prog.GetPTX()
+		if err != nil {
+			return nil, fmt.Errorf("nvrtcx: get PTX: %w", err)
+		}
 		cubin, _ := prog.GetCUBIN()
 
 		res := &CompiledModule{
@@ -177,10 +217,11 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		}
 
 		if cfg.useCache {
-			storeCache(key, res)
+			if err := storeCache(key, res); err != nil {
+				return nil, err
+			}
 		}
 
 		return res, nil
 	})
 }
-
