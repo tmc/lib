@@ -49,9 +49,75 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		}
 		return err
 	}
-	_ = cfg
-	_ = stdout
-	return errors.New("model execution not implemented")
+	f, err := os.Open(cfg.model)
+	if err != nil {
+		return fmt.Errorf("open model: %w", err)
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return fmt.Errorf("stat model: %w", err)
+	}
+	g, err := readGGUF(f, info.Size())
+	f.Close()
+	if err != nil {
+		return fmt.Errorf("read model: %w", err)
+	}
+	if err := validatePinnedProfile(g); err != nil {
+		return fmt.Errorf("model profile: %w", err)
+	}
+	tok, err := newTokenizer(g)
+	if err != nil {
+		return err
+	}
+	prompt, err := tok.RenderNonThinking("You are a helpful assistant", string(cfg.prompt))
+	if err != nil {
+		return fmt.Errorf("render prompt: %w", err)
+	}
+	b, closer, err := openSessionBackend(cfg)
+	if err != nil {
+		return err
+	}
+	defer closer.Close()
+	s, err := newSession(b, cfg.context, tok.eos)
+	if err != nil {
+		return err
+	}
+	if err := s.Sync(prompt); err != nil {
+		return err
+	}
+	var text textAssembler
+	for range cfg.tokens {
+		id := greedyToken(s.logits)
+		if id == tok.eos {
+			break
+		}
+		fragment, err := tok.Decode([]int{id})
+		if err != nil {
+			return err
+		}
+		out, err := text.Add(fragment)
+		if err != nil {
+			return err
+		}
+		if _, err := io.WriteString(stdout, out); err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
+		if _, err := s.Accept(id); err != nil {
+			return err
+		}
+	}
+	return text.Finish()
+}
+
+func greedyToken(logits []float32) int {
+	best := 0
+	for i := 1; i < len(logits); i++ {
+		if logits[i] > logits[best] {
+			best = i
+		}
+	}
+	return best
 }
 
 func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, error) {

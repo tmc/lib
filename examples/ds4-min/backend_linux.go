@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 )
 
 func selectBackend(name string) (string, error) {
@@ -20,4 +21,8 @@ func selectBackend(name string) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown backend %q", name)
 	}
+}
+
+func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
+	return nil, nil, fmt.Errorf("%s backend execution not implemented", cfg.backend)
 }

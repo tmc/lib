@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 )
 
 func selectBackend(name string) (string, error) {
@@ -18,4 +19,15 @@ func selectBackend(name string) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown backend %q", name)
 	}
+}
+
+func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
+	if cfg.backend != "metal" {
+		return nil, nil, errors.New("cpu backend is limited to test fixtures")
+	}
+	r, err := newMetalRuntime(cfg.model, cfg.context)
+	if err != nil {
+		return nil, nil, err
+	}
+	return r, r, nil
 }
