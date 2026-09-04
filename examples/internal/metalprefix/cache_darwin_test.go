@@ -9,7 +9,6 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/lm/kvcache"
 )
@@ -120,15 +119,15 @@ func TestCachePutBuffersRoundTrip(t *testing.T) {
 	c := testCache(t, 4096, 4)
 	tokens := []int32{1, 2, 3}
 	wantK, wantV := kv(len(tokens), 7)
-	k := make([]mempool.Slice[float32], 2)
-	v := make([]mempool.Slice[float32], 2)
+	k := make([]metalmem.Slice[float32], 2)
+	v := make([]metalmem.Slice[float32], 2)
 	for layer := range k {
 		var err error
-		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantK[layer]...))
+		k[layer], err = metalmem.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantK[layer]...))
 		if err != nil {
 			t.Fatal(err)
 		}
-		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantV[layer]...))
+		v[layer], err = metalmem.AllocFromSlice(c.cfg.Device, append([]float32{99, 99}, wantV[layer]...))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -167,15 +166,15 @@ func TestCachePutBuffersRoundTrip(t *testing.T) {
 func TestPutBuffersFailedCompletionRollsBack(t *testing.T) {
 	c := testCache(t, 4096, 4)
 	kData, vData := kv(3, 7)
-	k := make([]mempool.Slice[float32], len(kData))
-	v := make([]mempool.Slice[float32], len(vData))
+	k := make([]metalmem.Slice[float32], len(kData))
+	v := make([]metalmem.Slice[float32], len(vData))
 	for layer := range k {
 		var err error
-		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, kData[layer])
+		k[layer], err = metalmem.AllocFromSlice(c.cfg.Device, kData[layer])
 		if err != nil {
 			t.Fatal(err)
 		}
-		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, vData[layer])
+		v[layer], err = metalmem.AllocFromSlice(c.cfg.Device, vData[layer])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -255,18 +254,18 @@ func TestCacheExtendBuffersPartialBlock(t *testing.T) {
 	defer base.Release()
 	baseBlocks := base.Blocks()
 	wantK, wantV := kv(len(wantTokens), 7)
-	k := make([]mempool.Slice[float32], c.cfg.Layers)
-	v := make([]mempool.Slice[float32], c.cfg.Layers)
+	k := make([]metalmem.Slice[float32], c.cfg.Layers)
+	v := make([]metalmem.Slice[float32], c.cfg.Layers)
 	for layer := range k {
 		sourceK := append([]float32(nil), wantK[layer]...)
 		sourceV := append([]float32(nil), wantV[layer]...)
 		clear(sourceK[:len(baseTokens)*c.valuesPerToken()])
 		clear(sourceV[:len(baseTokens)*c.valuesPerToken()])
-		k[layer], err = mempool.AllocFromSlice(c.cfg.Device, sourceK)
+		k[layer], err = metalmem.AllocFromSlice(c.cfg.Device, sourceK)
 		if err != nil {
 			t.Fatal(err)
 		}
-		v[layer], err = mempool.AllocFromSlice(c.cfg.Device, sourceV)
+		v[layer], err = metalmem.AllocFromSlice(c.cfg.Device, sourceV)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -324,14 +323,14 @@ func TestCacheExtendBuffersCollisionCancellationAndStale(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := c.Stats()
-	sourceK := make([]mempool.Slice[float32], c.cfg.Layers)
-	sourceV := make([]mempool.Slice[float32], c.cfg.Layers)
+	sourceK := make([]metalmem.Slice[float32], c.cfg.Layers)
+	sourceV := make([]metalmem.Slice[float32], c.cfg.Layers)
 	for layer := range sourceK {
-		sourceK[layer], err = mempool.AllocFromSlice(c.cfg.Device, make([]float32, 8))
+		sourceK[layer], err = metalmem.AllocFromSlice(c.cfg.Device, make([]float32, 8))
 		if err != nil {
 			t.Fatal(err)
 		}
-		sourceV[layer], err = mempool.AllocFromSlice(c.cfg.Device, make([]float32, 8))
+		sourceV[layer], err = metalmem.AllocFromSlice(c.cfg.Device, make([]float32, 8))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -404,18 +403,18 @@ func TestCacheExtendBuffersEvictsLookupKeepsBaseLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantK, wantV := kv(len(targetTokens), 2)
-	sourceK := make([]mempool.Slice[float32], c.cfg.Layers)
-	sourceV := make([]mempool.Slice[float32], c.cfg.Layers)
+	sourceK := make([]metalmem.Slice[float32], c.cfg.Layers)
+	sourceV := make([]metalmem.Slice[float32], c.cfg.Layers)
 	for layer := range sourceK {
 		dataK := append([]float32(nil), wantK[layer]...)
 		dataV := append([]float32(nil), wantV[layer]...)
 		clear(dataK[:len(baseTokens)*c.valuesPerToken()])
 		clear(dataV[:len(baseTokens)*c.valuesPerToken()])
-		sourceK[layer], err = mempool.AllocFromSlice(c.cfg.Device, dataK)
+		sourceK[layer], err = metalmem.AllocFromSlice(c.cfg.Device, dataK)
 		if err != nil {
 			t.Fatal(err)
 		}
-		sourceV[layer], err = mempool.AllocFromSlice(c.cfg.Device, dataV)
+		sourceV[layer], err = metalmem.AllocFromSlice(c.cfg.Device, dataV)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -12,7 +12,6 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalattn"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/examples/internal/metalprefix"
@@ -34,8 +33,8 @@ type metalBlockRow struct {
 // and remain allocated across serving waves.
 type metalBlockWorkspace struct {
 	mu                          sync.Mutex
-	descriptors                 mempool.Slice[metalBlockDescriptor]
-	rows                        mempool.Slice[metalBlockRow]
+	descriptors                 metalmem.Slice[metalBlockDescriptor]
+	rows                        metalmem.Slice[metalBlockRow]
 	layers, capacity, maxBlocks int
 	freed                       bool
 	arena                       *metalmem.Arena
@@ -148,7 +147,7 @@ func (w *metalBlockWorkspace) prepare(cfg Config, leases []*metalprefix.Lease, p
 
 func (w *metalBlockWorkspace) encodeAttention(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, layer, batch int, pins []*metalprefix.ViewLease) {
 	ce.SetComputePipelineState(eng.pso.BlockAttn)
-	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[layer], cache.V[layer], eng.prefillAttnOut} {
+	for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, cache.K[layer], cache.V[layer], eng.prefillAttnOut} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 	}
 	descOffset := uint(layer*w.capacity*w.maxBlocks) * uint(unsafe.Sizeof(metalBlockDescriptor{}))
@@ -255,7 +254,7 @@ func RunBlockTableAttentionBatch(ctx context.Context, eng *ModelEngine, cfg Conf
 	cb := eng.dev.Queue().CommandBuffer()
 	ce := cb.ComputeCommandEncoder()
 	ce.SetComputePipelineState(eng.pso.BlockAttn)
-	for i, s := range []mempool.Slice[float32]{qbuf, kbuf, vbuf, out} {
+	for i, s := range []metalmem.Slice[float32]{qbuf, kbuf, vbuf, out} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), s.Offset(), uint(i))
 	}
 	ce.SetBufferWithOffsetAtIndex(dbuf.Buffer(), dbuf.Offset(), 4)

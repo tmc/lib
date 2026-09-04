@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/examples/internal/metalprefix"
 )
 
@@ -132,7 +132,7 @@ func testMetalBlockPrefixMatchesCold(t *testing.T, cfg Config, prefix, suffix []
 	t.Logf("partial_prefix_tokens=%d next_token=%d max_abs_logits=%g physical=%+v", len(prefix), warmToken, maxAbs, cache.Stats())
 }
 
-func sequenceSlices(slices []mempool.Slice[float32]) [][]float32 {
+func sequenceSlices(slices []metalmem.Slice[float32]) [][]float32 {
 	out := make([][]float32, len(slices))
 	for i := range slices {
 		out[i] = slices[i].HostSlice()

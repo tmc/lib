@@ -14,7 +14,6 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/lm/kvcache"
 )
@@ -100,8 +99,8 @@ type block struct {
 	start int
 	end   int
 	layer int
-	k     mempool.Slice[float32]
-	v     mempool.Slice[float32]
+	k     metalmem.Slice[float32]
+	v     metalmem.Slice[float32]
 	arena *metalmem.Arena
 	refs  int
 }
@@ -270,7 +269,7 @@ func (c *Cache) Put(ctx context.Context, tokens []int32, current int32, k, v [][
 // sourceOffset is measured in float32 values and identifies token zero in
 // every source layer. The source buffers remain the caller's responsibility
 // until PutBuffers returns.
-func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k, v []mempool.Slice[float32], sourceOffset int) error {
+func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k, v []metalmem.Slice[float32], sourceOffset int) error {
 	if ctx == nil || len(tokens) == 0 || len(k) != c.cfg.Layers || len(v) != c.cfg.Layers || sourceOffset < 0 {
 		return errors.New("metalprefix: invalid buffer prefix")
 	}
@@ -383,7 +382,7 @@ func (c *Cache) PutBuffers(ctx context.Context, tokens []int32, current int32, k
 // copying the remaining base fragment and suffix directly between Metal
 // buffers. The source buffers need contain only suffix positions at and after
 // base.Tokens; earlier positions are never read.
-func (c *Cache) ExtendBuffers(ctx context.Context, base *Lease, tokens []int32, current int32, k, v []mempool.Slice[float32], sourceOffset int) error {
+func (c *Cache) ExtendBuffers(ctx context.Context, base *Lease, tokens []int32, current int32, k, v []metalmem.Slice[float32], sourceOffset int) error {
 	if ctx == nil || base == nil || base.cache != c || len(k) != c.cfg.Layers || len(v) != c.cfg.Layers || sourceOffset < 0 {
 		return errors.New("metalprefix: invalid buffer extension")
 	}

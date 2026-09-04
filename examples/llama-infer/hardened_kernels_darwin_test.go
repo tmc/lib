@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 func TestTiledServingArgmaxEdgeSemantics(t *testing.T) {
@@ -52,22 +52,22 @@ func runTiledServingArgmax(t *testing.T, eng *ModelEngine, head []float32, half 
 	t.Helper()
 	const dim = 1
 	tiles := (len(head) + 255) / 256
-	x, err := mempool.AllocFromSlice(eng.dev, []float32{1})
+	x, err := metalmem.AllocFromSlice(eng.dev, []float32{1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer x.Free()
-	scale, err := mempool.AllocFromSlice(eng.dev, []float32{1})
+	scale, err := metalmem.AllocFromSlice(eng.dev, []float32{1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer scale.Free()
-	candidates, err := mempool.Alloc[float32](eng.dev, tiles*2)
+	candidates, err := metalmem.Alloc[float32](eng.dev, tiles*2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer candidates.Free()
-	token, err := mempool.Alloc[int32](eng.dev, 1)
+	token, err := metalmem.Alloc[int32](eng.dev, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func runTiledServingArgmax(t *testing.T, eng *ModelEngine, head []float32, half 
 	cb := eng.dev.Queue().CommandBuffer()
 	ce := cb.ComputeCommandEncoder()
 	if half {
-		norm, err := mempool.AllocFromSlice(eng.dev, []uint16{0x3c00})
+		norm, err := metalmem.AllocFromSlice(eng.dev, []uint16{0x3c00})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func runTiledServingArgmax(t *testing.T, eng *ModelEngine, head []float32, half 
 		for i, value := range head {
 			weights[i] = testFloat16(value)
 		}
-		gpuHead, err := mempool.AllocFromSlice(eng.dev, weights)
+		gpuHead, err := metalmem.AllocFromSlice(eng.dev, weights)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -94,12 +94,12 @@ func runTiledServingArgmax(t *testing.T, eng *ModelEngine, head []float32, half 
 		ce.SetBufferWithOffsetAtIndex(norm.Buffer(), 0, 1)
 		ce.SetBufferWithOffsetAtIndex(gpuHead.Buffer(), 0, 2)
 	} else {
-		norm, err := mempool.AllocFromSlice(eng.dev, []float32{1})
+		norm, err := metalmem.AllocFromSlice(eng.dev, []float32{1})
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer norm.Free()
-		gpuHead, err := mempool.AllocFromSlice(eng.dev, head)
+		gpuHead, err := metalmem.AllocFromSlice(eng.dev, head)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,12 +205,12 @@ func TestRowIndexedAttentionRejectsInvalidShapes(t *testing.T) {
 
 func runBatchedArgmax(t *testing.T, eng *ModelEngine, logits []float32, batch, vocab int) []int32 {
 	t.Helper()
-	in, err := mempool.AllocFromSlice(eng.dev, logits)
+	in, err := metalmem.AllocFromSlice(eng.dev, logits)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer in.Free()
-	out, err := mempool.Alloc[int32](eng.dev, batch)
+	out, err := metalmem.Alloc[int32](eng.dev, batch)
 	if err != nil {
 		t.Fatal(err)
 	}

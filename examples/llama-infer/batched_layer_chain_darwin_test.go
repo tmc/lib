@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 func TestBatchedLayerChainMatchesCPU(t *testing.T) {
@@ -135,7 +135,7 @@ func cpuLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, t
 			projectCPU(norm[r*d:(r+1)*d], l.WV.HostSlice(), v[r*kd:(r+1)*kd], d)
 		}
 		view := BatchedAttentionCache{
-			K: []mempool.Slice[float32]{cache.K[li]}, V: []mempool.Slice[float32]{cache.V[li]},
+			K: []metalmem.Slice[float32]{cache.K[li]}, V: []metalmem.Slice[float32]{cache.V[li]},
 			rowCapacity: cache.rowCapacity, maxSeqLen: cache.maxSeqLen, kvDim: cache.kvDim,
 		}
 		_, _, attn := cpuRowAttention(cfg, &view, q, k, v, positions, rows)

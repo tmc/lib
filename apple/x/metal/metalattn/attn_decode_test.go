@@ -10,7 +10,7 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 // referenceDecodeAttention computes single-query grouped-query attention over the
@@ -85,19 +85,19 @@ func TestCausalFlashAttentionDecodeMatchesReference(t *testing.T) {
 		t.Fatalf("NewComputePipeline: %v", err)
 	}
 
-	qBuf, err := mempool.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
+	qBuf, err := metalmem.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
 	if err != nil {
 		t.Fatalf("alloc q: %v", err)
 	}
-	kBuf, err := mempool.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+	kBuf, err := metalmem.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
 	if err != nil {
 		t.Fatalf("alloc k: %v", err)
 	}
-	vBuf, err := mempool.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+	vBuf, err := metalmem.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
 	if err != nil {
 		t.Fatalf("alloc v: %v", err)
 	}
-	outBuf, err := mempool.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
+	outBuf, err := metalmem.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
 	if err != nil {
 		t.Fatalf("alloc out: %v", err)
 	}
@@ -190,10 +190,10 @@ func TestCausalFlashAttentionDecodeUniformValues(t *testing.T) {
 		t.Fatalf("NewComputePipeline: %v", err)
 	}
 
-	qBuf, _ := mempool.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
-	kBuf, _ := mempool.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
-	vBuf, _ := mempool.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
-	outBuf, _ := mempool.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
+	qBuf, _ := metalmem.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
+	kBuf, _ := metalmem.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+	vBuf, _ := metalmem.Alloc[float32](dev, maxSeqLen*cfg.NumKVHeads*cfg.HeadDim)
+	outBuf, _ := metalmem.Alloc[float32](dev, cfg.NumQHeads*cfg.HeadDim)
 
 	fillPseudoRandom(qBuf.HostSlice(), 3)
 	fillPseudoRandom(kBuf.HostSlice(), 5)

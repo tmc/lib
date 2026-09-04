@@ -17,7 +17,6 @@ import (
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/egraph"
-	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalattn"
 	"github.com/tmc/lib/apple/x/metal/metalmegakernel"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
@@ -34,27 +33,27 @@ func init() {
 }
 
 type GPULayerWeights struct {
-	InputNorm mempool.Slice[float32]
-	PostNorm  mempool.Slice[float32]
-	WQ        mempool.Slice[float32]
-	WK        mempool.Slice[float32]
-	WV        mempool.Slice[float32]
-	WO        mempool.Slice[float32]
-	WGate     mempool.Slice[float32]
-	WUp       mempool.Slice[float32]
-	WDown     mempool.Slice[float32]
+	InputNorm metalmem.Slice[float32]
+	PostNorm  metalmem.Slice[float32]
+	WQ        metalmem.Slice[float32]
+	WK        metalmem.Slice[float32]
+	WV        metalmem.Slice[float32]
+	WO        metalmem.Slice[float32]
+	WGate     metalmem.Slice[float32]
+	WUp       metalmem.Slice[float32]
+	WDown     metalmem.Slice[float32]
 }
 
 type GPULayerWeightsF16 struct {
-	InputNorm mempool.Slice[uint16]
-	PostNorm  mempool.Slice[uint16]
-	WQ        mempool.Slice[uint16]
-	WK        mempool.Slice[uint16]
-	WV        mempool.Slice[uint16]
-	WO        mempool.Slice[uint16]
-	WGate     mempool.Slice[uint16]
-	WUp       mempool.Slice[uint16]
-	WDown     mempool.Slice[uint16]
+	InputNorm metalmem.Slice[uint16]
+	PostNorm  metalmem.Slice[uint16]
+	WQ        metalmem.Slice[uint16]
+	WK        metalmem.Slice[uint16]
+	WV        metalmem.Slice[uint16]
+	WO        metalmem.Slice[uint16]
+	WGate     metalmem.Slice[uint16]
+	WUp       metalmem.Slice[uint16]
+	WDown     metalmem.Slice[uint16]
 }
 
 // decodeKernels names every compute pipeline the decode and prefill paths
@@ -127,49 +126,49 @@ type ModelEngine struct {
 	tuner                   *DispatchTuner
 
 	// GPU-Resident Unified Memory Buffers
-	xBuf       mempool.Slice[float32]
-	normXBuf   mempool.Slice[float32]
-	qBuf       mempool.Slice[float32]
-	kBuf       mempool.Slice[float32]
-	vBuf       mempool.Slice[float32]
-	attnOutBuf mempool.Slice[float32]
-	gateBuf    mempool.Slice[float32]
-	upBuf      mempool.Slice[float32]
-	ffnActBuf  mempool.Slice[float32]
-	kCacheBuf  []mempool.Slice[float32]
-	vCacheBuf  []mempool.Slice[float32]
-	logitsBuf  mempool.Slice[float32]
-	tokBuf     mempool.Slice[int32]
+	xBuf       metalmem.Slice[float32]
+	normXBuf   metalmem.Slice[float32]
+	qBuf       metalmem.Slice[float32]
+	kBuf       metalmem.Slice[float32]
+	vBuf       metalmem.Slice[float32]
+	attnOutBuf metalmem.Slice[float32]
+	gateBuf    metalmem.Slice[float32]
+	upBuf      metalmem.Slice[float32]
+	ffnActBuf  metalmem.Slice[float32]
+	kCacheBuf  []metalmem.Slice[float32]
+	vCacheBuf  []metalmem.Slice[float32]
+	logitsBuf  metalmem.Slice[float32]
+	tokBuf     metalmem.Slice[int32]
 
 	// Reusable Batched Prefill Shape Arena Buffers
 	prefill          *metalmem.Arena
 	prefillMaxSeqLen int
-	prefillXMat      mempool.Slice[float32]
-	prefillNormXMat  mempool.Slice[float32]
-	prefillQMat      mempool.Slice[float32]
-	prefillKMat      mempool.Slice[float32]
-	prefillVMat      mempool.Slice[float32]
-	prefillAttnOut   mempool.Slice[float32]
-	prefillGateMat   mempool.Slice[float32]
-	prefillUpMat     mempool.Slice[float32]
-	prefillFFNAct    mempool.Slice[float32]
-	prefillTokIn     mempool.Slice[int32]
-	prefillRequest   mempool.Slice[uint32]
-	prefillPositions mempool.Slice[uint32]
-	prefillOffsets   mempool.Slice[uint32]
-	prefillLengths   mempool.Slice[uint32]
-	prefillRows      mempool.Slice[uint32]
-	prefillRestored  mempool.Slice[uint32]
+	prefillXMat      metalmem.Slice[float32]
+	prefillNormXMat  metalmem.Slice[float32]
+	prefillQMat      metalmem.Slice[float32]
+	prefillKMat      metalmem.Slice[float32]
+	prefillVMat      metalmem.Slice[float32]
+	prefillAttnOut   metalmem.Slice[float32]
+	prefillGateMat   metalmem.Slice[float32]
+	prefillUpMat     metalmem.Slice[float32]
+	prefillFFNAct    metalmem.Slice[float32]
+	prefillTokIn     metalmem.Slice[int32]
+	prefillRequest   metalmem.Slice[uint32]
+	prefillPositions metalmem.Slice[uint32]
+	prefillOffsets   metalmem.Slice[uint32]
+	prefillLengths   metalmem.Slice[uint32]
+	prefillRows      metalmem.Slice[uint32]
+	prefillRestored  metalmem.Slice[uint32]
 
 	// GPU Weights (FP32 or FP16)
 	isF16         bool
-	embedTable    mempool.Slice[float32]
-	finalNormW    mempool.Slice[float32]
-	lmHeadW       mempool.Slice[float32]
+	embedTable    metalmem.Slice[float32]
+	finalNormW    metalmem.Slice[float32]
+	lmHeadW       metalmem.Slice[float32]
 	layers        []GPULayerWeights
-	embedTableF16 mempool.Slice[uint16]
-	finalNormWF16 mempool.Slice[uint16]
-	lmHeadWF16    mempool.Slice[uint16]
+	embedTableF16 metalmem.Slice[uint16]
+	finalNormWF16 metalmem.Slice[uint16]
+	lmHeadWF16    metalmem.Slice[uint16]
 	layersF16     []GPULayerWeightsF16
 
 	tokenizer   Tokenizer
@@ -202,8 +201,8 @@ type BatchedQKVResult struct {
 // [layer, row, sequence, KV-head, head-dimension] order.
 type BatchedAttentionCache struct {
 	mu                            sync.Mutex
-	K, V                          []mempool.Slice[float32]
-	positions, rows               mempool.Slice[uint32]
+	K, V                          []metalmem.Slice[float32]
+	positions, rows               metalmem.Slice[uint32]
 	rowCapacity, maxSeqLen, kvDim int
 	freed                         bool
 	arena                         *metalmem.Arena
@@ -216,8 +215,8 @@ func (eng *ModelEngine) NewBatchedAttentionCache(cfg Config, rowCapacity int) (*
 	}
 	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
 	c := &BatchedAttentionCache{rowCapacity: rowCapacity, maxSeqLen: cfg.MaxSeqLen, kvDim: cfg.NumKVHeads * cfg.HeadDim, arena: a}
-	c.K = make([]mempool.Slice[float32], cfg.NumLayers)
-	c.V = make([]mempool.Slice[float32], cfg.NumLayers)
+	c.K = make([]metalmem.Slice[float32], cfg.NumLayers)
+	c.V = make([]metalmem.Slice[float32], cfg.NumLayers)
 	for l := range cfg.NumLayers {
 		c.K[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("k[%d]", l), rowCapacity*cfg.MaxSeqLen*c.kvDim)
 		if err := a.Err(); err != nil {
@@ -342,9 +341,9 @@ type SamplerConfig struct {
 // In particular, logits are allocated once rather than B*vocab on every call.
 type BatchedModelTail struct {
 	mu                       sync.Mutex
-	norm, logits             mempool.Slice[float32]
-	scale, candidates        mempool.Slice[float32]
-	tokens                   mempool.Slice[int32]
+	norm, logits             metalmem.Slice[float32]
+	scale, candidates        metalmem.Slice[float32]
+	tokens                   metalmem.Slice[int32]
 	capacity, dim, vocabSize int
 	freed                    bool
 	arena                    *metalmem.Arena
@@ -487,7 +486,7 @@ func RunBatchedModelTailFromChain(eng *ModelEngine, cfg Config, tail *BatchedMod
 	return tail.runBuffer(eng, cfg, eng.prefillXMat, b, samplers)
 }
 
-func validateBatchedTail(eng *ModelEngine, cfg Config, t *BatchedModelTail, input mempool.Slice[float32], b int, samplers []SamplerConfig) error {
+func validateBatchedTail(eng *ModelEngine, cfg Config, t *BatchedModelTail, input metalmem.Slice[float32], b int, samplers []SamplerConfig) error {
 	if eng == nil || eng.dev == nil || t == nil || b <= 0 || input.Len() < b*cfg.Dim {
 		return errors.New("batched model tail: invalid device input")
 	}
@@ -505,7 +504,7 @@ func validateBatchedTail(eng *ModelEngine, cfg Config, t *BatchedModelTail, inpu
 	return nil
 }
 
-func encodeBatchedTail(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, t *BatchedModelTail, input mempool.Slice[float32], b int) {
+func encodeBatchedTail(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, t *BatchedModelTail, input metalmem.Slice[float32], b int) {
 	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
 	ce.SetComputePipelineState(eng.pso.RMSNormScale)
 	ce.SetBufferWithOffsetAtIndex(input.Buffer(), 0, 0)
@@ -542,7 +541,7 @@ func encodeBatchedTail(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg 
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
 }
 
-func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool.Slice[float32], b int, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input metalmem.Slice[float32], b int, samplers []SamplerConfig) (BatchedModelTailResult, error) {
 	if err := validateBatchedTail(eng, cfg, t, input, b, samplers); err != nil {
 		return BatchedModelTailResult{}, err
 	}
@@ -602,7 +601,7 @@ func encodeQKVProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l
 			ce.SetBufferWithOffsetAtIndex(l.WK.Buffer(), 0, 2)
 			ce.SetBufferWithOffsetAtIndex(l.WV.Buffer(), 0, 3)
 		}
-		for i, out := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat} {
+		for i, out := range []metalmem.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat} {
 			ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, uint(i+4))
 		}
 		metal.SetScalar(ce, uint32(b), 7)
@@ -613,7 +612,7 @@ func encodeQKVProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l
 		return
 	}
 	for pi, p := range []struct {
-		out   mempool.Slice[float32]
+		out   metalmem.Slice[float32]
 		width int
 	}{{eng.prefillQMat, cfg.NumHeads * cfg.HeadDim}, {eng.prefillKMat, cfg.NumKVHeads * cfg.HeadDim}, {eng.prefillVMat, cfg.NumKVHeads * cfg.HeadDim}} {
 		if eng.isF16 {
@@ -623,9 +622,9 @@ func encodeQKVProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, l
 		}
 		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
 		if eng.isF16 {
-			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[uint16]{lf.WQ, lf.WK, lf.WV}[pi].Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex([]metalmem.Slice[uint16]{lf.WQ, lf.WK, lf.WV}[pi].Buffer(), 0, 1)
 		} else {
-			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[float32]{l.WQ, l.WK, l.WV}[pi].Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex([]metalmem.Slice[float32]{l.WQ, l.WK, l.WV}[pi].Buffer(), 0, 1)
 		}
 		ce.SetBufferWithOffsetAtIndex(p.out.Buffer(), 0, 2)
 		metal.SetScalar(ce, uint32(b), 3)
@@ -659,7 +658,7 @@ func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*2*cfg.HiddenDim), metal.Threads(128))
 		return
 	}
-	for pi, out := range []mempool.Slice[float32]{eng.prefillGateMat, eng.prefillUpMat} {
+	for pi, out := range []metalmem.Slice[float32]{eng.prefillGateMat, eng.prefillUpMat} {
 		if eng.isF16 {
 			ce.SetComputePipelineState(eng.pso.BatchedGEMMH)
 		} else {
@@ -667,9 +666,9 @@ func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine
 		}
 		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
 		if eng.isF16 {
-			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[uint16]{lf.WGate, lf.WUp}[pi].Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex([]metalmem.Slice[uint16]{lf.WGate, lf.WUp}[pi].Buffer(), 0, 1)
 		} else {
-			ce.SetBufferWithOffsetAtIndex([]mempool.Slice[float32]{l.WGate, l.WUp}[pi].Buffer(), 0, 1)
+			ce.SetBufferWithOffsetAtIndex([]metalmem.Slice[float32]{l.WGate, l.WUp}[pi].Buffer(), 0, 1)
 		}
 		ce.SetBufferWithOffsetAtIndex(out.Buffer(), 0, 2)
 		metal.SetScalar(ce, uint32(b), 3)
@@ -819,7 +818,7 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
 		encodeQKVProjections(ce, eng, l, lf, cfg, b)
 		ce.SetComputePipelineState(eng.pso.RowRoPE)
-		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
+		for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 		}
 		ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 5)
@@ -1027,10 +1026,10 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(128))
 		encodeQKVProjections(ce, eng, l, lf, cfg, n)
 		ce.SetComputePipelineState(eng.pso.SegmentedRoPE)
-		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
+		for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[li], cache.V[li]} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 		}
-		for i, s := range []mempool.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
+		for i, s := range []metalmem.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(5+i))
 		}
 		metal.SetScalar(ce, nv, 11)
@@ -1043,10 +1042,10 @@ func RunSegmentedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, c
 		metal.SetScalar(ce, uint32(cache.rowCapacity), 18)
 		ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(1))
 		ce.SetComputePipelineState(eng.pso.SegmentedAttn)
-		for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[li], cache.V[li], eng.prefillAttnOut} {
+		for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, cache.K[li], cache.V[li], eng.prefillAttnOut} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 		}
-		for i, s := range []mempool.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
+		for i, s := range []metalmem.Slice[uint32]{eng.prefillRequest, eng.prefillPositions, eng.prefillOffsets, eng.prefillLengths, eng.prefillRows, eng.prefillRestored} {
 			ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(4+i))
 		}
 		metal.SetScalar(ce, nv, 10)
@@ -1195,7 +1194,7 @@ func RunBatchedLayer(eng *ModelEngine, cfg Config, layer int, cache *BatchedAtte
 	metal.SetScalar(ce, d, 4)
 	metal.SetScalar(ce, eps, 5)
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
-	for _, p := range []struct{ w, out mempool.Slice[float32] }{{l.WGate, eng.prefillGateMat}, {l.WUp, eng.prefillUpMat}} {
+	for _, p := range []struct{ w, out metalmem.Slice[float32] }{{l.WGate, eng.prefillGateMat}, {l.WUp, eng.prefillUpMat}} {
 		ce.SetComputePipelineState(eng.pso.BatchedGEMM)
 		ce.SetBufferWithOffsetAtIndex(eng.prefillNormXMat.Buffer(), 0, 0)
 		ce.SetBufferWithOffsetAtIndex(p.w.Buffer(), 0, 1)
@@ -1276,7 +1275,7 @@ func RunBatchedAttention(eng *ModelEngine, cfg Config, layer int, cache *Batched
 	enc := eng.dev.Queue().CommandBuffer()
 	ce := enc.ComputeCommandEncoder()
 	ce.SetComputePipelineState(eng.pso.RowRoPE)
-	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
+	for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 	}
 	ce.SetBufferWithOffsetAtIndex(cache.positions.Buffer(), 0, 5)
@@ -1372,10 +1371,10 @@ func RunSegmentedAttention(ctx context.Context, eng *ModelEngine, cfg Config, la
 	cb := eng.dev.Queue().CommandBuffer()
 	ce := cb.ComputeCommandEncoder()
 	ce.SetComputePipelineState(eng.pso.SegmentedRoPE)
-	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
+	for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, eng.prefillKMat, eng.prefillVMat, cache.K[layer], cache.V[layer]} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 	}
-	for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+	for i, s := range []metalmem.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(5+i))
 	}
 	metal.SetScalar(ce, uint32(n), 11)
@@ -1388,10 +1387,10 @@ func RunSegmentedAttention(ctx context.Context, eng *ModelEngine, cfg Config, la
 	metal.SetScalar(ce, uint32(cache.rowCapacity), 18)
 	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(n), metal.Threads(1))
 	ce.SetComputePipelineState(eng.pso.SegmentedAttn)
-	for i, s := range []mempool.Slice[float32]{eng.prefillQMat, cache.K[layer], cache.V[layer], eng.prefillAttnOut} {
+	for i, s := range []metalmem.Slice[float32]{eng.prefillQMat, cache.K[layer], cache.V[layer], eng.prefillAttnOut} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(i))
 	}
-	for i, s := range []mempool.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
+	for i, s := range []metalmem.Slice[uint32]{requestIndex, positions, offsets, lengths, rows, restored} {
 		ce.SetBufferWithOffsetAtIndex(s.Buffer(), 0, uint(4+i))
 	}
 	metal.SetScalar(ce, uint32(n), 10)
@@ -1476,7 +1475,7 @@ func RunBatchedQKV(eng *ModelEngine, cfg Config, layer int, tokens []int32, posi
 	metal.SetScalar(enc, eps, 5)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(len(tokens)), metal.Threads(128))
 	for _, projection := range []struct {
-		weight, output mempool.Slice[float32]
+		weight, output metalmem.Slice[float32]
 		width          uint32
 	}{
 		{l.WQ, eng.prefillQMat, qd}, {l.WK, eng.prefillKMat, kd}, {l.WV, eng.prefillVMat, kd},
@@ -1762,8 +1761,8 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	tokBuf := metalmem.AllocIn[int32](mem, "token", 1)
 
 	kvPerLayer := cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim
-	kCacheBuf := make([]mempool.Slice[float32], cfg.NumLayers)
-	vCacheBuf := make([]mempool.Slice[float32], cfg.NumLayers)
+	kCacheBuf := make([]metalmem.Slice[float32], cfg.NumLayers)
+	vCacheBuf := make([]metalmem.Slice[float32], cfg.NumLayers)
 	for l := range cfg.NumLayers {
 		kCacheBuf[l] = metalmem.AllocIn[float32](mem, fmt.Sprintf("kCache[%d]", l), kvPerLayer)
 		vCacheBuf[l] = metalmem.AllocIn[float32](mem, fmt.Sprintf("vCache[%d]", l), kvPerLayer)
@@ -1777,10 +1776,10 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	var consumption CheckpointReceipt
 	isF16 := cfg.Precision == "f16"
 
-	var embedTable, finalNormW, lmHeadW mempool.Slice[float32]
+	var embedTable, finalNormW, lmHeadW metalmem.Slice[float32]
 	gpuLayers := make([]GPULayerWeights, cfg.NumLayers)
 
-	var embedTableF16, finalNormWF16, lmHeadWF16 mempool.Slice[uint16]
+	var embedTableF16, finalNormWF16, lmHeadWF16 metalmem.Slice[uint16]
 	gpuLayersF16 := make([]GPULayerWeightsF16, cfg.NumLayers)
 
 	if cfg.ModelPath != "" {
@@ -1822,14 +1821,14 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		}
 
 		if isF16 {
-			upload := func(name string) (mempool.Slice[uint16], error) {
+			upload := func(name string) (metalmem.Slice[uint16], error) {
 				data, err := w.TensorF16(name)
 				if err != nil {
-					return mempool.Slice[uint16]{}, err
+					return metalmem.Slice[uint16]{}, err
 				}
 				s := metalmem.UploadIn(mem, name, data)
 				if err := mem.Err(); err != nil {
-					return mempool.Slice[uint16]{}, err
+					return metalmem.Slice[uint16]{}, err
 				}
 				return s, nil
 			}
@@ -1905,14 +1904,14 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 				}
 			}
 		} else {
-			upload := func(name string) (mempool.Slice[float32], error) {
+			upload := func(name string) (metalmem.Slice[float32], error) {
 				data, err := w.TensorFloat32(name)
 				if err != nil {
-					return mempool.Slice[float32]{}, err
+					return metalmem.Slice[float32]{}, err
 				}
 				s := metalmem.UploadIn(mem, name, data)
 				if err := mem.Err(); err != nil {
-					return mempool.Slice[float32]{}, err
+					return metalmem.Slice[float32]{}, err
 				}
 				return s, nil
 			}
@@ -2159,8 +2158,8 @@ func runPlatform(cfg Config) error {
 
 // SequenceKVCache holds isolated per-sequence Metal KV-cache allocations.
 type SequenceKVCache struct {
-	KCache []mempool.Slice[float32]
-	VCache []mempool.Slice[float32]
+	KCache []metalmem.Slice[float32]
+	VCache []metalmem.Slice[float32]
 	arena  *metalmem.Arena
 }
 
@@ -2170,8 +2169,8 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 		return nil, errors.New("new sequence kv: nil engine")
 	}
 	a := metalmem.NewTrackedArena(eng.dev, eng.memory)
-	kCache := make([]mempool.Slice[float32], cfg.NumLayers)
-	vCache := make([]mempool.Slice[float32], cfg.NumLayers)
+	kCache := make([]metalmem.Slice[float32], cfg.NumLayers)
+	vCache := make([]metalmem.Slice[float32], cfg.NumLayers)
 	elemCount := cfg.MaxSeqLen * cfg.NumKVHeads * cfg.HeadDim
 	for l := 0; l < cfg.NumLayers; l++ {
 		kCache[l] = metalmem.AllocIn[float32](a, fmt.Sprintf("k[%d]", l), elemCount)
@@ -2235,7 +2234,7 @@ func ExecutePlan(
 	eng *ModelEngine,
 	plan *ExecutionPlan,
 	cfg Config,
-	kCache, vCache []mempool.Slice[float32],
+	kCache, vCache []metalmem.Slice[float32],
 	tokenID int32,
 	pos int,
 	isLast bool,
@@ -2252,8 +2251,8 @@ func ExecutePlanWithLogits(
 	eng *ModelEngine,
 	plan *ExecutionPlan,
 	cfg Config,
-	kCache, vCache []mempool.Slice[float32],
-	logitsBuf mempool.Slice[float32],
+	kCache, vCache []metalmem.Slice[float32],
+	logitsBuf metalmem.Slice[float32],
 	tokenID int32,
 	pos int,
 	isLast bool,
@@ -2712,14 +2711,14 @@ func ExecutePlanWithLogits(
 	return nil
 }
 
-func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], tokenID int32, pos int, isLast bool) error {
+func encodeForwardStepWithKV(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []metalmem.Slice[float32], tokenID int32, pos int, isLast bool) error {
 	if eng == nil {
 		return errors.New("encode forward step: nil engine")
 	}
 	return encodeForwardStepWithKVAndLogits(enc, eng, cfg, kCache, vCache, eng.logitsBuf, tokenID, pos, isLast)
 }
 
-func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []mempool.Slice[float32], logitsBuf mempool.Slice[float32], tokenID int32, pos int, isLast bool) error {
+func encodeForwardStepWithKVAndLogits(enc apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, kCache, vCache []metalmem.Slice[float32], logitsBuf metalmem.Slice[float32], tokenID int32, pos int, isLast bool) error {
 	if eng == nil {
 		return errors.New("encode forward step: nil engine")
 	}
@@ -2920,11 +2919,11 @@ func encodeBatchedPrefillWithKV(
 	enc apple.MTLComputeCommandEncoder,
 	eng *ModelEngine,
 	cfg Config,
-	kCache, vCache []mempool.Slice[float32],
+	kCache, vCache []metalmem.Slice[float32],
 	promptTokens []int32,
 	startPos int,
-	xMat, normXMat, qMat, kMat, vMat, attnOutMat, gateMat, upMat, ffnActMat mempool.Slice[float32],
-	tokInBuf mempool.Slice[int32],
+	xMat, normXMat, qMat, kMat, vMat, attnOutMat, gateMat, upMat, ffnActMat metalmem.Slice[float32],
+	tokInBuf metalmem.Slice[int32],
 ) {
 	seqLen := len(promptTokens)
 	if seqLen == 0 {
@@ -3449,17 +3448,17 @@ func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCach
 	}
 
 	dev := eng.dev
-	tokOutBuf, err := mempool.Alloc[int32](dev, batchSize)
+	tokOutBuf, err := metalmem.Alloc[int32](dev, batchSize)
 	if err != nil {
 		return nil, fmt.Errorf("alloc batch token output: %w", err)
 	}
 	defer tokOutBuf.Free()
 
-	var batchLogits []mempool.Slice[float32]
+	var batchLogits []metalmem.Slice[float32]
 	if batchSize > 1 {
-		batchLogits = make([]mempool.Slice[float32], batchSize)
+		batchLogits = make([]metalmem.Slice[float32], batchSize)
 		for b := 0; b < batchSize; b++ {
-			buf, err := mempool.Alloc[float32](dev, cfg.VocabSize)
+			buf, err := metalmem.Alloc[float32](dev, cfg.VocabSize)
 			if err != nil {
 				for i := 0; i < b; i++ {
 					batchLogits[i].Free()

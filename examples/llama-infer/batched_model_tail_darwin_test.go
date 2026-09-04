@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 func TestBatchedModelTailMatchesCPUAndSequentialGPU(t *testing.T) {
@@ -183,22 +183,22 @@ func cpuModelTail(eng *ModelEngine, cfg Config, hidden []float32) ([]float32, []
 
 func sequentialGPUTail(t *testing.T, eng *ModelEngine, cfg Config, hidden []float32) ([]float32, int32) {
 	t.Helper()
-	x, err := mempool.Alloc[float32](eng.dev, cfg.Dim)
+	x, err := metalmem.Alloc[float32](eng.dev, cfg.Dim)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer x.Free()
-	norm, err := mempool.Alloc[float32](eng.dev, cfg.Dim)
+	norm, err := metalmem.Alloc[float32](eng.dev, cfg.Dim)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer norm.Free()
-	logits, err := mempool.Alloc[float32](eng.dev, cfg.VocabSize)
+	logits, err := metalmem.Alloc[float32](eng.dev, cfg.VocabSize)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer logits.Free()
-	token, err := mempool.Alloc[int32](eng.dev, 1)
+	token, err := metalmem.Alloc[int32](eng.dev, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

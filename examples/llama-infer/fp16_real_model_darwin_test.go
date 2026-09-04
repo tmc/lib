@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
 
@@ -163,7 +163,7 @@ func compareTailCeiling(t *testing.T, eng *ModelEngine, cfg Config) {
 		t.Fatal(err)
 	}
 	diagnosticElapsed := time.Since(diagnosticStart)
-	input, err := mempool.AllocFromSlice(eng.dev, hidden)
+	input, err := metalmem.AllocFromSlice(eng.dev, hidden)
 	if err != nil {
 		t.Fatal(err)
 	}

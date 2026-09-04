@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 )
 
@@ -137,8 +137,8 @@ func TestRealCheckpointWeightsJoinEngineLifetime(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load checkpoint: %v", err)
 			}
-			var embed, tied mempool.Slice[float32]
-			var embedF16, tiedF16 mempool.Slice[uint16]
+			var embed, tied metalmem.Slice[float32]
+			var embedF16, tiedF16 metalmem.Slice[uint16]
 			if eng.isF16 {
 				embedF16, tiedF16 = eng.embedTableF16, eng.lmHeadWF16
 				if embedF16.Buffer() == nil || tiedF16.Buffer() == nil || embedF16.Buffer().GetID() != tiedF16.Buffer().GetID() {
