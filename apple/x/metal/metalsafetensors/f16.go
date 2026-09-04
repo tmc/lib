@@ -25,6 +25,10 @@ func (w *Weights) TensorF16(name string) ([]uint16, error) {
 		return nil, fmt.Errorf("metalsafetensors: invalid offset range [%d, %d]", start, end)
 	}
 	raw := w.dataMMap[start:end]
+	elemSize, ok := tensorElementSize(info.DType)
+	if !ok || uint64(len(raw))%elemSize != 0 {
+		return nil, fmt.Errorf("metalsafetensors: tensor %q: invalid %s byte length %d", name, info.DType, len(raw))
+	}
 
 	switch info.DType {
 	case "F16":
