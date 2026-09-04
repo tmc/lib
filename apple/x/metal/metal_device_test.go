@@ -53,6 +53,15 @@ func TestDeviceCloseInvalidatesOwnedHandles(t *testing.T) {
 	if _, err := dev.AllocBuffer(4); !errors.Is(err, libmetal.ErrClosed) {
 		t.Fatalf("AllocBuffer after Close = %v, want ErrClosed", err)
 	}
+	if _, err := dev.AllocBufferBytes([]byte{1, 2, 3, 4}); !errors.Is(err, libmetal.ErrClosed) {
+		t.Fatalf("AllocBufferBytes after Close = %v, want ErrClosed", err)
+	}
+	if _, err := dev.AllocBufferBytes(nil); !errors.Is(err, libmetal.ErrClosed) {
+		t.Fatalf("empty AllocBufferBytes after Close = %v, want ErrClosed", err)
+	}
+	if _, err := dev.NewComputePipeline(lib, "ownership_noop"); !errors.Is(err, libmetal.ErrClosed) {
+		t.Fatalf("NewComputePipeline after Close = %v, want ErrClosed", err)
+	}
 }
 
 func TestDeviceConcurrentCompileClose(t *testing.T) {
