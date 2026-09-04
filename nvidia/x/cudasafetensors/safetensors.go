@@ -3,6 +3,7 @@ package cudasafetensors
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -317,9 +318,21 @@ type TensorProvider interface {
 
 // LoadSlice allocates device memory on dev and copies tensor data to GPU from any TensorProvider.
 func LoadSlice[T any](provider TensorProvider, name string, dev *cuda.Device) (cudamem.Slice[T], error) {
+	return loadSlice(provider, name, func(length int) (cudamem.Slice[T], error) {
+		return cudamem.Alloc[T](dev, length)
+	})
+}
+
+type deviceAllocation[T any] interface {
+	CopyFromHost([]T) error
+	Free() error
+}
+
+func loadSlice[T any, A deviceAllocation[T]](provider TensorProvider, name string, alloc func(int) (A, error)) (A, error) {
+	var zero A
 	rawBytes, info, err := provider.TensorBytes(name)
 	if err != nil {
-		return cudamem.Slice[T]{}, err
+		return zero, err
 	}
 
 	var t T
@@ -328,25 +341,27 @@ func LoadSlice[T any](provider TensorProvider, name string, dev *cuda.Device) (c
 		elemSize = 1
 	}
 	if !compatibleStorage(reflect.TypeOf(t), info.DType) {
-		return cudamem.Slice[T]{}, fmt.Errorf("cudasafetensors: tensor %s dtype %s is incompatible with %T storage", info.Name, info.DType, t)
+		return zero, fmt.Errorf("cudasafetensors: tensor %s dtype %s is incompatible with %T storage", info.Name, info.DType, t)
 	}
 
 	numElements := len(rawBytes) / elemSize
 	if numElements == 0 {
-		return cudamem.Slice[T]{}, fmt.Errorf("cudasafetensors: zero elements for tensor %s", info.Name)
+		return zero, fmt.Errorf("cudasafetensors: zero elements for tensor %s", info.Name)
 	}
 
-	deviceSlice, err := cudamem.Alloc[T](dev, numElements)
+	deviceSlice, err := alloc(numElements)
 	if err != nil {
-		return cudamem.Slice[T]{}, fmt.Errorf("cudasafetensors: alloc device memory: %w", err)
+		return zero, fmt.Errorf("cudasafetensors: alloc device memory: %w", err)
 	}
 
 	// Cast rawBytes to []T
 	hostSlice := unsafe.Slice((*T)(unsafe.Pointer(&rawBytes[0])), numElements)
 
 	if err := deviceSlice.CopyFromHost(hostSlice); err != nil {
-		_ = deviceSlice.Free()
-		return cudamem.Slice[T]{}, fmt.Errorf("cudasafetensors: copy to device: %w", err)
+		if freeErr := deviceSlice.Free(); freeErr != nil {
+			err = errors.Join(err, fmt.Errorf("free allocation: %w", freeErr))
+		}
+		return zero, fmt.Errorf("cudasafetensors: copy to device: %w", err)
 	}
 
 	return deviceSlice, nil
