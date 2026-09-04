@@ -268,8 +268,8 @@ func TestDecodeFailedCompletionFailsWaveAndSuppressesOutput(t *testing.T) {
 		}
 	}
 	wantErr := &libmetal.CommandBufferError{Failure: libmetal.CommandBufferFailed, Status: apple.MTLCommandBufferStatusError, DeviceTerminal: true}
-	adapter.prefixes.runLeased = func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, []int32, []int, []int) (BatchedLayerChainResult, error) {
-		return BatchedLayerChainResult{}, wantErr
+	adapter.prefixes.decode = func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, *BatchedModelTail, []SamplerConfig, []int32, []int, []int) (BatchedLayerChainResult, BatchedModelTailResult, error) {
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, wantErr
 	}
 	beforeFailure := adapter.physical.Snapshot()
 	results := adapter.DecodeBatch(t.Context(), states)
@@ -440,7 +440,7 @@ func TestHTTPFullModelBatchWidths(t *testing.T) {
 		}
 		sharedDecode := false
 		for _, wave := range waves {
-			if wave.Kind == "decode-chain" && len(wave.Requests) == width {
+			if wave.Kind == "decode-chain-tail" && len(wave.Requests) == width {
 				sharedDecode = true
 			}
 		}

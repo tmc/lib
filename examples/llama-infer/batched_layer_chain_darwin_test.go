@@ -44,6 +44,79 @@ func TestBatchedLayerChainMatchesCPU(t *testing.T) {
 	}
 }
 
+func TestBatchedDecodeChainTailMatchesSeparate(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.MaxSeqLen = 129
+	eng, err := GetOrCompileEngine(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	separate, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer separate.Free()
+	combined, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer combined.Free()
+	cpuCache, err := eng.NewBatchedAttentionCache(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cpuCache.Free()
+	fillAttentionCache(separate, cfg)
+	fillAttentionCache(combined, cfg)
+	fillAttentionCache(cpuCache, cfg)
+	tokens := []int32{17, 93}
+	positions := []int{5, 128}
+	rows := []int{1, 0}
+	wantCPU := cpuLayerChain(eng, cfg, cpuCache, tokens, positions, rows)
+
+	wantChain, err := RunBatchedLayerChain(eng, cfg, separate, tokens, positions, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTail, err := eng.NewBatchedModelTail(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wantTail.Free()
+	want, err := RunBatchedModelTailFromChain(eng, cfg, wantTail, wantChain, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gotTail, err := eng.NewBatchedModelTail(cfg, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gotTail.Free()
+	gotChain, got, err := runBatchedLayerChain(t.Context(), eng, cfg, combined, nil, nil, gotTail, nil, tokens, positions, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotChain.Dispatches != 1+9*cfg.NumLayers || got.Dispatches != 3 {
+		t.Fatalf("dispatches chain=%d tail=%d", gotChain.Dispatches, got.Dispatches)
+	}
+	checkClose(t, "combined hidden", gotChain.Hidden, wantChain.Hidden, 1e-6)
+	checkClose(t, "combined cpu hidden", gotChain.Hidden, wantCPU, 9e-3)
+	wantCPUTokens := cpuModelTailTokens(eng, cfg, gotChain.Hidden)
+	for i := range got.Tokens {
+		if got.Tokens[i] != want.Tokens[i] {
+			t.Fatalf("token %d=%d, want %d", i, got.Tokens[i], want.Tokens[i])
+		}
+		if got.Tokens[i] != wantCPUTokens[i] {
+			t.Fatalf("token %d=%d, CPU=%d", i, got.Tokens[i], wantCPUTokens[i])
+		}
+	}
+	for layer := range combined.K {
+		checkClose(t, "combined k", combined.K[layer].HostSlice(), separate.K[layer].HostSlice(), 1e-6)
+		checkClose(t, "combined v", combined.V[layer].HostSlice(), separate.V[layer].HostSlice(), 1e-6)
+	}
+}
+
 func cpuLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) []float32 {
 	b, d, h := len(tokens), cfg.Dim, cfg.HiddenDim
 	qd, kd := cfg.NumHeads*cfg.HeadDim, cfg.NumKVHeads*cfg.HeadDim

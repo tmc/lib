@@ -559,19 +559,12 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 		}
 		tokens[i], positions[i], rows[i], samplers[i], prefixes[i] = state.Current, state.Position, sequence.row, sampler, sequence.prefix
 	}
-	chain, err := a.prefixes.Run(ctx, a.engine, a.cfg, a.cache, prefixes, tokens, positions, rows)
+	chain, tail, err := a.prefixes.Decode(ctx, a.engine, a.cfg, a.cache, prefixes, a.tail, samplers, tokens, positions, rows)
 	if err != nil {
 		return batchError(results, err)
 	}
 	members := stateRequestIDs(states)
-	if err := a.recordPhysical("decode-chain", members, uint64(chain.Dispatches), nil, nil); err != nil {
-		return batchError(results, err)
-	}
-	tail, err := RunBatchedModelTailFromChain(a.engine, a.cfg, a.tail, chain, samplers)
-	if err != nil {
-		return batchError(results, err)
-	}
-	if err := a.recordPhysical("decode-tail", members, uint64(tail.Dispatches), nil, nil); err != nil {
+	if err := a.recordPhysical("decode-chain-tail", members, uint64(chain.Dispatches+tail.Dispatches), nil, nil); err != nil {
 		return batchError(results, err)
 	}
 	if a.observedOutputs != nil {

@@ -500,28 +500,25 @@ func RunBatchedModelTailFromChain(eng *ModelEngine, cfg Config, tail *BatchedMod
 	return tail.runBuffer(eng, cfg, eng.prefillXMat, b, samplers)
 }
 
-func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool.Slice[float32], b int, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+func validateBatchedTail(eng *ModelEngine, cfg Config, t *BatchedModelTail, input mempool.Slice[float32], b int, samplers []SamplerConfig) error {
 	if eng == nil || eng.dev == nil || t == nil || b <= 0 || input.Len() < b*cfg.Dim {
-		return BatchedModelTailResult{}, errors.New("batched model tail: invalid device input")
+		return errors.New("batched model tail: invalid device input")
 	}
 	if b > t.capacity || t.dim != cfg.Dim || t.vocabSize != cfg.VocabSize {
-		return BatchedModelTailResult{}, errors.New("batched model tail: unsupported configuration")
+		return errors.New("batched model tail: unsupported configuration")
 	}
 	if len(samplers) != 0 && len(samplers) != b {
-		return BatchedModelTailResult{}, errors.New("batched model tail: sampler count does not match batch")
+		return errors.New("batched model tail: sampler count does not match batch")
 	}
 	for _, sampler := range samplers {
 		if (sampler.Method != "" && sampler.Method != "argmax") || sampler.Temperature != 0 {
-			return BatchedModelTailResult{}, errors.New("batched model tail: stochastic sampling unsupported")
+			return errors.New("batched model tail: stochastic sampling unsupported")
 		}
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.freed {
-		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
-	}
-	cb := eng.dev.Queue().CommandBuffer()
-	ce := countDispatches(cb.ComputeCommandEncoder())
+	return nil
+}
+
+func encodeBatchedTail(ce apple.MTLComputeCommandEncoder, eng *ModelEngine, cfg Config, t *BatchedModelTail, input mempool.Slice[float32], b int) {
 	bv, dim, vocab, eps := uint32(b), uint32(cfg.Dim), uint32(cfg.VocabSize), cfg.Eps
 	ce.SetComputePipelineState(eng.pso.RMSNormScale)
 	ce.SetBufferWithOffsetAtIndex(input.Buffer(), 0, 0)
@@ -556,6 +553,20 @@ func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool
 	metal.SetScalar(ce, bv, 2)
 	metal.SetScalar(ce, tiles, 3)
 	ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b), metal.Threads(128))
+}
+
+func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input mempool.Slice[float32], b int, samplers []SamplerConfig) (BatchedModelTailResult, error) {
+	if err := validateBatchedTail(eng, cfg, t, input, b, samplers); err != nil {
+		return BatchedModelTailResult{}, err
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.freed {
+		return BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
+	}
+	cb := eng.dev.Queue().CommandBuffer()
+	ce := countDispatches(cb.ComputeCommandEncoder())
+	encodeBatchedTail(ce, eng, cfg, t, input, b)
 	ce.EndEncoding()
 	cb.Commit()
 	if err := metal.WaitCommandBuffer(context.Background(), cb); err != nil {
@@ -685,7 +696,8 @@ func encodeGateUpProjections(ce apple.MTLComputeCommandEncoder, eng *ModelEngine
 // intermediate host copies. It issues exactly 1+9*NumLayers dispatches. A
 // command buffer execution failure invalidates the whole batch.
 func RunBatchedLayerChain(eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
-	return runBatchedLayerChain(context.Background(), eng, cfg, cache, nil, nil, tokens, positions, rows)
+	chain, _, err := runBatchedLayerChain(context.Background(), eng, cfg, cache, nil, nil, nil, nil, tokens, positions, rows)
+	return chain, err
 }
 
 // RunLeasedBatchedLayerChain executes one token per row while reading cached
@@ -695,48 +707,56 @@ func RunLeasedBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Confi
 	if workspace == nil || len(leases) != len(tokens) {
 		return BatchedLayerChainResult{}, errors.New("leased layer chain: invalid workspace or leases")
 	}
-	return runBatchedLayerChain(ctx, eng, cfg, cache, workspace, leases, tokens, positions, rows)
+	chain, _, err := runBatchedLayerChain(ctx, eng, cfg, cache, workspace, leases, nil, nil, tokens, positions, rows)
+	return chain, err
 }
 
-func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, workspace *metalBlockWorkspace, leases []*metalprefix.Lease, tokens []int32, positions, rows []int) (BatchedLayerChainResult, error) {
+// RunLeasedBatchedDecode executes the layer chain and deterministic model tail
+// in one command buffer. The tail and engine scratch remain locked until the
+// command buffer completes, so Close cannot release storage while it is in use.
+func RunLeasedBatchedDecode(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, workspace *metalBlockWorkspace, leases []*metalprefix.Lease, tail *BatchedModelTail, samplers []SamplerConfig, tokens []int32, positions, rows []int) (BatchedLayerChainResult, BatchedModelTailResult, error) {
+	return runBatchedLayerChain(ctx, eng, cfg, cache, workspace, leases, tail, samplers, tokens, positions, rows)
+}
+
+func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cache *BatchedAttentionCache, workspace *metalBlockWorkspace, leases []*metalprefix.Lease, tail *BatchedModelTail, samplers []SamplerConfig, tokens []int32, positions, rows []int) (BatchedLayerChainResult, BatchedModelTailResult, error) {
 	b := len(tokens)
 	kd := cfg.NumKVHeads * cfg.HeadDim
 	if eng == nil || eng.dev == nil || cache == nil {
-		return BatchedLayerChainResult{}, errors.New("batched layer chain: nil engine or cache")
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: nil engine or cache")
 	}
 	weightLayers := len(eng.layers)
 	if eng.isF16 {
 		weightLayers = len(eng.layersF16)
 	}
 	if b == 0 || len(positions) != b || len(rows) != b || weightLayers != cfg.NumLayers || len(cache.K) != cfg.NumLayers {
-		return BatchedLayerChainResult{}, errors.New("batched layer chain: inconsistent shape")
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: inconsistent shape")
 	}
 	if cfg.HeadDim <= 0 || cfg.HeadDim > 128 || cfg.HeadDim%2 != 0 || cfg.NumKVHeads <= 0 || cfg.NumHeads <= 0 || cfg.NumHeads%cfg.NumKVHeads != 0 || cfg.RopeTheta <= 0 || b > cache.rowCapacity || cache.maxSeqLen != cfg.MaxSeqLen || cache.kvDim != kd {
-		return BatchedLayerChainResult{}, errors.New("batched layer chain: unsupported configuration or cache shape")
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: unsupported configuration or cache shape")
 	}
 	cacheElements := cache.rowCapacity * cache.maxSeqLen * kd
 	if cache.positions.Len() < b || cache.rows.Len() < b {
-		return BatchedLayerChainResult{}, errors.New("batched layer chain: row metadata buffer too small")
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: row metadata buffer too small")
 	}
 	for layer := range cache.K {
 		if cache.K[layer].Len() < cacheElements || cache.V[layer].Len() < cacheElements {
-			return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: cache buffer too small at layer %d", layer)
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, fmt.Errorf("batched layer chain: cache buffer too small at layer %d", layer)
 		}
 	}
 	seen := make(map[int]bool, b)
 	for i, tok := range tokens {
 		if tok < 0 || int(tok) >= cfg.VocabSize || positions[i] < 0 || positions[i] >= cfg.MaxSeqLen || rows[i] < 0 || rows[i] >= cache.rowCapacity || seen[rows[i]] {
-			return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: invalid active row %d", i)
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, fmt.Errorf("batched layer chain: invalid active row %d", i)
 		}
 		seen[rows[i]] = true
 	}
 	if err := ctx.Err(); err != nil {
-		return BatchedLayerChainResult{}, err
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
 	}
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if cache.freed {
-		return BatchedLayerChainResult{}, errors.New("batched layer chain: cache freed")
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: cache freed")
 	}
 	eng.batchedMu.Lock()
 	defer eng.batchedMu.Unlock()
@@ -745,14 +765,24 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 		defer workspace.mu.Unlock()
 	}
 	if err := eng.ensurePrefillArena(b, cfg); err != nil {
-		return BatchedLayerChainResult{}, err
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
+	}
+	if tail != nil {
+		if err := validateBatchedTail(eng, cfg, tail, eng.prefillXMat, b, samplers); err != nil {
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
+		}
+		tail.mu.Lock()
+		defer tail.mu.Unlock()
+		if tail.freed {
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched model tail: tail is freed")
+		}
 	}
 	var blockPins []*metalprefix.ViewLease
 	if workspace != nil {
 		var err error
 		blockPins, err = workspace.prepare(cfg, leases, positions, rows)
 		if err != nil {
-			return BatchedLayerChainResult{}, err
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
 		}
 		defer releaseMetalBlockPins(blockPins)
 	}
@@ -891,20 +921,29 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 		metal.SetScalar(ce, dv, 5)
 		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
 	}
+	chainDispatches := ce.dispatches
+	if tail != nil {
+		encodeBatchedTail(ce, eng, cfg, tail, eng.prefillXMat, b)
+	}
 	ce.EndEncoding()
 	if err := ctx.Err(); err != nil {
-		return BatchedLayerChainResult{}, err
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
 	}
 	cb.Commit()
 	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
-		return BatchedLayerChainResult{}, fmt.Errorf("batched layer chain: shared command buffer: %w", err)
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, fmt.Errorf("batched layer chain: shared command buffer: %w", err)
 	}
 	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
 	// Hidden aliases persistent engine scratch and is valid until the next
 	// batched engine operation. The model tail consumes the device buffer
 	// directly; exposing the alias keeps differential tests possible without a
 	// serving-path host copy.
-	return BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: ce.dispatches, DeviceBytes: bytes}, nil
+	chain := BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: chainDispatches, DeviceBytes: bytes}
+	var tailResult BatchedModelTailResult
+	if tail != nil {
+		tailResult = BatchedModelTailResult{Tokens: append([]int32(nil), tail.tokens.HostSlice()[:b]...), Dispatches: ce.dispatches - chainDispatches}
+	}
+	return chain, tailResult, nil
 }
 
 // RunSegmentedLayerChain executes a packed prompt wave through every decoder

@@ -9,6 +9,7 @@ import (
 )
 
 type runLeasedPrefixFunc func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, []int32, []int, []int) (BatchedLayerChainResult, error)
+type runLeasedDecodeFunc func(context.Context, *ModelEngine, Config, *BatchedAttentionCache, *metalBlockWorkspace, []*metalprefix.Lease, *BatchedModelTail, []SamplerConfig, []int32, []int, []int) (BatchedLayerChainResult, BatchedModelTailResult, error)
 
 type productionPrefixLease struct {
 	lease *metalprefix.Lease
@@ -25,6 +26,7 @@ type productionPrefixRuntime struct {
 	cache     *metalprefix.Cache
 	workspace *metalBlockWorkspace
 	runLeased runLeasedPrefixFunc
+	decode    runLeasedDecodeFunc
 }
 
 type productionPrefixStats struct {
@@ -47,7 +49,17 @@ func newProductionPrefixRuntime(engine *ModelEngine, cfg Config, capacity int) (
 		_ = cache.Close()
 		return nil, err
 	}
-	return &productionPrefixRuntime{cache: cache, workspace: workspace, runLeased: RunLeasedBatchedLayerChain}, nil
+	return &productionPrefixRuntime{cache: cache, workspace: workspace, runLeased: RunLeasedBatchedLayerChain, decode: RunLeasedBatchedDecode}, nil
+}
+
+func (p *productionPrefixRuntime) Decode(ctx context.Context, engine *ModelEngine, cfg Config, cache *BatchedAttentionCache, leases []*productionPrefixLease, tail *BatchedModelTail, samplers []SamplerConfig, tokens []int32, positions, rows []int) (BatchedLayerChainResult, BatchedModelTailResult, error) {
+	raw := make([]*metalprefix.Lease, len(leases))
+	for i, lease := range leases {
+		if lease != nil {
+			raw[i] = lease.lease
+		}
+	}
+	return p.decode(ctx, engine, cfg, cache, p.workspace, raw, tail, samplers, tokens, positions, rows)
 }
 
 func (p *productionPrefixRuntime) Acquire(tokens []int32) (*productionPrefixLease, bool, error) {

@@ -46,5 +46,14 @@ func (*productionPrefixRuntime) Run(_ context.Context, engine *ModelEngine, cfg 
 	return RunBatchedLayerChain(engine, cfg, cache, tokens, positions, rows)
 }
 
+func (p *productionPrefixRuntime) Decode(ctx context.Context, engine *ModelEngine, cfg Config, cache *BatchedAttentionCache, leases []*productionPrefixLease, tail *BatchedModelTail, samplers []SamplerConfig, tokens []int32, positions, rows []int) (BatchedLayerChainResult, BatchedModelTailResult, error) {
+	chain, err := p.Run(ctx, engine, cfg, cache, leases, tokens, positions, rows)
+	if err != nil {
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
+	}
+	result, err := RunBatchedModelTailFromChain(engine, cfg, tail, chain, samplers)
+	return chain, result, err
+}
+
 func (*productionPrefixRuntime) Close() error                 { return nil }
 func (*productionPrefixRuntime) Stats() productionPrefixStats { return productionPrefixStats{} }
