@@ -162,6 +162,35 @@ func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertID
 	return nil
 }
 
+// EncodeMatvecQ2KSelected appends Q2_K projections for GPU-selected experts.
+// Inputs and outputs are slot-major, with one vector for each expert ID.
+func (b *metalBatch) EncodeMatvecQ2KSelected(t boundMetalTensor, expertIDs metalmem.Slice[int32], in, out metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if t.typeID != 10 || len(t.dimensions) != 3 || t.dimensions[0]%256 != 0 || expertIDs.Len() != 6 ||
+		uint64(in.Len()) != t.dimensions[0]*uint64(expertIDs.Len()) || uint64(out.Len()) != t.dimensions[1]*uint64(expertIDs.Len()) {
+		return fmt.Errorf("Q2_K selected: invalid tensor profile")
+	}
+	enc := b.buffer.ComputeCommandEncoder()
+	enc.SetComputePipelineState(b.ops.kernels.MatvecQ2KSelected)
+	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
+	libmetal.SetScalar(enc, uint32(t.dimensions[0]), 4)
+	libmetal.SetScalar(enc, uint32(t.dimensions[1]), 5)
+	libmetal.SetScalar(enc, uint32(t.dimensions[2]), 6)
+	libmetal.SetScalar(enc, uint32(expertIDs.Len()), 7)
+	enc.DispatchThreadsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(t.dimensions[1]), Height: uint(expertIDs.Len()), Depth: 1},
+		apple.MTLSize{Width: uint(min(int(t.dimensions[1]), 256)), Height: 1, Depth: 1},
+	)
+	enc.EndEncoding()
+	b.encoded++
+	return nil
+}
+
 // EncodeClamp10 appends an element-wise clamp to [-10, 10].
 func (b *metalBatch) EncodeClamp10(in, out metalmem.Slice[float32]) error {
 	return b.encodeClamp10(in, out, false)

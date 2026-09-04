@@ -175,6 +175,7 @@ type metalPinnedKernels struct {
 	Clamp10           apple.MTLComputePipelineState `metal:"clamp10"`
 	MatvecQ2K         apple.MTLComputePipelineState `metal:"matvec_q2_k"`
 	MatvecQ2KF32      apple.MTLComputePipelineState `metal:"matvec_q2_k_f32"`
+	MatvecQ2KSelected apple.MTLComputePipelineState `metal:"matvec_q2_k_selected_f32"`
 	SumVectors        apple.MTLComputePipelineState `metal:"sum_vectors"`
 	RMS               apple.MTLComputePipelineState `metal:"rms_norm"`
 	RopeAttention     apple.MTLComputePipelineState `metal:"rope_attention_one"`
@@ -1069,7 +1070,7 @@ func (o *metalPinnedOps) Close() {
 	if o == nil {
 		return
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.HCPre, o.kernels.HCPost, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.RMS, o.kernels.RopeAttention} {
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.HCPre, o.kernels.HCPost, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.RMS, o.kernels.RopeAttention} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -1408,6 +1409,26 @@ kernel void matvec_q2_k_f32(device const uchar *weights [[buffer(0)]], device co
     for(uint i=0;i<256;i++){uint group=i/16,l=i-group*16,qbase=32*(group/8)+16*(group&1),shift=((group/2)&3)*2;uchar sm=p[group];float w=d*float(sm&15)*float((p[16+qbase+l]>>shift)&3)-dm*float(sm>>4);total+=w*x[block*256+i];}
   }
   out[row]=total;
+}
+
+kernel void matvec_q2_k_selected_f32(
+    device const uchar *weights [[buffer(0)]], device const int *expert_ids [[buffer(1)]],
+    device const float *x [[buffer(2)]], device float *out [[buffer(3)]],
+    constant uint &cols [[buffer(4)]], constant uint &rows [[buffer(5)]],
+    constant uint &experts [[buffer(6)]], constant uint &slots [[buffer(7)]],
+    uint2 pos [[thread_position_in_grid]]) {
+  uint row=pos.x,slot=pos.y;if(row>=rows||slot>=slots)return;
+  int expert=expert_ids[slot];if(expert<0||uint(expert)>=experts)return;
+  uint nb=cols/256;uint64_t expert_stride=uint64_t(rows)*nb*84;
+  device const uchar *selected=weights+uint64_t(expert)*expert_stride;
+  device const float *selected_x=x+uint64_t(slot)*cols;
+  float total=0.0f;
+  for(uint block=0;block<nb;block++){
+    const device uchar *p=selected+uint64_t(row)*nb*84+uint64_t(block)*84;
+    float d=float(*reinterpret_cast<device const half *>(p+80)),dm=float(*reinterpret_cast<device const half *>(p+82));
+    for(uint i=0;i<256;i++){uint group=i/16,l=i-group*16,qbase=32*(group/8)+16*(group&1),shift=((group/2)&3)*2;uchar sm=p[group];float w=d*float(sm&15)*float((p[16+qbase+l]>>shift)&3)-dm*float(sm>>4);total+=w*selected_x[block*256+i];}
+  }
+  out[uint64_t(slot)*rows+row]=total;
 }
 
 kernel void layer0_attention_pre(
