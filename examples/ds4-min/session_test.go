@@ -31,7 +31,7 @@ func (b *fakeSessionBackend) Logits() []float32 {
 
 func TestSessionSyncSuffixReuse(t *testing.T) {
 	b := new(fakeSessionBackend)
-	s, err := newSession(b, 8, 1)
+	s, err := newSession(b, 8, stopSet{1: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestSessionSyncSuffixReuse(t *testing.T) {
 
 func TestSessionSyncDivergentPrefixResets(t *testing.T) {
 	b := new(fakeSessionBackend)
-	s, _ := newSession(b, 8, 1)
+	s, _ := newSession(b, 8, stopSet{1: true})
 	if err := s.Sync([]int{10, 11}); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestSessionSyncDivergentPrefixResets(t *testing.T) {
 
 func TestSessionEOSBeforeEval(t *testing.T) {
 	b := new(fakeSessionBackend)
-	s, _ := newSession(b, 4, 1)
+	s, _ := newSession(b, 4, stopSet{1: true})
 	if err := s.Sync([]int{10}); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestSessionEOSBeforeEval(t *testing.T) {
 
 func TestSessionBounds(t *testing.T) {
 	b := new(fakeSessionBackend)
-	s, _ := newSession(b, 3, 1)
+	s, _ := newSession(b, 3, stopSet{1: true})
 	if err := s.Sync(nil); !errors.Is(err, errEmptyPrompt) {
 		t.Fatalf("empty error = %v", err)
 	}
@@ -151,7 +151,7 @@ func (b *referenceBackend) Logits() []float32 {
 func TestSessionDifferential(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
 	liveBackend := new(referenceBackend)
-	live, _ := newSession(liveBackend, 32, 1)
+	live, _ := newSession(liveBackend, 32, stopSet{1: true})
 	for attempt := 0; attempt < 100; attempt++ {
 		n := 1 + rng.Intn(20)
 		prompt := make([]int, n)
@@ -162,7 +162,7 @@ func TestSessionDifferential(t *testing.T) {
 			t.Fatal(err)
 		}
 		freshBackend := new(referenceBackend)
-		fresh, _ := newSession(freshBackend, 32, 1)
+		fresh, _ := newSession(freshBackend, 32, stopSet{1: true})
 		if err := fresh.Sync(prompt); err != nil {
 			t.Fatal(err)
 		}

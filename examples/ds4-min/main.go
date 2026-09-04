@@ -81,7 +81,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		return err
 	}
 	defer closer.Close()
-	s, err := newSession(b, cfg.context, tok.eos)
+	s, err := newSession(b, cfg.context, tok.stops)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	var text textAssembler
 	for range cfg.tokens {
 		id := greedyToken(s.logits)
-		if id == tok.eos {
+		if tok.IsStop(id) {
 			break
 		}
 		fragment, err := tok.Decode([]int{id})

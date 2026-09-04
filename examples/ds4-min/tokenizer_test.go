@@ -33,6 +33,9 @@ func TestPinnedTokenizerOracle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if want := (stopSet{1: true}); !reflect.DeepEqual(tok.stops, want) {
+		t.Fatalf("stops = %v, want %v", tok.stops, want)
+	}
 	got, err := tok.RenderNonThinking("You are a helpful assistant", "Hello, 世界! 1234\nGo?\n")
 	if err != nil {
 		t.Fatal(err)

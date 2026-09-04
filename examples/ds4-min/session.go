@@ -20,19 +20,22 @@ type sessionBackend interface {
 type session struct {
 	backend sessionBackend
 	context int
-	eos     int
+	stop    stopSet
 	tokens  []int
 	logits  []float32
 }
 
-func newSession(backend sessionBackend, context, eos int) (*session, error) {
+func newSession(backend sessionBackend, context int, stop stopSet) (*session, error) {
 	if backend == nil {
 		return nil, errors.New("missing session backend")
 	}
 	if context <= 1 {
 		return nil, errors.New("context must exceed one token")
 	}
-	return &session{backend: backend, context: context, eos: eos}, nil
+	if len(stop) == 0 {
+		return nil, errors.New("empty stop-token set")
+	}
+	return &session{backend: backend, context: context, stop: stop}, nil
 }
 
 func (s *session) Sync(prompt []int) error {
@@ -64,7 +67,7 @@ func (s *session) Sync(prompt []int) error {
 }
 
 func (s *session) Accept(token int) (stop bool, err error) {
-	if token == s.eos {
+	if s.stop.Contains(token) {
 		return true, nil
 	}
 	if len(s.tokens) >= s.context {

@@ -30,6 +30,25 @@ type tokenizer struct {
 	user        int
 	assistant   int
 	thinkingEnd int
+	stops       stopSet
+}
+
+// A stopSet is the set of token ids that end generation. It is derived from
+// tokenizer metadata, never from a hard-coded id.
+type stopSet map[int]bool
+
+// Contains reports whether id ends generation.
+func (s stopSet) Contains(id int) bool { return s[id] }
+
+// tokenTypeControl is the GGUF tokenizer.ggml.token_type value for a control
+// token. Every stop token must carry it.
+const tokenTypeControl = 3
+
+// stopMetadataKeys are the optional metadata ids that name a stop token.
+var stopMetadataKeys = []string{
+	"tokenizer.ggml.eos_token_id",
+	"tokenizer.ggml.eot_token_id",
+	"tokenizer.ggml.eom_token_id",
 }
 
 func newTokenizer(g *gguf.File) (*tokenizer, error) {
@@ -91,7 +110,65 @@ func newTokenizer(g *gguf.File) (*tokenizer, error) {
 	if t.bos != 0 || t.eos != 1 {
 		return nil, fmt.Errorf("%w: BOS/EOS ids %d/%d", errInvalidTokenizer, t.bos, t.eos)
 	}
+	t.stops, err = t.generationStops(g)
+	if err != nil {
+		return nil, err
+	}
 	return t, nil
+}
+
+// generationStops derives the stop-token set. The vocabulary end-of-sentence
+// token is always a stop; each optional end-of-sequence, end-of-turn, and
+// end-of-message metadata id joins it. Every stop must name a control token in
+// tokenizer.ggml.token_type.
+func (t *tokenizer) generationStops(g *gguf.File) (stopSet, error) {
+	stops := stopSet{t.eos: true}
+	for _, key := range stopMetadataKeys {
+		v, ok := g.Metadata[key]
+		if !ok {
+			continue
+		}
+		id, ok := v.Uint()
+		if !ok || id >= uint64(len(t.tokens)) {
+			return nil, fmt.Errorf("%w: %s", errInvalidTokenizer, key)
+		}
+		stops[int(id)] = true
+	}
+	types, err := tokenTypes(g, len(t.tokens))
+	if err != nil {
+		return nil, err
+	}
+	for id := range stops {
+		if types != nil && types[id] != tokenTypeControl {
+			return nil, fmt.Errorf("%w: stop token %d is not a control token", errInvalidTokenizer, id)
+		}
+	}
+	return stops, nil
+}
+
+// IsStop reports whether id ends generation.
+func (t *tokenizer) IsStop(id int) bool { return t.stops.Contains(id) }
+
+// tokenTypes returns the tokenizer.ggml.token_type array, or nil when the
+// model omits it.
+func tokenTypes(g *gguf.File, tokens int) ([]int, error) {
+	v, ok := g.Metadata["tokenizer.ggml.token_type"]
+	if !ok {
+		return nil, nil
+	}
+	values, ok := v.Value.([]any)
+	if !ok || v.TypeID != gguf.TypeArray || len(values) != tokens {
+		return nil, fmt.Errorf("%w: token type array", errInvalidTokenizer)
+	}
+	out := make([]int, len(values))
+	for i, value := range values {
+		n, ok := gguf.Value{Value: value}.Int()
+		if !ok {
+			return nil, fmt.Errorf("%w: token type element %d", errInvalidTokenizer, i)
+		}
+		out[i] = int(n)
+	}
+	return out, nil
 }
 
 func metadataString(g *gguf.File, key string) (string, error) {

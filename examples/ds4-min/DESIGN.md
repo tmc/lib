@@ -42,6 +42,15 @@ token. Generation takes their deterministic argmax, checks the stop-token set,
 emits the token bytes, and only then evaluates a non-stop token. It never
 evaluates past EOS.
 
+The stop-token set is derived from the model's tokenizer metadata, never from a
+hard-coded id. It contains the vocabulary's `<｜end▁of▁sentence｜>` token
+together with each of `tokenizer.ggml.eos_token_id`,
+`tokenizer.ggml.eot_token_id`, and `tokenizer.ggml.eom_token_id` that the file
+carries. Every member must be typed as a control token in
+`tokenizer.ggml.token_type`; anything else is an error. For the pinned
+checkpoint this derives exactly one id, 1, so the set matches the oracle's
+single-EOS stop rule.
+
 The only supported renderer is non-thinking chat:
 
 ```

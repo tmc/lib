@@ -436,7 +436,7 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := newSession(r, 128, tok.eos)
+	s, err := newSession(r, 128, tok.stops)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 		if id != want[step] {
 			t.Fatalf("step %d token = %d, want %d", step, id, want[step])
 		}
-		if id == tok.eos {
+		if tok.IsStop(id) {
 			break
 		}
 		if _, err := s.Accept(id); err != nil {
