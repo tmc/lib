@@ -74,16 +74,54 @@ func TestTrackedAliasReleaseAccountsOnce(t *testing.T) {
 }
 
 func TestHostAllocationAliasesReleaseOnce(t *testing.T) {
-	h, err := AllocHost[byte](4096)
+	dev := testDevice(t)
+	var h HostAllocation[byte]
+	err := dev.WithContext(func() error {
+		var err error
+		h, err = AllocHost[byte](4096)
+		return err
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	alias := h
-	if err := alias.Free(); err != nil {
+	if err := dev.WithContext(alias.Free); err != nil {
 		t.Fatalf("alias Free: %v", err)
 	}
-	if err := h.Free(); err != nil {
+	if err := dev.WithContext(h.Free); err != nil {
 		t.Fatalf("owner Free after alias: %v", err)
+	}
+	if h.Ptr() != 0 || h.Len() != 0 || h.Slice() != nil {
+		t.Fatal("released host alias still exposes memory")
+	}
+}
+
+func TestReleasedSliceMethodsFail(t *testing.T) {
+	dev := testDevice(t)
+	s, err := Alloc[byte](dev, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := s.Slice(0, s.Len())
+	if err := s.Free(); err != nil {
+		t.Fatal(err)
+	}
+	if alias.Ptr() != 0 {
+		t.Fatal("released alias exposes a device pointer")
+	}
+	tests := []struct {
+		name string
+		do   func() error
+	}{
+		{"copy from host", func() error { return alias.CopyFromHost(make([]byte, alias.Len())) }},
+		{"copy to host", func() error { return alias.CopyToHost(make([]byte, alias.Len())) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.do(); err == nil {
+				t.Fatal("operation on released alias succeeded")
+			}
+		})
 	}
 }
 
