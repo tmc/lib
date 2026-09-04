@@ -77,6 +77,33 @@ func TestCompilerClose(t *testing.T) {
 	}
 }
 
+func TestCompilerRecoversFromCompileFailures(t *testing.T) {
+	dev, err := metal.NewDevice()
+	if err != nil {
+		t.Skipf("Metal device not available: %v", err)
+	}
+	defer dev.Close()
+	compiler, err := metalx.NewCompiler(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer compiler.Close()
+
+	if _, err := compiler.Compile("not valid Metal source", "VectorAdd"); err == nil {
+		t.Fatal("malformed source compiled")
+	}
+	if _, err := compiler.Compile(sampleKernel, "Missing"); err == nil {
+		t.Fatal("missing function compiled")
+	}
+	pso, err := compiler.Compile(sampleKernel, "VectorAdd")
+	if err != nil {
+		t.Fatalf("compile after failures: %v", err)
+	}
+	if pso == nil || pso.GetID() == 0 {
+		t.Fatal("compile after failures returned no pipeline")
+	}
+}
+
 func TestCompilerConcurrentCompileClose(t *testing.T) {
 	dev, err := metal.NewDevice()
 	if err != nil {
