@@ -296,6 +296,7 @@ type Pool struct {
 	mu    sync.Mutex
 	dev   *applemetal.Device
 	slabs map[int][]metal.MTLBuffer
+	owned map[uintptr]struct{}
 }
 
 // NewPool returns an empty Pool allocating from dev.
@@ -303,33 +304,68 @@ func NewPool(dev *applemetal.Device) *Pool {
 	return &Pool{
 		dev:   dev,
 		slabs: make(map[int][]metal.MTLBuffer),
+		owned: make(map[uintptr]struct{}),
 	}
 }
 
 // Get returns a recycled buffer of at least minBytes, allocating one if the
 // pool holds none.
 func (p *Pool) Get(minBytes int) (metal.MTLBuffer, error) {
+	if p == nil {
+		return nil, fmt.Errorf("metalmem: nil pool")
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	bucket := sizeClass(minBytes)
+	bucket, err := sizeClass(minBytes)
+	if err != nil {
+		return nil, fmt.Errorf("metalmem: pool get: %w", err)
+	}
 	if list := p.slabs[bucket]; len(list) > 0 {
 		buf := list[len(list)-1]
 		p.slabs[bucket] = list[:len(list)-1]
+		delete(p.owned, uintptr(buf.GetID()))
 		return buf, nil
+	}
+	if p.dev == nil {
+		return nil, fmt.Errorf("metalmem: pool has nil device")
 	}
 	return p.dev.AllocBuffer(bucket)
 }
 
-// Put returns a buffer of the given capacity to the pool for reuse.
-func (p *Pool) Put(buf metal.MTLBuffer, capacity int) {
+// Put returns a buffer of the given capacity to the pool for reuse. On error,
+// ownership remains with the caller. Putting the same buffer twice is an
+// error.
+func (p *Pool) Put(buf metal.MTLBuffer, capacity int) error {
+	if p == nil {
+		return fmt.Errorf("metalmem: nil pool")
+	}
+	if buf == nil || buf.GetID() == 0 {
+		return fmt.Errorf("metalmem: pool put nil buffer")
+	}
+	bucket, err := sizeClass(capacity)
+	if err != nil {
+		return fmt.Errorf("metalmem: pool put: %w", err)
+	}
+	if buf.Length() < uint(bucket) {
+		return fmt.Errorf("metalmem: buffer length %d is smaller than size class %d", buf.Length(), bucket)
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.slabs[sizeClass(capacity)] = append(p.slabs[sizeClass(capacity)], buf)
+	id := uintptr(buf.GetID())
+	if _, ok := p.owned[id]; ok {
+		return fmt.Errorf("metalmem: buffer is already in pool")
+	}
+	p.slabs[bucket] = append(p.slabs[bucket], buf)
+	p.owned[id] = struct{}{}
+	return nil
 }
 
 // Free releases every buffer the pool holds.
 func (p *Pool) Free() {
+	if p == nil {
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, list := range p.slabs {
@@ -340,13 +376,20 @@ func (p *Pool) Free() {
 		}
 	}
 	clear(p.slabs)
+	clear(p.owned)
 }
 
 // sizeClass rounds n up to the power-of-two bucket the pool stores it in.
-func sizeClass(n int) int {
+func sizeClass(n int) (int, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("negative buffer size %d", n)
+	}
 	bucket := 1024
 	for bucket < n {
+		if bucket > int(^uint(0)>>1)/2 {
+			return 0, fmt.Errorf("buffer size %d is too large", n)
+		}
 		bucket *= 2
 	}
-	return bucket
+	return bucket, nil
 }
