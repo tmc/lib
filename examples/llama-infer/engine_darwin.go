@@ -120,6 +120,7 @@ type ModelEngine struct {
 	metrics                 *RuntimeMetrics
 	generateMu              sync.Mutex
 	batchedMu               sync.Mutex
+	freeOnce                sync.Once
 	disableProjectionFusion bool
 	prefixes                *prefixCache
 	tuner                   *DispatchTuner
@@ -1750,6 +1751,17 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	// One arena for every buffer whose lifetime is the engine's: checked once,
 	// released once, and nothing leaks when a later allocation fails.
 	mem := metalmem.NewArena(dev)
+	committed := false
+	var weights *metalsafetensors.Weights
+	defer func() {
+		if committed {
+			return
+		}
+		mem.Free()
+		if weights != nil {
+			_ = weights.Close()
+		}
+	}()
 	xBuf := metalmem.AllocIn[float32](mem, "x", cfg.Dim)
 	normXBuf := metalmem.AllocIn[float32](mem, "normX", cfg.Dim)
 	qBuf := metalmem.AllocIn[float32](mem, "q", cfg.NumHeads*cfg.HeadDim)
@@ -1775,7 +1787,6 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	}
 
 	var tok Tokenizer
-	var weights *metalsafetensors.Weights
 	var consumption CheckpointReceipt
 	isF16 := cfg.Precision == "f16"
 
@@ -1824,56 +1835,72 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		}
 
 		if isF16 {
+			upload := func(name string) (mempool.Slice[uint16], error) {
+				data, err := w.TensorF16(name)
+				if err != nil {
+					return mempool.Slice[uint16]{}, err
+				}
+				s := metalmem.UploadIn(mem, name, data)
+				if err := mem.Err(); err != nil {
+					return mempool.Slice[uint16]{}, err
+				}
+				return s, nil
+			}
 			var errUpload error
-			embedTableF16, errUpload = w.TensorMetalSliceF16(dev, "model.embed_tokens.weight")
+			embedTableF16, errUpload = upload("model.embed_tokens.weight")
 			if errUpload != nil || embedTableF16.Len() == 0 {
 				return nil, fmt.Errorf("load embed_tokens f16: %w", errUpload)
 			}
-			finalNormWF16, errUpload = w.TensorMetalSliceF16(dev, "model.norm.weight")
+			finalNormWF16, errUpload = upload("model.norm.weight")
 			if errUpload != nil || finalNormWF16.Len() == 0 {
 				return nil, fmt.Errorf("load norm weight f16: %w", errUpload)
 			}
 			// lm_head is absent in tied-embedding checkpoints; its error is
 			// the "no such tensor" that the fallback below handles.
-			lmHeadWF16, _ = w.TensorMetalSliceF16(dev, "lm_head.weight")
+			if _, ok := w.Tensors["lm_head.weight"]; ok {
+				lmHeadWF16, errUpload = upload("lm_head.weight")
+				if errUpload != nil {
+					return nil, fmt.Errorf("load lm_head f16: %w", errUpload)
+				}
+			}
 			if lmHeadWF16.Len() == 0 {
 				lmHeadWF16 = embedTableF16
 			}
 
 			for i := 0; i < cfg.NumLayers; i++ {
-				inNorm, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+				inNorm, err := upload(fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
 				}
-				pNorm, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+				pNorm, err := upload(fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
 				}
-				wq, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+				wq, err := upload(fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wq: %w", i, err)
 				}
-				wk, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+				wk, err := upload(fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wk: %w", i, err)
 				}
-				wv, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+				wv, err := upload(fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wv: %w", i, err)
 				}
-				wo, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+				wo, err := upload(fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wo: %w", i, err)
 				}
-				wg, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+				wg, err := upload(fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
 				}
-				wu, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+				wu, err := upload(fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wup: %w", i, err)
 				}
-				wd, err := w.TensorMetalSliceF16(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+				wd, err := upload(fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
 				}
@@ -1891,56 +1918,72 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 				}
 			}
 		} else {
+			upload := func(name string) (mempool.Slice[float32], error) {
+				data, err := w.TensorFloat32(name)
+				if err != nil {
+					return mempool.Slice[float32]{}, err
+				}
+				s := metalmem.UploadIn(mem, name, data)
+				if err := mem.Err(); err != nil {
+					return mempool.Slice[float32]{}, err
+				}
+				return s, nil
+			}
 			var errUpload error
-			embedTable, errUpload = w.TensorMetalSlice(dev, "model.embed_tokens.weight")
+			embedTable, errUpload = upload("model.embed_tokens.weight")
 			if errUpload != nil || embedTable.Len() == 0 {
 				return nil, fmt.Errorf("load embed_tokens: %w", errUpload)
 			}
-			finalNormW, errUpload = w.TensorMetalSlice(dev, "model.norm.weight")
+			finalNormW, errUpload = upload("model.norm.weight")
 			if errUpload != nil || finalNormW.Len() == 0 {
 				return nil, fmt.Errorf("load norm weight: %w", errUpload)
 			}
 			// lm_head is absent in tied-embedding checkpoints; its error is
 			// the "no such tensor" that the fallback below handles.
-			lmHeadW, _ = w.TensorMetalSlice(dev, "lm_head.weight")
+			if _, ok := w.Tensors["lm_head.weight"]; ok {
+				lmHeadW, errUpload = upload("lm_head.weight")
+				if errUpload != nil {
+					return nil, fmt.Errorf("load lm_head: %w", errUpload)
+				}
+			}
 			if lmHeadW.Len() == 0 {
 				lmHeadW = embedTable
 			}
 
 			for i := 0; i < cfg.NumLayers; i++ {
-				inNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
+				inNorm, err := upload(fmt.Sprintf("model.layers.%d.input_layernorm.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d input_norm: %w", i, err)
 				}
-				pNorm, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
+				pNorm, err := upload(fmt.Sprintf("model.layers.%d.post_attention_layernorm.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d post_norm: %w", i, err)
 				}
-				wq, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
+				wq, err := upload(fmt.Sprintf("model.layers.%d.self_attn.q_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wq: %w", i, err)
 				}
-				wk, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
+				wk, err := upload(fmt.Sprintf("model.layers.%d.self_attn.k_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wk: %w", i, err)
 				}
-				wv, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
+				wv, err := upload(fmt.Sprintf("model.layers.%d.self_attn.v_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wv: %w", i, err)
 				}
-				wo, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
+				wo, err := upload(fmt.Sprintf("model.layers.%d.self_attn.o_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wo: %w", i, err)
 				}
-				wg, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
+				wg, err := upload(fmt.Sprintf("model.layers.%d.mlp.gate_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wgate: %w", i, err)
 				}
-				wu, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
+				wu, err := upload(fmt.Sprintf("model.layers.%d.mlp.up_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wup: %w", i, err)
 				}
-				wd, err := w.TensorMetalSlice(dev, fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
+				wd, err := upload(fmt.Sprintf("model.layers.%d.mlp.down_proj.weight", i))
 				if err != nil {
 					return nil, fmt.Errorf("load layer %d wdown: %w", i, err)
 				}
@@ -2074,6 +2117,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 	}
 
 	darwinEngineCache[key] = eng
+	committed = true
 	return eng, nil
 }
 
@@ -2848,13 +2892,24 @@ func (eng *ModelEngine) Free() {
 	if eng == nil {
 		return
 	}
-	darwinEngineMu.Lock()
-	if eng.cacheKey != "" && darwinEngineCache[eng.cacheKey] == eng {
-		delete(darwinEngineCache, eng.cacheKey)
-	}
-	darwinEngineMu.Unlock()
-	eng.freePrefillArena()
-	eng.mem.Free()
+	eng.freeOnce.Do(func() {
+		darwinEngineMu.Lock()
+		if eng.cacheKey != "" && darwinEngineCache[eng.cacheKey] == eng {
+			delete(darwinEngineCache, eng.cacheKey)
+		}
+		darwinEngineMu.Unlock()
+		eng.generateMu.Lock()
+		defer eng.generateMu.Unlock()
+		eng.batchedMu.Lock()
+		defer eng.batchedMu.Unlock()
+		eng.freePrefillArena()
+		if eng.mem != nil {
+			eng.mem.Free()
+		}
+		if eng.weights != nil {
+			_ = eng.weights.Close()
+		}
+	})
 }
 
 func encodeBatchedPrefillWithKV(

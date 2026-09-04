@@ -4,8 +4,14 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
 
+	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalsafetensors"
 )
 
@@ -33,6 +39,127 @@ func TestPrecisionTelemetry(t *testing.T) {
 	response := NewTelemetryServer(eng, Config{MaxSeqLen: 128}).memoryTelemetry()
 	if response.Precision.State != "observed" || len(response.Precision.DTypes) != len(want) {
 		t.Errorf("precision telemetry = %+v, want observed dtype aggregate", response.Precision)
+	}
+}
+
+func writeEngineCheckpoint(t *testing.T, dtype string) (string, Config) {
+	t.Helper()
+	dir := t.TempDir()
+	model := ModelConfig{
+		ModelType:         "llama",
+		HiddenSize:        4,
+		IntermediateSize:  8,
+		NumHiddenLayers:   1,
+		NumAttentionHeads: 2,
+		NumKeyValueHeads:  1,
+		ExplicitHeadDim:   2,
+		VocabSize:         16,
+		RmsNormEps:        1e-5,
+		RopeTheta:         10000,
+		MaxSeqLen:         8,
+		TieWordEmbeddings: true,
+	}
+	config, err := json.Marshal(model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	type tensorHeader struct {
+		DType      string    `json:"dtype"`
+		Shape      []int     `json:"shape"`
+		DataOffset [2]uint64 `json:"data_offsets"`
+	}
+	header := make(map[string]tensorHeader)
+	var data []byte
+	tensors := expectedCheckpointTensors(&model)
+	slices.SortFunc(tensors, func(a, b expectedTensor) int {
+		if a.name < b.name {
+			return -1
+		}
+		if a.name > b.name {
+			return 1
+		}
+		return 0
+	})
+	bytesPerElement := 4
+	if dtype == "F16" {
+		bytesPerElement = 2
+	}
+	for _, tensor := range tensors {
+		if tensor.name == "lm_head.weight" {
+			continue
+		}
+		elements := 1
+		for _, n := range tensor.shape {
+			elements *= n
+		}
+		start := len(data)
+		data = append(data, make([]byte, elements*bytesPerElement)...)
+		// Norm weights must be non-zero for a useful buffer, although this
+		// ownership test deliberately submits no inference work.
+		if len(tensor.shape) == 1 {
+			for i := 0; i < elements; i++ {
+				if dtype == "F16" {
+					binary.LittleEndian.PutUint16(data[start+i*2:], 0x3c00)
+				} else {
+					binary.LittleEndian.PutUint32(data[start+i*4:], 0x3f800000)
+				}
+			}
+		}
+		header[tensor.name] = tensorHeader{DType: dtype, Shape: tensor.shape, DataOffset: [2]uint64{uint64(start), uint64(len(data))}}
+	}
+	headerJSON, err := json.Marshal(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := make([]byte, 8, 8+len(headerJSON)+len(data))
+	binary.LittleEndian.PutUint64(file, uint64(len(headerJSON)))
+	file = append(file, headerJSON...)
+	file = append(file, data...)
+	if err := os.WriteFile(filepath.Join(dir, "model.safetensors"), file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{
+		Name: "ownership-" + dtype, ModelPath: dir, Precision: map[string]string{"F16": "f16", "F32": "f32"}[dtype],
+		VocabSize: 16, Dim: 4, HiddenDim: 8, NumLayers: 1, NumHeads: 2, NumKVHeads: 1, HeadDim: 2,
+		MaxSeqLen: 8, Eps: 1e-5, RopeTheta: 10000,
+	}
+	return dir, cfg
+}
+
+func TestRealCheckpointWeightsJoinEngineLifetime(t *testing.T) {
+	for _, dtype := range []string{"F16", "F32"} {
+		t.Run(dtype, func(t *testing.T) {
+			_, cfg := writeEngineCheckpoint(t, dtype)
+			eng, err := GetOrCompileDarwinEngine(cfg)
+			if err != nil {
+				t.Fatalf("load checkpoint: %v", err)
+			}
+			var embed, tied mempool.Slice[float32]
+			var embedF16, tiedF16 mempool.Slice[uint16]
+			if eng.isF16 {
+				embedF16, tiedF16 = eng.embedTableF16, eng.lmHeadWF16
+				if embedF16.Buffer() == nil || tiedF16.Buffer() == nil || embedF16.Buffer().GetID() != tiedF16.Buffer().GetID() {
+					t.Fatal("tied F16 weights do not share one live buffer")
+				}
+			} else {
+				embed, tied = eng.embedTable, eng.lmHeadW
+				if embed.Buffer() == nil || tied.Buffer() == nil || embed.Buffer().GetID() != tied.Buffer().GetID() {
+					t.Fatal("tied F32 weights do not share one live buffer")
+				}
+			}
+			eng.Free()
+			eng.Free()
+			if eng.isF16 {
+				if embedF16.Buffer() != nil || tiedF16.Buffer() != nil {
+					t.Error("F16 checkpoint weights remain live after Free")
+				}
+			} else if embed.Buffer() != nil || tied.Buffer() != nil {
+				t.Error("F32 checkpoint weights remain live after Free")
+			}
+		})
 	}
 }
 
@@ -80,5 +207,46 @@ func TestGenerateRestoresPrefixKVSnapshot(t *testing.T) {
 	metrics := eng.prefixCacheMetrics()
 	if metrics.Hits < 1 || metrics.SavedTokens < 1 {
 		t.Errorf("prefix metrics = %+v, want observed restored prefix", metrics)
+	}
+}
+
+func TestModelEngineFreeReleasesOwnedBuffers(t *testing.T) {
+	cfg := DefaultTinyLlamaConfig()
+	cfg.Name = t.Name()
+	eng, err := GetOrCompileDarwinEngine(cfg)
+	if err != nil {
+		t.Skipf("Metal engine unavailable: %v", err)
+	}
+	embed := eng.embedTable
+	layer := eng.layers[0].WQ
+	scratch := eng.xBuf
+	if eng.isF16 {
+		if eng.embedTableF16.Buffer() == nil || eng.layersF16[0].WQ.Buffer() == nil {
+			t.Fatal("engine weight buffer is nil before Free")
+		}
+	} else if embed.Buffer() == nil || layer.Buffer() == nil {
+		t.Fatal("engine weight buffer is nil before Free")
+	}
+	if scratch.Buffer() == nil {
+		t.Fatal("engine scratch buffer is nil before Free")
+	}
+
+	eng.Free()
+	eng.Free()
+	if eng.isF16 {
+		if eng.embedTableF16.Buffer() != nil || eng.layersF16[0].WQ.Buffer() != nil {
+			t.Error("engine weight buffer remains live after Free")
+		}
+	} else if embed.Buffer() != nil || layer.Buffer() != nil {
+		t.Error("engine weight buffer remains live after Free")
+	}
+	if scratch.Buffer() != nil {
+		t.Error("engine scratch buffer remains live after Free")
+	}
+	darwinEngineMu.Lock()
+	_, cached := darwinEngineCache[eng.cacheKey]
+	darwinEngineMu.Unlock()
+	if cached {
+		t.Error("freed engine remains cached")
 	}
 }
