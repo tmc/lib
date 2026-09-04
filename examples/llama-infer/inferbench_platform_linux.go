@@ -11,7 +11,7 @@ func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileC
 func benchmarkBackend() string                            { return "cuda" }
 func benchmarkObservedOutputSupported() bool              { return true }
 func benchmarkPhysicalTelemetry() error {
-	return errors.New("cuda execution does not expose exact prefill dispatch and tier-byte counters")
+	return nil
 }
 func benchmarkPeakMemorySupport(eng *ModelEngine) error {
 	if eng == nil || eng.memory == nil {

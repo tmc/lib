@@ -18,6 +18,7 @@ import (
 // cudaBatchLaunches describes one physical packed decode submission.
 type cudaBatchLaunches struct {
 	Rows                      int
+	Dispatches                uint64
 	WeightLaunches            int
 	IndependentWeightLaunches int
 	MatrixLaunches            int
@@ -156,6 +157,10 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 		return nil, stats, err
 	}
 	launcher := func(fn driver.Function) *cudalaunch.Launcher { return cudalaunch.Kernel(fn).On(eng.stream) }
+	var launches cudalaunch.Counter
+	launcher = func(fn driver.Function) *cudalaunch.Launcher {
+		return cudalaunch.Kernel(fn).On(eng.stream).Count(&launches)
+	}
 	hidden, inter := cfg.HiddenSize, cfg.IntermediateSize
 	qHeads, kvHeads, headDim := cfg.NumAttentionHeads, cfg.NumKeyValueHeads, cfg.HeadDim()
 	qDim, kvDim := qHeads*headDim, kvHeads*headDim
@@ -280,5 +285,6 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	result = append([]int32(nil), sp.hostTokenOut[:batch]...)
 	stats.WeightLaunches = weightLaunches
 	stats.IndependentWeightLaunches = weightLaunches * batch
+	stats.Dispatches = launches.Value() + uint64(stats.MatrixLaunches)
 	return result, stats, nil
 }

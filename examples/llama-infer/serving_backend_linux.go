@@ -39,6 +39,12 @@ func (b *cudaServingBackend) benchmarkLedgerSnapshot() physicalLedgerSnapshot {
 func (b *cudaServingBackend) benchmarkLedgerSince(before physicalLedgerSnapshot) ([]physicalWave, error) {
 	return b.physical.Since(before)
 }
+func (b *cudaServingBackend) recordPhysical(kind string, requests []string, dispatches uint64) error {
+	if b.physical == nil {
+		return nil
+	}
+	return b.physical.Record(kind, requests, dispatches, nil, nil)
+}
 func (b *cudaServingBackend) installBenchmarkObserver() {
 	b.observedOutputs = newObservedOutputCollector()
 }
@@ -158,7 +164,7 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 		cache.Free()
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
 	}
-	next, err := GPUPrefillPassKV(b.engine, b.cfg, cache, tokens)
+	next, dispatches, err := gpuPrefillPassKVMeasured(b.engine, b.cfg, cache, tokens)
 	b.engine.generateMu.Unlock()
 	if err != nil {
 		cache.Free()
@@ -175,6 +181,10 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 	b.live[cache] = generation
 	b.mu.Unlock()
 	state.KV = cudaSequenceState{cache: cache, generation: generation}
+	if err := b.recordPhysical("cuda-prefill", []string{fmt.Sprintf("%s@0/%d", state.ID, generation)}, dispatches); err != nil {
+		b.Release(state)
+		return continuousbatch.Result{Err: err}
+	}
 	state.Position = len(tokens)
 	return continuousbatch.Result{Token: continuousbatch.Token{ID: next, Text: text}, Done: b.cfg.IsEOS(next)}
 }
@@ -239,7 +249,7 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 	if b.engine == nil {
 		return batchError(results, errors.New("cuda decode: backend unavailable"))
 	}
-	next, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches, tokens, positions)
+	next, stats, err := b.decodeCUDA(ctx, states, valid, sequences, caches, tokens, positions)
 	b.mu.Lock()
 	b.last = stats
 	b.mu.Unlock()
@@ -249,7 +259,7 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 		}
 		return results
 	}
-	if b.observedOutputs != nil {
+	if b.observedOutputs != nil && !b.engine.benchmarkSerial {
 		logits := make([]float32, len(valid)*b.cfg.VocabSize)
 		if err := b.batch.Logits.Slice(0, len(logits)).CopyToHost(logits); err != nil {
 			return batchError(results, fmt.Errorf("cuda decode: observe logits: %w", err))
@@ -267,6 +277,63 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 		results[i] = continuousbatch.Result{Token: continuousbatch.Token{ID: next[row], Text: text}, Done: b.cfg.IsEOS(next[row]), Err: decodeErr}
 	}
 	return results
+}
+
+func (b *cudaServingBackend) decodeCUDA(ctx context.Context, states []*continuousbatch.State, valid []int, sequences []cudaSequenceState, caches []*SequenceKVCache, tokens []int32, positions []int) ([]int32, cudaBatchLaunches, error) {
+	widths := cudaBatchWidths(len(valid), b.engine.benchmarkSerial)
+	if len(widths) == 1 {
+		next, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches, tokens, positions)
+		if err != nil {
+			return nil, stats, err
+		}
+		members := make([]string, len(valid))
+		for row, i := range valid {
+			members[row] = fmt.Sprintf("%s@%d/%d", states[i].ID, row, sequences[row].generation)
+		}
+		return next, stats, b.recordPhysical("cuda-decode", members, stats.Dispatches)
+	}
+	next := make([]int32, len(valid))
+	var total cudaBatchLaunches
+	for row, i := range valid {
+		one, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches[row:row+1], tokens[row:row+1], positions[row:row+1])
+		if err != nil {
+			return nil, total, err
+		}
+		next[row] = one[0]
+		total.Rows += stats.Rows
+		total.Dispatches += stats.Dispatches
+		total.WeightLaunches += stats.WeightLaunches
+		total.IndependentWeightLaunches += stats.IndependentWeightLaunches
+		total.MatrixLaunches += stats.MatrixLaunches
+		if b.observedOutputs != nil {
+			logits := make([]float32, b.cfg.VocabSize)
+			if err := b.batch.Logits.Slice(0, len(logits)).CopyToHost(logits); err != nil {
+				return nil, total, fmt.Errorf("cuda decode: observe logits: %w", err)
+			}
+			if err := b.observedOutputs.observeCUDALogits([]*continuousbatch.State{states[i]}, sequences[row:row+1], logits, b.cfg.VocabSize); err != nil {
+				return nil, total, err
+			}
+		}
+		member := fmt.Sprintf("%s@0/%d", states[i].ID, sequences[row].generation)
+		if err := b.recordPhysical("cuda-decode", []string{member}, stats.Dispatches); err != nil {
+			return nil, total, err
+		}
+	}
+	return next, total, nil
+}
+
+func cudaBatchWidths(n int, serial bool) []int {
+	if n <= 0 {
+		return nil
+	}
+	if !serial {
+		return []int{n}
+	}
+	widths := make([]int, n)
+	for i := range widths {
+		widths[i] = 1
+	}
+	return widths
 }
 
 func (b *cudaServingBackend) lastBatchLaunches() cudaBatchLaunches {

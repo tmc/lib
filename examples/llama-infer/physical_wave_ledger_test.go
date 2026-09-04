@@ -58,3 +58,25 @@ func TestPhysicalWaveLedgerRejectsResetSnapshot(t *testing.T) {
 		t.Fatal("accepted snapshot from replaced ledger")
 	}
 }
+
+func TestPhysicalWaveLedgerRejectsFabricatedWork(t *testing.T) {
+	tests := []struct {
+		name       string
+		kind       string
+		requests   []string
+		dispatches uint64
+	}{
+		{"empty", "", nil, 0},
+		{"no execution", "cuda-decode", []string{"sample-0@0/1"}, 0},
+		{"empty request", "cuda-decode", []string{""}, 1},
+		{"duplicate request", "cuda-decode", []string{"sample-0@0/1", "sample-0@0/1"}, 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var ledger physicalWaveLedger
+			if err := ledger.Record(test.kind, test.requests, test.dispatches, nil, nil); err == nil {
+				t.Fatal("fabricated work was accepted")
+			}
+		})
+	}
+}

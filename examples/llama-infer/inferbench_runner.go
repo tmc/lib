@@ -191,6 +191,9 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if len(spec.Arms) != 0 {
 		return runInferbenchCampaign(ctx, cfg, spec, identity, evidence, eng, bench, scheduler)
 	}
+	if err := configureBenchmarkArm(eng, spec.Arm); err != nil {
+		return err
+	}
 	for i := 0; i < spec.Workload.WarmupRuns; i++ {
 		if _, err := benchmarkSample(ctx, scheduler, bench, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
 			return err
@@ -245,9 +248,9 @@ func validateBenchmarkArms(spec inferbenchSpec) error {
 func benchmarkArmSupportsOutput(arm, mode string) bool {
 	switch mode {
 	case inferbench.ThroughputOutputMode:
-		return arm == "llama-infer" || arm == "llama-infer-unfused-projections"
+		return arm == "llama-infer" || arm == "llama-infer-unfused-projections" || arm == "llama-infer-serial"
 	case inferbench.ObservedOutputMode:
-		return benchmarkObservedOutputSupported() && (arm == "llama-infer-observed-output" || arm == "llama-infer-unfused-projections-observed-output")
+		return benchmarkObservedOutputSupported() && (arm == "llama-infer-observed-output" || arm == "llama-infer-unfused-projections-observed-output" || arm == "llama-infer-serial-observed-output")
 	default:
 		return false
 	}

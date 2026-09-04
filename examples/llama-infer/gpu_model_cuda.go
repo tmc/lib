@@ -232,6 +232,23 @@ func GPUForwardPassStep(
 	stream *cuda.Stream,
 	syncHost bool,
 ) (int32, error) {
+	return gpuForwardPassStep(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, syncHost, nil)
+}
+
+func gpuForwardPassStep(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn driver.Function,
+	sampleFn driver.Function,
+	tokenID int32,
+	pos int,
+	stream *cuda.Stream,
+	syncHost bool,
+	counter *cudalaunch.Counter,
+) (int32, error) {
 
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
@@ -258,7 +275,7 @@ func GPUForwardPassStep(
 	var noBias cudamem.Slice[float32]
 
 	launcher := func(fn driver.Function) *cudalaunch.Launcher {
-		return cudalaunch.Kernel(fn).On(stream)
+		return cudalaunch.Kernel(fn).On(stream).Count(counter)
 	}
 
 	// 1. Embedding lookup

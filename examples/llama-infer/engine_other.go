@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasample"
 )
@@ -126,25 +127,26 @@ func init() {
 
 // ModelEngine maintains cached CUDA allocations, JIT modules, and device contexts on Linux.
 type ModelEngine struct {
-	dev         *cuda.Device
-	stream      *cuda.Stream
-	weights     *GPUModelWeights
-	scratch     *GPUScratchpad
-	modules     *GPUModules
-	kvCache     *cudakv.Cache
-	attnFn      driver.Function
-	sampleFn    driver.Function
-	mCfg        ModelConfig
-	fuseActive  bool
-	tokenizer   Tokenizer
-	recorder    *metalprof.FlightRecorder
-	metrics     *RuntimeMetrics
-	drafter     *speculative.NgramDrafter
-	egraphSats  int
-	generateMu  sync.Mutex
-	Plan        *ExecutionPlan
-	consumption CheckpointReceipt
-	memory      *cudamem.Tracker
+	dev             *cuda.Device
+	stream          *cuda.Stream
+	weights         *GPUModelWeights
+	scratch         *GPUScratchpad
+	modules         *GPUModules
+	kvCache         *cudakv.Cache
+	attnFn          driver.Function
+	sampleFn        driver.Function
+	mCfg            ModelConfig
+	fuseActive      bool
+	tokenizer       Tokenizer
+	recorder        *metalprof.FlightRecorder
+	metrics         *RuntimeMetrics
+	drafter         *speculative.NgramDrafter
+	egraphSats      int
+	generateMu      sync.Mutex
+	Plan            *ExecutionPlan
+	consumption     CheckpointReceipt
+	memory          *cudamem.Tracker
+	benchmarkSerial bool
 }
 
 // CheckpointReceipt returns the validated tensor-consumption account.
@@ -556,12 +558,18 @@ func runPlatform(cfg Config) error {
 
 // GPUPrefillPassKV executes prompt prefill across promptTokens using an isolated SequenceKVCache.
 func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
+	tok, _, err := gpuPrefillPassKVMeasured(eng, cfg, skv, promptTokens)
+	return tok, err
+}
+
+func gpuPrefillPassKVMeasured(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, uint64, error) {
 	if len(promptTokens) == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 	if eng == nil {
-		return 0, errors.New("prefill pass: nil engine")
+		return 0, 0, errors.New("prefill pass: nil engine")
 	}
+	var launches cudalaunch.Counter
 	kv := eng.kvCache
 	if skv != nil && skv.Cache != nil {
 		kv = skv.Cache
@@ -569,15 +577,15 @@ func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, prompt
 	var nextTok int32
 	for pos, tokID := range promptTokens {
 		isLast := (pos == len(promptTokens)-1)
-		tok, err := GPUForwardPassStep(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast)
+		tok, err := gpuForwardPassStep(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast, &launches)
 		if err != nil {
-			return 0, fmt.Errorf("cuda prefill step %d: %w", pos, err)
+			return 0, launches.Value(), fmt.Errorf("cuda prefill step %d: %w", pos, err)
 		}
 		if isLast {
 			nextTok = tok
 		}
 	}
-	return nextTok, nil
+	return nextTok, launches.Value(), nil
 }
 
 // GPUForwardPassKV executes a single decode step using an isolated SequenceKVCache.

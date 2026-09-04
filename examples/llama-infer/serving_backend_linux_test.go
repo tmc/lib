@@ -220,6 +220,70 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 	}
 }
 
+func TestRealCUDABenchmarkControlLedger(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	for _, test := range []struct {
+		arm       string
+		wantWaves int
+		wantWidth int
+	}{
+		{"llama-infer", 1, 4},
+		{"llama-infer-serial", 4, 1},
+	} {
+		t.Run(test.arm, func(t *testing.T) {
+			cfg := Llama3_2_1BConfig(path)
+			cfg.MaxSeqLen = 8
+			engine, err := GetOrCompileEngine(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, err := newPlatformServingBackend(engine, cfg, 4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			backend := value.(*cudaServingBackend)
+			defer backend.Close()
+			backend.enableBenchmarkLedger()
+			if err := configureBenchmarkArm(engine, test.arm); err != nil {
+				t.Fatal(err)
+			}
+			states := make([]*continuousbatch.State, 4)
+			for i := range states {
+				state := &continuousbatch.State{ID: fmt.Sprintf("sample-0-%d", i), PromptTokenIDs: []int32{41, 42}, Sampler: SamplerConfig{Method: "argmax"}}
+				result := backend.PrefillBatch([]continuousbatch.PrefillRequest{{Context: t.Context(), State: state}})[0]
+				if result.Err != nil {
+					t.Fatal(result.Err)
+				}
+				state.Current = result.Token.ID
+				states[i] = state
+				defer backend.Release(state)
+			}
+			before := backend.benchmarkLedgerSnapshot()
+			results := backend.DecodeBatch(t.Context(), states)
+			for i, result := range results {
+				if result.Err != nil {
+					t.Fatalf("row %d: %v", i, result.Err)
+				}
+			}
+			waves, err := backend.benchmarkLedgerSince(before)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(waves) != test.wantWaves {
+				t.Fatalf("waves = %d, want %d: %+v", len(waves), test.wantWaves, waves)
+			}
+			for _, wave := range waves {
+				if len(wave.Requests) != test.wantWidth || wave.Dispatches == 0 {
+					t.Fatalf("wave = %+v, want width %d and measured dispatches", wave, test.wantWidth)
+				}
+			}
+		})
+	}
+}
+
 func prefillStateKV(t *testing.T, backend *cudaServingBackend, prompt []int32, sampler any) any {
 	t.Helper()
 	state := &continuousbatch.State{ID: "batch", PromptTokenIDs: prompt, Sampler: sampler}

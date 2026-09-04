@@ -167,10 +167,10 @@ func TestPhysicalTelemetryCapability(t *testing.T) {
 	for _, batch := range []int{1, 2, 4} {
 		t.Run(fmt.Sprintf("B%d", batch), func(t *testing.T) {
 			err := benchmarkPhysicalTelemetry()
-			if benchmarkBackend() == "metal" && err != nil {
+			if (benchmarkBackend() == "metal" || benchmarkBackend() == "cuda") && err != nil {
 				t.Fatal(err)
 			}
-			if benchmarkBackend() != "metal" && (err == nil || !strings.Contains(err.Error(), "exact dispatch and tier-byte counters")) {
+			if benchmarkBackend() != "metal" && benchmarkBackend() != "cuda" && (err == nil || !strings.Contains(err.Error(), "exact dispatch and tier-byte counters")) {
 				t.Fatalf("error = %v", err)
 			}
 		})
