@@ -101,12 +101,20 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	}
 	state := metalmem.UploadIn(arena, "state", stateValues)
 	hcOut := metalmem.AllocIn[float32](arena, "hc-output", 2*4096)
+	hcProjected, err := hcOut.Slice(0, 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
 	attnNorm, err := hcOut.Slice(4096, 2*4096)
 	if err != nil {
 		t.Fatal(err)
 	}
-	qOut := metalmem.AllocIn[float32](arena, "query-output", 64)
-	kvOut := metalmem.AllocIn[float32](arena, "kv-output", 32)
+	qLora := metalmem.AllocIn[float32](arena, "query-lora", 64)
+	qNorm := metalmem.AllocIn[float32](arena, "query-norm", 64)
+	qHeadsRaw := metalmem.AllocIn[float32](arena, "query-heads-raw", 128)
+	qHeads := metalmem.AllocIn[float32](arena, "query-heads", 128)
+	kvRaw := metalmem.AllocIn[float32](arena, "key-value-raw", 32)
+	kvNorm := metalmem.AllocIn[float32](arena, "key-value-norm", 32)
 
 	hcFn := testBatchTensor(arena, "hc-fn", 1, []uint64{4 * 4096, 24}, 2*24*4*4096)
 	hcScale := testBatchF32Tensor(arena, "hc-scale", []float32{1, 1, 1})
@@ -116,20 +124,51 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 		normValues[i] = 0.75 + float32(i%7)/16
 	}
 	norm := testBatchF32Tensor(arena, "attention-norm", normValues)
-	q := testBatchQ80Tensor(arena, "query", 4096, 64)
+	qa := testBatchQ80Tensor(arena, "query-a", 4096, 64)
+	qaNorm := testBatchF32Tensor(arena, "query-a-norm", batchWeights(64))
+	qb := testBatchQ80Tensor(arena, "query-b", 64, 128)
 	kv := testBatchQ80Tensor(arena, "key-value", 4096, 32)
+	kvWeight := testBatchF32Tensor(arena, "key-value-norm", batchWeights(32))
 
-	_, wantNorm, err := ops.HCPre(stateValues, hcFn, hcScale, hcBase, norm)
+	wantHC, wantNorm, err := ops.HCPre(stateValues, hcFn, hcScale, hcBase, norm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantQ, err := ops.MatvecQ80(q, wantNorm)
+	wantQLora, err := ops.MatvecQ80(qa, wantNorm)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantKV, err := ops.MatvecQ80(kv, wantNorm)
+	wantQNorm, err := ops.RMS(wantQLora, qaNorm, 1, true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	wantQHeadsRaw, err := ops.MatvecQ80(qb, wantQNorm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantQHeads, err := ops.RMS(wantQHeadsRaw, qaNorm, 64, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantKVRaw, err := ops.MatvecQ80(kv, wantNorm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantKVNorm, err := ops.RMS(wantKVRaw, kvWeight, 1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, values := range map[string][]float32{
+		"HC projection":   wantHC,
+		"attention norm":  wantNorm,
+		"query LoRA":      wantQLora,
+		"query norm":      wantQNorm,
+		"query heads raw": wantQHeadsRaw,
+		"query heads":     wantQHeads,
+		"key-value raw":   wantKVRaw,
+		"key-value norm":  wantKVNorm,
+	} {
+		assertNonzeroFinite(t, name, values)
 	}
 
 	batch, err := newMetalBatch(ops)
@@ -139,24 +178,63 @@ func TestMetalBatchHCPreQKV(t *testing.T) {
 	if err := batch.EncodeHCPre(state, hcFn, hcScale, hcBase, norm, hcOut); err != nil {
 		t.Fatal(err)
 	}
-	if err := batch.EncodeMatvecQ80(q, attnNorm, qOut); err != nil {
+	if err := batch.EncodeMatvecQ80(qa, attnNorm, qLora); err != nil {
 		t.Fatal(err)
 	}
-	if err := batch.EncodeMatvecQ80(kv, attnNorm, kvOut); err != nil {
+	if err := batch.EncodeRMS(qLora, qaNorm, qNorm, 1, true); err != nil {
 		t.Fatal(err)
 	}
-	if got := batch.Stats(); got != (metalBatchStats{Encoded: 3}) {
-		t.Fatalf("stats before wait = %+v, want {Encoded:3}", got)
+	if err := batch.EncodeMatvecQ80(qb, qNorm, qHeadsRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeRMS(qHeadsRaw, qaNorm, qHeads, 64, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeMatvecQ80(kv, attnNorm, kvRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.EncodeRMS(kvRaw, kvWeight, kvNorm, 1, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 7}) {
+		t.Fatalf("stats before wait = %+v, want {Encoded:7}", got)
 	}
 	if err := batch.Wait(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if got := batch.Stats(); got != (metalBatchStats{Encoded: 3, Commits: 1, Waits: 1}) {
-		t.Fatalf("stats after wait = %+v, want {Encoded:3 Commits:1 Waits:1}", got)
+	if got := batch.Stats(); got != (metalBatchStats{Encoded: 7, Commits: 1, Waits: 1}) {
+		t.Fatalf("stats after wait = %+v, want {Encoded:7 Commits:1 Waits:1}", got)
 	}
+	closeSlice(t, "batched HC projection", hcProjected.HostSlice(), wantHC)
 	closeSlice(t, "batched HC norm", attnNorm.HostSlice(), wantNorm)
-	closeSlice(t, "batched query", qOut.HostSlice(), wantQ)
-	closeSlice(t, "batched key-value", kvOut.HostSlice(), wantKV)
+	closeSlice(t, "batched query LoRA", qLora.HostSlice(), wantQLora)
+	closeSlice(t, "batched query norm", qNorm.HostSlice(), wantQNorm)
+	closeSlice(t, "batched raw query heads", qHeadsRaw.HostSlice(), wantQHeadsRaw)
+	closeSlice(t, "batched query heads", qHeads.HostSlice(), wantQHeads)
+	closeSlice(t, "batched raw key-value", kvRaw.HostSlice(), wantKVRaw)
+	closeSlice(t, "batched key-value norm", kvNorm.HostSlice(), wantKVNorm)
+}
+
+func batchWeights(n int) []float32 {
+	weights := make([]float32, n)
+	for i := range weights {
+		weights[i] = 0.75 + float32(i%7)/16
+	}
+	return weights
+}
+
+func assertNonzeroFinite(t *testing.T, name string, values []float32) {
+	t.Helper()
+	nonzero := false
+	for _, value := range values {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			t.Fatalf("%s contains non-finite value %g", name, value)
+		}
+		nonzero = nonzero || value != 0
+	}
+	if !nonzero {
+		t.Fatalf("%s is all zero", name)
+	}
 }
 
 func testBatchTensor(arena *metalmem.Arena, name string, typeID uint32, dimensions []uint64, bytes int) boundMetalTensor {
