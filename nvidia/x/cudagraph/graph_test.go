@@ -2,6 +2,7 @@ package cudagraph_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -157,5 +158,32 @@ func TestBucketManager(t *testing.T) {
 
 	if bm == nil {
 		t.Fatal("expected non-nil bucket manager")
+	}
+}
+
+func TestBucketManagerRejectsInvalidConfiguration(t *testing.T) {
+	tests := []struct {
+		name    string
+		manager *cudagraph.BucketManager
+		dim     int
+		want    string
+	}{
+		{"nil manager", nil, 1, "nil bucket manager"},
+		{"no buckets", cudagraph.NewBucketManager(nil, func(*cuda.Stream, int) (*cudagraph.Graph, error) { return nil, nil }), 1, "no buckets configured"},
+		{"nil builder", cudagraph.NewBucketManager([]int{1}, nil), 1, "nil bucket builder"},
+		{"zero bucket", cudagraph.NewBucketManager([]int{0}, func(*cuda.Stream, int) (*cudagraph.Graph, error) { return nil, nil }), 1, "invalid bucket 0"},
+		{"duplicate bucket", cudagraph.NewBucketManager([]int{2, 1, 2}, func(*cuda.Stream, int) (*cudagraph.Graph, error) { return nil, nil }), 1, "duplicate bucket 2"},
+		{"zero dimension", cudagraph.NewBucketManager([]int{1}, func(*cuda.Stream, int) (*cudagraph.Graph, error) { return nil, nil }), 0, "invalid dimension 0"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, err := test.manager.GetExec(nil, test.dim)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("GetExec error = %v, want text %q", err, test.want)
+			}
+			if err := test.manager.Close(); err != nil {
+				t.Fatalf("Close: %v", err)
+			}
+		})
 	}
 }
