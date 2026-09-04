@@ -23,8 +23,21 @@ const (
 	etidVersionInfo = 3
 
 	// Callback Modules
-	cbModuleCore  = 1
-	cbModuleCore2 = 5
+	cbModuleCore   = 1
+	cbModuleCUDA   = 2
+	cbModuleOpenCL = 3
+	cbModuleCUDART = 4
+	cbModuleCore2  = 5
+	cbModuleSync   = 6
+
+	// Callback table sizes are the NVTX release-v3 NVTX_CBID_*_SIZE
+	// constants. Each backing table has one additional null guard.
+	cbCoreSize   = 16
+	cbCUDASize   = 9
+	cbOpenCLSize = 15
+	cbCUDARTSize = 7
+	cbCore2Size  = 16
+	cbSyncSize   = 7
 
 	// Message Types
 	messageTypeAscii = 1
@@ -95,8 +108,16 @@ var (
 	fnInitialize            uintptr
 
 	// Slot pointer tables passed to the injection library
-	tableCORE  [17]uintptr
-	tableCORE2 [17]uintptr
+	tableCORE   [cbCoreSize + 1]uintptr
+	tableCUDA   [cbCUDASize + 1]uintptr
+	slotsCUDA   [cbCUDASize - 1]uintptr
+	tableOpenCL [cbOpenCLSize + 1]uintptr
+	slotsOpenCL [cbOpenCLSize - 1]uintptr
+	tableCUDART [cbCUDARTSize + 1]uintptr
+	slotsCUDART [cbCUDARTSize - 1]uintptr
+	tableCORE2  [cbCore2Size + 1]uintptr
+	tableSync   [cbSyncSize + 1]uintptr
+	slotsSync   [cbSyncSize - 1]uintptr
 
 	etblCallbacks   exportTableCallbacks
 	etblVersionInfo exportTableVersionInfo
@@ -141,6 +162,11 @@ func initTables() {
 	tableCORE2[15] = uintptr(unsafe.Pointer(&fnInitialize))
 	tableCORE2[16] = 0 // null terminator
 
+	initCallbackTable(tableCUDA[:], slotsCUDA[:])
+	initCallbackTable(tableOpenCL[:], slotsOpenCL[:])
+	initCallbackTable(tableCUDART[:], slotsCUDART[:])
+	initCallbackTable(tableSync[:], slotsSync[:])
+
 	etblCallbacks = exportTableCallbacks{
 		structSize:             unsafe.Sizeof(exportTableCallbacks{}),
 		getModuleFunctionTable: purego.NewCallback(getModuleFunctionTable),
@@ -154,26 +180,43 @@ func initTables() {
 	}
 }
 
+func initCallbackTable(table, slots []uintptr) {
+	for i := range slots {
+		table[i+1] = uintptr(unsafe.Pointer(&slots[i]))
+	}
+}
+
 func getModuleFunctionTable(callbackModule int32, outTable *uintptr, outSize *uint32) int32 {
 	switch callbackModule {
 	case cbModuleCore:
-		if outTable != nil {
-			*outTable = uintptr(unsafe.Pointer(&tableCORE[0]))
-		}
-		if outSize != nil {
-			*outSize = uint32(len(tableCORE) - 1)
-		}
+		setCallbackTable(outTable, outSize, tableCORE[:])
+		return 1
+	case cbModuleCUDA:
+		setCallbackTable(outTable, outSize, tableCUDA[:])
+		return 1
+	case cbModuleOpenCL:
+		setCallbackTable(outTable, outSize, tableOpenCL[:])
+		return 1
+	case cbModuleCUDART:
+		setCallbackTable(outTable, outSize, tableCUDART[:])
 		return 1
 	case cbModuleCore2:
-		if outTable != nil {
-			*outTable = uintptr(unsafe.Pointer(&tableCORE2[0]))
-		}
-		if outSize != nil {
-			*outSize = uint32(len(tableCORE2) - 1)
-		}
+		setCallbackTable(outTable, outSize, tableCORE2[:])
+		return 1
+	case cbModuleSync:
+		setCallbackTable(outTable, outSize, tableSync[:])
 		return 1
 	default:
 		return 0
+	}
+}
+
+func setCallbackTable(outTable *uintptr, outSize *uint32, table []uintptr) {
+	if outTable != nil {
+		*outTable = uintptr(unsafe.Pointer(&table[0]))
+	}
+	if outSize != nil {
+		*outSize = uint32(len(table) - 1)
 	}
 }
 
