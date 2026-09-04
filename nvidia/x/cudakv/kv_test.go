@@ -8,9 +8,29 @@ import (
 )
 
 func TestKVInvalidDims(t *testing.T) {
-	_, err := cudakv.New(nil, -1, 8, 128, 2048)
-	if err == nil {
-		t.Fatal("expected error on invalid dimensions")
+	tests := []struct {
+		name string
+		fn   func() error
+	}{
+		{"cache", func() error {
+			_, err := cudakv.New(nil, -1, 8, 128, 2048)
+			return err
+		}},
+		{"fp8 cache", func() error {
+			_, err := cudakv.NewFP8(nil, -1, 8, 128, 2048)
+			return err
+		}},
+		{"paged cache", func() error {
+			_, err := cudakv.NewPagedCache(nil, -1, 8, 128, 16, 64)
+			return err
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.fn(); err == nil {
+				t.Fatal("constructor accepted invalid dimensions")
+			}
+		})
 	}
 }
 
@@ -78,4 +98,3 @@ func TestPagedCacheAllocation(t *testing.T) {
 		t.Errorf("expected 64 free blocks after recycle, got %d", pc.NumFreeBlocks())
 	}
 }
-

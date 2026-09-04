@@ -227,11 +227,11 @@ type Page struct {
 
 // NewPagedCache creates a paged KV cache allocator with totalBlocks physical slots of blockSize tokens.
 func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, totalBlocks int) (*PagedCache, error) {
+	if err := validatePagedDimensions(numLayers, numKVHeads, headDim, blockSize, totalBlocks); err != nil {
+		return nil, err
+	}
 	if dev == nil {
 		return nil, fmt.Errorf("cudakv: nil device")
-	}
-	if blockSize <= 0 || totalBlocks <= 0 {
-		return nil, fmt.Errorf("cudakv: invalid block parameters (size=%d, total=%d)", blockSize, totalBlocks)
 	}
 
 	elementsPerLayer := totalBlocks * blockSize * numKVHeads * headDim
@@ -280,6 +280,26 @@ func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, 
 		kBlocks:     kBlocks,
 		vBlocks:     vBlocks,
 	}, nil
+}
+
+func validatePagedDimensions(numLayers, numKVHeads, headDim, blockSize, totalBlocks int) error {
+	if numLayers <= 0 || numKVHeads <= 0 || headDim <= 0 || blockSize <= 0 || totalBlocks <= 0 {
+		return fmt.Errorf("cudakv: invalid dimensions (layers=%d, kv_heads=%d, head_dim=%d, block_size=%d, total_blocks=%d)",
+			numLayers, numKVHeads, headDim, blockSize, totalBlocks)
+	}
+	const (
+		buffersPerLayer = 2 // K and V
+		bytesPerElement = 4 // float32
+	)
+	maxInt := int(^uint(0) >> 1)
+	totalBytes := totalBlocks
+	for _, factor := range []int{blockSize, numKVHeads, headDim, numLayers, buffersPerLayer, bytesPerElement} {
+		if totalBytes > maxInt/factor {
+			return fmt.Errorf("cudakv: paged cache size overflows int")
+		}
+		totalBytes *= factor
+	}
+	return nil
 }
 
 // AllocSequence allocates initial block storage for a new incoming sequence.
