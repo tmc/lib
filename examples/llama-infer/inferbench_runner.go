@@ -229,7 +229,7 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 	case inferbench.ThroughputOutputMode:
 		return arm == "llama-infer" || arm == "llama-infer-unfused-projections"
 	case inferbench.ObservedOutputMode:
-		return arm == "llama-infer-observed-output" || arm == "llama-infer-unfused-projections-observed-output"
+		return benchmarkObservedOutputSupported() && (arm == "llama-infer-observed-output" || arm == "llama-infer-unfused-projections-observed-output")
 	default:
 		return false
 	}

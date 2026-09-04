@@ -16,14 +16,15 @@ import (
 // stream are shared, so device work is serialized until the CUDA model path has
 // a true shared-weight batched forward pass.
 type cudaServingBackend struct {
-	engine *ModelEngine
-	cfg    Config
-	batch  *GPUBatchScratchpad
-	mu     sync.Mutex
-	last   cudaBatchLaunches
-	live   map[*SequenceKVCache]uint64
-	next   uint64
-	closed bool
+	engine          *ModelEngine
+	cfg             Config
+	batch           *GPUBatchScratchpad
+	mu              sync.Mutex
+	last            cudaBatchLaunches
+	live            map[*SequenceKVCache]uint64
+	observedOutputs *observedOutputCollector
+	next            uint64
+	closed          bool
 }
 
 type cudaSequenceState struct {
@@ -176,6 +177,7 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 	}
 	var valid []int
 	var caches []*SequenceKVCache
+	var sequences []cudaSequenceState
 	var tokens []int32
 	var positions []int
 	for i, state := range states {
@@ -205,6 +207,7 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 		}
 		valid = append(valid, i)
 		caches = append(caches, sequence.cache)
+		sequences = append(sequences, sequence)
 		tokens = append(tokens, state.Current)
 		positions = append(positions, state.Position)
 	}
@@ -223,6 +226,19 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 			results[i].Err = fmt.Errorf("cuda decode: %w", err)
 		}
 		return results
+	}
+	if b.observedOutputs != nil {
+		logits := make([]float32, len(valid)*b.cfg.VocabSize)
+		if err := b.batch.Logits.Slice(0, len(logits)).CopyToHost(logits); err != nil {
+			return batchError(results, fmt.Errorf("cuda decode: observe logits: %w", err))
+		}
+		observedStates := make([]*continuousbatch.State, len(valid))
+		for row, i := range valid {
+			observedStates[row] = states[i]
+		}
+		if err := b.observedOutputs.observeCUDALogits(observedStates, sequences, logits, b.cfg.VocabSize); err != nil {
+			return batchError(results, err)
+		}
 	}
 	for row, i := range valid {
 		text, decodeErr := b.engine.tokenizer.Decode([]int32{next[row]})
@@ -256,6 +272,9 @@ func (b *cudaServingBackend) Release(state *continuousbatch.State) {
 		return
 	}
 	delete(b.live, sequence.cache)
+	if b.observedOutputs != nil {
+		b.observedOutputs.observeCUDAKV(state, sequence, b.cfg)
+	}
 	b.mu.Unlock()
 	sequence.cache.Free()
 	state.KV = nil

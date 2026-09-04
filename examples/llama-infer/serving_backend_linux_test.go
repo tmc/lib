@@ -125,7 +125,7 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 		t.Skip("LLAMA_MODEL_PATH is empty")
 	}
 	for _, fused := range []bool{false, true} {
-		for _, width := range []int{2, 4, 8} {
+		for _, width := range []int{1, 2, 4, 8} {
 			t.Run(fmt.Sprintf("fused=%t/B%d", fused, width), func(t *testing.T) {
 				cfg := Llama3_2_1BConfig(path)
 				cfg.MaxSeqLen = 8
@@ -140,12 +140,16 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 				}
 				backend := backendValue.(*cudaServingBackend)
 				defer backend.Close()
+				backend.observedOutputs = newObservedOutputCollector()
 				states := make([]*continuousbatch.State, width)
 				refCaches := make([]*SequenceKVCache, width)
 				refLogits := make([][]float32, width)
 				refTokens := make([]int32, width)
+				allPrompts := [][]int32{{41, 42}, {41, 42}, {43}, {44, 45, 46}}
+				positions := make([]int, width)
 				for row := range width {
-					prompt := []int32{int32(41 + row*2), int32(42 + row*2)}
+					prompt := allPrompts[row%len(allPrompts)]
+					positions[row] = len(prompt)
 					refCaches[row], err = engine.NewSequenceKV(cfg)
 					if err != nil {
 						t.Fatal(err)
@@ -168,11 +172,6 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 					state.Current = current
 					states[row] = state
 				}
-				defer func() {
-					for _, state := range states {
-						backend.Release(state)
-					}
-				}()
 				results := backend.DecodeBatch(t.Context(), states)
 				gotLogits := make([]float32, width*cfg.VocabSize)
 				if err := backend.batch.Logits.Slice(0, len(gotLogits)).CopyToHost(gotLogits); err != nil {
@@ -188,15 +187,34 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 					checkCUDAFloatSlice(t, fmt.Sprintf("row %d logits", row), gotLogits[row*cfg.VocabSize:(row+1)*cfg.VocabSize], refLogits[row], 2e-3)
 					sequence := states[row].KV.(cudaSequenceState)
 					for layer := 0; layer < engine.mCfg.NumHiddenLayers; layer++ {
-						checkCUDAKVCoordinate(t, sequence.cache, refCaches[row], layer, 2, engine.mCfg.NumKeyValueHeads*engine.mCfg.HeadDim(), 2e-3)
+						checkCUDAKVCoordinate(t, sequence.cache, refCaches[row], layer, positions[row], engine.mCfg.NumKeyValueHeads*engine.mCfg.HeadDim(), 2e-3)
+					}
+				}
+				for _, state := range states {
+					state.Position++
+					backend.Release(state)
+				}
+				ids := make([]string, width)
+				for row := range states {
+					ids[row] = states[row].ID
+				}
+				observed, err := backend.observedOutputs.outputs(ids)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for row, output := range observed {
+					wantTokens := positions[row] + 1
+					wantElements := 2 * cfg.NumLayers * wantTokens * cfg.NumKVHeads * cfg.HeadDim
+					if output.Request != row || output.FullLogitsSHA256 != hashFloat32(gotLogits[row*cfg.VocabSize:(row+1)*cfg.VocabSize]) || output.FullLogitsElements != cfg.VocabSize || output.PopulatedTokens != wantTokens || output.PopulatedKVElements != wantElements || len(output.Layers) != cfg.NumLayers {
+						t.Fatalf("row %d observed output = %+v", row, output)
 					}
 				}
 				launches := backend.lastBatchLaunches()
 				wantMatrixLaunches := 2*engine.mCfg.NumHiddenLayers + 1
-				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches || launches.MatrixLaunches != wantMatrixLaunches {
+				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.IndependentWeightLaunches != launches.WeightLaunches*width || width > 1 && launches.WeightLaunches >= launches.IndependentWeightLaunches || launches.MatrixLaunches != wantMatrixLaunches {
 					t.Fatalf("launch receipt = %+v", launches)
 				}
-				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d matrix_launches=%d", width, launches.WeightLaunches, launches.IndependentWeightLaunches, launches.MatrixLaunches)
+				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d matrix_launches=%d observed_requests=%d observed_sha256=%s", width, launches.WeightLaunches, launches.IndependentWeightLaunches, launches.MatrixLaunches, len(observed), observed[0].FullLogitsSHA256)
 			})
 		}
 	}
@@ -365,7 +383,7 @@ func TestCUDAServingBackendRejectsNilContexts(t *testing.T) {
 
 func TestCUDAServingBackendRejectsStaleGeneration(t *testing.T) {
 	cache := &SequenceKVCache{Cache: new(cudakv.Cache)}
-	backend := &cudaServingBackend{live: map[*SequenceKVCache]uint64{cache: 2}}
+	backend := &cudaServingBackend{live: map[*SequenceKVCache]uint64{cache: 2}, observedOutputs: newObservedOutputCollector()}
 	state := &continuousbatch.State{KV: cudaSequenceState{cache: cache, generation: 1}}
 	results := backend.DecodeBatch(t.Context(), []*continuousbatch.State{state})
 	if len(results) != 1 || results[0].Err == nil || !strings.Contains(results[0].Err.Error(), "stale cache state") {
@@ -377,6 +395,9 @@ func TestCUDAServingBackendRejectsStaleGeneration(t *testing.T) {
 	}
 	if backend.live[cache] != 2 {
 		t.Fatal("Release retired the live generation through a stale state")
+	}
+	if len(backend.observedOutputs.records) != 0 {
+		t.Fatal("stale release produced observed output")
 	}
 }
 

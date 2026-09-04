@@ -9,6 +9,7 @@ import (
 
 func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileCudaEngine(cfg) }
 func benchmarkBackend() string                            { return "cuda" }
+func benchmarkObservedOutputSupported() bool              { return false }
 func benchmarkPhysicalTelemetry() error {
 	return errors.New("cuda execution does not expose exact dispatch and tier-byte counters")
 }

@@ -11,6 +11,7 @@ import (
 
 func getBenchmarkEngine(cfg Config) (*ModelEngine, error) { return GetOrCompileDarwinEngine(cfg) }
 func benchmarkBackend() string                            { return "metal" }
+func benchmarkObservedOutputSupported() bool              { return true }
 func benchmarkPhysicalTelemetry() error {
 	return nil
 }
