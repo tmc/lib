@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
 )
@@ -17,10 +18,16 @@ import (
 type cudaServingBackend struct {
 	engine *ModelEngine
 	cfg    Config
+	batch  *GPUBatchScratchpad
+	mu     sync.Mutex
+	last   cudaBatchLaunches
+	live   map[*SequenceKVCache]uint64
+	next   uint64
 }
 
 type cudaSequenceState struct {
-	cache *SequenceKVCache
+	cache      *SequenceKVCache
+	generation uint64
 }
 
 func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (servingBackend, error) {
@@ -33,7 +40,11 @@ func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (s
 	if engine.tokenizer == nil {
 		return nil, fmt.Errorf("%w: tokenizer unavailable", errServingBackendUnavailable)
 	}
-	return &cudaServingBackend{engine: engine, cfg: cudaServingConfig(engine, cfg)}, nil
+	batch, err := newGPUBatchScratchpad(engine.dev, &engine.mCfg, capacity)
+	if err != nil {
+		return nil, fmt.Errorf("cuda serving backend: allocate batch scratch: %w", err)
+	}
+	return &cudaServingBackend{engine: engine, cfg: cudaServingConfig(engine, cfg), batch: batch, live: make(map[*SequenceKVCache]uint64)}, nil
 }
 
 // cudaServingConfig takes model semantics from the compiled engine while
@@ -126,7 +137,12 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 		cache.Free()
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: decode token: %w", err)}
 	}
-	state.KV = cudaSequenceState{cache: cache}
+	b.mu.Lock()
+	b.next++
+	generation := b.next
+	b.live[cache] = generation
+	b.mu.Unlock()
+	state.KV = cudaSequenceState{cache: cache, generation: generation}
 	state.Position = len(tokens)
 	return continuousbatch.Result{Token: continuousbatch.Token{ID: next, Text: text}, Done: b.cfg.IsEOS(next)}
 }
@@ -136,6 +152,10 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 	if err := cudaContextErr(ctx, "cuda decode"); err != nil {
 		return batchError(results, err)
 	}
+	var valid []int
+	var caches []*SequenceKVCache
+	var tokens []int32
+	var positions []int
 	for i, state := range states {
 		if err := cudaContextErr(ctx, "cuda decode"); err != nil {
 			results[i].Err = err
@@ -154,17 +174,44 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 			results[i].Err = errors.New("cuda decode: invalid cache state")
 			continue
 		}
-		b.engine.generateMu.Lock()
-		next, err := GPUForwardPassKV(b.engine, b.cfg, sequence.cache, state.Current, state.Position)
-		b.engine.generateMu.Unlock()
-		if err != nil {
-			results[i].Err = fmt.Errorf("cuda decode: %w", err)
+		b.mu.Lock()
+		generation := b.live[sequence.cache]
+		b.mu.Unlock()
+		if generation == 0 || generation != sequence.generation {
+			results[i].Err = errors.New("cuda decode: stale cache state")
 			continue
 		}
-		text, err := b.engine.tokenizer.Decode([]int32{next})
-		results[i] = continuousbatch.Result{Token: continuousbatch.Token{ID: next, Text: text}, Done: b.cfg.IsEOS(next), Err: err}
+		valid = append(valid, i)
+		caches = append(caches, sequence.cache)
+		tokens = append(tokens, state.Current)
+		positions = append(positions, state.Position)
+	}
+	if len(valid) == 0 {
+		return results
+	}
+	b.engine.generateMu.Lock()
+	next, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches, tokens, positions)
+	b.engine.generateMu.Unlock()
+	b.mu.Lock()
+	b.last = stats
+	b.mu.Unlock()
+	if err != nil {
+		for _, i := range valid {
+			results[i].Err = fmt.Errorf("cuda decode: %w", err)
+		}
+		return results
+	}
+	for row, i := range valid {
+		text, decodeErr := b.engine.tokenizer.Decode([]int32{next[row]})
+		results[i] = continuousbatch.Result{Token: continuousbatch.Token{ID: next[row], Text: text}, Done: b.cfg.IsEOS(next[row]), Err: decodeErr}
 	}
 	return results
+}
+
+func (b *cudaServingBackend) lastBatchLaunches() cudaBatchLaunches {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.last
 }
 
 func (b *cudaServingBackend) Release(state *continuousbatch.State) {
@@ -175,11 +222,24 @@ func (b *cudaServingBackend) Release(state *continuousbatch.State) {
 	if !ok {
 		return
 	}
+	b.mu.Lock()
+	if b.live[sequence.cache] != sequence.generation {
+		b.mu.Unlock()
+		state.KV = nil
+		return
+	}
+	delete(b.live, sequence.cache)
+	b.mu.Unlock()
 	sequence.cache.Free()
 	state.KV = nil
 }
 
-func (*cudaServingBackend) Close() {}
+func (b *cudaServingBackend) Close() {
+	if b != nil {
+		b.batch.Free()
+		b.batch = nil
+	}
+}
 
 func validateCUDASampler(sampler any) error {
 	if sampler == nil {

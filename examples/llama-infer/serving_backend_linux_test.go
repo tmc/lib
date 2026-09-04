@@ -6,13 +6,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
+	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
 type fakeServingBackend struct {
@@ -88,6 +92,167 @@ func TestRealCUDAContinuousServing(t *testing.T) {
 		if err := <-response.Done; err != nil {
 			t.Errorf("request %d: %v", i, err)
 		}
+	}
+}
+
+func TestBatchElements(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		factors []int
+		want    int
+		wantErr bool
+	}{
+		{name: "product", factors: []int{4, 8, 16}, want: 512},
+		{name: "zero", factors: []int{4, 0}, wantErr: true},
+		{name: "negative", factors: []int{-1, 4}, wantErr: true},
+		{name: "overflow", factors: []int{math.MaxInt, 2}, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := batchElements(test.name, test.factors...)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("batchElements() error = %v, want error %v", err, test.wantErr)
+			}
+			if got != test.want {
+				t.Fatalf("batchElements() = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
+func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
+	path := os.Getenv("LLAMA_MODEL_PATH")
+	if path == "" {
+		t.Skip("LLAMA_MODEL_PATH is empty")
+	}
+	for _, fused := range []bool{false, true} {
+		for _, width := range []int{2, 4} {
+			t.Run(fmt.Sprintf("fused=%t/B%d", fused, width), func(t *testing.T) {
+				cfg := Llama3_2_1BConfig(path)
+				cfg.MaxSeqLen = 8
+				cfg.FuseEGraph = fused
+				engine, err := GetOrCompileEngine(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				backendValue, err := newPlatformServingBackend(engine, cfg, width)
+				if err != nil {
+					t.Fatal(err)
+				}
+				backend := backendValue.(*cudaServingBackend)
+				defer backend.Close()
+				states := make([]*continuousbatch.State, width)
+				refCaches := make([]*SequenceKVCache, width)
+				refLogits := make([][]float32, width)
+				refTokens := make([]int32, width)
+				for row := range width {
+					prompt := []int32{int32(41 + row*2), int32(42 + row*2)}
+					refCaches[row], err = engine.NewSequenceKV(cfg)
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer refCaches[row].Free()
+					current, err := GPUPrefillPassKV(engine, cfg, refCaches[row], prompt)
+					if err != nil {
+						t.Fatal(err)
+					}
+					refTokens[row], err = GPUForwardPassKV(engine, cfg, refCaches[row], current, len(prompt))
+					if err != nil {
+						t.Fatal(err)
+					}
+					refLogits[row], err = engine.ReadLogits()
+					if err != nil {
+						t.Fatal(err)
+					}
+					state := &continuousbatch.State{ID: fmt.Sprintf("row-%d", row), Current: current, Position: len(prompt), Sampler: SamplerConfig{Method: "argmax"}}
+					state.KV = prefillStateKV(t, backend, prompt, state.Sampler)
+					state.Current = current
+					states[row] = state
+				}
+				defer func() {
+					for _, state := range states {
+						backend.Release(state)
+					}
+				}()
+				results := backend.DecodeBatch(t.Context(), states)
+				gotLogits := make([]float32, width*cfg.VocabSize)
+				if err := backend.batch.Logits.Slice(0, len(gotLogits)).CopyToHost(gotLogits); err != nil {
+					t.Fatal(err)
+				}
+				for row, result := range results {
+					if result.Err != nil {
+						t.Fatalf("row %d: %v", row, result.Err)
+					}
+					if result.Token.ID != refTokens[row] {
+						t.Fatalf("row %d token = %d, want %d", row, result.Token.ID, refTokens[row])
+					}
+					checkCUDAFloatSlice(t, fmt.Sprintf("row %d logits", row), gotLogits[row*cfg.VocabSize:(row+1)*cfg.VocabSize], refLogits[row], 2e-3)
+					sequence := states[row].KV.(cudaSequenceState)
+					for _, layer := range []int{0, engine.mCfg.NumHiddenLayers - 1} {
+						checkCUDAKVCoordinate(t, sequence.cache, refCaches[row], layer, 2, engine.mCfg.NumKeyValueHeads*engine.mCfg.HeadDim(), 2e-3)
+					}
+				}
+				launches := backend.lastBatchLaunches()
+				if launches.Rows != width || launches.WeightLaunches <= 0 || launches.WeightLaunches >= launches.IndependentWeightLaunches {
+					t.Fatalf("launch receipt = %+v", launches)
+				}
+				t.Logf("receipt batch=%d weight_launches=%d independent_weight_launches=%d", width, launches.WeightLaunches, launches.IndependentWeightLaunches)
+			})
+		}
+	}
+}
+
+func prefillStateKV(t *testing.T, backend *cudaServingBackend, prompt []int32, sampler any) any {
+	t.Helper()
+	state := &continuousbatch.State{ID: "batch", PromptTokenIDs: prompt, Sampler: sampler}
+	result := backend.PrefillBatch([]continuousbatch.PrefillRequest{{Context: t.Context(), State: state}})[0]
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	return state.KV
+}
+
+func checkCUDAFloatSlice(t *testing.T, name string, got, want []float32, tolerance float64) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s length = %d, want %d", name, len(got), len(want))
+	}
+	for i := range got {
+		if diff := math.Abs(float64(got[i] - want[i])); diff > tolerance {
+			t.Fatalf("%s[%d] = %g, want %g (diff %g)", name, i, got[i], want[i], diff)
+		}
+	}
+}
+
+func checkCUDAKVCoordinate(t *testing.T, got, want *SequenceKVCache, layer, position, kvDim int, tolerance float64) {
+	t.Helper()
+	gotLayer, err := got.Cache.Layer(layer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLayer, err := want.Cache.Layer(layer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range []struct {
+		name      string
+		got, want []float32
+	}{
+		{name: "K", got: make([]float32, kvDim), want: make([]float32, kvDim)},
+		{name: "V", got: make([]float32, kvDim), want: make([]float32, kvDim)},
+	} {
+		var gotDevice, wantDevice cudamem.Slice[float32]
+		if pair.name == "K" {
+			gotDevice, wantDevice = gotLayer.K, wantLayer.K
+		} else {
+			gotDevice, wantDevice = gotLayer.V, wantLayer.V
+		}
+		if err := gotDevice.Slice(position*kvDim, (position+1)*kvDim).CopyToHost(pair.got); err != nil {
+			t.Fatal(err)
+		}
+		if err := wantDevice.Slice(position*kvDim, (position+1)*kvDim).CopyToHost(pair.want); err != nil {
+			t.Fatal(err)
+		}
+		checkCUDAFloatSlice(t, pair.name, pair.got, pair.want, tolerance)
 	}
 }
 
@@ -194,6 +359,23 @@ func TestCUDAServingBackendRejectsNilContexts(t *testing.T) {
 	results = backend.DecodeBatch(nil, []*continuousbatch.State{{}})
 	if len(results) != 1 || results[0].Err == nil {
 		t.Fatalf("DecodeBatch(nil) = %+v", results)
+	}
+}
+
+func TestCUDAServingBackendRejectsStaleGeneration(t *testing.T) {
+	cache := &SequenceKVCache{Cache: new(cudakv.Cache)}
+	backend := &cudaServingBackend{live: map[*SequenceKVCache]uint64{cache: 2}}
+	state := &continuousbatch.State{KV: cudaSequenceState{cache: cache, generation: 1}}
+	results := backend.DecodeBatch(t.Context(), []*continuousbatch.State{state})
+	if len(results) != 1 || results[0].Err == nil || !strings.Contains(results[0].Err.Error(), "stale cache state") {
+		t.Fatalf("DecodeBatch(stale) = %+v", results)
+	}
+	backend.Release(state)
+	if state.KV != nil {
+		t.Fatal("Release left stale state attached")
+	}
+	if backend.live[cache] != 2 {
+		t.Fatal("Release retired the live generation through a stale state")
 	}
 }
 

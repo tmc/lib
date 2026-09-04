@@ -389,3 +389,162 @@ extern "C" __global__ void FusedSwiGLUDown(
 
     if (tid == 0) out[row] = block_sum;
 }
+
+// The batch kernels use grid.y for the token row. A single launch therefore
+// consumes each shared weight matrix for every live request in the wave.
+extern "C" __global__ void BatchEmbeddingLookup(const float* table, const int* tokens,
+    float* out, int hidden_dim, int batch) {
+    int b = blockIdx.y;
+    if (b >= batch) return;
+    int tok = tokens[b];
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x)
+        out[b * hidden_dim + i] = table[tok * hidden_dim + i];
+}
+
+extern "C" __global__ void BatchRMSNorm(const float* x, const float* weight,
+    float* out, int hidden_dim, int batch, float eps) {
+    int b = blockIdx.y;
+    if (b >= batch) return;
+    x += b * hidden_dim;
+    out += b * hidden_dim;
+    __shared__ float sums[32];
+    int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
+    float sum = 0.0f;
+    for (int i = tid; i < hidden_dim; i += blockDim.x) sum += x[i] * x[i];
+    sum = warp_sum(sum);
+    if (lane == 0) sums[wid] = sum;
+    __syncthreads();
+    float total = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
+    if (wid == 0) total = warp_sum(total);
+    if (tid == 0) sums[0] = rsqrtf(total / float(hidden_dim) + eps);
+    __syncthreads();
+    for (int i = tid; i < hidden_dim; i += blockDim.x)
+        out[i] = x[i] * sums[0] * (weight ? weight[i] : 1.0f);
+}
+
+extern "C" __global__ void BatchLinearGEMV(const float* x, const float* w,
+    const float* bias, float* out, int in_dim, int out_dim, int batch) {
+    int row = blockIdx.x, b = blockIdx.y;
+    if (row >= out_dim || b >= batch) return;
+    x += b * in_dim;
+    __shared__ float sums[32];
+    int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
+    float sum = 0.0f;
+    for (int i = tid; i < in_dim; i += blockDim.x) sum += x[i] * w[row * in_dim + i];
+    sum = warp_sum(sum);
+    if (lane == 0) sums[wid] = sum;
+    __syncthreads();
+    float total = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
+    if (wid == 0) total = warp_sum(total);
+    if (tid == 0) out[b * out_dim + row] = total + (bias ? bias[row] : 0.0f);
+}
+
+extern "C" __global__ void BatchSwiGLU(const float* gate, const float* up,
+    float* out, int intermediate_dim, int batch) {
+    int b = blockIdx.y;
+    if (b >= batch) return;
+    int base = b * intermediate_dim;
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < intermediate_dim; i += blockDim.x * gridDim.x) {
+        float g = gate[base + i];
+        out[base + i] = (g / (1.0f + expf(-g))) * up[base + i];
+    }
+}
+
+extern "C" __global__ void BatchAddResidual(float* x, const float* residual,
+    int dim, int batch) {
+    int b = blockIdx.y;
+    if (b >= batch) return;
+    int base = b * dim;
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim; i += blockDim.x * gridDim.x)
+        x[base + i] += residual[base + i];
+}
+
+extern "C" __global__ void BatchFusedRMSNormQKV(const float* x, const float* weight,
+    const float* wq, const float* wk, const float* wv, float* q, float* k, float* v,
+    int in_dim, int q_dim, int kv_dim, int batch, float eps) {
+    int out = blockIdx.x, b = blockIdx.y;
+    if (b >= batch) return;
+    const float* bx = x + b * in_dim;
+    __shared__ float sums[32];
+    int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
+    float sq = 0.0f;
+    for (int i = tid; i < in_dim; i += blockDim.x) sq += bx[i] * bx[i];
+    sq = warp_sum(sq);
+    if (lane == 0) sums[wid] = sq;
+    __syncthreads();
+    float total = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
+    if (wid == 0) total = warp_sum(total);
+    if (tid == 0) sums[0] = rsqrtf(total / float(in_dim) + eps);
+    __syncthreads();
+    float inv = sums[0], qs = 0.0f, ks = 0.0f, vs = 0.0f;
+    for (int i = tid; i < in_dim; i += blockDim.x) {
+        float nx = bx[i] * inv * (weight ? weight[i] : 1.0f);
+        if (out < q_dim) qs += nx * wq[out * in_dim + i];
+        if (out < kv_dim) {
+            ks += nx * wk[out * in_dim + i];
+            vs += nx * wv[out * in_dim + i];
+        }
+    }
+    qs = warp_sum(qs); ks = warp_sum(ks); vs = warp_sum(vs);
+    if (lane == 0) { sums[wid] = qs; sums[wid + 8] = ks; sums[wid + 16] = vs; }
+    __syncthreads();
+    float qt = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
+    float kt = tid < blockDim.x / WARP_SIZE ? sums[lane + 8] : 0.0f;
+    float vt = tid < blockDim.x / WARP_SIZE ? sums[lane + 16] : 0.0f;
+    if (wid == 0) { qt = warp_sum(qt); kt = warp_sum(kt); vt = warp_sum(vt); }
+    if (tid == 0) {
+        if (out < q_dim) q[b * q_dim + out] = qt;
+        if (out < kv_dim) { k[b * kv_dim + out] = kt; v[b * kv_dim + out] = vt; }
+    }
+}
+
+extern "C" __global__ void BatchFusedSwiGLUDown(const float* gate, const float* up,
+    const float* down, float* out, int hidden_dim, int intermediate_dim, int batch) {
+    int row = blockIdx.x, b = blockIdx.y;
+    if (row >= hidden_dim || b >= batch) return;
+    __shared__ float sums[32];
+    int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
+    int base = b * intermediate_dim;
+    float sum = 0.0f;
+    for (int i = tid; i < intermediate_dim; i += blockDim.x) {
+        float g = gate[base + i];
+        sum += (g / (1.0f + expf(-g))) * up[base + i] * down[row * intermediate_dim + i];
+    }
+    sum = warp_sum(sum);
+    if (lane == 0) sums[wid] = sum;
+    __syncthreads();
+    float total = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
+    if (wid == 0) total = warp_sum(total);
+    if (tid == 0) out[b * hidden_dim + row] = total;
+}
+
+extern "C" __global__ void BatchArgmax(const float* logits, int* tokens,
+    int vocab, int batch) {
+    int b = blockIdx.x;
+    if (b >= batch) return;
+    __shared__ float values[256];
+    __shared__ int indices[256];
+    int tid = threadIdx.x;
+    const float* row = logits + b * vocab;
+    float best = -3.402823466e+38F;
+    int index = -1;
+    for (int i = tid; i < vocab; i += blockDim.x) {
+        if (row[i] > best || (row[i] == best && (index < 0 || i < index))) {
+            best = row[i]; index = i;
+        }
+    }
+    values[tid] = best; indices[tid] = index;
+    __syncthreads();
+    for (int offset = blockDim.x / 2; offset; offset >>= 1) {
+        if (tid < offset) {
+            float other = values[tid + offset];
+            int otherIndex = indices[tid + offset];
+            if (other > values[tid] ||
+                (other == values[tid] && otherIndex >= 0 && (indices[tid] < 0 || otherIndex < indices[tid]))) {
+                values[tid] = other; indices[tid] = otherIndex;
+            }
+        }
+        __syncthreads();
+    }
+    if (tid == 0) tokens[b] = indices[0] < 0 ? 0 : indices[0];
+}

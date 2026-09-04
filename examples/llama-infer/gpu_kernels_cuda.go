@@ -19,15 +19,23 @@ var ForwardKernelsCUDA string
 
 // Kernels names the transformer primitives defined by ForwardKernelsCUDA.
 type Kernels struct {
-	Embed       driver.Function `cuda:"EmbeddingLookup"`
-	Norm        driver.Function `cuda:"RMSNorm"`
-	GEMV        driver.Function `cuda:"LinearGEMV"`
-	RoPE        driver.Function `cuda:"ApplyRoPE"`
-	StoreKV     driver.Function `cuda:"StoreKVCache"`
-	SwiGLU      driver.Function `cuda:"SwiGLU"`
-	AddResidual driver.Function `cuda:"AddResidual"`
-	FusedQKV    driver.Function `cuda:"FusedRMSNormQKV"`
-	FusedSwiGLU driver.Function `cuda:"FusedSwiGLUDown"`
+	Embed            driver.Function `cuda:"EmbeddingLookup"`
+	Norm             driver.Function `cuda:"RMSNorm"`
+	GEMV             driver.Function `cuda:"LinearGEMV"`
+	RoPE             driver.Function `cuda:"ApplyRoPE"`
+	StoreKV          driver.Function `cuda:"StoreKVCache"`
+	SwiGLU           driver.Function `cuda:"SwiGLU"`
+	AddResidual      driver.Function `cuda:"AddResidual"`
+	FusedQKV         driver.Function `cuda:"FusedRMSNormQKV"`
+	FusedSwiGLU      driver.Function `cuda:"FusedSwiGLUDown"`
+	BatchEmbed       driver.Function `cuda:"BatchEmbeddingLookup"`
+	BatchNorm        driver.Function `cuda:"BatchRMSNorm"`
+	BatchGEMV        driver.Function `cuda:"BatchLinearGEMV"`
+	BatchSwiGLU      driver.Function `cuda:"BatchSwiGLU"`
+	BatchAddResidual driver.Function `cuda:"BatchAddResidual"`
+	BatchFusedQKV    driver.Function `cuda:"BatchFusedRMSNormQKV"`
+	BatchFusedSwiGLU driver.Function `cuda:"BatchFusedSwiGLUDown"`
+	BatchArgmax      driver.Function `cuda:"BatchArgmax"`
 }
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
