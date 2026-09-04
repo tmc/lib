@@ -3,6 +3,7 @@ package inferbench
 import (
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,7 +20,7 @@ func validCampaign() Campaign {
 		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy}}
 		for i := 0; i < 20; i++ {
 			id := "sample-" + string(rune('A'+i))
-			r.Samples = append(r.Samples, Sample{ID: id, TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 100, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
+			r.Samples = append(r.Samples, Sample{ID: id, TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
 		}
 		runs = append(runs, r)
 	}
@@ -60,6 +61,8 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"cpu fallback", func(c *Campaign) { c.Runs[0].Evidence.CPUFallback = true }},
 		{"unsynchronized", func(c *Campaign) { c.Runs[0].Evidence.DeviceSynchronized = false }},
 		{"non-finite throughput", func(c *Campaign) { c.Runs[0].Samples[0].TokensPerSecond = math.NaN() }},
+		{"throughput outside interval", func(c *Campaign) { c.Runs[0].Samples[0].TokensPerSecond = 100 }},
+		{"ttft outside interval", func(c *Campaign) { c.Runs[0].Samples[0].TTFT = 2 * time.Millisecond }},
 		{"missing tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierReadBytes = map[string]uint64{} }},
 		{"inferred dispatch counters", func(c *Campaign) { c.Runs[0].Samples[0].DispatchMeasured = false }},
 		{"placeholder tier counters", func(c *Campaign) { c.Runs[0].Samples[0].TierBytesMeasured = false }},
@@ -121,6 +124,52 @@ func TestLease(t *testing.T) {
 	if err := b.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDeviceLeaseRejectsConcurrentCollectors(t *testing.T) {
+	dir := t.TempDir()
+	a, err := AcquireDeviceLease(dir, "metal", "gpu0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if _, err := AcquireDeviceLease(dir, "metal", "gpu0"); err == nil {
+		t.Fatal("second collector acquired the same device")
+	}
+	b, err := AcquireDeviceLease(dir, "metal", "gpu1")
+	if err != nil {
+		t.Fatalf("different device: %v", err)
+	}
+	if err := b.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLeaseRecoveredAfterProcessExit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runner.lock")
+	cmd := exec.Command(os.Args[0], "-test.run=TestLeaseCrashHelper")
+	cmd.Env = append(os.Environ(), "INFERBENCH_CRASH_LEASE="+path)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("helper: %v\n%s", err, out)
+	}
+	lease, err := AcquireLease(path)
+	if err != nil {
+		t.Fatalf("reacquire after process exit: %v", err)
+	}
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLeaseCrashHelper(t *testing.T) {
+	path := os.Getenv("INFERBENCH_CRASH_LEASE")
+	if path == "" {
+		return
+	}
+	if _, err := AcquireLease(path); err != nil {
+		t.Fatal(err)
+	}
+	os.Exit(0)
 }
 
 func TestHashPathChangesWithContentAndName(t *testing.T) {

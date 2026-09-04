@@ -21,7 +21,7 @@ const SchemaVersion = 5
 
 const (
 	PersistentEnginePolicy = "one-compiled-engine-warmed-per-arm"
-	ColdIntervalPolicy     = "reset-serving-and-prefix-caches-before-each-interval"
+	ColdIntervalPolicy     = "recreate-serving-prefix-runtime-and-clear-host-prefix-cache-before-each-interval"
 )
 
 // Campaign contains every sample in one matched benchmark campaign.
@@ -251,11 +251,16 @@ func validateSample(s *Sample, w Workload) error {
 	if s.StartedAt.IsZero() || !s.EndedAt.After(s.StartedAt) {
 		return fmt.Errorf("sample %q: invalid interval", s.ID)
 	}
+	elapsed := s.EndedAt.Sub(s.StartedAt)
 	if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 || !s.DispatchMeasured {
 		return fmt.Errorf("sample %q: incomplete timing", s.ID)
 	}
+	wantTokensPerSecond := float64(len(w.PromptTokenIDs)*w.GeneratedTokens) / elapsed.Seconds()
+	if s.TTFT > elapsed || s.TPOT > elapsed || math.Abs(s.TokensPerSecond-wantTokensPerSecond) > wantTokensPerSecond*1e-9 {
+		return fmt.Errorf("sample %q: timing exceeds or differs from completion interval", s.ID)
+	}
 	for _, d := range s.InterToken {
-		if d <= 0 {
+		if d <= 0 || d > elapsed {
 			return fmt.Errorf("sample %q: invalid inter-token latency", s.ID)
 		}
 	}
@@ -536,6 +541,17 @@ func WriteJSONAtomic(path string, v any) error {
 	if err := os.Rename(tmp, path); err != nil {
 		return fmt.Errorf("publish receipt: %w", err)
 	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open receipt directory: %w", err)
+	}
+	if err := d.Sync(); err != nil {
+		d.Close()
+		return fmt.Errorf("sync receipt directory: %w", err)
+	}
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("close receipt directory: %w", err)
+	}
 	ok = true
 	return nil
 }
@@ -546,34 +562,77 @@ func validSHA256(s string) bool {
 }
 
 // Lease prevents two local benchmark runners from sharing a host receipt path.
-type Lease struct{ path string }
+type Lease struct {
+	path string
+	file *os.File
+}
+
+// Path returns the lock file identifying the lease.
+func (l *Lease) Path() string {
+	if l == nil {
+		return ""
+	}
+	return l.path
+}
 
 // AcquireLease atomically acquires path and fails when another runner owns it.
 func AcquireLease(path string) (*Lease, error) {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("acquire runner lease: %w", err)
 	}
-	if _, err := fmt.Fprintf(f, "%d\n", os.Getpid()); err != nil {
+	if err := lockFile(f); err != nil {
 		f.Close()
-		os.Remove(path)
+		return nil, fmt.Errorf("acquire runner lease: %w", err)
+	}
+	if err := f.Truncate(0); err != nil {
+		unlockFile(f)
+		f.Close()
+		return nil, fmt.Errorf("truncate runner lease: %w", err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		unlockFile(f)
+		f.Close()
+		return nil, fmt.Errorf("seek runner lease: %w", err)
+	}
+	if _, err := fmt.Fprintf(f, "%d\n", os.Getpid()); err != nil {
+		unlockFile(f)
+		f.Close()
 		return nil, fmt.Errorf("write runner lease: %w", err)
 	}
-	if err := f.Close(); err != nil {
-		os.Remove(path)
-		return nil, fmt.Errorf("close runner lease: %w", err)
+	if err := f.Sync(); err != nil {
+		unlockFile(f)
+		f.Close()
+		return nil, fmt.Errorf("sync runner lease: %w", err)
 	}
-	return &Lease{path: path}, nil
+	return &Lease{path: path, file: f}, nil
+}
+
+// AcquireDeviceLease prevents concurrent collectors from timing the same
+// physical device, even when their output and receipt paths differ.
+func AcquireDeviceLease(dir, backend, device string) (*Lease, error) {
+	if dir == "" || backend == "" || device == "" {
+		return nil, errors.New("acquire device lease: incomplete identity")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("acquire device lease: %w", err)
+	}
+	sum := sha256.Sum256([]byte(backend + "\x00" + device))
+	return AcquireLease(filepath.Join(dir, hex.EncodeToString(sum[:])+".lock"))
 }
 
 // Close releases the runner lease.
 func (l *Lease) Close() error {
-	if l == nil || l.path == "" {
+	if l == nil || l.file == nil {
 		return nil
 	}
-	path := l.path
-	l.path = ""
-	return os.Remove(path)
+	f := l.file
+	l.file = nil
+	if err := unlockFile(f); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // SortRuns sorts runs by arm for stable serialization before execution.

@@ -9,6 +9,8 @@ import (
 // IntervalReceipt is the raw record written after one synchronized interval.
 type IntervalReceipt struct {
 	SchemaVersion int      `json:"schema_version"`
+	PlanSHA256    string   `json:"plan_sha256"`
+	Index         int      `json:"index"`
 	Arm           string   `json:"arm"`
 	Identity      Identity `json:"identity"`
 	Workload      Workload `json:"workload"`
@@ -20,6 +22,7 @@ type IntervalReceipt struct {
 // contain sample IDs but no measured data. writeRaw must durably record each
 // synchronized interval before Collect accepts the next one.
 func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw func(IntervalReceipt) error) (Campaign, error) {
+	c = cloneCampaign(c)
 	if c.SchemaVersion != SchemaVersion || c.RandomSeed == 0 || len(c.Runs) < 2 {
 		return Campaign{}, errors.New("inferbench: incomplete campaign plan")
 	}
@@ -65,7 +68,11 @@ func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw
 		return Campaign{}, errors.New("inferbench: campaign order was not preregistered from seed")
 	}
 	order := append([]ScheduledSample(nil), c.Order...)
-	for _, scheduled := range order {
+	planSHA256, err := HashJSON(c)
+	if err != nil {
+		return Campaign{}, fmt.Errorf("inferbench: hash campaign plan: %w", err)
+	}
+	for index, scheduled := range order {
 		sample, err := execute(scheduled)
 		if err != nil {
 			return Campaign{}, fmt.Errorf("inferbench: collect %s/%s: %w", scheduled.Arm, scheduled.ID, err)
@@ -80,7 +87,7 @@ func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw
 		if run == nil {
 			return Campaign{}, fmt.Errorf("inferbench: missing arm %q", scheduled.Arm)
 		}
-		if err := writeRaw(IntervalReceipt{SchemaVersion: SchemaVersion, Arm: scheduled.Arm, Identity: identity, Workload: workload, Evidence: evidence, Sample: sample}); err != nil {
+		if err := writeRaw(IntervalReceipt{SchemaVersion: SchemaVersion, PlanSHA256: planSHA256, Index: index, Arm: scheduled.Arm, Identity: identity, Workload: workload, Evidence: evidence, Sample: sample}); err != nil {
 			return Campaign{}, fmt.Errorf("inferbench: write raw interval: %w", err)
 		}
 		if !replaceSample(run.Samples, sample) {
@@ -91,6 +98,15 @@ func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw
 		return Campaign{}, fmt.Errorf("inferbench: validate collected campaign: %w", err)
 	}
 	return c, nil
+}
+
+func cloneCampaign(c Campaign) Campaign {
+	c.Order = append([]ScheduledSample(nil), c.Order...)
+	c.Runs = append([]Run(nil), c.Runs...)
+	for i := range c.Runs {
+		c.Runs[i].Samples = append([]Sample(nil), c.Runs[i].Samples...)
+	}
+	return c
 }
 
 func replaceSample(samples []Sample, sample Sample) bool {

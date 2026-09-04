@@ -30,6 +30,15 @@ func TestCollectUsesPreregisteredIntervalOrder(t *testing.T) {
 	if len(raw) != len(got.Order) {
 		t.Fatalf("raw intervals = %d, want %d", len(raw), len(got.Order))
 	}
+	planSHA256, err := HashJSON(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, receipt := range raw {
+		if receipt.Index != i || receipt.PlanSHA256 != planSHA256 {
+			t.Fatalf("raw interval %d: index=%d plan=%q", i, receipt.Index, receipt.PlanSHA256)
+		}
+	}
 }
 
 func TestCollectRejectsInvalidPlansAndIntervals(t *testing.T) {
