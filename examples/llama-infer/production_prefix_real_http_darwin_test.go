@@ -115,6 +115,11 @@ func TestProductionPrefixRealHTTPColdParity(t *testing.T) {
 			warmRecorder.receipts = make(map[string]productionHTTPReceipt)
 			warmRecorder.mu.Unlock()
 			warmTokens := runProductionHTTPBatch(t, warm, prompts)
+			servingStats := scheduledBackend(t, warm.continuousEngine).prefixes.Stats()
+			telemetry := warm.memoryTelemetry().PrefixCache
+			if telemetry.State != "observed" || telemetry.Entries != servingStats.Entries || telemetry.Hits != servingStats.Hits || telemetry.Misses != servingStats.Misses || telemetry.SavedTokens != servingStats.SavedTokens {
+				t.Fatalf("prefix telemetry=%+v, want active serving stats=%+v", telemetry, servingStats)
+			}
 			warmReceipts, err := warmRecorder.snapshot()
 			if err != nil {
 				t.Fatal(err)

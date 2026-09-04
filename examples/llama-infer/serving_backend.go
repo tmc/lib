@@ -19,6 +19,10 @@ type servingBackend interface {
 	Close()
 }
 
+type servingPrefixCache interface {
+	prefixCacheMetrics() (PrefixCacheMetrics, bool)
+}
+
 func newServingScheduler(backend servingBackend, cfg continuousbatch.Config) (*continuousbatch.Scheduler, error) {
 	if backend == nil {
 		return nil, errServingBackendUnavailable

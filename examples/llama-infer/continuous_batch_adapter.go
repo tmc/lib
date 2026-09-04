@@ -109,6 +109,20 @@ func (a *scheduledEngineAdapter) resetPrefixes() error {
 	return nil
 }
 
+func (a *scheduledEngineAdapter) prefixCacheMetrics() (PrefixCacheMetrics, bool) {
+	if a == nil || a.prefixes == nil {
+		return PrefixCacheMetrics{}, false
+	}
+	stats := a.prefixes.Stats()
+	return PrefixCacheMetrics{
+		Entries:     stats.Entries,
+		Bytes:       stats.Bytes,
+		Hits:        stats.Hits,
+		Misses:      stats.Misses,
+		SavedTokens: stats.SavedTokens,
+	}, a.prefixes.Available()
+}
+
 func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
 	if state == nil {
 		return

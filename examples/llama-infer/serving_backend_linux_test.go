@@ -25,6 +25,19 @@ type fakeServingBackend struct {
 	prefill chan prefillObservation
 }
 
+func TestServingPrefixTelemetryUnavailable(t *testing.T) {
+	backend := &scheduledEngineAdapter{prefixes: &productionPrefixRuntime{}}
+	metrics, available := backend.prefixCacheMetrics()
+	if available || metrics != (PrefixCacheMetrics{}) {
+		t.Fatalf("prefix cache = (%+v, %t), want unavailable", metrics, available)
+	}
+	srv := &TelemetryServer{engine: &ModelEngine{}, continuousEngine: backend}
+	telemetry := srv.memoryTelemetry().PrefixCache
+	if telemetry.State != "unavailable" {
+		t.Fatalf("prefix telemetry = %+v, want unavailable", telemetry)
+	}
+}
+
 func TestRealCUDAContinuousServing(t *testing.T) {
 	path := os.Getenv("LLAMA_MODEL_PATH")
 	if path == "" {

@@ -22,6 +22,8 @@ type productionPrefixStats struct {
 	DeviceReadBytes, DeviceWriteBytes uint64
 }
 
+func (*productionPrefixRuntime) Available() bool { return false }
+
 func newProductionPrefixRuntime(*ModelEngine, Config, int) (*productionPrefixRuntime, error) {
 	return &productionPrefixRuntime{}, nil
 }

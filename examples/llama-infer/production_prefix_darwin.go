@@ -39,6 +39,8 @@ type productionPrefixStats struct {
 	DeviceReadBytes, DeviceWriteBytes uint64
 }
 
+func (*productionPrefixRuntime) Available() bool { return true }
+
 func newProductionPrefixRuntime(engine *ModelEngine, cfg Config, capacity int) (*productionPrefixRuntime, error) {
 	cache, err := metalprefix.New(metalprefix.Config{Device: engine.dev, MaxBytes: 64 << 20, MaxEntries: 8, BlockTokens: 16, Layers: cfg.NumLayers, KVHeads: cfg.NumKVHeads, HeadDim: cfg.HeadDim, Tracker: engine.memory})
 	if err != nil {

@@ -1119,7 +1119,14 @@ func (s *TelemetryServer) memoryTelemetry() MemoryTelemetryResponse {
 		}
 	}
 	prefix := s.engine.prefixCacheMetrics()
-	if s.engine.prefixCacheAvailable() {
+	prefixAvailable := s.engine.prefixCacheAvailable()
+	if source, ok := s.continuousEngine.(servingPrefixCache); ok {
+		if servingPrefix, available := source.prefixCacheMetrics(); available {
+			prefix = servingPrefix
+			prefixAvailable = true
+		}
+	}
+	if prefixAvailable {
 		response.PrefixCache = CapabilityTelemetry{
 			State:       "observed",
 			Reason:      "bounded snapshots are captured from and restored into active KV buffers",
