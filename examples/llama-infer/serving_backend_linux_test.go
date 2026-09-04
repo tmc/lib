@@ -388,6 +388,7 @@ func TestRealCUDAProductionDecodeUsesSharedWeightBatch(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				cfg = cudaServingConfig(engine, cfg)
 				backendValue, err := newPlatformServingBackend(engine, cfg, width)
 				if err != nil {
 					t.Fatal(err)
