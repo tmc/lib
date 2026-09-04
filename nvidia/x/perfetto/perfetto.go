@@ -8,8 +8,6 @@ import (
 	"sync"
 )
 
-
-
 // Standard Perfetto wire-format constants
 const (
 	FieldTracePacket            = 1
@@ -25,9 +23,9 @@ const (
 	FieldClockID             = 1
 	FieldClockTimestamp      = 2
 
-	ClockRealtime  = 1
-	ClockMonotonic = 3
-	ClockGPU       = 64
+	ClockRealtime            = 1
+	ClockMonotonic           = 3
+	ClockGPU                 = 64
 	FieldTrackDescUUID       = 1
 	FieldTrackDescName       = 2
 	FieldTrackDescParentUUID = 5
@@ -56,7 +54,7 @@ const (
 	FieldTrackEventDebugAnnotations = 4
 	FieldTrackEventSourceLocation   = 33
 
-	DefaultSequenceID                    = 1
+	DefaultSequenceID                   = 1
 	SequenceFlagIncrementalStateCleared = 1
 
 	FieldDebugAnnotationName        = 10
@@ -138,13 +136,28 @@ type Writer struct {
 	hasEmittedSeqFlags bool
 }
 
-
-
 // NewWriter returns a new Perfetto trace writer writing into w.
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		w: w,
 	}
+}
+
+func (pw *Writer) writePacket(packetBody []byte, clearIncrementalState bool) error {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	emitClear := clearIncrementalState && !pw.hasEmittedSeqFlags
+	if emitClear {
+		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
+	}
+	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
+	if _, err := pw.w.Write(packet); err != nil {
+		return err
+	}
+	if emitClear {
+		pw.hasEmittedSeqFlags = true
+	}
+	return nil
 }
 
 func encodeVarint(fieldNum int, val uint64) []byte {
@@ -199,7 +212,6 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 	return err
 }
 
-
 // WriteTrackDescriptor registers a track in the trace timeline.
 func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint64) error {
 	var body []byte
@@ -213,17 +225,8 @@ func (pw *Writer) WriteTrackDescriptor(uuid uint64, name string, parentUUID uint
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
-	if !pw.hasEmittedSeqFlags {
-		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
-		pw.hasEmittedSeqFlags = true
-	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return pw.writePacket(packetBody, true)
 }
 
 // WriteProcessDescriptor registers a process track.
@@ -242,17 +245,8 @@ func (pw *Writer) WriteProcessDescriptor(uuid uint64, pid int32, processName str
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
-	if !pw.hasEmittedSeqFlags {
-		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
-		pw.hasEmittedSeqFlags = true
-	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return pw.writePacket(packetBody, true)
 }
 
 // WriteThreadDescriptor registers a thread track grouped under a process track.
@@ -274,17 +268,8 @@ func (pw *Writer) WriteThreadDescriptor(uuid uint64, pid int32, tid int32, threa
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
-	if !pw.hasEmittedSeqFlags {
-		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
-		pw.hasEmittedSeqFlags = true
-	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return pw.writePacket(packetBody, true)
 }
 
 // WriteCounterDescriptor registers a continuous numerical counter track.
@@ -306,17 +291,8 @@ func (pw *Writer) WriteCounterDescriptor(uuid uint64, name string, unitName stri
 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
-	if !pw.hasEmittedSeqFlags {
-		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
-		pw.hasEmittedSeqFlags = true
-	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackDesc, body)...)
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return pw.writePacket(packetBody, true)
 }
 
 // WriteCounterValue records an integer counter value on a counter track at tsNs.
@@ -478,18 +454,6 @@ func (pw *Writer) WriteSliceBeginWithAnnotations(trackUUID uint64, tsNs uint64, 
 	var packetBody []byte
 	packetBody = append(packetBody, encodeVarint(FieldPacketTimestamp, tsNs)...)
 	packetBody = append(packetBody, encodeVarint(FieldPacketSequenceID, DefaultSequenceID)...)
-	if !pw.hasEmittedSeqFlags {
-		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
-		pw.hasEmittedSeqFlags = true
-	}
 	packetBody = append(packetBody, encodeLengthDelimited(FieldPacketTrackEvent, body)...)
-
-	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-
-	pw.mu.Lock()
-	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return pw.writePacket(packetBody, true)
 }
-
-
