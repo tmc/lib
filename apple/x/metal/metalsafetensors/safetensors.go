@@ -13,7 +13,7 @@ import (
 	"syscall"
 
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 const maxHeaderSize = 100 << 20
@@ -226,12 +226,12 @@ func (w *Weights) TensorFloat32(name string) ([]float32, error) {
 }
 
 // TensorMetalSlice allocates a shared Metal unified memory slice and loads the tensor data.
-func (w *Weights) TensorMetalSlice(dev *metal.Device, name string) (mempool.Slice[float32], error) {
+func (w *Weights) TensorMetalSlice(dev *metal.Device, name string) (metalmem.Slice[float32], error) {
 	floats, err := w.TensorFloat32(name)
 	if err != nil {
-		return mempool.Slice[float32]{}, err
+		return metalmem.Slice[float32]{}, err
 	}
-	return mempool.AllocFromSlice(dev, floats)
+	return metalmem.AllocFromSlice(dev, floats)
 }
 
 func decodeToFloat32(raw []byte, dtype string) []float32 {

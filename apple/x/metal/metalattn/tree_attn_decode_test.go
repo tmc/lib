@@ -10,7 +10,7 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 // referenceTreeAttention computes bitmask tree attention the straightforward
@@ -122,11 +122,11 @@ func TestTreeFlashAttentionMatchesReference(t *testing.T) {
 		for _, tgSize := range []uint{32, 64, 128, 256} {
 			name := "nodes=" + strconv.Itoa(numNodes) + "/tg=" + strconv.Itoa(int(tgSize))
 			t.Run(name, func(t *testing.T) {
-				qBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-				kBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-				vBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-				outBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-				maskBuf, _ := mempool.Alloc[uint64](dev, numNodes)
+				qBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+				kBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+				vBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+				outBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+				maskBuf, _ := metalmem.Alloc[uint64](dev, numNodes)
 
 				fillPseudoRandom(qBuf.HostSlice(), 21)
 				fillPseudoRandom(kBuf.HostSlice(), 23)
@@ -203,11 +203,11 @@ func TestTreeFlashAttentionEmptyRowZeroed(t *testing.T) {
 
 	const numNodes, numHeads, headDim = 4, 2, 32
 
-	qBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-	kBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-	vBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-	outBuf, _ := mempool.Alloc[float32](dev, numNodes*numHeads*headDim)
-	maskBuf, _ := mempool.Alloc[uint64](dev, numNodes)
+	qBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+	kBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+	vBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+	outBuf, _ := metalmem.Alloc[float32](dev, numNodes*numHeads*headDim)
+	maskBuf, _ := metalmem.Alloc[uint64](dev, numNodes)
 
 	fillPseudoRandom(qBuf.HostSlice(), 31)
 	fillPseudoRandom(kBuf.HostSlice(), 37)

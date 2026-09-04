@@ -9,7 +9,7 @@ import (
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 func BenchmarkAutoTunedDecoding(b *testing.B) {
@@ -21,9 +21,9 @@ func BenchmarkAutoTunedDecoding(b *testing.B) {
 	const dim = 2048
 	const outDim = 2048
 
-	xBuf, _ := mempool.Alloc[float32](dev, dim)
-	wBuf, _ := mempool.Alloc[float32](dev, dim*outDim)
-	outBuf, _ := mempool.Alloc[float32](dev, outDim)
+	xBuf, _ := metalmem.Alloc[float32](dev, dim)
+	wBuf, _ := metalmem.Alloc[float32](dev, dim*outDim)
+	outBuf, _ := metalmem.Alloc[float32](dev, outDim)
 
 	dimVal := uint32(dim)
 	outDimVal := uint32(outDim)

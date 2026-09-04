@@ -8,7 +8,7 @@ import (
 	"math"
 
 	"github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 // TensorF16 reads or converts a named tensor into IEEE 754 half-precision
@@ -56,12 +56,12 @@ func (w *Weights) TensorF16(name string) ([]uint16, error) {
 
 // TensorMetalSliceF16 allocates a shared Metal unified memory slice
 // holding the tensor as half-precision bits.
-func (w *Weights) TensorMetalSliceF16(dev *metal.Device, name string) (mempool.Slice[uint16], error) {
+func (w *Weights) TensorMetalSliceF16(dev *metal.Device, name string) (metalmem.Slice[uint16], error) {
 	halves, err := w.TensorF16(name)
 	if err != nil {
-		return mempool.Slice[uint16]{}, err
+		return metalmem.Slice[uint16]{}, err
 	}
-	return mempool.AllocFromSlice(dev, halves)
+	return metalmem.AllocFromSlice(dev, halves)
 }
 
 // f32BitsToF16 converts float32 bits to float16 bits with

@@ -5,15 +5,14 @@ import (
 	"sync"
 
 	applemetal "github.com/tmc/lib/apple/x/metal"
-	"github.com/tmc/lib/apple/x/metal/mempool"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
 // LayerCache holds the allocated K and V tensor memory buffers for a single transformer layer.
 type LayerCache struct {
 	LayerIndex int
-	K          mempool.Slice[float32]
-	V          mempool.Slice[float32]
+	K          metalmem.Slice[float32]
+	V          metalmem.Slice[float32]
 }
 
 // Cache manages multi-layer KV memory buffers for autoregressive decoding on Apple Silicon.
@@ -130,10 +129,10 @@ func (c *Cache) Close() error {
 // FP8LayerCache holds 8-bit quantized K and V buffers and scaling factors for one layer.
 type FP8LayerCache struct {
 	LayerIndex int
-	K          mempool.Slice[uint8]
-	V          mempool.Slice[uint8]
-	KScale     mempool.Slice[float32]
-	VScale     mempool.Slice[float32]
+	K          metalmem.Slice[uint8]
+	V          metalmem.Slice[uint8]
+	KScale     metalmem.Slice[float32]
+	VScale     metalmem.Slice[float32]
 }
 
 // FP8Cache manages 8-bit quantized KV memory buffers for low-bandwidth inference on Apple Silicon.

@@ -13,7 +13,7 @@ import (
 	"github.com/tmc/apple/x/ane/mil"
 	"github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/egraph"
-	"github.com/tmc/lib/apple/x/metal/mempool"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
 	"github.com/tmc/lib/apple/x/metal/metalsample"
 )
 
@@ -106,8 +106,8 @@ func TestHeterogeneousGPU_ANE_Pipeline(t *testing.T) {
 	aneOut := make([]float32, dim)
 	_ = aneModel.ReadOutputF32(0, aneOut)
 
-	logitsBuf, _ := mempool.AllocFromSlice(gpuDev, aneOut)
-	tokBuf, _ := mempool.Alloc[int32](gpuDev, 1)
+	logitsBuf, _ := metalmem.AllocFromSlice(gpuDev, aneOut)
+	tokBuf, _ := metalmem.Alloc[int32](gpuDev, 1)
 	vocabSize := int32(dim)
 	vBuf := gpuDev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&vocabSize), 4, applemetal.MTLResourceStorageModeShared)
 
