@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
@@ -98,6 +99,83 @@ func TestCUDAQ80Row(t *testing.T) {
 	}
 	t.Logf("Q8_0 tensor %q row 0: cols=%d bytes=%d CUDA=%g CPU=%g delta=%g limit=%g",
 		r.probeTensor, r.probeCols, r.probeBytes, got[0], want, delta, limit)
+}
+
+func TestCUDAQ80Matvec(t *testing.T) {
+	path := os.Getenv("DS4_MODEL")
+	if path == "" {
+		t.Skip("DS4_MODEL is not set")
+	}
+	r, err := newCUDAFoundation(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := r.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	x := make([]float32, r.probeCols)
+	for i := range x {
+		x[i] = float32((i*37+11)%257-128) / 128
+	}
+	dx, err := cudamem.Alloc[float32](r.device, len(x))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dx.Free() })
+	dout, err := cudamem.Alloc[float32](r.device, int(r.probeRows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = dout.Free() })
+	if err := dx.CopyFromHost(x); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := r.q80Matvec(dx, dout); err != nil {
+		t.Fatal(err)
+	}
+	setupElapsed := time.Since(start)
+	start = time.Now()
+	if err := r.q80Matvec(dx, dout); err != nil {
+		t.Fatal(err)
+	}
+	warmElapsed := time.Since(start)
+	got := make([]float32, r.probeRows)
+	if err := dout.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+
+	p := r.model[r.probeOffset : r.probeOffset+r.probeBytes]
+	rowBytes := int(r.probeCols) / 32 * 34
+	var maxDelta, maxLimit float64
+	for row := range got {
+		want := cudaTestQ80Row(p[row*rowBytes:], x)
+		delta := math.Abs(float64(got[row] - want))
+		limit := 5e-4 + 5e-5*math.Abs(float64(want))
+		if delta > maxDelta {
+			maxDelta = delta
+			maxLimit = limit
+		}
+		if delta > limit {
+			t.Fatalf("Q8_0 row %d = %g, want %g (delta %g > %g)", row, got[row], want, delta, limit)
+		}
+	}
+	t.Logf("Q8_0 tensor %q: %dx%d, %d bytes, all %d rows matched; max delta=%g limit=%g; setup=%s warm launch+sync=%s",
+		r.probeTensor, r.probeRows, r.probeCols, r.probeBytes, r.probeRows, maxDelta, maxLimit, setupElapsed, warmElapsed)
+}
+
+func cudaTestQ80Row(p []byte, x []float32) float32 {
+	var sum float32
+	for block := 0; block < len(x)/32; block++ {
+		scale := cudaTestFloat16(binary.LittleEndian.Uint16(p[block*34:]))
+		for i := range 32 {
+			sum += scale * float32(int8(p[block*34+2+i])) * x[block*32+i]
+		}
+	}
+	return sum
 }
 
 func cudaTestFloat16(h uint16) float32 {

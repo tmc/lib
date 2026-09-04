@@ -41,27 +41,38 @@ extern "C" __global__ void ds4_read_u16(const unsigned short *p, unsigned int *o
   if (blockIdx.x == 0 && threadIdx.x == 0) out[0] = p[0];
 }
 
-// ds4_q8_0_row computes one row directly from GGUF Q8_0 blocks. The input and
-// output are ordinary device allocations owned by the caller.
-extern "C" __global__ void ds4_q8_0_row(
+// ds4_q8_0_matvec computes one output row per CUDA block directly from GGUF
+// Q8_0 blocks. The input and output are ordinary device allocations owned by
+// the caller.
+extern "C" __global__ void ds4_q8_0_matvec(
     const unsigned char *weights, const float *x, float *out,
-    unsigned int cols) {
-  if (blockIdx.x != 0 || threadIdx.x != 0) return;
+    unsigned int cols, unsigned int rows) {
+  const unsigned int row = blockIdx.x;
+  if (row >= rows) return;
+  __shared__ float partial[256];
   float sum = 0.0f;
-  for (unsigned int block = 0; block < cols / 32; block++) {
-    const unsigned char *p = weights + block * 34;
+  const unsigned int blocks_per_row = cols / 32;
+  const unsigned char *row_weights = weights + row * blocks_per_row * 34;
+  for (unsigned int block = threadIdx.x; block < blocks_per_row; block += blockDim.x) {
+    const unsigned char *p = row_weights + block * 34;
     const unsigned short scale_bits = unsigned(p[0]) | unsigned(p[1]) << 8;
     const float scale = ds4_half_to_float(scale_bits);
     const signed char *q = reinterpret_cast<const signed char *>(p + 2);
     for (unsigned int i = 0; i < 32; i++)
       sum += scale * float(q[i]) * x[block * 32 + i];
   }
-  out[0] = sum;
+  partial[threadIdx.x] = sum;
+  __syncthreads();
+  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
+    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) out[row] = partial[0];
 }`
 
 const (
 	cudaMemHostRegisterDeviceMap = 2
-	cudaMaxRegisteredModelRange  = 1 << 20
+	cudaMaxRegisteredModelRange  = 8 << 20
 )
 
 type cudaModelRange struct {
@@ -88,9 +99,12 @@ type cudaFoundation struct {
 	probeHost   uint16
 	probeDevice uint16
 	probeCols   uint32
+	probeRows   uint32
 	probeBytes  uint64
 	probeOffset uint64
 	probePtr    driver.DevicePtr
+	matrixMod   driver.Module
+	matrixFn    driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -248,21 +262,27 @@ func (r *cudaFoundation) mapModelRange(fileOffset, length uint64) (driver.Device
 func (r *cudaFoundation) probeModel(g *ggufFile) error {
 	var tensor *ggufTensor
 	for i := range g.tensors {
-		if g.tensors[i].typeID == 8 && g.tensors[i].dimensions[0] <= 1<<20 {
+		if g.tensors[i].name == "blk.0.attn_kv.weight" {
 			tensor = &g.tensors[i]
 			break
 		}
 	}
 	if tensor == nil {
-		return fmt.Errorf("cuda: model has no bounded Q8_0 tensor row")
+		return fmt.Errorf("cuda: model has no tensor %q", "blk.0.attn_kv.weight")
 	}
-	rowBytes := tensor.dimensions[0] / 32 * 34
-	if rowBytes > cudaMaxRegisteredModelRange {
-		return fmt.Errorf("cuda: Q8_0 tensor %q row is %d bytes, limit %d", tensor.name, rowBytes, cudaMaxRegisteredModelRange)
+	if tensor.typeID != 8 || len(tensor.dimensions) != 2 || tensor.dimensions[0]%32 != 0 {
+		return fmt.Errorf("cuda: tensor %q is not a Q8_0 matrix", tensor.name)
+	}
+	tensorBytes, err := tensorBytes(*tensor)
+	if err != nil {
+		return fmt.Errorf("cuda: size tensor %q: %w", tensor.name, err)
+	}
+	if tensorBytes > cudaMaxRegisteredModelRange {
+		return fmt.Errorf("cuda: Q8_0 tensor %q is %d bytes, limit %d", tensor.name, tensorBytes, cudaMaxRegisteredModelRange)
 	}
 	offset := g.dataOffset + tensor.offset
 	want := uint16(r.model[offset]) | uint16(r.model[offset+1])<<8
-	ptr, err := r.mapModelRange(offset, rowBytes)
+	ptr, err := r.mapModelRange(offset, tensorBytes)
 	if err != nil {
 		return fmt.Errorf("cuda: bind tensor %q: %w", tensor.name, err)
 	}
@@ -305,9 +325,50 @@ func (r *cudaFoundation) probeModel(g *ggufFile) error {
 		r.probeHost = want
 		r.probeDevice = uint16(got[0])
 		r.probeCols = uint32(tensor.dimensions[0])
-		r.probeBytes = rowBytes
+		r.probeRows = uint32(tensor.dimensions[1])
+		r.probeBytes = tensorBytes
 		r.probeOffset = offset
 		r.probePtr = ptr
+		return nil
+	})
+}
+
+// q80Matvec multiplies the registered Q8_0 matrix by x. The caller owns both
+// x and out; the foundation owns only the bounded registered model tensor.
+func (r *cudaFoundation) q80Matvec(x, out cudamem.Slice[float32]) error {
+	if r.probePtr == 0 || r.probeCols == 0 || r.probeRows == 0 {
+		return fmt.Errorf("cuda: Q8_0 matrix is not bound")
+	}
+	if x.Len() != int(r.probeCols) || out.Len() != int(r.probeRows) {
+		return fmt.Errorf("cuda: Q8_0 matrix input/output lengths %d/%d, want %d/%d", x.Len(), out.Len(), r.probeCols, r.probeRows)
+	}
+	return r.device.WithContext(func() error {
+		if r.matrixFn == 0 {
+			compiled, err := nvrtcx.Compile(cudaProbeSource,
+				nvrtcx.WithName("ds4_q8_0_matvec.cu"),
+				nvrtcx.WithArch(r.major, r.minor),
+			)
+			if err != nil {
+				return fmt.Errorf("cuda: compile Q8_0 matrix: %w", err)
+			}
+			mod, err := compiled.Load(r.device)
+			if err != nil {
+				return fmt.Errorf("cuda: load Q8_0 matrix: %w", err)
+			}
+			fn, err := mod.GetFunction("ds4_q8_0_matvec")
+			if err != nil {
+				_ = mod.Unload()
+				return fmt.Errorf("cuda: find Q8_0 matrix: %w", err)
+			}
+			r.matrixMod = mod
+			r.matrixFn = fn
+		}
+		if err := cudalaunch.Kernel(r.matrixFn).Grid(r.probeRows).Block(256).Launch(r.probePtr, x, out, r.probeCols, r.probeRows); err != nil {
+			return fmt.Errorf("cuda: launch Q8_0 matrix: %w", err)
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return fmt.Errorf("cuda: synchronize Q8_0 matrix: %w", err)
+		}
 		return nil
 	})
 }
@@ -334,11 +395,11 @@ func (r *cudaFoundation) q80Row(x, out cudamem.Slice[float32]) error {
 			return fmt.Errorf("cuda: load Q8_0 row: %w", err)
 		}
 		defer mod.Unload()
-		fn, err := mod.GetFunction("ds4_q8_0_row")
+		fn, err := mod.GetFunction("ds4_q8_0_matvec")
 		if err != nil {
 			return fmt.Errorf("cuda: find Q8_0 row: %w", err)
 		}
-		if err := cudalaunch.Kernel(fn).Launch(r.probePtr, x, out, r.probeCols); err != nil {
+		if err := cudalaunch.Kernel(fn).Grid(1).Block(256).Launch(r.probePtr, x, out, r.probeCols, uint32(1)); err != nil {
 			return fmt.Errorf("cuda: launch Q8_0 row: %w", err)
 		}
 		if err := driver.CtxSynchronize(); err != nil {
@@ -353,6 +414,12 @@ func (r *cudaFoundation) Close() error {
 		return nil
 	}
 	var errs []error
+	if r.matrixMod != 0 && r.device != nil {
+		err := r.device.WithContext(func() error { return r.matrixMod.Unload() })
+		errs = append(errs, err)
+		r.matrixMod = 0
+		r.matrixFn = 0
+	}
 	if r.mapped.host != 0 && r.device != nil {
 		err := r.device.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })
 		errs = append(errs, err)
