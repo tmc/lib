@@ -7,7 +7,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalmem"
 )
 
-// Slice aliases metalmem.Slice[T] for backward compatibility.
+// Slice aliases [metalmem.Slice].
 type Slice[T any] = metalmem.Slice[T]
 
 // Alloc allocates a typed Slice[T] via metalmem.
@@ -20,12 +20,30 @@ func AllocFromSlice[T any](dev *applemetal.Device, data []T) (Slice[T], error) {
 	return metalmem.AllocFromSlice[T](dev, data)
 }
 
-// AllocMMapZeroCopy creates a zero-copy buffer via metalmem.
+// AllocMMapZeroCopy creates a buffer over a file mapping via metalmem.
 func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, length int) (Slice[T], error) {
 	return metalmem.AllocMMapZeroCopy[T](dev, f, offset, length)
 }
 
-// Pool aliases metalmem.Pool.
+// Arena aliases [metalmem.Arena].
+type Arena = metalmem.Arena
+
+// NewArena creates an allocation arena via metalmem.
+func NewArena(dev *applemetal.Device) *Arena {
+	return metalmem.NewArena(dev)
+}
+
+// AllocIn allocates a Slice[T] from an arena via metalmem.
+func AllocIn[T any](a *Arena, name string, length int) Slice[T] {
+	return metalmem.AllocIn[T](a, name, length)
+}
+
+// UploadIn allocates a Slice[T] holding a copy of data from an arena via metalmem.
+func UploadIn[T any](a *Arena, name string, data []T) Slice[T] {
+	return metalmem.UploadIn[T](a, name, data)
+}
+
+// Pool aliases [metalmem.Pool].
 type Pool = metalmem.Pool
 
 // NewPool creates an allocation pool via metalmem.
