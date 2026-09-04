@@ -76,27 +76,24 @@ func (e *Engine) MatMulWithGELUBias(
 		alpha := float32(1.0)
 		beta := float32(0.0)
 
-		var streamHandle cublaslt.Stream
-		if s != nil {
-			streamHandle = cublaslt.Stream(s.Raw())
-		}
-
-		return e.handle.Matmul(
-			opDesc,
-			uintptr(unsafe.Pointer(&alpha)),
-			uintptr(a.Ptr()),
-			layoutA,
-			uintptr(b.Ptr()),
-			layoutB,
-			uintptr(unsafe.Pointer(&beta)),
-			uintptr(d.Ptr()),
-			layoutD,
-			uintptr(d.Ptr()),
-			layoutD,
-			nil,
-			0,
-			0,
-			streamHandle,
-		)
+		return withStream(s, func(streamHandle cublaslt.Stream) error {
+			return e.handle.Matmul(
+				opDesc,
+				uintptr(unsafe.Pointer(&alpha)),
+				uintptr(a.Ptr()),
+				layoutA,
+				uintptr(b.Ptr()),
+				layoutB,
+				uintptr(unsafe.Pointer(&beta)),
+				uintptr(d.Ptr()),
+				layoutD,
+				uintptr(d.Ptr()),
+				layoutD,
+				nil,
+				0,
+				0,
+				streamHandle,
+			)
+		})
 	})
 }
