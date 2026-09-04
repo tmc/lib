@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -18,7 +19,24 @@ import (
 const cudaProbeSource = `
 extern "C" __global__ void ds4_probe(float *p) {
   if (blockIdx.x == 0 && threadIdx.x == 0) p[0] = 4.0f;
+}
+
+extern "C" __global__ void ds4_read_u16(const unsigned short *p, unsigned int *out) {
+  if (blockIdx.x == 0 && threadIdx.x == 0) out[0] = p[0];
 }`
+
+const (
+	cudaMemHostRegisterDeviceMap = 2
+	cudaMaxRegisteredModelRange  = 1 << 20
+)
+
+type cudaModelRange struct {
+	host       uintptr
+	device     driver.DevicePtr
+	bytes      uint
+	fileOffset uint64
+	view       []byte
+}
 
 // cudaFoundation owns the resources needed to begin a CUDA model runtime.
 // It deliberately does not implement sessionBackend until token evaluation is
@@ -30,6 +48,11 @@ type cudaFoundation struct {
 	name   string
 	major  int
 	minor  int
+	mapped cudaModelRange
+
+	probeTensor string
+	probeHost   uint16
+	probeDevice uint16
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -87,6 +110,14 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 	if err := r.probe(); err != nil {
 		return nil, err
 	}
+	if err := r.probeModel(g); err != nil {
+		if r.mapped.host != 0 {
+			_ = dev.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })
+			_ = syscall.Munmap(r.mapped.view)
+			r.mapped = cudaModelRange{}
+		}
+		return nil, err
+	}
 	return r, nil
 }
 
@@ -130,11 +161,122 @@ func (r *cudaFoundation) probe() error {
 	})
 }
 
+// mapModelRange makes a small, page-aligned part of the GGUF directly
+// addressable by CUDA. It uses a private writable mapping because GB10 does not
+// advertise CUDA's read-only host-registration extension. Device writes cannot
+// modify the model file. Large ranges are rejected: pinning the entire 86 GB
+// model would deprive the host of pageable memory.
+func (r *cudaFoundation) mapModelRange(fileOffset, length uint64) (driver.DevicePtr, error) {
+	if length == 0 || length > cudaMaxRegisteredModelRange {
+		return 0, fmt.Errorf("cuda: model range length %d exceeds limit %d", length, cudaMaxRegisteredModelRange)
+	}
+	if fileOffset > uint64(len(r.model)) || length > uint64(len(r.model))-fileOffset {
+		return 0, fmt.Errorf("cuda: model range [%d,%d) outside mapping", fileOffset, fileOffset+length)
+	}
+	if r.mapped.host != 0 {
+		return 0, fmt.Errorf("cuda: model range already mapped")
+	}
+	page := uint64(syscall.Getpagesize())
+	start := fileOffset &^ (page - 1)
+	end := (fileOffset + length + page - 1) &^ (page - 1)
+	if end > uint64(len(r.model)) {
+		end = uint64(len(r.model))
+	}
+	bytes := uint(end - start)
+	view, err := syscall.Mmap(int(r.file.Fd()), int64(start), int(bytes), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE)
+	if err != nil {
+		return 0, fmt.Errorf("cuda: map private model range: %w", err)
+	}
+	host := uintptr(unsafe.Pointer(&view[0]))
+	err = r.device.WithContext(func() error {
+		if err := driver.MemHostRegister(host, bytes, cudaMemHostRegisterDeviceMap); err != nil {
+			return fmt.Errorf("register model range: %w", err)
+		}
+		device, err := driver.MemHostGetDevicePointer(host, 0)
+		if err != nil {
+			_ = driver.MemHostUnregister(host)
+			return fmt.Errorf("get model device pointer: %w", err)
+		}
+		r.mapped = cudaModelRange{host: host, device: device, bytes: bytes, fileOffset: start, view: view}
+		return nil
+	})
+	if err != nil {
+		_ = syscall.Munmap(view)
+		return 0, fmt.Errorf("cuda: map model range: %w", err)
+	}
+	return r.mapped.device + driver.DevicePtr(fileOffset-start), nil
+}
+
+func (r *cudaFoundation) probeModel(g *ggufFile) error {
+	var tensor *ggufTensor
+	for i := range g.tensors {
+		if g.tensors[i].typeID == 0 {
+			tensor = &g.tensors[i]
+			break
+		}
+	}
+	if tensor == nil {
+		return fmt.Errorf("cuda: model has no F16 tensor")
+	}
+	offset := g.dataOffset + tensor.offset
+	want := uint16(r.model[offset]) | uint16(r.model[offset+1])<<8
+	ptr, err := r.mapModelRange(offset, 2)
+	if err != nil {
+		return fmt.Errorf("cuda: bind tensor %q: %w", tensor.name, err)
+	}
+	compiled, err := nvrtcx.Compile(cudaProbeSource,
+		nvrtcx.WithName("ds4_model_probe.cu"),
+		nvrtcx.WithArch(r.major, r.minor),
+	)
+	if err != nil {
+		return fmt.Errorf("cuda: compile model probe: %w", err)
+	}
+	return r.device.WithContext(func() error {
+		mod, err := compiled.Load(r.device)
+		if err != nil {
+			return fmt.Errorf("cuda: load model probe: %w", err)
+		}
+		defer mod.Unload()
+		fn, err := mod.GetFunction("ds4_read_u16")
+		if err != nil {
+			return fmt.Errorf("cuda: find model probe: %w", err)
+		}
+		out, err := cudamem.Alloc[uint32](r.device, 1)
+		if err != nil {
+			return fmt.Errorf("cuda: allocate model probe: %w", err)
+		}
+		defer out.Free()
+		if err := cudalaunch.Kernel(fn).Launch(ptr, out); err != nil {
+			return fmt.Errorf("cuda: launch model probe: %w", err)
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return fmt.Errorf("cuda: synchronize model probe: %w", err)
+		}
+		var got [1]uint32
+		if err := out.CopyToHost(got[:]); err != nil {
+			return fmt.Errorf("cuda: read model probe: %w", err)
+		}
+		if got[0] != uint32(want) {
+			return fmt.Errorf("cuda: model probe result %#x, want %#x", got[0], want)
+		}
+		r.probeTensor = tensor.name
+		r.probeHost = want
+		r.probeDevice = uint16(got[0])
+		return nil
+	})
+}
+
 func (r *cudaFoundation) Close() error {
 	if r == nil {
 		return nil
 	}
 	var errs []error
+	if r.mapped.host != 0 && r.device != nil {
+		err := r.device.WithContext(func() error { return driver.MemHostUnregister(r.mapped.host) })
+		errs = append(errs, err)
+		errs = append(errs, syscall.Munmap(r.mapped.view))
+		r.mapped = cudaModelRange{}
+	}
 	if r.device != nil {
 		errs = append(errs, r.device.Close())
 		r.device = nil
