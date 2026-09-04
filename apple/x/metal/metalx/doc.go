@@ -1,3 +1,3 @@
-// Package metalx provides standalone Metal Shading Language (MSL) JIT compilation
-// into GPU compute pipeline states, mirroring nvidia/x/nvrtcx.
+// Package metalx compiles Metal Shading Language libraries and owns
+// device-scoped compute pipeline caches.
 package metalx

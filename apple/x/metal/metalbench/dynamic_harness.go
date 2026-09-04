@@ -46,6 +46,7 @@ type EngineBenchmarkSummary struct {
 // kernel layout regardless of dynamic workload shifts.
 type StaticBaselineEngine struct {
 	dev       *metal.Device
+	compiler  *metalx.Compiler
 	gemvPSO   apple.MTLComputePipelineState
 	dim       int
 	outDim    int
@@ -56,19 +57,28 @@ type StaticBaselineEngine struct {
 }
 
 // Free releases the engine's GPU buffers.
-func (e *StaticBaselineEngine) Free() { e.mem.Free() }
+func (e *StaticBaselineEngine) Free() {
+	e.mem.Free()
+	_ = e.compiler.Close()
+}
 
 // NewStaticBaselineEngine creates a static graph engine fixed to a single baseline kernel.
 func NewStaticBaselineEngine(dev *metal.Device, dim, outDim int) (*StaticBaselineEngine, error) {
 	msl := generateTiledGEMVMSL("Static_Baseline_GEMV", 1)
-	pso, err := metalx.Compile(dev, msl, "Static_Baseline_GEMV")
+	compiler, err := metalx.NewCompiler(dev)
 	if err != nil {
+		return nil, fmt.Errorf("static engine: make compiler: %w", err)
+	}
+	pso, err := compiler.Compile(msl, "Static_Baseline_GEMV")
+	if err != nil {
+		_ = compiler.Close()
 		return nil, fmt.Errorf("static engine: compile baseline: %w", err)
 	}
 
 	a := metalmem.NewArena(dev)
 	e := &StaticBaselineEngine{
 		dev:       dev,
+		compiler:  compiler,
 		gemvPSO:   pso,
 		dim:       dim,
 		outDim:    outDim,
@@ -79,6 +89,7 @@ func NewStaticBaselineEngine(dev *metal.Device, dim, outDim int) (*StaticBaselin
 	}
 	if err := a.Err(); err != nil {
 		a.Free()
+		_ = compiler.Close()
 		return nil, fmt.Errorf("static engine: %w", err)
 	}
 	return e, nil
@@ -127,6 +138,7 @@ func (e *StaticBaselineEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, 
 // as workload dimensions cross crossover thresholds.
 type AdaptivePGOEngine struct {
 	dev          *metal.Device
+	compiler     *metalx.Compiler
 	dim          int
 	outDim       int
 	activePSO    atomic.Pointer[apple.MTLComputePipelineState]
@@ -142,7 +154,10 @@ type AdaptivePGOEngine struct {
 }
 
 // Free releases the engine's GPU buffers.
-func (e *AdaptivePGOEngine) Free() { e.mem.Free() }
+func (e *AdaptivePGOEngine) Free() {
+	e.mem.Free()
+	_ = e.compiler.Close()
+}
 
 const batchedGEMMMSL = `
 #include <metal_stdlib>
@@ -176,22 +191,29 @@ kernel void Tiled_Batched_GEMM(
 
 // NewAdaptivePGOEngine constructs an adaptive dynamic engine.
 func NewAdaptivePGOEngine(dev *metal.Device, dim, outDim int) (*AdaptivePGOEngine, error) {
+	compiler, err := metalx.NewCompiler(dev)
+	if err != nil {
+		return nil, fmt.Errorf("adaptive engine: make compiler: %w", err)
+	}
 	// 1. Compile Fused Unrolled GEMV (B=1 optimal)
 	gemvMSL := generateTiledGEMVMSL("Adaptive_Fast_GEMV", 4)
-	psoGEMV, err := metalx.Compile(dev, gemvMSL, "Adaptive_Fast_GEMV")
+	psoGEMV, err := compiler.Compile(gemvMSL, "Adaptive_Fast_GEMV")
 	if err != nil {
+		_ = compiler.Close()
 		return nil, fmt.Errorf("adaptive engine: compile GEMV: %w", err)
 	}
 
 	// 2. Compile Tiled Batched GEMM (B>=8 optimal)
-	psoBatched, err := metalx.Compile(dev, batchedGEMMMSL, "Tiled_Batched_GEMM")
+	psoBatched, err := compiler.Compile(batchedGEMMMSL, "Tiled_Batched_GEMM")
 	if err != nil {
+		_ = compiler.Close()
 		return nil, fmt.Errorf("adaptive engine: compile GEMM: %w", err)
 	}
 
 	a := metalmem.NewArena(dev)
 	engine := &AdaptivePGOEngine{
 		dev:        dev,
+		compiler:   compiler,
 		dim:        dim,
 		outDim:     outDim,
 		psoGEMV:    psoGEMV,
@@ -204,6 +226,7 @@ func NewAdaptivePGOEngine(dev *metal.Device, dim, outDim int) (*AdaptivePGOEngin
 	}
 	if err := a.Err(); err != nil {
 		a.Free()
+		_ = compiler.Close()
 		return nil, fmt.Errorf("adaptive engine: %w", err)
 	}
 	engine.activePSO.Store(&engine.psoGEMV)
