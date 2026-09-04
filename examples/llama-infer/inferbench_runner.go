@@ -57,6 +57,19 @@ type armReceipt struct {
 	Run           inferbench.Run `json:"run"`
 }
 
+// inferbenchServing is the narrow contract between the benchmark runner and a
+// production serving backend. Backend implementations retain their own device
+// storage and execution policy.
+type inferbenchServing interface {
+	servingBackend
+	resetBenchmarkPrefixes() error
+	enableBenchmarkLedger()
+	benchmarkLedgerSnapshot() physicalLedgerSnapshot
+	benchmarkLedgerSince(physicalLedgerSnapshot) ([]physicalWave, error)
+	installBenchmarkObserver()
+	benchmarkOutputs([]string) ([]inferbench.ObservedOutput, error)
+}
+
 func runInferbench(ctx context.Context, cfg Config, specPath string) error {
 	return runInferbenchWithEngine(ctx, cfg, specPath, getBenchmarkEngine)
 }
@@ -149,32 +162,37 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	if deviceID != identity.DeviceID {
 		return fmt.Errorf("inferbench: qualified device %q differs from runtime device %q", identity.DeviceID, deviceID)
 	}
-	if err := benchmarkPhysicalTelemetry(); err != nil {
-		return fmt.Errorf("inferbench: physical telemetry unavailable: %w", err)
-	}
 	identity.Precision = "f32"
 	if eng.IsF16() {
 		identity.Precision = "f16"
 	}
-	adapter, err := newScheduledEngineAdapter(eng, cfg, spec.Workload.Concurrency)
+	adapter, err := newPlatformServingBackend(eng, cfg, spec.Workload.Concurrency)
 	if err != nil {
 		return fmt.Errorf("inferbench: serving adapter: %w", err)
 	}
-	defer adapter.Close()
-	adapter.enablePhysicalLedger()
-	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
-		adapter.observedOutputs = newObservedOutputCollector()
+	bench, ok := adapter.(inferbenchServing)
+	if !ok {
+		adapter.Close()
+		return fmt.Errorf("inferbench: serving adapter %T lacks benchmark evidence", adapter)
 	}
-	scheduler, err := continuousbatch.New(adapter, continuousbatch.Config{MaxActive: spec.Workload.Concurrency, MaxQueue: spec.Workload.Concurrency, MaxBatch: spec.Workload.Concurrency, BatchWait: time.Millisecond, TokenBuffer: spec.Workload.GeneratedTokens + 1, PrefillWorkers: spec.Workload.Concurrency})
+	defer bench.Close()
+	bench.enableBenchmarkLedger()
+	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
+		bench.installBenchmarkObserver()
+	}
+	if err := benchmarkPhysicalTelemetry(); err != nil {
+		return fmt.Errorf("inferbench: physical telemetry unavailable: %w", err)
+	}
+	scheduler, err := continuousbatch.New(bench, continuousbatch.Config{MaxActive: spec.Workload.Concurrency, MaxQueue: spec.Workload.Concurrency, MaxBatch: spec.Workload.Concurrency, BatchWait: time.Millisecond, TokenBuffer: spec.Workload.GeneratedTokens + 1, PrefillWorkers: spec.Workload.Concurrency})
 	if err != nil {
 		return err
 	}
 	defer scheduler.Close()
 	if len(spec.Arms) != 0 {
-		return runInferbenchCampaign(ctx, cfg, spec, identity, evidence, eng, adapter, scheduler)
+		return runInferbenchCampaign(ctx, cfg, spec, identity, evidence, eng, bench, scheduler)
 	}
 	for i := 0; i < spec.Workload.WarmupRuns; i++ {
-		if _, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
+		if _, err := benchmarkSample(ctx, scheduler, bench, eng, spec.Workload, fmt.Sprintf("warmup-%d", i)); err != nil {
 			return err
 		}
 	}
@@ -182,10 +200,10 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	run := inferbench.Run{Arm: spec.Arm, Identity: identity, Workload: spec.Workload, Evidence: evidence}
 	for _, id := range spec.SampleIDs {
 		resetBenchmarkCaches(eng)
-		if err := adapter.resetPrefixes(); err != nil {
+		if err := bench.resetBenchmarkPrefixes(); err != nil {
 			return fmt.Errorf("inferbench: reset serving prefixes: %w", err)
 		}
-		sample, err := benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, id)
+		sample, err := benchmarkSample(ctx, scheduler, bench, eng, spec.Workload, id)
 		if err != nil {
 			return err
 		}
@@ -235,7 +253,7 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 	}
 }
 
-func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
+func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter inferbenchServing, scheduler *continuousbatch.Scheduler) error {
 	if err := benchmarkPeakMemorySupport(eng); err != nil {
 		return fmt.Errorf("inferbench: peak memory evidence: %w", err)
 	}
@@ -273,7 +291,7 @@ func runInferbenchCampaign(ctx context.Context, cfg Config, spec inferbenchSpec,
 			return inferbench.Sample{}, err
 		}
 		resetBenchmarkCaches(eng)
-		if err := adapter.resetPrefixes(); err != nil {
+		if err := adapter.resetBenchmarkPrefixes(); err != nil {
 			return inferbench.Sample{}, fmt.Errorf("inferbench: reset serving prefixes: %w", err)
 		}
 		return benchmarkSample(ctx, scheduler, adapter, eng, spec.Workload, k.ID)
@@ -397,14 +415,14 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 	return identity, evidence, nil
 }
 
-func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, adapter *scheduledEngineAdapter, eng *ModelEngine, workload inferbench.Workload, id string) (inferbench.Sample, error) {
+func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, adapter inferbenchServing, eng *ModelEngine, workload inferbench.Workload, id string) (inferbench.Sample, error) {
 	if id == "" {
 		return inferbench.Sample{}, errors.New("inferbench: empty sample id")
 	}
 	if err := benchmarkMemoryReset(ctx, eng); err != nil {
 		return inferbench.Sample{}, fmt.Errorf("inferbench: reset memory interval: %w", err)
 	}
-	physicalBefore := adapter.physical.Snapshot()
+	physicalBefore := adapter.benchmarkLedgerSnapshot()
 	cacheBefore := eng.prefixCacheMetrics()
 	started := time.Now()
 	responses := make([]*continuousbatch.Response, len(workload.PromptTokenIDs))
@@ -455,11 +473,8 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	var observed []inferbench.ObservedOutput
 	var observedHash string
 	if workload.OutputMode == inferbench.ObservedOutputMode {
-		if adapter.observedOutputs == nil {
-			return inferbench.Sample{}, errors.New("inferbench: observed output collector unavailable")
-		}
 		var err error
-		observed, err = adapter.observedOutputs.outputs(requestIDs)
+		observed, err = adapter.benchmarkOutputs(requestIDs)
 		if err != nil {
 			return inferbench.Sample{}, err
 		}
@@ -501,7 +516,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	duration := ended.Sub(started)
 	cache := eng.prefixCacheMetrics()
-	waves, err := adapter.physical.Since(physicalBefore)
+	waves, err := adapter.benchmarkLedgerSince(physicalBefore)
 	if err != nil {
 		return inferbench.Sample{}, err
 	}

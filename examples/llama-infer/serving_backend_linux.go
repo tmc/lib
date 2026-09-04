@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
+	"github.com/tmc/lib/examples/internal/inferbench"
 )
 
 // cudaServingBackend connects the continuous scheduler to the complete CUDA
@@ -25,6 +26,27 @@ type cudaServingBackend struct {
 	observedOutputs *observedOutputCollector
 	next            uint64
 	closed          bool
+	physical        *physicalWaveLedger
+}
+
+// CUDA does not yet retain a shared prefix cache, so reset is exact and has no
+// device work to perform.
+func (b *cudaServingBackend) resetBenchmarkPrefixes() error { return nil }
+func (b *cudaServingBackend) enableBenchmarkLedger()        { b.physical = new(physicalWaveLedger) }
+func (b *cudaServingBackend) benchmarkLedgerSnapshot() physicalLedgerSnapshot {
+	return b.physical.Snapshot()
+}
+func (b *cudaServingBackend) benchmarkLedgerSince(before physicalLedgerSnapshot) ([]physicalWave, error) {
+	return b.physical.Since(before)
+}
+func (b *cudaServingBackend) installBenchmarkObserver() {
+	b.observedOutputs = newObservedOutputCollector()
+}
+func (b *cudaServingBackend) benchmarkOutputs(ids []string) ([]inferbench.ObservedOutput, error) {
+	if b.observedOutputs == nil {
+		return nil, errors.New("inferbench: observed output collector unavailable")
+	}
+	return b.observedOutputs.outputs(ids)
 }
 
 type cudaSequenceState struct {

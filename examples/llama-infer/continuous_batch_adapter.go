@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
+	"github.com/tmc/lib/examples/internal/inferbench"
 )
 
 type scheduledEngineAdapter struct {
@@ -681,6 +682,24 @@ func (a *scheduledEngineAdapter) recordPrefixTransfer(request string, before pro
 
 func (a *scheduledEngineAdapter) enablePhysicalLedger() {
 	a.physical = new(physicalWaveLedger)
+}
+
+func (a *scheduledEngineAdapter) resetBenchmarkPrefixes() error { return a.resetPrefixes() }
+func (a *scheduledEngineAdapter) enableBenchmarkLedger()        { a.enablePhysicalLedger() }
+func (a *scheduledEngineAdapter) benchmarkLedgerSnapshot() physicalLedgerSnapshot {
+	return a.physical.Snapshot()
+}
+func (a *scheduledEngineAdapter) benchmarkLedgerSince(before physicalLedgerSnapshot) ([]physicalWave, error) {
+	return a.physical.Since(before)
+}
+func (a *scheduledEngineAdapter) installBenchmarkObserver() {
+	a.observedOutputs = newObservedOutputCollector()
+}
+func (a *scheduledEngineAdapter) benchmarkOutputs(ids []string) ([]inferbench.ObservedOutput, error) {
+	if a.observedOutputs == nil {
+		return nil, errors.New("inferbench: observed output collector unavailable")
+	}
+	return a.observedOutputs.outputs(ids)
 }
 
 func (a *scheduledEngineAdapter) recordPhysical(kind string, requests []string, dispatches uint64, read, write map[string]uint64) error {
