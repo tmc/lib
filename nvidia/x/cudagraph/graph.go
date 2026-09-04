@@ -12,7 +12,8 @@ import (
 
 // Graph represents an uninstantiated CUDA execution graph DAG.
 type Graph struct {
-	raw driver.Graph
+	raw    driver.Graph
+	device *cuda.Device
 }
 
 // New creates an empty CUDA graph.
@@ -25,6 +26,7 @@ func New() (*Graph, error) {
 }
 
 // Capture executes fn on stream while recording all enqueued operations into a Graph.
+// The caller must not destroy stream until Capture returns.
 func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 	if s == nil {
 		return nil, errors.New("cudagraph: nil stream passed to Capture")
@@ -33,18 +35,25 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 		return nil, errors.New("cudagraph: nil capture function")
 	}
 
-	if err := s.Raw().BeginCapture(driver.StreamCaptureModeGlobal); err != nil {
+	if err := s.Device().WithContext(func() error {
+		return s.Raw().BeginCapture(driver.StreamCaptureModeGlobal)
+	}); err != nil {
 		return nil, fmt.Errorf("cudagraph: begin capture: %w", err)
 	}
 
 	fn()
 
-	rawGraph, err := s.Raw().EndCapture()
+	var rawGraph driver.Graph
+	err := s.Device().WithContext(func() error {
+		var err error
+		rawGraph, err = s.Raw().EndCapture()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: end capture: %w", err)
 	}
 
-	return &Graph{raw: rawGraph}, nil
+	return &Graph{raw: rawGraph, device: s.Device()}, nil
 }
 
 // Instantiate validates and instantiates the graph for execution on the GPU.
@@ -52,11 +61,16 @@ func (g *Graph) Instantiate() (*Exec, error) {
 	if g == nil || g.raw == 0 {
 		return nil, errors.New("cudagraph: graph is closed")
 	}
-	rawExec, err := g.raw.Instantiate(0)
+	var rawExec driver.GraphExec
+	err := g.withContext(func() error {
+		var err error
+		rawExec, err = g.raw.Instantiate(0)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
 	}
-	return &Exec{raw: rawExec}, nil
+	return &Exec{raw: rawExec, device: g.device}, nil
 }
 
 // Raw returns the underlying driver.Graph handle.
@@ -72,7 +86,7 @@ func (g *Graph) Destroy() error {
 	if g == nil || g.raw == 0 {
 		return nil
 	}
-	if err := g.raw.Destroy(); err != nil {
+	if err := g.withContext(g.raw.Destroy); err != nil {
 		return fmt.Errorf("cudagraph: destroy graph: %w", err)
 	}
 	g.raw = 0
@@ -81,7 +95,8 @@ func (g *Graph) Destroy() error {
 
 // Exec represents an instantiated, executable CUDA graph.
 type Exec struct {
-	raw driver.GraphExec
+	raw    driver.GraphExec
+	device *cuda.Device
 }
 
 // Launch enqueues execution of the instantiated graph on stream.
@@ -89,11 +104,16 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
-	var streamHandle driver.Stream
-	if s != nil {
-		streamHandle = s.Raw()
+	launch := func(stream driver.Stream) error { return e.raw.GraphLaunch(stream) }
+	var err error
+	if s == nil {
+		err = e.withContext(func() error { return launch(0) })
+	} else {
+		err = s.WithHandle(func(stream driver.Stream) error {
+			return s.Device().WithContext(func() error { return launch(stream) })
+		})
 	}
-	if err := e.raw.GraphLaunch(streamHandle); err != nil {
+	if err != nil {
 		return fmt.Errorf("cudagraph: launch graph: %w", err)
 	}
 	return nil
@@ -111,7 +131,7 @@ func (e *Exec) Update(g *Graph) error {
 		return errors.New("cudagraph: graph is closed")
 	}
 	var result driver.GraphExecUpdateResultInfo
-	if err := e.raw.Update(g.raw, &result); err != nil {
+	if err := e.withContext(func() error { return e.raw.Update(g.raw, &result) }); err != nil {
 		return fmt.Errorf("cudagraph: update graph (result=%v): %w", result.Result, err)
 	}
 	return nil
@@ -122,11 +142,25 @@ func (e *Exec) Destroy() error {
 	if e == nil || e.raw == 0 {
 		return nil
 	}
-	if err := e.raw.Destroy(); err != nil {
+	if err := e.withContext(e.raw.Destroy); err != nil {
 		return fmt.Errorf("cudagraph: destroy exec graph: %w", err)
 	}
 	e.raw = 0
 	return nil
+}
+
+func (g *Graph) withContext(fn func() error) error {
+	if g.device == nil {
+		return fn()
+	}
+	return g.device.WithContext(fn)
+}
+
+func (e *Exec) withContext(fn func() error) error {
+	if e.device == nil {
+		return fn()
+	}
+	return e.device.WithContext(fn)
 }
 
 // BucketManager manages a discrete lattice of instantiated graphs for dynamic tensor dimensions,

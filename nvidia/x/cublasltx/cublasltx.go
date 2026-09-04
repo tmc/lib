@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
@@ -152,32 +153,38 @@ func (e *Engine) MatMul(
 		alpha := float32(1.0)
 		beta := float32(0.0)
 
-		var streamHandle cublaslt.Stream
-		if s != nil {
-			streamHandle = cublaslt.Stream(s.Raw())
-		}
-
-		err = e.handle.Matmul(
-			opDesc,
-			uintptr(unsafe.Pointer(&alpha)),
-			uintptr(a.Ptr()),
-			layoutA,
-			uintptr(b.Ptr()),
-			layoutB,
-			uintptr(unsafe.Pointer(&beta)),
-			uintptr(d.Ptr()),
-			layoutD,
-			uintptr(d.Ptr()),
-			layoutD,
-			algoPtr,
-			uintptr(e.workspace.Ptr()),
-			e.workspaceSize,
-			streamHandle,
-		)
+		err = withStream(s, func(streamHandle cublaslt.Stream) error {
+			return e.handle.Matmul(
+				opDesc,
+				uintptr(unsafe.Pointer(&alpha)),
+				uintptr(a.Ptr()),
+				layoutA,
+				uintptr(b.Ptr()),
+				layoutB,
+				uintptr(unsafe.Pointer(&beta)),
+				uintptr(d.Ptr()),
+				layoutD,
+				uintptr(d.Ptr()),
+				layoutD,
+				algoPtr,
+				uintptr(e.workspace.Ptr()),
+				e.workspaceSize,
+				streamHandle,
+			)
+		})
 		if err != nil {
 			return fmt.Errorf("cublaslt matmul: %w", err)
 		}
 		return nil
+	})
+}
+
+func withStream(s *cuda.Stream, fn func(cublaslt.Stream) error) error {
+	if s == nil {
+		return fn(0)
+	}
+	return s.WithHandle(func(stream driver.Stream) error {
+		return fn(cublaslt.Stream(stream))
 	})
 }
 
