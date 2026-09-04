@@ -5,8 +5,9 @@
 //
 // Span and SpanSource use the host clock around the supplied function. They do
 // not insert CUDA events or synchronize a stream, so they do not measure GPU
-// execution. Use RecordSpan with externally measured and calibrated GPU
-// timestamps when a hardware interval is available.
+// execution. To place real device intervals on the timeline, bracket the work
+// with CUDA events, convert them with a Clock from Calibrate, and pass the
+// resulting host-domain timestamps to RecordSpan.
 //
 // # Go runtime/trace Integration
 //
