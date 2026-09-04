@@ -3,6 +3,7 @@
 package metalkv
 
 import (
+	"math"
 	"testing"
 )
 
@@ -40,11 +41,33 @@ func TestRollingKVCacheSlotMapping(t *testing.T) {
 		t.Errorf("rolled token 13 slot = %d, want 5", slot)
 	}
 
-	cache.Advance(20)
+	if err := cache.Advance(20); err != nil {
+		t.Fatal(err)
+	}
 	if cache.TotalSeen() != 20 {
 		t.Errorf("TotalSeen = %d, want 20", cache.TotalSeen())
 	}
 	if cache.ActiveTokens() != 12 {
 		t.Errorf("ActiveTokens = %d, want 12", cache.ActiveTokens())
+	}
+}
+
+func TestRollingKVCacheRejectsNegativeAdvance(t *testing.T) {
+	cache, err := NewRollingKVCache(SlidingWindowConfig{SinkTokens: 1, WindowSize: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cache.Advance(-1); err == nil {
+		t.Fatal("Advance(-1) succeeded")
+	}
+	if got := cache.TotalSeen(); got != 0 {
+		t.Fatalf("TotalSeen after rejected advance = %d, want 0", got)
+	}
+	cache.totalSeen = math.MaxInt
+	if err := cache.Advance(1); err == nil {
+		t.Fatal("Advance past MaxInt succeeded")
+	}
+	if got := cache.TotalSeen(); got != math.MaxInt {
+		t.Fatalf("TotalSeen after rejected overflow = %d, want %d", got, math.MaxInt)
 	}
 }
