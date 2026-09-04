@@ -2,6 +2,7 @@ package nvlshm
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/tmc/lib/nvidia/driver"
 )
@@ -57,10 +58,12 @@ func MulticastSupported(dev driver.Device) (bool, error) {
 }
 
 // PadTo rounds n up to the next multiple of granularity.
-// It panics if granularity is zero.
-func PadTo(n, granularity uintptr) uintptr {
+func PadTo(n, granularity uintptr) (uintptr, error) {
 	if granularity == 0 {
-		panic("nvlshm: zero granularity")
+		return 0, fmt.Errorf("nvlshm: zero granularity")
 	}
-	return (n + granularity - 1) / granularity * granularity
+	if n > uintptr(math.MaxUint)-granularity+1 {
+		return 0, fmt.Errorf("nvlshm: padded size overflows uintptr")
+	}
+	return (n + granularity - 1) / granularity * granularity, nil
 }
