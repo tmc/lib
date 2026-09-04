@@ -29,7 +29,7 @@ type RigidStaticEngine struct {
 }
 
 func NewRigidStaticEngine(dev *metal.Device, dim, outDim, memoryCap int) (*RigidStaticEngine, error) {
-	msl := generateTiledGEMVMSL("Rigid_GEMV", 1, 32)
+	msl := generateTiledGEMVMSL("Rigid_GEMV", 1)
 	pso, err := metalx.Compile(dev, msl, "Rigid_GEMV")
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ type ElasticDegradationEngine struct {
 }
 
 func NewElasticDegradationEngine(dev *metal.Device, dim, outDim, memoryCap int) (*ElasticDegradationEngine, error) {
-	msl := generateTiledGEMVMSL("Elastic_GEMV", 4, 128)
+	msl := generateTiledGEMVMSL("Elastic_GEMV", 4)
 	pso, err := metalx.Compile(dev, msl, "Elastic_GEMV")
 	if err != nil {
 		return nil, err
