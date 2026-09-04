@@ -103,6 +103,92 @@ type block struct {
 	desc      Descriptor
 	leases    map[uint64]struct{}
 	migrating bool
+	reserved  uint64
+}
+
+// Reservation excludes new consumers while its generation is considered for
+// migration. Its zero value is invalid.
+type Reservation struct {
+	store      *Store
+	id         ID
+	generation Generation
+	serial     uint64
+}
+
+// Reserve atomically reserves a sole-owner generation. Acquire, Share,
+// Release, Migrate, Evict, and Close fail with ErrBusy while it is reserved.
+func (s *Store) Reserve(l Lease) (Reservation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, err := s.blockLocked(l)
+	if err != nil {
+		return Reservation{}, err
+	}
+	if b.migrating || b.desc.References != 1 {
+		return Reservation{}, ErrBusy
+	}
+	b.migrating = true
+	s.nextSerial++
+	b.reserved = s.nextSerial
+	return Reservation{s, l.id, l.generation, b.reserved}, nil
+}
+
+// Abort releases r without changing residency. Aborting a stale or already
+// completed reservation returns ErrStale.
+func (r Reservation) Abort() error {
+	if r.store == nil || r.serial == 0 {
+		return ErrStale
+	}
+	s := r.store
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	b := s.blocks[r.id]
+	if b == nil || b.desc.Generation != r.generation || !b.migrating || b.reserved != r.serial {
+		return ErrStale
+	}
+	b.migrating = false
+	b.reserved = 0
+	return nil
+}
+
+// Migrate runs move under r and publishes target only after move succeeds.
+// Failure releases the reservation and leaves the source authoritative.
+func (r Reservation) Migrate(ctx context.Context, target Residency, move func(context.Context, Descriptor, Residency) error) error {
+	if r.store == nil || r.serial == 0 || ctx == nil || !validResidency(target) || move == nil {
+		return ErrInvalid
+	}
+	s := r.store
+	s.mu.Lock()
+	b := s.blocks[r.id]
+	if s.closed {
+		s.mu.Unlock()
+		return ErrClosed
+	}
+	if b == nil || b.desc.Generation != r.generation || !b.migrating || b.reserved != r.serial {
+		s.mu.Unlock()
+		return ErrStale
+	}
+	before := b.desc
+	s.mu.Unlock()
+	err := ctx.Err()
+	if err == nil {
+		err = move(ctx, before, target)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b = s.blocks[r.id]
+	if b == nil || b.desc.Generation != r.generation || b.reserved != r.serial {
+		return ErrStale
+	}
+	b.migrating = false
+	b.reserved = 0
+	if err == nil {
+		b.desc.Residency = target
+	}
+	return err
 }
 
 // Store coordinates logical KV block identity, leases, and residency changes.

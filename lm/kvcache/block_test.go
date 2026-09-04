@@ -11,6 +11,57 @@ import (
 	"testing"
 )
 
+func TestReservationExcludesConsumerAndAbortRecovers(t *testing.T) {
+	s, _ := NewStore(1)
+	l, _ := s.Allocate(testSpec(0), testResidency("device"))
+	r, err := s.Reserve(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, gen := l.ID()
+	if _, err := s.Acquire(id, gen); !errors.Is(err, ErrBusy) {
+		t.Fatalf("Acquire = %v, want ErrBusy", err)
+	}
+	if err := r.Abort(); err != nil {
+		t.Fatal(err)
+	}
+	u, err := s.Acquire(id, gen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Release(); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Abort(); !errors.Is(err, ErrStale) {
+		t.Fatalf("second Abort = %v, want ErrStale", err)
+	}
+}
+
+func TestReservationBlocksRacingAcquire(t *testing.T) {
+	s, _ := NewStore(1)
+	l, _ := s.Allocate(testSpec(0), testResidency("device"))
+	r, _ := s.Reserve(l)
+	id, gen := l.ID()
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.Acquire(id, gen); !errors.Is(err, ErrBusy) {
+				t.Errorf("Acquire = %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+	want := errors.New("copy")
+	if err := r.Migrate(context.Background(), testResidency("host"), func(context.Context, Descriptor, Residency) error { return want }); !errors.Is(err, want) {
+		t.Fatal(err)
+	}
+	if _, err := s.Acquire(id, gen); err != nil {
+		t.Fatalf("capacity stranded: %v", err)
+	}
+}
+
 func testSpec(start int) Spec {
 	return Spec{
 		Owner:  "request-1",
