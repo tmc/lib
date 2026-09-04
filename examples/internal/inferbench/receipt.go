@@ -249,7 +249,7 @@ func validateRunHeader(r *Run) error {
 		return errors.New("incomplete identity")
 	}
 	w := r.Workload
-	if len(w.PromptTokenIDs) == 0 || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" || w.OutputMode != ThroughputOutputMode && w.OutputMode != ObservedOutputMode {
+	if len(w.PromptTokenIDs) == 0 || len(w.PromptTokenIDs) != w.Concurrency || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" || w.OutputMode != ThroughputOutputMode && w.OutputMode != ObservedOutputMode {
 		return errors.New("incomplete workload")
 	}
 	for _, p := range w.PromptTokenIDs {
@@ -262,6 +262,11 @@ func validateRunHeader(r *Run) error {
 	}
 	if w.OutputMode == ObservedOutputMode && (w.FullLogits <= 0 || w.KVLayers <= 0 || w.KVPerToken <= 0) {
 		return errors.New("incomplete observed output shape")
+	}
+	if w.OutputMode == ObservedOutputMode {
+		if _, _, _, ok := observedShape(w); !ok {
+			return errors.New("invalid observed output shape")
+		}
 	}
 	e := r.Evidence
 	if !e.HardwareVerified || !e.DeviceResidentKV || e.CPUFallback {
@@ -349,20 +354,20 @@ func validateObservedOutputs(s *Sample, w Workload) error {
 		}
 		return nil
 	}
-	if len(s.ObservedOutputs) != w.Concurrency || !validSHA256(s.ObservedSHA256) {
+	populatedTokens, populatedElements, layerElements, ok := observedShape(w)
+	if !ok || len(s.ObservedOutputs) != w.Concurrency || !validSHA256(s.ObservedSHA256) {
 		return errors.New("incomplete observed output")
 	}
 	seen := make(map[int]bool)
 	for _, output := range s.ObservedOutputs {
 		if output.Request < 0 || output.Request >= w.Concurrency || seen[output.Request] ||
 			!validSHA256(output.FullLogitsSHA256) || output.FullLogitsElements != w.FullLogits ||
-			!validSHA256(output.PopulatedKVSHA256) || output.PopulatedKVElements != (w.ContextTokens+w.GeneratedTokens-1)*w.KVPerToken ||
-			output.PopulatedTokens != w.ContextTokens+w.GeneratedTokens-1 || len(output.Layers) != w.KVLayers {
+			!validSHA256(output.PopulatedKVSHA256) || output.PopulatedKVElements != populatedElements ||
+			output.PopulatedTokens != populatedTokens || len(output.Layers) != w.KVLayers {
 			return errors.New("invalid observed output")
 		}
-		wantLayerElements := output.PopulatedKVElements / (2 * w.KVLayers)
 		for layer, got := range output.Layers {
-			if got.Layer != layer || !validSHA256(got.KeySHA256) || !validSHA256(got.ValueSHA256) || got.ElementsEach != wantLayerElements {
+			if got.Layer != layer || !validSHA256(got.KeySHA256) || !validSHA256(got.ValueSHA256) || got.ElementsEach != layerElements {
 				return errors.New("invalid observed KV layer")
 			}
 		}
@@ -377,6 +382,26 @@ func validateObservedOutputs(s *Sample, w Workload) error {
 		return errors.New("incorrect observed output hash")
 	}
 	return nil
+}
+
+func observedShape(w Workload) (tokens, elements, layerElements int, ok bool) {
+	if w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.KVLayers <= 0 || w.KVPerToken <= 0 ||
+		w.ContextTokens > math.MaxInt-(w.GeneratedTokens-1) {
+		return 0, 0, 0, false
+	}
+	tokens = w.ContextTokens + w.GeneratedTokens - 1
+	if tokens > math.MaxInt/w.KVPerToken {
+		return 0, 0, 0, false
+	}
+	elements = tokens * w.KVPerToken
+	if w.KVLayers > math.MaxInt/2 {
+		return 0, 0, 0, false
+	}
+	parts := 2 * w.KVLayers
+	if elements%parts != 0 {
+		return 0, 0, 0, false
+	}
+	return tokens, elements, elements / parts, true
 }
 
 func validatePhysicalWaves(s *Sample, requests int) error {

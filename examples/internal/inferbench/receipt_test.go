@@ -110,6 +110,7 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"different output", func(c *Campaign) { c.Runs[1].Samples[0].GeneratedTokenIDs[0][0]++ }},
 		{"output contract mismatch", func(c *Campaign) { c.Runs[0].Evidence.OutputContract = ObservedOutputMode }},
 		{"observed data in throughput mode", func(c *Campaign) { c.Runs[0].Samples[0].ObservedOutputs = []ObservedOutput{{}} }},
+		{"concurrency differs from prompts", func(c *Campaign) { c.Runs[0].Workload.Concurrency = 2 }},
 		{"reduced work", func(c *Campaign) {
 			c.Runs[0].Samples[0].GeneratedTokenIDs[0] = c.Runs[0].Samples[0].GeneratedTokenIDs[0][:2]
 		}},
@@ -132,6 +133,20 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 				t.Fatal("accepted invalid campaign")
 			}
 		})
+	}
+}
+
+func TestObservedShapeRejectsOverflow(t *testing.T) {
+	tests := []Workload{
+		{ContextTokens: math.MaxInt, GeneratedTokens: 2, KVLayers: 1, KVPerToken: 2},
+		{ContextTokens: math.MaxInt / 2, GeneratedTokens: 2, KVLayers: 1, KVPerToken: 3},
+		{ContextTokens: 1, GeneratedTokens: 2, KVLayers: math.MaxInt, KVPerToken: 2},
+		{ContextTokens: 1, GeneratedTokens: 2, KVLayers: 2, KVPerToken: 3},
+	}
+	for _, workload := range tests {
+		if _, _, _, ok := observedShape(workload); ok {
+			t.Fatalf("observedShape(%+v) succeeded", workload)
+		}
 	}
 }
 
