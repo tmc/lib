@@ -16,6 +16,14 @@
 // use [LockContext] or [Device.WithContext] which pin the calling goroutine to its OS thread
 // via [runtime.LockOSThread] for the duration of the closure.
 //
+// # Streams
+//
+// [Device.NewStream] creates an independent stream; [Device.DefaultStream] returns the
+// device's legacy default stream. Because DefaultStream never returns nil, an API that
+// takes a stream can require one and stay stream-ordered throughout, rather than
+// branching between synchronous and asynchronous paths. A caller that wants the host to
+// wait synchronizes the stream.
+//
 // # Context Cancellation
 //
 // [Stream.Synchronize] accepts a [context.Context]. If the context is cancelled or expires
