@@ -73,6 +73,34 @@ func TestEqualitySaturationArithmetic(t *testing.T) {
 	t.Logf("Extracted best expr: %s (cost: %.2f)", best, cost)
 }
 
+func TestNewRewriteVariables(t *testing.T) {
+	tests := []struct {
+		name string
+		lhs  string
+		rhs  string
+		want string
+	}{
+		{"bound", "(+ ?x ?y)", "(+ ?y ?x)", ""},
+		{"repeated", "(+ ?x ?x)", "?x", ""},
+		{"unbound", "(+ ?x 0)", "(+ ?x ?y)", "?y"},
+		{"deterministic", "?x", "(+ ?z ?y)", "?y, ?z"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := egraph.NewRewrite(test.name, test.lhs, test.rhs)
+			if test.want == "" {
+				if err != nil {
+					t.Fatalf("NewRewrite: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("NewRewrite error = %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestCUDAMegakernelFusionRewrites(t *testing.T) {
 	eg := egraph.New()
 
@@ -189,4 +217,3 @@ func TestExtractTopK(t *testing.T) {
 		t.Errorf("expected candidate 0 cost (%f) < candidate 1 cost (%f)", cands[0].Cost, cands[1].Cost)
 	}
 }
-
