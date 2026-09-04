@@ -25,6 +25,7 @@ type scheduledEngineAdapter struct {
 	prefillDispatches                   uint64
 	prefixes                            *productionPrefixRuntime
 	prefillObserver                     func(*continuousbatch.State, *productionPrefixLease, []float32)
+	observedOutputs                     *observedOutputCollector
 	physical                            *physicalWaveLedger
 }
 
@@ -88,6 +89,13 @@ func (a *scheduledEngineAdapter) Release(state *continuousbatch.State) {
 	sequence, ok := state.KV.(scheduledSequenceState)
 	if !ok {
 		return
+	}
+	if a.observedOutputs != nil {
+		a.observedOutputs.observeKV(state, a.cache, a.cfg)
+		read := uint64(2 * a.cfg.NumLayers * state.Position * a.cfg.NumKVHeads * a.cfg.HeadDim * 4)
+		if err := a.recordPhysical("observed-output-kv", []string{fmt.Sprintf("%s@%d/%d", state.ID, sequence.row, sequence.lease)}, 0, map[string]uint64{"observed_kv_host": read}, nil); err != nil {
+			a.observedOutputs.fail(err)
+		}
 	}
 	a.rowsMu.Lock()
 	if a.leases[sequence.row] == sequence.lease {
@@ -564,6 +572,22 @@ func (a *scheduledEngineAdapter) DecodeBatch(ctx context.Context, states []*cont
 	}
 	if err := a.recordPhysical("decode-tail", members, uint64(tail.Dispatches), nil, nil); err != nil {
 		return batchError(results, err)
+	}
+	if a.observedOutputs != nil {
+		full, err := a.tail.Run(a.engine, a.cfg, chain.Hidden, samplers)
+		if err != nil {
+			return batchError(results, fmt.Errorf("decode observed tail: %w", err))
+		}
+		if !slices.Equal(full.Tokens, tail.Tokens) {
+			return batchError(results, errors.New("decode observed tail token mismatch"))
+		}
+		if err := a.observedOutputs.observeLogits(states, full.Logits, a.cfg.VocabSize); err != nil {
+			return batchError(results, err)
+		}
+		read := map[string]uint64{"observed_logits_host": uint64(len(full.Logits) * 4)}
+		if err := a.recordPhysical("decode-observed-tail", members, uint64(full.Dispatches), read, nil); err != nil {
+			return batchError(results, err)
+		}
 	}
 	a.metricsMu.Lock()
 	a.batches = append(a.batches, fullBatchObservation{len(states), chain.Dispatches + tail.Dispatches})

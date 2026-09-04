@@ -96,7 +96,7 @@ func TestUnqualifiedHostLaunchesZeroTimedArms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := inferbenchSpec{Arm: "llama-infer", Output: filepath.Join(dir, "arm.json"), Lease: filepath.Join(dir, "runner.lock"), SourcePath: source, TokenizerPath: tokenizer, ConfigPath: config, DeviceEvidencePath: proof, SampleIDs: []string{"sample-1"}, Workload: inferbench.Workload{PromptTokenIDs: [][]int32{{1}}, ContextTokens: 1, GeneratedTokens: 2, Concurrency: 1, WarmupRuns: 1, Sampler: "greedy-argmax", CacheState: "cold"}}
+	spec := inferbenchSpec{Arm: "llama-infer", Output: filepath.Join(dir, "arm.json"), Lease: filepath.Join(dir, "runner.lock"), SourcePath: source, TokenizerPath: tokenizer, ConfigPath: config, DeviceEvidencePath: proof, SampleIDs: []string{"sample-1"}, Workload: inferbench.Workload{PromptTokenIDs: [][]int32{{1}}, ContextTokens: 1, GeneratedTokens: 2, Concurrency: 1, WarmupRuns: 1, Sampler: "greedy-argmax", CacheState: "cold", OutputMode: inferbench.ThroughputOutputMode}}
 	spec.ExpectedBinarySHA256, _ = inferbench.HashPath(exe)
 	spec.ExpectedModelSHA256, _ = inferbench.HashPath(model)
 	spec.ExpectedTokenizerSHA256, _ = inferbench.HashPath(tokenizer)
@@ -139,18 +139,20 @@ func TestValidateBenchmarkArms(t *testing.T) {
 		spec inferbenchSpec
 		ok   bool
 	}{
-		{"single", inferbenchSpec{Arm: "llama-infer"}, true},
-		{"zero seed", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RawDir: "raw"}, false},
-		{"duplicate", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer"}, RandomSeed: 1, RawDir: "raw"}, false},
-		{"single multiarm", inferbenchSpec{Arms: []string{"llama-infer"}, RandomSeed: 1, RawDir: "raw"}, false},
-		{"mixed modes", inferbenchSpec{Arm: "llama-infer", Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw"}, false},
+		{"single", inferbenchSpec{Arm: "llama-infer", Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, true},
+		{"single observed", inferbenchSpec{Arm: "llama-infer-observed-output", Workload: inferbench.Workload{OutputMode: inferbench.ObservedOutputMode}}, true},
+		{"ordinary arm observed work", inferbenchSpec{Arm: "llama-infer", Workload: inferbench.Workload{OutputMode: inferbench.ObservedOutputMode}}, false},
+		{"zero seed", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RawDir: "raw", Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, false},
+		{"duplicate", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer"}, RandomSeed: 1, RawDir: "raw", Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, false},
+		{"single multiarm", inferbenchSpec{Arms: []string{"llama-infer"}, RandomSeed: 1, RawDir: "raw", Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, false},
+		{"mixed modes", inferbenchSpec{Arm: "llama-infer", Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, false},
 	}
 	if benchmarkBackend() == "metal" {
 		tests = append(tests, struct {
 			name string
 			spec inferbenchSpec
 			ok   bool
-		}{"campaign", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", SampleIDs: benchmarkSampleIDs(20)}, true})
+		}{"campaign", inferbenchSpec{Arms: []string{"llama-infer", "llama-infer-unfused-projections"}, RandomSeed: 1, RawDir: "raw", SampleIDs: benchmarkSampleIDs(20), Workload: inferbench.Workload{OutputMode: inferbench.ThroughputOutputMode}}, true})
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

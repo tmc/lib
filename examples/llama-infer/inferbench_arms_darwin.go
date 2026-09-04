@@ -7,8 +7,8 @@ import "fmt"
 func configureBenchmarkArm(eng *ModelEngine, arm string) error {
 	var disable bool
 	switch arm {
-	case "llama-infer":
-	case "llama-infer-unfused-projections":
+	case "llama-infer", "llama-infer-observed-output":
+	case "llama-infer-unfused-projections", "llama-infer-unfused-projections-observed-output":
 		disable = true
 	default:
 		return fmt.Errorf("inferbench: unsupported arm %q", arm)

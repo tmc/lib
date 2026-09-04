@@ -15,6 +15,7 @@ import (
 func main() {
 	capabilitiesPath := flag.String("capabilities", "", "path to measured Luminal capability JSON")
 	output := flag.String("output", "", "path for the atomic refusal receipt")
+	outputMode := flag.String("output-mode", inferbench.ThroughputOutputMode, "declared output work")
 	flag.Parse()
 	if *capabilitiesPath == "" || *output == "" {
 		fail(errors.New("usage: inferbenchluminal -capabilities capabilities.json -output refusal.json"))
@@ -34,7 +35,7 @@ func main() {
 	refusal := inferbench.AdapterRefusal{SchemaVersion: inferbench.SchemaVersion, State: "refused", Arm: "luminal"}
 	if err != nil {
 		refusal.Code, refusal.Reason = "invalid_capability_receipt", err.Error()
-	} else if err := inferbench.CheckAdapterCapabilities("luminal", capabilities); err != nil {
+	} else if err := inferbench.CheckAdapterOutputCapabilities("luminal", *outputMode, capabilities); err != nil {
 		refusal.Code, refusal.Reason = "unequal_runtime_capability", err.Error()
 	} else {
 		refusal.Code = "adapter_not_implemented"

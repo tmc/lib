@@ -17,11 +17,13 @@ import (
 	"time"
 )
 
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 const (
 	PersistentEnginePolicy = "one-compiled-engine-warmed-per-arm"
 	ColdIntervalPolicy     = "recreate-serving-prefix-runtime-and-clear-host-prefix-cache-before-each-interval"
+	ThroughputOutputMode   = "generated-tokens"
+	ObservedOutputMode     = "full-logits-and-populated-kv-v1"
 )
 
 // Campaign contains every sample in one matched benchmark campaign.
@@ -62,6 +64,10 @@ type Workload struct {
 	WarmupRuns      int       `json:"warmup_runs"`
 	Sampler         string    `json:"sampler"`
 	CacheState      string    `json:"cache_state"`
+	OutputMode      string    `json:"output_mode"`
+	FullLogits      int       `json:"full_logits_elements,omitempty"`
+	KVLayers        int       `json:"kv_layers,omitempty"`
+	KVPerToken      int       `json:"kv_elements_per_token,omitempty"`
 }
 
 // Evidence records conditions needed to interpret timing as GPU execution.
@@ -83,6 +89,7 @@ type Evidence struct {
 	WarmupRunsCompleted  int           `json:"warmup_runs_completed"`
 	RuntimePolicy        string        `json:"runtime_policy"`
 	AllocationPolicy     string        `json:"allocation_policy"`
+	OutputContract       string        `json:"output_contract"`
 }
 
 // Sample contains one completed, synchronized serving observation.
@@ -104,7 +111,29 @@ type Sample struct {
 	PhysicalWaves     []PhysicalWave    `json:"physical_waves"`
 	GeneratedTokenIDs [][]int32         `json:"generated_token_ids"`
 	OutputSHA256      string            `json:"output_sha256"`
+	ObservedOutputs   []ObservedOutput  `json:"observed_outputs,omitempty"`
+	ObservedSHA256    string            `json:"observed_sha256,omitempty"`
 	Requests          []RequestTiming   `json:"requests"`
+}
+
+// ObservedOutput identifies the full final logits and populated all-layer KV
+// state retained for one request before its serving row is released.
+type ObservedOutput struct {
+	Request             int               `json:"request"`
+	FullLogitsSHA256    string            `json:"full_logits_sha256"`
+	FullLogitsElements  int               `json:"full_logits_elements"`
+	PopulatedKVSHA256   string            `json:"populated_kv_sha256"`
+	PopulatedKVElements int               `json:"populated_kv_elements"`
+	PopulatedTokens     int               `json:"populated_tokens"`
+	Layers              []ObservedKVLayer `json:"layers"`
+}
+
+// ObservedKVLayer identifies one populated K/V layer in an observed output.
+type ObservedKVLayer struct {
+	Layer        int    `json:"layer"`
+	KeySHA256    string `json:"key_sha256"`
+	ValueSHA256  string `json:"value_sha256"`
+	ElementsEach int    `json:"elements_each"`
 }
 
 // PhysicalWave attributes one completed device wave to all participating
@@ -220,7 +249,7 @@ func validateRunHeader(r *Run) error {
 		return errors.New("incomplete identity")
 	}
 	w := r.Workload
-	if len(w.PromptTokenIDs) == 0 || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" {
+	if len(w.PromptTokenIDs) == 0 || w.ContextTokens <= 0 || w.GeneratedTokens < 2 || w.Concurrency <= 0 || w.WarmupRuns <= 0 || w.Sampler == "" || w.CacheState != "cold" || w.OutputMode != ThroughputOutputMode && w.OutputMode != ObservedOutputMode {
 		return errors.New("incomplete workload")
 	}
 	for _, p := range w.PromptTokenIDs {
@@ -228,11 +257,21 @@ func validateRunHeader(r *Run) error {
 			return errors.New("prompt token count differs from context tokens")
 		}
 	}
+	if w.OutputMode == ThroughputOutputMode && (w.FullLogits != 0 || w.KVLayers != 0 || w.KVPerToken != 0) {
+		return errors.New("observed shape contaminates throughput mode")
+	}
+	if w.OutputMode == ObservedOutputMode && (w.FullLogits <= 0 || w.KVLayers <= 0 || w.KVPerToken <= 0) {
+		return errors.New("incomplete observed output shape")
+	}
 	e := r.Evidence
 	if !e.HardwareVerified || !e.DeviceResidentKV || e.CPUFallback {
 		return errors.New("hardware path not proven")
 	}
-	if e.TimingBoundary != "submit-to-final-device-synchronize" || !e.DeviceSynchronized || !e.IncludesQueueing || e.RunnerLease == "" || !validSHA256(e.DeviceEvidenceSHA256) {
+	wantBoundary := "submit-to-final-device-synchronize"
+	if w.OutputMode == ObservedOutputMode {
+		wantBoundary = "submit-to-observed-output-digest-and-final-device-synchronize"
+	}
+	if e.TimingBoundary != wantBoundary || !e.DeviceSynchronized || !e.IncludesQueueing || e.RunnerLease == "" || !validSHA256(e.DeviceEvidenceSHA256) {
 		return errors.New("unsafe timing boundary")
 	}
 	if !e.PersistentRuntime || !e.CompilationExcluded || e.WarmupRunsCompleted != w.WarmupRuns {
@@ -240,6 +279,9 @@ func validateRunHeader(r *Run) error {
 	}
 	if e.RuntimePolicy != PersistentEnginePolicy || e.AllocationPolicy != ColdIntervalPolicy {
 		return errors.New("runtime or allocation policy not proven")
+	}
+	if e.OutputContract != w.OutputMode {
+		return errors.New("output contract not proven")
 	}
 	if !validSHA256(e.NullControlSHA256) || e.NullControlSamples < 20 || e.NullControlP95 <= 0 || e.NullControlLimit <= 0 || e.NullControlP95 > e.NullControlLimit {
 		return errors.New("host qualification not proven")
@@ -270,6 +312,9 @@ func validateSample(s *Sample, w Workload) error {
 	if err := validatePhysicalWaves(s, len(w.PromptTokenIDs)); err != nil {
 		return fmt.Errorf("sample %q: %w", s.ID, err)
 	}
+	if err := validateObservedOutputs(s, w); err != nil {
+		return fmt.Errorf("sample %q: %w", s.ID, err)
+	}
 	if len(s.Requests) != len(w.PromptTokenIDs) {
 		return fmt.Errorf("sample %q: request timing count differs", s.ID)
 	}
@@ -293,6 +338,43 @@ func validateSample(s *Sample, w Workload) error {
 	sum, err := HashJSON(s.GeneratedTokenIDs)
 	if err != nil || sum != s.OutputSHA256 {
 		return fmt.Errorf("sample %q: incorrect output hash", s.ID)
+	}
+	return nil
+}
+
+func validateObservedOutputs(s *Sample, w Workload) error {
+	if w.OutputMode == ThroughputOutputMode {
+		if len(s.ObservedOutputs) != 0 || s.ObservedSHA256 != "" {
+			return errors.New("observed output contaminates throughput mode")
+		}
+		return nil
+	}
+	if len(s.ObservedOutputs) != w.Concurrency || !validSHA256(s.ObservedSHA256) {
+		return errors.New("incomplete observed output")
+	}
+	seen := make(map[int]bool)
+	for _, output := range s.ObservedOutputs {
+		if output.Request < 0 || output.Request >= w.Concurrency || seen[output.Request] ||
+			!validSHA256(output.FullLogitsSHA256) || output.FullLogitsElements != w.FullLogits ||
+			!validSHA256(output.PopulatedKVSHA256) || output.PopulatedKVElements != (w.ContextTokens+w.GeneratedTokens-1)*w.KVPerToken ||
+			output.PopulatedTokens != w.ContextTokens+w.GeneratedTokens-1 || len(output.Layers) != w.KVLayers {
+			return errors.New("invalid observed output")
+		}
+		wantLayerElements := output.PopulatedKVElements / (2 * w.KVLayers)
+		for layer, got := range output.Layers {
+			if got.Layer != layer || !validSHA256(got.KeySHA256) || !validSHA256(got.ValueSHA256) || got.ElementsEach != wantLayerElements {
+				return errors.New("invalid observed KV layer")
+			}
+		}
+		kvSum, err := HashJSON(output.Layers)
+		if err != nil || kvSum != output.PopulatedKVSHA256 {
+			return errors.New("incorrect observed KV hash")
+		}
+		seen[output.Request] = true
+	}
+	sum, err := HashJSON(s.ObservedOutputs)
+	if err != nil || sum != s.ObservedSHA256 {
+		return errors.New("incorrect observed output hash")
 	}
 	return nil
 }
@@ -359,7 +441,7 @@ func nonzeroByteMap(m map[string]uint64) map[string]uint64 {
 func sampleOutputs(samples []Sample) map[string]string {
 	out := make(map[string]string, len(samples))
 	for _, s := range samples {
-		out[s.ID] = s.OutputSHA256
+		out[s.ID] = s.OutputSHA256 + ":" + s.ObservedSHA256
 	}
 	return out
 }

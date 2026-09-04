@@ -17,6 +17,9 @@ type productionPrefixLease struct {
 func (l *productionPrefixLease) Tokens() int    { return l.lease.Tokens() }
 func (l *productionPrefixLease) Current() int32 { return l.lease.Current() }
 func (l *productionPrefixLease) Release()       { l.lease.Release() }
+func (l *productionPrefixLease) Restore(k, v [][]float32, tokens int) error {
+	return l.lease.Restore(k, v, tokens)
+}
 
 type productionPrefixRuntime struct {
 	cache     *metalprefix.Cache

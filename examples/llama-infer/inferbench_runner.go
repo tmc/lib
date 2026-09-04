@@ -105,6 +105,19 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 			return errors.New("inferbench: prompt token count differs from context tokens")
 		}
 	}
+	if spec.Workload.OutputMode != inferbench.ThroughputOutputMode && spec.Workload.OutputMode != inferbench.ObservedOutputMode {
+		return fmt.Errorf("inferbench: unsupported output mode %q", spec.Workload.OutputMode)
+	}
+	wantLogits, wantLayers := 0, 0
+	wantKVPerToken := 0
+	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
+		wantLogits = cfg.VocabSize
+		wantLayers = cfg.NumLayers
+		wantKVPerToken = 2 * cfg.NumLayers * cfg.NumKVHeads * cfg.HeadDim
+	}
+	if spec.Workload.FullLogits != wantLogits || spec.Workload.KVLayers != wantLayers || spec.Workload.KVPerToken != wantKVPerToken {
+		return errors.New("inferbench: output shape differs from model configuration")
+	}
 	lease, err := inferbench.AcquireLease(spec.Lease)
 	if err != nil {
 		return err
@@ -149,6 +162,9 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 	}
 	defer adapter.Close()
 	adapter.enablePhysicalLedger()
+	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
+		adapter.observedOutputs = newObservedOutputCollector()
+	}
 	scheduler, err := continuousbatch.New(adapter, continuousbatch.Config{MaxActive: spec.Workload.Concurrency, MaxQueue: spec.Workload.Concurrency, MaxBatch: spec.Workload.Concurrency, BatchWait: time.Millisecond, TokenBuffer: spec.Workload.GeneratedTokens + 1, PrefillWorkers: spec.Workload.Concurrency})
 	if err != nil {
 		return err
@@ -181,7 +197,7 @@ func runInferbenchWithEngine(ctx context.Context, cfg Config, specPath string, n
 
 func validateBenchmarkArms(spec inferbenchSpec) error {
 	if len(spec.Arms) == 0 {
-		if spec.Arm != "llama-infer" {
+		if !benchmarkArmSupportsOutput(spec.Arm, spec.Workload.OutputMode) {
 			return fmt.Errorf("inferbench: unsupported arm %q", spec.Arm)
 		}
 		return nil
@@ -198,11 +214,25 @@ func validateBenchmarkArms(spec inferbenchSpec) error {
 			return fmt.Errorf("inferbench: duplicate arm %q", arm)
 		}
 		seen[arm] = true
+		if !benchmarkArmSupportsOutput(arm, spec.Workload.OutputMode) {
+			return fmt.Errorf("inferbench: arm %q cannot perform output mode %q", arm, spec.Workload.OutputMode)
+		}
 		if err := configureBenchmarkArm(nil, arm); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func benchmarkArmSupportsOutput(arm, mode string) bool {
+	switch mode {
+	case inferbench.ThroughputOutputMode:
+		return arm == "llama-infer" || arm == "llama-infer-unfused-projections"
+	case inferbench.ObservedOutputMode:
+		return arm == "llama-infer-observed-output" || arm == "llama-infer-unfused-projections-observed-output"
+	default:
+		return false
+	}
 }
 
 func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
@@ -298,7 +328,11 @@ func benchmarkIdentity(cfg Config, spec inferbenchSpec) (inferbench.Identity, in
 		return inferbench.Identity{}, inferbench.Evidence{}, err
 	}
 	identity := inferbench.Identity{BinarySHA256: computed["binary"], ModelSHA256: computed["model"], TokenizerSHA256: computed["tokenizer"], ConfigSHA256: computed["config"], SourceSHA256: computed["source"], Backend: proof.Backend, DeviceID: proof.DeviceID}
-	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash, NullControlSHA256: nullHash, NullControlSamples: proof.NullControlSamples, NullControlP95: proof.NullControlP95, NullControlLimit: proof.NullControlLimit, PersistentRuntime: true, CompilationExcluded: true, RuntimePolicy: inferbench.PersistentEnginePolicy, AllocationPolicy: inferbench.ColdIntervalPolicy}
+	timingBoundary := "submit-to-final-device-synchronize"
+	if spec.Workload.OutputMode == inferbench.ObservedOutputMode {
+		timingBoundary = "submit-to-observed-output-digest-and-final-device-synchronize"
+	}
+	evidence := inferbench.Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: timingBoundary, IncludesQueueing: true, RunnerLease: spec.Lease, DeviceEvidenceSHA256: proofHash, NullControlSHA256: nullHash, NullControlSamples: proof.NullControlSamples, NullControlP95: proof.NullControlP95, NullControlLimit: proof.NullControlLimit, PersistentRuntime: true, CompilationExcluded: true, RuntimePolicy: inferbench.PersistentEnginePolicy, AllocationPolicy: inferbench.ColdIntervalPolicy, OutputContract: spec.Workload.OutputMode}
 	return identity, evidence, nil
 }
 
@@ -310,10 +344,12 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	cacheBefore := eng.prefixCacheMetrics()
 	started := time.Now()
 	responses := make([]*continuousbatch.Response, len(workload.PromptTokenIDs))
+	requestIDs := make([]string, len(responses))
 	timings := make([]inferbench.RequestTiming, len(responses))
 	for i, prompt := range workload.PromptTokenIDs {
 		timings[i].StartedAt = time.Now()
-		response, err := scheduler.Submit(ctx, continuousbatch.Request{ID: fmt.Sprintf("%s-%d", id, i), PromptTokenIDs: prompt, MaxTokens: workload.GeneratedTokens, Sampler: SamplerConfig{Method: "argmax"}})
+		requestIDs[i] = fmt.Sprintf("%s-%d", id, i)
+		response, err := scheduler.Submit(ctx, continuousbatch.Request{ID: requestIDs[i], PromptTokenIDs: prompt, MaxTokens: workload.GeneratedTokens, Sampler: SamplerConfig{Method: "argmax"}})
 		if err != nil {
 			return inferbench.Sample{}, fmt.Errorf("inferbench: submit request %d: %w", i, err)
 		}
@@ -347,6 +383,22 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	}
 	if err := benchmarkSynchronize(ctx, eng); err != nil {
 		return inferbench.Sample{}, fmt.Errorf("inferbench: final device synchronize: %w", err)
+	}
+	var observed []inferbench.ObservedOutput
+	var observedHash string
+	if workload.OutputMode == inferbench.ObservedOutputMode {
+		if adapter.observedOutputs == nil {
+			return inferbench.Sample{}, errors.New("inferbench: observed output collector unavailable")
+		}
+		var err error
+		observed, err = adapter.observedOutputs.outputs(requestIDs)
+		if err != nil {
+			return inferbench.Sample{}, err
+		}
+		observedHash, err = inferbench.HashJSON(observed)
+		if err != nil {
+			return inferbench.Sample{}, err
+		}
 	}
 	ended := time.Now()
 	var ttft, tpot time.Duration
@@ -402,7 +454,7 @@ func benchmarkSample(ctx context.Context, scheduler *continuousbatch.Scheduler, 
 	if dispatches == 0 {
 		return inferbench.Sample{}, errors.New("inferbench: physical ledger contains no dispatches")
 	}
-	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, DispatchMeasured: true, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: tierRead, TierWriteBytes: tierWrite, TierBytesMeasured: true, PhysicalWaves: physicalWaves, GeneratedTokenIDs: generated, OutputSHA256: hash, Requests: timings}, nil
+	return inferbench.Sample{ID: id, StartedAt: started, EndedAt: ended, TTFT: ttft, TPOT: tpot, InterToken: inter, TokensPerSecond: float64(len(timings)*workload.GeneratedTokens) / duration.Seconds(), Dispatches: dispatches, DispatchMeasured: true, CacheHits: uint64(cache.Hits - cacheBefore.Hits), CacheMisses: uint64(cache.Misses - cacheBefore.Misses), TierReadBytes: tierRead, TierWriteBytes: tierWrite, TierBytesMeasured: true, PhysicalWaves: physicalWaves, GeneratedTokenIDs: generated, OutputSHA256: hash, ObservedOutputs: observed, ObservedSHA256: observedHash, Requests: timings}, nil
 }
 
 func decodeStrictJSON(path string, dst any) error {

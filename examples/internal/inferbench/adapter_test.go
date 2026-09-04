@@ -28,3 +28,24 @@ func TestCheckAdapterCapabilities(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestCheckAdapterOutputCapabilities(t *testing.T) {
+	complete := AdapterCapabilities{
+		PersistentCompiledRuntime: true, ExplicitPromptTokenIDs: true, GreedyArgmax: true,
+		ContinuousServing: true, QueueIncluded: true, FinalDeviceSynchronize: true,
+		DeviceResidentKV: true, DispatchCounters: true, TierByteCounters: true,
+		CompileAndWarmupExcluded: true, QualifiedNullControl: true, RawSampleArtifacts: true,
+	}
+	if err := CheckAdapterOutputCapabilities("arm", ThroughputOutputMode, complete); err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckAdapterOutputCapabilities("arm", ObservedOutputMode, complete); err == nil || !strings.Contains(err.Error(), "full_logits") {
+		t.Fatalf("error = %v", err)
+	}
+	complete.FullLogits = true
+	complete.AllLayerPopulatedKV = true
+	complete.ObservedOutputIncluded = true
+	if err := CheckAdapterOutputCapabilities("arm", ObservedOutputMode, complete); err != nil {
+		t.Fatal(err)
+	}
+}

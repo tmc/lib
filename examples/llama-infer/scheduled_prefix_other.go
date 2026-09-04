@@ -2,6 +2,12 @@
 
 package main
 
+import "errors"
+
+func (*productionPrefixLease) Restore([][]float32, [][]float32, int) error {
+	return errors.New("observed output: prefix restore unsupported")
+}
+
 func (*ModelEngine) restoreScheduledPrefix([]int32, *SequenceKVCache, Config) (int, int32) {
 	return 0, 0
 }

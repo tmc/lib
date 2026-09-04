@@ -13,11 +13,11 @@ import (
 func validCampaign() Campaign {
 	h := strings.Repeat("a", 64)
 	outputHash, _ := HashJSON([][]int32{{4, 5, 6}})
-	w := Workload{PromptTokenIDs: [][]int32{{1, 2, 3}}, ContextTokens: 3, GeneratedTokens: 3, Concurrency: 1, WarmupRuns: 2, Sampler: "greedy", CacheState: "cold"}
+	w := Workload{PromptTokenIDs: [][]int32{{1, 2, 3}}, ContextTokens: 3, GeneratedTokens: 3, Concurrency: 1, WarmupRuns: 2, Sampler: "greedy", CacheState: "cold", OutputMode: ThroughputOutputMode}
 	var runs []Run
 	now := time.Unix(1, 0)
 	for _, arm := range []string{"a", "b"} {
-		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy}}
+		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy, OutputContract: ThroughputOutputMode}}
 		for i := 0; i < 20; i++ {
 			id := "sample-" + string(rune('A'+i))
 			r.Samples = append(r.Samples, Sample{ID: id, TTFT: time.Millisecond, TPOT: time.Millisecond, InterToken: []time.Duration{time.Millisecond, time.Millisecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
@@ -51,6 +51,34 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateObservedOutput(t *testing.T) {
+	c := validCampaign()
+	for ri := range c.Runs {
+		c.Runs[ri].Workload.OutputMode = ObservedOutputMode
+		c.Runs[ri].Workload.FullLogits = 32000
+		c.Runs[ri].Workload.KVLayers = 2
+		c.Runs[ri].Workload.KVPerToken = 88
+		c.Runs[ri].Evidence.OutputContract = ObservedOutputMode
+		c.Runs[ri].Evidence.TimingBoundary = "submit-to-observed-output-digest-and-final-device-synchronize"
+		for si := range c.Runs[ri].Samples {
+			s := &c.Runs[ri].Samples[si]
+			layers := []ObservedKVLayer{{Layer: 0, KeySHA256: strings.Repeat("d", 64), ValueSHA256: strings.Repeat("e", 64), ElementsEach: 110}, {Layer: 1, KeySHA256: strings.Repeat("f", 64), ValueSHA256: strings.Repeat("1", 64), ElementsEach: 110}}
+			kvHash, _ := HashJSON(layers)
+			s.ObservedOutputs = []ObservedOutput{{Request: 0, FullLogitsSHA256: strings.Repeat("b", 64), FullLogitsElements: 32000, PopulatedKVSHA256: kvHash, PopulatedKVElements: 440, PopulatedTokens: 5, Layers: layers}}
+			s.ObservedSHA256, _ = HashJSON(s.ObservedOutputs)
+		}
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Runs[1].Samples[0].ObservedOutputs[0].Layers[0].KeySHA256 = strings.Repeat("2", 64)
+	c.Runs[1].Samples[0].ObservedOutputs[0].PopulatedKVSHA256, _ = HashJSON(c.Runs[1].Samples[0].ObservedOutputs[0].Layers)
+	c.Runs[1].Samples[0].ObservedSHA256, _ = HashJSON(c.Runs[1].Samples[0].ObservedOutputs)
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "output hashes differ") {
+		t.Fatalf("mismatched observed output error = %v", err)
+	}
+}
+
 func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -80,6 +108,8 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"warmup incomplete", func(c *Campaign) { c.Runs[0].Evidence.WarmupRunsCompleted-- }},
 		{"noisy host", func(c *Campaign) { c.Runs[0].Evidence.NullControlP95 = 3 * time.Millisecond }},
 		{"different output", func(c *Campaign) { c.Runs[1].Samples[0].GeneratedTokenIDs[0][0]++ }},
+		{"output contract mismatch", func(c *Campaign) { c.Runs[0].Evidence.OutputContract = ObservedOutputMode }},
+		{"observed data in throughput mode", func(c *Campaign) { c.Runs[0].Samples[0].ObservedOutputs = []ObservedOutput{{}} }},
 		{"reduced work", func(c *Campaign) {
 			c.Runs[0].Samples[0].GeneratedTokenIDs[0] = c.Runs[0].Samples[0].GeneratedTokenIDs[0][:2]
 		}},
