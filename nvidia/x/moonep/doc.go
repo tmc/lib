@@ -1,10 +1,8 @@
 // Package moonep is a Go port of the host-side layer of MoonEP
 // (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication
 // library. It builds on package nvlshm for the cross-process NVLink shared
-// buffers and reproduces MoonEP's buffer layout, sizing math, and plan
-// allocation exactly, so the two implementations are wire-compatible: a
-// buffer laid out by this package matches what MoonEP's device kernels
-// expect.
+// buffers and implements the buffer layout, sizing math, and plan allocation
+// expected by the supported exported MoonEP device kernels.
 //
 // Notation follows MoonEP: S tokens per rank, K experts per token (top-k),
 // E total experts, R ranks, B prefetch slots, H hidden size, NvS dispatched

@@ -16,9 +16,9 @@
 // # Garbage Collection & Memory Pinning
 //
 // When transferring data between host Go memory and GPU device memory ([Slice.CopyFromHost],
-// [Slice.CopyToHost]), package cudamem uses [runtime.Pinner] to guarantee that the Go
-// runtime's moving garbage collector does not relocate the backing array during asynchronous
-// or synchronous DMA operations.
+// [Slice.CopyToHost]), package cudamem uses [runtime.Pinner] to keep the Go
+// backing array pinned for the duration required by the CUDA call. Asynchronous
+// copies retain the pin until stream completion.
 //
 // # Standard Library Streaming I/O
 //
