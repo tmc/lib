@@ -17,11 +17,13 @@ type Stream struct {
 	isDefault bool
 	mu        sync.Mutex
 	cleanups  []func()
-	lifeMu    sync.Mutex
+	lifeMu    sync.RWMutex
 	destroyed bool
 }
 
-// Raw returns the underlying driver.Stream handle.
+// Raw returns the underlying driver.Stream handle. The handle is invalid after
+// Destroy. Callers using it directly must serialize that use with Destroy;
+// wrapper methods do this automatically.
 func (s *Stream) Raw() driver.Stream {
 	return s.raw
 }
@@ -37,9 +39,16 @@ func (s *Stream) AddCleanup(fn func()) {
 	if fn == nil {
 		return
 	}
+	s.lifeMu.RLock()
+	if s.destroyed {
+		s.lifeMu.RUnlock()
+		fn()
+		return
+	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.cleanups = append(s.cleanups, fn)
+	s.mu.Unlock()
+	s.lifeMu.RUnlock()
 }
 
 func (s *Stream) drainCleanups() {
@@ -56,6 +65,15 @@ func (s *Stream) drainCleanups() {
 // Query reports whether all previously enqueued operations on the stream have completed.
 // It returns true if the stream is idle, or false if work is still pending.
 func (s *Stream) Query() (bool, error) {
+	s.lifeMu.RLock()
+	defer s.lifeMu.RUnlock()
+	if s.destroyed {
+		return false, errors.New("cuda: stream is destroyed")
+	}
+	return s.query()
+}
+
+func (s *Stream) query() (bool, error) {
 	var queryErr error
 	err := s.device.WithContext(func() error {
 		queryErr = s.raw.Query()
@@ -79,6 +97,11 @@ func (s *Stream) Query() (bool, error) {
 // the context error immediately. Note that GPU hardware execution continues until the
 // active kernel finishes.
 func (s *Stream) Synchronize(ctx context.Context) error {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	if s.destroyed {
+		return errors.New("cuda: stream is destroyed")
+	}
 	if ctx == nil || ctx.Done() == nil {
 		if err := s.device.WithContext(s.raw.Synchronize); err != nil {
 			return fmt.Errorf("cuda: stream synchronize: %w", err)
@@ -97,7 +120,7 @@ func (s *Stream) Synchronize(ctx context.Context) error {
 	maxBackoff := 5 * time.Millisecond
 
 	for {
-		idle, err := s.Query()
+		idle, err := s.query()
 		if err != nil {
 			return err
 		}
@@ -122,6 +145,16 @@ func (s *Stream) Synchronize(ctx context.Context) error {
 func (s *Stream) WaitEvent(e *Event) error {
 	if e == nil {
 		return errors.New("cuda: nil event passed to WaitEvent")
+	}
+	s.lifeMu.RLock()
+	defer s.lifeMu.RUnlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if s.destroyed {
+		return errors.New("cuda: stream is destroyed")
+	}
+	if e.destroyed {
+		return errors.New("cuda: event is destroyed")
 	}
 	if err := s.device.WithContext(func() error { return s.raw.WaitEvent(e.raw, 0) }); err != nil {
 		return fmt.Errorf("cuda: stream wait event: %w", err)
