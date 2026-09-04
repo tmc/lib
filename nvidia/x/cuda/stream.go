@@ -12,10 +12,11 @@ import (
 
 // Stream represents an asynchronous sequence of GPU commands.
 type Stream struct {
-	raw      driver.Stream
-	device   *Device
-	mu       sync.Mutex
-	cleanups []func()
+	raw       driver.Stream
+	device    *Device
+	isDefault bool
+	mu        sync.Mutex
+	cleanups  []func()
 }
 
 // Raw returns the underlying driver.Stream handle.
@@ -119,11 +120,16 @@ func (s *Stream) WaitEvent(e *Event) error {
 }
 
 // Destroy waits for all in-flight work on the stream to complete before draining
-// registered cleanups and destroying the stream handle.
+// registered cleanups and destroying the stream handle. Destroying the stream
+// returned by [Device.DefaultStream] drains its cleanups but keeps the handle,
+// which belongs to the driver rather than to the caller.
 func (s *Stream) Destroy() error {
 	// Ensure stream is fully idle before releasing host pinners/cleanups
 	_ = s.raw.Synchronize()
 	s.drainCleanups()
+	if s.isDefault {
+		return nil
+	}
 	if err := s.raw.Destroy(); err != nil {
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}

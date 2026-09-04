@@ -44,3 +44,17 @@ func Example() {
 		fmt.Printf("Stream sync failed: %v\n", err)
 	}
 }
+
+// A device always has a stream, so callers need not special-case unstreamed work.
+func ExampleDevice_DefaultStream() {
+	devs, err := cuda.Devices()
+	if err != nil || len(devs) == 0 {
+		fmt.Println("No CUDA devices found")
+		return
+	}
+
+	stream := devs[0].DefaultStream()
+	if err := stream.Synchronize(context.Background()); err != nil {
+		fmt.Printf("Stream sync failed: %v\n", err)
+	}
+}

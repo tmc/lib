@@ -49,3 +49,34 @@ func TestStreamSyncDrainsCleanups(t *testing.T) {
 	}
 	_ = context.Background()
 }
+
+func TestDefaultStream(t *testing.T) {
+	d := &Device{}
+	s := d.DefaultStream()
+	if s == nil {
+		t.Fatal("DefaultStream returned nil")
+	}
+	if got := s.Raw(); got != 0 {
+		t.Errorf("default stream handle = %v, want 0 (legacy null stream)", got)
+	}
+	if s.Device() != d {
+		t.Error("default stream is not bound to its device")
+	}
+	if again := d.DefaultStream(); again != s {
+		t.Error("DefaultStream returned a different stream on the second call")
+	}
+
+	// Destroying the default stream drains cleanups but must not release the
+	// driver-owned handle.
+	drained := false
+	s.AddCleanup(func() { drained = true })
+	if err := s.Destroy(); err != nil {
+		t.Errorf("Destroy of default stream = %v, want nil", err)
+	}
+	if !drained {
+		t.Error("Destroy did not drain registered cleanups")
+	}
+	if d.DefaultStream() != s {
+		t.Error("default stream was discarded by Destroy")
+	}
+}
