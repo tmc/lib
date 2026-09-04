@@ -1,4 +1,4 @@
-// Package nvrtcx provides high-level runtime compilation (JIT) of CUDA C++ source code
+// Package nvrtcx provides runtime compilation of CUDA C++ source code
 // into PTX or CUBIN binaries with content-addressed caching.
 //
 // It wraps the purego dynamic bindings in [github.com/tmc/lib/nvidia/nvrtc] and provides
@@ -7,7 +7,7 @@
 //
 // # Usage
 //
-//	mod, err := nvrtcx.Compile(ctx, sourceCode,
+//	mod, err := nvrtcx.Compile(sourceCode,
 //		nvrtcx.WithArch(8, 0),
 //		nvrtcx.WithFlag("--use_fast_math"),
 //	)
