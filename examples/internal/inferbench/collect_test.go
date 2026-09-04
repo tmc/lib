@@ -30,7 +30,7 @@ func TestCollectUsesPreregisteredIntervalOrder(t *testing.T) {
 	if len(raw) != len(got.Order) {
 		t.Fatalf("raw intervals = %d, want %d", len(raw), len(got.Order))
 	}
-	planSHA256, err := HashJSON(plan)
+	planSHA256, err := HashJSON(campaignPlan(plan))
 	if err != nil {
 		t.Fatal(err)
 	}

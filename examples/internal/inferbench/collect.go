@@ -68,7 +68,7 @@ func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw
 		return Campaign{}, errors.New("inferbench: campaign order was not preregistered from seed")
 	}
 	order := append([]ScheduledSample(nil), c.Order...)
-	planSHA256, err := HashJSON(c)
+	planSHA256, err := HashJSON(campaignPlan(c))
 	if err != nil {
 		return Campaign{}, fmt.Errorf("inferbench: hash campaign plan: %w", err)
 	}
@@ -94,7 +94,7 @@ func Collect(c Campaign, execute func(ScheduledSample) (Sample, error), writeRaw
 			return Campaign{}, fmt.Errorf("inferbench: missing sample %s/%s", scheduled.Arm, scheduled.ID)
 		}
 	}
-	if err := c.Validate(); err != nil {
+	if err := c.validate(false); err != nil {
 		return Campaign{}, fmt.Errorf("inferbench: validate collected campaign: %w", err)
 	}
 	return c, nil

@@ -3,7 +3,7 @@ package inferbench
 import "fmt"
 
 // AdapterCapabilities states whether an external runtime can execute the same
-// serving workload and expose the evidence required by Campaign.Validate.
+// serving workload and expose the evidence required by Campaign.ValidateRawSet.
 type AdapterCapabilities struct {
 	PersistentCompiledRuntime bool `json:"persistent_compiled_runtime"`
 	ExplicitPromptTokenIDs    bool `json:"explicit_prompt_token_ids"`
@@ -17,6 +17,7 @@ type AdapterCapabilities struct {
 	CompileAndWarmupExcluded  bool `json:"compile_and_warmup_excluded"`
 	QualifiedNullControl      bool `json:"qualified_null_control"`
 	RawSampleArtifacts        bool `json:"raw_sample_artifacts"`
+	PeakMemoryMeasured        bool `json:"peak_memory_measured"`
 	FullLogits                bool `json:"full_logits"`
 	AllLayerPopulatedKV       bool `json:"all_layer_populated_kv"`
 	ObservedOutputIncluded    bool `json:"observed_output_included_in_timing"`
@@ -79,6 +80,7 @@ func CheckAdapterCapabilities(arm string, c AdapterCapabilities) error {
 		{c.CompileAndWarmupExcluded, "compile_and_warmup_excluded"},
 		{c.QualifiedNullControl, "qualified_null_control"},
 		{c.RawSampleArtifacts, "raw_sample_artifacts"},
+		{c.PeakMemoryMeasured, "peak_memory_measured"},
 	}
 	for _, check := range checks {
 		if !check.ok {

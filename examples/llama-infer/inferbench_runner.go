@@ -236,10 +236,14 @@ func benchmarkArmSupportsOutput(arm, mode string) bool {
 }
 
 func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity inferbench.Identity, evidence inferbench.Evidence, eng *ModelEngine, adapter *scheduledEngineAdapter, scheduler *continuousbatch.Scheduler) error {
+	if err := benchmarkPeakMemorySupport(); err != nil {
+		return fmt.Errorf("inferbench: peak memory evidence: %w", err)
+	}
 	if err := os.Mkdir(spec.RawDir, 0o700); err != nil {
 		return fmt.Errorf("inferbench: create raw receipt directory: %w", err)
 	}
 	evidence.DeviceSynchronized = true
+	evidence.MemoryMetric = inferbench.PeakDeviceMemoryMetric
 	evidence.WarmupRunsCompleted = spec.Workload.WarmupRuns
 	plan := inferbench.Campaign{SchemaVersion: inferbench.SchemaVersion, RandomSeed: spec.RandomSeed}
 	for _, arm := range spec.Arms {
@@ -279,6 +283,9 @@ func runInferbenchCampaign(ctx context.Context, spec inferbenchSpec, identity in
 		return inferbench.WriteJSONAtomic(path, raw)
 	})
 	if err != nil {
+		return err
+	}
+	if err := campaign.BindRawSet(spec.RawDir); err != nil {
 		return err
 	}
 	return inferbench.WriteJSONAtomic(spec.Output, campaign)

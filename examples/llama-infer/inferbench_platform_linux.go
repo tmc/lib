@@ -12,6 +12,9 @@ func benchmarkBackend() string                            { return "cuda" }
 func benchmarkPhysicalTelemetry() error {
 	return errors.New("cuda execution does not expose exact dispatch and tier-byte counters")
 }
+func benchmarkPeakMemorySupport() error {
+	return errors.New("CUDA interval peak device allocation is not instrumented")
+}
 func benchmarkDeviceID(eng *ModelEngine) (string, error) {
 	if eng == nil || eng.dev == nil {
 		return "", errors.New("nil CUDA engine")

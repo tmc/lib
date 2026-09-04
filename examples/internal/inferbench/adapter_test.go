@@ -19,12 +19,18 @@ func TestCheckAdapterCapabilities(t *testing.T) {
 		CompileAndWarmupExcluded:  true,
 		QualifiedNullControl:      true,
 		RawSampleArtifacts:        true,
+		PeakMemoryMeasured:        true,
 	}
 	if err := CheckAdapterCapabilities("arm", complete); err != nil {
 		t.Fatal(err)
 	}
 	complete.ExplicitPromptTokenIDs = false
 	if err := CheckAdapterCapabilities("arm", complete); err == nil || !strings.Contains(err.Error(), "explicit_prompt_token_ids") {
+		t.Fatalf("error = %v", err)
+	}
+	complete.ExplicitPromptTokenIDs = true
+	complete.PeakMemoryMeasured = false
+	if err := CheckAdapterCapabilities("arm", complete); err == nil || !strings.Contains(err.Error(), "peak_memory_measured") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -35,6 +41,7 @@ func TestCheckAdapterOutputCapabilities(t *testing.T) {
 		ContinuousServing: true, QueueIncluded: true, FinalDeviceSynchronize: true,
 		DeviceResidentKV: true, DispatchCounters: true, TierByteCounters: true,
 		CompileAndWarmupExcluded: true, QualifiedNullControl: true, RawSampleArtifacts: true,
+		PeakMemoryMeasured: true,
 	}
 	if err := CheckAdapterOutputCapabilities("arm", ThroughputOutputMode, complete); err != nil {
 		t.Fatal(err)

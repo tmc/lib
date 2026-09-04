@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const SchemaVersion = 7
+const SchemaVersion = 8
 
 const (
 	PersistentEnginePolicy = "one-compiled-engine-warmed-per-arm"
@@ -32,6 +32,7 @@ type Campaign struct {
 	RandomSeed    uint64            `json:"random_seed"`
 	Runs          []Run             `json:"runs"`
 	Order         []ScheduledSample `json:"order"`
+	RawSet        RawSetManifest    `json:"raw_set"`
 }
 
 // Run identifies one implementation and its measured samples.
@@ -90,6 +91,7 @@ type Evidence struct {
 	RuntimePolicy        string        `json:"runtime_policy"`
 	AllocationPolicy     string        `json:"allocation_policy"`
 	OutputContract       string        `json:"output_contract"`
+	MemoryMetric         string        `json:"memory_metric"`
 }
 
 // Sample contains one completed, synchronized serving observation.
@@ -114,6 +116,7 @@ type Sample struct {
 	ObservedOutputs   []ObservedOutput  `json:"observed_outputs,omitempty"`
 	ObservedSHA256    string            `json:"observed_sha256,omitempty"`
 	Requests          []RequestTiming   `json:"requests"`
+	PeakMemoryBytes   uint64            `json:"peak_memory_bytes"`
 }
 
 // ObservedOutput identifies the full final logits and populated all-layer KV
@@ -161,8 +164,14 @@ type ScheduledSample struct {
 	ID  string `json:"id"`
 }
 
-// Validate rejects receipts that cannot support a matched GPU performance claim.
+// Validate checks the in-memory campaign and raw-set manifest for structural
+// consistency. It does not read raw interval files and therefore cannot certify
+// a performance claim; use [Campaign.ValidateRawSet] for that.
 func (c *Campaign) Validate() error {
+	return c.validate(true)
+}
+
+func (c *Campaign) validate(requireRaw bool) error {
 	if c.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("schema version %d", c.SchemaVersion)
 	}
@@ -210,7 +219,13 @@ func (c *Campaign) Validate() error {
 			return fmt.Errorf("arm %q: output hashes differ", r.Arm)
 		}
 	}
-	return c.validateOrder()
+	if err := c.validateOrder(); err != nil {
+		return err
+	}
+	if requireRaw {
+		return c.validateRawManifest()
+	}
+	return nil
 }
 
 func validateRun(r *Run) error {
@@ -288,6 +303,9 @@ func validateRunHeader(r *Run) error {
 	if e.OutputContract != w.OutputMode {
 		return errors.New("output contract not proven")
 	}
+	if e.MemoryMetric != PeakDeviceMemoryMetric {
+		return errors.New("peak memory contract not proven")
+	}
 	if !validSHA256(e.NullControlSHA256) || e.NullControlSamples < 20 || e.NullControlP95 <= 0 || e.NullControlLimit <= 0 || e.NullControlP95 > e.NullControlLimit {
 		return errors.New("host qualification not proven")
 	}
@@ -297,6 +315,9 @@ func validateRunHeader(r *Run) error {
 func validateSample(s *Sample, w Workload) error {
 	if s.StartedAt.IsZero() || !s.EndedAt.After(s.StartedAt) {
 		return fmt.Errorf("sample %q: invalid interval", s.ID)
+	}
+	if s.PeakMemoryBytes == 0 {
+		return fmt.Errorf("sample %q: peak memory not measured", s.ID)
 	}
 	elapsed := s.EndedAt.Sub(s.StartedAt)
 	if s.TTFT <= 0 || s.TPOT <= 0 || len(s.InterToken) != w.GeneratedTokens-1 || s.TokensPerSecond <= 0 || math.IsNaN(s.TokensPerSecond) || math.IsInf(s.TokensPerSecond, 0) || s.Dispatches == 0 || !s.DispatchMeasured {

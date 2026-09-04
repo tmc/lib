@@ -1,6 +1,7 @@
 package inferbench
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"os/exec"
@@ -17,10 +18,10 @@ func validCampaign() Campaign {
 	var runs []Run
 	now := time.Unix(1, 0)
 	for _, arm := range []string{"a", "b"} {
-		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy, OutputContract: ThroughputOutputMode}}
+		r := Run{Arm: arm, Identity: Identity{BinarySHA256: h, ModelSHA256: h, TokenizerSHA256: h, ConfigSHA256: h, SourceSHA256: h, Backend: "metal", Precision: "f16", DeviceID: "gpu0"}, Workload: w, Evidence: Evidence{HardwareVerified: true, DeviceResidentKV: true, TimingBoundary: "submit-to-final-device-synchronize", DeviceSynchronized: true, IncludesQueueing: true, RunnerLease: "host.lock", DeviceEvidenceSHA256: h, NullControlSHA256: h, NullControlSamples: 20, NullControlP95: time.Millisecond, NullControlLimit: 2 * time.Millisecond, PersistentRuntime: true, CompilationExcluded: true, WarmupRunsCompleted: 2, RuntimePolicy: PersistentEnginePolicy, AllocationPolicy: ColdIntervalPolicy, OutputContract: ThroughputOutputMode, MemoryMetric: PeakDeviceMemoryMetric}}
 		for i := 0; i < 20; i++ {
 			id := "sample-" + string(rune('A'+i))
-			r.Samples = append(r.Samples, Sample{ID: id, TTFT: 250 * time.Microsecond, TPOT: 250 * time.Microsecond, InterToken: []time.Duration{250 * time.Microsecond, 250 * time.Microsecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash})
+			r.Samples = append(r.Samples, Sample{ID: id, TTFT: 250 * time.Microsecond, TPOT: 250 * time.Microsecond, InterToken: []time.Duration{250 * time.Microsecond, 250 * time.Microsecond}, TokensPerSecond: 3000, Dispatches: 1, DispatchMeasured: true, TierReadBytes: map[string]uint64{"device": 0}, TierWriteBytes: map[string]uint64{"device": 0}, TierBytesMeasured: true, PhysicalWaves: []PhysicalWave{{Sequence: uint64(i + 1), Kind: "decode", Requests: []string{id + "-0@0/1"}, Dispatches: 1}}, GeneratedTokenIDs: [][]int32{{4, 5, 6}}, OutputSHA256: outputHash, PeakMemoryBytes: 1})
 		}
 		runs = append(runs, r)
 	}
@@ -42,7 +43,18 @@ func validCampaign() Campaign {
 			}
 		}
 	}
+	refreshRawManifest(&c)
 	return c
+}
+
+func refreshRawManifest(c *Campaign) {
+	h := strings.Repeat("a", 64)
+	c.RawSet = RawSetManifest{}
+	plan, _ := HashJSON(campaignPlan(*c))
+	c.RawSet.PlanSHA256 = plan
+	for i, scheduled := range c.Order {
+		c.RawSet.Intervals = append(c.RawSet.Intervals, RawIntervalArtifact{Index: i, Arm: scheduled.Arm, ID: scheduled.ID, File: fmt.Sprintf("%06d.json", i), SHA256: h})
+	}
 }
 
 func TestValidate(t *testing.T) {
@@ -69,6 +81,7 @@ func TestValidateObservedOutput(t *testing.T) {
 			s.ObservedSHA256, _ = HashJSON(s.ObservedOutputs)
 		}
 	}
+	refreshRawManifest(&c)
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +99,7 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		change func(*Campaign)
 	}{
 		{"unequal work", func(c *Campaign) { c.Runs[1].Workload.GeneratedTokens++ }},
+		{"stale schema", func(c *Campaign) { c.SchemaVersion = 7 }},
 		{"different sampler", func(c *Campaign) { c.Runs[1].Workload.Sampler = "temperature" }},
 		{"unsupported sampler", func(c *Campaign) {
 			for i := range c.Runs {
@@ -122,6 +136,8 @@ func TestValidateRejectsUnsafeEvidence(t *testing.T) {
 		{"noisy host", func(c *Campaign) { c.Runs[0].Evidence.NullControlP95 = 3 * time.Millisecond }},
 		{"different output", func(c *Campaign) { c.Runs[1].Samples[0].GeneratedTokenIDs[0][0]++ }},
 		{"output contract mismatch", func(c *Campaign) { c.Runs[0].Evidence.OutputContract = ObservedOutputMode }},
+		{"missing memory metric", func(c *Campaign) { c.Runs[0].Evidence.MemoryMetric = "" }},
+		{"missing peak memory", func(c *Campaign) { c.Runs[0].Samples[0].PeakMemoryBytes = 0 }},
 		{"observed data in throughput mode", func(c *Campaign) { c.Runs[0].Samples[0].ObservedOutputs = []ObservedOutput{{}} }},
 		{"concurrency differs from prompts", func(c *Campaign) { c.Runs[0].Workload.Concurrency = 2 }},
 		{"reduced work", func(c *Campaign) {
