@@ -1,9 +1,11 @@
-// Package cudamlx is a minimal Go conversion of the host-side runtime of
-// MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and
+// Package cudamlx is an experimental, minimal Go conversion of the host-side
+// runtime of MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and
 // nvrtc bindings. It carries over the backend's architecture — a caching
 // unified-memory allocator, a batching worker synchronized with the GPU,
 // an nvrtc JIT module cache, and a CUDA-graph command encoder — without
 // the MLX array, scheduler, or primitive layers.
+//
+// The repository does not currently use this package in a production path.
 //
 // Mapping from the C++ sources:
 //
