@@ -14,11 +14,13 @@ import (
 type Event struct {
 	raw       driver.Event
 	device    *Device
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	destroyed bool
 }
 
-// Raw returns the underlying driver.Event handle.
+// Raw returns the underlying driver.Event handle. The handle is invalid after
+// Destroy. Callers using it directly must serialize that use with Destroy;
+// wrapper methods do this automatically.
 func (e *Event) Raw() driver.Event {
 	return e.raw
 }
@@ -33,6 +35,16 @@ func (e *Event) Record(s *Stream) error {
 	if s == nil {
 		return errors.New("cuda: nil stream passed to Record")
 	}
+	s.lifeMu.RLock()
+	defer s.lifeMu.RUnlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if s.destroyed {
+		return errors.New("cuda: stream is destroyed")
+	}
+	if e.destroyed {
+		return errors.New("cuda: event is destroyed")
+	}
 	if err := e.device.WithContext(func() error { return e.raw.Record(s.raw) }); err != nil {
 		return fmt.Errorf("cuda: record event: %w", err)
 	}
@@ -42,6 +54,15 @@ func (e *Event) Record(s *Stream) error {
 // Query reports whether all captured work preceding this event has completed.
 // It returns true if the event has been completed, or false if work is still in progress.
 func (e *Event) Query() (bool, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if e.destroyed {
+		return false, errors.New("cuda: event is destroyed")
+	}
+	return e.query()
+}
+
+func (e *Event) query() (bool, error) {
 	var queryErr error
 	err := e.device.WithContext(func() error {
 		queryErr = e.raw.Query()
@@ -62,6 +83,11 @@ func (e *Event) Query() (bool, error) {
 
 // Synchronize blocks the host until all captured work in this event has completed.
 func (e *Event) Synchronize(ctx context.Context) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if e.destroyed {
+		return errors.New("cuda: event is destroyed")
+	}
 	if ctx == nil || ctx.Done() == nil {
 		if err := e.device.WithContext(e.raw.Synchronize); err != nil {
 			return fmt.Errorf("cuda: event synchronize: %w", err)
@@ -77,7 +103,7 @@ func (e *Event) Synchronize(ctx context.Context) error {
 	maxBackoff := 5 * time.Millisecond
 
 	for {
-		done, err := e.Query()
+		done, err := e.query()
 		if err != nil {
 			return err
 		}
@@ -102,6 +128,19 @@ func (e *Event) Synchronize(ctx context.Context) error {
 func (e *Event) ElapsedSince(start *Event) (time.Duration, error) {
 	if start == nil {
 		return 0, errors.New("cuda: nil start event passed to ElapsedSince")
+	}
+	first, second := e, start
+	if first.raw > second.raw {
+		first, second = second, first
+	}
+	first.mu.RLock()
+	defer first.mu.RUnlock()
+	if second != first {
+		second.mu.RLock()
+		defer second.mu.RUnlock()
+	}
+	if e.destroyed || start.destroyed {
+		return 0, errors.New("cuda: event is destroyed")
 	}
 	var ms float32
 	err := e.device.WithContext(func() error {

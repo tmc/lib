@@ -43,6 +43,119 @@ func TestConcurrentWithContextAndClose(t *testing.T) {
 	}
 }
 
+func TestStreamOperationSerializedWithDestroy(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	stream.AddCleanup(func() {
+		close(entered)
+		<-release
+	})
+	destroyDone := make(chan error, 1)
+	go func() { destroyDone <- stream.Destroy() }()
+	<-entered
+	queryDone := make(chan error, 1)
+	go func() {
+		_, err := stream.Query()
+		queryDone <- err
+	}()
+	select {
+	case err := <-queryDone:
+		t.Fatalf("Query crossed concurrent Destroy: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-destroyDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-queryDone; err == nil {
+		t.Fatal("Query after Destroy succeeded")
+	}
+}
+
+func TestEventOperationsAfterDestroyFail(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Destroy()
+	event, err := dev.NewEvent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := event.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name string
+		do   func() error
+	}{
+		{"record", func() error { return event.Record(stream) }},
+		{"query", func() error { _, err := event.Query(); return err }},
+		{"synchronize", func() error { return event.Synchronize(context.Background()) }},
+		{"elapsed", func() error { _, err := event.ElapsedSince(event); return err }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.do(); err == nil {
+				t.Fatal("operation after Destroy succeeded")
+			}
+		})
+	}
+}
+
+func TestEventQuerySerializedWithDestroy(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Destroy()
+	event, err := dev.NewEvent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := event.Record(stream); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		<-start
+		for {
+			if _, err := event.Query(); err != nil {
+				return
+			}
+		}
+	}()
+	close(start)
+	if err := event.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+}
+
 func TestContextRunRestoresCurrent(t *testing.T) {
 	dev, err := cuda.NewDevice(0)
 	if err != nil {
