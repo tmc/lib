@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	cudaspec "github.com/tmc/lib/lm/speculative"
+	"github.com/tmc/lib/lm/speculative"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -307,9 +307,9 @@ func runGPUInference(
 	generatedTokens := make([]int32, 0, *stepsFlag)
 
 	// Speculative decoding initialization
-	var drafter *cudaspec.NgramDrafter
+	var drafter *speculative.NgramDrafter
 	if *specDraftFlag > 0 {
-		drafter = cudaspec.NewNgramDrafter(3)
+		drafter = speculative.NewNgramDrafter(3)
 		drafter.Feed(promptTokens)
 		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
 	}
@@ -338,7 +338,7 @@ func runGPUInference(
 					targetSeq = append(targetSeq, tok)
 					curPos++
 				}
-				res := cudaspec.VerifyGreedy(targetSeq, draftCandidates)
+				res := speculative.VerifyGreedy(targetSeq, draftCandidates)
 				for _, aTok := range res.AcceptedTokens {
 					generatedTokens = append(generatedTokens, aTok)
 					allContextTokens = append(allContextTokens, aTok)

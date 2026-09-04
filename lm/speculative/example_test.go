@@ -3,11 +3,11 @@ package speculative_test
 import (
 	"fmt"
 
-	cudaspec "github.com/tmc/lib/lm/speculative"
+	"github.com/tmc/lib/lm/speculative"
 )
 
 func Example() {
-	drafter := cudaspec.NewNgramDrafter(3)
+	drafter := speculative.NewNgramDrafter(3)
 
 	// Ingest past prompt/system context
 	drafter.Feed([]int32{100, 200, 300, 400, 500, 600})
@@ -18,7 +18,7 @@ func Example() {
 
 	// Target model verifies candidate sequence in one batched forward pass
 	targetVerification := []int32{500, 600, 700}
-	res := cudaspec.VerifyGreedy(targetVerification, draft)
+	res := speculative.VerifyGreedy(targetVerification, draft)
 
 	fmt.Printf("Accepted: %v, Bonus: %d, Emitted Count: %d\n", res.AcceptedTokens, res.BonusToken, res.TotalEmitted)
 
