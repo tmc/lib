@@ -2,10 +2,8 @@ package cudasass
 
 import (
 	"bufio"
-	"bytes"
-	"fmt"
+	"context"
 	"io"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -83,7 +81,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				d.Functions = append(d.Functions, curFn)
 				d.funcMap["default"] = curFn
 			}
-			if curFn.BaseAddress == 0 && inst.Address != 0 {
+			if len(curFn.Instructions) == 0 {
 				curFn.BaseAddress = inst.Address
 			}
 			curFn.Instructions = append(curFn.Instructions, inst)
@@ -103,26 +101,20 @@ func ParseString(sass string) (*Disassembly, error) {
 
 // DisassembleCUBIN invokes nvdisasm on cubin bytes to produce a structured Disassembly.
 func DisassembleCUBIN(cubin []byte) (*Disassembly, error) {
-	nvdisasmPath, err := exec.LookPath("nvdisasm")
+	r, err := (Disassembler{}).Disassemble(context.Background(), cubin, Options{})
 	if err != nil {
-		return nil, fmt.Errorf("nvdisasm not found in PATH: %w", err)
+		return nil, err
 	}
-
-	cmd := exec.Command(nvdisasmPath, "-")
-	cmd.Stdin = bytes.NewReader(cubin)
-	var outBuf bytes.Buffer
-	var errBuf bytes.Buffer
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("nvdisasm failed: %w (stderr: %s)", err, errBuf.String())
-	}
-
-	return Parse(&outBuf)
+	return ParseString(string(r.Stdout))
 }
 
 func extractFunctionName(line string) string {
+	if strings.HasPrefix(line, ".section") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && strings.HasPrefix(fields[1], ".text.") {
+			return strings.TrimSuffix(strings.SplitN(strings.TrimPrefix(fields[1], ".text."), ",", 2)[0], ":")
+		}
+	}
 	if strings.HasPrefix(line, "Function : ") {
 		return strings.TrimSpace(strings.TrimPrefix(line, "Function : "))
 	}
@@ -141,8 +133,9 @@ func extractFunctionName(line string) string {
 
 // ParseInstructionLine parses a single SASS instruction line.
 // Supports both nvdisasm formats:
-//   /* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;   // comment
-//   /*0030*/                   LDG.E.CONSTANT.F32 R4, [R2.64];
+//
+//	/* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;   // comment
+//	/*0030*/                   LDG.E.CONSTANT.F32 R4, [R2.64];
 func ParseInstructionLine(line string) (Instruction, bool) {
 	trimmed := strings.TrimSpace(line)
 	if !strings.HasPrefix(trimmed, "/*") {
@@ -166,6 +159,15 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 	if commentIdx := strings.Index(rest, "//"); commentIdx != -1 {
 		comment = strings.TrimSpace(rest[commentIdx+2:])
 		rest = strings.TrimSpace(rest[:commentIdx])
+	}
+	if encodingIdx := strings.Index(rest, "/*"); encodingIdx != -1 {
+		encoding := strings.TrimSpace(rest[encodingIdx:])
+		if comment == "" {
+			comment = encoding
+		} else {
+			comment = encoding + " " + comment
+		}
+		rest = strings.TrimSpace(rest[:encodingIdx])
 	}
 	rest = strings.TrimSuffix(rest, ";")
 	rest = strings.TrimSpace(rest)
