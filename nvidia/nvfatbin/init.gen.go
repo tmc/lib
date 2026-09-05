@@ -36,6 +36,7 @@ type SymbolError struct {
 	Symbol string
 }
 
+// Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
 	return "nvfatbin: symbol " + e.Symbol + " unavailable"
 }
@@ -47,6 +48,7 @@ type LibraryConflictError struct {
 	Requested string
 }
 
+// Error reports the conflicting library paths.
 func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("nvfatbin: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
@@ -181,7 +183,7 @@ func libraryNames() []string {
 	case "darwin":
 		return []string{"libnvfatbin.dylib"}
 	case "windows":
-		return []string{"nvFatbin.dll"}
+		return []string{"nvfatbin_130_0.dll"}
 	default:
 		return nil
 	}
