@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/tmc/lib/gguf"
 )
 
 // TestTinyStackFixture replays the checked-in multi-layer fixture through the
@@ -45,7 +47,7 @@ func TestTinyStackGGUF(t *testing.T) {
 	if info.Size() > 1<<20 {
 		t.Fatalf("tiny GGUF is %d bytes; it must stay small", info.Size())
 	}
-	g, err := readGGUF(f, info.Size())
+	g, err := gguf.Read(f, info.Size())
 	if err != nil {
 		t.Fatalf("read tiny GGUF: %v", err)
 	}
@@ -67,7 +69,7 @@ func TestTinyStackGGUFRejectsWrongShape(t *testing.T) {
 		t.Fatal("block count metadata missing")
 	}
 	put32(b[i+len("deepseek4.block_count")+4:], tinyStackLayers+1)
-	g, err := readGGUF(bytes.NewReader(b), int64(len(b)))
+	g, err := gguf.Read(bytes.NewReader(b), int64(len(b)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,3 +269,10 @@ func tinyStackGGUF(w tinyStackWeights) []byte {
 	}
 	return out
 }
+
+// GGUF little-endian writers, used to build the tiny model file in memory.
+func writeString(b *bytes.Buffer, s string) { write64(b, uint64(len(s))); b.WriteString(s) }
+func write32(b *bytes.Buffer, n uint32)     { var p [4]byte; put32(p[:], n); b.Write(p[:]) }
+func write64(b *bytes.Buffer, n uint64)     { var p [8]byte; put64(p[:], n); b.Write(p[:]) }
+func put32(b []byte, n uint32)              { binary.LittleEndian.PutUint32(b, n) }
+func put64(b []byte, n uint64)              { binary.LittleEndian.PutUint64(b, n) }

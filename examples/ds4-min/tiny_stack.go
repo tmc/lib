@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"github.com/tmc/lib/gguf"
 )
 
 // The tiny stack is the multi-layer companion to the single-layer tiny model in
@@ -351,18 +353,18 @@ func makeTinyStackLayer(seed uint64, i int) tinyStackLayer {
 // model exercises the real loader rather than bypassing it. It reads the layer
 // count and shape from metadata and every weight from an F32 tensor, using the
 // tensor names of the accepted architecture.
-func tinyStackFromGGUF(g *ggufFile, r io.ReaderAt) (*tinyStack, error) {
-	if v, ok := g.metadata["general.architecture"]; !ok || v.value != "deepseek4" {
-		return nil, fmt.Errorf("%w: architecture is not deepseek4", errInvalidGGUF)
+func tinyStackFromGGUF(g *gguf.File, r io.ReaderAt) (*tinyStack, error) {
+	if v, ok := g.Metadata["general.architecture"]; !ok || v.Value != "deepseek4" {
+		return nil, fmt.Errorf("%w: architecture is not deepseek4", gguf.ErrInvalid)
 	}
 	meta := func(key string) (int, error) {
-		v, ok := g.metadata[key]
+		v, ok := g.Metadata[key]
 		if !ok {
-			return 0, fmt.Errorf("%w: missing metadata %q", errInvalidGGUF, key)
+			return 0, fmt.Errorf("%w: missing metadata %q", gguf.ErrInvalid, key)
 		}
-		n, ok := valueUint(v)
+		n, ok := v.Uint()
 		if !ok || n > math.MaxInt32 {
-			return 0, fmt.Errorf("%w: metadata %q is not an unsigned integer", errInvalidGGUF, key)
+			return 0, fmt.Errorf("%w: metadata %q is not an unsigned integer", gguf.ErrInvalid, key)
 		}
 		return int(n), nil
 	}
@@ -412,12 +414,12 @@ func tinyStackFromGGUF(g *ggufFile, r io.ReaderAt) (*tinyStack, error) {
 		{"selected_row_cap", rowCap, tinyStackRowCap},
 	} {
 		if c.got != c.want {
-			return nil, fmt.Errorf("%w: %s %d, want %d", errUnsupported, c.name, c.got, c.want)
+			return nil, fmt.Errorf("%w: %s %d, want %d", gguf.ErrUnsupported, c.name, c.got, c.want)
 		}
 	}
-	index := make(map[string]ggufTensor, len(g.tensors))
-	for _, t := range g.tensors {
-		index[t.name] = t
+	index := make(map[string]gguf.Tensor, len(g.Tensors))
+	for _, t := range g.Tensors {
+		index[t.Name] = t
 	}
 	read := func(name string, count int) []float32 {
 		out, err := readGGUFFloats(g, r, index, name, count)
@@ -496,28 +498,28 @@ func tinyStackFromGGUF(g *ggufFile, r io.ReaderAt) (*tinyStack, error) {
 	return newTinyStack(w)
 }
 
-func readGGUFFloats(g *ggufFile, r io.ReaderAt, index map[string]ggufTensor, name string, count int) ([]float32, error) {
+func readGGUFFloats(g *gguf.File, r io.ReaderAt, index map[string]gguf.Tensor, name string, count int) ([]float32, error) {
 	t, ok := index[name]
 	if !ok {
-		return nil, fmt.Errorf("%w: missing tensor %q", errInvalidGGUF, name)
+		return nil, fmt.Errorf("%w: missing tensor %q", gguf.ErrInvalid, name)
 	}
-	if t.typeID != 0 {
-		return nil, fmt.Errorf("%w: tensor %q type %d, want float32", errUnsupported, name, t.typeID)
+	if t.TypeID != 0 {
+		return nil, fmt.Errorf("%w: tensor %q type %d, want float32", gguf.ErrUnsupported, name, t.TypeID)
 	}
 	elements := uint64(1)
-	for _, d := range t.dimensions {
-		var ok bool
-		if elements, ok = multiply(elements, d); !ok {
-			return nil, fmt.Errorf("%w: tensor %q element count overflow", errInvalidGGUF, name)
+	for _, d := range t.Dimensions {
+		if d != 0 && elements > ^uint64(0)/d {
+			return nil, fmt.Errorf("%w: tensor %q element count overflow", gguf.ErrInvalid, name)
 		}
+		elements *= d
 	}
 	if elements != uint64(count) {
-		return nil, fmt.Errorf("%w: tensor %q has %d elements, want %d", errInvalidGGUF, name, elements, count)
+		return nil, fmt.Errorf("%w: tensor %q has %d elements, want %d", gguf.ErrInvalid, name, elements, count)
 	}
-	start, ok := add(g.dataOffset, t.offset)
-	if !ok {
-		return nil, fmt.Errorf("%w: tensor %q offset overflow", errInvalidGGUF, name)
+	if t.Offset > ^uint64(0)-g.DataOffset {
+		return nil, fmt.Errorf("%w: tensor %q offset overflow", gguf.ErrInvalid, name)
 	}
+	start := g.DataOffset + t.Offset
 	buf := make([]byte, count*4)
 	if _, err := r.ReadAt(buf, int64(start)); err != nil {
 		return nil, fmt.Errorf("read tensor %q: %w", name, err)
