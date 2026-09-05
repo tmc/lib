@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"testing"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
@@ -373,7 +374,13 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		t.Run("output-head", func(t *testing.T) {
 			runPinnedOutputHead(t, ops, bind, allLayersOracle)
 		})
-	} else if transitionRoot != "" {
+	}
+	if posOracle := os.Getenv("DS4_POS_ORACLE_DIR"); posOracle != "" {
+		t.Run("rope-nonzero-position", func(t *testing.T) {
+			runPinnedRopeAtPosition(t, ops, bind, posOracle, pinnedOraclePosition(t))
+		})
+	}
+	if transitionRoot != "" && allLayersOracle == "" {
 		layer1 := runPinnedHashLayer(t, ops, bind, hcFFN, 1, transitionRoot+"/layer-1")
 		layer2 := runPinnedHashLayer(t, ops, bind, layer1, 2, transitionRoot+"/layer-2")
 		runPinnedHashLayer(t, ops, bind, layer2, 3, transitionRoot+"/layer-3")
@@ -1100,4 +1107,108 @@ func runPinnedOutputHead(t *testing.T, ops *metalPinnedOps, bind func(string) bo
 		t.Fatal(err)
 	}
 	compareOracleF32(t, "result_output", logits, oracle("output"))
+}
+
+// pinnedOraclePosition reports the token position the DS4_POS_ORACLE_DIR
+// capture was taken at. The capture is named for it and the value must match,
+// because position is an input to the rotation under test: comparing a capture
+// taken at one position against a rotation computed for another would fail for
+// the right reason but tell us nothing about the implementation.
+func pinnedOraclePosition(t *testing.T) int {
+	t.Helper()
+	raw := os.Getenv("DS4_POS_ORACLE_POS")
+	if raw == "" {
+		t.Fatal("DS4_POS_ORACLE_DIR set without DS4_POS_ORACLE_POS")
+	}
+	pos, err := strconv.Atoi(raw)
+	if err != nil {
+		t.Fatalf("DS4_POS_ORACLE_POS=%q: %v", raw, err)
+	}
+	if pos <= 0 {
+		t.Fatalf("DS4_POS_ORACLE_POS=%d is not a nonzero position", pos)
+	}
+	return pos
+}
+
+// runPinnedRopeAtPosition compares the query and key-value path at a nonzero
+// token position, which the position-0 sweep cannot reach. Rotary embedding is
+// a function of position, so every stage from the projections through Qcur and
+// KVcur is a different computation at position 1 than at position 0, and none
+// of it was measured before.
+//
+// The sweep stops at KVcur deliberately. kqv_out attends over the cache, and
+// at a nonzero position that cache holds earlier tokens the teacher-forced
+// harness does not reconstruct. Comparing it here would measure the harness
+// rather than the model. The compressor state that would settle the cache is
+// not capturable at a nonzero position at all: the oracle emits attn_state_kv
+// and attn_state_score once per run tagged pos 0 whatever the real position,
+// established by DS4_METAL_GRAPH_DUMP_TRACE showing 41 offers all at pos 0
+// against 43 offers at each of pos 0..9 for ordinary stages.
+//
+// Each layer is teacher-forced from the capture's own attn_norm, so a failure
+// names the layer that first diverges rather than the first layer downstream of
+// a divergence.
+func runPinnedRopeAtPosition(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, oracleDir string, pos int) {
+	t.Helper()
+	for layer := range 43 {
+		t.Run(fmt.Sprintf("layer-%d", layer), func(t *testing.T) {
+			// RopeAttentionOne takes no layer and applies the uncompressed
+			// rotation. ds4.c:1159 gives layers 0 and 1 a compress ratio of 0
+			// and every later layer a nonzero one, and a compressed layer uses
+			// the long-context frequency base and scale, so this helper is the
+			// right rotation only for the first two layers. At position 0 the
+			// distinction is invisible because every rotation is the identity
+			// there, which is why the existing sweep never noticed.
+			//
+			// Running it anyway on a compressed layer produces a confident
+			// failure that measures the harness, not the model. The compressed
+			// rotation at a nonzero position stays unmeasured until a
+			// layer-aware helper exists.
+			if layer >= 2 {
+				t.Skip("compressed layer: RopeAttentionOne applies the uncompressed rotation")
+			}
+			name := func(s string) string { return fmt.Sprintf("blk.%d.%s", layer, s) }
+			oracle := func(stage string) string {
+				return fmt.Sprintf("%s/stage_%s-%d_pos%d.bin", oracleDir, stage, layer, pos)
+			}
+			attnNorm := readOracleF32(t, oracle("attn_norm"))
+			qRaw, err := ops.MatvecQ80(bind(name("attn_q_a.weight")), attnNorm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "q_lora", qRaw, oracle("q_lora"))
+			qNormWeight := bind(name("attn_q_a_norm.weight"))
+			qNorm, err := ops.RMS(qRaw, qNormWeight, 1, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "q_lora_norm", qNorm, oracle("q_lora_norm"))
+			qHeadsRaw, err := ops.MatvecQ80(bind(name("attn_q_b.weight")), qNorm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "Qraw", qHeadsRaw, oracle("Qraw"))
+			qHeads, err := ops.RMS(qHeadsRaw, qNormWeight, 64, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "Qnorm", qHeads, oracle("Qnorm"))
+			kvRaw, err := ops.MatvecQ80(bind(name("attn_kv.weight")), attnNorm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "KVraw", kvRaw, oracle("KVraw"))
+			kvNorm, err := ops.RMS(kvRaw, bind(name("attn_kv_a_norm.weight")), 1, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "KVnorm", kvNorm, oracle("KVnorm"))
+			qCur, kvCur, _, err := ops.RopeAttentionOne(qHeads, kvNorm, bind(name("attn_sinks.weight")), uint32(pos))
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareOracleF32(t, "Qcur", qCur, oracle("Qcur"))
+			compareOracleFP8F32(t, "KVcur", kvCur, oracle("KVcur"))
+		})
+	}
 }
