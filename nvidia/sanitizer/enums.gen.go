@@ -872,6 +872,7 @@ const (
 	DriverCBIDForceInt                                             DriverAPICBID = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverAPICBID) String() string {
 	switch e {
 	case DriverCBIDInvalid:
@@ -3111,6 +3112,7 @@ const (
 	RuntimeCBIDForceInt                                               RuntimeAPICBID = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RuntimeAPICBID) String() string {
 	switch e {
 	case RuntimeCBIDInvalid:
@@ -4132,6 +4134,7 @@ const (
 	PatchForceInt PatchResult = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PatchResult) String() string {
 	switch e {
 	case PatchSuccess:
@@ -4160,6 +4163,7 @@ const (
 	MemoryDeviceFlagForceInt DeviceMemoryFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceMemoryFlags) String() string {
 	switch e {
 	case MemoryDeviceFlagNone:
@@ -4198,6 +4202,7 @@ const (
 	BarrierFlagForceInt        BarrierFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BarrierFlags) String() string {
 	switch e {
 	case BarrierFlagNone:
@@ -4222,6 +4227,7 @@ const (
 	CallFlagForceInt         CallFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallFlags) String() string {
 	switch e {
 	case CallFlagNone:
@@ -4257,6 +4263,7 @@ const (
 	CudaBarrierForceInt           CudaBarrierInstructionKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CudaBarrierInstructionKind) String() string {
 	switch e {
 	case CudaBarrierInvalid:
@@ -4295,6 +4302,7 @@ const (
 	CacheControlForceInt   CacheControlInstructionKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CacheControlInstructionKind) String() string {
 	switch e {
 	case CacheControlInvalid:
@@ -4319,6 +4327,7 @@ const (
 	WarpgroupMmaAsyncFlagForceInt    WarpgroupMMAAsyncFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e WarpgroupMMAAsyncFlags) String() string {
 	switch e {
 	case WarpgroupMmaAsyncFlagNone:
@@ -4342,6 +4351,7 @@ const (
 	LoadGather4 LoadMode = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LoadMode) String() string {
 	switch e {
 	case LoadTiled:
@@ -4454,6 +4464,7 @@ const (
 	InstructionForceInt InstructionId = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e InstructionId) String() string {
 	switch e {
 	case InstructionInvalid:
@@ -4562,6 +4573,7 @@ const (
 	FunctionLoadedForceInt  FunctionLoadedStatus = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FunctionLoadedStatus) String() string {
 	switch e {
 	case FunctionNotLoaded:
@@ -4606,6 +4618,7 @@ const (
 	CbDomainForceInt       CallbackDomain = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackDomain) String() string {
 	switch e {
 	case CbDomainInvalid:
@@ -4653,6 +4666,7 @@ const (
 	ApiCbsiteForceInt ApiCallbackSite = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ApiCallbackSite) String() string {
 	switch e {
 	case ApiEnter:
@@ -4708,6 +4722,7 @@ const (
 	CbidResourceForceInt                     CallbackIdResource = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdResource) String() string {
 	switch e {
 	case CbidResourceInvalid:
@@ -4805,6 +4820,7 @@ const (
 	MemoryFlagForceInt ResourceMemoryFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ResourceMemoryFlags) String() string {
 	switch e {
 	case MemoryFlagNone:
@@ -4844,6 +4860,7 @@ const (
 	MemoryPermissionForceInt ResourceMemoryPermissions = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ResourceMemoryPermissions) String() string {
 	switch e {
 	case MemoryPermissionNone:
@@ -4876,6 +4893,7 @@ const (
 	MemoryVisibilityForceInt MemoryVisibility = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemoryVisibility) String() string {
 	switch e {
 	case MemoryVisibilityInvalid:
@@ -4905,6 +4923,7 @@ const (
 	CBIDSyncForceInt                 CallbackIdSync = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdSync) String() string {
 	switch e {
 	case CBIDSyncInvalid:
@@ -4935,6 +4954,7 @@ const (
 	CbidLaunchForceInt          CallbackIdLaunch = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdLaunch) String() string {
 	switch e {
 	case CbidLaunchInvalid:
@@ -4963,6 +4983,7 @@ const (
 	CbidMemcpyForceInt CallbackIdMemcpy = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdMemcpy) String() string {
 	switch e {
 	case CbidMemcpyInvalid:
@@ -4990,6 +5011,7 @@ const (
 	MemcpyDirectionForceInt       MemcpyDirection = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemcpyDirection) String() string {
 	switch e {
 	case MemcpyDirectionUnknown:
@@ -5020,6 +5042,7 @@ const (
 	CbidMemsetForceInt CallbackIdMemset = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdMemset) String() string {
 	switch e {
 	case CbidMemsetInvalid:
@@ -5046,6 +5069,7 @@ const (
 	CbidBatchMemopForceInt        CallbackIdBatchMemop = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdBatchMemop) String() string {
 	switch e {
 	case CbidBatchMemopInvalid:
@@ -5073,6 +5097,7 @@ const (
 	BatchMemopTypeForceInt BatchMemopType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BatchMemopType) String() string {
 	switch e {
 	case BatchMemopType32B:
@@ -5095,6 +5120,7 @@ const (
 	BatchMemopAtomicOpInt BatchMemopAtomicOp = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BatchMemopAtomicOp) String() string {
 	switch e {
 	case BatchMemopAtomicOpOr:
@@ -5120,6 +5146,7 @@ const (
 	CbidUvmForceItn  CallbackIdUvm = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdUvm) String() string {
 	switch e {
 	case CbidUvmInvalid:
@@ -5150,6 +5177,7 @@ const (
 	CbidGraphsForceInt            CallbackIdGraphs = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdGraphs) String() string {
 	switch e {
 	case CbidGraphsInvalid:
@@ -5195,6 +5223,7 @@ const (
 	CbidEventsForceInt      CallbackIdEvents = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdEvents) String() string {
 	switch e {
 	case CbidEventsInvalid:
@@ -5239,6 +5268,7 @@ const (
 	CbidExternalMemoryForceInt  CallbackIdExternalMemory = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdExternalMemory) String() string {
 	switch e {
 	case CbidExternalMemoryInvalid:
@@ -5267,6 +5297,7 @@ const (
 	CbidErrorLoggingForceInt      CallbackIdErrorLogging = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdErrorLogging) String() string {
 	switch e {
 	case CbidErrorLoggingInvalid:
