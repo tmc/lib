@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -53,6 +54,8 @@ func needs(t *testing.T, err error, what string) {
 // the only evidence that the mapping refers to the buffer that was pinned and
 // that the copy path put the bytes where the GPU can see them.
 func TestPinMapCopy(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	needs(t, driver.Load(""), "libcuda.so.1 is not installed, so no device memory can be allocated")
 	needs(t, driver.Init(0), "the CUDA driver would not initialize")
 	count, err := driver.DeviceGetCount()
