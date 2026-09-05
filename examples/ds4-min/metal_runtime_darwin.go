@@ -852,6 +852,7 @@ func (r *metalRuntime) Close() error {
 	if r == nil {
 		return nil
 	}
+	var err error
 	if r.arena != nil {
 		r.arena.Free()
 		r.arena = nil
@@ -865,11 +866,12 @@ func (r *metalRuntime) Close() error {
 		r.views = nil
 	}
 	if r.file != nil {
-		_ = r.file.Close()
+		err = errors.Join(err, r.file.Close())
 		r.file = nil
 	}
 	if r.dev != nil {
-		return r.dev.Close()
+		err = errors.Join(err, r.dev.Close())
+		r.dev = nil
 	}
-	return nil
+	return err
 }
