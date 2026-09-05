@@ -16,9 +16,7 @@
 //     libnvjpeg2k. The pinned build is the CUDA 13 variant of 0.11.0.51.
 //   - libnvjpeg2k.so.0 on the loader path, or NVJPEG2K_LIB_PATH pointing at
 //     it. This package does not vendor it.
-//   - A CUDA memory allocator. This package allocates no device memory, so
-//     the test needs one; see the cudaAlloc stub at the bottom of this file,
-//     which must be replaced with a real binding before the test can run.
+//   - The CUDA driver bindings used by the test allocator.
 //   - The fixtures named below, which are not committed. See
 //     testdata/README.md for what each one has to be and where to get it.
 //   - An independent JPEG 2000 decoder to compare against: OpenJPEG's
@@ -41,9 +39,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/tmc/lib/nvidia/driver"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"unsafe"
 )
 
 // fixture names the bitstreams the physical tests decode. They are described
@@ -120,6 +121,7 @@ func requireLibrary(t *testing.T) {
 // the comparison is exact.
 func TestPhysicalDecodeMatchesReference(t *testing.T) {
 	requireLibrary(t)
+	requireCUDA(t)
 	fdir, rdir := fixtureDir(t), referenceDir(t)
 
 	handle, err := NewHandle()
@@ -130,6 +132,7 @@ func TestPhysicalDecodeMatchesReference(t *testing.T) {
 
 	for _, f := range fixtures {
 		t.Run(f.file, func(t *testing.T) {
+			requireCUDA(t)
 			if !f.lossless {
 				t.Fatalf("%s is lossy; this test only makes an exact claim, so it needs a lossless fixture", f.file)
 			}
@@ -164,7 +167,7 @@ func TestPhysicalDecodeMatchesReference(t *testing.T) {
 
 			var buffers []DeviceBuffer
 			for _, req := range layout.Buffers() {
-				b, free, err := cudaAlloc(req.MinSizeInBytes)
+				b, free, err := cudaAlloc(t, req.MinSizeInBytes)
 				if err != nil {
 					t.Fatalf("device allocation: %v", err)
 				}
@@ -208,6 +211,7 @@ func TestPhysicalDecodeMatchesReference(t *testing.T) {
 // parser fed untrusted input.
 func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 	requireLibrary(t)
+	requireCUDA(t)
 	fdir := fixtureDir(t)
 
 	good, err := os.ReadFile(filepath.Join(fdir, fixtures[0].file))
@@ -230,6 +234,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 	}
 	for name, data := range inputs {
 		t.Run(name, func(t *testing.T) {
+			requireCUDA(t)
 			bs, err := NewBitstream()
 			if err != nil {
 				t.Fatalf("NewBitstream: %v", err)
@@ -255,7 +260,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 
 			var buffers []DeviceBuffer
 			for _, req := range layout.Buffers() {
-				b, free, err := cudaAlloc(req.MinSizeInBytes)
+				b, free, err := cudaAlloc(t, req.MinSizeInBytes)
 				if err != nil {
 					t.Fatalf("device allocation: %v", err)
 				}
@@ -331,19 +336,50 @@ func flipByte(b []byte, i int) []byte {
 	return out
 }
 
-// cudaAlloc, cudaCopyToHost and cudaSynchronize are the CUDA operations this
-// test needs and this package deliberately does not provide. They are stubs:
-// the test cannot run until they are replaced with a real binding, and they
-// panic rather than returning a zero value so that a half-wired test cannot
-// report a pass.
-func cudaAlloc(size int) (ptr uintptr, free func(), err error) {
-	panic("nvjpeg2k physical test: cudaAlloc is a stub; wire it to a CUDA allocator before running")
+// CUDA helpers run with the context established by requireCUDA.
+func requireCUDA(t *testing.T) {
+	t.Helper()
+	runtime.LockOSThread()
+	t.Cleanup(runtime.UnlockOSThread)
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(driver.Init(0))
+	dev, err := driver.NewDeviceGet(0)
+	check(err)
+	ctx, err := dev.PrimaryCtxRetain()
+	check(err)
+	t.Cleanup(func() { check(dev.PrimaryCtxRelease()) })
+	check(ctx.SetCurrent())
+}
+
+func cudaAlloc(t *testing.T, size int) (ptr uintptr, free func(), err error) {
+	if size <= 0 {
+		return 0, nil, fmt.Errorf("invalid allocation size %d", size)
+	}
+	p, err := driver.MemAlloc(uint(size))
+	if err != nil {
+		return 0, nil, err
+	}
+	return uintptr(p), func() {
+		if err := p.MemFree(); err != nil {
+			t.Errorf("free device memory: %v", err)
+		}
+	}, nil
 }
 
 func cudaCopyToHost(ptr uintptr, size int) ([]byte, error) {
-	panic("nvjpeg2k physical test: cudaCopyToHost is a stub; wire it to cudaMemcpy before running")
+	if size <= 0 {
+		return nil, fmt.Errorf("invalid copy size %d", size)
+	}
+	data := make([]byte, size)
+	if err := driver.DevicePtr(ptr).MemcpyDtoH(unsafe.Pointer(&data[0]), uint(size)); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
-func cudaSynchronize() error {
-	panic("nvjpeg2k physical test: cudaSynchronize is a stub; wire it to cudaDeviceSynchronize before running")
-}
+func cudaSynchronize() error { return driver.CtxSynchronize() }
