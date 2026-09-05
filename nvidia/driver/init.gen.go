@@ -36,6 +36,7 @@ type SymbolError struct {
 	Symbol string
 }
 
+// Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
 	return "driver: symbol " + e.Symbol + " unavailable"
 }
@@ -47,6 +48,7 @@ type LibraryConflictError struct {
 	Requested string
 }
 
+// Error reports the conflicting library paths.
 func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("driver: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
@@ -109,7 +111,7 @@ func Close() error {
 	if lib == 0 {
 		return nil
 	}
-	err := purego.Dlclose(lib)
+	err := closeLibrary(lib)
 	lib = 0
 	libErr = nil
 	libPath = ""
@@ -150,7 +152,7 @@ func openLibrary(path string) (uintptr, string, error) {
 		path = os.Getenv("CUDA_LIB_PATH")
 	}
 	if path != "" {
-		h, err := purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		h, err := openDynamicLibrary(path)
 		if err == nil {
 			return h, path, nil
 		}
@@ -159,7 +161,7 @@ func openLibrary(path string) (uintptr, string, error) {
 	names := libraryNames()
 	var firstErr error
 	for _, name := range names {
-		h, err := purego.Dlopen(name, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		h, err := openDynamicLibrary(name)
 		if err == nil {
 			return h, name, nil
 		}
@@ -195,7 +197,7 @@ func register(fn interface{}, symbol string) {
 	if lib == 0 {
 		return
 	}
-	sym, err := purego.Dlsym(lib, symbol)
+	sym, err := lookupLibrarySymbol(lib, symbol)
 	if err != nil || sym == 0 {
 		return
 	}
