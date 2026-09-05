@@ -3,17 +3,25 @@
 package cutensor_test
 
 import (
-	"github.com/tmc/lib/nvidia/cutensor"
-	"github.com/tmc/lib/nvidia/driver"
 	"math"
 	"runtime"
 	"testing"
 	"unsafe"
+
+	"github.com/tmc/lib/nvidia/cutensor"
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 func TestPhysicalContraction(t *testing.T) {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+	t.Cleanup(runtime.UnlockOSThread)
+	cleanup := func(f func() error) {
+		t.Cleanup(func() {
+			if err := f(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 	check := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -25,12 +33,12 @@ func TestPhysicalContraction(t *testing.T) {
 	check(err)
 	ctx, err := driver.NewContext(nil, 0, dev)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
+	cleanup(ctx.Destroy)
 	h, err := cutensor.Create()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer h.Destroy()
+	cleanup(h.Destroy)
 
 	compute32f, err := cutensor.ComputeDesc32F()
 	if err != nil {
@@ -44,14 +52,12 @@ func TestPhysicalContraction(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		cleanup(d.Destroy)
 		return d
 	}
 	descA := newDesc(m, k)
 	descB := newDesc(k, n)
 	descC := newDesc(m, n)
-	defer descA.Destroy()
-	defer descB.Destroy()
-	defer descC.Destroy()
 
 	modeA := []int32{'m', 'k'}
 	modeB := []int32{'k', 'n'}
@@ -64,13 +70,13 @@ func TestPhysicalContraction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer op.Destroy()
+	cleanup(op.Destroy)
 
 	pref, err := h.CreatePlanPreference(cutensor.AlgoDefault, cutensor.JitModeNone)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pref.Destroy()
+	cleanup(pref.Destroy)
 
 	wsSize, err := h.EstimateWorkspaceSize(op, pref, cutensor.WorkspaceDefault)
 	if err != nil {
@@ -80,7 +86,7 @@ func TestPhysicalContraction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer plan.Destroy()
+	cleanup(plan.Destroy)
 
 	a, b, c := make([]float32, m*k), make([]float32, k*n), make([]float32, m*n)
 	for i := range a {
@@ -105,16 +111,16 @@ func TestPhysicalContraction(t *testing.T) {
 	alloc := func(v []float32) driver.DevicePtr {
 		p, e := driver.MemAlloc(uint(len(v) * 4))
 		check(e)
+		cleanup(p.MemFree)
 		check(p.MemcpyHtoD(unsafe.Pointer(&v[0]), uint(len(v)*4)))
 		return p
 	}
 	pa, pb, pc := alloc(a), alloc(b), alloc(c)
-	defer func() { check(pa.MemFree()); check(pb.MemFree()); check(pc.MemFree()) }()
 	var workspace driver.DevicePtr
 	if wsSize > 0 {
 		workspace, err = driver.MemAlloc(uint(wsSize))
 		check(err)
-		defer func() { check(workspace.MemFree()) }()
+		cleanup(workspace.MemFree)
 	}
 	alpha, beta := float32(2), float32(-1)
 	check(h.Contract(plan, unsafe.Pointer(&alpha), uintptr(pa), uintptr(pb), unsafe.Pointer(&beta), uintptr(pc), uintptr(pc), uintptr(workspace), wsSize, 0))
