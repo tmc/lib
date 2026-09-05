@@ -1,0 +1,1 @@
+Commit: 671304cfc5d4b3ec18a6a7b912aca0f9c9cfe854; date: 2026-09-04T20:20:53-07:00; agent: Codex; model: gpt-6-astra; installed claude-code: 2.1.257 (not executor); tty: none; shell pid: 76918; parent pid: 17351; ITERM_SESSION_ID: w15t0p2:54B33A62-339F-4D21-B1B9-0036124A7060. Seven short-write regressions reproduced before fix; selected writer race tests and vet passed.
