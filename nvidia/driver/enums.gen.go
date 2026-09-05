@@ -389,7 +389,7 @@ const (
 	StreamMemOpWaitValue64  StreamBatchMemOpType = 4 // Represents a [Stream.WaitValue64] operation
 	StreamMemOpWriteValue64 StreamBatchMemOpType = 5 // Represents a [Stream.WriteValue64] operation
 	StreamMemOpBarrier      StreamBatchMemOpType = 6 // Insert a memory barrier of the specified type
-	// StreamMemOpAtomicReduction: Perform a atomic reduction. See CUstreamBatchMemOpParams.atomicReduction
+	// StreamMemOpAtomicReduction: Perform a atomic reduction. See ::[StreamBatchMemOpParams].atomicReduction
 	StreamMemOpAtomicReduction   StreamBatchMemOpType = 8
 	StreamMemOpFlushRemoteWrites StreamBatchMemOpType = 3
 )
@@ -414,7 +414,7 @@ func (e StreamBatchMemOpType) String() string {
 	return fmt.Sprintf("StreamBatchMemOpType(%d)", e)
 }
 
-// StreammemorybarrierFlags Flags for CUstreamBatchMemOpParams.memoryBarrier
+// StreammemorybarrierFlags Flags for [StreamBatchMemOpParams].memoryBarrier
 type StreammemorybarrierFlags int32
 
 const (
@@ -432,7 +432,7 @@ func (e StreammemorybarrierFlags) String() string {
 	return fmt.Sprintf("StreammemorybarrierFlags(%d)", e)
 }
 
-// StreamAtomicReductionOpType Atomic reduction operation types for CUstreamBatchMemOpParams.atomicReductionreductionOp
+// StreamAtomicReductionOpType Atomic reduction operation types for [StreamBatchMemOpParams].atomicReductionreductionOp
 type StreamAtomicReductionOpType int32
 
 const (
@@ -453,7 +453,7 @@ func (e StreamAtomicReductionOpType) String() string {
 	return fmt.Sprintf("StreamAtomicReductionOpType(%d)", e)
 }
 
-// StreamAtomicReductionDataType Atomic reduction data types for CUstreamBatchMemOpParams.atomicReductiondataType
+// StreamAtomicReductionDataType Atomic reduction data types for [StreamBatchMemOpParams].atomicReductiondataType
 type StreamAtomicReductionDataType int32
 
 const (
@@ -924,7 +924,7 @@ const (
 	DevAttrCanUseStreamWaitValueNorV1 DeviceAttribute = 94
 	// DevAttrCooperativeLaunch: Device supports launching cooperative kernels via [Function.LaunchCooperativeKernel]
 	DevAttrCooperativeLaunch DeviceAttribute = 95
-	// DevAttrCooperativeMultiDeviceLaunch: Deprecated, LaunchCooperativeKernelMultiDevice is deprecated.
+	// DevAttrCooperativeMultiDeviceLaunch: Deprecated, [LaunchCooperativeKernelMultiDevice] is deprecated.
 	DevAttrCooperativeMultiDeviceLaunch DeviceAttribute = 96
 	DevAttrMaxSharedMemoryPerBlockOptin DeviceAttribute = 97 // Maximum optin shared memory per block
 	// DevAttrCanFlushRemoteWrites: The [StreamWaitValueFlush] flag and the [StreamMemOpFlushRemoteWrites] MemOp are supported on the device. See CUDA_MEMOP for additional details.
@@ -1354,6 +1354,8 @@ const (
 	PointerAttributeMappingBaseAddr PointerAttribute = 19
 	// PointerAttributeMemoryBlockId: A process-wide unique id corresponding to the physical allocation the pointer belongs to *
 	PointerAttributeMemoryBlockId PointerAttribute = 20
+	// PointerAttributeIsHwDecompressCapable: Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression.
+	PointerAttributeIsHwDecompressCapable PointerAttribute = 21
 )
 
 func (e PointerAttribute) String() string {
@@ -1398,6 +1400,8 @@ func (e PointerAttribute) String() string {
 		return "PointerAttributeMappingBaseAddr"
 	case PointerAttributeMemoryBlockId:
 		return "PointerAttributeMemoryBlockId"
+	case PointerAttributeIsHwDecompressCapable:
+		return "PointerAttributeIsHwDecompressCapable"
 	}
 	return fmt.Sprintf("PointerAttribute(%d)", e)
 }
@@ -1847,17 +1851,17 @@ const (
 	TargetCompute103  JitTarget = 103 // Compute device class 10.3.
 	TargetCompute120  JitTarget = 120 // Compute device class 12.0.
 	TargetCompute121  JitTarget = 121 // Compute device class 12.1.
-	TargetCompute90A  JitTarget = 0x10000 + TargetCompute90
-	TargetCompute100A JitTarget = 0x10000 + TargetCompute100
-	TargetCompute110A JitTarget = 0x10000 + TargetCompute110
-	TargetCompute103A JitTarget = 0x10000 + TargetCompute103
-	TargetCompute120A JitTarget = 0x10000 + TargetCompute120
-	TargetCompute121A JitTarget = 0x10000 + TargetCompute121
-	TargetCompute100F JitTarget = 0x20000 + TargetCompute100
-	TargetCompute110F JitTarget = 0x20000 + TargetCompute110
-	TargetCompute103F JitTarget = 0x20000 + TargetCompute103
-	TargetCompute120F JitTarget = 0x20000 + TargetCompute120
-	TargetCompute121F JitTarget = 0x20000 + TargetCompute121
+	TargetCompute90A  JitTarget = 65626
+	TargetCompute100A JitTarget = 65636
+	TargetCompute110A JitTarget = 65646
+	TargetCompute103A JitTarget = 65639
+	TargetCompute120A JitTarget = 65656
+	TargetCompute121A JitTarget = 65657
+	TargetCompute100F JitTarget = 131172
+	TargetCompute110F JitTarget = 131182
+	TargetCompute103F JitTarget = 131175
+	TargetCompute120F JitTarget = 131192
+	TargetCompute121F JitTarget = 131193
 )
 
 func (e JitTarget) String() string {
@@ -2358,7 +2362,7 @@ func (e ClusterSchedulingPolicy) String() string {
 	return fmt.Sprintf("ClusterSchedulingPolicy(%d)", e)
 }
 
-// LaunchMemSyncDomain Memory Synchronization Domain A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See CU_LAUNCH_ATTRIBUTE_MEM_SYNC_DOMAIN, [Stream.SetAttribute], [Function.LaunchKernelEx], [GraphNode.GraphKernelNodeSetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
+// LaunchMemSyncDomain Memory Synchronization Domain A kernel can be launched in a specified memory synchronization domain that affects all memory operations issued by that kernel. A memory barrier issued in one domain will only order memory operations in that domain, thus eliminating latency increase from memory barriers ordering unrelated traffic. By default, kernels are launched in domain 0. Kernel launched with [LaunchMemSyncDomainRemote] will have a different domain ID. User may also alter the domain ID with [LaunchMemSyncDomainMap] for a specific stream / graph node / kernel launch. See [LaunchAttributeMemSyncDomain], [Stream.SetAttribute], [Function.LaunchKernelEx], [GraphNode.GraphKernelNodeSetAttribute]. Memory operations done in kernels launched in different domains are considered system-scope distanced. In other words, a GPU scoped memory synchronization is not sufficient for memory order to be observed by kernels in another memory synchronization domain even if they are on the same GPU.
 type LaunchMemSyncDomain int32
 
 const (
@@ -2424,13 +2428,67 @@ func (e SharedMemoryMode) String() string {
 type LaunchAttributeID int32
 
 const (
-	LaunchAttributeIgnore LaunchAttributeID = 0 // Ignored entry, for convenient composition
+	LaunchAttributeIgnore                LaunchAttributeID = 0 // Ignored entry, for convenient composition
+	LaunchAttributeAccessPolicyWindow    LaunchAttributeID = 1
+	LaunchAttributeCooperative           LaunchAttributeID = 2
+	LaunchAttributeSynchronizationPolicy LaunchAttributeID = 3
+	// LaunchAttributeClusterDimension: Valid for graph nodes, launches. See ::[LaunchAttributeValue].clusterDim.
+	LaunchAttributeClusterDimension LaunchAttributeID = 4
+	// LaunchAttributeClusterSchedulingPolicyPreference: Valid for graph nodes, launches. See ::[LaunchAttributeValue].clusterSchedulingPolicyPreference.
+	LaunchAttributeClusterSchedulingPolicyPreference LaunchAttributeID = 5
+	LaunchAttributeProgrammaticStreamSerialization   LaunchAttributeID = 6
+	LaunchAttributeProgrammaticEvent                 LaunchAttributeID = 7
+	LaunchAttributePriority                          LaunchAttributeID = 8
+	LaunchAttributeMemSyncDomainMap                  LaunchAttributeID = 9
+	LaunchAttributeMemSyncDomain                     LaunchAttributeID = 10
+	LaunchAttributePreferredClusterDimension         LaunchAttributeID = 11
+	LaunchAttributeLaunchCompletionEvent             LaunchAttributeID = 12
+	LaunchAttributeDeviceUpdatableKernelNode         LaunchAttributeID = 13
+	LaunchAttributePreferredSharedMemoryCarveout     LaunchAttributeID = 14
+	LaunchAttributeNvlinkUtilCentricScheduling       LaunchAttributeID = 16
+	LaunchAttributePortableClusterSizeMode           LaunchAttributeID = 17
+	// LaunchAttributeSharedMemoryMode: Valid for graph nodes, launches. This indicates if the kernel is allowed to use a non-portable dynamic shared memory mode.
+	LaunchAttributeSharedMemoryMode LaunchAttributeID = 18
 )
 
 func (e LaunchAttributeID) String() string {
 	switch e {
 	case LaunchAttributeIgnore:
 		return "LaunchAttributeIgnore"
+	case LaunchAttributeAccessPolicyWindow:
+		return "LaunchAttributeAccessPolicyWindow"
+	case LaunchAttributeCooperative:
+		return "LaunchAttributeCooperative"
+	case LaunchAttributeSynchronizationPolicy:
+		return "LaunchAttributeSynchronizationPolicy"
+	case LaunchAttributeClusterDimension:
+		return "LaunchAttributeClusterDimension"
+	case LaunchAttributeClusterSchedulingPolicyPreference:
+		return "LaunchAttributeClusterSchedulingPolicyPreference"
+	case LaunchAttributeProgrammaticStreamSerialization:
+		return "LaunchAttributeProgrammaticStreamSerialization"
+	case LaunchAttributeProgrammaticEvent:
+		return "LaunchAttributeProgrammaticEvent"
+	case LaunchAttributePriority:
+		return "LaunchAttributePriority"
+	case LaunchAttributeMemSyncDomainMap:
+		return "LaunchAttributeMemSyncDomainMap"
+	case LaunchAttributeMemSyncDomain:
+		return "LaunchAttributeMemSyncDomain"
+	case LaunchAttributePreferredClusterDimension:
+		return "LaunchAttributePreferredClusterDimension"
+	case LaunchAttributeLaunchCompletionEvent:
+		return "LaunchAttributeLaunchCompletionEvent"
+	case LaunchAttributeDeviceUpdatableKernelNode:
+		return "LaunchAttributeDeviceUpdatableKernelNode"
+	case LaunchAttributePreferredSharedMemoryCarveout:
+		return "LaunchAttributePreferredSharedMemoryCarveout"
+	case LaunchAttributeNvlinkUtilCentricScheduling:
+		return "LaunchAttributeNvlinkUtilCentricScheduling"
+	case LaunchAttributePortableClusterSizeMode:
+		return "LaunchAttributePortableClusterSizeMode"
+	case LaunchAttributeSharedMemoryMode:
+		return "LaunchAttributeSharedMemoryMode"
 	}
 	return fmt.Sprintf("LaunchAttributeID(%d)", e)
 }
@@ -3649,12 +3707,21 @@ type GraphinstantiateFlags int32
 const (
 	// GraphInstantiateFlagAutoFreeOnLaunch: Automatically free memory allocated in a graph before relaunching.
 	GraphInstantiateFlagAutoFreeOnLaunch GraphinstantiateFlags = 1
+	GraphInstantiateFlagUpload           GraphinstantiateFlags = 2
+	GraphInstantiateFlagDeviceLaunch     GraphinstantiateFlags = 4
+	GraphInstantiateFlagUseNodePriority  GraphinstantiateFlags = 8
 )
 
 func (e GraphinstantiateFlags) String() string {
 	switch e {
 	case GraphInstantiateFlagAutoFreeOnLaunch:
 		return "GraphInstantiateFlagAutoFreeOnLaunch"
+	case GraphInstantiateFlagUpload:
+		return "GraphInstantiateFlagUpload"
+	case GraphInstantiateFlagDeviceLaunch:
+		return "GraphInstantiateFlagDeviceLaunch"
+	case GraphInstantiateFlagUseNodePriority:
+		return "GraphInstantiateFlagUseNodePriority"
 	}
 	return fmt.Sprintf("GraphinstantiateFlags(%d)", e)
 }
@@ -3809,7 +3876,7 @@ const (
 	CoredumpSkipAbort                 CoredumpGenerationFlags = 1 << 4
 	CoredumpSkipConstbankMemory       CoredumpGenerationFlags = 1 << 5
 	CoredumpGzipCompress              CoredumpGenerationFlags = 1 << 6
-	CoredumpLightweightFlags          CoredumpGenerationFlags = CoredumpSkipNonrelocatedElfImages
+	CoredumpLightweightFlags          CoredumpGenerationFlags = CoredumpSkipNonrelocatedElfImages | CoredumpSkipGlobalMemory | CoredumpSkipSharedMemory | CoredumpSkipLocalMemory | CoredumpSkipConstbankMemory
 )
 
 func (e CoredumpGenerationFlags) String() string {
@@ -3830,6 +3897,8 @@ func (e CoredumpGenerationFlags) String() string {
 		return "CoredumpSkipConstbankMemory"
 	case CoredumpGzipCompress:
 		return "CoredumpGzipCompress"
+	case CoredumpLightweightFlags:
+		return "CoredumpLightweightFlags"
 	}
 	return fmt.Sprintf("CoredumpGenerationFlags(%d)", e)
 }
