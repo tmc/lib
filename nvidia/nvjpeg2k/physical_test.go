@@ -77,7 +77,8 @@ var fixtures = []fixture{
 	// dimensions rather than by component precision.
 	{file: "lossless_gray_12bit.j2k", lossless: true, pixelType: Uint16, format: FormatPlanar},
 
-	// A tiled image, decoded a tile at a time through DecodeTileInto.
+	// A tiled image decoded through the whole-image path. The separate
+	// TestPhysicalDecodeTilesMatchesReference checks individual tiles.
 	{file: "lossless_rgb_8bit_tiled.j2k", lossless: true, pixelType: Uint8, format: FormatPlanar},
 }
 
@@ -379,3 +380,92 @@ func cudaCopyToHost(ptr uintptr, size int) ([]byte, error) {
 }
 
 func cudaSynchronize() error { return driver.CtxSynchronize() }
+
+// TestPhysicalDecodeTilesMatchesReference checks all four tiles against crops
+// of the independently decoded 64x64 planar RGB reference.
+func TestPhysicalDecodeTilesMatchesReference(t *testing.T) {
+	requireLibrary(t)
+	requireCUDA(t)
+	const name = "lossless_rgb_8bit_tiled.j2k"
+	data, err := os.ReadFile(filepath.Join(fixtureDir(t), name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile(filepath.Join(referenceDir(t), name+".raw"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(want) != 3*64*64 {
+		t.Fatalf("reference size = %d, want %d", len(want), 3*64*64)
+	}
+	h, err := NewHandle()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Destroy()
+	bs, err := NewBitstream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bs.Destroy()
+	if err := h.Parse(data, bs); err != nil {
+		t.Fatal(err)
+	}
+	info, err := bs.ImageInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.NumTilesX != 2 || info.NumTilesY != 2 || info.NumComponents != 3 {
+		t.Fatalf("unexpected fixture geometry: %+v", info)
+	}
+	for tile := uint32(0); tile < 4; tile++ {
+		t.Run(fmt.Sprint(tile), func(t *testing.T) {
+			requireCUDA(t)
+			state, err := NewDecodeState(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer state.Destroy()
+			layout, err := LayoutOfTile(bs, tile, Uint8, FormatPlanar)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var buffers []DeviceBuffer
+			for _, req := range layout.Buffers() {
+				ptr, free, err := cudaAlloc(t, req.MinSizeInBytes)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer free()
+				buffers = append(buffers, DeviceBuffer{Ptr: ptr, PitchInBytes: req.MinPitchInBytes, SizeInBytes: req.MinSizeInBytes})
+			}
+			dst, err := layout.Bind(buffers...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := h.DecodeTileInto(state, bs, nil, tile, 0, dst, 0); err != nil {
+				t.Fatal(err)
+			}
+			if err := cudaSynchronize(); err != nil {
+				t.Fatal(err)
+			}
+			for c, b := range buffers {
+				if layout.Components[c].Width != 32 || layout.Components[c].Height != 32 {
+					t.Fatalf("unexpected tile component: %+v", layout.Components[c])
+				}
+				got, err := cudaCopyToHost(b.Ptr, b.SizeInBytes)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var crop []byte
+				for y := 0; y < 32; y++ {
+					start := c*64*64 + (int(tile/2)*32+y)*64 + int(tile%2)*32
+					crop = append(crop, want[start:start+32]...)
+				}
+				if !bytes.Equal(got, crop) {
+					t.Errorf("component %d: %s", c, firstDifference(got, crop))
+				}
+			}
+		})
+	}
+}
