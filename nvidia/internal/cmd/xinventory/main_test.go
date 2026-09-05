@@ -9,13 +9,16 @@ import (
 
 func TestInventory(t *testing.T) {
 	root := t.TempDir()
-	for _, name := range []string{"internal", "testdata"} {
+	for _, name := range []string{"internal", "testdata", "empty"} {
 		if err := os.Mkdir(filepath.Join(root, name), 0755); err != nil {
 			t.Fatal(err)
 		}
 	}
 	dir := filepath.Join(root, "example")
 	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "example.go"), []byte("package example\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	source := "// Package example handles left | right\n// across wrapped lines. More details.\npackage example\n"
