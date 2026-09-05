@@ -1,0 +1,14 @@
+{
+  "commit": "42b07ada9d97a68164e81c2569a5ea7ae501ed8f",
+  "date_utc": "2026-09-05T23:37:59.588468+00:00",
+  "agent": "Codex",
+  "model": "GPT-6",
+  "codex_version": "codex-cli 0.153.4",
+  "claude_code_version": "2.1.257 (Claude Code)",
+  "tty": "unavailable: tool uses pipes",
+  "note_writer_pid": 83926,
+  "ITERM_SESSION_ID": "w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3",
+  "validation": "GOWORK=off go test ./ds4-min -run ^(TestOracleDrift|TestOracleComparisonShape|TestMaskedComparison)$ -count=1 PASS; git diff --check clean",
+  "commit_method": "Manual fallback: automatic helper already exhausted its two permitted attempts in this session for missing Anthropic API key.",
+  "scope": "Diagnostic only; no tolerance or production change, no GPU execution."
+}
