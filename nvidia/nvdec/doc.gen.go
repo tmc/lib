@@ -20,6 +20,7 @@
 // context to be locked around decode calls that share it.
 //
 // What this package does not do: it does not parse a container, own a CUDA
-// context, or provide a decode loop. Nothing in it has been run against a real
-// libnvcuvid from this repository's tests.
+// context, or provide a decode loop. Optional native tests cover H.264, HEVC
+// and AV1 on Linux. Windows has compiler and fixture ABI tests; native driver
+// execution remains unqualified.
 package nvdec
