@@ -43,7 +43,7 @@ func main() {
 	}
 }
 
-func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	cfg, err := parseConfig(args, stdin, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -57,11 +57,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	}
 	info, err := f.Stat()
 	if err != nil {
-		f.Close()
-		return fmt.Errorf("stat model: %w", err)
+		return fmt.Errorf("stat model: %w", errors.Join(err, f.Close()))
 	}
 	g, err := gguf.Read(f, info.Size())
-	f.Close()
+	err = errors.Join(err, f.Close())
 	if err != nil {
 		return fmt.Errorf("read model: %w", err)
 	}
@@ -80,7 +79,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer closer.Close()
+	defer func() {
+		if closeErr := closer.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close backend: %w", closeErr))
+		}
+	}()
 	s, err := newSession(b, cfg.context, tok.stops)
 	if err != nil {
 		return err
