@@ -3,6 +3,7 @@ package mxfp4
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -102,6 +103,8 @@ extern "C" __global__ void MXFP4LinearGEMV(
 
 // Engine manages compiled GPU functions for MXFP4 operations.
 type Engine struct {
+	mu          sync.Mutex
+	dev         *cuda.Device
 	mod         driver.Module
 	dequantFn   driver.Function
 	fusedGEMVFn driver.Function
@@ -131,22 +134,23 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 		return nil, fmt.Errorf("mxfp4: load module: %w", err)
 	}
 
-	dequantFn, err := loaded.GetFunction("MXFP4Dequantize")
+	e := &Engine{dev: dev, mod: loaded}
+	err = dev.WithContext(func() error {
+		var err error
+		e.dequantFn, err = loaded.GetFunction("MXFP4Dequantize")
+		if err != nil {
+			return fmt.Errorf("mxfp4: load dequantize kernel: %w", err)
+		}
+		e.fusedGEMVFn, err = loaded.GetFunction("MXFP4LinearGEMV")
+		if err != nil {
+			return fmt.Errorf("mxfp4: load linear kernel: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
-		_ = loaded.Unload()
-		return nil, fmt.Errorf("mxfp4: load dequantize kernel: %w", err)
+		return nil, errors.Join(err, e.Close())
 	}
-	fusedGEMVFn, err := loaded.GetFunction("MXFP4LinearGEMV")
-	if err != nil {
-		_ = loaded.Unload()
-		return nil, fmt.Errorf("mxfp4: load linear kernel: %w", err)
-	}
-
-	return &Engine{
-		mod:         loaded,
-		dequantFn:   dequantFn,
-		fusedGEMVFn: fusedGEMVFn,
-	}, nil
+	return e, nil
 }
 
 // LinearGEMV launches fused MXFP4 matrix-vector multiplication on the GPU.
@@ -163,9 +167,11 @@ func (e *Engine) LinearGEMV(
 	if err := validateLinear(x.Len(), packed.Len(), scales.Len(), outY.Len(), inDim, outDim, groupSize); err != nil {
 		return err
 	}
-	return cudalaunch.Kernel(e.fusedGEMVFn).
-		Grid(uint32(outDim)).Block(128).
-		Launch(x, packed, scales, outY, int32(inDim), int32(outDim), int32(groupSize))
+	return e.run(func() error {
+		return cudalaunch.Kernel(e.fusedGEMVFn).
+			Grid(uint32(outDim)).Block(128).
+			Launch(x, packed, scales, outY, int32(inDim), int32(outDim), int32(groupSize))
+	})
 }
 
 // Dequantize launches GPU-side dequantization from packed uint8 + scales into float32 destination.
@@ -182,20 +188,38 @@ func (e *Engine) Dequantize(
 		return err
 	}
 	numPairs := (totalElements + 1) / 2
-	return cudalaunch.Kernel(e.dequantFn).
-		Grid(uint32((numPairs+127)/128)).Block(128).
-		Launch(packed, scales, out, int32(totalElements), int32(groupSize))
+	return e.run(func() error {
+		return cudalaunch.Kernel(e.dequantFn).
+			Grid(uint32((numPairs+127)/128)).Block(128).
+			Launch(packed, scales, out, int32(totalElements), int32(groupSize))
+	})
 }
 
-// Close releases the loaded CUDA module.
+// Close releases the loaded CUDA module. Complete outstanding work before closing
+// the engine, and close the engine before its device. Repeated calls are harmless.
 func (e *Engine) Close() error {
 	if e == nil {
 		return nil
 	}
-	if e.mod != 0 {
-		return e.mod.Unload()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.mod == 0 {
+		return nil
 	}
+	if err := e.dev.WithContext(e.mod.Unload); err != nil {
+		return err
+	}
+	e.mod = 0
 	return nil
+}
+
+func (e *Engine) run(fn func() error) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.mod == 0 {
+		return errors.New("mxfp4: closed engine")
+	}
+	return e.dev.WithContext(fn)
 }
 
 func validateLinear(x, packed, scales, out, inDim, outDim, groupSize int) error {

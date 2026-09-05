@@ -81,19 +81,37 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 		t.Fatalf("QuantizeMatrix failed: %v", err)
 	}
 
-	xDev, _ := cudamem.Alloc[float32](dev, inDim)
+	xDev, err := cudamem.Alloc[float32](dev, inDim)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer xDev.Free()
-	_ = xDev.CopyFromHost(xHost)
+	if err := xDev.CopyFromHost(xHost); err != nil {
+		t.Fatal(err)
+	}
 
-	packedDev, _ := cudamem.Alloc[uint8](dev, len(qm.Packed))
+	packedDev, err := cudamem.Alloc[uint8](dev, len(qm.Packed))
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer packedDev.Free()
-	_ = packedDev.CopyFromHost(qm.Packed)
+	if err := packedDev.CopyFromHost(qm.Packed); err != nil {
+		t.Fatal(err)
+	}
 
-	scalesDev, _ := cudamem.Alloc[float32](dev, len(qm.Scales))
+	scalesDev, err := cudamem.Alloc[float32](dev, len(qm.Scales))
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer scalesDev.Free()
-	_ = scalesDev.CopyFromHost(qm.Scales)
+	if err := scalesDev.CopyFromHost(qm.Scales); err != nil {
+		t.Fatal(err)
+	}
 
-	outDev, _ := cudamem.Alloc[float32](dev, outDim)
+	outDev, err := cudamem.Alloc[float32](dev, outDim)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer outDev.Free()
 
 	if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
@@ -130,7 +148,24 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 		t.Fatalf("CopyToHost failed: %v", err)
 	}
 
-	t.Logf("Computed MXFP4 GEMV output sample: %v", outHost[:4])
+	for row, got := range outHost {
+		var want float32
+		for col, x := range xHost {
+			want += wantDequant[row*inDim+col] * x
+		}
+		if math.IsNaN(float64(got)) || math.Abs(float64(got-want)) > 1e-5 {
+			t.Fatalf("GEMV row %d = %v, want %v", row, got, want)
+		}
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err == nil {
+		t.Fatal("closed engine accepted a launch")
+	}
 }
 
 func BenchmarkMXFP4GEMV_Qwen38_Layer(b *testing.B) {
