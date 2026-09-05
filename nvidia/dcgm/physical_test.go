@@ -301,12 +301,6 @@ func TestTeardownRemovesOnlyOurs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating the unowned group: %v", err)
 	}
-	defer func() {
-		if err := GroupDestroy(s.Handle, foreign); err != nil {
-			t.Errorf("the unowned group could not be destroyed at the end of the test, "+
-				"which means something else already destroyed it: %v", err)
-		}
-	}()
 
 	owned, err := s.NewGroup("gotest-owned-group", GroupDefault)
 	if err != nil {
@@ -319,10 +313,12 @@ func TestTeardownRemovesOnlyOurs(t *testing.T) {
 		t.Error("the session claims a group it did not create")
 	}
 
-	// A second session over the same embedded engine would need a second
-	// engine, so ask the same handle instead: after Close the handle is
-	// gone, which is why the check runs before Close for the foreign group
-	// and after for the owned one.
+	// Destroy the raw group while its engine is still alive. Closing an
+	// embedded session stops the engine and invalidates all group handles.
+	// Foreign-group survival is tested only against a connected engine.
+	if err := GroupDestroy(s.Handle, foreign); err != nil {
+		t.Fatalf("destroy unowned group before engine shutdown: %v", err)
+	}
 	if err := s.Close(); err != nil {
 		t.Fatalf("Session.Close: %v", err)
 	}
