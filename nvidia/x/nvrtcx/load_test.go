@@ -1,27 +1,35 @@
 package nvrtcx
 
 import (
-	"fmt"
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
-func TestJITLogString(t *testing.T) {
-	for _, tt := range []struct{ name, input, want string }{
-		{"empty", "", ""},
-		{"terminated", "message\x00stale", "message"},
-		{"full", "truncated", "truncated"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := jitLogString([]byte(tt.input)); got != tt.want {
-				t.Fatalf("got %q want %q", got, tt.want)
-			}
-		})
+func TestLoadInvalidCUBIN(t *testing.T) {
+	if os.Getenv("CUDA_COMPILER_TEST") != "1" {
+		t.Skip("CUDA_COMPILER_TEST=1 required")
 	}
-}
-
-func ExampleCompiledModule_LoadOutputWithLog() {
-	var cm *CompiledModule
-	_, log, err := cm.LoadOutputWithLog(nil, OutputPTX)
-	fmt.Println(log.Output, err)
-	// Output: 1 nvrtcx: nil compiled module
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	// NUL-terminated non-ELF bytes make an invalid input regardless of whether
+	// the driver attempts to interpret it as a binary image or PTX text.
+	cm := &CompiledModule{output: OutputCUBIN, cubin: []byte("invalid cubin\x00")}
+	module, err := cm.Load(dev)
+	if err == nil {
+		_ = dev.WithContext(module.Unload)
+		t.Fatal("accepted invalid cubin")
+	}
+	if !strings.Contains(err.Error(), "load cubin:") {
+		t.Fatalf("lost cubin load diagnostic: %v", err)
+	}
 }
