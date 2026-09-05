@@ -73,3 +73,25 @@ func TestRejectOldNameCache(t *testing.T) {
 		t.Fatal("accepted version 4 cache")
 	}
 }
+
+func TestRejectInvalidCachedNames(t *testing.T) {
+	for _, tc := range []struct{ name, expression, lowered string }{
+		{"empty expression", "", "kernel"},
+		{"empty lowered name", "kernel", ""},
+		{"NUL expression", "kernel\x00other", "kernel"},
+		{"NUL lowered name", "kernel", "kernel\x00other"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cm := &CompiledModule{output: OutputPTX, ptx: "ptx", lowered: map[string]string{tc.expression: tc.lowered}}
+			data, err := encodeCacheEntry(cm)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The checksum is valid: rejection must come from the name contract,
+			// rather than treating this as a generic damaged-file case.
+			if _, err := decodeCacheEntry("key", data); err == nil {
+				t.Fatal("accepted invalid cached name")
+			}
+		})
+	}
+}
