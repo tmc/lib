@@ -143,6 +143,7 @@ type ModelEngine struct {
 	metrics         *RuntimeMetrics
 	drafter         *speculative.NgramDrafter
 	egraphSats      int
+	egraphKnown     bool
 	generateMu      sync.Mutex
 	Plan            *ExecutionPlan
 	consumption     CheckpointReceipt

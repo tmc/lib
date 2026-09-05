@@ -116,6 +116,22 @@ type RequestQueueTelemetry struct {
 	Reason   string        `json:"reason"`
 }
 
+// egraphSaturationTelemetry reports compile-time planning evidence, not GPU work.
+func egraphSaturationTelemetry(eng *ModelEngine) (*int, string) {
+	if eng == nil || !eng.egraphKnown {
+		return nil, "unmeasured"
+	}
+	count := eng.egraphSats
+	return &count, "compile-time rewrite merges"
+}
+
+func formatEGraphSaturations(count *int) string {
+	if count == nil {
+		return "Rewrite merges unmeasured"
+	}
+	return fmt.Sprintf("%d compile-time rewrite merges", *count)
+}
+
 // RuntimeSchedulingTelemetry supplies live service scheduling state and the
 // boundary of speculative runtime evidence.
 type RuntimeSchedulingTelemetry struct {
@@ -221,7 +237,8 @@ type TelemetryResponse struct {
 	ModelName         string                    `json:"model_name"`
 	HiddenDim         int                       `json:"hidden_dim"`
 	NumLayers         int                       `json:"num_layers"`
-	EGraphSats        int                       `json:"egraph_saturations"`
+	EGraphSats        *int                      `json:"egraph_saturations"`
+	EGraphSatsSource  string                    `json:"egraph_saturations_source"`
 	ActivePlan        string                    `json:"active_plan"`
 	ExecutionPlan     *ExecutionPlan            `json:"execution_plan,omitempty"`
 	TotalDispatches   int                       `json:"total_dispatches"`
@@ -498,11 +515,12 @@ func (s *TelemetryServer) routes() {
 // GraphPlan describes the small E-Graph expression used to select the active
 // RMSNorm and GEMV execution plan.
 type GraphPlan struct {
-	Fused       bool          `json:"fused"`
-	Saturations int           `json:"saturations"`
-	Before      *PlanNode     `json:"before"`
-	After       *PlanNode     `json:"after"`
-	Rewrites    []PlanRewrite `json:"rewrites"`
+	Fused             bool          `json:"fused"`
+	Saturations       *int          `json:"saturations"`
+	SaturationsSource string        `json:"saturations_source"`
+	Before            *PlanNode     `json:"before"`
+	After             *PlanNode     `json:"after"`
+	Rewrites          []PlanRewrite `json:"rewrites"`
 }
 
 // PlanNode is one expression in a graph plan.
@@ -560,11 +578,13 @@ func (s *TelemetryServer) graphPlan() (GraphPlan, error) {
 		return GraphPlan{}, fmt.Errorf("extract fused plan: %w", err)
 	}
 
+	saturations, source := egraphSaturationTelemetry(s.engine)
 	return GraphPlan{
-		Fused:       s.engine.fusionActive(),
-		Saturations: s.engine.egraphSats,
-		Before:      planNode(before, nil),
-		After:       planNode(after, egraph.HeterogeneousPartition(after)),
+		Fused:             s.engine.fusionActive(),
+		Saturations:       saturations,
+		SaturationsSource: source,
+		Before:            planNode(before, nil),
+		After:             planNode(after, egraph.HeterogeneousPartition(after)),
 		Rewrites: []PlanRewrite{
 			{Name: rules[0].Name, Matched: matched[0]},
 			{Name: rules[1].Name, Matched: matched[1]},
@@ -861,11 +881,13 @@ func (s *TelemetryServer) getStats() TelemetryResponse {
 	}
 	roofline := s.rooflineTelemetry(mesh)
 
+	saturations, source := egraphSaturationTelemetry(s.engine)
 	return TelemetryResponse{
 		ModelName:         s.cfg.Name,
 		HiddenDim:         s.cfg.Dim,
 		NumLayers:         s.cfg.NumLayers,
-		EGraphSats:        s.engine.egraphSats,
+		EGraphSats:        saturations,
+		EGraphSatsSource:  source,
 		ActivePlan:        activePlan,
 		ExecutionPlan:     s.engine.Plan,
 		TotalDispatches:   len(events),
@@ -1352,7 +1374,7 @@ func (s *TelemetryServer) handleDashboard(w http.ResponseWriter, r *http.Request
 	}
 
 	htmlOut := fmt.Sprintf(htmlTemplate,
-		stats.ActivePlan, stats.EGraphSats,
+		stats.ActivePlan, formatEGraphSaturations(stats.EGraphSats),
 		stats.TotalDispatches,
 		stats.P50LatencyUs,
 		stats.P95LatencyUs,
@@ -1957,7 +1979,7 @@ const htmlTemplate = `<!DOCTYPE html>
             <div class="metric-card">
                 <div class="metric-label">Active E-Graph Plan</div>
                 <div class="metric-value" id="plan" style="font-size: 15px; color: var(--accent);">%s</div>
-                <div class="metric-sub">%d Saturation Passes</div>
+                <div class="metric-sub">%s</div>
             </div>
             <div class="metric-card">
                 <div class="metric-label">Total GPU Dispatches</div>

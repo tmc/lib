@@ -174,6 +174,7 @@ type ModelEngine struct {
 	tokenizer   Tokenizer
 	weights     *metalsafetensors.Weights
 	egraphSats  int
+	egraphKnown bool
 	Plan        *ExecutionPlan
 	cacheKey    string
 	consumption CheckpointReceipt
@@ -2098,6 +2099,7 @@ func getOrCompileDarwinEngine(cfg Config) (*ModelEngine, error) {
 		tokenizer:     tok,
 		weights:       weights,
 		egraphSats:    egraphSats,
+		egraphKnown:   cfg.FuseEGraph,
 		recorder:      metalprof.NewFlightRecorder(2048),
 		metrics:       metrics,
 		prefixes:      newPrefixCache(64<<20, 8),
@@ -3546,11 +3548,11 @@ func runFastMetalInference(eng *ModelEngine, cfg Config) {
 	fmt.Printf("[Memory Planner] Zero-Copy Unified Memory Buffers Active\n")
 	switch {
 	case eng.fusionActive():
-		fmt.Printf("[E-Graph Megakernel] Active: saturated %d equivalence classes with fused RMSNorm+GEMV & SwiGLU\n\n", eng.egraphSats)
+		fmt.Printf("[E-Graph] %d planning rewrite merges; fused RMSNorm+GEMV and SwiGLU operations active\n\n", eng.egraphSats)
 	case cfg.FuseEGraph:
-		fmt.Printf("[E-Graph Megakernel] Saturated %d equivalence classes; f16 weights execute the discrete kernels\n\n", eng.egraphSats)
+		fmt.Printf("[E-Graph] %d planning rewrite merges; f16 weights execute discrete kernels\n\n", eng.egraphSats)
 	default:
-		fmt.Printf("[E-Graph Megakernel] Disabled: standard layer scheduling\n\n")
+		fmt.Printf("[E-Graph] Disabled: standard layer scheduling\n\n")
 	}
 
 	fmt.Printf("--- 10-Step Autoregressive Token Generation (Apple Metal GPU Resident) ---\n")

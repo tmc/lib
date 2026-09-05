@@ -45,8 +45,9 @@ func TestTelemetryServer(t *testing.T) {
 	})
 
 	eng := &ModelEngine{
-		recorder:   rec,
-		egraphSats: 4,
+		recorder:    rec,
+		egraphSats:  4,
+		egraphKnown: true,
 	}
 
 	cfg := Config{
@@ -104,8 +105,8 @@ func TestTelemetryServer(t *testing.T) {
 	if resp.ModelName != "Test-Model-7B" || resp.TotalDispatches != 2 {
 		t.Errorf("unexpected telemetry response: %+v", resp)
 	}
-	if resp.EGraphSats != 4 {
-		t.Errorf("expected 4 egraph saturations, got %d", resp.EGraphSats)
+	if resp.EGraphSats == nil || *resp.EGraphSats != 4 {
+		t.Errorf("expected 4 egraph rewrite merges, got %v", resp.EGraphSats)
 	}
 	if len(resp.RecentTimeline) != 2 {
 		t.Errorf("expected 2 timeline events, got %d", len(resp.RecentTimeline))
@@ -360,3 +361,51 @@ func searchSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestEGraphSaturationProvenance(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		engine *ModelEngine
+		want   *int
+	}{
+		{"absent engine", nil, nil},
+		{"unrecorded zero", &ModelEngine{}, nil},
+		{"unrecorded nonzero", &ModelEngine{egraphSats: 7}, nil},
+		{"recorded zero", &ModelEngine{egraphKnown: true}, new(int)},
+		{"recorded merges", &ModelEngine{egraphSats: 4, egraphKnown: true}, newIntForTelemetryTest(4)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			count, source := egraphSaturationTelemetry(tc.engine)
+			if (count == nil) != (tc.want == nil) || count != nil && *count != *tc.want {
+				t.Fatalf("count=%v want %v", count, tc.want)
+			}
+			wantSource := "unmeasured"
+			if tc.want != nil {
+				wantSource = "compile-time rewrite merges"
+			}
+			if source != wantSource {
+				t.Fatalf("source=%q want %q", source, wantSource)
+			}
+			for _, value := range []any{TelemetryResponse{EGraphSats: count}, GraphPlan{Saturations: count}} {
+				data, err := json.Marshal(value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var fields map[string]json.RawMessage
+				if err := json.Unmarshal(data, &fields); err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range []string{"egraph_saturations", "saturations"} {
+					if raw, ok := fields[name]; ok && tc.want == nil && string(raw) != "null" {
+						t.Fatalf("unmeasured counter emitted a value: %s", data)
+					}
+				}
+			}
+			if tc.want == nil && formatEGraphSaturations(count) != "Rewrite merges unmeasured" {
+				t.Fatal("dashboard presents an unmeasured count as observed")
+			}
+		})
+	}
+}
+
+func newIntForTelemetryTest(n int) *int { return &n }

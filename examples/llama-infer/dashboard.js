@@ -808,7 +808,10 @@ async function refreshGraphPlan() {
         });
         const targetEl = document.getElementById('graph-rewrites');
         if (targetEl) {
-            targetEl.textContent = rewrites.join(' · ') + ' · ' + graphPlan.saturations + ' recorded saturation iterations';
+            const saturationText = graphPlan.saturations == null
+                ? 'rewrite merges unmeasured'
+                : graphPlan.saturations + ' ' + graphPlan.saturations_source;
+            targetEl.textContent = rewrites.join(' · ') + ' · ' + saturationText;
         }
     } catch (err) {
         const targetEl = document.getElementById('graph-rewrites');
