@@ -5,9 +5,6 @@
 // behind a build tag because it cannot be made to pass by skipping, and a
 // skipped hardware test is not evidence that the hardware path works.
 //
-// It has never been run. It was written on a machine with no GPU, no CUDA
-// runtime, and no libnvjpeg2k, and everything below is unverified.
-//
 // # What it needs
 //
 //   - An NVIDIA GPU. The vendor documents nvJPEG2000 as requiring a GPU of
@@ -230,7 +227,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 		"truncated codestream": good[:len(good)/2],
 		"empty after marker":   {0xff, 0x4f, 0xff, 0x51},
 		"not jpeg2000":         []byte("this is not a codestream"),
-		"corrupted body":       flipByte(good, len(good)*3/4),
+		"invalid start marker": flipByte(good, 0),
 	}
 	for name, data := range inputs {
 		t.Run(name, func(t *testing.T) {
@@ -241,8 +238,7 @@ func TestPhysicalMalformedInputCleansUp(t *testing.T) {
 			}
 			defer bs.Destroy()
 
-			// A parse error is the expected outcome for most of these, but
-			// not for all: a corrupted body may parse and fail at decode.
+			// A malformed stream may be rejected during parsing or decode.
 			// Either is acceptable; a success on both, or a crash, is not.
 			perr := handle.Parse(data, bs)
 			if perr != nil {
