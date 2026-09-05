@@ -11,26 +11,16 @@ import (
 	"github.com/tmc/lib/nvidia/nvcomp"
 )
 
-// The tests in this file are the only ones here that could show the bindings
-// work, as opposed to showing that their shapes agree with the header.
-//
-// None of them has ever been run. This working tree has no NVIDIA GPU, no CUDA
-// driver and no libnvcomp, and the session that wrote them was not permitted
-// to reach a machine that has them. Treat them as an unexecuted specification
-// of what would count as evidence, not as passing tests.
-//
-// They are opt-in so that absent hardware cannot masquerade as success. Once
-// the environment variable is set, every missing prerequisite is a failure and
-// nothing below skips.
+// Native tests are opt-in. Once enabled, missing prerequisites fail.
 
 // TestBatchedLZ4RoundTrip compresses a batch, decompresses it and compares the
-// bytes, then corrupts a compressed chunk and checks that the failure shows up
+// bytes, then undersizes an output buffer and checks that the failure shows up
 // in the per-chunk statuses.
 //
 // The second half is the part worth having. A status array that the library
 // never wrote reads as all zeros, and zero is nvcompSuccess, so a test that
 // only ever compresses data that works cannot tell a batch that succeeded from
-// a batch whose statuses were never filled in. Corrupting one chunk and
+// a batch whose statuses were never filled in. Undersizing one output and
 // requiring a non-success status for exactly that chunk is what distinguishes
 // them.
 //
@@ -52,7 +42,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 		t.Skip("set NVCOMP_PHYSICAL_TEST=1 to run against a real libnvcomp and NVIDIA GPU")
 	}
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+	t.Cleanup(runtime.UnlockOSThread)
 	check := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -67,7 +57,7 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	check(err)
 	ctx, err := dev.PrimaryCtxRetain()
 	check(err)
-	t.Cleanup(func() { dev.PrimaryCtxRelease() })
+	t.Cleanup(func() { check(dev.PrimaryCtxRelease()) })
 	check(ctx.SetCurrent())
 
 	props, err := nvcomp.GetProperties()
@@ -183,16 +173,15 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 		t.Fatal("round trip did not reproduce the input")
 	}
 
-	// Negative control. Overwrite the first compressed chunk with bytes that
-	// are not an LZ4 stream and require that chunk, and only that chunk, to
-	// report a failure. If this passes with every status still success, the
-	// statuses are not being written and every check of them above was
-	// vacuous.
-	garbage := make([]byte, compressedBytes[0])
-	for i := range garbage {
-		garbage[i] = 0xa5
-	}
-	check(outData.MemcpyHtoD(unsafe.Pointer(&garbage[0]), uint(len(garbage))))
+	t.Logf("round trip matched %d bytes across %d chunks", len(got), numChunks)
+
+	// The header guarantees CannotDecompress for an undersized output buffer.
+	// Arbitrary changed LZ4 bytes can still describe a valid stream, so they
+	// are not a reliable status-writing control.
+	capacities := repeat(chunkBytes, numChunks)
+	capacities[0] = 1
+	writeUints(t, bufferBytes, capacities)
+
 	err = nvcomp.DecompressAsync(
 		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
 		nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
@@ -203,12 +192,13 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	check(err)
 	check(ctx.SynchronizeV2())
 	corrupt := readStatuses(t, statuses, numChunks)
+	t.Logf("undersized output statuses: %v", corrupt)
 	if corrupt[0] == nvcomp.Success {
-		t.Error("decompressing a corrupted chunk reported success; the per-chunk statuses carry no information")
+		t.Error("undersized output reported success")
 	}
 	for i, s := range corrupt[1:] {
 		if s != nvcomp.Success {
-			t.Errorf("chunk %d reported %v, but only chunk 0 was corrupted", i+1, s)
+			t.Errorf("chunk %d reported %v, but only chunk 0 had insufficient capacity", i+1, s)
 		}
 	}
 }
@@ -256,11 +246,18 @@ func TestPropertiesMatchHeaders(t *testing.T) {
 // deviceAllocT allocates device memory for the duration of the test.
 func deviceAllocT(t *testing.T, bytes uint) driver.DevicePtr {
 	t.Helper()
+	if bytes == 0 {
+		return 0
+	}
 	p, err := driver.MemAlloc(bytes)
 	if err != nil {
 		t.Fatalf("allocating %d bytes on the device: %v", bytes, err)
 	}
-	t.Cleanup(func() { p.MemFree() })
+	t.Cleanup(func() {
+		if err := p.MemFree(); err != nil {
+			t.Errorf("free device memory: %v", err)
+		}
+	})
 	return p
 }
 
