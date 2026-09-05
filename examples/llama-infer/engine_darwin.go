@@ -3677,12 +3677,9 @@ func RunBenchSuite(cfg Config, count int) error {
 	if eng.dev != nil && eng.dev.Name() != "" {
 		devName = eng.dev.Name()
 	}
-	hwProf := gpuprof.HardwareProfile{
-		Name:              devName,
-		Source:            "device-query",
-		PeakBandwidthGBps: 400.0,
-		PeakTFLOPs:        40.0,
-	}
+	// The device query supplies a name, not measured bandwidth or compute peaks.
+	// Leave peaks unconfigured so normalized estimates are omitted.
+	hwProf := gpuprof.HardwareProfile{Name: devName}
 
 	for _, depth := range searchDepths {
 		prefix := fmt.Sprintf("Benchmark%s/backend=metal/gen_tokens=%d/prompt=neural_network/search_graphs=%d", cfg.Name, numGen, depth)

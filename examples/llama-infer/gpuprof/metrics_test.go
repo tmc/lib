@@ -209,3 +209,27 @@ func TestFormatBenchmarkMetricLine(t *testing.T) {
 		t.Errorf("expected dense-model-TFLOPs/s in %q", line)
 	}
 }
+
+func TestUnconfiguredHardwarePeaks(t *testing.T) {
+	model := ModelProfile{
+		HiddenDim: 64, IntermediateDim: 128, NumLayers: 2,
+		NumHeads: 4, NumKVHeads: 2, HeadDim: 16, VocabSize: 256,
+		BytesPerParam: 4,
+	}
+	est, err := EstimateWorkload(model, HardwareProfile{Name: "queried device name"}, 8, time.Second, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if est.HardwareSource != "unspecified" || est.AssumedPeakBWPercent != 0 || est.AssumedPeakComputePercent != 0 {
+		t.Fatalf("unconfigured peaks acquired values or provenance: %+v", est)
+	}
+	line := FormatBenchmarkMetricLine("BenchmarkUnknownPeaks", "prefill", int64(time.Second), Observation{ThroughputTokPerSec: 8}, &est)
+	if strings.Contains(line, "assumed-peak-") {
+		t.Fatalf("unconfigured peaks emitted as measurements: %s", line)
+	}
+	for _, unit := range []string{"ns/op", "tok/s", "model-weight-GB/s", "dense-model-TFLOPs/s"} {
+		if !strings.Contains(line, unit) {
+			t.Errorf("missing independent metric %s in %s", unit, line)
+		}
+	}
+}
