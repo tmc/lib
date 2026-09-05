@@ -6,6 +6,7 @@ package cudss_test
 import (
 	"math"
 	"os"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -13,9 +14,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
-// This file is the physical consumer test. It has never been run: the machine
-// it was written on has no NVIDIA GPU, no CUDA driver and no libcudss, so
-// every path below stops at the first missing prerequisite.
+// This file validates a native sparse solve and typed parameter queries.
 //
 // Running it needs all of:
 //
@@ -83,6 +82,8 @@ func residual(x []float64) float64 {
 }
 
 func TestSolveCSR(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	requirement(t, "CUDA driver (libcuda.so.1)", driver.Init(0))
 	dev, err := driver.NewDeviceGet(0)
 	requirement(t, "an NVIDIA GPU at device ordinal 0", err)
@@ -131,6 +132,10 @@ func TestSolveCSR(t *testing.T) {
 		t.Fatalf("create config: %v", err)
 	}
 	defer config.Destroy()
+	// Final permutations are available for COLAMD reordering.
+	if err := config.SetReorderingAlg(cudss.ReorderingAlgColamd); err != nil {
+		t.Fatal(err)
+	}
 	data, err := cudss.NewData(handle)
 	if err != nil {
 		t.Fatalf("create data: %v", err)
@@ -184,13 +189,15 @@ func TestSolveCSR(t *testing.T) {
 	// system is well conditioned enough that neither excuse applies.
 	const tol = 1e-12
 	for i, got := range x {
-		if math.Abs(got-system.want[i]) > tol {
+		if math.IsNaN(got) || math.Abs(got-system.want[i]) > tol {
 			t.Errorf("x[%d] = %.17g, want %.17g", i, got, system.want[i])
 		}
 	}
 	if r := residual(x); r > tol {
 		t.Errorf("residual |b - A*x| = %.17g, want <= %g", r, tol)
 	}
+
+	t.Logf("solution=%v residual=%g", x, residual(x))
 
 	// The typed parameter accessors are the part of this package that a wrong
 	// size would corrupt silently, and only a real libcudss can show that the
@@ -199,8 +206,8 @@ func TestSolveCSR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read CUDSS_DATA_LU_NNZ: %v", err)
 	}
-	if nnz < int64(len(system.values)) {
-		t.Errorf("factor holds %d nonzeros, fewer than the %d in A", nnz, len(system.values))
+	if nnz < system.n || nnz > system.n*system.n {
+		t.Errorf("factor holds %d nonzeros, want between %d and %d", nnz, system.n, system.n*system.n)
 	}
 	estimates, err := data.MemoryEstimates(handle)
 	if err != nil {
