@@ -71,6 +71,9 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 				mod = m
 				return nil
 			}
+			if cm.ptx == "" {
+				return fmt.Errorf("load cubin: %w", err)
+			}
 		}
 		// Fallback to loading PTX string
 		if cm.ptx != "" {
