@@ -67,7 +67,8 @@ var (
 	ErrToolNotFound = errors.New("compute-sanitizer not found")
 
 	// ErrTimeout means the run exceeded [Config.Timeout] or the caller's
-	// context deadline and its process group was killed.
+	// context deadline. The runner kills its process group on Unix and the
+	// direct child on other platforms.
 	ErrTimeout = errors.New("run timed out")
 
 	// ErrNoVerdict means no complete report was available: the tool emitted
@@ -145,10 +146,11 @@ type Result struct {
 // switch on [Result.Outcome] rather than on an error.
 //
 // Run bounds the subprocess with ctx and, if set, [Config.Timeout], whichever
-// expires first. On expiry the whole process group is killed, not just the
-// direct child, because compute-sanitizer launches the application as a
-// separate process. Either expiry produces [OutcomeToolFailure] with
-// [ErrTimeout]; a timed-out run is never reported as a pass.
+// expires first. On Unix, the run owns a process group that is killed on
+// expiry and cleaned up after the tool exits, including descendants whose
+// parent already exited. Other platforms currently kill only the direct child.
+// Either expiry produces [OutcomeToolFailure] with [ErrTimeout]; a timed-out
+// run is never reported as a pass.
 func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -225,12 +227,8 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 		}
 	}
 
-	var exitErr *exec.ExitError
-	switch {
-	case runErr == nil:
-		res.ExitCode = 0
-	case errors.As(runErr, &exitErr):
-		res.ExitCode = exitErr.ExitCode()
+	if cmd.ProcessState != nil {
+		res.ExitCode = cmd.ProcessState.ExitCode()
 	}
 
 	res.checkEvidence(stdout, stderr)
@@ -241,9 +239,8 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 	return res, nil
 }
 
-// runContext starts cmd and waits for it, translating a context expiry into a
-// killed process group. exec.Cmd's own Cancel and WaitDelay do the killing;
-// this keeps the context plumbing in one place.
+// runContext bounds cmd with ctx and cleans up its process group when the
+// run ends. WaitDelay also bounds pipes kept open after the leader exits.
 func runContext(ctx context.Context, cmd *exec.Cmd) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -255,6 +252,8 @@ func runContext(ctx context.Context, cmd *exec.Cmd) error {
 	go func() { done <- cmd.Wait() }()
 	select {
 	case err := <-done:
+		// The leader may exit before its children, including on tool failure.
+		_ = killGroup(cmd)
 		return err
 	case <-ctx.Done():
 		// Kill the whole group: compute-sanitizer runs the application as

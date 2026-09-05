@@ -29,8 +29,8 @@ const DefaultErrorExitCode = 66
 // each [Result] retains when [Config.MaxOutputBytes] is zero.
 const DefaultMaxOutputBytes = 1 << 20
 
-// DefaultKillDelay is the grace period between cancelling a run and killing the
-// process group outright, used when [Config.KillDelay] is zero.
+// DefaultKillDelay bounds waiting for inherited output pipes to close after
+// the process exits, used when [Config.KillDelay] is zero.
 const DefaultKillDelay = 5 * time.Second
 
 // Tool selects a compute-sanitizer checking tool. The values are the tool's own
@@ -233,8 +233,9 @@ type Config struct {
 	// and either produces [OutcomeToolFailure], never a pass.
 	Timeout time.Duration
 
-	// KillDelay is the grace period between cancelling the run and killing
-	// the process group. Zero means [DefaultKillDelay].
+	// KillDelay bounds waiting for output pipes after the process exits.
+	// Cancellation kills the process group immediately on Unix; this delay
+	// does not postpone that signal. Zero means [DefaultKillDelay].
 	KillDelay time.Duration
 
 	// LogDir, when non-empty, is a directory in which the tool's log file

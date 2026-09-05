@@ -28,16 +28,18 @@ import (
 // Environment variables the fixture reads. They are namespaced so that a
 // stray value cannot influence anything but the fixture.
 const (
-	fakeArgvFile = "CUDASANITIZER_FIXTURE_ARGV_FILE"
-	fakeReport   = "CUDASANITIZER_FIXTURE_REPORT"
-	fakeNoLog    = "CUDASANITIZER_FIXTURE_NO_LOG"
-	fakeStdout   = "CUDASANITIZER_FIXTURE_STDOUT"
-	fakeStderr   = "CUDASANITIZER_FIXTURE_STDERR"
-	fakeExit     = "CUDASANITIZER_FIXTURE_EXIT"
-	fakeSleep    = "CUDASANITIZER_FIXTURE_SLEEP"
-	fakeSpawn    = "CUDASANITIZER_FIXTURE_SPAWN_SLEEPER"
-	fakeSleeper  = "CUDASANITIZER_FIXTURE_SLEEPER"
-	fakeExecApp  = "CUDASANITIZER_FIXTURE_EXEC_APP"
+	fakeArgvFile     = "CUDASANITIZER_FIXTURE_ARGV_FILE"
+	fakeReport       = "CUDASANITIZER_FIXTURE_REPORT"
+	fakeNoLog        = "CUDASANITIZER_FIXTURE_NO_LOG"
+	fakeStdout       = "CUDASANITIZER_FIXTURE_STDOUT"
+	fakeStderr       = "CUDASANITIZER_FIXTURE_STDERR"
+	fakeExit         = "CUDASANITIZER_FIXTURE_EXIT"
+	fakeSleep        = "CUDASANITIZER_FIXTURE_SLEEP"
+	fakeSpawn        = "CUDASANITIZER_FIXTURE_SPAWN_SLEEPER"
+	fakeChildPID     = "CUDASANITIZER_FIXTURE_CHILD_PID"
+	fakeChildNoPipes = "CUDASANITIZER_FIXTURE_CHILD_NO_PIPES"
+	fakeSleeper      = "CUDASANITIZER_FIXTURE_SLEEPER"
+	fakeExecApp      = "CUDASANITIZER_FIXTURE_EXEC_APP"
 )
 
 // Environment variables that turn this test binary into a package whose
@@ -131,10 +133,20 @@ func main() {
 		c.Env = append(os.Environ(), "CUDASANITIZER_FIXTURE_SLEEPER=1")
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
+        if os.Getenv("CUDASANITIZER_FIXTURE_CHILD_NO_PIPES") != "" {
+            c.Stdout, c.Stderr = nil, nil
+        }
 		if err := c.Start(); err != nil {
 			fmt.Fprintln(os.Stderr, "fixture:", err)
 			os.Exit(120)
 		}
+
+        if path := os.Getenv("CUDASANITIZER_FIXTURE_CHILD_PID"); path != "" {
+            if err := os.WriteFile(path, []byte(strconv.Itoa(c.Process.Pid)), 0o600); err != nil {
+                fmt.Fprintln(os.Stderr,"fixture:",err)
+                os.Exit(120)
+            }
+        }
 	}
 	if d := os.Getenv("CUDASANITIZER_FIXTURE_SLEEP"); d != "" {
 		if dur, err := time.ParseDuration(d); err == nil {
