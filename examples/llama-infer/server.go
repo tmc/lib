@@ -135,6 +135,8 @@ func formatEGraphSaturations(count *int) string {
 // RuntimeSchedulingTelemetry supplies live service scheduling state and the
 // boundary of speculative runtime evidence.
 type RuntimeSchedulingTelemetry struct {
+	ServingMode  string                `json:"serving_mode"`
+	ServingError string                `json:"serving_error,omitempty"`
 	RequestQueue RequestQueueTelemetry `json:"request_queue"`
 	Speculation  SpeculationTelemetry  `json:"speculation"`
 }
@@ -270,9 +272,10 @@ type TelemetryServer struct {
 	pgoMu      sync.RWMutex
 	pgoTracker *egraph.PGOTracker
 
-	requestScheduler *requestSlotScheduler
-	continuous       *continuousbatch.Scheduler
-	continuousEngine servingBackend
+	requestScheduler  *requestSlotScheduler
+	continuous        *continuousbatch.Scheduler
+	continuousEngine  servingBackend
+	continuousInitErr error
 }
 
 // RecordGeneration appends a completed generation event with node routing attribution.
@@ -295,9 +298,20 @@ func NewTelemetryServer(engine *ModelEngine, cfg Config) *TelemetryServer {
 		requestScheduler: newRequestSlotScheduler(1),
 	}
 	if engine != nil {
-		if backend, err := newPlatformServingBackend(engine, cfg, 8); err == nil {
-			s.continuousEngine = backend
-			s.continuous, _ = newServingScheduler(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})
+		backend, err := newPlatformServingBackend(engine, cfg, 8)
+		if err != nil {
+			s.continuousInitErr = fmt.Errorf("initialize continuous serving backend: %w", err)
+		} else {
+			scheduler, err := newServingScheduler(backend, continuousbatch.Config{MaxActive: 8, MaxQueue: 64, MaxBatch: 8, BatchWait: 10 * time.Millisecond, TokenBuffer: 16, PrefillWorkers: 4})
+			if err != nil {
+				s.continuousInitErr = fmt.Errorf("initialize continuous serving scheduler: %w", err)
+				if backend != nil {
+					backend.Close()
+				}
+			} else {
+				s.continuousEngine = backend
+				s.continuous = scheduler
+			}
 		}
 	}
 	s.routes()
@@ -1086,7 +1100,17 @@ func (s *TelemetryServer) runtimeSchedulingTelemetry() RuntimeSchedulingTelemetr
 			speculation.Trace = &latest
 		}
 	}
-	return RuntimeSchedulingTelemetry{RequestQueue: queue, Speculation: speculation}
+	mode := "serial"
+	if s.continuous != nil {
+		mode = "continuous-batch"
+	} else if s.engine == nil {
+		mode = "unavailable"
+	}
+	var initError string
+	if s.continuousInitErr != nil {
+		initError = s.continuousInitErr.Error()
+	}
+	return RuntimeSchedulingTelemetry{RequestQueue: queue, Speculation: speculation, ServingMode: mode, ServingError: initError}
 }
 
 func (s *TelemetryServer) memoryTelemetry() MemoryTelemetryResponse {

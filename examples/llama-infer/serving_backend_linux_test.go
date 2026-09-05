@@ -858,3 +858,29 @@ func TestServingBackendBoundaryPreservesRequestContexts(t *testing.T) {
 		t.Fatal("backend close blocked on scheduler or device work")
 	}
 }
+
+func TestCUDAServingInitializationTelemetry(t *testing.T) {
+	s := NewTelemetryServer(&ModelEngine{}, Config{})
+	got := s.runtimeSchedulingTelemetry()
+	if got.ServingMode != "serial" || !strings.Contains(got.ServingError, "initialize continuous serving backend") {
+		t.Fatalf("failed backend hidden: %+v", got)
+	}
+	if s.continuousEngine != nil || s.continuous != nil {
+		t.Fatal("failed backend published as initialized")
+	}
+	backend := &fakeServingBackend{}
+	scheduler, err := newServingScheduler(backend, continuousbatch.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer scheduler.Close()
+	s = &TelemetryServer{engine: &ModelEngine{}, continuous: scheduler, continuousEngine: backend}
+	got = s.runtimeSchedulingTelemetry()
+	if got.ServingMode != "continuous-batch" || got.ServingError != "" {
+		t.Fatalf("live scheduler not reported: %+v", got)
+	}
+	s = NewTelemetryServer(nil, Config{})
+	if got := s.runtimeSchedulingTelemetry(); got.ServingMode != "unavailable" {
+		t.Fatalf("missing engine reported as live: %+v", got)
+	}
+}

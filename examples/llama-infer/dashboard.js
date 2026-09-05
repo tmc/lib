@@ -630,7 +630,7 @@ function requestSlotLine(slot) {
     return line;
 }
 
-function renderRequestSlotQueue(queue) {
+function renderRequestSlotQueue(queue, servingMode, servingError) {
     const container = document.getElementById('request-slot-queue');
     if (!container) return;
     container.replaceChildren();
@@ -649,7 +649,8 @@ function renderRequestSlotQueue(queue) {
     container.append(summary);
     const policy = document.createElement('div');
     policy.style.cssText = 'color:#77817e; font:11px ui-monospace, monospace;';
-    policy.textContent = queue.reason;
+    policy.textContent = queue.reason + (servingMode ? ' Serving mode: ' + servingMode + '.' : '') +
+        (servingError ? ' Continuous batching unavailable: ' + servingError : '');
     container.append(policy);
     const slots = queue.slots || [];
     if (slots.length === 0) {
@@ -763,7 +764,7 @@ async function refreshRuntimeScheduling() {
         const res = await fetch('/api/runtime/scheduling');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        renderRequestSlotQueue(data.request_queue);
+        renderRequestSlotQueue(data.request_queue, data.serving_mode, data.serving_error);
         renderSpeculativeTree(data.speculation);
     } catch (err) {
         const reason = 'Runtime scheduling endpoint unavailable: ' + err.message;
