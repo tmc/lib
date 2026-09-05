@@ -835,12 +835,19 @@ func RunBenchSuite(cfg Config, count int) error {
 		numGen = 16
 	}
 
-	// Warmup run
-	// Warmup run with clean KV cache
-	_ = eng.ResetKV()
-	curr := GPUPrefillPass(eng, cfg, promptTokens)
-	for s := 0; s < 2; s++ {
-		curr = GPUForwardPass(eng, cfg, curr, len(promptTokens)+s)
+	// Warm up the production prefill and decode paths with a clean KV cache.
+	if err := eng.ResetKV(); err != nil {
+		return fmt.Errorf("cuda benchmark warmup reset: %w", err)
+	}
+	curr, err := GPUBatchedPrefillPass(eng, cfg, promptTokens)
+	if err != nil {
+		return fmt.Errorf("cuda benchmark warmup prefill: %w", err)
+	}
+	for step := 0; step < 2; step++ {
+		curr, err = GPUForwardPassKV(eng, cfg, nil, curr, len(promptTokens)+step)
+		if err != nil {
+			return fmt.Errorf("cuda benchmark warmup decode: %w", err)
+		}
 	}
 
 	searchDepths := cfg.SearchDepths
@@ -880,15 +887,23 @@ func RunBenchSuite(cfg Config, count int) error {
 		prefix := fmt.Sprintf("Benchmark%s/backend=cuda/gen_tokens=%d/prompt=neural_network/search_graphs=%d", cfg.Name, numGen, depth)
 
 		for iter := 0; iter < count; iter++ {
-			_ = eng.ResetKV()
+			if err := eng.ResetKV(); err != nil {
+				return fmt.Errorf("cuda benchmark reset: %w", err)
+			}
 			t0 := time.Now()
-			currTok := GPUPrefillPass(eng, cfg, promptTokens)
+			currTok, err := GPUBatchedPrefillPass(eng, cfg, promptTokens)
 			ttftDur := time.Since(t0)
+			if err != nil {
+				return fmt.Errorf("cuda benchmark prefill: %w", err)
+			}
 
 			tDec0 := time.Now()
 			for step := 0; step < numGen; step++ {
 				pos := len(promptTokens) + step
-				currTok = GPUForwardPass(eng, cfg, currTok, pos)
+				currTok, err = GPUForwardPassKV(eng, cfg, nil, currTok, pos)
+				if err != nil {
+					return fmt.Errorf("cuda benchmark decode: %w", err)
+				}
 			}
 			decDur := time.Since(tDec0)
 
