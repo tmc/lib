@@ -26,15 +26,16 @@ type cudaBatchLaunches struct {
 
 // GPUBatchScratchpad owns fixed-capacity packed [B,D] activation storage.
 type GPUBatchScratchpad struct {
-	X, NormX, Q, K, V, AttnOut cudamem.Slice[float32]
-	Gate, Up, FFNAct, FFNOut   cudamem.Slice[float32]
-	Logits                     cudamem.Slice[float32]
-	TokenIn, TokenOut          cudamem.Slice[int32]
-	hostTokenIn, hostTokenOut  []int32
-	capacity                   int
-	arena                      *cudamem.Arena
-	lmHead                     *cudaMatrixProjection
-	gateUp                     []cudaMatrixPlan
+	X, NormX, Q, K, V, AttnOut                   cudamem.Slice[float32]
+	Gate, Up, FFNAct, FFNOut                     cudamem.Slice[float32]
+	Logits                                       cudamem.Slice[float32]
+	TokenIn, TokenOut                            cudamem.Slice[int32]
+	hostTokenIn, hostTokenOut                    []int32
+	capacity                                     int
+	arena                                        *cudamem.Arena
+	lmHead                                       *cudaMatrixProjection
+	gateUp                                       []cudaMatrixPlan
+	prefillQ, prefillKV, prefillOut, prefillDown []cudaMatrixPlan
 }
 
 func newGPUBatchScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
@@ -131,6 +132,13 @@ func (sp *GPUBatchScratchpad) Free() {
 // launches remain per row.
 func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratchpad,
 	caches []*SequenceKVCache, tokens []int32, positions []int) (result []int32, stats cudaBatchLaunches, err error) {
+	return gpuForwardBatchKV(ctx, eng, sp, caches, tokens, positions, false)
+}
+
+// prefill selects matrix projections and returns only the last row. Rows must
+// refer to consecutive positions in the same cache, in increasing order.
+func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratchpad,
+	caches []*SequenceKVCache, tokens []int32, positions []int, prefill bool) (result []int32, stats cudaBatchLaunches, err error) {
 	stats.Rows = len(tokens)
 	submitted := false
 	defer func() {
@@ -174,7 +182,7 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	weightLaunches++
 	for layer := 0; layer < cfg.NumHiddenLayers; layer++ {
 		w := &eng.weights.Layers[layer]
-		if cfg.FuseEGraph && w.QBias.Len() == 0 && w.KBias.Len() == 0 && w.VBias.Len() == 0 {
+		if !prefill && cfg.FuseEGraph && w.QBias.Len() == 0 && w.KBias.Len() == 0 && w.VBias.Len() == 0 {
 			if err := launcher(eng.modules.BatchFusedQKV).Grid(uint32(qDim), uint32(batch)).Block(128).
 				Launch(sp.X, w.InputNorm, w.WQ, w.WK, w.WV, sp.Q, sp.K, sp.V,
 					int32(hidden), int32(qDim), int32(kvDim), int32(batch), cfg.RmsNormEps); err != nil {
@@ -189,9 +197,23 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 			for _, projection := range []struct {
 				weight, bias, out cudamem.Slice[float32]
 				dim               int
+				plans             []cudaMatrixPlan
 			}{
-				{w.WQ, w.QBias, sp.Q, qDim}, {w.WK, w.KBias, sp.K, kvDim}, {w.WV, w.VBias, sp.V, kvDim},
+				{w.WQ, w.QBias, sp.Q, qDim, sp.prefillQ}, {w.WK, w.KBias, sp.K, kvDim, sp.prefillKV}, {w.WV, w.VBias, sp.V, kvDim, sp.prefillKV},
 			} {
+				if prefill {
+					if err := sp.lmHead.runPlanSet(projection.plans, eng.stream, sp.NormX, projection.weight, projection.out, batch); err != nil {
+						return nil, stats, err
+					}
+					matrixLaunches++
+					if projection.bias.Len() != 0 {
+						if err := launcher(eng.modules.BatchAddBias).Grid(1, uint32(batch)).Block(256).
+							Launch(projection.out, projection.bias, int32(projection.dim), int32(batch)); err != nil {
+							return nil, stats, err
+						}
+					}
+					continue
+				}
 				if err := launcher(eng.modules.BatchGEMV).Grid(uint32(projection.dim), uint32(batch)).Block(128).
 					Launch(sp.NormX, projection.weight, projection.bias, projection.out, int32(hidden), int32(projection.dim), int32(batch)); err != nil {
 					return nil, stats, err
@@ -222,9 +244,16 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 				return nil, stats, err
 			}
 		}
-		if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
-			Launch(sp.AttnOut, w.WO, noBias, sp.NormX, int32(qDim), int32(hidden), int32(batch)); err != nil {
-			return nil, stats, err
+		if prefill {
+			if err := sp.lmHead.runPlanSet(sp.prefillOut, eng.stream, sp.AttnOut, w.WO, sp.NormX, batch); err != nil {
+				return nil, stats, err
+			}
+			matrixLaunches++
+		} else {
+			if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
+				Launch(sp.AttnOut, w.WO, noBias, sp.NormX, int32(qDim), int32(hidden), int32(batch)); err != nil {
+				return nil, stats, err
+			}
 		}
 		if err := launcher(eng.modules.BatchAddResidual).Grid(1, uint32(batch)).Block(256).
 			Launch(sp.X, sp.NormX, int32(hidden), int32(batch)); err != nil {
@@ -241,7 +270,7 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 			return nil, stats, err
 		}
 		matrixLaunches += 2
-		if cfg.FuseEGraph {
+		if !prefill && cfg.FuseEGraph {
 			if err := launcher(eng.modules.BatchFusedSwiGLU).Grid(uint32(hidden), uint32(batch)).Block(128).
 				Launch(sp.Gate, sp.Up, w.WDown, sp.FFNOut, int32(hidden), int32(inter), int32(batch)); err != nil {
 				return nil, stats, err
@@ -252,9 +281,16 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(inter), int32(batch)); err != nil {
 				return nil, stats, err
 			}
-			if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
-				Launch(sp.FFNAct, w.WDown, noBias, sp.FFNOut, int32(inter), int32(hidden), int32(batch)); err != nil {
-				return nil, stats, err
+			if prefill {
+				if err := sp.lmHead.runPlanSet(sp.prefillDown, eng.stream, sp.FFNAct, w.WDown, sp.FFNOut, batch); err != nil {
+					return nil, stats, err
+				}
+				matrixLaunches++
+			} else {
+				if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
+					Launch(sp.FFNAct, w.WDown, noBias, sp.FFNOut, int32(inter), int32(hidden), int32(batch)); err != nil {
+					return nil, stats, err
+				}
 			}
 			weightLaunches += 5
 		}
@@ -267,22 +303,33 @@ func GPUForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 		Launch(sp.X, eng.weights.Norm, sp.NormX, int32(hidden), int32(batch), cfg.RmsNormEps); err != nil {
 		return nil, stats, err
 	}
-	if err := sp.lmHead.run(eng.stream, sp.NormX, eng.weights.LMHead, sp.Logits, batch); err != nil {
+	outputRows := batch
+	finalInput := sp.NormX
+	if prefill {
+		outputRows = 1
+		finalInput = sp.NormX.Slice((batch-1)*hidden, batch*hidden)
+	}
+	if err := sp.lmHead.run(eng.stream, finalInput, eng.weights.LMHead, sp.Logits, outputRows); err != nil {
 		return nil, stats, err
 	}
-	if err := launcher(eng.modules.BatchArgmax).Grid(uint32(batch)).Block(256).
-		Launch(sp.Logits, sp.TokenOut, int32(cfg.VocabSize), int32(batch)); err != nil {
+	if err := launcher(eng.modules.BatchArgmax).Grid(uint32(outputRows)).Block(256).
+		Launch(sp.Logits, sp.TokenOut, int32(cfg.VocabSize), int32(outputRows)); err != nil {
 		return nil, stats, err
 	}
 	weightLaunches += 2
 	stats.MatrixLaunches = matrixLaunches + 1
-	if err := sp.TokenOut.Slice(0, batch).CopyToHostAsync(sp.hostTokenOut[:batch], eng.stream); err != nil {
+	if err := sp.TokenOut.Slice(0, outputRows).CopyToHostAsync(sp.hostTokenOut[:outputRows], eng.stream); err != nil {
 		return nil, stats, err
+	}
+	if prefill {
+		if err := eng.scratch.Logits.CopyDeviceToDeviceAsync(sp.Logits.Slice(0, cfg.VocabSize), eng.stream); err != nil {
+			return nil, stats, err
+		}
 	}
 	if err := eng.stream.Synchronize(ctx); err != nil {
 		return nil, stats, err
 	}
-	result = append([]int32(nil), sp.hostTokenOut[:batch]...)
+	result = append([]int32(nil), sp.hostTokenOut[:outputRows]...)
 	stats.WeightLaunches = weightLaunches
 	stats.IndependentWeightLaunches = weightLaunches * batch
 	stats.Dispatches = launches.Value() + uint64(stats.MatrixLaunches)

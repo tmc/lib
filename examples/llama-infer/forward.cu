@@ -548,3 +548,11 @@ extern "C" __global__ void BatchArgmax(const float* logits, int* tokens,
     }
     if (tid == 0) tokens[b] = indices[0] < 0 ? 0 : indices[0];
 }
+
+// Add one projection bias to every prompt row after matrix multiplication.
+extern "C" __global__ void BatchAddBias(float* out, const float* bias, int dim, int rows) {
+    int row = blockIdx.y;
+    if (row >= rows) return;
+    for (int i = threadIdx.x; i < dim; i += blockDim.x)
+        out[row * dim + i] += bias[i];
+}

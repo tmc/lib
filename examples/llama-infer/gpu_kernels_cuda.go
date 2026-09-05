@@ -32,6 +32,7 @@ type Kernels struct {
 	BatchNorm        driver.Function `cuda:"BatchRMSNorm"`
 	BatchGEMV        driver.Function `cuda:"BatchLinearGEMV"`
 	BatchSwiGLU      driver.Function `cuda:"BatchSwiGLU"`
+	BatchAddBias     driver.Function `cuda:"BatchAddBias"`
 	BatchAddResidual driver.Function `cuda:"BatchAddResidual"`
 	BatchFusedQKV    driver.Function `cuda:"BatchFusedRMSNormQKV"`
 	BatchFusedSwiGLU driver.Function `cuda:"BatchFusedSwiGLUDown"`

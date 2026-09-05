@@ -131,6 +131,7 @@ type ModelEngine struct {
 	stream          *cuda.Stream
 	weights         *GPUModelWeights
 	scratch         *GPUScratchpad
+	prefillScratch  *GPUBatchScratchpad
 	modules         *GPUModules
 	kvCache         *cudakv.Cache
 	attnFn          driver.Function
@@ -563,11 +564,15 @@ func runPlatform(cfg Config) error {
 
 // GPUPrefillPassKV executes prompt prefill across promptTokens using an isolated SequenceKVCache.
 func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
-	tok, _, err := gpuPrefillPassKVMeasured(eng, cfg, skv, promptTokens)
+	tok, _, err := gpuSerialPrefillPassKVMeasured(eng, cfg, skv, promptTokens)
 	return tok, err
 }
 
 func gpuPrefillPassKVMeasured(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, uint64, error) {
+	return gpuBatchedPrefillPassKVMeasured(eng, skv, promptTokens, 0)
+}
+
+func gpuSerialPrefillPassKVMeasured(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, uint64, error) {
 	if len(promptTokens) == 0 {
 		return 0, 0, nil
 	}
@@ -615,14 +620,16 @@ func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
 	return tok
 }
 
-// GPUBatchedPrefillPass executes prompt prefill on CUDA.
+// GPUBatchedPrefillPass processes CUDA prompt rows with matrix projections.
 func GPUBatchedPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (int32, error) {
-	return GPUPrefillPassKV(eng, cfg, nil, promptTokens)
+	return GPUBatchedPrefillPassKV(eng, cfg, nil, promptTokens, 0)
 }
 
-// GPUBatchedPrefillPassKV executes prompt prefill on CUDA with explicit KV cache.
+// GPUBatchedPrefillPassKV processes prompt rows with matrix projections,
+// preserving cache positions before startPos. Callers must serialize engine use.
 func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32, startPos int) (int32, error) {
-	return GPUPrefillPassKV(eng, cfg, skv, promptTokens)
+	tok, _, err := gpuBatchedPrefillPassKVMeasured(eng, skv, promptTokens, startPos)
+	return tok, err
 }
 
 // GPUForwardPass executes a single decode step on CUDA.
@@ -721,7 +728,10 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 	}
 
 	t0 := time.Now()
-	nextTokID := GPUPrefillPass(eng, cfg, promptTokens)
+	nextTokID, err := GPUBatchedPrefillPass(eng, cfg, promptTokens)
+	if err != nil {
+		return fmt.Errorf("cuda generate prefill: %w", err)
+	}
 	prefillDur := time.Since(t0)
 
 	eng.metrics.RecordForward(ForwardMeasurement{
