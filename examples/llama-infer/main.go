@@ -187,7 +187,7 @@ func main() {
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	genTokens := flag.Int("gen-tokens", 10, "number of tokens to generate during autoregressive decode")
 	maxSeqLenFlag := flag.Int("max-seq-len", 2048, "maximum sequence length / KV cache context limit")
-	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation and megakernel fusion")
+	fuseEGraph := flag.Bool("fuse-egraph", false, "enable E-Graph equality saturation (f16 uses discrete kernels)")
 	httpAddr := flag.String("http", "", "HTTP address to serve live telemetry dashboard (e.g. :8080)")
 	peerAddr := flag.String("peer", "", "peer HTTP address to join into P2P inference mesh (e.g. spark-31db:8080)")
 	nodeKeyPath := flag.String("node-key", defaultNodeKeyPath(), "path to persistent Iroh node key")
