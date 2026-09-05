@@ -26,6 +26,8 @@ the libraries are located and loaded on first use.
 | cutensor | cuTENSOR | tensor contractions, reductions, permutations |
 | cupti | CUPTI | profiling and activity tracing |
 | nccl | NCCL | multi-GPU collectives |
+| ncclep | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
+| ncclm2n | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
 | cufile | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
 | fabricmanager | NVIDIA Fabric Manager | NVSwitch fabric partitions |
 | x/... | — | idiomatic layer over the raw bindings; see x/DESIGN.md |
