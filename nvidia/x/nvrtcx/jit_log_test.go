@@ -25,3 +25,10 @@ func ExampleCompiledModule_LoadOutputWithLog() {
 	fmt.Println(log.Output, err)
 	// Output: 1 nvrtcx: nil compiled module
 }
+
+func ExampleCompiledModule_LoadOwnedOutput() {
+	var cm *CompiledModule
+	owner, log, err := cm.LoadOwnedOutput(nil, OutputPTX)
+	fmt.Println(owner == nil, log.Output, err)
+	// Output: true 1 nvrtcx: load module: nvrtcx: nil compiled module
+}
