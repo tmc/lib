@@ -170,7 +170,7 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 		return nil, fmt.Errorf("nvrtcx: corrupt cache entry")
 	}
 	kind := OutputKind(data[len(cacheMagic)])
-	if kind > OutputTileIR {
+	if kind > OutputPTXTileIR {
 		return nil, fmt.Errorf("nvrtcx: invalid cached output kind")
 	}
 	payload := data[headerSize : len(data)-sha256.Size]
