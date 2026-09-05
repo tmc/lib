@@ -359,6 +359,11 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 				state = runPinnedHashLayerNoCompare(t, ops, bind, state, layer)
 				want := readOracleF32(t, fmt.Sprintf("%s/stage_hc_ffn_post-%d_pos0.bin", allLayersOracle, layer))
 				drift := relativeDrift(t, state, want)
+				measured, err := measureOracleDrift(state, want)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("layer %d diagnostic only: count=%d max_abs=%g rms=%g small_count=%d small_max_abs=%g", layer, measured.count, measured.maxAbs, measured.rms, measured.smallCount, measured.smallMaxAbs)
 				t.Logf("layer %d chained drift %.3e", layer, drift)
 				if drift > chainedDriftBudget {
 					t.Fatalf("layer %d chained drift %.3e exceeds budget %.3e", layer, drift, chainedDriftBudget)
