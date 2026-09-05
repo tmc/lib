@@ -19,6 +19,7 @@ const (
 	InputAny     InputType = 10 // Dynamically chooses from the valid types
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e InputType) String() string {
 	switch e {
 	case InputNone:
