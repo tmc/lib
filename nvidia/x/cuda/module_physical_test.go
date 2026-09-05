@@ -1,6 +1,7 @@
 package cuda
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"unsafe"
@@ -59,12 +60,19 @@ ret;
 			}
 		}
 	}()
+	maxThreads, err := dev.Attribute(driver.DevAttrMaxThreadsPerBlock)
+	check(err)
 	check(dev.Close()) // The module's retained context must keep working.
 	if _, err := m.Function("missing_symbol"); err == nil {
 		t.Fatal("missing kernel accepted")
 	}
 	k, err := m.Function("set_value")
 	check(err)
+	badLaunch := k.Launch([3]uint32{1, 1, 1}, [3]uint32{uint32(maxThreads + 1), 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)})
+	if !errors.Is(badLaunch, driver.ErrInvalidValue) {
+		t.Fatalf("oversized block: %v", badLaunch)
+	}
+	t.Logf("driver rejected block exceeding %d threads: %v", maxThreads, badLaunch)
 	check(k.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	var got uint32
 	check(m.ctx.Run(func() error {
