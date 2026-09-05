@@ -29,8 +29,7 @@ this test exists to catch.
 | `lossless_rgb_8bit_tiled.j2k` | reversible 5/3, RGB, 8-bit, tiled (e.g. 256x256 tiles) | tile component dimensions differ from image component dimensions |
 
 Malformed inputs are derived from the first fixture at run time — truncations,
-a bare SOC/SIZ prefix, a non-codestream, and a byte flipped three quarters of
-the way in — so there is nothing to obtain for those.
+a bare SOC/SIZ prefix, a non-codestream, and an invalid SOC marker — so there is nothing to obtain for those.
 
 ## Where to get them
 
@@ -40,9 +39,19 @@ them once and keep them outside the repository.
 With OpenJPEG (`opj_compress`), from a PNG or PPM source:
 
     opj_compress -i source.ppm -o lossless_rgb_8bit.j2k -r 1
-    opj_compress -i source.ppm -o lossless_ycc420_8bit.jp2 -r 1 -mct 1 -F 8,8,8
     opj_compress -i gray12.pgm -o lossless_gray_12bit.j2k -r 1
     opj_compress -i source.ppm -o lossless_rgb_8bit_tiled.j2k -r 1 -t 256,256
+
+The sYCC fixture needs genuinely subsampled components; an RGB PPM with
+`-mct 1` does not produce a 4:2:0 fixture. With OpenJPEG's C API, create an
+`OPJ_CLRSPC_SYCC` image whose luma component has `dx=dy=1` and whose chroma
+components have `dx=dy=2`, with half the luma width and height. Use JP2 output,
+8-bit component precision, reversible encoding, and `tcp_mct=0`. Decode with
+the C API and retain the component samples without converting them to RGB.
+
+For the grayscale fixture, explicitly set component precision to 12 bits and
+include values above 255. Verify the decoded precision; a 16-bit image whose
+samples happen to fit in 12 bits does not exercise the same metadata.
 
 `-r 1` is compression ratio 1, which selects the reversible path. Confirm
 losslessness rather than assuming it: decode the result and compare it to the
@@ -67,8 +76,10 @@ nothing. Use OpenJPEG:
 
     opj_decompress -i lossless_rgb_8bit.j2k -o out.pgx    # one .pgx per component
 
-and concatenate the `.pgx` payloads in component order, or use Pillow with
-openjpeg support and write the planes out with numpy. Record which decoder and
+and concatenate the `.pgx` payloads in component order, or use the OpenJPEG C API to write each decoded component. For uint16
+references, write samples in the native byte order of the test host. Pillow
+can produce the RGB reference, but its color conversion must not replace
+the subsampled sYCC components with full-sized RGB planes. Record which decoder and
 which version produced the references alongside them; a reference decode from
 an unknown decoder is not evidence.
 
