@@ -19,9 +19,9 @@ size of each chunk when the caller did not keep it.
 
 ## Status: round trip verified; capacity failure unresolved
 
-On 2026-09-05, nvCOMP 5.3.0.16 (CUDA 13 build) on Linux arm64, NVIDIA GB10,
+On 2026-09-05, nvCOMP 5.3.0.16 (CUDA 12 and CUDA 13 builds) on Linux arm64, NVIDIA GB10,
 and driver 580.173.02 compressed and decompressed four chunks, reproducing all
-16,384 input bytes. The library reported nvCOMP 5.3.0 and CUDA Runtime 13030.
+16,384 input bytes. The library reported nvCOMP 5.3.0 and CUDA Runtime 12090 or 13030, respectively.
 
 The same test failed its negative control. With the CUDA decompression backend
 explicitly selected, chunk 0's declared output capacity was reduced from 4096
@@ -34,7 +34,12 @@ A header-compiled C++ forwarding probe confirmed backend 2, options size 64,
 and capacity 1 at the native boundary. The native call replaced sentinel
 statuses with success and reproduced the same capacity mismatch. This is an
 unresolved runtime-contract failure for this library/device combination, not
-a demonstrated Go argument-layout defect. The physical test remains failing.
+a demonstrated Go argument-layout defect. A standalone C++ program also reproduces
+it with both CUDA builds, without Go or an FFI forwarding layer. Before each call,
+it initializes output memory, actual sizes, and statuses with sentinels. The call
+rewrites all 4095 bytes beyond the declared one-byte capacity, inside the full
+4096-byte allocation, and reports success. The physical test remains failing;
+it now requires the exact documented `ErrCannotDecompress` status.
 
 `CheckStatuses` checks only the reported statuses. It cannot detect this
 failure. Callers must provide sufficient output storage before launching;
@@ -75,6 +80,26 @@ Runtime tests and remaining limits:
 Both hardware-dependent tests fail rather than skip once their environment
 variable is set, so a host that lacks a prerequisite reports that, instead of
 reporting a pass.
+
+## Standalone capacity reproducer
+
+`testdata/capacity.cpp` compresses a 4096-byte chunk, checks a full-size round
+trip, then repeats decompression with a declared capacity of one byte. It retains
+the full allocation, checks CUDA calls and cleanup, and exits nonzero when the
+capacity contract fails. Compile against the pinned 5.3 headers and run with the
+selected runtime's library directory:
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Werror \
+  -I "$nvcomp_dir/include" -I "$cuda_dir/include" \
+  testdata/capacity.cpp -L "$nvcomp_dir/lib" -lnvcomp \
+  -L "$cuda_dir/lib64" -lcudart -o "$HOME/tmp/nvcomp-capacity"
+LD_LIBRARY_PATH="$nvcomp_dir/lib:$cuda_dir/lib64" "$HOME/tmp/nvcomp-capacity"
+```
+
+Set `nvcomp_dir` and `cuda_dir` to the extracted SDK and CUDA toolkit directories;
+adjust the CUDA library path for the toolkit layout. This reproducer needs a GPU.
+Its failure is retained as a regression target, not converted into a passing test.
 
 ## Device memory, and the pointer arrays
 
