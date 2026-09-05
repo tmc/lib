@@ -1,0 +1,1 @@
+Commit: 071eb1a4ee33d2c66355953f2de0167b953b5241; date: 2026-09-04T20:20:45-07:00; agent: Codex; model: gpt-6-astra; installed claude-code: 2.1.257 (not executor); tty: none; shell pid: 76298; parent pid: 17351; ITERM_SESSION_ID: w15t0p2:54B33A62-339F-4D21-B1B9-0036124A7060. CUDA regression reproduced before fix; mirrored boundary and race tests plus vet passed locally.
