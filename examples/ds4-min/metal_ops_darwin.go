@@ -163,8 +163,6 @@ type metalPinnedKernels struct {
 	MatvecQ80         apple.MTLComputePipelineState `metal:"matvec_q8_0"`
 	Layer0Attention   apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
 	Layer0Post        apple.MTLComputePipelineState `metal:"layer0_attention_post"`
-	HCPre             apple.MTLComputePipelineState `metal:"hc_pre"`
-	HCPost            apple.MTLComputePipelineState `metal:"hc_post"`
 	RouterHash        apple.MTLComputePipelineState `metal:"router_hash"`
 	RouterBiased      apple.MTLComputePipelineState `metal:"router_biased"`
 	SwiGLU            apple.MTLComputePipelineState `metal:"swiglu"`
@@ -775,75 +773,6 @@ func (o *metalPinnedOps) Layer0AttentionPost(embedding boundMetalTensor, block [
 	return append([]float32(nil), out.HostSlice()...), nil
 }
 
-func (o *metalPinnedOps) HCPre(state []float32, hcFn, hcScale, hcBase, norm boundMetalTensor) ([]float32, []float32, error) {
-	if len(state) != 4*4096 || hcFn.typeID != 1 || hcScale.typeID != 0 || hcBase.typeID != 0 || norm.typeID != 0 {
-		return nil, nil, fmt.Errorf("HC pre: invalid tensor profile")
-	}
-	in, err := metalmem.AllocFromSlice(o.dev, state)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer in.Free()
-	out, err := metalmem.Alloc[float32](o.dev, 2*4096)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(o.kernels.HCPre)
-	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
-	for i, tensor := range []boundMetalTensor{hcFn, hcScale, hcBase, norm} {
-		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i+1))
-	}
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
-		return nil, nil, fmt.Errorf("HC pre: %w", err)
-	}
-	host := out.HostSlice()
-	return append([]float32(nil), host[:4096]...), append([]float32(nil), host[4096:]...), nil
-}
-
-func (o *metalPinnedOps) HCPost(state, block []float32, hcFn, hcScale, hcBase boundMetalTensor) ([]float32, error) {
-	if len(state) != 4*4096 || len(block) != 4096 || hcFn.typeID != 1 || hcScale.typeID != 0 || hcBase.typeID != 0 {
-		return nil, fmt.Errorf("HC post: invalid tensor profile")
-	}
-	stateBuffer, err := metalmem.AllocFromSlice(o.dev, state)
-	if err != nil {
-		return nil, err
-	}
-	defer stateBuffer.Free()
-	blockBuffer, err := metalmem.AllocFromSlice(o.dev, block)
-	if err != nil {
-		return nil, err
-	}
-	defer blockBuffer.Free()
-	out, err := metalmem.Alloc[float32](o.dev, len(state))
-	if err != nil {
-		return nil, err
-	}
-	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(o.kernels.HCPost)
-	enc.SetBufferWithOffsetAtIndex(stateBuffer.Buffer(), stateBuffer.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(blockBuffer.Buffer(), blockBuffer.Offset(), 1)
-	for i, tensor := range []boundMetalTensor{hcFn, hcScale, hcBase} {
-		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i+2))
-	}
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
-		return nil, fmt.Errorf("HC post: %w", err)
-	}
-	return append([]float32(nil), out.HostSlice()...), nil
-}
-
 func (o *metalPinnedOps) RopeAttentionOne(q, kv []float32, sinks boundMetalTensor, position uint32) ([]float32, []float32, []float32, error) {
 	if len(q) != 64*512 || len(kv) != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 {
 		return nil, nil, nil, fmt.Errorf("rope attention: invalid shape")
@@ -958,6 +887,8 @@ type metalPinnedOps struct {
 	dev     *libmetal.Device
 	library apple.MTLLibrary
 	kernels metalPinnedKernels
+	hc      *metalHC
+	head    *metalHeadProjection
 }
 
 func newMetalPinnedOps(dev *libmetal.Device) (*metalPinnedOps, error) {
@@ -971,6 +902,16 @@ func newMetalPinnedOps(dev *libmetal.Device) (*metalPinnedOps, error) {
 	}
 	o.library = lib
 	if err := metalx.Bind(dev, lib, &o.kernels); err != nil {
+		o.Close()
+		return nil, err
+	}
+	o.hc, err = newMetalHC(dev)
+	if err != nil {
+		o.Close()
+		return nil, err
+	}
+	o.head, err = newMetalHeadProjection(dev)
+	if err != nil {
 		o.Close()
 		return nil, err
 	}
@@ -1033,6 +974,9 @@ func (o *metalPinnedOps) MatvecF16(t boundMetalTensor, x []float32) ([]float32, 
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(len(x)) != t.dimensions[0] {
 		return nil, fmt.Errorf("matvec %q: invalid F16 tensor or input", t.name)
 	}
+	if t.dimensions[0] == 16384 && t.dimensions[1] == 4 {
+		return o.head.matvec(t, x)
+	}
 	in, err := metalmem.AllocFromSlice(o.dev, x)
 	if err != nil {
 		return nil, err
@@ -1081,7 +1025,15 @@ func (o *metalPinnedOps) Close() {
 	if o == nil {
 		return
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.HCPre, o.kernels.HCPost, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention} {
+	if o.head != nil {
+		o.head.Close()
+		o.head = nil
+	}
+	if o.hc != nil {
+		o.hc.Close()
+		o.hc = nil
+	}
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -1526,31 +1478,6 @@ kernel void layer0_attention_post(
   for(uint row=0;row<24;row++){float sum=0.0f;const device half *wr=hc_fn+uint64_t(row)*16384;for(uint h=0;h<4;h++)for(uint d=0;d<4096;d++)sum+=float(wr[h*4096+d])*float(emb[d])*inv;mix[row]=sum;}
   float pre[4],post[4],comb[16];hc_split4(mix,scale,base,pre,post,comb);
   for(uint dst=0;dst<4;dst++)for(uint d=0;d<4096;d++){float v=block[d]*post[dst];for(uint src=0;src<4;src++)v+=comb[dst+src*4]*float(emb[d]);out[dst*4096+d]=v;}
-}
-
-kernel void hc_pre(
-    device const float *state [[buffer(0)]], device const half *hc_fn [[buffer(1)]],
-    device const float *scale [[buffer(2)]], device const float *base [[buffer(3)]],
-    device const float *norm_weight [[buffer(4)]], device float *out [[buffer(5)]]) {
-  float ss=0.0f;for(uint i=0;i<16384;i++)ss+=state[i]*state[i];
-  float inv=rsqrt(ss/16384.0f+1.0e-6f),mix[24];
-  for(uint row=0;row<24;row++){float sum=0.0f;const device half *wr=hc_fn+uint64_t(row)*16384;for(uint i=0;i<16384;i++)sum+=float(wr[i])*state[i]*inv;mix[row]=sum;}
-  float pre[4],post[4],comb[16];hc_split4(mix,scale,base,pre,post,comb);
-  float cur_ss=0.0f;
-  for(uint d=0;d<4096;d++){float v=0.0f;for(uint h=0;h<4;h++)v+=state[h*4096+d]*pre[h];out[d]=v;cur_ss+=v*v;}
-  float cur_inv=rsqrt(cur_ss/4096.0f+1.0e-6f);
-  for(uint d=0;d<4096;d++)out[4096+d]=out[d]*cur_inv*norm_weight[d];
-}
-
-kernel void hc_post(
-    device const float *state [[buffer(0)]], device const float *block [[buffer(1)]],
-    device const half *hc_fn [[buffer(2)]], device const float *scale [[buffer(3)]],
-    device const float *base [[buffer(4)]], device float *out [[buffer(5)]]) {
-  float ss=0.0f;for(uint i=0;i<16384;i++)ss+=state[i]*state[i];
-  float inv=rsqrt(ss/16384.0f+1.0e-6f),mix[24];
-  for(uint row=0;row<24;row++){float sum=0.0f;const device half *wr=hc_fn+uint64_t(row)*16384;for(uint i=0;i<16384;i++)sum+=float(wr[i])*state[i]*inv;mix[row]=sum;}
-  float pre[4],post[4],comb[16];hc_split4(mix,scale,base,pre,post,comb);
-  for(uint dst=0;dst<4;dst++)for(uint d=0;d<4096;d++){float v=block[d]*post[dst];for(uint src=0;src<4;src++)v+=comb[dst+src*4]*state[src*4096+d];out[dst*4096+d]=v;}
 }
 
 kernel void rms_norm(

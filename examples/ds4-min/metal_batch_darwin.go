@@ -41,18 +41,10 @@ func (b *metalBatch) EncodeHCPre(state metalmem.Slice[float32], hcFn, hcScale, h
 	if err := b.ready(); err != nil {
 		return err
 	}
-	if state.Len() != 4*4096 || out.Len() != 2*4096 || hcFn.typeID != 1 || hcScale.typeID != 0 || hcBase.typeID != 0 || norm.typeID != 0 {
-		return fmt.Errorf("HC pre: invalid tensor profile")
+	if err := b.ops.hc.encodePre(b, state, hcFn, hcScale, hcBase, norm, out); err != nil {
+		return err
 	}
-	enc := b.buffer.ComputeCommandEncoder()
-	enc.SetComputePipelineState(b.ops.kernels.HCPre)
-	enc.SetBufferWithOffsetAtIndex(state.Buffer(), state.Offset(), 0)
-	for i, tensor := range []boundMetalTensor{hcFn, hcScale, hcBase, norm} {
-		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i+1))
-	}
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
+	// Encoded counts API operations, not the operation's internal dispatches.
 	b.encoded++
 	return nil
 }
@@ -461,19 +453,9 @@ func (b *metalBatch) EncodeHCPost(state, block metalmem.Slice[float32], hcFn, hc
 	if err := b.ready(); err != nil {
 		return err
 	}
-	if state.Len() != 4*4096 || block.Len() != 4096 || out.Len() != state.Len() || hcFn.typeID != 1 || hcScale.typeID != 0 || hcBase.typeID != 0 {
-		return fmt.Errorf("HC post: invalid tensor profile")
+	if err := b.ops.hc.encodePost(b, state, block, hcFn, hcScale, hcBase, out); err != nil {
+		return err
 	}
-	enc := b.buffer.ComputeCommandEncoder()
-	enc.SetComputePipelineState(b.ops.kernels.HCPost)
-	enc.SetBufferWithOffsetAtIndex(state.Buffer(), state.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(block.Buffer(), block.Offset(), 1)
-	for i, tensor := range []boundMetalTensor{hcFn, hcScale, hcBase} {
-		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i+2))
-	}
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -487,7 +469,9 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 	b.buffer.Commit()
 	b.commits++
 	b.waits++
-	if err := libmetal.WaitCommandBuffer(ctx, b.buffer); err != nil {
+	err := libmetal.WaitCommandBuffer(ctx, b.buffer)
+	b.ops.hc.complete(b)
+	if err != nil {
 		return fmt.Errorf("Metal batch: %w", err)
 	}
 	return nil
