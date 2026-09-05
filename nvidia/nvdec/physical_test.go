@@ -86,7 +86,8 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 			return 0
 		}
 		t.Logf("sequence: coded=%dx%d surfaces=%d chroma=%v", f.CodedWidth, f.CodedHeight, f.MinNumDecodeSurfaces, f.ChromaFormat)
-		ci := nvdec.DecodeCreateInfo{UlWidth: 256, UlHeight: 256, UlNumDecodeSurfaces: uint64(f.MinNumDecodeSurfaces), CodecType: f.Codec, ChromaFormat: f.ChromaFormat, OutputFormat: nvdec.SurfaceFormatNV12, UlTargetWidth: 256, UlTargetHeight: 256, UlNumOutputSurfaces: 2}
+		ci := nvdec.DecodeCreateInfo{UlWidth: 256, UlHeight: 256, CodecType: f.Codec, ChromaFormat: f.ChromaFormat, OutputFormat: nvdec.SurfaceFormatNV12, UlTargetWidth: 256, UlTargetHeight: 256, UlNumOutputSurfaces: 2}
+		setUnsigned(t, &ci.UlNumDecodeSurfaces, uint64(f.MinNumDecodeSurfaces))
 		operation = "CreateDecoder"
 		if !result(nvdec.CreateDecoder(&decoder, &ci)) {
 			return 0
@@ -159,8 +160,9 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 		}
 	}
 	for _, payload := range packets {
-		packet := nvdec.SourceDataPacket{PayloadSize: uint64(len(payload)), Payload: uintptr(unsafe.Pointer(&payload[0]))}
+		packet := nvdec.SourceDataPacket{Payload: uintptr(unsafe.Pointer(&payload[0]))}
 		operation = "ParseVideoData"
+		setUnsigned(t, &packet.PayloadSize, uint64(len(payload)))
 		if !result(nvdec.ParseVideoData(parser, &packet)) {
 			t.Fatal(failure)
 		}
@@ -177,4 +179,14 @@ func testPhysicalDecode(t *testing.T, name string, codec nvdec.Codec) {
 		t.Fatal(fmt.Sprintf("frames=%d bytes=%d reference=%d equal=%v", frames, len(got), len(want), bytes.Equal(got, want)))
 	}
 	t.Logf("%d NVDEC frames, %d NV12 bytes exactly matched CPU FFmpeg reference\n", frames, len(got))
+}
+
+// setUnsigned handles the platform-dependent width of C unsigned long.
+func setUnsigned[T ~uint32 | ~uint64](t *testing.T, dst *T, value uint64) {
+	t.Helper()
+	v := T(value)
+	if uint64(v) != value {
+		t.Fatalf("value %d does not fit decoder field", value)
+	}
+	*dst = v
 }
