@@ -230,3 +230,36 @@ func TestInstalledTools(t *testing.T) {
 		t.Fatalf("demangle: %s", r.Stdout)
 	}
 }
+
+func TestParseNativeJSON(t *testing.T) {
+	f, err := os.Open("testdata/nvdisasm-13.0-sm121.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	d, err := ParseJSON(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Functions) != 1 {
+		t.Fatalf("functions = %d, want 1", len(d.Functions))
+	}
+	fn := d.Functions[0]
+	if fn.Name != "addone" || fn.Start != 0 || fn.Length != 384 {
+		t.Fatalf("function: %+v", fn)
+	}
+	if len(fn.Instructions) != 24 {
+		t.Fatalf("instructions = %d, want 24", len(fn.Instructions))
+	}
+	for i, want := range []string{"LDC", "S2R", "LDC.64", "LDCU.64", "IMAD.WIDE.U32", "LDG.E", "FADD", "STG.E", "EXIT", "BRA"} {
+		if got := fn.Instructions[i].Opcode; got != want {
+			t.Errorf("instruction %d = %q, want %q", i, got, want)
+		}
+	}
+	if fn.Instructions[8].Attributes["control-flow"] != "True" {
+		t.Error("lost EXIT control-flow attribute")
+	}
+	if fn.Instructions[6].Operands != "R5,R0,1" {
+		t.Errorf("FADD operands = %q", fn.Instructions[6].Operands)
+	}
+}
