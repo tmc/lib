@@ -36,7 +36,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
-| [nvrtcx](nvrtcx/) | Package nvrtcx provides runtime compilation of CUDA C++ source code into PTX or CUBIN binaries with content-addressed caching. |
+| [nvrtcx](nvrtcx/) | Package nvrtcx provides runtime compilation of CUDA C++ source code into explicit compiler artifacts with content-addressed caching. |
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |

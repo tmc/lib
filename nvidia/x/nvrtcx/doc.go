@@ -1,11 +1,19 @@
 // Package nvrtcx provides runtime compilation of CUDA C++ source code
-// into PTX or CUBIN binaries with content-addressed caching.
+// into explicit compiler artifacts with content-addressed caching.
 //
-// It wraps the purego dynamic bindings in [github.com/tmc/lib/nvidia/nvrtc] and provides
-// automatic caching (keyed by source hash, include headers, and compiler flags) in memory
-// and persistent storage to eliminate redundant JIT compilation overhead.
+// WithOutput selects PTX, CUBIN, LTOIR, or TileIR. The default selects PTX
+// and optional CUBIN. Available outputs depend on the loaded NVRTC library,
+// source language, and compiler options. LTOIR requires linking before loading;
+// see github.com/tmc/lib/nvidia/x/nvjitlinkx. TileIR requires a compatible driver.
+//
+// Cache keys include source, program name, in-memory headers, flags, output
+// selection, and the NVRTC version and library path. They do not hash library
+// contents or headers read from external include paths. Use WithNoCache when
+// those inputs can change without changing the key.
 //
 // # Usage
+//
+// Illustrative fragment; sourceCode and dev are supplied by the caller:
 //
 //	mod, err := nvrtcx.Compile(sourceCode,
 //		nvrtcx.WithArch(8, 0),
