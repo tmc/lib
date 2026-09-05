@@ -58,13 +58,54 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 
 // Instantiate validates and instantiates the graph for execution on the GPU.
 func (g *Graph) Instantiate() (*Exec, error) {
+	return g.InstantiateWithOptions(InstantiateOptions{})
+}
+
+// InstantiateOptions controls graph instantiation. The zero value preserves
+// ordinary host-launch behavior. DeviceLaunch enables device-side launch; it
+// does not upload the graph or supply a device-side launcher. CUDA validates
+// graph contents and device support during instantiation.
+type InstantiateOptions struct {
+	// AutoFreeOnLaunch frees allocations left by a previous graph launch.
+	// It cannot be combined with DeviceLaunch.
+	AutoFreeOnLaunch bool
+	DeviceLaunch     bool
+	// UseNodePriority uses kernel-node priorities instead of stream priority.
+	UseNodePriority bool
+}
+
+func (o InstantiateOptions) flags() (uint64, error) {
+	if o.AutoFreeOnLaunch && o.DeviceLaunch {
+		return 0, errors.New("cudagraph: auto-free and device launch are incompatible")
+	}
+	var flags uint64
+	if o.AutoFreeOnLaunch {
+		flags |= uint64(driver.GraphInstantiateFlagAutoFreeOnLaunch)
+	}
+	if o.DeviceLaunch {
+		flags |= uint64(driver.GraphInstantiateFlagDeviceLaunch)
+	}
+	if o.UseNodePriority {
+		flags |= uint64(driver.GraphInstantiateFlagUseNodePriority)
+	}
+	return flags, nil
+}
+
+// InstantiateWithOptions validates options and instantiates the graph. Upload
+// is separate because the native upload-on-instantiation flag requires the
+// parameter-based API and an upload stream, not cuGraphInstantiateWithFlags.
+func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error) {
 	if g == nil || g.raw == 0 {
 		return nil, errors.New("cudagraph: graph is closed")
 	}
+	flags, err := options.flags()
+	if err != nil {
+		return nil, err
+	}
 	var rawExec driver.GraphExec
-	err := g.withContext(func() error {
+	err = g.withContext(func() error {
 		var err error
-		rawExec, err = g.raw.Instantiate(0)
+		rawExec, err = g.raw.Instantiate(flags)
 		return err
 	})
 	if err != nil {
