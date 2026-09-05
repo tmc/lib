@@ -14,7 +14,9 @@ type SlidingWindowConfig struct {
 	WindowSize int // Number of rolling window tokens preserved (e.g. 4096)
 }
 
-// RollingKVCache manages a fixed-size ring buffer for unbounded streaming attention with attention sinks.
+// RollingKVCache tracks residency and slot indices for an attention sink and
+// rolling window. It does not allocate or move K/V tensors. Callers own storage
+// and must coordinate writes, reads, and Advance with device execution.
 type RollingKVCache struct {
 	sinkTokens int
 	windowSize int
@@ -25,7 +27,7 @@ type RollingKVCache struct {
 
 // NewRollingKVCache creates a sliding window KV cache preserving sink tokens and rolling window.
 func NewRollingKVCache(cfg SlidingWindowConfig) (*RollingKVCache, error) {
-	if cfg.SinkTokens < 0 || cfg.WindowSize <= 0 {
+	if cfg.SinkTokens < 0 || cfg.WindowSize <= 0 || cfg.SinkTokens > math.MaxInt-cfg.WindowSize {
 		return nil, fmt.Errorf("metalkv: invalid sliding window config: sink=%d, window=%d", cfg.SinkTokens, cfg.WindowSize)
 	}
 	return &RollingKVCache{
