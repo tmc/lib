@@ -13,6 +13,7 @@ const (
 	CusolverdnSyevbatched Function = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Function) String() string {
 	switch e {
 	case CusolverdnGetrf:
@@ -34,6 +35,7 @@ const (
 	EigType3 EigType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EigType) String() string {
 	switch e {
 	case EigType1:
@@ -54,6 +56,7 @@ const (
 	EigModeVector   EigMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EigMode) String() string {
 	switch e {
 	case EigModeNovector:
@@ -73,6 +76,7 @@ const (
 	EigRangeV   EigRange = 1003
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EigRange) String() string {
 	switch e {
 	case EigRangeAll:
@@ -95,6 +99,7 @@ const (
 	FroNorm Norm = 107
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Norm) String() string {
 	switch e {
 	case InfNorm:
@@ -125,6 +130,7 @@ const (
 	PrecSht                 IRSRefinement = 1152
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IRSRefinement) String() string {
 	switch e {
 	case IrsRefineNotSet:
@@ -173,6 +179,7 @@ const (
 	CAp   PrecType = 1218
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PrecType) String() string {
 	switch e {
 	case R8I:
@@ -220,6 +227,7 @@ const (
 	Alg2 AlgMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AlgMode) String() string {
 	switch e {
 	case Alg0:
@@ -240,6 +248,7 @@ const (
 	CublasStorevRowwise    StorevMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StorevMode) String() string {
 	switch e {
 	case CublasStorevColumnwise:
@@ -258,6 +267,7 @@ const (
 	CublasDirectBackward DirectMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DirectMode) String() string {
 	switch e {
 	case CublasDirectForward:
@@ -276,6 +286,7 @@ const (
 	AllowNonDeterministicResults DeterministicMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeterministicMode) String() string {
 	switch e {
 	case DeterministicResults:
@@ -296,6 +307,7 @@ const (
 	FP32FP64EmulatedMath       MathMode = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MathMode) String() string {
 	switch e {
 	case DefaultMath:
