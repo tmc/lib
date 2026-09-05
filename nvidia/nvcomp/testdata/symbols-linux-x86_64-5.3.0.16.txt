@@ -1,0 +1,36 @@
+# The batched LZ4 C entry points of libnvcomp.so.5.3.0.16, plus the two
+# library-wide calls, read from the pinned redist archive's .dynsym: every
+# STB_GLOBAL/STB_WEAK, STT_FUNC symbol with a defined section index.
+#
+# archive: nvcomp-linux-x86_64-5.3.0.16_cuda12-archive.tar.xz
+# sha256:  1def6bb0fa51d8ea3fe0c43ae1c58df2f63808ced7444267e14245583ec23f6f
+# member:  lib/libnvcomp.so.5.3.0.16
+# soname:  libnvcomp.so.5
+# read on: 2026-09-04
+#
+# The shared object itself is deliberately not vendored; this list is the one
+# fact taken from it.
+#
+# The library defines 133 undecorated C symbols in all: the same ten-call
+# batched shape for ANS, Bitcomp, Cascaded, Deflate, Gdeflate, Gzip, Snappy and
+# Zstd, three CRC32 calls, 38 lower-level bitcomp* calls, and the two below.
+# It also exports C++ symbols for the nvcomp::*Manager classes. None of those
+# is bound here: this package is the batched LZ4 API and nothing else, so a
+# symbol appearing in this file that is not one of the twelve is a change in
+# what the package claims to be.
+#
+# There is no nvcompBatchedLZ4CompressGetTempSize in 5.3.0. Earlier nvCOMP
+# releases had a single call by that name; this one splits it into the Async
+# and Sync variants below, and the Sync variant takes a stream.
+nvcompBatchedLZ4CompressAsync
+nvcompBatchedLZ4CompressGetMaxOutputChunkSize
+nvcompBatchedLZ4CompressGetRequiredAlignments
+nvcompBatchedLZ4CompressGetTempSizeAsync
+nvcompBatchedLZ4CompressGetTempSizeSync
+nvcompBatchedLZ4DecompressAsync
+nvcompBatchedLZ4DecompressGetRequiredAlignments
+nvcompBatchedLZ4DecompressGetTempSizeAsync
+nvcompBatchedLZ4DecompressGetTempSizeSync
+nvcompBatchedLZ4GetDecompressSizeAsync
+nvcompGetProperties
+nvcompGetStatusString
