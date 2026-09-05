@@ -18,6 +18,6 @@
 //
 // What this package does not do: it does not manage an encode session, allocate
 // input or bitstream buffers, or drive the encode loop. It is the ABI, not a
-// codec. Nothing in it has been run against a real libnvidia-encode from this
-// repository's tests.
+// codec. The nvenc_physical build tag selects a hardware test that requires a
+// compatible driver API version, a CUDA device, and FFmpeg for independent decoding.
 package nvenc
