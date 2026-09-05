@@ -67,8 +67,8 @@ var (
 	ErrToolNotFound = errors.New("compute-sanitizer not found")
 
 	// ErrTimeout means the run exceeded [Config.Timeout] or the caller's
-	// context deadline. The runner kills its process group on Unix and the
-	// direct child on other platforms.
+	// context deadline. The runner kills its process group on Unix, its
+	// process job on Windows, and the direct child on other platforms.
 	ErrTimeout = errors.New("run timed out")
 
 	// ErrNoVerdict means no complete report was available: the tool emitted
@@ -148,7 +148,8 @@ type Result struct {
 // Run bounds the subprocess with ctx and, if set, [Config.Timeout], whichever
 // expires first. On Unix, the run owns a process group that is killed on
 // expiry and cleaned up after the tool exits, including descendants whose
-// parent already exited. Other platforms currently kill only the direct child.
+// parent already exited. Windows uses a Job Object to own and terminate
+// the process tree. Other platforms currently kill only the direct child.
 // Either expiry produces [OutcomeToolFailure] with [ErrTimeout]; a timed-out
 // run is never reported as a pass.
 func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result, error) {
@@ -205,7 +206,6 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	cmd.WaitDelay = cfg.killDelay()
-	setGroup(cmd)
 
 	start := time.Now()
 	runErr := runContext(ctx, cmd)
@@ -245,21 +245,21 @@ func runContext(ctx context.Context, cmd *exec.Cmd) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := cmd.Start(); err != nil {
+	group, err := startGroup(cmd)
+	if err != nil {
 		return err
 	}
+	defer group.close()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
 	case err := <-done:
-		// The leader may exit before its children, including on tool failure.
-		_ = killGroup(cmd)
 		return err
 	case <-ctx.Done():
 		// Kill the whole group: compute-sanitizer runs the application as
 		// a separate process, so killing the direct child alone can leave
 		// the instrumented program running and holding the pipes open.
-		_ = killGroup(cmd)
+		_ = group.kill()
 		select {
 		case <-done:
 		case <-time.After(cmd.WaitDelay):

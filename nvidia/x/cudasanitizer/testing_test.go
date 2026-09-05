@@ -318,17 +318,17 @@ func TestSelfLaunchTerminates(t *testing.T) {
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	cmd.WaitDelay = 5 * time.Second
-	setGroup(cmd)
-
-	if err := cmd.Start(); err != nil {
+	group, err := startGroup(cmd)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer group.close()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
 	case err = <-done:
 	case <-ctx.Done():
-		_ = killGroup(cmd)
+		_ = group.kill()
 		<-done
 		t.Fatalf("the self-launching test binary did not terminate within the deadline; "+
 			"the child sentinel failed and it re-executed itself\n%s", out.String())
