@@ -1,0 +1,12 @@
+{
+  "commit": "0d1804f5aa1f22c93063429cfa73e96fd67efb3a",
+  "date_utc": "2026-09-05T05:21:11.377807+00:00",
+  "agent": "Codex",
+  "model": "GPT-6",
+  "codex_version": "codex-cli 0.153.3",
+  "claude_code_version": "2.1.257 (Claude Code)",
+  "tty": "unavailable: Command '['tty']' returned non-zero exit status 1.",
+  "note_writer_pid": 45675,
+  "ITERM_SESSION_ID": "w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3",
+  "provenance": "Fixed-shape HC and output-head reductions; independent review and physical combined01 receipt; full-model equivalence not claimed; automatic message helper exhausted its permitted retries with missing API key, manual fallback used"
+}
