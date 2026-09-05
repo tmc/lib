@@ -203,3 +203,23 @@ func TestCacheInputInvalidation(t *testing.T) {
 		})
 	}
 }
+
+func TestCompileRejectsNULBeforeLoading(t *testing.T) {
+	for _, tt := range []struct {
+		name, src, want string
+		opts            []Option
+	}{
+		{name: "source", src: "valid\x00ignored", want: "nvrtcx: source contains NUL"},
+		{name: "name", src: "x", opts: []Option{WithName("a\x00b")}, want: "nvrtcx: program name contains NUL"},
+		{name: "flag", src: "x", opts: []Option{WithFlag("-DA=1\x00-DB=2")}, want: "nvrtcx: compiler flag contains NUL"},
+		{name: "header name", src: "x", opts: []Option{WithHeader("a\x00b", "x")}, want: "nvrtcx: header name or content contains NUL"},
+		{name: "header content", src: "x", opts: []Option{WithHeader("a.h", "x\x00y")}, want: "nvrtcx: header name or content contains NUL"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(tt.src, tt.opts...)
+			if err == nil || err.Error() != tt.want {
+				t.Fatalf("got %v want %s", err, tt.want)
+			}
+		})
+	}
+}

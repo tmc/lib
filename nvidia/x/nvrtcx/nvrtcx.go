@@ -159,6 +159,10 @@ func WithName(name string) Option {
 			o.err = fmt.Errorf("nvrtcx: empty program name")
 			return
 		}
+		if strings.ContainsRune(name, 0) {
+			o.err = fmt.Errorf("nvrtcx: program name contains NUL")
+			return
+		}
 		o.name = name
 	}
 }
@@ -182,6 +186,10 @@ func WithFlag(flag string) Option {
 			o.err = fmt.Errorf("nvrtcx: empty compiler flag")
 			return
 		}
+		if strings.ContainsRune(flag, 0) {
+			o.err = fmt.Errorf("nvrtcx: compiler flag contains NUL")
+			return
+		}
 		o.flags = append(o.flags, flag)
 	}
 }
@@ -191,6 +199,10 @@ func WithHeader(name, content string) Option {
 	return func(o *options) {
 		if name == "" {
 			o.err = fmt.Errorf("nvrtcx: empty header name")
+			return
+		}
+		if strings.ContainsRune(name, 0) || strings.ContainsRune(content, 0) {
+			o.err = fmt.Errorf("nvrtcx: header name or content contains NUL")
 			return
 		}
 		if o.headers == nil {
@@ -231,12 +243,16 @@ func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.
 }
 
 // Compile compiles the given CUDA C++ source code into a CompiledModule.
+// Source, filenames, header contents, and flags must not contain NUL bytes.
 // If program destruction fails, the returned error retains the native program
 // and implements io.Closer (reachable with errors.As). Call Close on that error
 // to retry cleanup. Such a result is not added to the compilation cache.
 func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if src == "" {
 		return nil, fmt.Errorf("nvrtcx: empty source")
+	}
+	if strings.ContainsRune(src, 0) {
+		return nil, fmt.Errorf("nvrtcx: source contains NUL")
 	}
 	cfg := options{
 		name:     "jit_program.cu",
