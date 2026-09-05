@@ -17,6 +17,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
+const cudaMathSource = cudaProbeSource + cudaExpertSource + cudaCompressedSource + cudaQ80Source + cudaQ81Source + cudaF16DefaultSource + cudaExpertQ81Source + cudaHCSource
+
 const cudaProbeSource = `
 extern "C" __global__ void ds4_probe(float *p) {
   if (blockIdx.x == 0 && threadIdx.x == 0) p[0] = 4.0f;
@@ -121,9 +123,11 @@ extern "C" __global__ void ds4_f16_matvec(
 // writes the 4096-value current stream followed by its weighted RMS norm.
 // Only the first four projection rows contribute to the input transform. The
 // remaining rows describe the output transform and are consumed by HCPost.
+__device__ float ds4_half_round(float value);
+
 extern "C" __global__ void ds4_hc_pre(
     const float *state, const unsigned short *hc_fn, const float *scale,
-    const float *base, const float *norm_weight, float *out) {
+    const float *base, const float *norm_weight, float *out, unsigned int half_input) {
   if (blockIdx.x != 0) return;
   __shared__ float partial[256];
   __shared__ float inv;
@@ -143,7 +147,9 @@ extern "C" __global__ void ds4_hc_pre(
     float sum = 0.0f;
     const unsigned long long off = (unsigned long long)row * 16384;
     for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
-      sum += ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
+      sum += half_input
+        ? ds4_half_to_float(hc_fn[off + i]) * ds4_half_round(state[i] * inv)
+        : ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
     partial[threadIdx.x] = sum;
     __syncthreads();
     for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
@@ -223,7 +229,7 @@ __device__ void ds4_hc_split4(
 // through the combination matrix.
 extern "C" __global__ void ds4_hc_post(
     const float *state, const float *block, const unsigned short *hc_fn,
-    const float *scale, const float *base, float *out) {
+    const float *scale, const float *base, float *out, unsigned int half_input) {
   if (blockIdx.x != 0) return;
   __shared__ float partial[256];
   __shared__ float mix[24];
@@ -245,7 +251,9 @@ extern "C" __global__ void ds4_hc_post(
     float sum = 0.0f;
     const unsigned long long off = (unsigned long long)row * 16384;
     for (unsigned int i = threadIdx.x; i < 16384; i += blockDim.x)
-      sum += ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
+      sum += half_input
+        ? ds4_half_to_float(hc_fn[off + i]) * ds4_half_round(state[i] * inv)
+        : ds4_half_to_float(hc_fn[off + i]) * state[i] * inv;
     partial[threadIdx.x] = sum;
     __syncthreads();
     for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
@@ -401,6 +409,12 @@ extern "C" __global__ void ds4_rope_attention_raw(
   }
 }
 
+__device__ float ds4_router_softplus(float x) {
+  if (x > 20.0f) return x;
+  if (x < -20.0f) return expf(x);
+  return log1pf(expf(x));
+}
+
 // ds4_router_hash selects the six experts of a dense layer from the token's
 // row of the identity map. Mixture weights use the unbiased scores.
 extern "C" __global__ void ds4_router_hash(
@@ -409,7 +423,7 @@ extern "C" __global__ void ds4_router_hash(
   if (blockIdx.x != 0 || threadIdx.x != 0) return;
   for (unsigned int i = 0; i < 256; i++) {
     const float x = logits[i];
-    out[i] = sqrtf(x > 20.0f ? x : logf(1.0f + expf(x)));
+    out[i] = sqrtf(ds4_router_softplus(x));
   }
   float sum = 0.0f;
   for (unsigned int i = 0; i < 6; i++) {
@@ -429,7 +443,7 @@ extern "C" __global__ void ds4_router_biased(
   float selection[256];
   for (unsigned int i = 0; i < 256; i++) {
     const float x = logits[i];
-    out[i] = sqrtf(x > 20.0f ? x : logf(1.0f + expf(x)));
+    out[i] = sqrtf(ds4_router_softplus(x));
     selection[i] = out[i] + bias[i];
   }
   for (unsigned int k = 0; k < 6; k++) {
@@ -505,27 +519,50 @@ type cudaFoundation struct {
 	gguf   *gguf.File
 	mapped cudaModelRange
 
-	probeTensor string
-	probeHost   uint16
-	probeDevice uint16
-	probeCols   uint32
-	probeRows   uint32
-	probeBytes  uint64
-	probeOffset uint64
-	probePtr    driver.DevicePtr
-	matrixMod   driver.Module
-	matrixFn    driver.Function
-	rmsFn       driver.Function
-	f16Fn       driver.Function
-	hcPreFn     driver.Function
+	probeTensor      string
+	probeHost        uint16
+	probeDevice      uint16
+	probeCols        uint32
+	probeRows        uint32
+	probeBytes       uint64
+	probeOffset      uint64
+	probePtr         driver.DevicePtr
+	matrixMod        driver.Module
+	matrixFn         driver.Function
+	quantQ80Fn       driver.Function
+	quantQ81Fn       driver.Function
+	q81MatvecFn      driver.Function
+	q80QuantizedFn   driver.Function
+	rmsFn            driver.Function
+	f16Fn            driver.Function
+	f16DefaultFn     driver.Function
+	f16PairOrderedFn driver.Function
+	hcPreFn          driver.Function
+	hcHalfFn         driver.Function
+	hcSplitFn        driver.Function
+	hcCollapseFn     driver.Function
+	hcExpandFn       driver.Function
 
-	hcPostFn       driver.Function
-	rowFn          driver.Function
-	rawAttentionFn driver.Function
-	routerHashFn   driver.Function
-	routerBiasedFn driver.Function
-	swigluFn       driver.Function
-	sumVectorsFn   driver.Function
+	hcPostFn              driver.Function
+	rowFn                 driver.Function
+	rawAttentionFn        driver.Function
+	routerHashFn          driver.Function
+	routerBiasedFn        driver.Function
+	swigluFn              driver.Function
+	sumVectorsFn          driver.Function
+	iq2SelectedFn         driver.Function
+	q2KSelectedFn         driver.Function
+	quantQ8KFn            driver.Function
+	iq2SelectedQ8KFn      driver.Function
+	q2KSelectedQ8KFn      driver.Function
+	iq2SelectedQ81Fn      driver.Function
+	q2KSelectedQ81Fn      driver.Function
+	compressorPoolFn      driver.Function
+	compressorAttentionFn driver.Function
+	compressorIndexerFn   driver.Function
+	mixedAttentionFn      driver.Function
+	indexerQueryFn        driver.Function
+	indexerSelectFn       driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -908,6 +945,14 @@ func (r *cudaFoundation) encodeF16Matvec(t cudaModelTensor, x, out cudamem.Slice
 // encodeHCPre appends the DS4 hyper-connection input transform. Out contains
 // the current stream followed by its attention-normalized form.
 func (r *cudaFoundation) encodeHCPre(state cudamem.Slice[float32], hcFn, scale, base, norm cudaModelTensor, out cudamem.Slice[float32]) error {
+	return r.encodeHCPrePrecision(state, hcFn, scale, base, norm, out, false)
+}
+
+func (r *cudaFoundation) encodeHCPrePrecision(state cudamem.Slice[float32], hcFn, scale, base, norm cudaModelTensor, out cudamem.Slice[float32], halfInput bool) error {
+	half := uint32(0)
+	if halfInput {
+		half = 1
+	}
 	if state.Len() != 4*4096 || out.Len() != 2*4096 || hcFn.typeID != 1 || len(hcFn.dimensions) != 2 || hcFn.dimensions[0] != 4*4096 || hcFn.dimensions[1] != 24 ||
 		scale.typeID != 0 || base.typeID != 0 || norm.typeID != 0 || len(scale.dimensions) != 1 || scale.dimensions[0] != 3 ||
 		len(base.dimensions) != 1 || base.dimensions[0] != 24 || len(norm.dimensions) != 1 || norm.dimensions[0] != 4096 {
@@ -918,7 +963,7 @@ func (r *cudaFoundation) encodeHCPre(state cudamem.Slice[float32], hcFn, scale, 
 			return err
 		}
 		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
-			state, hcFn.device, scale.device, base.device, norm.device, out); err != nil {
+			state, hcFn.device, scale.device, base.device, norm.device, out, half); err != nil {
 			return fmt.Errorf("cuda: launch HC pre: %w", err)
 		}
 		return nil
@@ -929,6 +974,14 @@ func (r *cudaFoundation) encodeHCPre(state cudamem.Slice[float32], hcFn, scale, 
 // encodeHCPost appends the DS4 hyper-connection residual update, folding one
 // block output back into the four-stream state.
 func (r *cudaFoundation) encodeHCPost(state, block cudamem.Slice[float32], hcFn, scale, base cudaModelTensor, out cudamem.Slice[float32]) error {
+	return r.encodeHCPostPrecision(state, block, hcFn, scale, base, out, false)
+}
+
+func (r *cudaFoundation) encodeHCPostPrecision(state, block cudamem.Slice[float32], hcFn, scale, base cudaModelTensor, out cudamem.Slice[float32], halfInput bool) error {
+	half := uint32(0)
+	if halfInput {
+		half = 1
+	}
 	if state.Len() != 4*4096 || block.Len() != 4096 || out.Len() != state.Len() ||
 		hcFn.typeID != 1 || len(hcFn.dimensions) != 2 || hcFn.dimensions[0] != 4*4096 || hcFn.dimensions[1] != 24 ||
 		scale.typeID != 0 || len(scale.dimensions) != 1 || scale.dimensions[0] != 3 ||
@@ -940,7 +993,7 @@ func (r *cudaFoundation) encodeHCPost(state, block cudamem.Slice[float32], hcFn,
 			return err
 		}
 		if err := cudalaunch.Kernel(r.hcPostFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
-			state, block, hcFn.device, scale.device, base.device, out); err != nil {
+			state, block, hcFn.device, scale.device, base.device, out, half); err != nil {
 			return fmt.Errorf("cuda: launch HC post: %w", err)
 		}
 		return nil
@@ -956,6 +1009,17 @@ func (r *cudaFoundation) encodeHCPost(state, block cudamem.Slice[float32], hcFn,
 // head's own gate and base vectors are shorter than a layer's, so its tensor
 // profile is checked here rather than in encodeHCPre.
 func (r *cudaFoundation) encodeOutputHead(state cudamem.Slice[float32], out cudaOutput, mixed, logits cudamem.Slice[float32]) error {
+	if err := r.encodeOutputTransform(state, out, mixed, logits, false); err != nil {
+		return err
+	}
+	return r.encodeQ80Matvec(out.weight, mixed.Slice(4096, 8192), logits)
+}
+
+func (r *cudaFoundation) encodeOutputTransform(state cudamem.Slice[float32], out cudaOutput, mixed, logits cudamem.Slice[float32], halfInput bool) error {
+	half := uint32(0)
+	if halfInput {
+		half = 1
+	}
 	if state.Len() != 4*4096 || mixed.Len() != 2*4096 ||
 		out.hcFn.typeID != 1 || len(out.hcFn.dimensions) != 2 || out.hcFn.dimensions[0] != 4*4096 || out.hcFn.dimensions[1] < 4 ||
 		out.hcScale.typeID != 0 || len(out.hcScale.dimensions) != 1 || out.hcScale.dimensions[0] < 1 ||
@@ -965,18 +1029,13 @@ func (r *cudaFoundation) encodeOutputHead(state cudamem.Slice[float32], out cuda
 		uint64(logits.Len()) != out.weight.dimensions[1] {
 		return fmt.Errorf("cuda: output head: invalid tensor profile")
 	}
-	normalized := mixed.Slice(4096, 2*4096)
 	return r.device.WithContext(func() error {
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
 		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
-			state, out.hcFn.device, out.hcScale.device, out.hcBase.device, out.norm.device, mixed); err != nil {
+			state, out.hcFn.device, out.hcScale.device, out.hcBase.device, out.norm.device, mixed, half); err != nil {
 			return fmt.Errorf("cuda: launch output transform: %w", err)
-		}
-		if err := cudalaunch.Kernel(r.matrixFn).Grid(uint32(out.weight.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
-			out.weight.device, normalized, logits, uint32(out.weight.dimensions[0]), uint32(out.weight.dimensions[1])); err != nil {
-			return fmt.Errorf("cuda: launch logits: %w", err)
 		}
 		return nil
 	})
@@ -1112,9 +1171,19 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		dst  *driver.Function
 	}{
 		{"ds4_q8_0_matvec", &r.matrixFn},
+		{"ds4_quant_q8_0", &r.quantQ80Fn},
+		{"ds4_quant_q8_1", &r.quantQ81Fn},
+		{"ds4_q8_0_matvec_q8_1", &r.q81MatvecFn},
+		{"ds4_q8_0_matvec_quantized", &r.q80QuantizedFn},
 		{"ds4_rms", &r.rmsFn},
 		{"ds4_f16_matvec", &r.f16Fn},
+		{"ds4_f16_matvec_half_input", &r.f16DefaultFn},
+		{"ds4_f16_pair_ordered_chunks", &r.f16PairOrderedFn},
 		{"ds4_hc_pre", &r.hcPreFn},
+		{"ds4_hc_half_input", &r.hcHalfFn},
+		{"ds4_hc_cached_split", &r.hcSplitFn},
+		{"ds4_hc_cached_collapse", &r.hcCollapseFn},
+		{"ds4_hc_cached_expand", &r.hcExpandFn},
 		{"ds4_hc_post", &r.hcPostFn},
 		{"ds4_get_row_f16", &r.rowFn},
 		{"ds4_rope_attention_raw", &r.rawAttentionFn},
@@ -1122,6 +1191,19 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_router_biased", &r.routerBiasedFn},
 		{"ds4_swiglu", &r.swigluFn},
 		{"ds4_sum_vectors", &r.sumVectorsFn},
+		{"ds4_iq2_xxs_pair_selected_f32", &r.iq2SelectedFn},
+		{"ds4_q2_k_selected_f32", &r.q2KSelectedFn},
+		{"ds4_quant_q8_k", &r.quantQ8KFn},
+		{"ds4_iq2_xxs_pair_selected_q8_k", &r.iq2SelectedQ8KFn},
+		{"ds4_q2_k_selected_q8_k", &r.q2KSelectedQ8KFn},
+		{"ds4_iq2_xxs_pair_selected_q8_1", &r.iq2SelectedQ81Fn},
+		{"ds4_q2_k_selected_q8_1", &r.q2KSelectedQ81Fn},
+		{"ds4_compressor_pool", &r.compressorPoolFn},
+		{"ds4_compressor_attention", &r.compressorAttentionFn},
+		{"ds4_compressor_indexer", &r.compressorIndexerFn},
+		{"ds4_attention_mixed", &r.mixedAttentionFn},
+		{"ds4_indexer_query", &r.indexerQueryFn},
+		{"ds4_indexer_select", &r.indexerSelectFn},
 	}
 }
 
@@ -1129,7 +1211,7 @@ func (r *cudaFoundation) loadMathKernels() error {
 	if r.matrixMod != 0 {
 		return nil
 	}
-	compiled, err := nvrtcx.Compile(cudaProbeSource,
+	compiled, err := nvrtcx.Compile(cudaMathSource,
 		nvrtcx.WithName("ds4_math.cu"),
 		nvrtcx.WithArch(r.major, r.minor),
 	)

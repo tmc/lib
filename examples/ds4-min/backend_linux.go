@@ -25,10 +25,9 @@ func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
 	if cfg.backend != "cuda" {
 		return nil, nil, fmt.Errorf("%s backend execution not implemented", cfg.backend)
 	}
-	r, err := newCUDAFoundation(cfg.model)
+	r, err := newCUDARuntime(cfg.model, cfg.context)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer r.Close()
-	return nil, nil, fmt.Errorf("cuda device %q sm_%d%d qualified; token evaluation not implemented", r.name, r.major, r.minor)
+	return r, r, nil
 }

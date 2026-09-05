@@ -66,7 +66,7 @@ func TestCUDAQualificationCompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("host=%s runtime=%s os=%s arch=%s CUDA source SHA256=%x", host, runtime.Version(), runtime.GOOS, runtime.GOARCH, sha256.Sum256([]byte(cudaProbeSource)))
+	t.Logf("host=%s runtime=%s os=%s arch=%s CUDA source SHA256=%x", host, runtime.Version(), runtime.GOOS, runtime.GOARCH, sha256.Sum256([]byte(cudaMathSource)))
 	if err := r.device.WithContext(r.loadMathKernels); err != nil {
 		t.Fatal(err)
 	}

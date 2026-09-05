@@ -1,0 +1,94 @@
+//go:build linux
+
+package main
+
+import (
+	"fmt"
+	"math"
+
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
+)
+
+// cudaQ80Source follows antirez/ds4 b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd
+// ds4_cuda.cu:5037 (activation quantization) and :5152 (single-token matvec).
+// Activations retain float32 scales; GGUF weight scales remain binary16.
+const cudaQ80Source = `
+struct ds4_q8_activation { float d; signed char qs[32]; };
+static_assert(sizeof(ds4_q8_activation) == 36, "Q8 activation block size");
+
+extern "C" __global__ void ds4_quant_q8_0(const float *in, ds4_q8_activation *out) {
+  const unsigned tid = threadIdx.x;
+  const float *x = in + (unsigned long long)blockIdx.x * 32;
+  ds4_q8_activation *q = out + blockIdx.x;
+  __shared__ float magnitude[32];
+  magnitude[tid] = fabsf(x[tid]);
+  __syncthreads();
+  for (unsigned stride = 16; stride; stride >>= 1) {
+    if (tid < stride) magnitude[tid] = fmaxf(magnitude[tid], magnitude[tid + stride]);
+    __syncthreads();
+  }
+  const float d = magnitude[0] / 127.0f;
+  const float inverse = d != 0.0f ? 1.0f / d : 0.0f;
+  int value = (int)lrintf(x[tid] * inverse);
+  value = value > 127 ? 127 : value < -128 ? -128 : value;
+  q->qs[tid] = (signed char)value;
+  if (tid == 0) q->d = d;
+}
+
+extern "C" __global__ void ds4_q8_0_matvec_quantized(
+    const unsigned char *weights, const ds4_q8_activation *x, float *out,
+    unsigned blocks) {
+  const unsigned row = blockIdx.x, lane = threadIdx.x;
+  const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
+  float sum = 0.0f;
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
+    int dot = 0;
+    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(x[b].qs[i]);
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+    sum += d * x[b].d * float(dot);
+  }
+  for (unsigned stride = 16; stride; stride >>= 1)
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
+  if (lane == 0) out[row] = sum;
+}
+`
+
+// encodeQuantQ80 appends the pinned CUDA Q8_0 activation quantizer. Each
+// 32-element block occupies 36 bytes: one float32 scale and 32 signed bytes.
+func (r *cudaFoundation) encodeQuantQ80(in cudamem.Slice[float32], out cudamem.Slice[byte], cols int) error {
+	if cols <= 0 || cols%32 != 0 || in.Len() == 0 || in.Len()%cols != 0 || uint64(in.Len()/32) > math.MaxInt32 || uint64(out.Len()) != uint64(in.Len()/32)*36 {
+		return fmt.Errorf("cuda: Q8_0 activation quantization: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.quantQ80Fn).Grid(uint32(in.Len()/32)).Block(32).On(r.device.DefaultStream()).Launch(in, out); err != nil {
+			return fmt.Errorf("cuda: launch Q8_0 activation quantization: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeQ80MatvecQuantized projects Q8_0 weights using quantized activations.
+func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32]) error {
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 {
+		return fmt.Errorf("cuda: quantized Q8_0 matvec %q: invalid tensor", t.name)
+	}
+	cols, rows := t.dimensions[0], t.dimensions[1]
+	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 || uint64(in.Len()) != cols/32*36 || uint64(out.Len()) != rows || rows > t.bytes/(cols/32*34) {
+		return fmt.Errorf("cuda: quantized Q8_0 matvec %q: invalid shape or extent", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.q80QuantizedFn).Grid(uint32(rows)).Block(32).On(r.device.DefaultStream()).Launch(t.device, in, out, uint32(cols/32)); err != nil {
+			return fmt.Errorf("cuda: launch quantized Q8_0 matvec %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
