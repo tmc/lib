@@ -770,7 +770,7 @@ func validatePinnedCompressors(t *testing.T, ops *metalPinnedOps, bind func(stri
 		copy(stateKV[row*lane.width:], kv)
 		copy(stateScore[row*lane.width:], scoreAPE)
 		compareOracleF32(t, lane.name+"_state_kv", stateKV, fmt.Sprintf("%s/stage_%s_state_kv-%d_pos0.bin", oracleDir, lane.name, layer))
-		compareOracleF32(t, lane.name+"_state_score", stateScore, fmt.Sprintf("%s/stage_%s_state_score-%d_pos0.bin", oracleDir, lane.name, layer))
+		compareOracleMaskedF32(t, lane.name+"_state_score", stateScore, fmt.Sprintf("%s/stage_%s_state_score-%d_pos0.bin", oracleDir, lane.name, layer))
 	}
 }
 
@@ -794,8 +794,67 @@ func compareOracleI32(t *testing.T, name string, got []int32, path string) {
 	}
 }
 
+// compareOracleMaskedF32 compares an attention or indexer score state, the one
+// stage kind whose oracle carries the -Inf mask sentinel in every slot outside
+// the live window. In the pinned position-0 capture the sentinel fills 7168 of
+// 8192 slots on layer 2 and 65024 of 65536 on layer 3, the latter leaving
+// exactly the indexer's top 512, so rejecting it outright leaves those layers
+// unmeasured.
+func compareOracleMaskedF32(t *testing.T, name string, got []float32, path string) {
+	t.Helper()
+	live, err := maskedComparison(got, readOracleF32(t, path), oracleAtol, oracleRtol)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	t.Logf("%s: compared %d live of %d slots", name, live, len(got))
+}
+
+// maskedComparison compares got against a want that carries the -Inf mask
+// sentinel, and reports how many slots were live.
+//
+// The sentinel is data, so both sides must agree on the mask as well as on the
+// finite values: the mask pattern is compared element for element, and the live
+// population must be non-empty so a fully masked comparison cannot pass by
+// having nothing left to compare. Every other comparator keeps its finite-only
+// contract.
+func maskedComparison(got, want []float32, atol, rtol float64) (int, error) {
+	if err := oracleComparisonShape(len(got), len(want)); err != nil {
+		return 0, err
+	}
+	live := 0
+	for i := range got {
+		masked := math.IsInf(float64(want[i]), -1)
+		if masked != math.IsInf(float64(got[i]), -1) {
+			return 0, fmt.Errorf("element %d: got %g, want %g: mask pattern differs", i, got[i], want[i])
+		}
+		if masked {
+			continue
+		}
+		live++
+		if !comparableValue(got[i]) || !comparableValue(want[i]) {
+			return 0, fmt.Errorf("element %d: non-finite values %g, %g", i, got[i], want[i])
+		}
+		delta := math.Abs(float64(got[i] - want[i]))
+		limit := atol + rtol*math.Abs(float64(want[i]))
+		if delta > limit {
+			return 0, fmt.Errorf("element %d: got %g, want %g (delta %g > %g)", i, got[i], want[i], delta, limit)
+		}
+	}
+	if live == 0 {
+		return 0, fmt.Errorf("every slot is masked, so the comparison measures nothing")
+	}
+	return live, nil
+}
+
+// oracleAtol and oracleRtol are the pre-registered tolerance for an ordinary
+// float32 oracle comparison.
+const (
+	oracleAtol = 3e-3
+	oracleRtol = 5e-4
+)
+
 func compareOracleF32(t *testing.T, name string, got []float32, path string) {
-	compareOracleF32Tolerance(t, name, got, path, 3e-3, 5e-4)
+	compareOracleF32Tolerance(t, name, got, path, oracleAtol, oracleRtol)
 }
 
 // compareOracleFP8F32 allows the implementation and oracle to choose adjacent
@@ -816,7 +875,7 @@ func compareOracleFP8F32(t *testing.T, name string, got []float32, path string) 
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
-		checkFinite(t, name, i, got[i], want)
+		requireOracleFinite(t, name, i, got[i], want)
 		delta := math.Abs(float64(got[i] - want))
 		limit := fp8ComparisonLimit(got[i], want)
 		if delta > limit {
@@ -849,7 +908,7 @@ func compareOracleF32Tolerance(t *testing.T, name string, got []float32, path st
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
-		checkFinite(t, name, i, got[i], want)
+		requireOracleFinite(t, name, i, got[i], want)
 		delta := math.Abs(float64(got[i] - want))
 		limit := atol + rtol*math.Abs(float64(want))
 		if delta > limit {
@@ -920,7 +979,7 @@ func relativeDrift(t *testing.T, got, want []float32) float64 {
 	}
 	worst := 0.0
 	for i := range got {
-		checkFinite(t, "relative drift", i, got[i], want[i])
+		requireOracleFinite(t, "relative drift", i, got[i], want[i])
 		w := math.Abs(float64(want[i]))
 		if w <= 0.1 {
 			continue
@@ -941,16 +1000,24 @@ func relativeDrift(t *testing.T, got, want []float32) float64 {
 // chainedDriftBudget are 0.7 ULP at layer 40 and 4.2 ULP at layer 42; every
 // other layer is exact within the fixed tolerance.
 
-// checkFinite rejects a non-finite candidate or oracle value. Every comparison
-// below is of the form delta > limit, which is false when delta is NaN, so a
-// NaN would otherwise pass silently.
-func checkFinite(t *testing.T, name string, i int, got, want float32) {
+// comparableValue reports whether v can take part in a numeric comparison.
+// Every comparison below is of the form delta > limit, which is false when
+// delta is NaN, so a non-finite value must be rejected explicitly.
+func comparableValue(v float32) bool {
+	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
+}
+
+// requireOracleFinite fails the test on a value that no comparison can accept. The
+// -Inf sentinel is legitimate data in exactly one place, the attention and
+// indexer score state, and compareOracleMaskedF32 handles it there; everywhere
+// else a non-finite value on either side is a defect.
+func requireOracleFinite(t *testing.T, name string, i int, got, want float32) {
 	t.Helper()
-	if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) {
-		t.Fatalf("%s[%d] = %g is not finite", name, i, got)
+	if !comparableValue(got) {
+		t.Fatalf("%s[%d] = %g, want %g", name, i, got, want)
 	}
-	if math.IsNaN(float64(want)) || math.IsInf(float64(want), 0) {
-		t.Fatalf("%s[%d] oracle value %g is not finite", name, i, want)
+	if !comparableValue(want) {
+		t.Fatalf("%s[%d] = %g, oracle %g", name, i, got, want)
 	}
 }
 
@@ -982,7 +1049,7 @@ func compareOracleResidual(t *testing.T, name string, got []float32, path string
 	}
 	scale := residualAtol + residualULPBudget*ulp
 	for i := range got {
-		checkFinite(t, name, i, got[i], want[i])
+		requireOracleFinite(t, name, i, got[i], want[i])
 		limit := scale + residualRtol*math.Abs(float64(want[i]))
 		if delta := math.Abs(float64(got[i] - want[i])); delta > limit {
 			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g at peak %g)", name, i, got[i], want[i], delta, limit, peak)
