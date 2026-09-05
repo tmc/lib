@@ -443,7 +443,14 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 	if err := s.Sync(prompt); err != nil {
 		t.Fatal(err)
 	}
-	want := []int{19923, 3, 1730, 588, 342}
+	// The registered oracle trace for prompt A, from the capture under
+	// evidence/oracle-provenance/capture-prompt-a-01: ten selections
+	// decoding to "Hello! How can I help you today?" and stopping
+	// naturally on token 1. Earlier revisions checked only the first
+	// five, which miss the later divergence: the CUDA candidate failed
+	// at selection 5, choosing 8233 (" assist") over 1694 (" help").
+	want := []int{19923, 3, 1730, 588, 342, 1694, 440, 4316, 33, 1}
+	steps := 0
 	for step := range len(want) {
 		id := greedyToken(s.logits)
 		text, err := tok.Decode([]int{id})
@@ -454,12 +461,16 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 		if id != want[step] {
 			t.Fatalf("step %d token = %d, want %d", step, id, want[step])
 		}
+		steps++
 		if tok.IsStop(id) {
 			break
 		}
 		if _, err := s.Accept(id); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if steps != len(want) {
+		t.Fatalf("stopped after %d selections, want %d", steps, len(want))
 	}
 }
 
@@ -769,8 +780,11 @@ func compareOracleI32(t *testing.T, name string, got []int32, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b) < 4*len(got) {
-		t.Fatalf("%s oracle has %d bytes, need %d", name, len(b), 4*len(got))
+	if len(b)%4 != 0 {
+		t.Fatalf("%s oracle has incomplete value in %d bytes", name, len(b))
+	}
+	if err := oracleComparisonShape(len(got), len(b)/4); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	for i, value := range got {
 		want := int32(binary.LittleEndian.Uint32(b[4*i:]))
@@ -794,8 +808,11 @@ func compareOracleFP8F32(t *testing.T, name string, got []float32, path string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b) < 4*len(got) {
-		t.Fatalf("%s oracle has %d bytes, need %d", name, len(b), 4*len(got))
+	if len(b)%4 != 0 {
+		t.Fatalf("%s oracle has incomplete value in %d bytes", name, len(b))
+	}
+	if err := oracleComparisonShape(len(got), len(b)/4); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
@@ -824,8 +841,11 @@ func compareOracleF32Tolerance(t *testing.T, name string, got []float32, path st
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b) < 4*len(got) {
-		t.Fatalf("%s oracle has %d bytes, need %d", name, len(b), 4*len(got))
+	if len(b)%4 != 0 {
+		t.Fatalf("%s oracle has incomplete value in %d bytes", name, len(b))
+	}
+	if err := oracleComparisonShape(len(got), len(b)/4); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	for i := range got {
 		want := math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
@@ -895,11 +915,12 @@ const chainedDriftBudget = 1.5e-1
 // ignoring want values too small for a relative measure to be meaningful.
 func relativeDrift(t *testing.T, got, want []float32) float64 {
 	t.Helper()
-	if len(want) < len(got) {
-		t.Fatalf("drift oracle has %d values, need %d", len(want), len(got))
+	if err := oracleComparisonShape(len(got), len(want)); err != nil {
+		t.Fatal(err)
 	}
 	worst := 0.0
 	for i := range got {
+		checkFinite(t, "relative drift", i, got[i], want[i])
 		w := math.Abs(float64(want[i]))
 		if w <= 0.1 {
 			continue
@@ -947,8 +968,8 @@ const (
 func compareOracleResidual(t *testing.T, name string, got []float32, path string) {
 	t.Helper()
 	want := readOracleF32(t, path)
-	if len(want) < len(got) {
-		t.Fatalf("%s oracle has %d values, need %d", name, len(want), len(got))
+	if err := oracleComparisonShape(len(got), len(want)); err != nil {
+		t.Fatalf("%s: %v", name, err)
 	}
 	peak := 0.0
 	for i := range got {
