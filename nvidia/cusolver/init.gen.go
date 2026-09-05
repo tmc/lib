@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -36,6 +38,7 @@ type SymbolError struct {
 	Symbol string
 }
 
+// Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
 	return "cusolver: symbol " + e.Symbol + " unavailable"
 }
@@ -47,6 +50,7 @@ type LibraryConflictError struct {
 	Requested string
 }
 
+// Error reports the conflicting library paths.
 func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("cusolver: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
@@ -109,7 +113,7 @@ func Close() error {
 	if lib == 0 {
 		return nil
 	}
-	err := purego.Dlclose(lib)
+	err := closeLibrary(lib)
 	lib = 0
 	libErr = nil
 	libPath = ""
@@ -150,27 +154,106 @@ func openLibrary(path string) (uintptr, string, error) {
 		path = os.Getenv("CUSOLVER_LIB_PATH")
 	}
 	if path != "" {
-		h, err := purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		h, err := openDynamicLibrary(path)
 		if err == nil {
 			return h, path, nil
 		}
-		return 0, "", fmt.Errorf("cusolver: open %q: %w", path, err)
+		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 	}
 	names := libraryNames()
-	var firstErr error
+	var attempts []LibraryAttempt
 	for _, name := range names {
-		h, err := purego.Dlopen(name, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		h, err := openDynamicLibrary(name)
 		if err == nil {
 			return h, name, nil
 		}
-		if firstErr == nil {
-			firstErr = err
+		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+	}
+	return 0, "", newLibraryError("", attempts)
+}
+
+// LibraryAttempt records one failed attempt to open the shared library.
+type LibraryAttempt struct {
+	Name string // path or soname passed to dlopen
+	Err  error
+}
+
+// LibraryError reports that libcusolver could not be opened. Attempts lists
+// every name tried in order. Path is set when an explicit path, from Load or
+// CUSOLVER_LIB_PATH, was requested and failed. Hint, when non-empty, says where
+// pkg-config believes the library is installed.
+type LibraryError struct {
+	Library  string
+	Env      string
+	Path     string
+	Attempts []LibraryAttempt
+	Hint     string
+}
+
+// Error describes the library load attempts and their errors.
+func (e *LibraryError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "cusolver: cannot open %s", e.Library)
+	switch {
+	case e.Path != "":
+		fmt.Fprintf(&b, " at %s", e.Path)
+	case len(e.Attempts) == 0:
+		fmt.Fprintf(&b, ": no library names for %s/%s", runtime.GOOS, runtime.GOARCH)
+	default:
+		b.WriteString(": tried ")
+		for i, a := range e.Attempts {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(a.Name)
 		}
 	}
-	if firstErr == nil {
-		firstErr = errors.New("no library paths to try")
+	if n := len(e.Attempts); n > 0 && e.Attempts[n-1].Err != nil {
+		fmt.Fprintf(&b, ": %v", e.Attempts[n-1].Err)
 	}
-	return 0, "", fmt.Errorf("cusolver: open libcusolver: %w", firstErr)
+	if e.Hint != "" {
+		b.WriteString("; " + e.Hint)
+	}
+	if e.Path == "" && e.Env != "" {
+		fmt.Fprintf(&b, "; set %s to the library path", e.Env)
+	}
+	return b.String()
+}
+
+// Unwrap returns the error from each attempt.
+func (e *LibraryError) Unwrap() []error {
+	errs := make([]error, 0, len(e.Attempts))
+	for _, a := range e.Attempts {
+		if a.Err != nil {
+			errs = append(errs, a.Err)
+		}
+	}
+	return errs
+}
+
+func newLibraryError(path string, attempts []LibraryAttempt) *LibraryError {
+	return &LibraryError{Library: "libcusolver", Env: "CUSOLVER_LIB_PATH", Path: path, Attempts: attempts, Hint: pkgConfigHint()}
+}
+
+// pkgConfigHint asks pkg-config where the library is installed so that a
+// load failure can say so. It runs only after every dlopen attempt has
+// failed, never chooses the library, and is silent when pkg-config is
+// absent or does not know the package.
+func pkgConfigHint() string {
+	const pkg = "cusolver"
+	exe, err := exec.LookPath("pkg-config")
+	if err != nil {
+		return ""
+	}
+	out, err := exec.Command(exe, "--variable=libdir", pkg).Output()
+	if err != nil {
+		return ""
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return ""
+	}
+	return "pkg-config reports " + pkg + " in " + dir
 }
 
 // libraryNames returns the platform-specific shared library names to try.
@@ -195,7 +278,7 @@ func register(fn interface{}, symbol string) {
 	if lib == 0 {
 		return
 	}
-	sym, err := purego.Dlsym(lib, symbol)
+	sym, err := lookupLibrarySymbol(lib, symbol)
 	if err != nil || sym == 0 {
 		return
 	}
