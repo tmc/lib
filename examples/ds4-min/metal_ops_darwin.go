@@ -1713,13 +1713,19 @@ kernel void compressor_finish_indexer(
     uint tid [[thread_position_in_threadgroup]],
     ushort lane [[thread_index_in_simdgroup]],
     ushort simdgroup [[simdgroup_index_in_threadgroup]]) {
-  (void)position;
   threadgroup float *vals=scratch,*absbuf=scratch+128;
+  if(simdgroup==0)absbuf[lane]=0.0f;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
   float ss=pooled[tid]*pooled[tid];ss=simd_sum(ss);
   if(lane==0)absbuf[simdgroup]=ss;
   threadgroup_barrier(mem_flags::mem_threadgroup);
   ss=simd_sum(absbuf[lane]);
   vals[tid]=pooled[tid]*(1.0f/sqrt(ss/128.0f+1.0e-6f))*weight[tid];
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  if(tid<32){
+    const uint r=2*tid,i=64+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=sin(theta),a=vals[i],b=vals[i+1];
+    vals[i]=a*c-b*s;vals[i+1]=a*s+b*c;
+  }
   threadgroup_barrier(mem_flags::mem_threadgroup);
   for(uint stride=1;stride<128;stride<<=1){
     if((tid&stride)==0){uint base=(tid&~(2*stride-1))+(tid&(stride-1));float a=vals[base],b=vals[base+stride];vals[base]=a+b;vals[base+stride]=a-b;}
