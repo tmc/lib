@@ -26,6 +26,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors reads Hugging Face .safetensors files and copies tensors into CUDA device memory. |
 | [cudasample](cudasample/) | Package cudasample provides CUDA greedy argmax and its CPU reference. |
+| [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
