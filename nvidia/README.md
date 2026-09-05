@@ -13,6 +13,8 @@ the libraries are located and loaded on first use.
 |---|---|---|
 | driver | CUDA driver API (cuda.h) | contexts, memory, module loading, kernel launch, streams, events, graphs |
 | nvrtc | NVRTC | compiling CUDA C++ to PTX at runtime |
+| nvvm | NVVM | compiling NVVM IR and libdevice to PTX or LTOIR |
+| nvjitlink | nvJitLink | linking device code to cubin or PTX |
 | nvml | NVML | device enumeration, telemetry, and management |
 | cublas | cuBLAS | dense BLAS on device buffers |
 | cublaslt | cuBLASLt | lightweight matmul with algorithm selection |

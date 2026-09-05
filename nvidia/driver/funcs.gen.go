@@ -433,10 +433,10 @@ var (
 	fnSurfObjectGetResourceDesc                          func(*ResourceDesc, uint64) Result
 	fnsurfRefGetArray                                    func(*Array, SurfRef) Result
 	fnsurfRefSetArray                                    func(SurfRef, Array, uint32) Result
-	fnTensorMapEncodeIm2col                              func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *int32, *int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapEncodeIm2colWide                          func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, int32, int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapIm2ColWideMode, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapEncodeTiled                               func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
-	fnTensorMapReplaceAddress                            func(*[64]byte, uintptr) Result
+	fnTensorMapEncodeIm2col                              func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *int32, *int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
+	fnTensorMapEncodeIm2colWide                          func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, int32, int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapIm2ColWideMode, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
+	fnTensorMapEncodeTiled                               func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) Result
+	fnTensorMapReplaceAddress                            func(*TensorMap, uintptr) Result
 	fnTexObjectCreate                                    func(*uint64, *ResourceDesc, *TextureDesc, *ResourceViewDesc) Result
 	fnTexObjectDestroy                                   func(uint64) Result
 	fnTexObjectGetResourceDesc                           func(*ResourceDesc, uint64) Result
@@ -9013,7 +9013,7 @@ func surfRefSetArray(hSurfRef SurfRef, hArray Array, Flags uint32) error {
 // See also: [TensorMapEncodeTiled], [TensorMapEncodeIm2colWide], [TensorMapReplaceAddress]
 //
 // Wraps cuTensorMapEncodeIm2col.
-func TensorMapEncodeIm2col(tensorMap *[64]byte, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, pixelBoxLowerCorner *int32, pixelBoxUpperCorner *int32, channelsPerPixel uint32, pixelsPerColumn uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
+func TensorMapEncodeIm2col(tensorMap *TensorMap, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, pixelBoxLowerCorner *int32, pixelBoxUpperCorner *int32, channelsPerPixel uint32, pixelsPerColumn uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
 	if err := checkLibSym("cuTensorMapEncodeIm2col"); err != nil {
 		return err
 	}
@@ -9141,7 +9141,7 @@ func TensorMapEncodeIm2col(tensorMap *[64]byte, tensorDataType TensorMapDataType
 // See also: [TensorMapEncodeTiled], [TensorMapEncodeIm2col], [TensorMapReplaceAddress]
 //
 // Wraps cuTensorMapEncodeIm2colWide.
-func TensorMapEncodeIm2colWide(tensorMap *[64]byte, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, pixelBoxLowerCornerWidth int32, pixelBoxUpperCornerWidth int32, channelsPerPixel uint32, pixelsPerColumn uint32, elementStrides *uint32, interleave TensorMapInterleave, mode TensorMapIm2ColWideMode, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
+func TensorMapEncodeIm2colWide(tensorMap *TensorMap, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, pixelBoxLowerCornerWidth int32, pixelBoxUpperCornerWidth int32, channelsPerPixel uint32, pixelsPerColumn uint32, elementStrides *uint32, interleave TensorMapInterleave, mode TensorMapIm2ColWideMode, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
 	if err := checkLibSym("cuTensorMapEncodeIm2colWide"); err != nil {
 		return err
 	}
@@ -9251,7 +9251,7 @@ func TensorMapEncodeIm2colWide(tensorMap *[64]byte, tensorDataType TensorMapData
 // See also: [TensorMapEncodeIm2col], [TensorMapEncodeIm2colWide], [TensorMapReplaceAddress]
 //
 // Wraps cuTensorMapEncodeTiled.
-func TensorMapEncodeTiled(tensorMap *[64]byte, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, boxDim *uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
+func TensorMapEncodeTiled(tensorMap *TensorMap, tensorDataType TensorMapDataType, tensorRank uint32, globalAddress uintptr, globalDim *uint64, globalStrides *uint64, boxDim *uint32, elementStrides *uint32, interleave TensorMapInterleave, swizzle TensorMapSwizzle, l2Promotion TensorMapL2promotion, oobFill TensorMapFloatOOBfill) error {
 	if err := checkLibSym("cuTensorMapEncodeTiled"); err != nil {
 		return err
 	}
@@ -9273,7 +9273,7 @@ func TensorMapEncodeTiled(tensorMap *[64]byte, tensorDataType TensorMapDataType,
 // See also: [TensorMapEncodeTiled], [TensorMapEncodeIm2col], [TensorMapEncodeIm2colWide]
 //
 // Wraps cuTensorMapReplaceAddress.
-func TensorMapReplaceAddress(tensorMap *[64]byte, globalAddress uintptr) error {
+func TensorMapReplaceAddress(tensorMap *TensorMap, globalAddress uintptr) error {
 	if err := checkLibSym("cuTensorMapReplaceAddress"); err != nil {
 		return err
 	}
