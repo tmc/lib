@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-const cacheMagic = "nvrtcx\x00\x03"
+const cacheMagic = "nvrtcx\x00\x04"
 
 var (
 	memCacheMu sync.RWMutex
@@ -62,6 +62,12 @@ func computeCacheKey(src string, name string, flags []string, includes map[strin
 		writeHashField(v)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// compilerCacheKey separates artifacts produced by different loaded compilers.
+// Framing both fields prevents an identity from being confused with source input.
+func compilerCacheKey(input, compiler string) string {
+	return computeCacheKey(input, "nvrtcx-compiler-cache-v1", nil, map[string]string{"compiler": compiler})
 }
 
 func getCacheDir() (string, error) {
@@ -128,24 +134,28 @@ func storeCache(key string, cm *CompiledModule) error {
 }
 
 func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
-	if cm == nil || cm.ptx == "" && len(cm.cubin) == 0 {
-		return nil, fmt.Errorf("nvrtcx: module contains no ptx or cubin image")
+	if !cm.validArtifact() {
+		return nil, fmt.Errorf("nvrtcx: module contains no compiler artifact")
 	}
 	var b bytes.Buffer
 	b.WriteString(cacheMagic)
-	var lengths [16]byte
-	binary.LittleEndian.PutUint64(lengths[:8], uint64(len(cm.ptx)))
-	binary.LittleEndian.PutUint64(lengths[8:], uint64(len(cm.cubin)))
-	b.Write(lengths[:])
-	b.WriteString(cm.ptx)
-	b.Write(cm.cubin)
+	b.WriteByte(byte(cm.output))
+	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, []byte(cm.log)}
+	for _, field := range fields {
+		var length [8]byte
+		binary.LittleEndian.PutUint64(length[:], uint64(len(field)))
+		b.Write(length[:])
+	}
+	for _, field := range fields {
+		b.Write(field)
+	}
 	sum := sha256.Sum256(b.Bytes())
 	b.Write(sum[:])
 	return b.Bytes(), nil
 }
 
 func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
-	const headerSize = len(cacheMagic) + 16
+	const headerSize = len(cacheMagic) + 1 + 5*8
 	if len(data) < headerSize+sha256.Size || string(data[:len(cacheMagic)]) != cacheMagic {
 		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
 	}
@@ -154,18 +164,30 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 	if !bytes.Equal(got[:], want) {
 		return nil, fmt.Errorf("nvrtcx: corrupt cache entry")
 	}
-	ptxLen := binary.LittleEndian.Uint64(data[len(cacheMagic) : len(cacheMagic)+8])
-	cubinLen := binary.LittleEndian.Uint64(data[len(cacheMagic)+8 : headerSize])
-	payloadLen := uint64(len(data) - headerSize - sha256.Size)
-	if ptxLen > payloadLen || cubinLen != payloadLen-ptxLen || ptxLen == 0 && cubinLen == 0 {
-		return nil, fmt.Errorf("nvrtcx: invalid cache entry lengths")
+	kind := OutputKind(data[len(cacheMagic)])
+	if kind > OutputTileIR {
+		return nil, fmt.Errorf("nvrtcx: invalid cached output kind")
 	}
 	payload := data[headerSize : len(data)-sha256.Size]
-	return &CompiledModule{
-		ptx:   string(payload[:ptxLen]),
-		cubin: append([]byte(nil), payload[ptxLen:]...),
-		key:   key,
-	}, nil
+	var fields [5][]byte
+	for i := range fields {
+		offset := len(cacheMagic) + 1 + i*8
+		size := binary.LittleEndian.Uint64(data[offset : offset+8])
+		if size > uint64(len(payload)) {
+			return nil, fmt.Errorf("nvrtcx: invalid cache entry lengths")
+		}
+		fields[i] = payload[:int(size)]
+		payload = payload[int(size):]
+	}
+	if len(payload) != 0 {
+		return nil, fmt.Errorf("nvrtcx: trailing cache data")
+	}
+	cm := &CompiledModule{output: kind, ptx: string(fields[0]), cubin: append([]byte(nil), fields[1]...),
+		ltoir: append([]byte(nil), fields[2]...), tileir: append([]byte(nil), fields[3]...), log: string(fields[4]), key: key}
+	if !cm.validArtifact() {
+		return nil, fmt.Errorf("nvrtcx: cached output kind does not match artifact")
+	}
+	return cm, nil
 }
 
 func writeCacheFile(path string, data []byte) error {
