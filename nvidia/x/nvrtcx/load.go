@@ -71,3 +71,33 @@ func jitLogString(b []byte) string {
 	}
 	return string(b)
 }
+
+// LoadOwnedOutput loads one artifact and transfers it to a CUDA module owner.
+// The owner retains its context independently of dev and must be closed.
+// Keep dev open until this call returns. On failure no module is returned;
+// if cleanup also fails, the error implements io.Closer for retry before dev
+// closes. JIT diagnostics are returned on both success and failure.
+func (cm *CompiledModule) LoadOwnedOutput(dev *cuda.Device, kind OutputKind) (*cuda.Module, JITLog, error) {
+	raw, log, err := cm.LoadOutputWithLog(dev, kind)
+	if err == nil {
+		var owner *cuda.Module
+		owner, err = cuda.OwnModule(dev, raw)
+		if err == nil {
+			return owner, log, nil
+		}
+	}
+	pending := raw
+	_, err = finishModuleLoad(raw, err, func() error {
+		if pending == 0 {
+			return nil
+		}
+		return dev.WithContext(func() error {
+			if err := pending.Unload(); err != nil {
+				return err
+			}
+			pending = 0
+			return nil
+		})
+	})
+	return nil, log, err
+}
