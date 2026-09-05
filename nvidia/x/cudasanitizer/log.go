@@ -1,6 +1,7 @@
 package cudasanitizer
 
 import (
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -94,6 +95,7 @@ var (
 // can be passed in directly. Blocks are delimited by the bare prefix lines the
 // tool prints between them.
 //
+// Counts saturate at the largest representable integer instead of wrapping.
 // Counts accumulate across every summary in the text rather than being
 // replaced by the last one; see [Log.Errors].
 //
@@ -133,7 +135,7 @@ func ParseLog(text string) *Log {
 			flush()
 			m := errorSummaryRE.FindStringSubmatch(body)
 			n, _ := strconv.Atoi(m[1])
-			l.Errors += n
+			l.Errors = addCount(l.Errors, n)
 			errorSummaries++
 			l.SummaryFound = true
 		case leakSummaryRE.MatchString(body):
@@ -141,17 +143,21 @@ func ParseLog(text string) *Log {
 			m := leakSummaryRE.FindStringSubmatch(body)
 			bytes, _ := strconv.ParseInt(m[1], 10, 64)
 			allocations, _ := strconv.Atoi(m[2])
-			l.LeakedBytes += bytes
-			l.LeakedAllocations += allocations
+			if bytes > math.MaxInt64-l.LeakedBytes {
+				l.LeakedBytes = math.MaxInt64
+			} else {
+				l.LeakedBytes += bytes
+			}
+			l.LeakedAllocations = addCount(l.LeakedAllocations, allocations)
 		case raceSummaryRE.MatchString(body):
 			flush()
 			m := raceSummaryRE.FindStringSubmatch(body)
 			hazards, _ := strconv.Atoi(m[1])
 			raceErrors, _ := strconv.Atoi(m[2])
 			warnings, _ := strconv.Atoi(m[3])
-			l.Hazards += hazards
-			l.Warnings += warnings
-			raceErrorTotal += raceErrors
+			l.Hazards = addCount(l.Hazards, hazards)
+			l.Warnings = addCount(l.Warnings, warnings)
+			raceErrorTotal = addCount(raceErrorTotal, raceErrors)
 			raceSummaries++
 			l.SummaryFound = true
 		default:
@@ -172,4 +178,13 @@ func ParseLog(text string) *Log {
 		l.Errors = raceErrorTotal
 	}
 	return l
+}
+
+// Counts are nonnegative decimal integers. strconv clamps an out-of-range
+// positive input; accumulation must preserve that bound too.
+func addCount(a, b int) int {
+	if b > math.MaxInt-a {
+		return math.MaxInt
+	}
+	return a + b
 }

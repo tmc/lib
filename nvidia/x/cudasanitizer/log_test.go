@@ -2,6 +2,8 @@ package cudasanitizer
 
 import (
 	"context"
+	"math"
+	"strings"
 	"testing"
 )
 
@@ -174,5 +176,27 @@ func TestMixedSummaryFamilies(t *testing.T) {
 		if result.Outcome != OutcomeSanitizerErrors {
 			t.Fatalf("mixed summaries classified as %v", result.Outcome)
 		}
+	}
+}
+
+func TestSummaryCountOverflow(t *testing.T) {
+	const huge = "99999999999999999999999999999999999999999999"
+	for _, line := range []string{
+		"========= ERROR SUMMARY: " + huge + " errors\n",
+		"========= RACECHECK SUMMARY: " + huge + " hazards displayed (" + huge + " errors, 0 warnings)\n",
+	} {
+		log := ParseLog(strings.Repeat(line, 2))
+		if log.Errors != math.MaxInt {
+			t.Fatalf("errors = %d, want saturated count", log.Errors)
+		}
+		result := &Result{Log: log, ExitCode: 0}
+		result.classify(context.Background(), nil)
+		if result.Outcome != OutcomeSanitizerErrors {
+			t.Fatalf("overflow classified as %v", result.Outcome)
+		}
+	}
+	log := ParseLog(strings.Repeat("========= LEAK SUMMARY: "+huge+" bytes leaked in "+huge+" allocations\n", 2))
+	if log.LeakedBytes != math.MaxInt64 || log.LeakedAllocations != math.MaxInt {
+		t.Fatalf("leak counts wrapped: %+v", log)
 	}
 }
