@@ -3,11 +3,11 @@ package nvrtcx_test
 import (
 	"crypto/sha256"
 	"os"
-	"runtime"
 	"testing"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -21,14 +21,10 @@ func TestTileIRExecution(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	check(driver.Init(0))
-	dev, err := driver.NewDeviceGet(0)
+	dev, err := cuda.NewDevice(0)
 	check(err)
-	major, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMajor)
-	check(err)
-	minor, err := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
+	defer func() { check(dev.Close()) }()
+	major, minor, err := dev.ComputeCapability()
 	check(err)
 	cm, err := nvrtcx.Compile(`#include "cuda_tile.h"
 extern "C" __tile_global__ void fill(int* out) {
@@ -44,22 +40,23 @@ extern "C" __tile_global__ void fill(int* out) {
 	if path := os.Getenv("CUDA_TILE_ARTIFACT"); path != "" {
 		check(os.WriteFile(path, ir, 0600))
 	}
-	ctx, err := driver.NewContext(nil, 0, dev)
+	mod, log, err := cm.LoadOwnedOutput(dev, nvrtcx.OutputTileIR)
+	t.Logf("TileIR driver info=%q error=%q load=%v", log.Info, log.Error, err)
 	check(err)
-	defer func() { check(ctx.Destroy()) }()
-	mod, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(ir)))
+	defer func() { check(mod.Close()) }()
+	fn, err := mod.Function("fill")
 	check(err)
-	runtime.KeepAlive(ir)
-	defer func() { check(mod.Unload()) }()
-	fn, err := mod.GetFunction("fill")
-	check(err)
-	p, err := driver.MemAlloc(64 * 4)
-	check(err)
-	defer func() { check(p.MemFree()) }()
-	check(fn.LaunchKernel(64, 1, 1, 1, 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
-	check(driver.CtxSynchronize())
+	var p driver.DevicePtr
+	check(dev.WithContext(func() error { var err error; p, err = driver.MemAlloc(64 * 4); return err }))
+	defer func() { check(dev.WithContext(p.MemFree)) }()
+	check(fn.Launch([3]uint32{64, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
 	var got [64]int32
-	check(p.MemcpyDtoH(unsafe.Pointer(&got[0]), 256))
+	check(dev.WithContext(func() error {
+		if err := driver.CtxSynchronize(); err != nil {
+			return err
+		}
+		return p.MemcpyDtoH(unsafe.Pointer(&got[0]), 256)
+	}))
 	for i, v := range got {
 		if v != int32(i+7) {
 			t.Fatalf("output[%d]=%d want %d", i, v, i+7)
