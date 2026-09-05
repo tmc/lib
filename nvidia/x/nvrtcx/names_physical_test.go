@@ -31,6 +31,16 @@ func TestPhysicalLoweredName(t *testing.T) {
 	check(e)
 	minor, e := dev.GetAttribute(driver.DevAttrComputeCapabilityMinor)
 	check(e)
+	_, badErr := Compile(`template<int N> __global__ void fill(int *p) { p[threadIdx.x] = N; }`, WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)), WithOutput(OutputCUBIN), WithNameExpressions("missing_symbol"))
+	if badErr == nil {
+		t.Fatal("invalid expression compiled successfully")
+	}
+	entries, e := os.ReadDir(cacheDirOverride)
+	check(e)
+	if len(entries) != 0 {
+		t.Fatalf("failed compile left %d cache entries", len(entries))
+	}
+	t.Logf("invalid expression rejected without cache publication: %v", badErr)
 	cm, e := Compile(`template<int N> __global__ void fill(int *p) { p[threadIdx.x] = N + threadIdx.x; }`, WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)), WithOutput(OutputCUBIN), WithNameExpressions("fill<7>"))
 	check(e)
 	other, e := Compile(`template<int N> __global__ void fill(int *p) { p[threadIdx.x] = N + threadIdx.x; }`, WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)), WithOutput(OutputCUBIN), WithNameExpressions("fill<8>"))
