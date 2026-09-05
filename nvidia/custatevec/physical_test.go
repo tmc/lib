@@ -39,6 +39,8 @@ runs on the GPU.`
 // and a skipped test at the same time.
 func requireDevice(t *testing.T) {
 	t.Helper()
+	runtime.LockOSThread()
+	t.Cleanup(runtime.UnlockOSThread)
 	if err := custatevec.Load(""); err != nil {
 		t.Skipf("SKIPPED, NOT VERIFIED: libcustatevec could not be loaded: %v\n\n%s", err, prerequisites)
 	}
@@ -263,6 +265,9 @@ func TestBellStateOnDevice(t *testing.T) {
 		&qubit0[0], 1, custatevec.Compute64F, 0, 0); err != nil {
 		t.Fatalf("custatevecComputeExpectation: %v", err)
 	}
+	if err := driver.CtxSynchronize(); err != nil {
+		t.Fatal(err)
+	}
 	if cmplx.Abs(expectation.Complex()) > 1e-12 {
 		t.Errorf("<Z_0> on the Bell state = %v, want 0", expectation.Complex())
 	}
@@ -282,6 +287,9 @@ func TestBellStateOnDevice(t *testing.T) {
 		uintptr(unsafe.Pointer(&z[0])), custatevec.C64F, custatevec.MatrixLayoutRow,
 		&qubit0[0], 1, custatevec.Compute64F, 0, 0); err != nil {
 		t.Fatalf("custatevecComputeExpectation after collapse: %v", err)
+	}
+	if err := driver.CtxSynchronize(); err != nil {
+		t.Fatal(err)
 	}
 	if d := cmplx.Abs(expectation.Complex() - 1); d > 1e-12 {
 		t.Errorf("<Z_0> after collapsing to 0 = %v, want 1", expectation.Complex())
