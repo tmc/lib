@@ -17,12 +17,29 @@ size of each chunk when the caller did not keep it.
 
 `example_test.go` walks the whole sequence. It compiles and is not run.
 
-## Status: implemented, physically unverified
+## Status: round trip verified; capacity failure unresolved
 
-Nothing in this package has been run against `libnvcomp`. It was written on a
-machine with no CUDA libraries and no NVIDIA GPU, and the session that wrote it
-could not reach one. No compression has been performed, no byte has moved to a
-device, and nothing here has been measured.
+On 2026-09-05, nvCOMP 5.3.0.16 (CUDA 13 build) on Linux arm64, NVIDIA GB10,
+and driver 580.173.02 compressed and decompressed four chunks, reproducing all
+16,384 input bytes. The library reported nvCOMP 5.3.0 and CUDA Runtime 13030.
+
+The same test failed its negative control. With the CUDA decompression backend
+explicitly selected, chunk 0's declared output capacity was reduced from 4096
+to 1. The library reported success for every chunk and an actual output size
+of 4096 for chunk 0. The allocation remained 4096 bytes; this probe did not
+intentionally overrun device memory. The pinned `lz4.h` promises
+`nvcompErrorCannotDecompress` for an undersized output buffer.
+
+A header-compiled C++ forwarding probe confirmed backend 2, options size 64,
+and capacity 1 at the native boundary. The native call replaced sentinel
+statuses with success and reproduced the same capacity mismatch. This is an
+unresolved runtime-contract failure for this library/device combination, not
+a demonstrated Go argument-layout defect. The physical test remains failing.
+
+`CheckStatuses` checks only the reported statuses. It cannot detect this
+failure. Callers must provide sufficient output storage before launching;
+checking an actual size afterward cannot prevent an out-of-bounds write.
+Neither corrupted-input handling nor undersized-output handling is qualified.
 
 What is checked, and runs anywhere:
 
@@ -41,24 +58,19 @@ What is checked, and runs anywhere:
   absent symbol yields `*SymbolError` rather than a panic, and that a
   conflicting `Load` fails loudly.
 
-What is not checked, and what it would take:
+Runtime tests and remaining limits:
 
-- `pipeline_test.go` compresses a batch, decompresses it, compares the bytes,
-  then corrupts one compressed chunk and requires that chunk's status to report
-  the failure. It needs `libnvcomp.so.5` from the nvCOMP 5.3.0 redist, an
-  NVIDIA driver with `libcuda.so.1`, and a visible GPU, and runs only with
-  `NVCOMP_PHYSICAL_TEST=1`. It has never been run.
-- `TestPropertiesMatchHeaders` in the same file needs `libnvcomp` but no GPU,
-  and runs with `NVCOMP_LIBRARY_TEST=1`. It has never been run either.
-- That purego lays out the by-value options struct the way the System V and
-  AAPCS ABIs require. It is a 64-byte MEMORY-class argument in the middle of an
-  eleven-argument call; `abi_test.go` shows purego accepts the signature, which
-  is not the same as showing it passes the bytes correctly. Only a call into
-  the real library can show that, and the cheapest such call is
-  `CompressGetMaxOutputChunkSize`, whose answer changes with the options.
-- That an address handed to a `Device`-prefixed parameter is really device
-  memory. Go cannot express that. The distinct types mean a host address gets
-  there only by a deliberate conversion, not by accident.
+- `TestBatchedLZ4RoundTrip` in `pipeline_test.go` reproduces the round trip and
+  undersized-output check above. It requires `NVCOMP_PHYSICAL_TEST=1`,
+  `libnvcomp.so.5`, `libcuda.so.1`, and a visible GPU. A passing round trip
+  does not make the whole test pass.
+- `TestPropertiesMatchHeaders` requires `NVCOMP_LIBRARY_TEST=1` and
+  `libnvcomp`; it checks the loaded version without requiring a GPU.
+- Native evidence above covers the tested arm64 CUDA backend. It does not
+  qualify the x86_64 calling convention, hardware decompression backend,
+  other releases, or all by-value option combinations.
+- Go cannot check that a `Device`-prefixed parameter points to device memory.
+  The distinct types require callers to make that conversion explicitly.
 
 Both hardware-dependent tests fail rather than skip once their environment
 variable is set, so a host that lacks a prerequisite reports that, instead of
@@ -91,10 +103,10 @@ mean it succeeded.
 Until the stream is synchronized, everything passed in must stay live and
 unmodified: the temporary workspace, the input and output chunks, both pointer
 arrays, the size arrays and the status array. After it completes, copy the
-status array back and check every element. A chunk that failed says so there
-and nowhere else, and an array that was never written reads as all zeros, which
-is `Success` -- which is why the physical test corrupts a chunk and requires the
-failure to show up.
+status array back and check every element. The status array is the native per-chunk error channel. An unwritten, zeroed
+array looks like success. Even a written array can report success incorrectly,
+as the capacity failure above demonstrates. The physical test requires the
+undersized chunk to report failure and currently rejects that result.
 
 ## Header and library
 

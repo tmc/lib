@@ -71,7 +71,8 @@ func (e *ChunkError) Unwrap() error {
 }
 
 // CheckStatuses reports the first failing chunk in a batch's per-chunk status
-// array, or nil if every chunk succeeded.
+// array, or nil if every status is Success. It does not verify output bytes
+// or capacities and cannot detect an incorrect success status from the library.
 //
 // Pass the statuses after copying them back from the [DeviceStatusArray] the
 // operation wrote and after the stream has completed. Both are the caller's
