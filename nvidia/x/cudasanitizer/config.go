@@ -219,12 +219,13 @@ type Config struct {
 	// RequireOutput lists substrings that must appear in the application's
 	// combined output for the run to count as evidence that the intended
 	// work executed. A run missing any of them is
-	// [OutcomeApplicationFailed].
+	// [OutcomeApplicationFailed]. Matching includes output beyond MaxOutputBytes.
 	RequireOutput []string
 
 	// ForbidOutput lists substrings whose presence means the run did not do
 	// the intended work, such as a harness warning that nothing ran. A run
-	// containing any of them is [OutcomeApplicationFailed].
+	// containing any of them is [OutcomeApplicationFailed], including matches
+	// beyond MaxOutputBytes.
 	ForbidOutput []string
 
 	// Timeout bounds the whole run. Zero means the run is bounded only by
