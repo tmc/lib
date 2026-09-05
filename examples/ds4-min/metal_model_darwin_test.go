@@ -365,6 +365,9 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 				}
 			}
 		})
+		t.Run("output-head", func(t *testing.T) {
+			runPinnedOutputHead(t, ops, bind, allLayersOracle)
+		})
 	} else if transitionRoot != "" {
 		layer1 := runPinnedHashLayer(t, ops, bind, hcFFN, 1, transitionRoot+"/layer-1")
 		layer2 := runPinnedHashLayer(t, ops, bind, layer1, 2, transitionRoot+"/layer-2")
@@ -1055,4 +1058,41 @@ func compareOracleResidual(t *testing.T, name string, got []float32, path string
 			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g at peak %g)", name, i, got[i], want[i], delta, limit, peak)
 		}
 	}
+}
+
+// runPinnedOutputHead compares the tail of the output head against the oracle.
+// The head is not part of a layer, so the per-layer sweep stops before it, yet
+// it is where logits are produced and therefore where a full-model divergence
+// is measured.
+//
+// It starts from the oracle's own collapsed embedding rather than from a layer
+// state. The capture labels every head stage pos0, but that 0 is a literal
+// argument at ds4.c:26293 rather than a position: the head reads
+// metal_graph_cur_hc(g), which after prefill holds the last prompt token, not
+// position 0. The head stages are therefore mutually consistent but share no
+// position with the layer dumps, so feeding one a layer-42 state compares two
+// different tokens. Independent double-precision evaluation of
+// output_hc_fn @ rmsnorm(hc_ffn_post-42) confirms this: it reproduces the Go
+// projection to seven digits and matches no head dump, and no other
+// 16384-float tensor in the capture reproduces result_hc_pre either.
+//
+// What remains pinned is the chain from result_hc onward, which is where the
+// vocabulary projection lives. The arithmetic mirrors the tail of
+// metalRuntime.outputLogits.
+func runPinnedOutputHead(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, oracleDir string) {
+	t.Helper()
+	oracle := func(stage string) string {
+		return fmt.Sprintf("%s/stage_result_%s-43_pos0.bin", oracleDir, stage)
+	}
+	collapsed := readOracleF32(t, oracle("hc"))
+	normed, err := ops.RMS(collapsed, bind("output_norm.weight"), 1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareOracleF32(t, "result_norm", normed, oracle("norm"))
+	logits, err := ops.MatvecQ80(bind("output.weight"), normed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareOracleF32(t, "result_output", logits, oracle("output"))
 }
