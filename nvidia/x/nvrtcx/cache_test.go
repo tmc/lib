@@ -181,3 +181,25 @@ func TestCompileRejectsInvalidOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestCacheInputInvalidation(t *testing.T) {
+	base := computeCacheKey("source", "kernel.cu", []string{"-DA=1", "-DB=2"}, map[string]string{"a.h": "header"})
+	for _, tc := range []struct {
+		name, src, file string
+		flags           []string
+		headers         map[string]string
+	}{
+		{"source", "changed", "kernel.cu", []string{"-DA=1", "-DB=2"}, map[string]string{"a.h": "header"}},
+		{"filename", "source", "other.cu", []string{"-DA=1", "-DB=2"}, map[string]string{"a.h": "header"}},
+		{"flag value", "source", "kernel.cu", []string{"-DA=2", "-DB=2"}, map[string]string{"a.h": "header"}},
+		{"flag order", "source", "kernel.cu", []string{"-DB=2", "-DA=1"}, map[string]string{"a.h": "header"}},
+		{"header name", "source", "kernel.cu", []string{"-DA=1", "-DB=2"}, map[string]string{"b.h": "header"}},
+		{"header contents", "source", "kernel.cu", []string{"-DA=1", "-DB=2"}, map[string]string{"a.h": "changed"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if computeCacheKey(tc.src, tc.file, tc.flags, tc.headers) == base {
+				t.Fatal("changed compiler input reused cache identity")
+			}
+		})
+	}
+}
