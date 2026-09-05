@@ -208,8 +208,8 @@ func (s *Stream) Destroy() error {
 		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream synchronize before destroy: %w", err)
 	}
-	cleanups := s.takeCleanups()
 	if s.isDefault {
+		cleanups := s.takeCleanups()
 		s.lifeMu.Unlock()
 		for _, fn := range cleanups {
 			fn()
@@ -220,6 +220,7 @@ func (s *Stream) Destroy() error {
 		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}
+	cleanups := s.takeCleanups()
 	s.destroyed = true
 	s.lifeMu.Unlock()
 	for _, fn := range cleanups {
