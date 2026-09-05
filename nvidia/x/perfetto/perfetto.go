@@ -151,13 +151,21 @@ func (pw *Writer) writePacket(packetBody []byte, clearIncrementalState bool) err
 		packetBody = append(packetBody, encodeVarint(FieldPacketSequenceFlags, SequenceFlagIncrementalStateCleared)...)
 	}
 	packet := encodeLengthDelimited(FieldTracePacket, packetBody)
-	if _, err := pw.w.Write(packet); err != nil {
+	if err := writeFull(pw.w, packet); err != nil {
 		return err
 	}
 	if emitClear {
 		pw.hasEmittedSeqFlags = true
 	}
 	return nil
+}
+
+func writeFull(w io.Writer, p []byte) error {
+	n, err := w.Write(p)
+	if err == nil && n != len(p) {
+		return io.ErrShortWrite
+	}
+	return err
 }
 
 func encodeVarint(fieldNum int, val uint64) []byte {
@@ -208,8 +216,7 @@ func (pw *Writer) WriteClockSnapshot(hostMonotonicNs, gpuClockNs uint64) error {
 
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return writeFull(pw.w, packet)
 }
 
 // WriteTrackDescriptor registers a track in the trace timeline.
@@ -311,8 +318,7 @@ func (pw *Writer) WriteCounterValue(trackUUID uint64, tsNs uint64, val int64) er
 
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return writeFull(pw.w, packet)
 }
 
 // WriteDoubleCounterValue records a floating point counter value on a counter track at tsNs.
@@ -337,8 +343,7 @@ func (pw *Writer) WriteDoubleCounterValue(trackUUID uint64, tsNs uint64, val flo
 
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return writeFull(pw.w, packet)
 }
 
 // WriteSliceBegin records the start of a timed slice on trackUUID at timestamp ns.
@@ -361,8 +366,7 @@ func (pw *Writer) WriteSliceEnd(trackUUID uint64, tsNs uint64) error {
 
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return writeFull(pw.w, packet)
 }
 
 // WriteInstant records an instant marker event on trackUUID at timestamp ns.
@@ -386,8 +390,7 @@ func (pw *Writer) WriteInstant(trackUUID uint64, tsNs uint64, name string, categ
 
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
-	_, err := pw.w.Write(packet)
-	return err
+	return writeFull(pw.w, packet)
 }
 
 func encodeDebugAnnotation(da DebugAnnotation) []byte {
