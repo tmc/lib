@@ -49,11 +49,11 @@ func hardwareProg(t *testing.T, env string) string {
 		t.Skip("LIB_CUDA_HARDWARE_TEST is empty")
 	}
 	if _, err := cudasanitizer.LookTool(""); err != nil {
-		t.Skipf("%v", err)
+		t.Fatalf("hardware validation requires compute-sanitizer: %v", err)
 	}
 	prog := os.Getenv(env)
 	if prog == "" {
-		t.Skipf("%s is empty", env)
+		t.Fatalf("hardware validation requires %s", env)
 	}
 	return prog
 }
@@ -81,6 +81,7 @@ func TestCleanProgramCUDA(t *testing.T) {
 		t.Errorf("the run produced no evidence that the kernels executed:\n%s", res.Details())
 	}
 	t.Log(res.Summary())
+	t.Log(res.Details())
 }
 
 // TestKnownBadProgramCUDA is the physical known-bad case. It is the test that
@@ -111,6 +112,7 @@ func TestKnownBadProgramCUDA(t *testing.T) {
 	// The trap: on a tool build that ignores --error-exitcode the process
 	// exits 0 here. That must not change the verdict.
 	t.Logf("exit status %d, %d errors reported", res.ExitCode, res.Log.Errors)
+	t.Log(res.Details())
 }
 
 // TestKnownRaceCUDA is the racecheck counterpart. It is not Go's race
@@ -133,6 +135,7 @@ func TestKnownRaceCUDA(t *testing.T) {
 		t.Fatalf("Outcome = %v, want sanitizer-errors for a program with a known shared-memory race\n%s",
 			res.Outcome, res.Details())
 	}
+	t.Log(res.Details())
 	if res.Log.Hazards == 0 && res.Log.Errors == 0 {
 		t.Errorf("neither hazards nor errors were parsed out of the report:\n%s", res.Log.Text)
 	}
@@ -147,7 +150,7 @@ func TestToolVersionCUDA(t *testing.T) {
 	}
 	version, err := cudasanitizer.ToolVersion(context.Background(), "")
 	if errors.Is(err, cudasanitizer.ErrToolNotFound) {
-		t.Skipf("%v", err)
+		t.Fatalf("hardware validation requires compute-sanitizer: %v", err)
 	}
 	if err != nil {
 		t.Fatalf("ToolVersion: %v", err)
