@@ -20,6 +20,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
 | [cudamlx](cudamlx/) | Package cudamlx is an experimental, minimal Go conversion of the host-side runtime of MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and nvrtc bindings. |
+| [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaptx](cudaptx/) | Package cudaptx parses and analyzes NVIDIA Parallel Thread Execution (PTX) virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
