@@ -107,6 +107,8 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	writeUints(t, inBytes, repeat(chunkBytes, numChunks))
 	writeUintptrs(t, outPtrs, chunkAddrs(outData, numChunks, maxOut))
 
+	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+	check(outBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
 	check(nvcomp.CompressAsync(
 		nvcomp.DevicePointerArray(inPtrs), nvcomp.DeviceSizeArray(inBytes),
 		chunkBytes, numChunks,
@@ -157,6 +159,9 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 		}
 	}
 
+	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+	check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
+	check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
 	check(nvcomp.DecompressAsync(
 		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
 		nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
@@ -166,6 +171,12 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	))
 	check(ctx.SynchronizeV2())
 	check(nvcomp.CheckStatuses(readStatuses(t, statuses, numChunks)))
+
+	for i, n := range readUints(t, actualBytes, numChunks) {
+		if n != chunkBytes {
+			t.Errorf("chunk %d actual size = %d, want %d", i, n, chunkBytes)
+		}
+	}
 
 	got := make([]byte, len(uncompressed))
 	check(roundTrip.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))))
@@ -181,6 +192,9 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	capacities := repeat(chunkBytes, numChunks)
 	capacities[0] = 1
 	writeUints(t, bufferBytes, capacities)
+	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+	check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
+	check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
 
 	err = nvcomp.DecompressAsync(
 		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
@@ -193,8 +207,22 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	check(ctx.SynchronizeV2())
 	corrupt := readStatuses(t, statuses, numChunks)
 	t.Logf("undersized output statuses: %v", corrupt)
-	if corrupt[0] == nvcomp.Success {
-		t.Error("undersized output reported success")
+	actual := readUints(t, actualBytes, numChunks)
+	check(roundTrip.MemcpyDtoH(unsafe.Pointer(&got[0]), uint(len(got))))
+	changed := 0
+	for _, b := range got[1:chunkBytes] {
+		if b != 0xa5 {
+			changed++
+		}
+	}
+	t.Logf("undersized output actual sizes: %v; %d bytes changed beyond declared capacity within full allocation", actual, changed)
+	for i := 1; i < numChunks; i++ {
+		if actual[i] != chunkBytes || !bytes.Equal(got[i*chunkBytes:(i+1)*chunkBytes], uncompressed[i*chunkBytes:(i+1)*chunkBytes]) {
+			t.Errorf("valid chunk %d did not decompress correctly after undersized chunk", i)
+		}
+	}
+	if corrupt[0] != nvcomp.ErrCannotDecompress {
+		t.Errorf("undersized output status = %v, want %v", corrupt[0], nvcomp.ErrCannotDecompress)
 	}
 	for i, s := range corrupt[1:] {
 		if s != nvcomp.Success {
