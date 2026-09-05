@@ -1,6 +1,7 @@
 package nvrtcx
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"unsafe"
@@ -12,10 +13,13 @@ import (
 
 // CompiledModule represents the compiled output of an NVRTC JIT compilation.
 type CompiledModule struct {
-	ptx   string
-	cubin []byte
-	log   string
-	key   string
+	output OutputKind
+	ltoir  []byte
+	tileir []byte
+	ptx    string
+	cubin  []byte
+	log    string
+	key    string
 }
 
 // PTX returns the compiled PTX assembly text.
@@ -47,12 +51,20 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
 	}
+	if len(cm.ltoir) != 0 {
+		return 0, fmt.Errorf("nvrtcx: LTOIR requires linking before loading")
+	}
 	if dev == nil {
 		return 0, fmt.Errorf("nvrtcx: nil device passed to Load")
 	}
 
 	var mod driver.Module
 	err := dev.WithContext(func() error {
+		if len(cm.tileir) > 0 {
+			m, err := driver.NewModuleLoadData(unsafe.Pointer(&cm.tileir[0]))
+			mod = m
+			return err
+		}
 		if len(cm.cubin) > 0 {
 			m, err := driver.NewModuleLoadData(unsafe.Pointer(&cm.cubin[0]))
 			if err == nil {
@@ -79,6 +91,7 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 }
 
 type options struct {
+	output   OutputKind
 	name     string
 	flags    []string
 	headers  map[string]string
@@ -145,6 +158,9 @@ func WithNoCache() Option {
 }
 
 // Compile compiles the given CUDA C++ source code into a CompiledModule.
+// If program destruction fails, the returned error retains the native program
+// and implements io.Closer (reachable with errors.As). Call Close on that error
+// to retry cleanup. Such a result is not added to the compilation cache.
 func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if src == "" {
 		return nil, fmt.Errorf("nvrtcx: empty source")
@@ -162,15 +178,27 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if cfg.err != nil {
 		return nil, cfg.err
 	}
+	flags, err := outputFlags(cfg.output, cfg.flags)
+	if err != nil {
+		return nil, err
+	}
+	cfg.flags = flags
 
-	key := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
+	// Resolve the loaded compiler before looking up any compiled artifact.
+	// A cache hit must not bypass a missing or incompatible compiler installation.
+	major, minor, err := nvrtc.Version()
+	if err != nil {
+		return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
+	}
+	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d", major, minor, nvrtc.Path(), cfg.output)
+	key := compilerCacheKey(computeCacheKey(src, cfg.name, cfg.flags, cfg.headers), identity)
 	if cfg.useCache {
 		if cached, ok := lookupCache(key); ok {
 			return cached, nil
 		}
 	}
 
-	return singleFlightCompile(key, func() (*CompiledModule, error) {
+	return singleFlightCompile(key, func() (result *CompiledModule, resultErr error) {
 		// Recheck cache inside singleflight
 		if cfg.useCache {
 			if cached, ok := lookupCache(key); ok {
@@ -194,35 +222,39 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			return nil, fmt.Errorf("nvrtcx: create program: %w", err)
 		}
 		defer func() {
-			_ = nvrtc.DestroyProgram(&prog)
+			result, resultErr = finishProgram(result, resultErr, func() error { return nvrtc.DestroyProgram(&prog) })
+			if resultErr == nil && cfg.useCache {
+				if err := storeCache(key, result); err != nil {
+					result, resultErr = nil, err
+				}
+			}
 		}()
 
 		compileErr := prog.Compile(cfg.flags)
-		log, _ := prog.GetProgramLog()
+		log, logErr := prog.GetProgramLog()
 
-		if compileErr != nil {
-			return nil, fmt.Errorf("nvrtcx: compile error: %w\ncompiler log:\n%s", compileErr, log)
+		if err := compilerDiagnostic(compileErr, logErr, log); err != nil {
+			return nil, err
 		}
 
-		ptxBytes, err := prog.GetPTX()
+		res, err := getArtifact(prog, cfg.output)
 		if err != nil {
-			return nil, fmt.Errorf("nvrtcx: get PTX: %w", err)
+			return nil, fmt.Errorf("%w\ncompiler log:\n%s", err, log)
 		}
-		cubin, _ := prog.GetCUBIN()
-
-		res := &CompiledModule{
-			ptx:   string(ptxBytes),
-			cubin: cubin,
-			log:   log,
-			key:   key,
-		}
-
-		if cfg.useCache {
-			if err := storeCache(key, res); err != nil {
-				return nil, err
-			}
-		}
+		res.log = log
+		res.key = key
 
 		return res, nil
 	})
+}
+
+func compilerDiagnostic(compileErr, logErr error, log string) error {
+	var errs []error
+	if compileErr != nil {
+		errs = append(errs, fmt.Errorf("nvrtcx: compile: %w\ncompiler log:\n%s", compileErr, log))
+	}
+	if logErr != nil {
+		errs = append(errs, fmt.Errorf("nvrtcx: retrieve compiler log: %w", logErr))
+	}
+	return errors.Join(errs...)
 }
