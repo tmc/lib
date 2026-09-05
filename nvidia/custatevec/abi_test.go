@@ -222,7 +222,7 @@ func TestEnumValues(t *testing.T) {
 // point reports a structured error and none of them panics through a nil
 // function pointer.
 func TestUnavailableLibraryIsAnError(t *testing.T) {
-	if Loaded() {
+	if Load("") == nil {
 		t.Skip("cuStateVec is installed here; this test covers the absent case")
 	}
 	_, err := Create()
@@ -260,7 +260,7 @@ func TestUnavailableLibraryIsAnError(t *testing.T) {
 // TestResultErrorWithoutLibrary checks that a status value formats itself
 // without the library's string functions, which are themselves in the library.
 func TestResultErrorWithoutLibrary(t *testing.T) {
-	if Loaded() {
+	if Load("") == nil {
 		t.Skip("cuStateVec is installed here; this test covers the absent case")
 	}
 	msg := ErrInsufficientWorkspace.Error()
