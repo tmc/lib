@@ -12,11 +12,9 @@
 //
 //	ptxas -arch=sm_90 -o /dev/null testdata/addone.ptx
 //
-// That has NOT been run in this working tree: no CUDA toolkit is installed
-// here. If ptxas rejects this text the pipeline test fails at module load,
-// with the driver's own diagnostic.
+// PTX 8.8 supports the sm_121 target used by GB10.
 //
-.version 8.0
+.version 8.8
 .target sm_90
 .address_size 64
 

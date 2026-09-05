@@ -16,14 +16,7 @@ import (
 )
 
 // TestFatbinPipeline packages PTX into a fatbinary, loads it with the CUDA
-// driver and checks the kernel's output. It is the only test here that shows
-// the bindings work, as opposed to showing that their shapes agree with the
-// header.
-//
-// It has never been run. This working tree has no NVIDIA GPU, no CUDA driver
-// and no libnvfatbin, and the session that wrote it was not permitted to reach
-// a machine that has them. Treat it as an unexecuted specification of what
-// would count as evidence, not as a passing test.
+// driver and checks the kernel's output.
 //
 // It is opt-in so that absent hardware cannot masquerade as success. Once
 // NVFATBIN_PHYSICAL_TEST=1 is set, every missing prerequisite is a failure and
@@ -35,7 +28,7 @@ import (
 //   - libcuda.so.1 from an installed NVIDIA driver, and a visible GPU.
 //   - a GPU whose compute capability the installed ptxas accepts. The driver
 //     JIT-compiles the packaged PTX at module load, so the driver's PTX
-//     version support, not just the device, has to cover .version 8.0.
+//     version support, not just the device, has to cover .version 8.8.
 func TestFatbinPipeline(t *testing.T) {
 	if os.Getenv("NVFATBIN_PHYSICAL_TEST") != "1" {
 		t.Skip("set NVFATBIN_PHYSICAL_TEST=1 to run against a real libnvfatbin and NVIDIA GPU")
@@ -124,23 +117,22 @@ func TestFatbinPipeline(t *testing.T) {
 	}
 	t.Logf("verified %d results from the packaged kernel", len(data))
 
-	// Negative control. Without one, a run that packaged nothing and launched
-	// a kernel left over from another module would look the same as a run that
-	// worked. PTX whose .target disagrees with arch must be rejected, and the
-	// library must say which error it is.
+	// Packaging PTX does not validate its instructions. Confirm that the
+	// driver rejects a packaged kernel with an invalid instruction.
 	bad, err := nvfatbin.Create([]string{"-64", "-cuda"})
 	check(err)
 	defer func() { check(nvfatbin.Destroy(&bad)) }()
-	mismatched := strings.Replace(ptx, ".target sm_"+arch, ".target sm_50", 1)
-	err = bad.AddPTXString(mismatched, arch, "mismatched.ptx", "")
+	invalid := strings.Replace(ptx, "add.f32", "invalid_instruction.f32", 1)
+	check(bad.AddPTXString(invalid, arch, "invalid.ptx", ""))
+	badFatbin, err := bad.Get()
+	check(err)
+	badModule, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(badFatbin)))
+	runtime.KeepAlive(badFatbin)
 	if err == nil {
-		t.Fatal("AddPTX accepted PTX whose .target disagrees with arch")
+		check(badModule.Unload())
+		t.Fatal("driver accepted PTX with an invalid instruction")
 	}
-	var code nvfatbin.Result
-	if !errors.As(err, &code) {
-		t.Fatalf("AddPTX error = %v (%T), want nvfatbin.Result", err, err)
-	}
-	t.Logf("rejected mismatched PTX with %v", code)
+	t.Logf("driver rejected invalid PTX: %v", err)
 }
 
 // TestDestroyZeroesHandle checks the C contract that nvFatbinDestroy sets the
