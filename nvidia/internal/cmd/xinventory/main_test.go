@@ -9,6 +9,11 @@ import (
 
 func TestInventory(t *testing.T) {
 	root := t.TempDir()
+	for _, name := range []string{"internal", "testdata"} {
+		if err := os.Mkdir(filepath.Join(root, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	dir := filepath.Join(root, "example")
 	if err := os.Mkdir(dir, 0755); err != nil {
 		t.Fatal(err)
