@@ -3,7 +3,9 @@ package nvrtcx
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"sort"
+	"strings"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -13,13 +15,14 @@ import (
 
 // CompiledModule represents the compiled output of an NVRTC JIT compilation.
 type CompiledModule struct {
-	output OutputKind
-	ltoir  []byte
-	tileir []byte
-	ptx    string
-	cubin  []byte
-	log    string
-	key    string
+	lowered map[string]string
+	output  OutputKind
+	ltoir   []byte
+	tileir  []byte
+	ptx     string
+	cubin   []byte
+	log     string
+	key     string
 }
 
 // PTX returns the compiled PTX assembly text.
@@ -94,16 +97,43 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 }
 
 type options struct {
-	output   OutputKind
-	name     string
-	flags    []string
-	headers  map[string]string
-	useCache bool
-	err      error
+	expressions []string
+	output      OutputKind
+	name        string
+	flags       []string
+	headers     map[string]string
+	useCache    bool
+	err         error
 }
 
 // Option configures JIT compilation.
 type Option func(*options)
+
+// WithNameExpressions registers CUDA name expressions before compilation.
+// Expressions must be nonempty and contain no NUL bytes. The option copies
+// its input so later caller mutations cannot change compilation.
+func WithNameExpressions(expressions ...string) Option {
+	names := append([]string(nil), expressions...)
+	return func(o *options) {
+		for _, name := range names {
+			if name == "" || strings.ContainsRune(name, 0) {
+				o.err = fmt.Errorf("nvrtcx: invalid name expression %q", name)
+				return
+			}
+		}
+		o.expressions = append(o.expressions, names...)
+	}
+}
+
+// LoweredName returns the copied compiler name for a registered expression.
+// The name remains valid after the NVRTC program is destroyed.
+func (cm *CompiledModule) LoweredName(expression string) (string, bool) {
+	if cm == nil {
+		return "", false
+	}
+	name, ok := cm.lowered[expression]
+	return name, ok
+}
 
 // WithName specifies the virtual filename of the CUDA program.
 func WithName(name string) Option {
@@ -194,7 +224,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
 	}
 	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d", major, minor, nvrtc.Path(), cfg.output)
-	key := compilerCacheKey(computeCacheKey(src, cfg.name, cfg.flags, cfg.headers), identity)
+	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
+	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
+	key := compilerCacheKey(inputKey, identity)
 	if cfg.useCache {
 		if cached, ok := lookupCache(key); ok {
 			return cached, nil
@@ -233,6 +265,14 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			}
 		}()
 
+		for _, expression := range cfg.expressions {
+			name := append([]byte(expression), 0)
+			err := prog.AddNameExpression(&name[0])
+			runtime.KeepAlive(name)
+			if err != nil {
+				return nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
+			}
+		}
 		compileErr := prog.Compile(cfg.flags)
 		log, logErr := prog.GetProgramLog()
 
@@ -243,6 +283,33 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		res, err := getArtifact(prog, cfg.output)
 		if err != nil {
 			return nil, fmt.Errorf("%w\ncompiler log:\n%s", err, log)
+		}
+		if len(cfg.expressions) > 0 {
+			res.lowered = make(map[string]string)
+		}
+		for _, expression := range cfg.expressions {
+			name := append([]byte(expression), 0)
+			var ptr *byte
+			err := prog.GetLoweredName(&name[0], &ptr)
+			runtime.KeepAlive(name)
+			if err != nil {
+				return nil, fmt.Errorf("nvrtcx: lower %q: %w", expression, err)
+			}
+			if ptr == nil {
+				return nil, fmt.Errorf("nvrtcx: lower %q: nil name", expression)
+			}
+			var copied []byte
+			for p := unsafe.Pointer(ptr); ; p = unsafe.Add(p, 1) {
+				b := *(*byte)(p)
+				if b == 0 {
+					break
+				}
+				copied = append(copied, b)
+			}
+			if len(copied) == 0 {
+				return nil, fmt.Errorf("nvrtcx: lower %q: empty name", expression)
+			}
+			res.lowered[expression] = string(copied)
 		}
 		res.log = log
 		res.key = key

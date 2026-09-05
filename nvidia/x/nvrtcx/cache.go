@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"sync"
 )
 
-const cacheMagic = "nvrtcx\x00\x04"
+const cacheMagic = "nvrtcx\x00\x05"
 
 var (
 	memCacheMu sync.RWMutex
@@ -137,10 +138,14 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 	if !cm.validArtifact() {
 		return nil, fmt.Errorf("nvrtcx: module contains no compiler artifact")
 	}
+	names, err := json.Marshal(cm.lowered)
+	if err != nil {
+		return nil, err
+	}
 	var b bytes.Buffer
 	b.WriteString(cacheMagic)
 	b.WriteByte(byte(cm.output))
-	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, []byte(cm.log)}
+	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, []byte(cm.log), names}
 	for _, field := range fields {
 		var length [8]byte
 		binary.LittleEndian.PutUint64(length[:], uint64(len(field)))
@@ -155,7 +160,7 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 }
 
 func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
-	const headerSize = len(cacheMagic) + 1 + 5*8
+	const headerSize = len(cacheMagic) + 1 + 6*8
 	if len(data) < headerSize+sha256.Size || string(data[:len(cacheMagic)]) != cacheMagic {
 		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
 	}
@@ -169,7 +174,7 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 		return nil, fmt.Errorf("nvrtcx: invalid cached output kind")
 	}
 	payload := data[headerSize : len(data)-sha256.Size]
-	var fields [5][]byte
+	var fields [6][]byte
 	for i := range fields {
 		offset := len(cacheMagic) + 1 + i*8
 		size := binary.LittleEndian.Uint64(data[offset : offset+8])
@@ -184,6 +189,14 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 	}
 	cm := &CompiledModule{output: kind, ptx: string(fields[0]), cubin: append([]byte(nil), fields[1]...),
 		ltoir: append([]byte(nil), fields[2]...), tileir: append([]byte(nil), fields[3]...), log: string(fields[4]), key: key}
+	if err := json.Unmarshal(fields[5], &cm.lowered); err != nil {
+		return nil, fmt.Errorf("nvrtcx: cached lowered names: %w", err)
+	}
+	for expression, name := range cm.lowered {
+		if expression == "" || name == "" || strings.ContainsRune(expression, 0) || strings.ContainsRune(name, 0) {
+			return nil, fmt.Errorf("nvrtcx: invalid cached lowered name")
+		}
+	}
 	if !cm.validArtifact() {
 		return nil, fmt.Errorf("nvrtcx: cached output kind does not match artifact")
 	}
