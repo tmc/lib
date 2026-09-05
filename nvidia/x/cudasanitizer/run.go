@@ -293,7 +293,7 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 			ErrNoVerdict, r.ExitCode)
 		return
 	}
-	if r.Log.Errors > 0 {
+	if r.Log.Errors > 0 || r.Log.RaceErrors > 0 {
 		r.Outcome = OutcomeSanitizerErrors
 		return
 	}
@@ -340,6 +340,9 @@ func (r *Result) Summary() string {
 		r.ExitCode, r.ErrorExitCode, r.Duration.Round(time.Millisecond))
 	if r.Log.SummaryFound {
 		fmt.Fprintf(&b, "; report: %d errors", r.Log.Errors)
+		if r.Log.RaceErrors > 0 {
+			fmt.Fprintf(&b, ", racecheck: %d errors", r.Log.RaceErrors)
+		}
 		if r.Log.Hazards > 0 {
 			fmt.Fprintf(&b, ", %d hazards", r.Log.Hazards)
 		}

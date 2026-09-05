@@ -61,6 +61,11 @@ type Log struct {
 	// over several, and callers reporting a per-run figure should say so.
 	Summaries int
 
+	// RaceErrors preserves the error count across all RACECHECK SUMMARY lines,
+	// including when ERROR SUMMARY lines are also present. The two families
+	// may overlap, so callers must not add RaceErrors to Errors.
+	RaceErrors int
+
 	// Hazards and Warnings come from racecheck's
 	// "RACECHECK SUMMARY: N hazards displayed (E errors, W warnings)".
 	Hazards  int
@@ -156,6 +161,7 @@ func ParseLog(text string) *Log {
 	flush()
 	// racecheck prints both an ERROR SUMMARY and a RACECHECK SUMMARY per
 	// process, so count only one family of them.
+	l.RaceErrors = raceErrorTotal
 	l.Summaries = errorSummaries
 	if errorSummaries == 0 {
 		l.Summaries = raceSummaries

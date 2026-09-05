@@ -1,6 +1,9 @@
 package cudasanitizer
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestParseLog(t *testing.T) {
 	tests := []struct {
@@ -154,5 +157,22 @@ func TestParseLogMultipleSummaries(t *testing.T) {
 	}
 	if len(l.Findings) != 1 {
 		t.Errorf("Findings = %d, want 1", len(l.Findings))
+	}
+}
+
+// A regular summary from another process must not erase a racecheck error.
+func TestMixedSummaryFamilies(t *testing.T) {
+	const race = "========= RACECHECK SUMMARY: 1 hazard displayed (1 error, 0 warnings)\n"
+	const clean = "========= ERROR SUMMARY: 0 errors\n"
+	for _, text := range []string{race + clean, clean + race} {
+		log := ParseLog(text)
+		if log.RaceErrors != 1 {
+			t.Fatalf("RaceErrors = %d, want 1", log.RaceErrors)
+		}
+		result := &Result{Log: log, ExitCode: 0}
+		result.classify(context.Background(), nil)
+		if result.Outcome != OutcomeSanitizerErrors {
+			t.Fatalf("mixed summaries classified as %v", result.Outcome)
+		}
 	}
 }
