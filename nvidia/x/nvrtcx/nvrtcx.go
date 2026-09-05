@@ -51,6 +51,9 @@ func (cm *CompiledModule) Log() string {
 
 // Load loads the compiled module into the CUDA driver on dev.
 // Mixed PTX/TileIR results require LoadOutput to select an artifact.
+// If restoring the context fails after loading, Load attempts to unload the
+// module. A failed unload is retained by the returned error, which implements
+// io.Closer (reachable with errors.As); Close retries cleanup before dev closes.
 func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
@@ -94,10 +97,20 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 		}
 		return fmt.Errorf("nvrtcx: module contains no ptx or cubin image")
 	})
-	if err != nil {
-		return 0, fmt.Errorf("nvrtcx: load module: %w", err)
-	}
-	return mod, nil
+	runtime.KeepAlive(cm)
+	pending := mod
+	return finishModuleLoad(mod, err, func() error {
+		if pending == 0 {
+			return nil
+		}
+		return dev.WithContext(func() error {
+			if err := pending.Unload(); err != nil {
+				return err
+			}
+			pending = 0
+			return nil
+		})
+	})
 }
 
 type options struct {
