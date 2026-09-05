@@ -39,3 +39,30 @@ func killGroup(cmd *exec.Cmd) error {
 	}
 	return err
 }
+
+// processGroup owns one run's Unix process group.
+type processGroup struct {
+	cmd    *exec.Cmd
+	killed bool
+}
+
+func startGroup(cmd *exec.Cmd) (*processGroup, error) {
+	setGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return &processGroup{cmd: cmd}, nil
+}
+
+func (g *processGroup) kill() error {
+	if g.killed {
+		return nil
+	}
+	err := killGroup(g.cmd)
+	if err == nil {
+		g.killed = true
+	}
+	return err
+}
+
+func (g *processGroup) close() { _ = g.kill() }

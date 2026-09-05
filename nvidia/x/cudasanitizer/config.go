@@ -234,7 +234,7 @@ type Config struct {
 	Timeout time.Duration
 
 	// KillDelay bounds waiting for output pipes after the process exits.
-	// Cancellation kills the process group immediately on Unix; this delay
+	// Cancellation terminates the owned processes immediately; this delay
 	// does not postpone that signal. Zero means [DefaultKillDelay].
 	KillDelay time.Duration
 

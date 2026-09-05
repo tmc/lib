@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -172,6 +173,12 @@ var (
 // its path.
 func fixtureTool(t *testing.T) string {
 	t.Helper()
+	if path := os.Getenv("CUDASANITIZER_FIXTURE_TOOL"); path != "" {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
 	fixtureOnce.Do(func() {
 		dir, err := os.MkdirTemp("", "cudasanitizer-fixture-")
 		if err != nil {
@@ -189,7 +196,11 @@ func fixtureTool(t *testing.T) string {
 		if fixtureErr != nil {
 			return
 		}
-		bin := filepath.Join(dir, "fixture")
+		name := "fixture"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		bin := filepath.Join(dir, name)
 		cmd := exec.Command("go", "build", "-o", bin, ".")
 		cmd.Dir = dir
 		cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOPROXY=off")

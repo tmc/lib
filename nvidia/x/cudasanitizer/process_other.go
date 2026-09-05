@@ -1,17 +1,17 @@
-//go:build !unix
+//go:build !unix && !windows
 
 package cudasanitizer
 
 import "os/exec"
 
-// setGroup is a no-op on systems without process groups.
-func setGroup(cmd *exec.Cmd) {}
+// Other platforms have only direct-child cleanup.
+type processGroup struct{ cmd *exec.Cmd }
 
-// killGroup kills the direct child. Descendants are not reaped here, so a
-// timeout on such a system can leave the instrumented application running.
-func killGroup(cmd *exec.Cmd) error {
-	if cmd.Process == nil {
-		return nil
+func startGroup(cmd *exec.Cmd) (*processGroup, error) {
+	if err := cmd.Start(); err != nil {
+		return nil, err
 	}
-	return cmd.Process.Kill()
+	return &processGroup{cmd: cmd}, nil
 }
+func (g *processGroup) kill() error { return g.cmd.Process.Kill() }
+func (g *processGroup) close()      { _ = g.kill() }
