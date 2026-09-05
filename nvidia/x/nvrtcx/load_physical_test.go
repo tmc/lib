@@ -3,6 +3,7 @@ package nvrtcx
 import (
 	"errors"
 	"os"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -121,4 +122,94 @@ func TestOwnedCompilerModule(t *testing.T) {
 		t.Fatal("closed kernel launched")
 	}
 	t.Log("NVRTC -> owned PTX module -> 64 matching outputs; Close synchronized launch and invalidated kernel")
+}
+
+func TestOwnedModuleConcurrentClose(t *testing.T) {
+	if os.Getenv("CUDA_JIT_TEST") != "1" {
+		t.Skip("CUDA_JIT_TEST=1 requires CUDA and NVRTC")
+	}
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	dev, err := cuda.NewDevice(0)
+	check(err)
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	major, minor, err := dev.ComputeCapability()
+	check(err)
+	cm, err := Compile(`extern "C" __global__ void count(int *p) { atomicAdd(p, 1); }`, WithArch(major, minor), WithOutput(OutputPTX), WithNoCache())
+	check(err)
+	owner, _, err := cm.LoadOwnedOutput(dev, OutputPTX)
+	check(err)
+	defer func() {
+		if err := owner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	kernel, err := owner.Function("count")
+	check(err)
+	var p driver.DevicePtr
+	check(dev.WithContext(func() error {
+		var err error
+		p, err = driver.MemAlloc(4)
+		if err != nil {
+			return err
+		}
+		return p.MemsetD32(0, 1)
+	}))
+	defer func() {
+		if err := dev.WithContext(p.MemFree); err != nil {
+			t.Error(err)
+		}
+	}()
+	first := make(chan struct{})
+	type result struct {
+		accepted int
+		err      error
+	}
+	done := make(chan result, 1)
+	go func() {
+		r := result{}
+		for i := 0; i < 100; i++ {
+			err := kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)})
+			if err != nil {
+				r.err = err
+				break
+			}
+			r.accepted++
+			if r.accepted == 1 {
+				close(first)
+			}
+			runtime.Gosched()
+		}
+		if r.accepted == 0 {
+			close(first)
+		}
+		done <- r
+	}()
+	<-first
+	closeErr := owner.Close()
+	r := <-done
+	check(closeErr)
+	if r.accepted == 0 {
+		t.Fatalf("no launches accepted: %v", r.err)
+	}
+	if r.err != nil && r.err.Error() != "cuda: closed module" {
+		t.Fatal(r.err)
+	}
+	var got int32
+	check(dev.WithContext(func() error { return p.MemcpyDtoH(unsafe.Pointer(&got), 4) }))
+	if got != int32(r.accepted) {
+		t.Fatalf("device count=%d accepted=%d", got, r.accepted)
+	}
+	if err := kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, nil); err == nil {
+		t.Fatal("post-close launch accepted")
+	}
+	t.Logf("device count=%d matches accepted launches during Close race", got)
 }
