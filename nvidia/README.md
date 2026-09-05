@@ -70,8 +70,9 @@ runtime — no nvcc, no cgo:
  3. driver: `Module.GetFunction`, allocate with `MemAlloc`, copy with
     `DevicePtr.MemcpyHtoD`, and `Function.LaunchKernel`.
 
-An nvjitlink package (LTO-capable linking) is planned; until it lands,
-driver's LinkState covers JIT linking.
+The `nvjitlink` package provides LTO-capable device-code linking;
+`x/nvjitlinkx` owns linker inputs, diagnostics, and cleanup. The driver's
+`LinkState` also supports JIT linking.
 
 ## Graphs
 
