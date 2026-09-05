@@ -17,14 +17,17 @@ const (
 	OutputCUBIN
 	OutputLTOIR
 	OutputTileIR
+	// OutputPTXTileIR preserves both outputs from a mixed SIMT/Tile compilation.
+	OutputPTXTileIR
 )
 
-// WithOutput selects one output format. LTOIR enables link-time optimization;
+// WithOutput selects the requested output format or formats. LTOIR enables link-time optimization;
 // TileIR enables tile-only compilation. Other language and target options remain
-// caller-owned. Unsupported formats return compiler capability errors.
+// caller-owned. Mixed PTX/TileIR enables Tile constructs without suppressing
+// SIMT output. Unsupported formats return compiler capability errors.
 func WithOutput(kind OutputKind) Option {
 	return func(o *options) {
-		if kind > OutputTileIR {
+		if kind > OutputPTXTileIR {
 			o.err = fmt.Errorf("nvrtcx: invalid output kind %d", kind)
 			return
 		}
@@ -71,11 +74,17 @@ func outputFlags(kind OutputKind, flags []string) ([]string, error) {
 			if kind != OutputTileIR {
 				return nil, fmt.Errorf("nvrtcx: tile-only flag requires OutputTileIR")
 			}
+		case "-simt-only", "--simt-only":
+			if kind == OutputTileIR || kind == OutputPTXTileIR {
+				return nil, fmt.Errorf("nvrtcx: simt-only flag conflicts with TileIR output")
+			}
 		case "-optix-ir", "--optix-ir":
 			return nil, fmt.Errorf("nvrtcx: OptiX IR output is not supported")
 		}
 	}
 	switch kind {
+	case OutputPTXTileIR:
+		flags = append(flags, "--enable-tile")
 	case OutputLTOIR:
 		flags = append(flags, "-dlto")
 	case OutputTileIR:
@@ -101,6 +110,16 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	case OutputLTOIR:
 		data, err = prog.GetLTOIR()
 		cm.ltoir = data
+	case OutputPTXTileIR:
+		data, err = prog.GetPTX()
+		if err != nil {
+			return nil, fmt.Errorf("nvrtcx: get PTX: %w", err)
+		}
+		if len(data) == 0 {
+			return nil, fmt.Errorf("nvrtcx: compiler returned empty PTX")
+		}
+		cm.ptx = string(data)
+		fallthrough
 	case OutputTileIR:
 		data, err = prog.GetTileIR()
 		cm.tileir = data
@@ -129,6 +148,8 @@ func (cm *CompiledModule) validArtifact() bool {
 		return cm.ptx == "" && len(cm.cubin) > 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
 	case OutputLTOIR:
 		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) > 0 && len(cm.tileir) == 0
+	case OutputPTXTileIR:
+		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0
 	case OutputTileIR:
 		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) > 0
 	}

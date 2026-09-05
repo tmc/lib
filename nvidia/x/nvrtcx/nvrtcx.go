@@ -50,9 +50,13 @@ func (cm *CompiledModule) Log() string {
 }
 
 // Load loads the compiled module into the CUDA driver on dev.
+// Mixed PTX/TileIR results require LoadOutput to select an artifact.
 func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
+	}
+	if cm.output == OutputPTXTileIR {
+		return 0, fmt.Errorf("nvrtcx: mixed output requires LoadOutput")
 	}
 	if len(cm.ltoir) != 0 {
 		return 0, fmt.Errorf("nvrtcx: LTOIR requires linking before loading")
@@ -188,6 +192,29 @@ func WithNoCache() Option {
 	return func(o *options) {
 		o.useCache = false
 	}
+}
+
+// LoadOutput loads one selected artifact. It never falls back to another format.
+// The caller must unload the returned module when it is no longer needed.
+func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.Module, error) {
+	if cm == nil {
+		return 0, fmt.Errorf("nvrtcx: nil compiled module")
+	}
+	selected := &CompiledModule{output: kind}
+	switch kind {
+	case OutputPTX:
+		selected.ptx = cm.ptx
+	case OutputCUBIN:
+		selected.cubin = cm.cubin
+	case OutputTileIR:
+		selected.tileir = cm.tileir
+	default:
+		return 0, fmt.Errorf("nvrtcx: output %d cannot be loaded directly", kind)
+	}
+	if !selected.validArtifact() {
+		return 0, fmt.Errorf("nvrtcx: output %d is unavailable", kind)
+	}
+	return selected.Load(dev)
 }
 
 // Compile compiles the given CUDA C++ source code into a CompiledModule.
