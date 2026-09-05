@@ -2,8 +2,12 @@ package nvvmx_test
 
 import (
 	"crypto/sha256"
+	"github.com/tmc/lib/nvidia/driver"
+	"math"
 	"os"
+	"runtime"
 	"testing"
+	"unsafe"
 
 	"github.com/tmc/lib/nvidia/nvjitlink"
 	"github.com/tmc/lib/nvidia/nvvm"
@@ -11,8 +15,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvvmx"
 )
 
-// TestCompilerPipeline compiles and links only. It neither loads a device
-// module nor proves kernel execution. Run under the host coordination protocol.
+// TestCompilerPipeline compiles and links NVVM IR through PTX and LTOIR.
+// CUDA_COMPILER_EXECUTE=1 additionally executes both linked kernels on device 0.
 func TestCompilerPipeline(t *testing.T) {
 	if os.Getenv("CUDA_COMPILER_TEST") != "1" {
 		t.Skip("CUDA_COMPILER_TEST=1 required")
@@ -82,6 +86,9 @@ func TestCompilerPipeline(t *testing.T) {
 				t.Fatal("no ELF CUBIN")
 			}
 			t.Logf("CUBIN SHA256=%x", sha256.Sum256(linked.CUBIN))
+			if os.Getenv("CUDA_COMPILER_EXECUTE") == "1" {
+				checkSineKernel(t, linked.CUBIN)
+			}
 		})
 	}
 	t.Run("invalid IR", func(t *testing.T) {
@@ -98,4 +105,45 @@ func TestCompilerPipeline(t *testing.T) {
 		}
 		t.Logf("expected failure: %v", err)
 	})
+}
+
+func checkSineKernel(t *testing.T, cubin []byte) {
+	t.Helper()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	check := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	check(driver.Init(0))
+	dev, err := driver.NewDeviceGet(0)
+	check(err)
+	ctx, err := driver.NewContext(nil, 0, dev)
+	check(err)
+	defer func() { check(ctx.Destroy()) }()
+	module, err := driver.NewModuleLoadData(unsafe.Pointer(unsafe.SliceData(cubin)))
+	check(err)
+	runtime.KeepAlive(cubin)
+	defer func() { check(module.Unload()) }()
+	fn, err := module.GetFunction("sine")
+	check(err)
+	input := []float32{-3, -1, -0.25, 0, 0.25, 1, 3}
+	got := make([]float32, len(input))
+	bytes := uint(len(input) * 4)
+	p, err := driver.MemAlloc(bytes)
+	check(err)
+	defer func() { check(p.MemFree()) }()
+	check(p.MemcpyHtoD(unsafe.Pointer(&input[0]), bytes))
+	check(fn.LaunchKernel(1, 1, 1, uint32(len(input)), 1, 1, 0, 0, []unsafe.Pointer{unsafe.Pointer(&p)}))
+	check(driver.CtxSynchronize())
+	check(p.MemcpyDtoH(unsafe.Pointer(&got[0]), bytes))
+	for i, x := range input {
+		want := math.Sin(float64(x))
+		if math.IsNaN(float64(got[i])) || math.Abs(float64(got[i])-want) > 1e-6 {
+			t.Fatalf("sine(%g)=%g want %g", x, got[i], want)
+		}
+	}
+	t.Logf("executed linked sine kernel: %v", got)
 }
