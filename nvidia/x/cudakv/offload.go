@@ -21,6 +21,8 @@ type SSDOffloader struct {
 }
 
 // NewSSDOffloader creates a new SSDOffloader rooted at dir.
+// Instances may share a directory; each owns distinct spill files.
+// Spills are process-local scratch storage, not crash-durable checkpoints.
 func NewSSDOffloader(dir string) (*SSDOffloader, error) {
 	if dir == "" {
 		dir = filepath.Join(os.TempDir(), "cudakv-ssd-offload")
@@ -40,7 +42,10 @@ func writeFloats(w io.Writer, vals []float32) error {
 	for i, v := range vals {
 		binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(v))
 	}
-	_, err := w.Write(buf)
+	n, err := w.Write(buf)
+	if err == nil && n != len(buf) {
+		err = io.ErrShortWrite
+	}
 	return err
 }
 
@@ -62,6 +67,9 @@ func readFloats(r io.Reader, vals []float32) error {
 func (o *SSDOffloader) EvictLayer(ctx context.Context, layer LayerCache) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	kData := make([]float32, layer.K.Len())
 	if err := layer.K.CopyToHost(kData); err != nil {
@@ -73,32 +81,60 @@ func (o *SSDOffloader) EvictLayer(ctx context.Context, layer LayerCache) error {
 		return fmt.Errorf("cudakv: copy V to host: %w", err)
 	}
 
-	filePath := filepath.Join(o.dir, fmt.Sprintf("cuda_layer_%d.bin", layer.LayerIndex))
-	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	return o.spill(ctx, layer.LayerIndex, kData, vData)
+}
+
+// spill publishes a complete replacement while the caller holds o.mu.
+// Each offloader owns distinct files even when instances share a directory.
+func (o *SSDOffloader) spill(ctx context.Context, index int, kData, vData []float32) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(o.dir, "cuda_layer_*.bin")
 	if err != nil {
 		return fmt.Errorf("cudakv: create layer file: %w", err)
 	}
 	defer f.Close()
+	path := f.Name()
+	published := false
+	defer func() {
+		if !published {
+			os.Remove(path)
+		}
+	}()
 
 	if err := writeFloats(f, kData); err != nil {
-		return fmt.Errorf("cudakv: write layer %d K: %w", layer.LayerIndex, err)
+		return fmt.Errorf("cudakv: write layer %d K: %w", index, err)
 	}
 	if err := writeFloats(f, vData); err != nil {
-		return fmt.Errorf("cudakv: write layer %d V: %w", layer.LayerIndex, err)
+		return fmt.Errorf("cudakv: write layer %d V: %w", index, err)
 	}
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("cudakv: close layer file: %w", err)
 	}
 
-	o.files[layer.LayerIndex] = filePath
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if old, ok := o.files[index]; ok {
+		if err := os.Rename(path, old); err != nil {
+			return fmt.Errorf("cudakv: replace layer %d: %w", index, err)
+		}
+		path = old
+	}
+	o.files[index] = path
+	published = true
 	return nil
 }
 
 // RestoreLayer restores K and V buffers from SSD back into GPU memory.
 func (o *SSDOffloader) RestoreLayer(ctx context.Context, layer LayerCache) error {
 	o.mu.RLock()
+	defer o.mu.RUnlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	filePath, ok := o.files[layer.LayerIndex]
-	o.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("cudakv: layer %d not found on ssd", layer.LayerIndex)
@@ -141,15 +177,19 @@ func (o *SSDOffloader) RestoreLayer(ctx context.Context, layer LayerCache) error
 }
 
 // Close removes the layer files the offloader spilled and forgets them.
-// Restoring a layer after Close reports that the layer is not on the SSD.
+// Failed removals remain owned so a later Close can retry them.
+// The offloader can be reused after Close.
 func (o *SSDOffloader) Close() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	var firstErr error
 	for layer, path := range o.files {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) && firstErr == nil {
-			firstErr = fmt.Errorf("cudakv: remove layer %d file: %w", layer, err)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("cudakv: remove layer %d file: %w", layer, err)
+			}
+			continue
 		}
 		delete(o.files, layer)
 	}
