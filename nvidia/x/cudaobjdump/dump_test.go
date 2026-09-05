@@ -1,7 +1,9 @@
 package cudaobjdump
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 func fake(t *testing.T, body string) Tool {
@@ -130,7 +134,26 @@ func ExampleParseList() {
 func TestInstalledTool(t *testing.T) {
 	p := os.Getenv("CUDAOBJDUMP_TEST_BINARY")
 	if p == "" {
-		t.Skip("set CUDAOBJDUMP_TEST_BINARY to a host binary containing PTX and cubin")
+		t.Skip("set CUDAOBJDUMP_TEST_BINARY and CUDAOBJDUMP_TEST_{CUBIN,PTX} to a known embedded-artifact fixture")
+	}
+	original, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	references := make(map[Kind][]byte)
+	for kind, env := range map[Kind]string{ELF: "CUDAOBJDUMP_TEST_CUBIN", PTX: "CUDAOBJDUMP_TEST_PTX"} {
+		path := os.Getenv(env)
+		if path == "" {
+			t.Fatalf("%s is required for known-artifact comparison", env)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(data) == 0 {
+			t.Fatalf("empty reference %s", path)
+		}
+		references[kind] = data
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -143,7 +166,7 @@ func TestInstalledTool(t *testing.T) {
 	for _, kind := range []Kind{ELF, PTX} {
 		images, r, err := tool.List(ctx, p, kind)
 		t.Logf("list: %s stderr: %s", r.Stdout, r.Stderr)
-		if err != nil || len(images) == 0 {
+		if err != nil || len(images) != 1 {
 			t.Fatalf("list: %v, %v", images, err)
 		}
 		artifacts, r, err := tool.Extract(ctx, p, kind)
@@ -152,10 +175,31 @@ func TestInstalledTool(t *testing.T) {
 			t.Fatalf("extract: %d vs %d: %v", len(artifacts), len(images), err)
 		}
 		for _, a := range artifacts {
-			if len(a.Data) == 0 {
-				t.Fatalf("empty %s", a.Name)
+			got, want := a.Data, references[kind]
+			if kind == PTX {
+				// fatbinary strips comments and normalizes PTX whitespace. Compare
+				// assembled code instead of treating formatting changes as corruption.
+				got, want = assembledPTX(t, ctx, got, want)
 			}
+			if !bytes.Equal(got, want) {
+				t.Fatalf("%s differs from reference: extracted %d bytes sha256 %x; reference %d bytes sha256 %x", a.Name, len(got), sha256.Sum256(got), len(want), sha256.Sum256(want))
+			}
+			t.Logf("verified %s (kind %d; PTX compared after assembly): %d bytes sha256 %x", a.Name, kind, len(got), sha256.Sum256(got))
 		}
+	}
+	after, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(original, after) {
+		t.Fatal("tool changed original input")
+	}
+	entries, err := os.ReadDir(tool.TempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("extraction leaked %d scratch entries", len(entries))
 	}
 	for _, section := range []Section{SASS, ELFSections, Resources} {
 		r, err := tool.Dump(ctx, p, section)
@@ -164,4 +208,56 @@ func TestInstalledTool(t *testing.T) {
 			t.Fatalf("dump: %v", err)
 		}
 	}
+	bad := filepath.Join(t.TempDir(), "truncated.elf")
+	if err := os.WriteFile(bad, []byte{0x7f, 'E', 'L', 'F'}, 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, diagnostic, err := tool.Extract(ctx, bad, ELF)
+	if err == nil {
+		t.Fatal("truncated ELF extraction succeeded")
+	}
+	if len(diagnostic.Stderr) == 0 {
+		t.Fatalf("failed extraction lost tool diagnostics: %v", err)
+	}
+	t.Logf("invalid-input diagnostic: %s", diagnostic.Stderr)
+}
+
+// assembledPTX compiles both inputs with the same executable and options.
+// A byte-identical output is stronger than a token or opcode-name comparison.
+func assembledPTX(t *testing.T, ctx context.Context, a, b []byte) ([]byte, []byte) {
+	t.Helper()
+	tool := os.Getenv("PTXAS")
+	if tool == "" {
+		tool = "ptxas"
+	}
+	version, err := cudatool.Run(ctx, tool, "", nil, "--version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("assembler %s: %s%s", version.Path, version.Stdout, version.Stderr)
+	arch := os.Getenv("CUDAOBJDUMP_TEST_ARCH")
+	if arch == "" {
+		t.Fatal("CUDAOBJDUMP_TEST_ARCH is required for PTX assembly")
+	}
+	var compiled [2][]byte
+	for i, src := range [][]byte{a, b} {
+		dir := t.TempDir()
+		in, out := filepath.Join(dir, "input.ptx"), filepath.Join(dir, "output.cubin")
+		if err := os.WriteFile(in, bytes.TrimRight(src, "\x00"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		result, err := cudatool.Run(ctx, tool, "", nil, "--gpu-name", arch, in, "-o", out)
+		t.Logf("assembler args %q stderr %s", result.Args, result.Stderr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		compiled[i], err = os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(compiled[i]) == 0 {
+			t.Fatal("assembler produced an empty cubin")
+		}
+	}
+	return compiled[0], compiled[1]
 }
