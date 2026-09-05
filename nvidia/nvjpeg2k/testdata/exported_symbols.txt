@@ -1,0 +1,57 @@
+# Dynamic symbols exported by libnvjpeg2k, recorded from the pinned NVIDIA
+# redistributable and used by exports_test.go. Text only: the shared library
+# itself is not vendored.
+#
+# archive: libnvjpeg_2k-linux-x86_64-0.11.0.51_cuda13-archive.tar.xz
+#   https://developer.download.nvidia.com/compute/nvjpeg2000/redist/libnvjpeg_2k/linux-x86_64/libnvjpeg_2k-linux-x86_64-0.11.0.51_cuda13-archive.tar.xz
+#   sha256 23eba41f33fc35018dc48db31ef72e35d711bb1280cdde34e62bcaa555047348
+# file:    lib/libnvjpeg2k.so.0.11.0.51
+# soname:  libnvjpeg2k.so.0
+# version node: libnvjpeg2k.so.0 (every symbol below is exported at @@libnvjpeg2k.so.0)
+# recorded: 2026-09-04, objdump -T, on the pinned archive
+#
+# Lines are symbol names. "encode" marks a symbol this package deliberately
+# does not bind; see the package documentation.
+nvjpeg2kCreate
+nvjpeg2kCreateSimple
+nvjpeg2kCreateV2
+nvjpeg2kDecode
+nvjpeg2kDecodeImage
+nvjpeg2kDecodeParamsCreate
+nvjpeg2kDecodeParamsDestroy
+nvjpeg2kDecodeParamsSetDecodeArea
+nvjpeg2kDecodeParamsSetOutputFormat
+nvjpeg2kDecodeParamsSetRGBOutput
+nvjpeg2kDecodeStateCreate
+nvjpeg2kDecodeStateDestroy
+nvjpeg2kDecodeTile
+nvjpeg2kDestroy
+nvjpeg2kEncode encode
+nvjpeg2kEncodeParamsCreate encode
+nvjpeg2kEncodeParamsDestroy encode
+nvjpeg2kEncodeParamsSetEncodeConfig encode
+nvjpeg2kEncodeParamsSetInputFormat encode
+nvjpeg2kEncodeParamsSetNLTInfo encode
+nvjpeg2kEncodeParamsSpecifyQuality encode
+nvjpeg2kEncodeRetrieveBitstream encode
+nvjpeg2kEncodeStateCreate encode
+nvjpeg2kEncodeStateDestroy encode
+nvjpeg2kEncoderCreateSimple encode
+nvjpeg2kEncoderDestroy encode
+nvjpeg2kGetCudartProperty
+nvjpeg2kGetDeviceMemoryPadding
+nvjpeg2kGetPinnedMemoryPadding
+nvjpeg2kGetProperty
+nvjpeg2kSetDeviceMemoryPadding
+nvjpeg2kSetPinnedMemoryPadding
+nvjpeg2kStreamCreate
+nvjpeg2kStreamDestroy
+nvjpeg2kStreamGetColorSpace
+nvjpeg2kStreamGetComponentNLTInfo
+nvjpeg2kStreamGetImageComponentInfo
+nvjpeg2kStreamGetImageInfo
+nvjpeg2kStreamGetResolutionComponentDim
+nvjpeg2kStreamGetResolutionsInTile
+nvjpeg2kStreamGetTileComponentDim
+nvjpeg2kStreamParse
+nvjpeg2kStreamParseFile
