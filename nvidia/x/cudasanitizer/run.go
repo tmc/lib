@@ -26,7 +26,7 @@ type Outcome int
 const (
 	// OutcomeToolFailure means no verdict exists: compute-sanitizer could
 	// not be found or started, the run was cancelled or timed out, or the
-	// tool produced no summary. It is never a pass, and in particular a
+	// tool produced no complete report. It is never a pass, and in particular a
 	// timeout is this outcome rather than a slow success.
 	OutcomeToolFailure Outcome = iota
 
@@ -70,11 +70,11 @@ var (
 	// context deadline and its process group was killed.
 	ErrTimeout = errors.New("run timed out")
 
-	// ErrNoVerdict means compute-sanitizer produced no summary line, so the
-	// log says nothing about whether errors were found. A run that ends
+	// ErrNoVerdict means no complete report was available: the tool emitted
+	// no summary, or its fallback output was truncated. A run that ends
 	// this way is classified as a tool failure no matter what the exit
 	// status was, because no verdict was reached.
-	ErrNoVerdict = errors.New("compute-sanitizer produced no summary")
+	ErrNoVerdict = errors.New("compute-sanitizer produced no complete report")
 )
 
 // Result describes one run. [Run] always returns a non-nil Result when the
@@ -194,8 +194,8 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 		defer cancel()
 	}
 
-	stdout := &capBuffer{limit: cfg.maxOutputBytes(), tee: cfg.Stdout}
-	stderr := &capBuffer{limit: cfg.maxOutputBytes(), tee: cfg.Stderr}
+	stdout := &capBuffer{limit: cfg.maxOutputBytes(), tee: cfg.Stdout, evidence: newOutputEvidence(cfg)}
+	stderr := &capBuffer{limit: cfg.maxOutputBytes(), tee: cfg.Stderr, evidence: newOutputEvidence(cfg)}
 
 	cmd := exec.Command(toolPath, toolArgs...)
 	cmd.Dir = cfg.Dir
@@ -213,10 +213,13 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 	res.Stderr, res.StderrTruncated = stderr.result()
 	logText, _ := os.ReadFile(logPath)
 	res.Log = ParseLog(string(logText))
-	if !res.Log.SummaryFound {
+	incompleteFallback := !res.Log.SummaryFound && (res.StdoutTruncated || res.StderrTruncated)
+	if !res.Log.SummaryFound && !incompleteFallback {
 		// The tool may have failed before writing the log, or written its
 		// report to the inherited streams instead. Parse what was captured
-		// so a report that did arrive is not thrown away.
+		// so a report that did arrive is not thrown away. Truncated output
+		// cannot establish a verdict: an early zero summary may precede
+		// errors in the omitted part of a later report.
 		if alt := ParseLog(res.Stderr + "\n" + res.Stdout); alt.SummaryFound {
 			res.Log = alt
 		}
@@ -230,7 +233,11 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 		res.ExitCode = exitErr.ExitCode()
 	}
 
+	res.checkEvidence(stdout, stderr)
 	res.classify(ctx, runErr)
+	if incompleteFallback && errors.Is(res.Err, ErrNoVerdict) {
+		res.Err = fmt.Errorf("%w: fallback output was truncated", ErrNoVerdict)
+	}
 	return res, nil
 }
 
@@ -298,7 +305,6 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 		return
 	}
 
-	r.checkEvidence()
 	switch {
 	case r.ExitCode == r.ErrorExitCode:
 		// The report says zero errors, so this is the application's own
@@ -311,20 +317,6 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 		r.Outcome = OutcomeApplicationFailed
 	default:
 		r.Outcome = OutcomeClean
-	}
-}
-
-func (r *Result) checkEvidence() {
-	combined := r.Stdout + "\n" + r.Stderr
-	for _, want := range r.Config.RequireOutput {
-		if want != "" && !strings.Contains(combined, want) {
-			r.MissingEvidence = append(r.MissingEvidence, want)
-		}
-	}
-	for _, bad := range r.Config.ForbidOutput {
-		if bad != "" && strings.Contains(combined, bad) {
-			r.ForbiddenEvidence = append(r.ForbiddenEvidence, bad)
-		}
 	}
 }
 
@@ -465,10 +457,12 @@ type capBuffer struct {
 	limit     int
 	truncated bool
 	tee       io.Writer
+	evidence  outputEvidence
 }
 
 func (b *capBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
+	b.evidence.write(p)
 	if room := b.limit - b.buf.Len(); room > 0 {
 		if len(p) <= room {
 			b.buf.Write(p)

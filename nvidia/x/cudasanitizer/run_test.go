@@ -398,3 +398,39 @@ func contains(s []string, v string) bool {
 	}
 	return false
 }
+
+func TestEvidenceBeyondRetainedOutput(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		stream          string
+		require, forbid []string
+		want            Outcome
+	}{
+		{"required stdout", fakeStdout, []string{"work completed"}, nil, OutcomeClean},
+		{"required stderr", fakeStderr, []string{"work completed"}, nil, OutcomeClean},
+		{"forbidden stdout", fakeStdout, nil, []string{"work completed"}, OutcomeApplicationFailed},
+		{"forbidden stderr", fakeStderr, nil, []string{"work completed"}, OutcomeApplicationFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := baseConfig(t)
+			cfg.MaxOutputBytes = 16
+			cfg.RequireOutput, cfg.ForbidOutput = tc.require, tc.forbid
+			res := run(t, cfg, fixtureEnv(fakeReport+"="+cleanReport, tc.stream+"="+strings.Repeat("x", 200)+"work completed"))
+			if res.Outcome != tc.want {
+				t.Fatalf("outcome = %v, want %v\n%s", res.Outcome, tc.want, res.Details())
+			}
+			if len(res.Stdout) > 16 || len(res.Stderr) > 16 {
+				t.Fatal("output retention limit exceeded")
+			}
+		})
+	}
+}
+
+func TestTruncatedFallbackReportIsNotClean(t *testing.T) {
+	cfg := baseConfig(t)
+	cfg.MaxOutputBytes = 128
+	res := run(t, cfg, fixtureEnv(fakeNoLog+"=1", fakeStderr+"="+cleanReport+strings.Repeat("x", 256)+"\n"+errorReport, fakeExit+"=0"))
+	if res.Outcome != OutcomeToolFailure || !errors.Is(res.Err, ErrNoVerdict) {
+		t.Fatalf("truncated report produced %v (%v)\n%s", res.Outcome, res.Err, res.Details())
+	}
+}
