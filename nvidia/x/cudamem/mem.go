@@ -25,6 +25,7 @@ type Slice[T any] struct {
 
 type allocation struct {
 	mu      sync.Mutex
+	users   int
 	ptr     driver.DevicePtr
 	bytes   uint64
 	tracker *Tracker
@@ -151,7 +152,8 @@ func (s Slice[T]) Slice(low, high int) Slice[T] {
 }
 
 // Free deallocates the device memory. Repeated calls through copies or subslices
-// of s are safe.
+// of s are safe. Free returns ErrInUse while an owned asynchronous transfer is
+// pending; synchronize or destroy its stream before retrying.
 func (s Slice[T]) Free() error {
 	if s.ptr == 0 {
 		return nil
@@ -161,6 +163,9 @@ func (s Slice[T]) Free() error {
 		defer s.alloc.mu.Unlock()
 		if s.alloc.ptr == 0 {
 			return nil
+		}
+		if s.alloc.users != 0 {
+			return ErrInUse
 		}
 		if err := s.alloc.device.WithContext(s.alloc.ptr.MemFree); err != nil {
 			return fmt.Errorf("cudamem: free device memory: %w", err)
@@ -222,9 +227,12 @@ func (s Slice[T]) CopyToHost(dst []T) error {
 }
 
 // CopyFromHostAsync asynchronously enqueues a host-to-device copy onto the specified stream.
-// The host slice memory is pinned and guaranteed to remain pinned until the stream finishes
-// synchronization or is destroyed. The device allocation must remain live until
-// the stream completes.
+// The Go backing array and device allocation are retained until successful
+// stream synchronization or destruction. runtime.Pinner provides Go address
+// stability, not CUDA page-locking; pageable transfers may block or be staged.
+// The caller must not modify src until the transfer completes.
+// Capturing the copy in a graph does not retain allocations for later replays;
+// the caller must own all referenced resources for the graph's lifetime.
 func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	if len(src) == 0 {
 		return nil
@@ -235,25 +243,31 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 	if stream == nil {
 		return errors.New("cudamem: nil stream passed to CopyFromHostAsync")
 	}
+	release, err := s.retain(stream.Device())
+	if err != nil {
+		return err
+	}
 
 	var unpinOnce sync.Once
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&src[0])
 	unpin := func() {
-		unpinOnce.Do(pinner.Unpin)
+		unpinOnce.Do(func() { pinner.Unpin(); release() })
 	}
 	hostPtr := unsafe.Pointer(&src[0])
 	totalBytes := uint(uintptr(len(src)) * s.elemSize)
 	dev := stream.Device()
+	attempted := false
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error {
+				attempted = true
 				return ptr.MemcpyHtoDAsync(hostPtr, totalBytes, handle)
 			})
 		})
 	}); err != nil {
-		unpin()
+		failedTransferCleanup(attempted, stream.AddCleanup, unpin)
 		return fmt.Errorf("cudamem: async copy host to device: %w", err)
 	}
 	stream.AddCleanup(unpin)
@@ -261,9 +275,9 @@ func (s Slice[T]) CopyFromHostAsync(src []T, stream *cuda.Stream) error {
 }
 
 // CopyToHostAsync asynchronously enqueues a device-to-host copy onto the specified stream.
-// The destination host slice memory is pinned and guaranteed to remain pinned until the stream finishes
-// synchronization or is destroyed. The device allocation must remain live until
-// the stream completes.
+// The Go backing array and device allocation are retained until successful
+// stream synchronization or destruction. runtime.Pinner does not CUDA-page-lock
+// the backing array. The caller must not access dst until the transfer completes.
 func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	if len(dst) == 0 {
 		return nil
@@ -274,25 +288,31 @@ func (s Slice[T]) CopyToHostAsync(dst []T, stream *cuda.Stream) error {
 	if stream == nil {
 		return errors.New("cudamem: nil stream passed to CopyToHostAsync")
 	}
+	release, err := s.retain(stream.Device())
+	if err != nil {
+		return err
+	}
 
 	var unpinOnce sync.Once
 	pinner := new(runtime.Pinner)
 	pinner.Pin(&dst[0])
 	unpin := func() {
-		unpinOnce.Do(pinner.Unpin)
+		unpinOnce.Do(func() { pinner.Unpin(); release() })
 	}
 	hostPtr := unsafe.Pointer(&dst[0])
 	totalBytes := uint(uintptr(s.len) * s.elemSize)
 	dev := stream.Device()
+	attempted := false
 
 	if err := s.withPointer(func(ptr driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error {
+				attempted = true
 				return ptr.MemcpyDtoHAsync(hostPtr, totalBytes, handle)
 			})
 		})
 	}); err != nil {
-		unpin()
+		failedTransferCleanup(attempted, stream.AddCleanup, unpin)
 		return fmt.Errorf("cudamem: async copy device to host: %w", err)
 	}
 	stream.AddCleanup(unpin)
@@ -317,7 +337,8 @@ func (s Slice[T]) CopyDeviceToDevice(src Slice[T]) error {
 }
 
 // CopyDeviceToDeviceAsync asynchronously enqueues a device-to-device copy onto the specified stream.
-// Both allocations must remain live until the stream completes.
+// Both allocations are retained until successful stream synchronization or
+// destruction. Free returns ErrInUse until then.
 func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) error {
 	if src.len == 0 {
 		return nil
@@ -328,17 +349,31 @@ func (s Slice[T]) CopyDeviceToDeviceAsync(src Slice[T], stream *cuda.Stream) err
 	if stream == nil {
 		return errors.New("cudamem: nil stream passed to CopyDeviceToDeviceAsync")
 	}
+	releaseDst, err := s.retain(stream.Device())
+	if err != nil {
+		return err
+	}
+	releaseSrc, err := src.retain(stream.Device())
+	if err != nil {
+		releaseDst()
+		return err
+	}
+	release := func() { releaseSrc(); releaseDst() }
 	totalBytes := uint(uintptr(src.len) * s.elemSize)
 	dev := stream.Device()
+	attempted := false
 	if err := s.withSource(src, func(dst, src driver.DevicePtr) error {
 		return stream.WithHandle(func(handle driver.Stream) error {
 			return dev.WithContext(func() error {
+				attempted = true
 				return dst.MemcpyDtoDAsync(src, totalBytes, handle)
 			})
 		})
 	}); err != nil {
+		failedTransferCleanup(attempted, stream.AddCleanup, release)
 		return fmt.Errorf("cudamem: async copy device to device: %w", err)
 	}
+	stream.AddCleanup(release)
 	return nil
 }
 
@@ -352,8 +387,9 @@ type HostAllocation[T any] struct {
 }
 
 type hostAllocation struct {
-	mu  sync.Mutex
-	ptr uintptr
+	mu    sync.Mutex
+	ptr   uintptr
+	users int
 }
 
 // AllocHost allocates page-locked host memory accessible by CUDA devices. The
@@ -426,7 +462,7 @@ func (ha HostAllocation[T]) Slice() []T {
 }
 
 // Free deallocates the page-locked host memory. Repeated calls through copies of
-// ha are safe.
+// ha are safe. Free returns ErrInUse while a pinned transfer retains ha.
 func (ha HostAllocation[T]) Free() error {
 	if ha.ptr == 0 {
 		return nil
@@ -438,6 +474,9 @@ func (ha HostAllocation[T]) Free() error {
 	defer ha.alloc.mu.Unlock()
 	if ha.alloc.ptr == 0 {
 		return nil
+	}
+	if ha.alloc.users != 0 {
+		return ErrInUse
 	}
 	if err := driver.MemFreeHost(ha.alloc.ptr); err != nil {
 		return fmt.Errorf("cudamem: free host memory: %w", err)
