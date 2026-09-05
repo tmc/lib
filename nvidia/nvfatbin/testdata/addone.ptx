@@ -1,0 +1,40 @@
+//
+// One kernel, addone, which adds 1.0f to element tid.x of a float array.
+//
+// It is the payload of TestFatbinPipeline: nvFatbin packages this text, the
+// driver loads the fatbinary, and the launch's output is what says the
+// packaging was correct rather than merely non-empty.
+//
+// The .target here must agree with the arch passed to AddPTXString, and the
+// test rewrites both from the device's real compute capability rather than
+// trusting the value below. sm_90 is what the file says so that it can be
+// assembled on its own:
+//
+//	ptxas -arch=sm_90 -o /dev/null testdata/addone.ptx
+//
+// That has NOT been run in this working tree: no CUDA toolkit is installed
+// here. If ptxas rejects this text the pipeline test fails at module load,
+// with the driver's own diagnostic.
+//
+.version 8.0
+.target sm_90
+.address_size 64
+
+.visible .entry addone(
+	.param .u64 addone_param_0
+)
+{
+	.reg .b32 	%r<2>;
+	.reg .f32 	%f<3>;
+	.reg .b64 	%rd<5>;
+
+	ld.param.u64 	%rd1, [addone_param_0];
+	cvta.to.global.u64 	%rd2, %rd1;
+	mov.u32 	%r1, %tid.x;
+	mul.wide.u32 	%rd3, %r1, 4;
+	add.s64 	%rd4, %rd2, %rd3;
+	ld.global.f32 	%f1, [%rd4];
+	add.f32 	%f2, %f1, 0f3F800000;
+	st.global.f32 	[%rd4], %f2;
+	ret;
+}

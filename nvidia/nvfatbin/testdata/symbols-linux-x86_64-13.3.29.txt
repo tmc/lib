@@ -1,0 +1,26 @@
+# Exported function symbols of libnvfatbin.so.13.3.29, read from the pinned
+# redist archive's .dynsym: every STB_GLOBAL/STB_WEAK, STT_FUNC symbol with a
+# defined section index. The library defines exactly these twelve and nothing
+# else; there are no versioned aliases, and no name here is decorated, so the
+# generated loader binds the header's own names.
+#
+# archive: libnvfatbin-linux-x86_64-13.3.29-archive.tar.xz
+# sha256:  f3e933b61a26f7b1f8b053bac4a66193e115b006911e2e493623ca01ec8560d4
+# member:  lib/libnvfatbin.so.13.3.29
+# soname:  libnvfatbin.so.13
+# read on: 2026-09-04
+#
+# The shared object itself is deliberately not vendored; this list is the one
+# fact taken from it.
+nvFatbinAddCubin
+nvFatbinAddIndex
+nvFatbinAddLTOIR
+nvFatbinAddPTX
+nvFatbinAddReloc
+nvFatbinAddTileIR
+nvFatbinCreate
+nvFatbinDestroy
+nvFatbinGet
+nvFatbinGetErrorString
+nvFatbinSize
+nvFatbinVersion
