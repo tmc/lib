@@ -16,3 +16,14 @@ first use to select the library explicitly. Missing symbols return
 
 See [NVVM validation](../nvvm/README.md#validation) for a complete
 NVVM IR → LTOIR → cubin → GPU launch test and a runnable PTX linking example.
+
+Regenerate the 13.0 baseline from the codegen repository with:
+
+```sh
+go run ./cmd/gen-nvidia -api nvjitlink \
+  -header ../cuda-headers/pinned/nvjitlink/cuda-13.0/nvJitLink.h \
+  -output ../lib/nvidia/nvjitlink
+```
+
+The default header may select newer versioned symbols and therefore raise the
+minimum runtime requirement. Updating it requires a separate compatibility check.
