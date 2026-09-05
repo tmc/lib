@@ -263,7 +263,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
 	}
-	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d", major, minor, nvrtc.Path(), cfg.output)
+	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d cache=%q", major, minor, nvrtc.Path(), cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
 	key := compilerCacheKey(inputKey, identity)
