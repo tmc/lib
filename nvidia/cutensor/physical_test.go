@@ -3,6 +3,7 @@
 package cutensor_test
 
 import (
+	"errors"
 	"math"
 	"runtime"
 	"testing"
@@ -40,6 +41,19 @@ func TestPhysicalContraction(t *testing.T) {
 	}
 	cleanup(h.Destroy)
 
+	// The pinned header requires strictly positive extents. The valid
+	// contraction below also checks that rejection leaves the handle usable.
+	for _, extent := range []int64{0, -1} {
+		desc, err := h.CreateTensorDescriptor(1, &extent, nil, cutensor.R32F, 128)
+		if err == nil {
+			cleanup(desc.Destroy)
+			t.Fatalf("accepted extent %d", extent)
+		}
+		if !errors.Is(err, cutensor.ErrInvalidValue) {
+			t.Fatalf("extent %d: %v, want invalid value", extent, err)
+		}
+	}
+	t.Log("zero and negative extents rejected with ErrInvalidValue")
 	compute32f, err := cutensor.ComputeDesc32F()
 	if err != nil {
 		t.Fatal(err)
