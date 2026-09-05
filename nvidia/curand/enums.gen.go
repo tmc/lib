@@ -22,6 +22,7 @@ const (
 	CURAND_RNG_QuasiScrambledSobol64 RngType = 204 // Scrambled Sobol64 quasirandom generator
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RngType) String() string {
 	switch e {
 	case CURAND_RNG_Test:
@@ -64,6 +65,7 @@ const (
 	CURAND_ORDERING_QuasiDefault  Ordering = 201 // Specific n-dimensional ordering for quasirandom results
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Ordering) String() string {
 	switch e {
 	case CURAND_ORDERING_PseudoBest:
@@ -92,6 +94,7 @@ const (
 	CURAND_ScrambledDirectionVectors64Joekuo6 DirectionVectorSet = 104 // Specific set of 64-bit direction vectors generated from polynomials recommended by S. Joe and F. Y. Kuo, for up to 20,000 dimensions, and scrambled
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DirectionVectorSet) String() string {
 	switch e {
 	case CURAND_DirectionVectors32Joekuo6:
@@ -126,6 +129,7 @@ const (
 	Poisson       MethodT = 13
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MethodT) String() string {
 	switch e {
 	case ChooseBest:
