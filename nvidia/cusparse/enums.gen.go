@@ -12,6 +12,7 @@ const (
 	PointerModeDevice PointerMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerMode) String() string {
 	switch e {
 	case PointerModeHost:
@@ -30,6 +31,7 @@ const (
 	ActionNumeric  Action = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Action) String() string {
 	switch e {
 	case ActionSymbolic:
@@ -50,6 +52,7 @@ const (
 	MatrixTypeTriangular MatrixType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatrixType) String() string {
 	switch e {
 	case MatrixTypeGeneral:
@@ -72,6 +75,7 @@ const (
 	FillModeUpper FillMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FillMode) String() string {
 	switch e {
 	case FillModeLower:
@@ -90,6 +94,7 @@ const (
 	DiagTypeUnit    DiagType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DiagType) String() string {
 	switch e {
 	case DiagTypeNonUnit:
@@ -108,6 +113,7 @@ const (
 	IndexBaseOne  IndexBase = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IndexBase) String() string {
 	switch e {
 	case IndexBaseZero:
@@ -127,6 +133,7 @@ const (
 	OperationConjugateTranspose Operation = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Operation) String() string {
 	switch e {
 	case OperationNonTranspose:
@@ -147,6 +154,7 @@ const (
 	DirectionColumn Direction = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Direction) String() string {
 	switch e {
 	case DirectionRow:
@@ -165,6 +173,7 @@ const (
 	SolvePolicyUseLevel SolvePolicy = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SolvePolicy) String() string {
 	switch e {
 	case SolvePolicyNoLevel:
@@ -183,6 +192,7 @@ const (
 	ColorALG1 ColorAlg = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ColorAlg) String() string {
 	switch e {
 	case ColorALG0:
@@ -201,6 +211,7 @@ const (
 	Csr2cscALG1       Csr2CscAlg = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Csr2CscAlg) String() string {
 	switch e {
 	case Csr2cscAlgDefault:
@@ -221,6 +232,7 @@ const (
 	FormatSlicedEllpack Format = 7 // Sliced ELL
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Format) String() string {
 	switch e {
 	case FormatCsr:
@@ -247,6 +259,7 @@ const (
 	OrderRow Order = 2 // Row-Major Order - Matrix memory layout
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Order) String() string {
 	switch e {
 	case OrderCol:
@@ -266,6 +279,7 @@ const (
 	Index64I IndexType = 3 // 64-bit signed integer for matrix/vector indices
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IndexType) String() string {
 	switch e {
 	case Index16U:
@@ -286,6 +300,7 @@ const (
 	SpmatDiagType SpMatAttribute = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpMatAttribute) String() string {
 	switch e {
 	case SpmatFillMode:
@@ -303,6 +318,7 @@ const (
 	SparsetodenseAlgDefault SparseToDenseAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SparseToDenseAlg) String() string {
 	switch e {
 	case SparsetodenseAlgDefault:
@@ -318,6 +334,7 @@ const (
 	DensetosparseAlgDefault DenseToSparseAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DenseToSparseAlg) String() string {
 	switch e {
 	case DensetosparseAlgDefault:
@@ -339,6 +356,7 @@ const (
 	SpmvBsrALG1    SpMVAlg = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpMVAlg) String() string {
 	switch e {
 	case SpmvAlgDefault:
@@ -366,6 +384,7 @@ const (
 	SpsvAlgDefault SpSVAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpSVAlg) String() string {
 	switch e {
 	case SpsvAlgDefault:
@@ -382,6 +401,7 @@ const (
 	SpsvUpdateDiagonal SpSVUpdate = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpSVUpdate) String() string {
 	switch e {
 	case SpsvUpdateGeneral:
@@ -399,6 +419,7 @@ const (
 	SpsmAlgDefault SpSMAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpSMAlg) String() string {
 	switch e {
 	case SpsmAlgDefault:
@@ -415,6 +436,7 @@ const (
 	SpsmUpdateDiagonal SpSMUpdate = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpSMUpdate) String() string {
 	switch e {
 	case SpsmUpdateGeneral:
@@ -441,6 +463,7 @@ const (
 	SpmmBsrALG1        SpMMAlg = 14
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpMMAlg) String() string {
 	switch e {
 	case SpmmAlgDefault:
@@ -479,6 +502,7 @@ const (
 	SpgemmALG3                  SpGEMMAlg = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpGEMMAlg) String() string {
 	switch e {
 	case SpgemmDefault:
@@ -504,6 +528,7 @@ const (
 	SddmmAlgDefault SDDMMAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SDDMMAlg) String() string {
 	switch e {
 	case SddmmAlgDefault:
@@ -519,6 +544,7 @@ const (
 	SpmmOpAlgDefault SpMMOpAlg = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SpMMOpAlg) String() string {
 	switch e {
 	case SpmmOpAlgDefault:

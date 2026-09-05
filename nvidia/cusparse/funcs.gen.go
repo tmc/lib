@@ -61,8 +61,8 @@ var (
 	fndnVecGetValues            func(DnVecDescr, *uintptr) Result
 	fndnVecSetValues            func(DnVecDescr, uintptr) Result
 	fngather                    func(Handle, ConstDnVecDescr, SpVecDescr) Result
-	fnGetErrorName              func(Result) string
-	fnGetErrorString            func(Result) string
+	fnGetErrorName              func(Result) *byte
+	fnGetErrorString            func(Result) *byte
 	fngetPointerMode            func(Handle, *PointerMode) Result
 	fnGetProperty               func(LibraryPropertyType, *int32) Result
 	fngetStream                 func(Handle, *Stream) Result
@@ -713,13 +713,19 @@ func gather(handle Handle, vecY ConstDnVecDescr, vecX SpVecDescr) error {
 }
 
 // GetErrorName wraps cusparseGetErrorName.
-func GetErrorName(status Result) string {
-	return fnGetErrorName(status)
+func GetErrorName(status Result) (string, error) {
+	if err := checkLibSym("cusparseGetErrorName"); err != nil {
+		return "", err
+	}
+	return goString(fnGetErrorName(status)), nil
 }
 
 // GetErrorString wraps cusparseGetErrorString.
-func GetErrorString(status Result) string {
-	return fnGetErrorString(status)
+func GetErrorString(status Result) (string, error) {
+	if err := checkLibSym("cusparseGetErrorString"); err != nil {
+		return "", err
+	}
+	return goString(fnGetErrorString(status)), nil
 }
 
 // getPointerMode wraps cusparseGetPointerMode.
