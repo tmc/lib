@@ -35,6 +35,13 @@ func run(root string, check bool) error {
 			continue
 		}
 		name := entry.Name()
+		sources, err := filepath.Glob(filepath.Join(root, name, "*.go"))
+		if err != nil {
+			return err
+		}
+		if len(sources) == 0 {
+			continue
+		}
 		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(root, name, "doc.go"), nil, parser.ParseComments)
 		if err != nil {
 			return fmt.Errorf("read package %s documentation: %w", name, err)
