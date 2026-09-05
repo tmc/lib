@@ -3,6 +3,7 @@ package nvrtcx
 import (
 	"errors"
 	"fmt"
+	"github.com/tmc/lib/nvidia/driver"
 	"sync"
 )
 
@@ -37,4 +38,40 @@ func finishProgram(result *CompiledModule, compileErr error, destroy func() erro
 		}
 	}
 	return result, compileErr
+}
+
+// moduleCleanupError owns a module whose unload must be retried.
+type moduleCleanupError struct {
+	mu     sync.Mutex
+	err    error
+	unload func() error
+}
+
+func (e *moduleCleanupError) Error() string { return e.err.Error() }
+func (e *moduleCleanupError) Unwrap() error { return e.err }
+func (e *moduleCleanupError) Close() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.unload == nil {
+		return nil
+	}
+	if err := e.unload(); err != nil {
+		return fmt.Errorf("nvrtcx: unload module: %w", err)
+	}
+	e.unload = nil
+	return nil
+}
+
+func finishModuleLoad(mod driver.Module, err error, unload func() error) (driver.Module, error) {
+	if err == nil {
+		return mod, nil
+	}
+	err = fmt.Errorf("nvrtcx: load module: %w", err)
+	if mod == 0 {
+		return 0, err
+	}
+	if cleanupErr := unload(); cleanupErr != nil {
+		return 0, &moduleCleanupError{err: errors.Join(err, fmt.Errorf("nvrtcx: unload module: %w", cleanupErr)), unload: unload}
+	}
+	return 0, err
 }
