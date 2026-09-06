@@ -61,3 +61,40 @@ was not present locally, and that full-model, Metal, and CUDA execution were
 therefore `UNMEASURED`. The file is now present and its identities are pinned in
 `gguf.go`, so the identity prerequisite is met; see DESIGN.md, Pinned
 identities. The execution gates still require their own physical receipts.
+
+## Comparing logit captures
+
+A selection mismatch says two argmaxes differ. It does not say by how
+much, in which direction, or whether two backends miss the reference the
+same way. The logit captures answer that, and comparing them needs no
+model:
+
+    E=../../../evidence
+    GOWORK=off DS4_ORACLE_STATE_COMPARE="\
+    metal=$E/metal-prompt-a-states,\
+    cuda=$E/oracle-provenance/candidate-prompt-a-01/candidate-prompt-a-01/session,\
+    oracle=$E/oracle-provenance/capture-prompt-a-01/capture-prompt-a-01" \
+      go test -count=1 -run TestOracleStateDivergence -v ./ds4-min
+
+With three captures the last is the reference, and the correlation line
+says whether the other two deviate from it together. Weak correlation
+means separate defects; the two backends of this port currently sit at
++0.10 to +0.28 over the first three steps.
+
+To produce a capture from this port, run the trace with a destination:
+
+    DS4_GGUF_PROFILE_MODEL=$MODEL \
+    DS4_ORACLE_STATE_DIR=$E/oracle-provenance/capture-prompt-a-01/capture-prompt-a-01 \
+    DS4_ORACLE_STATE_OUT=$E/metal-prompt-a-states \
+      GOWORK=off go test -count=1 -timeout 30m -run TestMetalOracleTrace -v ./ds4-min
+
+Two Metal runs of that command produce bit-identical captures, so any
+difference the comparison reports is a change in the arithmetic, not
+run-to-run variation. That makes it a regression gate on kernel edits at
+a resolution far below what a token trace can see: a change that moves
+the logits but not the selections is invisible to
+TestMetalRuntimePromptAGreedyTokens and obvious here.
+
+Do not read the comparison as a tolerance. None is registered for a
+whole-vocabulary logit vector, and choosing one after seeing these
+numbers would make it unfalsifiable.
