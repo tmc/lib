@@ -183,7 +183,7 @@ func libraryNames() []string {
 	case "darwin":
 		return []string{"libnvrtc.dylib"}
 	case "windows":
-		return []string{"nvrtc64_120_0.dll"}
+		return []string{"nvrtc64_130_0.dll"}
 	default:
 		return nil
 	}

@@ -1,3 +1,5 @@
+//go:build !windows
+
 package nvlshm
 
 // Multi-process GPU integration test. The parent test discovers the GPU

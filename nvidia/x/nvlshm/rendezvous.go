@@ -1,3 +1,5 @@
+//go:build !windows
+
 package nvlshm
 
 // A Bootstrap coordinates the ranks of a distributed buffer during setup.
