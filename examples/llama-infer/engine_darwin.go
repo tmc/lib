@@ -111,19 +111,23 @@ type decodeKernels struct {
 
 // ModelEngine maintains cached Metal pipeline states and GPU-resident memory allocations.
 type ModelEngine struct {
-	dev                     *metal.Device
-	lib                     apple.MTLLibrary
-	pso                     decodeKernels
-	mem                     *metalmem.Arena
-	memory                  *metalmem.Tracker
-	recorder                *metalprof.FlightRecorder
-	metrics                 *RuntimeMetrics
-	generateMu              sync.Mutex
-	batchedMu               sync.Mutex
-	freeOnce                sync.Once
-	disableProjectionFusion bool
-	prefixes                *prefixCache
-	tuner                   *DispatchTuner
+	dev                      *metal.Device
+	lib                      apple.MTLLibrary
+	pso                      decodeKernels
+	testPersistentGQA        bool
+	testPersistentGQAPSO     apple.MTLComputePipelineState
+	testChainCompletionFail  error
+	testRequireGPUTimestamps bool
+	mem                      *metalmem.Arena
+	memory                   *metalmem.Tracker
+	recorder                 *metalprof.FlightRecorder
+	metrics                  *RuntimeMetrics
+	generateMu               sync.Mutex
+	batchedMu                sync.Mutex
+	freeOnce                 sync.Once
+	disableProjectionFusion  bool
+	prefixes                 *prefixCache
+	tuner                    *DispatchTuner
 
 	// GPU-Resident Unified Memory Buffers
 	xBuf       metalmem.Slice[float32]
@@ -567,10 +571,14 @@ func (t *BatchedModelTail) runBuffer(eng *ModelEngine, cfg Config, input metalme
 
 // BatchedLayerChainResult is the final persistent-device hidden state after all layers.
 type BatchedLayerChainResult struct {
-	Hidden          []float32
-	Positions, Rows []int
-	Dispatches      int
-	DeviceBytes     int64
+	Hidden                       []float32
+	Positions, Rows              []int
+	Dispatches                   int
+	DeviceBytes                  int64
+	CandidateAttentionDispatches int
+	CandidateAttentionGroups     int
+	GPUStartTime, GPUEndTime     float64
+	HostSubmitWait               time.Duration
 }
 
 // SegmentedLayerChainResult is the dense request-tail output of a packed
@@ -711,6 +719,14 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 	if eng == nil || eng.dev == nil || cache == nil {
 		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: nil engine or cache")
 	}
+	if eng.testPersistentGQA {
+		if workspace == nil || !eng.dev.Raw().SupportsFamily(apple.MTLGPUFamilyApple9) {
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: persistent GQA requires leased Apple family 9 route")
+		}
+		if err := metalattn.ValidatePersistentGQA(metalattn.Config{NumQHeads: cfg.NumHeads, NumKVHeads: cfg.NumKVHeads, HeadDim: cfg.HeadDim}, cfg.MaxSeqLen); err != nil {
+			return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
+		}
+	}
 	weightLayers := len(eng.layers)
 	if eng.isF16 {
 		weightLayers = len(eng.layersF16)
@@ -796,6 +812,7 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 	metal.SetScalar(ce, bv, 3)
 	metal.SetScalar(ce, dv, 4)
 	ce.DispatchThreadsThreadsPerThreadgroup(metal.Threads(b*cfg.Dim), metal.Threads(128))
+	candidateDispatches, candidateGroups := 0, 0
 	for li := range cfg.NumLayers {
 		var l *GPULayerWeights
 		var lf *GPULayerWeightsF16
@@ -850,7 +867,14 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 		} else {
 			workspace.encodeAttention(ce, eng, cfg, cache, li, b, blockPins)
 		}
-		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(b*cfg.NumHeads), metal.Threads(128))
+		attentionGroups := b * cfg.NumHeads
+		if eng.testPersistentGQA {
+			ce.SetComputePipelineState(eng.testPersistentGQAPSO)
+			attentionGroups = b * cfg.NumKVHeads
+			candidateDispatches++
+			candidateGroups += attentionGroups
+		}
+		ce.DispatchThreadgroupsThreadsPerThreadgroup(metal.Threads(attentionGroups), metal.Threads(128))
 		if eng.isF16 {
 			ce.SetComputePipelineState(eng.pso.BatchedGEMMResH)
 		} else {
@@ -916,16 +940,25 @@ func runBatchedLayerChain(ctx context.Context, eng *ModelEngine, cfg Config, cac
 	if err := ctx.Err(); err != nil {
 		return BatchedLayerChainResult{}, BatchedModelTailResult{}, err
 	}
+	hostWaitStart := time.Now()
 	cb.Commit()
 	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
 		return BatchedLayerChainResult{}, BatchedModelTailResult{}, fmt.Errorf("batched layer chain: shared command buffer: %w", err)
+	}
+	hostSubmitWait := time.Since(hostWaitStart)
+	gpuStart, gpuEnd := float64(cb.GPUStartTime()), float64(cb.GPUEndTime())
+	if eng.testRequireGPUTimestamps && (math.IsNaN(gpuStart) || math.IsNaN(gpuEnd) || math.IsInf(gpuStart, 0) || math.IsInf(gpuEnd, 0) || gpuStart <= 0 || gpuEnd <= gpuStart) {
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, errors.New("batched layer chain: unavailable GPU command timestamps")
+	}
+	if eng.testChainCompletionFail != nil {
+		return BatchedLayerChainResult{}, BatchedModelTailResult{}, fmt.Errorf("batched layer chain: injected completion failure: %w", eng.testChainCompletionFail)
 	}
 	bytes := int64(2 * cfg.NumLayers * cache.rowCapacity * cfg.MaxSeqLen * kd * 4)
 	// Hidden aliases persistent engine scratch and is valid until the next
 	// batched engine operation. The model tail consumes the device buffer
 	// directly; exposing the alias keeps differential tests possible without a
 	// serving-path host copy.
-	chain := BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: chainDispatches, DeviceBytes: bytes}
+	chain := BatchedLayerChainResult{Hidden: eng.prefillXMat.HostSlice()[:b*cfg.Dim], Positions: append([]int(nil), positions...), Rows: append([]int(nil), rows...), Dispatches: chainDispatches, DeviceBytes: bytes, CandidateAttentionDispatches: candidateDispatches, CandidateAttentionGroups: candidateGroups, GPUStartTime: gpuStart, GPUEndTime: gpuEnd, HostSubmitWait: hostSubmitWait}
 	var tailResult BatchedModelTailResult
 	if tail != nil {
 		tailResult = BatchedModelTailResult{Tokens: append([]int32(nil), tail.tokens.HostSlice()[:b]...), Dispatches: ce.dispatches - chainDispatches}
