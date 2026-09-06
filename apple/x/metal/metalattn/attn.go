@@ -2,6 +2,7 @@ package metalattn
 
 import (
 	_ "embed"
+	"errors"
 	"math"
 )
 
@@ -33,12 +34,40 @@ func DefaultConfig(numQHeads, numKVHeads, headDim int) Config {
 // tiles. Head dimension is bounded by DecodeMaxHeadDim, which is the size of the
 // threadgroup output accumulator.
 const (
-	DecodeThreadgroupSize = 128
-	DecodeTileSize        = 256
-	DecodeMaxHeadDim      = 256
+	DecodeThreadgroupSize         = 128
+	DecodeTileSize                = 256
+	DecodeMaxHeadDim              = 256
+	PersistentGQAMaxRatio         = 8
+	PersistentGQAMaxSequence      = 32768
+	PersistentGQAThreadgroupBytes = PersistentGQAMaxRatio*(DecodeTileSize+DecodeMaxHeadDim)*4 + (4+2*PersistentGQAMaxRatio)*4
 )
+
+// ValidatePersistentGQA rejects shapes outside the correctness prototype's
+// fixed threadgroup storage. The prototype is not a production route.
+func ValidatePersistentGQA(cfg Config, sequence int) error {
+	if cfg.NumQHeads <= 0 || cfg.NumKVHeads <= 0 || cfg.HeadDim <= 0 || sequence <= 0 {
+		return errors.New("persistent GQA: dimensions must be positive")
+	}
+	if cfg.NumQHeads%cfg.NumKVHeads != 0 || cfg.NumQHeads/cfg.NumKVHeads > PersistentGQAMaxRatio {
+		return errors.New("persistent GQA: unsupported head ratio")
+	}
+	if cfg.HeadDim > DecodeMaxHeadDim {
+		return errors.New("persistent GQA: unsupported head dimension")
+	}
+	if sequence > PersistentGQAMaxSequence {
+		return errors.New("persistent GQA: unsupported sequence length")
+	}
+	return nil
+}
 
 // CausalFlashAttentionMSL is the embedded Metal Shading Language compute shader for causal attention decode.
 //
 //go:embed attention.metal
 var CausalFlashAttentionMSL string
+
+// PersistentGQAMSL is an experimental correctness-only kernel. It is not used
+// by production. One threadgroup owns a KV head and computes all query heads
+// in its group while loading each key and value element once.
+//
+//go:embed persistent_gqa.metal
+var PersistentGQAMSL string

@@ -157,11 +157,15 @@ func TestBlockTableAttentionBatchMixedPrefixes(t *testing.T) {
 			if err != nil {
 				t.Fatalf("B%d layer %d: %v", b, layer, err)
 			}
+			persistent := runPersistentGQABlocks(t, eng, cfg, leases[:b], layer, q, sk, sv)
 			for row := range b {
 				want := contiguousAttention(cfg, q[row], append(append([]float32(nil), prefixK[row][layer]...), sk[row]...), append(append([]float32(nil), prefixV[row][layer]...), sv[row]...))
 				for i := range want {
 					if d := math.Abs(float64(got[row][i] - want[i])); d > 2e-5 {
 						t.Fatalf("B%d layer %d row %d output[%d] diff %g", b, layer, row, i, d)
+					}
+					if d := math.Abs(float64(persistent[row][i] - want[i])); d > 2e-5 {
+						t.Fatalf("persistent B%d layer %d row %d output[%d] diff %g", b, layer, row, i, d)
 					}
 				}
 			}

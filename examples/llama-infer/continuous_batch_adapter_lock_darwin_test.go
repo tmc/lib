@@ -3,7 +3,6 @@
 package main
 
 import (
-	"runtime"
 	"testing"
 	"time"
 )
@@ -21,14 +20,13 @@ func TestDecodeBatchLocksGPUBeforeRows(t *testing.T) {
 		adapter.unlockDecode()
 	}()
 	<-started
-	deadline := time.Now().Add(time.Second)
-	for adapter.gpuMu.TryLock() {
+	// Give lockDecode time to acquire gpuMu and block on rowsMu.
+	time.Sleep(10 * time.Millisecond)
+	if adapter.gpuMu.TryLock() {
 		adapter.gpuMu.Unlock()
-		if time.Now().After(deadline) {
-			adapter.rowsMu.Unlock()
-			t.Fatal("decode did not acquire GPU mutex before rows mutex")
-		}
-		runtime.Gosched()
+		adapter.rowsMu.Unlock()
+		<-locked
+		t.Fatal("decode acquired rows mutex before GPU mutex")
 	}
 
 	adapter.rowsMu.Unlock()
