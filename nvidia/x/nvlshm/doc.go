@@ -1,3 +1,5 @@
+//go:build !windows
+
 // Package nvlshm provides cross-process NVLink shared GPU buffers built on
 // the CUDA virtual memory management (VMM) API, with optional NVSwitch
 // multicast mappings. It is a Go port of the memory substrate of MoonEP
