@@ -2,11 +2,13 @@
 
 package cudnn
 
-// Destroy This function destroys a previously-created [FusedOpsConstParamPack] structure.
+// Destroy destroys a previously-created [FusedOpsConstParamPack] structure.
+//
+// This function destroys a previously-created [FusedOpsConstParamPack] structure.
 //
 // Returns:
-//   - StatusInternalError: The ops enum value is either not supported or is invalid.
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [ErrInternalError]: The ops enum value is either not supported or is invalid.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -15,7 +17,7 @@ func (f FusedOpsConstParamPack) Destroy() error {
 	return destroyFusedOpsConstParamPack(f)
 }
 
-// GetFusedOpsConstParamPackAttribute This function retrieves the values of the descriptor pointed to by the param pointer input.
+// GetFusedOpsConstParamPackAttribute retrieves the values of the descriptor pointed to by the param pointer input.
 //
 // The type of the descriptor is indicated by the enum value of paramLabel input.
 //
@@ -23,8 +25,8 @@ func (f FusedOpsConstParamPack) Destroy() error {
 //   - param: For more information, refer to the table in [FusedOpsConstParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If either constPack, param, or isNULL is NULL; or if paramLabel is invalid.
-//   - StatusSuccess: The descriptor values are retrieved successfully.
+//   - [ErrBadParam]: If either constPack, param, or isNULL is NULL; or if paramLabel is invalid.
+//   - [Success]: The descriptor values are retrieved successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -33,15 +35,15 @@ func (f FusedOpsConstParamPack) GetFusedOpsConstParamPackAttribute(paramLabel Fu
 	return getFusedOpsConstParamPackAttribute(f, paramLabel, param, isNULL)
 }
 
-// SetFusedOpsConstParamPackAttribute This function sets the descriptor pointed to by the param pointer input.
+// SetFusedOpsConstParamPackAttribute sets the descriptor pointed to by the param pointer input.
 //
-// The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
+// This function sets the descriptor pointed to by the param pointer input. The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
 //
 //   - paramLabel: For more information, refer to the table in [FusedOpsConstParamPack]
 //
 // Returns:
-//   - StatusBadParam: If constPack is NULL, or if paramLabel or the ops setting for constPack is invalid.
-//   - StatusSuccess: The descriptor is set successfully.
+//   - [ErrBadParam]: If constPack is NULL, or if paramLabel or the ops setting for constPack is invalid.
+//   - [Success]: The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

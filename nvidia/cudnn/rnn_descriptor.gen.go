@@ -2,19 +2,19 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created RNN descriptor object.
+// Destroy destroys a previously created RNN descriptor object.
 //
 // The [RNNDescriptor.Destroy] function is not able to detect if the rnnDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyRNNDescriptor.
 func (r RNNDescriptor) Destroy() error {
 	return destroyRNNDescriptor(r)
 }
 
-// Get This function retrieves RNN network parameters that were configured by [RNNDescriptor.Set].
+// Get retrieves RNN network parameters that were configured by [RNNDescriptor.Set].
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
@@ -33,9 +33,9 @@ func (r RNNDescriptor) Destroy() error {
 //   - auxFlags: Output. Pointer to miscellaneous RNN options (flags) that do not require passing additional numerical values to configure
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found ( rnnDesc was NULL).
-//   - StatusNotInitialized: The cuDNN library was not initialized properly.
-//   - StatusSuccess: RNN parameters were successfully retrieved from the RNN descriptor.
+//   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
+//   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
+//   - [Success]: RNN parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnGetRNNDescriptor_v8.
 func (r RNNDescriptor) Get(algo *RNNAlgo, cellMode *RNNMode, biasMode *RNNBiasMode, dirMode *DirectionMode, inputMode *RNNInputMode, dataType *DataType, mathPrec *DataType, mathType *MathType, inputSize *int32, hiddenSize *int32, projSize *int32, numLayers *int32, auxFlags *uint32) (DropoutDescriptor, error) {
@@ -49,8 +49,8 @@ func (r RNNDescriptor) Get(algo *RNNAlgo, cellMode *RNNMode, biasMode *RNNBiasMo
 //   - clipMode: can be
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found ( rnnDesc was NULL).
-//   - StatusSuccess: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
+//   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
+//   - [Success]: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnRNNGetClip_v9.
 func (r RNNDescriptor) RNNGetClip(clipMode *RNNClipMode, lclip *float64, rclip *float64) error {
@@ -64,15 +64,15 @@ func (r RNNDescriptor) RNNGetClip(clipMode *RNNClipMode, lclip *float64, rclip *
 //   - clipMode: is
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found, for example:
-//   - StatusSuccess: The function completed successfully.
+//   - [ErrBadParam]: An invalid input argument was found, for example:
+//   - [Success]: The function completed successfully.
 //
 // Wraps cudnnRNNSetClip_v9.
 func (r RNNDescriptor) RNNSetClip(clipMode RNNClipMode, lclip float64, rclip float64) error {
 	return rNNSetClip(r, clipMode, lclip, rclip)
 }
 
-// Set This function initializes a previously created RNN descriptor object.
+// Set initializes a previously created RNN descriptor object.
 //
 // The RNN descriptor configured by [RNNDescriptor.Set] was enhanced to store all information needed to compute the total number of adjustable weights/biases in the RNN model.
 //
@@ -86,9 +86,9 @@ func (r RNNDescriptor) RNNSetClip(clipMode RNNClipMode, lclip float64, rclip flo
 //   - dropoutDesc: Input. Handle to a previously created and initialized dropout descriptor. Dropout operation will be applied between physical layers. A single layer network will have no dropout applied. Dropout is used in the training mode only
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was detected.
-//   - StatusNotSupported: An incompatible or unsupported combination of input arguments was detected.
-//   - StatusSuccess: The RNN descriptor was configured successfully.
+//   - [ErrBadParam]: An invalid input argument was detected.
+//   - [ErrNotSupported]: An incompatible or unsupported combination of input arguments was detected.
+//   - [Success]: The RNN descriptor was configured successfully.
 //
 // Wraps cudnnSetRNNDescriptor_v8.
 func (r RNNDescriptor) Set(algo RNNAlgo, cellMode RNNMode, biasMode RNNBiasMode, dirMode DirectionMode, inputMode RNNInputMode, dataType DataType, mathPrec DataType, mathType MathType, inputSize int32, hiddenSize int32, projSize int32, numLayers int32, dropoutDesc DropoutDescriptor, auxFlags uint32) error {

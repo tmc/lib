@@ -2,35 +2,35 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created LRN descriptor object.
+// Destroy destroys a previously created LRN descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyLRNDescriptor.
 func (l LRNDescriptor) Destroy() error {
 	return destroyLRNDescriptor(l)
 }
 
-// Get This function retrieves values stored in the previously initialized LRN descriptor object.
+// Get retrieves values stored in the previously initialized LRN descriptor object.
 //
 //   - lrnK: Outputs . Pointers to receive values of parameters stored in the descriptor object. For more information, refer to [LRNDescriptor.Set] . Any of these pointers can be
 //
 // Returns:
-//   - StatusSuccess: Function completed successfully.
+//   - [Success]: Function completed successfully.
 //
 // Wraps cudnnGetLRNDescriptor.
 func (l LRNDescriptor) Get(lrnN *uint32, lrnAlpha *float64, lrnBeta *float64, lrnK *float64) error {
 	return getLRNDescriptor(l, lrnN, lrnAlpha, lrnBeta, lrnK)
 }
 
-// Set This function initializes a previously created LRN descriptor object.
+// Set initializes a previously created LRN descriptor object.
 //
 //   - lrnN: is set to 5 in [CreateLRNDescriptor]
 //
 // Returns:
-//   - StatusBadParam: One of the input parameters was out of valid range as described above.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: One of the input parameters was out of valid range as described above.
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetLRNDescriptor.
 func (l LRNDescriptor) Set(lrnN uint32, lrnAlpha float64, lrnBeta float64, lrnK float64) error {

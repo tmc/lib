@@ -2,10 +2,12 @@
 
 package cudnn
 
-// Destroy This function destroys a previously-created descriptor for cudnnFusedOps constant parameters.
+// Destroy destroys a previously-created descriptor for cudnnFusedOps constant parameters.
+//
+// This function destroys a previously-created descriptor for cudnnFusedOps constant parameters.
 //
 // Returns:
-//   - StatusSuccess: The descriptor was successfully destroyed.
+//   - [Success]: The descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -14,13 +16,13 @@ func (f FusedOpsVariantParamPack) Destroy() error {
 	return destroyFusedOpsVariantParamPack(f)
 }
 
-// GetFusedOpsVariantParamPackAttribute This function retrieves the settings of the variable parameter pack descriptor.
+// GetFusedOpsVariantParamPackAttribute retrieves the settings of the variable parameter pack descriptor.
 //
 //   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
-//   - StatusSuccess: The descriptor values are retrieved successfully.
+//   - [ErrBadParam]: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
+//   - [Success]: The descriptor values are retrieved successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -29,12 +31,14 @@ func (f FusedOpsVariantParamPack) GetFusedOpsVariantParamPackAttribute(paramLabe
 	return getFusedOpsVariantParamPackAttribute(f, paramLabel, ptr)
 }
 
-// SetFusedOpsVariantParamPackAttribute This function sets the variable parameter pack descriptor.
+// SetFusedOpsVariantParamPackAttribute sets the variable parameter pack descriptor.
+//
+// This function sets the variable parameter pack descriptor.
 //
 //   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If varPack is NULL or if paramLabel is set to an unsupported value. [Success] The descriptor is set successfully.
+//   - [ErrBadParam]: If varPack is NULL or if paramLabel is set to an unsupported value. [Success] The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

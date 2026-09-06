@@ -2,12 +2,12 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created reduce tensor descriptor object.
+// Destroy destroys a previously created reduce tensor descriptor object.
 //
 // When the input pointer is NULL, this function performs no destroy operation.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -16,7 +16,7 @@ func (r ReduceTensorDescriptor) Destroy() error {
 	return destroyReduceTensorDescriptor(r)
 }
 
-// Get This function queries a previously initialized reduce tensor descriptor object.
+// Get queries a previously initialized reduce tensor descriptor object.
 //
 //   - reduceTensorOp: Output. Enumerant to specify the reduced tensor operation
 //   - reduceTensorCompType: Output. Enumerant to specify the computation datatype of the reduction
@@ -25,8 +25,8 @@ func (r ReduceTensorDescriptor) Destroy() error {
 //   - reduceTensorIndicesType: Output. Enumerant to specify the reduced tensor indices type
 //
 // Returns:
-//   - StatusBadParam: reduceTensorDesc is NULL.
-//   - StatusSuccess: The object was queried successfully.
+//   - [ErrBadParam]: reduceTensorDesc is NULL.
+//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -35,7 +35,7 @@ func (r ReduceTensorDescriptor) Get(reduceTensorOp *ReduceTensorOp, reduceTensor
 	return getReduceTensorDescriptor(r, reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType)
 }
 
-// Set This function initializes a previously created reduce tensor descriptor object.
+// Set initializes a previously created reduce tensor descriptor object.
 //
 //   - reduceTensorOp: Input. Enumerant to specify the reduced tensor operation
 //   - reduceTensorCompType: Input. Enumerant to specify the computation datatype of the reduction
@@ -44,8 +44,8 @@ func (r ReduceTensorDescriptor) Get(reduceTensorOp *ReduceTensorOp, reduceTensor
 //   - reduceTensorIndicesType: Input. Enumerant to specify the reduced tensor indices type
 //
 // Returns:
-//   - StatusBadParam: reduceTensorDesc is NULL ( reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices or reduceTensorIndicesType has an invalid enumerant value).
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: reduceTensorDesc is NULL ( reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices or reduceTensorIndicesType has an invalid enumerant value).
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //

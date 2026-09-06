@@ -4,1031 +4,7 @@ package cudnn
 
 import "fmt"
 
-// Determinism [Determinism] is an enumerated type used to indicate if the computed results are deterministic (reproducible).
-type Determinism int32
-
-const (
-	NonDeterministic Determinism = 0 // Results are not guaranteed to be reproducible.
-	Deterministic    Determinism = 1 // Results are guaranteed to be reproducible.
-)
-
-func (e Determinism) String() string {
-	switch e {
-	case NonDeterministic:
-		return "NonDeterministic"
-	case Deterministic:
-		return "Deterministic"
-	}
-	return fmt.Sprintf("Determinism(%d)", e)
-}
-
-// FoldingDirection [FoldingDirection] is an enumerated type used to select the folding direction.
-type FoldingDirection int32
-
-const (
-	TransformFold   FoldingDirection = 0
-	TransformUnfold FoldingDirection = 1
-)
-
-func (e FoldingDirection) String() string {
-	switch e {
-	case TransformFold:
-		return "TransformFold"
-	case TransformUnfold:
-		return "TransformUnfold"
-	}
-	return fmt.Sprintf("FoldingDirection(%d)", e)
-}
-
-// OpTensorOp [OpTensorOp] is an enumerated type used to indicate the Tensor Core operation to be used by the cudnnOpTensor() routine. This enumerated type is used as a field for the [OpTensorDescriptor] descriptor.
-type OpTensorOp int32
-
-const (
-	OpTensorMax OpTensorOp = 3
-	OpTensorAdd OpTensorOp = 0 // The operation to be performed is addition.
-	OpTensorMul OpTensorOp = 1 // The operation to be performed is multiplication.
-	OpTensorMin OpTensorOp = 2 // The operation to be performed is a minimum comparison.
-	// OpTensorSqrt: The operation to be performed is square root, performed on only the A tensor.
-	OpTensorSqrt OpTensorOp = 4
-	// OpTensorNot: The operation to be performed is negation, performed on only the A tensor.
-	OpTensorNot OpTensorOp = 5
-)
-
-func (e OpTensorOp) String() string {
-	switch e {
-	case OpTensorMax:
-		return "OpTensorMax"
-	case OpTensorAdd:
-		return "OpTensorAdd"
-	case OpTensorMul:
-		return "OpTensorMul"
-	case OpTensorMin:
-		return "OpTensorMin"
-	case OpTensorSqrt:
-		return "OpTensorSqrt"
-	case OpTensorNot:
-		return "OpTensorNot"
-	}
-	return fmt.Sprintf("OpTensorOp(%d)", e)
-}
-
-// ReduceTensorIndices This enumerated type is deprecated and is currently only used by deprecated APIs.
-type ReduceTensorIndices int32
-
-const (
-	ReduceTensorNoIndices ReduceTensorIndices = 0 // Do not compute indices.
-	// ReduceTensorFlattenedIndices: Compute indices. The resulting indices are relative, and flattened.
-	ReduceTensorFlattenedIndices ReduceTensorIndices = 1
-)
-
-func (e ReduceTensorIndices) String() string {
-	switch e {
-	case ReduceTensorNoIndices:
-		return "ReduceTensorNoIndices"
-	case ReduceTensorFlattenedIndices:
-		return "ReduceTensorFlattenedIndices"
-	}
-	return fmt.Sprintf("ReduceTensorIndices(%d)", e)
-}
-
-// IndicesType This enumerated type is deprecated and is currently only used by deprecated APIs.
-type IndicesType int32
-
-const (
-	N32bitIndices IndicesType = 0 // Compute unsigned int indices.
-	N64bitIndices IndicesType = 1 // Compute unsigned long indices.
-	N16bitIndices IndicesType = 2 // Compute unsigned short indices.
-	N8BITIndices  IndicesType = 3 // Compute unsigned char indices.
-)
-
-func (e IndicesType) String() string {
-	switch e {
-	case N32bitIndices:
-		return "N32bitIndices"
-	case N64bitIndices:
-		return "N64bitIndices"
-	case N16bitIndices:
-		return "N16bitIndices"
-	case N8BITIndices:
-		return "N8BITIndices"
-	}
-	return fmt.Sprintf("IndicesType(%d)", e)
-}
-
-// SoftmaxAlgorithm [SoftmaxAlgorithm] is used to select an implementation of the softmax function used in [Handle.SoftmaxForward] and [Handle.SoftmaxBackward].
-type SoftmaxAlgorithm int32
-
-const (
-	SoftmaxFast     SoftmaxAlgorithm = 0 // straightforward implementation
-	SoftmaxAccurate SoftmaxAlgorithm = 1 // subtract max from every point to avoid overflow
-	// SoftmaxLog: This entry performs the log softmax operation, avoiding overflows by scaling each point in the input domain as in [SoftmaxAccurate].
-	SoftmaxLog SoftmaxAlgorithm = 2
-)
-
-func (e SoftmaxAlgorithm) String() string {
-	switch e {
-	case SoftmaxFast:
-		return "SoftmaxFast"
-	case SoftmaxAccurate:
-		return "SoftmaxAccurate"
-	case SoftmaxLog:
-		return "SoftmaxLog"
-	}
-	return fmt.Sprintf("SoftmaxAlgorithm(%d)", e)
-}
-
-// SoftmaxMode [SoftmaxMode] is used to select over which data the [Handle.SoftmaxForward] and [Handle.SoftmaxBackward] are computing their results.
-type SoftmaxMode int32
-
-const (
-	SoftmaxModeInstance SoftmaxMode = 0 // compute the softmax over all C, H, W for each N
-	SoftmaxModeChannel  SoftmaxMode = 1 // compute the softmax over all C for each H, W, N
-)
-
-func (e SoftmaxMode) String() string {
-	switch e {
-	case SoftmaxModeInstance:
-		return "SoftmaxModeInstance"
-	case SoftmaxModeChannel:
-		return "SoftmaxModeChannel"
-	}
-	return fmt.Sprintf("SoftmaxMode(%d)", e)
-}
-
-// PoolingMode This enumerated type is deprecated and is currently only used by deprecated APIs.
-type PoolingMode int32
-
-const (
-	PoolingMax                        PoolingMode = 0
-	PoolingAverageCountIncludePadding PoolingMode = 1 // count for average includes padded values
-	PoolingAverageCountExcludePadding PoolingMode = 2 // count for average does not include padded values
-	// PoolingMaxDeterministic: The maximum value inside the pooling window is used. The algorithm used is deterministic.
-	PoolingMaxDeterministic PoolingMode = 3
-)
-
-func (e PoolingMode) String() string {
-	switch e {
-	case PoolingMax:
-		return "PoolingMax"
-	case PoolingAverageCountIncludePadding:
-		return "PoolingAverageCountIncludePadding"
-	case PoolingAverageCountExcludePadding:
-		return "PoolingAverageCountExcludePadding"
-	case PoolingMaxDeterministic:
-		return "PoolingMaxDeterministic"
-	}
-	return fmt.Sprintf("PoolingMode(%d)", e)
-}
-
-// LRNMode [LRNMode] is an enumerated type used to specify the mode of operation in [Handle.LRNCrossChannelForward] and [Handle.LRNCrossChannelBackward].
-type LRNMode int32
-
-const (
-	LrnCrossChannelDIM1 LRNMode = 0 // Normalize across tensor's dimA [1] dimension
-)
-
-func (e LRNMode) String() string {
-	switch e {
-	case LrnCrossChannelDIM1:
-		return "LrnCrossChannelDIM1"
-	}
-	return fmt.Sprintf("LRNMode(%d)", e)
-}
-
-// DivNormMode [DivNormMode] is an enumerated type used to specify the mode of operation in [Handle.DivisiveNormalizationForward] and [Handle.DivisiveNormalizationBackward].
-type DivNormMode int32
-
-const (
-	// DivnormPrecomputedMeans: The means tensor data pointer is expected to contain means or other kernel convolution values precomputed by the user. The means pointer can also be NULL, in that case, it’s considered to be filled with zeroes. This is equivalent to spatial LRN. In the backward pass, the means are treated as independent inputs and the gradient over means is computed independently. In this mode, to yield a net gradient over the entire LCN computational graph, the destDiffMeans result should be backpropagated through the user’s means layer (which can be implemented using average pooling) and added to the destDiffData tensor produced by [Handle.DivisiveNormalizationBackward].
-	DivnormPrecomputedMeans DivNormMode = 0
-)
-
-func (e DivNormMode) String() string {
-	switch e {
-	case DivnormPrecomputedMeans:
-		return "DivnormPrecomputedMeans"
-	}
-	return fmt.Sprintf("DivNormMode(%d)", e)
-}
-
-// BatchNormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
-type BatchNormMode int32
-
-const (
-	// BatchnormPerActivation: Normalization is performed per-activation. This mode is intended to be used after the non-convolutional network layers. In this mode, the tensor dimensions of bnBias and bnScale and the parameters used in the cudnnBatchNormalization* functions are 1xCxHxW.
-	BatchnormPerActivation BatchNormMode = 0
-	// BatchnormSpatial: Normalization is performed over N+spatial dimensions. This mode is intended for use after convolutional layers (where spatial invariance is desired). In this mode, the bnBias and bnScale tensor dimensions are 1xCx1x1.
-	BatchnormSpatial BatchNormMode = 1
-	// BatchnormSpatialPersistent: This mode is similar to [BatchnormSpatial] but it can be faster for some tasks. An optimized path may be selected for [DataFloat] and [DataHalf] types, compute capability 6.0 or higher for the following two batch normalization API calls: cudnnBatchNormalizationForwardTraining(), and cudnnBatchNormalizationBackward(). In the case of cudnnBatchNormalizationBackward(), the savedMean and savedInvVariance arguments should not be NULL. NCHW Mode Only This mode may use a scaled atomic integer reduction that is deterministic but imposes more restrictions on the input data range. When a numerical overflow occurs, the algorithm may produce NaN-s or Inf-s (infinity) in output buffers. When Inf-s/NaN-s are present in the input data, the output in this mode is the same as from a pure floating-point implementation. For finite but very large input values, the algorithm may encounter overflows more frequently due to a lower dynamic range and emit Inf-s/NaN-s while [BatchnormSpatial] will produce finite results. The user can invoke cudnnQueryRuntimeError() to check if a numerical overflow occurred in this mode.
-	BatchnormSpatialPersistent BatchNormMode = 2
-)
-
-func (e BatchNormMode) String() string {
-	switch e {
-	case BatchnormPerActivation:
-		return "BatchnormPerActivation"
-	case BatchnormSpatial:
-		return "BatchnormSpatial"
-	case BatchnormSpatialPersistent:
-		return "BatchnormSpatialPersistent"
-	}
-	return fmt.Sprintf("BatchNormMode(%d)", e)
-}
-
-// BatchNormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
-type BatchNormOps int32
-
-const (
-	BatchnormOpsBn              BatchNormOps = 0 // do batch normalization only
-	BatchnormOpsBnActivation    BatchNormOps = 1 // do batchNorm, then activation
-	BatchnormOpsBnAddActivation BatchNormOps = 2 // do batchNorm, then elemWiseAdd, then activation
-)
-
-func (e BatchNormOps) String() string {
-	switch e {
-	case BatchnormOpsBn:
-		return "BatchnormOpsBn"
-	case BatchnormOpsBnActivation:
-		return "BatchnormOpsBnActivation"
-	case BatchnormOpsBnAddActivation:
-		return "BatchnormOpsBnAddActivation"
-	}
-	return fmt.Sprintf("BatchNormOps(%d)", e)
-}
-
-// NormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
-type NormMode int32
-
-const (
-	// NormPerActivation: Normalization is performed per-activation. This mode is intended to be used after the non-convolutional network layers. In this mode, the tensor dimensions of normBias and normScale and the parameters used in the cudnnNormalization* functions are 1xCxHxW.
-	NormPerActivation NormMode = 0
-	// NormPerChannel: Normalization is performed per-channel over N+spatial dimensions. This mode is intended for use after convolutional layers (where spatial invariance is desired). In this mode, the normBias and normScale tensor dimensions are 1xCx1x1.
-	NormPerChannel NormMode = 1
-)
-
-func (e NormMode) String() string {
-	switch e {
-	case NormPerActivation:
-		return "NormPerActivation"
-	case NormPerChannel:
-		return "NormPerChannel"
-	}
-	return fmt.Sprintf("NormMode(%d)", e)
-}
-
-// NormAlgo This enumerated type is deprecated and is currently only used by deprecated APIs.
-type NormAlgo int32
-
-const (
-	NormAlgoStandard NormAlgo = 0 // Standard normalization is performed.
-	// NormAlgoPersist: This mode is similar to [NormAlgoStandard], however it only supports [NormPerChannel] and can be faster for some tasks. An optimized path may be selected for [DataFloat] and [DataHalf] types, compute capability 6.0 or higher for the following two normalization API calls: cudnnNormalizationForwardTraining() and cudnnNormalizationBackward(). In the case of cudnnNormalizationBackward(), the savedMean and savedInvVariance arguments should not be NULL. NCHW Mode Only This mode may use a scaled atomic integer reduction that is deterministic but imposes more restrictions on the input data range. When a numerical overflow occurs, the algorithm may produce NaN-s or Inf-s (infinity) in output buffers. When Inf-s/NaN-s are present in the input data, the output in this mode is the same as from a pure floating-point implementation. For finite but very large input values, the algorithm may encounter overflows more frequently due to a lower dynamic range and emit Inf-s/NaN-s while [NormAlgoStandard] will produce finite results. The user can invoke cudnnQueryRuntimeError() to check if a numerical overflow occurred in this mode.
-	NormAlgoPersist NormAlgo = 1
-)
-
-func (e NormAlgo) String() string {
-	switch e {
-	case NormAlgoStandard:
-		return "NormAlgoStandard"
-	case NormAlgoPersist:
-		return "NormAlgoPersist"
-	}
-	return fmt.Sprintf("NormAlgo(%d)", e)
-}
-
-// NormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
-type NormOps int32
-
-const (
-	NormOpsNorm              NormOps = 0 // do normalization only
-	NormOpsNormActivation    NormOps = 1 // do Norm, then activation
-	NormOpsNormAddActivation NormOps = 2 // do Norm, then elemWiseAdd, then activation
-)
-
-func (e NormOps) String() string {
-	switch e {
-	case NormOpsNorm:
-		return "NormOpsNorm"
-	case NormOpsNormActivation:
-		return "NormOpsNormActivation"
-	case NormOpsNormAddActivation:
-		return "NormOpsNormAddActivation"
-	}
-	return fmt.Sprintf("NormOps(%d)", e)
-}
-
-// SamplerType [SamplerType] is an enumerated type passed to [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
-type SamplerType int32
-
-const (
-	SamplerBilinear SamplerType = 0 // Selects the bilinear sampler.
-)
-
-func (e SamplerType) String() string {
-	switch e {
-	case SamplerBilinear:
-		return "SamplerBilinear"
-	}
-	return fmt.Sprintf("SamplerType(%d)", e)
-}
-
-// ConvolutionFwdAlgo [ConvolutionFwdAlgo] is an enumerated type that exposes the different algorithms available to execute the forward convolution operation.
-type ConvolutionFwdAlgo int32
-
-const (
-	// ConvolutionFwdAlgoImplicitGemm: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data.
-	ConvolutionFwdAlgoImplicitGemm        ConvolutionFwdAlgo = 0
-	ConvolutionFwdAlgoImplicitPrecompGemm ConvolutionFwdAlgo = 1
-	// ConvolutionFwdAlgoGemm: This algorithm expresses convolution as an explicit matrix product. A significant memory workspace is needed to store the matrix that holds the input tensor data.
-	ConvolutionFwdAlgoGemm ConvolutionFwdAlgo = 2
-	// ConvolutionFwdAlgoDirect: This algorithm expresses the convolution as a direct convolution (for example, without implicitly or explicitly doing a matrix multiplication).
-	ConvolutionFwdAlgoDirect ConvolutionFwdAlgo = 3
-	// ConvolutionFwdAlgoFft: This algorithm uses the Fast-Fourier Transform approach to compute the convolution. A significant memory workspace is needed to store intermediate results.
-	ConvolutionFwdAlgoFft ConvolutionFwdAlgo = 4
-	// ConvolutionFwdAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach but splits the inputs into tiles. A significant memory workspace is needed to store intermediate results but less than [ConvolutionFwdAlgoFft] for large size images.
-	ConvolutionFwdAlgoFftTiling ConvolutionFwdAlgo = 5
-	// ConvolutionFwdAlgoWinograd: This algorithm uses the Winograd Transform approach to compute the convolution. A reasonably sized workspace is needed to store intermediate results.
-	ConvolutionFwdAlgoWinograd ConvolutionFwdAlgo = 6
-	// ConvolutionFwdAlgoWinogradNonfused: This algorithm uses the Winograd Transform approach to compute the convolution. A significant workspace may be needed to store intermediate results.
-	ConvolutionFwdAlgoWinogradNonfused ConvolutionFwdAlgo = 7
-	ConvolutionFwdAlgoCount            ConvolutionFwdAlgo = 8
-)
-
-func (e ConvolutionFwdAlgo) String() string {
-	switch e {
-	case ConvolutionFwdAlgoImplicitGemm:
-		return "ConvolutionFwdAlgoImplicitGemm"
-	case ConvolutionFwdAlgoImplicitPrecompGemm:
-		return "ConvolutionFwdAlgoImplicitPrecompGemm"
-	case ConvolutionFwdAlgoGemm:
-		return "ConvolutionFwdAlgoGemm"
-	case ConvolutionFwdAlgoDirect:
-		return "ConvolutionFwdAlgoDirect"
-	case ConvolutionFwdAlgoFft:
-		return "ConvolutionFwdAlgoFft"
-	case ConvolutionFwdAlgoFftTiling:
-		return "ConvolutionFwdAlgoFftTiling"
-	case ConvolutionFwdAlgoWinograd:
-		return "ConvolutionFwdAlgoWinograd"
-	case ConvolutionFwdAlgoWinogradNonfused:
-		return "ConvolutionFwdAlgoWinogradNonfused"
-	case ConvolutionFwdAlgoCount:
-		return "ConvolutionFwdAlgoCount"
-	}
-	return fmt.Sprintf("ConvolutionFwdAlgo(%d)", e)
-}
-
-// ConvolutionBwdFilterAlgo [ConvolutionBwdFilterAlgo] is an enumerated type that exposes the different algorithms available to execute the backward filter convolution operation.
-type ConvolutionBwdFilterAlgo int32
-
-const (
-	// ConvolutionBwdFilterAlgo0: This algorithm expresses the convolution as a sum of matrix products without actually explicitly forming the matrix that holds the input tensor data. The sum is done using the atomic add operation, thus the results are non-deterministic.
-	ConvolutionBwdFilterAlgo0 ConvolutionBwdFilterAlgo = 0
-	// ConvolutionBwdFilterAlgo1: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data. The results are deterministic.
-	ConvolutionBwdFilterAlgo1 ConvolutionBwdFilterAlgo = 1
-	// ConvolutionBwdFilterAlgoFft: This algorithm uses the Fast-Fourier Transform approach to compute the convolution. A significant workspace is needed to store intermediate results. The results are deterministic.
-	ConvolutionBwdFilterAlgoFft ConvolutionBwdFilterAlgo = 2
-	// ConvolutionBwdFilterAlgo3: This algorithm is similar to [ConvolutionBwdFilterAlgo0] but uses some small workspace to precompute some indices. The results are also non-deterministic.
-	ConvolutionBwdFilterAlgo3                ConvolutionBwdFilterAlgo = 3
-	ConvolutionBwdFilterAlgoWinograd         ConvolutionBwdFilterAlgo = 4 // not implemented
-	ConvolutionBwdFilterAlgoWinogradNonfused ConvolutionBwdFilterAlgo = 5
-	// ConvolutionBwdFilterAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach to compute the convolution but splits the input tensor into tiles. A significant workspace may be needed to store intermediate results. The results are deterministic.
-	ConvolutionBwdFilterAlgoFftTiling ConvolutionBwdFilterAlgo = 6
-	ConvolutionBwdFilterAlgoCount     ConvolutionBwdFilterAlgo = 7
-)
-
-func (e ConvolutionBwdFilterAlgo) String() string {
-	switch e {
-	case ConvolutionBwdFilterAlgo0:
-		return "ConvolutionBwdFilterAlgo0"
-	case ConvolutionBwdFilterAlgo1:
-		return "ConvolutionBwdFilterAlgo1"
-	case ConvolutionBwdFilterAlgoFft:
-		return "ConvolutionBwdFilterAlgoFft"
-	case ConvolutionBwdFilterAlgo3:
-		return "ConvolutionBwdFilterAlgo3"
-	case ConvolutionBwdFilterAlgoWinograd:
-		return "ConvolutionBwdFilterAlgoWinograd"
-	case ConvolutionBwdFilterAlgoWinogradNonfused:
-		return "ConvolutionBwdFilterAlgoWinogradNonfused"
-	case ConvolutionBwdFilterAlgoFftTiling:
-		return "ConvolutionBwdFilterAlgoFftTiling"
-	case ConvolutionBwdFilterAlgoCount:
-		return "ConvolutionBwdFilterAlgoCount"
-	}
-	return fmt.Sprintf("ConvolutionBwdFilterAlgo(%d)", e)
-}
-
-// ConvolutionBwdDataAlgo [ConvolutionBwdDataAlgo] is an enumerated type that exposes the different algorithms available to execute the backward data convolution operation.
-type ConvolutionBwdDataAlgo int32
-
-const (
-	// ConvolutionBwdDataAlgo0: This algorithm expresses the convolution as a sum of matrix products without actually explicitly forming the matrix that holds the input tensor data. The sum is done using the atomic add operation, thus the results are non-deterministic.
-	ConvolutionBwdDataAlgo0 ConvolutionBwdDataAlgo = 0
-	// ConvolutionBwdDataAlgo1: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data. The results are deterministic.
-	ConvolutionBwdDataAlgo1 ConvolutionBwdDataAlgo = 1
-	// ConvolutionBwdDataAlgoFft: This algorithm uses a Fast-Fourier Transform approach to compute the convolution. A significant memory workspace is needed to store intermediate results. The results are deterministic.
-	ConvolutionBwdDataAlgoFft ConvolutionBwdDataAlgo = 2
-	// ConvolutionBwdDataAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach but splits the inputs into tiles. A significant memory workspace is needed to store intermediate results but less than [ConvolutionBwdDataAlgoFft] for large size images. The results are deterministic.
-	ConvolutionBwdDataAlgoFftTiling ConvolutionBwdDataAlgo = 3
-	// ConvolutionBwdDataAlgoWinograd: This algorithm uses the Winograd Transform approach to compute the convolution. A reasonably sized workspace is needed to store intermediate results. The results are deterministic.
-	ConvolutionBwdDataAlgoWinograd ConvolutionBwdDataAlgo = 4
-	// ConvolutionBwdDataAlgoWinogradNonfused: This algorithm uses the Winograd Transform approach to compute the convolution. A significant workspace may be needed to store intermediate results. The results are deterministic.
-	ConvolutionBwdDataAlgoWinogradNonfused ConvolutionBwdDataAlgo = 5
-	ConvolutionBwdDataAlgoCount            ConvolutionBwdDataAlgo = 6
-)
-
-func (e ConvolutionBwdDataAlgo) String() string {
-	switch e {
-	case ConvolutionBwdDataAlgo0:
-		return "ConvolutionBwdDataAlgo0"
-	case ConvolutionBwdDataAlgo1:
-		return "ConvolutionBwdDataAlgo1"
-	case ConvolutionBwdDataAlgoFft:
-		return "ConvolutionBwdDataAlgoFft"
-	case ConvolutionBwdDataAlgoFftTiling:
-		return "ConvolutionBwdDataAlgoFftTiling"
-	case ConvolutionBwdDataAlgoWinograd:
-		return "ConvolutionBwdDataAlgoWinograd"
-	case ConvolutionBwdDataAlgoWinogradNonfused:
-		return "ConvolutionBwdDataAlgoWinogradNonfused"
-	case ConvolutionBwdDataAlgoCount:
-		return "ConvolutionBwdDataAlgoCount"
-	}
-	return fmt.Sprintf("ConvolutionBwdDataAlgo(%d)", e)
-}
-
-// CTCLossAlgo [CTCLossAlgo] is an enumerated type that exposes the different algorithms available to execute the CTC loss operation.
-type CTCLossAlgo int32
-
-const (
-	CtcLossAlgoDeterministic    CTCLossAlgo = 0 // Results are guaranteed to be reproducible.
-	CtcLossAlgoNonDeterministic CTCLossAlgo = 1 // Results are not guaranteed to be reproducible.
-)
-
-func (e CTCLossAlgo) String() string {
-	switch e {
-	case CtcLossAlgoDeterministic:
-		return "CtcLossAlgoDeterministic"
-	case CtcLossAlgoNonDeterministic:
-		return "CtcLossAlgoNonDeterministic"
-	}
-	return fmt.Sprintf("CTCLossAlgo(%d)", e)
-}
-
-// RNNAlgo [RNNAlgo] is an enumerated type used to specify the algorithm.
-type RNNAlgo int32
-
-const (
-	// RnnAlgoStandard: Each RNN layer is executed as a sequence of operations. This algorithm is expected to have robust performance across a wide range of network parameters.
-	RnnAlgoStandard RNNAlgo = 0
-	// RnnAlgoPersistStatic: The recurrent parts of the network are executed using a persistent kernel approach. This method is expected to be fast when the first dimension of the input tensor is small (meaning, a small minibatch). [RnnAlgoPersistStatic] is only supported on devices with compute capability >= 6.0.
-	RnnAlgoPersistStatic RNNAlgo = 1
-	// RnnAlgoPersistDynamic: The recurrent parts of the network are executed using a persistent kernel approach. This method is expected to be fast when the first dimension of the input tensor is small (meaning, a small minibatch). When using [RnnAlgoPersistDynamic] persistent kernels are prepared at runtime and are able to optimize using the specific parameters of the network and active GPU. As such, when using [RnnAlgoPersistDynamic] a one-time plan preparation stage must be executed. These plans can then be reused in repeated calls with the same model parameters. The limits on the maximum number of hidden units supported when using [RnnAlgoPersistDynamic] are significantly higher than the limits when using [RnnAlgoPersistStatic], however throughput is likely to significantly reduce when exceeding the maximums supported by [RnnAlgoPersistStatic]. In this regime, this method will still outperform [RnnAlgoStandard] for some cases. [RnnAlgoPersistDynamic] is only supported on devices with compute capability >= 6.0 on Linux machines.
-	RnnAlgoPersistDynamic      RNNAlgo = 2
-	RnnAlgoPersistStaticSmallH RNNAlgo = 3
-	RnnAlgoCount               RNNAlgo = 4
-)
-
-func (e RNNAlgo) String() string {
-	switch e {
-	case RnnAlgoStandard:
-		return "RnnAlgoStandard"
-	case RnnAlgoPersistStatic:
-		return "RnnAlgoPersistStatic"
-	case RnnAlgoPersistDynamic:
-		return "RnnAlgoPersistDynamic"
-	case RnnAlgoPersistStaticSmallH:
-		return "RnnAlgoPersistStaticSmallH"
-	case RnnAlgoCount:
-		return "RnnAlgoCount"
-	}
-	return fmt.Sprintf("RNNAlgo(%d)", e)
-}
-
-// ForwardMode [ForwardMode] is an enumerated type to specify inference or training mode in RNN API.
-type ForwardMode int32
-
-const (
-	FwdModeInference ForwardMode = 0 // Selects the inference mode.
-	FwdModeTraining  ForwardMode = 1 // Selects the training mode.
-)
-
-func (e ForwardMode) String() string {
-	switch e {
-	case FwdModeInference:
-		return "FwdModeInference"
-	case FwdModeTraining:
-		return "FwdModeTraining"
-	}
-	return fmt.Sprintf("ForwardMode(%d)", e)
-}
-
-// RNNMode [RNNMode] is an enumerated type used to specify the type of network.
-type RNNMode int32
-
-const (
-	RnnRelu RNNMode = 0 // basic RNN cell type with ReLu activation
-	RnnTanh RNNMode = 1 // basic RNN cell type with tanh activation
-	Lstm    RNNMode = 2 // LSTM with optional recurrent projection and clipping
-	// Gru: Using h' = tanh(r * Uh(t-1) + Wx) and h = (1 - z) * h' + z * h(t-1);
-	Gru RNNMode = 3
-)
-
-func (e RNNMode) String() string {
-	switch e {
-	case RnnRelu:
-		return "RnnRelu"
-	case RnnTanh:
-		return "RnnTanh"
-	case Lstm:
-		return "Lstm"
-	case Gru:
-		return "Gru"
-	}
-	return fmt.Sprintf("RNNMode(%d)", e)
-}
-
-// RNNBiasMode [RNNBiasMode] is an enumerated type used to specify the number of bias vectors for RNN functions.
-type RNNBiasMode int32
-
-const (
-	RnnNoBias        RNNBiasMode = 0 // rnn cell formulas do not use biases
-	RnnSingleInpBias RNNBiasMode = 1 // rnn cell formulas use one input bias in input GEMM
-	RnnDoubleBias    RNNBiasMode = 2 // default, rnn cell formulas use two bias vectors
-	RnnSingleRecBias RNNBiasMode = 3 // rnn cell formulas use one recurrent bias in recurrent GEMM
-)
-
-func (e RNNBiasMode) String() string {
-	switch e {
-	case RnnNoBias:
-		return "RnnNoBias"
-	case RnnSingleInpBias:
-		return "RnnSingleInpBias"
-	case RnnDoubleBias:
-		return "RnnDoubleBias"
-	case RnnSingleRecBias:
-		return "RnnSingleRecBias"
-	}
-	return fmt.Sprintf("RNNBiasMode(%d)", e)
-}
-
-// DirectionMode [DirectionMode] is an enumerated type used to specify the recurrence pattern.
-type DirectionMode int32
-
-const (
-	Unidirectional DirectionMode = 0 // single direction network
-	Bidirectional  DirectionMode = 1 // output concatination at each layer
-)
-
-func (e DirectionMode) String() string {
-	switch e {
-	case Unidirectional:
-		return "Unidirectional"
-	case Bidirectional:
-		return "Bidirectional"
-	}
-	return fmt.Sprintf("DirectionMode(%d)", e)
-}
-
-// RNNInputMode [RNNInputMode] is an enumerated type used to specify the behavior of the first layer.
-type RNNInputMode int32
-
-const (
-	LinearInput RNNInputMode = 0 // adjustable weight matrix in first layer input GEMM
-	SkipInput   RNNInputMode = 1 // fixed identity matrix in the first layer input GEMM
-)
-
-func (e RNNInputMode) String() string {
-	switch e {
-	case LinearInput:
-		return "LinearInput"
-	case SkipInput:
-		return "SkipInput"
-	}
-	return fmt.Sprintf("RNNInputMode(%d)", e)
-}
-
-// RNNClipMode [RNNClipMode] is an enumerated type used to select the LSTM cell clipping mode.
-type RNNClipMode int32
-
-const (
-	RnnClipNone   RNNClipMode = 0 // disables LSTM cell clipping
-	RnnClipMinmax RNNClipMode = 1 // enables LSTM cell clipping
-)
-
-func (e RNNClipMode) String() string {
-	switch e {
-	case RnnClipNone:
-		return "RnnClipNone"
-	case RnnClipMinmax:
-		return "RnnClipMinmax"
-	}
-	return fmt.Sprintf("RNNClipMode(%d)", e)
-}
-
-// RNNDataLayout [RNNDataLayout] is an enumerated type used to select the RNN data layout.
-type RNNDataLayout int32
-
-const (
-	RnnDataLayoutSeqMajorUnpacked   RNNDataLayout = 0 // padded, outer stride from one time-step to the next
-	RnnDataLayoutSeqMajorPacked     RNNDataLayout = 1 // sequence length sorted and packed as in basic RNN api
-	RnnDataLayoutBatchMajorUnpacked RNNDataLayout = 2 // padded, outer stride from one batch to the next
-)
-
-func (e RNNDataLayout) String() string {
-	switch e {
-	case RnnDataLayoutSeqMajorUnpacked:
-		return "RnnDataLayoutSeqMajorUnpacked"
-	case RnnDataLayoutSeqMajorPacked:
-		return "RnnDataLayoutSeqMajorPacked"
-	case RnnDataLayoutBatchMajorUnpacked:
-		return "RnnDataLayoutBatchMajorUnpacked"
-	}
-	return fmt.Sprintf("RNNDataLayout(%d)", e)
-}
-
-// SeqDataAxis [SeqDataAxis] is an enumerated type that indexes active dimensions in the dimA[] argument that is passed to the cudnnSetSeqDataDescriptor() function to configure the sequence data descriptor of type [SeqDataDescriptor]. [SeqDataAxis] constants are also used in the axis[] argument of the cudnnSetSeqDataDescriptor() call to define the layout of the sequence data buffer in memory. Refer to cudnnSetSeqDataDescriptor() for a detailed description on how to use the [SeqDataAxis] enumerated type. The CUDNN_SEQDATA_DIM_COUNT macro defines the number of constants in the [SeqDataAxis] enumerated type. This value is currently set to 4.
-type SeqDataAxis int32
-
-const (
-	// SeqdataTimeDim: Identifies the TIME (sequence length) dimension or specifies the TIME in the data layout.
-	SeqdataTimeDim SeqDataAxis = 0
-	// SeqdataBatchDim: Identifies the BATCH dimension or specifies the BATCH in the data layout.
-	SeqdataBatchDim SeqDataAxis = 1
-	// SeqdataBeamDim: Identifies the BEAM dimension or specifies the BEAM in the data layout.
-	SeqdataBeamDim SeqDataAxis = 2
-	// SeqdataVectDim: Identifies the VECT (vector) dimension or specifies the VECT in the data layout.
-	SeqdataVectDim SeqDataAxis = 3
-)
-
-func (e SeqDataAxis) String() string {
-	switch e {
-	case SeqdataTimeDim:
-		return "SeqdataTimeDim"
-	case SeqdataBatchDim:
-		return "SeqdataBatchDim"
-	case SeqdataBeamDim:
-		return "SeqdataBeamDim"
-	case SeqdataVectDim:
-		return "SeqdataVectDim"
-	}
-	return fmt.Sprintf("SeqDataAxis(%d)", e)
-}
-
-// MultiHeadAttnWeightKind [MultiHeadAttnWeightKind] is an enumerated type that specifies a group of weights or biases in the cudnnGetMultiHeadAttnWeights() function.
-type MultiHeadAttnWeightKind int32
-
-const (
-	MhAttnQWeights MultiHeadAttnWeightKind = 0 // input projection weights for 'queries'
-	MhAttnKWeights MultiHeadAttnWeightKind = 1 // input projection weights for 'keys'
-	MhAttnVWeights MultiHeadAttnWeightKind = 2 // input projection weights for 'values'
-	MhAttnOWeights MultiHeadAttnWeightKind = 3 // output projection weights
-	MhAttnQBiases  MultiHeadAttnWeightKind = 4 // input projection bias tensor for 'queries'
-	MhAttnKBiases  MultiHeadAttnWeightKind = 5 // input projection bias for 'keys'
-	MhAttnVBiases  MultiHeadAttnWeightKind = 6 // input projection bias for 'values'
-	MhAttnOBiases  MultiHeadAttnWeightKind = 7 // output projection biases
-)
-
-func (e MultiHeadAttnWeightKind) String() string {
-	switch e {
-	case MhAttnQWeights:
-		return "MhAttnQWeights"
-	case MhAttnKWeights:
-		return "MhAttnKWeights"
-	case MhAttnVWeights:
-		return "MhAttnVWeights"
-	case MhAttnOWeights:
-		return "MhAttnOWeights"
-	case MhAttnQBiases:
-		return "MhAttnQBiases"
-	case MhAttnKBiases:
-		return "MhAttnKBiases"
-	case MhAttnVBiases:
-		return "MhAttnVBiases"
-	case MhAttnOBiases:
-		return "MhAttnOBiases"
-	}
-	return fmt.Sprintf("MultiHeadAttnWeightKind(%d)", e)
-}
-
-// WgradMode [WgradMode] is an enumerated type that selects how buffers holding gradients of the loss function, computed with respect to trainable parameters, are updated. Currently, this type is used by the cudnnMultiHeadAttnBackwardWeights() and [Handle.RNNBackwardWeights] functions only.
-type WgradMode int32
-
-const (
-	WgradModeAdd WgradMode = 0 // add partial gradients to wgrad output buffers
-	WgradModeSet WgradMode = 1 // write partial gradients to wgrad output buffers
-)
-
-func (e WgradMode) String() string {
-	switch e {
-	case WgradModeAdd:
-		return "WgradModeAdd"
-	case WgradModeSet:
-		return "WgradModeSet"
-	}
-	return fmt.Sprintf("WgradMode(%d)", e)
-}
-
-// LossNormalizationMode [LossNormalizationMode] is an enumerated type that controls the input normalization mode for a loss function.
-type LossNormalizationMode int32
-
-const (
-	// LossNormalizationNone: The input probs of the [Handle.CTCLoss] function is expected to be the normalized probability, and the output gradients is the gradient of loss with respect to the unnormalized probability.
-	LossNormalizationNone LossNormalizationMode = 0
-	// LossNormalizationSoftmax: The input probs of the [Handle.CTCLoss] function is expected to be the unnormalized activation from the previous layer, and the output gradients is the gradient with respect to the activation. Internally the probability is computed by softmax normalization.
-	LossNormalizationSoftmax LossNormalizationMode = 1
-)
-
-func (e LossNormalizationMode) String() string {
-	switch e {
-	case LossNormalizationNone:
-		return "LossNormalizationNone"
-	case LossNormalizationSoftmax:
-		return "LossNormalizationSoftmax"
-	}
-	return fmt.Sprintf("LossNormalizationMode(%d)", e)
-}
-
-// FusedOps This enumerated type is deprecated and is currently only used by deprecated APIs.
-type FusedOps int32
-
-const (
-	FusedScaleBiasActivationConvBnstats   FusedOps = 0
-	FusedScaleBiasActivationWgrad         FusedOps = 1
-	FusedBnFinalizeStatisticsTraining     FusedOps = 2
-	FusedBnFinalizeStatisticsInference    FusedOps = 3
-	FusedConvScaleBiasAddActivation       FusedOps = 4
-	FusedScaleBiasAddActivationGenBitmask FusedOps = 5
-	FusedDactivationForkDbatchnorm        FusedOps = 6
-)
-
-func (e FusedOps) String() string {
-	switch e {
-	case FusedScaleBiasActivationConvBnstats:
-		return "FusedScaleBiasActivationConvBnstats"
-	case FusedScaleBiasActivationWgrad:
-		return "FusedScaleBiasActivationWgrad"
-	case FusedBnFinalizeStatisticsTraining:
-		return "FusedBnFinalizeStatisticsTraining"
-	case FusedBnFinalizeStatisticsInference:
-		return "FusedBnFinalizeStatisticsInference"
-	case FusedConvScaleBiasAddActivation:
-		return "FusedConvScaleBiasAddActivation"
-	case FusedScaleBiasAddActivationGenBitmask:
-		return "FusedScaleBiasAddActivationGenBitmask"
-	case FusedDactivationForkDbatchnorm:
-		return "FusedDactivationForkDbatchnorm"
-	}
-	return fmt.Sprintf("FusedOps(%d)", e)
-}
-
-// FusedOpsConstParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where ∗ denotes convolution operator: y=α1(w∗x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] 
-type FusedOpsConstParamLabel int32
-
-const (
-	ParamXdesc                        FusedOpsConstParamLabel = 0
-	ParamXdataPlaceholder             FusedOpsConstParamLabel = 1
-	ParamBnMode                       FusedOpsConstParamLabel = 2
-	ParamBnEqscalebiasDesc            FusedOpsConstParamLabel = 3
-	ParamBnEqscalePlaceholder         FusedOpsConstParamLabel = 4
-	ParamBnEqbiasPlaceholder          FusedOpsConstParamLabel = 5
-	ParamActivationDesc               FusedOpsConstParamLabel = 6
-	ParamConvDesc                     FusedOpsConstParamLabel = 7
-	ParamWdesc                        FusedOpsConstParamLabel = 8
-	ParamWdataPlaceholder             FusedOpsConstParamLabel = 9
-	ParamDwdesc                       FusedOpsConstParamLabel = 10
-	ParamDwdataPlaceholder            FusedOpsConstParamLabel = 11
-	ParamYdesc                        FusedOpsConstParamLabel = 12
-	ParamYdataPlaceholder             FusedOpsConstParamLabel = 13
-	ParamDydesc                       FusedOpsConstParamLabel = 14
-	ParamDydataPlaceholder            FusedOpsConstParamLabel = 15
-	ParamYstatsDesc                   FusedOpsConstParamLabel = 16
-	ParamYsumPlaceholder              FusedOpsConstParamLabel = 17
-	ParamYsqsumPlaceholder            FusedOpsConstParamLabel = 18
-	ParamBnScalebiasMeanvarDesc       FusedOpsConstParamLabel = 19
-	ParamBnScalePlaceholder           FusedOpsConstParamLabel = 20
-	ParamBnBiasPlaceholder            FusedOpsConstParamLabel = 21
-	ParamBnSavedMeanPlaceholder       FusedOpsConstParamLabel = 22
-	ParamBnSavedInvstdPlaceholder     FusedOpsConstParamLabel = 23
-	ParamBnRunningMeanPlaceholder     FusedOpsConstParamLabel = 24
-	ParamBnRunningVarPlaceholder      FusedOpsConstParamLabel = 25
-	ParamZdesc                        FusedOpsConstParamLabel = 26
-	ParamZdataPlaceholder             FusedOpsConstParamLabel = 27
-	ParamBnZEqscalebiasDesc           FusedOpsConstParamLabel = 28
-	ParamBnZEqscalePlaceholder        FusedOpsConstParamLabel = 29
-	ParamBnZEqbiasPlaceholder         FusedOpsConstParamLabel = 30
-	ParamActivationBitmaskDesc        FusedOpsConstParamLabel = 31
-	ParamActivationBitmaskPlaceholder FusedOpsConstParamLabel = 32
-	ParamDxdesc                       FusedOpsConstParamLabel = 33
-	ParamDxdataPlaceholder            FusedOpsConstParamLabel = 34
-	ParamDzdesc                       FusedOpsConstParamLabel = 35
-	ParamDzdataPlaceholder            FusedOpsConstParamLabel = 36
-	ParamBnDscalePlaceholder          FusedOpsConstParamLabel = 37
-	ParamBnDbiasPlaceholder           FusedOpsConstParamLabel = 38
-)
-
-func (e FusedOpsConstParamLabel) String() string {
-	switch e {
-	case ParamXdesc:
-		return "ParamXdesc"
-	case ParamXdataPlaceholder:
-		return "ParamXdataPlaceholder"
-	case ParamBnMode:
-		return "ParamBnMode"
-	case ParamBnEqscalebiasDesc:
-		return "ParamBnEqscalebiasDesc"
-	case ParamBnEqscalePlaceholder:
-		return "ParamBnEqscalePlaceholder"
-	case ParamBnEqbiasPlaceholder:
-		return "ParamBnEqbiasPlaceholder"
-	case ParamActivationDesc:
-		return "ParamActivationDesc"
-	case ParamConvDesc:
-		return "ParamConvDesc"
-	case ParamWdesc:
-		return "ParamWdesc"
-	case ParamWdataPlaceholder:
-		return "ParamWdataPlaceholder"
-	case ParamDwdesc:
-		return "ParamDwdesc"
-	case ParamDwdataPlaceholder:
-		return "ParamDwdataPlaceholder"
-	case ParamYdesc:
-		return "ParamYdesc"
-	case ParamYdataPlaceholder:
-		return "ParamYdataPlaceholder"
-	case ParamDydesc:
-		return "ParamDydesc"
-	case ParamDydataPlaceholder:
-		return "ParamDydataPlaceholder"
-	case ParamYstatsDesc:
-		return "ParamYstatsDesc"
-	case ParamYsumPlaceholder:
-		return "ParamYsumPlaceholder"
-	case ParamYsqsumPlaceholder:
-		return "ParamYsqsumPlaceholder"
-	case ParamBnScalebiasMeanvarDesc:
-		return "ParamBnScalebiasMeanvarDesc"
-	case ParamBnScalePlaceholder:
-		return "ParamBnScalePlaceholder"
-	case ParamBnBiasPlaceholder:
-		return "ParamBnBiasPlaceholder"
-	case ParamBnSavedMeanPlaceholder:
-		return "ParamBnSavedMeanPlaceholder"
-	case ParamBnSavedInvstdPlaceholder:
-		return "ParamBnSavedInvstdPlaceholder"
-	case ParamBnRunningMeanPlaceholder:
-		return "ParamBnRunningMeanPlaceholder"
-	case ParamBnRunningVarPlaceholder:
-		return "ParamBnRunningVarPlaceholder"
-	case ParamZdesc:
-		return "ParamZdesc"
-	case ParamZdataPlaceholder:
-		return "ParamZdataPlaceholder"
-	case ParamBnZEqscalebiasDesc:
-		return "ParamBnZEqscalebiasDesc"
-	case ParamBnZEqscalePlaceholder:
-		return "ParamBnZEqscalePlaceholder"
-	case ParamBnZEqbiasPlaceholder:
-		return "ParamBnZEqbiasPlaceholder"
-	case ParamActivationBitmaskDesc:
-		return "ParamActivationBitmaskDesc"
-	case ParamActivationBitmaskPlaceholder:
-		return "ParamActivationBitmaskPlaceholder"
-	case ParamDxdesc:
-		return "ParamDxdesc"
-	case ParamDxdataPlaceholder:
-		return "ParamDxdataPlaceholder"
-	case ParamDzdesc:
-		return "ParamDzdesc"
-	case ParamDzdataPlaceholder:
-		return "ParamDzdataPlaceholder"
-	case ParamBnDscalePlaceholder:
-		return "ParamBnDscalePlaceholder"
-	case ParamBnDbiasPlaceholder:
-		return "ParamBnDbiasPlaceholder"
-	}
-	return fmt.Sprintf("FusedOpsConstParamLabel(%d)", e)
-}
-
-// FusedOpsPointerPlaceHolder This enumerated type is deprecated and is currently only used by deprecated APIs.
-type FusedOpsPointerPlaceHolder int32
-
-const (
-	PtrNull        FusedOpsPointerPlaceHolder = 0
-	PtrElemAligned FusedOpsPointerPlaceHolder = 1
-	Ptr16BAligned  FusedOpsPointerPlaceHolder = 2
-)
-
-func (e FusedOpsPointerPlaceHolder) String() string {
-	switch e {
-	case PtrNull:
-		return "PtrNull"
-	case PtrElemAligned:
-		return "PtrElemAligned"
-	case Ptr16BAligned:
-		return "Ptr16BAligned"
-	}
-	return fmt.Sprintf("FusedOpsPointerPlaceHolder(%d)", e)
-}
-
-// FusedOpsVariantParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note
-type FusedOpsVariantParamLabel int32
-
-const (
-	PtrXdata                        FusedOpsVariantParamLabel = 0
-	PtrBnEqscale                    FusedOpsVariantParamLabel = 1
-	PtrBnEqbias                     FusedOpsVariantParamLabel = 2
-	PtrWdata                        FusedOpsVariantParamLabel = 3
-	PtrDwdata                       FusedOpsVariantParamLabel = 4
-	PtrYdata                        FusedOpsVariantParamLabel = 5
-	PtrDydata                       FusedOpsVariantParamLabel = 6
-	PtrYsum                         FusedOpsVariantParamLabel = 7
-	PtrYsqsum                       FusedOpsVariantParamLabel = 8
-	PtrWorkspace                    FusedOpsVariantParamLabel = 9
-	PtrBnScale                      FusedOpsVariantParamLabel = 10
-	PtrBnBias                       FusedOpsVariantParamLabel = 11
-	PtrBnSavedMean                  FusedOpsVariantParamLabel = 12
-	PtrBnSavedInvstd                FusedOpsVariantParamLabel = 13
-	PtrBnRunningMean                FusedOpsVariantParamLabel = 14
-	PtrBnRunningVar                 FusedOpsVariantParamLabel = 15
-	PtrZdata                        FusedOpsVariantParamLabel = 16
-	PtrBnZEqscale                   FusedOpsVariantParamLabel = 17
-	PtrBnZEqbias                    FusedOpsVariantParamLabel = 18
-	PtrActivationBitmask            FusedOpsVariantParamLabel = 19
-	PtrDxdata                       FusedOpsVariantParamLabel = 20
-	PtrDzdata                       FusedOpsVariantParamLabel = 21
-	PtrBnDscale                     FusedOpsVariantParamLabel = 22
-	PtrBnDbias                      FusedOpsVariantParamLabel = 23
-	ScalarSizeTWorkspaceSizeInBytes FusedOpsVariantParamLabel = 100
-	ScalarInt64TBnAccumulationCount FusedOpsVariantParamLabel = 101
-	ScalarDoubleBnExpAvgFactor      FusedOpsVariantParamLabel = 102
-	ScalarDoubleBnEpsilon           FusedOpsVariantParamLabel = 103
-)
-
-func (e FusedOpsVariantParamLabel) String() string {
-	switch e {
-	case PtrXdata:
-		return "PtrXdata"
-	case PtrBnEqscale:
-		return "PtrBnEqscale"
-	case PtrBnEqbias:
-		return "PtrBnEqbias"
-	case PtrWdata:
-		return "PtrWdata"
-	case PtrDwdata:
-		return "PtrDwdata"
-	case PtrYdata:
-		return "PtrYdata"
-	case PtrDydata:
-		return "PtrDydata"
-	case PtrYsum:
-		return "PtrYsum"
-	case PtrYsqsum:
-		return "PtrYsqsum"
-	case PtrWorkspace:
-		return "PtrWorkspace"
-	case PtrBnScale:
-		return "PtrBnScale"
-	case PtrBnBias:
-		return "PtrBnBias"
-	case PtrBnSavedMean:
-		return "PtrBnSavedMean"
-	case PtrBnSavedInvstd:
-		return "PtrBnSavedInvstd"
-	case PtrBnRunningMean:
-		return "PtrBnRunningMean"
-	case PtrBnRunningVar:
-		return "PtrBnRunningVar"
-	case PtrZdata:
-		return "PtrZdata"
-	case PtrBnZEqscale:
-		return "PtrBnZEqscale"
-	case PtrBnZEqbias:
-		return "PtrBnZEqbias"
-	case PtrActivationBitmask:
-		return "PtrActivationBitmask"
-	case PtrDxdata:
-		return "PtrDxdata"
-	case PtrDzdata:
-		return "PtrDzdata"
-	case PtrBnDscale:
-		return "PtrBnDscale"
-	case PtrBnDbias:
-		return "PtrBnDbias"
-	case ScalarSizeTWorkspaceSizeInBytes:
-		return "ScalarSizeTWorkspaceSizeInBytes"
-	case ScalarInt64TBnAccumulationCount:
-		return "ScalarInt64TBnAccumulationCount"
-	case ScalarDoubleBnExpAvgFactor:
-		return "ScalarDoubleBnExpAvgFactor"
-	case ScalarDoubleBnEpsilon:
-		return "ScalarDoubleBnEpsilon"
-	}
-	return fmt.Sprintf("FusedOpsVariantParamLabel(%d)", e)
-}
-
-// ErrQueryMode [ErrQueryMode] is an enumerated type passed to cudnnQueryRuntimeError() to select the remote kernel error query mode.
+// ErrQueryMode [ErrQueryMode] is an enumerated type passed to [Handle.QueryRuntimeError] to select the remote kernel error query mode.
 type ErrQueryMode int32
 
 const (
@@ -1040,6 +16,7 @@ const (
 	ErrqueryBlocking ErrQueryMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ErrQueryMode) String() string {
 	switch e {
 	case ErrqueryRawcode:
@@ -1093,6 +70,7 @@ const (
 	DataComplexFP64     DataType = 21
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DataType) String() string {
 	switch e {
 	case DataFloat:
@@ -1157,6 +135,7 @@ const (
 	FmaMath MathType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MathType) String() string {
 	switch e {
 	case DefaultMath:
@@ -1181,6 +160,7 @@ const (
 	PropagateNan NanPropagation = 1 // NAN numbers are propagated.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NanPropagation) String() string {
 	switch e {
 	case NotPropagateNan:
@@ -1199,6 +179,7 @@ const (
 	CtcSkipOobGradients CTCGradMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CTCGradMode) String() string {
 	switch e {
 	case CtcZeroOobGradients:
@@ -1219,6 +200,7 @@ const (
 	TensorNchwVectC TensorFormat = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorFormat) String() string {
 	switch e {
 	case TensorNchw:
@@ -1235,10 +217,10 @@ func (e TensorFormat) String() string {
 type ReduceTensorOp int32
 
 const (
-	ReduceTensorMax ReduceTensorOp = 3
 	ReduceTensorAdd ReduceTensorOp = 0 // The operation to be performed is addition.
 	ReduceTensorMul ReduceTensorOp = 1 // The operation to be performed is multiplication.
 	ReduceTensorMin ReduceTensorOp = 2 // The operation to be performed is a minimum comparison.
+	ReduceTensorMax ReduceTensorOp = 3 // The operation to be performed is a maximum comparison.
 	// ReduceTensorAmax: The operation to be performed is a maximum comparison of absolute values.
 	ReduceTensorAmax ReduceTensorOp = 4
 	ReduceTensorAvg  ReduceTensorOp = 5 // The operation to be performed is averaging.
@@ -1250,16 +232,17 @@ const (
 	ReduceTensorMulNoZeros ReduceTensorOp = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ReduceTensorOp) String() string {
 	switch e {
-	case ReduceTensorMax:
-		return "ReduceTensorMax"
 	case ReduceTensorAdd:
 		return "ReduceTensorAdd"
 	case ReduceTensorMul:
 		return "ReduceTensorMul"
 	case ReduceTensorMin:
 		return "ReduceTensorMin"
+	case ReduceTensorMax:
+		return "ReduceTensorMax"
 	case ReduceTensorAmax:
 		return "ReduceTensorAmax"
 	case ReduceTensorAvg:
@@ -1283,11 +266,12 @@ const (
 	ActivationTanh        ActivationMode = 2 // Selects the hyperbolic tangent function.
 	ActivationClippedRelu ActivationMode = 3 // Selects the clipped rectified linear function.
 	ActivationElu         ActivationMode = 4 // Selects the exponential linear function.
-	// ActivationIdentity: Selects the identity function, intended for bypassing the activation step in cudnnConvolutionBiasActivationForward(). (The cudnnConvolutionBiasActivationForward() function must use [ConvolutionFwdAlgoImplicitPrecompGemm].) Does not work with cudnnActivationForward() or cudnnActivationBackward().
+	// ActivationIdentity: Selects the identity function, intended for bypassing the activation step in [Handle.ConvolutionBiasActivationForward]. (The [Handle.ConvolutionBiasActivationForward] function must use [ConvolutionFwdAlgoImplicitPrecompGemm].) Does not work with [Handle.ActivationForward] or [Handle.ActivationBackward].
 	ActivationIdentity ActivationMode = 5
 	ActivationSwish    ActivationMode = 6 // Selects the swish function.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivationMode) String() string {
 	switch e {
 	case ActivationSigmoid:
@@ -1318,6 +302,7 @@ const (
 	SevInfo    Severity = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Severity) String() string {
 	switch e {
 	case SevFatal:
@@ -1342,6 +327,7 @@ const (
 	CrossCorrelation ConvolutionMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ConvolutionMode) String() string {
 	switch e {
 	case Convolution:
@@ -1360,6 +346,7 @@ const (
 	NoReorder      ReorderType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ReorderType) String() string {
 	switch e {
 	case DefaultReorder:
@@ -1374,12 +361,12 @@ func (e ReorderType) String() string {
 type PointwiseMode int32
 
 const (
-	PointwiseMax PointwiseMode = 3
 	PointwiseAdd PointwiseMode = 0 // A pointwise addition between two tensors is computed.
 	// PointwiseAddSquare: A pointwise addition between the first tensor and the square of the second tensor is computed.
 	PointwiseAddSquare PointwiseMode = 5
 	// PointwiseDiv: A pointwise true division of the first tensor by second tensor is computed.
 	PointwiseDiv PointwiseMode = 6
+	PointwiseMax PointwiseMode = 3 // A pointwise maximum is taken between two tensors.
 	PointwiseMin PointwiseMode = 2 // A pointwise minimum is taken between two tensors.
 	// PointwiseMod: A pointwise floating-point remainder of the first tensor’s division by the second tensor is computed.
 	PointwiseMod PointwiseMode = 7
@@ -1466,16 +453,17 @@ const (
 	PointwiseBinarySelect PointwiseMode = 601
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointwiseMode) String() string {
 	switch e {
-	case PointwiseMax:
-		return "PointwiseMax"
 	case PointwiseAdd:
 		return "PointwiseAdd"
 	case PointwiseAddSquare:
 		return "PointwiseAddSquare"
 	case PointwiseDiv:
 		return "PointwiseDiv"
+	case PointwiseMax:
+		return "PointwiseMax"
 	case PointwiseMin:
 		return "PointwiseMin"
 	case PointwiseMod:
@@ -1586,6 +574,7 @@ const (
 	ResampleMaxpool               ResampleMode = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ResampleMode) String() string {
 	switch e {
 	case ResampleNearest:
@@ -1612,6 +601,7 @@ const (
 	SignalWait SignalMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SignalMode) String() string {
 	switch e {
 	case SignalSet:
@@ -1630,6 +620,7 @@ const (
 	GenstatsSumSqsum GenStatsMode = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GenStatsMode) String() string {
 	switch e {
 	case GenstatsSumSqsum:
@@ -1646,6 +637,7 @@ const (
 	BnFinalizeStatisticsInference BnFinalizeStatsMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BnFinalizeStatsMode) String() string {
 	switch e {
 	case BnFinalizeStatisticsTraining:
@@ -1668,6 +660,7 @@ const (
 	RngDistributionNormal RngDistribution = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RngDistribution) String() string {
 	switch e {
 	case RngDistributionBernoulli:
@@ -1689,6 +682,7 @@ const (
 	MoeGroupedMatmulModeScatter MoeGroupedMatmulMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MoeGroupedMatmulMode) String() string {
 	switch e {
 	case MoeGroupedMatmulModeNone:
@@ -2022,6 +1016,7 @@ const (
 	AttrOperationSoftmaxSinkDesc                      BackendAttributeName = 3105
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendAttributeName) String() string {
 	switch e {
 	case AttrPointwiseMode:
@@ -2680,6 +1675,7 @@ const (
 	TypeMoeGroupedMatmulMode  BackendAttributeType = 30
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendAttributeType) String() string {
 	switch e {
 	case TypeHandle:
@@ -2800,6 +1796,7 @@ const (
 	BackendOperationSoftmaxDescriptor                   BackendDescriptorType = 45
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendDescriptorType) String() string {
 	switch e {
 	case BackendPointwiseDescriptor:
@@ -2915,6 +1912,7 @@ const (
 	NumericalNoteTypeCount                 BackendNumericalNote = 10
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendNumericalNote) String() string {
 	switch e {
 	case NumericalNoteTensorCore:
@@ -2955,6 +1953,7 @@ const (
 	BehaviorNoteTypeCount                    BackendBehaviorNote = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendBehaviorNote) String() string {
 	switch e {
 	case BehaviorNoteRuntimeCompilation:
@@ -3039,6 +2038,7 @@ const (
 	KnobTypeCounts       BackendKnobType = 44
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendKnobType) String() string {
 	switch e {
 	case KnobTypeSplitK:
@@ -3146,6 +2146,7 @@ const (
 	LayoutTypeCount           BackendLayoutType = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendLayoutType) String() string {
 	switch e {
 	case LayoutTypePreferredNchw:
@@ -3175,6 +2176,7 @@ const (
 	HeurModesCount   BackendHeurMode = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendHeurMode) String() string {
 	switch e {
 	case HeurModeInstant:
@@ -3201,6 +2203,7 @@ const (
 	TensorReorderingF8128x4 BackendTensorReordering = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendTensorReordering) String() string {
 	switch e {
 	case TensorReorderingNone:
@@ -3224,6 +2227,7 @@ const (
 	EdgeValPad PaddingMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PaddingMode) String() string {
 	switch e {
 	case ZeroPad:
@@ -3248,6 +2252,7 @@ const (
 	AdaLayerNorm BackendNormMode = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendNormMode) String() string {
 	switch e {
 	case LayerNorm:
@@ -3274,6 +2279,7 @@ const (
 	NormFwdTraining  BackendNormFwdPhase = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BackendNormFwdPhase) String() string {
 	switch e {
 	case NormFwdInference:
@@ -3282,4 +2288,1064 @@ func (e BackendNormFwdPhase) String() string {
 		return "NormFwdTraining"
 	}
 	return fmt.Sprintf("BackendNormFwdPhase(%d)", e)
+}
+
+// Determinism [Determinism] is an enumerated type used to indicate if the computed results are deterministic (reproducible).
+type Determinism int32
+
+const (
+	NonDeterministic Determinism = 0 // Results are not guaranteed to be reproducible.
+	Deterministic    Determinism = 1 // Results are guaranteed to be reproducible.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e Determinism) String() string {
+	switch e {
+	case NonDeterministic:
+		return "NonDeterministic"
+	case Deterministic:
+		return "Deterministic"
+	}
+	return fmt.Sprintf("Determinism(%d)", e)
+}
+
+// FoldingDirection [FoldingDirection] is an enumerated type used to select the folding direction.
+type FoldingDirection int32
+
+const (
+	TransformFold   FoldingDirection = 0
+	TransformUnfold FoldingDirection = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FoldingDirection) String() string {
+	switch e {
+	case TransformFold:
+		return "TransformFold"
+	case TransformUnfold:
+		return "TransformUnfold"
+	}
+	return fmt.Sprintf("FoldingDirection(%d)", e)
+}
+
+// OpTensorOp [OpTensorOp] is an enumerated type used to indicate the Tensor Core operation to be used by the [Handle.OpTensor] routine. This enumerated type is used as a field for the [OpTensorDescriptor] descriptor.
+type OpTensorOp int32
+
+const (
+	OpTensorAdd OpTensorOp = 0 // The operation to be performed is addition.
+	OpTensorMul OpTensorOp = 1 // The operation to be performed is multiplication.
+	OpTensorMin OpTensorOp = 2 // The operation to be performed is a minimum comparison.
+	OpTensorMax OpTensorOp = 3 // The operation to be performed is a maximum comparison.
+	// OpTensorSqrt: The operation to be performed is square root, performed on only the A tensor.
+	OpTensorSqrt OpTensorOp = 4
+	// OpTensorNot: The operation to be performed is negation, performed on only the A tensor.
+	OpTensorNot OpTensorOp = 5
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e OpTensorOp) String() string {
+	switch e {
+	case OpTensorAdd:
+		return "OpTensorAdd"
+	case OpTensorMul:
+		return "OpTensorMul"
+	case OpTensorMin:
+		return "OpTensorMin"
+	case OpTensorMax:
+		return "OpTensorMax"
+	case OpTensorSqrt:
+		return "OpTensorSqrt"
+	case OpTensorNot:
+		return "OpTensorNot"
+	}
+	return fmt.Sprintf("OpTensorOp(%d)", e)
+}
+
+// ReduceTensorIndices This enumerated type is deprecated and is currently only used by deprecated APIs.
+type ReduceTensorIndices int32
+
+const (
+	ReduceTensorNoIndices ReduceTensorIndices = 0 // Do not compute indices.
+	// ReduceTensorFlattenedIndices: Compute indices. The resulting indices are relative, and flattened.
+	ReduceTensorFlattenedIndices ReduceTensorIndices = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ReduceTensorIndices) String() string {
+	switch e {
+	case ReduceTensorNoIndices:
+		return "ReduceTensorNoIndices"
+	case ReduceTensorFlattenedIndices:
+		return "ReduceTensorFlattenedIndices"
+	}
+	return fmt.Sprintf("ReduceTensorIndices(%d)", e)
+}
+
+// IndicesType This enumerated type is deprecated and is currently only used by deprecated APIs.
+type IndicesType int32
+
+const (
+	N32bitIndices IndicesType = 0 // Compute unsigned int indices.
+	N64bitIndices IndicesType = 1 // Compute unsigned long indices.
+	N16bitIndices IndicesType = 2 // Compute unsigned short indices.
+	N8BITIndices  IndicesType = 3 // Compute unsigned char indices.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e IndicesType) String() string {
+	switch e {
+	case N32bitIndices:
+		return "N32bitIndices"
+	case N64bitIndices:
+		return "N64bitIndices"
+	case N16bitIndices:
+		return "N16bitIndices"
+	case N8BITIndices:
+		return "N8BITIndices"
+	}
+	return fmt.Sprintf("IndicesType(%d)", e)
+}
+
+// SoftmaxAlgorithm [SoftmaxAlgorithm] is used to select an implementation of the softmax function used in [Handle.SoftmaxForward] and [Handle.SoftmaxBackward].
+type SoftmaxAlgorithm int32
+
+const (
+	SoftmaxFast     SoftmaxAlgorithm = 0 // straightforward implementation
+	SoftmaxAccurate SoftmaxAlgorithm = 1 // subtract max from every point to avoid overflow
+	// SoftmaxLog: This entry performs the log softmax operation, avoiding overflows by scaling each point in the input domain as in [SoftmaxAccurate].
+	SoftmaxLog SoftmaxAlgorithm = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SoftmaxAlgorithm) String() string {
+	switch e {
+	case SoftmaxFast:
+		return "SoftmaxFast"
+	case SoftmaxAccurate:
+		return "SoftmaxAccurate"
+	case SoftmaxLog:
+		return "SoftmaxLog"
+	}
+	return fmt.Sprintf("SoftmaxAlgorithm(%d)", e)
+}
+
+// SoftmaxMode [SoftmaxMode] is used to select over which data the [Handle.SoftmaxForward] and [Handle.SoftmaxBackward] are computing their results.
+type SoftmaxMode int32
+
+const (
+	SoftmaxModeInstance SoftmaxMode = 0 // compute the softmax over all C, H, W for each N
+	SoftmaxModeChannel  SoftmaxMode = 1 // compute the softmax over all C for each H, W, N
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SoftmaxMode) String() string {
+	switch e {
+	case SoftmaxModeInstance:
+		return "SoftmaxModeInstance"
+	case SoftmaxModeChannel:
+		return "SoftmaxModeChannel"
+	}
+	return fmt.Sprintf("SoftmaxMode(%d)", e)
+}
+
+// PoolingMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+type PoolingMode int32
+
+const (
+	PoolingMax                        PoolingMode = 0 // The maximum value inside the pooling window is used.
+	PoolingAverageCountIncludePadding PoolingMode = 1 // count for average includes padded values
+	PoolingAverageCountExcludePadding PoolingMode = 2 // count for average does not include padded values
+	// PoolingMaxDeterministic: The maximum value inside the pooling window is used. The algorithm used is deterministic.
+	PoolingMaxDeterministic PoolingMode = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e PoolingMode) String() string {
+	switch e {
+	case PoolingMax:
+		return "PoolingMax"
+	case PoolingAverageCountIncludePadding:
+		return "PoolingAverageCountIncludePadding"
+	case PoolingAverageCountExcludePadding:
+		return "PoolingAverageCountExcludePadding"
+	case PoolingMaxDeterministic:
+		return "PoolingMaxDeterministic"
+	}
+	return fmt.Sprintf("PoolingMode(%d)", e)
+}
+
+// LRNMode [LRNMode] is an enumerated type used to specify the mode of operation in [Handle.LRNCrossChannelForward] and [Handle.LRNCrossChannelBackward].
+type LRNMode int32
+
+const (
+	LrnCrossChannelDIM1 LRNMode = 0 // Normalize across tensor's dimA [1] dimension
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e LRNMode) String() string {
+	switch e {
+	case LrnCrossChannelDIM1:
+		return "LrnCrossChannelDIM1"
+	}
+	return fmt.Sprintf("LRNMode(%d)", e)
+}
+
+// DivNormMode [DivNormMode] is an enumerated type used to specify the mode of operation in [Handle.DivisiveNormalizationForward] and [Handle.DivisiveNormalizationBackward].
+type DivNormMode int32
+
+const (
+	// DivnormPrecomputedMeans: The means tensor data pointer is expected to contain means or other kernel convolution values precomputed by the user. The means pointer can also be NULL, in that case, it’s considered to be filled with zeroes. This is equivalent to spatial LRN. In the backward pass, the means are treated as independent inputs and the gradient over means is computed independently. In this mode, to yield a net gradient over the entire LCN computational graph, the destDiffMeans result should be backpropagated through the user’s means layer (which can be implemented using average pooling) and added to the destDiffData tensor produced by [Handle.DivisiveNormalizationBackward].
+	DivnormPrecomputedMeans DivNormMode = 0
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DivNormMode) String() string {
+	switch e {
+	case DivnormPrecomputedMeans:
+		return "DivnormPrecomputedMeans"
+	}
+	return fmt.Sprintf("DivNormMode(%d)", e)
+}
+
+// BatchNormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+type BatchNormMode int32
+
+const (
+	// BatchnormPerActivation: Normalization is performed per-activation. This mode is intended to be used after the non-convolutional network layers. In this mode, the tensor dimensions of bnBias and bnScale and the parameters used in the cudnnBatchNormalization* functions are 1xCxHxW.
+	BatchnormPerActivation BatchNormMode = 0
+	// BatchnormSpatial: Normalization is performed over N+spatial dimensions. This mode is intended for use after convolutional layers (where spatial invariance is desired). In this mode, the bnBias and bnScale tensor dimensions are 1xCx1x1.
+	BatchnormSpatial BatchNormMode = 1
+	// BatchnormSpatialPersistent: This mode is similar to [BatchnormSpatial] but it can be faster for some tasks. An optimized path may be selected for [DataFloat] and [DataHalf] types, compute capability 6.0 or higher for the following two batch normalization API calls: [Handle.BatchNormalizationForwardTraining], and [Handle.BatchNormalizationBackward]. In the case of [Handle.BatchNormalizationBackward], the savedMean and savedInvVariance arguments should not be NULL. NCHW Mode Only This mode may use a scaled atomic integer reduction that is deterministic but imposes more restrictions on the input data range. When a numerical overflow occurs, the algorithm may produce NaN-s or Inf-s (infinity) in output buffers. When Inf-s/NaN-s are present in the input data, the output in this mode is the same as from a pure floating-point implementation. For finite but very large input values, the algorithm may encounter overflows more frequently due to a lower dynamic range and emit Inf-s/NaN-s while [BatchnormSpatial] will produce finite results. The user can invoke [Handle.QueryRuntimeError] to check if a numerical overflow occurred in this mode.
+	BatchnormSpatialPersistent BatchNormMode = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e BatchNormMode) String() string {
+	switch e {
+	case BatchnormPerActivation:
+		return "BatchnormPerActivation"
+	case BatchnormSpatial:
+		return "BatchnormSpatial"
+	case BatchnormSpatialPersistent:
+		return "BatchnormSpatialPersistent"
+	}
+	return fmt.Sprintf("BatchNormMode(%d)", e)
+}
+
+// BatchNormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+type BatchNormOps int32
+
+const (
+	BatchnormOpsBn              BatchNormOps = 0 // do batch normalization only
+	BatchnormOpsBnActivation    BatchNormOps = 1 // do batchNorm, then activation
+	BatchnormOpsBnAddActivation BatchNormOps = 2 // do batchNorm, then elemWiseAdd, then activation
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e BatchNormOps) String() string {
+	switch e {
+	case BatchnormOpsBn:
+		return "BatchnormOpsBn"
+	case BatchnormOpsBnActivation:
+		return "BatchnormOpsBnActivation"
+	case BatchnormOpsBnAddActivation:
+		return "BatchnormOpsBnAddActivation"
+	}
+	return fmt.Sprintf("BatchNormOps(%d)", e)
+}
+
+// NormMode This enumerated type is deprecated and is currently only used by deprecated APIs.
+type NormMode int32
+
+const (
+	// NormPerActivation: Normalization is performed per-activation. This mode is intended to be used after the non-convolutional network layers. In this mode, the tensor dimensions of normBias and normScale and the parameters used in the cudnnNormalization* functions are 1xCxHxW.
+	NormPerActivation NormMode = 0
+	// NormPerChannel: Normalization is performed per-channel over N+spatial dimensions. This mode is intended for use after convolutional layers (where spatial invariance is desired). In this mode, the normBias and normScale tensor dimensions are 1xCx1x1.
+	NormPerChannel NormMode = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e NormMode) String() string {
+	switch e {
+	case NormPerActivation:
+		return "NormPerActivation"
+	case NormPerChannel:
+		return "NormPerChannel"
+	}
+	return fmt.Sprintf("NormMode(%d)", e)
+}
+
+// NormAlgo This enumerated type is deprecated and is currently only used by deprecated APIs.
+type NormAlgo int32
+
+const (
+	NormAlgoStandard NormAlgo = 0 // Standard normalization is performed.
+	// NormAlgoPersist: This mode is similar to [NormAlgoStandard], however it only supports [NormPerChannel] and can be faster for some tasks. An optimized path may be selected for [DataFloat] and [DataHalf] types, compute capability 6.0 or higher for the following two normalization API calls: [Handle.NormalizationForwardTraining] and [Handle.NormalizationBackward]. In the case of [Handle.NormalizationBackward], the savedMean and savedInvVariance arguments should not be NULL. NCHW Mode Only This mode may use a scaled atomic integer reduction that is deterministic but imposes more restrictions on the input data range. When a numerical overflow occurs, the algorithm may produce NaN-s or Inf-s (infinity) in output buffers. When Inf-s/NaN-s are present in the input data, the output in this mode is the same as from a pure floating-point implementation. For finite but very large input values, the algorithm may encounter overflows more frequently due to a lower dynamic range and emit Inf-s/NaN-s while [NormAlgoStandard] will produce finite results. The user can invoke [Handle.QueryRuntimeError] to check if a numerical overflow occurred in this mode.
+	NormAlgoPersist NormAlgo = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e NormAlgo) String() string {
+	switch e {
+	case NormAlgoStandard:
+		return "NormAlgoStandard"
+	case NormAlgoPersist:
+		return "NormAlgoPersist"
+	}
+	return fmt.Sprintf("NormAlgo(%d)", e)
+}
+
+// NormOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+type NormOps int32
+
+const (
+	NormOpsNorm              NormOps = 0 // do normalization only
+	NormOpsNormActivation    NormOps = 1 // do Norm, then activation
+	NormOpsNormAddActivation NormOps = 2 // do Norm, then elemWiseAdd, then activation
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e NormOps) String() string {
+	switch e {
+	case NormOpsNorm:
+		return "NormOpsNorm"
+	case NormOpsNormActivation:
+		return "NormOpsNormActivation"
+	case NormOpsNormAddActivation:
+		return "NormOpsNormAddActivation"
+	}
+	return fmt.Sprintf("NormOps(%d)", e)
+}
+
+// SamplerType [SamplerType] is an enumerated type passed to [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] to select the sampler type to be used by [Handle.SpatialTfSamplerForward] and [Handle.SpatialTfSamplerBackward].
+type SamplerType int32
+
+const (
+	SamplerBilinear SamplerType = 0 // Selects the bilinear sampler.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SamplerType) String() string {
+	switch e {
+	case SamplerBilinear:
+		return "SamplerBilinear"
+	}
+	return fmt.Sprintf("SamplerType(%d)", e)
+}
+
+// ConvolutionFwdAlgo [ConvolutionFwdAlgo] is an enumerated type that exposes the different algorithms available to execute the forward convolution operation.
+type ConvolutionFwdAlgo int32
+
+const (
+	// ConvolutionFwdAlgoImplicitGemm: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data.
+	ConvolutionFwdAlgoImplicitGemm        ConvolutionFwdAlgo = 0
+	ConvolutionFwdAlgoImplicitPrecompGemm ConvolutionFwdAlgo = 1
+	// ConvolutionFwdAlgoGemm: This algorithm expresses convolution as an explicit matrix product. A significant memory workspace is needed to store the matrix that holds the input tensor data.
+	ConvolutionFwdAlgoGemm ConvolutionFwdAlgo = 2
+	// ConvolutionFwdAlgoDirect: This algorithm expresses the convolution as a direct convolution (for example, without implicitly or explicitly doing a matrix multiplication).
+	ConvolutionFwdAlgoDirect ConvolutionFwdAlgo = 3
+	// ConvolutionFwdAlgoFft: This algorithm uses the Fast-Fourier Transform approach to compute the convolution. A significant memory workspace is needed to store intermediate results.
+	ConvolutionFwdAlgoFft ConvolutionFwdAlgo = 4
+	// ConvolutionFwdAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach but splits the inputs into tiles. A significant memory workspace is needed to store intermediate results but less than [ConvolutionFwdAlgoFft] for large size images.
+	ConvolutionFwdAlgoFftTiling ConvolutionFwdAlgo = 5
+	// ConvolutionFwdAlgoWinograd: This algorithm uses the Winograd Transform approach to compute the convolution. A reasonably sized workspace is needed to store intermediate results.
+	ConvolutionFwdAlgoWinograd ConvolutionFwdAlgo = 6
+	// ConvolutionFwdAlgoWinogradNonfused: This algorithm uses the Winograd Transform approach to compute the convolution. A significant workspace may be needed to store intermediate results.
+	ConvolutionFwdAlgoWinogradNonfused ConvolutionFwdAlgo = 7
+	ConvolutionFwdAlgoCount            ConvolutionFwdAlgo = 8
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ConvolutionFwdAlgo) String() string {
+	switch e {
+	case ConvolutionFwdAlgoImplicitGemm:
+		return "ConvolutionFwdAlgoImplicitGemm"
+	case ConvolutionFwdAlgoImplicitPrecompGemm:
+		return "ConvolutionFwdAlgoImplicitPrecompGemm"
+	case ConvolutionFwdAlgoGemm:
+		return "ConvolutionFwdAlgoGemm"
+	case ConvolutionFwdAlgoDirect:
+		return "ConvolutionFwdAlgoDirect"
+	case ConvolutionFwdAlgoFft:
+		return "ConvolutionFwdAlgoFft"
+	case ConvolutionFwdAlgoFftTiling:
+		return "ConvolutionFwdAlgoFftTiling"
+	case ConvolutionFwdAlgoWinograd:
+		return "ConvolutionFwdAlgoWinograd"
+	case ConvolutionFwdAlgoWinogradNonfused:
+		return "ConvolutionFwdAlgoWinogradNonfused"
+	case ConvolutionFwdAlgoCount:
+		return "ConvolutionFwdAlgoCount"
+	}
+	return fmt.Sprintf("ConvolutionFwdAlgo(%d)", e)
+}
+
+// ConvolutionBwdFilterAlgo [ConvolutionBwdFilterAlgo] is an enumerated type that exposes the different algorithms available to execute the backward filter convolution operation.
+type ConvolutionBwdFilterAlgo int32
+
+const (
+	// ConvolutionBwdFilterAlgo0: This algorithm expresses the convolution as a sum of matrix products without actually explicitly forming the matrix that holds the input tensor data. The sum is done using the atomic add operation, thus the results are non-deterministic.
+	ConvolutionBwdFilterAlgo0 ConvolutionBwdFilterAlgo = 0
+	// ConvolutionBwdFilterAlgo1: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data. The results are deterministic.
+	ConvolutionBwdFilterAlgo1 ConvolutionBwdFilterAlgo = 1
+	// ConvolutionBwdFilterAlgoFft: This algorithm uses the Fast-Fourier Transform approach to compute the convolution. A significant workspace is needed to store intermediate results. The results are deterministic.
+	ConvolutionBwdFilterAlgoFft ConvolutionBwdFilterAlgo = 2
+	// ConvolutionBwdFilterAlgo3: This algorithm is similar to [ConvolutionBwdFilterAlgo0] but uses some small workspace to precompute some indices. The results are also non-deterministic.
+	ConvolutionBwdFilterAlgo3                ConvolutionBwdFilterAlgo = 3
+	ConvolutionBwdFilterAlgoWinograd         ConvolutionBwdFilterAlgo = 4 // not implemented
+	ConvolutionBwdFilterAlgoWinogradNonfused ConvolutionBwdFilterAlgo = 5
+	// ConvolutionBwdFilterAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach to compute the convolution but splits the input tensor into tiles. A significant workspace may be needed to store intermediate results. The results are deterministic.
+	ConvolutionBwdFilterAlgoFftTiling ConvolutionBwdFilterAlgo = 6
+	ConvolutionBwdFilterAlgoCount     ConvolutionBwdFilterAlgo = 7
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ConvolutionBwdFilterAlgo) String() string {
+	switch e {
+	case ConvolutionBwdFilterAlgo0:
+		return "ConvolutionBwdFilterAlgo0"
+	case ConvolutionBwdFilterAlgo1:
+		return "ConvolutionBwdFilterAlgo1"
+	case ConvolutionBwdFilterAlgoFft:
+		return "ConvolutionBwdFilterAlgoFft"
+	case ConvolutionBwdFilterAlgo3:
+		return "ConvolutionBwdFilterAlgo3"
+	case ConvolutionBwdFilterAlgoWinograd:
+		return "ConvolutionBwdFilterAlgoWinograd"
+	case ConvolutionBwdFilterAlgoWinogradNonfused:
+		return "ConvolutionBwdFilterAlgoWinogradNonfused"
+	case ConvolutionBwdFilterAlgoFftTiling:
+		return "ConvolutionBwdFilterAlgoFftTiling"
+	case ConvolutionBwdFilterAlgoCount:
+		return "ConvolutionBwdFilterAlgoCount"
+	}
+	return fmt.Sprintf("ConvolutionBwdFilterAlgo(%d)", e)
+}
+
+// ConvolutionBwdDataAlgo [ConvolutionBwdDataAlgo] is an enumerated type that exposes the different algorithms available to execute the backward data convolution operation.
+type ConvolutionBwdDataAlgo int32
+
+const (
+	// ConvolutionBwdDataAlgo0: This algorithm expresses the convolution as a sum of matrix products without actually explicitly forming the matrix that holds the input tensor data. The sum is done using the atomic add operation, thus the results are non-deterministic.
+	ConvolutionBwdDataAlgo0 ConvolutionBwdDataAlgo = 0
+	// ConvolutionBwdDataAlgo1: This algorithm expresses the convolution as a matrix product without actually explicitly forming the matrix that holds the input tensor data. The results are deterministic.
+	ConvolutionBwdDataAlgo1 ConvolutionBwdDataAlgo = 1
+	// ConvolutionBwdDataAlgoFft: This algorithm uses a Fast-Fourier Transform approach to compute the convolution. A significant memory workspace is needed to store intermediate results. The results are deterministic.
+	ConvolutionBwdDataAlgoFft ConvolutionBwdDataAlgo = 2
+	// ConvolutionBwdDataAlgoFftTiling: This algorithm uses the Fast-Fourier Transform approach but splits the inputs into tiles. A significant memory workspace is needed to store intermediate results but less than [ConvolutionBwdDataAlgoFft] for large size images. The results are deterministic.
+	ConvolutionBwdDataAlgoFftTiling ConvolutionBwdDataAlgo = 3
+	// ConvolutionBwdDataAlgoWinograd: This algorithm uses the Winograd Transform approach to compute the convolution. A reasonably sized workspace is needed to store intermediate results. The results are deterministic.
+	ConvolutionBwdDataAlgoWinograd ConvolutionBwdDataAlgo = 4
+	// ConvolutionBwdDataAlgoWinogradNonfused: This algorithm uses the Winograd Transform approach to compute the convolution. A significant workspace may be needed to store intermediate results. The results are deterministic.
+	ConvolutionBwdDataAlgoWinogradNonfused ConvolutionBwdDataAlgo = 5
+	ConvolutionBwdDataAlgoCount            ConvolutionBwdDataAlgo = 6
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ConvolutionBwdDataAlgo) String() string {
+	switch e {
+	case ConvolutionBwdDataAlgo0:
+		return "ConvolutionBwdDataAlgo0"
+	case ConvolutionBwdDataAlgo1:
+		return "ConvolutionBwdDataAlgo1"
+	case ConvolutionBwdDataAlgoFft:
+		return "ConvolutionBwdDataAlgoFft"
+	case ConvolutionBwdDataAlgoFftTiling:
+		return "ConvolutionBwdDataAlgoFftTiling"
+	case ConvolutionBwdDataAlgoWinograd:
+		return "ConvolutionBwdDataAlgoWinograd"
+	case ConvolutionBwdDataAlgoWinogradNonfused:
+		return "ConvolutionBwdDataAlgoWinogradNonfused"
+	case ConvolutionBwdDataAlgoCount:
+		return "ConvolutionBwdDataAlgoCount"
+	}
+	return fmt.Sprintf("ConvolutionBwdDataAlgo(%d)", e)
+}
+
+// CTCLossAlgo [CTCLossAlgo] is an enumerated type that exposes the different algorithms available to execute the CTC loss operation.
+type CTCLossAlgo int32
+
+const (
+	CtcLossAlgoDeterministic    CTCLossAlgo = 0 // Results are guaranteed to be reproducible.
+	CtcLossAlgoNonDeterministic CTCLossAlgo = 1 // Results are not guaranteed to be reproducible.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CTCLossAlgo) String() string {
+	switch e {
+	case CtcLossAlgoDeterministic:
+		return "CtcLossAlgoDeterministic"
+	case CtcLossAlgoNonDeterministic:
+		return "CtcLossAlgoNonDeterministic"
+	}
+	return fmt.Sprintf("CTCLossAlgo(%d)", e)
+}
+
+// RNNAlgo [RNNAlgo] is an enumerated type used to specify the algorithm.
+type RNNAlgo int32
+
+const (
+	// RnnAlgoStandard: Each RNN layer is executed as a sequence of operations. This algorithm is expected to have robust performance across a wide range of network parameters.
+	RnnAlgoStandard RNNAlgo = 0
+	// RnnAlgoPersistStatic: The recurrent parts of the network are executed using a persistent kernel approach. This method is expected to be fast when the first dimension of the input tensor is small (meaning, a small minibatch). [RnnAlgoPersistStatic] is only supported on devices with compute capability >= 6.0.
+	RnnAlgoPersistStatic RNNAlgo = 1
+	// RnnAlgoPersistDynamic: The recurrent parts of the network are executed using a persistent kernel approach. This method is expected to be fast when the first dimension of the input tensor is small (meaning, a small minibatch). When using [RnnAlgoPersistDynamic] persistent kernels are prepared at runtime and are able to optimize using the specific parameters of the network and active GPU. As such, when using [RnnAlgoPersistDynamic] a one-time plan preparation stage must be executed. These plans can then be reused in repeated calls with the same model parameters. The limits on the maximum number of hidden units supported when using [RnnAlgoPersistDynamic] are significantly higher than the limits when using [RnnAlgoPersistStatic], however throughput is likely to significantly reduce when exceeding the maximums supported by [RnnAlgoPersistStatic]. In this regime, this method will still outperform [RnnAlgoStandard] for some cases. [RnnAlgoPersistDynamic] is only supported on devices with compute capability >= 6.0 on Linux machines.
+	RnnAlgoPersistDynamic      RNNAlgo = 2
+	RnnAlgoPersistStaticSmallH RNNAlgo = 3
+	RnnAlgoCount               RNNAlgo = 4
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNAlgo) String() string {
+	switch e {
+	case RnnAlgoStandard:
+		return "RnnAlgoStandard"
+	case RnnAlgoPersistStatic:
+		return "RnnAlgoPersistStatic"
+	case RnnAlgoPersistDynamic:
+		return "RnnAlgoPersistDynamic"
+	case RnnAlgoPersistStaticSmallH:
+		return "RnnAlgoPersistStaticSmallH"
+	case RnnAlgoCount:
+		return "RnnAlgoCount"
+	}
+	return fmt.Sprintf("RNNAlgo(%d)", e)
+}
+
+// ForwardMode [ForwardMode] is an enumerated type to specify inference or training mode in RNN API.
+type ForwardMode int32
+
+const (
+	FwdModeInference ForwardMode = 0 // Selects the inference mode.
+	FwdModeTraining  ForwardMode = 1 // Selects the training mode.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e ForwardMode) String() string {
+	switch e {
+	case FwdModeInference:
+		return "FwdModeInference"
+	case FwdModeTraining:
+		return "FwdModeTraining"
+	}
+	return fmt.Sprintf("ForwardMode(%d)", e)
+}
+
+// RNNMode [RNNMode] is an enumerated type used to specify the type of network.
+type RNNMode int32
+
+const (
+	RnnRelu RNNMode = 0 // basic RNN cell type with ReLu activation
+	RnnTanh RNNMode = 1 // basic RNN cell type with tanh activation
+	Lstm    RNNMode = 2 // LSTM with optional recurrent projection and clipping
+	// Gru: Using h' = tanh(r * Uh(t-1) + Wx) and h = (1 - z) * h' + z * h(t-1);
+	Gru RNNMode = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNMode) String() string {
+	switch e {
+	case RnnRelu:
+		return "RnnRelu"
+	case RnnTanh:
+		return "RnnTanh"
+	case Lstm:
+		return "Lstm"
+	case Gru:
+		return "Gru"
+	}
+	return fmt.Sprintf("RNNMode(%d)", e)
+}
+
+// RNNBiasMode [RNNBiasMode] is an enumerated type used to specify the number of bias vectors for RNN functions.
+type RNNBiasMode int32
+
+const (
+	RnnNoBias        RNNBiasMode = 0 // rnn cell formulas do not use biases
+	RnnSingleInpBias RNNBiasMode = 1 // rnn cell formulas use one input bias in input GEMM
+	RnnDoubleBias    RNNBiasMode = 2 // default, rnn cell formulas use two bias vectors
+	RnnSingleRecBias RNNBiasMode = 3 // rnn cell formulas use one recurrent bias in recurrent GEMM
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNBiasMode) String() string {
+	switch e {
+	case RnnNoBias:
+		return "RnnNoBias"
+	case RnnSingleInpBias:
+		return "RnnSingleInpBias"
+	case RnnDoubleBias:
+		return "RnnDoubleBias"
+	case RnnSingleRecBias:
+		return "RnnSingleRecBias"
+	}
+	return fmt.Sprintf("RNNBiasMode(%d)", e)
+}
+
+// DirectionMode [DirectionMode] is an enumerated type used to specify the recurrence pattern.
+type DirectionMode int32
+
+const (
+	Unidirectional DirectionMode = 0 // single direction network
+	Bidirectional  DirectionMode = 1 // output concatination at each layer
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DirectionMode) String() string {
+	switch e {
+	case Unidirectional:
+		return "Unidirectional"
+	case Bidirectional:
+		return "Bidirectional"
+	}
+	return fmt.Sprintf("DirectionMode(%d)", e)
+}
+
+// RNNInputMode [RNNInputMode] is an enumerated type used to specify the behavior of the first layer.
+type RNNInputMode int32
+
+const (
+	LinearInput RNNInputMode = 0 // adjustable weight matrix in first layer input GEMM
+	SkipInput   RNNInputMode = 1 // fixed identity matrix in the first layer input GEMM
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNInputMode) String() string {
+	switch e {
+	case LinearInput:
+		return "LinearInput"
+	case SkipInput:
+		return "SkipInput"
+	}
+	return fmt.Sprintf("RNNInputMode(%d)", e)
+}
+
+// RNNClipMode [RNNClipMode] is an enumerated type used to select the LSTM cell clipping mode.
+type RNNClipMode int32
+
+const (
+	RnnClipNone   RNNClipMode = 0 // disables LSTM cell clipping
+	RnnClipMinmax RNNClipMode = 1 // enables LSTM cell clipping
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNClipMode) String() string {
+	switch e {
+	case RnnClipNone:
+		return "RnnClipNone"
+	case RnnClipMinmax:
+		return "RnnClipMinmax"
+	}
+	return fmt.Sprintf("RNNClipMode(%d)", e)
+}
+
+// RNNDataLayout [RNNDataLayout] is an enumerated type used to select the RNN data layout.
+type RNNDataLayout int32
+
+const (
+	RnnDataLayoutSeqMajorUnpacked   RNNDataLayout = 0 // padded, outer stride from one time-step to the next
+	RnnDataLayoutSeqMajorPacked     RNNDataLayout = 1 // sequence length sorted and packed as in basic RNN api
+	RnnDataLayoutBatchMajorUnpacked RNNDataLayout = 2 // padded, outer stride from one batch to the next
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e RNNDataLayout) String() string {
+	switch e {
+	case RnnDataLayoutSeqMajorUnpacked:
+		return "RnnDataLayoutSeqMajorUnpacked"
+	case RnnDataLayoutSeqMajorPacked:
+		return "RnnDataLayoutSeqMajorPacked"
+	case RnnDataLayoutBatchMajorUnpacked:
+		return "RnnDataLayoutBatchMajorUnpacked"
+	}
+	return fmt.Sprintf("RNNDataLayout(%d)", e)
+}
+
+// SeqDataAxis [SeqDataAxis] is an enumerated type that indexes active dimensions in the dimA[] argument that is passed to the [SeqDataDescriptor.Set] function to configure the sequence data descriptor of type [SeqDataDescriptor]. [SeqDataAxis] constants are also used in the axis[] argument of the [SeqDataDescriptor.Set] call to define the layout of the sequence data buffer in memory. Refer to [SeqDataDescriptor.Set] for a detailed description on how to use the [SeqDataAxis] enumerated type. The CUDNN_SEQDATA_DIM_COUNT macro defines the number of constants in the [SeqDataAxis] enumerated type. This value is currently set to 4.
+type SeqDataAxis int32
+
+const (
+	// SeqdataTimeDim: Identifies the TIME (sequence length) dimension or specifies the TIME in the data layout.
+	SeqdataTimeDim SeqDataAxis = 0
+	// SeqdataBatchDim: Identifies the BATCH dimension or specifies the BATCH in the data layout.
+	SeqdataBatchDim SeqDataAxis = 1
+	// SeqdataBeamDim: Identifies the BEAM dimension or specifies the BEAM in the data layout.
+	SeqdataBeamDim SeqDataAxis = 2
+	// SeqdataVectDim: Identifies the VECT (vector) dimension or specifies the VECT in the data layout.
+	SeqdataVectDim SeqDataAxis = 3
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e SeqDataAxis) String() string {
+	switch e {
+	case SeqdataTimeDim:
+		return "SeqdataTimeDim"
+	case SeqdataBatchDim:
+		return "SeqdataBatchDim"
+	case SeqdataBeamDim:
+		return "SeqdataBeamDim"
+	case SeqdataVectDim:
+		return "SeqdataVectDim"
+	}
+	return fmt.Sprintf("SeqDataAxis(%d)", e)
+}
+
+// MultiHeadAttnWeightKind [MultiHeadAttnWeightKind] is an enumerated type that specifies a group of weights or biases in the [Handle.GetMultiHeadAttnWeights] function.
+type MultiHeadAttnWeightKind int32
+
+const (
+	MhAttnQWeights MultiHeadAttnWeightKind = 0 // input projection weights for 'queries'
+	MhAttnKWeights MultiHeadAttnWeightKind = 1 // input projection weights for 'keys'
+	MhAttnVWeights MultiHeadAttnWeightKind = 2 // input projection weights for 'values'
+	MhAttnOWeights MultiHeadAttnWeightKind = 3 // output projection weights
+	MhAttnQBiases  MultiHeadAttnWeightKind = 4 // input projection bias tensor for 'queries'
+	MhAttnKBiases  MultiHeadAttnWeightKind = 5 // input projection bias for 'keys'
+	MhAttnVBiases  MultiHeadAttnWeightKind = 6 // input projection bias for 'values'
+	MhAttnOBiases  MultiHeadAttnWeightKind = 7 // output projection biases
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e MultiHeadAttnWeightKind) String() string {
+	switch e {
+	case MhAttnQWeights:
+		return "MhAttnQWeights"
+	case MhAttnKWeights:
+		return "MhAttnKWeights"
+	case MhAttnVWeights:
+		return "MhAttnVWeights"
+	case MhAttnOWeights:
+		return "MhAttnOWeights"
+	case MhAttnQBiases:
+		return "MhAttnQBiases"
+	case MhAttnKBiases:
+		return "MhAttnKBiases"
+	case MhAttnVBiases:
+		return "MhAttnVBiases"
+	case MhAttnOBiases:
+		return "MhAttnOBiases"
+	}
+	return fmt.Sprintf("MultiHeadAttnWeightKind(%d)", e)
+}
+
+// WgradMode [WgradMode] is an enumerated type that selects how buffers holding gradients of the loss function, computed with respect to trainable parameters, are updated. Currently, this type is used by the [Handle.MultiHeadAttnBackwardWeights] and [Handle.RNNBackwardWeights] functions only.
+type WgradMode int32
+
+const (
+	WgradModeAdd WgradMode = 0 // add partial gradients to wgrad output buffers
+	WgradModeSet WgradMode = 1 // write partial gradients to wgrad output buffers
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e WgradMode) String() string {
+	switch e {
+	case WgradModeAdd:
+		return "WgradModeAdd"
+	case WgradModeSet:
+		return "WgradModeSet"
+	}
+	return fmt.Sprintf("WgradMode(%d)", e)
+}
+
+// LossNormalizationMode [LossNormalizationMode] is an enumerated type that controls the input normalization mode for a loss function.
+type LossNormalizationMode int32
+
+const (
+	// LossNormalizationNone: The input probs of the [Handle.CTCLoss] function is expected to be the normalized probability, and the output gradients is the gradient of loss with respect to the unnormalized probability.
+	LossNormalizationNone LossNormalizationMode = 0
+	// LossNormalizationSoftmax: The input probs of the [Handle.CTCLoss] function is expected to be the unnormalized activation from the previous layer, and the output gradients is the gradient with respect to the activation. Internally the probability is computed by softmax normalization.
+	LossNormalizationSoftmax LossNormalizationMode = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e LossNormalizationMode) String() string {
+	switch e {
+	case LossNormalizationNone:
+		return "LossNormalizationNone"
+	case LossNormalizationSoftmax:
+		return "LossNormalizationSoftmax"
+	}
+	return fmt.Sprintf("LossNormalizationMode(%d)", e)
+}
+
+// FusedOps This enumerated type is deprecated and is currently only used by deprecated APIs.
+type FusedOps int32
+
+const (
+	FusedScaleBiasActivationConvBnstats   FusedOps = 0
+	FusedScaleBiasActivationWgrad         FusedOps = 1
+	FusedBnFinalizeStatisticsTraining     FusedOps = 2
+	FusedBnFinalizeStatisticsInference    FusedOps = 3
+	FusedConvScaleBiasAddActivation       FusedOps = 4
+	FusedScaleBiasAddActivationGenBitmask FusedOps = 5
+	FusedDactivationForkDbatchnorm        FusedOps = 6
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FusedOps) String() string {
+	switch e {
+	case FusedScaleBiasActivationConvBnstats:
+		return "FusedScaleBiasActivationConvBnstats"
+	case FusedScaleBiasActivationWgrad:
+		return "FusedScaleBiasActivationWgrad"
+	case FusedBnFinalizeStatisticsTraining:
+		return "FusedBnFinalizeStatisticsTraining"
+	case FusedBnFinalizeStatisticsInference:
+		return "FusedBnFinalizeStatisticsInference"
+	case FusedConvScaleBiasAddActivation:
+		return "FusedConvScaleBiasAddActivation"
+	case FusedScaleBiasAddActivationGenBitmask:
+		return "FusedScaleBiasAddActivationGenBitmask"
+	case FusedDactivationForkDbatchnorm:
+		return "FusedDactivationForkDbatchnorm"
+	}
+	return fmt.Sprintf("FusedOps(%d)", e)
+}
+
+// FusedOpsConstParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsVariantParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Forward) for [FusedOpsConstParamLabel]  For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsConstParamLabel]  Note As of cuDNN 7.6.0, if the following conditions in the table are met, then the fully fused fast path will be triggered. Otherwise, a slower partially fused path will be triggered. Conditions for Fully Fused Fast Path (Backward) for [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsConstParamLabel]  For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsConstParamLabel]  The following operation performs the computation, where ∗ denotes convolution operator: y=α1(w∗x)+α2z+b For the attribute CUDNN_FUSED_CONVOLUTION_SCALE_BIAS_ADD_RELU in [FusedOpsConstParamLabel] 
+type FusedOpsConstParamLabel int32
+
+const (
+	ParamXdesc                        FusedOpsConstParamLabel = 0
+	ParamXdataPlaceholder             FusedOpsConstParamLabel = 1
+	ParamBnMode                       FusedOpsConstParamLabel = 2
+	ParamBnEqscalebiasDesc            FusedOpsConstParamLabel = 3
+	ParamBnEqscalePlaceholder         FusedOpsConstParamLabel = 4
+	ParamBnEqbiasPlaceholder          FusedOpsConstParamLabel = 5
+	ParamActivationDesc               FusedOpsConstParamLabel = 6
+	ParamConvDesc                     FusedOpsConstParamLabel = 7
+	ParamWdesc                        FusedOpsConstParamLabel = 8
+	ParamWdataPlaceholder             FusedOpsConstParamLabel = 9
+	ParamDwdesc                       FusedOpsConstParamLabel = 10
+	ParamDwdataPlaceholder            FusedOpsConstParamLabel = 11
+	ParamYdesc                        FusedOpsConstParamLabel = 12
+	ParamYdataPlaceholder             FusedOpsConstParamLabel = 13
+	ParamDydesc                       FusedOpsConstParamLabel = 14
+	ParamDydataPlaceholder            FusedOpsConstParamLabel = 15
+	ParamYstatsDesc                   FusedOpsConstParamLabel = 16
+	ParamYsumPlaceholder              FusedOpsConstParamLabel = 17
+	ParamYsqsumPlaceholder            FusedOpsConstParamLabel = 18
+	ParamBnScalebiasMeanvarDesc       FusedOpsConstParamLabel = 19
+	ParamBnScalePlaceholder           FusedOpsConstParamLabel = 20
+	ParamBnBiasPlaceholder            FusedOpsConstParamLabel = 21
+	ParamBnSavedMeanPlaceholder       FusedOpsConstParamLabel = 22
+	ParamBnSavedInvstdPlaceholder     FusedOpsConstParamLabel = 23
+	ParamBnRunningMeanPlaceholder     FusedOpsConstParamLabel = 24
+	ParamBnRunningVarPlaceholder      FusedOpsConstParamLabel = 25
+	ParamZdesc                        FusedOpsConstParamLabel = 26
+	ParamZdataPlaceholder             FusedOpsConstParamLabel = 27
+	ParamBnZEqscalebiasDesc           FusedOpsConstParamLabel = 28
+	ParamBnZEqscalePlaceholder        FusedOpsConstParamLabel = 29
+	ParamBnZEqbiasPlaceholder         FusedOpsConstParamLabel = 30
+	ParamActivationBitmaskDesc        FusedOpsConstParamLabel = 31
+	ParamActivationBitmaskPlaceholder FusedOpsConstParamLabel = 32
+	ParamDxdesc                       FusedOpsConstParamLabel = 33
+	ParamDxdataPlaceholder            FusedOpsConstParamLabel = 34
+	ParamDzdesc                       FusedOpsConstParamLabel = 35
+	ParamDzdataPlaceholder            FusedOpsConstParamLabel = 36
+	ParamBnDscalePlaceholder          FusedOpsConstParamLabel = 37
+	ParamBnDbiasPlaceholder           FusedOpsConstParamLabel = 38
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FusedOpsConstParamLabel) String() string {
+	switch e {
+	case ParamXdesc:
+		return "ParamXdesc"
+	case ParamXdataPlaceholder:
+		return "ParamXdataPlaceholder"
+	case ParamBnMode:
+		return "ParamBnMode"
+	case ParamBnEqscalebiasDesc:
+		return "ParamBnEqscalebiasDesc"
+	case ParamBnEqscalePlaceholder:
+		return "ParamBnEqscalePlaceholder"
+	case ParamBnEqbiasPlaceholder:
+		return "ParamBnEqbiasPlaceholder"
+	case ParamActivationDesc:
+		return "ParamActivationDesc"
+	case ParamConvDesc:
+		return "ParamConvDesc"
+	case ParamWdesc:
+		return "ParamWdesc"
+	case ParamWdataPlaceholder:
+		return "ParamWdataPlaceholder"
+	case ParamDwdesc:
+		return "ParamDwdesc"
+	case ParamDwdataPlaceholder:
+		return "ParamDwdataPlaceholder"
+	case ParamYdesc:
+		return "ParamYdesc"
+	case ParamYdataPlaceholder:
+		return "ParamYdataPlaceholder"
+	case ParamDydesc:
+		return "ParamDydesc"
+	case ParamDydataPlaceholder:
+		return "ParamDydataPlaceholder"
+	case ParamYstatsDesc:
+		return "ParamYstatsDesc"
+	case ParamYsumPlaceholder:
+		return "ParamYsumPlaceholder"
+	case ParamYsqsumPlaceholder:
+		return "ParamYsqsumPlaceholder"
+	case ParamBnScalebiasMeanvarDesc:
+		return "ParamBnScalebiasMeanvarDesc"
+	case ParamBnScalePlaceholder:
+		return "ParamBnScalePlaceholder"
+	case ParamBnBiasPlaceholder:
+		return "ParamBnBiasPlaceholder"
+	case ParamBnSavedMeanPlaceholder:
+		return "ParamBnSavedMeanPlaceholder"
+	case ParamBnSavedInvstdPlaceholder:
+		return "ParamBnSavedInvstdPlaceholder"
+	case ParamBnRunningMeanPlaceholder:
+		return "ParamBnRunningMeanPlaceholder"
+	case ParamBnRunningVarPlaceholder:
+		return "ParamBnRunningVarPlaceholder"
+	case ParamZdesc:
+		return "ParamZdesc"
+	case ParamZdataPlaceholder:
+		return "ParamZdataPlaceholder"
+	case ParamBnZEqscalebiasDesc:
+		return "ParamBnZEqscalebiasDesc"
+	case ParamBnZEqscalePlaceholder:
+		return "ParamBnZEqscalePlaceholder"
+	case ParamBnZEqbiasPlaceholder:
+		return "ParamBnZEqbiasPlaceholder"
+	case ParamActivationBitmaskDesc:
+		return "ParamActivationBitmaskDesc"
+	case ParamActivationBitmaskPlaceholder:
+		return "ParamActivationBitmaskPlaceholder"
+	case ParamDxdesc:
+		return "ParamDxdesc"
+	case ParamDxdataPlaceholder:
+		return "ParamDxdataPlaceholder"
+	case ParamDzdesc:
+		return "ParamDzdesc"
+	case ParamDzdataPlaceholder:
+		return "ParamDzdataPlaceholder"
+	case ParamBnDscalePlaceholder:
+		return "ParamBnDscalePlaceholder"
+	case ParamBnDbiasPlaceholder:
+		return "ParamBnDbiasPlaceholder"
+	}
+	return fmt.Sprintf("FusedOpsConstParamLabel(%d)", e)
+}
+
+// FusedOpsPointerPlaceHolder This enumerated type is deprecated and is currently only used by deprecated APIs.
+type FusedOpsPointerPlaceHolder int32
+
+const (
+	PtrNull        FusedOpsPointerPlaceHolder = 0
+	PtrElemAligned FusedOpsPointerPlaceHolder = 1
+	Ptr16BAligned  FusedOpsPointerPlaceHolder = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FusedOpsPointerPlaceHolder) String() string {
+	switch e {
+	case PtrNull:
+		return "PtrNull"
+	case PtrElemAligned:
+		return "PtrElemAligned"
+	case Ptr16BAligned:
+		return "Ptr16BAligned"
+	}
+	return fmt.Sprintf("FusedOpsPointerPlaceHolder(%d)", e)
+}
+
+// FusedOpsVariantParamLabel For the Attribute [FusedScaleBiasActivationConvBnstats] in [FusedOpsConstParamLabel]  Note For the attribute [FusedScaleBiasActivationWgrad] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsTraining] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note For the attribute [FusedBnFinalizeStatisticsInference] in [FusedOpsVariantParamLabel]  Note
+type FusedOpsVariantParamLabel int32
+
+const (
+	PtrXdata                        FusedOpsVariantParamLabel = 0
+	PtrBnEqscale                    FusedOpsVariantParamLabel = 1
+	PtrBnEqbias                     FusedOpsVariantParamLabel = 2
+	PtrWdata                        FusedOpsVariantParamLabel = 3
+	PtrDwdata                       FusedOpsVariantParamLabel = 4
+	PtrYdata                        FusedOpsVariantParamLabel = 5
+	PtrDydata                       FusedOpsVariantParamLabel = 6
+	PtrYsum                         FusedOpsVariantParamLabel = 7
+	PtrYsqsum                       FusedOpsVariantParamLabel = 8
+	PtrWorkspace                    FusedOpsVariantParamLabel = 9
+	PtrBnScale                      FusedOpsVariantParamLabel = 10
+	PtrBnBias                       FusedOpsVariantParamLabel = 11
+	PtrBnSavedMean                  FusedOpsVariantParamLabel = 12
+	PtrBnSavedInvstd                FusedOpsVariantParamLabel = 13
+	PtrBnRunningMean                FusedOpsVariantParamLabel = 14
+	PtrBnRunningVar                 FusedOpsVariantParamLabel = 15
+	PtrZdata                        FusedOpsVariantParamLabel = 16
+	PtrBnZEqscale                   FusedOpsVariantParamLabel = 17
+	PtrBnZEqbias                    FusedOpsVariantParamLabel = 18
+	PtrActivationBitmask            FusedOpsVariantParamLabel = 19
+	PtrDxdata                       FusedOpsVariantParamLabel = 20
+	PtrDzdata                       FusedOpsVariantParamLabel = 21
+	PtrBnDscale                     FusedOpsVariantParamLabel = 22
+	PtrBnDbias                      FusedOpsVariantParamLabel = 23
+	ScalarSizeTWorkspaceSizeInBytes FusedOpsVariantParamLabel = 100
+	ScalarInt64TBnAccumulationCount FusedOpsVariantParamLabel = 101
+	ScalarDoubleBnExpAvgFactor      FusedOpsVariantParamLabel = 102
+	ScalarDoubleBnEpsilon           FusedOpsVariantParamLabel = 103
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e FusedOpsVariantParamLabel) String() string {
+	switch e {
+	case PtrXdata:
+		return "PtrXdata"
+	case PtrBnEqscale:
+		return "PtrBnEqscale"
+	case PtrBnEqbias:
+		return "PtrBnEqbias"
+	case PtrWdata:
+		return "PtrWdata"
+	case PtrDwdata:
+		return "PtrDwdata"
+	case PtrYdata:
+		return "PtrYdata"
+	case PtrDydata:
+		return "PtrDydata"
+	case PtrYsum:
+		return "PtrYsum"
+	case PtrYsqsum:
+		return "PtrYsqsum"
+	case PtrWorkspace:
+		return "PtrWorkspace"
+	case PtrBnScale:
+		return "PtrBnScale"
+	case PtrBnBias:
+		return "PtrBnBias"
+	case PtrBnSavedMean:
+		return "PtrBnSavedMean"
+	case PtrBnSavedInvstd:
+		return "PtrBnSavedInvstd"
+	case PtrBnRunningMean:
+		return "PtrBnRunningMean"
+	case PtrBnRunningVar:
+		return "PtrBnRunningVar"
+	case PtrZdata:
+		return "PtrZdata"
+	case PtrBnZEqscale:
+		return "PtrBnZEqscale"
+	case PtrBnZEqbias:
+		return "PtrBnZEqbias"
+	case PtrActivationBitmask:
+		return "PtrActivationBitmask"
+	case PtrDxdata:
+		return "PtrDxdata"
+	case PtrDzdata:
+		return "PtrDzdata"
+	case PtrBnDscale:
+		return "PtrBnDscale"
+	case PtrBnDbias:
+		return "PtrBnDbias"
+	case ScalarSizeTWorkspaceSizeInBytes:
+		return "ScalarSizeTWorkspaceSizeInBytes"
+	case ScalarInt64TBnAccumulationCount:
+		return "ScalarInt64TBnAccumulationCount"
+	case ScalarDoubleBnExpAvgFactor:
+		return "ScalarDoubleBnExpAvgFactor"
+	case ScalarDoubleBnEpsilon:
+		return "ScalarDoubleBnEpsilon"
+	}
+	return fmt.Sprintf("FusedOpsVariantParamLabel(%d)", e)
 }

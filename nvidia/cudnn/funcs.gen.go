@@ -8,10 +8,6 @@ import (
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
-	fnGetVersion                                          func() uint
-	fnGetMaxDeviceVersion                                 func() uint
-	fnGetCudartVersion                                    func() uint
-	fnGetLastErrorString                                  func(*byte, uint)
 	fnactivationBackward                                  func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnactivationForward                                   func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnaddTensor                                           func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
@@ -121,6 +117,7 @@ var (
 	fngetConvolutionNdDescriptor                          func(ConvolutionDescriptor, int32, *int32, *int32, *int32, *int32, *ConvolutionMode, *DataType) Result
 	fngetConvolutionNdForwardOutputDim                    func(ConvolutionDescriptor, TensorDescriptor, FilterDescriptor, int32, *int32) Result
 	fngetConvolutionReorderType                           func(ConvolutionDescriptor, *ReorderType) Result
+	fnGetCudartVersion                                    func() uint
 	fngetDropoutDescriptor                                func(DropoutDescriptor, Handle, *float32, *uintptr, *uint64) Result
 	fngetFilter4dDescriptor                               func(FilterDescriptor, *DataType, *TensorFormat, *int32, *int32, *int32, *int32) Result
 	fngetFilterNdDescriptor                               func(FilterDescriptor, int32, *DataType, *TensorFormat, *int32, *int32) Result
@@ -129,6 +126,8 @@ var (
 	fngetFusedOpsConstParamPackAttribute                  func(FusedOpsConstParamPack, FusedOpsConstParamLabel, uintptr, *int32) Result
 	fngetFusedOpsVariantParamPackAttribute                func(FusedOpsVariantParamPack, FusedOpsVariantParamLabel, uintptr) Result
 	fngetLRNDescriptor                                    func(LRNDescriptor, *uint32, *float64, *float64, *float64) Result
+	fnGetLastErrorString                                  func(*byte, uint)
+	fnGetMaxDeviceVersion                                 func() uint
 	fngetMultiHeadAttnBuffers                             func(Handle, AttnDescriptor, *uint, *uint, *uint) Result
 	fngetMultiHeadAttnWeights                             func(Handle, AttnDescriptor, MultiHeadAttnWeightKind, uint, uintptr, TensorDescriptor, *uintptr) Result
 	fngetNormalizationBackwardWorkspaceSize               func(Handle, NormMode, NormOps, NormAlgo, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, TensorDescriptor, ActivationDescriptor, TensorDescriptor, *uint, int32) Result
@@ -154,6 +153,7 @@ var (
 	fngetTensorNdDescriptor                               func(TensorDescriptor, int32, *DataType, *int32, *int32, *int32) Result
 	fngetTensorSizeInBytes                                func(TensorDescriptor, *uint) Result
 	fngetTensorTransformDescriptor                        func(TensorTransformDescriptor, uint32, *TensorFormat, *int32, *int32, *uint32, *FoldingDirection) Result
+	fnGetVersion                                          func() uint
 	fnGraphVersionCheck                                   func() Result
 	fnim2Col                                              func(Handle, TensorDescriptor, uintptr, FilterDescriptor, ConvolutionDescriptor, uintptr) Result
 	fninitTransformDest                                   func(TensorTransformDescriptor, TensorDescriptor, TensorDescriptor, *uint) Result
@@ -232,10 +232,10 @@ var (
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Refer to the following for some examples of non-supported configurations:
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Refer to the following for some examples of non-supported configurations:
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -256,10 +256,10 @@ func activationBackward(handle Handle, activationDesc ActivationDescriptor, alph
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -271,9 +271,9 @@ func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha
 	return toError(fnactivationForward(handle, activationDesc, alpha, xDesc, x, beta, yDesc, y))
 }
 
-// addTensor This function adds the scaled values of a bias tensor to another tensor.
+// addTensor adds the scaled values of a bias tensor to another tensor.
 //
-// Each dimension of the bias tensor A must match the corresponding dimension of the destination tensor C or must be equal to 1. In the latter case, the same value from the bias tensor for those dimensions will be used to blend into the C tensor. Only 4D and 5D tensors are supported. Beyond these dimensions, this routine is not supported.
+// This function adds the scaled values of a bias tensor to another tensor. Each dimension of the bias tensor A must match the corresponding dimension of the destination tensor C or must be equal to 1. In the latter case, the same value from the bias tensor for those dimensions will be used to blend into the C tensor. Only 4D and 5D tensors are supported. Beyond these dimensions, this routine is not supported.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - aDesc: descriptor
@@ -281,10 +281,10 @@ func activationForward(handle Handle, activationDesc ActivationDescriptor, alpha
 //   - cDesc: descriptor
 //
 // Returns:
-//   - StatusBadParam: The dimensions of the bias tensor refer to an amount of data that is incompatible with the output tensor dimensions or the dataType of the two tensor descriptors are different.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function executed successfully.
+//   - [ErrBadParam]: The dimensions of the bias tensor refer to an amount of data that is incompatible with the output tensor dimensions or the dataType of the two tensor descriptors are different.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function executed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -301,8 +301,8 @@ func addTensor(handle Handle, alpha unsafe.Pointer, aDesc TensorDescriptor, A ui
 // Each sublibrary has a version checker that checks whether its own version matches that of its dependencies.
 //
 // Returns:
-//   - StatusSublibraryVersionMismatch: The versions are inconsistent.
-//   - StatusSuccess: The version check passed.
+//   - [ErrSublibraryVersionMismatch]: The versions are inconsistent.
+//   - [Success]: The version check passed.
 //
 // Wraps cudnnAdvVersionCheck.
 func AdvVersionCheck() error {
@@ -312,14 +312,14 @@ func AdvVersionCheck() error {
 	return toError(fnAdvVersionCheck())
 }
 
-// backendCreateDescriptor This function allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
+// backendCreateDescriptor allocates memory in the descriptor for a given descriptor type and at the location pointed by the descriptor.
 //
 //   - descriptorType: Input. One among the enumerated [BackendDescriptorType]
 //
 // Returns:
-//   - StatusAllocFailed: The memory allocation failed.
-//   - StatusNotSupported: Creating a descriptor of a given type is not supported.
-//   - StatusSuccess: The creation was successful.
+//   - [ErrAllocFailed]: The memory allocation failed.
+//   - [ErrNotSupported]: Creating a descriptor of a given type is not supported.
+//   - [Success]: The creation was successful.
 //
 // Wraps cudnnBackendCreateDescriptor.
 func backendCreateDescriptor(descriptorType BackendDescriptorType) (BackendDescriptor, error) {
@@ -335,13 +335,13 @@ func backendCreateDescriptor(descriptorType BackendDescriptorType) (BackendDescr
 	return out, nil
 }
 
-// backendDestroyDescriptor This function destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptorCreateDescriptor].
+// backendDestroyDescriptor destroys instances of [BackendDescriptor] that were previously created using [NewBackendDescriptorCreateDescriptor].
 //
 //   - descriptor: Input. Instance of [BackendDescriptor] previously created by [NewBackendDescriptorCreateDescriptor]
 //
 // Returns:
-//   - StatusAllocFailed: The destruction of memory failed. Undefined Behavior The descriptor was altered between the Create and Destroy Descriptor. Undefined The value pointed by the descriptor will be Undefined after the memory is free and done.
-//   - StatusSuccess: The memory was destroyed successfully.
+//   - [ErrAllocFailed]: The destruction of memory failed. Undefined Behavior The descriptor was altered between the Create and Destroy Descriptor. Undefined The value pointed by the descriptor will be Undefined after the memory is free and done.
+//   - [Success]: The memory was destroyed successfully.
 //
 // Wraps cudnnBackendDestroyDescriptor.
 func backendDestroyDescriptor(descriptor BackendDescriptor) error {
@@ -351,15 +351,15 @@ func backendDestroyDescriptor(descriptor BackendDescriptor) error {
 	return toError(fnbackendDestroyDescriptor(descriptor))
 }
 
-// backendExecute This function executes the given Engine Configuration Plan on the VariantPack and the finalized ExecutionPlan on the data.
+// backendExecute executes the given Engine Configuration Plan on the VariantPack and the finalized ExecutionPlan on the data.
 //
 // The data and the working space are encapsulated in the VariantPack.
 //
 // Returns:
-//   - StatusBadParam: An incorrect or inconsistent value is encountered. For example, a required data pointer is invalid.
-//   - StatusExecutionFailed: An error was encountered executing the plan with the variant pack.
-//   - StatusInternalError: Some internal errors were encountered.
-//   - StatusSuccess: The ExecutionPlan was executed successfully.
+//   - [ErrBadParam]: An incorrect or inconsistent value is encountered. For example, a required data pointer is invalid.
+//   - [ErrExecutionFailed]: An error was encountered executing the plan with the variant pack.
+//   - [ErrInternalError]: Some internal errors were encountered.
+//   - [Success]: The ExecutionPlan was executed successfully.
 //
 // Wraps cudnnBackendExecute.
 func backendExecute(handle Handle, executionPlan BackendDescriptor, variantPack BackendDescriptor) error {
@@ -369,17 +369,17 @@ func backendExecute(handle Handle, executionPlan BackendDescriptor, variantPack 
 	return toError(fnbackendExecute(handle, executionPlan, variantPack))
 }
 
-// backendFinalize This function finalizes the memory pointed to by the descriptor.
+// backendFinalize finalizes the memory pointed to by the descriptor.
 //
 // [BackendDescriptor.Finalize] also checks all the attributes set between the create/initialization and finalize phase. If successful, [BackendDescriptor.Finalize] returns [Success] and the finalized state of the descriptor is set to true. In this state, setting attributes using [BackendDescriptor.SetAttribute] is not allowed. Getting attributes using [BackendDescriptor.GetAttribute] is only allowed when the finalized state of the descriptor is true.
 //
 //   - descriptor: Input. Instance of [BackendDescriptor] to finalize
 //
 // Returns:
-//   - StatusBadParams: Invalid descriptor attribute values or combination thereof is encountered.
-//   - StatusInternalError: Some internal errors are encountered.
-//   - StatusNotSupported: Descriptor attribute values or combinations therefore not supported by the current version of cuDNN are encountered.
-//   - StatusSuccess: The descriptor was finalized successfully.
+//   - CUDNN_STATUS_BAD_PARAMS: Invalid descriptor attribute values or combination thereof is encountered.
+//   - [ErrInternalError]: Some internal errors are encountered.
+//   - [ErrNotSupported]: Descriptor attribute values or combinations therefore not supported by the current version of cuDNN are encountered.
+//   - [Success]: The descriptor was finalized successfully.
 //
 // Wraps cudnnBackendFinalize.
 func backendFinalize(descriptor BackendDescriptor) error {
@@ -389,7 +389,7 @@ func backendFinalize(descriptor BackendDescriptor) error {
 	return toError(fnbackendFinalize(descriptor))
 }
 
-// backendGetAttribute This function retrieves the values of an attribute of a descriptor.
+// backendGetAttribute retrieves the values of an attribute of a descriptor.
 //
 // attributeName is the name of the attribute whose value is requested. attributeType is the type of attribute. requestsedElementCount is the number of elements to be potentially retrieved. The number of elements for the requested attribute is stored in elementCount. The retrieved values are stored in arrayOfElements. When the attribute is expected to have a single value, arrayOfElements can be pointer to the output value. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
 //
@@ -398,9 +398,9 @@ func backendFinalize(descriptor BackendDescriptor) error {
 //   - requestedElementCount: elements to
 //
 // Returns:
-//   - StatusBadParam: One or more invalid or inconsistent argument values were encountered. Some examples include:
-//   - StatusNotInitialized: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
-//   - StatusSuccess: The attributeName was given to the descriptor successfully.
+//   - [ErrBadParam]: One or more invalid or inconsistent argument values were encountered. Some examples include:
+//   - [ErrNotInitialized]: The descriptor has not been successfully finalized using [BackendDescriptor.Finalize].
+//   - [Success]: The attributeName was given to the descriptor successfully.
 //
 // Wraps cudnnBackendGetAttribute.
 func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, requestedElementCount int64, elementCount *int64, arrayOfElements uintptr) error {
@@ -410,13 +410,13 @@ func backendGetAttribute(descriptor BackendDescriptor, attributeName BackendAttr
 	return toError(fnbackendGetAttribute(descriptor, attributeName, attributeType, requestedElementCount, elementCount, arrayOfElements))
 }
 
-// backendInitialize This function repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType.
+// backendInitialize repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType.
 //
-// The finalized state of the descriptor is set to false.
+// This function repurposes a pre-allocated memory pointed to by a descriptor of size sizeInByte to a backend descriptor of type descriptorType. The finalized state of the descriptor is set to false.
 //
 // Returns:
-//   - StatusBadParam: An invalid or inconsistent argument value is encountered. Some examples include:
-//   - StatusSuccess: The memory was initialized successfully.
+//   - [ErrBadParam]: An invalid or inconsistent argument value is encountered. Some examples include:
+//   - [Success]: The memory was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.2.
 //
@@ -436,7 +436,7 @@ func backendPopulateCudaGraph(handle Handle, executionPlan BackendDescriptor, va
 	return toError(fnbackendPopulateCudaGraph(handle, executionPlan, variantPack, graph))
 }
 
-// backendSetAttribute This function sets an attribute of a descriptor to values provided as a pointer.
+// backendSetAttribute sets an attribute of a descriptor to values provided as a pointer.
 //
 // descriptor is the descriptor to be set. attributeName is the name of the attribute to be set. attributeType is the type of attribute. The value to which the attribute is set, is pointed by the arrayOfElements. The number of elements is given by elementCount. This function will return CUDNN_STATUS_NOT_INTIALIZED if the descriptor is already successfully finalized using [BackendDescriptor.Finalize].
 //
@@ -444,10 +444,10 @@ func backendPopulateCudaGraph(handle Handle, executionPlan BackendDescriptor, va
 //   - elementCount: Input. Number of elements being set
 //
 // Returns:
-//   - StatusBadParam: The function is called with arguments that correspond to invalid values. Some examples include:
-//   - StatusNotInitialized: The backend descriptor pointed to by the descriptor is already in the finalized state.
-//   - StatusNotSupported: The values to which the attributes are being set are not supported by the current version of cuDNN.
-//   - StatusSuccess: The attributeName was set to the descriptor.
+//   - [ErrBadParam]: The function is called with arguments that correspond to invalid values. Some examples include:
+//   - [ErrNotInitialized]: The backend descriptor pointed to by the descriptor is already in the finalized state.
+//   - [ErrNotSupported]: The values to which the attributes are being set are not supported by the current version of cuDNN.
+//   - [Success]: The attributeName was set to the descriptor.
 //
 // Wraps cudnnBackendSetAttribute.
 func backendSetAttribute(descriptor BackendDescriptor, attributeName BackendAttributeName, attributeType BackendAttributeType, elementCount int64, arrayOfElements uintptr) error {
@@ -465,9 +465,9 @@ func backendUpdateCudaGraph(handle Handle, executionPlan BackendDescriptor, vari
 	return toError(fnbackendUpdateCudaGraph(handle, executionPlan, variantPack, graph))
 }
 
-// batchNormalizationBackward This function performs the backward batch normalization layer computation.
+// batchNormalizationBackward performs the backward batch normalization layer computation.
 //
-// This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. Higher performance can be obtained when HW-packed tensors are used for all of x, dy, and dx. For more information, refer to cudnnDeriveBNTensorDescriptor() for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the backward batch normalization layer computation. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. Higher performance can be obtained when HW-packed tensors are used for all of x, dy, and dx. For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
@@ -478,12 +478,12 @@ func backendUpdateCudaGraph(handle Handle, executionPlan BackendDescriptor, vari
 //   - dx: with a prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
 //   - bnScale: data have to remain unchanged until this backward function is called. Supported Configurations This function supports the following combinations of data types for various descriptors
 //   - epsilon: value should be used in forward and backward functions
-//   - savedInvVariance: The dimensions for this tensor descriptor are dependent on normalization mode. For more information, refer to cudnnDeriveBNTensorDescriptor()
+//   - savedInvVariance: The dimensions for this tensor descriptor are dependent on normalization mode. For more information, refer to [TensorDescriptor.DeriveBN]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -495,9 +495,9 @@ func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff
 	return toError(fnbatchNormalizationBackward(handle, mode, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, x, dyDesc, dy, dxDesc, dx, dBnScaleBiasDesc, bnScale, dBnScaleResult, dBnBiasResult, epsilon, savedMean, savedInvVariance))
 }
 
-// batchNormalizationBackwardEx This function is an extension of the cudnnBatchNormalizationBackward() for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
+// batchNormalizationBackwardEx is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel.
 //
-// This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function cudnnBatchNormalizationBackward(). This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// This function is an extension of the [Handle.BatchNormalizationBackward] for performing the backward batch normalization layer computation with a fast NHWC semi-persistent kernel. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationBackward]. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
@@ -505,14 +505,14 @@ func batchNormalizationBackward(handle Handle, mode BatchNormMode, alphaDataDiff
 //   - yData: are not needed if
 //   - dzDesc: is not needed when
 //   - bnBiasData: data has to remain unchanged until this backward function is called. Note that both these parameters can be NULL but only at the same time. It is recommended to use this cache since the memory overhead is relatively small
-//   - savedInvVariance: For more information, refer to cudnnDeriveBNTensorDescriptor() . The dimensions for this tensor descriptor are dependent on normalization mode
+//   - savedInvVariance: For more information, refer to [TensorDescriptor.DeriveBN] . The dimensions for this tensor descriptor are dependent on normalization mode
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
-//   - reserveSpace: It must be equal or larger than the amount required by cudnnGetBatchNormalizationTrainingExReserveSpaceSize() . Supported Configurations This function supports the following combinations of data types for various descriptors
+//   - reserveSpace: It must be equal or larger than the amount required by [Handle.GetBatchNormalizationTrainingExReserveSpaceSize] . Supported Configurations This function supports the following combinations of data types for various descriptors
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -524,9 +524,9 @@ func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps Batch
 	return toError(fnbatchNormalizationBackwardEx(handle, mode, bnOps, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dBnScaleBiasDesc, bnScaleData, bnBiasData, dBnScaleData, dBnBiasData, epsilon, savedMean, savedInvVariance, activationDesc, workSpace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes))
 }
 
-// batchNormalizationForwardInference This function performs the forward batch normalization layer computation for the inference phase.
+// batchNormalizationForwardInference performs the forward batch normalization layer computation for the inference phase.
 //
-// This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation and inference. For the training phase, refer to cudnnBatchNormalizationForwardTraining(). Higher performance can be obtained when HW-packed tensors are used for all of x and dx. For more information, refer to cudnnDeriveBNTensorDescriptor() for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the forward batch normalization layer computation for the inference phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation and inference. For the training phase, refer to [Handle.BatchNormalizationForwardTraining]. Higher performance can be obtained when HW-packed tensors are used for all of x and dx. For more information, refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
@@ -538,9 +538,9 @@ func batchNormalizationBackwardEx(handle Handle, mode BatchNormMode, bnOps Batch
 //   - bnBias: Input. s. Tensor descriptors and pointers in device memory for the batch normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -552,9 +552,9 @@ func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha
 	return toError(fnbatchNormalizationForwardInference(handle, mode, alpha, beta, xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc, bnScale, bnBias, estimatedMean, estimatedVariance, epsilon))
 }
 
-// batchNormalizationForwardTraining This function performs the forward batch normalization layer computation for the training phase.
+// batchNormalizationForwardTraining performs the forward batch normalization layer computation for the training phase.
 //
-// This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. For the inference phase, use cudnnBatchNormalizationForwardInference(). Higher performance can be obtained when HW-packed tensors are used for both x and y. Refer to cudnnDeriveBNTensorDescriptor() for the secondary tensor descriptor generation for the parameters used in this function.
+// This function performs the forward batch normalization layer computation for the training phase. This layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. For the inference phase, use [Handle.BatchNormalizationForwardInference]. Higher performance can be obtained when HW-packed tensors are used for both x and y. Refer to [TensorDescriptor.DeriveBN] for the secondary tensor descriptor generation for the parameters used in this function.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
@@ -563,16 +563,16 @@ func batchNormalizationForwardInference(handle Handle, mode BatchNormMode, alpha
 //   - x: input data
 //   - yDesc: for the
 //   - y: output of the batch normalization layer
-//   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by cudnnDeriveBNTensorDescriptor(). The dimensions for this tensor descriptor are dependent on the normalization mode
+//   - bnScaleBiasMeanVarDesc: Input. Shared tensor descriptor desc for the secondary tensor that was derived by [TensorDescriptor.DeriveBN]. The dimensions for this tensor descriptor are dependent on the normalization mode
 //   - bnBias: parameter can replace the previous layer’s bias parameter for improved efficiency
 //   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows:
 //   - resultRunningVariance: (or passed as an input in inference mode) is the sample variance and is the moving average of
 //   - resultSaveInvVariance: may vary. For the cache to work correctly, the input layer data must remain unchanged until the backward function is called. Note that both parameters can be
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -584,21 +584,21 @@ func batchNormalizationForwardTraining(handle Handle, mode BatchNormMode, alpha 
 	return toError(fnbatchNormalizationForwardTraining(handle, mode, alpha, beta, xDesc, x, yDesc, y, bnScaleBiasMeanVarDesc, bnScale, bnBias, exponentialAverageFactor, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance))
 }
 
-// batchNormalizationForwardTrainingEx This function is an extension of the cudnnBatchNormalizationForwardTraining() for performing the forward batch normalization layer computation.
+// batchNormalizationForwardTrainingEx is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation.
 //
-// This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function cudnnBatchNormalizationForwardTraining(). This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
+// This function is an extension of the [Handle.BatchNormalizationForwardTraining] for performing the forward batch normalization layer computation. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: If workspace is NULL and workSpaceSizeInBytes of zero is passed in, this API will function exactly like the non-extended function [Handle.BatchNormalizationForwardTraining]. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The bnOps input can be used to set this function to perform either only the batch normalization, or batch normalization followed by activation, or batch normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, and dx.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: input is set to either
 //   - exponentialAverageFactor: Input. Factor used in the moving average computation as follows:
 //   - workSpaceSizeInBytes: is the size of the workspace. When
-//   - reserveSpace: Must be equal or larger than the amount required by cudnnGetBatchNormalizationTrainingExReserveSpaceSize() . Supported Configurations This function supports the following combinations of data types for various descriptors
+//   - reserveSpace: Must be equal or larger than the amount required by [Handle.GetBatchNormalizationTrainingExReserveSpaceSize] . Supported Configurations This function supports the following combinations of data types for various descriptors
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -610,7 +610,7 @@ func batchNormalizationForwardTrainingEx(handle Handle, mode BatchNormMode, bnOp
 	return toError(fnbatchNormalizationForwardTrainingEx(handle, mode, bnOps, alpha, beta, xDesc, xData, zDesc, zData, yDesc, yData, bnScaleBiasMeanVarDesc, bnScale, bnBias, exponentialAverageFactor, resultRunningMean, resultRunningVariance, epsilon, resultSaveMean, resultSaveInvVariance, activationDesc, workspace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes))
 }
 
-// buildRNNDynamic This function compiles the RNN persistent code using CUDA runtime compilation library (NVRTC) when the [RnnAlgoPersistDynamic] algo is selected.
+// buildRNNDynamic compiles the RNN persistent code using CUDA runtime compilation library (NVRTC) when the [RnnAlgoPersistDynamic] algo is selected.
 //
 // The code is tailored to the current GPU and specific hyperparameters ( miniBatch). This call is expected to be expensive in terms of runtime and should be invoked infrequently. Note that the [RnnAlgoPersistDynamic] algo does not support variable length sequences within the batch.
 //
@@ -619,11 +619,11 @@ func batchNormalizationForwardTrainingEx(handle Handle, mode BatchNormMode, bnOp
 //   - miniBatch: Input. The exact number of sequences in a batch
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusMappingError: A GPU/CUDA resource, such as a texture object, shared memory, or zero-copy memory is not available in the required size or there is a mismatch between the user resource and cuDNN internal resources. A resource mismatch may occur, for example, when calling [Handle.SetStream]. There could be a mismatch between the user provided CUDA stream and the internal CUDA events instantiated in the cuDNN handle when [Create] was invoked. This error status may not be correctable when it is related to texture dimensions, shared memory size, or zero-copy memory availability. If [ErrMappingError] is returned by [Handle.SetStream], then it is typically correctable, however, it means that the cuDNN handle was created on one GPU and the user stream passed to this function is associated with another GPU.
-//   - StatusNotSupported: The current hyper-parameters are invalid.
-//   - StatusRuntimePrerequisiteMissing: The prerequisite runtime library could not be found.
-//   - StatusSuccess: The code was built and linked successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrMappingError]: A GPU/CUDA resource, such as a texture object, shared memory, or zero-copy memory is not available in the required size or there is a mismatch between the user resource and cuDNN internal resources. A resource mismatch may occur, for example, when calling [Handle.SetStream]. There could be a mismatch between the user provided CUDA stream and the internal CUDA events instantiated in the cuDNN handle when [Create] was invoked. This error status may not be correctable when it is related to texture dimensions, shared memory size, or zero-copy memory availability. If [ErrMappingError] is returned by [Handle.SetStream], then it is typically correctable, however, it means that the cuDNN handle was created on one GPU and the user stream passed to this function is associated with another GPU.
+//   - [ErrNotSupported]: The current hyper-parameters are invalid.
+//   - [ErrRuntimePrerequisiteMissing]: The prerequisite runtime library could not be found.
+//   - [Success]: The code was built and linked successfully.
 //
 // Wraps cudnnBuildRNNDynamic.
 func buildRNNDynamic(handle Handle, rnnDesc RNNDescriptor, miniBatch int32) error {
@@ -633,9 +633,9 @@ func buildRNNDynamic(handle Handle, rnnDesc RNNDescriptor, miniBatch int32) erro
 	return toError(fnbuildRNNDynamic(handle, rnnDesc, miniBatch))
 }
 
-// cTCLoss This function returns the CTC costs and gradients, given the probabilities and labels.
+// cTCLoss returns the CTC costs and gradients, given the probabilities and labels.
 //
-// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with cudnnSetCTCLossDescriptorEx()). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
+// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with [CTCLossDescriptor.SetCTCLossDescriptorEx]). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - probsDesc: Input. Handle to the previously initialized probabilities tensor descriptor. For more information, refer to [TensorDescriptor]
@@ -650,10 +650,10 @@ func buildRNNDynamic(handle Handle, rnnDesc RNNDescriptor, miniBatch int32) erro
 //   - workspace: Input. Pointer to GPU memory of a workspace needed to be able to execute the specified algorithm
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss.
 func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs uintptr, hostLabels *int32, hostLabelLengths *int32, hostInputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, workspace uintptr, workSpaceSizeInBytes uint) error {
@@ -663,9 +663,9 @@ func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs uintptr, hostLabel
 	return toError(fncTCLoss(handle, probsDesc, probs, hostLabels, hostLabelLengths, hostInputLengths, costs, gradientsDesc, gradients, algo, ctcLossDesc, workspace, workSpaceSizeInBytes))
 }
 
-// cTCLossV8 This function returns the CTC costs and gradients, given the probabilities and labels.
+// cTCLossV8 returns the CTC costs and gradients, given the probabilities and labels.
 //
-// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with cudnnSetCTCLossDescriptorEx()). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
+// This function can have an inconsistent interface depending on the [LossNormalizationMode] chosen (bound to the [CTCLossDescriptor] with [CTCLossDescriptor.SetCTCLossDescriptorEx]). For the [LossNormalizationNone], this function has an inconsistent interface, for example, the probs input is probability normalized by softmax, but the gradients output is with respect to the unnormalized activation. However, for [LossNormalizationSoftmax], the function has a consistent interface; all values are normalized by softmax.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - algo: Input. Enumerant that specifies the chosen CTC loss algorithm. For more information, refer to [CTCLossAlgo]
@@ -681,10 +681,10 @@ func cTCLoss(handle Handle, probsDesc TensorDescriptor, probs uintptr, hostLabel
 //   - workspace: Input. Pointer to GPU memory of a workspace needed to be able to execute the specified algorithm
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnCTCLoss_v8.
 func cTCLossV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, probs uintptr, labels *int32, labelLengths *int32, inputLengths *int32, costs uintptr, gradientsDesc TensorDescriptor, gradients uintptr, workSpaceSizeInBytes uint, workspace uintptr) error {
@@ -699,8 +699,8 @@ func cTCLossV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, p
 // Each sublibrary has a version checker that checks whether its own version matches that of its dependencies.
 //
 // Returns:
-//   - StatusSublibraryVersionMismatch: The versions are inconsistent.
-//   - StatusSuccess: The version check passed.
+//   - [ErrSublibraryVersionMismatch]: The versions are inconsistent.
+//   - [Success]: The version check passed.
 //
 // Wraps cudnnCnnVersionCheck.
 func CnnVersionCheck() error {
@@ -710,17 +710,17 @@ func CnnVersionCheck() error {
 	return toError(fnCnnVersionCheck())
 }
 
-// convolutionBackwardBias This function computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor.
+// convolutionBackwardBias computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor.
 //
-// Therefore, the number of elements produced is equal to the number of features maps of the input tensor.
+// This function computes the convolution function gradient with respect to the bias, which is the sum of every element belonging to the same feature map across all of the images of the input tensor. Therefore, the number of elements produced is equal to the number of features maps of the input tensor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The operation was launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -732,20 +732,20 @@ func convolutionBackwardBias(handle Handle, alpha unsafe.Pointer, dyDesc TensorD
 	return toError(fnconvolutionBackwardBias(handle, alpha, dyDesc, dy, beta, dbDesc, db))
 }
 
-// convolutionBackwardData This function computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in cudnnConvolutionForward().
+// convolutionBackwardData computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
 //
-// It uses the specified algo, and returns the results in the output tensor dx. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dx.
+// This function computes the convolution data gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dx. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dx.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - algo: Input. Enumerant that specifies which backward data convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdDataAlgo]
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusMappingError: An error occurs during the texture binding of texture object creation associated with the filter data or the input differential tensor data.
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: The operation was launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrMappingError]: An error occurs during the texture binding of texture object creation associated with the filter data or the input differential tensor data.
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -757,20 +757,20 @@ func convolutionBackwardData(handle Handle, alpha unsafe.Pointer, wDesc FilterDe
 	return toError(fnconvolutionBackwardData(handle, alpha, wDesc, w, dyDesc, dy, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, dxDesc, dx))
 }
 
-// convolutionBackwardFilter This function computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in cudnnConvolutionForward().
+// convolutionBackwardFilter computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward].
 //
-// It uses the specified algo, and returns the results in the output tensor dw. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dw.
+// This function computes the convolution weight (filter) gradient of the tensor dy, where y is the output of the forward convolution in [Handle.ConvolutionForward]. It uses the specified algo, and returns the results in the output tensor dw. Scaling factors alpha and beta can be used to scale the computed result or accumulate with the current dw.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionBwdFilterAlgo]
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusMappingError: An error occurs during the texture object creation associated with the filter data.
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: The operation was launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrMappingError]: An error occurs during the texture object creation associated with the filter data.
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -782,21 +782,21 @@ func convolutionBackwardFilter(handle Handle, alpha unsafe.Pointer, xDesc Tensor
 	return toError(fnconvolutionBackwardFilter(handle, alpha, xDesc, x, dyDesc, dy, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, dwDesc, dw))
 }
 
-// convolutionBiasActivationForward This function applies a bias and then an activation to the convolutions or cross-correlations of cudnnConvolutionForward(), returning results in y.
+// convolutionBiasActivationForward applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y.
 //
-// The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias). The routine cudnnGetConvolution2dForwardOutputDim() or cudnnGetConvolutionNdForwardOutputDim() can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc. Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function cudnnConvolutionBiasActivationForward() must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to cudnnSetActivationDescriptor(). Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
+// This function applies a bias and then an activation to the convolutions or cross-correlations of [Handle.ConvolutionForward], returning results in y. The full computation follows the equation y = act (alpha1 * conv(x) + alpha2 * z + bias). The routine [ConvolutionDescriptor.GetConvolution2dForwardOutputDim] or [ConvolutionDescriptor.GetConvolutionNdForwardOutputDim] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc. Only the [ConvolutionFwdAlgoImplicitPrecompGemm] algo is enabled with [ActivationIdentity]. In other words, in the [ActivationDescriptor] structure of the input activationDesc, if the mode of the [ActivationMode] field is set to the enum value [ActivationIdentity], then the input [ConvolutionFwdAlgo] of this function [Handle.ConvolutionBiasActivationForward] must be set to the enum value [ConvolutionFwdAlgoImplicitPrecompGemm]. For more information, refer to [ActivationDescriptor.Set]. Device pointer z and y may be pointing to the same buffer, however, x cannot point to the same buffer as z or y.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
 //   - zDesc: Input. Handle to a previously initialized tensor descriptor
 //   - activationDesc: Input. Handle to a previously initialized activation descriptor. For more information, refer to [ActivationDescriptor]
-//   - yDesc: as listed in the documentation of cudnnConvolutionForward() . The following table specifies the supported combinations of data types for
+//   - yDesc: as listed in the documentation of [Handle.ConvolutionForward] . The following table specifies the supported combinations of data types for
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples of non-supported configurations include:
-//   - StatusSuccess: The operation was launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples of non-supported configurations include:
+//   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -808,20 +808,20 @@ func convolutionBiasActivationForward(handle Handle, alpha1 unsafe.Pointer, xDes
 	return toError(fnconvolutionBiasActivationForward(handle, alpha1, xDesc, x, wDesc, w, convDesc, algo, workSpace, workSpaceSizeInBytes, alpha2, zDesc, z, biasDesc, bias, activationDesc, yDesc, y))
 }
 
-// convolutionForward This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y.
+// convolutionForward executes convolutions or cross-correlations over x using filters specified with w, returning results in y.
 //
-// Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively. The routine cudnnGetConvolution2dForwardOutputDim() or cudnnGetConvolutionNdForwardOutputDim() can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
+// This function executes convolutions or cross-correlations over x using filters specified with w, returning results in y. Scaling factors alpha and beta can be used to scale the input tensor and the output tensor respectively. The routine [ConvolutionDescriptor.GetConvolution2dForwardOutputDim] or [ConvolutionDescriptor.GetConvolutionNdForwardOutputDim] can be used to determine the proper dimensions of the output tensor descriptor yDesc with respect to xDesc, convDesc, and wDesc.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - algo: Input. Enumerant that specifies which convolution algorithm should be used to compute the results. For more information, refer to [ConvolutionFwdAlgo]
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, xData, w, yData, alpha, and beta xDesc and yDesc have a non-matching number of dimensions xDesc and wDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc number of dimensions is not equal to convDesc array length + 2 xDesc and wDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or wDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc) xDesc, wDesc, and yDesc have a non-matching data type For some spatial dimension, wDesc has a spatial size that is larger than the input spatial size (including zero-padding size)
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusMappingError: An error occurs during the texture object creation associated with the filter data.
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: The operation was launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met: At least one of the following is NULL: handle, xDesc, wDesc, convDesc, yDesc, xData, w, yData, alpha, and beta xDesc and yDesc have a non-matching number of dimensions xDesc and wDesc have a non-matching number of dimensions xDesc has fewer than three number of dimensions xDesc number of dimensions is not equal to convDesc array length + 2 xDesc and wDesc have a non-matching number of input feature maps per image (or group in case of grouped convolutions) yDesc or wDesc indicate an output channel count that isn’t a multiple of group count (if group count has been set in convDesc) xDesc, wDesc, and yDesc have a non-matching data type For some spatial dimension, wDesc has a spatial size that is larger than the input spatial size (including zero-padding size)
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrMappingError]: An error occurs during the texture object creation associated with the filter data.
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: The operation was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -833,18 +833,18 @@ func convolutionForward(handle Handle, alpha unsafe.Pointer, xDesc TensorDescrip
 	return toError(fnconvolutionForward(handle, alpha, xDesc, x, wDesc, w, convDesc, algo, workSpace, workSpaceSizeInBytes, beta, yDesc, y))
 }
 
-// Create This function initializes the cuDNN library and creates a handle to an opaque structure holding the cuDNN library context.
+// Create initializes the cuDNN library and creates a handle to an opaque structure holding the cuDNN library context.
 //
 // The cuDNN library handle is tied to the current CUDA device (context). To use the library on multiple devices, one cuDNN handle needs to be created for each device. For a given device, multiple cuDNN handles with different configurations (for example, different current CUDA streams) may be created. Because [Create] allocates some internal resources, the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize; therefore, the recommended best practice is to call [Create] or [Handle.Destroy] outside of performance-critical code paths. For multithreaded applications that use the same device from different threads, the recommended programming model is to create one (or a few, as is convenient) cuDNN handles per thread and use that cuDNN handle for the entire life of the thread.
 //
 // Returns:
-//   - StatusAllocFailed: Host memory allocation failed.
-//   - StatusArchMismatch: NVIDIA GPU architecture is too old.
-//   - StatusBadParam: Invalid ( NULL) input pointer supplied.
-//   - StatusInternalError: CUDA resource allocation failed.
-//   - StatusLicenseError: cuDNN license validation failed (only when the feature is enabled).
-//   - StatusNotInitialized: No compatible GPU found, CUDA driver not installed or disabled, CUDA runtime API initialization failed.
-//   - StatusSuccess: cuDNN handle was created successfully.
+//   - [ErrAllocFailed]: Host memory allocation failed.
+//   - [ErrArchMismatch]: NVIDIA GPU architecture is too old.
+//   - [ErrBadParam]: Invalid ( NULL) input pointer supplied.
+//   - [ErrInternalError]: CUDA resource allocation failed.
+//   - [ErrLicenseError]: cuDNN license validation failed (only when the feature is enabled).
+//   - [ErrNotInitialized]: No compatible GPU found, CUDA driver not installed or disabled, CUDA runtime API initialization failed.
+//   - [Success]: cuDNN handle was created successfully.
 //
 // Wraps cudnnCreate.
 func Create() (Handle, error) {
@@ -860,13 +860,13 @@ func Create() (Handle, error) {
 	return out, nil
 }
 
-// CreateActivationDescriptor This function creates an activation descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateActivationDescriptor creates an activation descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // For more information, refer to [ActivationDescriptor].
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -884,14 +884,14 @@ func CreateActivationDescriptor() (ActivationDescriptor, error) {
 	return out, nil
 }
 
-// CreateAttnDescriptor This function creates one instance of an opaque attention descriptor object by allocating the host memory for it and initializing all descriptor fields.
+// CreateAttnDescriptor creates one instance of an opaque attention descriptor object by allocating the host memory for it and initializing all descriptor fields.
 //
-// The function writes NULL to attnDesc when the attention descriptor object cannot be allocated. Use the cudnnSetAttnDescriptor() function to configure the attention descriptor and cudnnDestroyAttnDescriptor() to destroy it and release the allocated memory.
+// This function creates one instance of an opaque attention descriptor object by allocating the host memory for it and initializing all descriptor fields. The function writes NULL to attnDesc when the attention descriptor object cannot be allocated. Use the [AttnDescriptor.Set] function to configure the attention descriptor and [AttnDescriptor.Destroy] to destroy it and release the allocated memory.
 //
 // Returns:
-//   - StatusAllocFailed: The memory allocation failed.
-//   - StatusBadParam: An invalid input argument was encountered ( attnDesc=NULL).
-//   - StatusSuccess: The descriptor object was created successfully.
+//   - [ErrAllocFailed]: The memory allocation failed.
+//   - [ErrBadParam]: An invalid input argument was encountered ( attnDesc=NULL).
+//   - [Success]: The descriptor object was created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -909,12 +909,12 @@ func CreateAttnDescriptor() (AttnDescriptor, error) {
 	return out, nil
 }
 
-// CreateCTCLossDescriptor This function creates a CTC loss function descriptor.
+// CreateCTCLossDescriptor creates a CTC loss function descriptor.
 //
 // Returns:
-//   - StatusAllocFailed: Memory allocation for this CTC loss descriptor failed.
-//   - StatusBadParam: The CTC loss descriptor passed to the function is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrAllocFailed]: Memory allocation for this CTC loss descriptor failed.
+//   - [ErrBadParam]: The CTC loss descriptor passed to the function is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnCreateCTCLossDescriptor.
 func CreateCTCLossDescriptor() (CTCLossDescriptor, error) {
@@ -930,13 +930,13 @@ func CreateCTCLossDescriptor() (CTCLossDescriptor, error) {
 	return out, nil
 }
 
-// CreateConvolutionDescriptor This function creates a convolution descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateConvolutionDescriptor creates a convolution descriptor object by allocating the memory needed to hold its opaque structure.
 //
-// For more information, refer to [ConvolutionDescriptor].
+// This function creates a convolution descriptor object by allocating the memory needed to hold its opaque structure. For more information, refer to [ConvolutionDescriptor].
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -954,13 +954,13 @@ func CreateConvolutionDescriptor() (ConvolutionDescriptor, error) {
 	return out, nil
 }
 
-// CreateDropoutDescriptor This function creates a generic dropout descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateDropoutDescriptor creates a generic dropout descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // For more information, refer to [DropoutDescriptor].
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Wraps cudnnCreateDropoutDescriptor.
 func CreateDropoutDescriptor() (DropoutDescriptor, error) {
@@ -976,13 +976,13 @@ func CreateDropoutDescriptor() (DropoutDescriptor, error) {
 	return out, nil
 }
 
-// CreateFilterDescriptor This function creates a filter descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateFilterDescriptor creates a filter descriptor object by allocating the memory needed to hold its opaque structure.
 //
-// For more information, refer to [FilterDescriptor].
+// This function creates a filter descriptor object by allocating the memory needed to hold its opaque structure. For more information, refer to [FilterDescriptor].
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1000,12 +1000,14 @@ func CreateFilterDescriptor() (FilterDescriptor, error) {
 	return out, nil
 }
 
-// CreateFusedOpsConstParamPack This function creates an opaque structure to store the various problem size information, such as the shape, layout and the type of tensors, and the descriptors for convolution and activation, for the selected sequence of cudnnFusedOps computations.
+// CreateFusedOpsConstParamPack creates an opaque structure to store the various problem size information, such as the shape, layout and the type of tensors, and the descriptors for convolution and activation, for the selected sequence of cudnnFusedOps computations.
+//
+// This function creates an opaque structure to store the various problem size information, such as the shape, layout and the type of tensors, and the descriptors for convolution and activation, for the selected sequence of cudnnFusedOps computations.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: If either constPack or ops is NULL.
-//   - StatusSuccess: If the descriptor is created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: If either constPack or ops is NULL.
+//   - [Success]: If the descriptor is created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1023,16 +1025,16 @@ func CreateFusedOpsConstParamPack(ops FusedOps) (FusedOpsConstParamPack, error) 
 	return out, nil
 }
 
-// CreateFusedOpsPlan This function creates the plan descriptor for the cudnnFusedOps computation.
+// CreateFusedOpsPlan creates the plan descriptor for the cudnnFusedOps computation.
 //
-// This descriptor contains the plan information, including the problem type and size, which kernels should be run, and the internal workspace partition.
+// This function creates the plan descriptor for the cudnnFusedOps computation. This descriptor contains the plan information, including the problem type and size, which kernels should be run, and the internal workspace partition.
 //
 //   - ops: Input. The specific sequence of fused operations computations for which this plan descriptor should be created. For more information, refer to [FusedOps]
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: If either the input *plan is NULL or the ops input is not a valid cudnnFusedOp enum.
-//   - StatusSuccess: The plan descriptor is created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: If either the input *plan is NULL or the ops input is not a valid cudnnFusedOp enum.
+//   - [Success]: The plan descriptor is created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1050,14 +1052,16 @@ func CreateFusedOpsPlan(ops FusedOps) (FusedOpsPlan, error) {
 	return out, nil
 }
 
-// CreateFusedOpsVariantParamPack This function creates the variant pack descriptor for the cudnnFusedOps computation.
+// CreateFusedOpsVariantParamPack creates the variant pack descriptor for the cudnnFusedOps computation.
+//
+// This function creates the variant pack descriptor for the cudnnFusedOps computation.
 //
 //   - ops: Input. The specific sequence of fused operations computations for which this descriptor should be created
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: If any input is invalid.
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: If any input is invalid.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1075,11 +1079,11 @@ func CreateFusedOpsVariantParamPack(ops FusedOps) (FusedOpsVariantParamPack, err
 	return out, nil
 }
 
-// CreateLRNDescriptor This function allocates the memory needed to hold the data needed for LRN and DivisiveNormalization layers operation and returns a descriptor used with subsequent layer forward and backward calls.
+// CreateLRNDescriptor allocates the memory needed to hold the data needed for LRN and DivisiveNormalization layers operation and returns a descriptor used with subsequent layer forward and backward calls.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Wraps cudnnCreateLRNDescriptor.
 func CreateLRNDescriptor() (LRNDescriptor, error) {
@@ -1095,14 +1099,14 @@ func CreateLRNDescriptor() (LRNDescriptor, error) {
 	return out, nil
 }
 
-// CreateOpTensorDescriptor This function creates a tensor pointwise math descriptor.
+// CreateOpTensorDescriptor creates a tensor pointwise math descriptor.
 //
 // For more information, refer to [OpTensorDescriptor].
 //
 // Returns:
-//   - StatusAllocFailed: Memory allocation for this tensor pointwise math descriptor failed.
-//   - StatusBadParam: Tensor pointwise math descriptor passed to the function is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrAllocFailed]: Memory allocation for this tensor pointwise math descriptor failed.
+//   - [ErrBadParam]: Tensor pointwise math descriptor passed to the function is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1120,11 +1124,11 @@ func CreateOpTensorDescriptor() (OpTensorDescriptor, error) {
 	return out, nil
 }
 
-// CreatePoolingDescriptor This function creates a pooling descriptor object by allocating the memory needed to hold its opaque structure.
+// CreatePoolingDescriptor creates a pooling descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1142,12 +1146,12 @@ func CreatePoolingDescriptor() (PoolingDescriptor, error) {
 	return out, nil
 }
 
-// CreateRNNDataDescriptor This function creates a RNN data descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateRNNDataDescriptor creates a RNN data descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: The RNNDataDesc argument is NULL.
-//   - StatusSuccess: The RNN data descriptor object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: The RNNDataDesc argument is NULL.
+//   - [Success]: The RNN data descriptor object was created successfully.
 //
 // Wraps cudnnCreateRNNDataDescriptor.
 func CreateRNNDataDescriptor() (RNNDataDescriptor, error) {
@@ -1163,12 +1167,12 @@ func CreateRNNDataDescriptor() (RNNDataDescriptor, error) {
 	return out, nil
 }
 
-// CreateRNNDescriptor This function creates a generic RNN descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateRNNDescriptor creates a generic RNN descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: The rnnDesc argument is NULL.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: The rnnDesc argument is NULL.
+//   - [Success]: The object was created successfully.
 //
 // Wraps cudnnCreateRNNDescriptor.
 func CreateRNNDescriptor() (RNNDescriptor, error) {
@@ -1184,12 +1188,12 @@ func CreateRNNDescriptor() (RNNDescriptor, error) {
 	return out, nil
 }
 
-// CreateReduceTensorDescriptor This function creates a reduced tensor descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateReduceTensorDescriptor creates a reduced tensor descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: reduceTensorDesc is a NULL pointer.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: reduceTensorDesc is a NULL pointer.
+//   - [Success]: The object was created successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1207,14 +1211,14 @@ func CreateReduceTensorDescriptor() (ReduceTensorDescriptor, error) {
 	return out, nil
 }
 
-// CreateSeqDataDescriptor This function creates one instance of an opaque sequence data descriptor object by allocating the host memory for it and initializing all descriptor fields.
+// CreateSeqDataDescriptor creates one instance of an opaque sequence data descriptor object by allocating the host memory for it and initializing all descriptor fields.
 //
-// The function writes NULL to seqDataDesc when the sequence data descriptor object cannot be allocated. Use the cudnnSetSeqDataDescriptor() function to configure the sequence data descriptor and cudnnDestroySeqDataDescriptor() to destroy it and release the allocated memory.
+// This function creates one instance of an opaque sequence data descriptor object by allocating the host memory for it and initializing all descriptor fields. The function writes NULL to seqDataDesc when the sequence data descriptor object cannot be allocated. Use the [SeqDataDescriptor.Set] function to configure the sequence data descriptor and [SeqDataDescriptor.Destroy] to destroy it and release the allocated memory.
 //
 // Returns:
-//   - StatusAllocFailed: The memory allocation failed.
-//   - StatusBadParam: An invalid input argument was encountered ( seqDataDesc=NULL).
-//   - StatusSuccess: The descriptor object was created successfully.
+//   - [ErrAllocFailed]: The memory allocation failed.
+//   - [ErrBadParam]: An invalid input argument was encountered ( seqDataDesc=NULL).
+//   - [Success]: The descriptor object was created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1232,11 +1236,11 @@ func CreateSeqDataDescriptor() (SeqDataDescriptor, error) {
 	return out, nil
 }
 
-// CreateSpatialTransformerDescriptor This function creates a generic spatial transformer descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateSpatialTransformerDescriptor creates a generic spatial transformer descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [Success]: The object was created successfully.
 //
 // Wraps cudnnCreateSpatialTransformerDescriptor.
 func CreateSpatialTransformerDescriptor() (SpatialTransformerDescriptor, error) {
@@ -1252,14 +1256,14 @@ func CreateSpatialTransformerDescriptor() (SpatialTransformerDescriptor, error) 
 	return out, nil
 }
 
-// CreateTensorDescriptor This function creates a generic tensor descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateTensorDescriptor creates a generic tensor descriptor object by allocating the memory needed to hold its opaque structure.
 //
 // The data is initialized to all zeros.
 //
 // Returns:
-//   - StatusAllocFailed: The resources could not be allocated.
-//   - StatusBadParam: Invalid input argument.
-//   - StatusSuccess: The object was created successfully.
+//   - [ErrAllocFailed]: The resources could not be allocated.
+//   - [ErrBadParam]: Invalid input argument.
+//   - [Success]: The object was created successfully.
 //
 // Wraps cudnnCreateTensorDescriptor.
 func CreateTensorDescriptor() (TensorDescriptor, error) {
@@ -1275,14 +1279,14 @@ func CreateTensorDescriptor() (TensorDescriptor, error) {
 	return out, nil
 }
 
-// CreateTensorTransformDescriptor This function creates a tensor transform descriptor object by allocating the memory needed to hold its opaque structure.
+// CreateTensorTransformDescriptor creates a tensor transform descriptor object by allocating the memory needed to hold its opaque structure.
 //
-// The tensor data is initialized to all zeros. Use the cudnnSetTensorTransformDescriptor() function to initialize the descriptor created by this function.
+// This function creates a tensor transform descriptor object by allocating the memory needed to hold its opaque structure. The tensor data is initialized to all zeros. Use the [TensorTransformDescriptor.Set] function to initialize the descriptor created by this function.
 //
 // Returns:
-//   - StatusAllocFailed: The memory allocation failed.
-//   - StatusBadParam: The transformDesc is NULL.
-//   - StatusSuccess: The descriptor object was created successfully.
+//   - [ErrAllocFailed]: The memory allocation failed.
+//   - [ErrBadParam]: The transformDesc is NULL.
+//   - [Success]: The descriptor object was created successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1300,16 +1304,16 @@ func CreateTensorTransformDescriptor() (TensorTransformDescriptor, error) {
 	return out, nil
 }
 
-// deriveBNTensorDescriptor This function derives a secondary tensor descriptor for the batch normalization scale, invVariance, bnBias, and bnScale subtensors from the layer’s x data descriptor.
+// deriveBNTensorDescriptor derives a secondary tensor descriptor for the batch normalization scale, invVariance, bnBias, and bnScale subtensors from the layer’s x data descriptor.
 //
-// Use the tensor descriptor produced by this function as the bnScaleBiasMeanVarDesc parameter for the cudnnBatchNormalizationForwardInference() and cudnnBatchNormalizationForwardTraining() functions, and as the bnScaleBiasDiffDesc parameter in the cudnnBatchNormalizationBackward() function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
+// Use the tensor descriptor produced by this function as the bnScaleBiasMeanVarDesc parameter for the [Handle.BatchNormalizationForwardInference] and [Handle.BatchNormalizationForwardTraining] functions, and as the bnScaleBiasDiffDesc parameter in the [Handle.BatchNormalizationBackward] function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
 //
 //   - derivedBnDesc: Output. Handle to a previously created tensor descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
 // Returns:
-//   - StatusBadParam: Invalid batch normalization mode.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: Invalid batch normalization mode.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1321,17 +1325,17 @@ func deriveBNTensorDescriptor(derivedBnDesc TensorDescriptor, xDesc TensorDescri
 	return toError(fnderiveBNTensorDescriptor(derivedBnDesc, xDesc, mode))
 }
 
-// deriveNormTensorDescriptor This function derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
+// deriveNormTensorDescriptor derives tensor descriptors for the normalization mean, invariance, normBias, and normScale subtensors from the layer’s x data descriptor and norm mode.
 //
-// Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the cudnnNormalizationForwardInference() and cudnnNormalizationForwardTraining() functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the cudnnNormalizationBackward() function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
+// Use the tensor descriptor produced by this function as the normScaleBiasDesc or normMeanVarDesc parameter for the [Handle.NormalizationForwardInference] and [Handle.NormalizationForwardTraining] functions, and as the dNormScaleBiasDesc and normMeanVarDesc parameters in the [Handle.NormalizationBackward] function. The resulting dimensions will be: For HALF input data type the resulting tensor descriptor will have a FLOAT type. For other data types, it will have the same type as the input data.
 //
 //   - derivedNormScaleBiasDesc: Output. Handle to a previously created tensor descriptor
 //   - derivedNormMeanVarDesc: Output. Handle to a previously created tensor descriptor
 //   - mode: Input. Batch normalization layer mode of operation
 //
 // Returns:
-//   - StatusBadParam: Invalid batch normalization mode.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: Invalid batch normalization mode.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1343,14 +1347,14 @@ func deriveNormTensorDescriptor(derivedNormScaleBiasDesc TensorDescriptor, deriv
 	return toError(fnderiveNormTensorDescriptor(derivedNormScaleBiasDesc, derivedNormMeanVarDesc, xDesc, mode, groupCnt))
 }
 
-// destroy This function releases the resources used by the cuDNN handle.
+// destroy releases the resources used by the cuDNN handle.
 //
 // This function is usually the last call made to cuDNN with a particular handle. Because [Create] allocates internal resources, the release of those resources by calling [Handle.Destroy] will implicitly call cudaDeviceSynchronize; therefore, the recommended best practice is to call [Create] or [Handle.Destroy] outside of performance-critical code paths.
 //
 //   - handle: Input. The cuDNN handle to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The cuDNN context destruction was successful.
+//   - [Success]: The cuDNN context destruction was successful.
 //
 // Wraps cudnnDestroy.
 func destroy(handle Handle) error {
@@ -1360,10 +1364,10 @@ func destroy(handle Handle) error {
 	return toError(fndestroy(handle))
 }
 
-// destroyActivationDescriptor This function destroys a previously created activation descriptor object.
+// destroyActivationDescriptor destroys a previously created activation descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1375,14 +1379,14 @@ func destroyActivationDescriptor(activationDesc ActivationDescriptor) error {
 	return toError(fndestroyActivationDescriptor(activationDesc))
 }
 
-// destroyAttnDescriptor This function destroys the attention descriptor object and releases its memory.
+// destroyAttnDescriptor destroys the attention descriptor object and releases its memory.
 //
-// The attnDesc argument can be NULL. Invoking cudnnDestroyAttnDescriptor() with a NULL argument is a no operation (NOP). The cudnnDestroyAttnDescriptor() function is not able to detect if the attnDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the cudnnCreateAttnDescriptor() function, or in the double deletion scenario of a valid address.
+// This function destroys the attention descriptor object and releases its memory. The attnDesc argument can be NULL. Invoking [AttnDescriptor.Destroy] with a NULL argument is a no operation (NOP). The [AttnDescriptor.Destroy] function is not able to detect if the attnDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the [CreateAttnDescriptor] function, or in the double deletion scenario of a valid address.
 //
 //   - attnDesc: Input. Pointer to the attention descriptor object to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1394,12 +1398,12 @@ func destroyAttnDescriptor(attnDesc AttnDescriptor) error {
 	return toError(fndestroyAttnDescriptor(attnDesc))
 }
 
-// destroyCTCLossDescriptor This function destroys a CTC loss function descriptor object.
+// destroyCTCLossDescriptor destroys a CTC loss function descriptor object.
 //
 //   - ctcLossDesc: Input. CTC loss function descriptor to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The function returned successfully.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnDestroyCTCLossDescriptor.
 func destroyCTCLossDescriptor(ctcLossDesc CTCLossDescriptor) error {
@@ -1409,10 +1413,12 @@ func destroyCTCLossDescriptor(ctcLossDesc CTCLossDescriptor) error {
 	return toError(fndestroyCTCLossDescriptor(ctcLossDesc))
 }
 
-// destroyConvolutionDescriptor This function destroys a previously created convolution descriptor object.
+// destroyConvolutionDescriptor destroys a previously created convolution descriptor object.
+//
+// This function destroys a previously created convolution descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1424,10 +1430,10 @@ func destroyConvolutionDescriptor(convDesc ConvolutionDescriptor) error {
 	return toError(fndestroyConvolutionDescriptor(convDesc))
 }
 
-// destroyDropoutDescriptor This function destroys a previously created dropout descriptor object.
+// destroyDropoutDescriptor destroys a previously created dropout descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyDropoutDescriptor.
 func destroyDropoutDescriptor(dropoutDesc DropoutDescriptor) error {
@@ -1437,10 +1443,12 @@ func destroyDropoutDescriptor(dropoutDesc DropoutDescriptor) error {
 	return toError(fndestroyDropoutDescriptor(dropoutDesc))
 }
 
-// destroyFilterDescriptor This function destroys a filter object.
+// destroyFilterDescriptor destroys a filter object.
+//
+// This function destroys a filter object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1452,13 +1460,15 @@ func destroyFilterDescriptor(filterDesc FilterDescriptor) error {
 	return toError(fndestroyFilterDescriptor(filterDesc))
 }
 
-// destroyFusedOpsConstParamPack This function destroys a previously-created [FusedOpsConstParamPack] structure.
+// destroyFusedOpsConstParamPack destroys a previously-created [FusedOpsConstParamPack] structure.
+//
+// This function destroys a previously-created [FusedOpsConstParamPack] structure.
 //
 //   - constPack: Input. The [FusedOpsConstParamPack] structure that should be destroyed
 //
 // Returns:
-//   - StatusInternalError: The ops enum value is either not supported or is invalid.
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [ErrInternalError]: The ops enum value is either not supported or is invalid.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1470,12 +1480,14 @@ func destroyFusedOpsConstParamPack(constPack FusedOpsConstParamPack) error {
 	return toError(fndestroyFusedOpsConstParamPack(constPack))
 }
 
-// destroyFusedOpsPlan This function destroys the plan descriptor provided.
+// destroyFusedOpsPlan destroys the plan descriptor provided.
+//
+// This function destroys the plan descriptor provided.
 //
 //   - plan: Input. The descriptor that should be destroyed by this function
 //
 // Returns:
-//   - StatusSuccess: Either the plan descriptor is NULL or the descriptor was successfully destroyed.
+//   - [Success]: Either the plan descriptor is NULL or the descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1487,12 +1499,14 @@ func destroyFusedOpsPlan(plan FusedOpsPlan) error {
 	return toError(fndestroyFusedOpsPlan(plan))
 }
 
-// destroyFusedOpsVariantParamPack This function destroys a previously-created descriptor for cudnnFusedOps constant parameters.
+// destroyFusedOpsVariantParamPack destroys a previously-created descriptor for cudnnFusedOps constant parameters.
+//
+// This function destroys a previously-created descriptor for cudnnFusedOps constant parameters.
 //
 //   - varPack: Input. The descriptor that should be destroyed
 //
 // Returns:
-//   - StatusSuccess: The descriptor was successfully destroyed.
+//   - [Success]: The descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1504,10 +1518,10 @@ func destroyFusedOpsVariantParamPack(varPack FusedOpsVariantParamPack) error {
 	return toError(fndestroyFusedOpsVariantParamPack(varPack))
 }
 
-// destroyLRNDescriptor This function destroys a previously created LRN descriptor object.
+// destroyLRNDescriptor destroys a previously created LRN descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyLRNDescriptor.
 func destroyLRNDescriptor(lrnDesc LRNDescriptor) error {
@@ -1517,12 +1531,12 @@ func destroyLRNDescriptor(lrnDesc LRNDescriptor) error {
 	return toError(fndestroyLRNDescriptor(lrnDesc))
 }
 
-// destroyOpTensorDescriptor This function deletes a tensor pointwise math descriptor object.
+// destroyOpTensorDescriptor deletes a tensor pointwise math descriptor object.
 //
 //   - opTensorDesc: Input. Pointer to the structure holding the description of the tensor pointwise math to be deleted
 //
 // Returns:
-//   - StatusSuccess: The function returned successfully.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1534,10 +1548,10 @@ func destroyOpTensorDescriptor(opTensorDesc OpTensorDescriptor) error {
 	return toError(fndestroyOpTensorDescriptor(opTensorDesc))
 }
 
-// destroyPoolingDescriptor This function destroys a previously created pooling descriptor object.
+// destroyPoolingDescriptor destroys a previously created pooling descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1549,12 +1563,12 @@ func destroyPoolingDescriptor(poolingDesc PoolingDescriptor) error {
 	return toError(fndestroyPoolingDescriptor(poolingDesc))
 }
 
-// destroyRNNDataDescriptor This function destroys a previously created RNN data descriptor object.
+// destroyRNNDataDescriptor destroys a previously created RNN data descriptor object.
 //
 // The [RNNDataDescriptor.Destroy] function is not able to detect if the RNNDataDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:
-//   - StatusSuccess: The RNN data descriptor object was destroyed successfully.
+//   - [Success]: The RNN data descriptor object was destroyed successfully.
 //
 // Wraps cudnnDestroyRNNDataDescriptor.
 func destroyRNNDataDescriptor(rnnDataDesc RNNDataDescriptor) error {
@@ -1564,14 +1578,14 @@ func destroyRNNDataDescriptor(rnnDataDesc RNNDataDescriptor) error {
 	return toError(fndestroyRNNDataDescriptor(rnnDataDesc))
 }
 
-// destroyRNNDescriptor This function destroys a previously created RNN descriptor object.
+// destroyRNNDescriptor destroys a previously created RNN descriptor object.
 //
 // The [RNNDescriptor.Destroy] function is not able to detect if the rnnDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDescriptor] function, or in the double deletion scenario of a valid address.
 //
 //   - rnnDesc: Input. Pointer to the RNN descriptor object to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyRNNDescriptor.
 func destroyRNNDescriptor(rnnDesc RNNDescriptor) error {
@@ -1581,12 +1595,12 @@ func destroyRNNDescriptor(rnnDesc RNNDescriptor) error {
 	return toError(fndestroyRNNDescriptor(rnnDesc))
 }
 
-// destroyReduceTensorDescriptor This function destroys a previously created reduce tensor descriptor object.
+// destroyReduceTensorDescriptor destroys a previously created reduce tensor descriptor object.
 //
 // When the input pointer is NULL, this function performs no destroy operation.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1598,14 +1612,14 @@ func destroyReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor) erro
 	return toError(fndestroyReduceTensorDescriptor(reduceTensorDesc))
 }
 
-// destroySeqDataDescriptor This function destroys the sequence data descriptor object and releases its memory.
+// destroySeqDataDescriptor destroys the sequence data descriptor object and releases its memory.
 //
-// The seqDataDesc argument can be NULL. Invoking cudnnDestroySeqDataDescriptor() with a NULL argument is a no operation (NOP). The cudnnDestroySeqDataDescriptor() function is not able to detect if the seqDataDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the cudnnCreateSeqDataDescriptor() function, or in the double deletion scenario of a valid address.
+// This function destroys the sequence data descriptor object and releases its memory. The seqDataDesc argument can be NULL. Invoking [SeqDataDescriptor.Destroy] with a NULL argument is a no operation (NOP). The [SeqDataDescriptor.Destroy] function is not able to detect if the seqDataDesc argument holds a valid address. Undefined behavior will occur in case of passing an invalid pointer, not returned by the [CreateSeqDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
 //   - seqDataDesc: Input. Pointer to the sequence data descriptor object to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The descriptor was destroyed successfully.
+//   - [Success]: The descriptor was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1617,10 +1631,10 @@ func destroySeqDataDescriptor(seqDataDesc SeqDataDescriptor) error {
 	return toError(fndestroySeqDataDescriptor(seqDataDesc))
 }
 
-// destroySpatialTransformerDescriptor This function destroys a previously created spatial transformer descriptor object.
+// destroySpatialTransformerDescriptor destroys a previously created spatial transformer descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroySpatialTransformerDescriptor.
 func destroySpatialTransformerDescriptor(stDesc SpatialTransformerDescriptor) error {
@@ -1630,14 +1644,14 @@ func destroySpatialTransformerDescriptor(stDesc SpatialTransformerDescriptor) er
 	return toError(fndestroySpatialTransformerDescriptor(stDesc))
 }
 
-// destroyTensorDescriptor This function destroys a previously created tensor descriptor object.
+// destroyTensorDescriptor destroys a previously created tensor descriptor object.
 //
 // When the input pointer is NULL, this function performs no destroy operation.
 //
 //   - tensorDesc: Input. Pointer to the tensor descriptor object to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyTensorDescriptor.
 func destroyTensorDescriptor(tensorDesc TensorDescriptor) error {
@@ -1652,7 +1666,7 @@ func destroyTensorDescriptor(tensorDesc TensorDescriptor) error {
 //   - transformDesc: Input. The tensor transform descriptor to be destroyed
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1664,7 +1678,7 @@ func destroyTensorTransformDescriptor(transformDesc TensorTransformDescriptor) e
 	return toError(fndestroyTensorTransformDescriptor(transformDesc))
 }
 
-// divisiveNormalizationBackward This function performs the backward DivisiveNormalization layer computation.
+// divisiveNormalizationBackward performs the backward DivisiveNormalization layer computation.
 //
 // Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
 //
@@ -1677,9 +1691,9 @@ func destroyTensorTransformDescriptor(transformDesc TensorTransformDescriptor) e
 //   - dMeans: (
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The computation was performed successfully.
-//   - StatusUnsupported: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The computation was performed successfully.
+//   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
 // Wraps cudnnDivisiveNormalizationBackward.
 func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, means uintptr, dy uintptr, temp uintptr, temp2 uintptr, beta unsafe.Pointer, dXdMeansDesc TensorDescriptor, dx uintptr, dMeans uintptr) error {
@@ -1689,7 +1703,7 @@ func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode D
 	return toError(fndivisiveNormalizationBackward(handle, normDesc, mode, alpha, xDesc, x, means, dy, temp, temp2, beta, dXdMeansDesc, dx, dMeans))
 }
 
-// divisiveNormalizationForward This function performs the forward spatial DivisiveNormalization layer computation.
+// divisiveNormalizationForward performs the forward spatial DivisiveNormalization layer computation.
 //
 // The full LCN (Local Contrastive Normalization) computation can be implemented as a two-step process: The x-mean(x) which is often referred to as “subtractive normalization” portion of the computation can be implemented using cuDNN average pooling layer followed by a call to addTensor. Supported tensor formats are NCHW for 4D and NCDHW for 5D with any non-overlapping non-negative strides. Only 4D and 5D tensors are supported.
 //
@@ -1700,9 +1714,9 @@ func divisiveNormalizationBackward(handle Handle, normDesc LRNDescriptor, mode D
 //   - beta: Input. Pointers to scaling factors (in host memory) used to blend the layer output value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The computation was performed successfully.
-//   - StatusUnsupported: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The computation was performed successfully.
+//   - CUDNN_STATUS_UNSUPPORTED: The function does not support the provided configuration, for example, any of the input and output tensor strides mismatch (for the same dimension) is a non-supported configuration.
 //
 // Wraps cudnnDivisiveNormalizationForward.
 func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode DivNormMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, means uintptr, temp uintptr, temp2 uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
@@ -1712,7 +1726,7 @@ func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode Di
 	return toError(fndivisiveNormalizationForward(handle, normDesc, mode, alpha, xDesc, x, means, temp, temp2, beta, yDesc, y))
 }
 
-// dropoutBackward This function performs backward dropout operation over dy returning results in dx.
+// dropoutBackward performs backward dropout operation over dy returning results in dx.
 //
 // Better performance is obtained for fully packed tensors.
 //
@@ -1722,10 +1736,10 @@ func divisiveNormalizationForward(handle Handle, normDesc LRNDescriptor, mode Di
 //   - reserveSpaceSizeInBytes: Input. Specifies the size in bytes of the provided memory for the reserve space
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutBackward.
 func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc TensorDescriptor, dy uintptr, dxdesc TensorDescriptor, dx uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
@@ -1735,7 +1749,7 @@ func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc Tensor
 	return toError(fndropoutBackward(handle, dropoutDesc, dydesc, dy, dxdesc, dx, reserveSpace, reserveSpaceSizeInBytes))
 }
 
-// dropoutForward This function performs forward dropout operation over x returning results in y.
+// dropoutForward performs forward dropout operation over x returning results in y.
 //
 // If dropout was used as a parameter to [DropoutDescriptor.Set], the approximate dropout fraction of x values will be replaced by a 0, and the rest will be scaled by 1/(1-dropout). This function should not be running concurrently with another [Handle.DropoutForward] function using the same states.
 //
@@ -1745,10 +1759,10 @@ func dropoutBackward(handle Handle, dropoutDesc DropoutDescriptor, dydesc Tensor
 //   - reserveSpaceSizeInBytes: Input. Specifies the size in bytes of the provided memory for the reserve space
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnDropoutForward.
 func dropoutForward(handle Handle, dropoutDesc DropoutDescriptor, xdesc TensorDescriptor, x uintptr, ydesc TensorDescriptor, y uintptr, reserveSpace uintptr, reserveSpaceSizeInBytes uint) error {
@@ -1758,12 +1772,12 @@ func dropoutForward(handle Handle, dropoutDesc DropoutDescriptor, xdesc TensorDe
 	return toError(fndropoutForward(handle, dropoutDesc, xdesc, x, ydesc, y, reserveSpace, reserveSpaceSizeInBytes))
 }
 
-// dropoutGetReserveSpaceSize This function is used to query the amount of reserve needed to run dropout with the input dimensions given by xDesc.
+// dropoutGetReserveSpaceSize is used to query the amount of reserve needed to run dropout with the input dimensions given by xDesc.
 //
 // The same reserve space is expected to be passed to [Handle.DropoutForward] and [Handle.DropoutBackward], and its contents is expected to remain unchanged between [Handle.DropoutForward] and [Handle.DropoutBackward] calls.
 //
 // Returns:
-//   - StatusSuccess: The query was successful.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnDropoutGetReserveSpaceSize.
 func dropoutGetReserveSpaceSize(xdesc TensorDescriptor) (uint, error) {
@@ -1779,12 +1793,12 @@ func dropoutGetReserveSpaceSize(xdesc TensorDescriptor) (uint, error) {
 	return out, nil
 }
 
-// dropoutGetStatesSize This function is used to query the amount of space required to store the states of the random number generators used by the [Handle.DropoutForward] function.
+// dropoutGetStatesSize is used to query the amount of space required to store the states of the random number generators used by the [Handle.DropoutForward] function.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //
 // Returns:
-//   - StatusSuccess: The query was successful.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnDropoutGetStatesSize.
 func dropoutGetStatesSize(handle Handle) (uint, error) {
@@ -1800,9 +1814,9 @@ func dropoutGetStatesSize(handle Handle) (uint, error) {
 	return out, nil
 }
 
-// findConvolutionBackwardDataAlgorithm This function attempts all algorithms available for cudnnConvolutionBackwardData().
+// findConvolutionBackwardDataAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionBackwardDataAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionBackwardDataAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
@@ -1812,10 +1826,10 @@ func dropoutGetStatesSize(handle Handle) (uint, error) {
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusAllocFailed: This function was unable to allocate memory to store sample input, filters, and output.
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusInternalError: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrInternalError]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1827,9 +1841,9 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 	return toError(fnfindConvolutionBackwardDataAlgorithm(handle, wDesc, dyDesc, convDesc, dxDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// findConvolutionBackwardDataAlgorithmEx This function attempts all algorithms available for cudnnConvolutionBackwardData().
+// findConvolutionBackwardDataAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardData].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionBackwardDataAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardData]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdDataAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionBackwardDataAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Previously initialized convolution descriptor
@@ -1837,9 +1851,9 @@ func findConvolutionBackwardDataAlgorithm(handle Handle, wDesc FilterDescriptor,
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusInternalError: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrInternalError]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1851,9 +1865,9 @@ func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescripto
 	return toError(fnfindConvolutionBackwardDataAlgorithmEx(handle, wDesc, w, dyDesc, dy, convDesc, dxDesc, dx, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes))
 }
 
-// findConvolutionBackwardFilterAlgorithm This function attempts all algorithms available for cudnnConvolutionBackwardFilter().
+// findConvolutionBackwardFilterAlgorithm attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionBackwardFilterAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionBackwardFilterAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
@@ -1863,8 +1877,8 @@ func findConvolutionBackwardDataAlgorithmEx(handle Handle, wDesc FilterDescripto
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: [ErrAllocFailed] This function was unable to allocate memory to store sample input, filters and output. [ErrInternalError] At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met: [ErrAllocFailed] This function was unable to allocate memory to store sample input, filters and output. [ErrInternalError] At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1876,9 +1890,9 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 	return toError(fnfindConvolutionBackwardFilterAlgorithm(handle, xDesc, dyDesc, convDesc, dwDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// findConvolutionBackwardFilterAlgorithmEx This function attempts all algorithms available for cudnnConvolutionBackwardFilter().
+// findConvolutionBackwardFilterAlgorithmEx attempts all algorithms available for [Handle.ConvolutionBackwardFilter].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionBackwardFilterAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionBackwardFilter]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionBwdFilterAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionBackwardFilterAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dyDesc: Input. Handle to the previously initialized input differential tensor descriptor
@@ -1887,8 +1901,8 @@ func findConvolutionBackwardFilterAlgorithm(handle Handle, xDesc TensorDescripto
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1900,9 +1914,9 @@ func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescrip
 	return toError(fnfindConvolutionBackwardFilterAlgorithmEx(handle, xDesc, x, dyDesc, y, convDesc, dwDesc, dw, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes))
 }
 
-// findConvolutionForwardAlgorithm This function attempts all algorithms available for cudnnConvolutionForward().
+// findConvolutionForwardAlgorithm attempts all algorithms available for [Handle.ConvolutionForward].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionForwardAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionForwardAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
@@ -1912,9 +1926,9 @@ func findConvolutionBackwardFilterAlgorithmEx(handle Handle, xDesc TensorDescrip
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusAllocFailed: This function was unable to allocate memory to store sample input, filters, and output. [ErrInternalError] At least one of the following conditions are met:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrAllocFailed]: This function was unable to allocate memory to store sample input, filters, and output. [ErrInternalError] At least one of the following conditions are met:
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1926,9 +1940,9 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 	return toError(fnfindConvolutionForwardAlgorithm(handle, xDesc, wDesc, convDesc, yDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// findConvolutionForwardAlgorithmEx This function attempts all algorithms available for cudnnConvolutionForward().
+// findConvolutionForwardAlgorithmEx attempts all algorithms available for [Handle.ConvolutionForward].
 //
-// It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API cudnnGetConvolutionForwardAlgorithmMaxCount().
+// This function attempts all algorithms available for [Handle.ConvolutionForward]. It will attempt both the provided convDesc mathType and [DefaultMath] (assuming the two differ). Algorithms without the [TensorOpMath] availability will only be tried with [DefaultMath], and returned as such. Memory is allocated via cudaMalloc(). The performance metrics are returned in the user-allocated array of [ConvolutionFwdAlgoPerf]. These metrics are written in a sorted fashion where the first element has the lowest compute time. The total number of resulting algorithms can be queried through the API [Handle.GetConvolutionForwardAlgorithmMaxCount].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Previously initialized convolution descriptor
@@ -1936,8 +1950,8 @@ func findConvolutionForwardAlgorithm(handle Handle, xDesc TensorDescriptor, wDes
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met: [ErrInternalError] At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -1949,14 +1963,14 @@ func findConvolutionForwardAlgorithmEx(handle Handle, xDesc TensorDescriptor, x 
 	return toError(fnfindConvolutionForwardAlgorithmEx(handle, xDesc, x, wDesc, w, convDesc, yDesc, y, requestedAlgoCount, returnedAlgoCount, perfResults, workSpace, workSpaceSizeInBytes))
 }
 
-// fusedOpsExecute This function executes the sequence of cudnnFusedOps operations.
+// fusedOpsExecute executes the sequence of cudnnFusedOps operations.
 //
 //   - handle: Input. Pointer to the cuDNN library context
 //   - plan: Input. Pointer to a previously-created and initialized plan descriptor
 //   - varPack: Input. Pointer to the descriptor to the variant parameters pack
 //
 // Returns:
-//   - StatusBadParam: If the type of [FusedOps] in the plan descriptor is unsupported.
+//   - [ErrBadParam]: If the type of [FusedOps] in the plan descriptor is unsupported.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1968,14 +1982,14 @@ func fusedOpsExecute(handle Handle, plan FusedOpsPlan, varPack FusedOpsVariantPa
 	return toError(fnfusedOpsExecute(handle, plan, varPack))
 }
 
-// getActivationDescriptor This function queries a previously initialized generic activation descriptor object.
+// getActivationDescriptor queries a previously initialized generic activation descriptor object.
 //
 //   - activationDesc: Input. Handle to a previously created activation descriptor
 //   - mode: Output. Enumerant to specify the activation mode
 //   - reluNanOpt: Output. Enumerant to specify the Nan propagation mode
 //
 // Returns:
-//   - StatusSuccess: The object was queried successfully.
+//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -1987,14 +2001,14 @@ func getActivationDescriptor(activationDesc ActivationDescriptor, mode *Activati
 	return toError(fngetActivationDescriptor(activationDesc, mode, reluNanOpt, coef))
 }
 
-// getActivationDescriptorSwishBeta This function queries the current beta parameter set for SWISH activation.
+// getActivationDescriptorSwishBeta queries the current beta parameter set for SWISH activation.
 //
 //   - activationDesc: Input. Handle to a previously created activation descriptor
 //   - swish_beta: Output. Pointer to a double value that will receive the currently configured SWISH beta parameter
 //
 // Returns:
-//   - StatusBadParam: At least one of activationDesc or swish_beta were NULL.
-//   - StatusSuccess: The beta parameter was queried successfully.
+//   - [ErrBadParam]: At least one of activationDesc or swish_beta were NULL.
+//   - [Success]: The beta parameter was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2006,9 +2020,9 @@ func getActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 	return toError(fngetActivationDescriptorSwishBeta(activationDesc, swish_beta))
 }
 
-// getAttnDescriptor This function retrieves settings from the previously created attention descriptor.
+// getAttnDescriptor retrieves settings from the previously created attention descriptor.
 //
-// The user can assign NULL to any pointer except attnDesc when the retrieved value is not needed.
+// This function retrieves settings from the previously created attention descriptor. The user can assign NULL to any pointer except attnDesc when the retrieved value is not needed.
 //
 //   - attnDesc: Input. Attention descriptor
 //   - attnMode: Output. Pointer to the storage for binary attention flags
@@ -2028,8 +2042,8 @@ func getActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 //   - maxBeamSize: Output. Largest beam size expected in the [SeqDataDescriptor] container
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found.
-//   - StatusSuccess: Requested attention descriptor fields were retrieved successfully.
+//   - [ErrBadParam]: An invalid input argument was found.
+//   - [Success]: Requested attention descriptor fields were retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2041,18 +2055,18 @@ func getAttnDescriptor(attnDesc AttnDescriptor, attnMode *uint32, nHeads *int32,
 	return toError(fngetAttnDescriptor(attnDesc, attnMode, nHeads, smScaler, dataType, computePrec, mathType, attnDropoutDesc, postDropoutDesc, qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize))
 }
 
-// getBatchNormalizationBackwardExWorkspaceSize This function returns the amount of GPU memory workspace the user should allocate to be able to call cudnnGetBatchNormalizationBackwardExWorkspaceSize() function for the specified bnOps input setting.
+// getBatchNormalizationBackwardExWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.GetBatchNormalizationBackwardExWorkspaceSize] function for the specified bnOps input setting.
 //
-// The workspace allocated will then be passed to the function cudnnGetBatchNormalizationBackwardExWorkspaceSize().
+// The workspace allocated will then be passed to the function [Handle.GetBatchNormalizationBackwardExWorkspaceSize].
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: input setting
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2070,9 +2084,9 @@ func getBatchNormalizationBackwardExWorkspaceSize(handle Handle, mode BatchNormM
 	return out, nil
 }
 
-// getBatchNormalizationForwardTrainingExWorkspaceSize This function returns the amount of GPU memory workspace the user should allocate to be able to call cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize() function for the specified bnOps input setting.
+// getBatchNormalizationForwardTrainingExWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.GetBatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting.
 //
-// The workspace allocated should then be passed by the user to the function cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize().
+// This function returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.GetBatchNormalizationForwardTrainingExWorkspaceSize] function for the specified bnOps input setting. The workspace allocated should then be passed by the user to the function [Handle.GetBatchNormalizationForwardTrainingExWorkspaceSize].
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
@@ -2080,9 +2094,9 @@ func getBatchNormalizationBackwardExWorkspaceSize(handle Handle, mode BatchNormM
 //   - zDesc: is only needed when
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2100,18 +2114,18 @@ func getBatchNormalizationForwardTrainingExWorkspaceSize(handle Handle, mode Bat
 	return out, nil
 }
 
-// getBatchNormalizationTrainingExReserveSpaceSize This function returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting.
+// getBatchNormalizationTrainingExReserveSpaceSize returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting.
 //
-// In contrast to the workspace, the reserved space should be preserved between the forward and backward calls, and the data should not be altered.
+// This function returns the amount of reserve GPU memory workspace the user should allocate for the batch normalization operation, for the specified bnOps input setting. In contrast to the workspace, the reserved space should be preserved between the forward and backward calls, and the data should not be altered.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (spatial or per-activation). For more information, refer to [BatchNormMode]
 //   - bnOps: input is set to either
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2129,7 +2143,9 @@ func getBatchNormalizationTrainingExReserveSpaceSize(handle Handle, mode BatchNo
 	return out, nil
 }
 
-// getCTCLossDescriptorEx This function returns the configuration of the passed CTC loss function descriptor.
+// getCTCLossDescriptorEx returns the configuration of the passed CTC loss function descriptor.
+//
+// This function returns the configuration of the passed CTC loss function descriptor.
 //
 //   - ctcLossDesc: Input. CTC loss function descriptor passed, from which to retrieve the configuration
 //   - compType: Output. Compute type associated with this CTC loss function descriptor
@@ -2137,8 +2153,8 @@ func getBatchNormalizationTrainingExReserveSpaceSize(handle Handle, mode BatchNo
 //   - gradMode: Output. NaN propagation type for this CTC loss function descriptor
 //
 // Returns:
-//   - StatusBadParam: Input ctcLossDesc descriptor passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Get] instead.
 //
@@ -2150,7 +2166,7 @@ func getCTCLossDescriptorEx(ctcLossDesc CTCLossDescriptor, compType *DataType, n
 	return toError(fngetCTCLossDescriptorEx(ctcLossDesc, compType, normMode, gradMode))
 }
 
-// getCTCLossDescriptor This function returns the configuration of the passed CTC loss function descriptor.
+// getCTCLossDescriptor returns the configuration of the passed CTC loss function descriptor.
 //
 //   - ctcLossDesc: Input. CTC loss function descriptor passed, from which to retrieve the configuration
 //   - compType: Output. Compute type associated with this CTC loss function descriptor
@@ -2159,8 +2175,8 @@ func getCTCLossDescriptorEx(ctcLossDesc CTCLossDescriptor, compType *DataType, n
 //   - maxLabelLength: Output. The max label length for this CTC loss function descriptor
 //
 // Returns:
-//   - StatusBadParam: Input ctcLossDesc descriptor passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnGetCTCLossDescriptor_v9.
 func getCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, compType *DataType, normMode *LossNormalizationMode, ctcGradMode *CTCGradMode, maxLabelLength *int32) error {
@@ -2170,7 +2186,7 @@ func getCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, compType *DataType, nor
 	return toError(fngetCTCLossDescriptor(ctcLossDesc, compType, normMode, ctcGradMode, maxLabelLength))
 }
 
-// getCTCLossWorkspaceSize This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLoss] with the specified algorithm.
+// getCTCLossWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLoss] with the specified algorithm.
 //
 // The workspace allocated will then be passed to the routine [Handle.CTCLoss].
 //
@@ -2183,9 +2199,9 @@ func getCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, compType *DataType, nor
 //   - ctcLossDesc: Input. Handle to the previously initialized CTC loss descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnGetCTCLossWorkspaceSize.
 func getCTCLossWorkspaceSize(handle Handle, probsDesc TensorDescriptor, gradientsDesc TensorDescriptor, labels *int32, labelLengths *int32, inputLengths *int32, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor) (uint, error) {
@@ -2201,7 +2217,7 @@ func getCTCLossWorkspaceSize(handle Handle, probsDesc TensorDescriptor, gradient
 	return out, nil
 }
 
-// getCTCLossWorkspaceSizeV8 This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLossV8] with the specified algorithm.
+// getCTCLossWorkspaceSizeV8 returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.CTCLossV8] with the specified algorithm.
 //
 // The workspace allocated will then be passed to the routine [Handle.CTCLossV8].
 //
@@ -2211,9 +2227,9 @@ func getCTCLossWorkspaceSize(handle Handle, probsDesc TensorDescriptor, gradient
 //   - gradientsDesc: Input. Handle to a previously initialized gradient tensor descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: A compute or data type other than FLOAT was chosen, or an unknown algorithm type was chosen.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnGetCTCLossWorkspaceSize_v8.
 func getCTCLossWorkspaceSizeV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCLossDescriptor, probsDesc TensorDescriptor, gradientsDesc TensorDescriptor) (uint, error) {
@@ -2229,14 +2245,14 @@ func getCTCLossWorkspaceSizeV8(handle Handle, algo CTCLossAlgo, ctcLossDesc CTCL
 	return out, nil
 }
 
-// GetCallback This function queries the internal states of cuDNN error reporting functionality.
+// GetCallback queries the internal states of cuDNN error reporting functionality.
 //
 //   - udata: address will be stored
 //   - fptr: see [Callback]
 //
 // Returns:
-//   - StatusBadParam: If any of the input parameters are NULL.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: If any of the input parameters are NULL.
+//   - [Success]: The function launched successfully.
 //
 // Wraps cudnnGetCallback.
 func GetCallback(udata *uintptr, fptr uintptr) (uint32, error) {
@@ -2252,7 +2268,9 @@ func GetCallback(udata *uintptr, fptr uintptr) (uint32, error) {
 	return out, nil
 }
 
-// getConvolution2dDescriptor This function queries a previously initialized 2D convolution descriptor object.
+// getConvolution2dDescriptor queries a previously initialized 2D convolution descriptor object.
+//
+// This function queries a previously initialized 2D convolution descriptor object.
 //
 //   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
 //   - pad_h: Output. Zero-padding height: number of rows of zeros implicitly concatenated onto the top and onto the bottom of input images
@@ -2265,8 +2283,8 @@ func GetCallback(udata *uintptr, fptr uintptr) (uint32, error) {
 //   - computeType: Output. Compute precision
 //
 // Returns:
-//   - StatusBadParam: The parameter convDesc is NIL.
-//   - StatusSuccess: The operation was successful.
+//   - [ErrBadParam]: The parameter convDesc is NIL.
+//   - [Success]: The operation was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2278,9 +2296,9 @@ func getConvolution2dDescriptor(convDesc ConvolutionDescriptor, pad_h *int32, pa
 	return toError(fngetConvolution2dDescriptor(convDesc, pad_h, pad_w, u, v, dilation_h, dilation_w, mode, computeType))
 }
 
-// getConvolution2dForwardOutputDim This function returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
+// getConvolution2dForwardOutputDim returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor.
 //
-// This function can help to set up the output tensor and allocate the proper amount of memory prior to launching the actual convolution. Each dimension h and w of the output images is computed as follows:
+// This function returns the dimensions of the resulting 4D tensor of a 2D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor. This function can help to set up the output tensor and allocate the proper amount of memory prior to launching the actual convolution. Each dimension h and w of the output images is computed as follows:
 //
 //   - convDesc: Input. Handle to a previously created convolution descriptor
 //   - inputTensorDesc: Input. Handle to a previously initialized tensor descriptor
@@ -2291,8 +2309,8 @@ func getConvolution2dDescriptor(convDesc ConvolutionDescriptor, pad_h *int32, pa
 //   - w: Output. Width of each output feature map
 //
 // Returns:
-//   - StatusBadParam: One or more of the descriptors has not been created correctly or there is a mismatch between the feature maps of inputTensorDesc and filterDesc.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: One or more of the descriptors has not been created correctly or there is a mismatch between the feature maps of inputTensorDesc and filterDesc.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2304,16 +2322,16 @@ func getConvolution2dForwardOutputDim(convDesc ConvolutionDescriptor, inputTenso
 	return toError(fngetConvolution2dForwardOutputDim(convDesc, inputTensorDesc, filterDesc, n, c, h, w))
 }
 
-// getConvolutionBackwardDataAlgorithmMaxCount This function returns the maximum number of algorithms which can be returned from cudnnFindConvolutionBackwardDataAlgorithm() and cudnnGetConvolutionForwardAlgorithm_v7().
+// getConvolutionBackwardDataAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
 //
-// This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
+// This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardDataAlgorithm] and [Handle.GetConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - count: Output. The resulting maximum number of algorithms
 //
 // Returns:
-//   - StatusBadParam: The provided handle is not allocated properly.
-//   - StatusSuccess: The function was successful.
+//   - [ErrBadParam]: The provided handle is not allocated properly.
+//   - [Success]: The function was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2325,17 +2343,17 @@ func getConvolutionBackwardDataAlgorithmMaxCount(handle Handle, count *int32) er
 	return toError(fngetConvolutionBackwardDataAlgorithmMaxCount(handle, count))
 }
 
-// getConvolutionBackwardDataAlgorithm This function serves as a heuristic for obtaining the best suited algorithm for cudnnConvolutionBackwardData() for the given layer specifications.
+// getConvolutionBackwardDataAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications.
 //
-// This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use cudnnFindConvolutionBackwardDataAlgorithm(). The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
+// This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardData] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardDataAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2347,9 +2365,9 @@ func getConvolutionBackwardDataAlgorithm(handle Handle, filterDesc FilterDescrip
 	return toError(fngetConvolutionBackwardDataAlgorithm(handle, filterDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// getConvolutionBackwardDataWorkspaceSize This function returns the amount of GPU memory workspace the user needs to allocate to be able to call cudnnConvolutionBackwardData() with the specified algorithm.
+// getConvolutionBackwardDataWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm.
 //
-// The workspace allocated will then be passed to the routine cudnnConvolutionBackwardData(). The specified algorithm can be the result of the call to cudnnGetConvolutionBackwardDataAlgorithm_v7() or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
+// This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardData] with the specified algorithm. The workspace allocated will then be passed to the routine [Handle.ConvolutionBackwardData]. The specified algorithm can be the result of the call to [Handle.GetConvolutionBackwardDataAlgorithm] or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
@@ -2358,9 +2376,9 @@ func getConvolutionBackwardDataAlgorithm(handle Handle, filterDesc FilterDescrip
 //   - dxDesc: Input. Handle to the previously initialized output tensor descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2378,16 +2396,16 @@ func getConvolutionBackwardDataWorkspaceSize(handle Handle, wDesc FilterDescript
 	return out, nil
 }
 
-// getConvolutionBackwardFilterAlgorithmMaxCount This function returns the maximum number of algorithms which can be returned from cudnnFindConvolutionBackwardFilterAlgorithm() and cudnnGetConvolutionForwardAlgorithm_v7().
+// getConvolutionBackwardFilterAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
 //
-// This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
+// This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionBackwardFilterAlgorithm] and [Handle.GetConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - count: Output. The resulting maximum count of algorithms
 //
 // Returns:
-//   - StatusBadParam: The provided handle is not allocated properly.
-//   - StatusSuccess: The function was successful.
+//   - [ErrBadParam]: The provided handle is not allocated properly.
+//   - [Success]: The function was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2399,17 +2417,17 @@ func getConvolutionBackwardFilterAlgorithmMaxCount(handle Handle, count *int32) 
 	return toError(fngetConvolutionBackwardFilterAlgorithmMaxCount(handle, count))
 }
 
-// getConvolutionBackwardFilterAlgorithm This function serves as a heuristic for obtaining the best suited algorithm for cudnnConvolutionBackwardFilter() for the given layer specifications.
+// getConvolutionBackwardFilterAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications.
 //
-// This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use cudnnFindConvolutionBackwardFilterAlgorithm(). The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
+// This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionBackwardFilter] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionBackwardFilterAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2421,9 +2439,9 @@ func getConvolutionBackwardFilterAlgorithm(handle Handle, srcDesc TensorDescript
 	return toError(fngetConvolutionBackwardFilterAlgorithm(handle, srcDesc, diffDesc, convDesc, gradDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// getConvolutionBackwardFilterWorkspaceSize This function returns the amount of GPU memory workspace the user needs to allocate to be able to call cudnnConvolutionBackwardFilter() with the specified algorithm.
+// getConvolutionBackwardFilterWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm.
 //
-// The workspace allocated will then be passed to the routine cudnnConvolutionBackwardFilter(). The specified algorithm can be the result of the call to cudnnGetConvolutionBackwardFilterAlgorithm_v7() or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
+// This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionBackwardFilter] with the specified algorithm. The workspace allocated will then be passed to the routine [Handle.ConvolutionBackwardFilter]. The specified algorithm can be the result of the call to [Handle.GetConvolutionBackwardFilterAlgorithm] or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - xDesc: Input. Handle to the previously initialized input tensor descriptor
@@ -2431,9 +2449,9 @@ func getConvolutionBackwardFilterAlgorithm(handle Handle, srcDesc TensorDescript
 //   - convDesc: Input. Previously initialized convolution descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The combination of the tensor descriptors, filter descriptor and convolution descriptor is not supported for the specified algorithm.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor and convolution descriptor is not supported for the specified algorithm.
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2451,16 +2469,16 @@ func getConvolutionBackwardFilterWorkspaceSize(handle Handle, xDesc TensorDescri
 	return out, nil
 }
 
-// getConvolutionForwardAlgorithmMaxCount This function returns the maximum number of algorithms which can be returned from cudnnFindConvolutionForwardAlgorithm() and cudnnGetConvolutionForwardAlgorithm_v7().
+// getConvolutionForwardAlgorithmMaxCount returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.GetConvolutionForwardAlgorithm].
 //
-// This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
+// This function returns the maximum number of algorithms which can be returned from [Handle.FindConvolutionForwardAlgorithm] and [Handle.GetConvolutionForwardAlgorithm]. This is the sum of all algorithms plus the sum of all algorithms with Tensor Core operations supported for the current device.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - count: Output. The resulting maximum number of algorithms
 //
 // Returns:
-//   - StatusBadParam: The provided handle is not allocated properly.
-//   - StatusSuccess: The function was successful.
+//   - [ErrBadParam]: The provided handle is not allocated properly.
+//   - [Success]: The function was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2472,17 +2490,17 @@ func getConvolutionForwardAlgorithmMaxCount(handle Handle, count *int32) error {
 	return toError(fngetConvolutionForwardAlgorithmMaxCount(handle, count))
 }
 
-// getConvolutionForwardAlgorithm This function serves as a heuristic for obtaining the best suited algorithm for cudnnConvolutionForward() for the given layer specifications.
+// getConvolutionForwardAlgorithm serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications.
 //
-// This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use cudnnFindConvolutionForwardAlgorithm(). The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
+// This function serves as a heuristic for obtaining the best suited algorithm for [Handle.ConvolutionForward] for the given layer specifications. This function will return all algorithms (including [TensorOpMath] and [DefaultMath] versions of algorithms where [TensorOpMath] may be available) sorted by expected (based on internal heuristic) relative performance with the fastest being index 0 of perfResults. For an exhaustive search for the fastest algorithm, use [Handle.FindConvolutionForwardAlgorithm]. The total number of resulting algorithms can be queried through the returnedAlgoCount variable.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Previously initialized convolution descriptor
 //   - perfResults: Output. A user-allocated array to store performance metrics sorted ascending by compute time
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2494,18 +2512,18 @@ func getConvolutionForwardAlgorithm(handle Handle, srcDesc TensorDescriptor, fil
 	return toError(fngetConvolutionForwardAlgorithm(handle, srcDesc, filterDesc, convDesc, destDesc, requestedAlgoCount, returnedAlgoCount, perfResults))
 }
 
-// getConvolutionForwardWorkspaceSize This function returns the amount of GPU memory workspace the user needs to allocate to be able to call cudnnConvolutionForward() with the specified algorithm.
+// getConvolutionForwardWorkspaceSize returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm.
 //
-// The workspace allocated will then be passed to the routine cudnnConvolutionForward(). The specified algorithm can be the result of the call to cudnnGetConvolutionForwardAlgorithm_v7() or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
+// This function returns the amount of GPU memory workspace the user needs to allocate to be able to call [Handle.ConvolutionForward] with the specified algorithm. The workspace allocated will then be passed to the routine [Handle.ConvolutionForward]. The specified algorithm can be the result of the call to [Handle.GetConvolutionForwardAlgorithm] or can be chosen arbitrarily by the user. Note that not every algorithm is available for every configuration of the input tensor and/or every configuration of the convolution descriptor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - wDesc: Input. Handle to a previously initialized filter descriptor
 //   - convDesc: Input. Previously initialized convolution descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The combination of the tensor descriptors, filter descriptor, and convolution descriptor is not supported for the specified algorithm.
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2523,11 +2541,13 @@ func getConvolutionForwardWorkspaceSize(handle Handle, xDesc TensorDescriptor, w
 	return out, nil
 }
 
-// getConvolutionGroupCount This function returns the group count specified in the given convolution descriptor.
+// getConvolutionGroupCount returns the group count specified in the given convolution descriptor.
+//
+// This function returns the group count specified in the given convolution descriptor.
 //
 // Returns:
-//   - StatusBadParam: An invalid convolution descriptor was provided.
-//   - StatusSuccess: The group count was returned successfully.
+//   - [ErrBadParam]: An invalid convolution descriptor was provided.
+//   - [Success]: The group count was returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2539,11 +2559,13 @@ func getConvolutionGroupCount(convDesc ConvolutionDescriptor, groupCount *int32)
 	return toError(fngetConvolutionGroupCount(convDesc, groupCount))
 }
 
-// getConvolutionMathType This function returns the math type specified in a given convolution descriptor.
+// getConvolutionMathType returns the math type specified in a given convolution descriptor.
+//
+// This function returns the math type specified in a given convolution descriptor.
 //
 // Returns:
-//   - StatusBadParam: An invalid convolution descriptor was provided.
-//   - StatusSuccess: The math type was returned successfully.
+//   - [ErrBadParam]: An invalid convolution descriptor was provided.
+//   - [Success]: The math type was returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2555,7 +2577,9 @@ func getConvolutionMathType(convDesc ConvolutionDescriptor, mathType *MathType) 
 	return toError(fngetConvolutionMathType(convDesc, mathType))
 }
 
-// getConvolutionNdDescriptor This function queries a previously initialized convolution descriptor object.
+// getConvolutionNdDescriptor queries a previously initialized convolution descriptor object.
+//
+// This function queries a previously initialized convolution descriptor object.
 //
 //   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
 //   - arrayLengthRequested: that will be filled with the dilation parameters from the provided convolution descriptor
@@ -2563,9 +2587,9 @@ func getConvolutionMathType(convDesc ConvolutionDescriptor, mathType *MathType) 
 //   - mode: Output. Convolution mode of the provided descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The arrayLengthRequested is greater than CUDNN_DIM_MAX-2.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The arrayLengthRequested is greater than CUDNN_DIM_MAX-2.
+//   - [Success]: The query was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2577,9 +2601,9 @@ func getConvolutionNdDescriptor(convDesc ConvolutionDescriptor, arrayLengthReque
 	return toError(fngetConvolutionNdDescriptor(convDesc, arrayLengthRequested, arrayLength, padA, strideA, dilationA, mode, computeType))
 }
 
-// getConvolutionNdForwardOutputDim This function returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
+// getConvolutionNdForwardOutputDim returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution.
 //
-// Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows: The dimensions provided by this routine must be strictly respected when calling cudnnConvolutionForward() or cudnnConvolutionBackwardBias(). Providing a smaller or larger output tensor is not supported by the convolution routines.
+// This function returns the dimensions of the resulting Nd tensor of a nbDims-2-D convolution, given the convolution descriptor, the input tensor descriptor and the filter descriptor This function can help to setup the output tensor and allocate the proper amount of memory prior to launch the actual convolution. Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows: The dimensions provided by this routine must be strictly respected when calling [Handle.ConvolutionForward] or [Handle.ConvolutionBackwardBias]. Providing a smaller or larger output tensor is not supported by the convolution routines.
 //
 //   - convDesc: Input. Handle to a previously created convolution descriptor
 //   - inputTensorDesc: Input. Handle to a previously initialized tensor descriptor
@@ -2587,8 +2611,8 @@ func getConvolutionNdDescriptor(convDesc ConvolutionDescriptor, arrayLengthReque
 //   - nbDims: that contains on exit of this routine the sizes of the output tensor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The routine exited successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The routine exited successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2600,14 +2624,16 @@ func getConvolutionNdForwardOutputDim(convDesc ConvolutionDescriptor, inputTenso
 	return toError(fngetConvolutionNdForwardOutputDim(convDesc, inputTensorDesc, filterDesc, nbDims, tensorOuputDimA))
 }
 
-// getConvolutionReorderType This function retrieves the convolution reorder type from the given convolution descriptor.
+// getConvolutionReorderType retrieves the convolution reorder type from the given convolution descriptor.
+//
+// This function retrieves the convolution reorder type from the given convolution descriptor.
 //
 //   - convDesc: Input. The convolution descriptor from which the reorder type should be retrieved
 //   - reorderType: Output. The retrieved reorder type. For more information, refer to [ReorderType]
 //
 // Returns:
-//   - StatusBadParam: One of the inputs to this function is not valid.
-//   - StatusSuccess: The reorder type is retrieved successfully.
+//   - [ErrBadParam]: One of the inputs to this function is not valid.
+//   - [Success]: The reorder type is retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2619,7 +2645,20 @@ func getConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType *Reor
 	return toError(fngetConvolutionReorderType(convDesc, reorderType))
 }
 
-// getDropoutDescriptor This function queries the fields of a previously initialized dropout descriptor.
+// GetCudartVersion The same version of a given cuDNN library can be compiled against different CUDA toolkit versions.
+//
+// This routine returns the CUDA toolkit version that the currently used cuDNN library has been compiled against.
+//
+// Wraps cudnnGetCudartVersion.
+func GetCudartVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetCudartVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetCudartVersion(), nil
+}
+
+// getDropoutDescriptor queries the fields of a previously initialized dropout descriptor.
 //
 //   - dropoutDesc: Input. Previously initialized dropout descriptor
 //   - handle: Input. Handle to a previously created cuDNN context
@@ -2628,8 +2667,8 @@ func getConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType *Reor
 //   - seed: Output. Seed used to initialize random number generator states
 //
 // Returns:
-//   - StatusBadParam: One or more of the arguments was an invalid pointer.
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: One or more of the arguments was an invalid pointer.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnGetDropoutDescriptor.
 func getDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout *float32, states *uintptr, seed *uint64) error {
@@ -2639,7 +2678,9 @@ func getDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 	return toError(fngetDropoutDescriptor(dropoutDesc, handle, dropout, states, seed))
 }
 
-// getFilter4dDescriptor This function queries the parameters of the previously initialized Filter4d descriptor object.
+// getFilter4dDescriptor queries the parameters of the previously initialized Filter4d descriptor object.
+//
+// This function queries the parameters of the previously initialized Filter4d descriptor object.
 //
 //   - filterDesc: Input. Handle to a previously created filter descriptor
 //   - format: Output. Type of format
@@ -2649,7 +2690,7 @@ func getDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 //   - w: Output. Width of each filter
 //
 // Returns:
-//   - StatusSuccess: The object was set successfully.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2661,15 +2702,17 @@ func getFilter4dDescriptor(filterDesc FilterDescriptor, dataType *DataType, form
 	return toError(fngetFilter4dDescriptor(filterDesc, dataType, format, k, c, h, w))
 }
 
-// getFilterNdDescriptor This function queries a previously initialized FilterNd descriptor object.
+// getFilterNdDescriptor queries a previously initialized FilterNd descriptor object.
+//
+// This function queries a previously initialized FilterNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the filter parameters from the provided filter descriptor
 //   - format: Output. Type of format
 //   - nbDims: Output. Actual dimension of the filter
 //
 // Returns:
-//   - StatusBadParam: The parameter nbDimsRequested is negative.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: The parameter nbDimsRequested is negative.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2681,15 +2724,15 @@ func getFilterNdDescriptor(filterDesc FilterDescriptor, nbDimsRequested int32, d
 	return toError(fngetFilterNdDescriptor(filterDesc, nbDimsRequested, dataType, format, nbDims, filterDimA))
 }
 
-// getFilterSizeInBytes This function returns the size of the filter tensor in memory with respect to the given descriptor.
+// getFilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
 //
-// It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
+// This function returns the size of the filter tensor in memory with respect to the given descriptor. It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
 //
 //   - filterDesc: Input. handle to a previously initialized filter descriptor
 //
 // Returns:
-//   - StatusBadParam: filerDesc is invalid.
-//   - StatusSuccess: filterDesc is valid.
+//   - [ErrBadParam]: filerDesc is invalid.
+//   - [Success]: filterDesc is valid.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2707,7 +2750,7 @@ func getFilterSizeInBytes(filterDesc FilterDescriptor) (uint, error) {
 	return out, nil
 }
 
-// getFoldedConvBackwardDataDescriptors This function calculates folding descriptors for backward data gradients.
+// getFoldedConvBackwardDataDescriptors calculates folding descriptors for backward data gradients.
 //
 // It takes as input the data descriptors along with the convolution descriptor and computes the folded data descriptors and the folding transform descriptors. These can then be used to do the actual folding transform.
 //
@@ -2724,9 +2767,9 @@ func getFilterSizeInBytes(filterDesc FilterDescriptor) (uint, error) {
 //   - gradUnfoldTransDesc: Output. Unfolding transform descriptor for folded gradient
 //
 // Returns:
-//   - StatusBadParam: If any of the input parameters is NULL or if the input tensor has more than 4 dimensions.
-//   - StatusExecutionFailed: Computing the folded descriptors failed.
-//   - StatusSuccess: Folded descriptors were computed successfully.
+//   - [ErrBadParam]: If any of the input parameters is NULL or if the input tensor has more than 4 dimensions.
+//   - [ErrExecutionFailed]: Computing the folded descriptors failed.
+//   - [Success]: Folded descriptors were computed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2738,7 +2781,7 @@ func getFoldedConvBackwardDataDescriptors(handle Handle, filterDesc FilterDescri
 	return toError(fngetFoldedConvBackwardDataDescriptors(handle, filterDesc, diffDesc, convDesc, gradDesc, transformFormat, foldedFilterDesc, paddedDiffDesc, foldedConvDesc, foldedGradDesc, filterFoldTransDesc, diffPadTransDesc, gradFoldTransDesc, gradUnfoldTransDesc))
 }
 
-// getFusedOpsConstParamPackAttribute This function retrieves the values of the descriptor pointed to by the param pointer input.
+// getFusedOpsConstParamPackAttribute retrieves the values of the descriptor pointed to by the param pointer input.
 //
 // The type of the descriptor is indicated by the enum value of paramLabel input.
 //
@@ -2747,8 +2790,8 @@ func getFoldedConvBackwardDataDescriptors(handle Handle, filterDesc FilterDescri
 //   - param: For more information, refer to the table in [FusedOpsConstParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If either constPack, param, or isNULL is NULL; or if paramLabel is invalid.
-//   - StatusSuccess: The descriptor values are retrieved successfully.
+//   - [ErrBadParam]: If either constPack, param, or isNULL is NULL; or if paramLabel is invalid.
+//   - [Success]: The descriptor values are retrieved successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2760,14 +2803,14 @@ func getFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramL
 	return toError(fngetFusedOpsConstParamPackAttribute(constPack, paramLabel, param, isNULL))
 }
 
-// getFusedOpsVariantParamPackAttribute This function retrieves the settings of the variable parameter pack descriptor.
+// getFusedOpsVariantParamPackAttribute retrieves the settings of the variable parameter pack descriptor.
 //
 //   - varPack: descriptor). For more information, refer to [FusedOpsConstParamLabel] . The retrieved descriptor values vary according to this type
 //   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
-//   - StatusSuccess: The descriptor values are retrieved successfully.
+//   - [ErrBadParam]: If either varPack or ptr is NULL, or if paramLabel is set to invalid value.
+//   - [Success]: The descriptor values are retrieved successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2779,13 +2822,13 @@ func getFusedOpsVariantParamPackAttribute(varPack FusedOpsVariantParamPack, para
 	return toError(fngetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr))
 }
 
-// getLRNDescriptor This function retrieves values stored in the previously initialized LRN descriptor object.
+// getLRNDescriptor retrieves values stored in the previously initialized LRN descriptor object.
 //
 //   - normDesc: Output. Handle to a previously created LRN descriptor
 //   - lrnK: Outputs . Pointers to receive values of parameters stored in the descriptor object. For more information, refer to [LRNDescriptor.Set] . Any of these pointers can be
 //
 // Returns:
-//   - StatusSuccess: Function completed successfully.
+//   - [Success]: Function completed successfully.
 //
 // Wraps cudnnGetLRNDescriptor.
 func getLRNDescriptor(normDesc LRNDescriptor, lrnN *uint32, lrnAlpha *float64, lrnBeta *float64, lrnK *float64) error {
@@ -2795,9 +2838,38 @@ func getLRNDescriptor(normDesc LRNDescriptor, lrnN *uint32, lrnAlpha *float64, l
 	return toError(fngetLRNDescriptor(normDesc, lrnN, lrnAlpha, lrnBeta, lrnK))
 }
 
-// getMultiHeadAttnBuffers This function computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: cudnnMultiHeadAttnBackwardData() and cudnnMultiHeadAttnBackwardWeights().
+// GetLastErrorString retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
 //
-// This situation occurs in the inference mode. The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned. The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from cudnnMultiHeadAttnForward() to cudnnMultiHeadAttnBackwardData(), and from cudnnMultiHeadAttnBackwardData() to cudnnMultiHeadAttnBackwardWeights(). The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish. All multihead attention weight and bias tensors are stored in a single weight buffer. For speed optimizations, the cuDNN API may change tensor layouts and their relative locations in the weight buffer based on the provided attention parameters. Use the cudnnGetMultiHeadAttnWeights() function to obtain the start address and the shape of each weight or bias tensor.
+// Inside the cuDNN library, the messages are stored in thread local buffers. The error is cleared after the user calls this API to retrieve it.
+//
+//   - message: Output. Pointer to a character buffer that can store the error message. As we do not manage the thread-safety of the pre-allocated output buffer “message” to avoid unnecessary overhead, we ask that the user ensure it is thread-safe themselves on their own need-basis
+//   - max_size: also counting the terminator character
+//
+// Wraps cudnnGetLastErrorString.
+func GetLastErrorString(message *byte, max_size uint) error {
+	if err := checkLibSym("cudnnGetLastErrorString"); err != nil {
+		return err
+	}
+	fnGetLastErrorString(message, max_size)
+	return nil
+}
+
+// GetMaxDeviceVersion returns the maximum SM version that the cuDNN library is aware of and supports natively.
+//
+// Any SM version higher than this would be supported in forward compatibility mode. For more information about forward compatibility, refer to the cuDNN Developer Guide.
+//
+// Wraps cudnnGetMaxDeviceVersion.
+func GetMaxDeviceVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetMaxDeviceVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetMaxDeviceVersion(), nil
+}
+
+// getMultiHeadAttnBuffers computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights].
+//
+// This function computes weight, work, and reserve space buffer sizes used by the following functions: Assigning NULL to the reserveSpaceSizeInBytes argument indicates that the user does not plan to invoke multihead attention gradient functions: [Handle.MultiHeadAttnBackwardData] and [Handle.MultiHeadAttnBackwardWeights]. This situation occurs in the inference mode. The user must allocate weight, work, and reserve space buffer sizes in the GPU memory using cudaMalloc() with the reported buffer sizes. The buffers can be also carved out from a larger chunk of allocated memory but the buffer addresses must be at least 16B aligned. The workspace buffer is used for temporary storage. Its content can be discarded or modified after all GPU kernels launched by the corresponding API complete. The reserve-space buffer is used to transfer intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData], and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. The content of the reserve-space buffer cannot be modified until all GPU kernels launched by the above three multihead attention API functions finish. All multihead attention weight and bias tensors are stored in a single weight buffer. For speed optimizations, the cuDNN API may change tensor layouts and their relative locations in the weight buffer based on the provided attention parameters. Use the [Handle.GetMultiHeadAttnWeights] function to obtain the start address and the shape of each weight or bias tensor.
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. Pointer to a previously initialized attention descriptor
@@ -2805,8 +2877,8 @@ func getLRNDescriptor(normDesc LRNDescriptor, lrnN *uint32, lrnAlpha *float64, l
 //   - workSpaceSizeInBytes: Output. Minimum buffer size required to hold all temporary surfaces used by the forward and gradient multihead attention API calls
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found.
-//   - StatusSuccess: The requested buffer sizes were computed successfully.
+//   - [ErrBadParam]: An invalid input argument was found.
+//   - [Success]: The requested buffer sizes were computed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2818,9 +2890,9 @@ func getMultiHeadAttnBuffers(handle Handle, attnDesc AttnDescriptor, weightSizeI
 	return toError(fngetMultiHeadAttnBuffers(handle, attnDesc, weightSizeInBytes, workSpaceSizeInBytes, reserveSpaceSizeInBytes))
 }
 
-// getMultiHeadAttnWeights This function obtains the shape of the weight or bias tensor.
+// getMultiHeadAttnWeights obtains the shape of the weight or bias tensor.
 //
-// It also retrieves the start address of tensor data located in the weight buffer. Use the wKind argument to select a particular tensor. For more information, refer to [MultiHeadAttnWeightKind] for the description of the enumerant type. Biases are used in the input and output projections when the CUDNN_ATTN_ENABLE_PROJ_BIASES flag is set in the attention descriptor. Refer to cudnnSetAttnDescriptor() for the description of flags to control projection biases. When the corresponding weight or bias tensor does not exist, the function writes NULL to the storage location pointed by wAddr and returns zeros in the wDesc tensor descriptor. The return status of the cudnnGetMultiHeadAttnWeights() function is [Success] in this case. The cuDNN multiHeadAttention sample code demonstrates how to access multihead attention weights. Although the buffer with weights and biases should be allocated in the GPU memory, the user can copy it to the host memory and invoke the cudnnGetMultiHeadAttnWeights() function with the host weights address to obtain tensor pointers in the host memory. This scheme allows the user to inspect trainable parameters directly in the CPU memory.
+// This function obtains the shape of the weight or bias tensor. It also retrieves the start address of tensor data located in the weight buffer. Use the wKind argument to select a particular tensor. For more information, refer to [MultiHeadAttnWeightKind] for the description of the enumerant type. Biases are used in the input and output projections when the CUDNN_ATTN_ENABLE_PROJ_BIASES flag is set in the attention descriptor. Refer to [AttnDescriptor.Set] for the description of flags to control projection biases. When the corresponding weight or bias tensor does not exist, the function writes NULL to the storage location pointed by wAddr and returns zeros in the wDesc tensor descriptor. The return status of the [Handle.GetMultiHeadAttnWeights] function is [Success] in this case. The cuDNN multiHeadAttention sample code demonstrates how to access multihead attention weights. Although the buffer with weights and biases should be allocated in the GPU memory, the user can copy it to the host memory and invoke the [Handle.GetMultiHeadAttnWeights] function with the host weights address to obtain tensor pointers in the host memory. This scheme allows the user to inspect trainable parameters directly in the CPU memory.
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously configured attention descriptor
@@ -2829,8 +2901,8 @@ func getMultiHeadAttnBuffers(handle Handle, attnDesc AttnDescriptor, weightSizeI
 //   - wAddr: is
 //
 // Returns:
-//   - StatusBadParam: An invalid or incompatible input argument was encountered. For example, wKind did not have a valid value or weightSizeInBytes was too small.
-//   - StatusSuccess: The weight tensor descriptor and the address of data in the device memory were successfully retrieved.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. For example, wKind did not have a valid value or weightSizeInBytes was too small.
+//   - [Success]: The weight tensor descriptor and the address of data in the device memory were successfully retrieved.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -2842,9 +2914,9 @@ func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind Multi
 	return toError(fngetMultiHeadAttnWeights(handle, attnDesc, wKind, weightSizeInBytes, weights, wDesc, wAddr))
 }
 
-// getNormalizationBackwardWorkspaceSize This function returns the amount of GPU memory workspace the user should allocate to be able to call cudnnNormalizationBackward() function for the specified normOps and algo input setting.
+// getNormalizationBackwardWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationBackward] function for the specified normOps and algo input setting.
 //
-// The workspace allocated will then be passed to the function cudnnNormalizationBackward().
+// The workspace allocated will then be passed to the function [Handle.NormalizationBackward].
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
@@ -2852,9 +2924,9 @@ func getMultiHeadAttnWeights(handle Handle, attnDesc AttnDescriptor, wKind Multi
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2872,9 +2944,9 @@ func getNormalizationBackwardWorkspaceSize(handle Handle, mode NormMode, normOps
 	return out, nil
 }
 
-// getNormalizationForwardTrainingWorkspaceSize This function returns the amount of GPU memory workspace the user should allocate to be able to call cudnnNormalizationForwardTraining() function for the specified normOps and algo input setting.
+// getNormalizationForwardTrainingWorkspaceSize returns the amount of GPU memory workspace the user should allocate to be able to call [Handle.NormalizationForwardTraining] function for the specified normOps and algo input setting.
 //
-// The workspace allocated should then be passed by the user to the function cudnnNormalizationForwardTraining().
+// The workspace allocated should then be passed by the user to the function [Handle.NormalizationForwardTraining].
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
@@ -2882,9 +2954,9 @@ func getNormalizationBackwardWorkspaceSize(handle Handle, mode NormMode, normOps
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2902,7 +2974,7 @@ func getNormalizationForwardTrainingWorkspaceSize(handle Handle, mode NormMode, 
 	return out, nil
 }
 
-// getNormalizationTrainingReserveSpaceSize This function returns the amount of reserve GPU memory workspace the user should allocate for the normalization operation, for the specified normOps input setting.
+// getNormalizationTrainingReserveSpaceSize returns the amount of reserve GPU memory workspace the user should allocate for the normalization operation, for the specified normOps input setting.
 //
 // In contrast to the workspace, the reserved space should be preserved between the forward and backward calls, and the data should not be altered.
 //
@@ -2912,9 +2984,9 @@ func getNormalizationForwardTrainingWorkspaceSize(handle Handle, mode NormMode, 
 //   - algo: Input. Algorithm to be performed. For more information, refer to [NormAlgo]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2932,7 +3004,7 @@ func getNormalizationTrainingReserveSpaceSize(handle Handle, mode NormMode, norm
 	return out, nil
 }
 
-// getOpTensorDescriptor This function returns the configuration of the passed tensor pointwise math descriptor.
+// getOpTensorDescriptor returns the configuration of the passed tensor pointwise math descriptor.
 //
 //   - opTensorDesc: Input. Tensor pointwise math descriptor passed to get the configuration from
 //   - opTensorOp: Output. Pointer to the tensor pointwise math operation type, associated with this tensor pointwise math descriptor
@@ -2940,8 +3012,8 @@ func getNormalizationTrainingReserveSpaceSize(handle Handle, mode NormMode, norm
 //   - opTensorNanOpt: Output. Pointer to the NAN propagation option associated with this tensor pointwise math descriptor
 //
 // Returns:
-//   - StatusBadParam: Input tensor pointwise math descriptor passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: Input tensor pointwise math descriptor passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2953,7 +3025,7 @@ func getOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp *OpTensor
 	return toError(fngetOpTensorDescriptor(opTensorDesc, opTensorOp, opTensorCompType, opTensorNanOpt))
 }
 
-// getPooling2dDescriptor This function queries a previously created Pooling2d descriptor object.
+// getPooling2dDescriptor queries a previously created Pooling2d descriptor object.
 //
 //   - poolingDesc: Input. Handle to a previously created pooling descriptor
 //   - mode: Output. Enumerant to specify the pooling mode
@@ -2966,7 +3038,7 @@ func getOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp *OpTensor
 //   - horizontalStride: Output. Pooling horizontal stride
 //
 // Returns:
-//   - StatusSuccess: The object was set successfully.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2978,15 +3050,15 @@ func getPooling2dDescriptor(poolingDesc PoolingDescriptor, mode *PoolingMode, ma
 	return toError(fngetPooling2dDescriptor(poolingDesc, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride))
 }
 
-// getPooling2dForwardOutputDim This function provides the output dimensions of a tensor after Pooling2d has been applied.
+// getPooling2dForwardOutputDim provides the output dimensions of a tensor after Pooling2d has been applied.
 //
 // Each dimension h and w of the output images is computed as follows:
 //
 //   - poolingDesc: Input. Handle to a previously initialized pooling descriptor
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: poolingDesc has not been initialized. poolingDesc or inputDesc has an invalid number of dimensions (2 and 4 respectively are required).
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met: poolingDesc has not been initialized. poolingDesc or inputDesc has an invalid number of dimensions (2 and 4 respectively are required).
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -2998,7 +3070,7 @@ func getPooling2dForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 	return toError(fngetPooling2dForwardOutputDim(poolingDesc, inputTensorDesc, n, c, h, w))
 }
 
-// getPoolingNdDescriptor This function queries a previously initialized generic PoolingNd descriptor object.
+// getPoolingNdDescriptor queries a previously initialized generic PoolingNd descriptor object.
 //
 //   - poolingDesc: Input. Handle to a previously created pooling descriptor
 //   - nbDimsRequested: that will be filled with the stride parameters from the provided pooling descriptor
@@ -3007,8 +3079,8 @@ func getPooling2dForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 //   - nbDims: Output. Actual dimension of the pooling descriptor
 //
 // Returns:
-//   - StatusNotSupported: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
-//   - StatusSuccess: The object was queried successfully.
+//   - [ErrNotSupported]: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
+//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -3020,7 +3092,7 @@ func getPoolingNdDescriptor(poolingDesc PoolingDescriptor, nbDimsRequested int32
 	return toError(fngetPoolingNdDescriptor(poolingDesc, nbDimsRequested, mode, maxpoolingNanOpt, nbDims, windowDimA, paddingA, strideA))
 }
 
-// getPoolingNdForwardOutputDim This function provides the output dimensions of a tensor after PoolingNd has been applied.
+// getPoolingNdForwardOutputDim provides the output dimensions of a tensor after PoolingNd has been applied.
 //
 // Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows:
 //
@@ -3028,8 +3100,8 @@ func getPoolingNdDescriptor(poolingDesc PoolingDescriptor, nbDimsRequested int32
 //   - nbDims: output dimensions
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -3041,13 +3113,13 @@ func getPoolingNdForwardOutputDim(poolingDesc PoolingDescriptor, inputTensorDesc
 	return toError(fngetPoolingNdForwardOutputDim(poolingDesc, inputTensorDesc, nbDims, outputTensorDimA))
 }
 
-// GetProperty This function writes a specific part of the cuDNN library version number into the provided host storage.
+// GetProperty writes a specific part of the cuDNN library version number into the provided host storage.
 //
 //   - type_: is set to
 //
 // Returns:
-//   - StatusInvalidValue: Invalid value of the type argument.
-//   - StatusSuccess: Version information was stored successfully at the provided address.
+//   - [ErrInvalidValue]: Invalid value of the type argument.
+//   - [Success]: Version information was stored successfully at the provided address.
 //
 // Wraps cudnnGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
@@ -3063,7 +3135,7 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 	return out, nil
 }
 
-// getRNNDataDescriptor This function retrieves a previously created RNN data descriptor object.
+// getRNNDataDescriptor retrieves a previously created RNN data descriptor object.
 //
 //   - dataType: Output. Pointer to the host memory location to store the datatype of the RNN data tensor
 //   - layout: Output. Pointer to the host memory location to store the memory layout of the RNN data tensor
@@ -3074,8 +3146,8 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 //   - paddingFill: Output. Pointer to the host memory location to store the user defined symbol. The symbol should be interpreted as the same data type as the RNN data tensor
 //
 // Returns:
-//   - StatusBadParam: Any one of these have occurred:
-//   - StatusSuccess: The parameters are fetched successfully.
+//   - [ErrBadParam]: Any one of these have occurred:
+//   - [Success]: The parameters are fetched successfully.
 //
 // Wraps cudnnGetRNNDataDescriptor.
 func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType *DataType, layout *RNNDataLayout, maxSeqLength *int32, batchSize *int32, vectorSize *int32, arrayLengthRequested int32, seqLengthArray *int32, paddingFill uintptr) error {
@@ -3085,7 +3157,7 @@ func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType *DataType, lay
 	return toError(fngetRNNDataDescriptor(rnnDataDesc, dataType, layout, maxSeqLength, batchSize, vectorSize, arrayLengthRequested, seqLengthArray, paddingFill))
 }
 
-// getRNNDescriptor This function retrieves RNN network parameters that were configured by [RNNDescriptor.Set].
+// getRNNDescriptor retrieves RNN network parameters that were configured by [RNNDescriptor.Set].
 //
 // The user can assign NULL to any pointer except rnnDesc when the retrieved value is not needed. The function does not check the validity of retrieved parameters.
 //
@@ -3105,9 +3177,9 @@ func getRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType *DataType, lay
 //   - auxFlags: Output. Pointer to miscellaneous RNN options (flags) that do not require passing additional numerical values to configure
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found ( rnnDesc was NULL).
-//   - StatusNotInitialized: The cuDNN library was not initialized properly.
-//   - StatusSuccess: RNN parameters were successfully retrieved from the RNN descriptor.
+//   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
+//   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
+//   - [Success]: RNN parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnGetRNNDescriptor_v8.
 func getRNNDescriptor(rnnDesc RNNDescriptor, algo *RNNAlgo, cellMode *RNNMode, biasMode *RNNBiasMode, dirMode *DirectionMode, inputMode *RNNInputMode, dataType *DataType, mathPrec *DataType, mathType *MathType, inputSize *int32, hiddenSize *int32, projSize *int32, numLayers *int32, auxFlags *uint32) (DropoutDescriptor, error) {
@@ -3123,7 +3195,7 @@ func getRNNDescriptor(rnnDesc RNNDescriptor, algo *RNNAlgo, cellMode *RNNMode, b
 	return out, nil
 }
 
-// getRNNTempSpaceSizes This function computes the work and reserve space buffer sizes based on the RNN network geometry stored in rnnDesc, designated usage (inference or training) defined by the fMode argument, and the current RNN data dimensions ( maxSeqLength, batchSize) retrieved from xDesc.
+// getRNNTempSpaceSizes computes the work and reserve space buffer sizes based on the RNN network geometry stored in rnnDesc, designated usage (inference or training) defined by the fMode argument, and the current RNN data dimensions ( maxSeqLength, batchSize) retrieved from xDesc.
 //
 // The user can assign NULL to workSpaceSize or reserveSpaceSize pointers when the corresponding value is not needed.
 //
@@ -3131,9 +3203,9 @@ func getRNNDescriptor(rnnDesc RNNDescriptor, algo *RNNAlgo, cellMode *RNNMode, b
 //   - rnnDesc: Input. A previously initialized RNN descriptor
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was detected.
-//   - StatusNotSupported: An incompatible or unsupported combination of input arguments was detected.
-//   - StatusSuccess: RNN temporary buffer sizes were computed successfully.
+//   - [ErrBadParam]: An invalid input argument was detected.
+//   - [ErrNotSupported]: An incompatible or unsupported combination of input arguments was detected.
+//   - [Success]: RNN temporary buffer sizes were computed successfully.
 //
 // Wraps cudnnGetRNNTempSpaceSizes.
 func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, xDesc RNNDataDescriptor, reserveSpaceSize *uint) (uint, error) {
@@ -3149,7 +3221,7 @@ func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardM
 	return out, nil
 }
 
-// getRNNWeightParams This function is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
+// getRNNWeightParams is used to obtain the start address and shape of every RNN weight matrix and bias vector in each pseudo-layer within the recurrent neural network model.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor
 //   - rnnDesc: was set to
@@ -3159,10 +3231,10 @@ func getRNNTempSpaceSizes(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardM
 //   - bAddr: arguments can be both
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was encountered. For example, the value of pseudoLayer is out of range or linLayerID is negative or larger than 8.
-//   - StatusInvalidValue: Some weight/bias elements are outside the weight space buffer boundaries.
-//   - StatusNotInitialized: The cuDNN library was not initialized properly.
-//   - StatusSuccess: The query was completed successfully.
+//   - [ErrBadParam]: An invalid input argument was encountered. For example, the value of pseudoLayer is out of range or linLayerID is negative or larger than 8.
+//   - [ErrInvalidValue]: Some weight/bias elements are outside the weight space buffer boundaries.
+//   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
+//   - [Success]: The query was completed successfully.
 //
 // Wraps cudnnGetRNNWeightParams.
 func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32, weightSpaceSize uint, weightSpace uintptr, linLayerID int32, mDesc TensorDescriptor, mAddr *uintptr, bDesc TensorDescriptor, bAddr *uintptr) error {
@@ -3172,7 +3244,7 @@ func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32,
 	return toError(fngetRNNWeightParams(handle, rnnDesc, pseudoLayer, weightSpaceSize, weightSpace, linLayerID, mDesc, mAddr, bDesc, bAddr))
 }
 
-// getRNNWeightSpaceSize This function reports the required size of the weight space buffer in bytes.
+// getRNNWeightSpaceSize reports the required size of the weight space buffer in bytes.
 //
 // The weight space buffer holds all RNN weight matrices and bias vectors.
 //
@@ -3180,9 +3252,9 @@ func getRNNWeightParams(handle Handle, rnnDesc RNNDescriptor, pseudoLayer int32,
 //   - rnnDesc: Input. A previously initialized RNN descriptor
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was encountered. For example, any input argument was NULL.
-//   - StatusNotInitialized: The cuDNN library was not initialized properly.
-//   - StatusSuccess: The query was successful.
+//   - [ErrBadParam]: An invalid input argument was encountered. For example, any input argument was NULL.
+//   - [ErrNotInitialized]: The cuDNN library was not initialized properly.
+//   - [Success]: The query was successful.
 //
 // Wraps cudnnGetRNNWeightSpaceSize.
 func getRNNWeightSpaceSize(handle Handle, rnnDesc RNNDescriptor) (uint, error) {
@@ -3198,7 +3270,7 @@ func getRNNWeightSpaceSize(handle Handle, rnnDesc RNNDescriptor) (uint, error) {
 	return out, nil
 }
 
-// getReduceTensorDescriptor This function queries a previously initialized reduce tensor descriptor object.
+// getReduceTensorDescriptor queries a previously initialized reduce tensor descriptor object.
 //
 //   - reduceTensorDesc: Input. Pointer to a previously initialized reduce tensor descriptor object
 //   - reduceTensorOp: Output. Enumerant to specify the reduced tensor operation
@@ -3208,8 +3280,8 @@ func getRNNWeightSpaceSize(handle Handle, rnnDesc RNNDescriptor) (uint, error) {
 //   - reduceTensorIndicesType: Output. Enumerant to specify the reduced tensor indices type
 //
 // Returns:
-//   - StatusBadParam: reduceTensorDesc is NULL.
-//   - StatusSuccess: The object was queried successfully.
+//   - [ErrBadParam]: reduceTensorDesc is NULL.
+//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -3228,7 +3300,7 @@ func getReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor, reduceTe
 //   - cDesc: Input. Pointer to the output tensor descriptor
 //
 // Returns:
-//   - StatusSuccess: The index space size is returned successfully.
+//   - [Success]: The index space size is returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -3253,7 +3325,7 @@ func getReductionIndicesSize(handle Handle, reduceTensorDesc ReduceTensorDescrip
 //   - cDesc: Input. Pointer to the output tensor descriptor
 //
 // Returns:
-//   - StatusSuccess: The workspace size is returned successfully.
+//   - [Success]: The workspace size is returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -3271,17 +3343,17 @@ func getReductionWorkspaceSize(handle Handle, reduceTensorDesc ReduceTensorDescr
 	return out, nil
 }
 
-// getSeqDataDescriptor This function retrieves settings from a previously created sequence data descriptor.
+// getSeqDataDescriptor retrieves settings from a previously created sequence data descriptor.
 //
-// The user can assign NULL to any pointer except seqDataDesc when the retrieved value is not needed. The nbDimsRequested argument applies to both dimA[] and axes[] arrays. A positive value of nbDimsRequested or seqLengthSizeRequested is ignored when the corresponding array, dimA[], axes[], or seqLengthArray[] is NULL. The cudnnGetSeqDataDescriptor() function does not report the actual strides in the sequence data buffer. Those strides can be handy in computing the offset to any sequence data element. The user must precompute strides based on the axes[] and dimA[] arrays reported by the cudnnGetSeqDataDescriptor() function. Below is sample code that performs this task: Now, the strA[] array can be used to compute the index to any sequence data element, for example: The above code assumes that all four indices ( batch, beam, time, vect) are less than the corresponding value in the dimA[] array. The sample code also omits the strA[[SeqdataVectDim]] stride because its value is always 1, meaning, elements of one vector occupy a contiguous block of memory.
+// This function retrieves settings from a previously created sequence data descriptor. The user can assign NULL to any pointer except seqDataDesc when the retrieved value is not needed. The nbDimsRequested argument applies to both dimA[] and axes[] arrays. A positive value of nbDimsRequested or seqLengthSizeRequested is ignored when the corresponding array, dimA[], axes[], or seqLengthArray[] is NULL. The [SeqDataDescriptor.Get] function does not report the actual strides in the sequence data buffer. Those strides can be handy in computing the offset to any sequence data element. The user must precompute strides based on the axes[] and dimA[] arrays reported by the [SeqDataDescriptor.Get] function. Below is sample code that performs this task: Now, the strA[] array can be used to compute the index to any sequence data element, for example: The above code assumes that all four indices ( batch, beam, time, vect) are less than the corresponding value in the dimA[] array. The sample code also omits the strA[[SeqdataVectDim]] stride because its value is always 1, meaning, elements of one vector occupy a contiguous block of memory.
 //
 //   - seqDataDesc: Input. Sequence data descriptor
 //   - dataType: with the fill value that should be written to all padding vectors. Use
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found.
-//   - StatusInternalError: An inconsistent internal state was encountered.
-//   - StatusSuccess: Requested sequence data descriptor fields were retrieved successfully.
+//   - [ErrBadParam]: An invalid input argument was found.
+//   - [ErrInternalError]: An inconsistent internal state was encountered.
+//   - [Success]: Requested sequence data descriptor fields were retrieved successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3293,15 +3365,15 @@ func getSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType *DataType, nbD
 	return toError(fngetSeqDataDescriptor(seqDataDesc, dataType, nbDims, nbDimsRequested, dimA, axes, seqLengthArraySize, seqLengthSizeRequested, seqLengthArray, paddingFill))
 }
 
-// getStream This function retrieves the user CUDA stream programmed in the cuDNN handle.
+// getStream retrieves the user CUDA stream programmed in the cuDNN handle.
 //
 // When the user’s CUDA stream is not set in the cuDNN handle, this function reports the null-stream.
 //
 //   - handle: Input. Pointer to the cuDNN handle
 //
 // Returns:
-//   - StatusBadParam: Invalid ( NULL) handle.
-//   - StatusSuccess: The stream identifier was retrieved successfully.
+//   - [ErrBadParam]: Invalid ( NULL) handle.
+//   - [Success]: The stream identifier was retrieved successfully.
 //
 // Wraps cudnnGetStream.
 func getStream(handle Handle) (Stream, error) {
@@ -3317,7 +3389,7 @@ func getStream(handle Handle) (Stream, error) {
 	return out, nil
 }
 
-// getTensor4dDescriptor This function queries the parameters of the previously initialized Tensor4d descriptor object.
+// getTensor4dDescriptor queries the parameters of the previously initialized Tensor4d descriptor object.
 //
 //   - tensorDesc: Input. Handle to a previously initialized tensor descriptor
 //   - n: Output. Number of images
@@ -3330,7 +3402,7 @@ func getStream(handle Handle) (Stream, error) {
 //   - wStride: Output. Stride between two consecutive columns
 //
 // Returns:
-//   - StatusSuccess: The operation succeeded.
+//   - [Success]: The operation succeeded.
 //
 // Wraps cudnnGetTensor4dDescriptor.
 func getTensor4dDescriptor(tensorDesc TensorDescriptor, dataType *DataType, n *int32, c *int32, h *int32, w *int32, nStride *int32, cStride *int32, hStride *int32, wStride *int32) error {
@@ -3340,14 +3412,14 @@ func getTensor4dDescriptor(tensorDesc TensorDescriptor, dataType *DataType, n *i
 	return toError(fngetTensor4dDescriptor(tensorDesc, dataType, n, c, h, w, nStride, cStride, hStride, wStride))
 }
 
-// getTensorNdDescriptor This function retrieves values stored in a previously initialized TensorNd descriptor object.
+// getTensorNdDescriptor retrieves values stored in a previously initialized TensorNd descriptor object.
 //
 //   - tensorDesc: Input. Handle to a previously initialized tensor descriptor
 //   - nbDimsRequested: that will be filled with the strides from the provided tensor descriptor
 //
 // Returns:
-//   - StatusBadParam: Either tensorDesc or nbDims pointer is NULL.
-//   - StatusSuccess: The results were returned successfully.
+//   - [ErrBadParam]: Either tensorDesc or nbDims pointer is NULL.
+//   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorNdDescriptor.
 func getTensorNdDescriptor(tensorDesc TensorDescriptor, nbDimsRequested int32, dataType *DataType, nbDims *int32, dimA *int32, strideA *int32) error {
@@ -3357,14 +3429,14 @@ func getTensorNdDescriptor(tensorDesc TensorDescriptor, nbDimsRequested int32, d
 	return toError(fngetTensorNdDescriptor(tensorDesc, nbDimsRequested, dataType, nbDims, dimA, strideA))
 }
 
-// getTensorSizeInBytes This function returns the size of the tensor in memory in respect to the given descriptor.
+// getTensorSizeInBytes returns the size of the tensor in memory in respect to the given descriptor.
 //
 // This function can be used to know the amount of GPU memory to be allocated to hold that tensor.
 //
 //   - tensorDesc: Input. Handle to a previously initialized tensor descriptor
 //
 // Returns:
-//   - StatusSuccess: The results were returned successfully.
+//   - [Success]: The results were returned successfully.
 //
 // Wraps cudnnGetTensorSizeInBytes.
 func getTensorSizeInBytes(tensorDesc TensorDescriptor) (uint, error) {
@@ -3380,15 +3452,17 @@ func getTensorSizeInBytes(tensorDesc TensorDescriptor) (uint, error) {
 	return out, nil
 }
 
-// getTensorTransformDescriptor This function returns the values stored in a previously initialized tensor transform descriptor.
+// getTensorTransformDescriptor returns the values stored in a previously initialized tensor transform descriptor.
+//
+// This function returns the values stored in a previously initialized tensor transform descriptor.
 //
 //   - transformDesc: Input. A previously initialized tensor transform descriptor
 //   - destFormat: Output. The transform format that will be returned
 //   - direction: Output. The setting that selects folding or unfolding. For more information, refer to [FoldingDirection]
 //
 // Returns:
-//   - StatusBadParam: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
-//   - StatusSuccess: The results were obtained successfully.
+//   - [ErrBadParam]: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
+//   - [Success]: The results were obtained successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3400,13 +3474,26 @@ func getTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 	return toError(fngetTensorTransformDescriptor(transformDesc, nbDimsRequested, destFormat, padBeforeA, padAfterA, foldA, direction))
 }
 
+// GetVersion returns the version number of the cuDNN library.
+//
+// It returns the CUDNN_VERSION defined present in the cudnn.h header file. Starting with release R2, the routine can be used to identify dynamically the current cuDNN library used by the application. The defined CUDNN_VERSION can be used to have the same application linked against different cuDNN versions using conditional compilation statements.
+//
+// Wraps cudnnGetVersion.
+func GetVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetVersion(), nil
+}
+
 // GraphVersionCheck Cross-library version checker.
 //
 // Each sub-library has a version checker that checks whether its own version matches that of its dependencies.
 //
 // Returns:
-//   - StatusSublibraryVersionMismatch: The versions are inconsistent.
-//   - StatusSuccess: The version check passed.
+//   - [ErrSublibraryVersionMismatch]: The versions are inconsistent.
+//   - [Success]: The version check passed.
 //
 // Wraps cudnnGraphVersionCheck.
 func GraphVersionCheck() error {
@@ -3416,19 +3503,19 @@ func GraphVersionCheck() error {
 	return toError(fnGraphVersionCheck())
 }
 
-// im2Col This function constructs the A matrix necessary to perform a forward pass of GEMM convolution.
+// im2Col constructs the A matrix necessary to perform a forward pass of GEMM convolution.
 //
-// This A matrix has a height of batch_size*y_height*y_width and width of input_channels*filter_height*filter_width, where: The A matrix is stored in format HW fully-packed in GPU memory.
+// This function constructs the A matrix necessary to perform a forward pass of GEMM convolution. This A matrix has a height of batch_size*y_height*y_width and width of input_channels*filter_height*filter_width, where: The A matrix is stored in format HW fully-packed in GPU memory.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - convDesc: Input. Handle to a previously initialized convolution descriptor
 //   - colBuffer: Output. Data pointer to GPU memory storing the output matrix
 //
 // Returns:
-//   - StatusBadParam: srcData or colBuffer is NULL.
-//   - StatusExecutionFailed: The CUDA kernel execution was unsuccessful.
-//   - StatusNotSupported: Any of srcDesc, filterDesc, convDesc has dataType of [DataINT8], CUDNN_DATA_INT8x4, [DataINT8], or CUDNN_DATA_INT8x4 convDesc has groupCount larger than 1.
-//   - StatusSuccess: The output data array is successfully generated.
+//   - [ErrBadParam]: srcData or colBuffer is NULL.
+//   - [ErrExecutionFailed]: The CUDA kernel execution was unsuccessful.
+//   - [ErrNotSupported]: Any of srcDesc, filterDesc, convDesc has dataType of [DataINT8], CUDNN_DATA_INT8x4, [DataINT8], or CUDNN_DATA_INT8x4 convDesc has groupCount larger than 1.
+//   - [Success]: The output data array is successfully generated.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3440,9 +3527,9 @@ func im2Col(handle Handle, xDesc TensorDescriptor, x uintptr, wDesc FilterDescri
 	return toError(fnim2Col(handle, xDesc, x, wDesc, convDesc, colBuffer))
 }
 
-// initTransformDest This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
+// initTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
 //
-// The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor]. The returned Tensor descriptor will be packed.
+// This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations. The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor]. The returned Tensor descriptor will be packed.
 //
 //   - transformDesc: Input. Handle to a previously initialized tensor transform descriptor
 //   - srcDesc: Input. Handle to a previously initialized tensor descriptor
@@ -3450,10 +3537,10 @@ func im2Col(handle Handle, xDesc TensorDescriptor, x uintptr, wDesc FilterDescri
 //   - destSizeInBytes: Output. A pointer to hold the size, in bytes, of the new tensor
 //
 // Returns:
-//   - StatusBadParam: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
-//   - StatusExecutionFailed: Function failed to launch on the GPU.
-//   - StatusNotSupported: If the provided configuration is not 4D.
-//   - StatusSuccess: The tensor descriptor was initialized successfully.
+//   - [ErrBadParam]: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
+//   - [ErrExecutionFailed]: Function failed to launch on the GPU.
+//   - [ErrNotSupported]: If the provided configuration is not 4D.
+//   - [Success]: The tensor descriptor was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3465,7 +3552,7 @@ func initTransformDest(transformDesc TensorTransformDescriptor, srcDesc TensorDe
 	return toError(fninitTransformDest(transformDesc, srcDesc, destDesc, destSizeInBytes))
 }
 
-// lRNCrossChannelBackward This function performs the backward LRN layer computation.
+// lRNCrossChannelBackward performs the backward LRN layer computation.
 //
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
@@ -3478,9 +3565,9 @@ func initTransformDest(transformDesc TensorTransformDescriptor, srcDesc TensorDe
 //   - dx: (including error backpropagation)
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelBackward.
 func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
@@ -3490,7 +3577,7 @@ func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNM
 	return toError(fnlRNCrossChannelBackward(handle, normDesc, lrnMode, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx))
 }
 
-// lRNCrossChannelForward This function performs the forward LRN layer computation.
+// lRNCrossChannelForward performs the forward LRN layer computation.
 //
 // Supported formats are: positive-strided, NCHW and NHWC for 4D x and y, and only NCDHW DHW-packed for 5D (for both x and y). Only non-overlapping 4D and 5D tensors are supported. NCHW layout is preferred for performance.
 //
@@ -3502,9 +3589,9 @@ func lRNCrossChannelBackward(handle Handle, normDesc LRNDescriptor, lrnMode LRNM
 //   - y: Output. Output tensor data pointer in device memory
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The computation was performed successfully.
 //
 // Wraps cudnnLRNCrossChannelForward.
 func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
@@ -3514,7 +3601,9 @@ func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMo
 	return toError(fnlRNCrossChannelForward(handle, normDesc, lrnMode, alpha, xDesc, x, beta, yDesc, y))
 }
 
-// makeFusedOpsPlan This function determines the optimum kernel to execute, and the workspace size the user should allocate, prior to the actual execution of the fused operations by cudnnFusedOpsExecute().
+// makeFusedOpsPlan determines the optimum kernel to execute, and the workspace size the user should allocate, prior to the actual execution of the fused operations by [Handle.FusedOpsExecute].
+//
+// This function determines the optimum kernel to execute, and the workspace size the user should allocate, prior to the actual execution of the fused operations by [Handle.FusedOpsExecute].
 //
 //   - handle: Input. Pointer to the cuDNN library context
 //   - plan: Input. Pointer to a previously-created and initialized plan descriptor
@@ -3522,8 +3611,8 @@ func lRNCrossChannelForward(handle Handle, normDesc LRNDescriptor, lrnMode LRNMo
 //   - workspaceSizeInBytes: Output. The amount of workspace size the user should allocate for the execution of this plan
 //
 // Returns:
-//   - StatusBadParam: If any of the inputs is NULL, or if the type of [FusedOps] in the constPack descriptor is unsupported.
-//   - StatusSuccess: The function executed successfully.
+//   - [ErrBadParam]: If any of the inputs is NULL, or if the type of [FusedOps] in the constPack descriptor is unsupported.
+//   - [Success]: The function executed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3535,29 +3624,29 @@ func makeFusedOpsPlan(handle Handle, plan FusedOpsPlan, constPack FusedOpsConstP
 	return toError(fnmakeFusedOpsPlan(handle, plan, constPack, workspaceSizeInBytes))
 }
 
-// multiHeadAttnBackwardData This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V.
+// multiHeadAttnBackwardData computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V.
 //
-// If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn as an input (with all other parameters and inputs constant), and outputs vector χϵRm, then cudnnMultiHeadAttnBackwardData() computes the result of (∂yi/∂xj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers. The cudnnMultiHeadAttnBackwardData() function does not output partial derivatives for residual connections because this result is equal to δout. If the multihead attention model enables residual connections sourced directly from Q, then the dout tensor needs to be added to dqueries to obtain the correct result of the latter. This operation is demonstrated in the cuDNN multiHeadAttention sample code. The cudnnMultiHeadAttnBackwardData() function must be invoked after cudnnMultiHeadAttnForward(). The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the cudnnMultiHeadAttnForward() call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its inputs: Q, K, V. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn as an input (with all other parameters and inputs constant), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardData] computes the result of (∂yi/∂xj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂xj is the mxn Jacobian matrix of F(x). The input is supplied via the dout argument and gradient results for Q, K, V are written to the dqueries, dkeys, and dvalues buffers. The [Handle.MultiHeadAttnBackwardData] function does not output partial derivatives for residual connections because this result is equal to δout. If the multihead attention model enables residual connections sourced directly from Q, then the dout tensor needs to be added to dqueries to obtain the correct result of the latter. This operation is demonstrated in the cuDNN multiHeadAttention sample code. The [Handle.MultiHeadAttnBackwardData] function must be invoked after [Handle.MultiHeadAttnForward]. The loWinIdx[], hiWinIdx[], queries, keys, values, weights, and reserveSpace arguments should be the same as in the [Handle.MultiHeadAttnForward] call. devSeqLengthsDQDO[] and devSeqLengthsDKDV[] device arrays should contain the same start and end attention window indices as devSeqLengthsQO[] and devSeqLengthsKV[] arrays in the forward function invocation.
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously initialized attention descriptor
 //   - doDesc: Input. Descriptor for the δout gradients (vectors of partial derivatives of the loss function with respect to the multihead attention outputs)
 //   - dout: Input. Pointer to the δout gradient data in the device memory
-//   - queries: data in the device memory. This is the same input as in cudnnMultiHeadAttnForward()
-//   - keys: data in the device memory. This is the same input as in cudnnMultiHeadAttnForward()
-//   - values: data in the device memory. This is the same input as in cudnnMultiHeadAttnForward()
+//   - queries: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - keys: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
+//   - values: data in the device memory. This is the same input as in [Handle.MultiHeadAttnForward]
 //   - workSpaceSizeInBytes: Input. Size of the workspace buffer in bytes used for temporary API storage
 //   - workSpace: Input. / Output. Address of the workspace buffer in the device memory
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls
 //   - reserveSpace: Input. / Output. Address to the reserve-space buffer in the device memory
 //
 // Returns:
-//   - StatusAllocFailed: Insufficient amount of shared memory to launch a GPU kernel.
-//   - StatusBadParam: An invalid or incompatible input argument was encountered.
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusInternalError: An inconsistent internal state was encountered.
-//   - StatusNotSupported: A requested option or a combination of input arguments is not supported.
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrAllocFailed]: Insufficient amount of shared memory to launch a GPU kernel.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered.
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrInternalError]: An inconsistent internal state was encountered.
+//   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3569,9 +3658,9 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 	return toError(fnmultiHeadAttnBackwardData(handle, attnDesc, loWinIdx, hiWinIdx, devSeqLengthsDQDO, devSeqLengthsDKDV, doDesc, dout, dqDesc, dqueries, queries, dkDesc, dkeys, keys, dvDesc, dvalues, values, weightSizeInBytes, weights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace))
 }
 
-// multiHeadAttnBackwardWeights This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases.
+// multiHeadAttnBackwardWeights computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases.
 //
-// If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRm, then cudnnMultiHeadAttnBackwardWeights() computes the result of (∂yi/∂wj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument. All gradient results with respect to weights and biases are written to the dweights buffer. The size and the organization of the dweights buffer is the same as the weights buffer that holds multihead attention weights and biases. The cuDNN multiHeadAttention sample code demonstrates how to access those weights. Gradient of the loss function with respect to weights or biases is typically computed over multiple batches. In such a case, partial results computed for each batch should be summed together. The addGrad argument specifies if the gradients from the current batch should be added to previously computed results or the dweights buffer should be overwritten with the new results. The cudnnMultiHeadAttnBackwardWeights() function should be invoked after cudnnMultiHeadAttnBackwardData(). The queries, keys, values, weights, and reserveSpace arguments should be the same as in cudnnMultiHeadAttnForward() and cudnnMultiHeadAttnBackwardData() calls. The dout argument should be the same as in cudnnMultiHeadAttnBackwardData().
+// This function computes exact, first-order derivatives of the multihead attention block with respect to its trainable parameters: projection weights and projection biases. If y=F(w) is a vector-valued function that represents the multihead attention layer and it takes some vector χϵRn of “flatten” weights or biases as an input (with all other parameters and inputs fixed), and outputs vector χϵRm, then [Handle.MultiHeadAttnBackwardWeights] computes the result of (∂yi/∂wj)Tδout where δout is the mx1 gradient of the loss function with respect to multihead attention outputs. The δout gradient is back propagated through prior layers of the deep learning model. ∂yi/∂wj is the mxn Jacobian matrix of F(w). The δout input is supplied via the dout argument. All gradient results with respect to weights and biases are written to the dweights buffer. The size and the organization of the dweights buffer is the same as the weights buffer that holds multihead attention weights and biases. The cuDNN multiHeadAttention sample code demonstrates how to access those weights. Gradient of the loss function with respect to weights or biases is typically computed over multiple batches. In such a case, partial results computed for each batch should be summed together. The addGrad argument specifies if the gradients from the current batch should be added to previously computed results or the dweights buffer should be overwritten with the new results. The [Handle.MultiHeadAttnBackwardWeights] function should be invoked after [Handle.MultiHeadAttnBackwardData]. The queries, keys, values, weights, and reserveSpace arguments should be the same as in [Handle.MultiHeadAttnForward] and [Handle.MultiHeadAttnBackwardData] calls. The dout argument should be the same as in [Handle.MultiHeadAttnBackwardData].
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously initialized attention descriptor
@@ -3589,11 +3678,11 @@ func multiHeadAttnBackwardData(handle Handle, attnDesc AttnDescriptor, loWinIdx 
 //   - reserveSpace: Input. / Output. Address to the reserve-space buffer in the device memory
 //
 // Returns:
-//   - StatusBadParam: An invalid or incompatible input argument was encountered.
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusInternalError: An inconsistent internal state was encountered.
-//   - StatusNotSupported: A requested option or a combination of input arguments is not supported.
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered.
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrInternalError]: An inconsistent internal state was encountered.
+//   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3605,9 +3694,9 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 	return toError(fnmultiHeadAttnBackwardWeights(handle, attnDesc, addGrad, qDesc, queries, kDesc, keys, vDesc, values, doDesc, dout, weightSizeInBytes, weights, dweights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace))
 }
 
-// multiHeadAttnForward The cudnnMultiHeadAttnForward() function computes the forward responses of the multihead attention layer.
+// multiHeadAttnForward The [Handle.MultiHeadAttnForward] function computes the forward responses of the multihead attention layer.
 //
-// When reserveSpaceSizeInBytes=0 and reserveSpace=NULL, the function operates in the inference mode in which backward (gradient) functions are not invoked, otherwise, the training mode is assumed. In the training mode, the reserve space is used to pass intermediate results from cudnnMultiHeadAttnForward() to cudnnMultiHeadAttnBackwardData() and from cudnnMultiHeadAttnBackwardData() to cudnnMultiHeadAttnBackwardWeights(). In the inference mode, the currIdx specifies the time-step or sequence index of the embedding vectors to be processed. In this mode, the user can perform one iteration for time-step zero ( currIdx=0), then update Q, K, V vectors and the attention window, and execute the next step ( currIdx=1). The iterative process can be repeated for all time-steps. When all Q time-steps are available (for example, in the training mode or in the inference mode on the encoder side in self-attention), the user can assign a negative value to currIdx and the cudnnMultiHeadAttnForward() API will automatically sweep through all Q time-steps. The loWinIdx[] and hiWinIdx[] host arrays specify the attention window size for each Q time-step. In a typical self-attention case, the user must include all previously visited embedding vectors but not the current or future vectors. In this situation, the user should set: When currIdx is negative in cudnnMultiHeadAttnForward(), the loWinIdx[] and hiWinIdx[] arrays must be fully initialized for all time-steps. When cudnnMultiHeadAttnForward() is invoked with currIdx=0, currIdx=1, currIdx=2, and so on, then the user can update loWinIdxcurrIdx and hiWinIdxcurrIdx elements only before invoking the forward response function. All other elements in the loWinIdx[] and hiWinIdx[] arrays will not be accessed. Any adaptive attention window scheme can be implemented that way. Use the following settings when the attention window should be the maximum size, for example, in cross-attention: The maxSeqLenK value above should be equal to or larger than dimA[[SeqdataTimeDim]] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h. devSeqLengthsQO[] and devSeqLengthsKV[] are pointers to device (not host) arrays with Q, O, and K, V sequence lengths. Note that the same information is also passed in the corresponding descriptors of type [SeqDataDescriptor] on the host side. The need for extra device arrays comes from the asynchronous nature of cuDNN calls and limited size of the constant memory dedicated to GPU kernel arguments. When the cudnnMultiHeadAttnForward() API returns, the sequence length arrays stored in the descriptors can be immediately modified for the next iteration. However, the GPU kernels launched by the forward call may not have started at this point. For this reason, copies of sequence arrays are needed on the device side to be accessed directly by GPU kernels. Those copies cannot be created inside the cudnnMultiHeadAttnForward() function for very large K, V inputs without the device memory allocation and CUDA stream synchronization. To reduce the cudnnMultiHeadAttnForward() API overhead, devSeqLengthsQO[] and devSeqLengthsKV[] device arrays are not validated to contain the same settings as seqLengthArray[] in the sequence data descriptors. Sequence lengths in the kDesc and vDesc descriptors should be the same. Similarly, sequence lengths in the qDesc and oDesc descriptors should match. The user can define six different data layouts in the qDesc, kDesc, vDesc, and oDesc descriptors. Refer to the cudnnSetSeqDataDescriptor() function for the discussion of those layouts. All multihead attention API calls require that the same layout is used in all sequence data descriptors. In the transformer model, the multihead attention block is tightly coupled with the layer normalization and residual connections. cudnnMultiHeadAttnForward() does not encompass the layer normalization but it can be used to handle residual connections as depicted in the following figure. Multihead Attention Block is Tightly Coupled with the Layer Normalization and Residual Connections Queries and residuals share the same qDesc descriptor in cudnnMultiHeadAttnForward(). When residual connections are disabled, the residuals pointer should be NULL. When residual connections are enabled, the vector length in qDesc should match the vector length specified in the oDesc descriptor, so that a vector addition is feasible. The queries, keys, and values pointers are not allowed to be NULL, even when K and V are the same inputs or Q, K, V are the same inputs.
+// When reserveSpaceSizeInBytes=0 and reserveSpace=NULL, the function operates in the inference mode in which backward (gradient) functions are not invoked, otherwise, the training mode is assumed. In the training mode, the reserve space is used to pass intermediate results from [Handle.MultiHeadAttnForward] to [Handle.MultiHeadAttnBackwardData] and from [Handle.MultiHeadAttnBackwardData] to [Handle.MultiHeadAttnBackwardWeights]. In the inference mode, the currIdx specifies the time-step or sequence index of the embedding vectors to be processed. In this mode, the user can perform one iteration for time-step zero ( currIdx=0), then update Q, K, V vectors and the attention window, and execute the next step ( currIdx=1). The iterative process can be repeated for all time-steps. When all Q time-steps are available (for example, in the training mode or in the inference mode on the encoder side in self-attention), the user can assign a negative value to currIdx and the [Handle.MultiHeadAttnForward] API will automatically sweep through all Q time-steps. The loWinIdx[] and hiWinIdx[] host arrays specify the attention window size for each Q time-step. In a typical self-attention case, the user must include all previously visited embedding vectors but not the current or future vectors. In this situation, the user should set: When currIdx is negative in [Handle.MultiHeadAttnForward], the loWinIdx[] and hiWinIdx[] arrays must be fully initialized for all time-steps. When [Handle.MultiHeadAttnForward] is invoked with currIdx=0, currIdx=1, currIdx=2, and so on, then the user can update loWinIdxcurrIdx and hiWinIdxcurrIdx elements only before invoking the forward response function. All other elements in the loWinIdx[] and hiWinIdx[] arrays will not be accessed. Any adaptive attention window scheme can be implemented that way. Use the following settings when the attention window should be the maximum size, for example, in cross-attention: The maxSeqLenK value above should be equal to or larger than dimA[[SeqdataTimeDim]] in the kDesc descriptor. A good choice is to use maxSeqLenK=INT_MAX from limits.h. devSeqLengthsQO[] and devSeqLengthsKV[] are pointers to device (not host) arrays with Q, O, and K, V sequence lengths. Note that the same information is also passed in the corresponding descriptors of type [SeqDataDescriptor] on the host side. The need for extra device arrays comes from the asynchronous nature of cuDNN calls and limited size of the constant memory dedicated to GPU kernel arguments. When the [Handle.MultiHeadAttnForward] API returns, the sequence length arrays stored in the descriptors can be immediately modified for the next iteration. However, the GPU kernels launched by the forward call may not have started at this point. For this reason, copies of sequence arrays are needed on the device side to be accessed directly by GPU kernels. Those copies cannot be created inside the [Handle.MultiHeadAttnForward] function for very large K, V inputs without the device memory allocation and CUDA stream synchronization. To reduce the [Handle.MultiHeadAttnForward] API overhead, devSeqLengthsQO[] and devSeqLengthsKV[] device arrays are not validated to contain the same settings as seqLengthArray[] in the sequence data descriptors. Sequence lengths in the kDesc and vDesc descriptors should be the same. Similarly, sequence lengths in the qDesc and oDesc descriptors should match. The user can define six different data layouts in the qDesc, kDesc, vDesc, and oDesc descriptors. Refer to the [SeqDataDescriptor.Set] function for the discussion of those layouts. All multihead attention API calls require that the same layout is used in all sequence data descriptors. In the transformer model, the multihead attention block is tightly coupled with the layer normalization and residual connections. [Handle.MultiHeadAttnForward] does not encompass the layer normalization but it can be used to handle residual connections as depicted in the following figure. Multihead Attention Block is Tightly Coupled with the Layer Normalization and Residual Connections Queries and residuals share the same qDesc descriptor in [Handle.MultiHeadAttnForward]. When residual connections are disabled, the residuals pointer should be NULL. When residual connections are enabled, the vector length in qDesc should match the vector length specified in the oDesc descriptor, so that a vector addition is feasible. The queries, keys, and values pointers are not allowed to be NULL, even when K and V are the same inputs or Q, K, V are the same inputs.
 //
 //   - handle: Input. The current cuDNN context handle
 //   - attnDesc: Input. A previously initialized attention descriptor
@@ -3624,12 +3713,12 @@ func multiHeadAttnBackwardWeights(handle Handle, attnDesc AttnDescriptor, addGra
 //   - reserveSpaceSizeInBytes: Input. Size of the reserve-space buffer in bytes used for data exchange between forward and backward (gradient) API calls. This parameter should be zero in the inference mode and non-zero in the training mode
 //
 // Returns:
-//   - StatusAllocFailed: Insufficient amount of shared memory to launch a GPU kernel.
-//   - StatusBadParam: An invalid or incompatible input argument was encountered. Some examples include:
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusInternalError: An inconsistent internal state was encountered.
-//   - StatusNotSupported: A requested option or a combination of input arguments is not supported.
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrAllocFailed]: Insufficient amount of shared memory to launch a GPU kernel.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrInternalError]: An inconsistent internal state was encountered.
+//   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3641,9 +3730,9 @@ func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32,
 	return toError(fnmultiHeadAttnForward(handle, attnDesc, currIdx, loWinIdx, hiWinIdx, devSeqLengthsQO, devSeqLengthsKV, qDesc, queries, residuals, kDesc, keys, vDesc, values, oDesc, out, weightSizeInBytes, weights, workSpaceSizeInBytes, workSpace, reserveSpaceSizeInBytes, reserveSpace))
 }
 
-// normalizationBackward This function performs backward normalization layer computation that is specified by mode.
+// normalizationBackward performs backward normalization layer computation that is specified by mode.
 //
-// Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, dx. Higher performance for [NormPerChannel] mode can be obtained when the following conditions are true:
+// This function performs backward normalization layer computation that is specified by mode. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, backpropagation, and inference. This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for x, dy, dx. Higher performance for [NormPerChannel] mode can be obtained when the following conditions are true:
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
@@ -3656,12 +3745,12 @@ func multiHeadAttnForward(handle Handle, attnDesc AttnDescriptor, currIdx int32,
 //   - epsilon: Input. Epsilon value used in normalization formula. Its value should be equal to or greater than zero. The same epsilon value should be used in forward and backward functions
 //   - savedInvVariance: The dimensions for this tensor descriptor are dependent on normalization mode
 //   - workSpaceSizeInBytes: Input. The size of the workspace. It must be large enough to trigger the fast NHWC semi-persistent kernel by this function
-//   - reserveSpace: It must be equal or larger than the amount required by cudnnGetNormalizationTrainingReserveSpaceSize()
+//   - reserveSpace: It must be equal or larger than the amount required by [Handle.GetNormalizationTrainingReserveSpaceSize]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3673,9 +3762,9 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 	return toError(fnnormalizationBackward(handle, mode, normOps, algo, alphaDataDiff, betaDataDiff, alphaParamDiff, betaParamDiff, xDesc, xData, yDesc, yData, dyDesc, dyData, dzDesc, dzData, dxDesc, dxData, dNormScaleBiasDesc, normScaleData, normBiasData, dNormScaleData, dNormBiasData, epsilon, normMeanVarDesc, savedMean, savedInvVariance, activationDesc, workSpace, workSpaceSizeInBytes, reserveSpace, reserveSpaceSizeInBytes, groupCnt))
 }
 
-// normalizationForwardInference This function performs the forward normalization layer computation for the inference phase.
+// normalizationForwardInference performs the forward normalization layer computation for the inference phase.
 //
-// Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation, and inference. For the training phase, refer to cudnnNormalizationForwardTraining(). Higher performance can be obtained when HW-packed tensors are used for all of x and y.
+// This function performs the forward normalization layer computation for the inference phase. Per-channel normalization layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The input transformation performed by this function is defined as: The epsilon value has to be the same during training, backpropagation, and inference. For the training phase, refer to [Handle.NormalizationForwardTraining]. Higher performance can be obtained when HW-packed tensors are used for all of x and y.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
@@ -3684,16 +3773,16 @@ func normalizationBackward(handle Handle, mode NormMode, normOps NormOps, algo N
 //   - xDesc: for the layer’s
 //   - x: and the final output
 //   - normBias: Input. s. Tensor descriptors and pointers in device memory for the normalization scale and bias parameters (in the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper, bias is referred to as beta and scale as gamma)
-//   - estimatedVariance: inputs, accumulated during the training phase from the cudnnNormalizationForwardTraining() call, should be passed as inputs here
+//   - estimatedVariance: inputs, accumulated during the training phase from the [Handle.NormalizationForwardTraining] call, should be passed as inputs here
 //   - z: should have exactly the same dimension as
 //   - yDesc: for the
 //   - y: For more information, refer to [TensorDescriptor]
 //   - epsilon: Input. Epsilon value used in the normalization formula. Its value should be equal to or greater than zero
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: A compute or data type other than what is supported was chosen, or an unknown algorithm type was chosen.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: A compute or data type other than what is supported was chosen, or an unknown algorithm type was chosen.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3705,9 +3794,9 @@ func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps
 	return toError(fnnormalizationForwardInference(handle, mode, normOps, algo, alpha, beta, xDesc, x, normScaleBiasDesc, normScale, normBias, normMeanVarDesc, estimatedMean, estimatedVariance, zDesc, z, activationDesc, yDesc, y, epsilon, groupCnt))
 }
 
-// normalizationForwardTraining This function performs the forward normalization layer computation for the training phase.
+// normalizationForwardTraining performs the forward normalization layer computation for the training phase.
 //
-// Depending on mode, different normalization operations will be performed. Per-channel layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, back propagation, and inference. For the inference phase, refer to cudnnNormalizationForwardInference(). Higher performance can be obtained when HW-packed tensors are used for both x and y. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for xData, yData.
+// This function performs the forward normalization layer computation for the training phase. Depending on mode, different normalization operations will be performed. Per-channel layer is based on the Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift paper. Only 4D and 5D tensors are supported. The epsilon value has to be the same during training, back propagation, and inference. For the inference phase, refer to [Handle.NormalizationForwardInference]. Higher performance can be obtained when HW-packed tensors are used for both x and y. This API will trigger the new semi-persistent NHWC kernel when the following conditions are true: This workspace is not required to be clean. Moreover, the workspace does not have to remain unchanged between the forward and backward pass, as it is not used for passing any information. This extended function can accept a *workspace pointer to the GPU workspace, and workSpaceSizeInBytes, the size of the workspace, from the user. The normOps input can be used to set this function to perform either only the normalization, or normalization followed by activation, or normalization followed by element-wise addition and then activation. Only 4D and 5D tensors are supported. The epsilon value has to be the same during the training, the backpropagation, and the inference. When the tensor layout is NCHW, higher performance can be obtained when HW-packed tensors are used for xData, yData.
 //
 //   - handle: Input. Handle to a previously created cuDNN library descriptor. For more information, refer to [Handle]
 //   - mode: Input. Mode of operation (per-channel or per-activation). For more information, refer to [NormMode]
@@ -3722,12 +3811,12 @@ func normalizationForwardInference(handle Handle, mode NormMode, normOps NormOps
 //   - yDesc: for the
 //   - yData: For more information, refer to [TensorDescriptor]
 //   - workSpaceSizeInBytes: is the size of the workspace. When
-//   - reserveSpace: Must be equal or larger than the amount required by cudnnGetNormalizationTrainingReserveSpaceSize()
+//   - reserveSpace: Must be equal or larger than the amount required by [Handle.GetNormalizationTrainingReserveSpaceSize]
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The computation was performed successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The computation was performed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3750,10 +3839,10 @@ func normalizationForwardTraining(handle Handle, mode NormMode, normOps NormOps,
 //   - cDesc: descriptor
 //
 // Returns:
-//   - StatusBadParam: The data type of the destination tensor C is unrecognized, or the restrictions on the input and destination tensors, stated above, are not met.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The function executed successfully.
+//   - [ErrBadParam]: The data type of the destination tensor C is unrecognized, or the restrictions on the input and destination tensors, stated above, are not met.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The function executed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3770,8 +3859,8 @@ func opTensor(handle Handle, opTensorDesc OpTensorDescriptor, alpha1 unsafe.Poin
 // Each sublibrary has a version checker that checks whether its own version matches that of its dependencies.
 //
 // Returns:
-//   - StatusSublibraryVersionMismatch: The versions are inconsistent.
-//   - StatusSuccess: The version check passed.
+//   - [ErrSublibraryVersionMismatch]: The versions are inconsistent.
+//   - [Success]: The version check passed.
 //
 // Wraps cudnnOpsVersionCheck.
 func OpsVersionCheck() error {
@@ -3781,9 +3870,9 @@ func OpsVersionCheck() error {
 	return toError(fnOpsVersionCheck())
 }
 
-// poolingBackward This function computes the gradient of a pooling operation.
+// poolingBackward computes the gradient of a pooling operation.
 //
-// As of cuDNN version 6.0, a deterministic algorithm is implemented for max backwards pooling. This algorithm can be chosen via the pooling mode enum of poolingDesc. The deterministic algorithm has been measured to be up to 50% slower than the legacy max backwards pooling algorithm, or up to 20% faster, depending upon the use case. Tensor vectorization is not supported for any tensor descriptor arguments in this function. Best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are supported.
+// This function computes the gradient of a pooling operation. As of cuDNN version 6.0, a deterministic algorithm is implemented for max backwards pooling. This algorithm can be chosen via the pooling mode enum of poolingDesc. The deterministic algorithm has been measured to be up to 50% slower than the legacy max backwards pooling algorithm, or up to 20% faster, depending upon the use case. Tensor vectorization is not supported for any tensor descriptor arguments in this function. Best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are supported.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - poolingDesc: Input. Handle to the previously initialized pooling descriptor
@@ -3792,10 +3881,10 @@ func OpsVersionCheck() error {
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples includes:
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples includes:
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3807,19 +3896,19 @@ func poolingBackward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.
 	return toError(fnpoolingBackward(handle, poolingDesc, alpha, yDesc, y, dyDesc, dy, xDesc, x, beta, dxDesc, dx))
 }
 
-// poolingForward This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
+// poolingForward computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width.
 //
-// All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions. The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine cudnnGetPooling2dForwardOutputDim() or cudnnGetPoolingNdForwardOutputDim(). For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
+// This function computes pooling of input values (meaning, the maximum or average of several adjacent values) to produce an output with smaller height and/or width. All tensor formats are supported, best performance is expected when using HW-packed tensors. Only 2 and 3 spatial dimensions are allowed. Vectorized tensors are only supported if they have 2 spatial dimensions. The dimensions of the output tensor yDesc can be smaller or bigger than the dimensions advised by the routine [PoolingDescriptor.GetPooling2dForwardOutputDim] or [PoolingDescriptor.GetPoolingNdForwardOutputDim]. For average pooling, the compute type is float even for integer input and output data type. Output round is nearest-even and clamp to the most negative or most positive value of type if out of range.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - poolingDesc: Input. Handle to a previously initialized pooling descriptor
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -3833,17 +3922,17 @@ func poolingForward(handle Handle, poolingDesc PoolingDescriptor, alpha unsafe.P
 
 // queryRuntimeError cuDNN library functions perform extensive input argument checking before launching GPU kernels.
 //
-// When the [BatchnormSpatialPersistent] mode is selected in cudnnBatchNormalizationForwardTraining() or cudnnBatchNormalizationBackward(), the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke cudnnQueryRuntimeError() to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations. cudnnQueryRuntimeError() can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking]. [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call. [ErrqueryNonblocking] checks if all tasks in the user stream are completed. The cudnnQueryRuntimeError() function will return immediately and report [ErrRuntimeInProgress] in rstatus if some tasks in the user stream are pending. Otherwise, the function will copy the remote kernel error code to rstatus. In the blocking mode ( [ErrqueryBlocking]), the function waits for all tasks to drain in the user stream before reporting the remote kernel error code. The blocking flavor can be further adjusted by calling cudaSetDeviceFlags with the cudaDeviceScheduleSpin, cudaDeviceScheduleYield, or cudaDeviceScheduleBlockingSync flag. [ErrqueryNonblocking] and [ErrqueryBlocking] modes should not be used when the user stream is changed in the cuDNN handle, meaning, [Handle.SetStream] is invoked between functions that report runtime kernel errors and the cudnnQueryRuntimeError() function. The remote error status reported in rstatus can be set to: [Success], [ErrRuntimeInProgress], or [ErrRuntimeFpOverflow]. The remote kernel error is automatically cleared by cudnnQueryRuntimeError(). The cudnnQueryRuntimeError() function should be used in conjunction with cudnnBatchNormalizationForwardTraining() and cudnnBatchNormalizationBackward() when the [BatchNormMode] argument is [BatchnormSpatialPersistent].
+// When the [BatchnormSpatialPersistent] mode is selected in [Handle.BatchNormalizationForwardTraining] or [Handle.BatchNormalizationBackward], the algorithm may encounter numerical overflows where [BatchnormSpatial] performs just fine albeit at a slower speed. The user can invoke [Handle.QueryRuntimeError] to make sure numerical overflows did not occur during the kernel execution. Those issues are reported by the kernel that performs computations. [Handle.QueryRuntimeError] can be used in polling and blocking software control flows. There are two polling modes ( [ErrqueryRawcode] and [ErrqueryNonblocking]) and one blocking mode [ErrqueryBlocking]. [ErrqueryRawcode] reads the error storage location regardless of the kernel completion status. The kernel might not even start and the error storage (allocated per cuDNN handle) might be used by an earlier call. [ErrqueryNonblocking] checks if all tasks in the user stream are completed. The [Handle.QueryRuntimeError] function will return immediately and report [ErrRuntimeInProgress] in rstatus if some tasks in the user stream are pending. Otherwise, the function will copy the remote kernel error code to rstatus. In the blocking mode ( [ErrqueryBlocking]), the function waits for all tasks to drain in the user stream before reporting the remote kernel error code. The blocking flavor can be further adjusted by calling cudaSetDeviceFlags with the cudaDeviceScheduleSpin, cudaDeviceScheduleYield, or cudaDeviceScheduleBlockingSync flag. [ErrqueryNonblocking] and [ErrqueryBlocking] modes should not be used when the user stream is changed in the cuDNN handle, meaning, [Handle.SetStream] is invoked between functions that report runtime kernel errors and the [Handle.QueryRuntimeError] function. The remote error status reported in rstatus can be set to: [Success], [ErrRuntimeInProgress], or [ErrRuntimeFpOverflow]. The remote kernel error is automatically cleared by [Handle.QueryRuntimeError]. The [Handle.QueryRuntimeError] function should be used in conjunction with [Handle.BatchNormalizationForwardTraining] and [Handle.BatchNormalizationBackward] when the [BatchNormMode] argument is [BatchnormSpatialPersistent].
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - rstatus: Output. Pointer to the user’s error code storage
 //   - mode: Input. Remote error query mode
 //
 // Returns:
-//   - StatusBadParam: Invalid input argument.
-//   - StatusInternalError: A stream blocking synchronization or a non-blocking stream query failed.
-//   - StatusMappingError: The device cannot access zero-copy memory to report kernel errors.
-//   - StatusSuccess: No errors detected ( rstatus holds a valid value).
+//   - [ErrBadParam]: Invalid input argument.
+//   - [ErrInternalError]: A stream blocking synchronization or a non-blocking stream query failed.
+//   - [ErrMappingError]: The device cannot access zero-copy memory to report kernel errors.
+//   - [Success]: No errors detected ( rstatus holds a valid value).
 //
 // Deprecated: This function is deprecated.
 //
@@ -3855,7 +3944,7 @@ func queryRuntimeError(handle Handle, rstatus *Result, mode ErrQueryMode, tag *R
 	return toError(fnqueryRuntimeError(handle, rstatus, mode, tag))
 }
 
-// rNNBackwardData This function computes exact, first-order derivatives of the RNN model with respect to its inputs: x, hx and for the LSTM cell type also cx.
+// rNNBackwardData computes exact, first-order derivatives of the RNN model with respect to its inputs: x, hx and for the LSTM cell type also cx.
 //
 // Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy signals a multi-layer RNN model are shown in the following figure. Note that internal RNN signals (between time-steps and between layers) are not exposed by the [Handle.RNNBackwardData] function. Locations of x, y, hx, cx, hy, cy, dx, dy, dhx, dcx, dhy, and dcy Signals a Multi-Layer RNN Model Memory addresses to the primary RNN output y, the initial hidden state hx, and the initial cell state cx (for LSTM only) should point to the same data as in the preceding [Handle.RNNForward] call. The dy and dx pointers cannot be NULL. The [Handle.RNNBackwardData] function accepts any combination of dhy, dhx, dcy, dcx buffer addresses being NULL. When dhy or dcy are NULL, it is assumed that those inputs are zero. When dhx or dcx pointers are NULL, then the corresponding results are not written by [Handle.RNNBackwardData]. When all hx, dhy, dhx pointers are NULL, then the corresponding tensor descriptor hDesc can be NULL too. The same rule applies to the cx, dcy, dcx pointers and the cDesc tensor descriptor. The [Handle.RNNBackwardData] function allows the user to use padded layouts for inputs y, dy, and output dx. In padded or unpacked layouts ( [RnnDataLayoutSeqMajorUnpacked], [RnnDataLayoutBatchMajorUnpacked]) each sequence of vectors in a mini-batch has a fixed length defined by the maxSeqLength argument in the [RNNDataDescriptor.Set] function. The term “unpacked” refers here to the presence of padding vectors, and not unused address ranges between contiguous vectors. Each padded, fixed-length sequence starts from a segment of valid vectors. The valid vector count is stored in seqLengthArray passed to [RNNDataDescriptor.Set], such that 0 < seqLengthArrayi <= maxSeqLength for all sequences in a mini-batch, that is, for i=0..batchSize-1. The remaining, padding vectors make the combined sequence length equal to maxSeqLength. Both sequence-major and batch-major padded layouts are supported. In addition, a packed sequence-major layout is supported: [RnnDataLayoutSeqMajorPacked]. In the latter layout, sequences of vectors in a mini-batch are sorted in the descending order according to the sequence lengths. First all vectors for time step zero are stored. They are followed by all vectors for time step one, and so on. This layout uses no padding vectors. The same layout type must be specified in xDesc and yDesc descriptors. Two host arrays named seqLengthArray in xDesc and yDesc RNN data descriptors must be the same. In addition, a copy of seqLengthArray in the device memory must be passed via the devSeqLengths argument. This array is supplied directly to GPU kernels. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardData] function. The [Handle.RNNBackwardData] function does not verify that sequence lengths stored in devSeqLengths in GPU memory are the same as in xDesc and yDesc descriptors in CPU memory. Sequence length arrays from xDesc and yDesc descriptors are checked for consistency, however. The [Handle.RNNBackwardData] function must be called after [Handle.RNNForward]. The [Handle.RNNForward] function should be invoked with the fwdMode argument of type [ForwardMode] set to [FwdModeTraining].
 //
@@ -3881,12 +3970,12 @@ func queryRuntimeError(handle Handle, rstatus *Result, mode ErrQueryMode, tag *R
 //   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
-//   - StatusAllocFailed: The function was unable to allocate CPU memory.
-//   - StatusBadParam: An invalid or incompatible input argument was encountered. Some examples include:
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusMappingError: A GPU/CUDA resource, such as a texture object, shared memory, or zero-copy memory is not available in the required size or there is a mismatch between the user resource and cuDNN internal resources. A resource mismatch may occur, for example, when calling [Handle.SetStream]. There could be a mismatch between the user provided CUDA stream and the internal CUDA events instantiated in the cuDNN handle when [Create] was invoked. This error status may not be correctable when it is related to texture dimensions, shared memory size, or zero-copy memory availability. If [ErrMappingError] is returned by [Handle.SetStream], then it is typically correctable, however, it means that the cuDNN handle was created on one GPU and the user stream passed to this function is associated with another GPU.
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrMappingError]: A GPU/CUDA resource, such as a texture object, shared memory, or zero-copy memory is not available in the required size or there is a mismatch between the user resource and cuDNN internal resources. A resource mismatch may occur, for example, when calling [Handle.SetStream]. There could be a mismatch between the user provided CUDA stream and the internal CUDA events instantiated in the cuDNN handle when [Create] was invoked. This error status may not be correctable when it is related to texture dimensions, shared memory size, or zero-copy memory availability. If [ErrMappingError] is returned by [Handle.SetStream], then it is typically correctable, however, it means that the cuDNN handle was created on one GPU and the user stream passed to this function is associated with another GPU.
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardData_v8.
 func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths *int32, yDesc RNNDataDescriptor, y uintptr, dy uintptr, xDesc RNNDataDescriptor, dx uintptr, hDesc TensorDescriptor, hx uintptr, dhy uintptr, dhx uintptr, cDesc TensorDescriptor, cx uintptr, dcy uintptr, dcx uintptr, weightSpaceSize uint, weightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
@@ -3896,7 +3985,7 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths *int32,
 	return toError(fnrNNBackwardData(handle, rnnDesc, devSeqLengths, yDesc, y, dy, xDesc, dx, hDesc, hx, dhy, dhx, cDesc, cx, dcy, dcx, weightSpaceSize, weightSpace, workSpaceSize, workSpace, reserveSpaceSize, reserveSpace))
 }
 
-// rNNBackwardWeights This function computes exact, first-order derivatives of the RNN model with respect to all trainable parameters: weights and biases.
+// rNNBackwardWeights computes exact, first-order derivatives of the RNN model with respect to all trainable parameters: weights and biases.
 //
 // All gradient results (∂oi/∂wj)Tδout with respect to weights and biases are written to the dweightSpace buffer. The size and the organization of the dweightSpace buffer is the same as the weightSpace buffer that holds RNN weights and biases. Gradient of the loss function with respect to weights and biases is typically computed over multiple mini-batches. In such a case, partial results computed for each mini-batch should be aggregated. The addGrad argument specifies if gradients from the current mini-batch should be added to previously computed results ( [WgradModeAdd]) or the dweightSpace buffer should be overwritten with the new results ( [WgradModeSet]). Currently, the [Handle.RNNBackwardWeights] function supports the [WgradModeAdd] mode only so the dweightSpace buffer should be zeroed by the user before invoking the routine for the first time. The same sequence lengths must be specified in the xDesc descriptor and in the device array devSeqLengths. Starting in cuDNN 8.9.1, the devSeqLengths parameter is no longer required and can be set to NULL. The variable sequence length array is transferred automatically to GPU memory by the [Handle.RNNBackwardWeights] function. The [Handle.RNNBackwardWeights] function should be invoked after [Handle.RNNBackwardData].
 //
@@ -3917,11 +4006,11 @@ func rNNBackwardData(handle Handle, rnnDesc RNNDescriptor, devSeqLengths *int32,
 //   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
-//   - StatusAllocFailed: The function was unable to allocate CPU memory
-//   - StatusBadParam: An invalid or incompatible input argument was encountered. Some examples include:
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrAllocFailed]: The function was unable to allocate CPU memory
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNBackwardWeights_v8.
 func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, hDesc TensorDescriptor, hx uintptr, yDesc RNNDataDescriptor, y uintptr, weightSpaceSize uint, dweightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
@@ -3950,11 +4039,11 @@ func rNNBackwardWeights(handle Handle, rnnDesc RNNDescriptor, addGrad WgradMode,
 //   - reserveSpace: Input. / Output. Address of the reserve-space buffer in GPU memory
 //
 // Returns:
-//   - StatusAllocFailed: The function was unable to allocate CPU memory.
-//   - StatusBadParam: An invalid or incompatible input argument was encountered. Some examples include:
-//   - StatusExecutionFailed: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: No errors were detected while processing API input arguments and launching GPU kernels.
+//   - [ErrAllocFailed]: The function was unable to allocate CPU memory.
+//   - [ErrBadParam]: An invalid or incompatible input argument was encountered. Some examples include:
+//   - [ErrExecutionFailed]: The process of launching a GPU kernel returned an error, or an earlier kernel did not complete successfully.
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: No errors were detected while processing API input arguments and launching GPU kernels.
 //
 // Wraps cudnnRNNForward.
 func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSeqLengths *int32, xDesc RNNDataDescriptor, x uintptr, yDesc RNNDataDescriptor, y uintptr, hDesc TensorDescriptor, hx uintptr, hy uintptr, cDesc TensorDescriptor, cx uintptr, cy uintptr, weightSpaceSize uint, weightSpace uintptr, workSpaceSize uint, workSpace uintptr, reserveSpaceSize uint, reserveSpace uintptr) error {
@@ -3972,8 +4061,8 @@ func rNNForward(handle Handle, rnnDesc RNNDescriptor, fwdMode ForwardMode, devSe
 //   - clipMode: can be
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found ( rnnDesc was NULL).
-//   - StatusSuccess: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
+//   - [ErrBadParam]: An invalid input argument was found ( rnnDesc was NULL).
+//   - [Success]: LSTM clipping parameters were successfully retrieved from the RNN descriptor.
 //
 // Wraps cudnnRNNGetClip_v9.
 func rNNGetClip(rnnDesc RNNDescriptor, clipMode *RNNClipMode, lclip *float64, rclip *float64) error {
@@ -3991,8 +4080,8 @@ func rNNGetClip(rnnDesc RNNDescriptor, clipMode *RNNClipMode, lclip *float64, rc
 //   - clipMode: is
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was found, for example:
-//   - StatusSuccess: The function completed successfully.
+//   - [ErrBadParam]: An invalid input argument was found, for example:
+//   - [Success]: The function completed successfully.
 //
 // Wraps cudnnRNNSetClip_v9.
 func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rclip float64) error {
@@ -4002,9 +4091,9 @@ func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rcli
 	return toError(fnrNNSetClip(rnnDesc, clipMode, lclip, rclip))
 }
 
-// reduceTensor This function reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
+// reduceTensor reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta.
 //
-// The reduction op to use is indicated by the descriptor reduceTensorDesc. Currently-supported ops are listed by the [ReduceTensorOp] enum. Each dimension of the output tensor C must match the corresponding dimension of the input tensor A or must be equal to 1. The dimensions equal to 1 indicate the dimensions of A to be reduced. The implementation will generate indices for the min and max ops only, as indicated by the [ReduceTensorIndices] enum of the reduceTensorDesc. Requesting indices for the other reduction ops results in an error. The data type of the indices is indicated by the [IndicesType] enum; currently only the 32-bit (unsigned int) type is supported. The indices returned by the implementation are not absolute indices but relative to the dimensions being reduced. The indices are also flattened, meaning, not coordinate tuples. The data types of the tensors A and C must match if of type double. In this case, alpha and beta and the computation enum of reduceTensorDesc are all assumed to be of type double. The HALF and INT8 data types may be mixed with the FLOAT data types. In these cases, the computation enum of reduceTensorDesc is required to be of type FLOAT. Up to dimension 8, all tensor formats are supported. Beyond those dimensions, this routine is not supported.
+// This function reduces tensor A by implementing the equation C = alpha * reduce op ( A ) + beta * C, given tensors A and C and scaling factors alpha and beta. The reduction op to use is indicated by the descriptor reduceTensorDesc. Currently-supported ops are listed by the [ReduceTensorOp] enum. Each dimension of the output tensor C must match the corresponding dimension of the input tensor A or must be equal to 1. The dimensions equal to 1 indicate the dimensions of A to be reduced. The implementation will generate indices for the min and max ops only, as indicated by the [ReduceTensorIndices] enum of the reduceTensorDesc. Requesting indices for the other reduction ops results in an error. The data type of the indices is indicated by the [IndicesType] enum; currently only the 32-bit (unsigned int) type is supported. The indices returned by the implementation are not absolute indices but relative to the dimensions being reduced. The indices are also flattened, meaning, not coordinate tuples. The data types of the tensors A and C must match if of type double. In this case, alpha and beta and the computation enum of reduceTensorDesc are all assumed to be of type double. The HALF and INT8 data types may be mixed with the FLOAT data types. In these cases, the computation enum of reduceTensorDesc is required to be of type FLOAT. Up to dimension 8, all tensor formats are supported. Beyond those dimensions, this routine is not supported.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - reduceTensorDesc: Input. Handle to a previously initialized reduce tensor descriptor
@@ -4017,11 +4106,11 @@ func rNNSetClip(rnnDesc RNNDescriptor, clipMode RNNClipMode, lclip float64, rcli
 //   - cDesc: descriptor
 //
 // Returns:
-//   - InvalidValue: The allocations for the indices or workspace are insufficient.
-//   - StatusBadParam: The corresponding dimensions of the input and output tensors all match, or the conditions in the above paragraphs are unmet.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include: The dimensions of the input tensor and the output tensor are above 8. reduceTensorCompType is not set as stated above.
-//   - StatusSuccess: The function executed successfully.
+//   - CUDNN_INVALID_VALUE: The allocations for the indices or workspace are insufficient.
+//   - [ErrBadParam]: The corresponding dimensions of the input and output tensors all match, or the conditions in the above paragraphs are unmet.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include: The dimensions of the input tensor and the output tensor are above 8. reduceTensorCompType is not set as stated above.
+//   - [Success]: The function executed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4033,19 +4122,19 @@ func reduceTensor(handle Handle, reduceTensorDesc ReduceTensorDescriptor, indice
 	return toError(fnreduceTensor(handle, reduceTensorDesc, indices, indicesSizeInBytes, workspace, workspaceSizeInBytes, alpha, aDesc, A, beta, cDesc, C))
 }
 
-// reorderFilterAndBias This function reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC].
+// reorderFilterAndBias reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC].
 //
-// It can be used to enhance the inference time by separating the reordering operation from convolution. Filter and bias tensors with data type CUDNN_DATA_INT8x32 (also implying tensor format [TensorNchwVectC]) requires permutation of output channel axes in order to take advantage of the Tensor Core IMMA instruction. This is done in every cudnnConvolutionForward() and cudnnConvolutionBiasActivationForward() call when the reorder type attribute of the convolution descriptor is set to [DefaultReorder]. Users can avoid the repeated reordering kernel call by first using this call to reorder the filter and bias tensor and call the convolution forward APIs with reorder type set to [NoReorder]. For example, convolutions in a neural network of multiple layers can require reordering of kernels at every layer, which can take up a significant fraction of the total inference time. Using this function, the reordering can be done one time on the filter and bias data. This is followed by the convolution operations at the multiple layers, which enhance the inference time.
+// This function reorders the filter and bias values for tensors with data type CUDNN_DATA_INT8x32 and tensor format [TensorNchwVectC]. It can be used to enhance the inference time by separating the reordering operation from convolution. Filter and bias tensors with data type CUDNN_DATA_INT8x32 (also implying tensor format [TensorNchwVectC]) requires permutation of output channel axes in order to take advantage of the Tensor Core IMMA instruction. This is done in every [Handle.ConvolutionForward] and [Handle.ConvolutionBiasActivationForward] call when the reorder type attribute of the convolution descriptor is set to [DefaultReorder]. Users can avoid the repeated reordering kernel call by first using this call to reorder the filter and bias tensor and call the convolution forward APIs with reorder type set to [NoReorder]. For example, convolutions in a neural network of multiple layers can require reordering of kernels at every layer, which can take up a significant fraction of the total inference time. Using this function, the reordering can be done one time on the filter and bias data. This is followed by the convolution operations at the multiple layers, which enhance the inference time.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - filterDesc: Input. Descriptor for the kernel dataset
 //   - reorderType: Input. Setting to either perform reordering or not. For more information, refer to [ReorderType]
 //
 // Returns:
-//   - StatusBadParam: The handle, filter descriptor, filter data, or reordered data is NULL. Or, if the bias reordering is requested ( reorderBias > 0), the biasData or reordered biasData is NULL. This status can also be returned if the filter dimension size is not 4.
-//   - StatusExecutionFailed: Either the reordering of the filter data or of the biasData failed.
-//   - StatusNotSupported: Filter descriptor data type is not CUDNN_DATA_INT8x32; the filter descriptor tensor is not in a vectorized layout ( [TensorNchwVectC]).
-//   - StatusSuccess: Reordering was successful.
+//   - [ErrBadParam]: The handle, filter descriptor, filter data, or reordered data is NULL. Or, if the bias reordering is requested ( reorderBias > 0), the biasData or reordered biasData is NULL. This status can also be returned if the filter dimension size is not 4.
+//   - [ErrExecutionFailed]: Either the reordering of the filter data or of the biasData failed.
+//   - [ErrNotSupported]: Filter descriptor data type is not CUDNN_DATA_INT8x32; the filter descriptor tensor is not in a vectorized layout ( [TensorNchwVectC]).
+//   - [Success]: Reordering was successful.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4057,7 +4146,7 @@ func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderTyp
 	return toError(fnreorderFilterAndBias(handle, filterDesc, reorderType, filterData, reorderedFilterData, reorderBias, biasData, reorderedBiasData))
 }
 
-// restoreDropoutDescriptor This function restores a dropout descriptor to a previously saved-off state.
+// restoreDropoutDescriptor restores a dropout descriptor to a previously saved-off state.
 //
 //   - dropoutDesc: Input. / Output. Previously created dropout descriptor
 //   - handle: Input. Handle to a previously created cuDNN context
@@ -4065,8 +4154,8 @@ func reorderFilterAndBias(handle Handle, filterDesc FilterDescriptor, reorderTyp
 //   - states: buffer. Using a different seed from this has no effect. A change of seed, and subsequent update to random number generator states can be achieved by calling [DropoutDescriptor.Set]
 //
 // Returns:
-//   - StatusInvalidValue: The states buffer size (as indicated in stateSizeInBytes) is too small.
-//   - StatusSuccess: The call was successful.
+//   - [ErrInvalidValue]: The states buffer size (as indicated in stateSizeInBytes) is too small.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
 func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {
@@ -4076,17 +4165,19 @@ func restoreDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, drop
 	return toError(fnrestoreDropoutDescriptor(dropoutDesc, handle, dropout, states, stateSizeInBytes, seed))
 }
 
-// scaleTensor This function scales all the elements of a tensor by a given factor.
+// scaleTensor scales all the elements of a tensor by a given factor.
+//
+// This function scales all the elements of a tensor by a given factor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - yDesc: descriptor
 //   - alpha: Input. Pointer in Host memory to a single value that all elements of the tensor will be scaled with. For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: One of the provided pointers is NIL.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: One of the provided pointers is NIL.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4098,14 +4189,14 @@ func scaleTensor(handle Handle, yDesc TensorDescriptor, y uintptr, alpha unsafe.
 	return toError(fnscaleTensor(handle, yDesc, y, alpha))
 }
 
-// setActivationDescriptor This function initializes a previously created generic activation descriptor object.
+// setActivationDescriptor initializes a previously created generic activation descriptor object.
 //
 //   - activationDesc: Input. / Output. Handle to a previously created activation descriptor
 //   - mode: Input. Enumerant to specify the activation mode
 //
 // Returns:
-//   - StatusBadParam: mode or reluNanOpt has an invalid enumerant value.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: mode or reluNanOpt has an invalid enumerant value.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4117,14 +4208,14 @@ func setActivationDescriptor(activationDesc ActivationDescriptor, mode Activatio
 	return toError(fnsetActivationDescriptor(activationDesc, mode, reluNanOpt, coef))
 }
 
-// setActivationDescriptorSwishBeta This function sets the beta parameter of the SWISH activation function to swish_beta.
+// setActivationDescriptorSwishBeta sets the beta parameter of the SWISH activation function to swish_beta.
 //
 //   - activationDesc: Input. / Output. Handle to a previously created activation descriptor
 //   - swish_beta: Input. The value to set the SWISH activations’ beta parameter to
 //
 // Returns:
-//   - StatusBadParam: The activation descriptor is a NULL pointer.
-//   - StatusSuccess: The value was set successfully.
+//   - [ErrBadParam]: The activation descriptor is a NULL pointer.
+//   - [Success]: The value was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4136,9 +4227,9 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 	return toError(fnsetActivationDescriptorSwishBeta(activationDesc, swish_beta))
 }
 
-// setAttnDescriptor This function configures a multihead attention descriptor that was previously created using the cudnnCreateAttnDescriptor() function.
+// setAttnDescriptor configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function.
 //
-// The function sets attention parameters that are necessary to compute internal buffer sizes, dimensions of weight and bias tensors, or to select optimized code paths. Input sequence data descriptors in cudnnMultiHeadAttnForward(), cudnnMultiHeadAttnBackwardData(), and cudnnMultiHeadAttnBackwardWeights() functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions. The multihead attention model can be described by the following equations: hi=(WV,iV)softmax(smScaler(KTWK,iT)(WQ,iq)),fori=0⋯nHeads−1 MultiHeadAttn(q,K,V,WQ,WK,WV,WO)=∑i=0nHeads−1WO,ihi Where: The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively. For simplicity, the above equations are presented using a single embedding vector q but the cuDNN API can handle multiple q candidates in the beam search scheme, process q vectors from multiple sequences bundled into a batch, or automatically iterate through all embedding vectors (time-steps) of a sequence. Thus, in general, q, K, V inputs are tensors with additional pieces of information such as the active length of each sequence or how unused padding vectors should be saved. In some publications, W O,i matrices are combined into one output projection matrix and h i vectors are merged explicitly into a single vector. This is an equivalent notation. In the cuDNN library, W O,i matrices are conceptually treated the same way as W Q,i, W K,i, or W V,i input projection weights. Refer to the description of the cudnnGetMultiHeadAttnWeights() function for more details. Weight matrices W Q,i, W K,i, W V,i, and W O,i play similar roles, adjusting vector lengths in q, K, V inputs and in the multihead attention final output. The user can disable any or all projections by setting qProjSize, kProjSize, vProjSize, or oProjSize arguments to zero. Embedding vector sizes in q, K, V and the vector lengths after projections need to be selected in such a way that matrix multiplications described above are feasible. Otherwise, [ErrBadParam] is returned by the cudnnSetAttnDescriptor() function. All four weight matrices are used when it is desirable to maintain rank deficiency WKQ,i=WK,iTWQ,i or WOV,i=WO,iWV,i of matrices to eliminate one or more dimensions during linear transformations in each head. This is a form of feature extraction. In such cases, the projected sizes are smaller than the original vector lengths. For each attention head, weight matrix sizes are defined as follows: When the output projection is disabled ( oProjSize=0), the output vector length is nHeads * (vProjSize > 0 ? vProjSize : vSize), meaning, the output is a concatenation of all h i vectors. In the alternative interpretation, a concatenated matrix W O = [ W O,0, W O,1, W O,2, …] forms the identity matrix. Softmax is a normalized, exponential vector function that takes and outputs vectors of the same size. The multihead attention API utilizes softmax of the [SoftmaxAccurate] type to reduce the likelihood of the floating-point overflow. The smScaler parameter is the softmax sharpening/smoothing coefficient. When smScaler=1.0, softmax uses the natural exponential function exp(x) or 2.7183*. When smScaler<1.0, for example smScaler=0.2, the function used by the softmax block will not grow as fast because exp(0.2*x) ≈ 1.2214 x. The smScaler parameter can be adjusted to process larger ranges of values fed to softmax. When the range is too large (or smScaler is not sufficiently small for the given range), the output vector of the softmax block becomes categorical, meaning, one vector element is close to 1.0 and other outputs are zero or very close to zero. When this occurs, the Jacobian matrix of the softmax block is also close to zero so deltas are not back-propagated during training from output to input except through residual connections, if these connections are enabled. The user can set smScaler to any positive floating-point value or even zero. The smScaler parameter is not trainable. The qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, and maxBeamSize arguments declare the maximum sequence lengths, maximum batch size, and maximum beam size respectively, in the [SeqDataDescriptor] containers. The actual dimensions supplied to forward and backward (gradient) API functions should not exceed the max limits. The max arguments should be set carefully because too large values will result in excessive memory usage due to oversized work and reserve space buffers. The attnMode argument is treated as a binary mask where various on/off options are set. These options can affect the internal buffer sizes, enforce certain argument checks, select optimized code execution paths, or enable attention variants that do not require additional numerical arguments. An example of such options is the inclusion of biases in input and output projections. The attnDropoutDesc and postDropoutDesc arguments are descriptors that define two dropout layers active in the training mode. The first dropout operation defined by attnDropoutDesc, is applied directly to the softmax output. The second dropout operation, specified by postDropoutDesc, alters the multihead attention output, just before the point where residual connections are added.
+// This function configures a multihead attention descriptor that was previously created using the [CreateAttnDescriptor] function. The function sets attention parameters that are necessary to compute internal buffer sizes, dimensions of weight and bias tensors, or to select optimized code paths. Input sequence data descriptors in [Handle.MultiHeadAttnForward], [Handle.MultiHeadAttnBackwardData], and [Handle.MultiHeadAttnBackwardWeights] functions are checked against the configuration parameters stored in the attention descriptor. Some parameters must match exactly while max arguments such as maxBatchSize or qoMaxSeqLength establish upper limits for the corresponding dimensions. The multihead attention model can be described by the following equations: hi=(WV,iV)softmax(smScaler(KTWK,iT)(WQ,iq)),fori=0⋯nHeads−1 MultiHeadAttn(q,K,V,WQ,WK,WV,WO)=∑i=0nHeads−1WO,ihi Where: The lengths of query, key, and value vectors are defined by the qSize, kSize, and vSize arguments respectively. For simplicity, the above equations are presented using a single embedding vector q but the cuDNN API can handle multiple q candidates in the beam search scheme, process q vectors from multiple sequences bundled into a batch, or automatically iterate through all embedding vectors (time-steps) of a sequence. Thus, in general, q, K, V inputs are tensors with additional pieces of information such as the active length of each sequence or how unused padding vectors should be saved. In some publications, W O,i matrices are combined into one output projection matrix and h i vectors are merged explicitly into a single vector. This is an equivalent notation. In the cuDNN library, W O,i matrices are conceptually treated the same way as W Q,i, W K,i, or W V,i input projection weights. Refer to the description of the [Handle.GetMultiHeadAttnWeights] function for more details. Weight matrices W Q,i, W K,i, W V,i, and W O,i play similar roles, adjusting vector lengths in q, K, V inputs and in the multihead attention final output. The user can disable any or all projections by setting qProjSize, kProjSize, vProjSize, or oProjSize arguments to zero. Embedding vector sizes in q, K, V and the vector lengths after projections need to be selected in such a way that matrix multiplications described above are feasible. Otherwise, [ErrBadParam] is returned by the [AttnDescriptor.Set] function. All four weight matrices are used when it is desirable to maintain rank deficiency WKQ,i=WK,iTWQ,i or WOV,i=WO,iWV,i of matrices to eliminate one or more dimensions during linear transformations in each head. This is a form of feature extraction. In such cases, the projected sizes are smaller than the original vector lengths. For each attention head, weight matrix sizes are defined as follows: When the output projection is disabled ( oProjSize=0), the output vector length is nHeads * (vProjSize > 0 ? vProjSize : vSize), meaning, the output is a concatenation of all h i vectors. In the alternative interpretation, a concatenated matrix W O = [ W O,0, W O,1, W O,2, …] forms the identity matrix. Softmax is a normalized, exponential vector function that takes and outputs vectors of the same size. The multihead attention API utilizes softmax of the [SoftmaxAccurate] type to reduce the likelihood of the floating-point overflow. The smScaler parameter is the softmax sharpening/smoothing coefficient. When smScaler=1.0, softmax uses the natural exponential function exp(x) or 2.7183*. When smScaler<1.0, for example smScaler=0.2, the function used by the softmax block will not grow as fast because exp(0.2*x) ≈ 1.2214 x. The smScaler parameter can be adjusted to process larger ranges of values fed to softmax. When the range is too large (or smScaler is not sufficiently small for the given range), the output vector of the softmax block becomes categorical, meaning, one vector element is close to 1.0 and other outputs are zero or very close to zero. When this occurs, the Jacobian matrix of the softmax block is also close to zero so deltas are not back-propagated during training from output to input except through residual connections, if these connections are enabled. The user can set smScaler to any positive floating-point value or even zero. The smScaler parameter is not trainable. The qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, and maxBeamSize arguments declare the maximum sequence lengths, maximum batch size, and maximum beam size respectively, in the [SeqDataDescriptor] containers. The actual dimensions supplied to forward and backward (gradient) API functions should not exceed the max limits. The max arguments should be set carefully because too large values will result in excessive memory usage due to oversized work and reserve space buffers. The attnMode argument is treated as a binary mask where various on/off options are set. These options can affect the internal buffer sizes, enforce certain argument checks, select optimized code execution paths, or enable attention variants that do not require additional numerical arguments. An example of such options is the inclusion of biases in input and output projections. The attnDropoutDesc and postDropoutDesc arguments are descriptors that define two dropout layers active in the training mode. The first dropout operation defined by attnDropoutDesc, is applied directly to the softmax output. The second dropout operation, specified by postDropoutDesc, alters the multihead attention output, just before the point where residual connections are added.
 //
 //   - attnDesc: Output. Attention descriptor to be configured
 //   - nHeads: Input. Number of attention heads
@@ -4156,9 +4247,9 @@ func setActivationDescriptorSwishBeta(activationDesc ActivationDescriptor, swish
 //   - maxBeamSize: Input. Largest beam size expected in any [SeqDataDescriptor] container. Supported “attnMode“ Flags
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was encountered. Some examples include:
-//   - StatusNotSupported: A requested option or a combination of input arguments is not supported.
-//   - StatusSuccess: The attention descriptor was configured successfully.
+//   - [ErrBadParam]: An invalid input argument was encountered. Some examples include:
+//   - [ErrNotSupported]: A requested option or a combination of input arguments is not supported.
+//   - [Success]: The attention descriptor was configured successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4170,9 +4261,9 @@ func setAttnDescriptor(attnDesc AttnDescriptor, attnMode uint32, nHeads int32, s
 	return toError(fnsetAttnDescriptor(attnDesc, attnMode, nHeads, smScaler, dataType, computePrec, mathType, attnDropoutDesc, postDropoutDesc, qSize, kSize, vSize, qProjSize, kProjSize, vProjSize, oProjSize, qoMaxSeqLength, kvMaxSeqLength, maxBatchSize, maxBeamSize))
 }
 
-// setCTCLossDescriptorEx This function is an extension of [CTCLossDescriptor.Set].
+// setCTCLossDescriptorEx is an extension of [CTCLossDescriptor.Set].
 //
-// This function provides an additional interface normMode to set the input normalization mode for the CTC loss function, and gradMode to control the NaN propagation type. When this function cudnnSetCTCLossDescriptorEx() is used with normMode set to [LossNormalizationNone] and the gradMode set to [NotPropagateNan], then it is the same as [CTCLossDescriptor.Set], meaning:
+// This function is an extension of [CTCLossDescriptor.Set]. This function provides an additional interface normMode to set the input normalization mode for the CTC loss function, and gradMode to control the NaN propagation type. When this function [CTCLossDescriptor.SetCTCLossDescriptorEx] is used with normMode set to [LossNormalizationNone] and the gradMode set to [NotPropagateNan], then it is the same as [CTCLossDescriptor.Set], meaning:
 //
 //   - ctcLossDesc: Output. CTC loss descriptor to be set
 //   - compType: Input. Compute type for this CTC loss function
@@ -4180,8 +4271,8 @@ func setAttnDescriptor(attnDesc AttnDescriptor, attnMode uint32, nHeads int32, s
 //   - gradMode: is set to
 //
 // Returns:
-//   - StatusBadParam: At least one of the input parameters passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Set] instead.
 //
@@ -4193,7 +4284,7 @@ func setCTCLossDescriptorEx(ctcLossDesc CTCLossDescriptor, compType DataType, no
 	return toError(fnsetCTCLossDescriptorEx(ctcLossDesc, compType, normMode, gradMode))
 }
 
-// setCTCLossDescriptor This function sets a CTC loss function descriptor.
+// setCTCLossDescriptor sets a CTC loss function descriptor.
 //
 //   - ctcLossDesc: Output. CTC loss descriptor to be set
 //   - compType: Input. Compute type for this CTC loss function
@@ -4202,8 +4293,8 @@ func setCTCLossDescriptorEx(ctcLossDesc CTCLossDescriptor, compType DataType, no
 //   - maxLabelLength: Input. The maximum label length from the labels data
 //
 // Returns:
-//   - StatusBadParam: At least one of the input parameters passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnSetCTCLossDescriptor_v9.
 func setCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, compType DataType, normMode LossNormalizationMode, ctcGradMode CTCGradMode, maxLabelLength int32) error {
@@ -4213,12 +4304,12 @@ func setCTCLossDescriptor(ctcLossDesc CTCLossDescriptor, compType DataType, norm
 	return toError(fnsetCTCLossDescriptor(ctcLossDesc, compType, normMode, ctcGradMode, maxLabelLength))
 }
 
-// SetCallback This function sets the internal states of cuDNN error reporting functionality.
+// SetCallback sets the internal states of cuDNN error reporting functionality.
 //
 //   - fptr: see [Callback]
 //
 // Returns:
-//   - StatusSuccess: The function launched successfully.
+//   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSetCallback.
 func SetCallback(mask uint32, udata uintptr, fptr uintptr) error {
@@ -4228,9 +4319,9 @@ func SetCallback(mask uint32, udata uintptr, fptr uintptr) error {
 	return toError(fnSetCallback(mask, udata, fptr))
 }
 
-// setConvolution2dDescriptor This function initializes a previously created convolution descriptor object into a 2D correlation.
+// setConvolution2dDescriptor initializes a previously created convolution descriptor object into a 2D correlation.
 //
-// This function assumes that the tensor and filter descriptors correspond to the forward convolution path and checks if their settings are valid. That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer.
+// This function initializes a previously created convolution descriptor object into a 2D correlation. This function assumes that the tensor and filter descriptors correspond to the forward convolution path and checks if their settings are valid. That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer.
 //
 //   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
 //   - pad_h: Input. Zero-padding height: number of rows of zeros implicitly concatenated onto the top and onto the bottom of input images
@@ -4242,8 +4333,8 @@ func SetCallback(mask uint32, udata uintptr, fptr uintptr) error {
 //   - computeType: Input. compute precision
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4255,11 +4346,13 @@ func setConvolution2dDescriptor(convDesc ConvolutionDescriptor, pad_h int32, pad
 	return toError(fnsetConvolution2dDescriptor(convDesc, pad_h, pad_w, u, v, dilation_h, dilation_w, mode, computeType))
 }
 
-// setConvolutionGroupCount This function allows the user to specify the number of groups to be used in the associated convolution.
+// setConvolutionGroupCount allows the user to specify the number of groups to be used in the associated convolution.
+//
+// This function allows the user to specify the number of groups to be used in the associated convolution.
 //
 // Returns:
-//   - StatusBadParam: An invalid convolution descriptor was provided.
-//   - StatusSuccess: The group count was set successfully.
+//   - [ErrBadParam]: An invalid convolution descriptor was provided.
+//   - [Success]: The group count was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4271,11 +4364,13 @@ func setConvolutionGroupCount(convDesc ConvolutionDescriptor, groupCount int32) 
 	return toError(fnsetConvolutionGroupCount(convDesc, groupCount))
 }
 
-// setConvolutionMathType This function allows the user to specify whether or not the use of tensor op is permitted in the library routines associated with a given convolution descriptor.
+// setConvolutionMathType allows the user to specify whether or not the use of tensor op is permitted in the library routines associated with a given convolution descriptor.
+//
+// This function allows the user to specify whether or not the use of tensor op is permitted in the library routines associated with a given convolution descriptor.
 //
 // Returns:
-//   - StatusBadParam: Either an invalid convolution descriptor was provided or an invalid math type was specified.
-//   - StatusSuccess: The math type was set successfully.
+//   - [ErrBadParam]: Either an invalid convolution descriptor was provided or an invalid math type was specified.
+//   - [Success]: The math type was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4287,17 +4382,17 @@ func setConvolutionMathType(convDesc ConvolutionDescriptor, mathType MathType) e
 	return toError(fnsetConvolutionMathType(convDesc, mathType))
 }
 
-// setConvolutionNdDescriptor This function initializes a previously created generic convolution descriptor object into a Nd correlation.
+// setConvolutionNdDescriptor initializes a previously created generic convolution descriptor object into a Nd correlation.
 //
-// That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer. The convolution computation will be done in the specified dataType, which can be potentially different from the input/output tensors.
+// This function initializes a previously created generic convolution descriptor object into a Nd correlation. That same convolution descriptor can be reused in the backward path provided it corresponds to the same layer. The convolution computation will be done in the specified dataType, which can be potentially different from the input/output tensors.
 //
 //   - convDesc: Input. / Output. Handle to a previously created convolution descriptor
 //   - arrayLength: containing the dilation factor for each dimension
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusNotSupported: At least one of the following conditions are met:
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrNotSupported]: At least one of the following conditions are met:
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4309,14 +4404,16 @@ func setConvolutionNdDescriptor(convDesc ConvolutionDescriptor, arrayLength int3
 	return toError(fnsetConvolutionNdDescriptor(convDesc, arrayLength, padA, filterStrideA, dilationA, mode, computeType))
 }
 
-// setConvolutionReorderType This function sets the convolution reorder type for the given convolution descriptor.
+// setConvolutionReorderType sets the convolution reorder type for the given convolution descriptor.
+//
+// This function sets the convolution reorder type for the given convolution descriptor.
 //
 //   - convDesc: Input. The convolution descriptor for which the reorder type should be set
 //   - reorderType: Input. Set the reorder type to this value. For more information, refer to [ReorderType]
 //
 // Returns:
-//   - StatusBadParam: The reorder type supplied is not supported.
-//   - StatusSuccess: Reorder type is set successfully.
+//   - [ErrBadParam]: The reorder type supplied is not supported.
+//   - [Success]: Reorder type is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4328,7 +4425,7 @@ func setConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType Reord
 	return toError(fnsetConvolutionReorderType(convDesc, reorderType))
 }
 
-// setDropoutDescriptor This function initializes a previously created dropout descriptor object.
+// setDropoutDescriptor initializes a previously created dropout descriptor object.
 //
 // When the states argument is not NULL, a cuRAND initialization kernel is invoked by [DropoutDescriptor.Set]. This kernel requires a substantial amount of GPU memory for the stack. Memory is released when the kernel finishes. The [ErrAllocFailed] status is returned when no sufficient free memory is available for the GPU stack.
 //
@@ -4340,11 +4437,11 @@ func setConvolutionReorderType(convDesc ConvolutionDescriptor, reorderType Reord
 //   - seed: Input. Seed used to initialize random number generator states
 //
 // Returns:
-//   - StatusAllocFailed: The function failed to temporarily extend the GPU stack.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusInternalError: Internally used CUDA functions returned an error status.
-//   - StatusInvalidValue: The sizeInBytes argument is less than the value returned by [Handle.DropoutGetStatesSize].
-//   - StatusSuccess: The call was successful.
+//   - [ErrAllocFailed]: The function failed to temporarily extend the GPU stack.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrInternalError]: Internally used CUDA functions returned an error status.
+//   - [ErrInvalidValue]: The sizeInBytes argument is less than the value returned by [Handle.DropoutGetStatesSize].
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
 func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {
@@ -4354,9 +4451,9 @@ func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 	return toError(fnsetDropoutDescriptor(dropoutDesc, handle, dropout, states, stateSizeInBytes, seed))
 }
 
-// setFilter4dDescriptor This function initializes a previously created filter descriptor object into a 4D filter.
+// setFilter4dDescriptor initializes a previously created filter descriptor object into a 4D filter.
 //
-// The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in cudnnConvolutionForward(), cudnnConvolutionBackwardData(), and cudnnConvolutionBackwardFilter().
+// This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
 //   - filterDesc: Input. / Output. Handle to a previously created filter descriptor
 //   - k: Input. Number of output feature maps
@@ -4365,8 +4462,8 @@ func setDropoutDescriptor(dropoutDesc DropoutDescriptor, handle Handle, dropout 
 //   - w: Input. Width of each filter
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters k, c, h, w is negative or dataType or format has an invalid enumerant value.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters k, c, h, w is negative or dataType or format has an invalid enumerant value.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4378,17 +4475,17 @@ func setFilter4dDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 	return toError(fnsetFilter4dDescriptor(filterDesc, dataType, format, k, c, h, w))
 }
 
-// setFilterNdDescriptor This function initializes a previously created filter descriptor object.
+// setFilterNdDescriptor initializes a previously created filter descriptor object.
 //
-// The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in cudnnConvolutionForward(), cudnnConvolutionBackwardData(), and cudnnConvolutionBackwardFilter().
+// This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
 //   - filterDesc: Input. / Output. Handle to a previously created filter descriptor
 //   - nbDims: containing the size of the filter for each dimension
 //
 // Returns:
-//   - StatusBadParam: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.
-//   - StatusNotSupported: The parameter nbDims exceeds CUDNN_DIM_MAX.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.
+//   - [ErrNotSupported]: The parameter nbDims exceeds CUDNN_DIM_MAX.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4400,16 +4497,16 @@ func setFilterNdDescriptor(filterDesc FilterDescriptor, dataType DataType, forma
 	return toError(fnsetFilterNdDescriptor(filterDesc, dataType, format, nbDims, filterDimA))
 }
 
-// setFusedOpsConstParamPackAttribute This function sets the descriptor pointed to by the param pointer input.
+// setFusedOpsConstParamPackAttribute sets the descriptor pointed to by the param pointer input.
 //
-// The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
+// This function sets the descriptor pointed to by the param pointer input. The type of the descriptor to be set is indicated by the enum value of the paramLabel input.
 //
 //   - constPack: during
 //   - paramLabel: For more information, refer to the table in [FusedOpsConstParamPack]
 //
 // Returns:
-//   - StatusBadParam: If constPack is NULL, or if paramLabel or the ops setting for constPack is invalid.
-//   - StatusSuccess: The descriptor is set successfully.
+//   - [ErrBadParam]: If constPack is NULL, or if paramLabel or the ops setting for constPack is invalid.
+//   - [Success]: The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4421,13 +4518,15 @@ func setFusedOpsConstParamPackAttribute(constPack FusedOpsConstParamPack, paramL
 	return toError(fnsetFusedOpsConstParamPackAttribute(constPack, paramLabel, param))
 }
 
-// setFusedOpsVariantParamPackAttribute This function sets the variable parameter pack descriptor.
+// setFusedOpsVariantParamPackAttribute sets the variable parameter pack descriptor.
+//
+// This function sets the variable parameter pack descriptor.
 //
 //   - varPack: descriptor) is set by this function. For more information, refer to [FusedOpsConstParamLabel]
 //   - paramLabel: input selection. For more information, refer to [FusedOpsVariantParamLabel]
 //
 // Returns:
-//   - StatusBadParam: If varPack is NULL or if paramLabel is set to an unsupported value. [Success] The descriptor is set successfully.
+//   - [ErrBadParam]: If varPack is NULL or if paramLabel is set to an unsupported value. [Success] The descriptor is set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4439,14 +4538,14 @@ func setFusedOpsVariantParamPackAttribute(varPack FusedOpsVariantParamPack, para
 	return toError(fnsetFusedOpsVariantParamPackAttribute(varPack, paramLabel, ptr))
 }
 
-// setLRNDescriptor This function initializes a previously created LRN descriptor object.
+// setLRNDescriptor initializes a previously created LRN descriptor object.
 //
 //   - normDesc: Output. Handle to a previously created LRN descriptor
 //   - lrnN: is set to 5 in [CreateLRNDescriptor]
 //
 // Returns:
-//   - StatusBadParam: One of the input parameters was out of valid range as described above.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: One of the input parameters was out of valid range as described above.
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetLRNDescriptor.
 func setLRNDescriptor(normDesc LRNDescriptor, lrnN uint32, lrnAlpha float64, lrnBeta float64, lrnK float64) error {
@@ -4456,7 +4555,7 @@ func setLRNDescriptor(normDesc LRNDescriptor, lrnN uint32, lrnAlpha float64, lrn
 	return toError(fnsetLRNDescriptor(normDesc, lrnN, lrnAlpha, lrnBeta, lrnK))
 }
 
-// setOpTensorDescriptor This function initializes a tensor pointwise math descriptor.
+// setOpTensorDescriptor initializes a tensor pointwise math descriptor.
 //
 //   - opTensorDesc: Output. Pointer to the structure holding the description of the tensor pointwise math descriptor
 //   - opTensorOp: Input. Tensor pointwise math operation for this tensor pointwise math descriptor
@@ -4464,8 +4563,8 @@ func setLRNDescriptor(normDesc LRNDescriptor, lrnN uint32, lrnAlpha float64, lrn
 //   - opTensorNanOpt: Input. NAN propagation policy
 //
 // Returns:
-//   - StatusBadParam: At least one of the input parameters passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4477,7 +4576,7 @@ func setOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp OpTensorO
 	return toError(fnsetOpTensorDescriptor(opTensorDesc, opTensorOp, opTensorCompType, opTensorNanOpt))
 }
 
-// setPooling2dDescriptor This function initializes a previously created generic pooling descriptor object into a 2D description.
+// setPooling2dDescriptor initializes a previously created generic pooling descriptor object into a 2D description.
 //
 //   - poolingDesc: Input. / Output. Handle to a previously created pooling descriptor
 //   - mode: Input. Enumerant to specify the pooling mode
@@ -4490,8 +4589,8 @@ func setOpTensorDescriptor(opTensorDesc OpTensorDescriptor, opTensorOp OpTensorO
 //   - horizontalStride: Input. Pooling horizontal stride
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters windowHeight, windowWidth, verticalStride, horizontalStride is negative or mode or maxpoolingNanOpt has an invalid enumerate value.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters windowHeight, windowWidth, verticalStride, horizontalStride is negative or mode or maxpoolingNanOpt has an invalid enumerate value.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4503,7 +4602,7 @@ func setPooling2dDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 	return toError(fnsetPooling2dDescriptor(poolingDesc, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride))
 }
 
-// setPoolingNdDescriptor This function initializes a previously created generic pooling descriptor object.
+// setPoolingNdDescriptor initializes a previously created generic pooling descriptor object.
 //
 //   - poolingDesc: Input. / Output. Handle to a previously created pooling descriptor
 //   - mode: Input. Enumerant to specify the pooling mode
@@ -4511,9 +4610,9 @@ func setPooling2dDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 //   - nbDims: containing the striding size for each dimension. The value of array elements must be greater than zero (meaning, negative striding size is not allowed)
 //
 // Returns:
-//   - StatusBadParam: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
-//   - StatusNotSupported: If ( nbDims > CUDNN_DIM_MAX-2).
-//   - StatusSuccess: The object was initialized successfully.
+//   - [ErrBadParam]: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
+//   - [ErrNotSupported]: If ( nbDims > CUDNN_DIM_MAX-2).
+//   - [Success]: The object was initialized successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4525,7 +4624,7 @@ func setPoolingNdDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 	return toError(fnsetPoolingNdDescriptor(poolingDesc, mode, maxpoolingNanOpt, nbDims, windowDimA, paddingA, strideA))
 }
 
-// setRNNDataDescriptor This function initializes a previously created RNN data descriptor object.
+// setRNNDataDescriptor initializes a previously created RNN data descriptor object.
 //
 // This data structure is intended to support the unpacked (padded) layout for input and output of extended RNN inference and training functions. A packed (unpadded) layout is also supported for backward compatibility.
 //
@@ -4537,10 +4636,10 @@ func setPoolingNdDescriptor(poolingDesc PoolingDescriptor, mode PoolingMode, max
 //   - seqLengthArray: must be greater than or equal to 0 but less than or equal to
 //
 // Returns:
-//   - StatusAllocFailed: The allocation of internal array storage has failed.
-//   - StatusBadParam: Any one of these have occurred:
-//   - StatusNotSupported: Any one of these have occurred:
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrAllocFailed]: The allocation of internal array storage has failed.
+//   - [ErrBadParam]: Any one of these have occurred:
+//   - [ErrNotSupported]: Any one of these have occurred:
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetRNNDataDescriptor.
 func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layout RNNDataLayout, maxSeqLength int32, batchSize int32, vectorSize int32, seqLengthArray *int32, paddingFill uintptr) error {
@@ -4550,7 +4649,7 @@ func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layo
 	return toError(fnsetRNNDataDescriptor(rnnDataDesc, dataType, layout, maxSeqLength, batchSize, vectorSize, seqLengthArray, paddingFill))
 }
 
-// setRNNDescriptor This function initializes a previously created RNN descriptor object.
+// setRNNDescriptor initializes a previously created RNN descriptor object.
 //
 // The RNN descriptor configured by [RNNDescriptor.Set] was enhanced to store all information needed to compute the total number of adjustable weights/biases in the RNN model.
 //
@@ -4565,9 +4664,9 @@ func setRNNDataDescriptor(rnnDataDesc RNNDataDescriptor, dataType DataType, layo
 //   - dropoutDesc: Input. Handle to a previously created and initialized dropout descriptor. Dropout operation will be applied between physical layers. A single layer network will have no dropout applied. Dropout is used in the training mode only
 //
 // Returns:
-//   - StatusBadParam: An invalid input argument was detected.
-//   - StatusNotSupported: An incompatible or unsupported combination of input arguments was detected.
-//   - StatusSuccess: The RNN descriptor was configured successfully.
+//   - [ErrBadParam]: An invalid input argument was detected.
+//   - [ErrNotSupported]: An incompatible or unsupported combination of input arguments was detected.
+//   - [Success]: The RNN descriptor was configured successfully.
 //
 // Wraps cudnnSetRNNDescriptor_v8.
 func setRNNDescriptor(rnnDesc RNNDescriptor, algo RNNAlgo, cellMode RNNMode, biasMode RNNBiasMode, dirMode DirectionMode, inputMode RNNInputMode, dataType DataType, mathPrec DataType, mathType MathType, inputSize int32, hiddenSize int32, projSize int32, numLayers int32, dropoutDesc DropoutDescriptor, auxFlags uint32) error {
@@ -4577,7 +4676,7 @@ func setRNNDescriptor(rnnDesc RNNDescriptor, algo RNNAlgo, cellMode RNNMode, bia
 	return toError(fnsetRNNDescriptor(rnnDesc, algo, cellMode, biasMode, dirMode, inputMode, dataType, mathPrec, mathType, inputSize, hiddenSize, projSize, numLayers, dropoutDesc, auxFlags))
 }
 
-// setReduceTensorDescriptor This function initializes a previously created reduce tensor descriptor object.
+// setReduceTensorDescriptor initializes a previously created reduce tensor descriptor object.
 //
 //   - reduceTensorDesc: Input. / Output. Handle to a previously created reduce tensor descriptor
 //   - reduceTensorOp: Input. Enumerant to specify the reduced tensor operation
@@ -4587,8 +4686,8 @@ func setRNNDescriptor(rnnDesc RNNDescriptor, algo RNNAlgo, cellMode RNNMode, bia
 //   - reduceTensorIndicesType: Input. Enumerant to specify the reduced tensor indices type
 //
 // Returns:
-//   - StatusBadParam: reduceTensorDesc is NULL ( reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices or reduceTensorIndicesType has an invalid enumerant value).
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: reduceTensorDesc is NULL ( reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices or reduceTensorIndicesType has an invalid enumerant value).
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -4600,19 +4699,19 @@ func setReduceTensorDescriptor(reduceTensorDesc ReduceTensorDescriptor, reduceTe
 	return toError(fnsetReduceTensorDescriptor(reduceTensorDesc, reduceTensorOp, reduceTensorCompType, reduceTensorNanOpt, reduceTensorIndices, reduceTensorIndicesType))
 }
 
-// setSeqDataDescriptor This function initializes a previously created sequence data descriptor object.
+// setSeqDataDescriptor initializes a previously created sequence data descriptor object.
 //
-// In the most simplified view, this descriptor defines dimensions ( dimA) and the data layout ( axes) of a four-dimensional tensor. All four dimensions of the sequence data descriptor have unique identifiers that can be used to index the dimA[] array: For example, to express information that vectors in our sequence data buffer are five elements long, we need to assign dimA[[SeqdataVectDim]]=5 in the dimA[] array. The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro. The [SeqDataDescriptor] container is treated as a collection of fixed length vectors that form sequences, similarly to words (vectors of characters) constructing sentences. The TIME dimension spans the sequence length. Different sequences are bundled together in a batch. A BATCH may be a group of individual sequences or beams. A BEAM is a cluster of alternative sequences or candidates. When thinking about the beam, consider a translation task from one language to another. You may want to keep around and experiment with several translated versions of the original sentence before selecting the best one. The number of candidates kept around is the BEAM size. Every sequence can have a different length, even within the same beam, so vectors toward the end of the sequence can be just padding. The paddingFill argument specifies how the padding vectors should be written in output sequence data buffers. The paddingFill argument points to one value of type dataType that should be copied to all elements in padding vectors. Currently, the only supported value for paddingFill is NULL which means this option should be ignored. In this case, elements of the padding vectors in output buffers will have undefined values. It is assumed that a non-empty sequence always starts from the time index zero. The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[[SeqdataBatchDim]] * dimA[[SeqdataBeamDim]]. Each element of the seqLengthArray[] array should have a non-negative value, less than or equal to dimA[[SeqdataTimeDim]]; the maximum sequence length. Elements in seqLengthArray[] are always arranged in the same batch-major order, meaning, when considering BEAM and BATCH dimensions, BATCH is the outer or the slower changing index when we traverse the array in ascending order of the addresses. Using a simple example, the seqLengthArray[] array should hold sequence lengths in the following order: When dimA[[SeqdataBatchDim]]=3 and dimA[[SeqdataBeamDim]]=2. Data stored in the [SeqDataDescriptor] container must comply with the following constraints: The axes argument in the [SeqDataDescriptor] function is a bit more complicated. This array should have the same capacity as dimA[]. The axes[] array specifies the actual data layout in the GPU memory. In this function, the layout is described in the following way: as we move from one element of a vector to another in memory by incrementing the element pointer, what is the order of VECT, TIME, BATCH, and BEAM dimensions that we encounter. Let us assume that we want to define the following data layout: Data Layout Example for cudnnSetSeqDataDescriptor() That corresponds to tensor dimensions: Now, let’s initialize the axes[] array. Note that the most inner dimension is described by the last active element of axes[]. There is only one valid configuration here as we always traverse a full vector first. Thus, we need to write [SeqdataVectDim] in the last active element of axes[]. Now, let’s work on the remaining three elements of axes[]. When we reach the end of the first vector, we jump to the next BEAM, therefore: When we approach the end of the second vector, we move to the next batch, therefore: The last (outermost) dimension is TIME: The four values of the axes[] array fully describe the data layout depicted in the figure. The sequence data descriptor allows the user to select 3! = 6 different data layouts or permutations of BEAM, BATCH, and TIME dimensions. The multihead attention API supports all six layouts.
+// This function initializes a previously created sequence data descriptor object. In the most simplified view, this descriptor defines dimensions ( dimA) and the data layout ( axes) of a four-dimensional tensor. All four dimensions of the sequence data descriptor have unique identifiers that can be used to index the dimA[] array: For example, to express information that vectors in our sequence data buffer are five elements long, we need to assign dimA[[SeqdataVectDim]]=5 in the dimA[] array. The number of active dimensions in the dimA[] and axes[] arrays is defined by the nbDims argument. Currently, the value of this argument should be four. The actual size of the dimA[] and axes[] arrays should be declared using the CUDNN_SEQDATA_DIM_COUNT macro. The [SeqDataDescriptor] container is treated as a collection of fixed length vectors that form sequences, similarly to words (vectors of characters) constructing sentences. The TIME dimension spans the sequence length. Different sequences are bundled together in a batch. A BATCH may be a group of individual sequences or beams. A BEAM is a cluster of alternative sequences or candidates. When thinking about the beam, consider a translation task from one language to another. You may want to keep around and experiment with several translated versions of the original sentence before selecting the best one. The number of candidates kept around is the BEAM size. Every sequence can have a different length, even within the same beam, so vectors toward the end of the sequence can be just padding. The paddingFill argument specifies how the padding vectors should be written in output sequence data buffers. The paddingFill argument points to one value of type dataType that should be copied to all elements in padding vectors. Currently, the only supported value for paddingFill is NULL which means this option should be ignored. In this case, elements of the padding vectors in output buffers will have undefined values. It is assumed that a non-empty sequence always starts from the time index zero. The seqLengthArray[] must specify all sequence lengths in the container so the total size of this array should be dimA[[SeqdataBatchDim]] * dimA[[SeqdataBeamDim]]. Each element of the seqLengthArray[] array should have a non-negative value, less than or equal to dimA[[SeqdataTimeDim]]; the maximum sequence length. Elements in seqLengthArray[] are always arranged in the same batch-major order, meaning, when considering BEAM and BATCH dimensions, BATCH is the outer or the slower changing index when we traverse the array in ascending order of the addresses. Using a simple example, the seqLengthArray[] array should hold sequence lengths in the following order: When dimA[[SeqdataBatchDim]]=3 and dimA[[SeqdataBeamDim]]=2. Data stored in the [SeqDataDescriptor] container must comply with the following constraints: The axes argument in the [SeqDataDescriptor] function is a bit more complicated. This array should have the same capacity as dimA[]. The axes[] array specifies the actual data layout in the GPU memory. In this function, the layout is described in the following way: as we move from one element of a vector to another in memory by incrementing the element pointer, what is the order of VECT, TIME, BATCH, and BEAM dimensions that we encounter. Let us assume that we want to define the following data layout: Data Layout Example for [SeqDataDescriptor.Set] That corresponds to tensor dimensions: Now, let’s initialize the axes[] array. Note that the most inner dimension is described by the last active element of axes[]. There is only one valid configuration here as we always traverse a full vector first. Thus, we need to write [SeqdataVectDim] in the last active element of axes[]. Now, let’s work on the remaining three elements of axes[]. When we reach the end of the first vector, we jump to the next BEAM, therefore: When we approach the end of the second vector, we move to the next batch, therefore: The last (outermost) dimension is TIME: The four values of the axes[] array fully describe the data layout depicted in the figure. The sequence data descriptor allows the user to select 3! = 6 different data layouts or permutations of BEAM, BATCH, and TIME dimensions. The multihead attention API supports all six layouts.
 //
 //   - seqDataDesc: Output. Pointer to a previously created sequence data descriptor
 //   - dataType: that is used to fill up output vectors beyond the valid length of each sequence or
 //   - nbDims: elements of
 //
 // Returns:
-//   - StatusAllocFailed: Failed to allocate storage for the sequence data descriptor object.
-//   - StatusBadParam: An invalid input argument was found. Some examples include:
-//   - StatusNotSupported: An unsupported input argument was encountered. Some examples include:
-//   - StatusSuccess: All input arguments were validated and the sequence data descriptor was successfully updated.
+//   - [ErrAllocFailed]: Failed to allocate storage for the sequence data descriptor object.
+//   - [ErrBadParam]: An invalid input argument was found. Some examples include:
+//   - [ErrNotSupported]: An unsupported input argument was encountered. Some examples include:
+//   - [Success]: All input arguments were validated and the sequence data descriptor was successfully updated.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4624,7 +4723,7 @@ func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, nbDi
 	return toError(fnsetSeqDataDescriptor(seqDataDesc, dataType, nbDims, dimA, axes, seqLengthArraySize, seqLengthArray, paddingFill))
 }
 
-// setSpatialTransformerNdDescriptor This function initializes a previously created generic spatial transformer descriptor object.
+// setSpatialTransformerNdDescriptor initializes a previously created generic spatial transformer descriptor object.
 //
 //   - stDesc: Input. / Output. Previously created spatial transformer descriptor object
 //   - samplerType: Input. Enumerant to specify the sampler type
@@ -4632,8 +4731,8 @@ func setSeqDataDescriptor(seqDataDesc SeqDataDescriptor, dataType DataType, nbDi
 //   - nbDims: containing the size of the transformed tensor for every dimension
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetSpatialTransformerNdDescriptor.
 func setSpatialTransformerNdDescriptor(stDesc SpatialTransformerDescriptor, samplerType SamplerType, dataType DataType, nbDims int32, dimA *int32) error {
@@ -4643,18 +4742,18 @@ func setSpatialTransformerNdDescriptor(stDesc SpatialTransformerDescriptor, samp
 	return toError(fnsetSpatialTransformerNdDescriptor(stDesc, samplerType, dataType, nbDims, dimA))
 }
 
-// setStream This function sets the user’s CUDA stream in the cuDNN handle.
+// setStream sets the user’s CUDA stream in the cuDNN handle.
 //
 // With CUDA 11.x or later, internal streams have the same priority as the stream set by the last call to this function. In CUDA graph capture mode, CUDA 11.8 or later is required in order for the stream priorities to match.
 //
 //   - handle: Input. Pointer to the cuDNN handle
 //
 // Returns:
-//   - StatusBadParam: Invalid ( NULL) handle.
-//   - StatusBadParamStreamMismatch: Mismatch between the user stream and the cuDNN handle context.
-//   - StatusInternalError: CUDA stream APIs reported further errors inside cuDNN.
-//   - StatusNotSupported: The stream priority is out of range.
-//   - StatusSuccess: The new stream was set successfully.
+//   - [ErrBadParam]: Invalid ( NULL) handle.
+//   - [ErrBadParamStreamMismatch]: Mismatch between the user stream and the cuDNN handle context.
+//   - [ErrInternalError]: CUDA stream APIs reported further errors inside cuDNN.
+//   - [ErrNotSupported]: The stream priority is out of range.
+//   - [Success]: The new stream was set successfully.
 //
 // Wraps cudnnSetStream.
 func setStream(handle Handle, streamId Stream) error {
@@ -4664,16 +4763,16 @@ func setStream(handle Handle, streamId Stream) error {
 	return toError(fnsetStream(handle, streamId))
 }
 
-// setTensor This function sets all the elements of a tensor to a given value.
+// setTensor sets all the elements of a tensor to a given value.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - yDesc: descriptor
 //
 // Returns:
-//   - StatusBadParam: One of the provided pointers is NIL.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: One of the provided pointers is NIL.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSetTensor.
 func setTensor(handle Handle, yDesc TensorDescriptor, y uintptr, valuePtr uintptr) error {
@@ -4683,7 +4782,7 @@ func setTensor(handle Handle, yDesc TensorDescriptor, y uintptr, valuePtr uintpt
 	return toError(fnsetTensor(handle, yDesc, y, valuePtr))
 }
 
-// setTensor4dDescriptor This function initializes a previously created generic tensor descriptor object into a 4D tensor.
+// setTensor4dDescriptor initializes a previously created generic tensor descriptor object into a 4D tensor.
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
@@ -4695,9 +4794,9 @@ func setTensor(handle Handle, yDesc TensorDescriptor, y uintptr, valuePtr uintpt
 //   - w: Input. Width of each feature map
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters n, c, h, w was negative or format has an invalid enumerant value or dataType has an invalid enumerant value.
-//   - StatusNotSupported: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters n, c, h, w was negative or format has an invalid enumerant value or dataType has an invalid enumerant value.
+//   - [ErrNotSupported]: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptor.
 func setTensor4dDescriptor(tensorDesc TensorDescriptor, format TensorFormat, dataType DataType, n int32, c int32, h int32, w int32) error {
@@ -4707,9 +4806,9 @@ func setTensor4dDescriptor(tensorDesc TensorDescriptor, format TensorFormat, dat
 	return toError(fnsetTensor4dDescriptor(tensorDesc, format, dataType, n, c, h, w))
 }
 
-// setTensor4dDescriptorEx This function initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.SetTensor4dDescriptor] but with the strides explicitly passed as parameters.
+// setTensor4dDescriptorEx initializes a previously created generic tensor descriptor object into a 4D tensor, similarly to [TensorDescriptor.SetTensor4dDescriptor] but with the strides explicitly passed as parameters.
 //
-// At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. cudnnTransformTensor() can be used to convert the data to a supported layout. The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
+// At present, some cuDNN routines have limited support for strides. Those routines will return [ErrNotSupported] if a 4D tensor object with an unsupported stride is used. [Handle.TransformTensor] can be used to convert the data to a supported layout. The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype.
 //
 //   - tensorDesc: Input. / Output. Handle to a previously created tensor descriptor
 //   - n: Input. Number of images
@@ -4722,9 +4821,9 @@ func setTensor4dDescriptor(tensorDesc TensorDescriptor, format TensorFormat, dat
 //   - wStride: Input. Stride between two consecutive columns
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters n, c, h, w or nStride, cStride, hStride, wStride is negative or dataType has an invalid enumerant value.
-//   - StatusNotSupported: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters n, c, h, w or nStride, cStride, hStride, wStride is negative or dataType has an invalid enumerant value.
+//   - [ErrNotSupported]: The total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensor4dDescriptorEx.
 func setTensor4dDescriptorEx(tensorDesc TensorDescriptor, dataType DataType, n int32, c int32, h int32, w int32, nStride int32, cStride int32, hStride int32, wStride int32) error {
@@ -4734,7 +4833,7 @@ func setTensor4dDescriptorEx(tensorDesc TensorDescriptor, dataType DataType, n i
 	return toError(fnsetTensor4dDescriptorEx(tensorDesc, dataType, n, c, h, w, nStride, cStride, hStride, wStride))
 }
 
-// setTensorNdDescriptor This function initializes a previously created generic tensor descriptor object.
+// setTensorNdDescriptor initializes a previously created generic tensor descriptor object.
 //
 // The total size of a tensor including the potential padding between dimensions is limited to 2 Giga-elements of type datatype. Tensors are restricted to having at least 4 dimensions, and at most CUDNN_DIM_MAX dimensions (defined in cudnn.h). When working with lower dimensional data, it is recommended that the user create a 4D tensor, and set the size along unused dimensions to 1.
 //
@@ -4742,9 +4841,9 @@ func setTensor4dDescriptorEx(tensorDesc TensorDescriptor, dataType DataType, n i
 //   - nbDims: that contain the stride of the tensor for every dimension. By convention, the ordering of the strides in the array follows the format -
 //
 // Returns:
-//   - StatusBadParam: At least one of the elements of the array dimA was negative or zero, or dataType has an invalid enumerant value.
-//   - StatusNotSupported: The parameter nbDims is outside the range [4, CUDNN_DIM_MAX], or the total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the elements of the array dimA was negative or zero, or dataType has an invalid enumerant value.
+//   - [ErrNotSupported]: The parameter nbDims is outside the range [4, CUDNN_DIM_MAX], or the total size of the tensor descriptor exceeds the maximum limit of 2 Giga-elements.
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetTensorNdDescriptor.
 func setTensorNdDescriptor(tensorDesc TensorDescriptor, dataType DataType, nbDims int32, dimA *int32, strideA *int32) error {
@@ -4754,7 +4853,7 @@ func setTensorNdDescriptor(tensorDesc TensorDescriptor, dataType DataType, nbDim
 	return toError(fnsetTensorNdDescriptor(tensorDesc, dataType, nbDims, dimA, strideA))
 }
 
-// setTensorNdDescriptorEx This function initializes an Nd tensor descriptor.
+// setTensorNdDescriptorEx initializes an Nd tensor descriptor.
 //
 //   - tensorDesc: Output. Pointer to the tensor descriptor struct to be initialized
 //   - format: Input. Tensor format
@@ -4763,9 +4862,9 @@ func setTensorNdDescriptor(tensorDesc TensorDescriptor, dataType DataType, nbDim
 //   - dimA: Input. Array containing the size of each dimension
 //
 // Returns:
-//   - StatusBadParam: Tensor descriptor was not allocated properly; or input parameters are not set correctly.
-//   - StatusNotSupported: Dimension size requested is larger than maximum dimension size supported.
-//   - StatusSuccess: The function was successful.
+//   - [ErrBadParam]: Tensor descriptor was not allocated properly; or input parameters are not set correctly.
+//   - [ErrNotSupported]: Dimension size requested is larger than maximum dimension size supported.
+//   - [Success]: The function was successful.
 //
 // Wraps cudnnSetTensorNdDescriptorEx.
 func setTensorNdDescriptorEx(tensorDesc TensorDescriptor, format TensorFormat, dataType DataType, nbDims int32, dimA *int32) error {
@@ -4775,7 +4874,9 @@ func setTensorNdDescriptorEx(tensorDesc TensorDescriptor, format TensorFormat, d
 	return toError(fnsetTensorNdDescriptorEx(tensorDesc, format, dataType, nbDims, dimA))
 }
 
-// setTensorTransformDescriptor This function initializes a tensor transform descriptor that was previously created using the cudnnCreateTensorTransformDescriptor() function.
+// setTensorTransformDescriptor initializes a tensor transform descriptor that was previously created using the [CreateTensorTransformDescriptor] function.
+//
+// This function initializes a tensor transform descriptor that was previously created using the [CreateTensorTransformDescriptor] function.
 //
 //   - transformDesc: Output. The tensor transform descriptor to be initialized
 //   - nbDims: Input. The dimensionality of the transform operands. Must be greater than 2. For more information, refer to Tensor Descriptor
@@ -4783,9 +4884,9 @@ func setTensorNdDescriptorEx(tensorDesc TensorDescriptor, format TensorFormat, d
 //   - direction: Input. Selects folding or unfolding. This input has no effect when folding parameters are all <= 1. For more information, refer to [FoldingDirection]
 //
 // Returns:
-//   - StatusBadParam: The parameter transformDesc is NULL, or if direction is invalid, or nbDims is <= 2.
-//   - StatusNotSupported: If the dimension size requested is larger than maximum dimension size supported (meaning, one of the nbDims is larger than CUDNN_DIM_MAX), or if destFromat is something other than NCHW or NHWC.
-//   - StatusSuccess: The function was launched successfully.
+//   - [ErrBadParam]: The parameter transformDesc is NULL, or if direction is invalid, or nbDims is <= 2.
+//   - [ErrNotSupported]: If the dimension size requested is larger than maximum dimension size supported (meaning, one of the nbDims is larger than CUDNN_DIM_MAX), or if destFromat is something other than NCHW or NHWC.
+//   - [Success]: The function was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4807,10 +4908,10 @@ func setTensorTransformDescriptor(transformDesc TensorTransformDescriptor, nbDim
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSoftmaxBackward.
 func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, yDesc TensorDescriptor, y uintptr, dyDesc TensorDescriptor, dy uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr) error {
@@ -4829,9 +4930,9 @@ func softmaxBackward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alp
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the computation result with prior value in the output layer as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: [ErrExecutionFailed] The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met: [ErrExecutionFailed] The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Wraps cudnnSoftmaxForward.
 func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
@@ -4841,7 +4942,7 @@ func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alph
 	return toError(fnsoftmaxForward(handle, algo, mode, alpha, xDesc, x, beta, yDesc, y))
 }
 
-// spatialTfGridGeneratorBackward This function computes the gradient of a grid generation operation.
+// spatialTfGridGeneratorBackward computes the gradient of a grid generation operation.
 //
 // Only 2D transformation is supported.
 //
@@ -4851,10 +4952,10 @@ func softmaxForward(handle Handle, algo SoftmaxAlgorithm, mode SoftmaxMode, alph
 //   - dtheta: Output. Data pointer to GPU memory contains the output differential data
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples incldue:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples incldue:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorBackward.
 func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDescriptor, dgrid uintptr, dtheta uintptr) error {
@@ -4864,7 +4965,7 @@ func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDesc
 	return toError(fnspatialTfGridGeneratorBackward(handle, stDesc, dgrid, dtheta))
 }
 
-// spatialTfGridGeneratorForward This function generates a grid of coordinates in the input tensor corresponding to each pixel from the output tensor.
+// spatialTfGridGeneratorForward generates a grid of coordinates in the input tensor corresponding to each pixel from the output tensor.
 //
 // Only 2D transformation is supported.
 //
@@ -4872,10 +4973,10 @@ func spatialTfGridGeneratorBackward(handle Handle, stDesc SpatialTransformerDesc
 //   - stDesc: In the 4th dimension, the first coordinate is
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfGridGeneratorForward.
 func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescriptor, theta uintptr, grid uintptr) error {
@@ -4885,7 +4986,7 @@ func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescr
 	return toError(fnspatialTfGridGeneratorForward(handle, stDesc, theta, grid))
 }
 
-// spatialTfSamplerBackward This function computes the gradient of a sampling operation.
+// spatialTfSamplerBackward computes the gradient of a sampling operation.
 //
 // Only 2D transformation is supported.
 //
@@ -4897,10 +4998,10 @@ func spatialTfGridGeneratorForward(handle Handle, stDesc SpatialTransformerDescr
 //   - dgrid: Output. Data pointer to GPU memory contains the output differential data
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerBackward.
 func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, beta unsafe.Pointer, dxDesc TensorDescriptor, dx uintptr, alphaDgrid unsafe.Pointer, dyDesc TensorDescriptor, dy uintptr, grid uintptr, betaDgrid unsafe.Pointer, dgrid uintptr) error {
@@ -4910,7 +5011,7 @@ func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor
 	return toError(fnspatialTfSamplerBackward(handle, stDesc, alpha, xDesc, x, beta, dxDesc, dx, alphaDgrid, dyDesc, dy, grid, betaDgrid, dgrid))
 }
 
-// spatialTfSamplerForward This function performs a sampler operation and generates the output tensor using the grid given by the grid generator.
+// spatialTfSamplerForward performs a sampler operation and generates the output tensor using the grid given by the grid generator.
 //
 // Only 2D transformation is supported.
 //
@@ -4920,10 +5021,10 @@ func spatialTfSamplerBackward(handle Handle, stDesc SpatialTransformerDescriptor
 //   - beta: Input. s. Pointers to scaling factors (in host memory) used to blend the source value with prior value in the destination tensor as follows: For more information, refer to Scaling Parameters
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Some examples include:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Some examples include:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSpatialTfSamplerForward.
 func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor, alpha unsafe.Pointer, xDesc TensorDescriptor, x uintptr, grid uintptr, beta unsafe.Pointer, yDesc TensorDescriptor, y uintptr) error {
@@ -4933,9 +5034,9 @@ func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor,
 	return toError(fnspatialTfSamplerForward(handle, stDesc, alpha, xDesc, x, grid, beta, yDesc, y))
 }
 
-// transformFilter This function converts the filter between different formats, data types, or dimensions based on the described transformation.
+// transformFilter converts the filter between different formats, data types, or dimensions based on the described transformation.
 //
-// It can be used to convert a filter with an unsupported layout format to a filter with a supported layout format. This function copies the scaled data from the input filter srcDesc to the output tensor destDesc with a different layout. If the filter descriptors of srcDesc and destDesc have different dimensions, they must be consistent with folding and padding amount and order specified in transDesc. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
+// This function converts the filter between different formats, data types, or dimensions based on the described transformation. It can be used to convert a filter with an unsupported layout format to a filter with a supported layout format. This function copies the scaled data from the input filter srcDesc to the output tensor destDesc with a different layout. If the filter descriptors of srcDesc and destDesc have different dimensions, they must be consistent with folding and padding amount and order specified in transDesc. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - transDesc: Input. A descriptor containing the details of the requested filter transformation. For more information, refer to [TensorTransformDescriptor]
@@ -4943,10 +5044,10 @@ func spatialTfSamplerForward(handle Handle, stDesc SpatialTransformerDescriptor,
 //   - destDesc: respectively
 //
 // Returns:
-//   - StatusBadParam: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration. Also, in the folding and padding paths, any value other than A=1 and B=0 will result in a [ErrNotSupported].
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration. Also, in the folding and padding paths, any value other than A=1 and B=0 will result in a [ErrNotSupported].
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4958,9 +5059,9 @@ func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha u
 	return toError(fntransformFilter(handle, transDesc, alpha, srcDesc, srcData, beta, destDesc, destData))
 }
 
-// transformTensor This function copies the scaled data from one tensor to another tensor with a different layout.
+// transformTensor copies the scaled data from one tensor to another tensor with a different layout.
 //
-// Those descriptors need to have the same dimensions but not necessarily the same strides. The input and output tensors must not overlap in any way (meaning, tensors cannot be transformed in place). This function can be used to convert a tensor with an unsupported format to a supported one.
+// This function copies the scaled data from one tensor to another tensor with a different layout. Those descriptors need to have the same dimensions but not necessarily the same strides. The input and output tensors must not overlap in any way (meaning, tensors cannot be transformed in place). This function can be used to convert a tensor with an unsupported format to a supported one.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - xDesc: descriptor
@@ -4968,10 +5069,10 @@ func transformFilter(handle Handle, transDesc TensorTransformDescriptor, alpha u
 //   - yDesc: descriptor
 //
 // Returns:
-//   - StatusBadParam: The dimensions n, c, h, w or the dataType of the two tensor descriptors are different.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusNotSupported: The function does not support the provided configuration.
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: The dimensions n, c, h, w or the dataType of the two tensor descriptors are different.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrNotSupported]: The function does not support the provided configuration.
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -4983,9 +5084,9 @@ func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor
 	return toError(fntransformTensor(handle, alpha, xDesc, x, beta, yDesc, y))
 }
 
-// transformTensorEx This function converts the tensor layouts between different formats.
+// transformTensorEx converts the tensor layouts between different formats.
 //
-// It can be used to convert a tensor with an unsupported layout format to a tensor with a supported layout format. This function copies the scaled data from the input tensor srcDesc to the output tensor destDesc with a different layout. The tensor descriptors of srcDesc and destDesc should have the same dimensions but need not have the same strides. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
+// This function converts the tensor layouts between different formats. It can be used to convert a tensor with an unsupported layout format to a tensor with a supported layout format. This function copies the scaled data from the input tensor srcDesc to the output tensor destDesc with a different layout. The tensor descriptors of srcDesc and destDesc should have the same dimensions but need not have the same strides. The srcDesc and destDesc tensors must not overlap in any way (meaning, tensors cannot be transformed in place). When performing a folding transform or a zero-padding transform, the scaling factors ( alpha, beta) should be set to (1, 0). However, unfolding transforms support any ( alpha, beta) values. This function is thread safe.
 //
 //   - handle: Input. Handle to a previously created cuDNN context. For more information, refer to [Handle]
 //   - transDesc: Input. A descriptor containing the details of the requested tensor transformation. For more information, refer to [TensorTransformDescriptor]
@@ -4993,10 +5094,10 @@ func transformTensor(handle Handle, alpha unsafe.Pointer, xDesc TensorDescriptor
 //   - destDesc: respectively
 //
 // Returns:
-//   - StatusBadParam: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.
-//   - StatusExecutionFailed: Function failed to launch on the GPU.
-//   - StatusNotSupported: Function does not support the provided configuration. Also, in the folding and padding paths, any value other than A=1 and B=0 will result in a [ErrNotSupported].
-//   - StatusSuccess: The function was launched successfully.
+//   - [ErrBadParam]: A parameter is uninitialized or initialized incorrectly, or the number of dimensions is different between srcDesc and destDesc.
+//   - [ErrExecutionFailed]: Function failed to launch on the GPU.
+//   - [ErrNotSupported]: Function does not support the provided configuration. Also, in the folding and padding paths, any value other than A=1 and B=0 will result in a [ErrNotSupported].
+//   - [Success]: The function was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -5006,59 +5107,4 @@ func transformTensorEx(handle Handle, transDesc TensorTransformDescriptor, alpha
 		return err
 	}
 	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, srcData, beta, destDesc, destData))
-}
-
-// GetVersion returns the version number of the cuDNN library.
-//
-// It returns the CUDNN_VERSION defined present in the cudnn.h header file. Starting with release R2, the routine can be used to identify dynamically the current cuDNN library used by the application. The defined CUDNN_VERSION can be used to have the same application linked against different cuDNN versions using conditional compilation statements.
-//
-// Wraps cudnnGetVersion.
-func GetVersion() (uint, error) {
-	if err := checkLibSym("cudnnGetVersion"); err != nil {
-		var zero uint
-		return zero, err
-	}
-	return fnGetVersion(), nil
-}
-
-// GetMaxDeviceVersion returns the maximum SM version that the cuDNN library is aware of and supports natively.
-//
-// Any SM version higher than this would be supported in forward compatibility mode. For more information about forward compatibility, refer to the cuDNN Developer Guide.
-//
-// Wraps cudnnGetMaxDeviceVersion.
-func GetMaxDeviceVersion() (uint, error) {
-	if err := checkLibSym("cudnnGetMaxDeviceVersion"); err != nil {
-		var zero uint
-		return zero, err
-	}
-	return fnGetMaxDeviceVersion(), nil
-}
-
-// GetCudartVersion The same version of a given cuDNN library can be compiled against different CUDA toolkit versions.
-//
-// This routine returns the CUDA toolkit version that the currently used cuDNN library has been compiled against.
-//
-// Wraps cudnnGetCudartVersion.
-func GetCudartVersion() (uint, error) {
-	if err := checkLibSym("cudnnGetCudartVersion"); err != nil {
-		var zero uint
-		return zero, err
-	}
-	return fnGetCudartVersion(), nil
-}
-
-// GetLastErrorString retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
-//
-// Inside the cuDNN library, the messages are stored in thread local buffers. The error is cleared after the user calls this API to retrieve it.
-//
-//   - message: Output. Pointer to a character buffer that can store the error message. As we do not manage the thread-safety of the pre-allocated output buffer “message” to avoid unnecessary overhead, we ask that the user ensure it is thread-safe themselves on their own need-basis
-//   - max_size: also counting the terminator character
-//
-// Wraps cudnnGetLastErrorString.
-func GetLastErrorString(message *byte, max_size uint) error {
-	if err := checkLibSym("cudnnGetLastErrorString"); err != nil {
-		return err
-	}
-	fnGetLastErrorString(message, max_size)
-	return nil
 }

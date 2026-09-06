@@ -2,19 +2,19 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created RNN data descriptor object.
+// Destroy destroys a previously created RNN data descriptor object.
 //
 // The [RNNDataDescriptor.Destroy] function is not able to detect if the RNNDataDesc argument holds a valid address. Undefined behavior will occur in cases of passing an invalid pointer, not returned by the [CreateRNNDataDescriptor] function, or in the double deletion scenario of a valid address.
 //
 // Returns:
-//   - StatusSuccess: The RNN data descriptor object was destroyed successfully.
+//   - [Success]: The RNN data descriptor object was destroyed successfully.
 //
 // Wraps cudnnDestroyRNNDataDescriptor.
 func (r RNNDataDescriptor) Destroy() error {
 	return destroyRNNDataDescriptor(r)
 }
 
-// Get This function retrieves a previously created RNN data descriptor object.
+// Get retrieves a previously created RNN data descriptor object.
 //
 //   - dataType: Output. Pointer to the host memory location to store the datatype of the RNN data tensor
 //   - layout: Output. Pointer to the host memory location to store the memory layout of the RNN data tensor
@@ -25,15 +25,15 @@ func (r RNNDataDescriptor) Destroy() error {
 //   - paddingFill: Output. Pointer to the host memory location to store the user defined symbol. The symbol should be interpreted as the same data type as the RNN data tensor
 //
 // Returns:
-//   - StatusBadParam: Any one of these have occurred:
-//   - StatusSuccess: The parameters are fetched successfully.
+//   - [ErrBadParam]: Any one of these have occurred:
+//   - [Success]: The parameters are fetched successfully.
 //
 // Wraps cudnnGetRNNDataDescriptor.
 func (r RNNDataDescriptor) Get(dataType *DataType, layout *RNNDataLayout, maxSeqLength *int32, batchSize *int32, vectorSize *int32, arrayLengthRequested int32, seqLengthArray *int32, paddingFill uintptr) error {
 	return getRNNDataDescriptor(r, dataType, layout, maxSeqLength, batchSize, vectorSize, arrayLengthRequested, seqLengthArray, paddingFill)
 }
 
-// Set This function initializes a previously created RNN data descriptor object.
+// Set initializes a previously created RNN data descriptor object.
 //
 // This data structure is intended to support the unpacked (padded) layout for input and output of extended RNN inference and training functions. A packed (unpadded) layout is also supported for backward compatibility.
 //
@@ -45,10 +45,10 @@ func (r RNNDataDescriptor) Get(dataType *DataType, layout *RNNDataLayout, maxSeq
 //   - seqLengthArray: must be greater than or equal to 0 but less than or equal to
 //
 // Returns:
-//   - StatusAllocFailed: The allocation of internal array storage has failed.
-//   - StatusBadParam: Any one of these have occurred:
-//   - StatusNotSupported: Any one of these have occurred:
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrAllocFailed]: The allocation of internal array storage has failed.
+//   - [ErrBadParam]: Any one of these have occurred:
+//   - [ErrNotSupported]: Any one of these have occurred:
+//   - [Success]: The object was set successfully.
 //
 // Wraps cudnnSetRNNDataDescriptor.
 func (r RNNDataDescriptor) Set(dataType DataType, layout RNNDataLayout, maxSeqLength int32, batchSize int32, vectorSize int32, seqLengthArray *int32, paddingFill uintptr) error {

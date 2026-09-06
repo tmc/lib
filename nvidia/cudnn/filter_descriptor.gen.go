@@ -2,10 +2,12 @@
 
 package cudnn
 
-// Destroy This function destroys a filter object.
+// Destroy destroys a filter object.
+//
+// This function destroys a filter object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -14,7 +16,9 @@ func (f FilterDescriptor) Destroy() error {
 	return destroyFilterDescriptor(f)
 }
 
-// GetFilter4dDescriptor This function queries the parameters of the previously initialized Filter4d descriptor object.
+// GetFilter4dDescriptor queries the parameters of the previously initialized Filter4d descriptor object.
+//
+// This function queries the parameters of the previously initialized Filter4d descriptor object.
 //
 //   - format: Output. Type of format
 //   - k: Output. Number of output feature maps
@@ -23,7 +27,7 @@ func (f FilterDescriptor) Destroy() error {
 //   - w: Output. Width of each filter
 //
 // Returns:
-//   - StatusSuccess: The object was set successfully.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -32,15 +36,17 @@ func (f FilterDescriptor) GetFilter4dDescriptor(dataType *DataType, format *Tens
 	return getFilter4dDescriptor(f, dataType, format, k, c, h, w)
 }
 
-// GetFilterNdDescriptor This function queries a previously initialized FilterNd descriptor object.
+// GetFilterNdDescriptor queries a previously initialized FilterNd descriptor object.
+//
+// This function queries a previously initialized FilterNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the filter parameters from the provided filter descriptor
 //   - format: Output. Type of format
 //   - nbDims: Output. Actual dimension of the filter
 //
 // Returns:
-//   - StatusBadParam: The parameter nbDimsRequested is negative.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: The parameter nbDimsRequested is negative.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -49,13 +55,13 @@ func (f FilterDescriptor) GetFilterNdDescriptor(nbDimsRequested int32, dataType 
 	return getFilterNdDescriptor(f, nbDimsRequested, dataType, format, nbDims, filterDimA)
 }
 
-// GetFilterSizeInBytes This function returns the size of the filter tensor in memory with respect to the given descriptor.
+// GetFilterSizeInBytes returns the size of the filter tensor in memory with respect to the given descriptor.
 //
-// It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
+// This function returns the size of the filter tensor in memory with respect to the given descriptor. It can be used to know the amount of GPU memory to be allocated to hold that filter tensor.
 //
 // Returns:
-//   - StatusBadParam: filerDesc is invalid.
-//   - StatusSuccess: filterDesc is valid.
+//   - [ErrBadParam]: filerDesc is invalid.
+//   - [Success]: filterDesc is valid.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -64,9 +70,9 @@ func (f FilterDescriptor) GetFilterSizeInBytes() (uint, error) {
 	return getFilterSizeInBytes(f)
 }
 
-// SetFilter4dDescriptor This function initializes a previously created filter descriptor object into a 4D filter.
+// SetFilter4dDescriptor initializes a previously created filter descriptor object into a 4D filter.
 //
-// The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in cudnnConvolutionForward(), cudnnConvolutionBackwardData(), and cudnnConvolutionBackwardFilter().
+// This function initializes a previously created filter descriptor object into a 4D filter. The layout of the filters must be contiguous in memory. Tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
 //   - k: Input. Number of output feature maps
 //   - c: Input. Number of input feature maps
@@ -74,8 +80,8 @@ func (f FilterDescriptor) GetFilterSizeInBytes() (uint, error) {
 //   - w: Input. Width of each filter
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters k, c, h, w is negative or dataType or format has an invalid enumerant value.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters k, c, h, w is negative or dataType or format has an invalid enumerant value.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -84,16 +90,16 @@ func (f FilterDescriptor) SetFilter4dDescriptor(dataType DataType, format Tensor
 	return setFilter4dDescriptor(f, dataType, format, k, c, h, w)
 }
 
-// SetFilterNdDescriptor This function initializes a previously created filter descriptor object.
+// SetFilterNdDescriptor initializes a previously created filter descriptor object.
 //
-// The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in cudnnConvolutionForward(), cudnnConvolutionBackwardData(), and cudnnConvolutionBackwardFilter().
+// This function initializes a previously created filter descriptor object. The layout of the filters must be contiguous in memory. The tensor format [TensorNhwc] has limited support in [Handle.ConvolutionForward], [Handle.ConvolutionBackwardData], and [Handle.ConvolutionBackwardFilter].
 //
 //   - nbDims: containing the size of the filter for each dimension
 //
 // Returns:
-//   - StatusBadParam: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.
-//   - StatusNotSupported: The parameter nbDims exceeds CUDNN_DIM_MAX.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the elements of the array filterDimA is negative or dataType or format has an invalid enumerant value.
+//   - [ErrNotSupported]: The parameter nbDims exceeds CUDNN_DIM_MAX.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
