@@ -46,7 +46,7 @@ const (
 func hardwareProg(t *testing.T, env string) string {
 	t.Helper()
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") == "" {
-		t.Skip("LIB_CUDA_HARDWARE_TEST is empty")
+		t.Skip("LIB_CUDA_HARDWARE_TEST is empty: these tests need compute-sanitizer and CUDA programs built ahead of time, which no probe can supply")
 	}
 	if _, err := cudasanitizer.LookTool(""); err != nil {
 		t.Fatalf("hardware validation requires compute-sanitizer: %v", err)
@@ -146,7 +146,7 @@ func TestKnownRaceCUDA(t *testing.T) {
 // without this line is harder to interpret later.
 func TestToolVersionCUDA(t *testing.T) {
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") == "" {
-		t.Skip("LIB_CUDA_HARDWARE_TEST is empty")
+		t.Skip("LIB_CUDA_HARDWARE_TEST is empty: these tests need compute-sanitizer and CUDA programs built ahead of time, which no probe can supply")
 	}
 	version, err := cudasanitizer.ToolVersion(context.Background(), "")
 	if errors.Is(err, cudasanitizer.ErrToolNotFound) {

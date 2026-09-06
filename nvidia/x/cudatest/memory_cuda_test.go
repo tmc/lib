@@ -10,8 +10,15 @@ import (
 )
 
 func TestDeviceMemoryCheckCUDA(t *testing.T) {
+	// This gate is not a device probe. The check reads process-global free
+	// bytes through cuMemGetInfo, and the mutex it holds serializes only
+	// within this process, so any other process using the GPU is attributed
+	// to the test: under an 8 MiB alloc/free loop from a second process it
+	// failed 2 runs in 10, both directions -- reporting another process's
+	// allocation as retained growth, and having its own deliberate leak
+	// masked by another process's free. It needs the GPU to itself.
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") == "" {
-		t.Skip("LIB_CUDA_HARDWARE_TEST is empty")
+		t.Skip("LIB_CUDA_HARDWARE_TEST is empty: this test measures process-global device memory and needs exclusive use of the GPU")
 	}
 	dev := cudatest.Require(t)
 	defer dev.Close()

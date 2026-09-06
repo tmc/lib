@@ -69,6 +69,67 @@ func NewTuner(dev *cuda.Device) *Tuner {
 	}
 }
 
+// benchmarkSizes are the problem dimensions the autotuner measures at. They are
+// small enough to keep a tuning sweep quick and large enough that the block
+// size being swept actually changes the work per thread.
+const (
+	benchElements = 1024 // elementwise length
+	benchInDim    = 256  // rmsnorm input width
+	benchOutDim   = 128  // rmsnorm output rows
+	benchHidden   = 256  // swiglu hidden width
+	benchInter    = 512  // swiglu intermediate width
+)
+
+// launchPlan describes how to call one generated kernel: the float32 buffers to
+// allocate, in parameter order, then the trailing scalar arguments.
+//
+// The autotuner used to launch every candidate with two inputs, an output and
+// an element count, which is the add kernel's signature. Both fused kernels
+// take seven parameters, so those launches were rejected outright and every
+// candidate for them was discarded -- autotuning silently did nothing for the
+// only two non-trivial operators this package generates.
+type launchPlan struct {
+	buffers []int // element count of each buffer parameter, in order
+	scalars []any // remaining arguments, in order
+	shared  uint32
+	grid    func(block uint32) uint32
+}
+
+func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
+	op := ""
+	if cand.Expr != nil {
+		op = cand.Expr.Op
+	}
+	switch op {
+	case "add":
+		return launchPlan{
+			buffers: []int{benchElements, benchElements, benchElements},
+			scalars: []any{int32(benchElements)},
+			grid: func(block uint32) uint32 {
+				return (benchElements + block - 1) / block
+			},
+		}, nil
+	case "fused_rmsnorm_gemv":
+		// x, weight, W_proj, out, in_dim, out_dim, eps; one block per row.
+		return launchPlan{
+			buffers: []int{benchInDim, benchInDim, benchOutDim * benchInDim, benchOutDim},
+			scalars: []any{int32(benchInDim), int32(benchOutDim), float32(1e-5)},
+			grid:    func(uint32) uint32 { return benchOutDim },
+		}, nil
+	case "fused_swiglu_gemv":
+		// x, W_gate, W_up, W_down, out, hidden_dim, intermediate_dim. Every
+		// block fills the whole activation buffer, so one block is the only
+		// shape the kernel's shared-memory indexing supports.
+		return launchPlan{
+			buffers: []int{benchHidden, benchInter * benchHidden, benchInter * benchHidden, benchHidden * benchInter, benchHidden},
+			scalars: []any{int32(benchHidden), int32(benchInter)},
+			shared:  benchInter * 4,
+			grid:    func(uint32) uint32 { return 1 },
+		}, nil
+	}
+	return launchPlan{}, fmt.Errorf("egraph: no benchmark launch plan for operator %q", op)
+}
+
 // BenchmarkCandidate compiles, loads, warms up, and benchmarks the candidate on the GPU,
 // measuring pure execution duration (excluding compilation/load time).
 func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time.Duration, error) {
@@ -106,41 +167,50 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	}
 	defer stream.Destroy()
 
-	const testElements = 1024
-	inA, err := cudamem.Alloc[float32](dev, testElements)
+	plan, err := benchmarkPlan(cand)
 	if err != nil {
-		return 0, fmt.Errorf("egraph: alloc input A: %w", err)
+		return 0, err
 	}
-	defer inA.Free()
-
-	inB, err := cudamem.Alloc[float32](dev, testElements)
-	if err != nil {
-		return 0, fmt.Errorf("egraph: alloc input B: %w", err)
-	}
-	defer inB.Free()
-
-	outBuf, err := cudamem.Alloc[float32](dev, testElements)
-	if err != nil {
-		return 0, fmt.Errorf("egraph: alloc output buffer: %w", err)
-	}
-	defer outBuf.Free()
-
-	grid := uint32(cand.GridDim)
-	if grid == 0 {
-		grid = (testElements + uint32(cand.BlockDim) - 1) / uint32(cand.BlockDim)
-		if grid == 0 {
-			grid = 1
+	bufs := make([]cudamem.Slice[float32], len(plan.buffers))
+	for i, n := range plan.buffers {
+		b, err := cudamem.Alloc[float32](dev, n)
+		if err != nil {
+			for _, done := range bufs[:i] {
+				_ = done.Free()
+			}
+			return 0, fmt.Errorf("egraph: alloc benchmark buffer %d: %w", i, err)
 		}
+		bufs[i] = b
 	}
+	defer func() {
+		for _, b := range bufs {
+			_ = b.Free()
+		}
+	}()
+
+	args := make([]any, 0, len(bufs)+len(plan.scalars))
+	for _, b := range bufs {
+		args = append(args, b)
+	}
+	args = append(args, plan.scalars...)
+
 	block := uint32(cand.BlockDim)
 	if block == 0 {
 		block = 128
 	}
+	grid := uint32(cand.GridDim)
+	if grid == 0 {
+		grid = plan.grid(block)
+	}
+	shared := uint32(cand.SharedMem)
+	if shared == 0 {
+		shared = plan.shared
+	}
 
-	launcher := cudalaunch.Kernel(fn).Grid(grid).Block(block).SharedMem(uint32(cand.SharedMem)).On(stream)
+	launcher := cudalaunch.Kernel(fn).Grid(grid, 1).Block(block).SharedMem(shared).On(stream)
 
 	// 1. Warmup Execution
-	if err := launcher.Launch(inA.Ptr(), inB.Ptr(), outBuf.Ptr(), uint32(testElements)); err != nil {
+	if err := launcher.Launch(args...); err != nil {
 		return 0, fmt.Errorf("egraph: warmup launch: %w", err)
 	}
 	if err := stream.Synchronize(context.Background()); err != nil {
@@ -150,7 +220,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	// 2. Timed GPU Microbenchmark (pure execution time)
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
-		if err := launcher.Launch(inA.Ptr(), inB.Ptr(), outBuf.Ptr(), uint32(testElements)); err != nil {
+		if err := launcher.Launch(args...); err != nil {
 			return 0, fmt.Errorf("egraph: benchmark launch: %w", err)
 		}
 	}
@@ -195,6 +265,10 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 
 	bestCand := defaultCand
 	bestDur := time.Duration(1<<63 - 1)
+	// Why every candidate was discarded, if every candidate was. Returning
+	// the unbenchmarked default and reporting success hid a total failure to
+	// tune behind a candidate that carried no source at all.
+	var lastErr error
 
 	for _, blockSize := range tileSizes {
 		if time.Now().After(deadline) {
@@ -212,6 +286,7 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 			Precision:  "float",
 		})
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		cand.CUDASource = src
@@ -219,6 +294,7 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 		// Measure real GPU execution latency on hardware
 		execDur, err := BenchmarkCandidate(t.dev, cand, 5)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 
@@ -226,6 +302,10 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 			bestDur = execDur
 			bestCand = cand
 		}
+	}
+
+	if lastErr != nil && bestCand.CUDASource == "" {
+		return nil, fmt.Errorf("egraph: no candidate could be benchmarked for %s: %w", defaultExpr.String(), lastErr)
 	}
 
 	t.mu.Lock()
