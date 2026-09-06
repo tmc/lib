@@ -305,11 +305,12 @@ func ncclFeature() error {
 	if _, err := nccl.GetUniqueId(); err != nil {
 		return err
 	}
-	device := int32(0)
-	comm, err := nccl.NewCommInitAll(1, &device)
-	if err != nil {
+	devices := []int32{0}
+	comms := make([]nccl.Comm, len(devices))
+	if err := nccl.CommInitAll(&comms[0], int32(len(devices)), &devices[0]); err != nil {
 		return err
 	}
+	comm := comms[0]
 	defer comm.Destroy()
 	values := []float32{3, 5, 7, 11}
 	p, err := driver.MemAlloc(uint(len(values)) * 4)
