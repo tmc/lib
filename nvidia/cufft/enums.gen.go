@@ -16,6 +16,7 @@ const (
 	Z2Z Type = 0x69 // Double-Complex to Double-Complex
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Type) String() string {
 	switch e {
 	case R2C:
@@ -41,6 +42,7 @@ const (
 	CompatibilityFftwPadding Compatibility = 0x01 // The default value
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Compatibility) String() string {
 	switch e {
 	case CompatibilityFftwPadding:
@@ -57,6 +59,7 @@ const (
 	NvfftPlanPropertyInt64MaxNumHostThreads Property = 0x2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Property) String() string {
 	switch e {
 	case NvfftPlanPropertyInt64PatientJit:
