@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-05",
-  "scope": "Only NVVM generation is recorded; other approved NVIDIA packages are not yet recorded, not excluded from scope.",
+  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink and nvFatbin; other approved NVIDIA packages are not yet recorded and remain in scope.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -142,6 +142,445 @@
           "example_cuda_test.go",
           "pipeline_test.go",
           "testdata/sin.ll"
+        ]
+      },
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+    },
+    "nvrtc": {
+      "package": "github.com/tmc/lib/nvidia/nvrtc",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
+          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
+          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+        }
+      },
+      "vendor": {
+        "product": "NVRTC",
+        "version": null,
+        "archive": null,
+        "redistribution_manifest_url": null,
+        "verification": "Selected header is byte-pinned from cuda-headers commit; NVIDIA copyright notice is present. No retained per-package vendor archive pin establishes the exact release or archive for this selected header. The separately retained CUDA13.3 redistribution manifest does not establish this header identity."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "nvrtc/nvrtc.h",
+        "sha256": "7c84d86fdcb50843da7d1f6f95b805a9d6d5a388164f13b8672e3f25c0c111f4"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected files, not only NVRTC documentation; upstream document retrieval identities are not fully recorded."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "nvrtc",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/nvrtc/nvrtc.h",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "nvrtc",
+          "-deprecated=true",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "options": {
+          "clang": true,
+          "deprecated": true,
+          "docs_enabled": true,
+          "api": "nvrtc",
+          "package": "nvrtc"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen and lib comparison checkouts before and after generation",
+        "outputs": [
+          {
+            "path": "nvidia/nvrtc/doc.gen.go",
+            "sha256": "569ba7e5da2226fcbbc2eba1e54c831934b63f69ccb5feb743aafed52e537d2b"
+          },
+          {
+            "path": "nvidia/nvrtc/enums.gen.go",
+            "sha256": "a856e8424661a06c39523be4619ad1ab09c5a231e32d08220d1e7c81f5998ca6"
+          },
+          {
+            "path": "nvidia/nvrtc/funcs.gen.go",
+            "sha256": "152d1a50d82b1180c6b03d55c44bea40dbaf597d05b4c9b6d76d47b1fe46ed19"
+          },
+          {
+            "path": "nvidia/nvrtc/handles.gen.go",
+            "sha256": "7d0ab2defec0f8369235cb58a7e8dddd331656d1f834887050a20587352012eb"
+          },
+          {
+            "path": "nvidia/nvrtc/init.gen.go",
+            "sha256": "85a03529fd24a44f0b3b05a2264e7747a0730098a2723d3a7271ad39d006ed95"
+          },
+          {
+            "path": "nvidia/nvrtc/loader_test.go",
+            "sha256": "551fe84cdf5accb22fab69cc7095b1aa5228e40e190a379dbbe702cfa73a5d4c"
+          },
+          {
+            "path": "nvidia/nvrtc/loader_unix.gen.go",
+            "sha256": "50dba3e5d3967d2fa3f058c6ed1444d08b7c703bdecdadc0198ec832983b660c"
+          },
+          {
+            "path": "nvidia/nvrtc/loader_windows.gen.go",
+            "sha256": "95c37825eed5073ecc721bc569db241cec8f6c27d6e62eff2a94f5949865be85"
+          },
+          {
+            "path": "nvidia/nvrtc/program.gen.go",
+            "sha256": "6a043ed3b0a4f152f3fa05c16f1178ca5924aab1e7d610602f24019a7b606d53"
+          },
+          {
+            "path": "nvidia/nvrtc/result.gen.go",
+            "sha256": "86284762de8f1ae37455c5ce49353527be529911985186b7c6070685cf1b4932"
+          }
+        ],
+        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "maintained_files_excluded": [
+          "example_test.go",
+          "flow_physical_test.go"
+        ]
+      },
+      "unresolved_inputs": [
+        "exact vendor release/archive attribution of selected nvrtc/nvrtc.h",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes",
+        "portable reconstruction of Apple clang and SDK environment; executable and75 C include hashes are retained in local evidence but no distributable toolchain pin is established"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support."
+    },
+    "nvjitlink": {
+      "package": "github.com/tmc/lib/nvidia/nvjitlink",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
+          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
+          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+        }
+      },
+      "vendor": {
+        "product": "libnvjitlink",
+        "version": "13.0.88",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvjitlink/linux-x86_64/libnvjitlink-linux-x86_64-13.0.88-archive.tar.xz",
+          "sha256": "25f9763fd60122a4f728eec22ac4e64e46ea8679e140234f15eaec008e6c41a8"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.0.1.json",
+        "verification": "Archive identity recorded from pinned README; header hash checked locally; archive and online manifest not reverified in this run."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+        "sha256": "97d833dbfb3b17b1fbd76bbed72caf1eb4a638b40c39720fe2bfa5f5238bab98"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected documentation files; upstream dates/versions are not fully recorded."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "nvjitlink",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "nvjitlink",
+          "-deprecated=true",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "options": {
+          "clang": false,
+          "deprecated": true,
+          "docs_enabled": true,
+          "api": "nvjitlink",
+          "package": "nvjitlink"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.25.0"
+          }
+        },
+        "source_state": "clean codegen checkout recorded after generation",
+        "outputs": [
+          {
+            "path": "nvidia/nvjitlink/doc.gen.go",
+            "sha256": "b1ab3d43bdbca8de70c7eb58d8abf64ddca08c20c0ead274cb416446a09aef7e"
+          },
+          {
+            "path": "nvidia/nvjitlink/enums.gen.go",
+            "sha256": "e7475d03ad99341b3f6efd3a6efe6337b173341d9b388e3818c8574fd3c59a29"
+          },
+          {
+            "path": "nvidia/nvjitlink/funcs.gen.go",
+            "sha256": "cb20c0c5dda6a1eb670e6d7e14d8fc0a89f63887a44a279d22420ec5408f6a70"
+          },
+          {
+            "path": "nvidia/nvjitlink/handle.gen.go",
+            "sha256": "e8cc188731eb92025e22c2b9ba9b5626c030c9b87461040484ba203fd9ee7f98"
+          },
+          {
+            "path": "nvidia/nvjitlink/handles.gen.go",
+            "sha256": "f437f59ab2873464e28a028002461c263cb9bc2ed1d2582cdb342ba117b4fdea"
+          },
+          {
+            "path": "nvidia/nvjitlink/init.gen.go",
+            "sha256": "44d254dcca6058fadc05afee43234c06ef661cce31c82f263aa5f1b70f974fc6"
+          },
+          {
+            "path": "nvidia/nvjitlink/loader_test.go",
+            "sha256": "4e826c3ad35125cb0df8e9e559838d42f02534a2aa3449855b972b36a89695d0"
+          },
+          {
+            "path": "nvidia/nvjitlink/loader_unix.gen.go",
+            "sha256": "a3e3848fafcbed3f7b2c276c67cc61efb7fbebe1747a7d4c2b6d1782e3b567fd"
+          },
+          {
+            "path": "nvidia/nvjitlink/loader_windows.gen.go",
+            "sha256": "4509d02e53a8a1268fd3d03cb753cbaf707327bcfaeeeb8830668286a15474ec"
+          },
+          {
+            "path": "nvidia/nvjitlink/result.gen.go",
+            "sha256": "c0b4724858473da0bf4232b99c19ae43a1fbf0101f8d420dc1e2e6ab3dfd2fa6"
+          }
+        ],
+        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "maintained_files_excluded": [
+          "README.md",
+          "example_cuda_test.go"
+        ]
+      },
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
+      "binding_policy": "Explicit pinned13.0header preserves __nvJitLink*_13_0 targets; top-level header is not this input."
+    },
+    "nvfatbin": {
+      "package": "github.com/tmc/lib/nvidia/nvfatbin",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
+          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
+          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+        }
+      },
+      "vendor": {
+        "product": "libnvfatbin",
+        "version": "13.3.29",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvfatbin/linux-x86_64/libnvfatbin-linux-x86_64-13.3.29-archive.tar.xz",
+          "sha256": "f3e933b61a26f7b1f8b053bac4a66193e115b006911e2e493623ca01ec8560d4",
+          "header_member": "libnvfatbin-linux-x86_64-13.3.29-archive/include/nvFatbin.h"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.3.1.json",
+        "verification": "Pinned header hash matches retained vendor provenance README; archive and online manifest were not freshly reverified by this regeneration."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "nvfatbin/nvFatbin.h",
+        "sha256": "d2844bdfe8a938fd7434e6209486f5b0a28002f816245be3847e1cb0f54602ad"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected docs JSON files; exact file hashes retained in regeneration receipt, upstream retrieval identities remain incomplete."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "nvfatbin",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/nvfatbin/nvFatbin.h",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "nvfatbin",
+          "-deprecated=true",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "options": {
+          "clang": true,
+          "deprecated": true,
+          "docs_enabled": true,
+          "api": "nvfatbin",
+          "package": "nvfatbin"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.25.0"
+          }
+        },
+        "source_state": "clean codegen checkout recorded after generation",
+        "outputs": [
+          {
+            "path": "nvidia/nvfatbin/doc.gen.go",
+            "sha256": "ba63006cfb1dd142b6a06b4833f0b79e8292297180c99dd9326a8dd7909a711c"
+          },
+          {
+            "path": "nvidia/nvfatbin/enums.gen.go",
+            "sha256": "f0331506f993a07ef7ee3bca34392c9591d448b9ca6f91e413702ad11604546a"
+          },
+          {
+            "path": "nvidia/nvfatbin/funcs.gen.go",
+            "sha256": "fd88d729c53b2bb6b84b77bceabd58c8b08857d6845cbb6db2f71b163b83b7de"
+          },
+          {
+            "path": "nvidia/nvfatbin/handle.gen.go",
+            "sha256": "0fc244e0eade8460d854611700594baca5ef2b4f6ba7ae515c4a8eaf58bb385b"
+          },
+          {
+            "path": "nvidia/nvfatbin/handles.gen.go",
+            "sha256": "a019432918de767bbd3921a1e295b126ff26e658ac67344d2aa9ceadee5016cf"
+          },
+          {
+            "path": "nvidia/nvfatbin/init.gen.go",
+            "sha256": "7e41f4c48b21ec997cd04e69fa24c516019ca2c26b41584b65a2e06f937c97a7"
+          },
+          {
+            "path": "nvidia/nvfatbin/loader_test.go",
+            "sha256": "b5304d03361eb126b7f140f0a8b518f0ac33ee4601db26abd45425b624cfc731"
+          },
+          {
+            "path": "nvidia/nvfatbin/loader_unix.gen.go",
+            "sha256": "ee22b65fb127770525cb402a8986292cf899cc3ff02fe4b81cd05be801070760"
+          },
+          {
+            "path": "nvidia/nvfatbin/loader_windows.gen.go",
+            "sha256": "8317afa6acc7cb617b400a04c65d9a0e85e622f4436719639d9fdd4fbb549c53"
+          },
+          {
+            "path": "nvidia/nvfatbin/result.gen.go",
+            "sha256": "78c4f6fbe7cdbc700e429692d645ad76688e5c8cb45613b4270d3092500d0708"
+          }
+        ],
+        "comparison": "All 10 actual outputs byte-identical to lib comparison commit; generator log reports14 because its count includes non-emitted categories.",
+        "maintained_files_excluded": [
+          "abi_test.go",
+          "example_cuda_test.go",
+          "nvfatbin.go",
+          "pipeline_test.go",
+          "testdata/addone.ptx",
+          "testdata/symbols-linux-x86_64-13.3.29.txt",
+          "tile_packaging_test.go"
         ]
       },
       "unresolved_inputs": [
