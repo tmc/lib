@@ -11,6 +11,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 const lifetimePTX = `.version 8.0
@@ -56,10 +57,7 @@ func loadLifetimeKernel(t *testing.T, dev *cuda.Device) (driver.Module, driver.F
 }
 
 func TestCounterCountsSubmissionNotCompletion(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	t.Cleanup(func() { _ = dev.Close() })
 	_, fn := loadLifetimeKernel(t, dev)
 	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
@@ -97,10 +95,7 @@ func TestCounterCountsSubmissionNotCompletion(t *testing.T) {
 }
 
 func TestConcurrentStreamLaunchesOwnContext(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	t.Cleanup(func() { _ = dev.Close() })
 	_, fn := loadLifetimeKernel(t, dev)
 
