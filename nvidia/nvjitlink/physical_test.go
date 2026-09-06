@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"os"
 	"runtime"
+	"strconv"
 	"testing"
 	"unsafe"
 
@@ -57,7 +58,7 @@ func gpuArch(t *testing.T) string {
 	if err := dev.ComputeCapability(&major, &minor); err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	return string(rune('0'+major)) + string(rune('0'+minor))
+	return strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
 }
 
 // compilePTX builds kernelSource to PTX with NVRTC.
