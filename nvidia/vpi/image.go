@@ -143,13 +143,11 @@ func (d *ImageData) PlaneBytes(i int) ([]byte, error) {
 		return nil, errors.New("vpi: image plane has no extent")
 	}
 	n := int(p.Height) * int(p.PitchBytes)
-	// go vet's unsafeptr check flags this conversion, and there is no way to
-	// write it that satisfies the check. The address is the library's, obtained
-	// from vpiImageLockData or supplied by the caller, and Data is deliberately
-	// a uintptr rather than an unsafe.Pointer so that the Go garbage collector
-	// never sees a foreign address in a scanned field. The guard above limits
-	// the conversion to host memory.
-	return unsafe.Slice((*byte)(unsafe.Pointer(p.Data)), n), nil
+	// Read the C pointer stored in the union through a pointer-typed view.
+	// The union's integer storage does not keep caller-owned Go memory alive;
+	// the caller must retain it for the lifetime of the returned slice.
+	data := *(*unsafe.Pointer)(unsafe.Pointer(&p.Data))
+	return unsafe.Slice((*byte)(data), n), nil
 }
 
 // InitImageWrapperParams returns [ImageWrapperParams] filled with the library's
