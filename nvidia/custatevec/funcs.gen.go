@@ -8,21 +8,36 @@ import (
 
 // Generated function pointer variables.
 var (
-	fnabs2SumArray                       func(Handle, uintptr, DataType, uint32, uintptr, *int32, uint32, *int32, *int32, uint32) Result
-	fnapplyMatrix                        func(Handle, uintptr, DataType, uint32, uintptr, DataType, MatrixLayout, int32, *int32, uint32, *int32, *int32, uint32, ComputeType, uintptr, uint) Result
-	fnapplyMatrixGetWorkspaceSize        func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, int32, uint32, uint32, ComputeType, *uint) Result
-	fncomputeExpectation                 func(Handle, uintptr, DataType, uint32, unsafe.Pointer, DataType, *float64, uintptr, DataType, MatrixLayout, *int32, uint32, ComputeType, uintptr, uint) Result
-	fncomputeExpectationGetWorkspaceSize func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, uint32, ComputeType, *uint) Result
-	fnCreate                             func(*Handle) Result
-	fndestroy                            func(Handle) Result
-	fngetDefaultWorkspaceSize            func(Handle, *uint) Result
-	fnGetProperty                        func(PropertyType, *int32) Result
-	fngetStream                          func(Handle, *Stream) Result
-	fnGetVersion                         func() uint
-	fninitializeStateVector              func(Handle, uintptr, DataType, uint32, StateVectorType) Result
-	fnmeasureOnZBasis                    func(Handle, uintptr, DataType, uint32, *int32, *int32, uint32, float64, CollapseOp) Result
-	fnsetStream                          func(Handle, Stream) Result
-	fnsetWorkspace                       func(Handle, uintptr, uint) Result
+	fnabs2SumArray                              func(Handle, uintptr, DataType, uint32, uintptr, *int32, uint32, *int32, *int32, uint32) Result
+	fnapplyMatrix                               func(Handle, uintptr, DataType, uint32, uintptr, DataType, MatrixLayout, int32, *int32, uint32, *int32, *int32, uint32, ComputeType, uintptr, uint) Result
+	fnapplyMatrixGetWorkspaceSize               func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, int32, uint32, uint32, ComputeType, *uint) Result
+	fncommunicatorCreate                        func(Handle, *Communicator, CommunicatorType, *byte) Result
+	fncommunicatorDestroy                       func(Handle, Communicator) Result
+	fncomputeExpectation                        func(Handle, uintptr, DataType, uint32, unsafe.Pointer, DataType, *float64, uintptr, DataType, MatrixLayout, *int32, uint32, ComputeType, uintptr, uint) Result
+	fncomputeExpectationGetWorkspaceSize        func(Handle, DataType, uint32, uintptr, DataType, MatrixLayout, uint32, ComputeType, *uint) Result
+	fnCreate                                    func(*Handle) Result
+	fndestroy                                   func(Handle) Result
+	fndistIndexBitSwapSchedulerCreate           func(Handle, *DistIndexBitSwapScheduler, uint32, uint32) Result
+	fndistIndexBitSwapSchedulerDestroy          func(Handle, DistIndexBitSwapScheduler) Result
+	fndistIndexBitSwapSchedulerGetParameters    func(Handle, DistIndexBitSwapScheduler, int32, int32, *SVSwapParameters) Result
+	fndistIndexBitSwapSchedulerSetIndexBitSwaps func(Handle, DistIndexBitSwapScheduler, *Int2, uint32, *int32, *int32, uint32, *uint32) Result
+	fngetDefaultWorkspaceSize                   func(Handle, *uint) Result
+	fnGetProperty                               func(PropertyType, *int32) Result
+	fngetStream                                 func(Handle, *Stream) Result
+	fnGetVersion                                func() uint
+	fninitializeStateVector                     func(Handle, uintptr, DataType, uint32, StateVectorType) Result
+	fnmeasureOnZBasis                           func(Handle, uintptr, DataType, uint32, *int32, *int32, uint32, float64, CollapseOp) Result
+	fnsVSwapWorkerCreate                        func(Handle, *SVSwapWorker, Communicator, uintptr, int32, Event, DataType, Stream, *uint, *uint) Result
+	fnsVSwapWorkerCreateWithSemaphore           func(Handle, *SVSwapWorker, Communicator, uintptr, int32, uintptr, DataType, Stream, *uint, *uint) Result
+	fnsVSwapWorkerDestroy                       func(Handle, SVSwapWorker) Result
+	fnsVSwapWorkerExecute                       func(Handle, SVSwapWorker, Index, Index) Result
+	fnsVSwapWorkerSetExtraWorkspace             func(Handle, SVSwapWorker, uintptr, uint) Result
+	fnsVSwapWorkerSetParameters                 func(Handle, SVSwapWorker, *SVSwapParameters, int32) Result
+	fnsVSwapWorkerSetSubSVsP2P                  func(Handle, SVSwapWorker, *uintptr, *int32, *Event, uint32) Result
+	fnsVSwapWorkerSetSubSVsP2PWithSemaphores    func(Handle, SVSwapWorker, *uintptr, *int32, *uintptr, uint32) Result
+	fnsVSwapWorkerSetTransferWorkspace          func(Handle, SVSwapWorker, uintptr, uint) Result
+	fnsetStream                                 func(Handle, Stream) Result
+	fnsetWorkspace                              func(Handle, uintptr, uint) Result
 )
 
 // abs2SumArray sums the squared absolute values of state vector elements over a set of index bits.
@@ -153,6 +168,40 @@ func applyMatrixGetWorkspaceSize(handle Handle, svDataType DataType, nIndexBits 
 	return out, nil
 }
 
+// communicatorCreate [Create] communicator.
+//
+//   - handle: in the handle to cuStateVec library
+//   - communicator: out a pointer to the communicator
+//   - communicatorType: in the communicator type
+//   - soname: in the shared object name
+//
+// Wraps custatevecCommunicatorCreate.
+func communicatorCreate(handle Handle, communicatorType CommunicatorType, soname *byte) (Communicator, error) {
+	if err := checkLibSym("custatevecCommunicatorCreate"); err != nil {
+		var zero Communicator
+		return zero, err
+	}
+	var out Communicator
+	if err := toError(fncommunicatorCreate(handle, &out, communicatorType, soname)); err != nil {
+		var zero Communicator
+		return zero, err
+	}
+	return out, nil
+}
+
+// communicatorDestroy releases communicator.
+//
+//   - handle: in the handle to cuStateVec library
+//   - communicator: in the communicator descriptor
+//
+// Wraps custatevecCommunicatorDestroy.
+func communicatorDestroy(handle Handle, communicator Communicator) error {
+	if err := checkLibSym("custatevecCommunicatorDestroy"); err != nil {
+		return err
+	}
+	return toError(fncommunicatorDestroy(handle, communicator))
+}
+
 // computeExpectation computes the expectation value of an observable matrix.
 //
 // Compute expectation of matrix observable.
@@ -269,6 +318,81 @@ func destroy(handle Handle) error {
 		return err
 	}
 	return toError(fndestroy(handle))
+}
+
+// distIndexBitSwapSchedulerCreate [Create] distributed index bit swap scheduler.
+//
+//   - handle: in the handle to cuStateVec library
+//   - scheduler: out a pointer to a batch swap scheduler
+//   - nGlobalIndexBits: in the number of global index bits
+//   - nLocalIndexBits: in the number of local index bits
+//
+// Wraps custatevecDistIndexBitSwapSchedulerCreate.
+func distIndexBitSwapSchedulerCreate(handle Handle, nGlobalIndexBits uint32, nLocalIndexBits uint32) (DistIndexBitSwapScheduler, error) {
+	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerCreate"); err != nil {
+		var zero DistIndexBitSwapScheduler
+		return zero, err
+	}
+	var out DistIndexBitSwapScheduler
+	if err := toError(fndistIndexBitSwapSchedulerCreate(handle, &out, nGlobalIndexBits, nLocalIndexBits)); err != nil {
+		var zero DistIndexBitSwapScheduler
+		return zero, err
+	}
+	return out, nil
+}
+
+// distIndexBitSwapSchedulerDestroy releases distributed index bit swap scheduler.
+//
+//   - handle: in the handle to cuStateVec library
+//   - scheduler: in a pointer to the batch swap scheduler to destroy
+//
+// Wraps custatevecDistIndexBitSwapSchedulerDestroy.
+func distIndexBitSwapSchedulerDestroy(handle Handle, scheduler DistIndexBitSwapScheduler) error {
+	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerDestroy"); err != nil {
+		return err
+	}
+	return toError(fndistIndexBitSwapSchedulerDestroy(handle, scheduler))
+}
+
+// distIndexBitSwapSchedulerGetParameters Get parameters to be set to the state vector swap worker
+//
+//   - handle: in the handle to cuStateVec library
+//   - scheduler: in a pointer to batch swap scheduler descriptor
+//   - swapBatchIndex: in swap batch index for state vector swap parameters
+//   - orgSubSVIndex: in the index of the origin sub state vector to swap state vector segments
+//   - parameters: out a pointer to data transfer parameters
+//
+// Wraps custatevecDistIndexBitSwapSchedulerGetParameters.
+func distIndexBitSwapSchedulerGetParameters(handle Handle, scheduler DistIndexBitSwapScheduler, swapBatchIndex int32, orgSubSVIndex int32, parameters *SVSwapParameters) error {
+	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerGetParameters"); err != nil {
+		return err
+	}
+	return toError(fndistIndexBitSwapSchedulerGetParameters(handle, scheduler, swapBatchIndex, orgSubSVIndex, parameters))
+}
+
+// distIndexBitSwapSchedulerSetIndexBitSwaps Set index bit swaps to distributed index bit swap scheduler.
+//
+//   - handle: in the handle to cuStateVec library
+//   - scheduler: in a pointer to batch swap scheduler descriptor
+//   - indexBitSwaps: in pointer to a host array of index bit pairs being swapped
+//   - nIndexBitSwaps: in the number of index bit swaps
+//   - maskBitString: in pointer to a host array to mask output
+//   - maskOrdering: in pointer to a host array to specify the ordering of maskBitString
+//   - maskLen: in the length of mask
+//   - nSwapBatches: out the number of batched data transfers
+//
+// Wraps custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps.
+func distIndexBitSwapSchedulerSetIndexBitSwaps(handle Handle, scheduler DistIndexBitSwapScheduler, indexBitSwaps *Int2, nIndexBitSwaps uint32, maskBitString *int32, maskOrdering *int32, maskLen uint32) (uint32, error) {
+	if err := checkLibSym("custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps"); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	var out uint32
+	if err := toError(fndistIndexBitSwapSchedulerSetIndexBitSwaps(handle, scheduler, indexBitSwaps, nIndexBitSwaps, maskBitString, maskOrdering, maskLen, &out)); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return out, nil
 }
 
 // getDefaultWorkspaceSize returns the size in bytes of the workspace the handle allocated for itself.
@@ -406,6 +530,167 @@ func measureOnZBasis(handle Handle, sv uintptr, svDataType DataType, nIndexBits 
 		return zero, err
 	}
 	return out, nil
+}
+
+// sVSwapWorkerCreate [Create] state vector swap worker.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: out state vector swap worker
+//   - communicator: in a pointer to the MPI communicator
+//   - orgSubSV: in a pointer to a sub state vector
+//   - orgSubSVIndex: in the index of the sub state vector specified by the orgSubSV argument
+//   - orgEvent: in the event for synchronization with the peer worker
+//   - svDataType: in data type used by the state vector representation
+//   - stream: in a stream that is used to locally execute kernels during data transfers
+//   - extraWorkspaceSizeInBytes: out the size of the extra workspace needed
+//   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
+//
+// Wraps custatevecSVSwapWorkerCreate.
+func sVSwapWorkerCreate(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgEvent Event, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+	if err := checkLibSym("custatevecSVSwapWorkerCreate"); err != nil {
+		return *new(SVSwapWorker), 0, 0, err
+	}
+	var out0 SVSwapWorker
+	var out1 uint
+	var out2 uint
+	if err := toError(fnsVSwapWorkerCreate(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgEvent, svDataType, stream, &out1, &out2)); err != nil {
+		return *new(SVSwapWorker), 0, 0, err
+	}
+	return out0, out1, out2, nil
+}
+
+// sVSwapWorkerCreateWithSemaphore [Create] state vector swap worker with semaphore.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: out state vector swap worker
+//   - communicator: in a pointer to the MPI communicator
+//   - orgSubSV: in a pointer to a sub state vector
+//   - orgSubSVIndex: in the index of the sub state vector specified by the orgSubSV argument
+//   - orgSemaphore: in a pointer to a device memory chunk that used for synchronization with the peer worker
+//   - svDataType: in data type used by the state vector representation
+//   - stream: in a stream that is used to locally execute kernels during data transfers
+//   - extraWorkspaceSizeInBytes: out the size of the extra workspace needed
+//   - minTransferWorkspaceSizeInBytes: out the minimum-required size of the transfer workspace
+//
+// Wraps custatevecSVSwapWorkerCreateWithSemaphore.
+func sVSwapWorkerCreateWithSemaphore(handle Handle, communicator Communicator, orgSubSV uintptr, orgSubSVIndex int32, orgSemaphore uintptr, svDataType DataType, stream Stream) (SVSwapWorker, uint, uint, error) {
+	if err := checkLibSym("custatevecSVSwapWorkerCreateWithSemaphore"); err != nil {
+		return *new(SVSwapWorker), 0, 0, err
+	}
+	var out0 SVSwapWorker
+	var out1 uint
+	var out2 uint
+	if err := toError(fnsVSwapWorkerCreateWithSemaphore(handle, &out0, communicator, orgSubSV, orgSubSVIndex, orgSemaphore, svDataType, stream, &out1, &out2)); err != nil {
+		return *new(SVSwapWorker), 0, 0, err
+	}
+	return out0, out1, out2, nil
+}
+
+// sVSwapWorkerDestroy releases the state vector swap worker.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//
+// Wraps custatevecSVSwapWorkerDestroy.
+func sVSwapWorkerDestroy(handle Handle, svSwapWorker SVSwapWorker) error {
+	if err := checkLibSym("custatevecSVSwapWorkerDestroy"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerDestroy(handle, svSwapWorker))
+}
+
+// sVSwapWorkerExecute Execute the data transfer.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - begin: in the index to start transfer
+//   - end: in the index to end transfer
+//
+// Wraps custatevecSVSwapWorkerExecute.
+func sVSwapWorkerExecute(handle Handle, svSwapWorker SVSwapWorker, begin Index, end Index) error {
+	if err := checkLibSym("custatevecSVSwapWorkerExecute"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerExecute(handle, svSwapWorker, begin, end))
+}
+
+// sVSwapWorkerSetExtraWorkspace Set extra workspace.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - extraWorkspace: in pointer to the user-owned workspace
+//   - extraWorkspaceSizeInBytes: in size of the user-provided workspace
+//
+// Wraps custatevecSVSwapWorkerSetExtraWorkspace.
+func sVSwapWorkerSetExtraWorkspace(handle Handle, svSwapWorker SVSwapWorker, extraWorkspace uintptr, extraWorkspaceSizeInBytes uint) error {
+	if err := checkLibSym("custatevecSVSwapWorkerSetExtraWorkspace"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerSetExtraWorkspace(handle, svSwapWorker, extraWorkspace, extraWorkspaceSizeInBytes))
+}
+
+// sVSwapWorkerSetParameters Set state vector swap parameters.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - parameters: in data transfer parameters
+//   - peer: in the peer process identifier of the data transfer
+//
+// Wraps custatevecSVSwapWorkerSetParameters.
+func sVSwapWorkerSetParameters(handle Handle, svSwapWorker SVSwapWorker, parameters *SVSwapParameters, peer int32) error {
+	if err := checkLibSym("custatevecSVSwapWorkerSetParameters"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerSetParameters(handle, svSwapWorker, parameters, peer))
+}
+
+// sVSwapWorkerSetSubSVsP2P Set sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - dstSubSVsP2P: in an array of pointers to sub state vectors that are accessed by GPUDirect P2P
+//   - dstSubSVIndicesP2P: in the sub state vector indices of sub state vector pointers specified by the dstSubSVsP2P argument
+//   - dstEvents: in events used to create peer workers
+//   - nDstSubSVsP2P: in the number of sub state vector pointers specified by the dstSubSVsP2P argument
+//
+// Wraps custatevecSVSwapWorkerSetSubSVsP2P.
+func sVSwapWorkerSetSubSVsP2P(handle Handle, svSwapWorker SVSwapWorker, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstEvents *Event, nDstSubSVsP2P uint32) error {
+	if err := checkLibSym("custatevecSVSwapWorkerSetSubSVsP2P"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerSetSubSVsP2P(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstEvents, nDstSubSVsP2P))
+}
+
+// sVSwapWorkerSetSubSVsP2PWithSemaphores Set sub state vector pointers accessible via GPUDirect P2P with semaphores
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - dstSubSVsP2P: in an array of pointers to sub state vectors that are accessed by GPUDirect P2P
+//   - dstSubSVIndicesP2P: in the sub state vector indices of sub state vector pointers specified by the dstSubSVsP2P argument
+//   - dstSemaphores: in semaphores used to create peer workers
+//   - nDstSubSVsP2P: in the number of sub state vector pointers specified by the dstSubSVsP2P argument
+//
+// Wraps custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores.
+func sVSwapWorkerSetSubSVsP2PWithSemaphores(handle Handle, svSwapWorker SVSwapWorker, dstSubSVsP2P *uintptr, dstSubSVIndicesP2P *int32, dstSemaphores *uintptr, nDstSubSVsP2P uint32) error {
+	if err := checkLibSym("custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerSetSubSVsP2PWithSemaphores(handle, svSwapWorker, dstSubSVsP2P, dstSubSVIndicesP2P, dstSemaphores, nDstSubSVsP2P))
+}
+
+// sVSwapWorkerSetTransferWorkspace Set transfer workspace.
+//
+//   - handle: in the handle to cuStateVec library
+//   - svSwapWorker: in state vector swap worker
+//   - transferWorkspace: in pointer to the user-owned workspace
+//   - transferWorkspaceSizeInBytes: in size of the user-provided workspace
+//
+// Wraps custatevecSVSwapWorkerSetTransferWorkspace.
+func sVSwapWorkerSetTransferWorkspace(handle Handle, svSwapWorker SVSwapWorker, transferWorkspace uintptr, transferWorkspaceSizeInBytes uint) error {
+	if err := checkLibSym("custatevecSVSwapWorkerSetTransferWorkspace"); err != nil {
+		return err
+	}
+	return toError(fnsVSwapWorkerSetTransferWorkspace(handle, svSwapWorker, transferWorkspace, transferWorkspaceSizeInBytes))
 }
 
 // setStream binds the CUDA stream on which subsequent calls enqueue work.

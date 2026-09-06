@@ -320,16 +320,31 @@ func registerFuncs() {
 	register(&fnabs2SumArray, "custatevecAbs2SumArray")
 	register(&fnapplyMatrix, "custatevecApplyMatrix")
 	register(&fnapplyMatrixGetWorkspaceSize, "custatevecApplyMatrixGetWorkspaceSize")
+	register(&fncommunicatorCreate, "custatevecCommunicatorCreate")
+	register(&fncommunicatorDestroy, "custatevecCommunicatorDestroy")
 	register(&fncomputeExpectation, "custatevecComputeExpectation")
 	register(&fncomputeExpectationGetWorkspaceSize, "custatevecComputeExpectationGetWorkspaceSize")
 	register(&fnCreate, "custatevecCreate")
 	register(&fndestroy, "custatevecDestroy")
+	register(&fndistIndexBitSwapSchedulerCreate, "custatevecDistIndexBitSwapSchedulerCreate")
+	register(&fndistIndexBitSwapSchedulerDestroy, "custatevecDistIndexBitSwapSchedulerDestroy")
+	register(&fndistIndexBitSwapSchedulerGetParameters, "custatevecDistIndexBitSwapSchedulerGetParameters")
+	register(&fndistIndexBitSwapSchedulerSetIndexBitSwaps, "custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps")
 	register(&fngetDefaultWorkspaceSize, "custatevecGetDefaultWorkspaceSize")
 	register(&fnGetProperty, "custatevecGetProperty")
 	register(&fngetStream, "custatevecGetStream")
 	register(&fnGetVersion, "custatevecGetVersion")
 	register(&fninitializeStateVector, "custatevecInitializeStateVector")
 	register(&fnmeasureOnZBasis, "custatevecMeasureOnZBasis")
+	register(&fnsVSwapWorkerCreate, "custatevecSVSwapWorkerCreate")
+	register(&fnsVSwapWorkerCreateWithSemaphore, "custatevecSVSwapWorkerCreateWithSemaphore")
+	register(&fnsVSwapWorkerDestroy, "custatevecSVSwapWorkerDestroy")
+	register(&fnsVSwapWorkerExecute, "custatevecSVSwapWorkerExecute")
+	register(&fnsVSwapWorkerSetExtraWorkspace, "custatevecSVSwapWorkerSetExtraWorkspace")
+	register(&fnsVSwapWorkerSetParameters, "custatevecSVSwapWorkerSetParameters")
+	register(&fnsVSwapWorkerSetSubSVsP2P, "custatevecSVSwapWorkerSetSubSVsP2P")
+	register(&fnsVSwapWorkerSetSubSVsP2PWithSemaphores, "custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
+	register(&fnsVSwapWorkerSetTransferWorkspace, "custatevecSVSwapWorkerSetTransferWorkspace")
 	register(&fnsetStream, "custatevecSetStream")
 	register(&fnsetWorkspace, "custatevecSetWorkspace")
 }
@@ -341,16 +356,31 @@ func clearFuncs() {
 	fnabs2SumArray = nil
 	fnapplyMatrix = nil
 	fnapplyMatrixGetWorkspaceSize = nil
+	fncommunicatorCreate = nil
+	fncommunicatorDestroy = nil
 	fncomputeExpectation = nil
 	fncomputeExpectationGetWorkspaceSize = nil
 	fnCreate = nil
 	fndestroy = nil
+	fndistIndexBitSwapSchedulerCreate = nil
+	fndistIndexBitSwapSchedulerDestroy = nil
+	fndistIndexBitSwapSchedulerGetParameters = nil
+	fndistIndexBitSwapSchedulerSetIndexBitSwaps = nil
 	fngetDefaultWorkspaceSize = nil
 	fnGetProperty = nil
 	fngetStream = nil
 	fnGetVersion = nil
 	fninitializeStateVector = nil
 	fnmeasureOnZBasis = nil
+	fnsVSwapWorkerCreate = nil
+	fnsVSwapWorkerCreateWithSemaphore = nil
+	fnsVSwapWorkerDestroy = nil
+	fnsVSwapWorkerExecute = nil
+	fnsVSwapWorkerSetExtraWorkspace = nil
+	fnsVSwapWorkerSetParameters = nil
+	fnsVSwapWorkerSetSubSVsP2P = nil
+	fnsVSwapWorkerSetSubSVsP2PWithSemaphores = nil
+	fnsVSwapWorkerSetTransferWorkspace = nil
 	fnsetStream = nil
 	fnsetWorkspace = nil
 }
@@ -380,6 +410,16 @@ func HasApplyMatrixGetWorkspaceSize() bool {
 	return Has("custatevecApplyMatrixGetWorkspaceSize")
 }
 
+// HasCommunicatorCreate reports whether custatevecCommunicatorCreate resolved in the loaded library.
+func HasCommunicatorCreate() bool {
+	return Has("custatevecCommunicatorCreate")
+}
+
+// HasCommunicatorDestroy reports whether custatevecCommunicatorDestroy resolved in the loaded library.
+func HasCommunicatorDestroy() bool {
+	return Has("custatevecCommunicatorDestroy")
+}
+
 // HasComputeExpectation reports whether custatevecComputeExpectation resolved in the loaded library.
 func HasComputeExpectation() bool {
 	return Has("custatevecComputeExpectation")
@@ -398,6 +438,26 @@ func HasCreate() bool {
 // HasDestroy reports whether custatevecDestroy resolved in the loaded library.
 func HasDestroy() bool {
 	return Has("custatevecDestroy")
+}
+
+// HasDistIndexBitSwapSchedulerCreate reports whether custatevecDistIndexBitSwapSchedulerCreate resolved in the loaded library.
+func HasDistIndexBitSwapSchedulerCreate() bool {
+	return Has("custatevecDistIndexBitSwapSchedulerCreate")
+}
+
+// HasDistIndexBitSwapSchedulerDestroy reports whether custatevecDistIndexBitSwapSchedulerDestroy resolved in the loaded library.
+func HasDistIndexBitSwapSchedulerDestroy() bool {
+	return Has("custatevecDistIndexBitSwapSchedulerDestroy")
+}
+
+// HasDistIndexBitSwapSchedulerGetParameters reports whether custatevecDistIndexBitSwapSchedulerGetParameters resolved in the loaded library.
+func HasDistIndexBitSwapSchedulerGetParameters() bool {
+	return Has("custatevecDistIndexBitSwapSchedulerGetParameters")
+}
+
+// HasDistIndexBitSwapSchedulerSetIndexBitSwaps reports whether custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps resolved in the loaded library.
+func HasDistIndexBitSwapSchedulerSetIndexBitSwaps() bool {
+	return Has("custatevecDistIndexBitSwapSchedulerSetIndexBitSwaps")
 }
 
 // HasGetDefaultWorkspaceSize reports whether custatevecGetDefaultWorkspaceSize resolved in the loaded library.
@@ -428,6 +488,51 @@ func HasInitializeStateVector() bool {
 // HasMeasureOnZBasis reports whether custatevecMeasureOnZBasis resolved in the loaded library.
 func HasMeasureOnZBasis() bool {
 	return Has("custatevecMeasureOnZBasis")
+}
+
+// HasSVSwapWorkerCreate reports whether custatevecSVSwapWorkerCreate resolved in the loaded library.
+func HasSVSwapWorkerCreate() bool {
+	return Has("custatevecSVSwapWorkerCreate")
+}
+
+// HasSVSwapWorkerCreateWithSemaphore reports whether custatevecSVSwapWorkerCreateWithSemaphore resolved in the loaded library.
+func HasSVSwapWorkerCreateWithSemaphore() bool {
+	return Has("custatevecSVSwapWorkerCreateWithSemaphore")
+}
+
+// HasSVSwapWorkerDestroy reports whether custatevecSVSwapWorkerDestroy resolved in the loaded library.
+func HasSVSwapWorkerDestroy() bool {
+	return Has("custatevecSVSwapWorkerDestroy")
+}
+
+// HasSVSwapWorkerExecute reports whether custatevecSVSwapWorkerExecute resolved in the loaded library.
+func HasSVSwapWorkerExecute() bool {
+	return Has("custatevecSVSwapWorkerExecute")
+}
+
+// HasSVSwapWorkerSetExtraWorkspace reports whether custatevecSVSwapWorkerSetExtraWorkspace resolved in the loaded library.
+func HasSVSwapWorkerSetExtraWorkspace() bool {
+	return Has("custatevecSVSwapWorkerSetExtraWorkspace")
+}
+
+// HasSVSwapWorkerSetParameters reports whether custatevecSVSwapWorkerSetParameters resolved in the loaded library.
+func HasSVSwapWorkerSetParameters() bool {
+	return Has("custatevecSVSwapWorkerSetParameters")
+}
+
+// HasSVSwapWorkerSetSubSVsP2P reports whether custatevecSVSwapWorkerSetSubSVsP2P resolved in the loaded library.
+func HasSVSwapWorkerSetSubSVsP2P() bool {
+	return Has("custatevecSVSwapWorkerSetSubSVsP2P")
+}
+
+// HasSVSwapWorkerSetSubSVsP2PWithSemaphores reports whether custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores resolved in the loaded library.
+func HasSVSwapWorkerSetSubSVsP2PWithSemaphores() bool {
+	return Has("custatevecSVSwapWorkerSetSubSVsP2PWithSemaphores")
+}
+
+// HasSVSwapWorkerSetTransferWorkspace reports whether custatevecSVSwapWorkerSetTransferWorkspace resolved in the loaded library.
+func HasSVSwapWorkerSetTransferWorkspace() bool {
+	return Has("custatevecSVSwapWorkerSetTransferWorkspace")
 }
 
 // HasSetStream reports whether custatevecSetStream resolved in the loaded library.

@@ -94,3 +94,48 @@ func (e StateVectorType) String() string {
 	}
 	return fmt.Sprintf("StateVectorType(%d)", e)
 }
+
+// CommunicatorType \typedef [CommunicatorType] Constant to specify the communicator used in inter-process communications.
+type CommunicatorType int32
+
+const (
+	CommunicatorTypeExternal CommunicatorType = 0 // An user-provided communicator will be used for inter-process communications.
+	CommunicatorTypeOpenmpi  CommunicatorType = 1 // Open MPI will be used for inter-process communications.
+	CommunicatorTypeMpich    CommunicatorType = 2 // MPICH will be used for inter-process communications.
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CommunicatorType) String() string {
+	switch e {
+	case CommunicatorTypeExternal:
+		return "CommunicatorTypeExternal"
+	case CommunicatorTypeOpenmpi:
+		return "CommunicatorTypeOpenmpi"
+	case CommunicatorTypeMpich:
+		return "CommunicatorTypeMpich"
+	}
+	return fmt.Sprintf("CommunicatorType(%d)", e)
+}
+
+// DataTransferType \typedef [DataTransferType] Constant to specify the data transfer direction in point-to-point communication.
+type DataTransferType int32
+
+const (
+	DataTransferTypeNone     DataTransferType = 0 // Data transfer worker will not send or receive any data.
+	DataTransferTypeSend     DataTransferType = 1 // Data transfer worker will send data.
+	DataTransferTypeRecv     DataTransferType = 2 // Data transfer worker will receive data.
+	DataTransferTypeSendRecv DataTransferType = DataTransferTypeSend | DataTransferTypeRecv
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DataTransferType) String() string {
+	switch e {
+	case DataTransferTypeNone:
+		return "DataTransferTypeNone"
+	case DataTransferTypeSend:
+		return "DataTransferTypeSend"
+	case DataTransferTypeRecv:
+		return "DataTransferTypeRecv"
+	}
+	return fmt.Sprintf("DataTransferType(%d)", e)
+}

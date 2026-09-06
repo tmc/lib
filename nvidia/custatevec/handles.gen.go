@@ -4,3 +4,12 @@ package custatevec
 
 // Handle is an opaque handle for custatevecHandle_t.
 type Handle uintptr
+
+// Communicator is an opaque handle for custatevecCommunicatorDescriptor_t.
+type Communicator uintptr
+
+// DistIndexBitSwapScheduler is an opaque handle for custatevecDistIndexBitSwapSchedulerDescriptor_t.
+type DistIndexBitSwapScheduler uintptr
+
+// SVSwapWorker is an opaque handle for custatevecSVSwapWorkerDescriptor_t.
+type SVSwapWorker uintptr
