@@ -86,6 +86,26 @@ func compilePTX(t *testing.T, arch string) []byte {
 	return ptx
 }
 
+// loadOverride points the loader at NVJITLINK_LIB when it is set. Other tests
+// in this package load the system library first, and the loader refuses to
+// switch libraries while one is open, so an already-open library is closed.
+func loadOverride(t *testing.T) {
+	t.Helper()
+	lib := os.Getenv("NVJITLINK_LIB")
+	if lib == "" {
+		return
+	}
+	if nvjitlink.Loaded() && nvjitlink.Path() != lib {
+		if err := nvjitlink.Close(); err != nil {
+			t.Fatalf("close %s: %v", nvjitlink.Path(), err)
+		}
+	}
+	if err := nvjitlink.Load(lib); err != nil {
+		t.Fatalf("load %s: %v", lib, err)
+	}
+	t.Logf("loaded %s", nvjitlink.Path())
+}
+
 // TestLinkAndRun links NVRTC-produced PTX with nvJitLink and executes the
 // result. The launch and the readback are the assertion; the link status is
 // not.
@@ -121,12 +141,7 @@ func TestLinkAndRun(t *testing.T) {
 	// not export. NVJITLINK_LIB points the loader at a specific library so the
 	// wrapper shapes can be exercised independently of which toolkit is
 	// installed system-wide.
-	if lib := os.Getenv("NVJITLINK_LIB"); lib != "" {
-		if err := nvjitlink.Load(lib); err != nil {
-			t.Fatalf("load %s: %v", lib, err)
-		}
-		t.Logf("loaded %s", nvjitlink.Path())
-	}
+	loadOverride(t)
 	if major, minor, err := nvjitlink.Version(); err == nil {
 		t.Logf("nvJitLink version %d.%d", major, minor)
 	}
@@ -252,11 +267,7 @@ func runCubin(t *testing.T, cubin []byte) []int32 {
 // generator, which should fall back to the unsuffixed alias or probe the
 // suffixes the loaded library actually exports.
 func TestVersionedSymbolPinning(t *testing.T) {
-	if lib := os.Getenv("NVJITLINK_LIB"); lib != "" {
-		if err := nvjitlink.Load(lib); err != nil {
-			t.Fatalf("load %s: %v", lib, err)
-		}
-	}
+	loadOverride(t)
 	major, minor, err := nvjitlink.Version()
 	if err != nil {
 		t.Skipf("nvJitLink unavailable: %v", err)
