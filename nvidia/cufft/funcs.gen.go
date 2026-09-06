@@ -46,11 +46,11 @@ var (
 // The cufftMakePlan*() calls actually do the plan generation.
 //
 // Returns:
-//   - AllocFailed: The allocation of resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftCreate.
 func Create() (Handle, error) {
@@ -73,8 +73,8 @@ func Create() (Handle, error) {
 //   - plan: The [Handle] object of the plan to be destroyed
 //
 // Returns:
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - Success: cuFFT successfully destroyed the FFT plan.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [Success]: cuFFT successfully destroyed the FFT plan.
 //
 // Wraps cufftDestroy.
 func destroy(plan Handle) error {
@@ -93,15 +93,15 @@ func destroy(plan Handle) error {
 //   - batch: Number of transforms of size nx. Please consider using [EstimateMany] for multiple transforms
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidSize: The nx parameter is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidSize]: The nx parameter is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftEstimate1d.
 func Estimate1d(nx int32, type_ Type, batch int32) (uint, error) {
@@ -126,15 +126,15 @@ func Estimate1d(nx int32, type_ Type, batch int32) (uint, error) {
 //   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidSize: Either or both of the nx or ny parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidSize]: Either or both of the nx or ny parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftEstimate2d.
 func Estimate2d(nx int32, ny int32, type_ Type) (uint, error) {
@@ -160,15 +160,15 @@ func Estimate2d(nx int32, ny int32, type_ Type) (uint, error) {
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidSize: One or more of the nx, ny, or nz parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidSize]: One or more of the nx, ny, or nz parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftEstimate3d.
 func Estimate3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
@@ -197,15 +197,15 @@ func Estimate3d(nx int32, ny int32, nz int32, type_ Type) (uint, error) {
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftEstimateMany.
 func EstimateMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (uint, error) {
@@ -229,12 +229,12 @@ func EstimateMany(rank int32, n *int32, inembed *int32, istride int32, idist int
 //   - direction: The transform direction: CUFFT_FORWARD or CUFFT_INVERSE
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata, odata, and direction is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecC2C.
 func execC2C(plan Handle, idata uintptr, odata uintptr, direction int32) error {
@@ -251,12 +251,12 @@ func execC2C(plan Handle, idata uintptr, odata uintptr, direction int32) error {
 //   - plan: [Handle] returned by [Create]
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata and odata is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully executed the FFT plan.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecC2R.
 func execC2R(plan Handle, idata uintptr, odata uintptr) error {
@@ -273,12 +273,12 @@ func execC2R(plan Handle, idata uintptr, odata uintptr) error {
 //   - plan: [Handle] returned by [Create]
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata and odata is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecD2Z.
 func execD2Z(plan Handle, idata uintptr, odata uintptr) error {
@@ -295,12 +295,12 @@ func execD2Z(plan Handle, idata uintptr, odata uintptr) error {
 //   - plan: [Handle] returned by [Create]
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata and odata is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecR2C.
 func execR2C(plan Handle, idata uintptr, odata uintptr) error {
@@ -317,12 +317,12 @@ func execR2C(plan Handle, idata uintptr, odata uintptr) error {
 //   - plan: [Handle] returned by [Create]
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata and odata is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully executed the FFT plan.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata and odata is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully executed the FFT plan.
 //
 // Wraps cufftExecZ2D.
 func execZ2D(plan Handle, idata uintptr, odata uintptr) error {
@@ -340,12 +340,12 @@ func execZ2D(plan Handle, idata uintptr, odata uintptr) error {
 //   - direction: The transform direction: CUFFT_FORWARD or CUFFT_INVERSE
 //
 // Returns:
-//   - ExecFailed: cuFFT failed to execute the transform on the GPU.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: At least one of the parameters idata, odata, and direction is not valid.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrExecFailed]: cuFFT failed to execute the transform on the GPU.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: At least one of the parameters idata, odata, and direction is not valid.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftExecZ2Z.
 func execZ2Z(plan Handle, idata uintptr, odata uintptr, direction int32) error {
@@ -363,10 +363,10 @@ func execZ2Z(plan Handle, idata uintptr, odata uintptr, direction int32) error {
 //   - property: The property identifier, of type cufftPlanProperty
 //
 // Returns:
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: Invalid property, or pointer propertyValueInt64 is null
-//   - NotSupported: The property is not supported.
-//   - Success: cuFFT successfully retrieved the property value.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: Invalid property, or pointer propertyValueInt64 is null
+//   - [ErrNotSupported]: The property is not supported.
+//   - [Success]: cuFFT successfully retrieved the property value.
 //
 // Wraps cufftGetPlanPropertyInt64.
 func getPlanPropertyInt64(plan Handle, property Property) (int64, error) {
@@ -387,9 +387,9 @@ func getPlanPropertyInt64(plan Handle, property Property) (int64, error) {
 //   - type_: CUDA library property
 //
 // Returns:
-//   - InvalidType: The property type is not recognized.
-//   - InvalidValue: value is NULL.
-//   - Success: The property value was successfully returned.
+//   - [ErrInvalidType]: The property type is not recognized.
+//   - [ErrInvalidValue]: value is NULL.
+//   - [Success]: The property value was successfully returned.
 //
 // Wraps cufftGetProperty.
 func GetProperty(type_ LibraryPropertyType) (int32, error) {
@@ -410,9 +410,9 @@ func GetProperty(type_ LibraryPropertyType) (int32, error) {
 // Callers who choose to manage work area allocation within their application must use this call after plan generation, and after any cufftSet*() calls subsequent to plan generation, if those calls might alter the required work space size.
 //
 // Returns:
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize.
 func getSize(handle Handle) (uint, error) {
@@ -437,13 +437,13 @@ func getSize(handle Handle) (uint, error) {
 //   - batch: Number of transforms of size nx. Please consider using [Handle.GetSizeMany] for multiple transforms
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: The nx parameter is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: The nx parameter is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize1d.
 func getSize1d(handle Handle, nx int32, type_ Type, batch int32) (uint, error) {
@@ -468,13 +468,13 @@ func getSize1d(handle Handle, nx int32, type_ Type, batch int32) (uint, error) {
 //   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: Either or both of the nx or ny parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: Either or both of the nx or ny parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize2d.
 func getSize2d(handle Handle, nx int32, ny int32, type_ Type) (uint, error) {
@@ -500,13 +500,13 @@ func getSize2d(handle Handle, nx int32, ny int32, type_ Type) (uint, error) {
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: One or more of the nx, ny, or nz parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: One or more of the nx, ny, or nz parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSize3d.
 func getSize3d(handle Handle, nx int32, ny int32, nz int32, type_ Type) (uint, error) {
@@ -535,13 +535,13 @@ func getSize3d(handle Handle, nx int32, ny int32, nz int32, type_ Type) (uint, e
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSizeMany.
 func getSizeMany(handle Handle, rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (uint, error) {
@@ -571,13 +571,13 @@ func getSizeMany(handle Handle, rank int32, n *int32, inembed *int32, istride in
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftGetSizeMany64.
 func getSizeMany64(plan Handle, rank int32, n *int64, inembed *int64, istride int64, idist int64, onembed *int64, ostride int64, odist int64, type_ Type, batch int64) (uint, error) {
@@ -596,7 +596,7 @@ func getSizeMany64(plan Handle, rank int32, n *int64, inembed *int64, istride in
 // GetVersion Returns the version number of cuFFT.
 //
 // Returns:
-//   - Success: cuFFT successfully returned the version number.
+//   - [Success]: cuFFT successfully returned the version number.
 //
 // Wraps cufftGetVersion.
 func GetVersion() (int32, error) {
@@ -622,16 +622,16 @@ func GetVersion() (int32, error) {
 //   - batch: Number of transforms of size nx. Please consider using [Handle.MakePlanMany] for multiple transforms
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
-//   - InvalidSize: The nx or batch parameter is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed`: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
+//   - [ErrInvalidSize]: The nx or batch parameter is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]`: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftMakePlan1d.
 func makePlan1d(plan Handle, nx int32, type_ Type, batch int32) (uint, error) {
@@ -657,16 +657,16 @@ func makePlan1d(plan Handle, nx int32, type_ Type, batch int32) (uint, error) {
 //   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: Either or both of the nx or ny parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: Either or both of the nx or ny parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftMakePlan2d.
 func makePlan2d(plan Handle, nx int32, ny int32, type_ Type) (uint, error) {
@@ -693,16 +693,16 @@ func makePlan2d(plan Handle, nx int32, ny int32, type_ Type) (uint, error) {
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidSize: One or more of the nx, ny, or nz parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidSize]: One or more of the nx, ny, or nz parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftMakePlan3d.
 func makePlan3d(plan Handle, nx int32, ny int32, nz int32, type_ Type) (uint, error) {
@@ -732,16 +732,16 @@ func makePlan3d(plan Handle, nx int32, ny int32, nz int32, type_ Type) (uint, er
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftMakePlanMany.
 func makePlanMany(plan Handle, rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (uint, error) {
@@ -771,16 +771,16 @@ func makePlanMany(plan Handle, rank int32, n *int32, inembed *int32, istride int
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked or multi-GPU restrictions are not met.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftMakePlanMany64.
 func makePlanMany64(plan Handle, rank int32, n *int64, inembed *int64, istride int64, idist int64, onembed *int64, ostride int64, odist int64, type_ Type, batch int64) (uint, error) {
@@ -805,16 +805,16 @@ func makePlanMany64(plan Handle, rank int32, n *int64, inembed *int64, istride i
 //   - batch: Number of transforms of size nx. Please consider using [PlanMany] for multiple transforms
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
-//   - InvalidSize: The nx or batch parameter is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
+//   - [ErrInvalidSize]: The nx or batch parameter is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftPlan1d.
 func Plan1d(nx int32, type_ Type, batch int32) (Handle, error) {
@@ -839,16 +839,16 @@ func Plan1d(nx int32, type_ Type, batch int32) (Handle, error) {
 //   - type_: The transform data type (e.g., C2R for single precision complex to real)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
-//   - InvalidSize: Either or both of the nx or ny parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
+//   - [ErrInvalidSize]: Either or both of the nx or ny parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftPlan2d.
 func Plan2d(nx int32, ny int32, type_ Type) (Handle, error) {
@@ -874,16 +874,16 @@ func Plan2d(nx int32, ny int32, type_ Type) (Handle, error) {
 //   - type_: The transform data type (e.g., R2C for single precision real to complex)
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
-//   - InvalidSize: One or more of the nx, ny, or nz parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
+//   - [ErrInvalidSize]: One or more of the nx, ny, or nz parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftPlan3d.
 func Plan3d(nx int32, ny int32, nz int32, type_ Type) (Handle, error) {
@@ -912,16 +912,16 @@ func Plan3d(nx int32, ny int32, nz int32, type_ Type) (Handle, error) {
 //   - batch: Batch size for this transform
 //
 // Returns:
-//   - AllocFailed: The allocation of GPU resources for the plan failed.
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
-//   - InvalidSize: One or more of the parameters is not a supported size.
-//   - InvalidValue: One or more invalid parameters were passed to the API.
-//   - MissingDependency: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
-//   - NvjitlinkFailure: nvJitLink encountered an error during planning
-//   - NvrtcFailure: NVRTC encountered an error during planning
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully created the FFT plan.
+//   - [ErrAllocFailed]: The allocation of GPU resources for the plan failed.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle. Handle is not valid when the plan is locked.
+//   - [ErrInvalidSize]: One or more of the parameters is not a supported size.
+//   - [ErrInvalidValue]: One or more invalid parameters were passed to the API.
+//   - [ErrMissingDependency]: The cuFFT library was unable to find a dependency either because it is missing or the version found is incompatible
+//   - [ErrNvjitlinkFailure]: nvJitLink encountered an error during planning
+//   - [ErrNvrtcFailure]: NVRTC encountered an error during planning
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully created the FFT plan.
 //
 // Wraps cufftPlanMany.
 func PlanMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, onembed *int32, ostride int32, odist int32, type_ Type, batch int32) (Handle, error) {
@@ -943,10 +943,10 @@ func PlanMany(rank int32, n *int32, inembed *int32, istride int32, idist int32, 
 //   - property: The property identifier, of type cufftPlanProperty
 //
 // Returns:
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: Invalid property
-//   - NotSupported: The property is not supported for plan, or cannot be reset at present time (see Behavior column on cuFFT Plan Properties).
-//   - Success: cuFFT successfully reset the property value.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: Invalid property
+//   - [ErrNotSupported]: The property is not supported for plan, or cannot be reset at present time (see Behavior column on cuFFT Plan Properties).
+//   - [Success]: cuFFT successfully reset the property value.
 //
 // Wraps cufftResetPlanProperty.
 func resetPlanProperty(plan Handle, property Property) error {
@@ -964,9 +964,9 @@ func resetPlanProperty(plan Handle, property Property) error {
 //   - autoAllocate: Indicates whether to allocate work area
 //
 // Returns:
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftSetAutoAllocation.
 func setAutoAllocation(plan Handle, autoAllocate int32) error {
@@ -984,10 +984,10 @@ func setAutoAllocation(plan Handle, autoAllocate int32) error {
 //   - property: The property identifier, of type cufftPlanProperty
 //
 // Returns:
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - InvalidValue: Invalid property or value with which to set the property
-//   - NotSupported: The property is not supported, or it cannot be set at the time (e.g. some properties cannot be set after calling a planning routine for the plan, see cuFFT Plan Properties).
-//   - Success: cuFFT successfully set the property.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrInvalidValue]: Invalid property or value with which to set the property
+//   - [ErrNotSupported]: The property is not supported, or it cannot be set at the time (e.g. some properties cannot be set after calling a planning routine for the plan, see cuFFT Plan Properties).
+//   - [Success]: cuFFT successfully set the property.
 //
 // Wraps cufftSetPlanPropertyInt64.
 func setPlanPropertyInt64(plan Handle, property Property, inputValueInt int64) error {
@@ -1005,8 +1005,8 @@ func setPlanPropertyInt64(plan Handle, property Property, inputValueInt int64) e
 //   - stream: A valid CUDA stream created with cudaStreamCreate(); 0 for the default stream
 //
 // Returns:
-//   - InvalidPlan: The plan parameter is not a valid handle, or plan is multi-gpu in cuFFT version prior to 10.4.0.
-//   - Success: The stream was associated with the plan.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle, or plan is multi-gpu in cuFFT version prior to 10.4.0.
+//   - [Success]: The stream was associated with the plan.
 //
 // Wraps cufftSetStream.
 func setStream(plan Handle, stream Stream) error {
@@ -1023,10 +1023,10 @@ func setStream(plan Handle, stream Stream) error {
 //   - plan: [Handle] returned by [Create]
 //
 // Returns:
-//   - InternalError: An internal driver error was detected.
-//   - InvalidPlan: The plan parameter is not a valid handle.
-//   - SetupFailed: The cuFFT library failed to initialize.
-//   - Success: cuFFT successfully returned the size of the work space.
+//   - [ErrInternalError]: An internal driver error was detected.
+//   - [ErrInvalidPlan]: The plan parameter is not a valid handle.
+//   - [ErrSetupFailed]: The cuFFT library failed to initialize.
+//   - [Success]: cuFFT successfully returned the size of the work space.
 //
 // Wraps cufftSetWorkArea.
 func setWorkArea(plan Handle, workArea uintptr) error {
