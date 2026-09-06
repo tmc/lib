@@ -64,3 +64,7 @@ extern "C" __tile_global__ void fill(int* out) {
 	}
 	t.Log("verified 64 TileIR kernel outputs")
 }
+
+func TestTileIRMatrixExecution(t *testing.T) {
+	runTileMatrix(t, false)
+}
