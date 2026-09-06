@@ -53,15 +53,13 @@ func (c Context) GetApiVersion() (uint32, error) {
 
 // GetDevResource Get context resources
 //
-// Get the type resources available to the context represented by hCtx
-//
-//   - resource: Output pointer to a CUdevResource structure
+// # Get the type resources available to the context represented by hCtx
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuCtxGetDevResource.
-func (c Context) GetDevResource(resource *[512]byte, type_ DevResourceType) error {
-	return ctxGetDevResource(c, resource, type_)
+func (c Context) GetDevResource(type_ DevResourceType) (DevResource, error) {
+	return ctxGetDevResource(c, type_)
 }
 
 // GetDeviceV2 Returns the device handle for the specified context.
