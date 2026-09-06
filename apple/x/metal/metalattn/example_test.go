@@ -12,3 +12,10 @@ func ExampleDefaultConfig() {
 	// Output:
 	// q=8 kv=2 dim=64 scale=0.125
 }
+
+func ExampleValidatePersistentGQA() {
+	cfg := metalattn.DefaultConfig(32, 8, 128)
+	fmt.Println(metalattn.ValidatePersistentGQA(cfg, 4096))
+	// Output:
+	// <nil>
+}
