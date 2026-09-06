@@ -58,6 +58,10 @@ func TestNativeCollection(t *testing.T) {
 	for i := range want {
 		want[i] = uint32(i*7 + 3)
 	}
+	before, err := cupti.GetTimestamp()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := memory.CopyFromHost(want); err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +72,10 @@ func TestNativeCollection(t *testing.T) {
 		t.Fatal("copy round trip differs")
 	}
 	if err := dev.WithContext(driver.CtxSynchronize); err != nil {
+		t.Fatal(err)
+	}
+	after, err := cupti.GetTimestamp()
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {
@@ -94,5 +102,22 @@ func TestNativeCollection(t *testing.T) {
 	if api == 0 || copies < 2 || copyBytes < uint64(len(want)*8) {
 		t.Fatalf("insufficient activity: APIs=%d copies=%d bytes=%d", api, copies, copyBytes)
 	}
-	t.Logf("collected APIs=%d copies=%d bytes=%d; no timing comparison", api, copies, copyBytes)
+	pairs, err := correlateCopies(r.Records, before, after, uint64(len(want)*4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make(map[string]bool)
+	for _, pair := range pairs {
+		name, err := cupti.GetCallbackName(cupti.CbDomainDriverApi, pair.api.CallbackID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names[name] = true
+		t.Logf("correlation=%d API=%s process=%d thread=%d API=[%d,%d] GPU-copy=[%d,%d] device=%d context=%d stream=%d bytes=%d", pair.api.CorrelationID, name, pair.api.ProcessID, pair.api.ThreadID, pair.api.Start, pair.api.End, pair.copy.Start, pair.copy.End, pair.copy.DeviceID, pair.copy.ContextID, pair.copy.StreamID, pair.copy.Bytes)
+	}
+	if !names["cuMemcpyHtoD_v2"] || !names["cuMemcpyDtoH_v2"] {
+		t.Fatalf("copy API names %v", names)
+	}
+	t.Logf("CUPTI clock bracket=[%d,%d]; API intervals describe host calls, copy intervals describe device work", before, after)
+	t.Logf("collected APIs=%d copies=%d bytes=%d", api, copies, copyBytes)
 }
