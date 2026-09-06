@@ -8,6 +8,10 @@ import (
 
 // Function pointer variables, registered by init via registerFuncs.
 var (
+	fnGetVersion                                          func() uint
+	fnGetMaxDeviceVersion                                 func() uint
+	fnGetCudartVersion                                    func() uint
+	fnGetLastErrorString                                  func(*byte, uint)
 	fnactivationBackward                                  func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, TensorDescriptor, uintptr, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnactivationForward                                   func(Handle, ActivationDescriptor, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
 	fnaddTensor                                           func(Handle, unsafe.Pointer, TensorDescriptor, uintptr, unsafe.Pointer, TensorDescriptor, uintptr) Result
@@ -5002,4 +5006,59 @@ func transformTensorEx(handle Handle, transDesc TensorTransformDescriptor, alpha
 		return err
 	}
 	return toError(fntransformTensorEx(handle, transDesc, alpha, srcDesc, srcData, beta, destDesc, destData))
+}
+
+// GetVersion returns the version number of the cuDNN library.
+//
+// It returns the CUDNN_VERSION defined present in the cudnn.h header file. Starting with release R2, the routine can be used to identify dynamically the current cuDNN library used by the application. The defined CUDNN_VERSION can be used to have the same application linked against different cuDNN versions using conditional compilation statements.
+//
+// Wraps cudnnGetVersion.
+func GetVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetVersion(), nil
+}
+
+// GetMaxDeviceVersion returns the maximum SM version that the cuDNN library is aware of and supports natively.
+//
+// Any SM version higher than this would be supported in forward compatibility mode. For more information about forward compatibility, refer to the cuDNN Developer Guide.
+//
+// Wraps cudnnGetMaxDeviceVersion.
+func GetMaxDeviceVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetMaxDeviceVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetMaxDeviceVersion(), nil
+}
+
+// GetCudartVersion The same version of a given cuDNN library can be compiled against different CUDA toolkit versions.
+//
+// This routine returns the CUDA toolkit version that the currently used cuDNN library has been compiled against.
+//
+// Wraps cudnnGetCudartVersion.
+func GetCudartVersion() (uint, error) {
+	if err := checkLibSym("cudnnGetCudartVersion"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return fnGetCudartVersion(), nil
+}
+
+// GetLastErrorString retrieves the last encountered cuDNN error message in the current thread to a NULL terminated (ASCIIZ) string.
+//
+// Inside the cuDNN library, the messages are stored in thread local buffers. The error is cleared after the user calls this API to retrieve it.
+//
+//   - message: Output. Pointer to a character buffer that can store the error message. As we do not manage the thread-safety of the pre-allocated output buffer “message” to avoid unnecessary overhead, we ask that the user ensure it is thread-safe themselves on their own need-basis
+//   - max_size: also counting the terminator character
+//
+// Wraps cudnnGetLastErrorString.
+func GetLastErrorString(message *byte, max_size uint) error {
+	if err := checkLibSym("cudnnGetLastErrorString"); err != nil {
+		return err
+	}
+	fnGetLastErrorString(message, max_size)
+	return nil
 }

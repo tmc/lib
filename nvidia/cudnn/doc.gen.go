@@ -10,9 +10,9 @@
 // functions (e.g., [Create], [CreateTensorDescriptor]) and clean up with
 // the corresponding Destroy methods.
 //
-// This package maps every function from cudnn.h to a Go function using
+// This package maps selected host functions from cudnn.h to a Go function using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libcudnn.
-// All functions return errors wrapping cudnnStatus_t with descriptive messages
+// Status-returning functions wrap cudnnStatus_t errors with descriptive messages
 // from cudnnGetErrorString.
 //
 // # Backend API

@@ -239,6 +239,10 @@ func registerFuncs() {
 	register(&fnactivationForward, "cudnnActivationForward")
 	register(&fnaddTensor, "cudnnAddTensor")
 	register(&fnAdvVersionCheck, "cudnnAdvVersionCheck")
+	register(&fnGetVersion, "cudnnGetVersion")
+	register(&fnGetMaxDeviceVersion, "cudnnGetMaxDeviceVersion")
+	register(&fnGetCudartVersion, "cudnnGetCudartVersion")
+	register(&fnGetLastErrorString, "cudnnGetLastErrorString")
 	register(&fnbackendCreateDescriptor, "cudnnBackendCreateDescriptor")
 	register(&fnbackendDestroyDescriptor, "cudnnBackendDestroyDescriptor")
 	register(&fnbackendExecute, "cudnnBackendExecute")
@@ -453,6 +457,10 @@ func clearFuncs() {
 	fnactivationForward = nil
 	fnaddTensor = nil
 	fnAdvVersionCheck = nil
+	fnGetVersion = nil
+	fnGetMaxDeviceVersion = nil
+	fnGetCudartVersion = nil
+	fnGetLastErrorString = nil
 	fnbackendCreateDescriptor = nil
 	fnbackendDestroyDescriptor = nil
 	fnbackendExecute = nil
@@ -1708,4 +1716,24 @@ func HastransformTensor() bool {
 // HastransformTensorEx reports whether cudnnTransformTensorEx resolved in the loaded library.
 func HastransformTensorEx() bool {
 	return Has("cudnnTransformTensorEx")
+}
+
+// HasGetVersion reports whether cudnnGetVersion resolved in the loaded library.
+func HasGetVersion() bool {
+	return Has("cudnnGetVersion")
+}
+
+// HasGetMaxDeviceVersion reports whether cudnnGetMaxDeviceVersion resolved in the loaded library.
+func HasGetMaxDeviceVersion() bool {
+	return Has("cudnnGetMaxDeviceVersion")
+}
+
+// HasGetCudartVersion reports whether cudnnGetCudartVersion resolved in the loaded library.
+func HasGetCudartVersion() bool {
+	return Has("cudnnGetCudartVersion")
+}
+
+// HasGetLastErrorString reports whether cudnnGetLastErrorString resolved in the loaded library.
+func HasGetLastErrorString() bool {
+	return Has("cudnnGetLastErrorString")
 }
