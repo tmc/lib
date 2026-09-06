@@ -260,8 +260,10 @@ func registerFuncs() {
 	register(&fnCoredumpRegisterStartCallback, "cuCoredumpRegisterStartCallback")
 	register(&fnCoredumpSetAttribute, "cuCoredumpSetAttribute")
 	register(&fnCoredumpSetAttributeGlobal, "cuCoredumpSetAttributeGlobal")
+	register(&fnctxAttach, "cuCtxAttach")
 	register(&fnctxCreate, "cuCtxCreate_v4")
 	register(&fnctxDestroy, "cuCtxDestroy_v2")
+	register(&fnctxDetach, "cuCtxDetach")
 	register(&fnctxDisablePeerAccess, "cuCtxDisablePeerAccess")
 	register(&fnctxEnablePeerAccess, "cuCtxEnablePeerAccess")
 	register(&fnctxFromGreenCtx, "cuCtxFromGreenCtx")
@@ -275,6 +277,7 @@ func registerFuncs() {
 	register(&fnCtxGetFlags, "cuCtxGetFlags")
 	register(&fnctxGetId, "cuCtxGetId")
 	register(&fnCtxGetLimit, "cuCtxGetLimit")
+	register(&fnCtxGetSharedMemConfig, "cuCtxGetSharedMemConfig")
 	register(&fnCtxGetStreamPriorityRange, "cuCtxGetStreamPriorityRange")
 	register(&fnctxPopCurrent, "cuCtxPopCurrent_v2")
 	register(&fnctxPushCurrent, "cuCtxPushCurrent_v2")
@@ -284,6 +287,7 @@ func registerFuncs() {
 	register(&fnctxSetCurrent, "cuCtxSetCurrent")
 	register(&fnCtxSetFlags, "cuCtxSetFlags")
 	register(&fnCtxSetLimit, "cuCtxSetLimit")
+	register(&fnCtxSetSharedMemConfig, "cuCtxSetSharedMemConfig")
 	register(&fnCtxSynchronize, "cuCtxSynchronize")
 	register(&fnctxSynchronizeV2, "cuCtxSynchronize_v2")
 	register(&fnctxWaitEvent, "cuCtxWaitEvent")
@@ -293,6 +297,7 @@ func registerFuncs() {
 	register(&fnDevSmResourceSplit, "cuDevSmResourceSplit")
 	register(&fnDevSmResourceSplitByCount, "cuDevSmResourceSplitByCount")
 	register(&fndeviceCanAccessPeer, "cuDeviceCanAccessPeer")
+	register(&fndeviceComputeCapability, "cuDeviceComputeCapability")
 	register(&fndeviceGet, "cuDeviceGet")
 	register(&fndeviceGetAttribute, "cuDeviceGetAttribute")
 	register(&fndeviceGetByPCIBusId, "cuDeviceGetByPCIBusId")
@@ -309,6 +314,7 @@ func registerFuncs() {
 	register(&fndeviceGetP2PAtomicCapabilities, "cuDeviceGetP2PAtomicCapabilities")
 	register(&fndeviceGetP2PAttribute, "cuDeviceGetP2PAttribute")
 	register(&fndeviceGetPCIBusId, "cuDeviceGetPCIBusId")
+	register(&fndeviceGetProperties, "cuDeviceGetProperties")
 	register(&fndeviceGetTexture1DLinearMaxWidth, "cuDeviceGetTexture1DLinearMaxWidth")
 	register(&fndeviceGetUuid, "cuDeviceGetUuid_v2")
 	register(&fndeviceGraphMemTrim, "cuDeviceGraphMemTrim")
@@ -341,7 +347,10 @@ func registerFuncs() {
 	register(&fnfuncIsLoaded, "cuFuncIsLoaded")
 	register(&fnfuncLoad, "cuFuncLoad")
 	register(&fnfuncSetAttribute, "cuFuncSetAttribute")
+	register(&fnfuncSetBlockShape, "cuFuncSetBlockShape")
 	register(&fnfuncSetCacheConfig, "cuFuncSetCacheConfig")
+	register(&fnfuncSetSharedMemConfig, "cuFuncSetSharedMemConfig")
+	register(&fnfuncSetSharedSize, "cuFuncSetSharedSize")
 	register(&fnGetExportTable, "cuGetExportTable")
 	register(&fnGetProcAddress, "cuGetProcAddress_v2")
 	register(&fngraphAddBatchMemOpNode, "cuGraphAddBatchMemOpNode")
@@ -456,7 +465,11 @@ func registerFuncs() {
 	register(&fnkernelGetParamInfo, "cuKernelGetParamInfo")
 	register(&fnkernelSetAttribute, "cuKernelSetAttribute")
 	register(&fnkernelSetCacheConfig, "cuKernelSetCacheConfig")
+	register(&fnlaunch, "cuLaunch")
 	register(&fnlaunchCooperativeKernel, "cuLaunchCooperativeKernel")
+	register(&fnLaunchCooperativeKernelMultiDevice, "cuLaunchCooperativeKernelMultiDevice")
+	register(&fnlaunchGrid, "cuLaunchGrid")
+	register(&fnlaunchGridAsync, "cuLaunchGridAsync")
 	register(&fnlaunchHostFunc, "cuLaunchHostFunc_v2")
 	register(&fnlaunchKernel, "cuLaunchKernel")
 	register(&fnlaunchKernelEx, "cuLaunchKernelEx")
@@ -583,6 +596,8 @@ func registerFuncs() {
 	register(&fnmoduleGetFunctionCount, "cuModuleGetFunctionCount")
 	register(&fnmoduleGetGlobal, "cuModuleGetGlobal_v2")
 	register(&fnModuleGetLoadingMode, "cuModuleGetLoadingMode")
+	register(&fnmoduleGetSurfRef, "cuModuleGetSurfRef")
+	register(&fnmoduleGetTexRef, "cuModuleGetTexRef")
 	register(&fnmoduleLoad, "cuModuleLoad")
 	register(&fnmoduleLoadData, "cuModuleLoadData")
 	register(&fnmoduleLoadDataEx, "cuModuleLoadDataEx")
@@ -603,6 +618,11 @@ func registerFuncs() {
 	register(&fnoccupancyMaxPotentialBlockSize, "cuOccupancyMaxPotentialBlockSize")
 	register(&fnoccupancyMaxPotentialBlockSizeWithFlags, "cuOccupancyMaxPotentialBlockSizeWithFlags")
 	register(&fnoccupancyMaxPotentialClusterSize, "cuOccupancyMaxPotentialClusterSize")
+	register(&fnparamSetSize, "cuParamSetSize")
+	register(&fnparamSetTexRef, "cuParamSetTexRef")
+	register(&fnparamSetf, "cuParamSetf")
+	register(&fnparamSeti, "cuParamSeti")
+	register(&fnparamSetv, "cuParamSetv")
 	register(&fnpointerGetAttribute, "cuPointerGetAttribute")
 	register(&fnpointerGetAttributes, "cuPointerGetAttributes")
 	register(&fnpointerSetAttribute, "cuPointerSetAttribute")
@@ -641,6 +661,8 @@ func registerFuncs() {
 	register(&fnSurfObjectCreate, "cuSurfObjectCreate")
 	register(&fnSurfObjectDestroy, "cuSurfObjectDestroy")
 	register(&fnSurfObjectGetResourceDesc, "cuSurfObjectGetResourceDesc")
+	register(&fnsurfRefGetArray, "cuSurfRefGetArray")
+	register(&fnsurfRefSetArray, "cuSurfRefSetArray")
 	register(&fnTensorMapEncodeIm2col, "cuTensorMapEncodeIm2col")
 	register(&fnTensorMapEncodeIm2colWide, "cuTensorMapEncodeIm2colWide")
 	register(&fnTensorMapEncodeTiled, "cuTensorMapEncodeTiled")
@@ -650,6 +672,33 @@ func registerFuncs() {
 	register(&fnTexObjectGetResourceDesc, "cuTexObjectGetResourceDesc")
 	register(&fnTexObjectGetResourceViewDesc, "cuTexObjectGetResourceViewDesc")
 	register(&fnTexObjectGetTextureDesc, "cuTexObjectGetTextureDesc")
+	register(&fntexRefCreate, "cuTexRefCreate")
+	register(&fntexRefDestroy, "cuTexRefDestroy")
+	register(&fntexRefGetAddress, "cuTexRefGetAddress_v2")
+	register(&fntexRefGetAddressMode, "cuTexRefGetAddressMode")
+	register(&fntexRefGetArray, "cuTexRefGetArray")
+	register(&fntexRefGetBorderColor, "cuTexRefGetBorderColor")
+	register(&fntexRefGetFilterMode, "cuTexRefGetFilterMode")
+	register(&fntexRefGetFlags, "cuTexRefGetFlags")
+	register(&fntexRefGetFormat, "cuTexRefGetFormat")
+	register(&fntexRefGetMaxAnisotropy, "cuTexRefGetMaxAnisotropy")
+	register(&fntexRefGetMipmapFilterMode, "cuTexRefGetMipmapFilterMode")
+	register(&fntexRefGetMipmapLevelBias, "cuTexRefGetMipmapLevelBias")
+	register(&fntexRefGetMipmapLevelClamp, "cuTexRefGetMipmapLevelClamp")
+	register(&fntexRefGetMipmappedArray, "cuTexRefGetMipmappedArray")
+	register(&fntexRefSetAddress, "cuTexRefSetAddress_v2")
+	register(&fntexRefSetAddress2D, "cuTexRefSetAddress2D_v3")
+	register(&fntexRefSetAddressMode, "cuTexRefSetAddressMode")
+	register(&fntexRefSetArray, "cuTexRefSetArray")
+	register(&fntexRefSetBorderColor, "cuTexRefSetBorderColor")
+	register(&fntexRefSetFilterMode, "cuTexRefSetFilterMode")
+	register(&fntexRefSetFlags, "cuTexRefSetFlags")
+	register(&fntexRefSetFormat, "cuTexRefSetFormat")
+	register(&fntexRefSetMaxAnisotropy, "cuTexRefSetMaxAnisotropy")
+	register(&fntexRefSetMipmapFilterMode, "cuTexRefSetMipmapFilterMode")
+	register(&fntexRefSetMipmapLevelBias, "cuTexRefSetMipmapLevelBias")
+	register(&fntexRefSetMipmapLevelClamp, "cuTexRefSetMipmapLevelClamp")
+	register(&fntexRefSetMipmappedArray, "cuTexRefSetMipmappedArray")
 	register(&fnThreadExchangeStreamCaptureMode, "cuThreadExchangeStreamCaptureMode")
 	register(&fnuserObjectCreate, "cuUserObjectCreate")
 	register(&fnuserObjectRelease, "cuUserObjectRelease")
@@ -683,8 +732,10 @@ func clearFuncs() {
 	fnCoredumpRegisterStartCallback = nil
 	fnCoredumpSetAttribute = nil
 	fnCoredumpSetAttributeGlobal = nil
+	fnctxAttach = nil
 	fnctxCreate = nil
 	fnctxDestroy = nil
+	fnctxDetach = nil
 	fnctxDisablePeerAccess = nil
 	fnctxEnablePeerAccess = nil
 	fnctxFromGreenCtx = nil
@@ -698,6 +749,7 @@ func clearFuncs() {
 	fnCtxGetFlags = nil
 	fnctxGetId = nil
 	fnCtxGetLimit = nil
+	fnCtxGetSharedMemConfig = nil
 	fnCtxGetStreamPriorityRange = nil
 	fnctxPopCurrent = nil
 	fnctxPushCurrent = nil
@@ -707,6 +759,7 @@ func clearFuncs() {
 	fnctxSetCurrent = nil
 	fnCtxSetFlags = nil
 	fnCtxSetLimit = nil
+	fnCtxSetSharedMemConfig = nil
 	fnCtxSynchronize = nil
 	fnctxSynchronizeV2 = nil
 	fnctxWaitEvent = nil
@@ -716,6 +769,7 @@ func clearFuncs() {
 	fnDevSmResourceSplit = nil
 	fnDevSmResourceSplitByCount = nil
 	fndeviceCanAccessPeer = nil
+	fndeviceComputeCapability = nil
 	fndeviceGet = nil
 	fndeviceGetAttribute = nil
 	fndeviceGetByPCIBusId = nil
@@ -732,6 +786,7 @@ func clearFuncs() {
 	fndeviceGetP2PAtomicCapabilities = nil
 	fndeviceGetP2PAttribute = nil
 	fndeviceGetPCIBusId = nil
+	fndeviceGetProperties = nil
 	fndeviceGetTexture1DLinearMaxWidth = nil
 	fndeviceGetUuid = nil
 	fndeviceGraphMemTrim = nil
@@ -764,7 +819,10 @@ func clearFuncs() {
 	fnfuncIsLoaded = nil
 	fnfuncLoad = nil
 	fnfuncSetAttribute = nil
+	fnfuncSetBlockShape = nil
 	fnfuncSetCacheConfig = nil
+	fnfuncSetSharedMemConfig = nil
+	fnfuncSetSharedSize = nil
 	fnGetExportTable = nil
 	fnGetProcAddress = nil
 	fngraphAddBatchMemOpNode = nil
@@ -879,7 +937,11 @@ func clearFuncs() {
 	fnkernelGetParamInfo = nil
 	fnkernelSetAttribute = nil
 	fnkernelSetCacheConfig = nil
+	fnlaunch = nil
 	fnlaunchCooperativeKernel = nil
+	fnLaunchCooperativeKernelMultiDevice = nil
+	fnlaunchGrid = nil
+	fnlaunchGridAsync = nil
 	fnlaunchHostFunc = nil
 	fnlaunchKernel = nil
 	fnlaunchKernelEx = nil
@@ -1006,6 +1068,8 @@ func clearFuncs() {
 	fnmoduleGetFunctionCount = nil
 	fnmoduleGetGlobal = nil
 	fnModuleGetLoadingMode = nil
+	fnmoduleGetSurfRef = nil
+	fnmoduleGetTexRef = nil
 	fnmoduleLoad = nil
 	fnmoduleLoadData = nil
 	fnmoduleLoadDataEx = nil
@@ -1026,6 +1090,11 @@ func clearFuncs() {
 	fnoccupancyMaxPotentialBlockSize = nil
 	fnoccupancyMaxPotentialBlockSizeWithFlags = nil
 	fnoccupancyMaxPotentialClusterSize = nil
+	fnparamSetSize = nil
+	fnparamSetTexRef = nil
+	fnparamSetf = nil
+	fnparamSeti = nil
+	fnparamSetv = nil
 	fnpointerGetAttribute = nil
 	fnpointerGetAttributes = nil
 	fnpointerSetAttribute = nil
@@ -1064,6 +1133,8 @@ func clearFuncs() {
 	fnSurfObjectCreate = nil
 	fnSurfObjectDestroy = nil
 	fnSurfObjectGetResourceDesc = nil
+	fnsurfRefGetArray = nil
+	fnsurfRefSetArray = nil
 	fnTensorMapEncodeIm2col = nil
 	fnTensorMapEncodeIm2colWide = nil
 	fnTensorMapEncodeTiled = nil
@@ -1073,6 +1144,33 @@ func clearFuncs() {
 	fnTexObjectGetResourceDesc = nil
 	fnTexObjectGetResourceViewDesc = nil
 	fnTexObjectGetTextureDesc = nil
+	fntexRefCreate = nil
+	fntexRefDestroy = nil
+	fntexRefGetAddress = nil
+	fntexRefGetAddressMode = nil
+	fntexRefGetArray = nil
+	fntexRefGetBorderColor = nil
+	fntexRefGetFilterMode = nil
+	fntexRefGetFlags = nil
+	fntexRefGetFormat = nil
+	fntexRefGetMaxAnisotropy = nil
+	fntexRefGetMipmapFilterMode = nil
+	fntexRefGetMipmapLevelBias = nil
+	fntexRefGetMipmapLevelClamp = nil
+	fntexRefGetMipmappedArray = nil
+	fntexRefSetAddress = nil
+	fntexRefSetAddress2D = nil
+	fntexRefSetAddressMode = nil
+	fntexRefSetArray = nil
+	fntexRefSetBorderColor = nil
+	fntexRefSetFilterMode = nil
+	fntexRefSetFlags = nil
+	fntexRefSetFormat = nil
+	fntexRefSetMaxAnisotropy = nil
+	fntexRefSetMipmapFilterMode = nil
+	fntexRefSetMipmapLevelBias = nil
+	fntexRefSetMipmapLevelClamp = nil
+	fntexRefSetMipmappedArray = nil
 	fnThreadExchangeStreamCaptureMode = nil
 	fnuserObjectCreate = nil
 	fnuserObjectRelease = nil
@@ -1200,6 +1298,11 @@ func HasCoredumpSetAttributeGlobal() bool {
 	return Has("cuCoredumpSetAttributeGlobal")
 }
 
+// HasctxAttach reports whether cuCtxAttach resolved in the loaded library.
+func HasctxAttach() bool {
+	return Has("cuCtxAttach")
+}
+
 // HasctxCreate reports whether cuCtxCreate_v4 resolved in the loaded library.
 func HasctxCreate() bool {
 	return Has("cuCtxCreate_v4")
@@ -1208,6 +1311,11 @@ func HasctxCreate() bool {
 // HasctxDestroy reports whether cuCtxDestroy_v2 resolved in the loaded library.
 func HasctxDestroy() bool {
 	return Has("cuCtxDestroy_v2")
+}
+
+// HasctxDetach reports whether cuCtxDetach resolved in the loaded library.
+func HasctxDetach() bool {
+	return Has("cuCtxDetach")
 }
 
 // HasctxDisablePeerAccess reports whether cuCtxDisablePeerAccess resolved in the loaded library.
@@ -1275,6 +1383,11 @@ func HasCtxGetLimit() bool {
 	return Has("cuCtxGetLimit")
 }
 
+// HasCtxGetSharedMemConfig reports whether cuCtxGetSharedMemConfig resolved in the loaded library.
+func HasCtxGetSharedMemConfig() bool {
+	return Has("cuCtxGetSharedMemConfig")
+}
+
 // HasCtxGetStreamPriorityRange reports whether cuCtxGetStreamPriorityRange resolved in the loaded library.
 func HasCtxGetStreamPriorityRange() bool {
 	return Has("cuCtxGetStreamPriorityRange")
@@ -1320,6 +1433,11 @@ func HasCtxSetLimit() bool {
 	return Has("cuCtxSetLimit")
 }
 
+// HasCtxSetSharedMemConfig reports whether cuCtxSetSharedMemConfig resolved in the loaded library.
+func HasCtxSetSharedMemConfig() bool {
+	return Has("cuCtxSetSharedMemConfig")
+}
+
 // HasCtxSynchronize reports whether cuCtxSynchronize resolved in the loaded library.
 func HasCtxSynchronize() bool {
 	return Has("cuCtxSynchronize")
@@ -1363,6 +1481,11 @@ func HasDevSmResourceSplitByCount() bool {
 // HasdeviceCanAccessPeer reports whether cuDeviceCanAccessPeer resolved in the loaded library.
 func HasdeviceCanAccessPeer() bool {
 	return Has("cuDeviceCanAccessPeer")
+}
+
+// HasdeviceComputeCapability reports whether cuDeviceComputeCapability resolved in the loaded library.
+func HasdeviceComputeCapability() bool {
+	return Has("cuDeviceComputeCapability")
 }
 
 // HasdeviceGet reports whether cuDeviceGet resolved in the loaded library.
@@ -1443,6 +1566,11 @@ func HasdeviceGetP2PAttribute() bool {
 // HasdeviceGetPCIBusId reports whether cuDeviceGetPCIBusId resolved in the loaded library.
 func HasdeviceGetPCIBusId() bool {
 	return Has("cuDeviceGetPCIBusId")
+}
+
+// HasdeviceGetProperties reports whether cuDeviceGetProperties resolved in the loaded library.
+func HasdeviceGetProperties() bool {
+	return Has("cuDeviceGetProperties")
 }
 
 // HasdeviceGetTexture1DLinearMaxWidth reports whether cuDeviceGetTexture1DLinearMaxWidth resolved in the loaded library.
@@ -1605,9 +1733,24 @@ func HasfuncSetAttribute() bool {
 	return Has("cuFuncSetAttribute")
 }
 
+// HasfuncSetBlockShape reports whether cuFuncSetBlockShape resolved in the loaded library.
+func HasfuncSetBlockShape() bool {
+	return Has("cuFuncSetBlockShape")
+}
+
 // HasfuncSetCacheConfig reports whether cuFuncSetCacheConfig resolved in the loaded library.
 func HasfuncSetCacheConfig() bool {
 	return Has("cuFuncSetCacheConfig")
+}
+
+// HasfuncSetSharedMemConfig reports whether cuFuncSetSharedMemConfig resolved in the loaded library.
+func HasfuncSetSharedMemConfig() bool {
+	return Has("cuFuncSetSharedMemConfig")
+}
+
+// HasfuncSetSharedSize reports whether cuFuncSetSharedSize resolved in the loaded library.
+func HasfuncSetSharedSize() bool {
+	return Has("cuFuncSetSharedSize")
 }
 
 // HasGetExportTable reports whether cuGetExportTable resolved in the loaded library.
@@ -2180,9 +2323,29 @@ func HaskernelSetCacheConfig() bool {
 	return Has("cuKernelSetCacheConfig")
 }
 
+// Haslaunch reports whether cuLaunch resolved in the loaded library.
+func Haslaunch() bool {
+	return Has("cuLaunch")
+}
+
 // HaslaunchCooperativeKernel reports whether cuLaunchCooperativeKernel resolved in the loaded library.
 func HaslaunchCooperativeKernel() bool {
 	return Has("cuLaunchCooperativeKernel")
+}
+
+// HasLaunchCooperativeKernelMultiDevice reports whether cuLaunchCooperativeKernelMultiDevice resolved in the loaded library.
+func HasLaunchCooperativeKernelMultiDevice() bool {
+	return Has("cuLaunchCooperativeKernelMultiDevice")
+}
+
+// HaslaunchGrid reports whether cuLaunchGrid resolved in the loaded library.
+func HaslaunchGrid() bool {
+	return Has("cuLaunchGrid")
+}
+
+// HaslaunchGridAsync reports whether cuLaunchGridAsync resolved in the loaded library.
+func HaslaunchGridAsync() bool {
+	return Has("cuLaunchGridAsync")
 }
 
 // HaslaunchHostFunc reports whether cuLaunchHostFunc_v2 resolved in the loaded library.
@@ -2815,6 +2978,16 @@ func HasModuleGetLoadingMode() bool {
 	return Has("cuModuleGetLoadingMode")
 }
 
+// HasmoduleGetSurfRef reports whether cuModuleGetSurfRef resolved in the loaded library.
+func HasmoduleGetSurfRef() bool {
+	return Has("cuModuleGetSurfRef")
+}
+
+// HasmoduleGetTexRef reports whether cuModuleGetTexRef resolved in the loaded library.
+func HasmoduleGetTexRef() bool {
+	return Has("cuModuleGetTexRef")
+}
+
 // HasmoduleLoad reports whether cuModuleLoad resolved in the loaded library.
 func HasmoduleLoad() bool {
 	return Has("cuModuleLoad")
@@ -2913,6 +3086,31 @@ func HasoccupancyMaxPotentialBlockSizeWithFlags() bool {
 // HasoccupancyMaxPotentialClusterSize reports whether cuOccupancyMaxPotentialClusterSize resolved in the loaded library.
 func HasoccupancyMaxPotentialClusterSize() bool {
 	return Has("cuOccupancyMaxPotentialClusterSize")
+}
+
+// HasparamSetSize reports whether cuParamSetSize resolved in the loaded library.
+func HasparamSetSize() bool {
+	return Has("cuParamSetSize")
+}
+
+// HasparamSetTexRef reports whether cuParamSetTexRef resolved in the loaded library.
+func HasparamSetTexRef() bool {
+	return Has("cuParamSetTexRef")
+}
+
+// HasparamSetf reports whether cuParamSetf resolved in the loaded library.
+func HasparamSetf() bool {
+	return Has("cuParamSetf")
+}
+
+// HasparamSeti reports whether cuParamSeti resolved in the loaded library.
+func HasparamSeti() bool {
+	return Has("cuParamSeti")
+}
+
+// HasparamSetv reports whether cuParamSetv resolved in the loaded library.
+func HasparamSetv() bool {
+	return Has("cuParamSetv")
 }
 
 // HaspointerGetAttribute reports whether cuPointerGetAttribute resolved in the loaded library.
@@ -3105,6 +3303,16 @@ func HasSurfObjectGetResourceDesc() bool {
 	return Has("cuSurfObjectGetResourceDesc")
 }
 
+// HassurfRefGetArray reports whether cuSurfRefGetArray resolved in the loaded library.
+func HassurfRefGetArray() bool {
+	return Has("cuSurfRefGetArray")
+}
+
+// HassurfRefSetArray reports whether cuSurfRefSetArray resolved in the loaded library.
+func HassurfRefSetArray() bool {
+	return Has("cuSurfRefSetArray")
+}
+
 // HasTensorMapEncodeIm2col reports whether cuTensorMapEncodeIm2col resolved in the loaded library.
 func HasTensorMapEncodeIm2col() bool {
 	return Has("cuTensorMapEncodeIm2col")
@@ -3148,6 +3356,141 @@ func HasTexObjectGetResourceViewDesc() bool {
 // HasTexObjectGetTextureDesc reports whether cuTexObjectGetTextureDesc resolved in the loaded library.
 func HasTexObjectGetTextureDesc() bool {
 	return Has("cuTexObjectGetTextureDesc")
+}
+
+// HastexRefCreate reports whether cuTexRefCreate resolved in the loaded library.
+func HastexRefCreate() bool {
+	return Has("cuTexRefCreate")
+}
+
+// HastexRefDestroy reports whether cuTexRefDestroy resolved in the loaded library.
+func HastexRefDestroy() bool {
+	return Has("cuTexRefDestroy")
+}
+
+// HastexRefGetAddress reports whether cuTexRefGetAddress_v2 resolved in the loaded library.
+func HastexRefGetAddress() bool {
+	return Has("cuTexRefGetAddress_v2")
+}
+
+// HastexRefGetAddressMode reports whether cuTexRefGetAddressMode resolved in the loaded library.
+func HastexRefGetAddressMode() bool {
+	return Has("cuTexRefGetAddressMode")
+}
+
+// HastexRefGetArray reports whether cuTexRefGetArray resolved in the loaded library.
+func HastexRefGetArray() bool {
+	return Has("cuTexRefGetArray")
+}
+
+// HastexRefGetBorderColor reports whether cuTexRefGetBorderColor resolved in the loaded library.
+func HastexRefGetBorderColor() bool {
+	return Has("cuTexRefGetBorderColor")
+}
+
+// HastexRefGetFilterMode reports whether cuTexRefGetFilterMode resolved in the loaded library.
+func HastexRefGetFilterMode() bool {
+	return Has("cuTexRefGetFilterMode")
+}
+
+// HastexRefGetFlags reports whether cuTexRefGetFlags resolved in the loaded library.
+func HastexRefGetFlags() bool {
+	return Has("cuTexRefGetFlags")
+}
+
+// HastexRefGetFormat reports whether cuTexRefGetFormat resolved in the loaded library.
+func HastexRefGetFormat() bool {
+	return Has("cuTexRefGetFormat")
+}
+
+// HastexRefGetMaxAnisotropy reports whether cuTexRefGetMaxAnisotropy resolved in the loaded library.
+func HastexRefGetMaxAnisotropy() bool {
+	return Has("cuTexRefGetMaxAnisotropy")
+}
+
+// HastexRefGetMipmapFilterMode reports whether cuTexRefGetMipmapFilterMode resolved in the loaded library.
+func HastexRefGetMipmapFilterMode() bool {
+	return Has("cuTexRefGetMipmapFilterMode")
+}
+
+// HastexRefGetMipmapLevelBias reports whether cuTexRefGetMipmapLevelBias resolved in the loaded library.
+func HastexRefGetMipmapLevelBias() bool {
+	return Has("cuTexRefGetMipmapLevelBias")
+}
+
+// HastexRefGetMipmapLevelClamp reports whether cuTexRefGetMipmapLevelClamp resolved in the loaded library.
+func HastexRefGetMipmapLevelClamp() bool {
+	return Has("cuTexRefGetMipmapLevelClamp")
+}
+
+// HastexRefGetMipmappedArray reports whether cuTexRefGetMipmappedArray resolved in the loaded library.
+func HastexRefGetMipmappedArray() bool {
+	return Has("cuTexRefGetMipmappedArray")
+}
+
+// HastexRefSetAddress reports whether cuTexRefSetAddress_v2 resolved in the loaded library.
+func HastexRefSetAddress() bool {
+	return Has("cuTexRefSetAddress_v2")
+}
+
+// HastexRefSetAddress2D reports whether cuTexRefSetAddress2D_v3 resolved in the loaded library.
+func HastexRefSetAddress2D() bool {
+	return Has("cuTexRefSetAddress2D_v3")
+}
+
+// HastexRefSetAddressMode reports whether cuTexRefSetAddressMode resolved in the loaded library.
+func HastexRefSetAddressMode() bool {
+	return Has("cuTexRefSetAddressMode")
+}
+
+// HastexRefSetArray reports whether cuTexRefSetArray resolved in the loaded library.
+func HastexRefSetArray() bool {
+	return Has("cuTexRefSetArray")
+}
+
+// HastexRefSetBorderColor reports whether cuTexRefSetBorderColor resolved in the loaded library.
+func HastexRefSetBorderColor() bool {
+	return Has("cuTexRefSetBorderColor")
+}
+
+// HastexRefSetFilterMode reports whether cuTexRefSetFilterMode resolved in the loaded library.
+func HastexRefSetFilterMode() bool {
+	return Has("cuTexRefSetFilterMode")
+}
+
+// HastexRefSetFlags reports whether cuTexRefSetFlags resolved in the loaded library.
+func HastexRefSetFlags() bool {
+	return Has("cuTexRefSetFlags")
+}
+
+// HastexRefSetFormat reports whether cuTexRefSetFormat resolved in the loaded library.
+func HastexRefSetFormat() bool {
+	return Has("cuTexRefSetFormat")
+}
+
+// HastexRefSetMaxAnisotropy reports whether cuTexRefSetMaxAnisotropy resolved in the loaded library.
+func HastexRefSetMaxAnisotropy() bool {
+	return Has("cuTexRefSetMaxAnisotropy")
+}
+
+// HastexRefSetMipmapFilterMode reports whether cuTexRefSetMipmapFilterMode resolved in the loaded library.
+func HastexRefSetMipmapFilterMode() bool {
+	return Has("cuTexRefSetMipmapFilterMode")
+}
+
+// HastexRefSetMipmapLevelBias reports whether cuTexRefSetMipmapLevelBias resolved in the loaded library.
+func HastexRefSetMipmapLevelBias() bool {
+	return Has("cuTexRefSetMipmapLevelBias")
+}
+
+// HastexRefSetMipmapLevelClamp reports whether cuTexRefSetMipmapLevelClamp resolved in the loaded library.
+func HastexRefSetMipmapLevelClamp() bool {
+	return Has("cuTexRefSetMipmapLevelClamp")
+}
+
+// HastexRefSetMipmappedArray reports whether cuTexRefSetMipmappedArray resolved in the loaded library.
+func HastexRefSetMipmappedArray() bool {
+	return Has("cuTexRefSetMipmappedArray")
 }
 
 // HasThreadExchangeStreamCaptureMode reports whether cuThreadExchangeStreamCaptureMode resolved in the loaded library.
