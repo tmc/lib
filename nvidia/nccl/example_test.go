@@ -18,13 +18,14 @@ func Example() {
 	fmt.Println("NCCL version:", version)
 
 	devs := []int32{0}
-	comm, err := nccl.NewCommInitAll(int32(len(devs)), &devs[0])
+	comms := make([]nccl.Comm, len(devs))
+	err = nccl.CommInitAll(&comms[0], int32(len(devs)), &devs[0])
 	if err != nil {
 		fmt.Println("comm init:", err)
 		return
 	}
-	defer comm.Destroy()
+	defer comms[0].Destroy()
 
-	n, _ := comm.Count()
+	n, _ := comms[0].Count()
 	fmt.Println("communicator ranks:", n)
 }

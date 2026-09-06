@@ -305,15 +305,6 @@ func (c Comm) WinGetUserPtr(win Window) (Buffer, error) {
 	return winGetUserPtr(c, win)
 }
 
-// NewCommInitAll Creates a clique of communicators (single process version) in a blocking way.
-//
-// This is a convenience function to create a single-process communicator clique. Returns an array of ndev newly initialized communicators in comms. comms should be pre-allocated with size at least ndev*sizeof( [Comm]). devlist defines the CUDA devices associated with each rank. If devlist is NULL, the first ndev CUDA devices are used, in order.
-//
-// Wraps ncclCommInitAll.
-func NewCommInitAll(ndev int32, devlist *int32) (Comm, error) {
-	return commInitAll(ndev, devlist)
-}
-
 // NewCommInitRank Creates a new communicator (multi thread/process version).
 //
 // rank must be between 0 and nranks-1 and unique within a communicator clique. Each rank is associated to a CUDA device, which has to be set before calling [NewCommInitRank]. [NewCommInitRank] implicitly synchronizes with other ranks, hence it must be called by different threads/processes or used within [GroupStart]/[GroupEnd].
