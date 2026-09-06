@@ -18,6 +18,7 @@ package nvvm_test
 import (
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -132,7 +133,7 @@ func TestCompileAndRun(t *testing.T) {
 	if err := dev.ComputeCapability(&major, &minor); err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	arch := string(rune('0'+major)) + string(rune('0'+minor))
+	arch := strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
 	ctx, err := dev.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("retain primary context: %v", err)
@@ -163,9 +164,27 @@ func TestCompileAndRun(t *testing.T) {
 		log, _ := prog.GetProgramLog()
 		t.Fatalf("Verify: %v\n%s", err, log)
 	}
-	if err := prog.Compile([]string{"-arch=compute_" + arch}); err != nil {
-		log, _ := prog.GetProgramLog()
-		t.Fatalf("Compile: %v\n%s", err, log)
+	// libNVVM ships with the toolkit, so the one that loads can predate the
+	// installed device: a CUDA 12 libNVVM rejects -arch=compute_121. PTX
+	// built for an older virtual architecture still JITs onto newer
+	// hardware, so fall back through the architectures libNVVM knows rather
+	// than failing on a toolkit-versus-device mismatch. The kernel and its
+	// oracle are unchanged; only the PTX target moves.
+	log := ""
+	for _, try := range archFallbacks(arch) {
+		if err := prog.Compile([]string{"-arch=compute_" + try}); err == nil {
+			arch = try
+			log = ""
+			break
+		}
+		log, _ = prog.GetProgramLog()
+		if !strings.Contains(log, "unsupported option") {
+			t.Fatalf("Compile for compute_%s: %s", try, log)
+		}
+		t.Logf("libNVVM does not support compute_%s, trying an older target", try)
+	}
+	if log != "" {
+		t.Fatalf("libNVVM supports no architecture this device can run:\n%s", log)
 	}
 	size, err := prog.GetCompiledResultSize()
 	if err != nil {
@@ -244,4 +263,23 @@ func TestCompileAndRun(t *testing.T) {
 		}
 	}
 	t.Logf("kernel compiled from NVVM IR wrote the predicted i*5+%d for all %d elements", bias, elems)
+}
+
+// archFallbacks returns the virtual architectures to try for a device of the
+// given compute capability, most capable first. Every entry is one libNVVM
+// has supported at some point and is no newer than the device, so any PTX
+// that results runs on it.
+func archFallbacks(arch string) []string {
+	known := []string{"120", "100", "90", "89", "87", "86", "80", "75"}
+	out := []string{arch}
+	n, err := strconv.Atoi(arch)
+	if err != nil {
+		return out
+	}
+	for _, k := range known {
+		if v, _ := strconv.Atoi(k); v <= n && k != arch {
+			out = append(out, k)
+		}
+	}
+	return out
 }
