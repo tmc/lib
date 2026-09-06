@@ -13,6 +13,11 @@ import (
 	"unsafe"
 )
 
+// Set CUFILE_PHYSICAL_PERTURB=expected to run the negative control, which
+// corrupts one byte of the expected buffer so that a test that is genuinely
+// comparing content fails and one that is not does not.
+func perturb() bool { return os.Getenv("CUFILE_PHYSICAL_PERTURB") == "expected" }
+
 // TestPhysicalTransfer checks bytes through device memory, not the storage transport.
 func TestPhysicalTransfer(t *testing.T) {
 	runtime.LockOSThread()
@@ -42,6 +47,11 @@ func TestPhysicalTransfer(t *testing.T) {
 	for i := range input {
 		input[i] = byte((i*31 + i/17) % 251)
 	}
+	want := make([]byte, n)
+	copy(want, input)
+	if perturb() {
+		want[n/2]++
+	}
 	f, err := os.CreateTemp(t.TempDir(), "cufile-transfer-*")
 	check(err)
 	cleanup(f.Close)
@@ -60,7 +70,7 @@ func TestPhysicalTransfer(t *testing.T) {
 	}
 	got := make([]byte, n)
 	check(p.MemcpyDtoH(unsafe.Pointer(&got[0]), n))
-	if !bytes.Equal(got, input) {
+	if !bytes.Equal(got, want) {
 		t.Fatal("read bytes differ")
 	}
 	written := h.Write(uintptr(p), n, n, 0)
@@ -71,7 +81,7 @@ func TestPhysicalTransfer(t *testing.T) {
 	out := make([]byte, n)
 	_, err = f.ReadAt(out, n)
 	check(err)
-	if !bytes.Equal(out, input) {
+	if !bytes.Equal(out, want) {
 		t.Fatal("write bytes differ")
 	}
 	t.Logf("cuFile read and write each matched %d bytes through CUDA device memory; transport mode unqualified\n", n)
