@@ -12,9 +12,10 @@ the libraries are located and loaded on first use.
 | Package | Binds | Use it for |
 |---|---|---|
 | driver | CUDA driver API (cuda.h) | contexts, memory, module loading, kernel launch, streams, events, graphs |
-| nvrtc | NVRTC | compiling CUDA C++ to PTX at runtime |
+| nvrtc | NVRTC | compiling CUDA C++ to PTX, cubin, LTOIR, or TileIR at runtime |
 | nvvm | NVVM | compiling NVVM IR and libdevice to PTX or LTOIR |
 | nvjitlink | nvJitLink | linking device code to cubin or PTX |
+| nvfatbin | nvFatbin | packaging alternative CUDA device images into fatbinaries |
 | nvml | NVML | device enumeration, telemetry, and management |
 | cublas | cuBLAS | dense BLAS on device buffers |
 | cublaslt | cuBLASLt | lightweight matmul with algorithm selection |
@@ -25,12 +26,13 @@ the libraries are located and loaded on first use.
 | cusparse | cuSPARSE (generic API) | sparse matrices and SpMV/SpMM |
 | cutensor | cuTENSOR | tensor contractions, reductions, permutations |
 | cupti | CUPTI | profiling and activity tracing |
+| sanitizer | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
 | nccl | NCCL | multi-GPU collectives |
 | ncclep | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
 | ncclm2n | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
 | cufile | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
 | fabricmanager | NVIDIA Fabric Manager | NVSwitch fabric partitions |
-| x/... | — | idiomatic layer over the raw bindings; see x/DESIGN.md |
+| x/... | — | idiomatic layer over the raw bindings; see the [generated package inventory](x/README.md) |
 
 Every package follows the same conventions, so knowing one is knowing
 them all.
@@ -89,12 +91,12 @@ overhead:
 
 ## Building an inference or training engine
 
-The raw bindings are deliberately 1:1 with the C APIs: handles are
-uintptrs, device memory is explicit, and nothing allocates behind your
-back — polling loops (e.g. `Device.GetComputeRunningProcesses(buf)`) can
-run allocation-free. Engine-level ergonomics — typed device slices,
+The raw bindings closely follow the C APIs. Callers manage device memory
+explicitly; sized-output helpers return allocated Go slices.
+Engine-level ergonomics — typed device slices,
 context plumbing, kernel caching, graph fusion, test/bench integration —
-are the charter of the `x/` packages; see x/DESIGN.md for the layer map.
+are the charter of the `x/` packages; see the
+[generated package inventory](x/README.md).
 
 ## Platform notes
 
