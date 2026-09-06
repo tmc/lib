@@ -47,13 +47,18 @@ func (m *Module) Close() error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.close(m.ctx.Run, driver.CtxSynchronize, m.raw.Unload, m.ctx.Release)
+}
+
+// close releases resources in order. The caller holds m.mu.
+func (m *Module) close(run func(func() error) error, synchronize, unload, release func() error) error {
 	var err error
 	if m.raw != 0 {
-		err = m.ctx.Run(func() error {
-			if err := driver.CtxSynchronize(); err != nil {
+		err = run(func() error {
+			if err := synchronize(); err != nil {
 				return err
 			}
-			if err := m.raw.Unload(); err != nil {
+			if err := unload(); err != nil {
 				return err
 			}
 			m.raw = 0
@@ -64,7 +69,7 @@ func (m *Module) Close() error {
 		}
 	}
 	if m.ctx != nil {
-		releaseErr := m.ctx.Release()
+		releaseErr := release()
 		if releaseErr == nil {
 			m.ctx = nil
 		}
