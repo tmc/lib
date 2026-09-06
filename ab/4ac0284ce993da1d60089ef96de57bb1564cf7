@@ -1,0 +1,12 @@
+commit=ab4ac0284ce993da1d60089ef96de57bb1564cf7
+date=2026-09-06T01:52:44.662776+00:00
+agent=Codex
+model=GPT-6
+codex_version=0.153.4
+claude_code_version=2.1.257
+tty=unavailable
+pid=80550
+ITERM_SESSION_ID=w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+evidence=oracle-provenance/oracle-quantizer-run01, outproj-teacher02, current-layer-probe02/synthetic01
+independent review=ACCEPT quantizer scope; teacher OutA exact; full equivalence still FAIL
+shared linux/arm64 vet PASS; no binaries staged
