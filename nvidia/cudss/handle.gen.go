@@ -10,6 +10,11 @@ func NewHandle() (Handle, error) {
 	return Create()
 }
 
+// NewHandleMg wraps cudssCreateMg.
+func NewHandleMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
+	return CreateMg(deviceCount, deviceIndices)
+}
+
 // Destroy wraps cudssDestroy.
 func (h Handle) Destroy() error {
 	return Destroy(h)
@@ -28,6 +33,11 @@ func (h Handle) GetDeviceMemHandler() (DeviceMemHandler, error) {
 // SetDeviceMemHandler wraps cudssSetDeviceMemHandler.
 func (h Handle) SetDeviceMemHandler(handler *DeviceMemHandler) error {
 	return SetDeviceMemHandler(h, handler)
+}
+
+// SetMgStreams wraps cudssSetMgStreams.
+func (h Handle) SetMgStreams(streams *Stream, streamCount int32) error {
+	return SetMgStreams(h, streams, streamCount)
 }
 
 // SetStream wraps cudssSetStream.

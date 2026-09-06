@@ -321,6 +321,7 @@ func registerFuncs() {
 	register(&fnConfigGet, "cudssConfigGet")
 	register(&fnConfigSet, "cudssConfigSet")
 	register(&fnCreate, "cudssCreate")
+	register(&fnCreateMg, "cudssCreateMg")
 	register(&fnDataCreate, "cudssDataCreate")
 	register(&fnDataDestroy, "cudssDataDestroy")
 	register(&fnDataGet, "cudssDataGet")
@@ -349,6 +350,7 @@ func registerFuncs() {
 	register(&fnMatrixSetCsrPointers, "cudssMatrixSetCsrPointers")
 	register(&fnMatrixSetValues, "cudssMatrixSetValues")
 	register(&fnSetDeviceMemHandler, "cudssSetDeviceMemHandler")
+	register(&fnSetMgStreams, "cudssSetMgStreams")
 	register(&fnSetStream, "cudssSetStream")
 	register(&fnSetThreadingLayer, "cudssSetThreadingLayer")
 }
@@ -360,6 +362,7 @@ func clearFuncs() {
 	fnConfigGet = nil
 	fnConfigSet = nil
 	fnCreate = nil
+	fnCreateMg = nil
 	fnDataCreate = nil
 	fnDataDestroy = nil
 	fnDataGet = nil
@@ -388,6 +391,7 @@ func clearFuncs() {
 	fnMatrixSetCsrPointers = nil
 	fnMatrixSetValues = nil
 	fnSetDeviceMemHandler = nil
+	fnSetMgStreams = nil
 	fnSetStream = nil
 	fnSetThreadingLayer = nil
 }
@@ -415,6 +419,11 @@ func HasConfigSet() bool {
 // HasCreate reports whether cudssCreate resolved in the loaded library.
 func HasCreate() bool {
 	return Has("cudssCreate")
+}
+
+// HasCreateMg reports whether cudssCreateMg resolved in the loaded library.
+func HasCreateMg() bool {
+	return Has("cudssCreateMg")
 }
 
 // HasDataCreate reports whether cudssDataCreate resolved in the loaded library.
@@ -555,6 +564,11 @@ func HasMatrixSetValues() bool {
 // HasSetDeviceMemHandler reports whether cudssSetDeviceMemHandler resolved in the loaded library.
 func HasSetDeviceMemHandler() bool {
 	return Has("cudssSetDeviceMemHandler")
+}
+
+// HasSetMgStreams reports whether cudssSetMgStreams resolved in the loaded library.
+func HasSetMgStreams() bool {
+	return Has("cudssSetMgStreams")
 }
 
 // HasSetStream reports whether cudssSetStream resolved in the loaded library.
