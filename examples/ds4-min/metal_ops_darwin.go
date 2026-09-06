@@ -1822,10 +1822,10 @@ kernel void rope_attention_one(
   }
   threadgroup_barrier(mem_flags::mem_device);
   float score=0.0f;
-  for(uint i=0;i<512;i++)score+=out[qoff+i]*out[32768+i];
+  for(uint i=0;i<512;i++)score+=out[qoff+i]*float(half(out[32768+i]));
   score/=sqrt(512.0f);
   const float mx=max(score,sinks[head]);
   const float weight=exp(score-mx)/(exp(score-mx)+exp(sinks[head]-mx));
-  for(uint i=0;i<512;i++)out[32768+512+qoff+i]=weight*out[32768+i];
+  for(uint i=0;i<512;i++)out[32768+512+qoff+i]=weight*float(half(out[32768+i]));
 }
 `
