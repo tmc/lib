@@ -348,10 +348,11 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		// layers free-running from layer 0 and bounds how fast the residual
 		// stream may diverge; a fixed per-stage tolerance cannot survive 42
 		// chained layers, but an amplification bound can.
+		pos := allLayersOraclePosition(t)
 		for layer := 1; layer < 43; layer++ {
 			t.Run(fmt.Sprintf("forced-layer-%d", layer), func(t *testing.T) {
-				prior := fmt.Sprintf("%s/stage_hc_ffn_post-%d_pos0.bin", allLayersOracle, layer-1)
-				runPinnedHashLayer(t, ops, bind, readOracleF32(t, prior), layer, allLayersOracle)
+				prior := fmt.Sprintf("%s/stage_hc_ffn_post-%d_pos%d.bin", allLayersOracle, layer-1, pos)
+				runPinnedHashLayerAt(t, ops, bind, readOracleF32(t, prior), layer, allLayersOracle, pos)
 			})
 		}
 		t.Run("chained-drift", func(t *testing.T) {
@@ -497,7 +498,7 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 func validatePinnedLateTransition(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, layer int, oracleDir string) {
 	t.Helper()
 	attnNorm := readOracleF32(t, fmt.Sprintf("%s/stage_attn_norm-%d_pos0.bin", oracleDir, layer))
-	validatePinnedCompressors(t, ops, bind, attnNorm, layer, oracleDir)
+	validatePinnedCompressors(t, ops, bind, attnNorm, layer, oracleDir, 0)
 	ffnNorm := readOracleF32(t, fmt.Sprintf("%s/stage_ffn_norm-%d_pos0.bin", oracleDir, layer))
 	name := func(s string) string { return fmt.Sprintf("blk.%d.%s", layer, s) }
 	logits, err := ops.MatvecF16(bind(name("ffn_gate_inp.weight")), ffnNorm)
@@ -532,17 +533,25 @@ func readOracleF32(t *testing.T, path string) []float32 {
 
 func runPinnedHashLayer(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string) []float32 {
 	t.Helper()
-	return runPinnedHashLayerStrict(t, ops, bind, state, layer, oracleDir, true)
+	return runPinnedHashLayerAt(t, ops, bind, state, layer, oracleDir, 0)
+}
+
+// runPinnedHashLayerAt runs one layer against the capture's stages for a chosen
+// token position. Every rotation is the identity at position 0, so a sweep that
+// only ever reads _pos0 cannot see a position-dependent defect.
+func runPinnedHashLayerAt(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string, pos int) []float32 {
+	t.Helper()
+	return runPinnedHashLayerStrict(t, ops, bind, state, layer, oracleDir, true, pos)
 }
 
 // runPinnedHashLayerNoCompare runs one layer without any oracle comparison. The
 // chained drift check uses it so that only the residual stream is measured.
 func runPinnedHashLayerNoCompare(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int) []float32 {
 	t.Helper()
-	return runPinnedHashLayerStrict(t, ops, bind, state, layer, "", false)
+	return runPinnedHashLayerStrict(t, ops, bind, state, layer, "", false, 0)
 }
 
-func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string, strict bool) []float32 {
+func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, state []float32, layer int, oracleDir string, strict bool, pos int) []float32 {
 	t.Helper()
 	// The chained drift pass reuses this body with strict comparison off, so
 	// every stage check goes through these guards.
@@ -568,7 +577,7 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 	}
 	name := func(s string) string { return fmt.Sprintf("blk.%d.%s", layer, s) }
 	oracle := func(stage string) string {
-		return fmt.Sprintf("%s/stage_%s-%d_pos0.bin", oracleDir, stage, layer)
+		return fmt.Sprintf("%s/stage_%s-%d_pos%d.bin", oracleDir, stage, layer, pos)
 	}
 	pre, attnNorm, err := ops.HCPre(state, bind(name("hc_attn_fn.weight")), bind(name("hc_attn_scale.weight")), bind(name("hc_attn_base.weight")), bind(name("attn_norm.weight")))
 	if err != nil {
@@ -576,8 +585,10 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 	}
 	checkF32("hc_attn_pre", pre, oracle("hc_attn_pre"))
 	checkF32("attn_norm", attnNorm, oracle("attn_norm"))
-	if strict && layer >= 2 {
-		validatePinnedCompressors(t, ops, bind, attnNorm, layer, oracleDir)
+	// validatePinnedCompressors hand-builds the compressor state assuming the
+	// window holds a single position, so it is only meaningful at position 0.
+	if strict && layer >= 2 && pos == 0 {
+		validatePinnedCompressors(t, ops, bind, attnNorm, layer, oracleDir, pos)
 	}
 	qRaw, err := ops.MatvecQ80(bind(name("attn_q_a.weight")), attnNorm)
 	if err != nil {
@@ -662,7 +673,7 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 		t.Fatal(err)
 	}
 	checkF32("ffn_moe_probs", probs, oracle("ffn_moe_probs"))
-	checkI32("ffn_moe_topk", selected, fmt.Sprintf("%s/stage_ffn_moe_topk-%d_pos0.i32", oracleDir, layer))
+	checkI32("ffn_moe_topk", selected, fmt.Sprintf("%s/stage_ffn_moe_topk-%d_pos%d.i32", oracleDir, layer, pos))
 	checkF32("ffn_moe_weights_scaled", weights, oracle("ffn_moe_weights_scaled"))
 	sharedGate, err := ops.MatvecQ80(bind(name("ffn_gate_shexp.weight")), ffnNorm)
 	if err != nil {
@@ -741,7 +752,7 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 	return out
 }
 
-func validatePinnedCompressors(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, x []float32, layer int, oracleDir string) {
+func validatePinnedCompressors(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, x []float32, layer int, oracleDir string, pos int) {
 	t.Helper()
 	ratio := 4
 	lanes := []struct {
@@ -774,8 +785,8 @@ func validatePinnedCompressors(t *testing.T, ops *metalPinnedOps, bind func(stri
 		if err != nil {
 			t.Fatal(err)
 		}
-		compareOracleF32(t, lane.name+"_comp_kv_raw", kv, fmt.Sprintf("%s/stage_%s_comp_kv_raw-%d_pos0.bin", oracleDir, lane.name, layer))
-		compareOracleF32(t, lane.name+"_comp_score_raw", score, fmt.Sprintf("%s/stage_%s_comp_score_raw-%d_pos0.bin", oracleDir, lane.name, layer))
+		compareOracleF32(t, lane.name+"_comp_kv_raw", kv, fmt.Sprintf("%s/stage_%s_comp_kv_raw-%d_pos%d.bin", oracleDir, lane.name, layer, pos))
+		compareOracleF32(t, lane.name+"_comp_score_raw", score, fmt.Sprintf("%s/stage_%s_comp_score_raw-%d_pos%d.bin", oracleDir, lane.name, layer, pos))
 		rows := ratio
 		row := 0
 		if ratio == 4 {
@@ -789,8 +800,8 @@ func validatePinnedCompressors(t *testing.T, ops *metalPinnedOps, bind func(stri
 		}
 		copy(stateKV[row*lane.width:], kv)
 		copy(stateScore[row*lane.width:], scoreAPE)
-		compareOracleF32(t, lane.name+"_state_kv", stateKV, fmt.Sprintf("%s/stage_%s_state_kv-%d_pos0.bin", oracleDir, lane.name, layer))
-		compareOracleMaskedF32(t, lane.name+"_state_score", stateScore, fmt.Sprintf("%s/stage_%s_state_score-%d_pos0.bin", oracleDir, lane.name, layer))
+		compareOracleF32(t, lane.name+"_state_kv", stateKV, fmt.Sprintf("%s/stage_%s_state_kv-%d_pos%d.bin", oracleDir, lane.name, layer, pos))
+		compareOracleMaskedF32(t, lane.name+"_state_score", stateScore, fmt.Sprintf("%s/stage_%s_state_score-%d_pos%d.bin", oracleDir, lane.name, layer, pos))
 	}
 }
 
@@ -1249,6 +1260,21 @@ func runPinnedRopeAtPosition(t *testing.T, ops *metalPinnedOps, bind func(string
 			_ = kvCur
 		})
 	}
+}
+
+// allLayersOraclePosition reports the token position the all-layers sweep runs
+// at. It defaults to 0, the position every existing capture was taken at.
+func allLayersOraclePosition(t *testing.T) int {
+	t.Helper()
+	raw := os.Getenv("DS4_ALL_LAYERS_ORACLE_POS")
+	if raw == "" {
+		return 0
+	}
+	pos, err := strconv.Atoi(raw)
+	if err != nil || pos < 0 {
+		t.Fatalf("DS4_ALL_LAYERS_ORACLE_POS = %q, want a non-negative position", raw)
+	}
+	return pos
 }
 
 // pinnedCompressorRun reports the last position of the compressor-state sweep.
