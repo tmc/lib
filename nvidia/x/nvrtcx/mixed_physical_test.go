@@ -29,3 +29,7 @@ extern "C" __global__ void simt_fill(int* out) {
 	t.Logf("PTX bytes=%d sha256=%x; TileIR bytes=%d sha256=%x", len(cm.PTX()), sha256.Sum256([]byte(cm.PTX())), len(cm.TileIR()), sha256.Sum256(cm.TileIR()))
 	t.Log("compilation only; neither artifact was loaded or executed")
 }
+
+func TestMixedTileExecution(t *testing.T) {
+	runTileMatrix(t, true)
+}
