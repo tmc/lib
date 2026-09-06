@@ -36,6 +36,7 @@ type SymbolError struct {
 	Symbol string
 }
 
+// Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
 	return "fabricmanager: symbol " + e.Symbol + " unavailable"
 }
@@ -47,6 +48,7 @@ type LibraryConflictError struct {
 	Requested string
 }
 
+// Error reports the conflicting library paths.
 func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("fabricmanager: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
