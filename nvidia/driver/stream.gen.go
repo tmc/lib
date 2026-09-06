@@ -175,13 +175,11 @@ func (s Stream) GetCtx() (pCtx Context, pGreenCtx GreenCtx, err error) {
 // Note: The API will return [ErrInvalidResourceType] is type is
 // [DevResourceTypeWorkqueueConfig] or [DevResourceTypeWorkqueue].
 //
-//   - resource: Output pointer to a CUdevResource structure
-//
 // See also: [NewGreenCtx], [GreenCtx.StreamCreate], [NewStream], [DevSmResourceSplitByCount], [DevResourceGenerateDesc]
 //
 // Wraps cuStreamGetDevResource.
-func (s Stream) GetDevResource(resource *[512]byte, type_ DevResourceType) error {
-	return streamGetDevResource(s, resource, type_)
+func (s Stream) GetDevResource(type_ DevResourceType) (DevResource, error) {
+	return streamGetDevResource(s, type_)
 }
 
 // GetDevice Returns the device handle of the stream.

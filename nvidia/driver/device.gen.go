@@ -56,13 +56,11 @@ func (d Device) GetDefaultMemPool() (MemoryPool, error) {
 //
 // Note: The API is not supported on 32-bit platforms.
 //
-//   - resource: Output pointer to a CUdevResource structure
-//
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuDeviceGetDevResource.
-func (d Device) GetDevResource(resource *[512]byte, type_ DevResourceType) error {
-	return deviceGetDevResource(d, resource, type_)
+func (d Device) GetDevResource(type_ DevResourceType) (DevResource, error) {
+	return deviceGetDevResource(d, type_)
 }
 
 // GetExecAffinitySupport Returns information about the execution affinity support of the device.

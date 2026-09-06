@@ -23,15 +23,13 @@ func (g GreenCtx) Destroy() error {
 
 // GetDevResource Get green context resources
 //
-// Get the type resources available to the green context represented by hCtx
-//
-//   - resource: Output pointer to a CUdevResource structure
+// # Get the type resources available to the green context represented by hCtx
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuGreenCtxGetDevResource.
-func (g GreenCtx) GetDevResource(resource *[512]byte, type_ DevResourceType) error {
-	return greenCtxGetDevResource(g, resource, type_)
+func (g GreenCtx) GetDevResource(type_ DevResourceType) (DevResource, error) {
+	return greenCtxGetDevResource(g, type_)
 }
 
 // GetId Returns the unique Id associated with the green context supplied

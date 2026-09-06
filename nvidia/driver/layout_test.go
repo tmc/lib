@@ -1665,4 +1665,20 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(StreamAttrValueV1{}); got != 8 {
 		t.Errorf("alignof(StreamAttrValueV1) = %d, want 8", got)
 	}
+
+	if got := unsafe.Sizeof(DevResource{}); got != 144 {
+		t.Errorf("sizeof(DevResource) = %d, want 144", got)
+	}
+	if got := unsafe.Alignof(DevResource{}); got != 8 {
+		t.Errorf("alignof(DevResource) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(DevResource{}.Type); got != 0 {
+		t.Errorf("offsetof(DevResource.Type) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(DevResource{}.InternalPadding); got != 4 {
+		t.Errorf("offsetof(DevResource.InternalPadding) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(DevResource{}.NextResource); got != 136 {
+		t.Errorf("offsetof(DevResource.NextResource) = %d, want 136", got)
+	}
 }

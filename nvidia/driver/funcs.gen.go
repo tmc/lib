@@ -40,7 +40,7 @@ var (
 	fnctxGetApiVersion                                   func(Context, *uint32) Result
 	fnCtxGetCacheConfig                                  func(*FuncCacheConfig) Result
 	fnctxGetCurrent                                      func(*Context) Result
-	fnctxGetDevResource                                  func(Context, *[512]byte, DevResourceType) Result
+	fnctxGetDevResource                                  func(Context, *DevResource, DevResourceType) Result
 	fnCtxGetDevice                                       func(*Device) Result
 	fnctxGetDeviceV2                                     func(*Device, Context) Result
 	fnCtxGetExecAffinity                                 func(*ExecAffinityParam, ExecAffinityType) Result
@@ -63,9 +63,9 @@ var (
 	fnctxWaitEvent                                       func(Context, Event) Result
 	fndestroyExternalMemory                              func(ExternalMemory) Result
 	fndestroyExternalSemaphore                           func(ExternalSemaphore) Result
-	fnDevResourceGenerateDesc                            func(*DevResourceDesc, *[512]byte, uint32) Result
-	fnDevSmResourceSplit                                 func(*[512]byte, uint32, *[512]byte, *[512]byte, uint32, *CuDevSmResourceGroupParams) Result
-	fnDevSmResourceSplitByCount                          func(*[512]byte, *uint32, *[512]byte, *[512]byte, uint32, uint32) Result
+	fnDevResourceGenerateDesc                            func(*DevResourceDesc, *DevResource, uint32) Result
+	fnDevSmResourceSplit                                 func(*DevResource, uint32, *DevResource, *DevResource, uint32, *CuDevSmResourceGroupParams) Result
+	fnDevSmResourceSplitByCount                          func(*DevResource, *uint32, *DevResource, *DevResource, uint32, uint32) Result
 	fndeviceCanAccessPeer                                func(*int32, Device, Device) Result
 	fndeviceComputeCapability                            func(*int32, *int32, Device) Result
 	fndeviceGet                                          func(*Device, int) Result
@@ -73,7 +73,7 @@ var (
 	fndeviceGetByPCIBusId                                func(*Device, *byte) Result
 	fnDeviceGetCount                                     func(*int32) Result
 	fndeviceGetDefaultMemPool                            func(*MemoryPool, Device) Result
-	fndeviceGetDevResource                               func(Device, *[512]byte, DevResourceType) Result
+	fndeviceGetDevResource                               func(Device, *DevResource, DevResourceType) Result
 	fndeviceGetExecAffinitySupport                       func(*int32, ExecAffinityType, Device) Result
 	fndeviceGetGraphMemAttribute                         func(Device, GraphmemAttribute, unsafe.Pointer) Result
 	fndeviceGetHostAtomicCapabilities                    func(*uint32, *AtomicOperation, uint32, Device) Result
@@ -214,7 +214,7 @@ var (
 	fngraphicsUnregisterResource                         func(GraphicsResource) Result
 	fngreenCtxCreate                                     func(*GreenCtx, DevResourceDesc, Device, uint32) Result
 	fngreenCtxDestroy                                    func(GreenCtx) Result
-	fngreenCtxGetDevResource                             func(GreenCtx, *[512]byte, DevResourceType) Result
+	fngreenCtxGetDevResource                             func(GreenCtx, *DevResource, DevResourceType) Result
 	fngreenCtxGetId                                      func(GreenCtx, *uint64) Result
 	fngreenCtxRecordEvent                                func(GreenCtx, Event) Result
 	fngreenCtxStreamCreate                               func(*Stream, GreenCtx, uint32, int32) Result
@@ -412,7 +412,7 @@ var (
 	fnstreamGetAttribute                                 func(Stream, int32, *[8]uint64) Result
 	fnstreamGetCaptureInfo                               func(Stream, *StreamCaptureStatus, *uint64, *Graph, uintptr, uintptr, *uint) Result
 	fnstreamGetCtx                                       func(Stream, *Context, *GreenCtx) Result
-	fnstreamGetDevResource                               func(Stream, *[512]byte, DevResourceType) Result
+	fnstreamGetDevResource                               func(Stream, *DevResource, DevResourceType) Result
 	fnstreamGetDevice                                    func(Stream, *Device) Result
 	fnstreamGetFlags                                     func(Stream, *uint32) Result
 	fnstreamGetGreenCtx                                  func(Stream, *GreenCtx) Result
@@ -1289,17 +1289,22 @@ func ctxGetCurrent() (Context, error) {
 // Get the type resources available to the context represented by hCtx
 //
 //   - hCtx: Context to get resource for Note: The API is not supported on 32-bit platforms
-//   - resource: Output pointer to a CUdevResource structure
 //   - type_: Type of resource to retrieve
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuCtxGetDevResource.
-func ctxGetDevResource(hCtx Context, resource *[512]byte, type_ DevResourceType) error {
+func ctxGetDevResource(hCtx Context, type_ DevResourceType) (DevResource, error) {
 	if err := checkLibSym("cuCtxGetDevResource"); err != nil {
-		return err
+		var zero DevResource
+		return zero, err
 	}
-	return toError(fnctxGetDevResource(hCtx, resource, type_))
+	var out DevResource
+	if err := toError(fnctxGetDevResource(hCtx, &out, type_)); err != nil {
+		var zero DevResource
+		return zero, err
+	}
+	return out, nil
 }
 
 // CtxGetDevice Returns the device handle for the current context.
@@ -1669,7 +1674,7 @@ func destroyExternalSemaphore(extSem ExternalSemaphore) error {
 // See also: [DevSmResourceSplitByCount]
 //
 // Wraps cuDevResourceGenerateDesc.
-func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *[512]byte, nbResources uint32) error {
+func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *DevResource, nbResources uint32) error {
 	if err := checkLibSym("cuDevResourceGenerateDesc"); err != nil {
 		return err
 	}
@@ -1696,7 +1701,7 @@ func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *[512]byte, nbRe
 // This evaluation order is important to consider when using discovery mode, as it helps discover the remaining SMs.
 //
 // For a valid call:
-// - result should point to a CUdevResource array of size nbGroups, or alternatively, may be NULL, if the developer wishes for only the groupParams entries to be updated
+// - result should point to a [DevResource] array of size nbGroups, or alternatively, may be NULL, if the developer wishes for only the groupParams entries to be updated
 //
 // - input should be a valid [DevResourceTypeSm] resource that originates from querying the green context, device context, or device.
 //
@@ -1731,7 +1736,7 @@ func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *[512]byte, nbRe
 // Splitting an input into N groups, can be accomplished by repeatedly splitting off 1 group and re-splitting
 // the remainder (a bisect operation). However, it's recommended to accomplish this with a single call wherever possible.
 //
-//   - result: Output array of CUdevResource resources. Can be NULL, alongside an smCount of 0, for discovery purpose
+//   - result: Output array of [DevResource] resources. Can be NULL, alongside an smCount of 0, for discovery purpose
 //   - nbGroups: Specifies the number of groups in result and groupParams
 //   - input: Input SM resource to be split. Must be a valid [DevResourceTypeSm] resource
 //   - remainder: If splitting the input resource leaves any SMs, the remainder is placed in here
@@ -1741,7 +1746,7 @@ func DevResourceGenerateDesc(phDesc *DevResourceDesc, resources *[512]byte, nbRe
 // See also: [GreenCtx.GetDevResource], [Context.GetDevResource], [Device.GetDevResource]
 //
 // Wraps cuDevSmResourceSplit.
-func DevSmResourceSplit(result *[512]byte, nbGroups uint32, input *[512]byte, remainder *[512]byte, flags uint32, groupParams *CuDevSmResourceGroupParams) error {
+func DevSmResourceSplit(result *DevResource, nbGroups uint32, input *DevResource, remainder *DevResource, flags uint32, groupParams *CuDevSmResourceGroupParams) error {
 	if err := checkLibSym("cuDevSmResourceSplit"); err != nil {
 		return err
 	}
@@ -1787,7 +1792,7 @@ func DevSmResourceSplit(result *[512]byte, nbGroups uint32, input *[512]byte, re
 //
 // Note: The API is not supported on 32-bit platforms.
 //
-//   - result: Output array of CUdevResource resources. Can be NULL to query the number of groups
+//   - result: Output array of [DevResource] resources. Can be NULL to query the number of groups
 //   - nbGroups: This is a pointer, specifying the number of groups that would be or should be created as described below
 //   - input: Input SM resource to be split. Must be a valid [DevResourceTypeSm] resource
 //   - remainder: If the input resource cannot be cleanly split among nbGroups, the remainder is placed in here. Can be ommitted (NULL) if the user does not need the remaining set
@@ -1797,7 +1802,7 @@ func DevSmResourceSplit(result *[512]byte, nbGroups uint32, input *[512]byte, re
 // See also: [GreenCtx.GetDevResource], [Context.GetDevResource], [Device.GetDevResource]
 //
 // Wraps cuDevSmResourceSplitByCount.
-func DevSmResourceSplitByCount(result *[512]byte, nbGroups *uint32, input *[512]byte, remainder *[512]byte, flags uint32, minCount uint32) error {
+func DevSmResourceSplitByCount(result *DevResource, nbGroups *uint32, input *DevResource, remainder *DevResource, flags uint32, minCount uint32) error {
 	if err := checkLibSym("cuDevSmResourceSplitByCount"); err != nil {
 		return err
 	}
@@ -1941,17 +1946,22 @@ func deviceGetDefaultMemPool(dev Device) (MemoryPool, error) {
 // Note: The API is not supported on 32-bit platforms.
 //
 //   - device: Device to get resource for
-//   - resource: Output pointer to a CUdevResource structure
 //   - type_: Type of resource to retrieve
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuDeviceGetDevResource.
-func deviceGetDevResource(device Device, resource *[512]byte, type_ DevResourceType) error {
+func deviceGetDevResource(device Device, type_ DevResourceType) (DevResource, error) {
 	if err := checkLibSym("cuDeviceGetDevResource"); err != nil {
-		return err
+		var zero DevResource
+		return zero, err
 	}
-	return toError(fndeviceGetDevResource(device, resource, type_))
+	var out DevResource
+	if err := toError(fndeviceGetDevResource(device, &out, type_)); err != nil {
+		var zero DevResource
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetExecAffinitySupport Returns information about the execution affinity support of the device.
@@ -4548,17 +4558,22 @@ func greenCtxDestroy(hCtx GreenCtx) error {
 // Get the type resources available to the green context represented by hCtx
 //
 //   - hCtx: Green context to get resource for
-//   - resource: Output pointer to a CUdevResource structure
 //   - type_: Type of resource to retrieve
 //
 // See also: [DevResourceGenerateDesc]
 //
 // Wraps cuGreenCtxGetDevResource.
-func greenCtxGetDevResource(hCtx GreenCtx, resource *[512]byte, type_ DevResourceType) error {
+func greenCtxGetDevResource(hCtx GreenCtx, type_ DevResourceType) (DevResource, error) {
 	if err := checkLibSym("cuGreenCtxGetDevResource"); err != nil {
-		return err
+		var zero DevResource
+		return zero, err
 	}
-	return toError(fngreenCtxGetDevResource(hCtx, resource, type_))
+	var out DevResource
+	if err := toError(fngreenCtxGetDevResource(hCtx, &out, type_)); err != nil {
+		var zero DevResource
+		return zero, err
+	}
+	return out, nil
 }
 
 // greenCtxGetId Returns the unique Id associated with the green context supplied
@@ -8458,17 +8473,22 @@ func streamGetCtx(hStream Stream) (pCtx Context, pGreenCtx GreenCtx, err error) 
 // [DevResourceTypeWorkqueueConfig] or [DevResourceTypeWorkqueue].
 //
 //   - hStream: Stream to get resource for
-//   - resource: Output pointer to a CUdevResource structure
 //   - type_: Type of resource to retrieve
 //
 // See also: [NewGreenCtx], [GreenCtx.StreamCreate], [NewStream], [DevSmResourceSplitByCount], [DevResourceGenerateDesc]
 //
 // Wraps cuStreamGetDevResource.
-func streamGetDevResource(hStream Stream, resource *[512]byte, type_ DevResourceType) error {
+func streamGetDevResource(hStream Stream, type_ DevResourceType) (DevResource, error) {
 	if err := checkLibSym("cuStreamGetDevResource"); err != nil {
-		return err
+		var zero DevResource
+		return zero, err
 	}
-	return toError(fnstreamGetDevResource(hStream, resource, type_))
+	var out DevResource
+	if err := toError(fnstreamGetDevResource(hStream, &out, type_)); err != nil {
+		var zero DevResource
+		return zero, err
+	}
+	return out, nil
 }
 
 // streamGetDevice Returns the device handle of the stream.

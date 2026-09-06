@@ -1020,3 +1020,14 @@ type StreamAttrValueV1 struct {
 
 // LaunchAttributeValue is an alias for StreamAttrValueV1.
 type LaunchAttributeValue = StreamAttrValueV1
+
+// DevResource represents CUdevResource_v1.
+type DevResource struct {
+	Type            DevResourceType
+	InternalPadding [92]uint8
+	AnonymousUnion  [10]uint32
+	NextResource    uintptr
+}
+
+// DevResourceV1 is an alias for DevResource.
+type DevResourceV1 = DevResource
