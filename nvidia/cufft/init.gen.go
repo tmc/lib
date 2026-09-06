@@ -337,7 +337,7 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
-// registerFuncs binds all function pointers to their library symbols.
+// registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnCreate, "cufftCreate")
 	register(&fndestroy, "cufftDestroy")
@@ -376,7 +376,7 @@ func registerFuncs() {
 	register(&fnsetWorkArea, "cufftSetWorkArea")
 }
 
-// clearFuncs unbinds all function pointers.
+// clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnCreate = nil
 	fndestroy = nil

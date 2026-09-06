@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-06",
-  "scope": "Generation inputs are recorded for 20 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, fabricmanager, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. cufft is recorded as hand-edited rather than generated; see its hand_edits. The remaining packages remain in scope and are not yet recorded.",
+  "scope": "Generation inputs are recorded for 20 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, fabricmanager, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. The remaining packages remain in scope and are not yet recorded.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -3767,8 +3767,45 @@
     },
     "cufft": {
       "package": "github.com/tmc/lib/nvidia/cufft",
-      "status": "hand-edited-not-reproducible",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "29b70dfd036bc73c9e84c727bd1d3d6e9ff82636",
+          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; cufft/cufft.h was clean and its sha256 below is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cufft/cufft.h",
+        "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
+      },
       "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "cufft",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "cufft"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/cufft/doc.gen.go",
@@ -3776,15 +3813,15 @@
           },
           {
             "path": "nvidia/cufft/enums.gen.go",
-            "sha256": "ab39efa7f8cd8ff4eae1794fd069689d6eef2de52e984646fbcfe12a09c5e65f"
+            "sha256": "6a19e06e3af9cbc051e442482a0aeb25fa66ad89558c6621aa689bbf59d12837"
           },
           {
             "path": "nvidia/cufft/funcs.gen.go",
-            "sha256": "4c3c8af8523e1611fb5c1141c7027689a743f80d3e700373ca785273333a013e"
+            "sha256": "9bc513f94840e2f2ae4360092017d5a312537b6edd6b6f33670a9eaf8707bdd8"
           },
           {
             "path": "nvidia/cufft/handle.gen.go",
-            "sha256": "89ef8f6ef7d8d70c1e41568e4b25d8e10a837db3ef36745829b698faef00582b"
+            "sha256": "88b9c70b90af33fa44a8be3a7e9ab1ae5587917c6684ba3681a113a985faee92"
           },
           {
             "path": "nvidia/cufft/handles.gen.go",
@@ -3792,7 +3829,7 @@
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "0aa86bb300fb638ea4787205e1ede09140e3bd30e5e8a5b6396f14a5100bc7e8"
+            "sha256": "c3c37e07e66f246f86bbfdef3398f415bbaa44db15d9e5fb11e542f3acfa5d57"
           },
           {
             "path": "nvidia/cufft/layout_test.go",
@@ -3819,30 +3856,10 @@
             "sha256": "f9332d87fabeb5b2b5564126aed8bb5c68cb0fcdb0c2eed62fcdeaee6ae1726e"
           }
         ],
-        "comparison": "Not reproducible. gen-nvidia -api=cufft does not emit these files; see hand_edits."
+        "comparison": "All 12 outputs regenerated into the committed package; gen.CheckAPIRemoval passed, so no exported declaration was dropped.",
+        "note": "Vendor archive provenance is not recorded for this package: no retained libcufft archive or redistribution manifest identity was established."
       },
-      "hand_edits": [
-        {
-          "path": "nvidia/cufft/init.gen.go",
-          "declarations": [
-            "LibraryAttempt",
-            "LibraryError",
-            "LibraryError.Error",
-            "LibraryError.Unwrap",
-            "newLibraryError",
-            "pkgConfigHint"
-          ],
-          "reason": "The LibraryError loader was ported by hand from internal/ffigen, which emits it; contrib/cuda, the generator that owns cufft, does not. Regenerating deletes the four exported names, and gen.CheckAPIRemoval correctly refuses."
-        },
-        {
-          "path": "nvidia/cufft/init.gen.go",
-          "declarations": [
-            "bindSymbol"
-          ],
-          "reason": "Added by hand so purego.RegisterFunc cannot panic out of package init. The text is verbatim what contrib/cuda emits; it is applied here because the API-removal guard blocks the regeneration that would supply it."
-        }
-      ],
-      "note": "Recorded to pin the hand-edited state, not to describe a reproducible generation. The outputs above are hashes of the committed files as they stand. This entry becomes a normal generation record once contrib/cuda emits the LibraryError loader and the package is regenerated."
+      "note": "cufft previously carried a hand-ported LibraryError loader that no generator commit could produce, which made it unregenerable. contrib/cuda now emits it behind APIConfig.LibraryError, and this entry records the first generation that reproduces the package."
     }
   }
 }

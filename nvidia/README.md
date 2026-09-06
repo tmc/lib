@@ -87,15 +87,17 @@ otherwise they fall back to the Go constant name and numeric code.
 
 ## Regenerating
 
-`cufft/init.gen.go` carries hand-written declarations -- `LibraryError`,
-`LibraryAttempt` and their helpers -- that no generator commit produces. The
-generator's API-removal check refuses to regenerate the package for that
-reason, and the refusal is correct: regenerating cufft today would delete that
-error type and the loader code that returns it. Do not pass
-`-allow-api-removal` to get past it. The package can be regenerated once
-`contrib/cuda` emits the loader that `internal/ffigen` already emits, or once
-those declarations are moved into a maintained file beside the generated ones,
-which the check does not read.
+`cufft/init.gen.go` used to carry hand-written declarations -- `LibraryError`,
+`LibraryAttempt` and their helpers -- that no generator commit produced, so the
+API-removal check refused to regenerate the package rather than delete them.
+`contrib/cuda` now emits those declarations behind `APIConfig.LibraryError`,
+which cufft sets, and the package regenerates normally.
+
+Moving such declarations into a maintained file beside the generated ones is
+not the fix it appears to be. The check does not read those files, so the
+regeneration succeeds and the package still builds, vets and tests -- but the
+regenerated loader no longer returns the type, so `errors.As` stops matching it
+with nothing to say so. Teach the generator to emit what the person wrote.
 
 `-allow-api-removal` is for a removal or rename you intend and will review in
 the diff, such as regenerating nccl to pick up the `HascommInitAll` ->
