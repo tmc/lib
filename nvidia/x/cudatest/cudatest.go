@@ -42,17 +42,26 @@ func MinVRAM(bytes uint64) Requirement {
 }
 
 // Require asserts that a suitable CUDA device meeting all requirements is available.
-// If the CUDA driver is not available or no device satisfies the requirements, the test is skipped.
+// If this machine has no CUDA driver, or no device satisfies the requirements,
+// the test is skipped. A driver that is present but fails to initialize is a
+// failure, not a skip.
 func Require(t testing.TB, reqs ...Requirement) *cuda.Device {
 	t.Helper()
 
-	if err := cuda.Init(); err != nil {
+	if err := driver.Load(""); err != nil {
 		t.Skipf("skipping test: CUDA driver not available: %v", err)
 		return nil
 	}
+	// Past this point libcuda is present, so every remaining failure is real.
+	if err := cuda.Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
+	}
 
 	count, err := cuda.DeviceCount()
-	if err != nil || count == 0 {
+	if err != nil {
+		t.Fatalf("cuDeviceGetCount failed after cuInit succeeded: %v", err)
+	}
+	if count == 0 {
 		t.Skipf("skipping test: no CUDA devices available")
 		return nil
 	}
