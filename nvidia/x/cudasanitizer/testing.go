@@ -105,6 +105,8 @@ func isChild(args []string) bool {
 // that no sanitizer validation took place. Main never reports success for
 // validation that did not happen.
 //
+// Config.Timeout also bounds the preliminary tool version query.
+//
 // Main writes its own diagnostics to stderr and passes the child's output
 // through to the parent's stdout and stderr as it is produced.
 func Main(m *testing.M, cfg Config) int {
@@ -141,6 +143,12 @@ func main1(ctx context.Context, osArgs []string, cfg Config, run func() int, dia
 		logf("refusing to launch compute-sanitizer again rather than re-executing forever.")
 		logf("unset %s if it was inherited from an unrelated run.", ActiveEnv)
 		return 2
+	}
+
+	if cfg.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+		defer cancel()
 	}
 
 	toolPath, err := LookTool(cfg.Path)
