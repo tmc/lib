@@ -343,12 +343,15 @@ func registerFuncs() {
 	register(&fnMatrixGetBatchCsr, "cudssMatrixGetBatchCsr")
 	register(&fnMatrixGetBatchDn, "cudssMatrixGetBatchDn")
 	register(&fnMatrixGetCsr, "cudssMatrixGetCsr")
+	register(&fnMatrixGetDistributionRow1d, "cudssMatrixGetDistributionRow1d")
 	register(&fnMatrixGetDn, "cudssMatrixGetDn")
 	register(&fnMatrixGetFormat, "cudssMatrixGetFormat")
 	register(&fnMatrixSetBatchCsrPointers, "cudssMatrixSetBatchCsrPointers")
 	register(&fnMatrixSetBatchValues, "cudssMatrixSetBatchValues")
 	register(&fnMatrixSetCsrPointers, "cudssMatrixSetCsrPointers")
+	register(&fnMatrixSetDistributionRow1d, "cudssMatrixSetDistributionRow1d")
 	register(&fnMatrixSetValues, "cudssMatrixSetValues")
+	register(&fnSetCommLayer, "cudssSetCommLayer")
 	register(&fnSetDeviceMemHandler, "cudssSetDeviceMemHandler")
 	register(&fnSetMgStreams, "cudssSetMgStreams")
 	register(&fnSetStream, "cudssSetStream")
@@ -384,12 +387,15 @@ func clearFuncs() {
 	fnMatrixGetBatchCsr = nil
 	fnMatrixGetBatchDn = nil
 	fnMatrixGetCsr = nil
+	fnMatrixGetDistributionRow1d = nil
 	fnMatrixGetDn = nil
 	fnMatrixGetFormat = nil
 	fnMatrixSetBatchCsrPointers = nil
 	fnMatrixSetBatchValues = nil
 	fnMatrixSetCsrPointers = nil
+	fnMatrixSetDistributionRow1d = nil
 	fnMatrixSetValues = nil
+	fnSetCommLayer = nil
 	fnSetDeviceMemHandler = nil
 	fnSetMgStreams = nil
 	fnSetStream = nil
@@ -531,6 +537,11 @@ func HasMatrixGetCsr() bool {
 	return Has("cudssMatrixGetCsr")
 }
 
+// HasMatrixGetDistributionRow1d reports whether cudssMatrixGetDistributionRow1d resolved in the loaded library.
+func HasMatrixGetDistributionRow1d() bool {
+	return Has("cudssMatrixGetDistributionRow1d")
+}
+
 // HasMatrixGetDn reports whether cudssMatrixGetDn resolved in the loaded library.
 func HasMatrixGetDn() bool {
 	return Has("cudssMatrixGetDn")
@@ -556,9 +567,19 @@ func HasMatrixSetCsrPointers() bool {
 	return Has("cudssMatrixSetCsrPointers")
 }
 
+// HasMatrixSetDistributionRow1d reports whether cudssMatrixSetDistributionRow1d resolved in the loaded library.
+func HasMatrixSetDistributionRow1d() bool {
+	return Has("cudssMatrixSetDistributionRow1d")
+}
+
 // HasMatrixSetValues reports whether cudssMatrixSetValues resolved in the loaded library.
 func HasMatrixSetValues() bool {
 	return Has("cudssMatrixSetValues")
+}
+
+// HasSetCommLayer reports whether cudssSetCommLayer resolved in the loaded library.
+func HasSetCommLayer() bool {
+	return Has("cudssSetCommLayer")
 }
 
 // HasSetDeviceMemHandler reports whether cudssSetDeviceMemHandler resolved in the loaded library.

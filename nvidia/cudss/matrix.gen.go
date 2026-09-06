@@ -45,6 +45,11 @@ func (m Matrix) GetCsr(nrows *int64, ncols *int64, nnz *int64, rowStart *uintptr
 	return MatrixGetCsr(m, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase)
 }
 
+// GetDistributionRow1d wraps cudssMatrixGetDistributionRow1d.
+func (m Matrix) GetDistributionRow1d(firstRow *int64, lastRow *int64) error {
+	return MatrixGetDistributionRow1d(m, firstRow, lastRow)
+}
+
 // GetDn wraps cudssMatrixGetDn.
 func (m Matrix) GetDn(nrows *int64, ncols *int64, ld *int64, values *uintptr, type_ *DataType, layout *Layout) error {
 	return MatrixGetDn(m, nrows, ncols, ld, values, type_, layout)
@@ -68,6 +73,11 @@ func (m Matrix) SetBatchValues(values *uintptr) error {
 // SetCsrPointers wraps cudssMatrixSetCsrPointers.
 func (m Matrix) SetCsrPointers(rowOffsets uintptr, rowEnd uintptr, colIndices uintptr, values uintptr) error {
 	return MatrixSetCsrPointers(m, rowOffsets, rowEnd, colIndices, values)
+}
+
+// SetDistributionRow1d wraps cudssMatrixSetDistributionRow1d.
+func (m Matrix) SetDistributionRow1d(firstRow int64, lastRow int64) error {
+	return MatrixSetDistributionRow1d(m, firstRow, lastRow)
 }
 
 // SetValues wraps cudssMatrixSetValues.

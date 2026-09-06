@@ -39,8 +39,8 @@
 // the library; the first call does. A symbol absent from the installed version
 // reports *SymbolError rather than panicking.
 //
-// Multi-GPU multi-node (MGMN) mode is not bound. See the [cuDSS documentation]
-// for the distributed and threading layer interfaces.
+// Multi-GPU and multi-node setup APIs are bound; distributed execution requires
+// a compatible communication layer and topology. See the [cuDSS documentation].
 //
 // # Solver configuration and data
 //
@@ -55,6 +55,7 @@
 //   - [NewHandleMg].
 //   - [Handle.Destroy].
 //   - [GetProperty].
+//   - [Handle.SetCommLayer].
 //   - [Handle.SetDeviceMemHandler].
 //   - [Handle.SetMgStreams].
 //   - [Handle.SetStream].
@@ -86,11 +87,13 @@
 //   - [Matrix.GetBatchCsr].
 //   - [Matrix.GetBatchDn].
 //   - [Matrix.GetCsr].
+//   - [Matrix.GetDistributionRow1d].
 //   - [Matrix.GetDn].
 //   - [Matrix.GetFormat].
 //   - [Matrix.SetBatchCsrPointers].
 //   - [Matrix.SetBatchValues].
 //   - [Matrix.SetCsrPointers].
+//   - [Matrix.SetDistributionRow1d].
 //   - [Matrix.SetValues].
 //
 // [cuDSS documentation]: https://docs.nvidia.com/cuda/cudss/
