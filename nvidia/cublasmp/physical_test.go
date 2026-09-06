@@ -167,7 +167,11 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrimaryCtxRetain: %v", err)
 	}
-	defer device.PrimaryCtxRelease()
+	defer func() {
+		if err := device.PrimaryCtxRelease(); err != nil {
+			t.Errorf("release primary context: %v", err)
+		}
+	}()
 	if err := ctx.SetCurrent(); err != nil {
 		t.Fatalf("SetCurrent: %v", err)
 	}
@@ -176,7 +180,11 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nccl.NewCommInitRank: %v", err)
 	}
-	defer comm.Destroy()
+	defer func() {
+		if err := comm.Destroy(); err != nil {
+			t.Errorf("destroy communicator: %v", err)
+		}
+	}()
 
 	// A 1 x size grid puts rank r in process column r under either layout, so
 	// the local tile this test builds does not depend on the layout
@@ -192,13 +200,21 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGrid: %v", err)
 	}
-	defer grid.Destroy()
+	defer func() {
+		if err := grid.Destroy(); err != nil {
+			t.Errorf("destroy grid: %v", err)
+		}
+	}()
 
 	handle, err := cublasmp.NewHandle(cublas.Stream(0))
 	if err != nil {
 		t.Fatalf("NewHandle: %v", err)
 	}
-	defer handle.Destroy()
+	defer func() {
+		if err := handle.Destroy(); err != nil {
+			t.Errorf("destroy handle: %v", err)
+		}
+	}()
 
 	rank := int64(j.rank)
 	colsA := numroc(m, nb, rank, 0, npcol)
@@ -233,32 +249,59 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 			t.Fatalf("allocate %s: %v", name, err)
 		}
 		if err := ptr.MemcpyHtoD(unsafe.Pointer(&values[0]), bytes); err != nil {
+			if freeErr := ptr.MemFree(); freeErr != nil {
+				t.Errorf("free %s after upload failure: %v", name, freeErr)
+			}
 			t.Fatalf("upload %s: %v", name, err)
 		}
 		return ptr
 	}
 	deviceA := upload("A", hostA)
-	defer deviceA.MemFree()
+	defer func() {
+		if err := deviceA.MemFree(); err != nil {
+			t.Errorf("free device A: %v", err)
+		}
+	}()
 	deviceB := upload("B", hostB)
-	defer deviceB.MemFree()
+	defer func() {
+		if err := deviceB.MemFree(); err != nil {
+			t.Errorf("free device B: %v", err)
+		}
+	}()
 	deviceC := upload("C", hostC)
-	defer deviceC.MemFree()
+	defer func() {
+		if err := deviceC.MemFree(); err != nil {
+			t.Errorf("free device C: %v", err)
+		}
+	}()
 
 	descA, err := cublasmp.NewMatrixDescriptor(m, m, mb, nb, 0, 0, m, cublas.R32F, grid)
 	if err != nil {
 		t.Fatalf("descriptor A: %v", err)
 	}
-	defer descA.Destroy()
+	defer func() {
+		if err := descA.Destroy(); err != nil {
+			t.Errorf("destroy descriptor A: %v", err)
+		}
+	}()
 	descB, err := cublasmp.NewMatrixDescriptor(m, n, mb, nb, 0, 0, m, cublas.R32F, grid)
 	if err != nil {
 		t.Fatalf("descriptor B: %v", err)
 	}
-	defer descB.Destroy()
+	defer func() {
+		if err := descB.Destroy(); err != nil {
+			t.Errorf("destroy descriptor B: %v", err)
+		}
+	}()
 	descC, err := cublasmp.NewMatrixDescriptor(m, n, mb, nb, 0, 0, m, cublas.R32F, grid)
 	if err != nil {
 		t.Fatalf("descriptor C: %v", err)
 	}
-	defer descC.Destroy()
+	defer func() {
+		if err := descC.Destroy(); err != nil {
+			t.Errorf("destroy descriptor C: %v", err)
+		}
+	}()
 
 	alpha, beta := float32(1), float32(0)
 	var pins runtime.Pinner
@@ -286,7 +329,11 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 		if err != nil {
 			t.Fatalf("allocate device workspace: %v", err)
 		}
-		defer driver.DevicePtr(deviceWork).MemFree()
+		defer func() {
+			if err := driver.DevicePtr(deviceWork).MemFree(); err != nil {
+				t.Errorf("free device workspace: %v", err)
+			}
+		}()
 	}
 	hostWork := make([]byte, hostBytes+1)
 	pins.Pin(&hostWork[0])
