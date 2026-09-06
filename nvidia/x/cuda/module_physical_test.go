@@ -2,16 +2,34 @@ package cuda
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// TestModuleOwnership needs a real device. It used to be gated on
+// CUDA_MODULE_TEST=1, whose skip message read "requires a CUDA device" -- which
+// is a probe an env var cannot perform, and the reason it was never run by
+// default even on a machine that has one. It probes instead.
+//
+// This file is in package cuda, and cudatest imports cuda, so the shared
+// helper is unreachable from here; the guard is inlined the same way the
+// lifetime tests in this package inline theirs. Loading the driver is what
+// separates absent from present, and a failure past that point is real.
 func TestModuleOwnership(t *testing.T) {
-	if os.Getenv("CUDA_MODULE_TEST") != "1" {
-		t.Skip("CUDA_MODULE_TEST=1 requires a CUDA device")
+	if err := driver.Load(""); err != nil {
+		t.Skipf("skipping test: CUDA driver not available: %v", err)
+	}
+	if err := Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
+	}
+	count, err := DeviceCount()
+	if err != nil {
+		t.Fatalf("cuDeviceGetCount failed after cuInit succeeded: %v", err)
+	}
+	if count == 0 {
+		t.Skip("skipping test: no CUDA devices available")
 	}
 	check := func(err error) {
 		t.Helper()
@@ -21,6 +39,15 @@ func TestModuleOwnership(t *testing.T) {
 	}
 	dev, err := NewDevice(0)
 	check(err)
+	// The kernel below is PTX with an explicit .target, so it will not load on
+	// a device older than that. This is a property of the fixture rather than
+	// of the code under test, and skipping names it.
+	if major, minor, err := dev.ComputeCapability(); err != nil {
+		t.Fatal(err)
+	} else if major < 9 {
+		_ = dev.Close()
+		t.Skipf("skipping test: embedded PTX targets sm_90, device is sm_%d%d", major, minor)
+	}
 	defer func() {
 		if err := dev.Close(); err != nil {
 			t.Error(err)

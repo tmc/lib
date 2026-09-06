@@ -5,15 +5,11 @@ package cudamem
 import (
 	"context"
 	"errors"
-	"os"
 	"slices"
 	"testing"
 )
 
 func TestPinnedTransferCUDA(t *testing.T) {
-	if os.Getenv("CUDA_TRANSFER_TEST") != "1" {
-		t.Skip("CUDA_TRANSFER_TEST=1 required")
-	}
 	dev := testDevice(t)
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -106,9 +102,6 @@ func TestPinnedTransferCUDA(t *testing.T) {
 }
 
 func TestTransferLeaseCUDA(t *testing.T) {
-	if os.Getenv("CUDA_TRANSFER_TEST") != "1" {
-		t.Skip("CUDA_TRANSFER_TEST=1 required")
-	}
 	dev := testDevice(t)
 	stream, err := dev.NewStream()
 	if err != nil {
