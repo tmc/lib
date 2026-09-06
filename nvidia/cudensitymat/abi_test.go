@@ -95,6 +95,7 @@ func TestEnumWidth(t *testing.T) {
 	}{
 		{"Result", unsafe.Sizeof(Result(0))},
 		{"ComputeType", unsafe.Sizeof(ComputeType(0))},
+		{"DistributedProvider", unsafe.Sizeof(DistributedProvider(0))},
 		{"CallbackDevice", unsafe.Sizeof(CallbackDevice(0))},
 		{"DifferentiationDir", unsafe.Sizeof(DifferentiationDir(0))},
 		{"StatePurity", unsafe.Sizeof(StatePurity(0))},
@@ -119,6 +120,11 @@ func TestEnumValues(t *testing.T) {
 		got  int32
 		want int32
 	}{
+		// cudensitymatDistributedProvider_t from the pinned header.
+		{"DistributedProviderNone", int32(DistributedProviderNone), 0},
+		{"DistributedProviderMpi", int32(DistributedProviderMpi), 1},
+		{"DistributedProviderNccl", int32(DistributedProviderNccl), 2},
+
 		// cudensitymatComputeType_t, defined as bit flags.
 		{"Compute32F", int32(Compute32F), 1 << 2},
 		{"Compute64F", int32(Compute64F), 1 << 4},
