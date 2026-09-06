@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"os"
 	"runtime"
+	"strconv"
 	"testing"
 	"unsafe"
 
@@ -51,7 +52,7 @@ func TestBuildFatbinAndRun(t *testing.T) {
 	if err := dev.ComputeCapability(&major, &minor); err != nil {
 		t.Fatalf("compute capability: %v", err)
 	}
-	arch := string(rune('0'+major)) + string(rune('0'+minor))
+	arch := strconv.Itoa(int(major)) + strconv.Itoa(int(minor))
 	ctx, err := dev.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("retain primary context: %v", err)
