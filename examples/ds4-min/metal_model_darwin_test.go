@@ -380,6 +380,11 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 			runPinnedRopeAtPosition(t, ops, bind, posOracle, pinnedOraclePosition(t))
 		})
 	}
+	if dir := os.Getenv("DS4_COMPRESSOR_ORACLE_DIR"); dir != "" {
+		t.Run("compressor-state", func(t *testing.T) {
+			runPinnedCompressorState(t, ops, bind, dir, pinnedCompressorRun(t))
+		})
+	}
 	if transitionRoot != "" && allLayersOracle == "" {
 		layer1 := runPinnedHashLayer(t, ops, bind, hcFFN, 1, transitionRoot+"/layer-1")
 		layer2 := runPinnedHashLayer(t, ops, bind, layer1, 2, transitionRoot+"/layer-2")
@@ -1210,5 +1215,100 @@ func runPinnedRopeAtPosition(t *testing.T, ops *metalPinnedOps, bind func(string
 			compareOracleF32(t, "Qcur", qCur, oracle("Qcur"))
 			compareOracleFP8F32(t, "KVcur", kvCur, oracle("KVcur"))
 		})
+	}
+}
+
+// pinnedCompressorRun reports the last position of the compressor-state sweep.
+// The sweep needs a capture that dumped every position of one invocation, so it
+// is gated on its own variable rather than on the single-position oracle dir.
+func pinnedCompressorRun(t *testing.T) int {
+	t.Helper()
+	raw := os.Getenv("DS4_COMPRESSOR_ORACLE_LAST_POS")
+	if raw == "" {
+		t.Fatal("DS4_COMPRESSOR_ORACLE_LAST_POS must name the last position of the capture")
+	}
+	pos, err := strconv.Atoi(raw)
+	if err != nil || pos <= 0 {
+		t.Fatalf("DS4_COMPRESSOR_ORACLE_LAST_POS = %q, want a positive position", raw)
+	}
+	return pos
+}
+
+// runPinnedCompressorState drives the production compressor across positions 0
+// through last and compares its state against the oracle after every position.
+// It is the only gate that measures compressor state past position 0: the state
+// is carried in a Metal buffer across calls, so a position-0 comparison cannot
+// reach the pooling that happens when a window closes.
+//
+// Each position is teacher-forced from that position's own captured
+// comp_kv_raw and comp_score_raw, so a divergence here is the compressor's and
+// not an inherited one from the projections that feed it. Every input and every
+// expectation comes from one invocation of the instrumented oracle.
+func runPinnedCompressorState(t *testing.T, ops *metalPinnedOps, bind func(string) boundMetalTensor, oracleDir string, last int) {
+	t.Helper()
+	for layer := 2; layer < 43; layer++ {
+		ratio, width, headDim := 4, 1024, 512
+		if layer%2 != 0 {
+			ratio, width, headDim = 128, 512, 512
+		}
+		lanes := []struct {
+			name    string
+			width   int
+			headDim int
+			indexer bool
+		}{{"attn", width, headDim, false}}
+		if ratio == 4 {
+			lanes = append(lanes, struct {
+				name    string
+				width   int
+				headDim int
+				indexer bool
+			}{"indexer", 256, 128, true})
+		}
+		for _, lane := range lanes {
+			t.Run(fmt.Sprintf("layer-%d-%s", layer, lane.name), func(t *testing.T) {
+				rows := ratio
+				if ratio == 4 {
+					rows = 2 * ratio
+				}
+				a := metalmem.NewArena(ops.dev)
+				defer a.Free()
+				state := metalCompressedState{
+					cache:      metalmem.AllocIn[float32](a, "cache", (last/ratio+2)*lane.headDim),
+					stateKV:    metalmem.AllocIn[float32](a, "state-kv", rows*lane.width),
+					stateScore: metalmem.AllocIn[float32](a, "state-score", rows*lane.width),
+					pooled:     metalmem.AllocIn[float32](a, "pooled", lane.headDim),
+					headDim:    lane.headDim,
+					width:      lane.width,
+					ratio:      ratio,
+					cap:        last/ratio + 2,
+				}
+				if err := a.Err(); err != nil {
+					t.Fatal(err)
+				}
+				resetCompressedState(&state)
+				prefix := fmt.Sprintf("blk.%d.%s_compressor_", layer, lane.name)
+				ape := bind(prefix + "ape.weight")
+				norm := bind(prefix + "norm.weight")
+				stage := func(name string, pos int) string {
+					return fmt.Sprintf("%s/stage_%s_%s-%d_pos%d.bin", oracleDir, lane.name, name, layer, pos)
+				}
+				for pos := 0; pos <= last; pos++ {
+					kv := readOracleF32(t, stage("comp_kv_raw", pos))
+					score := readOracleF32(t, stage("comp_score_raw", pos))
+					_, emitted, err := ops.compressor(kv, score, ape, norm, &state, pos, lane.indexer)
+					if err != nil {
+						t.Fatalf("position %d: %v", pos, err)
+					}
+					if emitted {
+						state.n++
+					}
+					what := fmt.Sprintf("%s_state_kv@%d", lane.name, pos)
+					compareOracleF32(t, what, append([]float32(nil), state.stateKV.HostSlice()...), stage("state_kv", pos))
+					what = fmt.Sprintf("%s_state_score@%d", lane.name, pos)
+					compareOracleMaskedF32(t, what, append([]float32(nil), state.stateScore.HostSlice()...), stage("state_score", pos))
+				}
+			})
+		}
 	}
 }
