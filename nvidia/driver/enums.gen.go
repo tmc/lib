@@ -4019,3 +4019,79 @@ func (e LogLevel) String() string {
 	}
 	return fmt.Sprintf("LogLevel(%d)", e)
 }
+
+// Driver Stream tokens from cuda.h.
+const (
+	StreamLegacy    Stream = 0x1
+	StreamPerThread Stream = 0x2
+)
+
+// Driver Device tokens from cuda.h.
+const (
+	DeviceCpu     Device = -1
+	DeviceInvalid Device = -2
+)
+
+// Driver uintptr tokens from cuda.h.
+const (
+	LaunchParamBufferPointer uintptr = LaunchParamBufferPointerAsInt
+	LaunchParamBufferSize    uintptr = LaunchParamBufferSizeAsInt
+	LaunchParamEnd           uintptr = LaunchParamEndAsInt
+)
+
+// Driver flags and numeric constants from cuda.h.
+const (
+	ArraySparsePropertiesSingleMiptail = 0x1
+	ComputeAcceleratedTargetBase       = 0x10000
+	ComputeFamilyTargetBase            = 0x20000
+	GraphCondAssignDefault             = 0x1
+	GraphKernelNodePortDefault         = 0
+	GraphKernelNodePortLaunchOrder     = 2
+	GraphKernelNodePortProgrammatic    = 1
+	LaunchKernelRequiredBlockDim       = 1
+	LaunchParamBufferPointerAsInt      = 0x01
+	LaunchParamBufferSizeAsInt         = 0x02
+	LaunchParamEndAsInt                = 0x00
+	MemhostallocDevicemap              = 0x02
+	MemhostallocPortable               = 0x01
+	MemhostallocWritecombined          = 0x04
+	MemhostregisterDevicemap           = 0x02
+	MemhostregisterIomemory            = 0x04
+	MemhostregisterPortable            = 0x01
+	MemhostregisterReadOnly            = 0x08
+	MemCreateUsageHwDecompress         = 0x2
+	MemCreateUsageTilePool             = 0x1
+	MemPoolCreateUsageHwDecompress     = 0x2
+	ParamTrDefault                     = -1
+	TrsaOverrideFormat                 = 0x01
+	TrsfDisableTrilinearOptimization   = 0x20
+	TrsfNormalizedCoordinates          = 0x02
+	TrsfReadAsInteger                  = 0x01
+	TrsfSeamlessCubemap                = 0x40
+	TrsfSrgb                           = 0x10
+)
+
+// Driver flags and numeric constants from cuda.h.
+const (
+	Array3dColorAttachment                       = 0x20
+	Array3dCubemap                               = 0x04
+	Array3dDeferredMapping                       = 0x80
+	Array3dDepthTexture                          = 0x10
+	Array3dLayered                               = 0x01
+	Array3dSparse                                = 0x40
+	Array3dSurfaceLdst                           = 0x02
+	Array3dTextureGather                         = 0x08
+	Array3dVideoEncodeDecode                     = 0x100
+	CooperativeLaunchMultiDeviceNoPostLaunchSync = 0x02
+	CooperativeLaunchMultiDeviceNoPreLaunchSync  = 0x01
+	ExternalMemoryDedicated                      = 0x1
+	ExternalSemaphoreSignalSkipNvscibufMemsync   = 0x01
+	ExternalSemaphoreWaitSkipNvscibufMemsync     = 0x02
+	NvscisyncAttrSignal                          = 0x1
+	NvscisyncAttrWait                            = 0x2
+)
+
+// Deprecated: use Array3dLayered.
+const (
+	Array3d2darray = 0x01
+)
