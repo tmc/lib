@@ -822,7 +822,20 @@ func compareOracleI32(t *testing.T, name string, got []int32, path string) {
 // unmeasured.
 func compareOracleMaskedF32(t *testing.T, name string, got []float32, path string) {
 	t.Helper()
-	live, err := maskedComparison(got, readOracleF32(t, path), oracleAtol, oracleRtol)
+	compareOracleMaskedF32Tolerance(t, name, got, path, oracleAtol, oracleRtol)
+}
+
+// frozenAtol and frozenRtol are the project's acceptance tolerance. They are
+// pre-registered: a gate that fails at these numbers is a finding, never a
+// reason to move them.
+const (
+	frozenAtol = 1e-4
+	frozenRtol = 1e-4
+)
+
+func compareOracleMaskedF32Tolerance(t *testing.T, name string, got []float32, path string, atol, rtol float64) {
+	t.Helper()
+	live, err := maskedComparison(got, readOracleF32(t, path), atol, rtol)
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
@@ -1304,9 +1317,9 @@ func runPinnedCompressorState(t *testing.T, ops *metalPinnedOps, bind func(strin
 						state.n++
 					}
 					what := fmt.Sprintf("%s_state_kv@%d", lane.name, pos)
-					compareOracleF32(t, what, append([]float32(nil), state.stateKV.HostSlice()...), stage("state_kv", pos))
+					compareOracleF32Tolerance(t, what, append([]float32(nil), state.stateKV.HostSlice()...), stage("state_kv", pos), frozenAtol, frozenRtol)
 					what = fmt.Sprintf("%s_state_score@%d", lane.name, pos)
-					compareOracleMaskedF32(t, what, append([]float32(nil), state.stateScore.HostSlice()...), stage("state_score", pos))
+					compareOracleMaskedF32Tolerance(t, what, append([]float32(nil), state.stateScore.HostSlice()...), stage("state_score", pos), frozenAtol, frozenRtol)
 				}
 			})
 		}
