@@ -50,8 +50,8 @@ behavior, not where a helper exists unwired.
 | Bounded scheduler step | Batched | Batched | `scheduledEngineAdapter.DecodeBatch` and `cudaServingBackend.DecodeBatch` take a slice of states. No longer serial across sequences. |
 | Distinct fused QKV and SwiGLU branches | Selected by an extracted plan | Selected by `FuseEGraph` | `ExecutePlan` consumes an immutable `ExecutionPlan` on Metal; the CUDA loop still branches on `cfg.FuseEGraph` in `gpuForwardPassStep`. |
 | Native 16-bit weight retention | Half-weight kernels, half-weight batched embedding, and `IsF16` over a `f16` plan dtype | Not established | `HalfWeightKernelsMSL` is compiled into the Metal library; no half path exists in `gpu_model_cuda.go`, `gpu_batch_cuda.go` or `forward.cu`. |
-| Matrix-oriented batched prefill | Implemented | Implemented | `RunLeasedBatchedLayerChain` over packed segments; `gpuBatchedPrefillPassKVMeasured` advances a causal history in prompt tiles, computing each layer for all rows before the next. Prefill no longer repeats token steps. |
-| Multi-sequence decode launch | Implemented | Implemented | `RunLeasedBatchedDecode`; `GPUForwardBatchKV` submits one shared-weight `[B,D]` transaction. |
+| Matrix-oriented batched prefill | Implemented | Implemented | `GPUBatchedPrefillPassKV` runs prefill through matrix GEMMs over `[T,D]` buffers; `gpuBatchedPrefillPassKVMeasured` advances a causal history in prompt tiles, computing each layer for all rows before the next. Prefill no longer repeats token steps. |
+| Multi-sequence decode launch | Implemented | Implemented | `RunLeasedBatchedDecode` and `RunLeasedBatchedLayerChain` execute one token per row across rows; `GPUForwardBatchKV` submits one shared-weight `[B,D]` transaction. |
 | Reusable deployment graph | Immutable plan, replayed | Not wired | `ExecutePlan` is authoritative on Metal. `nvidia/x/cudagraph` exists as a package but nothing in `examples/llama-infer` imports it. |
 | Hardware DRAM/FLOP counters | Unavailable in the current contract | Not wired into `gpuprof` | `gpuprof` computes estimates from declared dimensions and marks counter-backed observations unmeasured when absent. |
 
