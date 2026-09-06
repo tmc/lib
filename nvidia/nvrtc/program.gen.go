@@ -159,3 +159,15 @@ func (p Program) GetTileIR() ([]byte, error) {
 func (p Program) GetTileIRSize() (uint, error) {
 	return getTileIRSize(p)
 }
+
+// SetFlowCallback Registers a callback that can cancel program compilation.
+//
+// The callback has C signature int callback(void *payload, void *reserved). NVRTC passes the registered payload as the first argument and NULL as the reserved second argument. Return 0 to continue compilation or 1 to cancel; other return values are reserved. Once cancellation is requested, the callback must keep returning 1 for the remainder of the current [Program.Compile] invocation. The callback must be thread-safe and must not invoke any nvrtc, libnvvm, or PTX compiler API. Keep its trampoline and payload storage valid while registered and until all in-flight compilation has returned. Passing a uintptr does not retain or pin Go memory; use an opaque token or storage with an independently managed lifetime.
+//
+//   - callback: in Address of a callback with C signature int(void *, void *)
+//   - payload: in Opaque token or stable address passed to the callback; the caller owns its lifetime
+//
+// Wraps nvrtcSetFlowCallback.
+func (p Program) SetFlowCallback(callback uintptr, payload uintptr) error {
+	return setFlowCallback(p, callback, payload)
+}
