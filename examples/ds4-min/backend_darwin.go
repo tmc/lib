@@ -25,7 +25,7 @@ func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
 	if cfg.backend != "metal" {
 		return nil, nil, errors.New("cpu backend is limited to test fixtures")
 	}
-	r, err := newMetalRuntime(cfg.model, cfg.context)
+	r, err := newMetalRuntimeLogged(cfg.model, cfg.context, cfg.log)
 	if err != nil {
 		return nil, nil, err
 	}

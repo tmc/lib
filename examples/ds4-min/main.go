@@ -34,6 +34,7 @@ type config struct {
 	prompt  []byte
 	context int
 	tokens  int
+	log     io.Writer
 }
 
 func main() {
@@ -67,6 +68,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err := validatePinnedProfile(g); err != nil {
 		return fmt.Errorf("model profile: %w", err)
 	}
+	cfg.log = stderr
 	tok, err := newTokenizer(g)
 	if err != nil {
 		return err

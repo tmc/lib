@@ -7,8 +7,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
+	"time"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
 	"github.com/tmc/lib/apple/x/metal/metalmem"
@@ -167,7 +169,23 @@ type metalSessionState struct {
 	layers         [ds4Layers]metalLayerState
 }
 
-func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
+// newMetalRuntime opens the model quietly. Callers that want the ds4-style
+// initialization diagnostics use newMetalRuntimeLogged.
+func newMetalRuntime(path string, context int) (*metalRuntime, error) {
+	return newMetalRuntimeLogged(path, context, nil)
+}
+
+// newMetalRuntimeLogged opens the model and, when log is non-nil, reports the
+// same initialization lines ds4_cli.c prints: device, view creation, warmup and
+// the mapped span. See ds4_metal.m ds4_gpu_warm_model_views for the warmup,
+// which exists so the first-dispatch page-table validation of the mmapped span
+// is paid at load time instead of inside the prefill timing.
+func newMetalRuntimeLogged(path string, context int, log io.Writer) (_ *metalRuntime, err error) {
+	logf := func(format string, args ...any) {
+		if log != nil {
+			fmt.Fprintf(log, "ds4-min: "+format+"\n", args...)
+		}
+	}
 	if context <= 1 {
 		return nil, errors.New("Metal runtime: context must exceed one token")
 	}
@@ -204,10 +222,14 @@ func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("Metal runtime: create device: %w", err)
 	}
+	logf("Metal device %s, %.2f GiB recommended working set", r.dev.Raw().Name(),
+		float64(r.dev.Raw().RecommendedMaxWorkingSetSize())/(1<<30))
+	viewStart := time.Now()
 	r.views, err = mapMetalModel(r.dev, f, uint64(info.Size()), maxTensor)
 	if err != nil {
 		return nil, err
 	}
+	viewMS := float64(time.Since(viewStart)) / float64(time.Millisecond)
 	r.ops, err = newMetalPinnedOps(r.dev)
 	if err != nil {
 		return nil, err
@@ -223,7 +245,51 @@ func newMetalRuntime(path string, context int) (_ *metalRuntime, err error) {
 	if err := r.Reset(); err != nil {
 		return nil, err
 	}
+	warmStart := time.Now()
+	warmed, err := r.warmViews()
+	if err != nil {
+		return nil, err
+	}
+	warmMS := float64(time.Since(warmStart)) / float64(time.Millisecond)
+	logf("Metal model views created in %.3f ms, warmup %.3f ms (mapped %.2f MiB from offset 0.00 MiB)",
+		viewMS, warmMS, float64(info.Size())/(1<<20))
+	logf("Metal mapped mmaped model as %d overlapping shared buffers, %d warmed", len(r.views.views), warmed)
 	return r, nil
+}
+
+// warmViews touches one tensor in each mapped view so the GPU page-table
+// validation of the whole mmapped span is paid here rather than on the first
+// prefill dispatch. It returns the number of views it reached; a view holding
+// no F16 tensor is left cold, since GetRowF16 is the only op that can read an
+// arbitrary model tensor without a surrounding graph.
+func (r *metalRuntime) warmViews() (int, error) {
+	warmed := 0
+	for _, view := range r.views.views {
+		end := view.fileOffset + uint64(view.data.Len())
+		for _, tensor := range r.model.Tensors {
+			if tensor.TypeID != 1 || len(tensor.Dimensions) != 2 {
+				continue
+			}
+			n, err := tensor.Bytes()
+			if err != nil {
+				return warmed, err
+			}
+			off := r.model.DataOffset + tensor.Offset
+			if off < view.fileOffset || off+n > end {
+				continue
+			}
+			t, err := r.views.Bind(r.model, tensor.Name)
+			if err != nil {
+				return warmed, err
+			}
+			if _, err := r.ops.GetRowF16(t, 0); err != nil {
+				return warmed, err
+			}
+			warmed++
+			break
+		}
+	}
+	return warmed, nil
 }
 
 func (r *metalRuntime) bindModel() error {
