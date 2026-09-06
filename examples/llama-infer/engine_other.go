@@ -15,7 +15,6 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/examples/llama-infer/gpuprof"
 	"github.com/tmc/lib/lm/speculative"
-	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
@@ -134,8 +133,8 @@ type ModelEngine struct {
 	prefillScratch  *GPUBatchScratchpad
 	modules         *GPUModules
 	kvCache         *cudakv.Cache
-	attnFn          driver.Function
-	sampleFn        driver.Function
+	attnFn          *cuda.Kernel
+	sampleFn        *cuda.Kernel
 	mCfg            ModelConfig
 	fuseActive      bool
 	tokenizer       Tokenizer
@@ -301,7 +300,7 @@ func GetOrCompileEngine(cfg Config) (*ModelEngine, error) {
 }
 
 // GetOrCompileCudaEngine builds or reuses the compiled CUDA engine per model config.
-func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
+func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	cudaEngineMu.Lock()
 	defer cudaEngineMu.Unlock()
 
@@ -317,15 +316,14 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 
 	stream, err := dev.NewStream()
 	if err != nil {
-		_ = dev.Close()
-		return nil, fmt.Errorf("cuda stream: %w", err)
+		return nil, finishCUDAInit(fmt.Errorf("cuda stream: %w", err), dev.Close)
 	}
 	var (
 		gpuWeights *GPUModelWeights
 		scratch    *GPUScratchpad
 		modules    *GPUModules
-		attnMod    driver.Module
-		sampleMod  driver.Module
+		attnMod    *cuda.Module
+		sampleMod  *cuda.Module
 		kvCache    *cudakv.Cache
 		committed  bool
 	)
@@ -333,26 +331,34 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 		if committed {
 			return
 		}
-		if kvCache != nil {
-			_ = kvCache.Close()
-		}
-		if sampleMod != 0 {
-			_ = sampleMod.Unload()
-		}
-		if attnMod != 0 {
-			_ = attnMod.Unload()
-		}
-		if modules != nil {
-			_ = modules.Close()
-		}
-		if scratch != nil {
-			scratch.Free()
-		}
-		if gpuWeights != nil {
-			gpuWeights.Free()
-		}
-		_ = stream.Destroy()
-		_ = dev.Close()
+		resultErr = finishCUDAInit(resultErr,
+			func() error {
+				if kvCache != nil {
+					return kvCache.Close()
+				}
+				return nil
+			},
+			sampleMod.Close, attnMod.Close,
+			func() error {
+				if modules != nil {
+					return modules.Close()
+				}
+				return nil
+			},
+			func() error {
+				if scratch != nil {
+					scratch.Free()
+				}
+				return nil
+			},
+			func() error {
+				if gpuWeights != nil {
+					gpuWeights.Free()
+				}
+				return nil
+			},
+			stream.Destroy, dev.Close,
+		)
 	}()
 
 	mCfg := ModelConfig{
@@ -429,11 +435,11 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile attention: %w", err)
 	}
-	attnMod, err = attnModCompiled.Load(dev)
+	attnMod, err = loadCUDAProgram(dev, attnModCompiled)
 	if err != nil {
 		return nil, fmt.Errorf("load attention module: %w", err)
 	}
-	attnFn, err := attnMod.GetFunction("CausalFlashAttentionDecode")
+	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		return nil, fmt.Errorf("get attention fn: %w", err)
 	}
@@ -442,11 +448,11 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile sampler: %w", err)
 	}
-	sampleMod, err = sampleModCompiled.Load(dev)
+	sampleMod, err = loadCUDAProgram(dev, sampleModCompiled)
 	if err != nil {
 		return nil, fmt.Errorf("load sample module: %w", err)
 	}
-	sampleFn, err := sampleMod.GetFunction("ArgmaxLogits")
+	sampleFn, err := sampleMod.Function("ArgmaxLogits")
 	if err != nil {
 		return nil, fmt.Errorf("get sample fn: %w", err)
 	}

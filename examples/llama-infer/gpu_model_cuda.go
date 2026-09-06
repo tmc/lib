@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudakv"
@@ -225,8 +224,8 @@ func GPUForwardPassStep(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn driver.Function,
-	sampleFn driver.Function,
+	attnFn *cuda.Kernel,
+	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,
 	stream *cuda.Stream,
@@ -241,8 +240,8 @@ func gpuForwardPassStep(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn driver.Function,
-	sampleFn driver.Function,
+	attnFn *cuda.Kernel,
+	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,
 	stream *cuda.Stream,
@@ -274,8 +273,8 @@ func gpuForwardPassStep(
 	// packs as a null device pointer.
 	var noBias cudamem.Slice[float32]
 
-	launcher := func(fn driver.Function) *cudalaunch.Launcher {
-		return cudalaunch.Kernel(fn).On(stream).Count(counter)
+	launcher := func(fn *cuda.Kernel) *cudalaunch.Launcher {
+		return cudalaunch.OwnedKernel(fn).On(stream).Count(counter)
 	}
 
 	// 1. Embedding lookup
@@ -434,8 +433,8 @@ func GPUForwardPassStream(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn driver.Function,
-	sampleFn driver.Function,
+	attnFn *cuda.Kernel,
+	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,
 	stream *cuda.Stream,

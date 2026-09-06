@@ -50,7 +50,7 @@ func TestCUDABatchArgmaxTieAndLowestFiniteValue(t *testing.T) {
 	if err := deviceLogits.CopyFromHost(logits); err != nil {
 		t.Fatal(err)
 	}
-	if err := cudalaunch.Kernel(modules.BatchArgmax).Grid(rows).Block(256).On(stream).
+	if err := cudalaunch.OwnedKernel(modules.BatchArgmax).Grid(rows).Block(256).On(stream).
 		Launch(deviceLogits, deviceTokens, int32(vocab), int32(rows)); err != nil {
 		t.Fatal(err)
 	}

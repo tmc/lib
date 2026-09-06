@@ -38,7 +38,7 @@ func TestCUDAProjectionFamilyCeilingProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer end.Destroy()
-	launcher := cudalaunch.Kernel(eng.modules.BatchGEMV).On(eng.stream)
+	launcher := cudalaunch.OwnedKernel(eng.modules.BatchGEMV).On(eng.stream)
 	var noBias cudamem.Slice[float32]
 	layer := &eng.weights.Layers[0]
 	model := &eng.mCfg
@@ -175,7 +175,7 @@ func TestCUDALMHeadMatrixCeilingProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer end.Destroy()
-	launcher := cudalaunch.Kernel(eng.modules.BatchGEMV).On(eng.stream)
+	launcher := cudalaunch.OwnedKernel(eng.modules.BatchGEMV).On(eng.stream)
 	var noBias cudamem.Slice[float32]
 	hostInput := make([]float32, sp.NormX.Len())
 	for i := range hostInput {

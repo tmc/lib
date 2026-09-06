@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -164,10 +163,10 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	if err := sp.TokenIn.Slice(0, batch).CopyFromHostAsync(sp.hostTokenIn[:batch], eng.stream); err != nil {
 		return nil, stats, err
 	}
-	launcher := func(fn driver.Function) *cudalaunch.Launcher { return cudalaunch.Kernel(fn).On(eng.stream) }
+	launcher := func(fn *cuda.Kernel) *cudalaunch.Launcher { return cudalaunch.OwnedKernel(fn).On(eng.stream) }
 	var launches cudalaunch.Counter
-	launcher = func(fn driver.Function) *cudalaunch.Launcher {
-		return cudalaunch.Kernel(fn).On(eng.stream).Count(&launches)
+	launcher = func(fn *cuda.Kernel) *cudalaunch.Launcher {
+		return cudalaunch.OwnedKernel(fn).On(eng.stream).Count(&launches)
 	}
 	hidden, inter := cfg.HiddenSize, cfg.IntermediateSize
 	qHeads, kvHeads, headDim := cfg.NumAttentionHeads, cfg.NumKeyValueHeads, cfg.HeadDim()

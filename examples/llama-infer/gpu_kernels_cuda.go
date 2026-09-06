@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"fmt"
 
-	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
@@ -19,30 +18,30 @@ var ForwardKernelsCUDA string
 
 // Kernels names the transformer primitives defined by ForwardKernelsCUDA.
 type Kernels struct {
-	Embed            driver.Function `cuda:"EmbeddingLookup"`
-	Norm             driver.Function `cuda:"RMSNorm"`
-	GEMV             driver.Function `cuda:"LinearGEMV"`
-	RoPE             driver.Function `cuda:"ApplyRoPE"`
-	StoreKV          driver.Function `cuda:"StoreKVCache"`
-	SwiGLU           driver.Function `cuda:"SwiGLU"`
-	AddResidual      driver.Function `cuda:"AddResidual"`
-	FusedQKV         driver.Function `cuda:"FusedRMSNormQKV"`
-	FusedSwiGLU      driver.Function `cuda:"FusedSwiGLUDown"`
-	BatchEmbed       driver.Function `cuda:"BatchEmbeddingLookup"`
-	BatchNorm        driver.Function `cuda:"BatchRMSNorm"`
-	BatchGEMV        driver.Function `cuda:"BatchLinearGEMV"`
-	BatchSwiGLU      driver.Function `cuda:"BatchSwiGLU"`
-	BatchAddBias     driver.Function `cuda:"BatchAddBias"`
-	BatchAddResidual driver.Function `cuda:"BatchAddResidual"`
-	BatchFusedQKV    driver.Function `cuda:"BatchFusedRMSNormQKV"`
-	BatchFusedSwiGLU driver.Function `cuda:"BatchFusedSwiGLUDown"`
-	BatchArgmax      driver.Function `cuda:"BatchArgmax"`
+	Embed            *cuda.Kernel `cuda:"EmbeddingLookup"`
+	Norm             *cuda.Kernel `cuda:"RMSNorm"`
+	GEMV             *cuda.Kernel `cuda:"LinearGEMV"`
+	RoPE             *cuda.Kernel `cuda:"ApplyRoPE"`
+	StoreKV          *cuda.Kernel `cuda:"StoreKVCache"`
+	SwiGLU           *cuda.Kernel `cuda:"SwiGLU"`
+	AddResidual      *cuda.Kernel `cuda:"AddResidual"`
+	FusedQKV         *cuda.Kernel `cuda:"FusedRMSNormQKV"`
+	FusedSwiGLU      *cuda.Kernel `cuda:"FusedSwiGLUDown"`
+	BatchEmbed       *cuda.Kernel `cuda:"BatchEmbeddingLookup"`
+	BatchNorm        *cuda.Kernel `cuda:"BatchRMSNorm"`
+	BatchGEMV        *cuda.Kernel `cuda:"BatchLinearGEMV"`
+	BatchSwiGLU      *cuda.Kernel `cuda:"BatchSwiGLU"`
+	BatchAddBias     *cuda.Kernel `cuda:"BatchAddBias"`
+	BatchAddResidual *cuda.Kernel `cuda:"BatchAddResidual"`
+	BatchFusedQKV    *cuda.Kernel `cuda:"BatchFusedRMSNormQKV"`
+	BatchFusedSwiGLU *cuda.Kernel `cuda:"BatchFusedSwiGLUDown"`
+	BatchArgmax      *cuda.Kernel `cuda:"BatchArgmax"`
 }
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
 	Kernels
-	mod driver.Module
+	mod *cuda.Module
 	ptx string
 }
 
@@ -67,23 +66,22 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 		return nil, fmt.Errorf("compile forward kernels: %w", err)
 	}
 
-	loaded, err := mod.Load(dev)
+	loaded, err := loadCUDAProgram(dev, mod)
 	if err != nil {
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
 	gm := &GPUModules{mod: loaded, ptx: mod.PTX()}
-	if err := cudalaunch.Bind(loaded, &gm.Kernels); err != nil {
-		_ = loaded.Unload()
-		return nil, fmt.Errorf("bind forward kernels: %w", err)
+	if err := cudalaunch.BindOwned(loaded, &gm.Kernels); err != nil {
+		return nil, finishCUDAInit(fmt.Errorf("bind forward kernels: %w", err), loaded.Close)
 	}
 	return gm, nil
 }
 
 // Close unloads the compiled CUDA module.
 func (gm *GPUModules) Close() error {
-	if gm.mod != 0 {
-		return gm.mod.Unload()
+	if gm != nil && gm.mod != nil {
+		return gm.mod.Close()
 	}
 	return nil
 }
