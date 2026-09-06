@@ -44,6 +44,7 @@ func (e FoldingDirection) String() string {
 type OpTensorOp int32
 
 const (
+	OpTensorMax OpTensorOp = 3
 	OpTensorAdd OpTensorOp = 0 // The operation to be performed is addition.
 	OpTensorMul OpTensorOp = 1 // The operation to be performed is multiplication.
 	OpTensorMin OpTensorOp = 2 // The operation to be performed is a minimum comparison.
@@ -55,6 +56,8 @@ const (
 
 func (e OpTensorOp) String() string {
 	switch e {
+	case OpTensorMax:
+		return "OpTensorMax"
 	case OpTensorAdd:
 		return "OpTensorAdd"
 	case OpTensorMul:
@@ -156,6 +159,7 @@ func (e SoftmaxMode) String() string {
 type PoolingMode int32
 
 const (
+	PoolingMax                        PoolingMode = 0
 	PoolingAverageCountIncludePadding PoolingMode = 1 // count for average includes padded values
 	PoolingAverageCountExcludePadding PoolingMode = 2 // count for average does not include padded values
 	// PoolingMaxDeterministic: The maximum value inside the pooling window is used. The algorithm used is deterministic.
@@ -164,6 +168,8 @@ const (
 
 func (e PoolingMode) String() string {
 	switch e {
+	case PoolingMax:
+		return "PoolingMax"
 	case PoolingAverageCountIncludePadding:
 		return "PoolingAverageCountIncludePadding"
 	case PoolingAverageCountExcludePadding:
@@ -1229,6 +1235,7 @@ func (e TensorFormat) String() string {
 type ReduceTensorOp int32
 
 const (
+	ReduceTensorMax ReduceTensorOp = 3
 	ReduceTensorAdd ReduceTensorOp = 0 // The operation to be performed is addition.
 	ReduceTensorMul ReduceTensorOp = 1 // The operation to be performed is multiplication.
 	ReduceTensorMin ReduceTensorOp = 2 // The operation to be performed is a minimum comparison.
@@ -1245,6 +1252,8 @@ const (
 
 func (e ReduceTensorOp) String() string {
 	switch e {
+	case ReduceTensorMax:
+		return "ReduceTensorMax"
 	case ReduceTensorAdd:
 		return "ReduceTensorAdd"
 	case ReduceTensorMul:
@@ -1365,6 +1374,7 @@ func (e ReorderType) String() string {
 type PointwiseMode int32
 
 const (
+	PointwiseMax PointwiseMode = 3
 	PointwiseAdd PointwiseMode = 0 // A pointwise addition between two tensors is computed.
 	// PointwiseAddSquare: A pointwise addition between the first tensor and the square of the second tensor is computed.
 	PointwiseAddSquare PointwiseMode = 5
@@ -1458,6 +1468,8 @@ const (
 
 func (e PointwiseMode) String() string {
 	switch e {
+	case PointwiseMax:
+		return "PointwiseMax"
 	case PointwiseAdd:
 		return "PointwiseAdd"
 	case PointwiseAddSquare:
