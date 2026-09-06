@@ -726,6 +726,9 @@ func (e BrandType) String() string {
 type TemperatureThresholds int32
 
 const (
+	TemperatureThresholdAcousticMax  TemperatureThresholds = 6 // Maximum GPU temperature that can be
+	TemperatureThresholdGpuMax       TemperatureThresholds = 3 // GPU Temperature at which the GPU
+	TemperatureThresholdMemMax       TemperatureThresholds = 2 // Memory Temperature at which the GPU will
 	TemperatureThresholdShutdown     TemperatureThresholds = 0 // Temperature at which the GPU will
 	TemperatureThresholdSlowdown     TemperatureThresholds = 1 // Temperature at which the GPU will
 	TemperatureThresholdAcousticMin  TemperatureThresholds = 4 // Minimum GPU Temperature that can be
@@ -736,6 +739,12 @@ const (
 
 func (e TemperatureThresholds) String() string {
 	switch e {
+	case TemperatureThresholdAcousticMax:
+		return "TemperatureThresholdAcousticMax"
+	case TemperatureThresholdGpuMax:
+		return "TemperatureThresholdGpuMax"
+	case TemperatureThresholdMemMax:
+		return "TemperatureThresholdMemMax"
 	case TemperatureThresholdShutdown:
 		return "TemperatureThresholdShutdown"
 	case TemperatureThresholdSlowdown:
@@ -870,14 +879,17 @@ func (e ClockType) String() string {
 type ClockId int32
 
 const (
-	ClockIdCurrent         ClockId = 0 // Current actual clock value
-	ClockIdAppClockTarget  ClockId = 1 // Target application clock.
-	ClockIdAppClockDefault ClockId = 2 // Default application clock target
-	ClockIdCount           ClockId = 4 // Count of Clock Ids.
+	ClockIdCustomerBoostMax ClockId = 3 // OEM-defined maximum clock rate
+	ClockIdCurrent          ClockId = 0 // Current actual clock value
+	ClockIdAppClockTarget   ClockId = 1 // Target application clock.
+	ClockIdAppClockDefault  ClockId = 2 // Default application clock target
+	ClockIdCount            ClockId = 4 // Count of Clock Ids.
 )
 
 func (e ClockId) String() string {
 	switch e {
+	case ClockIdCustomerBoostMax:
+		return "ClockIdCustomerBoostMax"
 	case ClockIdCurrent:
 		return "ClockIdCurrent"
 	case ClockIdAppClockTarget:
