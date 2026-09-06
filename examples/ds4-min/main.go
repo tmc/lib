@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/tmc/lib/gguf"
 )
@@ -90,10 +91,15 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
+	prefillStart := time.Now()
 	if err := s.Sync(prompt); err != nil {
 		return err
 	}
+	prefill := time.Since(prefillStart)
 	var text textAssembler
+	generated := 0
+	decodeStart := time.Now()
 	for range cfg.tokens {
 		id := greedyToken(s.logits)
 		if tok.IsStop(id) {
@@ -113,8 +119,28 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		if _, err := s.Accept(id); err != nil {
 			return err
 		}
+		generated++
 	}
-	return text.Finish()
+	// Same definition as ds4_cli.c:679-686: prompt tokens over the prefill
+	// wall time, generated tokens over the decode wall time.
+	decode := time.Since(decodeStart)
+	rate := func(n int, d time.Duration) float64 {
+		if d <= 0 {
+			return 0
+		}
+		return float64(n) / d.Seconds()
+	}
+	if err := text.Finish(); err != nil {
+		return err
+	}
+	if generated > 0 {
+		if _, err := io.WriteString(stdout, "\n"); err != nil {
+			return fmt.Errorf("write output: %w", err)
+		}
+	}
+	fmt.Fprintf(stderr, "ds4-min: prefill: %.2f t/s, generation: %.2f t/s\n",
+		rate(len(prompt), prefill), rate(generated, decode))
+	return nil
 }
 
 func greedyToken(logits []float32) int {
