@@ -4,7 +4,6 @@ package nvenc
 
 import (
 	"fmt"
-	"github.com/ebitengine/purego"
 	"unsafe"
 )
 
@@ -16,8 +15,9 @@ import (
 // functions once, so that the cost of building a call trampoline is paid at
 // setup rather than on every encoded frame.
 //
-// A nil field is an entry point this driver does not implement. Check before
-// calling: an older driver leaves the newer table slots zero.
+// A nil field is an entry point this driver does not implement, or one whose
+// signature cannot be called on this architecture. Check before calling: an
+// older driver leaves the newer table slots zero.
 type API struct {
 	NvEncOpenEncodeSession         func(unsafe.Pointer, uint32, *unsafe.Pointer) Status                  // PNVENCOPENENCODESESSION
 	NvEncGetEncodeGUIDCount        func(unsafe.Pointer, *uint32) Status                                  // PNVENCGETENCODEGUIDCOUNT
@@ -74,130 +74,130 @@ func Bind(list *FunctionList) (*API, error) {
 	}
 	a := new(API)
 	if list.NvEncOpenEncodeSession != 0 {
-		purego.RegisterFunc(&a.NvEncOpenEncodeSession, list.NvEncOpenEncodeSession)
+		bindSymbol(&a.NvEncOpenEncodeSession, list.NvEncOpenEncodeSession)
 	}
 	if list.NvEncGetEncodeGUIDCount != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeGUIDCount, list.NvEncGetEncodeGUIDCount)
+		bindSymbol(&a.NvEncGetEncodeGUIDCount, list.NvEncGetEncodeGUIDCount)
 	}
 	if list.NvEncGetEncodeProfileGUIDCount != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeProfileGUIDCount, list.NvEncGetEncodeProfileGUIDCount)
+		bindSymbol(&a.NvEncGetEncodeProfileGUIDCount, list.NvEncGetEncodeProfileGUIDCount)
 	}
 	if list.NvEncGetEncodeProfileGUIDs != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeProfileGUIDs, list.NvEncGetEncodeProfileGUIDs)
+		bindSymbol(&a.NvEncGetEncodeProfileGUIDs, list.NvEncGetEncodeProfileGUIDs)
 	}
 	if list.NvEncGetEncodeGUIDs != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeGUIDs, list.NvEncGetEncodeGUIDs)
+		bindSymbol(&a.NvEncGetEncodeGUIDs, list.NvEncGetEncodeGUIDs)
 	}
 	if list.NvEncGetInputFormatCount != 0 {
-		purego.RegisterFunc(&a.NvEncGetInputFormatCount, list.NvEncGetInputFormatCount)
+		bindSymbol(&a.NvEncGetInputFormatCount, list.NvEncGetInputFormatCount)
 	}
 	if list.NvEncGetInputFormats != 0 {
-		purego.RegisterFunc(&a.NvEncGetInputFormats, list.NvEncGetInputFormats)
+		bindSymbol(&a.NvEncGetInputFormats, list.NvEncGetInputFormats)
 	}
 	if list.NvEncGetEncodeCaps != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeCaps, list.NvEncGetEncodeCaps)
+		bindSymbol(&a.NvEncGetEncodeCaps, list.NvEncGetEncodeCaps)
 	}
 	if list.NvEncGetEncodePresetCount != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodePresetCount, list.NvEncGetEncodePresetCount)
+		bindSymbol(&a.NvEncGetEncodePresetCount, list.NvEncGetEncodePresetCount)
 	}
 	if list.NvEncGetEncodePresetGUIDs != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodePresetGUIDs, list.NvEncGetEncodePresetGUIDs)
+		bindSymbol(&a.NvEncGetEncodePresetGUIDs, list.NvEncGetEncodePresetGUIDs)
 	}
 	if list.NvEncGetEncodePresetConfig != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodePresetConfig, list.NvEncGetEncodePresetConfig)
+		bindSymbol(&a.NvEncGetEncodePresetConfig, list.NvEncGetEncodePresetConfig)
 	}
 	if list.NvEncInitializeEncoder != 0 {
-		purego.RegisterFunc(&a.NvEncInitializeEncoder, list.NvEncInitializeEncoder)
+		bindSymbol(&a.NvEncInitializeEncoder, list.NvEncInitializeEncoder)
 	}
 	if list.NvEncCreateInputBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncCreateInputBuffer, list.NvEncCreateInputBuffer)
+		bindSymbol(&a.NvEncCreateInputBuffer, list.NvEncCreateInputBuffer)
 	}
 	if list.NvEncDestroyInputBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncDestroyInputBuffer, list.NvEncDestroyInputBuffer)
+		bindSymbol(&a.NvEncDestroyInputBuffer, list.NvEncDestroyInputBuffer)
 	}
 	if list.NvEncCreateBitstreamBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncCreateBitstreamBuffer, list.NvEncCreateBitstreamBuffer)
+		bindSymbol(&a.NvEncCreateBitstreamBuffer, list.NvEncCreateBitstreamBuffer)
 	}
 	if list.NvEncDestroyBitstreamBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncDestroyBitstreamBuffer, list.NvEncDestroyBitstreamBuffer)
+		bindSymbol(&a.NvEncDestroyBitstreamBuffer, list.NvEncDestroyBitstreamBuffer)
 	}
 	if list.NvEncEncodePicture != 0 {
-		purego.RegisterFunc(&a.NvEncEncodePicture, list.NvEncEncodePicture)
+		bindSymbol(&a.NvEncEncodePicture, list.NvEncEncodePicture)
 	}
 	if list.NvEncLockBitstream != 0 {
-		purego.RegisterFunc(&a.NvEncLockBitstream, list.NvEncLockBitstream)
+		bindSymbol(&a.NvEncLockBitstream, list.NvEncLockBitstream)
 	}
 	if list.NvEncUnlockBitstream != 0 {
-		purego.RegisterFunc(&a.NvEncUnlockBitstream, list.NvEncUnlockBitstream)
+		bindSymbol(&a.NvEncUnlockBitstream, list.NvEncUnlockBitstream)
 	}
 	if list.NvEncLockInputBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncLockInputBuffer, list.NvEncLockInputBuffer)
+		bindSymbol(&a.NvEncLockInputBuffer, list.NvEncLockInputBuffer)
 	}
 	if list.NvEncUnlockInputBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncUnlockInputBuffer, list.NvEncUnlockInputBuffer)
+		bindSymbol(&a.NvEncUnlockInputBuffer, list.NvEncUnlockInputBuffer)
 	}
 	if list.NvEncGetEncodeStats != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodeStats, list.NvEncGetEncodeStats)
+		bindSymbol(&a.NvEncGetEncodeStats, list.NvEncGetEncodeStats)
 	}
 	if list.NvEncGetSequenceParams != 0 {
-		purego.RegisterFunc(&a.NvEncGetSequenceParams, list.NvEncGetSequenceParams)
+		bindSymbol(&a.NvEncGetSequenceParams, list.NvEncGetSequenceParams)
 	}
 	if list.NvEncRegisterAsyncEvent != 0 {
-		purego.RegisterFunc(&a.NvEncRegisterAsyncEvent, list.NvEncRegisterAsyncEvent)
+		bindSymbol(&a.NvEncRegisterAsyncEvent, list.NvEncRegisterAsyncEvent)
 	}
 	if list.NvEncUnregisterAsyncEvent != 0 {
-		purego.RegisterFunc(&a.NvEncUnregisterAsyncEvent, list.NvEncUnregisterAsyncEvent)
+		bindSymbol(&a.NvEncUnregisterAsyncEvent, list.NvEncUnregisterAsyncEvent)
 	}
 	if list.NvEncMapInputResource != 0 {
-		purego.RegisterFunc(&a.NvEncMapInputResource, list.NvEncMapInputResource)
+		bindSymbol(&a.NvEncMapInputResource, list.NvEncMapInputResource)
 	}
 	if list.NvEncUnmapInputResource != 0 {
-		purego.RegisterFunc(&a.NvEncUnmapInputResource, list.NvEncUnmapInputResource)
+		bindSymbol(&a.NvEncUnmapInputResource, list.NvEncUnmapInputResource)
 	}
 	if list.NvEncDestroyEncoder != 0 {
-		purego.RegisterFunc(&a.NvEncDestroyEncoder, list.NvEncDestroyEncoder)
+		bindSymbol(&a.NvEncDestroyEncoder, list.NvEncDestroyEncoder)
 	}
 	if list.NvEncInvalidateRefFrames != 0 {
-		purego.RegisterFunc(&a.NvEncInvalidateRefFrames, list.NvEncInvalidateRefFrames)
+		bindSymbol(&a.NvEncInvalidateRefFrames, list.NvEncInvalidateRefFrames)
 	}
 	if list.NvEncOpenEncodeSessionEx != 0 {
-		purego.RegisterFunc(&a.NvEncOpenEncodeSessionEx, list.NvEncOpenEncodeSessionEx)
+		bindSymbol(&a.NvEncOpenEncodeSessionEx, list.NvEncOpenEncodeSessionEx)
 	}
 	if list.NvEncRegisterResource != 0 {
-		purego.RegisterFunc(&a.NvEncRegisterResource, list.NvEncRegisterResource)
+		bindSymbol(&a.NvEncRegisterResource, list.NvEncRegisterResource)
 	}
 	if list.NvEncUnregisterResource != 0 {
-		purego.RegisterFunc(&a.NvEncUnregisterResource, list.NvEncUnregisterResource)
+		bindSymbol(&a.NvEncUnregisterResource, list.NvEncUnregisterResource)
 	}
 	if list.NvEncReconfigureEncoder != 0 {
-		purego.RegisterFunc(&a.NvEncReconfigureEncoder, list.NvEncReconfigureEncoder)
+		bindSymbol(&a.NvEncReconfigureEncoder, list.NvEncReconfigureEncoder)
 	}
 	if list.NvEncCreateMVBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncCreateMVBuffer, list.NvEncCreateMVBuffer)
+		bindSymbol(&a.NvEncCreateMVBuffer, list.NvEncCreateMVBuffer)
 	}
 	if list.NvEncDestroyMVBuffer != 0 {
-		purego.RegisterFunc(&a.NvEncDestroyMVBuffer, list.NvEncDestroyMVBuffer)
+		bindSymbol(&a.NvEncDestroyMVBuffer, list.NvEncDestroyMVBuffer)
 	}
 	if list.NvEncRunMotionEstimationOnly != 0 {
-		purego.RegisterFunc(&a.NvEncRunMotionEstimationOnly, list.NvEncRunMotionEstimationOnly)
+		bindSymbol(&a.NvEncRunMotionEstimationOnly, list.NvEncRunMotionEstimationOnly)
 	}
 	if list.NvEncGetLastErrorString != 0 {
-		purego.RegisterFunc(&a.NvEncGetLastErrorString, list.NvEncGetLastErrorString)
+		bindSymbol(&a.NvEncGetLastErrorString, list.NvEncGetLastErrorString)
 	}
 	if list.NvEncSetIOCudaStreams != 0 {
-		purego.RegisterFunc(&a.NvEncSetIOCudaStreams, list.NvEncSetIOCudaStreams)
+		bindSymbol(&a.NvEncSetIOCudaStreams, list.NvEncSetIOCudaStreams)
 	}
 	if list.NvEncGetEncodePresetConfigEx != 0 {
-		purego.RegisterFunc(&a.NvEncGetEncodePresetConfigEx, list.NvEncGetEncodePresetConfigEx)
+		bindSymbol(&a.NvEncGetEncodePresetConfigEx, list.NvEncGetEncodePresetConfigEx)
 	}
 	if list.NvEncGetSequenceParamEx != 0 {
-		purego.RegisterFunc(&a.NvEncGetSequenceParamEx, list.NvEncGetSequenceParamEx)
+		bindSymbol(&a.NvEncGetSequenceParamEx, list.NvEncGetSequenceParamEx)
 	}
 	if list.NvEncRestoreEncoderState != 0 {
-		purego.RegisterFunc(&a.NvEncRestoreEncoderState, list.NvEncRestoreEncoderState)
+		bindSymbol(&a.NvEncRestoreEncoderState, list.NvEncRestoreEncoderState)
 	}
 	if list.NvEncLookaheadPicture != 0 {
-		purego.RegisterFunc(&a.NvEncLookaheadPicture, list.NvEncLookaheadPicture)
+		bindSymbol(&a.NvEncLookaheadPicture, list.NvEncLookaheadPicture)
 	}
 	return a, nil
 }

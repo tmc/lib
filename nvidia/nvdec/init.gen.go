@@ -193,8 +193,35 @@ func register(fn any, symbol string) {
 	if err != nil || sym == 0 {
 		return
 	}
-	purego.RegisterFunc(fn, sym)
+	if !bindSymbol(fn, sym) {
+		return
+	}
 	present[symbol] = true
+}
+
+// errArgumentSlots is the reason a symbol the library exports could still
+// not be bound: the signature needs more argument registers and stack slots
+// than this architecture's calling convention provides.
+var errArgumentSlots = errors.New("signature needs more argument slots than this architecture provides")
+
+// bindSymbol binds fn to the resolved symbol address sym and reports whether
+// the binding succeeded. purego.RegisterFunc panics when it cannot build a
+// trampoline for fn's signature; the usual cause is a signature needing more
+// argument registers and stack slots than the target architecture allows
+// (purego admits 32 arguments on 64-bit platforms, 15 on ppc64le). Recovering
+// leaves such a symbol unbound, so calling it reports *SymbolError, rather
+// than killing the process at load time.
+//
+// purego assigns to fn only after every check it can panic on, so a recovered
+// binding leaves fn nil.
+func bindSymbol(fn any, sym uintptr) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	purego.RegisterFunc(fn, sym)
+	return true
 }
 
 // checkLib loads the library if it has not been loaded yet.
