@@ -50,9 +50,24 @@ func PagedSharedMemoryBytes(maxSeqLen, threads int) (int, error) {
 	return 4 * (maxSeqLen + threads), nil
 }
 
+// DecodeSharedMemoryBytes returns the dynamic shared-memory requirement for a
+// single-sequence decode block covering seqLen tokens with the given block
+// width. The block reduces its per-thread maximum and sum through a scratch
+// buffer of one float per thread, which sits after the scores.
+//
+// A single-thread block skips the reduction and never touches the scratch
+// buffer, so callers launching with a width of one may still allocate only
+// 4*seqLen bytes.
+func DecodeSharedMemoryBytes(seqLen, threads int) (int, error) {
+	if seqLen <= 0 || threads <= 0 || threads > 1024 {
+		return 0, ErrInvalidConfig
+	}
+	return 4 * (seqLen + threads), nil
+}
+
 // CausalFlashAttentionTemplate is the embedded CUDA C++ kernel for causal
-// single-sequence decode attention. The kernel requires one single-thread block
-// per query head and shared memory for curPos+1 float32 scores. Use
+// single-sequence decode attention. Launch one block per query head with any
+// block width, and shared memory from [DecodeSharedMemoryBytes]. Use
 // [BatchedPagedAttentionTemplate] for multiple sequences.
 const CausalFlashAttentionTemplate = `
 extern "C" __global__ void CausalFlashAttentionDecode(
@@ -74,12 +89,17 @@ extern "C" __global__ void CausalFlashAttentionDecode(
     int kv_head_idx = head_idx / kv_group_size;
 
     extern __shared__ float smem[];
-    float* s_scores = smem; // size: cur_pos + 1
+    float* s_scores = smem;                   // size: cur_pos + 1
+    float* reduce = smem + (cur_pos + 1);     // size: blockDim.x
 
     const float* q_ptr = q + head_idx * head_dim;
 
-    // Step 1: Compute Q * K^T dot products for all tokens 0..cur_pos
-    float max_score = -1e20f;
+    // Step 1: Q * K^T for all tokens 0..cur_pos, and the block-wide maximum.
+    // Each thread visits a strided subset, so its own maximum covers only that
+    // subset and must be reduced across the block before it can be used: a
+    // per-thread maximum would make every score exponentiate against a
+    // different reference.
+    float thread_max = -1e20f;
     for (int t = threadIdx.x; t <= cur_pos; t += blockDim.x) {
         const float* k_ptr = k_cache + (t * num_kv_heads + kv_head_idx) * head_dim;
         float dot = 0.0f;
@@ -88,20 +108,53 @@ extern "C" __global__ void CausalFlashAttentionDecode(
         }
         dot *= scale;
         s_scores[t] = dot;
-        if (dot > max_score) {
-            max_score = dot;
-        }
+        thread_max = fmaxf(thread_max, dot);
     }
-    __syncthreads();
+    // A single-thread block already holds the whole maximum, and touching
+    // reduce[] would read past a buffer sized for scores alone. Skipping the
+    // reduction keeps the kernel correct for callers still allocating the
+    // pre-reduction shared-memory size.
+    float max_score = thread_max;
+    if (blockDim.x > 1) {
+        reduce[threadIdx.x] = thread_max;
+        __syncthreads();
+        // Pairwise tree reduction. The half/remainder split is correct for any
+        // blockDim.x, so the kernel carries no power-of-two precondition.
+        for (int n = blockDim.x; n > 1; ) {
+            int half = (n + 1) >> 1;
+            if (threadIdx.x < n - half) {
+                reduce[threadIdx.x] = fmaxf(reduce[threadIdx.x], reduce[threadIdx.x + half]);
+            }
+            __syncthreads();
+            n = half;
+        }
+        max_score = reduce[0];
+        __syncthreads();
+    }
 
-    // Step 2: Online Softmax Normalization
-    float sum_exp = 0.0f;
+    // Step 2: exponentiate against the block maximum and reduce the sum the
+    // same way, so every thread divides by the same normaliser.
+    float thread_sum = 0.0f;
     for (int t = threadIdx.x; t <= cur_pos; t += blockDim.x) {
         float e = expf(s_scores[t] - max_score);
         s_scores[t] = e;
-        sum_exp += e;
+        thread_sum += e;
     }
-    __syncthreads();
+    float sum_exp = thread_sum;
+    if (blockDim.x > 1) {
+        reduce[threadIdx.x] = thread_sum;
+        __syncthreads();
+        for (int n = blockDim.x; n > 1; ) {
+            int half = (n + 1) >> 1;
+            if (threadIdx.x < n - half) {
+                reduce[threadIdx.x] += reduce[threadIdx.x + half];
+            }
+            __syncthreads();
+            n = half;
+        }
+        sum_exp = reduce[0];
+        __syncthreads();
+    }
 
     // Step 3: Weighted sum over V
     float* out_ptr = out + head_idx * head_dim;
