@@ -5,7 +5,7 @@ package cudnn
 // Destroy Destroys a previously created tensor transform descriptor.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -14,14 +14,16 @@ func (t TensorTransformDescriptor) Destroy() error {
 	return destroyTensorTransformDescriptor(t)
 }
 
-// Get This function returns the values stored in a previously initialized tensor transform descriptor.
+// Get returns the values stored in a previously initialized tensor transform descriptor.
+//
+// This function returns the values stored in a previously initialized tensor transform descriptor.
 //
 //   - destFormat: Output. The transform format that will be returned
 //   - direction: Output. The setting that selects folding or unfolding. For more information, refer to [FoldingDirection]
 //
 // Returns:
-//   - StatusBadParam: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
-//   - StatusSuccess: The results were obtained successfully.
+//   - [ErrBadParam]: If transformDesc is NULL or if nbDimsRequested is less than 3 or greater than CUDNN_DIM_MAX.
+//   - [Success]: The results were obtained successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -30,19 +32,19 @@ func (t TensorTransformDescriptor) Get(nbDimsRequested uint32, destFormat *Tenso
 	return getTensorTransformDescriptor(t, nbDimsRequested, destFormat, padBeforeA, padAfterA, foldA, direction)
 }
 
-// InitTransformDest This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
+// InitTransformDest initializes and returns a destination tensor descriptor destDesc for tensor transform operations.
 //
-// The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor]. The returned Tensor descriptor will be packed.
+// This function initializes and returns a destination tensor descriptor destDesc for tensor transform operations. The initialization is done with the desired parameters described in the transform descriptor [TensorDescriptor]. The returned Tensor descriptor will be packed.
 //
 //   - srcDesc: Input. Handle to a previously initialized tensor descriptor
 //   - destDesc: Output. Handle of the tensor descriptor that will be initialized and returned
 //   - destSizeInBytes: Output. A pointer to hold the size, in bytes, of the new tensor
 //
 // Returns:
-//   - StatusBadParam: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
-//   - StatusExecutionFailed: Function failed to launch on the GPU.
-//   - StatusNotSupported: If the provided configuration is not 4D.
-//   - StatusSuccess: The tensor descriptor was initialized successfully.
+//   - [ErrBadParam]: If either srcDesc or destDesc is NULL, or if the tensor descriptors nbDims is incorrect. For more information, refer to Tensor Descriptor..
+//   - [ErrExecutionFailed]: Function failed to launch on the GPU.
+//   - [ErrNotSupported]: If the provided configuration is not 4D.
+//   - [Success]: The tensor descriptor was initialized successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //
@@ -51,16 +53,18 @@ func (t TensorTransformDescriptor) InitTransformDest(srcDesc TensorDescriptor, d
 	return initTransformDest(t, srcDesc, destDesc, destSizeInBytes)
 }
 
-// Set This function initializes a tensor transform descriptor that was previously created using the cudnnCreateTensorTransformDescriptor() function.
+// Set initializes a tensor transform descriptor that was previously created using the [CreateTensorTransformDescriptor] function.
+//
+// This function initializes a tensor transform descriptor that was previously created using the [CreateTensorTransformDescriptor] function.
 //
 //   - nbDims: Input. The dimensionality of the transform operands. Must be greater than 2. For more information, refer to Tensor Descriptor
 //   - destFormat: Input. The desired destination format
 //   - direction: Input. Selects folding or unfolding. This input has no effect when folding parameters are all <= 1. For more information, refer to [FoldingDirection]
 //
 // Returns:
-//   - StatusBadParam: The parameter transformDesc is NULL, or if direction is invalid, or nbDims is <= 2.
-//   - StatusNotSupported: If the dimension size requested is larger than maximum dimension size supported (meaning, one of the nbDims is larger than CUDNN_DIM_MAX), or if destFromat is something other than NCHW or NHWC.
-//   - StatusSuccess: The function was launched successfully.
+//   - [ErrBadParam]: The parameter transformDesc is NULL, or if direction is invalid, or nbDims is <= 2.
+//   - [ErrNotSupported]: If the dimension size requested is larger than maximum dimension size supported (meaning, one of the nbDims is larger than CUDNN_DIM_MAX), or if destFromat is something other than NCHW or NHWC.
+//   - [Success]: The function was launched successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

@@ -36,6 +36,7 @@ type SymbolError struct {
 	Symbol string
 }
 
+// Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
 	return "cudnn: symbol " + e.Symbol + " unavailable"
 }
@@ -47,6 +48,7 @@ type LibraryConflictError struct {
 	Requested string
 }
 
+// Error reports the conflicting library paths.
 func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("cudnn: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
@@ -232,17 +234,13 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
-// registerFuncs binds all function pointers to their library symbols.
+// registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cudnnGetErrorString")
 	register(&fnactivationBackward, "cudnnActivationBackward")
 	register(&fnactivationForward, "cudnnActivationForward")
 	register(&fnaddTensor, "cudnnAddTensor")
 	register(&fnAdvVersionCheck, "cudnnAdvVersionCheck")
-	register(&fnGetVersion, "cudnnGetVersion")
-	register(&fnGetMaxDeviceVersion, "cudnnGetMaxDeviceVersion")
-	register(&fnGetCudartVersion, "cudnnGetCudartVersion")
-	register(&fnGetLastErrorString, "cudnnGetLastErrorString")
 	register(&fnbackendCreateDescriptor, "cudnnBackendCreateDescriptor")
 	register(&fnbackendDestroyDescriptor, "cudnnBackendDestroyDescriptor")
 	register(&fnbackendExecute, "cudnnBackendExecute")
@@ -348,6 +346,7 @@ func registerFuncs() {
 	register(&fngetConvolutionNdDescriptor, "cudnnGetConvolutionNdDescriptor")
 	register(&fngetConvolutionNdForwardOutputDim, "cudnnGetConvolutionNdForwardOutputDim")
 	register(&fngetConvolutionReorderType, "cudnnGetConvolutionReorderType")
+	register(&fnGetCudartVersion, "cudnnGetCudartVersion")
 	register(&fngetDropoutDescriptor, "cudnnGetDropoutDescriptor")
 	register(&fngetFilter4dDescriptor, "cudnnGetFilter4dDescriptor")
 	register(&fngetFilterNdDescriptor, "cudnnGetFilterNdDescriptor")
@@ -356,6 +355,8 @@ func registerFuncs() {
 	register(&fngetFusedOpsConstParamPackAttribute, "cudnnGetFusedOpsConstParamPackAttribute")
 	register(&fngetFusedOpsVariantParamPackAttribute, "cudnnGetFusedOpsVariantParamPackAttribute")
 	register(&fngetLRNDescriptor, "cudnnGetLRNDescriptor")
+	register(&fnGetLastErrorString, "cudnnGetLastErrorString")
+	register(&fnGetMaxDeviceVersion, "cudnnGetMaxDeviceVersion")
 	register(&fngetMultiHeadAttnBuffers, "cudnnGetMultiHeadAttnBuffers")
 	register(&fngetMultiHeadAttnWeights, "cudnnGetMultiHeadAttnWeights")
 	register(&fngetNormalizationBackwardWorkspaceSize, "cudnnGetNormalizationBackwardWorkspaceSize")
@@ -381,6 +382,7 @@ func registerFuncs() {
 	register(&fngetTensorNdDescriptor, "cudnnGetTensorNdDescriptor")
 	register(&fngetTensorSizeInBytes, "cudnnGetTensorSizeInBytes")
 	register(&fngetTensorTransformDescriptor, "cudnnGetTensorTransformDescriptor")
+	register(&fnGetVersion, "cudnnGetVersion")
 	register(&fnGraphVersionCheck, "cudnnGraphVersionCheck")
 	register(&fnim2Col, "cudnnIm2Col")
 	register(&fninitTransformDest, "cudnnInitTransformDest")
@@ -450,17 +452,13 @@ func registerFuncs() {
 	register(&fntransformTensorEx, "cudnnTransformTensorEx")
 }
 
-// clearFuncs unbinds all function pointers.
+// clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
 	fnactivationBackward = nil
 	fnactivationForward = nil
 	fnaddTensor = nil
 	fnAdvVersionCheck = nil
-	fnGetVersion = nil
-	fnGetMaxDeviceVersion = nil
-	fnGetCudartVersion = nil
-	fnGetLastErrorString = nil
 	fnbackendCreateDescriptor = nil
 	fnbackendDestroyDescriptor = nil
 	fnbackendExecute = nil
@@ -566,6 +564,7 @@ func clearFuncs() {
 	fngetConvolutionNdDescriptor = nil
 	fngetConvolutionNdForwardOutputDim = nil
 	fngetConvolutionReorderType = nil
+	fnGetCudartVersion = nil
 	fngetDropoutDescriptor = nil
 	fngetFilter4dDescriptor = nil
 	fngetFilterNdDescriptor = nil
@@ -574,6 +573,8 @@ func clearFuncs() {
 	fngetFusedOpsConstParamPackAttribute = nil
 	fngetFusedOpsVariantParamPackAttribute = nil
 	fngetLRNDescriptor = nil
+	fnGetLastErrorString = nil
+	fnGetMaxDeviceVersion = nil
 	fngetMultiHeadAttnBuffers = nil
 	fngetMultiHeadAttnWeights = nil
 	fngetNormalizationBackwardWorkspaceSize = nil
@@ -599,6 +600,7 @@ func clearFuncs() {
 	fngetTensorNdDescriptor = nil
 	fngetTensorSizeInBytes = nil
 	fngetTensorTransformDescriptor = nil
+	fnGetVersion = nil
 	fnGraphVersionCheck = nil
 	fnim2Col = nil
 	fninitTransformDest = nil
@@ -1218,6 +1220,11 @@ func HasgetConvolutionReorderType() bool {
 	return Has("cudnnGetConvolutionReorderType")
 }
 
+// HasGetCudartVersion reports whether cudnnGetCudartVersion resolved in the loaded library.
+func HasGetCudartVersion() bool {
+	return Has("cudnnGetCudartVersion")
+}
+
 // HasgetDropoutDescriptor reports whether cudnnGetDropoutDescriptor resolved in the loaded library.
 func HasgetDropoutDescriptor() bool {
 	return Has("cudnnGetDropoutDescriptor")
@@ -1256,6 +1263,16 @@ func HasgetFusedOpsVariantParamPackAttribute() bool {
 // HasgetLRNDescriptor reports whether cudnnGetLRNDescriptor resolved in the loaded library.
 func HasgetLRNDescriptor() bool {
 	return Has("cudnnGetLRNDescriptor")
+}
+
+// HasGetLastErrorString reports whether cudnnGetLastErrorString resolved in the loaded library.
+func HasGetLastErrorString() bool {
+	return Has("cudnnGetLastErrorString")
+}
+
+// HasGetMaxDeviceVersion reports whether cudnnGetMaxDeviceVersion resolved in the loaded library.
+func HasGetMaxDeviceVersion() bool {
+	return Has("cudnnGetMaxDeviceVersion")
 }
 
 // HasgetMultiHeadAttnBuffers reports whether cudnnGetMultiHeadAttnBuffers resolved in the loaded library.
@@ -1381,6 +1398,11 @@ func HasgetTensorSizeInBytes() bool {
 // HasgetTensorTransformDescriptor reports whether cudnnGetTensorTransformDescriptor resolved in the loaded library.
 func HasgetTensorTransformDescriptor() bool {
 	return Has("cudnnGetTensorTransformDescriptor")
+}
+
+// HasGetVersion reports whether cudnnGetVersion resolved in the loaded library.
+func HasGetVersion() bool {
+	return Has("cudnnGetVersion")
 }
 
 // HasGraphVersionCheck reports whether cudnnGraphVersionCheck resolved in the loaded library.
@@ -1716,24 +1738,4 @@ func HastransformTensor() bool {
 // HastransformTensorEx reports whether cudnnTransformTensorEx resolved in the loaded library.
 func HastransformTensorEx() bool {
 	return Has("cudnnTransformTensorEx")
-}
-
-// HasGetVersion reports whether cudnnGetVersion resolved in the loaded library.
-func HasGetVersion() bool {
-	return Has("cudnnGetVersion")
-}
-
-// HasGetMaxDeviceVersion reports whether cudnnGetMaxDeviceVersion resolved in the loaded library.
-func HasGetMaxDeviceVersion() bool {
-	return Has("cudnnGetMaxDeviceVersion")
-}
-
-// HasGetCudartVersion reports whether cudnnGetCudartVersion resolved in the loaded library.
-func HasGetCudartVersion() bool {
-	return Has("cudnnGetCudartVersion")
-}
-
-// HasGetLastErrorString reports whether cudnnGetLastErrorString resolved in the loaded library.
-func HasGetLastErrorString() bool {
-	return Has("cudnnGetLastErrorString")
 }

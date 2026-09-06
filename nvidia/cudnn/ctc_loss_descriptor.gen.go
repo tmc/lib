@@ -2,25 +2,27 @@
 
 package cudnn
 
-// Destroy This function destroys a CTC loss function descriptor object.
+// Destroy destroys a CTC loss function descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The function returned successfully.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnDestroyCTCLossDescriptor.
 func (c CTCLossDescriptor) Destroy() error {
 	return destroyCTCLossDescriptor(c)
 }
 
-// GetCTCLossDescriptorEx This function returns the configuration of the passed CTC loss function descriptor.
+// GetCTCLossDescriptorEx returns the configuration of the passed CTC loss function descriptor.
+//
+// This function returns the configuration of the passed CTC loss function descriptor.
 //
 //   - compType: Output. Compute type associated with this CTC loss function descriptor
 //   - normMode: Output. Input normalization type for this CTC loss function descriptor. For more information, refer to [LossNormalizationMode]
 //   - gradMode: Output. NaN propagation type for this CTC loss function descriptor
 //
 // Returns:
-//   - StatusBadParam: Input ctcLossDesc descriptor passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Get] instead.
 //
@@ -29,7 +31,7 @@ func (c CTCLossDescriptor) GetCTCLossDescriptorEx(compType *DataType, normMode *
 	return getCTCLossDescriptorEx(c, compType, normMode, gradMode)
 }
 
-// Get This function returns the configuration of the passed CTC loss function descriptor.
+// Get returns the configuration of the passed CTC loss function descriptor.
 //
 //   - compType: Output. Compute type associated with this CTC loss function descriptor
 //   - normMode: Output. Input normalization type for this CTC loss function descriptor. For more information, refer to [LossNormalizationMode]
@@ -37,25 +39,25 @@ func (c CTCLossDescriptor) GetCTCLossDescriptorEx(compType *DataType, normMode *
 //   - maxLabelLength: Output. The max label length for this CTC loss function descriptor
 //
 // Returns:
-//   - StatusBadParam: Input ctcLossDesc descriptor passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: Input ctcLossDesc descriptor passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnGetCTCLossDescriptor_v9.
 func (c CTCLossDescriptor) Get(compType *DataType, normMode *LossNormalizationMode, ctcGradMode *CTCGradMode, maxLabelLength *int32) error {
 	return getCTCLossDescriptor(c, compType, normMode, ctcGradMode, maxLabelLength)
 }
 
-// SetCTCLossDescriptorEx This function is an extension of [CTCLossDescriptor.Set].
+// SetCTCLossDescriptorEx is an extension of [CTCLossDescriptor.Set].
 //
-// This function provides an additional interface normMode to set the input normalization mode for the CTC loss function, and gradMode to control the NaN propagation type. When this function cudnnSetCTCLossDescriptorEx() is used with normMode set to [LossNormalizationNone] and the gradMode set to [NotPropagateNan], then it is the same as [CTCLossDescriptor.Set], meaning:
+// This function is an extension of [CTCLossDescriptor.Set]. This function provides an additional interface normMode to set the input normalization mode for the CTC loss function, and gradMode to control the NaN propagation type. When this function [CTCLossDescriptor.SetCTCLossDescriptorEx] is used with normMode set to [LossNormalizationNone] and the gradMode set to [NotPropagateNan], then it is the same as [CTCLossDescriptor.Set], meaning:
 //
 //   - compType: Input. Compute type for this CTC loss function
 //   - normMode: Input. Input normalization type for this CTC loss function. For more information, refer to [LossNormalizationMode]
 //   - gradMode: is set to
 //
 // Returns:
-//   - StatusBadParam: At least one of the input parameters passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0; use [CTCLossDescriptor.Set] instead.
 //
@@ -64,7 +66,7 @@ func (c CTCLossDescriptor) SetCTCLossDescriptorEx(compType DataType, normMode Lo
 	return setCTCLossDescriptorEx(c, compType, normMode, gradMode)
 }
 
-// Set This function sets a CTC loss function descriptor.
+// Set sets a CTC loss function descriptor.
 //
 //   - compType: Input. Compute type for this CTC loss function
 //   - normMode: Input. Input normalization type for this CTC loss function. For more information, refer to [LossNormalizationMode]
@@ -72,8 +74,8 @@ func (c CTCLossDescriptor) SetCTCLossDescriptorEx(compType DataType, normMode Lo
 //   - maxLabelLength: Input. The maximum label length from the labels data
 //
 // Returns:
-//   - StatusBadParam: At least one of the input parameters passed is invalid.
-//   - StatusSuccess: The function returned successfully.
+//   - [ErrBadParam]: At least one of the input parameters passed is invalid.
+//   - [Success]: The function returned successfully.
 //
 // Wraps cudnnSetCTCLossDescriptor_v9.
 func (c CTCLossDescriptor) Set(compType DataType, normMode LossNormalizationMode, ctcGradMode CTCGradMode, maxLabelLength int32) error {

@@ -2,17 +2,17 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created dropout descriptor object.
+// Destroy destroys a previously created dropout descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroyDropoutDescriptor.
 func (d DropoutDescriptor) Destroy() error {
 	return destroyDropoutDescriptor(d)
 }
 
-// Get This function queries the fields of a previously initialized dropout descriptor.
+// Get queries the fields of a previously initialized dropout descriptor.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dropout: Output. The probability with which the value from input is set to 0 during the dropout layer
@@ -20,30 +20,30 @@ func (d DropoutDescriptor) Destroy() error {
 //   - seed: Output. Seed used to initialize random number generator states
 //
 // Returns:
-//   - StatusBadParam: One or more of the arguments was an invalid pointer.
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: One or more of the arguments was an invalid pointer.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnGetDropoutDescriptor.
 func (d DropoutDescriptor) Get(handle Handle, dropout *float32, states *uintptr, seed *uint64) error {
 	return getDropoutDescriptor(d, handle, dropout, states, seed)
 }
 
-// Restore This function restores a dropout descriptor to a previously saved-off state.
+// Restore restores a dropout descriptor to a previously saved-off state.
 //
 //   - handle: Input. Handle to a previously created cuDNN context
 //   - dropout: Input. Probability with which the value from an input tensor is set to 0 when performing dropout
 //   - states: buffer. Using a different seed from this has no effect. A change of seed, and subsequent update to random number generator states can be achieved by calling [DropoutDescriptor.Set]
 //
 // Returns:
-//   - StatusInvalidValue: The states buffer size (as indicated in stateSizeInBytes) is too small.
-//   - StatusSuccess: The call was successful.
+//   - [ErrInvalidValue]: The states buffer size (as indicated in stateSizeInBytes) is too small.
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnRestoreDropoutDescriptor.
 func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {
 	return restoreDropoutDescriptor(d, handle, dropout, states, stateSizeInBytes, seed)
 }
 
-// Set This function initializes a previously created dropout descriptor object.
+// Set initializes a previously created dropout descriptor object.
 //
 // When the states argument is not NULL, a cuRAND initialization kernel is invoked by [DropoutDescriptor.Set]. This kernel requires a substantial amount of GPU memory for the stack. Memory is released when the kernel finishes. The [ErrAllocFailed] status is returned when no sufficient free memory is available for the GPU stack.
 //
@@ -54,11 +54,11 @@ func (d DropoutDescriptor) Restore(handle Handle, dropout float32, states uintpt
 //   - seed: Input. Seed used to initialize random number generator states
 //
 // Returns:
-//   - StatusAllocFailed: The function failed to temporarily extend the GPU stack.
-//   - StatusExecutionFailed: The function failed to launch on the GPU.
-//   - StatusInternalError: Internally used CUDA functions returned an error status.
-//   - StatusInvalidValue: The sizeInBytes argument is less than the value returned by [Handle.DropoutGetStatesSize].
-//   - StatusSuccess: The call was successful.
+//   - [ErrAllocFailed]: The function failed to temporarily extend the GPU stack.
+//   - [ErrExecutionFailed]: The function failed to launch on the GPU.
+//   - [ErrInternalError]: Internally used CUDA functions returned an error status.
+//   - [ErrInvalidValue]: The sizeInBytes argument is less than the value returned by [Handle.DropoutGetStatesSize].
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetDropoutDescriptor.
 func (d DropoutDescriptor) Set(handle Handle, dropout float32, states uintptr, stateSizeInBytes uint, seed uint64) error {

@@ -7,7 +7,61 @@ import (
 	"unsafe"
 )
 
+// Parsed by: clang (5 of 5 merged headers from the translation unit)
+// Layouts: clang record dump for the host
+
 func TestGeneratedLayouts(t *testing.T) {
+	if got := unsafe.Sizeof(Debug{}); got != 120 {
+		t.Errorf("sizeof(Debug) = %d, want 120", got)
+	}
+	if got := unsafe.Alignof(Debug{}); got != 8 {
+		t.Errorf("alignof(Debug) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.CudnnVersion); got != 0 {
+		t.Errorf("offsetof(Debug.CudnnVersion) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.CudnnStatus); got != 4 {
+		t.Errorf("offsetof(Debug.CudnnStatus) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.TimeSec); got != 8 {
+		t.Errorf("offsetof(Debug.TimeSec) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.TimeUsec); got != 12 {
+		t.Errorf("offsetof(Debug.TimeUsec) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.TimeDelta); got != 16 {
+		t.Errorf("offsetof(Debug.TimeDelta) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.Handle); got != 24 {
+		t.Errorf("offsetof(Debug.Handle) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.Stream); got != 32 {
+		t.Errorf("offsetof(Debug.Stream) = %d, want 32", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.Pid); got != 40 {
+		t.Errorf("offsetof(Debug.Pid) = %d, want 40", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.Tid); got != 48 {
+		t.Errorf("offsetof(Debug.Tid) = %d, want 48", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.CudaDeviceId); got != 56 {
+		t.Errorf("offsetof(Debug.CudaDeviceId) = %d, want 56", got)
+	}
+	if got := unsafe.Offsetof(Debug{}.Reserved); got != 60 {
+		t.Errorf("offsetof(Debug.Reserved) = %d, want 60", got)
+	}
+	if got := unsafe.Sizeof(Fraction{}); got != 16 {
+		t.Errorf("sizeof(Fraction) = %d, want 16", got)
+	}
+	if got := unsafe.Alignof(Fraction{}); got != 8 {
+		t.Errorf("alignof(Fraction) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(Fraction{}.Numerator); got != 0 {
+		t.Errorf("offsetof(Fraction.Numerator) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(Fraction{}.Denominator); got != 8 {
+		t.Errorf("offsetof(Fraction.Denominator) = %d, want 8", got)
+	}
 	if got := unsafe.Sizeof(ConvolutionFwdAlgoPerf{}); got != 48 {
 		t.Errorf("sizeof(ConvolutionFwdAlgoPerf) = %d, want 48", got)
 	}
@@ -88,56 +142,5 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(ConvolutionBwdFilterAlgoPerf{}.Reserved); got != 32 {
 		t.Errorf("offsetof(ConvolutionBwdFilterAlgoPerf.Reserved) = %d, want 32", got)
-	}
-	if got := unsafe.Sizeof(Debug{}); got != 120 {
-		t.Errorf("sizeof(Debug) = %d, want 120", got)
-	}
-	if got := unsafe.Alignof(Debug{}); got != 8 {
-		t.Errorf("alignof(Debug) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.CudnnVersion); got != 0 {
-		t.Errorf("offsetof(Debug.CudnnVersion) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.CudnnStatus); got != 4 {
-		t.Errorf("offsetof(Debug.CudnnStatus) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.TimeSec); got != 8 {
-		t.Errorf("offsetof(Debug.TimeSec) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.TimeUsec); got != 12 {
-		t.Errorf("offsetof(Debug.TimeUsec) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.TimeDelta); got != 16 {
-		t.Errorf("offsetof(Debug.TimeDelta) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.Handle); got != 24 {
-		t.Errorf("offsetof(Debug.Handle) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.Stream); got != 32 {
-		t.Errorf("offsetof(Debug.Stream) = %d, want 32", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.Pid); got != 40 {
-		t.Errorf("offsetof(Debug.Pid) = %d, want 40", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.Tid); got != 48 {
-		t.Errorf("offsetof(Debug.Tid) = %d, want 48", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.CudaDeviceId); got != 56 {
-		t.Errorf("offsetof(Debug.CudaDeviceId) = %d, want 56", got)
-	}
-	if got := unsafe.Offsetof(Debug{}.Reserved); got != 60 {
-		t.Errorf("offsetof(Debug.Reserved) = %d, want 60", got)
-	}
-	if got := unsafe.Sizeof(Fraction{}); got != 16 {
-		t.Errorf("sizeof(Fraction) = %d, want 16", got)
-	}
-	if got := unsafe.Alignof(Fraction{}); got != 8 {
-		t.Errorf("alignof(Fraction) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(Fraction{}.Numerator); got != 0 {
-		t.Errorf("offsetof(Fraction.Numerator) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(Fraction{}.Denominator); got != 8 {
-		t.Errorf("offsetof(Fraction.Denominator) = %d, want 8", got)
 	}
 }

@@ -2,65 +2,65 @@
 
 package cudnn
 
-// TensorDescriptor is [TensorDescriptor] is a pointer to an opaque structure holding the description of a generic n-D dataset.
-type TensorDescriptor uintptr
-
-// LRNDescriptor is [LRNDescriptor] is a pointer to an opaque structure holding the parameters of a local response normalization.
-type LRNDescriptor uintptr
-
-// SpatialTransformerDescriptor is [SpatialTransformerDescriptor] is a pointer to an opaque structure holding the description of a spatial transformation operation. [CreateSpatialTransformerDescriptor] is used to create one instance, [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] is used to initialize this instance, and [SpatialTransformerDescriptor.Destroy] is used to destroy this instance.
-type SpatialTransformerDescriptor uintptr
-
-// CTCLossDescriptor is [CTCLossDescriptor] is a pointer to an opaque structure holding the description of a CTC loss operation.
-type CTCLossDescriptor uintptr
-
-// DropoutDescriptor is [DropoutDescriptor] is a pointer to an opaque structure holding the description of a dropout operation.
-type DropoutDescriptor uintptr
-
-// RNNDescriptor is [RNNDescriptor] is a pointer to an opaque structure holding the description of an RNN operation.
-type RNNDescriptor uintptr
-
-// RNNDataDescriptor is [RNNDataDescriptor] is a pointer to an opaque structure holding the description of an RNN data set.
-type RNNDataDescriptor uintptr
-
-// Handle is [Handle] is a pointer to an opaque structure holding the cuDNN library context.
+// Handle is a pointer to an opaque structure holding the cuDNN library context.
 type Handle uintptr
 
-// ActivationDescriptor is an opaque handle for cudnnActivationDescriptor_t.
+// TensorDescriptor is a pointer to an opaque structure holding the description of a generic n-D dataset.
+type TensorDescriptor uintptr
+
+// PoolingDescriptor is deprecated and is currently only used by deprecated APIs.
+type PoolingDescriptor uintptr
+
+// FilterDescriptor is deprecated and is currently only used by deprecated APIs.
+type FilterDescriptor uintptr
+
+// LRNDescriptor is a pointer to an opaque structure holding the parameters of a local response normalization.
+type LRNDescriptor uintptr
+
+// ActivationDescriptor is deprecated and is currently only used by deprecated APIs.
 type ActivationDescriptor uintptr
 
-// AttnDescriptor is an opaque handle for cudnnAttnDescriptor_t.
+// SpatialTransformerDescriptor is a pointer to an opaque structure holding the description of a spatial transformation operation. [CreateSpatialTransformerDescriptor] is used to create one instance, [SpatialTransformerDescriptor.SetSpatialTransformerNdDescriptor] is used to initialize this instance, and [SpatialTransformerDescriptor.Destroy] is used to destroy this instance.
+type SpatialTransformerDescriptor uintptr
+
+// OpTensorDescriptor is deprecated and is currently only used by deprecated APIs.
+type OpTensorDescriptor uintptr
+
+// ReduceTensorDescriptor is deprecated and is currently only used by deprecated APIs.
+type ReduceTensorDescriptor uintptr
+
+// CTCLossDescriptor is a pointer to an opaque structure holding the description of a CTC loss operation.
+type CTCLossDescriptor uintptr
+
+// TensorTransformDescriptor is deprecated and is currently only used by deprecated APIs.
+type TensorTransformDescriptor uintptr
+
+// DropoutDescriptor is a pointer to an opaque structure holding the description of a dropout operation.
+type DropoutDescriptor uintptr
+
+// RNNDescriptor is a pointer to an opaque structure holding the description of an RNN operation.
+type RNNDescriptor uintptr
+
+// RNNDataDescriptor is a pointer to an opaque structure holding the description of an RNN data set.
+type RNNDataDescriptor uintptr
+
+// SeqDataDescriptor is deprecated and is currently only used by deprecated APIs.
+type SeqDataDescriptor uintptr
+
+// AttnDescriptor is deprecated and is currently only used by deprecated APIs.
 type AttnDescriptor uintptr
+
+// ConvolutionDescriptor is deprecated and is currently only used by deprecated APIs.
+type ConvolutionDescriptor uintptr
+
+// FusedOpsConstParamPack is deprecated and is currently only used by deprecated APIs.
+type FusedOpsConstParamPack uintptr
+
+// FusedOpsVariantParamPack is deprecated and is currently only used by deprecated APIs.
+type FusedOpsVariantParamPack uintptr
+
+// FusedOpsPlan is deprecated and is currently only used by deprecated APIs.
+type FusedOpsPlan uintptr
 
 // BackendDescriptor is an opaque handle for cudnnBackendDescriptor_t.
 type BackendDescriptor uintptr
-
-// ConvolutionDescriptor is an opaque handle for cudnnConvolutionDescriptor_t.
-type ConvolutionDescriptor uintptr
-
-// FilterDescriptor is an opaque handle for cudnnFilterDescriptor_t.
-type FilterDescriptor uintptr
-
-// FusedOpsConstParamPack is an opaque handle for cudnnFusedOpsConstParamPack_t.
-type FusedOpsConstParamPack uintptr
-
-// FusedOpsPlan is an opaque handle for cudnnFusedOpsPlan_t.
-type FusedOpsPlan uintptr
-
-// FusedOpsVariantParamPack is an opaque handle for cudnnFusedOpsVariantParamPack_t.
-type FusedOpsVariantParamPack uintptr
-
-// OpTensorDescriptor is an opaque handle for cudnnOpTensorDescriptor_t.
-type OpTensorDescriptor uintptr
-
-// PoolingDescriptor is an opaque handle for cudnnPoolingDescriptor_t.
-type PoolingDescriptor uintptr
-
-// ReduceTensorDescriptor is an opaque handle for cudnnReduceTensorDescriptor_t.
-type ReduceTensorDescriptor uintptr
-
-// SeqDataDescriptor is an opaque handle for cudnnSeqDataDescriptor_t.
-type SeqDataDescriptor uintptr
-
-// TensorTransformDescriptor is an opaque handle for cudnnTensorTransformDescriptor_t.
-type TensorTransformDescriptor uintptr

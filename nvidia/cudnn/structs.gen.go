@@ -2,39 +2,6 @@
 
 package cudnn
 
-// ConvolutionFwdAlgoPerf represents This enumerated type is deprecated and is currently only used by deprecated APIs.
-type ConvolutionFwdAlgoPerf struct {
-	Algo        ConvolutionFwdAlgo
-	Status      Result
-	Time        float32
-	Memory      uint
-	Determinism Determinism
-	MathType    MathType
-	Reserved    [3]int32
-}
-
-// ConvolutionBwdDataAlgoPerf represents This enumerated type is deprecated and is currently only used by deprecated APIs.
-type ConvolutionBwdDataAlgoPerf struct {
-	Algo        ConvolutionBwdDataAlgo
-	Status      Result
-	Time        float32
-	Memory      uint
-	Determinism Determinism
-	MathType    MathType
-	Reserved    [3]int32
-}
-
-// ConvolutionBwdFilterAlgoPerf represents This enumerated type is deprecated and is currently only used by deprecated APIs.
-type ConvolutionBwdFilterAlgoPerf struct {
-	Algo        ConvolutionBwdFilterAlgo
-	Status      Result
-	Time        float32
-	Memory      uint
-	Determinism Determinism
-	MathType    MathType
-	Reserved    [3]int32
-}
-
 // Debug represents [Debug] is a structure used by [SetCallback] and [GetCallback] containing the metadata, such as time, time since start, stream ID, process and thread ID, that the user may choose to print or store in customized callbacks.
 type Debug struct {
 	CudnnVersion uint32
@@ -54,4 +21,37 @@ type Debug struct {
 type Fraction struct {
 	Numerator   int64
 	Denominator int64
+}
+
+// ConvolutionFwdAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+type ConvolutionFwdAlgoPerf struct {
+	Algo        ConvolutionFwdAlgo
+	Status      Result
+	Time        float32
+	Memory      uint
+	Determinism Determinism
+	MathType    MathType
+	Reserved    [3]int32
+}
+
+// ConvolutionBwdDataAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+type ConvolutionBwdDataAlgoPerf struct {
+	Algo        ConvolutionBwdDataAlgo
+	Status      Result
+	Time        float32
+	Memory      uint
+	Determinism Determinism
+	MathType    MathType
+	Reserved    [3]int32
+}
+
+// ConvolutionBwdFilterAlgoPerf represents This structure is deprecated and is currently only used by deprecated APIs.
+type ConvolutionBwdFilterAlgoPerf struct {
+	Algo        ConvolutionBwdFilterAlgo
+	Status      Result
+	Time        float32
+	Memory      uint
+	Determinism Determinism
+	MathType    MathType
+	Reserved    [3]int32
 }

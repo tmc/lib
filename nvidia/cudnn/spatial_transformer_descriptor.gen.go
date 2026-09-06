@@ -2,25 +2,25 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created spatial transformer descriptor object.
+// Destroy destroys a previously created spatial transformer descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Wraps cudnnDestroySpatialTransformerDescriptor.
 func (s SpatialTransformerDescriptor) Destroy() error {
 	return destroySpatialTransformerDescriptor(s)
 }
 
-// SetSpatialTransformerNdDescriptor This function initializes a previously created generic spatial transformer descriptor object.
+// SetSpatialTransformerNdDescriptor initializes a previously created generic spatial transformer descriptor object.
 //
 //   - samplerType: Input. Enumerant to specify the sampler type
 //   - dataType: Input. Data type
 //   - nbDims: containing the size of the transformed tensor for every dimension
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The call was successful.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The call was successful.
 //
 // Wraps cudnnSetSpatialTransformerNdDescriptor.
 func (s SpatialTransformerDescriptor) SetSpatialTransformerNdDescriptor(samplerType SamplerType, dataType DataType, nbDims int32, dimA *int32) error {

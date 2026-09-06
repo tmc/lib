@@ -2,10 +2,12 @@
 
 package cudnn
 
-// Destroy This function destroys the plan descriptor provided.
+// Destroy destroys the plan descriptor provided.
+//
+// This function destroys the plan descriptor provided.
 //
 // Returns:
-//   - StatusSuccess: Either the plan descriptor is NULL or the descriptor was successfully destroyed.
+//   - [Success]: Either the plan descriptor is NULL or the descriptor was successfully destroyed.
 //
 // Deprecated: This function has been deprecated in cuDNN 9.0.
 //

@@ -2,10 +2,10 @@
 
 package cudnn
 
-// Destroy This function destroys a previously created pooling descriptor object.
+// Destroy destroys a previously created pooling descriptor object.
 //
 // Returns:
-//   - StatusSuccess: The object was destroyed successfully.
+//   - [Success]: The object was destroyed successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -14,7 +14,7 @@ func (p PoolingDescriptor) Destroy() error {
 	return destroyPoolingDescriptor(p)
 }
 
-// GetPooling2dDescriptor This function queries a previously created Pooling2d descriptor object.
+// GetPooling2dDescriptor queries a previously created Pooling2d descriptor object.
 //
 //   - mode: Output. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Output. Enumerant to specify the Nan propagation mode
@@ -26,7 +26,7 @@ func (p PoolingDescriptor) Destroy() error {
 //   - horizontalStride: Output. Pooling horizontal stride
 //
 // Returns:
-//   - StatusSuccess: The object was set successfully.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -35,13 +35,13 @@ func (p PoolingDescriptor) GetPooling2dDescriptor(mode *PoolingMode, maxpoolingN
 	return getPooling2dDescriptor(p, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride)
 }
 
-// GetPooling2dForwardOutputDim This function provides the output dimensions of a tensor after Pooling2d has been applied.
+// GetPooling2dForwardOutputDim provides the output dimensions of a tensor after Pooling2d has been applied.
 //
 // Each dimension h and w of the output images is computed as follows:
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met: poolingDesc has not been initialized. poolingDesc or inputDesc has an invalid number of dimensions (2 and 4 respectively are required).
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met: poolingDesc has not been initialized. poolingDesc or inputDesc has an invalid number of dimensions (2 and 4 respectively are required).
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -50,7 +50,7 @@ func (p PoolingDescriptor) GetPooling2dForwardOutputDim(inputTensorDesc TensorDe
 	return getPooling2dForwardOutputDim(p, inputTensorDesc, n, c, h, w)
 }
 
-// GetPoolingNdDescriptor This function queries a previously initialized generic PoolingNd descriptor object.
+// GetPoolingNdDescriptor queries a previously initialized generic PoolingNd descriptor object.
 //
 //   - nbDimsRequested: that will be filled with the stride parameters from the provided pooling descriptor
 //   - mode: Output. Enumerant to specify the pooling mode
@@ -58,8 +58,8 @@ func (p PoolingDescriptor) GetPooling2dForwardOutputDim(inputTensorDesc TensorDe
 //   - nbDims: Output. Actual dimension of the pooling descriptor
 //
 // Returns:
-//   - StatusNotSupported: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
-//   - StatusSuccess: The object was queried successfully.
+//   - [ErrNotSupported]: The parameter nbDimsRequested is greater than CUDNN_DIM_MAX.
+//   - [Success]: The object was queried successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -68,15 +68,15 @@ func (p PoolingDescriptor) GetPoolingNdDescriptor(nbDimsRequested int32, mode *P
 	return getPoolingNdDescriptor(p, nbDimsRequested, mode, maxpoolingNanOpt, nbDims, windowDimA, paddingA, strideA)
 }
 
-// GetPoolingNdForwardOutputDim This function provides the output dimensions of a tensor after PoolingNd has been applied.
+// GetPoolingNdForwardOutputDim provides the output dimensions of a tensor after PoolingNd has been applied.
 //
 // Each dimension of the (nbDims-2)-D images of the output tensor is computed as follows:
 //
 //   - nbDims: output dimensions
 //
 // Returns:
-//   - StatusBadParam: At least one of the following conditions are met:
-//   - StatusSuccess: The function launched successfully.
+//   - [ErrBadParam]: At least one of the following conditions are met:
+//   - [Success]: The function launched successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -85,7 +85,7 @@ func (p PoolingDescriptor) GetPoolingNdForwardOutputDim(inputTensorDesc TensorDe
 	return getPoolingNdForwardOutputDim(p, inputTensorDesc, nbDims, outputTensorDimA)
 }
 
-// SetPooling2dDescriptor This function initializes a previously created generic pooling descriptor object into a 2D description.
+// SetPooling2dDescriptor initializes a previously created generic pooling descriptor object into a 2D description.
 //
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
@@ -97,8 +97,8 @@ func (p PoolingDescriptor) GetPoolingNdForwardOutputDim(inputTensorDesc TensorDe
 //   - horizontalStride: Input. Pooling horizontal stride
 //
 // Returns:
-//   - StatusBadParam: At least one of the parameters windowHeight, windowWidth, verticalStride, horizontalStride is negative or mode or maxpoolingNanOpt has an invalid enumerate value.
-//   - StatusSuccess: The object was set successfully.
+//   - [ErrBadParam]: At least one of the parameters windowHeight, windowWidth, verticalStride, horizontalStride is negative or mode or maxpoolingNanOpt has an invalid enumerate value.
+//   - [Success]: The object was set successfully.
 //
 // Deprecated: This function is deprecated.
 //
@@ -107,16 +107,16 @@ func (p PoolingDescriptor) SetPooling2dDescriptor(mode PoolingMode, maxpoolingNa
 	return setPooling2dDescriptor(p, mode, maxpoolingNanOpt, windowHeight, windowWidth, verticalPadding, horizontalPadding, verticalStride, horizontalStride)
 }
 
-// SetPoolingNdDescriptor This function initializes a previously created generic pooling descriptor object.
+// SetPoolingNdDescriptor initializes a previously created generic pooling descriptor object.
 //
 //   - mode: Input. Enumerant to specify the pooling mode
 //   - maxpoolingNanOpt: Input. Enumerant to specify the Nan propagation mode
 //   - nbDims: containing the striding size for each dimension. The value of array elements must be greater than zero (meaning, negative striding size is not allowed)
 //
 // Returns:
-//   - StatusBadParam: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
-//   - StatusNotSupported: If ( nbDims > CUDNN_DIM_MAX-2).
-//   - StatusSuccess: The object was initialized successfully.
+//   - [ErrBadParam]: Either nbDims, or at least one of the elements of the arrays windowDimA or strideA is negative, or mode or maxpoolingNanOpt has an invalid enumerate value.
+//   - [ErrNotSupported]: If ( nbDims > CUDNN_DIM_MAX-2).
+//   - [Success]: The object was initialized successfully.
 //
 // Deprecated: This function is deprecated.
 //
