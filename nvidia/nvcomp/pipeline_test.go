@@ -221,6 +221,15 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 			t.Errorf("valid chunk %d did not decompress correctly after undersized chunk", i)
 		}
 	}
+	// Observed failing against libnvcomp 5.3.0.16 (cuda12) on an L4, driver
+	// 580.173.02: chunk 0 reports Success and 4095 bytes are written past the
+	// declared capacity of 1. This is not a binding defect. The statuses array
+	// is memset to 0x7f7f7f7f above and reads back as Success, so the library
+	// did write it; the parameter order also matches nvcompBatchedLZ4-
+	// DecompressAsync in nvcomp/lz4.h exactly. It is libnvcomp that is not
+	// honouring the contract its own header states for
+	// device_uncompressed_buffer_bytes. The assertion stays as written: an
+	// out-of-bounds write reported as success is worth failing on.
 	if corrupt[0] != nvcomp.ErrCannotDecompress {
 		t.Errorf("undersized output status = %v, want %v", corrupt[0], nvcomp.ErrCannotDecompress)
 	}
