@@ -55,6 +55,7 @@
 //   - [Program.GetPCHCreateStatus]: returns the PCH creation status.
 //   - [GetPCHHeapSize]: retrieve the current size of the PCH Heap.
 //   - [Program.GetPCHHeapSizeRequired]: retrieve the required size of the PCH heap required to compile the given program.
+//   - [Program.SetFlowCallback]: Registers a callback that can cancel program compilation.
 //   - [SetPCHHeapSize]: set the size of the PCH Heap.
 //
 // [NVRTC Documentation]: https://docs.nvidia.com/cuda/nvrtc/

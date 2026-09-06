@@ -259,6 +259,7 @@ func registerFuncs() {
 	register(&fnGetSupportedArchs, "nvrtcGetSupportedArchs")
 	register(&fngetTileIR, "nvrtcGetTileIR")
 	register(&fngetTileIRSize, "nvrtcGetTileIRSize")
+	register(&fnsetFlowCallback, "nvrtcSetFlowCallback")
 	register(&fnSetPCHHeapSize, "nvrtcSetPCHHeapSize")
 	register(&fnVersion, "nvrtcVersion")
 }
@@ -288,6 +289,7 @@ func clearFuncs() {
 	fnGetSupportedArchs = nil
 	fngetTileIR = nil
 	fngetTileIRSize = nil
+	fnsetFlowCallback = nil
 	fnSetPCHHeapSize = nil
 	fnVersion = nil
 }
@@ -405,6 +407,11 @@ func HasgetTileIR() bool {
 // HasgetTileIRSize reports whether nvrtcGetTileIRSize resolved in the loaded library.
 func HasgetTileIRSize() bool {
 	return Has("nvrtcGetTileIRSize")
+}
+
+// HassetFlowCallback reports whether nvrtcSetFlowCallback resolved in the loaded library.
+func HassetFlowCallback() bool {
+	return Has("nvrtcSetFlowCallback")
 }
 
 // HasSetPCHHeapSize reports whether nvrtcSetPCHHeapSize resolved in the loaded library.
