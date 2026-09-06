@@ -41,10 +41,18 @@ func Quantize(src []float32, groupSize int) ([]byte, []float32, error) {
 		groupStart := g * groupSize
 		group := src[groupStart : groupStart+groupSize]
 
-		// Find max absolute value in group
+		// Find max absolute value in group. E2M1 encodes no infinities and no
+		// NaN, and a non-finite input corrupts the whole group rather than the
+		// one element: an infinity makes the scale infinite, so every value in
+		// the group dequantizes to NaN, and a NaN never exceeds maxAbs and so
+		// quantizes silently to zero. Reject the input instead, naming the
+		// element, so a caller loading a checkpoint sees which weight is bad.
 		maxAbs := float32(0.0)
-		for _, v := range group {
+		for i, v := range group {
 			abs := float32(math.Abs(float64(v)))
+			if math.IsInf(float64(abs), 1) || math.IsNaN(float64(abs)) {
+				return nil, nil, fmt.Errorf("mxfp4: src[%d] is %v: E2M1 cannot represent non-finite values", groupStart+i, v)
+			}
 			if abs > maxAbs {
 				maxAbs = abs
 			}
@@ -89,6 +97,12 @@ func Dequantize(packed []byte, scales []float32, groupSize int, dst []float32) e
 
 	for g := 0; g < len(scales); g++ {
 		scale := scales[g]
+		// A non-finite scale turns every element of the group into NaN. Scales
+		// read back from a checkpoint were not necessarily produced by
+		// Quantize, so check rather than propagate.
+		if f := float64(scale); math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("mxfp4: scales[%d] is %v: scale must be finite", g, scale)
+		}
 		groupStart := g * groupSize
 		packedStart := g * (groupSize / 2)
 
