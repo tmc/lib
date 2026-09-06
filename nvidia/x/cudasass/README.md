@@ -23,3 +23,13 @@ The fixture recipe in `x/cudaobjdump/README.md` creates a real CUBIN without
 executing GPU code. These tests inspect binaries and do not require a GPU.
 Cancellation evidence covers an observed live executable; it does not establish
 that a particular instruction or output record had already been processed.
+
+`TestInstalledKnownJSON` separately checks the retained `sass.cubin` from the
+native JSON fixture, using nvdisasm 13.0.85. Set `CUDASASS_TEST_KNOWN_CUBIN` to
+that file and `NVDISASM` to the pinned executable. The required CUBIN SHA-256 is
+`cc5746145dc7f00f91c458925f3513a4e4c91ff5a252be744272501055d41027`.
+This fixture uses the source in `testdata/README.md`, not the broader-indexing
+cuobjdump example. The test compares metadata and complete function records,
+including instruction operands, padding and control-flow attributes. Host
+negative controls alter valid JSON and require these changes to be detected.
+Neither test executes the kernel.
