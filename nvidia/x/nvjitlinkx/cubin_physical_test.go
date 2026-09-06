@@ -11,6 +11,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvjitlink"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/nvfatbinx"
 	"github.com/tmc/lib/nvidia/x/nvjitlinkx"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -19,6 +20,18 @@ import (
 // It compiles two relocatable CUBINs, resolves a device function between them,
 // and compares every output with a CPU calculation. Run with a process timeout.
 func TestCUBINPipeline(t *testing.T) {
+	runCUBINPipeline(t, false)
+}
+
+// TestFatbinCUBINPipeline additionally requires nvFatbin. Each relocatable
+// CUBIN is packaged separately, so the missing-provider check still requires
+// the linker to resolve symbols between distinct inputs.
+func TestFatbinCUBINPipeline(t *testing.T) {
+	runCUBINPipeline(t, true)
+}
+
+func runCUBINPipeline(t *testing.T, fatbin bool) {
+	t.Helper()
 	if os.Getenv("CUDA_LINK_EXEC_TEST") != "1" {
 		t.Skip("CUDA_LINK_EXEC_TEST=1 requires a GPU and matching compiler/linker")
 	}
@@ -60,6 +73,23 @@ extern "C" __global__ void apply(int* out) {
 		}
 		t.Logf("unit=%d source_sha256=%x cubin_bytes=%d cubin_sha256=%x log=%q", i, sha256.Sum256([]byte(source)), len(data), sha256.Sum256(data), cm.Log())
 		inputs[i] = nvjitlinkx.Input{Name: fmt.Sprintf("unit%d.cubin", i), Kind: nvjitlink.InputCubin, Data: data}
+		if fatbin {
+			// nvFatbinAddCubin accepts device ELF images. AddReloc is for
+			// extracting relocatable PTX from a host object, not this input.
+			packed, err := nvfatbinx.Build([]nvfatbinx.Input{{
+				Kind: nvfatbinx.CUBIN, Name: inputs[i].Name,
+				Arch: fmt.Sprintf("%d%d", major, minor), Data: data,
+			}}, "-64", "-cuda")
+			if packed != nil {
+				defer func() { cleanup(packed.Close()) }()
+			}
+			check(err)
+			if len(packed.Data) == 0 {
+				t.Fatalf("unit %d: empty fatbinary", i)
+			}
+			t.Logf("unit=%d fatbin_bytes=%d fatbin_sha256=%x", i, len(packed.Data), sha256.Sum256(packed.Data))
+			inputs[i] = nvjitlinkx.Input{Name: fmt.Sprintf("unit%d.fatbin", i), Kind: nvjitlink.InputFatbin, Data: packed.Data}
+		}
 	}
 	// Omitting the provider must fail; otherwise the fixture does not prove linking.
 	bad, err := nvjitlinkx.Link(inputs[1:], "-arch="+arch)
@@ -113,5 +143,9 @@ extern "C" __global__ void apply(int* out) {
 			t.Fatalf("output[%d]=%d want %d", i, value, want)
 		}
 	}
-	t.Log("verified 64 CPU-referenced outputs from two linked relocatable CUBINs")
+	if fatbin {
+		t.Log("verified 64 CPU-referenced outputs from two fatbins containing relocatable CUBINs")
+	} else {
+		t.Log("verified 64 CPU-referenced outputs from two linked relocatable CUBINs")
+	}
 }
