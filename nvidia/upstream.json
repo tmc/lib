@@ -173,11 +173,16 @@
         }
       },
       "vendor": {
-        "product": "NVRTC",
-        "version": null,
-        "archive": null,
-        "redistribution_manifest_url": null,
-        "verification": "Selected header is byte-pinned from cuda-headers commit; NVIDIA copyright notice is present. No retained per-package vendor archive pin establishes the exact release or archive for this selected header. The separately retained CUDA13.3 redistribution manifest does not establish this header identity."
+        "product": "cuda_nvrtc",
+        "version": "13.2.51",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvrtc/linux-x86_64/cuda_nvrtc-linux-x86_64-13.2.51-archive.tar.xz",
+          "sha256": "5a1897196b0276a82969db61ff4b3cd8d91fcf354f616945ed927f7224485083",
+          "header_member": "cuda_nvrtc-linux-x86_64-13.2.51-archive/include/nvrtc.h"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.2.0.json",
+        "redistribution_manifest_sha256": "8ce26ee1cb7ff13286f20dd2c6efbe268776bb13d71108c69cd04453b9d85d2b",
+        "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest; extracted header byte-identical to the selected Git-pinned header."
       },
       "header": {
         "repository": "headers",
@@ -287,7 +292,6 @@
         ]
       },
       "unresolved_inputs": [
-        "exact vendor release/archive attribution of selected nvrtc/nvrtc.h",
         "transitive Go module source contents",
         "documentation upstream retrieval identities beyond retained JSON bytes",
         "portable reconstruction of Apple clang and SDK environment; executable and75 C include hashes are retained in local evidence but no distributable toolchain pin is established"
