@@ -264,6 +264,8 @@ func (e EventWaitFlags) String() string {
 type AtomicOperation int32
 
 const (
+	AtomicOperationFloatMax         AtomicOperation = 12
+	AtomicOperationIntegerMax       AtomicOperation = 2
 	AtomicOperationIntegerAdd       AtomicOperation = 0
 	AtomicOperationIntegerMin       AtomicOperation = 1
 	AtomicOperationIntegerIncrement AtomicOperation = 3
@@ -279,6 +281,10 @@ const (
 
 func (e AtomicOperation) String() string {
 	switch e {
+	case AtomicOperationFloatMax:
+		return "AtomicOperationFloatMax"
+	case AtomicOperationIntegerMax:
+		return "AtomicOperationIntegerMax"
 	case AtomicOperationIntegerAdd:
 		return "AtomicOperationIntegerAdd"
 	case AtomicOperationIntegerMin:

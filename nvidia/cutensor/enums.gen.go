@@ -8,6 +8,7 @@ import "fmt"
 type OperatorT int32
 
 const (
+	OpMax      OperatorT = 6   // Maximum of two elements
 	OpIdentity OperatorT = 1   // Identity operator (i.e., elements are not changed)
 	OpSqrt     OperatorT = 2   // Square root
 	OpRelu     OperatorT = 8   // Rectified linear unit
@@ -44,6 +45,8 @@ const (
 
 func (e OperatorT) String() string {
 	switch e {
+	case OpMax:
+		return "OpMax"
 	case OpIdentity:
 		return "OpIdentity"
 	case OpSqrt:
@@ -143,12 +146,15 @@ func (e AlgoT) String() string {
 type WorksizepreferenceT int32
 
 const (
+	WorkspaceMax     WorksizepreferenceT = 3 // Highest memory requirement; all algorithms will be available (choose this option if memory footprint is not a concern)
 	WorkspaceMin     WorksizepreferenceT = 1 // Least memory requirement; at least one algorithm will be available
 	WorkspaceDefault WorksizepreferenceT = 2 // Aims to attain high performance while also reducing the workspace requirement.
 )
 
 func (e WorksizepreferenceT) String() string {
 	switch e {
+	case WorkspaceMax:
+		return "WorkspaceMax"
 	case WorkspaceMin:
 		return "WorkspaceMin"
 	case WorkspaceDefault:

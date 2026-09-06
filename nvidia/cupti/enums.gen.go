@@ -520,6 +520,7 @@ func (e ActivityPCSamplingStallReason) String() string {
 type ActivityPCSamplingPeriod int32
 
 const (
+	ActivityPcSamplingPeriodMax      ActivityPCSamplingPeriod = 5
 	ActivityPcSamplingPeriodInvalid  ActivityPCSamplingPeriod = 0 // The PC sampling period is not set.
 	ActivityPcSamplingPeriodMin      ActivityPCSamplingPeriod = 1 // Minimum sampling period available on the device.
 	ActivityPcSamplingPeriodLow      ActivityPCSamplingPeriod = 2 // Sampling period in lower range.
@@ -530,6 +531,8 @@ const (
 
 func (e ActivityPCSamplingPeriod) String() string {
 	switch e {
+	case ActivityPcSamplingPeriodMax:
+		return "ActivityPcSamplingPeriodMax"
 	case ActivityPcSamplingPeriodInvalid:
 		return "ActivityPcSamplingPeriodInvalid"
 	case ActivityPcSamplingPeriodMin:
@@ -3876,6 +3879,7 @@ func (e MetricValueKind) String() string {
 type MetricValueUtilizationLevel int32
 
 const (
+	MetricValueUtilizationMax      MetricValueUtilizationLevel = 10
 	MetricValueUtilizationIdle     MetricValueUtilizationLevel = 0
 	MetricValueUtilizationLow      MetricValueUtilizationLevel = 2
 	MetricValueUtilizationMid      MetricValueUtilizationLevel = 5
@@ -3885,6 +3889,8 @@ const (
 
 func (e MetricValueUtilizationLevel) String() string {
 	switch e {
+	case MetricValueUtilizationMax:
+		return "MetricValueUtilizationMax"
 	case MetricValueUtilizationIdle:
 		return "MetricValueUtilizationIdle"
 	case MetricValueUtilizationLow:
