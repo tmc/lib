@@ -239,17 +239,39 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 	return res, nil
 }
 
+type processCleanup interface {
+	kill() error
+	close() error
+}
+
 // runContext bounds cmd with ctx and cleans up its process group when the
 // run ends. WaitDelay also bounds pipes kept open after the leader exits.
 func runContext(ctx context.Context, cmd *exec.Cmd) error {
+	return runContextWithStart(ctx, cmd, func(cmd *exec.Cmd) (processCleanup, error) {
+		return startGroup(cmd)
+	})
+}
+
+// cleanupError distinguishes teardown failure from the application's exit status.
+// A joined ExitError must not hide failure to release the process group.
+type cleanupError struct{ err error }
+
+func (e *cleanupError) Error() string { return "clean up process group: " + e.err.Error() }
+func (e *cleanupError) Unwrap() error { return e.err }
+
+func runContextWithStart(ctx context.Context, cmd *exec.Cmd, start func(*exec.Cmd) (processCleanup, error)) (err error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	group, err := startGroup(cmd)
+	group, err := start(cmd)
 	if err != nil {
 		return err
 	}
-	defer group.close()
+	defer func() {
+		if closeErr := group.close(); closeErr != nil {
+			err = errors.Join(err, &cleanupError{closeErr})
+		}
+	}()
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
@@ -259,7 +281,7 @@ func runContext(ctx context.Context, cmd *exec.Cmd) error {
 		// Kill the whole group: compute-sanitizer runs the application as
 		// a separate process, so killing the direct child alone can leave
 		// the instrumented program running and holding the pipes open.
-		_ = group.kill()
+		killErr := group.kill()
 		select {
 		case <-done:
 		case <-time.After(cmd.WaitDelay):
@@ -267,6 +289,9 @@ func runContext(ctx context.Context, cmd *exec.Cmd) error {
 				_ = cmd.Process.Kill()
 			}
 			<-done
+		}
+		if killErr != nil {
+			return errors.Join(ctx.Err(), &cleanupError{killErr})
 		}
 		return ctx.Err()
 	}
@@ -279,11 +304,17 @@ func (r *Result) classify(ctx context.Context, runErr error) {
 	switch {
 	case errors.Is(runErr, context.DeadlineExceeded), errors.Is(ctx.Err(), context.DeadlineExceeded):
 		r.Outcome = OutcomeToolFailure
-		r.Err = fmt.Errorf("%w after %s", ErrTimeout, r.Duration.Round(time.Millisecond))
+		r.Err = fmt.Errorf("%w after %s: %w", ErrTimeout, r.Duration.Round(time.Millisecond), errors.Join(context.DeadlineExceeded, runErr))
 		return
 	case errors.Is(runErr, context.Canceled), errors.Is(ctx.Err(), context.Canceled):
 		r.Outcome = OutcomeToolFailure
-		r.Err = fmt.Errorf("run cancelled after %s: %w", r.Duration.Round(time.Millisecond), context.Canceled)
+		r.Err = fmt.Errorf("run cancelled after %s: %w", r.Duration.Round(time.Millisecond), errors.Join(context.Canceled, runErr))
+		return
+	}
+	var cleanupErr *cleanupError
+	if errors.As(runErr, &cleanupErr) {
+		r.Outcome = OutcomeToolFailure
+		r.Err = runErr
 		return
 	}
 	var exitErr *exec.ExitError

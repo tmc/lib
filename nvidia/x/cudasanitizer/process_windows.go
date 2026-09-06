@@ -1,6 +1,7 @@
 package cudasanitizer
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -26,7 +27,9 @@ func startGroupWithResume(cmd *exec.Cmd, resume func(uint32) error) (_ *processG
 	g := &processGroup{job: job}
 	defer func() {
 		if err != nil {
-			g.close()
+			if closeErr := g.close(); closeErr != nil {
+				err = errors.Join(err, &cleanupError{closeErr})
+			}
 		}
 	}()
 	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{}
@@ -68,8 +71,8 @@ func startGroupWithResume(cmd *exec.Cmd, resume func(uint32) error) (_ *processG
 	return g, nil
 }
 
-func (g *processGroup) kill() error { return windows.TerminateJobObject(g.job, 1) }
-func (g *processGroup) close()      { _ = windows.CloseHandle(g.job) }
+func (g *processGroup) kill() error  { return windows.TerminateJobObject(g.job, 1) }
+func (g *processGroup) close() error { return windows.CloseHandle(g.job) }
 
 // os/exec closes the primary thread handle returned by CreateProcess. Find
 // that thread while the new process is still suspended and cannot create more.
