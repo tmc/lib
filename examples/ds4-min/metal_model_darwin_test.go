@@ -41,6 +41,8 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	if path == "" {
 		t.Skip("profile model path not set")
 	}
+	prof := newPhaseTimer(t)
+	defer prof.report()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -54,6 +56,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	prof.mark("gguf.Read")
 	var maxTensor uint64
 	for _, tensor := range g.Tensors {
 		n, err := tensor.Bytes()
@@ -62,16 +65,19 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		}
 		maxTensor = max(maxTensor, n)
 	}
+	prof.mark("tensor size scan")
 	dev, err := libmetal.NewDevice()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dev.Close()
+	prof.mark("NewDevice")
 	views, err := mapMetalModel(dev, f, uint64(info.Size()), maxTensor)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer views.Close()
+	prof.mark("mapMetalModel")
 	for _, tensor := range g.Tensors {
 		n, err := tensor.Bytes()
 		if err != nil {
@@ -86,15 +92,18 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		}
 	}
 	t.Logf("device=%s views=%d tensors=%d max_tensor=%d", dev.Name(), len(views.views), len(g.Tensors), maxTensor)
+	prof.mark("tensor view check")
 	ops, err := newMetalPinnedOps(dev)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ops.Close()
+	prof.mark("newMetalPinnedOps (MSL compile)")
 	embedding, err := views.Bind(g, "token_embd.weight")
 	if err != nil {
 		t.Fatal(err)
 	}
+	prof.mark("bind token_embd")
 	x, err := ops.GetRowF16(embedding, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +114,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 			t.Fatalf("embedding[%d] = %g, want %g", i, got, want)
 		}
 	}
+	prof.mark("GetRowF16 (first GPU touch)")
 	q, err := views.Bind(g, "blk.0.attn_q_a.weight")
 	if err != nil {
 		t.Fatal(err)
@@ -135,6 +145,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		}
 		return tensor
 	}
+	prof.mark("bind loop + first MatvecQ80")
 	pre, attnNorm, err := ops.Layer0AttentionPre(
 		embedding,
 		bind("blk.0.hc_attn_fn.weight"),
@@ -180,6 +191,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	}
 	compareOracleF32(t, "KVnorm", kvNorm, oracleDir+"/stage_KVnorm-0_pos0.bin")
 	compareOracleF32(t, "KVrope", kvNorm, oracleDir+"/stage_KVrope-0_pos0.bin")
+	prof.mark("attn projections")
 	qCur, kvCur, heads, err := ops.RopeAttentionOne(qHeads, kvNorm, bind("blk.0.attn_sinks.weight"), 0)
 	if err != nil {
 		t.Fatal(err)
@@ -221,6 +233,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareOracleF32(t, "attn_out", attnOut, oracleDir+"/stage_attn_out-0_pos0.bin")
+	prof.mark("attention")
 	hc, err := ops.Layer0AttentionPost(
 		embedding, attnOut,
 		bind("blk.0.hc_attn_fn.weight"),
@@ -244,6 +257,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	}
 	compareOracleF32(t, "hc_ffn_pre", ffnCur, oracleDir+"/stage_hc_ffn_pre-0_pos0.bin")
 	compareOracleF32(t, "ffn_norm", ffnNorm, oracleDir+"/stage_ffn_norm-0_pos0.bin")
+	prof.mark("HCPre")
 	routerLogits, err := ops.MatvecF16(bind("blk.0.ffn_gate_inp.weight"), ffnNorm)
 	if err != nil {
 		t.Fatal(err)
@@ -332,6 +346,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareOracleF32(t, "ffn_out", ffnOut, oracleDir+"/stage_ffn_out-0_pos0.bin")
+	prof.mark("router + experts + shared")
 	hcFFN, err := ops.HCPost(
 		hc, ffnOut,
 		bind("blk.0.hc_ffn_fn.weight"),
@@ -351,6 +366,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 		// layers free-running from layer 0 and bounds how fast the residual
 		// stream may diverge; a fixed per-stage tolerance cannot survive 42
 		// chained layers, but an amplification bound can.
+		prof.mark("HCPost + layer0 checks")
 		pos := allLayersOraclePosition(t)
 		for layer := 1; layer < 43; layer++ {
 			t.Run(fmt.Sprintf("forced-layer-%d", layer), func(t *testing.T) {
@@ -358,6 +374,7 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 				runPinnedHashLayerAt(t, ops, bind, readOracleF32(t, prior), layer, allLayersOracle, pos)
 			})
 		}
+		prof.mark("forced layers 1-42")
 		t.Run("chained-drift", func(t *testing.T) {
 			state := hcFFN
 			for layer := 1; layer < 43; layer++ {
