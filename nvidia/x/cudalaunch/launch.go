@@ -46,6 +46,7 @@ type DeviceSlice interface {
 // Launcher builds and executes a CUDA kernel dispatch.
 type Launcher struct {
 	fn      driver.Function
+	owned   *cuda.Kernel
 	grid    Dim3
 	block   Dim3
 	shmem   uint32
@@ -79,6 +80,14 @@ func Kernel(fn driver.Function) *Launcher {
 	}
 }
 
+// OwnedKernel creates a launcher that checks the kernel's module lifetime.
+// The stream and device arguments must belong to the module's context.
+func OwnedKernel(fn *cuda.Kernel) *Launcher {
+	l := Kernel(0)
+	l.owned = fn
+	return l
+}
+
 // Grid configures the grid dimensions (in blocks).
 func (l *Launcher) Grid(x uint32, yz ...uint32) *Launcher {
 	l.grid = Dims(x, yz...)
@@ -105,6 +114,9 @@ func (l *Launcher) On(s *cuda.Stream) *Launcher {
 
 // Launch packs the provided Go arguments and dispatches the kernel.
 func (l *Launcher) Launch(args ...any) error {
+	if l.owned == nil && l.fn == 0 {
+		return fmt.Errorf("cudalaunch: nil kernel")
+	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -115,6 +127,9 @@ func (l *Launcher) Launch(args ...any) error {
 	defer cleanup()
 
 	launch := func(stream driver.Stream) error {
+		if l.owned != nil {
+			return l.owned.Launch([3]uint32{l.grid.X, l.grid.Y, l.grid.Z}, [3]uint32{l.block.X, l.block.Y, l.block.Z}, l.shmem, stream, kernelParams)
+		}
 		return l.fn.LaunchKernel(
 			l.grid.X, l.grid.Y, l.grid.Z,
 			l.block.X, l.block.Y, l.block.Z,
@@ -128,6 +143,9 @@ func (l *Launcher) Launch(args ...any) error {
 	} else {
 		dev := l.stream.Device()
 		err = l.stream.WithHandle(func(stream driver.Stream) error {
+			if l.owned != nil {
+				return launch(stream)
+			}
 			return dev.WithContext(func() error { return launch(stream) })
 		})
 	}
