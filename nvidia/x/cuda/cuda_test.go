@@ -5,12 +5,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 func TestInitAndDevices(t *testing.T) {
-	if err := cuda.Init(); err != nil {
+	if err := driver.Load(""); err != nil {
 		t.Skipf("skipping test: CUDA driver not available: %v", err)
+	}
+	// Past this point libcuda is present, so every remaining failure is real.
+	if err := cuda.Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
 	}
 
 	count, err := cuda.DeviceCount()
@@ -48,8 +53,12 @@ func TestInitAndDevices(t *testing.T) {
 }
 
 func TestStreamAndEventLifecycle(t *testing.T) {
-	if err := cuda.Init(); err != nil {
+	if err := driver.Load(""); err != nil {
 		t.Skipf("CUDA driver not available: %v", err)
+	}
+	// Past this point libcuda is present, so every remaining failure is real.
+	if err := cuda.Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
 	}
 
 	count, err := cuda.DeviceCount()
@@ -103,8 +112,12 @@ func TestStreamAndEventLifecycle(t *testing.T) {
 }
 
 func TestStreamCleanup(t *testing.T) {
-	if err := cuda.Init(); err != nil {
+	if err := driver.Load(""); err != nil {
 		t.Skipf("CUDA driver not available: %v", err)
+	}
+	// Past this point libcuda is present, so every remaining failure is real.
+	if err := cuda.Init(); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
 	}
 	count, err := cuda.DeviceCount()
 	if err != nil || count == 0 {
