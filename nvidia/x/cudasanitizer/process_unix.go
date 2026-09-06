@@ -65,4 +65,4 @@ func (g *processGroup) kill() error {
 	return err
 }
 
-func (g *processGroup) close() { _ = g.kill() }
+func (g *processGroup) close() error { return g.kill() }
