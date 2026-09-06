@@ -21,8 +21,9 @@ type CodegenOptions struct {
 // extracted AST Expr.
 //
 // It has kernels for the operators "fused_swiglu_gemv", "fused_rmsnorm_gemv"
-// and "add"; any other operator is an error. Only a Precision of "float" is
-// supported.
+// and "add"; any other operator is an error. The add kernel is elementwise over
+// two leaf inputs, so an add over a deeper tree is an error too. Only a
+// Precision of "float" is supported.
 func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	if expr == nil {
 		return "", fmt.Errorf("egraph: nil expr passed to GenerateCUDA")
@@ -65,7 +66,14 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	case "fused_rmsnorm_gemv":
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "add":
-		// Multi-op fused block
+		// The kernel is a two-input elementwise sum and reads nothing from
+		// the tree below it, so an "add" over anything but two leaves would
+		// generate source that silently drops the nested operators. There is
+		// no signature for those inputs either: the kernel takes exactly two
+		// buffers.
+		if len(expr.Children) != 2 || len(expr.Children[0].Children) != 0 || len(expr.Children[1].Children) != 0 {
+			return "", fmt.Errorf("egraph: no CUDA kernel for %q: the add kernel is elementwise over two leaf inputs", expr.String())
+		}
 		sb.WriteString(generateCompositeKernel(expr, opts))
 	default:
 		// Every other operator used to fall through to a kernel that copied
