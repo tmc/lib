@@ -8,7 +8,12 @@ import (
 // CodegenOptions configures CUDA C++ / PTX kernel code generation.
 type CodegenOptions struct {
 	KernelName string
-	Precision  string // "float", "half", "__nv_bfloat16"
+	// Precision is the element type the kernel operates on. Only "float" is
+	// supported; the generator emits it as a bare type name, and the half
+	// types need headers nvrtc is not given. Anything else is an error.
+	Precision string
+	// UseWarpSum is not read. The warp_sum device function is emitted
+	// unconditionally, and three of the four kernels do not call it.
 	UseWarpSum bool
 }
 
@@ -22,6 +27,15 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 	if opts.Precision == "" {
 		opts.Precision = "float"
+	}
+	// The precision is emitted as a bare type name. "half" and
+	// "__nv_bfloat16" are only defined by cuda_fp16.h and cuda_bf16.h, and
+	// nvrtc compiles with no header search path, so naming them produced
+	// source in which the type was an undefined identifier. Refusing them is
+	// honest about what this generator can emit; returning source that
+	// cannot compile was not.
+	if opts.Precision != "float" {
+		return "", fmt.Errorf("egraph: unsupported precision %q: only \"float\" is supported", opts.Precision)
 	}
 
 	var sb strings.Builder
