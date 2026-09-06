@@ -62,9 +62,13 @@
 // passed as one of them must be pinned with [runtime.Pinner] across the
 // call. A [Handle] is not safe for concurrent use.
 //
-// Only the single-GPU minimum is bound. custatevec.h also declares a
-// sampler, an accessor, batched and multi-GPU APIs, a distributed
-// communicator layer and a logging layer that this package does not expose.
+// Distributed swaps use a Communicator, DistIndexBitSwapScheduler and SVSwapWorker.
+// The communicator soname is nullable: nil selects already-linked MPI symbols.
+// Keep worker state, events, semaphores and workspaces alive until transfers finish.
+// Set extra workspace before worker parameters; transfer workspace must meet the
+// reported minimum and power-of-two requirement. Synchronize before destroying
+// workers and their dependencies. Distributed execution needs separate qualification.
+// Sampler, accessor, batched operations and migrators remain unbound.
 //
 // # Observation
 //
@@ -80,11 +84,26 @@
 //
 // # Library context
 //
+//   - [NewCommunicator]: [Create] communicator.
+//   - [Communicator.Destroy]: releases communicator.
 //   - [Create]: creates a cuStateVec library handle bound to the current CUDA device.
 //   - [Handle.Destroy]: releases a handle and the resources it owns.
+//   - [NewDistIndexBitSwapScheduler]: [Create] distributed index bit swap scheduler.
+//   - [DistIndexBitSwapScheduler.Destroy]: releases distributed index bit swap scheduler.
+//   - [DistIndexBitSwapScheduler.GetParameters]: Get parameters to be set to the state vector swap worker
+//   - [DistIndexBitSwapScheduler.SetIndexBitSwaps]: Set index bit swaps to distributed index bit swap scheduler.
 //   - [GetProperty]: reports one component of the linked library version.
 //   - [Handle.GetStream]: returns the CUDA stream bound to the handle.
 //   - [GetVersion]: returns the linked library version, which the header encodes as major*10000 + minor*100 + patch.
+//   - [NewSVSwapWorker]: [Create] state vector swap worker.
+//   - [NewSVSwapWorkerWithSemaphore]: [Create] state vector swap worker with semaphore.
+//   - [SVSwapWorker.Destroy]: releases the state vector swap worker.
+//   - [SVSwapWorker.Execute]: Execute the data transfer.
+//   - [SVSwapWorker.SetExtraWorkspace]: Set extra workspace.
+//   - [SVSwapWorker.SetParameters]: Set state vector swap parameters.
+//   - [SVSwapWorker.SetSubSVsP2P]: Set sub state vector pointers accessible via GPUDirect P2P with CUDA IPC events
+//   - [SVSwapWorker.SetSubSVsP2PWithSemaphores]: Set sub state vector pointers accessible via GPUDirect P2P with semaphores
+//   - [SVSwapWorker.SetTransferWorkspace]: Set transfer workspace.
 //   - [Handle.SetStream]: binds the CUDA stream on which subsequent calls enqueue work.
 //
 // # Workspace

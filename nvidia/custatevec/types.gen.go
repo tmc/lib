@@ -79,6 +79,9 @@ const (
 	R4F_E2M1 DataType = 33
 )
 
+// Event is an opaque CUDA event handle.
+type Event uintptr
+
 // PropertyType selects a version component for [GetProperty].
 type PropertyType int32
 
@@ -91,3 +94,6 @@ const (
 
 // Stream is an opaque CUDA stream handle.
 type Stream uintptr
+
+// Index represents custatevecIndex_t.
+type Index int64
