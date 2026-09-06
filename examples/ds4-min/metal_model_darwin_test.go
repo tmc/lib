@@ -656,7 +656,13 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 	}
 	checkF32("Qcur", qCur, oracle("Qcur"))
 	checkFP8("KVcur", kvCur, oracle("KVcur"))
-	checkFP8("kqv_out", heads, oracle("kqv_out"))
+	// kqv_out was gated at the FP8 limit, which masked a systematic divergence:
+	// the attention dot rounded only KV to f16 and left Q at f32, where the
+	// oracle rounds both operands (dsv4_misc.metal:5748-5751, 5779-5782). That
+	// held kqv_out near 3.4e-4 at every layer and propagated into hc_ffn_pre.
+	// With both operands rounded the stage sits at 1.5e-5, so it is pinned at
+	// the frozen limit here: restoring the unrounded Q turns this red.
+	checkFrozenF32("kqv_out", heads, oracle("kqv_out"))
 	projectionA := bind(name("attn_output_a.weight"))
 	low := make([]float32, 0, 8192)
 	for group := range 8 {

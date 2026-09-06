@@ -1703,12 +1703,12 @@ kernel void rope_attention_mixed(
   float maximum=sinks[head];
   for(uint t=0;t<n_raw;t++){
     const uint row=(first+t)%raw_cap;float score=0.0f;
-    for(uint i=0;i<512;i++)score+=out[qoff+i]*raw[row*512+i];
+    for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*raw[row*512+i];
     score*=0.04419417382415922f;scores[head*total+t]=score;maximum=max(maximum,score);
   }
   for(uint cidx=0;cidx<n_comp;cidx++){
     float score=-1.0e30f;
-    if(allowed[cidx]){score=0.0f;for(uint i=0;i<512;i++)score+=out[qoff+i]*comp[cidx*512+i];score*=0.04419417382415922f;maximum=max(maximum,score);}
+    if(allowed[cidx]){score=0.0f;for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*comp[cidx*512+i];score*=0.04419417382415922f;maximum=max(maximum,score);}
     scores[head*total+n_raw+cidx]=score;
   }
   float denom=exp(sinks[head]-maximum);
@@ -1765,7 +1765,7 @@ kernel void rope_attention_raw(
   float maximum=sinks[head];
   for(uint t=0;t<count;t++){
     const uint row=(first+t)%cache_cap;
-    float score=0.0f;for(uint i=0;i<512;i++)score+=out[qoff+i]*cache[row*512+i];
+    float score=0.0f;for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*cache[row*512+i];
     score/=sqrt(512.0f);scores[head*cache_cap+t]=score;maximum=max(maximum,score);
   }
   float denom=exp(sinks[head]-maximum);
@@ -1822,7 +1822,12 @@ kernel void rope_attention_one(
   }
   threadgroup_barrier(mem_flags::mem_device);
   float score=0.0f;
-  for(uint i=0;i<512;i++)score+=out[qoff+i]*float(half(out[32768+i]));
+  // The oracle rounds BOTH operands to f16 before the dot: it loads Q from f32
+  // and casts it to half (dsv4_misc.metal:5748-5751) alongside the half KV, then
+  // widens both for the accumulation (dsv4_attend_shared_h4_row). Rounding only
+  // KV leaves Q at full f32 precision and diverges from the capture at f16 ULP
+  // scale, which is the whole of the kqv_out residual.
+  for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*float(half(out[32768+i]));
   score/=sqrt(512.0f);
   const float mx=max(score,sinks[head]);
   const float weight=exp(score-mx)/(exp(score-mx)+exp(sinks[head]-mx));
