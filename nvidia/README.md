@@ -25,12 +25,26 @@ the libraries are located and loaded on first use.
 | cusolver | cuSOLVER (dense) | factorizations and eigensolvers |
 | cusparse | cuSPARSE (generic API) | sparse matrices and SpMV/SpMM |
 | cutensor | cuTENSOR | tensor contractions, reductions, permutations |
+| cudss | cuDSS | direct sparse linear solves: analysis, factorization, solve |
+| cublasmp | cuBLASMp | multi-process, multi-GPU dense linear algebra over an NCCL process grid |
+| cusolvermp | cuSOLVERMp | multi-process, multi-GPU dense factorization and solve |
+| custatevec | cuStateVec (cuQuantum) | state-vector quantum circuit simulation |
+| cutensornet | cuTensorNet (cuQuantum) | tensor-network path finding and contraction |
+| cudensitymat | cuDensityMat (cuQuantum) | many-body operator action and expectation values |
+| vpi | VPI (Vision Programming Interface) | context and stream lifecycle, image wrapping, rescale |
 | cupti | CUPTI | profiling and activity tracing |
 | sanitizer | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
+| dcgm | DCGM client library (libdcgm) | host-engine telemetry, entity and field discovery, health and diagnostics |
 | nccl | NCCL | multi-GPU collectives |
 | ncclep | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
 | ncclm2n | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
+| nvshmem | NVSHMEM host API (`libnvshmem_host`) | symmetric heap allocation and PE-to-PE communication; host calls only |
+| gdrcopy | GDRCopy (`libgdrapi`) | mapping GPU memory into a process's address space |
 | cufile | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
+| nvcomp | nvCOMP (batched LZ4) | compressing and decompressing independent chunks on device |
+| nvjpeg2k | nvJPEG2000 | JPEG 2000 decoding on device |
+| nvdec | NVDEC (nv-codec-headers) | hardware video decoding: parser, decoder, surface mapping |
+| nvenc | NVENC (nv-codec-headers) | hardware video encoding through the driver's function table |
 | fabricmanager | NVIDIA Fabric Manager | NVSwitch fabric partitions |
 | x/... | — | idiomatic layer over the raw bindings; see the [generated package inventory](x/README.md) |
 
