@@ -14,6 +14,7 @@ const (
 	ProcessModeAll      ProcessMode = 3 // All processes running on the GPU (compute, graphics, MPS, and other types)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProcessMode) String() string {
 	switch e {
 	case ProcessModeCompute:
@@ -37,6 +38,7 @@ const (
 	DeviceAddressingModeAts  DeviceAddressingModeType = 2 // Address Translation Services mode
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceAddressingModeType) String() string {
 	switch e {
 	case DeviceAddressingModeNone:
@@ -57,6 +59,7 @@ const (
 	BridgeChipBRO4 BridgeChipType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BridgeChipType) String() string {
 	switch e {
 	case BridgeChipPlx:
@@ -78,6 +81,7 @@ const (
 	NvlinkCounterUnitCount    NvLinkUtilizationCountUnits = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvLinkUtilizationCountUnits) String() string {
 	switch e {
 	case NvlinkCounterUnitCycles:
@@ -109,6 +113,7 @@ const (
 	NvlinkCounterPktfilterAll        NvLinkUtilizationCountPktTypes = 0xFF // all packets
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvLinkUtilizationCountPktTypes) String() string {
 	switch e {
 	case NvlinkCounterPktfilterNop:
@@ -146,6 +151,7 @@ const (
 	NvlinkCapCount         NvLinkCapability = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvLinkCapability) String() string {
 	switch e {
 	case NvlinkCapP2PSupported:
@@ -178,6 +184,7 @@ const (
 	NvlinkErrorCount      NvLinkErrorCounter = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvLinkErrorCounter) String() string {
 	switch e {
 	case NvlinkErrorDlReplay:
@@ -206,6 +213,7 @@ const (
 	NvlinkDeviceTypeUnknown IntNvLinkDeviceType = 0xFF
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IntNvLinkDeviceType) String() string {
 	switch e {
 	case NvlinkDeviceTypeGpu:
@@ -232,6 +240,7 @@ const (
 	TopologySystem     GpuTopologyLevel = 50 // all devices in the system
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuTopologyLevel) String() string {
 	switch e {
 	case TopologyInternal:
@@ -264,6 +273,7 @@ const (
 	P2PStatusUnknown                 GpuP2PStatus = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuP2PStatus) String() string {
 	switch e {
 	case P2PStatusOk:
@@ -297,6 +307,7 @@ const (
 	P2PCapsIndexUnknown GpuP2PCapsIndex = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuP2PCapsIndex) String() string {
 	switch e {
 	case P2PCapsIndexRead:
@@ -332,6 +343,7 @@ const (
 	SamplingtypeCount        SamplingType = 10
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SamplingType) String() string {
 	switch e {
 	case TotalPowerSamples:
@@ -369,6 +381,7 @@ const (
 	PcieUtilCount   PcieUtilCounter = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PcieUtilCounter) String() string {
 	switch e {
 	case PcieUtilTxBytes:
@@ -395,6 +408,7 @@ const (
 	ValueTypeCount            ValueType = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ValueType) String() string {
 	switch e {
 	case ValueTypeDouble:
@@ -432,6 +446,7 @@ const (
 	PerfPolicyCount           PerfPolicyType = 12
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PerfPolicyType) String() string {
 	switch e {
 	case PerfPolicyPower:
@@ -472,6 +487,7 @@ const (
 	ThermalTargetUnknown     ThermalTarget = -1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ThermalTarget) String() string {
 	switch e {
 	case ThermalTargetNone:
@@ -523,6 +539,7 @@ const (
 	ThermalControllerUnknown        ThermalController = -1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ThermalController) String() string {
 	switch e {
 	case ThermalControllerNone:
@@ -577,6 +594,7 @@ const (
 	ThermalCoolerSignalCount    CoolerControl = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CoolerControl) String() string {
 	switch e {
 	case ThermalCoolerSignalNone:
@@ -602,6 +620,7 @@ const (
 	ThermalCoolerTargetGpuRelated  CoolerTarget = ThermalCoolerTargetGpu | ThermalCoolerTargetMemory | ThermalCoolerTargetPowerSupply // This cooler cools all of the components related to its target gpu. GPU_RELATED = GPU | MEMORY | POWER_SUPPLY
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CoolerTarget) String() string {
 	switch e {
 	case ThermalCoolerTargetNone:
@@ -625,6 +644,7 @@ const (
 	UuidTypeBinary UUIDType = 2 // Binary format type
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e UUIDType) String() string {
 	switch e {
 	case UuidTypeNone:
@@ -645,6 +665,7 @@ const (
 	FeatureEnabled  EnableState = 1 // Feature enabled
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EnableState) String() string {
 	switch e {
 	case FeatureDisabled:
@@ -680,6 +701,7 @@ const (
 	BrandCount             BrandType = 18
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BrandType) String() string {
 	switch e {
 	case BrandUnknown:
@@ -726,33 +748,34 @@ func (e BrandType) String() string {
 type TemperatureThresholds int32
 
 const (
-	TemperatureThresholdAcousticMax  TemperatureThresholds = 6 // Maximum GPU temperature that can be
-	TemperatureThresholdGpuMax       TemperatureThresholds = 3 // GPU Temperature at which the GPU
-	TemperatureThresholdMemMax       TemperatureThresholds = 2 // Memory Temperature at which the GPU will
 	TemperatureThresholdShutdown     TemperatureThresholds = 0 // Temperature at which the GPU will
 	TemperatureThresholdSlowdown     TemperatureThresholds = 1 // Temperature at which the GPU will
+	TemperatureThresholdMemMax       TemperatureThresholds = 2 // Memory Temperature at which the GPU will
+	TemperatureThresholdGpuMax       TemperatureThresholds = 3 // GPU Temperature at which the GPU
 	TemperatureThresholdAcousticMin  TemperatureThresholds = 4 // Minimum GPU Temperature that can be
 	TemperatureThresholdAcousticCurr TemperatureThresholds = 5 // Current temperature that is set as
+	TemperatureThresholdAcousticMax  TemperatureThresholds = 6 // Maximum GPU temperature that can be
 	TemperatureThresholdGpsCurr      TemperatureThresholds = 7 // Current temperature that is set as
 	TemperatureThresholdCount        TemperatureThresholds = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TemperatureThresholds) String() string {
 	switch e {
-	case TemperatureThresholdAcousticMax:
-		return "TemperatureThresholdAcousticMax"
-	case TemperatureThresholdGpuMax:
-		return "TemperatureThresholdGpuMax"
-	case TemperatureThresholdMemMax:
-		return "TemperatureThresholdMemMax"
 	case TemperatureThresholdShutdown:
 		return "TemperatureThresholdShutdown"
 	case TemperatureThresholdSlowdown:
 		return "TemperatureThresholdSlowdown"
+	case TemperatureThresholdMemMax:
+		return "TemperatureThresholdMemMax"
+	case TemperatureThresholdGpuMax:
+		return "TemperatureThresholdGpuMax"
 	case TemperatureThresholdAcousticMin:
 		return "TemperatureThresholdAcousticMin"
 	case TemperatureThresholdAcousticCurr:
 		return "TemperatureThresholdAcousticCurr"
+	case TemperatureThresholdAcousticMax:
+		return "TemperatureThresholdAcousticMax"
 	case TemperatureThresholdGpsCurr:
 		return "TemperatureThresholdGpsCurr"
 	case TemperatureThresholdCount:
@@ -769,6 +792,7 @@ const (
 	TemperatureCount TemperatureSensors = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TemperatureSensors) String() string {
 	switch e {
 	case TemperatureGpu:
@@ -790,6 +814,7 @@ const (
 	ComputemodeCount            ComputeMode = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ComputeMode) String() string {
 	switch e {
 	case ComputemodeDefault:
@@ -815,6 +840,7 @@ const (
 	MemoryErrorTypeCount       MemoryErrorType = 2 // Count of memory error types
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemoryErrorType) String() string {
 	switch e {
 	case MemoryErrorTypeCorrected:
@@ -836,6 +862,7 @@ const (
 	EccCounterTypeCount EccCounterType = 2 // Count of memory counter types
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EccCounterType) String() string {
 	switch e {
 	case VolatileEcc:
@@ -859,6 +886,7 @@ const (
 	ClockCount    ClockType = 4 // Count of clock types
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClockType) String() string {
 	switch e {
 	case ClockGraphics:
@@ -879,23 +907,24 @@ func (e ClockType) String() string {
 type ClockId int32
 
 const (
-	ClockIdCustomerBoostMax ClockId = 3 // OEM-defined maximum clock rate
 	ClockIdCurrent          ClockId = 0 // Current actual clock value
 	ClockIdAppClockTarget   ClockId = 1 // Target application clock.
 	ClockIdAppClockDefault  ClockId = 2 // Default application clock target
+	ClockIdCustomerBoostMax ClockId = 3 // OEM-defined maximum clock rate
 	ClockIdCount            ClockId = 4 // Count of Clock Ids.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClockId) String() string {
 	switch e {
-	case ClockIdCustomerBoostMax:
-		return "ClockIdCustomerBoostMax"
 	case ClockIdCurrent:
 		return "ClockIdCurrent"
 	case ClockIdAppClockTarget:
 		return "ClockIdAppClockTarget"
 	case ClockIdAppClockDefault:
 		return "ClockIdAppClockDefault"
+	case ClockIdCustomerBoostMax:
+		return "ClockIdCustomerBoostMax"
 	case ClockIdCount:
 		return "ClockIdCount"
 	}
@@ -911,6 +940,7 @@ const (
 	DriverMcdm DriverModel = 2 // MCDM driver model -- GPU treated as a Microsoft compute device
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverModel) String() string {
 	switch e {
 	case DriverWddm:
@@ -946,6 +976,7 @@ const (
 	PstateUnknown Pstates = 32 // Unknown performance state
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Pstates) String() string {
 	switch e {
 	case Pstate0:
@@ -995,6 +1026,7 @@ const (
 	GomLowDp   GpuOperationMode = 2 // Designed for running graphics applications that don't require
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuOperationMode) String() string {
 	switch e {
 	case GomAllOn:
@@ -1018,6 +1050,7 @@ const (
 	InforomCount InforomObject = 4 // This counts the number of infoROM objects the driver knows about
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e InforomObject) String() string {
 	switch e {
 	case InforomOem:
@@ -1050,6 +1083,7 @@ const (
 	MemoryLocationCount         MemoryLocation = 8 // This counts the number of memory locations the driver knows about
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemoryLocation) String() string {
 	switch e {
 	case MemoryLocationL1Cache:
@@ -1083,6 +1117,7 @@ const (
 	PageRetirementCauseCount                      PageRetirementCause = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PageRetirementCause) String() string {
 	switch e {
 	case PageRetirementCauseMultipleSingleBitEccErrors:
@@ -1104,6 +1139,7 @@ const (
 	RestrictedApiCount                RestrictedAPI = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RestrictedAPI) String() string {
 	switch e {
 	case RestrictedApiSetApplicationClocks:
@@ -1126,6 +1162,7 @@ const (
 	GpuUtilizationDomainBus GpuUtilizationDomainId = 3 // Bus interface domain
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuUtilizationDomainId) String() string {
 	switch e {
 	case GpuUtilizationDomainGpu:
@@ -1151,6 +1188,7 @@ const (
 	GpuVirtualizationModeHostVsga    GpuVirtualizationMode = 4 // Device is associated with VGX hypervisor in vSGA mode
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpuVirtualizationMode) String() string {
 	switch e {
 	case GpuVirtualizationModeNone:
@@ -1175,6 +1213,7 @@ const (
 	HostVgpuModeSriov    HostVgpuMode = 1 // SR-IOV mode
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e HostVgpuMode) String() string {
 	switch e {
 	case HostVgpuModeNonSriov:
@@ -1193,6 +1232,7 @@ const (
 	VgpuVmIdUuid     VgpuVmIdType = 1 // VM ID represents UUID
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuVmIdType) String() string {
 	switch e {
 	case VgpuVmIdDomainId:
@@ -1211,6 +1251,7 @@ const (
 	VgpuInstanceGuestInfoStateInitialized   VgpuGuestInfoState = 1 // Guest-dependent fields initialized
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuGuestInfoState) String() string {
 	switch e {
 	case VgpuInstanceGuestInfoStateUninitialized:
@@ -1233,6 +1274,7 @@ const (
 	GridLicenseFeatureCodeCompute      GridLicenseFeatureCode = 4                               // Compute
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GridLicenseFeatureCode) String() string {
 	switch e {
 	case GridLicenseFeatureCodeUnknown:
@@ -1261,6 +1303,7 @@ const (
 	VgpuCapCount              VgpuCapability = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuCapability) String() string {
 	switch e {
 	case VgpuCapNvlinkP2P:
@@ -1288,6 +1331,7 @@ const (
 	VgpuDriverCapCount                  VgpuDriverCapability = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuDriverCapability) String() string {
 	switch e {
 	case VgpuDriverCapHeterogeneousMultiVgpu:
@@ -1319,6 +1363,7 @@ const (
 	DeviceVgpuCapCount                          DeviceVgpuCapability = 12
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceVgpuCapability) String() string {
 	switch e {
 	case DeviceVgpuCapFractionalMultiVgpu:
@@ -1363,6 +1408,7 @@ const (
 	GpuRecoveryActionRecoverImexDomain DeviceGpuRecoveryAction = 5 // Recover IMEX Domain.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceGpuRecoveryAction) String() string {
 	switch e {
 	case GpuRecoveryActionNone:
@@ -1389,6 +1435,7 @@ const (
 	FanFailed FanState = 1 // Fan has failed
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FanState) String() string {
 	switch e {
 	case FanNormal:
@@ -1407,6 +1454,7 @@ const (
 	LedColorAmber LedColor = 1 // AMBER, indicates problem
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LedColor) String() string {
 	switch e {
 	case LedColorGreen:
@@ -1427,6 +1475,7 @@ const (
 	EncoderQueryUnknown EncoderType = 0xFF // Unknown encoder
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EncoderType) String() string {
 	switch e {
 	case EncoderQueryH264:
@@ -1452,6 +1501,7 @@ const (
 	FbcSessionTypeHwenc   FBCSessionType = 4 // HEnc
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FBCSessionType) String() string {
 	switch e {
 	case FbcSessionTypeUnknown:
@@ -1476,6 +1526,7 @@ const (
 	DetachGpuRemove DetachGpuState = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DetachGpuState) String() string {
 	switch e {
 	case DetachGpuKeep:
@@ -1494,6 +1545,7 @@ const (
 	PcieLinkShutDown PcieLinkState = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PcieLinkState) String() string {
 	switch e {
 	case PcieLinkKeep:
@@ -1511,6 +1563,7 @@ const (
 	CperAccessTypeGpu CPERType = 1 << 0 // Access GPU CPER records
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CPERType) String() string {
 	switch e {
 	case CperAccessTypeGpu:
@@ -1528,6 +1581,7 @@ const (
 	ClockLimitIdUnlimited  ClockLimitId = 4294967042
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClockLimitId) String() string {
 	switch e {
 	case ClockLimitIdRangeStart:
@@ -1555,6 +1609,7 @@ const (
 	NvlinkVersion60      NvlinkVersion = 8 // NVLink Version 6.0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvlinkVersion) String() string {
 	switch e {
 	case NvlinkVersionInvalid:
@@ -1590,6 +1645,7 @@ const (
 	VgpuVmCompatibilityLive      VgpuVmCompatibility = 0x8 // vGPU is runnable from a live/paused (ACPI S0)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuVmCompatibility) String() string {
 	switch e {
 	case VgpuVmCompatibilityNone:
@@ -1617,6 +1673,7 @@ const (
 	VgpuCompatibilityLimitOther       VgpuPgpuCompatibilityLimitCode = 0x80000000 // Compatibility is limited by an undefined factor.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VgpuPgpuCompatibilityLimitCode) String() string {
 	switch e {
 	case VgpuCompatibilityLimitNone:
@@ -1654,6 +1711,7 @@ const (
 	PrmCounterIdPprmOperRecovery                               PRMCounterId = 1001
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PRMCounterId) String() string {
 	switch e {
 	case PrmCounterIdNone:
@@ -1998,6 +2056,7 @@ const (
 	GpmMetricNvlinkL35Tx            GpmMetricId = 332 // NvLink write for link 35 in bytes since reboot
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GpmMetricId) String() string {
 	switch e {
 	case GpmMetricGraphicsUtil:
@@ -2629,6 +2688,7 @@ const (
 	PowerProfileMig          PowerProfileType = 14
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PowerProfileType) String() string {
 	switch e {
 	case PowerProfileMaxP:
@@ -2674,6 +2734,7 @@ const (
 	PowerProfileOperationSetAndOverwrite PowerProfileOperation = 2 // Overwrite the existing list of requested profiles with just the requested profiles
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PowerProfileOperation) String() string {
 	switch e {
 	case PowerProfileOperationClear:
