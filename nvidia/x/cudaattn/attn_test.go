@@ -9,13 +9,19 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 )
 
+// TestCausalFlashAttentionTemplate checks only that the kernel keeps the entry
+// point name callers pass to GetFunction. It deliberately asserts nothing about
+// the body: the previous version of this test pinned the comment "Online
+// Softmax", which described the algorithm inaccurately -- the kernel is
+// two-pass, not streaming -- and would have held just as well over a kernel
+// that computed the wrong thing.
+//
+// What the kernel computes is covered by
+// TestCausalFlashAttentionDecodeMatchesReference, which compares it elementwise
+// against a CPU reference at several block sizes, and by TestTemplatesCompile.
 func TestCausalFlashAttentionTemplate(t *testing.T) {
-	tmpl := cudaattn.CausalFlashAttentionTemplate
-	if !strings.Contains(tmpl, "CausalFlashAttentionDecode") {
-		t.Error("expected CausalFlashAttentionDecode in template")
-	}
-	if !strings.Contains(tmpl, "Online Softmax") {
-		t.Error("expected Online Softmax in template")
+	if !strings.Contains(cudaattn.CausalFlashAttentionTemplate, "CausalFlashAttentionDecode") {
+		t.Error("template does not define the CausalFlashAttentionDecode entry point")
 	}
 }
 

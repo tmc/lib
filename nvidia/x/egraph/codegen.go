@@ -8,11 +8,22 @@ import (
 // CodegenOptions configures CUDA C++ / PTX kernel code generation.
 type CodegenOptions struct {
 	KernelName string
-	Precision  string // "float", "half", "__nv_bfloat16"
+	// Precision is the element type the kernel operates on. Only "float" is
+	// supported; the generator emits it as a bare type name, and the half
+	// types need headers nvrtc is not given. Anything else is an error.
+	Precision string
+	// UseWarpSum is not read. The warp_sum device function is emitted
+	// unconditionally, and three of the four kernels do not call it.
 	UseWarpSum bool
 }
 
-// GenerateCUDA generates a complete, compilable CUDA C++ kernel string from an extracted AST Expr.
+// GenerateCUDA generates a complete, compilable CUDA C++ kernel from an
+// extracted AST Expr.
+//
+// It has kernels for the operators "fused_swiglu_gemv", "fused_rmsnorm_gemv"
+// and "add"; any other operator is an error. The add kernel is elementwise over
+// two leaf inputs, so an add over a deeper tree is an error too. Only a
+// Precision of "float" is supported.
 func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	if expr == nil {
 		return "", fmt.Errorf("egraph: nil expr passed to GenerateCUDA")
@@ -22,6 +33,15 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 	if opts.Precision == "" {
 		opts.Precision = "float"
+	}
+	// The precision is emitted as a bare type name. "half" and
+	// "__nv_bfloat16" are only defined by cuda_fp16.h and cuda_bf16.h, and
+	// nvrtc compiles with no header search path, so naming them produced
+	// source in which the type was an undefined identifier. Refusing them is
+	// honest about what this generator can emit; returning source that
+	// cannot compile was not.
+	if opts.Precision != "float" {
+		return "", fmt.Errorf("egraph: unsupported precision %q: only \"float\" is supported", opts.Precision)
 	}
 
 	var sb strings.Builder
@@ -46,10 +66,24 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	case "fused_rmsnorm_gemv":
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "add":
-		// Multi-op fused block
+		// The kernel is a two-input elementwise sum and reads nothing from
+		// the tree below it, so an "add" over anything but two leaves would
+		// generate source that silently drops the nested operators. There is
+		// no signature for those inputs either: the kernel takes exactly two
+		// buffers.
+		if len(expr.Children) != 2 || len(expr.Children[0].Children) != 0 || len(expr.Children[1].Children) != 0 {
+			return "", fmt.Errorf("egraph: no CUDA kernel for %q: the add kernel is elementwise over two leaf inputs", expr.String())
+		}
 		sb.WriteString(generateCompositeKernel(expr, opts))
 	default:
-		sb.WriteString(generateGenericKernel(expr, opts))
+		// Every other operator used to fall through to a kernel that copied
+		// its input to its output, under the requested name and with a
+		// signature bearing no resemblance to the operator asked for. That
+		// compiled, ran, and returned finite numbers, so nothing downstream
+		// could tell it apart from a real implementation: an autotuner would
+		// benchmark the copy and report it as the best candidate. Refusing is
+		// the only answer that cannot be mistaken for an implementation.
+		return "", fmt.Errorf("egraph: no CUDA kernel for operator %q", expr.Op)
 	}
 
 	return sb.String(), nil
@@ -92,12 +126,18 @@ func generateSwiGLUKernel(opts CodegenOptions) string {
 `, opts.KernelName, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision)
 }
 
+// generateRMSNormGEMVKernel emits x -> rms_norm(x) * weight, projected through
+// W_proj. The RMS is taken over the whole of x, so the kernel makes two passes:
+// one to reduce the sum of squares and one to accumulate the projection.
+//
+// The block must be a whole number of warps: warp_sum reduces with a full
+// 0xffffffff mask, which is only valid when every lane of the warp is resident.
 func generateRMSNormGEMVKernel(opts CodegenOptions) string {
-	return fmt.Sprintf(`extern "C" __global__ void %s(
-    const %s* __restrict__ x,
-    const %s* __restrict__ weight,
-    const %s* __restrict__ W_proj,
-    %s* __restrict__ out,
+	src := `extern "C" __global__ void KERNEL_NAME(
+    const T* __restrict__ x,
+    const T* __restrict__ weight,
+    const T* __restrict__ W_proj,
+    T* __restrict__ out,
     int in_dim,
     int out_dim,
     float eps
@@ -106,33 +146,60 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     if (row >= out_dim) return;
 
     int tid = threadIdx.x;
-    int lane = tid %% WARP_SIZE;
+    int lane = tid % WARP_SIZE;
     int wid = tid / WARP_SIZE;
-    __shared__ %s s_sum[32];
+    int n_warps = (blockDim.x + WARP_SIZE - 1) / WARP_SIZE;
+    __shared__ T s_sum[32];
+    __shared__ T s_scale;
 
-    const %s* w_row = W_proj + row * in_dim;
-    %s sum = 0.0f;
+    // Pass one: the RMS scale, reduced over the whole of x. Every block
+    // recomputes it; the redundancy costs one extra read of x per row and
+    // saves a second kernel launch.
+    T sq = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        %s norm_val = x[i] * weight[i];
-        sum += norm_val * w_row[i];
+        T v = x[i];
+        sq += v * v;
+    }
+    sq = warp_sum(sq);
+    if (lane == 0) {
+        s_sum[wid] = sq;
+    }
+    __syncthreads();
+    if (wid == 0) {
+        T total = (lane < n_warps) ? s_sum[lane] : (T)0.0f;
+        total = warp_sum(total);
+        if (lane == 0) {
+            s_scale = rsqrtf(total / (T)in_dim + eps);
+        }
+    }
+    __syncthreads();
+    T scale = s_scale;
+    __syncthreads();
+
+    // Pass two: the projection of the normalised, weighted input.
+    const T* w_row = W_proj + row * in_dim;
+    T sum = 0.0f;
+    for (int i = tid; i < in_dim; i += blockDim.x) {
+        sum += (x[i] * scale * weight[i]) * w_row[i];
     }
     sum = warp_sum(sum);
-
     if (lane == 0) {
         s_sum[wid] = sum;
     }
     __syncthreads();
-
-    %s block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
     if (wid == 0) {
-        block_sum = warp_sum(block_sum);
-    }
-
-    if (tid == 0) {
-        out[row] = block_sum;
+        T total = (lane < n_warps) ? s_sum[lane] : (T)0.0f;
+        total = warp_sum(total);
+        if (lane == 0) {
+            out[row] = total;
+        }
     }
 }
-`, opts.KernelName, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision, opts.Precision)
+`
+	// T is substituted before KERNEL_NAME: the placeholder KERNEL_NAME
+	// contains no T, whereas a caller's kernel name may.
+	src = strings.ReplaceAll(src, "T", opts.Precision)
+	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
 func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
@@ -148,18 +215,4 @@ func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
     }
 }
 `, opts.KernelName, opts.Precision, opts.Precision, opts.Precision)
-}
-
-func generateGenericKernel(expr *Expr, opts CodegenOptions) string {
-	return fmt.Sprintf(`extern "C" __global__ void %s(
-    const %s* __restrict__ in,
-    %s* __restrict__ out,
-    int n
-) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx < n) {
-        out[idx] = in[idx];
-    }
-}
-`, opts.KernelName, opts.Precision, opts.Precision)
 }

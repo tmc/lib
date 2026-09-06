@@ -198,36 +198,41 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) error {
 			r.pin(child)
 			r.evictFor(1)
 			r.unpin(child)
-			r.split(child, n)
+			curr = r.split(child, n)
+		} else {
+			curr = child
 		}
 		pos += n
-		curr = child
 	}
 	return nil
 }
 
-// split divides node after n tokens, leaving node holding the first n and a new
-// child holding the rest along with node's former children.
-func (r *RadixTree) split(node *RadixNode, n int) {
+// split divides node after its first n tokens. It inserts a new parent holding
+// those n tokens and leaves node holding the rest, and returns the new parent.
+//
+// The prefix is the new node rather than node itself so that a caller holding
+// node keeps holding the end of the segment it acquired. Splitting the other
+// way around would leave the held blocks on a node the caller has no pointer
+// to, and Release, which walks upwards, could never reach them.
+func (r *RadixTree) split(node *RadixNode, n int) *RadixNode {
 	tpb := r.TokensPerBlock
-	tail := &RadixNode{
-		Tokens:   append([]int32(nil), node.Tokens[n:]...),
-		Blocks:   append([]int(nil), node.Blocks[n/tpb:]...),
-		Children: node.Children,
-		Parent:   node,
+	prefix := &RadixNode{
+		Tokens:   append([]int32(nil), node.Tokens[:n]...),
+		Blocks:   append([]int(nil), node.Blocks[:n/tpb]...),
+		Children: map[string]*RadixNode{blockKey(node.Tokens[n : n+tpb]): node},
+		Parent:   node.Parent,
 		refs:     node.refs,
 		used:     node.used,
 	}
-	for _, c := range tail.Children {
-		c.Parent = tail
-	}
-	node.Tokens = node.Tokens[:n]
-	node.Blocks = node.Blocks[:n/tpb]
-	node.Children = map[string]*RadixNode{blockKey(tail.Tokens[:tpb]): tail}
+	prefix.Parent.Children[blockKey(prefix.Tokens[:tpb])] = prefix
+	node.Tokens = append([]int32(nil), node.Tokens[n:]...)
+	node.Blocks = append([]int(nil), node.Blocks[n/tpb:]...)
+	node.Parent = prefix
 	r.nodes++
-	for _, b := range tail.Blocks {
-		r.NodeMap[b] = tail
+	for _, b := range prefix.Blocks {
+		r.NodeMap[b] = prefix
 	}
+	return prefix
 }
 
 // pin marks node and its ancestors as held, which keeps them from being
