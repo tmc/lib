@@ -20,6 +20,7 @@ const (
 	ErrNotInitialized                         Result = 1001
 	ErrSublibraryVersionMismatch              Result = 1002
 	ErrSerializationVersionMismatch           Result = 1003
+	ErrDeprecated                             Result = 1004
 	ErrLicenseError                           Result = 1005
 	ErrRuntimeInProgress                      Result = 1006
 	ErrRuntimeFpOverflow                      Result = 1007
@@ -64,6 +65,7 @@ const (
 	ErrExecutionFailedCudart                  Result = 5003
 	ErrExecutionFailedCurand                  Result = 5004
 	ErrAllocFailed                            Result = ErrInternalErrorHostAllocationFailed
+	ErrInvalidValue                           Result = 2001
 	ErrArchMismatch                           Result = ErrNotSupportedArchMismatch
 	ErrMappingError                           Result = ErrInternalErrorTextureCreationFailed
 	ErrRuntimePrerequisiteMissing             Result = ErrNotSupportedRuntimePrerequisiteMissing
@@ -123,6 +125,7 @@ var resultNames = map[Result]string{
 	ErrNotInitialized:                         "ErrNotInitialized",
 	ErrSublibraryVersionMismatch:              "ErrSublibraryVersionMismatch",
 	ErrSerializationVersionMismatch:           "ErrSerializationVersionMismatch",
+	ErrDeprecated:                             "ErrDeprecated",
 	ErrLicenseError:                           "ErrLicenseError",
 	ErrRuntimeInProgress:                      "ErrRuntimeInProgress",
 	ErrRuntimeFpOverflow:                      "ErrRuntimeFpOverflow",
@@ -166,4 +169,5 @@ var resultNames = map[Result]string{
 	ErrExecutionFailedCublas:                  "ErrExecutionFailedCublas",
 	ErrExecutionFailedCudart:                  "ErrExecutionFailedCudart",
 	ErrExecutionFailedCurand:                  "ErrExecutionFailedCurand",
+	ErrInvalidValue:                           "ErrInvalidValue",
 }
