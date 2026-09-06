@@ -1,8 +1,11 @@
 # Luminal-inspired GPU backend improvements
 
-> Historical review: this file describes `lib` commit `501e487`, not the
-> current implementation. Its status table is retained as a dated design input;
-> later continuous-batching and backend work supersedes several rows.
+> Re-verified against `lib` main on 2026-09-05. The status table, the
+> correctness blockers, and the priority order below describe the tree as it
+> stands, each row cited to the source that establishes it. The design
+> discussion after the table is the original Luminal review and is unchanged;
+> where it says "today" it means the 2026-09-01 snapshot, and the table is
+> authoritative where the two disagree.
 
 This document records design lessons from Luminal that apply to
 `examples/llama-infer`. It is a source review, not a claim that either engine is
@@ -10,8 +13,9 @@ faster. A head-to-head result requires the same model revision, weights, prompt
 tokens, generation length, dtype, correctness gate, device, and measurement
 protocol.
 
-Review snapshot: `lib` commit `501e487` and Luminal commit `598e5ca7`, inspected
-on 2026-09-01.
+Original review snapshot: `lib` commit `501e487` and Luminal commit `598e5ca7`,
+inspected on 2026-09-01. Status re-verified against `lib` main `0b1e116` on
+2026-09-05.
 
 ## What to copy from Luminal
 
@@ -35,21 +39,30 @@ execution and validation boundary exists would have little leverage.
 
 ## Present `lib` status
 
-| Capability | Metal | CUDA | Admission |
-| --- | --- | --- | --- |
-| GPU-resident weights and scratch | Implemented | Implemented | Source verified |
-| Per-sequence KV object | Implemented | Implemented | Source verified and covered by local tests |
-| Bounded scheduler step | Implemented | Implemented | Serial across sequences |
-| Distinct fused QKV and SwiGLU branches | Implemented | Implemented | Selected by `FuseEGraph`, not by an extracted plan |
-| Native 16-bit weight retention | Half-weight kernels and pipeline states compile, but the active load and dispatch path remains float32 | Not established | Not yet an executed cross-backend contract |
-| Matrix-oriented batched prefill | Not implemented | Not implemented | Prefill repeats token steps |
-| Multi-sequence decode launch | Not implemented | Not implemented | Scheduler calls one sequence at a time |
-| Reusable deployment graph | Not established | Not implemented | No CUDA Graph capture/replay in the unified engine |
-| Hardware DRAM/FLOP counters | Unavailable in the current contract | Not wired into `gpuprof` | Estimates must remain labeled modeled |
+Re-verified 2026-09-05 against `lib` main. Every row cites the source that
+establishes it; a row is Implemented only where a named symbol carries the
+behavior, not where a helper exists unwired.
 
-The engine exposes a descriptive `ExecutionPlan`. It mirrors the configured
-operation sequence, but it does not yet drive backend dispatch. It is therefore
-an inspection artifact, not the extracted plan described below.
+| Capability | Metal | CUDA | Evidence |
+| --- | --- | --- | --- |
+| GPU-resident weights and scratch | Implemented | Implemented | `NewGPUScratchpad` allocates every activation buffer in a tracked arena. |
+| Per-sequence KV object | Implemented | Implemented | `SequenceKVCache`; `cudakv.Cache.Layer`. |
+| Bounded scheduler step | Batched | Batched | `scheduledEngineAdapter.DecodeBatch` and `cudaServingBackend.DecodeBatch` take a slice of states. No longer serial across sequences. |
+| Distinct fused QKV and SwiGLU branches | Selected by an extracted plan | Selected by `FuseEGraph` | `ExecutePlan` consumes an immutable `ExecutionPlan` on Metal; the CUDA loop still branches on `cfg.FuseEGraph` in `gpuForwardPassStep`. |
+| Native 16-bit weight retention | Half-weight kernels, half-weight batched embedding, and `IsF16` over a `f16` plan dtype | Not established | `HalfWeightKernelsMSL` is compiled into the Metal library; no half path exists in `gpu_model_cuda.go`, `gpu_batch_cuda.go` or `forward.cu`. |
+| Matrix-oriented batched prefill | Implemented | Implemented | `RunLeasedBatchedLayerChain` over packed segments; `gpuBatchedPrefillPassKVMeasured` advances a causal history in prompt tiles, computing each layer for all rows before the next. Prefill no longer repeats token steps. |
+| Multi-sequence decode launch | Implemented | Implemented | `RunLeasedBatchedDecode`; `GPUForwardBatchKV` submits one shared-weight `[B,D]` transaction. |
+| Reusable deployment graph | Immutable plan, replayed | Not wired | `ExecutePlan` is authoritative on Metal. `nvidia/x/cudagraph` exists as a package but nothing in `examples/llama-infer` imports it. |
+| Hardware DRAM/FLOP counters | Unavailable in the current contract | Not wired into `gpuprof` | `gpuprof` computes estimates from declared dimensions and marks counter-backed observations unmeasured when absent. |
+
+Batched decode is covered by equivalence tests against the single-sequence
+path, not only by construction: `TestMultiSequenceBatchedDecodeEquivalence`,
+`TestBatchedDecodeScratchIsolation` and `TestBatchedDecodeChainTailMatchesSeparate`
+each compare batched output token-for-token with separate decodes and pass.
+
+The two rows that remain genuinely open are CUDA-side: native 16-bit retention,
+and a reusable deployment graph. Both are CUDA-only gaps against a Metal path
+that already has the capability.
 
 ## Correctness work that is complete
 
@@ -70,23 +83,40 @@ performance superiority.
 
 ## Remaining correctness blockers
 
-### CUDA prompt staging
+### CUDA prompt staging (resolved 2026-09-05)
 
-`GPUForwardPassStep` writes a token to the same one-element `HostTokenIn` slice
-before each `CopyFromHostAsync`. The copy helper pins the supplied host slice;
-it does not create immutable staging storage for every queued value. A prefill
-loop can therefore overwrite the source before an earlier transfer consumes
-it.
+The original blocker was that `GPUForwardPassStep` wrote each token to the same
+one-element `HostTokenIn` slice before `CopyFromHostAsync`, so a prefill loop
+could overwrite the source before an earlier asynchronous transfer consumed it.
 
-Use one of these contracts:
+`gpuForwardPassStep` now allocates isolated per-step storage instead:
+
+```go
+hostTokenIn := []int32{tokenID}
+if err := sp.TokenIn.CopyFromHostAsync(hostTokenIn, stream); err != nil {
+```
+
+No slot is ever reused, which removes the overwrite hazard, and the lifetime is
+held by the copy helper rather than by the caller: `CopyFromHostAsync` pins the
+backing array with a `runtime.Pinner` and releases it from `stream.AddCleanup`,
+so the storage outlives the queued transfer. That is the third contract listed
+below, without its synchronization cost.
+
+The `GPUScratchpad.HostTokenIn` field survives from the original design. Nothing
+reads or writes it now; it is the shared slot the blocker described, and it
+should not be reintroduced into the copy path.
+
+The contracts originally offered were:
 
 - upload the prompt into persistent device storage once;
 - use a pinned staging ring whose slots are not reused until their completion
   event; or
 - synchronize each transfer, accepting the performance cost.
 
-Admission requires a CUDA differential using several distinct prompt token IDs
-and the same asynchronous path used by serving.
+Admission still requires a CUDA differential using several distinct prompt token
+IDs over the same asynchronous path used by serving. `gpu_prefill_linux_test.go`
+exercises the tiled prefill path but the differential is a CUDA-host gate and has
+not been run from this review.
 
 ### Error and state boundaries
 
@@ -112,6 +142,9 @@ timing.
 
 ### Make selected plans authoritative
 
+> Superseded on Metal as of 2026-09-05: `ExecutePlan` consumes an immutable
+> `ExecutionPlan`. The paragraph below still holds for CUDA.
+
 Today, both backend forward loops select fused branches with Go conditionals.
 The e-graph does not control execution.
 
@@ -130,6 +163,9 @@ Keep an unfused plan as the semantic reference. If two selectable plans disagree
 fix the equivalence or lowering defect; do not tune around it.
 
 ### Separate prefill from decode
+
+> Done as of 2026-09-05 on both backends; retained for the bucketing and
+> admission requirements below, which still apply.
 
 Both current backends implement prefill as repeated single-token steps. A true
 prefill plan carries a token dimension through projections and causal attention
@@ -214,15 +250,28 @@ comparison.
 
 ## Priority order
 
-1. Fix CUDA asynchronous prompt staging and finish error-injection gates.
-2. Preserve validated native 16-bit storage and measure its memory reduction.
-3. Implement matrix-oriented batched prefill.
-4. Implement real batched decode over isolated per-sequence state.
-5. Make extracted plans authoritative and allocate stable plan arenas.
-6. Capture and reuse CUDA Graphs, then compare Metal command-reuse strategies.
-7. Add bounded e-graph candidate search and deployment-path re-ranking.
-8. Add distributed execution only after the single-node contracts are stable.
+Re-ordered 2026-09-05. Steps 1, 3 and 4 of the original list are complete; what
+remains is CUDA-side parity with the Metal path, then the search work that the
+original review placed after stable execution.
 
-Improved e-graph lowering becomes high leverage at step 5. Before then, dtype,
-prefill, batching, and stable execution plans have clearer performance ceilings
-and smaller correctness surfaces.
+1. Preserve validated native 16-bit storage on CUDA and measure its memory
+   reduction. Metal already retains half weights; CUDA has no half path at all,
+   so this is the widest remaining backend asymmetry.
+2. Make extracted plans authoritative on CUDA. Metal's `ExecutePlan` consumes an
+   immutable plan; the CUDA loop still branches on `cfg.FuseEGraph`. Allocate
+   stable plan arenas as part of the same change.
+3. Capture and reuse CUDA Graphs in the engine. `nvidia/x/cudagraph` exists but
+   is unwired; compare against Metal command-reuse strategies once it is.
+4. Add bounded e-graph candidate search and deployment-path re-ranking.
+5. Add distributed execution only after the single-node contracts are stable.
+
+Completed since the original review:
+
+- CUDA asynchronous prompt staging (isolated per-step storage).
+- Matrix-oriented batched prefill on both backends.
+- Real batched decode over isolated per-sequence state, covered by equivalence
+  tests against the single-sequence path.
+
+Improved e-graph lowering becomes high leverage at step 2. Before then, CUDA
+dtype and stable execution plans have clearer performance ceilings and smaller
+correctness surfaces.
