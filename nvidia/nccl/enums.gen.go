@@ -14,6 +14,7 @@ const (
 	StatGpuMemTotal     CommMemStat = 3 // Total allocated GPU memory tracked by NCCL (bytes)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CommMemStat) String() string {
 	switch e {
 	case StatGpuMemSuspend:
@@ -41,6 +42,7 @@ const (
 	MaxRedOp RedOp = 0x7fffffff >> (32 - 8*4)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RedOp) String() string {
 	switch e {
 	case Sum:
@@ -85,6 +87,7 @@ const (
 	NumTypes   DataType = 12
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DataType) String() string {
 	switch e {
 	case Int8:
@@ -125,6 +128,7 @@ const (
 	ScalarHostImmediate ScalarResidence = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ScalarResidence) String() string {
 	switch e {
 	case ScalarDevice:
@@ -144,6 +148,7 @@ const (
 	GinConnectionRail GinConnectionType = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GinConnectionType) String() string {
 	switch e {
 	case GinConnectionNone:
@@ -167,6 +172,7 @@ const (
 	GinTypeGdaki GinType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GinType) String() string {
 	switch e {
 	case GinTypeNone:

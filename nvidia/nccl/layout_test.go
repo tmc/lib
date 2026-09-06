@@ -7,6 +7,9 @@ import (
 	"unsafe"
 )
 
+// Parsed by: regex
+// Layouts: compiled sizeof probe for the host
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(UniqueId{}); got != 128 {
 		t.Errorf("sizeof(UniqueId) = %d, want 128", got)
