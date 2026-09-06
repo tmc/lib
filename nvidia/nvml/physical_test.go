@@ -13,6 +13,7 @@ package nvml_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -212,6 +213,12 @@ func TestPciInfoLayout(t *testing.T) {
 func TestMemoryInfoLayout(t *testing.T) {
 	dev := device0(t)
 	mem, err := dev.GetMemoryInfo()
+	if errors.Is(err, nvml.ErrNotSupported) {
+		// Devices with unified host memory, such as GB10, report no
+		// separate framebuffer; nvidia-smi prints "Not Supported" for
+		// them too, so there is no oracle to check against here.
+		t.Skipf("GetMemoryInfo unsupported on this device: %v", err)
+	}
 	if err != nil {
 		t.Fatalf("GetMemoryInfo: %v", err)
 	}
