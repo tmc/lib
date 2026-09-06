@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 // functionType is the reflect type of the fields Bind fills in.
@@ -30,6 +31,22 @@ var functionType = reflect.TypeOf(driver.Function(0))
 // Fields of other types are ignored unless they carry a "cuda" tag, which is
 // reported as an error.
 func Bind(mod driver.Module, kernels any) error {
+	return bind(kernels, functionType, func(name string) (reflect.Value, error) {
+		fn, err := mod.GetFunction(name)
+		return reflect.ValueOf(fn), err
+	})
+}
+
+// BindOwned resolves exported *cuda.Kernel fields using their cuda tags, as in Bind.
+// Each kernel retains mod and rejects launches after mod is closed.
+func BindOwned(mod *cuda.Module, kernels any) error {
+	return bind(kernels, reflect.TypeOf((*cuda.Kernel)(nil)), func(name string) (reflect.Value, error) {
+		fn, err := mod.Function(name)
+		return reflect.ValueOf(fn), err
+	})
+}
+
+func bind(kernels any, typ reflect.Type, resolve func(string) (reflect.Value, error)) error {
 	rv := reflect.ValueOf(kernels)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
 		return fmt.Errorf("cudalaunch: bind: want non-nil pointer to struct, got %T", kernels)
@@ -38,16 +55,16 @@ func Bind(mod driver.Module, kernels any) error {
 	if rv.Kind() != reflect.Struct {
 		return fmt.Errorf("cudalaunch: bind: want pointer to struct, got %T", kernels)
 	}
-	fields, err := kernelFields(rv.Type())
+	fields, err := typedKernelFields(rv.Type(), typ)
 	if err != nil {
 		return err
 	}
 	for _, f := range fields {
-		fn, err := mod.GetFunction(f.kernel)
+		fn, err := resolve(f.kernel)
 		if err != nil {
 			return fmt.Errorf("cudalaunch: bind kernel %q (field %s): %w", f.kernel, f.field, err)
 		}
-		rv.Field(f.index).SetUint(uint64(fn))
+		rv.Field(f.index).Set(fn)
 	}
 	return nil
 }
@@ -62,6 +79,10 @@ type kernelField struct {
 // kernelFields reports the fields of t that Bind resolves, in declaration order.
 // It rejects a struct whose tagged fields cannot be filled in.
 func kernelFields(t reflect.Type) ([]kernelField, error) {
+	return typedKernelFields(t, functionType)
+}
+
+func typedKernelFields(t, typ reflect.Type) ([]kernelField, error) {
 	var fields []kernelField
 	for i := range t.NumField() {
 		sf := t.Field(i)
@@ -69,9 +90,9 @@ func kernelFields(t reflect.Type) ([]kernelField, error) {
 		if tag == "-" {
 			continue
 		}
-		if sf.Type != functionType {
+		if sf.Type != typ {
 			if tagged {
-				return nil, fmt.Errorf("cudalaunch: bind: field %s has type %s, want driver.Function", sf.Name, sf.Type)
+				return nil, fmt.Errorf("cudalaunch: bind: field %s has type %s, want %s", sf.Name, sf.Type, typ)
 			}
 			continue
 		}
@@ -85,7 +106,7 @@ func kernelFields(t reflect.Type) ([]kernelField, error) {
 		fields = append(fields, kernelField{index: i, field: sf.Name, kernel: name})
 	}
 	if len(fields) == 0 {
-		return nil, fmt.Errorf("cudalaunch: bind: %s has no driver.Function fields", t)
+		return nil, fmt.Errorf("cudalaunch: bind: %s has no %s fields", t, typ)
 	}
 	return fields, nil
 }
