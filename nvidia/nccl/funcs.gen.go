@@ -17,7 +17,7 @@ var (
 	fncommGetAsyncError    func(Comm, *Result) Result
 	fncommGetUniqueId      func(Comm, *UniqueId) Result
 	fncommGrow             func(Comm, int32, *UniqueId, int32, *Comm, *Config) Result
-	fncommInitAll          func(*Comm, int32, *int32) Result
+	fnCommInitAll          func(*Comm, int32, *int32) Result
 	fncommInitRank         func(*Comm, int32, UniqueId, int32) Result
 	fncommInitRankConfig   func(*Comm, int32, UniqueId, int32, *Config) Result
 	fncommInitRankScalable func(*Comm, int32, int32, int32, *UniqueId, *Config) Result
@@ -233,22 +233,14 @@ func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, config *C
 	return out, nil
 }
 
-// commInitAll Creates a clique of communicators (single process version) in a blocking way.
-//
-// This is a convenience function to create a single-process communicator clique. Returns an array of ndev newly initialized communicators in comms. comms should be pre-allocated with size at least ndev*sizeof( [Comm]). devlist defines the CUDA devices associated with each rank. If devlist is NULL, the first ndev CUDA devices are used, in order.
+// CommInitAll Creates a clique of communicators (single process version) in a blocking way.
 //
 // Wraps ncclCommInitAll.
-func commInitAll(ndev int32, devlist *int32) (Comm, error) {
+func CommInitAll(comm *Comm, ndev int32, devlist *int32) error {
 	if err := checkLibSym("ncclCommInitAll"); err != nil {
-		var zero Comm
-		return zero, err
+		return err
 	}
-	var out Comm
-	if err := toError(fncommInitAll(&out, ndev, devlist)); err != nil {
-		var zero Comm
-		return zero, err
-	}
-	return out, nil
+	return toError(fnCommInitAll(comm, ndev, devlist))
 }
 
 // commInitRank Creates a new communicator (multi thread/process version).

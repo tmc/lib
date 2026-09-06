@@ -248,7 +248,7 @@ func registerFuncs() {
 	register(&fncommGetAsyncError, "ncclCommGetAsyncError")
 	register(&fncommGetUniqueId, "ncclCommGetUniqueId")
 	register(&fncommGrow, "ncclCommGrow")
-	register(&fncommInitAll, "ncclCommInitAll")
+	register(&fnCommInitAll, "ncclCommInitAll")
 	register(&fncommInitRank, "ncclCommInitRank")
 	register(&fncommInitRankConfig, "ncclCommInitRankConfig")
 	register(&fncommInitRankScalable, "ncclCommInitRankScalable")
@@ -310,7 +310,7 @@ func clearFuncs() {
 	fncommGetAsyncError = nil
 	fncommGetUniqueId = nil
 	fncommGrow = nil
-	fncommInitAll = nil
+	fnCommInitAll = nil
 	fncommInitRank = nil
 	fncommInitRankConfig = nil
 	fncommInitRankScalable = nil
