@@ -200,3 +200,31 @@ func TestSummaryCountOverflow(t *testing.T) {
 		t.Fatalf("leak counts wrapped: %+v", log)
 	}
 }
+
+func TestUnfinishedReportAfterSummary(t *testing.T) {
+	const clean = "========= ERROR SUMMARY: 0 errors\n"
+	const banner = "========= COMPUTE-SANITIZER\n"
+	const finding = "========= Invalid __global__ write of size 4 bytes\n"
+	for _, tt := range []struct {
+		name, suffix string
+		complete     bool
+	}{
+		{"banner", banner, false},
+		{"finding", finding, false},
+		{"banner and finding", banner + finding, false},
+		{"completed second report", banner + finding + "========= ERROR SUMMARY: 1 error\n", true},
+		{"completed clean second report", banner + clean, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			log := ParseLog(clean + tt.suffix)
+			if log.SummaryFound != tt.complete {
+				t.Errorf("SummaryFound = %v, want %v", log.SummaryFound, tt.complete)
+			}
+			result := &Result{Log: log, ExitCode: 0, ErrorExitCode: 66}
+			result.classify(context.Background(), nil)
+			if !tt.complete && result.Outcome != OutcomeToolFailure {
+				t.Errorf("unfinished report classified as %v, want tool failure", result.Outcome)
+			}
+		})
+	}
+}
