@@ -44,7 +44,12 @@ func (w WeightSlice) Ptr() driver.DevicePtr {
 // not change meaning with the stored dtype.
 func (w WeightSlice) Len() int { return w.elems }
 
-// Bytes returns the device memory the weights occupy.
+// Bytes returns the device memory the weights should occupy.
+//
+// It is computed from the element count and the stored dtype, not read back
+// from the allocator, so it is a restatement of what the slice was asked for.
+// A test that wants to show the allocation actually shrank must measure it
+// with a cudamem.Tracker instead.
 func (w WeightSlice) Bytes() int { return w.elems * w.dtype.Bytes() }
 
 // DType returns the dtype the weights are actually stored in.

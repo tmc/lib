@@ -115,7 +115,8 @@ func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
 				w := deterministicFloats(dim.in*dim.out, 2)
 				rw := d.RoundTrip(w) // what the device will hold, exactly
 
-				arena := cudamem.NewArena(dev)
+				var tracker cudamem.Tracker
+				arena := cudamem.NewTrackedArena(dev, &tracker)
 				defer arena.Free()
 				dx := cudamem.AllocIn[float32](arena, "x", len(x))
 				dout := cudamem.AllocIn[float32](arena, "out", dim.out)
@@ -125,12 +126,19 @@ func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
 				if err := dx.CopyFromHost(x); err != nil {
 					t.Fatal(err)
 				}
+				before, _ := tracker.Snapshot()
 				dw, err := uploadWeights(arena, d, w)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if got, want := dw.Bytes(), dim.in*dim.out*d.Bytes(); got != want {
-					t.Fatalf("weights occupy %d bytes, want %d", got, want)
+				// Measured at the allocator, not recomputed from the same
+				// bookkeeping the claim is about: WeightSlice.Bytes() is
+				// defined as elems*dtype.Bytes(), so comparing it against
+				// elems*dtype.Bytes() would hold even if the device allocation
+				// were four bytes per weight.
+				after, _ := tracker.Snapshot()
+				if got, want := after-before, uint64(dim.in*dim.out*d.Bytes()); got != want {
+					t.Fatalf("weight upload allocated %d device bytes, want %d", got, want)
 				}
 
 				var noBias WeightSlice
@@ -370,10 +378,15 @@ func TestCUDADeviceConversionMatchesGo(t *testing.T) {
 //
 // The batch kernel always summed every element of the reduction; the
 // single-token kernel dropped the last intermediate_dim % 4 terms until this
-// branch gave it a tail loop. The two must now agree exactly, in every dtype:
-// they multiply identical values in a different thread layout, so only float32
-// reassociation separates them. A dimension that is a multiple of four is
-// included as the control that passed even before the fix.
+// branch gave it a tail loop. The two kernels multiply identical values in a
+// different thread layout, so only float32 reassociation separates them from
+// each other. Both are compared against a Go oracle, which introduces a second
+// source of difference the reassociation argument does not cover: the oracle
+// evaluates the SwiGLU sigmoid with math.Exp in float64 while the device uses
+// expf. expf is accurate to a couple of ulps in float32, so that contributes a
+// relative error of a few times 1e-7 to each term, still several times inside
+// implRelTol. A dimension that is a multiple of four is included as the control
+// that passed even before the fix.
 func TestCUDASingleAndBatchFusedAgreeOnOddDimensions(t *testing.T) {
 	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()

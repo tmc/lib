@@ -1,6 +1,16 @@
 #define WARP_SIZE 32
 #define FULL_MASK 0xffffffff
 
+// MAX_WARPS is the warp count of the largest block CUDA permits.
+//
+// The fused kernels pack more than one per-warp reduction into a single shared
+// array. Striding those sub-arrays by MAX_WARPS rather than by a count that
+// happens to suit the block sizes in use means a launch with a larger block
+// cannot make one reduction overwrite another. Two of them previously strided
+// by 16 and by 8, which silently corrupted at blockDim.x above 512 and above
+// 256 respectively; every current launch uses 256, but nothing pinned that.
+#define MAX_WARPS (1024 / WARP_SIZE)
+
 // Warp-level sum reduction using shuffle intrinsics
 
 __device__ __forceinline__ float warp_sum(float val) {
@@ -35,6 +45,17 @@ __device__ __forceinline__ float f16_to_f32(unsigned short h) {
 
 __device__ __forceinline__ float bf16_to_f32(unsigned short b) {
     return __uint_as_float(((unsigned int)b) << 16);
+}
+
+// aligned16 reports whether p can be the base of a float4 access.
+//
+// Activation buffers are whole allocations in every current launch and so are
+// aligned by construction, but a row-offset base is not: k_cache + pos*kv_dim
+// is 16-byte aligned only when kv_dim is a multiple of four. The weight side of
+// this file already falls back to a scalar path in that case; this is the same
+// guard for the activation side.
+__device__ __forceinline__ bool aligned16(const void* p) {
+    return ((unsigned long long)p & 15ull) == 0ull;
 }
 
 // WF32 keeps the original float4 loads, so the float32 kernels below generate
@@ -330,19 +351,25 @@ extern "C" __global__ void StoreKVCache(
     int head_dim
 ) {
     int kv_dim = num_kv_heads * head_dim;
-    float4* k_dest4 = reinterpret_cast<float4*>(k_cache + pos * kv_dim);
-    float4* v_dest4 = reinterpret_cast<float4*>(v_cache + pos * kv_dim);
+    float* k_row = k_cache + pos * kv_dim;
+    float* v_row = v_cache + pos * kv_dim;
+    float4* k_dest4 = reinterpret_cast<float4*>(k_row);
+    float4* v_dest4 = reinterpret_cast<float4*>(v_row);
     const float4* k4 = reinterpret_cast<const float4*>(k);
     const float4* v4 = reinterpret_cast<const float4*>(v);
-    int dim4 = kv_dim / 4;
+    // Both the destination rows and the source vectors are float4 bases here.
+    // The destination is offset by pos*kv_dim and the source may itself be a
+    // row of a batched buffer, so neither is aligned for an odd kv_dim; the
+    // scalar loop below then covers the whole row.
+    int dim4 = (aligned16(k_row) && aligned16(v_row) && aligned16(k) && aligned16(v)) ? kv_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
         k_dest4[i] = k4[i];
         v_dest4[i] = v4[i];
     }
     for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
-        (k_cache + pos * kv_dim)[i] = k[i];
-        (v_cache + pos * kv_dim)[i] = v[i];
+        k_row[i] = k[i];
+        v_row[i] = v[i];
     }
 }
 
@@ -414,7 +441,7 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
     int tid = threadIdx.x;
     int lane = tid % WARP_SIZE;
     int wid = tid / WARP_SIZE;
-    __shared__ float s_sum[32];
+    __shared__ float s_sum[2 * MAX_WARPS];
 
     const float4* x4 = reinterpret_cast<const float4*>(x);
     int in_dim4 = in_dim / 4;
@@ -487,12 +514,12 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
         sumV = warp_sum(sumV);
         if (lane == 0) {
             s_sum[wid] = sumK;
-            s_sum[wid + 16] = sumV;
+            s_sum[wid + MAX_WARPS] = sumV;
         }
         __syncthreads();
 
         float bk = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
-        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + 16] : 0.0f;
+        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + MAX_WARPS] : 0.0f;
         if (wid == 0) {
             bk = warp_sum(bk);
             bv = warp_sum(bv);
@@ -663,7 +690,7 @@ __device__ __forceinline__ void BatchFusedRMSNormQKVImpl(
     int out = blockIdx.x, b = blockIdx.y;
     if (b >= batch) return;
     const float* bx = x + b * in_dim;
-    __shared__ float sums[32];
+    __shared__ float sums[3 * MAX_WARPS];
     int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
     float sq = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) sq += bx[i] * bx[i];
@@ -684,11 +711,11 @@ __device__ __forceinline__ void BatchFusedRMSNormQKVImpl(
         }
     }
     qs = warp_sum(qs); ks = warp_sum(ks); vs = warp_sum(vs);
-    if (lane == 0) { sums[wid] = qs; sums[wid + 8] = ks; sums[wid + 16] = vs; }
+    if (lane == 0) { sums[wid] = qs; sums[wid + MAX_WARPS] = ks; sums[wid + 2 * MAX_WARPS] = vs; }
     __syncthreads();
     float qt = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
-    float kt = tid < blockDim.x / WARP_SIZE ? sums[lane + 8] : 0.0f;
-    float vt = tid < blockDim.x / WARP_SIZE ? sums[lane + 16] : 0.0f;
+    float kt = tid < blockDim.x / WARP_SIZE ? sums[lane + MAX_WARPS] : 0.0f;
+    float vt = tid < blockDim.x / WARP_SIZE ? sums[lane + 2 * MAX_WARPS] : 0.0f;
     if (wid == 0) { qt = warp_sum(qt); kt = warp_sum(kt); vt = warp_sum(vt); }
     if (tid == 0) {
         if (out < q_dim) q[b * q_dim + out] = qt;

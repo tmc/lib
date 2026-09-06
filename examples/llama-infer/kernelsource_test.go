@@ -183,6 +183,100 @@ func TestForwardSourceCompilesOnHost(t *testing.T) {
 // vectorized load in EmbeddingLookupImpl entirely.
 var vectorLoop = regexp.MustCompile(`for \(int i = [^;]+; i < (\w+); i \+= [^)]+\) \{`)
 
+// declStart marks the beginning of a kernel template or a plain kernel.
+//
+// Everything between one of these and the next is the body of a single kernel,
+// which is the scope a declaration and the loops that use it share.
+var declStart = regexp.MustCompile(`(?m)^(?:template <class W>|extern "C" __global__)`)
+
+// A kernelRegion is one kernel's source text and the name it is declared with.
+type kernelRegion struct {
+	name string
+	body string
+}
+
+// kernelRegions splits forward.cu into one region per kernel.
+//
+// Scoping matters: an earlier version of the checks below built a single
+// file-wide map keyed on bare identifier names, so two kernels declaring the
+// same name were indistinguishable. forward.cu declares n4 twice and in_dim4
+// twice, once guarded and once not, and a file-wide map recorded each as
+// guarded on the strength of the other kernel's declaration. Rewriting one of
+// the two into an unguarded vector load then left the check green. Regions
+// remove that: a declaration only speaks for the kernel it is written in.
+func kernelRegions(t *testing.T, text string) []kernelRegion {
+	t.Helper()
+	starts := declStart.FindAllStringIndex(text, -1)
+	if len(starts) == 0 {
+		t.Fatal("no kernel declarations found; the pattern no longer matches the source")
+	}
+	name := regexp.MustCompile(`(?:void|__forceinline__ void)\s+(\w+)`)
+	regions := make([]kernelRegion, 0, len(starts))
+	for i, loc := range starts {
+		end := len(text)
+		if i+1 < len(starts) {
+			end = starts[i+1][0]
+		}
+		body := text[loc[0]:end]
+		n := "?"
+		if m := name.FindStringSubmatch(body); m != nil {
+			n = m[1]
+		}
+		regions = append(regions, kernelRegion{name: n, body: body})
+	}
+	return regions
+}
+
+// vectorBounds returns the identifiers in body that bound a vectorized loop,
+// mapped to whether every declaration of them guards with W::aligned4.
+//
+// A bound qualifies when some declaration of it divides by four or consults
+// aligned4, which is how every vector count in forward.cu is written and how a
+// new one would be. It counts as guarded only when all of its declarations
+// consult aligned4: forward.cu declares n4 twice in one kernel, and taking the
+// guarded one as speaking for both is how an unguarded rewrite of the other
+// would slip through.
+func vectorBounds(body string) map[string]bool {
+	decl := regexp.MustCompile(`int (\w+) = ([^;]+);`)
+	inits := make(map[string][]string)
+	for _, m := range decl.FindAllStringSubmatch(body, -1) {
+		inits[m[1]] = append(inits[m[1]], m[2])
+	}
+	bounds := make(map[string]bool)
+	for name, list := range inits {
+		var vector, guarded bool
+		guarded = true
+		for _, init := range list {
+			a := strings.Contains(init, "aligned4")
+			if a || strings.Contains(init, "/ 4") {
+				vector = true
+			}
+			guarded = guarded && a
+		}
+		if vector {
+			bounds[name] = guarded
+		}
+	}
+	return bounds
+}
+
+// loopBody returns the text of the loop whose header ends at off.
+func loopBody(text string, off int) string {
+	depth := 0
+	for i := off - 1; i < len(text); i++ {
+		switch text[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return text[off:i]
+			}
+		}
+	}
+	return text[off:]
+}
+
 // TestVectorLoadsAreAlignmentGuarded checks that every vectorized weight loop
 // is bounded by a count that an alignment test can zero.
 //
@@ -193,54 +287,27 @@ var vectorLoop = regexp.MustCompile(`for \(int i = [^;]+; i < (\w+); i \+= [^)]+
 // left to a native test that only runs on a machine with a GPU.
 //
 // The rule: if a loop body performs a W::load4, the identifier bounding that
-// loop must have been declared with W::aligned4 in its initializer. The
-// alignment test drives the count to zero, and the scalar remainder loop that
-// follows then covers the whole row.
+// loop must have been declared with W::aligned4 in its initializer, in the same
+// kernel. The alignment test drives the count to zero, and the scalar remainder
+// loop that follows then covers the whole row.
 func TestVectorLoadsAreAlignmentGuarded(t *testing.T) {
 	src, err := os.ReadFile("forward.cu")
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := string(src)
-
-	decl := regexp.MustCompile(`int (\w+) = ([^;]+);`)
-	guarded := make(map[string]bool)
-	unguarded := make(map[string]bool)
-	for _, m := range decl.FindAllStringSubmatch(text, -1) {
-		if strings.Contains(m[2], "aligned4") {
-			guarded[m[1]] = true
-		} else {
-			unguarded[m[1]] = true
-		}
-	}
-
-	loops := vectorLoop.FindAllStringSubmatchIndex(text, -1)
-	if len(loops) == 0 {
-		t.Fatal("no strided loops found; the pattern no longer matches the source")
-	}
 	var checked int
-	for _, loc := range loops {
-		bound := text[loc[2]:loc[3]]
-		// The loop body runs to the matching close brace at the same depth.
-		depth, end := 0, loc[1]
-		for i := loc[1] - 1; i < len(text); i++ {
-			if text[i] == '{' {
-				depth++
-			} else if text[i] == '}' {
-				depth--
-				if depth == 0 {
-					end = i
-					break
-				}
+	for _, r := range kernelRegions(t, string(src)) {
+		bounds := vectorBounds(r.body)
+		for _, loc := range vectorLoop.FindAllStringSubmatchIndex(r.body, -1) {
+			bound := r.body[loc[2]:loc[3]]
+			if !strings.Contains(loopBody(r.body, loc[1]), "W::load4(") {
+				continue
 			}
-		}
-		body := text[loc[1]:end]
-		if !strings.Contains(body, "W::load4(") {
-			continue
-		}
-		checked++
-		if !guarded[bound] {
-			t.Errorf("vector loop bounded by %q performs W::load4 but %q is not declared with aligned4", bound, bound)
+			checked++
+			if !bounds[bound] {
+				t.Errorf("%s: vector loop bounded by %q performs W::load4 but %q is not declared with aligned4 in this kernel",
+					r.name, bound, bound)
+			}
 		}
 	}
 	if checked < 6 {
@@ -249,34 +316,63 @@ func TestVectorLoadsAreAlignmentGuarded(t *testing.T) {
 	t.Logf("%d vectorized weight loops, all alignment-guarded", checked)
 }
 
-// TestFusedKernelsHaveScalarTails checks that every kernel with a vectorized
-// reduction also has a scalar loop covering the remainder.
+// TestVectorLoopsHaveScalarTails checks that every vectorized loop is followed
+// by a scalar loop covering the elements past the last full vector.
 //
 // FusedRMSNormQKV and FusedSwiGLUDown dropped their last in_dim%4 elements
 // entirely, in float32 as well as half, which is a wrong answer rather than an
-// imprecise one. The tail loop starts at the vector count times four, so its
-// presence is what the check looks for.
-func TestFusedKernelsHaveScalarTails(t *testing.T) {
+// imprecise one.
+//
+// The check is per bound rather than per kernel. An earlier version searched a
+// whole kernel body for one fixed tail spelling, so FusedRMSNormQKVImpl, which
+// needs three tails, passed on any one of them: deleting the Q-branch tail left
+// it green. It also missed EmbeddingLookupImpl entirely, whose tail is
+// grid-strided and does not spell "+ tid". Requiring a tail loop starting at
+// bound*4 for each distinct vector bound covers both forms and every kernel,
+// including the ones that read no weights.
+func TestVectorLoopsHaveScalarTails(t *testing.T) {
 	src, err := os.ReadFile("forward.cu")
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := string(src)
-	for _, impl := range []string{"LinearGEMVImpl", "FusedRMSNormQKVImpl", "FusedSwiGLUDownImpl"} {
-		i := strings.Index(text, impl)
-		if i < 0 {
-			t.Errorf("%s not found", impl)
+	// A tail loop resumes at the first element past the last full vector.
+	tail := regexp.MustCompile(`for \(int i = (\w+) \* 4 \+ [^;]+; i < [^;]+;`)
+
+	var checked int
+	for _, r := range kernelRegions(t, string(src)) {
+		bounds := vectorBounds(r.body)
+		if len(bounds) == 0 {
 			continue
 		}
-		// Bound the search at the next template, so a tail in a later kernel
-		// cannot satisfy this one.
-		j := strings.Index(text[i:], "\ntemplate <class W>")
-		if j < 0 {
-			j = len(text) - i
+		tails := make(map[string]int)
+		for _, m := range tail.FindAllStringSubmatch(r.body, -1) {
+			tails[m[1]]++
 		}
-		body := text[i : i+j]
-		if !strings.Contains(body, "* 4 + tid; i <") {
-			t.Errorf("%s has no scalar remainder loop; elements past the last full vector are dropped", impl)
+		// One vector loop per use of a bound, and one tail for each.
+		used := make(map[string]int)
+		for _, loc := range vectorLoop.FindAllStringSubmatchIndex(r.body, -1) {
+			b := r.body[loc[2]:loc[3]]
+			if _, ok := bounds[b]; ok {
+				used[b]++
+			}
+		}
+		for b, n := range used {
+			checked += n
+			if tails[b] < n {
+				t.Errorf("%s: %d vectorized loops bounded by %q but %d scalar tails resuming at %s*4; elements past the last full vector are dropped",
+					r.name, n, b, tails[b], b)
+			}
+		}
+		for b := range bounds {
+			if used[b] == 0 {
+				t.Errorf("%s: %q is declared as a vector count but bounds no loop", r.name, b)
+			}
 		}
 	}
+	// EmbeddingLookup, RMSNorm (x and weight), LinearGEMV, StoreKVCache,
+	// SwiGLU, AddResidual, FusedRMSNormQKV (rms, q, kv) and FusedSwiGLUDown.
+	if checked < 11 {
+		t.Fatalf("only %d vectorized loops found; expected at least eleven", checked)
+	}
+	t.Logf("%d vectorized loops, each with a scalar tail", checked)
 }

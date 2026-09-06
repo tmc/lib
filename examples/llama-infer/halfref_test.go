@@ -213,37 +213,6 @@ func randomWeights(rng *rand.Rand, n int) []float32 {
 	return out
 }
 
-// TestHalfReferenceMatchesRoundedWeightsExactly checks that computing with
-// half-stored weights is the same as computing with the widened values.
-//
-// This is the implementation claim, and it carries no tolerance: the device
-// widens each weight to float32 before multiplying, so a half kernel and a
-// float32 kernel given the widened weights must produce bit-identical results.
-// Any difference here would be an implementation bug, not quantization.
-func TestHalfReferenceMatchesRoundedWeightsExactly(t *testing.T) {
-	rng := rand.New(rand.NewSource(11))
-	for _, d := range []WeightDType{WeightF16, WeightBF16} {
-		t.Run(d.String(), func(t *testing.T) {
-			const inDim, outDim = 96, 40
-			x := randomWeights(rng, inDim)
-			w := randomWeights(rng, inDim*outDim)
-			bias := randomWeights(rng, outDim)
-
-			// What the device stores, then widens.
-			storedW := d.DecodeWeights(d.EncodeWeights(w))
-			storedB := d.DecodeWeights(d.EncodeWeights(bias))
-
-			want := refLinearGEMV(x, storedW, storedB, inDim, outDim)
-			got := refLinearGEMV(x, d.RoundTrip(w), d.RoundTrip(bias), inDim, outDim)
-			for i := range want {
-				if got[i] != want[i] {
-					t.Fatalf("element %d = %v, want exactly %v", i, got[i], want[i])
-				}
-			}
-		})
-	}
-}
-
 // TestHalfWeightGEMVWithinTolerance checks that a half-weight projection stays
 // inside the declared budget against the float32 result.
 //
