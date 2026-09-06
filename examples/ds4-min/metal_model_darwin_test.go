@@ -573,6 +573,15 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 			compareOracleI32(t, name, got, path)
 		}
 	}
+	// hc_ffn_pre is compared at the frozen acceptance limit rather than the
+	// exploratory one the other stages use. It has never been compared beyond
+	// layer 0, so there is no exploratory history to preserve, and the FFN HCPre
+	// is the boundary this sweep was leaving unmeasured.
+	checkFrozenF32 := func(name string, got []float32, path string) {
+		if strict {
+			compareOracleF32Tolerance(t, name, got, path, frozenAtol, frozenRtol)
+		}
+	}
 	checkResidual := func(name string, got []float32, path string) {
 		if strict {
 			compareOracleResidual(t, name, got, path)
@@ -655,10 +664,14 @@ func runPinnedHashLayerStrict(t *testing.T, ops *metalPinnedOps, bind func(strin
 		t.Fatal(err)
 	}
 	checkF32("hc_attn_post", hc, oracle("hc_attn_post"))
-	_, ffnNorm, err := ops.HCPre(hc, bind(name("hc_ffn_fn.weight")), bind(name("hc_ffn_scale.weight")), bind(name("hc_ffn_base.weight")), bind(name("ffn_norm.weight")))
+	ffnPre, ffnNorm, err := ops.HCPre(hc, bind(name("hc_ffn_fn.weight")), bind(name("hc_ffn_scale.weight")), bind(name("hc_ffn_base.weight")), bind(name("ffn_norm.weight")))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The attention HCPre above binds its first return and checks it; this one
+	// discarded the identical return, so the FFN half of the hyper-connection
+	// pre-mix went unmeasured for every layer in this sweep.
+	checkFrozenF32("hc_ffn_pre", ffnPre, oracle("hc_ffn_pre"))
 	checkF32("ffn_norm", ffnNorm, oracle("ffn_norm"))
 	logits, err := ops.MatvecF16(bind(name("ffn_gate_inp.weight")), ffnNorm)
 	if err != nil {
