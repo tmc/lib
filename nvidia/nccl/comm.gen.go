@@ -314,7 +314,7 @@ func NewCommInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) {
 	return commInitRank(nranks, commId, rank)
 }
 
-// NewCommInitRankConfig This function works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
+// NewCommInitRankConfig works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
 //
 // See the Creating a communicator with options section for details on configuration options.
 //
@@ -323,7 +323,7 @@ func NewCommInitRankConfig(nranks int32, commId UniqueId, rank int32, config *Co
 	return commInitRankConfig(nranks, commId, rank, config)
 }
 
-// NewCommInitRankScalable This function works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
+// NewCommInitRankScalable works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
 //
 // See the Creating a communicator with options section for details on how to create and distribute the list of ncclUniqueIds.
 //

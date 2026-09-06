@@ -7275,6 +7275,989 @@
         },
         "note": "Archive identity comes from committed cmd/gen-vpi/headers/README.md; archive itself not reverified. All68 current acquired headers match committed SHA256SUMS.txt. Jetson arm64 header package does not prove runtime backend availability."
       }
+    },
+    "nccl": {
+      "package": "github.com/tmc/lib/nvidia/nccl",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "ff64b7cd1655d402b53dec5ede8c45edc439b31d",
+          "tree": "1b43ed842b55028e2c5ca4f2f8205fe3a6845c35"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835"
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "nccl/nccl.h",
+        "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+      },
+      "header_dependencies": [
+        {
+          "repository": "headers",
+          "path": "cuda_cccl/nv/detail/__preprocessor",
+          "sha256": "e0d746ea364e52ab89e5ab395762f3859c923dd4b88aee4657023b85172ba541"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cccl/nv/detail/__target_macros",
+          "sha256": "199a109be511df3611263605946d2d8af3e8561c639be25fdb19d0f71ca6e736"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cccl/nv/target",
+          "sha256": "913c0ee62523291cace9c9d25854eb3c009dd1f3fc108c92a0bc6e4a6aae0bb6"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_crt/crt/host_config.h",
+          "sha256": "65f961e3ab30696260ea638335d0b67ea04f8c5fb9cb1267b9fa5e550f6beafd"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_crt/crt/host_defines.h",
+          "sha256": "dbabf0f8e8461362addf1bd4a04b6878923aa9be997352baf0bab7af7b9e47e1"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/builtin_types.h",
+          "sha256": "2714fd55fdaadac9f14c138bf400b33666334d60023b654e554bb529d16deff8"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/channel_descriptor.h",
+          "sha256": "d1328f86c1db2d71f5957429db69cf72dba98354ee0d265915825002e43bbe0c"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_bf16.h",
+          "sha256": "905c517a564d1405d613ee9faffaa6ca6203c2573d9f1fb459e83e26b64b3bff"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_bf16.hpp",
+          "sha256": "fc0682200420e37d644af24e509ef495f3d67eee5e708f21f6778f359b159f63"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_device_runtime_api.h",
+          "sha256": "d3110e08d9dbe604058dfae1d5c54c58b9385ce54b32b941b79b850eadc4765f"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_fp16.h",
+          "sha256": "8632b2ec00cbc8b216b4ae239eaa959beebc0f433536b07def62dfc324210696"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_fp16.hpp",
+          "sha256": "a7daa0cf6a63efb4a7aea5fc33399416911d184e7701ce2ebdb1b4f637d9c2c1"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_runtime.h",
+          "sha256": "945153fa0671b3a5015ce258a63972816a426309a12c4828146cf8e8b836336b"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/cuda_runtime_api.h",
+          "sha256": "42da3b0dc8fe60bf8730a9f8689668df9f44e5f955ce31ed9b05bb1ef7a3a342"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/device_types.h",
+          "sha256": "d8b171a190493e80395741f511b29311a5c38b718324fb7338f7511c36ae7084"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/driver_functions.h",
+          "sha256": "70ddc88d1033d8c8f63e3df94b2c4922464d0c3bac9c9a9aab305d333a5029b0"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/driver_types.h",
+          "sha256": "915f0a66b668944cf34f6e2c1f88b4507789ffdc7905c98ec792e7c184cd12f2"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/library_types.h",
+          "sha256": "7ccccd9cf42214386170704865517bbbf83702d6bbb5e0c0cba3fc3a48cbd29d"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/surface_types.h",
+          "sha256": "5e41570f59c76de48c81a8d1f94244f6e43b4c1cb32678dd9d42f8fb21a2b9f9"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/texture_types.h",
+          "sha256": "ef79ed57283cafc7f32b2e55224eb2baf0b8e460de59ea5a2c8a8893e337462f"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/vector_functions.h",
+          "sha256": "f15e2cc5f6b26a617143551b8aed48bd74e5d997ecbe9e3a7abe7cb430262d6b"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/vector_functions.hpp",
+          "sha256": "4d2ef3eff9431eba4e3fe0ae7e2121d24013afb0b7660b40531b1641d9010541"
+        },
+        {
+          "repository": "headers",
+          "path": "cuda_cudart/vector_types.h",
+          "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl.h",
+          "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/barrier.h",
+          "sha256": "d4d2167cdabf3ec4422e3771ea99a9ba2e27cbd8d69c294757fc36d53912b286"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/comm.h",
+          "sha256": "f63b256c4fe3e59285babbb69f4be630aaea8ef3f83ad67614c98d33cadc6cbe"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/coop.h",
+          "sha256": "e7ea2afd348c8b808038a65041ce18bfb1ffe98d07e3a845a403fa4243406a29"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/core.h",
+          "sha256": "309cea58b4558f1f419a060b332df716939e6dbae41097747800dbf67f557a57"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_def.h",
+          "sha256": "922f9a44183125f5d749936b1d0d2aa92067d5cf116982a1abad97fb368c5c77"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/common/doca_gpunetio_verbs_dev.h",
+          "sha256": "056c83334b776089f2490542550a40f1a7ca82ff9ad4b7a3ca3e8169c65f392d"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gdaki/doca_gpunetio/doca_gpunetio_device.h",
+          "sha256": "93e1c02a7c920baac5d5ad55799e61438242a601d45a7190c087e02a12658a3b"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gdaki/gin_gdaki.h",
+          "sha256": "6fef78da2261da1027eb1d89adfa4079d1dbb91c3fc2867f5078257697d4f9c8"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gdaki/gin_gdaki_device_host_common.h",
+          "sha256": "5b9d6c6eda1bf5434475defef49527336a4556ca8a5a28f3eb8b4c3851b80627"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gin_device_api.h",
+          "sha256": "2c4707b2109e308bdc3191e1bd1092d3073dd6524571b90feb9ebfca3d45f8f6"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gin_device_common.h",
+          "sha256": "8abbc56047d65cc83161686322cd4f48e6d2925cf1b29a12711a5545ae1a6843"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/gin_device_host_common.h",
+          "sha256": "9ea73045696e1b4029e2b3d565a0d8d1a89b45764d55e461615466a2d7faeb06"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/proxy/gin_proxy.h",
+          "sha256": "19691f22de53b7af514e80bdad4a7209f69e7799e1019c059213fb39fa895562"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin/proxy/gin_proxy_device_host_common.h",
+          "sha256": "d59c456bd6fa068ca0e19bf50f5b386de37a652d6b81d97ebbf8b2bc18b3e92d"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin.h",
+          "sha256": "631c1ccff2443c8f8162902b715ec9dc3fbb6dd3e92418d2a37835f12a2656ee"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/gin_barrier.h",
+          "sha256": "a610f3adbeeeaba9fe6fe8d3904cc989f31ef095223b256201a80e4211db6f37"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/barrier__funcs.h",
+          "sha256": "00d801d6ff65645c33b56a42324ba9c4266d5fa7d2f10b8f965833c3310e39bd"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/barrier__types.h",
+          "sha256": "329ebc2617c6ded627b690f68e9f5eff0540c9ca100b71d1eb460a051f856eb0"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/comm__funcs.h",
+          "sha256": "cf492173f3d9f867b79f578cc39bdb59ab399b58950ba44285a0979e2e094064"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/comm__types.h",
+          "sha256": "592ce87ef4cde398120282e583496401ee164ccc6d3508f5e3be5c8032c0cc1e"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/core__funcs.h",
+          "sha256": "77c1c207c50d4098dd8e08c7c8bd76a85e4a04efec66621ecdf9f3732857f663"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/core__types.h",
+          "sha256": "e709297f473bbc7789af8d90253568d8ba198159564f0d5b48a8a54ba5738155"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/gin__funcs.h",
+          "sha256": "4a17dc45e21a4616d5561ad0c9032fbed31b4ce0b6b0b4a8f83fe2b64f0ca225"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/gin__types.h",
+          "sha256": "d0d46c603292b361ea8c4c2d7464eefa8caf58ac6fa7f7da904b0a8aec20cea4"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/gin_barrier__funcs.h",
+          "sha256": "3d161a35250124ed45e3e8bf45578131d2b6b34363db6868ab2aceed0bb47fbc"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/gin_barrier__types.h",
+          "sha256": "4bb1d075be74dd3e461889ecd9305ed16856222209fc6701d8cd43f786dfe597"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/ll_a2a__funcs.h",
+          "sha256": "47c18fac3dcb0ae051374a99f59e72c393a1c5a87264e423f3c12438989eeb8d"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/ll_a2a__types.h",
+          "sha256": "78057a7c9c5a8674ba33c7a46c11499e18a7ca044975f676a35c206e7bc33331"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/lsa_barrier__funcs.h",
+          "sha256": "cbc7e5a576cc2344a3207058f054060c9426bc981727cb85af89cea59ae5e8e9"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/lsa_barrier__types.h",
+          "sha256": "74b05656f01d5e192c7f12eeba8c9c7f60cb3668a5a698344ad1253bd9267f50"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/multimem__funcs.h",
+          "sha256": "ad50e8e2db053a07a672a8d9750bfb5aed014bca8b48746980a5afbf1319bfc1"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/ptr__funcs.h",
+          "sha256": "3b1f06648a846690c0eb0784550824f6145068961695b00049b6db8b98982ea8"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/ptr__types.h",
+          "sha256": "ff3211542d1ac92ea722324080372d313b663350dd4a73fea8160492052f1e9a"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/reduce_copy__funcs.h",
+          "sha256": "1a2f4b58cde064331a84a7da18d219814d4c4a97cb16ea81c8ce379ed1ab16ec"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/reduce_copy__impl.h",
+          "sha256": "be26d186e9695a9f0281b1be46d7df66039a7e80a3106027c7f0ba2adecd1366"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/reduce_copy__types.h",
+          "sha256": "792a12301b884ea4343892d66582abe998792989463cdc30b833ee3042bab996"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/vector__funcs.h",
+          "sha256": "5abfb7b5466cb545b9f317621583f1c5a4cc329e06937ab9565883d7c02172b0"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/impl/vector__types.h",
+          "sha256": "6a11c3d132f0aae87ea43d93def1311d9f6ecdae9e3d4d92568f1a882c9b9d39"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/ll_a2a.h",
+          "sha256": "97a94c435b85e715332059efe49f00e251924089f4bbec2566bc298a8e043879"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/lsa_barrier.h",
+          "sha256": "f35c6cc2a351d97e04aac8236ffd4bd5a0b6dd70ce97087a16fcb86b2f1d3534"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/net_device.h",
+          "sha256": "4f22510bd7e541e9ce38bbdc5788e731af0924237e89461148d737fefe5604f7"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/ptr.h",
+          "sha256": "8d3adaa8ab658c8f3aaff748b248e5e75d51eb29234264571c417b8b43766942"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/reduce_copy.h",
+          "sha256": "917868fa9f171e051c58b95e3e48420624037a164005251e0f6f4ecf4f2ae925"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device/utility.h",
+          "sha256": "9127bd81d5e04f17f09f2fcb95c5114d524324a50b28231dd2f86dc52b7bb864"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device.h",
+          "sha256": "5df1b42993864696a147d036c72be8470b97b5e99c8f90c9ff2bcb95e6f27ce7"
+        },
+        {
+          "repository": "headers",
+          "path": "nccl/nccl_device_wrapper.h",
+          "sha256": "c1614d7421548220d269292a2afb0dd9ae2378fd93a82d47887fe3fbc05a421f"
+        }
+      ],
+      "documentation": {
+        "repository": "codegen",
+        "commit": "712abfb69da9d38c85f5202a1d3b256ea792b300",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "tracked docs/*-docs.json",
+        "files": [
+          {
+            "path": "docs/cublas-docs.json",
+            "sha256": "6bd72ea42459e1d87d97e43e2da47dd3fca8b4a4cc52cc1c3089abef55a9f103"
+          },
+          {
+            "path": "docs/cuda-ctx-docs.json",
+            "sha256": "868522702e8686c1a3bbd3304bca491150e4c4badfb021444de6d30e9046228d"
+          },
+          {
+            "path": "docs/cuda-dev-docs.json",
+            "sha256": "e4e13956405858ea4195b526adbdc924c4949b105f70a81c760a34719b06e1eb"
+          },
+          {
+            "path": "docs/cuda-entry-point-docs.json",
+            "sha256": "b5d30bc60346d95f1451f0422d794c56f52dd51d533f282e3b7b5c9037fe8698"
+          },
+          {
+            "path": "docs/cuda-error-docs.json",
+            "sha256": "41864a634696a592291176b3483ab675997fd6657ba762807b0b6d5b471f7e2a"
+          },
+          {
+            "path": "docs/cuda-event-docs.json",
+            "sha256": "9db760deace6e6f0b0f976e1554ead5a7a9d1641c33682fbbb71ec327df8b626"
+          },
+          {
+            "path": "docs/cuda-exec-docs.json",
+            "sha256": "951f008733635d460fed619f989eb28ff023dcac594087a0bfbbe908ed414726"
+          },
+          {
+            "path": "docs/cuda-extres-docs.json",
+            "sha256": "9f43d88526fff085df5cbae96e032928aee2a183715cc2ac0219a86e5bc18061"
+          },
+          {
+            "path": "docs/cuda-graph-docs.json",
+            "sha256": "f03867d16977ac8e6012d0b276debccfe394e84957a36f694bad1accc2b6c27d"
+          },
+          {
+            "path": "docs/cuda-init-docs.json",
+            "sha256": "9926e7665fe6270d713a4eeea786118a165191ec5cd207b3f32277d588a47079"
+          },
+          {
+            "path": "docs/cuda-mem-docs.json",
+            "sha256": "cf3baeaf5227ff6b81c08ba1e6aa8f2481d4148d4a8f041645879f6bd076075b"
+          },
+          {
+            "path": "docs/cuda-mempool-docs.json",
+            "sha256": "285a613d998bab6853bf6daa5583333e8cad8ce54f262cb39292c8ea6ae330bc"
+          },
+          {
+            "path": "docs/cuda-module-docs.json",
+            "sha256": "ae6b75b46f26143dc3b3d1181a1b5a640f1d7d33c4b5dd992c72e129310c555a"
+          },
+          {
+            "path": "docs/cuda-multicast-docs.json",
+            "sha256": "f906ce4b8f664faae2799c2b6e7e54c6de56c9eb6e9f73c6cfb062c24a1948a1"
+          },
+          {
+            "path": "docs/cuda-occupancy-docs.json",
+            "sha256": "11d5c20093af483bae3be54d1935d2675ae72597842aa1a0d214587ef55e17af"
+          },
+          {
+            "path": "docs/cuda-peer-docs.json",
+            "sha256": "cdc2f2d829be3ceb6da61ee5dfcf230cd58d22bd05c0af9fac45a7b68f2de8ec"
+          },
+          {
+            "path": "docs/cuda-primary-ctx-docs.json",
+            "sha256": "0242c365ca9597f59fa3420ea5e8bfdd55add5f2fbe29b0a4aa7b231b3605cae"
+          },
+          {
+            "path": "docs/cuda-stream-docs.json",
+            "sha256": "1562ca03a07859599b716374681f1f2f711c55a75f83244c599491981ac09928"
+          },
+          {
+            "path": "docs/cuda-surfobj-docs.json",
+            "sha256": "2305da5f6f2b392c64909538e2b60deb7ad8529877130012b3ff924dfab56b90"
+          },
+          {
+            "path": "docs/cuda-surfref-docs.json",
+            "sha256": "8165627f5ac745199908f571ac0c28b90037dd3acbc7d18ed2384b632fd2f293"
+          },
+          {
+            "path": "docs/cuda-texobj-docs.json",
+            "sha256": "2dd25847397ee17d00abe5ce2cdff5880927d221a2f169b21c6ddccae031e14f"
+          },
+          {
+            "path": "docs/cuda-texref-docs.json",
+            "sha256": "8575f349a52b57039d66570bc48926ae6cfefcf445c47fc49a24aafb5afaa866"
+          },
+          {
+            "path": "docs/cuda-types-docs.json",
+            "sha256": "578c2393a4d7d7d380c25f1715a94f2a9afa5c66abc71cbe7641bdbc6f7de422"
+          },
+          {
+            "path": "docs/cuda-unified-docs.json",
+            "sha256": "5d57b61172eaf772c6730613a7946d0425efd0e971281979a2c4ba45373eed48"
+          },
+          {
+            "path": "docs/cuda-version-docs.json",
+            "sha256": "4ef67f7d2ee90342281fe762747679443f8c846b2d880e5e4e26a188cbd32d34"
+          },
+          {
+            "path": "docs/cuda-virtual-mem-docs.json",
+            "sha256": "8845483b3f7772c895f4eefd76b6ff8901a87ac5959f2401d5447e88ac14c278"
+          },
+          {
+            "path": "docs/cudart-device-docs.json",
+            "sha256": "28dab15842577203f46e21d3c0f4e04179b187a2e8ca69ceaae91625b186d902"
+          },
+          {
+            "path": "docs/cudart-driver-docs.json",
+            "sha256": "c854fe16f16279dacb52c781bff0385834fb9eaf738142b330271b8012f73839"
+          },
+          {
+            "path": "docs/cudart-error-docs.json",
+            "sha256": "7172ee4e5797aa997fa83bf5c0975ec453068075ae9c6af28230ac5a12f7b71d"
+          },
+          {
+            "path": "docs/cudart-event-docs.json",
+            "sha256": "8a454474c1c6f241afbd220aeb638f69b2f0642095ed117d4fce6eed9e47770e"
+          },
+          {
+            "path": "docs/cudart-exec-docs.json",
+            "sha256": "74cfe80352b24f47730aa6b470ab8a1e68b513132e175f789df12997f56daa43"
+          },
+          {
+            "path": "docs/cudart-extres-docs.json",
+            "sha256": "4c64d704a023277d33594aa48784a044f10bdb70574abe7474f4e3bd1e49455d"
+          },
+          {
+            "path": "docs/cudart-graph-docs.json",
+            "sha256": "cfb4399e0dc907c1f72e2fa9e52b3d3c23d7b51e035743ae40b820b94cf16003"
+          },
+          {
+            "path": "docs/cudart-mem-docs.json",
+            "sha256": "4570a82a8f844c12552f02d7bc106f364bec5e2486f221fdabf6f55fdf64f341"
+          },
+          {
+            "path": "docs/cudart-mempool-docs.json",
+            "sha256": "78842f539bfa9fac99d28c629ec294ad5761cdefd8a2867a0c28daefa642c89a"
+          },
+          {
+            "path": "docs/cudart-occupancy-docs.json",
+            "sha256": "443dabc8e62afc4f8057e2cbc2cafb223bfb71642a18e8778d4de8ebcd36ea30"
+          },
+          {
+            "path": "docs/cudart-peer-docs.json",
+            "sha256": "158a21388b55f65b55f6a8e6b4c265b869af851a9319e1c5f5e045630c9d0a87"
+          },
+          {
+            "path": "docs/cudart-stream-docs.json",
+            "sha256": "128d88db24035372abe54c89b443a753321a2352c9edd772691c89807fd8a325"
+          },
+          {
+            "path": "docs/cudart-surfobj-docs.json",
+            "sha256": "0575ef5ad0ef908e2f44ee86afd10f8084a39e02a5773902f5a068f46fb6f1c8"
+          },
+          {
+            "path": "docs/cudart-texobj-docs.json",
+            "sha256": "a7640bc8cf3ee5a001530beee88e9e6580e003dba88cda6f2e972b05ae6f93fd"
+          },
+          {
+            "path": "docs/cudart-types-docs.json",
+            "sha256": "da88e90bfd590af3d9abb324d202295d056747967dfbe6eb277321d2e4a5a8af"
+          },
+          {
+            "path": "docs/cudart-unified-docs.json",
+            "sha256": "5524a82916aaa10c1c607f94d278ee49a6259fb46b926bf317742dca392f985d"
+          },
+          {
+            "path": "docs/cudart-version-docs.json",
+            "sha256": "857161fa7518dfde44f4c40b9968c8a0ab84a7808b9a505cc8b5f73f360d81a4"
+          },
+          {
+            "path": "docs/cudnn-adv-docs.json",
+            "sha256": "716038693b89fd393aee75383998341d6ff81a696c83cef04fa4a255ee2fe8d8"
+          },
+          {
+            "path": "docs/cudnn-cnn-docs.json",
+            "sha256": "c417ca4d1b95ecf34b2b6c1fb8e548f396ea5a3b451a075e18b252c7e13ee87e"
+          },
+          {
+            "path": "docs/cudnn-graph-docs.json",
+            "sha256": "e7c7f5634689fda29bd362619867ff6ff80e727657e278c9e344e1fabf214590"
+          },
+          {
+            "path": "docs/cudnn-ops-docs.json",
+            "sha256": "a0715412781c69c0859f18dbb0f24273e8ed46878e859ad7f80ae9b2b867d496"
+          },
+          {
+            "path": "docs/cufft-docs.json",
+            "sha256": "259093963922b7d3c3c6944f445fa1fea85b19081d5ba47f4f806f95c2e0467e"
+          },
+          {
+            "path": "docs/cupti-activity-docs.json",
+            "sha256": "8a72cfd5d39c809c542880e72097c37664945842e4d6685d2d607115af039416"
+          },
+          {
+            "path": "docs/cupti-callback-docs.json",
+            "sha256": "8b83095c96164b1860f59cdeaaee29836fc335f921ce7421a9d9c63d78bcaa3c"
+          },
+          {
+            "path": "docs/cupti-checkpoint-docs.json",
+            "sha256": "161c9a197a3ed14bb96e0ac4d5cd7f1753ca950181c4e22aea8cc9a4f7951cdf"
+          },
+          {
+            "path": "docs/cupti-pcsampling-docs.json",
+            "sha256": "810c3fc566163eca57c7ce7cb9579fcd47f239deca18693601c168231cbbe851"
+          },
+          {
+            "path": "docs/cupti-pcsampling-utility-docs.json",
+            "sha256": "67729f93a865c8c2be4134e739d5cd35960b8e4f619210b4994fa9ae2c3be0c4"
+          },
+          {
+            "path": "docs/cupti-pmsampling-docs.json",
+            "sha256": "b963abe408595040c3162c34ef460f80bd4821bdd46fc59c0549fdeb2ee0cda6"
+          },
+          {
+            "path": "docs/cupti-profiler-docs.json",
+            "sha256": "aa0df571ce09f72d2cd0bc03dcc4d992ff157eec24ae2d294218f8167af3f0ae"
+          },
+          {
+            "path": "docs/cupti-profiler-host-docs.json",
+            "sha256": "f36f4dc79fc513ebc69f29f4e3d39d4e88f31535e8e4b03d0f22e04d6cbbce5e"
+          },
+          {
+            "path": "docs/cupti-range-profiler-docs.json",
+            "sha256": "470f242cf25eaead9afd476cac7fd63fb0b1c46b978a70aa24242bf0aecf32e0"
+          },
+          {
+            "path": "docs/cupti-result-docs.json",
+            "sha256": "f04fbb9a2bc3ada6dce48d376b8ad5deaa6c2190e01bf92f297160e5d99412b2"
+          },
+          {
+            "path": "docs/cupti-sass-metrics-docs.json",
+            "sha256": "dab8974c479bffae678a5d21c96b8ad3d124cf99ea7274db92e5fde1e6769c18"
+          },
+          {
+            "path": "docs/cupti-version-docs.json",
+            "sha256": "811f989d8b957c6e333397003436a3f6c9b8ae48c12241f9b95c6fc2f586d4d1"
+          },
+          {
+            "path": "docs/nccl-colls-docs.json",
+            "sha256": "c1a9b5ebaa683a635ea0eb3a8e77273260cd2c473beb9b468854bf7e4614dac7"
+          },
+          {
+            "path": "docs/nccl-comms-docs.json",
+            "sha256": "1b837cf5a90e088b14223a30dcafadd6e03006c669e78c44fa6846b5cdaa8ac2"
+          },
+          {
+            "path": "docs/nccl-group-docs.json",
+            "sha256": "3f85b70a05f5b7c20f0b774c1093d9e83c8d5bf98c06868c226b2187fec9c895"
+          },
+          {
+            "path": "docs/nccl-ops-docs.json",
+            "sha256": "38844703ef414ed7dcfa4211d138245f5ac012389074fb96d0b8938ba88ab918"
+          },
+          {
+            "path": "docs/nccl-p2p-docs.json",
+            "sha256": "ae2727f3d0d9258c51894627defb9f9a29b901bf8d8e931a364b4f828fa4d19d"
+          },
+          {
+            "path": "docs/nccl-types-docs.json",
+            "sha256": "15dad2d43641f8a642dc4e56e7120ab8aeddbfe4f92157c992204bca0988d664"
+          },
+          {
+            "path": "docs/nvml-accounting-docs.json",
+            "sha256": "3e0ef19fae91bd23cd3e7f67889af49d718a1c361ceb2099481b5b027ec8a8ab"
+          },
+          {
+            "path": "docs/nvml-affinity-docs.json",
+            "sha256": "d3092d54ca692a5054eaecbd282c1d9cc03080e9fad8742aeb56766d35035cad"
+          },
+          {
+            "path": "docs/nvml-device-cmd-docs.json",
+            "sha256": "0d98938a4b3b3c3f7fb530291725f41ac3eb1eef0ddcae8d7f52a8998f472007"
+          },
+          {
+            "path": "docs/nvml-device-docs.json",
+            "sha256": "f2959087eceb86d18949e4b48bf644e581ae106202ffc9f950d589f78e065b27"
+          },
+          {
+            "path": "docs/nvml-device-enum-docs.json",
+            "sha256": "057db84d18e9563e44657683bb630fc91535efe72e11bf28b94876650caad739"
+          },
+          {
+            "path": "docs/nvml-error-docs.json",
+            "sha256": "508b49a61e5e4020d520f67c9a798c6e7820473f82f28293afa8ddbd687fce6e"
+          },
+          {
+            "path": "docs/nvml-events-docs.json",
+            "sha256": "6011891b781b37286f6f100e2c5de67dbdda2b0c93c3e3f8e47a69ed01750b7c"
+          },
+          {
+            "path": "docs/nvml-excluded-docs.json",
+            "sha256": "054cd767b73a881417beb639263de072b0387b97641239b1a9bdd43a1fa989c0"
+          },
+          {
+            "path": "docs/nvml-field-value-docs.json",
+            "sha256": "eb5af3173f29ae79ef2508704cd84cb9c9b4525e8c9de1ef1a9fa04bbb540c73"
+          },
+          {
+            "path": "docs/nvml-gpm-docs.json",
+            "sha256": "d967616d5a1cd2f2801f886795e97f62eb301bbf99c1608aaf6e973e68253368"
+          },
+          {
+            "path": "docs/nvml-gpu-instance-docs.json",
+            "sha256": "4299452904f1aace80fa31327756a52fc112a78769a1337ca75f019375e0420e"
+          },
+          {
+            "path": "docs/nvml-init-docs.json",
+            "sha256": "9382093d791cb6ac8e02afdf8c43ce196fbeb34e048343e2a074693ddbb5c20d"
+          },
+          {
+            "path": "docs/nvml-nvlink-docs.json",
+            "sha256": "69e7ac1227118812b9a4cb7a25a117f5dae26c587781042e869e1686466a47f8"
+          },
+          {
+            "path": "docs/nvml-power-smoothing-docs.json",
+            "sha256": "1e2e59a593609b16eb27e1ddbe0fcff7a35c59c602194c8b3578f6c4f9e9696b"
+          },
+          {
+            "path": "docs/nvml-system-docs.json",
+            "sha256": "b0a9f14350d50f790a87cb3dd41b807643ee793426e4bfd4e2a0efd486d1f94d"
+          },
+          {
+            "path": "docs/nvml-unit-cmd-docs.json",
+            "sha256": "a1758cc70a3482807b81aea8a5314e5cfea276167a211a238953038f01bda277"
+          },
+          {
+            "path": "docs/nvml-unit-docs.json",
+            "sha256": "2a7f1067a9c34ccd307622e12f437bc98b3041dd69ff0a7c9174d26fd975cb25"
+          },
+          {
+            "path": "docs/nvml-vgpu-docs.json",
+            "sha256": "c9210ff0f5cd448f494715493c194d218b6805addb6c6341d2b07e28e7e2bc80"
+          },
+          {
+            "path": "docs/nvrtc-docs.json",
+            "sha256": "a8706d79568903257472f8aa963882f5cd70ada785dfa782c4d1143755ec784b"
+          }
+        ],
+        "note": "All selected tracked documentation files verified against712abfb; explicit clean selected set is candidate replay input. Historical original documentation set unknown; no claim that live untracked JSON was historically absent."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "nccl",
+          "-header",
+          "${HEADERS_REPO}/nccl/nccl.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "nccl",
+          "-deprecated=true",
+          "-docs-dir",
+          "${DOCS_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "GOTOOLCHAIN": "local",
+          "GOPROXY": "off",
+          "GOSUMDB": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/nccl/comm.gen.go",
+            "sha256": "e3433ee4d7d39211a84d6bcbfca627a3f6326c0f6c8adab0264ec04bb8a7ec0b"
+          },
+          {
+            "path": "nvidia/nccl/devcomm.gen.go",
+            "sha256": "abf9788d14652c09b2ce1dead9afa0427c450e3eb841ba1889d02ee2c78f2260"
+          },
+          {
+            "path": "nvidia/nccl/devptr.gen.go",
+            "sha256": "3770612cf6b3330f422e448e64e9d456a5503f8c3ad577f8eeda3662b4c77c91"
+          },
+          {
+            "path": "nvidia/nccl/doc.gen.go",
+            "sha256": "e6948447d242b283a3c643f593ae665daaccbb20062e6c8eefb35fe6c617855e"
+          },
+          {
+            "path": "nvidia/nccl/enums.gen.go",
+            "sha256": "c9db1dd91aefb1f4476565124f6385b874fa6d9578e51df8b2f4476d8185031d"
+          },
+          {
+            "path": "nvidia/nccl/funcs.gen.go",
+            "sha256": "c2d2373540ecdd433ebfe976589905b79bfe8b97e0260c003d4fe1d8f05fbcda"
+          },
+          {
+            "path": "nvidia/nccl/gin.gen.go",
+            "sha256": "5566f120ac558abf7fb5bb04a52bd8afd9cc5ed4eaef9f30d03be8c797714f6c"
+          },
+          {
+            "path": "nvidia/nccl/handles.gen.go",
+            "sha256": "c60a57d6c00c17611781b1caad091e295b53a7a2a6916d512b5c1080bba4c9ce"
+          },
+          {
+            "path": "nvidia/nccl/init.gen.go",
+            "sha256": "fa78bdf4e90e8624d6972525eec028008c3343e80dd5713228b6b5f0f12929a2"
+          },
+          {
+            "path": "nvidia/nccl/layout_test.go",
+            "sha256": "8e00386a0e954d7a6399796ccb5548b585e7224f8fc20a3c0142f98a8662d18b"
+          },
+          {
+            "path": "nvidia/nccl/loader_test.go",
+            "sha256": "ae17d6601e5b62489e7a3b048b24da227332bbdb937b6245d84db829aaaed79e"
+          },
+          {
+            "path": "nvidia/nccl/loader_unix.gen.go",
+            "sha256": "d92cdaaa745fcfaf92ecddb0adbe74c9bcbc3014bd8c2824198916e009de0bb8"
+          },
+          {
+            "path": "nvidia/nccl/loader_windows.gen.go",
+            "sha256": "2fad8d2359cea4b7bcce6a177714b7668d68f05e7941a7d1ae5338c86a1183e9"
+          },
+          {
+            "path": "nvidia/nccl/result.gen.go",
+            "sha256": "246267b2a08c63f388b8176ad481165cd6ba3d7fbc06b0635b83e7ae5ff0d0c3"
+          },
+          {
+            "path": "nvidia/nccl/structs.gen.go",
+            "sha256": "0a8e8a4696c485c188b248e73d03139c88863a8ad1a95410f2f6f6af689c5fe8"
+          },
+          {
+            "path": "nvidia/nccl/window.gen.go",
+            "sha256": "bc13bd1b2b7fcd1e1bd89a06a4cce79663b49edef3b5696e1d1ca3fd54bc98f2"
+          }
+        ],
+        "dependency_inventory": {
+          "method": "Primary-header clang -M closure plus conservative complete NCCL .h/.hpp tree for nine separately selected device siblings and layout probes; includes all selected inputs, may include unused device headers.",
+          "system_headers": [
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_intmax_t.h",
+              "sha256": "215f90a4efdca4991735be55a1ff701964dde07d8b4a8382ec8ed41ecbf5f115"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_uint16_t.h",
+              "sha256": "adf29323b0ecb87cbc43ac3ff25c096de7a214ceb90007c2828616151c66ad37"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_uint32_t.h",
+              "sha256": "951131475ec815813c8ff40d5e875029cd968334fd3a42d5a65fbe7851d1718c"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_uint64_t.h",
+              "sha256": "a5692cddb9c42d1b55ebcd6fa445b212c4b0c46db4583aaf3293ed6386d3d0d6"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_uint8_t.h",
+              "sha256": "0a5c0353c8410f5e502db7971d987ac83a9ec3148905f10984c78152f541de68"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/_types/_uintmax_t.h",
+              "sha256": "0b154b16a3945edff78f00321d90a662d522e197c08e7de3b68f0ea44ae0d042"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/arm/_limits.h",
+              "sha256": "b64325f6b5aba08a361b7b8e537df3d8d193538c1d6329a4c4a7e72f5aa63478"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/arm/_types.h",
+              "sha256": "4f0bde85f9a41cc7d30fff22ebd7e8f4eb206a55a926eda012a2e7481e3524fa"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/arm/limits.h",
+              "sha256": "59fea4e9435607efb7bef02a226e05202b236e8434518bb130fc9aa0932ebdb8"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/limits.h",
+              "sha256": "4e09d7a2307887fe787c65e31d63747720c4d462b7ba3bf8f45e401d74f0b246"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/machine/_types.h",
+              "sha256": "f27264f8fdec9f164b4fc2b556f666ed7c5c0e5b88fd9f23db0b731ffa6cf864"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/machine/limits.h",
+              "sha256": "50345f1ab843fca787a38c552a84177e678d79dab86e714434f94f2546839357"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/stddef.h",
+              "sha256": "1e871643e931a1fe9ba76c2cc55dd32aa1a4b4cdf4584901b65b6203db321d2b"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/stdint.h",
+              "sha256": "9d070aad02d9f2ba1f2248d093b4194b62cf8d363778c737d1110f4736e5ed3c"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_posix_availability.h",
+              "sha256": "452bff9ae32655a49b65802e29b21c67a546be1446553f908ef9850a694746bd"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_pthread/_pthread_types.h",
+              "sha256": "741433612525badf767d48b1924d4c7ba564ccc5c1bab5cb7045c238850fa86b"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_symbol_aliasing.h",
+              "sha256": "4f4d5078589b64b735007e08840b4c4c487219ff543d2022c69f5e9ec25c3b9a"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_int16_t.h",
+              "sha256": "e40d40ad59c6dc98577b2c7cfdba1121ebfee17b29e093cbd10b7936df496d8e"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_int32_t.h",
+              "sha256": "77127195e57f1690402377ddd72e3dcda684ddf591346f08ef4772dddcbbc281"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_int64_t.h",
+              "sha256": "a2427b34e5e83996bd28d83cec920cf3b82a366af90e767234557bd11fa33a18"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_int8_t.h",
+              "sha256": "607f6beede0251eb801e763493df26fd45d46eb951e4ff9cac17f1ac951b8cc0"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_intptr_t.h",
+              "sha256": "b2a7ba9b9b2d357d75e59114874658f893b23ea6d1357815b027d8189075daba"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types/_uintptr_t.h",
+              "sha256": "f435cf25e4f06dace9c1884c066392bafd204c6d71f16696e71acde5912bc81f"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/_types.h",
+              "sha256": "863c4f07045775002b63b7e616742d9f746e4a02da4441442d8fe1138bbd0ff9"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/cdefs.h",
+              "sha256": "ac1a889ee7e6f3025e01be9981d26751489b9e63e926035201cae07ab9e6576f"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/sys/syslimits.h",
+              "sha256": "170629c923b4ef2b7132dc8a9d71e9f010332bada56363f619b7c758e17d2c83"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_header_macro.h",
+              "sha256": "4cf46e8fbb809df048eecbbd63686fa741da27afa8db4245bd1f61c1fb1611dc"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_max_align_t.h",
+              "sha256": "3c1e4de47f4f06b35e2c5890d670052e84f716760505ff51b022fc8b21a9400f"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_null.h",
+              "sha256": "b1d71b08563ab3d2c22a1e4f8ddf4d9a1111c89e9404b859a45c307e8ebc6c69"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_offsetof.h",
+              "sha256": "e5f0f4ff8ff5fc6a1cc8b535f5065f1728eadd2bf1e1401f021f803ec7b4222f"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_ptrdiff_t.h",
+              "sha256": "b4178a57f3711b7013cba747a72a2f178c29fa9364e77d75b2159754072ced43"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_rsize_t.h",
+              "sha256": "132339d4f07e852bf2d879bc91c4ccdfcf08c581c7c97f6f3794510e0bdda7bd"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_size_t.h",
+              "sha256": "d86ddc0238da09b385846ebef814ffc50a44e40cf85d4e3793f485952b7e73ad"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/__stddef_wchar_t.h",
+              "sha256": "1900d4998aef3698b06399ed686db0c21e26509b08638a25734fb97ae89b1001"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/limits.h",
+              "sha256": "6b59cc1b6f86c901bf41ce942b8434530e852eb16e79e6e9287f89441f71efca"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/ptrcheck.h",
+              "sha256": "ac60d1e96ac17d789d1879b968d391dfbfa222f12213ba95f14592453eebe338"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/stddef.h",
+              "sha256": "e8d92dad1b380f2f2130fd7aa446bcb4fc923f7062a41c7c35beb4913093a8f5"
+            },
+            {
+              "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include/stdint.h",
+              "sha256": "f43783466c93f77a6464274ebf18f9e4cc46f0d90770ddee2993c6cf39f7514f"
+            }
+          ]
+        },
+        "comparison": "All 16 generated Go files replayed from the recorded committed generator and matched the reviewed output byte-for-byte. Existing public predicate HascommInitAll preserved.",
+        "limits": [
+          "Tracked docs selected explicitly now; original historical docs identity unknown.",
+          "Host SDK paths/hashes recorded, not hermetic cross-host qualification.",
+          "Vendor archive source unverified in this offline pass.",
+          "No runtime/GPU claim."
+        ]
+      }
     }
   }
 }

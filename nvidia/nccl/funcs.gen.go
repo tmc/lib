@@ -235,6 +235,8 @@ func commGrow(comm Comm, nRanks int32, uniqueId *UniqueId, rank int32, config *C
 
 // CommInitAll Creates a clique of communicators (single process version) in a blocking way.
 //
+// This is a convenience function to create a single-process communicator clique. Returns an array of ndev newly initialized communicators in comms. comms should be pre-allocated with size at least ndev*sizeof( [Comm]). devlist defines the CUDA devices associated with each rank. If devlist is NULL, the first ndev CUDA devices are used, in order.
+//
 // Wraps ncclCommInitAll.
 func CommInitAll(comm *Comm, ndev int32, devlist *int32) error {
 	if err := checkLibSym("ncclCommInitAll"); err != nil {
@@ -261,7 +263,7 @@ func commInitRank(nranks int32, commId UniqueId, rank int32) (Comm, error) {
 	return out, nil
 }
 
-// commInitRankConfig This function works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
+// commInitRankConfig works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
 //
 // See the Creating a communicator with options section for details on configuration options.
 //
@@ -279,7 +281,7 @@ func commInitRankConfig(nranks int32, commId UniqueId, rank int32, config *Confi
 	return out, nil
 }
 
-// commInitRankScalable This function works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
+// commInitRankScalable works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
 //
 // See the Creating a communicator with options section for details on how to create and distribute the list of ncclUniqueIds.
 //

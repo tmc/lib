@@ -69,8 +69,8 @@
 //
 //   - [CommInitAll]: Creates a clique of communicators (single process version) in a blocking way.
 //   - [NewCommInitRank]: Creates a new communicator (multi thread/process version).
-//   - [NewCommInitRankConfig]: This function works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
-//   - [NewCommInitRankScalable]: This function works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
+//   - [NewCommInitRankConfig]: works the same way as [NewCommInitRank] but accepts a configuration argument of extra attributes for the communicator.
+//   - [NewCommInitRankScalable]: works the same way as [NewCommInitRankConfig] but accepts a list of ncclUniqueIds instead of a single one.
 //   - [GetUniqueId]: Generates an Id to be used in [NewCommInitRank].
 //
 // # Window Registration
