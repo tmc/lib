@@ -131,6 +131,7 @@ func ParseLog(text string) *Log {
 		switch {
 		case body == "COMPUTE-SANITIZER":
 			flush()
+			l.SummaryFound = false
 		case errorSummaryRE.MatchString(body):
 			flush()
 			m := errorSummaryRE.FindStringSubmatch(body)
@@ -161,6 +162,9 @@ func ParseLog(text string) *Log {
 			raceSummaries++
 			l.SummaryFound = true
 		default:
+			// A later finding needs its own summary. An earlier process
+			// reaching a verdict does not complete this report.
+			l.SummaryFound = false
 			block = append(block, body)
 		}
 	}
