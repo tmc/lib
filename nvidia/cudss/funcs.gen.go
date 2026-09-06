@@ -14,6 +14,7 @@ var (
 	fnConfigGet                 func(Config, ConfigParam, unsafe.Pointer, uint, *uint) Result
 	fnConfigSet                 func(Config, ConfigParam, unsafe.Pointer, uint) Result
 	fnCreate                    func(*Handle) Result
+	fnCreateMg                  func(*Handle, int32, *int32) Result
 	fnDataCreate                func(Handle, *Data) Result
 	fnDataDestroy               func(Handle, Data) Result
 	fnDataGet                   func(Handle, Data, DataParam, unsafe.Pointer, uint, *uint) Result
@@ -42,6 +43,7 @@ var (
 	fnMatrixSetCsrPointers      func(Matrix, uintptr, uintptr, uintptr, uintptr) Result
 	fnMatrixSetValues           func(Matrix, uintptr) Result
 	fnSetDeviceMemHandler       func(Handle, *DeviceMemHandler) Result
+	fnSetMgStreams              func(Handle, *Stream, int32) Result
 	fnSetStream                 func(Handle, Stream) Result
 	fnSetThreadingLayer         func(Handle, *byte) Result
 )
@@ -76,6 +78,20 @@ func Create() (Handle, error) {
 	}
 	var out Handle
 	if err := toError(fnCreate(&out)); err != nil {
+		var zero Handle
+		return zero, err
+	}
+	return out, nil
+}
+
+// CreateMg wraps cudssCreateMg.
+func CreateMg(deviceCount int32, deviceIndices *int32) (Handle, error) {
+	if err := checkLibSym("cudssCreateMg"); err != nil {
+		var zero Handle
+		return zero, err
+	}
+	var out Handle
+	if err := toError(fnCreateMg(&out, deviceCount, deviceIndices)); err != nil {
 		var zero Handle
 		return zero, err
 	}
@@ -337,6 +353,14 @@ func SetDeviceMemHandler(handle Handle, handler *DeviceMemHandler) error {
 		return err
 	}
 	return toError(fnSetDeviceMemHandler(handle, handler))
+}
+
+// SetMgStreams wraps cudssSetMgStreams.
+func SetMgStreams(handle Handle, streams *Stream, streamCount int32) error {
+	if err := checkLibSym("cudssSetMgStreams"); err != nil {
+		return err
+	}
+	return toError(fnSetMgStreams(handle, streams, streamCount))
 }
 
 // SetStream wraps cudssSetStream.

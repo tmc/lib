@@ -52,9 +52,11 @@
 // # Library handle
 //
 //   - [NewHandle].
+//   - [NewHandleMg].
 //   - [Handle.Destroy].
 //   - [GetProperty].
 //   - [Handle.SetDeviceMemHandler].
+//   - [Handle.SetMgStreams].
 //   - [Handle.SetStream].
 //   - [Handle.SetThreadingLayer].
 //
