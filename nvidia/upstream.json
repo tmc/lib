@@ -3249,6 +3249,388 @@
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       }
+    },
+    "nvml": {
+      "package": "github.com/tmc/lib/nvidia/nvml",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
+          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "80d9d15abf9d00c94466965ff572654201900aed",
+          "tree": "47717d0664600f8bc1a8c131ec349fdc104492e9"
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "pinned/nvml/cuda-13.3/nvml.h",
+        "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected files, not only NVML documentation; upstream document dates/versions are not fully recorded."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/nvml-survey",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/pinned/nvml/cuda-13.3/nvml.h",
+          "-docs-dir",
+          "docs",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/nvml/compute_instance.gen.go",
+            "sha256": "8dee7b7a7b98c331177a36eb72660f1fd8b86caa6fc5acfae57bd724eac560d7"
+          },
+          {
+            "path": "nvidia/nvml/device.gen.go",
+            "sha256": "0ae59bf279dd464c11f402f3e06b826b7819acf3928c094bc831fd516520f7c3"
+          },
+          {
+            "path": "nvidia/nvml/doc.gen.go",
+            "sha256": "23b59faf577f393137db3879b8d2c4084e2f967a169c72adb6122e4243b1c698"
+          },
+          {
+            "path": "nvidia/nvml/enums.gen.go",
+            "sha256": "62dfebbb83df3e8611ff7e9e44743d306cec668ff50784ed619e07b17d04b58d"
+          },
+          {
+            "path": "nvidia/nvml/event_set.gen.go",
+            "sha256": "689a43bb3835cc5d11dc2f7307bb822b9472d66ec91e0717e3f9ca533f4d0594"
+          },
+          {
+            "path": "nvidia/nvml/funcs.gen.go",
+            "sha256": "bfa2b544087ae02afe85cbff2c990894c651bd767c445b5bf7619100e147938a"
+          },
+          {
+            "path": "nvidia/nvml/gpm_sample.gen.go",
+            "sha256": "d75b98ecfce70c97cb6dddc88665d812575227d33c829e602e5c37203efe617a"
+          },
+          {
+            "path": "nvidia/nvml/gpu_instance.gen.go",
+            "sha256": "01c6299ab50106a7e62a5a320e0c0dc83a165c054bd76cd5e13ec27aca5fa94f"
+          },
+          {
+            "path": "nvidia/nvml/handles.gen.go",
+            "sha256": "03aae0c5dcc50397cb887c2ca235fe7f62ab911b18875ef90b2ca7794ebdfd10"
+          },
+          {
+            "path": "nvidia/nvml/init.gen.go",
+            "sha256": "13549386c618c0b00444c623149aad60bf09ed9818e2341037cc38d283f52db0"
+          },
+          {
+            "path": "nvidia/nvml/layout_test.go",
+            "sha256": "15716c1771a400858f9ba3a80b6d076e4183c003dada365e7df1bda29cab27e0"
+          },
+          {
+            "path": "nvidia/nvml/loader_test.go",
+            "sha256": "a6084d0b2a618bd1d4716d2be9fdba526ce13e7e6d5a734ffd5b84c67728b6b5"
+          },
+          {
+            "path": "nvidia/nvml/loader_unix.gen.go",
+            "sha256": "ae7423da26043dfaae942545f999cc2cab514ab79a98cc51daf13b9999d7ae02"
+          },
+          {
+            "path": "nvidia/nvml/loader_windows.gen.go",
+            "sha256": "333288db03dde7a669bc744011f73ee55e82552b5b8e4534b923e9f736c2e1da"
+          },
+          {
+            "path": "nvidia/nvml/result.gen.go",
+            "sha256": "94a58f19e0a8fd1a8cccad57eb6b283c34f87726fc452d912a25630bf48f332b"
+          },
+          {
+            "path": "nvidia/nvml/structs.gen.go",
+            "sha256": "c4d87ec2fc5f0302fd7f6ec5bff90f9bbe1e8e4f2246ded9db86b6de4a965c96"
+          },
+          {
+            "path": "nvidia/nvml/unit.gen.go",
+            "sha256": "931791e632e02e57a329478fae1bd419cbc6152f54a71b58f7496db8b3bae643"
+          },
+          {
+            "path": "nvidia/nvml/versions.gen.go",
+            "sha256": "21efb50cadc73e9c15319cedb2b5b1735207b42397a1259b745151ced3f32a6a"
+          },
+          {
+            "path": "nvidia/nvml/vgpu_instance.gen.go",
+            "sha256": "c250cec94a9da252a9055ea87220c8ba10b16c55b4a3da16220e1d9e32c29164"
+          },
+          {
+            "path": "nvidia/nvml/vgpu_type_id.gen.go",
+            "sha256": "ebab184317052394206c86e9913ad08004fc8dc723c53cbe1895b7856a080c09"
+          }
+        ]
+      },
+      "maintained_files_excluded": [
+        "AUDIT-vs-go-nvml.md",
+        "example_test.go",
+        "physical_test.go"
+      ],
+      "note": "The generator is cmd/nvml-survey, which is built on internal/ffigen and sets ExportLazyPredicates. It is NOT cmd/gen-nvidia -api nvml: that routes to the legacy contrib/cuda generator, loses 433 declarations against the committed package, and emits the lowercase Has<name> predicate spelling. The header is the pinned 13.3 nvml.h, which exists only at cuda-headers commit 3d5d12b and not at a524c5d; nvml-survey's -header flag already defaults to it. Reproduction at the recorded codegen commit: 16 of the 20 generated files are byte-identical; device.gen.go, enums.gen.go, funcs.gen.go and result.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed the four files are identical, and the declaration set matches exactly, none lost and none gained. The recorded output digests are the committed files.",
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+    },
+    "cupti": {
+      "package": "github.com/tmc/lib/nvidia/cupti",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
+          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "80d9d15abf9d00c94466965ff572654201900aed",
+          "tree": "47717d0664600f8bc1a8c131ec349fdc104492e9"
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cupti/cupti.h",
+        "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+      },
+      "headers": [
+        {
+          "repository": "headers",
+          "path": "cupti/cupti.h",
+          "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_result.h",
+          "sha256": "b20dded3b2734bbc91a503ae2400e33274eda09b7b1ea25c71f87e153848b8be"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_version.h",
+          "sha256": "bf9475286bc81085097d4f493154aa6040ea0b1db62ff690791d3a1a81f0c85a"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_activity.h",
+          "sha256": "a0c33d2f92e73d221406d5996f3fbf9b232e02a6522a44996aa6c210e640ad4d"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_activity_deprecated.h",
+          "sha256": "592835010b1b2b5fb8544572cf1efe1539e0ad45b0e939561a5cc2a7b74aacab"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_callbacks.h",
+          "sha256": "467dc10e2c8dd54eadbd06460d6c4ae338878247b5945efd4d8767a030c906ff"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_events.h",
+          "sha256": "8de8e51ce0a6e6f60764e1fb76ca0a12cdbae3eb53d8ac62c637d3e68bf926af"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_metrics.h",
+          "sha256": "9190a8697f5ffbec3614fd2b0b7e8e379a54393a962c604b57f8b2ddc8a069d4"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_profiler_target.h",
+          "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_profiler_host.h",
+          "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_range_profiler.h",
+          "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_pcsampling.h",
+          "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_pmsampling.h",
+          "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_sass_metrics.h",
+          "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_checkpoint.h",
+          "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_target.h",
+          "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_driver_cbid.h",
+          "sha256": "a466a41d811a5848a30f34d60b8286b461fa679550190c2f20192ca5b12bdb25"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_runtime_cbid.h",
+          "sha256": "9ace1de8e0a4192da7b5848994106e91dbdbd49bb5b56395de7e9480bc9c397b"
+        },
+        {
+          "repository": "headers",
+          "path": "cupti/cupti_nvtx_cbid.h",
+          "sha256": "633a2107c2f2f1a82f10d8af8b4f487d87ff7ecc6ede938dc411dfdb6a7a4e9a"
+        }
+      ],
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected files, not only CUPTI documentation; upstream document dates/versions are not fully recorded."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "cupti",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-clang=false",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/cupti/callbacks.gen.go",
+            "sha256": "c9120a49589eab962bf7a6a2b7745b477b90a8432f26b6d2ff658748113d9427"
+          },
+          {
+            "path": "nvidia/cupti/doc.gen.go",
+            "sha256": "9cd83e0855e17beadc69a47e68726b60564213c168db4e96dcfa5aed2789f93f"
+          },
+          {
+            "path": "nvidia/cupti/enums.gen.go",
+            "sha256": "8c9f713159ef94e25a22caabd0be3e6684cc43d0a00fefcdbe6777261581bb88"
+          },
+          {
+            "path": "nvidia/cupti/event_group.gen.go",
+            "sha256": "01867c092548d51868d10a5acdef66cc9865b21a5b60c2c00170a6b1c5ebf555"
+          },
+          {
+            "path": "nvidia/cupti/funcs.gen.go",
+            "sha256": "ea6de5a0efcd31291a4efcf881b036710f04a188b19b6f36b69e703bf67de9de"
+          },
+          {
+            "path": "nvidia/cupti/handles.gen.go",
+            "sha256": "3c6de10f06ff32ce69d532d42c8ed96ab2e1a2204e08627d5f67363e4b72d333"
+          },
+          {
+            "path": "nvidia/cupti/init.gen.go",
+            "sha256": "a4b2ad6032ef7ab45cb766d52877ab746d4b78b4e5ef42bd1fc141f5e6274a52"
+          },
+          {
+            "path": "nvidia/cupti/layout_test.go",
+            "sha256": "0b3e951c69d3097d0815c4d152a9ae56c83dfc73ea2fd037ef9463ac2020dafa"
+          },
+          {
+            "path": "nvidia/cupti/loader_test.go",
+            "sha256": "1b17b2acee055e2890002b625fd8891b93334d7f4150468a1428f29e4d62a95e"
+          },
+          {
+            "path": "nvidia/cupti/loader_unix.gen.go",
+            "sha256": "aea1575606b0144f05a5d0087a9a710b75e7b9fa29285d9d3e2e720d025addfb"
+          },
+          {
+            "path": "nvidia/cupti/loader_windows.gen.go",
+            "sha256": "4fb1da0ba0e79b537a660433e2c7d28fda816d45a1bb0dee278bab61a4570fdd"
+          },
+          {
+            "path": "nvidia/cupti/result.gen.go",
+            "sha256": "b6e059d12e6e7abdb633f2b4af3f55d459c48ea7de81c039261e5a5ce4e40965"
+          },
+          {
+            "path": "nvidia/cupti/structs.gen.go",
+            "sha256": "35a00a83eae88e4e6db26720c4c10dda92da181e5486eed3b77c25b4799c3798"
+          },
+          {
+            "path": "nvidia/cupti/subscriber.gen.go",
+            "sha256": "1ee6b41a3446cab258dddca16b3406d4369e733d06d437e4138b0f3bb3f0c1ec"
+          },
+          {
+            "path": "nvidia/cupti/types.gen.go",
+            "sha256": "901df8574e9969f2775fcd68d68ea33fce81d43459f3e1bbe15fb2f200aaa7f0"
+          }
+        ]
+      },
+      "maintained_files_excluded": [
+        "example_test.go",
+        "physical_test.go"
+      ],
+      "note": "-clang=false is load-bearing and must be passed explicitly. cmd/gen-nvidia sets clangByDefault[\"cupti\"] = true (commit 2077dd4), and the clang path drops the headers' Doxygen prose, substitutes synthesised placeholders, and reorders declarations, producing a ~2,500-line diff against the committed bytes with no semantic change at all (identical 2426 constants and 112 types). The committed bytes came from the regex parser. Reproduction at the recorded codegen commit: 10 of the 15 generated files are byte-identical; enums.gen.go, funcs.gen.go, init.gen.go and subscriber.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed all four are identical -- and layout_test.go gained sizeof/alignof/offsetof assertions for four V1 placeholder structs the generator did not previously probe. The recorded output digests are the committed files. cupti/enums.gen.go also carries six lines inserted by hand in lib commit 4f5fd93 (ActivityPcSamplingPeriodMax and MetricValueUtilizationMax with their String cases); the generator emits both constants itself, at a different position and with the header's doc comment, so those lines should be regenerated rather than maintained.",
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
+      "binding_policy": "cupti_pcsampling_util.h is deliberately outside the surface: it declares CuptiUtil* entry points from the separate static libcupti_pcsampling_util, not from libcupti."
     }
   }
 }
