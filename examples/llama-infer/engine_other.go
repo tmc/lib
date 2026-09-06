@@ -229,7 +229,7 @@ func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta flo
 	if eng == nil || eng.weights == nil {
 		return nil, errors.New("mutate weight: nil engine or weights")
 	}
-	var targetBuf cudamem.Slice[float32]
+	var targetBuf WeightSlice
 	if layerIndex < 0 {
 		targetBuf = eng.weights.EmbedTokens
 	} else {
@@ -414,11 +414,19 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		return nil, errors.New("model path required: synthetic test weights require explicit TestMode=true")
 	}
 
+	// The device weight dtype is selected explicitly and never inferred. A
+	// checkpoint stored in half precision still uploads as float32 unless the
+	// caller asked for a half mode, so no run silently changes precision.
+	weightDType, err := ParseWeightDType(cfg.Precision)
+	if err != nil {
+		return nil, fmt.Errorf("weight precision: %w", err)
+	}
+
 	memory := new(cudamem.Tracker)
 	if retained != nil {
-		gpuWeights, err = UploadRetainedModelToGPU(dev, memory, retained, &mCfg)
+		gpuWeights, err = UploadRetainedModelToGPUAs(dev, memory, retained, &mCfg, weightDType)
 	} else {
-		gpuWeights, err = UploadModelToGPU(dev, memory, weights, &mCfg)
+		gpuWeights, err = UploadModelToGPUAs(dev, memory, weights, &mCfg, weightDType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("upload weights to gpu: %w", err)
@@ -429,9 +437,16 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		return nil, fmt.Errorf("alloc gpu scratchpad: %w", err)
 	}
 
-	modules, err = CompileGPUModules(dev)
+	modules, err = CompileGPUModulesAs(dev, weightDType)
 	if err != nil {
-		return nil, fmt.Errorf("compile forward modules: %w", err)
+		return nil, fmt.Errorf("compile forward modules (%s weights): %w", weightDType, err)
+	}
+	// The uploaded storage and the bound kernels must agree, or the kernels
+	// would read the weights at the wrong width. Checking the two independently
+	// recorded dtypes rather than the single requested one means a mismatch is
+	// caught here instead of producing quiet garbage.
+	if got, want := modules.WeightDType(), gpuWeights.DType(); got != want {
+		return nil, fmt.Errorf("kernels bound for %s weights but model uploaded as %s", got, want)
 	}
 
 	major, minor, err := dev.ComputeCapability()
