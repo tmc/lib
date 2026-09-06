@@ -9,43 +9,46 @@ import "unsafe"
 
 // Generated function pointer variables.
 var (
-	fnConfigCreate              func(*Config) Result
-	fnConfigDestroy             func(Config) Result
-	fnConfigGet                 func(Config, ConfigParam, unsafe.Pointer, uint, *uint) Result
-	fnConfigSet                 func(Config, ConfigParam, unsafe.Pointer, uint) Result
-	fnCreate                    func(*Handle) Result
-	fnCreateMg                  func(*Handle, int32, *int32) Result
-	fnDataCreate                func(Handle, *Data) Result
-	fnDataDestroy               func(Handle, Data) Result
-	fnDataGet                   func(Handle, Data, DataParam, unsafe.Pointer, uint, *uint) Result
-	fnDataSet                   func(Handle, Data, DataParam, unsafe.Pointer, uint) Result
-	fnDestroy                   func(Handle) Result
-	fnExecute                   func(Handle, Phase, Config, Data, Matrix, Matrix, Matrix) Result
-	fnGetDeviceMemHandler       func(Handle, *DeviceMemHandler) Result
-	fnGetProperty               func(LibraryPropertyType, *int32) Result
-	fnLoggerForceDisable        func() Result
-	fnLoggerOpenFile            func(*byte) Result
-	fnLoggerSetCallback         func(uintptr) Result
-	fnLoggerSetLevel            func(int32) Result
-	fnLoggerSetMask             func(int32) Result
-	fnMatrixCreateBatchCsr      func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, *uintptr, *uintptr, *uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
-	fnMatrixCreateBatchDn       func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, DataType, DataType, Layout) Result
-	fnMatrixCreateCsr           func(*Matrix, int64, int64, int64, uintptr, uintptr, uintptr, uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
-	fnMatrixCreateDn            func(*Matrix, int64, int64, int64, uintptr, DataType, Layout) Result
-	fnMatrixDestroy             func(Matrix) Result
-	fnMatrixGetBatchCsr         func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
-	fnMatrixGetBatchDn          func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *Layout) Result
-	fnMatrixGetCsr              func(Matrix, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
-	fnMatrixGetDn               func(Matrix, *int64, *int64, *int64, *uintptr, *DataType, *Layout) Result
-	fnMatrixGetFormat           func(Matrix, *int32) Result
-	fnMatrixSetBatchCsrPointers func(Matrix, *uintptr, *uintptr, *uintptr, *uintptr) Result
-	fnMatrixSetBatchValues      func(Matrix, *uintptr) Result
-	fnMatrixSetCsrPointers      func(Matrix, uintptr, uintptr, uintptr, uintptr) Result
-	fnMatrixSetValues           func(Matrix, uintptr) Result
-	fnSetDeviceMemHandler       func(Handle, *DeviceMemHandler) Result
-	fnSetMgStreams              func(Handle, *Stream, int32) Result
-	fnSetStream                 func(Handle, Stream) Result
-	fnSetThreadingLayer         func(Handle, *byte) Result
+	fnConfigCreate               func(*Config) Result
+	fnConfigDestroy              func(Config) Result
+	fnConfigGet                  func(Config, ConfigParam, unsafe.Pointer, uint, *uint) Result
+	fnConfigSet                  func(Config, ConfigParam, unsafe.Pointer, uint) Result
+	fnCreate                     func(*Handle) Result
+	fnCreateMg                   func(*Handle, int32, *int32) Result
+	fnDataCreate                 func(Handle, *Data) Result
+	fnDataDestroy                func(Handle, Data) Result
+	fnDataGet                    func(Handle, Data, DataParam, unsafe.Pointer, uint, *uint) Result
+	fnDataSet                    func(Handle, Data, DataParam, unsafe.Pointer, uint) Result
+	fnDestroy                    func(Handle) Result
+	fnExecute                    func(Handle, Phase, Config, Data, Matrix, Matrix, Matrix) Result
+	fnGetDeviceMemHandler        func(Handle, *DeviceMemHandler) Result
+	fnGetProperty                func(LibraryPropertyType, *int32) Result
+	fnLoggerForceDisable         func() Result
+	fnLoggerOpenFile             func(*byte) Result
+	fnLoggerSetCallback          func(uintptr) Result
+	fnLoggerSetLevel             func(int32) Result
+	fnLoggerSetMask              func(int32) Result
+	fnMatrixCreateBatchCsr       func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, *uintptr, *uintptr, *uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
+	fnMatrixCreateBatchDn        func(*Matrix, int64, uintptr, uintptr, uintptr, *uintptr, DataType, DataType, Layout) Result
+	fnMatrixCreateCsr            func(*Matrix, int64, int64, int64, uintptr, uintptr, uintptr, uintptr, DataType, DataType, DataType, MatrixType, MatrixViewType, IndexBase) Result
+	fnMatrixCreateDn             func(*Matrix, int64, int64, int64, uintptr, DataType, Layout) Result
+	fnMatrixDestroy              func(Matrix) Result
+	fnMatrixGetBatchCsr          func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
+	fnMatrixGetBatchDn           func(Matrix, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *Layout) Result
+	fnMatrixGetCsr               func(Matrix, *int64, *int64, *int64, *uintptr, *uintptr, *uintptr, *uintptr, *DataType, *DataType, *DataType, *MatrixType, *MatrixViewType, *IndexBase) Result
+	fnMatrixGetDistributionRow1d func(Matrix, *int64, *int64) Result
+	fnMatrixGetDn                func(Matrix, *int64, *int64, *int64, *uintptr, *DataType, *Layout) Result
+	fnMatrixGetFormat            func(Matrix, *int32) Result
+	fnMatrixSetBatchCsrPointers  func(Matrix, *uintptr, *uintptr, *uintptr, *uintptr) Result
+	fnMatrixSetBatchValues       func(Matrix, *uintptr) Result
+	fnMatrixSetCsrPointers       func(Matrix, uintptr, uintptr, uintptr, uintptr) Result
+	fnMatrixSetDistributionRow1d func(Matrix, int64, int64) Result
+	fnMatrixSetValues            func(Matrix, uintptr) Result
+	fnSetCommLayer               func(Handle, *byte) Result
+	fnSetDeviceMemHandler        func(Handle, *DeviceMemHandler) Result
+	fnSetMgStreams               func(Handle, *Stream, int32) Result
+	fnSetStream                  func(Handle, Stream) Result
+	fnSetThreadingLayer          func(Handle, *byte) Result
 )
 
 // ConfigCreate wraps cudssConfigCreate.
@@ -293,6 +296,14 @@ func MatrixGetCsr(matrix Matrix, nrows *int64, ncols *int64, nnz *int64, rowStar
 	return toError(fnMatrixGetCsr(matrix, nrows, ncols, nnz, rowStart, rowEnd, colIndices, values, offsetType, indexType, valueType, mtype, mview, indexBase))
 }
 
+// MatrixGetDistributionRow1d wraps cudssMatrixGetDistributionRow1d.
+func MatrixGetDistributionRow1d(matrix Matrix, firstRow *int64, lastRow *int64) error {
+	if err := checkLibSym("cudssMatrixGetDistributionRow1d"); err != nil {
+		return err
+	}
+	return toError(fnMatrixGetDistributionRow1d(matrix, firstRow, lastRow))
+}
+
 // MatrixGetDn wraps cudssMatrixGetDn.
 func MatrixGetDn(matrix Matrix, nrows *int64, ncols *int64, ld *int64, values *uintptr, type_ *DataType, layout *Layout) error {
 	if err := checkLibSym("cudssMatrixGetDn"); err != nil {
@@ -339,12 +350,29 @@ func MatrixSetCsrPointers(matrix Matrix, rowOffsets uintptr, rowEnd uintptr, col
 	return toError(fnMatrixSetCsrPointers(matrix, rowOffsets, rowEnd, colIndices, values))
 }
 
+// MatrixSetDistributionRow1d wraps cudssMatrixSetDistributionRow1d.
+func MatrixSetDistributionRow1d(matrix Matrix, firstRow int64, lastRow int64) error {
+	if err := checkLibSym("cudssMatrixSetDistributionRow1d"); err != nil {
+		return err
+	}
+	return toError(fnMatrixSetDistributionRow1d(matrix, firstRow, lastRow))
+}
+
 // MatrixSetValues wraps cudssMatrixSetValues.
 func MatrixSetValues(matrix Matrix, values uintptr) error {
 	if err := checkLibSym("cudssMatrixSetValues"); err != nil {
 		return err
 	}
 	return toError(fnMatrixSetValues(matrix, values))
+}
+
+// SetCommLayer wraps cudssSetCommLayer.
+func SetCommLayer(handle Handle, commLibFileName string) error {
+	if err := checkLibSym("cudssSetCommLayer"); err != nil {
+		return err
+	}
+	commLibFileName_cstr := append([]byte(commLibFileName), 0)
+	return toError(fnSetCommLayer(handle, &commLibFileName_cstr[0]))
 }
 
 // SetDeviceMemHandler wraps cudssSetDeviceMemHandler.

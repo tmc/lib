@@ -30,6 +30,11 @@ func (h Handle) GetDeviceMemHandler() (DeviceMemHandler, error) {
 	return GetDeviceMemHandler(h)
 }
 
+// SetCommLayer wraps cudssSetCommLayer.
+func (h Handle) SetCommLayer(commLibFileName string) error {
+	return SetCommLayer(h, commLibFileName)
+}
+
 // SetDeviceMemHandler wraps cudssSetDeviceMemHandler.
 func (h Handle) SetDeviceMemHandler(handler *DeviceMemHandler) error {
 	return SetDeviceMemHandler(h, handler)
