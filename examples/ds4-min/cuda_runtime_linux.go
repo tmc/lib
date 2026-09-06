@@ -382,7 +382,9 @@ extern "C" __global__ void ds4_rope_attention_raw(
   for (unsigned int t = 0; t < count; t++) {
     const unsigned int row = (first + t) % cache_cap;
     float score = 0.0f;
-    for (unsigned int i = 0; i < 512; i++) score += out[qoff + i] * cache[row * 512 + i];
+    // The zero-prefix chunk reads working float KV; later chunks read half cache.
+    const float *values = position == 0 ? out + 32768 : cache + row * 512;
+    for (unsigned int i = 0; i < 512; i++) score += out[qoff + i] * values[i];
     score /= sqrtf(512.0f);
     scores[head * cache_cap + t] = score;
     maximum = fmaxf(maximum, score);
@@ -394,7 +396,8 @@ extern "C" __global__ void ds4_rope_attention_raw(
     float value = 0.0f;
     for (unsigned int t = 0; t < count; t++) {
       const unsigned int row = (first + t) % cache_cap;
-      value += expf(scores[head * cache_cap + t] - maximum) * cache[row * 512 + i];
+      const float v = position == 0 ? out[32768 + i] : cache[row * 512 + i];
+      value += expf(scores[head * cache_cap + t] - maximum) * v;
     }
     out[33280 + qoff + i] = value / denom;
   }
