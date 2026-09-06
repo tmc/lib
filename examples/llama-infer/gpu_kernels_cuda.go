@@ -74,6 +74,9 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 // the float32 kernel, because a silent fallback would report a half run that
 // was really a float32 run.
 func CompileGPUModulesAs(dev *cuda.Device, d WeightDType) (*GPUModules, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		return nil, fmt.Errorf("compute capability: %w", err)

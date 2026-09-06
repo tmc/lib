@@ -239,3 +239,23 @@ func float32ToBfloat16(f float32) uint16 {
 func bfloat16ToFloat32(b uint16) float32 {
 	return math.Float32frombits(uint32(b) << 16)
 }
+
+// Valid reports whether d names a real storage mode.
+//
+// It exists because an out-of-range WeightDType is not merely unnamed: Bytes
+// returns 2 for it and Suffix returns the empty string, so it would select
+// two-byte device storage and then bind the unsuffixed float32 kernels, which
+// read those bytes as float32. Every boundary that allocates or compiles checks
+// this, not just the command-line parser, so a value that reached the engine by
+// any other route is refused before it can do that.
+func (d WeightDType) Valid() bool {
+	return d == WeightF32 || d == WeightF16 || d == WeightBF16
+}
+
+// check returns an error unless d names a real storage mode.
+func (d WeightDType) check() error {
+	if !d.Valid() {
+		return fmt.Errorf("invalid weight dtype %d", int(d))
+	}
+	return nil
+}

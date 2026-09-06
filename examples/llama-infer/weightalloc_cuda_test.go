@@ -119,3 +119,30 @@ func TestZeroWeightSliceIsAbsent(t *testing.T) {
 		}
 	}
 }
+
+// TestInvalidDTypeRejectedAtDeviceBoundaries checks the guards on the
+// allocation and compilation entry points, not just the command-line parser.
+//
+// A WeightDType can reach these functions from a caller that never went through
+// ParseWeightDType, so validating only at the CLI would leave the hazard open
+// to every other caller. These fail before allocating or compiling anything,
+// so no device state exists to clean up.
+func TestInvalidDTypeRejectedAtDeviceBoundaries(t *testing.T) {
+	for _, d := range []WeightDType{-1, 3, 7} {
+		if _, err := UploadModelToGPUAs(nil, nil, nil, nil, d); err == nil {
+			t.Errorf("UploadModelToGPUAs accepted dtype %d", int(d))
+		}
+		if _, err := UploadRetainedModelToGPUAs(nil, nil, nil, nil, d); err == nil {
+			t.Errorf("UploadRetainedModelToGPUAs accepted dtype %d", int(d))
+		}
+		if _, err := CompileGPUModulesAs(nil, d); err == nil {
+			t.Errorf("CompileGPUModulesAs accepted dtype %d", int(d))
+		}
+		if _, err := uploadWeights(nil, d, []float32{1, 2, 3}); err == nil {
+			t.Errorf("uploadWeights accepted dtype %d", int(d))
+		}
+		if err := bindWeightKernels(nil, d, &Kernels{}); err == nil {
+			t.Errorf("bindWeightKernels accepted dtype %d", int(d))
+		}
+	}
+}

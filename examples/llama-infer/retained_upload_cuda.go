@@ -28,6 +28,9 @@ func UploadRetainedModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, m *Ret
 // boundary. Either way the device holds exactly d.Bytes() bytes per weight, and
 // no float32 copy of the model is materialized for a half upload.
 func UploadRetainedModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, m *RetainedModel, cfg *ModelConfig, d WeightDType) (*GPUModelWeights, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
 	arena := cudamem.NewTrackedArena(dev, tracker)
 	committed := false
 	defer func() {

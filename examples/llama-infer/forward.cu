@@ -48,12 +48,22 @@ struct WF32 {
     static __device__ __forceinline__ float load1(const storage_t* p, int i) {
         return p[i];
     }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
+    }
 };
 
 // WF16 and WBF16 load four consecutive 16-bit weights as one 64-bit access, so
 // the narrower storage keeps a vectorized load rather than falling back to four
-// scalar ones. This needs the same 4-element alignment the float4 path already
-// requires of a row.
+// scalar ones.
+//
+// A vector load requires its address to be aligned to the vector's own width,
+// which a row base w + row*in_dim satisfies only when in_dim is a multiple of
+// four. aligned4 reports whether a particular row can be loaded that way; a
+// caller that gets false uses the scalar path for the whole row rather than
+// faulting. A null pointer reports true because it is an absent optional tensor
+// that will not be dereferenced, and disabling vectorization for the rest of the
+// kernel on its account would be pointless.
 struct WF16 {
     typedef unsigned short storage_t;
     typedef ushort4 vec_t;
@@ -63,6 +73,9 @@ struct WF16 {
     }
     static __device__ __forceinline__ float load1(const storage_t* p, int i) {
         return f16_to_f32(p[i]);
+    }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
     }
 };
 
@@ -75,6 +88,9 @@ struct WBF16 {
     }
     static __device__ __forceinline__ float load1(const storage_t* p, int i) {
         return bf16_to_f32(p[i]);
+    }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
     }
 };
 
@@ -157,7 +173,11 @@ __device__ __forceinline__ void RMSNormImpl(
     float rsqrt_val = s_rsqrt;
     float4* out4 = reinterpret_cast<float4*>(out);
 
-    for (int i = tid; i < dim4; i += blockDim.x) {
+    // The norm weight is a whole tensor rather than a row of one, so its base
+    // is allocation-aligned in every current caller. The guard costs nothing
+    // and means correctness here does not rest on that staying true.
+    int w_dim4 = W::aligned4(weight) ? dim4 : 0;
+    for (int i = tid; i < w_dim4; i += blockDim.x) {
         float4 xv = x4[i];
         float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
         out4[i] = make_float4(
@@ -167,7 +187,7 @@ __device__ __forceinline__ void RMSNormImpl(
             xv.w * rsqrt_val * wv.w
         );
     }
-    for (int i = dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
+    for (int i = w_dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
         float w = weight ? W::load1(weight, i) : 1.0f;
         out[i] = x[i] * rsqrt_val * w;
     }
@@ -198,7 +218,7 @@ __device__ __forceinline__ void LinearGEMVImpl(
 
     const typename W::storage_t* w_row = w + row * in_dim;
     const float4* x4 = reinterpret_cast<const float4*>(x);
-    int in_dim4 = in_dim / 4;
+    int in_dim4 = W::aligned4(w_row) ? in_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < in_dim4; i += blockDim.x) {
@@ -374,6 +394,9 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
         float4 xv = x4[i];
         local_sq += xv.x * xv.x + xv.y * xv.y + xv.z * xv.z + xv.w * xv.w;
     }
+    for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
+        local_sq += x[i] * x[i];
+    }
     local_sq = warp_sum(local_sq);
     if (lane == 0) s_sum[wid] = local_sq;
     __syncthreads();
@@ -387,13 +410,18 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
     // 2. Compute Q, K, V projections with exact RMSNorm scaling
     if (row < q_dim) {
         const typename W::storage_t* wq_row = W_q + row * in_dim;
+        int n4 = (W::aligned4(wq_row) && W::aligned4(weight)) ? in_dim4 : 0;
         float sum = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
+        for (int i = tid; i < n4; i += blockDim.x) {
             float4 xv = x4[i];
             float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
             float4 norm_xv = make_float4(xv.x * inv_rms * wv.x, xv.y * inv_rms * wv.y, xv.z * inv_rms * wv.z, xv.w * inv_rms * wv.w);
             float4 wrv = W::load4(wq_row, i);
             sum += norm_xv.x * wrv.x + norm_xv.y * wrv.y + norm_xv.z * wrv.z + norm_xv.w * wrv.w;
+        }
+        for (int i = n4 * 4 + tid; i < in_dim; i += blockDim.x) {
+            float wn = weight ? W::load1(weight, i) : 1.0f;
+            sum += x[i] * inv_rms * wn * W::load1(wq_row, i);
         }
         sum = warp_sum(sum);
         if (lane == 0) s_sum[wid] = sum;
@@ -406,9 +434,10 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
     if (row < kv_dim) {
         const typename W::storage_t* wk_row = W_k + row * in_dim;
         const typename W::storage_t* wv_row = W_v + row * in_dim;
+        int n4 = (W::aligned4(wk_row) && W::aligned4(wv_row) && W::aligned4(weight)) ? in_dim4 : 0;
         float sumK = 0.0f;
         float sumV = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
+        for (int i = tid; i < n4; i += blockDim.x) {
             float4 xv = x4[i];
             float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
             float4 norm_xv = make_float4(xv.x * inv_rms * wv.x, xv.y * inv_rms * wv.y, xv.z * inv_rms * wv.z, xv.w * inv_rms * wv.w);
@@ -416,6 +445,12 @@ __device__ __forceinline__ void FusedRMSNormQKVImpl(
             float4 wvv = W::load4(wv_row, i);
             sumK += norm_xv.x * wkv.x + norm_xv.y * wkv.y + norm_xv.z * wkv.z + norm_xv.w * wkv.w;
             sumV += norm_xv.x * wvv.x + norm_xv.y * wvv.y + norm_xv.z * wvv.z + norm_xv.w * wvv.w;
+        }
+        for (int i = n4 * 4 + tid; i < in_dim; i += blockDim.x) {
+            float wn = weight ? W::load1(weight, i) : 1.0f;
+            float nx = x[i] * inv_rms * wn;
+            sumK += nx * W::load1(wk_row, i);
+            sumV += nx * W::load1(wv_row, i);
         }
         sumK = warp_sum(sumK);
         sumV = warp_sum(sumV);
@@ -465,7 +500,7 @@ __device__ __forceinline__ void FusedSwiGLUDownImpl(
     const float4* g4 = reinterpret_cast<const float4*>(gate);
     const float4* u4 = reinterpret_cast<const float4*>(up);
     const typename W::storage_t* w_row = W_down + row * intermediate_dim;
-    int inter_dim4 = intermediate_dim / 4;
+    int inter_dim4 = W::aligned4(w_row) ? intermediate_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < inter_dim4; i += blockDim.x) {
@@ -479,6 +514,10 @@ __device__ __forceinline__ void FusedSwiGLUDownImpl(
         );
         float4 wv = W::load4(w_row, i);
         sum += act.x * wv.x + act.y * wv.y + act.z * wv.z + act.w * wv.w;
+    }
+    for (int i = inter_dim4 * 4 + tid; i < intermediate_dim; i += blockDim.x) {
+        float g = gate[i];
+        sum += (g / (1.0f + expf(-g))) * up[i] * W::load1(w_row, i);
     }
     sum = warp_sum(sum);
 

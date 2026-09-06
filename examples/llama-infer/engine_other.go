@@ -164,11 +164,34 @@ func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 }
 
 // IsF16 reports whether the engine is executing over FP16 weights.
+//
+// It reads the dtype the kernels were actually bound for, not the dtype the
+// plan asked for. Those can only differ if something went wrong, but reporting
+// the request would make that difference invisible, which is the one thing this
+// predicate must not do.
 func (eng *ModelEngine) IsF16() bool {
-	if eng == nil || eng.Plan == nil {
+	if eng == nil || eng.modules == nil {
 		return false
 	}
-	return eng.Plan.DType == "f16"
+	return eng.modules.WeightDType() == WeightF16
+}
+
+// WeightReport returns the engine's actual weight storage and dispatch.
+func (eng *ModelEngine) WeightReport() WeightReport {
+	if eng == nil || eng.modules == nil {
+		return WeightReport{}
+	}
+	d := eng.modules.WeightDType()
+	r := WeightReport{
+		DType:   d.String(),
+		PerElem: d.Bytes(),
+		Kernels: weightKernelNames(d),
+	}
+	if eng.weights != nil {
+		r.Storage = eng.weights.DType().String()
+		r.Bytes = eng.weights.WeightBytes()
+	}
+	return r
 }
 
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
@@ -541,6 +564,10 @@ func runPlatform(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("cuda initialization: %w", err)
 	}
+
+	// Report the weight storage that was actually bound, so a run's precision
+	// is a matter of record rather than of the flag that requested it.
+	fmt.Printf("Weight storage: %s\n", eng.WeightReport())
 
 	cNode, err := NewIrohClusterNode(context.Background(), eng, cfg, 0)
 	if err == nil {

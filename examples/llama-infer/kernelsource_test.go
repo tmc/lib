@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -166,5 +167,106 @@ func TestForwardSourceCompilesOnHost(t *testing.T) {
 		"-x", "c++", path)
 	if out, err := ctl.CombinedOutput(); err == nil {
 		t.Fatalf("negative control compiled; the syntax check proves nothing\n%s", out)
+	}
+}
+
+// vectorLoop matches a strided loop and captures the identifier bounding it.
+var vectorLoop = regexp.MustCompile(`for \(int i = tid; i < (\w+); i \+= blockDim\.x\) \{`)
+
+// TestVectorLoadsAreAlignmentGuarded checks that every vectorized weight loop
+// is bounded by a count that an alignment test can zero.
+//
+// A row base w + row*in_dim is aligned to a four-element vector only when
+// in_dim is a multiple of four, so a vector load off an arbitrary row faults on
+// exactly the dimensions no current model happens to use. That makes the defect
+// silent until it is not, which is why it is pinned in the source rather than
+// left to a native test that only runs on a machine with a GPU.
+//
+// The rule: if a loop body performs a W::load4, the identifier bounding that
+// loop must have been declared with W::aligned4 in its initializer. The
+// alignment test drives the count to zero, and the scalar remainder loop that
+// follows then covers the whole row.
+func TestVectorLoadsAreAlignmentGuarded(t *testing.T) {
+	src, err := os.ReadFile("forward.cu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+
+	decl := regexp.MustCompile(`int (\w+) = ([^;]+);`)
+	guarded := make(map[string]bool)
+	unguarded := make(map[string]bool)
+	for _, m := range decl.FindAllStringSubmatch(text, -1) {
+		if strings.Contains(m[2], "aligned4") {
+			guarded[m[1]] = true
+		} else {
+			unguarded[m[1]] = true
+		}
+	}
+
+	loops := vectorLoop.FindAllStringSubmatchIndex(text, -1)
+	if len(loops) == 0 {
+		t.Fatal("no strided loops found; the pattern no longer matches the source")
+	}
+	var checked int
+	for _, loc := range loops {
+		bound := text[loc[2]:loc[3]]
+		// The loop body runs to the matching close brace at the same depth.
+		depth, end := 0, loc[1]
+		for i := loc[1] - 1; i < len(text); i++ {
+			if text[i] == '{' {
+				depth++
+			} else if text[i] == '}' {
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+		}
+		body := text[loc[1]:end]
+		if !strings.Contains(body, "W::load4(") {
+			continue
+		}
+		checked++
+		if !guarded[bound] {
+			t.Errorf("vector loop bounded by %q performs W::load4 but %q is not declared with aligned4", bound, bound)
+		}
+	}
+	if checked < 4 {
+		t.Fatalf("only %d vectorized weight loops found; expected at least the four in LinearGEMV, FusedRMSNormQKV (q and kv) and FusedSwiGLUDown", checked)
+	}
+	t.Logf("%d vectorized weight loops, all alignment-guarded", checked)
+}
+
+// TestFusedKernelsHaveScalarTails checks that every kernel with a vectorized
+// reduction also has a scalar loop covering the remainder.
+//
+// FusedRMSNormQKV and FusedSwiGLUDown dropped their last in_dim%4 elements
+// entirely, in float32 as well as half, which is a wrong answer rather than an
+// imprecise one. The tail loop starts at the vector count times four, so its
+// presence is what the check looks for.
+func TestFusedKernelsHaveScalarTails(t *testing.T) {
+	src, err := os.ReadFile("forward.cu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	for _, impl := range []string{"LinearGEMVImpl", "FusedRMSNormQKVImpl", "FusedSwiGLUDownImpl"} {
+		i := strings.Index(text, impl)
+		if i < 0 {
+			t.Errorf("%s not found", impl)
+			continue
+		}
+		// Bound the search at the next template, so a tail in a later kernel
+		// cannot satisfy this one.
+		j := strings.Index(text[i:], "\ntemplate <class W>")
+		if j < 0 {
+			j = len(text) - i
+		}
+		body := text[i : i+j]
+		if !strings.Contains(body, "* 4 + tid; i <") {
+			t.Errorf("%s has no scalar remainder loop; elements past the last full vector are dropped", impl)
+		}
 	}
 }

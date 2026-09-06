@@ -275,3 +275,39 @@ func TestRoundTripIsIdempotent(t *testing.T) {
 		})
 	}
 }
+
+// TestInvalidWeightDTypeIsRejected checks that a value outside the three named
+// modes is refused rather than silently behaving like one of them.
+//
+// This matters because the zero value is f32 but an out-of-range value is not
+// inert: Bytes reports 2 for it and Suffix reports the empty string, so it
+// would select two-byte device storage and then bind the unsuffixed float32
+// kernels, which read those bytes as float32. The result would be silent
+// garbage rather than an error, which is exactly the failure the explicit-mode
+// rule exists to prevent.
+func TestInvalidWeightDTypeIsRejected(t *testing.T) {
+	for _, d := range []WeightDType{-1, 3, 7, 1 << 20} {
+		if d.Valid() {
+			t.Errorf("WeightDType(%d).Valid() = true", int(d))
+		}
+		if err := d.check(); err == nil {
+			t.Errorf("WeightDType(%d).check() = nil, want an error", int(d))
+		}
+	}
+	for _, d := range []WeightDType{WeightF32, WeightF16, WeightBF16} {
+		if !d.Valid() {
+			t.Errorf("%v.Valid() = false", d)
+		}
+		if err := d.check(); err != nil {
+			t.Errorf("%v.check() = %v", d, err)
+		}
+	}
+
+	// The specific hazard, stated directly: an invalid value must never be able
+	// to pair a 2-byte width with the unsuffixed kernel names.
+	for _, d := range []WeightDType{-1, 3, 7} {
+		if d.Bytes() == 2 && d.Suffix() == "" && d.Valid() {
+			t.Errorf("WeightDType(%d) would store 2-byte weights and bind f32 kernels", int(d))
+		}
+	}
+}

@@ -56,6 +56,9 @@ func (w WeightSlice) DType() WeightDType { return w.dtype }
 // without conversion; only a float32 source is rounded, and only once. host is
 // the float32 view, which is what the reference loader produces.
 func uploadWeights(arena *cudamem.Arena, d WeightDType, host []float32) (WeightSlice, error) {
+	if err := d.check(); err != nil {
+		return WeightSlice{}, err
+	}
 	if len(host) == 0 {
 		return WeightSlice{dtype: d}, nil
 	}
@@ -134,6 +137,9 @@ func (w *GPUModelWeights) DType() WeightDType {
 // module that was compiled without half support fails the load instead of
 // silently running in float32 while reporting f16.
 func bindWeightKernels(mod *cuda.Module, d WeightDType, kernels *Kernels) error {
+	if err := d.check(); err != nil {
+		return err
+	}
 	rv := reflect.ValueOf(kernels).Elem()
 	rt := rv.Type()
 	for i := 0; i < rt.NumField(); i++ {
@@ -231,6 +237,9 @@ func (w WeightSlice) CopyFromHost(src []float32) error {
 // the tensor is widened once and rounded once, which is the only conversion any
 // weight undergoes.
 func uploadRetainedWeights(arena *cudamem.Arena, d WeightDType, t *RetainedTensor) (WeightSlice, error) {
+	if err := d.check(); err != nil {
+		return WeightSlice{}, err
+	}
 	if t == nil || t.Elems() == 0 {
 		return WeightSlice{dtype: d}, nil
 	}

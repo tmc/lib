@@ -120,6 +120,9 @@ func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeight
 // d decides both how many bytes each weight occupies on the device and which
 // kernel entry points will read it. Passing WeightF32 is the original behavior.
 func UploadModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig, d WeightDType) (*GPUModelWeights, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
 	arena := cudamem.NewTrackedArena(dev, tracker)
 	committed := false
 	defer func() {
