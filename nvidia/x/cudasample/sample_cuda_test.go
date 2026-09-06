@@ -2,7 +2,6 @@ package cudasample_test
 
 import (
 	"math"
-	"os"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -12,9 +11,6 @@ import (
 )
 
 func TestArgmaxCUDAEdgeParity(t *testing.T) {
-	if os.Getenv("LIB_CUDA_HARDWARE_TEST") == "" {
-		t.Skip("LIB_CUDA_HARDWARE_TEST is empty")
-	}
 	dev := cudatest.Require(t)
 	defer dev.Close()
 	major, minor, err := dev.ComputeCapability()
