@@ -4,7 +4,7 @@ package fabricmanager
 
 import "fmt"
 
-// NvFmApiAddrTypes @[NvFmApiAddrTypes] @brief an enumeration of supported address types
+// NvFmApiAddrTypes @enum [NvFmApiAddrTypes] @brief an enumeration of supported address types
 type NvFmApiAddrTypes int32
 
 const (
@@ -14,6 +14,7 @@ const (
 	NvFmApiAddrTypeVsock   NvFmApiAddrTypes = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvFmApiAddrTypes) String() string {
 	switch e {
 	case NvFmApiAddrTypeUnknown:
