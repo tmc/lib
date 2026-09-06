@@ -14,6 +14,13 @@
 // and MPO operators, gradients, time propagation, eigen-decomposition and
 // the distributed interface table are not bound.
 //
+// ResetDistributedConfiguration imports a native communicator value. commPtr
+// must point to the selected provider implementation's communicator representation;
+// commSize is its byte size. The library copies that value, not the communicator's
+// underlying resources. Keep the communicator valid while the context uses it.
+// The NCCL provider is experimental in the pinned header. Distributed numerical
+// execution requires separate runtime qualification.
+//
 // # Ownership
 //
 // Every pointer this package passes to the library is a plain address. None
@@ -112,6 +119,7 @@
 //   - [Handle.GetNumRanks]: Returns the total number of distributed processes associated with the given library context in its current distributed execution configuration.
 //   - [Handle.GetProcRank]: Returns the rank of the current process in the distributed execution configuration associated with the given library context.
 //   - [GetVersion]: Returns the semantic version number of the cuDensityMat library.
+//   - [Handle.ResetDistributedConfiguration]: Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
 //   - [Handle.ResetRandomSeed]: Resets the context-level random seed used by the random number generator inside the library context.
 //
 // # Operator construction

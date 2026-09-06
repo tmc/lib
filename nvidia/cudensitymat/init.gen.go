@@ -337,6 +337,7 @@ func registerFuncs() {
 	register(&fnoperatorComputeAction, "cudensitymatOperatorComputeAction")
 	register(&fnoperatorPrepareAction, "cudensitymatOperatorPrepareAction")
 	register(&fnoperatorTermAppendElementaryProduct, "cudensitymatOperatorTermAppendElementaryProduct")
+	register(&fnresetDistributedConfiguration, "cudensitymatResetDistributedConfiguration")
 	register(&fnresetRandomSeed, "cudensitymatResetRandomSeed")
 	register(&fnstateAttachComponentStorage, "cudensitymatStateAttachComponentStorage")
 	register(&fnstateComputeAccumulation, "cudensitymatStateComputeAccumulation")
@@ -380,6 +381,7 @@ func clearFuncs() {
 	fnoperatorComputeAction = nil
 	fnoperatorPrepareAction = nil
 	fnoperatorTermAppendElementaryProduct = nil
+	fnresetDistributedConfiguration = nil
 	fnresetRandomSeed = nil
 	fnstateAttachComponentStorage = nil
 	fnstateComputeAccumulation = nil
@@ -515,6 +517,11 @@ func HasOperatorPrepareAction() bool {
 // HasOperatorTermAppendElementaryProduct reports whether cudensitymatOperatorTermAppendElementaryProduct resolved in the loaded library.
 func HasOperatorTermAppendElementaryProduct() bool {
 	return Has("cudensitymatOperatorTermAppendElementaryProduct")
+}
+
+// HasResetDistributedConfiguration reports whether cudensitymatResetDistributedConfiguration resolved in the loaded library.
+func HasResetDistributedConfiguration() bool {
+	return Has("cudensitymatResetDistributedConfiguration")
 }
 
 // HasResetRandomSeed reports whether cudensitymatResetRandomSeed resolved in the loaded library.
