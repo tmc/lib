@@ -23,6 +23,28 @@ func (e ComputeType) String() string {
 	return fmt.Sprintf("ComputeType(%d)", e)
 }
 
+// DistributedProvider represents Supported providers of the distributed communication service..
+type DistributedProvider int32
+
+const (
+	DistributedProviderNone DistributedProvider = 0 // No communication service provider (single-GPU execution)
+	DistributedProviderMpi  DistributedProvider = 1 // MPI communication service
+	DistributedProviderNccl DistributedProvider = 2 // NCCL communication service (experimental)
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e DistributedProvider) String() string {
+	switch e {
+	case DistributedProviderNone:
+		return "DistributedProviderNone"
+	case DistributedProviderMpi:
+		return "DistributedProviderMpi"
+	case DistributedProviderNccl:
+		return "DistributedProviderNccl"
+	}
+	return fmt.Sprintf("DistributedProvider(%d)", e)
+}
+
 // CallbackDevice represents Supported target devices for user-defined callbacks..
 type CallbackDevice int32
 

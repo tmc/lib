@@ -2,6 +2,10 @@
 
 package cudensitymat
 
+import (
+	"unsafe"
+)
+
 // Generated function pointer variables.
 var (
 	fnCreate                              func(*Handle) Result
@@ -28,6 +32,7 @@ var (
 	fnoperatorComputeAction               func(Handle, Operator, float64, int64, int32, *float64, State, State, WorkspaceDescriptor, Stream) Result
 	fnoperatorPrepareAction               func(Handle, Operator, State, State, ComputeType, uint, WorkspaceDescriptor, Stream) Result
 	fnoperatorTermAppendElementaryProduct func(Handle, OperatorTerm, int32, *ElementaryOperator, *int32, *int32, Complex128, WrappedScalarCallback, WrappedScalarGradientCallback) Result
+	fnresetDistributedConfiguration       func(Handle, DistributedProvider, unsafe.Pointer, uint) Result
 	fnresetRandomSeed                     func(Handle, int32) Result
 	fnstateAttachComponentStorage         func(Handle, State, int32, *uintptr, *uint) Result
 	fnstateComputeAccumulation            func(Handle, State, State, uintptr, Stream) Result
@@ -549,6 +554,25 @@ func operatorTermAppendElementaryProduct(handle Handle, operatorTerm OperatorTer
 		return err
 	}
 	return toError(fnoperatorTermAppendElementaryProduct(handle, operatorTerm, numElemOperators, elemOperators, stateModesActedOn, modeActionDuality, coefficient, coefficientCallback, coefficientGradientCallback))
+}
+
+// resetDistributedConfiguration Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
+//
+// Accepts and stores a copy of the provided inter-process communicator
+// which will be used for distributing numerical operations across all involved
+// distributed processes.
+//
+//   - handle: inout Library handle
+//   - provider: in Communication service provider
+//   - commPtr: in Pointer to the communicator in a type-erased form
+//   - commSize: in Size of the communicator in bytes
+//
+// Wraps cudensitymatResetDistributedConfiguration.
+func resetDistributedConfiguration(handle Handle, provider DistributedProvider, commPtr unsafe.Pointer, commSize uint) error {
+	if err := checkLibSym("cudensitymatResetDistributedConfiguration"); err != nil {
+		return err
+	}
+	return toError(fnresetDistributedConfiguration(handle, provider, commPtr, commSize))
 }
 
 // resetRandomSeed Resets the context-level random seed used by the random number generator inside the library context.

@@ -2,6 +2,10 @@
 
 package cudensitymat
 
+import (
+	"unsafe"
+)
+
 // CreateElementaryOperator Creates an elementary tensor operator acting on a given number of quantum state modes (aka space modes).
 //
 // An elementary tensor operator is a single tensor operator
@@ -157,6 +161,21 @@ func (h Handle) GetNumRanks() (int32, error) {
 // Wraps cudensitymatGetProcRank.
 func (h Handle) GetProcRank() (int32, error) {
 	return getProcRank(h)
+}
+
+// ResetDistributedConfiguration Resets the current distributed execution configuration associated with the given library context by importing a user-provided inter-process communicator (e.g., MPI_Comm).
+//
+// Accepts and stores a copy of the provided inter-process communicator
+// which will be used for distributing numerical operations across all involved
+// distributed processes.
+//
+//   - provider: in Communication service provider
+//   - commPtr: in Pointer to the communicator in a type-erased form
+//   - commSize: in Size of the communicator in bytes
+//
+// Wraps cudensitymatResetDistributedConfiguration.
+func (h Handle) ResetDistributedConfiguration(provider DistributedProvider, commPtr unsafe.Pointer, commSize uint) error {
+	return resetDistributedConfiguration(h, provider, commPtr, commSize)
 }
 
 // ResetRandomSeed Resets the context-level random seed used by the random number generator inside the library context.
