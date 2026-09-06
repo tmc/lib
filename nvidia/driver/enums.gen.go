@@ -53,6 +53,7 @@ const (
 	CtxBlockingSync       CtxFlags = 0x04
 	CtxSchedMask          CtxFlags = 0x07
 	CtxMapHost            CtxFlags = 0x08
+	CtxLmemResizeToMax    CtxFlags = 0x10 // Keep local memory allocation after launch
 	CtxCoredumpEnable     CtxFlags = 0x20 // Trigger coredumps from exceptions in this context
 	CtxUserCoredumpEnable CtxFlags = 0x40 // Enable user pipe to trigger coredumps in this context
 	// CtxSyncMemops: Ensure synchronous memory operations on this context will synchronize
@@ -74,6 +75,8 @@ func (e CtxFlags) String() string {
 		return "CtxSchedMask"
 	case CtxMapHost:
 		return "CtxMapHost"
+	case CtxLmemResizeToMax:
+		return "CtxLmemResizeToMax"
 	case CtxCoredumpEnable:
 		return "CtxCoredumpEnable"
 	case CtxUserCoredumpEnable:
