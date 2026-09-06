@@ -350,3 +350,23 @@ func TestSelfLaunchTerminates(t *testing.T) {
 		t.Errorf("the recursion guard fired, so the child flag did not reach the child:\n%s", got)
 	}
 }
+
+func TestMainTimeoutIncludesVersion(t *testing.T) {
+	tool := fixtureTool(t)
+	t.Setenv(fakeSleep, "5s")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var diag bytes.Buffer
+	start := time.Now()
+	code := main1(ctx, []string{"pkg.test"}, Config{Tool: Memcheck, MissingTool: MissingToolFail, Path: tool, Timeout: 100 * time.Millisecond},
+		func() int { t.Error("parent ran tests"); return 0 }, &diag)
+	if !strings.Contains(diag.String(), ErrTimeout.Error()) {
+		t.Fatalf("missing timeout diagnosis: %s", &diag)
+	}
+	if code == 0 {
+		t.Fatalf("timed-out version query passed: %s", &diag)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("version query escaped Config.Timeout: %s", elapsed)
+	}
+}
