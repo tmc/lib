@@ -3,7 +3,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -161,7 +160,7 @@ func (r *cudaRuntime) Reset() error {
 		return errors.New("cuda runtime: closed")
 	}
 	r.failed = errors.New("cuda runtime: reset incomplete")
-	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
+	if err := syncStream(r.device.DefaultStream()); err != nil {
 		return err
 	}
 	for i := range r.state.layers {
@@ -206,7 +205,7 @@ func (r *cudaRuntime) Close() error {
 	}
 	var errs []error
 	if r.cudaFoundation != nil && r.device != nil {
-		errs = append(errs, r.device.DefaultStream().Synchronize(context.Background()))
+		errs = append(errs, syncStream(r.device.DefaultStream()))
 	}
 	if r.hcMath != nil {
 		errs = append(errs, r.hcMath.Close())
@@ -256,6 +255,7 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 }
 
 func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error) {
+	defer begin(levelToken, "token", nil).end()
 	if r == nil || r.arena == nil {
 		return errors.New("cuda runtime: closed")
 	}
@@ -293,7 +293,7 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 			return err
 		}
 	}
-	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
+	if err := syncStream(r.device.DefaultStream()); err != nil {
 		return err
 	}
 	if logits {
@@ -311,6 +311,7 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 }
 
 func (r *cudaRuntime) evalLayer(index, token, position int) error {
+	defer beginLayer(index).end()
 	l, s := &r.model.layers[index], &r.state
 	state := &s.layers[index]
 	if err := r.hcMath.pre(s.hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, s.attnPre, false); err != nil {
@@ -440,7 +441,7 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, position i
 			return err
 		}
 	}
-	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
+	if err := syncStream(r.device.DefaultStream()); err != nil {
 		return err
 	}
 	if emit {

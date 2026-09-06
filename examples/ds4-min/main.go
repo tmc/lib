@@ -27,6 +27,25 @@ Load one DeepSeek-V4-Flash Q2 model and generate a non-thinking response.
         read the user prompt from file; conflicts with -prompt
   -tokens int
         maximum generated tokens (default 16)
+
+Profiling. These start after the model is loaded, so a profile describes
+generation rather than the mmap residency wait.
+
+  -cpuprofile file
+        write a Go CPU profile
+  -memprofile file
+        write a Go heap profile at exit
+  -trace file
+        write a Go execution trace
+  -spans file
+        write a gputrace.host-event/v1 sidecar for "gputrace host-receipt"
+  -span-level string
+        span depth: off, phase, token, layer, or op (default "token")
+
+Spans are also appended to $GPUTRACE_APP_EVENTS when that is set, which
+is what "gputrace capture" does, so a captured run carries them with no
+flag. Both sidecars are bounded: recording stops at 100,000 spans, which
+one 2048-token prefill exceeds at -span-level=op.
 `
 
 type config struct {
@@ -36,6 +55,12 @@ type config struct {
 	context int
 	tokens  int
 	log     io.Writer
+
+	cpuProfile   string
+	memProfile   string
+	traceProfile string
+	spanPath     string
+	spanLevel    spanLevel
 }
 
 func main() {
@@ -91,15 +116,26 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
+	prof, err := startProfiling(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, prof.Stop(), writeSpans(cfg, stderr)) }()
+	if cfg.spanLevel != levelOff {
+		spans = newSpanRecorder(cfg.spanLevel, runID())
+	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
+	prefillSpan := begin(levelPhase, "prefill", nil)
 	if err := s.Sync(prompt); err != nil {
 		return err
 	}
+	prefillSpan.end()
 	prefill := time.Since(prefillStart)
 	var text textAssembler
 	generated := 0
 	decodeStart := time.Now()
+	decodeSpan := begin(levelPhase, "generation", nil)
 	for range cfg.tokens {
 		id := greedyToken(s.logits)
 		if tok.IsStop(id) {
@@ -121,6 +157,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		}
 		generated++
 	}
+	decodeSpan.end()
 	// Same definition as ds4_cli.c:679-686: prompt tokens over the prefill
 	// wall time, generated tokens over the decode wall time.
 	decode := time.Since(decodeStart)
@@ -165,6 +202,12 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&prompt, "prompt", "", "user prompt")
 	fs.StringVar(&promptFile, "prompt-file", "", "read user prompt from file")
 	fs.IntVar(&cfg.tokens, "tokens", 16, "maximum generated tokens")
+	fs.StringVar(&cfg.cpuProfile, "cpuprofile", "", "write a Go CPU profile")
+	fs.StringVar(&cfg.memProfile, "memprofile", "", "write a Go heap profile")
+	fs.StringVar(&cfg.traceProfile, "trace", "", "write a Go execution trace")
+	fs.StringVar(&cfg.spanPath, "spans", "", "write a gputrace host-event sidecar")
+	var spanLevel string
+	fs.StringVar(&spanLevel, "span-level", "token", "span depth: off, phase, token, layer, or op")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
@@ -183,6 +226,11 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	if prompt != "" && promptFile != "" {
 		return config{}, errors.New("prompt and prompt-file conflict")
 	}
+	level, err := parseSpanLevel(spanLevel)
+	if err != nil {
+		return config{}, err
+	}
+	cfg.spanLevel = level
 	backend, err := selectBackend(cfg.backend)
 	if err != nil {
 		return config{}, err
@@ -203,4 +251,37 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 		}
 	}
 	return cfg, nil
+}
+
+// runID names one run in both gputrace sidecars. The host-event reader
+// refuses a file that mixes IDs, and the capture path merges every
+// process of a target tree into one file, so the ID has to distinguish
+// processes as well as runs.
+func runID() string {
+	host, err := os.Hostname()
+	if err != nil {
+		host = "unknown"
+	}
+	return fmt.Sprintf("ds4-min-%s-%d-%d", host, os.Getpid(), time.Now().UnixNano())
+}
+
+// writeSpans writes whichever span sidecars this run was asked for. The
+// GPUTRACE_APP_EVENTS path needs no flag: "gputrace capture" sets it.
+func writeSpans(cfg config, log io.Writer) error {
+	r := spans
+	if r == nil {
+		return nil
+	}
+	spans = nil
+	var errs []error
+	if cfg.spanPath != "" {
+		errs = append(errs, r.WriteHostEvents(cfg.spanPath))
+	}
+	if path := os.Getenv("GPUTRACE_APP_EVENTS"); path != "" {
+		errs = append(errs, r.AppendGPUEvents(path))
+	}
+	if dropped := r.Dropped(); dropped > 0 {
+		fmt.Fprintf(log, "ds4-min: recorded %d spans, dropped %d at the record limit; use a shallower -span-level\n", r.Len(), dropped)
+	}
+	return errors.Join(errs...)
 }

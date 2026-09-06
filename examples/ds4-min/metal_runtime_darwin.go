@@ -517,6 +517,7 @@ func (r *metalRuntime) evalPosition(token int32, position int, logits bool) ([]f
 	if token < 0 || uint64(token) >= r.output.embedding.dimensions[1] {
 		return nil, fmt.Errorf("Metal runtime: token %d out of range", token)
 	}
+	defer begin(levelToken, "token", nil).end()
 	embedding, err := r.ops.GetRowF16(r.output.embedding, uint32(token))
 	if err != nil {
 		return nil, err
@@ -570,6 +571,7 @@ func (r *metalRuntime) Logits() []float32 {
 }
 
 func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int) ([]float32, error) {
+	defer beginLayer(i).end()
 	layer := &r.layers[i]
 	stateIn := r.state.hc[i%len(r.state.hc)]
 	if err := stateIn.CopyFromHost(hc); err != nil {
@@ -878,6 +880,7 @@ func (r *metalRuntime) addFFNBatch(batch *metalBatch) {
 }
 
 func (r *metalRuntime) outputLogits(hc []float32) ([]float32, error) {
+	defer beginOp("output.logits").end()
 	flat, err := r.ops.RMS(hc, r.output.norm, 1, false)
 	if err != nil {
 		return nil, err

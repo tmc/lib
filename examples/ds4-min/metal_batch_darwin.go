@@ -469,7 +469,11 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 	b.buffer.Commit()
 	b.commits++
 	b.waits++
+	// One span per command buffer: the batch's dispatches are the GPU
+	// work, and everything between this span and the next is host cost.
+	wait := beginOp("batch.wait")
 	err := libmetal.WaitCommandBuffer(ctx, b.buffer)
+	wait.end()
 	b.ops.hc.complete(b)
 	if err != nil {
 		return fmt.Errorf("Metal batch: %w", err)
