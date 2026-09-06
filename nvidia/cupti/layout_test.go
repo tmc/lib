@@ -7,6 +7,9 @@ import (
 	"unsafe"
 )
 
+// Parsed by: regex
+// Layouts: compiled sizeof probe for the host
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(ActivityOverheadCommandBufferFullData{}); got != 12 {
 		t.Errorf("sizeof(ActivityOverheadCommandBufferFullData) = %d, want 12", got)
