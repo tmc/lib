@@ -13,9 +13,18 @@ import "testing"
 func TestKernelNamesMatchSource(t *testing.T) {
 	names := kernelSourceNames(t)
 	for _, d := range []WeightDType{WeightF32, WeightF16, WeightBF16} {
+		// Kernels binds every kernel the engine dispatches. weightKernelBases
+		// additionally lists WeightConvertProbe, which the native tests reach
+		// through the module directly and which production never binds.
 		got := weightKernelNames(d)
-		if len(got) != len(weightKernelBases)+len(plainKernelNames) {
-			t.Errorf("%s: %d kernel names %v, want %d", d, len(got), got, len(weightKernelBases)+len(plainKernelNames))
+		want := len(weightKernelBases) + len(plainKernelNames) - 1
+		if len(got) != want {
+			t.Errorf("%s: %d kernel names %v, want %d", d, len(got), got, want)
+		}
+		for _, n := range got {
+			if n == "WeightConvertProbe"+d.Suffix() {
+				t.Errorf("%s: production binds the test-only conversion probe", d)
+			}
 		}
 		for _, n := range got {
 			if !names[n] {

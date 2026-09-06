@@ -227,14 +227,29 @@ func TestCUDAWeightDTypeGEMVNegativeControl(t *testing.T) {
 	}
 }
 
-// TestCUDADeviceConversionMatchesGo checks the device's widening against Go's.
+// TestCUDADeviceConversionMatchesGo checks the device's widening against Go's,
+// over every one of the 65536 bit patterns of each format.
 //
-// The Go conversions are verified exhaustively and against CPython on the host;
-// this carries that verification onto the device by widening every one of the
-// 65536 bit patterns through the kernels' own conversion path and requiring
-// bit-identical results. It is what makes the inline PTX cvt.f32.f16 and the
-// bfloat16 shift evidence rather than assumption. NaN payloads are excluded,
-// since narrowing is not required to preserve which NaN a value was.
+// The comparison runs through WeightConvertProbe, which loads a weight and
+// stores it with no arithmetic. An earlier version of this test read the
+// conversion out through GEMV, which was wrong: a correctly widened negative
+// zero becomes a positive zero as soon as it enters an accumulator, so the
+// dot product could not distinguish a working sign bit from a broken one. That
+// is precisely one of the cases this test exists to cover.
+//
+// The three classes of input are treated differently, on purpose:
+//
+//   - Finite values are compared bit for bit, negative zero included. 63488 of
+//     the f16 patterns and 65280 of the bf16 patterns are finite.
+//   - Infinities are compared bit for bit too. Both formats encode them
+//     uniquely, so there is nothing to qualify: 2 patterns per format.
+//   - NaNs are required to widen to some NaN, and nothing is claimed about the
+//     payload. Neither PTX cvt.f32.f16 nor a bfloat16 shift guarantees which
+//     NaN comes out, and the Go conversions do not either. 2046 f16 patterns
+//     and 254 bf16 patterns are NaN.
+//
+// The three counts sum to 65536 in each format, and the test asserts that, so a
+// classification that silently dropped a class could not pass.
 func TestCUDADeviceConversionMatchesGo(t *testing.T) {
 	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
@@ -243,86 +258,109 @@ func TestCUDADeviceConversionMatchesGo(t *testing.T) {
 	}
 	defer stream.Destroy()
 
-	for _, d := range []WeightDType{WeightF16, WeightBF16} {
-		t.Run(d.String(), func(t *testing.T) {
+	for _, tt := range []struct {
+		d                     WeightDType
+		finite, infinite, nan int
+	}{
+		{WeightF16, 63488, 2, 2046},
+		{WeightBF16, 65280, 2, 254},
+	} {
+		t.Run(tt.d.String(), func(t *testing.T) {
+			d := tt.d
+			if tt.finite+tt.infinite+tt.nan != 1<<16 {
+				t.Fatalf("declared counts sum to %d, not 65536", tt.finite+tt.infinite+tt.nan)
+			}
 			modules, err := CompileGPUModulesAs(dev, d)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer modules.Close()
-
-			// Widen every bit pattern by using it as a 1x1 identity projection:
-			// out[row] = 1.0 * w[row]. RMSNorm's weight path would fold in a
-			// scale, so GEMV with a unit input is the direct readout.
-			const n = 1 << 16
-			packed := make([]uint16, n)
-			for i := range packed {
-				packed[i] = uint16(i)
+			probe, err := modules.mod.Function("WeightConvertProbe" + d.Suffix())
+			if err != nil {
+				t.Fatalf("the conversion probe is missing from the module: %v", err)
 			}
-			var want []float32
-			var idx []uint16
-			for i, h := range packed {
-				if d == WeightF16 && h&0x7c00 == 0x7c00 && h&0x3ff != 0 {
-					continue
-				}
-				if d == WeightBF16 && h&0x7f80 == 0x7f80 && h&0x7f != 0 {
-					continue
-				}
-				var v float32
-				if d == WeightF16 {
-					v = float16ToFloat32(h)
-				} else {
-					v = bfloat16ToFloat32(h)
-				}
-				if math.IsInf(float64(v), 0) {
-					continue // an infinite weight would make the product meaningless
-				}
-				idx = append(idx, packed[i])
-				want = append(want, v)
+
+			const n = 1 << 16
+			patterns := make([]uint16, n)
+			for i := range patterns {
+				patterns[i] = uint16(i)
 			}
 
 			arena := cudamem.NewArena(dev)
 			defer arena.Free()
-			rows := len(idx)
-			dx := cudamem.AllocIn[float32](arena, "x", 1)
-			dw := cudamem.AllocIn[uint16](arena, "w", rows)
-			dout := cudamem.AllocIn[float32](arena, "out", rows)
+			dw := cudamem.AllocIn[uint16](arena, "patterns", n)
+			dout := cudamem.AllocIn[float32](arena, "out", n)
 			if err := arena.Err(); err != nil {
 				t.Fatal(err)
 			}
-			if err := dx.CopyFromHost([]float32{1}); err != nil {
+			if err := dw.CopyFromHost(patterns); err != nil {
 				t.Fatal(err)
 			}
-			if err := dw.CopyFromHost(idx); err != nil {
-				t.Fatal(err)
-			}
-			weights := WeightSlice{dtype: d, elems: rows, half: dw}
-			var noBias WeightSlice
-			if err := cudalaunch.OwnedKernel(modules.GEMV).Grid(uint32(rows)).Block(32).On(stream).
-				Launch(dx, weights, noBias, dout, 1, rows); err != nil {
-				t.Fatal(err)
+			if err := cudalaunch.OwnedKernel(probe).Grid(256).Block(256).On(stream).
+				Launch(dw, dout, n); err != nil {
+				t.Fatalf("launch probe: %v", err)
 			}
 			if err := stream.Synchronize(t.Context()); err != nil {
 				t.Fatal(err)
 			}
-			got := make([]float32, rows)
+			got := make([]float32, n)
 			if err := dout.CopyToHost(got); err != nil {
 				t.Fatal(err)
 			}
 
-			var bad int
-			for i := range want {
-				if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+			widen := float16ToFloat32
+			isNaNPattern := func(h uint16) bool { return h&0x7c00 == 0x7c00 && h&0x3ff != 0 }
+			isInfPattern := func(h uint16) bool { return h&0x7c00 == 0x7c00 && h&0x3ff == 0 }
+			if d == WeightBF16 {
+				widen = bfloat16ToFloat32
+				isNaNPattern = func(b uint16) bool { return b&0x7f80 == 0x7f80 && b&0x7f != 0 }
+				isInfPattern = func(b uint16) bool { return b&0x7f80 == 0x7f80 && b&0x7f == 0 }
+			}
+
+			var finite, infinite, nan, bad int
+			for i, h := range patterns {
+				g := got[i]
+				if isNaNPattern(h) {
+					nan++
+					// Payload is not claimed; only that it stays a NaN.
+					if !math.IsNaN(float64(g)) {
+						if bad < 10 {
+							t.Errorf("NaN pattern 0x%04x widened to %v, want some NaN", h, g)
+						}
+						bad++
+					}
+					continue
+				}
+				if isInfPattern(h) {
+					infinite++
+				} else {
+					finite++
+				}
+				want := widen(h)
+				if math.Float32bits(g) != math.Float32bits(want) {
 					if bad < 10 {
-						t.Errorf("pattern 0x%04x widened to %v on device, %v in Go", idx[i], got[i], want[i])
+						t.Errorf("pattern 0x%04x widened to %v (bits 0x%08x) on device, %v (bits 0x%08x) in Go",
+							h, g, math.Float32bits(g), want, math.Float32bits(want))
 					}
 					bad++
 				}
 			}
-			if bad > 0 {
-				t.Fatalf("%d of %d bit patterns disagree", bad, len(want))
+			if finite != tt.finite || infinite != tt.infinite || nan != tt.nan {
+				t.Errorf("classified %d finite, %d infinite, %d NaN; declared %d, %d, %d",
+					finite, infinite, nan, tt.finite, tt.infinite, tt.nan)
 			}
-			t.Logf("%d bit patterns widen identically on device and in Go", len(want))
+			if bad > 0 {
+				t.Fatalf("%d of 65536 patterns disagree", bad)
+			}
+
+			// Negative zero specifically, since it is the case the previous
+			// version of this test could not see.
+			var negZero uint16 = 0x8000
+			if g := got[negZero]; math.Float32bits(g) != 0x80000000 {
+				t.Errorf("negative zero widened to bits 0x%08x, want 0x80000000", math.Float32bits(g))
+			}
+			t.Logf("%d finite, %d infinite bit patterns widen identically; %d NaN patterns stay NaN",
+				finite, infinite, nan)
 		})
 	}
 }
@@ -443,4 +481,77 @@ func deterministicFloats(n int, seed uint32) []float32 {
 		}
 	}
 	return out
+}
+
+// TestCUDAEmbeddingLookupOddStride checks the embedding row load at strides
+// that leave a row base unaligned.
+//
+// The row for token tok starts at embed_table + tok*hidden_dim, so token 0 is
+// always aligned and any later token is not when hidden_dim is odd. An
+// unguarded vector load therefore faults on the second token and not the first,
+// which is why every token index below is exercised rather than just one.
+//
+// The comparison is bit-exact with no tolerance: the kernel widens and stores,
+// performing no arithmetic, so its output must equal the once-rounded weights
+// exactly. Negative zeros in the table are preserved by that path and are
+// included deliberately.
+func TestCUDAEmbeddingLookupOddStride(t *testing.T) {
+	dev := requireCUDAHardware(t)
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Destroy()
+
+	for _, d := range []WeightDType{WeightF32, WeightF16, WeightBF16} {
+		modules, err := CompileGPUModulesAs(dev, d)
+		if err != nil {
+			t.Fatalf("%s: compile: %v", d, err)
+		}
+		for _, hidden := range []int{5, 128, 129, 130, 131} {
+			for _, tok := range []int{0, 1, 2, 3} {
+				name := d.String() + "/hidden" + itoa(hidden) + "/tok" + itoa(tok)
+				t.Run(name, func(t *testing.T) {
+					const vocab = 5
+					table := deterministicFloats(vocab*hidden, 7)
+					rt := d.RoundTrip(table)
+
+					arena := cudamem.NewArena(dev)
+					defer arena.Free()
+					dtok := cudamem.AllocIn[int32](arena, "tok", 1)
+					dout := cudamem.AllocIn[float32](arena, "out", hidden)
+					if err := arena.Err(); err != nil {
+						t.Fatal(err)
+					}
+					if err := dtok.CopyFromHost([]int32{int32(tok)}); err != nil {
+						t.Fatal(err)
+					}
+					dw, err := uploadWeights(arena, d, table)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := cudalaunch.OwnedKernel(modules.Embed).Grid(4).Block(64).On(stream).
+						Launch(dw, dtok, dout, hidden); err != nil {
+						t.Fatalf("launch: %v", err)
+					}
+					if err := stream.Synchronize(t.Context()); err != nil {
+						t.Fatal(err)
+					}
+					got := make([]float32, hidden)
+					if err := dout.CopyToHost(got); err != nil {
+						t.Fatal(err)
+					}
+
+					want := rt[tok*hidden : (tok+1)*hidden]
+					for i := range want {
+						if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+							t.Fatalf("element %d = %v (bits 0x%08x), want %v (bits 0x%08x)",
+								i, got[i], math.Float32bits(got[i]), want[i], math.Float32bits(want[i]))
+						}
+					}
+				})
+			}
+		}
+		modules.Close()
+	}
 }

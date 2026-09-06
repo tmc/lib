@@ -28,6 +28,11 @@ var weightKernelBases = []string{
 	"BatchAddBias",
 	"BatchFusedRMSNormQKV",
 	"BatchFusedSwiGLUDown",
+
+	// Not bound by Kernels: a conversion probe used only by the native tests,
+	// which reach it through the module directly. It is listed here because it
+	// is a weight-reading kernel and must have all three variants.
+	"WeightConvertProbe",
 }
 
 // plainKernelNames read no weights and have exactly one entry point each.
@@ -171,7 +176,12 @@ func TestForwardSourceCompilesOnHost(t *testing.T) {
 }
 
 // vectorLoop matches a strided loop and captures the identifier bounding it.
-var vectorLoop = regexp.MustCompile(`for \(int i = tid; i < (\w+); i \+= blockDim\.x\) \{`)
+//
+// The initializer is deliberately left open: block-strided loops start at tid,
+// grid-strided ones at blockIdx.x * blockDim.x + threadIdx.x, and an earlier
+// version of this pattern that only matched the first form missed the
+// vectorized load in EmbeddingLookupImpl entirely.
+var vectorLoop = regexp.MustCompile(`for \(int i = [^;]+; i < (\w+); i \+= [^)]+\) \{`)
 
 // TestVectorLoadsAreAlignmentGuarded checks that every vectorized weight loop
 // is bounded by a count that an alignment test can zero.
@@ -233,8 +243,8 @@ func TestVectorLoadsAreAlignmentGuarded(t *testing.T) {
 			t.Errorf("vector loop bounded by %q performs W::load4 but %q is not declared with aligned4", bound, bound)
 		}
 	}
-	if checked < 4 {
-		t.Fatalf("only %d vectorized weight loops found; expected at least the four in LinearGEMV, FusedRMSNormQKV (q and kv) and FusedSwiGLUDown", checked)
+	if checked < 6 {
+		t.Fatalf("only %d vectorized weight loops found; expected at least six: EmbeddingLookup, RMSNorm, LinearGEMV, FusedRMSNormQKV (q and kv) and FusedSwiGLUDown", checked)
 	}
 	t.Logf("%d vectorized weight loops, all alignment-guarded", checked)
 }

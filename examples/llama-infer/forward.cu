@@ -103,6 +103,33 @@ struct WBF16 {
     extern "C" __global__ void NAME##F16 PARAMS(WF16) { NAME##Impl<WF16> ARGS; } \
     extern "C" __global__ void NAME##BF16 PARAMS(WBF16) { NAME##Impl<WBF16> ARGS; }
 
+// WeightConvertProbe widens stored weights to float32 and stores them, with no
+// arithmetic of any kind.
+//
+// It exists so the device conversion can be compared bit for bit. Reading the
+// conversion out through a kernel that computes something destroys exactly the
+// cases worth checking: a correctly widened negative zero becomes a positive
+// zero the moment it enters an accumulator, so a dot product cannot tell a
+// working sign bit from a broken one.
+//
+// The vectorized load path shares f16_to_f32 and bf16_to_f32 with this one, so
+// what it adds is the ushort4 access and the component mapping. A permutation
+// there changes the sum of any dot product whose inputs differ per lane, which
+// is what the GEMV tests measure.
+template <class W>
+__device__ __forceinline__ void WeightConvertProbeImpl(
+    const typename W::storage_t* __restrict__ w,
+    float* __restrict__ out,
+    int n
+) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
+        out[i] = W::load1(w, i);
+    }
+}
+
+#define WCONV_PARAMS(W) (const W::storage_t* __restrict__ w, float* __restrict__ out, int n)
+WEIGHT_KERNELS(WeightConvertProbe, WCONV_PARAMS, (w, out, n))
+
 // 1. Embedding lookup on GPU
 template <class W>
 __device__ __forceinline__ void EmbeddingLookupImpl(
@@ -113,7 +140,11 @@ __device__ __forceinline__ void EmbeddingLookupImpl(
 ) {
     int tok = *token_id;
     const typename W::storage_t* row = embed_table + tok * hidden_dim;
-    int dim4 = hidden_dim / 4;
+    // The row for token tok starts hidden_dim elements in, so it is vector
+    // aligned only when hidden_dim is a multiple of four. Token 0 always is;
+    // any later token is not, which is why an unguarded load here faults on the
+    // second token rather than the first.
+    int dim4 = W::aligned4(row) ? hidden_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
         reinterpret_cast<float4*>(out)[i] = W::load4(row, i);
