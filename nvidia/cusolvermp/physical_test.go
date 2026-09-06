@@ -211,10 +211,10 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 
 	// Scatter is collective: every rank calls it, the host buffer is read on
 	// rank 0 only.
-	if err := cusolvermp.MatrixScatterH2D(handle, n, n, dA, 1, 1, descA, 0, hA, n); err != nil {
+	if err := cusolvermp.MatrixScatterH2D(handle, n, n, dA, 1, 1, descA, 0, cusolvermp.HostPtr(uintptr(hA)), n); err != nil {
 		t.Fatalf("scatter A: %v", err)
 	}
-	if err := cusolvermp.MatrixScatterH2D(handle, n, nrhs, dB, 1, 1, descB, 0, hB, n); err != nil {
+	if err := cusolvermp.MatrixScatterH2D(handle, n, nrhs, dB, 1, 1, descB, 0, cusolvermp.HostPtr(uintptr(hB)), n); err != nil {
 		t.Fatalf("scatter B: %v", err)
 	}
 
@@ -239,7 +239,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	hWork := hostAllocOrFail(t, max(hostBytes, 1))
 	defer driver.MemFreeHost(uintptr(hWork))
 
-	if err := cusolvermp.Getrf(handle, n, n, dA, 1, 1, descA, dIpiv, cusolvermp.R64F, dWork, deviceBytes, hWork, hostBytes, dInfo); err != nil {
+	if err := cusolvermp.Getrf(handle, n, n, dA, 1, 1, descA, dIpiv, cusolvermp.R64F, dWork, deviceBytes, cusolvermp.HostPtr(uintptr(hWork)), hostBytes, dInfo); err != nil {
 		t.Fatalf("getrf: %v", err)
 	}
 	if err := stream.Synchronize(); err != nil {
@@ -249,7 +249,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("getrf reported info = %d; a positive value is the one-based index of a zero pivot", info)
 	}
 
-	if err := cusolvermp.Getrs(handle, cusolvermp.OpN, n, nrhs, dA, 1, 1, descA, dIpiv, dB, 1, 1, descB, cusolvermp.R64F, dWork, deviceBytes, hWork, hostBytes, dInfo); err != nil {
+	if err := cusolvermp.Getrs(handle, cusolvermp.OpN, n, nrhs, dA, 1, 1, descA, dIpiv, dB, 1, 1, descB, cusolvermp.R64F, dWork, deviceBytes, cusolvermp.HostPtr(uintptr(hWork)), hostBytes, dInfo); err != nil {
 		t.Fatalf("getrs: %v", err)
 	}
 	if err := stream.Synchronize(); err != nil {
@@ -259,7 +259,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		t.Fatalf("getrs reported info = %d", info)
 	}
 
-	if err := cusolvermp.MatrixGatherD2H(handle, n, nrhs, dB, 1, 1, descB, 0, hB, n); err != nil {
+	if err := cusolvermp.MatrixGatherD2H(handle, n, nrhs, dB, 1, 1, descB, 0, cusolvermp.HostPtr(uintptr(hB)), n); err != nil {
 		t.Fatalf("gather X: %v", err)
 	}
 	if err := stream.Synchronize(); err != nil {
@@ -325,13 +325,15 @@ func mallocOrFail(t *testing.T, size uint) cusolvermp.DevicePtr {
 	return cusolvermp.DevicePtr(ptr)
 }
 
-func hostAllocOrFail(t *testing.T, size uint) cusolvermp.HostPtr {
+func hostAllocOrFail(t *testing.T, size uint) unsafe.Pointer {
 	t.Helper()
-	var p uintptr
-	if err := driver.MemAllocHost(&p, size); err != nil {
+	// The native output is void*: receive it into pointer-typed storage and
+	// retain that pointer until MemFreeHost. The binding names the output uintptr.
+	var p unsafe.Pointer
+	if err := driver.MemAllocHost((*uintptr)(unsafe.Pointer(&p)), size); err != nil {
 		t.Fatalf("allocate %d host bytes: %v", size, err)
 	}
-	return cusolvermp.HostPtr(p)
+	return p
 }
 
 // readInfo copies the device int the factorization and the solve report their
@@ -346,13 +348,9 @@ func readInfo(t *testing.T, dInfo cusolvermp.DevicePtr) int32 {
 	return info
 }
 
-// hostFloats views a page-locked host allocation as a float64 slice. The
-// conversion from an address is confined to this one place: the memory comes
-// from driver.MemAllocHost, so it is not Go memory, the collector never moves
-// it, and driver.MemFreeHost is what ends its lifetime. go vet's unsafeptr
-// check cannot see that and reports the conversion.
-func hostFloats(p cusolvermp.HostPtr, n int64) []float64 {
-	return unsafe.Slice((*float64)(unsafe.Pointer(uintptr(p))), n)
+// hostFloats views the native host allocation while it remains owned by the test.
+func hostFloats(p unsafe.Pointer, n int64) []float64 {
+	return unsafe.Slice((*float64)(p), n)
 }
 
 func max64(a, b int64) int64 {
