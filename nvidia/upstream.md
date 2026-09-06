@@ -79,6 +79,16 @@ manifests retrieved again. Matching bytes from a rerun says the recorded inputs
 and command produce the shipped output on the recorded toolchain. It says
 nothing about runtime support.
 
+That statement held when the record was made. Integrating the platform
+loader afterwards rewrote `init.gen.go` in eight of the thirteen -- cuBLASMp,
+cuDensityMat, cuSolverMp, cuStateVec, cuTensorNet, DCGM, nvCOMP and nvJPEG2000
+-- and added `loader_unix.gen.go` and `loader_windows.gen.go` to each of them;
+the nvJitLink unversioned-symbol fallback rewrote `init.gen.go` once more in
+nvJitLink. The recorded digest for each of those files is the integrated
+file, not the file the pinned codegen commit emits, and each entry is now
+`generation-partially-reproduced` with a `note` saying so. Every other recorded
+output still reproduces.
+
 NVDEC is recorded as `generation-partially-reproduced`. Its default pass was
 rerun and matched, but its seven `*_windows.gen.go` outputs come from a second
 pass that needs a MinGW cross-compiler and Wine. That pass was not run here, so
