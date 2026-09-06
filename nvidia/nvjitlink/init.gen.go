@@ -193,16 +193,26 @@ func libraryNames() []string {
 // library, recording whether the symbol resolved. Symbols absent from the
 // loaded version are left unbound so the package still works against older
 // releases; calling one returns *SymbolError rather than panicking.
-func register(fn interface{}, symbol string) {
+//
+// A function may name several symbols. The first is the versioned symbol the
+// header pinned when this package was generated; the rest are spellings the
+// same header declares for it, which a library built from a different
+// toolkit exports instead. The first symbol the library exports wins, and
+// presence is recorded under the first name so that the presence predicates
+// do not depend on which spelling resolved.
+func register(fn interface{}, symbols ...string) {
 	if lib == 0 {
 		return
 	}
-	sym, err := lookupLibrarySymbol(lib, symbol)
-	if err != nil || sym == 0 {
+	for _, symbol := range symbols {
+		sym, err := lookupLibrarySymbol(lib, symbol)
+		if err != nil || sym == 0 {
+			continue
+		}
+		purego.RegisterFunc(fn, sym)
+		present[symbols[0]] = true
 		return
 	}
-	purego.RegisterFunc(fn, sym)
-	present[symbol] = true
 }
 
 // ptrAdd advances a byte pointer by n bytes.
@@ -236,19 +246,19 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnaddData, "__nvJitLinkAddData_13_0")
-	register(&fnaddFile, "__nvJitLinkAddFile_13_0")
-	register(&fncomplete, "__nvJitLinkComplete_13_0")
-	register(&fnCreate, "__nvJitLinkCreate_13_0")
-	register(&fnDestroy, "__nvJitLinkDestroy_13_0")
-	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_0")
-	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_0")
-	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_0")
-	register(&fngetInfoLogSize, "__nvJitLinkGetInfoLogSize_13_0")
-	register(&fngetLinkedCubin, "__nvJitLinkGetLinkedCubin_13_0")
-	register(&fngetLinkedCubinSize, "__nvJitLinkGetLinkedCubinSize_13_0")
-	register(&fngetLinkedPtx, "__nvJitLinkGetLinkedPtx_13_0")
-	register(&fngetLinkedPtxSize, "__nvJitLinkGetLinkedPtxSize_13_0")
+	register(&fnaddData, "__nvJitLinkAddData_13_0", "nvJitLinkAddData")
+	register(&fnaddFile, "__nvJitLinkAddFile_13_0", "nvJitLinkAddFile")
+	register(&fncomplete, "__nvJitLinkComplete_13_0", "nvJitLinkComplete")
+	register(&fnCreate, "__nvJitLinkCreate_13_0", "nvJitLinkCreate")
+	register(&fnDestroy, "__nvJitLinkDestroy_13_0", "nvJitLinkDestroy")
+	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_0", "nvJitLinkGetErrorLog")
+	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_0", "nvJitLinkGetErrorLogSize")
+	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_0", "nvJitLinkGetInfoLog")
+	register(&fngetInfoLogSize, "__nvJitLinkGetInfoLogSize_13_0", "nvJitLinkGetInfoLogSize")
+	register(&fngetLinkedCubin, "__nvJitLinkGetLinkedCubin_13_0", "nvJitLinkGetLinkedCubin")
+	register(&fngetLinkedCubinSize, "__nvJitLinkGetLinkedCubinSize_13_0", "nvJitLinkGetLinkedCubinSize")
+	register(&fngetLinkedPtx, "__nvJitLinkGetLinkedPtx_13_0", "nvJitLinkGetLinkedPtx")
+	register(&fngetLinkedPtxSize, "__nvJitLinkGetLinkedPtxSize_13_0", "nvJitLinkGetLinkedPtxSize")
 	register(&fnVersion, "nvJitLinkVersion")
 }
 
