@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	libmetal "github.com/tmc/lib/apple/x/metal"
@@ -122,8 +123,10 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	}
 	oracleDir := os.Getenv("DS4_LAYER0_ORACLE_DIR")
 	if oracleDir == "" {
+		requireNoDependentOracles(t)
 		t.Skip("layer 0 oracle directory not set")
 	}
+	requireOraclePopulated(t, "DS4_LAYER0_ORACLE_DIR", oracleDir)
 	bind := func(name string) boundMetalTensor {
 		t.Helper()
 		tensor, err := views.Bind(g, name)
@@ -1369,5 +1372,48 @@ func runPinnedCompressorState(t *testing.T, ops *metalPinnedOps, bind func(strin
 				}
 			})
 		}
+	}
+}
+
+// dependentOracleVars name the oracle roots whose gates are layered on the
+// layer-0 comparison. Setting one of them expresses an intent to measure, so
+// reaching the layer-0 skip with one of them set means the run is silently
+// weaker than the operator asked for.
+var dependentOracleVars = []string{
+	"DS4_ALL_LAYERS_ORACLE_DIR",
+	"DS4_COMPRESSOR_ORACLE_DIR",
+	"DS4_POS_ORACLE_DIR",
+	"DS4_TRANSITION_ORACLE_ROOT",
+}
+
+// requireNoDependentOracles fails a partially supplied oracle environment
+// rather than skipping it. A skip here reports success for a run that compared
+// nothing, which is the shape that produced three false greens earlier in this
+// project.
+func requireNoDependentOracles(t *testing.T) {
+	t.Helper()
+	var set []string
+	for _, name := range dependentOracleVars {
+		if os.Getenv(name) != "" {
+			set = append(set, name)
+		}
+	}
+	if len(set) > 0 {
+		t.Fatalf("partial oracle environment: %s set without DS4_LAYER0_ORACLE_DIR; "+
+			"refusing to report a pass for a run that compares nothing", strings.Join(set, ", "))
+	}
+}
+
+// requireOraclePopulated rejects an oracle root that is missing or empty. The
+// per-file reads would fail anyway, but they fail one comparison at a time and
+// name a single path; naming the root is what an operator can act on.
+func requireOraclePopulated(t *testing.T, name, dir string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("%s = %q: %v", name, dir, err)
+	}
+	if len(entries) == 0 {
+		t.Fatalf("%s = %q is empty", name, dir)
 	}
 }
