@@ -209,9 +209,9 @@ var (
 //   - config: A pointer to [ActivityPCSamplingConfig] structure containing PC sampling configuration
 //
 // Returns:
-//   - ErrorInvalidOperation: if this api is called while some valid event collection method is set.
-//   - ErrorInvalidParameter: if config is NULL or any parameter in the config structures is not a valid value
-//   - ErrorNotSupported: Indicates that the system/device does not support the unified memory counters
+//   - [ErrInvalidOperation]: if this api is called while some valid event collection method is set.
+//   - [ErrInvalidParameter]: if config is NULL or any parameter in the config structures is not a valid value
+//   - [ErrNotSupported]: Indicates that the system/device does not support the unified memory counters
 //
 // Wraps cuptiActivityConfigurePCSampling.
 func ActivityConfigurePCSampling(ctx Context, config *ActivityPCSamplingConfig) error {
@@ -229,10 +229,10 @@ func ActivityConfigurePCSampling(ctx Context, config *ActivityPCSamplingConfig) 
 //   - count: Number of Unified Memory counter configuration structures
 //
 // Returns:
-//   - ErrorInvalidParameter: if config is NULL or any parameter in the config structures is not a valid value
-//   - ErrorUmProfilingNotSupported: One potential reason is that platform (OS/arch) does not support the unified memory counters
-//   - ErrorUmProfilingNotSupportedOnDevice: Indicates that the device does not support the unified memory counters
-//   - ErrorUmProfilingNotSupportedOnNonP2PDevices: Indicates that multi-GPU configuration without P2P support between any pair of devices does not support the unified memory counters
+//   - [ErrInvalidParameter]: if config is NULL or any parameter in the config structures is not a valid value
+//   - [ErrUmProfilingNotSupported]: One potential reason is that platform (OS/arch) does not support the unified memory counters
+//   - [ErrUmProfilingNotSupportedOnDevice]: Indicates that the device does not support the unified memory counters
+//   - [ErrUmProfilingNotSupportedOnNonP2PDevices]: Indicates that multi-GPU configuration without P2P support between any pair of devices does not support the unified memory counters
 //
 // Wraps cuptiActivityConfigureUnifiedMemoryCounter.
 func ActivityConfigureUnifiedMemoryCounter(config *ActivityUnifiedMemoryCounterConfig, count uint32) error {
@@ -249,7 +249,7 @@ func ActivityConfigureUnifiedMemoryCounter(config *ActivityUnifiedMemoryCounterC
 //   - kind: The kind of activity record to stop collecting
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
+//   - [ErrInvalidKind]: if the activity kind is not supported
 //
 // Wraps cuptiActivityDisable.
 func ActivityDisable(kind ActivityKind) error {
@@ -267,7 +267,7 @@ func ActivityDisable(kind ActivityKind) error {
 //   - kind: The kind of activity record to stop collecting
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
+//   - [ErrInvalidKind]: if the activity kind is not supported
 //
 // Wraps cuptiActivityDisableContext.
 func ActivityDisableContext(context Context, kind ActivityKind) error {
@@ -286,7 +286,7 @@ func ActivityDisableContext(context Context, kind ActivityKind) error {
 //   - pActivityConfig: The activity config. It can be NULL
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
+//   - [ErrInvalidKind]: if the activity kind is not supported
 //
 // Wraps cuptiActivityDisable_v2.
 func activityDisableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig *ActivityConfig) error {
@@ -303,8 +303,8 @@ func activityDisableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig
 //   - kind: The kind of activity record to collect
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
-//   - ErrorNotCompatible: if the activity kind cannot be enabled
+//   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotCompatible]: if the activity kind cannot be enabled
 //
 // Wraps cuptiActivityEnable.
 func ActivityEnable(kind ActivityKind) error {
@@ -357,9 +357,9 @@ func ActivityEnableAllocationSource(enable uint8) error {
 //   - kind: The kind of activity record to collect
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
-//   - ErrorNotCompatible: if the activity kind cannot be enabled
-//   - ErrorUnknown: if buffer is not initialized.
+//   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotCompatible]: if the activity kind cannot be enabled
+//   - [ErrUnknown]: if buffer is not initialized.
 //
 // Wraps cuptiActivityEnableAndDump.
 func ActivityEnableAndDump(kind ActivityKind) error {
@@ -378,9 +378,9 @@ func ActivityEnableAndDump(kind ActivityKind) error {
 //   - activityConfig: The activity config. It can be NULL
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
-//   - ErrorNotCompatible: if the activity kind cannot be enabled
-//   - ErrorUnknown: if buffer is not initialized.
+//   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotCompatible]: if the activity kind cannot be enabled
+//   - [ErrUnknown]: if buffer is not initialized.
 //
 // Wraps cuptiActivityEnableAndDump_v2.
 func activityEnableAndDumpV2(subscriber Subscriber, kind ActivityKind, activityConfig *ActivityConfig) error {
@@ -398,8 +398,8 @@ func activityEnableAndDumpV2(subscriber Subscriber, kind ActivityKind, activityC
 //   - kind: The kind of activity record to collect
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
-//   - ErrorNotCompatible: if the activity kind cannot be enabled
+//   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotCompatible]: if the activity kind cannot be enabled
 //
 // Wraps cuptiActivityEnableContext.
 func ActivityEnableContext(context Context, kind ActivityKind) error {
@@ -471,7 +471,7 @@ func ActivityEnableDriverApi(cbid uint32, enable uint8) error {
 //   - enable: is a boolean flag to enable (true) HES-based timestamp collection
 //
 // Returns:
-//   - ErrorNotSupported: if HW trace cannot be enabled on the current platform
+//   - [ErrNotSupported]: if HW trace cannot be enabled on the current platform
 //
 // Wraps cuptiActivityEnableHWTrace.
 func ActivityEnableHWTrace(enable uint8) error {
@@ -541,8 +541,8 @@ func ActivityEnableRuntimeApi(cbid uint32, enable uint8) error {
 //   - pActivityConfig: The activity config. It can be NULL
 //
 // Returns:
-//   - ErrorInvalidKind: if the activity kind is not supported
-//   - ErrorNotCompatible: if the activity kind cannot be enabled
+//   - [ErrInvalidKind]: if the activity kind is not supported
+//   - [ErrNotCompatible]: if the activity kind cannot be enabled
 //
 // Wraps cuptiActivityEnable_v2.
 func activityEnableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig *ActivityConfig) error {
@@ -561,8 +561,8 @@ func activityEnableV2(subscriber Subscriber, kind ActivityKind, pActivityConfig 
 //   - flag: The flag can be set to indicate a forced flush. See [ActivityFlag]
 //
 // Returns:
-//   - ErrorCuptiErrorInvalidOperation: if not preceded by a successful call to [ActivityRegisterCallbacks]
-//   - ErrorUnknown: an internal error occurred
+//   - CUPTI_ERROR_CUPTI_ERROR_INVALID_OPERATION: if not preceded by a successful call to [ActivityRegisterCallbacks]
+//   - [ErrUnknown]: an internal error occurred
 //
 // Deprecated: DEPRECATED This method is deprecated CONTEXT and STREAMID will be ignored. Use [ActivityFlushAll] to flush all data.
 //
@@ -581,8 +581,8 @@ func ActivityFlush(context Context, streamId uint32, flag uint32) error {
 //   - flag: The flag can be set to indicate a forced flush. See [ActivityFlag]
 //
 // Returns:
-//   - ErrorInvalidOperation: if not preceded by a successful call to [ActivityRegisterCallbacks]
-//   - ErrorUnknown: an internal error occurred
+//   - [ErrInvalidOperation]: if not preceded by a successful call to [ActivityRegisterCallbacks]
+//   - [ErrUnknown]: an internal error occurred
 //
 // Wraps cuptiActivityFlushAll.
 func ActivityFlushAll(flag uint32) error {
@@ -619,8 +619,8 @@ func ActivityFlushPeriod(time uint32) error {
 //   - value: Returns the value of the attribute
 //
 // Returns:
-//   - ErrorInvalidParameter: if valueSize or value is NULL, or if attr is not an activity attribute
-//   - ErrorParameterSizeNotSufficient: Indicates that the value buffer is too small to hold the attribute value.
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivityGetAttribute.
 func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -640,8 +640,8 @@ func ActivityGetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 //   - value: Returns the value of the attribute
 //
 // Returns:
-//   - ErrorInvalidParameter: if valueSize or value is NULL, or if attr is not an activity attribute
-//   - ErrorParameterSizeNotSufficient: Indicates that the value buffer is too small to hold the attribute value.
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivityGetAttribute_v2.
 func activityGetAttributeV2(subscriber Subscriber, attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -660,7 +660,7 @@ func activityGetAttributeV2(subscriber Subscriber, attr ActivityAttribute, value
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled activity kinds is returned in enabledKindsCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
 //
 // Returns:
-//   - ErrorInvalidParameter: if enabledKindsCount is NULL or if subscriber is invalid.
+//   - [ErrInvalidParameter]: if enabledKindsCount is NULL or if subscriber is invalid.
 //
 // Wraps cuptiActivityGetEnabledKinds.
 func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, bufferSize *uint32) (uint32, error) {
@@ -685,9 +685,9 @@ func activityGetEnabledKinds(subscriber Subscriber, buffer *ActivityKind, buffer
 //   - record: Inputs the previous record returned by [ActivityGetNextRecord] and returns the next activity record from the buffer. If input value is NULL, returns the first activity record in the buffer. Records of certain kinds like [ActivityKindConcurrentKernel] may contain invalid (0) timestamps, indicating that no timing information could be collected for lack of device memory
 //
 // Returns:
-//   - ErrorInvalidKind: if activity record is either incomplete or invalid
-//   - ErrorInvalidParameter: if buffer is NULL.
-//   - ErrorMaxLimitReached: if no more records in the buffer
+//   - [ErrInvalidKind]: if activity record is either incomplete or invalid
+//   - [ErrInvalidParameter]: if buffer is NULL.
+//   - [ErrMaxLimitReached]: if no more records in the buffer
 //
 // Wraps cuptiActivityGetNextRecord.
 func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Activity) error {
@@ -705,7 +705,7 @@ func ActivityGetNextRecord(buffer *uint8, validBufferSizeBytes uint, record **Ac
 //   - streamId: The stream ID
 //
 // Returns:
-//   - ErrorInvalidParameter: if dropped is NULL
+//   - [ErrInvalidParameter]: if dropped is NULL
 //
 // Wraps cuptiActivityGetNumDroppedRecords.
 func ActivityGetNumDroppedRecords(context Context, streamId uint32) (uint, error) {
@@ -729,9 +729,9 @@ func ActivityGetNumDroppedRecords(context Context, streamId uint32) (uint, error
 //   - version: The version of the CUPTI API. If 0, returns size for current version. If non-zero, returns size for the specified version. The version format is xxyyzz, e.g., 130000 for CUPTI 13.0, 130100 for CUPTI 13.1. The version of CUPTI can be queried using [GetVersion] API. Only versions >= 130000 are supported
 //
 // Returns:
-//   - ErrorInvalidKind: if activityKind is invalid.
-//   - ErrorInvalidParameter: if activityStructSize is NULL
-//   - ErrorNotSupported: if version is non-zero and is less than 130000.
+//   - [ErrInvalidKind]: if activityKind is invalid.
+//   - [ErrInvalidParameter]: if activityStructSize is NULL
+//   - [ErrNotSupported]: if version is non-zero and is less than 130000.
 //
 // Wraps cuptiActivityGetStructSize.
 func ActivityGetStructSize(activityKind ActivityKind, version uint32) (uint, error) {
@@ -754,8 +754,8 @@ func ActivityGetStructSize(activityKind ActivityKind, version uint32) (uint, err
 //   - kind: The kind of external API activities should be correlated with
 //
 // Returns:
-//   - ErrorInvalidParameter: The external API kind is invalid.
-//   - ErrorQueueEmpty: No external id is currently associated with kind.
+//   - [ErrInvalidParameter]: The external API kind is invalid.
+//   - [ErrQueueEmpty]: No external id is currently associated with kind.
 //
 // Wraps cuptiActivityPopExternalCorrelationId.
 func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, error) {
@@ -779,7 +779,7 @@ func ActivityPopExternalCorrelationId(kind ExternalCorrelationKind) (uint64, err
 //   - id: External correlation id
 //
 // Returns:
-//   - ErrorInvalidParameter: The external API kind is invalid
+//   - [ErrInvalidParameter]: The external API kind is invalid
 //
 // Wraps cuptiActivityPushExternalCorrelationId.
 func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) error {
@@ -797,7 +797,7 @@ func ActivityPushExternalCorrelationId(kind ExternalCorrelationKind, id uint64) 
 //   - funcBufferCompleted: callback which is invoked when a buffer containing activity records is available from CUPTI (see [BuffersCallbackCompleteFunc])
 //
 // Returns:
-//   - ErrorInvalidParameter: if either funcBufferRequested or funcBufferCompleted is NULL
+//   - [ErrInvalidParameter]: if either funcBufferRequested or funcBufferCompleted is NULL
 //
 // Wraps cuptiActivityRegisterCallbacks.
 func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted uintptr) error {
@@ -816,7 +816,7 @@ func ActivityRegisterCallbacks(funcBufferRequested uintptr, funcBufferCompleted 
 //   - funcBufferCompleted: callback which is invoked when a buffer containing activity records is available from CUPTI (see [BuffersCallbackCompleteFuncV2])
 //
 // Returns:
-//   - ErrorInvalidParameter: if either funcBufferRequested or funcBufferCompleted_v2 is NULL
+//   - [ErrInvalidParameter]: if either funcBufferRequested or funcBufferCompleted_v2 is NULL
 //
 // Wraps cuptiActivityRegisterCallbacks_v2.
 func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uintptr, funcBufferCompleted uintptr) error {
@@ -833,7 +833,7 @@ func activityRegisterCallbacksV2(subscriber Subscriber, funcBufferRequested uint
 //   - funcTimestamp: callback which is invoked when a timestamp is needed by CUPTI (see [TimestampCallbackFunc])
 //
 // Returns:
-//   - ErrorInvalidParameter: if funcTimestamp is NULL
+//   - [ErrInvalidParameter]: if funcTimestamp is NULL
 //
 // Wraps cuptiActivityRegisterTimestampCallback.
 func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
@@ -852,9 +852,9 @@ func ActivityRegisterTimestampCallback(funcTimestamp uintptr) error {
 //   - value: The attribute value to write
 //
 // Returns:
-//   - ErrorInvalidParameter: if valueSize or value is NULL, or if attr is not an activity attribute
-//   - ErrorNotSupported: if multiple subscribers are not allowed.
-//   - ErrorParameterSizeNotSufficient: Indicates that the value buffer is too small to hold the attribute value.
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrNotSupported]: if multiple subscribers are not allowed.
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivitySetAttribute.
 func ActivitySetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -874,8 +874,8 @@ func ActivitySetAttribute(attr ActivityAttribute, valueSize *uint, value unsafe.
 //   - value: The attribute value to write
 //
 // Returns:
-//   - ErrorInvalidParameter: if valueSize or value is NULL, or if attr is not an activity attribute
-//   - ErrorParameterSizeNotSufficient: Indicates that the value buffer is too small to hold the attribute value.
+//   - [ErrInvalidParameter]: if valueSize or value is NULL, or if attr is not an activity attribute
+//   - [ErrParameterSizeNotSufficient]: Indicates that the value buffer is too small to hold the attribute value.
 //
 // Wraps cuptiActivitySetAttribute_v2.
 func activitySetAttributeV2(subscriber Subscriber, attr ActivityAttribute, valueSize *uint, value unsafe.Pointer) error {
@@ -957,7 +957,7 @@ func CheckpointSave(handle *Checkpoint) error {
 //   - minor: The minor revision number of the compute capability
 //
 // Returns:
-//   - ErrorInvalidParameter: if support is NULL
+//   - [ErrInvalidParameter]: if support is NULL
 //
 // See also: [DeviceSupported]
 //
@@ -1159,8 +1159,8 @@ func DeviceGetNumMetrics(device Device) (uint32, error) {
 //   - dev: The device handle returned by CUDA Driver API cuDeviceGet
 //
 // Returns:
-//   - ErrorInvalidDevice: if dev is not a valid device
-//   - ErrorInvalidParameter: if support is NULL
+//   - [ErrInvalidDevice]: if dev is not a valid device
+//   - [ErrInvalidParameter]: if support is NULL
 //
 // See also: [ComputeCapabilitySupported]
 //
@@ -1186,8 +1186,8 @@ func DeviceSupported(dev Device) (int32, error) {
 //   - mode: Pointer to an [VirtualizationMode] to return the virtualization mode
 //
 // Returns:
-//   - ErrorInvalidDevice: if dev is not a valid device
-//   - ErrorInvalidParameter: if mode is NULL
+//   - [ErrInvalidDevice]: if dev is not a valid device
+//   - [ErrInvalidParameter]: if mode is NULL
 //
 // Wraps cuptiDeviceVirtualizationMode.
 func DeviceVirtualizationMode(dev Device, mode *VirtualizationMode) error {
@@ -1227,9 +1227,9 @@ func DisableKernelReplayMode(context Context) error {
 //   - subscriber: Handle to callback subscription
 //
 // Returns:
-//   - ErrorInvalidParameter: if subscriber is invalid
-//   - ErrorNotInitialized: if unable to initialized CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if subscriber is invalid
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiEnableAllDomains.
 func enableAllDomains(enable uint32, subscriber Subscriber) error {
@@ -1249,9 +1249,9 @@ func enableAllDomains(enable uint32, subscriber Subscriber) error {
 //   - cbid: The ID of the callback
 //
 // Returns:
-//   - ErrorInvalidParameter: if subscriber, domain or cbid is invalid.
-//   - ErrorNotInitialized: if unable to initialized CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if subscriber, domain or cbid is invalid.
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiEnableCallback.
 func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain, cbid uint32) error {
@@ -1270,9 +1270,9 @@ func enableCallback(enable uint32, subscriber Subscriber, domain CallbackDomain,
 //   - domain: The domain of the callback
 //
 // Returns:
-//   - ErrorInvalidParameter: if subscriber or domain is invalid
-//   - ErrorNotInitialized: if unable to initialized CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if subscriber or domain is invalid
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiEnableDomain.
 func enableDomain(enable uint32, subscriber Subscriber, domain CallbackDomain) error {
@@ -2011,9 +2011,9 @@ func Finalize() error {
 //   - state: A pointer to [ActivityAutoBoostState] structure which contains the current state and the id of the process that has requested the current state
 //
 // Returns:
-//   - ErrorInvalidParameter: if [Context] or state is NULL
-//   - ErrorNotSupported: Indicates that the device does not support auto boost
-//   - ErrorUnknown: an internal error occurred
+//   - [ErrInvalidParameter]: if [Context] or state is NULL
+//   - [ErrNotSupported]: Indicates that the device does not support auto boost
+//   - [ErrUnknown]: an internal error occurred
 //
 // Wraps cuptiGetAutoBoostState.
 func GetAutoBoostState(context Context, state *ActivityAutoBoostState) error {
@@ -2032,8 +2032,8 @@ func GetAutoBoostState(context Context, state *ActivityAutoBoostState) error {
 //   - name: Returns pointer to the name string on success, NULL otherwise
 //
 // Returns:
-//   - ErrorInvalidParameter: if name is NULL, or if domain or cbid is invalid.
-//   - Success: on success
+//   - [ErrInvalidParameter]: if name is NULL, or if domain or cbid is invalid.
+//   - [Success]: on success
 //
 // Wraps cuptiGetCallbackName.
 func GetCallbackName(domain CallbackDomain, cbid uint32) (string, error) {
@@ -2057,9 +2057,9 @@ func GetCallbackName(domain CallbackDomain, cbid uint32) (string, error) {
 //   - cbid: The ID of the callback
 //
 // Returns:
-//   - ErrorInvalidParameter: if enabled is NULL, or if subscriber, domain or cbid is invalid.
-//   - ErrorNotInitialized: if unable to initialized CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if enabled is NULL, or if subscriber, domain or cbid is invalid.
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiGetCallbackState.
 func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32) (uint32, error) {
@@ -2080,8 +2080,8 @@ func getCallbackState(subscriber Subscriber, domain CallbackDomain, cbid uint32)
 //   - context: The context
 //
 // Returns:
-//   - ErrorInvalidContext: The context is NULL or not valid.
-//   - ErrorInvalidParameter: if contextId is NULL
+//   - [ErrInvalidContext]: The context is NULL or not valid.
+//   - [ErrInvalidParameter]: if contextId is NULL
 //
 // Wraps cuptiGetContextId.
 func GetContextId(context Context) (uint32, error) {
@@ -2104,7 +2104,7 @@ func GetContextId(context Context) (uint32, error) {
 //   - pParams: A pointer to [GetCubinCrcParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if parameter cubin is NULL or provided cubinSize is zero or size field is not set.
+//   - [ErrInvalidParameter]: if parameter cubin is NULL or provided cubinSize is zero or size field is not set.
 //
 // Wraps cuptiGetCubinCrc.
 func GetCubinCrc(pParams *GetCubinCrcParams) error {
@@ -2121,8 +2121,8 @@ func GetCubinCrc(pParams *GetCubinCrcParams) error {
 //   - context: The context, or NULL to indicate the current context
 //
 // Returns:
-//   - ErrorInvalidDevice: if unable to get device ID
-//   - ErrorInvalidParameter: if deviceId is NULL
+//   - [ErrInvalidDevice]: if unable to get device ID
+//   - [ErrInvalidParameter]: if deviceId is NULL
 //
 // Wraps cuptiGetDeviceId.
 func GetDeviceId(context Context) (uint32, error) {
@@ -2148,7 +2148,7 @@ func GetDeviceId(context Context) (uint32, error) {
 //   - bufferSize: The size of the buffer. If NULL, only the number of enabled callbacks is returned in enabledCallbacksCount. If NULL and buffer is not NULL, [ErrInvalidParameter] is returned
 //
 // Returns:
-//   - ErrorInvalidParameter: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.
+//   - [ErrInvalidParameter]: if enabledCallbacksCount is NULL, or if subscriber or domain is invalid.
 //
 // Wraps cuptiGetEnabledCallbacks.
 func getEnabledCallbacks(subscriber Subscriber, domain CallbackDomain, buffer *uint32, bufferSize *uint32) (uint32, error) {
@@ -2171,7 +2171,7 @@ func getEnabledCallbacks(subscriber Subscriber, domain CallbackDomain, buffer *u
 //   - graphExec: The executable graph
 //
 // Returns:
-//   - ErrorInvalidParameter: if graph is NULL
+//   - [ErrInvalidParameter]: if graph is NULL
 //
 // Wraps cuptiGetGraphExecId.
 func GetGraphExecId(graphExec GraphExec) (uint32, error) {
@@ -2194,7 +2194,7 @@ func GetGraphExecId(graphExec GraphExec) (uint32, error) {
 //   - graph: The graph
 //
 // Returns:
-//   - ErrorInvalidParameter: if graph is NULL
+//   - [ErrInvalidParameter]: if graph is NULL
 //
 // Wraps cuptiGetGraphId.
 func GetGraphId(graph Graph) (uint32, error) {
@@ -2217,7 +2217,7 @@ func GetGraphId(graph Graph) (uint32, error) {
 //   - node: The graph node
 //
 // Returns:
-//   - ErrorInvalidParameter: if node is NULL
+//   - [ErrInvalidParameter]: if node is NULL
 //
 // Wraps cuptiGetGraphNodeId.
 func GetGraphNodeId(node GraphNode) (uint64, error) {
@@ -2302,9 +2302,9 @@ func GetNumMetrics() (uint32, error) {
 //   - pParams: A pointer to [GetSassToSourceCorrelationParams]
 //
 // Returns:
-//   - ErrorInvalidModule: provided cubin is invalid.
-//   - ErrorInvalidParameter: if either of the parameters cubin or functionName is NULL or cubinSize is zero or size field is not set correctly.
-//   - ErrorUnknown: an internal error occurred. This error code is also used for cases when the function is not present in the module. A better error code will be returned in the future release.
+//   - [ErrInvalidModule]: provided cubin is invalid.
+//   - [ErrInvalidParameter]: if either of the parameters cubin or functionName is NULL or cubinSize is zero or size field is not set correctly.
+//   - [ErrUnknown]: an internal error occurred. This error code is also used for cases when the function is not present in the module. A better error code will be returned in the future release.
 //
 // Wraps cuptiGetSassToSourceCorrelation.
 func GetSassToSourceCorrelation(pParams *GetSassToSourceCorrelationParams) error {
@@ -2322,8 +2322,8 @@ func GetSassToSourceCorrelation(pParams *GetSassToSourceCorrelationParams) error
 //   - stream: The stream
 //
 // Returns:
-//   - ErrorInvalidParameter: if streamId is NULL
-//   - ErrorInvalidStream: if unable to get stream ID, or if context is non-NULL and stream does not belong to the context
+//   - [ErrInvalidParameter]: if streamId is NULL
+//   - [ErrInvalidStream]: if unable to get stream ID, or if context is non-NULL and stream does not belong to the context
 //
 // Deprecated: DEPRECATED This method is deprecated as of CUDA 8.0. Use method [GetStreamIdEx] instead.
 //
@@ -2350,8 +2350,8 @@ func GetStreamId(context Context, stream Stream) (uint32, error) {
 //   - perThreadStream: Flag to indicate if program is compiled for per-thread streams
 //
 // Returns:
-//   - ErrorInvalidParameter: if streamId is NULL
-//   - ErrorInvalidStream: if unable to get stream ID, or if context is non-NULL and stream does not belong to the context
+//   - [ErrInvalidParameter]: if streamId is NULL
+//   - [ErrInvalidStream]: if unable to get stream ID, or if context is non-NULL and stream does not belong to the context
 //
 // Wraps cuptiGetStreamIdEx.
 func GetStreamIdEx(context Context, stream Stream, perThreadStream uint8) (uint32, error) {
@@ -2372,7 +2372,7 @@ func GetStreamIdEx(context Context, stream Stream, perThreadStream uint8) (uint3
 // Returns the thread-id type used in CUPTI This API is not supported when multiple subscribers are allowed. Use the corresponding attribute instead: [ActivityAttrThreadIdType]
 //
 // Returns:
-//   - ErrorInvalidParameter: if type is NULL
+//   - [ErrInvalidParameter]: if type is NULL
 //
 // Wraps cuptiGetThreadIdType.
 func GetThreadIdType(type_ *ActivityThreadIdType) error {
@@ -2387,7 +2387,7 @@ func GetThreadIdType(type_ *ActivityThreadIdType) error {
 // Returns a timestamp normalized to correspond with the start and end timestamps reported in the CUPTI activity records. The timestamp is reported in nanoseconds.
 //
 // Returns:
-//   - ErrorInvalidParameter: if timestamp is NULL
+//   - [ErrInvalidParameter]: if timestamp is NULL
 //
 // Wraps cuptiGetTimestamp.
 func GetTimestamp() (uint64, error) {
@@ -2408,8 +2408,8 @@ func GetTimestamp() (uint64, error) {
 // Return the API version in *version. CUPTI_API_VERSION
 //
 // Returns:
-//   - ErrorInvalidParameter: if version is NULL previous6.11. CUPTI SASS Metrics API next7. Data Structures On this page 6.12.1. Macros 6.12.2. Functions 6.12.3. MacrosCUPTI_API_VERSION 6.12.4. FunctionscuptiGetVersion() NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
-//   - Success: on success
+//   - [ErrInvalidParameter]: if version is NULL previous6.11. CUPTI SASS Metrics API next7. Data Structures On this page 6.12.1. Macros 6.12.2. Functions 6.12.3. MacrosCUPTI_API_VERSION 6.12.4. FunctionscuptiGetVersion() NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
+//   - [Success]: on success
 //
 // Wraps cuptiGetVersion.
 func GetVersion() (uint32, error) {
@@ -2430,8 +2430,8 @@ func GetVersion() (uint32, error) {
 // This API returns true if a CUPTI library is already loaded by another CUPTI user by using any CUPTI API. This API returns false when CUPTI is finalized and there is no CUPTI currently loaded and active. Can be used to determine if it is safe to unload your CUPTI based tool. Note that this API itself does not load the CUPTI library, it merely checks if a CUPTI library is already loaded by another CUPTI user.
 //
 // Returns:
-//   - ErrorInvalidParameter: if isRunning is NULL.
-//   - ErrorUnknown: if an unknown error occurred.
+//   - [ErrInvalidParameter]: if isRunning is NULL.
+//   - [ErrUnknown]: if an unknown error occurred.
 //
 // Wraps cuptiIsTracingSessionRunning.
 func IsTracingSessionRunning() (uint8, error) {
@@ -2827,8 +2827,8 @@ func MetricGetValue2(metric uint32, eventIdArraySizeBytes uint, eventIdArray *ui
 //   - pParams: A pointer to [PCSamplingDisableParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingDisable.
 func PCSamplingDisable(pParams *PCSamplingDisableParams) error {
@@ -2843,8 +2843,8 @@ func PCSamplingDisable(pParams *PCSamplingDisableParams) error {
 //   - pParams: A pointer to [PCSamplingEnableParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingEnable.
 func PCSamplingEnable(pParams *PCSamplingEnableParams) error {
@@ -2859,10 +2859,10 @@ func PCSamplingEnable(pParams *PCSamplingEnableParams) error {
 //   - pParams: A pointer to [PCSamplingConfigurationInfoParams] containing PC sampling configuration
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called with some invalid attribute.
-//   - ErrorInvalidParameter: if attrib is not valid or any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
-//   - ErrorParameterSizeNotSufficient: indicates that the value buffer is too small to hold the attribute value
+//   - [ErrInvalidOperation]: if this API is called with some invalid attribute.
+//   - [ErrInvalidParameter]: if attrib is not valid or any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
+//   - [ErrParameterSizeNotSufficient]: indicates that the value buffer is too small to hold the attribute value
 //
 // Wraps cuptiPCSamplingGetConfigurationAttribute.
 func PCSamplingGetConfigurationAttribute(pParams *PCSamplingConfigurationInfoParams) error {
@@ -2879,10 +2879,10 @@ func PCSamplingGetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 //   - pParams: A pointer to [PCSamplingGetDataParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called without enabling PC sampling.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device
-//   - ErrorOutOfMemory: indicates that the HW buffer is full does not support the API
+//   - [ErrInvalidOperation]: if this API is called without enabling PC sampling.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device
+//   - [ErrOutOfMemory]: indicates that the HW buffer is full does not support the API
 //
 // Wraps cuptiPCSamplingGetData.
 func PCSamplingGetData(pParams *PCSamplingGetDataParams) error {
@@ -2897,8 +2897,8 @@ func PCSamplingGetData(pParams *PCSamplingGetDataParams) error {
 //   - pParams: A pointer to [PCSamplingGetNumStallReasonsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingGetNumStallReasons.
 func PCSamplingGetNumStallReasons(pParams *PCSamplingGetNumStallReasonsParams) error {
@@ -2913,8 +2913,8 @@ func PCSamplingGetNumStallReasons(pParams *PCSamplingGetNumStallReasonsParams) e
 //   - pParams: A pointer to [PCSamplingGetStallReasonsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingGetStallReasons.
 func PCSamplingGetStallReasons(pParams *PCSamplingGetStallReasonsParams) error {
@@ -2929,9 +2929,9 @@ func PCSamplingGetStallReasons(pParams *PCSamplingGetStallReasonsParams) error {
 //   - pParams: A pointer to [PCSamplingConfigurationInfoParams] containing PC sampling configuration
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called with some invalid attrib.
-//   - ErrorInvalidParameter: if attribute value is not valid or any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidOperation]: if this API is called with some invalid attrib.
+//   - [ErrInvalidParameter]: if attribute value is not valid or any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingSetConfigurationAttribute.
 func PCSamplingSetConfigurationAttribute(pParams *PCSamplingConfigurationInfoParams) error {
@@ -2948,9 +2948,9 @@ func PCSamplingSetConfigurationAttribute(pParams *PCSamplingConfigurationInfoPar
 //   - pParams: A pointer to [PCSamplingStartParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called with incorrect PC Sampling configuration.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidOperation]: if this API is called with incorrect PC Sampling configuration.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingStart.
 func PCSamplingStart(pParams *PCSamplingStartParams) error {
@@ -2967,9 +2967,9 @@ func PCSamplingStart(pParams *PCSamplingStartParams) error {
 //   - pParams: A pointer to [PCSamplingStopParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called with incorrect PC Sampling configuration.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device does not support the API
+//   - [ErrInvalidOperation]: if this API is called with incorrect PC Sampling configuration.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device does not support the API
 //
 // Wraps cuptiPCSamplingStop.
 func PCSamplingStop(pParams *PCSamplingStopParams) error {
@@ -2986,8 +2986,8 @@ func PCSamplingStop(pParams *PCSamplingStopParams) error {
 //   - pParams: A pointer to [PmSamplingCounterDataGetSampleInfoParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingCounterDataGetSampleInfo.
 func PmSamplingCounterDataGetSampleInfo(pParams *PmSamplingCounterDataGetSampleInfoParams) error {
@@ -3002,9 +3002,9 @@ func PmSamplingCounterDataGetSampleInfo(pParams *PmSamplingCounterDataGetSampleI
 //   - pParams: A pointer to [PmSamplingCounterDataImageInitializeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if PM sampling CounterDataInitialize is called without enabling PM sampling
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if PM sampling CounterDataInitialize is called without enabling PM sampling
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingCounterDataImageInitialize.
 func PmSamplingCounterDataImageInitialize(pParams *PmSamplingCounterDataImageInitializeParams) error {
@@ -3019,10 +3019,10 @@ func PmSamplingCounterDataImageInitialize(pParams *PmSamplingCounterDataImageIni
 //   - pParams: A pointer to [PmSamplingDecodeDataParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if PM sampling DecodeData is called without enabling PM sampling
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorOutOfMemory: if there is record overflow in the hardware buffer
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if PM sampling DecodeData is called without enabling PM sampling
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrOutOfMemory]: if there is record overflow in the hardware buffer
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingDecodeData.
 func PmSamplingDecodeData(pParams *PmSamplingDecodeDataParams) error {
@@ -3037,8 +3037,8 @@ func PmSamplingDecodeData(pParams *PmSamplingDecodeDataParams) error {
 //   - pParams: A pointer to [PmSamplingDisableParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingDisable.
 func PmSamplingDisable(pParams *PmSamplingDisableParams) error {
@@ -3053,11 +3053,11 @@ func PmSamplingDisable(pParams *PmSamplingDisableParams) error {
 //   - pParams: A pointer to [PmSamplingEnableParams]
 //
 // Returns:
-//   - ErrorInsufficientPrivileges: if the user does not have sufficient privileges to perform the operation
-//   - ErrorInvalidOperation: if PM sampling is already enabled on the device
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorOutOfMemory: if memory allocation fails while creating the PM sampling object
-//   - ErrorUnknown: for any internal error
+//   - [ErrInsufficientPrivileges]: if the user does not have sufficient privileges to perform the operation
+//   - [ErrInvalidOperation]: if PM sampling is already enabled on the device
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrOutOfMemory]: if memory allocation fails while creating the PM sampling object
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingEnable.
 func PmSamplingEnable(pParams *PmSamplingEnableParams) error {
@@ -3074,9 +3074,9 @@ func PmSamplingEnable(pParams *PmSamplingEnableParams) error {
 //   - pParams: A pointer to [PmSamplingGetCounterAvailabilityParams]
 //
 // Returns:
-//   - ErrorInsufficientPrivileges: if the user does not have sufficient privileges to perform the operation
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInsufficientPrivileges]: if the user does not have sufficient privileges to perform the operation
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingGetCounterAvailability.
 func PmSamplingGetCounterAvailability(pParams *PmSamplingGetCounterAvailabilityParams) error {
@@ -3091,8 +3091,8 @@ func PmSamplingGetCounterAvailability(pParams *PmSamplingGetCounterAvailabilityP
 //   - pParams: A pointer to [PmSamplingGetCounterDataInfoParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingGetCounterDataInfo.
 func PmSamplingGetCounterDataInfo(pParams *PmSamplingGetCounterDataInfoParams) error {
@@ -3109,9 +3109,9 @@ func PmSamplingGetCounterDataInfo(pParams *PmSamplingGetCounterDataInfoParams) e
 //   - pParams: A pointer to [PmSamplingGetCounterDataSizeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if PM sampling GetCounterDataSize is called without enabling PM sampling
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if PM sampling GetCounterDataSize is called without enabling PM sampling
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingGetCounterDataSize.
 func PmSamplingGetCounterDataSize(pParams *PmSamplingGetCounterDataSizeParams) error {
@@ -3126,8 +3126,8 @@ func PmSamplingGetCounterDataSize(pParams *PmSamplingGetCounterDataSizeParams) e
 //   - pParams: A pointer to [PmSamplingSetConfigParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: for config image which require multiple passes for data collection
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: for config image which require multiple passes for data collection
 //
 // Wraps cuptiPmSamplingSetConfig.
 func PmSamplingSetConfig(pParams *PmSamplingSetConfigParams) error {
@@ -3144,9 +3144,9 @@ func PmSamplingSetConfig(pParams *PmSamplingSetConfigParams) error {
 //   - pParams: A pointer to [PmSamplingStartParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if PM sampling Start is called without enabling PM sampling, and PM sampling is already started
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if PM sampling Start is called without enabling PM sampling, and PM sampling is already started
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingStart.
 func PmSamplingStart(pParams *PmSamplingStartParams) error {
@@ -3163,9 +3163,9 @@ func PmSamplingStart(pParams *PmSamplingStartParams) error {
 //   - pParams: A pointer to [PmSamplingStopParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if PM sampling Stop is called without enabling PM sampling, and PM sampling is already stopped
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if PM sampling Stop is called without enabling PM sampling, and PM sampling is already stopped
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiPmSamplingStop.
 func PmSamplingStop(pParams *PmSamplingStopParams) error {
@@ -3358,9 +3358,9 @@ func ProfilerGetCounterAvailability(pParams *ProfilerGetCounterAvailabilityParam
 //   - pParams: A pointer to [ProfilerHostConfigAddMetricsParams]
 //
 // Returns:
-//   - ErrorInvalidMetricName: if the metric name is not valid or not supported for the chip
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidMetricName]: if the metric name is not valid or not supported for the chip
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostConfigAddMetrics.
 func ProfilerHostConfigAddMetrics(pParams *ProfilerHostConfigAddMetricsParams) error {
@@ -3375,8 +3375,8 @@ func ProfilerHostConfigAddMetrics(pParams *ProfilerHostConfigAddMetricsParams) e
 //   - pParams: A pointer to [ProfilerHostDeinitializeParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostDeinitialize.
 func ProfilerHostDeinitialize(pParams *ProfilerHostDeinitializeParams) error {
@@ -3391,9 +3391,9 @@ func ProfilerHostDeinitialize(pParams *ProfilerHostDeinitializeParams) error {
 //   - pParams: A pointer to [ProfilerHostEvaluateToGpuValuesParams]
 //
 // Returns:
-//   - ErrorInvalidMetricName: if the metric name is not valid or not supported for the chip
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidMetricName]: if the metric name is not valid or not supported for the chip
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostEvaluateToGpuValues.
 func ProfilerHostEvaluateToGpuValues(pParams *ProfilerHostEvaluateToGpuValuesParams) error {
@@ -3408,8 +3408,8 @@ func ProfilerHostEvaluateToGpuValues(pParams *ProfilerHostEvaluateToGpuValuesPar
 //   - pParams: A pointer to [ProfilerHostGetBaseMetricsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetBaseMetrics.
 func ProfilerHostGetBaseMetrics(pParams *ProfilerHostGetBaseMetricsParams) error {
@@ -3426,8 +3426,8 @@ func ProfilerHostGetBaseMetrics(pParams *ProfilerHostGetBaseMetricsParams) error
 //   - pParams: A pointer to [ProfilerHostGetConfigImageParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetConfigImage.
 func ProfilerHostGetConfigImage(pParams *ProfilerHostGetConfigImageParams) error {
@@ -3444,8 +3444,8 @@ func ProfilerHostGetConfigImage(pParams *ProfilerHostGetConfigImageParams) error
 //   - pParams: A pointer to [ProfilerHostGetConfigImageSizeParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetConfigImageSize.
 func ProfilerHostGetConfigImageSize(pParams *ProfilerHostGetConfigImageSizeParams) error {
@@ -3462,8 +3462,8 @@ func ProfilerHostGetConfigImageSize(pParams *ProfilerHostGetConfigImageSizeParam
 //   - pParams: A pointer to [ProfilerHostGetMaxNumHardwareMetricsPerPassParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetMaxNumHardwareMetricsPerPass.
 func ProfilerHostGetMaxNumHardwareMetricsPerPass(pParams *ProfilerHostGetMaxNumHardwareMetricsPerPassParams) error {
@@ -3478,9 +3478,9 @@ func ProfilerHostGetMaxNumHardwareMetricsPerPass(pParams *ProfilerHostGetMaxNumH
 //   - pParams: A pointer to [ProfilerHostGetMetricPropertiesParams]
 //
 // Returns:
-//   - ErrorInvalidMetricName: if the metric name is not valid or not supported for the chip
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidMetricName]: if the metric name is not valid or not supported for the chip
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetMetricProperties.
 func ProfilerHostGetMetricProperties(pParams *ProfilerHostGetMetricPropertiesParams) error {
@@ -3497,8 +3497,8 @@ func ProfilerHostGetMetricProperties(pParams *ProfilerHostGetMetricPropertiesPar
 //   - pParams: A pointer to [ProfilerHostGetMetricsInSinglePassSetParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid also when either of pMetricsBuffer and pMetricsIndicesBuffer are NULL while the other is not NULL
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid also when either of pMetricsBuffer and pMetricsIndicesBuffer are NULL while the other is not NULL
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetMetricsInSinglePassSet.
 func ProfilerHostGetMetricsInSinglePassSet(pParams *ProfilerHostGetMetricsInSinglePassSetParams) error {
@@ -3513,8 +3513,8 @@ func ProfilerHostGetMetricsInSinglePassSet(pParams *ProfilerHostGetMetricsInSing
 //   - pParams: A pointer to [ProfilerHostGetNumOfPassesParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetNumOfPasses.
 func ProfilerHostGetNumOfPasses(pParams *ProfilerHostGetNumOfPassesParams) error {
@@ -3531,8 +3531,8 @@ func ProfilerHostGetNumOfPasses(pParams *ProfilerHostGetNumOfPassesParams) error
 //   - pParams: A pointer to [ProfilerHostGetRangeNameParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetRangeName.
 func ProfilerHostGetRangeName(pParams *ProfilerHostGetRangeNameParams) error {
@@ -3549,8 +3549,8 @@ func ProfilerHostGetRangeName(pParams *ProfilerHostGetRangeNameParams) error {
 //   - pParams: A pointer to [ProfilerHostGetSinglePassSetsParams] when ppSinglePassSets is NULL, the function will return the number of single pass metric sets and the caller needs to allocate the buffer for the single pass metric sets using the number of single pass metric sets. (i.e. ppSinglePassSets)
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetSinglePassSets.
 func ProfilerHostGetSinglePassSets(pParams *ProfilerHostGetSinglePassSetsParams) error {
@@ -3565,9 +3565,9 @@ func ProfilerHostGetSinglePassSets(pParams *ProfilerHostGetSinglePassSetsParams)
 //   - pParams: A pointer to [ProfilerHostGetSubMetricsParams]
 //
 // Returns:
-//   - ErrorInvalidMetricName: if the metric name is not valid or not supported for the chip
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidMetricName]: if the metric name is not valid or not supported for the chip
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetSubMetrics.
 func ProfilerHostGetSubMetrics(pParams *ProfilerHostGetSubMetricsParams) error {
@@ -3582,8 +3582,8 @@ func ProfilerHostGetSubMetrics(pParams *ProfilerHostGetSubMetricsParams) error {
 //   - pParams: A pointer to [ProfilerHostGetSupportedChipsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostGetSupportedChips.
 func ProfilerHostGetSupportedChips(pParams *ProfilerHostGetSupportedChipsParams) error {
@@ -3598,9 +3598,9 @@ func ProfilerHostGetSupportedChips(pParams *ProfilerHostGetSupportedChipsParams)
 //   - pParams: A pointer to [ProfilerHostInitializeParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotInitialized: if CUPTI could not dynamically load the nvperf* libraries. Ensure libnvperf_host.so and libnvperf_target.so, shipped alongside libcupti.so, are discoverable by the dynamic linker.
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotInitialized]: if CUPTI could not dynamically load the nvperf* libraries. Ensure libnvperf_host.so and libnvperf_target.so, shipped alongside libcupti.so, are discoverable by the dynamic linker.
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiProfilerHostInitialize.
 func ProfilerHostInitialize(pParams *ProfilerHostInitializeParams) error {
@@ -3615,7 +3615,7 @@ func ProfilerHostInitialize(pParams *ProfilerHostInitializeParams) error {
 // Loads the required libraries in the process address space. Sets up the hooks with the CUDA driver.
 //
 // Returns:
-//   - ErrorNotInitialized: if CUPTI could not dynamically load the nvperf* libraries. Ensure libnvperf_host.so and libnvperf_target.so, shipped alongside libcupti.so, are discoverable by the dynamic linker.
+//   - [ErrNotInitialized]: if CUPTI could not dynamically load the nvperf* libraries. Ensure libnvperf_host.so and libnvperf_target.so, shipped alongside libcupti.so, are discoverable by the dynamic linker.
 //
 // Wraps cuptiProfilerInitialize.
 func ProfilerInitialize(pParams *ProfilerInitializeParams) error {
@@ -3700,8 +3700,8 @@ func ProfilerUnsetConfig(pParams *ProfilerUnsetConfigParams) error {
 //   - pParams: A pointer to [RangeProfilerCounterDataGetRangeInfoParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerCounterDataGetRangeInfo.
 func RangeProfilerCounterDataGetRangeInfo(pParams *RangeProfilerCounterDataGetRangeInfoParams) error {
@@ -3716,9 +3716,9 @@ func RangeProfilerCounterDataGetRangeInfo(pParams *RangeProfilerCounterDataGetRa
 //   - pParams: A pointer to [RangeProfilerCounterDataImageInitializeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler CounterDataImageInitialize is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler CounterDataImageInitialize is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerCounterDataImageInitialize.
 func RangeProfilerCounterDataImageInitialize(pParams *RangeProfilerCounterDataImageInitializeParams) error {
@@ -3735,9 +3735,9 @@ func RangeProfilerCounterDataImageInitialize(pParams *RangeProfilerCounterDataIm
 //   - pParams: A pointer to [RangeProfilerDecodeDataParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler DecodeData is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler DecodeData is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerDecodeData.
 func RangeProfilerDecodeData(pParams *RangeProfilerDecodeDataParams) error {
@@ -3752,7 +3752,7 @@ func RangeProfilerDecodeData(pParams *RangeProfilerDecodeDataParams) error {
 //   - pParams: A pointer to [RangeProfilerDisableParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
+//   - [ErrInvalidParameter]: if any pParams is not valid
 //
 // Wraps cuptiRangeProfilerDisable.
 func RangeProfilerDisable(pParams *RangeProfilerDisableParams) error {
@@ -3767,10 +3767,10 @@ func RangeProfilerDisable(pParams *RangeProfilerDisableParams) error {
 //   - pParams: A pointer to [RangeProfilerEnableParams]
 //
 // Returns:
-//   - ErrorInsufficientPrivileges: if the user does not have sufficient privileges to perform the operation
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorOutOfMemory: if memory allocation fails while creating the PM sampling object
-//   - ErrorUnknown: for any internal error
+//   - [ErrInsufficientPrivileges]: if the user does not have sufficient privileges to perform the operation
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrOutOfMemory]: if memory allocation fails while creating the PM sampling object
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerEnable.
 func RangeProfilerEnable(pParams *RangeProfilerEnableParams) error {
@@ -3785,8 +3785,8 @@ func RangeProfilerEnable(pParams *RangeProfilerEnableParams) error {
 //   - pParams: A pointer to [RangeProfilerGetCounterDataInfoParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerGetCounterDataInfo.
 func RangeProfilerGetCounterDataInfo(pParams *RangeProfilerGetCounterDataInfoParams) error {
@@ -3801,9 +3801,9 @@ func RangeProfilerGetCounterDataInfo(pParams *RangeProfilerGetCounterDataInfoPar
 //   - pParams: A pointer to [RangeProfilerGetCounterDataSizeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler GetCounterDataSize is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler GetCounterDataSize is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerGetCounterDataSize.
 func RangeProfilerGetCounterDataSize(pParams *RangeProfilerGetCounterDataSizeParams) error {
@@ -3820,9 +3820,9 @@ func RangeProfilerGetCounterDataSize(pParams *RangeProfilerGetCounterDataSizePar
 //   - pParams: A pointer to [RangeProfilerPopRangeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler PopRange is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler PopRange is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerPopRange.
 func RangeProfilerPopRange(pParams *RangeProfilerPopRangeParams) error {
@@ -3839,9 +3839,9 @@ func RangeProfilerPopRange(pParams *RangeProfilerPopRangeParams) error {
 //   - pParams: A pointer to [RangeProfilerPushRangeParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler PushRange is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler PushRange is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerPushRange.
 func RangeProfilerPushRange(pParams *RangeProfilerPushRangeParams) error {
@@ -3856,7 +3856,7 @@ func RangeProfilerPushRange(pParams *RangeProfilerPushRangeParams) error {
 //   - pParams: A pointer to [RangeProfilerSetConfigParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
+//   - [ErrInvalidParameter]: if any pParams is not valid
 //
 // Wraps cuptiRangeProfilerSetConfig.
 func RangeProfilerSetConfig(pParams *RangeProfilerSetConfigParams) error {
@@ -3871,9 +3871,9 @@ func RangeProfilerSetConfig(pParams *RangeProfilerSetConfigParams) error {
 //   - pParams: A pointer to [RangeProfilerStartParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler Start is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler Start is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerStart.
 func RangeProfilerStart(pParams *RangeProfilerStartParams) error {
@@ -3888,9 +3888,9 @@ func RangeProfilerStart(pParams *RangeProfilerStartParams) error {
 //   - pParams: A pointer to [RangeProfilerStopParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if range profiler Stop is called without enabling range profiler
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorUnknown: for any internal error
+//   - [ErrInvalidOperation]: if range profiler Stop is called without enabling range profiler
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrUnknown]: for any internal error
 //
 // Wraps cuptiRangeProfilerStop.
 func RangeProfilerStop(pParams *RangeProfilerStopParams) error {
@@ -3907,7 +3907,7 @@ func RangeProfilerStop(pParams *RangeProfilerStopParams) error {
 //   - funcComputeCubinCrc: callback is invoked when a CUDA module is loaded (see [ComputeCrcCallbackFunc])
 //
 // Returns:
-//   - ErrorInvalidParameter: if funcComputeCubinCrc is NULL.
+//   - [ErrInvalidParameter]: if funcComputeCubinCrc is NULL.
 //
 // Wraps cuptiRegisterComputeCrcCallback.
 func RegisterComputeCrcCallback(funcComputeCubinCrc uintptr) error {
@@ -3922,10 +3922,10 @@ func RegisterComputeCrcCallback(funcComputeCubinCrc uintptr) error {
 //   - pParams: A pointer to [SassMetricsDisableParams]
 //
 // Returns:
-//   - ErrorInvalidContext: if any cuda context has not been created prior to this API call
-//   - ErrorInvalidOperation: if this API is called multiple times for a cuda context without calling [SassMetricsEnable] API or called before [SassMetricsSetConfig] API call.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection
+//   - [ErrInvalidContext]: if any cuda context has not been created prior to this API call
+//   - [ErrInvalidOperation]: if this API is called multiple times for a cuda context without calling [SassMetricsEnable] API or called before [SassMetricsSetConfig] API call.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsDisable.
 func SassMetricsDisable(pParams *SassMetricsDisableParams) error {
@@ -3940,10 +3940,10 @@ func SassMetricsDisable(pParams *SassMetricsDisableParams) error {
 //   - pParams: A pointer to [SassMetricsEnableParams]
 //
 // Returns:
-//   - ErrorInvalidContext: if any cuda context has not been created prior to this API call
-//   - ErrorInvalidOperation: if this API is called multiple times for a cuda context without calling [SassMetricsDisable] API or called before [SassMetricsSetConfig] API call.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection
+//   - [ErrInvalidContext]: if any cuda context has not been created prior to this API call
+//   - [ErrInvalidOperation]: if this API is called multiple times for a cuda context without calling [SassMetricsDisable] API or called before [SassMetricsSetConfig] API call.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsEnable.
 func SassMetricsEnable(pParams *SassMetricsEnableParams) error {
@@ -3960,9 +3960,9 @@ func SassMetricsEnable(pParams *SassMetricsEnableParams) error {
 //   - pParams: A pointer to [SassMetricsFlushDataParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called outside the enable/disable range.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection.
+//   - [ErrInvalidOperation]: if this API is called outside the enable/disable range.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection.
 //
 // Wraps cuptiSassMetricsFlushData.
 func SassMetricsFlushData(pParams *SassMetricsFlushDataParams) error {
@@ -3979,9 +3979,9 @@ func SassMetricsFlushData(pParams *SassMetricsFlushDataParams) error {
 //   - pParams: A pointer to [SassMetricsGetDataPropertiesParams]
 //
 // Returns:
-//   - ErrorInvalidOperation: if this API is called outside the enable/disable range.
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection
+//   - [ErrInvalidOperation]: if this API is called outside the enable/disable range.
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsGetDataProperties.
 func SassMetricsGetDataProperties(pParams *SassMetricsGetDataPropertiesParams) error {
@@ -3996,8 +3996,8 @@ func SassMetricsGetDataProperties(pParams *SassMetricsGetDataPropertiesParams) e
 //   - pParams: A pointer to [SassMetricsGetMetricsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric collection
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric collection
 //
 // Wraps cuptiSassMetricsGetMetrics.
 func SassMetricsGetMetrics(pParams *SassMetricsGetMetricsParams) error {
@@ -4012,8 +4012,8 @@ func SassMetricsGetMetrics(pParams *SassMetricsGetMetricsParams) error {
 //   - pParams: A pointer to [SassMetricsGetNumOfMetricsParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric collection
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric collection
 //
 // Wraps cuptiSassMetricsGetNumOfMetrics.
 func SassMetricsGetNumOfMetrics(pParams *SassMetricsGetNumOfMetricsParams) error {
@@ -4030,8 +4030,8 @@ func SassMetricsGetNumOfMetrics(pParams *SassMetricsGetNumOfMetricsParams) error
 //   - pParams: A pointer to [SassMetricsGetPropertiesParams]
 //
 // Returns:
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsGetProperties.
 func SassMetricsGetProperties(pParams *SassMetricsGetPropertiesParams) error {
@@ -4048,10 +4048,10 @@ func SassMetricsGetProperties(pParams *SassMetricsGetPropertiesParams) error {
 //   - pParams: A pointer to [SassMetricsSetConfigParams]
 //
 // Returns:
-//   - ErrorInvalidContext: if any cuda context has not been created prior to this API call
-//   - ErrorInvalidOperation: if this is called multiple times for the device without calling unset config API
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection
+//   - [ErrInvalidContext]: if any cuda context has not been created prior to this API call
+//   - [ErrInvalidOperation]: if this is called multiple times for the device without calling unset config API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsSetConfig.
 func SassMetricsSetConfig(pParams *SassMetricsSetConfigParams) error {
@@ -4068,10 +4068,10 @@ func SassMetricsSetConfig(pParams *SassMetricsSetConfigParams) error {
 //   - pParams: A pointer to [SassMetricsSetConfigParams]
 //
 // Returns:
-//   - ErrorInvalidContext: if any cuda context has not been created prior to this API call
-//   - ErrorInvalidOperation: if this is called multiple times for the device without calling set config API
-//   - ErrorInvalidParameter: if any pParams is not valid
-//   - ErrorNotSupported: indicates that the system/device doesn’t support SASS metric data collection previous6.10. CUPTI Result Codes next6.12. CUPTI Version On this page 6.11.1. Data Structures 6.11.2. Macros 6.11.3. Enumerations 6.11.4. Functions 6.11.5. MacrosCUpti_SassMetricsDisable_Params_STRUCT_SIZECUpti_SassMetricsEnable_Params_STRUCT_SIZECUpti_SassMetricsFlushData_Params_STRUCT_SIZECUpti_SassMetricsGetDataProperties_Params_STRUCT_SIZECUpti_SassMetricsSetConfig_Params_STRUCT_SIZECUpti_SassMetricsUnsetConfig_Params_STRUCT_SIZECUpti_SassMetrics_GetMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetNumOfMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetProperties_Params_STRUCT_SIZECUpti_SassMetrics_InstanceValue_STRUCT_SIZE 6.11.6. EnumerationsCUpti_SassMetrics_OutputGranularityCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_GPUCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMSPCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_INVALID 6.11.7. FunctionscuptiSassMetricsDisable() [SassMetricsEnable][SassMetricsFlushData][SassMetricsGetDataProperties][SassMetricsGetMetrics][SassMetricsGetNumOfMetrics][SassMetricsGetProperties][SassMetricsSetConfig][SassMetricsUnsetConfig] NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
+//   - [ErrInvalidContext]: if any cuda context has not been created prior to this API call
+//   - [ErrInvalidOperation]: if this is called multiple times for the device without calling set config API
+//   - [ErrInvalidParameter]: if any pParams is not valid
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection previous6.10. CUPTI Result Codes next6.12. CUPTI Version On this page 6.11.1. Data Structures 6.11.2. Macros 6.11.3. Enumerations 6.11.4. Functions 6.11.5. MacrosCUpti_SassMetricsDisable_Params_STRUCT_SIZECUpti_SassMetricsEnable_Params_STRUCT_SIZECUpti_SassMetricsFlushData_Params_STRUCT_SIZECUpti_SassMetricsGetDataProperties_Params_STRUCT_SIZECUpti_SassMetricsSetConfig_Params_STRUCT_SIZECUpti_SassMetricsUnsetConfig_Params_STRUCT_SIZECUpti_SassMetrics_GetMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetNumOfMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetProperties_Params_STRUCT_SIZECUpti_SassMetrics_InstanceValue_STRUCT_SIZE 6.11.6. EnumerationsCUpti_SassMetrics_OutputGranularityCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_GPUCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMSPCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_INVALID 6.11.7. FunctionscuptiSassMetricsDisable() [SassMetricsEnable][SassMetricsFlushData][SassMetricsGetDataProperties][SassMetricsGetMetrics][SassMetricsGetNumOfMetrics][SassMetricsGetProperties][SassMetricsSetConfig][SassMetricsUnsetConfig] NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
 //
 // Wraps cuptiSassMetricsUnsetConfig.
 func SassMetricsUnsetConfig(pParams *SassMetricsUnsetConfigParams) error {
@@ -4113,7 +4113,7 @@ func SetEventCollectionMode(context Context, mode EventCollectionMode) error {
 // CUPTI uses the method corresponding to set type to generate the thread-id. See enum [ActivityThreadIdType] for the list of methods. Activity records having thread-id field contain the same value. Thread id type must not be changed during the profiling session to avoid thread-id value mismatch across activity records. This API is not supported when multiple subscribers are allowed. Use the corresponding attribute instead: [ActivityAttrThreadIdType]
 //
 // Returns:
-//   - ErrorNotSupported: if type is not supported on the platform
+//   - [ErrNotSupported]: if type is not supported on the platform
 //
 // Wraps cuptiSetThreadIdType.
 func SetThreadIdType(type_ ActivityThreadIdType) error {
@@ -4131,10 +4131,10 @@ func SetThreadIdType(type_ ActivityThreadIdType) error {
 //   - userdata: A pointer to user data. This data will be passed to the callback function via the userdata parameter
 //
 // Returns:
-//   - ErrorInvalidParameter: if subscriber is NULL
-//   - ErrorMultipleSubscribersNotSupported: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
-//   - ErrorNotInitialized: if unable to initialize CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if subscriber is NULL
+//   - [ErrMultipleSubscribersNotSupported]: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
+//   - [ErrNotInitialized]: if unable to initialize CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiSubscribe.
 func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
@@ -4159,10 +4159,10 @@ func Subscribe(callback uintptr, userdata uintptr) (Subscriber, error) {
 //   - pParams: A pointer to [SubscriberParams]. Can be NULL
 //
 // Returns:
-//   - ErrorInvalidParameter: if:pParams.structSize is not filled with the size of the structure
-//   - ErrorMultipleSubscribersNotSupported: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
-//   - ErrorNotInitialized: if unable to initialize CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if:pParams.structSize is not filled with the size of the structure
+//   - [ErrMultipleSubscribersNotSupported]: if there is already a CUPTI subscriber, or if the application is launched with NVIDIA tools like Nsight Systems, Nsight Compute, cuda-gdb and cuda-memcheck.
+//   - [ErrNotInitialized]: if unable to initialize CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiSubscribe_v2.
 func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) (Subscriber, error) {
@@ -4183,9 +4183,9 @@ func SubscribeV2(callback uintptr, userdata uintptr, pParams *SubscriberParams) 
 // Returns in *domainTable an array of size *domainCount of all the available callback domains. Note Thread-safety: this function is thread safe.
 //
 // Returns:
-//   - ErrorInvalidParameter: if domainCount or domainTable are NULL
-//   - ErrorNotInitialized: if unable to initialize CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if domainCount or domainTable are NULL
+//   - [ErrNotInitialized]: if unable to initialize CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiSupportedDomains.
 func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
@@ -4207,9 +4207,9 @@ func SupportedDomains() (domainCount uint, domainTable uintptr, err error) {
 //   - subscriber: Handle to the initialize subscriber
 //
 // Returns:
-//   - ErrorInvalidParameter: if subscriber is NULL or not initialized
-//   - ErrorNotInitialized: if unable to initialized CUPTI
-//   - Success: on success
+//   - [ErrInvalidParameter]: if subscriber is NULL or not initialized
+//   - [ErrNotInitialized]: if unable to initialized CUPTI
+//   - [Success]: on success
 //
 // Wraps cuptiUnsubscribe.
 func unsubscribe(subscriber Subscriber) error {

@@ -131,6 +131,7 @@ const (
 	ActivityKindForceInt     ActivityKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityKind) String() string {
 	switch e {
 	case ActivityKindInvalid:
@@ -274,6 +275,7 @@ const (
 	ActivityObjectForceInt ActivityObjectKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityObjectKind) String() string {
 	switch e {
 	case ActivityObjectUnknown:
@@ -312,6 +314,7 @@ const (
 	ActivityOverheadForceInt              ActivityOverheadKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityOverheadKind) String() string {
 	switch e {
 	case ActivityOverheadUnknown:
@@ -351,6 +354,7 @@ const (
 	ActivityComputeApiForceInt ActivityComputeApiKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityComputeApiKind) String() string {
 	switch e {
 	case ActivityComputeApiUnknown:
@@ -423,6 +427,7 @@ const (
 	ActivityFlagForceInt        ActivityFlag = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityFlag) String() string {
 	switch e {
 	case ActivityFlagNone:
@@ -482,6 +487,7 @@ const (
 	ActivityPcSamplingStallForceInt       ActivityPCSamplingStallReason = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityPCSamplingStallReason) String() string {
 	switch e {
 	case ActivityPcSamplingStallInvalid:
@@ -520,19 +526,18 @@ func (e ActivityPCSamplingStallReason) String() string {
 type ActivityPCSamplingPeriod int32
 
 const (
-	ActivityPcSamplingPeriodMax      ActivityPCSamplingPeriod = 5
 	ActivityPcSamplingPeriodInvalid  ActivityPCSamplingPeriod = 0 // The PC sampling period is not set.
 	ActivityPcSamplingPeriodMin      ActivityPCSamplingPeriod = 1 // Minimum sampling period available on the device.
 	ActivityPcSamplingPeriodLow      ActivityPCSamplingPeriod = 2 // Sampling period in lower range.
 	ActivityPcSamplingPeriodMid      ActivityPCSamplingPeriod = 3 // Medium sampling period.
 	ActivityPcSamplingPeriodHigh     ActivityPCSamplingPeriod = 4 // Sampling period in higher range.
+	ActivityPcSamplingPeriodMax      ActivityPCSamplingPeriod = 5 // Maximum sampling period available on the device.
 	ActivityPcSamplingPeriodForceInt ActivityPCSamplingPeriod = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityPCSamplingPeriod) String() string {
 	switch e {
-	case ActivityPcSamplingPeriodMax:
-		return "ActivityPcSamplingPeriodMax"
 	case ActivityPcSamplingPeriodInvalid:
 		return "ActivityPcSamplingPeriodInvalid"
 	case ActivityPcSamplingPeriodMin:
@@ -543,6 +548,8 @@ func (e ActivityPCSamplingPeriod) String() string {
 		return "ActivityPcSamplingPeriodMid"
 	case ActivityPcSamplingPeriodHigh:
 		return "ActivityPcSamplingPeriodHigh"
+	case ActivityPcSamplingPeriodMax:
+		return "ActivityPcSamplingPeriodMax"
 	case ActivityPcSamplingPeriodForceInt:
 		return "ActivityPcSamplingPeriodForceInt"
 	}
@@ -567,6 +574,7 @@ const (
 	ActivityMemcpyKindForceInt ActivityMemcpyKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemcpyKind) String() string {
 	switch e {
 	case ActivityMemcpyKindUnknown:
@@ -612,6 +620,7 @@ const (
 	ActivityMemoryKindForceInt      ActivityMemoryKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryKind) String() string {
 	switch e {
 	case ActivityMemoryKindUnknown:
@@ -646,6 +655,7 @@ const (
 	ActivityPreemptionKindForceInt ActivityPreemptionKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityPreemptionKind) String() string {
 	switch e {
 	case ActivityPreemptionKindUnknown:
@@ -673,6 +683,7 @@ const (
 	ActivityEnvironmentKindForceInt ActivityEnvironmentKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityEnvironmentKind) String() string {
 	switch e {
 	case ActivityEnvironmentUnknown:
@@ -710,6 +721,7 @@ const (
 	ClocksThrottleReasonForceInt    EnvironmentClocksThrottleReason = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EnvironmentClocksThrottleReason) String() string {
 	switch e {
 	case ClocksThrottleReasonGpuIdle:
@@ -745,6 +757,7 @@ const (
 	ActivityUnifiedMemoryCounterScopeForceInt          ActivityUnifiedMemoryCounterScope = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUnifiedMemoryCounterScope) String() string {
 	switch e {
 	case ActivityUnifiedMemoryCounterScopeUnknown:
@@ -784,6 +797,7 @@ const (
 	ActivityUnifiedMemoryCounterKindForceInt          ActivityUnifiedMemoryCounterKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUnifiedMemoryCounterKind) String() string {
 	switch e {
 	case ActivityUnifiedMemoryCounterKindUnknown:
@@ -823,6 +837,7 @@ const (
 	ActivityUnifiedMemoryAccessTypePrefetch ActivityUnifiedMemoryAccessType = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUnifiedMemoryAccessType) String() string {
 	switch e {
 	case ActivityUnifiedMemoryAccessTypeUnknown:
@@ -856,6 +871,7 @@ const (
 	ActivityUnifiedMemoryMigrationCauseAccessCounters ActivityUnifiedMemoryMigrationCause = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUnifiedMemoryMigrationCause) String() string {
 	switch e {
 	case ActivityUnifiedMemoryMigrationCauseUnknown:
@@ -891,6 +907,7 @@ const (
 	ActivityUnifiedMemoryRemoteMapCauseEviction ActivityUnifiedMemoryRemoteMapCause = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUnifiedMemoryRemoteMapCause) String() string {
 	switch e {
 	case ActivityUnifiedMemoryRemoteMapCauseUnknown:
@@ -938,6 +955,7 @@ const (
 	ActivityInstructionClassKindForceInt  ActivityInstructionClass = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityInstructionClass) String() string {
 	switch e {
 	case ActivityInstructionClassUnknown:
@@ -999,6 +1017,7 @@ const (
 	ActivityPartitionedGlobalCacheConfigForceInt     ActivityPartitionedGlobalCacheConfig = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityPartitionedGlobalCacheConfig) String() string {
 	switch e {
 	case ActivityPartitionedGlobalCacheConfigUnknown:
@@ -1027,6 +1046,7 @@ const (
 	ActivitySynchronizationTypeForceInt           ActivitySynchronizationType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivitySynchronizationType) String() string {
 	switch e {
 	case ActivitySynchronizationTypeUnknown:
@@ -1057,6 +1077,7 @@ const (
 	ActivityStreamCreateFlagForceInt    ActivityStreamFlag = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityStreamFlag) String() string {
 	switch e {
 	case ActivityStreamCreateFlagUnknown:
@@ -1087,6 +1108,7 @@ const (
 	LinkFlagForceInt      LinkFlag = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LinkFlag) String() string {
 	switch e {
 	case LinkFlagInvalid:
@@ -1115,6 +1137,7 @@ const (
 	ActivityMemoryOperationTypeForceInt   ActivityMemoryOperationType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryOperationType) String() string {
 	switch e {
 	case ActivityMemoryOperationTypeInvalid:
@@ -1139,6 +1162,7 @@ const (
 	ActivityMemoryPoolTypeForceInt ActivityMemoryPoolType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryPoolType) String() string {
 	switch e {
 	case ActivityMemoryPoolTypeInvalid:
@@ -1164,6 +1188,7 @@ const (
 	ActivityMemoryPoolOperationTypeForceInt  ActivityMemoryPoolOperationType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryPoolOperationType) String() string {
 	switch e {
 	case ActivityMemoryPoolOperationTypeInvalid:
@@ -1192,6 +1217,7 @@ const (
 	ChannelTypeForceInt    ChannelType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ChannelType) String() string {
 	switch e {
 	case ChannelTypeInvalid:
@@ -1218,6 +1244,7 @@ const (
 	ContextCigModeForceInt    ContextCigMode = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ContextCigMode) String() string {
 	switch e {
 	case ContextCigModeNone:
@@ -1242,6 +1269,7 @@ const (
 	NvtxExtPayloadTypeForceInt NvtxExtPayloadType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvtxExtPayloadType) String() string {
 	switch e {
 	case NvtxExtPayloadTypeUnknown:
@@ -1281,6 +1309,7 @@ const (
 	MemcpyFieldCopyCount        ActivityMemcpyFieldIds = 17
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemcpyFieldIds) String() string {
 	switch e {
 	case MemcpyFieldKind:
@@ -1350,6 +1379,7 @@ const (
 	Memcpy2FieldChannelType   ActivityMemcpy2FieldIds = 19
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemcpy2FieldIds) String() string {
 	switch e {
 	case Memcpy2FieldKind:
@@ -1419,6 +1449,7 @@ const (
 	MemsetFieldIsDeviceLaunched ActivityMemsetFieldIds = 15
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemsetFieldIds) String() string {
 	switch e {
 	case MemsetFieldKind:
@@ -1483,6 +1514,7 @@ const (
 	MemoryFieldSource               ActivityMemoryFieldIds = 18
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryFieldIds) String() string {
 	switch e {
 	case MemoryFieldKind:
@@ -1547,6 +1579,7 @@ const (
 	MemoryPoolFieldIsManagedPool    ActivityMemoryPoolFieldIds = 12
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemoryPoolFieldIds) String() string {
 	switch e {
 	case MemoryPoolFieldKind:
@@ -1591,6 +1624,7 @@ const (
 	ActivityLaunchTypeCblCommandlist         ActivityLaunchType = 3 // The kernel was launched as a CBL commandlist
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityLaunchType) String() string {
 	switch e {
 	case ActivityLaunchTypeRegular:
@@ -1614,6 +1648,7 @@ const (
 	FuncShmemLimitForceInt FuncShmemLimitConfig = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FuncShmemLimitConfig) String() string {
 	switch e {
 	case FuncShmemLimitDefault:
@@ -1679,6 +1714,7 @@ const (
 	KernelFieldLaunchPriority                  ActivityKernelFieldIds = 45
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityKernelFieldIds) String() string {
 	switch e {
 	case KernelFieldKind:
@@ -1792,6 +1828,7 @@ const (
 	ApiFieldReturnValue   ActivityApiFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityApiFieldIds) String() string {
 	switch e {
 	case ApiFieldKind:
@@ -1859,6 +1896,7 @@ const (
 	DeviceFieldNumTpcs                          ActivityDeviceFieldIds = 37
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityDeviceFieldIds) String() string {
 	switch e {
 	case DeviceFieldKind:
@@ -1958,6 +1996,7 @@ const (
 	ContextFieldProcessId          ActivityContextFieldIds = 9
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityContextFieldIds) String() string {
 	switch e {
 	case ContextFieldKind:
@@ -1994,6 +2033,7 @@ const (
 	NameFieldName       ActivityNameFieldIds = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityNameFieldIds) String() string {
 	switch e {
 	case NameFieldKind:
@@ -2023,6 +2063,7 @@ const (
 	MarkerFieldDomain    ActivityMarkerFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMarkerFieldIds) String() string {
 	switch e {
 	case MarkerFieldKind:
@@ -2060,6 +2101,7 @@ const (
 	MarkerDataFieldCuptiDomainId ActivityMarkerDataFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMarkerDataFieldIds) String() string {
 	switch e {
 	case MarkerDataFieldKind:
@@ -2097,6 +2139,7 @@ const (
 	OverheadFieldOverheadData  ActivityOverheadFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityOverheadFieldIds) String() string {
 	switch e {
 	case OverheadFieldKind:
@@ -2137,6 +2180,7 @@ const (
 	UvmCounterFieldProcessors  ActivityUvmCounterFieldIds = 11
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityUvmCounterFieldIds) String() string {
 	switch e {
 	case UvmCounterFieldKind:
@@ -2182,6 +2226,7 @@ const (
 	CudaEventFieldCudaEventSyncId ActivityCudaEventFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityCudaEventFieldIds) String() string {
 	switch e {
 	case CudaEventFieldKind:
@@ -2217,6 +2262,7 @@ const (
 	StreamFieldCorrelationId ActivityStreamFieldIds = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityStreamFieldIds) String() string {
 	switch e {
 	case StreamFieldKind:
@@ -2252,6 +2298,7 @@ const (
 	SynchronizationFieldReturnValue     ActivitySynchronizationFieldIds = 9
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivitySynchronizationFieldIds) String() string {
 	switch e {
 	case SynchronizationFieldKind:
@@ -2302,6 +2349,7 @@ const (
 	OpenaccEventKindForceInt         OpenAccEventKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OpenAccEventKind) String() string {
 	switch e {
 	case OpenaccEventKindInvalid:
@@ -2368,6 +2416,7 @@ const (
 	OpenaccConstructKindForceInt   OpenAccConstructKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OpenAccConstructKind) String() string {
 	switch e {
 	case OpenaccConstructKindUnknown:
@@ -2424,6 +2473,7 @@ const (
 	OpenmpEventKindForceInt     OpenMpEventKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OpenMpEventKind) String() string {
 	switch e {
 	case OpenmpEventKindInvalid:
@@ -2460,6 +2510,7 @@ const (
 	ExternalCorrelationKindForceInt ExternalCorrelationKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ExternalCorrelationKind) String() string {
 	switch e {
 	case ExternalCorrelationKindInvalid:
@@ -2493,6 +2544,7 @@ const (
 	ExternalCorrelationFieldCorrelationId ActivityExternalCorrelationFieldIds = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityExternalCorrelationFieldIds) String() string {
 	switch e {
 	case ExternalCorrelationFieldKind:
@@ -2517,6 +2569,7 @@ const (
 	DevTypeForceInt DevType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DevType) String() string {
 	switch e {
 	case DevTypeInvalid:
@@ -2540,6 +2593,7 @@ const (
 	PcieDeviceTypeForceInt PcieDeviceType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PcieDeviceType) String() string {
 	switch e {
 	case PcieDeviceTypeGpu:
@@ -2565,6 +2619,7 @@ const (
 	PcieGenForceInt PcieGen = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PcieGen) String() string {
 	switch e {
 	case PcieGenGEN1:
@@ -2598,6 +2653,7 @@ const (
 	ConfidentialComputeEventTypeForceInt           ConfidentialComputeRotationEventType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ConfidentialComputeRotationEventType) String() string {
 	switch e {
 	case ConfidentialComputeInvalidRotationEvent:
@@ -2627,6 +2683,7 @@ const (
 	ConfidentialComputeRotationFieldTimestamp   ActivityConfidentialComputeRotationFieldIds = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityConfidentialComputeRotationFieldIds) String() string {
 	switch e {
 	case ConfidentialComputeRotationFieldKind:
@@ -2657,6 +2714,7 @@ const (
 	ActivityJitEntryTypeForceInt ActivityJitEntryType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityJitEntryType) String() string {
 	switch e {
 	case ActivityJitEntryInvalid:
@@ -2682,6 +2740,7 @@ const (
 	ActivityJitOperationTypeForceInt ActivityJitOperationType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityJitOperationType) String() string {
 	switch e {
 	case ActivityJitOperationInvalid:
@@ -2717,6 +2776,7 @@ const (
 	JitFieldThreadId               ActivityJitFieldIds = 11
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityJitFieldIds) String() string {
 	switch e {
 	case JitFieldKind:
@@ -2764,6 +2824,7 @@ const (
 	GraphTraceFieldEndContextId  ActivityGraphTraceFieldIds = 9
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityGraphTraceFieldIds) String() string {
 	switch e {
 	case GraphTraceFieldKind:
@@ -2800,6 +2861,7 @@ const (
 	DeviceGraphLaunchModeFireAndForgetAsSibling DeviceGraphLaunchMode = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceGraphLaunchMode) String() string {
 	switch e {
 	case DeviceGraphLaunchModeInvalid:
@@ -2830,6 +2892,7 @@ const (
 	DeviceGraphTraceFieldStreamId         ActivityDeviceGraphTraceFieldIds = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityDeviceGraphTraceFieldIds) String() string {
 	switch e {
 	case DeviceGraphTraceFieldKind:
@@ -2872,6 +2935,7 @@ const (
 	MemDecompressFieldEnd                ActivityMemDecompressFieldIds = 10
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityMemDecompressFieldIds) String() string {
 	switch e {
 	case MemDecompressFieldKind:
@@ -2917,6 +2981,7 @@ const (
 	GraphHostNodeFieldEnd           ActivityGraphHostNodeFieldIds = 10
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityGraphHostNodeFieldIds) String() string {
 	switch e {
 	case GraphHostNodeFieldKind:
@@ -2955,6 +3020,7 @@ const (
 	ComputeEngineCtxSwitchOperationCount   ComputeEngineCtxSwitchOperationType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ComputeEngineCtxSwitchOperationType) String() string {
 	switch e {
 	case ComputeEngineCtxSwitchOperationInvalid:
@@ -2979,6 +3045,7 @@ const (
 	ComputeEngineCtxSwitchFieldOperationType ActivityComputeEngineCtxSwitchFieldIds = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityComputeEngineCtxSwitchFieldIds) String() string {
 	switch e {
 	case ComputeEngineCtxSwitchFieldKind:
@@ -3008,6 +3075,7 @@ const (
 	HostLaunchFieldEnd           ActivityHostLaunchFieldIds = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityHostLaunchFieldIds) String() string {
 	switch e {
 	case HostLaunchFieldKind:
@@ -3047,6 +3115,7 @@ const (
 	GreenContextFieldLogicalTpcMask     ActivityGreenContextFieldIds = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityGreenContextFieldIds) String() string {
 	switch e {
 	case GreenContextFieldKind:
@@ -3109,6 +3178,7 @@ const (
 	ActivityAttrDeviceBufferForceInt                 ActivityAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityAttribute) String() string {
 	switch e {
 	case ActivityAttrDeviceBufferSize:
@@ -3177,6 +3247,7 @@ const (
 	ActivityThreadIdTypeForceInt ActivityThreadIdType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ActivityThreadIdType) String() string {
 	switch e {
 	case ActivityThreadIdTypeDefault:
@@ -3204,6 +3275,7 @@ const (
 	DeviceVirtualizationModeForceInt   VirtualizationMode = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e VirtualizationMode) String() string {
 	switch e {
 	case DeviceVirtualizationModeNone:
@@ -3227,6 +3299,7 @@ const (
 	ApiCbsiteForceInt ApiCallbackSite = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ApiCallbackSite) String() string {
 	switch e {
 	case ApiEnter:
@@ -3257,6 +3330,7 @@ const (
 	CbDomainForceInt    CallbackDomain = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackDomain) String() string {
 	switch e {
 	case CbDomainInvalid:
@@ -3314,6 +3388,7 @@ const (
 	CbidResourceForceInt           CallbackIdResource = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdResource) String() string {
 	switch e {
 	case CbidResourceInvalid:
@@ -3383,6 +3458,7 @@ const (
 	CbidSynchronizeForceInt            CallbackIdSync = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdSync) String() string {
 	switch e {
 	case CbidSynchronizeInvalid:
@@ -3413,6 +3489,7 @@ const (
 	CbidStateForceInt CallbackIdState = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CallbackIdState) String() string {
 	switch e {
 	case CbidStateInvalid:
@@ -3441,6 +3518,7 @@ const (
 	DeviceAttrDeviceClassTegra   DeviceAttributeDeviceClass = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceAttributeDeviceClass) String() string {
 	switch e {
 	case DeviceAttrDeviceClassTesla:
@@ -3499,6 +3577,7 @@ const (
 	DeviceAttrForceInt        DeviceAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceAttribute) String() string {
 	switch e {
 	case DeviceAttrMaxEventId:
@@ -3562,6 +3641,7 @@ const (
 	EventDomainAttrForceInt         EventDomainAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventDomainAttribute) String() string {
 	switch e {
 	case EventDomainAttrName:
@@ -3590,6 +3670,7 @@ const (
 	EventCollectionMethodForceInt     EventCollectionMethod = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventCollectionMethod) String() string {
 	switch e {
 	case EventCollectionMethodPm:
@@ -3625,6 +3706,7 @@ const (
 	EventGroupAttrForceInt       EventGroupAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventGroupAttribute) String() string {
 	switch e {
 	case EventGroupAttrEventDomainId:
@@ -3658,6 +3740,7 @@ const (
 	EventProfilingScopeForceInt EventProfilingScope = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventProfilingScope) String() string {
 	switch e {
 	case EventProfilingScopeContext:
@@ -3687,6 +3770,7 @@ const (
 	EventAttrForceInt       EventAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventAttribute) String() string {
 	switch e {
 	case EventAttrName:
@@ -3716,6 +3800,7 @@ const (
 	EventCollectionModeForceInt EventCollectionMode = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventCollectionMode) String() string {
 	switch e {
 	case EventCollectionModeContinuous:
@@ -3740,6 +3825,7 @@ const (
 	EventCategoryForceInt       EventCategory = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventCategory) String() string {
 	switch e {
 	case EventCategoryInstruction:
@@ -3766,6 +3852,7 @@ const (
 	EventReadFlagForceInt ReadEventFlags = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ReadEventFlags) String() string {
 	switch e {
 	case EventReadFlagNone:
@@ -3790,6 +3877,7 @@ const (
 	MetricCategoryForceInt       MetricCategory = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricCategory) String() string {
 	switch e {
 	case MetricCategoryMemory:
@@ -3823,6 +3911,7 @@ const (
 	MetricEvaluationModeForceInt  MetricEvaluationMode = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricEvaluationMode) String() string {
 	switch e {
 	case MetricEvaluationModePerInstance:
@@ -3853,6 +3942,7 @@ const (
 	MetricValueKindForceInt            MetricValueKind = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricValueKind) String() string {
 	switch e {
 	case MetricValueKindDouble:
@@ -3879,18 +3969,17 @@ func (e MetricValueKind) String() string {
 type MetricValueUtilizationLevel int32
 
 const (
-	MetricValueUtilizationMax      MetricValueUtilizationLevel = 10
 	MetricValueUtilizationIdle     MetricValueUtilizationLevel = 0
 	MetricValueUtilizationLow      MetricValueUtilizationLevel = 2
 	MetricValueUtilizationMid      MetricValueUtilizationLevel = 5
 	MetricValueUtilizationHigh     MetricValueUtilizationLevel = 8
+	MetricValueUtilizationMax      MetricValueUtilizationLevel = 10
 	MetricValueUtilizationForceInt MetricValueUtilizationLevel = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricValueUtilizationLevel) String() string {
 	switch e {
-	case MetricValueUtilizationMax:
-		return "MetricValueUtilizationMax"
 	case MetricValueUtilizationIdle:
 		return "MetricValueUtilizationIdle"
 	case MetricValueUtilizationLow:
@@ -3899,6 +3988,8 @@ func (e MetricValueUtilizationLevel) String() string {
 		return "MetricValueUtilizationMid"
 	case MetricValueUtilizationHigh:
 		return "MetricValueUtilizationHigh"
+	case MetricValueUtilizationMax:
+		return "MetricValueUtilizationMax"
 	case MetricValueUtilizationForceInt:
 		return "MetricValueUtilizationForceInt"
 	}
@@ -3922,6 +4013,7 @@ const (
 	MetricAttrForceInt       MetricAttribute = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricAttribute) String() string {
 	switch e {
 	case MetricAttrName:
@@ -3952,6 +4044,7 @@ const (
 	MetricPropertyDeviceClassTegra   MetricPropertyDeviceClass = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricPropertyDeviceClass) String() string {
 	switch e {
 	case MetricPropertyDeviceClassTesla:
@@ -3988,6 +4081,7 @@ const (
 	MetricPropertyGpuCpuNvlinkBandwidth       MetricPropertyID = 15
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricPropertyID) String() string {
 	switch e {
 	case MetricPropertyMultiprocessorCount:
@@ -4036,6 +4130,7 @@ const (
 	RangeCount   ProfilerRange = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProfilerRange) String() string {
 	switch e {
 	case RangeInvalid:
@@ -4061,6 +4156,7 @@ const (
 	ReplayCount       ProfilerReplayMode = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProfilerReplayMode) String() string {
 	switch e {
 	case ReplayInvalid:
@@ -4091,6 +4187,7 @@ const (
 	ProfilerConfigurationSupported ProfilerSupportLevel = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProfilerSupportLevel) String() string {
 	switch e {
 	case ProfilerConfigurationUnknown:
@@ -4116,6 +4213,7 @@ const (
 	ProfilerUnknown        ProfilerApi = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProfilerApi) String() string {
 	switch e {
 	case ProfilerRangeProfiling:
@@ -4142,6 +4240,7 @@ const (
 	MetricTypeCount      MetricType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricType) String() string {
 	switch e {
 	case MetricTypeCounter:
@@ -4165,6 +4264,7 @@ const (
 	MetricCollectionScopeInvalid MetricCollectionScope = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MetricCollectionScope) String() string {
 	switch e {
 	case MetricCollectionScopeContext:
@@ -4186,6 +4286,7 @@ const (
 	ProfilerTypeProfilerInvalid ProfilerType = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProfilerType) String() string {
 	switch e {
 	case ProfilerTypeRangeProfiler:
@@ -4207,6 +4308,7 @@ const (
 	PcSamplingCollectionModeKernelSerialized PCSamplingCollectionMode = 2 // Serialized mode. Kernels are serialized in this mode.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PCSamplingCollectionMode) String() string {
 	switch e {
 	case PcSamplingCollectionModeInvalid:
@@ -4227,6 +4329,7 @@ const (
 	PcSamplingOutputDataFormatParsed  PCSamplingOutputDataFormat = 1 // HW buffer data will be parsed during collection of data
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PCSamplingOutputDataFormat) String() string {
 	switch e {
 	case PcSamplingOutputDataFormatInvalid:
@@ -4263,6 +4366,7 @@ const (
 	PcSamplingConfigurationAttrTypeForceInt                      PCSamplingConfigurationAttributeType = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PCSamplingConfigurationAttributeType) String() string {
 	switch e {
 	case PcSamplingConfigurationAttrTypeInvalid:
@@ -4300,6 +4404,7 @@ const (
 	PmSamplingTriggerModeCount             PmSamplingTriggerMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PmSamplingTriggerMode) String() string {
 	switch e {
 	case PmSamplingTriggerModeGpuSysclkInterval:
@@ -4322,6 +4427,7 @@ const (
 	PmSamplingDecodeStopReasonCount           PmSamplingDecodeStopReason = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PmSamplingDecodeStopReason) String() string {
 	switch e {
 	case PmSamplingDecodeStopReasonOther:
@@ -4344,6 +4450,7 @@ const (
 	PmSamplingHardwareBufferAppendModeKeepLatest PmSamplingHardwareBufferAppendMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PmSamplingHardwareBufferAppendMode) String() string {
 	switch e {
 	case PmSamplingHardwareBufferAppendModeKeepOldest:
@@ -4364,6 +4471,7 @@ const (
 	SassMetricsOutputGranularityInvalid SassMetricsOutputGranularity = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SassMetricsOutputGranularity) String() string {
 	switch e {
 	case SassMetricsOutputGranularityGpu:
@@ -4387,6 +4495,7 @@ const (
 	CheckpointOptTransfer CheckpointOptimizations = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CheckpointOptimizations) String() string {
 	switch e {
 	case CheckpointOptNone:
@@ -5251,6 +5360,7 @@ const (
 	DriverCBIDForceInt                                             DriverTraceCBID = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverTraceCBID) String() string {
 	switch e {
 	case DriverCBIDInvalid:
@@ -7520,6 +7630,7 @@ const (
 	RuntimeCBIDForceInt                                                    RuntimeTraceCBID = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e RuntimeTraceCBID) String() string {
 	switch e {
 	case RuntimeCBIDInvalid:
@@ -8706,6 +8817,7 @@ const (
 	NvtxCBIDForceInt                         NvtxTraceCBID = 0x7fffffff
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e NvtxTraceCBID) String() string {
 	switch e {
 	case NvtxCBIDInvalid:

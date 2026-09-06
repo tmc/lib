@@ -3538,12 +3538,12 @@
     },
     "cupti": {
       "package": "github.com/tmc/lib/nvidia/cupti",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "5b2b5f5fe03200e2c4c10f7e5538111fb319d521",
-          "tree": "20a994aec576c4eb69e27855fe4efd926bacd107"
+          "commit": "712abfb69da9d38c85f5202a1d3b256ea792b300",
+          "tree": "7902f8e98cea15f8f0933f8eb5e4929de268041c"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3685,7 +3685,7 @@
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "toolchain": {
-          "go": "go version go1.27.0 darwin/arm64",
+          "go": "go version go1.25.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
         },
         "outputs": [
@@ -3699,7 +3699,7 @@
           },
           {
             "path": "nvidia/cupti/enums.gen.go",
-            "sha256": "8c9f713159ef94e25a22caabd0be3e6684cc43d0a00fefcdbe6777261581bb88"
+            "sha256": "950c436a0777b6682f1757fa04eacee62673d2e958428f36f9a5a69e1cebecab"
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
@@ -3707,7 +3707,7 @@
           },
           {
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "ea6de5a0efcd31291a4efcf881b036710f04a188b19b6f36b69e703bf67de9de"
+            "sha256": "378139fd36b5703db954a510386e94b676702d2e76acd028cb6e4190819f2ac7"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
@@ -3719,7 +3719,7 @@
           },
           {
             "path": "nvidia/cupti/layout_test.go",
-            "sha256": "0b3e951c69d3097d0815c4d152a9ae56c83dfc73ea2fd037ef9463ac2020dafa"
+            "sha256": "bcde77e85b49b89c176fe69cce860a481ac77f0c70fbf7b24d908c073f0ae5ea"
           },
           {
             "path": "nvidia/cupti/loader_test.go",
@@ -3743,7 +3743,7 @@
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
-            "sha256": "1ee6b41a3446cab258dddca16b3406d4369e733d06d437e4138b0f3bb3f0c1ec"
+            "sha256": "717b6a8db894431072e975205f2db49ca5bb791a7a8c4782f69a981f9d25050f"
           },
           {
             "path": "nvidia/cupti/types.gen.go",
@@ -3755,7 +3755,7 @@
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "-clang=false is load-bearing and must be passed explicitly. cmd/gen-nvidia sets clangByDefault[\"cupti\"] = true (commit 2077dd4), and the clang path drops the headers' Doxygen prose, substitutes synthesised placeholders, and reorders declarations, producing a ~2,500-line diff against the committed bytes with no semantic change at all (identical 2426 constants and 112 types). The committed bytes came from the regex parser. Reproduction at the recorded codegen commit: 10 of the 15 generated files are byte-identical; enums.gen.go, funcs.gen.go, init.gen.go and subscriber.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed all four are identical -- and layout_test.go gained sizeof/alignof/offsetof assertions for four V1 placeholder structs the generator did not previously probe. The recorded output digests are the committed files. cupti/enums.gen.go also carries six lines inserted by hand in lib commit 4f5fd93 (ActivityPcSamplingPeriodMax and MetricValueUtilizationMax with their String cases); the generator emits both constants itself, at a different position and with the header's doc comment, so those lines should be regenerated rather than maintained. The loader was regenerated after contrib/cuda gained ToolkitLibDirs, which emits the toolkit-relative library search; the recorded codegen commit is that change. Everything else in the package is byte-identical to the prior generation. Since then init.gen.go and loader_test.go were regenerated again, at codegen 94941f0, for the bindSymbol/SymbolError loader change; the recorded codegen commit is deliberately NOT that commit, because it generated only those two of the fifteen outputs. No single codegen commit produced all of this package, and schema_version 1 records one commit per package, so the recorded commit is the least-wrong choice rather than a correct one: it is accurate for thirteen outputs and inaccurate for init.gen.go and loader_test.go.",
+      "note": "All 15 generated outputs reproduced from the recorded generator and pinned headers using -clang=false and the tracked documentation inputs. Empty HandWrittenTypes mappings for four CUDA V1 placeholder records are excluded from generated layout assertions; real measured records and handwritten types retain checks. Full output was compared against the prior package: public declarations, values, signatures and function behavior are preserved, with documentation updates and equivalent enum switch ordering. Host package tests and vet passed; this is generation evidence, not native runtime qualification. Local generator commit is not published.",
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
         "Go and clang executable bytes",
