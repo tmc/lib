@@ -71,8 +71,8 @@ func TestNativeActivationForward(t *testing.T) {
 	pins.Pin(&alpha)
 	pins.Pin(&beta)
 	defer pins.Unpin()
-	// Registered last so pending work is drained before buffers/scalars and
-	// descriptors are released, including when the launch reports an error.
+	// Attempt synchronization before releasing buffers, scalars and descriptors,
+	// including when the launch reports an error; report any synchronization failure.
 	defer func() { clean("synchronize before release", stream.Synchronize()) }()
 	check("activation forward", h.ActivationForward(activation, unsafe.Pointer(&alpha), desc, uintptr(x), unsafe.Pointer(&beta), desc, uintptr(y)))
 	check("synchronize", stream.Synchronize())
