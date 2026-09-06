@@ -181,3 +181,40 @@ func (c *DeviceMemoryCheck) Check() error {
 	}
 	return fmt.Errorf("cudatest: retained device memory grew by %d bytes (tolerance %d)", c.baseline-free, c.tolerance)
 }
+
+// RequireDevice returns CUDA device 0 for a test that needs real hardware, or
+// skips when this machine has no CUDA driver to offer.
+//
+// The distinction between "absent" and "broken" is structural rather than
+// textual. driver.Load reports only whether libcuda can be opened, so a machine
+// without the driver skips; every failure after a successful load happens on a
+// machine that does have a driver and is reported as a failure. A guard that
+// skipped on any error would hide a real fault on exactly the hosts that can
+// detect it.
+//
+// A skipped call establishes no evidence. Callers that must prove CUDA
+// execution should check retained test output for an actual run.
+func RequireDevice(t testing.TB) *cuda.Device {
+	t.Helper()
+	if err := driver.Load(""); err != nil {
+		t.Skipf("SKIPPED, NOT VERIFIED: the CUDA driver could not be loaded: %v", err)
+		return nil
+	}
+	// Past this point libcuda is present, so every remaining failure is real.
+	if err := driver.Init(0); err != nil {
+		t.Fatalf("cuInit failed with libcuda loaded from %q: %v", driver.Path(), err)
+	}
+	count, err := driver.DeviceGetCount()
+	if err != nil {
+		t.Fatalf("cuDeviceGetCount failed after cuInit succeeded: %v", err)
+	}
+	if count == 0 {
+		t.Skipf("SKIPPED, NOT VERIFIED: the CUDA driver reports no devices")
+		return nil
+	}
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Fatalf("cuda.NewDevice(0) failed with %d device(s) present: %v", count, err)
+	}
+	return dev
+}

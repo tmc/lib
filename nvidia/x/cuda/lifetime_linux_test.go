@@ -9,14 +9,11 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func TestConcurrentWithContextAndClose(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for range 16 {
@@ -45,10 +42,7 @@ func TestConcurrentWithContextAndClose(t *testing.T) {
 }
 
 func TestStreamOperationSerializedWithDestroy(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -83,10 +77,7 @@ func TestStreamOperationSerializedWithDestroy(t *testing.T) {
 }
 
 func TestWithHandleExcludesDestroy(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -128,10 +119,7 @@ func TestWithHandleExcludesDestroy(t *testing.T) {
 }
 
 func TestEventOperationsAfterDestroyFail(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -164,10 +152,7 @@ func TestEventOperationsAfterDestroyFail(t *testing.T) {
 }
 
 func TestEventQuerySerializedWithDestroy(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	stream, err := dev.NewStream()
 	if err != nil {
@@ -203,10 +188,7 @@ func TestEventQuerySerializedWithDestroy(t *testing.T) {
 }
 
 func TestContextRunRestoresCurrent(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	ctx, err := dev.PrimaryContext()
 	if err != nil {
@@ -255,10 +237,7 @@ func TestContextRunRestoresCurrent(t *testing.T) {
 }
 
 func TestRepeatedRelease(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	ctx, err := dev.PrimaryContext()
 	if err != nil {
 		t.Fatal(err)
