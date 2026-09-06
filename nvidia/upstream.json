@@ -302,7 +302,7 @@
     },
     "nvjitlink": {
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -412,7 +412,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "4b9a9c711b75bc1e7d398dbe24c370a9a748dfc9c40700155b790dfd84e87e4b"
+            "sha256": "0f42c9d3088205f5ae685902952ce9aff4e907c6edbf52bdc8f434e153939ce3"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -431,12 +431,12 @@
             "sha256": "c0b4724858473da0bf4232b99c19ae43a1fbf0101f8d420dc1e2e6ab3dfd2fa6"
           }
         ],
-        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs.",
         "maintained_files_excluded": [
           "README.md",
           "example_cuda_test.go"
         ],
-        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
+        "note": "The unversioned-symbol fallback in init.gen.go was added after this generation was recorded, on top of the Windows library name correction; the pinned codegen commit predates both, so it no longer reproduces init.gen.go byte for byte. The recorded output digest is the integrated file."
       },
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
@@ -1395,7 +1395,7 @@
     },
     "nvjpeg2k": {
       "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -1490,7 +1490,7 @@
           },
           {
             "path": "nvidia/nvjpeg2k/init.gen.go",
-            "sha256": "7bfe35006e23b973f231ffdcc5b230a295bbb37a61011f957a6635d832abcf16"
+            "sha256": "83e18d711f008c88e28d8f55a782066f2bfc41b167e056856f40844f1d836c33"
           },
           {
             "path": "nvidia/nvjpeg2k/layout_test.go",
@@ -1499,6 +1499,14 @@
           {
             "path": "nvidia/nvjpeg2k/loader_test.go",
             "sha256": "1afb791bf24dba7f58f509e30e9660884b48e97628bbd0a705ec82e2293d5054"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/loader_unix.gen.go",
+            "sha256": "16aa3f62d787c9cb44c44d09466ff6fec910858f9d20675380ce3bf31996e127"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/loader_windows.gen.go",
+            "sha256": "126b844b4cfb74107efed4230845f9819ff93fb8957d45a41e85f17873fd9d21"
           },
           {
             "path": "nvidia/nvjpeg2k/result.gen.go",
@@ -1516,7 +1524,9 @@
             "path": "nvidia/nvjpeg2k/version.gen.go",
             "sha256": "db9789f622654642f785271a5dddd7f58a397c3a75a34a365f489f63d85c0f9e"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "headers": [
         {
@@ -1536,7 +1546,7 @@
     },
     "nvcomp": {
       "package": "github.com/tmc/lib/nvidia/nvcomp",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -1613,7 +1623,7 @@
           },
           {
             "path": "nvidia/nvcomp/init.gen.go",
-            "sha256": "26e00236000cff7acf4e06915be9e9479ddbe616b2cb89182a62c3a3eb85460e"
+            "sha256": "63f9457055b89c6246aad70cf1fc238942bac00885d209630848bd2d963a89f4"
           },
           {
             "path": "nvidia/nvcomp/layout_test.go",
@@ -1628,6 +1638,14 @@
             "sha256": "995d7980aa96e76be16324aadebe7a9efddbc0836835e93f7e940393364bdd5f"
           },
           {
+            "path": "nvidia/nvcomp/loader_unix.gen.go",
+            "sha256": "ffc8d34f5d46fe34313e00a1066e8744629de9a6e00e35a13406f35b55bd3cd4"
+          },
+          {
+            "path": "nvidia/nvcomp/loader_windows.gen.go",
+            "sha256": "2eadd3359b878bed7902216d56c03c485f952ee59ee19dac19690dea9387b479"
+          },
+          {
             "path": "nvidia/nvcomp/result.gen.go",
             "sha256": "cc897df6361f6a449130cb5a556f7beaf76ae52770f79fdbb072b8f5518ecb5f"
           },
@@ -1639,7 +1657,9 @@
             "path": "nvidia/nvcomp/version.gen.go",
             "sha256": "ef4704b79c2b3ea3f8b400fcdccd03f448d47fb95fd60510324a5dbc90920957"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "headers": [
         {
@@ -1679,7 +1699,7 @@
     },
     "dcgm": {
       "package": "github.com/tmc/lib/nvidia/dcgm",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -1764,7 +1784,7 @@
           },
           {
             "path": "nvidia/dcgm/init.gen.go",
-            "sha256": "87e1042b97c2869fed82c4c3feb59ea49942872a489fc0b5f1552f9f8d48db7b"
+            "sha256": "dec4ea84f500fe80ef21e4c1665107289d9d4f6fb34ff5a84f45d3cde93bc22b"
           },
           {
             "path": "nvidia/dcgm/layout_test.go",
@@ -1781,6 +1801,14 @@
           {
             "path": "nvidia/dcgm/loader_test.go",
             "sha256": "cff5187145e725c2588ca9370a82eb2ab99e7fad259d9422454825b0c979817e"
+          },
+          {
+            "path": "nvidia/dcgm/loader_unix.gen.go",
+            "sha256": "88bdb4351245bc7ebeb9553a61595c76df2e0d95afd822b62f6ad87e9f69a095"
+          },
+          {
+            "path": "nvidia/dcgm/loader_windows.gen.go",
+            "sha256": "3dc50ce2fd647f46d8db006a0de9d60d5011c3bea8e411a05178488ee9407105"
           },
           {
             "path": "nvidia/dcgm/result.gen.go",
@@ -1806,7 +1834,9 @@
             "path": "nvidia/dcgm/versions_test.go",
             "sha256": "1da01ce3c313d2412cabb18d03eedbaac65bfc50017a399a38aeb24e2c29b602"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "headers": [
         {
@@ -1841,7 +1871,7 @@
     },
     "cublasmp": {
       "package": "github.com/tmc/lib/nvidia/cublasmp",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -1931,11 +1961,19 @@
           },
           {
             "path": "nvidia/cublasmp/init.gen.go",
-            "sha256": "9a2e62fe11295c45f92f8dbd0550910cf81a9dae18e363bd058498686dbc2f00"
+            "sha256": "0ca674f27c762f7a5be6f72f9abfcab6d084d44028b4a1cd3737f526ac623c95"
           },
           {
             "path": "nvidia/cublasmp/loader_test.go",
             "sha256": "ae2a87c83a50625868bf617d87850203607fabeee2dbc49267e1a399cf39a437"
+          },
+          {
+            "path": "nvidia/cublasmp/loader_unix.gen.go",
+            "sha256": "7225c137b367199ea1ad79b9da173372b6dcbab92d50a605d0ba172c8c00cc7d"
+          },
+          {
+            "path": "nvidia/cublasmp/loader_windows.gen.go",
+            "sha256": "0df9c68f423b2ec84fe94e039b09828af62dea741027751f86d623c6304c2c77"
           },
           {
             "path": "nvidia/cublasmp/matrix_descriptor.gen.go",
@@ -1949,7 +1987,9 @@
             "path": "nvidia/cublasmp/version.gen.go",
             "sha256": "da5dbc885f2173bf5316a5b40c3c32e85bb5ebd39111fe1b8d57b67f77e9736f"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
@@ -1957,7 +1997,7 @@
     },
     "cusolvermp": {
       "package": "github.com/tmc/lib/nvidia/cusolvermp",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -2047,11 +2087,19 @@
           },
           {
             "path": "nvidia/cusolvermp/init.gen.go",
-            "sha256": "33b45ec96a79f5cbea8bdb1ea69b46b3f710747ee5367872dd7b478bd701a699"
+            "sha256": "1575913cefd623020595d87dcdf3a0cd010d7172bcae9020a68edfaa734827dd"
           },
           {
             "path": "nvidia/cusolvermp/loader_test.go",
             "sha256": "8e41fae9e74e1c9778537233126bf62787c5b039a9462e27be93aaa9d0d2e5b5"
+          },
+          {
+            "path": "nvidia/cusolvermp/loader_unix.gen.go",
+            "sha256": "0eae03964d86bfb3626103728cf5588b5b90305d0c21f2139265fe0c0de4f213"
+          },
+          {
+            "path": "nvidia/cusolvermp/loader_windows.gen.go",
+            "sha256": "f3ee030ab092c34db3d629fc8af595a6106d10531098e9eec6a9dc588aa8df82"
           },
           {
             "path": "nvidia/cusolvermp/matrix_descriptor.gen.go",
@@ -2077,7 +2125,9 @@
             "path": "nvidia/cusolvermp/values.gen.go",
             "sha256": "59c9aae332480a5cbff3b17277e318246c9156167529f8f5c41a284a3114805a"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
@@ -2085,7 +2135,7 @@
     },
     "custatevec": {
       "package": "github.com/tmc/lib/nvidia/custatevec",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -2184,7 +2234,7 @@
           },
           {
             "path": "nvidia/custatevec/init.gen.go",
-            "sha256": "8b23784f9e640a4470b540de1bd3fd21b7fc628a27f1ebe21816d18c13476800"
+            "sha256": "6a392008edcba523bb8dbf072d40014cd0b1283558b03f3f239ec7d5ecb2eb02"
           },
           {
             "path": "nvidia/custatevec/layout_test.go",
@@ -2193,6 +2243,14 @@
           {
             "path": "nvidia/custatevec/loader_test.go",
             "sha256": "96b48bdfaa27776d7d54f7d5c29bed61b858931e5a10b42a36fdac8a29512ce5"
+          },
+          {
+            "path": "nvidia/custatevec/loader_unix.gen.go",
+            "sha256": "3c035659163e2cfc10d9c6d44c4ab8d2b00d20f1c30c0e97c9364a589851570a"
+          },
+          {
+            "path": "nvidia/custatevec/loader_windows.gen.go",
+            "sha256": "f2c9bd5c03ad97ba676829e781d598548b65c562448a8aa31fa14d1221397fba"
           },
           {
             "path": "nvidia/custatevec/result.gen.go",
@@ -2210,7 +2268,9 @@
             "path": "nvidia/custatevec/types.gen.go",
             "sha256": "74ef395bcf55507801bdc6c83c87487fb4eacae6c01470b7ec016df40b81035c"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
@@ -2218,7 +2278,7 @@
     },
     "cutensornet": {
       "package": "github.com/tmc/lib/nvidia/cutensornet",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -2321,7 +2381,7 @@
           },
           {
             "path": "nvidia/cutensornet/init.gen.go",
-            "sha256": "77a07ab2b3aec194d0290fc2a2ddb343e68cd72c7221677e0ee5593f4730d178"
+            "sha256": "858cd687a6d9588268d521488d0598176045c2bbd4e8271731a2b176360c8fa5"
           },
           {
             "path": "nvidia/cutensornet/layout_test.go",
@@ -2330,6 +2390,14 @@
           {
             "path": "nvidia/cutensornet/loader_test.go",
             "sha256": "064c2a0f8b5da44748da8f032f8ed8f3a319a41cbdfceaeb42259109fb3600b9"
+          },
+          {
+            "path": "nvidia/cutensornet/loader_unix.gen.go",
+            "sha256": "ff3733968cb49565d9ab0077835dc9e291b7bf5b6c7154851d2b38b7a2368510"
+          },
+          {
+            "path": "nvidia/cutensornet/loader_windows.gen.go",
+            "sha256": "6c05ba4754a6a77d15b99529e809bf53e7e962e28dec51c9a707b5453911588d"
           },
           {
             "path": "nvidia/cutensornet/network_autotune_preference.gen.go",
@@ -2363,7 +2431,9 @@
             "path": "nvidia/cutensornet/workspace_descriptor.gen.go",
             "sha256": "6473788bd1e8bab2c3efc87ecfdae822a71200f6d47660f265fb2b9378fd1e86"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "headers": [
         {
@@ -2730,7 +2800,7 @@
     },
     "cudensitymat": {
       "package": "github.com/tmc/lib/nvidia/cudensitymat",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -2831,7 +2901,7 @@
           },
           {
             "path": "nvidia/cudensitymat/init.gen.go",
-            "sha256": "9c634ae9124e8d396b1b9f64e6c8ed36754f9e519aa432f070c025077927f91e"
+            "sha256": "9dcd09657d1fdf252944998d7b818592937bfc910f995cf5165095e90a58def8"
           },
           {
             "path": "nvidia/cudensitymat/layout_test.go",
@@ -2840,6 +2910,14 @@
           {
             "path": "nvidia/cudensitymat/loader_test.go",
             "sha256": "6608dc3c936ac5d8b4d7899e7e147d9fb1f6a988cb292b2a7b772779786cc995"
+          },
+          {
+            "path": "nvidia/cudensitymat/loader_unix.gen.go",
+            "sha256": "0ca839e3e46a1b0ac6f8ff6ce7088f2d6ee0da64402d509e30efd7425cc217e5"
+          },
+          {
+            "path": "nvidia/cudensitymat/loader_windows.gen.go",
+            "sha256": "403d7eaad5ca64a64956e41651c7882293f1bfd223a0b92c2846cfdf79905920"
           },
           {
             "path": "nvidia/cudensitymat/operator.gen.go",
@@ -2869,7 +2947,9 @@
             "path": "nvidia/cudensitymat/workspace_descriptor.gen.go",
             "sha256": "4e2e37b89ff86b99dd323d56d81ae45eeaf64e091549090ad13a75ae7b159841"
           }
-        ]
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
