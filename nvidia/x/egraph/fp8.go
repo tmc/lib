@@ -68,7 +68,10 @@ extern "C" __global__ void ScaledFP8GEMV(
     }
     __syncthreads();
 
-    float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
+    // Round up: a block that is not a whole number of warps still has a
+    // partial warp holding a partial sum, and dividing down dropped it.
+    int n_warps = (blockDim.x + WARP_SIZE - 1) / WARP_SIZE;
+    float block_sum = (lane < n_warps) ? s_sum[lane] : 0.0f;
     if (wid == 0) {
         #pragma unroll
         for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
