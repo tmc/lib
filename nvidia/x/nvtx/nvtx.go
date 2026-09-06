@@ -244,14 +244,14 @@ func initInjection() {
 		return
 	}
 
-	handle, err := purego.Dlopen(injectionPath, purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	handle, err := openDynamicLibrary(injectionPath)
 	if err != nil {
 		return
 	}
 
-	initFn, err := purego.Dlsym(handle, "InitializeInjectionNvtx2")
+	initFn, err := lookupLibrarySymbol(handle, "InitializeInjectionNvtx2")
 	if err != nil || initFn == 0 {
-		initFn, err = purego.Dlsym(handle, "InitializeInjectionNvtx")
+		initFn, err = lookupLibrarySymbol(handle, "InitializeInjectionNvtx")
 		if err != nil || initFn == 0 {
 			return
 		}

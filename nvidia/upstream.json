@@ -113,7 +113,7 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "17fab93682a94b179cad2393300cec54ce7ff3730a74708c6c2de724f5513bad"
+            "sha256": "adc64e8fcc3340435b9f5eb5f9dd4447473ac8d78739131cb30dbdf0bad7ace3"
           },
           {
             "path": "nvidia/nvvm/loader_test.go",
@@ -142,7 +142,8 @@
           "example_cuda_test.go",
           "pipeline_test.go",
           "testdata/sin.ll"
-        ]
+        ],
+        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
       },
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
@@ -262,7 +263,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "85a03529fd24a44f0b3b05a2264e7747a0730098a2723d3a7271ad39d006ed95"
+            "sha256": "538b7c3fbf89aceffe660e93361e418d7aadbf4d230f4895e424a0c7d374557e"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
@@ -289,7 +290,8 @@
         "maintained_files_excluded": [
           "example_test.go",
           "flow_physical_test.go"
-        ]
+        ],
+        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
       },
       "unresolved_inputs": [
         "transitive Go module source contents",
@@ -410,7 +412,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "44d254dcca6058fadc05afee43234c06ef661cce31c82f263aa5f1b70f974fc6"
+            "sha256": "4b9a9c711b75bc1e7d398dbe24c370a9a748dfc9c40700155b790dfd84e87e4b"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -433,7 +435,8 @@
         "maintained_files_excluded": [
           "README.md",
           "example_cuda_test.go"
-        ]
+        ],
+        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
       },
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
