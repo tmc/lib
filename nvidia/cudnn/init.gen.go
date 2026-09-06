@@ -232,76 +232,201 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
-// registerFuncs binds all raw function pointers to their library symbols.
+// registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorString, "cudnnGetErrorString")
+	register(&fnactivationBackward, "cudnnActivationBackward")
+	register(&fnactivationForward, "cudnnActivationForward")
+	register(&fnaddTensor, "cudnnAddTensor")
 	register(&fnAdvVersionCheck, "cudnnAdvVersionCheck")
 	register(&fnbackendCreateDescriptor, "cudnnBackendCreateDescriptor")
 	register(&fnbackendDestroyDescriptor, "cudnnBackendDestroyDescriptor")
 	register(&fnbackendExecute, "cudnnBackendExecute")
 	register(&fnbackendFinalize, "cudnnBackendFinalize")
 	register(&fnbackendGetAttribute, "cudnnBackendGetAttribute")
+	register(&fnbackendInitialize, "cudnnBackendInitialize")
 	register(&fnbackendPopulateCudaGraph, "cudnnBackendPopulateCudaGraph")
 	register(&fnbackendSetAttribute, "cudnnBackendSetAttribute")
 	register(&fnbackendUpdateCudaGraph, "cudnnBackendUpdateCudaGraph")
+	register(&fnbatchNormalizationBackward, "cudnnBatchNormalizationBackward")
+	register(&fnbatchNormalizationBackwardEx, "cudnnBatchNormalizationBackwardEx")
+	register(&fnbatchNormalizationForwardInference, "cudnnBatchNormalizationForwardInference")
+	register(&fnbatchNormalizationForwardTraining, "cudnnBatchNormalizationForwardTraining")
+	register(&fnbatchNormalizationForwardTrainingEx, "cudnnBatchNormalizationForwardTrainingEx")
 	register(&fnbuildRNNDynamic, "cudnnBuildRNNDynamic")
 	register(&fncTCLoss, "cudnnCTCLoss")
 	register(&fncTCLossV8, "cudnnCTCLoss_v8")
 	register(&fnCnnVersionCheck, "cudnnCnnVersionCheck")
+	register(&fnconvolutionBackwardBias, "cudnnConvolutionBackwardBias")
+	register(&fnconvolutionBackwardData, "cudnnConvolutionBackwardData")
+	register(&fnconvolutionBackwardFilter, "cudnnConvolutionBackwardFilter")
+	register(&fnconvolutionBiasActivationForward, "cudnnConvolutionBiasActivationForward")
+	register(&fnconvolutionForward, "cudnnConvolutionForward")
 	register(&fnCreate, "cudnnCreate")
+	register(&fnCreateActivationDescriptor, "cudnnCreateActivationDescriptor")
+	register(&fnCreateAttnDescriptor, "cudnnCreateAttnDescriptor")
 	register(&fnCreateCTCLossDescriptor, "cudnnCreateCTCLossDescriptor")
+	register(&fnCreateConvolutionDescriptor, "cudnnCreateConvolutionDescriptor")
 	register(&fnCreateDropoutDescriptor, "cudnnCreateDropoutDescriptor")
+	register(&fnCreateFilterDescriptor, "cudnnCreateFilterDescriptor")
+	register(&fnCreateFusedOpsConstParamPack, "cudnnCreateFusedOpsConstParamPack")
+	register(&fnCreateFusedOpsPlan, "cudnnCreateFusedOpsPlan")
+	register(&fnCreateFusedOpsVariantParamPack, "cudnnCreateFusedOpsVariantParamPack")
 	register(&fnCreateLRNDescriptor, "cudnnCreateLRNDescriptor")
+	register(&fnCreateOpTensorDescriptor, "cudnnCreateOpTensorDescriptor")
+	register(&fnCreatePoolingDescriptor, "cudnnCreatePoolingDescriptor")
 	register(&fnCreateRNNDataDescriptor, "cudnnCreateRNNDataDescriptor")
 	register(&fnCreateRNNDescriptor, "cudnnCreateRNNDescriptor")
+	register(&fnCreateReduceTensorDescriptor, "cudnnCreateReduceTensorDescriptor")
+	register(&fnCreateSeqDataDescriptor, "cudnnCreateSeqDataDescriptor")
 	register(&fnCreateSpatialTransformerDescriptor, "cudnnCreateSpatialTransformerDescriptor")
 	register(&fnCreateTensorDescriptor, "cudnnCreateTensorDescriptor")
+	register(&fnCreateTensorTransformDescriptor, "cudnnCreateTensorTransformDescriptor")
+	register(&fnderiveBNTensorDescriptor, "cudnnDeriveBNTensorDescriptor")
+	register(&fnderiveNormTensorDescriptor, "cudnnDeriveNormTensorDescriptor")
 	register(&fndestroy, "cudnnDestroy")
+	register(&fndestroyActivationDescriptor, "cudnnDestroyActivationDescriptor")
+	register(&fndestroyAttnDescriptor, "cudnnDestroyAttnDescriptor")
 	register(&fndestroyCTCLossDescriptor, "cudnnDestroyCTCLossDescriptor")
+	register(&fndestroyConvolutionDescriptor, "cudnnDestroyConvolutionDescriptor")
 	register(&fndestroyDropoutDescriptor, "cudnnDestroyDropoutDescriptor")
+	register(&fndestroyFilterDescriptor, "cudnnDestroyFilterDescriptor")
+	register(&fndestroyFusedOpsConstParamPack, "cudnnDestroyFusedOpsConstParamPack")
+	register(&fndestroyFusedOpsPlan, "cudnnDestroyFusedOpsPlan")
+	register(&fndestroyFusedOpsVariantParamPack, "cudnnDestroyFusedOpsVariantParamPack")
 	register(&fndestroyLRNDescriptor, "cudnnDestroyLRNDescriptor")
+	register(&fndestroyOpTensorDescriptor, "cudnnDestroyOpTensorDescriptor")
+	register(&fndestroyPoolingDescriptor, "cudnnDestroyPoolingDescriptor")
 	register(&fndestroyRNNDataDescriptor, "cudnnDestroyRNNDataDescriptor")
 	register(&fndestroyRNNDescriptor, "cudnnDestroyRNNDescriptor")
+	register(&fndestroyReduceTensorDescriptor, "cudnnDestroyReduceTensorDescriptor")
+	register(&fndestroySeqDataDescriptor, "cudnnDestroySeqDataDescriptor")
 	register(&fndestroySpatialTransformerDescriptor, "cudnnDestroySpatialTransformerDescriptor")
 	register(&fndestroyTensorDescriptor, "cudnnDestroyTensorDescriptor")
+	register(&fndestroyTensorTransformDescriptor, "cudnnDestroyTensorTransformDescriptor")
 	register(&fndivisiveNormalizationBackward, "cudnnDivisiveNormalizationBackward")
 	register(&fndivisiveNormalizationForward, "cudnnDivisiveNormalizationForward")
 	register(&fndropoutBackward, "cudnnDropoutBackward")
 	register(&fndropoutForward, "cudnnDropoutForward")
 	register(&fndropoutGetReserveSpaceSize, "cudnnDropoutGetReserveSpaceSize")
 	register(&fndropoutGetStatesSize, "cudnnDropoutGetStatesSize")
+	register(&fnfindConvolutionBackwardDataAlgorithm, "cudnnFindConvolutionBackwardDataAlgorithm")
+	register(&fnfindConvolutionBackwardDataAlgorithmEx, "cudnnFindConvolutionBackwardDataAlgorithmEx")
+	register(&fnfindConvolutionBackwardFilterAlgorithm, "cudnnFindConvolutionBackwardFilterAlgorithm")
+	register(&fnfindConvolutionBackwardFilterAlgorithmEx, "cudnnFindConvolutionBackwardFilterAlgorithmEx")
+	register(&fnfindConvolutionForwardAlgorithm, "cudnnFindConvolutionForwardAlgorithm")
+	register(&fnfindConvolutionForwardAlgorithmEx, "cudnnFindConvolutionForwardAlgorithmEx")
+	register(&fnfusedOpsExecute, "cudnnFusedOpsExecute")
+	register(&fngetActivationDescriptor, "cudnnGetActivationDescriptor")
+	register(&fngetActivationDescriptorSwishBeta, "cudnnGetActivationDescriptorSwishBeta")
+	register(&fngetAttnDescriptor, "cudnnGetAttnDescriptor")
+	register(&fngetBatchNormalizationBackwardExWorkspaceSize, "cudnnGetBatchNormalizationBackwardExWorkspaceSize")
+	register(&fngetBatchNormalizationForwardTrainingExWorkspaceSize, "cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize")
+	register(&fngetBatchNormalizationTrainingExReserveSpaceSize, "cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
+	register(&fngetCTCLossDescriptorEx, "cudnnGetCTCLossDescriptorEx")
 	register(&fngetCTCLossDescriptor, "cudnnGetCTCLossDescriptor_v9")
 	register(&fngetCTCLossWorkspaceSize, "cudnnGetCTCLossWorkspaceSize")
 	register(&fngetCTCLossWorkspaceSizeV8, "cudnnGetCTCLossWorkspaceSize_v8")
 	register(&fnGetCallback, "cudnnGetCallback")
+	register(&fngetConvolution2dDescriptor, "cudnnGetConvolution2dDescriptor")
+	register(&fngetConvolution2dForwardOutputDim, "cudnnGetConvolution2dForwardOutputDim")
+	register(&fngetConvolutionBackwardDataAlgorithmMaxCount, "cudnnGetConvolutionBackwardDataAlgorithmMaxCount")
+	register(&fngetConvolutionBackwardDataAlgorithm, "cudnnGetConvolutionBackwardDataAlgorithm_v7")
+	register(&fngetConvolutionBackwardDataWorkspaceSize, "cudnnGetConvolutionBackwardDataWorkspaceSize")
+	register(&fngetConvolutionBackwardFilterAlgorithmMaxCount, "cudnnGetConvolutionBackwardFilterAlgorithmMaxCount")
+	register(&fngetConvolutionBackwardFilterAlgorithm, "cudnnGetConvolutionBackwardFilterAlgorithm_v7")
+	register(&fngetConvolutionBackwardFilterWorkspaceSize, "cudnnGetConvolutionBackwardFilterWorkspaceSize")
+	register(&fngetConvolutionForwardAlgorithmMaxCount, "cudnnGetConvolutionForwardAlgorithmMaxCount")
+	register(&fngetConvolutionForwardAlgorithm, "cudnnGetConvolutionForwardAlgorithm_v7")
+	register(&fngetConvolutionForwardWorkspaceSize, "cudnnGetConvolutionForwardWorkspaceSize")
+	register(&fngetConvolutionGroupCount, "cudnnGetConvolutionGroupCount")
+	register(&fngetConvolutionMathType, "cudnnGetConvolutionMathType")
+	register(&fngetConvolutionNdDescriptor, "cudnnGetConvolutionNdDescriptor")
+	register(&fngetConvolutionNdForwardOutputDim, "cudnnGetConvolutionNdForwardOutputDim")
+	register(&fngetConvolutionReorderType, "cudnnGetConvolutionReorderType")
 	register(&fngetDropoutDescriptor, "cudnnGetDropoutDescriptor")
+	register(&fngetFilter4dDescriptor, "cudnnGetFilter4dDescriptor")
+	register(&fngetFilterNdDescriptor, "cudnnGetFilterNdDescriptor")
+	register(&fngetFilterSizeInBytes, "cudnnGetFilterSizeInBytes")
+	register(&fngetFoldedConvBackwardDataDescriptors, "cudnnGetFoldedConvBackwardDataDescriptors")
+	register(&fngetFusedOpsConstParamPackAttribute, "cudnnGetFusedOpsConstParamPackAttribute")
+	register(&fngetFusedOpsVariantParamPackAttribute, "cudnnGetFusedOpsVariantParamPackAttribute")
 	register(&fngetLRNDescriptor, "cudnnGetLRNDescriptor")
+	register(&fngetMultiHeadAttnBuffers, "cudnnGetMultiHeadAttnBuffers")
+	register(&fngetMultiHeadAttnWeights, "cudnnGetMultiHeadAttnWeights")
+	register(&fngetNormalizationBackwardWorkspaceSize, "cudnnGetNormalizationBackwardWorkspaceSize")
+	register(&fngetNormalizationForwardTrainingWorkspaceSize, "cudnnGetNormalizationForwardTrainingWorkspaceSize")
+	register(&fngetNormalizationTrainingReserveSpaceSize, "cudnnGetNormalizationTrainingReserveSpaceSize")
+	register(&fngetOpTensorDescriptor, "cudnnGetOpTensorDescriptor")
+	register(&fngetPooling2dDescriptor, "cudnnGetPooling2dDescriptor")
+	register(&fngetPooling2dForwardOutputDim, "cudnnGetPooling2dForwardOutputDim")
+	register(&fngetPoolingNdDescriptor, "cudnnGetPoolingNdDescriptor")
+	register(&fngetPoolingNdForwardOutputDim, "cudnnGetPoolingNdForwardOutputDim")
 	register(&fnGetProperty, "cudnnGetProperty")
 	register(&fngetRNNDataDescriptor, "cudnnGetRNNDataDescriptor")
 	register(&fngetRNNDescriptor, "cudnnGetRNNDescriptor_v8")
 	register(&fngetRNNTempSpaceSizes, "cudnnGetRNNTempSpaceSizes")
 	register(&fngetRNNWeightParams, "cudnnGetRNNWeightParams")
 	register(&fngetRNNWeightSpaceSize, "cudnnGetRNNWeightSpaceSize")
+	register(&fngetReduceTensorDescriptor, "cudnnGetReduceTensorDescriptor")
+	register(&fngetReductionIndicesSize, "cudnnGetReductionIndicesSize")
+	register(&fngetReductionWorkspaceSize, "cudnnGetReductionWorkspaceSize")
+	register(&fngetSeqDataDescriptor, "cudnnGetSeqDataDescriptor")
 	register(&fngetStream, "cudnnGetStream")
 	register(&fngetTensor4dDescriptor, "cudnnGetTensor4dDescriptor")
 	register(&fngetTensorNdDescriptor, "cudnnGetTensorNdDescriptor")
 	register(&fngetTensorSizeInBytes, "cudnnGetTensorSizeInBytes")
+	register(&fngetTensorTransformDescriptor, "cudnnGetTensorTransformDescriptor")
 	register(&fnGraphVersionCheck, "cudnnGraphVersionCheck")
+	register(&fnim2Col, "cudnnIm2Col")
+	register(&fninitTransformDest, "cudnnInitTransformDest")
 	register(&fnlRNCrossChannelBackward, "cudnnLRNCrossChannelBackward")
 	register(&fnlRNCrossChannelForward, "cudnnLRNCrossChannelForward")
+	register(&fnmakeFusedOpsPlan, "cudnnMakeFusedOpsPlan")
+	register(&fnmultiHeadAttnBackwardData, "cudnnMultiHeadAttnBackwardData")
+	register(&fnmultiHeadAttnBackwardWeights, "cudnnMultiHeadAttnBackwardWeights")
+	register(&fnmultiHeadAttnForward, "cudnnMultiHeadAttnForward")
+	register(&fnnormalizationBackward, "cudnnNormalizationBackward")
+	register(&fnnormalizationForwardInference, "cudnnNormalizationForwardInference")
+	register(&fnnormalizationForwardTraining, "cudnnNormalizationForwardTraining")
+	register(&fnopTensor, "cudnnOpTensor")
 	register(&fnOpsVersionCheck, "cudnnOpsVersionCheck")
+	register(&fnpoolingBackward, "cudnnPoolingBackward")
+	register(&fnpoolingForward, "cudnnPoolingForward")
+	register(&fnqueryRuntimeError, "cudnnQueryRuntimeError")
 	register(&fnrNNBackwardData, "cudnnRNNBackwardData_v8")
 	register(&fnrNNBackwardWeights, "cudnnRNNBackwardWeights_v8")
 	register(&fnrNNForward, "cudnnRNNForward")
 	register(&fnrNNGetClip, "cudnnRNNGetClip_v9")
 	register(&fnrNNSetClip, "cudnnRNNSetClip_v9")
+	register(&fnreduceTensor, "cudnnReduceTensor")
+	register(&fnreorderFilterAndBias, "cudnnReorderFilterAndBias")
 	register(&fnrestoreDropoutDescriptor, "cudnnRestoreDropoutDescriptor")
+	register(&fnscaleTensor, "cudnnScaleTensor")
+	register(&fnsetActivationDescriptor, "cudnnSetActivationDescriptor")
+	register(&fnsetActivationDescriptorSwishBeta, "cudnnSetActivationDescriptorSwishBeta")
+	register(&fnsetAttnDescriptor, "cudnnSetAttnDescriptor")
+	register(&fnsetCTCLossDescriptorEx, "cudnnSetCTCLossDescriptorEx")
 	register(&fnsetCTCLossDescriptor, "cudnnSetCTCLossDescriptor_v9")
 	register(&fnSetCallback, "cudnnSetCallback")
+	register(&fnsetConvolution2dDescriptor, "cudnnSetConvolution2dDescriptor")
+	register(&fnsetConvolutionGroupCount, "cudnnSetConvolutionGroupCount")
+	register(&fnsetConvolutionMathType, "cudnnSetConvolutionMathType")
+	register(&fnsetConvolutionNdDescriptor, "cudnnSetConvolutionNdDescriptor")
+	register(&fnsetConvolutionReorderType, "cudnnSetConvolutionReorderType")
 	register(&fnsetDropoutDescriptor, "cudnnSetDropoutDescriptor")
+	register(&fnsetFilter4dDescriptor, "cudnnSetFilter4dDescriptor")
+	register(&fnsetFilterNdDescriptor, "cudnnSetFilterNdDescriptor")
+	register(&fnsetFusedOpsConstParamPackAttribute, "cudnnSetFusedOpsConstParamPackAttribute")
+	register(&fnsetFusedOpsVariantParamPackAttribute, "cudnnSetFusedOpsVariantParamPackAttribute")
 	register(&fnsetLRNDescriptor, "cudnnSetLRNDescriptor")
+	register(&fnsetOpTensorDescriptor, "cudnnSetOpTensorDescriptor")
+	register(&fnsetPooling2dDescriptor, "cudnnSetPooling2dDescriptor")
+	register(&fnsetPoolingNdDescriptor, "cudnnSetPoolingNdDescriptor")
 	register(&fnsetRNNDataDescriptor, "cudnnSetRNNDataDescriptor")
 	register(&fnsetRNNDescriptor, "cudnnSetRNNDescriptor_v8")
+	register(&fnsetReduceTensorDescriptor, "cudnnSetReduceTensorDescriptor")
+	register(&fnsetSeqDataDescriptor, "cudnnSetSeqDataDescriptor")
 	register(&fnsetSpatialTransformerNdDescriptor, "cudnnSetSpatialTransformerNdDescriptor")
 	register(&fnsetStream, "cudnnSetStream")
 	register(&fnsetTensor, "cudnnSetTensor")
@@ -309,84 +434,213 @@ func registerFuncs() {
 	register(&fnsetTensor4dDescriptorEx, "cudnnSetTensor4dDescriptorEx")
 	register(&fnsetTensorNdDescriptor, "cudnnSetTensorNdDescriptor")
 	register(&fnsetTensorNdDescriptorEx, "cudnnSetTensorNdDescriptorEx")
+	register(&fnsetTensorTransformDescriptor, "cudnnSetTensorTransformDescriptor")
 	register(&fnsoftmaxBackward, "cudnnSoftmaxBackward")
 	register(&fnsoftmaxForward, "cudnnSoftmaxForward")
 	register(&fnspatialTfGridGeneratorBackward, "cudnnSpatialTfGridGeneratorBackward")
 	register(&fnspatialTfGridGeneratorForward, "cudnnSpatialTfGridGeneratorForward")
 	register(&fnspatialTfSamplerBackward, "cudnnSpatialTfSamplerBackward")
 	register(&fnspatialTfSamplerForward, "cudnnSpatialTfSamplerForward")
+	register(&fntransformFilter, "cudnnTransformFilter")
+	register(&fntransformTensor, "cudnnTransformTensor")
+	register(&fntransformTensorEx, "cudnnTransformTensorEx")
 }
 
-// clearFuncs unbinds all raw function pointers.
+// clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetErrorString = nil
+	fnactivationBackward = nil
+	fnactivationForward = nil
+	fnaddTensor = nil
 	fnAdvVersionCheck = nil
 	fnbackendCreateDescriptor = nil
 	fnbackendDestroyDescriptor = nil
 	fnbackendExecute = nil
 	fnbackendFinalize = nil
 	fnbackendGetAttribute = nil
+	fnbackendInitialize = nil
 	fnbackendPopulateCudaGraph = nil
 	fnbackendSetAttribute = nil
 	fnbackendUpdateCudaGraph = nil
+	fnbatchNormalizationBackward = nil
+	fnbatchNormalizationBackwardEx = nil
+	fnbatchNormalizationForwardInference = nil
+	fnbatchNormalizationForwardTraining = nil
+	fnbatchNormalizationForwardTrainingEx = nil
 	fnbuildRNNDynamic = nil
 	fncTCLoss = nil
 	fncTCLossV8 = nil
 	fnCnnVersionCheck = nil
+	fnconvolutionBackwardBias = nil
+	fnconvolutionBackwardData = nil
+	fnconvolutionBackwardFilter = nil
+	fnconvolutionBiasActivationForward = nil
+	fnconvolutionForward = nil
 	fnCreate = nil
+	fnCreateActivationDescriptor = nil
+	fnCreateAttnDescriptor = nil
 	fnCreateCTCLossDescriptor = nil
+	fnCreateConvolutionDescriptor = nil
 	fnCreateDropoutDescriptor = nil
+	fnCreateFilterDescriptor = nil
+	fnCreateFusedOpsConstParamPack = nil
+	fnCreateFusedOpsPlan = nil
+	fnCreateFusedOpsVariantParamPack = nil
 	fnCreateLRNDescriptor = nil
+	fnCreateOpTensorDescriptor = nil
+	fnCreatePoolingDescriptor = nil
 	fnCreateRNNDataDescriptor = nil
 	fnCreateRNNDescriptor = nil
+	fnCreateReduceTensorDescriptor = nil
+	fnCreateSeqDataDescriptor = nil
 	fnCreateSpatialTransformerDescriptor = nil
 	fnCreateTensorDescriptor = nil
+	fnCreateTensorTransformDescriptor = nil
+	fnderiveBNTensorDescriptor = nil
+	fnderiveNormTensorDescriptor = nil
 	fndestroy = nil
+	fndestroyActivationDescriptor = nil
+	fndestroyAttnDescriptor = nil
 	fndestroyCTCLossDescriptor = nil
+	fndestroyConvolutionDescriptor = nil
 	fndestroyDropoutDescriptor = nil
+	fndestroyFilterDescriptor = nil
+	fndestroyFusedOpsConstParamPack = nil
+	fndestroyFusedOpsPlan = nil
+	fndestroyFusedOpsVariantParamPack = nil
 	fndestroyLRNDescriptor = nil
+	fndestroyOpTensorDescriptor = nil
+	fndestroyPoolingDescriptor = nil
 	fndestroyRNNDataDescriptor = nil
 	fndestroyRNNDescriptor = nil
+	fndestroyReduceTensorDescriptor = nil
+	fndestroySeqDataDescriptor = nil
 	fndestroySpatialTransformerDescriptor = nil
 	fndestroyTensorDescriptor = nil
+	fndestroyTensorTransformDescriptor = nil
 	fndivisiveNormalizationBackward = nil
 	fndivisiveNormalizationForward = nil
 	fndropoutBackward = nil
 	fndropoutForward = nil
 	fndropoutGetReserveSpaceSize = nil
 	fndropoutGetStatesSize = nil
+	fnfindConvolutionBackwardDataAlgorithm = nil
+	fnfindConvolutionBackwardDataAlgorithmEx = nil
+	fnfindConvolutionBackwardFilterAlgorithm = nil
+	fnfindConvolutionBackwardFilterAlgorithmEx = nil
+	fnfindConvolutionForwardAlgorithm = nil
+	fnfindConvolutionForwardAlgorithmEx = nil
+	fnfusedOpsExecute = nil
+	fngetActivationDescriptor = nil
+	fngetActivationDescriptorSwishBeta = nil
+	fngetAttnDescriptor = nil
+	fngetBatchNormalizationBackwardExWorkspaceSize = nil
+	fngetBatchNormalizationForwardTrainingExWorkspaceSize = nil
+	fngetBatchNormalizationTrainingExReserveSpaceSize = nil
+	fngetCTCLossDescriptorEx = nil
 	fngetCTCLossDescriptor = nil
 	fngetCTCLossWorkspaceSize = nil
 	fngetCTCLossWorkspaceSizeV8 = nil
 	fnGetCallback = nil
+	fngetConvolution2dDescriptor = nil
+	fngetConvolution2dForwardOutputDim = nil
+	fngetConvolutionBackwardDataAlgorithmMaxCount = nil
+	fngetConvolutionBackwardDataAlgorithm = nil
+	fngetConvolutionBackwardDataWorkspaceSize = nil
+	fngetConvolutionBackwardFilterAlgorithmMaxCount = nil
+	fngetConvolutionBackwardFilterAlgorithm = nil
+	fngetConvolutionBackwardFilterWorkspaceSize = nil
+	fngetConvolutionForwardAlgorithmMaxCount = nil
+	fngetConvolutionForwardAlgorithm = nil
+	fngetConvolutionForwardWorkspaceSize = nil
+	fngetConvolutionGroupCount = nil
+	fngetConvolutionMathType = nil
+	fngetConvolutionNdDescriptor = nil
+	fngetConvolutionNdForwardOutputDim = nil
+	fngetConvolutionReorderType = nil
 	fngetDropoutDescriptor = nil
+	fngetFilter4dDescriptor = nil
+	fngetFilterNdDescriptor = nil
+	fngetFilterSizeInBytes = nil
+	fngetFoldedConvBackwardDataDescriptors = nil
+	fngetFusedOpsConstParamPackAttribute = nil
+	fngetFusedOpsVariantParamPackAttribute = nil
 	fngetLRNDescriptor = nil
+	fngetMultiHeadAttnBuffers = nil
+	fngetMultiHeadAttnWeights = nil
+	fngetNormalizationBackwardWorkspaceSize = nil
+	fngetNormalizationForwardTrainingWorkspaceSize = nil
+	fngetNormalizationTrainingReserveSpaceSize = nil
+	fngetOpTensorDescriptor = nil
+	fngetPooling2dDescriptor = nil
+	fngetPooling2dForwardOutputDim = nil
+	fngetPoolingNdDescriptor = nil
+	fngetPoolingNdForwardOutputDim = nil
 	fnGetProperty = nil
 	fngetRNNDataDescriptor = nil
 	fngetRNNDescriptor = nil
 	fngetRNNTempSpaceSizes = nil
 	fngetRNNWeightParams = nil
 	fngetRNNWeightSpaceSize = nil
+	fngetReduceTensorDescriptor = nil
+	fngetReductionIndicesSize = nil
+	fngetReductionWorkspaceSize = nil
+	fngetSeqDataDescriptor = nil
 	fngetStream = nil
 	fngetTensor4dDescriptor = nil
 	fngetTensorNdDescriptor = nil
 	fngetTensorSizeInBytes = nil
+	fngetTensorTransformDescriptor = nil
 	fnGraphVersionCheck = nil
+	fnim2Col = nil
+	fninitTransformDest = nil
 	fnlRNCrossChannelBackward = nil
 	fnlRNCrossChannelForward = nil
+	fnmakeFusedOpsPlan = nil
+	fnmultiHeadAttnBackwardData = nil
+	fnmultiHeadAttnBackwardWeights = nil
+	fnmultiHeadAttnForward = nil
+	fnnormalizationBackward = nil
+	fnnormalizationForwardInference = nil
+	fnnormalizationForwardTraining = nil
+	fnopTensor = nil
 	fnOpsVersionCheck = nil
+	fnpoolingBackward = nil
+	fnpoolingForward = nil
+	fnqueryRuntimeError = nil
 	fnrNNBackwardData = nil
 	fnrNNBackwardWeights = nil
 	fnrNNForward = nil
 	fnrNNGetClip = nil
 	fnrNNSetClip = nil
+	fnreduceTensor = nil
+	fnreorderFilterAndBias = nil
 	fnrestoreDropoutDescriptor = nil
+	fnscaleTensor = nil
+	fnsetActivationDescriptor = nil
+	fnsetActivationDescriptorSwishBeta = nil
+	fnsetAttnDescriptor = nil
+	fnsetCTCLossDescriptorEx = nil
 	fnsetCTCLossDescriptor = nil
 	fnSetCallback = nil
+	fnsetConvolution2dDescriptor = nil
+	fnsetConvolutionGroupCount = nil
+	fnsetConvolutionMathType = nil
+	fnsetConvolutionNdDescriptor = nil
+	fnsetConvolutionReorderType = nil
 	fnsetDropoutDescriptor = nil
+	fnsetFilter4dDescriptor = nil
+	fnsetFilterNdDescriptor = nil
+	fnsetFusedOpsConstParamPackAttribute = nil
+	fnsetFusedOpsVariantParamPackAttribute = nil
 	fnsetLRNDescriptor = nil
+	fnsetOpTensorDescriptor = nil
+	fnsetPooling2dDescriptor = nil
+	fnsetPoolingNdDescriptor = nil
 	fnsetRNNDataDescriptor = nil
 	fnsetRNNDescriptor = nil
+	fnsetReduceTensorDescriptor = nil
+	fnsetSeqDataDescriptor = nil
 	fnsetSpatialTransformerNdDescriptor = nil
 	fnsetStream = nil
 	fnsetTensor = nil
@@ -394,17 +648,36 @@ func clearFuncs() {
 	fnsetTensor4dDescriptorEx = nil
 	fnsetTensorNdDescriptor = nil
 	fnsetTensorNdDescriptorEx = nil
+	fnsetTensorTransformDescriptor = nil
 	fnsoftmaxBackward = nil
 	fnsoftmaxForward = nil
 	fnspatialTfGridGeneratorBackward = nil
 	fnspatialTfGridGeneratorForward = nil
 	fnspatialTfSamplerBackward = nil
 	fnspatialTfSamplerForward = nil
+	fntransformFilter = nil
+	fntransformTensor = nil
+	fntransformTensorEx = nil
 }
 
 // HasGetErrorString reports whether cudnnGetErrorString resolved in the loaded library.
 func HasGetErrorString() bool {
 	return Has("cudnnGetErrorString")
+}
+
+// HasactivationBackward reports whether cudnnActivationBackward resolved in the loaded library.
+func HasactivationBackward() bool {
+	return Has("cudnnActivationBackward")
+}
+
+// HasactivationForward reports whether cudnnActivationForward resolved in the loaded library.
+func HasactivationForward() bool {
+	return Has("cudnnActivationForward")
+}
+
+// HasaddTensor reports whether cudnnAddTensor resolved in the loaded library.
+func HasaddTensor() bool {
+	return Has("cudnnAddTensor")
 }
 
 // HasAdvVersionCheck reports whether cudnnAdvVersionCheck resolved in the loaded library.
@@ -437,6 +710,11 @@ func HasbackendGetAttribute() bool {
 	return Has("cudnnBackendGetAttribute")
 }
 
+// HasbackendInitialize reports whether cudnnBackendInitialize resolved in the loaded library.
+func HasbackendInitialize() bool {
+	return Has("cudnnBackendInitialize")
+}
+
 // HasbackendPopulateCudaGraph reports whether cudnnBackendPopulateCudaGraph resolved in the loaded library.
 func HasbackendPopulateCudaGraph() bool {
 	return Has("cudnnBackendPopulateCudaGraph")
@@ -450,6 +728,31 @@ func HasbackendSetAttribute() bool {
 // HasbackendUpdateCudaGraph reports whether cudnnBackendUpdateCudaGraph resolved in the loaded library.
 func HasbackendUpdateCudaGraph() bool {
 	return Has("cudnnBackendUpdateCudaGraph")
+}
+
+// HasbatchNormalizationBackward reports whether cudnnBatchNormalizationBackward resolved in the loaded library.
+func HasbatchNormalizationBackward() bool {
+	return Has("cudnnBatchNormalizationBackward")
+}
+
+// HasbatchNormalizationBackwardEx reports whether cudnnBatchNormalizationBackwardEx resolved in the loaded library.
+func HasbatchNormalizationBackwardEx() bool {
+	return Has("cudnnBatchNormalizationBackwardEx")
+}
+
+// HasbatchNormalizationForwardInference reports whether cudnnBatchNormalizationForwardInference resolved in the loaded library.
+func HasbatchNormalizationForwardInference() bool {
+	return Has("cudnnBatchNormalizationForwardInference")
+}
+
+// HasbatchNormalizationForwardTraining reports whether cudnnBatchNormalizationForwardTraining resolved in the loaded library.
+func HasbatchNormalizationForwardTraining() bool {
+	return Has("cudnnBatchNormalizationForwardTraining")
+}
+
+// HasbatchNormalizationForwardTrainingEx reports whether cudnnBatchNormalizationForwardTrainingEx resolved in the loaded library.
+func HasbatchNormalizationForwardTrainingEx() bool {
+	return Has("cudnnBatchNormalizationForwardTrainingEx")
 }
 
 // HasbuildRNNDynamic reports whether cudnnBuildRNNDynamic resolved in the loaded library.
@@ -472,9 +775,44 @@ func HasCnnVersionCheck() bool {
 	return Has("cudnnCnnVersionCheck")
 }
 
+// HasconvolutionBackwardBias reports whether cudnnConvolutionBackwardBias resolved in the loaded library.
+func HasconvolutionBackwardBias() bool {
+	return Has("cudnnConvolutionBackwardBias")
+}
+
+// HasconvolutionBackwardData reports whether cudnnConvolutionBackwardData resolved in the loaded library.
+func HasconvolutionBackwardData() bool {
+	return Has("cudnnConvolutionBackwardData")
+}
+
+// HasconvolutionBackwardFilter reports whether cudnnConvolutionBackwardFilter resolved in the loaded library.
+func HasconvolutionBackwardFilter() bool {
+	return Has("cudnnConvolutionBackwardFilter")
+}
+
+// HasconvolutionBiasActivationForward reports whether cudnnConvolutionBiasActivationForward resolved in the loaded library.
+func HasconvolutionBiasActivationForward() bool {
+	return Has("cudnnConvolutionBiasActivationForward")
+}
+
+// HasconvolutionForward reports whether cudnnConvolutionForward resolved in the loaded library.
+func HasconvolutionForward() bool {
+	return Has("cudnnConvolutionForward")
+}
+
 // HasCreate reports whether cudnnCreate resolved in the loaded library.
 func HasCreate() bool {
 	return Has("cudnnCreate")
+}
+
+// HasCreateActivationDescriptor reports whether cudnnCreateActivationDescriptor resolved in the loaded library.
+func HasCreateActivationDescriptor() bool {
+	return Has("cudnnCreateActivationDescriptor")
+}
+
+// HasCreateAttnDescriptor reports whether cudnnCreateAttnDescriptor resolved in the loaded library.
+func HasCreateAttnDescriptor() bool {
+	return Has("cudnnCreateAttnDescriptor")
 }
 
 // HasCreateCTCLossDescriptor reports whether cudnnCreateCTCLossDescriptor resolved in the loaded library.
@@ -482,14 +820,49 @@ func HasCreateCTCLossDescriptor() bool {
 	return Has("cudnnCreateCTCLossDescriptor")
 }
 
+// HasCreateConvolutionDescriptor reports whether cudnnCreateConvolutionDescriptor resolved in the loaded library.
+func HasCreateConvolutionDescriptor() bool {
+	return Has("cudnnCreateConvolutionDescriptor")
+}
+
 // HasCreateDropoutDescriptor reports whether cudnnCreateDropoutDescriptor resolved in the loaded library.
 func HasCreateDropoutDescriptor() bool {
 	return Has("cudnnCreateDropoutDescriptor")
 }
 
+// HasCreateFilterDescriptor reports whether cudnnCreateFilterDescriptor resolved in the loaded library.
+func HasCreateFilterDescriptor() bool {
+	return Has("cudnnCreateFilterDescriptor")
+}
+
+// HasCreateFusedOpsConstParamPack reports whether cudnnCreateFusedOpsConstParamPack resolved in the loaded library.
+func HasCreateFusedOpsConstParamPack() bool {
+	return Has("cudnnCreateFusedOpsConstParamPack")
+}
+
+// HasCreateFusedOpsPlan reports whether cudnnCreateFusedOpsPlan resolved in the loaded library.
+func HasCreateFusedOpsPlan() bool {
+	return Has("cudnnCreateFusedOpsPlan")
+}
+
+// HasCreateFusedOpsVariantParamPack reports whether cudnnCreateFusedOpsVariantParamPack resolved in the loaded library.
+func HasCreateFusedOpsVariantParamPack() bool {
+	return Has("cudnnCreateFusedOpsVariantParamPack")
+}
+
 // HasCreateLRNDescriptor reports whether cudnnCreateLRNDescriptor resolved in the loaded library.
 func HasCreateLRNDescriptor() bool {
 	return Has("cudnnCreateLRNDescriptor")
+}
+
+// HasCreateOpTensorDescriptor reports whether cudnnCreateOpTensorDescriptor resolved in the loaded library.
+func HasCreateOpTensorDescriptor() bool {
+	return Has("cudnnCreateOpTensorDescriptor")
+}
+
+// HasCreatePoolingDescriptor reports whether cudnnCreatePoolingDescriptor resolved in the loaded library.
+func HasCreatePoolingDescriptor() bool {
+	return Has("cudnnCreatePoolingDescriptor")
 }
 
 // HasCreateRNNDataDescriptor reports whether cudnnCreateRNNDataDescriptor resolved in the loaded library.
@@ -502,6 +875,16 @@ func HasCreateRNNDescriptor() bool {
 	return Has("cudnnCreateRNNDescriptor")
 }
 
+// HasCreateReduceTensorDescriptor reports whether cudnnCreateReduceTensorDescriptor resolved in the loaded library.
+func HasCreateReduceTensorDescriptor() bool {
+	return Has("cudnnCreateReduceTensorDescriptor")
+}
+
+// HasCreateSeqDataDescriptor reports whether cudnnCreateSeqDataDescriptor resolved in the loaded library.
+func HasCreateSeqDataDescriptor() bool {
+	return Has("cudnnCreateSeqDataDescriptor")
+}
+
 // HasCreateSpatialTransformerDescriptor reports whether cudnnCreateSpatialTransformerDescriptor resolved in the loaded library.
 func HasCreateSpatialTransformerDescriptor() bool {
 	return Has("cudnnCreateSpatialTransformerDescriptor")
@@ -512,9 +895,34 @@ func HasCreateTensorDescriptor() bool {
 	return Has("cudnnCreateTensorDescriptor")
 }
 
+// HasCreateTensorTransformDescriptor reports whether cudnnCreateTensorTransformDescriptor resolved in the loaded library.
+func HasCreateTensorTransformDescriptor() bool {
+	return Has("cudnnCreateTensorTransformDescriptor")
+}
+
+// HasderiveBNTensorDescriptor reports whether cudnnDeriveBNTensorDescriptor resolved in the loaded library.
+func HasderiveBNTensorDescriptor() bool {
+	return Has("cudnnDeriveBNTensorDescriptor")
+}
+
+// HasderiveNormTensorDescriptor reports whether cudnnDeriveNormTensorDescriptor resolved in the loaded library.
+func HasderiveNormTensorDescriptor() bool {
+	return Has("cudnnDeriveNormTensorDescriptor")
+}
+
 // Hasdestroy reports whether cudnnDestroy resolved in the loaded library.
 func Hasdestroy() bool {
 	return Has("cudnnDestroy")
+}
+
+// HasdestroyActivationDescriptor reports whether cudnnDestroyActivationDescriptor resolved in the loaded library.
+func HasdestroyActivationDescriptor() bool {
+	return Has("cudnnDestroyActivationDescriptor")
+}
+
+// HasdestroyAttnDescriptor reports whether cudnnDestroyAttnDescriptor resolved in the loaded library.
+func HasdestroyAttnDescriptor() bool {
+	return Has("cudnnDestroyAttnDescriptor")
 }
 
 // HasdestroyCTCLossDescriptor reports whether cudnnDestroyCTCLossDescriptor resolved in the loaded library.
@@ -522,14 +930,49 @@ func HasdestroyCTCLossDescriptor() bool {
 	return Has("cudnnDestroyCTCLossDescriptor")
 }
 
+// HasdestroyConvolutionDescriptor reports whether cudnnDestroyConvolutionDescriptor resolved in the loaded library.
+func HasdestroyConvolutionDescriptor() bool {
+	return Has("cudnnDestroyConvolutionDescriptor")
+}
+
 // HasdestroyDropoutDescriptor reports whether cudnnDestroyDropoutDescriptor resolved in the loaded library.
 func HasdestroyDropoutDescriptor() bool {
 	return Has("cudnnDestroyDropoutDescriptor")
 }
 
+// HasdestroyFilterDescriptor reports whether cudnnDestroyFilterDescriptor resolved in the loaded library.
+func HasdestroyFilterDescriptor() bool {
+	return Has("cudnnDestroyFilterDescriptor")
+}
+
+// HasdestroyFusedOpsConstParamPack reports whether cudnnDestroyFusedOpsConstParamPack resolved in the loaded library.
+func HasdestroyFusedOpsConstParamPack() bool {
+	return Has("cudnnDestroyFusedOpsConstParamPack")
+}
+
+// HasdestroyFusedOpsPlan reports whether cudnnDestroyFusedOpsPlan resolved in the loaded library.
+func HasdestroyFusedOpsPlan() bool {
+	return Has("cudnnDestroyFusedOpsPlan")
+}
+
+// HasdestroyFusedOpsVariantParamPack reports whether cudnnDestroyFusedOpsVariantParamPack resolved in the loaded library.
+func HasdestroyFusedOpsVariantParamPack() bool {
+	return Has("cudnnDestroyFusedOpsVariantParamPack")
+}
+
 // HasdestroyLRNDescriptor reports whether cudnnDestroyLRNDescriptor resolved in the loaded library.
 func HasdestroyLRNDescriptor() bool {
 	return Has("cudnnDestroyLRNDescriptor")
+}
+
+// HasdestroyOpTensorDescriptor reports whether cudnnDestroyOpTensorDescriptor resolved in the loaded library.
+func HasdestroyOpTensorDescriptor() bool {
+	return Has("cudnnDestroyOpTensorDescriptor")
+}
+
+// HasdestroyPoolingDescriptor reports whether cudnnDestroyPoolingDescriptor resolved in the loaded library.
+func HasdestroyPoolingDescriptor() bool {
+	return Has("cudnnDestroyPoolingDescriptor")
 }
 
 // HasdestroyRNNDataDescriptor reports whether cudnnDestroyRNNDataDescriptor resolved in the loaded library.
@@ -542,6 +985,16 @@ func HasdestroyRNNDescriptor() bool {
 	return Has("cudnnDestroyRNNDescriptor")
 }
 
+// HasdestroyReduceTensorDescriptor reports whether cudnnDestroyReduceTensorDescriptor resolved in the loaded library.
+func HasdestroyReduceTensorDescriptor() bool {
+	return Has("cudnnDestroyReduceTensorDescriptor")
+}
+
+// HasdestroySeqDataDescriptor reports whether cudnnDestroySeqDataDescriptor resolved in the loaded library.
+func HasdestroySeqDataDescriptor() bool {
+	return Has("cudnnDestroySeqDataDescriptor")
+}
+
 // HasdestroySpatialTransformerDescriptor reports whether cudnnDestroySpatialTransformerDescriptor resolved in the loaded library.
 func HasdestroySpatialTransformerDescriptor() bool {
 	return Has("cudnnDestroySpatialTransformerDescriptor")
@@ -550,6 +1003,11 @@ func HasdestroySpatialTransformerDescriptor() bool {
 // HasdestroyTensorDescriptor reports whether cudnnDestroyTensorDescriptor resolved in the loaded library.
 func HasdestroyTensorDescriptor() bool {
 	return Has("cudnnDestroyTensorDescriptor")
+}
+
+// HasdestroyTensorTransformDescriptor reports whether cudnnDestroyTensorTransformDescriptor resolved in the loaded library.
+func HasdestroyTensorTransformDescriptor() bool {
+	return Has("cudnnDestroyTensorTransformDescriptor")
 }
 
 // HasdivisiveNormalizationBackward reports whether cudnnDivisiveNormalizationBackward resolved in the loaded library.
@@ -582,6 +1040,76 @@ func HasdropoutGetStatesSize() bool {
 	return Has("cudnnDropoutGetStatesSize")
 }
 
+// HasfindConvolutionBackwardDataAlgorithm reports whether cudnnFindConvolutionBackwardDataAlgorithm resolved in the loaded library.
+func HasfindConvolutionBackwardDataAlgorithm() bool {
+	return Has("cudnnFindConvolutionBackwardDataAlgorithm")
+}
+
+// HasfindConvolutionBackwardDataAlgorithmEx reports whether cudnnFindConvolutionBackwardDataAlgorithmEx resolved in the loaded library.
+func HasfindConvolutionBackwardDataAlgorithmEx() bool {
+	return Has("cudnnFindConvolutionBackwardDataAlgorithmEx")
+}
+
+// HasfindConvolutionBackwardFilterAlgorithm reports whether cudnnFindConvolutionBackwardFilterAlgorithm resolved in the loaded library.
+func HasfindConvolutionBackwardFilterAlgorithm() bool {
+	return Has("cudnnFindConvolutionBackwardFilterAlgorithm")
+}
+
+// HasfindConvolutionBackwardFilterAlgorithmEx reports whether cudnnFindConvolutionBackwardFilterAlgorithmEx resolved in the loaded library.
+func HasfindConvolutionBackwardFilterAlgorithmEx() bool {
+	return Has("cudnnFindConvolutionBackwardFilterAlgorithmEx")
+}
+
+// HasfindConvolutionForwardAlgorithm reports whether cudnnFindConvolutionForwardAlgorithm resolved in the loaded library.
+func HasfindConvolutionForwardAlgorithm() bool {
+	return Has("cudnnFindConvolutionForwardAlgorithm")
+}
+
+// HasfindConvolutionForwardAlgorithmEx reports whether cudnnFindConvolutionForwardAlgorithmEx resolved in the loaded library.
+func HasfindConvolutionForwardAlgorithmEx() bool {
+	return Has("cudnnFindConvolutionForwardAlgorithmEx")
+}
+
+// HasfusedOpsExecute reports whether cudnnFusedOpsExecute resolved in the loaded library.
+func HasfusedOpsExecute() bool {
+	return Has("cudnnFusedOpsExecute")
+}
+
+// HasgetActivationDescriptor reports whether cudnnGetActivationDescriptor resolved in the loaded library.
+func HasgetActivationDescriptor() bool {
+	return Has("cudnnGetActivationDescriptor")
+}
+
+// HasgetActivationDescriptorSwishBeta reports whether cudnnGetActivationDescriptorSwishBeta resolved in the loaded library.
+func HasgetActivationDescriptorSwishBeta() bool {
+	return Has("cudnnGetActivationDescriptorSwishBeta")
+}
+
+// HasgetAttnDescriptor reports whether cudnnGetAttnDescriptor resolved in the loaded library.
+func HasgetAttnDescriptor() bool {
+	return Has("cudnnGetAttnDescriptor")
+}
+
+// HasgetBatchNormalizationBackwardExWorkspaceSize reports whether cudnnGetBatchNormalizationBackwardExWorkspaceSize resolved in the loaded library.
+func HasgetBatchNormalizationBackwardExWorkspaceSize() bool {
+	return Has("cudnnGetBatchNormalizationBackwardExWorkspaceSize")
+}
+
+// HasgetBatchNormalizationForwardTrainingExWorkspaceSize reports whether cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize resolved in the loaded library.
+func HasgetBatchNormalizationForwardTrainingExWorkspaceSize() bool {
+	return Has("cudnnGetBatchNormalizationForwardTrainingExWorkspaceSize")
+}
+
+// HasgetBatchNormalizationTrainingExReserveSpaceSize reports whether cudnnGetBatchNormalizationTrainingExReserveSpaceSize resolved in the loaded library.
+func HasgetBatchNormalizationTrainingExReserveSpaceSize() bool {
+	return Has("cudnnGetBatchNormalizationTrainingExReserveSpaceSize")
+}
+
+// HasgetCTCLossDescriptorEx reports whether cudnnGetCTCLossDescriptorEx resolved in the loaded library.
+func HasgetCTCLossDescriptorEx() bool {
+	return Has("cudnnGetCTCLossDescriptorEx")
+}
+
 // HasgetCTCLossDescriptor reports whether cudnnGetCTCLossDescriptor_v9 resolved in the loaded library.
 func HasgetCTCLossDescriptor() bool {
 	return Has("cudnnGetCTCLossDescriptor_v9")
@@ -602,14 +1130,174 @@ func HasGetCallback() bool {
 	return Has("cudnnGetCallback")
 }
 
+// HasgetConvolution2dDescriptor reports whether cudnnGetConvolution2dDescriptor resolved in the loaded library.
+func HasgetConvolution2dDescriptor() bool {
+	return Has("cudnnGetConvolution2dDescriptor")
+}
+
+// HasgetConvolution2dForwardOutputDim reports whether cudnnGetConvolution2dForwardOutputDim resolved in the loaded library.
+func HasgetConvolution2dForwardOutputDim() bool {
+	return Has("cudnnGetConvolution2dForwardOutputDim")
+}
+
+// HasgetConvolutionBackwardDataAlgorithmMaxCount reports whether cudnnGetConvolutionBackwardDataAlgorithmMaxCount resolved in the loaded library.
+func HasgetConvolutionBackwardDataAlgorithmMaxCount() bool {
+	return Has("cudnnGetConvolutionBackwardDataAlgorithmMaxCount")
+}
+
+// HasgetConvolutionBackwardDataAlgorithm reports whether cudnnGetConvolutionBackwardDataAlgorithm_v7 resolved in the loaded library.
+func HasgetConvolutionBackwardDataAlgorithm() bool {
+	return Has("cudnnGetConvolutionBackwardDataAlgorithm_v7")
+}
+
+// HasgetConvolutionBackwardDataWorkspaceSize reports whether cudnnGetConvolutionBackwardDataWorkspaceSize resolved in the loaded library.
+func HasgetConvolutionBackwardDataWorkspaceSize() bool {
+	return Has("cudnnGetConvolutionBackwardDataWorkspaceSize")
+}
+
+// HasgetConvolutionBackwardFilterAlgorithmMaxCount reports whether cudnnGetConvolutionBackwardFilterAlgorithmMaxCount resolved in the loaded library.
+func HasgetConvolutionBackwardFilterAlgorithmMaxCount() bool {
+	return Has("cudnnGetConvolutionBackwardFilterAlgorithmMaxCount")
+}
+
+// HasgetConvolutionBackwardFilterAlgorithm reports whether cudnnGetConvolutionBackwardFilterAlgorithm_v7 resolved in the loaded library.
+func HasgetConvolutionBackwardFilterAlgorithm() bool {
+	return Has("cudnnGetConvolutionBackwardFilterAlgorithm_v7")
+}
+
+// HasgetConvolutionBackwardFilterWorkspaceSize reports whether cudnnGetConvolutionBackwardFilterWorkspaceSize resolved in the loaded library.
+func HasgetConvolutionBackwardFilterWorkspaceSize() bool {
+	return Has("cudnnGetConvolutionBackwardFilterWorkspaceSize")
+}
+
+// HasgetConvolutionForwardAlgorithmMaxCount reports whether cudnnGetConvolutionForwardAlgorithmMaxCount resolved in the loaded library.
+func HasgetConvolutionForwardAlgorithmMaxCount() bool {
+	return Has("cudnnGetConvolutionForwardAlgorithmMaxCount")
+}
+
+// HasgetConvolutionForwardAlgorithm reports whether cudnnGetConvolutionForwardAlgorithm_v7 resolved in the loaded library.
+func HasgetConvolutionForwardAlgorithm() bool {
+	return Has("cudnnGetConvolutionForwardAlgorithm_v7")
+}
+
+// HasgetConvolutionForwardWorkspaceSize reports whether cudnnGetConvolutionForwardWorkspaceSize resolved in the loaded library.
+func HasgetConvolutionForwardWorkspaceSize() bool {
+	return Has("cudnnGetConvolutionForwardWorkspaceSize")
+}
+
+// HasgetConvolutionGroupCount reports whether cudnnGetConvolutionGroupCount resolved in the loaded library.
+func HasgetConvolutionGroupCount() bool {
+	return Has("cudnnGetConvolutionGroupCount")
+}
+
+// HasgetConvolutionMathType reports whether cudnnGetConvolutionMathType resolved in the loaded library.
+func HasgetConvolutionMathType() bool {
+	return Has("cudnnGetConvolutionMathType")
+}
+
+// HasgetConvolutionNdDescriptor reports whether cudnnGetConvolutionNdDescriptor resolved in the loaded library.
+func HasgetConvolutionNdDescriptor() bool {
+	return Has("cudnnGetConvolutionNdDescriptor")
+}
+
+// HasgetConvolutionNdForwardOutputDim reports whether cudnnGetConvolutionNdForwardOutputDim resolved in the loaded library.
+func HasgetConvolutionNdForwardOutputDim() bool {
+	return Has("cudnnGetConvolutionNdForwardOutputDim")
+}
+
+// HasgetConvolutionReorderType reports whether cudnnGetConvolutionReorderType resolved in the loaded library.
+func HasgetConvolutionReorderType() bool {
+	return Has("cudnnGetConvolutionReorderType")
+}
+
 // HasgetDropoutDescriptor reports whether cudnnGetDropoutDescriptor resolved in the loaded library.
 func HasgetDropoutDescriptor() bool {
 	return Has("cudnnGetDropoutDescriptor")
 }
 
+// HasgetFilter4dDescriptor reports whether cudnnGetFilter4dDescriptor resolved in the loaded library.
+func HasgetFilter4dDescriptor() bool {
+	return Has("cudnnGetFilter4dDescriptor")
+}
+
+// HasgetFilterNdDescriptor reports whether cudnnGetFilterNdDescriptor resolved in the loaded library.
+func HasgetFilterNdDescriptor() bool {
+	return Has("cudnnGetFilterNdDescriptor")
+}
+
+// HasgetFilterSizeInBytes reports whether cudnnGetFilterSizeInBytes resolved in the loaded library.
+func HasgetFilterSizeInBytes() bool {
+	return Has("cudnnGetFilterSizeInBytes")
+}
+
+// HasgetFoldedConvBackwardDataDescriptors reports whether cudnnGetFoldedConvBackwardDataDescriptors resolved in the loaded library.
+func HasgetFoldedConvBackwardDataDescriptors() bool {
+	return Has("cudnnGetFoldedConvBackwardDataDescriptors")
+}
+
+// HasgetFusedOpsConstParamPackAttribute reports whether cudnnGetFusedOpsConstParamPackAttribute resolved in the loaded library.
+func HasgetFusedOpsConstParamPackAttribute() bool {
+	return Has("cudnnGetFusedOpsConstParamPackAttribute")
+}
+
+// HasgetFusedOpsVariantParamPackAttribute reports whether cudnnGetFusedOpsVariantParamPackAttribute resolved in the loaded library.
+func HasgetFusedOpsVariantParamPackAttribute() bool {
+	return Has("cudnnGetFusedOpsVariantParamPackAttribute")
+}
+
 // HasgetLRNDescriptor reports whether cudnnGetLRNDescriptor resolved in the loaded library.
 func HasgetLRNDescriptor() bool {
 	return Has("cudnnGetLRNDescriptor")
+}
+
+// HasgetMultiHeadAttnBuffers reports whether cudnnGetMultiHeadAttnBuffers resolved in the loaded library.
+func HasgetMultiHeadAttnBuffers() bool {
+	return Has("cudnnGetMultiHeadAttnBuffers")
+}
+
+// HasgetMultiHeadAttnWeights reports whether cudnnGetMultiHeadAttnWeights resolved in the loaded library.
+func HasgetMultiHeadAttnWeights() bool {
+	return Has("cudnnGetMultiHeadAttnWeights")
+}
+
+// HasgetNormalizationBackwardWorkspaceSize reports whether cudnnGetNormalizationBackwardWorkspaceSize resolved in the loaded library.
+func HasgetNormalizationBackwardWorkspaceSize() bool {
+	return Has("cudnnGetNormalizationBackwardWorkspaceSize")
+}
+
+// HasgetNormalizationForwardTrainingWorkspaceSize reports whether cudnnGetNormalizationForwardTrainingWorkspaceSize resolved in the loaded library.
+func HasgetNormalizationForwardTrainingWorkspaceSize() bool {
+	return Has("cudnnGetNormalizationForwardTrainingWorkspaceSize")
+}
+
+// HasgetNormalizationTrainingReserveSpaceSize reports whether cudnnGetNormalizationTrainingReserveSpaceSize resolved in the loaded library.
+func HasgetNormalizationTrainingReserveSpaceSize() bool {
+	return Has("cudnnGetNormalizationTrainingReserveSpaceSize")
+}
+
+// HasgetOpTensorDescriptor reports whether cudnnGetOpTensorDescriptor resolved in the loaded library.
+func HasgetOpTensorDescriptor() bool {
+	return Has("cudnnGetOpTensorDescriptor")
+}
+
+// HasgetPooling2dDescriptor reports whether cudnnGetPooling2dDescriptor resolved in the loaded library.
+func HasgetPooling2dDescriptor() bool {
+	return Has("cudnnGetPooling2dDescriptor")
+}
+
+// HasgetPooling2dForwardOutputDim reports whether cudnnGetPooling2dForwardOutputDim resolved in the loaded library.
+func HasgetPooling2dForwardOutputDim() bool {
+	return Has("cudnnGetPooling2dForwardOutputDim")
+}
+
+// HasgetPoolingNdDescriptor reports whether cudnnGetPoolingNdDescriptor resolved in the loaded library.
+func HasgetPoolingNdDescriptor() bool {
+	return Has("cudnnGetPoolingNdDescriptor")
+}
+
+// HasgetPoolingNdForwardOutputDim reports whether cudnnGetPoolingNdForwardOutputDim resolved in the loaded library.
+func HasgetPoolingNdForwardOutputDim() bool {
+	return Has("cudnnGetPoolingNdForwardOutputDim")
 }
 
 // HasGetProperty reports whether cudnnGetProperty resolved in the loaded library.
@@ -642,6 +1330,26 @@ func HasgetRNNWeightSpaceSize() bool {
 	return Has("cudnnGetRNNWeightSpaceSize")
 }
 
+// HasgetReduceTensorDescriptor reports whether cudnnGetReduceTensorDescriptor resolved in the loaded library.
+func HasgetReduceTensorDescriptor() bool {
+	return Has("cudnnGetReduceTensorDescriptor")
+}
+
+// HasgetReductionIndicesSize reports whether cudnnGetReductionIndicesSize resolved in the loaded library.
+func HasgetReductionIndicesSize() bool {
+	return Has("cudnnGetReductionIndicesSize")
+}
+
+// HasgetReductionWorkspaceSize reports whether cudnnGetReductionWorkspaceSize resolved in the loaded library.
+func HasgetReductionWorkspaceSize() bool {
+	return Has("cudnnGetReductionWorkspaceSize")
+}
+
+// HasgetSeqDataDescriptor reports whether cudnnGetSeqDataDescriptor resolved in the loaded library.
+func HasgetSeqDataDescriptor() bool {
+	return Has("cudnnGetSeqDataDescriptor")
+}
+
 // HasgetStream reports whether cudnnGetStream resolved in the loaded library.
 func HasgetStream() bool {
 	return Has("cudnnGetStream")
@@ -662,9 +1370,24 @@ func HasgetTensorSizeInBytes() bool {
 	return Has("cudnnGetTensorSizeInBytes")
 }
 
+// HasgetTensorTransformDescriptor reports whether cudnnGetTensorTransformDescriptor resolved in the loaded library.
+func HasgetTensorTransformDescriptor() bool {
+	return Has("cudnnGetTensorTransformDescriptor")
+}
+
 // HasGraphVersionCheck reports whether cudnnGraphVersionCheck resolved in the loaded library.
 func HasGraphVersionCheck() bool {
 	return Has("cudnnGraphVersionCheck")
+}
+
+// Hasim2Col reports whether cudnnIm2Col resolved in the loaded library.
+func Hasim2Col() bool {
+	return Has("cudnnIm2Col")
+}
+
+// HasinitTransformDest reports whether cudnnInitTransformDest resolved in the loaded library.
+func HasinitTransformDest() bool {
+	return Has("cudnnInitTransformDest")
 }
 
 // HaslRNCrossChannelBackward reports whether cudnnLRNCrossChannelBackward resolved in the loaded library.
@@ -677,9 +1400,64 @@ func HaslRNCrossChannelForward() bool {
 	return Has("cudnnLRNCrossChannelForward")
 }
 
+// HasmakeFusedOpsPlan reports whether cudnnMakeFusedOpsPlan resolved in the loaded library.
+func HasmakeFusedOpsPlan() bool {
+	return Has("cudnnMakeFusedOpsPlan")
+}
+
+// HasmultiHeadAttnBackwardData reports whether cudnnMultiHeadAttnBackwardData resolved in the loaded library.
+func HasmultiHeadAttnBackwardData() bool {
+	return Has("cudnnMultiHeadAttnBackwardData")
+}
+
+// HasmultiHeadAttnBackwardWeights reports whether cudnnMultiHeadAttnBackwardWeights resolved in the loaded library.
+func HasmultiHeadAttnBackwardWeights() bool {
+	return Has("cudnnMultiHeadAttnBackwardWeights")
+}
+
+// HasmultiHeadAttnForward reports whether cudnnMultiHeadAttnForward resolved in the loaded library.
+func HasmultiHeadAttnForward() bool {
+	return Has("cudnnMultiHeadAttnForward")
+}
+
+// HasnormalizationBackward reports whether cudnnNormalizationBackward resolved in the loaded library.
+func HasnormalizationBackward() bool {
+	return Has("cudnnNormalizationBackward")
+}
+
+// HasnormalizationForwardInference reports whether cudnnNormalizationForwardInference resolved in the loaded library.
+func HasnormalizationForwardInference() bool {
+	return Has("cudnnNormalizationForwardInference")
+}
+
+// HasnormalizationForwardTraining reports whether cudnnNormalizationForwardTraining resolved in the loaded library.
+func HasnormalizationForwardTraining() bool {
+	return Has("cudnnNormalizationForwardTraining")
+}
+
+// HasopTensor reports whether cudnnOpTensor resolved in the loaded library.
+func HasopTensor() bool {
+	return Has("cudnnOpTensor")
+}
+
 // HasOpsVersionCheck reports whether cudnnOpsVersionCheck resolved in the loaded library.
 func HasOpsVersionCheck() bool {
 	return Has("cudnnOpsVersionCheck")
+}
+
+// HaspoolingBackward reports whether cudnnPoolingBackward resolved in the loaded library.
+func HaspoolingBackward() bool {
+	return Has("cudnnPoolingBackward")
+}
+
+// HaspoolingForward reports whether cudnnPoolingForward resolved in the loaded library.
+func HaspoolingForward() bool {
+	return Has("cudnnPoolingForward")
+}
+
+// HasqueryRuntimeError reports whether cudnnQueryRuntimeError resolved in the loaded library.
+func HasqueryRuntimeError() bool {
+	return Has("cudnnQueryRuntimeError")
 }
 
 // HasrNNBackwardData reports whether cudnnRNNBackwardData_v8 resolved in the loaded library.
@@ -707,9 +1485,44 @@ func HasrNNSetClip() bool {
 	return Has("cudnnRNNSetClip_v9")
 }
 
+// HasreduceTensor reports whether cudnnReduceTensor resolved in the loaded library.
+func HasreduceTensor() bool {
+	return Has("cudnnReduceTensor")
+}
+
+// HasreorderFilterAndBias reports whether cudnnReorderFilterAndBias resolved in the loaded library.
+func HasreorderFilterAndBias() bool {
+	return Has("cudnnReorderFilterAndBias")
+}
+
 // HasrestoreDropoutDescriptor reports whether cudnnRestoreDropoutDescriptor resolved in the loaded library.
 func HasrestoreDropoutDescriptor() bool {
 	return Has("cudnnRestoreDropoutDescriptor")
+}
+
+// HasscaleTensor reports whether cudnnScaleTensor resolved in the loaded library.
+func HasscaleTensor() bool {
+	return Has("cudnnScaleTensor")
+}
+
+// HassetActivationDescriptor reports whether cudnnSetActivationDescriptor resolved in the loaded library.
+func HassetActivationDescriptor() bool {
+	return Has("cudnnSetActivationDescriptor")
+}
+
+// HassetActivationDescriptorSwishBeta reports whether cudnnSetActivationDescriptorSwishBeta resolved in the loaded library.
+func HassetActivationDescriptorSwishBeta() bool {
+	return Has("cudnnSetActivationDescriptorSwishBeta")
+}
+
+// HassetAttnDescriptor reports whether cudnnSetAttnDescriptor resolved in the loaded library.
+func HassetAttnDescriptor() bool {
+	return Has("cudnnSetAttnDescriptor")
+}
+
+// HassetCTCLossDescriptorEx reports whether cudnnSetCTCLossDescriptorEx resolved in the loaded library.
+func HassetCTCLossDescriptorEx() bool {
+	return Has("cudnnSetCTCLossDescriptorEx")
 }
 
 // HassetCTCLossDescriptor reports whether cudnnSetCTCLossDescriptor_v9 resolved in the loaded library.
@@ -722,14 +1535,74 @@ func HasSetCallback() bool {
 	return Has("cudnnSetCallback")
 }
 
+// HassetConvolution2dDescriptor reports whether cudnnSetConvolution2dDescriptor resolved in the loaded library.
+func HassetConvolution2dDescriptor() bool {
+	return Has("cudnnSetConvolution2dDescriptor")
+}
+
+// HassetConvolutionGroupCount reports whether cudnnSetConvolutionGroupCount resolved in the loaded library.
+func HassetConvolutionGroupCount() bool {
+	return Has("cudnnSetConvolutionGroupCount")
+}
+
+// HassetConvolutionMathType reports whether cudnnSetConvolutionMathType resolved in the loaded library.
+func HassetConvolutionMathType() bool {
+	return Has("cudnnSetConvolutionMathType")
+}
+
+// HassetConvolutionNdDescriptor reports whether cudnnSetConvolutionNdDescriptor resolved in the loaded library.
+func HassetConvolutionNdDescriptor() bool {
+	return Has("cudnnSetConvolutionNdDescriptor")
+}
+
+// HassetConvolutionReorderType reports whether cudnnSetConvolutionReorderType resolved in the loaded library.
+func HassetConvolutionReorderType() bool {
+	return Has("cudnnSetConvolutionReorderType")
+}
+
 // HassetDropoutDescriptor reports whether cudnnSetDropoutDescriptor resolved in the loaded library.
 func HassetDropoutDescriptor() bool {
 	return Has("cudnnSetDropoutDescriptor")
 }
 
+// HassetFilter4dDescriptor reports whether cudnnSetFilter4dDescriptor resolved in the loaded library.
+func HassetFilter4dDescriptor() bool {
+	return Has("cudnnSetFilter4dDescriptor")
+}
+
+// HassetFilterNdDescriptor reports whether cudnnSetFilterNdDescriptor resolved in the loaded library.
+func HassetFilterNdDescriptor() bool {
+	return Has("cudnnSetFilterNdDescriptor")
+}
+
+// HassetFusedOpsConstParamPackAttribute reports whether cudnnSetFusedOpsConstParamPackAttribute resolved in the loaded library.
+func HassetFusedOpsConstParamPackAttribute() bool {
+	return Has("cudnnSetFusedOpsConstParamPackAttribute")
+}
+
+// HassetFusedOpsVariantParamPackAttribute reports whether cudnnSetFusedOpsVariantParamPackAttribute resolved in the loaded library.
+func HassetFusedOpsVariantParamPackAttribute() bool {
+	return Has("cudnnSetFusedOpsVariantParamPackAttribute")
+}
+
 // HassetLRNDescriptor reports whether cudnnSetLRNDescriptor resolved in the loaded library.
 func HassetLRNDescriptor() bool {
 	return Has("cudnnSetLRNDescriptor")
+}
+
+// HassetOpTensorDescriptor reports whether cudnnSetOpTensorDescriptor resolved in the loaded library.
+func HassetOpTensorDescriptor() bool {
+	return Has("cudnnSetOpTensorDescriptor")
+}
+
+// HassetPooling2dDescriptor reports whether cudnnSetPooling2dDescriptor resolved in the loaded library.
+func HassetPooling2dDescriptor() bool {
+	return Has("cudnnSetPooling2dDescriptor")
+}
+
+// HassetPoolingNdDescriptor reports whether cudnnSetPoolingNdDescriptor resolved in the loaded library.
+func HassetPoolingNdDescriptor() bool {
+	return Has("cudnnSetPoolingNdDescriptor")
 }
 
 // HassetRNNDataDescriptor reports whether cudnnSetRNNDataDescriptor resolved in the loaded library.
@@ -740,6 +1613,16 @@ func HassetRNNDataDescriptor() bool {
 // HassetRNNDescriptor reports whether cudnnSetRNNDescriptor_v8 resolved in the loaded library.
 func HassetRNNDescriptor() bool {
 	return Has("cudnnSetRNNDescriptor_v8")
+}
+
+// HassetReduceTensorDescriptor reports whether cudnnSetReduceTensorDescriptor resolved in the loaded library.
+func HassetReduceTensorDescriptor() bool {
+	return Has("cudnnSetReduceTensorDescriptor")
+}
+
+// HassetSeqDataDescriptor reports whether cudnnSetSeqDataDescriptor resolved in the loaded library.
+func HassetSeqDataDescriptor() bool {
+	return Has("cudnnSetSeqDataDescriptor")
 }
 
 // HassetSpatialTransformerNdDescriptor reports whether cudnnSetSpatialTransformerNdDescriptor resolved in the loaded library.
@@ -777,6 +1660,11 @@ func HassetTensorNdDescriptorEx() bool {
 	return Has("cudnnSetTensorNdDescriptorEx")
 }
 
+// HassetTensorTransformDescriptor reports whether cudnnSetTensorTransformDescriptor resolved in the loaded library.
+func HassetTensorTransformDescriptor() bool {
+	return Has("cudnnSetTensorTransformDescriptor")
+}
+
 // HassoftmaxBackward reports whether cudnnSoftmaxBackward resolved in the loaded library.
 func HassoftmaxBackward() bool {
 	return Has("cudnnSoftmaxBackward")
@@ -805,4 +1693,19 @@ func HasspatialTfSamplerBackward() bool {
 // HasspatialTfSamplerForward reports whether cudnnSpatialTfSamplerForward resolved in the loaded library.
 func HasspatialTfSamplerForward() bool {
 	return Has("cudnnSpatialTfSamplerForward")
+}
+
+// HastransformFilter reports whether cudnnTransformFilter resolved in the loaded library.
+func HastransformFilter() bool {
+	return Has("cudnnTransformFilter")
+}
+
+// HastransformTensor reports whether cudnnTransformTensor resolved in the loaded library.
+func HastransformTensor() bool {
+	return Has("cudnnTransformTensor")
+}
+
+// HastransformTensorEx reports whether cudnnTransformTensorEx resolved in the loaded library.
+func HastransformTensorEx() bool {
+	return Has("cudnnTransformTensorEx")
 }
