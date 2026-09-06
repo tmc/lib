@@ -1,9 +1,12 @@
 # NVIDIA input provenance
 
-[upstream.json](upstream.json) records NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer and cuDNN generation. Other
-approved NVIDIA packages are not yet recorded; they remain in scope. This is
-partial provenance, not release readiness, complete API coverage, a runtime
-support matrix, or a claim that the build is hermetic.
+[upstream.json](upstream.json) records generation for 19 of the 35 packages in
+this module: NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer, cuDNN,
+cuBLASMp, cuDensityMat, cuDSS, cuSOLVERMp, cuStateVec, cuTensorNet, DCGM,
+GDRCopy, NVDEC, NVENC, nvCOMP, nvJPEG2000 and NVSHMEM. The remaining packages
+are not yet recorded; they remain in scope. This is partial provenance, not
+release readiness, complete API coverage, a runtime support matrix, or a claim
+that the build is hermetic.
 
 Schema version 1 contains package entries with repository commits and Git tree
 identifiers, vendor archive and header hashes, documentation inputs, the generator
@@ -62,5 +65,24 @@ sets only; unrecorded packages remain outside this partial manifest's evidence.
 It does not run generation, verify vendor archives or establish runtime support.
 
 Compute Sanitizer records 16 vendor headers and 15 generated files. Header provenance includes callback metadata headers whose declarations remain excluded from the host API surface; provenance does not imply binding coverage. The selected host-header ledger and native subscriber validation are separate evidence.
+
+The thirteen packages added after the first six are generated from headers
+vendored in the codegen repository, not from the CUDA header repository alone,
+and each was regenerated for this record from clean checkouts of codegen and
+cuda-headers at the recorded commits. Every generated file each run emitted was
+compared byte for byte with the file at the recorded lib commit, and all of them
+matched. Their `verification` fields say what was and was not checked: the
+vendored header digests were recomputed and compared with the per-file digests
+in each generator's `headers/README.md`, and the vendor archives were not
+re-downloaded, rehashed, or re-extracted, nor were the online redistribution
+manifests retrieved again. Matching bytes from a rerun says the recorded inputs
+and command produce the shipped output on the recorded toolchain. It says
+nothing about runtime support.
+
+NVDEC is recorded as `generation-partially-reproduced`. Its default pass was
+rerun and matched, but its seven `*_windows.gen.go` outputs come from a second
+pass that needs a MinGW cross-compiler and Wine. That pass was not run here, so
+those files are recorded by hash without a reproduction behind them; the argv
+for it is recorded alongside the entry.
 
 cuDNN records 35 reproduced files. Its seven original headers match the verified NVIDIA 9.20.0.48 CUDA 13 archive. The combined input is a locally derived, exact five-header concatenation; its ordered recipe is recorded separately from vendor archive members. This establishes matching byte provenance, not the historical download platform or runtime qualification.
