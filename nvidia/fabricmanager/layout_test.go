@@ -7,6 +7,13 @@ import (
 	"unsafe"
 )
 
+// Parsed by: clang (1 of 1 merged headers from the translation unit)
+// Layouts: clang record dump for the host
+
+// The C layout oracle did not measure 1 type(s):
+//
+//	nvFmApiAddrTypes: must use 'enum' tag to refer to type 'nvFmApiAddrTypes'
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(ConnectParamsV1{}); got != 268 {
 		t.Errorf("sizeof(ConnectParamsV1) = %d, want 268", got)

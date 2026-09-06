@@ -10,7 +10,7 @@ type ConnectParamsV1 struct {
 	AddressIsUnixSocket uint32
 }
 
-// ConnectParams represents fmConnectParams_t.
+// ConnectParams represents fmConnectParams_v2.
 type ConnectParams struct {
 	Version             uint32
 	AddressInfo         [256]byte
@@ -90,3 +90,18 @@ type UnsupportedFabricPartitionList struct {
 	NumPartitions uint32
 	PartitionInfo [64]UnsupportedFabricPartitionInfo
 }
+
+// ActivatedFabricPartitionListV1 is an alias for ActivatedFabricPartitionList.
+type ActivatedFabricPartitionListV1 = ActivatedFabricPartitionList
+
+// ConnectParamsV2 is an alias for ConnectParams.
+type ConnectParamsV2 = ConnectParams
+
+// FabricPartitionListV2 is an alias for FabricPartitionList.
+type FabricPartitionListV2 = FabricPartitionList
+
+// NvlinkFailedDevicesV1 is an alias for NvlinkFailedDevices.
+type NvlinkFailedDevicesV1 = NvlinkFailedDevices
+
+// UnsupportedFabricPartitionListV1 is an alias for UnsupportedFabricPartitionList.
+type UnsupportedFabricPartitionListV1 = UnsupportedFabricPartitionList
