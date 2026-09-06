@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -169,10 +171,90 @@ func openLibrary(path string) (uintptr, string, error) {
 			firstErr = err
 		}
 	}
+	// The bare sonames are all the dynamic linker will find on its own.
+	// libnvvm is installed outside its default search path, so try the
+	// toolkit-relative directories too, but only after the sonames have
+	// failed, so nothing changes for a library the linker already resolves.
+	for _, name := range toolkitLibraryPaths() {
+		h, err := openDynamicLibrary(name)
+		if err == nil {
+			return h, name, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
 	if firstErr == nil {
 		firstErr = errors.New("no library paths to try")
 	}
-	return 0, "", fmt.Errorf("nvvm: open libnvvm: %w", firstErr)
+	err := fmt.Errorf("nvvm: open libnvvm: %w", firstErr)
+	if hint := toolkitSearchHint(); hint != "" {
+		err = fmt.Errorf("%w; %s", err, hint)
+	}
+	return 0, "", err
+}
+
+// toolkitRoots returns the CUDA toolkit roots to search, most specific
+// first. CUDA_HOME and CUDA_PATH are the documented overrides;
+// /usr/local/cuda is the conventional symlink to the active toolkit.
+func toolkitRoots() []string {
+	var roots []string
+	seen := make(map[string]bool)
+	for _, dir := range []string{os.Getenv("CUDA_HOME"), os.Getenv("CUDA_PATH"), "/usr/local/cuda"} {
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		roots = append(roots, dir)
+	}
+	return roots
+}
+
+// toolkitLibDirs lists the directories, relative to a toolkit root, that the
+// CUDA packages install libnvvm into and that the dynamic linker does not
+// search.
+func toolkitLibDirs() []string {
+	return []string{"nvvm/lib64", "nvvm/lib"}
+}
+
+// toolkitLibraryPaths returns the full paths worth trying once every bare
+// soname has failed. Each candidate is stat'ed first, so the loader never
+// attempts a file that is not there.
+func toolkitLibraryPaths() []string {
+	names := libraryNames()
+	if len(names) == 0 {
+		return nil
+	}
+	var paths []string
+	for _, root := range toolkitRoots() {
+		for _, sub := range toolkitLibDirs() {
+			for _, name := range names {
+				p := filepath.Join(root, sub, name)
+				if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+					paths = append(paths, p)
+				}
+			}
+		}
+	}
+	return paths
+}
+
+// toolkitSearchHint names the directories libnvvm normally lives in, for a
+// load failure message. The dynamic linker does not search them, so a
+// correctly installed toolkit still fails to load without one of them on
+// the path, and the bare "cannot open" error is otherwise misleading.
+func toolkitSearchHint() string {
+	var dirs []string
+	for _, root := range toolkitRoots() {
+		for _, sub := range toolkitLibDirs() {
+			dirs = append(dirs, filepath.Join(root, sub))
+		}
+	}
+	if len(dirs) == 0 {
+		return ""
+	}
+	return "libnvvm is normally installed in " + strings.Join(dirs, ", ") +
+		", which the dynamic linker does not search; set NVVM_LIB_PATH to the library path, or add the directory to LD_LIBRARY_PATH"
 }
 
 // libraryNames returns the platform-specific shared library names to try.
@@ -201,8 +283,30 @@ func register(fn interface{}, symbol string) {
 	if err != nil || sym == 0 {
 		return
 	}
-	purego.RegisterFunc(fn, sym)
+	if !bindSymbol(fn, sym) {
+		return
+	}
 	present[symbol] = true
+}
+
+// bindSymbol binds fn to the resolved symbol address sym and reports whether
+// the binding succeeded. purego.RegisterFunc panics when it cannot build a
+// trampoline for fn's signature; the usual cause is a signature needing more
+// argument registers and stack slots than the target architecture allows
+// (purego admits 32 arguments on 64-bit platforms, 15 on ppc64le). Recovering
+// leaves such a symbol unbound, so calling it reports *SymbolError, rather
+// than killing the process at load time.
+//
+// purego assigns to fn only after every check it can panic on, so a recovered
+// binding leaves fn nil.
+func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	purego.RegisterFunc(fn, sym)
+	return true
 }
 
 // ptrAdd advances a byte pointer by n bytes.
