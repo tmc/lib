@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-05",
-  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink, nvFatbin and Compute Sanitizer; other approved NVIDIA packages are not yet recorded and remain in scope.",
+  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer and cuDNN; other approved NVIDIA packages remain in scope and are not yet recorded.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -862,6 +862,279 @@
           "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3",
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_stream.h"
         }
+      ]
+    },
+    "cudnn": {
+      "package": "github.com/tmc/lib/nvidia/cudnn",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "9043aa9b48fc15a211afa21747aa612475bcf2ca",
+          "tree": "28e38408b1d9879867218589eca95e7f75f19029"
+        }
+      },
+      "vendor": {
+        "product": "cudnn",
+        "version": "9.20.0 (header macros)",
+        "verification": "Selected header Git content is pinned; original vendor archive provenance remains unverified."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "libcudnn/cudnn_combined.h",
+        "sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1"
+      },
+      "header_inventory": [
+        {
+          "path": "libcudnn/cudnn.h",
+          "sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855"
+        },
+        {
+          "path": "libcudnn/cudnn_adv.h",
+          "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e"
+        },
+        {
+          "path": "libcudnn/cudnn_adv_v9.h",
+          "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e"
+        },
+        {
+          "path": "libcudnn/cudnn_backend.h",
+          "sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f"
+        },
+        {
+          "path": "libcudnn/cudnn_backend_v9.h",
+          "sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f"
+        },
+        {
+          "path": "libcudnn/cudnn_cnn.h",
+          "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a"
+        },
+        {
+          "path": "libcudnn/cudnn_cnn_v9.h",
+          "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a"
+        },
+        {
+          "path": "libcudnn/cudnn_combined.h",
+          "sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1"
+        },
+        {
+          "path": "libcudnn/cudnn_graph.h",
+          "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308"
+        },
+        {
+          "path": "libcudnn/cudnn_graph_v9.h",
+          "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308"
+        },
+        {
+          "path": "libcudnn/cudnn_ops.h",
+          "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8"
+        },
+        {
+          "path": "libcudnn/cudnn_ops_v9.h",
+          "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8"
+        },
+        {
+          "path": "libcudnn/cudnn_v9.h",
+          "sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855"
+        },
+        {
+          "path": "libcudnn/cudnn_version.h",
+          "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528"
+        },
+        {
+          "path": "libcudnn/cudnn_version_v9.h",
+          "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528"
+        }
+      ],
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "All selected documentation JSON files are merged; upstream retrieval identities remain incomplete."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "cudnn",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "cudnn"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/cudnn/activation_descriptor.gen.go",
+            "sha256": "8584ac9e6881af0926d88cd652f31c412a0a3c5058c9f7d489bf5ac27312eb5b"
+          },
+          {
+            "path": "nvidia/cudnn/attn_descriptor.gen.go",
+            "sha256": "acd18cf7d957ac82a495e0f6633208575dff9bcb890e447303acaebf10de0fb5"
+          },
+          {
+            "path": "nvidia/cudnn/backend_descriptor.gen.go",
+            "sha256": "ca7e0ede31cb98e4912377e98e6a96faa302bf871a9fec08b943e169799015cc"
+          },
+          {
+            "path": "nvidia/cudnn/callbacks.gen.go",
+            "sha256": "d6d0634c32d28cb1d5e0ec11f2cc590c4cc607cb339f88105fb23984da9feb2e"
+          },
+          {
+            "path": "nvidia/cudnn/convolution_descriptor.gen.go",
+            "sha256": "c14e861d09fbd75f5beaf20755db04eae775f2c5d6d67abe1d67ea5ca597a190"
+          },
+          {
+            "path": "nvidia/cudnn/ctc_loss_descriptor.gen.go",
+            "sha256": "cbe3f86b102df4f5238fdc010bf6b4e86a46e1e71e1644dbd7387a7c7916548b"
+          },
+          {
+            "path": "nvidia/cudnn/doc.gen.go",
+            "sha256": "0713433a14373ae4a01c2253b5302d08ded3e8a0b6ee6019cd893f2af221ff05"
+          },
+          {
+            "path": "nvidia/cudnn/dropout_descriptor.gen.go",
+            "sha256": "fcca2767eb36dd392a02485a908d58f3ba420bf1d434a65965fff1bcb30f3e02"
+          },
+          {
+            "path": "nvidia/cudnn/enums.gen.go",
+            "sha256": "5121ee2f9d2011bf8cf80b4918651e899b3f8bfd0169be098161780238f11d0b"
+          },
+          {
+            "path": "nvidia/cudnn/filter_descriptor.gen.go",
+            "sha256": "3f40ef4a3fc103b460afb6d3f6d94590337398fa2cb4d024d950c0dd58bd7df3"
+          },
+          {
+            "path": "nvidia/cudnn/funcs.gen.go",
+            "sha256": "a114370cba84b9440fac08d15a4967ddc5c35fdf35b04924f8457ead2bed02dc"
+          },
+          {
+            "path": "nvidia/cudnn/fused_ops_const_param_pack.gen.go",
+            "sha256": "d122de203ea4b917e2ec7da7e74eed2fbe0a402374f55374c7de0514a8547b20"
+          },
+          {
+            "path": "nvidia/cudnn/fused_ops_plan.gen.go",
+            "sha256": "1819e2c3dc26795122ec0fce0fdbb1e33870d417728294398b2f280c4d65c179"
+          },
+          {
+            "path": "nvidia/cudnn/fused_ops_variant_param_pack.gen.go",
+            "sha256": "767ca7abbc5acc161af904fc548b6d938acfa990c1d2b89ea9b247da0d9c6d5e"
+          },
+          {
+            "path": "nvidia/cudnn/handle.gen.go",
+            "sha256": "818c875ef1fffbc655cebd2af71042ba9ac3c82035ea5da09ed1e048b4ee9d4d"
+          },
+          {
+            "path": "nvidia/cudnn/handles.gen.go",
+            "sha256": "7f2f70d4ce294a07472c1158c317e57897a42151b4c2e45aae045fef999a3b91"
+          },
+          {
+            "path": "nvidia/cudnn/init.gen.go",
+            "sha256": "0960f9f4abe604fc786a9e13643440f1d8b074b35bcf48a52d2723e692d75ad5"
+          },
+          {
+            "path": "nvidia/cudnn/layout_test.go",
+            "sha256": "718ce2430f51daee0453efe442995d936300ab4573751bf76fb3b255ead420cd"
+          },
+          {
+            "path": "nvidia/cudnn/loader_test.go",
+            "sha256": "e262ebf726452a5cecd730d18b3d906ebe413cef6ccf22d70db6a21db2c4b739"
+          },
+          {
+            "path": "nvidia/cudnn/loader_unix.gen.go",
+            "sha256": "c8cce55e32c77f574c573ad21ae05428a253fb6ab0deee3dc5f245afa4f6b668"
+          },
+          {
+            "path": "nvidia/cudnn/loader_windows.gen.go",
+            "sha256": "fc15bbc78ddf004ad42e64f18ffe3118e9c6a1e0870198faa00ad4fee5c373bc"
+          },
+          {
+            "path": "nvidia/cudnn/lrn_descriptor.gen.go",
+            "sha256": "095ce2f8ae5a129699836dd72c8545287e566b175b5039fb49332b607ffeca5f"
+          },
+          {
+            "path": "nvidia/cudnn/macros.gen.go",
+            "sha256": "e540f30b02da6e0378b850ca7184b83ebbb77bb1d19859934c809e09b2810e36"
+          },
+          {
+            "path": "nvidia/cudnn/op_tensor_descriptor.gen.go",
+            "sha256": "211cf400df3ad545a664b1f94bd1cb5ef6d4d694257b27967aa72b339de51db6"
+          },
+          {
+            "path": "nvidia/cudnn/pooling_descriptor.gen.go",
+            "sha256": "77179749e44b38efbbecb5195c2fa53ffc20186eafecfbdcede23860aae74dca"
+          },
+          {
+            "path": "nvidia/cudnn/reduce_tensor_descriptor.gen.go",
+            "sha256": "dae805eca893cf4b81a6344ab0c5aa8bbba78eb2300462632ddbbc392dc14841"
+          },
+          {
+            "path": "nvidia/cudnn/result.gen.go",
+            "sha256": "34b1150c61a50a0bfac7509e6ed1d721ff88bf2575de6c4f6a842e8308030e1b"
+          },
+          {
+            "path": "nvidia/cudnn/rnn_data_descriptor.gen.go",
+            "sha256": "ee29fcfa0f0905f67bd27092b1196c7f9f4d36f11c959321ad30faf16f3c4340"
+          },
+          {
+            "path": "nvidia/cudnn/rnn_descriptor.gen.go",
+            "sha256": "61591c5438ea475ec1103101e253aa282e018f8109f66e26236737b3de36703e"
+          },
+          {
+            "path": "nvidia/cudnn/seq_data_descriptor.gen.go",
+            "sha256": "e1373d1af9a06932afbc40aafdd640e3ef4d41076078da8bccd8433a0ac3e58f"
+          },
+          {
+            "path": "nvidia/cudnn/spatial_transformer_descriptor.gen.go",
+            "sha256": "83fe7ebbb0458e6c761684f8f67f6bcbce93515de37acd80f3ba4d62486f6163"
+          },
+          {
+            "path": "nvidia/cudnn/structs.gen.go",
+            "sha256": "daa4711f9d9d5a86f1090250321c04752b74cc2cfea886dd29cbefc0c7bf6921"
+          },
+          {
+            "path": "nvidia/cudnn/tensor_descriptor.gen.go",
+            "sha256": "496f2b9f4d1ebafa44886a0f23e4de788e5345014a38bc54367e7a73bdefa87d"
+          },
+          {
+            "path": "nvidia/cudnn/tensor_transform_descriptor.gen.go",
+            "sha256": "e04295dad956883397ba12e9de84eb78ef0aadd6046fb8e60f6d9623ce4d9060"
+          },
+          {
+            "path": "nvidia/cudnn/types.gen.go",
+            "sha256": "06b22c40e602d4264efa2916665c305c02ee2697f36a3d889fd96bfd862988b3"
+          }
+        ],
+        "source_state": "clean committed generator, output compared against committed lib"
+      },
+      "limits": [
+        "Vendor archive identity and authenticity are not yet verified.",
+        "Imported CUDA/system headers, compiler executable bytes and transitive module contents are not fully pinned.",
+        "Generation equality does not establish runtime support range, all API variants or Windows native behavior."
       ]
     }
   }
