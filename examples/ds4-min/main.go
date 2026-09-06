@@ -47,8 +47,10 @@ generation rather than the mmap residency wait.
 
 Spans are also appended to $GPUTRACE_APP_EVENTS when that is set, which
 is what "gputrace capture" does, so a captured run carries them with no
-flag. Both sidecars are bounded: recording stops at 100,000 spans, which
-one 2048-token prefill exceeds at -span-level=op.
+flag. Both sidecars are bounded: the host-event reader rejects a file over
+8 MiB or 100,000 records, and recording stops at whichever binds first —
+near 40,000 spans in practice, which one 2048-token prefill exceeds at
+-span-level=layer.
 `
 
 type config struct {

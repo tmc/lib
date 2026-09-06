@@ -141,3 +141,36 @@ func TestParseSpanLevel(t *testing.T) {
 		}
 	}
 }
+
+// TestSidecarBounds checks that a deep level drops its tail rather than
+// producing a sidecar the reader rejects whole. The byte bound binds long
+// before the record bound: 100,000 host-event lines are about 13 MB
+// against the reader's 8 MiB cap.
+func TestSidecarBounds(t *testing.T) {
+	r := newSpanRecorder(levelOp, "ds4-min-test")
+	spans = r
+	defer func() { spans = nil }()
+	for range spanRecordLimit + 5 {
+		begin(levelOp, "batch.wait", nil).end()
+	}
+	if r.Len() >= spanRecordLimit {
+		t.Errorf("recorded %d spans, want the byte bound to bind first", r.Len())
+	}
+	if r.Dropped() == 0 {
+		t.Error("dropped = 0, want the overflow reported")
+	}
+	if got := r.Len() + r.Dropped(); got != spanRecordLimit+5 {
+		t.Errorf("kept + dropped = %d, want %d", got, spanRecordLimit+5)
+	}
+	path := filepath.Join(t.TempDir(), "spans.jsonl")
+	if err := r.WriteHostEvents(path); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() > spanByteLimit {
+		t.Errorf("sidecar is %d bytes, over the reader's %d", info.Size(), spanByteLimit)
+	}
+}

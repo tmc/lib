@@ -2,6 +2,12 @@ package main
 
 // Host-span recording for gputrace.
 //
+// This is a local copy of github.com/tmc/gputrace/hostspan, which is the
+// package of record: it is tested by round-tripping through gputrace's own
+// readers, which nothing here can do. ds4-min keeps a copy because
+// examples/go.mod reaches its siblings through replace directives that do
+// not resolve from a worktree. Fix a defect there first, then here.
+//
 // One recorder feeds the two sidecar protocols gputrace reads, because a
 // Metal run and a CUDA run are analyzed by different commands:
 //
@@ -28,9 +34,9 @@ import (
 )
 
 // A spanLevel bounds how deep recording goes. Both sidecars are bounded
-// artifacts — the host-event reader rejects a file over 100,000 records —
-// so depth is a choice, not a default. One prefill of 2048 tokens is
-// 88,064 layer spans; the same prefill at levelOp would be over a million.
+// artifacts, so depth is a choice, not a default. One prefill of 2048
+// tokens is 88,064 layer spans; the same prefill at levelOp would be over
+// a million.
 type spanLevel int
 
 const (
@@ -41,7 +47,23 @@ const (
 	levelOp
 )
 
-const spanRecordLimit = 100_000
+// The host-event reader's bounds, enforced here because it rejects a
+// sidecar that exceeds either one whole. The byte bound is the one that
+// binds: a host-event line is 148 bytes before its strings and two decimal
+// timestamps, so 100,000 spans is a 13 MB file the reader refuses.
+const (
+	spanRecordLimit = 100_000
+	spanByteLimit   = 8 << 20
+	// hostEventFixedBytes is one host-event line with an empty run ID,
+	// span ID and name and both timestamps zero, newline included.
+	hostEventFixedBytes = 148
+)
+
+// hostEventBytes bounds the line this record will occupy: the fixed part,
+// the three strings, and nineteen further digits for each timestamp.
+func hostEventBytes(runID, id, name string) int {
+	return hostEventFixedBytes + len(runID) + len(id) + len(name) + 2*19
+}
 
 func parseSpanLevel(s string) (spanLevel, error) {
 	switch s {
@@ -77,9 +99,10 @@ type spanRecorder struct {
 	level spanLevel
 	runID string
 
-	mu      sync.Mutex
-	spans   []span
-	dropped int
+	mu        sync.Mutex
+	spans     []span
+	hostBytes int
+	dropped   int
 }
 
 // spanEnd ends a span. The zero value is the no-op end, so a call site
@@ -116,10 +139,12 @@ func begin(level spanLevel, name string, labels map[string]string) spanEnd {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if len(r.spans) >= spanRecordLimit {
+	size := hostEventBytes(r.runID, strconv.Itoa(len(r.spans)), name)
+	if len(r.spans) >= spanRecordLimit || r.hostBytes+size > spanByteLimit {
 		r.dropped++
 		return spanEnd{}
 	}
+	r.hostBytes += size
 	r.spans = append(r.spans, span{
 		name: name, labels: labels,
 		uptimeNS: uptimeNS(), unixNS: unixNS(),
@@ -242,7 +267,8 @@ func (r *spanRecorder) AppendGPUEvents(path string) error {
 	return nil
 }
 
-// Dropped reports spans discarded at the record limit.
+// Dropped reports spans discarded at either bound. A nonzero count means
+// the run is described by a prefix of itself.
 func (r *spanRecorder) Dropped() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
