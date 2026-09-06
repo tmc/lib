@@ -282,8 +282,30 @@ func register(fn interface{}, symbol string) {
 	if err != nil || sym == 0 {
 		return
 	}
-	purego.RegisterFunc(fn, sym)
+	if !bindSymbol(fn, sym) {
+		return
+	}
 	present[symbol] = true
+}
+
+// bindSymbol binds fn to the resolved symbol address sym and reports whether
+// the binding succeeded. purego.RegisterFunc panics when it cannot build a
+// trampoline for fn's signature; the usual cause is a signature needing more
+// argument registers and stack slots than the target architecture allows
+// (purego admits 32 arguments on 64-bit platforms, 15 on ppc64le). Recovering
+// leaves such a symbol unbound, so calling it reports *SymbolError, rather
+// than killing the process at load time.
+//
+// purego assigns to fn only after every check it can panic on, so a recovered
+// binding leaves fn nil.
+func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	purego.RegisterFunc(fn, sym)
+	return true
 }
 
 // ptrAdd advances a byte pointer by n bytes.
@@ -315,7 +337,7 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
-// registerFuncs binds all function pointers to their library symbols.
+// registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnCreate, "cufftCreate")
 	register(&fndestroy, "cufftDestroy")
@@ -354,7 +376,7 @@ func registerFuncs() {
 	register(&fnsetWorkArea, "cufftSetWorkArea")
 }
 
-// clearFuncs unbinds all function pointers.
+// clearFuncs unbinds all raw function pointers.
 func clearFuncs() {
 	fnCreate = nil
 	fndestroy = nil

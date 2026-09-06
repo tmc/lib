@@ -3764,6 +3764,102 @@
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
       "binding_policy": "cupti_pcsampling_util.h is deliberately outside the surface: it declares CuptiUtil* entry points from the separate static libcupti_pcsampling_util, not from libcupti."
+    },
+    "cufft": {
+      "package": "github.com/tmc/lib/nvidia/cufft",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "29b70dfd036bc73c9e84c727bd1d3d6e9ff82636",
+          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; cufft/cufft.h was clean and its sha256 below is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cufft/cufft.h",
+        "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "cufft",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "cufft"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/cufft/doc.gen.go",
+            "sha256": "dd7f7a074562b417eca0ce7fa033c9a673eee931c24a6e58292c5b9e771e9b58"
+          },
+          {
+            "path": "nvidia/cufft/enums.gen.go",
+            "sha256": "6a19e06e3af9cbc051e442482a0aeb25fa66ad89558c6621aa689bbf59d12837"
+          },
+          {
+            "path": "nvidia/cufft/funcs.gen.go",
+            "sha256": "9bc513f94840e2f2ae4360092017d5a312537b6edd6b6f33670a9eaf8707bdd8"
+          },
+          {
+            "path": "nvidia/cufft/handle.gen.go",
+            "sha256": "88b9c70b90af33fa44a8be3a7e9ab1ae5587917c6684ba3681a113a985faee92"
+          },
+          {
+            "path": "nvidia/cufft/handles.gen.go",
+            "sha256": "f9dd35cb5fe9ce3190837c311c3cf64ba1ad8189d41079454ab879106f5ed4b1"
+          },
+          {
+            "path": "nvidia/cufft/init.gen.go",
+            "sha256": "c3c37e07e66f246f86bbfdef3398f415bbaa44db15d9e5fb11e542f3acfa5d57"
+          },
+          {
+            "path": "nvidia/cufft/layout_test.go",
+            "sha256": "94ed0d053efe3459ec4f163d485ba1f3dc60934d47f2e9ef1c81cc04edea9c0e"
+          },
+          {
+            "path": "nvidia/cufft/loader_test.go",
+            "sha256": "9e3e8a512f674846ded7372ccf2e0380703cf6c168ccb55c5253a130bbf3b776"
+          },
+          {
+            "path": "nvidia/cufft/loader_unix.gen.go",
+            "sha256": "aa7746fa14b5a17a3895d8bc41b697f34ed3c3091e5548973d5f38a1d41e9d3c"
+          },
+          {
+            "path": "nvidia/cufft/loader_windows.gen.go",
+            "sha256": "a2783963af5412613992a593db58f2794a601441088b79f459f31430620d14e8"
+          },
+          {
+            "path": "nvidia/cufft/result.gen.go",
+            "sha256": "cad8b740fb66858f8935246199f1476c97d76c56675a51c6650c1dd023c13471"
+          },
+          {
+            "path": "nvidia/cufft/types.gen.go",
+            "sha256": "f9332d87fabeb5b2b5564126aed8bb5c68cb0fcdb0c2eed62fcdeaee6ae1726e"
+          }
+        ],
+        "comparison": "All 12 outputs regenerated into the committed package; gen.CheckAPIRemoval passed, so no exported declaration was dropped.",
+        "note": "Vendor archive provenance is not recorded for this package: no retained libcufft archive or redistribution manifest identity was established."
+      },
+      "note": "cufft previously carried a hand-ported LibraryError loader that no generator commit could produce, which made it unregenerable. contrib/cuda now emits it behind APIConfig.LibraryError, and this entry records the first generation that reproduces the package."
     }
   }
 }
