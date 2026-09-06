@@ -132,6 +132,8 @@ func element(row, col int64) float32 {
 // intended behavior: a distributed test that let one rank exit quietly would
 // report success for a job that never ran.
 func TestPhysicalDistributedGemm(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	j, ok := findJob()
 	if !ok {
 		t.Skipf("no multi-rank launcher in the environment: run under mpirun, srun, or torchrun on a host with at least two NVIDIA GPUs, a CUDA 13 driver, libcublasmp.so.0, libnccl.so.2, and %s pointing at shared storage", uniqueIDPath)
@@ -156,6 +158,11 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("driver.NewDeviceGet(%d): %v", j.local, err)
 	}
+	var uuid driver.Uuid
+	if err := device.GetUuid(&uuid); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("rank %d device %d UUID %x", j.rank, device, uuid)
 	ctx, err := device.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("PrimaryCtxRetain: %v", err)
@@ -273,11 +280,13 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 
 	var deviceWork uintptr
 	if deviceBytes > 0 {
-		deviceWork, err = grid.Malloc(deviceBytes)
+		var ptr driver.DevicePtr
+		ptr, err = driver.MemAlloc(deviceBytes)
+		deviceWork = uintptr(ptr)
 		if err != nil {
 			t.Fatalf("allocate device workspace: %v", err)
 		}
-		defer grid.Free(deviceWork)
+		defer driver.DevicePtr(deviceWork).MemFree()
 	}
 	hostWork := make([]byte, hostBytes+1)
 	pins.Pin(&hostWork[0])
