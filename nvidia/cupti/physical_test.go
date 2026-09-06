@@ -72,7 +72,22 @@ func TestVersion(t *testing.T) {
 		t.Skipf("CUPTI unavailable: %v", err)
 	}
 	t.Logf("CUPTI version %d", v)
-	if v == 0 || v > 1000 {
+	if perturb("version") {
+		v = 0
+	}
+	// CUPTI reports its version two ways. Through CUDA 12 it was a small
+	// sequential API version; CUDA 13 switched to the toolkit encoding
+	// major*10000 + minor*100 + patch, so 130001 is CUPTI from CUDA 13.0.
+	// A binding that truncated or sign-extended the out parameter would
+	// land outside both ranges rather than merely at an unexpected value.
+	switch {
+	case v == 0:
+		t.Fatalf("CUPTI version is zero")
+	case v < 1000:
+		t.Logf("legacy CUPTI API version %d", v)
+	case v/10000 >= 10 && v/10000 < 100:
+		t.Logf("CUPTI from CUDA %d.%d", v/10000, v/100%100)
+	default:
 		t.Fatalf("implausible CUPTI version %d", v)
 	}
 	// GetTimestamp returns a monotonic nanosecond clock; two reads must be
@@ -194,10 +209,10 @@ func TestCallbackSubscription(t *testing.T) {
 
 // activityCollector owns the buffers CUPTI fills with activity records.
 type activityCollector struct {
-	mu       sync.Mutex
-	memcpy   []cupti.ActivityMemcpy
-	kinds    map[cupti.ActivityKind]int
-	buffers  int
+	mu      sync.Mutex
+	memcpy  []cupti.ActivityMemcpy
+	kinds   map[cupti.ActivityKind]int
+	buffers int
 	pinned  uintptr // host buffer, allocated outside the Go heap
 }
 
