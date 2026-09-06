@@ -488,8 +488,15 @@ func TestMetalRuntimePromptAGreedyTokens(t *testing.T) {
 	// evidence/oracle-provenance/capture-prompt-a-01: ten selections
 	// decoding to "Hello! How can I help you today?" and stopping
 	// naturally on token 1. Earlier revisions checked only the first
-	// five, which miss the later divergence: the CUDA candidate failed
-	// at selection 5, choosing 8233 (" assist") over 1694 (" help").
+	// five, which miss the later divergence: both backends fail at
+	// selection 5, choosing 8233 (" assist") over 1694 (" help").
+	//
+	// Step 5 is where the defect shows, not where it is.
+	// TestMetalOracleTrace compares whole logit vectors against the same
+	// capture and finds this port off by up to ~4.9 logits from the
+	// first decode onward; step 5 is simply the one step whose leader
+	// margin is smaller than that error. Diagnose the forward pass, not
+	// this step.
 	want := []int{19923, 3, 1730, 588, 342, 1694, 440, 4316, 33, 1}
 	steps := 0
 	for step := range len(want) {
