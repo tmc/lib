@@ -6,12 +6,12 @@
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "004fcc4ad6f396ce65377fc5e79fea9df8a767b5",
-          "tree": "1fc98131e10ad237711fd6acd337b971a0c18892"
+          "commit": "5b2b5f5fe03200e2c4c10f7e5538111fb319d521",
+          "tree": "20a994aec576c4eb69e27855fe4efd926bacd107"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -113,7 +113,7 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "adc64e8fcc3340435b9f5eb5f9dd4447473ac8d78739131cb30dbdf0bad7ace3"
+            "sha256": "4eb372d7adc05435e628ec1051f64682cc7573706add99325d3582926e2c09a9"
           },
           {
             "path": "nvidia/nvvm/loader_test.go",
@@ -151,7 +151,8 @@
         "transitive Go module source contents",
         "documentation upstream retrieval identities beyond retained JSON bytes"
       ],
-      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
+      "note": "The loader was regenerated after contrib/cuda gained ToolkitLibDirs, which emits the toolkit-relative library search; the recorded codegen commit is that change. Everything else in the package is byte-identical to the prior generation."
     },
     "nvrtc": {
       "package": "github.com/tmc/lib/nvidia/nvrtc",
@@ -3541,8 +3542,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
-          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+          "commit": "5b2b5f5fe03200e2c4c10f7e5538111fb319d521",
+          "tree": "20a994aec576c4eb69e27855fe4efd926bacd107"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3714,7 +3715,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "a4b2ad6032ef7ab45cb766d52877ab746d4b78b4e5ef42bd1fc141f5e6274a52"
+            "sha256": "7ae3fe6f6a60bcb1b6851c14577da545d20bed53edaa0c657bdbb3474db1d9ef"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -3754,7 +3755,7 @@
         "example_test.go",
         "physical_test.go"
       ],
-      "note": "-clang=false is load-bearing and must be passed explicitly. cmd/gen-nvidia sets clangByDefault[\"cupti\"] = true (commit 2077dd4), and the clang path drops the headers' Doxygen prose, substitutes synthesised placeholders, and reorders declarations, producing a ~2,500-line diff against the committed bytes with no semantic change at all (identical 2426 constants and 112 types). The committed bytes came from the regex parser. Reproduction at the recorded codegen commit: 10 of the 15 generated files are byte-identical; enums.gen.go, funcs.gen.go, init.gen.go and subscriber.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed all four are identical -- and layout_test.go gained sizeof/alignof/offsetof assertions for four V1 placeholder structs the generator did not previously probe. The recorded output digests are the committed files. cupti/enums.gen.go also carries six lines inserted by hand in lib commit 4f5fd93 (ActivityPcSamplingPeriodMax and MetricValueUtilizationMax with their String cases); the generator emits both constants itself, at a different position and with the header's doc comment, so those lines should be regenerated rather than maintained.",
+      "note": "-clang=false is load-bearing and must be passed explicitly. cmd/gen-nvidia sets clangByDefault[\"cupti\"] = true (commit 2077dd4), and the clang path drops the headers' Doxygen prose, substitutes synthesised placeholders, and reorders declarations, producing a ~2,500-line diff against the committed bytes with no semantic change at all (identical 2426 constants and 112 types). The committed bytes came from the regex parser. Reproduction at the recorded codegen commit: 10 of the 15 generated files are byte-identical; enums.gen.go, funcs.gen.go, init.gen.go and subscriber.gen.go differ only in doc comments the generator gained after the committed bytes were written -- with comments and blank lines removed all four are identical -- and layout_test.go gained sizeof/alignof/offsetof assertions for four V1 placeholder structs the generator did not previously probe. The recorded output digests are the committed files. cupti/enums.gen.go also carries six lines inserted by hand in lib commit 4f5fd93 (ActivityPcSamplingPeriodMax and MetricValueUtilizationMax with their String cases); the generator emits both constants itself, at a different position and with the header's doc comment, so those lines should be regenerated rather than maintained. The loader was regenerated after contrib/cuda gained ToolkitLibDirs, which emits the toolkit-relative library search; the recorded codegen commit is that change. Everything else in the package is byte-identical to the prior generation.",
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
         "Go and clang executable bytes",
