@@ -63,4 +63,4 @@ It does not run generation, verify vendor archives or establish runtime support.
 
 Compute Sanitizer records 16 vendor headers and 15 generated files. Header provenance includes callback metadata headers whose declarations remain excluded from the host API surface; provenance does not imply binding coverage. The selected host-header ledger and native subscriber validation are separate evidence.
 
-cuDNN records 35 reproduced files from the selected header tree. Its original vendor archive provenance remains unverified; the recorded Git content and header hashes identify the generation inputs, not their vendor authenticity.
+cuDNN records 35 reproduced files. Its seven original headers match the verified NVIDIA 9.20.0.48 CUDA 13 archive. The combined input is a locally derived, exact five-header concatenation; its ordered recipe is recorded separately from vendor archive members. This establishes matching byte provenance, not the historical download platform or runtime qualification.

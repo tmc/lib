@@ -886,8 +886,15 @@
       },
       "vendor": {
         "product": "cudnn",
-        "version": "9.20.0 (header macros)",
-        "verification": "Selected header Git content is pinned; original vendor archive provenance remains unverified."
+        "version": "9.20.0.48",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-9.20.0.48_cuda13-archive.tar.xz",
+          "sha256": "73f091ee57668dc18e8b1b61811c0ddff2ec0b762efe613e9f27f9ebfd6c20c0",
+          "size": 673041224
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cudnn/redist/redistrib_9.20.0.json",
+        "redistribution_manifest_sha256": "488be2657edfaaa9eada30247de95e81e3ce767f504dccb847d422cd358226a0",
+        "verification": "Full archive hash matches official manifest. Seven vendor originals and seven canonical symlinks match selected headers. Combined header is locally derived, not a vendor archive member."
       },
       "header": {
         "repository": "headers",
@@ -1132,10 +1139,152 @@
         "source_state": "clean committed generator, output compared against committed lib"
       },
       "limits": [
-        "Vendor archive identity and authenticity are not yet verified.",
         "Imported CUDA/system headers, compiler executable bytes and transitive module contents are not fully pinned.",
         "Generation equality does not establish runtime support range, all API variants or Windows native behavior."
-      ]
+      ],
+      "vendor_header_mapping": [
+        {
+          "selected_path": "libcudnn/cudnn.h",
+          "selected_symlink": "cudnn_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_v9.h",
+          "vendor_symlink": "cudnn_v9.h",
+          "selected_sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+          "vendor_sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_adv.h",
+          "selected_symlink": "cudnn_adv_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_adv_v9.h",
+          "vendor_symlink": "cudnn_adv_v9.h",
+          "selected_sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e",
+          "vendor_sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_adv_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_adv_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e",
+          "vendor_sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_backend.h",
+          "selected_symlink": "cudnn_backend_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_backend_v9.h",
+          "vendor_symlink": "cudnn_backend_v9.h",
+          "selected_sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f",
+          "vendor_sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_backend_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_backend_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f",
+          "vendor_sha256": "add4f24c61d07edb2b8567894ba6d0c190d00b3addc80161a23d206d1927d45f",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_cnn.h",
+          "selected_symlink": "cudnn_cnn_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_cnn_v9.h",
+          "vendor_symlink": "cudnn_cnn_v9.h",
+          "selected_sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a",
+          "vendor_sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_cnn_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_cnn_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a",
+          "vendor_sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_graph.h",
+          "selected_symlink": "cudnn_graph_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_graph_v9.h",
+          "vendor_symlink": "cudnn_graph_v9.h",
+          "selected_sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308",
+          "vendor_sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_graph_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_graph_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308",
+          "vendor_sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_ops.h",
+          "selected_symlink": "cudnn_ops_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_ops_v9.h",
+          "vendor_symlink": "cudnn_ops_v9.h",
+          "selected_sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8",
+          "vendor_sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_ops_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_ops_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8",
+          "vendor_sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+          "vendor_sha256": "1082d51d3b564bace8ef6fc6ee335b668b2bfa517f57c06efd428263e5c21855",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_version.h",
+          "selected_symlink": "cudnn_version_v9.h",
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_version_v9.h",
+          "vendor_symlink": "cudnn_version_v9.h",
+          "selected_sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
+          "vendor_sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
+          "equal": true
+        },
+        {
+          "selected_path": "libcudnn/cudnn_version_v9.h",
+          "selected_symlink": null,
+          "vendor_member": "cudnn-linux-x86_64-9.20.0.48_cuda13-archive/include/cudnn_version_v9.h",
+          "vendor_symlink": null,
+          "selected_sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
+          "vendor_sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528",
+          "equal": true
+        }
+      ],
+      "header_derivation": {
+        "selected_path": "libcudnn/cudnn_combined.h",
+        "selected_sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1",
+        "reconstructed_sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1",
+        "equal": true,
+        "ordered_vendor_inputs": [
+          "cudnn_ops_v9.h",
+          "cudnn_adv_v9.h",
+          "cudnn_cnn_v9.h",
+          "cudnn_graph_v9.h",
+          "cudnn_v9.h"
+        ],
+        "method": "byte concatenation without separators or transformations",
+        "vendor_archive_member_exists": false
+      }
     }
   }
 }
