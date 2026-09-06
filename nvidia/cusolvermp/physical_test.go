@@ -117,7 +117,11 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("retain context on device %d: %v", device, err)
 	}
-	defer dev.PrimaryCtxRelease()
+	defer func() {
+		if err := dev.PrimaryCtxRelease(); err != nil {
+			t.Errorf("release primary context: %v", err)
+		}
+	}()
 	if err := ctx.SetCurrent(); err != nil {
 		t.Fatalf("set context: %v", err)
 	}
@@ -125,7 +129,11 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stream: %v", err)
 	}
-	defer stream.Destroy()
+	defer func() {
+		if err := stream.Destroy(); err != nil {
+			t.Errorf("destroy stream: %v", err)
+		}
+	}()
 
 	// Every rank joins the same communicator. This blocks until all of them
 	// do, which is why a launcher that starts too few ranks hangs rather than
@@ -134,19 +142,31 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nccl communicator: %v", err)
 	}
-	defer comm.Destroy()
+	defer func() {
+		if err := comm.Destroy(); err != nil {
+			t.Errorf("destroy communicator: %v", err)
+		}
+	}()
 
 	handle, err := cusolvermp.NewHandle(device, cusolver.Stream(stream))
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}
-	defer handle.Destroy()
+	defer func() {
+		if err := handle.Destroy(); err != nil {
+			t.Errorf("destroy solver handle: %v", err)
+		}
+	}()
 
 	grid, err := handle.CreateDeviceGrid(comm, nprow, npcol, cusolvermp.GridMappingRowMajor)
 	if err != nil {
 		t.Fatalf("grid: %v", err)
 	}
-	defer grid.Destroy()
+	defer func() {
+		if err := grid.Destroy(); err != nil {
+			t.Errorf("destroy grid: %v", err)
+		}
+	}()
 
 	const (
 		n      int64 = 512
@@ -165,35 +185,67 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("descriptor A: %v", err)
 	}
-	defer descA.Destroy()
+	defer func() {
+		if err := descA.Destroy(); err != nil {
+			t.Errorf("destroy descriptor A: %v", err)
+		}
+	}()
 	descB, err := grid.CreateMatrixDesc(cusolvermp.R64F, n, nrhs, mb, nb, 0, 0, max64(localRowsB, 1))
 	if err != nil {
 		t.Fatalf("descriptor B: %v", err)
 	}
-	defer descB.Destroy()
+	defer func() {
+		if err := descB.Destroy(); err != nil {
+			t.Errorf("destroy descriptor B: %v", err)
+		}
+	}()
 
 	// Device blocks use ordinary CUDA allocations; LU does not require
 	// NCCL symmetric memory registration. Each is freed below. A rank
 	// that owns no elements still allocates a byte, because a zero-sized
 	// allocation has no address to hand over.
 	dA := mallocOrFail(t, uint(max64(localRowsA*localColsA, 1))*8)
-	defer driver.DevicePtr(dA).MemFree()
+	defer func() {
+		if err := driver.DevicePtr(dA).MemFree(); err != nil {
+			t.Errorf("free device A: %v", err)
+		}
+	}()
 	dB := mallocOrFail(t, uint(max64(localRowsB*localColsB, 1))*8)
-	defer driver.DevicePtr(dB).MemFree()
+	defer func() {
+		if err := driver.DevicePtr(dB).MemFree(); err != nil {
+			t.Errorf("free device B: %v", err)
+		}
+	}()
 	// Cover the documented LOCr+MB requirement and the vendor sample
 	// allocation based on local columns.
 	dIpiv := mallocOrFail(t, uint(max64(localRowsA+mb, localColsA))*8)
-	defer driver.DevicePtr(dIpiv).MemFree()
+	defer func() {
+		if err := driver.DevicePtr(dIpiv).MemFree(); err != nil {
+			t.Errorf("free device pivots: %v", err)
+		}
+	}()
 	dInfo := mallocOrFail(t, 4)
-	defer driver.DevicePtr(dInfo).MemFree()
+	defer func() {
+		if err := driver.DevicePtr(dInfo).MemFree(); err != nil {
+			t.Errorf("free device info: %v", err)
+		}
+	}()
 
 	// Host buffers for the scatter and the gather. They are page-locked CUDA
 	// allocations, not Go memory: the library reads and writes them after the
 	// enqueuing call has returned.
 	hA := hostAllocOrFail(t, uint(n*n)*8)
-	defer driver.MemFreeHost(uintptr(hA))
+	defer func() {
+		if err := driver.MemFreeHost(uintptr(hA)); err != nil {
+			t.Errorf("free host A: %v", err)
+		}
+	}()
 	hB := hostAllocOrFail(t, uint(n*nrhs)*8)
-	defer driver.MemFreeHost(uintptr(hB))
+	defer func() {
+		if err := driver.MemFreeHost(uintptr(hB)); err != nil {
+			t.Errorf("free host B: %v", err)
+		}
+	}()
 
 	if rank == 0 {
 		a := hostFloats(hA, n*n)
@@ -235,9 +287,17 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 		hostBytes = solveHostBytes
 	}
 	dWork := mallocOrFail(t, max(deviceBytes, 1))
-	defer driver.DevicePtr(dWork).MemFree()
+	defer func() {
+		if err := driver.DevicePtr(dWork).MemFree(); err != nil {
+			t.Errorf("free device workspace: %v", err)
+		}
+	}()
 	hWork := hostAllocOrFail(t, max(hostBytes, 1))
-	defer driver.MemFreeHost(uintptr(hWork))
+	defer func() {
+		if err := driver.MemFreeHost(uintptr(hWork)); err != nil {
+			t.Errorf("free host workspace: %v", err)
+		}
+	}()
 
 	if err := cusolvermp.Getrf(handle, n, n, dA, 1, 1, descA, dIpiv, cusolvermp.R64F, dWork, deviceBytes, cusolvermp.HostPtr(uintptr(hWork)), hostBytes, dInfo); err != nil {
 		t.Fatalf("getrf: %v", err)
