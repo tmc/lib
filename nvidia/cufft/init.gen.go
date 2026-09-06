@@ -264,7 +264,7 @@ func libraryNames() []string {
 	case "darwin":
 		return []string{"libcufft.dylib"}
 	case "windows":
-		return []string{"cufft64_11.dll"}
+		return []string{"cufft64_12.dll"}
 	default:
 		return nil
 	}

@@ -3,7 +3,9 @@
 Pure-Go bindings for the NVIDIA CUDA libraries, generated from the vendor
 headers and loaded at runtime with [purego]. No cgo, no C toolchain, and
 no NVIDIA SDK at build time: programs cross-compile anywhere Go does, and
-the libraries are located and loaded on first use.
+the libraries are located and loaded on first use. Two exceptions:
+`x/nvlshm` and `x/moonep` are `//go:build !windows`, because they exchange
+file descriptors over a Unix domain socket.
 
 [purego]: https://github.com/ebitengine/purego
 
@@ -25,12 +27,26 @@ the libraries are located and loaded on first use.
 | cusolver | cuSOLVER (dense) | factorizations and eigensolvers |
 | cusparse | cuSPARSE (generic API) | sparse matrices and SpMV/SpMM |
 | cutensor | cuTENSOR | tensor contractions, reductions, permutations |
+| cudss | cuDSS | direct sparse linear solves: analysis, factorization, solve |
+| cublasmp | cuBLASMp | multi-process, multi-GPU dense linear algebra over an NCCL process grid |
+| cusolvermp | cuSOLVERMp | multi-process, multi-GPU dense factorization and solve |
+| custatevec | cuStateVec (cuQuantum) | state-vector quantum circuit simulation |
+| cutensornet | cuTensorNet (cuQuantum) | tensor-network path finding and contraction |
+| cudensitymat | cuDensityMat (cuQuantum) | many-body operator action and expectation values |
+| vpi | VPI (Vision Programming Interface) | context and stream lifecycle, image wrapping, rescale |
 | cupti | CUPTI | profiling and activity tracing |
 | sanitizer | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
+| dcgm | DCGM client library (libdcgm) | host-engine telemetry, entity and field discovery, health and diagnostics |
 | nccl | NCCL | multi-GPU collectives |
 | ncclep | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
 | ncclm2n | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
+| nvshmem | NVSHMEM host API (`libnvshmem_host`) | symmetric heap allocation and PE-to-PE communication; host calls only |
+| gdrcopy | GDRCopy (`libgdrapi`) | mapping GPU memory into a process's address space |
 | cufile | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
+| nvcomp | nvCOMP (batched LZ4) | compressing and decompressing independent chunks on device |
+| nvjpeg2k | nvJPEG2000 | JPEG 2000 decoding on device |
+| nvdec | NVDEC (nv-codec-headers) | hardware video decoding: parser, decoder, surface mapping |
+| nvenc | NVENC (nv-codec-headers) | hardware video encoding through the driver's function table |
 | fabricmanager | NVIDIA Fabric Manager | NVSwitch fabric partitions |
 | x/... | — | idiomatic layer over the raw bindings; see the [generated package inventory](x/README.md) |
 
@@ -41,6 +57,14 @@ them all.
 
 Packages load their library lazily on the first call, searching the
 standard soname list for the platform. Nothing happens at import time.
+Every package builds on every platform Go supports; what varies is
+whether the vendor ships a library there. Where NVIDIA publishes no
+build for an operating system, the search list for it is empty and the
+first call reports that, rather than searching for a name that cannot
+exist. NCCL, Fabric Manager, cuFile, DCGM, cuBLASMp, cuSOLVERMp, nvCOMP
+and GDRCopy are Linux-only for that reason; CUPTI, cuTENSOR, the
+cuQuantum packages and nvJPEG2000 ship on Windows but no Windows name is
+configured for them yet, so they too report an empty search list there.
 
   - `Load(path)` loads explicitly (empty path = default search list) and
     is idempotent; loading a second, different path fails rather than
