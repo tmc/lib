@@ -869,7 +869,7 @@
     },
     "cudnn": {
       "package": "github.com/tmc/lib/nvidia/cudnn",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -1064,7 +1064,7 @@
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "0960f9f4abe604fc786a9e13643440f1d8b074b35bcf48a52d2723e692d75ad5"
+            "sha256": "1d91e4b109822d5a2653181d513917821b6cf30d0aca8d22bcd759ff9c32b683"
           },
           {
             "path": "nvidia/cudnn/layout_test.go",
@@ -1287,7 +1287,8 @@
         ],
         "method": "byte concatenation without separators or transformations",
         "vendor_archive_member_exists": false
-      }
+      },
+      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
     },
     "gdrcopy": {
       "package": "github.com/tmc/lib/nvidia/gdrcopy",
@@ -1623,7 +1624,7 @@
           },
           {
             "path": "nvidia/nvcomp/init.gen.go",
-            "sha256": "63f9457055b89c6246aad70cf1fc238942bac00885d209630848bd2d963a89f4"
+            "sha256": "850338a6323e27f0e8a08b78ed181682814d7cf1b55f7441b85a6e65a5740b8f"
           },
           {
             "path": "nvidia/nvcomp/layout_test.go",
@@ -1695,7 +1696,8 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
     },
     "dcgm": {
       "package": "github.com/tmc/lib/nvidia/dcgm",
@@ -1961,7 +1963,7 @@
           },
           {
             "path": "nvidia/cublasmp/init.gen.go",
-            "sha256": "0ca674f27c762f7a5be6f72f9abfcab6d084d44028b4a1cd3737f526ac623c95"
+            "sha256": "c654f68ca6cda24d582188a88081a05385c5a2a9dde87c27b9c271ca5f5ad474"
           },
           {
             "path": "nvidia/cublasmp/loader_test.go",
@@ -1993,7 +1995,8 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
     },
     "cusolvermp": {
       "package": "github.com/tmc/lib/nvidia/cusolvermp",
@@ -2087,7 +2090,7 @@
           },
           {
             "path": "nvidia/cusolvermp/init.gen.go",
-            "sha256": "1575913cefd623020595d87dcdf3a0cd010d7172bcae9020a68edfaa734827dd"
+            "sha256": "29b7ea6709c716968e8ec70c5b23da72b17c40d1ac08ecc00e4e07d0a5ad4c50"
           },
           {
             "path": "nvidia/cusolvermp/loader_test.go",
@@ -2131,7 +2134,8 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
     },
     "custatevec": {
       "package": "github.com/tmc/lib/nvidia/custatevec",
@@ -2234,7 +2238,7 @@
           },
           {
             "path": "nvidia/custatevec/init.gen.go",
-            "sha256": "6a392008edcba523bb8dbf072d40014cd0b1283558b03f3f239ec7d5ecb2eb02"
+            "sha256": "763133aa7ec49e01e8c82c520042f6ca4a9892932e7a3720ce245fa8604fc49b"
           },
           {
             "path": "nvidia/custatevec/layout_test.go",
@@ -2274,7 +2278,8 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
     },
     "cutensornet": {
       "package": "github.com/tmc/lib/nvidia/cutensornet",
