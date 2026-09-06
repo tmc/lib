@@ -61,11 +61,12 @@ func run() error {
 	}
 	runtime.KeepAlive(ptrs)
 
-	device := int32(0)
-	comm, err := nccl.NewCommInitAll(1, &device)
-	if err != nil {
+	devices := []int32{0}
+	comms := make([]nccl.Comm, len(devices))
+	if err := nccl.CommInitAll(&comms[0], int32(len(devices)), &devices[0]); err != nil {
 		return err
 	}
+	comm := comms[0]
 	defer comm.Destroy()
 	if err := comm.AllReduce(nccl.Buffer(ptrs[2]), nccl.Buffer(ptrs[2]), uint(len(c)), nccl.Float32, nccl.Sum, 0); err != nil {
 		return err
