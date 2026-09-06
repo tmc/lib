@@ -370,3 +370,28 @@ func TestMainTimeoutIncludesVersion(t *testing.T) {
 		t.Fatalf("version query escaped Config.Timeout: %s", elapsed)
 	}
 }
+
+func TestToolVersionOutputLimit(t *testing.T) {
+	tool := fixtureTool(t)
+	for _, tt := range []struct {
+		name, output string
+		wantError    bool
+	}{
+		{"version", "Compute Sanitizer version fixture", false},
+		{"excessive", strings.Repeat("v", 65537), true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(fakeStdout, tt.output)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			got, err := ToolVersion(ctx, tool)
+			if tt.wantError {
+				if err == nil || got != "" {
+					t.Fatalf("oversized version = %q, %v", got, err)
+				}
+			} else if err != nil || got != tt.output {
+				t.Fatalf("version = %q, %v", got, err)
+			}
+		})
+	}
+}

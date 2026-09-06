@@ -409,11 +409,19 @@ func ToolVersion(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.CommandContext(ctx, found, "--version").CombinedOutput()
+	cmd := exec.Command(found, "--version")
+	cmd.WaitDelay = time.Second
+	output := &capBuffer{limit: 64 << 10}
+	cmd.Stdout, cmd.Stderr = output, output
+	err = runContext(ctx, cmd)
 	if err != nil {
 		return "", fmt.Errorf("%s --version: %w", found, err)
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	out, truncated := output.result()
+	if truncated {
+		return "", fmt.Errorf("%s --version: output exceeds 64 KiB", found)
+	}
+	for _, line := range strings.Split(out, "\n") {
 		if line = strings.TrimSpace(line); line != "" {
 			return line, nil
 		}
