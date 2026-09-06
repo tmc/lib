@@ -1,6 +1,6 @@
 # NVIDIA input provenance
 
-[upstream.json](upstream.json) records NVVM, NVRTC, nvJitLink and nvFatbin generation. Other
+[upstream.json](upstream.json) records NVVM, NVRTC, nvJitLink, nvFatbin and Compute Sanitizer generation. Other
 approved NVIDIA packages are not yet recorded; they remain in scope. This is
 partial provenance, not release readiness, complete API coverage, a runtime
 support matrix, or a claim that the build is hermetic.
@@ -60,3 +60,5 @@ mutation tests verify changed bytes, missing files and both forms of additional
 generated files fail. This checks the currently recorded top-level Go output
 sets only; unrecorded packages remain outside this partial manifest's evidence.
 It does not run generation, verify vendor archives or establish runtime support.
+
+Compute Sanitizer records 16 vendor headers and 15 generated files. Header provenance includes callback metadata headers whose declarations remain excluded from the host API surface; provenance does not imply binding coverage. The selected host-header ledger and native subscriber validation are separate evidence.
