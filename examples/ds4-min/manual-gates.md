@@ -24,6 +24,7 @@ conflicted ds4 worktree.
 From `examples`:
 
 ```
+GOWORK=off go test -count=1 -run TestOracleGates -v ./ds4-min
 GOWORK=off go test -count=1 ./ds4-min
 GOWORK=off go test -race -count=1 ./ds4-min
 GOWORK=off go vet ./ds4-min
@@ -32,6 +33,12 @@ GOWORK=off go test -run TestFixtureRegeneration -count=2 ./ds4-min
 
 When the corresponding dependency surface changes, run its module-local tests
 with `GOWORK=off` as listed in the approved workflow.
+
+A passing `go test ./ds4-min` is not evidence of parity: almost every oracle
+comparison skips unless its environment gate names a model or a captured ds4
+fixture. `TestOracleGates -v` lists which gates a run exercises and what each
+unset one would enable. Setting `DS4_REQUIRE_GATES` turns an unset gate into a
+failure, which is how a full parity gate asserts its own coverage.
 
 ## Physical gates
 
