@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-05",
-  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink and nvFatbin; other approved NVIDIA packages are not yet recorded and remain in scope.",
+  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink, nvFatbin and Compute Sanitizer; other approved NVIDIA packages are not yet recorded and remain in scope.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -594,6 +594,275 @@
         "documentation upstream retrieval identities beyond retained JSON bytes"
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+    },
+    "sanitizer": {
+      "package": "github.com/tmc/lib/nvidia/sanitizer",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "2e2a54131c551a24d37d2d9795df269a9b67e085",
+          "tree": "56bb6001d7aa038ac3b7ff6422bd53043315e10a"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "425b13b8ab0938a9090870a097cfa53194fe0cf1",
+          "tree": "f6f79c6fb2ae9b969202f4d4cb62ba6ec901b01d"
+        }
+      },
+      "vendor": {
+        "product": "cuda_sanitizer_api",
+        "version": "13.3.27",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_sanitizer_api/linux-x86_64/cuda_sanitizer_api-linux-x86_64-13.3.27-archive.tar.xz",
+          "sha256": "bed47e6b465653a8d4138bce412733131536f1a0e8ab306bb2b0a15f92fc68ff"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.3.0.json",
+        "redistribution_manifest_sha256": "507eddaab1360336bc0fe17b77552e0b7dfe1e74da888671c3a2f5fad7775db1",
+        "verification": "Retained archive rehashed and all 16 pinned headers byte-compared to archive members; official manifest identity inherited from verified vendor receipt, not freshly downloaded."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "sanitizer/sanitizer.h",
+        "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected docs JSON files. Per-file hashes retained in receipt; upstream retrieval identities remain incomplete."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "sanitizer",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/sanitizer/sanitizer.h",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "sanitizer",
+          "-deprecated=true",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "options": {
+          "clang": true,
+          "deprecated": true,
+          "docs_enabled": true,
+          "api": "sanitizer",
+          "package": "sanitizer"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.25.0"
+          }
+        },
+        "source_state": "clean codegen checkout recorded after generation",
+        "outputs": [
+          {
+            "path": "nvidia/sanitizer/doc.gen.go",
+            "sha256": "7b73a1681a43eaa86ecb4ae057e3313ba34f7d70090c0298e476e0db9f9ae9be"
+          },
+          {
+            "path": "nvidia/sanitizer/enums.gen.go",
+            "sha256": "8ba793085bf1d4973ee41ca8b07dfa61704252b4bcc5094e61dc9ce2f56628fe"
+          },
+          {
+            "path": "nvidia/sanitizer/funcs.gen.go",
+            "sha256": "129fa57e63d598f761c7571422e75cc2abcaf21abae1bce6012eee8ab73096e5"
+          },
+          {
+            "path": "nvidia/sanitizer/handles.gen.go",
+            "sha256": "785d494eaca9ae07fda34ff5856f51989333080f3ddd1884c24fc4e123b276c1"
+          },
+          {
+            "path": "nvidia/sanitizer/init.gen.go",
+            "sha256": "b513638c9befa72d9b54e586e6ae9a9f7d3b55a3109f2c52777385c15fcd114b"
+          },
+          {
+            "path": "nvidia/sanitizer/launch_handle.gen.go",
+            "sha256": "ce8cda04be1ec099f38b8868732b16ac69e228e705a85d556cd18873e6a07f7d"
+          },
+          {
+            "path": "nvidia/sanitizer/layout_test.go",
+            "sha256": "9703479c2f68e23910e2ca1be59a216eca38be8b03adb46768a08a358b6a84d2"
+          },
+          {
+            "path": "nvidia/sanitizer/loader_test.go",
+            "sha256": "35633c000c74c03c32122a59a10cdb25d44d3c4f82617178ff2a984238028673"
+          },
+          {
+            "path": "nvidia/sanitizer/loader_unix.gen.go",
+            "sha256": "8759a7c42ea52d2cbf19467ac39a7dcd4b4e578e5f02a90430014b23b2a85de6"
+          },
+          {
+            "path": "nvidia/sanitizer/loader_windows.gen.go",
+            "sha256": "a180165427372c29141f3b948df6c88bfc43c49dc306c94dfebea1e9a6a49b31"
+          },
+          {
+            "path": "nvidia/sanitizer/result.gen.go",
+            "sha256": "e19ac02c05586ee6dac565a54f8077264adc3fc395c6db7b09e71131c1368138"
+          },
+          {
+            "path": "nvidia/sanitizer/stream_handle.gen.go",
+            "sha256": "d4ce26118213963805a5b49487e23fad6eeaec3593245bb654614ffc3cfd0349"
+          },
+          {
+            "path": "nvidia/sanitizer/structs.gen.go",
+            "sha256": "363d443ddf9b615e237defb97b8b8d9230a62b4feadbd038bdeba15f294ff84c"
+          },
+          {
+            "path": "nvidia/sanitizer/subscriber.gen.go",
+            "sha256": "fd6c7748d8426304b22989b41257fa0903b0d8d92885fcbdfdadebc54324b441"
+          },
+          {
+            "path": "nvidia/sanitizer/types.gen.go",
+            "sha256": "888020c0032711eebcdc1ee640f5025b9bd5fce4953434bd408ec32618228941"
+          }
+        ],
+        "comparison": "All 15 emitted files byte-identical to lib comparison commit 425b13b; complete generated file set checked.",
+        "maintained_files_excluded": [
+          "example_test.go",
+          "load.go",
+          "load_test.go",
+          "physical_test.go",
+          "subscription.go",
+          "subscription_test.go"
+        ]
+      },
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes",
+        "Imported CUDA dependency headers are pinned by the complete headers repository tree; vendor archive verification here covers only the 16 sanitizer-family headers."
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
+      "headers": [
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cudaGL_meta.h",
+          "sha256": "75f77642e6917448db4ad38abda40b8b531dfeaae945087c3dfc99ce727c6d66",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cudaGL_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cudaVDPAU_meta.h",
+          "sha256": "7c079db28431694de12000290160ce2ac6bd92072e430e2d7727fc9252e6fb79",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cudaVDPAU_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cuda_gl_interop_meta.h",
+          "sha256": "4483836263fb7409a044f423e9cd30323a051d4c4112a5398a34a2f2d76b0c87",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_gl_interop_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cuda_meta.h",
+          "sha256": "864cc984dd0c5a3fb07d9a6d5202f0394d25d1a82fd7538ce9719bdff2b3b1e6",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cuda_profiler_api_meta.h",
+          "sha256": "e1cf470c82fdf901ee4999b28384f50fd3e1884eb01da17a9ee8e6cf4e9c1139",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_profiler_api_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cuda_runtime_api_meta.h",
+          "sha256": "73b5920aae5578813030c7725bfca5699e2e4aa0b5f63ae921763c9a37df17c1",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_runtime_api_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/generated_cuda_vdpau_interop_meta.h",
+          "sha256": "d8169b21ae90c12259ccf5c35d20c162a591a53b7acec786d3b1c445a70203c9",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_vdpau_interop_meta.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer.h",
+          "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_barrier.h",
+          "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_barrier.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_callbacks.h",
+          "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_callbacks.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_driver_cbid.h",
+          "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_driver_cbid.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_memory.h",
+          "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_memory.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_patching.h",
+          "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_patching.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_result.h",
+          "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_result.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_runtime_cbid.h",
+          "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_runtime_cbid.h"
+        },
+        {
+          "repository": "headers",
+          "path": "sanitizer/sanitizer_stream.h",
+          "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3",
+          "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_stream.h"
+        }
+      ]
     }
   }
 }
