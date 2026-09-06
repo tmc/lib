@@ -85,6 +85,24 @@ status), so `errors.Is`/`errors.As` work against exported codes:
 Where the library exports an error-string function, messages are rich;
 otherwise they fall back to the Go constant name and numeric code.
 
+## Regenerating
+
+`cufft/init.gen.go` carries hand-written declarations -- `LibraryError`,
+`LibraryAttempt` and their helpers -- that no generator commit produces. The
+generator's API-removal check refuses to regenerate the package for that
+reason, and the refusal is correct: regenerating cufft today would delete that
+error type and the loader code that returns it. Do not pass
+`-allow-api-removal` to get past it. The package can be regenerated once
+`contrib/cuda` emits the loader that `internal/ffigen` already emits, or once
+those declarations are moved into a maintained file beside the generated ones,
+which the check does not read.
+
+`-allow-api-removal` is for a removal or rename you intend and will review in
+the diff, such as regenerating nccl to pick up the `HascommInitAll` ->
+`HasCommInitAll` fix. It is not a way to quiet a check that is telling you an
+input is wrong: a header pinned to the wrong revision reports the same way, as
+hundreds of unrelated declarations going missing at once.
+
 ## The pure-Go kernel path
 
 CUDA kernels can be compiled, linked, and launched entirely from Go at
