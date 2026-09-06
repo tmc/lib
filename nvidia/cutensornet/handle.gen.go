@@ -96,6 +96,26 @@ func (h Handle) Destroy() error {
 	return destroy(h)
 }
 
+// DistributedGetNumRanks wraps cutensornetDistributedGetNumRanks.
+func (h Handle) DistributedGetNumRanks() (int32, error) {
+	return distributedGetNumRanks(h)
+}
+
+// DistributedGetProcRank wraps cutensornetDistributedGetProcRank.
+func (h Handle) DistributedGetProcRank() (int32, error) {
+	return distributedGetProcRank(h)
+}
+
+// DistributedResetConfiguration wraps cutensornetDistributedResetConfiguration.
+func (h Handle) DistributedResetConfiguration(commPtr unsafe.Pointer, commSize uint) error {
+	return distributedResetConfiguration(h, commPtr, commSize)
+}
+
+// DistributedSynchronize wraps cutensornetDistributedSynchronize.
+func (h Handle) DistributedSynchronize() error {
+	return distributedSynchronize(h)
+}
+
 // GetOutputTensorDescriptor wraps cutensornetGetOutputTensorDescriptor.
 func (h Handle) GetOutputTensorDescriptor(networkDesc NetworkDescriptor) (TensorDescriptor, error) {
 	return getOutputTensorDescriptor(h, networkDesc)

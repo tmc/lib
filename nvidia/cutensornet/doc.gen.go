@@ -34,9 +34,15 @@
 //
 // # Scope
 //
-// Only the tensor-network contraction API is bound. cutensornet.h also
-// declares tensor decomposition, quantum state simulation and distributed
-// reduction APIs that this package does not expose.
+// Tensor-network contraction and distributed MPI configuration are bound.
+// Tensor decomposition and quantum state simulation remain outside this surface.
+//
+// DistributedResetConfiguration requires an MPI_Comm_dup-created communicator
+// dedicated to one Handle. Keep it alive until replaced by another reset.
+// Set CUTENSORNET_COMM_LIB to a wrapper built against the same MPI implementation.
+// Each rank must select the matching CUDA device before creating its Handle and
+// execute the same sequence of collective calls. Synchronize local CUDA streams
+// before DistributedSynchronize. Binding availability is not MPI runtime qualification.
 //
 // cuTensorNet 2.13 deprecates the classic contraction entry points -- the
 // ones this package's [Network], [Workspace] and [Plan] are built on -- in
@@ -98,6 +104,26 @@
 //   - [TensorDescriptor.Destroy].
 //   - [WorkspaceDescriptor.Destroy].
 //
+// # Library context
+//
+//   - [Handle.DistributedGetNumRanks].
+//   - [Handle.DistributedGetProcRank].
+//   - [Handle.DistributedResetConfiguration].
+//   - [Handle.DistributedSynchronize].
+//   - [Handle.NetworkAppendTensor].
+//   - [Handle.NetworkAutotuneContraction].
+//   - [NetworkAutotunePreference.GetAttribute].
+//   - [NetworkAutotunePreference.SetAttribute].
+//   - [Handle.NetworkContract].
+//   - [Handle.NetworkGetAttribute].
+//   - [Handle.NetworkPrepareContraction].
+//   - [Handle.NetworkSetAttribute].
+//   - [Handle.NetworkSetInputTensorMemory].
+//   - [Handle.NetworkSetOptimizerInfo].
+//   - [Handle.NetworkSetOutputTensor].
+//   - [Handle.NetworkSetOutputTensorMemory].
+//   - [Handle.UpdateContractionOptimizerInfoFromPackedData].
+//
 // # Queries
 //
 //   - [GetCudartVersion].
@@ -112,22 +138,6 @@
 //   - [LoggerOpenFile].
 //   - [LoggerSetLevel].
 //   - [LoggerSetMask].
-//
-// # Library context
-//
-//   - [Handle.NetworkAppendTensor].
-//   - [Handle.NetworkAutotuneContraction].
-//   - [NetworkAutotunePreference.GetAttribute].
-//   - [NetworkAutotunePreference.SetAttribute].
-//   - [Handle.NetworkContract].
-//   - [Handle.NetworkGetAttribute].
-//   - [Handle.NetworkPrepareContraction].
-//   - [Handle.NetworkSetAttribute].
-//   - [Handle.NetworkSetInputTensorMemory].
-//   - [Handle.NetworkSetOptimizerInfo].
-//   - [Handle.NetworkSetOutputTensor].
-//   - [Handle.NetworkSetOutputTensorMemory].
-//   - [Handle.UpdateContractionOptimizerInfoFromPackedData].
 //
 // # Workspace
 //

@@ -351,6 +351,10 @@ func registerFuncs() {
 	register(&fndestroySliceGroup, "cutensornetDestroySliceGroup")
 	register(&fndestroyTensorDescriptor, "cutensornetDestroyTensorDescriptor")
 	register(&fndestroyWorkspaceDescriptor, "cutensornetDestroyWorkspaceDescriptor")
+	register(&fndistributedGetNumRanks, "cutensornetDistributedGetNumRanks")
+	register(&fndistributedGetProcRank, "cutensornetDistributedGetProcRank")
+	register(&fndistributedResetConfiguration, "cutensornetDistributedResetConfiguration")
+	register(&fndistributedSynchronize, "cutensornetDistributedSynchronize")
 	register(&fnGetCudartVersion, "cutensornetGetCudartVersion")
 	register(&fngetOutputTensorDescriptor, "cutensornetGetOutputTensorDescriptor")
 	register(&fngetOutputTensorDetails, "cutensornetGetOutputTensorDetails")
@@ -418,6 +422,10 @@ func clearFuncs() {
 	fndestroySliceGroup = nil
 	fndestroyTensorDescriptor = nil
 	fndestroyWorkspaceDescriptor = nil
+	fndistributedGetNumRanks = nil
+	fndistributedGetProcRank = nil
+	fndistributedResetConfiguration = nil
+	fndistributedSynchronize = nil
 	fnGetCudartVersion = nil
 	fngetOutputTensorDescriptor = nil
 	fngetOutputTensorDetails = nil
@@ -625,6 +633,26 @@ func HasDestroyTensorDescriptor() bool {
 // HasDestroyWorkspaceDescriptor reports whether cutensornetDestroyWorkspaceDescriptor resolved in the loaded library.
 func HasDestroyWorkspaceDescriptor() bool {
 	return Has("cutensornetDestroyWorkspaceDescriptor")
+}
+
+// HasDistributedGetNumRanks reports whether cutensornetDistributedGetNumRanks resolved in the loaded library.
+func HasDistributedGetNumRanks() bool {
+	return Has("cutensornetDistributedGetNumRanks")
+}
+
+// HasDistributedGetProcRank reports whether cutensornetDistributedGetProcRank resolved in the loaded library.
+func HasDistributedGetProcRank() bool {
+	return Has("cutensornetDistributedGetProcRank")
+}
+
+// HasDistributedResetConfiguration reports whether cutensornetDistributedResetConfiguration resolved in the loaded library.
+func HasDistributedResetConfiguration() bool {
+	return Has("cutensornetDistributedResetConfiguration")
+}
+
+// HasDistributedSynchronize reports whether cutensornetDistributedSynchronize resolved in the loaded library.
+func HasDistributedSynchronize() bool {
+	return Has("cutensornetDistributedSynchronize")
 }
 
 // HasGetCudartVersion reports whether cutensornetGetCudartVersion resolved in the loaded library.

@@ -50,6 +50,10 @@ var (
 	fndestroySliceGroup                            func(SliceGroup) Result
 	fndestroyTensorDescriptor                      func(TensorDescriptor) Result
 	fndestroyWorkspaceDescriptor                   func(WorkspaceDescriptor) Result
+	fndistributedGetNumRanks                       func(Handle, *int32) Result
+	fndistributedGetProcRank                       func(Handle, *int32) Result
+	fndistributedResetConfiguration                func(Handle, unsafe.Pointer, uint) Result
+	fndistributedSynchronize                       func(Handle) Result
 	fnGetCudartVersion                             func() uint
 	fngetOutputTensorDescriptor                    func(Handle, NetworkDescriptor, *TensorDescriptor) Result
 	fngetOutputTensorDetails                       func(Handle, NetworkDescriptor, *int32, *uint, *int32, *int64, *int64) Result
@@ -461,6 +465,50 @@ func destroyWorkspaceDescriptor(workDesc WorkspaceDescriptor) error {
 		return err
 	}
 	return toError(fndestroyWorkspaceDescriptor(workDesc))
+}
+
+// distributedGetNumRanks wraps cutensornetDistributedGetNumRanks.
+func distributedGetNumRanks(handle Handle) (int32, error) {
+	if err := checkLibSym("cutensornetDistributedGetNumRanks"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	var out int32
+	if err := toError(fndistributedGetNumRanks(handle, &out)); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return out, nil
+}
+
+// distributedGetProcRank wraps cutensornetDistributedGetProcRank.
+func distributedGetProcRank(handle Handle) (int32, error) {
+	if err := checkLibSym("cutensornetDistributedGetProcRank"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	var out int32
+	if err := toError(fndistributedGetProcRank(handle, &out)); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return out, nil
+}
+
+// distributedResetConfiguration wraps cutensornetDistributedResetConfiguration.
+func distributedResetConfiguration(handle Handle, commPtr unsafe.Pointer, commSize uint) error {
+	if err := checkLibSym("cutensornetDistributedResetConfiguration"); err != nil {
+		return err
+	}
+	return toError(fndistributedResetConfiguration(handle, commPtr, commSize))
+}
+
+// distributedSynchronize wraps cutensornetDistributedSynchronize.
+func distributedSynchronize(handle Handle) error {
+	if err := checkLibSym("cutensornetDistributedSynchronize"); err != nil {
+		return err
+	}
+	return toError(fndistributedSynchronize(handle))
 }
 
 // GetCudartVersion wraps cutensornetGetCudartVersion.
