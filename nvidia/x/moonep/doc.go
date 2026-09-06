@@ -1,3 +1,5 @@
+//go:build !windows
+
 // Package moonep is a Go port of the host-side layer of MoonEP
 // (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication
 // library. It builds on package nvlshm for the cross-process NVLink shared

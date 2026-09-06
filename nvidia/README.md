@@ -3,7 +3,9 @@
 Pure-Go bindings for the NVIDIA CUDA libraries, generated from the vendor
 headers and loaded at runtime with [purego]. No cgo, no C toolchain, and
 no NVIDIA SDK at build time: programs cross-compile anywhere Go does, and
-the libraries are located and loaded on first use.
+the libraries are located and loaded on first use. Two exceptions:
+`x/nvlshm` and `x/moonep` are `//go:build !windows`, because they exchange
+file descriptors over a Unix domain socket.
 
 [purego]: https://github.com/ebitengine/purego
 
@@ -41,6 +43,14 @@ them all.
 
 Packages load their library lazily on the first call, searching the
 standard soname list for the platform. Nothing happens at import time.
+Every package builds on every platform Go supports; what varies is
+whether the vendor ships a library there. Where NVIDIA publishes no
+build for an operating system, the search list for it is empty and the
+first call reports that, rather than searching for a name that cannot
+exist. NCCL, Fabric Manager, cuFile, DCGM, cuBLASMp, cuSOLVERMp, nvCOMP
+and GDRCopy are Linux-only for that reason; CUPTI, cuTENSOR, the
+cuQuantum packages and nvJPEG2000 ship on Windows but no Windows name is
+configured for them yet, so they too report an empty search list there.
 
   - `Load(path)` loads explicitly (empty path = default search list) and
     is idempotent; loading a second, different path fails rather than
