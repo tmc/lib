@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -93,6 +94,10 @@ func rankOf(logits []float32, id int) (rank int, gap float64) {
 // steps that differ instead of only the earliest.
 func compareOracleTrace(t *testing.T, s *session, dir string, want []int) {
 	t.Helper()
+	// A port that can write the observer's own format compares against
+	// any capture in either direction, which is how one backend's trace
+	// gets held against another's rather than only against the oracle's.
+	out := os.Getenv("DS4_ORACLE_STATE_OUT")
 	states, err := loadOracleStates(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -118,6 +123,11 @@ func compareOracleTrace(t *testing.T, s *session, dir string, want []int) {
 			bad++
 			t.Errorf("step %d: chose %d, oracle chose %d, which this port ranks %d and scores %.6g below its own leader",
 				step, got, oracle, rank+1, gap)
+		}
+		if out != "" {
+			if err := writeOracleState(out, step, len(s.tokens), s.logits); err != nil {
+				t.Fatal(err)
+			}
 		}
 		if state, ok := states[step]; ok {
 			if d := compareOracleLogits(t, step, state, s.logits); d > worst {
@@ -186,4 +196,166 @@ func compareOracleLogits(t *testing.T, step int, state oracleState, got []float3
 		t.Logf("  oracle rank %d: id %6d logit %.6f; here rank %d, %.6g below the leader", i+1, c.ID, c.Logit, rank+1, gap)
 	}
 	return worst
+}
+
+// writeOracleState records one step in the observer's state-NN.json
+// schema. It writes every step the trace visits, not only the steps a
+// given capture happens to hold, since the reader keys on the accepted
+// count and ignores the rest.
+func writeOracleState(dir string, step, position int, logits []float32) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	order := make([]int, len(logits))
+	for i := range order {
+		order[i] = i
+	}
+	sort.Slice(order, func(a, b int) bool { return logits[order[a]] > logits[order[b]] })
+	top := make([]oracleCandidate, 0, 20)
+	for _, id := range order[:min(20, len(order))] {
+		top = append(top, oracleCandidate{ID: id, Logit: logits[id]})
+	}
+	state := oracleState{
+		Accepted: step,
+		Position: position,
+		Vocab:    len(logits),
+		Argmax:   order[0],
+		Top20:    top,
+		Logits:   logits,
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, fmt.Sprintf("state-%02d.json", step)), data, 0o644)
+}
+
+// TestOracleStateDivergence compares logit captures pairwise. It needs
+// no model and no GPU: every input is a directory of state-NN.json,
+// which either the observer or DS4_ORACLE_STATE_OUT produced. Set
+// DS4_ORACLE_STATE_COMPARE to a comma-separated list of label=dir.
+//
+// Two implementations of the same deterministic arithmetic should agree
+// to rounding. What separates a port that drifts from one that is wrong
+// is not the size of the disagreement but its shape, so this reports
+// four numbers per pair rather than one:
+//
+//   - max and mean |diff| say how large the disagreement is.
+//   - bias says whether one side runs systematically hot or cold, which
+//     a scale or normalization error produces and rounding does not.
+//   - correlation, when three or more captures are compared, says
+//     whether two ports deviate from a third *together*. A shared
+//     defect correlates; independent kernel-level rounding does not.
+func TestOracleStateDivergence(t *testing.T) {
+	spec := os.Getenv("DS4_ORACLE_STATE_COMPARE")
+	if spec == "" {
+		t.Skip("no capture set to compare")
+	}
+	type capture struct {
+		label  string
+		states map[int]oracleState
+	}
+	var captures []capture
+	for _, entry := range strings.Split(spec, ",") {
+		label, dir, ok := strings.Cut(strings.TrimSpace(entry), "=")
+		if !ok {
+			t.Fatalf("%q is not label=dir", entry)
+		}
+		states, err := loadOracleStates(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		captures = append(captures, capture{label, states})
+	}
+	if len(captures) < 2 {
+		t.Fatalf("comparing %d captures needs at least 2", len(captures))
+	}
+	// Only steps every capture holds can be compared; the observer
+	// writes a sparse set and saying so beats silently comparing fewer.
+	var steps []int
+	for step := range captures[0].states {
+		shared := true
+		for _, c := range captures[1:] {
+			if _, ok := c.states[step]; !ok {
+				shared = false
+			}
+		}
+		if shared {
+			steps = append(steps, step)
+		}
+	}
+	sort.Ints(steps)
+	if len(steps) == 0 {
+		t.Fatal("the captures share no step")
+	}
+	t.Logf("comparing %d captures over shared steps %v", len(captures), steps)
+	for _, step := range steps {
+		for i, a := range captures {
+			for _, b := range captures[i+1:] {
+				x, y := a.states[step].Logits, b.states[step].Logits
+				if len(x) != len(y) {
+					t.Errorf("step %d: %s has %d logits, %s has %d", step, a.label, len(x), b.label, len(y))
+					continue
+				}
+				max, mean, bias, sd := divergence(x, y)
+				t.Logf("step %d: %s vs %s: max %.4f, mean %.4f, bias %+.4f, sd %.4f",
+					step, a.label, b.label, max, mean, bias, sd)
+			}
+		}
+		// With three captures the last one is the reference and the
+		// question is whether the other two miss it the same way.
+		if len(captures) == 3 {
+			ref := captures[2].states[step].Logits
+			da := residual(captures[0].states[step].Logits, ref)
+			db := residual(captures[1].states[step].Logits, ref)
+			t.Logf("step %d: corr(%s-%s, %s-%s) = %+.4f",
+				step, captures[0].label, captures[2].label, captures[1].label, captures[2].label, correlation(da, db))
+		}
+	}
+}
+
+// divergence reports the largest and mean absolute difference, the
+// signed mean (bias), and the root-mean-square difference.
+func divergence(x, y []float32) (max, mean, bias, sd float64) {
+	var sumAbs, sumSigned, sumSquare float64
+	for i := range x {
+		d := float64(x[i]) - float64(y[i])
+		if a := math.Abs(d); a > max {
+			max = a
+		}
+		sumAbs += math.Abs(d)
+		sumSigned += d
+		sumSquare += d * d
+	}
+	n := float64(len(x))
+	return max, sumAbs / n, sumSigned / n, math.Sqrt(sumSquare / n)
+}
+
+func residual(x, ref []float32) []float64 {
+	d := make([]float64, len(x))
+	for i := range x {
+		d[i] = float64(x[i]) - float64(ref[i])
+	}
+	return d
+}
+
+func correlation(a, b []float64) float64 {
+	n := float64(len(a))
+	var ma, mb float64
+	for i := range a {
+		ma += a[i]
+		mb += b[i]
+	}
+	ma, mb = ma/n, mb/n
+	var cov, va, vb float64
+	for i := range a {
+		x, y := a[i]-ma, b[i]-mb
+		cov += x * y
+		va += x * x
+		vb += y * y
+	}
+	if va == 0 || vb == 0 {
+		return 0
+	}
+	return cov / math.Sqrt(va*vb)
 }

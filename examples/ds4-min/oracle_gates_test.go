@@ -34,6 +34,8 @@ var oracleGates = []oracleGate{
 	{"DS4_LAYER0_POS1_ORACLE_DIR", "layer 0 at position 1"},
 	{"DS4_POS_ORACLE_DIR", "one decode position against ds4"},
 	{"DS4_ORACLE_STATE_DIR", "a teacher-forced logit trace against a ds4 observer capture"},
+	{"DS4_ORACLE_STATE_OUT", "writing this port's own logit states in the observer's format"},
+	{"DS4_ORACLE_STATE_COMPARE", "comparing captured logit states pairwise, with no model"},
 	{"DS4_POS_ORACLE_POS", "which position DS4_POS_ORACLE_DIR holds"},
 	{"DS4_ALL_LAYERS_ORACLE_DIR", "all 43 layers against ds4"},
 	{"DS4_ALL_LAYERS_ORACLE_POS", "which position DS4_ALL_LAYERS_ORACLE_DIR holds"},
