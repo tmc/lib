@@ -307,8 +307,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
-          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -317,8 +317,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
-          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -413,11 +413,11 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "0f42c9d3088205f5ae685902952ce9aff4e907c6edbf52bdc8f434e153939ce3"
+            "sha256": "d29a375c3bc4e2841a0c5968cc5cb26fbfb54f65c18e6c0bf8a9d84108f05be0"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
-            "sha256": "4e826c3ad35125cb0df8e9e559838d42f02534a2aa3449855b972b36a89695d0"
+            "sha256": "51a632fc5862ca207eeb56e8216ce5d2eee61be8454d3446627df43ab60fadb6"
           },
           {
             "path": "nvidia/nvjitlink/loader_unix.gen.go",
@@ -454,8 +454,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
-          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -464,8 +464,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
-          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -561,11 +561,11 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "7e41f4c48b21ec997cd04e69fa24c516019ca2c26b41584b65a2e06f937c97a7"
+            "sha256": "cf6f88aa0dab89d552f00117429d16331e8166665e82f0995761f8e852f15144"
           },
           {
             "path": "nvidia/nvfatbin/loader_test.go",
-            "sha256": "b5304d03361eb126b7f140f0a8b518f0ac33ee4601db26abd45425b624cfc731"
+            "sha256": "b2c152632c9d00d821f0c9d92fbbb328659e86d615b2488b691a491246e0e1b1"
           },
           {
             "path": "nvidia/nvfatbin/loader_unix.gen.go",
@@ -605,8 +605,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "2e2a54131c551a24d37d2d9795df269a9b67e085",
-          "tree": "56bb6001d7aa038ac3b7ff6422bd53043315e10a"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -615,8 +615,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "425b13b8ab0938a9090870a097cfa53194fe0cf1",
-          "tree": "f6f79c6fb2ae9b969202f4d4cb62ba6ec901b01d"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -708,7 +708,7 @@
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "b513638c9befa72d9b54e586e6ae9a9f7d3b55a3109f2c52777385c15fcd114b"
+            "sha256": "839b00cc37fbd3cc99c2a905cef964747caa61861ef187aeebba386084516290"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
@@ -720,7 +720,7 @@
           },
           {
             "path": "nvidia/sanitizer/loader_test.go",
-            "sha256": "35633c000c74c03c32122a59a10cdb25d44d3c4f82617178ff2a984238028673"
+            "sha256": "497fcd046f8a1f696db35841acd178d9ce69059ae404afaf2e6b78f72bca5e08"
           },
           {
             "path": "nvidia/sanitizer/loader_unix.gen.go",
@@ -874,8 +874,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -884,8 +884,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "9043aa9b48fc15a211afa21747aa612475bcf2ca",
-          "tree": "28e38408b1d9879867218589eca95e7f75f19029"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1065,7 +1065,7 @@
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "1d91e4b109822d5a2653181d513917821b6cf30d0aca8d22bcd759ff9c32b683"
+            "sha256": "8d5fcff7375ecbcb25f9f56f900d859f3dfe0d2cbbfd8a554721cb994a33093a"
           },
           {
             "path": "nvidia/cudnn/layout_test.go",
@@ -1073,7 +1073,7 @@
           },
           {
             "path": "nvidia/cudnn/loader_test.go",
-            "sha256": "e262ebf726452a5cecd730d18b3d906ebe413cef6ccf22d70db6a21db2c4b739"
+            "sha256": "c6bf86ccc71366ca61f43fa8abe5d3a5e399c00af1b06e553020e86bd2b64759"
           },
           {
             "path": "nvidia/cudnn/loader_unix.gen.go",
@@ -1297,13 +1297,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1379,11 +1379,11 @@
           },
           {
             "path": "nvidia/gdrcopy/init.gen.go",
-            "sha256": "8bfd781f49d64e90f4fb223992a197b10dacc4dbe4365deaed9f4ba15cacbcce"
+            "sha256": "e1d4f9c651e232486359e49708a8a546cd9d49a1f7e0a8a74d2cbb9f1a585df0"
           },
           {
             "path": "nvidia/gdrcopy/loader_test.go",
-            "sha256": "8dea571904bd3c5fb45f66ecfb2c5ca4cb27e893de143b9f67eacd1a6dd5a83f"
+            "sha256": "018f312923a7bdb625445c26a3a95966f9c896000845182d1ff997b9bd5977fd"
           },
           {
             "path": "nvidia/gdrcopy/symbols_test.go",
@@ -1401,13 +1401,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1492,7 +1492,7 @@
           },
           {
             "path": "nvidia/nvjpeg2k/init.gen.go",
-            "sha256": "83e18d711f008c88e28d8f55a782066f2bfc41b167e056856f40844f1d836c33"
+            "sha256": "c803f17bbbc161c3d008ec7390ae45b4d4905c721ae50a5658e7cda0bee3f6f5"
           },
           {
             "path": "nvidia/nvjpeg2k/layout_test.go",
@@ -1500,7 +1500,7 @@
           },
           {
             "path": "nvidia/nvjpeg2k/loader_test.go",
-            "sha256": "1afb791bf24dba7f58f509e30e9660884b48e97628bbd0a705ec82e2293d5054"
+            "sha256": "d1a9026fff0fb3223b1bdbd05f86fb86566a13e3d5e88f9f19640397bc03a7d9"
           },
           {
             "path": "nvidia/nvjpeg2k/loader_unix.gen.go",
@@ -1552,13 +1552,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1625,7 +1625,7 @@
           },
           {
             "path": "nvidia/nvcomp/init.gen.go",
-            "sha256": "850338a6323e27f0e8a08b78ed181682814d7cf1b55f7441b85a6e65a5740b8f"
+            "sha256": "a842ac03d70c698bb26cfd6922ff8b73559785d615d81a1b0a7f27bef42de2f8"
           },
           {
             "path": "nvidia/nvcomp/layout_test.go",
@@ -1637,7 +1637,7 @@
           },
           {
             "path": "nvidia/nvcomp/loader_test.go",
-            "sha256": "995d7980aa96e76be16324aadebe7a9efddbc0836835e93f7e940393364bdd5f"
+            "sha256": "913b7f02c4bc359a506cf5e8a8dea63b4a8201984c8e386f7a5b0600617f3b18"
           },
           {
             "path": "nvidia/nvcomp/loader_unix.gen.go",
@@ -1706,13 +1706,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1787,7 +1787,7 @@
           },
           {
             "path": "nvidia/dcgm/init.gen.go",
-            "sha256": "dec4ea84f500fe80ef21e4c1665107289d9d4f6fb34ff5a84f45d3cde93bc22b"
+            "sha256": "e48a415e2ee249aeb51db441238653f9ab96c4eeb8b5778a66ad35c7daf21b5b"
           },
           {
             "path": "nvidia/dcgm/layout_test.go",
@@ -1803,7 +1803,7 @@
           },
           {
             "path": "nvidia/dcgm/loader_test.go",
-            "sha256": "cff5187145e725c2588ca9370a82eb2ab99e7fad259d9422454825b0c979817e"
+            "sha256": "e2d0af495b0174a2b0216b191244887d4b65a2caef4d4c9d0895a4f6cfe7d5de"
           },
           {
             "path": "nvidia/dcgm/loader_unix.gen.go",
@@ -1878,8 +1878,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -1888,8 +1888,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -1964,11 +1964,11 @@
           },
           {
             "path": "nvidia/cublasmp/init.gen.go",
-            "sha256": "c654f68ca6cda24d582188a88081a05385c5a2a9dde87c27b9c271ca5f5ad474"
+            "sha256": "b8b11a3c39f5e7ab5fbb715a39d18a3ff8b3bf959177085789770a437cc9855a"
           },
           {
             "path": "nvidia/cublasmp/loader_test.go",
-            "sha256": "ae2a87c83a50625868bf617d87850203607fabeee2dbc49267e1a399cf39a437"
+            "sha256": "d662fb2d799c7261bcd481cfea9c541f7f6f917ceaf6024bcbb2a26deb522bad"
           },
           {
             "path": "nvidia/cublasmp/loader_unix.gen.go",
@@ -2005,8 +2005,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2015,8 +2015,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2091,11 +2091,11 @@
           },
           {
             "path": "nvidia/cusolvermp/init.gen.go",
-            "sha256": "29b7ea6709c716968e8ec70c5b23da72b17c40d1ac08ecc00e4e07d0a5ad4c50"
+            "sha256": "8c5ebcf528e6d54b9623dac92cfb621958f78e80a68d00761332fed13d7b752c"
           },
           {
             "path": "nvidia/cusolvermp/loader_test.go",
-            "sha256": "8e41fae9e74e1c9778537233126bf62787c5b039a9462e27be93aaa9d0d2e5b5"
+            "sha256": "ff089b68b1aacadb96deaddaa2ae44fb0c0bd772707e61eac607281e2d5ad6b3"
           },
           {
             "path": "nvidia/cusolvermp/loader_unix.gen.go",
@@ -2144,8 +2144,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2154,8 +2154,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2239,7 +2239,7 @@
           },
           {
             "path": "nvidia/custatevec/init.gen.go",
-            "sha256": "763133aa7ec49e01e8c82c520042f6ca4a9892932e7a3720ce245fa8604fc49b"
+            "sha256": "96a816c4a1f2450fbf79fb77c5a794c572ab3f6884cef21fb09466654ee44fd0"
           },
           {
             "path": "nvidia/custatevec/layout_test.go",
@@ -2247,7 +2247,7 @@
           },
           {
             "path": "nvidia/custatevec/loader_test.go",
-            "sha256": "96b48bdfaa27776d7d54f7d5c29bed61b858931e5a10b42a36fdac8a29512ce5"
+            "sha256": "335c7a71312ece5c1045af2c8e58544863bb833508ea3e3b3b5f5cbf9b680a48"
           },
           {
             "path": "nvidia/custatevec/loader_unix.gen.go",
@@ -2288,8 +2288,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2298,8 +2298,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2387,7 +2387,7 @@
           },
           {
             "path": "nvidia/cutensornet/init.gen.go",
-            "sha256": "858cd687a6d9588268d521488d0598176045c2bbd4e8271731a2b176360c8fa5"
+            "sha256": "11ea422dcdf408ea490ee04be5e8b8658293ad17016dacb76d996f77cb2d2d4d"
           },
           {
             "path": "nvidia/cutensornet/layout_test.go",
@@ -2395,7 +2395,7 @@
           },
           {
             "path": "nvidia/cutensornet/loader_test.go",
-            "sha256": "064c2a0f8b5da44748da8f032f8ed8f3a319a41cbdfceaeb42259109fb3600b9"
+            "sha256": "b0a7582e0cfcdee33b05cf705855b97d68a39ccae3594b647488386df204c19a"
           },
           {
             "path": "nvidia/cutensornet/loader_unix.gen.go",
@@ -2468,8 +2468,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2478,8 +2478,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2558,7 +2558,7 @@
           },
           {
             "path": "nvidia/cudss/init.gen.go",
-            "sha256": "26da7e06bc6b28b7ed6f31abc0435bed062d376da7692af89530eba886bdc247"
+            "sha256": "e602c8867b6b1133ca003bdaa7704ffdb9d2481997ccaf34e41cba6940f294b7"
           },
           {
             "path": "nvidia/cudss/layout_test.go",
@@ -2566,7 +2566,7 @@
           },
           {
             "path": "nvidia/cudss/loader_test.go",
-            "sha256": "78b9e42cf53554d7d489785f366b3c68ab84b5f7493e81f0dfad0250cb344777"
+            "sha256": "cb98e888c981825c1043f3909a88a281760f801bb333aabd44a7751eadc8ade7"
           },
           {
             "path": "nvidia/cudss/matrix.gen.go",
@@ -2574,7 +2574,7 @@
           },
           {
             "path": "nvidia/cudss/params.gen.go",
-            "sha256": "39c7b2af59c97c61c376d7c574492bb45e66300a011e1bffb589a8398ea7d203"
+            "sha256": "124ac25cb3bd280f31be6d9a4e95951db7c1b5f2ddf18095b3271b38263a161c"
           },
           {
             "path": "nvidia/cudss/params_abi_test.go",
@@ -2626,8 +2626,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2636,8 +2636,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2705,7 +2705,7 @@
           },
           {
             "path": "nvidia/nvshmem/init.gen.go",
-            "sha256": "fb10966a53ad3bd603ef99322a3de7379f4e71f84a995908cde213fb86c46610"
+            "sha256": "842bef53d8c0df213b3fc72eb7a108bf3ea35874623b365934da53d72cd8baaf"
           },
           {
             "path": "nvidia/nvshmem/layout_test.go",
@@ -2717,7 +2717,7 @@
           },
           {
             "path": "nvidia/nvshmem/loader_test.go",
-            "sha256": "e7b4e831c7d7047914f5a4ae32b9256315457a52964336fae74c7721e50c9449"
+            "sha256": "7c6a4feea12777b581ccf3044fd45f5567dce3e1a06e9909c26549a0d787d2bf"
           },
           {
             "path": "nvidia/nvshmem/status.gen.go",
@@ -2810,8 +2810,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2820,8 +2820,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -2907,7 +2907,7 @@
           },
           {
             "path": "nvidia/cudensitymat/init.gen.go",
-            "sha256": "9dcd09657d1fdf252944998d7b818592937bfc910f995cf5165095e90a58def8"
+            "sha256": "4231b71ac40eefc05ffd6d3df9ddccc65094015c31546bc47cca1374f0ff9301"
           },
           {
             "path": "nvidia/cudensitymat/layout_test.go",
@@ -2915,7 +2915,7 @@
           },
           {
             "path": "nvidia/cudensitymat/loader_test.go",
-            "sha256": "6608dc3c936ac5d8b4d7899e7e147d9fb1f6a988cb292b2a7b772779786cc995"
+            "sha256": "3c43e37fe648271cb02aaaee5a68aac6a2f2b5d814083a543076939b67eaef30"
           },
           {
             "path": "nvidia/cudensitymat/loader_unix.gen.go",
@@ -2967,13 +2967,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -3026,7 +3026,7 @@
         "outputs": [
           {
             "path": "nvidia/nvenc/api.gen.go",
-            "sha256": "23c61bc54183657de460cb898230546ca9bb3c29260a6ff7d1e2bb0718de8b87"
+            "sha256": "f0d54e69ad9e7ed71e4fc340e48d6655a437a6525fe0f1d8da098a4a7b0de7cc"
           },
           {
             "path": "nvidia/nvenc/consts.gen.go",
@@ -3050,7 +3050,7 @@
           },
           {
             "path": "nvidia/nvenc/init.gen.go",
-            "sha256": "c80f7e569d21280f7543b0991ce8a8d46d183c69fad5cac13bc3691dcba70ff5"
+            "sha256": "455df8d9ae17fb4b92082191176ed78fe17c3aecec6cc2e2fd3d2704aad1fcf0"
           },
           {
             "path": "nvidia/nvenc/layout_test.go",
@@ -3084,13 +3084,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
-          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
-          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -3171,7 +3171,7 @@
           },
           {
             "path": "nvidia/nvdec/init.gen.go",
-            "sha256": "d5da1f77d1334a08ce441b17218d86ba43b6968d878e4cafaf4c206a1816e895"
+            "sha256": "5c311d84a089927b5ac5d40116721607d11e4097320f36706193df419f063e7f"
           },
           {
             "path": "nvidia/nvdec/init_windows.gen.go",
@@ -3257,8 +3257,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
-          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3267,8 +3267,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "fc4967b78e2327d65d5d3421b813f14f67df5525",
-          "tree": "3e7e12d49ebc020640e386afb2e9ec307f4442d5"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "vendor": {
@@ -3345,7 +3345,7 @@
           },
           {
             "path": "nvidia/fabricmanager/init.gen.go",
-            "sha256": "c4d20b3d9fce660f0f5e17bc20d0aa942aae5a1dce4b204af2dacefff988b077"
+            "sha256": "c1f00eb7ee4a9979369e1a6465887c52f90bb298bd21fdafc73f49f31833ad71"
           },
           {
             "path": "nvidia/fabricmanager/layout_test.go",
@@ -3353,7 +3353,7 @@
           },
           {
             "path": "nvidia/fabricmanager/loader_test.go",
-            "sha256": "4685d76a0a386c5418de4ad0ee4eb6618feb3446029f9326774a77d1f1bb6c59"
+            "sha256": "53d1217f02f754b266cfbf3aaa6afec66025fa55d500eaa3219a06b85a52530f"
           },
           {
             "path": "nvidia/fabricmanager/loader_unix.gen.go",
@@ -3389,8 +3389,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
-          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3399,8 +3399,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "80d9d15abf9d00c94466965ff572654201900aed",
-          "tree": "47717d0664600f8bc1a8c131ec349fdc104492e9"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "header": {
@@ -3478,7 +3478,7 @@
           },
           {
             "path": "nvidia/nvml/init.gen.go",
-            "sha256": "13549386c618c0b00444c623149aad60bf09ed9818e2341037cc38d283f52db0"
+            "sha256": "135709423ec584e45a1161fd6f425f3e90e7dd75215583f699d9e270a5bb0f28"
           },
           {
             "path": "nvidia/nvml/layout_test.go",
@@ -3486,7 +3486,7 @@
           },
           {
             "path": "nvidia/nvml/loader_test.go",
-            "sha256": "a6084d0b2a618bd1d4716d2be9fdba526ce13e7e6d5a734ffd5b84c67728b6b5"
+            "sha256": "0e2b3485757132a5567267137c9cbfb08a98d4f66176fad2753df6887c857791"
           },
           {
             "path": "nvidia/nvml/loader_unix.gen.go",
@@ -3542,8 +3542,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "5b2b5f5fe03200e2c4c10f7e5538111fb319d521",
-          "tree": "20a994aec576c4eb69e27855fe4efd926bacd107"
+          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
+          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3552,8 +3552,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "80d9d15abf9d00c94466965ff572654201900aed",
-          "tree": "47717d0664600f8bc1a8c131ec349fdc104492e9"
+          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
+          "tree": "f5566422d5906a899658a3b36113069fb211431b"
         }
       },
       "header": {
@@ -3715,7 +3715,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "7ae3fe6f6a60bcb1b6851c14577da545d20bed53edaa0c657bdbb3474db1d9ef"
+            "sha256": "8ae5fb0c61330285bd37bb3ffeaaa66fbc58e1370aad2e1f1f404b1d29d2a245"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -3723,7 +3723,7 @@
           },
           {
             "path": "nvidia/cupti/loader_test.go",
-            "sha256": "1b17b2acee055e2890002b625fd8891b93334d7f4150468a1428f29e4d62a95e"
+            "sha256": "f090fc4722ad70ed3527fa849b491bf4b8c6e920aaf435bf00f9394ede5b5692"
           },
           {
             "path": "nvidia/cupti/loader_unix.gen.go",

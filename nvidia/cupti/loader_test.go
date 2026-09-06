@@ -4,6 +4,7 @@ package cupti
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -63,5 +64,82 @@ func TestLoadConflict(t *testing.T) {
 	var conflict *LibraryConflictError
 	if err := Load("/nonexistent/other-library.so"); !errors.As(err, &conflict) {
 		t.Fatalf("Load(different path) = %v (%T), want *LibraryConflictError", err, err)
+	}
+	if conflict.Implicit {
+		t.Error("conflict after an explicit Load reported Implicit; the caller did call Load")
+	}
+}
+
+// TestSymbolErrorCause checks that SymbolError distinguishes a symbol the
+// loaded library does not export from one it does export but that could not be
+// bound here. Collapsing the two sends a developer to check their installation
+// for a fault that is not in it.
+func TestSymbolErrorCause(t *testing.T) {
+	absent := &SymbolError{Symbol: "__absent"}
+	if absent.Unwrap() != nil {
+		t.Errorf("Unwrap of an absent symbol = %v, want nil", absent.Unwrap())
+	}
+	if got := absent.Error(); !strings.Contains(got, "__absent") || strings.Contains(got, "argument slots") {
+		t.Errorf("absent symbol Error() = %q, want the symbol name and no bind reason", got)
+	}
+
+	unbindable := &SymbolError{Symbol: "__unbindable", Err: errArgumentSlots}
+	if !errors.Is(unbindable, errArgumentSlots) {
+		t.Error("errors.Is did not reach the bind failure through SymbolError")
+	}
+	if got := unbindable.Error(); !strings.Contains(got, "argument slots") {
+		t.Errorf("unbindable symbol Error() = %q, want it to name the bind failure", got)
+	}
+	var symErr *SymbolError
+	if !errors.As(error(unbindable), &symErr) || symErr.Symbol != "__unbindable" {
+		t.Errorf("errors.As on *SymbolError stopped working: %v", symErr)
+	}
+}
+
+// TestBindFailuresReportsUnbound checks that a caller can learn from
+// BindFailures which symbols this architecture could not bind, rather than
+// discovering them one call site at a time.
+func TestBindFailuresReportsUnbound(t *testing.T) {
+	loadMu.Lock()
+	if len(unbound) != 0 {
+		loadMu.Unlock()
+		t.Skip("this build already has real bind failures")
+	}
+	unbound["__zzz_second"] = errArgumentSlots
+	unbound["__aaa_first"] = errArgumentSlots
+	loadMu.Unlock()
+	defer func() {
+		loadMu.Lock()
+		delete(unbound, "__zzz_second")
+		delete(unbound, "__aaa_first")
+		loadMu.Unlock()
+	}()
+
+	got := BindFailures()
+	if len(got) != 2 {
+		t.Fatalf("BindFailures() = %v, want 2 entries", got)
+	}
+	if got[0].Symbol != "__aaa_first" || got[1].Symbol != "__zzz_second" {
+		t.Errorf("BindFailures() = %v, want it sorted by symbol", got)
+	}
+	for _, f := range got {
+		if !errors.Is(f.Err, errArgumentSlots) {
+			t.Errorf("BindFailures()[%s].Err = %v, want the bind failure", f.Symbol, f.Err)
+		}
+	}
+}
+
+// TestLibraryConflictImplicit checks that a conflict against a library nobody
+// asked for says so. A caller that never called Load must not be told it
+// loaded the wrong library twice.
+func TestLibraryConflictImplicit(t *testing.T) {
+	const want = "call Load before any other function"
+	lazy := &LibraryConflictError{Loaded: "/a", Requested: "/b", Implicit: true}
+	if got := lazy.Error(); !strings.Contains(got, want) {
+		t.Errorf("implicit conflict Error() = %q, want it to name the ordering mistake", got)
+	}
+	asked := &LibraryConflictError{Loaded: "/a", Requested: "/b"}
+	if got := asked.Error(); strings.Contains(got, want) {
+		t.Errorf("explicit conflict Error() = %q, want no ordering advice", got)
 	}
 }

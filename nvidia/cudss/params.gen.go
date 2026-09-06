@@ -174,7 +174,10 @@ func bindAddrFuncs() error {
 				addrErr = &SymbolError{Symbol: b.symbol}
 				return
 			}
-			purego.RegisterFunc(b.fn, sym)
+			if !bindSymbol(b.fn, sym) {
+				addrErr = &SymbolError{Symbol: b.symbol, Err: errArgumentSlots}
+				return
+			}
 		}
 	})
 	return addrErr
