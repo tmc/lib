@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "status": "partial-provenance",
+  "recorded_at": "2026-09-05",
+  "scope": "Only NVVM generation is recorded; other approved NVIDIA packages are not yet recorded, not excluded from scope.",
+  "packages": {
+    "nvvm": {
+      "package": "github.com/tmc/lib/nvidia/nvvm",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "004fcc4ad6f396ce65377fc5e79fea9df8a767b5",
+          "tree": "1fc98131e10ad237711fd6acd337b971a0c18892"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0b1e116cdf757f0920a2ddf18255368a367fbdbf",
+          "tree": "cfe5a29063cb73835c97583f35bcde4ed711efc2"
+        }
+      },
+      "vendor": {
+        "product": "libnvvm",
+        "version": "13.3.33",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/libnvvm/linux-x86_64/libnvvm-linux-x86_64-13.3.33-archive.tar.xz",
+          "sha256": "fc9c1fd5844e44c0e5eeb051378c1b13cf0e3bb3fe4966d5103c38885424f802",
+          "header_member": "libnvvm-linux-x86_64-13.3.33-archive/nvvm/include/nvvm.h"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.3.0.json",
+        "verification": "Retained archive SHA256 checked against recorded vendor provenance; extracted header matched pinned header; online redistribution manifest not freshly verified."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "nvvm/nvvm.h",
+        "sha256": "ae202212ab45f24a48c168b5fdb04246831048a7fa65e53b6238e3cf2e981605"
+      },
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "659d7a7ab29997c29652981040add5c61365424e",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "Generator merges all selected files, not only NVVM documentation; upstream document dates/versions are not fully recorded."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "nvvm",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-header",
+          "${HEADERS_REPO}/nvvm/nvvm.h",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "nvvm",
+          "-deprecated=true",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "options": {
+          "clang": true,
+          "deprecated": true,
+          "docs_enabled": true,
+          "api": "nvvm",
+          "package": "nvvm"
+        },
+        "toolchain": {
+          "go": "go version go1.25.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "clang",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.25.0"
+          }
+        },
+        "source_state": "clean codegen checkout recorded after generation",
+        "outputs": [
+          {
+            "path": "nvidia/nvvm/doc.gen.go",
+            "sha256": "e97fa037987f6c8a75332c011f7305d766b5449a51f5d33c2ade3b67f04af99a"
+          },
+          {
+            "path": "nvidia/nvvm/enums.gen.go",
+            "sha256": "a322a1e8074f6de0d296902b783a8a434a2ec8d0c0a566d2dd047fe14fd7191e"
+          },
+          {
+            "path": "nvidia/nvvm/funcs.gen.go",
+            "sha256": "ce89990ac25f76a1c2e4876fa93d70efa89d61ad2da0b559d45b43f43c15d970"
+          },
+          {
+            "path": "nvidia/nvvm/handles.gen.go",
+            "sha256": "adcb2c269f2d44e54d7731746f4fcf3ce1b0cddc1a6e8b392d20772e670613b3"
+          },
+          {
+            "path": "nvidia/nvvm/init.gen.go",
+            "sha256": "17fab93682a94b179cad2393300cec54ce7ff3730a74708c6c2de724f5513bad"
+          },
+          {
+            "path": "nvidia/nvvm/loader_test.go",
+            "sha256": "c914dd644087ce5ca31fe398c8ba98530c8029b1320c4a5edf0d5b4ae9d0178c"
+          },
+          {
+            "path": "nvidia/nvvm/loader_unix.gen.go",
+            "sha256": "f84218a0c663506da84caf2b936580ca084531612ac393fdf637ac551ebd50e2"
+          },
+          {
+            "path": "nvidia/nvvm/loader_windows.gen.go",
+            "sha256": "99c046d482c441500fabe25678a2bb2b11c50059d6c9697b75191238ede88a68"
+          },
+          {
+            "path": "nvidia/nvvm/program.gen.go",
+            "sha256": "9ea10b427964d396699e22fd2334551679c9f6eb44fe48c9864fb8bee5ddd9ce"
+          },
+          {
+            "path": "nvidia/nvvm/result.gen.go",
+            "sha256": "29778edc5c924a767981e16133a08aabe9d9877dc119c6cfb9b26cf4cb3884f4"
+          }
+        ],
+        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "maintained_files_excluded": [
+          "README.md",
+          "example_cuda_test.go",
+          "pipeline_test.go",
+          "testdata/sin.ll"
+        ]
+      },
+      "unresolved_inputs": [
+        "transitive clang system stdlib.h and SDK header contents",
+        "Go and clang executable bytes",
+        "transitive Go module source contents",
+        "documentation upstream retrieval identities beyond retained JSON bytes"
+      ],
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+    }
+  }
+}
