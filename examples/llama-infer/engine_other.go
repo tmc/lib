@@ -386,10 +386,14 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		mCfg.RopeTheta = 10000.0
 	}
 
+	// A checkpoint is loaded in the dtypes it declares and widened at the
+	// upload boundary; synthetic test weights are already float32 and skip
+	// that step. Either way the device receives float32 today.
 	var weights *ModelWeights
+	var retained *RetainedModel
 	var tokenizer Tokenizer
 	if cfg.ModelPath != "" {
-		loadedW, loadedCfg, err := LoadModel(cfg.ModelPath)
+		loadedW, loadedCfg, err := LoadRetainedModel(cfg.ModelPath)
 		if err != nil {
 			return nil, fmt.Errorf("load model %q: %w", cfg.ModelPath, err)
 		}
@@ -398,7 +402,7 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		if cfg.MaxSeqLen > 0 && cfg.MaxSeqLen < mCfg.MaxSeqLen {
 			mCfg.MaxSeqLen = cfg.MaxSeqLen
 		}
-		weights = loadedW
+		retained = loadedW
 		tokenizer, err = LoadHFTokenizer(filepath.Join(cfg.ModelPath, "tokenizer.json"))
 		if err != nil {
 			return nil, fmt.Errorf("load tokenizer: %w", err)
@@ -411,7 +415,11 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	}
 
 	memory := new(cudamem.Tracker)
-	gpuWeights, err = UploadModelToGPU(dev, memory, weights, &mCfg)
+	if retained != nil {
+		gpuWeights, err = UploadRetainedModelToGPU(dev, memory, retained, &mCfg)
+	} else {
+		gpuWeights, err = UploadModelToGPU(dev, memory, weights, &mCfg)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("upload weights to gpu: %w", err)
 	}

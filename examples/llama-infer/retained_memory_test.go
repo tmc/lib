@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"runtime"
+	"syscall"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
@@ -100,7 +101,13 @@ func TestRetainedCheckpointHostMemory(t *testing.T) {
 	t.Logf("declared payload bytes=%d (%.2f bytes/element)", payload, float64(payload)/float64(elems))
 	t.Logf("heap in use after load=%d bytes (delta %d)", after.HeapAlloc, int64(after.HeapAlloc)-int64(before.HeapAlloc))
 	t.Logf("cumulative heap allocated=%d bytes", after.TotalAlloc-before.TotalAlloc)
-	t.Logf("peak heap from OS=%d bytes", after.HeapSys)
+
+	// HeapSys is heap address space obtained from the OS as of this read. It
+	// is neither a peak heap figure nor a peak RSS figure: the runtime never
+	// records peak live heap, and HeapSys can stay high after memory is
+	// released back. Label it for what it is and take the peak separately.
+	t.Logf("heap address space from OS at read=%d bytes (not a peak)", after.HeapSys)
+	t.Logf("peak resident set size=%d bytes", peakRSSBytes(t))
 
 	if elems == 0 {
 		t.Fatal("checkpoint declared no elements")
@@ -121,4 +128,23 @@ func TestRetainedCheckpointHostMemory(t *testing.T) {
 			t.Fatalf("retained %.2f bytes per element, which is not narrower than float32", got)
 		}
 	}
+}
+
+// peakRSSBytes returns the process's maximum resident set size so far.
+//
+// This is the only peak figure available here, and it is a process-wide
+// high-water mark that the kernel maintains: unlike anything in
+// runtime.MemStats it does not fall when memory is freed, which is what makes
+// it usable as a peak. Darwin reports ru_maxrss in bytes and Linux in
+// kilobytes, so the unit is normalized here.
+func peakRSSBytes(t *testing.T) int64 {
+	t.Helper()
+	var ru syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &ru); err != nil {
+		t.Fatalf("getrusage: %v", err)
+	}
+	if runtime.GOOS == "darwin" {
+		return int64(ru.Maxrss)
+	}
+	return int64(ru.Maxrss) * 1024
 }

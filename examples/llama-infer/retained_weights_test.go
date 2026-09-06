@@ -288,3 +288,73 @@ func TestRetainedDecodeMatchesReferencePath(t *testing.T) {
 		})
 	}
 }
+
+// TestRetainedTensorRejectsOverflowingShape checks that shape metadata whose
+// element or byte count does not fit in an int is refused.
+//
+// A shape product that wraps produces a small, plausible-looking count, and the
+// length check then accepts a payload that has nothing to do with the declared
+// tensor. Checkpoint metadata is untrusted input, so both products are checked.
+func TestRetainedTensorRejectsOverflowingShape(t *testing.T) {
+	tests := []struct {
+		name  string
+		dtype string
+		shape []int
+	}{
+		// One dimension already at the limit: 1<<62 elements of any dtype is
+		// more bytes than an int can express.
+		{"single huge dimension", "F32", []int{1 << 62}},
+		{"half of a huge dimension", "F16", []int{1 << 62}},
+
+		// The product wraps only after several dimensions, so each step of the
+		// running product has to be checked, not just the first.
+		{"product overflows", "F32", []int{1 << 31, 1 << 31, 4}},
+		{"product overflows in three steps", "F16", []int{1 << 22, 1 << 22, 1 << 22}},
+
+		// The element count fits but the byte count does not.
+		{"byte count overflows", "F32", []int{math.MaxInt/2 + 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := NewRetainedTensor(nil, tt.dtype, tt.shape); err == nil {
+				t.Fatalf("accepted impossible metadata dtype %s shape %v", tt.dtype, tt.shape)
+			}
+		})
+	}
+}
+
+// TestElemCountOverflowsAreReported checks elemCount directly, including the
+// shapes that are large but valid.
+func TestElemCountOverflowsAreReported(t *testing.T) {
+	ok := []struct {
+		shape []int
+		want  int
+	}{
+		{nil, 1},               // a scalar
+		{[]int{0}, 0},          // an empty tensor
+		{[]int{0, 1 << 62}, 0}, // a zero dimension makes the rest irrelevant
+		{[]int{1024, 1024}, 1 << 20},
+		{[]int{math.MaxInt}, math.MaxInt},
+	}
+	for _, tt := range ok {
+		got, err := elemCount(tt.shape)
+		if err != nil {
+			t.Errorf("elemCount(%v) = error %v, want %d", tt.shape, err, tt.want)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("elemCount(%v) = %d, want %d", tt.shape, got, tt.want)
+		}
+	}
+	bad := [][]int{
+		{math.MaxInt, 2},
+		{1 << 62, 1 << 2},
+		{-1},
+		{4, -2},
+	}
+	for _, shape := range bad {
+		if got, err := elemCount(shape); err == nil {
+			t.Errorf("elemCount(%v) = %d, want an error", shape, got)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
 )
@@ -39,12 +40,17 @@ func dtypeElemSize(dtype string) (int, error) {
 
 // elemCount returns the number of elements described by shape.
 //
-// An empty shape describes a scalar, which is one element.
+// An empty shape describes a scalar, which is one element. The running product
+// is checked at every step: checkpoint metadata is untrusted input, and a
+// product that wrapped would describe an impossible tensor as a plausible one.
 func elemCount(shape []int) (int, error) {
 	n := 1
 	for _, d := range shape {
 		if d < 0 {
 			return 0, fmt.Errorf("negative dimension %d in shape %v", d, shape)
+		}
+		if d != 0 && n > math.MaxInt/d {
+			return 0, fmt.Errorf("element count overflows in shape %v", shape)
 		}
 		n *= d
 	}
@@ -67,6 +73,9 @@ func NewRetainedTensor(raw []byte, dtype string, shape []int) (*RetainedTensor, 
 	n, err := elemCount(shape)
 	if err != nil {
 		return nil, err
+	}
+	if n != 0 && size > math.MaxInt/n {
+		return nil, fmt.Errorf("dtype %s shape %v overflows a byte count", dtype, shape)
 	}
 	if want := n * size; len(raw) != want {
 		return nil, fmt.Errorf("dtype %s shape %v needs %d bytes, got %d", dtype, shape, want, len(raw))
