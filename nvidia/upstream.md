@@ -1,9 +1,9 @@
 # NVIDIA input provenance
 
-[upstream.json](upstream.json) records generation for 19 of the 35 packages in
+[upstream.json](upstream.json) records generation for 20 of the 35 packages in
 this module: NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer, cuDNN,
 cuBLASMp, cuDensityMat, cuDSS, cuSOLVERMp, cuStateVec, cuTensorNet, DCGM,
-GDRCopy, NVDEC, NVENC, nvCOMP, nvJPEG2000 and NVSHMEM. The remaining packages
+Fabric Manager, GDRCopy, NVDEC, NVENC, nvCOMP, nvJPEG2000 and NVSHMEM. The remaining packages
 are not yet recorded; they remain in scope. This is partial provenance, not
 release readiness, complete API coverage, a runtime support matrix, or a claim
 that the build is hermetic.
@@ -96,3 +96,22 @@ those files are recorded by hash without a reproduction behind them; the argv
 for it is recorded alongside the entry.
 
 cuDNN records 35 reproduced files. Its seven original headers match the verified NVIDIA 9.20.0.48 CUDA 13 archive. The combined input is a locally derived, exact five-header concatenation; its ordered recipe is recorded separately from vendor archive members. This establishes matching byte provenance, not the historical download platform or runtime qualification.
+
+Seven of the thirteen -- cuBLASMp, cuDensityMat, cuDSS, cuSOLVERMp, cuStateVec,
+cuTensorNet and NVSHMEM -- first recorded cuda-headers at `3d5d12b`. That commit
+is not the pin their generation used: it is a descendant of `a524c5d` whose only
+change is an unrelated `pinned/nvml/` directory. All thirteen were regenerated
+again from `a524c5d` and every recorded output reproduced as its entry states,
+so the seven now record `a524c5d`, the commit the reproduction actually used.
+
+Fabric Manager records 12 reproduced files from two headers vendored in the
+cuda-headers repository. Recording it required regenerating the package: the
+bytes shipped before this record were not reproducible by any generator commit
+in the repository. They predate struct version retention and generated `String`
+method documentation, yet their loader files matched the current generator, so
+no single commit emitted the package as a whole. Its vendor archive is not
+identified. `fetch.sh` takes the headers from the CUDA redistributable CDN,
+where Fabric Manager is published under a driver version rather than a CUDA
+version, and no archive identity or digest was recorded at fetch time. The
+headers are pinned by content digest; their upstream origin is not established,
+and the entry says so under `unresolved_inputs`.

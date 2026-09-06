@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-06",
-  "scope": "Generation inputs are recorded for 19 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. The remaining packages remain in scope and are not yet recorded.",
+  "scope": "Generation inputs are recorded for 20 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, fabricmanager, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. The remaining packages remain in scope and are not yet recorded.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -1880,8 +1880,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2006,8 +2006,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2144,8 +2144,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2287,8 +2287,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2467,8 +2467,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2625,8 +2625,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -2809,8 +2809,8 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
-          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -3244,6 +3244,138 @@
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       }
+    },
+    "fabricmanager": {
+      "package": "github.com/tmc/lib/nvidia/fabricmanager",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "fb4e4ff05d4ff713e094933a472f2af34724e225",
+          "tree": "8f2fb76e4684308cbc1b0dfda37c90a6f9e15565"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
+          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "fc4967b78e2327d65d5d3421b813f14f67df5525",
+          "tree": "3e7e12d49ebc020640e386afb2e9ec307f4442d5"
+        }
+      },
+      "vendor": {
+        "product": "fabricmanager",
+        "verification": "Not verified. The headers were fetched by cuda-headers/fetch.sh from the CUDA redistributable CDN, which publishes fabricmanager under a driver version rather than a CUDA version. Neither the archive identity nor its digest was recorded at fetch time, so the vendor archive these headers came from cannot be named."
+      },
+      "header": {
+        "repository": "headers",
+        "path": "fabricmanager/nv_fm_agent.h",
+        "sha256": "782af92a96b8395f4bc28363574900b7aef3b400933197820edce2976e46d049"
+      },
+      "header_inventory": [
+        {
+          "path": "fabricmanager/nv_fm_agent.h",
+          "sha256": "782af92a96b8395f4bc28363574900b7aef3b400933197820edce2976e46d049"
+        },
+        {
+          "path": "fabricmanager/nv_fm_types.h",
+          "sha256": "dc65e0ee253c8a8bc0db81163ffe54b19a6a57597687b2bf600e5db35177dc12"
+        }
+      ],
+      "documentation": {
+        "repository": "codegen",
+        "path": "docs",
+        "tree": "aeade4477b2d665ca705f1d660c14e71c56e5398",
+        "selection": "*-docs.json",
+        "selected_files": 85,
+        "note": "All selected documentation JSON files are merged; none of them document Fabric Manager, so the merged index contributes nothing to this package. Upstream retrieval identities remain incomplete."
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvidia",
+          "-api",
+          "fabricmanager",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}",
+          "-package",
+          "fabricmanager"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0"
+        },
+        "outputs": [
+          {
+            "path": "nvidia/fabricmanager/doc.gen.go",
+            "sha256": "193ef27d5443eca167bd6356aefe03d60d991764643c2d970c42d326c269b207"
+          },
+          {
+            "path": "nvidia/fabricmanager/enums.gen.go",
+            "sha256": "150a33e21dc438e2e19e4064dc91bb083c90aa25386ddc5f210e02377d9b9d37"
+          },
+          {
+            "path": "nvidia/fabricmanager/funcs.gen.go",
+            "sha256": "092cebdb3ec30b81c08a2f4daf9bc71d5d5c691541548d031a261afa5d70fe23"
+          },
+          {
+            "path": "nvidia/fabricmanager/handle.gen.go",
+            "sha256": "e51699ded671e47d6193df22f5adf1bc9f4ee2bf0fe0b0fa23af9307759d33e9"
+          },
+          {
+            "path": "nvidia/fabricmanager/handles.gen.go",
+            "sha256": "afb708780831a30751a61fd2408cd7ce122ce5dd84eb1836d03cbdf5d5d77d71"
+          },
+          {
+            "path": "nvidia/fabricmanager/init.gen.go",
+            "sha256": "c4d20b3d9fce660f0f5e17bc20d0aa942aae5a1dce4b204af2dacefff988b077"
+          },
+          {
+            "path": "nvidia/fabricmanager/layout_test.go",
+            "sha256": "67439d58c631d804b0a1600d6308a9853fc5ad067d7f66c04ae8c5fd09c4dd1b"
+          },
+          {
+            "path": "nvidia/fabricmanager/loader_test.go",
+            "sha256": "4685d76a0a386c5418de4ad0ee4eb6618feb3446029f9326774a77d1f1bb6c59"
+          },
+          {
+            "path": "nvidia/fabricmanager/loader_unix.gen.go",
+            "sha256": "8241b0651aa6613e49e2ccf02b1a2e9423def5025953415d1ce86f68fe8170d7"
+          },
+          {
+            "path": "nvidia/fabricmanager/loader_windows.gen.go",
+            "sha256": "aca8dd6b82fb7494ca6e9e5060e92b913e85ba3ae146b0ff0e8cff3bb0f19918"
+          },
+          {
+            "path": "nvidia/fabricmanager/result.gen.go",
+            "sha256": "636c693d548cc3e58c9bd0c145f80d28de24d7dae1e5085d4edbad746934c170"
+          },
+          {
+            "path": "nvidia/fabricmanager/structs.gen.go",
+            "sha256": "766fa7229c9a929518d5ee7a1a684ceea37b70b4cb994240071616eecbaf51ff"
+          }
+        ],
+        "source_state": "clean committed generator, output compared against committed lib",
+        "note": "The package was regenerated to record this entry. The bytes shipped before that regeneration were not reproducible by any generator commit: they predate struct version retention and generated String method documentation, yet their loader files matched the current generator, so no single commit produced the package as a whole."
+      },
+      "limits": [
+        "Imported CUDA/system headers, compiler executable bytes and transitive module contents are not fully pinned.",
+        "Generation equality does not establish runtime support range, all API variants or Windows native behavior."
+      ],
+      "unresolved_inputs": [
+        "The vendor archive the fabricmanager headers were fetched from is not identified: no version, URL or digest was recorded, and the redistributable is driver-versioned rather than CUDA-versioned. The headers are pinned by content digest in the headers repository, but their upstream origin is not established."
+      ]
     }
   }
 }
