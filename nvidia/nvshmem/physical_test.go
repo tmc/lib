@@ -7,9 +7,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"os"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // The tests in this file touch the real library, and one of them touches real
@@ -88,8 +92,8 @@ func TestPhysicalVendorVersion(t *testing.T) {
 //	NVSHMEM_TEST_UID_FILE=/shared/path/uid.bin \
 //	go test -run TestPhysicalSymmetricHeap ./nvshmem
 //
-// Every PE must also have selected a CUDA device before this runs: NVSHMEM
-// binds the symmetric heap to the current context's device.
+// The test selects CUDA device pe and keeps its context on the calling
+// OS thread through finalization.
 func TestPhysicalSymmetricHeap(t *testing.T) {
 	physical(t, "2 or more GPUs, a CUDA driver, libnvshmem_host.so.3, "+
 		"an interconnect NVSHMEM supports between them, and a launcher setting "+
@@ -105,6 +109,25 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 		t.Fatalf("NVSHMEM_TEST_NPES = %d; this test exercises communication and needs at least 2 PEs on 2 GPUs", npes)
 	}
 
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := driver.Init(0); err != nil {
+		t.Fatal(err)
+	}
+	dev := driver.Device(pe)
+	var uuid driver.Uuid
+	if err := dev.GetUuid(&uuid); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("PE %d device %d UUID %x", pe, dev, uuid)
+	ctx, err := dev.PrimaryCtxRetain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.PrimaryCtxRelease()
+	if err := ctx.SetCurrent(); err != nil {
+		t.Fatal(err)
+	}
 	id := rendezvous(t, pe, uidFile)
 	if err := InitWithUniqueID(pe, npes, &id); err != nil {
 		t.Fatalf("InitWithUniqueID(pe=%d, npes=%d): %v", pe, npes, err)
@@ -129,12 +152,38 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 	// Every PE writes to its right neighbour and reads what its left
 	// neighbour wrote. The barrier before the exchange makes the remote
 	// buffer allocated; the barrier after makes the write visible.
+	source := Malloc(size)
+	if source == 0 {
+		t.Fatal("source allocation failed")
+	}
+	defer Free(source)
+	input := make([]byte, size)
+	for i := range input {
+		input[i] = byte((pe*37 + i) % 251)
+	}
+	if err := driver.DevicePtr(source).MemcpyHtoD(unsafe.Pointer(&input[0]), size); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.DevicePtr(buf).MemsetD8(0xee, size); err != nil {
+		t.Fatal(err)
+	}
 	BarrierAll()
 	next := (pe + 1) % npes
-	PutMem(buf, buf, size, int32(next))
+	PutMem(buf, source, size, int32(next))
 	Quiet()
 	BarrierAll()
 
+	got := make([]byte, size)
+	if err := driver.DevicePtr(buf).MemcpyDtoH(unsafe.Pointer(&got[0]), size); err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range got {
+		want := byte((((pe+npes-1)%npes)*37 + i) % 251)
+		if v != want {
+			t.Fatalf("byte %d = %d want %d", i, v, want)
+		}
+	}
+	t.Logf("PE %d verified %d remote bytes", pe, size)
 	// Ptr returns a directly addressable pointer to a peer's symmetric memory
 	// where the transport allows it, and 0 where it does not. Either answer is
 	// correct; a panic or a wild address is not.

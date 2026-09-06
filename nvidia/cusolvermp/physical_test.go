@@ -4,6 +4,7 @@ package cusolvermp_test
 
 import (
 	"encoding/hex"
+	"math"
 	"os"
 	"runtime"
 	"strconv"
@@ -19,9 +20,8 @@ import (
 // This file holds the physical consumer test: the one that runs a real
 // distributed factorization and solve on real GPUs and checks the answer.
 //
-// It has never been executed. The author had no GPU, no multi-rank launcher
-// and no cuSOLVERMp runtime, so nothing below has been observed to work. Treat
-// a first run as debugging, not as validation.
+// The launcher must bound the whole job: a failed rank can leave peers
+// waiting in a collective.
 //
 // Running it requires all of the following, and the test names each one it
 // cannot find rather than skipping quietly:
@@ -108,6 +108,11 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("device %d: %v", device, err)
 	}
+	var uuid driver.Uuid
+	if err := dev.GetUuid(&uuid); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("rank %d device %d UUID %x", rank, dev, uuid)
 	ctx, err := dev.PrimaryCtxRetain()
 	if err != nil {
 		t.Fatalf("retain context on device %d: %v", device, err)
@@ -167,18 +172,20 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	}
 	defer descB.Destroy()
 
-	// Device blocks. The grid allocator registers them for collective
-	// transfer as it allocates; each one is freed explicitly below. A rank
+	// Device blocks use ordinary CUDA allocations; LU does not require
+	// NCCL symmetric memory registration. Each is freed below. A rank
 	// that owns no elements still allocates a byte, because a zero-sized
 	// allocation has no address to hand over.
-	dA := mallocOrFail(t, grid, uint(max64(localRowsA*localColsA, 1))*8)
-	defer grid.Free(dA)
-	dB := mallocOrFail(t, grid, uint(max64(localRowsB*localColsB, 1))*8)
-	defer grid.Free(dB)
-	dIpiv := mallocOrFail(t, grid, uint(max64(localRowsA, 1))*8)
-	defer grid.Free(dIpiv)
-	dInfo := mallocOrFail(t, grid, 4)
-	defer grid.Free(dInfo)
+	dA := mallocOrFail(t, uint(max64(localRowsA*localColsA, 1))*8)
+	defer driver.DevicePtr(dA).MemFree()
+	dB := mallocOrFail(t, uint(max64(localRowsB*localColsB, 1))*8)
+	defer driver.DevicePtr(dB).MemFree()
+	// Cover the documented LOCr+MB requirement and the vendor sample
+	// allocation based on local columns.
+	dIpiv := mallocOrFail(t, uint(max64(localRowsA+mb, localColsA))*8)
+	defer driver.DevicePtr(dIpiv).MemFree()
+	dInfo := mallocOrFail(t, 4)
+	defer driver.DevicePtr(dInfo).MemFree()
 
 	// Host buffers for the scatter and the gather. They are page-locked CUDA
 	// allocations, not Go memory: the library reads and writes them after the
@@ -227,8 +234,8 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if solveHostBytes > hostBytes {
 		hostBytes = solveHostBytes
 	}
-	dWork := mallocOrFail(t, grid, max(deviceBytes, 1))
-	defer grid.Free(dWork)
+	dWork := mallocOrFail(t, max(deviceBytes, 1))
+	defer driver.DevicePtr(dWork).MemFree()
 	hWork := hostAllocOrFail(t, max(hostBytes, 1))
 	defer driver.MemFreeHost(uintptr(hWork))
 
@@ -261,7 +268,7 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if rank == 0 {
 		x := hostFloats(hB, n*nrhs)
 		for i, got := range x {
-			if got < 1-1e-9 || got > 1+1e-9 {
+			if math.IsNaN(got) || got < 1-1e-9 || got > 1+1e-9 {
 				t.Fatalf("x[%d] = %v, want 1", i, got)
 			}
 		}
@@ -309,13 +316,13 @@ func numrocOrFail(t *testing.T, n, nb int64, iproc, nprocs uint32) int64 {
 	return got
 }
 
-func mallocOrFail(t *testing.T, grid cusolvermp.Grid, size uint) cusolvermp.DevicePtr {
+func mallocOrFail(t *testing.T, size uint) cusolvermp.DevicePtr {
 	t.Helper()
-	ptr, err := grid.Malloc(size)
+	ptr, err := driver.MemAlloc(size)
 	if err != nil {
 		t.Fatalf("allocate %d device bytes: %v", size, err)
 	}
-	return ptr
+	return cusolvermp.DevicePtr(ptr)
 }
 
 func hostAllocOrFail(t *testing.T, size uint) cusolvermp.HostPtr {
