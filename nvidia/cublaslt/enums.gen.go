@@ -2810,6 +2810,7 @@ func (e MatmulPreferenceAttributes) String() string {
 type MatmulAlgoCapAttributes int32
 
 const (
+	AlgoCapCustomOptionMax               MatmulAlgoCapAttributes = 7
 	AlgoCapSplitkSupport                 MatmulAlgoCapAttributes = 0
 	AlgoCapReductionSchemeMask           MatmulAlgoCapAttributes = 1
 	AlgoCapCtaSwizzlingSupport           MatmulAlgoCapAttributes = 2
@@ -2834,6 +2835,8 @@ const (
 
 func (e MatmulAlgoCapAttributes) String() string {
 	switch e {
+	case AlgoCapCustomOptionMax:
+		return "AlgoCapCustomOptionMax"
 	case AlgoCapSplitkSupport:
 		return "AlgoCapSplitkSupport"
 	case AlgoCapReductionSchemeMask:
