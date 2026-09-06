@@ -1,6 +1,16 @@
 #define WARP_SIZE 32
 #define FULL_MASK 0xffffffff
 
+// MAX_WARPS is the warp count of the largest block CUDA permits.
+//
+// The fused kernels pack more than one per-warp reduction into a single shared
+// array. Striding those sub-arrays by MAX_WARPS rather than by a count that
+// happens to suit the block sizes in use means a launch with a larger block
+// cannot make one reduction overwrite another. Two of them previously strided
+// by 16 and by 8, which silently corrupted at blockDim.x above 512 and above
+// 256 respectively; every current launch uses 256, but nothing pinned that.
+#define MAX_WARPS (1024 / WARP_SIZE)
+
 // Warp-level sum reduction using shuffle intrinsics
 
 __device__ __forceinline__ float warp_sum(float val) {
@@ -11,30 +21,169 @@ __device__ __forceinline__ float warp_sum(float val) {
     return val;
 }
 
+// Weight storage traits.
+//
+// Only the weight operand's storage narrows. Activations stay float32 and every
+// accumulation stays float32, so a half kernel differs from its float32
+// counterpart in exactly one place: the precision the weight was rounded to
+// before the multiply. That keeps quantization error separate from
+// implementation error, and it is what the CPU reference in halfref_test.go
+// models.
+//
+// The conversions are written against PTX and raw bits rather than
+// cuda_fp16.h/cuda_bf16.h, because NVRTC compiles this source without an
+// include path and those headers would not resolve. cvt.f32.f16 is the
+// hardware conversion instruction, so IEEE half subnormals, infinities and
+// NaNs convert exactly as the hardware defines. bfloat16 is the top 16 bits of
+// a float32, so widening it is a shift.
+
+__device__ __forceinline__ float f16_to_f32(unsigned short h) {
+    float f;
+    asm("cvt.f32.f16 %0, %1;" : "=f"(f) : "h"(h));
+    return f;
+}
+
+__device__ __forceinline__ float bf16_to_f32(unsigned short b) {
+    return __uint_as_float(((unsigned int)b) << 16);
+}
+
+// aligned16 reports whether p can be the base of a float4 access.
+//
+// Activation buffers are whole allocations in every current launch and so are
+// aligned by construction, but a row-offset base is not: k_cache + pos*kv_dim
+// is 16-byte aligned only when kv_dim is a multiple of four. The weight side of
+// this file already falls back to a scalar path in that case; this is the same
+// guard for the activation side.
+__device__ __forceinline__ bool aligned16(const void* p) {
+    return ((unsigned long long)p & 15ull) == 0ull;
+}
+
+// WF32 keeps the original float4 loads, so the float32 kernels below generate
+// the same code they did before weights became a template parameter.
+struct WF32 {
+    typedef float storage_t;
+    typedef float4 vec_t;
+    static __device__ __forceinline__ float4 load4(const storage_t* p, int i) {
+        return reinterpret_cast<const float4*>(p)[i];
+    }
+    static __device__ __forceinline__ float load1(const storage_t* p, int i) {
+        return p[i];
+    }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
+    }
+};
+
+// WF16 and WBF16 load four consecutive 16-bit weights as one 64-bit access, so
+// the narrower storage keeps a vectorized load rather than falling back to four
+// scalar ones.
+//
+// A vector load requires its address to be aligned to the vector's own width,
+// which a row base w + row*in_dim satisfies only when in_dim is a multiple of
+// four. aligned4 reports whether a particular row can be loaded that way; a
+// caller that gets false uses the scalar path for the whole row rather than
+// faulting. A null pointer reports true because it is an absent optional tensor
+// that will not be dereferenced, and disabling vectorization for the rest of the
+// kernel on its account would be pointless.
+struct WF16 {
+    typedef unsigned short storage_t;
+    typedef ushort4 vec_t;
+    static __device__ __forceinline__ float4 load4(const storage_t* p, int i) {
+        ushort4 v = reinterpret_cast<const ushort4*>(p)[i];
+        return make_float4(f16_to_f32(v.x), f16_to_f32(v.y), f16_to_f32(v.z), f16_to_f32(v.w));
+    }
+    static __device__ __forceinline__ float load1(const storage_t* p, int i) {
+        return f16_to_f32(p[i]);
+    }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
+    }
+};
+
+struct WBF16 {
+    typedef unsigned short storage_t;
+    typedef ushort4 vec_t;
+    static __device__ __forceinline__ float4 load4(const storage_t* p, int i) {
+        ushort4 v = reinterpret_cast<const ushort4*>(p)[i];
+        return make_float4(bf16_to_f32(v.x), bf16_to_f32(v.y), bf16_to_f32(v.z), bf16_to_f32(v.w));
+    }
+    static __device__ __forceinline__ float load1(const storage_t* p, int i) {
+        return bf16_to_f32(p[i]);
+    }
+    static __device__ __forceinline__ bool aligned4(const storage_t* p) {
+        return p == 0 || ((unsigned long long)p & (unsigned long long)(sizeof(vec_t) - 1)) == 0;
+    }
+};
+
+// WEIGHT_KERNELS defines one extern "C" entry point per weight dtype for a
+// kernel template. The float32 name is unsuffixed, so existing callers and the
+// float32 reference path are unaffected; the suffixed names are what the half
+// dispatch selects.
+#define WEIGHT_KERNELS(NAME, PARAMS, ARGS)                                    \
+    extern "C" __global__ void NAME PARAMS(WF32) { NAME##Impl<WF32> ARGS; }    \
+    extern "C" __global__ void NAME##F16 PARAMS(WF16) { NAME##Impl<WF16> ARGS; } \
+    extern "C" __global__ void NAME##BF16 PARAMS(WBF16) { NAME##Impl<WBF16> ARGS; }
+
+// WeightConvertProbe widens stored weights to float32 and stores them, with no
+// arithmetic of any kind.
+//
+// It exists so the device conversion can be compared bit for bit. Reading the
+// conversion out through a kernel that computes something destroys exactly the
+// cases worth checking: a correctly widened negative zero becomes a positive
+// zero the moment it enters an accumulator, so a dot product cannot tell a
+// working sign bit from a broken one.
+//
+// The vectorized load path shares f16_to_f32 and bf16_to_f32 with this one, so
+// what it adds is the ushort4 access and the component mapping. A permutation
+// there changes the sum of any dot product whose inputs differ per lane, which
+// is what the GEMV tests measure.
+template <class W>
+__device__ __forceinline__ void WeightConvertProbeImpl(
+    const typename W::storage_t* __restrict__ w,
+    float* __restrict__ out,
+    int n
+) {
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
+        out[i] = W::load1(w, i);
+    }
+}
+
+#define WCONV_PARAMS(W) (const W::storage_t* __restrict__ w, float* __restrict__ out, int n)
+WEIGHT_KERNELS(WeightConvertProbe, WCONV_PARAMS, (w, out, n))
+
 // 1. Embedding lookup on GPU
-extern "C" __global__ void EmbeddingLookup(
-    const float* __restrict__ embed_table,
+template <class W>
+__device__ __forceinline__ void EmbeddingLookupImpl(
+    const typename W::storage_t* __restrict__ embed_table,
     const int* __restrict__ token_id,
     float* __restrict__ out,
     int hidden_dim
 ) {
     int tok = *token_id;
-    const float4* src4 = reinterpret_cast<const float4*>(embed_table + tok * hidden_dim);
-    float4* out4 = reinterpret_cast<float4*>(out);
-    int dim4 = hidden_dim / 4;
+    const typename W::storage_t* row = embed_table + tok * hidden_dim;
+    // The row for token tok starts hidden_dim elements in, so it is vector
+    // aligned only when hidden_dim is a multiple of four. Token 0 always is;
+    // any later token is not, which is why an unguarded load here faults on the
+    // second token rather than the first.
+    int dim4 = W::aligned4(row) ? hidden_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
-        out4[i] = src4[i];
+        reinterpret_cast<float4*>(out)[i] = W::load4(row, i);
     }
     for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x) {
-        out[i] = (embed_table + tok * hidden_dim)[i];
+        out[i] = W::load1(row, i);
     }
 }
 
-// 2. RMSNorm with 128-bit float4 vectorized loads and warp reduction
-extern "C" __global__ void RMSNorm(
+#define EMBED_PARAMS(W) (const W::storage_t* __restrict__ embed_table, \
+    const int* __restrict__ token_id, float* __restrict__ out, int hidden_dim)
+WEIGHT_KERNELS(EmbeddingLookup, EMBED_PARAMS, (embed_table, token_id, out, hidden_dim))
+
+// 2. RMSNorm with 128-bit vectorized loads and warp reduction
+template <class W>
+__device__ __forceinline__ void RMSNormImpl(
     const float* __restrict__ x,
-    const float* __restrict__ weight,
+    const typename W::storage_t* __restrict__ weight,
     float* __restrict__ out,
     int hidden_dim,
     float eps
@@ -75,11 +224,14 @@ extern "C" __global__ void RMSNorm(
 
     float rsqrt_val = s_rsqrt;
     float4* out4 = reinterpret_cast<float4*>(out);
-    const float4* w4 = weight ? reinterpret_cast<const float4*>(weight) : nullptr;
 
-    for (int i = tid; i < dim4; i += blockDim.x) {
+    // The norm weight is a whole tensor rather than a row of one, so its base
+    // is allocation-aligned in every current caller. The guard costs nothing
+    // and means correctness here does not rest on that staying true.
+    int w_dim4 = W::aligned4(weight) ? dim4 : 0;
+    for (int i = tid; i < w_dim4; i += blockDim.x) {
         float4 xv = x4[i];
-        float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+        float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
         out4[i] = make_float4(
             xv.x * rsqrt_val * wv.x,
             xv.y * rsqrt_val * wv.y,
@@ -87,17 +239,23 @@ extern "C" __global__ void RMSNorm(
             xv.w * rsqrt_val * wv.w
         );
     }
-    for (int i = dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
-        float w = weight ? weight[i] : 1.0f;
+    for (int i = w_dim4 * 4 + tid; i < hidden_dim; i += blockDim.x) {
+        float w = weight ? W::load1(weight, i) : 1.0f;
         out[i] = x[i] * rsqrt_val * w;
     }
 }
 
-// 3. Matrix-Vector Multiplication (Linear Projection) with 128-bit float4 loads
-extern "C" __global__ void LinearGEMV(
+#define RMSNORM_PARAMS(W) (const float* __restrict__ x, \
+    const W::storage_t* __restrict__ weight, float* __restrict__ out, \
+    int hidden_dim, float eps)
+WEIGHT_KERNELS(RMSNorm, RMSNORM_PARAMS, (x, weight, out, hidden_dim, eps))
+
+// 3. Matrix-Vector Multiplication (Linear Projection) with 128-bit loads
+template <class W>
+__device__ __forceinline__ void LinearGEMVImpl(
     const float* __restrict__ x,
-    const float* __restrict__ w,
-    const float* __restrict__ bias,
+    const typename W::storage_t* __restrict__ w,
+    const typename W::storage_t* __restrict__ bias,
     float* __restrict__ out,
     int in_dim,
     int out_dim
@@ -110,18 +268,18 @@ extern "C" __global__ void LinearGEMV(
     int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
-    const float4* w_row4 = reinterpret_cast<const float4*>(w + row * in_dim);
+    const typename W::storage_t* w_row = w + row * in_dim;
     const float4* x4 = reinterpret_cast<const float4*>(x);
-    int in_dim4 = in_dim / 4;
+    int in_dim4 = W::aligned4(w_row) ? in_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < in_dim4; i += blockDim.x) {
         float4 xv = x4[i];
-        float4 wv = w_row4[i];
+        float4 wv = W::load4(w_row, i);
         sum += xv.x * wv.x + xv.y * wv.y + xv.z * wv.z + xv.w * wv.w;
     }
     for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
-        sum += x[i] * (w + row * in_dim)[i];
+        sum += x[i] * W::load1(w_row, i);
     }
     sum = warp_sum(sum);
 
@@ -136,10 +294,15 @@ extern "C" __global__ void LinearGEMV(
     }
 
     if (tid == 0) {
-        float b = bias ? bias[row] : 0.0f;
+        float b = bias ? W::load1(bias, row) : 0.0f;
         out[row] = block_sum + b;
     }
 }
+
+#define GEMV_PARAMS(W) (const float* __restrict__ x, \
+    const W::storage_t* __restrict__ w, const W::storage_t* __restrict__ bias, \
+    float* __restrict__ out, int in_dim, int out_dim)
+WEIGHT_KERNELS(LinearGEMV, GEMV_PARAMS, (x, w, bias, out, in_dim, out_dim))
 
 // 4. Rotary Position Embedding (RoPE)
 extern "C" __global__ void ApplyRoPE(
@@ -188,19 +351,25 @@ extern "C" __global__ void StoreKVCache(
     int head_dim
 ) {
     int kv_dim = num_kv_heads * head_dim;
-    float4* k_dest4 = reinterpret_cast<float4*>(k_cache + pos * kv_dim);
-    float4* v_dest4 = reinterpret_cast<float4*>(v_cache + pos * kv_dim);
+    float* k_row = k_cache + pos * kv_dim;
+    float* v_row = v_cache + pos * kv_dim;
+    float4* k_dest4 = reinterpret_cast<float4*>(k_row);
+    float4* v_dest4 = reinterpret_cast<float4*>(v_row);
     const float4* k4 = reinterpret_cast<const float4*>(k);
     const float4* v4 = reinterpret_cast<const float4*>(v);
-    int dim4 = kv_dim / 4;
+    // Both the destination rows and the source vectors are float4 bases here.
+    // The destination is offset by pos*kv_dim and the source may itself be a
+    // row of a batched buffer, so neither is aligned for an odd kv_dim; the
+    // scalar loop below then covers the whole row.
+    int dim4 = (aligned16(k_row) && aligned16(v_row) && aligned16(k) && aligned16(v)) ? kv_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
         k_dest4[i] = k4[i];
         v_dest4[i] = v4[i];
     }
     for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
-        (k_cache + pos * kv_dim)[i] = k[i];
-        (v_cache + pos * kv_dim)[i] = v[i];
+        k_row[i] = k[i];
+        v_row[i] = v[i];
     }
 }
 
@@ -255,12 +424,14 @@ extern "C" __global__ void AddResidual(
 
 // 8. E-Graph Extracted Fused Megakernels with float4 vectorization
 
-extern "C" __global__ void FusedRMSNormQKV(
+
+template <class W>
+__device__ __forceinline__ void FusedRMSNormQKVImpl(
     const float* __restrict__ x,
-    const float* __restrict__ weight,
-    const float* __restrict__ W_q,
-    const float* __restrict__ W_k,
-    const float* __restrict__ W_v,
+    const typename W::storage_t* __restrict__ weight,
+    const typename W::storage_t* __restrict__ W_q,
+    const typename W::storage_t* __restrict__ W_k,
+    const typename W::storage_t* __restrict__ W_v,
     float* __restrict__ out_q,
     float* __restrict__ out_k,
     float* __restrict__ out_v,
@@ -270,10 +441,9 @@ extern "C" __global__ void FusedRMSNormQKV(
     int tid = threadIdx.x;
     int lane = tid % WARP_SIZE;
     int wid = tid / WARP_SIZE;
-    __shared__ float s_sum[32];
+    __shared__ float s_sum[2 * MAX_WARPS];
 
     const float4* x4 = reinterpret_cast<const float4*>(x);
-    const float4* w4 = weight ? reinterpret_cast<const float4*>(weight) : nullptr;
     int in_dim4 = in_dim / 4;
 
     // 1. Compute RMS scale across vector x
@@ -281,6 +451,9 @@ extern "C" __global__ void FusedRMSNormQKV(
     for (int i = tid; i < in_dim4; i += blockDim.x) {
         float4 xv = x4[i];
         local_sq += xv.x * xv.x + xv.y * xv.y + xv.z * xv.z + xv.w * xv.w;
+    }
+    for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
+        local_sq += x[i] * x[i];
     }
     local_sq = warp_sum(local_sq);
     if (lane == 0) s_sum[wid] = local_sq;
@@ -294,14 +467,19 @@ extern "C" __global__ void FusedRMSNormQKV(
 
     // 2. Compute Q, K, V projections with exact RMSNorm scaling
     if (row < q_dim) {
-        const float4* w_row4 = reinterpret_cast<const float4*>(W_q + row * in_dim);
+        const typename W::storage_t* wq_row = W_q + row * in_dim;
+        int n4 = (W::aligned4(wq_row) && W::aligned4(weight)) ? in_dim4 : 0;
         float sum = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
+        for (int i = tid; i < n4; i += blockDim.x) {
             float4 xv = x4[i];
-            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+            float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
             float4 norm_xv = make_float4(xv.x * inv_rms * wv.x, xv.y * inv_rms * wv.y, xv.z * inv_rms * wv.z, xv.w * inv_rms * wv.w);
-            float4 wrv = w_row4[i];
+            float4 wrv = W::load4(wq_row, i);
             sum += norm_xv.x * wrv.x + norm_xv.y * wrv.y + norm_xv.z * wrv.z + norm_xv.w * wrv.w;
+        }
+        for (int i = n4 * 4 + tid; i < in_dim; i += blockDim.x) {
+            float wn = weight ? W::load1(weight, i) : 1.0f;
+            sum += x[i] * inv_rms * wn * W::load1(wq_row, i);
         }
         sum = warp_sum(sum);
         if (lane == 0) s_sum[wid] = sum;
@@ -312,29 +490,36 @@ extern "C" __global__ void FusedRMSNormQKV(
         if (tid == 0) out_q[row] = block_sum;
     }
     if (row < kv_dim) {
-        const float4* wk_row4 = reinterpret_cast<const float4*>(W_k + row * in_dim);
-        const float4* wv_row4 = reinterpret_cast<const float4*>(W_v + row * in_dim);
+        const typename W::storage_t* wk_row = W_k + row * in_dim;
+        const typename W::storage_t* wv_row = W_v + row * in_dim;
+        int n4 = (W::aligned4(wk_row) && W::aligned4(wv_row) && W::aligned4(weight)) ? in_dim4 : 0;
         float sumK = 0.0f;
         float sumV = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
+        for (int i = tid; i < n4; i += blockDim.x) {
             float4 xv = x4[i];
-            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+            float4 wv = weight ? W::load4(weight, i) : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
             float4 norm_xv = make_float4(xv.x * inv_rms * wv.x, xv.y * inv_rms * wv.y, xv.z * inv_rms * wv.z, xv.w * inv_rms * wv.w);
-            float4 wkv = wk_row4[i];
-            float4 wvv = wv_row4[i];
+            float4 wkv = W::load4(wk_row, i);
+            float4 wvv = W::load4(wv_row, i);
             sumK += norm_xv.x * wkv.x + norm_xv.y * wkv.y + norm_xv.z * wkv.z + norm_xv.w * wkv.w;
             sumV += norm_xv.x * wvv.x + norm_xv.y * wvv.y + norm_xv.z * wvv.z + norm_xv.w * wvv.w;
+        }
+        for (int i = n4 * 4 + tid; i < in_dim; i += blockDim.x) {
+            float wn = weight ? W::load1(weight, i) : 1.0f;
+            float nx = x[i] * inv_rms * wn;
+            sumK += nx * W::load1(wk_row, i);
+            sumV += nx * W::load1(wv_row, i);
         }
         sumK = warp_sum(sumK);
         sumV = warp_sum(sumV);
         if (lane == 0) {
             s_sum[wid] = sumK;
-            s_sum[wid + 16] = sumV;
+            s_sum[wid + MAX_WARPS] = sumV;
         }
         __syncthreads();
 
         float bk = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
-        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + 16] : 0.0f;
+        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + MAX_WARPS] : 0.0f;
         if (wid == 0) {
             bk = warp_sum(bk);
             bv = warp_sum(bv);
@@ -346,10 +531,19 @@ extern "C" __global__ void FusedRMSNormQKV(
     }
 }
 
-extern "C" __global__ void FusedSwiGLUDown(
+#define FQKV_PARAMS(W) (const float* __restrict__ x, \
+    const W::storage_t* __restrict__ weight, const W::storage_t* __restrict__ W_q, \
+    const W::storage_t* __restrict__ W_k, const W::storage_t* __restrict__ W_v, \
+    float* __restrict__ out_q, float* __restrict__ out_k, float* __restrict__ out_v, \
+    int in_dim, int q_dim, int kv_dim, float eps)
+WEIGHT_KERNELS(FusedRMSNormQKV, FQKV_PARAMS,
+    (x, weight, W_q, W_k, W_v, out_q, out_k, out_v, in_dim, q_dim, kv_dim, eps))
+
+template <class W>
+__device__ __forceinline__ void FusedSwiGLUDownImpl(
     const float* __restrict__ gate,
     const float* __restrict__ up,
-    const float* __restrict__ W_down,
+    const typename W::storage_t* __restrict__ W_down,
     float* __restrict__ out,
     int hidden_dim, int intermediate_dim
 ) {
@@ -363,8 +557,8 @@ extern "C" __global__ void FusedSwiGLUDown(
 
     const float4* g4 = reinterpret_cast<const float4*>(gate);
     const float4* u4 = reinterpret_cast<const float4*>(up);
-    const float4* w_row4 = reinterpret_cast<const float4*>(W_down + row * intermediate_dim);
-    int inter_dim4 = intermediate_dim / 4;
+    const typename W::storage_t* w_row = W_down + row * intermediate_dim;
+    int inter_dim4 = W::aligned4(w_row) ? intermediate_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < inter_dim4; i += blockDim.x) {
@@ -376,8 +570,12 @@ extern "C" __global__ void FusedSwiGLUDown(
             (g.z / (1.0f + expf(-g.z))) * u.z,
             (g.w / (1.0f + expf(-g.w))) * u.w
         );
-        float4 wv = w_row4[i];
+        float4 wv = W::load4(w_row, i);
         sum += act.x * wv.x + act.y * wv.y + act.z * wv.z + act.w * wv.w;
+    }
+    for (int i = inter_dim4 * 4 + tid; i < intermediate_dim; i += blockDim.x) {
+        float g = gate[i];
+        sum += (g / (1.0f + expf(-g))) * up[i] * W::load1(w_row, i);
     }
     sum = warp_sum(sum);
 
@@ -390,18 +588,32 @@ extern "C" __global__ void FusedSwiGLUDown(
     if (tid == 0) out[row] = block_sum;
 }
 
+#define FSWIGLU_PARAMS(W) (const float* __restrict__ gate, const float* __restrict__ up, \
+    const W::storage_t* __restrict__ W_down, float* __restrict__ out, \
+    int hidden_dim, int intermediate_dim)
+WEIGHT_KERNELS(FusedSwiGLUDown, FSWIGLU_PARAMS,
+    (gate, up, W_down, out, hidden_dim, intermediate_dim))
+
 // The batch kernels use grid.y for the token row. A single launch therefore
 // consumes each shared weight matrix for every live request in the wave.
-extern "C" __global__ void BatchEmbeddingLookup(const float* table, const int* tokens,
+template <class W>
+__device__ __forceinline__ void BatchEmbeddingLookupImpl(
+    const typename W::storage_t* table, const int* tokens,
     float* out, int hidden_dim, int batch) {
     int b = blockIdx.y;
     if (b >= batch) return;
     int tok = tokens[b];
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x)
-        out[b * hidden_dim + i] = table[tok * hidden_dim + i];
+        out[b * hidden_dim + i] = W::load1(table, tok * hidden_dim + i);
 }
 
-extern "C" __global__ void BatchRMSNorm(const float* x, const float* weight,
+#define BEMBED_PARAMS(W) (const W::storage_t* table, const int* tokens, \
+    float* out, int hidden_dim, int batch)
+WEIGHT_KERNELS(BatchEmbeddingLookup, BEMBED_PARAMS, (table, tokens, out, hidden_dim, batch))
+
+template <class W>
+__device__ __forceinline__ void BatchRMSNormImpl(
+    const float* x, const typename W::storage_t* weight,
     float* out, int hidden_dim, int batch, float eps) {
     int b = blockIdx.y;
     if (b >= batch) return;
@@ -419,25 +631,35 @@ extern "C" __global__ void BatchRMSNorm(const float* x, const float* weight,
     if (tid == 0) sums[0] = rsqrtf(total / float(hidden_dim) + eps);
     __syncthreads();
     for (int i = tid; i < hidden_dim; i += blockDim.x)
-        out[i] = x[i] * sums[0] * (weight ? weight[i] : 1.0f);
+        out[i] = x[i] * sums[0] * (weight ? W::load1(weight, i) : 1.0f);
 }
 
-extern "C" __global__ void BatchLinearGEMV(const float* x, const float* w,
-    const float* bias, float* out, int in_dim, int out_dim, int batch) {
+#define BNORM_PARAMS(W) (const float* x, const W::storage_t* weight, \
+    float* out, int hidden_dim, int batch, float eps)
+WEIGHT_KERNELS(BatchRMSNorm, BNORM_PARAMS, (x, weight, out, hidden_dim, batch, eps))
+
+template <class W>
+__device__ __forceinline__ void BatchLinearGEMVImpl(
+    const float* x, const typename W::storage_t* w,
+    const typename W::storage_t* bias, float* out, int in_dim, int out_dim, int batch) {
     int row = blockIdx.x, b = blockIdx.y;
     if (row >= out_dim || b >= batch) return;
     x += b * in_dim;
     __shared__ float sums[32];
     int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
     float sum = 0.0f;
-    for (int i = tid; i < in_dim; i += blockDim.x) sum += x[i] * w[row * in_dim + i];
+    for (int i = tid; i < in_dim; i += blockDim.x) sum += x[i] * W::load1(w, row * in_dim + i);
     sum = warp_sum(sum);
     if (lane == 0) sums[wid] = sum;
     __syncthreads();
     float total = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
     if (wid == 0) total = warp_sum(total);
-    if (tid == 0) out[b * out_dim + row] = total + (bias ? bias[row] : 0.0f);
+    if (tid == 0) out[b * out_dim + row] = total + (bias ? W::load1(bias, row) : 0.0f);
 }
+
+#define BGEMV_PARAMS(W) (const float* x, const W::storage_t* w, \
+    const W::storage_t* bias, float* out, int in_dim, int out_dim, int batch)
+WEIGHT_KERNELS(BatchLinearGEMV, BGEMV_PARAMS, (x, w, bias, out, in_dim, out_dim, batch))
 
 extern "C" __global__ void BatchSwiGLU(const float* gate, const float* up,
     float* out, int intermediate_dim, int batch) {
@@ -459,13 +681,16 @@ extern "C" __global__ void BatchAddResidual(float* x, const float* residual,
         x[base + i] += residual[base + i];
 }
 
-extern "C" __global__ void BatchFusedRMSNormQKV(const float* x, const float* weight,
-    const float* wq, const float* wk, const float* wv, float* q, float* k, float* v,
+template <class W>
+__device__ __forceinline__ void BatchFusedRMSNormQKVImpl(
+    const float* x, const typename W::storage_t* weight,
+    const typename W::storage_t* wq, const typename W::storage_t* wk,
+    const typename W::storage_t* wv, float* q, float* k, float* v,
     int in_dim, int q_dim, int kv_dim, int batch, float eps) {
     int out = blockIdx.x, b = blockIdx.y;
     if (b >= batch) return;
     const float* bx = x + b * in_dim;
-    __shared__ float sums[32];
+    __shared__ float sums[3 * MAX_WARPS];
     int tid = threadIdx.x, lane = tid % WARP_SIZE, wid = tid / WARP_SIZE;
     float sq = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) sq += bx[i] * bx[i];
@@ -478,19 +703,19 @@ extern "C" __global__ void BatchFusedRMSNormQKV(const float* x, const float* wei
     __syncthreads();
     float inv = sums[0], qs = 0.0f, ks = 0.0f, vs = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        float nx = bx[i] * inv * (weight ? weight[i] : 1.0f);
-        if (out < q_dim) qs += nx * wq[out * in_dim + i];
+        float nx = bx[i] * inv * (weight ? W::load1(weight, i) : 1.0f);
+        if (out < q_dim) qs += nx * W::load1(wq, out * in_dim + i);
         if (out < kv_dim) {
-            ks += nx * wk[out * in_dim + i];
-            vs += nx * wv[out * in_dim + i];
+            ks += nx * W::load1(wk, out * in_dim + i);
+            vs += nx * W::load1(wv, out * in_dim + i);
         }
     }
     qs = warp_sum(qs); ks = warp_sum(ks); vs = warp_sum(vs);
-    if (lane == 0) { sums[wid] = qs; sums[wid + 8] = ks; sums[wid + 16] = vs; }
+    if (lane == 0) { sums[wid] = qs; sums[wid + MAX_WARPS] = ks; sums[wid + 2 * MAX_WARPS] = vs; }
     __syncthreads();
     float qt = tid < blockDim.x / WARP_SIZE ? sums[lane] : 0.0f;
-    float kt = tid < blockDim.x / WARP_SIZE ? sums[lane + 8] : 0.0f;
-    float vt = tid < blockDim.x / WARP_SIZE ? sums[lane + 16] : 0.0f;
+    float kt = tid < blockDim.x / WARP_SIZE ? sums[lane + MAX_WARPS] : 0.0f;
+    float vt = tid < blockDim.x / WARP_SIZE ? sums[lane + 2 * MAX_WARPS] : 0.0f;
     if (wid == 0) { qt = warp_sum(qt); kt = warp_sum(kt); vt = warp_sum(vt); }
     if (tid == 0) {
         if (out < q_dim) q[b * q_dim + out] = qt;
@@ -498,8 +723,17 @@ extern "C" __global__ void BatchFusedRMSNormQKV(const float* x, const float* wei
     }
 }
 
-extern "C" __global__ void BatchFusedSwiGLUDown(const float* gate, const float* up,
-    const float* down, float* out, int hidden_dim, int intermediate_dim, int batch) {
+#define BFQKV_PARAMS(W) (const float* x, const W::storage_t* weight, \
+    const W::storage_t* wq, const W::storage_t* wk, const W::storage_t* wv, \
+    float* q, float* k, float* v, int in_dim, int q_dim, int kv_dim, int batch, float eps)
+WEIGHT_KERNELS(BatchFusedRMSNormQKV, BFQKV_PARAMS,
+    (x, weight, wq, wk, wv, q, k, v, in_dim, q_dim, kv_dim, batch, eps))
+
+template <class W>
+__device__ __forceinline__ void BatchFusedSwiGLUDownImpl(
+    const float* gate, const float* up,
+    const typename W::storage_t* down, float* out,
+    int hidden_dim, int intermediate_dim, int batch) {
     int row = blockIdx.x, b = blockIdx.y;
     if (row >= hidden_dim || b >= batch) return;
     __shared__ float sums[32];
@@ -508,7 +742,7 @@ extern "C" __global__ void BatchFusedSwiGLUDown(const float* gate, const float* 
     float sum = 0.0f;
     for (int i = tid; i < intermediate_dim; i += blockDim.x) {
         float g = gate[base + i];
-        sum += (g / (1.0f + expf(-g))) * up[base + i] * down[row * intermediate_dim + i];
+        sum += (g / (1.0f + expf(-g))) * up[base + i] * W::load1(down, row * intermediate_dim + i);
     }
     sum = warp_sum(sum);
     if (lane == 0) sums[wid] = sum;
@@ -517,6 +751,11 @@ extern "C" __global__ void BatchFusedSwiGLUDown(const float* gate, const float* 
     if (wid == 0) total = warp_sum(total);
     if (tid == 0) out[b * hidden_dim + row] = total;
 }
+
+#define BFSWIGLU_PARAMS(W) (const float* gate, const float* up, \
+    const W::storage_t* down, float* out, int hidden_dim, int intermediate_dim, int batch)
+WEIGHT_KERNELS(BatchFusedSwiGLUDown, BFSWIGLU_PARAMS,
+    (gate, up, down, out, hidden_dim, intermediate_dim, batch))
 
 extern "C" __global__ void BatchArgmax(const float* logits, int* tokens,
     int vocab, int batch) {
@@ -549,10 +788,16 @@ extern "C" __global__ void BatchArgmax(const float* logits, int* tokens,
     if (tid == 0) tokens[b] = indices[0] < 0 ? 0 : indices[0];
 }
 
+
 // Add one projection bias to every prompt row after matrix multiplication.
-extern "C" __global__ void BatchAddBias(float* out, const float* bias, int dim, int rows) {
+template <class W>
+__device__ __forceinline__ void BatchAddBiasImpl(
+    float* out, const typename W::storage_t* bias, int dim, int rows) {
     int row = blockIdx.y;
     if (row >= rows) return;
     for (int i = threadIdx.x; i < dim; i += blockDim.x)
-        out[row * dim + i] += bias[i];
+        out[row * dim + i] += W::load1(bias, i);
 }
+
+#define BBIAS_PARAMS(W) (float* out, const W::storage_t* bias, int dim, int rows)
+WEIGHT_KERNELS(BatchAddBias, BBIAS_PARAMS, (out, bias, dim, rows))

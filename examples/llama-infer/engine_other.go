@@ -164,11 +164,34 @@ func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 }
 
 // IsF16 reports whether the engine is executing over FP16 weights.
+//
+// It reads the dtype the kernels were actually bound for, not the dtype the
+// plan asked for. Those can only differ if something went wrong, but reporting
+// the request would make that difference invisible, which is the one thing this
+// predicate must not do.
 func (eng *ModelEngine) IsF16() bool {
-	if eng == nil || eng.Plan == nil {
+	if eng == nil || eng.modules == nil {
 		return false
 	}
-	return eng.Plan.DType == "f16"
+	return eng.modules.WeightDType() == WeightF16
+}
+
+// WeightReport returns the engine's actual weight storage and dispatch.
+func (eng *ModelEngine) WeightReport() WeightReport {
+	if eng == nil || eng.modules == nil {
+		return WeightReport{}
+	}
+	d := eng.modules.WeightDType()
+	r := WeightReport{
+		DType:   d.String(),
+		PerElem: d.Bytes(),
+		Kernels: weightKernelNames(d),
+	}
+	if eng.weights != nil {
+		r.Storage = eng.weights.DType().String()
+		r.Bytes = eng.weights.WeightBytes()
+	}
+	return r
 }
 
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
@@ -229,7 +252,7 @@ func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta flo
 	if eng == nil || eng.weights == nil {
 		return nil, errors.New("mutate weight: nil engine or weights")
 	}
-	var targetBuf cudamem.Slice[float32]
+	var targetBuf WeightSlice
 	if layerIndex < 0 {
 		targetBuf = eng.weights.EmbedTokens
 	} else {
@@ -414,11 +437,19 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		return nil, errors.New("model path required: synthetic test weights require explicit TestMode=true")
 	}
 
+	// The device weight dtype is selected explicitly and never inferred. A
+	// checkpoint stored in half precision still uploads as float32 unless the
+	// caller asked for a half mode, so no run silently changes precision.
+	weightDType, err := ParseWeightDType(cfg.Precision)
+	if err != nil {
+		return nil, fmt.Errorf("weight precision: %w", err)
+	}
+
 	memory := new(cudamem.Tracker)
 	if retained != nil {
-		gpuWeights, err = UploadRetainedModelToGPU(dev, memory, retained, &mCfg)
+		gpuWeights, err = UploadRetainedModelToGPUAs(dev, memory, retained, &mCfg, weightDType)
 	} else {
-		gpuWeights, err = UploadModelToGPU(dev, memory, weights, &mCfg)
+		gpuWeights, err = UploadModelToGPUAs(dev, memory, weights, &mCfg, weightDType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("upload weights to gpu: %w", err)
@@ -429,9 +460,16 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		return nil, fmt.Errorf("alloc gpu scratchpad: %w", err)
 	}
 
-	modules, err = CompileGPUModules(dev)
+	modules, err = CompileGPUModulesAs(dev, weightDType)
 	if err != nil {
-		return nil, fmt.Errorf("compile forward modules: %w", err)
+		return nil, fmt.Errorf("compile forward modules (%s weights): %w", weightDType, err)
+	}
+	// The uploaded storage and the bound kernels must agree, or the kernels
+	// would read the weights at the wrong width. Checking the two independently
+	// recorded dtypes rather than the single requested one means a mismatch is
+	// caught here instead of producing quiet garbage.
+	if got, want := modules.WeightDType(), gpuWeights.DType(); got != want {
+		return nil, fmt.Errorf("kernels bound for %s weights but model uploaded as %s", got, want)
 	}
 
 	major, minor, err := dev.ComputeCapability()
@@ -526,6 +564,10 @@ func runPlatform(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("cuda initialization: %w", err)
 	}
+
+	// Report the weight storage that was actually bound, so a run's precision
+	// is a matter of record rather than of the flag that requested it.
+	fmt.Printf("Weight storage: %s\n", eng.WeightReport())
 
 	cNode, err := NewIrohClusterNode(context.Background(), eng, cfg, 0)
 	if err == nil {

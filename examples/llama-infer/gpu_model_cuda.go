@@ -15,26 +15,27 @@ import (
 
 // GPULayerWeights holds GPU-resident parameter slices for one transformer layer.
 type GPULayerWeights struct {
-	InputNorm cudamem.Slice[float32]
-	PostNorm  cudamem.Slice[float32]
-	WQ        cudamem.Slice[float32]
-	WK        cudamem.Slice[float32]
-	WV        cudamem.Slice[float32]
-	QBias     cudamem.Slice[float32]
-	KBias     cudamem.Slice[float32]
-	VBias     cudamem.Slice[float32]
-	WO        cudamem.Slice[float32]
-	WGate     cudamem.Slice[float32]
-	WUp       cudamem.Slice[float32]
-	WDown     cudamem.Slice[float32]
+	InputNorm WeightSlice
+	PostNorm  WeightSlice
+	WQ        WeightSlice
+	WK        WeightSlice
+	WV        WeightSlice
+	QBias     WeightSlice
+	KBias     WeightSlice
+	VBias     WeightSlice
+	WO        WeightSlice
+	WGate     WeightSlice
+	WUp       WeightSlice
+	WDown     WeightSlice
 }
 
 // GPUModelWeights holds all model parameters in device GPU memory.
 type GPUModelWeights struct {
-	EmbedTokens cudamem.Slice[float32]
+	EmbedTokens WeightSlice
 	Layers      []GPULayerWeights
-	Norm        cudamem.Slice[float32]
-	LMHead      cudamem.Slice[float32]
+	Norm        WeightSlice
+	LMHead      WeightSlice
+	dtype       WeightDType
 	arena       *cudamem.Arena
 }
 
@@ -111,6 +112,17 @@ func (sp *GPUScratchpad) Free() {
 
 // UploadModelToGPU transfers all host model weights directly into GPU VRAM.
 func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
+	return UploadModelToGPUAs(dev, tracker, w, cfg, WeightF32)
+}
+
+// UploadModelToGPUAs transfers all host model weights into GPU VRAM in dtype d.
+//
+// d decides both how many bytes each weight occupies on the device and which
+// kernel entry points will read it. Passing WeightF32 is the original behavior.
+func UploadModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeights, cfg *ModelConfig, d WeightDType) (*GPUModelWeights, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
 	arena := cudamem.NewTrackedArena(dev, tracker)
 	committed := false
 	defer func() {
@@ -118,18 +130,8 @@ func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeight
 			_ = arena.Free()
 		}
 	}()
-	upload := func(host []float32) (cudamem.Slice[float32], error) {
-		if len(host) == 0 {
-			return cudamem.Slice[float32]{}, nil
-		}
-		s := cudamem.AllocIn[float32](arena, "model-weight", len(host))
-		if err := arena.Err(); err != nil {
-			return cudamem.Slice[float32]{}, err
-		}
-		if err := s.CopyFromHost(host); err != nil {
-			return cudamem.Slice[float32]{}, err
-		}
-		return s, nil
+	upload := func(host []float32) (WeightSlice, error) {
+		return uploadWeights(arena, d, host)
 	}
 
 	embed, err := upload(w.EmbedTokens)
@@ -210,6 +212,7 @@ func UploadModelToGPU(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeight
 		Layers:      layers,
 		Norm:        norm,
 		LMHead:      lmHead,
+		dtype:       d,
 		arena:       arena,
 	}, nil
 }

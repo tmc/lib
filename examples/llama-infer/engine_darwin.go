@@ -1513,6 +1513,21 @@ func (eng *ModelEngine) IsF16() bool {
 	return eng.isF16
 }
 
+// WeightReport returns the engine's weight storage and dispatch.
+//
+// The Metal backend does not carry the CUDA weight-dtype dispatch, so the
+// report names its own storage and no CUDA entry points.
+func (eng *ModelEngine) WeightReport() WeightReport {
+	if eng == nil {
+		return WeightReport{}
+	}
+	d := "f32"
+	if eng.IsF16() {
+		d = "f16"
+	}
+	return WeightReport{DType: d, Storage: d}
+}
+
 func (eng *ModelEngine) precisionTelemetry() []TensorPrecision {
 	if eng == nil || eng.weights == nil {
 		return nil

@@ -138,11 +138,11 @@ func newCUDARowMajorLayout(rows, columns uint64, leadingDimension int64) (cublas
 	return layout, nil
 }
 
-func (p *cudaMatrixProjection) run(stream *cuda.Stream, input, weight, output cudamem.Slice[float32], batch int) error {
+func (p *cudaMatrixProjection) run(stream *cuda.Stream, input cudamem.Slice[float32], weight WeightSlice, output cudamem.Slice[float32], batch int) error {
 	return p.runPlanSet(p.plans, stream, input, weight, output, batch)
 }
 
-func (p *cudaMatrixProjection) runPlanSet(plans []cudaMatrixPlan, stream *cuda.Stream, input, weight, output cudamem.Slice[float32], batch int) error {
+func (p *cudaMatrixProjection) runPlanSet(plans []cudaMatrixPlan, stream *cuda.Stream, input cudamem.Slice[float32], weight WeightSlice, output cudamem.Slice[float32], batch int) error {
 	if p == nil || stream == nil || batch <= 0 || batch >= len(plans) {
 		return errors.New("cuda matrix projection: invalid launch")
 	}
