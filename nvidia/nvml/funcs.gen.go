@@ -3983,7 +3983,7 @@ func deviceGetTemperature(device Device, sensorType TemperatureSensors) (uint32,
 //
 // For Kepler or newer fully supported devices.
 // See [TemperatureThresholds] for details on available temperature thresholds.
-// Note: This API is no longer the preferred interface for retrieving the following temperature thresholds on Ada and later architectures: [TemperatureThresholdShutdown], [TemperatureThresholdSlowdown], NVML_TEMPERATURE_THRESHOLD_MEM_MAX and NVML_TEMPERATURE_THRESHOLD_GPU_MAX.
+// Note: This API is no longer the preferred interface for retrieving the following temperature thresholds on Ada and later architectures: [TemperatureThresholdShutdown], [TemperatureThresholdSlowdown], [TemperatureThresholdMemMax] and [TemperatureThresholdGpuMax].
 // Support for reading these temperature thresholds for Ada and later architectures would be removed from this API in future releases. Please use [Device.GetFieldValues] with NVML_FI_DEV_TEMPERATURE_* fields to retrieve temperature thresholds on these architectures.
 //
 //   - device: The identifier of the target device
