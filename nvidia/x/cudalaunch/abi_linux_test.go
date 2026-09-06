@@ -10,9 +10,9 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 const abiPTX = `.version 8.0
@@ -61,10 +61,7 @@ const abiPTX = `.version 8.0
 type abiVec struct{ X, Y, Z, W uint32 }
 
 func TestArgumentABIConcurrentStreams(t *testing.T) {
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.RequireDevice(t)
 	defer dev.Close()
 	image := append([]byte(abiPTX), 0)
 	var mod driver.Module

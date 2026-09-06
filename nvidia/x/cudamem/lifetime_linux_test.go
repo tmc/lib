@@ -12,14 +12,12 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func testDevice(t *testing.T) *cuda.Device {
 	t.Helper()
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatalf("NewDevice: %v", err)
-	}
+	dev := cudatest.RequireDevice(t)
 	t.Cleanup(func() {
 		if err := dev.Close(); err != nil {
 			t.Errorf("Close: %v", err)
