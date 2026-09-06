@@ -6,17 +6,16 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 func TestCUDAFoundation(t *testing.T) {
@@ -461,150 +460,3 @@ func cudaTestF16Matvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, 
 
 // cudaTestF16MatvecBytes is the row-major F16 matrix-vector reference over raw
 // tensor bytes, so it serves both mapped and synthetic weights.
-func cudaTestF16MatvecBytes(p []byte, x []float32, rows int) []float32 {
-	out := make([]float32, rows)
-	for row := range out {
-		var sum float32
-		for col, v := range x {
-			off := 2 * (row*len(x) + col)
-			sum += cudaTestFloat16(binary.LittleEndian.Uint16(p[off:])) * v
-		}
-		out[row] = sum
-	}
-	return out
-}
-
-func cudaTestHCPre(state, mix, scale, base, norm []float32) ([]float32, []float32) {
-	pre := make([]float32, 4)
-	comb := make([]float32, 16)
-	for h := range 4 {
-		pre[h] = float32(1/(1+math.Exp(-float64(mix[h]*scale[0]+base[h]))) + 1e-6)
-	}
-	for dst := range 4 {
-		mx := float32(-math.MaxFloat32)
-		for src := range 4 {
-			i := src + dst*4
-			comb[i] = mix[8+i]*scale[2] + base[8+i]
-			mx = max(mx, comb[i])
-		}
-		var sum float32
-		for src := range 4 {
-			i := src + dst*4
-			comb[i] = float32(math.Exp(float64(comb[i] - mx)))
-			sum += comb[i]
-		}
-		for src := range 4 {
-			i := src + dst*4
-			comb[i] = comb[i]/sum + 1e-6
-		}
-	}
-	for src := range 4 {
-		var sum float32
-		for dst := range 4 {
-			sum += comb[src+dst*4]
-		}
-		for dst := range 4 {
-			comb[src+dst*4] /= sum + 1e-6
-		}
-	}
-	for range 19 {
-		for dst := range 4 {
-			var sum float32
-			for src := range 4 {
-				sum += comb[src+dst*4]
-			}
-			for src := range 4 {
-				comb[src+dst*4] /= sum + 1e-6
-			}
-		}
-		for src := range 4 {
-			var sum float32
-			for dst := range 4 {
-				sum += comb[src+dst*4]
-			}
-			for dst := range 4 {
-				comb[src+dst*4] /= sum + 1e-6
-			}
-		}
-	}
-	cur := make([]float32, 4096)
-	for d := range cur {
-		for h := range 4 {
-			cur[d] += state[h*4096+d] * pre[h]
-		}
-	}
-	return cur, cudaTestRMS(cur, norm, 1)
-}
-
-func cudaTestRMS(x, weight []float32, groups int) []float32 {
-	out := make([]float32, len(x))
-	width := len(x) / groups
-	for group := range groups {
-		var sum float32
-		for _, v := range x[group*width : (group+1)*width] {
-			sum += v * v
-		}
-		inv := float32(1 / math.Sqrt(float64(sum/float32(width)+1e-6)))
-		for i, v := range x[group*width : (group+1)*width] {
-			w := float32(1)
-			if weight != nil {
-				w = weight[i]
-			}
-			out[group*width+i] = v * inv * w
-		}
-	}
-	return out
-}
-
-func cudaTestClose(t *testing.T, name string, got, want []float32) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Fatalf("%s length = %d, want %d", name, len(got), len(want))
-	}
-	var maxDelta float64
-	for i := range got {
-		delta := math.Abs(float64(got[i] - want[i]))
-		limit := 2e-3 + 2e-4*math.Abs(float64(want[i]))
-		if delta > maxDelta {
-			maxDelta = delta
-		}
-		if delta > limit {
-			t.Fatalf("%s[%d] = %g, want %g (delta %g > %g)", name, i, got[i], want[i], delta, limit)
-		}
-	}
-	t.Logf("%s: %d values matched, max delta=%g", name, len(got), maxDelta)
-}
-
-func cudaTestQ80Row(p []byte, x []float32) float32 {
-	var sum float32
-	for block := 0; block < len(x)/32; block++ {
-		scale := cudaTestFloat16(binary.LittleEndian.Uint16(p[block*34:]))
-		for i := range 32 {
-			sum += scale * float32(int8(p[block*34+2+i])) * x[block*32+i]
-		}
-	}
-	return sum
-}
-
-func cudaTestFloat16(h uint16) float32 {
-	sign := uint32(h&0x8000) << 16
-	exp := uint32(h>>10) & 0x1f
-	frac := uint32(h & 0x03ff)
-	switch exp {
-	case 0:
-		if frac == 0 {
-			return math.Float32frombits(sign)
-		}
-		e := int32(-14)
-		for frac&0x0400 == 0 {
-			frac <<= 1
-			e--
-		}
-		frac &= 0x03ff
-		return math.Float32frombits(sign | uint32(e+127)<<23 | frac<<13)
-	case 0x1f:
-		return math.Float32frombits(sign | 0x7f800000 | frac<<13)
-	default:
-		return math.Float32frombits(sign | uint32(int32(exp)-15+127)<<23 | frac<<13)
-	}
-}
