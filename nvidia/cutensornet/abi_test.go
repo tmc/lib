@@ -24,6 +24,10 @@ import (
 // wantSymbols is the exact set of C symbols this package binds. Each name was
 // checked against a declaration in the pinned headers.
 var wantSymbols = []string{
+	"cutensornetDistributedResetConfiguration",
+	"cutensornetDistributedGetNumRanks",
+	"cutensornetDistributedGetProcRank",
+	"cutensornetDistributedSynchronize",
 	"cutensornetContractSlices",
 	"cutensornetContractionAutotune",
 	"cutensornetContractionAutotunePreferenceGetAttribute",
