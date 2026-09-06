@@ -1,3 +1,5 @@
+//go:build !windows
+
 package moonep
 
 // Multi-process GPU integration test, same re-exec pattern as package

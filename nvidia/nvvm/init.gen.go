@@ -183,7 +183,7 @@ func libraryNames() []string {
 	case "darwin":
 		return []string{"libnvvm.dylib"}
 	case "windows":
-		return []string{"nvnvvm.dll"}
+		return []string{"nvvm64_40_0.dll"}
 	default:
 		return nil
 	}

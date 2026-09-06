@@ -39,7 +39,7 @@ func TestCUDAProjectionFamilyCeilingProbe(t *testing.T) {
 	}
 	defer end.Destroy()
 	launcher := cudalaunch.OwnedKernel(eng.modules.BatchGEMV).On(eng.stream)
-	var noBias cudamem.Slice[float32]
+	var noBias WeightSlice
 	layer := &eng.weights.Layers[0]
 	model := &eng.mCfg
 	hostInput := make([]float32, sp.NormX.Len())
@@ -50,12 +50,13 @@ func TestCUDAProjectionFamilyCeilingProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	tests := []struct {
-		name          string
-		input, weight cudamem.Slice[float32]
-		output        cudamem.Slice[float32]
-		inputDim      int
-		outputDim     int
-		matrix        bool
+		name      string
+		input     cudamem.Slice[float32]
+		weight    WeightSlice
+		output    cudamem.Slice[float32]
+		inputDim  int
+		outputDim int
+		matrix    bool
 	}{
 		{"q", sp.NormX, layer.WQ, sp.Q, model.HiddenSize, model.NumAttentionHeads * model.HeadDim(), false},
 		{"k", sp.NormX, layer.WK, sp.K, model.HiddenSize, model.NumKeyValueHeads * model.HeadDim(), false},
@@ -176,7 +177,7 @@ func TestCUDALMHeadMatrixCeilingProbe(t *testing.T) {
 	}
 	defer end.Destroy()
 	launcher := cudalaunch.OwnedKernel(eng.modules.BatchGEMV).On(eng.stream)
-	var noBias cudamem.Slice[float32]
+	var noBias WeightSlice
 	hostInput := make([]float32, sp.NormX.Len())
 	for i := range hostInput {
 		hostInput[i] = float32(i%29-14) / 17

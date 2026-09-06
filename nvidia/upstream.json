@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "partial-provenance",
-  "recorded_at": "2026-09-05",
-  "scope": "Generation inputs are recorded for NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer and cuDNN; other approved NVIDIA packages remain in scope and are not yet recorded.",
+  "recorded_at": "2026-09-06",
+  "scope": "Generation inputs are recorded for 19 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. The remaining packages remain in scope and are not yet recorded.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -113,7 +113,7 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "17fab93682a94b179cad2393300cec54ce7ff3730a74708c6c2de724f5513bad"
+            "sha256": "adc64e8fcc3340435b9f5eb5f9dd4447473ac8d78739131cb30dbdf0bad7ace3"
           },
           {
             "path": "nvidia/nvvm/loader_test.go",
@@ -142,7 +142,8 @@
           "example_cuda_test.go",
           "pipeline_test.go",
           "testdata/sin.ll"
-        ]
+        ],
+        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
       },
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
@@ -262,7 +263,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "85a03529fd24a44f0b3b05a2264e7747a0730098a2723d3a7271ad39d006ed95"
+            "sha256": "538b7c3fbf89aceffe660e93361e418d7aadbf4d230f4895e424a0c7d374557e"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
@@ -289,7 +290,8 @@
         "maintained_files_excluded": [
           "example_test.go",
           "flow_physical_test.go"
-        ]
+        ],
+        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
       },
       "unresolved_inputs": [
         "transitive Go module source contents",
@@ -300,7 +302,7 @@
     },
     "nvjitlink": {
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -410,7 +412,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "44d254dcca6058fadc05afee43234c06ef661cce31c82f263aa5f1b70f974fc6"
+            "sha256": "0f42c9d3088205f5ae685902952ce9aff4e907c6edbf52bdc8f434e153939ce3"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -429,11 +431,12 @@
             "sha256": "c0b4724858473da0bf4232b99c19ae43a1fbf0101f8d420dc1e2e6ab3dfd2fa6"
           }
         ],
-        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs.",
         "maintained_files_excluded": [
           "README.md",
           "example_cuda_test.go"
-        ]
+        ],
+        "note": "The unversioned-symbol fallback in init.gen.go was added after this generation was recorded, on top of the Windows library name correction; the pinned codegen commit predates both, so it no longer reproduces init.gen.go byte for byte. The recorded output digest is the integrated file."
       },
       "unresolved_inputs": [
         "transitive clang system stdlib.h and SDK header contents",
@@ -1284,6 +1287,1962 @@
         ],
         "method": "byte concatenation without separators or transformations",
         "vendor_archive_member_exists": false
+      }
+    },
+    "gdrcopy": {
+      "package": "github.com/tmc/lib/nvidia/gdrcopy",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "gdrcopy",
+        "version": "v2.6",
+        "source": {
+          "url": "https://github.com/NVIDIA/gdrcopy",
+          "revision": "93c606bbcaa10457cbbab93163aa446d902b983d"
+        },
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-gdrcopy/headers/gdrapi.h",
+        "sha256": "d10ebb8e963fab356ee2fc9841721743dc948f28d4056e40aae5661c510d9dc8"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-gdrcopy",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/gdrcopy/abi_test.go",
+            "sha256": "5e75964039f62faa8f1a23833bdf875c50a9f3d5b32571b33418ec918870ab2f"
+          },
+          {
+            "path": "nvidia/gdrcopy/api.gen.go",
+            "sha256": "a7498457c17aed24a15b3e36a236bef6d36229c69571bb6ba003e35c4295a1c6"
+          },
+          {
+            "path": "nvidia/gdrcopy/doc.gen.go",
+            "sha256": "55aec17f2d89e9269af8ea50b364af12e8b91e965712e340d3b501a193bd0bbe"
+          },
+          {
+            "path": "nvidia/gdrcopy/enums.gen.go",
+            "sha256": "8c1b9b8fe0219750f511ca3c0837a7bf7361ed68a65dedd4a5515d0c965150bc"
+          },
+          {
+            "path": "nvidia/gdrcopy/funcs.gen.go",
+            "sha256": "5cea125888d0cc1c64fca3c352b851775285cdf525471c958a0e9d6f47b78e81"
+          },
+          {
+            "path": "nvidia/gdrcopy/handles.gen.go",
+            "sha256": "c2ec957c9cdd15584b916bca89c56d7fbf139094e4e37347a8b9b480d8897d67"
+          },
+          {
+            "path": "nvidia/gdrcopy/info.gen.go",
+            "sha256": "97d3838b36f16ca0ce440124b24c2bb6a518b1987eeebfbf4c7531e0401a67c9"
+          },
+          {
+            "path": "nvidia/gdrcopy/init.gen.go",
+            "sha256": "8bfd781f49d64e90f4fb223992a197b10dacc4dbe4365deaed9f4ba15cacbcce"
+          },
+          {
+            "path": "nvidia/gdrcopy/loader_test.go",
+            "sha256": "8dea571904bd3c5fb45f66ecfb2c5ca4cb27e893de143b9f67eacd1a6dd5a83f"
+          },
+          {
+            "path": "nvidia/gdrcopy/symbols_test.go",
+            "sha256": "7f4c81125259d0bca5218cf77e979ba9cccc41a1203c558b526e3ba30dfcf17e"
+          }
+        ]
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
+      }
+    },
+    "nvjpeg2k": {
+      "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "libnvjpeg_2k",
+        "version": "0.11.0.51",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/nvjpeg2000/redist/libnvjpeg_2k/linux-x86_64/libnvjpeg_2k-linux-x86_64-0.11.0.51_cuda13-archive.tar.xz",
+          "sha256": "23eba41f33fc35018dc48db31ef72e35d711bb1280cdde34e62bcaa555047348"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/nvjpeg2000/redist/redistrib_0.11.0.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-nvjpeg2k/headers/nvjpeg2k.h",
+        "sha256": "f83384fe203c45daa35d2b9f8947d25576eacec0b5459cd158dbe67c083d0c2e"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvjpeg2k",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/nvjpeg2k/bitstream.gen.go",
+            "sha256": "30c1237f29acc1148325983f08bfb95225e5adfe4a27da075c7571409d73b5cd"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/constants.gen.go",
+            "sha256": "b9e7316f146115153a05cd82b7bc4f58421d1d24b380cc5dd40aebb62194ea61"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/decode_params.gen.go",
+            "sha256": "ae54c925a310bdcb1a0c3c9c0941ccc61e855b075f13e4b7f6fc5e28a38e4209"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/decode_state.gen.go",
+            "sha256": "18ccb9db7b451a8572aafe005f1a3006233eb0aca031118578df338e10c01f5c"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/doc.gen.go",
+            "sha256": "a18d55dc350151dd9017e228b57ee9d9eeb01f935b3ff0674cfd804107251494"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/enums.gen.go",
+            "sha256": "d81cb4de429cdaaa90fb75d6b4ad0711dfebae9b5bfffe0edd2758fb6edf2f6c"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/funcs.gen.go",
+            "sha256": "84207f0dc587beed8ef2108c831d6a94073b47a3dd053aac2918accea27cbb5e"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/handle.gen.go",
+            "sha256": "52e85ec9041c38d0ad15279ceacecda59c098030b3310cc894ecac283d763731"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/handles.gen.go",
+            "sha256": "dc4876b95c9cf5458dfdf9288ecedaeab8e70d06c3758caa324fd28ee2c93cda"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/init.gen.go",
+            "sha256": "83e18d711f008c88e28d8f55a782066f2bfc41b167e056856f40844f1d836c33"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/layout_test.go",
+            "sha256": "acbec1c67bbf46285d7ccce0f9943682c40ab7c0150a12635b063b7f4b4216db"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/loader_test.go",
+            "sha256": "1afb791bf24dba7f58f509e30e9660884b48e97628bbd0a705ec82e2293d5054"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/loader_unix.gen.go",
+            "sha256": "16aa3f62d787c9cb44c44d09466ff6fec910858f9d20675380ce3bf31996e127"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/loader_windows.gen.go",
+            "sha256": "126b844b4cfb74107efed4230845f9819ff93fb8957d45a41e85f17873fd9d21"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/result.gen.go",
+            "sha256": "c1c4f90518648e9c5bace53957b4607bab14ab668c295e79336418d960ff86bc"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/structs.gen.go",
+            "sha256": "b7d11a250aa7e9092f3119f0542031c190080831669b7672ad56cdc641b41eb8"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/types.gen.go",
+            "sha256": "c7c6f984a2a0283ce93d413784948d9f7bb686a2238b3b4eeefb8cba32730900"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/version.gen.go",
+            "sha256": "db9789f622654642f785271a5dddd7f58a397c3a75a34a365f489f63d85c0f9e"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvjpeg2k/headers/nvjpeg2k.h",
+          "sha256": "f83384fe203c45daa35d2b9f8947d25576eacec0b5459cd158dbe67c083d0c2e"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvjpeg2k/headers/nvjpeg2k_version.h",
+          "sha256": "96f571468a18a17ffaacc572286a2e047a5299bdda4ae720e46a3cfaca98b464"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
+      }
+    },
+    "nvcomp": {
+      "package": "github.com/tmc/lib/nvidia/nvcomp",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "nvcomp",
+        "version": "5.3.0.16",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/nvcomp/redist/nvcomp/linux-x86_64/nvcomp-linux-x86_64-5.3.0.16_cuda12-archive.tar.xz",
+          "sha256": "1def6bb0fa51d8ea3fe0c43ae1c58df2f63808ced7444267e14245583ec23f6f",
+          "size": 54327468
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/nvcomp/redist/redistrib_5.3.0.json",
+        "note": "cmd/gen-nvcomp/cuda_stream.h is a codegen-owned shim supplying cudaStream_t; it is not a vendor file.",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-nvcomp/headers/nvcomp.h",
+        "sha256": "245c6c5e22d88a64ac0d678e75d6aa8cca5b71f37d97aba88a04931bf9610c0d"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvcomp",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/nvcomp/doc.gen.go",
+            "sha256": "0b9ecc38b2f7d215d1f0fe9b0e062ea6087aa6316ffbc7ee7dcca0db97a154a0"
+          },
+          {
+            "path": "nvidia/nvcomp/enums.gen.go",
+            "sha256": "6426b26dfd88e6498c1fbcda3e721c8d482a334f46d6045c14674ef5208dfc4b"
+          },
+          {
+            "path": "nvidia/nvcomp/funcs.gen.go",
+            "sha256": "b43a244e54336e5262ee1de264e513ae090ff8b181a7842152ecf984b922eeda"
+          },
+          {
+            "path": "nvidia/nvcomp/handles.gen.go",
+            "sha256": "02576ad4ac9d4543f29c0614c990bc82c4a97120f91969dbeb5fb46623f28520"
+          },
+          {
+            "path": "nvidia/nvcomp/init.gen.go",
+            "sha256": "63f9457055b89c6246aad70cf1fc238942bac00885d209630848bd2d963a89f4"
+          },
+          {
+            "path": "nvidia/nvcomp/layout_test.go",
+            "sha256": "f7076078132f5c81cf5625a818417c343dc67f9888e4352e423db0e4a93dd543"
+          },
+          {
+            "path": "nvidia/nvcomp/limits.gen.go",
+            "sha256": "90b60b175c7d320651a5df66a9ab14eee28dd90b9a4df509264ce6b31fb6c404"
+          },
+          {
+            "path": "nvidia/nvcomp/loader_test.go",
+            "sha256": "995d7980aa96e76be16324aadebe7a9efddbc0836835e93f7e940393364bdd5f"
+          },
+          {
+            "path": "nvidia/nvcomp/loader_unix.gen.go",
+            "sha256": "ffc8d34f5d46fe34313e00a1066e8744629de9a6e00e35a13406f35b55bd3cd4"
+          },
+          {
+            "path": "nvidia/nvcomp/loader_windows.gen.go",
+            "sha256": "2eadd3359b878bed7902216d56c03c485f952ee59ee19dac19690dea9387b479"
+          },
+          {
+            "path": "nvidia/nvcomp/result.gen.go",
+            "sha256": "cc897df6361f6a449130cb5a556f7beaf76ae52770f79fdbb072b8f5518ecb5f"
+          },
+          {
+            "path": "nvidia/nvcomp/structs.gen.go",
+            "sha256": "a558d41f2f8d97ebca13c3a6be77882ab82c36d7bcf207a6ab82dea1f9fe500b"
+          },
+          {
+            "path": "nvidia/nvcomp/version.gen.go",
+            "sha256": "ef4704b79c2b3ea3f8b400fcdccd03f448d47fb95fd60510324a5dbc90920957"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/headers/nvcomp.h",
+          "sha256": "245c6c5e22d88a64ac0d678e75d6aa8cca5b71f37d97aba88a04931bf9610c0d"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/headers/nvcomp_export.h",
+          "sha256": "ea87d6d4ef1452e689c778209480b14cb572dcfde2f679e7b26ac4bd7854b47a"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/headers/nvcomp/lz4.h",
+          "sha256": "633d2ac6e6c4275ef709b4f0fe7de22b3828b5b78769448c9f0225d0995d8ac2"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/headers/nvcomp/shared_types.h",
+          "sha256": "c2072e21593735bc6cd0e9464f04dd3d9a163f8c4c3925db18eebac4d29efccd"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/headers/nvcomp/version.h",
+          "sha256": "f017fbe17b7d72338064cb7d546fca361fb9f73e7a51cd5abe2a99a73ba036a8"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcomp/cuda_stream.h",
+          "sha256": "15b17b8590cd5bdcd4a15c43bc9e711871343422a5c2c74bf2251816f524e092"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
+      }
+    },
+    "dcgm": {
+      "package": "github.com/tmc/lib/nvidia/dcgm",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "DCGM",
+        "version": "v4.6.1",
+        "source": {
+          "url": "https://github.com/NVIDIA/DCGM",
+          "tag": "v4.6.1",
+          "path": "dcgmlib"
+        },
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-dcgm/headers/dcgm_agent.h",
+        "sha256": "1089cc2aff5e32d28d4a5f90d90b2c2742966549e37655933e5faf59da25c708"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-dcgm",
+          "-headers",
+          "cmd/gen-dcgm/headers",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/dcgm/enums.gen.go",
+            "sha256": "5711ca4ff90889ebbe33c5744d28ce26b49f6226727fcc05824495a16cfe10a4"
+          },
+          {
+            "path": "nvidia/dcgm/fields.gen.go",
+            "sha256": "f4d48932d01365d60095fdc1ba034be2ede8d711008cf71b8b4fcb7d7b66e68c"
+          },
+          {
+            "path": "nvidia/dcgm/fields_test.go",
+            "sha256": "60ac4efd45bfa458fa936438ec00071984c0e704290dcd39730573c2552ec017"
+          },
+          {
+            "path": "nvidia/dcgm/funcs.gen.go",
+            "sha256": "dcb116e9145a6f0791e2051ff55ec9886ba861de9457586f9d49aee6360cd121"
+          },
+          {
+            "path": "nvidia/dcgm/handle.gen.go",
+            "sha256": "05b5bdb40a70831d30f4a113fb6f306d31dba164d3938b8df13589ad121ea8e0"
+          },
+          {
+            "path": "nvidia/dcgm/handles.gen.go",
+            "sha256": "a37bbe4d688478a79d4fa013eabe1164da1acdabdd035184b47bd85281c6646d"
+          },
+          {
+            "path": "nvidia/dcgm/init.gen.go",
+            "sha256": "dec4ea84f500fe80ef21e4c1665107289d9d4f6fb34ff5a84f45d3cde93bc22b"
+          },
+          {
+            "path": "nvidia/dcgm/layout_test.go",
+            "sha256": "b0d6206a149adb63c70a8f214e77678387ebe8fd0d72a634735b4f854f328f93"
+          },
+          {
+            "path": "nvidia/dcgm/limits.gen.go",
+            "sha256": "2986a6af401fc07497a370402f72cc78fb35bc7a0130c41a72c698b1ba94e589"
+          },
+          {
+            "path": "nvidia/dcgm/limits_test.go",
+            "sha256": "1403a6aea042ba3b1dad9a2a4dac5676bc27871a41409c92362e1c68a9d65ccd"
+          },
+          {
+            "path": "nvidia/dcgm/loader_test.go",
+            "sha256": "cff5187145e725c2588ca9370a82eb2ab99e7fad259d9422454825b0c979817e"
+          },
+          {
+            "path": "nvidia/dcgm/loader_unix.gen.go",
+            "sha256": "88bdb4351245bc7ebeb9553a61595c76df2e0d95afd822b62f6ad87e9f69a095"
+          },
+          {
+            "path": "nvidia/dcgm/loader_windows.gen.go",
+            "sha256": "3dc50ce2fd647f46d8db006a0de9d60d5011c3bea8e411a05178488ee9407105"
+          },
+          {
+            "path": "nvidia/dcgm/result.gen.go",
+            "sha256": "e1d1c7325a25d2139fd2b6b4ef7b9001bb15590836b2d34720249e138b76e753"
+          },
+          {
+            "path": "nvidia/dcgm/status_handle.gen.go",
+            "sha256": "a0783f431e1bc5e0aea96ff3b42e8e2a105f95f91802dbd60be0754abe10f8a4"
+          },
+          {
+            "path": "nvidia/dcgm/structs.gen.go",
+            "sha256": "967bc482c0587512cf2811526868d34a4a7eaf7fc97a16bf40b17600da64e8be"
+          },
+          {
+            "path": "nvidia/dcgm/types.gen.go",
+            "sha256": "114185e95da7885b5b020ffa4bc481b0c9823a05cc004dc857507e609d709d74"
+          },
+          {
+            "path": "nvidia/dcgm/versions.gen.go",
+            "sha256": "92a045e6692b2a8f4fd7206707db71015dcffc2ed4df3c33b7c11d2e90cad214"
+          },
+          {
+            "path": "nvidia/dcgm/versions_test.go",
+            "sha256": "1da01ce3c313d2412cabb18d03eedbaac65bfc50017a399a38aeb24e2c29b602"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-dcgm/headers/dcgm_agent.h",
+          "sha256": "1089cc2aff5e32d28d4a5f90d90b2c2742966549e37655933e5faf59da25c708"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-dcgm/headers/dcgm_structs.h",
+          "sha256": "17a4546762379a360b3c73ce6a6935557446748d1046f1c05e65022c84e20c6a"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-dcgm/headers/dcgm_fields.h",
+          "sha256": "84c2805ba1bb1e24593e34536224ea825a1d7b45891880e63c86f0f5fc208421"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-dcgm/headers/dcgm_errors.h",
+          "sha256": "b2e1601996e929786f06390fdb9ace1c4140e5e693f80b3375822ffcbe09f894"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-dcgm/headers/dcgm_api_export.h",
+          "sha256": "a16f962228f6f9e741ad8b420604dec0f07936e5aba165e2183f12b619f94b47"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
+      }
+    },
+    "cublasmp": {
+      "package": "github.com/tmc/lib/nvidia/cublasmp",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "libcublasmp",
+        "version": "0.10.0.3695",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cublasmp/redist/libcublasmp/linux-x86_64/libcublasmp-linux-x86_64-0.10.0.3695_cuda13-archive.tar.xz",
+          "sha256": "0c5012ce562a495ce9c38c5eb72e77e49fce56303b8e844de1e137e143279760"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cublasmp/redist/redistrib_0.10.0.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-cublasmp/headers/cublasmp.h",
+        "sha256": "024414f9be9a4c2b98c18ea7160a071939882b850209674505f8f51a8a594a7e"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-cublasmp",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/cublasmp/doc.gen.go",
+            "sha256": "fe943841811a096b739c08c5456800b369c07a09cc57dfe965c5acd9c27904a5"
+          },
+          {
+            "path": "nvidia/cublasmp/enums.gen.go",
+            "sha256": "c71e82a8c87956abbd1c7ddc5ab9500b1003c4df5857913de519d6b376b37b99"
+          },
+          {
+            "path": "nvidia/cublasmp/funcs.gen.go",
+            "sha256": "fc13e108397bddd74b234d3b60b35af8e8a40e842891f0ac2d0a9b0e3d729b17"
+          },
+          {
+            "path": "nvidia/cublasmp/grid.gen.go",
+            "sha256": "74abe9922b044dc2c2c9be9a8dbe6dbfc4bd5a2c57d00d298199725bfb19b6a0"
+          },
+          {
+            "path": "nvidia/cublasmp/handle.gen.go",
+            "sha256": "9768b0402b59ce403466017dc3e5277db27003fa076fd65a7e7517d4e19b66e6"
+          },
+          {
+            "path": "nvidia/cublasmp/handles.gen.go",
+            "sha256": "15f5afe1d1744315e6f3b5b88d580d6ee2bc27705e2e4413577bb4cd9b2bc775"
+          },
+          {
+            "path": "nvidia/cublasmp/init.gen.go",
+            "sha256": "0ca674f27c762f7a5be6f72f9abfcab6d084d44028b4a1cd3737f526ac623c95"
+          },
+          {
+            "path": "nvidia/cublasmp/loader_test.go",
+            "sha256": "ae2a87c83a50625868bf617d87850203607fabeee2dbc49267e1a399cf39a437"
+          },
+          {
+            "path": "nvidia/cublasmp/loader_unix.gen.go",
+            "sha256": "7225c137b367199ea1ad79b9da173372b6dcbab92d50a605d0ba172c8c00cc7d"
+          },
+          {
+            "path": "nvidia/cublasmp/loader_windows.gen.go",
+            "sha256": "0df9c68f423b2ec84fe94e039b09828af62dea741027751f86d623c6304c2c77"
+          },
+          {
+            "path": "nvidia/cublasmp/matrix_descriptor.gen.go",
+            "sha256": "ff05c54f5ef78e6215b0f0e3026cb90d138c915a3d89ee75245fedd5fb092b05"
+          },
+          {
+            "path": "nvidia/cublasmp/result.gen.go",
+            "sha256": "7259abf89c745de88bef5490159c6e6c3edc598eab7a1741b3de8586a6276741"
+          },
+          {
+            "path": "nvidia/cublasmp/version.gen.go",
+            "sha256": "da5dbc885f2173bf5316a5b40c3c32e85bb5ebd39111fe1b8d57b67f77e9736f"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "cusolvermp": {
+      "package": "github.com/tmc/lib/nvidia/cusolvermp",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "libcusolvermp",
+        "version": "0.9.1.9318",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cusolvermp/redist/libcusolvermp/linux-x86_64/libcusolvermp-linux-x86_64-0.9.1.9318_cuda12-archive.tar.xz",
+          "sha256": "aacb2a901ea5987aba8ccc77525dedbec7704319c8de407895efd4e351b219aa"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cusolvermp/redist/redistrib_0.9.1.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-cusolvermp/headers/cusolverMp.h",
+        "sha256": "a5f235a0a357b018abe65718bb9eb766e14bff2febffcf4ea971d372aa89acaa"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-cusolvermp",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/cusolvermp/doc.gen.go",
+            "sha256": "815fab2df11a5857236b2b1f490a92766da7ee5c14bfd650e85908680083d156"
+          },
+          {
+            "path": "nvidia/cusolvermp/enums.gen.go",
+            "sha256": "cf334b43bf53c27b88720f306311a03fd1f2473bfe0ce684bb5689017b8c958e"
+          },
+          {
+            "path": "nvidia/cusolvermp/funcs.gen.go",
+            "sha256": "2590f8d21a910da047bb9bc0d3e5bf92ff8000e8901955e1ad19ed021125c830"
+          },
+          {
+            "path": "nvidia/cusolvermp/grid.gen.go",
+            "sha256": "3cba97e7ca90ed2e960f12b85d7430f0748adcf08d4aa9c16b2d3d9946c35d18"
+          },
+          {
+            "path": "nvidia/cusolvermp/handle.gen.go",
+            "sha256": "2b5918e5a61d9ae43c3ed1514f2d97354d14f658ae48d580af2e5486081d11c2"
+          },
+          {
+            "path": "nvidia/cusolvermp/handles.gen.go",
+            "sha256": "8cf3a3ad9415a10b11e3054e52b6f44216b663f46bb86dd213163871b6da7a65"
+          },
+          {
+            "path": "nvidia/cusolvermp/init.gen.go",
+            "sha256": "1575913cefd623020595d87dcdf3a0cd010d7172bcae9020a68edfaa734827dd"
+          },
+          {
+            "path": "nvidia/cusolvermp/loader_test.go",
+            "sha256": "8e41fae9e74e1c9778537233126bf62787c5b039a9462e27be93aaa9d0d2e5b5"
+          },
+          {
+            "path": "nvidia/cusolvermp/loader_unix.gen.go",
+            "sha256": "0eae03964d86bfb3626103728cf5588b5b90305d0c21f2139265fe0c0de4f213"
+          },
+          {
+            "path": "nvidia/cusolvermp/loader_windows.gen.go",
+            "sha256": "f3ee030ab092c34db3d629fc8af595a6106d10531098e9eec6a9dc588aa8df82"
+          },
+          {
+            "path": "nvidia/cusolvermp/matrix_descriptor.gen.go",
+            "sha256": "858f19b4145a2e59ccf857545b6af9d72045c7fdacb5a63a9b03447922882e3e"
+          },
+          {
+            "path": "nvidia/cusolvermp/memory.gen.go",
+            "sha256": "2505ca0a88720e1e5264223d3f46718c9662e9a7604744cb3bc276e97f8efcaa"
+          },
+          {
+            "path": "nvidia/cusolvermp/pointers.gen.go",
+            "sha256": "4e7b89322a7fa5b35c13bfc591c2265269c8c89756253f1e7a093cf62c8e3c67"
+          },
+          {
+            "path": "nvidia/cusolvermp/result.gen.go",
+            "sha256": "c19ce2177891837c64c3a78aadabc62512a33750f694775abfeda4c05c0cc6a3"
+          },
+          {
+            "path": "nvidia/cusolvermp/solve.gen.go",
+            "sha256": "a39ed84ab77574caf45e35e7333ce8b939a72f838edb27f253c78d7206835150"
+          },
+          {
+            "path": "nvidia/cusolvermp/values.gen.go",
+            "sha256": "59c9aae332480a5cbff3b17277e318246c9156167529f8f5c41a284a3114805a"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "custatevec": {
+      "package": "github.com/tmc/lib/nvidia/custatevec",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "cuquantum",
+        "version": "26.06.0.17",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuquantum/redist/cuquantum/linux-x86_64/cuquantum-linux-x86_64-26.06.0.17_cuda12-archive.tar.xz",
+          "sha256": "4c37aa346fab9023d985e79667b047e13a0c0f9b9fea7dfca453979b331c8f77"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuquantum/redist/redistrib_26.06.0.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
+        "component": "cuStateVec 1.14.0"
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-custatevec/headers/cuquantum/custatevec.h",
+        "sha256": "9e1652e39be74c2af0fc8015d23678362273aecb0a0ef59924dcb6659180c40c"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-custatevec",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/custatevec/communicator.gen.go",
+            "sha256": "119626acf821b279f2a0c7a51cfbcc54a8763da69eeef6d790865240318cef17"
+          },
+          {
+            "path": "nvidia/custatevec/complex.gen.go",
+            "sha256": "54c764a232e8bfe770610a19cd57cb3750f2f406940e6db29bcd1573e5cb9407"
+          },
+          {
+            "path": "nvidia/custatevec/dist_index_bit_swap_scheduler.gen.go",
+            "sha256": "847f3d7d6b29b3753d139b71b7c9894747051b0e7cf5bbcb8bf8caac4e0e8def"
+          },
+          {
+            "path": "nvidia/custatevec/doc.gen.go",
+            "sha256": "d35a4912e238218362e2e29bf0cea0c77fea2941253b47d465d0657e4fb0d21b"
+          },
+          {
+            "path": "nvidia/custatevec/enums.gen.go",
+            "sha256": "e78d5a575173f1b0741876b017361a991b582fedd053d8e971a34511f3f02564"
+          },
+          {
+            "path": "nvidia/custatevec/funcs.gen.go",
+            "sha256": "49e884a228d10c758e7feaed3de7bca3bdc8256c4ae30d60bd582264efaca238"
+          },
+          {
+            "path": "nvidia/custatevec/handle.gen.go",
+            "sha256": "920c6363a7a3a517832316dc14d8d687083c03514c64394cfe773f191682b800"
+          },
+          {
+            "path": "nvidia/custatevec/handles.gen.go",
+            "sha256": "f51fdb753f2d6cdbd69b163d7de9022b69deb9679363d4d8741e476d54a87d02"
+          },
+          {
+            "path": "nvidia/custatevec/init.gen.go",
+            "sha256": "6a392008edcba523bb8dbf072d40014cd0b1283558b03f3f239ec7d5ecb2eb02"
+          },
+          {
+            "path": "nvidia/custatevec/layout_test.go",
+            "sha256": "004a087611d9dca4f308268c56ad18b7baf1bb29871b1f66f1208bd3d54fa671"
+          },
+          {
+            "path": "nvidia/custatevec/loader_test.go",
+            "sha256": "96b48bdfaa27776d7d54f7d5c29bed61b858931e5a10b42a36fdac8a29512ce5"
+          },
+          {
+            "path": "nvidia/custatevec/loader_unix.gen.go",
+            "sha256": "3c035659163e2cfc10d9c6d44c4ab8d2b00d20f1c30c0e97c9364a589851570a"
+          },
+          {
+            "path": "nvidia/custatevec/loader_windows.gen.go",
+            "sha256": "f2c9bd5c03ad97ba676829e781d598548b65c562448a8aa31fa14d1221397fba"
+          },
+          {
+            "path": "nvidia/custatevec/result.gen.go",
+            "sha256": "c2aab1113049c8d782d9a8fc572899ad8e818a3d310d02d9d1a615b10ec0d6b9"
+          },
+          {
+            "path": "nvidia/custatevec/structs.gen.go",
+            "sha256": "8c80e3ce5ce4e533a31ed0e576e5f162854d6f8eecf8786420e08ebf9afd2b4b"
+          },
+          {
+            "path": "nvidia/custatevec/sv_swap_worker.gen.go",
+            "sha256": "f402dc3e4d4dba0702e1f612c59ce14dca523051121be70f1ab686c2377b50d6"
+          },
+          {
+            "path": "nvidia/custatevec/types.gen.go",
+            "sha256": "74ef395bcf55507801bdc6c83c87487fb4eacae6c01470b7ec016df40b81035c"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "cutensornet": {
+      "package": "github.com/tmc/lib/nvidia/cutensornet",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "cutensornet",
+        "version": "2.13.0",
+        "archive": {
+          "url": "https://files.pythonhosted.org/packages/d7/8a/cc27e1a1404c884662d01a23957e849c0557c40143819e2332a585073a83/cutensornet_cu13-2.13.0-py3-none-manylinux2014_x86_64.whl",
+          "sha256": "50d30c3a3525d83a4a38ad8c7f93e7cb7043be79775d1a90eed1e14b79c2fd37",
+          "size": 3143285
+        },
+        "note": "The NVIDIA-published wheel was used instead of the 265 MB cuQuantum redistributable tarball; its include/ tree is the one shipped in the 26.06.0 redist entry.",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet.h",
+        "sha256": "f70f31595c3c7b44682a7e4bdcd468504615983a4ec628f519cf18f0036a4687"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-cutensornet",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/cutensornet/contraction_autotune_preference.gen.go",
+            "sha256": "819b5b2331919fe3b939bb84df488151f9858903bb09326c565882c1a8ec8453"
+          },
+          {
+            "path": "nvidia/cutensornet/contraction_optimizer_config.gen.go",
+            "sha256": "e34c0a19c9272f9fec7eb831361bbe6aac505a1f1e1f1348f69665bb85e9a99a"
+          },
+          {
+            "path": "nvidia/cutensornet/contraction_optimizer_info.gen.go",
+            "sha256": "24128ee6836e169adbec331b265a3a32d36377e6c6198831c4e51342a9bcefbf"
+          },
+          {
+            "path": "nvidia/cutensornet/contraction_plan.gen.go",
+            "sha256": "5acef557729e8b4b0755082bc2b1e1511eb59741c89be9601a96834b6a7418f8"
+          },
+          {
+            "path": "nvidia/cutensornet/doc.gen.go",
+            "sha256": "dee1e119f46eab7d98da05fc178bdbbd6cf4a2d66c2875bacbe0df14feb9c1d6"
+          },
+          {
+            "path": "nvidia/cutensornet/enums.gen.go",
+            "sha256": "0e7b1702d7e87047f71edddb94b93c600cba0fc191d7121d8bf7257155d55d2d"
+          },
+          {
+            "path": "nvidia/cutensornet/funcs.gen.go",
+            "sha256": "0b5459e5db8d8300756f2b83d8be211c7479baa6ad7d194baa392a3c9b96b062"
+          },
+          {
+            "path": "nvidia/cutensornet/handle.gen.go",
+            "sha256": "657cc08260f22ff6551fa41d43bf4e206166a9656315099019eb9acc74f35e4c"
+          },
+          {
+            "path": "nvidia/cutensornet/handles.gen.go",
+            "sha256": "dee93f0ea906d61201212fbc205084930e262f2e43e40ee641fc7e9cd2b6d4ab"
+          },
+          {
+            "path": "nvidia/cutensornet/init.gen.go",
+            "sha256": "858cd687a6d9588268d521488d0598176045c2bbd4e8271731a2b176360c8fa5"
+          },
+          {
+            "path": "nvidia/cutensornet/layout_test.go",
+            "sha256": "2c9fdddb5a4e74f71fb61a70f83618d038f1b8d1e2a54728d3e4d740989f95e1"
+          },
+          {
+            "path": "nvidia/cutensornet/loader_test.go",
+            "sha256": "064c2a0f8b5da44748da8f032f8ed8f3a319a41cbdfceaeb42259109fb3600b9"
+          },
+          {
+            "path": "nvidia/cutensornet/loader_unix.gen.go",
+            "sha256": "ff3733968cb49565d9ab0077835dc9e291b7bf5b6c7154851d2b38b7a2368510"
+          },
+          {
+            "path": "nvidia/cutensornet/loader_windows.gen.go",
+            "sha256": "6c05ba4754a6a77d15b99529e809bf53e7e962e28dec51c9a707b5453911588d"
+          },
+          {
+            "path": "nvidia/cutensornet/network_autotune_preference.gen.go",
+            "sha256": "5b03b47ec83a66b50841386ce6671911e6f286f8f0fa09d00fd03da11279fcb6"
+          },
+          {
+            "path": "nvidia/cutensornet/network_descriptor.gen.go",
+            "sha256": "edbc66752278a4a2290d1ccc54ca778f50b5212c3c777cb41b93f0156a8fc13f"
+          },
+          {
+            "path": "nvidia/cutensornet/result.gen.go",
+            "sha256": "f97fbdaf2f7d3b775e4d8964cc15f18237d3992d91ea4307753d520d35e3849c"
+          },
+          {
+            "path": "nvidia/cutensornet/slice_group.gen.go",
+            "sha256": "49e533afde37c81e06feca66e3e81e452c9b433fdaa1f6be0bea8d07620db686"
+          },
+          {
+            "path": "nvidia/cutensornet/structs.gen.go",
+            "sha256": "905c4c70a383f7053ee35f2b09009cb7669de840a67164e129a76b052c96d4ba"
+          },
+          {
+            "path": "nvidia/cutensornet/tensor_descriptor.gen.go",
+            "sha256": "01a7ddacbbd4eeff1ef64a6035cf094e5fa38551b758eaf8f16195636dc5749d"
+          },
+          {
+            "path": "nvidia/cutensornet/types.gen.go",
+            "sha256": "4cbfedfde36276e60d3de1397472c46c976d7de365608cf9eeebdc9b65641138"
+          },
+          {
+            "path": "nvidia/cutensornet/workspace_descriptor.gen.go",
+            "sha256": "6473788bd1e8bab2c3efc87ecfdae822a71200f6d47660f265fb2b9378fd1e86"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet.h",
+          "sha256": "f70f31595c3c7b44682a7e4bdcd468504615983a4ec628f519cf18f0036a4687"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet/types.h",
+          "sha256": "5c885b23649f1a35de6f2752534ee4a9839247744d71e715ca604215f02f9cd4"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cutensornet/headers/cuquantum/cutensornet/typesDistributed.h",
+          "sha256": "d6ded21edcadbc116b08235392a6ad08e751420042347b1031f113ca0b6d993b"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "cudss": {
+      "package": "github.com/tmc/lib/nvidia/cudss",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "libcudss",
+        "version": "0.8.0.10",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cudss/redist/libcudss/linux-x86_64/libcudss-linux-x86_64-0.8.0.10_cuda12-archive.tar.xz",
+          "sha256": "29716a05c64b28531309afcb7a9dd5044081a43197e72bdd0fbf29e9b4ee4707"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cudss/redist/redistrib_0.8.0.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-cudss/headers/cudss.h",
+        "sha256": "d328a3bec10ad702174c61c7701daada7aa78db3bda265b30751ff485de62b50"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-cudss",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/cudss/config.gen.go",
+            "sha256": "88adf67e53dcf9c12d48a9cdff73fe5cde4a481d2a9cae7c82d89eab6d4bd55a"
+          },
+          {
+            "path": "nvidia/cudss/data.gen.go",
+            "sha256": "3dbb9fd95bb53cd2d5ef6241ab5314d228ca66753d5160928ec727b47cd61e10"
+          },
+          {
+            "path": "nvidia/cudss/doc.gen.go",
+            "sha256": "a7356d8aad65156dafcb45ca47b0df25780b3beb6ed5c0e8458d1da520569552"
+          },
+          {
+            "path": "nvidia/cudss/enums.gen.go",
+            "sha256": "1487a346db8d618e4c3897f114d3231d6cf0a108f0cb9ec8bcf640cdfaf6c26a"
+          },
+          {
+            "path": "nvidia/cudss/funcs.gen.go",
+            "sha256": "f33e6b1584443316932e20f38db544c6e161ce48997c4809bc00073f03b2032c"
+          },
+          {
+            "path": "nvidia/cudss/handle.gen.go",
+            "sha256": "188d43c969df3113ec1e23ee1f026d22a3e9eaa875b7f5a32b66c023bb44e690"
+          },
+          {
+            "path": "nvidia/cudss/handles.gen.go",
+            "sha256": "15d1af5a99b4c6db5d528c70dcbc0c29155bf40b847b5e7bad0019fc7bf063bd"
+          },
+          {
+            "path": "nvidia/cudss/init.gen.go",
+            "sha256": "26da7e06bc6b28b7ed6f31abc0435bed062d376da7692af89530eba886bdc247"
+          },
+          {
+            "path": "nvidia/cudss/layout_test.go",
+            "sha256": "aeeaf5a6ffe4132baa973b3edaf51b7656b5aabed18733d85d0625b2bb74a1e3"
+          },
+          {
+            "path": "nvidia/cudss/loader_test.go",
+            "sha256": "78b9e42cf53554d7d489785f366b3c68ab84b5f7493e81f0dfad0250cb344777"
+          },
+          {
+            "path": "nvidia/cudss/matrix.gen.go",
+            "sha256": "fae6ddc310f8d6bbc1d11c0b9801ce929ca430579f667ce5b13c659fc087aa1e"
+          },
+          {
+            "path": "nvidia/cudss/params.gen.go",
+            "sha256": "39c7b2af59c97c61c376d7c574492bb45e66300a011e1bffb589a8398ea7d203"
+          },
+          {
+            "path": "nvidia/cudss/params_abi_test.go",
+            "sha256": "d37322445fb206a2746f8074ca6b7d4f3c38415a037c753d152d26706600a1ae"
+          },
+          {
+            "path": "nvidia/cudss/result.gen.go",
+            "sha256": "95553f21ff4d7846fbe84604c61b5bb01dca666badd33ef138a6bcd22866a2f8"
+          },
+          {
+            "path": "nvidia/cudss/structs.gen.go",
+            "sha256": "641a79408e37a270248b09c9272f1a3921a0b793908b13b9cc069679fdd81aa4"
+          },
+          {
+            "path": "nvidia/cudss/types.gen.go",
+            "sha256": "6fc5170e257f31093c5953c064fec8c01d79aabf04c7b6da1c96db726ca3541a"
+          }
+        ]
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cudss/headers/cudss.h",
+          "sha256": "d328a3bec10ad702174c61c7701daada7aa78db3bda265b30751ff485de62b50"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cudss/headers/cudss_data_types.h",
+          "sha256": "19d48b73319f890f651b67278287ac6df3d7316da9d8ebd26679c97daa0eaebc"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cudss/headers/cudss_distributed_interface.h",
+          "sha256": "7af87b7d6f640607190118bbde11c5f9d931a6d7af5cd38dcd93bba754063190"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-cudss/headers/cudss_threading_interface.h",
+          "sha256": "d154e4ddc4dda0296abcbb8eccfdd7e9ee372db12cc17a3d210d0d7373fa9479"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "nvshmem": {
+      "package": "github.com/tmc/lib/nvidia/nvshmem",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "libnvshmem",
+        "version": "3.7.2",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/nvshmem/redist/libnvshmem/linux-x86_64/libnvshmem-linux-x86_64-3.7.2_cuda13-archive.tar.xz",
+          "sha256": "5846321d85c9655beb676488aae107f68c779eaf95d44981bac6edc0e3cd8a0f",
+          "size": 236700352
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/nvshmem/redist/redistrib_3.7.2.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-nvshmem/headers/nvshmem_host.h",
+        "sha256": "17366838d3b1b0c4b56384135898db0993b1fa3040f94bbfbf1d466497c90692"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvshmem",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/nvshmem/defaults.gen.go",
+            "sha256": "c4c7155a95fb8d1d59cce6dc6dd8bca2f825c18f657b93fcebce3b80876767c3"
+          },
+          {
+            "path": "nvidia/nvshmem/doc.gen.go",
+            "sha256": "95f68d7f305a4f3a5c830158b465a596fb413af86de7224f56580ad995b7109f"
+          },
+          {
+            "path": "nvidia/nvshmem/enums.gen.go",
+            "sha256": "de7f135fcf7c4473e57ff1d9c8746119d1e7c456fbf326891239b98e4712229d"
+          },
+          {
+            "path": "nvidia/nvshmem/funcs.gen.go",
+            "sha256": "280875db310c4e550ea5c5c83a2717ccd5627e9d9a41815cbf02ade5febfaabb"
+          },
+          {
+            "path": "nvidia/nvshmem/init.gen.go",
+            "sha256": "fb10966a53ad3bd603ef99322a3de7379f4e71f84a995908cde213fb86c46610"
+          },
+          {
+            "path": "nvidia/nvshmem/layout_test.go",
+            "sha256": "b50df32994562f1d98317a6be222c61161a9ae9e1e84b8d7bb08160f2f3a29c6"
+          },
+          {
+            "path": "nvidia/nvshmem/lifecycle.gen.go",
+            "sha256": "3a424198fc39a9c0e57bc6970465b4e4bc271445d5c7ef8ee9f6a57de77174a0"
+          },
+          {
+            "path": "nvidia/nvshmem/loader_test.go",
+            "sha256": "e7b4e831c7d7047914f5a4ae32b9256315457a52964336fae74c7721e50c9449"
+          },
+          {
+            "path": "nvidia/nvshmem/status.gen.go",
+            "sha256": "f70587e72eb76dec5da0b894c84985f684366e21177e5d403a769af32d5e3258"
+          },
+          {
+            "path": "nvidia/nvshmem/structs.gen.go",
+            "sha256": "8989ff7e2f35438df50f59a0616731f4f31ff3ff96793934f4bb9590ce5503aa"
+          },
+          {
+            "path": "nvidia/nvshmem/symbols.gen.go",
+            "sha256": "86a4dcf8ce3a41226aaa6b18cee6b445c5e1eb690c31fd9d3a1bff98536d3d31"
+          }
+        ]
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/nvshmem_host.h",
+          "sha256": "17366838d3b1b0c4b56384135898db0993b1fa3040f94bbfbf1d466497c90692"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/host/nvshmem_api.h",
+          "sha256": "bc73a478195072611f5ddb8f751a0420daee40ead12e8bf8f25fbcf2615c30f2"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/host/nvshmemx_api.h",
+          "sha256": "e7c39e20689af5c214384d630276b051d2b310bfb2375ed3e66075ddad69c3ce"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/host/nvshmem_coll_api.h",
+          "sha256": "b5d4289c1f15514ffc047c5138a13063854812d0fea721e7fdfde9d5a7c84447"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/host/nvshmemx_coll_api.h",
+          "sha256": "212b9fd920fe101f438eb700238cc190ecd438c359fddbf4949460e3a543a1a6"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/host/nvshmem_macros.h",
+          "sha256": "0a355959b37d2f5ed41481d8873208d599562abf9349bec8266b6eb53de4cee2"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/device_host/nvshmem_types.h",
+          "sha256": "ff1d8b9ca48cdb135bd2ac80f5753bed8a110e0753d2f6a52c98b6d24cd7d9f3"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/device_host_transport/nvshmem_constants.h",
+          "sha256": "47913186f2659be07dcb09f397da181be7f8715a6221e8286b52cfab83924840"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/device_host_transport/nvshmem_common_transport.h",
+          "sha256": "1f6350d54ec1f9e74e29c7289df3c7b5ec31aafd0d568b8a2aeec0f609166d55"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/bootstrap_device_host/nvshmem_uniqueid.h",
+          "sha256": "88765d476203a483e402634c57e0ffd30b18ef2ed001131a1efd0d2b66fb3854"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/non_abi/nvshmemx_error.h",
+          "sha256": "161997a26af7b0b40dddae8e0b5065010cbb26f4b69d1004109be562ff5bd320"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/non_abi/nvshmem_version.h",
+          "sha256": "b0258b4177ccbde6748bad4b968eefc659a1e2553ae61be03ebc4cc7540d919f"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvshmem/headers/non_abi/nvshmem_build_options.h",
+          "sha256": "0477672ffef2d73b1988b3268f30b5553bd7bdfc1a672d3d77b58ac4c40b31ab"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "cudensitymat": {
+      "package": "github.com/tmc/lib/nvidia/cudensitymat",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "3d5d12b9ef20eb38a4570a872b77cd85b171545b",
+          "tree": "a6bc9eaa9832edf648b877dfa29b01750879bf9c"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "cuquantum",
+        "version": "26.06.0.17",
+        "archive": {
+          "url": "https://developer.download.nvidia.com/compute/cuquantum/redist/cuquantum/linux-x86_64/cuquantum-linux-x86_64-26.06.0.17_cuda12-archive.tar.xz",
+          "sha256": "4c37aa346fab9023d985e79667b047e13a0c0f9b9fea7dfca453979b331c8f77"
+        },
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuquantum/redist/redistrib_26.06.0.json",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved.",
+        "component": "cuDensityMat 0.6.0"
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-cudensitymat/headers/cudensitymat.h",
+        "sha256": "50625556ef18505d3a9c427b01491952eeeecbd7440061f1b8d12f6c4885ae59"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-cudensitymat",
+          "-headers",
+          "cmd/gen-cudensitymat/headers",
+          "-cuda-headers",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/cudensitymat/callbacks.gen.go",
+            "sha256": "7b0d4de3326d99adbc4dfcece7595a5019606b280a26d07870e35a28fe49fb4f"
+          },
+          {
+            "path": "nvidia/cudensitymat/doc.gen.go",
+            "sha256": "7bf6f6b16efe1b8274c2daaa956b81e794b098ddc1a8c8914da05f6bbd8a5f63"
+          },
+          {
+            "path": "nvidia/cudensitymat/elementary_operator.gen.go",
+            "sha256": "a8f4f6df3c06c61f4ed1c2b32e54d5a1927846b6d3d65d3d9e1494ac2cde9ef1"
+          },
+          {
+            "path": "nvidia/cudensitymat/enums.gen.go",
+            "sha256": "4fb466137f0c03a729a400bf1398f5df215dc70dda40504df64dbc4f42e6e2c7"
+          },
+          {
+            "path": "nvidia/cudensitymat/expectation.gen.go",
+            "sha256": "367f83406a63d38f2cec1d4451315cf8db12531af2611ed2aa5075cf8f292b6b"
+          },
+          {
+            "path": "nvidia/cudensitymat/funcs.gen.go",
+            "sha256": "c4f9f922f54b2e92d287a2b69334b1dd9f62430fbf0cd3ede994904a3c574d12"
+          },
+          {
+            "path": "nvidia/cudensitymat/handle.gen.go",
+            "sha256": "e58f5fa7d96e6c652ca7860030836bbe48803cdd98755f552aabc9f9f20c5edf"
+          },
+          {
+            "path": "nvidia/cudensitymat/handles.gen.go",
+            "sha256": "e32f65287ee84464fbc641418d2ae14a66c8d6118614c020d64bab0fe44e05a2"
+          },
+          {
+            "path": "nvidia/cudensitymat/init.gen.go",
+            "sha256": "9dcd09657d1fdf252944998d7b818592937bfc910f995cf5165095e90a58def8"
+          },
+          {
+            "path": "nvidia/cudensitymat/layout_test.go",
+            "sha256": "ee6b2c924a01ff29431194d5ba0d121335f4dea4cc754906cf507f96d176b0b0"
+          },
+          {
+            "path": "nvidia/cudensitymat/loader_test.go",
+            "sha256": "6608dc3c936ac5d8b4d7899e7e147d9fb1f6a988cb292b2a7b772779786cc995"
+          },
+          {
+            "path": "nvidia/cudensitymat/loader_unix.gen.go",
+            "sha256": "0ca839e3e46a1b0ac6f8ff6ce7088f2d6ee0da64402d509e30efd7425cc217e5"
+          },
+          {
+            "path": "nvidia/cudensitymat/loader_windows.gen.go",
+            "sha256": "403d7eaad5ca64a64956e41651c7882293f1bfd223a0b92c2846cfdf79905920"
+          },
+          {
+            "path": "nvidia/cudensitymat/operator.gen.go",
+            "sha256": "4460baa720bc161a22c1cf4efd781d23475449f0382965ab58af1b420ec386f1"
+          },
+          {
+            "path": "nvidia/cudensitymat/operator_term.gen.go",
+            "sha256": "65281d9e10fa4b584a76eeba39998842a10e4ed82abdd202adedde6125b6c089"
+          },
+          {
+            "path": "nvidia/cudensitymat/result.gen.go",
+            "sha256": "99d3236f9692b0f9f1843768994e1234ba32e8eeae8abb2b2300f940f2a303d1"
+          },
+          {
+            "path": "nvidia/cudensitymat/state.gen.go",
+            "sha256": "7bb96b4e555bc13270a690d4778810aa0cb355050722d36b8ad707de82083357"
+          },
+          {
+            "path": "nvidia/cudensitymat/structs.gen.go",
+            "sha256": "26a8485c4befd72d58d2b2bf5b9a07004a056a82a2798d8d83e6327b2a50294a"
+          },
+          {
+            "path": "nvidia/cudensitymat/types.gen.go",
+            "sha256": "6d50d7c4b38779e9459350b0d9f797dfa20d1d5045c4096fe5670f0bddcd02cf"
+          },
+          {
+            "path": "nvidia/cudensitymat/workspace_descriptor.gen.go",
+            "sha256": "4e2e37b89ff86b99dd323d56d81ae45eeaf64e091549090ad13a75ae7b159841"
+          }
+        ],
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
+      }
+    },
+    "nvenc": {
+      "package": "github.com/tmc/lib/nvidia/nvenc",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "nv-codec-headers",
+        "version": "n13.1.15.0",
+        "source": {
+          "url": "https://github.com/FFmpeg/nv-codec-headers",
+          "revision": "0a6fba9a2820628b8103464f4c8753ee05838baa"
+        },
+        "note": "NVIDIA's Video Codec SDK download requires a developer-program login and cannot be pinned by URL; the FFmpeg mirror carries the same declarations.",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-nvcodec/headers/nvEncodeAPI.h",
+        "sha256": "8776fddcb8febc6aec4d73989b1f21831eb30306bc583da55b4bf0c14a1dc228"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvcodec",
+          "-api",
+          "nvenc",
+          "-headers",
+          "cmd/gen-nvcodec/headers",
+          "-out",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "outputs": [
+          {
+            "path": "nvidia/nvenc/api.gen.go",
+            "sha256": "23c61bc54183657de460cb898230546ca9bb3c29260a6ff7d1e2bb0718de8b87"
+          },
+          {
+            "path": "nvidia/nvenc/consts.gen.go",
+            "sha256": "b6a5cfd46482a466fb574395e0b9315d214d774959ea1bddccef8abf8241a56c"
+          },
+          {
+            "path": "nvidia/nvenc/doc.gen.go",
+            "sha256": "d27c7a8e2a536513d33083ada95267e0b0dea42eea243506cbe9b291b3f744f1"
+          },
+          {
+            "path": "nvidia/nvenc/enums.gen.go",
+            "sha256": "56d9312cd0730d64fc4e21d56a39abae80859b2d4c9aa12bdd71fa0105f4f78c"
+          },
+          {
+            "path": "nvidia/nvenc/funcs.gen.go",
+            "sha256": "88fb0a1c979f57ac12175fc74e464e88aea6ebbf95bdaa9598e772e3e74e1c2c"
+          },
+          {
+            "path": "nvidia/nvenc/guids.gen.go",
+            "sha256": "0ca98aba49c87f539615ef0c967bc93ff3ec9d5d328813173f56a91a4eff3de7"
+          },
+          {
+            "path": "nvidia/nvenc/init.gen.go",
+            "sha256": "c80f7e569d21280f7543b0991ce8a8d46d183c69fad5cac13bc3691dcba70ff5"
+          },
+          {
+            "path": "nvidia/nvenc/layout_test.go",
+            "sha256": "3532b93a1191307692f1419598c9d853020c898f430ea0663de36baacff5700a"
+          },
+          {
+            "path": "nvidia/nvenc/loader_unix.gen.go",
+            "sha256": "490462c2236ea80d10ec4cc75a1e67a660950c39b1206c0ef2f21f71fdbb8ee2"
+          },
+          {
+            "path": "nvidia/nvenc/loader_windows.gen.go",
+            "sha256": "8cd18ea8ba2fcc435255ae14554a86d14909ba3b6c33e494fb4eea4e1691d98a"
+          },
+          {
+            "path": "nvidia/nvenc/structs.gen.go",
+            "sha256": "8fb963a24cdbc38f4bc137dc07db91f21eeed23de99cf34d4a4b2c0452978681"
+          },
+          {
+            "path": "nvidia/nvenc/types.gen.go",
+            "sha256": "405b9346e6bccecf3d890f3d817cc60be2ca0de57d433abb2a2642c301e3462b"
+          }
+        ]
+      },
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
+      }
+    },
+    "nvdec": {
+      "package": "github.com/tmc/lib/nvidia/nvdec",
+      "status": "generation-partially-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "01ced46c5841bae4a377aab177d56ff167384392",
+          "tree": "2ee6ffa393167ddeb81c141e8fd16629427a4214"
+        },
+        "lib": {
+          "url": "https://github.com/tmc/lib.git",
+          "commit": "0a8ba5daf18651cfcc87d7ee9ee6d36f52d0d069",
+          "tree": "ed86c446d4d4c5eeb6d282dd5f72ca3a83f9f8a2"
+        }
+      },
+      "vendor": {
+        "product": "nv-codec-headers",
+        "version": "n13.1.15.0",
+        "source": {
+          "url": "https://github.com/FFmpeg/nv-codec-headers",
+          "revision": "0a6fba9a2820628b8103464f4c8753ee05838baa"
+        },
+        "note": "NVIDIA's Video Codec SDK download requires a developer-program login and cannot be pinned by URL; the FFmpeg mirror carries the same declarations.",
+        "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
+      },
+      "header": {
+        "repository": "codegen",
+        "path": "cmd/gen-nvcodec/headers/dynlink_cuviddec.h",
+        "sha256": "0d9f490e8699a2e000904275d9e380e7ee9945e5717b95f920358013153c6377"
+      },
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nvcodec",
+          "-api",
+          "nvdec",
+          "-headers",
+          "cmd/gen-nvcodec/headers",
+          "-out",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off",
+          "TMPDIR": "${SCRATCH_DIR}"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64",
+          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+          "clang_target": "arm64-apple-darwin25.6.0",
+          "go_environment": {
+            "CC": "cc",
+            "CGO_ENABLED": "1",
+            "GOARCH": "arm64",
+            "GOFLAGS": "",
+            "GOOS": "darwin",
+            "GOTOOLCHAIN": "auto",
+            "GOVERSION": "go1.27.0"
+          }
+        },
+        "source_state": "clean codegen checkout at the recorded commit; the default pass was re-run and its ten outputs compared byte for byte with the recorded lib commit. The Windows pass was not run, so its seven outputs are recorded by hash only.",
+        "outputs": [
+          {
+            "path": "nvidia/nvdec/consts.gen.go",
+            "sha256": "d0a59aaf65227d3ba04c1c4cf092c0289d8c602fb4bc7c11b84757eec2fa5209"
+          },
+          {
+            "path": "nvidia/nvdec/consts_windows.gen.go",
+            "sha256": "ac2a16ae6d3b31fecbb51b9df30d87feeff1c5bf4b2229b7a1b8dfd26a7bfece"
+          },
+          {
+            "path": "nvidia/nvdec/doc.gen.go",
+            "sha256": "322b825fad83e477654ddf2a30873fd1e956b0ccef9d9d04b56e476fe3785177"
+          },
+          {
+            "path": "nvidia/nvdec/enums.gen.go",
+            "sha256": "fa170cd7b76f188dabc2a61fccc6eec9f27fdd3bee06a5e80994bb42c680ef03"
+          },
+          {
+            "path": "nvidia/nvdec/enums_windows.gen.go",
+            "sha256": "22026a27a05be7c4f6557b11de82f42bbbf748051fedce62d4b08c89831febd4"
+          },
+          {
+            "path": "nvidia/nvdec/funcs.gen.go",
+            "sha256": "f2e5a65793609ca4095ac095c4ea034ee1902b1d0a8e019027ca42467ec2fefe"
+          },
+          {
+            "path": "nvidia/nvdec/funcs_windows.gen.go",
+            "sha256": "d9c65eadffb8f51063514e6a21db974ddebcd79c5f2f825c720b29241b222565"
+          },
+          {
+            "path": "nvidia/nvdec/init.gen.go",
+            "sha256": "d5da1f77d1334a08ce441b17218d86ba43b6968d878e4cafaf4c206a1816e895"
+          },
+          {
+            "path": "nvidia/nvdec/init_windows.gen.go",
+            "sha256": "24b7da27910ef54172cc711c3e322810310cd10e8d2b2e7f88d670e9febffef6"
+          },
+          {
+            "path": "nvidia/nvdec/layout_test.go",
+            "sha256": "576f03bf7d0c1b6a05890cf4e85cd3aef11391993e9a6bb01a462697935381dc"
+          },
+          {
+            "path": "nvidia/nvdec/layout_windows_test.go",
+            "sha256": "8a82d89b83ba613c7e466191f2e3ba6f133adc871e6a0c73425ef6e1c83a57d5"
+          },
+          {
+            "path": "nvidia/nvdec/loader_unix.gen.go",
+            "sha256": "ad2132c4c730ac1542364e97528a11e7f3dbb6cd50da6164d6d04269fcdc290e"
+          },
+          {
+            "path": "nvidia/nvdec/loader_windows.gen.go",
+            "sha256": "a62ec2a6f5c05005f4672ec38c6b876b61a5e2f542e47c51b2c67adf8960115d"
+          },
+          {
+            "path": "nvidia/nvdec/structs.gen.go",
+            "sha256": "89e3fede132599454b842200e6609c8e798c89b8125407c82cf204f4df205a15"
+          },
+          {
+            "path": "nvidia/nvdec/structs_windows.gen.go",
+            "sha256": "abc73277f05f4aa36e8e1df7f2498bbcb72c11d7f5fb776c1043867d2d21285d"
+          },
+          {
+            "path": "nvidia/nvdec/types.gen.go",
+            "sha256": "6708802de7f6e64fdb03a27ce0c69b076c045a0fa0dd7ef4f08dcbaee58741d8"
+          },
+          {
+            "path": "nvidia/nvdec/types_windows.gen.go",
+            "sha256": "3de52e82ff721a1c782e304673bdb3d106e09951e39ef718a4c8333efb51b116"
+          }
+        ],
+        "additional_pass": {
+          "argv": [
+            "go",
+            "run",
+            "./cmd/gen-nvcodec",
+            "-api",
+            "nvdec",
+            "-windows",
+            "-headers",
+            "cmd/gen-nvcodec/headers",
+            "-cc",
+            "x86_64-w64-mingw32-gcc",
+            "-runner",
+            "wine64",
+            "-out",
+            "${OUTPUT_DIR}"
+          ],
+          "note": "Emits the *_windows.gen.go files and layout_windows_test.go. Requires a MinGW cross-compiler and Wine; this pass was not run for this record, so those outputs are recorded by hash but not reproduced."
+        }
+      },
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcodec/headers/dynlink_cuviddec.h",
+          "sha256": "0d9f490e8699a2e000904275d9e380e7ee9945e5717b95f920358013153c6377"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcodec/headers/dynlink_nvcuvid.h",
+          "sha256": "c1290075d5d881e98c8f14dc5a23953a792f56971b172cf84ee0bc7aab6d1aab"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nvcodec/headers/dynlink_cuda.h",
+          "sha256": "c970d5817120ea481ba29b9c603bdc9a386985d9fc98a47f6588030dcdba87c1"
+        }
+      ],
+      "documentation": {
+        "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       }
     }
   }

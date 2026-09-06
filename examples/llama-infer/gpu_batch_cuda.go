@@ -171,7 +171,7 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	hidden, inter := cfg.HiddenSize, cfg.IntermediateSize
 	qHeads, kvHeads, headDim := cfg.NumAttentionHeads, cfg.NumKeyValueHeads, cfg.HeadDim()
 	qDim, kvDim := qHeads*headDim, kvHeads*headDim
-	var noBias cudamem.Slice[float32]
+	var noBias WeightSlice
 	weightLaunches := 0
 	matrixLaunches := 0
 	if err := launcher(eng.modules.BatchEmbed).Grid(1, uint32(batch)).Block(256).
@@ -194,7 +194,8 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 				return nil, stats, err
 			}
 			for _, projection := range []struct {
-				weight, bias, out cudamem.Slice[float32]
+				weight, bias WeightSlice
+				out          cudamem.Slice[float32]
 				dim               int
 				plans             []cudaMatrixPlan
 			}{

@@ -65,7 +65,11 @@ func batchIOCancel(batchIdp BatchHandle) error {
 }
 
 // batchIODestroy wraps cuFileBatchIODestroy.
+// It panics if the library cannot be loaded or lacks the symbol.
 func batchIODestroy(batchIdp BatchHandle) {
+	if err := checkLibSym("cuFileBatchIODestroy"); err != nil {
+		panic(err)
+	}
 	fnbatchIODestroy(batchIdp)
 }
 
@@ -357,7 +361,11 @@ func GetVersion() (int32, error) {
 }
 
 // handleDeregister wraps cuFileHandleDeregister.
+// It panics if the library cannot be loaded or lacks the symbol.
 func handleDeregister(fh Handle) {
+	if err := checkLibSym("cuFileHandleDeregister"); err != nil {
+		panic(err)
+	}
 	fnhandleDeregister(fh)
 }
 
@@ -376,7 +384,11 @@ func handleRegister(descr *Descr) (Handle, error) {
 }
 
 // read wraps cuFileRead.
+// It panics if the library cannot be loaded or lacks the symbol.
 func read(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+	if err := checkLibSym("cuFileRead"); err != nil {
+		panic(err)
+	}
 	return fnread(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 
@@ -477,12 +489,20 @@ func StreamRegister(stream Stream, flags uint32) error {
 }
 
 // UseCount wraps cuFileUseCount.
+// It panics if the library cannot be loaded or lacks the symbol.
 func UseCount() int {
+	if err := checkLibSym("cuFileUseCount"); err != nil {
+		panic(err)
+	}
 	return fnUseCount()
 }
 
 // write wraps cuFileWrite.
+// It panics if the library cannot be loaded or lacks the symbol.
 func write(fh Handle, bufPtrBase uintptr, size uint, fileOffset int64, bufPtrOffset int64) int64 {
+	if err := checkLibSym("cuFileWrite"); err != nil {
+		panic(err)
+	}
 	return fnwrite(fh, bufPtrBase, size, fileOffset, bufPtrOffset)
 }
 
