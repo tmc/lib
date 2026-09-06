@@ -59,7 +59,8 @@ func TestDirectReturnWrappersPanicDiagnostically(t *testing.T) {
 // TestDirectReturnWrappersNameMissingSymbol checks that when the library
 // loads but does not export the symbol, the panic identifies the symbol by
 // name. It requires CUFILE_LIB_PATH to point at a shared object exporting no
-// cuFile symbols; see stub.c in the test harness.
+// cuFile symbols; see stub.c in the test harness. A genuine libcufile exports
+// them, so each case is skipped unless its symbol is actually absent.
 func TestDirectReturnWrappersNameMissingSymbol(t *testing.T) {
 	if err := checkLib(); err != nil {
 		t.Skipf("no loadable library: %v", err)
@@ -76,6 +77,9 @@ func TestDirectReturnWrappersNameMissingSymbol(t *testing.T) {
 		{"UseCount", "cuFileUseCount", func() { UseCount() }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			if Has(tt.symbol) {
+				t.Skipf("the loaded library exports %s", tt.symbol)
+			}
 			v := mustPanic(t, tt.name, tt.call)
 			err, ok := v.(error)
 			if !ok {
