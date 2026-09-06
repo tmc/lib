@@ -9,7 +9,7 @@ type Complex struct {
 	Y float32
 }
 
-// DoubleComplex represents a double-precision complex number.
+// DoubleComplex holds 16-byte complex elements for host staging with Go alignment 8; [Handle.ExecZ2Z], [Handle.ExecD2Z], and [Handle.ExecZ2D] require device-accessible input and output addresses aligned to 16 bytes, which Go allocations and slice offsets do not guarantee.
 type DoubleComplex struct {
 	X float64
 	Y float64
