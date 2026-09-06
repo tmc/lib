@@ -8,9 +8,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
-// codegenOps are the operators GenerateCUDA dispatches on, plus one it has no
-// kernel for, which exercises the fallback path.
-var codegenOps = []string{"fused_swiglu_gemv", "fused_rmsnorm_gemv", "add", "gemv"}
+// codegenOps are every operator GenerateCUDA has a kernel for. Anything else
+// is an error, which TestUnsupportedOperatorRejected covers.
+var codegenOps = []string{"fused_swiglu_gemv", "fused_rmsnorm_gemv", "add"}
 
 // TestGeneratedKernelsCompile compiles the output of GenerateCUDA for every
 // operator it dispatches on. The generator's own test asserts only that the
@@ -62,6 +62,30 @@ func TestUnsupportedPrecisionRejected(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), prec) {
 				t.Errorf("error %q does not name the precision", err)
+			}
+		})
+	}
+}
+
+// TestUnsupportedOperatorRejected checks that an operator GenerateCUDA has no
+// kernel for is refused.
+//
+// The default branch used to emit a kernel that copied its input to its
+// output. It carried the requested kernel name and a signature unrelated to
+// the operator asked for, and it compiled and ran, so a caller asking for a
+// gemv received a memcpy and no diagnostic. Autotune generates from whatever
+// ExtractBest returns, so it would have benchmarked that copy -- the fastest
+// candidate in any field -- and reported it as the tuned kernel.
+func TestUnsupportedOperatorRejected(t *testing.T) {
+	for _, op := range []string{"gemv", "matmul", "softmax", ""} {
+		t.Run(op, func(t *testing.T) {
+			expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
+			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K"})
+			if err == nil {
+				t.Fatalf("GenerateCUDA(%q) returned source instead of an error:\n%s", op, src)
+			}
+			if !strings.Contains(err.Error(), "no CUDA kernel") {
+				t.Errorf("GenerateCUDA(%q) error = %v, want it to name the missing kernel", op, err)
 			}
 		})
 	}
