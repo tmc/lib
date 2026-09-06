@@ -164,10 +164,13 @@ type hostEventRecord struct {
 	DurationNS  uint64 `json:"duration_ns"`
 }
 
-// gpuEventSpan is one gpuevent span record. Clock is "unix" because the
+// gpuEventSpan is one gpuevent span record. The decoder dispatches on
+// kind and silently drops a record without it, which reads downstream as
+// a workload that emitted no spans at all. Clock is "unix" because the
 // stamps are CLOCK_REALTIME; the bundle's clock_sync record translates
 // them into the capture's CUPTI domain at decode.
 type gpuEventSpan struct {
+	Kind    string            `json:"kind"`
 	Name    string            `json:"name"`
 	StartNS uint64            `json:"start_ns"`
 	EndNS   uint64            `json:"end_ns"`
@@ -223,6 +226,7 @@ func (r *spanRecorder) AppendGPUEvents(path string) error {
 			continue
 		}
 		if err := enc.Encode(gpuEventSpan{
+			Kind:    "span",
 			Name:    s.name,
 			StartNS: s.unixNS,
 			EndNS:   s.unixNS + s.durationN,

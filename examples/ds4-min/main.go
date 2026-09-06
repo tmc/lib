@@ -41,6 +41,9 @@ generation rather than the mmap residency wait.
         write a gputrace.host-event/v1 sidecar for "gputrace host-receipt"
   -span-level string
         span depth: off, phase, token, layer, or op (default "token")
+  -run-id string
+        run identity shared with a gputrace timing sidecar; "gputrace
+        host-receipt" binds the two only when they name the same run
 
 Spans are also appended to $GPUTRACE_APP_EVENTS when that is set, which
 is what "gputrace capture" does, so a captured run carries them with no
@@ -61,6 +64,7 @@ type config struct {
 	traceProfile string
 	spanPath     string
 	spanLevel    spanLevel
+	runID        string
 }
 
 func main() {
@@ -122,7 +126,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	}
 	defer func() { err = errors.Join(err, prof.Stop(), writeSpans(cfg, stderr)) }()
 	if cfg.spanLevel != levelOff {
-		spans = newSpanRecorder(cfg.spanLevel, runID())
+		id := cfg.runID
+		if id == "" {
+			id = defaultRunID()
+		}
+		spans = newSpanRecorder(cfg.spanLevel, id)
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
@@ -208,6 +216,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&cfg.spanPath, "spans", "", "write a gputrace host-event sidecar")
 	var spanLevel string
 	fs.StringVar(&spanLevel, "span-level", "token", "span depth: off, phase, token, layer, or op")
+	fs.StringVar(&cfg.runID, "run-id", "", "run identity shared with a gputrace timing sidecar")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
@@ -253,11 +262,11 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	return cfg, nil
 }
 
-// runID names one run in both gputrace sidecars. The host-event reader
+// defaultRunID names one run in both gputrace sidecars. The host-event reader
 // refuses a file that mixes IDs, and the capture path merges every
 // process of a target tree into one file, so the ID has to distinguish
 // processes as well as runs.
-func runID() string {
+func defaultRunID() string {
 	host, err := os.Hostname()
 	if err != nil {
 		host = "unknown"

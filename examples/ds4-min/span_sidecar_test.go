@@ -108,8 +108,10 @@ func TestGPUEventSidecar(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("decode %q: %v", data, err)
 	}
-	if got.Name != "layer" || got.Clock != "unix" || got.Labels["layer"] != "7" {
-		t.Errorf("span = %+v, want name layer, clock unix, label layer=7", got)
+	// The decoder dispatches on kind; a record without it is dropped and
+	// the capture reports a workload that emitted no spans.
+	if got.Kind != "span" || got.Name != "layer" || got.Clock != "unix" || got.Labels["layer"] != "7" {
+		t.Errorf("span = %+v, want kind span, name layer, clock unix, label layer=7", got)
 	}
 	if got.EndNS <= got.StartNS {
 		t.Errorf("end_ns %d does not follow start_ns %d", got.EndNS, got.StartNS)
