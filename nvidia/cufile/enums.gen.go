@@ -62,6 +62,7 @@ const (
 	IoMaxError                  OpError = 5050
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OpError) String() string {
 	switch e {
 	case Success:
@@ -186,6 +187,7 @@ const (
 	MaxTargetTypes        DriverStatusFlags = 14 // !<Maximum FS supported
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverStatusFlags) String() string {
 	switch e {
 	case LustreSupported:
@@ -230,6 +232,7 @@ const (
 	FallbackIoMode  DriverControlFlags = 4 // !< Fallback io mode. properties.gds_fallback_io
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverControlFlags) String() string {
 	switch e {
 	case UsePollMode:
@@ -255,6 +258,7 @@ const (
 	P2PSupported        FeatureFlags = 4 // !< Support for PCI P2PDMA
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FeatureFlags) String() string {
 	switch e {
 	case DynRoutingSupported:
@@ -282,6 +286,7 @@ const (
 	CufileNvidiaPeermem P2PFlags = 4 // !< Only for IBM Spectrum Scale and WekaFS
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e P2PFlags) String() string {
 	switch e {
 	case CufileP2pdma:
@@ -306,6 +311,7 @@ const (
 	CufileWrite Opcode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Opcode) String() string {
 	switch e {
 	case CufileRead:
@@ -325,6 +331,7 @@ const (
 	HandleTypeUserspaceFs FileHandleType = 3 // Userspace based FS
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FileHandleType) String() string {
 	switch e {
 	case HandleTypeOpaqueFd:
@@ -350,6 +357,7 @@ const (
 	CufileFailed   Status = 0x0000040 // unable to complete
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Status) String() string {
 	switch e {
 	case CufileWaiting:
@@ -377,6 +385,7 @@ const (
 	CufileBatch BatchMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BatchMode) String() string {
 	switch e {
 	case CufileBatch:
@@ -403,6 +412,7 @@ const (
 	CufileParamPropertiesBatchIoTimeoutMs         CUFileSizeTConfigParameter = 11
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CUFileSizeTConfigParameter) String() string {
 	switch e {
 	case CufileParamProfileStats:
@@ -451,6 +461,7 @@ const (
 	CufileParamStreamMemopsBypass          CUFileBoolConfigParameter = 11
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CUFileBoolConfigParameter) String() string {
 	switch e {
 	case CufileParamPropertiesUsePollMode:
@@ -490,6 +501,7 @@ const (
 	CufileParamLogDir         CUFileStringConfigParameter = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CUFileStringConfigParameter) String() string {
 	switch e {
 	case CufileParamLoggingLevel:
@@ -512,6 +524,7 @@ const (
 	CufileParamGpuBounceBufferSlabCount  CUFileArrayConfigParameter = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CUFileArrayConfigParameter) String() string {
 	switch e {
 	case CufileParamPosixPoolSlabSizeKb:
