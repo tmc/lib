@@ -1179,12 +1179,9 @@ func runPinnedRopeAtPosition(t *testing.T, ops *metalPinnedOps, bind func(string
 			// there, which is why the existing sweep never noticed.
 			//
 			// Running it anyway on a compressed layer produces a confident
-			// failure that measures the harness, not the model. The compressed
-			// rotation at a nonzero position stays unmeasured until a
-			// layer-aware helper exists.
-			if layer >= 2 {
-				t.Skip("compressed layer: RopeAttentionOne applies the uncompressed rotation")
-			}
+			// failure that measures the harness, not the model, so a compressed
+			// layer goes through RopeAttentionMixed instead, which does take a
+			// layer and picks the rotation from it.
 			name := func(s string) string { return fmt.Sprintf("blk.%d.%s", layer, s) }
 			oracle := func(stage string) string {
 				return fmt.Sprintf("%s/stage_%s-%d_pos%d.bin", oracleDir, stage, layer, pos)
@@ -1221,7 +1218,25 @@ func runPinnedRopeAtPosition(t *testing.T, ops *metalPinnedOps, bind func(string
 				t.Fatal(err)
 			}
 			compareOracleF32(t, "KVnorm", kvNorm, oracle("KVnorm"))
-			qCur, kvCur, _, err := ops.RopeAttentionOne(qHeads, kvNorm, bind(name("attn_sinks.weight")), uint32(pos))
+			sinks := bind(name("attn_sinks.weight"))
+			var qCur, kvCur []float32
+			if layer < 2 {
+				qCur, kvCur, _, err = ops.RopeAttentionOne(qHeads, kvNorm, sinks, uint32(pos))
+			} else {
+				// The rotation and the FP8 round of the current token do not
+				// read the caches; they only write into them. Empty caches are
+				// therefore enough to reach Qcur and KVcur, and leaving the
+				// compressed cache empty keeps this a rotation measurement
+				// rather than an attention one.
+				a := metalmem.NewArena(ops.dev)
+				defer a.Free()
+				raw := metalmem.AllocIn[float32](a, "raw-kv", (pos+1)*512)
+				comp := metalmem.AllocIn[float32](a, "comp-kv", 512)
+				if e := a.Err(); e != nil {
+					t.Fatal(e)
+				}
+				qCur, kvCur, _, err = ops.RopeAttentionMixed(qHeads, kvNorm, sinks, raw, comp, 0, nil, pos, layer)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
