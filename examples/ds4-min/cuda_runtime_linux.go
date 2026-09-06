@@ -17,7 +17,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-const cudaMathSource = cudaProbeSource + cudaExpertSource + cudaCompressedSource + cudaQ80Source + cudaQ81Source + cudaF16DefaultSource + cudaExpertQ81Source + cudaHCSource
+const cudaMathSource = cudaProbeSource + cudaExpertSource + cudaCompressedSource + cudaQ80Layout + cudaQ80MatvecBody + cudaQ81Source + cudaF16DefaultSource + cudaExpertQ81Source + cudaHCSource
 
 const cudaProbeSource = `
 extern "C" __global__ void ds4_probe(float *p) {
@@ -531,6 +531,7 @@ type cudaFoundation struct {
 	probeOffset      uint64
 	probePtr         driver.DevicePtr
 	matrixMod        driver.Module
+	quantQ80Mod      driver.Module
 	matrixFn         driver.Function
 	quantQ80Fn       driver.Function
 	quantQ81Fn       driver.Function
@@ -1174,7 +1175,6 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		dst  *driver.Function
 	}{
 		{"ds4_q8_0_matvec", &r.matrixFn},
-		{"ds4_quant_q8_0", &r.quantQ80Fn},
 		{"ds4_quant_q8_1", &r.quantQ81Fn},
 		{"ds4_q8_0_matvec_q8_1", &r.q81MatvecFn},
 		{"ds4_q8_0_matvec_quantized", &r.q80QuantizedFn},
@@ -1285,6 +1285,23 @@ func (r *cudaFoundation) Close() error {
 		return nil
 	}
 	var errs []error
+	if r.quantQ80Mod != 0 && r.device != nil {
+		// A foundation may also be closed directly by a qualification harness.
+		// Establish completion before unloading the separately owned quantizer.
+		err := r.device.WithContext(func() error {
+			if err := driver.CtxSynchronize(); err != nil {
+				return fmt.Errorf("cuda: synchronize Q8_0 quantizer: %w", err)
+			}
+			if err := r.quantQ80Mod.Unload(); err != nil {
+				return err
+			}
+			r.quantQ80Mod, r.quantQ80Fn = 0, 0
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("cuda: close Q8_0 quantizer: %w", err)
+		}
+	}
 	if r.matrixMod != 0 && r.device != nil {
 		err := r.device.WithContext(func() error { return r.matrixMod.Unload() })
 		errs = append(errs, err)

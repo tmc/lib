@@ -216,8 +216,11 @@ func (r *cudaRuntime) Close() error {
 		errs = append(errs, r.arena.Free())
 		r.arena = nil
 	}
-	errs = append(errs, r.cudaFoundation.Close())
-	r.cudaFoundation = nil
+	if err := r.cudaFoundation.Close(); err != nil {
+		errs = append(errs, err)
+	} else {
+		r.cudaFoundation = nil
+	}
 	return errors.Join(errs...)
 }
 
