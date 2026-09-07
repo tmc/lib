@@ -17,11 +17,11 @@ import (
 // Calls must be externally synchronized. It borrows the engine and owns model.
 // A failed readback closes model: device history may already have advanced.
 type pjrtModel struct {
-	model       *llama.Model
-	vocab       int
-	capacity    int
-	weightBytes int
-	logits      []float32
+	model        *llama.Model
+	vocab        int
+	capacity     int
+	weightReport WeightReport
+	logits       []float32
 }
 
 func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights, ropeTheta float64, element xla.ElementType) (*pjrtModel, error) {
@@ -75,7 +75,7 @@ func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, wei
 	if err != nil {
 		return nil, err
 	}
-	return &pjrtModel{model: model, vocab: cfg.VocabSize, capacity: cfg.MaxSeqLen, weightBytes: weightBytes}, nil
+	return &pjrtModel{model: model, vocab: cfg.VocabSize, capacity: cfg.MaxSeqLen, weightReport: WeightReport{DType: pjrtDType(element), Storage: "F32", PerElem: 4, Bytes: weightBytes}}, nil
 }
 
 // forward appends a chunk at its exact expected position and returns the last
@@ -165,4 +165,16 @@ func pjrtDecoderConfig(cfg *ModelConfig, ropeTheta float64, element xla.ElementT
 		NormEpsilon: cfg.RmsNormEps, RopeTheta: ropeTheta,
 	}
 	return c, nil
+}
+
+func pjrtDType(element xla.ElementType) string {
+	switch element {
+	case xla.F32:
+		return "F32"
+	case xla.F16:
+		return "F16"
+	case xla.BF16:
+		return "BF16"
+	}
+	return ""
 }

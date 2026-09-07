@@ -22,7 +22,7 @@ func (p *pjrtCheckpoint) newModel(ctx context.Context, engine *xla.Engine) (*pjr
 		return nil, fmt.Errorf("pjrt: layer count does not match weights")
 	}
 	var firstErr error
-	weightBytes := 0
+	report := WeightReport{DType: pjrtDType(p.element)}
 	encode := func(t *RetainedTensor) llama.EncodedTensor {
 		if t == nil {
 			return llama.EncodedTensor{}
@@ -40,12 +40,23 @@ func (p *pjrtCheckpoint) newModel(ctx context.Context, engine *xla.Engine) (*pjr
 				firstErr = fmt.Errorf("pjrt: unsupported weight dtype %q", t.DType)
 			}
 		}
-		if len(t.Raw) > math.MaxInt-weightBytes {
+		if len(t.Raw) > math.MaxInt-report.Bytes {
 			if firstErr == nil {
 				firstErr = fmt.Errorf("pjrt: parameter byte count overflows")
 			}
 		} else {
-			weightBytes += len(t.Raw)
+			report.Bytes += len(t.Raw)
+		}
+		storage := pjrtDType(element)
+		if report.Storage == "" {
+			report.Storage = storage
+			report.PerElem = 2
+			if element == xla.F32 {
+				report.PerElem = 4
+			}
+		} else if report.Storage != storage {
+			report.Storage = "mixed"
+			report.PerElem = 0
 		}
 		return llama.EncodedTensor{ElementType: element, Data: t.Raw}
 	}
@@ -70,5 +81,5 @@ func (p *pjrtCheckpoint) newModel(ctx context.Context, engine *xla.Engine) (*pjr
 	if err != nil {
 		return nil, err
 	}
-	return &pjrtModel{model: model, vocab: p.config.VocabSize, capacity: p.config.MaxSeqLen, weightBytes: weightBytes}, nil
+	return &pjrtModel{model: model, vocab: p.config.VocabSize, capacity: p.config.MaxSeqLen, weightReport: report}, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"math"
 	"os"
 	"testing"
@@ -51,6 +52,7 @@ func TestNativePJRTEncodedModel(t *testing.T) {
 	}{
 		{"bf16", "BF16", xla.BF16, 0.08}, {"f16", "F16", xla.F16, 0.01},
 		{"bf16 from f16", "F16", xla.BF16, 0.08}, {"f16 from f32", "F32", xla.F16, 0.01},
+		{"mixed", "BF16", xla.F16, 0.08},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir, _ := writeRetainedTestCheckpoint(t, tt.source)
@@ -61,6 +63,23 @@ func TestNativePJRTEncodedModel(t *testing.T) {
 			if p.retained == nil || p.weights != nil {
 				t.Fatal("checkpoint widened before upload")
 			}
+			storage, perElem := tt.source, 2
+			if tt.source == "F32" {
+				perElem = 4
+			}
+			if tt.name == "mixed" {
+				norm := p.retained.Norm
+				values := norm.DecodeFloat32()
+				raw := make([]byte, 4*len(values))
+				for i, v := range values {
+					binary.LittleEndian.PutUint32(raw[4*i:], math.Float32bits(v))
+				}
+				p.retained.Norm, err = NewRetainedTensor(raw, "F32", norm.Shape)
+				if err != nil {
+					t.Fatal(err)
+				}
+				storage, perElem = "mixed", 0
+			}
 			model, err := p.newModel(context.Background(), engine)
 			if err != nil {
 				t.Fatal(err)
@@ -70,8 +89,11 @@ func TestNativePJRTEncodedModel(t *testing.T) {
 					t.Error(err)
 				}
 			}()
-			if model.weightBytes != p.retained.PayloadBytes() {
-				t.Fatalf("uploaded bytes %d, want %d", model.weightBytes, p.retained.PayloadBytes())
+			if model.weightReport.Bytes != p.retained.PayloadBytes() {
+				t.Fatalf("uploaded bytes %d, want %d", model.weightReport.Bytes, p.retained.PayloadBytes())
+			}
+			if got := model.weightReport; got.DType != pjrtDType(tt.element) || got.Storage != storage || got.PerElem != perElem {
+				t.Fatalf("weight report %v, want execution %s storage %s per-element %d", got, pjrtDType(tt.element), storage, perElem)
 			}
 			// Widen only the independent test reference, after production model creation.
 			w := p.retained.Float32()

@@ -149,14 +149,14 @@ func (eng *ModelEngine) FlightRecorder() *metalprof.FlightRecorder {
 }
 
 func (eng *ModelEngine) IsF16() bool {
-	return false
+	return eng.WeightReport().DType == "F16"
 }
 
 func (eng *ModelEngine) WeightReport() WeightReport {
 	if eng == nil || eng.decoder == nil || eng.decoder.model == nil {
 		return WeightReport{}
 	}
-	return WeightReport{DType: "F32", Storage: "F32", PerElem: 4, Bytes: eng.decoder.weightBytes}
+	return eng.decoder.weightReport
 }
 
 func (eng *ModelEngine) ReadLogits() ([]float32, error) {

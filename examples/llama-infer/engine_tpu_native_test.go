@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tmc/lib/x/xla"
 	"os"
 	"path/filepath"
 	"slices"
@@ -181,5 +182,57 @@ func TestNativeTPUCheckpointTextWithCPU(t *testing.T) {
 	calls := 0
 	if err := eng.Generate(context.Background(), cfg, "hi", 3, func(int32, string) bool { calls++; return true }); err != nil || calls != 1 {
 		t.Fatalf("EOS calls %d: %v", calls, err)
+	}
+}
+
+func TestNativeTPUWeightReport(t *testing.T) {
+	path := os.Getenv("XLA_PJRT_CPU_PLUGIN")
+	if path == "" {
+		t.Skip("set XLA_PJRT_CPU_PLUGIN")
+	}
+	engine, err := xla.NewEngine(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	for _, tt := range []struct {
+		precision string
+		element   xla.ElementType
+		storage   string
+		perElem   int
+	}{
+		{"F32", xla.F32, "F32", 4},
+		{"F16", xla.F16, "BF16", 2},
+		{"BF16", xla.BF16, "BF16", 2},
+	} {
+		t.Run(tt.precision, func(t *testing.T) {
+			dir, _ := writeRetainedTestCheckpoint(t, "BF16")
+			p, err := loadPJRTCheckpoint(dir, 6, tt.element)
+			if err != nil {
+				t.Fatal(err)
+			}
+			model, err := p.newModel(context.Background(), engine)
+			if err != nil {
+				t.Fatal(err)
+			}
+			eng := &ModelEngine{decoder: model}
+			report := eng.WeightReport()
+			if report.DType != tt.precision || report.Storage != tt.storage || report.PerElem != tt.perElem || report.Bytes <= 0 {
+				t.Fatalf("incorrect report: %v", report)
+			}
+			if eng.IsF16() != (tt.element == xla.F16) {
+				t.Fatal("incorrect F16 flag")
+			}
+			if err := model.close(); err != nil {
+				t.Fatal(err)
+			}
+			if eng.WeightReport().DType != "" || eng.IsF16() {
+				t.Fatal("closed model reports active precision")
+			}
+		})
+	}
+	var eng *ModelEngine
+	if eng.WeightReport().DType != "" || eng.IsF16() {
+		t.Fatal("nil model reports active precision")
 	}
 }
