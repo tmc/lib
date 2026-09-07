@@ -173,6 +173,18 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 
 
 // classifyTPULoadError distinguishes genuinely absent library files from corruption or dependency failures.
+
+// validateOutputCardinality validates that execution produced exactly 1 device output list with 1 buffer.
+func validateOutputCardinality(outputs [][]*openxla.BufferWrapper) error {
+	if len(outputs) != 1 {
+		return fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(outputs))
+	}
+	if len(outputs[0]) != 1 {
+		return fmt.Errorf("unexpected per-device output cardinality: got %d outputs on device 0, want 1", len(outputs[0]))
+	}
+	return nil
+}
+
 func classifyTPULoadError(err error) error {
 	if err == nil {
 		return nil
@@ -181,14 +193,23 @@ func classifyTPULoadError(err error) error {
 		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
 	}
 	msg := strings.ToLower(err.Error())
-	// Genuine absent library file patterns from dlopen/OS
-	if strings.Contains(msg, "no such file or directory") ||
-		strings.Contains(msg, "image not found") ||
-		strings.Contains(msg, "file not found") ||
-		strings.Contains(msg, "cannot open shared object file: no such file") {
+
+	// If the failure mentions a secondary dependency library (e.g. libcuda, libdependency, etc.)
+	// or mentions "library not loaded", this is a dependency resolution failure of an existing binary,
+	// NOT an absent libtpu plugin!
+	if strings.Contains(msg, "library not loaded") ||
+		strings.Contains(msg, "referenced from:") ||
+		strings.Contains(msg, "reason: tried:") ||
+		(strings.Contains(msg, "cannot open shared object file") && !strings.Contains(msg, "libtpu.so")) {
+		return err
+	}
+
+	// Only genuine absent libtpu target errors
+	if (strings.Contains(msg, "image not found") && strings.Contains(msg, "libtpu")) ||
+		(strings.Contains(msg, "no such file or directory") && strings.Contains(msg, "libtpu")) ||
+		(strings.Contains(msg, "cannot open shared object file") && strings.Contains(msg, "libtpu.so")) {
 		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
 	}
-	// Any dependency error, bad ELF header, permission error, corrupt binary, etc., must NOT be classified as absent!
 	return err
 }
 
@@ -260,7 +281,7 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 	}, nil
 }
 
-func (eng *ModelEngine) ForwardPassMockTPU() error {
+func (eng *ModelEngine) ForwardPassMockTPU() (err error) {
     if eng == nil || eng.client == nil || eng.exec == nil {
         return errors.New("tpu engine not initialized")
     }
@@ -327,9 +348,15 @@ func (eng *ModelEngine) ForwardPassMockTPU() error {
     }()
 
     // Execute
-    outputs, err := eng.exec.Execute([][]*openxla.BufferWrapper{{b1, b2}})
-    if err != nil {
-        return errors.Join(fmt.Errorf("execute: %w", err), errors.Join(cleanupErrs...))
+    defer func() {
+        if len(cleanupErrs) > 0 {
+            err = errors.Join(err, errors.Join(cleanupErrs...))
+        }
+    }()
+
+    outputs, execErr := eng.exec.Execute([][]*openxla.BufferWrapper{{b1, b2}})
+    if execErr != nil {
+        return fmt.Errorf("execute: %w", execErr)
     }
     // Arrange cleanup for ALL returned buffers upfront before cardinality check to prevent leaks
     defer func() {
@@ -344,21 +371,17 @@ func (eng *ModelEngine) ForwardPassMockTPU() error {
         }
     }()
 
-    if len(outputs) != 1 {
-        return fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(outputs))
-    }
-    if len(outputs[0]) != 1 {
-        return fmt.Errorf("unexpected per-device output cardinality: got %d outputs on device 0, want 1", len(outputs[0]))
+    if cardErr := validateOutputCardinality(outputs); cardErr != nil {
+        return cardErr
     }
 
     outBuffer := outputs[0][0]
     outHost := make([]float32, 6)
-    if err := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); err != nil {
-        return fmt.Errorf("toHost: %w", err)
+    if toHostErr := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); toHostErr != nil {
+        return fmt.Errorf("toHost: %w", toHostErr)
     }
 
-    chkErr := checkMatmulOutput(outHost, expectedC)
-    return errors.Join(chkErr, errors.Join(cleanupErrs...))
+    return checkMatmulOutput(outHost, expectedC)
 }
 
 
@@ -432,25 +455,24 @@ func (eng *ModelEngine) Free() error {
 }
 
 // RunTPUSmokeTest executes a standalone matmul smoke test on the TPU device.
-func RunTPUSmokeTest(cfg Config) error {
-	eng, err := GetOrCompileTPUEngine(cfg)
-	if err != nil {
-		return fmt.Errorf("tpu initialization: %w", err)
+func RunTPUSmokeTest(cfg Config) (err error) {
+	eng, initErr := GetOrCompileTPUEngine(cfg)
+	if initErr != nil {
+		return fmt.Errorf("tpu initialization: %w", initErr)
 	}
-	var fErr error
 	defer func() {
-		if err := eng.Free(); err != nil {
-			fErr = fmt.Errorf("engine cleanup: %w", err)
+		if freeErr := eng.Free(); freeErr != nil {
+			err = errors.Join(err, fmt.Errorf("engine cleanup: %w", freeErr))
 		}
 	}()
 
 	fmt.Println("=== TPU Backend initialized ===")
 	fmt.Println("Running TPU forward pass test...")
-	if err := eng.ForwardPassMockTPU(); err != nil {
-		return errors.Join(fmt.Errorf("TPU forward pass execution failed: %w", err), fErr)
+	if fwdErr := eng.ForwardPassMockTPU(); fwdErr != nil {
+		return fmt.Errorf("TPU forward pass execution failed: %w", fwdErr)
 	}
 	fmt.Println("TPU forward pass executed successfully!")
-	return fErr
+	return nil
 }
 
 // Generate reports unsupported until full LLaMA inference is implemented on TPU.

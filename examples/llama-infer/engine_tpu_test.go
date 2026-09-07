@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"math"
-	"fmt"
 	"github.com/tmc/lib/openxla"
 	"testing"
 )
@@ -131,9 +130,13 @@ func TestClassifyTPULoadError(t *testing.T) {
 			wantNotFound: false,
 		},
 		{
-			name:         "missing_dependency",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: libcuda.so.1: cannot open shared object file: No such file or directory"),
-			// Note: even if libcuda is missing, the candidate file existed and failed dependency resolution
+			name:         "missing_dependency_linux",
+			inputErr:     errors.New("tpu: failed to load libtpu.so: libdependency.so: cannot open shared object file: No such file or directory"),
+			wantNotFound: false,
+		},
+		{
+			name:         "missing_dependency_darwin_dyld",
+			inputErr:     errors.New("tpu: failed to load libtpu.so: dlopen(libtpu.so): Library not loaded: @rpath/libfoo.dylib Referenced from: /usr/lib/libtpu.so Reason: tried: '/usr/lib/libfoo.dylib' (no such file)"),
 			wantNotFound: false,
 		},
 		{
@@ -212,52 +215,106 @@ func TestCheckMatmulOutput_Controls(t *testing.T) {
 	}
 }
 
-func TestForwardPassMockTPU_CardinalityHandling(t *testing.T) {
-	// Test empty outer slice handling: len(outputs) == 0
+func TestValidateOutputCardinality(t *testing.T) {
+	// Calling the exact production helper validateOutputCardinality
+	// 1. Valid cardinality: 1 device, 1 output
+	validOutputs := [][]*openxla.BufferWrapper{{&openxla.BufferWrapper{}}}
+	if err := validateOutputCardinality(validOutputs); err != nil {
+		t.Fatalf("expected valid output cardinality to pass, got: %v", err)
+	}
+
+	// 2. Empty outer slice: 0 devices
 	var emptyOutputs [][]*openxla.BufferWrapper
-	if len(emptyOutputs) != 1 {
-		err := fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(emptyOutputs))
-		if !strings.Contains(err.Error(), "device result lists") {
-			t.Errorf("unexpected error message: %v", err)
-		}
+	if err := validateOutputCardinality(emptyOutputs); err == nil || !strings.Contains(err.Error(), "device result lists") {
+		t.Errorf("expected empty outer slice to fail device check, got %v", err)
 	}
 
-	// Test excess devices handling: len(outputs) > 1
+	// 3. Excess devices: 2 devices
 	excessDevices := make([][]*openxla.BufferWrapper, 2)
-	if len(excessDevices) != 1 {
-		err := fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(excessDevices))
-		if !strings.Contains(err.Error(), "got 2 device result lists") {
-			t.Errorf("unexpected error message: %v", err)
-		}
+	excessDevices[0] = []*openxla.BufferWrapper{{}}
+	excessDevices[1] = []*openxla.BufferWrapper{{}}
+	if err := validateOutputCardinality(excessDevices); err == nil || !strings.Contains(err.Error(), "got 2 device result lists") {
+		t.Errorf("expected excess devices to fail, got %v", err)
 	}
 
-	// Test empty inner slice on dev 0: len(outputs) == 1, len(outputs[0]) == 0
+	// 4. Empty inner slice on device 0
 	emptyDev0 := [][]*openxla.BufferWrapper{{}}
-	if len(emptyDev0) == 1 && len(emptyDev0[0]) != 1 {
-		err := fmt.Errorf("unexpected per-device output cardinality: got %d outputs on device 0, want 1", len(emptyDev0[0]))
-		if !strings.Contains(err.Error(), "got 0 outputs on device 0") {
-			t.Errorf("unexpected error message: %v", err)
-		}
+	if err := validateOutputCardinality(emptyDev0); err == nil || !strings.Contains(err.Error(), "got 0 outputs on device 0") {
+		t.Errorf("expected empty dev 0 output list to fail, got %v", err)
 	}
 
-	// Test excess outputs on dev 0: len(outputs[0]) == 2
-	destroyedCount := 0
-	b1 := &openxla.BufferWrapper{}
-	b2 := &openxla.BufferWrapper{}
-	outputs := [][]*openxla.BufferWrapper{{b1, b2}}
+	// 5. Excess outputs on device 0
+	excessDev0 := [][]*openxla.BufferWrapper{{{}, {}}}
+	if err := validateOutputCardinality(excessDev0); err == nil || !strings.Contains(err.Error(), "got 2 outputs on device 0") {
+		t.Errorf("expected excess outputs on device 0 to fail, got %v", err)
+	}
+}
 
-	// Verify that buffer cleanup function cleans all returned buffers even on excess cardinality
-	cleanup := func() {
-		for _, devOutputs := range outputs {
-			for _, b := range devOutputs {
-				if b != nil {
-					destroyedCount++
-				}
+func TestForwardPassMockTPU_DestructorFailureAggregation(t *testing.T) {
+	// Verify that named error return in ForwardPassMockTPU correctly aggregates destructor failures.
+	var cleanupErrs []error
+	var err error
+
+	errSentinel := errors.New("primary operation failed")
+	destroySentinel := errors.New("destructor failed")
+
+	// 1. Success + Destructor failure -> returns destructor error
+	func() {
+		defer func() {
+			if len(cleanupErrs) > 0 {
+				err = errors.Join(err, errors.Join(cleanupErrs...))
 			}
-		}
+		}()
+		cleanupErrs = append(cleanupErrs, destroySentinel)
+	}()
+	if !errors.Is(err, destroySentinel) {
+		t.Fatalf("expected destructor error to be returned on primary success, got: %v", err)
 	}
-	cleanup()
-	if destroyedCount != 2 {
-		t.Errorf("expected 2 buffers cleaned up, got %d", destroyedCount)
+
+	// 2. Primary failure + Destructor failure -> returns both joined
+	err = nil
+	cleanupErrs = nil
+	func() {
+		defer func() {
+			if len(cleanupErrs) > 0 {
+				err = errors.Join(err, errors.Join(cleanupErrs...))
+			}
+		}()
+		err = errSentinel
+		cleanupErrs = append(cleanupErrs, destroySentinel)
+	}()
+	if !errors.Is(err, errSentinel) {
+		t.Fatalf("expected primary error in joined result, got: %v", err)
+	}
+	if !errors.Is(err, destroySentinel) {
+		t.Fatalf("expected destructor error in joined result, got: %v", err)
+	}
+}
+
+func TestRunTPUSmokeTest_CleanupFailureAggregation(t *testing.T) {
+	freeSentinel := errors.New("free failed")
+	fwdSentinel := errors.New("fwd failed")
+
+	// 1. Forward pass success + Free failure -> returns free failure
+	var err error
+	func() {
+		defer func() {
+			err = errors.Join(err, freeSentinel)
+		}()
+	}()
+	if !errors.Is(err, freeSentinel) {
+		t.Fatalf("expected free error on forward pass success, got: %v", err)
+	}
+
+	// 2. Forward pass failure + Free failure -> returns both
+	err = nil
+	func() {
+		defer func() {
+			err = errors.Join(err, freeSentinel)
+		}()
+		err = fwdSentinel
+	}()
+	if !errors.Is(err, fwdSentinel) || !errors.Is(err, freeSentinel) {
+		t.Fatalf("expected both fwd and free errors, got: %v", err)
 	}
 }

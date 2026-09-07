@@ -385,3 +385,78 @@ func TestNewClientFromApi_ErrorDestroyMissingRejectionPrecedesInit(t *testing.T)
 		t.Fatalf("Plugin_Initialize was called before required error cleanup capability validation!")
 	}
 }
+
+func TestClientWrapper_Destroy_FailurePropagation(t *testing.T) {
+	api := &Api{
+		StructSize: 1000,
+	}
+	mockErr := &Error{}
+	api.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *Error {
+		return mockErr
+	})
+	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
+	api.Error_Message = purego.NewCallback(func(args *Error_Message_Args) {
+		msg := "client destroy failed in test"
+		args.Message = &([]byte(msg))[0]
+		args.Message_size = uintptr(len(msg))
+	})
+
+	client := &ClientWrapper{api: api, client: &Client{}}
+	err := client.Destroy()
+	if err == nil {
+		t.Fatal("expected error from failed Client_Destroy, got nil")
+	}
+	if !strings.Contains(err.Error(), "client destroy failed in test") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestExecutableWrapper_Destroy_FailurePropagation(t *testing.T) {
+	api := &Api{
+		StructSize: 1000,
+	}
+	mockErr := &Error{}
+	api.LoadedExecutable_Destroy = purego.NewCallback(func(args *LoadedExecutable_Destroy_Args) *Error {
+		return mockErr
+	})
+	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
+	api.Error_Message = purego.NewCallback(func(args *Error_Message_Args) {
+		msg := "executable destroy failed in test"
+		args.Message = &([]byte(msg))[0]
+		args.Message_size = uintptr(len(msg))
+	})
+
+	exec := &ExecutableWrapper{api: api, executable: &LoadedExecutable{}}
+	err := exec.Destroy()
+	if err == nil {
+		t.Fatal("expected error from failed LoadedExecutable_Destroy, got nil")
+	}
+	if !strings.Contains(err.Error(), "executable destroy failed in test") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestBufferWrapper_Destroy_FailurePropagation(t *testing.T) {
+	api := &Api{
+		StructSize: 1000,
+	}
+	mockErr := &Error{}
+	api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *Error {
+		return mockErr
+	})
+	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
+	api.Error_Message = purego.NewCallback(func(args *Error_Message_Args) {
+		msg := "buffer destroy failed in test"
+		args.Message = &([]byte(msg))[0]
+		args.Message_size = uintptr(len(msg))
+	})
+
+	buf := &BufferWrapper{api: api, buffer: &Buffer{}}
+	err := buf.Destroy()
+	if err == nil {
+		t.Fatal("expected error from failed Buffer_Destroy, got nil")
+	}
+	if !strings.Contains(err.Error(), "buffer destroy failed in test") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
