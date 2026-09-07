@@ -99,27 +99,46 @@ func (c *Cache) program(chunk int64) (*xla.Executable, error) {
 }
 
 func (c *Cache) appendGraph(chunk int64) (*builder.FuncBuilder, error) {
-	b := builder.NewFunc("main", c.tensor(c.config.Capacity, c.config.KeySize), c.tensor(c.config.Capacity, c.config.ValueSize), c.queryTensor(chunk), c.tensor(chunk, c.config.KeySize), c.tensor(chunk, c.config.ValueSize), builder.Type{ElementType: "i64"})
-	zero, err := b.IntegerConstant(0, builder.Type{ElementType: "i64"})
+	rows := batchSize(c.config.BatchShape) * max(c.config.KVHeads, 1)
+	meta := builder.Type{Shape: slices.Clone(c.config.BatchShape), ElementType: "i64"}
+	indexType := builder.Type{Shape: []int64{rows * chunk}, ElementType: "i64"}
+	b := builder.NewFunc("main", c.tensor(c.config.Capacity, c.config.KeySize), c.tensor(c.config.Capacity, c.config.ValueSize), c.queryTensor(chunk), c.tensor(chunk, c.config.KeySize), c.tensor(chunk, c.config.ValueSize), meta, meta, indexType)
+	update := func(operand, values builder.Value) (builder.Value, error) {
+		original := operand.Type
+		features := original.Shape[len(original.Shape)-1]
+		flat := builder.Type{Shape: []int64{rows * c.config.Capacity, features}, ElementType: original.ElementType}
+		operand, err := b.Reshape(operand, flat)
+		if err != nil {
+			return builder.Value{}, err
+		}
+		values, err = b.Reshape(values, builder.Type{Shape: []int64{rows * chunk, features}, ElementType: original.ElementType})
+		if err != nil {
+			return builder.Value{}, err
+		}
+		result, err := b.ScatterRows(operand, b.Arg(7), values)
+		if err != nil {
+			return builder.Value{}, err
+		}
+		return b.Reshape(result, original)
+	}
+	k, err := update(b.Arg(0), b.Arg(3))
 	if err != nil {
 		return nil, err
 	}
-	starts := make([]builder.Value, len(b.Arg(0).Type.Shape))
-	for i := range starts {
-		starts[i] = zero
-	}
-	starts[len(starts)-2] = b.Arg(5)
-	k, err := b.DynamicUpdateSlice(b.Arg(0), b.Arg(3), starts)
+	v, err := update(b.Arg(1), b.Arg(4))
 	if err != nil {
 		return nil, err
 	}
-	v, err := b.DynamicUpdateSlice(b.Arg(1), b.Arg(4), starts)
+	mask, err := b.BatchedCausalMask(chunk, c.config.Capacity, b.Arg(5), b.Arg(6))
 	if err != nil {
 		return nil, err
 	}
-	mask, err := b.CausalMaskAt(chunk, c.config.Capacity, b.Arg(5))
-	if err != nil {
-		return nil, err
+	if c.config.QueryHeads > 0 {
+		shape := append(slices.Clone(c.config.BatchShape), 1, chunk, c.config.Capacity)
+		mask, err = b.Reshape(mask, builder.Type{Shape: shape, ElementType: "i1"})
+		if err != nil {
+			return nil, err
+		}
 	}
 	var out builder.Value
 	if c.config.QueryHeads > 0 {

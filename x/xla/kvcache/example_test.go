@@ -83,3 +83,16 @@ func ExampleConfig() {
 	fmt.Println(cfg.QueryHeads/cfg.KVHeads, "query heads per KV head")
 	// Output: 4 query heads per KV head
 }
+
+func ExampleCache_Lengths() {
+	var cache kvcache.Cache
+	fmt.Println(cache.Lengths())
+	// Output: []
+}
+
+func ExampleCache_AppendBatch() {
+	var cache kvcache.Cache
+	_, err := cache.AppendBatch(context.Background(), nil, nil, nil, []int64{1, 0})
+	fmt.Println(err)
+	// Output: kvcache: cache is closed
+}

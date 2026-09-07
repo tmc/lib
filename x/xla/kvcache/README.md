@@ -3,7 +3,11 @@
 `kvcache.New` initializes fixed-capacity key/value history on the engine's
 default compilation device. Use `Cache.Device` when uploading inputs. `Append`
 accepts device Q/K/V tensors and returns causal attention for the appended
-chunk. Batch members share a common length. Supported elements are f32, f16,
+chunk. AppendBatch accepts padded chunks with one valid count per batch member,
+flattened in row-major order. Counts may be zero, including for a full cache.
+Only valid K/V rows update history, and padded query rows return zero for finite
+inputs. Lengths returns independent lengths; Len returns their maximum.
+Supported elements are f32, f16,
 and bf16; reduced-precision attention computes in f32.
 
 Set QueryHeads and KVHeads for grouped-query attention. QueryHeads must be a
@@ -15,23 +19,27 @@ both counts to zero retains unheaded inputs.
 
 History remains on the device. Updates produce replacement device buffers;
 this API does not promise in-place mutation or buffer donation. Each append
-uploads an eight-byte position scalar. The cache retains a decode executable
+uploads per-batch lengths and counts plus a row index per KV head and padded
+token. Scatter drops padded rows, so a padded chunk can exceed a member's
+remaining capacity when its valid count still fits. Chunk width is at most
+Capacity. The cache retains a decode executable
 and at most one prefill executable, keyed by chunk length. Different prefill
-lengths replace that second executable. `Reset` resets logical length and keeps
+lengths replace that second executable. `Reset` resets all logical lengths and keeps
 the buffers and executables; masking excludes the stale suffix.
 
 Close returned outputs and the cache before closing the borrowed engine.
 Inputs remain caller-owned. Synchronize all calls externally. Validation,
 compilation and execution errors preserve logical history. Failure to release
-replaced history, the position buffer or an evicted program closes the cache.
+replaced history, runtime metadata or an evicted program closes the cache.
 Native destruction failures can still leave resources allocated by the plugin.
 
-There is no eviction, per-batch variable-length state, sharded cache, or
-hardware-specific donation optimization. Full capacity
+There is no eviction, sharded cache, or
+hardware-specific donation optimization. A count exceeding remaining capacity
 returns an error before dispatch. Multi-device clients are accepted, but one
 cache and its inputs reside on the device selected for its initialization.
 
 Run host tests with `go test ./...`. Set `XLA_PJRT_CPU_PLUGIN` to an installed
 CPU plugin to run native tests, including f32/f16/bf16 full-prefix references,
 grouped/multi-query head mapping, history shapes, chunked prefill, decode reuse,
+uneven batch lengths, padded updates near capacity, inactive/full caches,
 cancellation, reset, and capacity rejection.
