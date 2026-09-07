@@ -22,10 +22,10 @@ func (b *FuncBuilder) Softmax(v Value, dimension int64) (result Value, err error
 			b.Ops, b.nextID = b.Ops[:nops], next
 		}
 	}()
-	return b.softmax(v, dimension)
+	return b.softmax(v, dimension, nil)
 }
 
-func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
+func (b *FuncBuilder) softmax(v Value, dimension int64, mask *Value) (Value, error) {
 	scalar := Type{ElementType: v.Type.ElementType}
 	var shape, mapping []int64
 	for i, n := range v.Type.Shape {
@@ -38,6 +38,13 @@ func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
 	initial, err := b.Constant(float32(math.Inf(-1)), scalar)
 	if err != nil {
 		return Value{}, err
+	}
+	if mask != nil {
+		fill, err := b.BroadcastInDim(initial, nil, v.Type)
+		if err != nil {
+			return Value{}, err
+		}
+		v = b.selectValue(*mask, v, fill)
 	}
 	maximum, err := b.Reduce(v, initial, []int64{dimension}, reduced, "maximum")
 	if err != nil {
@@ -59,6 +66,13 @@ func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	if mask != nil {
+		zeros, err := b.BroadcastInDim(zero, nil, v.Type)
+		if err != nil {
+			return Value{}, err
+		}
+		exp = b.selectValue(*mask, exp, zeros)
+	}
 	sum, err := b.Reduce(exp, zero, []int64{dimension}, reduced, "add")
 	if err != nil {
 		return Value{}, err
@@ -66,6 +80,19 @@ func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
 	sum, err = b.BroadcastInDim(sum, mapping, v.Type)
 	if err != nil {
 		return Value{}, err
+	}
+	if mask != nil {
+		zeros, err := b.Constant(0, v.Type)
+		if err != nil {
+			return Value{}, err
+		}
+		ones, err := b.Constant(1, v.Type)
+		if err != nil {
+			return Value{}, err
+		}
+		// A fully masked row has zero exponential sum. Divide by one to
+		// preserve its zero probabilities instead of producing NaNs.
+		sum = b.selectValue(b.compare(sum, zeros, "EQ", "FLOAT"), ones, sum)
 	}
 	return b.Divide(exp, sum)
 }
@@ -76,7 +103,11 @@ func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
 // length. Reduced-precision inputs are converted to f32 for all arithmetic;
 // the result is converted back to the input element type. It applies no mask
 // or dropout. An error leaves the builder unchanged.
-func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (result Value, err error) {
+func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (Value, error) {
+	return b.scaledAttention(q, k, v, nil)
+}
+
+func (b *FuncBuilder) scaledAttention(q, k, v Value, mask *Value) (result Value, err error) {
 	if err := sameElements(q.Type, k.Type, v.Type); err != nil {
 		return Value{}, fmt.Errorf("attention: %w", err)
 	}
@@ -103,20 +134,29 @@ func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (result Value, er
 			b.Ops, b.nextID = b.Ops[:nops], next
 		}
 	}()
+	if mask != nil {
+		shape := slices.Clone(q.Type.Shape)
+		shape[rank-1] = k.Type.Shape[rank-2]
+		expanded, err := b.broadcastMask(*mask, shape)
+		if err != nil {
+			return Value{}, err
+		}
+		mask = &expanded
+	}
 	element := q.Type.ElementType
 	if element != "f32" {
 		q = b.convert(q, "f32")
 		k = b.convert(k, "f32")
 		v = b.convert(v, "f32")
 	}
-	result, err = b.attention(q, k, v)
+	result, err = b.attention(q, k, v, mask)
 	if err == nil && element != "f32" {
 		result = b.convert(result, element)
 	}
 	return result, err
 }
 
-func (b *FuncBuilder) attention(q, k, v Value) (Value, error) {
+func (b *FuncBuilder) attention(q, k, v Value, mask *Value) (Value, error) {
 	rank := len(q.Type.Shape)
 	batch := make([]int64, rank-2)
 	for i := range batch {
@@ -136,7 +176,7 @@ func (b *FuncBuilder) attention(q, k, v Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	probabilities, err := b.Softmax(scores, int64(rank-1))
+	probabilities, err := b.softmax(scores, int64(rank-1), mask)
 	if err != nil {
 		return Value{}, err
 	}

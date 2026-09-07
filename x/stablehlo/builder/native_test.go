@@ -32,7 +32,7 @@ func TestNativeCPU(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	for _, name := range []string{"matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16"} {
+	for _, name := range []string{"matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16"} {
 		var b *builder.FuncBuilder
 		var out builder.Value
 		var err error
@@ -50,13 +50,35 @@ func TestNativeCPU(t *testing.T) {
 		case "softmax":
 			b = builder.NewFunc("main", typ(2, 3))
 			out, err = b.Softmax(b.Arg(0), 1)
-		case "attention", "attention_f16", "attention_bf16":
-			if name != "attention" {
-				element := strings.TrimPrefix(name, "attention_")
+		case "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16":
+			if strings.HasSuffix(name, "_f16") || strings.HasSuffix(name, "_bf16") {
+				element := name[strings.LastIndex(name, "_")+1:]
 				typ = func(dims ...int64) builder.Type { return builder.Type{Shape: dims, ElementType: element} }
 			}
 			b = builder.NewFunc("main", typ(2, 3, 4), typ(2, 5, 4), typ(2, 5, 6))
-			out, err = b.ScaledDotProductAttention(b.Arg(0), b.Arg(1), b.Arg(2))
+			if strings.Contains(name, "masked") {
+				b = builder.NewFunc("main", typ(2, 3, 4), typ(2, 5, 4), typ(2, 5, 6), builder.Type{Shape: []int64{2, 1, 5}, ElementType: "i1"})
+				mask, maskErr := b.CausalMask(3, 5, 0)
+				if maskErr != nil {
+					t.Fatal(maskErr)
+				}
+				full := builder.Type{Shape: []int64{2, 3, 5}, ElementType: "i1"}
+				mask, maskErr = b.BroadcastInDim(mask, []int64{1, 2}, full)
+				if maskErr != nil {
+					t.Fatal(maskErr)
+				}
+				padding, maskErr := b.BroadcastInDim(b.Arg(3), []int64{0, 1, 2}, full)
+				if maskErr != nil {
+					t.Fatal(maskErr)
+				}
+				mask, maskErr = b.And(mask, padding)
+				if maskErr != nil {
+					t.Fatal(maskErr)
+				}
+				out, err = b.MaskedScaledDotProductAttention(b.Arg(0), b.Arg(1), b.Arg(2), mask)
+			} else {
+				out, err = b.ScaledDotProductAttention(b.Arg(0), b.Arg(1), b.Arg(2))
+			}
 		}
 		if err != nil {
 			t.Fatal(err)
@@ -77,7 +99,7 @@ func TestNativeCPU(t *testing.T) {
 	}
 	run := func() ([]byte, error) { return exec.Command(python, "testdata/verify_cpu.py", dir).CombinedOutput() }
 	output, err := run()
-	if err != nil || !strings.Contains(string(output), "verified 7 CPU programs") {
+	if err != nil || !strings.Contains(string(output), "verified 10 CPU programs") {
 		t.Fatalf("native CPU verification: %v\n%s", err, output)
 	}
 	t.Log(string(output))

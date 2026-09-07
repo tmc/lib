@@ -2,11 +2,15 @@
 
 This module emits StableHLO functions and modules as MLIR text. The builder
 checks ranks, axes and known dimensions before emitting operations. It includes
-RMSNorm, stable softmax and unmasked scaled dot-product attention for static
+RMSNorm, stable softmax and scaled dot-product attention for static
 shapes. Attention accepts f32, f16 and bf16 inputs with matching batch dimensions.
 For f16 and bf16, arithmetic uses f32 and the output is converted back to the
 input type. This favors numerical range over reduced-precision compute throughput.
-It applies neither dropout nor a causal mask.
+Masked attention accepts boolean causal and padding masks, with true meaning
+allowed. Fully masked rows return zero for finite inputs. CausalMask supports
+an offset for cached decoding, and And combines masks after broadcasting.
+No dropout is applied. Mask operations follow the
+[StableHLO specification](https://openxla.org/stablehlo/spec).
 
 Run the Go tests with `go test ./...`. To also compile and execute emitted
 matmul, RMSNorm, softmax and attention graphs against NumPy references, set

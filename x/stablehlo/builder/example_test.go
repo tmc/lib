@@ -113,3 +113,43 @@ func ExampleFuncBuilder_Convert() {
 	fmt.Println(out.Type)
 	// Output: tensor<4xf32>
 }
+
+func ExampleFuncBuilder_CausalMask() {
+	b := builder.NewFunc("main")
+	mask, err := b.CausalMask(1, 8, 7)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(mask.Type)
+	// Output: tensor<1x8xi1>
+}
+
+func ExampleFuncBuilder_MaskedScaledDotProductAttention() {
+	typ := builder.Type{Shape: []int64{3, 4}, ElementType: "f32"}
+	b := builder.NewFunc("main", typ, typ, typ)
+	mask, err := b.CausalMask(3, 3, 0)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	out, err := b.MaskedScaledDotProductAttention(b.Arg(0), b.Arg(1), b.Arg(2), mask)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<3x4xf32>
+}
+
+func ExampleFuncBuilder_And() {
+	typ := builder.Type{Shape: []int64{2, 3}, ElementType: "i1"}
+	b := builder.NewFunc("main", typ, typ)
+	out, err := b.And(b.Arg(0), b.Arg(1))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<2x3xi1>
+}

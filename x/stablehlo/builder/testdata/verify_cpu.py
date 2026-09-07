@@ -7,7 +7,7 @@ from jax.extend import backend
 client = backend.get_backend('cpu')
 device = client.local_devices()[0]
 root = pathlib.Path(sys.argv[1])
-for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16'):
+for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
     executable = client.compile_and_load((root / (name + '.mlir')).read_text(), [device])
     if name == 'matmul':
         args = [np.arange(6, dtype=np.float32).reshape(2,3), np.arange(12, dtype=np.float32).reshape(3,4)]
@@ -22,13 +22,26 @@ for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16
     elif name.startswith('attention'):
         rng = np.random.default_rng(911271)
         args = [rng.normal(size=shape).astype(np.float32) for shape in ((2,3,4),(2,5,4),(2,5,6))]
-        if name != 'attention':
+        if name.endswith(('_f16', '_bf16')):
             dtype = np.float16 if name.endswith('_f16') else ml_dtypes.bfloat16
             args = [a.astype(dtype) for a in args]
         work = [a.astype(np.float32) for a in args]
         scores = (work[0] @ work[1].swapaxes(-1,-2)) / np.float32(2)
         exp = np.exp(scores-scores.max(axis=-1,keepdims=True))
         want = (exp/exp.sum(axis=-1,keepdims=True)) @ work[2]
+        if 'masked' in name:
+            padding = np.array([[[1,1,0,0,0]], [[0,0,0,0,0]]], dtype=np.bool_)
+            args.append(padding)
+            want = np.zeros((2,3,6), dtype=np.float32)
+            # Gather eligible keys, independently of the emitter's select/
+            # reduction decomposition. Empty rows retain their zero result.
+            for batch in range(2):
+                for query in range(3):
+                    keys = [k for k in range(5) if k <= query and padding[batch,0,k]]
+                    if keys:
+                        row = scores[batch,query,keys]
+                        weights = np.exp(row-row.max())
+                        want[batch,query] = (weights/weights.sum()) @ work[2][batch,keys]
     else:
         args = []
         want = np.float32(1e-8)
@@ -41,4 +54,4 @@ for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16
     np.testing.assert_allclose(got.astype(np.float32), want, rtol=rtol, atol=1e-7 if name.endswith(("_f16", "_bf16")) else 0)
     print(name, 'CPU execution matches numpy')
 
-print('verified 7 CPU programs')
+print('verified 10 CPU programs')
