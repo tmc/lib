@@ -16,6 +16,7 @@ import (
 type metalBatch struct {
 	ops     *metalPinnedOps
 	buffer  apple.MTLCommandBuffer
+	enc     apple.MTLComputeCommandEncoder
 	encoded int
 	commits int
 	waits   int
@@ -58,7 +59,7 @@ func (b *metalBatch) EncodeRMS(in metalmem.Slice[float32], weight boundMetalTens
 		(weighted && uint64(in.Len()/groups) != weight.dimensions[0]) {
 		return fmt.Errorf("RMS norm: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RMS)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(weight.data.Buffer(), weight.data.Offset(), 1)
@@ -71,7 +72,6 @@ func (b *metalBatch) EncodeRMS(in metalmem.Slice[float32], weight boundMetalTens
 		apple.MTLSize{Width: uint(groups), Height: 1, Depth: 1},
 		apple.MTLSize{Width: 256, Height: 1, Depth: 1},
 	)
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -84,14 +84,13 @@ func (b *metalBatch) EncodeMatvecF16(t boundMetalTensor, in, out metalmem.Slice[
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(in.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
 		return fmt.Errorf("matvec %q: invalid F16 tensor or input", t.name)
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.MatvecF16)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 1)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
 	libmetal.SetScalar(enc, uint32(in.Len()), 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(out.Len()), libmetal.Threads(min(out.Len(), 256)))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -104,7 +103,7 @@ func (b *metalBatch) EncodeMatvecQ80(t boundMetalTensor, in, out metalmem.Slice[
 	if t.typeID != 8 || len(t.dimensions) != 2 || t.dimensions[0]%32 != 0 || uint64(in.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
 		return fmt.Errorf("matvec %q: invalid Q8_0 tensor or input", t.name)
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.MatvecQ80)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 1)
@@ -116,7 +115,6 @@ func (b *metalBatch) EncodeMatvecQ80(t boundMetalTensor, in, out metalmem.Slice[
 		apple.MTLSize{Width: uint((out.Len() + 1) / 2), Height: 1, Depth: 1},
 		apple.MTLSize{Width: 32, Height: 4, Depth: 1},
 	)
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -132,7 +130,7 @@ func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks
 		cache.Len() == 0 || cache.Len()%512 != 0 || scores.Len() != 64*(cache.Len()/512) || out.Len() != 32768+512+32768 || position < 0 {
 		return fmt.Errorf("raw attention: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionRaw)
 	for i, data := range []metalmem.Slice[float32]{q, kv} {
 		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
@@ -144,7 +142,6 @@ func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks
 	libmetal.SetScalar(enc, uint32(position), 6)
 	libmetal.SetScalar(enc, uint32(cache.Len()/512), 7)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -170,7 +167,7 @@ func (b *metalBatch) EncodeCompressor(kv, score metalmem.Slice[float32], ape, no
 	if emit && state.n >= state.cap {
 		return false, fmt.Errorf("attention compressor: cache capacity exceeded")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.CompressorPool)
 	for i, data := range []metalmem.Slice[float32]{kv, score, state.stateKV, state.stateScore, state.pooled} {
 		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
@@ -181,12 +178,11 @@ func (b *metalBatch) EncodeCompressor(kv, score metalmem.Slice[float32], ape, no
 	libmetal.SetScalar(enc, uint32(state.ratio), 8)
 	libmetal.SetScalar(enc, uint32(position), 9)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(state.headDim))
-	enc.EndEncoding()
 	b.encoded++
 	if !emit {
 		return false, nil
 	}
-	enc = b.buffer.ComputeCommandEncoder()
+	enc = b.encoder()
 	if indexer {
 		enc.SetComputePipelineState(b.ops.kernels.IndexerFinish)
 	} else {
@@ -203,7 +199,6 @@ func (b *metalBatch) EncodeCompressor(kv, score metalmem.Slice[float32], ape, no
 	}
 	enc.SetThreadgroupMemoryLengthAtIndex(uint(scratch), 0)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(128))
-	enc.EndEncoding()
 	b.encoded++
 	return true, nil
 }
@@ -220,7 +215,7 @@ func (b *metalBatch) EncodeRopeAttentionMixed(q, kv metalmem.Slice[float32], sin
 		allowed.Len() < max(1, nComp) || scores.Len() < 64*(nRaw+nComp) || out.Len() != 32768+512+32768 || position < 0 || layer < 2 {
 		return fmt.Errorf("mixed attention: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionMix)
 	for i, data := range []metalmem.Slice[float32]{q, kv} {
 		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
@@ -236,7 +231,6 @@ func (b *metalBatch) EncodeRopeAttentionMixed(q, kv metalmem.Slice[float32], sin
 	libmetal.SetScalar(enc, uint32(rowCap), 10)
 	libmetal.SetScalar(enc, uint32(nComp), 11)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -252,7 +246,7 @@ func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertID
 		uint64(gateOut.Len()) != gate.dimensions[1]*uint64(expertIDs.Len()) || upOut.Len() != gateOut.Len() {
 		return fmt.Errorf("IQ2_XXS selected pair: invalid tensor profile")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.MatvecIQ2Selected)
 	for i, tensor := range []boundMetalTensor{gate, up} {
 		enc.SetBufferWithOffsetAtIndex(tensor.data.Buffer(), tensor.data.Offset(), uint(i))
@@ -269,7 +263,6 @@ func (b *metalBatch) EncodeMatvecIQ2Selected(gate, up boundMetalTensor, expertID
 		apple.MTLSize{Width: uint(gate.dimensions[1]), Height: uint(expertIDs.Len()), Depth: 1},
 		libmetal.Threads(32),
 	)
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -284,7 +277,7 @@ func (b *metalBatch) EncodeMatvecQ2KSelected(t boundMetalTensor, expertIDs metal
 		uint64(in.Len()) != t.dimensions[0]*uint64(expertIDs.Len()) || uint64(out.Len()) != t.dimensions[1]*uint64(expertIDs.Len()) {
 		return fmt.Errorf("Q2_K selected: invalid tensor profile")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.MatvecQ2KSelected)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 1)
@@ -298,7 +291,6 @@ func (b *metalBatch) EncodeMatvecQ2KSelected(t boundMetalTensor, expertIDs metal
 		apple.MTLSize{Width: uint(t.dimensions[1]), Height: uint(expertIDs.Len()), Depth: 1},
 		apple.MTLSize{Width: uint(min(int(t.dimensions[1]), 256)), Height: 1, Depth: 1},
 	)
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -320,14 +312,13 @@ func (b *metalBatch) encodeClamp10(in, out metalmem.Slice[float32], gate bool) e
 	if in.Len() == 0 || out.Len() != in.Len() {
 		return fmt.Errorf("clamp: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.Clamp10)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 1)
 	libmetal.SetScalar(enc, uint32(in.Len()), 2)
 	libmetal.SetScalar(enc, boolScalar(gate), 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(in.Len()), libmetal.Threads(min(in.Len(), 256)))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -351,7 +342,7 @@ func (b *metalBatch) EncodeSwiGLUWeightedSlots(gate, up, weights, out metalmem.S
 	if gate.Len() == 0 || up.Len() != gate.Len() || out.Len() != gate.Len() || weights.Len() == 0 || gate.Len()%weights.Len() != 0 {
 		return fmt.Errorf("weighted SwiGLU slots: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.SwiGLUWeights)
 	enc.SetBufferWithOffsetAtIndex(gate.Buffer(), gate.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(up.Buffer(), up.Offset(), 1)
@@ -360,7 +351,6 @@ func (b *metalBatch) EncodeSwiGLUWeightedSlots(gate, up, weights, out metalmem.S
 	libmetal.SetScalar(enc, uint32(gate.Len()/weights.Len()), 4)
 	libmetal.SetScalar(enc, uint32(weights.Len()), 5)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(gate.Len()), libmetal.Threads(min(gate.Len(), 256)))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -373,7 +363,7 @@ func (b *metalBatch) EncodeRouterHash(logits metalmem.Slice[float32], table boun
 	if logits.Len() != 256 || probs.Len() != 256 || expertIDs.Len() != 6 || expertW.Len() != 6 || table.typeID != 26 || len(table.dimensions) != 2 || table.dimensions[0] != 6 || uint64(token) >= table.dimensions[1] {
 		return fmt.Errorf("router hash: invalid tensor profile")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RouterHash)
 	enc.SetBufferWithOffsetAtIndex(logits.Buffer(), logits.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(table.data.Buffer(), table.data.Offset(), 1)
@@ -382,7 +372,6 @@ func (b *metalBatch) EncodeRouterHash(logits metalmem.Slice[float32], table boun
 	enc.SetBufferWithOffsetAtIndex(expertW.Buffer(), expertW.Offset(), 4)
 	libmetal.SetScalar(enc, token, 5)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -395,7 +384,7 @@ func (b *metalBatch) EncodeRouterBiased(logits metalmem.Slice[float32], bias bou
 	if logits.Len() != 256 || probs.Len() != 256 || expertIDs.Len() != 6 || expertW.Len() != 6 || bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
 		return fmt.Errorf("biased router: invalid tensor profile")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RouterBiased)
 	enc.SetBufferWithOffsetAtIndex(logits.Buffer(), logits.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(bias.data.Buffer(), bias.data.Offset(), 1)
@@ -403,7 +392,6 @@ func (b *metalBatch) EncodeRouterBiased(logits metalmem.Slice[float32], bias bou
 	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 3)
 	enc.SetBufferWithOffsetAtIndex(expertW.Buffer(), expertW.Offset(), 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -415,7 +403,7 @@ func (b *metalBatch) encodeSwiGLU(gate, up, out metalmem.Slice[float32], weight 
 	if gate.Len() == 0 || up.Len() != gate.Len() || out.Len() != gate.Len() {
 		return fmt.Errorf("SwiGLU: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.SwiGLU)
 	enc.SetBufferWithOffsetAtIndex(gate.Buffer(), gate.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(up.Buffer(), up.Offset(), 1)
@@ -423,7 +411,6 @@ func (b *metalBatch) encodeSwiGLU(gate, up, out metalmem.Slice[float32], weight 
 	libmetal.SetScalar(enc, uint32(gate.Len()), 3)
 	libmetal.SetScalar(enc, weight, 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(gate.Len()), libmetal.Threads(min(gate.Len(), 256)))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -436,14 +423,13 @@ func (b *metalBatch) EncodeSumVectors(in, out metalmem.Slice[float32], count int
 	if count <= 0 || in.Len() == 0 || in.Len()%count != 0 || out.Len() != in.Len()/count {
 		return fmt.Errorf("sum vectors: invalid shape")
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.SumVectors)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 1)
 	libmetal.SetScalar(enc, uint32(out.Len()), 2)
 	libmetal.SetScalar(enc, uint32(count), 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(out.Len()), libmetal.Threads(min(out.Len(), 256)))
-	enc.EndEncoding()
 	b.encoded++
 	return nil
 }
@@ -461,10 +447,31 @@ func (b *metalBatch) EncodeHCPost(state, block metalmem.Slice[float32], hcFn, hc
 }
 
 // Wait commits the batch and waits for its single command buffer to complete.
+// encoder returns the batch's compute encoder, opening it on first use.
+// Operations share one encoder because they already share one command buffer:
+// a serial compute encoder orders its dispatches and tracks their hazards, so
+// the arithmetic is unchanged and only the submission structure shrinks.
+func (b *metalBatch) encoder() apple.MTLComputeCommandEncoder {
+	if b.enc == nil {
+		b.enc = b.buffer.ComputeCommandEncoder()
+	}
+	return b.enc
+}
+
+// endEncoding closes the shared encoder. Committing without it drops every
+// dispatch, so Wait calls it before Commit.
+func (b *metalBatch) endEncoding() {
+	if b.enc != nil {
+		b.enc.EndEncoding()
+		b.enc = nil
+	}
+}
+
 func (b *metalBatch) Wait(ctx context.Context) error {
 	if err := b.ready(); err != nil {
 		return err
 	}
+	b.endEncoding()
 	b.done = true
 	b.buffer.Commit()
 	b.commits++

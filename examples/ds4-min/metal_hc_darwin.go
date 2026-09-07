@@ -98,7 +98,7 @@ func metalHCProfile(state metalmem.Slice[float32], fn, scale, base boundMetalTen
 	return state.Len() == 16384 && fn.typeID == 1 && len(fn.dimensions) == 2 && fn.dimensions[0] == 16384 && fn.dimensions[1] == 24 && fn.data.Len() == 786432 && scale.typeID == 0 && len(scale.dimensions) == 1 && scale.dimensions[0] == 3 && scale.data.Len() == 12 && base.typeID == 0 && len(base.dimensions) == 1 && base.dimensions[0] == 24 && base.data.Len() == 96
 }
 func (h *metalHC) encodeMix(b *metalBatch, state metalmem.Slice[float32], fn boundMetalTensor) {
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Mix)
 	args := make([]byte, 12)
 	binary.LittleEndian.PutUint32(args, 16384)
@@ -110,7 +110,6 @@ func (h *metalHC) encodeMix(b *metalBatch, state metalmem.Slice[float32], fn bou
 	enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 3)
 	enc.SetThreadgroupMemoryLengthAtIndex(96*4, 0)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(12), libmetal.Threads(256))
-	enc.EndEncoding()
 }
 func (h *metalHC) encodePre(b *metalBatch, state metalmem.Slice[float32], fn, scale, base, norm boundMetalTensor, out metalmem.Slice[float32]) error {
 	h.pending = nil
@@ -118,7 +117,7 @@ func (h *metalHC) encodePre(b *metalBatch, state metalmem.Slice[float32], fn, sc
 		return fmt.Errorf("HC pre: invalid tensor profile")
 	}
 	h.encodeMix(b, state, fn)
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Pre)
 	enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(scale.data.Buffer(), scale.data.Offset(), 1)
@@ -130,7 +129,6 @@ func (h *metalHC) encodePre(b *metalBatch, state metalmem.Slice[float32], fn, sc
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset()+4096*4, 7)
 	enc.SetThreadgroupMemoryLengthAtIndex((4096+4+32)*4, 0)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1024))
-	enc.EndEncoding()
 	h.key = metalHCIdentity(state, fn, scale, base)
 	h.pending = b
 	return nil
@@ -146,22 +144,20 @@ func (h *metalHC) encodePost(b *metalBatch, state, block metalmem.Slice[float32]
 		// Standalone callers get the same parallel projection/split arithmetic;
 		// a cached split belonging to another residual or weight is never reused.
 		h.encodeMix(b, state, fn)
-		enc := b.buffer.ComputeCommandEncoder()
+		enc := b.encoder()
 		enc.SetComputePipelineState(h.kernels.Split)
 		enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 0)
 		enc.SetBufferWithOffsetAtIndex(scale.data.Buffer(), scale.data.Offset(), 1)
 		enc.SetBufferWithOffsetAtIndex(base.data.Buffer(), base.data.Offset(), 2)
 		enc.SetBufferWithOffsetAtIndex(h.split.Buffer(), h.split.Offset(), 3)
 		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
-		enc.EndEncoding()
 	}
-	enc := b.buffer.ComputeCommandEncoder()
+	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Post)
 	for i, v := range []metalmem.Slice[float32]{state, block, h.split, out} {
 		enc.SetBufferWithOffsetAtIndex(v.Buffer(), v.Offset(), uint(i))
 	}
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(4096), libmetal.Threads(256))
-	enc.EndEncoding()
 	return nil
 }
 
