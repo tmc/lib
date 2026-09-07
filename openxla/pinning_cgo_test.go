@@ -151,3 +151,21 @@ func TestCompilePinLifetime(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultDeviceAssignmentPinLifetime(t *testing.T) {
+	var data unsafe.Pointer
+	api := &Api{}
+	api.Client_DefaultDeviceAssignment = purego.NewCallback(func(a *Client_DefaultDeviceAssignment_Args) *Error {
+		data = unsafe.Pointer(a.Default_assignment)
+		runtime.GC()
+		pincheck.Check(data)
+		unsafe.Slice(a.Default_assignment, a.Default_assignment_size)[0] = 7
+		return nil
+	})
+	client := &ClientWrapper{api: api, client: &Client{}}
+	ids, err := client.DefaultDeviceAssignment(2, 3)
+	if err != nil || len(ids) != 6 || ids[0] != 7 {
+		t.Fatalf("assignment %v, %v", ids, err)
+	}
+	requireUnpinned(t, data)
+}
