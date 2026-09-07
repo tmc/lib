@@ -1,0 +1,4 @@
+dd094566777dded6a6e0be9107af3fd886719724 2026-09-07T14:27:50.525369+00:00
+Agent: Codex; version=codex-cli 0.153.4; model=GPT-6 (exact deployment identifier unavailable); tty=not a tty; note_writer_pid=69570; ITERM_SESSION_ID=w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Scope: cases128/129 gate extension; default2/64/2048 unchanged. Four files byte-identical to d54a4048 handoff. Full package/vet PASS on isolated ed187ec; comparator controls and mutation logs retained in /Users/tmc/tmp/ds4-prefill-emission-gate-6e6a. Physical CUDA baseline/candidate128/129 comparison EXACT four vectors, manifest aa0d28a607c7d87256f10528ad0d5bad66d0017ab8cfacafc73ad9e533fbbfca. Identity only, no throughput/2048 claim.
+Commit helper attempted twice; both failed missing Anthropic API key. Manual fallback per AGENTS.md.
