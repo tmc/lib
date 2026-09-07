@@ -60,7 +60,7 @@ func TestPJRTMappingValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, w := pjrtFixture()
 			tt.change(c, w)
-			if _, err := newPJRTModel(context.Background(), nil, c, w, float64(c.RopeTheta)); err == nil || !strings.Contains(err.Error(), tt.want) {
+			if _, err := newPJRTModel(context.Background(), nil, c, w, float64(c.RopeTheta), xla.F32); err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("got %v, want %s", err, tt.want)
 			}
 		})
@@ -92,7 +92,7 @@ func TestNativePJRTModel(t *testing.T) {
 			if tied {
 				w.LMHead = w.EmbedTokens
 			}
-			p, err := newPJRTModel(context.Background(), engine, c, w, float64(c.RopeTheta))
+			p, err := newPJRTModel(context.Background(), engine, c, w, float64(c.RopeTheta), xla.F32)
 			if err != nil {
 				t.Fatal(err)
 			}

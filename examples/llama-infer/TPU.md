@@ -1,7 +1,7 @@
 # TPU inference
 
 On Linux, build with `-tags=tpu`. `GetOrCompileTPUEngine` loads libtpu and
-creates a single-device f32 decoder. Close the engine after its last use;
+creates a single-device decoder. Close the engine after its last use;
 all calls require external synchronization. The engine owns its PJRT client,
 weights, history and programs. `Free` attempts all cleanup and returns errors.
 
@@ -20,8 +20,12 @@ with SiLU MLPs. It checks config options, tensor roles, shapes, source dtypes
 and exact payload lengths. Unknown config fields and unsupported variants
 return errors. Required dimensions must be supplied, including Qwen2 KV heads.
 Scaled RoPE, partial rotary, sliding attention, output/MLP biases and integer
-quantized formats are not supported. F16 and BF16 checkpoint values are widened
-to f32; half-precision execution is not implemented. Rotary theta retains its
+quantized formats are not supported. The default f32 path widens F16 and BF16 checkpoint values on the host.
+With `-precision f16` or `-precision bf16`, checkpoint payloads keep their source
+dtypes through upload, and projections and KV history use the requested type.
+Selected normalization, rotary, activation and attention intermediates use F32;
+returned logits are F32. These rounding boundaries differ from some Transformers
+half-precision operations. Pretrained half-precision parity remains unqualified. Rotary theta retains its
 JSON float64 precision in the decoder. The context limit comes from the config
 and may be reduced by the caller's `MaxSeqLen`.
 

@@ -8,16 +8,21 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+
+	"github.com/tmc/lib/x/xla"
 )
 
 // pjrtCheckpoint keeps checkpoint-specific generation metadata separate from
-// command-line defaults. Weights are widened explicitly to f32 after validation.
+// command-line defaults. F32 execution widens weights after validation; half
+// execution retains their source representation.
 type pjrtCheckpoint struct {
-	config  ModelConfig
-	weights *ModelWeights
-	bos     *int32
-	theta   float64
-	eos     []int32
+	config   ModelConfig
+	weights  *ModelWeights
+	retained *RetainedModel
+	element  xla.ElementType
+	bos      *int32
+	theta    float64
+	eos      []int32
 }
 
 // readPJRTConfig accepts the unscaled, full-attention LLaMA and Qwen2 variants.
@@ -176,7 +181,10 @@ func pjrtEOS(raw json.RawMessage, vocab int) ([]int32, error) {
 	return ids, nil
 }
 
-func loadPJRTCheckpoint(dir string, capacity int) (*pjrtCheckpoint, error) {
+func loadPJRTCheckpoint(dir string, capacity int, element xla.ElementType) (*pjrtCheckpoint, error) {
+	if element != xla.F32 && element != xla.F16 && element != xla.BF16 {
+		return nil, fmt.Errorf("pjrt: invalid execution element type")
+	}
 	data, err := os.ReadFile(filepath.Join(dir, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("pjrt config: %w", err)
@@ -226,16 +234,22 @@ func loadPJRTCheckpoint(dir string, capacity int) (*pjrtCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.weights = retained.Float32()
+	p.element = element
+	if element == xla.F32 {
+		p.weights = retained.Float32()
+	} else {
+		p.retained = retained
+	}
 	return p, nil
 }
 
 func preparePJRTModel(cfg Config) (*pjrtCheckpoint, Tokenizer, error) {
-	if cfg.Precision != "" && cfg.Precision != "f32" {
-		return nil, nil, fmt.Errorf("pjrt: only f32 execution is supported")
+	element, err := pjrtElementType(cfg.Precision)
+	if err != nil {
+		return nil, nil, err
 	}
 	if cfg.ModelPath != "" {
-		p, err := loadPJRTCheckpoint(cfg.ModelPath, cfg.MaxSeqLen)
+		p, err := loadPJRTCheckpoint(cfg.ModelPath, cfg.MaxSeqLen, element)
 		return p, nil, err
 	}
 	if !cfg.TestMode {
@@ -256,6 +270,26 @@ func preparePJRTModel(cfg Config) (*pjrtCheckpoint, Tokenizer, error) {
 	if p.config.VocabSize != 256 {
 		return nil, nil, fmt.Errorf("pjrt: byte tokenizer requires exactly 256 vocabulary entries")
 	}
+	p.element = element
 	p.weights = GenerateDeterministicWeights(&p.config)
 	return p, NewByteTokenizer(), nil
+}
+
+func pjrtElementType(precision string) (xla.ElementType, error) {
+	switch precision {
+	case "", "f32":
+		return xla.F32, nil
+	case "f16":
+		return xla.F16, nil
+	case "bf16":
+		return xla.BF16, nil
+	}
+	return 0, fmt.Errorf("pjrt: precision must be f32, f16 or bf16")
+}
+
+func (p *pjrtCheckpoint) receipt() CheckpointReceipt {
+	if p.retained != nil {
+		return p.retained.Consumption
+	}
+	return p.weights.Consumption
 }

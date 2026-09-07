@@ -105,7 +105,7 @@ func TestPJRTCheckpointLoad(t *testing.T) {
 	for _, dtype := range []string{"F32", "F16", "BF16"} {
 		t.Run(dtype, func(t *testing.T) {
 			dir, _ := writeRetainedTestCheckpoint(t, dtype)
-			p, err := loadPJRTCheckpoint(dir, 3)
+			p, err := loadPJRTCheckpoint(dir, 3, xla.F32)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -133,7 +133,7 @@ func TestPJRTCheckpointLoad(t *testing.T) {
 			if err := os.Truncate(f, info.Size()-1); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := loadPJRTCheckpoint(dir, 3); err == nil {
+			if _, err := loadPJRTCheckpoint(dir, 3, xla.F32); err == nil {
 				t.Fatal("truncated tensor payload accepted")
 			}
 		})
@@ -153,13 +153,13 @@ func TestPJRTCheckpointLoad(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "model.safetensors")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := loadPJRTCheckpoint(dir, 3); err == nil || !strings.Contains(err.Error(), "rope_scaling") {
+	if _, err := loadPJRTCheckpoint(dir, 3, xla.F32); err == nil || !strings.Contains(err.Error(), "rope_scaling") {
 		t.Fatalf("configuration not validated before weights: %v", err)
 	}
 	if _, _, err := preparePJRTModel(Config{}); err == nil {
 		t.Fatal("implicit synthetic model accepted")
 	}
-	if _, _, err := preparePJRTModel(Config{Precision: "bf16"}); err == nil {
+	if _, _, err := preparePJRTModel(Config{Precision: "f64"}); err == nil {
 		t.Fatal("half execution silently accepted")
 	}
 }
@@ -181,11 +181,11 @@ func TestNativePJRTCheckpointGeneration(t *testing.T) {
 	for _, dtype := range []string{"F32", "F16", "BF16"} {
 		t.Run(dtype, func(t *testing.T) {
 			dir, _ := writeRetainedTestCheckpoint(t, dtype)
-			p, err := loadPJRTCheckpoint(dir, 6)
+			p, err := loadPJRTCheckpoint(dir, 6, xla.F32)
 			if err != nil {
 				t.Fatal(err)
 			}
-			model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta)
+			model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta, xla.F32)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -312,7 +312,7 @@ func TestPJRTGenerationMetadata(t *testing.T) {
 	if err := os.WriteFile(file, []byte(`{"eos_token_id":[0,2],"bos_token_id":0,"temperature":0.5}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := loadPJRTCheckpoint(dir, 3)
+	p, err := loadPJRTCheckpoint(dir, 3, xla.F32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestPJRTGenerationMetadata(t *testing.T) {
 	if err := os.WriteFile(file, []byte(`{"eos_token_id":[99]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := loadPJRTCheckpoint(dir, 3); err == nil || !strings.Contains(err.Error(), "EOS") {
+	if _, err := loadPJRTCheckpoint(dir, 3, xla.F32); err == nil || !strings.Contains(err.Error(), "EOS") {
 		t.Fatalf("invalid metadata accepted: %v", err)
 	}
 }

@@ -74,7 +74,7 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := loadPJRTCheckpoint(dir, ref.Capacity)
+	p, err := loadPJRTCheckpoint(dir, ref.Capacity, xla.F32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta)
+	model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta, xla.F32)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 					delta := math.Abs(float64(got - want))
 					maxError = math.Max(maxError, delta)
 					// Different f32 reduction orders are allowed; token selection must match.
-					if math.IsNaN(float64(want)) || math.IsInf(float64(want), 0) || delta > 1e-3+1e-4*math.Abs(float64(want)) {
+					if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || math.IsNaN(float64(want)) || math.IsInf(float64(want), 0) || delta > 1e-3+1e-4*math.Abs(float64(want)) {
 						t.Fatalf("step %d logit %d: %g, want %g (error %g)", step, i, got, want, delta)
 					}
 				}

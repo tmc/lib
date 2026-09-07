@@ -30,7 +30,7 @@ type Config struct {
 	Eps        float32
 	RopeTheta  float32
 	FuseEGraph bool
-	Precision  string // device weight storage: "f32" (default), "f16", or "bf16"
+	Precision  string // backend precision: "f32" (default), "f16", or "bf16"
 	Prompt     string
 	// HTTPAddr sets the optional address for the live telemetry HTTP server.
 	HTTPAddr string
@@ -184,6 +184,7 @@ func findDefaultLlama3_2_1BPath() string {
 func main() {
 	modelSize := flag.String("model", "llama3.2-1b", "model size (tiny, llama3.2-1b, 1b, 8b)")
 	modelPath := flag.String("path", "", "path to model directory containing model.safetensors")
+	precision := flag.String("precision", "", "numeric precision (f32, f16, bf16; default: model preset)")
 	prompt := flag.String("prompt", "The key to scalable AI architectures is", "prompt text for inference")
 	genTokens := flag.Int("gen-tokens", 10, "number of tokens to generate during autoregressive decode")
 	maxSeqLenFlag := flag.Int("max-seq-len", 2048, "maximum sequence length / KV cache context limit")
@@ -199,6 +200,11 @@ func main() {
 	searchGraphs := flag.Int("search-graphs", 100, "number of search graphs / depth for compiler optimization search")
 	searchDepthsFlag := flag.String("search-depths", "", "comma-separated list of search depths to sweep (e.g. 0,10,50,100,200,500)")
 	flag.Parse()
+	switch *precision {
+	case "", "f32", "f16", "bf16":
+	default:
+		log.Fatalf("precision must be f32, f16 or bf16")
+	}
 
 	var cfg Config
 	if *modelPath != "" {
@@ -247,6 +253,9 @@ func main() {
 		default:
 			cfg = DefaultTinyLlamaConfig()
 		}
+	}
+	if *precision != "" {
+		cfg.Precision = *precision
 	}
 	cfg.GenTokens = *genTokens
 	cfg.FuseEGraph = *fuseEGraph

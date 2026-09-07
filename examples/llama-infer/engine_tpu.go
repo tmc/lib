@@ -212,12 +212,12 @@ func newTPUModelEngine(cfg Config, p *pjrtCheckpoint, tokenizer Tokenizer, api *
 	if len(devices) == 0 {
 		return nil, errors.Join(ErrNoAddressableTPUDevices, engine.Close())
 	}
-	decoder, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta)
+	decoder, err := p.newModel(context.Background(), engine)
 	if err != nil {
 		return nil, errors.Join(err, engine.Close())
 	}
 	return &ModelEngine{pjrt: engine, decoder: decoder, mCfg: p.config,
-		checkpoint: p.weights.Consumption, checkpointEOS: p.eos, tokenizer: tokenizer, checkpointDir: cfg.ModelPath,
+		checkpoint: p.receipt(), checkpointEOS: p.eos, tokenizer: tokenizer, checkpointDir: cfg.ModelPath,
 		Plan: BuildExecutionPlan(cfg), metrics: NewRuntimeMetrics(256), stream: &dummyStream{}}, nil
 }
 
@@ -554,17 +554,4 @@ func defaultNodeKeyPath() string   { return "" }
 func defaultPeerStatePath() string { return "" }
 func runInferbench(ctx context.Context, cfg Config, spec string) error {
 	return errors.New("unsupported")
-}
-
-// UploadWeightsToTPU uploads CPU weights to Cloud TPU memory via PJRT.
-func UploadWeightsToTPU(dev *openxla.Device, client *openxla.ClientWrapper, w *ModelWeights, cfg *ModelConfig) ([]*openxla.BufferWrapper, error) {
-	if w == nil || len(w.EmbedTokens) == 0 {
-		return nil, nil // No weights provided
-	}
-	// Allocate the embedding table for demonstration
-	embBuf, err := client.BufferFromHost(unsafe.Pointer(&w.EmbedTokens[0]), openxla.Buffer_Type_F32, []int64{int64(cfg.VocabSize), int64(cfg.HiddenSize)}, dev)
-	if err != nil {
-		return nil, fmt.Errorf("failed to upload embed_tokens: %w", err)
-	}
-	return []*openxla.BufferWrapper{embBuf}, nil
 }

@@ -24,21 +24,16 @@ type pjrtModel struct {
 	logits      []float32
 }
 
-func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights, ropeTheta float64) (*pjrtModel, error) {
+func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights, ropeTheta float64, element xla.ElementType) (*pjrtModel, error) {
 	if cfg == nil || weights == nil {
 		return nil, fmt.Errorf("pjrt: model config and weights are required")
 	}
 	if cfg.NumHiddenLayers <= 0 || cfg.NumHiddenLayers != len(weights.Layers) {
 		return nil, fmt.Errorf("pjrt: layer count does not match weights")
 	}
-	if cfg.NumAttentionHeads <= 0 || (cfg.ExplicitHeadDim == 0 && cfg.HiddenSize%cfg.NumAttentionHeads != 0) || cfg.ExplicitHeadDim < 0 {
-		return nil, fmt.Errorf("pjrt: invalid attention head dimensions")
-	}
-	c := llama.Config{
-		BatchSize: 1, Capacity: int64(cfg.MaxSeqLen), VocabSize: int64(cfg.VocabSize),
-		HiddenSize: int64(cfg.HiddenSize), IntermediateSize: int64(cfg.IntermediateSize),
-		QueryHeads: int64(cfg.NumAttentionHeads), KVHeads: int64(cfg.NumKeyValueHeads), HeadSize: int64(cfg.HeadDim()),
-		NormEpsilon: cfg.RmsNormEps, RopeTheta: ropeTheta,
+	c, err := pjrtDecoderConfig(cfg, ropeTheta, element)
+	if err != nil {
+		return nil, err
 	}
 	w := llama.Weights{Embedding: weights.EmbedTokens, Norm: weights.Norm, LMHead: weights.LMHead}
 	// LoadModel resolves a missing tied head to the same host slice. Preserve
@@ -154,4 +149,20 @@ func (p *pjrtModel) close() error {
 	p.model = nil
 	p.logits = nil
 	return model.Close()
+}
+
+func pjrtDecoderConfig(cfg *ModelConfig, ropeTheta float64, element xla.ElementType) (llama.Config, error) {
+	if cfg == nil {
+		return llama.Config{}, fmt.Errorf("pjrt: model config is required")
+	}
+	if cfg.NumAttentionHeads <= 0 || (cfg.ExplicitHeadDim == 0 && cfg.HiddenSize%cfg.NumAttentionHeads != 0) || cfg.ExplicitHeadDim < 0 {
+		return llama.Config{}, fmt.Errorf("pjrt: invalid attention head dimensions")
+	}
+	c := llama.Config{ElementType: element,
+		BatchSize: 1, Capacity: int64(cfg.MaxSeqLen), VocabSize: int64(cfg.VocabSize),
+		HiddenSize: int64(cfg.HiddenSize), IntermediateSize: int64(cfg.IntermediateSize),
+		QueryHeads: int64(cfg.NumAttentionHeads), KVHeads: int64(cfg.NumKeyValueHeads), HeadSize: int64(cfg.HeadDim()),
+		NormEpsilon: cfg.RmsNormEps, RopeTheta: ropeTheta,
+	}
+	return c, nil
 }
