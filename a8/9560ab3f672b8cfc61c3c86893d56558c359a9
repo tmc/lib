@@ -1,0 +1,10 @@
+commit: a89560ab3f672b8cfc61c3c86893d56558c359a9
+date: 2026-09-06T19:55:48-07:00
+codex: codex-cli 0.153.4
+model: gpt-6-astra
+tty: not a tty
+not-a-tty
+pid: 7889
+ITERM_SESSION_ID: 2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+Physical gate: PASS_PRODUCTION_IDENTITY on spark-31db. Production Eval(0,0) before and after Reset both yielded e1500b2e69ab4a58fc16c2a37c29d736e7ac1c9075cccee8bb3257c6428ae761; runtime close and test exit 0. Evidence: evidence/worker-BABFB352/cuda-production-hash/RESULT-20260907.md (sha256 3f6531cb4636c376b21ea7f83a80adf8840831e000cf0372ec9d097ddf50259a). Reviewed immutable candidate manifest: edde6d4837ada87babec02f8e2614b939371990b71c528bf10a56f9d0fab3811.
