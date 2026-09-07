@@ -889,6 +889,10 @@ type metalPinnedOps struct {
 	kernels metalPinnedKernels
 	hc      *metalHC
 	head    *metalHeadProjection
+
+	// regions, when installed, collects each command buffer's GPU-time
+	// span as it completes. Nil in production.
+	regions *metalRegionLog
 }
 
 func newMetalPinnedOps(dev *libmetal.Device) (*metalPinnedOps, error) {

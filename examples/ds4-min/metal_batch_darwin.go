@@ -21,6 +21,20 @@ type metalBatch struct {
 	commits int
 	waits   int
 	done    bool
+
+	// Set by inRegion; recorded only when ops.regions is installed.
+	region   string
+	layer    int
+	position int
+}
+
+// inRegion names the part of the layer this batch carries, for a
+// metalRegionLog. It returns b so a caller can name a batch on the line
+// that creates it. Naming a batch has no effect unless a log is
+// installed on the ops.
+func (b *metalBatch) inRegion(name string, layer, position int) *metalBatch {
+	b.region, b.layer, b.position = name, layer, position
+	return b
 }
 
 type metalBatchStats struct {
@@ -510,6 +524,16 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 	b.ops.hc.complete(b)
 	if err != nil {
 		return fmt.Errorf("Metal batch: %w", err)
+	}
+	// After completion, so this reads a settled buffer and encodes nothing.
+	if b.ops.regions != nil {
+		b.ops.regions.add(metalRegion{
+			Region:   b.region,
+			Layer:    b.layer,
+			Position: b.position,
+			Start:    float64(b.buffer.GPUStartTime()),
+			End:      float64(b.buffer.GPUEndTime()),
+		})
 	}
 	return nil
 }

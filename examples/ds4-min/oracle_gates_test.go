@@ -45,6 +45,8 @@ var oracleGates = []oracleGate{
 	{"DS4_LAYER2_COMPRESSOR_ORACLE_DIRS", "layer 2 attention against four compressor captures"},
 
 	{"DS4_METAL_PROFILE", "writing a Metal graph profile"},
+	{"DS4_METAL_REGION_PROFILE_MODEL", "ranking Metal command-buffer GPU-time regions"},
+	{"DS4_METAL_REGION_PROFILE_OUT", "writing the Metal region spans as JSON"},
 	{"DS4_METAL_GRAPH_DUMP_TRACE", "dumping the Metal graph trace"},
 	{"DS4_METAL_LAYER13_FIXTURE_DIR", "the layer 13 Metal regression"},
 	{"DS4_METAL_HC_LAYER13_FIXTURE_DIR", "the layer 13 HC Metal regression"},

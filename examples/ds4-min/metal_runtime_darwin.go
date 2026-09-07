@@ -585,6 +585,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
+	batch.inRegion("opening", i, position)
 	if err := batch.EncodeHCPre(stateIn, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, layer.attnNorm, r.state.attnPre); err != nil {
 		return nil, err
 	}
@@ -731,6 +732,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
+	closing.inRegion("closing-ffn", i, position)
 	for group := range 8 {
 		rows, err := layer.attnOutA.Rows(group*1024, 1024)
 		if err != nil {
