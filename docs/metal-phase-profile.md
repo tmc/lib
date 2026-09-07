@@ -8,6 +8,23 @@ The obvious next step is the Metal counterpart, so the two backends can be
 ranked against each other. This note records what stands in the way, so the
 counterpart is not built on a timing source that cannot be compared.
 
+**Outcome.** The counterpart exists, and it is not the one this note set out to
+scope. The analysis below concludes that phase granularity would require one
+encoder per phase, and it stands. But it also establishes, in the counter
+calibration section, that `MTLCommandBuffer`'s own `GPUStartTime` and
+`GPUEndTime` already report the only granularity this device offers — and
+`metalBatch.Wait` is the single place every command buffer completes, so reading
+them there restructures nothing. `TestMetalRegionProfile` does that: two regions
+per layer, the attention opening and the closing sharing a buffer with the FFN,
+gated on `Float32bits` identity and an exact ordered span inventory. Read the
+rest of this note for why nothing finer is available on this hardware, not as a
+list of work still to do.
+
+What that instrument cannot do is the reason to keep reading: it resolves two
+regions where the CUDA lane resolves nine, so it can rank the opening against
+the closing and FFN and nothing inside either. Anyone wanting the nine has to
+take the encoder split, and the sections below are what that costs.
+
 ## Host markers are not the analogue of a CUDA event
 
 A CUDA event is recorded *into the stream*, and the interval between two
