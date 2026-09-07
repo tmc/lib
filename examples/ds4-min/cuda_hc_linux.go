@@ -135,13 +135,18 @@ func (h *cudaHC) project(state cudamem.Slice[float32], fn cudaModelTensor, rows 
 		if err := cudalaunch.Kernel(h.r.hcHalfFn).Grid(64).Block(256).On(h.r.device.DefaultStream()).Launch(h.normalized, h.half); err != nil {
 			return fmt.Errorf("cuda hc: convert activation: %w", err)
 		}
+		// cuBLAS reads the scalars through the pointers while the call runs.
+		// Converting to uintptr hides them from the compiler, so pin them:
+		// an unpinned local is free to move and the call would read garbage.
+		var pin runtime.Pinner
+		defer pin.Unpin()
 		alpha, beta := float32(1), float32(0)
+		pin.Pin(&alpha)
+		pin.Pin(&beta)
 		err := h.blas.GemmEx(cublas.OpT, cublas.OpN, int32(rows), 1, 16384,
 			uintptr(unsafe.Pointer(&alpha)), uintptr(fn.device), cublas.R16F, 16384,
 			uintptr(h.half.Ptr()), cublas.R16F, 16384,
 			uintptr(unsafe.Pointer(&beta)), uintptr(h.mix.Ptr()), cublas.R32F, int32(rows), cublas.Compute32F, cublas.GemmDefault)
-		runtime.KeepAlive(&alpha)
-		runtime.KeepAlive(&beta)
 		if err != nil {
 			return fmt.Errorf("cuda hc: project %d rows: %w", rows, err)
 		}
