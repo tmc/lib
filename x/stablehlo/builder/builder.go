@@ -259,7 +259,7 @@ func (b *FuncBuilder) Transpose(v Value, permutation []int64, retType Type) (Val
 	}
 
 	out := Value{ID: b.next(), Type: retType}
-	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.transpose %s, permutation = %s : (%s) -> %s",
+	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.transpose %s, dims = %s : (%s) -> %s",
 		out.ID, v.ID, fmtArr(permutation), v.Type, retType))
 	return out, nil
 }

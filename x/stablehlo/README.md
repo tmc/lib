@@ -3,7 +3,10 @@
 This module emits StableHLO functions and modules as MLIR text. The builder
 checks ranks, axes and known dimensions before emitting operations. It includes
 RMSNorm, stable softmax and scaled dot-product attention for static
-shapes. Attention accepts f32, f16 and bf16 inputs with matching batch dimensions.
+shapes. GroupedQueryAttention supports unequal Q and KV head counts, including
+multi-query attention, without explicitly replicating K/V tensors. Its masked
+variant supports causal and padding masks over query-head score dimensions.
+Attention accepts f32, f16 and bf16 inputs with matching batch dimensions.
 For f16 and bf16, arithmetic uses f32 and the output is converted back to the
 input type. This favors numerical range over reduced-precision compute throughput.
 Masked attention accepts boolean causal and padding masks, with true meaning

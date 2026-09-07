@@ -187,3 +187,36 @@ func ExampleFuncBuilder_CausalMaskAt() {
 	fmt.Println(out.Type)
 	// Output: tensor<1x8xi1>
 }
+
+func ExampleFuncBuilder_GroupedQueryAttention() {
+	typ := func(heads, sequence, features int64) builder.Type {
+		return builder.Type{Shape: []int64{heads, sequence, features}, ElementType: "f32"}
+	}
+	b := builder.NewFunc("main", typ(4, 2, 8), typ(2, 3, 8), typ(2, 3, 6))
+	out, err := b.GroupedQueryAttention(b.Arg(0), b.Arg(1), b.Arg(2))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<4x2x6xf32>
+}
+
+func ExampleFuncBuilder_MaskedGroupedQueryAttention() {
+	typ := func(heads, sequence, features int64) builder.Type {
+		return builder.Type{Shape: []int64{heads, sequence, features}, ElementType: "f32"}
+	}
+	b := builder.NewFunc("main", typ(4, 2, 8), typ(2, 3, 8), typ(2, 3, 6))
+	mask, err := b.CausalMask(2, 3, 0)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	out, err := b.MaskedGroupedQueryAttention(b.Arg(0), b.Arg(1), b.Arg(2), mask)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<4x2x6xf32>
+}

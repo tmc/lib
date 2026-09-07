@@ -9,7 +9,7 @@ jax.config.update("jax_enable_x64", True)
 client = backend.get_backend('cpu')
 device = client.local_devices()[0]
 root = pathlib.Path(sys.argv[1])
-for name in ('causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
+for name in ('transpose', 'gqa', 'gqa_f16', 'gqa_bf16', 'gqa_masked', 'gqa_masked_f16', 'gqa_masked_bf16', 'mha', 'mqa', 'causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
     executable = client.compile_and_load((root / (name + '.mlir')).read_text(), [device])
     if name == 'causal_dynamic':
         for offset in (-(2**63), -1, 0, 1, 2**63-1):
@@ -30,7 +30,32 @@ for name in ('causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax',
             np.testing.assert_array_equal(np.asarray(result[0]), want)
         print(name, 'CPU update and clamp semantics match reference')
         continue
-    if name == 'matmul':
+    if name.startswith('gqa') or name in ('mha', 'mqa'):
+        kvheads = 4 if name == 'mha' else 1 if name == 'mqa' else 2
+        rng = np.random.default_rng(71139)
+        args = [rng.normal(size=shape).astype(np.float32) for shape in ((2,4,3,4),(2,kvheads,5,4),(2,kvheads,5,6))]
+        if name.endswith(('_f16', '_bf16')):
+            dtype = np.float16 if name.endswith('_f16') else ml_dtypes.bfloat16
+            args = [a.astype(dtype) for a in args]
+        work = [a.astype(np.float32) for a in args]
+        want = np.zeros((2,4,3,6), dtype=np.float32)
+        if 'masked' in name:
+            args.append(np.array([[[[1,1,0,0,0]]], [[[0,0,0,0,0]]]], dtype=np.bool_))
+        for batch in range(2):
+            for head in range(4):
+                kvhead = head // (4 // kvheads)
+                for query in range(3):
+                    keys = list(range(5))
+                    if 'masked' in name:
+                        keys = [k for k in keys if batch == 0 and k <= query and k < 2]
+                    if keys:
+                        scores = work[0][batch,head,query] @ work[1][batch,kvhead,keys].T / np.float32(2)
+                        weights = np.exp(scores-scores.max())
+                        want[batch,head,query] = (weights/weights.sum()) @ work[2][batch,kvhead,keys]
+    elif name == 'transpose':
+        args = [np.arange(24, dtype=np.float32).reshape(2,3,4)]
+        want = args[0].transpose(2,0,1)
+    elif name == 'matmul':
         args = [np.arange(6, dtype=np.float32).reshape(2,3), np.arange(12, dtype=np.float32).reshape(3,4)]
         want = args[0] @ args[1]
     elif name == 'rmsnorm':
@@ -72,7 +97,10 @@ for name in ('causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax',
     # Compare against f32 arithmetic on the quantized input, allowing one
     # reduced-precision rounding step at the output.
     rtol = 0.004 if name.endswith('_bf16') else 0.0005 if name.endswith('_f16') else 1e-6
-    np.testing.assert_allclose(got.astype(np.float32), want, rtol=rtol, atol=1e-7 if name.endswith(("_f16", "_bf16")) else 0)
+    # Grouped dot products and the per-head reference can round differently
+    # near zero; retain strict absolute tolerance for the tiny-constant test.
+    atol = 1e-7 if name.startswith('gqa') or name in ('mha', 'mqa') or name.endswith(("_f16", "_bf16")) else 0
+    np.testing.assert_allclose(got.astype(np.float32), want, rtol=rtol, atol=atol)
     print(name, 'CPU execution matches numpy')
 
-print('verified 12 CPU programs')
+print('verified 21 CPU programs')
