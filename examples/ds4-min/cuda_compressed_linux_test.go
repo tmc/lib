@@ -163,6 +163,127 @@ func TestCUDACompressedCompressor(t *testing.T) {
 	}
 }
 
+func TestCUDACompressedCompressorQueued(t *testing.T) {
+	for _, ratio := range []int{4, 128} {
+		t.Run(fmt.Sprintf("ratio%d", ratio), func(t *testing.T) {
+			r := cudaSynthFoundation(t)
+			const head = 512
+			width, rows := head, ratio
+			if ratio == 4 {
+				width *= 2
+				rows *= 2
+			}
+			ape := cudaSynthTensor(t, r, "ape", 1, []uint64{uint64(width), uint64(ratio)}, make([]byte, 2*width*ratio))
+			normValues := make([]float32, head)
+			for i := range normValues {
+				normValues[i] = 1
+			}
+			norm := cudaCompressedTensor(t, r, "norm", normValues)
+			var inputs [][2]cudamem.Slice[float32]
+			for position := 0; position <= ratio; position++ {
+				kv, gate := make([]float32, width), make([]float32, width)
+				for i := range kv {
+					kv[i] = float32((position*17+i*5)%47-23) / 16
+					gate[i] = float32((position*11+i*3)%31-15) / 8
+				}
+				dk, dg := cudaTestAlloc(t, r, width), cudaTestAlloc(t, r, width)
+				cudaCompressedUpload(t, dk, kv)
+				cudaCompressedUpload(t, dg, gate)
+				inputs = append(inputs, [2]cudamem.Slice[float32]{dk, dg})
+			}
+			run := func(syncEach bool) (cache, stateKV []float32) {
+				state := cudaCompressedState{
+					headDim:    head,
+					width:      width,
+					ratio:      ratio,
+					cap:        2,
+					cache:      cudaTestAlloc(t, r, 2*head),
+					stateKV:    cudaTestAlloc(t, r, rows*width),
+					stateScore: cudaTestAlloc(t, r, rows*width),
+					pooled:     cudaTestAlloc(t, r, head),
+				}
+				cudaCompressedUpload(t, state.stateKV, make([]float32, rows*width))
+				scores := make([]float32, rows*width)
+				for i := range scores {
+					scores[i] = float32(math.Inf(-1))
+				}
+				cudaCompressedUpload(t, state.stateScore, scores)
+				for position, input := range inputs {
+					emit, err := r.encodeCompressor(input[0], input[1], ape, norm, &state, position, false)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if emit {
+						state.n++
+					}
+					if syncEach {
+						if err := r.device.WithContext(func() error {
+							return r.device.DefaultStream().Synchronize(context.Background())
+						}); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				if err := r.device.WithContext(func() error {
+					return r.device.DefaultStream().Synchronize(context.Background())
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if state.n != 1 {
+					t.Fatalf("emitted %d rows, want 1", state.n)
+				}
+				return cudaTestRead(t, state.cache), cudaTestRead(t, state.stateKV)
+			}
+			wantCache, wantStateKV := run(true)
+			gotCache, gotStateKV := run(false)
+			if err := exactFloat32Bits(gotCache, wantCache); err != nil {
+				t.Fatalf("queued cache differs from synchronized cache: %v", err)
+			}
+			if err := exactFloat32Bits(gotStateKV, wantStateKV); err != nil {
+				t.Fatalf("queued following-token state differs from synchronized state: %v", err)
+			}
+		})
+	}
+}
+
+func TestCUDACompressedFillU32(t *testing.T) {
+	r := cudaSynthFoundation(t)
+	dst := cudaCompressedMask(t, r, 513)
+	values := make([]uint32, dst.Len())
+	for i := range values {
+		values[i] = 7
+	}
+	if err := dst.CopyFromHost(values); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeFillU32(dst, 512, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.device.WithContext(func() error {
+		return r.device.DefaultStream().Synchronize(context.Background())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint32, dst.Len())
+	if err := dst.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	for i, value := range got {
+		want := uint32(1)
+		if i == len(got)-1 {
+			want = 7
+		}
+		if value != want {
+			t.Fatalf("value %d = %d, want %d", i, value, want)
+		}
+	}
+	for _, count := range []int{-1, dst.Len() + 1} {
+		if err := r.encodeFillU32(dst, count, 1); err == nil {
+			t.Fatalf("accepted count %d", count)
+		}
+	}
+}
+
 // Pool the original chronological token list, selecting the first lane of the
 // prior chunk and the second lane of the current chunk for ratio4.
 func cudaCompressedPoolReference(tokens, gates [][]float32, ratio, head int) []float32 {

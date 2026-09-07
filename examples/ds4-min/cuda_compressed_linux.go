@@ -15,7 +15,8 @@ type cudaCompressedState struct {
 }
 
 // encodeCompressor appends an update and, at a ratio boundary, a finished row.
-// The caller advances state.n after successful stream synchronization.
+// The caller advances state.n after the launches succeed. Later work on the
+// same stream observes the update before using the new row count.
 func (r *cudaFoundation) encodeCompressor(kv, gate cudamem.Slice[float32], ape, norm cudaModelTensor, state *cudaCompressedState, position int, indexer bool) (bool, error) {
 	head := 512
 	if indexer {
@@ -100,7 +101,29 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 	})
 }
 
+func (r *cudaFoundation) encodeFillU32(dst cudamem.Slice[uint32], count int, value uint32) error {
+	if count < 0 || count > dst.Len() {
+		return fmt.Errorf("cuda: fill uint32: invalid length")
+	}
+	if count == 0 {
+		return nil
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.fillU32Fn).Grid(uint32((count+255)/256)).Block(256).On(r.device.DefaultStream()).Launch(dst, uint32(count), value); err != nil {
+			return fmt.Errorf("cuda: launch fill uint32: %w", err)
+		}
+		return nil
+	})
+}
+
 const cudaCompressedSource = `
+extern "C" __global__ void ds4_fill_u32(unsigned int *dst,unsigned int count,unsigned int value) {
+ const unsigned int i=blockIdx.x*blockDim.x+threadIdx.x;
+ if(i<count)dst[i]=value;
+}
 __device__ float ds4_compressed_theta(unsigned int position,unsigned int r) {
  const float pi=3.14159265358979323846f;
  const float low=fmaxf(0.0f,floorf(64.0f*logf(65536.0f/(32.0f*2*pi))/(2*logf(160000.0f))));

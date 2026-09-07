@@ -698,9 +698,6 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 			return err
 		}
 	}
-	if err := syncStream(r.device.DefaultStream()); err != nil {
-		return err
-	}
 	if emit {
 		state.attn.n++
 	}
@@ -719,11 +716,7 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 		return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position)
 	}
 	// An odd layer must not inherit the preceding even layer's selection mask.
-	allowed := make([]uint32, s.allowed.Len())
-	for i := range allowed {
-		allowed[i] = 1
-	}
-	return s.allowed.CopyFromHost(allowed)
+	return r.encodeFillU32(s.allowed, s.allowed.Len(), 1)
 }
 
 func cudaTensorRows(t cudaModelTensor, start, count int) (cudaModelTensor, error) {

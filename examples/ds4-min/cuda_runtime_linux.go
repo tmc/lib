@@ -574,6 +574,7 @@ type cudaFoundation struct {
 	mixedAttentionFn      driver.Function
 	indexerQueryFn        driver.Function
 	indexerSelectFn       driver.Function
+	fillU32Fn             driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -1246,6 +1247,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_attention_mixed", &r.mixedAttentionFn},
 		{"ds4_indexer_query", &r.indexerQueryFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
+		{"ds4_fill_u32", &r.fillU32Fn},
 	}
 }
 
