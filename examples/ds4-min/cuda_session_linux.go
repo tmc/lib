@@ -290,18 +290,24 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 			return fmt.Errorf("cuda runtime: token %d out of range", token)
 		}
 	}
-	if len(tokens) == 2 {
-		return r.evalBatch2(tokens, position)
-	}
-	for i, token := range tokens {
-		if err := r.evalPosition(token, position+i, i == len(tokens)-1); err != nil {
+	i := 0
+	// Keep cache updates token ordered while batching the dense front end of
+	// each adjacent pair. Only the final pair needs the vocabulary projection.
+	for ; i+1 < len(tokens); i += 2 {
+		if err := r.evalBatch2(tokens[i:i+2], position+i, i+2 == len(tokens)); err != nil {
 			return err
 		}
+	}
+	if i < len(tokens) {
+		return r.evalPosition(tokens[i], position+i, true)
 	}
 	return nil
 }
 
-func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
+func (r *cudaRuntime) evalBatch2(tokens []int, position int, logits bool) (err error) {
+	if len(tokens) != 2 {
+		return errors.New("cuda runtime: two-token batch has invalid length")
+	}
 	defer func() {
 		if err != nil {
 			r.failed = err
@@ -335,21 +341,25 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
 		}
 	}
 	last := rows[len(rows)-1]
-	if err := r.hcMath.pre(last.hc[0], r.model.output.hcFn, r.model.output.hcScale, r.model.output.hcBase, r.model.output.norm, last.outputMixed, true); err != nil {
-		return err
-	}
-	if err := r.encodeQ80Matvec(r.model.output.weight, last.outputMixed.Slice(4096, 8192), last.logits); err != nil {
-		return err
+	if logits {
+		if err := r.hcMath.pre(last.hc[0], r.model.output.hcFn, r.model.output.hcScale, r.model.output.hcBase, r.model.output.norm, last.outputMixed, true); err != nil {
+			return err
+		}
+		if err := r.encodeQ80Matvec(r.model.output.weight, last.outputMixed.Slice(4096, 8192), last.logits); err != nil {
+			return err
+		}
 	}
 	if err := syncStream(r.device.DefaultStream()); err != nil {
 		return err
 	}
-	if err := last.logits.CopyToHost(r.logits); err != nil {
-		return err
-	}
-	for i, v := range r.logits {
-		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-			return fmt.Errorf("cuda runtime: non-finite logit %d", i)
+	if logits {
+		if err := last.logits.CopyToHost(r.logits); err != nil {
+			return err
+		}
+		for i, v := range r.logits {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return fmt.Errorf("cuda runtime: non-finite logit %d", i)
+			}
 		}
 	}
 	r.pos += len(tokens)
@@ -393,6 +403,9 @@ func (r *cudaRuntime) ensureBatchHC() error {
 }
 
 func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens []int, position int) error {
+	if len(base) != 2 || len(tokens) != 2 {
+		return errors.New("cuda runtime: dense two-token batch has invalid length")
+	}
 	l := &r.model.layers[index]
 	d := &r.batchDense
 	rows := [2]cudaTokenState{*base[0], *base[1]}

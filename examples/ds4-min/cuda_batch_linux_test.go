@@ -49,3 +49,13 @@ func TestEnsureBatchFirstRejectsMissingArena(t *testing.T) {
 		t.Fatalf("ensureBatchFirst() = %v, arena = %v", err, r.batchArena)
 	}
 }
+
+func TestCUDARejectsInvalidInternalBatchLengths(t *testing.T) {
+	r := new(cudaRuntime)
+	if err := r.evalBatch2([]int{1}, 0, false); err == nil {
+		t.Fatal("evalBatch2 accepted one token")
+	}
+	if err := r.evalLayerBatch2(nil, 0, nil, 0); err == nil {
+		t.Fatal("evalLayerBatch2 accepted missing rows")
+	}
+}
