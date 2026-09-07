@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-06",
-  "scope": "Generation inputs are recorded for 20 of the 35 packages in this module: cublasmp, cudensitymat, cudnn, cudss, cusolvermp, custatevec, cutensornet, dcgm, fabricmanager, gdrcopy, nvcomp, nvdec, nvenc, nvfatbin, nvjitlink, nvjpeg2k, nvrtc, nvshmem, nvvm, sanitizer. The remaining packages remain in scope and are not yet recorded.",
+  "scope": "Inventoried 33 generated package directories; 28 have recorded generation argv and 5 have no recorded argv. Existing package receipts and their limitations are preserved.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -8258,6 +8258,97 @@
           "No runtime/GPU claim."
         ]
       }
+    },
+    "cublas": {
+      "status": "generation-unrecorded",
+      "generation": {
+        "argv": null,
+        "limitations": [
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+        ]
+      }
+    },
+    "cublaslt": {
+      "status": "generation-unrecorded",
+      "generation": {
+        "argv": null,
+        "limitations": [
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+        ]
+      }
+    },
+    "cusolver": {
+      "status": "generation-unrecorded",
+      "generation": {
+        "argv": null,
+        "limitations": [
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+        ]
+      }
+    },
+    "cutensor": {
+      "status": "generation-unrecorded",
+      "generation": {
+        "argv": null,
+        "limitations": [
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+        ]
+      }
+    },
+    "driver": {
+      "status": "generation-unrecorded",
+      "generation": {
+        "argv": null,
+        "limitations": [
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+        ]
+      }
     }
+  },
+  "coverage": {
+    "packages": [
+      "cublas",
+      "cublaslt",
+      "cublasmp",
+      "cudensitymat",
+      "cudnn",
+      "cudss",
+      "cufft",
+      "cufile",
+      "cupti",
+      "curand",
+      "cusolver",
+      "cusolvermp",
+      "cusparse",
+      "custatevec",
+      "cutensor",
+      "cutensornet",
+      "dcgm",
+      "driver",
+      "fabricmanager",
+      "gdrcopy",
+      "nccl",
+      "nvcomp",
+      "nvdec",
+      "nvenc",
+      "nvfatbin",
+      "nvjitlink",
+      "nvjpeg2k",
+      "nvml",
+      "nvrtc",
+      "nvshmem",
+      "nvvm",
+      "sanitizer",
+      "vpi"
+    ],
+    "recorded_argv": 28,
+    "missing_argv": [
+      "cublas",
+      "cublaslt",
+      "cusolver",
+      "cutensor",
+      "driver"
+    ],
+    "meaning": "Directory inventory and presence of recorded argv only; not a regeneration, provenance verification, or runtime qualification."
   }
 }
