@@ -1,13 +1,18 @@
 go 1.27.0
 
 use (
-	../apple
-	../modelir
 	./apple
+	./cmd/tpu-llama-step
 	./examples
 	./ggml
 	./hfsync
 	./lm
 	./nvidia
+	./openxla
+	./tpu
 	./treesitter
+	./x/stablehlo
+	./x/xla
+	../apple
+	../modelir
 )
