@@ -756,7 +756,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		return nil, err
 	}
 	// The FFN opening reads only GPU state the attention closing writes,
-	// so both ride one command buffer; the host waits once, for the router.
+	// so both ride one command buffer with GPU routing.
 	stateIn = attentionState
 	if err := closing.EncodeHCPre(stateIn, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm, r.state.ffnPre); err != nil {
 		return nil, err
@@ -770,30 +770,20 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := closing.EncodeMatvecQ80(layer.sharedUp, r.state.ffnNorm, r.state.sharedUp); err != nil {
 		return nil, err
 	}
-	if err := closing.Wait(context.Background()); err != nil {
-		return nil, err
-	}
-	r.lastAttentionBatch = closing.Stats()
-	router := r.state.router.HostSlice()
-	var selected []int32
-	var weights []float32
 	if i < 3 {
-		_, selected, weights, err = r.ops.RouterHash(router, layer.expertMap, uint32(token))
+		err = closing.EncodeRouterHash(r.state.router, layer.expertMap, uint32(token), r.state.probs, r.state.expertIDs, r.state.expertW)
 	} else {
-		_, selected, weights, err = r.ops.RouterBiased(router, layer.expertBias)
+		err = closing.EncodeRouterBiased(r.state.router, layer.expertBias, r.state.probs, r.state.expertIDs, r.state.expertW)
 	}
 	if err != nil {
 		return nil, err
 	}
-	if len(selected) != r.state.expertIDs.Len() || len(weights) != r.state.expertW.Len() {
-		return nil, fmt.Errorf("routed experts: got %d IDs and %d weights, want %d", len(selected), len(weights), r.state.expertIDs.Len())
+	// Keep the command boundary so FFN HCPost retains its existing split
+	// recomputation instead of reusing HCPre's cached split.
+	if err := closing.Wait(context.Background()); err != nil {
+		return nil, err
 	}
-	if err := r.state.expertIDs.CopyFromHost(selected); err != nil {
-		return nil, fmt.Errorf("routed experts: copy IDs: %w", err)
-	}
-	if err := r.state.expertW.CopyFromHost(weights); err != nil {
-		return nil, fmt.Errorf("routed experts: copy weights: %w", err)
-	}
+	r.lastAttentionBatch = closing.Stats()
 	// The shared expert, the routed experts and the FFN closing depend only
 	// on GPU state, so one command buffer carries the rest of the layer.
 	ffn, err := newMetalBatch(r.ops)
@@ -815,6 +805,9 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffn.EncodeClamp10(r.state.expertUpRaw, r.state.expertUp); err != nil {
 		return nil, err
 	}
+	// The completed routing batch makes the six scalar weights visible.
+	// Keep the original SwiGLU kernel: its GPU-weight variant changes bits.
+	weights := r.state.expertW.HostSlice()
 	for slot, weight := range weights {
 		start := slot * 2048
 		end := start + 2048
