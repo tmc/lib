@@ -32,12 +32,18 @@ func TestNativeCPU(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	for _, name := range []string{"matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16"} {
+	for _, name := range []string{"causal_dynamic", "update", "matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16"} {
 		var b *builder.FuncBuilder
 		var out builder.Value
 		var err error
 		typ := func(dims ...int64) builder.Type { return builder.Type{Shape: dims, ElementType: "f32"} }
 		switch name {
+		case "causal_dynamic":
+			b = builder.NewFunc("main", builder.Type{ElementType: "i64"})
+			out, err = b.CausalMaskAt(2, 3, b.Arg(0))
+		case "update":
+			b = builder.NewFunc("main", builder.Type{Shape: []int64{4}, ElementType: "i64"}, builder.Type{Shape: []int64{2}, ElementType: "i64"}, builder.Type{ElementType: "i64"})
+			out, err = b.DynamicUpdateSlice(b.Arg(0), b.Arg(1), []builder.Value{b.Arg(2)})
 		case "matmul":
 			b = builder.NewFunc("main", typ(2, 3), typ(3, 4))
 			out, err = b.DotGeneral(b.Arg(0), b.Arg(1), nil, nil, []int64{1}, []int64{0}, typ(2, 4))
@@ -99,7 +105,7 @@ func TestNativeCPU(t *testing.T) {
 	}
 	run := func() ([]byte, error) { return exec.Command(python, "testdata/verify_cpu.py", dir).CombinedOutput() }
 	output, err := run()
-	if err != nil || !strings.Contains(string(output), "verified 10 CPU programs") {
+	if err != nil || !strings.Contains(string(output), "verified 12 CPU programs") {
 		t.Fatalf("native CPU verification: %v\n%s", err, output)
 	}
 	t.Log(string(output))

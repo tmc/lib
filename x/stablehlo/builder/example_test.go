@@ -153,3 +153,37 @@ func ExampleFuncBuilder_And() {
 	fmt.Println(out.Type)
 	// Output: tensor<2x3xi1>
 }
+
+func ExampleFuncBuilder_IntegerConstant() {
+	b := builder.NewFunc("main")
+	out, err := b.IntegerConstant(0, builder.Type{ElementType: "i64"})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<i64>
+}
+
+func ExampleFuncBuilder_DynamicUpdateSlice() {
+	typ := func(n int64) builder.Type { return builder.Type{Shape: []int64{n}, ElementType: "f32"} }
+	b := builder.NewFunc("main", typ(8), typ(1), builder.Type{ElementType: "i64"})
+	out, err := b.DynamicUpdateSlice(b.Arg(0), b.Arg(1), []builder.Value{b.Arg(2)})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<8xf32>
+}
+
+func ExampleFuncBuilder_CausalMaskAt() {
+	b := builder.NewFunc("main", builder.Type{ElementType: "i64"})
+	out, err := b.CausalMaskAt(1, 8, b.Arg(0))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<1x8xi1>
+}

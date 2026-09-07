@@ -4,11 +4,32 @@ import numpy as np
 import jax
 import ml_dtypes
 from jax.extend import backend
+# Preserve the i64 runtime indices consumed by the compiled primitives.
+jax.config.update("jax_enable_x64", True)
 client = backend.get_backend('cpu')
 device = client.local_devices()[0]
 root = pathlib.Path(sys.argv[1])
-for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
+for name in ('causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
     executable = client.compile_and_load((root / (name + '.mlir')).read_text(), [device])
+    if name == 'causal_dynamic':
+        for offset in (-(2**63), -1, 0, 1, 2**63-1):
+            result = executable.execute([jax.device_put(np.int64(offset), device)])
+            want = np.array([[k-q <= offset for k in range(3)] for q in range(2)], dtype=np.bool_)
+            np.testing.assert_array_equal(np.asarray(result[0]), want)
+        print(name, 'CPU runtime offsets including int64 extremes match reference')
+        continue
+    if name == 'update':
+        for start in (-1, 1, 99):
+            operand = np.array([1,2,3,4], dtype=np.int64)
+            update = np.array([9,8], dtype=np.int64)
+            args = [operand,update,np.int64(start)]
+            result = executable.execute([jax.device_put(a, device) for a in args])
+            want = operand.copy()
+            adjusted = min(max(start,0),2)
+            want[adjusted:adjusted+2] = update
+            np.testing.assert_array_equal(np.asarray(result[0]), want)
+        print(name, 'CPU update and clamp semantics match reference')
+        continue
     if name == 'matmul':
         args = [np.arange(6, dtype=np.float32).reshape(2,3), np.arange(12, dtype=np.float32).reshape(3,4)]
         want = args[0] @ args[1]
@@ -54,4 +75,4 @@ for name in ('matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16
     np.testing.assert_allclose(got.astype(np.float32), want, rtol=rtol, atol=1e-7 if name.endswith(("_f16", "_bf16")) else 0)
     print(name, 'CPU execution matches numpy')
 
-print('verified 10 CPU programs')
+print('verified 12 CPU programs')
