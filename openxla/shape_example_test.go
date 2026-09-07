@@ -13,3 +13,10 @@ func ExampleBufferWrapper_Shape() {
 	fmt.Println(err)
 	// Output: openxla: buffer is closed
 }
+
+func ExampleBufferWrapper_Device() {
+	var b openxla.BufferWrapper
+	_, err := b.Device()
+	fmt.Println(err)
+	// Output: openxla: buffer is closed
+}
