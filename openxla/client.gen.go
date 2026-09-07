@@ -248,6 +248,40 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	}, nil
 }
 
+// DefaultDeviceAssignment returns the runtime's default device IDs for the
+// requested replica and partition counts. Both counts must be positive and fit
+// a C int. The caller owns the returned slice.
+func (c *ClientWrapper) DefaultDeviceAssignment(replicas, partitions int) ([]int32, error) {
+	if replicas <= 0 || partitions <= 0 || uint64(replicas) > 1<<31-1 || uint64(partitions) > 1<<31-1 {
+		return nil, fmt.Errorf("openxla: replica and partition counts must be positive C ints")
+	}
+	if replicas > int(^uint(0)>>1)/4/partitions {
+		return nil, fmt.Errorf("openxla: device assignment size overflows")
+	}
+	if c == nil || c.api == nil || c.client == nil {
+		return nil, fmt.Errorf("openxla: client is closed")
+	}
+	if c.api.Client_DefaultDeviceAssignment == 0 {
+		return nil, fmt.Errorf("openxla: Client_DefaultDeviceAssignment not available")
+	}
+	ids := make([]int32, replicas*partitions)
+	var pin runtime.Pinner
+	pin.Pin(&ids[0])
+	defer pin.Unpin()
+	args := Client_DefaultDeviceAssignment_Args{
+		Struct_size:  PJRT_Client_DefaultDeviceAssignment_Args_STRUCT_SIZE,
+		Client:       c.client,
+		Num_replicas: int32(replicas), Num_partitions: int32(partitions),
+		Default_assignment_size: uintptr(len(ids)), Default_assignment: &ids[0],
+	}
+	var fn func(*Client_DefaultDeviceAssignment_Args) *Error
+	purego.RegisterFunc(&fn, c.api.Client_DefaultDeviceAssignment)
+	if errPtr := fn(&args); errPtr != nil {
+		return nil, decodeError(c.api, errPtr)
+	}
+	return ids, nil
+}
+
 // Compile compiles a program (HLO, StableHLO, or MLIR bytecode) for execution on the client.
 // Empty compileOptions selects one replica and one partition; otherwise the
 // caller supplies a serialized XLA CompileOptionsProto.
@@ -310,6 +344,41 @@ func (c *ClientWrapper) Compile(programCode []byte, format string, compileOption
 type ExecutableWrapper struct {
 	api        *Api
 	executable *LoadedExecutable
+}
+
+// SerializedDeviceAssignment returns an owned copy of the executable's
+// serialized XLA DeviceAssignmentProto. The runtime must supply a backing
+// allocation and its deleter. Once that pair is validated, the deleter runs
+// before this method returns, including on malformed byte output.
+func (e *ExecutableWrapper) SerializedDeviceAssignment() ([]byte, error) {
+	if e == nil || e.api == nil || e.executable == nil {
+		return nil, fmt.Errorf("openxla: executable is closed")
+	}
+	if e.api.LoadedExecutable_GetDeviceAssignment == 0 {
+		return nil, fmt.Errorf("openxla: LoadedExecutable_GetDeviceAssignment not available")
+	}
+	args := LoadedExecutable_GetDeviceAssignment_Args{
+		Struct_size: PJRT_LoadedExecutable_GetDeviceAssignment_Args_STRUCT_SIZE,
+		Executable:  e.executable,
+	}
+	var fn func(*LoadedExecutable_GetDeviceAssignment_Args) *Error
+	purego.RegisterFunc(&fn, e.api.LoadedExecutable_GetDeviceAssignment)
+	if errPtr := fn(&args); errPtr != nil {
+		return nil, decodeError(e.api, errPtr)
+	}
+	if args.Serialized_device_assignment == nil || args.Serialized_device_assignment_deleter == 0 {
+		return nil, fmt.Errorf("openxla: device assignment has no backing allocation or deleter")
+	}
+	var free func(*DeviceAssignmentSerialized)
+	purego.RegisterFunc(&free, args.Serialized_device_assignment_deleter)
+	defer free(args.Serialized_device_assignment)
+	if args.Serialized_bytes_size > uintptr(^uint(0)>>1) {
+		return nil, fmt.Errorf("openxla: serialized device assignment size overflows")
+	}
+	if args.Serialized_bytes == nil && args.Serialized_bytes_size != 0 {
+		return nil, fmt.Errorf("openxla: serialized device assignment data is nil")
+	}
+	return append([]byte(nil), unsafe.Slice(args.Serialized_bytes, args.Serialized_bytes_size)...), nil
 }
 
 // NumOutputs returns the number of output buffers produced by the executable per device.
