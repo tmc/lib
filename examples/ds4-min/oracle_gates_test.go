@@ -75,6 +75,8 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PRODUCTION_HASH_GATE", "production Eval token-zero hash before and after Reset"},
 	{"DS4_CUDA_PHASE_PROFILE", "CUDA phase timing with stream events"},
 	{"DS4_CUDA_PHASE_PROFILE_OUT", "new CUDA phase timing result file"},
+	{"DS4_CUDA_PREFILL_PROGRESS", "CUDA EvalBatch progress diagnostic"},
+	{"DS4_CUDA_PREFILL_PROGRESS_OUT", "new CUDA prefill progress JSONL file"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 
 	{"DS4_REQUIRE_GATES", "failing this test when any gate above is unset"},

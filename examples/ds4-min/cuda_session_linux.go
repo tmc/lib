@@ -16,15 +16,16 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model     *cudaModel
-	arena     *cudamem.Arena
-	batch     *cudaBatchResources
-	state     cudaSessionState
-	hcMath    *cudaHC
-	ctx, pos  int
-	logits    []float32
-	failed    error
-	phaseMark func(string) error
+	model         *cudaModel
+	arena         *cudamem.Arena
+	batch         *cudaBatchResources
+	state         cudaSessionState
+	hcMath        *cudaHC
+	ctx, pos      int
+	logits        []float32
+	failed        error
+	phaseMark     func(string) error
+	batchProgress func(int) error
 }
 
 type cudaSessionState struct {
@@ -314,12 +315,24 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 	for i < len(tokens) {
 		n := min(cudaPrefillBatchWidth, len(tokens)-i)
 		if n == 1 {
-			return r.evalPosition(tokens[i], position+i, true)
+			if err := r.evalPosition(tokens[i], position+i, true); err != nil {
+				return err
+			}
+			i++
+			if r.batchProgress != nil {
+				return r.batchProgress(i)
+			}
+			return nil
 		}
 		if err := r.evalBatch(tokens[i:i+n], position+i, i+n == len(tokens)); err != nil {
 			return err
 		}
 		i += n
+		if r.batchProgress != nil {
+			if err := r.batchProgress(i); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
