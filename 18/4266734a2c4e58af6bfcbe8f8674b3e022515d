@@ -1,0 +1,25 @@
+verified 2026-09-06 by claude-code session 2b9497cd-7408-4e8b-a617-38b19820dab9
+model=claude-opus-5  tty=not a tty
+none  pid=84862
+ITERM_SESSION_ID=w15t0p7:DF6906F6-C2E9-4396-8D42-90A88213125C
+session_url=https://claude.ai/code/session_01LPeVWqL2JqbPUvYSBqJyBn
+
+Candidate authored by codex peer 6E6A46AB; reviewed, gated and landed by DF6906F6.
+
+Identity evidence (peer, independently re-verified by me):
+  evidence/worker-CODEX6E6A/router-integration/
+  base.exit=0 candidate.exit=0
+  both capture concats = db6f6125aace12670703a3b2a422c86655a9938fc1335f718657d2ab4913a6fe
+  (the registered prompt-A hash; checked with explicit per-file existence
+  tests, not a glob -- an absent glob hashes to e3b0c44 and reads as
+  agreement)
+  both arms built at 02ef5c7957162366915cfd57c39fd13ad0a884d9
+
+Encoded-count gate (mine, model-enabled, serial):
+  TestMetalRuntimePositionZeroExecution PASS 35.07s with this change
+  same test FAIL 35.95s with metal_runtime_darwin.go reverted to 02ef5c7,
+  reporting Encoded:14 against want Encoded:15
+  The assertion is therefore coupled to the code, not decorative.
+
+Scope: prompt A only. Identity evidence, not throughput and not oracle
+parity. No qualified Metal throughput window has existed on this host.
