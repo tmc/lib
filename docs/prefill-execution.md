@@ -32,13 +32,17 @@ earlier sample is at layer 34 in compressor synchronization and the successor
 sample is at layer 36 in RMS launch. Each stack is one location sample and does
 not identify where time was spent, establish a rate, or distinguish slow
 progress from a stall. Neither run writes a result or completion marker.
+The run wrapper qualified CPU load but did not record CUDA device health. A
+later check found the device unavailable and the host was rebooted, so the
+historical link/driver state cannot be recovered; these are not qualified
+healthy-device performance results.
 
 Evidence is in
 `../evidence/worker-BABFB352/cuda-compressor-defer-n64-20260907/` and
 `../evidence/worker-BABFB352/cuda-compressor-defer-workload-20260907/`.
 The remaining performance work must batch more of the token-ordered layer body
-or otherwise reduce its device work; another unchanged 29-minute run is not a
-measurement plan.
+or otherwise reduce its device work, then run under a device-health precondition.
+Another unchanged 29-minute run is not a measurement plan.
 
 ## Integrated state at f4577d6
 
