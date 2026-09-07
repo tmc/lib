@@ -223,8 +223,13 @@ func newMetalRuntimeLogged(path string, context int, log io.Writer) (_ *metalRun
 	}
 	logf("Metal device %s, %.2f GiB recommended working set", r.dev.Raw().Name(),
 		float64(r.dev.Raw().RecommendedMaxWorkingSetSize())/(1<<30))
+	fileBytes := uint64(info.Size())
+	if r.model.DataOffset >= fileBytes {
+		return nil, fmt.Errorf("Metal runtime: GGUF data offset %d outside %d-byte model", r.model.DataOffset, fileBytes)
+	}
+	modelBytes := fileBytes - r.model.DataOffset
 	viewStart := time.Now()
-	r.views, err = mapMetalModel(r.dev, f, uint64(info.Size()), maxTensor)
+	r.views, err = mapMetalModelRange(r.dev, f, r.model.DataOffset, modelBytes, maxTensor)
 	if err != nil {
 		return nil, err
 	}
@@ -250,8 +255,8 @@ func newMetalRuntimeLogged(path string, context int, log io.Writer) (_ *metalRun
 		return nil, err
 	}
 	warmMS := float64(time.Since(warmStart)) / float64(time.Millisecond)
-	logf("Metal model views created in %.3f ms, warmup %.3f ms (mapped %.2f MiB from offset 0.00 MiB)",
-		viewMS, warmMS, float64(info.Size())/(1<<20))
+	logf("Metal model views created in %.3f ms, warmup %.3f ms (mapped %.2f MiB from offset %.2f MiB)",
+		viewMS, warmMS, float64(modelBytes)/(1<<20), float64(r.model.DataOffset)/(1<<20))
 	logf("Metal mapped mmaped model as %d overlapping shared buffers, %d warmed", len(r.views.views), warmed)
 	return r, nil
 }

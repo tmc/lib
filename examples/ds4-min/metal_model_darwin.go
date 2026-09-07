@@ -20,6 +20,11 @@ type metalModelViews struct {
 	views []metalModelView
 }
 
+type metalModelRange struct {
+	offset uint64
+	length uint64
+}
+
 type boundMetalTensor struct {
 	name       string
 	typeID     uint32
@@ -81,39 +86,63 @@ func (m *metalModelViews) Bind(g *gguf.File, name string) (boundMetalTensor, err
 }
 
 func mapMetalModel(dev *libmetal.Device, f *os.File, fileBytes, maxTensorBytes uint64) (*metalModelViews, error) {
+	return mapMetalModelRange(dev, f, 0, fileBytes, maxTensorBytes)
+}
+
+func mapMetalModelRange(dev *libmetal.Device, f *os.File, fileOffset, fileBytes, maxTensorBytes uint64) (*metalModelViews, error) {
 	if dev == nil || f == nil {
 		return nil, fmt.Errorf("map model: missing device or file")
 	}
 	page := uint64(os.Getpagesize())
-	maxBuffer := uint64(dev.Raw().MaxBufferLength()) &^ (page - 1)
+	ranges, err := planMetalModelViews(fileOffset, fileBytes, uint64(dev.Raw().MaxBufferLength()), maxTensorBytes, page)
+	if err != nil {
+		return nil, err
+	}
+	m := &metalModelViews{}
+	for _, view := range ranges {
+		if view.offset > uint64(^uint64(0)>>1) || view.length > uint64(^uint(0)>>1) {
+			m.Close()
+			return nil, fmt.Errorf("map model: view range overflows int")
+		}
+		data, err := metalmem.AllocMMapZeroCopy[byte](dev, f, int64(view.offset), int(view.length))
+		if err != nil {
+			m.Close()
+			return nil, fmt.Errorf("map model view at %d: %w", view.offset, err)
+		}
+		m.views = append(m.views, metalModelView{fileOffset: view.offset, data: data})
+	}
+	return m, nil
+}
+
+func planMetalModelViews(fileOffset, fileBytes, maxBufferBytes, maxTensorBytes, page uint64) ([]metalModelRange, error) {
+	if fileBytes == 0 || fileOffset > ^uint64(0)-fileBytes {
+		return nil, fmt.Errorf("map model: invalid file range")
+	}
 	overlap, err := checkedRoundPage(maxTensorBytes, page)
 	if err != nil || overlap > ^uint64(0)-page {
 		return nil, fmt.Errorf("map model: tensor span overflow")
 	}
 	overlap += page
-	if fileBytes == 0 || maxBuffer <= overlap {
+	maxBuffer := maxBufferBytes &^ (page - 1)
+	if maxBuffer <= overlap {
 		return nil, fmt.Errorf("map model: Metal maximum %d cannot cover tensor span %d", maxBuffer, maxTensorBytes)
 	}
-	step := maxBuffer - overlap
-	m := &metalModelViews{}
-	for off := uint64(0); off < fileBytes; {
-		length := min(maxBuffer, fileBytes-off)
-		if off > uint64(^uint64(0)>>1) || length > uint64(^uint(0)>>1) {
-			m.Close()
-			return nil, fmt.Errorf("map model: view range overflows int")
+	end := fileOffset + fileBytes
+	var ranges []metalModelRange
+	for off := fileOffset; off < end; {
+		prefix := off & (page - 1)
+		capacity := maxBuffer - prefix
+		if capacity <= overlap {
+			return nil, fmt.Errorf("map model: Metal maximum %d cannot cover tensor span %d at offset %d", maxBuffer, maxTensorBytes, off)
 		}
-		data, err := metalmem.AllocMMapZeroCopy[byte](dev, f, int64(off), int(length))
-		if err != nil {
-			m.Close()
-			return nil, fmt.Errorf("map model view at %d: %w", off, err)
-		}
-		m.views = append(m.views, metalModelView{fileOffset: off, data: data})
-		if length == fileBytes-off {
+		length := min(capacity, end-off)
+		ranges = append(ranges, metalModelRange{off, length})
+		if length == end-off {
 			break
 		}
-		off += step
+		off += capacity - overlap
 	}
-	return m, nil
+	return ranges, nil
 }
 
 func checkedRoundPage(n, page uint64) (uint64, error) {

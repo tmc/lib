@@ -72,7 +72,11 @@ func TestMetalPinnedTensorViews(t *testing.T) {
 	}
 	defer dev.Close()
 	prof.mark("NewDevice")
-	views, err := mapMetalModel(dev, f, uint64(info.Size()), maxTensor)
+	fileBytes := uint64(info.Size())
+	if g.DataOffset >= fileBytes {
+		t.Fatalf("GGUF data offset %d outside %d-byte model", g.DataOffset, fileBytes)
+	}
+	views, err := mapMetalModelRange(dev, f, g.DataOffset, fileBytes-g.DataOffset, maxTensor)
 	if err != nil {
 		t.Fatal(err)
 	}
