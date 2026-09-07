@@ -3,6 +3,9 @@
 This module provides Go ownership wrappers for PJRT plugins, compiled programs
 and device buffers. It uses `openxla` bindings and builds without cgo.
 
+The [kvcache](kvcache) subpackage retains device key/value history for causal
+attention, with reusable decode and prefill graphs.
+
 Close buffers and executables before their engine. Execution waits for native
 completion, including when its context is cancelled. Closing a resource must
 be synchronized with calls that use it. A destruction error invalidates the Go
