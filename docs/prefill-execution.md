@@ -62,6 +62,19 @@ not transfer the older unretained short-decode claim that MoE dominates to the
 2,048-token prefill workload. The retained receipt is
 `../evidence/worker-BABFB352/cuda-phase-profile-v3-run-20260907/`.
 
+A subsequent instrumented 2,048-token call retained monotonic progress every
+128 completed tokens. It reached the 1,152 checkpoint before the same
+29-minute timeout. The nine interval durations increase from 60.94 seconds to
+243.97 seconds, consistent with growing-context work and inconsistent with a
+constant per-token cost. The terminal stack was at position 1,259, so this run
+also passed the position 1,254 sampled by both earlier timeouts; a fixed stall
+at exactly 1,254 is ruled out for this run.
+
+The progress records include hook and fsync overhead. They do not establish a
+rate, completion time, absence of a later stall, or uninstrumented throughput.
+The closed receipt is
+`../evidence/worker-BABFB352/cuda-prefill-progress-v3-run-02-20260907/`.
+
 ## Integrated state at f4577d6
 
 CUDA now processes longer input as ordered adjacent pairs. Each pair batches
