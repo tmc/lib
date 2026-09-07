@@ -1,0 +1,9 @@
+Commit: 87f8698be6a2077e46b190de831b956462b50274
+Date: 2026-09-07T01:52:05Z
+Agent: OpenAI Codex
+Model: GPT-5
+TTY: unknown
+PID: 40165
+ITERM_SESSION_ID: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/cuda-moe-warp-pack/RESULT-20260906.md SHA-256 2b9958b3eba67ef117e2d6e7d72c5499816a0c271981619fd3c1f9375ee13d12
+Gates: warmed 129280-logit bit identity; CUDA selected-expert arithmetic/determinism; baseline-relative whole-model gain 0.8481 percent.
