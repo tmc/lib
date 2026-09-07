@@ -64,6 +64,12 @@ var oracleGates = []oracleGate{
 	{"DS4_PREFILL_CONTINUATION", "the fixed token evaluated after each prefill"},
 	{"DS4_PREFILL_DIR", "the new directory for prefill capture artifacts"},
 
+	{"DS4_ORACLE_WORKLOAD_GATE", "first-frontier 2048 prefill and 128 non-EOS decode measurement"},
+	{"DS4_ORACLE_WORKLOAD_BACKEND", "backend for workload measurement"},
+	{"DS4_ORACLE_WORKLOAD_PROMPT", "raw prompt matched to token prefix"},
+	{"DS4_ORACLE_WORKLOAD_TOKENS", "retained oracle token corpus"},
+	{"DS4_ORACLE_WORKLOAD_DIR", "new workload artifact directory"},
+
 	{"DS4_CUDA_PRODUCTION_HASH_GATE", "production Eval token-zero hash before and after Reset"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 
