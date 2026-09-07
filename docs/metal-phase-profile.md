@@ -10,8 +10,11 @@ counterpart is not built on a timing source that cannot be compared.
 
 ## Host markers are not the analogue of a CUDA event
 
-A CUDA event is recorded *into the stream*. The interval between two events is
-device time, whatever the host was doing meanwhile.
+A CUDA event is recorded *into the stream*, and the interval between two
+events is device-timestamp elapsed time. That is not execution-only time: it
+includes stream idle, so if the host is slow to submit, the gap is inside the
+number. What it does give is a device clock reading taken at a point in the
+stream's own order.
 
 Metal encodes dispatches into a command encoder and the GPU runs them
 asynchronously; the host returns from an encode call long before the work runs.
@@ -51,11 +54,12 @@ wrap it, so wrapping it is prerequisite work.
 
 **The barrier argument is a real choice, not a detail.** With `barrier: true`
 the timestamp is bounded to the dispatch boundary but serializes work that
-Metal would otherwise overlap, so the profile perturbs the thing it measures
-more than the CUDA events do. With `barrier: false` the sample is cheap but not
-precisely attributable to a boundary. Whichever is chosen must be stated in the
-result's scope, and the two backends' perturbation is then not equal — which
-bounds how finely their rankings may be compared even when both are honest.
+Metal would otherwise overlap. With `barrier: false` the sample is cheap but
+not precisely attributable to a boundary. Whichever is chosen must be stated in
+the result's scope. Both instruments perturb scheduling — recording thousands
+of CUDA events does too — and nothing here establishes which perturbs more, or
+by how much; that would itself have to be measured before any claim about the
+comparability of two rankings.
 
 ## The gate to copy
 
@@ -75,5 +79,7 @@ grows with position and the FFN phases do not, so neither ranking transfers to
 the position range where the 2048-token runs stopped (CUDA 1254, Metal 1579).
 Neither of those two runs produced a rate: the CUDA one carries an
 unestablished device-health scope, and the Metal one failed its after-run host
-qualification at load 5.33 against a registered limit of 4.00, because the
-agent holding the slot was compiling on the same machine.
+qualification at load 5.33 against a registered limit of 4.00. The agent
+holding the slot was compiling on the same machine during the window, which
+makes it the plausible cause; the load reading establishes contention, not
+which process caused it.
