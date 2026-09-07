@@ -29,15 +29,16 @@ func OpenPlugin(path string) (*Plugin, error) {
 		return nil, fmt.Errorf("openxla: failed to load %q: %w", path, err)
 	}
 
-	var getApi func() *Api
-	purego.RegisterLibFunc(&getApi, handle, "GetPjrtApi")
-	if getApi == nil {
-		return nil, fmt.Errorf("openxla: GetPjrtApi symbol not found in %q", path)
+	symbol, err := purego.Dlsym(handle, "GetPjrtApi")
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("openxla: GetPjrtApi in %q: %w", path, err), purego.Dlclose(handle))
 	}
+	var getApi func() *Api
+	purego.RegisterFunc(&getApi, symbol)
 
 	api := getApi()
 	if api == nil {
-		return nil, fmt.Errorf("openxla: GetPjrtApi returned nil in %q", path)
+		return nil, errors.Join(fmt.Errorf("openxla: GetPjrtApi returned nil in %q", path), purego.Dlclose(handle))
 	}
 
 	return &Plugin{

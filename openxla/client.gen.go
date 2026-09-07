@@ -3,7 +3,9 @@
 package openxla
 
 import (
+	"errors"
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -176,6 +178,8 @@ func (c *ClientWrapper) AddressableDevices() ([]*Device, error) {
 }
 
 // BufferFromHost creates an on-device PJRT Buffer from host memory.
+// The caller must supply enough data for bufType and dims and must not modify
+// it during the call. Go allocations are pinned until the transfer returns.
 func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type, dims []int64, dev *Device) (*BufferWrapper, error) {
 	if c.api.Client_BufferFromHostBuffer == 0 {
 		return nil, fmt.Errorf("Client_BufferFromHostBuffer not available")
@@ -185,6 +189,14 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	}
 	if c.api.Event_Await == 0 || c.api.Event_Destroy == 0 {
 		return nil, fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
+	}
+	var pin runtime.Pinner
+	defer pin.Unpin()
+	if data != nil {
+		pin.Pin(data)
+	}
+	if len(dims) > 0 {
+		pin.Pin(&dims[0])
 	}
 	var args Client_BufferFromHostBuffer_Args
 	args.Struct_size = PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE
@@ -204,35 +216,9 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 		return nil, decodeError(c.api, errPtr)
 	}
 
-	if args.Done_with_host_buffer != nil {
-		defer func() {
-			var dArgs Event_Destroy_Args
-			dArgs.Struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE
-			dArgs.Event = args.Done_with_host_buffer
-			var fnD func(*Event_Destroy_Args) *Error
-			purego.RegisterFunc(&fnD, c.api.Event_Destroy)
-			if dErrPtr := fnD(&dArgs); dErrPtr != nil {
-				_ = decodeError(c.api, dErrPtr)
-			}
-		}()
-		var evArgs Event_Await_Args
-		evArgs.Struct_size = PJRT_Event_Await_Args_STRUCT_SIZE
-		evArgs.Event = args.Done_with_host_buffer
-		var fnAwait func(*Event_Await_Args) *Error
-		purego.RegisterFunc(&fnAwait, c.api.Event_Await)
-		if errPtr := fnAwait(&evArgs); errPtr != nil {
-			if args.Buffer != nil && c.api.Buffer_Destroy != 0 {
-				var bArgs Buffer_Destroy_Args
-				bArgs.Struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE
-				bArgs.Buffer = args.Buffer
-				var fnBD func(*Buffer_Destroy_Args) *Error
-				purego.RegisterFunc(&fnBD, c.api.Buffer_Destroy)
-				if bErrPtr := fnBD(&bArgs); bErrPtr != nil {
-					_ = decodeError(c.api, bErrPtr)
-				}
-			}
-			return nil, decodeError(c.api, errPtr)
-		}
+	if err := awaitEvent(c.api, args.Done_with_host_buffer); err != nil {
+		buffer := &BufferWrapper{api: c.api, buffer: args.Buffer}
+		return nil, errors.Join(err, buffer.Destroy())
 	}
 
 	return &BufferWrapper{
@@ -242,7 +228,16 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 }
 
 // Compile compiles a program (HLO, StableHLO, or MLIR bytecode) for execution on the client.
+// Empty compileOptions selects one replica and one partition; otherwise the
+// caller supplies a serialized XLA CompileOptionsProto.
 func (c *ClientWrapper) Compile(programCode []byte, format string, compileOptions []byte) (*ExecutableWrapper, error) {
+	// CompileOptionsProto.executable_build_options (field 3) sets
+	// num_replicas (field 4) and num_partitions (field 5) to one. An empty
+	// protobuf otherwise leaves replica count zero in native implementations.
+	if len(compileOptions) == 0 {
+		compileOptions = []byte{26, 4, 32, 1, 40, 1}
+	}
+
 	if c.api.Client_Compile == 0 {
 		return nil, fmt.Errorf("Client_Compile not available")
 	}
@@ -290,9 +285,12 @@ type ExecutableWrapper struct {
 }
 
 // NumOutputs returns the number of output buffers produced by the executable per device.
-func (e *ExecutableWrapper) NumOutputs() (int, error) {
+func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 	if e.api.LoadedExecutable_GetExecutable == 0 || e.api.Executable_NumOutputs == 0 {
 		return 0, fmt.Errorf("openxla: output cardinality query not supported by runtime")
+	}
+	if e.api.Executable_Destroy == 0 {
+		return 0, fmt.Errorf("openxla: Executable_Destroy not available")
 	}
 	var getArgs LoadedExecutable_GetExecutable_Args
 	getArgs.Struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE
@@ -310,7 +308,8 @@ func (e *ExecutableWrapper) NumOutputs() (int, error) {
 			var fnD func(*Executable_Destroy_Args) *Error
 			purego.RegisterFunc(&fnD, e.api.Executable_Destroy)
 			if errPtr := fnD(&dArgs); errPtr != nil {
-				_ = decodeError(e.api, errPtr)
+				err = errors.Join(err, decodeError(e.api, errPtr))
+				count = 0
 			}
 		}
 	}()
@@ -322,6 +321,9 @@ func (e *ExecutableWrapper) NumOutputs() (int, error) {
 	purego.RegisterFunc(&fnNum, e.api.Executable_NumOutputs)
 	if errPtr := fnNum(&numArgs); errPtr != nil {
 		return 0, decodeError(e.api, errPtr)
+	}
+	if numArgs.Num_outputs > uintptr(int(^uint(0)>>1)) {
+		return 0, fmt.Errorf("openxla: output count overflows int")
 	}
 	return int(numArgs.Num_outputs), nil
 }
@@ -342,7 +344,7 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 			return nil, fmt.Errorf("openxla: ragged input lists: device 0 has %d args, device %d has %d args", numArgs, d, len(inputLists[d]))
 		}
 		for a := 0; a < numArgs; a++ {
-			if inputLists[d][a] == nil {
+			if inputLists[d][a] == nil || inputLists[d][a].buffer == nil {
 				return nil, fmt.Errorf("openxla: nil buffer at device %d, arg %d", d, a)
 			}
 		}
@@ -351,6 +353,11 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 	numOutputs, err := e.NumOutputs()
 	if err != nil {
 		return nil, fmt.Errorf("openxla: determine num outputs: %w", err)
+	}
+
+	maxElements := int(^uint(0)>>1) / int(unsafe.Sizeof(uintptr(0)))
+	if numArgs > maxElements/numDevices || numOutputs > maxElements/numDevices {
+		return nil, fmt.Errorf("openxla: execution buffer lists overflow int")
 	}
 
 	rawArgs := make([]*Buffer, numDevices*numArgs)
@@ -407,64 +414,19 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 	var fn func(*LoadedExecutable_Execute_Args) *Error
 	purego.RegisterFunc(&fn, e.api.LoadedExecutable_Execute)
 
-	cleanupEvents := func() {
-		if e.api.Event_Destroy != 0 {
-			for _, ev := range events {
-				if ev != nil {
-					var dArgs Event_Destroy_Args
-					dArgs.Struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE
-					dArgs.Event = ev
-					var fnD func(*Event_Destroy_Args) *Error
-					purego.RegisterFunc(&fnD, e.api.Event_Destroy)
-					if errPtr := fnD(&dArgs); errPtr != nil {
-						_ = decodeError(e.api, errPtr)
-					}
-				}
-			}
-		}
-	}
-
-	cleanupOutputs := func() {
-		if e.api.Buffer_Destroy != 0 {
-			for _, buf := range rawOutputs {
-				if buf != nil {
-					var dArgs Buffer_Destroy_Args
-					dArgs.Struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE
-					dArgs.Buffer = buf
-					var fnD func(*Buffer_Destroy_Args) *Error
-					purego.RegisterFunc(&fnD, e.api.Buffer_Destroy)
-					if errPtr := fnD(&dArgs); errPtr != nil {
-						_ = decodeError(e.api, errPtr)
-					}
-				}
-			}
-		}
-	}
-
-	if errPtr := fn(&args); errPtr != nil {
-		cleanupEvents()
-		cleanupOutputs()
-		return nil, decodeError(e.api, errPtr)
-	}
-
-	// Wait for execution completion events if provided
+	// Await every device before releasing outputs, even if an earlier device
+	// reports failure. Event destruction failures are returned to the caller.
+	runErr := decodeError(e.api, fn(&args))
 	for _, ev := range events {
-		if ev != nil {
-			var evArgs Event_Await_Args
-			evArgs.Struct_size = PJRT_Event_Await_Args_STRUCT_SIZE
-			evArgs.Event = ev
-			var fnAwait func(*Event_Await_Args) *Error
-			purego.RegisterFunc(&fnAwait, e.api.Event_Await)
-			errPtr := fnAwait(&evArgs)
-
-			if errPtr != nil {
-				cleanupEvents()
-				cleanupOutputs()
-				return nil, decodeError(e.api, errPtr)
-			}
-		}
+		runErr = errors.Join(runErr, awaitEvent(e.api, ev))
 	}
-	cleanupEvents()
+	if runErr != nil {
+		for _, buf := range rawOutputs {
+			wrapper := &BufferWrapper{api: e.api, buffer: buf}
+			runErr = errors.Join(runErr, wrapper.Destroy())
+		}
+		return nil, runErr
+	}
 
 	results := make([][]*BufferWrapper, numDevices)
 	for d := 0; d < numDevices; d++ {
@@ -504,13 +466,54 @@ type BufferWrapper struct {
 	buffer *Buffer
 }
 
+// Shape returns the buffer's element type and a copy of its dimensions.
+func (b *BufferWrapper) Shape() (Buffer_Type, []int64, error) {
+	if b == nil || b.buffer == nil {
+		return Buffer_Type_INVALID, nil, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_ElementType == 0 || b.api.Buffer_Dimensions == 0 {
+		return Buffer_Type_INVALID, nil, fmt.Errorf("openxla: buffer shape queries not available")
+	}
+	var typeArgs Buffer_ElementType_Args
+	typeArgs.Struct_size = PJRT_Buffer_ElementType_Args_STRUCT_SIZE
+	typeArgs.Buffer = b.buffer
+	var typeFn func(*Buffer_ElementType_Args) *Error
+	purego.RegisterFunc(&typeFn, b.api.Buffer_ElementType)
+	if errPtr := typeFn(&typeArgs); errPtr != nil {
+		return Buffer_Type_INVALID, nil, decodeError(b.api, errPtr)
+	}
+	var dimsArgs Buffer_Dimensions_Args
+	dimsArgs.Struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE
+	dimsArgs.Buffer = b.buffer
+	var dimsFn func(*Buffer_Dimensions_Args) *Error
+	purego.RegisterFunc(&dimsFn, b.api.Buffer_Dimensions)
+	if errPtr := dimsFn(&dimsArgs); errPtr != nil {
+		return Buffer_Type_INVALID, nil, decodeError(b.api, errPtr)
+	}
+	if dimsArgs.Num_dims > uintptr(int(^uint(0)>>1))/unsafe.Sizeof(int64(0)) || (dimsArgs.Num_dims != 0 && dimsArgs.Dims == nil) {
+		return Buffer_Type_INVALID, nil, fmt.Errorf("openxla: invalid buffer dimensions")
+	}
+	dims := append([]int64(nil), unsafe.Slice(dimsArgs.Dims, int(dimsArgs.Num_dims))...)
+	return typeArgs.Type, dims, nil
+}
+
 // ToHost copies on-device buffer data to host memory synchronously.
+// The caller must not access dst until the call returns. Go allocations are
+// pinned until the completion event has been awaited and destroyed.
 func (b *BufferWrapper) ToHost(dst unsafe.Pointer, dstSize uintptr) error {
+	if b == nil || b.buffer == nil {
+		return fmt.Errorf("openxla: buffer is closed")
+	}
 	if b.api.Buffer_ToHostBuffer == 0 {
 		return fmt.Errorf("Buffer_ToHostBuffer not available")
 	}
 	if b.api.Event_Await == 0 || b.api.Event_Destroy == 0 {
 		return fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
+	}
+	var pin runtime.Pinner
+	defer pin.Unpin()
+	if dst != nil {
+		pin.Pin(dst)
 	}
 	var args Buffer_ToHostBuffer_Args
 	args.Struct_size = PJRT_Buffer_ToHostBuffer_Args_STRUCT_SIZE
@@ -522,27 +525,7 @@ func (b *BufferWrapper) ToHost(dst unsafe.Pointer, dstSize uintptr) error {
 	if errPtr := fn(&args); errPtr != nil {
 		return decodeError(b.api, errPtr)
 	}
-	if args.Event != nil {
-		defer func() {
-			var dArgs Event_Destroy_Args
-			dArgs.Struct_size = PJRT_Event_Destroy_Args_STRUCT_SIZE
-			dArgs.Event = args.Event
-			var fnD func(*Event_Destroy_Args) *Error
-			purego.RegisterFunc(&fnD, b.api.Event_Destroy)
-			if dErrPtr := fnD(&dArgs); dErrPtr != nil {
-				_ = decodeError(b.api, dErrPtr)
-			}
-		}()
-		var evArgs Event_Await_Args
-		evArgs.Struct_size = PJRT_Event_Await_Args_STRUCT_SIZE
-		evArgs.Event = args.Event
-		var fnAwait func(*Event_Await_Args) *Error
-		purego.RegisterFunc(&fnAwait, b.api.Event_Await)
-		if errPtr := fnAwait(&evArgs); errPtr != nil {
-			return decodeError(b.api, errPtr)
-		}
-	}
-	return nil
+	return awaitEvent(b.api, args.Event)
 }
 
 // Destroy destroys the on-device buffer.
@@ -579,6 +562,23 @@ func (c *ClientWrapper) Destroy() error {
 		return decodeError(c.api, errPtr)
 	}
 	return nil
+}
+
+// awaitEvent consumes an event, preserving both completion and release errors.
+func awaitEvent(api *Api, event *Event) (err error) {
+	if event == nil {
+		return nil
+	}
+	defer func() {
+		args := Event_Destroy_Args{Struct_size: PJRT_Event_Destroy_Args_STRUCT_SIZE, Event: event}
+		var destroy func(*Event_Destroy_Args) *Error
+		purego.RegisterFunc(&destroy, api.Event_Destroy)
+		err = errors.Join(err, decodeError(api, destroy(&args)))
+	}()
+	args := Event_Await_Args{Struct_size: PJRT_Event_Await_Args_STRUCT_SIZE, Event: event}
+	var await func(*Event_Await_Args) *Error
+	purego.RegisterFunc(&await, api.Event_Await)
+	return decodeError(api, await(&args))
 }
 
 func decodeError(api *Api, errPtr *Error) error {
