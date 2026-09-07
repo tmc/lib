@@ -266,14 +266,20 @@ func (c *ClientWrapper) Compile(programCode []byte, format string, compileOption
 		return nil, fmt.Errorf("openxla: LoadedExecutable_Destroy not available")
 	}
 
+	// PJRT borrows the program and its nested Go allocations until the call returns.
+	var pin runtime.Pinner
+	defer pin.Unpin()
 	var prog Program
+	pin.Pin(&prog)
 	prog.Struct_size = PJRT_Program_STRUCT_SIZE
 	if len(programCode) > 0 {
+		pin.Pin(&programCode[0])
 		prog.Code = &programCode[0]
 		prog.Code_size = uintptr(len(programCode))
 	}
 	if format != "" {
 		fmtBytes := []byte(format)
+		pin.Pin(&fmtBytes[0])
 		prog.Format = &fmtBytes[0]
 		prog.Format_size = uintptr(len(fmtBytes))
 	}
@@ -283,6 +289,7 @@ func (c *ClientWrapper) Compile(programCode []byte, format string, compileOption
 	args.Client = c.client
 	args.Program = &prog
 	if len(compileOptions) > 0 {
+		pin.Pin(&compileOptions[0])
 		args.Compile_options = &compileOptions[0]
 		args.Compile_options_size = uintptr(len(compileOptions))
 	}
