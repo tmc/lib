@@ -25,50 +25,13 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 	if dir == "" || refDir == "" || plugin == "" {
 		t.Skip("set PJRT_PRETRAINED_CHECKPOINT, PJRT_PRETRAINED_REFERENCE and XLA_PJRT_CPU_PLUGIN")
 	}
-	var ref struct {
-		Files    map[string]string `json:"files"`
-		Capacity int               `json:"capacity"`
-		Vocab    int               `json:"vocab"`
-		Cases    []struct {
-			Prompt    string  `json:"prompt"`
-			Input     []int32 `json:"input_ids"`
-			Generated []int32 `json:"generated_ids"`
-			Decoded   string  `json:"decoded"`
-			Logits    string  `json:"logits"`
-			SHA256    string  `json:"logits_sha256"`
-		} `json:"cases"`
+	ref := readPJRTReference(t, refDir)
+	if ref.TeacherForced || (ref.ComputeDType != "" && ref.ComputeDType != "float32") {
+		t.Fatal("strict reference test requires a free-running F32 reference")
 	}
-	data, err := os.ReadFile(filepath.Join(refDir, "reference.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(data, &ref); err != nil {
-		t.Fatal(err)
-	}
-	if len(ref.Cases) == 0 || ref.Capacity <= 0 || ref.Vocab <= 0 || len(ref.Files) == 0 {
-		t.Fatal("empty reference")
-	}
-	checkHash := func(path, want string) {
-		t.Helper()
-		f, err := os.Open(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		h := sha256.New()
-		_, readErr := io.Copy(h, f)
-		closeErr := f.Close()
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		if closeErr != nil {
-			t.Fatal(closeErr)
-		}
-		if got := hex.EncodeToString(h.Sum(nil)); got != want {
-			t.Fatalf("%s SHA256 %s, want %s", path, got, want)
-		}
-	}
+
 	for name, hash := range ref.Files {
-		checkHash(filepath.Join(dir, name), hash)
+		checkPJRTReferenceHash(t, filepath.Join(dir, name), hash)
 	}
 	tok, err := preflightPJRTText(dir)
 	if err != nil {
@@ -109,7 +72,7 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 				t.Fatalf("prompt IDs %v %v, want %v", ids, err, tt.Input)
 			}
 			path := filepath.Join(refDir, tt.Logits)
-			checkHash(path, tt.SHA256)
+			checkPJRTReferenceHash(t, path, tt.SHA256)
 			raw, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -158,4 +121,96 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 			t.Logf("compared %d logits, %d greedy IDs; maximum absolute logit error %g", len(tt.Generated)*ref.Vocab, len(generated), maxError)
 		})
 	}
+}
+
+type pjrtReference struct {
+	ComputeDType           string `json:"compute_dtype"`
+	TeacherForced          bool   `json:"teacher_forced"`
+	TeacherReferenceSHA256 string `json:"teacher_reference_sha256,omitempty"`
+	Implementation         string `json:"implementation,omitempty"`
+	sourceHash             string
+	Files                  map[string]string `json:"files"`
+	Capacity               int               `json:"capacity"`
+	Vocab                  int               `json:"vocab"`
+	Cases                  []struct {
+		TeacherIDs []int32 `json:"teacher_ids,omitempty"`
+		Prompt     string  `json:"prompt"`
+		Input      []int32 `json:"input_ids"`
+		Generated  []int32 `json:"generated_ids"`
+		Decoded    string  `json:"decoded"`
+		Logits     string  `json:"logits"`
+		SHA256     string  `json:"logits_sha256"`
+	} `json:"cases"`
+}
+
+func checkPJRTReferenceHash(t *testing.T, path, want string) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := sha256.New()
+	_, readErr := io.Copy(h, f)
+	closeErr := f.Close()
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if got := hex.EncodeToString(h.Sum(nil)); got != want {
+		t.Fatalf("%s SHA256 %s, want %s", path, got, want)
+	}
+}
+
+func readPJRTReference(t *testing.T, dir string) *pjrtReference {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, "reference.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ref pjrtReference
+	if err := json.Unmarshal(data, &ref); err != nil {
+		t.Fatal(err)
+	}
+	if len(ref.Cases) == 0 || ref.Capacity <= 0 || ref.Vocab <= 0 || ref.Vocab > math.MaxInt32 || len(ref.Files) == 0 {
+		t.Fatal("empty or invalid reference")
+	}
+	for name := range ref.Files {
+		if filepath.Base(name) != name || name == "." || name == ".." {
+			t.Fatal("invalid checkpoint filename")
+		}
+	}
+	seen := make(map[string]bool)
+	for _, c := range ref.Cases {
+		if seen[c.Logits] || c.Logits == "reference.json" {
+			t.Fatal("duplicate or reserved logit filename")
+		}
+		seen[c.Logits] = true
+		if filepath.Base(c.Logits) != c.Logits || c.Logits == "." || c.Logits == ".." || c.Logits == "" {
+			t.Fatal("invalid logit filename")
+		}
+		if len(c.Input) == 0 || len(c.Generated) == 0 || len(c.Input) > ref.Capacity || len(c.Generated)-1 > ref.Capacity-len(c.Input) {
+			t.Fatal("reference case exceeds capacity or is empty")
+		}
+		if len(c.Generated) > int(^uint(0)>>1)/4/ref.Vocab {
+			t.Fatal("reference logit size overflows")
+		}
+		if ref.TeacherForced && len(c.TeacherIDs) != len(c.Generated) {
+			t.Fatal("missing teacher history")
+		}
+		if !ref.TeacherForced && len(c.TeacherIDs) != 0 {
+			t.Fatal("unexpected teacher history")
+		}
+		for _, ids := range [][]int32{c.Input, c.Generated, c.TeacherIDs} {
+			for _, id := range ids {
+				if id < 0 || int(id) >= ref.Vocab {
+					t.Fatal("reference token outside vocabulary")
+				}
+			}
+		}
+	}
+	sum := sha256.Sum256(data)
+	ref.sourceHash = hex.EncodeToString(sum[:])
+	return &ref
 }
