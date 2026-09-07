@@ -152,7 +152,7 @@ func (eng *ModelEngine) ResetKV() error {
 }
 
 func (eng *ModelEngine) MutateWeightForTest(layerIndex, elemIndex int, delta float32) (func(), error) {
-	return func() {}, nil
+	return nil, errors.New("unsupported")
 }
 
 func GetOrCompileEngine(cfg Config) (*ModelEngine, error) {
@@ -266,10 +266,9 @@ func runPlatform(cfg Config) error {
     fmt.Printf("=== TPU Backend initialized ===\n")
     fmt.Printf("Running TPU forward pass test...\n")
     if err := eng.ForwardPassMockTPU(); err != nil {
-        fmt.Printf("TPU forward pass execution failed: %v\n", err)
-    } else {
-        fmt.Printf("TPU forward pass executed successfully!\n")
+        return fmt.Errorf("TPU forward pass execution failed: %w", err)
     }
+    fmt.Printf("TPU forward pass executed successfully!\n")
 
 	return nil
 }
@@ -282,8 +281,8 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 	return 0, errors.New("unsupported")
 }
 
-func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) int32 {
-	return 0
+func GPUPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (int32, error) {
+	return 0, errors.New("unsupported")
 }
 
 func GPUBatchedPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (int32, error) {
@@ -294,8 +293,8 @@ func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache,
 	return 0, errors.New("unsupported")
 }
 
-func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) int32 {
-	return 0
+func GPUForwardPass(eng *ModelEngine, cfg Config, tokenID int32, pos int) (int32, error) {
+	return 0, errors.New("unsupported")
 }
 
 func GPUBatchDecodeStep(eng *ModelEngine, cfg Config, batchKVs []*SequenceKVCache, batchTokens []int32, batchPositions []int) ([]int32, error) {
@@ -310,6 +309,8 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	return 0, errors.New("unsupported")
 }
 
+// Generate executes a smoke matmul test on the TPU device.
+// Note: This does not currently perform full LLaMA inference.
 func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(tokenID int32, tokenText string) bool) error {
 	return runPlatform(cfg)
 }
@@ -324,7 +325,7 @@ func RunBenchSuite(cfg Config, count int) error {
 
 func defaultNodeKeyPath() string { return "" }
 func defaultPeerStatePath() string { return "" }
-func runInferbench(ctx context.Context, cfg Config, spec string) error { return nil }
+func runInferbench(ctx context.Context, cfg Config, spec string) error { return errors.New("unsupported") }
 
 
 // UploadWeightsToTPU uploads CPU weights to Cloud TPU memory via PJRT.

@@ -43,17 +43,6 @@ func (o *CompileOptions) ToProto() []byte {
 		b = append(b, ebo...)
 	}
 
-	// Field 4: num_replicas (varint)
-	if o.ReplicaCount > 0 {
-		b = appendVarint(b, 4<<3|0)
-		b = appendVarint(b, uint64(o.ReplicaCount))
-	}
-
-	// Field 5: num_partitions (varint)
-	if o.NumPartitions > 0 {
-		b = appendVarint(b, 5<<3|0)
-		b = appendVarint(b, uint64(o.NumPartitions))
-	}
 
 	return b
 }

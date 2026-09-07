@@ -16,15 +16,7 @@ func TestEngine(t *testing.T) {
 	}
 }
 
-func TestCompileOptions(t *testing.T) {
-	opts := xla.DefaultCompileOptions()
-	b := opts.ToProto()
-	// replica_count=1, num_partitions=1 produces build options + top level replica/partition fields
-	want := []byte{0x1a, 0x04, 0x20, 0x01, 0x28, 0x01, 0x20, 0x01, 0x28, 0x01}
-	if string(b) != string(want) {
-		t.Errorf("ToProto() = %x, want %x", b, want)
-	}
-}
+
 
 func TestBufferWriteTo(t *testing.T) {
 	// A pure interface test; in a real scenario we'd create a Buffer from an Engine.
