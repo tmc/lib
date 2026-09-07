@@ -46,6 +46,22 @@ The remaining performance work must batch more of the token-ordered layer body
 or otherwise reduce its device work, then run under a device-health precondition.
 Another unchanged 29-minute run is not a measurement plan.
 
+## Early-position CUDA phase diagnostic
+
+An event-instrumented `EvalBatch` over positions 0 through 7 preserves the
+uninstrumented full-logit result at exact float32 bits. Default-stream elapsed
+time ranks attention at 44.18%, expert FFN at 17.80%, attention output at
+15.16%, the batched Q/KV front at 9.53%, FFN pre at 6.58%, shared FFN at
+5.75%, and the remaining phases below 0.4% each. Counts reconcile to 2,452
+intervals and the result passed functional device checks before and after.
+
+These are instrumented stream-event intervals, including device idle time, at
+positions 0 through 7 only. They are not kernel-busy time, throughput, Metal
+comparison, or evidence about position 1,254. In particular, the result does
+not transfer the older unretained short-decode claim that MoE dominates to the
+2,048-token prefill workload. The retained receipt is
+`../evidence/worker-BABFB352/cuda-phase-profile-v3-run-20260907/`.
+
 ## Integrated state at f4577d6
 
 CUDA now processes longer input as ordered adjacent pairs. Each pair batches
