@@ -12,6 +12,7 @@ import sys
 
 VOCAB = 129280
 CASES = (2, 64, 2048)
+ALLOWED_CASES = (2, 64, 65, 66, 2048)
 LIFECYCLE = "one runtime; each case: reset, warm batch and fixed continuation, reset, captured batch and same continuation; close before COMPLETE"
 COMPLETE = b"runtime closed; all selected captures written\n"
 IDENTITY_FIELDS = (
@@ -92,7 +93,7 @@ def read_capture(path, cases):
 def compare(before, after, cases=CASES):
     before, after = Path(before), Path(after)
     require(not before.samefile(after), "self-comparison is not evidence: directories are identical")
-    require(cases and len(set(cases)) == len(cases) and all(n in CASES for n in cases), "cases must be distinct values from 2,64,2048")
+    require(cases and len(set(cases)) == len(cases) and all(integer(n) and n in ALLOWED_CASES for n in cases), "cases must be distinct values from 2,64,65,66,2048")
     old, old_data = read_capture(before, cases)
     new, new_data = read_capture(after, cases)
     for key in IDENTITY_FIELDS:

@@ -128,6 +128,51 @@ class CompareTest(unittest.TestCase):
         with self.assertRaisesRegex(compare.CaptureError, "self-comparison"):
             compare.compare(self.before, alias)
 
+    def ragged(self, cases):
+        for path in (self.before, self.after):
+            self.identity(path, cases=list(cases))
+            for n in cases:
+                for stage in ("prefill", "continuation"):
+                    self.payload(path, f"n{n}-{stage}", bytes(compare.VOCAB * 4))
+
+    def test_ragged_cases(self):
+        for cases in ((65,), (66,), (64, 65, 66), (66, 65)):
+            with self.subTest(cases=cases):
+                self.ragged(cases)
+                result = compare.compare(self.before, self.after, cases)
+                self.assertEqual(result["vectors"], 2 * len(cases))
+                self.assertIn("SCOPED", result["scope"])
+                proc = subprocess.run([sys.executable, str(SCRIPT), str(self.before), str(self.after), "--cases", ",".join(map(str, cases))], capture_output=True, text=True)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                with self.assertRaises(compare.CaptureError):
+                    compare.compare(self.before, self.after)
+
+    def test_ragged_changed_bits(self):
+        for n in (65, 66):
+            for stage in ("prefill", "continuation"):
+                with self.subTest(n=n, stage=stage):
+                    self.ragged((n,))
+                    self.payload(self.after, f"n{n}-{stage}", struct.pack("<I", 0x80000000) + bytes(compare.VOCAB * 4 - 4))
+                    with self.assertRaisesRegex(compare.CaptureError, f"bit mismatch: n{n}-{stage}"):
+                        compare.compare(self.before, self.after, (n,))
+
+    def test_ragged_missing_tail(self):
+        for n in (65, 66):
+            with self.subTest(n=n):
+                self.ragged((n,))
+                (self.after / f"n{n}-continuation.f32le").unlink()
+                with self.assertRaises(OSError):
+                    compare.compare(self.before, self.after, (n,))
+
+    def test_ragged_invalid_cases(self):
+        self.ragged((65, 66))
+        for cases in ((65, 65), (66, 66), (63,), (67,), (), (65.0,), (True,)):
+            with self.subTest(cases=cases):
+                with self.assertRaises(compare.CaptureError):
+                    compare.compare(self.before, self.after, cases)
+        with self.assertRaisesRegex(compare.CaptureError, "cases do not match"):
+            compare.compare(self.before, self.after, (66, 65))
+
     def test_scope_and_cli(self):
         for path in (self.before, self.after):
             self.identity(path, cases=[2])

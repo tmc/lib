@@ -49,15 +49,9 @@ func TestPrefillCapture(t *testing.T) {
 	if err != nil || continuation < 0 || continuation >= expectedVocab {
 		t.Fatal("DS4_PREFILL_CONTINUATION must be a token ID in 0..129279")
 	}
-	var cases []int
-	seen := make(map[int]bool)
-	for _, value := range strings.Split(required("DS4_PREFILL_CASES"), ",") {
-		n, err := strconv.Atoi(value)
-		if err != nil || (n != 2 && n != 64 && n != 2048) || seen[n] {
-			t.Fatal("DS4_PREFILL_CASES must contain distinct comma-separated values from 2,64,2048")
-		}
-		seen[n] = true
-		cases = append(cases, n)
+	cases, err := parsePrefillCases(required("DS4_PREFILL_CASES"))
+	if err != nil {
+		t.Fatal(err)
 	}
 	input, err := os.ReadFile(inputPath)
 	if err != nil {
@@ -238,6 +232,53 @@ func TestParsePrefillTokens(t *testing.T) {
 			}
 			if err == nil && tt.name == "maximum" && got[0] != 129279 {
 				t.Fatalf("first token = %d, want 129279", got[0])
+			}
+		})
+	}
+}
+
+func parsePrefillCases(input string) ([]int, error) {
+	var cases []int
+	seen := make(map[int]bool)
+	for _, value := range strings.Split(input, ",") {
+		n, err := strconv.Atoi(value)
+		if err != nil || (n != 2 && n != 64 && n != 65 && n != 66 && n != 2048) || seen[n] {
+			return nil, fmt.Errorf("DS4_PREFILL_CASES must contain distinct comma-separated values from 2,64,65,66,2048")
+		}
+		seen[n] = true
+		cases = append(cases, n)
+	}
+	return cases, nil
+}
+
+func TestParsePrefillCases(t *testing.T) {
+	for _, tt := range []struct {
+		input string
+		want  string
+	}{
+		{"2,64,2048", "2,64,2048"},
+		{"65", "65"}, {"66", "66"}, {"64,65,66", "64,65,66"},
+		{"66,65", "66,65"}, {"2,64,65,66,2048", "2,64,65,66,2048"},
+		{"", ""}, {"65,65", ""}, {"66,66", ""}, {"63", ""},
+		{"67", ""}, {"64,", ""}, {"65.0", ""}, {"true", ""},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parsePrefillCases(tt.input)
+			if tt.want == "" {
+				if err == nil {
+					t.Fatalf("parsePrefillCases(%q) = %v, want error", tt.input, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var values []string
+			for _, n := range got {
+				values = append(values, strconv.Itoa(n))
+			}
+			if strings.Join(values, ",") != tt.want {
+				t.Fatalf("got %v, want %s", got, tt.want)
 			}
 		})
 	}

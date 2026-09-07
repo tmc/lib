@@ -81,3 +81,24 @@ python3 -B scripts/qualified-run_test.py
 Ten comparator controls and eleven qualification controls passed. A missing-model
 opt-in invocation failed before loading, as required. Binary and source identities
 and logs are in `evidence/worker-CODEX6E6A/iteration1/` outside this checkout.
+
+## Ragged batch groups
+
+The producer and comparator also accept explicitly selected cases `65` and
+`66`. For width-eight implementations these exercise a singleton and a
+pair after eight complete groups. Use `DS4_PREFILL_CASES=64,65,66` for both
+capture arms and `--cases 64,65,66` for comparison. These cases retain the same
+warm/reset lifecycle, fixed continuation, context 2049, and minimum 2048-ID
+corpus. The default comparator suite remains `2,64,2048`; a ragged-only result
+is scoped and does not establish the 2048-token gate.
+
+Use distinct tokens at corpus indexes 63, 64 and 65. A useful production-path
+mutation swaps indexes 63 and 64 while preserving their positions, after the
+last complete group meets the tail. Both 65 and 66 contain that boundary.
+For n=66, additionally reversing indexes 64 and 65 probes ordering within the
+last pair. Apply mutations to candidate execution only, keeping the retained
+input corpus and identities unchanged; changing the corpus itself tests the
+identity check rather than runtime token ordering. Each mutated capture must
+complete and then fail the exact logit comparison. No comparator can guarantee
+that an arbitrary runtime mutation changes the observed logits; retain the
+physical negative result rather than assuming it.
