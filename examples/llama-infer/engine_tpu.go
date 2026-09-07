@@ -1,10 +1,12 @@
-//go:build tpu
+//go:build linux && tpu
 
 package main
 
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"fmt"
 	"time"
     "unsafe"
@@ -12,6 +14,11 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/openxla"
 	"github.com/tmc/lib/tpu"
+)
+
+var (
+	ErrLibTPUNotFound          = errors.New("tpu: libtpu library not found")
+	ErrNoAddressableTPUDevices = errors.New("openxla: no addressable tpu devices found")
 )
 
 type BatchedQKVResult struct {
@@ -165,6 +172,9 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 
 func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 	if err := tpu.Load(""); err != nil {
+		if errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "no such file") || strings.Contains(err.Error(), "failed to load libtpu.so") {
+			return nil, fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
+		}
 		return nil, fmt.Errorf("load libtpu: %w", err)
 	}
 	tpuApi, err := tpu.GetApi()
@@ -177,22 +187,26 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 		return nil, fmt.Errorf("NewClientFromApi: %w", err)
 	}
 
-    // Attempt to upload weights if we had them.
-    // Assuming deterministic mock weights for now to demonstrate OpenXLA/TPU buffers.
     devs, err := client.AddressableDevices()
-    if err != nil || len(devs) == 0 {
-        return nil, fmt.Errorf("no addressable tpu devices")
+    if err != nil {
+        _ = client.Destroy()
+        return nil, fmt.Errorf("query addressable devices: %w", err)
+    }
+    if len(devs) == 0 {
+        _ = client.Destroy()
+        return nil, ErrNoAddressableTPUDevices
     }
     
-    // StableHLO compilation of a basic forward pass
-    mlir := `module @llama {
-  func.func @forward(%arg0: tensor<1x2048x4096xf32>, %arg1: tensor<4096x4096xf32>) -> tensor<1x2048x4096xf32> {
-    %0 = stablehlo.dot_general %arg0, %arg1, contracting_dims = [2] x [0] : (tensor<1x2048x4096xf32>, tensor<4096x4096xf32>) -> tensor<1x2048x4096xf32>
-    return %0 : tensor<1x2048x4096xf32>
+    // StableHLO compilation of a basic forward matmul: (2x4) x (4x3) -> (2x3)
+    mlir := `module @smoke_matmul {
+  func.func @main(%arg0: tensor<2x4xf32>, %arg1: tensor<4x3xf32>) -> tensor<2x3xf32> {
+    %0 = stablehlo.dot_general %arg0, %arg1, contracting_dims = [1] x [0] : (tensor<2x4xf32>, tensor<4x3xf32>) -> tensor<2x3xf32>
+    return %0 : tensor<2x3xf32>
   }
 }`
     exec, err := client.Compile([]byte(mlir), "mlir", nil)
     if err != nil {
+        _ = client.Destroy()
         return nil, fmt.Errorf("compile stablehlo: %w", err)
     }
 
@@ -207,44 +221,85 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 }
 
 func (eng *ModelEngine) ForwardPassMockTPU() error {
+    if eng == nil || eng.client == nil || eng.exec == nil {
+        return errors.New("tpu engine not initialized")
+    }
     devs, err := eng.client.AddressableDevices()
-    if err != nil || len(devs) == 0 {
-        return fmt.Errorf("no addressable tpu devices")
+    if err != nil {
+        return fmt.Errorf("query addressable devices: %w", err)
+    }
+    if len(devs) == 0 {
+        return ErrNoAddressableTPUDevices
     }
     dev := devs[0]
 
-    // Allocate buffers
-    in1 := make([]float32, 1 * 2048 * 4096)
-    in2 := make([]float32, 4096 * 4096)
-    
-    b1, err := eng.client.BufferFromHost(unsafe.Pointer(&in1[0]), openxla.Buffer_Type_F32, []int64{1, 2048, 4096}, dev)
+    // Asymmetric nonzero inputs: A (2x4) and B (4x3)
+    // A:
+    // [1.0, 2.0, 3.0, 4.0]
+    // [5.0, 6.0, 7.0, 8.0]
+    in1 := []float32{
+        1.0, 2.0, 3.0, 4.0,
+        5.0, 6.0, 7.0, 8.0,
+    }
+    // B:
+    // [1.0, 0.5, 2.0]
+    // [0.0, 1.5, 1.0]
+    // [2.0, 0.0, 1.0]
+    // [1.0, 2.0, 0.5]
+    in2 := []float32{
+        1.0, 0.5, 2.0,
+        0.0, 1.5, 1.0,
+        2.0, 0.0, 1.0,
+        1.0, 2.0, 0.5,
+    }
+
+    // Expected C = A x B (2x3):
+    // C[0,0] = 1*1 + 2*0 + 3*2 + 4*1 = 1 + 0 + 6 + 4 = 11.0
+    // C[0,1] = 1*0.5 + 2*1.5 + 3*0 + 4*2 = 0.5 + 3.0 + 0 + 8.0 = 11.5
+    // C[0,2] = 1*2 + 2*1 + 3*1 + 4*0.5 = 2 + 2 + 3 + 2 = 9.0
+    // C[1,0] = 5*1 + 6*0 + 7*2 + 8*1 = 5 + 0 + 14 + 8 = 27.0
+    // C[1,1] = 5*0.5 + 6*1.5 + 7*0 + 8*2 = 2.5 + 9.0 + 0 + 16.0 = 27.5
+    // C[1,2] = 5*2 + 6*1 + 7*1 + 8*0.5 = 10 + 6 + 7 + 4 = 27.0
+    expectedC := []float32{
+        11.0, 11.5, 9.0,
+        27.0, 27.5, 27.0,
+    }
+
+    b1, err := eng.client.BufferFromHost(unsafe.Pointer(&in1[0]), openxla.Buffer_Type_F32, []int64{2, 4}, dev)
     if err != nil {
-        return err
+        return fmt.Errorf("bufferFromHost in1: %w", err)
     }
     defer b1.Destroy()
 
-    b2, err := eng.client.BufferFromHost(unsafe.Pointer(&in2[0]), openxla.Buffer_Type_F32, []int64{4096, 4096}, dev)
+    b2, err := eng.client.BufferFromHost(unsafe.Pointer(&in2[0]), openxla.Buffer_Type_F32, []int64{4, 3}, dev)
     if err != nil {
-        return err
+        return fmt.Errorf("bufferFromHost in2: %w", err)
     }
     defer b2.Destroy()
 
     // Execute
     outputs, err := eng.exec.Execute([][]*openxla.BufferWrapper{{b1, b2}})
     if err != nil {
-        return err
+        return fmt.Errorf("execute: %w", err)
     }
-    
-    // Read back
-    if len(outputs) > 0 && len(outputs[0]) > 0 {
-        outBuffer := outputs[0][0]
-        defer outBuffer.Destroy()
-        outHost := make([]float32, 1 * 2048 * 4096)
-        if err := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); err != nil {
-            return err
+    if len(outputs) != 1 || len(outputs[0]) != 1 {
+        return fmt.Errorf("unexpected output cardinality: got %d devices, %d outputs on dev 0", len(outputs), len(outputs[0]))
+    }
+
+    outBuffer := outputs[0][0]
+    defer outBuffer.Destroy()
+
+    outHost := make([]float32, 6)
+    if err := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); err != nil {
+        return fmt.Errorf("toHost: %w", err)
+    }
+
+    for i := range expectedC {
+        diff := outHost[i] - expectedC[i]
+        if diff < -1e-4 || diff > 1e-4 {
+            return fmt.Errorf("matmul numerical mismatch at index %d: got %f, want %f", i, outHost[i], expectedC[i])
         }
     }
-    
     return nil
 }
 
@@ -298,18 +353,24 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 }
 
 // Free releases on-device executables and client resources.
-func (eng *ModelEngine) Free() {
+func (eng *ModelEngine) Free() error {
 	if eng == nil {
-		return
+		return nil
 	}
+	var errs []error
 	if eng.exec != nil {
-		_ = eng.exec.Destroy()
+		if err := eng.exec.Destroy(); err != nil {
+			errs = append(errs, fmt.Errorf("destroy executable: %w", err))
+		}
 		eng.exec = nil
 	}
 	if eng.client != nil {
-		_ = eng.client.Destroy()
+		if err := eng.client.Destroy(); err != nil {
+			errs = append(errs, fmt.Errorf("destroy client: %w", err))
+		}
 		eng.client = nil
 	}
+	return errors.Join(errs...)
 }
 
 // RunTPUSmokeTest executes a standalone matmul smoke test on the TPU device.

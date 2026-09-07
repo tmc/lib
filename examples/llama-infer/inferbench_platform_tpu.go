@@ -1,4 +1,4 @@
-//go:build tpu
+//go:build linux && tpu
 
 package main
 import "context"

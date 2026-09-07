@@ -20,10 +20,18 @@ func copyApiTable(src *Api) *Api {
 		return nil
 	}
 	dst := &Api{}
+	ptrSize := unsafe.Sizeof(uintptr(0))
+	prefixEnd := unsafe.Offsetof(src.Error_Destroy)
 	copyBytes := src.StructSize
 	maxBytes := unsafe.Sizeof(Api{})
 	if copyBytes > maxBytes {
 		copyBytes = maxBytes
+	}
+	if copyBytes < prefixEnd {
+		copyBytes = 0
+	} else {
+		extra := (copyBytes - prefixEnd) % ptrSize
+		copyBytes -= extra
 	}
 	srcPtr := unsafe.Pointer(src)
 	dstPtr := unsafe.Pointer(dst)
@@ -50,7 +58,7 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 
 	api := copyApiTable(rawApi)
 
-	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+8 && api.Plugin_Initialize != 0 {
+	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0 {
 		var initArgs Plugin_Initialize_Args
 		initArgs.Struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE
 		var fn func(*Plugin_Initialize_Args) *Error
@@ -60,12 +68,18 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 		}
 	}
 
-	if api.StructSize < unsafe.Offsetof(api.Client_Create)+8 {
-		return nil, fmt.Errorf("openxla: API table too small to contain Client_Create")
+	if api.StructSize < unsafe.Offsetof(api.Client_Destroy)+unsafe.Sizeof(api.Client_Destroy) {
+		return nil, fmt.Errorf("openxla: API table too small to contain Client_Create and Client_Destroy")
+	}
+	if api.Error_Destroy == 0 || api.Error_Message == 0 {
+		return nil, fmt.Errorf("openxla: API table missing required error reporting functions (Error_Destroy/Error_Message)")
 	}
 
 	if api.Client_Create == 0 {
 		return nil, fmt.Errorf("openxla: Client_Create function not available in PJRT API")
+	}
+	if api.Client_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: Client_Destroy function not available in PJRT API")
 	}
 
 	var createArgs Client_Create_Args
@@ -167,6 +181,9 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	if c.api.Client_BufferFromHostBuffer == 0 {
 		return nil, fmt.Errorf("Client_BufferFromHostBuffer not available")
 	}
+	if c.api.Buffer_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: Buffer_Destroy not available")
+	}
 	if c.api.Event_Await == 0 || c.api.Event_Destroy == 0 {
 		return nil, fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
 	}
@@ -229,6 +246,9 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 func (c *ClientWrapper) Compile(programCode []byte, format string, compileOptions []byte) (*ExecutableWrapper, error) {
 	if c.api.Client_Compile == 0 {
 		return nil, fmt.Errorf("Client_Compile not available")
+	}
+	if c.api.LoadedExecutable_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: LoadedExecutable_Destroy not available")
 	}
 
 	var prog Program
@@ -380,6 +400,9 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 		if e.api.Event_Await == 0 || e.api.Event_Destroy == 0 {
 			return nil, fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
 		}
+	}
+	if numOutputs > 0 && e.api.Buffer_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: Buffer_Destroy not available")
 	}
 
 	var fn func(*LoadedExecutable_Execute_Args) *Error
