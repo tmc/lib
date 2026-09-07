@@ -11,6 +11,7 @@ import (
 	"time"
     "unsafe"
 
+	"math"
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/openxla"
 	"github.com/tmc/lib/tpu"
@@ -170,12 +171,51 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
     return nil, errors.New("cuda unsupported in tpu build")
 }
 
+
+// classifyTPULoadError distinguishes genuinely absent library files from corruption or dependency failures.
+func classifyTPULoadError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
+	}
+	msg := strings.ToLower(err.Error())
+	// Genuine absent library file patterns from dlopen/OS
+	if strings.Contains(msg, "no such file or directory") ||
+		strings.Contains(msg, "image not found") ||
+		strings.Contains(msg, "file not found") ||
+		strings.Contains(msg, "cannot open shared object file: no such file") {
+		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
+	}
+	// Any dependency error, bad ELF header, permission error, corrupt binary, etc., must NOT be classified as absent!
+	return err
+}
+
+// checkMatmulOutput validates the shape, finite values, and numerical accuracy against an independent oracle.
+func checkMatmulOutput(got, expected []float32) error {
+	if len(got) != len(expected) {
+		return fmt.Errorf("output length mismatch: got %d, want %d", len(got), len(expected))
+	}
+	for i := range expected {
+		val := got[i]
+		if math.IsNaN(float64(val)) {
+			return fmt.Errorf("matmul output contains NaN at index %d", i)
+		}
+		if math.IsInf(float64(val), 0) {
+			return fmt.Errorf("matmul output contains Inf (%f) at index %d", val, i)
+		}
+		diff := val - expected[i]
+		if diff < -1e-4 || diff > 1e-4 {
+			return fmt.Errorf("matmul numerical mismatch at index %d: got %f, want %f", i, val, expected[i])
+		}
+	}
+	return nil
+}
+
 func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 	if err := tpu.Load(""); err != nil {
-		if errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "no such file") || strings.Contains(err.Error(), "failed to load libtpu.so") {
-			return nil, fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
-		}
-		return nil, fmt.Errorf("load libtpu: %w", err)
+		return nil, fmt.Errorf("load libtpu: %w", classifyTPULoadError(err))
 	}
 	tpuApi, err := tpu.GetApi()
 	if err != nil {
@@ -189,12 +229,12 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 
     devs, err := client.AddressableDevices()
     if err != nil {
-        _ = client.Destroy()
-        return nil, fmt.Errorf("query addressable devices: %w", err)
+        dErr := client.Destroy()
+        return nil, errors.Join(fmt.Errorf("query addressable devices: %w", err), dErr)
     }
     if len(devs) == 0 {
-        _ = client.Destroy()
-        return nil, ErrNoAddressableTPUDevices
+        dErr := client.Destroy()
+        return nil, errors.Join(ErrNoAddressableTPUDevices, dErr)
     }
     
     // StableHLO compilation of a basic forward matmul: (2x4) x (4x3) -> (2x3)
@@ -206,8 +246,8 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 }`
     exec, err := client.Compile([]byte(mlir), "mlir", nil)
     if err != nil {
-        _ = client.Destroy()
-        return nil, fmt.Errorf("compile stablehlo: %w", err)
+        dErr := client.Destroy()
+        return nil, errors.Join(fmt.Errorf("compile stablehlo: %w", err), dErr)
     }
 
 	return &ModelEngine{
@@ -265,42 +305,60 @@ func (eng *ModelEngine) ForwardPassMockTPU() error {
         27.0, 27.5, 27.0,
     }
 
+    var cleanupErrs []error
     b1, err := eng.client.BufferFromHost(unsafe.Pointer(&in1[0]), openxla.Buffer_Type_F32, []int64{2, 4}, dev)
     if err != nil {
         return fmt.Errorf("bufferFromHost in1: %w", err)
     }
-    defer b1.Destroy()
+    defer func() {
+        if dErr := b1.Destroy(); dErr != nil {
+            cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy b1: %w", dErr))
+        }
+    }()
 
     b2, err := eng.client.BufferFromHost(unsafe.Pointer(&in2[0]), openxla.Buffer_Type_F32, []int64{4, 3}, dev)
     if err != nil {
-        return fmt.Errorf("bufferFromHost in2: %w", err)
+        return errors.Join(fmt.Errorf("bufferFromHost in2: %w", err), errors.Join(cleanupErrs...))
     }
-    defer b2.Destroy()
+    defer func() {
+        if dErr := b2.Destroy(); dErr != nil {
+            cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy b2: %w", dErr))
+        }
+    }()
 
     // Execute
     outputs, err := eng.exec.Execute([][]*openxla.BufferWrapper{{b1, b2}})
     if err != nil {
-        return fmt.Errorf("execute: %w", err)
+        return errors.Join(fmt.Errorf("execute: %w", err), errors.Join(cleanupErrs...))
     }
-    if len(outputs) != 1 || len(outputs[0]) != 1 {
-        return fmt.Errorf("unexpected output cardinality: got %d devices, %d outputs on dev 0", len(outputs), len(outputs[0]))
+    // Arrange cleanup for ALL returned buffers upfront before cardinality check to prevent leaks
+    defer func() {
+        for _, devOutputs := range outputs {
+            for _, b := range devOutputs {
+                if b != nil {
+                    if dErr := b.Destroy(); dErr != nil {
+                        cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy output buffer: %w", dErr))
+                    }
+                }
+            }
+        }
+    }()
+
+    if len(outputs) != 1 {
+        return fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(outputs))
+    }
+    if len(outputs[0]) != 1 {
+        return fmt.Errorf("unexpected per-device output cardinality: got %d outputs on device 0, want 1", len(outputs[0]))
     }
 
     outBuffer := outputs[0][0]
-    defer outBuffer.Destroy()
-
     outHost := make([]float32, 6)
     if err := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); err != nil {
         return fmt.Errorf("toHost: %w", err)
     }
 
-    for i := range expectedC {
-        diff := outHost[i] - expectedC[i]
-        if diff < -1e-4 || diff > 1e-4 {
-            return fmt.Errorf("matmul numerical mismatch at index %d: got %f, want %f", i, outHost[i], expectedC[i])
-        }
-    }
-    return nil
+    chkErr := checkMatmulOutput(outHost, expectedC)
+    return errors.Join(chkErr, errors.Join(cleanupErrs...))
 }
 
 
@@ -379,15 +437,20 @@ func RunTPUSmokeTest(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("tpu initialization: %w", err)
 	}
-	defer eng.Free()
+	var fErr error
+	defer func() {
+		if err := eng.Free(); err != nil {
+			fErr = fmt.Errorf("engine cleanup: %w", err)
+		}
+	}()
 
 	fmt.Println("=== TPU Backend initialized ===")
 	fmt.Println("Running TPU forward pass test...")
 	if err := eng.ForwardPassMockTPU(); err != nil {
-		return fmt.Errorf("TPU forward pass execution failed: %w", err)
+		return errors.Join(fmt.Errorf("TPU forward pass execution failed: %w", err), fErr)
 	}
 	fmt.Println("TPU forward pass executed successfully!")
-	return nil
+	return fErr
 }
 
 // Generate reports unsupported until full LLaMA inference is implemented on TPU.
