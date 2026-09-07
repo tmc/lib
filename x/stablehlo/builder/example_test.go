@@ -102,3 +102,14 @@ func ExampleFuncBuilder_ScaledDotProductAttention() {
 	fmt.Println(out.Type)
 	// Output: tensor<2x3x6xf32>
 }
+
+func ExampleFuncBuilder_Convert() {
+	b := builder.NewFunc("main", builder.Type{Shape: []int64{4}, ElementType: "bf16"})
+	out, err := b.Convert(b.Arg(0), "f32")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<4xf32>
+}

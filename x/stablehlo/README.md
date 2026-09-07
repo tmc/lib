@@ -3,7 +3,9 @@
 This module emits StableHLO functions and modules as MLIR text. The builder
 checks ranks, axes and known dimensions before emitting operations. It includes
 RMSNorm, stable softmax and unmasked scaled dot-product attention for static
-shapes. Attention currently requires f32 inputs and matching batch dimensions.
+shapes. Attention accepts f32, f16 and bf16 inputs with matching batch dimensions.
+For f16 and bf16, arithmetic uses f32 and the output is converted back to the
+input type. This favors numerical range over reduced-precision compute throughput.
 It applies neither dropout nor a causal mask.
 
 Run the Go tests with `go test ./...`. To also compile and execute emitted

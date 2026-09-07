@@ -14,12 +14,13 @@ import (
 type ElementType = openxla.Buffer_Type
 
 const (
-	F32 = openxla.Buffer_Type_F32
-	S32 = openxla.Buffer_Type_S32
-	U8  = openxla.Buffer_Type_U8
-	S8  = openxla.Buffer_Type_S8
-	F16 = openxla.Buffer_Type_F16
-	F64 = openxla.Buffer_Type_F64
+	F32  = openxla.Buffer_Type_F32
+	S32  = openxla.Buffer_Type_S32
+	U8   = openxla.Buffer_Type_U8
+	S8   = openxla.Buffer_Type_S8
+	F16  = openxla.Buffer_Type_F16
+	BF16 = openxla.Buffer_Type_BF16
+	F64  = openxla.Buffer_Type_F64
 )
 
 // Buffer represents a typed device memory buffer.

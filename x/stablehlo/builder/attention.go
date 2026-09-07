@@ -70,10 +70,12 @@ func (b *FuncBuilder) softmax(v Value, dimension int64) (Value, error) {
 	return b.Divide(exp, sum)
 }
 
-// ScaledDotProductAttention computes softmax(q*kᵀ/sqrt(d))*v for static f32
-// tensors with shape [batch..., sequence, features]. Batch dimensions must
-// match; q and k must have the same feature count, and k and v the same sequence
-// length. It applies no mask or dropout. An error leaves the builder unchanged.
+// ScaledDotProductAttention computes softmax(q*kᵀ/sqrt(d))*v for static f32,
+// f16 or bf16 tensors with shape [batch..., sequence, features]. Batch dimensions
+// must match; q and k must have the same feature count, and k and v the same sequence
+// length. Reduced-precision inputs are converted to f32 for all arithmetic;
+// the result is converted back to the input element type. It applies no mask
+// or dropout. An error leaves the builder unchanged.
 func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (result Value, err error) {
 	if err := sameElements(q.Type, k.Type, v.Type); err != nil {
 		return Value{}, fmt.Errorf("attention: %w", err)
@@ -84,8 +86,8 @@ func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (result Value, er
 		}
 	}
 	rank := len(q.Type.Shape)
-	if q.Type.ElementType != "f32" || rank < 2 || len(k.Type.Shape) != rank || len(v.Type.Shape) != rank {
-		return Value{}, fmt.Errorf("attention: matching ranks of at least two and f32 elements required")
+	if (q.Type.ElementType != "f32" && q.Type.ElementType != "f16" && q.Type.ElementType != "bf16") || rank < 2 || len(k.Type.Shape) != rank || len(v.Type.Shape) != rank {
+		return Value{}, fmt.Errorf("attention: matching ranks of at least two and f32, f16 or bf16 elements required")
 	}
 	for i := 0; i < rank-2; i++ {
 		if q.Type.Shape[i] != k.Type.Shape[i] || q.Type.Shape[i] != v.Type.Shape[i] {
@@ -101,7 +103,17 @@ func (b *FuncBuilder) ScaledDotProductAttention(q, k, v Value) (result Value, er
 			b.Ops, b.nextID = b.Ops[:nops], next
 		}
 	}()
-	return b.attention(q, k, v)
+	element := q.Type.ElementType
+	if element != "f32" {
+		q = b.convert(q, "f32")
+		k = b.convert(k, "f32")
+		v = b.convert(v, "f32")
+	}
+	result, err = b.attention(q, k, v)
+	if err == nil && element != "f32" {
+		result = b.convert(result, element)
+	}
+	return result, err
 }
 
 func (b *FuncBuilder) attention(q, k, v Value) (Value, error) {
