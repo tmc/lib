@@ -286,18 +286,19 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 }
 
 func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
-	if r.batchArena == nil {
-		r.batchArena = cudamem.NewArena(r.device)
-		r.allocTokenState(r.batchArena, &r.batchFirst, "batch-first-")
-		if err := r.batchArena.Err(); err != nil {
-			return fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
-		}
-	}
 	defer func() {
 		if err != nil {
 			r.failed = err
 		}
 	}()
+	if err := r.ensureBatchFirst(func() (*cudamem.Arena, cudaTokenState, error) {
+		a := cudamem.NewArena(r.device)
+		var row cudaTokenState
+		r.allocTokenState(a, &row, "batch-first-")
+		return a, row, a.Err()
+	}); err != nil {
+		return err
+	}
 	rows := []*cudaTokenState{&r.batchFirst, &r.state.cudaTokenState}
 	for i, token := range tokens {
 		for stream := range 4 {
@@ -332,6 +333,25 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
 		}
 	}
 	r.pos += len(tokens)
+	return nil
+}
+
+func (r *cudaRuntime) ensureBatchFirst(allocate func() (*cudamem.Arena, cudaTokenState, error)) error {
+	if r.batchArena != nil {
+		return nil
+	}
+	a, row, err := allocate()
+	if err != nil {
+		var freeErr error
+		if a != nil {
+			freeErr = a.Free()
+		}
+		return errors.Join(fmt.Errorf("cuda runtime: allocate batch rows: %w", err), freeErr)
+	}
+	if a == nil {
+		return errors.New("cuda runtime: allocate batch rows: missing arena")
+	}
+	r.batchArena, r.batchFirst = a, row
 	return nil
 }
 
