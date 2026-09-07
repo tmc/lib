@@ -117,7 +117,7 @@ type mockDeviceData struct {
 }
 
 // buildMockTPUEngine sets up a ModelEngine wired to a mock PJRT Api table.
-func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *bool, *bool) {
+func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.Device, *bool, *bool, *bool) {
 	api := &openxla.Api{
 		StructSize: 2048,
 	}
@@ -131,11 +131,12 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 	})
 
 	// Retain addressable devices pointer array storage
-	dummyDev := (*openxla.Device)(unsafe.Pointer(&mockDeviceData{id: 1}))
+	dummyDevMem := &mockDeviceData{id: 42}
+	dummyDev := (*openxla.Device)(unsafe.Pointer(dummyDevMem))
 	devList := []*openxla.Device{dummyDev}
 
 	api.Client_AddressableDevices = purego.NewCallback(func(args *openxla.Client_AddressableDevices_Args) *openxla.Error {
-		args.Addressable_devices = devList[0]
+		args.Addressable_devices = (*openxla.Device)(unsafe.Pointer(&devList[0]))
 		args.Num_addressable_devices = 1
 		return nil
 	})
@@ -162,6 +163,9 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 
 	bufAllocCount := 0
 	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *openxla.Client_BufferFromHostBuffer_Args) *openxla.Error {
+		if args.Device != dummyDev {
+			t.Errorf("Client_BufferFromHostBuffer received unexpected device: got %p, want %p", args.Device, dummyDev)
+		}
 		bufAllocCount++
 		if bufAllocCount == 1 {
 			args.Buffer = b1Ptr
@@ -245,7 +249,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 		client: client,
 		exec:   exec,
 	}
-	return eng, &b1Destroyed, &b2Destroyed, &outBufDestroyed
+	return eng, dummyDev, &b1Destroyed, &b2Destroyed, &outBufDestroyed
 }
 
 type mockTPUOpts struct {
@@ -260,7 +264,11 @@ type mockTPUOpts struct {
 func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 	// 1. Success path: all cleanups pass, no errors
 	t.Run("success_all_clean", func(t *testing.T) {
-		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{})
+		eng, dummyDev, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{})
+		devs, devErr := eng.client.AddressableDevices()
+		if devErr != nil || len(devs) != 1 || devs[0] != dummyDev {
+			t.Fatalf("expected addressable device %p, got %v (%v)", dummyDev, devs, devErr)
+		}
 		err := eng.ForwardPassMockTPU()
 		if err != nil {
 			t.Fatalf("expected nil error on clean mock run, got: %v", err)
@@ -272,7 +280,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 2. Input b1 destructor failure on successful forward pass
 	t.Run("b1_destructor_failure", func(t *testing.T) {
-		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b1DestroyFail: true})
+		eng, _, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b1DestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil || !strings.Contains(err.Error(), "destroy b1") {
 			t.Fatalf("expected destroy b1 error, got: %v", err)
@@ -284,7 +292,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 3. Input b2 destructor failure on successful forward pass
 	t.Run("b2_destructor_failure", func(t *testing.T) {
-		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b2DestroyFail: true})
+		eng, _, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b2DestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil || !strings.Contains(err.Error(), "destroy b2") {
 			t.Fatalf("expected destroy b2 error, got: %v", err)
@@ -296,7 +304,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 4. Output buffer destructor failure on successful forward pass
 	t.Run("output_destructor_failure", func(t *testing.T) {
-		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{outDestroyFail: true})
+		eng, _, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{outDestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil || !strings.Contains(err.Error(), "destroy output buffer") {
 			t.Fatalf("expected destroy output buffer error, got: %v", err)
@@ -308,7 +316,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 5. b2 allocation failure + b1 destructor failure: b1 destructor error must be preserved
 	t.Run("b2_alloc_fail_and_b1_destroy_fail", func(t *testing.T) {
-		eng, b1D, b2D, _ := buildMockTPUEngine(t, mockTPUOpts{b2AllocFail: true, b1DestroyFail: true})
+		eng, _, b1D, b2D, _ := buildMockTPUEngine(t, mockTPUOpts{b2AllocFail: true, b1DestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil {
 			t.Fatal("expected error on b2 alloc failure, got nil")
@@ -329,7 +337,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 6. Execution failure + destructor failure: both primary and destructor errors must be joined
 	t.Run("exec_fail_and_destructor_fail", func(t *testing.T) {
-		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{execFail: true, b1DestroyFail: true})
+		eng, _, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{execFail: true, b1DestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil {
 			t.Fatal("expected error on exec failure, got nil")
