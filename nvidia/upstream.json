@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-07",
-  "scope": "Inventoried 35 generated package directories; 30 have recorded generation argv and 5 have no recorded argv. Every package records the SHA256 of its generated files, including the five without a recorded argv. Existing package receipts and their limitations are preserved.",
+  "scope": "Inventoried 35 generated package directories; 30 have recorded generation argv and 5 have no recorded argv. Existing package receipts and their limitations are preserved.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -9129,6 +9129,8 @@
       "fabricmanager",
       "gdrcopy",
       "nccl",
+      "ncclep",
+      "ncclm2n",
       "nvcomp",
       "nvdec",
       "nvenc",
@@ -9142,7 +9144,7 @@
       "sanitizer",
       "vpi"
     ],
-    "recorded_argv": 28,
+    "recorded_argv": 30,
     "missing_argv": [
       "cublas",
       "cublaslt",
