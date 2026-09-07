@@ -9,6 +9,37 @@ This is source evidence, not a throughput measurement. No model was loaded by
 this audit. Source identities and test receipts are retained under
 `/Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/iteration1/`.
 
+## CUDA width-eight state at 00263d9
+
+CUDA groups up to eight tokens and batches three Q/KV projections and two
+activation quantizations across each group. Attention, cache updates, attention
+output projections, routing, and FFN remain token ordered inside each layer.
+This is not a 2,048-row matrix implementation.
+
+Commit `00263d9` queues compressor updates and odd-layer mask fills on the
+default stream instead of synchronizing once per compressed layer. A qualified
+n=64 comparison preserves both full-logit vectors bit for bit. Operation spans
+move `stream.sync` from 580 to 6, exactly 14 evaluated tokens times 41
+compressed layers, while every other recorded operation count remains equal;
+both arms report zero dropped spans. Ratio-4 and ratio-128 synthetic controls
+also match a synchronized GPU baseline through emission and following-token
+reuse, and queued-arm mutations make the comparisons fail.
+
+The removed waits do not close the end-to-end workload. Both the preceding
+source and `00263d9` time out at the registered 29-minute deadline on the same
+2,048 captured oracle token IDs. Both terminal stacks show position 1,254; the
+earlier sample is at layer 34 in compressor synchronization and the successor
+sample is at layer 36 in RMS launch. Each stack is one location sample and does
+not identify where time was spent, establish a rate, or distinguish slow
+progress from a stall. Neither run writes a result or completion marker.
+
+Evidence is in
+`../evidence/worker-BABFB352/cuda-compressor-defer-n64-20260907/` and
+`../evidence/worker-BABFB352/cuda-compressor-defer-workload-20260907/`.
+The remaining performance work must batch more of the token-ordered layer body
+or otherwise reduce its device work; another unchanged 29-minute run is not a
+measurement plan.
+
 ## Integrated state at f4577d6
 
 CUDA now processes longer input as ordered adjacent pairs. Each pair batches
