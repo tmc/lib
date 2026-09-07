@@ -105,6 +105,17 @@ func TestTPUEngineSmokeMatmul(t *testing.T) {
 	skipIfNoTPU(t, err)
 }
 
+// mockBufferData provides distinct non-zero backing storage for buffer identification.
+type mockBufferData struct {
+	id  string
+	tag [16]byte
+}
+
+type mockDeviceData struct {
+	id  int32
+	tag [16]byte
+}
+
 // buildMockTPUEngine sets up a ModelEngine wired to a mock PJRT Api table.
 func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *bool, *bool) {
 	api := &openxla.Api{
@@ -119,9 +130,12 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 		args.Message_size = uintptr(len(msg))
 	})
 
+	// Retain addressable devices pointer array storage
+	dummyDev := (*openxla.Device)(unsafe.Pointer(&mockDeviceData{id: 1}))
+	devList := []*openxla.Device{dummyDev}
+
 	api.Client_AddressableDevices = purego.NewCallback(func(args *openxla.Client_AddressableDevices_Args) *openxla.Error {
-		dummyDev := &openxla.Device{}
-		args.Addressable_devices = dummyDev
+		args.Addressable_devices = devList[0]
 		args.Num_addressable_devices = 1
 		return nil
 	})
@@ -133,6 +147,15 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 		return nil
 	})
 
+	// Distinct stable backing storage for mock buffers
+	b1Mem := &mockBufferData{id: "b1"}
+	b2Mem := &mockBufferData{id: "b2"}
+	outMem := &mockBufferData{id: "out"}
+
+	b1Ptr := (*openxla.Buffer)(unsafe.Pointer(b1Mem))
+	b2Ptr := (*openxla.Buffer)(unsafe.Pointer(b2Mem))
+	outPtr := (*openxla.Buffer)(unsafe.Pointer(outMem))
+
 	b1Destroyed := false
 	b2Destroyed := false
 	outBufDestroyed := false
@@ -140,42 +163,35 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 	bufAllocCount := 0
 	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *openxla.Client_BufferFromHostBuffer_Args) *openxla.Error {
 		bufAllocCount++
-		if bufAllocCount == 2 && opts.b2AllocFail {
-			return mockErr
+		if bufAllocCount == 1 {
+			args.Buffer = b1Ptr
+			return nil
 		}
-		args.Buffer = &openxla.Buffer{}
-		return nil
+		if bufAllocCount == 2 {
+			if opts.b2AllocFail {
+				return mockErr
+			}
+			args.Buffer = b2Ptr
+			return nil
+		}
+		return mockErr
 	})
 
-	bufDestroyCount := 0
 	api.Buffer_Destroy = purego.NewCallback(func(args *openxla.Buffer_Destroy_Args) *openxla.Error {
-		bufDestroyCount++
-		// If b2 failed to allocate, the only input buffer destroyed is b1
-		if opts.b2AllocFail {
+		switch args.Buffer {
+		case b1Ptr:
 			b1Destroyed = true
 			if opts.b1DestroyFail {
 				return mockErr
 			}
-			return nil
-		}
-		// In normal LIFO defer execution:
-		// 1st destroyed: output buffer
-		// 2nd destroyed: b2
-		// 3rd destroyed: b1
-		switch bufDestroyCount {
-		case 1:
-			outBufDestroyed = true
-			if opts.outDestroyFail {
-				return mockErr
-			}
-		case 2:
+		case b2Ptr:
 			b2Destroyed = true
 			if opts.b2DestroyFail {
 				return mockErr
 			}
-		case 3:
-			b1Destroyed = true
-			if opts.b1DestroyFail {
+		case outPtr:
+			outBufDestroyed = true
+			if opts.outDestroyFail {
 				return mockErr
 			}
 		}
@@ -205,7 +221,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *b
 				cap int
 			}{args.Output_lists, 1, 1}))
 			if len(outPtrs) > 0 && outPtrs[0] != nil {
-				*outPtrs[0] = &openxla.Buffer{}
+				*outPtrs[0] = outPtr
 			}
 		}
 		return nil
@@ -313,7 +329,7 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 
 	// 6. Execution failure + destructor failure: both primary and destructor errors must be joined
 	t.Run("exec_fail_and_destructor_fail", func(t *testing.T) {
-		eng, _, _, _ := buildMockTPUEngine(t, mockTPUOpts{execFail: true, b1DestroyFail: true})
+		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{execFail: true, b1DestroyFail: true})
 		err := eng.ForwardPassMockTPU()
 		if err == nil {
 			t.Fatal("expected error on exec failure, got nil")
@@ -324,10 +340,16 @@ func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
 		if !strings.Contains(err.Error(), "destroy b1") {
 			t.Errorf("expected b1 cleanup error in joined error, got %v", err)
 		}
+		if !*b1D || !*b2D {
+			t.Errorf("expected b1 and b2 to be destroyed: b1=%v b2=%v", *b1D, *b2D)
+		}
+		if *outD {
+			t.Errorf("output should not be destroyed since execute failed")
+		}
 	})
 }
 
-func TestRunTPUSmokeTest_ProductionFreeErrorPropagation(t *testing.T) {
+func TestModelEngine_Free_ProductionErrorPropagation(t *testing.T) {
 	api := &openxla.Api{
 		StructSize: 2048,
 	}

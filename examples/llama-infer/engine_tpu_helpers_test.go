@@ -32,6 +32,11 @@ func TestClassifyTPULoadError(t *testing.T) {
 			wantNotFound: true,
 		},
 		{
+			name:         "dlopen_cannot_open_libtpu_no_such_file",
+			inputErr:     errors.New("tpu: failed to load libtpu.so: libtpu.so: cannot open shared object file: No such file or directory"),
+			wantNotFound: true,
+		},
+		{
 			name:         "corrupt_binary_bad_elf",
 			inputErr:     errors.New("tpu: failed to load libtpu.so: /usr/lib/libtpu.so: invalid ELF header"),
 			wantNotFound: false,
@@ -42,6 +47,11 @@ func TestClassifyTPULoadError(t *testing.T) {
 			wantNotFound: false,
 		},
 		{
+			name:         "missing_secondary_libtpu_dependency",
+			inputErr:     errors.New("tpu: failed to load libtpu.so: libtpu_dependency.so: cannot open shared object file: No such file or directory"),
+			wantNotFound: false,
+		},
+		{
 			name:         "missing_dependency_darwin_dyld",
 			inputErr:     errors.New("tpu: failed to load libtpu.so: dlopen(libtpu.so): Library not loaded: @rpath/libfoo.dylib Referenced from: /usr/lib/libtpu.so Reason: tried: '/usr/lib/libfoo.dylib' (no such file)"),
 			wantNotFound: false,
@@ -49,6 +59,11 @@ func TestClassifyTPULoadError(t *testing.T) {
 		{
 			name:         "permission_denied",
 			inputErr:     errors.New("tpu: failed to load libtpu.so: permission denied"),
+			wantNotFound: false,
+		},
+		{
+			name:         "cannot_open_permission_denied",
+			inputErr:     errors.New("tpu: failed to load libtpu.so: libtpu.so: cannot open shared object file: Permission denied"),
 			wantNotFound: false,
 		},
 		{

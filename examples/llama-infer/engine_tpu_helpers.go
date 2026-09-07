@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/tmc/lib/openxla"
@@ -15,7 +16,7 @@ var (
 	ErrNoAddressableTPUDevices = errors.New("openxla: no addressable tpu devices found")
 )
 
-// classifyTPULoadError distinguishes genuinely absent library files from corruption or dependency failures.
+// classifyTPULoadError distinguishes genuinely absent library files from corruption, permission, or dependency failures.
 func classifyTPULoadError(err error) error {
 	if err == nil {
 		return nil
@@ -32,35 +33,49 @@ func classifyTPULoadError(err error) error {
 		underlying = msg[idx+len(wrapperPrefix):]
 	}
 
-	// If the underlying error mentions a missing secondary dependency (e.g. "libfoo.so: cannot open shared object file"
-	// where the missing library is not libtpu.so) or mentions dynamic linker resolution failures ("library not loaded"),
-	// this is a dependency resolution failure of an existing binary, NOT an absent libtpu plugin!
-	if strings.Contains(underlying, "library not loaded") ||
+	// If the failure indicates permission denied, invalid ELF/format, symbol missing,
+	// or secondary dependency resolution errors ("library not loaded"), this is NOT an absent plugin!
+	if strings.Contains(underlying, "permission denied") ||
+		strings.Contains(underlying, "invalid elf") ||
+		strings.Contains(underlying, "symbol not found") ||
+		strings.Contains(underlying, "library not loaded") ||
 		strings.Contains(underlying, "referenced from:") ||
 		strings.Contains(underlying, "reason: tried:") {
 		return err
 	}
 
+	// Check whether the error indicates genuine absence (ENOENT / no such file)
+	isAbsenceReason := strings.Contains(underlying, "no such file or directory") ||
+		strings.Contains(underlying, "image not found")
+
 	if strings.Contains(underlying, "cannot open shared object file") {
-		// Example: "libdependency.so: cannot open shared object file: no such file or directory"
-		// Only consider it absent libtpu if the missing file is specifically libtpu.so
-		// (e.g. "cannot open shared object file: no such file or directory" or "libtpu.so: cannot open shared object file")
+		// Example: "libtpu.so: cannot open shared object file: No such file or directory"
+		// or "libdependency.so: cannot open shared object file: No such file or directory"
+		// or "libtpu.so: cannot open shared object file: Permission denied"
+		if !isAbsenceReason {
+			return err
+		}
 		target := underlying
 		if colon := strings.Index(underlying, ":"); colon != -1 {
 			target = strings.TrimSpace(underlying[:colon])
 		}
-		if target != "cannot open shared object file" && !strings.Contains(target, "libtpu") {
-			return err
+		// Target must be exactly "cannot open shared object file" (unspecified) or match libtpu.so basename
+		if target != "cannot open shared object file" {
+			base := filepath.Base(target)
+			if base != "libtpu.so" {
+				return err
+			}
 		}
 		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
 	}
 
-	// Check for dlopen image not found / no such file where the target is libtpu
-	if strings.Contains(underlying, "image not found") && strings.Contains(underlying, "libtpu") {
-		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
-	}
-	if strings.Contains(underlying, "no such file or directory") && (strings.Contains(underlying, "libtpu") || !strings.Contains(underlying, ".so")) {
-		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
+	if isAbsenceReason {
+		// dlopen(libtpu.so): image not found
+		// Check that if a target file is mentioned, its basename is libtpu.so
+		// (avoid matching libtpu_dependency.so or other libs)
+		if strings.Contains(underlying, "libtpu.so") || (!strings.Contains(underlying, ".so") && strings.Contains(underlying, "libtpu")) {
+			return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
+		}
 	}
 
 	return err
