@@ -24,7 +24,7 @@ type cudaRuntime struct {
 	ctx, pos      int
 	logits        []float32
 	failed        error
-	phaseMark     func(string) error
+	phaseMark     func(string, int, int) error
 	batchProgress func(int) error
 }
 
@@ -370,7 +370,7 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 		}
 	}
 	last := rows[len(rows)-1]
-	if err := r.markCUDAPhase("output"); err != nil {
+	if err := r.markCUDAPhase("group-tail", position+len(tokens)-1, -1); err != nil {
 		return err
 	}
 	if logits {
@@ -467,7 +467,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	}
 	l := &r.model.layers[index]
 	d := &r.batch.dense
-	if err := r.markCUDAPhase("dense-front"); err != nil {
+	if err := r.markCUDAPhase("dense-front", position, index); err != nil {
 		return err
 	}
 	rows := make([]cudaTokenState, len(tokens))
@@ -511,7 +511,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		return err
 	}
 	for i := range rows {
-		if err := r.markCUDAPhase("qkv-normalization"); err != nil {
+		if err := r.markCUDAPhase("qkv-normalization", position+i, index); err != nil {
 			return err
 		}
 		if err := r.encodeRMS(rows[i].qHeads, cudaModelTensor{}, rows[i].qHeads, 64, false); err != nil {
@@ -612,17 +612,26 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 
 func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
 	l := &r.model.layers[index]
-	if err := r.markCUDAPhase("attention"); err != nil {
-		return err
-	}
 	var heads cudamem.Slice[float32]
 	if index < 2 {
+		if err := r.markCUDAPhase("compression-raw", position, index); err != nil {
+			return err
+		}
+		if err := r.markCUDAPhase("attention", position, index); err != nil {
+			return err
+		}
 		if err := r.encodeRawAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, s.rawScores, s.rawOutput, position); err != nil {
 			return err
 		}
 		heads = s.rawOutput.Slice(32768+512, 32768+512+32768)
 	} else {
+		if err := r.markCUDAPhase("compression", position, index); err != nil {
+			return err
+		}
 		if err := r.compress(l, state, s, position); err != nil {
+			return err
+		}
+		if err := r.markCUDAPhase("attention", position, index); err != nil {
 			return err
 		}
 		if err := r.encodeMixedAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedOutput, position, index); err != nil {
@@ -630,7 +639,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 		}
 		heads = s.mixedOutput.Slice(32768+512, 32768+512+32768)
 	}
-	if err := r.markCUDAPhase("attention-output"); err != nil {
+	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
 		return err
 	}
 	for group := range 8 {
@@ -649,7 +658,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := hc.post(s.hc[0], s.attnOut, s.hc[1]); err != nil {
 		return err
 	}
-	if err := r.markCUDAPhase("ffn-pre"); err != nil {
+	if err := r.markCUDAPhase("ffn-pre", position, index); err != nil {
 		return err
 	}
 	if err := hc.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false); err != nil {
@@ -667,7 +676,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 			return err
 		}
 	}
-	if err := r.markCUDAPhase("shared-ffn"); err != nil {
+	if err := r.markCUDAPhase("shared-ffn", position, index); err != nil {
 		return err
 	}
 	if err := r.encodeQ80Matvec(l.sharedGate, s.ffnNorm, s.sharedGate); err != nil {
@@ -683,7 +692,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeQ80Native(l.sharedDown, s.sharedMid, s.sharedOut); err != nil {
 		return err
 	}
-	if err := r.markCUDAPhase("expert-ffn"); err != nil {
+	if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {
 		return err
 	}
 	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
@@ -701,7 +710,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeMatvecQ2KSelectedQ81(l.expertDown, s.expertIDs, s.q81Experts, s.expertDown); err != nil {
 		return err
 	}
-	if err := r.markCUDAPhase("ffn-post"); err != nil {
+	if err := r.markCUDAPhase("ffn-post", position, index); err != nil {
 		return err
 	}
 	if err := r.encodeSumVectors(s.expertDown, s.routedOut, 6); err != nil {
@@ -716,11 +725,11 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	return nil
 }
 
-func (r *cudaRuntime) markCUDAPhase(name string) error {
+func (r *cudaRuntime) markCUDAPhase(name string, position, layer int) error {
 	if r.phaseMark == nil {
 		return nil
 	}
-	return r.phaseMark(name)
+	return r.phaseMark(name, position, layer)
 }
 
 func (r *cudaRuntime) evalLayer(index, token, position int) error {

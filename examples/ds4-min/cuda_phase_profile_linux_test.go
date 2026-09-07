@@ -15,8 +15,10 @@ import (
 )
 
 type cudaPhaseEvent struct {
-	name  string
-	event *cuda.Event
+	name     string
+	position int
+	layer    int
+	event    *cuda.Event
 }
 
 type cudaPhaseProfile struct {
@@ -25,16 +27,24 @@ type cudaPhaseProfile struct {
 }
 
 type cudaPhaseResult struct {
-	Tokens          int              `json:"tokens"`
-	HostElapsedNS   int64            `json:"host_elapsed_ns"`
-	StreamElapsedNS map[string]int64 `json:"stream_elapsed_ns"`
-	Counts          map[string]int   `json:"counts"`
-	LogitsSHA256    string           `json:"logits_sha256"`
-	ReferenceSHA256 string           `json:"reference_logits_sha256"`
-	Scope           string           `json:"scope"`
+	Tokens          int                 `json:"tokens"`
+	HostElapsedNS   int64               `json:"host_elapsed_ns"`
+	StreamElapsedNS map[string]int64    `json:"stream_elapsed_ns"`
+	Counts          map[string]int      `json:"counts"`
+	Intervals       []cudaPhaseInterval `json:"intervals"`
+	LogitsSHA256    string              `json:"logits_sha256"`
+	ReferenceSHA256 string              `json:"reference_logits_sha256"`
+	Scope           string              `json:"scope"`
 }
 
-func (p *cudaPhaseProfile) mark(name string) error {
+type cudaPhaseInterval struct {
+	Name      string `json:"name"`
+	Position  int    `json:"position"`
+	Layer     int    `json:"layer"`
+	ElapsedNS int64  `json:"elapsed_ns"`
+}
+
+func (p *cudaPhaseProfile) mark(name string, position, layer int) error {
 	event, err := p.runtime.device.NewEvent()
 	if err != nil {
 		return fmt.Errorf("cuda phase profile: create event: %w", err)
@@ -43,13 +53,13 @@ func (p *cudaPhaseProfile) mark(name string) error {
 		event.Destroy()
 		return fmt.Errorf("cuda phase profile: record event: %w", err)
 	}
-	p.events = append(p.events, cudaPhaseEvent{name: name, event: event})
+	p.events = append(p.events, cudaPhaseEvent{name: name, position: position, layer: layer, event: event})
 	return nil
 }
 
-func (p *cudaPhaseProfile) finish() (map[string]int64, map[string]int, error) {
-	if err := p.mark("profile-end"); err != nil {
-		return nil, nil, err
+func (p *cudaPhaseProfile) finish() (map[string]int64, map[string]int, []cudaPhaseInterval, error) {
+	if err := p.mark("profile-end", -1, -1); err != nil {
+		return nil, nil, nil, err
 	}
 	defer func() {
 		for _, event := range p.events {
@@ -57,24 +67,32 @@ func (p *cudaPhaseProfile) finish() (map[string]int64, map[string]int, error) {
 		}
 	}()
 	if err := p.events[len(p.events)-1].event.Synchronize(context.Background()); err != nil {
-		return nil, nil, fmt.Errorf("cuda phase profile: synchronize: %w", err)
+		return nil, nil, nil, fmt.Errorf("cuda phase profile: synchronize: %w", err)
 	}
 	durations := make(map[string]int64)
 	counts := make(map[string]int)
+	intervals := make([]cudaPhaseInterval, 0, len(p.events)-1)
 	for i := 0; i+1 < len(p.events); i++ {
 		d, err := p.events[i+1].event.ElapsedSince(p.events[i].event)
 		if err != nil {
-			return nil, nil, fmt.Errorf("cuda phase profile: elapsed %s: %w", p.events[i].name, err)
+			return nil, nil, nil, fmt.Errorf("cuda phase profile: elapsed %s: %w", p.events[i].name, err)
 		}
-		durations[p.events[i].name] += d.Nanoseconds()
+		ns := d.Nanoseconds()
+		durations[p.events[i].name] += ns
 		counts[p.events[i].name]++
+		intervals = append(intervals, cudaPhaseInterval{Name: p.events[i].name, Position: p.events[i].position, Layer: p.events[i].layer, ElapsedNS: ns})
 	}
-	return durations, counts, nil
+	return durations, counts, intervals, nil
 }
 
 func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
+	if tokens < cudaPrefillBatchWidth || tokens%cudaPrefillBatchWidth != 0 {
+		return fmt.Errorf("cuda phase profile: token count %d is not a positive multiple of batch width %d", tokens, cudaPrefillBatchWidth)
+	}
 	want := map[string]int{
-		"dense-front":       cudaLayers,
+		"dense-front":       (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"compression-raw":   tokens * 2,
+		"compression":       tokens * (cudaLayers - 2),
 		"attention":         tokens * cudaLayers,
 		"attention-output":  tokens * cudaLayers,
 		"ffn-pre":           tokens * cudaLayers,
@@ -82,7 +100,7 @@ func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
 		"expert-ffn":        tokens * cudaLayers,
 		"ffn-post":          tokens * cudaLayers,
 		"qkv-normalization": tokens * cudaLayers,
-		"output":            1,
+		"group-tail":        tokens / cudaPrefillBatchWidth,
 	}
 	if len(counts) != len(want) {
 		return fmt.Errorf("cuda phase profile: got %d phase names, want %d", len(counts), len(want))
@@ -93,6 +111,34 @@ func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
 		}
 	}
 	return nil
+}
+
+func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
+	if tokens < cudaPrefillBatchWidth || tokens%cudaPrefillBatchWidth != 0 {
+		return nil
+	}
+	intervals := make([]cudaPhaseInterval, 0, (tokens/cudaPrefillBatchWidth)*(cudaLayers+1)+tokens*cudaLayers*8)
+	add := func(name string, position, layer int) {
+		intervals = append(intervals, cudaPhaseInterval{Name: name, Position: position, Layer: layer})
+	}
+	for base := 0; base < tokens; base += cudaPrefillBatchWidth {
+		for layer := range cudaLayers {
+			add("dense-front", base, layer)
+			for position := base; position < base+cudaPrefillBatchWidth; position++ {
+				add("qkv-normalization", position, layer)
+				if layer < 2 {
+					add("compression-raw", position, layer)
+				} else {
+					add("compression", position, layer)
+				}
+				for _, name := range []string{"attention", "attention-output", "ffn-pre", "shared-ffn", "expert-ffn", "ffn-post"} {
+					add(name, position, layer)
+				}
+			}
+		}
+		add("group-tail", base+cudaPrefillBatchWidth-1, -1)
+	}
+	return intervals
 }
 
 func validateCUDAPhaseDurations(durations map[string]int64, counts map[string]int) error {
@@ -115,6 +161,37 @@ func validateCUDAPhaseDurations(durations map[string]int64, counts map[string]in
 	}
 	if total <= 0 {
 		return fmt.Errorf("cuda phase profile: non-positive aggregate duration %d", total)
+	}
+	return nil
+}
+
+func validateCUDAPhaseIntervals(tokens int, intervals []cudaPhaseInterval, durations map[string]int64, counts map[string]int) error {
+	want := expectedCUDAPhaseCoordinates(tokens)
+	if len(intervals) != len(want) {
+		return fmt.Errorf("cuda phase profile: got %d intervals, want %d", len(intervals), len(want))
+	}
+	gotDurations := make(map[string]int64)
+	gotCounts := make(map[string]int)
+	for i, interval := range intervals {
+		if interval.ElapsedNS < 0 {
+			return fmt.Errorf("cuda phase profile: interval %d has negative duration %d", i, interval.ElapsedNS)
+		}
+		if interval.Name != want[i].Name || interval.Position != want[i].Position || interval.Layer != want[i].Layer {
+			return fmt.Errorf("cuda phase profile: interval %d coordinate (%q,%d,%d), want (%q,%d,%d)", i, interval.Name, interval.Position, interval.Layer, want[i].Name, want[i].Position, want[i].Layer)
+		}
+		gotDurations[interval.Name] += interval.ElapsedNS
+		gotCounts[interval.Name]++
+	}
+	if err := validateCUDAPhaseCounts(tokens, gotCounts); err != nil {
+		return err
+	}
+	if len(gotDurations) != len(durations) {
+		return fmt.Errorf("cuda phase profile: interval durations have %d names, want %d", len(gotDurations), len(durations))
+	}
+	for name, want := range durations {
+		if gotDurations[name] != want {
+			return fmt.Errorf("cuda phase profile: interval %s duration %d, want %d", name, gotDurations[name], want)
+		}
 	}
 	return nil
 }
@@ -145,7 +222,7 @@ func TestCUDAPhaseProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const profileTokens = 8
+	const profileTokens = 64
 	tokens = tokens[:profileTokens]
 	backend, closer, err := openSessionBackend(config{model: model, backend: "cuda", context: 1024, log: io.Discard})
 	if err != nil {
@@ -179,7 +256,7 @@ func TestCUDAPhaseProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	hostElapsed := time.Since(start)
-	durations, counts, err := profile.finish()
+	durations, counts, intervals, err := profile.finish()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,6 +265,9 @@ func TestCUDAPhaseProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := validateCUDAPhaseDurations(durations, counts); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCUDAPhaseIntervals(profileTokens, intervals, durations, counts); err != nil {
 		t.Fatal(err)
 	}
 	if err := exactFloat32Bits(runtime.Logits(), reference); err != nil {
@@ -206,9 +286,10 @@ func TestCUDAPhaseProfile(t *testing.T) {
 		HostElapsedNS:   hostElapsed.Nanoseconds(),
 		StreamElapsedNS: durations,
 		Counts:          counts,
+		Intervals:       intervals,
 		LogitsSHA256:    logitsHash,
 		ReferenceSHA256: referenceHash,
-		Scope:           "warmed CUDA positions 0..7 only; default-stream elapsed intervals include device idle time; they are phase attribution, not kernel busy time or throughput",
+		Scope:           "warmed CUDA positions 0..63 only; default-stream elapsed intervals include device idle time and instrumentation; group-tail spans each synchronized batch return and the next batch embedding, with the last interval also including the output head; compression-raw measures marker overhead on raw layers 0 and 1; this is phase attribution, not kernel busy time or throughput",
 	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
@@ -228,16 +309,27 @@ func TestCUDAPhaseProfile(t *testing.T) {
 }
 
 func TestValidateCUDAPhaseCounts(t *testing.T) {
-	const tokens = 8
+	const tokens = 64
 	want := map[string]int{
-		"dense-front": cudaLayers,
+		"dense-front":     (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"compression-raw": tokens * 2,
+		"compression":     tokens * (cudaLayers - 2),
 	}
 	for _, name := range []string{"qkv-normalization", "attention", "attention-output", "ffn-pre", "shared-ffn", "expert-ffn", "ffn-post"} {
 		want[name] = tokens * cudaLayers
 	}
-	want["output"] = 1
+	want["group-tail"] = tokens / cudaPrefillBatchWidth
 	if err := validateCUDAPhaseCounts(tokens, want); err != nil {
 		t.Fatal(err)
+	}
+	stale := make(map[string]int, len(want))
+	for key, value := range want {
+		stale[key] = value
+	}
+	stale["dense-front"] = cudaLayers
+	stale["group-tail"] = 1
+	if err := validateCUDAPhaseCounts(tokens, stale); err == nil {
+		t.Fatal("n=8 phase counts passed at n=64")
 	}
 	for name := range want {
 		bad := make(map[string]int, len(want))
@@ -287,5 +379,47 @@ func TestValidateCUDAPhaseDurations(t *testing.T) {
 				t.Fatalf("error = %v, want success %t", err, tt.ok)
 			}
 		})
+	}
+}
+
+func TestValidateCUDAPhaseIntervals(t *testing.T) {
+	const tokens = 64
+	intervals := expectedCUDAPhaseCoordinates(tokens)
+	for i := range intervals {
+		intervals[i].ElapsedNS = 1
+	}
+	durations := make(map[string]int64)
+	counts := make(map[string]int)
+	for _, interval := range intervals {
+		durations[interval.Name] += interval.ElapsedNS
+		counts[interval.Name]++
+	}
+	if err := validateCUDAPhaseIntervals(tokens, intervals, durations, counts); err != nil {
+		t.Fatal(err)
+	}
+	bad := append([]cudaPhaseInterval(nil), intervals...)
+	bad[0].Position = 1
+	if err := validateCUDAPhaseIntervals(tokens, bad, durations, counts); err == nil {
+		t.Fatal("invalid dense-front position passed")
+	}
+	bad = append([]cudaPhaseInterval(nil), intervals...)
+	bad[len(bad)-1].ElapsedNS++
+	if err := validateCUDAPhaseIntervals(tokens, bad, durations, counts); err == nil {
+		t.Fatal("inconsistent interval duration passed")
+	}
+	bad = append([]cudaPhaseInterval(nil), intervals...)
+	bad[1] = bad[2]
+	if err := validateCUDAPhaseIntervals(tokens, bad, durations, counts); err == nil {
+		t.Fatal("duplicate coordinate passed")
+	}
+	bad = append([]cudaPhaseInterval(nil), intervals...)
+	for i := range bad {
+		if bad[i].Name == "compression-raw" {
+			bad[i].Layer = 2
+			break
+		}
+	}
+	if err := validateCUDAPhaseIntervals(tokens, bad, durations, counts); err == nil {
+		t.Fatal("raw compression on compressed layer passed")
 	}
 }
