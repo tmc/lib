@@ -1,0 +1,8 @@
+commit: a771f8bc55e6e6ab8e9c2e48fb5a66be5d8e7c9c
+date: 2026-09-07
+agent: Codex
+model: GPT-5
+tty: not a tty
+pid: 34160
+iterm_session_id: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+evidence: cuda-phase-split-n64-v4-run-20260907 MANIFEST 2816f92296e3dce43606aa3f67d217ec577dbd7fa7570594c41119fe6e1266eb
