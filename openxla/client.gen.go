@@ -197,6 +197,7 @@ func (c *ClientWrapper) AddressableDevices() ([]*Device, error) {
 // BufferFromHost creates an on-device PJRT Buffer from host memory.
 // The caller must supply enough data for bufType and dims and must not modify
 // it during the call. Go allocations are pinned until the transfer returns.
+// dev must be a non-nil device belonging to this client.
 func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type, dims []int64, dev *Device) (*BufferWrapper, error) {
 	if c.api.Client_BufferFromHostBuffer == 0 {
 		return nil, fmt.Errorf("Client_BufferFromHostBuffer not available")
@@ -206,6 +207,9 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	}
 	if c.api.Event_Await == 0 || c.api.Event_Destroy == 0 {
 		return nil, fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
+	}
+	if dev == nil {
+		return nil, fmt.Errorf("openxla: destination device is required")
 	}
 	var pin runtime.Pinner
 	defer pin.Unpin()

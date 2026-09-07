@@ -67,7 +67,7 @@ func TestHostValidationBeforeDispatch(t *testing.T) {
 func TestHostShapeIsCopied(t *testing.T) {
 	exec, _, _ := testExecutable(t, nil, false, false)
 	dims := []int64{3}
-	b, err := exec.engine.NewBufferFromHost([]byte{1, 2, 3}, U8, dims, nil)
+	b, err := exec.engine.NewBufferFromHost([]byte{1, 2, 3}, U8, dims, &openxla.Device{})
 	if err != nil {
 		t.Fatal(err)
 	}

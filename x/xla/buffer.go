@@ -32,7 +32,8 @@ type Buffer struct {
 
 // NewBufferFromHost copies data to a device buffer with the given element type
 // and shape. data must contain exactly the bytes described by dims; a nil shape
-// describes a scalar. Packed element types are not supported.
+// describes a scalar. Packed element types are not supported. dev must be a
+// non-nil device belonging to this engine.
 func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int64, dev *openxla.Device) (*Buffer, error) {
 	size, err := bufferSize(elemTyp, dims)
 	if err != nil {
