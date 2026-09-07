@@ -137,15 +137,13 @@ type Error_ForEachPayload_Args struct {
 
 // Named value for key-value pairs.
 type NamedValue struct {
-	Struct_size       uintptr
-	Extension_start   *Extension_Base
-	Name              *byte
-	Name_size         uintptr
-	Type              NamedValue_Type
-	Int64_value       int64
-	Int64_array_value *int64
-	Float_value       float32
-	Bool_value        bool
+	Struct_size     uintptr
+	Extension_start *Extension_Base
+	Name            *byte
+	Name_size       uintptr
+	Type            NamedValue_Type
+	Union_pad       int64
+	Value_size      uintptr
 }
 
 // ---------------------------------- Plugin -----------------------------------
@@ -546,7 +544,8 @@ type Buffer_MemoryLayout_Strides struct {
 type Buffer_MemoryLayout struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
-	Strides         Buffer_MemoryLayout_Strides
+	Union_pad       Buffer_MemoryLayout_Tiled
+	Type            Buffer_MemoryLayout_Type
 }
 
 // AsyncHostToDeviceTransferManager_TransferLiteral_Args represents PJRT_AsyncHostToDeviceTransferManager_TransferLiteral_Args.

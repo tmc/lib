@@ -1,4 +1,3 @@
-// Package xla provides a high-level, pure Go API for executing XLA programs.
 package xla
 
 import (
@@ -33,17 +32,22 @@ func NewEngine(pluginPath string) (*Engine, error) {
 
 // Close destroys the client and shuts down the engine.
 func (e *Engine) Close() error {
-	if e.client != nil {
-		if err := e.client.Destroy(); err != nil {
-			return fmt.Errorf("xla: failed to close engine: %w", err)
-		}
-		e.client = nil
+	if e == nil || e.client == nil {
+		return nil
+	}
+	resource := e.client
+	e.client = nil
+	if err := resource.Destroy(); err != nil {
+		return fmt.Errorf("xla: close engine: %w", err)
 	}
 	return nil
 }
 
 // Devices returns the locally addressable devices for this engine.
 func (e *Engine) Devices() ([]*openxla.Device, error) {
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("xla: engine is closed")
+	}
 	devices, err := e.client.AddressableDevices()
 	if err != nil {
 		return nil, fmt.Errorf("xla: failed to get devices: %w", err)

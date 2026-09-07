@@ -2,6 +2,7 @@ package xla
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/openxla"
@@ -14,13 +15,18 @@ type Executable struct {
 }
 
 // Execute runs the program on a single device with the given arguments.
+// Cancellation before execution prevents dispatch. Cancellation during execution
+// is reported after PJRT completes and the outputs have been released; it does
+// not interrupt native execution. The executable, engine and input buffers must
+// remain open until Execute returns.
 func (e *Executable) Execute(ctx context.Context, args []*Buffer) ([]*Buffer, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("xla: context error before execution: %w", err)
 	}
 
-	// Validate arguments
-	// (For a robust implementation, we would check types/shapes against e.wrapper's expected inputs)
+	if e == nil || e.wrapper == nil {
+		return nil, fmt.Errorf("xla: executable is closed")
+	}
 	rawArgs := make([]*openxla.BufferWrapper, len(args))
 	for i, a := range args {
 		if a == nil || a.wrapper == nil {
@@ -29,51 +35,58 @@ func (e *Executable) Execute(ctx context.Context, args []*Buffer) ([]*Buffer, er
 		rawArgs[i] = a.wrapper
 	}
 
-	// We wrap in a channel to support context cancellation/deadlines
-	type result struct {
-		outputs []*Buffer
-		err     error
+	return e.execute(ctx, rawArgs)
+}
+
+func (e *Executable) execute(ctx context.Context, args []*openxla.BufferWrapper) (outputs []*Buffer, err error) {
+	raw, err := e.wrapper.Execute([][]*openxla.BufferWrapper{args})
+	if err != nil {
+		return nil, fmt.Errorf("xla: execute: %w", err)
 	}
-	ch := make(chan result, 1)
-
-	go func() {
-		// Run on a single device (inputLists is [1][]*BufferWrapper)
-		rawOuts, err := e.wrapper.Execute([][]*openxla.BufferWrapper{rawArgs})
-		if err != nil {
-			ch <- result{nil, fmt.Errorf("xla: execute failed: %w", err)}
+	defer func() {
+		if err == nil {
 			return
 		}
-
-		if len(rawOuts) != 1 {
-			ch <- result{nil, fmt.Errorf("xla: expected 1 device output, got %d", len(rawOuts))}
-			return
-		}
-
-		outputs := make([]*Buffer, len(rawOuts[0]))
-		for i, out := range rawOuts[0] {
-			outputs[i] = &Buffer{
-				wrapper: out,
-				// Ideally we would fetch shape and type from the executable outputs
+		for _, device := range raw {
+			for _, out := range device {
+				if out != nil {
+					err = errors.Join(err, out.Destroy())
+				}
 			}
 		}
-		ch <- result{outputs, nil}
 	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("xla: execution cancelled: %w", ctx.Err())
-	case res := <-ch:
-		return res.outputs, res.err
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("xla: execution cancelled: %w", err)
 	}
+	if len(raw) != 1 {
+		return nil, fmt.Errorf("xla: expected 1 device output, got %d", len(raw))
+	}
+	outputs = make([]*Buffer, len(raw[0]))
+	for i, out := range raw[0] {
+		typ, dims, err := out.Shape()
+		if err != nil {
+			return nil, fmt.Errorf("xla: output %d shape: %w", i, err)
+		}
+		if _, err := bufferSize(typ, dims); err != nil {
+			return nil, fmt.Errorf("xla: output %d: %w", i, err)
+		}
+		outputs[i] = &Buffer{wrapper: out, dims: dims, elemTyp: typ}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("xla: execution cancelled: %w", err)
+	}
+	return outputs, nil
 }
 
 // Close destroys the executable and frees its resources.
 func (e *Executable) Close() error {
-	if e.wrapper != nil {
-		if err := e.wrapper.Destroy(); err != nil {
-			return fmt.Errorf("xla: failed to close executable: %w", err)
-		}
-		e.wrapper = nil
+	if e == nil || e.wrapper == nil {
+		return nil
+	}
+	resource := e.wrapper
+	e.wrapper = nil
+	if err := resource.Destroy(); err != nil {
+		return fmt.Errorf("xla: close executable: %w", err)
 	}
 	return nil
 }

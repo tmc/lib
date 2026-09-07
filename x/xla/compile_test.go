@@ -2,6 +2,7 @@ package xla
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,14 @@ func TestCompileOptions_ToProto(t *testing.T) {
 				t.Errorf("ToProto() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCompileRejectsNegativeCounts(t *testing.T) {
+	for _, opts := range []CompileOptions{{ReplicaCount: -1}, {NumPartitions: -1}} {
+		var engine *Engine
+		if _, err := engine.Compile(nil, "mlir", &opts); err == nil || !strings.Contains(err.Error(), "must not be negative") {
+			t.Fatalf("options=%+v err=%v", opts, err)
+		}
 	}
 }

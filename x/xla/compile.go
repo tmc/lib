@@ -1,6 +1,9 @@
 package xla
 
+import "fmt"
+
 // CompileOptions defines options for compiling an XLA program via PJRT.
+// Compile treats zero counts as one and rejects negative counts.
 type CompileOptions struct {
 	ReplicaCount  int32
 	NumPartitions int32
@@ -43,7 +46,6 @@ func (o *CompileOptions) ToProto() []byte {
 		b = append(b, ebo...)
 	}
 
-
 	return b
 }
 
@@ -58,13 +60,23 @@ func appendVarint(b []byte, v uint64) []byte {
 
 // Compile compiles a program for the given engine's client.
 func (e *Engine) Compile(programCode []byte, format string, opts *CompileOptions) (*Executable, error) {
-	if opts == nil {
-		opts = DefaultCompileOptions()
+	var options CompileOptions
+	if opts != nil {
+		options = *opts
 	}
-	optsBytes := opts.ToProto()
-	if opts.ReplicaCount <= 1 && opts.NumPartitions <= 1 {
-		optsBytes = defaultCompileOptionsProtoBytes
+	if options.ReplicaCount < 0 || options.NumPartitions < 0 {
+		return nil, fmt.Errorf("xla: replica and partition counts must not be negative")
 	}
+	if options.ReplicaCount == 0 {
+		options.ReplicaCount = 1
+	}
+	if options.NumPartitions == 0 {
+		options.NumPartitions = 1
+	}
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("xla: engine is closed")
+	}
+	optsBytes := options.ToProto()
 
 	wrapper, err := e.client.Compile(programCode, format, optsBytes)
 	if err != nil {

@@ -3,6 +3,7 @@ package xla
 import (
 	"fmt"
 	"io"
+	"slices"
 	"unsafe"
 
 	"github.com/tmc/lib/openxla"
@@ -28,13 +29,22 @@ type Buffer struct {
 	elemTyp ElementType
 }
 
-// NewBufferFromHost creates a device buffer by transferring data from host memory.
+// NewBufferFromHost copies data to a device buffer with the given element type
+// and shape. data must contain exactly the bytes described by dims; a nil shape
+// describes a scalar. Packed element types are not supported.
 func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int64, dev *openxla.Device) (*Buffer, error) {
-	if len(data) == 0 {
-		return nil, fmt.Errorf("xla: cannot create buffer from empty slice")
+	size, err := bufferSize(elemTyp, dims)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) != size {
+		return nil, fmt.Errorf("xla: host buffer has %d bytes, want %d", len(data), size)
+	}
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("xla: engine is closed")
 	}
 
-	ptr := unsafe.Pointer(&data[0])
+	ptr := unsafe.Pointer(unsafe.SliceData(data))
 	wrapper, err := e.client.BufferFromHost(ptr, elemTyp, dims, dev)
 	if err != nil {
 		return nil, fmt.Errorf("xla: failed to create buffer from host: %w", err)
@@ -42,14 +52,24 @@ func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int6
 
 	return &Buffer{
 		wrapper: wrapper,
-		dims:    dims,
+		dims:    slices.Clone(dims),
 		elemTyp: elemTyp,
 	}, nil
 }
 
 // ToHost copies the device buffer synchronously into the provided host slice.
 func (b *Buffer) ToHost(dst []byte) error {
-	if len(dst) == 0 {
+	if b == nil || b.wrapper == nil {
+		return fmt.Errorf("xla: buffer is closed")
+	}
+	size, err := bufferSize(b.elemTyp, b.dims)
+	if err != nil {
+		return err
+	}
+	if len(dst) < size {
+		return fmt.Errorf("xla: host buffer has %d bytes, need %d", len(dst), size)
+	}
+	if size == 0 {
 		return nil
 	}
 	ptr := unsafe.Pointer(&dst[0])
@@ -61,22 +81,12 @@ func (b *Buffer) ToHost(dst []byte) error {
 
 // WriteTo implements io.WriterTo, copying the device memory to the provided Writer.
 func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
-	size := int64(1)
-	for _, d := range b.dims {
-		size *= d
+	if b == nil || b.wrapper == nil {
+		return 0, fmt.Errorf("xla: buffer is closed")
 	}
-
-	switch b.elemTyp {
-	case F64:
-		size *= 8
-	case F32, S32, openxla.Buffer_Type_U32:
-		size *= 4
-	case F16, openxla.Buffer_Type_S16, openxla.Buffer_Type_U16:
-		size *= 2
-	case S8, U8:
-		size *= 1
-	default:
-		return 0, fmt.Errorf("xla: unsupported element type for WriteTo")
+	size, err := bufferSize(b.elemTyp, b.dims)
+	if err != nil {
+		return 0, err
 	}
 
 	buf := make([]byte, size)
@@ -85,24 +95,62 @@ func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
 	}
 
 	n, err := w.Write(buf)
+	if n < len(buf) && err == nil {
+		err = io.ErrShortWrite
+	}
 	return int64(n), err
 }
 
-// ReadFrom implements io.ReaderFrom, allocating a new device buffer and populating it.
-// Note: Since this needs an Engine, it's typically better to use NewBufferFromHost or Engine methods,
-// but if this Buffer was created uninitialized, it could read into it.
-// For now, we'll return an error indicating it's not supported to overwrite an existing buffer.
-func (b *Buffer) ReadFrom(r io.Reader) (int64, error) {
-	return 0, fmt.Errorf("xla: ReadFrom not implemented for immutable device buffers")
+// bufferSize returns the number of bytes in a dense, unpacked host buffer.
+func bufferSize(elemTyp ElementType, dims []int64) (int, error) {
+	var width int
+	switch elemTyp {
+	case openxla.Buffer_Type_PRED, S8, U8,
+		openxla.Buffer_Type_F8E5M2, openxla.Buffer_Type_F8E4M3FN,
+		openxla.Buffer_Type_F8E4M3B11FNUZ, openxla.Buffer_Type_F8E5M2FNUZ,
+		openxla.Buffer_Type_F8E4M3FNUZ, openxla.Buffer_Type_F8E4M3,
+		openxla.Buffer_Type_F8E3M4, openxla.Buffer_Type_F8E8M0FNU:
+		width = 1
+	case F16, openxla.Buffer_Type_BF16, openxla.Buffer_Type_S16, openxla.Buffer_Type_U16:
+		width = 2
+	case F32, S32, openxla.Buffer_Type_U32:
+		width = 4
+	case F64, openxla.Buffer_Type_S64, openxla.Buffer_Type_U64, openxla.Buffer_Type_C64:
+		width = 8
+	case openxla.Buffer_Type_C128:
+		width = 16
+	default:
+		return 0, fmt.Errorf("xla: unsupported host element type %d", elemTyp)
+	}
+	empty := false
+	for _, d := range dims {
+		if d < 0 {
+			return 0, fmt.Errorf("xla: negative dimension %d", d)
+		}
+		empty = empty || d == 0
+	}
+	if empty {
+		return 0, nil
+	}
+	size := width
+	for _, d := range dims {
+		if d > int64(int(^uint(0)>>1)/size) {
+			return 0, fmt.Errorf("xla: buffer size overflows int")
+		}
+		size *= int(d)
+	}
+	return size, nil
 }
 
 // Close destroys the device buffer, releasing its memory.
 func (b *Buffer) Close() error {
-	if b.wrapper != nil {
-		if err := b.wrapper.Destroy(); err != nil {
-			return fmt.Errorf("xla: failed to close buffer: %w", err)
-		}
-		b.wrapper = nil
+	if b == nil || b.wrapper == nil {
+		return nil
+	}
+	resource := b.wrapper
+	b.wrapper = nil
+	if err := resource.Destroy(); err != nil {
+		return fmt.Errorf("xla: close buffer: %w", err)
 	}
 	return nil
 }

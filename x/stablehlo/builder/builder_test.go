@@ -8,9 +8,9 @@ import (
 
 func TestBuilderOperations(t *testing.T) {
 	tests := []struct {
-		name     string
-		build    func() *FuncBuilder
-		wantOps  []string
+		name    string
+		build   func() *FuncBuilder
+		wantOps []string
 	}{
 		{
 			name: "add",
@@ -47,11 +47,11 @@ func TestBuilderOperations(t *testing.T) {
 			},
 			wantOps: []string{
 				"%0 = stablehlo.multiply %arg0, %arg0 : tensor<2x4xf32>",
-				"%1 = stablehlo.constant dense<0.000000> : tensor<f32>",
+				"%1 = stablehlo.constant dense<0.0> : tensor<f32>",
 				"%2 = stablehlo.reduce(%0 init: %1) applies stablehlo.add across dimensions = [1] : (tensor<2x4xf32>, tensor<f32>) -> tensor<2xf32>",
-				"%3 = stablehlo.constant dense<4.000000> : tensor<2xf32>",
+				"%3 = stablehlo.constant dense<4.0> : tensor<2xf32>",
 				"%4 = stablehlo.divide %2, %3 : tensor<2xf32>",
-				"%5 = stablehlo.constant dense<0.000010> : tensor<2xf32>",
+				"%5 = stablehlo.constant dense<1.0e-05> : tensor<2xf32>",
 				"%6 = stablehlo.add %4, %5 : tensor<2xf32>",
 				"%7 = stablehlo.rsqrt %6 : tensor<2xf32>",
 				"%8 = stablehlo.broadcast_in_dim %7, dims = [0] : (tensor<2xf32>) -> tensor<2x4xf32>",
