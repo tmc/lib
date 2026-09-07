@@ -1,0 +1,11 @@
+commit 7acb5d86bf86925a255d3b6d0a771e56f8330736
+committed 2026-09-06T19:29:54-07:00
+agent Codex
+codex-cli 0.153.4
+claude-code version not applicable
+model GPT-6 family; exact model identifier unavailable
+tty not-a-tty
+pid 75613
+ITERM_SESSION_ID w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+validation: full ordinary package PASS; comparator 10 controls PASS; disabled-bit and disabled-identity mutations killed; Darwin and Linux capture compile; no full-model batch parity claim
+commit helper failed once for missing Anthropic API key; used permitted manual fallback
