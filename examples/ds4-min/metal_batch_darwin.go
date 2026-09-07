@@ -507,7 +507,15 @@ func (b *metalBatch) endEncoding() {
 	}
 }
 
-func (b *metalBatch) Wait(ctx context.Context) error {
+// Commit ends encoding and submits the batch without blocking on it.
+//
+// Command buffers submitted to one queue complete in submission order, so a
+// caller may commit a batch, encode and commit the next while the GPU runs
+// this one, and wait on both afterwards. Wait must still be called on a
+// committed batch: waiting is what records the batch's span and releases its
+// hyper-connection claim, and a batch that is committed but never waited on
+// contributes neither.
+func (b *metalBatch) Commit() error {
 	if err := b.ready(); err != nil {
 		return err
 	}
@@ -515,6 +523,21 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 	b.done = true
 	b.buffer.Commit()
 	b.commits++
+	return nil
+}
+
+func (b *metalBatch) Wait(ctx context.Context) error {
+	if b == nil || b.ops == nil || b.buffer == nil {
+		return fmt.Errorf("Metal batch: not initialized")
+	}
+	if !b.done {
+		if err := b.Commit(); err != nil {
+			return err
+		}
+	}
+	if b.waits > 0 {
+		return fmt.Errorf("Metal batch: already waited")
+	}
 	b.waits++
 	// One span per command buffer: the batch's dispatches are the GPU
 	// work, and everything between this span and the next is host cost.

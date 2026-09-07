@@ -663,7 +663,14 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 			return nil, err
 		}
 	}
-	if err := batch.Wait(context.Background()); err != nil {
+	// Submit the opening without blocking. The closing batch goes to the same
+	// queue, and a queue completes its buffers in submission order, so the
+	// host can encode and submit the closing work while the GPU is still
+	// running the opening instead of idling until it finishes. Nothing here
+	// skips the wait: settleOpening below performs it before anything reads
+	// what the opening produced, and before the closing batch's span is
+	// recorded, so spans still reach the log in completion order.
+	if err := batch.Commit(); err != nil {
 		return nil, err
 	}
 	if attnEmit {
@@ -672,9 +679,34 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if indexerEmit {
 		state.indexer.n++
 	}
-	r.lastOpeningBatch = batch.Stats()
-	if i < 2 {
-		r.lastRawOpeningBatch = batch.Stats()
+	openingSettled := false
+	settleOpening := func() error {
+		if openingSettled {
+			return nil
+		}
+		if err := batch.Wait(context.Background()); err != nil {
+			return err
+		}
+		openingSettled = true
+		r.lastOpeningBatch = batch.Stats()
+		if i < 2 {
+			r.lastRawOpeningBatch = batch.Stats()
+		}
+		if i >= 2 && batchedCompressed {
+			if i%2 == 0 {
+				r.lastCompressedEven = batch.Stats()
+			} else {
+				r.lastCompressedOdd = batch.Stats()
+			}
+		}
+		return nil
+	}
+	// The compressor fallback reads the opening's results from host memory, so
+	// it cannot run until the opening has actually completed.
+	if i >= 2 && !batchedCompressed {
+		if err := settleOpening(); err != nil {
+			return nil, err
+		}
 	}
 	var heads []float32
 	if i >= 2 && !batchedCompressed {
@@ -719,13 +751,6 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if i >= 2 && !batchedCompressed {
 		if err := headsGPU.CopyFromHost(heads); err != nil {
 			return nil, fmt.Errorf("attention closing: copy heads: %w", err)
-		}
-	}
-	if i >= 2 && batchedCompressed {
-		if i%2 == 0 {
-			r.lastCompressedEven = batch.Stats()
-		} else {
-			r.lastCompressedOdd = batch.Stats()
 		}
 	}
 	closing, err := newMetalBatch(r.ops)
@@ -841,6 +866,15 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	// now that the two share a buffer.
 	r.ops.hc.pending = nil
 	if err := ffn.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
+		return nil, err
+	}
+	// Queue the closing before settling the opening so both buffers are in
+	// flight together and the GPU runs them back to back. The opening is
+	// waited on first regardless, so its span is logged before the closing's.
+	if err := ffn.Commit(); err != nil {
+		return nil, err
+	}
+	if err := settleOpening(); err != nil {
 		return nil, err
 	}
 	if err := ffn.Wait(context.Background()); err != nil {
