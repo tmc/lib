@@ -1,0 +1,8 @@
+commit: 2487ab98b57a2e9321573dba98e7766d0d0e2b79
+date: 2026-09-07
+agent: Codex
+model: GPT-5
+tty: not a tty
+pid: 49376
+iterm_session_id: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+reason: prior CUDA phase receipt used cfc90cc2 prefix rather than registered 8e207373 prefix
