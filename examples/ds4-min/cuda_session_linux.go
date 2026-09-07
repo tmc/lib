@@ -16,15 +16,18 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model      *cudaModel
-	arena      *cudamem.Arena
-	batchArena *cudamem.Arena
-	state      cudaSessionState
-	batchFirst cudaTokenState
-	hcMath     *cudaHC
-	ctx, pos   int
-	logits     []float32
-	failed     error
+	model           *cudaModel
+	arena           *cudamem.Arena
+	batchArena      *cudamem.Arena
+	batchDenseArena *cudamem.Arena
+	state           cudaSessionState
+	batchFirst      cudaTokenState
+	batchDense      cudaBatchDense
+	hcMath          *cudaHC
+	batchHC         *cudaHC
+	ctx, pos        int
+	logits          []float32
+	failed          error
 }
 
 type cudaSessionState struct {
@@ -52,6 +55,11 @@ type cudaTokenState struct {
 type cudaSessionLayer struct {
 	rawKV         cudamem.Slice[float32]
 	attn, indexer cudaCompressedState
+}
+
+type cudaBatchDense struct {
+	attnPre, qLora, qHeads, kvRaw, kvCur cudamem.Slice[float32]
+	q81Attn, q81QLora                    cudamem.Slice[byte]
 }
 
 var (
@@ -235,6 +243,10 @@ func (r *cudaRuntime) Close() error {
 		errs = append(errs, r.hcMath.Close())
 		r.hcMath = nil
 	}
+	if r.batchHC != nil {
+		errs = append(errs, r.batchHC.Close())
+		r.batchHC = nil
+	}
 	if r.arena != nil {
 		errs = append(errs, r.arena.Free())
 		r.arena = nil
@@ -242,6 +254,10 @@ func (r *cudaRuntime) Close() error {
 	if r.batchArena != nil {
 		errs = append(errs, r.batchArena.Free())
 		r.batchArena = nil
+	}
+	if r.batchDenseArena != nil {
+		errs = append(errs, r.batchDenseArena.Free())
+		r.batchDenseArena = nil
 	}
 	if err := r.cudaFoundation.Close(); err != nil {
 		errs = append(errs, err)
@@ -299,6 +315,12 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
 	}); err != nil {
 		return err
 	}
+	if err := r.ensureBatchDense(); err != nil {
+		return err
+	}
+	if err := r.ensureBatchHC(); err != nil {
+		return err
+	}
 	rows := []*cudaTokenState{&r.batchFirst, &r.state.cudaTokenState}
 	for i, token := range tokens {
 		for stream := range 4 {
@@ -308,10 +330,8 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
 		}
 	}
 	for layer := range r.model.layers {
-		for i, token := range tokens {
-			if err := r.evalLayerState(rows[i], &r.state.layers[layer], layer, token, position+i); err != nil {
-				return fmt.Errorf("cuda runtime: layer %d token %d: %w", layer, i, err)
-			}
+		if err := r.evalLayerBatch2(rows, layer, tokens, position); err != nil {
+			return fmt.Errorf("cuda runtime: layer %d: %w", layer, err)
 		}
 	}
 	last := rows[len(rows)-1]
@@ -333,6 +353,93 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
 		}
 	}
 	r.pos += len(tokens)
+	return nil
+}
+
+func (r *cudaRuntime) ensureBatchDense() error {
+	if r.batchDenseArena != nil {
+		return nil
+	}
+	a := cudamem.NewArena(r.device)
+	alloc := func(name string, n int) cudamem.Slice[float32] {
+		return cudamem.AllocIn[float32](a, name, n)
+	}
+	d := cudaBatchDense{
+		attnPre:  alloc("batch-dense-attention-pre", 2*2*cudaWidth),
+		qLora:    alloc("batch-dense-query-lora", 2*1024),
+		qHeads:   alloc("batch-dense-query-heads", 2*64*cudaKVWidth),
+		kvRaw:    alloc("batch-dense-kv-raw", 2*cudaKVWidth),
+		kvCur:    alloc("batch-dense-kv-current", 2*cudaKVWidth),
+		q81Attn:  cudamem.AllocIn[byte](a, "batch-dense-q81-attention", 2*cudaWidth/32*36),
+		q81QLora: cudamem.AllocIn[byte](a, "batch-dense-q81-query-lora", 2*1024/32*36),
+	}
+	if err := a.Err(); err != nil {
+		return errors.Join(fmt.Errorf("cuda runtime: allocate dense batch rows: %w", err), a.Free())
+	}
+	r.batchDenseArena, r.batchDense = a, d
+	return nil
+}
+
+func (r *cudaRuntime) ensureBatchHC() error {
+	if r.batchHC != nil {
+		return nil
+	}
+	h, err := newCUDAHC(r.cudaFoundation)
+	if err != nil {
+		return fmt.Errorf("cuda runtime: allocate batch HC: %w", err)
+	}
+	r.batchHC = h
+	return nil
+}
+
+func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens []int, position int) error {
+	l := &r.model.layers[index]
+	d := &r.batchDense
+	rows := [2]cudaTokenState{*base[0], *base[1]}
+	hc := [2]*cudaHC{r.batchHC, r.hcMath}
+	for i := range rows {
+		rows[i].attnPre = d.attnPre.Slice(i*2*cudaWidth, (i+1)*2*cudaWidth)
+		rows[i].attnNorm = rows[i].attnPre.Slice(cudaWidth, 2*cudaWidth)
+		rows[i].qLora = d.qLora.Slice(i*1024, (i+1)*1024)
+		rows[i].qHeads = d.qHeads.Slice(i*64*cudaKVWidth, (i+1)*64*cudaKVWidth)
+		rows[i].kvRaw = d.kvRaw.Slice(i*cudaKVWidth, (i+1)*cudaKVWidth)
+		rows[i].kvCur = d.kvCur.Slice(i*cudaKVWidth, (i+1)*cudaKVWidth)
+		if err := hc[i].pre(rows[i].hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, rows[i].attnPre, false); err != nil {
+			return fmt.Errorf("token %d attention pre: %w", i, err)
+		}
+	}
+	attnNorm := d.attnPre.Slice(cudaWidth, 4*cudaWidth)
+	if err := r.encodeQuantQ81Batch(attnNorm, d.q81Attn, cudaWidth, 2*cudaWidth, 2); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81Batch(l.attnQA, d.q81Attn, d.qLora, 2); err != nil {
+		return err
+	}
+	for i := range rows {
+		if err := r.encodeRMS(rows[i].qLora, l.attnQANorm, rows[i].qLora, 1, true); err != nil {
+			return fmt.Errorf("token %d query lora norm: %w", i, err)
+		}
+	}
+	if err := r.encodeQuantQ81Batch(d.qLora, d.q81QLora, 1024, 1024, 2); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81Batch(l.attnQB, d.q81QLora, d.qHeads, 2); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81Batch(l.attnKV, d.q81Attn, d.kvRaw, 2); err != nil {
+		return err
+	}
+	for i := range rows {
+		if err := r.encodeRMS(rows[i].qHeads, cudaModelTensor{}, rows[i].qHeads, 64, false); err != nil {
+			return fmt.Errorf("token %d query head norm: %w", i, err)
+		}
+		if err := r.encodeRMS(rows[i].kvRaw, l.attnKVNorm, rows[i].kvCur, 1, true); err != nil {
+			return fmt.Errorf("token %d key/value norm: %w", i, err)
+		}
+		if err := r.evalLayerProjected(hc[i], &rows[i], &r.state.layers[index], index, tokens[i], position+i); err != nil {
+			return fmt.Errorf("token %d: %w", i, err)
+		}
+	}
 	return nil
 }
 
@@ -435,6 +542,11 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 	if err := r.encodeRMS(s.kvRaw, l.attnKVNorm, s.kvCur, 1, true); err != nil {
 		return err
 	}
+	return r.evalLayerProjected(r.hcMath, s, state, index, token, position)
+}
+
+func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
+	l := &r.model.layers[index]
 	var heads cudamem.Slice[float32]
 	if index < 2 {
 		if err := r.encodeRawAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, s.rawScores, s.rawOutput, position); err != nil {
@@ -463,10 +575,10 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 	if err := r.encodeQ80Native(l.attnOutB, s.attnLow, s.attnOut); err != nil {
 		return err
 	}
-	if err := r.hcMath.post(s.hc[0], s.attnOut, s.hc[1]); err != nil {
+	if err := hc.post(s.hc[0], s.attnOut, s.hc[1]); err != nil {
 		return err
 	}
-	if err := r.hcMath.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false); err != nil {
+	if err := hc.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false); err != nil {
 		return err
 	}
 	if err := r.encodeF16MatvecDefault(l.router, s.ffnNorm, s.router); err != nil {
@@ -515,7 +627,7 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 	if err := r.encodeSumVectors(s.ffnBlocks, s.ffnOut, 2); err != nil {
 		return err
 	}
-	if err := r.hcMath.post(s.hc[1], s.ffnOut, s.hc[0]); err != nil {
+	if err := hc.post(s.hc[1], s.ffnOut, s.hc[0]); err != nil {
 		return err
 	}
 	return nil
