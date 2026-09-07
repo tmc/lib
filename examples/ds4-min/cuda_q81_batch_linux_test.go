@@ -15,39 +15,46 @@ import (
 func TestCUDAQualificationQ81BatchQuantize(t *testing.T) {
 	r := cudaSynthFoundation(t)
 	const (
-		batch  = 2
 		cols   = 64
 		stride = 96
 	)
-	host := make([]float32, (batch-1)*stride+cols)
-	for token := range batch {
-		for i := range cols {
-			host[token*stride+i] = float32((token+1)*(i*29-701)) / 257
-		}
+	for batch := 2; batch <= cudaPrefillBatchWidth; batch++ {
+		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
+			host := make([]float32, (batch-1)*stride+cols)
+			for token := range batch {
+				for i := range cols {
+					host[token*stride+i] = float32((token+1)*(i*29-701)) / 257
+				}
+			}
+			in := cudaSynthUpload(t, r, host)
+			out := cudaExpertAllocBytes(t, r, batch*cols/32*36)
+			wantDevice := cudaExpertAllocBytes(t, r, batch*cols/32*36)
+			if err := r.encodeQuantQ81Batch(in, out, cols, stride, batch); err != nil {
+				t.Fatal(err)
+			}
+			for token := range batch {
+				if err := r.encodeQuantQ81(
+					in.Slice(token*stride, token*stride+cols),
+					wantDevice.Slice(token*cols/32*36, (token+1)*cols/32*36), cols); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, want := make([]byte, out.Len()), make([]byte, wantDevice.Len())
+			if err := out.CopyToHost(got); err != nil {
+				t.Fatal(err)
+			}
+			if err := wantDevice.CopyToHost(want); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Fatal("batched quantization differs from sequential rows")
+			}
+		})
 	}
+	batch := cudaPrefillBatchWidth
+	host := make([]float32, (batch-1)*stride+cols)
 	in := cudaSynthUpload(t, r, host)
 	out := cudaExpertAllocBytes(t, r, batch*cols/32*36)
-	wantDevice := cudaExpertAllocBytes(t, r, batch*cols/32*36)
-	if err := r.encodeQuantQ81Batch(in, out, cols, stride, batch); err != nil {
-		t.Fatal(err)
-	}
-	for token := range batch {
-		if err := r.encodeQuantQ81(
-			in.Slice(token*stride, token*stride+cols),
-			wantDevice.Slice(token*cols/32*36, (token+1)*cols/32*36), cols); err != nil {
-			t.Fatal(err)
-		}
-	}
-	got, want := make([]byte, out.Len()), make([]byte, wantDevice.Len())
-	if err := out.CopyToHost(got); err != nil {
-		t.Fatal(err)
-	}
-	if err := wantDevice.CopyToHost(want); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatal("batched quantization differs from sequential rows")
-	}
 	for _, bad := range []struct {
 		name                string
 		in                  cudamem.Slice[float32]
@@ -70,12 +77,19 @@ func TestCUDAQualificationQ81BatchQuantize(t *testing.T) {
 func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 	r := cudaSynthFoundation(t)
 	const (
-		batch = 2
-		cols  = 1024
-		rows  = 128
+		cols = 1024
+		rows = 128
 	)
 	weights := cudaSynthQ80(rand.New(rand.NewSource(81)), rows, cols, -8)
 	tensor := cudaSynthTensor(t, r, "batched Q8_0 fixture", 8, []uint64{cols, rows}, weights)
+	for batch := 2; batch <= cudaPrefillBatchWidth; batch++ {
+		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
+			testCUDAQualificationQ81BatchMatvec(t, r, tensor, weights, batch, cols, rows)
+		})
+	}
+}
+
+func testCUDAQualificationQ81BatchMatvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, weights []byte, batch, cols, rows int) {
 	x := make([]float32, batch*cols)
 	for i := range x {
 		x[i] = float32((i*37+i/17+i/cols*29)%257-128) / 128

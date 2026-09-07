@@ -16,18 +16,14 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model           *cudaModel
-	arena           *cudamem.Arena
-	batchArena      *cudamem.Arena
-	batchDenseArena *cudamem.Arena
-	state           cudaSessionState
-	batchFirst      cudaTokenState
-	batchDense      cudaBatchDense
-	hcMath          *cudaHC
-	batchHC         *cudaHC
-	ctx, pos        int
-	logits          []float32
-	failed          error
+	model    *cudaModel
+	arena    *cudamem.Arena
+	batch    *cudaBatchResources
+	state    cudaSessionState
+	hcMath   *cudaHC
+	ctx, pos int
+	logits   []float32
+	failed   error
 }
 
 type cudaSessionState struct {
@@ -61,6 +57,16 @@ type cudaBatchDense struct {
 	attnPre, qLora, qHeads, kvRaw, kvCur cudamem.Slice[float32]
 	q81Attn, q81QLora                    cudamem.Slice[byte]
 }
+
+type cudaBatchResources struct {
+	arena      *cudamem.Arena
+	denseArena *cudamem.Arena
+	rows       []cudaTokenState
+	hc         []*cudaHC
+	dense      cudaBatchDense
+}
+
+const cudaPrefillBatchWidth = 8
 
 var (
 	_ sessionBackend = (*cudaRuntime)(nil)
@@ -243,26 +249,37 @@ func (r *cudaRuntime) Close() error {
 		errs = append(errs, r.hcMath.Close())
 		r.hcMath = nil
 	}
-	if r.batchHC != nil {
-		errs = append(errs, r.batchHC.Close())
-		r.batchHC = nil
-	}
 	if r.arena != nil {
 		errs = append(errs, r.arena.Free())
 		r.arena = nil
 	}
-	if r.batchArena != nil {
-		errs = append(errs, r.batchArena.Free())
-		r.batchArena = nil
-	}
-	if r.batchDenseArena != nil {
-		errs = append(errs, r.batchDenseArena.Free())
-		r.batchDenseArena = nil
+	if r.batch != nil {
+		errs = append(errs, r.batch.Close())
+		r.batch = nil
 	}
 	if err := r.cudaFoundation.Close(); err != nil {
 		errs = append(errs, err)
 	} else {
 		r.cudaFoundation = nil
+	}
+	return errors.Join(errs...)
+}
+
+func (b *cudaBatchResources) Close() error {
+	if b == nil {
+		return nil
+	}
+	var errs []error
+	for _, h := range b.hc {
+		errs = append(errs, h.Close())
+	}
+	if b.arena != nil {
+		errs = append(errs, b.arena.Free())
+		b.arena = nil
+	}
+	if b.denseArena != nil {
+		errs = append(errs, b.denseArena.Free())
+		b.denseArena = nil
 	}
 	return errors.Join(errs...)
 }
@@ -292,42 +309,40 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 	}
 	i := 0
 	// Keep cache updates token ordered while batching the dense front end of
-	// each adjacent pair. Only the final pair needs the vocabulary projection.
-	for ; i+1 < len(tokens); i += 2 {
-		if err := r.evalBatch2(tokens[i:i+2], position+i, i+2 == len(tokens)); err != nil {
+	// each chunk. Only the final chunk needs the vocabulary projection.
+	for i < len(tokens) {
+		n := min(cudaPrefillBatchWidth, len(tokens)-i)
+		if n == 1 {
+			return r.evalPosition(tokens[i], position+i, true)
+		}
+		if err := r.evalBatch(tokens[i:i+n], position+i, i+n == len(tokens)); err != nil {
 			return err
 		}
-	}
-	if i < len(tokens) {
-		return r.evalPosition(tokens[i], position+i, true)
+		i += n
 	}
 	return nil
 }
 
-func (r *cudaRuntime) evalBatch2(tokens []int, position int, logits bool) (err error) {
-	if len(tokens) != 2 {
-		return errors.New("cuda runtime: two-token batch has invalid length")
+func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err error) {
+	if len(tokens) < 2 || len(tokens) > cudaPrefillBatchWidth {
+		return errors.New("cuda runtime: dense batch has invalid length")
 	}
 	defer func() {
 		if err != nil {
 			r.failed = err
 		}
 	}()
-	if err := r.ensureBatchFirst(func() (*cudamem.Arena, cudaTokenState, error) {
-		a := cudamem.NewArena(r.device)
-		var row cudaTokenState
-		r.allocTokenState(a, &row, "batch-first-")
-		return a, row, a.Err()
+	if err := r.ensureBatch(func() (*cudaBatchResources, error) {
+		return newCUDABatchResources(r, cudaPrefillBatchWidth)
 	}); err != nil {
 		return err
 	}
-	if err := r.ensureBatchDense(); err != nil {
-		return err
+	rows := make([]*cudaTokenState, len(tokens))
+	hc := make([]*cudaHC, len(tokens))
+	for i := 0; i < len(tokens)-1; i++ {
+		rows[i], hc[i] = &r.batch.rows[i], r.batch.hc[i]
 	}
-	if err := r.ensureBatchHC(); err != nil {
-		return err
-	}
-	rows := []*cudaTokenState{&r.batchFirst, &r.state.cudaTokenState}
+	rows[len(tokens)-1], hc[len(tokens)-1] = &r.state.cudaTokenState, r.hcMath
 	for i, token := range tokens {
 		for stream := range 4 {
 			if err := r.encodeEmbeddingRow(r.model.output.embedding, uint32(token), rows[i].hc[0].Slice(stream*cudaWidth, (stream+1)*cudaWidth)); err != nil {
@@ -336,7 +351,7 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int, logits bool) (err e
 		}
 	}
 	for layer := range r.model.layers {
-		if err := r.evalLayerBatch2(rows, layer, tokens, position); err != nil {
+		if err := r.evalLayerBatch(rows, hc, layer, tokens, position); err != nil {
 			return fmt.Errorf("cuda runtime: layer %d: %w", layer, err)
 		}
 	}
@@ -366,51 +381,78 @@ func (r *cudaRuntime) evalBatch2(tokens []int, position int, logits bool) (err e
 	return nil
 }
 
-func (r *cudaRuntime) ensureBatchDense() error {
-	if r.batchDenseArena != nil {
-		return nil
+func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, err error) {
+	if r == nil || r.device == nil || width < 2 {
+		return nil, errors.New("cuda runtime: invalid batch allocation")
 	}
-	a := cudamem.NewArena(r.device)
+	b := &cudaBatchResources{
+		arena:      cudamem.NewArena(r.device),
+		denseArena: cudamem.NewArena(r.device),
+		rows:       make([]cudaTokenState, width-1),
+		hc:         make([]*cudaHC, width-1),
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, b.Close())
+		}
+	}()
+	for i := range b.rows {
+		r.allocTokenState(b.arena, &b.rows[i], fmt.Sprintf("batch-%d-", i))
+	}
 	alloc := func(name string, n int) cudamem.Slice[float32] {
-		return cudamem.AllocIn[float32](a, name, n)
+		return cudamem.AllocIn[float32](b.denseArena, name, n)
 	}
-	d := cudaBatchDense{
-		attnPre:  alloc("batch-dense-attention-pre", 2*2*cudaWidth),
-		qLora:    alloc("batch-dense-query-lora", 2*1024),
-		qHeads:   alloc("batch-dense-query-heads", 2*64*cudaKVWidth),
-		kvRaw:    alloc("batch-dense-kv-raw", 2*cudaKVWidth),
-		kvCur:    alloc("batch-dense-kv-current", 2*cudaKVWidth),
-		q81Attn:  cudamem.AllocIn[byte](a, "batch-dense-q81-attention", 2*cudaWidth/32*36),
-		q81QLora: cudamem.AllocIn[byte](a, "batch-dense-q81-query-lora", 2*1024/32*36),
+	b.dense = cudaBatchDense{
+		attnPre:  alloc("batch-dense-attention-pre", width*2*cudaWidth),
+		qLora:    alloc("batch-dense-query-lora", width*1024),
+		qHeads:   alloc("batch-dense-query-heads", width*64*cudaKVWidth),
+		kvRaw:    alloc("batch-dense-kv-raw", width*cudaKVWidth),
+		kvCur:    alloc("batch-dense-kv-current", width*cudaKVWidth),
+		q81Attn:  cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-attention", width*cudaWidth/32*36),
+		q81QLora: cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-query-lora", width*1024/32*36),
 	}
-	if err := a.Err(); err != nil {
-		return errors.Join(fmt.Errorf("cuda runtime: allocate dense batch rows: %w", err), a.Free())
+	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
+		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
 	}
-	r.batchDenseArena, r.batchDense = a, d
-	return nil
+	for i := range b.hc {
+		b.hc[i], err = newCUDAHC(r.cudaFoundation)
+		if err != nil {
+			return nil, fmt.Errorf("cuda runtime: allocate batch HC %d: %w", i, err)
+		}
+	}
+	return b, nil
 }
 
-func (r *cudaRuntime) ensureBatchHC() error {
-	if r.batchHC != nil {
+func (r *cudaRuntime) ensureBatch(allocate func() (*cudaBatchResources, error)) error {
+	if r.batch != nil {
 		return nil
 	}
-	h, err := newCUDAHC(r.cudaFoundation)
+	b, err := allocate()
 	if err != nil {
-		return fmt.Errorf("cuda runtime: allocate batch HC: %w", err)
+		if b != nil {
+			err = errors.Join(err, b.Close())
+		}
+		return err
 	}
-	r.batchHC = h
+	if b == nil || len(b.rows) < cudaPrefillBatchWidth-1 || len(b.hc) < cudaPrefillBatchWidth-1 {
+		if b != nil {
+			err = b.Close()
+		}
+		return errors.Join(errors.New("cuda runtime: incomplete batch allocation"), err)
+	}
+	r.batch = b
 	return nil
 }
 
-func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens []int, position int) error {
-	if len(base) != 2 || len(tokens) != 2 {
-		return errors.New("cuda runtime: dense two-token batch has invalid length")
+func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index int, tokens []int, position int) error {
+	if len(base) != len(tokens) || len(hc) != len(tokens) || len(tokens) < 2 || len(tokens) > cudaPrefillBatchWidth {
+		return errors.New("cuda runtime: dense batch has invalid length")
 	}
 	l := &r.model.layers[index]
-	d := &r.batchDense
-	rows := [2]cudaTokenState{*base[0], *base[1]}
-	hc := [2]*cudaHC{r.batchHC, r.hcMath}
+	d := &r.batch.dense
+	rows := make([]cudaTokenState, len(tokens))
 	for i := range rows {
+		rows[i] = *base[i]
 		rows[i].attnPre = d.attnPre.Slice(i*2*cudaWidth, (i+1)*2*cudaWidth)
 		rows[i].attnNorm = rows[i].attnPre.Slice(cudaWidth, 2*cudaWidth)
 		rows[i].qLora = d.qLora.Slice(i*1024, (i+1)*1024)
@@ -421,11 +463,17 @@ func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens 
 			return fmt.Errorf("token %d attention pre: %w", i, err)
 		}
 	}
-	attnNorm := d.attnPre.Slice(cudaWidth, 4*cudaWidth)
-	if err := r.encodeQuantQ81Batch(attnNorm, d.q81Attn, cudaWidth, 2*cudaWidth, 2); err != nil {
+	n := len(rows)
+	attnNorm := d.attnPre.Slice(cudaWidth, n*2*cudaWidth)
+	q81Attn := d.q81Attn.Slice(0, n*cudaWidth/32*36)
+	qLora := d.qLora.Slice(0, n*1024)
+	q81QLora := d.q81QLora.Slice(0, n*1024/32*36)
+	qHeads := d.qHeads.Slice(0, n*64*cudaKVWidth)
+	kvRaw := d.kvRaw.Slice(0, n*cudaKVWidth)
+	if err := r.encodeQuantQ81Batch(attnNorm, q81Attn, cudaWidth, 2*cudaWidth, n); err != nil {
 		return err
 	}
-	if err := r.encodeQ80MatvecQ81Batch(l.attnQA, d.q81Attn, d.qLora, 2); err != nil {
+	if err := r.encodeQ80MatvecQ81Batch(l.attnQA, q81Attn, qLora, n); err != nil {
 		return err
 	}
 	for i := range rows {
@@ -433,13 +481,13 @@ func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens 
 			return fmt.Errorf("token %d query lora norm: %w", i, err)
 		}
 	}
-	if err := r.encodeQuantQ81Batch(d.qLora, d.q81QLora, 1024, 1024, 2); err != nil {
+	if err := r.encodeQuantQ81Batch(qLora, q81QLora, 1024, 1024, n); err != nil {
 		return err
 	}
-	if err := r.encodeQ80MatvecQ81Batch(l.attnQB, d.q81QLora, d.qHeads, 2); err != nil {
+	if err := r.encodeQ80MatvecQ81Batch(l.attnQB, q81QLora, qHeads, n); err != nil {
 		return err
 	}
-	if err := r.encodeQ80MatvecQ81Batch(l.attnKV, d.q81Attn, d.kvRaw, 2); err != nil {
+	if err := r.encodeQ80MatvecQ81Batch(l.attnKV, q81Attn, kvRaw, n); err != nil {
 		return err
 	}
 	for i := range rows {
@@ -453,25 +501,6 @@ func (r *cudaRuntime) evalLayerBatch2(base []*cudaTokenState, index int, tokens 
 			return fmt.Errorf("token %d: %w", i, err)
 		}
 	}
-	return nil
-}
-
-func (r *cudaRuntime) ensureBatchFirst(allocate func() (*cudamem.Arena, cudaTokenState, error)) error {
-	if r.batchArena != nil {
-		return nil
-	}
-	a, row, err := allocate()
-	if err != nil {
-		var freeErr error
-		if a != nil {
-			freeErr = a.Free()
-		}
-		return errors.Join(fmt.Errorf("cuda runtime: allocate batch rows: %w", err), freeErr)
-	}
-	if a == nil {
-		return errors.New("cuda runtime: allocate batch rows: missing arena")
-	}
-	r.batchArena, r.batchFirst = a, row
 	return nil
 }
 
