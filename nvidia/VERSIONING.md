@@ -40,11 +40,17 @@ Two consequences follow:
    archive produced which directory. The checked-out tree is still a
    mix (cudart 13.3.29 beside cupti 13.3.75 beside cccl 13.2.86).
 2. `nvidia/upstream.json` exists and declares itself
-   `partial-provenance`: generation inputs are recorded for 20 of the
-   35 packages in the module, the rest in scope and unrecorded. The
+   `partial-provenance`: a generation command is recorded for 30 of
+   the 35 packages. The five without one -- cuBLAS, cuBLASLt,
+   cuSOLVER, cuTENSOR and driver -- carry an explicit
+   `generation-unrecorded` status and a null argv, so they are named
+   gaps rather than reconstructed recipes; every package, including
+   those five, records the SHA-256 of each generated output. The
    problem is incomplete coverage and non-uniform stamping, not
-   absence. Generated files still stamp only the header basename
-   ("from cuda.h").
+   absence: cupti, cusparse, nvcomp and nvml now emit a
+   `provenance.gen.go` carrying the full header list and an input
+   SHA-256, while the other 31 packages still stamp only the header
+   basename ("from cufft.h").
 3. `codegen/docs/*.json` carries `"version": ""`; the scraped docs are
    unpinned and undated.
 4. There is no pre-tag API gate. `apidiff` is installed but not wired in.

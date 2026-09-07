@@ -1,12 +1,14 @@
 # NVIDIA input provenance
 
-[upstream.json](upstream.json) records generation for 20 of the 35 packages in
-this module: NVVM, NVRTC, nvJitLink, nvFatbin, Compute Sanitizer, cuDNN,
-cuBLASMp, cuDensityMat, cuDSS, cuSOLVERMp, cuStateVec, cuTensorNet, DCGM,
-Fabric Manager, GDRCopy, NVDEC, NVENC, nvCOMP, nvJPEG2000 and NVSHMEM. The remaining packages
-are not yet recorded; they remain in scope. This is partial provenance, not
-release readiness, complete API coverage, a runtime support matrix, or a claim
-that the build is hermetic.
+[upstream.json](upstream.json) records a generation command for 30 of the 35
+packages in this module. The five without one -- cuBLAS, cuBLASLt, cuSOLVER,
+cuTENSOR and the driver bindings -- carry an explicit `generation-unrecorded`
+status and a null argv rather than a reconstructed recipe; the current header
+basename is not evidence of the original inputs or command. Every package,
+including those five, records the SHA-256 of each generated output, so the
+outputs are pinned even where the recipe is not. This is partial provenance,
+not release readiness, complete API coverage, a runtime support matrix, or a
+claim that the build is hermetic.
 
 Schema version 1 contains package entries with repository commits and Git tree
 identifiers, vendor archive and header hashes, documentation inputs, the generator
@@ -63,6 +65,15 @@ mutation tests verify changed bytes, missing files and both forms of additional
 generated files fail. This checks the currently recorded top-level Go output
 sets only; unrecorded packages remain outside this partial manifest's evidence.
 It does not run generation, verify vendor archives or establish runtime support.
+
+`TestUpstreamCoverage` walks the tree instead of the manifest, so a package
+directory holding generated files that is never recorded fails rather than
+passing unnoticed. `TestUpstreamCoverageAgreement` checks the `coverage` block
+against the `packages` it summarizes: the block is generated, and adding a
+package while leaving the summary alone once left it claiming 33 directories
+and 28 recorded argv against a manifest holding 35 and 30. Regenerate the
+manifest with `cmd/nvidia-provenance` rather than editing `coverage` or `scope`
+by hand; both are rewritten from the tree on every run.
 
 Compute Sanitizer records 16 vendor headers and 15 generated files. Header provenance includes callback metadata headers whose declarations remain excluded from the host API surface; provenance does not imply binding coverage. The selected host-header ledger and native subscriber validation are separate evidence.
 
