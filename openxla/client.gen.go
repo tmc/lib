@@ -199,6 +199,41 @@ type ExecutableWrapper struct {
 	executable *LoadedExecutable
 }
 
+// NumOutputs returns the number of output buffers produced by the executable per device.
+func (e *ExecutableWrapper) NumOutputs() (int, error) {
+	if e.api.LoadedExecutable_GetExecutable == 0 || e.api.Executable_NumOutputs == 0 {
+		return 1, nil
+	}
+	var getArgs LoadedExecutable_GetExecutable_Args
+	getArgs.Struct_size = uintptr(unsafe.Sizeof(getArgs))
+	getArgs.Loaded_executable = e.executable
+	var fnGet func(*LoadedExecutable_GetExecutable_Args) *Error
+	purego.RegisterFunc(&fnGet, e.api.LoadedExecutable_GetExecutable)
+	if errPtr := fnGet(&getArgs); errPtr != nil {
+		return 0, decodeError(e.api, errPtr)
+	}
+	defer func() {
+		if e.api.Executable_Destroy != 0 && getArgs.Executable != nil {
+			var dArgs Executable_Destroy_Args
+			dArgs.Struct_size = uintptr(unsafe.Sizeof(dArgs))
+			dArgs.Executable = getArgs.Executable
+			var fnD func(*Executable_Destroy_Args) *Error
+			purego.RegisterFunc(&fnD, e.api.Executable_Destroy)
+			fnD(&dArgs)
+		}
+	}()
+
+	var numArgs Executable_NumOutputs_Args
+	numArgs.Struct_size = uintptr(unsafe.Sizeof(numArgs))
+	numArgs.Executable = getArgs.Executable
+	var fnNum func(*Executable_NumOutputs_Args) *Error
+	purego.RegisterFunc(&fnNum, e.api.Executable_NumOutputs)
+	if errPtr := fnNum(&numArgs); errPtr != nil {
+		return 0, decodeError(e.api, errPtr)
+	}
+	return int(numArgs.Num_outputs), nil
+}
+
 // Execute runs the loaded executable across devices with the given input buffers.
 func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferWrapper, error) {
 	if e.api.LoadedExecutable_Execute == 0 {
@@ -209,6 +244,14 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 		return nil, nil
 	}
 	numArgs := len(inputLists[0])
+
+	numOutputs, err := e.NumOutputs()
+	if err != nil {
+		return nil, fmt.Errorf("openxla: determine num outputs: %w", err)
+	}
+	if numOutputs <= 0 {
+		numOutputs = 1
+	}
 
 	rawArgs := make([]*Buffer, numDevices*numArgs)
 	for d := 0; d < numDevices; d++ {
@@ -223,13 +266,31 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 		}
 	}
 
+	rawOutputs := make([]*Buffer, numDevices*numOutputs)
+	outPtrs := make([]**Buffer, numDevices)
+	for d := 0; d < numDevices; d++ {
+		outPtrs[d] = &rawOutputs[d*numOutputs]
+	}
+
+	events := make([]*Event, numDevices)
+
+	var opts ExecuteOptions
+	opts.Struct_size = uintptr(unsafe.Sizeof(opts))
+
 	var args LoadedExecutable_Execute_Args
 	args.Struct_size = uintptr(unsafe.Sizeof(args))
 	args.Executable = e.executable
+	args.Options = &opts
 	args.Num_devices = uintptr(numDevices)
 	args.Num_args = uintptr(numArgs)
 	if numDevices > 0 && numArgs > 0 {
 		args.Argument_lists = unsafe.Pointer(&argPtrs[0])
+	}
+	if numDevices > 0 && numOutputs > 0 {
+		args.Output_lists = unsafe.Pointer(&outPtrs[0])
+	}
+	if numDevices > 0 {
+		args.Device_complete_events = unsafe.Pointer(&events[0])
 	}
 
 	var fn func(*LoadedExecutable_Execute_Args) *Error
@@ -238,7 +299,42 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 		return nil, decodeError(e.api, errPtr)
 	}
 
-	return nil, nil
+	// Wait for execution completion events if provided
+	if e.api.Event_Await != 0 {
+		for _, ev := range events {
+			if ev != nil {
+				var evArgs Event_Await_Args
+				evArgs.Struct_size = uintptr(unsafe.Sizeof(evArgs))
+				evArgs.Event = ev
+				var fnAwait func(*Event_Await_Args) *Error
+				purego.RegisterFunc(&fnAwait, e.api.Event_Await)
+				if errPtr := fnAwait(&evArgs); errPtr != nil {
+					return nil, decodeError(e.api, errPtr)
+				}
+				if e.api.Event_Destroy != 0 {
+					var dArgs Event_Destroy_Args
+					dArgs.Struct_size = uintptr(unsafe.Sizeof(dArgs))
+					dArgs.Event = ev
+					var fnD func(*Event_Destroy_Args) *Error
+					purego.RegisterFunc(&fnD, e.api.Event_Destroy)
+					fnD(&dArgs)
+				}
+			}
+		}
+	}
+
+	results := make([][]*BufferWrapper, numDevices)
+	for d := 0; d < numDevices; d++ {
+		results[d] = make([]*BufferWrapper, numOutputs)
+		for o := 0; o < numOutputs; o++ {
+			results[d][o] = &BufferWrapper{
+				api:    e.api,
+				buffer: rawOutputs[d*numOutputs+o],
+			}
+		}
+	}
+
+	return results, nil
 }
 
 // Destroy destroys the loaded executable on device.
@@ -279,6 +375,24 @@ func (b *BufferWrapper) ToHost(dst unsafe.Pointer, dstSize uintptr) error {
 	purego.RegisterFunc(&fn, b.api.Buffer_ToHostBuffer)
 	if errPtr := fn(&args); errPtr != nil {
 		return decodeError(b.api, errPtr)
+	}
+	if args.Event != nil && b.api.Event_Await != 0 {
+		var evArgs Event_Await_Args
+		evArgs.Struct_size = uintptr(unsafe.Sizeof(evArgs))
+		evArgs.Event = args.Event
+		var fnAwait func(*Event_Await_Args) *Error
+		purego.RegisterFunc(&fnAwait, b.api.Event_Await)
+		if errPtr := fnAwait(&evArgs); errPtr != nil {
+			return decodeError(b.api, errPtr)
+		}
+		if b.api.Event_Destroy != 0 {
+			var dArgs Event_Destroy_Args
+			dArgs.Struct_size = uintptr(unsafe.Sizeof(dArgs))
+			dArgs.Event = args.Event
+			var fnD func(*Event_Destroy_Args) *Error
+			purego.RegisterFunc(&fnD, b.api.Event_Destroy)
+			fnD(&dArgs)
+		}
 	}
 	return nil
 }
