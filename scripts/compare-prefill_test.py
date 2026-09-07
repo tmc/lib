@@ -136,7 +136,7 @@ class CompareTest(unittest.TestCase):
                     self.payload(path, f"n{n}-{stage}", bytes(compare.VOCAB * 4))
 
     def test_ragged_cases(self):
-        for cases in ((65,), (66,), (64, 65, 66), (66, 65)):
+        for cases in ((65,), (66,), (64, 65, 66), (66, 65), (128,), (129,), (128, 129), (129, 128)):
             with self.subTest(cases=cases):
                 self.ragged(cases)
                 result = compare.compare(self.before, self.after, cases)
@@ -148,7 +148,7 @@ class CompareTest(unittest.TestCase):
                     compare.compare(self.before, self.after)
 
     def test_ragged_changed_bits(self):
-        for n in (65, 66):
+        for n in (65, 66, 128, 129):
             for stage in ("prefill", "continuation"):
                 with self.subTest(n=n, stage=stage):
                     self.ragged((n,))
@@ -157,7 +157,7 @@ class CompareTest(unittest.TestCase):
                         compare.compare(self.before, self.after, (n,))
 
     def test_ragged_missing_tail(self):
-        for n in (65, 66):
+        for n in (65, 66, 128, 129):
             with self.subTest(n=n):
                 self.ragged((n,))
                 (self.after / f"n{n}-continuation.f32le").unlink()
@@ -166,7 +166,7 @@ class CompareTest(unittest.TestCase):
 
     def test_ragged_invalid_cases(self):
         self.ragged((65, 66))
-        for cases in ((65, 65), (66, 66), (63,), (67,), (), (65.0,), (True,)):
+        for cases in ((65, 65), (66, 66), (128, 128), (129, 129), (127,), (130,), (63,), (67,), (), (65.0,), (True,)):
             with self.subTest(cases=cases):
                 with self.assertRaises(compare.CaptureError):
                     compare.compare(self.before, self.after, cases)

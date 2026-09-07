@@ -102,3 +102,17 @@ identity check rather than runtime token ordering. Each mutated capture must
 complete and then fail the exact logit comparison. No comparator can guarantee
 that an arbitrary runtime mutation changes the observed logits; retain the
 physical negative result rather than assuming it.
+
+## Ratio-128 emission cases
+
+Select `DS4_PREFILL_CASES=128,129` and compare with `--cases 128,129` to
+exercise the first ratio-128 compressed row and subsequent consumption.
+With zero-based positions, the 128-token prefill reaches emission at position
+127; its fixed continuation evaluates position 128. The 129-token case also
+exercises a singleton tail after sixteen full width-eight groups, followed by
+continuation at position 129.
+
+Use the same canonical token corpus and fixed continuation in both arms. These
+cases retain context 2049, the warm/reset lifecycle, and exact finite float32
+comparison for both prefill and continuation. They are scoped checks and do
+not replace the default `2,64,2048` suite or establish 2048-token identity.

@@ -242,8 +242,8 @@ func parsePrefillCases(input string) ([]int, error) {
 	seen := make(map[int]bool)
 	for _, value := range strings.Split(input, ",") {
 		n, err := strconv.Atoi(value)
-		if err != nil || (n != 2 && n != 64 && n != 65 && n != 66 && n != 2048) || seen[n] {
-			return nil, fmt.Errorf("DS4_PREFILL_CASES must contain distinct comma-separated values from 2,64,65,66,2048")
+		if err != nil || (n != 2 && n != 64 && n != 65 && n != 66 && n != 128 && n != 129 && n != 2048) || seen[n] {
+			return nil, fmt.Errorf("DS4_PREFILL_CASES must contain distinct comma-separated values from 2,64,65,66,128,129,2048")
 		}
 		seen[n] = true
 		cases = append(cases, n)
@@ -257,6 +257,9 @@ func TestParsePrefillCases(t *testing.T) {
 		want  string
 	}{
 		{"2,64,2048", "2,64,2048"},
+		{"128", "128"}, {"129", "129"}, {"128,129", "128,129"},
+		{"129,128", "129,128"}, {"128,128", ""}, {"129,129", ""},
+		{"127", ""}, {"130", ""},
 		{"65", "65"}, {"66", "66"}, {"64,65,66", "64,65,66"},
 		{"66,65", "66,65"}, {"2,64,65,66,2048", "2,64,65,66,2048"},
 		{"", ""}, {"65,65", ""}, {"66,66", ""}, {"63", ""},
