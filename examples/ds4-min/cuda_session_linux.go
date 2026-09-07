@@ -16,16 +16,25 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model    *cudaModel
-	arena    *cudamem.Arena
-	state    cudaSessionState
-	hcMath   *cudaHC
-	ctx, pos int
-	logits   []float32
-	failed   error
+	model      *cudaModel
+	arena      *cudamem.Arena
+	batchArena *cudamem.Arena
+	state      cudaSessionState
+	batchFirst cudaTokenState
+	hcMath     *cudaHC
+	ctx, pos   int
+	logits     []float32
+	failed     error
 }
 
 type cudaSessionState struct {
+	cudaTokenState
+	layers [cudaLayers]cudaSessionLayer
+}
+
+// cudaTokenState holds one token row's transient layer activations. Layer
+// history is session state and deliberately lives outside this type.
+type cudaTokenState struct {
 	hc                                                           [2]cudamem.Slice[float32]
 	attnPre, attnNorm, qLora, qHeads, kvRaw, kvCur               cudamem.Slice[float32]
 	compressorKV, compressorGate, indexerKV, indexerGate         cudamem.Slice[float32]
@@ -38,7 +47,6 @@ type cudaSessionState struct {
 	expertGate, expertUp, expertMid, expertDown                  cudamem.Slice[float32]
 	ffnBlocks, sharedOut, routedOut, ffnOut, outputMixed, logits cudamem.Slice[float32]
 	q80Input, q81Input, q81Experts                               cudamem.Slice[byte]
-	layers                                                       [cudaLayers]cudaSessionLayer
 }
 
 type cudaSessionLayer struct {
@@ -87,11 +95,22 @@ func newCUDARuntime(path string, limit int) (_ *cudaRuntime, err error) {
 
 func (r *cudaRuntime) allocState() {
 	a, s := r.arena, &r.state
+	r.allocTokenState(a, &s.cudaTokenState, "")
+	r.allocLayerState(a, s)
+	if a.Err() != nil {
+		return
+	}
+	s.attnNorm = s.attnPre.Slice(cudaWidth, 2*cudaWidth)
+	s.ffnNorm = s.ffnPre.Slice(cudaWidth, 2*cudaWidth)
+	s.routedOut, s.sharedOut = s.ffnBlocks.Slice(0, cudaWidth), s.ffnBlocks.Slice(cudaWidth, 2*cudaWidth)
+}
+
+func (r *cudaRuntime) allocTokenState(a *cudamem.Arena, s *cudaTokenState, prefix string) {
 	alloc := func(name string, n int) cudamem.Slice[float32] { return cudamem.AllocIn[float32](a, name, n) }
-	s.hc[0], s.hc[1] = alloc("hc-a", cudaHCWidth), alloc("hc-b", cudaHCWidth)
-	s.attnPre = alloc("attention-pre", 2*cudaWidth)
+	s.hc[0], s.hc[1] = alloc(prefix+"hc-a", cudaHCWidth), alloc(prefix+"hc-b", cudaHCWidth)
+	s.attnPre = alloc(prefix+"attention-pre", 2*cudaWidth)
 	// Take views only after the allocation error has been checked below.
-	s.qLora, s.qHeads = alloc("query-lora", 1024), alloc("query-heads", 64*cudaKVWidth)
+	s.qLora, s.qHeads = alloc(prefix+"query-lora", 1024), alloc(prefix+"query-heads", 64*cudaKVWidth)
 	s.kvRaw, s.kvCur = alloc("kv-raw", cudaKVWidth), alloc("kv-current", cudaKVWidth)
 	s.compressorKV, s.compressorGate = alloc("compressor-kv", 1024), alloc("compressor-gate", 1024)
 	s.indexerKV, s.indexerGate = alloc("indexer-kv", 256), alloc("indexer-gate", 256)
@@ -116,6 +135,17 @@ func (r *cudaRuntime) allocState() {
 	s.q80Input = cudamem.AllocIn[byte](a, "q80-input", 8192/32*36)
 	s.q81Input = cudamem.AllocIn[byte](a, "q81-input", cudaWidth/32*36)
 	s.q81Experts = cudamem.AllocIn[byte](a, "q81-experts", 6*2048/32*36)
+	if a.Err() != nil {
+		return
+	}
+	s.attnNorm = s.attnPre.Slice(cudaWidth, 2*cudaWidth)
+	s.ffnNorm = s.ffnPre.Slice(cudaWidth, 2*cudaWidth)
+	s.routedOut, s.sharedOut = s.ffnBlocks.Slice(0, cudaWidth), s.ffnBlocks.Slice(cudaWidth, 2*cudaWidth)
+}
+
+func (r *cudaRuntime) allocLayerState(a *cudamem.Arena, s *cudaSessionState) {
+	alloc := func(name string, n int) cudamem.Slice[float32] { return cudamem.AllocIn[float32](a, name, n) }
+	rawCap := min(r.ctx, cudaRawCap)
 	for i := range s.layers {
 		l := &s.layers[i]
 		l.rawKV = alloc(fmt.Sprintf("layer-%d-raw", i), rawCap*cudaKVWidth)
@@ -131,12 +161,6 @@ func (r *cudaRuntime) allocState() {
 			l.indexer = r.allocCompressed(fmt.Sprintf("layer-%d-indexer", i), ratio, 128)
 		}
 	}
-	if a.Err() != nil {
-		return
-	}
-	s.attnNorm = s.attnPre.Slice(cudaWidth, 2*cudaWidth)
-	s.ffnNorm = s.ffnPre.Slice(cudaWidth, 2*cudaWidth)
-	s.routedOut, s.sharedOut = s.ffnBlocks.Slice(0, cudaWidth), s.ffnBlocks.Slice(cudaWidth, 2*cudaWidth)
 }
 
 func (r *cudaRuntime) allocCompressed(name string, ratio, head int) cudaCompressedState {
@@ -215,6 +239,10 @@ func (r *cudaRuntime) Close() error {
 		errs = append(errs, r.arena.Free())
 		r.arena = nil
 	}
+	if r.batchArena != nil {
+		errs = append(errs, r.batchArena.Free())
+		r.batchArena = nil
+	}
 	if err := r.cudaFoundation.Close(); err != nil {
 		errs = append(errs, err)
 	} else {
@@ -246,11 +274,64 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 			return fmt.Errorf("cuda runtime: token %d out of range", token)
 		}
 	}
+	if len(tokens) == 2 {
+		return r.evalBatch2(tokens, position)
+	}
 	for i, token := range tokens {
 		if err := r.evalPosition(token, position+i, i == len(tokens)-1); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (r *cudaRuntime) evalBatch2(tokens []int, position int) (err error) {
+	if r.batchArena == nil {
+		r.batchArena = cudamem.NewArena(r.device)
+		r.allocTokenState(r.batchArena, &r.batchFirst, "batch-first-")
+		if err := r.batchArena.Err(); err != nil {
+			return fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
+		}
+	}
+	defer func() {
+		if err != nil {
+			r.failed = err
+		}
+	}()
+	rows := []*cudaTokenState{&r.batchFirst, &r.state.cudaTokenState}
+	for i, token := range tokens {
+		for stream := range 4 {
+			if err := r.encodeEmbeddingRow(r.model.output.embedding, uint32(token), rows[i].hc[0].Slice(stream*cudaWidth, (stream+1)*cudaWidth)); err != nil {
+				return err
+			}
+		}
+	}
+	for layer := range r.model.layers {
+		for i, token := range tokens {
+			if err := r.evalLayerState(rows[i], &r.state.layers[layer], layer, token, position+i); err != nil {
+				return fmt.Errorf("cuda runtime: layer %d token %d: %w", layer, i, err)
+			}
+		}
+	}
+	last := rows[len(rows)-1]
+	if err := r.hcMath.pre(last.hc[0], r.model.output.hcFn, r.model.output.hcScale, r.model.output.hcBase, r.model.output.norm, last.outputMixed, true); err != nil {
+		return err
+	}
+	if err := r.encodeQ80Matvec(r.model.output.weight, last.outputMixed.Slice(4096, 8192), last.logits); err != nil {
+		return err
+	}
+	if err := syncStream(r.device.DefaultStream()); err != nil {
+		return err
+	}
+	if err := last.logits.CopyToHost(r.logits); err != nil {
+		return err
+	}
+	for i, v := range r.logits {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("cuda runtime: non-finite logit %d", i)
+		}
+	}
+	r.pos += len(tokens)
 	return nil
 }
 
@@ -279,7 +360,7 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 		}
 	}
 	for layer := range r.model.layers {
-		if err := r.evalLayer(layer, token, position); err != nil {
+		if err := r.evalLayerState(&r.state.cudaTokenState, &r.state.layers[layer], layer, token, position); err != nil {
 			return fmt.Errorf("cuda runtime: layer %d: %w", layer, err)
 		}
 	}
@@ -310,10 +391,9 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 	return nil
 }
 
-func (r *cudaRuntime) evalLayer(index, token, position int) error {
+func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
 	defer beginLayer(index).end()
-	l, s := &r.model.layers[index], &r.state
-	state := &s.layers[index]
+	l := &r.model.layers[index]
 	if err := r.hcMath.pre(s.hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, s.attnPre, false); err != nil {
 		return err
 	}
@@ -342,7 +422,7 @@ func (r *cudaRuntime) evalLayer(index, token, position int) error {
 		}
 		heads = s.rawOutput.Slice(32768+512, 32768+512+32768)
 	} else {
-		if err := r.compress(l, state, position); err != nil {
+		if err := r.compress(l, state, s, position); err != nil {
 			return err
 		}
 		if err := r.encodeMixedAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedOutput, position, index); err != nil {
@@ -421,8 +501,11 @@ func (r *cudaRuntime) evalLayer(index, token, position int) error {
 	return nil
 }
 
-func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, position int) error {
-	s := &r.state
+func (r *cudaRuntime) evalLayer(index, token, position int) error {
+	return r.evalLayerState(&r.state.cudaTokenState, &r.state.layers[index], index, token, position)
+}
+
+func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position int) error {
 	kv, gate := s.compressorKV.Slice(0, state.attn.width), s.compressorGate.Slice(0, state.attn.width)
 	if err := r.encodeF16PairOrdered(l.attnCompressorKV, l.attnCompressorGate, s.attnNorm, kv, gate); err != nil {
 		return err
