@@ -258,19 +258,7 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 func (skv *SequenceKVCache) Free() {}
 
 func runPlatform(cfg Config) error {
-	eng, err := GetOrCompileTPUEngine(cfg)
-	if err != nil {
-		return fmt.Errorf("tpu initialization: %w", err)
-	}
-    
-    fmt.Printf("=== TPU Backend initialized ===\n")
-    fmt.Printf("Running TPU forward pass test...\n")
-    if err := eng.ForwardPassMockTPU(); err != nil {
-        return fmt.Errorf("TPU forward pass execution failed: %w", err)
-    }
-    fmt.Printf("TPU forward pass executed successfully!\n")
-
-	return nil
+	return RunTPUSmokeTest(cfg)
 }
 
 func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
@@ -309,10 +297,42 @@ func DecodeStep(cfg Config, tokenID int32, pos int) (time.Duration, error) {
 	return 0, errors.New("unsupported")
 }
 
-// Generate executes a smoke matmul test on the TPU device.
-// Note: This does not currently perform full LLaMA inference.
+// Free releases on-device executables and client resources.
+func (eng *ModelEngine) Free() {
+	if eng == nil {
+		return
+	}
+	if eng.exec != nil {
+		_ = eng.exec.Destroy()
+		eng.exec = nil
+	}
+	if eng.client != nil {
+		_ = eng.client.Destroy()
+		eng.client = nil
+	}
+}
+
+// RunTPUSmokeTest executes a standalone matmul smoke test on the TPU device.
+func RunTPUSmokeTest(cfg Config) error {
+	eng, err := GetOrCompileTPUEngine(cfg)
+	if err != nil {
+		return fmt.Errorf("tpu initialization: %w", err)
+	}
+	defer eng.Free()
+
+	fmt.Println("=== TPU Backend initialized ===")
+	fmt.Println("Running TPU forward pass test...")
+	if err := eng.ForwardPassMockTPU(); err != nil {
+		return fmt.Errorf("TPU forward pass execution failed: %w", err)
+	}
+	fmt.Println("TPU forward pass executed successfully!")
+	return nil
+}
+
+// Generate reports unsupported until full LLaMA inference is implemented on TPU.
+// For matmul pipeline verification, use RunTPUSmokeTest.
 func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(tokenID int32, tokenText string) bool) error {
-	return runPlatform(cfg)
+	return errors.New("unsupported: TPU LLaMA token generation is not yet implemented; use RunTPUSmokeTest for matmul verification")
 }
 
 func (eng *ModelEngine) GenerateTokenIDs(ctx context.Context, cfg Config, prompt string, maxTokens int) ([]int32, error) {
