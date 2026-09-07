@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/cusparse-survey",
+  "upstream_version": "12.7.9.17",
+  "version_source": "explicit generator flag; not independently verified",
+  "cwd": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen",
+  "argv": [
+    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/go-build658630984/b001/exe/cusparse-survey",
+    "-header",
+    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../cuda-headers/cusparse/cusparse.h",
+    "-headers-dir",
+    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../cuda-headers",
+    "-output",
+    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../generated/candidate/cusparse",
+    "-upstream-version",
+    "12.7.9.17"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/cuda-headers/cusparse/cusparse.h",
+      "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
+    }
+  ],
+  "source_hash": "4944eb25184565796f0b64c32215a4d2c194051f311896a6d534cb09b31b7835",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
