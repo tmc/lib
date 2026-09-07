@@ -2,14 +2,52 @@
 
 The port's `EvalBatch` name does not imply batched matrix execution. At baseline
 `679b74a`, both backends traverse all 43 layers separately for every token. Only
-intermediate output projections are skipped. This remains true in the shared
+intermediate output projections are skipped. This was also true in the shared
 `df5a09c` checkout inspected on 2026-09-07, including its in-flight changes.
 
 This is source evidence, not a throughput measurement. No model was loaded by
 this audit. Source identities and test receipts are retained under
 `/Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/iteration1/`.
 
-## Integrated state at 6b0bfcb
+## Integrated state at f4577d6
+
+CUDA now processes longer input as ordered adjacent pairs. Each pair batches
+Q8_1 activation quantization and the Q/KV dense projections; attention, cache
+updates, routing and FFN remain token ordered. Intermediate pairs omit the
+unused vocabulary projection. This is two-row matrix work, not a single
+2048-row layer-major matrix operation.
+
+Retained warmed/reset comparisons pass for both prefill and fixed continuation
+at n=2 and n=64, with all 129280 float32 values byte-identical. Token-row and
+adjacent-pair-order mutations produce captures that the exact comparator
+rejects. These gates do not establish n=2048 identity or throughput.
+
+Metal encoder sharing at `be98972` preserves all ten warmed prompt-A state
+files against `72a645d`, matching registered concat `db6f6125aace1267...`.
+Independent inspection matches all 94 source files per arm to their revisions;
+only `metal_batch_darwin.go` and `metal_hc_darwin.go` differ. Generated-text
+identity alone was insufficient; the full-logit capture closes that earlier
+evidence gap. Submission counts describe a mechanism, not measured attribution
+of the throughput difference.
+
+A separate CUDA GB10 reference run on spark-31db measured 661.18 tokens/s for
+2048-token prefill and 17.73 tokens/s for 128 generated tokens (17.80 after the
+first token). The build is `b0a147a` **plus `ds4-probed.patch`**, using the ordinary
+single-device CUDA path, raw `promessi_sposi.txt`, context allocation 65665 and
+prefill chunk 4096. It is one first-frontier observation, with no separate
+prefill warmup. Startup repacking of 474 aligned artifacts precedes timing.
+Host load qualified at 1.00 before and 1.77 after, against limit 5.00. All 2131
+archived source files match before and after, allowing the registered patch.
+This is a qualified reference, not a port parity or significance result.
+
+Evidence locations relative to the primary worktree:
+
+- CUDA n=2: `../evidence/worker-BABFB352/prefill-dense-n2-20260907/`.
+- CUDA n=64: `../evidence/worker-BABFB352/prefill-dense-n64-20260907/`.
+- Metal full logits: `evidence/worker-DF6906F6/metal-encoder-merge-logits-20260907/`.
+- Qualified CUDA reference: `../evidence/worker-CODEX6E6A/oracle-bench-2048/RESULT.md`.
+
+## Historical integrated state at 6b0bfcb
 
 CUDA uses layer-major traversal only when `len(tokens) == 2`
 (`cuda_session_linux.go:277-281,310-315`). Each row has separate transient
