@@ -220,3 +220,21 @@ func ExampleFuncBuilder_MaskedGroupedQueryAttention() {
 	fmt.Println(out.Type)
 	// Output: tensor<4x2x6xf32>
 }
+
+func ExampleFuncBuilder_ScatterRows() {
+	operand := builder.Type{Shape: []int64{8, 4}, ElementType: "f32"}
+	indices := builder.Type{Shape: []int64{2}, ElementType: "i64"}
+	updates := builder.Type{Shape: []int64{2, 4}, ElementType: "f32"}
+	b := builder.NewFunc("main", operand, indices, updates)
+	out, err := b.ScatterRows(b.Arg(0), b.Arg(1), b.Arg(2))
+	fmt.Println(out.Type, err)
+	// Output: tensor<8x4xf32> <nil>
+}
+
+func ExampleFuncBuilder_BatchedCausalMask() {
+	meta := builder.Type{Shape: []int64{2}, ElementType: "i64"}
+	b := builder.NewFunc("main", meta, meta)
+	mask, err := b.BatchedCausalMask(3, 8, b.Arg(0), b.Arg(1))
+	fmt.Println(mask.Type, err)
+	// Output: tensor<2x3x8xi1> <nil>
+}

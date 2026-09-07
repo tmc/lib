@@ -9,8 +9,26 @@ jax.config.update("jax_enable_x64", True)
 client = backend.get_backend('cpu')
 device = client.local_devices()[0]
 root = pathlib.Path(sys.argv[1])
-for name in ('transpose', 'gqa', 'gqa_f16', 'gqa_bf16', 'gqa_masked', 'gqa_masked_f16', 'gqa_masked_bf16', 'mha', 'mqa', 'causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
+for name in ('scatter', 'batchmask', 'transpose', 'gqa', 'gqa_f16', 'gqa_bf16', 'gqa_masked', 'gqa_masked_f16', 'gqa_masked_bf16', 'mha', 'mqa', 'causal_dynamic', 'update', 'matmul', 'rmsnorm', 'tiny', 'softmax', 'attention', 'attention_f16', 'attention_bf16', 'attention_masked', 'attention_masked_f16', 'attention_masked_bf16'):
     executable = client.compile_and_load((root / (name + '.mlir')).read_text(), [device])
+    if name == 'scatter':
+        operand = np.arange(24, dtype=np.float32).reshape(4,2,3)
+        updates = -10-operand
+        indices = np.array([3,-1,0,4], dtype=np.int64)
+        result = executable.execute([jax.device_put(a, device) for a in (operand,indices,updates)])
+        want = operand.copy()
+        want[3], want[0] = updates[0], updates[2]
+        np.testing.assert_array_equal(np.asarray(result[0]), want)
+        print(name, 'CPU row replacement and out-of-range drop match reference')
+        continue
+    if name == 'batchmask':
+        for positions, counts in (([[4,0],[5,1]], [[1,3],[0,2]]),
+                                  ([[-2**63,2**63-1],[0,2]], [[3,0],[-1,2**63-1]])):
+            want = np.array([[[[q < counts[a][b] and k-q <= positions[a][b] for k in range(5)] for q in range(3)] for b in range(2)] for a in range(2)], dtype=np.bool_)
+            result = executable.execute([jax.device_put(np.array(a,dtype=np.int64),device) for a in (positions,counts)])
+            np.testing.assert_array_equal(np.asarray(result[0]),want)
+        print(name, 'CPU independent counts and extreme positions match reference')
+        continue
     if name == 'causal_dynamic':
         for offset in (-(2**63), -1, 0, 1, 2**63-1):
             result = executable.execute([jax.device_put(np.int64(offset), device)])
@@ -103,4 +121,4 @@ for name in ('transpose', 'gqa', 'gqa_f16', 'gqa_bf16', 'gqa_masked', 'gqa_maske
     np.testing.assert_allclose(got.astype(np.float32), want, rtol=rtol, atol=atol)
     print(name, 'CPU execution matches numpy')
 
-print('verified 21 CPU programs')
+print('verified 23 CPU programs')

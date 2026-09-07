@@ -14,7 +14,9 @@ allowed. Fully masked rows return zero for finite inputs. CausalMask supports
 an offset for cached decoding, and And combines masks after broadcasting.
 Integer constants, checked dynamic slice updates, and runtime-position causal
 masks support fixed-capacity decode graphs. Dynamic updates use StableHLO
-clamping; the cache wrapper checks capacity before dispatch.
+clamping. ScatterRows instead replaces indexed rows and ignores out-of-range
+indices. BatchedCausalMask supports independent runtime positions and valid
+query counts. Cache callers validate counts and capacity before dispatch.
 
 No dropout is applied. Mask operations follow the
 [StableHLO specification](https://openxla.org/stablehlo/spec).

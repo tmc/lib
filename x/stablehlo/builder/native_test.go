@@ -32,12 +32,19 @@ func TestNativeCPU(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	for _, name := range []string{"transpose", "gqa", "gqa_f16", "gqa_bf16", "gqa_masked", "gqa_masked_f16", "gqa_masked_bf16", "mha", "mqa", "causal_dynamic", "update", "matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16"} {
+	for _, name := range []string{"scatter", "batchmask", "transpose", "gqa", "gqa_f16", "gqa_bf16", "gqa_masked", "gqa_masked_f16", "gqa_masked_bf16", "mha", "mqa", "causal_dynamic", "update", "matmul", "rmsnorm", "tiny", "softmax", "attention", "attention_f16", "attention_bf16", "attention_masked", "attention_masked_f16", "attention_masked_bf16"} {
 		var b *builder.FuncBuilder
 		var out builder.Value
 		var err error
 		typ := func(dims ...int64) builder.Type { return builder.Type{Shape: dims, ElementType: "f32"} }
 		switch name {
+		case "scatter":
+			b = builder.NewFunc("main", typ(4, 2, 3), builder.Type{Shape: []int64{4}, ElementType: "i64"}, typ(4, 2, 3))
+			out, err = b.ScatterRows(b.Arg(0), b.Arg(1), b.Arg(2))
+		case "batchmask":
+			meta := builder.Type{Shape: []int64{2, 2}, ElementType: "i64"}
+			b = builder.NewFunc("main", meta, meta)
+			out, err = b.BatchedCausalMask(3, 5, b.Arg(0), b.Arg(1))
 		case "gqa", "gqa_f16", "gqa_bf16", "gqa_masked", "gqa_masked_f16", "gqa_masked_bf16", "mha", "mqa":
 			if strings.HasSuffix(name, "_f16") || strings.HasSuffix(name, "_bf16") {
 				element := name[strings.LastIndex(name, "_")+1:]
@@ -147,7 +154,7 @@ func TestNativeCPU(t *testing.T) {
 	}
 	run := func() ([]byte, error) { return exec.Command(python, "testdata/verify_cpu.py", dir).CombinedOutput() }
 	output, err := run()
-	if err != nil || !strings.Contains(string(output), "verified 21 CPU programs") {
+	if err != nil || !strings.Contains(string(output), "verified 23 CPU programs") {
 		t.Fatalf("native CPU verification: %v\n%s", err, output)
 	}
 	t.Log(string(output))
