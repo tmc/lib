@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial-provenance",
   "recorded_at": "2026-09-07",
-  "scope": "Inventoried 33 generated package directories; 28 have recorded generation argv and 5 have no recorded argv. Every package records the SHA256 of its generated files, including the five without a recorded argv. Existing package receipts and their limitations are preserved.",
+  "scope": "Inventoried 35 generated package directories; 30 have recorded generation argv and 5 have no recorded argv. Every package records the SHA256 of its generated files, including the five without a recorded argv. Existing package receipts and their limitations are preserved.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -8731,6 +8731,191 @@
         "limitations": [
           "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
           "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
+        ]
+      }
+    },
+    "ncclep": {
+      "package": "github.com/tmc/lib/nvidia/ncclep",
+      "status": "generation-partially-reproduced",
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/nccl_ep.h",
+          "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
+        },
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nccl-extensions/headers/nccl_ep/ep_enums.h",
+          "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
+        }
+      ],
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nccl-extensions",
+          "-api",
+          "ncclep",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "outputs": [
+          {
+            "path": "nvidia/ncclep/defaults.gen.go",
+            "sha256": "783ca4679229264ab489e3fec17c0403247784760db7453b4eea1c04230eea4c"
+          },
+          {
+            "path": "nvidia/ncclep/doc.gen.go",
+            "sha256": "2c21fe90c2d7ec4ebb5e91b25d1895a874b33e0ad603526dfeea4934ed7237e6"
+          },
+          {
+            "path": "nvidia/ncclep/enums.gen.go",
+            "sha256": "22b0e4e0d406e942645872ac49c4009b2357c734dc6054bf9123fc4de3ddc104"
+          },
+          {
+            "path": "nvidia/ncclep/funcs.gen.go",
+            "sha256": "4bb26a4275cfa8d600dbad6791d275607037bb7ae3e451c885305f3e60a5b1ba"
+          },
+          {
+            "path": "nvidia/ncclep/group.gen.go",
+            "sha256": "c393e2172d8f2fc70f76b4e150ce2f066d06ce1ce20e3063b09877521cc67ecc"
+          },
+          {
+            "path": "nvidia/ncclep/handle.gen.go",
+            "sha256": "e1c0c8288f3fbcb62cad2060d99303298d1fb766c1ce5e079acdc3f9268d2be5"
+          },
+          {
+            "path": "nvidia/ncclep/handles.gen.go",
+            "sha256": "03d014e1d3043eb6906b81c9d41d9a6ad52c753ac280c2f21e069c74216ed1e2"
+          },
+          {
+            "path": "nvidia/ncclep/init.gen.go",
+            "sha256": "ab7f8e4120e3d50c00c1eb8b98ed024e1a39d40bd56e5b2d4f912cfc36a0bd48"
+          },
+          {
+            "path": "nvidia/ncclep/layout_test.go",
+            "sha256": "f60d3afc8259b460ce22a6a39a914eac5604a18a254d316c72f4f5fdfed98d27"
+          },
+          {
+            "path": "nvidia/ncclep/loader_test.go",
+            "sha256": "a7c3846bad215b9fdd3c1346ccb55a7b923cfefba008ad449b228e24b15514e4"
+          },
+          {
+            "path": "nvidia/ncclep/loader_unix.gen.go",
+            "sha256": "13900c55d85544a80596eef6c94873f21fafdf0e130bc52fd9a959e0ca33b9a6"
+          },
+          {
+            "path": "nvidia/ncclep/loader_windows.gen.go",
+            "sha256": "9190905f46dc25d5b1114e71cc77210235442e3ad3c4ab84420facd954e803d4"
+          },
+          {
+            "path": "nvidia/ncclep/result.gen.go",
+            "sha256": "3538decbd8caa5d2a14b501a792cd45ca1297d793dbcb37592ef397bfa1973ce"
+          },
+          {
+            "path": "nvidia/ncclep/structs.gen.go",
+            "sha256": "bf274ff612b884530deaf00fcaf061c5f9e100950b678839ca79c498a093b05f"
+          },
+          {
+            "path": "nvidia/ncclep/types.gen.go",
+            "sha256": "ba5950d3c4c8369109561578409ce08160ea5062c102a2531078aab894c7591a"
+          }
+        ],
+        "note": "The generator, cmd/gen-nccl-extensions, and the NCCL EP and M2N headers it parses are uncommitted in the codegen repository, so no input commit can be pinned. The recorded argv reproduced these outputs byte for byte twice on the recording host; the header digests below identify the inputs that were parsed.",
+        "limitations": [
+          "The codegen commit is not pinned because the generator is uncommitted; the recorded argv cannot be replayed from a clean checkout until it lands.",
+          "The CUDA header root passed as -cuda-headers was a working tree with local modifications, so it is identified by the parsed header digests rather than by a commit."
+        ]
+      }
+    },
+    "ncclm2n": {
+      "package": "github.com/tmc/lib/nvidia/ncclm2n",
+      "status": "generation-partially-reproduced",
+      "headers": [
+        {
+          "repository": "codegen",
+          "path": "cmd/gen-nccl-extensions/headers/nccl_m2n/nccl_m2n.h",
+          "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
+        }
+      ],
+      "generation": {
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/gen-nccl-extensions",
+          "-api",
+          "ncclm2n",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "outputs": [
+          {
+            "path": "nvidia/ncclm2n/defaults.gen.go",
+            "sha256": "28dcf846499f43baeea6c2ac5cf7ae6ba0f2b8a652af1ed3022d49a89bff54dc"
+          },
+          {
+            "path": "nvidia/ncclm2n/doc.gen.go",
+            "sha256": "c4836cce10214738055df9f21628fdfeff0e22909120fa32f1e11ee2c930b57f"
+          },
+          {
+            "path": "nvidia/ncclm2n/enums.gen.go",
+            "sha256": "74daca1a0954c93f8f2bfa7a12aa5a73ac69cbbdc42dfeb4173273fa93d22c08"
+          },
+          {
+            "path": "nvidia/ncclm2n/funcs.gen.go",
+            "sha256": "26dc9e15f1b3e21fd8cccc756232dad450b84de56ea7763bf12515effa9ab96d"
+          },
+          {
+            "path": "nvidia/ncclm2n/handle.gen.go",
+            "sha256": "162b687ec3be5b1e069c1837a0aab49f12d000e7fc6a5ac83e95e09f7559655f"
+          },
+          {
+            "path": "nvidia/ncclm2n/handles.gen.go",
+            "sha256": "0a2d11ba1810dc76b29349e384d0977aa2f4ebe2f0830a4e5cf1c3d2f2fe6698"
+          },
+          {
+            "path": "nvidia/ncclm2n/init.gen.go",
+            "sha256": "0f815840785674a887203fbcb8069e1bc0e3abf52412c0cd25681e7202b77daa"
+          },
+          {
+            "path": "nvidia/ncclm2n/layout_test.go",
+            "sha256": "6cc1a55ddb3d98e05c864b4caa116d8434708cb6a2628ea750bc34b2c9507758"
+          },
+          {
+            "path": "nvidia/ncclm2n/loader_test.go",
+            "sha256": "29268867cfcb7deeb32342a3ad1ac28e9d8000af94de3c84cfc09ea2b24de323"
+          },
+          {
+            "path": "nvidia/ncclm2n/loader_unix.gen.go",
+            "sha256": "7061cbd0f400b6a6d683df8283f6dbecd6a5caf4845790b3037d36756e256a2c"
+          },
+          {
+            "path": "nvidia/ncclm2n/loader_windows.gen.go",
+            "sha256": "c19bc1d38c97f496f0e247875da1bb7d402cd544861556fe0bf00e17544695c4"
+          },
+          {
+            "path": "nvidia/ncclm2n/result.gen.go",
+            "sha256": "1b559e7225404413872f64a52aa6460e9aefb632a0e38c6a7c2052de067c5bea"
+          },
+          {
+            "path": "nvidia/ncclm2n/string.gen.go",
+            "sha256": "3856422f91ee9a50ea4c6bb627c98e5427de56e02dd1dcddc4ce3958b9a93c3b"
+          },
+          {
+            "path": "nvidia/ncclm2n/structs.gen.go",
+            "sha256": "85f902bc449c906ff13324eeda0b50b72dc32e7738200339f62ef51199c26f20"
+          },
+          {
+            "path": "nvidia/ncclm2n/types.gen.go",
+            "sha256": "96a20edc73a1d08815d68618606474cdf4651d7e70fc3370c6deb0693e3a09bb"
+          }
+        ],
+        "note": "The generator, cmd/gen-nccl-extensions, and the NCCL EP and M2N headers it parses are uncommitted in the codegen repository, so no input commit can be pinned. The recorded argv reproduced these outputs byte for byte twice on the recording host; the header digests below identify the inputs that were parsed.",
+        "limitations": [
+          "The codegen commit is not pinned because the generator is uncommitted; the recorded argv cannot be replayed from a clean checkout until it lands.",
+          "The CUDA header root passed as -cuda-headers was a working tree with local modifications, so it is identified by the parsed header digests rather than by a commit."
         ]
       }
     }
