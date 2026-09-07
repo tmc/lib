@@ -20,14 +20,19 @@ with SiLU MLPs. It checks config options, tensor roles, shapes, source dtypes
 and exact payload lengths. Unknown config fields and unsupported variants
 return errors. Required dimensions must be supplied, including Qwen2 KV heads.
 Scaled RoPE, partial rotary, sliding attention, output/MLP biases and integer
-quantized formats are not supported. The default f32 path widens F16 and BF16 checkpoint values on the host.
+quantized formats are not supported. The default f32 path widens F16 and BF16
+checkpoint values on the host.
 With `-precision f16` or `-precision bf16`, checkpoint payloads keep their source
 dtypes through upload, and projections and KV history use the requested type.
 Selected normalization, rotary, activation and attention intermediates use F32;
 returned logits are F32. These rounding boundaries differ from some Transformers
-half-precision operations. Pretrained half-precision parity remains unqualified. Rotary theta retains its
-JSON float64 precision in the decoder. The context limit comes from the config
-and may be reduced by the caller's `MaxSeqLen`.
+half-precision operations. Half modes may choose different greedy tokens from
+f32, even with small overall logit error. Converting their final scores to F32
+does not recover precision lost in the LM projection. The pretrained reference
+test uses f32; pretrained half-precision parity remains unqualified.
+
+Rotary theta retains its JSON float64 precision in the decoder. The context
+limit comes from the config and may be reduced by the caller's `MaxSeqLen`.
 
 `GenerateFromTokenIDs` runs greedy generation from exact prompt IDs. The caller
 includes BOS and chat-template tokens. EOS IDs come from config.json, with

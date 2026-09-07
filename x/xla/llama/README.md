@@ -61,6 +61,8 @@ use F32 intermediates and round at their output boundaries. Residual additions
 use the execution type. The LM projection rounds to the execution type before
 its logits are converted to F32 for the caller. These boundaries need not match
 Transformers' half-precision rounding; they are not a bitwise parity promise.
+F16 and BF16 may also choose different greedy tokens from F32: a small overall
+logit error does not guarantee the same ordering of the highest scores.
 
 Native encoded-model tests check mixed storage types, half-precision history,
 independent batch lengths, reset, tied weights and host-source reuse. Their
