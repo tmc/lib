@@ -1,0 +1,11 @@
+commit: f1cc45fdb2efff24362463f23a4c09ccaf6b5a40
+date: 2026-09-06T20:02:24.656472-07:00
+agent: codex-cli 0.153.4
+claude-code version: not applicable
+model: GPT-6 family
+tty: not a tty
+pid: 12915
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+validation: source and physical receipts independently reviewed; git diff --check passed
+commit helper: one attempt failed missing ANTHROPIC_API_KEY; permitted manual fallback
+scope: docs only; no new throughput claim
