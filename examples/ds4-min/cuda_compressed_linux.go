@@ -217,12 +217,13 @@ extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,co
   float maximum=sinks[head];
   for(unsigned int t=0;t<n_raw;t++){
     const unsigned int row=(first+t)%raw_cap;float score=0.0f;
-    for(unsigned int i=0;i<512;i++)score+=out[qoff+i]*raw[row*512+i];
+    // Both dot operands go through f16 as the oracle does; see ds4_attention_raw.
+    for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*raw[row*512+i];
     score*=0.04419417382415922f;scores[head*total+t]=score;maximum=fmaxf(maximum,score);
   }
   for(unsigned int cidx=0;cidx<n_comp;cidx++){
     float score=-1.0e30f;
-    if(allowed[cidx]){score=0.0f;for(unsigned int i=0;i<512;i++)score+=out[qoff+i]*comp[cidx*512+i];score*=0.04419417382415922f;maximum=fmaxf(maximum,score);}
+    if(allowed[cidx]){score=0.0f;for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*comp[cidx*512+i];score*=0.04419417382415922f;maximum=fmaxf(maximum,score);}
     scores[head*total+n_raw+cidx]=score;
   }
   float denom=expf(sinks[head]-maximum);

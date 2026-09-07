@@ -385,7 +385,11 @@ extern "C" __global__ void ds4_rope_attention_raw(
     // Attention always reads the half-rounded cache, as the oracle does: it
     // pushes the row through f16 before attending, at every position.
     const float *values = cache + row * 512;
-    for (unsigned int i = 0; i < 512; i++) score += out[qoff + i] * values[i];
+    // The oracle rounds BOTH operands to f16 before the dot: it loads Q from
+    // f32 and casts it to half at kernel entry alongside the half KV, then
+    // widens both for the accumulation. Rounding only KV leaves Q at full f32
+    // and diverges from the capture at f16 ULP scale.
+    for (unsigned int i = 0; i < 512; i++) score += ds4_half_round(out[qoff + i]) * values[i];
     score /= sqrtf(512.0f);
     scores[head * cache_cap + t] = score;
     maximum = fmaxf(maximum, score);
