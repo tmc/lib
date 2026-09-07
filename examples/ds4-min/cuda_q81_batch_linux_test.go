@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -46,7 +47,7 @@ func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 		return nil
 	})
 	wantDevice := cudaTestRead(t, sequential)
-	if err := cudaQualificationClose(got, wantDevice, 0, 0); err != nil {
+	if err := exactFloat32Bits(got, wantDevice); err != nil {
 		t.Fatalf("batch differs from single-row launches: %v", err)
 	}
 	for token := range batch {
@@ -64,6 +65,39 @@ func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 	}
 	if err := r.encodeQ80MatvecQ81Batch(tensor, q, out.Slice(0, out.Len()-1), batch); err == nil {
 		t.Fatal("accepted short output")
+	}
+}
+
+func exactFloat32Bits(got, want []float32) error {
+	if len(got) != len(want) {
+		return fmt.Errorf("length %d, want %d", len(got), len(want))
+	}
+	for i := range got {
+		gb, wb := math.Float32bits(got[i]), math.Float32bits(want[i])
+		if gb != wb {
+			return fmt.Errorf("value %d bits %08x, want %08x", i, gb, wb)
+		}
+	}
+	return nil
+}
+
+func TestExactFloat32Bits(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		got  []float32
+		want []float32
+		ok   bool
+	}{
+		{"equal", []float32{1, -2}, []float32{1, -2}, true},
+		{"length", []float32{1}, []float32{1, 2}, false},
+		{"signed zero", []float32{0}, []float32{math.Float32frombits(1 << 31)}, false},
+		{"nan payload", []float32{math.Float32frombits(0x7fc00001)}, []float32{math.Float32frombits(0x7fc00002)}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := exactFloat32Bits(tt.got, tt.want); (err == nil) != tt.ok {
+				t.Fatalf("exactFloat32Bits error = %v, want success %t", err, tt.ok)
+			}
+		})
 	}
 }
 
