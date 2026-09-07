@@ -8,3 +8,7 @@ Note writer PID: 15636 (agent PID unavailable)
 ITERM_SESSION_ID: w15t0p8:392735FA-AF2F-4734-A236-CFA9D0C8CB44
 Session: 392735FA-AF2F-4734-A236-CFA9D0C8CB44
 Receipts: /Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance
+
+Current commit: b45aa19d35ef70049087cb7ec2761f2b7885e140
+Checked: 2026-09-07T03:19:08.252341+00:00
+The prior note was carried across a concurrent history rewrite. NVIDIA file bytes are unchanged from b4d97c7954dbd810d37ab48edb8567a017f95b68. Original capture identity and receipts remain as recorded above.
