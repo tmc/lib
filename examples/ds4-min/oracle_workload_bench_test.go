@@ -344,7 +344,7 @@ func TestOracleWorkloadContract(t *testing.T) {
 			t.Fatalf("step %d: position%d token%d", i, pos, r.selected[i])
 		}
 	}
-	if got.PrefillSeconds != .001 || got.FirstSeconds != .001 || math.Abs(got.SteadySeconds-.127) > 1e-9 {
+	if got.PrefillSeconds != .001 || got.GenerationSeconds != .257 || got.FirstSeconds != .001 || math.Abs(got.SteadySeconds-.127) > 1e-9 {
 		t.Fatalf("wrong timing windows: %+v", got)
 	}
 }
