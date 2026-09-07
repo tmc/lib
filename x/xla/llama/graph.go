@@ -14,9 +14,13 @@ import (
 
 func f32(shape ...int64) builder.Type { return builder.Type{Shape: shape, ElementType: "f32"} }
 func i64(shape ...int64) builder.Type { return builder.Type{Shape: shape, ElementType: "i64"} }
+func (m *Model) valueType(shape ...int64) builder.Type {
+	element, _, _ := elementInfo(m.config.ElementType, true)
+	return builder.Type{Shape: shape, ElementType: element}
+}
 func (m *Model) historyType() builder.Type {
 	c := m.config
-	return f32(c.BatchSize, c.KVHeads, c.Capacity, c.HeadSize)
+	return m.valueType(c.BatchSize, c.KVHeads, c.Capacity, c.HeadSize)
 }
 func (m *Model) metadataTypes(chunk int64) []builder.Type {
 	c := m.config
@@ -93,10 +97,20 @@ func (m *Model) program(chunk int64) (*xla.Executable, error) {
 // graph retains the first construction error. Helpers stop emitting after it,
 // so a failed intermediate cannot be used to infer a later tensor shape.
 type graph struct {
-	b   *builder.FuncBuilder
-	err error
+	element string
+	b       *builder.FuncBuilder
+	err     error
 }
 
+func (g *graph) typ(shape ...int64) builder.Type {
+	return builder.Type{Shape: shape, ElementType: g.element}
+}
+func (g *graph) convert(v builder.Value, element string) builder.Value {
+	if g.err != nil {
+		return builder.Value{}
+	}
+	return g.take(g.b.Convert(v, element))
+}
 func (g *graph) take(v builder.Value, err error) builder.Value {
 	if g.err == nil {
 		g.err = err
@@ -125,18 +139,28 @@ func (g *graph) norm(x builder.Value, param int, eps float32) builder.Value {
 	if g.err != nil {
 		return builder.Value{}
 	}
-	return g.take(g.b.RMSNorm(x, g.b.Arg(param), int64(len(x.Type.Shape)-1), eps))
+	element := x.Type.ElementType
+	x = g.convert(x, "f32")
+	gamma := g.convert(g.b.Arg(param), "f32")
+	if g.err != nil {
+		return builder.Value{}
+	}
+	x = g.take(g.b.RMSNorm(x, gamma, int64(len(x.Type.Shape)-1), eps))
+	return g.convert(x, element)
 }
 func (g *graph) linear(x builder.Value, param, bias int) builder.Value {
 	if g.err != nil {
 		return builder.Value{}
 	}
-	w := g.b.Arg(param)
+	w := g.convert(g.b.Arg(param), g.element)
+	if g.err != nil {
+		return builder.Value{}
+	}
 	shape := slices.Clone(x.Type.Shape)
 	shape[len(shape)-1] = w.Type.Shape[0]
-	x = g.take(g.b.DotGeneral(x, w, nil, nil, []int64{int64(len(shape) - 1)}, []int64{1}, f32(shape...)))
+	x = g.take(g.b.DotGeneral(x, w, nil, nil, []int64{int64(len(shape) - 1)}, []int64{1}, g.typ(shape...)))
 	if bias >= 0 && g.err == nil {
-		expanded := g.take(g.b.BroadcastInDim(g.b.Arg(bias), []int64{int64(len(shape) - 1)}, f32(shape...)))
+		expanded := g.take(g.b.BroadcastInDim(g.convert(g.b.Arg(bias), g.element), []int64{int64(len(shape) - 1)}, g.typ(shape...)))
 		x = g.add(x, expanded)
 	}
 	return x
@@ -153,8 +177,8 @@ func (g *graph) update(old, values, indices builder.Value, c Config, chunk int64
 	}
 	typ := old.Type
 	rows := c.BatchSize * c.KVHeads
-	old = g.reshape(old, f32(rows*c.Capacity, c.HeadSize))
-	values = g.reshape(values, f32(rows*chunk, c.HeadSize))
+	old = g.reshape(old, g.typ(rows*c.Capacity, c.HeadSize))
+	values = g.reshape(values, g.typ(rows*chunk, c.HeadSize))
 	if g.err != nil {
 		return builder.Value{}
 	}
@@ -183,14 +207,16 @@ func (m *Model) forwardGraph(chunk int64) (*builder.FuncBuilder, error) {
 	meta := len(types)
 	types = append(types, m.metadataTypes(chunk)...)
 	b := builder.NewFunc("main", types...)
-	g := &graph{b: b}
+	element, _, _ := elementInfo(c.ElementType, true)
+	g := &graph{b: b, element: element}
 	x := g.take(b.GatherRows(b.Arg(m.embedding), b.Arg(meta)))
+	x = g.convert(x, element)
 	mask := g.take(b.BatchedCausalMask(chunk, c.Capacity, b.Arg(meta+1), b.Arg(meta+2)))
 	mask = g.reshape(mask, builder.Type{Shape: []int64{c.BatchSize, 1, chunk, c.Capacity}, ElementType: "i1"})
 	cosine, sine := b.Arg(meta+4), b.Arg(meta+5)
 	toHeads := func(v builder.Value, heads int64) builder.Value {
-		v = g.reshape(v, f32(c.BatchSize, chunk, heads, c.HeadSize))
-		return g.transpose(v, []int64{0, 2, 1, 3}, f32(c.BatchSize, heads, chunk, c.HeadSize))
+		v = g.reshape(v, g.typ(c.BatchSize, chunk, heads, c.HeadSize))
+		return g.transpose(v, []int64{0, 2, 1, 3}, g.typ(c.BatchSize, heads, chunk, c.HeadSize))
 	}
 	var history []builder.Value
 	for i, p := range m.layers {
@@ -202,14 +228,15 @@ func (m *Model) forwardGraph(chunk int64) (*builder.FuncBuilder, error) {
 		v = g.update(b.Arg(len(m.types)+2*i+1), v, b.Arg(meta+3), c, chunk)
 		history = append(history, k, v)
 		attention := g.attention(q, k, v, mask)
-		attention = g.transpose(attention, []int64{0, 2, 1, 3}, f32(c.BatchSize, chunk, c.QueryHeads, c.HeadSize))
-		attention = g.reshape(attention, f32(c.BatchSize, chunk, c.QueryHeads*c.HeadSize))
+		attention = g.transpose(attention, []int64{0, 2, 1, 3}, g.typ(c.BatchSize, chunk, c.QueryHeads, c.HeadSize))
+		attention = g.reshape(attention, g.typ(c.BatchSize, chunk, c.QueryHeads*c.HeadSize))
 		x = g.add(x, g.linear(attention, p.o, -1))
 		normal = g.norm(x, p.post, c.NormEpsilon)
 		gate, up := g.linear(normal, p.gate, -1), g.linear(normal, p.up, -1)
 		x = g.add(x, g.linear(g.gated(gate, up), p.down, -1))
 	}
 	logits := g.linear(g.norm(x, m.norm, c.NormEpsilon), m.head, -1)
+	logits = g.convert(logits, "f32")
 	if g.err != nil {
 		return nil, g.err
 	}

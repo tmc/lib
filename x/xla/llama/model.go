@@ -63,7 +63,11 @@ func newModel(ctx context.Context, engine *xla.Engine, c Config, s layout) (*Mod
 		if err := ctx.Err(); err != nil {
 			return nil, errors.Join(err, m.Close())
 		}
-		buffer, err := engine.NewBufferFromHost(encodeFloats(p.data), xla.F32, p.typ.Shape, m.device)
+		data := p.value.raw
+		if p.value.data != nil {
+			data = encodeFloats(p.value.data)
+		}
+		buffer, err := engine.NewBufferFromHost(data, p.value.kind, p.typ.Shape, m.device)
 		if err != nil {
 			return nil, errors.Join(fmt.Errorf("llama: upload %s: %w", p.name, err), m.Close())
 		}

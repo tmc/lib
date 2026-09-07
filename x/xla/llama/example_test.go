@@ -95,3 +95,24 @@ func ExampleModel_Close() {
 	fmt.Println(model.Close())
 	// Output: <nil>
 }
+
+func ExampleEncodedTensor() {
+	tensor := llama.EncodedTensor{ElementType: xla.BF16, Data: []byte{0x80, 0x3f}}
+	fmt.Println(tensor.ElementType == xla.BF16, len(tensor.Data))
+	// Output: true 2
+}
+func ExampleEncodedLayerWeights() {
+	var layer llama.EncodedLayerWeights
+	fmt.Println(layer.QueryBias.Data == nil)
+	// Output: true
+}
+func ExampleEncodedWeights() {
+	var weights llama.EncodedWeights
+	fmt.Println(weights.LMHead.Data == nil)
+	// Output: true
+}
+func ExampleNewEncoded() {
+	_, err := llama.NewEncoded(context.Background(), nil, llama.Config{}, llama.EncodedWeights{})
+	fmt.Println(err)
+	// Output: llama: dimensions must be positive
+}
