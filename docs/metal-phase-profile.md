@@ -39,18 +39,32 @@ and resolves hardware GPU timestamps. The package states the rule this note is
 about: *callers must not substitute host time for GPU counter values*, and it
 returns `ErrTimestampCountersUnavailable` rather than degrading to host time.
 
-That is the right source. Two things are in the way.
+That is the right source, and less stands in the way than it first appears.
 
-**The phases are inside one encoder.** `metalBatch` creates a single
-`MTLComputeCommandEncoder` per command buffer (`metal_batch_darwin.go:480-491`)
-and reuses it across every dispatch until `Wait` ends encoding and commits — one
-command buffer per layer, which is what the 134 → 91 command-buffer count
-measured. So `MTLCommandBuffer.GPUStartTime`/`GPUEndTime` give layer
-granularity, not phase granularity. Phase boundaries need
-`sampleCountersInBuffer:atSampleIndex:withBarrier:` between dispatches within
-the encoder. The binding exists on the generated encoder protocol
-(`apple/metal/compute_command_encoder_protocol.gen.go`); `x/metal` does not
-wrap it, so wrapping it is prerequisite work.
+**Command-buffer times are two coarse regions per layer, not nine phases.**
+`metalBatch` creates a single `MTLComputeCommandEncoder` per command buffer
+(`metal_batch_darwin.go:480-491`) and reuses it across every dispatch until
+`Wait` ends encoding and commits. The layer path builds *two* batches, at
+`metal_runtime_darwin.go:584` and `:730`, waited at `:665` and `:844`, with the
+closing work and the FFN sharing the second; 2*43 + 5 = 91 is the retained
+command-buffer count. So `MTLCommandBuffer.GPUStartTime`/`GPUEndTime` give two
+real GPU-time regions per layer — worth having, and cheap — but not the
+granularity the CUDA instrument reports.
+
+**Phase granularity needs no new binding.** Boundaries inside the encoder come
+from `sampleCountersInBuffer:atSampleIndex:withBarrier:`, and both halves are
+already reachable: `metalBatch.enc` is the raw
+`github.com/tmc/apple/metal.MTLComputeCommandEncoder`
+(`metal_batch_darwin.go:20,480`), whose generated protocol declares
+`SampleCountersInBufferAtSampleIndexWithBarrier`
+(`apple/metal/compute_command_encoder_protocol.gen.go:146`), and
+`metalprof.SampleBuffer.Raw()` hands back the matching
+`MTLCounterSampleBuffer`. A test-local marker can call
+`b.encoder().SampleCountersInBufferAtSampleIndexWithBarrier(samples.Raw(), i,
+barrier)` directly. What is still unestablished is physical: whether this
+device supports the sampling, what capacity it allows, and how many samples
+actually resolve. That needs a small model-free calibration before any
+full-model use.
 
 **The barrier argument is a real choice, not a detail.** With `barrier: true`
 the timestamp is bounded to the dispatch boundary but serializes work that
