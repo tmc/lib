@@ -1,0 +1,12 @@
+Commit: c3221233fded46469d348531acaa7c95c83267e8
+Date: 2026-09-06T22:25:04.743764-07:00
+Agent: Codex; version: codex-cli 0.153.4; Claude Code: not used
+Model: runtime model identifier not exposed
+TTY: non-tty exec
+PID: 97536 (note writer)
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Source session: 6E6A46AB
+Validation: GOWORK=off go test ./ds4-min -run ^TestOracleWorkloadContract$ -count=1 PASS
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/oracle-workload-timing-control
+Test-only assertion: GenerationSeconds includes host token selection; no production arithmetic change or model run.
+git-auto-commit-message attempted once; missing ANTHROPIC_API_KEY; manual fallback per instructions.
