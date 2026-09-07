@@ -2,134 +2,16 @@
 
 package tpu
 
-import (
-	"fmt"
-	"unsafe"
+import "github.com/tmc/lib/openxla"
 
-	"github.com/ebitengine/purego"
-)
+// ClientWrapper provides access to PJRT client operations.
+type ClientWrapper = openxla.ClientWrapper
 
-// ClientWrapper provides idiomatic Go access to PJRT Client operations.
-type ClientWrapper struct {
-	api    *Api
-	client *Client
-}
-
-// NewClient initializes the PJRT TPU plugin and creates a Client.
+// NewClient validates the PJRT API, initializes the plugin, and creates a client.
 func NewClient() (*ClientWrapper, error) {
 	api, err := GetApi()
 	if err != nil {
 		return nil, err
 	}
-
-	if api.Plugin_Initialize != 0 {
-		var initArgs Plugin_Initialize_Args
-		initArgs.Struct_size = uintptr(unsafe.Sizeof(initArgs))
-		var fn func(*Plugin_Initialize_Args) *Error
-		purego.RegisterFunc(&fn, api.Plugin_Initialize)
-		if errPtr := fn(&initArgs); errPtr != nil {
-			return nil, decodeError(api, errPtr)
-		}
-	}
-
-	var createArgs Client_Create_Args
-	createArgs.Struct_size = uintptr(unsafe.Sizeof(createArgs))
-	var fnCreate func(*Client_Create_Args) *Error
-	purego.RegisterFunc(&fnCreate, api.Client_Create)
-	if errPtr := fnCreate(&createArgs); errPtr != nil {
-		return nil, decodeError(api, errPtr)
-	}
-
-	return &ClientWrapper{
-		api:    api,
-		client: createArgs.Client,
-	}, nil
-}
-
-// PlatformName returns the name of the PJRT platform (e.g. "tpu").
-func (c *ClientWrapper) PlatformName() (string, error) {
-	if c.api.Client_PlatformName == 0 {
-		return "", fmt.Errorf("Client_PlatformName not available")
-	}
-	var args Client_PlatformName_Args
-	args.Struct_size = uintptr(unsafe.Sizeof(args))
-	args.Client = c.client
-	var fn func(*Client_PlatformName_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_PlatformName)
-	if errPtr := fn(&args); errPtr != nil {
-		return "", decodeError(c.api, errPtr)
-	}
-	if args.Platform_name == nil {
-		return "", nil
-	}
-	bytes := unsafe.Slice(args.Platform_name, args.Platform_name_size)
-	return string(bytes), nil
-}
-
-// PlatformVersion returns human-readable version info for the platform.
-func (c *ClientWrapper) PlatformVersion() (string, error) {
-	if c.api.Client_PlatformVersion == 0 {
-		return "", fmt.Errorf("Client_PlatformVersion not available")
-	}
-	var args Client_PlatformVersion_Args
-	args.Struct_size = uintptr(unsafe.Sizeof(args))
-	args.Client = c.client
-	var fn func(*Client_PlatformVersion_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_PlatformVersion)
-	if errPtr := fn(&args); errPtr != nil {
-		return "", decodeError(c.api, errPtr)
-	}
-	if args.Platform_version == nil {
-		return "", nil
-	}
-	bytes := unsafe.Slice(args.Platform_version, args.Platform_version_size)
-	return string(bytes), nil
-}
-
-// Destroy frees the client and shuts down connections.
-func (c *ClientWrapper) Destroy() error {
-	if c.client == nil || c.api.Client_Destroy == 0 {
-		return nil
-	}
-	var args Client_Destroy_Args
-	args.Struct_size = uintptr(unsafe.Sizeof(args))
-	args.Client = c.client
-	var fn func(*Client_Destroy_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_Destroy)
-	errPtr := fn(&args)
-	c.client = nil
-	if errPtr != nil {
-		return decodeError(c.api, errPtr)
-	}
-	return nil
-}
-
-func decodeError(api *Api, errPtr *Error) error {
-	if errPtr == nil {
-		return nil
-	}
-	defer func() {
-		if api.Error_Destroy != 0 {
-			var dArgs Error_Destroy_Args
-			dArgs.Struct_size = uintptr(unsafe.Sizeof(dArgs))
-			dArgs.Error = errPtr
-			var fnD func(*Error_Destroy_Args)
-			purego.RegisterFunc(&fnD, api.Error_Destroy)
-			fnD(&dArgs)
-		}
-	}()
-
-	if api.Error_Message != 0 {
-		var mArgs Error_Message_Args
-		mArgs.Struct_size = uintptr(unsafe.Sizeof(mArgs))
-		mArgs.Error = errPtr
-		var fnM func(*Error_Message_Args)
-		purego.RegisterFunc(&fnM, api.Error_Message)
-		fnM(&mArgs)
-		if mArgs.Message != nil {
-			msgBytes := unsafe.Slice(mArgs.Message, mArgs.Message_size)
-			return fmt.Errorf("tpu error: %s", string(msgBytes))
-		}
-	}
-	return fmt.Errorf("tpu error (unknown)")
+	return openxla.NewClientFromApi(api)
 }
