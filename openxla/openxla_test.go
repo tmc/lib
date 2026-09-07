@@ -27,21 +27,24 @@ func TestNewClientFromApi_Truncated(t *testing.T) {
 		t.Errorf("expected version error, got %v", err)
 	}
 
-	// 3. API table too small for Client_Create
+	// 3. API table too small for Client_Create and Client_Destroy
 	api3 := &Api{
-		StructSize: unsafe.Offsetof(Api{}.Plugin_Initialize) + 8,
+		StructSize: unsafe.Offsetof(Api{}.Plugin_Initialize) + unsafe.Sizeof(Api{}.Plugin_Initialize),
 		ApiVersion: Api_Version{Major_version: 0, Minor_version: 30},
 	}
 	_, err = NewClientFromApi(api3)
-	if err == nil || err.Error() != "openxla: API table too small to contain Client_Create" {
-		t.Errorf("expected Client_Create truncation error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "API table too small to contain Client_Create and Client_Destroy") {
+		t.Errorf("expected Client_Create/Client_Destroy truncation error, got %v", err)
 	}
 }
 
 func TestNewClientFromApi_Success(t *testing.T) {
 	api := &Api{
-		StructSize: unsafe.Offsetof(Api{}.Client_Create) + 8,
+		StructSize: unsafe.Offsetof(Api{}.Client_Destroy) + unsafe.Sizeof(Api{}.Client_Destroy),
 		ApiVersion: Api_Version{Major_version: 0, Minor_version: 30},
+		Error_Destroy: purego.NewCallback(func(args *Error_Destroy_Args) {}),
+		Error_Message: purego.NewCallback(func(args *Error_Message_Args) {}),
+		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil }),
 	}
 	
 	clientCreated := false
@@ -100,6 +103,7 @@ func TestExecutableWrapper_NumOutputs_Zero(t *testing.T) {
 func TestBufferFromHost_EventCleanup(t *testing.T) {
 	api := &Api{
 		StructSize: 1000,
+		Buffer_Destroy: purego.NewCallback(func(args *Buffer_Destroy_Args) *Error { return nil }),
 	}
 	client := &ClientWrapper{
 		api: api,
@@ -141,15 +145,19 @@ func TestBufferFromHost_EventCleanup(t *testing.T) {
 
 
 func TestNewClientFromApi_ShortNativeAllocation(t *testing.T) {
-	// Allocate a raw byte buffer sized strictly up to Client_Create + 8.
-	// This simulates a truncated native C library function table.
-	neededSize := unsafe.Offsetof(Api{}.Client_Create) + 8
+	// Allocate a raw byte buffer in Go heap sized strictly up to Client_Destroy + unsafe.Sizeof(uintptr(0)).
+	// This simulates a truncated C library function table.
+	ptrSize := unsafe.Sizeof(uintptr(0))
+	neededSize := unsafe.Offsetof(Api{}.Client_Destroy) + ptrSize
 	rawBuf := make([]byte, neededSize)
 
 	// Cast the buffer header to *Api
 	shortApi := (*Api)(unsafe.Pointer(&rawBuf[0]))
 	shortApi.StructSize = neededSize
 	shortApi.ApiVersion = Api_Version{Major_version: 0, Minor_version: 30}
+	shortApi.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
+	shortApi.Error_Message = purego.NewCallback(func(args *Error_Message_Args) {})
+	shortApi.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil })
 
 	clientCreated := false
 	cbCreate := purego.NewCallback(func(args *Client_Create_Args) *Error {
@@ -290,5 +298,67 @@ func TestBufferFromHost_AwaitFailureCleansBuffer(t *testing.T) {
 	}
 	if !errorDestroyed {
 		t.Errorf("Error_Destroy was not called for returned error")
+	}
+}
+
+func TestCopyApiTable_UnalignedSlotTruncation(t *testing.T) {
+	ptrSize := unsafe.Sizeof(uintptr(0))
+	baseSize := unsafe.Offsetof(Api{}.Client_Destroy) + ptrSize
+	
+	// Test cut points inside the next pointer slot
+	for delta := uintptr(1); delta < ptrSize; delta++ {
+		unalignedSize := baseSize + delta
+		rawBuf := make([]byte, unalignedSize+ptrSize)
+		for i := range rawBuf {
+			rawBuf[i] = 0xAA // fill with canary non-zero bytes
+		}
+		
+		srcApi := (*Api)(unsafe.Pointer(&rawBuf[0]))
+		srcApi.StructSize = unalignedSize
+		srcApi.ApiVersion = Api_Version{Major_version: 0, Minor_version: 30}
+		
+		dst := copyApiTable(srcApi)
+		if dst == nil {
+			t.Fatalf("delta %d: expected non-nil dst", delta)
+		}
+		if dst.StructSize != baseSize {
+			t.Errorf("delta %d: expected StructSize aligned to %d, got %d", delta, baseSize, dst.StructSize)
+		}
+		
+		// The slot immediately following Client_Destroy (Client_PlatformName) must be 0 (nil),
+		// NOT populated with partial 0xAA bytes!
+		if dst.Client_PlatformName != 0 {
+			t.Errorf("delta %d: partial pointer slot was fabricated: got 0x%x, want 0", delta, dst.Client_PlatformName)
+		}
+	}
+}
+
+func TestMissingDestructor_Rejection(t *testing.T) {
+	api := &Api{
+		StructSize: 1000,
+		Event_Await: purego.NewCallback(func(args *Event_Await_Args) *Error { return nil }),
+		Event_Destroy: purego.NewCallback(func(args *Event_Destroy_Args) *Error { return nil }),
+	}
+	client := &ClientWrapper{api: api, client: &Client{}}
+	
+	// 1. BufferFromHost requires Buffer_Destroy
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *Error {
+		t.Fatal("Client_BufferFromHostBuffer should not be called when Buffer_Destroy is missing")
+		return nil
+	})
+	var dummy int32 = 123
+	_, err := client.BufferFromHost(unsafe.Pointer(&dummy), BufferTypeS32, []int64{1}, &Device{})
+	if err == nil || !strings.Contains(err.Error(), "Buffer_Destroy not available") {
+		t.Errorf("expected Buffer_Destroy not available error, got %v", err)
+	}
+	
+	// 2. Compile requires LoadedExecutable_Destroy
+	api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *Error {
+		t.Fatal("Client_Compile should not be called when LoadedExecutable_Destroy is missing")
+		return nil
+	})
+	_, err = client.Compile([]byte("mock"), "mlir", nil)
+	if err == nil || !strings.Contains(err.Error(), "LoadedExecutable_Destroy not available") {
+		t.Errorf("expected LoadedExecutable_Destroy not available error, got %v", err)
 	}
 }
