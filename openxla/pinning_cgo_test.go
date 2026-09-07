@@ -85,3 +85,69 @@ func TestTransferPinLifetime(t *testing.T) {
 		})
 	}
 }
+
+func TestCompilePinLifetime(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		options []byte
+		fail    bool
+	}{
+		{"default", nil, false},
+		{"explicit", []byte{26, 4, 32, 2, 40, 3}, false},
+		{"error", nil, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			code := make([]byte, 64)[7:39]
+			copy(code, "module")
+			requireUnpinned(t, unsafe.Pointer(&code[0]))
+			var pointers []unsafe.Pointer
+			called, errorDestroyed := false, false
+			api := &Api{}
+			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { errorDestroyed = true })
+			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *Error { return nil })
+			api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *Error {
+				called = true
+				pointers = []unsafe.Pointer{unsafe.Pointer(args.Program.Code), unsafe.Pointer(args.Program.Format), unsafe.Pointer(args.Compile_options), unsafe.Pointer(args.Program)}
+				runtime.GC()
+				for i, p := range pointers {
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								t.Errorf("compile pointer %d is not pinned: %v", i, r)
+							}
+						}()
+						pincheck.Check(p)
+					}()
+				}
+				if string(unsafe.Slice(args.Program.Format, args.Program.Format_size)) != "mlir" || args.Program.Code_size != uintptr(len(code)) {
+					t.Error("compile program changed during call")
+				}
+				if tt.fail {
+					return &Error{}
+				}
+				args.Executable = &LoadedExecutable{}
+				return nil
+			})
+			client := &ClientWrapper{api: api, client: &Client{}}
+			executable, err := client.Compile(code, "mlir", tt.options)
+			if tt.fail {
+				if err == nil || executable != nil || !errorDestroyed {
+					t.Fatalf("failed compile = %v, %v; error destroyed=%v", executable, err, errorDestroyed)
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := executable.Destroy(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !called {
+				t.Fatal("compile did not dispatch")
+			}
+			for _, p := range pointers {
+				requireUnpinned(t, p)
+			}
+		})
+	}
+}
