@@ -10,6 +10,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
+const cudaExpertWarps = 2
+
 // cudaExpertQ81Source follows the default aligned single-token MoE arithmetic
 // in pinned antirez/ds4 b0a147a, cuda/mmq/ds4_mmq.cu:2554 and :4307. Reading raw
 // GGUF weights avoids repacking but preserves the aligned kernels' lane mapping.
@@ -37,11 +39,13 @@ __device__ float ds4_iq2_part_q8_1(const unsigned char *p, const ds4_q8_1_activa
 extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
     const unsigned char *gate, const unsigned char *up, const int *ids,
     const ds4_q8_1_activation *x, float *gate_out, float *up_out,
-    unsigned cols, unsigned rows, unsigned experts) {
-  unsigned row = blockIdx.x % rows, slot = blockIdx.x / rows, lane = threadIdx.x;
+    unsigned cols, unsigned rows, unsigned slots, unsigned experts) {
+  unsigned output = blockIdx.x * (blockDim.x / 32) + threadIdx.x / 32;
+  if (output >= rows * slots) return;
+  unsigned row = output % rows, slot = output / rows, lane = threadIdx.x % 32;
   int expert = ids[slot];
   if (expert < 0 || unsigned(expert) >= experts) {
-    if (lane == 0) { gate_out[blockIdx.x] = __int_as_float(0x7fffffff); up_out[blockIdx.x] = __int_as_float(0x7fffffff); }
+    if (lane == 0) { gate_out[output] = __int_as_float(0x7fffffff); up_out[output] = __int_as_float(0x7fffffff); }
     return;
   }
   unsigned blocks = cols / 256;
@@ -56,7 +60,7 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
     g += __shfl_down_sync(0xffffffff, g, stride);
     u += __shfl_down_sync(0xffffffff, u, stride);
   }
-  if (lane == 0) { gate_out[blockIdx.x] = g; up_out[blockIdx.x] = u; }
+  if (lane == 0) { gate_out[output] = g; up_out[output] = u; }
 }
 
 __device__ float ds4_q2_window_q8_1(const unsigned char *p, const ds4_q8_1_activation *x, unsigned iqs) {
@@ -84,11 +88,13 @@ __device__ float ds4_q2_window_q8_1(const unsigned char *p, const ds4_q8_1_activ
 
 extern "C" __global__ void ds4_q2_k_selected_q8_1(
     const unsigned char *weights, const int *ids, const ds4_q8_1_activation *x,
-    float *out, unsigned cols, unsigned rows, unsigned experts) {
-  unsigned row = blockIdx.x % rows, slot = blockIdx.x / rows, lane = threadIdx.x;
+    float *out, unsigned cols, unsigned rows, unsigned slots, unsigned experts) {
+  unsigned output = blockIdx.x * (blockDim.x / 32) + threadIdx.x / 32;
+  if (output >= rows * slots) return;
+  unsigned row = output % rows, slot = output / rows, lane = threadIdx.x % 32;
   int expert = ids[slot];
   if (expert < 0 || unsigned(expert) >= experts) {
-    if (lane == 0) out[blockIdx.x] = __int_as_float(0x7fffffff);
+    if (lane == 0) out[output] = __int_as_float(0x7fffffff);
     return;
   }
   unsigned blocks = cols / 256;
@@ -99,7 +105,7 @@ extern "C" __global__ void ds4_q2_k_selected_q8_1(
     sum += ds4_q2_window_q8_1(weights + offset + (unsigned long long)b * 84, input + b * 8, lane % 16);
   for (unsigned stride = 16; stride; stride >>= 1)
     sum += __shfl_xor_sync(0xffffffff, sum, stride);
-  if (lane == 0) out[blockIdx.x] = sum;
+  if (lane == 0) out[output] = sum;
 }
 `
 
@@ -124,7 +130,8 @@ func (r *cudaFoundation) encodeMatvecIQ2SelectedQ81(gate, up cudaModelTensor, id
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.iq2SelectedQ81Fn).Grid(uint32(rows*slots)).Block(32).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
+		if err := cudalaunch.Kernel(r.iq2SelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch IQ2 Q8_1 selected pair: %w", err)
 		}
 		return nil
@@ -144,7 +151,8 @@ func (r *cudaFoundation) encodeMatvecQ2KSelectedQ81(t cudaModelTensor, ids cudam
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q2KSelectedQ81Fn).Grid(uint32(rows*slots)).Block(32).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
+		if err := cudalaunch.Kernel(r.q2KSelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch Q2_K Q8_1 selected: %w", err)
 		}
 		return nil
