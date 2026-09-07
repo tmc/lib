@@ -63,17 +63,9 @@ func TestPrefillCapture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var tokens []int
-	if err := json.Unmarshal(input, &tokens); err != nil {
+	tokens, err := parsePrefillTokens(input)
+	if err != nil {
 		t.Fatal(err)
-	}
-	if len(tokens) < 2048 {
-		t.Fatal("DS4_PREFILL_TOKENS must contain a JSON array of at least 2048 token IDs")
-	}
-	for _, token := range tokens {
-		if token < 0 || token >= expectedVocab {
-			t.Fatal("input token ID outside 0..129279")
-		}
 	}
 	model, err = filepath.Abs(model)
 	if err != nil {
@@ -196,4 +188,57 @@ func TestPrefillCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	write("COMPLETE", []byte("runtime closed; all selected captures written\n"))
+}
+
+// Decode pointers so JSON null cannot silently become token zero.
+func parsePrefillTokens(input []byte) ([]int, error) {
+	var values []*int
+	if err := json.Unmarshal(input, &values); err != nil {
+		return nil, fmt.Errorf("prefill token corpus: %w", err)
+	}
+	if len(values) < 2048 {
+		return nil, fmt.Errorf("prefill token corpus: got %d IDs, want at least 2048", len(values))
+	}
+	tokens := make([]int, len(values))
+	for i, value := range values {
+		if value == nil {
+			return nil, fmt.Errorf("prefill token %d: null is not a token ID", i)
+		}
+		if *value < 0 || *value >= 129280 {
+			return nil, fmt.Errorf("prefill token %d: ID outside 0..129279", i)
+		}
+		tokens[i] = *value
+	}
+	return tokens, nil
+}
+
+func TestParsePrefillTokens(t *testing.T) {
+	for _, tt := range []struct {
+		name, first string
+		count       int
+		wantError   bool
+	}{
+		{"zero", "0", 2048, false},
+		{"maximum", "129279", 2048, false},
+		{"null", "null", 2048, true},
+		{"fraction", "0.5", 2048, true},
+		{"boolean", "true", 2048, true},
+		{"negative", "-1", 2048, true},
+		{"out of range", "129280", 2048, true},
+		{"short", "0", 2047, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			input := []byte("[" + tt.first + strings.Repeat(",0", tt.count-1) + "]")
+			got, err := parsePrefillTokens(input)
+			if (err != nil) != tt.wantError {
+				t.Fatalf("parse error = %v, want error %t", err, tt.wantError)
+			}
+			if err == nil && len(got) != tt.count {
+				t.Fatalf("got %d tokens, want %d", len(got), tt.count)
+			}
+			if err == nil && tt.name == "maximum" && got[0] != 129279 {
+				t.Fatalf("first token = %d, want 129279", got[0])
+			}
+		})
+	}
 }
