@@ -4498,8 +4498,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "712abfb69da9d38c85f5202a1d3b256ea792b300",
-          "tree": "7902f8e98cea15f8f0933f8eb5e4929de268041c"
+          "commit": "6de8d1a4ac28ac8e2441fbf2e1ecc2d464baccf8",
+          "tree": "9dc79a689bafb9366dd47f6e863c1cb99a80aedb"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4909,7 +4909,7 @@
           },
           {
             "path": "nvidia/cufile/init.gen.go",
-            "sha256": "f73df2849b50fd50300936dfc5328df608ce22acc9d13804af33caf41d7bc0ed"
+            "sha256": "f4f642354dcc94a725567118fbc9b701ec27d1e02ce2408c39fee2977e3c709c"
           },
           {
             "path": "nvidia/cufile/layout_test.go",
@@ -7282,8 +7282,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "ff64b7cd1655d402b53dec5ede8c45edc439b31d",
-          "tree": "1b43ed842b55028e2c5ca4f2f8205fe3a6845c35"
+          "commit": "6de8d1a4ac28ac8e2441fbf2e1ecc2d464baccf8",
+          "tree": "9dc79a689bafb9366dd47f6e863c1cb99a80aedb"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8062,7 +8062,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "fa78bdf4e90e8624d6972525eec028008c3343e80dd5713228b6b5f0f12929a2"
+            "sha256": "34a8a8872803d91ce7bf1a4cb4be96e412667630f6ea3f156c075d0b8b00a3a4"
           },
           {
             "path": "nvidia/nccl/layout_test.go",
