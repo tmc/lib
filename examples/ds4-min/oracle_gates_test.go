@@ -68,6 +68,7 @@ var oracleGates = []oracleGate{
 	{"DS4_ORACLE_WORKLOAD_BACKEND", "backend for workload measurement"},
 	{"DS4_ORACLE_WORKLOAD_PROMPT", "raw prompt matched to token prefix"},
 	{"DS4_ORACLE_WORKLOAD_TOKENS", "retained oracle token corpus"},
+	{"DS4_ORACLE_WORKLOAD_TOKENIZER_RECEIPT", "retained tokenizer discrepancy bound to workload identity"},
 	{"DS4_ORACLE_WORKLOAD_DIR", "new workload artifact directory"},
 
 	{"DS4_CUDA_PRODUCTION_HASH_GATE", "production Eval token-zero hash before and after Reset"},

@@ -21,6 +21,9 @@ const oracleWorkloadPrefill = 2048
 const oracleWorkloadDecode = 128
 const oracleWorkloadContext = 65665
 
+// SHA-256 of the first 2048 pinned-oracle IDs as little-endian uint32.
+const oracleWorkloadTokenHash = "5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380"
+
 type oracleWorkloadRuntime interface {
 	EvalBatch([]int, int) error
 	Eval(int, int) error
@@ -142,6 +145,14 @@ func TestOracleWorkload(t *testing.T) {
 	promptPath := required("DS4_ORACLE_WORKLOAD_PROMPT")
 	tokensPath := required("DS4_ORACLE_WORKLOAD_TOKENS")
 	dir := required("DS4_ORACLE_WORKLOAD_DIR")
+	discrepancyPath := required("DS4_ORACLE_WORKLOAD_TOKENIZER_RECEIPT")
+	discrepancy, err := os.ReadFile(discrepancyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discrepancy) == 0 {
+		t.Fatal("empty tokenizer discrepancy receipt")
+	}
 	input, err := os.ReadFile(tokensPath)
 	if err != nil {
 		t.Fatal(err)
@@ -151,6 +162,11 @@ func TestOracleWorkload(t *testing.T) {
 		t.Fatal(err)
 	}
 	tokens = tokens[:oracleWorkloadPrefill]
+	tokenBytes := oracleWorkloadTokenBytes(tokens)
+	tokenHash := fmt.Sprintf("%x", sha256.Sum256(tokenBytes))
+	if tokenHash != oracleWorkloadTokenHash {
+		t.Fatal("token prefix does not match registered oracle workload")
+	}
 	prompt, err := os.ReadFile(promptPath)
 	if err != nil {
 		t.Fatal(err)
@@ -175,13 +191,6 @@ func TestOracleWorkload(t *testing.T) {
 	tok, err := newTokenizer(g)
 	if err != nil {
 		t.Fatal(err)
-	}
-	actual, err := tok.Encode(string(prompt))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(actual) < len(tokens) || !reflect.DeepEqual(actual[:len(tokens)], tokens) {
-		t.Fatal("raw prompt does not match retained 2048-token prefix")
 	}
 	if err := os.Mkdir(dir, 0700); err != nil {
 		t.Fatal(err)
@@ -217,13 +226,15 @@ func TestOracleWorkload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity := map[string]any{"backend": backend, "host": host, "goos": runtime.GOOS, "goarch": runtime.GOARCH, "context": oracleWorkloadContext, "model_sha256": hash(model), "executable_sha256": hash(executable), "prompt_sha256": fmt.Sprintf("%x", sha256.Sum256(prompt)), "tokens_sha256": fmt.Sprintf("%x", sha256.Sum256(input)), "eos": tok.eos, "lifecycle": "fresh runtime; first prefill; 128 greedy non-EOS decodes; close before COMPLETE", "scope": "measurement only; external oracle-token provenance, qualification and registered correctness gates required"}
+	identity := map[string]any{"backend": backend, "host": host, "goos": runtime.GOOS, "goarch": runtime.GOARCH, "context": oracleWorkloadContext, "model_sha256": hash(model), "executable_sha256": hash(executable), "prompt_sha256": fmt.Sprintf("%x", sha256.Sum256(prompt)), "tokens_sha256": fmt.Sprintf("%x", sha256.Sum256(input)), "token_ids_sha256": tokenHash, "token_ids_encoding": "little-endian uint32", "token_ids_count": len(tokens), "input_contract": "port evaluated on captured oracle tokenization, which its own tokenizer does not produce; no front-end equivalence claim", "eos": tok.eos, "eos_provenance": "tokenizer.ggml.eos_token_id from bound GGUF model", "tokenizer_discrepancy_receipt": discrepancyPath, "tokenizer_discrepancy_sha256": fmt.Sprintf("%x", sha256.Sum256(discrepancy)), "lifecycle": "fresh runtime; first prefill; 128 greedy non-EOS decodes; close before COMPLETE", "scope": "measurement only; external oracle-token provenance, qualification and registered correctness gates required"}
 	data, err := json.MarshalIndent(identity, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
 	write("identity.json", data)
 	write("tokens.json", input)
+	write("token-prefix.u32le", tokenBytes)
+	write("tokenizer-discrepancy.json", discrepancy)
 	r, closer, err := openSessionBackend(config{model: model, backend: backend, context: oracleWorkloadContext, log: io.Discard})
 	if err != nil {
 		t.Fatal(err)
@@ -342,5 +353,23 @@ func TestOracleWorkloadFailures(t *testing.T) {
 				t.Fatal("invalid workload accepted")
 			}
 		})
+	}
+}
+
+func oracleWorkloadTokenBytes(tokens []int) []byte {
+	data := make([]byte, 4*len(tokens))
+	for i, token := range tokens {
+		binary.LittleEndian.PutUint32(data[4*i:], uint32(token))
+	}
+	return data
+}
+func TestOracleWorkloadTokenEncoding(t *testing.T) {
+	tokens := []int{0, 1, 129279}
+	data := oracleWorkloadTokenBytes(tokens)
+	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != "e6975f35fedae15219b5c539423d289ee45a9902268066d6d04622201a7553dc" {
+		t.Fatalf("wrong token encoding digest %s", got)
+	}
+	if !reflect.DeepEqual(data, []byte{0, 0, 0, 0, 1, 0, 0, 0, 255, 248, 1, 0}) {
+		t.Fatalf("wrong token bytes %v", data)
 	}
 }

@@ -17,13 +17,23 @@ hashing is outside the measured windows.
 
 Set DS4_ORACLE_WORKLOAD_GATE=1, DS4_MODEL, DS4_ORACLE_WORKLOAD_BACKEND (cuda or
 metal), DS4_ORACLE_WORKLOAD_PROMPT (raw text), DS4_ORACLE_WORKLOAD_TOKENS (JSON
-corpus of at least 2048 IDs), and DS4_ORACLE_WORKLOAD_DIR (nonexistent directory).
-The port tokenizer must reproduce the retained first 2048 IDs from the raw text.
+corpus of at least 2048 IDs), and DS4_ORACLE_WORKLOAD_DIR (nonexistent directory), and
+DS4_ORACLE_WORKLOAD_TOKENIZER_RECEIPT (retained discrepancy receipt).
+The retained first 2048 IDs must match the registered oracle token hash below.
 
-The corpus must also be independently verified against the oracle tokenizer for
-this prompt and model. The port-side check cannot establish that provenance.
-The retained CUDA oracle reference has no token-ID dump yet; corpus provenance
-must close before a physical port result is called workload-matched to it.
+The port is evaluated on the oracle's tokenization, which its own tokenizer
+would not produce. This is a numerical workload measurement, not a claim that
+the two front ends agree. The first tokenizer discrepancy is at token 904:
+the pinned C tokenizer treats non-ASCII punctuation as letter-like.
+
+The registered 2048-ID prefix SHA-256 is
+`5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380`,
+over exactly 8192 bytes of little-endian uint32 IDs. It comes from the pristine
+b0a147a CPU token dump of promessi_sposi.txt. All 21 recognized special markers
+and NUL are absent, so that dump follows the benchmark's raw BPE path. The
+harness rejects a different prefix before runtime creation and records the
+binary prefix, encoding, count and hash separately from the original JSON
+file hash. Both reference and port receipts must name this token hash.
 
 ## Physical acceptance
 
@@ -36,7 +46,8 @@ Use a fresh process per repetition and a bounded timeout. Retain go test -json
 events; check positive reach of TestOracleWorkload with scripts/check-go-test.py
 and the actual exit. A plain package PASS can mean this test skipped.
 
-identity.json binds host/backend, model, executable, prompt, corpus, context and
+identity.json also binds the discrepancy receipt path/hash and the EOS metadata
+key in the bound model. It binds host/backend, model, executable, prompt, corpus, context and
 lifecycle. result.json retains generated IDs, timing windows and full prefill/
 final float32 hashes. COMPLETE is written only after runtime Close succeeds and
 results are written. Require COMPLETE, 2048 prefill tokens, 128 generated IDs,
