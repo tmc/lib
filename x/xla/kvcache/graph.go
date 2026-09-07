@@ -12,6 +12,20 @@ import (
 	"github.com/tmc/lib/x/xla"
 )
 
+func (c *Cache) shape(length, features, heads int64) []int64 {
+	shape := slices.Clone(c.config.BatchShape)
+	if heads > 0 {
+		shape = append(shape, heads)
+	}
+	return append(shape, length, features)
+}
+
+func (c *Cache) queryTensor(length int64) builder.Type {
+	typ := c.tensor(length, c.config.KeySize)
+	typ.Shape = c.shape(length, c.config.KeySize, c.config.QueryHeads)
+	return typ
+}
+
 func (c *Cache) tensor(length, features int64) builder.Type {
 	element := "f32"
 	if c.config.ElementType == xla.F16 {
@@ -20,7 +34,7 @@ func (c *Cache) tensor(length, features int64) builder.Type {
 	if c.config.ElementType == xla.BF16 {
 		element = "bf16"
 	}
-	return builder.Type{Shape: append(slices.Clone(c.config.BatchShape), length, features), ElementType: element}
+	return builder.Type{Shape: c.shape(length, features, c.config.KVHeads), ElementType: element}
 }
 
 func (c *Cache) compile(b *builder.FuncBuilder) (*xla.Executable, error) {
@@ -85,12 +99,12 @@ func (c *Cache) program(chunk int64) (*xla.Executable, error) {
 }
 
 func (c *Cache) appendGraph(chunk int64) (*builder.FuncBuilder, error) {
-	b := builder.NewFunc("main", c.tensor(c.config.Capacity, c.config.KeySize), c.tensor(c.config.Capacity, c.config.ValueSize), c.tensor(chunk, c.config.KeySize), c.tensor(chunk, c.config.KeySize), c.tensor(chunk, c.config.ValueSize), builder.Type{ElementType: "i64"})
+	b := builder.NewFunc("main", c.tensor(c.config.Capacity, c.config.KeySize), c.tensor(c.config.Capacity, c.config.ValueSize), c.queryTensor(chunk), c.tensor(chunk, c.config.KeySize), c.tensor(chunk, c.config.ValueSize), builder.Type{ElementType: "i64"})
 	zero, err := b.IntegerConstant(0, builder.Type{ElementType: "i64"})
 	if err != nil {
 		return nil, err
 	}
-	starts := make([]builder.Value, len(c.config.BatchShape)+2)
+	starts := make([]builder.Value, len(b.Arg(0).Type.Shape))
 	for i := range starts {
 		starts[i] = zero
 	}
@@ -107,7 +121,12 @@ func (c *Cache) appendGraph(chunk int64) (*builder.FuncBuilder, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, err := b.MaskedScaledDotProductAttention(b.Arg(2), k, v, mask)
+	var out builder.Value
+	if c.config.QueryHeads > 0 {
+		out, err = b.MaskedGroupedQueryAttention(b.Arg(2), k, v, mask)
+	} else {
+		out, err = b.MaskedScaledDotProductAttention(b.Arg(2), k, v, mask)
+	}
 	if err != nil {
 		return nil, err
 	}

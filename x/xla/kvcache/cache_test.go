@@ -10,6 +10,11 @@ import (
 
 func TestConfig(t *testing.T) {
 	for _, cfg := range []Config{
+		{Capacity: 4, KeySize: 2, ValueSize: 3, ElementType: xla.F32, QueryHeads: 3, KVHeads: 2},
+		{Capacity: 4, KeySize: 2, ValueSize: 3, ElementType: xla.F32, QueryHeads: 4},
+		{Capacity: 4, KeySize: 2, ValueSize: 3, ElementType: xla.F32, KVHeads: 2},
+		{Capacity: 4, KeySize: 2, ValueSize: 3, ElementType: xla.F32, QueryHeads: -4, KVHeads: 2},
+		{Capacity: 4, KeySize: 2, ValueSize: 3, ElementType: xla.F32, QueryHeads: math.MaxInt64, KVHeads: 1},
 		{}, {Capacity: -1, KeySize: 1, ValueSize: 1, ElementType: xla.F32},
 		{BatchShape: []int64{0}, Capacity: 1, KeySize: 1, ValueSize: 1, ElementType: xla.F32},
 		{Capacity: math.MaxInt64, KeySize: 2, ValueSize: 1, ElementType: xla.F32},

@@ -77,3 +77,9 @@ func ExampleNew() {
 	_, err := kvcache.New(nil, kvcache.Config{})
 	fmt.Println(err) // Output: kvcache: f32, f16 or bf16 elements required
 }
+
+func ExampleConfig() {
+	cfg := kvcache.Config{BatchShape: []int64{2}, Capacity: 128, KeySize: 64, ValueSize: 64, ElementType: xla.BF16, QueryHeads: 8, KVHeads: 2}
+	fmt.Println(cfg.QueryHeads/cfg.KVHeads, "query heads per KV head")
+	// Output: 4 query heads per KV head
+}

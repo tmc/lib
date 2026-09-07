@@ -15,7 +15,8 @@ import (
 // KeySize and ValueSize must be positive. An empty BatchShape is unbatched.
 // ElementType must be F32, F16 or BF16. New copies BatchShape.
 type Config struct {
-	// BatchShape contains leading dimensions, such as batch size and head count.
+	// BatchShape contains leading batch dimensions. With explicit head counts,
+	// it excludes the head axis.
 	BatchShape []int64
 	// Capacity is the maximum number of cached sequence positions.
 	Capacity int64
@@ -23,6 +24,11 @@ type Config struct {
 	KeySize int64
 	// ValueSize is the number of features in each value and attention result.
 	ValueSize int64
+	// QueryHeads and KVHeads select explicit [batch..., heads, sequence, features]
+	// tensors. Both zero selects unheaded tensors. Otherwise both must be positive
+	// and QueryHeads must be divisible by KVHeads. History stores only KVHeads.
+	QueryHeads int64
+	KVHeads    int64
 	// ElementType is the storage type of inputs, history and results.
 	ElementType xla.ElementType
 }
@@ -79,6 +85,11 @@ func newCache(engine *xla.Engine, config Config) (*Cache, error) {
 }
 
 func validateConfig(c Config) error {
+	if c.QueryHeads != 0 || c.KVHeads != 0 {
+		if c.QueryHeads <= 0 || c.KVHeads <= 0 || c.QueryHeads%c.KVHeads != 0 {
+			return fmt.Errorf("kvcache: query heads must be a positive multiple of KV heads")
+		}
+	}
 	width := int64(2)
 	switch c.ElementType {
 	case xla.F32:
@@ -87,9 +98,13 @@ func validateConfig(c Config) error {
 	default:
 		return fmt.Errorf("kvcache: f32, f16 or bf16 elements required")
 	}
-	for _, features := range []int64{c.KeySize, c.ValueSize} {
+	for _, spec := range [][2]int64{{c.KeySize, c.KVHeads}, {c.ValueSize, c.KVHeads}, {c.KeySize, c.QueryHeads}, {c.ValueSize, c.QueryHeads}} {
 		count := width
-		dims := append(slices.Clone(c.BatchShape), c.Capacity, features)
+		dims := slices.Clone(c.BatchShape)
+		if spec[1] > 0 {
+			dims = append(dims, spec[1])
+		}
+		dims = append(dims, c.Capacity, spec[0])
 		for _, n := range dims {
 			if n <= 0 {
 				return fmt.Errorf("kvcache: dimensions must be positive")
@@ -131,7 +146,8 @@ func (c *Cache) Reset() error {
 }
 
 // Append appends k and v and computes causal attention for q. Inputs have shape
-// [batch..., chunk, features], matching Config; q and k use KeySize. chunk must
+// [batch..., chunk, features], or [batch..., heads, chunk, features] when
+// explicit head counts are configured. q and k use KeySize. chunk must
 // be positive and fit remaining capacity. Inputs are borrowed, and the returned
 // buffer belongs to the caller. Inputs must be finite for masked-zero guarantees.
 //
@@ -160,18 +176,27 @@ func (c *Cache) Append(ctx context.Context, q, k, v *xla.Buffer) (*xla.Buffer, e
 			return nil, fmt.Errorf("kvcache: input %d is on a different device", i)
 		}
 		features := c.config.KeySize
+		heads := c.config.KVHeads
+		if i == 0 {
+			heads = c.config.QueryHeads
+		}
 		if i == 2 {
 			features = c.config.ValueSize
 		}
-		rank := len(c.config.BatchShape) + 2
-		if typ != c.config.ElementType || len(shape) != rank || !slices.Equal(shape[:len(shape)-2], c.config.BatchShape) || shape[rank-1] != features {
+		expected := c.shape(1, features, heads)
+		rank := len(expected)
+		if typ != c.config.ElementType || len(shape) != rank {
 			return nil, fmt.Errorf("kvcache: input %d shape or element type mismatch", i)
 		}
 		if i == 0 {
 			chunk = shape[rank-2]
 		}
-		if chunk <= 0 || shape[rank-2] != chunk {
-			return nil, fmt.Errorf("kvcache: positive matching chunk lengths required")
+		if chunk <= 0 {
+			return nil, fmt.Errorf("kvcache: positive chunk length required")
+		}
+		expected[rank-2] = chunk
+		if !slices.Equal(shape, expected) {
+			return nil, fmt.Errorf("kvcache: input %d shape or chunk length mismatch", i)
 		}
 	}
 	if chunk > c.config.Capacity-c.length {
