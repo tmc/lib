@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -261,6 +262,13 @@ func TestMetalRegionProfile(t *testing.T) {
 	}
 	tokens = tokens[:metalRegionTokens]
 
+	// Bind the IDs this process actually consumed, in the same encoding
+	// the registered oracle prefix uses. Naming the token file binds the
+	// file; this binds the sequence that reached the runtime, which is
+	// the thing a later comparison against the CUDA lane depends on.
+	tokenBytes := oracleWorkloadTokenBytes(tokens)
+	tokenPrefixHash := fmt.Sprintf("%x", sha256.Sum256(tokenBytes))
+
 	r, err := newMetalRuntime(model, metalRegionContext)
 	if err != nil {
 		t.Fatal(err)
@@ -330,6 +338,7 @@ func TestMetalRegionProfile(t *testing.T) {
 		Context         int                `json:"context"`
 		Model           string             `json:"model"`
 		TokensPath      string             `json:"tokens_path"`
+		TokenPrefix     string             `json:"token_prefix_sha256"`
 		Executable      string             `json:"executable"`
 		LogitsSHA256    string             `json:"logits_sha256"`
 		ReferenceSHA256 string             `json:"reference_logits_sha256"`
@@ -340,6 +349,7 @@ func TestMetalRegionProfile(t *testing.T) {
 		Context:         metalRegionContext,
 		Model:           model,
 		TokensPath:      tokensPath,
+		TokenPrefix:     tokenPrefixHash,
 		LogitsSHA256:    instrumentedHash,
 		ReferenceSHA256: referenceHash,
 		Totals:          totals,
