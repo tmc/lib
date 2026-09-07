@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "partial-provenance",
-  "recorded_at": "2026-09-06",
-  "scope": "Inventoried 33 generated package directories; 28 have recorded generation argv and 5 have no recorded argv. Existing package receipts and their limitations are preserved.",
+  "recorded_at": "2026-09-07",
+  "scope": "Inventoried 33 generated package directories; 28 have recorded generation argv and 5 have no recorded argv. Every package records the SHA256 of its generated files, including the five without a recorded argv. Existing package receipts and their limitations are preserved.",
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
@@ -1625,7 +1625,7 @@
           },
           {
             "path": "nvidia/nvcomp/init.gen.go",
-            "sha256": "a842ac03d70c698bb26cfd6922ff8b73559785d615d81a1b0a7f27bef42de2f8"
+            "sha256": "32a4031e48d6d95d8cac59c3dab79b635fd288fb86082d3f00f2f9dc423848c2"
           },
           {
             "path": "nvidia/nvcomp/layout_test.go",
@@ -1648,6 +1648,10 @@
             "sha256": "2eadd3359b878bed7902216d56c03c485f952ee59ee19dac19690dea9387b479"
           },
           {
+            "path": "nvidia/nvcomp/provenance.gen.go",
+            "sha256": "b9c5d81697c7377b5b09b6b3cd212b8d87053094b98f1e52248f3c60506733f4"
+          },
+          {
             "path": "nvidia/nvcomp/result.gen.go",
             "sha256": "cc897df6361f6a449130cb5a556f7beaf76ae52770f79fdbb072b8f5518ecb5f"
           },
@@ -1660,7 +1664,7 @@
             "sha256": "ef4704b79c2b3ea3f8b400fcdccd03f448d47fb95fd60510324a5dbc90920957"
           }
         ],
-        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
+        "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files. The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files.",
         "comparison": "All outputs byte-identical to the lib comparison commit except init.gen.go, whose recorded digest is the integrated file; maintained package files are not generation outputs."
       },
       "headers": [
@@ -3478,7 +3482,7 @@
           },
           {
             "path": "nvidia/nvml/init.gen.go",
-            "sha256": "135709423ec584e45a1161fd6f425f3e90e7dd75215583f699d9e270a5bb0f28"
+            "sha256": "9da1c2460d5eb97175a19e3999fbba965ee134316f59126b1487aa3e33c1b524"
           },
           {
             "path": "nvidia/nvml/layout_test.go",
@@ -3495,6 +3499,10 @@
           {
             "path": "nvidia/nvml/loader_windows.gen.go",
             "sha256": "333288db03dde7a669bc744011f73ee55e82552b5b8e4534b923e9f736c2e1da"
+          },
+          {
+            "path": "nvidia/nvml/provenance.gen.go",
+            "sha256": "8d395f93bc599137d72c9d3319f894cd10707acf175e6609d136dc5f939ec343"
           },
           {
             "path": "nvidia/nvml/result.gen.go",
@@ -3520,7 +3528,8 @@
             "path": "nvidia/nvml/vgpu_type_id.gen.go",
             "sha256": "ebab184317052394206c86e9913ad08004fc8dc723c53cbe1895b7856a080c09"
           }
-        ]
+        ],
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files."
       },
       "maintained_files_excluded": [
         "AUDIT-vs-go-nvml.md",
@@ -3538,7 +3547,7 @@
     },
     "cupti": {
       "package": "github.com/tmc/lib/nvidia/cupti",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -3715,7 +3724,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "8ae5fb0c61330285bd37bb3ffeaaa66fbc58e1370aad2e1f1f404b1d29d2a245"
+            "sha256": "5ee87a9f6b4001cbeb9805bfb67d3c332665d836da02fc511042cc4e9821d534"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -3734,6 +3743,10 @@
             "sha256": "4fb1da0ba0e79b537a660433e2c7d28fda816d45a1bb0dee278bab61a4570fdd"
           },
           {
+            "path": "nvidia/cupti/provenance.gen.go",
+            "sha256": "7199a0ab26a6370d41404644e53f774f386cb1bac2a089640c11ed0465131134"
+          },
+          {
             "path": "nvidia/cupti/result.gen.go",
             "sha256": "b6e059d12e6e7abdb633f2b4af3f55d459c48ea7de81c039261e5a5ce4e40965"
           },
@@ -3749,7 +3762,8 @@
             "path": "nvidia/cupti/types.gen.go",
             "sha256": "901df8574e9969f2775fcd68d68ea33fce81d43459f3e1bbe15fb2f200aaa7f0"
           }
-        ]
+        ],
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files."
       },
       "maintained_files_excluded": [
         "example_test.go",
@@ -5471,7 +5485,7 @@
     },
     "cusparse": {
       "package": "github.com/tmc/lib/nvidia/cusparse",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
@@ -5969,7 +5983,7 @@
           },
           {
             "path": "nvidia/cusparse/init.gen.go",
-            "sha256": "84ce87d149c1c3e0a2124d691270755657f72e4939020c10c24bdf0a96e867f8"
+            "sha256": "e486dc904d90e638cba7e91dc782478fe206aa46a540349fd682746c5c66fcbd"
           },
           {
             "path": "nvidia/cusparse/loader_test.go",
@@ -5982,6 +5996,10 @@
           {
             "path": "nvidia/cusparse/loader_windows.gen.go",
             "sha256": "8d35b0eb6f6262c19b2599bd7675b49fb659a25250929eda01c72ce722886747"
+          },
+          {
+            "path": "nvidia/cusparse/provenance.gen.go",
+            "sha256": "1a653614f37f497b9951279e9efcceab279d2149d1f58575f434656a0b05fa9f"
           },
           {
             "path": "nvidia/cusparse/result.gen.go",
@@ -6302,7 +6320,8 @@
           "Retained actual generation and fresh complete output equality, not a new generation execution in this manifest pass.",
           "System SDK/compiler inputs are host-specific; not hermetic cross-host reproduction.",
           "No runtime or native library qualification implied."
-        ]
+        ],
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files."
       },
       "vendor": {
         "status": "archive-origin-unverified",
@@ -8263,8 +8282,59 @@
       "status": "generation-unrecorded",
       "generation": {
         "argv": null,
+        "outputs": [
+          {
+            "path": "nvidia/cublas/doc.gen.go",
+            "sha256": "f9955945f182c0830a08e73630752231dd66b5351f29c095039008e4453ef566"
+          },
+          {
+            "path": "nvidia/cublas/enums.gen.go",
+            "sha256": "e7312544a54f31e129432e9df82823176d0a4fb59adc442f0d5f22de0d38d0a3"
+          },
+          {
+            "path": "nvidia/cublas/funcs.gen.go",
+            "sha256": "2c1f0361e5095e4226271e927b38b4118aa2cb0b990cf4509370081c54899338"
+          },
+          {
+            "path": "nvidia/cublas/handle.gen.go",
+            "sha256": "79353dce4af4682f3af28ef4639b2769c0c09f08c836d751e2fe1672611e509b"
+          },
+          {
+            "path": "nvidia/cublas/handles.gen.go",
+            "sha256": "635dec61f22269c396d5d4e162d137fc3e7dc18936075eff5570579382d47b5d"
+          },
+          {
+            "path": "nvidia/cublas/init.gen.go",
+            "sha256": "b6681f206513be7e480de597bcbf797f929d74dddbdcaf044e747a5193406238"
+          },
+          {
+            "path": "nvidia/cublas/layout_test.go",
+            "sha256": "7b88d94be2d48a056c8f8cd576d797ff51f1df7776b028f25d0f1ff2b21e835d"
+          },
+          {
+            "path": "nvidia/cublas/loader_test.go",
+            "sha256": "e20ce64fd0b5497ca7ac980e4ee8f12bd5a8d5598155f345ecf017cf7081f1c1"
+          },
+          {
+            "path": "nvidia/cublas/loader_unix.gen.go",
+            "sha256": "9e3b80bae24a763c7d9587d955b7f2771ff05090172f07aad787de1e5d70a4ca"
+          },
+          {
+            "path": "nvidia/cublas/loader_windows.gen.go",
+            "sha256": "1846ba4b48bc3a85e2613add5a1d3c7bf6065971b2787935aaf4b37b075c353e"
+          },
+          {
+            "path": "nvidia/cublas/result.gen.go",
+            "sha256": "cf0ff5d339238b7a23af4418c985f427b49eb461af3f941e88086cdaab7f52f2"
+          },
+          {
+            "path": "nvidia/cublas/types.gen.go",
+            "sha256": "a2917cfa6579e83e66c30d6c7b4d0b918c4c3ea21425c1b32c4c3a0d62af4e6e"
+          }
+        ],
         "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
+          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
         ]
       }
     },
@@ -8272,8 +8342,87 @@
       "status": "generation-unrecorded",
       "generation": {
         "argv": null,
+        "outputs": [
+          {
+            "path": "nvidia/cublaslt/callbacks.gen.go",
+            "sha256": "c5031098e775028bf0df60417240a3cdb7719507da01d1482025c9c614c1aa10"
+          },
+          {
+            "path": "nvidia/cublaslt/doc.gen.go",
+            "sha256": "6a138050cb5f1675a38910d7f256134640e8ee9850bb35ad27e3d6eccf7924bf"
+          },
+          {
+            "path": "nvidia/cublaslt/emulation_desc.gen.go",
+            "sha256": "e110511c759dc84517275004fc1470699ea44ec38be8bc86d88a76caa6ee07b9"
+          },
+          {
+            "path": "nvidia/cublaslt/enums.gen.go",
+            "sha256": "2efd720dd8fc98559855d2659b81bab0954343f54f8c0e496b1787897d6064df"
+          },
+          {
+            "path": "nvidia/cublaslt/funcs.gen.go",
+            "sha256": "34f2234c3a2c1b43022fd6cfcb6ea3f72f90ddc242391c99a3b01ac8dde1ccbb"
+          },
+          {
+            "path": "nvidia/cublaslt/handle.gen.go",
+            "sha256": "65996e6a3fdba6a8836f8a1fe7af611e906e9a0a55cf5f36db3d3a10965a6090"
+          },
+          {
+            "path": "nvidia/cublaslt/handles.gen.go",
+            "sha256": "fc449044b1f8555c83d956c222759fc0fd837d88933f4de9e8bc2b046d9677af"
+          },
+          {
+            "path": "nvidia/cublaslt/init.gen.go",
+            "sha256": "e1e727af5bf00f81c880a6c18b2851462da837febd7ffd1a0b951d9aae09c10b"
+          },
+          {
+            "path": "nvidia/cublaslt/layout_test.go",
+            "sha256": "6f2852b1778f63c9c4cedde4be55dd897ceea8b94788992ffd49edf3fdb5efd5"
+          },
+          {
+            "path": "nvidia/cublaslt/loader_test.go",
+            "sha256": "4c7ffa4a02a1963747bdf82b7d04416d094b332f009d0c3547dfadfab20ec31b"
+          },
+          {
+            "path": "nvidia/cublaslt/loader_unix.gen.go",
+            "sha256": "51c30a2be9aeb95e1d70cec901c0c2b58369a35c821de465a5ddfacdf72576f1"
+          },
+          {
+            "path": "nvidia/cublaslt/loader_windows.gen.go",
+            "sha256": "0e60af18318477f6ef1ddd49b4b556b55cdbcd9079033394dd85e37422542ca2"
+          },
+          {
+            "path": "nvidia/cublaslt/matmul_desc.gen.go",
+            "sha256": "35a0a51aa47d979839fe4a3541e40e63666b1baf3da553775fe45ec944c36e20"
+          },
+          {
+            "path": "nvidia/cublaslt/matmul_preference.gen.go",
+            "sha256": "011f1a5913d162c894a67f12f6cccac69dab09b13a86a3c411cb7561860039af"
+          },
+          {
+            "path": "nvidia/cublaslt/matrix_layout.gen.go",
+            "sha256": "4a88bbbba1ae4df729dd70bfa1119c43b463047b946b13846cdbe13d142f81c2"
+          },
+          {
+            "path": "nvidia/cublaslt/matrix_transform_desc.gen.go",
+            "sha256": "f00085079dab0d213247ab59f3461fc2ee18058c0710375c928e16b13f26373b"
+          },
+          {
+            "path": "nvidia/cublaslt/result.gen.go",
+            "sha256": "624e19ec62edede656cdb3925754a0c4b0851de4bcdfce5d61b69b1bd82d05db"
+          },
+          {
+            "path": "nvidia/cublaslt/structs.gen.go",
+            "sha256": "bb39bb345d04ecffe14dc618cd7ef9c067e24a81520f07d97d61b56a2546ac66"
+          },
+          {
+            "path": "nvidia/cublaslt/types.gen.go",
+            "sha256": "43e6a6b0505e4fd287b92e411c6ec59b9f70de54bbb35ae6f7df32da85c60c6a"
+          }
+        ],
         "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
+          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
         ]
       }
     },
@@ -8281,8 +8430,75 @@
       "status": "generation-unrecorded",
       "generation": {
         "argv": null,
+        "outputs": [
+          {
+            "path": "nvidia/cusolver/doc.gen.go",
+            "sha256": "b135b39d0f80badda26a0929387e48eb4c4ab38e82bb3d75971c605a0e36e709"
+          },
+          {
+            "path": "nvidia/cusolver/enums.gen.go",
+            "sha256": "e76e347c34d37779f592c832a155c6b7bf3454db66ee1ab9bfb943f709d30271"
+          },
+          {
+            "path": "nvidia/cusolver/funcs.gen.go",
+            "sha256": "9fcc53dd0c1a8f749e12591f282c6d6ff9718041bf6c81656da92e73296bfd1c"
+          },
+          {
+            "path": "nvidia/cusolver/gesvdj_info.gen.go",
+            "sha256": "487dc44181020f0434c89b59cdbfd490a092d0ac4c6274561bbe5389d658287c"
+          },
+          {
+            "path": "nvidia/cusolver/handle.gen.go",
+            "sha256": "46247b15a14fd545f6410a8f29e5556f24cc4ab41eff0542bf843b83d219bf5f"
+          },
+          {
+            "path": "nvidia/cusolver/handles.gen.go",
+            "sha256": "1d39cea6f1406eae3314e31723258be45e101ed90d368f26f647bd17413623ed"
+          },
+          {
+            "path": "nvidia/cusolver/init.gen.go",
+            "sha256": "ef2e0e6e9d559857c8d0d64e55d9c989e0f68706109487aba7ab848b1f7640c1"
+          },
+          {
+            "path": "nvidia/cusolver/irs_infos.gen.go",
+            "sha256": "2cac8219cc13c42b14412c67429c61daf7dfe716e277f113a6b34bcd31005445"
+          },
+          {
+            "path": "nvidia/cusolver/irs_params.gen.go",
+            "sha256": "a54ff12af72037180cce27ee2b3ffa7246d7f17a45dbf306ecbbfe9e09b7e011"
+          },
+          {
+            "path": "nvidia/cusolver/loader_test.go",
+            "sha256": "70d8f6248a9d4d0e25064e9c5edb6f004ddd929cd3d5e2f23020787c54706f0c"
+          },
+          {
+            "path": "nvidia/cusolver/loader_unix.gen.go",
+            "sha256": "bd6f931d7d9fb858813438134fe4f0a05b17ffc003a77c993fe3e9c9e9711a9c"
+          },
+          {
+            "path": "nvidia/cusolver/loader_windows.gen.go",
+            "sha256": "e673684eb15102613f3657024060a88d68c74e488b64598796dcab383c15ba7d"
+          },
+          {
+            "path": "nvidia/cusolver/params.gen.go",
+            "sha256": "8c49d7bebc4be0b66c70d72b0d93f885b12cc722b618f315beddf121e6793a62"
+          },
+          {
+            "path": "nvidia/cusolver/result.gen.go",
+            "sha256": "ee24df811bf61bc34e2447d9bbebf3eab77d976b69d19e3ee7627c6939de1792"
+          },
+          {
+            "path": "nvidia/cusolver/syevj_info.gen.go",
+            "sha256": "512cecb12bc3e493a46305c77fc39b426b79391a4ac813185470143676e5fc86"
+          },
+          {
+            "path": "nvidia/cusolver/types.gen.go",
+            "sha256": "d55e1c42e664c4934f83d1304b8b576eb8758fcf6474feed24804635f0dfb51b"
+          }
+        ],
         "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
+          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
         ]
       }
     },
@@ -8290,8 +8506,71 @@
       "status": "generation-unrecorded",
       "generation": {
         "argv": null,
+        "outputs": [
+          {
+            "path": "nvidia/cutensor/doc.gen.go",
+            "sha256": "61ab13c16f5386627dae3196058f4d147671ff416e4c3d9556cf6010c7ce23dc"
+          },
+          {
+            "path": "nvidia/cutensor/enums.gen.go",
+            "sha256": "bc3595919b53f7ae7e2a73b804e6a53398ce139ced0167ffa215ff3c44a883ea"
+          },
+          {
+            "path": "nvidia/cutensor/funcs.gen.go",
+            "sha256": "342386bb0a8f57c6e5c7fdfcc252da74e5b3424a93e6e75877bf6e9541451444"
+          },
+          {
+            "path": "nvidia/cutensor/handle.gen.go",
+            "sha256": "815df5242a8452d6d88fb888537e57d1754bee3121d79adfa7a92a01414ac132"
+          },
+          {
+            "path": "nvidia/cutensor/handles.gen.go",
+            "sha256": "ecea6a157b683cdb2b40ce359de7f2f51f39812e76d124f39c894c271a27eb34"
+          },
+          {
+            "path": "nvidia/cutensor/init.gen.go",
+            "sha256": "7b095de895cb7acb16d78ed71dcf9abcf90f4f8ed6dfc7224d70e9b8eabc367d"
+          },
+          {
+            "path": "nvidia/cutensor/loader_test.go",
+            "sha256": "d3eea6d3f31a614334260f7b8c7d27cbad0f93ca9faf6325e0aa646b74624145"
+          },
+          {
+            "path": "nvidia/cutensor/loader_unix.gen.go",
+            "sha256": "729bf64992810b0e1a54ea97f8e832f5cab9ba09130b057955fec305848259a9"
+          },
+          {
+            "path": "nvidia/cutensor/loader_windows.gen.go",
+            "sha256": "cd8489881167c8484fec196aacd513defe6a5e03145a0ef3010d1ee19a9ba76f"
+          },
+          {
+            "path": "nvidia/cutensor/operation_descriptor.gen.go",
+            "sha256": "de03d862e9310627e84f7675e02879a66bac01ba448b75dc37d87eb4ddc0390f"
+          },
+          {
+            "path": "nvidia/cutensor/plan.gen.go",
+            "sha256": "c4682fde82dbb8a83e764d421eae42c719c82c49cbb5ec40a9ac72d19e6f5793"
+          },
+          {
+            "path": "nvidia/cutensor/plan_preference.gen.go",
+            "sha256": "7dccc405584fdba8966cc23a447cf11d254a784bb4a3b123abbd90196ed06931"
+          },
+          {
+            "path": "nvidia/cutensor/result.gen.go",
+            "sha256": "1b19f99ffaa52ca5b117539668e55979bc32a4e333e22971005b317e58fa4951"
+          },
+          {
+            "path": "nvidia/cutensor/tensor_descriptor.gen.go",
+            "sha256": "414e2becf2bbd0d25f6e72b062299b73d4409cd7f31d977c20b8bf687e4d9fba"
+          },
+          {
+            "path": "nvidia/cutensor/types.gen.go",
+            "sha256": "b6d415ef5e7328e14a0b2c1c7a654de5f129073be0a79f2a58cd7cf90bcb7f2f"
+          }
+        ],
         "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
+          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
         ]
       }
     },
@@ -8299,8 +8578,159 @@
       "status": "generation-unrecorded",
       "generation": {
         "argv": null,
+        "outputs": [
+          {
+            "path": "nvidia/driver/array.gen.go",
+            "sha256": "3bdaee0705b09f874eb009bf6f7e60ab123a9d1a9a9e95c70201db668394192f"
+          },
+          {
+            "path": "nvidia/driver/callbacks.gen.go",
+            "sha256": "167953b8b57a476b18e293aa07f0f70ccfb52b2456996712fe97d8897d2c7176"
+          },
+          {
+            "path": "nvidia/driver/context.gen.go",
+            "sha256": "002b49667e46042e3482b9e071c1e6206662c540d1cedb39e3ffd922a7cf1196"
+          },
+          {
+            "path": "nvidia/driver/coredump_callback_handle.gen.go",
+            "sha256": "ab56ffa71a3acfc9dda1948d1445e88e8adb6d0cd6aa59776008c1277aa9dc47"
+          },
+          {
+            "path": "nvidia/driver/device.gen.go",
+            "sha256": "ae62eb0c01912806bf196a967ea589e83d117ff106658d81cc74105d09285e4c"
+          },
+          {
+            "path": "nvidia/driver/device_ptr.gen.go",
+            "sha256": "0e5f836b08050765d3bca2b7b4d917c5991f75d862d3c12dba398e8ca0dcce74"
+          },
+          {
+            "path": "nvidia/driver/doc.gen.go",
+            "sha256": "7924748dba0cdcf5d5eaa767b2290740ec401dba691c1058723cf33969b90520"
+          },
+          {
+            "path": "nvidia/driver/enums.gen.go",
+            "sha256": "96302c9ecfab1e60678e82f87001589659556955e3655ed2fe53b2d3af14bab9"
+          },
+          {
+            "path": "nvidia/driver/event.gen.go",
+            "sha256": "ae3363fb979a5166d75ccbeb6fd2e156d9741c503ba636b1debebefc73b4b90b"
+          },
+          {
+            "path": "nvidia/driver/external_memory.gen.go",
+            "sha256": "d0ab648ea87c691b5704f5da0a163d78ff1504077dec8cab5b5d72b55be33b0c"
+          },
+          {
+            "path": "nvidia/driver/external_semaphore.gen.go",
+            "sha256": "3f6b769e35830a8d6a76b5507257de59679951ae3d2a7619f181a8dbd77e2d76"
+          },
+          {
+            "path": "nvidia/driver/funcs.gen.go",
+            "sha256": "4eac11dc3cd6e839d6d6263b980eb7bcd9cb77746c252e40fbef8eb8a51cb37f"
+          },
+          {
+            "path": "nvidia/driver/function.gen.go",
+            "sha256": "1509dbe54e4432bc47eadd837b9d08e6b71083ecde35dd1e6c272de0fe508966"
+          },
+          {
+            "path": "nvidia/driver/graph.gen.go",
+            "sha256": "1f7ee7727ec19637a70458b15044314e646cf2e42eb831d3d8b02a772aa956c8"
+          },
+          {
+            "path": "nvidia/driver/graph_exec.gen.go",
+            "sha256": "e00797672c73059188da0c8df4f4d84c588216c00cdbcf370618864e5842b309"
+          },
+          {
+            "path": "nvidia/driver/graph_node.gen.go",
+            "sha256": "6f246e1c27c82667925e47c1febe15bca31cf75a14257553d31867ff5b32a5f6"
+          },
+          {
+            "path": "nvidia/driver/graphics_resource.gen.go",
+            "sha256": "196e77d3e55ba1f157992bd435457c9fc38bc2f6023c69e99b32b9d87305a5ef"
+          },
+          {
+            "path": "nvidia/driver/green_ctx.gen.go",
+            "sha256": "5967d2eb4f51c0f67832bfe89bff382d1275378f94553d750eeb125b2cb3c998"
+          },
+          {
+            "path": "nvidia/driver/handles.gen.go",
+            "sha256": "71eb59b2c205e8579f8b85985fb4cbcb080ffd1e19fe523ba4c3c9206a76e287"
+          },
+          {
+            "path": "nvidia/driver/init.gen.go",
+            "sha256": "d4fdfb2d7167a928952ad3c1e28227285f04e67a0a047d23d40841d846f63efc"
+          },
+          {
+            "path": "nvidia/driver/kernel.gen.go",
+            "sha256": "9458f33d36f80ed6083ca822f4278b3f7974a411421653a840fa75be88e80fb7"
+          },
+          {
+            "path": "nvidia/driver/layout_test.go",
+            "sha256": "4e12728a698f38830669498668704f8f850aac8cb69d2afd074a0aefd5820f8c"
+          },
+          {
+            "path": "nvidia/driver/library.gen.go",
+            "sha256": "d42e50e25910ce5ecfebb424264f38e5eb98562e8a98cc9cb4759f985e17b283"
+          },
+          {
+            "path": "nvidia/driver/link_state.gen.go",
+            "sha256": "99166999794b6341b417dcabe35ab9fe728c8c424a37f32311b7ae0b781a85fc"
+          },
+          {
+            "path": "nvidia/driver/loader_test.go",
+            "sha256": "d057293df9fb221007db1ec455f69e92e100265fff24b869670a59c767168506"
+          },
+          {
+            "path": "nvidia/driver/loader_unix.gen.go",
+            "sha256": "9e0388b40235267a7d03e7fc708313625479d81c845ed09da100e82d4557e07e"
+          },
+          {
+            "path": "nvidia/driver/loader_windows.gen.go",
+            "sha256": "0c48a7666e931a9decc15ceb16c894c433e180bc94200f35380893ced64d3a9c"
+          },
+          {
+            "path": "nvidia/driver/logs_callback_handle.gen.go",
+            "sha256": "95e177592fe136b1c846f6076856ce0408239e3efe531bd3ff8b86b65113ea99"
+          },
+          {
+            "path": "nvidia/driver/memory_pool.gen.go",
+            "sha256": "29a58e51834a3633a9342116c9c0abb006667abb231e1c155f2cfe7dec6221df"
+          },
+          {
+            "path": "nvidia/driver/mipmapped_array.gen.go",
+            "sha256": "fbea89813d8b8459efe37ae47c9bb4e0cc6bd9ac2d4bafb04903f7debc1feb47"
+          },
+          {
+            "path": "nvidia/driver/module.gen.go",
+            "sha256": "3475675a5dacaafd47473b7aaa25b2717ce054500f24ae1e18c73e2906d77085"
+          },
+          {
+            "path": "nvidia/driver/result.gen.go",
+            "sha256": "4ebf77c8fad50f8ce5b5fc4001128de7143fb1aa3190a105bc3babcd9c548906"
+          },
+          {
+            "path": "nvidia/driver/stream.gen.go",
+            "sha256": "ddd8bc8d76d5cdd6a70182fbee9598e7a4825cfda7fd080435cb1304abfe6e2c"
+          },
+          {
+            "path": "nvidia/driver/structs.gen.go",
+            "sha256": "399568486e0772e2a3962909bd46b73923439c3bef69600abbde47b56e7610d2"
+          },
+          {
+            "path": "nvidia/driver/surf_ref.gen.go",
+            "sha256": "c61daba8e4c40b4b21b3fcff679fb002d31ca99942f5d5cb1228df1e97bceb73"
+          },
+          {
+            "path": "nvidia/driver/tex_ref.gen.go",
+            "sha256": "4c47ed496e127ea361de618590760ab453a870a9d2e9f6796a33d25d7d8fc11d"
+          },
+          {
+            "path": "nvidia/driver/user_object.gen.go",
+            "sha256": "8232bbd7d6cee2e3c50b29d28960080abacb4a21f7efd3de78f450ce4469420e"
+          }
+        ],
         "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command."
+          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
+          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
         ]
       }
     }
