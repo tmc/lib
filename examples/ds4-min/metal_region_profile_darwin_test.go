@@ -26,6 +26,20 @@ const (
 	metalRegionContext = 1024
 )
 
+// metalRegionPrefixSHA256 is the sha256 of the first metalRegionTokens IDs
+// as little-endian uint32, registered before any run. It is derived from
+// the already-registered 2048-token oracle prefix
+// 5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380,
+// not fitted to anything observed, and a run whose tokens do not hash to
+// it is refused rather than recorded.
+//
+// This is a gate because the alternative failed: a CUDA phase profile and
+// this one were both described as consuming "the retained tokens" and
+// hashing the first 64 IDs the same way on both hosts showed they differ
+// from the first token. A file hash binds a file; only this binds the
+// sequence, and only on both sides does it bind the comparison.
+const metalRegionPrefixSHA256 = "8e2073735828d7714e51be5fdc31d2b5b40ed2ce091d226371dba62517354310"
+
 // metalRegionVocab is the logit count both arms must produce. A run that
 // returns a different count has not evaluated this model, and comparing
 // two such runs to each other proves nothing about it.
@@ -221,6 +235,27 @@ func TestMetalRegionInventory(t *testing.T) {
 // Identity is the gate because the instrument is meant to be inert: it
 // reads two properties of a command buffer that has already completed. A
 // bit that moves means it is not, and no ranking from it is worth having.
+// TestMetalRegionPrefixRegistration checks the registered prefix hash
+// against the retained token file, so a wrong constant is caught here
+// rather than by a refusal after a model slot has been taken.
+func TestMetalRegionPrefixRegistration(t *testing.T) {
+	input, err := os.ReadFile("../../scripts/testdata/oracle-workload-tokens2048.json")
+	if err != nil {
+		t.Skip("retained token file not present")
+	}
+	tokens, err := parsePrefillTokens(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) < metalRegionTokens {
+		t.Fatalf("token file holds %d tokens, want at least %d", len(tokens), metalRegionTokens)
+	}
+	got := fmt.Sprintf("%x", sha256.Sum256(oracleWorkloadTokenBytes(tokens[:metalRegionTokens])))
+	if got != metalRegionPrefixSHA256 {
+		t.Fatalf("retained tokens hash to %s, registered %s", got, metalRegionPrefixSHA256)
+	}
+}
+
 func TestMetalRegionProfile(t *testing.T) {
 	if os.Getenv("DS4_METAL_REGION_PROFILE") == "" {
 		t.Skip("DS4_METAL_REGION_PROFILE is not set")
@@ -268,6 +303,10 @@ func TestMetalRegionProfile(t *testing.T) {
 	// the thing a later comparison against the CUDA lane depends on.
 	tokenBytes := oracleWorkloadTokenBytes(tokens)
 	tokenPrefixHash := fmt.Sprintf("%x", sha256.Sum256(tokenBytes))
+	if tokenPrefixHash != metalRegionPrefixSHA256 {
+		t.Fatalf("token prefix is %s, want the registered %s: this is not the corpus this profile is scoped to",
+			tokenPrefixHash, metalRegionPrefixSHA256)
+	}
 
 	r, err := newMetalRuntime(model, metalRegionContext)
 	if err != nil {
