@@ -58,6 +58,19 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 
 	api := copyApiTable(rawApi)
 
+	if api.StructSize < unsafe.Offsetof(api.Client_Destroy)+unsafe.Sizeof(api.Client_Destroy) {
+		return nil, fmt.Errorf("openxla: API table too small to contain Client_Create and Client_Destroy")
+	}
+	if api.Error_Destroy == 0 || api.Error_Message == 0 {
+		return nil, fmt.Errorf("openxla: API table missing required error reporting functions (Error_Destroy/Error_Message)")
+	}
+	if api.Client_Create == 0 {
+		return nil, fmt.Errorf("openxla: Client_Create function not available in PJRT API")
+	}
+	if api.Client_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: Client_Destroy function not available in PJRT API")
+	}
+
 	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0 {
 		var initArgs Plugin_Initialize_Args
 		initArgs.Struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE
@@ -66,20 +79,6 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 		if errPtr := fn(&initArgs); errPtr != nil {
 			return nil, decodeError(api, errPtr)
 		}
-	}
-
-	if api.StructSize < unsafe.Offsetof(api.Client_Destroy)+unsafe.Sizeof(api.Client_Destroy) {
-		return nil, fmt.Errorf("openxla: API table too small to contain Client_Create and Client_Destroy")
-	}
-	if api.Error_Destroy == 0 || api.Error_Message == 0 {
-		return nil, fmt.Errorf("openxla: API table missing required error reporting functions (Error_Destroy/Error_Message)")
-	}
-
-	if api.Client_Create == 0 {
-		return nil, fmt.Errorf("openxla: Client_Create function not available in PJRT API")
-	}
-	if api.Client_Destroy == 0 {
-		return nil, fmt.Errorf("openxla: Client_Destroy function not available in PJRT API")
 	}
 
 	var createArgs Client_Create_Args

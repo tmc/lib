@@ -362,3 +362,26 @@ func TestMissingDestructor_Rejection(t *testing.T) {
 		t.Errorf("expected LoadedExecutable_Destroy not available error, got %v", err)
 	}
 }
+
+func TestNewClientFromApi_ErrorDestroyMissingRejectionPrecedesInit(t *testing.T) {
+	initCalled := false
+	api := &Api{
+		StructSize: 1000,
+		ApiVersion: Api_Version{Major_version: 0, Minor_version: 30},
+		Plugin_Initialize: purego.NewCallback(func(args *Plugin_Initialize_Args) *Error {
+			initCalled = true
+			return nil
+		}),
+		Client_Create: purego.NewCallback(func(args *Client_Create_Args) *Error { return nil }),
+		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil }),
+		// Missing Error_Destroy and Error_Message
+	}
+
+	_, err := NewClientFromApi(api)
+	if err == nil || !strings.Contains(err.Error(), "missing required error reporting functions") {
+		t.Fatalf("expected missing error reporting functions error, got %v", err)
+	}
+	if initCalled {
+		t.Fatalf("Plugin_Initialize was called before required error cleanup capability validation!")
+	}
+}

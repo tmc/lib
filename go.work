@@ -2,7 +2,6 @@ go 1.27.0
 
 use (
 	./apple
-	./cmd/tpu-llama-step
 	./examples
 	./ggml
 	./hfsync
