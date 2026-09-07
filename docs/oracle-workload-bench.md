@@ -35,6 +35,40 @@ harness rejects a different prefix before runtime creation and records the
 binary prefix, encoding, count and hash separately from the original JSON
 file hash. Both reference and port receipts must name this token hash.
 
+## Qualified oracle references
+
+Two single-repetition references have completed with passing before/after load
+checks. These are oracle measurements, not port results or evidence of parity.
+
+| Backend and host | Prefill tokens/s | Generation tokens/s | Load before / after | Limit |
+| --- | ---: | ---: | ---: | ---: |
+| CUDA, GB10 spark-31db | 661.18 | 17.73 | 1.00 / 1.77 | 5.00 |
+| Metal, M4 Max m4max.local | 310.54 | 28.59 | 3.53 / 2.87 | 4.00 |
+
+Both use 2048 prefill tokens, 128 generated tokens, context allocation 65665,
+and prefill capacity 4096. Both use b0a147a **plus the retained compatibility
+patch**, not pristine b0a147a. Their post-patch `ds4.c` hash is
+`2403b881be7adbdb50f5901aabe2a08f35e7b34ed09f5b57f1b608843894393b`;
+the backend implementations and binaries differ. The model hash is
+`ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0`
+on both hosts.
+
+The Metal benchmark has an additional input-capture patch and retains the
+actual consumed prefix with the registered hash above. The CUDA input binding
+comes from a separate token dump and source-path review, not a prefix capture
+inside the timed process. Do not describe the complete sources or input-binding
+methods as identical.
+
+Receipts under `evidence/worker-CODEX6E6A/` are `oracle-bench-2048` for CUDA
+and `oracle-metal-bench-2048-window2` for Metal. Their `RESULT-MANIFEST.sha256`
+hashes are respectively
+`e322d67f79abd05032aa7031293540707f5dfed81302c2237946e4b7a07ddda0` and
+`a975e8140a786185a4efddb178ec09b4f7f5270c5bd0b6726dae0dc73d54dd19`.
+The earlier Metal receipt, `oracle-metal-bench-2048`, is disqualified and is
+not included in the table. The difference between its raw rates and the
+qualified window does not isolate a cause. One qualified repetition per
+backend establishes neither statistical significance nor a port/oracle ratio.
+
 ## Physical acceptance
 
 Physical CUDA attempts have timed out without `result.json` or `COMPLETE`;
