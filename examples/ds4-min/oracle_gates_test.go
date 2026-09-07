@@ -64,6 +64,7 @@ var oracleGates = []oracleGate{
 	{"DS4_PREFILL_CONTINUATION", "the fixed token evaluated after each prefill"},
 	{"DS4_PREFILL_DIR", "the new directory for prefill capture artifacts"},
 
+	{"DS4_CUDA_PRODUCTION_HASH_GATE", "production Eval token-zero hash before and after Reset"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 
 	{"DS4_REQUIRE_GATES", "failing this test when any gate above is unset"},
