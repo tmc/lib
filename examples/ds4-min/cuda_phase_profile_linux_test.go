@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
+
+const cudaPhaseTokenPrefixHash = "8e2073735828d7714e51be5fdc31d2b5b40ed2ce091d226371dba62517354310"
 
 type cudaPhaseEvent struct {
 	name     string
@@ -109,6 +112,18 @@ func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
 		if counts[name] != n {
 			return fmt.Errorf("cuda phase profile: %s count %d, want %d", name, counts[name], n)
 		}
+	}
+	return nil
+}
+
+func validateCUDAPhaseTokens(tokens []int) error {
+	const count = 64
+	if len(tokens) < count {
+		return fmt.Errorf("cuda phase profile: got %d tokens, want at least %d", len(tokens), count)
+	}
+	got := fmt.Sprintf("%x", sha256.Sum256(oracleWorkloadTokenBytes(tokens[:count])))
+	if got != cudaPhaseTokenPrefixHash {
+		return fmt.Errorf("cuda phase profile: token prefix hash %s, want %s", got, cudaPhaseTokenPrefixHash)
 	}
 	return nil
 }
@@ -223,6 +238,9 @@ func TestCUDAPhaseProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	const profileTokens = 64
+	if err := validateCUDAPhaseTokens(tokens); err != nil {
+		t.Fatal(err)
+	}
 	tokens = tokens[:profileTokens]
 	backend, closer, err := openSessionBackend(config{model: model, backend: "cuda", context: 1024, log: io.Discard})
 	if err != nil {
@@ -357,6 +375,29 @@ func TestValidateCUDAPhaseCounts(t *testing.T) {
 	replaced["fabricated"] = tokens * cudaLayers
 	if err := validateCUDAPhaseCounts(tokens, replaced); err == nil {
 		t.Fatal("replacement phase name passed")
+	}
+}
+
+func TestValidateCUDAPhaseTokens(t *testing.T) {
+	tokens := []int{
+		36662, 342, 119403, 10307, 43, 13019, 4687, 43,
+		80267, 33901, 22493, 36444, 60, 125394, 6328, 17239,
+		9, 13930, 9401, 3152, 31528, 2795, 7117, 392,
+		52218, 687, 3919, 45393, 7246, 266, 14067, 3493,
+		201, 54, 93729, 14, 77448, 2666, 304, 98681,
+		523, 11898, 1298, 69222, 1940, 9, 35334, 64097,
+		784, 61166, 41351, 14, 411, 6030, 62199, 201,
+		72, 25879, 22632, 21225, 75, 14, 9573, 8954,
+	}
+	if err := validateCUDAPhaseTokens(tokens); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCUDAPhaseTokens(tokens[:63]); err == nil {
+		t.Fatal("short token prefix passed")
+	}
+	tokens[0]++
+	if err := validateCUDAPhaseTokens(tokens); err == nil {
+		t.Fatal("mutated token prefix passed")
 	}
 }
 
