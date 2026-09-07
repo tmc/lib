@@ -1,0 +1,8 @@
+commit 7b0075034b5db5b3ca5ba3523b5d361c5632aa1a
+committed 2026-09-06
+agent Codex
+model GPT-5
+tty not-a-tty
+pid 56105
+ITERM_SESSION_ID w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+gates: TestCompareLogits PASS; package PASS; vet PASS; exact capture pair PASS; Metal-vs-CUDA-oracle capture pair FAIL with 129138-129216 violations per state; planted disabled-limit mutation FAIL
