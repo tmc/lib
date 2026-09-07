@@ -443,14 +443,11 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if got := r.lastCompressedEven; got != (metalBatchStats{Encoded: 14, Commits: 1, Waits: 1}) {
 		t.Fatalf("last even compressed batch = %+v, want {Encoded:14 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 10, Commits: 1, Waits: 1}) {
-		t.Fatalf("last attention batch = %+v, want {Encoded:10 Commits:1 Waits:1}", got)
+	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 14, Commits: 1, Waits: 1}) {
+		t.Fatalf("last attention batch = %+v, want {Encoded:14 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastRoutedBatch; got != (metalBatchStats{Encoded: 11, Commits: 1, Waits: 1}) {
-		t.Fatalf("last routed batch = %+v, want {Encoded:11 Commits:1 Waits:1}", got)
-	}
-	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 19, Commits: 4, Waits: 4}) {
-		t.Fatalf("last FFN batches = %+v, want {Encoded:19 Commits:4 Waits:4}", got)
+	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 15, Commits: 1, Waits: 1}) {
+		t.Fatalf("last FFN batches = %+v, want {Encoded:15 Commits:1 Waits:1}", got)
 	}
 	for i, value := range logits {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {

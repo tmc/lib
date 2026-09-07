@@ -45,7 +45,6 @@ type metalRuntime struct {
 	lastCompressedEven  metalBatchStats
 	lastAttentionBatch  metalBatchStats
 	lastFFNBatches      metalBatchStats
-	lastRoutedBatch     metalBatchStats
 }
 
 var (
@@ -751,32 +750,25 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := closing.EncodeHCPost(stateIn, r.state.attnOut, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, attentionState); err != nil {
 		return nil, err
 	}
+	// The FFN opening reads only GPU state the attention closing writes,
+	// so both ride one command buffer; the host waits once, for the router.
+	stateIn = attentionState
+	if err := closing.EncodeHCPre(stateIn, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm, r.state.ffnPre); err != nil {
+		return nil, err
+	}
+	if err := closing.EncodeMatvecF16(layer.router, r.state.ffnNorm, r.state.router); err != nil {
+		return nil, err
+	}
+	if err := closing.EncodeMatvecQ80(layer.sharedGate, r.state.ffnNorm, r.state.sharedGate); err != nil {
+		return nil, err
+	}
+	if err := closing.EncodeMatvecQ80(layer.sharedUp, r.state.ffnNorm, r.state.sharedUp); err != nil {
+		return nil, err
+	}
 	if err := closing.Wait(context.Background()); err != nil {
 		return nil, err
 	}
 	r.lastAttentionBatch = closing.Stats()
-	stateIn = attentionState
-	r.lastFFNBatches = metalBatchStats{}
-	ffnOpening, err := newMetalBatch(r.ops)
-	if err != nil {
-		return nil, err
-	}
-	if err := ffnOpening.EncodeHCPre(stateIn, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, layer.ffnNorm, r.state.ffnPre); err != nil {
-		return nil, err
-	}
-	if err := ffnOpening.EncodeMatvecF16(layer.router, r.state.ffnNorm, r.state.router); err != nil {
-		return nil, err
-	}
-	if err := ffnOpening.EncodeMatvecQ80(layer.sharedGate, r.state.ffnNorm, r.state.sharedGate); err != nil {
-		return nil, err
-	}
-	if err := ffnOpening.EncodeMatvecQ80(layer.sharedUp, r.state.ffnNorm, r.state.sharedUp); err != nil {
-		return nil, err
-	}
-	if err := ffnOpening.Wait(context.Background()); err != nil {
-		return nil, err
-	}
-	r.addFFNBatch(ffnOpening)
 	router := r.state.router.HostSlice()
 	var selected []int32
 	var weights []float32
@@ -797,31 +789,25 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := r.state.expertW.CopyFromHost(weights); err != nil {
 		return nil, fmt.Errorf("routed experts: copy weights: %w", err)
 	}
-	shared, err := newMetalBatch(r.ops)
+	// The shared expert, the routed experts and the FFN closing depend only
+	// on GPU state, so one command buffer carries the rest of the layer.
+	ffn, err := newMetalBatch(r.ops)
 	if err != nil {
 		return nil, err
 	}
-	if err := shared.EncodeSwiGLU(r.state.sharedGate, r.state.sharedUp, r.state.sharedMid); err != nil {
+	if err := ffn.EncodeSwiGLU(r.state.sharedGate, r.state.sharedUp, r.state.sharedMid); err != nil {
 		return nil, err
 	}
-	if err := shared.EncodeMatvecQ80(layer.sharedDown, r.state.sharedMid, r.state.sharedOut); err != nil {
+	if err := ffn.EncodeMatvecQ80(layer.sharedDown, r.state.sharedMid, r.state.sharedOut); err != nil {
 		return nil, err
 	}
-	if err := shared.Wait(context.Background()); err != nil {
+	if err := ffn.EncodeMatvecIQ2Selected(layer.expertGate, layer.expertUp, r.state.expertIDs, r.state.ffnNorm, r.state.expertGateRaw, r.state.expertUpRaw); err != nil {
 		return nil, err
 	}
-	r.addFFNBatch(shared)
-	routed, err := newMetalBatch(r.ops)
-	if err != nil {
+	if err := ffn.EncodeClampGate10(r.state.expertGateRaw, r.state.expertGate); err != nil {
 		return nil, err
 	}
-	if err := routed.EncodeMatvecIQ2Selected(layer.expertGate, layer.expertUp, r.state.expertIDs, r.state.ffnNorm, r.state.expertGateRaw, r.state.expertUpRaw); err != nil {
-		return nil, err
-	}
-	if err := routed.EncodeClampGate10(r.state.expertGateRaw, r.state.expertGate); err != nil {
-		return nil, err
-	}
-	if err := routed.EncodeClamp10(r.state.expertUpRaw, r.state.expertUp); err != nil {
+	if err := ffn.EncodeClamp10(r.state.expertUpRaw, r.state.expertUp); err != nil {
 		return nil, err
 	}
 	for slot, weight := range weights {
@@ -839,44 +825,28 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err != nil {
 			return nil, err
 		}
-		if err := routed.EncodeSwiGLUWeighted(gate, up, mid, weight); err != nil {
+		if err := ffn.EncodeSwiGLUWeighted(gate, up, mid, weight); err != nil {
 			return nil, err
 		}
 	}
-	if err := routed.EncodeMatvecQ2KSelected(layer.expertDown, r.state.expertIDs, r.state.expertMid, r.state.expertDown); err != nil {
+	if err := ffn.EncodeMatvecQ2KSelected(layer.expertDown, r.state.expertIDs, r.state.expertMid, r.state.expertDown); err != nil {
 		return nil, err
 	}
-	if err := routed.EncodeSumVectors(r.state.expertDown, r.state.routedOut, 6); err != nil {
+	if err := ffn.EncodeSumVectors(r.state.expertDown, r.state.routedOut, 6); err != nil {
 		return nil, err
 	}
-	if err := routed.Wait(context.Background()); err != nil {
-		return nil, err
-	}
-	r.lastRoutedBatch = routed.Stats()
-	r.addFFNBatch(routed)
-	ffnClosing, err := newMetalBatch(r.ops)
-	if err != nil {
-		return nil, err
-	}
-	if err := ffnClosing.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {
+	if err := ffn.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {
 		return nil, err
 	}
 	stateOut := r.state.hc[i%len(r.state.hc)]
-	if err := ffnClosing.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
+	if err := ffn.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
 		return nil, err
 	}
-	if err := ffnClosing.Wait(context.Background()); err != nil {
+	if err := ffn.Wait(context.Background()); err != nil {
 		return nil, err
 	}
-	r.addFFNBatch(ffnClosing)
+	r.lastFFNBatches = ffn.Stats()
 	return stateOut.HostSlice(), nil
-}
-
-func (r *metalRuntime) addFFNBatch(batch *metalBatch) {
-	stats := batch.Stats()
-	r.lastFFNBatches.Encoded += stats.Encoded
-	r.lastFFNBatches.Commits += stats.Commits
-	r.lastFFNBatches.Waits += stats.Waits
 }
 
 func (r *metalRuntime) outputLogits(hc []float32) ([]float32, error) {
