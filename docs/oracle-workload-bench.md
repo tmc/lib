@@ -46,8 +46,8 @@ Use a fresh process per repetition and a bounded timeout. Retain go test -json
 events; check positive reach of TestOracleWorkload with scripts/check-go-test.py
 and the actual exit. A plain package PASS can mean this test skipped.
 
-identity.json also binds the discrepancy receipt path/hash and the EOS metadata
-key in the bound model. It binds host/backend, model, executable, prompt, corpus, context and
+identity.json also binds the discrepancy receipt path/hash and the EOS vocabulary-token lookup
+in the bound model. It binds host/backend, model, executable, prompt, corpus, context and
 lifecycle. result.json retains generated IDs, timing windows and full prefill/
 final float32 hashes. COMPLETE is written only after runtime Close succeeds and
 results are written. Require COMPLETE, 2048 prefill tokens, 128 generated IDs,

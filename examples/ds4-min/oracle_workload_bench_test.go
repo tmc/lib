@@ -226,7 +226,27 @@ func TestOracleWorkload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity := map[string]any{"backend": backend, "host": host, "goos": runtime.GOOS, "goarch": runtime.GOARCH, "context": oracleWorkloadContext, "model_sha256": hash(model), "executable_sha256": hash(executable), "prompt_sha256": fmt.Sprintf("%x", sha256.Sum256(prompt)), "tokens_sha256": fmt.Sprintf("%x", sha256.Sum256(input)), "token_ids_sha256": tokenHash, "token_ids_encoding": "little-endian uint32", "token_ids_count": len(tokens), "input_contract": "port evaluated on captured oracle tokenization, which its own tokenizer does not produce; no front-end equivalence claim", "eos": tok.eos, "eos_provenance": "tokenizer.ggml.eos_token_id from bound GGUF model", "tokenizer_discrepancy_receipt": discrepancyPath, "tokenizer_discrepancy_sha256": fmt.Sprintf("%x", sha256.Sum256(discrepancy)), "lifecycle": "fresh runtime; first prefill; 128 greedy non-EOS decodes; close before COMPLETE", "scope": "measurement only; external oracle-token provenance, qualification and registered correctness gates required"}
+	identity := map[string]any{
+		"backend":                       backend,
+		"host":                          host,
+		"goos":                          runtime.GOOS,
+		"goarch":                        runtime.GOARCH,
+		"context":                       oracleWorkloadContext,
+		"model_sha256":                  hash(model),
+		"executable_sha256":             hash(executable),
+		"prompt_sha256":                 fmt.Sprintf("%x", sha256.Sum256(prompt)),
+		"tokens_sha256":                 fmt.Sprintf("%x", sha256.Sum256(input)),
+		"token_ids_sha256":              tokenHash,
+		"token_ids_encoding":            "little-endian uint32",
+		"token_ids_count":               len(tokens),
+		"input_contract":                "port evaluated on captured oracle tokenization, which its own tokenizer does not produce; no front-end equivalence claim",
+		"eos":                           tok.eos,
+		"eos_provenance":                "vocabulary lookup of <｜end▁of▁sentence｜> in tokenizer.ggml.tokens; port validates ID 1",
+		"tokenizer_discrepancy_receipt": discrepancyPath,
+		"tokenizer_discrepancy_sha256":  fmt.Sprintf("%x", sha256.Sum256(discrepancy)),
+		"lifecycle":                     "fresh runtime; first prefill; 128 greedy non-EOS decodes; close before COMPLETE",
+		"scope":                         "measurement only; external oracle-token provenance, qualification and registered correctness gates required",
+	}
 	data, err := json.MarshalIndent(identity, "", "  ")
 	if err != nil {
 		t.Fatal(err)
