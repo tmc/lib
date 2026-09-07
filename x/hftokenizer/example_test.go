@@ -86,3 +86,31 @@ func ExampleTokenizer_MaxTokenID() {
 	fmt.Println(tok.MaxTokenID())
 	// Output: 269
 }
+
+func ExampleTokenizer_NewDecoder() {
+	tok, err := exampleTokenizer()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	d := tok.NewDecoder()
+	first, err := d.Decode([]int32{114}, false)
+	fmt.Printf("%q %v\n", first, err)
+	last, err := d.Decode([]int32{18, 12}, true)
+	fmt.Printf("%q %v\n", last, err)
+	// Output:
+	// "" <nil>
+	// "€" <nil>
+}
+
+func ExampleDecoder_Decode() {
+	tok, err := exampleTokenizer()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	d := tok.NewDecoder()
+	text, err := d.Decode([]int32{114, 18}, true)
+	fmt.Printf("%q %v\n", text, err)
+	// Output: "�" <nil>
+}
