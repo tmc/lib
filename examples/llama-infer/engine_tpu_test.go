@@ -7,9 +7,11 @@ import (
 	"errors"
 	"os"
 	"strings"
-	"math"
-	"github.com/tmc/lib/openxla"
 	"testing"
+	"unsafe"
+
+	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/openxla"
 )
 
 func skipIfNoTPU(t *testing.T, err error) {
@@ -103,218 +105,248 @@ func TestTPUEngineSmokeMatmul(t *testing.T) {
 	skipIfNoTPU(t, err)
 }
 
-func TestClassifyTPULoadError(t *testing.T) {
-	tests := []struct {
-		name          string
-		inputErr      error
-		wantNotFound  bool
-	}{
-		{
-			name:         "os_not_exist",
-			inputErr:     os.ErrNotExist,
-			wantNotFound: true,
-		},
-		{
-			name:         "dlopen_no_such_file",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: dlopen(libtpu.so): image not found"),
-			wantNotFound: true,
-		},
-		{
-			name:         "dlopen_cannot_open_no_such_file",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: cannot open shared object file: No such file or directory"),
-			wantNotFound: true,
-		},
-		{
-			name:         "corrupt_binary_bad_elf",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: /usr/lib/libtpu.so: invalid ELF header"),
-			wantNotFound: false,
-		},
-		{
-			name:         "missing_dependency_linux",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: libdependency.so: cannot open shared object file: No such file or directory"),
-			wantNotFound: false,
-		},
-		{
-			name:         "missing_dependency_darwin_dyld",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: dlopen(libtpu.so): Library not loaded: @rpath/libfoo.dylib Referenced from: /usr/lib/libtpu.so Reason: tried: '/usr/lib/libfoo.dylib' (no such file)"),
-			wantNotFound: false,
-		},
-		{
-			name:         "permission_denied",
-			inputErr:     errors.New("tpu: failed to load libtpu.so: permission denied"),
-			wantNotFound: false,
-		},
-		{
-			name:         "symbol_not_found",
-			inputErr:     errors.New("tpu: GetPjrtApi symbol not found in loaded library"),
-			wantNotFound: false,
-		},
+// buildMockTPUEngine sets up a ModelEngine wired to a mock PJRT Api table.
+func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *bool, *bool, *bool) {
+	api := &openxla.Api{
+		StructSize: 2048,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			classified := classifyTPULoadError(tt.inputErr)
-			isNotFound := errors.Is(classified, ErrLibTPUNotFound)
-			if isNotFound != tt.wantNotFound {
-				t.Errorf("got isNotFound=%v, want %v (classified error: %v)", isNotFound, tt.wantNotFound, classified)
+	mockErr := &openxla.Error{}
+	api.Error_Destroy = purego.NewCallback(func(args *openxla.Error_Destroy_Args) {})
+	api.Error_Message = purego.NewCallback(func(args *openxla.Error_Message_Args) {
+		msg := "mock injected error"
+		args.Message = &([]byte(msg))[0]
+		args.Message_size = uintptr(len(msg))
+	})
+
+	api.Client_AddressableDevices = purego.NewCallback(func(args *openxla.Client_AddressableDevices_Args) *openxla.Error {
+		dummyDev := &openxla.Device{}
+		args.Addressable_devices = dummyDev
+		args.Num_addressable_devices = 1
+		return nil
+	})
+
+	api.Event_Await = purego.NewCallback(func(args *openxla.Event_Await_Args) *openxla.Error {
+		return nil
+	})
+	api.Event_Destroy = purego.NewCallback(func(args *openxla.Event_Destroy_Args) *openxla.Error {
+		return nil
+	})
+
+	b1Destroyed := false
+	b2Destroyed := false
+	outBufDestroyed := false
+
+	bufAllocCount := 0
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *openxla.Client_BufferFromHostBuffer_Args) *openxla.Error {
+		bufAllocCount++
+		if bufAllocCount == 2 && opts.b2AllocFail {
+			return mockErr
+		}
+		args.Buffer = &openxla.Buffer{}
+		return nil
+	})
+
+	bufDestroyCount := 0
+	api.Buffer_Destroy = purego.NewCallback(func(args *openxla.Buffer_Destroy_Args) *openxla.Error {
+		bufDestroyCount++
+		// If b2 failed to allocate, the only input buffer destroyed is b1
+		if opts.b2AllocFail {
+			b1Destroyed = true
+			if opts.b1DestroyFail {
+				return mockErr
 			}
-		})
-	}
-}
-
-func TestCheckMatmulOutput_Controls(t *testing.T) {
-	expected := []float32{11.0, 11.5, 9.0, 27.0, 27.5, 27.0}
-
-	// 1. Correct values pass
-	good := []float32{11.0, 11.5, 9.0, 27.0, 27.5, 27.0}
-	if err := checkMatmulOutput(good, expected); err != nil {
-		t.Fatalf("expected good values to pass, got: %v", err)
-	}
-
-	// 2. Perturbed value in each slot must fail
-	for i := range expected {
-		bad := make([]float32, len(expected))
-		copy(bad, expected)
-		bad[i] += 0.01 // perturb beyond 1e-4 tolerance
-		if err := checkMatmulOutput(bad, expected); err == nil {
-			t.Errorf("expected perturbed value at index %d to fail, but passed", i)
+			return nil
 		}
-	}
-
-	// 3. NaN in each slot must fail
-	for i := range expected {
-		bad := make([]float32, len(expected))
-		copy(bad, expected)
-		bad[i] = float32(math.NaN())
-		if err := checkMatmulOutput(bad, expected); err == nil || !strings.Contains(err.Error(), "NaN") {
-			t.Errorf("expected NaN at index %d to fail, got %v", i, err)
-		}
-	}
-
-	// 4. Positive and Negative Inf must fail
-	for i := range expected {
-		badPos := make([]float32, len(expected))
-		copy(badPos, expected)
-		badPos[i] = float32(math.Inf(1))
-		if err := checkMatmulOutput(badPos, expected); err == nil || !strings.Contains(err.Error(), "Inf") {
-			t.Errorf("expected +Inf at index %d to fail, got %v", i, err)
-		}
-
-		badNeg := make([]float32, len(expected))
-		copy(badNeg, expected)
-		badNeg[i] = float32(math.Inf(-1))
-		if err := checkMatmulOutput(badNeg, expected); err == nil || !strings.Contains(err.Error(), "Inf") {
-			t.Errorf("expected -Inf at index %d to fail, got %v", i, err)
-		}
-	}
-
-	// 5. Length mismatch must fail
-	short := []float32{11.0, 11.5}
-	if err := checkMatmulOutput(short, expected); err == nil {
-		t.Errorf("expected short output to fail")
-	}
-}
-
-func TestValidateOutputCardinality(t *testing.T) {
-	// Calling the exact production helper validateOutputCardinality
-	// 1. Valid cardinality: 1 device, 1 output
-	validOutputs := [][]*openxla.BufferWrapper{{&openxla.BufferWrapper{}}}
-	if err := validateOutputCardinality(validOutputs); err != nil {
-		t.Fatalf("expected valid output cardinality to pass, got: %v", err)
-	}
-
-	// 2. Empty outer slice: 0 devices
-	var emptyOutputs [][]*openxla.BufferWrapper
-	if err := validateOutputCardinality(emptyOutputs); err == nil || !strings.Contains(err.Error(), "device result lists") {
-		t.Errorf("expected empty outer slice to fail device check, got %v", err)
-	}
-
-	// 3. Excess devices: 2 devices
-	excessDevices := make([][]*openxla.BufferWrapper, 2)
-	excessDevices[0] = []*openxla.BufferWrapper{{}}
-	excessDevices[1] = []*openxla.BufferWrapper{{}}
-	if err := validateOutputCardinality(excessDevices); err == nil || !strings.Contains(err.Error(), "got 2 device result lists") {
-		t.Errorf("expected excess devices to fail, got %v", err)
-	}
-
-	// 4. Empty inner slice on device 0
-	emptyDev0 := [][]*openxla.BufferWrapper{{}}
-	if err := validateOutputCardinality(emptyDev0); err == nil || !strings.Contains(err.Error(), "got 0 outputs on device 0") {
-		t.Errorf("expected empty dev 0 output list to fail, got %v", err)
-	}
-
-	// 5. Excess outputs on device 0
-	excessDev0 := [][]*openxla.BufferWrapper{{{}, {}}}
-	if err := validateOutputCardinality(excessDev0); err == nil || !strings.Contains(err.Error(), "got 2 outputs on device 0") {
-		t.Errorf("expected excess outputs on device 0 to fail, got %v", err)
-	}
-}
-
-func TestForwardPassMockTPU_DestructorFailureAggregation(t *testing.T) {
-	// Verify that named error return in ForwardPassMockTPU correctly aggregates destructor failures.
-	var cleanupErrs []error
-	var err error
-
-	errSentinel := errors.New("primary operation failed")
-	destroySentinel := errors.New("destructor failed")
-
-	// 1. Success + Destructor failure -> returns destructor error
-	func() {
-		defer func() {
-			if len(cleanupErrs) > 0 {
-				err = errors.Join(err, errors.Join(cleanupErrs...))
+		// In normal LIFO defer execution:
+		// 1st destroyed: output buffer
+		// 2nd destroyed: b2
+		// 3rd destroyed: b1
+		switch bufDestroyCount {
+		case 1:
+			outBufDestroyed = true
+			if opts.outDestroyFail {
+				return mockErr
 			}
-		}()
-		cleanupErrs = append(cleanupErrs, destroySentinel)
-	}()
-	if !errors.Is(err, destroySentinel) {
-		t.Fatalf("expected destructor error to be returned on primary success, got: %v", err)
-	}
-
-	// 2. Primary failure + Destructor failure -> returns both joined
-	err = nil
-	cleanupErrs = nil
-	func() {
-		defer func() {
-			if len(cleanupErrs) > 0 {
-				err = errors.Join(err, errors.Join(cleanupErrs...))
+		case 2:
+			b2Destroyed = true
+			if opts.b2DestroyFail {
+				return mockErr
 			}
-		}()
-		err = errSentinel
-		cleanupErrs = append(cleanupErrs, destroySentinel)
-	}()
-	if !errors.Is(err, errSentinel) {
-		t.Fatalf("expected primary error in joined result, got: %v", err)
+		case 3:
+			b1Destroyed = true
+			if opts.b1DestroyFail {
+				return mockErr
+			}
+		}
+		return nil
+	})
+
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *openxla.LoadedExecutable_GetExecutable_Args) *openxla.Error {
+		args.Executable = &openxla.Executable{}
+		return nil
+	})
+	api.Executable_NumOutputs = purego.NewCallback(func(args *openxla.Executable_NumOutputs_Args) *openxla.Error {
+		args.Num_outputs = 1
+		return nil
+	})
+	api.Executable_Destroy = purego.NewCallback(func(args *openxla.Executable_Destroy_Args) *openxla.Error {
+		return nil
+	})
+
+	api.LoadedExecutable_Execute = purego.NewCallback(func(args *openxla.LoadedExecutable_Execute_Args) *openxla.Error {
+		if opts.execFail {
+			return mockErr
+		}
+		if args.Output_lists != nil {
+			outPtrs := *(*[]**openxla.Buffer)(unsafe.Pointer(&struct {
+				p   unsafe.Pointer
+				len int
+				cap int
+			}{args.Output_lists, 1, 1}))
+			if len(outPtrs) > 0 && outPtrs[0] != nil {
+				*outPtrs[0] = &openxla.Buffer{}
+			}
+		}
+		return nil
+	})
+
+	api.Buffer_ToHostBuffer = purego.NewCallback(func(args *openxla.Buffer_ToHostBuffer_Args) *openxla.Error {
+		if opts.toHostFail {
+			return mockErr
+		}
+		// Write expected 6 float32s: [11.0, 11.5, 9.0, 27.0, 27.5, 27.0]
+		expected := []float32{11.0, 11.5, 9.0, 27.0, 27.5, 27.0}
+		dstSlice := unsafe.Slice((*float32)(args.Dst), 6)
+		copy(dstSlice, expected)
+		return nil
+	})
+
+	client := newClientWrapperForTest(api, &openxla.Client{})
+	exec := newExecutableWrapperForTest(api, &openxla.LoadedExecutable{})
+
+	eng := &ModelEngine{
+		client: client,
+		exec:   exec,
 	}
-	if !errors.Is(err, destroySentinel) {
-		t.Fatalf("expected destructor error in joined result, got: %v", err)
-	}
+	return eng, &b1Destroyed, &b2Destroyed, &outBufDestroyed
 }
 
-func TestRunTPUSmokeTest_CleanupFailureAggregation(t *testing.T) {
-	freeSentinel := errors.New("free failed")
-	fwdSentinel := errors.New("fwd failed")
+type mockTPUOpts struct {
+	b2AllocFail    bool
+	execFail       bool
+	toHostFail     bool
+	b1DestroyFail  bool
+	b2DestroyFail  bool
+	outDestroyFail bool
+}
 
-	// 1. Forward pass success + Free failure -> returns free failure
-	var err error
-	func() {
-		defer func() {
-			err = errors.Join(err, freeSentinel)
-		}()
-	}()
-	if !errors.Is(err, freeSentinel) {
-		t.Fatalf("expected free error on forward pass success, got: %v", err)
+func TestForwardPassMockTPU_ProductionLifecycle(t *testing.T) {
+	// 1. Success path: all cleanups pass, no errors
+	t.Run("success_all_clean", func(t *testing.T) {
+		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{})
+		err := eng.ForwardPassMockTPU()
+		if err != nil {
+			t.Fatalf("expected nil error on clean mock run, got: %v", err)
+		}
+		if !*b1D || !*b2D || !*outD {
+			t.Fatalf("expected all buffers destroyed: b1=%v b2=%v out=%v", *b1D, *b2D, *outD)
+		}
+	})
+
+	// 2. Input b1 destructor failure on successful forward pass
+	t.Run("b1_destructor_failure", func(t *testing.T) {
+		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b1DestroyFail: true})
+		err := eng.ForwardPassMockTPU()
+		if err == nil || !strings.Contains(err.Error(), "destroy b1") {
+			t.Fatalf("expected destroy b1 error, got: %v", err)
+		}
+		if !*b1D || !*b2D || !*outD {
+			t.Fatalf("expected all destructors called: b1=%v b2=%v out=%v", *b1D, *b2D, *outD)
+		}
+	})
+
+	// 3. Input b2 destructor failure on successful forward pass
+	t.Run("b2_destructor_failure", func(t *testing.T) {
+		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{b2DestroyFail: true})
+		err := eng.ForwardPassMockTPU()
+		if err == nil || !strings.Contains(err.Error(), "destroy b2") {
+			t.Fatalf("expected destroy b2 error, got: %v", err)
+		}
+		if !*b1D || !*b2D || !*outD {
+			t.Fatalf("expected all destructors called: b1=%v b2=%v out=%v", *b1D, *b2D, *outD)
+		}
+	})
+
+	// 4. Output buffer destructor failure on successful forward pass
+	t.Run("output_destructor_failure", func(t *testing.T) {
+		eng, b1D, b2D, outD := buildMockTPUEngine(t, mockTPUOpts{outDestroyFail: true})
+		err := eng.ForwardPassMockTPU()
+		if err == nil || !strings.Contains(err.Error(), "destroy output buffer") {
+			t.Fatalf("expected destroy output buffer error, got: %v", err)
+		}
+		if !*b1D || !*b2D || !*outD {
+			t.Fatalf("expected all destructors called: b1=%v b2=%v out=%v", *b1D, *b2D, *outD)
+		}
+	})
+
+	// 5. b2 allocation failure + b1 destructor failure: b1 destructor error must be preserved
+	t.Run("b2_alloc_fail_and_b1_destroy_fail", func(t *testing.T) {
+		eng, b1D, b2D, _ := buildMockTPUEngine(t, mockTPUOpts{b2AllocFail: true, b1DestroyFail: true})
+		err := eng.ForwardPassMockTPU()
+		if err == nil {
+			t.Fatal("expected error on b2 alloc failure, got nil")
+		}
+		if !strings.Contains(err.Error(), "bufferFromHost in2") {
+			t.Errorf("expected primary b2 alloc error in joined error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "destroy b1") {
+			t.Errorf("expected b1 cleanup error in joined error, got %v", err)
+		}
+		if !*b1D {
+			t.Errorf("expected b1 destructor to be called")
+		}
+		if *b2D {
+			t.Errorf("b2 should not be destroyed since it was never allocated")
+		}
+	})
+
+	// 6. Execution failure + destructor failure: both primary and destructor errors must be joined
+	t.Run("exec_fail_and_destructor_fail", func(t *testing.T) {
+		eng, _, _, _ := buildMockTPUEngine(t, mockTPUOpts{execFail: true, b1DestroyFail: true})
+		err := eng.ForwardPassMockTPU()
+		if err == nil {
+			t.Fatal("expected error on exec failure, got nil")
+		}
+		if !strings.Contains(err.Error(), "execute:") {
+			t.Errorf("expected primary execute error in joined error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "destroy b1") {
+			t.Errorf("expected b1 cleanup error in joined error, got %v", err)
+		}
+	})
+}
+
+func TestRunTPUSmokeTest_ProductionFreeErrorPropagation(t *testing.T) {
+	api := &openxla.Api{
+		StructSize: 2048,
 	}
+	mockErr := &openxla.Error{}
+	api.Error_Destroy = purego.NewCallback(func(args *openxla.Error_Destroy_Args) {})
+	api.Error_Message = purego.NewCallback(func(args *openxla.Error_Message_Args) {
+		msg := "client destroy failed"
+		args.Message = &([]byte(msg))[0]
+		args.Message_size = uintptr(len(msg))
+	})
+	api.Client_Destroy = purego.NewCallback(func(args *openxla.Client_Destroy_Args) *openxla.Error {
+		return mockErr
+	})
 
-	// 2. Forward pass failure + Free failure -> returns both
-	err = nil
-	func() {
-		defer func() {
-			err = errors.Join(err, freeSentinel)
-		}()
-		err = fwdSentinel
-	}()
-	if !errors.Is(err, fwdSentinel) || !errors.Is(err, freeSentinel) {
-		t.Fatalf("expected both fwd and free errors, got: %v", err)
+	client := newClientWrapperForTest(api, &openxla.Client{})
+	eng := &ModelEngine{client: client}
+
+	err := eng.Free()
+	if err == nil || !strings.Contains(err.Error(), "destroy client") {
+		t.Fatalf("expected Free() to return joined client destroy error, got: %v", err)
 	}
 }

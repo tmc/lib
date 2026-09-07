@@ -5,21 +5,13 @@ package main
 import (
 	"context"
 	"errors"
-	"os"
-	"strings"
 	"fmt"
 	"time"
-    "unsafe"
+	"unsafe"
 
-	"math"
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/openxla"
 	"github.com/tmc/lib/tpu"
-)
-
-var (
-	ErrLibTPUNotFound          = errors.New("tpu: libtpu library not found")
-	ErrNoAddressableTPUDevices = errors.New("openxla: no addressable tpu devices found")
 )
 
 type BatchedQKVResult struct {
@@ -172,68 +164,6 @@ func GetOrCompileCudaEngine(cfg Config) (*ModelEngine, error) {
 }
 
 
-// classifyTPULoadError distinguishes genuinely absent library files from corruption or dependency failures.
-
-// validateOutputCardinality validates that execution produced exactly 1 device output list with 1 buffer.
-func validateOutputCardinality(outputs [][]*openxla.BufferWrapper) error {
-	if len(outputs) != 1 {
-		return fmt.Errorf("unexpected device output cardinality: got %d device result lists, want 1", len(outputs))
-	}
-	if len(outputs[0]) != 1 {
-		return fmt.Errorf("unexpected per-device output cardinality: got %d outputs on device 0, want 1", len(outputs[0]))
-	}
-	return nil
-}
-
-func classifyTPULoadError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
-	}
-	msg := strings.ToLower(err.Error())
-
-	// If the failure mentions a secondary dependency library (e.g. libcuda, libdependency, etc.)
-	// or mentions "library not loaded", this is a dependency resolution failure of an existing binary,
-	// NOT an absent libtpu plugin!
-	if strings.Contains(msg, "library not loaded") ||
-		strings.Contains(msg, "referenced from:") ||
-		strings.Contains(msg, "reason: tried:") ||
-		(strings.Contains(msg, "cannot open shared object file") && !strings.Contains(msg, "libtpu.so")) {
-		return err
-	}
-
-	// Only genuine absent libtpu target errors
-	if (strings.Contains(msg, "image not found") && strings.Contains(msg, "libtpu")) ||
-		(strings.Contains(msg, "no such file or directory") && strings.Contains(msg, "libtpu")) ||
-		(strings.Contains(msg, "cannot open shared object file") && strings.Contains(msg, "libtpu.so")) {
-		return fmt.Errorf("%w: %v", ErrLibTPUNotFound, err)
-	}
-	return err
-}
-
-// checkMatmulOutput validates the shape, finite values, and numerical accuracy against an independent oracle.
-func checkMatmulOutput(got, expected []float32) error {
-	if len(got) != len(expected) {
-		return fmt.Errorf("output length mismatch: got %d, want %d", len(got), len(expected))
-	}
-	for i := range expected {
-		val := got[i]
-		if math.IsNaN(float64(val)) {
-			return fmt.Errorf("matmul output contains NaN at index %d", i)
-		}
-		if math.IsInf(float64(val), 0) {
-			return fmt.Errorf("matmul output contains Inf (%f) at index %d", val, i)
-		}
-		diff := val - expected[i]
-		if diff < -1e-4 || diff > 1e-4 {
-			return fmt.Errorf("matmul numerical mismatch at index %d: got %f, want %f", i, val, expected[i])
-		}
-	}
-	return nil
-}
-
 func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 	if err := tpu.Load(""); err != nil {
 		return nil, fmt.Errorf("load libtpu: %w", classifyTPULoadError(err))
@@ -326,37 +256,31 @@ func (eng *ModelEngine) ForwardPassMockTPU() (err error) {
         27.0, 27.5, 27.0,
     }
 
-    var cleanupErrs []error
     b1, err := eng.client.BufferFromHost(unsafe.Pointer(&in1[0]), openxla.Buffer_Type_F32, []int64{2, 4}, dev)
     if err != nil {
         return fmt.Errorf("bufferFromHost in1: %w", err)
     }
     defer func() {
         if dErr := b1.Destroy(); dErr != nil {
-            cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy b1: %w", dErr))
+            err = errors.Join(err, fmt.Errorf("destroy b1: %w", dErr))
         }
     }()
 
-    b2, err := eng.client.BufferFromHost(unsafe.Pointer(&in2[0]), openxla.Buffer_Type_F32, []int64{4, 3}, dev)
-    if err != nil {
-        return errors.Join(fmt.Errorf("bufferFromHost in2: %w", err), errors.Join(cleanupErrs...))
+    b2, b2Err := eng.client.BufferFromHost(unsafe.Pointer(&in2[0]), openxla.Buffer_Type_F32, []int64{4, 3}, dev)
+    if b2Err != nil {
+        err = fmt.Errorf("bufferFromHost in2: %w", b2Err)
+        return err
     }
     defer func() {
         if dErr := b2.Destroy(); dErr != nil {
-            cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy b2: %w", dErr))
-        }
-    }()
-
-    // Execute
-    defer func() {
-        if len(cleanupErrs) > 0 {
-            err = errors.Join(err, errors.Join(cleanupErrs...))
+            err = errors.Join(err, fmt.Errorf("destroy b2: %w", dErr))
         }
     }()
 
     outputs, execErr := eng.exec.Execute([][]*openxla.BufferWrapper{{b1, b2}})
     if execErr != nil {
-        return fmt.Errorf("execute: %w", execErr)
+        err = fmt.Errorf("execute: %w", execErr)
+        return err
     }
     // Arrange cleanup for ALL returned buffers upfront before cardinality check to prevent leaks
     defer func() {
@@ -364,7 +288,7 @@ func (eng *ModelEngine) ForwardPassMockTPU() (err error) {
             for _, b := range devOutputs {
                 if b != nil {
                     if dErr := b.Destroy(); dErr != nil {
-                        cleanupErrs = append(cleanupErrs, fmt.Errorf("destroy output buffer: %w", dErr))
+                        err = errors.Join(err, fmt.Errorf("destroy output buffer: %w", dErr))
                     }
                 }
             }
@@ -372,16 +296,19 @@ func (eng *ModelEngine) ForwardPassMockTPU() (err error) {
     }()
 
     if cardErr := validateOutputCardinality(outputs); cardErr != nil {
-        return cardErr
+        err = cardErr
+        return err
     }
 
     outBuffer := outputs[0][0]
     outHost := make([]float32, 6)
     if toHostErr := outBuffer.ToHost(unsafe.Pointer(&outHost[0]), uintptr(len(outHost)*4)); toHostErr != nil {
-        return fmt.Errorf("toHost: %w", toHostErr)
+        err = fmt.Errorf("toHost: %w", toHostErr)
+        return err
     }
 
-    return checkMatmulOutput(outHost, expectedC)
+    err = checkMatmulOutput(outHost, expectedC)
+    return err
 }
 
 
