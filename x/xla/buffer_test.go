@@ -77,3 +77,20 @@ func TestHostShapeIsCopied(t *testing.T) {
 		t.Fatalf("buffer shape follows caller mutation: %v", b.dims)
 	}
 }
+
+func TestBufferShapeCopiesDimensions(t *testing.T) {
+	b := &Buffer{wrapper: &openxla.BufferWrapper{}, dims: []int64{2, 3}, elemTyp: F32}
+	typ, shape, err := b.Shape()
+	if err != nil || typ != F32 {
+		t.Fatalf("shape: %v %v", typ, err)
+	}
+	shape[0] = 99
+	_, again, err := b.Shape()
+	if err != nil || again[0] != 2 {
+		t.Fatalf("shape aliases caller: %v %v", again, err)
+	}
+	b.wrapper = nil
+	if _, _, err := b.Shape(); err == nil {
+		t.Fatal("closed buffer shape succeeded")
+	}
+}

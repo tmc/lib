@@ -466,6 +466,26 @@ type BufferWrapper struct {
 	buffer *Buffer
 }
 
+// Device returns the device on which the buffer resides.
+func (b *BufferWrapper) Device() (*Device, error) {
+	if b == nil || b.buffer == nil {
+		return nil, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_Device == 0 {
+		return nil, fmt.Errorf("openxla: buffer device query not available")
+	}
+	args := Buffer_Device_Args{Struct_size: PJRT_Buffer_Device_Args_STRUCT_SIZE, Buffer: b.buffer}
+	var fn func(*Buffer_Device_Args) *Error
+	purego.RegisterFunc(&fn, b.api.Buffer_Device)
+	if err := decodeError(b.api, fn(&args)); err != nil {
+		return nil, err
+	}
+	if args.Device == nil {
+		return nil, fmt.Errorf("openxla: buffer has no device")
+	}
+	return args.Device, nil
+}
+
 // Shape returns the buffer's element type and a copy of its dimensions.
 func (b *BufferWrapper) Shape() (Buffer_Type, []int64, error) {
 	if b == nil || b.buffer == nil {

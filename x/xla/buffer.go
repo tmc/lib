@@ -58,6 +58,23 @@ func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int6
 	}, nil
 }
 
+// Device returns the device on which the buffer resides.
+func (b *Buffer) Device() (*openxla.Device, error) {
+	if b == nil || b.wrapper == nil {
+		return nil, fmt.Errorf("xla: buffer is closed")
+	}
+	return b.wrapper.Device()
+}
+
+// Shape returns the element type and a copy of the buffer dimensions.
+// A closed buffer returns an error.
+func (b *Buffer) Shape() (ElementType, []int64, error) {
+	if b == nil || b.wrapper == nil {
+		return 0, nil, fmt.Errorf("xla: buffer is closed")
+	}
+	return b.elemTyp, slices.Clone(b.dims), nil
+}
+
 // ToHost copies the device buffer synchronously into the provided host slice.
 func (b *Buffer) ToHost(dst []byte) error {
 	if b == nil || b.wrapper == nil {
