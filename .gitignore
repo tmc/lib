@@ -84,3 +84,5 @@
 /cudaprof
 /nvidia/cudaprof
 /nvidia/ptx-sass-trace
+
+/examples/hostqualify/hostqualify
