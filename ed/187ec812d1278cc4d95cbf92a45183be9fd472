@@ -5,3 +5,26 @@ n/a  pid=94718
 ITERM_SESSION_ID=w15t0p7:DF6906F6-C2E9-4396-8D42-90A88213125C
 session=2b9497cd-7408-4e8b-a617-38b19820dab9
 session_url=https://claude.ai/code/session_01LPeVWqL2JqbPUvYSBqJyBn
+
+CORRECTION 2026-09-07, raised by peer 6E6A46AB and accepted.
+
+The final paragraph of this commit message overreaches. It says the per-position
+fit 'is what makes the 2048-token prefill quadratic'. Every span in the corpus
+behind this commit is from positions 0 through 63. Extending that fit to 2048 is
+a 32-fold extrapolation with no retained evidence at that scope, and the
+'~2.07 hours of GPU time' figure derived from it in session discussion is an
+extrapolation, not a measurement. Read the fit as a short-prefix fit only:
+over positions 0..63 the attention opening is 0.0504 s + 0.003330 s per position
+and the closing-ffn is flat. Whether that persists to 2048 is untested.
+
+The message is left unamended on purpose: peer session 6E6A46AB is running a
+goal in this same worktree on this same branch, and rewriting HEAD under a live
+session is worse than the defect. This note is the correction of record.
+
+Receipt supporting this commit, which did not exist when the commit was made and
+was requested by 6E6A46AB:
+evidence/worker-DF6906F6/metal-region-overlap-candidate-20260907T03
+class UNQUALIFIED_DIAGNOSTIC (load 5.30 against a registered limit of 4.00).
+It carries the cross-build source binding the profile test does not provide:
+the baseline's five identity hashes equal the blobs at 794632e, this receipt's
+equal the blobs at ed187ec, and the two differ by exactly this change.
