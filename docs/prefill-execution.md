@@ -9,6 +9,43 @@ This is source evidence, not a throughput measurement. No model was loaded by
 this audit. Source identities and test receipts are retained under
 `/Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/iteration1/`.
 
+## Integrated state at 6b0bfcb
+
+CUDA uses layer-major traversal only when `len(tokens) == 2`
+(`cuda_session_linux.go:277-281,310-315`). Each row has separate transient
+activations; layer history is shared. The arithmetic kernels remain single-row.
+The 64- and 2048-token paths still use the original token-major loop.
+
+The n=2 candidate captured at `f59c503` matches its baseline exactly for both
+129280-float prefill and fixed-continuation vectors. Reversing token order within
+each layer produces a valid capture that the comparator rejects. These are
+warmed, reset, position-zero captures for tokens `[0,3476]`, continuation `0`,
+context 2049. They do not establish arbitrary prefixes or throughput. The
+successor `cb52b99` (integrated as `6b0bfcb`) makes extra-row allocation
+transactional; its model-free failure/retry/reuse controls pass. That successor
+has source-equivalent arithmetic, but was not the captured executable.
+
+Metal remains token-major (`metal_runtime_darwin.go:561-567`). Router integration
+`1842667` leaves three explicit layer waits at lines 665, 783 and 843 and removes
+the separate synchronous router helper. For 2048 tokens this is
+`2048 * 43 * 3 = 264192` explicit layer waits, excluding other operations.
+Both arms built at the DataOffset baseline `02ef5c7` produce identical prompt-A
+state files; their ordered concatenation SHA-256 is
+`db6f6125aace12670703a3b2a422c86655a9938fc1335f718657d2ab4913a6fe`.
+The model-enabled operation-count test passes with 15 encoded operations and
+fails when the runtime is reverted to 14. Neither result measures throughput.
+
+Current receipts:
+
+- CUDA n=2: `evidence/worker-BABFB352/prefill-n2-layer-major-20260907/`.
+- CUDA lifecycle: DGX `/home/tmc/tmp/ds4-prefill-n2-lifecycle-test-20260907/`.
+- Metal router: sibling `../evidence/worker-CODEX6E6A/router-integration/`.
+
+The remaining performance work is larger token-row execution and batched matrix
+kernels, with exact 64/2048 prefill and continuation gates before rate claims.
+Qualified 2048-token port/oracle rates on both hosts remain missing. The older
+source counts below describe their named baselines, not the integrated code.
+
 ## Execution shape
 
 Paths below are relative to `examples/ds4-min` at `679b74a` unless noted.
@@ -40,7 +77,7 @@ CUDA changes already cover half-rounded Q, pinned cuBLAS scalar pointers, and
 model first touch. Those files belong to peers. Source presence does not certify
 their numerical or performance gates.
 
-The current Metal candidate includes a peer-owned batch collapse. It has three
+The Metal candidate inspected during the original audit included a peer-owned batch collapse. It has three
 explicit layer waits (`metal_runtime_darwin.go:660,768,845`) plus a synchronous
 router helper (`metal_ops_darwin.go:695-696,736-737`), or 352256 layer-associated
 commit/waits per 2048 tokens before other helpers. Its measured impact and exact
