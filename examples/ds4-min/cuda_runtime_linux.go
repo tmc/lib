@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"syscall"
 	"unsafe"
 
@@ -629,6 +630,9 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 		return nil, err
 	}
 	r := &cudaFoundation{device: dev, file: f, model: model, name: name, major: major, minor: minor, hmm: hmm, gguf: g}
+	if err := r.warmModel(); err != nil {
+		return nil, err
+	}
 	if err := r.probe(); err != nil {
 		return nil, err
 	}
@@ -641,6 +645,33 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// warmModel makes the whole mapped model resident before any kernel reads it.
+//
+// Under host page tables the kernels address the file-backed mapping directly,
+// so a kernel argument can name a page the process has never touched. Resolving
+// that first reference from the device does not reliably deliver the file
+// contents: the first evaluation then reads wrong bytes for whichever tensors
+// it happens to reach first, and every later evaluation is correct because the
+// first one left the pages present. Faulting the span in from the host removes
+// the device-side first reference. It costs the same residency wait the pinned
+// implementations pay at load time; a warm page cache makes it nearly free.
+func (r *cudaFoundation) warmModel() error {
+	if !r.hmm {
+		return nil
+	}
+	defer beginOp("model.warm").end()
+	if err := syscall.Madvise(r.model, syscall.MADV_WILLNEED); err != nil && !errors.Is(err, syscall.EINVAL) {
+		return fmt.Errorf("cuda: advise model mapping: %w", err)
+	}
+	page := syscall.Getpagesize()
+	var sink byte
+	for i := 0; i < len(r.model); i += page {
+		sink ^= r.model[i]
+	}
+	runtime.KeepAlive(sink)
+	return nil
 }
 
 // cudaSupportsHostPageTables reports whether ordinary system allocations use
