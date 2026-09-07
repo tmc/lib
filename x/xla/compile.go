@@ -18,19 +18,20 @@ func DefaultCompileOptions() *CompileOptions {
 // byte representation, using a hand-rolled protobuf encoder to adhere to the
 // minimal external dependency constraint.
 func (o *CompileOptions) ToProto() []byte {
-	// CompileOptionsProto contains ExecutableBuildOptionsProto at field 3.
-	// ExecutableBuildOptionsProto contains num_replicas at field 6, num_partitions at field 9.
+	// CompileOptionsProto contains:
+	// - Field 3: executable_build_options (ExecutableBuildOptionsProto)
+	// Inside ExecutableBuildOptionsProto:
+	// - Field 4: num_replicas (varint)
+	// - Field 5: num_partitions (varint)
 	var ebo []byte
 
-	// Field 6: num_replicas (varint)
+	// ExecutableBuildOptionsProto fields
 	if o.ReplicaCount > 0 {
-		ebo = appendVarint(ebo, 6<<3|0)
+		ebo = appendVarint(ebo, 4<<3|0)
 		ebo = appendVarint(ebo, uint64(o.ReplicaCount))
 	}
-
-	// Field 9: num_partitions (varint)
 	if o.NumPartitions > 0 {
-		ebo = appendVarint(ebo, 9<<3|0)
+		ebo = appendVarint(ebo, 5<<3|0)
 		ebo = appendVarint(ebo, uint64(o.NumPartitions))
 	}
 
@@ -40,6 +41,18 @@ func (o *CompileOptions) ToProto() []byte {
 		b = appendVarint(b, 3<<3|2) // Field 3, wire type 2 (length-delimited)
 		b = appendVarint(b, uint64(len(ebo)))
 		b = append(b, ebo...)
+	}
+
+	// Field 4: num_replicas (varint)
+	if o.ReplicaCount > 0 {
+		b = appendVarint(b, 4<<3|0)
+		b = appendVarint(b, uint64(o.ReplicaCount))
+	}
+
+	// Field 5: num_partitions (varint)
+	if o.NumPartitions > 0 {
+		b = appendVarint(b, 5<<3|0)
+		b = appendVarint(b, uint64(o.NumPartitions))
 	}
 
 	return b
@@ -60,6 +73,9 @@ func (e *Engine) Compile(programCode []byte, format string, opts *CompileOptions
 		opts = DefaultCompileOptions()
 	}
 	optsBytes := opts.ToProto()
+	if opts.ReplicaCount <= 1 && opts.NumPartitions <= 1 {
+		optsBytes = defaultCompileOptionsProtoBytes
+	}
 
 	wrapper, err := e.client.Compile(programCode, format, optsBytes)
 	if err != nil {

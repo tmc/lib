@@ -8,143 +8,414 @@ import (
 
 // Api represents the PJRT_Api function table.
 type Api struct {
-	StructSize                                           uintptr
-	ExtensionStart                                       unsafe.Pointer
-	ApiVersion                                           Api_Version
-	Error_Destroy                                        uintptr
-	Error_Message                                        uintptr
-	Error_GetCode                                        uintptr
-	Plugin_Initialize                                    uintptr
-	Plugin_Attributes                                    uintptr
-	Event_Destroy                                        uintptr
-	Event_IsReady                                        uintptr
-	Event_Error                                          uintptr
-	Event_Await                                          uintptr
-	Event_OnReady                                        uintptr
-	Client_Create                                        uintptr
-	Client_Destroy                                       uintptr
-	Client_PlatformName                                  uintptr
-	Client_ProcessIndex                                  uintptr
-	Client_PlatformVersion                               uintptr
-	Client_Devices                                       uintptr
-	Client_AddressableDevices                            uintptr
-	Client_LookupDevice                                  uintptr
-	Client_LookupAddressableDevice                       uintptr
-	Client_AddressableMemories                           uintptr
-	Client_Compile                                       uintptr
-	Client_DefaultDeviceAssignment                       uintptr
-	Client_BufferFromHostBuffer                          uintptr
-	DeviceDescription_Id                                 uintptr
-	DeviceDescription_ProcessIndex                       uintptr
-	DeviceDescription_Attributes                         uintptr
-	DeviceDescription_Kind                               uintptr
-	DeviceDescription_DebugString                        uintptr
-	DeviceDescription_ToString                           uintptr
-	Device_GetDescription                                uintptr
-	Device_IsAddressable                                 uintptr
-	Device_LocalHardwareId                               uintptr
-	Device_AddressableMemories                           uintptr
-	Device_DefaultMemory                                 uintptr
-	Device_MemoryStats                                   uintptr
-	Memory_Id                                            uintptr
-	Memory_Kind                                          uintptr
-	Memory_DebugString                                   uintptr
-	Memory_ToString                                      uintptr
-	Memory_AddressableByDevices                          uintptr
-	Executable_Destroy                                   uintptr
-	Executable_Name                                      uintptr
-	Executable_NumReplicas                               uintptr
-	Executable_NumPartitions                             uintptr
-	Executable_NumOutputs                                uintptr
-	Executable_SizeOfGeneratedCodeInBytes                uintptr
-	Executable_GetCostAnalysis                           uintptr
-	Executable_OutputMemoryKinds                         uintptr
-	Executable_OptimizedProgram                          uintptr
-	Executable_Serialize                                 uintptr
-	LoadedExecutable_Destroy                             uintptr
-	LoadedExecutable_GetExecutable                       uintptr
-	LoadedExecutable_AddressableDevices                  uintptr
-	LoadedExecutable_Delete                              uintptr
-	LoadedExecutable_IsDeleted                           uintptr
-	LoadedExecutable_Execute                             uintptr
-	Executable_DeserializeAndLoad                        uintptr
-	LoadedExecutable_Fingerprint                         uintptr
-	Buffer_Destroy                                       uintptr
-	Buffer_ElementType                                   uintptr
-	Buffer_Dimensions                                    uintptr
-	Buffer_UnpaddedDimensions                            uintptr
-	Buffer_DynamicDimensionIndices                       uintptr
-	Buffer_GetMemoryLayout                               uintptr
-	Buffer_OnDeviceSizeInBytes                           uintptr
-	Buffer_Device                                        uintptr
-	Buffer_Memory                                        uintptr
-	Buffer_Delete                                        uintptr
-	Buffer_IsDeleted                                     uintptr
-	Buffer_CopyToDevice                                  uintptr
-	Buffer_ToHostBuffer                                  uintptr
-	Buffer_IsOnCpu                                       uintptr
-	Buffer_ReadyEvent                                    uintptr
-	Buffer_UnsafePointer                                 uintptr
-	Buffer_IncreaseExternalReferenceCount                uintptr
-	Buffer_DecreaseExternalReferenceCount                uintptr
-	Buffer_OpaqueDeviceMemoryDataPointer                 uintptr
-	CopyToDeviceStream_Destroy                           uintptr
-	CopyToDeviceStream_AddChunk                          uintptr
-	CopyToDeviceStream_TotalBytes                        uintptr
-	CopyToDeviceStream_GranuleSize                       uintptr
-	CopyToDeviceStream_CurrentBytes                      uintptr
-	TopologyDescription_Create                           uintptr
-	TopologyDescription_Destroy                          uintptr
-	TopologyDescription_PlatformName                     uintptr
-	TopologyDescription_PlatformVersion                  uintptr
-	TopologyDescription_GetDeviceDescriptions            uintptr
-	TopologyDescription_Serialize                        uintptr
-	TopologyDescription_Attributes                       uintptr
-	Compile                                              uintptr
-	Executable_OutputElementTypes                        uintptr
-	Executable_OutputDimensions                          uintptr
-	Buffer_CopyToMemory                                  uintptr
-	Client_CreateViewOfDeviceBuffer                      uintptr
-	Executable_Fingerprint                               uintptr
-	Client_TopologyDescription                           uintptr
-	Executable_GetCompiledMemoryStats                    uintptr
-	Memory_Kind_Id                                       uintptr
-	ExecuteContext_Create                                uintptr
-	ExecuteContext_Destroy                               uintptr
-	Buffer_CopyRawToHost                                 uintptr
-	AsyncHostToDeviceTransferManager_Destroy             uintptr
-	AsyncHostToDeviceTransferManager_TransferData        uintptr
-	Client_CreateBuffersForAsyncHostToDevice             uintptr
-	AsyncHostToDeviceTransferManager_RetrieveBuffer      uintptr
-	AsyncHostToDeviceTransferManager_Device              uintptr
-	AsyncHostToDeviceTransferManager_BufferCount         uintptr
-	AsyncHostToDeviceTransferManager_BufferSize          uintptr
-	AsyncHostToDeviceTransferManager_SetBufferError      uintptr
-	AsyncHostToDeviceTransferManager_AddMetadata         uintptr
-	Client_DmaMap                                        uintptr
-	Client_DmaUnmap                                      uintptr
-	Client_CreateUninitializedBuffer                     uintptr
-	Client_UpdateGlobalProcessInfo                       uintptr
-	TopologyDescription_Deserialize                      uintptr
-	Client_CreateAliasBuffer                             uintptr
-	Client_FulfillAliasBuffer                            uintptr
-	LoadedExecutable_GetDeviceAssignment                 uintptr
-	Client_CreateErrorBuffer                             uintptr
-	AsyncHostToDeviceTransferManager_TransferLiteral     uintptr
-	Buffer_CopyRawToHostFuture                           uintptr
-	Device_PoisonExecution                               uintptr
-	Device_CreateAsyncTrackingEvent                      uintptr
-	AsyncTrackingEvent_Destroy                           uintptr
-	Executable_GetCompileOptions                         uintptr
-	Buffer_DonateWithControlDependency                   uintptr
-	Event_Create                                         uintptr
-	Event_Set                                            uintptr
-	Device_GetAttributes                                 uintptr
-	Client_Load                                          uintptr
-	LoadedExecutable_AddressableDeviceLogicalIds         uintptr
-	Buffer_Bitcast                                       uintptr
-	Error_ForEachPayload                                 uintptr
-	TopologyDescription_Fingerprint                      uintptr
+	StructSize     uintptr
+	ExtensionStart unsafe.Pointer
+	ApiVersion     Api_Version
+	// Frees `error`. `error` can be nullptr.
+	Error_Destroy uintptr
+	// Gets the human-readable reason for `error`. `message` has the lifetime of
+	// `error`.
+	Error_Message uintptr
+	Error_GetCode uintptr
+	// One-time plugin setup. Must be called before any other functions are called.
+	Plugin_Initialize uintptr
+	// Returns an array of plugin attributes which are key-value pairs. Common keys
+	// include `xla_version`, `stablehlo_current_version`, and
+	// `stablehlo_minimum_version`.
+	Plugin_Attributes uintptr
+	// Frees `event`. `event` can be `nullptr`.
+	Event_Destroy uintptr
+	// Returns true if this PJRT_Event has completed, including if an error has
+	// occurred.
+	Event_IsReady uintptr
+	// Should only be called if PJRT_Event_IsReady returns true.
+	// Returns `nullptr` if there is no error.
+	// The returned error should be freed with `PJRT_Error_Destroy`.
+	//
+	// If `PJRT_Event_Await` has been called, this will return a pointer to an
+	// identical error status as that call, as will subsequent calls to
+	// `PJRT_Event_Error`. However, each of these `PJRT_Error *` pointers are
+	// independent of `PJRT_Error *`s returned by other function calls, so they must
+	// each be freed separately using `PJRT_Error_Destroy`.
+	Event_Error uintptr
+	// Blocks the calling thread until `event` is ready, then returns the error
+	// status (with `nullptr` indicating no error). The returned status should be
+	// freed with `PJRT_Error_Destroy`.
+	Event_Await uintptr
+	// Registers `callback` to be called once `event` is ready, with `event`'s
+	// error status and a pointer to an object of the caller's choice as arguments.
+	Event_OnReady uintptr
+	// Creates and initializes a new PJRT_Client and returns in `client`.
+	Client_Create uintptr
+	// Shuts down and frees `client`. `client` can be nullptr.
+	Client_Destroy uintptr
+	// Returns a string that identifies the platform (e.g. "cpu", "gpu", "tpu").
+	Client_PlatformName uintptr
+	// Return the process index of this client. Always 0 in single-process
+	// settings.
+	Client_ProcessIndex uintptr
+	// Returns a string containing human-readable, platform-specific version info
+	// (e.g. the CUDA version on GPU or libtpu version on Cloud TPU).
+	Client_PlatformVersion uintptr
+	// Returns a list of all devices visible to the runtime, including addressable
+	// and non-addressable devices.
+	Client_Devices uintptr
+	// Returns a list of devices that are addressable from the client.
+	// Addressable devices are those that the client can issue commands to.
+	// All devices are addressable in a single-process environment.
+	Client_AddressableDevices uintptr
+	// Returns a PJRT_Device* with the specified ID as returned by
+	// PJRT_DeviceDescription_Id.
+	Client_LookupDevice uintptr
+	// Returns an addressable PJRT_Device* with the specified ID as returned by
+	// PJRT_DeviceDescription_LocalHardwareId.
+	Client_LookupAddressableDevice uintptr
+	// Returns a list of memories that are addressable from the client. Addressable
+	// memories are those that the client can directly transfer data to and from.
+	// All memories are addressable in a single-process environment.
+	Client_AddressableMemories uintptr
+	// Compiles a program in specified format (such as MLIR or HLO) with given
+	// `options`.
+	Client_Compile                 uintptr
+	Client_DefaultDeviceAssignment uintptr
+	// Asynchronously copies a buffer stored on host to device memory.
+	Client_BufferFromHostBuffer uintptr
+	// The ID of this device. IDs are unique among devices of this type
+	// (e.g. CPUs, GPUs). On multi-host platforms, this will be unique across all
+	// hosts' devices.
+	DeviceDescription_Id uintptr
+	// The index of the process that this device belongs to, i.e. is addressable
+	// from. This is not always identical to PJRT_Client_ProcessIndex in a
+	// multi-process setting, where each client can see devices from all
+	// processes, but only a subset of them are addressable and have the same
+	// process_index as the client.
+	DeviceDescription_ProcessIndex uintptr
+	// Returns an array of device specific attributes with attribute name, value
+	// and value type.
+	DeviceDescription_Attributes uintptr
+	// A vendor-dependent string that uniquely identifies the kind of device,
+	// e.g., "Tesla V100-SXM2-16GB".
+	DeviceDescription_Kind uintptr
+	// Debug string suitable for logging when errors occur. Should be verbose
+	// enough to describe the current device unambiguously.
+	DeviceDescription_DebugString uintptr
+	// Debug string suitable for reading by end users, should be reasonably terse,
+	// for example: "CpuDevice(id=0)".
+	DeviceDescription_ToString uintptr
+	// Fetch the DeviceDescription associated with this device.
+	Device_GetDescription uintptr
+	// Whether client can issue command to this device.
+	Device_IsAddressable uintptr
+	// Opaque hardware ID, e.g., the CUDA device number. In general, not guaranteed
+	// to be dense, and -1 if undefined.
+	Device_LocalHardwareId uintptr
+	// Returns the memories that a device can address.
+	Device_AddressableMemories uintptr
+	// Returns the default memory of a device, i.e. which memory data processed by
+	// this device should be stored in by default.
+	Device_DefaultMemory uintptr
+	// Device memory/allocator statistics. All returned stats except `bytes_in_use`
+	// are optional and may not be returned by all platforms. Implementations may
+	// also return PJRT_Error_Code_UNIMPLEMENTED. Intended for diagnostic purposes.
+	Device_MemoryStats uintptr
+	// The ID of this memory. IDs are unique among memories of this type.
+	Memory_Id uintptr
+	// A platform-dependent string that uniquely identifies the kind of the memory.
+	Memory_Kind uintptr
+	// Debug string suitable for logging when errors occur. Should be verbose
+	// enough to describe the current memory unambiguously.
+	Memory_DebugString uintptr
+	// Debug string suitable for reading by end users, should be reasonably terse.
+	Memory_ToString uintptr
+	// Returns the devices that can address this memory.
+	Memory_AddressableByDevices uintptr
+	// Frees `executable`. `executable` can be nullptr.
+	Executable_Destroy uintptr
+	// Returns a string that identifies the executable.
+	Executable_Name uintptr
+	// Returns the number of replicas of the executable.
+	Executable_NumReplicas uintptr
+	// Returns the number of partitions of the executable.
+	Executable_NumPartitions uintptr
+	// Gets the number of outputs per device produced by `executable`.
+	Executable_NumOutputs                 uintptr
+	Executable_SizeOfGeneratedCodeInBytes uintptr
+	// Get the cost properties for the executable. Different platforms may return
+	// different properties; for example, some platforms may return the number of
+	// operations, or memory size of the input/output of the executable, based on
+	// program analysis.
+	Executable_GetCostAnalysis uintptr
+	// Returns a list of memory kind strings for outputs.
+	Executable_OutputMemoryKinds uintptr
+	// Retrieves the optimized program for a given PJRT_Executable (SPMD).
+	// The caller should populate `program->format` and `format_size`.
+	//
+	// The implementation will set `program->format` and `program->format_size`
+	// to inform callers of the format of the optimized program returned.
+	// These members are owned by the implementation.
+	//
+	// If called with nullptr as `program->code`, `PJRT_Executable_OptimizedProgram`
+	// will populate `program->code_size` as an output indicating the number of
+	// bytes the string `program->code` requires.
+	//
+	// If `program->code` is not null, `PJRT_Executable_OptimizedProgram` will fill
+	// the buffer pointed to by `program->code` with the serialization of the
+	// optimized HLO program. `program->code` must point to a client-owned buffer of
+	// size >= `program->code_size`, which must be at large enough to hold the
+	// serialization of the optimized program.
+	//
+	// Callers should generally call this function twice with the same `args`.
+	// In the first call, `program->code` must be nullptr. This call will populate
+	// `program->code_size`. Clients should then allocate a buffer `code_buff` of at
+	// least `code_size` bytes. Before the second call, callers should set
+	// `program->code = code_buff`. The second call will then write the serialized
+	// program to `code_buff`.
+	Executable_OptimizedProgram uintptr
+	// Returns a platform-specific serialization of `executable`. The serialization
+	// is not guaranteed to be stable over time.
+	Executable_Serialize uintptr
+	// Frees `executable` and deletes the underlying runtime object as if
+	// `PJRT_LoadedExecutable_Delete` were called. `executable` can be nullptr.
+	LoadedExecutable_Destroy uintptr
+	// Constructs a PJRT_Executable from a PJRT_LoadedExecutable. The returned
+	// executable should be freed by the caller with PJRT_Executable_Destroy.
+	LoadedExecutable_GetExecutable uintptr
+	// Returns a list of devices this executable will run on.
+	LoadedExecutable_AddressableDevices uintptr
+	// Drops `executable`'s reference to the internal runtime object and
+	// associated resources, without freeing the `executable` object itself.
+	// `executable` can only be used with PJRT_LoadedExecutable_IsDeleted and
+	// PJRT_LoadedExecutable_Destroy after calling this method. The internal runtime
+	// executable will be freed after the last execution completes.
+	LoadedExecutable_Delete uintptr
+	// True if and only if PJRT_LoadedExecutable_Delete has previously been called.
+	LoadedExecutable_IsDeleted uintptr
+	// Executes on devices addressable by the client.
+	LoadedExecutable_Execute uintptr
+	// Deserializes an executable serialized by `PJRT_Executable_Serialize`.
+	// `serialized_executable` must have been produced by the same platform and
+	// library version as this one.
+	Executable_DeserializeAndLoad uintptr
+	// DEPRECATED. Will be removed in PJRT version 2.0. Please use
+	// PJRT_Executable_Fingerprint instead. A unique fingerprint for `executable`.
+	// Two executables that were produced by compiling with identical inputs (same
+	// program, compile options, compiler version, etc.) should have the same
+	// fingerprint. May not be implemented by all platforms.
+	LoadedExecutable_Fingerprint uintptr
+	// Deletes the underlying runtime objects as if 'PJRT_Buffer_Delete' were
+	// called and frees `buffer`. `buffer` can be nullptr.
+	Buffer_Destroy uintptr
+	// Returns the type of the array elements of a buffer.
+	Buffer_ElementType uintptr
+	// Returns the array shape of `buffer`, i.e. the size of each dimension.
+	Buffer_Dimensions uintptr
+	// Returns the unpadded array shape of `buffer`. This usually is equivalent to
+	// PJRT_Buffer_Dimensions, but for implementations that support
+	// dynamically-sized dimensions via padding to a fixed size, any dynamic
+	// dimensions may have a smaller unpadded size than the padded size reported by
+	// PJRT_Buffer_Dimensions. ("Dynamic" dimensions are those whose length is
+	// only known at runtime, vs. "static" dimensions whose size is fixed at compile
+	// time.)
+	Buffer_UnpaddedDimensions uintptr
+	// Returns the indices of dynamically-sized dimensions, or an empty list if all
+	// dimensions are static. ("Dynamic" dimensions are those whose length is
+	// only known at runtime, vs. "static" dimensions whose size is fixed at compile
+	// time.)
+	Buffer_DynamicDimensionIndices uintptr
+	// DEPRECATED. Please use layout extension instead.
+	// https://github.com/openxla/xla/blob/main/xla/pjrt/c/pjrt_c_api_layouts_extension.h
+	// Returns the memory layout of the data in this buffer.
+	Buffer_GetMemoryLayout uintptr
+	// Gets the number of bytes of the buffer storage on the device
+	Buffer_OnDeviceSizeInBytes uintptr
+	// Returns this buffer's storage device.
+	Buffer_Device uintptr
+	// Returns this buffer's storage memory.
+	Buffer_Memory uintptr
+	// Drop the buffer's reference to its associated device memory, without freeing
+	// the `buffer` object itself. `buffer` can only be used with
+	// PJRT_Buffer_IsDeleted and PJRT_Buffer_Destroy after calling this method. The
+	// device memory will be freed when all async operations using the buffer have
+	// completed, according to the allocation semantics of the underlying platform.
+	Buffer_Delete uintptr
+	// True if and only if PJRT_Buffer_Delete has previously been called.
+	Buffer_IsDeleted uintptr
+	// Copies the buffer to device `dst_device` within the same client. Caller is
+	// responsible for freeing returned `dst_buffer` with PJRT_Buffer_Destroy.
+	// Returns an error if the buffer is already on `dst_device`.
+	Buffer_CopyToDevice uintptr
+	// Asynchronously copies the buffer's value into a preallocated host buffer.
+	Buffer_ToHostBuffer uintptr
+	// Whether this buffer is on CPU and thus allows for certain optimizations.
+	Buffer_IsOnCpu uintptr
+	// Returns an event that is triggered when either of the following happens:
+	// * the data in the PJRT_Buffer becomes ready, or
+	// * an error has occurred.
+	//
+	// TODO(b/241967811): change these weird semantics
+	// If the buffer has been deleted or donated, the returned event will
+	// immediately indicate an error. However, if PJRT_Buffer_ReadyEvent() is
+	// called on the buffer before PJRT_Buffer_Delete() is, the returned event will
+	// not transition to an error state after PJRT_Buffer_Delete() is called.
+	Buffer_ReadyEvent uintptr
+	// Returns platform-dependent address for the given buffer that is often but
+	// not guaranteed to be the physical/device address.
+	Buffer_UnsafePointer uintptr
+	// Increments the reference count for the buffer. The reference count indicates
+	// the raw buffer data is being shared with another framework (e.g. NumPy,
+	// dlpack) and should not be deleted or moved by the PJRT implementation (e.g.
+	// for memory compaction). TODO(b/295230663): document more API contract
+	// details, e.g. does this block, can the buffer be modified in-place.
+	Buffer_IncreaseExternalReferenceCount uintptr
+	// Decrements the reference count for the buffer. Returns an error if the
+	// reference count is zero (i.e. PJRT_Buffer_IncreaseExternalReferenceCount is
+	// not called beforehand).
+	Buffer_DecreaseExternalReferenceCount uintptr
+	// Returns the opaque device memory data pointer of the buffer. The returned
+	// data pointer may become invalid at any point unless the external reference
+	// count is greater than 0 via PJRT_Buffer_IncreaseExternalReferenceCount.
+	Buffer_OpaqueDeviceMemoryDataPointer uintptr
+	// Frees `stream`. `stream` can be nullptr.
+	CopyToDeviceStream_Destroy uintptr
+	// Emplaces a new chunk of data to copy to the device. The transfer is started
+	// immediately, and the returned event is triggered when the transfer completes
+	// or fails.
+	//
+	// The returned event will indicate an error if the chunk's size causes the
+	// amount of transferred data to exceed the total bytes, if the stream is
+	// already complete, or if the chunk is not a multiple of the granule size.
+	CopyToDeviceStream_AddChunk uintptr
+	// Returns the total amount of data the stream expects to be transferred.
+	CopyToDeviceStream_TotalBytes uintptr
+	// Returns the granule size in bytes. The size of the chunk added to this stream
+	// must be a multiple of this number.
+	CopyToDeviceStream_GranuleSize uintptr
+	// Returns the amount of data the stream currently has either transferred or has
+	// buffered to transfer.
+	CopyToDeviceStream_CurrentBytes uintptr
+	// Creates and initializes a new PJRT_TopologyDescription and returns in
+	// `topology`.
+	TopologyDescription_Create uintptr
+	// Frees `topology`. `topology` can be nullptr.
+	TopologyDescription_Destroy uintptr
+	// Returns a string that identifies the platform (e.g. "cpu", "gpu", "tpu").
+	TopologyDescription_PlatformName uintptr
+	// Returns a string containing human-readable, platform-specific version info
+	// (e.g. the CUDA version on GPU or libtpu version on Cloud TPU).
+	TopologyDescription_PlatformVersion uintptr
+	// Returns descriptions for all devices in this topology. The device
+	// descriptions can be returned in any order, but will be in the same order
+	// across calls within a process.
+	TopologyDescription_GetDeviceDescriptions uintptr
+	// Serializes the TopologyDescription to a string for use in cache keys.
+	TopologyDescription_Serialize uintptr
+	// Returns platform-specific topology attributes.
+	TopologyDescription_Attributes uintptr
+	// Compiles a program in specified format (such as MLIR or HLO) with given
+	// `options`. The returned executable must be loaded by a compatible
+	// PJRT_Client before execution.
+	Compile uintptr
+	// Returns a list of element types for outputs.
+	Executable_OutputElementTypes uintptr
+	// Returns a list of dimensions for outputs. Each output has an array shape,
+	// which is represented by a list of dimensions. The array shapes of all outputs
+	// are concatenated into a single list of dimensions.
+	Executable_OutputDimensions uintptr
+	// Copies the buffer to memory `dst_memory` within the same client. Caller is
+	// responsible for freeing returned `dst_buffer` with PJRT_Buffer_Destroy.
+	// Returns an error if the buffer is already on `dst_memory`.
+	Buffer_CopyToMemory uintptr
+	// Creates a PJRT buffer that is a non-owned view of an on-device buffer
+	// (typically allocated by another library). The buffer may be mutated,
+	// for example, if the buffer is donated to an Execute operation. This method is
+	// not required on all hardware platforms.
+	Client_CreateViewOfDeviceBuffer uintptr
+	// A unique fingerprint for `executable`. Two executables that were produced by
+	// compiling with identical inputs (same program, compile options, compiler
+	// version, etc.) should have the same fingerprint. May not be implemented by
+	// all platforms.
+	Executable_Fingerprint uintptr
+	// Returns the topology description of the runtime topology. The returned
+	// topology is owned by the client and should not be deleted by the caller.
+	Client_TopologyDescription uintptr
+	// Return memory stats that allow callers to estimate memory usage when running
+	// this executable. The memory stats could contain usage info from different
+	// memory spaces, like default memory (e.g., HBM for GPU/TPU) and host memory.
+	Executable_GetCompiledMemoryStats uintptr
+	// A platform-dependent ID that uniquely identifies the kind of the memory.
+	Memory_Kind_Id uintptr
+	// Creates an execute context.
+	ExecuteContext_Create uintptr
+	// Frees an execute context. `context` can be nullptr.
+	ExecuteContext_Destroy uintptr
+	Buffer_CopyRawToHost   uintptr
+	// Frees `transfer_manager`. `transfer_manager` can be nullptr.
+	AsyncHostToDeviceTransferManager_Destroy        uintptr
+	AsyncHostToDeviceTransferManager_TransferData   uintptr
+	Client_CreateBuffersForAsyncHostToDevice        uintptr
+	AsyncHostToDeviceTransferManager_RetrieveBuffer uintptr
+	AsyncHostToDeviceTransferManager_Device         uintptr
+	AsyncHostToDeviceTransferManager_BufferCount    uintptr
+	AsyncHostToDeviceTransferManager_BufferSize     uintptr
+	AsyncHostToDeviceTransferManager_SetBufferError uintptr
+	AsyncHostToDeviceTransferManager_AddMetadata    uintptr
+	Client_DmaMap                                   uintptr
+	Client_DmaUnmap                                 uintptr
+	Client_CreateUninitializedBuffer                uintptr
+	// Updates the PjRt client with information about all global processes.
+	//
+	// Recall that a distributed program may consist of multiple PjRt clients
+	// spanning multiple machines. These clients perform collective operations, like
+	// AllGather, to execute a distributed program. UpdateGlobalProcessInfo updates
+	// a PjRt client with information about all processes.
+	Client_UpdateGlobalProcessInfo  uintptr
+	TopologyDescription_Deserialize uintptr
+	Client_CreateAliasBuffer        uintptr
+	Client_FulfillAliasBuffer       uintptr
+	// Retrieves the serialized DeviceAssignmentProto for a given
+	// PJRT_LoadedExecutable. The implementation allocates the serialized data,
+	// which is valid as long as `serialized_device_assignment` is alive. The
+	// caller must call `serialized_device_assignment_deleter` to free the
+	// backing memory.
+	LoadedExecutable_GetDeviceAssignment uintptr
+	// Creates a buffer in the given memory space that carries an error future
+	// without allocating memory. If this buffer is passed to an Execute call, the
+	// execution will fail with the given error code and message.
+	Client_CreateErrorBuffer uintptr
+	// Asynchronously copies a host literal to a buffer managed by a transfer
+	// manager.
+	AsyncHostToDeviceTransferManager_TransferLiteral uintptr
+	// Similar to PJRT_Buffer_CopyRawToHost, but the transfer will not happen until
+	// `future_ready_callback` is invoked.
+	Buffer_CopyRawToHostFuture uintptr
+	// Poisons the earliest execution on this device with given launch_id if it's
+	// not finished yet, i.e. makes its output buffers error.
+	Device_PoisonExecution uintptr
+	// Creates an async tracking event. The caller is responsible for destroying the
+	// event.
+	Device_CreateAsyncTrackingEvent uintptr
+	// Destroys the async tracking event.
+	AsyncTrackingEvent_Destroy uintptr
+	// Returns the CompileOptions that were used to compile this executable.
+	Executable_GetCompileOptions       uintptr
+	Buffer_DonateWithControlDependency uintptr
+	// Creates a new PJRT_Event.
+	Event_Create uintptr
+	// Sets the PJRT_Event as completed with the given error code and message.
+	Event_Set uintptr
+	// Returns an array of device attributes.
+	Device_GetAttributes uintptr
+	// Loads a PJRT_Executable.
+	Client_Load uintptr
+	// Returns a list of logical device ids this executable will run on.
+	LoadedExecutable_AddressableDeviceLogicalIds uintptr
+	// Bitcasts the buffer to a new type, dimensions, and layout.
+	Buffer_Bitcast uintptr
+	// Iterates over the stored payloads and calls the `visitor`
+	// callable for each one.
+	Error_ForEachPayload            uintptr
+	TopologyDescription_Fingerprint uintptr
+	// Returns a list of memory kind strings for parameters.
 	Executable_ParameterMemoryKinds                      uintptr
 	Device_ClearMemoryStats                              uintptr
 	TopologyDescription_MakeCanonicalShapeForMemorySpace uintptr
