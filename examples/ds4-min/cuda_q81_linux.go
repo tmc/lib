@@ -43,6 +43,22 @@ extern "C" __global__ void ds4_quant_q8_1(const float *in, ds4_q8_1_activation *
   if (tid == 0) { out[blockIdx.x].d = ds4_q81_half_bits(d); out[blockIdx.x].sum = ds4_q81_half_bits(sum); }
 }
 
+extern "C" __global__ void ds4_quant_q8_1_batch(
+    const float *in, ds4_q8_1_activation *out,
+    unsigned blocks, unsigned stride) {
+  const unsigned flat = blockIdx.x, token = flat / blocks, block = flat % blocks;
+  const unsigned tid = threadIdx.x;
+  float value = in[(unsigned long long)token * stride + (unsigned long long)block * 32 + tid];
+  float magnitude = fabsf(value), sum = value;
+  for (unsigned offset = 16; offset; offset >>= 1) {
+    magnitude = fmaxf(magnitude, __shfl_xor_sync(0xffffffff, magnitude, offset));
+    sum += __shfl_xor_sync(0xffffffff, sum, offset);
+  }
+  float d = magnitude / 127.0f;
+  out[flat].qs[tid] = magnitude == 0.0f ? 0 : (signed char)roundf(value / d);
+  if (tid == 0) { out[flat].d = ds4_q81_half_bits(d); out[flat].sum = ds4_q81_half_bits(sum); }
+}
+
 extern "C" __global__ void ds4_q8_0_matvec_q8_1(
     const unsigned char *weights, const ds4_q8_1_activation *x, float *out,
     unsigned blocks) {
@@ -96,6 +112,29 @@ func (r *cudaFoundation) encodeQuantQ81(in cudamem.Slice[float32], out cudamem.S
 		}
 		if err := cudalaunch.Kernel(r.quantQ81Fn).Grid(uint32(in.Len()/32)).Block(32).On(r.device.DefaultStream()).Launch(in, out); err != nil {
 			return fmt.Errorf("cuda: launch Q8_1 activation quantization: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeQuantQ81Batch quantizes batch rows separated by stride elements into
+// adjacent Q8_1 rows.
+func (r *cudaFoundation) encodeQuantQ81Batch(in cudamem.Slice[float32], out cudamem.Slice[byte], cols, stride, batch int) error {
+	if cols <= 0 || cols%32 != 0 || stride < cols || batch <= 0 ||
+		uint64(batch) > math.MaxUint32 || uint64(cols/32) > math.MaxUint32 || uint64(stride) > math.MaxUint32 ||
+		uint64(batch)*uint64(cols/32) > math.MaxUint32 ||
+		uint64(in.Len()) != uint64(batch-1)*uint64(stride)+uint64(cols) ||
+		uint64(out.Len()) != uint64(batch)*uint64(cols/32)*36 {
+		return fmt.Errorf("cuda: batched Q8_1 activation quantization: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		blocks := uint32(cols / 32)
+		if err := cudalaunch.Kernel(r.quantQ81BatchFn).Grid(blocks*uint32(batch)).Block(32).On(r.device.DefaultStream()).Launch(
+			in, out, blocks, uint32(stride)); err != nil {
+			return fmt.Errorf("cuda: launch batched Q8_1 activation quantization: %w", err)
 		}
 		return nil
 	})

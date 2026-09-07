@@ -540,6 +540,7 @@ type cudaFoundation struct {
 	matrixFn         driver.Function
 	quantQ80Fn       driver.Function
 	quantQ81Fn       driver.Function
+	quantQ81BatchFn  driver.Function
 	q81MatvecFn      driver.Function
 	q81MatvecBatchFn driver.Function
 	q80QuantizedFn   driver.Function
@@ -1212,6 +1213,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 	}{
 		{"ds4_q8_0_matvec", &r.matrixFn},
 		{"ds4_quant_q8_1", &r.quantQ81Fn},
+		{"ds4_quant_q8_1_batch", &r.quantQ81BatchFn},
 		{"ds4_q8_0_matvec_q8_1", &r.q81MatvecFn},
 		{"ds4_q8_0_matvec_q8_1_batch", &r.q81MatvecBatchFn},
 		{"ds4_q8_0_matvec_quantized", &r.q80QuantizedFn},
