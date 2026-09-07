@@ -458,3 +458,21 @@ func TestBufferWrapper_Destroy_FailurePropagation(t *testing.T) {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
+
+func TestBufferFromHostRejectsNilDevice(t *testing.T) {
+	called := false
+	api := &Api{
+		Client_BufferFromHostBuffer: purego.NewCallback(func(*Client_BufferFromHostBuffer_Args) *Error { called = true; return nil }),
+		Buffer_Destroy:              purego.NewCallback(func(*Buffer_Destroy_Args) *Error { return nil }),
+		Event_Await:                 purego.NewCallback(func(*Event_Await_Args) *Error { return nil }),
+		Event_Destroy:               purego.NewCallback(func(*Event_Destroy_Args) *Error { return nil }),
+	}
+	c := &ClientWrapper{api: api, client: &Client{}}
+	var value float32
+	if _, err := c.BufferFromHost(unsafe.Pointer(&value), BufferTypeF32, nil, nil); err == nil || !strings.Contains(err.Error(), "destination device") {
+		t.Fatalf("got %v", err)
+	}
+	if called {
+		t.Fatal("nil device reached plugin")
+	}
+}

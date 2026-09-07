@@ -59,7 +59,7 @@ func TestTransferPinLifetime(t *testing.T) {
 					return nil
 				})
 				c := &ClientWrapper{api: api, client: &Client{}}
-				b, err := c.BufferFromHost(dst, Buffer_Type_U8, dims, nil)
+				b, err := c.BufferFromHost(dst, Buffer_Type_U8, dims, &Device{})
 				if err != nil {
 					t.Fatal(err)
 				}
