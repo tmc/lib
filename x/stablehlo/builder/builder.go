@@ -457,8 +457,11 @@ func (b *FuncBuilder) Reduce(operand, initValue Value, dimensions []int64, retTy
 	return out, nil
 }
 
-// RMSNorm builds an RMS Normalization subgraph.
-func (b *FuncBuilder) RMSNorm(x, gamma Value, featureDim int64, epsilon float32) (Value, error) {
+// RMSNorm normalizes x along featureDim and multiplies by the scale gamma.
+// F16 and BF16 inputs compute in F32, including the scale multiplication, and
+// convert once at the end. F32 and F64 inputs retain their arithmetic type.
+// An error leaves the builder unchanged.
+func (b *FuncBuilder) RMSNorm(x, gamma Value, featureDim int64, epsilon float32) (out Value, err error) {
 	if !floatType(x.Type.ElementType) {
 		return Value{}, fmt.Errorf("rmsnorm: floating-point element type required")
 	}
@@ -484,6 +487,24 @@ func (b *FuncBuilder) RMSNorm(x, gamma Value, featureDim int64, epsilon float32)
 		return Value{}, fmt.Errorf("rmsnorm: epsilon must be positive and finite")
 	}
 
+	nops, next := len(b.Ops), b.nextID
+	defer func() {
+		if err != nil {
+			b.Ops, b.nextID = b.Ops[:nops], next
+		}
+	}()
+	element := x.Type.ElementType
+	if element == "f16" || element == "bf16" {
+		x, gamma = b.convert(x, "f32"), b.convert(gamma, "f32")
+	}
+	out, err = b.rmsNorm(x, gamma, featureDim, epsilon)
+	if err != nil {
+		return Value{}, err
+	}
+	return b.convert(out, element), nil
+}
+
+func (b *FuncBuilder) rmsNorm(x, gamma Value, featureDim int64, epsilon float32) (Value, error) {
 	// 1. x_squared = x * x
 	xSq, err := b.Multiply(x, x)
 	if err != nil {
