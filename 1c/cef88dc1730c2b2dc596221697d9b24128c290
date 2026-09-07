@@ -1,0 +1,9 @@
+commit: 1ccef88dc1730c2b2dc596221697d9b24128c290
+date: 2026-09-06T20:03:36-07:00
+codex: codex-cli 0.153.4
+model: gpt-6-astra
+tty: not-a-tty
+pid: 13808
+ITERM_SESSION_ID: 2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+GB10 physical TestCUDAQualificationQ81BatchMatvec PASS on current source. Batched output equals two sequential device launches; follow-up 1ccef88 makes this exact Float32bits identity and rejects signed-zero and NaN-payload differences. Token-offset mutation from the original physical receipt fails at output 128 with delta 18.449. Current compact receipt: evidence/worker-BABFB352/cuda-q81-batch-current-20260907, manifest 1b94d67ff94bda76bfb2ffe086b2a0d00fa574c69972ca774fcffffeeebd4858. No throughput claim from single event samples.
