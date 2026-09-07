@@ -1,0 +1,7 @@
+Commit: a45adbfad54f750abdd9c3c81c07d0bbc5d0df61
+Date: 2026-09-07T04:14:02.177581+00:00
+Agent: Codex GPT-6; Claude Code version not applicable
+TTY: not a tty
+PID: 73457
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Source: tokenizer.go special-token lookup; pinned ds4.c39582. Metadata description and formatting only; execution unchanged. Commit helper missing API key; manual fallback.
