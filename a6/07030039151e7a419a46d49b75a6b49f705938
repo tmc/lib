@@ -1,0 +1,10 @@
+commit: a607030039151e7a419a46d49b75a6b49f705938
+date: 2026-09-06T20:00:28-07:00
+codex: codex-cli 0.153.4
+model: gpt-6-astra
+tty: not-a-tty
+pid: 11406
+ITERM_SESSION_ID: 2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+runtime.Pinner: three post-fix 181-file captures byte-identical to warmed baseline; current production hash PASS.
+Receipt index: /Users/tmc/tmp/agent-collab/ds4-lib-workflow/20260906-DF6906F6-receipts-and-metal-p1.md. Independent audit/ledger: /Users/tmc/tmp/ds4-lib-workflow/GOAL-PARITY-TOOLING.md.
