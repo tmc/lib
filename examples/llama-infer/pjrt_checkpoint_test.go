@@ -44,6 +44,7 @@ func TestPJRTConfig(t *testing.T) {
 		{"scaled", "rope_scaling", map[string]any{"rope_type": "linear", "factor": 2}, "rope_scaling"},
 		{"quantized", "quantization_config", map[string]any{}, "unknown field"},
 		{"partial rotary", "partial_rotary_factor", 0.5, "unknown field"},
+		{"multimodal rotary", "use_mrope", true, "use_mrope"},
 		{"sliding", "use_sliding_window", true, "sliding attention"},
 		{"layer pattern", "layer_types", []string{"full_attention", "sliding_attention"}, "layer type"},
 		{"attention bias", "attention_bias", true, "bias"},
@@ -93,6 +94,7 @@ func TestPJRTConfig(t *testing.T) {
 	v["model_type"] = "qwen2"
 	v["sliding_window"] = 4096
 	v["use_sliding_window"] = false
+	v["use_mrope"] = false
 	b, _ = json.Marshal(v)
 	if _, err := readPJRTConfig(b); err != nil {
 		t.Fatal(err)
@@ -222,6 +224,32 @@ func TestNativePJRTCheckpointGeneration(t *testing.T) {
 				if err != nil || !slices.Equal(got, want[:1]) || !slices.Equal(model.model.Lengths(), []int64{3}) {
 					t.Fatalf("stop: %v %v lengths %v", got, err, model.model.Lengths())
 				}
+			}
+			for _, tt := range []struct {
+				name  string
+				limit int
+				eos   []int32
+				stop  bool
+				want  []bool
+			}{
+				{"capacity", 100, nil, false, []bool{false, false, false, true}},
+				{"limit", 2, nil, false, []bool{false, true}},
+				{"eos", 4, []int32{want[0]}, false, []bool{true}},
+				{"stop", 4, nil, true, []bool{false}},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					var finals []bool
+					err := model.generateFinal(context.Background(), prompt, tt.limit, tt.eos, func(id int32, final bool) bool {
+						finals = append(finals, final)
+						return !tt.stop
+					})
+					if err != nil || !slices.Equal(finals, tt.want) {
+						t.Fatalf("final flags %v, %v; want %v", finals, err, tt.want)
+					}
+					if got := model.model.Lengths(); !slices.Equal(got, []int64{int64(len(prompt) + len(finals) - 1)}) {
+						t.Fatalf("history after completion: %v", got)
+					}
+				})
 			}
 			assertOne([]int32{want[0]}, true)
 			assertOne(nil, false)

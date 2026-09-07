@@ -33,11 +33,20 @@ receives each generated ID, including EOS, and can stop by returning false.
 A request resets prior logical history. A zero token limit performs no inference.
 A full-capacity prompt can still predict one token without appending it.
 
-Checkpoint text tokenization is not yet qualified. `Generate` and
-`GenerateTokenIDs` therefore reject checkpoint text requests. They use the
-byte tokenizer only for explicit synthetic models. The existing approximate
-Hugging Face tokenizer is not used as a fallback. Serving and mesh modes are
-not implemented by this backend.
+`Generate` and `GenerateTokenIDs` load the checkpoint's `tokenizer.json` using
+`x/hftokenizer`. Supported byte-level BPE pipelines supply their own BOS template;
+per-call BOS and EOS defaults do not override checkpoint metadata. Supply rendered
+text: chat templates in `tokenizer_config.json` are not interpreted. Unsupported
+pipelines and token IDs outside the model vocabulary return errors.
+
+The CLI validates config and tokenizer before loading weights or opening PJRT.
+Programmatic engines load the tokenizer lazily from their construction path, so
+raw-ID generation requires no tokenizer file. Treat checkpoint assets as immutable.
+Each text callback receives one ID and a valid UTF-8 fragment, which may be empty.
+Normal completion flushes incomplete final bytes as replacement characters;
+cancellation or a callback stop discards an incomplete trailing character.
+Explicit synthetic models retain the byte tokenizer. Serving and mesh modes
+are not implemented by this backend.
 
 `ReadLogits` returns a copy of the last row. `ResetKV` clears logical history
 and stored logits. Readback failures or cancellation after the decoder commits

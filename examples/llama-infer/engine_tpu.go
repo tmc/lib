@@ -12,6 +12,7 @@ import (
 	"github.com/tmc/lib/apple/x/metal/metalprof"
 	"github.com/tmc/lib/openxla"
 	"github.com/tmc/lib/tpu"
+	"github.com/tmc/lib/x/hftokenizer"
 	"github.com/tmc/lib/x/xla"
 )
 
@@ -117,21 +118,23 @@ func (s *dummyStream) Synchronize(ctx context.Context) error { return nil }
 
 // ModelEngine owns its model and client. Calls must be externally synchronized.
 type ModelEngine struct {
-	pjrt            *xla.Engine
-	decoder         *pjrtModel
-	checkpoint      CheckpointReceipt
-	checkpointEOS   []int32
-	client          *openxla.ClientWrapper
-	Plan            *ExecutionPlan
-	mCfg            ModelConfig
-	tokenizer       Tokenizer
-	metrics         *RuntimeMetrics
-	stream          *dummyStream
-	benchmarkSerial bool
-	egraphKnown     bool
-	egraphSats      int
-	recorder        *metalprof.FlightRecorder
-	exec            *openxla.ExecutableWrapper
+	pjrt                *xla.Engine
+	decoder             *pjrtModel
+	checkpoint          CheckpointReceipt
+	checkpointEOS       []int32
+	checkpointDir       string
+	checkpointTokenizer *hftokenizer.Tokenizer
+	client              *openxla.ClientWrapper
+	Plan                *ExecutionPlan
+	mCfg                ModelConfig
+	tokenizer           Tokenizer
+	metrics             *RuntimeMetrics
+	stream              *dummyStream
+	benchmarkSerial     bool
+	egraphKnown         bool
+	egraphSats          int
+	recorder            *metalprof.FlightRecorder
+	exec                *openxla.ExecutableWrapper
 }
 
 func (eng *ModelEngine) CheckpointReceipt() CheckpointReceipt {
@@ -214,7 +217,7 @@ func newTPUModelEngine(cfg Config, p *pjrtCheckpoint, tokenizer Tokenizer, api *
 		return nil, errors.Join(err, engine.Close())
 	}
 	return &ModelEngine{pjrt: engine, decoder: decoder, mCfg: p.config,
-		checkpoint: p.weights.Consumption, checkpointEOS: p.eos, tokenizer: tokenizer,
+		checkpoint: p.weights.Consumption, checkpointEOS: p.eos, tokenizer: tokenizer, checkpointDir: cfg.ModelPath,
 		Plan: BuildExecutionPlan(cfg), metrics: NewRuntimeMetrics(256), stream: &dummyStream{}}, nil
 }
 
@@ -377,13 +380,18 @@ func runPlatform(cfg Config) (err error) {
 	if cfg.ServeMode || cfg.HTTPAddr != "" || cfg.PeerAddr != "" {
 		return errors.New("tpu: serving and mesh modes are unsupported")
 	}
+	var tok *hftokenizer.Tokenizer
 	if cfg.ModelPath != "" {
-		return errors.New("tpu: checkpoint text tokenization is unsupported; use GenerateFromTokenIDs")
+		tok, err = preflightPJRTText(cfg.ModelPath)
+		if err != nil {
+			return err
+		}
 	}
 	eng, err := GetOrCompileTPUEngine(cfg)
 	if err != nil {
 		return err
 	}
+	eng.checkpointTokenizer = tok
 	defer func() { err = errors.Join(err, eng.Free()) }()
 	n := cfg.GenTokens
 	if n <= 0 {
@@ -474,12 +482,24 @@ func RunTPUSmokeTest(cfg Config) (err error) {
 	return nil
 }
 
-// Generate emits greedy tokens for synthetic byte-tokenizer models. Checkpoint
-// text generation requires a qualified tokenizer; use GenerateFromTokenIDs
-// with externally tokenized input until that tokenizer is available.
+// Generate emits greedy tokens. Checkpoints use their tokenizer.json pipeline
+// and configured EOS IDs; callers supply already rendered text, not chat messages.
+// Each callback carries one token ID, possibly with empty text. Checkpoint text
+// fragments are valid UTF-8. Cancellation or a callback stop discards any pending
+// incomplete character. Calls must be externally synchronized.
 func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string, maxTokens int, onToken func(int32, string) bool) error {
 	if eng == nil || eng.decoder == nil {
 		return errors.New("tpu: engine is closed")
+	}
+	if eng.checkpointDir != "" {
+		if eng.checkpointTokenizer == nil {
+			tok, err := loadPJRTTokenizer(eng.checkpointDir, eng.mCfg.VocabSize)
+			if err != nil {
+				return err
+			}
+			eng.checkpointTokenizer = tok
+		}
+		return eng.decoder.generateText(ctx, eng.checkpointTokenizer, prompt, maxTokens, eng.checkpointEOS, onToken)
 	}
 	if eng.tokenizer == nil {
 		return errors.New("tpu: checkpoint text tokenization is unsupported; use GenerateFromTokenIDs")

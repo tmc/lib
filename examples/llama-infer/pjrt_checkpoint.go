@@ -31,6 +31,7 @@ func readPJRTConfig(data []byte) (*pjrtCheckpoint, error) {
 		RopeScaling      json.RawMessage `json:"rope_scaling"`
 		AttentionBias    bool            `json:"attention_bias"`
 		MLPBias          bool            `json:"mlp_bias"`
+		UseMRoPE         bool            `json:"use_mrope"`
 		Sliding          bool            `json:"use_sliding_window"`
 		SlidingWindow    *int            `json:"sliding_window"`
 		MaxWindowLayers  int             `json:"max_window_layers"`
@@ -70,6 +71,9 @@ func readPJRTConfig(data []byte) (*pjrtCheckpoint, error) {
 	}
 	if len(raw.RopeScaling) > 0 && string(raw.RopeScaling) != "null" {
 		return nil, fmt.Errorf("pjrt config: rope_scaling is unsupported")
+	}
+	if raw.UseMRoPE {
+		return nil, fmt.Errorf("pjrt config: use_mrope is unsupported")
 	}
 	if raw.AttentionBias || raw.MLPBias {
 		return nil, fmt.Errorf("pjrt config: output or MLP bias is unsupported")

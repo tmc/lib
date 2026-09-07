@@ -10,6 +10,17 @@ import (
 // token, including EOS; false stops without another device execution. The
 // prompt and at most maxTokens-1 generated tokens occupy cache positions.
 func (p *pjrtModel) generate(ctx context.Context, prompt []int32, maxTokens int, eos []int32, emit func(int32) bool) error {
+	var callback func(int32, bool) bool
+	if emit != nil {
+		callback = func(id int32, final bool) bool { return emit(id) }
+	}
+	return p.generateFinal(ctx, prompt, maxTokens, eos, callback)
+}
+
+// generateFinal marks the last prediction on normal completion, including EOS
+// and a capacity-clamped limit. A callback stop or cancellation may end a request
+// before a final prediction; callers must discard any incomplete text then.
+func (p *pjrtModel) generateFinal(ctx context.Context, prompt []int32, maxTokens int, eos []int32, emit func(int32, bool) bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -57,13 +68,14 @@ func (p *pjrtModel) generate(ctx context.Context, prompt []int32, maxTokens int,
 			return err
 		}
 		id := sampleArgmax(logits)
-		if !emit(id) {
+		final := slices.Contains(eos, id) || step+1 == maxTokens
+		if !emit(id, final) {
 			return nil
 		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if slices.Contains(eos, id) || step+1 == maxTokens {
+		if final {
 			return nil
 		}
 		logits, err = p.forward(ctx, []int32{id}, position)
