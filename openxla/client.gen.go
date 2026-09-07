@@ -45,6 +45,11 @@ func copyApiTable(src *Api) *Api {
 }
 
 // NewClientFromApi creates a ClientWrapper from an Api function table.
+// Tables returned by OpenPlugin share its initialization state. Other tables
+// are borrowed, are never registered globally, and are initialized on each call;
+// their owner must ensure this is valid and keep the library loaded until all
+// clients and their resources have been destroyed. API tables must not be mutated
+// concurrently with calls into this package.
 func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 	if rawApi == nil {
 		return nil, fmt.Errorf("openxla: nil Api pointer")
@@ -73,14 +78,12 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 		return nil, fmt.Errorf("openxla: Client_Destroy function not available in PJRT API")
 	}
 
-	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0 {
-		var initArgs Plugin_Initialize_Args
-		initArgs.Struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE
-		var fn func(*Plugin_Initialize_Args) *Error
-		purego.RegisterFunc(&fn, api.Plugin_Initialize)
-		if errPtr := fn(&initArgs); errPtr != nil {
-			return nil, decodeError(api, errPtr)
+	if state := managedInitialization(rawApi); state != nil {
+		if err := state.initialize(api); err != nil {
+			return nil, err
 		}
+	} else if err := initializePlugin(api); err != nil {
+		return nil, err
 	}
 
 	var createArgs Client_Create_Args
@@ -95,6 +98,20 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 		api:    api,
 		client: createArgs.Client,
 	}, nil
+}
+
+func initializePlugin(api *Api) error {
+	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0 {
+		var initArgs Plugin_Initialize_Args
+		initArgs.Struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE
+		var fn func(*Plugin_Initialize_Args) *Error
+		purego.RegisterFunc(&fn, api.Plugin_Initialize)
+		if errPtr := fn(&initArgs); errPtr != nil {
+			return decodeError(api, errPtr)
+		}
+	}
+
+	return nil
 }
 
 // PlatformName returns the name of the PJRT platform (e.g. "tpu", "cuda").
