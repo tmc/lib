@@ -227,10 +227,12 @@ func main() {
 				EOSTokenID:  loadedCfg.EOSTokenID,
 				EOSTokenIDs: loadedCfg.EOSTokenIDs,
 			}
+		} else {
+			log.Fatalf("load model config: %v", err)
 		}
 	}
 
-	if cfg.Dim == 0 {
+	if *modelPath == "" {
 		switch *modelSize {
 		case "llama3.2-1b", "llama3.2", "3.2-1b":
 			path := *modelPath

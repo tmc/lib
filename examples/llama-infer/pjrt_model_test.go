@@ -60,7 +60,7 @@ func TestPJRTMappingValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, w := pjrtFixture()
 			tt.change(c, w)
-			if _, err := newPJRTModel(context.Background(), nil, c, w); err == nil || !strings.Contains(err.Error(), tt.want) {
+			if _, err := newPJRTModel(context.Background(), nil, c, w, float64(c.RopeTheta)); err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("got %v, want %s", err, tt.want)
 			}
 		})
@@ -92,7 +92,7 @@ func TestNativePJRTModel(t *testing.T) {
 			if tied {
 				w.LMHead = w.EmbedTokens
 			}
-			p, err := newPJRTModel(context.Background(), engine, c, w)
+			p, err := newPJRTModel(context.Background(), engine, c, w, float64(c.RopeTheta))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -101,6 +101,12 @@ func TestNativePJRTModel(t *testing.T) {
 					t.Error(err)
 				}
 			}()
+			if _, err := p.forward(context.Background(), nil, 0); err == nil || !strings.Contains(err.Error(), "chunk") {
+				t.Fatalf("empty input: %v", err)
+			}
+			if !slices.Equal(p.model.Lengths(), []int64{0}) {
+				t.Fatal("empty input changed history")
+			}
 			if _, err := p.readLogits(); err == nil {
 				t.Fatal("initial logits available")
 			}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/cudasafetensors"
@@ -215,12 +216,15 @@ func LoadRetainedModel(dir string) (*RetainedModel, *ModelConfig, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	return loadRetainedModel(dir, cfg)
+}
 
+func loadRetainedModel(dir string, cfg *ModelConfig) (_ *RetainedModel, _ *ModelConfig, err error) {
 	sw, err := cudasafetensors.OpenSharded(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
-	defer sw.Close()
+	defer func() { err = errors.Join(err, sw.Close()) }()
 
 	metadata := make(map[string]checkpointTensor, len(sw.Tensors))
 	for name, info := range sw.Tensors {

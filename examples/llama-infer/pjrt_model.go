@@ -17,12 +17,14 @@ import (
 // Calls must be externally synchronized. It borrows the engine and owns model.
 // A failed readback closes model: device history may already have advanced.
 type pjrtModel struct {
-	model  *llama.Model
-	vocab  int
-	logits []float32
+	model       *llama.Model
+	vocab       int
+	capacity    int
+	weightBytes int
+	logits      []float32
 }
 
-func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights) (*pjrtModel, error) {
+func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights, ropeTheta float64) (*pjrtModel, error) {
 	if cfg == nil || weights == nil {
 		return nil, fmt.Errorf("pjrt: model config and weights are required")
 	}
@@ -36,7 +38,7 @@ func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, wei
 		BatchSize: 1, Capacity: int64(cfg.MaxSeqLen), VocabSize: int64(cfg.VocabSize),
 		HiddenSize: int64(cfg.HiddenSize), IntermediateSize: int64(cfg.IntermediateSize),
 		QueryHeads: int64(cfg.NumAttentionHeads), KVHeads: int64(cfg.NumKeyValueHeads), HeadSize: int64(cfg.HeadDim()),
-		NormEpsilon: cfg.RmsNormEps, RopeTheta: float64(cfg.RopeTheta),
+		NormEpsilon: cfg.RmsNormEps, RopeTheta: ropeTheta,
 	}
 	w := llama.Weights{Embedding: weights.EmbedTokens, Norm: weights.Norm, LMHead: weights.LMHead}
 	// LoadModel resolves a missing tied head to the same host slice. Preserve
@@ -56,11 +58,29 @@ func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, wei
 			QueryBias: v.QBias, KeyBias: v.KBias, ValueBias: v.VBias,
 		})
 	}
+	weightBytes := 0
+	add := func(data ...[]float32) error {
+		for _, values := range data {
+			if len(values) > (math.MaxInt-weightBytes)/4 {
+				return fmt.Errorf("pjrt: parameter byte count overflows")
+			}
+			weightBytes += 4 * len(values)
+		}
+		return nil
+	}
+	if err := add(w.Embedding, w.Norm, w.LMHead); err != nil {
+		return nil, err
+	}
+	for _, l := range w.Layers {
+		if err := add(l.AttentionNorm, l.MLPNorm, l.Query, l.Key, l.Value, l.AttentionOutput, l.Gate, l.Up, l.Down, l.QueryBias, l.KeyBias, l.ValueBias); err != nil {
+			return nil, err
+		}
+	}
 	model, err := llama.New(ctx, engine, c, w)
 	if err != nil {
 		return nil, err
 	}
-	return &pjrtModel{model: model, vocab: cfg.VocabSize}, nil
+	return &pjrtModel{model: model, vocab: cfg.VocabSize, capacity: cfg.MaxSeqLen, weightBytes: weightBytes}, nil
 }
 
 // forward appends a chunk at its exact expected position and returns the last

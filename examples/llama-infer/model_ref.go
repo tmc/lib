@@ -159,7 +159,7 @@ func LoadModelConfig(dir string) (*ModelConfig, error) {
 	if cfg.NumKeyValueHeads == 0 {
 		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
 	}
-	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 8192 {
+	if cfg.MaxSeqLen == 0 {
 		cfg.MaxSeqLen = 2048
 	}
 	return &cfg, nil

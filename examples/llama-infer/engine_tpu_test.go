@@ -69,7 +69,7 @@ func TestTPUEngineAvailabilityClassifier(t *testing.T) {
 	}
 }
 
-func TestTPUEngineGenerationUnsupported(t *testing.T) {
+func TestTPUEngineGenerationClosed(t *testing.T) {
 	// Test directly on a zero ModelEngine without requiring hardware or library presence
 	var eng ModelEngine
 	cfg := DefaultTinyLlamaConfig()
@@ -78,10 +78,10 @@ func TestTPUEngineGenerationUnsupported(t *testing.T) {
 		return true
 	})
 	if err == nil {
-		t.Fatal("Expected Generate to return unsupported error on TPU backend")
+		t.Fatal("Expected Generate to reject a closed engine")
 	}
-	if !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("Expected unsupported error, got %v", err)
+	if !strings.Contains(err.Error(), "closed") {
+		t.Fatalf("Expected closed error, got %v", err)
 	}
 }
 
@@ -94,8 +94,12 @@ func TestTPUEngineCompilation(t *testing.T) {
 	}
 	defer eng.Free()
 
-	if err := eng.ForwardPassMockTPU(); err != nil {
-		t.Fatalf("Forward pass failed: %v", err)
+	count := 0
+	if err := eng.GenerateFromTokenIDs(context.Background(), []int32{1, 2}, 3, func(int32) bool { count++; return true }); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("generated %d tokens, want 3", count)
 	}
 }
 
