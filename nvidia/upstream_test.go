@@ -11,6 +11,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -202,5 +204,115 @@ func TestUpstreamCoverage(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+// coverageManifest reads the self-describing coverage block, which
+// checkUpstream ignores. The block restates what the manifest holds, so it can
+// disagree with the packages it summarizes: ncclep and ncclm2n were added to
+// packages while coverage still counted 33 directories and 28 recorded argv,
+// and every existing test stayed green.
+type coverageManifest struct {
+	Coverage struct {
+		Packages     []string `json:"packages"`
+		RecordedArgv int      `json:"recorded_argv"`
+		MissingArgv  []string `json:"missing_argv"`
+	} `json:"coverage"`
+	Packages map[string]struct {
+		Generation struct {
+			Argv []string `json:"argv"`
+		} `json:"generation"`
+	} `json:"packages"`
+}
+
+// checkCoverage reports whether the coverage block agrees with the packages it
+// summarizes. It compares the block against the manifest, not against the tree:
+// TestUpstreamCoverage already ties the tree to packages.
+func checkCoverage(data []byte) error {
+	var manifest coverageManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return err
+	}
+	if len(manifest.Packages) == 0 {
+		return fmt.Errorf("empty provenance manifest")
+	}
+	var names, missing []string
+	for name, pkg := range manifest.Packages {
+		names = append(names, name)
+		if len(pkg.Generation.Argv) == 0 {
+			missing = append(missing, name)
+		}
+	}
+	sort.Strings(names)
+	sort.Strings(missing)
+	covered := append([]string(nil), manifest.Coverage.Packages...)
+	sort.Strings(covered)
+	if !slices.Equal(covered, names) {
+		return fmt.Errorf("coverage lists %d packages, manifest has %d: %v", len(covered), len(names), symmetricDifference(covered, names))
+	}
+	listed := append([]string(nil), manifest.Coverage.MissingArgv...)
+	sort.Strings(listed)
+	if !slices.Equal(listed, missing) {
+		return fmt.Errorf("coverage missing_argv is %v, manifest has %v", listed, missing)
+	}
+	if want := len(names) - len(missing); manifest.Coverage.RecordedArgv != want {
+		return fmt.Errorf("coverage recorded_argv is %d, manifest has %d", manifest.Coverage.RecordedArgv, want)
+	}
+	return nil
+}
+
+// symmetricDifference names the packages on one side only, so a failure says
+// which package drifted rather than only that two counts differ.
+func symmetricDifference(a, b []string) []string {
+	in := make(map[string]int)
+	for _, s := range a {
+		in[s] |= 1
+	}
+	for _, s := range b {
+		in[s] |= 2
+	}
+	var only []string
+	for s, mask := range in {
+		if mask != 3 {
+			only = append(only, s)
+		}
+	}
+	sort.Strings(only)
+	return only
+}
+
+func TestUpstreamCoverageAgreement(t *testing.T) {
+	data, err := os.ReadFile("upstream.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkCoverage(data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUpstreamCoverageMutations(t *testing.T) {
+	const manifest = `{"coverage":{"packages":["a","b"],"recorded_argv":1,"missing_argv":["b"]},` +
+		`"packages":{"a":{"generation":{"argv":["gen"]}},"b":{"generation":{"argv":null}}}}`
+	for _, tt := range []struct {
+		name    string
+		data    string
+		wantErr bool
+	}{
+		{"agreeing", manifest, false},
+		{"unlisted package", `{"coverage":{"packages":["a"],"recorded_argv":1,"missing_argv":[]},` +
+			`"packages":{"a":{"generation":{"argv":["gen"]}},"b":{"generation":{"argv":["gen"]}}}}`, true},
+		{"stale count", `{"coverage":{"packages":["a","b"],"recorded_argv":2,"missing_argv":["b"]},` +
+			`"packages":{"a":{"generation":{"argv":["gen"]}},"b":{"generation":{"argv":null}}}}`, true},
+		{"wrong gap list", `{"coverage":{"packages":["a","b"],"recorded_argv":1,"missing_argv":["a"]},` +
+			`"packages":{"a":{"generation":{"argv":["gen"]}},"b":{"generation":{"argv":null}}}}`, true},
+		{"empty manifest", `{"coverage":{"packages":[],"recorded_argv":0,"missing_argv":[]},"packages":{}}`, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkCoverage([]byte(tt.data))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("check=%v, want error=%v", err, tt.wantErr)
+			}
+		})
 	}
 }
