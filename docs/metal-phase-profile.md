@@ -39,7 +39,8 @@ and resolves hardware GPU timestamps. The package states the rule this note is
 about: *callers must not substitute host time for GPU counter values*, and it
 returns `ErrTimestampCountersUnavailable` rather than degrading to host time.
 
-That is the right source, and less stands in the way than it first appears.
+That is the right source, but what this device permits is narrower than the
+API suggests, and the limit is physical rather than a matter of bindings.
 
 **Command-buffer times are two coarse regions per layer, not nine phases.**
 `metalBatch` creates a single `MTLComputeCommandEncoder` per command buffer
@@ -51,29 +52,49 @@ command-buffer count. So `MTLCommandBuffer.GPUStartTime`/`GPUEndTime` give two
 real GPU-time regions per layer — worth having, and cheap — but not the
 granularity the CUDA instrument reports.
 
-**Phase granularity needs no new binding.** Boundaries inside the encoder come
-from `sampleCountersInBuffer:atSampleIndex:withBarrier:`, and both halves are
-already reachable: `metalBatch.enc` is the raw
+**Phase granularity inside one encoder is unavailable on this device.** The
+binding is not the obstacle: `metalBatch.enc` is the raw
 `github.com/tmc/apple/metal.MTLComputeCommandEncoder`
 (`metal_batch_darwin.go:20,480`), whose generated protocol declares
 `SampleCountersInBufferAtSampleIndexWithBarrier`
 (`apple/metal/compute_command_encoder_protocol.gen.go:146`), and
 `metalprof.SampleBuffer.Raw()` hands back the matching
-`MTLCounterSampleBuffer`. A test-local marker can call
-`b.encoder().SampleCountersInBufferAtSampleIndexWithBarrier(samples.Raw(), i,
-barrier)` directly. What is still unestablished is physical: whether this
-device supports the sampling, what capacity it allows, and how many samples
-actually resolve. That needs a small model-free calibration before any
-full-model use.
+`MTLCounterSampleBuffer`. The device is. `TestMetalCounterCalibration` asks
+this M4 Max directly and it answers no:
 
-**The barrier argument is a real choice, not a detail.** With `barrier: true`
-the timestamp is bounded to the dispatch boundary but serializes work that
-Metal would otherwise overlap. With `barrier: false` the sample is cheap but
-not precisely attributable to a boundary. Whichever is chosen must be stated in
-the result's scope. Both instruments perturb scheduling — recording thousands
-of CUDA events does too — and nothing here establishes which perturbs more, or
-by how much; that would itself have to be measured before any claim about the
-comparability of two rankings.
+	supports sampling at dispatch boundary: false
+	supports sampling at blit boundary:     false
+	supports sampling at stage boundary:    true
+	supports sampling at draw boundary:     false
+
+Only `MTLCounterSamplingPointAtStageBoundary` is permitted, which attaches two
+sample indices to a whole compute pass through
+`MTLComputePassDescriptor.sampleBufferAttachments`. It times an encoder, not a
+dispatch. So on this hardware, phase granularity means *one encoder per phase*
+— a change to how the layer path encodes, not an added marker inside it. That
+is a heavier perturbation than a CUDA event, and it has to be stated as such.
+
+The same run establishes two other physical numbers. A sample buffer accepts at
+most 4,096 timestamps (the driver names the range 8..32768 bytes at 8 bytes a
+sample), which bounds any single-buffer scheme. And a GPU tick is a nanosecond:
+correlating the two clocks with `sampleTimestamps:gpuTimestamp:` across a
+100 ms host interval gives 0.999851 ns per tick, so resolved timestamps need no
+scaling.
+
+**Counter sampling buys nothing over command-buffer times at pass
+granularity.** In the same run, the stage-boundary pass span resolved to
+1,401,541 ns while `GPUEndTime - GPUStartTime` for that command buffer reported
+1.40175 ms — the same quantity to within 0.015%. `MTLCommandBuffer`'s GPU times
+are already the cheap form of the only granularity this device offers, so the
+counter machinery is worth adding only if a pass ever holds more than one phase
+worth timing, which by the paragraph above it cannot.
+
+**The barrier argument is moot here.** With dispatch-boundary sampling
+refused, the `withBarrier:` choice — bounding a timestamp to a dispatch at the
+cost of serializing overlap — never arises on this device. It would matter on
+hardware that permits per-dispatch sampling, and is recorded only so the
+question is not reopened. Both instruments perturb scheduling; nothing measured
+here establishes which perturbs more.
 
 ## The gate to copy
 
@@ -97,3 +118,19 @@ qualification at load 5.33 against a registered limit of 4.00. The agent
 holding the slot was compiling on the same machine during the window, which
 makes it the plausible cause; the load reading establishes contention, not
 which process caused it.
+
+## What the calibration does not establish
+
+`TestMetalCounterCalibration` is model-free and reads device capability, buffer
+capacity and the tick unit; those are properties of the hardware and do not
+depend on how busy the host is. The one timing number it reports, the 1.4 ms
+pass span, was taken at host load 8.73 against a registered limit of 4.00. It is
+used here only as a self-consistency check between two clocks measured over the
+same interval, which contention does not invalidate, and it is not a rate.
+
+A separate defect surfaced while establishing this: `metalprof`'s own
+`TestSampleBufferHardwareTimestamps` fails on this M4 Max, because it asserts
+support for `MTLCounterSamplingPointAtBlitBoundary` before using it. Run with
+`METALPROF_HARDWARE_TEST=1` it reports "device does not support counter sampling
+at blit boundaries". The test encodes an assumption this device does not meet;
+that is for the package owner, not this note.

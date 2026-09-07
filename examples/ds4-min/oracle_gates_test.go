@@ -49,6 +49,7 @@ var oracleGates = []oracleGate{
 	{"DS4_METAL_LAYER13_FIXTURE_DIR", "the layer 13 Metal regression"},
 	{"DS4_METAL_HC_LAYER13_FIXTURE_DIR", "the layer 13 HC Metal regression"},
 	{"DS4_METAL_HC_LAYER13_OUTPUT_DIR", "writing layer 13 HC fixtures rather than comparing them"},
+	{"DS4_METAL_COUNTER_CALIBRATION", "the model-free Metal GPU counter calibration"},
 
 	{"DS4_OBSERVE", "the observation harness"},
 	{"DS4_OBSERVE_DIR", "where the observation harness writes"},
