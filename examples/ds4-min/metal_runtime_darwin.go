@@ -778,18 +778,10 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err != nil {
 		return nil, err
 	}
-	// Keep the command boundary so FFN HCPost retains its existing split
-	// recomputation instead of reusing HCPre's cached split.
-	if err := closing.Wait(context.Background()); err != nil {
-		return nil, err
-	}
-	r.lastAttentionBatch = closing.Stats()
-	// The shared expert, the routed experts and the FFN closing depend only
-	// on GPU state, so one command buffer carries the rest of the layer.
-	ffn, err := newMetalBatch(r.ops)
-	if err != nil {
-		return nil, err
-	}
+	// The shared expert, the routed experts and the FFN closing depend only on
+	// GPU state the attention closing already writes, and the routed weights
+	// now stay on the device, so one command buffer carries the whole layer.
+	ffn := closing
 	if err := ffn.EncodeSwiGLU(r.state.sharedGate, r.state.sharedUp, r.state.sharedMid); err != nil {
 		return nil, err
 	}
@@ -805,10 +797,11 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffn.EncodeClamp10(r.state.expertUpRaw, r.state.expertUp); err != nil {
 		return nil, err
 	}
-	// The completed routing batch makes the six scalar weights visible.
-	// Keep the original SwiGLU kernel: its GPU-weight variant changes bits.
-	weights := r.state.expertW.HostSlice()
-	for slot, weight := range weights {
+	// The routed weights stay on the device: binding one from the router's
+	// output buffer gives the kernel the same uniform an encode-time scalar
+	// does, so no host readback splits the layer. Reading them back is what
+	// used to force a command boundary here.
+	for slot := range 6 {
 		start := slot * 2048
 		end := start + 2048
 		gate, err := r.state.expertGate.Slice(start, end)
@@ -823,7 +816,11 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err != nil {
 			return nil, err
 		}
-		if err := ffn.EncodeSwiGLUWeighted(gate, up, mid, weight); err != nil {
+		weight, err := r.state.expertW.Slice(slot, slot+1)
+		if err != nil {
+			return nil, err
+		}
+		if err := ffn.EncodeSwiGLUWeightedGPU(gate, up, mid, weight); err != nil {
 			return nil, err
 		}
 	}
@@ -837,12 +834,18 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		return nil, err
 	}
 	stateOut := r.state.hc[i%len(r.state.hc)]
+	// The old command boundary made this post recompute its split rather than
+	// reuse HCPre's. Clearing the cache owner keeps that arithmetic exactly,
+	// now that the two share a buffer.
+	r.ops.hc.pending = nil
 	if err := ffn.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
 		return nil, err
 	}
 	if err := ffn.Wait(context.Background()); err != nil {
 		return nil, err
 	}
+	// One command buffer carries attention and FFN, so both name it.
+	r.lastAttentionBatch = ffn.Stats()
 	r.lastFFNBatches = ffn.Stats()
 	return stateOut.HostSlice(), nil
 }

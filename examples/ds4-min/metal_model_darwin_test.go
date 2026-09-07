@@ -447,11 +447,14 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if got := r.lastCompressedEven; got != (metalBatchStats{Encoded: 14, Commits: 1, Waits: 1}) {
 		t.Fatalf("last even compressed batch = %+v, want {Encoded:14 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 15, Commits: 1, Waits: 1}) {
-		t.Fatalf("last attention batch = %+v, want {Encoded:15 Commits:1 Waits:1}", got)
+	// One command buffer now carries the attention closing and the FFN, so both
+	// fields name it and its encoded count is the sum of the two former halves.
+	// A second commit and wait here would mean the merge had come undone.
+	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 30, Commits: 1, Waits: 1}) {
+		t.Fatalf("last attention batch = %+v, want {Encoded:30 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 15, Commits: 1, Waits: 1}) {
-		t.Fatalf("last FFN batches = %+v, want {Encoded:15 Commits:1 Waits:1}", got)
+	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 30, Commits: 1, Waits: 1}) {
+		t.Fatalf("last FFN batches = %+v, want {Encoded:30 Commits:1 Waits:1}", got)
 	}
 	for i, value := range logits {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {

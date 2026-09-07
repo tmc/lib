@@ -333,6 +333,32 @@ func (b *metalBatch) EncodeSwiGLUWeighted(gate, up, out metalmem.Slice[float32],
 	return b.encodeSwiGLU(gate, up, out, weight)
 }
 
+// EncodeSwiGLUWeightedGPU appends a weighted SwiGLU operation whose weight is
+// read from GPU memory instead of an encode-time scalar. The kernel declares
+// the weight as a constant reference, which Metal binds from a buffer as
+// readily as from SetBytes, so this is the same uniform the scalar form
+// produces and the same kernel; TestMetalSwiGLUSlotsBitIdentity pins that the
+// two agree bit for bit. The slot-major kernel does not, because there the
+// weight is a divergent device load rather than a constant.
+func (b *metalBatch) EncodeSwiGLUWeightedGPU(gate, up, out, weight metalmem.Slice[float32]) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if gate.Len() == 0 || up.Len() != gate.Len() || out.Len() != gate.Len() || weight.Len() != 1 {
+		return fmt.Errorf("weighted SwiGLU: invalid shape")
+	}
+	enc := b.encoder()
+	enc.SetComputePipelineState(b.ops.kernels.SwiGLU)
+	enc.SetBufferWithOffsetAtIndex(gate.Buffer(), gate.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(up.Buffer(), up.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
+	libmetal.SetScalar(enc, uint32(gate.Len()), 3)
+	enc.SetBufferWithOffsetAtIndex(weight.Buffer(), weight.Offset(), 4)
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(gate.Len()), libmetal.Threads(min(gate.Len(), 256)))
+	b.encoded++
+	return nil
+}
+
 // EncodeSwiGLUWeightedSlots appends a slot-major SwiGLU operation whose
 // weights remain GPU-resident.
 func (b *metalBatch) EncodeSwiGLUWeightedSlots(gate, up, weights, out metalmem.Slice[float32]) error {
