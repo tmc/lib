@@ -72,7 +72,8 @@ sample indices to a whole compute pass through
 `MTLComputePassDescriptor.sampleBufferAttachments`. It times an encoder, not a
 dispatch. So on this hardware, phase granularity means *one encoder per phase*
 — a change to how the layer path encodes, not an added marker inside it. That
-is a heavier perturbation than a CUDA event, and it has to be stated as such.
+is a change to the structure of the encoding, where a CUDA event is an addition
+to a stream; how the two compare in magnitude is not measured here.
 
 The same run establishes two other physical numbers. A sample buffer accepts at
 most 4,096 timestamps (the driver names the range 8..32768 bytes at 8 bytes a
