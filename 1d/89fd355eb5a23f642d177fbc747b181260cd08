@@ -1,0 +1,8 @@
+Commit: 1d89fd355eb5a23f642d177fbc747b181260cd08
+Date: 2026-09-07T03:49:16.814130+00:00
+Agent: Codex GPT-6; Claude Code version not applicable
+PID: 59783
+TTY: not a tty
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/ragged-gate
+No GPU run; model-free tests and mutations pass. Commit helper missing ANTHROPIC_API_KEY; manual fallback.
