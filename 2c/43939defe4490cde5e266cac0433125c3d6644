@@ -1,0 +1,10 @@
+integrated: 2c43939defe4490cde5e266cac0433125c3d6644
+date: 2026-09-06T19:41:11-07:00
+agent: Codex
+model: GPT-5
+tty: not a tty
+pid: 89262
+iterm_session_id: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+source: cherry-picked from codex/ds4-prefill-batch-n2
+positive evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/prefill-n2-layer-major-20260907
+lifecycle evidence: /home/tmc/tmp/ds4-prefill-n2-lifecycle-test-20260907
