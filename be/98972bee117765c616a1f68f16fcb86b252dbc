@@ -6,3 +6,22 @@ session: 2b9497cd-7408-4e8b-a617-38b19820dab9
 session_url: https://claude.ai/code/session_01LPeVWqL2JqbPUvYSBqJyBn
 evidence: evidence/worker-DF6906F6/metal-encoder-merge-20260907 (0 mismatches)
 gate: TestMetalRuntimePositionZeroExecution PASS 31.93s
+
+CORRECTION 2026-09-07T03:47Z, after 6E6A46AB's gate-scope finding.
+The evidence above (generated-text stdout + dispatch counts + PositionZero PASS)
+does not establish bit-identity: greedy text equality survives small logit
+perturbations. The claim was over-scoped when made.
+
+Now gated on full logits. Arms be98972^ vs be98972, built GOWORK=off go test -c,
+captured with scripts/capture-prompt-a-states.sh (sha256 8ea78008..., byte-equal
+to the registered router-integration wrapper), run serially.
+  compare-state-captures.py: EXACT, 10/10 states byte-identical
+  concat both arms: db6f6125aace12670703a3b2a422c86655a9938fc1335f718657d2ab4913a6fe
+                    (the registered prompt-A value)
+Controls proving the gate can fail: one-ULP mutation of state-07 logit 12345 ->
+DIFFERENT exit 1 naming that file; self-alias refused exit 1; comparer suite
+15 pass / 1 skipped (test_retained_captures, fixture env unset).
+evidence: evidence/worker-DF6906F6/metal-encoder-merge-logits-20260907
+          MANIFEST.sha256 8031511f1c1a142cf006525cc9261428e561292893dbfe0f71ee4fdb20268ac0, 30 entries, 0 mismatches
+Unchanged: dispatch/command-buffer counts remain scoped mechanism evidence, not
+an attribution of the throughput gap.
