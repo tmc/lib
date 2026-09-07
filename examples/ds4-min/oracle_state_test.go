@@ -39,6 +39,11 @@ type oracleState struct {
 	Logits   []float32         `json:"logits"`
 }
 
+const (
+	fullLogitATol = 1e-4
+	fullLogitRTol = 1e-4
+)
+
 // loadOracleStates reads every state-NN.json in dir, keyed by NN. A
 // capture is allowed to be sparse: the observer writes the steps it was
 // asked for, not every step.
@@ -171,31 +176,74 @@ func secondGap(logits []float32, leader int) float64 {
 	return float64(logits[leader]) - second
 }
 
-// compareOracleLogits reports the shape of the difference rather than
-// asserting a tolerance. No tolerance for a whole-vocabulary logit
-// vector has been registered, and inventing one here after seeing the
-// numbers would make the comparison unfalsifiable.
+// compareOracleLogits applies the registered full-vocabulary acceptance
+// rule and reports the shape of any disagreement. The rule was registered
+// before the final acceptance captures: every finite value must satisfy
+// 1e-4 + 1e-4*abs(oracle).
 func compareOracleLogits(t *testing.T, step int, state oracleState, got []float32) float64 {
 	t.Helper()
 	if len(got) != len(state.Logits) {
 		t.Errorf("step %d: %d logits, oracle recorded %d", step, len(got), len(state.Logits))
 		return 0
 	}
-	worst, at := 0.0, 0
-	sum := 0.0
-	for i, v := range state.Logits {
-		d := math.Abs(float64(got[i]) - float64(v))
-		sum += d
-		if d > worst {
-			worst, at = d, i
-		}
+	d := compareLogits(state.Logits, got)
+	t.Logf("step %d: logits vs oracle: max |diff| %.6g at id %d, mean |diff| %.6g, violations %d/%d",
+		step, d.max, d.at, d.mean, d.violations, len(got))
+	if d.nonfinite >= 0 {
+		t.Errorf("step %d: nonfinite logit at id %d", step, d.nonfinite)
+	} else if d.violations != 0 {
+		t.Errorf("step %d: %d/%d logits exceed 1e-4 + 1e-4*abs(oracle); first id %d: got %.9g, oracle %.9g, delta %.9g, limit %.9g",
+			step, d.violations, len(got), d.first, got[d.first], state.Logits[d.first],
+			math.Abs(float64(got[d.first])-float64(state.Logits[d.first])),
+			fullLogitATol+fullLogitRTol*math.Abs(float64(state.Logits[d.first])))
 	}
-	t.Logf("step %d: logits vs oracle: max |diff| %.6g at id %d, mean |diff| %.6g", step, worst, at, sum/float64(len(got)))
 	for i, c := range state.Top20[:min(5, len(state.Top20))] {
 		rank, gap := rankOf(got, c.ID)
 		t.Logf("  oracle rank %d: id %6d logit %.6f; here rank %d, %.6g below the leader", i+1, c.ID, c.Logit, rank+1, gap)
 	}
-	return worst
+	return d.max
+}
+
+type logitDifference struct {
+	max        float64
+	mean       float64
+	at         int
+	first      int
+	violations int
+	nonfinite  int
+}
+
+func compareLogits(want, got []float32) logitDifference {
+	d := logitDifference{first: -1, nonfinite: -1}
+	var sum float64
+	for i := range want {
+		if !isFinite(want[i]) || !isFinite(got[i]) {
+			if d.nonfinite < 0 {
+				d.nonfinite = i
+			}
+			continue
+		}
+		delta := math.Abs(float64(got[i]) - float64(want[i]))
+		sum += delta
+		if delta > d.max {
+			d.max, d.at = delta, i
+		}
+		limit := fullLogitATol + fullLogitRTol*math.Abs(float64(want[i]))
+		if delta > limit {
+			d.violations++
+			if d.first < 0 {
+				d.first = i
+			}
+		}
+	}
+	if len(want) != 0 {
+		d.mean = sum / float64(len(want))
+	}
+	return d
+}
+
+func isFinite(v float32) bool {
+	return !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0)
 }
 
 // writeOracleState records one step in the observer's state-NN.json
@@ -298,8 +346,15 @@ func TestOracleStateDivergence(t *testing.T) {
 					continue
 				}
 				max, mean, bias, sd := divergence(x, y)
-				t.Logf("step %d: %s vs %s: max %.4f, mean %.4f, bias %+.4f, sd %.4f",
-					step, a.label, b.label, max, mean, bias, sd)
+				d := compareLogits(y, x)
+				t.Logf("step %d: %s vs %s: max %.4f, mean %.4f, bias %+.4f, sd %.4f, violations %d/%d",
+					step, a.label, b.label, max, mean, bias, sd, d.violations, len(x))
+				if d.nonfinite >= 0 {
+					t.Errorf("step %d: %s vs %s: nonfinite logit at id %d", step, a.label, b.label, d.nonfinite)
+				} else if d.violations != 0 {
+					t.Errorf("step %d: %s vs %s: %d/%d logits exceed 1e-4 + 1e-4*abs(reference)",
+						step, a.label, b.label, d.violations, len(x))
+				}
 			}
 		}
 		// With three captures the last one is the reference and the
@@ -358,4 +413,30 @@ func correlation(a, b []float64) float64 {
 		return 0
 	}
 	return cov / math.Sqrt(va*vb)
+}
+
+func TestCompareLogits(t *testing.T) {
+	tests := []struct {
+		name       string
+		want       []float32
+		got        []float32
+		violations int
+		nonfinite  int
+	}{
+		{"equal", []float32{0, 1}, []float32{0, 1}, 0, -1},
+		{"near zero within limit", []float32{0}, []float32{0.00009}, 0, -1},
+		{"relative term within limit", []float32{1}, []float32{1.00019}, 0, -1},
+		{"single violation", []float32{0, 1}, []float32{0.00011, 1}, 1, -1},
+		{"nonfinite candidate", []float32{0}, []float32{float32(math.NaN())}, 0, 0},
+		{"nonfinite oracle", []float32{float32(math.Inf(1))}, []float32{0}, 0, 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			d := compareLogits(test.want, test.got)
+			if d.violations != test.violations || d.nonfinite != test.nonfinite {
+				t.Fatalf("compareLogits = violations %d, nonfinite %d; want %d, %d",
+					d.violations, d.nonfinite, test.violations, test.nonfinite)
+			}
+		})
+	}
 }

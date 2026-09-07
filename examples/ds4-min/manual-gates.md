@@ -95,6 +95,9 @@ a resolution far below what a token trace can see: a change that moves
 the logits but not the selections is invisible to
 TestMetalRuntimePromptAGreedyTokens and obvious here.
 
-Do not read the comparison as a tolerance. None is registered for a
-whole-vocabulary logit vector, and choosing one after seeing these
-numbers would make it unfalsifiable.
+The final-acceptance contract now requires every finite full-vocabulary
+logit to satisfy `1e-4 + 1e-4*abs(reference)`. The comparison reports the
+descriptive statistics above and fails when any element exceeds that
+pre-registered bound. Exact repeatability between separately opened
+runtimes remains a distinct byte-identity gate; failure of that gate alone
+does not prove numerical non-equivalence.
