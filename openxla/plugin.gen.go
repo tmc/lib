@@ -12,13 +12,47 @@ import (
 
 // Plugin represents an OpenXLA PJRT dynamic library plugin.
 type Plugin struct {
-	mu     sync.RWMutex
-	handle uintptr
-	path   string
-	api    *Api
+	path string
+	api  *Api
+}
+
+// Only libraries opened here enter this registry. Their retained handles prevent
+// entry-point addresses from being reused after an external owner closes a handle.
+var (
+	pluginMu      sync.Mutex
+	pluginEntries = make(map[uintptr]*pluginInitialization)
+	pluginAPIs    = make(map[*Api]*pluginInitialization)
+)
+
+type pluginInitialization struct {
+	mu          sync.Mutex
+	handle      uintptr // retained for the lifetime of the process
+	initialized bool
+}
+
+func managedInitialization(api *Api) *pluginInitialization {
+	pluginMu.Lock()
+	defer pluginMu.Unlock()
+	return pluginAPIs[api]
+}
+
+func (p *pluginInitialization) initialize(api *Api) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.initialized {
+		return nil
+	}
+	if err := initializePlugin(api); err != nil {
+		return err
+	}
+	p.initialized = true
+	return nil
 }
 
 // OpenPlugin loads a PJRT plugin dynamic library (e.g. libtpu.so, pjrt_c_api_gpu.so).
+// Successful loads retain the library for the lifetime of the process. Loads
+// resolving to the same GetPjrtApi entry point share successful initialization.
+// The returned API tables must remain valid and immutable for that lifetime.
 func OpenPlugin(path string) (*Plugin, error) {
 	if path == "" {
 		return nil, errors.New("openxla: empty library path")
@@ -41,11 +75,24 @@ func OpenPlugin(path string) (*Plugin, error) {
 		return nil, errors.Join(fmt.Errorf("openxla: GetPjrtApi returned nil in %q", path), purego.Dlclose(handle))
 	}
 
-	return &Plugin{
-		handle: handle,
-		path:   path,
-		api:    api,
-	}, nil
+	pluginMu.Lock()
+	state := pluginEntries[symbol]
+	first := state == nil
+	if first {
+		state = &pluginInitialization{handle: handle}
+		pluginEntries[symbol] = state
+	}
+	pluginAPIs[api] = state
+	pluginMu.Unlock()
+
+	// Dlopen may return the same handle while incrementing its reference count.
+	// Balance every additional open, including opens through path aliases.
+	if !first {
+		if err := purego.Dlclose(handle); err != nil {
+			return nil, err
+		}
+	}
+	return &Plugin{path: path, api: api}, nil
 }
 
 // Path returns the filesystem path of the loaded plugin.
@@ -58,7 +105,9 @@ func (p *Plugin) Api() *Api {
 	return p.api
 }
 
-// NewClient initializes the plugin and instantiates a PJRT client.
+// NewClient initializes the plugin once successfully and creates a PJRT client.
+// Concurrent calls share initialization. A failed initialization may be retried
+// by a later call; a client creation failure does not repeat successful setup.
 func (p *Plugin) NewClient() (*ClientWrapper, error) {
 	return NewClientFromApi(p.api)
 }
