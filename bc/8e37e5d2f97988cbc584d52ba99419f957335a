@@ -1,0 +1,9 @@
+commit bc8e37e5d2f97988cbc584d52ba99419f957335a
+committed 2026-09-06
+agent Codex
+model GPT-5
+tty not-a-tty
+pid 50998
+ITERM_SESSION_ID w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+local gate: cd examples && GOWORK=off go test ./ds4-min
+linux compile binary sha256 829de0d41b440cad9111203ce218efbe6b504fbbc8ed53a4e261ef444050a0ea
