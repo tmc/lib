@@ -33,9 +33,11 @@ sample is at layer 36 in RMS launch. Each stack is one location sample and does
 not identify where time was spent, establish a rate, or distinguish slow
 progress from a stall. Neither run writes a result or completion marker.
 The run wrapper qualified CPU load but did not record CUDA device health. A
-later check found the device unavailable and the host was rebooted, so the
-historical link/driver state cannot be recovered; these are not qualified
-healthy-device performance results.
+later check found the device unavailable, but no retained evidence dates when
+that state began. After reboot, the functional CUDA probe succeeded while the
+reported PCIe link remained 2.5 GT/s x1 and the procfs model remained unknown,
+so neither field diagnoses the earlier failure. The receipts do not establish
+device health during either run and are not qualified performance results.
 
 Evidence is in
 `../evidence/worker-BABFB352/cuda-compressor-defer-n64-20260907/` and
