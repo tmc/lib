@@ -1,0 +1,8 @@
+Commit: 2203504a864c1f05d9629781c2826e6684ebe978
+Date: 2026-09-07T03:59:45.920043+00:00
+Agent: Codex GPT-6; Claude Code version not applicable
+TTY: not a tty
+PID: 65024
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/oracle-workload-gate
+Commit helper missing API key; manual fallback used. Model-free validation only.
