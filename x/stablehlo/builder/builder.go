@@ -191,6 +191,13 @@ func fmtArr(arr []int64) string {
 	return "[" + strings.Join(strs, ", ") + "]"
 }
 
+func fmtI64Array(arr []int64) string {
+	if len(arr) == 0 {
+		return "array<i64>"
+	}
+	return "array<i64: " + strings.Trim(fmtArr(arr), "[]") + ">"
+}
+
 // DotGeneral emits stablehlo.dot_general
 func (b *FuncBuilder) DotGeneral(lhs, rhs Value, lhsBatch, rhsBatch, lhsContract, rhsContract []int64, retType Type) (Value, error) {
 	if err := sameElements(lhs.Type, rhs.Type, retType); err != nil {
@@ -288,8 +295,8 @@ func (b *FuncBuilder) Slice(v Value, startIndices, limitIndices, strides []int64
 	}
 
 	out := Value{ID: b.next(), Type: retType}
-	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.slice %s, start_indices = %s, limit_indices = %s, strides = %s : (%s) -> %s",
-		out.ID, v.ID, fmtArr(startIndices), fmtArr(limitIndices), fmtArr(strides), v.Type, retType))
+	b.Ops = append(b.Ops, fmt.Sprintf("%s = \"stablehlo.slice\"(%s) {start_indices = %s, limit_indices = %s, strides = %s} : (%s) -> %s",
+		out.ID, v.ID, fmtI64Array(startIndices), fmtI64Array(limitIndices), fmtI64Array(strides), v.Type, retType))
 	return out, nil
 }
 
@@ -340,7 +347,7 @@ func (b *FuncBuilder) Concatenate(vs []Value, dimension int64, retType Type) (Va
 		types = append(types, v.Type.String())
 	}
 
-	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.concatenate %s, dimension = %d : (%s) -> %s",
+	b.Ops = append(b.Ops, fmt.Sprintf("%s = \"stablehlo.concatenate\"(%s) {dimension = %d : i64} : (%s) -> %s",
 		out.ID, strings.Join(ids, ", "), dimension, strings.Join(types, ", "), retType))
 	return out, nil
 }

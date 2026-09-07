@@ -18,6 +18,14 @@ clamping. ScatterRows instead replaces indexed rows and ignores out-of-range
 indices. BatchedCausalMask supports independent runtime positions and valid
 query counts. Cache callers validate counts and capacity before dispatch.
 
+GatherRows selects embedding rows with scalar or tensor i32/i64 indices.
+Runtime indices clamp to the available rows; model runtimes must reject invalid
+token IDs before dispatch. SiLU and SwiGLU compute activations in f32 for
+f16/bf16 inputs and convert only the final result. RotaryEmbedding uses caller-
+supplied f32 cosine/sine tables and split-half feature pairs, with trailing
+broadcasting and optional unrotated tail features. These operations provide
+model-building primitives; they do not constitute a complete inference engine.
+
 No dropout is applied. Mask operations follow the
 [StableHLO specification](https://openxla.org/stablehlo/spec).
 
@@ -32,3 +40,11 @@ STABLEHLO_PYTHON=/path/to/venv/bin/python go test -run TestNativeCPU -v ./builde
 That test selects the CPU backend and requires an intentional attention-scale
 mutation to fail. It validates emitted graphs, not the Go PJRT bindings or TPU
 hardware. Without the environment variable, this optional test is skipped.
+
+The optional `TestNativeModelOps` gate covers row lookup, scalar/strided slices,
+concatenation, activations and full/partial rotary embeddings with independent
+references and a rotation-sign mutation. Run both native gates with:
+
+```
+STABLEHLO_PYTHON=/path/to/venv/bin/python go test -run TestNative -v ./builder
+```

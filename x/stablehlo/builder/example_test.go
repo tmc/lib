@@ -238,3 +238,34 @@ func ExampleFuncBuilder_BatchedCausalMask() {
 	fmt.Println(mask.Type, err)
 	// Output: tensor<2x3x8xi1> <nil>
 }
+
+func ExampleFuncBuilder_GatherRows() {
+	b := builder.NewFunc("main", builder.Type{Shape: []int64{32, 8}, ElementType: "f32"}, builder.Type{Shape: []int64{2, 3}, ElementType: "i64"})
+	out, err := b.GatherRows(b.Arg(0), b.Arg(1))
+	fmt.Println(out.Type, err)
+	// Output: tensor<2x3x8xf32> <nil>
+}
+
+func ExampleFuncBuilder_SiLU() {
+	b := builder.NewFunc("main", builder.Type{Shape: []int64{2, 8}, ElementType: "bf16"})
+	out, err := b.SiLU(b.Arg(0))
+	fmt.Println(out.Type, err)
+	// Output: tensor<2x8xbf16> <nil>
+}
+
+func ExampleFuncBuilder_SwiGLU() {
+	typ := builder.Type{Shape: []int64{2, 8}, ElementType: "f16"}
+	b := builder.NewFunc("main", typ, typ)
+	out, err := b.SwiGLU(b.Arg(0), b.Arg(1))
+	fmt.Println(out.Type, err)
+	// Output: tensor<2x8xf16> <nil>
+}
+
+func ExampleFuncBuilder_RotaryEmbedding() {
+	x := builder.Type{Shape: []int64{2, 4, 3, 8}, ElementType: "bf16"}
+	table := builder.Type{Shape: []int64{3, 4}, ElementType: "f32"}
+	b := builder.NewFunc("main", x, table, table)
+	out, err := b.RotaryEmbedding(b.Arg(0), b.Arg(1), b.Arg(2))
+	fmt.Println(out.Type, err)
+	// Output: tensor<2x4x3x8xbf16> <nil>
+}
