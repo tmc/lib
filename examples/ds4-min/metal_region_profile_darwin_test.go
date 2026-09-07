@@ -239,9 +239,12 @@ func TestMetalRegionInventory(t *testing.T) {
 // against the retained token file, so a wrong constant is caught here
 // rather than by a refusal after a model slot has been taken.
 func TestMetalRegionPrefixRegistration(t *testing.T) {
-	input, err := os.ReadFile("../../scripts/testdata/oracle-workload-tokens2048.json")
+	// The fixture is tracked, so a read error is a broken checkout, not an
+	// absent optional input. Skipping on it would turn the one control that
+	// binds the constant to real bytes into a silent pass.
+	input, err := os.ReadFile(metalRegionTokensPath)
 	if err != nil {
-		t.Skip("retained token file not present")
+		t.Fatal(err)
 	}
 	tokens, err := parsePrefillTokens(input)
 	if err != nil {
@@ -250,10 +253,85 @@ func TestMetalRegionPrefixRegistration(t *testing.T) {
 	if len(tokens) < metalRegionTokens {
 		t.Fatalf("token file holds %d tokens, want at least %d", len(tokens), metalRegionTokens)
 	}
-	got := fmt.Sprintf("%x", sha256.Sum256(oracleWorkloadTokenBytes(tokens[:metalRegionTokens])))
-	if got != metalRegionPrefixSHA256 {
-		t.Fatalf("retained tokens hash to %s, registered %s", got, metalRegionPrefixSHA256)
+	if _, err := checkMetalRegionPrefix(tokens[:metalRegionTokens]); err != nil {
+		t.Fatal(err)
 	}
+}
+
+// TestMetalRegionPrefixRefusal exercises the predicate the production run
+// depends on. The registration test above proves only that the constant
+// agrees with the fixture; deleting the refusal outright leaves it green.
+// This is the control with power over the refusal itself, and it needs no
+// model, so it runs on every build rather than behind a gate.
+func TestMetalRegionPrefixRefusal(t *testing.T) {
+	input, err := os.ReadFile(metalRegionTokensPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := parsePrefillTokens(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical = canonical[:metalRegionTokens]
+
+	changed := append([]int(nil), canonical...)
+	changed[metalRegionTokens-1]++
+	first := append([]int(nil), canonical...)
+	first[0]++
+	// The CUDA lane's superseded capture, whose first ID is 0 where the
+	// canonical corpus begins 36662. This is the corpus confusion that
+	// motivated the gate, so it is a case rather than a hypothetical.
+	other := append([]int(nil), canonical...)
+	other[0] = 0
+
+	for _, c := range []struct {
+		name   string
+		tokens []int
+		want   bool
+	}{
+		{"canonical", canonical, true},
+		{"last token changed", changed, false},
+		{"first token changed", first, false},
+		{"superseded CUDA first ID", other, false},
+		{"one token short", canonical[:metalRegionTokens-1], false},
+		{"one token long", append(append([]int(nil), canonical...), 1), false},
+		{"empty", nil, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := checkMetalRegionPrefix(c.tokens)
+			if c.want {
+				if err != nil {
+					t.Fatalf("accepted corpus refused: %v", err)
+				}
+				if got != metalRegionPrefixSHA256 {
+					t.Fatalf("hash %s, want %s", got, metalRegionPrefixSHA256)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("refusal did not fire; hashed to %s", got)
+			}
+		})
+	}
+}
+
+// metalRegionTokensPath is the retained canonical corpus.
+const metalRegionTokensPath = "../../scripts/testdata/oracle-workload-tokens2048.json"
+
+// checkMetalRegionPrefix returns the hash of the IDs that will be consumed,
+// refusing any sequence that is not the registered corpus.
+//
+// There is no separate length check. An earlier version had one, and a
+// mutation check showed it was dead: the encoding is four bytes per ID with
+// no terminator, so a sequence of the wrong length hashes differently and the
+// comparison below already refuses it. A predicate that cannot fail is worse
+// than no predicate, because it reads as protection.
+func checkMetalRegionPrefix(tokens []int) (string, error) {
+	got := fmt.Sprintf("%x", sha256.Sum256(oracleWorkloadTokenBytes(tokens)))
+	if got != metalRegionPrefixSHA256 {
+		return got, fmt.Errorf("token prefix is %s, want the registered %s: this is not the corpus this profile is scoped to", got, metalRegionPrefixSHA256)
+	}
+	return got, nil
 }
 
 func TestMetalRegionProfile(t *testing.T) {
@@ -301,11 +379,9 @@ func TestMetalRegionProfile(t *testing.T) {
 	// the registered oracle prefix uses. Naming the token file binds the
 	// file; this binds the sequence that reached the runtime, which is
 	// the thing a later comparison against the CUDA lane depends on.
-	tokenBytes := oracleWorkloadTokenBytes(tokens)
-	tokenPrefixHash := fmt.Sprintf("%x", sha256.Sum256(tokenBytes))
-	if tokenPrefixHash != metalRegionPrefixSHA256 {
-		t.Fatalf("token prefix is %s, want the registered %s: this is not the corpus this profile is scoped to",
-			tokenPrefixHash, metalRegionPrefixSHA256)
+	tokenPrefixHash, err := checkMetalRegionPrefix(tokens)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	r, err := newMetalRuntime(model, metalRegionContext)
