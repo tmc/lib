@@ -1,0 +1,12 @@
+Commit: 54d63abc3618c40a031448a7992706cc490a17e1
+Date: 2026-09-07T04:09:07Z
+Agent: Codex
+Model: GPT-5 Codex
+TTY: not a tty
+PID: 70484
+ITERM_SESSION_ID: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/cuda-width8-ragged-20260907
+Manifest: 2a27547b25da91f10472f5294a841fe295cd3a256e564f16609cf52729846946
+Payload: b22b42cc28ab2010ba152c2f53e560adb72b9fd91afa61645226cf3efef59dc3
+Review: DF6906F6 PASS
+Commit helper failed once for missing ANTHROPIC_API_KEY; manual fallback used.
