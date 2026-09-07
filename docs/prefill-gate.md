@@ -75,7 +75,7 @@ Model-free controls:
 
 ```
 python3 -B scripts/compare-prefill_test.py
-python3 /Users/tmc/tmp/ds4-lib-workflow/worktree/scripts/qualified-run_test.py
+python3 -B scripts/qualified-run_test.py
 ```
 
 Ten comparator controls and eleven qualification controls passed. A missing-model
