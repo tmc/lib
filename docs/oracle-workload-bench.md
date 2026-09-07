@@ -37,14 +37,32 @@ file hash. Both reference and port receipts must name this token hash.
 
 ## Physical acceptance
 
-No physical run has been made with this harness. Before running, bind source and
-executable identities, pass the registered warmed bit-identity gate for the
+Physical CUDA attempts have timed out without `result.json` or `COMPLETE`;
+there is no completed port 2048-token rate from those attempts. Retained receipts
+are `evidence/worker-BABFB352/oracle-workload-current-20260907` and
+`evidence/worker-BABFB352/cuda-compressor-defer-workload-20260907`. Their terminal
+stack samples establish where execution was observed, not a rate or a cause.
+Device health during those attempts is not established by retained evidence.
+
+Before running, bind source and executable identities, pass the registered warmed bit-identity gate for the
 production change, reserve the serial model slot, and use qualified-run with the
 registered host limit before and after timing. Do not rerun the old unchanged
 2048-token CUDA implementation, whose 55-minute timeout is already retained.
 Use a fresh process per repetition and a bounded timeout. Retain go test -json
 events; check positive reach of TestOracleWorkload with scripts/check-go-test.py
 and the actual exit. A plain package PASS can mean this test skipped.
+
+Finish builds, tests and source hashing that are external to the harness before
+taking a qualified timing window. The slot owner must also avoid unrelated
+CPU, disk and GPU work on that host until after qualification is recorded.
+A slot reservation coordinates agents; it does not enforce host quietness.
+Do not widen the registered load limit to admit a contended run.
+
+On CUDA, retain `devicequalify` observations before and after the run as well
+as the load qualification. The device probe checks driver initialization and
+metadata responses, not kernel execution or continuous health during the run.
+PCIe expectations are optional and require a relevant retained baseline; a
+link reading alone is not a demonstrated transport fault on this GB10.
 
 identity.json also binds the discrepancy receipt path/hash and the EOS vocabulary-token lookup
 in the bound model. It binds host/backend, model, executable, prompt, corpus, context and
