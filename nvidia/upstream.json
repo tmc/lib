@@ -8736,7 +8736,14 @@
     },
     "ncclep": {
       "package": "github.com/tmc/lib/nvidia/ncclep",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "a42e705bb0fb0182348d6ddd34fff86107feabc2",
+          "tree": "1214384ddcf102daec82840513b9925b9c44bd7f"
+        }
+      },
       "headers": [
         {
           "repository": "codegen",
@@ -8751,70 +8758,87 @@
       ],
       "generator_sources": [
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/README.md",
-          "sha256": "fafd40969090d8ab6f52c44ebb1ea7cb30348eafce6d0638fe623d9a945e19c0"
+          "sha256": "40c3b11ae6f9ba056f020b31ada7acd15c7cd56b3a03a6ad5c51262bae78484c"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/config.go",
           "sha256": "8b2edc4be876bb6be5dad7f93ba0c6cb052d447aecfac342c99d6ac85b66ff22"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/defaults.go",
           "sha256": "03acd1b096882d39e79fe5270fc3e389a932a0d7759f14ea3fda546597959dac"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/docs.go",
           "sha256": "7964c8045f9d0b0e0c01e6e56e907daae207324711192209bd58953620281528"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/fields.go",
           "sha256": "291031994b125de0e8984f866d2ef1afbd68d126d9faa8e0aa0e728a336cbd8f"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/README.md",
           "sha256": "38ad75ef4e6fe61af1652fb9b495a59770bb1629f2e9c8c476f759f6a073b6cb"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
           "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_ep/ep_enums.h",
           "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_ep/nccl_ep.h",
           "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_m2n/nccl_m2n.h",
           "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/main.go",
           "sha256": "920bf27380c018c700d29f7d5d5ce1deb32072a77342b1de2c764de694fccada"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/main_test.go",
-          "sha256": "f804ef4bdbd2674537ac9a07c2c406212626203ab7287ec61c66ddcf74b379eb"
+          "sha256": "721396ef3486c9b05fd3c74cc4d539e1aa0eb7371d29afdefb60d2e9737be942"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/testdata/probe.go",
           "sha256": "1f3201d7b396e0db0bc9d005f62954e20368375fd0dbcb3f762980269357d64d"
         },
         {
+          "repository": "codegen",
           "path": "go.mod",
           "sha256": "53236da19d2f0ed81f5633772bd38ac6ca9b1b4fc781bd06d75bd735b16db766"
         },
         {
+          "repository": "codegen",
           "path": "go.sum",
           "sha256": "ec5e02d69647403fb5c9fffb4ec47ae0125042ed6877f79bf02730caeb526571"
         },
         {
+          "repository": "codegen",
           "path": "internal/ffigen/generator.go",
           "sha256": "eb43ce17c5806ab28a72837d50bda69b860c44ba40aa156a54c7b2adf7d30cfd"
         },
         {
+          "repository": "codegen",
           "path": "internal/ffigen/platform_loader.go",
           "sha256": "a7d467e8be768f089f4e201d81e455f9683f47820205c72a85034a9349c2daea"
         }
@@ -8892,16 +8916,22 @@
             "sha256": "ba5950d3c4c8369109561578409ce08160ea5062c102a2531078aab894c7591a"
           }
         ],
-        "note": "The generator, cmd/gen-nccl-extensions, and the NCCL EP and M2N headers it parses are uncommitted in the codegen repository, so no input commit can be pinned. The recorded argv reproduced these outputs byte for byte twice on the recording host; the header digests below identify the inputs that were parsed.",
+        "note": "Generated before the generator was committed and re-verified against it afterwards: the recorded argv reproduces these outputs byte for byte from the pinned codegen commit.",
         "limitations": [
-          "The codegen commit is not pinned because the generator is uncommitted; the recorded argv cannot be replayed from a clean checkout until it lands.",
           "The CUDA header root passed as -cuda-headers was a working tree with local modifications, so it is identified by the parsed header digests rather than by a commit."
         ]
       }
     },
     "ncclm2n": {
       "package": "github.com/tmc/lib/nvidia/ncclm2n",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "a42e705bb0fb0182348d6ddd34fff86107feabc2",
+          "tree": "1214384ddcf102daec82840513b9925b9c44bd7f"
+        }
+      },
       "headers": [
         {
           "repository": "codegen",
@@ -8911,70 +8941,87 @@
       ],
       "generator_sources": [
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/README.md",
-          "sha256": "fafd40969090d8ab6f52c44ebb1ea7cb30348eafce6d0638fe623d9a945e19c0"
+          "sha256": "40c3b11ae6f9ba056f020b31ada7acd15c7cd56b3a03a6ad5c51262bae78484c"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/config.go",
           "sha256": "8b2edc4be876bb6be5dad7f93ba0c6cb052d447aecfac342c99d6ac85b66ff22"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/defaults.go",
           "sha256": "03acd1b096882d39e79fe5270fc3e389a932a0d7759f14ea3fda546597959dac"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/docs.go",
           "sha256": "7964c8045f9d0b0e0c01e6e56e907daae207324711192209bd58953620281528"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/fields.go",
           "sha256": "291031994b125de0e8984f866d2ef1afbd68d126d9faa8e0aa0e728a336cbd8f"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/README.md",
           "sha256": "38ad75ef4e6fe61af1652fb9b495a59770bb1629f2e9c8c476f759f6a073b6cb"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl/nccl.h",
           "sha256": "1447f19c849c9a9f0f7ff2fd1ad2631e84a7ac2fb65cbe52102324c28a591997"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_ep/ep_enums.h",
           "sha256": "8c0ed44272623923a8bc018423ca93fdb9e27cb5da3ca2c345a5ce7c9bfb32fe"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_ep/nccl_ep.h",
           "sha256": "a9b23b78db72c5973b3ff79be2658f95c000cf31aa759e94599a1b349e09b208"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/headers/nccl_m2n/nccl_m2n.h",
           "sha256": "2ea1e425de4a2a4698407341d476771c2049882a624d5ae567a36c119d8c6e58"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/main.go",
           "sha256": "920bf27380c018c700d29f7d5d5ce1deb32072a77342b1de2c764de694fccada"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/main_test.go",
-          "sha256": "f804ef4bdbd2674537ac9a07c2c406212626203ab7287ec61c66ddcf74b379eb"
+          "sha256": "721396ef3486c9b05fd3c74cc4d539e1aa0eb7371d29afdefb60d2e9737be942"
         },
         {
+          "repository": "codegen",
           "path": "cmd/gen-nccl-extensions/testdata/probe.go",
           "sha256": "1f3201d7b396e0db0bc9d005f62954e20368375fd0dbcb3f762980269357d64d"
         },
         {
+          "repository": "codegen",
           "path": "go.mod",
           "sha256": "53236da19d2f0ed81f5633772bd38ac6ca9b1b4fc781bd06d75bd735b16db766"
         },
         {
+          "repository": "codegen",
           "path": "go.sum",
           "sha256": "ec5e02d69647403fb5c9fffb4ec47ae0125042ed6877f79bf02730caeb526571"
         },
         {
+          "repository": "codegen",
           "path": "internal/ffigen/generator.go",
           "sha256": "eb43ce17c5806ab28a72837d50bda69b860c44ba40aa156a54c7b2adf7d30cfd"
         },
         {
+          "repository": "codegen",
           "path": "internal/ffigen/platform_loader.go",
           "sha256": "a7d467e8be768f089f4e201d81e455f9683f47820205c72a85034a9349c2daea"
         }
@@ -9052,9 +9099,8 @@
             "sha256": "96a20edc73a1d08815d68618606474cdf4651d7e70fc3370c6deb0693e3a09bb"
           }
         ],
-        "note": "The generator, cmd/gen-nccl-extensions, and the NCCL EP and M2N headers it parses are uncommitted in the codegen repository, so no input commit can be pinned. The recorded argv reproduced these outputs byte for byte twice on the recording host; the header digests below identify the inputs that were parsed.",
+        "note": "Generated before the generator was committed and re-verified against it afterwards: the recorded argv reproduces these outputs byte for byte from the pinned codegen commit.",
         "limitations": [
-          "The codegen commit is not pinned because the generator is uncommitted; the recorded argv cannot be replayed from a clean checkout until it lands.",
           "The CUDA header root passed as -cuda-headers was a working tree with local modifications, so it is identified by the parsed header digests rather than by a commit."
         ]
       }
