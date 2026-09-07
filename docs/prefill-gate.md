@@ -2,12 +2,22 @@
 
 `TestPrefillCapture` is a capture producer for comparing old and new `EvalBatch`
 implementations on the same backend. It does not claim oracle equivalence or
-measure throughput. The existing CUDA `e1500...` hash checks only token 0 at
-position 0; retain that check separately.
+measure throughput. The CUDA production gate `TestCUDAProductionHash` checks token 0 at position 0
+before and after Reset, at context 1024, against `e1500...`. It is opt-in through
+`DS4_CUDA_PRODUCTION_HASH_GATE=1` and `DS4_MODEL`. Retain that check separately;
+it does not exercise `EvalBatch`.
 
-Build the same `prefill_gate_test.go` into the frozen reference and candidate.
+Freeze both source trees from one named baseline, with the candidate patch
+recorded explicitly, then build the same `prefill_gate_test.go` into each. Compare
+the complete recorded source set against the intended tree before launch; a
+previous model-free test copy may contain older production kernels even when
+the gate file is current.
 The test compiles for Darwin arm64 and Linux arm64. Those builds do not establish
-hardware correctness. No full-model capture has been run for this gate yet.
+hardware correctness. The n=2 CUDA baseline/candidate capture and fixed
+continuation passed exact comparison in the retained
+`evidence/worker-BABFB352/prefill-n2-layer-major-20260907/` receipt. Reversing
+within-layer token order made the comparator fail. Cases 64 and 2048 remain
+unmeasured; the n=2 result does not cover them.
 
 The input is a retained JSON array of at least 2048 token IDs in [0,129279]. Use
 the same tokenizer output for both candidates; do not independently regenerate
@@ -15,8 +25,10 @@ it between arms. Choose and retain one fixed continuation token. The test hashes
 the model and executable, uses context 2049, and emits 129280 finite logits in
 little-endian float32 form at both prefill and continuation boundaries.
 
-Run one model process at a time, under the authoritative qualified-run wrapper
-and the host owner's reservation. Start with the two-token case:
+Run one model process at a time under the host owner's reservation. These are
+identity captures, so they do not require a quiet-host timing qualification.
+Throughput measurements require the authoritative qualified-run wrapper and its
+pre-registered host limit. Start with the two-token case:
 
 ```
 DS4_PREFILL_GATE=1
