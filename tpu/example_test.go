@@ -16,14 +16,6 @@ func Example() {
 		return
 	}
 
-	api, err := tpu.GetApi()
-	if err != nil {
-		fmt.Println("GetApi:", err)
-		return
-	}
-
-	fmt.Printf("PJRT API Version: %d.%d\n", api.ApiVersion.Major_version, api.ApiVersion.Minor_version)
-
 	client, err := tpu.NewClient()
 	if err != nil {
 		fmt.Println("NewClient:", err)

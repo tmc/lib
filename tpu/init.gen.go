@@ -7,20 +7,16 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"sync/atomic"
+	"unsafe"
 
-	"github.com/ebitengine/purego"
+	"github.com/tmc/lib/openxla"
 )
 
 var (
-	loadMu     sync.RWMutex
-	loadedPath string
-	getPjrtApi func() *Api
-	cachedApi  *Api
-	ready      atomic.Bool
+	loadMu       sync.RWMutex
+	cachedPlugin *openxla.Plugin
 )
 
-// Default search paths for Cloud TPU PJRT plugin (libtpu.so).
 var defaultLibraryNames = []string{
 	"libtpu.so",
 	"/usr/local/lib/python3.10/dist-packages/libtpu/libtpu.so",
@@ -40,84 +36,67 @@ func (e *LibraryConflictError) Error() string {
 	return fmt.Sprintf("tpu: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
 
-// Load opens libtpu.so from path, or the default search paths when path is empty,
-// and binds GetPjrtApi. Load is idempotent.
+// Load opens a PJRT plugin from path, or searches for libtpu.so when path is empty.
+// Repeated calls reuse the loaded plugin; a different explicit path returns an error.
 func Load(path string) error {
+	_, err := load(path)
+	return err
+}
+
+func load(path string) (*openxla.Plugin, error) {
 	loadMu.Lock()
 	defer loadMu.Unlock()
-
-	if loadedPath != "" {
-		if path != "" && path != loadedPath {
-			return &LibraryConflictError{Loaded: loadedPath, Requested: path}
+	if cachedPlugin != nil {
+		if path != "" && path != cachedPlugin.Path() {
+			return nil, &LibraryConflictError{Loaded: cachedPlugin.Path(), Requested: path}
 		}
-		return nil
+		return cachedPlugin, nil
 	}
-
 	if os.Getenv("CODEGEN_SKIP_BINDINGS") != "" {
-		return errors.New("tpu: bindings disabled via CODEGEN_SKIP_BINDINGS")
+		return nil, errors.New("tpu: bindings disabled via CODEGEN_SKIP_BINDINGS")
 	}
-
-	envPath := os.Getenv("TPU_LIB_PATH")
-	if envPath == "" {
-		envPath = os.Getenv("PJRT_PLUGIN_LIBRARY_PATH")
+	if path == "" {
+		path = os.Getenv("TPU_LIB_PATH")
 	}
-
-	var candidates []string
+	if path == "" {
+		path = os.Getenv("PJRT_PLUGIN_LIBRARY_PATH")
+	}
+	candidates := defaultLibraryNames
 	if path != "" {
 		candidates = []string{path}
-	} else if envPath != "" {
-		candidates = []string{envPath}
-	} else {
-		candidates = defaultLibraryNames
 	}
-
-	var handle uintptr
 	var lastErr error
-	var chosenPath string
-
-	for _, c := range candidates {
-		h, err := purego.Dlopen(c, purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err == nil {
-			handle = h
-			chosenPath = c
-			break
+	for _, candidate := range candidates {
+		plugin, err := openxla.OpenPlugin(candidate)
+		if err != nil {
+			lastErr = err
+			continue
 		}
-		lastErr = err
+		cachedPlugin = plugin
+		return plugin, nil
 	}
-
-	if handle == 0 {
-		return fmt.Errorf("tpu: failed to load libtpu.so: %w", lastErr)
-	}
-
-	purego.RegisterLibFunc(&getPjrtApi, handle, "GetPjrtApi")
-	if getPjrtApi == nil {
-		return errors.New("tpu: GetPjrtApi symbol not found in loaded library")
-	}
-
-	api := getPjrtApi()
-	if api == nil {
-		return errors.New("tpu: GetPjrtApi returned nil API table")
-	}
-
-	cachedApi = api
-	loadedPath = chosenPath
-	ready.Store(true)
-	return nil
+	return nil, fmt.Errorf("tpu: load plugin: %w", lastErr)
 }
 
-// Loaded reports whether libtpu has been loaded.
+// Loaded reports whether a plugin is selected.
 func Loaded() bool {
-	return ready.Load()
+	loadMu.RLock()
+	defer loadMu.RUnlock()
+	return cachedPlugin != nil
 }
 
-// Path returns the path of the loaded library, or empty string.
+// Path returns the selected library path, or an empty string.
 func Path() string {
 	loadMu.RLock()
 	defer loadMu.RUnlock()
-	return loadedPath
+	if cachedPlugin == nil {
+		return ""
+	}
+	return cachedPlugin.Path()
 }
 
-// Has reports whether the specified API symbol is present and non-nil.
+// Has reports whether a supported API symbol is present within the table's size.
+// Like GetApi, it loads the default library when none is selected.
 func Has(symbol string) bool {
 	api, err := GetApi()
 	if err != nil || api == nil {
@@ -125,42 +104,36 @@ func Has(symbol string) bool {
 	}
 	switch symbol {
 	case "GetPjrtApi":
-		return getPjrtApi != nil
+		return true
 	case "Client_Create":
-		return api.Client_Create != 0
+		return api.StructSize >= unsafe.Offsetof(api.Client_Create)+unsafe.Sizeof(api.Client_Create) && api.Client_Create != 0
 	case "Client_Destroy":
-		return api.Client_Destroy != 0
+		return api.StructSize >= unsafe.Offsetof(api.Client_Destroy)+unsafe.Sizeof(api.Client_Destroy) && api.Client_Destroy != 0
 	case "Client_Compile":
-		return api.Client_Compile != 0
+		return api.StructSize >= unsafe.Offsetof(api.Client_Compile)+unsafe.Sizeof(api.Client_Compile) && api.Client_Compile != 0
 	case "Plugin_Initialize":
-		return api.Plugin_Initialize != 0
+		return api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0
 	default:
 		return false
 	}
 }
 
-// Close resets the loaded library state (for testing).
+// Close clears the selected plugin so a subsequent Load may select another.
+// It does not unload native libraries or invalidate existing clients and API tables.
 func Close() error {
 	loadMu.Lock()
 	defer loadMu.Unlock()
-	loadedPath = ""
-	cachedApi = nil
-	getPjrtApi = nil
-	ready.Store(false)
+	cachedPlugin = nil
 	return nil
 }
 
-// GetApi returns the PJRT_Api function table, loading the default library if not yet loaded.
+// GetApi returns the raw PJRT table, loading the default plugin if needed.
+// The table is borrowed and remains valid after Close. NewClient validates it
+// before dispatch; callers accessing fields directly must check StructSize.
 func GetApi() (*Api, error) {
-	loadMu.RLock()
-	if cachedApi != nil {
-		defer loadMu.RUnlock()
-		return cachedApi, nil
-	}
-	loadMu.RUnlock()
-
-	if err := Load(""); err != nil {
+	plugin, err := load("")
+	if err != nil {
 		return nil, err
 	}
-	return cachedApi, nil
+	return plugin.Api(), nil
 }

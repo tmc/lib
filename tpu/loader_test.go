@@ -43,7 +43,7 @@ func TestLoader(t *testing.T) {
 	if api == nil {
 		t.Fatal("GetApi() returned nil")
 	}
-	if api.Client_Create == 0 {
-		t.Errorf("Client_Create function pointer is null")
+	if !tpu.Has("Client_Create") {
+		t.Errorf("Client_Create function pointer is absent")
 	}
 }

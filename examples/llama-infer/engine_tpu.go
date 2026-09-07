@@ -194,7 +194,7 @@ func GetOrCompileTPUEngine(cfg Config) (*ModelEngine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newTPUModelEngine(cfg, p, tokenizer, (*openxla.Api)(unsafe.Pointer(api)))
+	return newTPUModelEngine(cfg, p, tokenizer, api)
 }
 
 func newTPUModelEngine(cfg Config, p *pjrtCheckpoint, tokenizer Tokenizer, api *openxla.Api) (*ModelEngine, error) {
@@ -227,7 +227,7 @@ func newTPUSmokeEngine(cfg Config) (*ModelEngine, error) {
 		return nil, fmt.Errorf("tpu.GetApi: %w", err)
 	}
 
-	client, err := openxla.NewClientFromApi((*openxla.Api)(unsafe.Pointer(tpuApi)))
+	client, err := openxla.NewClientFromApi(tpuApi)
 	if err != nil {
 		return nil, fmt.Errorf("NewClientFromApi: %w", err)
 	}
