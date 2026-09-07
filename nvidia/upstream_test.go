@@ -146,3 +146,61 @@ func TestUpstreamOutputMutations(t *testing.T) {
 		})
 	}
 }
+
+// isGenerated reports whether the file at path is machine-generated, by the
+// same rule checkUpstream applies: the .gen.go suffix, or the generated-code
+// marker ahead of the package clause.
+func isGenerated(path string) (bool, error) {
+	if strings.HasSuffix(path, ".gen.go") {
+		return true, nil
+	}
+	f, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.PackageClauseOnly|parser.ParseComments)
+	if err != nil {
+		return false, err
+	}
+	return ast.IsGenerated(f), nil
+}
+
+// TestUpstreamCoverage checks that every package directory holding generated
+// files appears in the manifest. checkUpstream walks the manifest, not the
+// tree, so a package that is never recorded is not caught by it: its files are
+// pinned by nothing and drift silently. This walks the tree instead.
+func TestUpstreamCoverage(t *testing.T) {
+	data, err := os.ReadFile("upstream.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest upstreamManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == "internal" || entry.Name() == "x" {
+			continue
+		}
+		files, err := os.ReadDir(entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range files {
+			if file.IsDir() || !strings.HasSuffix(file.Name(), ".go") {
+				continue
+			}
+			generated, err := isGenerated(filepath.Join(entry.Name(), file.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !generated {
+				continue
+			}
+			if _, ok := manifest.Packages[entry.Name()]; !ok {
+				t.Errorf("%s holds generated files but has no upstream.json entry", entry.Name())
+			}
+			break
+		}
+	}
+}
