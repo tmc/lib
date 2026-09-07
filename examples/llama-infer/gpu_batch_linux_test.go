@@ -1,3 +1,4 @@
+//go:build !tpu
 package main
 
 import (

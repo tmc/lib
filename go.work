@@ -1,13 +1,18 @@
 go 1.27.0
 
 use (
-	/Users/tmc/go/src/github.com/tmc/apple
-	/Users/tmc/go/src/github.com/tmc/modelir
 	./apple
+	./cmd/tpu-llama-step
 	./examples
 	./ggml
 	./hfsync
 	./lm
 	./nvidia
+	./openxla
+	./tpu
 	./treesitter
+	./x/stablehlo
+	./x/xla
+	/Users/tmc/go/src/github.com/tmc/apple
+	/Users/tmc/go/src/github.com/tmc/modelir
 )

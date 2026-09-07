@@ -2,7 +2,7 @@
 
 package openxla
 
-// Extension_Type represents PJRT_Extension_Type.
+// ------------------------------- Extensions ----------------------------------
 type Extension_Type int32
 
 const (
@@ -33,7 +33,7 @@ const (
 	Extension_Type_XlaTransform        Extension_Type = 24
 )
 
-// Error_Code represents PJRT_Error_Code.
+// Codes are based on https://abseil.io/docs/cpp/guides/status-codes
 type Error_Code int32
 
 const (
@@ -56,7 +56,7 @@ const (
 	Error_Code_UNAUTHENTICATED     Error_Code = 16
 )
 
-// NamedValue_Type represents PJRT_NamedValue_Type.
+// ---------------------------- Named Values -----------------------------------
 type NamedValue_Type int32
 
 const (

@@ -72,14 +72,18 @@ type SerializedCompileOptions struct{}
 // SerializedTopology is an opaque PJRT handle.
 type SerializedTopology struct{}
 
-// Extension_Base represents PJRT_Extension_Base.
+// PJRT_Extension_Base contains a type and a pointer to next
+// PJRT_Extension_Base. The framework can go through this chain to find an
+// extension and identify it with the type.
 type Extension_Base struct {
 	Struct_size uintptr
 	Type        Extension_Type
 	Next        *Extension_Base
 }
 
-// Api_Version represents PJRT_Api_Version.
+// The plugin should set the major_version and minor_version of
+// PJRT_Api.pjrt_api_version to be the `PJRT_API_MAJOR` and `PJRT_API_MINOR` in
+// this header that the implementation was compiled with.
 type Api_Version struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -131,7 +135,7 @@ type Error_ForEachPayload_Args struct {
 	User_arg        unsafe.Pointer
 }
 
-// NamedValue represents PJRT_NamedValue.
+// Named value for key-value pairs.
 type NamedValue struct {
 	Struct_size       uintptr
 	Extension_start   *Extension_Base
@@ -144,7 +148,7 @@ type NamedValue struct {
 	Bool_value        bool
 }
 
-// Plugin_Initialize_Args represents PJRT_Plugin_Initialize_Args.
+// ---------------------------------- Plugin -----------------------------------
 type Plugin_Initialize_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -353,7 +357,8 @@ type Client_LookupAddressableDevice_Args struct {
 	Addressable_device *Device
 }
 
-// ProcessInfo represents PJRT_ProcessInfo.
+// TODO: mwhittaker - Add the remaining fields from
+// tensorflow::CoordinatedTaskStateInfo.
 type ProcessInfo struct {
 	Struct_size        uintptr
 	Task_id            int32
@@ -535,7 +540,9 @@ type Buffer_MemoryLayout_Strides struct {
 	Num_byte_strides uintptr
 }
 
-// Buffer_MemoryLayout represents PJRT_Buffer_MemoryLayout.
+// Describe the memory layout. It can be (1) a list of minor-to-major order and
+// optional tilings (each tile is a list of dimensions), or (2) a list of
+// strides.
 type Buffer_MemoryLayout struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -673,7 +680,12 @@ type Client_CreateBuffersForAsyncHostToDevice_Args struct {
 	Transfer_manager   *AsyncHostToDeviceTransferManager
 }
 
-// DeviceDescription_Id_Args represents PJRT_DeviceDescription_Id_Args.
+// Device descriptions may be associated with an actual device
+// (via PJRT_Device_GetDescription), but they can also be used to describe a
+// device that isn't currently available to the plugin. This is useful for
+// compiling executables without hardware available, which can then be
+// serialized and written somewhere durable, and then loaded and run on actual
+// hardware later.
 type DeviceDescription_Id_Args struct {
 	Struct_size        uintptr
 	Extension_start    *Extension_Base
@@ -725,7 +737,7 @@ type DeviceDescription_ToString_Args struct {
 	To_string_size     uintptr
 }
 
-// Device_GetDescription_Args represents PJRT_Device_GetDescription_Args.
+// --------------------------------- Devices -----------------------------------
 type Device_GetDescription_Args struct {
 	Struct_size        uintptr
 	Extension_start    *Extension_Base
@@ -845,7 +857,7 @@ type AsyncTrackingEvent_Destroy_Args struct {
 	Event           *AsyncTrackingEvent
 }
 
-// Memory_Id_Args represents PJRT_Memory_Id_Args.
+// -------------------------------- Memory --------------------------------------
 type Memory_Id_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -911,7 +923,7 @@ type ExecuteContext_Destroy_Args struct {
 	Context         *ExecuteContext
 }
 
-// Executable_Destroy_Args represents PJRT_Executable_Destroy_Args.
+// ------------------------------- Executables ---------------------------------
 type Executable_Destroy_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -953,7 +965,7 @@ type Executable_Name_Args struct {
 	Executable_name_size uintptr
 }
 
-// Executable_NumReplicas_Args represents PJRT_Executable_NumReplicas_Args.
+// TODO(b/269178731): Revisit whether num_replicas is needed.
 type Executable_NumReplicas_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -1229,7 +1241,7 @@ type LoadedExecutable_Fingerprint_Args struct {
 	Executable_fingerprint_size uintptr
 }
 
-// Buffer_Destroy_Args represents PJRT_Buffer_Destroy_Args.
+// ---------------------------------- Buffers ----------------------------------
 type Buffer_Destroy_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -1457,7 +1469,7 @@ type Buffer_DonateWithControlDependency_Args struct {
 	Out_buffer                *Buffer
 }
 
-// CopyToDeviceStream_Destroy_Args represents PJRT_CopyToDeviceStream_Destroy_Args.
+// ---------------------------- CopyToDeviceStream -----------------------------
 type CopyToDeviceStream_Destroy_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
@@ -1497,7 +1509,7 @@ type CopyToDeviceStream_CurrentBytes_Args struct {
 	Current_bytes   int64
 }
 
-// TopologyDescription_Create_Args represents PJRT_TopologyDescription_Create_Args.
+// ------------------------------ Device Topology ------------------------------
 type TopologyDescription_Create_Args struct {
 	Struct_size        uintptr
 	Extension_start    *Extension_Base
