@@ -1,0 +1,9 @@
+commit: 716454320288d3b36f01a816debd9597874d9b8e
+date: 2026-09-06T19:44:44-07:00
+agent: Codex
+model: GPT-5
+tty: not a tty
+pid: 93664
+iterm_session_id: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/cuda-q81-batch-20260907
+manifest: 4b088f3c57c49c5c24b2a33ec7944a504e63a6a2d09e0054046b0f592f2d7bfc
