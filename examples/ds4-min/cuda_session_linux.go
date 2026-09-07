@@ -16,14 +16,15 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model    *cudaModel
-	arena    *cudamem.Arena
-	batch    *cudaBatchResources
-	state    cudaSessionState
-	hcMath   *cudaHC
-	ctx, pos int
-	logits   []float32
-	failed   error
+	model     *cudaModel
+	arena     *cudamem.Arena
+	batch     *cudaBatchResources
+	state     cudaSessionState
+	hcMath    *cudaHC
+	ctx, pos  int
+	logits    []float32
+	failed    error
+	phaseMark func(string) error
 }
 
 type cudaSessionState struct {
@@ -356,6 +357,9 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 		}
 	}
 	last := rows[len(rows)-1]
+	if err := r.markCUDAPhase("output"); err != nil {
+		return err
+	}
 	if logits {
 		if err := r.hcMath.pre(last.hc[0], r.model.output.hcFn, r.model.output.hcScale, r.model.output.hcBase, r.model.output.norm, last.outputMixed, true); err != nil {
 			return err
@@ -450,6 +454,9 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	}
 	l := &r.model.layers[index]
 	d := &r.batch.dense
+	if err := r.markCUDAPhase("dense-front"); err != nil {
+		return err
+	}
 	rows := make([]cudaTokenState, len(tokens))
 	for i := range rows {
 		rows[i] = *base[i]
@@ -491,6 +498,9 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		return err
 	}
 	for i := range rows {
+		if err := r.markCUDAPhase("qkv-normalization"); err != nil {
+			return err
+		}
 		if err := r.encodeRMS(rows[i].qHeads, cudaModelTensor{}, rows[i].qHeads, 64, false); err != nil {
 			return fmt.Errorf("token %d query head norm: %w", i, err)
 		}
@@ -589,6 +599,9 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 
 func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
 	l := &r.model.layers[index]
+	if err := r.markCUDAPhase("attention"); err != nil {
+		return err
+	}
 	var heads cudamem.Slice[float32]
 	if index < 2 {
 		if err := r.encodeRawAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, s.rawScores, s.rawOutput, position); err != nil {
@@ -603,6 +616,9 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 			return err
 		}
 		heads = s.mixedOutput.Slice(32768+512, 32768+512+32768)
+	}
+	if err := r.markCUDAPhase("attention-output"); err != nil {
+		return err
 	}
 	for group := range 8 {
 		rows, err := cudaTensorRows(l.attnOutA, group*1024, 1024)
@@ -620,6 +636,9 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := hc.post(s.hc[0], s.attnOut, s.hc[1]); err != nil {
 		return err
 	}
+	if err := r.markCUDAPhase("ffn-pre"); err != nil {
+		return err
+	}
 	if err := hc.pre(s.hc[1], l.hcFFNFn, l.hcFFNScale, l.hcFFNBase, l.ffnNorm, s.ffnPre, false); err != nil {
 		return err
 	}
@@ -635,6 +654,9 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 			return err
 		}
 	}
+	if err := r.markCUDAPhase("shared-ffn"); err != nil {
+		return err
+	}
 	if err := r.encodeQ80Matvec(l.sharedGate, s.ffnNorm, s.sharedGate); err != nil {
 		return err
 	}
@@ -646,6 +668,9 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	}
 	// The pinned fused shared-down/HC path uses native float32 Q8_0 scales.
 	if err := r.encodeQ80Native(l.sharedDown, s.sharedMid, s.sharedOut); err != nil {
+		return err
+	}
+	if err := r.markCUDAPhase("expert-ffn"); err != nil {
 		return err
 	}
 	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
@@ -663,6 +688,9 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeMatvecQ2KSelectedQ81(l.expertDown, s.expertIDs, s.q81Experts, s.expertDown); err != nil {
 		return err
 	}
+	if err := r.markCUDAPhase("ffn-post"); err != nil {
+		return err
+	}
 	if err := r.encodeSumVectors(s.expertDown, s.routedOut, 6); err != nil {
 		return err
 	}
@@ -673,6 +701,13 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 		return err
 	}
 	return nil
+}
+
+func (r *cudaRuntime) markCUDAPhase(name string) error {
+	if r.phaseMark == nil {
+		return nil
+	}
+	return r.phaseMark(name)
 }
 
 func (r *cudaRuntime) evalLayer(index, token, position int) error {
