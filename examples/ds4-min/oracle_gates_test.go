@@ -57,6 +57,13 @@ var oracleGates = []oracleGate{
 	{"DS4_OBSERVE_ORACLE_DIR", "comparing an observation run against ds4"},
 	{"DS4_OBSERVE_RENDER_DIR", "rendering an observation run"},
 
+	{"DS4_PREFILL_GATE", "capturing full prefill and continuation logits"},
+	{"DS4_PREFILL_BACKEND", "which backend the prefill capture exercises"},
+	{"DS4_PREFILL_TOKENS", "the retained JSON token sequence for the prefill capture"},
+	{"DS4_PREFILL_CASES", "which of 2, 64 and 2048 tokens the capture exercises"},
+	{"DS4_PREFILL_CONTINUATION", "the fixed token evaluated after each prefill"},
+	{"DS4_PREFILL_DIR", "the new directory for prefill capture artifacts"},
+
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 
 	{"DS4_REQUIRE_GATES", "failing this test when any gate above is unset"},
