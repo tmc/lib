@@ -1,0 +1,643 @@
+package gomlx
+
+import (
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"math"
+	"reflect"
+	"slices"
+	"strings"
+	"sync"
+
+	"github.com/gomlx/compute"
+	"github.com/gomlx/compute/dtypes"
+	"github.com/gomlx/compute/notimplemented"
+	"github.com/gomlx/compute/shapes"
+	hlo "github.com/tmc/lib/x/stablehlo/builder"
+	"github.com/tmc/lib/x/xla"
+)
+
+var unsupported = compute.ErrNotImplemented
+
+// Backend executes GoMLX computations through TMC PJRT.
+// Use New to construct a Backend; its zero value is closed.
+// Runtime methods are safe for concurrent use and serialize native calls.
+// A builder and its functions must be used by one goroutine at a time.
+type Backend struct {
+	mu sync.Mutex // Guards the engine and all native child resources.
+	notimplemented.Backend
+	engine      *xla.Engine
+	closeErr    error
+	buffers     map[*buffer]struct{}
+	executables map[*executable]struct{}
+}
+
+// New loads a PJRT plugin and exposes its first device.
+// The plugin must match the current host architecture.
+func New(path string) (*Backend, error) {
+	e, err := xla.NewEngine(path)
+	if err != nil {
+		return nil, err
+	}
+	devices, err := e.Devices()
+	if err != nil || len(devices) == 0 {
+		return nil, errors.Join(fmt.Errorf("gomlx: no addressable devices"), err, e.Close())
+	}
+	return &Backend{engine: e, buffers: make(map[*buffer]struct{}), executables: make(map[*executable]struct{})}, nil
+}
+func (b *Backend) Name() string   { return "tmc-pjrt" }
+func (b *Backend) String() string { return b.Name() }
+func (b *Backend) DeviceDescription(device compute.DeviceNum) string {
+	if device != 0 {
+		return "invalid device"
+	}
+	return "PJRT device 0"
+}
+func (b *Backend) Description() string { return "TMC PJRT backend for static F32 computations" }
+
+// Finalize implements compute.Backend. Use Close to observe cleanup errors.
+func (b *Backend) Finalize() { _ = b.Close() }
+
+// Close releases all live buffers and executables before closing the engine.
+// Repeated calls return the retained cleanup error.
+func (b *Backend) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.engine != nil {
+		for v := range b.buffers {
+			b.closeErr = errors.Join(b.closeErr, v.finalize())
+		}
+		for e := range b.executables {
+			e.finalize()
+			b.closeErr = errors.Join(b.closeErr, e.closeErr)
+		}
+		b.closeErr = errors.Join(b.closeErr, b.engine.Close())
+		b.engine = nil
+	}
+	return b.closeErr
+}
+func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
+func (b *Backend) Capabilities() compute.Capabilities {
+	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true}}
+}
+func (b *Backend) Builder(name string) compute.Builder {
+	v := &builder{backend: b, name: name}
+	v.main = &function{owner: v, raw: hlo.NewFunc("main")}
+	v.main.Function.ErrFn = func(compute.OpType) error { return unsupported }
+	return v
+}
+func validate(s shapes.Shape) error {
+	if s.DType != dtypes.Float32 {
+		return unsupported
+	}
+	if len(s.TupleShapes) > 0 || len(s.AxisNames) > 0 {
+		return unsupported
+	}
+	zero := false
+	for _, d := range s.Dimensions {
+		if d < 0 {
+			return fmt.Errorf("negative dimension")
+		}
+		zero = zero || d == 0
+	}
+	if zero {
+		return nil
+	}
+	n := 1
+	for _, d := range s.Dimensions {
+		if n > int(^uint(0)>>1)/4/d {
+			return fmt.Errorf("shape byte count overflows int")
+		}
+		n *= d
+	}
+	return nil
+}
+func (b *Backend) BufferFromFlatData(device compute.DeviceNum, flat any, s shapes.Shape) (compute.Buffer, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.bufferFromFlatData(device, flat, s)
+}
+func (b *Backend) bufferFromFlatData(device compute.DeviceNum, flat any, s shapes.Shape) (compute.Buffer, error) {
+	if b.engine == nil {
+		return nil, fmt.Errorf("backend closed")
+	}
+	if device != 0 {
+		return nil, unsupported
+	}
+	if err := validate(s); err != nil {
+		return nil, err
+	}
+	values, ok := flat.([]float32)
+	if !ok || len(values) != s.Size() {
+		return nil, fmt.Errorf("flat data mismatch")
+	}
+	raw := make([]byte, len(values)*4)
+	for i, v := range values {
+		binary.LittleEndian.PutUint32(raw[4*i:], math.Float32bits(v))
+	}
+	devices, err := b.engine.Devices()
+	if err != nil {
+		return nil, err
+	}
+	dims := make([]int64, len(s.Dimensions))
+	for i, v := range s.Dimensions {
+		dims[i] = int64(v)
+	}
+	v, err := b.engine.NewBufferFromHost(raw, xla.F32, dims, devices[0])
+	if err != nil {
+		return nil, err
+	}
+	out := &buffer{backend: b, raw: v, shape: s.Clone()}
+	b.buffers[out] = struct{}{}
+	return out, nil
+}
+
+type buffer struct {
+	backend *Backend
+	raw     *xla.Buffer
+	shape   shapes.Shape
+}
+
+func (b *buffer) Backend() compute.Backend { return b.backend }
+func (b *buffer) Finalize() error {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	return b.finalize()
+}
+func (b *buffer) finalize() error {
+	if b.raw == nil {
+		return nil
+	}
+	v := b.raw
+	b.raw = nil
+	delete(b.backend.buffers, b)
+	return v.Close()
+}
+func (b *buffer) Shape() (shapes.Shape, error) {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	if b.raw == nil {
+		return shapes.Shape{}, fmt.Errorf("buffer closed")
+	}
+	return b.shape.Clone(), nil
+}
+func (b *buffer) DeviceNum() (compute.DeviceNum, error) {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	if b.raw == nil {
+		return 0, fmt.Errorf("buffer closed")
+	}
+	return 0, nil
+}
+func (b *buffer) Data() (any, error) { return nil, unsupported }
+func (b *buffer) ToFlatData(flat any) error {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	return b.toFlatData(flat)
+}
+func (b *buffer) toFlatData(flat any) error {
+	v, ok := flat.([]float32)
+	if !ok || len(v) != b.shape.Size() {
+		return fmt.Errorf("flat data mismatch")
+	}
+	if b.raw == nil {
+		return fmt.Errorf("buffer closed")
+	}
+	raw := make([]byte, len(v)*4)
+	if err := b.raw.ToHost(raw); err != nil {
+		return err
+	}
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
+	}
+	return nil
+}
+func (b *buffer) CopyToDevice(device compute.DeviceNum) (compute.Buffer, error) {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	if device != 0 {
+		return nil, unsupported
+	}
+	v := make([]float32, b.shape.Size())
+	if err := b.toFlatData(v); err != nil {
+		return nil, err
+	}
+	return b.backend.bufferFromFlatData(device, v, b.shape)
+}
+
+type builder struct {
+	notimplemented.Builder
+	backend          *Backend
+	name             string
+	main             *function
+	names            []string
+	inputs           []shapes.Shape
+	outputs          []shapes.Shape
+	returned, closed bool
+}
+
+func (b *builder) Name() string                                 { return b.name }
+func (b *builder) Main() compute.Function                       { return b.main }
+func (b *builder) NewFunction(string) (compute.Function, error) { return nil, unsupported }
+func (b *builder) DeviceAssignment(d ...compute.DeviceNum) error {
+	if len(d) != 1 || d[0] != 0 {
+		return unsupported
+	}
+	return nil
+}
+func (b *builder) OpShape(v compute.Value) (shapes.Shape, error) { return b.main.Shape(v) }
+func (b *builder) Compile() (compute.Executable, error) {
+	b.backend.mu.Lock()
+	defer b.backend.mu.Unlock()
+	if b.closed || !b.returned || b.backend.engine == nil {
+		return nil, fmt.Errorf("builder unavailable")
+	}
+	b.closed = true
+	var text strings.Builder
+	text.WriteString("module {\n")
+	if err := b.main.raw.Emit(&text); err != nil {
+		return nil, err
+	}
+	text.WriteString("}\n")
+	e, err := b.backend.engine.Compile([]byte(text.String()), "mlir", nil)
+	if err != nil {
+		return nil, err
+	}
+	out := &executable{owner: b.backend, raw: e, names: b.names, inputs: b.inputs, outputs: b.outputs}
+	b.backend.executables[out] = struct{}{}
+	return out, nil
+}
+
+type node struct {
+	owner *function
+	value hlo.Value
+}
+type function struct {
+	notimplemented.Function
+	owner *builder
+	raw   *hlo.FuncBuilder
+}
+
+func (f *function) Builder() compute.Builder { return f.owner }
+func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.ShardingSpec) (compute.Value, error) {
+	if f.owner.closed || f.owner.returned {
+		return nil, fmt.Errorf("function closed")
+	}
+	if sharding != nil {
+		return nil, unsupported
+	}
+	if err := validate(s); err != nil {
+		return nil, err
+	}
+	for _, n := range f.owner.names {
+		if n == name {
+			return nil, fmt.Errorf("duplicate parameter")
+		}
+	}
+	dims := make([]int64, len(s.Dimensions))
+	for i, v := range s.Dimensions {
+		dims[i] = int64(v)
+	}
+	v := hlo.Value{ID: fmt.Sprintf("%%arg%d", len(f.raw.Args)), Type: hlo.Type{Shape: dims, ElementType: "f32"}}
+	f.raw.Args = append(f.raw.Args, v)
+	f.owner.names = append(f.owner.names, name)
+	f.owner.inputs = append(f.owner.inputs, s.Clone())
+	return &node{f, v}, nil
+}
+func (f *function) value(v compute.Value) (hlo.Value, error) {
+	n, ok := v.(*node)
+	if !ok || n.owner != f || f.owner.closed {
+		return hlo.Value{}, fmt.Errorf("invalid value")
+	}
+	return n.value, nil
+}
+func (f *function) Shape(v compute.Value) (shapes.Shape, error) {
+	n, err := f.value(v)
+	if err != nil {
+		return shapes.Shape{}, err
+	}
+	dims := make([]int, len(n.Type.Shape))
+	for i, v := range n.Type.Shape {
+		dims[i] = int(v)
+	}
+	return shapes.Make(dtypes.Float32, dims...), nil
+}
+func (f *function) Return(values []compute.Value, shardings []*compute.ShardingSpec) error {
+	if f.owner.returned {
+		return fmt.Errorf("already returned")
+	}
+	if len(shardings) > 0 {
+		return unsupported
+	}
+	raw := []hlo.Value{}
+	ss := []shapes.Shape{}
+	for _, v := range values {
+		n, err := f.value(v)
+		if err != nil {
+			return err
+		}
+		s, err := f.Shape(v)
+		if err != nil {
+			return err
+		}
+		raw = append(raw, n)
+		ss = append(ss, s)
+	}
+	f.raw.Return(raw...)
+	f.owner.outputs = ss
+	f.owner.returned = true
+	return nil
+}
+func (f *function) Add(a, b compute.Value) (compute.Value, error) {
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(a)
+	if err != nil {
+		return nil, err
+	}
+	y, err := f.value(b)
+	if err != nil {
+		return nil, err
+	}
+	x, y, err = f.broadcastPair(x, y)
+	if err != nil {
+		return nil, err
+	}
+	z, err := f.raw.Add(x, y)
+	if err != nil {
+		return nil, err
+	}
+	return &node{f, z}, nil
+}
+func (f *function) DotGeneral(a compute.Value, ac, ab []int, b compute.Value, bc, bb []int, c compute.DotGeneralConfig) (compute.Value, error) {
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	if !reflect.DeepEqual(c, compute.DotGeneralConfig{}) {
+		return nil, unsupported
+	}
+	x, err := f.value(a)
+	if err != nil {
+		return nil, err
+	}
+	y, err := f.value(b)
+	if err != nil {
+		return nil, err
+	}
+	shape, err := contractionShape(x.Type.Shape, y.Type.Shape, ac, ab, bc, bb)
+	if err != nil {
+		return nil, err
+	}
+	z, err := f.raw.DotGeneral(x, y, int64s(ab), int64s(bb), int64s(ac), int64s(bc), hlo.Type{Shape: shape, ElementType: "f32"})
+	if err != nil {
+		return nil, err
+	}
+	return &node{f, z}, nil
+}
+
+type executable struct {
+	owner           *Backend
+	raw             *xla.Executable
+	names           []string
+	inputs, outputs []shapes.Shape
+	closeErr        error
+}
+
+func (e *executable) Finalize() {
+	e.owner.mu.Lock()
+	defer e.owner.mu.Unlock()
+	e.finalize()
+}
+func (e *executable) finalize() {
+	if e.raw != nil {
+		delete(e.owner.executables, e)
+		e.closeErr = e.raw.Close()
+		e.raw = nil
+	}
+}
+func cloneShapes(ss []shapes.Shape) []shapes.Shape {
+	out := make([]shapes.Shape, len(ss))
+	for i, s := range ss {
+		out[i] = s.Clone()
+	}
+	return out
+}
+func (e *executable) Inputs() ([]string, []shapes.Shape) {
+	return slices.Clone(e.names), cloneShapes(e.inputs)
+}
+func (e *executable) Outputs() []shapes.Shape { return cloneShapes(e.outputs) }
+func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device compute.DeviceNum) (outputs []compute.Buffer, resultErr error) {
+	e.owner.mu.Lock()
+	defer e.owner.mu.Unlock()
+	if e.raw == nil || e.owner.engine == nil {
+		return nil, fmt.Errorf("executable closed")
+	}
+	if device != 0 {
+		return nil, unsupported
+	}
+	if len(inputs) != len(e.inputs) || len(donate) > 0 && len(donate) != len(inputs) {
+		return nil, fmt.Errorf("input count mismatch")
+	}
+	args := make([]*xla.Buffer, len(inputs))
+	for i, v := range inputs {
+		b, ok := v.(*buffer)
+		if !ok || b.backend != e.owner || b.raw == nil || !b.shape.Equal(e.inputs[i]) {
+			return nil, fmt.Errorf("invalid input")
+		}
+		args[i] = b.raw
+	}
+	// Donation transfers ownership; native storage reuse is not required.
+	defer func() {
+		var closeErr error
+		for i, d := range donate {
+			if d {
+				closeErr = errors.Join(closeErr, inputs[i].(*buffer).finalize())
+			}
+		}
+		if closeErr != nil {
+			for _, out := range outputs {
+				closeErr = errors.Join(closeErr, out.(*buffer).finalize())
+			}
+			outputs = nil
+			resultErr = errors.Join(resultErr, closeErr)
+		}
+	}()
+	raw, err := e.raw.Execute(context.Background(), args)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(err error) ([]compute.Buffer, error) {
+		for _, v := range raw {
+			err = errors.Join(err, v.Close())
+		}
+		return nil, err
+	}
+	if len(raw) != len(e.outputs) {
+		return fail(fmt.Errorf("output count mismatch"))
+	}
+	for i, v := range raw {
+		dtype, dims, err := v.Shape()
+		if err != nil {
+			return fail(err)
+		}
+		if dtype != xla.F32 || len(dims) != len(e.outputs[i].Dimensions) {
+			return fail(fmt.Errorf("output shape mismatch"))
+		}
+		for j, d := range dims {
+			if d != int64(e.outputs[i].Dimensions[j]) {
+				return fail(fmt.Errorf("output shape mismatch"))
+			}
+		}
+	}
+	out := make([]compute.Buffer, len(raw))
+	for i, v := range raw {
+		buf := &buffer{e.owner, v, e.outputs[i].Clone()}
+		e.owner.buffers[buf] = struct{}{}
+		out[i] = buf
+	}
+	return out, nil
+}
+
+var _ compute.Backend = (*Backend)(nil)
+var _ compute.Buffer = (*buffer)(nil)
+var _ compute.Builder = (*builder)(nil)
+var _ compute.Function = (*function)(nil)
+var _ compute.Executable = (*executable)(nil)
+
+func int64s(v []int) []int64 {
+	out := make([]int64, len(v))
+	for i, n := range v {
+		out[i] = int64(n)
+	}
+	return out
+}
+func contractionShape(a, b []int64, ac, ab, bc, bb []int) ([]int64, error) {
+	if len(ac) != len(bc) || len(ab) != len(bb) {
+		return nil, fmt.Errorf("axis count mismatch")
+	}
+	used := func(rank int, groups ...[]int) ([]bool, error) {
+		seen := make([]bool, rank)
+		for _, group := range groups {
+			for _, i := range group {
+				if i < 0 || i >= rank || seen[i] {
+					return nil, fmt.Errorf("invalid or repeated axis %d", i)
+				}
+				seen[i] = true
+			}
+		}
+		return seen, nil
+	}
+	au, err := used(len(a), ac, ab)
+	if err != nil {
+		return nil, err
+	}
+	bu, err := used(len(b), bc, bb)
+	if err != nil {
+		return nil, err
+	}
+	for _, pair := range [][2][]int{{ac, bc}, {ab, bb}} {
+		for i, j := range pair[0] {
+			if a[j] != b[pair[1][i]] {
+				return nil, fmt.Errorf("paired dimensions differ")
+			}
+		}
+	}
+	var out []int64
+	for _, i := range ab {
+		out = append(out, a[i])
+	}
+	for i, n := range a {
+		if !au[i] {
+			out = append(out, n)
+		}
+	}
+	for i, n := range b {
+		if !bu[i] {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+func (f *function) broadcastPair(a, b hlo.Value) (hlo.Value, hlo.Value, error) {
+	rank := max(len(a.Type.Shape), len(b.Type.Shape))
+	dims := make([]int64, rank)
+	for i := range rank {
+		x, y := int64(1), int64(1)
+		if j := i - rank + len(a.Type.Shape); j >= 0 {
+			x = a.Type.Shape[j]
+		}
+		if j := i - rank + len(b.Type.Shape); j >= 0 {
+			y = b.Type.Shape[j]
+		}
+		switch {
+		case x == y:
+			dims[i] = x
+		case x == 1:
+			dims[i] = y
+		case y == 1:
+			dims[i] = x
+		default:
+			return hlo.Value{}, hlo.Value{}, fmt.Errorf("incompatible broadcast dimensions")
+		}
+	}
+	expand := func(v hlo.Value) (hlo.Value, error) {
+		if slices.Equal(v.Type.Shape, dims) {
+			return v, nil
+		}
+		axes := make([]int64, len(v.Type.Shape))
+		for i := range axes {
+			axes[i] = int64(rank - len(axes) + i)
+		}
+		return f.raw.BroadcastInDim(v, axes, hlo.Type{Shape: dims, ElementType: "f32"})
+	}
+	x, err := expand(a)
+	if err != nil {
+		return hlo.Value{}, hlo.Value{}, err
+	}
+	y, err := expand(b)
+	return x, y, err
+}
+
+func (f *function) Constant(flat any, dims ...int) (compute.Value, error) {
+	if f.owner.closed || f.owner.returned {
+		return nil, fmt.Errorf("function closed")
+	}
+	values, ok := flat.([]float32)
+	if !ok {
+		return nil, unsupported
+	}
+	shape := shapes.Shape{DType: dtypes.Float32, Dimensions: dims}
+	if err := validate(shape); err != nil {
+		return nil, err
+	}
+	if len(values) != shape.Size() {
+		return nil, fmt.Errorf("constant data length mismatch")
+	}
+	var text strings.Builder
+	index := 0
+	var emit func([]int)
+	emit = func(dims []int) {
+		if len(dims) == 0 {
+			fmt.Fprintf(&text, "0x%08X", math.Float32bits(values[index]))
+			index++
+			return
+		}
+		text.WriteByte('[')
+		for i := range dims[0] {
+			if i > 0 {
+				text.WriteString(", ")
+			}
+			emit(dims[1:])
+		}
+		text.WriteByte(']')
+	}
+	if len(values) > 0 {
+		emit(dims)
+	}
+	v := hlo.Value{ID: fmt.Sprintf("%%constant%d", len(f.raw.Ops)), Type: hlo.Type{Shape: int64s(dims), ElementType: "f32"}}
+	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", v.ID, text.String(), v.Type))
+	return &node{f, v}, nil
+}
