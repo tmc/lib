@@ -8,7 +8,6 @@ import "fmt"
 type OperatorT int32
 
 const (
-	OpMax      OperatorT = 6   // Maximum of two elements
 	OpIdentity OperatorT = 1   // Identity operator (i.e., elements are not changed)
 	OpSqrt     OperatorT = 2   // Square root
 	OpRelu     OperatorT = 8   // Rectified linear unit
@@ -39,14 +38,14 @@ const (
 	OpSoftSign OperatorT = 42  // Softsign y=x/(abs(x)+1).
 	OpAdd      OperatorT = 3   // Addition of two elements
 	OpMul      OperatorT = 5   // Multiplication of two elements
+	OpMax      OperatorT = 6   // Maximum of two elements
 	OpMin      OperatorT = 7   // Minimum of two elements
 	OpUnknown  OperatorT = 126 // reserved for internal use only
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OperatorT) String() string {
 	switch e {
-	case OpMax:
-		return "OpMax"
 	case OpIdentity:
 		return "OpIdentity"
 	case OpSqrt:
@@ -107,6 +106,8 @@ func (e OperatorT) String() string {
 		return "OpAdd"
 	case OpMul:
 		return "OpMul"
+	case OpMax:
+		return "OpMax"
 	case OpMin:
 		return "OpMin"
 	case OpUnknown:
@@ -126,6 +127,7 @@ const (
 	AlgoDefault        AlgoT = -1 // A performance model chooses the appropriate algorithm and kernel
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AlgoT) String() string {
 	switch e {
 	case AlgoDefaultPatient:
@@ -146,19 +148,20 @@ func (e AlgoT) String() string {
 type WorksizepreferenceT int32
 
 const (
-	WorkspaceMax     WorksizepreferenceT = 3 // Highest memory requirement; all algorithms will be available (choose this option if memory footprint is not a concern)
 	WorkspaceMin     WorksizepreferenceT = 1 // Least memory requirement; at least one algorithm will be available
 	WorkspaceDefault WorksizepreferenceT = 2 // Aims to attain high performance while also reducing the workspace requirement.
+	WorkspaceMax     WorksizepreferenceT = 3 // Highest memory requirement; all algorithms will be available (choose this option if memory footprint is not a concern)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e WorksizepreferenceT) String() string {
 	switch e {
-	case WorkspaceMax:
-		return "WorkspaceMax"
 	case WorkspaceMin:
 		return "WorkspaceMin"
 	case WorkspaceDefault:
 		return "WorkspaceDefault"
+	case WorkspaceMax:
+		return "WorkspaceMax"
 	}
 	return fmt.Sprintf("WorksizepreferenceT(%d)", e)
 }
@@ -177,6 +180,7 @@ const (
 	OperationDescriptorBlocksparseReproducible OperationdescriptorattributeT = 14 // int32_t: if non-zero, request bitwise-reproducible results from a block-sparse contraction at a performance cost. See [[CreateBlockSparseContraction]] for details. (default: 0)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OperationdescriptorattributeT) String() string {
 	switch e {
 	case OperationDescriptorTag:
@@ -212,6 +216,7 @@ const (
 	PlanPreferenceGpuArch          PlanpreferenceattributeT = 6 // int32_t: Plan for a specific GPU architecture and not one associated with the context. Value should encode SM version via `10 * SM.major + SM.minor`. Currently only SM versions 80, 90 and 100 are supported.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PlanpreferenceattributeT) String() string {
 	switch e {
 	case PlanPreferenceAutotuneMode:
@@ -240,6 +245,7 @@ const (
 	AutotuneModeIncremental AutotunemodeT = 1 // Indicates an incremental autotuning (i.e., each invocation of corresponding [Handle.CreatePlan] will create a plan based on a different algorithm/kernel; the maximum number of kernels that will be tested is defined by the [PlanPreferenceIncrementalCount] of [PlanpreferenceattributeT]). WARNING: If this autotuning mode is selected, then we cannot guarantee bit-wise identical results (since different algorithms could be executed).
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AutotunemodeT) String() string {
 	switch e {
 	case AutotuneModeNone:
@@ -258,6 +264,7 @@ const (
 	JitModeDefault JitmodeT = 1 // Indicates that the corresponding plan will try to compile a dedicated kernel for the given operation. Only supported for GPUs with compute capability >= 8.0 (Ampere or newer).
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JitmodeT) String() string {
 	switch e {
 	case JitModeNone:
@@ -276,6 +283,7 @@ const (
 	CacheModePedantic CachemodeT = 1 // All parameters of the corresponding descriptor must be identical to the cached plan (default).
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CachemodeT) String() string {
 	switch e {
 	case CacheModeNone:
@@ -293,6 +301,7 @@ const (
 	PlanRequiredWorkspace PlanattributeT = 0 // uint64_t: exact required workspace in bytes that is needed to execute the plan
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PlanattributeT) String() string {
 	switch e {
 	case PlanRequiredWorkspace:
