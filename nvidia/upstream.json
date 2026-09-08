@@ -160,8 +160,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "6344fc36e4a08496fd37d5f3d3ce022331a5cb90",
-          "tree": "7918f2b31e1499aa03da7a4322c7654ce1c68c1e"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -264,11 +264,11 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "538b7c3fbf89aceffe660e93361e418d7aadbf4d230f4895e424a0c7d374557e"
+            "sha256": "d75f5f5c39eb80a5625e15933b6ac68adfc7bf925f0189a10c11b4e8bdf6ab3b"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
-            "sha256": "551fe84cdf5accb22fab69cc7095b1aa5228e40e190a379dbbe702cfa73a5d4c"
+            "sha256": "d79e29631dab5fd5addbf07245cef2e252b3c9199f2da19f357dbc0af83257be"
           },
           {
             "path": "nvidia/nvrtc/loader_unix.gen.go",
@@ -283,11 +283,15 @@
             "sha256": "6a043ed3b0a4f152f3fa05c16f1178ca5924aab1e7d610602f24019a7b606d53"
           },
           {
+            "path": "nvidia/nvrtc/provenance.gen.go",
+            "sha256": "9f17a306410784cbac04210c5c9413a865903eb476f66e4855aecf9114a62b59"
+          },
+          {
             "path": "nvidia/nvrtc/result.gen.go",
             "sha256": "86284762de8f1ae37455c5ce49353527be529911985186b7c6070685cf1b4932"
           }
         ],
-        "comparison": "All 10 outputs byte-identical to lib comparison commit; maintained package files are not generation outputs.",
+        "comparison": "All 11 outputs regenerated into the committed package; only init.gen.go and loader_test.go changed, and provenance.gen.go is new. No exported declaration was dropped.",
         "maintained_files_excluded": [
           "example_test.go",
           "flow_physical_test.go"
@@ -299,7 +303,8 @@
         "documentation upstream retrieval identities beyond retained JSON bytes",
         "portable reconstruction of Apple clang and SDK environment; executable and75 C include hashes are retained in local evidence but no distributable toolchain pin is established"
       ],
-      "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support."
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support.",
+      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed."
     },
     "nvjitlink": {
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
