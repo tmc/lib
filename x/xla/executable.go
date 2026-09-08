@@ -90,3 +90,17 @@ func (e *Executable) Close() error {
 	}
 	return nil
 }
+
+// CompiledMemoryStats returns the compiler's estimates of this program's memory
+// requirements. Values are plugin-dependent and are not live allocator counters.
+// The executable and its engine must remain open during the call.
+func (e *Executable) CompiledMemoryStats() (openxla.CompiledMemoryStats, error) {
+	if e == nil || e.wrapper == nil || e.engine == nil || e.engine.client == nil {
+		return openxla.CompiledMemoryStats{}, fmt.Errorf("xla: executable is closed")
+	}
+	stats, err := e.wrapper.CompiledMemoryStats()
+	if err != nil {
+		return openxla.CompiledMemoryStats{}, fmt.Errorf("xla: compiled memory statistics: %w", err)
+	}
+	return stats, nil
+}

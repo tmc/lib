@@ -98,3 +98,21 @@ XLA_PJRT_MEMORY_STATS_PLUGIN=/path/to/plugin.so \
 ```
 
 This opt-in test fails when the supplied plugin does not support the query.
+
+Call `executable.CompiledMemoryStats()` for the compiler's estimates of argument,
+output, alias, temporary, and other memory sizes. The wrapper releases its
+temporary native metadata handle before returning and leaves the loaded
+executable open. Query and cleanup errors are returned to the caller.
+
+Compiled estimates are not live allocator counters. Unlike `MemoryStats`,
+this PJRT API has no per-field availability flags: a zero can mean either zero
+usage or an unpopulated field. Do not derive a total from `TotalBytes == 0` or
+interpret it as evidence that a program needs no memory.
+
+The native CPU test compiles a matrix product and checks its 80 argument bytes
+and 24 output bytes on two successive queries:
+
+```sh
+XLA_PJRT_CPU_PLUGIN=/path/to/cpu/plugin.so \
+  GOWORK=off go test -run='^TestNativeCompiledMemoryStats$' -v
+```

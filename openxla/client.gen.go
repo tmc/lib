@@ -469,6 +469,92 @@ func (e *ExecutableWrapper) SerializedDeviceAssignment() ([]byte, error) {
 	return append([]byte(nil), unsafe.Slice(args.Serialized_bytes, args.Serialized_bytes_size)...), nil
 }
 
+// CompiledMemoryStats contains compiler-reported memory estimates for an
+// executable. These are not live allocation counters. Values and availability
+// depend on the plugin; the PJRT API does not distinguish an omitted value from
+// zero. Host-prefixed fields describe host memory; other fields describe the
+// device's default memory space. AliasBytes describes argument storage reused
+// for outputs. Fields ending in Bytes are measured in bytes.
+type CompiledMemoryStats struct {
+	GeneratedCodeBytes     int64
+	ArgumentBytes          int64
+	OutputBytes            int64
+	AliasBytes             int64
+	TempBytes              int64
+	HostGeneratedCodeBytes int64
+	HostArgumentBytes      int64
+	HostOutputBytes        int64
+	HostAliasBytes         int64
+	HostTempBytes          int64
+	PeakMemoryBytes        int64
+	TotalBytes             int64
+	TotalAllocationBytes   int64
+	IndefiniteAllocations  int64
+	PeakUnpaddedHeapBytes  int64
+}
+
+// CompiledMemoryStats returns compiler-reported estimates, releasing the
+// temporary executable handle before returning. The loaded executable remains
+// owned by the caller. A query or cleanup error returns no statistics.
+func (e *ExecutableWrapper) CompiledMemoryStats() (stats CompiledMemoryStats, err error) {
+	if e == nil || e.api == nil || e.executable == nil {
+		return stats, fmt.Errorf("openxla: executable is closed")
+	}
+	if e.api.LoadedExecutable_GetExecutable == 0 || e.api.Executable_GetCompiledMemoryStats == 0 || e.api.Executable_Destroy == 0 {
+		return stats, fmt.Errorf("openxla: compiled memory statistics not available")
+	}
+	get := LoadedExecutable_GetExecutable_Args{
+		Struct_size:       PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE,
+		Loaded_executable: e.executable,
+	}
+	var acquire func(*LoadedExecutable_GetExecutable_Args) *Error
+	purego.RegisterFunc(&acquire, e.api.LoadedExecutable_GetExecutable)
+	if errPtr := acquire(&get); errPtr != nil {
+		return stats, decodeError(e.api, errPtr)
+	}
+	if get.Executable == nil {
+		return stats, fmt.Errorf("openxla: runtime returned nil executable")
+	}
+	defer func() {
+		args := Executable_Destroy_Args{
+			Struct_size: PJRT_Executable_Destroy_Args_STRUCT_SIZE,
+			Executable:  get.Executable,
+		}
+		var destroy func(*Executable_Destroy_Args) *Error
+		purego.RegisterFunc(&destroy, e.api.Executable_Destroy)
+		if errPtr := destroy(&args); errPtr != nil {
+			err = errors.Join(err, decodeError(e.api, errPtr))
+			stats = CompiledMemoryStats{}
+		}
+	}()
+	args := Executable_GetCompiledMemoryStats_Args{
+		Struct_size: PJRT_Executable_GetCompiledMemoryStats_Args_STRUCT_SIZE,
+		Executable:  get.Executable,
+	}
+	var query func(*Executable_GetCompiledMemoryStats_Args) *Error
+	purego.RegisterFunc(&query, e.api.Executable_GetCompiledMemoryStats)
+	if errPtr := query(&args); errPtr != nil {
+		return stats, decodeError(e.api, errPtr)
+	}
+	return CompiledMemoryStats{
+		GeneratedCodeBytes:     args.Generated_code_size_in_bytes,
+		ArgumentBytes:          args.Argument_size_in_bytes,
+		OutputBytes:            args.Output_size_in_bytes,
+		AliasBytes:             args.Alias_size_in_bytes,
+		TempBytes:              args.Temp_size_in_bytes,
+		HostGeneratedCodeBytes: args.Host_generated_code_size_in_bytes,
+		HostArgumentBytes:      args.Host_argument_size_in_bytes,
+		HostOutputBytes:        args.Host_output_size_in_bytes,
+		HostAliasBytes:         args.Host_alias_size_in_bytes,
+		HostTempBytes:          args.Host_temp_size_in_bytes,
+		PeakMemoryBytes:        args.Peak_memory_in_bytes,
+		TotalBytes:             args.Total_size_in_bytes,
+		TotalAllocationBytes:   args.Total_allocation_bytes,
+		IndefiniteAllocations:  args.Indefinite_allocations,
+		PeakUnpaddedHeapBytes:  args.Peak_unpadded_heap_bytes,
+	}, nil
+}
+
 // NumOutputs returns the number of output buffers produced by the executable per device.
 func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 	if e.api.LoadedExecutable_GetExecutable == 0 || e.api.Executable_NumOutputs == 0 {
