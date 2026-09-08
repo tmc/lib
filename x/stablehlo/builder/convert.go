@@ -5,14 +5,14 @@ import (
 	"slices"
 )
 
-// Convert converts between f16, bf16, f32 and f64 without changing shape.
+// Convert converts between f16, bf16, f32, f64, i32 and i64 without changing shape.
 // An error leaves the builder unchanged.
 func (b *FuncBuilder) Convert(v Value, elementType string) (Value, error) {
 	if err := checkType(v.Type); err != nil {
 		return Value{}, fmt.Errorf("convert: %w", err)
 	}
-	if !floatType(v.Type.ElementType) || !floatType(elementType) {
-		return Value{}, fmt.Errorf("convert: floating-point elements required")
+	if !convertType(v.Type.ElementType) || !convertType(elementType) {
+		return Value{}, fmt.Errorf("convert: unsupported element type")
 	}
 	return b.convert(v, elementType), nil
 }
@@ -25,3 +25,5 @@ func (b *FuncBuilder) convert(v Value, elementType string) Value {
 	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.convert %s : (%s) -> %s", out.ID, v.ID, v.Type, out.Type))
 	return out
 }
+
+func convertType(typ string) bool { return floatType(typ) || typ == "i32" || typ == "i64" }

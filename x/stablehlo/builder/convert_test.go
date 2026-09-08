@@ -3,7 +3,7 @@ package builder
 import "testing"
 
 func TestConvert(t *testing.T) {
-	for _, element := range []string{"f16", "bf16", "f32", "f64"} {
+	for _, element := range []string{"f16", "bf16", "f32", "f64", "i32", "i64"} {
 		t.Run(element, func(t *testing.T) {
 			b := NewFunc("main", Type{Shape: []int64{-1, 4}, ElementType: "f32"})
 			out, err := b.Convert(b.Arg(0), element)
@@ -28,7 +28,7 @@ func TestConvertRejectsInvalid(t *testing.T) {
 		src, dst string
 		shape    []int64
 	}{
-		{"i32", "f32", nil}, {"f32", "i32", nil}, {"f32", "f16", []int64{-2}},
+		{"invalid", "f32", nil}, {"f32", "invalid", nil}, {"f32", "f16", []int64{-2}},
 	} {
 		b := NewFunc("main", Type{Shape: tt.shape, ElementType: tt.src})
 		if _, err := b.Convert(b.Arg(0), tt.dst); err == nil {
