@@ -6,6 +6,8 @@ import (
 	"math"
 
 	"github.com/gomlx/compute/dtypes"
+	"github.com/gomlx/compute/dtypes/bfloat16"
+	"github.com/gomlx/compute/dtypes/float16"
 	"github.com/tmc/lib/openxla"
 )
 
@@ -17,6 +19,10 @@ type elementInfo struct {
 
 func element(dtype dtypes.DType) (elementInfo, bool) {
 	switch dtype {
+	case dtypes.BFloat16:
+		return elementInfo{"bf16", openxla.Buffer_Type_BF16, 2}, true
+	case dtypes.Float16:
+		return elementInfo{"f16", openxla.Buffer_Type_F16, 2}, true
 	case dtypes.Uint8:
 		return elementInfo{"ui8", openxla.Buffer_Type_U8, 1}, true
 	case dtypes.Uint32:
@@ -40,6 +46,10 @@ func element(dtype dtypes.DType) (elementInfo, bool) {
 }
 func elementDType(name string) dtypes.DType {
 	switch name {
+	case "bf16":
+		return dtypes.BFloat16
+	case "f16":
+		return dtypes.Float16
 	case "ui8":
 		return dtypes.Uint8
 	case "ui32":
@@ -63,6 +73,10 @@ func elementDType(name string) dtypes.DType {
 }
 func flatShape(flat any) (dtypes.DType, int) {
 	switch v := flat.(type) {
+	case []bfloat16.BFloat16:
+		return dtypes.BFloat16, len(v)
+	case []float16.Float16:
+		return dtypes.Float16, len(v)
 	case []uint8:
 		return dtypes.Uint8, len(v)
 	case []uint32:
@@ -86,6 +100,10 @@ func flatShape(flat any) (dtypes.DType, int) {
 }
 func newFlat(dtype dtypes.DType, n int) any {
 	switch dtype {
+	case dtypes.BFloat16:
+		return make([]bfloat16.BFloat16, n)
+	case dtypes.Float16:
+		return make([]float16.Float16, n)
 	case dtypes.Uint8:
 		return make([]uint8, n)
 	case dtypes.Uint32:
@@ -109,6 +127,14 @@ func newFlat(dtype dtypes.DType, n int) any {
 }
 func encodeFlat(flat any, raw []byte) {
 	switch v := flat.(type) {
+	case []bfloat16.BFloat16:
+		for i, x := range v {
+			binary.LittleEndian.PutUint16(raw[2*i:], x.Bits())
+		}
+	case []float16.Float16:
+		for i, x := range v {
+			binary.LittleEndian.PutUint16(raw[2*i:], x.Bits())
+		}
 	case []uint8:
 		copy(raw, v)
 	case []uint32:
@@ -150,6 +176,14 @@ func encodeFlat(flat any, raw []byte) {
 }
 func decodeFlat(flat any, raw []byte) {
 	switch v := flat.(type) {
+	case []bfloat16.BFloat16:
+		for i := range v {
+			v[i] = bfloat16.FromBits(binary.LittleEndian.Uint16(raw[2*i:]))
+		}
+	case []float16.Float16:
+		for i := range v {
+			v[i] = float16.FromBits(binary.LittleEndian.Uint16(raw[2*i:]))
+		}
 	case []uint8:
 		copy(v, raw)
 	case []uint32:
@@ -188,6 +222,10 @@ func decodeFlat(flat any, raw []byte) {
 }
 func constantLiteral(flat any, i int) string {
 	switch v := flat.(type) {
+	case []bfloat16.BFloat16:
+		return fmt.Sprintf("0x%04X", v[i].Bits())
+	case []float16.Float16:
+		return fmt.Sprintf("0x%04X", v[i].Bits())
 	case []uint8:
 		return fmt.Sprint(v[i])
 	case []uint32:

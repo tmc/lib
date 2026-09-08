@@ -15,12 +15,12 @@ Pass the backend to GoMLX `graph.NewExec` or `model.NewExec`. Call `Close`
 explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
-Current support is static Bool, F32, F64, Int8, Int32, Int64, Uint8, Uint32, and Uint64 on the first exposed device: constants,
-parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Rem, Pow and Neg for numeric types; F32 Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
+Current support is static Bool, F16, BF16, F32, F64, Int8, Int32, Int64, Uint8, Uint32, and Uint64 on the first exposed device: constants,
+parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Rem, Pow and Neg for numeric types; floating-point Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
 Reshape, Transpose, Slice, DynamicUpdateSlice, Concatenate, numeric Iota, ReduceSum, ReduceMax,
 comparisons (Equal, LessThan, LessOrEqual, GreaterThan, and GreaterOrEqual), LogicalAnd and LogicalOr,
 Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
-default configuration. Named axes, other dtypes, non-default dot configuration,
+configurable floating-point accumulation and output types. Named axes, other dtypes,
 sharding and remaining operations return unsupported errors.
 Donation invalidates inputs without reusing native storage.
 Bool is qualified for constants, transfers, shape operations, comparisons,
@@ -145,3 +145,14 @@ tensors are reconstructed inside the comparator from extra sort operands, one
 per captured element. This can expand large captures substantially. Native tests
 cover scalar, matrix, changed-matrix, and empty captures, exact Int64 payloads,
 and a swapped-comparator negative control.
+
+
+F16 and BF16 transport and constants preserve all 65,536 bit patterns of each
+format in native CPU tests, including signed zeros and NaN payloads. Floating
+comparisons, reductions and unary operations recognize both formats.
+DotGeneral can request F32 accumulation with a native dot algorithm; other
+floating accumulator types use graph conversions. An omitted OutputDType keeps
+the input dtype, matching the executable upstream backends despite the compute
+interface comment. Explicit F32 output retains results that would change when
+rounded through a half type. These are compatibility and numerical checks;
+end-to-end mixed-precision inference performance remains unmeasured here.

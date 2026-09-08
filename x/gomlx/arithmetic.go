@@ -103,7 +103,7 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 		}
 	}
 	var zero hlo.Value
-	if x.Type.ElementType == "f32" || x.Type.ElementType == "f64" {
+	if elementDType(x.Type.ElementType).IsFloat() {
 		initial := float32(0)
 		if op == "maximum" {
 			initial = float32(math.Inf(-1))
@@ -189,7 +189,7 @@ func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if x.Type.ElementType != "f32" {
+	if !elementDType(x.Type.ElementType).IsFloat() {
 		return nil, unsupported
 	}
 	z := hlo.Value{ID: fmt.Sprintf("%%sqrt%d", len(f.raw.Ops)), Type: x.Type}
@@ -222,7 +222,7 @@ func (f *function) unaryFloat(v compute.Value, op string) (compute.Value, error)
 	if err != nil {
 		return nil, err
 	}
-	if x.Type.ElementType != "f32" {
+	if !elementDType(x.Type.ElementType).IsFloat() {
 		return nil, unsupported
 	}
 	z := hlo.Value{ID: fmt.Sprintf("%%unary%d", len(f.raw.Ops)), Type: x.Type}

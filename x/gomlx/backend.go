@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -80,7 +79,7 @@ func (b *Backend) Close() error {
 }
 func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
 func (b *Backend) Capabilities() compute.Capabilities {
-	return compute.Capabilities{Functions: true, Operations: map[compute.OpType]bool{compute.OpTypeSort: true, compute.OpTypeCall: true, compute.OpTypeIf: true, compute.OpTypeWhile: true, compute.OpTypeScatterMin: true, compute.OpTypeScatterMax: true, compute.OpTypeScatterSum: true, compute.OpTypeGather: true, compute.OpTypeRem: true, compute.OpTypeGreaterThan: true, compute.OpTypeGreaterOrEqual: true, compute.OpTypeLogicalOr: true, compute.OpTypeDynamicUpdateSlice: true, compute.OpTypeSlice: true, compute.OpTypeConcatenate: true, compute.OpTypeSin: true, compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeExp: true, compute.OpTypeNeg: true, compute.OpTypeIdentity: true, compute.OpTypeEqual: true, compute.OpTypeLessThan: true, compute.OpTypeLogicalAnd: true, compute.OpTypeWhere: true, compute.OpTypeLessOrEqual: true, compute.OpTypeIota: true, compute.OpTypeRNGBitGenerator: true, compute.OpTypeAbs: true, compute.OpTypeCos: true, compute.OpTypeMin: true, compute.OpTypeMax: true, compute.OpTypeTranspose: true, compute.OpTypeLog: true, compute.OpTypeReduceMax: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float64: true, dtypes.Bool: true, dtypes.Uint8: true, dtypes.Uint32: true, dtypes.Uint64: true, dtypes.Float32: true, dtypes.Int8: true, dtypes.Int32: true, dtypes.Int64: true}}
+	return compute.Capabilities{Functions: true, Operations: map[compute.OpType]bool{compute.OpTypeSort: true, compute.OpTypeCall: true, compute.OpTypeIf: true, compute.OpTypeWhile: true, compute.OpTypeScatterMin: true, compute.OpTypeScatterMax: true, compute.OpTypeScatterSum: true, compute.OpTypeGather: true, compute.OpTypeRem: true, compute.OpTypeGreaterThan: true, compute.OpTypeGreaterOrEqual: true, compute.OpTypeLogicalOr: true, compute.OpTypeDynamicUpdateSlice: true, compute.OpTypeSlice: true, compute.OpTypeConcatenate: true, compute.OpTypeSin: true, compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeExp: true, compute.OpTypeNeg: true, compute.OpTypeIdentity: true, compute.OpTypeEqual: true, compute.OpTypeLessThan: true, compute.OpTypeLogicalAnd: true, compute.OpTypeWhere: true, compute.OpTypeLessOrEqual: true, compute.OpTypeIota: true, compute.OpTypeRNGBitGenerator: true, compute.OpTypeAbs: true, compute.OpTypeCos: true, compute.OpTypeMin: true, compute.OpTypeMax: true, compute.OpTypeTranspose: true, compute.OpTypeLog: true, compute.OpTypeReduceMax: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float16: true, dtypes.BFloat16: true, dtypes.Float64: true, dtypes.Bool: true, dtypes.Uint8: true, dtypes.Uint32: true, dtypes.Uint64: true, dtypes.Float32: true, dtypes.Int8: true, dtypes.Int32: true, dtypes.Int64: true}}
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
@@ -427,31 +426,6 @@ func (f *function) Add(a, b compute.Value) (compute.Value, error) {
 		return nil, err
 	}
 	z, err := f.raw.Add(x, y)
-	if err != nil {
-		return nil, err
-	}
-	return &node{f, z}, nil
-}
-func (f *function) DotGeneral(a compute.Value, ac, ab []int, b compute.Value, bc, bb []int, c compute.DotGeneralConfig) (compute.Value, error) {
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	if !reflect.DeepEqual(c, compute.DotGeneralConfig{}) {
-		return nil, unsupported
-	}
-	x, err := f.value(a)
-	if err != nil {
-		return nil, err
-	}
-	y, err := f.value(b)
-	if err != nil {
-		return nil, err
-	}
-	shape, err := contractionShape(x.Type.Shape, y.Type.Shape, ac, ab, bc, bb)
-	if err != nil {
-		return nil, err
-	}
-	z, err := f.raw.DotGeneral(x, y, int64s(ab), int64s(bb), int64s(ac), int64s(bc), hlo.Type{Shape: shape, ElementType: x.Type.ElementType})
 	if err != nil {
 		return nil, err
 	}
