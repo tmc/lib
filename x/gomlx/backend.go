@@ -80,7 +80,7 @@ func (b *Backend) Close() error {
 }
 func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
 func (b *Backend) Capabilities() compute.Capabilities {
-	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeScatterMin: true, compute.OpTypeScatterMax: true, compute.OpTypeScatterSum: true, compute.OpTypeGather: true, compute.OpTypeRem: true, compute.OpTypeGreaterThan: true, compute.OpTypeGreaterOrEqual: true, compute.OpTypeLogicalOr: true, compute.OpTypeDynamicUpdateSlice: true, compute.OpTypeSlice: true, compute.OpTypeConcatenate: true, compute.OpTypeSin: true, compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeExp: true, compute.OpTypeNeg: true, compute.OpTypeIdentity: true, compute.OpTypeEqual: true, compute.OpTypeLessThan: true, compute.OpTypeLogicalAnd: true, compute.OpTypeWhere: true, compute.OpTypeLessOrEqual: true, compute.OpTypeIota: true, compute.OpTypeRNGBitGenerator: true, compute.OpTypeAbs: true, compute.OpTypeCos: true, compute.OpTypeMin: true, compute.OpTypeMax: true, compute.OpTypeTranspose: true, compute.OpTypeLog: true, compute.OpTypeReduceMax: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float64: true, dtypes.Bool: true, dtypes.Uint8: true, dtypes.Uint32: true, dtypes.Uint64: true, dtypes.Float32: true, dtypes.Int8: true, dtypes.Int32: true, dtypes.Int64: true}}
+	return compute.Capabilities{Functions: true, Operations: map[compute.OpType]bool{compute.OpTypeCall: true, compute.OpTypeIf: true, compute.OpTypeWhile: true, compute.OpTypeScatterMin: true, compute.OpTypeScatterMax: true, compute.OpTypeScatterSum: true, compute.OpTypeGather: true, compute.OpTypeRem: true, compute.OpTypeGreaterThan: true, compute.OpTypeGreaterOrEqual: true, compute.OpTypeLogicalOr: true, compute.OpTypeDynamicUpdateSlice: true, compute.OpTypeSlice: true, compute.OpTypeConcatenate: true, compute.OpTypeSin: true, compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeExp: true, compute.OpTypeNeg: true, compute.OpTypeIdentity: true, compute.OpTypeEqual: true, compute.OpTypeLessThan: true, compute.OpTypeLogicalAnd: true, compute.OpTypeWhere: true, compute.OpTypeLessOrEqual: true, compute.OpTypeIota: true, compute.OpTypeRNGBitGenerator: true, compute.OpTypeAbs: true, compute.OpTypeCos: true, compute.OpTypeMin: true, compute.OpTypeMax: true, compute.OpTypeTranspose: true, compute.OpTypeLog: true, compute.OpTypeReduceMax: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float64: true, dtypes.Bool: true, dtypes.Uint8: true, dtypes.Uint32: true, dtypes.Uint64: true, dtypes.Float32: true, dtypes.Int8: true, dtypes.Int32: true, dtypes.Int64: true}}
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
@@ -273,7 +273,9 @@ func (b *builder) Compile() (compute.Executable, error) {
 			return nil, fmt.Errorf("function %q has not returned", f.name)
 		}
 		var body strings.Builder
-		if err := f.raw.Emit(&body); err != nil {
+		raw := *f.raw
+		raw.Args = append(slices.Clone(raw.Args), f.captureArgs...)
+		if err := raw.Emit(&body); err != nil {
 			return nil, err
 		}
 		code := body.String()
@@ -304,6 +306,9 @@ type function struct {
 	names           []string
 	inputs, outputs []shapes.Shape
 	returned        bool
+	parent          *function
+	captures        []*node
+	captureArgs     []hlo.Value
 }
 
 func (f *function) Builder() compute.Builder { return f.owner }
@@ -335,10 +340,38 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 }
 func (f *function) value(v compute.Value) (hlo.Value, error) {
 	n, ok := v.(*node)
-	if !ok || n == nil || n.owner != f || f.owner.closed {
+	if !ok || n == nil || n.owner == nil || f.owner.closed {
 		return hlo.Value{}, fmt.Errorf("invalid value")
 	}
-	return n.value, nil
+	if n.owner == f {
+		return n.value, nil
+	}
+	visible := false
+	for p := f.parent; p != nil; p = p.parent {
+		if p == n.owner {
+			visible = true
+			break
+		}
+	}
+	if !visible {
+		return hlo.Value{}, fmt.Errorf("value is outside lexical scope")
+	}
+	for i, c := range f.captures {
+		if c == n {
+			return f.captureArgs[i], nil
+		}
+	}
+	if f.returned {
+		return hlo.Value{}, fmt.Errorf("function closed")
+	}
+	// Register outer captures through each intervening lexical scope.
+	if _, err := f.parent.value(n); err != nil {
+		return hlo.Value{}, err
+	}
+	captured := hlo.Value{ID: fmt.Sprintf("%%capture%d", len(f.captures)), Type: n.value.Type}
+	f.captures = append(f.captures, n)
+	f.captureArgs = append(f.captureArgs, captured)
+	return captured, nil
 }
 func (f *function) Shape(v compute.Value) (shapes.Shape, error) {
 	n, err := f.value(v)

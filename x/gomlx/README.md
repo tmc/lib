@@ -21,7 +21,7 @@ Reshape, Transpose, Slice, DynamicUpdateSlice, Concatenate, numeric Iota, Reduce
 comparisons (Equal, LessThan, LessOrEqual, GreaterThan, and GreaterOrEqual), LogicalAnd and LogicalOr,
 Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
-closures, control flow, sharding, and remaining operations return unsupported errors.
+Sort, sharding, and remaining operations return unsupported errors.
 Donation invalidates inputs without reusing native storage.
 Bool is qualified for constants, transfers, shape operations, comparisons,
 LogicalAnd, and Where.
@@ -133,5 +133,8 @@ out-of-range updates; upstream scatter conformance also passes.
 Named functions and calls use per-function signatures and return state.
 Calls validate ownership, input count and shapes, and require completed targets;
 recursive calls are rejected. Native tests execute nested calls with multiple
-results. Closures, lexical captures, If, While and Sort remain unsupported, so
-the broad Functions capability is not advertised yet.
+results. Closures capture lexical ancestor values through explicit private-function
+parameters. Native If and While call those helpers from their regions. Tests
+cover zero, one and seven iterations, both branches, nested captures, and
+captured values from preceding loop results. Wrong-branch and reversed-capture
+controls produce numerical failures. Sort remains unsupported.
