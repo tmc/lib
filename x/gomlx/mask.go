@@ -73,3 +73,7 @@ func (f *function) Where(condition, onTrue, onFalse compute.Value) (compute.Valu
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = \"stablehlo.select\"(%s, %s, %s) : (%s, %s, %s) -> %s", z.ID, c.ID, x.ID, y.ID, c.Type, x.Type, y.Type, z.Type))
 	return &node{f, z}, nil
 }
+
+func (f *function) LessOrEqual(a, b compute.Value) (compute.Value, error) {
+	return f.compare(a, b, "LE")
+}

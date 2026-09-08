@@ -17,7 +17,8 @@ use and serialize native access. Each graph builder has one owner.
 
 Current support is static Bool, F32, Int32, and Int64 on the first exposed device: constants,
 parameters, Add, Sub, Mul, Div, ConvertDType, Identity, F32 Sqrt, Pow, Exp, Log, and Neg, BroadcastInDim,
-Reshape, ReduceSum, ReduceMax, comparisons (Equal and LessThan), LogicalAnd,
+Reshape, Transpose, numeric Iota, ReduceSum, ReduceMax,
+comparisons (Equal, LessThan, and LessOrEqual), LogicalAnd,
 Where, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
 subfunctions, sharding, and remaining operations return unsupported errors.
@@ -28,6 +29,7 @@ Where broadcasts scalar operands; other operand shapes must match.
 
 Native tests cover arithmetic, broadcasting, contractions, GoMLX graphs,
 boolean transfers and conditional selection, masked softmax,
+GoMLX attention.Core in BHSD/BSHD layouts with grouped-query and causal masking,
 softmax and log-softmax with cross-entropy gradients, autodiff, stateful gradient-descent updates, built-in SGD with decay, Adam with moment-state checkpoint
 recovery, ownership,
 and concurrent runtime access. This is not full GoMLX backend conformance.
