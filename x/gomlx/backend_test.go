@@ -146,8 +146,8 @@ func TestRejectedContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.Div(p, p); !errors.Is(err, compute.ErrNotImplemented) {
-		t.Fatalf("divide: %v", err)
+	if _, err := f.Max(p, p); !errors.Is(err, compute.ErrNotImplemented) {
+		t.Fatalf("max: %v", err)
 	}
 	foreign := b.Builder("foreign").Main()
 	q, err := foreign.Parameter("y", shapes.Make(dtypes.Float32, 2), nil)

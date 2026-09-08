@@ -3,7 +3,8 @@
 //
 // The current backend supports static F32, Int32, and Int64 tensors on its first addressable
 // device. Supported operations include constants, parameters, addition,
-// multiplication, broadcasting, reshape, sum reduction, and general dot
+// subtraction, multiplication, division, conversion, F32 square root,
+// broadcasting, reshape, sum reduction, and general dot
 // products with default configuration. Unsupported operations return
 // compute.ErrNotImplemented. Full GoMLX backend conformance is not established.
 //

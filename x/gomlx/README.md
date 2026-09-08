@@ -16,13 +16,15 @@ explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
 Current support is static F32, Int32, and Int64 on the first exposed device: constants,
-parameters, Add, Mul, BroadcastInDim, Reshape, ReduceSum, and DotGeneral with
+parameters, Add, Sub, Mul, Div, ConvertDType, F32 Sqrt, BroadcastInDim,
+Reshape, ReduceSum, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
 subfunctions, sharding, and remaining operations return unsupported errors.
 Donation invalidates inputs without reusing native storage.
 
 Native tests cover arithmetic, broadcasting, contractions, GoMLX graphs,
-autodiff, stateful gradient-descent updates, checkpoint recovery, ownership,
+autodiff, stateful gradient-descent updates, built-in SGD with decay and checkpoint
+recovery, ownership,
 and concurrent runtime access. This is not full GoMLX backend conformance.
 
 Run tests with `TMC_COMPUTE_PLUGIN` set to a compatible PJRT CPU plugin:
