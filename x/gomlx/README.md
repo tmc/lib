@@ -95,3 +95,11 @@ three-token sliding windows. A host cache model checks every key/value slot
 and causal mask across multiple wraparounds. Native outputs feed the next
 execution. This qualifies those static CPU paths, not cache growth, sharding,
 or an end-to-end inference speedup.
+
+Growing cached attention is exercised with the upstream InitializeTensors,
+PadTensors, cache serialization order, and attention.Core. Capacity grows
+2 → 4 → 8 before wraparound. Tensor.Save/Load restores cache data into a fresh
+backend at position 5; the host attention oracle checks continuation through
+position 17. Erasing restored keys changes the next attention result. This is
+cache tensor persistence; model weights and the position counter are not part
+of that checkpoint.
