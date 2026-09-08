@@ -73,3 +73,45 @@ directories. The Go diagnostic also accepts `f32`. In teacher-forced outputs,
 actual argmax; these choices do not form a free-running text sample. The teacher
 reference's JSON hash ties each output to its history. These measurements concern
 numerical fidelity on the supplied prompts, not answer quality or performance.
+
+## Inference benchmarks and profiles
+
+With the same checkpoint, free-running F32 reference, and CPU plugin environment
+variables, run from `examples` on Linux:
+
+```sh
+GOWORK=off go test -tags=tpu -run='^$' \
+  -bench='^BenchmarkPJRTInference/case0/' -benchtime=10x -count=5 ./llama-infer
+```
+
+Each reference case has separate prefill and decode benchmarks. Prefill processes
+the entire prompt. Decode processes the first generated token at the fixed
+history length of that prompt; it requires at least two reference steps.
+Both measure warm adapter calls, including token upload, synchronous execution,
+logit download, decoding, and output cleanup. Model loading, compilation warm-up,
+cache reset, prompt replay, and reference comparisons are outside timing.
+Every measured result must match the independent reference's greedy ID and
+per-logit tolerance. The benchmark uses fixed reference histories, not sustained
+free-running generation. Case numbers follow reference JSON order.
+
+Collect a separate diagnostic run, keeping its executable with the profiles:
+
+```sh
+mkdir -p ~/tmp/pjrt-profile
+GOWORK=off go test -tags=tpu -run='^$' \
+  -bench='^BenchmarkPJRTInference/case0/' -benchtime=10x \
+  -cpuprofile="$HOME/tmp/pjrt-profile/cpu.pprof" \
+  -memprofile="$HOME/tmp/pjrt-profile/heap.pprof" \
+  -o "$HOME/tmp/pjrt-profile/inference.test" ./llama-infer
+go tool pprof -tags ~/tmp/pjrt-profile/inference.test ~/tmp/pjrt-profile/cpu.pprof
+go tool pprof -http=localhost:0 ~/tmp/pjrt-profile/inference.test ~/tmp/pjrt-profile/cpu.pprof
+```
+
+CPU labels `pjrt.phase=prefill`, `decode`, and `setup` distinguish adapter calls
+from cache preparation. Stopping benchmark timing does not stop CPU sampling:
+loading, warm-up, and validation can still appear in the profile without phase
+labels. Native runtime worker threads may not inherit Go labels. CPU profiles
+measure sampled CPU work, not elapsed device kernel time or blocked wait time.
+Heap profiles and allocation counts cover Go allocations, not native device
+memory; heap profiles do not support these CPU labels. Profiled timings are
+diagnostic and should be kept separate from unprofiled benchmark comparisons.

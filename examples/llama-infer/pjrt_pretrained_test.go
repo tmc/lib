@@ -143,7 +143,7 @@ type pjrtReference struct {
 	} `json:"cases"`
 }
 
-func checkPJRTReferenceHash(t *testing.T, path, want string) {
+func checkPJRTReferenceHash(t testing.TB, path, want string) {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
@@ -163,7 +163,7 @@ func checkPJRTReferenceHash(t *testing.T, path, want string) {
 	}
 }
 
-func readPJRTReference(t *testing.T, dir string) *pjrtReference {
+func readPJRTReference(t testing.TB, dir string) *pjrtReference {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join(dir, "reference.json"))
 	if err != nil {
