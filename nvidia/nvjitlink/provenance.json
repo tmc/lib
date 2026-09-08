@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build2996909674/b001/exe/gen-nvidia",
+    "-api",
+    "nvjitlink",
+    "-headers-dir",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-header",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/nvjitlink",
+    "-package",
+    "nvjitlink",
+    "-deprecated=true",
+    "-docs-dir",
+    "/Volumes/tmc/go/src/github.com/tmc/codegen/docs"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+      "sha256": "97d833dbfb3b17b1fbd76bbed72caf1eb4a638b40c39720fe2bfa5f5238bab98"
+    }
+  ],
+  "source_hash": "8c46f7bbaf953d16f2c0ef9e512738d343017dda4db204e180b7156241e626f9",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

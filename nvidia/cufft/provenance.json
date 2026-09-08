@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build3909841322/b001/exe/gen-nvidia",
+    "-api",
+    "cufft",
+    "-headers-dir",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cufft",
+    "-package",
+    "cufft"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/cufft/cufft.h",
+      "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
+    }
+  ],
+  "source_hash": "c39dd9f6e6f196154aeadbd6b1db73285721226b176f6c62c8efdeab5f95a836",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
