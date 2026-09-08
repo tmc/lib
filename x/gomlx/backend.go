@@ -80,20 +80,25 @@ func (b *Backend) Close() error {
 }
 func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
 func (b *Backend) Capabilities() compute.Capabilities {
-	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true, dtypes.Int32: true, dtypes.Int64: true}}
+	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true, dtypes.Int32: true, dtypes.Int64: true}}
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
 	v.main = &function{owner: v, raw: hlo.NewFunc("main")}
-	v.main.Function.ErrFn = func(compute.OpType) error { return unsupported }
+	v.main.Function.ErrFn = func(op compute.OpType) error { return fmt.Errorf("%s: %w", op, unsupported) }
 	return v
 }
 func validate(s shapes.Shape) error {
+	for _, name := range s.AxisNames {
+		if name != "" {
+			return unsupported
+		}
+	}
 	info, ok := element(s.DType)
 	if !ok {
 		return unsupported
 	}
-	if len(s.TupleShapes) > 0 || len(s.AxisNames) > 0 {
+	if len(s.TupleShapes) > 0 {
 		return unsupported
 	}
 	zero := false

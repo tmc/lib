@@ -157,3 +157,22 @@ func TestNativeReviewControls(t *testing.T) {
 	}
 	t.Log("invalid donated input returns error before donation defer is registered")
 }
+
+func TestUnnamedAxes(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		axes      []string
+		wantError bool
+	}{
+		{"absent", nil, false},
+		{"unnamed", []string{"", ""}, false},
+		{"named", []string{"batch", ""}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validate(shapes.Shape{DType: dtypes.Float32, Dimensions: []int{2, 3}, AxisNames: tc.axes})
+			if (err != nil) != tc.wantError {
+				t.Fatalf("validate: %v, want error %v", err, tc.wantError)
+			}
+		})
+	}
+}

@@ -172,3 +172,14 @@ func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.sqrt %s : %s", z.ID, x.ID, x.Type))
 	return &node{f, z}, nil
 }
+
+func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
+	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
+		if x.Type.ElementType != "f32" {
+			return hlo.Value{}, unsupported
+		}
+		z := hlo.Value{ID: fmt.Sprintf("%%pow%d", len(f.raw.Ops)), Type: x.Type}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.power %s, %s : %s", z.ID, x.ID, y.ID, x.Type))
+		return z, nil
+	})
+}
