@@ -296,7 +296,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcusparse.so.12", "libcusparse.so"}
+		return []string{"libcusparse.so.12"}
 	case "darwin":
 		return []string{"libcusparse.dylib"}
 	case "windows":

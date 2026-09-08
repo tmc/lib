@@ -1,27 +1,25 @@
 {
   "schema_version": 1,
   "generator": "github.com/tmc/codegen/cmd/cusparse-survey",
-  "upstream_version": "12.7.9.17",
-  "version_source": "explicit generator flag; not independently verified",
-  "cwd": "$TMPDIR/work/provenance/codegen",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
   "argv": [
-    "$TMPDIR/work/provenance/go-build658630984/b001/exe/cusparse-survey",
+    "$GOCACHE/04/040d3ea99d168b4af4dfe438d60b121627978bbc877250ad6cac99f6b0bf7683-d/cusparse-survey",
     "-header",
-    "$TMPDIR/work/provenance/codegen/../cuda-headers/cusparse/cusparse.h",
+    "$HOME/go/src/github.com/tmc/cuda-headers/cusparse/cusparse.h",
     "-headers-dir",
-    "$TMPDIR/work/provenance/codegen/../cuda-headers",
+    "$HOME/go/src/github.com/tmc/cuda-headers",
     "-output",
-    "$TMPDIR/work/provenance/codegen/../generated/candidate/cusparse",
-    "-upstream-version",
-    "12.7.9.17"
+    "$HOME/go/src/github.com/tmc/lib/nvidia/cusparse"
   ],
   "inputs": [
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cusparse/cusparse.h",
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/cusparse/cusparse.h",
       "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
     }
   ],
-  "source_hash": "4944eb25184565796f0b64c32215a4d2c194051f311896a6d534cb09b31b7835",
+  "source_hash": "f95ea4973ac0a3918e04233b4fd0553f2dbf9e7b7e04e94ff80612b0d84f59f8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-nvjpeg2k",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "argv": [
+    "$GOCACHE/8f/8f55b495bad1f55482d413d3f3c3a3b4e9db3104b37b112e01c76f106d9ca941-d/gen-nvjpeg2k",
+    "-output",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/nvjpeg2k"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvjpeg2k/headers/nvjpeg2k.h",
+      "sha256": "f83384fe203c45daa35d2b9f8947d25576eacec0b5459cd158dbe67c083d0c2e"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvjpeg2k/headers/nvjpeg2k_version.h",
+      "sha256": "96f571468a18a17ffaacc572286a2e047a5299bdda4ae720e46a3cfaca98b464"
+    }
+  ],
+  "source_hash": "2b3c801cc7983e212aa86e8bfdd281a4144b8555ab6f45254a973e5e58bb5997",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

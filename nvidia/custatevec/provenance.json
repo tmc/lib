@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-custatevec",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "argv": [
+    "$GOCACHE/d5/d53e25a479c7afe7d5d723d3c6e9cb29e647b024f8ea8a69d401443ebe1183b0-d/gen-custatevec",
+    "-cuda-headers",
+    "$HOME/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/custatevec"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-custatevec/headers/cuquantum/custatevec.h",
+      "sha256": "9e1652e39be74c2af0fc8015d23678362273aecb0a0ef59924dcb6659180c40c"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/cuda_cudart/vector_types.h",
+      "sha256": "ded087a2c3ca89fd3a5150589175aca0aa4714357016209ea3e7a51f94845e75"
+    }
+  ],
+  "source_hash": "d8eb25275a43c122a1ddce057e88acb07604ef392f8183812c85516f769e25c9",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
