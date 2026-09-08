@@ -80,7 +80,7 @@ func (b *Backend) Close() error {
 }
 func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
 func (b *Backend) Capabilities() compute.Capabilities {
-	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true, dtypes.Int32: true, dtypes.Int64: true}}
+	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeSub: true, compute.OpTypeDiv: true, compute.OpTypeConvertDType: true, compute.OpTypeSqrt: true, compute.OpTypePow: true, compute.OpTypeExp: true, compute.OpTypeNeg: true, compute.OpTypeIdentity: true, compute.OpTypeLog: true, compute.OpTypeReduceMax: true, compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true, dtypes.Int32: true, dtypes.Int64: true}}
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}

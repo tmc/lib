@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gomlx/compute"
 	"github.com/gomlx/compute/dtypes"
+	"math"
 
 	"github.com/gomlx/compute/shapes"
 	hlo "github.com/tmc/lib/x/stablehlo/builder"
@@ -69,6 +70,12 @@ func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) 
 	return &node{f, z}, nil
 }
 func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error) {
+	return f.reduce(v, "add", axes)
+}
+func (f *function) ReduceMax(v compute.Value, axes ...int) (compute.Value, error) {
+	return f.reduce(v, "maximum", axes)
+}
+func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value, error) {
 	if f.owner.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
@@ -97,14 +104,25 @@ func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error
 	}
 	var zero hlo.Value
 	if x.Type.ElementType == "f32" {
-		zero, err = f.raw.Constant(0, hlo.Type{ElementType: "f32"})
+		initial := float32(0)
+		if op == "maximum" {
+			initial = float32(math.Inf(-1))
+		}
+		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: "f32"})
 	} else {
-		zero, err = f.raw.IntegerConstant(0, hlo.Type{ElementType: x.Type.ElementType})
+		initial := int64(0)
+		if op == "maximum" {
+			initial = math.MinInt64
+			if x.Type.ElementType == "i32" {
+				initial = math.MinInt32
+			}
+		}
+		zero, err = f.raw.IntegerConstant(initial, hlo.Type{ElementType: x.Type.ElementType})
 	}
 	if err != nil {
 		return nil, err
 	}
-	z, err := f.raw.Reduce(x, zero, int64s(axes), hlo.Type{Shape: dims, ElementType: x.Type.ElementType}, "add")
+	z, err := f.raw.Reduce(x, zero, int64s(axes), hlo.Type{Shape: dims, ElementType: x.Type.ElementType}, op)
 	if err != nil {
 		return nil, err
 	}
@@ -182,4 +200,41 @@ func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
 		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.power %s, %s : %s", z.ID, x.ID, y.ID, x.Type))
 		return z, nil
 	})
+}
+
+func (f *function) Exp(v compute.Value) (compute.Value, error) {
+	return f.unaryFloat(v, "exponential")
+}
+func (f *function) Log(v compute.Value) (compute.Value, error) {
+	return f.unaryFloat(v, "log")
+}
+func (f *function) unaryFloat(v compute.Value, op string) (compute.Value, error) {
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(v)
+	if err != nil {
+		return nil, err
+	}
+	if x.Type.ElementType != "f32" {
+		return nil, unsupported
+	}
+	z := hlo.Value{ID: fmt.Sprintf("%%unary%d", len(f.raw.Ops)), Type: x.Type}
+	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.%s %s : %s", z.ID, op, x.ID, x.Type))
+	return &node{f, z}, nil
+}
+
+func (f *function) Identity(v compute.Value) (compute.Value, error) {
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(v)
+	if err != nil {
+		return nil, err
+	}
+	return &node{f, x}, nil
+}
+
+func (f *function) Neg(v compute.Value) (compute.Value, error) {
+	return f.unaryFloat(v, "negate")
 }
