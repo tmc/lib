@@ -3034,8 +3034,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "37b65752623331403efd2eb9826f261e0f749b84",
+          "tree": "c44bd69999889f01025db19dd216847ed457e558"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -3117,7 +3117,7 @@
           },
           {
             "path": "nvidia/nvenc/init.gen.go",
-            "sha256": "455df8d9ae17fb4b92082191176ed78fe17c3aecec6cc2e2fd3d2704aad1fcf0"
+            "sha256": "63487f69cb2c231f9f776939a87e4293146c65e5e2a67b6f8ef301e0051ad143"
           },
           {
             "path": "nvidia/nvenc/layout_test.go",
@@ -3132,6 +3132,10 @@
             "sha256": "8cd18ea8ba2fcc435255ae14554a86d14909ba3b6c33e494fb4eea4e1691d98a"
           },
           {
+            "path": "nvidia/nvenc/provenance.gen.go",
+            "sha256": "56c8e625506666c975fa682a5fcdc2899f72cd8747e2d699a209400a9a45f15a"
+          },
+          {
             "path": "nvidia/nvenc/structs.gen.go",
             "sha256": "8fb963a24cdbc38f4bc137dc07db91f21eeed23de99cf34d4a4b2c0452978681"
           },
@@ -3143,16 +3147,17 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after gen-nvcodec started recording bind failures. init.gen.go is the only file that changed; it gains BindFailure/BindFailures and SymbolError gains Err/Unwrap. No other exported identifier moved."
     },
     "nvdec": {
       "package": "github.com/tmc/lib/nvidia/nvdec",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "37b65752623331403efd2eb9826f261e0f749b84",
+          "tree": "c44bd69999889f01025db19dd216847ed457e558"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -3238,7 +3243,7 @@
           },
           {
             "path": "nvidia/nvdec/init.gen.go",
-            "sha256": "5c311d84a089927b5ac5d40116721607d11e4097320f36706193df419f063e7f"
+            "sha256": "6483f5ab0052269e64a751e8fadfd53e3b25c0c3b5b4e44aefb1484c513665d1"
           },
           {
             "path": "nvidia/nvdec/init_windows.gen.go",
@@ -3259,6 +3264,10 @@
           {
             "path": "nvidia/nvdec/loader_windows.gen.go",
             "sha256": "a62ec2a6f5c05005f4672ec38c6b876b61a5e2f542e47c51b2c67adf8960115d"
+          },
+          {
+            "path": "nvidia/nvdec/provenance.gen.go",
+            "sha256": "de823ecf47f8f09e2d57e37b91796449c5b3c019f79d4bfd8a2637929e6489be"
           },
           {
             "path": "nvidia/nvdec/structs.gen.go",
@@ -3316,7 +3325,8 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after gen-nvcodec started recording bind failures. init.gen.go is the only file that changed; it gains BindFailure/BindFailures and SymbolError gains Err/Unwrap. No other exported identifier moved."
     },
     "fabricmanager": {
       "package": "github.com/tmc/lib/nvidia/fabricmanager",

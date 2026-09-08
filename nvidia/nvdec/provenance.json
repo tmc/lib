@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-nvcodec",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "argv": [
+    "$GOCACHE/44/44ba7f1bf7b65014628afd86eb765c0d77b2a594a8de11256a09278711cdd7f5-d/gen-nvcodec",
+    "-api",
+    "nvdec",
+    "-headers",
+    "cmd/gen-nvcodec/headers",
+    "-out",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/nvdec"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcodec/headers/dynlink_cuda.h",
+      "sha256": "c970d5817120ea481ba29b9c603bdc9a386985d9fc98a47f6588030dcdba87c1"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcodec/headers/dynlink_cuviddec.h",
+      "sha256": "0d9f490e8699a2e000904275d9e380e7ee9945e5717b95f920358013153c6377"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcodec/headers/dynlink_nvcuvid.h",
+      "sha256": "c1290075d5d881e98c8f14dc5a23953a792f56971b172cf84ee0bc7aab6d1aab"
+    }
+  ],
+  "source_hash": "43a7d828bf78ff856ca0f015fd40ae1f38b223f59b479830b48c61e977670fb5",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
