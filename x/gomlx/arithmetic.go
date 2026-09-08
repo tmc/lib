@@ -103,12 +103,12 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 		}
 	}
 	var zero hlo.Value
-	if x.Type.ElementType == "f32" {
+	if x.Type.ElementType == "f32" || x.Type.ElementType == "f64" {
 		initial := float32(0)
 		if op == "maximum" {
 			initial = float32(math.Inf(-1))
 		}
-		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: "f32"})
+		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: x.Type.ElementType})
 	} else if x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: x.Type.ElementType}}
 		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<0> : %s", zero.ID, zero.Type))
@@ -196,7 +196,7 @@ func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
 
 func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
-		if x.Type.ElementType != "f32" {
+		if x.Type.ElementType == "i1" {
 			return hlo.Value{}, unsupported
 		}
 		z := hlo.Value{ID: fmt.Sprintf("%%pow%d", len(f.raw.Ops)), Type: x.Type}
@@ -239,7 +239,19 @@ func (f *function) Identity(v compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Neg(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "negate")
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(v)
+	if err != nil {
+		return nil, err
+	}
+	if x.Type.ElementType == "i1" {
+		return nil, unsupported
+	}
+	z := hlo.Value{ID: fmt.Sprintf("%%neg%d", len(f.raw.Ops)), Type: x.Type}
+	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.negate %s : %s", z.ID, x.ID, x.Type))
+	return &node{f, z}, nil
 }
 
 func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "sine") }

@@ -15,9 +15,9 @@ Pass the backend to GoMLX `graph.NewExec` or `model.NewExec`. Call `Close`
 explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
-Current support is static Bool, F32, Int32, Int64, Uint32, and Uint64 on the first exposed device: constants,
-parameters, Add, Sub, Mul, Div, ConvertDType, Identity, F32 Sqrt, Pow, Exp, Log, Neg, Abs, and Cos, Min and Max, BroadcastInDim,
-Reshape, Transpose, numeric Iota, ReduceSum, ReduceMax,
+Current support is static Bool, F32, F64, Int32, Int64, Uint32, and Uint64 on the first exposed device: constants,
+parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Pow and Neg for numeric types; F32 Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
+Reshape, Transpose, Slice, Concatenate, numeric Iota, ReduceSum, ReduceMax,
 comparisons (Equal, LessThan, and LessOrEqual), LogicalAnd,
 Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
@@ -74,4 +74,10 @@ sequence-axis layouts, interleaved and split-half pairs, full and partial
 rotation, and linear scaling. Slice and concatenation preserve static shapes;
 Float64 constants and transfers preserve their bits before conversion to F32.
 The RoPE tests compare both query and key outputs against host trigonometry.
-This does not qualify all position encoders or Float64 arithmetic.
+Float64 Pow, Neg, ReduceSum, and ReduceMax are also covered by native tests.
+This does not qualify all position encoders or all Float64 operations.
+
+Typed arithmetic tests cover signed overflow and unsigned wraparound for Pow
+and Neg, integer precision above 2^53, and Float64 sum/max reductions.
+The corresponding upstream backend conformance cases pass. Other operation
+and dtype combinations remain unimplemented.
