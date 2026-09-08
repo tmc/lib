@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -95,28 +93,28 @@ func (p *pjrtModel) forward(ctx context.Context, ids []int32, position int) ([]f
 		}
 		return nil, err
 	}
-	var data bytes.Buffer
-	_, readErr := out.WriteTo(&data)
+	element, dims, shapeErr := out.Shape()
+	if shapeErr == nil && (element != xla.F32 || len(dims) != 3 || dims[0] != 1 || dims[1] != int64(len(ids)) || dims[2] != int64(p.vocab)) {
+		shapeErr = fmt.Errorf("pjrt: unexpected logit shape")
+	}
+	if shapeErr != nil {
+		return nil, errors.Join(shapeErr, out.Close(), p.close())
+	}
+	allLogits := make([]float32, len(ids)*p.vocab)
+	readErr := out.ReadFloats(allLogits)
 	if err := errors.Join(readErr, out.Close()); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
-	// Decoder validation has already checked this product before execution.
-	if data.Len() != len(ids)*p.vocab*4 {
-		return nil, errors.Join(fmt.Errorf("pjrt: unexpected logit byte length"), p.close())
-	}
-	raw := data.Bytes()[(len(ids)-1)*p.vocab*4:]
-	logits := make([]float32, p.vocab)
-	for i := range logits {
-		v := math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
+	logits := allLogits[(len(ids)-1)*p.vocab:]
+	for _, v := range logits {
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			return nil, errors.Join(fmt.Errorf("pjrt: nonfinite logits"), p.close())
 		}
-		logits[i] = v
 	}
-	p.logits = logits
+	p.logits = slices.Clone(logits)
 	return slices.Clone(logits), nil
 }
 

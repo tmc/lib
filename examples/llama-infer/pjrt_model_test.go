@@ -196,3 +196,38 @@ func (c *pjrtLateCancel) Err() error {
 	}
 	return nil
 }
+
+func TestNativePJRTLogitShape(t *testing.T) {
+	path := os.Getenv("XLA_PJRT_CPU_PLUGIN")
+	if path == "" {
+		t.Skip("set XLA_PJRT_CPU_PLUGIN to a CPU PJRT library")
+	}
+	engine, err := xla.NewEngine(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	c, w := pjrtFixture()
+	p, err := newPJRTModel(context.Background(), engine, c, w, float64(c.RopeTheta), xla.F32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := p.close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	// ToHost permits an oversized destination. The adapter must reject a
+	// mismatched output shape rather than accepting an unread zero-filled tail.
+	p.vocab++
+	if _, err := p.forward(context.Background(), []int32{3}, 0); err == nil || !strings.Contains(err.Error(), "logit shape") {
+		t.Fatalf("got %v, want logit shape error", err)
+	}
+	if p.model != nil {
+		t.Fatal("adapter retained history after invalid output")
+	}
+}
