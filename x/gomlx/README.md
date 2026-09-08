@@ -32,7 +32,8 @@ boolean transfers and conditional selection, masked softmax,
 GoMLX attention.Core in BHSD/BSHD layouts with grouped-query and causal masking,
 attention gradients checked against independent host finite differences,
 softmax and log-softmax with cross-entropy gradients, autodiff, stateful gradient-descent updates, built-in SGD with decay, Adam with moment-state checkpoint
-recovery, ownership,
+recovery, end-to-end Dense/RMSNorm/causal-attention training with full Adam
+checkpoint recovery, ownership,
 and concurrent runtime access. This is not full GoMLX backend conformance.
 
 Run tests with `TMC_COMPUTE_PLUGIN` set to a compatible PJRT CPU plugin:
