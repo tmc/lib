@@ -28,7 +28,8 @@ LogicalAnd, and Where.
 Where broadcasts scalar operands; other operand shapes must match.
 
 Native tests cover Philox known answers and state progression, GoMLX uniform
-and normal random graphs, arithmetic, broadcasting, contractions, GoMLX graphs,
+and normal random graphs, seeded model initialization, dropout gradients,
+training/inference RNG isolation and RNG checkpoint replay, arithmetic, broadcasting, contractions, GoMLX graphs,
 boolean transfers and conditional selection, masked softmax,
 GoMLX attention.Core in BHSD/BSHD layouts with grouped-query and causal masking,
 attention gradients checked against independent host finite differences,
