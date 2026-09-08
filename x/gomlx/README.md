@@ -116,4 +116,13 @@ Gather supports the static compute interface, including implicit, leading,
 and trailing index-vector axes. Native tests check boundary clamping and exact
 Int64 values above 2^53, and execute the actual layers.Embedding consumer.
 Invalid dimensions, duplicate index mappings, and dynamic slice sizes return
-errors before emitting IR. Embedding gradients still require scatter support.
+errors before emitting IR. Embedding gradient and optimizer recovery coverage is described below.
+
+ScatterSum supports static update windows, inserted axes and index mappings.
+Native tests verify repeated-index addition, ignored out-of-range row updates,
+implicit and explicit index-vector axes, and exact Int64 accumulation. Shape
+validation rejects mismatched batch dimensions before emitting IR. Actual
+layers.Embedding gradients match host row counts; built-in Adam updates match
+a host calculation. A fresh backend and model store reproduce three checkpoint
+continuation steps with identical state tensors. Resetting optimizer moments
+changes the next update. ScatterMin and ScatterMax remain unsupported.
