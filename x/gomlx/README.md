@@ -30,6 +30,7 @@ Where broadcasts scalar operands; other operand shapes must match.
 Native tests cover arithmetic, broadcasting, contractions, GoMLX graphs,
 boolean transfers and conditional selection, masked softmax,
 GoMLX attention.Core in BHSD/BSHD layouts with grouped-query and causal masking,
+attention gradients checked against independent host finite differences,
 softmax and log-softmax with cross-entropy gradients, autodiff, stateful gradient-descent updates, built-in SGD with decay, Adam with moment-state checkpoint
 recovery, ownership,
 and concurrent runtime access. This is not full GoMLX backend conformance.
