@@ -8511,7 +8511,7 @@
       "note": "The generator is cmd/cublaslt-survey. The recorded argv is a recovered candidate, not a reproduction: regenerating from it would remove exported declarations, callbacks.gen.go and the platform loader, so it must not be run without an API review."
     },
     "cusolver": {
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "generation": {
         "cwd": "${CODEGEN_REPO}",
         "argv": [
@@ -8558,7 +8558,7 @@
           },
           {
             "path": "nvidia/cusolver/init.gen.go",
-            "sha256": "ef2e0e6e9d559857c8d0d64e55d9c989e0f68706109487aba7ab848b1f7640c1"
+            "sha256": "5e29df5996f04848199bea4dcc262e7f3eb32b2531588e76c81ba350a8df865f"
           },
           {
             "path": "nvidia/cusolver/irs_infos.gen.go",
@@ -8570,7 +8570,7 @@
           },
           {
             "path": "nvidia/cusolver/loader_test.go",
-            "sha256": "70d8f6248a9d4d0e25064e9c5edb6f004ddd929cd3d5e2f23020787c54706f0c"
+            "sha256": "d1f0204cfdc797da8ba5caa374a3c3c451708602ec104440061da159c68a4f20"
           },
           {
             "path": "nvidia/cusolver/loader_unix.gen.go",
@@ -8597,7 +8597,7 @@
             "sha256": "d55e1c42e664c4934f83d1304b8b576eb8758fcf6474feed24804635f0dfb51b"
           }
         ],
-        "comparison": "Regeneration differs in init.gen.go and loader_test.go only. It drops no exported declaration and adds 2; the difference is the loader the generator emits today, including BindFailures, SymbolError.Err and the pinned soname candidate list."
+        "comparison": "All 16 outputs regenerated into the committed package from the recorded recipe and pinned header. gen.CheckAPIRemoval dropped no exported declaration."
       },
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
@@ -8617,10 +8617,10 @@
         "path": "cusolver/cusolverDn.h",
         "sha256": "8d620eab0a3433baa9ee6309bec968633647a743c970bdc00a469eefab07f0e9"
       },
-      "note": "The generator is cmd/cusolver-survey, not cmd/gen-nvidia, which has no cusolver API. The recorded argv was recovered and verified by regenerating into a scratch directory and diffing against the committed package; it was not the invocation that produced these bytes, which predate the current loader. Regenerating this package is purely additive and would also pin its soname major."
+      "note": "The generator is cmd/cusolver-survey, not cmd/gen-nvidia, which has no cusolver API. The recipe was recovered by diffing a scratch regeneration against the committed package, then the package was regenerated to record this entry. That regeneration also pinned the Linux soname major: the loader no longer falls back to the unversioned libcusolver.so, which on a CUDA-12-only host silently bound a CUDA 12 library."
     },
     "cutensor": {
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "generation": {
         "cwd": "${CODEGEN_REPO}",
         "argv": [
@@ -8647,7 +8647,7 @@
           },
           {
             "path": "nvidia/cutensor/enums.gen.go",
-            "sha256": "bc3595919b53f7ae7e2a73b804e6a53398ce139ced0167ffa215ff3c44a883ea"
+            "sha256": "a3382d068fcc819502f9f207047844b1b95bdd3866a361f079fc8cfc1569d97f"
           },
           {
             "path": "nvidia/cutensor/funcs.gen.go",
@@ -8663,11 +8663,11 @@
           },
           {
             "path": "nvidia/cutensor/init.gen.go",
-            "sha256": "7b095de895cb7acb16d78ed71dcf9abcf90f4f8ed6dfc7224d70e9b8eabc367d"
+            "sha256": "f49e5b81d15fcd0ecfceb7d20934baad761fdce83b188a5e1b68567db1455304"
           },
           {
             "path": "nvidia/cutensor/loader_test.go",
-            "sha256": "d3eea6d3f31a614334260f7b8c7d27cbad0f93ca9faf6325e0aa646b74624145"
+            "sha256": "d0bf66a28bb76f22bf5e82f3fae10dcc5335be042fbb20512024cd55364728c6"
           },
           {
             "path": "nvidia/cutensor/loader_unix.gen.go",
@@ -8702,7 +8702,7 @@
             "sha256": "b6d415ef5e7328e14a0b2c1c7a654de5f129073be0a79f2a58cd7cf90bcb7f2f"
           }
         ],
-        "comparison": "Regeneration differs in enums.gen.go, init.gen.go and loader_test.go. It drops no exported declaration and adds 6; enums.gen.go differs in enumerator ordering and added String method documentation, not in values."
+        "comparison": "All 15 outputs regenerated into the committed package from the recorded recipe and pinned header. gen.CheckAPIRemoval dropped no exported declaration."
       },
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
@@ -8722,7 +8722,7 @@
         "path": "libcutensor/cutensor.h",
         "sha256": "edebfe038e91ce0c662a60e85f22e555bb2dec8d662f71f32491a33736cdf62c"
       },
-      "note": "The generator is cmd/cutensor-survey, not cmd/gen-nvidia, which has no cutensor API. The recorded argv was recovered and verified by regenerating into a scratch directory and diffing against the committed package; it was not the invocation that produced these bytes. Regeneration drops nothing."
+      "note": "The generator is cmd/cutensor-survey, not cmd/gen-nvidia, which has no cutensor API. The recipe was recovered by diffing a scratch regeneration against the committed package, then the package was regenerated to record this entry. The regeneration changed enumerator ordering and added String method documentation; no enumerator value changed. It also pinned the Linux soname major."
     },
     "driver": {
       "status": "generation-partially-reproduced",
