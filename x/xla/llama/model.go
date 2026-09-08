@@ -2,7 +2,6 @@ package llama
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -63,11 +62,13 @@ func newModel(ctx context.Context, engine *xla.Engine, c Config, s layout) (*Mod
 		if err := ctx.Err(); err != nil {
 			return nil, errors.Join(err, m.Close())
 		}
-		data := p.value.raw
+		var buffer *xla.Buffer
+		var err error
 		if p.value.data != nil {
-			data = encodeFloats(p.value.data)
+			buffer, err = engine.NewBufferFromFloats(p.value.data, p.typ.Shape, m.device)
+		} else {
+			buffer, err = engine.NewBufferFromHost(p.value.raw, p.value.kind, p.typ.Shape, m.device)
 		}
-		buffer, err := engine.NewBufferFromHost(data, p.value.kind, p.typ.Shape, m.device)
 		if err != nil {
 			return nil, errors.Join(fmt.Errorf("llama: upload %s: %w", p.name, err), m.Close())
 		}
@@ -190,22 +191,48 @@ func (m *Model) forward(ctx context.Context, ids, counts []int64, chunk int64) (
 			}
 		}
 	}
-	data := [][]byte{encodeInts(ids), encodeInts(m.lengths), encodeInts(counts), encodeInts(indices), encodeFloats(cosine), encodeFloats(sine)}
 	types := m.metadataTypes(chunk)
-	var metadata []*xla.Buffer
-	for i, typ := range types {
-		element := openxla.Buffer_Type_S64
-		if typ.ElementType == "f32" {
-			element = xla.F32
-		}
-		buffer, err := m.engine.NewBufferFromHost(data[i], element, typ.Shape, m.device)
+	metadata := make([]*xla.Buffer, 0, 6)
+	addInts := func(data []int64, idx int) error {
+		b, err := m.engine.NewBufferFromInts(data, types[idx].Shape, m.device)
 		if err != nil {
-			if cleanupErr := closeBuffers(metadata); cleanupErr != nil {
-				return nil, errors.Join(err, cleanupErr, m.Close())
-			}
-			return nil, err
+			return err
 		}
-		metadata = append(metadata, buffer)
+		metadata = append(metadata, b)
+		return nil
+	}
+	addFloats := func(data []float32, idx int) error {
+		b, err := m.engine.NewBufferFromFloats(data, types[idx].Shape, m.device)
+		if err != nil {
+			return err
+		}
+		metadata = append(metadata, b)
+		return nil
+	}
+	var metaErr error
+	if metaErr == nil {
+		metaErr = addInts(ids, 0)
+	}
+	if metaErr == nil {
+		metaErr = addInts(m.lengths, 1)
+	}
+	if metaErr == nil {
+		metaErr = addInts(counts, 2)
+	}
+	if metaErr == nil {
+		metaErr = addInts(indices, 3)
+	}
+	if metaErr == nil {
+		metaErr = addFloats(cosine, 4)
+	}
+	if metaErr == nil {
+		metaErr = addFloats(sine, 5)
+	}
+	if metaErr != nil {
+		if cleanupErr := closeBuffers(metadata); cleanupErr != nil {
+			return nil, errors.Join(metaErr, cleanupErr, m.Close())
+		}
+		return nil, metaErr
 	}
 	args := append(slices.Clone(m.parameters), m.history...)
 	args = append(args, metadata...)
@@ -262,18 +289,4 @@ func closeBuffers(buffers []*xla.Buffer) (err error) {
 		err = errors.Join(err, b.Close())
 	}
 	return err
-}
-func encodeInts(values []int64) []byte {
-	b := make([]byte, 8*len(values))
-	for i, v := range values {
-		binary.LittleEndian.PutUint64(b[i*8:], uint64(v))
-	}
-	return b
-}
-func encodeFloats(values []float32) []byte {
-	b := make([]byte, 4*len(values))
-	for i, v := range values {
-		binary.LittleEndian.PutUint32(b[i*4:], math.Float32bits(v))
-	}
-	return b
 }

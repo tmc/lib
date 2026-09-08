@@ -56,6 +56,14 @@ func encodedFixture(c Config, tied bool, kind xla.ElementType) (Weights, Encoded
 	return w, e
 }
 
+func encodeFloats(values []float32) []byte {
+	b := make([]byte, 4*len(values))
+	for i, v := range values {
+		binary.LittleEndian.PutUint32(b[i*4:], math.Float32bits(v))
+	}
+	return b
+}
+
 func TestEncodedValidation(t *testing.T) {
 	for _, tt := range []struct {
 		name   string

@@ -59,6 +59,54 @@ func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int6
 	}, nil
 }
 
+// NewBufferFromFloats creates an F32 device buffer directly from a []float32.
+func (e *Engine) NewBufferFromFloats(data []float32, dims []int64, dev *openxla.Device) (*Buffer, error) {
+	size, err := bufferSize(F32, dims)
+	if err != nil {
+		return nil, err
+	}
+	if len(data)*4 != size {
+		return nil, fmt.Errorf("xla: host buffer has %d elements (%d bytes), want %d bytes", len(data), len(data)*4, size)
+	}
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("xla: engine is closed")
+	}
+	ptr := unsafe.Pointer(unsafe.SliceData(data))
+	wrapper, err := e.client.BufferFromHost(ptr, F32, dims, dev)
+	if err != nil {
+		return nil, fmt.Errorf("xla: failed to create buffer from host: %w", err)
+	}
+	return &Buffer{
+		wrapper: wrapper,
+		dims:    slices.Clone(dims),
+		elemTyp: F32,
+	}, nil
+}
+
+// NewBufferFromInts creates an S64 device buffer directly from a []int64.
+func (e *Engine) NewBufferFromInts(data []int64, dims []int64, dev *openxla.Device) (*Buffer, error) {
+	size, err := bufferSize(openxla.Buffer_Type_S64, dims)
+	if err != nil {
+		return nil, err
+	}
+	if len(data)*8 != size {
+		return nil, fmt.Errorf("xla: host buffer has %d elements (%d bytes), want %d bytes", len(data), len(data)*8, size)
+	}
+	if e == nil || e.client == nil {
+		return nil, fmt.Errorf("xla: engine is closed")
+	}
+	ptr := unsafe.Pointer(unsafe.SliceData(data))
+	wrapper, err := e.client.BufferFromHost(ptr, openxla.Buffer_Type_S64, dims, dev)
+	if err != nil {
+		return nil, fmt.Errorf("xla: failed to create buffer from host: %w", err)
+	}
+	return &Buffer{
+		wrapper: wrapper,
+		dims:    slices.Clone(dims),
+		elemTyp: openxla.Buffer_Type_S64,
+	}, nil
+}
+
 // Device returns the device on which the buffer resides.
 func (b *Buffer) Device() (*openxla.Device, error) {
 	if b == nil || b.wrapper == nil {
@@ -93,6 +141,32 @@ func (b *Buffer) ToHost(dst []byte) error {
 	}
 	ptr := unsafe.Pointer(&dst[0])
 	if err := b.wrapper.ToHost(ptr, uintptr(len(dst))); err != nil {
+		return fmt.Errorf("xla: failed to transfer to host: %w", err)
+	}
+	return nil
+}
+
+// ReadFloats copies an F32 device buffer directly into the provided float32 slice.
+func (b *Buffer) ReadFloats(dst []float32) error {
+	if b == nil || b.wrapper == nil {
+		return fmt.Errorf("xla: buffer is closed")
+	}
+	if b.elemTyp != F32 {
+		return fmt.Errorf("xla: buffer element type %v is not F32", b.elemTyp)
+	}
+	size, err := bufferSize(b.elemTyp, b.dims)
+	if err != nil {
+		return err
+	}
+	wantFloats := size / 4
+	if len(dst) < wantFloats {
+		return fmt.Errorf("xla: host float slice has %d elements, need %d", len(dst), wantFloats)
+	}
+	if size == 0 {
+		return nil
+	}
+	ptr := unsafe.Pointer(&dst[0])
+	if err := b.wrapper.ToHost(ptr, uintptr(size)); err != nil {
 		return fmt.Errorf("xla: failed to transfer to host: %w", err)
 	}
 	return nil
