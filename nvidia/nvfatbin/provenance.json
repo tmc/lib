@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "argv": [
+    "$GOCACHE/1a/1a1a1dbb52a24c4cba8159c0ee4634bcfed0670366cd894a79e6fbe927a9d8be-d/gen-nvidia",
+    "-api",
+    "nvfatbin",
+    "-headers-dir",
+    "$HOME/go/src/github.com/tmc/cuda-headers",
+    "-header",
+    "$HOME/go/src/github.com/tmc/cuda-headers/nvfatbin/nvFatbin.h",
+    "-output",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/nvfatbin",
+    "-package",
+    "nvfatbin",
+    "-deprecated=true",
+    "-docs-dir",
+    "$HOME/go/src/github.com/tmc/codegen/docs"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/nvfatbin/nvFatbin.h",
+      "sha256": "d2844bdfe8a938fd7434e6209486f5b0a28002f816245be3847e1cb0f54602ad"
+    }
+  ],
+  "source_hash": "c62aa2a76056e64ac99a74befbfecf4436e8a4cecd86801c1bd0b54be0166af8",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
