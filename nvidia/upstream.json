@@ -8291,9 +8291,28 @@
       }
     },
     "cublas": {
-      "status": "generation-unrecorded",
+      "status": "generation-partially-reproduced",
       "generation": {
-        "argv": null,
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/cublas-survey",
+          "-header",
+          "${HEADERS_REPO}/cublas/cublas_api.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/cublas/doc.gen.go",
@@ -8344,16 +8363,53 @@
             "sha256": "a2917cfa6579e83e66c30d6c7b4d0b918c4c3ea21425c1b32c4c3a0d62af4e6e"
           }
         ],
-        "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
-          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
-        ]
-      }
+        "comparison": "Regeneration diverges: it drops 9 exported functions, adds 12, and does not emit loader_unix.gen.go or loader_windows.gen.go, which the committed package has. Most of the remaining difference is documentation text."
+      },
+      "package": "github.com/tmc/lib/nvidia/cublas",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cublas/cublas_api.h",
+        "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+      },
+      "note": "The generator is cmd/cublas-survey. cmd/gen-nvidia -api cublas is the wrong tool and produces an unrelated surface. The recorded argv is a recovered candidate, not a reproduction: regenerating from it would remove exported declarations and the platform loader, so it must not be run without an API review."
     },
     "cublaslt": {
-      "status": "generation-unrecorded",
+      "status": "generation-partially-reproduced",
       "generation": {
-        "argv": null,
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/cublaslt-survey",
+          "-header",
+          "${HEADERS_REPO}/cublas/cublasLt.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-extra-header",
+          "${HEADERS_REPO}/cublas/cublas_api.h",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/cublaslt/callbacks.gen.go",
@@ -8432,16 +8488,49 @@
             "sha256": "43e6a6b0505e4fd287b92e411c6ec59b9f70de54bbb35ae6f7df32da85c60c6a"
           }
         ],
-        "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
-          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
-        ]
-      }
+        "comparison": "Regeneration diverges: it drops 3 exported functions, adds 6, and does not emit callbacks.gen.go or the platform loader files the committed package has."
+      },
+      "package": "github.com/tmc/lib/nvidia/cublaslt",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cublas/cublasLt.h",
+        "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+      },
+      "note": "The generator is cmd/cublaslt-survey. The recorded argv is a recovered candidate, not a reproduction: regenerating from it would remove exported declarations, callbacks.gen.go and the platform loader, so it must not be run without an API review."
     },
     "cusolver": {
-      "status": "generation-unrecorded",
+      "status": "generation-partially-reproduced",
       "generation": {
-        "argv": null,
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/cusolver-survey",
+          "-header",
+          "${HEADERS_REPO}/cusolver/cusolverDn.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/cusolver/doc.gen.go",
@@ -8508,16 +8597,49 @@
             "sha256": "d55e1c42e664c4934f83d1304b8b576eb8758fcf6474feed24804635f0dfb51b"
           }
         ],
-        "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
-          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
-        ]
-      }
+        "comparison": "Regeneration differs in init.gen.go and loader_test.go only. It drops no exported declaration and adds 2; the difference is the loader the generator emits today, including BindFailures, SymbolError.Err and the pinned soname candidate list."
+      },
+      "package": "github.com/tmc/lib/nvidia/cusolver",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "cusolver/cusolverDn.h",
+        "sha256": "8d620eab0a3433baa9ee6309bec968633647a743c970bdc00a469eefab07f0e9"
+      },
+      "note": "The generator is cmd/cusolver-survey, not cmd/gen-nvidia, which has no cusolver API. The recorded argv was recovered and verified by regenerating into a scratch directory and diffing against the committed package; it was not the invocation that produced these bytes, which predate the current loader. Regenerating this package is purely additive and would also pin its soname major."
     },
     "cutensor": {
-      "status": "generation-unrecorded",
+      "status": "generation-partially-reproduced",
       "generation": {
-        "argv": null,
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/cutensor-survey",
+          "-header",
+          "${HEADERS_REPO}/libcutensor/cutensor.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/cutensor/doc.gen.go",
@@ -8580,16 +8702,51 @@
             "sha256": "b6d415ef5e7328e14a0b2c1c7a654de5f129073be0a79f2a58cd7cf90bcb7f2f"
           }
         ],
-        "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
-          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
-        ]
-      }
+        "comparison": "Regeneration differs in enums.gen.go, init.gen.go and loader_test.go. It drops no exported declaration and adds 6; enums.gen.go differs in enumerator ordering and added String method documentation, not in values."
+      },
+      "package": "github.com/tmc/lib/nvidia/cutensor",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "libcutensor/cutensor.h",
+        "sha256": "edebfe038e91ce0c662a60e85f22e555bb2dec8d662f71f32491a33736cdf62c"
+      },
+      "note": "The generator is cmd/cutensor-survey, not cmd/gen-nvidia, which has no cutensor API. The recorded argv was recovered and verified by regenerating into a scratch directory and diffing against the committed package; it was not the invocation that produced these bytes. Regeneration drops nothing."
     },
     "driver": {
-      "status": "generation-unrecorded",
+      "status": "generation-partially-reproduced",
       "generation": {
-        "argv": null,
+        "cwd": "${CODEGEN_REPO}",
+        "argv": [
+          "go",
+          "run",
+          "./cmd/driver-survey",
+          "-header",
+          "${HEADERS_REPO}/driver/cuda.h",
+          "-headers-dir",
+          "${HEADERS_REPO}",
+          "-docs-dir",
+          "${CODEGEN_REPO}/docs",
+          "-output",
+          "${OUTPUT_DIR}"
+        ],
+        "environment": {
+          "GOWORK": "off"
+        },
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        },
         "outputs": [
           {
             "path": "nvidia/driver/array.gen.go",
@@ -8740,11 +8897,27 @@
             "sha256": "8232bbd7d6cee2e3c50b29d28960080abacb4a21f7efd3de78f450ce4469420e"
           }
         ],
-        "limitations": [
-          "No generation recipe is recorded; the current header basename is not evidence of the original inputs or command.",
-          "No generation recipe is recorded, so these digests pin the files as committed rather than evidence that the recorded inputs produce them."
-        ]
-      }
+        "comparison": "Regeneration diverges across most of the package: it drops 75 exported functions and adds 78."
+      },
+      "package": "github.com/tmc/lib/nvidia/driver",
+      "repositories": {
+        "codegen": {
+          "url": "https://github.com/tmc/codegen.git",
+          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+        },
+        "headers": {
+          "url": "https://github.com/tmc/cuda-headers.git",
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input."
+        }
+      },
+      "header": {
+        "repository": "headers",
+        "path": "driver/cuda.h",
+        "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+      },
+      "note": "The generator is cmd/driver-survey, not cmd/gen-nvidia -api cuda. The recorded argv is a recovered candidate, not a reproduction. Regenerating the driver package is an API redesign, not a maintenance action, and must not be bundled into an unrelated change."
     },
     "ncclep": {
       "package": "github.com/tmc/lib/nvidia/ncclep",
@@ -9156,14 +9329,8 @@
       "sanitizer",
       "vpi"
     ],
-    "recorded_argv": 30,
-    "missing_argv": [
-      "cublas",
-      "cublaslt",
-      "cusolver",
-      "cutensor",
-      "driver"
-    ],
+    "recorded_argv": 35,
+    "missing_argv": [],
     "meaning": "Directory inventory and presence of recorded argv only; not a regeneration, provenance verification, or runtime qualification."
   }
 }
