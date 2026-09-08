@@ -15,7 +15,7 @@ Pass the backend to GoMLX `graph.NewExec` or `model.NewExec`. Call `Close`
 explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
-Current support is static F32 on the first exposed device: constants,
+Current support is static F32, Int32, and Int64 on the first exposed device: constants,
 parameters, Add, Mul, BroadcastInDim, Reshape, ReduceSum, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
 subfunctions, sharding, and remaining operations return unsupported errors.

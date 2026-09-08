@@ -2,10 +2,8 @@ package gomlx
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -55,7 +53,9 @@ func (b *Backend) DeviceDescription(device compute.DeviceNum) string {
 	}
 	return "PJRT device 0"
 }
-func (b *Backend) Description() string { return "TMC PJRT backend for static F32 computations" }
+func (b *Backend) Description() string {
+	return "TMC PJRT backend for static F32, Int32, and Int64 computations"
+}
 
 // Finalize implements compute.Backend. Use Close to observe cleanup errors.
 func (b *Backend) Finalize() { _ = b.Close() }
@@ -80,7 +80,7 @@ func (b *Backend) Close() error {
 }
 func (b *Backend) IsFinalized() bool { b.mu.Lock(); defer b.mu.Unlock(); return b.engine == nil }
 func (b *Backend) Capabilities() compute.Capabilities {
-	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true}}
+	return compute.Capabilities{Operations: map[compute.OpType]bool{compute.OpTypeMul: true, compute.OpTypeBroadcastInDim: true, compute.OpTypeReshape: true, compute.OpTypeReduceSum: true, compute.OpTypeParameter: true, compute.OpTypeConstant: true, compute.OpTypeAdd: true, compute.OpTypeDotGeneral: true}, DTypes: map[dtypes.DType]bool{dtypes.Float32: true, dtypes.Int32: true, dtypes.Int64: true}}
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
@@ -89,7 +89,8 @@ func (b *Backend) Builder(name string) compute.Builder {
 	return v
 }
 func validate(s shapes.Shape) error {
-	if s.DType != dtypes.Float32 {
+	info, ok := element(s.DType)
+	if !ok {
 		return unsupported
 	}
 	if len(s.TupleShapes) > 0 || len(s.AxisNames) > 0 {
@@ -107,7 +108,7 @@ func validate(s shapes.Shape) error {
 	}
 	n := 1
 	for _, d := range s.Dimensions {
-		if n > int(^uint(0)>>1)/4/d {
+		if n > int(^uint(0)>>1)/info.size/d {
 			return fmt.Errorf("shape byte count overflows int")
 		}
 		n *= d
@@ -129,14 +130,13 @@ func (b *Backend) bufferFromFlatData(device compute.DeviceNum, flat any, s shape
 	if err := validate(s); err != nil {
 		return nil, err
 	}
-	values, ok := flat.([]float32)
-	if !ok || len(values) != s.Size() {
+	dtype, n := flatShape(flat)
+	if dtype != s.DType || n != s.Size() {
 		return nil, fmt.Errorf("flat data mismatch")
 	}
-	raw := make([]byte, len(values)*4)
-	for i, v := range values {
-		binary.LittleEndian.PutUint32(raw[4*i:], math.Float32bits(v))
-	}
+	info, _ := element(dtype)
+	raw := make([]byte, n*info.size)
+	encodeFlat(flat, raw)
 	devices, err := b.engine.Devices()
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (b *Backend) bufferFromFlatData(device compute.DeviceNum, flat any, s shape
 	for i, v := range s.Dimensions {
 		dims[i] = int64(v)
 	}
-	v, err := b.engine.NewBufferFromHost(raw, xla.F32, dims, devices[0])
+	v, err := b.engine.NewBufferFromHost(raw, info.pjrt, dims, devices[0])
 	if err != nil {
 		return nil, err
 	}
@@ -200,20 +200,19 @@ func (b *buffer) ToFlatData(flat any) error {
 	return b.toFlatData(flat)
 }
 func (b *buffer) toFlatData(flat any) error {
-	v, ok := flat.([]float32)
-	if !ok || len(v) != b.shape.Size() {
+	dtype, n := flatShape(flat)
+	if dtype != b.shape.DType || n != b.shape.Size() {
 		return fmt.Errorf("flat data mismatch")
 	}
 	if b.raw == nil {
 		return fmt.Errorf("buffer closed")
 	}
-	raw := make([]byte, len(v)*4)
+	info, _ := element(dtype)
+	raw := make([]byte, n*info.size)
 	if err := b.raw.ToHost(raw); err != nil {
 		return err
 	}
-	for i := range v {
-		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
-	}
+	decodeFlat(flat, raw)
 	return nil
 }
 func (b *buffer) CopyToDevice(device compute.DeviceNum) (compute.Buffer, error) {
@@ -222,7 +221,7 @@ func (b *buffer) CopyToDevice(device compute.DeviceNum) (compute.Buffer, error) 
 	if device != 0 {
 		return nil, unsupported
 	}
-	v := make([]float32, b.shape.Size())
+	v := newFlat(b.shape.DType, b.shape.Size())
 	if err := b.toFlatData(v); err != nil {
 		return nil, err
 	}
@@ -302,7 +301,8 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 	for i, v := range s.Dimensions {
 		dims[i] = int64(v)
 	}
-	v := hlo.Value{ID: fmt.Sprintf("%%arg%d", len(f.raw.Args)), Type: hlo.Type{Shape: dims, ElementType: "f32"}}
+	info, _ := element(s.DType)
+	v := hlo.Value{ID: fmt.Sprintf("%%arg%d", len(f.raw.Args)), Type: hlo.Type{Shape: dims, ElementType: info.hlo}}
 	f.raw.Args = append(f.raw.Args, v)
 	f.owner.names = append(f.owner.names, name)
 	f.owner.inputs = append(f.owner.inputs, s.Clone())
@@ -324,7 +324,7 @@ func (f *function) Shape(v compute.Value) (shapes.Shape, error) {
 	for i, v := range n.Type.Shape {
 		dims[i] = int(v)
 	}
-	return shapes.Make(dtypes.Float32, dims...), nil
+	return shapes.Make(elementDType(n.Type.ElementType), dims...), nil
 }
 func (f *function) Return(values []compute.Value, shardings []*compute.ShardingSpec) error {
 	if f.owner.returned {
@@ -393,7 +393,7 @@ func (f *function) DotGeneral(a compute.Value, ac, ab []int, b compute.Value, bc
 	if err != nil {
 		return nil, err
 	}
-	z, err := f.raw.DotGeneral(x, y, int64s(ab), int64s(bb), int64s(ac), int64s(bc), hlo.Type{Shape: shape, ElementType: "f32"})
+	z, err := f.raw.DotGeneral(x, y, int64s(ab), int64s(bb), int64s(ac), int64s(bc), hlo.Type{Shape: shape, ElementType: x.Type.ElementType})
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +486,8 @@ func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device comp
 		if err != nil {
 			return fail(err)
 		}
-		if dtype != xla.F32 || len(dims) != len(e.outputs[i].Dimensions) {
+		info, _ := element(e.outputs[i].DType)
+		if dtype != info.pjrt || len(dims) != len(e.outputs[i].Dimensions) {
 			return fail(fmt.Errorf("output shape mismatch"))
 		}
 		for j, d := range dims {
@@ -594,7 +595,7 @@ func (f *function) broadcastPair(a, b hlo.Value) (hlo.Value, hlo.Value, error) {
 		for i := range axes {
 			axes[i] = int64(rank - len(axes) + i)
 		}
-		return f.raw.BroadcastInDim(v, axes, hlo.Type{Shape: dims, ElementType: "f32"})
+		return f.raw.BroadcastInDim(v, axes, hlo.Type{Shape: dims, ElementType: v.Type.ElementType})
 	}
 	x, err := expand(a)
 	if err != nil {
@@ -608,23 +609,21 @@ func (f *function) Constant(flat any, dims ...int) (compute.Value, error) {
 	if f.owner.closed || f.owner.returned {
 		return nil, fmt.Errorf("function closed")
 	}
-	values, ok := flat.([]float32)
-	if !ok {
-		return nil, unsupported
-	}
-	shape := shapes.Shape{DType: dtypes.Float32, Dimensions: dims}
+	dtype, n := flatShape(flat)
+	shape := shapes.Shape{DType: dtype, Dimensions: dims}
 	if err := validate(shape); err != nil {
 		return nil, err
 	}
-	if len(values) != shape.Size() {
+	if n != shape.Size() {
 		return nil, fmt.Errorf("constant data length mismatch")
 	}
+	info, _ := element(dtype)
 	var text strings.Builder
 	index := 0
 	var emit func([]int)
 	emit = func(dims []int) {
 		if len(dims) == 0 {
-			fmt.Fprintf(&text, "0x%08X", math.Float32bits(values[index]))
+			text.WriteString(constantLiteral(flat, index))
 			index++
 			return
 		}
@@ -637,10 +636,10 @@ func (f *function) Constant(flat any, dims ...int) (compute.Value, error) {
 		}
 		text.WriteByte(']')
 	}
-	if len(values) > 0 {
+	if n > 0 {
 		emit(dims)
 	}
-	v := hlo.Value{ID: fmt.Sprintf("%%constant%d", len(f.raw.Ops)), Type: hlo.Type{Shape: int64s(dims), ElementType: "f32"}}
+	v := hlo.Value{ID: fmt.Sprintf("%%constant%d", len(f.raw.Ops)), Type: hlo.Type{Shape: int64s(dims), ElementType: info.hlo}}
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", v.ID, text.String(), v.Type))
 	return &node{f, v}, nil
 }

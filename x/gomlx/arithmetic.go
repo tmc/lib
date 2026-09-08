@@ -3,7 +3,7 @@ package gomlx
 import (
 	"fmt"
 	"github.com/gomlx/compute"
-	"github.com/gomlx/compute/dtypes"
+
 	"github.com/gomlx/compute/shapes"
 	hlo "github.com/tmc/lib/x/stablehlo/builder"
 )
@@ -41,7 +41,10 @@ func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (
 	if err != nil {
 		return nil, err
 	}
-	z, err := f.raw.BroadcastInDim(x, int64s(axes), hlo.Type{Shape: int64s(s.Dimensions), ElementType: "f32"})
+	if s.DType != elementDType(x.Type.ElementType) {
+		return nil, fmt.Errorf("broadcast dtype mismatch")
+	}
+	z, err := f.raw.BroadcastInDim(x, int64s(axes), hlo.Type{Shape: int64s(s.Dimensions), ElementType: x.Type.ElementType})
 	if err != nil {
 		return nil, err
 	}
@@ -51,14 +54,14 @@ func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) 
 	if f.owner.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
-	if err := validate(shapes.Shape{DType: dtypes.Float32, Dimensions: dims}); err != nil {
-		return nil, err
-	}
 	x, err := f.value(v)
 	if err != nil {
 		return nil, err
 	}
-	z, err := f.raw.Reshape(x, hlo.Type{Shape: int64s(dims), ElementType: "f32"})
+	if err := validate(shapes.Shape{DType: elementDType(x.Type.ElementType), Dimensions: dims}); err != nil {
+		return nil, err
+	}
+	z, err := f.raw.Reshape(x, hlo.Type{Shape: int64s(dims), ElementType: x.Type.ElementType})
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +94,16 @@ func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error
 			dims = append(dims, d)
 		}
 	}
-	zero, err := f.raw.Constant(0, hlo.Type{ElementType: "f32"})
+	var zero hlo.Value
+	if x.Type.ElementType == "f32" {
+		zero, err = f.raw.Constant(0, hlo.Type{ElementType: "f32"})
+	} else {
+		zero, err = f.raw.IntegerConstant(0, hlo.Type{ElementType: x.Type.ElementType})
+	}
 	if err != nil {
 		return nil, err
 	}
-	z, err := f.raw.Reduce(x, zero, int64s(axes), hlo.Type{Shape: dims, ElementType: "f32"}, "add")
+	z, err := f.raw.Reduce(x, zero, int64s(axes), hlo.Type{Shape: dims, ElementType: x.Type.ElementType}, "add")
 	if err != nil {
 		return nil, err
 	}
