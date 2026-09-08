@@ -36,3 +36,20 @@ The second command requires cgo for Go's race detector; it does not instrument
 the native plugin. Without the environment variable, native tests skip.
 Sibling TMC modules use relative replacements, following this repository's
 module layout. Upstream GoMLX dependencies use pinned downloadable versions.
+
+## Transfer allocation profiles
+
+`BenchmarkTransfer` measures scalar and vocabulary-sized F32 upload/download.
+Upload includes buffer finalization. Download uses a preallocated caller
+slice; the backend's temporary readback storage is included in the result.
+Setup checks a nonzero input pattern and rejects a wrong-result control.
+
+```
+CGO_ENABLED=0 go test -run '^$' -bench BenchmarkTransfer -benchmem -count=5
+CGO_ENABLED=0 go test -run '^$' -bench '^BenchmarkTransfer/logits/download$' -benchtime=100x -memprofilerate=1 -memprofile="$HOME/tmp/gomlx.pprof" -o "$HOME/tmp/gomlx.test"
+go tool pprof -sample_index=alloc_space "$HOME/tmp/gomlx.test" "$HOME/tmp/gomlx.pprof"
+```
+
+Heap profiles include setup. Filter measured benchmark stacks before assigning
+costs to the timed operation. Go heap totals exclude native/device allocations;
+profiled timings are not latency comparisons.
