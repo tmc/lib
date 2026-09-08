@@ -8973,7 +8973,7 @@
             "sha256": "8232bbd7d6cee2e3c50b29d28960080abacb4a21f7efd3de78f450ce4469420e"
           }
         ],
-        "comparison": "Regeneration diverges across most of the package: it drops 75 exported functions and adds 78."
+        "comparison": "Regeneration diverges across most of the package. Measured again 2026-09-08 against codegen 746029c: 42 incompatible apidiff changes, all of them out-parameters becoming return values, plus 58 compatible additions. The 52 removed #define constants reported earlier were cmd/driver-survey failing to pass CUDAConfig's DefineGroups through to ffigen; they are emitted again."
       },
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
@@ -8993,7 +8993,7 @@
         "path": "driver/cuda.h",
         "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
       },
-      "note": "The generator is cmd/driver-survey, not cmd/gen-nvidia -api cuda. The recorded argv is a recovered candidate, not a reproduction. Regenerating the driver package is an API redesign, not a maintenance action, and must not be bundled into an unrelated change."
+      "note": "The generator is cmd/driver-survey, not cmd/gen-nvidia -api cuda. The recorded argv is a recovered candidate, not a reproduction. Regeneration is still an API change and must not be bundled into an unrelated one, but it is a smaller change than it looked: 52 of the 94 apidiff breaks measured 2026-09-06 were a generator defect, not a design difference, and are fixed in codegen 746029c."
     },
     "ncclep": {
       "package": "github.com/tmc/lib/nvidia/ncclep",
