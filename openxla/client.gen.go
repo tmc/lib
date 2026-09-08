@@ -282,6 +282,94 @@ func (c *ClientWrapper) DefaultDeviceAssignment(replicas, partitions int) ([]int
 	return ids, nil
 }
 
+// DeviceMemoryStats contains a diagnostic snapshot from the native allocator.
+// Optional counters are nil when the plugin does not report them. A non-nil
+// pointer to zero is a reported zero. These counters do not describe Go memory.
+type DeviceMemoryStats struct {
+	BytesInUse            int64
+	PeakBytesInUse        *int64
+	NumAllocs             *int64
+	LargestAllocSize      *int64
+	BytesLimit            *int64
+	BytesReserved         *int64
+	PeakBytesReserved     *int64
+	BytesReservableLimit  *int64
+	LargestFreeBlockBytes *int64
+	PoolBytes             *int64
+	PeakPoolBytes         *int64
+	PeakAllocatedBytes    *int64
+}
+
+// MemoryStats returns native allocator counters for device, which must belong
+// to this client and remain alive during the call. Plugins may not implement it.
+// Returned values are owned by Go and remain valid after the client is closed.
+func (c *ClientWrapper) MemoryStats(device *Device) (DeviceMemoryStats, error) {
+	if c == nil || c.api == nil || c.client == nil {
+		return DeviceMemoryStats{}, fmt.Errorf("openxla: client is closed")
+	}
+	if device == nil {
+		return DeviceMemoryStats{}, fmt.Errorf("openxla: device is nil")
+	}
+	if c.api.Device_MemoryStats == 0 {
+		return DeviceMemoryStats{}, fmt.Errorf("openxla: Device_MemoryStats not available")
+	}
+	args := Device_MemoryStats_Args{
+		Struct_size: PJRT_Device_MemoryStats_Args_STRUCT_SIZE,
+		Device:      device,
+	}
+	var fn func(*Device_MemoryStats_Args) *Error
+	purego.RegisterFunc(&fn, c.api.Device_MemoryStats)
+	if errPtr := fn(&args); errPtr != nil {
+		return DeviceMemoryStats{}, decodeError(c.api, errPtr)
+	}
+	stats := DeviceMemoryStats{BytesInUse: args.Bytes_in_use}
+	if args.Peak_bytes_in_use_is_set {
+		value := args.Peak_bytes_in_use
+		stats.PeakBytesInUse = &value
+	}
+	if args.Num_allocs_is_set {
+		value := args.Num_allocs
+		stats.NumAllocs = &value
+	}
+	if args.Largest_alloc_size_is_set {
+		value := args.Largest_alloc_size
+		stats.LargestAllocSize = &value
+	}
+	if args.Bytes_limit_is_set {
+		value := args.Bytes_limit
+		stats.BytesLimit = &value
+	}
+	if args.Bytes_reserved_is_set {
+		value := args.Bytes_reserved
+		stats.BytesReserved = &value
+	}
+	if args.Peak_bytes_reserved_is_set {
+		value := args.Peak_bytes_reserved
+		stats.PeakBytesReserved = &value
+	}
+	if args.Bytes_reservable_limit_is_set {
+		value := args.Bytes_reservable_limit
+		stats.BytesReservableLimit = &value
+	}
+	if args.Largest_free_block_bytes_is_set {
+		value := args.Largest_free_block_bytes
+		stats.LargestFreeBlockBytes = &value
+	}
+	if args.Pool_bytes_is_set {
+		value := args.Pool_bytes
+		stats.PoolBytes = &value
+	}
+	if args.Peak_pool_bytes_is_set {
+		value := args.Peak_pool_bytes
+		stats.PeakPoolBytes = &value
+	}
+	if args.Peak_allocated_bytes_is_set {
+		value := args.Peak_allocated_bytes
+		stats.PeakAllocatedBytes = &value
+	}
+	return stats, nil
+}
+
 // Compile compiles a program (HLO, StableHLO, or MLIR bytecode) for execution on the client.
 // Empty compileOptions selects one replica and one partition; otherwise the
 // caller supplies a serialized XLA CompileOptionsProto.
