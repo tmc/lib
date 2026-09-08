@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// Convert converts between f16, bf16, f32, f64, i1, i32, i64, ui32 and ui64 without changing shape.
+// Convert converts between f16, bf16, f32, f64, i1, i8, i32, i64, ui8, ui32 and ui64 without changing shape.
 // An error leaves the builder unchanged.
 func (b *FuncBuilder) Convert(v Value, elementType string) (Value, error) {
 	if err := checkType(v.Type); err != nil {
@@ -27,5 +27,5 @@ func (b *FuncBuilder) convert(v Value, elementType string) Value {
 }
 
 func convertType(typ string) bool {
-	return floatType(typ) || typ == "i1" || typ == "i32" || typ == "i64" || typ == "ui32" || typ == "ui64"
+	return floatType(typ) || typ == "i1" || typ == "i8" || typ == "i32" || typ == "i64" || typ == "ui8" || typ == "ui32" || typ == "ui64"
 }

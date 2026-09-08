@@ -15,7 +15,7 @@ Pass the backend to GoMLX `graph.NewExec` or `model.NewExec`. Call `Close`
 explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
-Current support is static Bool, F32, F64, Int32, Int64, Uint32, and Uint64 on the first exposed device: constants,
+Current support is static Bool, F32, F64, Int8, Int32, Int64, Uint8, Uint32, and Uint64 on the first exposed device: constants,
 parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Pow and Neg for numeric types; F32 Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
 Reshape, Transpose, Slice, Concatenate, numeric Iota, ReduceSum, ReduceMax,
 comparisons (Equal, LessThan, and LessOrEqual), LogicalAnd,
@@ -81,3 +81,8 @@ Typed arithmetic tests cover signed overflow and unsigned wraparound for Pow
 and Neg, integer precision above 2^53, and Float64 sum/max reductions.
 The corresponding upstream backend conformance cases pass. Other operation
 and dtype combinations remain unimplemented.
+
+The upstream backendtest.RunAll suite runs in TestNativeConformance. It skips
+unsupported advertised capabilities, so a passing run is not full operation
+coverage. Int8 and Uint8 tests also exercise every possible byte value through
+transport, constants, arithmetic, widening conversion, comparison, and reduction.

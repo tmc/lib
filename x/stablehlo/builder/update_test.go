@@ -35,6 +35,7 @@ func TestIntegerConstantValidation(t *testing.T) {
 		value int64
 		typ   Type
 	}{
+		{math.MaxInt8 + 1, Type{ElementType: "i8"}}, {math.MinInt8 - 1, Type{ElementType: "i8"}},
 		{math.MaxInt32 + 1, Type{ElementType: "i32"}}, {math.MinInt32 - 1, Type{ElementType: "i32"}}, {0, Type{ElementType: "f32"}}, {0, Type{Shape: []int64{-1}, ElementType: "i64"}},
 	} {
 		b := NewFunc("main")

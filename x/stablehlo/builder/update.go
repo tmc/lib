@@ -7,14 +7,17 @@ import (
 	"strings"
 )
 
-// IntegerConstant emits a splat constant with i32 or i64 elements and a static
+// IntegerConstant emits a splat constant with i8, i32, or i64 elements and a static
 // shape. The value must fit the element type. An error leaves the builder unchanged.
 func (b *FuncBuilder) IntegerConstant(value int64, typ Type) (Value, error) {
 	if err := checkType(typ); err != nil {
 		return Value{}, fmt.Errorf("integer constant: %w", err)
 	}
-	if typ.ElementType != "i64" && typ.ElementType != "i32" {
-		return Value{}, fmt.Errorf("integer constant: i32 or i64 elements required")
+	if typ.ElementType != "i64" && typ.ElementType != "i32" && typ.ElementType != "i8" {
+		return Value{}, fmt.Errorf("integer constant: i8, i32, or i64 elements required")
+	}
+	if typ.ElementType == "i8" && (value < math.MinInt8 || value > math.MaxInt8) {
+		return Value{}, fmt.Errorf("integer constant: value overflows i8")
 	}
 	if typ.ElementType == "i32" && (value < math.MinInt32 || value > math.MaxInt32) {
 		return Value{}, fmt.Errorf("integer constant: value overflows i32")
