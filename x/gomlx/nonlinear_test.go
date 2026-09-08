@@ -112,6 +112,7 @@ func TestNativeReduceMax(t *testing.T) {
 	}{
 		{"negative", []float32{-3, -2, -9}, float32(-2)},
 		{"infinity", []float32{float32(math.Inf(-1))}, float32(math.Inf(-1))},
+		{"uint64", []uint64{math.MaxUint64 - 1, math.MaxUint64}, uint64(math.MaxUint64)},
 		{"int32", []int32{math.MinInt32, math.MinInt32 + 1}, int32(math.MinInt32 + 1)},
 		{"int64", []int64{math.MinInt64, math.MinInt64 + 1}, int64(math.MinInt64 + 1)},
 	} {

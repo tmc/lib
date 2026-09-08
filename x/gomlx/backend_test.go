@@ -136,7 +136,7 @@ func TestNativeCompute(t *testing.T) {
 func TestRejectedContracts(t *testing.T) {
 	b := &Backend{}
 	f := b.Builder("contracts").Main()
-	if _, err := f.Parameter("x", shapes.Make(dtypes.Uint32, 2), nil); !errors.Is(err, compute.ErrNotImplemented) {
+	if _, err := f.Parameter("x", shapes.Make(dtypes.Uint16, 2), nil); !errors.Is(err, compute.ErrNotImplemented) {
 		t.Fatalf("dtype: %v", err)
 	}
 	if err := f.Builder().DeviceAssignment(); !errors.Is(err, compute.ErrNotImplemented) {
@@ -146,8 +146,8 @@ func TestRejectedContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.Max(p, p); !errors.Is(err, compute.ErrNotImplemented) {
-		t.Fatalf("max: %v", err)
+	if _, err := f.Tanh(p); !errors.Is(err, compute.ErrNotImplemented) {
+		t.Fatalf("tanh: %v", err)
 	}
 	foreign := b.Builder("foreign").Main()
 	q, err := foreign.Parameter("y", shapes.Make(dtypes.Float32, 2), nil)

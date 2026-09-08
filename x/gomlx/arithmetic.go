@@ -109,6 +109,9 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 			initial = float32(math.Inf(-1))
 		}
 		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: "f32"})
+	} else if x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
+		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: x.Type.ElementType}}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<0> : %s", zero.ID, zero.Type))
 	} else {
 		initial := int64(0)
 		if op == "maximum" {

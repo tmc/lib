@@ -17,6 +17,10 @@ type elementInfo struct {
 
 func element(dtype dtypes.DType) (elementInfo, bool) {
 	switch dtype {
+	case dtypes.Uint32:
+		return elementInfo{"ui32", openxla.Buffer_Type_U32, 4}, true
+	case dtypes.Uint64:
+		return elementInfo{"ui64", openxla.Buffer_Type_U64, 8}, true
 	case dtypes.Bool:
 		return elementInfo{"i1", openxla.Buffer_Type_PRED, 1}, true
 	case dtypes.Float32:
@@ -30,6 +34,10 @@ func element(dtype dtypes.DType) (elementInfo, bool) {
 }
 func elementDType(name string) dtypes.DType {
 	switch name {
+	case "ui32":
+		return dtypes.Uint32
+	case "ui64":
+		return dtypes.Uint64
 	case "i1":
 		return dtypes.Bool
 	case "f32":
@@ -43,6 +51,10 @@ func elementDType(name string) dtypes.DType {
 }
 func flatShape(flat any) (dtypes.DType, int) {
 	switch v := flat.(type) {
+	case []uint32:
+		return dtypes.Uint32, len(v)
+	case []uint64:
+		return dtypes.Uint64, len(v)
 	case []bool:
 		return dtypes.Bool, len(v)
 	case []float32:
@@ -56,6 +68,10 @@ func flatShape(flat any) (dtypes.DType, int) {
 }
 func newFlat(dtype dtypes.DType, n int) any {
 	switch dtype {
+	case dtypes.Uint32:
+		return make([]uint32, n)
+	case dtypes.Uint64:
+		return make([]uint64, n)
 	case dtypes.Bool:
 		return make([]bool, n)
 	case dtypes.Float32:
@@ -69,6 +85,14 @@ func newFlat(dtype dtypes.DType, n int) any {
 }
 func encodeFlat(flat any, raw []byte) {
 	switch v := flat.(type) {
+	case []uint32:
+		for i, x := range v {
+			binary.LittleEndian.PutUint32(raw[4*i:], x)
+		}
+	case []uint64:
+		for i, x := range v {
+			binary.LittleEndian.PutUint64(raw[8*i:], x)
+		}
 	case []bool:
 		for i, x := range v {
 			raw[i] = 0
@@ -92,6 +116,14 @@ func encodeFlat(flat any, raw []byte) {
 }
 func decodeFlat(flat any, raw []byte) {
 	switch v := flat.(type) {
+	case []uint32:
+		for i := range v {
+			v[i] = binary.LittleEndian.Uint32(raw[4*i:])
+		}
+	case []uint64:
+		for i := range v {
+			v[i] = binary.LittleEndian.Uint64(raw[8*i:])
+		}
 	case []bool:
 		for i := range v {
 			v[i] = raw[i] != 0
@@ -112,6 +144,10 @@ func decodeFlat(flat any, raw []byte) {
 }
 func constantLiteral(flat any, i int) string {
 	switch v := flat.(type) {
+	case []uint32:
+		return fmt.Sprint(v[i])
+	case []uint64:
+		return fmt.Sprint(v[i])
 	case []bool:
 		return fmt.Sprint(v[i])
 	case []float32:

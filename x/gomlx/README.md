@@ -15,11 +15,11 @@ Pass the backend to GoMLX `graph.NewExec` or `model.NewExec`. Call `Close`
 explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
-Current support is static Bool, F32, Int32, and Int64 on the first exposed device: constants,
-parameters, Add, Sub, Mul, Div, ConvertDType, Identity, F32 Sqrt, Pow, Exp, Log, and Neg, BroadcastInDim,
+Current support is static Bool, F32, Int32, Int64, Uint32, and Uint64 on the first exposed device: constants,
+parameters, Add, Sub, Mul, Div, ConvertDType, Identity, F32 Sqrt, Pow, Exp, Log, Neg, Abs, and Cos, Min and Max, BroadcastInDim,
 Reshape, Transpose, numeric Iota, ReduceSum, ReduceMax,
 comparisons (Equal, LessThan, and LessOrEqual), LogicalAnd,
-Where, and DotGeneral with
+Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
 subfunctions, sharding, and remaining operations return unsupported errors.
 Donation invalidates inputs without reusing native storage.
@@ -27,7 +27,8 @@ Bool is qualified for constants, transfers, shape operations, comparisons,
 LogicalAnd, and Where.
 Where broadcasts scalar operands; other operand shapes must match.
 
-Native tests cover arithmetic, broadcasting, contractions, GoMLX graphs,
+Native tests cover Philox known answers and state progression, GoMLX uniform
+and normal random graphs, arithmetic, broadcasting, contractions, GoMLX graphs,
 boolean transfers and conditional selection, masked softmax,
 GoMLX attention.Core in BHSD/BSHD layouts with grouped-query and causal masking,
 attention gradients checked against independent host finite differences,
