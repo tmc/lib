@@ -97,6 +97,8 @@ const (
 	R6F_E3M2 DataType = 32
 	// 4-bit real fp4 e2m1.
 	R4F_E2M1 DataType = 33
+	// real as an unsigned nv_fp8_e4m3
+	R8F_UE4M3 DataType = R8F_E4M3
 )
 
 // Half represents a 16-bit IEEE 754 half-precision float.
@@ -104,6 +106,13 @@ type Half uint16
 
 // LibraryPropertyType identifies a library property to query.
 type LibraryPropertyType int32
+
+// LibraryPropertyType constants.
+const (
+	MajorVersion LibraryPropertyType = 0
+	MinorVersion LibraryPropertyType = 1
+	PatchLevel   LibraryPropertyType = 2
+)
 
 // LogCallback is a function pointer for cuBLAS logging.
 type LogCallback uintptr

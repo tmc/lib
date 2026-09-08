@@ -2,7 +2,7 @@
 
 package cublaslt
 
-// LoggerCallback is [LoggerCallback] is a callback function pointer type.
+// LoggerCallback is the Go form of cublasLtLoggerCallback_t.
 //
 // It corresponds to the C signature
 //

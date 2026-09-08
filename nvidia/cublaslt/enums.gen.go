@@ -4,7 +4,7 @@ package cublaslt
 
 import "fmt"
 
-// MatmulTile [MatmulTile] is an enumerated type used to set the tile size in rows x columns.
+// MatmulTile represents Tile size (in C/D matrix Rows x Cols) General order of tile IDs is sorted by size first and by first dimension second..
 type MatmulTile int32
 
 const (
@@ -646,6 +646,7 @@ const (
 	MatmulTileEnd       MatmulTile = 635
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulTile) String() string {
 	switch e {
 	case MatmulTileUndefined:
@@ -1924,7 +1925,7 @@ func (e MatmulTile) String() string {
 	return fmt.Sprintf("MatmulTile(%d)", e)
 }
 
-// MatmulStages [MatmulStages] is an enumerated type used to configure the size and number of shared memory buffers where input elements are staged. Number of staging buffers defines kernel’s pipeline depth.
+// MatmulStages represents Size and number of stages in which elements are read into shared memory General order of stages IDs is sorted by stage size first and by number of stages second..
 type MatmulStages int32
 
 const (
@@ -1968,6 +1969,7 @@ const (
 	MatmulStagesEnd       MatmulStages = 39
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulStages) String() string {
 	switch e {
 	case MatmulStagesUndefined:
@@ -2050,7 +2052,7 @@ func (e MatmulStages) String() string {
 	return fmt.Sprintf("MatmulStages(%d)", e)
 }
 
-// ClusterShape [ClusterShape] is an enumerated type used to configure thread block cluster dimensions.
+// ClusterShape represents Thread Block Cluster size Typically dimensioned similar to [MatmulTile], with the third coordinate unused at this time..
 type ClusterShape int32
 
 const (
@@ -2108,6 +2110,7 @@ const (
 	ClusterShapeEnd    ClusterShape = 52
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClusterShape) String() string {
 	switch e {
 	case ClusterShapeAuto:
@@ -2218,7 +2221,7 @@ func (e ClusterShape) String() string {
 	return fmt.Sprintf("ClusterShape(%d)", e)
 }
 
-// MatmulInnerShape [MatmulInnerShape] is an enumerated type used to configure various aspects of the internal kernel design.
+// MatmulInnerShape represents Inner size of the kernel Represents various aspects of internal kernel design, that don't impact CUDA grid size but may have other more subtle effects..
 type MatmulInnerShape int32
 
 const (
@@ -2230,6 +2233,7 @@ const (
 	MatmulInnerShapeEnd       MatmulInnerShape = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulInnerShape) String() string {
 	switch e {
 	case MatmulInnerShapeUndefined:
@@ -2248,7 +2252,7 @@ func (e MatmulInnerShape) String() string {
 	return fmt.Sprintf("MatmulInnerShape(%d)", e)
 }
 
-// MatmulMatrixScale [MatmulMatrixScale] is an enumerated type used to specify scaling mode that defines how scaling factor pointers are interpreted.
+// MatmulMatrixScale represents Scaling mode for per-matrix scaling..
 type MatmulMatrixScale int32
 
 const (
@@ -2262,6 +2266,7 @@ const (
 	MatmulMatrixScaleEnd               MatmulMatrixScale = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulMatrixScale) String() string {
 	switch e {
 	case MatmulMatrixScaleScalar32F:
@@ -2284,7 +2289,7 @@ func (e MatmulMatrixScale) String() string {
 	return fmt.Sprintf("MatmulMatrixScale(%d)", e)
 }
 
-// PointerMode [PointerMode] is an enumerated type used to set the pointer mode for the scaling factors alpha and beta.
+// PointerMode represents Pointer mode to use for alpha/beta.
 type PointerMode int32
 
 const (
@@ -2295,6 +2300,7 @@ const (
 	PointerModeAlphaDeviceVectorBetaHost PointerMode = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerMode) String() string {
 	switch e {
 	case PointerModeHost:
@@ -2311,7 +2317,7 @@ func (e PointerMode) String() string {
 	return fmt.Sprintf("PointerMode(%d)", e)
 }
 
-// PointerModeMask [PointerModeMask] is an enumerated type used to define and query the pointer mode capability.
+// PointerModeMask represents Mask to define pointer mode capability.
 type PointerModeMask int32
 
 const (
@@ -2322,6 +2328,7 @@ const (
 	PointerModeMaskAlphaDeviceVectorBetaHost PointerModeMask = 16
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerModeMask) String() string {
 	switch e {
 	case PointerModeMaskHost:
@@ -2338,7 +2345,7 @@ func (e PointerModeMask) String() string {
 	return fmt.Sprintf("PointerModeMask(%d)", e)
 }
 
-// Order [Order] is an enumerated type used to indicate the data ordering of the matrix.
+// Order represents Enum for data ordering.
 type Order int32
 
 const (
@@ -2349,6 +2356,7 @@ const (
 	OrderCol322R4R4 Order = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Order) String() string {
 	switch e {
 	case OrderCol:
@@ -2365,7 +2373,7 @@ func (e Order) String() string {
 	return fmt.Sprintf("Order(%d)", e)
 }
 
-// BatchMode Enum for batch mode
+// BatchMode represents Enum for batch mode.
 type BatchMode int32
 
 const (
@@ -2374,6 +2382,7 @@ const (
 	BatchModeGrouped      BatchMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e BatchMode) String() string {
 	switch e {
 	case BatchModeStrided:
@@ -2386,7 +2395,7 @@ func (e BatchMode) String() string {
 	return fmt.Sprintf("BatchMode(%d)", e)
 }
 
-// IntegerWidth Experimental: [IntegerWidth] is an enumerated type used to indicate the width of integers in the dimensions arrays of a grouped matrix.
+// IntegerWidth represents Experimental: Enum for integer width of array pointer elements.
 type IntegerWidth int32
 
 const (
@@ -2394,6 +2403,7 @@ const (
 	IntegerWidth64 IntegerWidth = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IntegerWidth) String() string {
 	switch e {
 	case IntegerWidth32:
@@ -2404,7 +2414,7 @@ func (e IntegerWidth) String() string {
 	return fmt.Sprintf("IntegerWidth(%d)", e)
 }
 
-// MatrixLayoutAttribute [MatrixLayoutAttribute] is a descriptor structure containing the attributes that define the details of the matrix operation. Use [MatrixLayout.GetAttribute] and [MatrixLayout.SetAttribute] to get and set the attribute value of a matrix layout descriptor.
+// MatrixLayoutAttribute represents Attributes of memory layout.
 type MatrixLayoutAttribute int32
 
 const (
@@ -2424,6 +2434,7 @@ const (
 	GroupedMatrixLayoutLdArrayIntegerWidth       MatrixLayoutAttribute = 13
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatrixLayoutAttribute) String() string {
 	switch e {
 	case MatrixLayoutType:
@@ -2458,7 +2469,7 @@ func (e MatrixLayoutAttribute) String() string {
 	return fmt.Sprintf("MatrixLayoutAttribute(%d)", e)
 }
 
-// MatmulDescAttributes [MatmulDescAttributes] is a descriptor structure containing the attributes that define the specifics of the matrix multiply operation. Use [MatmulDesc.GetAttribute] and [MatmulDesc.SetAttribute] to get and set the attribute value of a matmul descriptor. Note The batch mode of a matmul operation is inferred from the batch modes of matrix descriptors, which must all be the same. The following table describes rules for operands that do not have a descriptor, like scaling factors. The expected parameter value depends on the batch mode of the matmul operation and the operand stride configured via a [MatmulDesc]{ATTR}_BATCH_STRIDE attribute.
+// MatmulDescAttributes represents [Handle.Matmul] descriptor attributes to define details of the operation..
 type MatmulDescAttributes int32
 
 const (
@@ -2499,6 +2510,7 @@ const (
 	MatmulDescBetaBatchStride         MatmulDescAttributes = 40
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulDescAttributes) String() string {
 	switch e {
 	case MatmulDescComputeType:
@@ -2575,7 +2587,7 @@ func (e MatmulDescAttributes) String() string {
 	return fmt.Sprintf("MatmulDescAttributes(%d)", e)
 }
 
-// MatrixTransformDescAttributes [MatrixTransformDescAttributes] is a descriptor structure containing the attributes that define the specifics of the matrix transform operation. Use [MatrixTransformDesc.GetAttribute] and [MatrixTransformDesc.SetAttribute] to set the attribute value of a matrix transform descriptor.
+// MatrixTransformDescAttributes represents Matrix transform descriptor attributes to define details of the operation..
 type MatrixTransformDescAttributes int32
 
 const (
@@ -2585,6 +2597,7 @@ const (
 	MatrixTransformDescTransb      MatrixTransformDescAttributes = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatrixTransformDescAttributes) String() string {
 	switch e {
 	case MatrixTransformDescScaleType:
@@ -2599,7 +2612,7 @@ func (e MatrixTransformDescAttributes) String() string {
 	return fmt.Sprintf("MatrixTransformDescAttributes(%d)", e)
 }
 
-// EmulationDescAttributes [EmulationDescAttributes] is an enumerated type used to configure floating point emulation parameters.
+// EmulationDescAttributes represents Emulation descriptor attributes to configure floating point emulation.
 type EmulationDescAttributes int32
 
 const (
@@ -2611,6 +2624,7 @@ const (
 	EmulationDescFixedpointMantissaBitCountPointer EmulationDescAttributes = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EmulationDescAttributes) String() string {
 	switch e {
 	case EmulationDescStrategy:
@@ -2629,7 +2643,7 @@ func (e EmulationDescAttributes) String() string {
 	return fmt.Sprintf("EmulationDescAttributes(%d)", e)
 }
 
-// ReductionScheme [ReductionScheme] is an enumerated type used to specify a reduction scheme for the portions of the dot-product calculated in parallel (i.e., “split - K”).
+// ReductionScheme represents Reduction scheme for portions of the dot-product calculated in parallel (a..
 type ReductionScheme int32
 
 const (
@@ -2640,6 +2654,7 @@ const (
 	ReductionSchemeMask        ReductionScheme = 0x7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ReductionScheme) String() string {
 	switch e {
 	case ReductionSchemeNone:
@@ -2656,7 +2671,7 @@ func (e ReductionScheme) String() string {
 	return fmt.Sprintf("ReductionScheme(%d)", e)
 }
 
-// Epilogue The [Epilogue] is an enum type to set the postprocessing options for the epilogue.
+// Epilogue represents Postprocessing options for the epilogue.
 type Epilogue int32
 
 const (
@@ -2678,36 +2693,21 @@ const (
 	EpilogueBgradb      Epilogue = 512
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Epilogue) String() string {
 	switch e {
 	case EpilogueDefault:
 		return "EpilogueDefault"
 	case EpilogueRelu:
 		return "EpilogueRelu"
-	case EpilogueReluAux:
-		return "EpilogueReluAux"
 	case EpilogueBias:
 		return "EpilogueBias"
-	case EpilogueReluBias:
-		return "EpilogueReluBias"
-	case EpilogueReluAuxBias:
-		return "EpilogueReluAuxBias"
 	case EpilogueDrelu:
 		return "EpilogueDrelu"
-	case EpilogueDreluBgrad:
-		return "EpilogueDreluBgrad"
 	case EpilogueGelu:
 		return "EpilogueGelu"
-	case EpilogueGeluAux:
-		return "EpilogueGeluAux"
-	case EpilogueGeluBias:
-		return "EpilogueGeluBias"
-	case EpilogueGeluAuxBias:
-		return "EpilogueGeluAuxBias"
 	case EpilogueDgelu:
 		return "EpilogueDgelu"
-	case EpilogueDgeluBgrad:
-		return "EpilogueDgeluBgrad"
 	case EpilogueBgrada:
 		return "EpilogueBgrada"
 	case EpilogueBgradb:
@@ -2716,7 +2716,7 @@ func (e Epilogue) String() string {
 	return fmt.Sprintf("Epilogue(%d)", e)
 }
 
-// MatmulSearch [MatmulSearch] is an enumerated type that contains the attributes for heuristics search type.
+// MatmulSearch represents [Handle.Matmul] heuristic search mode.
 type MatmulSearch int32
 
 const (
@@ -2732,6 +2732,7 @@ const (
 	SearchReserved09      MatmulSearch = 9
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulSearch) String() string {
 	switch e {
 	case SearchBestFit:
@@ -2758,7 +2759,7 @@ func (e MatmulSearch) String() string {
 	return fmt.Sprintf("MatmulSearch(%d)", e)
 }
 
-// MatmulPreferenceAttributes [MatmulPreferenceAttributes] is an enumerated type used to apply algorithm search preferences while fine-tuning the heuristic function. Use [MatmulPreference.GetAttribute] and [MatmulPreference.SetAttribute] to get and set the attribute value of a matmul preference descriptor.
+// MatmulPreferenceAttributes represents Algo search preference to fine tune the heuristic function..
 type MatmulPreferenceAttributes int32
 
 const (
@@ -2776,6 +2777,7 @@ const (
 	MatmulPrefGroupedDescDAverageCols    MatmulPreferenceAttributes = 15
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulPreferenceAttributes) String() string {
 	switch e {
 	case MatmulPrefSearchMode:
@@ -2806,11 +2808,10 @@ func (e MatmulPreferenceAttributes) String() string {
 	return fmt.Sprintf("MatmulPreferenceAttributes(%d)", e)
 }
 
-// MatmulAlgoCapAttributes [MatmulAlgoCapAttributes] enumerates matrix multiplication algorithm capability attributes that can be retrieved from an initialized [MatmulAlgo] descriptor using [MatmulAlgoCapGetAttribute].
+// MatmulAlgoCapAttributes represents Capabilities Attributes that can be retrieved from an initialized Algo structure.
 type MatmulAlgoCapAttributes int32
 
 const (
-	AlgoCapCustomOptionMax               MatmulAlgoCapAttributes = 7
 	AlgoCapSplitkSupport                 MatmulAlgoCapAttributes = 0
 	AlgoCapReductionSchemeMask           MatmulAlgoCapAttributes = 1
 	AlgoCapCtaSwizzlingSupport           MatmulAlgoCapAttributes = 2
@@ -2818,6 +2819,7 @@ const (
 	AlgoCapOutOfPlaceResultSupport       MatmulAlgoCapAttributes = 4
 	AlgoCapUploSupport                   MatmulAlgoCapAttributes = 5
 	AlgoCapTileIds                       MatmulAlgoCapAttributes = 6
+	AlgoCapCustomOptionMax               MatmulAlgoCapAttributes = 7
 	AlgoCapCustomMemoryOrder             MatmulAlgoCapAttributes = 10
 	AlgoCapPointerModeMask               MatmulAlgoCapAttributes = 11
 	AlgoCapEpilogueMask                  MatmulAlgoCapAttributes = 12
@@ -2833,10 +2835,9 @@ const (
 	AlgoCapPointerArrayGroupedSupport    MatmulAlgoCapAttributes = 23
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulAlgoCapAttributes) String() string {
 	switch e {
-	case AlgoCapCustomOptionMax:
-		return "AlgoCapCustomOptionMax"
 	case AlgoCapSplitkSupport:
 		return "AlgoCapSplitkSupport"
 	case AlgoCapReductionSchemeMask:
@@ -2851,6 +2852,8 @@ func (e MatmulAlgoCapAttributes) String() string {
 		return "AlgoCapUploSupport"
 	case AlgoCapTileIds:
 		return "AlgoCapTileIds"
+	case AlgoCapCustomOptionMax:
+		return "AlgoCapCustomOptionMax"
 	case AlgoCapCustomMemoryOrder:
 		return "AlgoCapCustomMemoryOrder"
 	case AlgoCapPointerModeMask:
@@ -2881,7 +2884,7 @@ func (e MatmulAlgoCapAttributes) String() string {
 	return fmt.Sprintf("MatmulAlgoCapAttributes(%d)", e)
 }
 
-// MatmulAlgoConfigAttributes [MatmulAlgoConfigAttributes] is an enumerated type that contains the configuration attributes for cuBLASLt matrix multiply algorithms. The configuration attributes are algorithm-specific, and can be set. The attributes configuration of a given algorithm should agree with its capability attributes. Use [MatmulAlgoConfigGetAttribute] and [MatmulAlgoConfigSetAttribute] to get and set the attribute value of a matmul algorithm descriptor.
+// MatmulAlgoConfigAttributes represents Algo Configuration Attributes that can be set according to the Algo capabilities.
 type MatmulAlgoConfigAttributes int32
 
 const (
@@ -2896,6 +2899,7 @@ const (
 	AlgoConfigClusterShapeId  MatmulAlgoConfigAttributes = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MatmulAlgoConfigAttributes) String() string {
 	switch e {
 	case AlgoConfigId:
@@ -2920,7 +2924,7 @@ func (e MatmulAlgoConfigAttributes) String() string {
 	return fmt.Sprintf("MatmulAlgoConfigAttributes(%d)", e)
 }
 
-// CublasfillmodeT The type indicates which part (lower or upper) of the dense matrix was filled and consequently should be used by the function. Its values correspond to Fortran characters L or l (lower) and U or u (upper) that are often used as parameters to legacy BLAS implementations.
+// CublasfillmodeT represents cublasFillMode_t.
 type CublasfillmodeT int32
 
 const (
@@ -2929,6 +2933,7 @@ const (
 	CublasFillModeFull  CublasfillmodeT = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasfillmodeT) String() string {
 	switch e {
 	case CublasFillModeLower:
@@ -2941,7 +2946,7 @@ func (e CublasfillmodeT) String() string {
 	return fmt.Sprintf("CublasfillmodeT(%d)", e)
 }
 
-// CublasdiagtypeT The type indicates whether the main diagonal of the dense matrix is unity and consequently should not be touched or modified by the function. Its values correspond to Fortran characters ‘N’ or ‘n’ (non-unit) and ‘U’ or ‘u’ (unit) that are often used as parameters to legacy BLAS implementations.
+// CublasdiagtypeT represents cublasDiagType_t.
 type CublasdiagtypeT int32
 
 const (
@@ -2949,6 +2954,7 @@ const (
 	CublasDiagUnit    CublasdiagtypeT = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasdiagtypeT) String() string {
 	switch e {
 	case CublasDiagNonUnit:
@@ -2959,7 +2965,7 @@ func (e CublasdiagtypeT) String() string {
 	return fmt.Sprintf("CublasdiagtypeT(%d)", e)
 }
 
-// CublassidemodeT The type indicates whether the dense matrix is on the left or right side in the matrix equation solved by a particular function. Its values correspond to Fortran characters ‘L’ or ‘l’ (left) and ‘R’ or ‘r’ (right) that are often used as parameters to legacy BLAS implementations.
+// CublassidemodeT represents cublasSideMode_t.
 type CublassidemodeT int32
 
 const (
@@ -2967,6 +2973,7 @@ const (
 	CublasSideRight CublassidemodeT = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublassidemodeT) String() string {
 	switch e {
 	case CublasSideLeft:
@@ -2977,7 +2984,7 @@ func (e CublassidemodeT) String() string {
 	return fmt.Sprintf("CublassidemodeT(%d)", e)
 }
 
-// CublasoperationT The [CublasoperationT] type indicates which operation needs to be performed with the dense matrix.
+// CublasoperationT represents cublasOperation_t.
 type CublasoperationT int32
 
 const (
@@ -2985,10 +2992,10 @@ const (
 	CublasOpT        CublasoperationT = 1
 	CublasOpC        CublasoperationT = 2
 	CublasOpHermitan CublasoperationT = 2 // synonym if [CublasOpC]
-	// CublasOpConjg: conjugate, placeholder - not supported in the current release
-	CublasOpConjg CublasoperationT = 3
+	CublasOpConjg    CublasoperationT = 3 // conjugate, placeholder - not supported in the current release
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasoperationT) String() string {
 	switch e {
 	case CublasOpN:
@@ -3003,7 +3010,7 @@ func (e CublasoperationT) String() string {
 	return fmt.Sprintf("CublasoperationT(%d)", e)
 }
 
-// CublaspointermodeT The [CublaspointermodeT] type indicates whether the scalar values are passed by reference on the host or device.
+// CublaspointermodeT represents cublasPointerMode_t.
 type CublaspointermodeT int32
 
 const (
@@ -3011,6 +3018,7 @@ const (
 	CublasPointerModeDevice CublaspointermodeT = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublaspointermodeT) String() string {
 	switch e {
 	case CublasPointerModeHost:
@@ -3021,7 +3029,7 @@ func (e CublaspointermodeT) String() string {
 	return fmt.Sprintf("CublaspointermodeT(%d)", e)
 }
 
-// CublasatomicsmodeT The type indicates whether cuBLAS routines which has an alternate implementation using atomics can be used.
+// CublasatomicsmodeT represents cublasAtomicsMode_t.
 type CublasatomicsmodeT int32
 
 const (
@@ -3029,6 +3037,7 @@ const (
 	CublasAtomicsAllowed    CublasatomicsmodeT = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasatomicsmodeT) String() string {
 	switch e {
 	case CublasAtomicsNotAllowed:
@@ -3039,7 +3048,7 @@ func (e CublasatomicsmodeT) String() string {
 	return fmt.Sprintf("CublasatomicsmodeT(%d)", e)
 }
 
-// CublasgemmalgoT [CublasgemmalgoT] type is an enumerant to specify the algorithm for matrix-matrix multiplication on GPU architectures up to sm_75. On sm_80 and newer GPU architectures, this enumerant has no effect. cuBLAS has the following algorithm options:
+// CublasgemmalgoT represents cublasGemmAlgo_t.
 type CublasgemmalgoT int32
 
 const (
@@ -3087,10 +3096,10 @@ const (
 	CublasGemmAlgo13TensorOp  CublasgemmalgoT = 113
 	CublasGemmAlgo14TensorOp  CublasgemmalgoT = 114
 	CublasGemmAlgo15TensorOp  CublasgemmalgoT = 115
-	// CublasGemmAutotune: benchmark available algorithms and choose optimal one, cached in handle
-	CublasGemmAutotune CublasgemmalgoT = 999
+	CublasGemmAutotune        CublasgemmalgoT = 999 // benchmark available algorithms and choose optimal one, cached in handle
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasgemmalgoT) String() string {
 	switch e {
 	case CublasGemmDfalt:
@@ -3183,7 +3192,7 @@ func (e CublasgemmalgoT) String() string {
 	return fmt.Sprintf("CublasgemmalgoT(%d)", e)
 }
 
-// CublasmathT [CublasmathT] enumerate type is used in cublasSetMathMode() to choose compute precision modes as defined in the following table. Since this setting does not directly control the use of Tensor Cores, the mode [CublasTensorOpMath] is being deprecated, and will be removed in a future release.
+// CublasmathT represents cublasMath_t.
 type CublasmathT int32
 
 const (
@@ -3196,6 +3205,7 @@ const (
 	CublasMathDisallowReducedPrecisionReduction CublasmathT = 16
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasmathT) String() string {
 	switch e {
 	case CublasDefaultMath:
@@ -3216,17 +3226,16 @@ func (e CublasmathT) String() string {
 	return fmt.Sprintf("CublasmathT(%d)", e)
 }
 
-// CublascomputetypeT [ComputeType] enumerate type is used in cublasGemmEx() and [Handle.Matmul] (including all batched and strided batched variants) to choose compute precision modes as defined below. Note Setting the environment variable NVIDIA_TF32_OVERRIDE = 0 will override any defaults or programmatic configuration of NVIDIA libraries, and consequently, cuBLAS will not accelerate single-precision computations with TF32 tensor cores.
+// CublascomputetypeT represents cublasComputeType_t.
 type CublascomputetypeT int32
 
 const (
-	CublasCompute16F         CublascomputetypeT = 64 // half - default
-	CublasCompute16FPedantic CublascomputetypeT = 65 // half - pedantic
-	CublasCompute32F         CublascomputetypeT = 68 // float - default
-	CublasCompute32FPedantic CublascomputetypeT = 69 // float - pedantic
-	CublasCompute32FFast16F  CublascomputetypeT = 74 // float - fast, allows down-converting inputs to half or TF32
-	// CublasCompute32FFast16BF: float - fast, allows down-converting inputs to bfloat16 or TF32
-	CublasCompute32FFast16BF           CublascomputetypeT = 75
+	CublasCompute16F                   CublascomputetypeT = 64 // half - default
+	CublasCompute16FPedantic           CublascomputetypeT = 65 // half - pedantic
+	CublasCompute32F                   CublascomputetypeT = 68 // float - default
+	CublasCompute32FPedantic           CublascomputetypeT = 69 // float - pedantic
+	CublasCompute32FFast16F            CublascomputetypeT = 74 // float - fast, allows down-converting inputs to half or TF32
+	CublasCompute32FFast16BF           CublascomputetypeT = 75 // float - fast, allows down-converting inputs to bfloat16 or TF32
 	CublasCompute32FFastTF32           CublascomputetypeT = 77 // float - fast, allows down-converting inputs to TF32
 	CublasCompute32FEmulated16bfx9     CublascomputetypeT = 78 // float - emulated, converts inputs into 3xBF16 values
 	CublasCompute64F                   CublascomputetypeT = 70 // double - default
@@ -3236,6 +3245,7 @@ const (
 	CublasCompute32IPedantic           CublascomputetypeT = 73 // signed 32-bit int - pedantic
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublascomputetypeT) String() string {
 	switch e {
 	case CublasCompute16F:
@@ -3268,7 +3278,7 @@ func (e CublascomputetypeT) String() string {
 	return fmt.Sprintf("CublascomputetypeT(%d)", e)
 }
 
-// CublasemulationstrategyT [CublasemulationstrategyT] enumerate type is used in cublasSetEmulationStrategy() to choose how to leverage floating point emulation algorithms. Note In general, the cublasSetEmulationStrategy() function takes precedence over the environment variable setting. However, setting the environment variable CUBLAS_EMULATION_STRATEGY to performant or eager will override the default emulation strategy with the corresponding emulation strategy, even if the default strategy was set by the function call.
+// CublasemulationstrategyT represents cublasEmulationStrategy_t.
 type CublasemulationstrategyT int32
 
 const (
@@ -3277,6 +3287,7 @@ const (
 	CublasEmulationStrategyEager      CublasemulationstrategyT = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CublasemulationstrategyT) String() string {
 	switch e {
 	case CublasEmulationStrategyDefault:

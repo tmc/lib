@@ -8291,7 +8291,7 @@
       }
     },
     "cublas": {
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "generation": {
         "cwd": "${CODEGEN_REPO}",
         "argv": [
@@ -8316,27 +8316,27 @@
         "outputs": [
           {
             "path": "nvidia/cublas/doc.gen.go",
-            "sha256": "f9955945f182c0830a08e73630752231dd66b5351f29c095039008e4453ef566"
+            "sha256": "68e1ff0a3b8e113e093316611cac9b9331131653ace61f6479edb467d68deb3d"
           },
           {
             "path": "nvidia/cublas/enums.gen.go",
-            "sha256": "e7312544a54f31e129432e9df82823176d0a4fb59adc442f0d5f22de0d38d0a3"
+            "sha256": "41b1881bbe1cddacdd46e20e16b9a62f2a8084eec416fc1def6ab61cf80af3d5"
           },
           {
             "path": "nvidia/cublas/funcs.gen.go",
-            "sha256": "2c1f0361e5095e4226271e927b38b4118aa2cb0b990cf4509370081c54899338"
+            "sha256": "cb7feebd28f7391ee1ffb766a702fb49dd3674dffeece615b1513a00bad0c00b"
           },
           {
             "path": "nvidia/cublas/handle.gen.go",
-            "sha256": "79353dce4af4682f3af28ef4639b2769c0c09f08c836d751e2fe1672611e509b"
+            "sha256": "290c7f51421fa59d3ef26766ce676d78a49a467f6d5107b2978f82e638e11ed6"
           },
           {
             "path": "nvidia/cublas/handles.gen.go",
-            "sha256": "635dec61f22269c396d5d4e162d137fc3e7dc18936075eff5570579382d47b5d"
+            "sha256": "8e50c9537792c95050d1fbe3888034a2931d7412a6c0d99258715c2248560e7a"
           },
           {
             "path": "nvidia/cublas/init.gen.go",
-            "sha256": "b6681f206513be7e480de597bcbf797f929d74dddbdcaf044e747a5193406238"
+            "sha256": "7d58983d0c75bf5b68583d0a48d3f07cee0a00c8dc5ea13a3f909c1191e5cb74"
           },
           {
             "path": "nvidia/cublas/layout_test.go",
@@ -8344,7 +8344,7 @@
           },
           {
             "path": "nvidia/cublas/loader_test.go",
-            "sha256": "e20ce64fd0b5497ca7ac980e4ee8f12bd5a8d5598155f345ecf017cf7081f1c1"
+            "sha256": "227f23df06ac9ff5cb69a3e5242e53aba58ffa33c356f3fc8c19451b9a69583e"
           },
           {
             "path": "nvidia/cublas/loader_unix.gen.go",
@@ -8360,17 +8360,17 @@
           },
           {
             "path": "nvidia/cublas/types.gen.go",
-            "sha256": "a2917cfa6579e83e66c30d6c7b4d0b918c4c3ea21425c1b32c4c3a0d62af4e6e"
+            "sha256": "381ad316f33acfdf36d6582a5b2ce25bced4e345649727ceb02316b3b8a491d5"
           }
         ],
-        "comparison": "Regeneration diverges: it drops 9 exported functions, adds 12, and does not emit loader_unix.gen.go or loader_windows.gen.go, which the committed package has. Most of the remaining difference is documentation text."
+        "comparison": "All 12 outputs regenerated into the committed package. No exported declaration was dropped; the package gains BindFailures, LibraryError and LibraryAttempt, and generated parameters are renamed from snake_case to camelCase."
       },
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+          "commit": "a96f510f0bad44132ca38fde43a2115be741b93e",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from."
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8383,10 +8383,10 @@
         "path": "cublas/cublas_api.h",
         "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
       },
-      "note": "The generator is cmd/cublas-survey. cmd/gen-nvidia -api cublas is the wrong tool and produces an unrelated surface. The recorded argv is a recovered candidate, not a reproduction: regenerating from it would remove exported declarations and the platform loader, so it must not be run without an API review."
+      "note": "The generator is cmd/cublas-survey. cmd/gen-nvidia -api cublas is the wrong tool and produces an unrelated surface. The recipe was recovered by diffing a scratch regeneration against the committed package. That regeneration first dropped loader_unix.gen.go and loader_windows.gen.go, breaking the Windows build, because cmd/cublas-survey had never set ffigen PlatformLoader; the generator was fixed before this regeneration was taken. The loader now pins the Linux soname major and no longer falls back to the unversioned libcublas.so."
     },
     "cublaslt": {
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "generation": {
         "cwd": "${CODEGEN_REPO}",
         "argv": [
@@ -8413,43 +8413,43 @@
         "outputs": [
           {
             "path": "nvidia/cublaslt/callbacks.gen.go",
-            "sha256": "c5031098e775028bf0df60417240a3cdb7719507da01d1482025c9c614c1aa10"
+            "sha256": "0b246a9bdcb6f8b220dfe9da61c1b4faeda90375b2a34eb066a179433b34f96e"
           },
           {
             "path": "nvidia/cublaslt/doc.gen.go",
-            "sha256": "6a138050cb5f1675a38910d7f256134640e8ee9850bb35ad27e3d6eccf7924bf"
+            "sha256": "59c5fd1f110f58b22dc34467c6ec4930e4560aaeabe244372480b6d820776920"
           },
           {
             "path": "nvidia/cublaslt/emulation_desc.gen.go",
-            "sha256": "e110511c759dc84517275004fc1470699ea44ec38be8bc86d88a76caa6ee07b9"
+            "sha256": "2e2b834cb64061f913842cba2068c38087082f462f85c8256213167d38c50cc8"
           },
           {
             "path": "nvidia/cublaslt/enums.gen.go",
-            "sha256": "2efd720dd8fc98559855d2659b81bab0954343f54f8c0e496b1787897d6064df"
+            "sha256": "2574bd668207be7e543511736bc48bca1d3c0619af2bd59c9868427dbcb03715"
           },
           {
             "path": "nvidia/cublaslt/funcs.gen.go",
-            "sha256": "34f2234c3a2c1b43022fd6cfcb6ea3f72f90ddc242391c99a3b01ac8dde1ccbb"
+            "sha256": "7fec3e893ee7e943135afb785eca2741db45f0969a981984b9d29bc45a52448d"
           },
           {
             "path": "nvidia/cublaslt/handle.gen.go",
-            "sha256": "65996e6a3fdba6a8836f8a1fe7af611e906e9a0a55cf5f36db3d3a10965a6090"
+            "sha256": "a408b688b33aa88c0547172864af91e886aa82e0739d08b1e1b5ec913fbefef0"
           },
           {
             "path": "nvidia/cublaslt/handles.gen.go",
-            "sha256": "fc449044b1f8555c83d956c222759fc0fd837d88933f4de9e8bc2b046d9677af"
+            "sha256": "b01c7c041418a2d2497f47c4ddcf0a12acb5ca54ffef3d4fb4ea7d48d8a82a93"
           },
           {
             "path": "nvidia/cublaslt/init.gen.go",
-            "sha256": "e1e727af5bf00f81c880a6c18b2851462da837febd7ffd1a0b951d9aae09c10b"
+            "sha256": "deba3a84ab0435615b97d026c6eace8d9d2a84bbdad1594788a7a2df13ca9c83"
           },
           {
             "path": "nvidia/cublaslt/layout_test.go",
-            "sha256": "6f2852b1778f63c9c4cedde4be55dd897ceea8b94788992ffd49edf3fdb5efd5"
+            "sha256": "57415eed91bc59dd19b346a78362d6c7dd554b0d4a5009e915a300f26b8ef0b6"
           },
           {
             "path": "nvidia/cublaslt/loader_test.go",
-            "sha256": "4c7ffa4a02a1963747bdf82b7d04416d094b332f009d0c3547dfadfab20ec31b"
+            "sha256": "c9e4e532df00ff39667e3855d3fd768c70ecdb6d6e0ff296168e3f2535998486"
           },
           {
             "path": "nvidia/cublaslt/loader_unix.gen.go",
@@ -8461,19 +8461,19 @@
           },
           {
             "path": "nvidia/cublaslt/matmul_desc.gen.go",
-            "sha256": "35a0a51aa47d979839fe4a3541e40e63666b1baf3da553775fe45ec944c36e20"
+            "sha256": "cbd2d04d4522fc6aaf71b04599756b9dae86d618d69f90d9764318715bca81c6"
           },
           {
             "path": "nvidia/cublaslt/matmul_preference.gen.go",
-            "sha256": "011f1a5913d162c894a67f12f6cccac69dab09b13a86a3c411cb7561860039af"
+            "sha256": "4a275f6de2e7d1a802e7572feaef643ef886e2d408aed7b76d1f0812b805a9ec"
           },
           {
             "path": "nvidia/cublaslt/matrix_layout.gen.go",
-            "sha256": "4a88bbbba1ae4df729dd70bfa1119c43b463047b946b13846cdbe13d142f81c2"
+            "sha256": "962dcdf79f91e2604100dc38b6ef6905e628a44ed7ce9c158491d021fdde36c2"
           },
           {
             "path": "nvidia/cublaslt/matrix_transform_desc.gen.go",
-            "sha256": "f00085079dab0d213247ab59f3461fc2ee18058c0710375c928e16b13f26373b"
+            "sha256": "88e7a982be3941eba818e65c90569043ea896e17d1be6560ee3a9f2a4aef2f89"
           },
           {
             "path": "nvidia/cublaslt/result.gen.go",
@@ -8481,21 +8481,21 @@
           },
           {
             "path": "nvidia/cublaslt/structs.gen.go",
-            "sha256": "bb39bb345d04ecffe14dc618cd7ef9c067e24a81520f07d97d61b56a2546ac66"
+            "sha256": "30cbb1349d0416c5f253c5f71469ce14bf062e2718f2d3843730825f0623369d"
           },
           {
             "path": "nvidia/cublaslt/types.gen.go",
-            "sha256": "43e6a6b0505e4fd287b92e411c6ec59b9f70de54bbb35ae6f7df32da85c60c6a"
+            "sha256": "511e07ad940f35f97b9a1b49f33c13106ba7f3fcf817b94f90bf1078c80a4ef4"
           }
         ],
-        "comparison": "Regeneration diverges: it drops 3 exported functions, adds 6, and does not emit callbacks.gen.go or the platform loader files the committed package has."
+        "comparison": "All 19 outputs regenerated into the committed package. No exported declaration was dropped; the package gains BindFailures, LibraryError and LibraryAttempt, and generated parameters are renamed from snake_case to camelCase."
       },
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+          "commit": "a96f510f0bad44132ca38fde43a2115be741b93e",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from."
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8508,7 +8508,7 @@
         "path": "cublas/cublasLt.h",
         "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
       },
-      "note": "The generator is cmd/cublaslt-survey. The recorded argv is a recovered candidate, not a reproduction: regenerating from it would remove exported declarations, callbacks.gen.go and the platform loader, so it must not be run without an API review."
+      "note": "The generator is cmd/cublaslt-survey. As with cublas, the survey had never set ffigen PlatformLoader, and it also never emitted callbacks.gen.go, so a regeneration would have dropped the Windows loader and the exported LoggerCallback type. Both were fixed in the generator before this regeneration was taken; callbacks.gen.go is now generated rather than carried from an old gen-nvidia run, which also repairs its garbled doc comment. The loader pins the Linux soname major."
     },
     "cusolver": {
       "status": "generation-reproduced",
@@ -8604,7 +8604,7 @@
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
           "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package."
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8709,7 +8709,7 @@
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
           "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown."
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package."
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",

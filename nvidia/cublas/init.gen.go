@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -25,29 +28,62 @@ var (
 	// successfully, calls skip loadMu entirely.
 	ready atomic.Bool
 
+	// explicitLoad records that a successful Load acknowledged the current library.
+	// It stays false while only the lazy path has opened it.
+	explicitLoad bool
+
 	// present records which symbols resolved during registerFuncs. It is
 	// written under loadMu before ready is set, and only read afterwards.
 	present = make(map[string]bool)
+
+	// unbound records symbols the library exports that could not be bound,
+	// keyed by symbol name. It follows the same locking discipline as present.
+	unbound = make(map[string]error)
 )
 
-// SymbolError reports that a symbol is absent from the loaded library,
-// which happens when the installed version predates the symbol.
+// SymbolError reports that a symbol is not callable.
+//
+// Err distinguishes the two ways that happens. A nil Err means the loaded
+// library does not export the symbol, which is what an installation older
+// than the symbol looks like. A non-nil Err means the library does export
+// it and the binding itself failed; the library is not at fault.
 type SymbolError struct {
 	Symbol string
+	Err    error
 }
 
+// Error reports the uncallable library symbol and, when the symbol was
+// present but could not be bound, why.
 func (e *SymbolError) Error() string {
+	if e.Err != nil {
+		return "cublas: symbol " + e.Symbol + " unavailable: " + e.Err.Error()
+	}
 	return "cublas: symbol " + e.Symbol + " unavailable"
 }
+
+// Unwrap returns the reason the symbol could not be bound, or nil when the
+// loaded library does not export it.
+func (e *SymbolError) Unwrap() error { return e.Err }
 
 // LibraryConflictError reports a Load call naming a different library than
 // the one already loaded. Only one library is loaded per process.
 type LibraryConflictError struct {
 	Loaded    string
 	Requested string
+
+	// Implicit reports that the loaded library was opened lazily and no
+	// successful Load has since acknowledged it. A
+	// caller that sees this called some
+	// other function first, and that call took the default search list.
+	Implicit bool
 }
 
+// Error reports the conflicting library paths, and whether the library
+// that is already loaded got there without a Load call.
 func (e *LibraryConflictError) Error() string {
+	if e.Implicit {
+		return fmt.Sprintf("cublas: an earlier call already loaded %q from the default search list, cannot load %q; call Load before any other function", e.Loaded, e.Requested)
+	}
 	return fmt.Sprintf("cublas: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
 
@@ -65,11 +101,13 @@ func Load(path string) error {
 	defer loadMu.Unlock()
 	if lib != 0 {
 		if path != "" && path != libPath {
-			return &LibraryConflictError{Loaded: libPath, Requested: path}
+			return &LibraryConflictError{Loaded: libPath, Requested: path, Implicit: !explicitLoad}
 		}
+		explicitLoad = true
 		return nil
 	}
 	attempted = false
+	explicitLoad = true
 	return loadLocked(path)
 }
 
@@ -114,8 +152,10 @@ func Close() error {
 	libErr = nil
 	libPath = ""
 	attempted = false
+	explicitLoad = false
 	ready.Store(false)
 	present = make(map[string]bool)
+	unbound = make(map[string]error)
 	clearFuncs()
 	if err != nil {
 		return fmt.Errorf("cublas: close: %w", err)
@@ -154,30 +194,109 @@ func openLibrary(path string) (uintptr, string, error) {
 		if err == nil {
 			return h, path, nil
 		}
-		return 0, "", fmt.Errorf("cublas: open %q: %w", path, err)
+		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 	}
 	names := libraryNames()
-	var firstErr error
+	var attempts []LibraryAttempt
 	for _, name := range names {
 		h, err := openDynamicLibrary(name)
 		if err == nil {
 			return h, name, nil
 		}
-		if firstErr == nil {
-			firstErr = err
+		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+	}
+	return 0, "", newLibraryError("", attempts)
+}
+
+// LibraryAttempt records one failed attempt to open the shared library.
+type LibraryAttempt struct {
+	Name string // path or soname passed to dlopen
+	Err  error
+}
+
+// LibraryError reports that libcublas could not be opened. Attempts lists
+// every name tried in order. Path is set when an explicit path, from Load or
+// CUBLAS_LIB_PATH, was requested and failed. Hint, when non-empty, says where
+// pkg-config believes the library is installed.
+type LibraryError struct {
+	Library  string
+	Env      string
+	Path     string
+	Attempts []LibraryAttempt
+	Hint     string
+}
+
+// Error describes the library load attempts and their errors.
+func (e *LibraryError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "cublas: cannot open %s", e.Library)
+	switch {
+	case e.Path != "":
+		fmt.Fprintf(&b, " at %s", e.Path)
+	case len(e.Attempts) == 0:
+		fmt.Fprintf(&b, ": no library names for %s/%s", runtime.GOOS, runtime.GOARCH)
+	default:
+		b.WriteString(": tried ")
+		for i, a := range e.Attempts {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(a.Name)
 		}
 	}
-	if firstErr == nil {
-		firstErr = errors.New("no library paths to try")
+	if n := len(e.Attempts); n > 0 && e.Attempts[n-1].Err != nil {
+		fmt.Fprintf(&b, ": %v", e.Attempts[n-1].Err)
 	}
-	return 0, "", fmt.Errorf("cublas: open libcublas: %w", firstErr)
+	if e.Hint != "" {
+		b.WriteString("; " + e.Hint)
+	}
+	if e.Path == "" && e.Env != "" {
+		fmt.Fprintf(&b, "; set %s to the library path", e.Env)
+	}
+	return b.String()
+}
+
+// Unwrap returns the error from each attempt.
+func (e *LibraryError) Unwrap() []error {
+	errs := make([]error, 0, len(e.Attempts))
+	for _, a := range e.Attempts {
+		if a.Err != nil {
+			errs = append(errs, a.Err)
+		}
+	}
+	return errs
+}
+
+func newLibraryError(path string, attempts []LibraryAttempt) *LibraryError {
+	return &LibraryError{Library: "libcublas", Env: "CUBLAS_LIB_PATH", Path: path, Attempts: attempts, Hint: pkgConfigHint()}
+}
+
+// pkgConfigHint asks pkg-config where the library is installed so that a
+// load failure can say so. It runs only after every dlopen attempt has
+// failed, never chooses the library, and is silent when pkg-config is
+// absent or does not know the package.
+func pkgConfigHint() string {
+	const pkg = "cublas"
+	exe, err := exec.LookPath("pkg-config")
+	if err != nil {
+		return ""
+	}
+	out, err := exec.Command(exe, "--variable=libdir", pkg).Output()
+	if err != nil {
+		return ""
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return ""
+	}
+	return "pkg-config reports " + pkg + " in " + dir
 }
 
 // libraryNames returns the platform-specific shared library names to try.
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcublas.so.13", "libcublas.so"}
+		return []string{"libcublas.so.13"}
 	case "darwin":
 		return []string{"libcublas.dylib"}
 	case "windows":
@@ -200,10 +319,16 @@ func register(fn interface{}, symbol string) {
 		return
 	}
 	if !bindSymbol(fn, sym) {
+		unbound[symbol] = errArgumentSlots
 		return
 	}
 	present[symbol] = true
 }
+
+// errArgumentSlots is the reason a symbol the library exports could still
+// not be bound: the signature needs more argument registers and stack slots
+// than this architecture's calling convention provides.
+var errArgumentSlots = errors.New("signature needs more argument slots than this architecture provides")
 
 // bindSymbol binds fn to the resolved symbol address sym and reports whether
 // the binding succeeded. purego.RegisterFunc panics when it cannot build a
@@ -225,6 +350,35 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	return true
 }
 
+// BindFailure names a symbol the loaded library exports but that could not
+// be bound, and why.
+type BindFailure struct {
+	Symbol string
+	Err    error
+}
+
+// BindFailures returns the symbols the loaded library exports that could
+// not be bound, sorted by symbol name, or nil if every exported symbol
+// bound. Calling one of these reports *SymbolError with the same Err.
+//
+// A load that reports no error can still leave symbols unbound: the
+// library is fine and the signatures are not representable here. Call this
+// after Load to find that out at once rather than one call site at a time.
+// It does not trigger a load, and returns nil if none has happened.
+func BindFailures() []BindFailure {
+	loadMu.Lock()
+	defer loadMu.Unlock()
+	if len(unbound) == 0 {
+		return nil
+	}
+	out := make([]BindFailure, 0, len(unbound))
+	for sym, err := range unbound {
+		out = append(out, BindFailure{Symbol: sym, Err: err})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
+	return out
+}
+
 // ptrAdd advances a byte pointer by n bytes.
 func ptrAdd(p *byte, n int) unsafe.Pointer {
 	return unsafe.Add(unsafe.Pointer(p), n)
@@ -243,18 +397,18 @@ func checkLib() error {
 
 // checkLibSym loads the library if necessary and reports whether symbol is
 // callable. It returns the load error if the library is unavailable, or
-// *SymbolError if the library loaded but does not export symbol.
+// *SymbolError if the library loaded but symbol is not callable.
 func checkLibSym(symbol string) error {
 	if err := checkLib(); err != nil {
 		return err
 	}
 	if !present[symbol] {
-		return &SymbolError{Symbol: symbol}
+		return &SymbolError{Symbol: symbol, Err: unbound[symbol]}
 	}
 	return nil
 }
 
-// registerFuncs binds all raw function pointers to their library symbols.
+// registerFuncs binds all function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetStatusName, "cublasGetStatusName")
 	register(&fnGetStatusString, "cublasGetStatusString")
@@ -795,7 +949,7 @@ func registerFuncs() {
 	register(&fnztrttp, "cublasZtrttp")
 }
 
-// clearFuncs unbinds all raw function pointers.
+// clearFuncs unbinds all function pointers.
 func clearFuncs() {
 	fnGetStatusName = nil
 	fnGetStatusString = nil

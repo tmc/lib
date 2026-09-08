@@ -7,7 +7,7 @@ type MatrixLayoutOpaque struct {
 	Data [14]uint64
 }
 
-// MatmulAlgo represents [MatmulAlgo] is an opaque structure holding the description of the matrix multiplication algorithm.
+// MatmulAlgo represents Semi-opaque algorithm descriptor (to avoid complicated alloc/free schemes) This structure can be trivially serialized and later restored for use with the same version of cuBLAS library to save on selecting the right configuration again..
 type MatmulAlgo struct {
 	Data [8]uint64
 }
@@ -32,7 +32,7 @@ type EmulationDescOpaque struct {
 	Data [8]uint64
 }
 
-// MatmulHeuristicResult represents [MatmulHeuristicResult] is a descriptor that holds the configured matrix multiplication algorithm descriptor and its runtime properties.
+// MatmulHeuristicResult represents Results structure used by [Handle.MatmulAlgoGetHeuristic] Holds returned configured algo descriptor and its runtime properties..
 type MatmulHeuristicResult struct {
 	Algo          MatmulAlgo
 	WorkspaceSize uint

@@ -2,25 +2,40 @@
 
 package cublaslt
 
-// Destroy This function destroys a previously created matrix transform descriptor object.
+// NewMatrixTransformDesc creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
+//
+//   - transformDesc: Pointer to the structure holding the matrix transform descriptor created by this function. See [MatrixTransformDesc]
+//   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See cudaDataType_t
 //
 // Returns:
-//   - [Success]: if operation was successful
+//   - [ErrAllocFailed]: If memory could not be allocated.
+//   - [Success]: If the descriptor was created successfully.
+//
+// Wraps cublasLtMatrixTransformDescCreate.
+func NewMatrixTransformDesc(scaleType DataType) (MatrixTransformDesc, error) {
+	return matrixTransformDescCreate(scaleType)
+}
+
+// Destroy destroys a previously created matrix transform descriptor object.
+//
+// Returns:
+//   - [Success]: If the operation was successful.
 //
 // Wraps cublasLtMatrixTransformDescDestroy.
 func (m MatrixTransformDesc) Destroy() error {
 	return matrixTransformDescDestroy(m)
 }
 
-// GetAttribute This function returns the value of the queried attribute belonging to a previously created matrix transform descriptor.
+// GetAttribute returns the value of the queried attribute belonging to a previously created matrix transform descriptor.
 //
 //   - attr: The attribute that will be retrieved by this function. See [MatrixTransformDescAttributes]
 //   - buf: Memory address containing the attribute value retrieved by this function
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
+//   - sizeWritten: Valid only when the return value is [Success]. If sizeInBytes is non-zero: then sizeWritten is the number of bytes actually written; if sizeInBytes is 0: then sizeWritten is the number of bytes needed to write full contents
 //
 // Returns:
-//   - [ErrInvalidValue]: if sizeInBytes is 0 and sizeWritten is NULL, or if sizeInBytes is non-zero and buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute's value was successfully written to user memory
+//   - [ErrInvalidValue]: - If sizeInBytes is zero and sizeWritten is NULL, or - if sizeInBytes is non-zero and buf is NULL, or - if sizeInBytes doesn’t match size of internal storage for the selected attribute
+//   - [Success]: If attribute’s value was successfully written to user memory.
 //
 // Wraps cublasLtMatrixTransformDescGetAttribute.
 func (m MatrixTransformDesc) GetAttribute(attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) (uint, error) {
@@ -32,31 +47,17 @@ func (m MatrixTransformDesc) Init_internal(size uint, scaleType DataType) error 
 	return matrixTransformDescInit_internal(m, size, scaleType)
 }
 
-// SetAttribute This function sets the value of the specified attribute belonging to a previously created matrix transform descriptor.
+// SetAttribute sets the value of the specified attribute belonging to a previously created matrix transform descriptor.
 //
 //   - attr: The attribute that will be set by this function. See [MatrixTransformDescAttributes]
 //   - buf: The value to which the specified attribute should be set
 //   - sizeInBytes: Size of buf buffer (in bytes) for verification
 //
 // Returns:
-//   - [ErrInvalidValue]: if buf is NULL or sizeInBytes doesn't match size of internal storage for selected attribute
-//   - [Success]: if attribute was set successfully
+//   - [ErrInvalidValue]: If buf is NULL or sizeInBytes does not match size of the internal storage for the selected attribute.
+//   - [Success]: If the attribute was set successfully.
 //
 // Wraps cublasLtMatrixTransformDescSetAttribute.
 func (m MatrixTransformDesc) SetAttribute(attr MatrixTransformDescAttributes, buf uintptr, sizeInBytes uint) error {
 	return matrixTransformDescSetAttribute(m, attr, buf, sizeInBytes)
-}
-
-// NewMatrixTransformDesc This function creates a matrix transform descriptor by allocating the memory needed to hold its opaque structure.
-//
-//   - transformDesc: Pointer to the structure holding the matrix transform descriptor created by this function. See [MatrixTransformDesc]
-//   - scaleType: Enumerant that specifies the data precision for the matrix transform descriptor this function creates. See [DataType]
-//
-// Returns:
-//   - [ErrAllocFailed]: if memory could not be allocated
-//   - [Success]: if desciptor was created successfully
-//
-// Wraps cublasLtMatrixTransformDescCreate.
-func NewMatrixTransformDesc(scaleType DataType) (MatrixTransformDesc, error) {
-	return matrixTransformDescCreate(scaleType)
 }

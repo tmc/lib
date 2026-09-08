@@ -2,5 +2,5 @@
 
 package cublas
 
-// Handle is the [Handle] type is a pointer type to an opaque structure holding the cuBLAS library context.
+// Handle is an opaque handle for cublasHandle_t.
 type Handle uintptr
