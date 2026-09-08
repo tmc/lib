@@ -66,3 +66,12 @@ go tool pprof -sample_index=alloc_space "$HOME/tmp/gomlx.test" "$HOME/tmp/gomlx.
 Heap profiles include setup. Filter measured benchmark stacks before assigning
 costs to the timed operation. Go heap totals exclude native/device allocations;
 profiled timings are not latency comparisons.
+
+## Rotary position embeddings
+
+The actual GoMLX RoPE encoder passes eight native CPU cases covering both
+sequence-axis layouts, interleaved and split-half pairs, full and partial
+rotation, and linear scaling. Slice and concatenation preserve static shapes;
+Float64 constants and transfers preserve their bits before conversion to F32.
+The RoPE tests compare both query and key outputs against host trigonometry.
+This does not qualify all position encoders or Float64 arithmetic.

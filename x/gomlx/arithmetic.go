@@ -241,3 +241,5 @@ func (f *function) Identity(v compute.Value) (compute.Value, error) {
 func (f *function) Neg(v compute.Value) (compute.Value, error) {
 	return f.unaryFloat(v, "negate")
 }
+
+func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "sine") }

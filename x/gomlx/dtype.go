@@ -23,6 +23,8 @@ func element(dtype dtypes.DType) (elementInfo, bool) {
 		return elementInfo{"ui64", openxla.Buffer_Type_U64, 8}, true
 	case dtypes.Bool:
 		return elementInfo{"i1", openxla.Buffer_Type_PRED, 1}, true
+	case dtypes.Float64:
+		return elementInfo{"f64", openxla.Buffer_Type_F64, 8}, true
 	case dtypes.Float32:
 		return elementInfo{"f32", openxla.Buffer_Type_F32, 4}, true
 	case dtypes.Int32:
@@ -40,6 +42,8 @@ func elementDType(name string) dtypes.DType {
 		return dtypes.Uint64
 	case "i1":
 		return dtypes.Bool
+	case "f64":
+		return dtypes.Float64
 	case "f32":
 		return dtypes.Float32
 	case "i32":
@@ -57,6 +61,8 @@ func flatShape(flat any) (dtypes.DType, int) {
 		return dtypes.Uint64, len(v)
 	case []bool:
 		return dtypes.Bool, len(v)
+	case []float64:
+		return dtypes.Float64, len(v)
 	case []float32:
 		return dtypes.Float32, len(v)
 	case []int32:
@@ -74,6 +80,8 @@ func newFlat(dtype dtypes.DType, n int) any {
 		return make([]uint64, n)
 	case dtypes.Bool:
 		return make([]bool, n)
+	case dtypes.Float64:
+		return make([]float64, n)
 	case dtypes.Float32:
 		return make([]float32, n)
 	case dtypes.Int32:
@@ -99,6 +107,10 @@ func encodeFlat(flat any, raw []byte) {
 			if x {
 				raw[i] = 1
 			}
+		}
+	case []float64:
+		for i, x := range v {
+			binary.LittleEndian.PutUint64(raw[8*i:], math.Float64bits(x))
 		}
 	case []float32:
 		for i, x := range v {
@@ -128,6 +140,10 @@ func decodeFlat(flat any, raw []byte) {
 		for i := range v {
 			v[i] = raw[i] != 0
 		}
+	case []float64:
+		for i := range v {
+			v[i] = math.Float64frombits(binary.LittleEndian.Uint64(raw[8*i:]))
+		}
 	case []float32:
 		for i := range v {
 			v[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
@@ -150,6 +166,8 @@ func constantLiteral(flat any, i int) string {
 		return fmt.Sprint(v[i])
 	case []bool:
 		return fmt.Sprint(v[i])
+	case []float64:
+		return fmt.Sprintf("0x%016X", math.Float64bits(v[i]))
 	case []float32:
 		return fmt.Sprintf("0x%08X", math.Float32bits(v[i]))
 	case []int32:
