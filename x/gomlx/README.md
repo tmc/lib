@@ -1,7 +1,9 @@
 # GoMLX through TMC PJRT
 
-This optional module implements `github.com/gomlx/compute` using the TMC
-StableHLO builder and PJRT runtime. Native execution does not require cgo.
+This module implements `github.com/gomlx/compute` using the TMC
+StableHLO builder and PJRT runtime as a temporary test package and evaluation
+harness for comparative benchmarking and parity validation against GoMLX.
+Native execution does not require cgo.
 
 ```go
 backend, err := gomlx.New(pluginPath)

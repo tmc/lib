@@ -1,5 +1,7 @@
 // Package gomlx implements the GoMLX compute interfaces using TMC's PJRT
-// runtime and StableHLO builder. Loading and execution do not require cgo.
+// runtime and StableHLO builder as an internal testing and evaluation harness
+// for comparative benchmarking and parity validation against GoMLX.
+// Loading and execution do not require cgo.
 //
 // The backend supports static Bool, Float32, Float64, Int8, Int32, Int64, Uint8, Uint32, and Uint64
 // tensors on its first addressable device. [Backend.Capabilities] lists supported
