@@ -299,7 +299,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcufile.so.0", "libcufile.so"}
+		return []string{"libcufile.so.0"}
 	case "darwin":
 		return []string{"libcufile.dylib"}
 	default:

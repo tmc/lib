@@ -6,12 +6,12 @@
   "packages": {
     "nvvm": {
       "package": "github.com/tmc/lib/nvidia/nvvm",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "5b2b5f5fe03200e2c4c10f7e5538111fb319d521",
-          "tree": "20a994aec576c4eb69e27855fe4efd926bacd107"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -113,11 +113,11 @@
           },
           {
             "path": "nvidia/nvvm/init.gen.go",
-            "sha256": "4eb372d7adc05435e628ec1051f64682cc7573706add99325d3582926e2c09a9"
+            "sha256": "d9fd9d7fc083218a3941ec4fc10b1b406b79f91b27a2a367c7421e175056fdfc"
           },
           {
             "path": "nvidia/nvvm/loader_test.go",
-            "sha256": "c914dd644087ce5ca31fe398c8ba98530c8029b1320c4a5edf0d5b4ae9d0178c"
+            "sha256": "a6f4828ef30323958e208cb7894862315b9b3cbb4c5c7de17ff48bf98b092dc4"
           },
           {
             "path": "nvidia/nvvm/loader_unix.gen.go",
@@ -130,6 +130,10 @@
           {
             "path": "nvidia/nvvm/program.gen.go",
             "sha256": "9ea10b427964d396699e22fd2334551679c9f6eb44fe48c9864fb8bee5ddd9ce"
+          },
+          {
+            "path": "nvidia/nvvm/provenance.gen.go",
+            "sha256": "c544b351647d2ce88ac0dc97ea9201813900c9c22f82324cba24e34c36d146a0"
           },
           {
             "path": "nvidia/nvvm/result.gen.go",
@@ -152,7 +156,7 @@
         "documentation upstream retrieval identities beyond retained JSON bytes"
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
-      "note": "The loader was regenerated after contrib/cuda gained ToolkitLibDirs, which emits the toolkit-relative library search; the recorded codegen commit is that change. Everything else in the package is byte-identical to the prior generation."
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The Linux candidate list no longer ends with the unversioned libnvvm.so; see the soname-pinning note in the cufft entry. The loader also picks up the bindSymbol guard, so nvvm gains the BindFailure/BindFailures reporting API and SymbolError gains Err/Unwrap. No other exported identifier changed."
     },
     "nvrtc": {
       "package": "github.com/tmc/lib/nvidia/nvrtc",
@@ -883,12 +887,12 @@
     },
     "cudnn": {
       "package": "github.com/tmc/lib/nvidia/cudnn",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -1078,7 +1082,7 @@
           },
           {
             "path": "nvidia/cudnn/init.gen.go",
-            "sha256": "8d5fcff7375ecbcb25f9f56f900d859f3dfe0d2cbbfd8a554721cb994a33093a"
+            "sha256": "c995ba6b378525206306852a7269436aa2c20765748a8dd9d0154b6bdc1862dc"
           },
           {
             "path": "nvidia/cudnn/layout_test.go",
@@ -1111,6 +1115,10 @@
           {
             "path": "nvidia/cudnn/pooling_descriptor.gen.go",
             "sha256": "77179749e44b38efbbecb5195c2fa53ffc20186eafecfbdcede23860aae74dca"
+          },
+          {
+            "path": "nvidia/cudnn/provenance.gen.go",
+            "sha256": "53087d4fd213192c5a444a12b39ad82d9ccd2c1e080cece1453817cb6624046a"
           },
           {
             "path": "nvidia/cudnn/reduce_tensor_descriptor.gen.go",
@@ -1302,7 +1310,7 @@
         "method": "byte concatenation without separators or transformations",
         "vendor_archive_member_exists": false
       },
-      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcudnn.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "gdrcopy": {
       "package": "github.com/tmc/lib/nvidia/gdrcopy",
@@ -1410,12 +1418,12 @@
     },
     "nvjpeg2k": {
       "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -1505,7 +1513,7 @@
           },
           {
             "path": "nvidia/nvjpeg2k/init.gen.go",
-            "sha256": "c803f17bbbc161c3d008ec7390ae45b4d4905c721ae50a5658e7cda0bee3f6f5"
+            "sha256": "2ce9c3f28b4f5d31a53e09aac0c50090bad749c3b43fdf3d73d5d6a3962a9b12"
           },
           {
             "path": "nvidia/nvjpeg2k/layout_test.go",
@@ -1522,6 +1530,10 @@
           {
             "path": "nvidia/nvjpeg2k/loader_windows.gen.go",
             "sha256": "126b844b4cfb74107efed4230845f9819ff93fb8957d45a41e85f17873fd9d21"
+          },
+          {
+            "path": "nvidia/nvjpeg2k/provenance.gen.go",
+            "sha256": "1dfaeecd08ef6ce01bb999c9d0c16c2d2d15f56544cc277b51f12dcca03c2da6"
           },
           {
             "path": "nvidia/nvjpeg2k/result.gen.go",
@@ -1557,7 +1569,8 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libnvjpeg2k.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "nvcomp": {
       "package": "github.com/tmc/lib/nvidia/nvcomp",
@@ -2157,12 +2170,12 @@
     },
     "custatevec": {
       "package": "github.com/tmc/lib/nvidia/custatevec",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2256,7 +2269,7 @@
           },
           {
             "path": "nvidia/custatevec/init.gen.go",
-            "sha256": "96a816c4a1f2450fbf79fb77c5a794c572ab3f6884cef21fb09466654ee44fd0"
+            "sha256": "db453f4b3f98b3ea8eb6de94fa191c1d7c9bf0fed89d1d19c7f35bc8c0a58a7c"
           },
           {
             "path": "nvidia/custatevec/layout_test.go",
@@ -2273,6 +2286,10 @@
           {
             "path": "nvidia/custatevec/loader_windows.gen.go",
             "sha256": "f2c9bd5c03ad97ba676829e781d598548b65c562448a8aa31fa14d1221397fba"
+          },
+          {
+            "path": "nvidia/custatevec/provenance.gen.go",
+            "sha256": "a2142f19746d578c8b9a6e13c33f611088370047e32db7a47bca5d1b4ec71c58"
           },
           {
             "path": "nvidia/custatevec/result.gen.go",
@@ -2297,16 +2314,16 @@
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
       },
-      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcustatevec.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "cutensornet": {
       "package": "github.com/tmc/lib/nvidia/cutensornet",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2404,7 +2421,7 @@
           },
           {
             "path": "nvidia/cutensornet/init.gen.go",
-            "sha256": "11ea422dcdf408ea490ee04be5e8b8658293ad17016dacb76d996f77cb2d2d4d"
+            "sha256": "d453686e7380a2fa94dea4889d8a92e4d2aecb88d290115af92d3cb16012ce5c"
           },
           {
             "path": "nvidia/cutensornet/layout_test.go",
@@ -2429,6 +2446,10 @@
           {
             "path": "nvidia/cutensornet/network_descriptor.gen.go",
             "sha256": "edbc66752278a4a2290d1ccc54ca778f50b5212c3c777cb41b93f0156a8fc13f"
+          },
+          {
+            "path": "nvidia/cutensornet/provenance.gen.go",
+            "sha256": "4d28950d667577e43c4ed9384285766b51d0a81f04e451d07cd6c5fbd8cc7cd9"
           },
           {
             "path": "nvidia/cutensornet/result.gen.go",
@@ -2477,7 +2498,8 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcutensornet.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "cudss": {
       "package": "github.com/tmc/lib/nvidia/cudss",
@@ -3898,8 +3920,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "ae49e4af89af5f342676ebd5a2d2a7781c7f262a",
-          "tree": "2aa17b0419fdabef5caa073ad68e462b85f36718"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4388,7 +4410,7 @@
           },
           {
             "path": "nvidia/curand/init.gen.go",
-            "sha256": "636f796b72e52f56d80b1e421352bb4c1bb442de1428e377219caed54108633f"
+            "sha256": "3537e537d5f80cfdd6fc29fdbc7d04f4f60c3f9bd8742792e4c396e3a38b1f63"
           },
           {
             "path": "nvidia/curand/loader_test.go",
@@ -4401,6 +4423,10 @@
           {
             "path": "nvidia/curand/loader_windows.gen.go",
             "sha256": "6a63a5cafc4054ea4a08b3c241381cb510ed583f2c70f457af8cbf0818ff7a3d"
+          },
+          {
+            "path": "nvidia/curand/provenance.gen.go",
+            "sha256": "fcca2ba84ae0f3bbc752bbaeb44b837e8ee2ea5dc45114e7883a0f8059b598d1"
           },
           {
             "path": "nvidia/curand/result.gen.go",
@@ -4521,7 +4547,8 @@
       "vendor": {
         "status": "archive-origin-unverified",
         "note": "Selected header hashes and repository commit verified; no vendor archive freshly acquired or authenticated in this offline pass."
-      }
+      },
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcurand.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "cufile": {
       "package": "github.com/tmc/lib/nvidia/cufile",
@@ -4529,8 +4556,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "6de8d1a4ac28ac8e2441fbf2e1ecc2d464baccf8",
-          "tree": "9dc79a689bafb9366dd47f6e863c1cb99a80aedb"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4940,7 +4967,7 @@
           },
           {
             "path": "nvidia/cufile/init.gen.go",
-            "sha256": "f4f642354dcc94a725567118fbc9b701ec27d1e02ce2408c39fee2977e3c709c"
+            "sha256": "39296077a3e6347816deb771c4be30af45ca2a038dc58c69919a45bdf6414b19"
           },
           {
             "path": "nvidia/cufile/layout_test.go",
@@ -4949,6 +4976,10 @@
           {
             "path": "nvidia/cufile/loader_test.go",
             "sha256": "409c744238737a109b22f1d435e8fd0c0a4e02cf44f121c12fa0a4028b95adbb"
+          },
+          {
+            "path": "nvidia/cufile/provenance.gen.go",
+            "sha256": "362353208bf955b15bb5dd6c052869c31d9512a067ea571f0f4322f25d34482c"
           },
           {
             "path": "nvidia/cufile/result.gen.go",
@@ -5498,16 +5529,17 @@
       "vendor": {
         "status": "archive-origin-unverified",
         "note": "Selected header hashes and repository commit verified; no vendor archive freshly acquired or authenticated in this offline pass."
-      }
+      },
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcufile.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "cusparse": {
       "package": "github.com/tmc/lib/nvidia/cusparse",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "712abfb69da9d38c85f5202a1d3b256ea792b300",
-          "tree": "7902f8e98cea15f8f0933f8eb5e4929de268041c"
+          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
+          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -6000,7 +6032,7 @@
           },
           {
             "path": "nvidia/cusparse/init.gen.go",
-            "sha256": "e486dc904d90e638cba7e91dc782478fe206aa46a540349fd682746c5c66fcbd"
+            "sha256": "47b2e066a4ed57422dfeec21db45dc2cec556c78b8a8ea4184728551b7ab85e9"
           },
           {
             "path": "nvidia/cusparse/loader_test.go",
@@ -6016,7 +6048,7 @@
           },
           {
             "path": "nvidia/cusparse/provenance.gen.go",
-            "sha256": "1a653614f37f497b9951279e9efcceab279d2149d1f58575f434656a0b05fa9f"
+            "sha256": "60add28b6ca58819c8d9c8b5e268bfacaec63f99450d184841a37d564ee7e367"
           },
           {
             "path": "nvidia/cusparse/result.gen.go",
@@ -6343,7 +6375,8 @@
       "vendor": {
         "status": "archive-origin-unverified",
         "note": "Selected header hashes and repository commit verified; no vendor archive freshly acquired or authenticated in this offline pass."
-      }
+      },
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcusparse.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
     },
     "vpi": {
       "package": "github.com/tmc/lib/nvidia/vpi",

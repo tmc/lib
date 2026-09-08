@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/curand-survey",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/Users/tmc/Library/Caches/go-build/b0/b0a58a493f13b253476fd81232b41c476216b252c0d09486f7a94d2500d71d71-d/curand-survey",
+    "-header",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers/curand/curand.h",
+    "-headers-dir",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/curand"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/curand/curand.h",
+      "sha256": "e1e56f0c668526253670f110b5c12171d099bdfff634ff1d0d9537e7c21c6c6e"
+    }
+  ],
+  "source_hash": "4cd4d37a29e39a0113918ce3476a6f3d6285bf430875b286ee5388cf67dd4356",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
