@@ -66,3 +66,18 @@ func (e *Engine) Devices() ([]*openxla.Device, error) {
 	}
 	return devices, nil
 }
+
+// MemoryStats returns a snapshot of the native allocator's counters for device.
+// Device must belong to this engine. Optional counters are nil when unavailable;
+// a plugin may also return an error if it does not implement memory statistics.
+// Close and memory queries must not run concurrently.
+func (e *Engine) MemoryStats(device *openxla.Device) (openxla.DeviceMemoryStats, error) {
+	if e == nil || e.client == nil {
+		return openxla.DeviceMemoryStats{}, fmt.Errorf("xla: engine is closed")
+	}
+	stats, err := e.client.MemoryStats(device)
+	if err != nil {
+		return openxla.DeviceMemoryStats{}, fmt.Errorf("xla: memory statistics: %w", err)
+	}
+	return stats, nil
+}

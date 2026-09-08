@@ -76,3 +76,25 @@ fails the run. Retain the Go version, code revision, plugin checksum, benchmark
 output, and matching test binary alongside profiles. Use repeated runs and
 `benchstat` for comparisons; these operation benchmarks do not establish model
 inference throughput.
+
+## Native memory statistics
+
+Call `engine.MemoryStats(device)` to query the PJRT allocator. `BytesInUse`
+is reported on success; other fields are pointers and are nil when the plugin
+omits them. A non-nil pointer to zero means the plugin reported zero.
+The snapshot owns its values and remains valid after the engine closes.
+
+Plugins can return an error when allocator statistics are unsupported. For
+example, the tested CPU plugin reports `GetAllocatorStats is not supported`.
+These counters complement Go heap profiles; they are not Go heap allocations,
+per-operation allocation measurements, or proof of a leak. Allocator pools can
+retain memory after buffers close.
+
+To require native statistics from a plugin that supports them:
+
+```sh
+XLA_PJRT_MEMORY_STATS_PLUGIN=/path/to/plugin.so \
+  GOWORK=off go test -run='^TestNativeMemoryStats$' -v
+```
+
+This opt-in test fails when the supplied plugin does not support the query.
