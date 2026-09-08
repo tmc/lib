@@ -1318,8 +1318,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -1400,11 +1400,15 @@
           },
           {
             "path": "nvidia/gdrcopy/init.gen.go",
-            "sha256": "e1d4f9c651e232486359e49708a8a546cd9d49a1f7e0a8a74d2cbb9f1a585df0"
+            "sha256": "d6b63f4e656a836fe4a20bf1305279e9fb231960915036bee3203175947103a3"
           },
           {
             "path": "nvidia/gdrcopy/loader_test.go",
             "sha256": "018f312923a7bdb625445c26a3a95966f9c896000845182d1ff997b9bd5977fd"
+          },
+          {
+            "path": "nvidia/gdrcopy/provenance.gen.go",
+            "sha256": "1ccb6b732dade66cbf75b3be6a277dade14cac9ffe13a150d761a6494aecfeb2"
           },
           {
             "path": "nvidia/gdrcopy/symbols_test.go",
@@ -1414,7 +1418,8 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libgdrcopy.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "nvjpeg2k": {
       "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
@@ -1574,12 +1579,12 @@
     },
     "nvcomp": {
       "package": "github.com/tmc/lib/nvidia/nvcomp",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -1651,7 +1656,7 @@
           },
           {
             "path": "nvidia/nvcomp/init.gen.go",
-            "sha256": "32a4031e48d6d95d8cac59c3dab79b635fd288fb86082d3f00f2f9dc423848c2"
+            "sha256": "05dad319665704d8ad5777a0325e75d4aa427d956425f330fdcb377df22996a6"
           },
           {
             "path": "nvidia/nvcomp/layout_test.go",
@@ -1675,7 +1680,7 @@
           },
           {
             "path": "nvidia/nvcomp/provenance.gen.go",
-            "sha256": "b9c5d81697c7377b5b09b6b3cd212b8d87053094b98f1e52248f3c60506733f4"
+            "sha256": "2064b8e20d1adc5129ae51d78afc0f15fd7d056559aea5ae16ca5c0fd6520747"
           },
           {
             "path": "nvidia/nvcomp/result.gen.go",
@@ -1728,16 +1733,16 @@
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       },
-      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libnvcomp.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "dcgm": {
       "package": "github.com/tmc/lib/nvidia/dcgm",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -1817,7 +1822,7 @@
           },
           {
             "path": "nvidia/dcgm/init.gen.go",
-            "sha256": "e48a415e2ee249aeb51db441238653f9ab96c4eeb8b5778a66ad35c7daf21b5b"
+            "sha256": "5f51fb800a8c8c68d7200d157e79c611538d98cb622ba90c4374e5f453aa955a"
           },
           {
             "path": "nvidia/dcgm/layout_test.go",
@@ -1842,6 +1847,10 @@
           {
             "path": "nvidia/dcgm/loader_windows.gen.go",
             "sha256": "3dc50ce2fd647f46d8db006a0de9d60d5011c3bea8e411a05178488ee9407105"
+          },
+          {
+            "path": "nvidia/dcgm/provenance.gen.go",
+            "sha256": "03297811b5903c5fc9b64b58093a756653752260e0d6b46a2bb3b3e5c6cf20bc"
           },
           {
             "path": "nvidia/dcgm/result.gen.go",
@@ -1900,16 +1909,17 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libdcgm.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "cublasmp": {
       "package": "github.com/tmc/lib/nvidia/cublasmp",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -1994,7 +2004,7 @@
           },
           {
             "path": "nvidia/cublasmp/init.gen.go",
-            "sha256": "b8b11a3c39f5e7ab5fbb715a39d18a3ff8b3bf959177085789770a437cc9855a"
+            "sha256": "67e79383d0d0ca5e00c5419b03304fa369f1af49bb27a9e7e384305042316a94"
           },
           {
             "path": "nvidia/cublasmp/loader_test.go",
@@ -2013,6 +2023,10 @@
             "sha256": "ff05c54f5ef78e6215b0f0e3026cb90d138c915a3d89ee75245fedd5fb092b05"
           },
           {
+            "path": "nvidia/cublasmp/provenance.gen.go",
+            "sha256": "7e3b25ab9dd7e2486fcb09332bc52231aa99cd9ebb3d1226bc82cd6ebf7252cb"
+          },
+          {
             "path": "nvidia/cublasmp/result.gen.go",
             "sha256": "7259abf89c745de88bef5490159c6e6c3edc598eab7a1741b3de8586a6276741"
           },
@@ -2027,16 +2041,16 @@
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
       },
-      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libcublasmp.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "cusolvermp": {
       "package": "github.com/tmc/lib/nvidia/cusolvermp",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2121,7 +2135,7 @@
           },
           {
             "path": "nvidia/cusolvermp/init.gen.go",
-            "sha256": "8c5ebcf528e6d54b9623dac92cfb621958f78e80a68d00761332fed13d7b752c"
+            "sha256": "b036ed27bdd6dc037a34c8d08d6578157b8cf79e5b70de7071429fbe26f2173a"
           },
           {
             "path": "nvidia/cusolvermp/loader_test.go",
@@ -2148,6 +2162,10 @@
             "sha256": "4e7b89322a7fa5b35c13bfc591c2265269c8c89756253f1e7a093cf62c8e3c67"
           },
           {
+            "path": "nvidia/cusolvermp/provenance.gen.go",
+            "sha256": "16ac27ed3da58c051c0fbec9e15c0e262826d2c688b5fb2ca60470f24cc7afee"
+          },
+          {
             "path": "nvidia/cusolvermp/result.gen.go",
             "sha256": "c19ce2177891837c64c3a78aadabc62512a33750f694775abfeda4c05c0cc6a3"
           },
@@ -2166,7 +2184,7 @@
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
       },
-      "note": "init.gen.go was regenerated after this record with the bindSymbol guard added in codegen commit 96ee0f6719092eb489ce45c8284982391057ee29 (\"ffigen, contrib/cuda, gen-nvcodec: never panic while binding\"), which routes purego.RegisterFunc through a recovering helper so an unbindable signature leaves the symbol unbound instead of panicking at load. The pinned codegen commit predates it and no longer reproduces init.gen.go byte for byte; the recorded output digest is the integrated file. No other generated file changed."
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libcusolvermp.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "custatevec": {
       "package": "github.com/tmc/lib/nvidia/custatevec",
@@ -2507,8 +2525,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2597,7 +2615,7 @@
           },
           {
             "path": "nvidia/cudss/init.gen.go",
-            "sha256": "e602c8867b6b1133ca003bdaa7704ffdb9d2481997ccaf34e41cba6940f294b7"
+            "sha256": "e6502ffeeb78e6315d2ea2fa27804322a227b53b81257358fef8c797dce21eaf"
           },
           {
             "path": "nvidia/cudss/layout_test.go",
@@ -2618,6 +2636,10 @@
           {
             "path": "nvidia/cudss/params_abi_test.go",
             "sha256": "d37322445fb206a2746f8074ca6b7d4f3c38415a037c753d152d26706600a1ae"
+          },
+          {
+            "path": "nvidia/cudss/provenance.gen.go",
+            "sha256": "e9bbfdb3310f7bb4271f83fa44cf9ba1ebd7a46eb41013ffd8a6b085eb09b766"
           },
           {
             "path": "nvidia/cudss/result.gen.go",
@@ -2657,7 +2679,8 @@
       ],
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libcudss.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "nvshmem": {
       "package": "github.com/tmc/lib/nvidia/nvshmem",
@@ -2845,12 +2868,12 @@
     },
     "cudensitymat": {
       "package": "github.com/tmc/lib/nvidia/cudensitymat",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "280bb653b7c272f74d0e71626a0946af4d683983",
+          "tree": "059b7f71220a2370e2b5481231edb5f1c7a52632"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2946,7 +2969,7 @@
           },
           {
             "path": "nvidia/cudensitymat/init.gen.go",
-            "sha256": "4231b71ac40eefc05ffd6d3df9ddccc65094015c31546bc47cca1374f0ff9301"
+            "sha256": "449985af75d22d8b2d089622fd52931536e7c999bb47af9b65160a8950e19f88"
           },
           {
             "path": "nvidia/cudensitymat/layout_test.go",
@@ -2971,6 +2994,10 @@
           {
             "path": "nvidia/cudensitymat/operator_term.gen.go",
             "sha256": "65281d9e10fa4b584a76eeba39998842a10e4ed82abdd202adedde6125b6c089"
+          },
+          {
+            "path": "nvidia/cudensitymat/provenance.gen.go",
+            "sha256": "64f0f64ef852b3021d9e5f3635b8e53efcccfc51b50f8171edb61e030cfd4833"
           },
           {
             "path": "nvidia/cudensitymat/result.gen.go",
@@ -2998,7 +3025,8 @@
       },
       "documentation": {
         "note": "This generator takes no documentation directory; its documentation text is embedded in codegen at the recorded commit."
-      }
+      },
+      "note": "Regenerated 2026-09-08 after the generator config stopped listing the unversioned lib name; the Linux candidate list is now libcudensitymat.so.N alone. init.gen.go is the only file that changed and the exported API is unchanged."
     },
     "nvenc": {
       "package": "github.com/tmc/lib/nvidia/nvenc",

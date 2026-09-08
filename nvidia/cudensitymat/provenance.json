@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-cudensitymat",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build3858649651/b001/exe/gen-cudensitymat",
+    "-headers",
+    "cmd/gen-cudensitymat/headers",
+    "-cuda-headers",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cudensitymat"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-cudensitymat/headers/cudensitymat.h",
+      "sha256": "50625556ef18505d3a9c427b01491952eeeecbd7440061f1b8d12f6c4885ae59"
+    }
+  ],
+  "source_hash": "f3cf72dedb526cbb679b39f9e8cbbcd35c13dc5ce790c9e7d22b713933d2997b",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

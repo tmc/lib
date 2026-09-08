@@ -30,8 +30,8 @@ var (
 	// successfully, calls skip loadMu entirely.
 	ready atomic.Bool
 
-	// explicitLoad records that the loaded library was named by a Load
-	// call rather than opened by the lazy path on first use.
+	// explicitLoad records that a successful Load acknowledged the current library.
+	// It stays false while only the lazy path has opened it.
 	explicitLoad bool
 
 	// present records which symbols resolved during registerFuncs. It is
@@ -73,9 +73,9 @@ type LibraryConflictError struct {
 	Loaded    string
 	Requested string
 
-	// Implicit reports that the loaded library was opened by the lazy
-	// path on the first call into this package, not by a Load call. A
-	// caller that sees this made no conflicting Load: it called some
+	// Implicit reports that the loaded library was opened lazily and no
+	// successful Load has since acknowledged it. A
+	// caller that sees this called some
 	// other function first, and that call took the default search list.
 	Implicit bool
 }
@@ -105,6 +105,7 @@ func Load(path string) error {
 		if path != "" && path != libPath {
 			return &LibraryConflictError{Loaded: libPath, Requested: path, Implicit: !explicitLoad}
 		}
+		explicitLoad = true
 		return nil
 	}
 	attempted = false
@@ -284,7 +285,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libgdrapi.so.2", "libgdrapi.so"}
+		return []string{"libgdrapi.so.2"}
 	default:
 		return nil
 	}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-dcgm",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build638591037/b001/exe/gen-dcgm",
+    "-headers",
+    "cmd/gen-dcgm/headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/dcgm"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-dcgm/headers/dcgm_agent.h",
+      "sha256": "1089cc2aff5e32d28d4a5f90d90b2c2742966549e37655933e5faf59da25c708"
+    }
+  ],
+  "source_hash": "f2483eb2dd4531d3cfe14d5d836ace0b4d013fe78c2a47dd00c73ae74e086578",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

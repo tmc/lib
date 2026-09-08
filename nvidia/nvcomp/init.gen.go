@@ -296,7 +296,7 @@ func pkgConfigHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnvcomp.so.5", "libnvcomp.so"}
+		return []string{"libnvcomp.so.5"}
 	default:
 		return nil
 	}

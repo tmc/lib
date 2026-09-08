@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-cusolvermp",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build3667121411/b001/exe/gen-cusolvermp",
+    "-cuda-headers",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cusolvermp"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-cusolvermp/headers/cusolverMp.h",
+      "sha256": "a5f235a0a357b018abe65718bb9eb766e14bff2febffcf4ea971d372aa89acaa"
+    }
+  ],
+  "source_hash": "aca817405c3132720469e4b953bdee924360a106bcbb804e9048fd782aa2ac2d",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

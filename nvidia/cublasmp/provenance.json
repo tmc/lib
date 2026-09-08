@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-cublasmp",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build2192550549/b001/exe/gen-cublasmp",
+    "-cuda-headers",
+    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cublasmp"
+  ],
+  "inputs": [
+    {
+      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-cublasmp/headers/cublasmp.h",
+      "sha256": "024414f9be9a4c2b98c18ea7160a071939882b850209674505f8f51a8a594a7e"
+    }
+  ],
+  "source_hash": "da7a08a3bd0e7049a3d1db5a6ad3b069cf129e5016e9fa4b13a15218c4f34ed8",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
