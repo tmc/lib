@@ -125,4 +125,6 @@ validation rejects mismatched batch dimensions before emitting IR. Actual
 layers.Embedding gradients match host row counts; built-in Adam updates match
 a host calculation. A fresh backend and model store reproduce three checkpoint
 continuation steps with identical state tensors. Resetting optimizer moments
-changes the next update. ScatterMin and ScatterMax remain unsupported.
+changes the next update. ScatterMin and ScatterMax use the same validated layout. Native signed, unsigned,
+and Float64 tests check repeated indices, preserved initial values, and ignored
+out-of-range updates; upstream scatter conformance also passes.

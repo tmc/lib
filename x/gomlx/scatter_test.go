@@ -81,3 +81,56 @@ func TestScatterValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeScatterExtrema(t *testing.T) {
+	path := os.Getenv("TMC_COMPUTE_PLUGIN")
+	if path == "" {
+		t.Skip("set TMC_COMPUTE_PLUGIN")
+	}
+	b, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := b.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	for _, tc := range []struct {
+		name                   string
+		max                    bool
+		operand, updates, want any
+	}{
+		{"signed minimum", false, []int64{9007199254740993, -4, 10}, []int64{9007199254740994, -8, 2, -100}, []int64{9007199254740993, -8, 10}},
+		{"signed maximum", true, []int64{9007199254740993, -4, 10}, []int64{9007199254740994, -8, 2, 100}, []int64{9007199254740994, 2, 10}},
+		{"unsigned minimum", false, []uint64{1<<63 + 3, 1<<63 + 4, 7}, []uint64{1<<63 + 2, 1<<63 + 5, 1<<63 + 1, 0}, []uint64{1<<63 + 2, 1<<63 + 1, 7}},
+		{"unsigned maximum", true, []uint64{1<<63 + 3, 1<<63 + 4, 7}, []uint64{1<<63 + 2, 1<<63 + 5, 1<<63 + 1, 0}, []uint64{1<<63 + 3, 1<<63 + 5, 7}},
+		{"float minimum", false, []float64{1.25, -4, 10}, []float64{.5, -8, 2, -100}, []float64{.5, -8, 10}},
+		{"float maximum", true, []float64{1.25, -4, 10}, []float64{.5, -8, 2, 100}, []float64{1.25, 2, 10}},
+	} {
+		for _, layout := range []struct {
+			name    string
+			indices any
+			axis    int
+		}{
+			{"implicit", []int32{0, 1, 1, 99}, 1},
+			{"leading", [][]int32{{0, 1, 1, 99}}, 0},
+			{"trailing", [][]int32{{0}, {1}, {1}, {99}}, 1},
+		} {
+			t.Run(tc.name+"/"+layout.name, func(t *testing.T) {
+				got, err := testutil.Exec1(b, []any{tc.operand, layout.indices, tc.updates}, func(f compute.Function, v []compute.Value) (compute.Value, error) {
+					if tc.max {
+						return f.ScatterMax(v[0], v[1], v[2], layout.axis, nil, []int{0}, []int{0}, false, false)
+					}
+					return f.ScatterMin(v[0], v[1], v[2], layout.axis, nil, []int{0}, []int{0}, false, false)
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Fatalf("got%v want%v", got, tc.want)
+				}
+			})
+		}
+	}
+}

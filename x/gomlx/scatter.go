@@ -10,6 +10,18 @@ import (
 )
 
 func (f *function) ScatterSum(operand, indices, updates compute.Value, vectorAxis int, windowAxes, insertedAxes, mapping []int, sorted, unique bool) (compute.Value, error) {
+	return f.scatter("add", operand, indices, updates, vectorAxis, windowAxes, insertedAxes, mapping, sorted, unique)
+}
+
+func (f *function) ScatterMin(operand, indices, updates compute.Value, vectorAxis int, windowAxes, insertedAxes, mapping []int, sorted, unique bool) (compute.Value, error) {
+	return f.scatter("minimum", operand, indices, updates, vectorAxis, windowAxes, insertedAxes, mapping, sorted, unique)
+}
+
+func (f *function) ScatterMax(operand, indices, updates compute.Value, vectorAxis int, windowAxes, insertedAxes, mapping []int, sorted, unique bool) (compute.Value, error) {
+	return f.scatter("maximum", operand, indices, updates, vectorAxis, windowAxes, insertedAxes, mapping, sorted, unique)
+}
+
+func (f *function) scatter(op string, operand, indices, updates compute.Value, vectorAxis int, windowAxes, insertedAxes, mapping []int, sorted, unique bool) (compute.Value, error) {
 	if f.owner.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
@@ -38,10 +50,10 @@ func (f *function) ScatterSum(operand, indices, updates compute.Value, vectorAxi
 		return nil, err
 	}
 	if x.Type.ElementType == "i1" {
-		return nil, fmt.Errorf("scatter sum: numeric operand required")
+		return nil, fmt.Errorf("scatter: numeric operand required")
 	}
 	if vectorAxis < 0 || vectorAxis > is.Rank() {
-		return nil, fmt.Errorf("scatter sum: invalid index vector axis")
+		return nil, fmt.Errorf("scatter: invalid index vector axis")
 	}
 	// Normalize the implicit axis for inference, including its error paths.
 	if vectorAxis == is.Rank() {
@@ -51,17 +63,17 @@ func (f *function) ScatterSum(operand, indices, updates compute.Value, vectorAxi
 		seen := make(map[int]bool)
 		for _, axis := range axes {
 			if seen[axis] {
-				return nil, fmt.Errorf("scatter sum: duplicate dimension")
+				return nil, fmt.Errorf("scatter: duplicate dimension")
 			}
 			seen[axis] = true
 		}
 		if i < 2 && !slices.IsSorted(axes) {
-			return nil, fmt.Errorf("scatter sum: window dimensions must be sorted")
+			return nil, fmt.Errorf("scatter: window dimensions must be sorted")
 		}
 	}
 	shape, err := shapeinference.Scatter(xs, is, us, vectorAxis, windowAxes, insertedAxes, mapping)
 	if err != nil {
-		return nil, fmt.Errorf("scatter sum: %w", err)
+		return nil, fmt.Errorf("scatter: %w", err)
 	}
 	// Inference checks ranks and window sizes but not the batch dimensions.
 	batch := 0
@@ -73,7 +85,7 @@ func (f *function) ScatterSum(operand, indices, updates compute.Value, vectorAxi
 			batch++
 		}
 		if size != is.Dimensions[batch] {
-			return nil, fmt.Errorf("scatter sum: batch dimensions do not match")
+			return nil, fmt.Errorf("scatter: batch dimensions do not match")
 		}
 		batch++
 	}
@@ -84,8 +96,8 @@ func (f *function) ScatterSum(operand, indices, updates compute.Value, vectorAxi
 	scalar := hlo.Type{ElementType: x.Type.ElementType}
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf(`%s = "stablehlo.scatter"(%s, %s, %s) ({
  ^bb0(%%lhs: %s, %%rhs: %s):
-  %%sum = stablehlo.add %%lhs, %%rhs : %s
+  %%sum = stablehlo.%s %%lhs, %%rhs : %s
   stablehlo.return %%sum : %s
- }) {scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = %s, inserted_window_dims = %s, scatter_dims_to_operand_dims = %s, index_vector_dim = %d>, indices_are_sorted = %t, unique_indices = %t} : (%s, %s, %s) -> %s`, z.ID, x.ID, idx.ID, u.ID, scalar, scalar, scalar, scalar, indexArray(windowAxes), indexArray(insertedAxes), indexArray(mapping), vectorAxis, sorted, unique, x.Type, idx.Type, u.Type, z.Type))
+ }) {scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = %s, inserted_window_dims = %s, scatter_dims_to_operand_dims = %s, index_vector_dim = %d>, indices_are_sorted = %t, unique_indices = %t} : (%s, %s, %s) -> %s`, z.ID, x.ID, idx.ID, u.ID, scalar, scalar, op, scalar, scalar, indexArray(windowAxes), indexArray(insertedAxes), indexArray(mapping), vectorAxis, sorted, unique, x.Type, idx.Type, u.Type, z.Type))
 	return &node{f, z}, nil
 }
