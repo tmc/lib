@@ -4,7 +4,7 @@ package cublas
 
 import "fmt"
 
-// FillMode The type indicates which part (lower or upper) of the dense matrix was filled and consequently should be used by the function. Its values correspond to Fortran characters L or l (lower) and U or u (upper) that are often used as parameters to legacy BLAS implementations.
+// FillMode represents cublasFillMode_t.
 type FillMode int32
 
 const (
@@ -13,6 +13,7 @@ const (
 	FillModeFull  FillMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FillMode) String() string {
 	switch e {
 	case FillModeLower:
@@ -25,7 +26,7 @@ func (e FillMode) String() string {
 	return fmt.Sprintf("FillMode(%d)", e)
 }
 
-// DiagType The type indicates whether the main diagonal of the dense matrix is unity and consequently should not be touched or modified by the function. Its values correspond to Fortran characters ‘N’ or ‘n’ (non-unit) and ‘U’ or ‘u’ (unit) that are often used as parameters to legacy BLAS implementations.
+// DiagType represents cublasDiagType_t.
 type DiagType int32
 
 const (
@@ -33,6 +34,7 @@ const (
 	DiagUnit    DiagType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DiagType) String() string {
 	switch e {
 	case DiagNonUnit:
@@ -43,7 +45,7 @@ func (e DiagType) String() string {
 	return fmt.Sprintf("DiagType(%d)", e)
 }
 
-// SideMode The type indicates whether the dense matrix is on the left or right side in the matrix equation solved by a particular function. Its values correspond to Fortran characters ‘L’ or ‘l’ (left) and ‘R’ or ‘r’ (right) that are often used as parameters to legacy BLAS implementations.
+// SideMode represents cublasSideMode_t.
 type SideMode int32
 
 const (
@@ -51,6 +53,7 @@ const (
 	SideRight SideMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SideMode) String() string {
 	switch e {
 	case SideLeft:
@@ -61,7 +64,7 @@ func (e SideMode) String() string {
 	return fmt.Sprintf("SideMode(%d)", e)
 }
 
-// Operation The [Operation] type indicates which operation needs to be performed with the dense matrix.
+// Operation represents cublasOperation_t.
 type Operation int32
 
 const (
@@ -69,10 +72,10 @@ const (
 	OpT        Operation = 1
 	OpC        Operation = 2
 	OpHermitan Operation = 2 // synonym if [OpC]
-	// OpConjg: conjugate, placeholder - not supported in the current release
-	OpConjg Operation = 3
+	OpConjg    Operation = 3 // conjugate, placeholder - not supported in the current release
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Operation) String() string {
 	switch e {
 	case OpN:
@@ -87,7 +90,7 @@ func (e Operation) String() string {
 	return fmt.Sprintf("Operation(%d)", e)
 }
 
-// PointerMode The [PointerMode] type indicates whether the scalar values are passed by reference on the host or device.
+// PointerMode represents cublasPointerMode_t.
 type PointerMode int32
 
 const (
@@ -95,6 +98,7 @@ const (
 	PointerModeDevice PointerMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerMode) String() string {
 	switch e {
 	case PointerModeHost:
@@ -105,7 +109,7 @@ func (e PointerMode) String() string {
 	return fmt.Sprintf("PointerMode(%d)", e)
 }
 
-// AtomicsMode The type indicates whether cuBLAS routines which has an alternate implementation using atomics can be used.
+// AtomicsMode represents cublasAtomicsMode_t.
 type AtomicsMode int32
 
 const (
@@ -113,6 +117,7 @@ const (
 	AtomicsAllowed    AtomicsMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AtomicsMode) String() string {
 	switch e {
 	case AtomicsNotAllowed:
@@ -123,7 +128,7 @@ func (e AtomicsMode) String() string {
 	return fmt.Sprintf("AtomicsMode(%d)", e)
 }
 
-// GemmAlgo [GemmAlgo] type is an enumerant to specify the algorithm for matrix-matrix multiplication on GPU architectures up to sm_75. On sm_80 and newer GPU architectures, this enumerant has no effect. cuBLAS has the following algorithm options:
+// GemmAlgo represents cublasGemmAlgo_t.
 type GemmAlgo int32
 
 const (
@@ -171,10 +176,10 @@ const (
 	GemmAlgo13TensorOp  GemmAlgo = 113
 	GemmAlgo14TensorOp  GemmAlgo = 114
 	GemmAlgo15TensorOp  GemmAlgo = 115
-	// GemmAutotune: benchmark available algorithms and choose optimal one, cached in handle
-	GemmAutotune GemmAlgo = 999
+	GemmAutotune        GemmAlgo = 999 // benchmark available algorithms and choose optimal one, cached in handle
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GemmAlgo) String() string {
 	switch e {
 	case GemmDfalt:
@@ -267,7 +272,7 @@ func (e GemmAlgo) String() string {
 	return fmt.Sprintf("GemmAlgo(%d)", e)
 }
 
-// Math [Math] enumerate type is used in [Handle.SetMathMode] to choose compute precision modes as defined in the following table. Since this setting does not directly control the use of Tensor Cores, the mode [TensorOpMath] is being deprecated, and will be removed in a future release.
+// Math represents cublasMath_t.
 type Math int32
 
 const (
@@ -280,6 +285,7 @@ const (
 	MathDisallowReducedPrecisionReduction Math = 16
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Math) String() string {
 	switch e {
 	case DefaultMath:
@@ -300,17 +306,16 @@ func (e Math) String() string {
 	return fmt.Sprintf("Math(%d)", e)
 }
 
-// ComputeType [ComputeType] enumerate type is used in [Handle.GemmEx] and cublasLtMatmul() (including all batched and strided batched variants) to choose compute precision modes as defined below. Note Setting the environment variable NVIDIA_TF32_OVERRIDE = 0 will override any defaults or programmatic configuration of NVIDIA libraries, and consequently, cuBLAS will not accelerate single-precision computations with TF32 tensor cores.
+// ComputeType represents cublasComputeType_t.
 type ComputeType int32
 
 const (
-	Compute16F         ComputeType = 64 // half - default
-	Compute16FPedantic ComputeType = 65 // half - pedantic
-	Compute32F         ComputeType = 68 // float - default
-	Compute32FPedantic ComputeType = 69 // float - pedantic
-	Compute32FFast16F  ComputeType = 74 // float - fast, allows down-converting inputs to half or TF32
-	// Compute32FFast16BF: float - fast, allows down-converting inputs to bfloat16 or TF32
-	Compute32FFast16BF           ComputeType = 75
+	Compute16F                   ComputeType = 64 // half - default
+	Compute16FPedantic           ComputeType = 65 // half - pedantic
+	Compute32F                   ComputeType = 68 // float - default
+	Compute32FPedantic           ComputeType = 69 // float - pedantic
+	Compute32FFast16F            ComputeType = 74 // float - fast, allows down-converting inputs to half or TF32
+	Compute32FFast16BF           ComputeType = 75 // float - fast, allows down-converting inputs to bfloat16 or TF32
 	Compute32FFastTF32           ComputeType = 77 // float - fast, allows down-converting inputs to TF32
 	Compute32FEmulated16bfx9     ComputeType = 78 // float - emulated, converts inputs into 3xBF16 values
 	Compute64F                   ComputeType = 70 // double - default
@@ -320,6 +325,7 @@ const (
 	Compute32IPedantic           ComputeType = 73 // signed 32-bit int - pedantic
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ComputeType) String() string {
 	switch e {
 	case Compute16F:
@@ -352,7 +358,7 @@ func (e ComputeType) String() string {
 	return fmt.Sprintf("ComputeType(%d)", e)
 }
 
-// EmulationStrategy [EmulationStrategy] enumerate type is used in [Handle.SetEmulationStrategy] to choose how to leverage floating point emulation algorithms. Note In general, the [Handle.SetEmulationStrategy] function takes precedence over the environment variable setting. However, setting the environment variable [EmulationStrategy] to performant or eager will override the default emulation strategy with the corresponding emulation strategy, even if the default strategy was set by the function call.
+// EmulationStrategy represents cublasEmulationStrategy_t.
 type EmulationStrategy int32
 
 const (
@@ -361,6 +367,7 @@ const (
 	EmulationStrategyEager      EmulationStrategy = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EmulationStrategy) String() string {
 	switch e {
 	case EmulationStrategyDefault:

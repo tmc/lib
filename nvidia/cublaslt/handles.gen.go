@@ -2,7 +2,7 @@
 
 package cublaslt
 
-// Handle is the [Handle] type is a pointer type to an opaque structure holding the cuBLASLt library context.
+// Handle is an opaque handle for cublasLtHandle_t.
 type Handle uintptr
 
 // EmulationDesc is an opaque handle for cublasLtEmulationDesc_t.

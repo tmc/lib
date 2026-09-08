@@ -80,38 +80,51 @@ const (
 	R4U DataType = 18
 	// 4-bit complex unsigned int pair.
 	C4U DataType = 19
-	// 16-bit real signed int.
-	R16I DataType = 20
-	// 16-bit complex signed int pair.
-	C16I DataType = 21
-	// 16-bit real unsigned int.
-	R16U DataType = 22
-	// 16-bit complex unsigned int pair.
-	C16U DataType = 23
-	// 64-bit real signed int.
-	R64I DataType = 24
-	// 64-bit complex signed int pair.
-	C64I DataType = 25
-	// 64-bit real unsigned int.
-	R64U DataType = 26
-	// 64-bit complex unsigned int pair.
-	C64U DataType = 27
-	// 8-bit real fp8 e4m3.
+	// Value 20 now denotes R16I in cudaDataType; R16F_Aligned8 is a legacy cuBLASLt spelling.
+	R16F_Aligned8 DataType = 20
+	// Value 21 now denotes C16I in cudaDataType; R16BF_Aligned8 is a legacy cuBLASLt spelling.
+	R16BF_Aligned8 DataType = 21
+	// 8-bit real float with 4-bit exponent and 3-bit mantissa (fp8 e4m3).
 	R8F_E4M3 DataType = 28
-	// 8-bit real fp8 e5m2.
+	// 8-bit real float with 5-bit exponent and 2-bit mantissa (fp8 e5m2).
 	R8F_E5M2 DataType = 29
-	// 8-bit real unsigned fp8 e8m0 (exponent-only).
+	// real as a signed 16-bit int
+	R16I DataType = 20
+	// complex as a pair of signed 16-bit int numbers
+	C16I DataType = 21
+	// real as a unsigned 16-bit int
+	R16U DataType = 22
+	// complex as a pair of unsigned 16-bit int numbers
+	C16U DataType = 23
+	// real as a signed 64-bit int
+	R64I DataType = 24
+	// complex as a pair of signed 64-bit int numbers
+	C64I DataType = 25
+	// real as a unsigned 64-bit int
+	R64U DataType = 26
+	// complex as a pair of unsigned 64-bit int numbers
+	C64U DataType = 27
+	// real as an unsigned nv_fp8_e4m3
+	R8F_UE4M3 DataType = R8F_E4M3
+	// real as an exponent-only unsigned nv_fp8_e8m0
 	R8F_UE8M0 DataType = 30
-	// 6-bit real fp6 e2m3.
+	// real as a nv_fp6_e2m3
 	R6F_E2M3 DataType = 31
-	// 6-bit real fp6 e3m2.
+	// real as a nv_fp6_e3m2
 	R6F_E3M2 DataType = 32
-	// 4-bit real fp4 e2m1.
+	// real as a nv_fp4_e2m1
 	R4F_E2M1 DataType = 33
 )
 
 // LibraryPropertyType identifies a library property to query.
 type LibraryPropertyType int32
+
+// LibraryPropertyType constants.
+const (
+	MajorVersion LibraryPropertyType = 0
+	MinorVersion LibraryPropertyType = 1
+	PatchLevel   LibraryPropertyType = 2
+)
 
 // Stream is an opaque handle to a CUDA stream.
 type Stream uintptr
