@@ -61,17 +61,17 @@ func (b *Backend) Description() string { return "TMC PJRT backend for static F32
 func (b *Backend) Finalize() { _ = b.Close() }
 
 // Close releases all live buffers and executables before closing the engine.
+// Errors from previously finalized children are retained.
 // Repeated calls return the retained cleanup error.
 func (b *Backend) Close() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.engine != nil {
 		for v := range b.buffers {
-			b.closeErr = errors.Join(b.closeErr, v.finalize())
+			_ = v.finalize()
 		}
 		for e := range b.executables {
 			e.finalize()
-			b.closeErr = errors.Join(b.closeErr, e.closeErr)
 		}
 		b.closeErr = errors.Join(b.closeErr, b.engine.Close())
 		b.engine = nil
@@ -173,7 +173,9 @@ func (b *buffer) finalize() error {
 	v := b.raw
 	b.raw = nil
 	delete(b.backend.buffers, b)
-	return v.Close()
+	err := v.Close()
+	b.backend.closeErr = errors.Join(b.backend.closeErr, err)
+	return err
 }
 func (b *buffer) Shape() (shapes.Shape, error) {
 	b.backend.mu.Lock()
@@ -415,6 +417,7 @@ func (e *executable) finalize() {
 	if e.raw != nil {
 		delete(e.owner.executables, e)
 		e.closeErr = e.raw.Close()
+		e.owner.closeErr = errors.Join(e.owner.closeErr, e.closeErr)
 		e.raw = nil
 	}
 }
