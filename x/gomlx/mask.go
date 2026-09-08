@@ -17,7 +17,7 @@ func (f *function) LessThan(a, b compute.Value) (compute.Value, error) {
 func (f *function) compare(a, b compute.Value, direction string) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
 		kind := "SIGNED"
-		if x.Type.ElementType == "f32" {
+		if x.Type.ElementType == "f32" || x.Type.ElementType == "f64" {
 			kind = "FLOAT"
 		}
 		if x.Type.ElementType == "i1" || x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
@@ -76,4 +76,21 @@ func (f *function) Where(condition, onTrue, onFalse compute.Value) (compute.Valu
 
 func (f *function) LessOrEqual(a, b compute.Value) (compute.Value, error) {
 	return f.compare(a, b, "LE")
+}
+
+func (f *function) GreaterThan(a, b compute.Value) (compute.Value, error) {
+	return f.compare(a, b, "GT")
+}
+func (f *function) GreaterOrEqual(a, b compute.Value) (compute.Value, error) {
+	return f.compare(a, b, "GE")
+}
+func (f *function) LogicalOr(a, b compute.Value) (compute.Value, error) {
+	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
+		if x.Type.ElementType != "i1" {
+			return hlo.Value{}, fmt.Errorf("logical or: boolean operands required")
+		}
+		z := hlo.Value{ID: fmt.Sprintf("%%or%d", len(f.raw.Ops)), Type: x.Type}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.or %s, %s : %s", z.ID, x.ID, y.ID, x.Type))
+		return z, nil
+	})
 }

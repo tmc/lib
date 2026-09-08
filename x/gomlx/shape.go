@@ -131,3 +131,29 @@ func (f *function) Concatenate(axis int, operands ...compute.Value) (compute.Val
 	}
 	return &node{f, z}, nil
 }
+
+func (f *function) DynamicUpdateSlice(operand, update compute.Value, starts []compute.Value) (compute.Value, error) {
+	if f.owner.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(operand)
+	if err != nil {
+		return nil, err
+	}
+	y, err := f.value(update)
+	if err != nil {
+		return nil, err
+	}
+	indices := make([]hlo.Value, len(starts))
+	for i, v := range starts {
+		indices[i], err = f.value(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	z, err := f.raw.DynamicUpdateSlice(x, y, indices)
+	if err != nil {
+		return nil, err
+	}
+	return &node{f, z}, nil
+}

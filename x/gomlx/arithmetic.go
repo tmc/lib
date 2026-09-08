@@ -258,3 +258,14 @@ func (f *function) Neg(v compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "sine") }
+
+func (f *function) Rem(a, b compute.Value) (compute.Value, error) {
+	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
+		if x.Type.ElementType == "i1" {
+			return hlo.Value{}, unsupported
+		}
+		z := hlo.Value{ID: fmt.Sprintf("%%rem%d", len(f.raw.Ops)), Type: x.Type}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.remainder %s, %s : %s", z.ID, x.ID, y.ID, x.Type))
+		return z, nil
+	})
+}

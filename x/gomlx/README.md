@@ -16,9 +16,9 @@ explicitly when cleanup errors matter. Runtime calls are safe for concurrent
 use and serialize native access. Each graph builder has one owner.
 
 Current support is static Bool, F32, F64, Int8, Int32, Int64, Uint8, Uint32, and Uint64 on the first exposed device: constants,
-parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Pow and Neg for numeric types; F32 Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
-Reshape, Transpose, Slice, Concatenate, numeric Iota, ReduceSum, ReduceMax,
-comparisons (Equal, LessThan, and LessOrEqual), LogicalAnd,
+parameters, Add, Sub, Mul, Div, ConvertDType, Identity, Rem, Pow and Neg for numeric types; F32 Sqrt, Exp, Log, Abs, Cos, and Sin; Min and Max, BroadcastInDim,
+Reshape, Transpose, Slice, DynamicUpdateSlice, Concatenate, numeric Iota, ReduceSum, ReduceMax,
+comparisons (Equal, LessThan, LessOrEqual, GreaterThan, and GreaterOrEqual), LogicalAnd and LogicalOr,
 Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
 subfunctions, sharding, and remaining operations return unsupported errors.
@@ -86,3 +86,12 @@ The upstream backendtest.RunAll suite runs in TestNativeConformance. It skips
 unsupported advertised capabilities, so a passing run is not full operation
 coverage. Int8 and Uint8 tests also exercise every possible byte value through
 transport, constants, arithmetic, widening conversion, comparison, and reduction.
+
+## GoMLX KV cache
+
+Native tests execute the upstream KVCache.Update and BuildAttentionMask paths
+with one- and three-token chunks, zero or two attention sinks, and optional
+three-token sliding windows. A host cache model checks every key/value slot
+and causal mask across multiple wraparounds. Native outputs feed the next
+execution. This qualifies those static CPU paths, not cache growth, sharding,
+or an end-to-end inference speedup.
