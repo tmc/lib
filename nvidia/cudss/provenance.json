@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/codegen/cmd/gen-cudss",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "argv": [
+    "$TMPDIR/go-build1641205616/b001/exe/gen-cudss",
+    "-cuda-headers",
+    "$HOME/go/src/github.com/tmc/cuda-headers",
+    "-output",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/cudss"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-cudss/headers/cudss.h",
+      "sha256": "d328a3bec10ad702174c61c7701daada7aa78db3bda265b30751ff485de62b50"
+    }
+  ],
+  "source_hash": "821d6ebe4097470b950c0eb06625a91d3e85d3b59d0db53e29846eaa77e2d54d",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

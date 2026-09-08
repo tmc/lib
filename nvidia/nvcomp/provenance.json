@@ -3,31 +3,31 @@
   "generator": "github.com/tmc/codegen/cmd/gen-nvcomp",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$TMPDIR/work/provenance/codegen",
+  "cwd": "$HOME/go/src/github.com/tmc/codegen",
   "argv": [
-    "$TMPDIR/work/provenance/go-build2642491682/b001/exe/gen-nvcomp",
+    "$TMPDIR/go-build3775178819/b001/exe/gen-nvcomp",
     "-output",
-    "$TMPDIR/work/provenance/codegen/../generated/dedicated/nvcomp"
+    "$HOME/go/src/github.com/tmc/lib/nvidia/nvcomp"
   ],
   "inputs": [
     {
-      "path": "$TMPDIR/work/provenance/codegen/cmd/gen-nvcomp/headers/nvcomp.h",
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcomp/headers/nvcomp.h",
       "sha256": "245c6c5e22d88a64ac0d678e75d6aa8cca5b71f37d97aba88a04931bf9610c0d"
     },
     {
-      "path": "$TMPDIR/work/provenance/codegen/cmd/gen-nvcomp/headers/nvcomp/lz4.h",
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcomp/headers/nvcomp/lz4.h",
       "sha256": "633d2ac6e6c4275ef709b4f0fe7de22b3828b5b78769448c9f0225d0995d8ac2"
     },
     {
-      "path": "$TMPDIR/work/provenance/codegen/cmd/gen-nvcomp/headers/nvcomp/shared_types.h",
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcomp/headers/nvcomp/shared_types.h",
       "sha256": "c2072e21593735bc6cd0e9464f04dd3d9a163f8c4c3925db18eebac4d29efccd"
     },
     {
-      "path": "$TMPDIR/work/provenance/codegen/cmd/gen-nvcomp/headers/nvcomp/version.h",
+      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-nvcomp/headers/nvcomp/version.h",
       "sha256": "f017fbe17b7d72338064cb7d546fca361fb9f73e7a51cd5abe2a99a73ba036a8"
     }
   ],
-  "source_hash": "36919d58fe09ac862716d89e51798fcd18647afdac025a2c14421135de124554",
+  "source_hash": "e26862f1000e3ba661dce091d5357b12c2d9858ea43f78803baa6ce5c5eeb1bb",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
