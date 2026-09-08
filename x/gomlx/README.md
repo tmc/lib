@@ -21,7 +21,7 @@ Reshape, Transpose, Slice, DynamicUpdateSlice, Concatenate, numeric Iota, Reduce
 comparisons (Equal, LessThan, LessOrEqual, GreaterThan, and GreaterOrEqual), LogicalAnd and LogicalOr,
 Where, Philox RNGBitGenerator with a [3]uint64 state, and DotGeneral with
 default configuration. Named axes, other dtypes, non-default dot configuration,
-Sort, sharding, and remaining operations return unsupported errors.
+sharding and remaining operations return unsupported errors.
 Donation invalidates inputs without reusing native storage.
 Bool is qualified for constants, transfers, shape operations, comparisons,
 LogicalAnd, and Where.
@@ -137,4 +137,11 @@ results. Closures capture lexical ancestor values through explicit private-funct
 parameters. Native If and While call those helpers from their regions. Tests
 cover zero, one and seven iterations, both branches, nested captures, and
 captured values from preceding loop results. Wrong-branch and reversed-capture
-controls produce numerical failures. Sort remains unsupported.
+controls produce numerical failures. Sort executes comparator closures with stable ordering, mixed dtypes, and
+normalized axes. Comparator parameters use interleaved left/right pairs, as
+in GoMLX graph.SortFunc and both executable upstream backends; the compute
+interface comment describing grouped parameters is inconsistent. Captured
+tensors are reconstructed inside the comparator from extra sort operands, one
+per captured element. This can expand large captures substantially. Native tests
+cover scalar, matrix, changed-matrix, and empty captures, exact Int64 payloads,
+and a swapped-comparator negative control.
