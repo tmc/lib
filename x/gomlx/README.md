@@ -103,3 +103,11 @@ backend at position 5; the host attention oracle checks continuation through
 position 17. Erasing restored keys changes the next attention result. This is
 cache tensor persistence; model weights and the position counter are not part
 of that checkpoint.
+
+A separate model.NewExec test registers Dense projection weights, RoPE,
+cached attention, both cache tensors, and the position counter in model.Store.
+checkpoint.Build/Load restores all 12 saved tensors into a fresh store and
+backend; nine continuation steps agree bit-for-bit in outputs and state,
+including after cache wraparound. Resetting only cache values changes the next
+output. This fixed-capacity inference graph does not cover optimizer updates
+or variable cache growth within model.Exec.
