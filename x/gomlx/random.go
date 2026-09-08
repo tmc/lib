@@ -11,7 +11,7 @@ import (
 )
 
 func (f *function) RNGBitGenerator(state compute.Value, shape shapes.Shape) (compute.Value, compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(state)

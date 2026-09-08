@@ -32,7 +32,7 @@ func (f *function) LogicalAnd(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, f.raw.And)
 }
 func (f *function) Where(condition, onTrue, onFalse compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	c, err := f.value(condition)

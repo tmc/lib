@@ -84,7 +84,8 @@ func (b *Backend) Capabilities() compute.Capabilities {
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
-	v.main = &function{owner: v, raw: hlo.NewFunc("main")}
+	v.main = &function{owner: v, name: "main", raw: hlo.NewFunc("main")}
+	v.functions = []*function{v.main}
 	v.main.Function.ErrFn = func(op compute.OpType) error { return fmt.Errorf("%s: %w", op, unsupported) }
 	return v
 }
@@ -235,43 +236,58 @@ func (b *buffer) CopyToDevice(device compute.DeviceNum) (compute.Buffer, error) 
 
 type builder struct {
 	notimplemented.Builder
-	backend          *Backend
-	name             string
-	main             *function
-	names            []string
-	inputs           []shapes.Shape
-	outputs          []shapes.Shape
-	returned, closed bool
+	backend   *Backend
+	name      string
+	main      *function
+	functions []*function
+	closed    bool
 }
 
-func (b *builder) Name() string                                 { return b.name }
-func (b *builder) Main() compute.Function                       { return b.main }
-func (b *builder) NewFunction(string) (compute.Function, error) { return nil, unsupported }
+func (b *builder) Name() string           { return b.name }
+func (b *builder) Main() compute.Function { return b.main }
+
 func (b *builder) DeviceAssignment(d ...compute.DeviceNum) error {
 	if len(d) != 1 || d[0] != 0 {
 		return unsupported
 	}
 	return nil
 }
-func (b *builder) OpShape(v compute.Value) (shapes.Shape, error) { return b.main.Shape(v) }
+func (b *builder) OpShape(v compute.Value) (shapes.Shape, error) {
+	n, ok := v.(*node)
+	if !ok || n == nil || n.owner == nil || n.owner.owner != b {
+		return shapes.Shape{}, fmt.Errorf("invalid value")
+	}
+	return n.owner.Shape(v)
+}
 func (b *builder) Compile() (compute.Executable, error) {
 	b.backend.mu.Lock()
 	defer b.backend.mu.Unlock()
-	if b.closed || !b.returned || b.backend.engine == nil {
+	if b.closed || !b.main.returned || b.backend.engine == nil {
 		return nil, fmt.Errorf("builder unavailable")
 	}
 	b.closed = true
 	var text strings.Builder
 	text.WriteString("module {\n")
-	if err := b.main.raw.Emit(&text); err != nil {
-		return nil, err
+	for _, f := range b.functions {
+		if !f.returned {
+			return nil, fmt.Errorf("function %q has not returned", f.name)
+		}
+		var body strings.Builder
+		if err := f.raw.Emit(&body); err != nil {
+			return nil, err
+		}
+		code := body.String()
+		if f != b.main {
+			code = strings.Replace(code, "func.func @", "func.func private @", 1)
+		}
+		text.WriteString(code)
 	}
 	text.WriteString("}\n")
 	e, err := b.backend.engine.Compile([]byte(text.String()), "mlir", nil)
 	if err != nil {
 		return nil, err
 	}
-	out := &executable{owner: b.backend, raw: e, names: b.names, inputs: b.inputs, outputs: b.outputs}
+	out := &executable{owner: b.backend, raw: e, names: b.main.names, inputs: b.main.inputs, outputs: b.main.outputs}
 	b.backend.executables[out] = struct{}{}
 	return out, nil
 }
@@ -282,13 +298,17 @@ type node struct {
 }
 type function struct {
 	notimplemented.Function
-	owner *builder
-	raw   *hlo.FuncBuilder
+	owner           *builder
+	raw             *hlo.FuncBuilder
+	name            string
+	names           []string
+	inputs, outputs []shapes.Shape
+	returned        bool
 }
 
 func (f *function) Builder() compute.Builder { return f.owner }
 func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.ShardingSpec) (compute.Value, error) {
-	if f.owner.closed || f.owner.returned {
+	if f.owner.closed || f.returned {
 		return nil, fmt.Errorf("function closed")
 	}
 	if sharding != nil {
@@ -297,7 +317,7 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 	if err := validate(s); err != nil {
 		return nil, err
 	}
-	for _, n := range f.owner.names {
+	for _, n := range f.names {
 		if n == name {
 			return nil, fmt.Errorf("duplicate parameter")
 		}
@@ -309,13 +329,13 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 	info, _ := element(s.DType)
 	v := hlo.Value{ID: fmt.Sprintf("%%arg%d", len(f.raw.Args)), Type: hlo.Type{Shape: dims, ElementType: info.hlo}}
 	f.raw.Args = append(f.raw.Args, v)
-	f.owner.names = append(f.owner.names, name)
-	f.owner.inputs = append(f.owner.inputs, s.Clone())
+	f.names = append(f.names, name)
+	f.inputs = append(f.inputs, s.Clone())
 	return &node{f, v}, nil
 }
 func (f *function) value(v compute.Value) (hlo.Value, error) {
 	n, ok := v.(*node)
-	if !ok || n.owner != f || f.owner.closed {
+	if !ok || n == nil || n.owner != f || f.owner.closed {
 		return hlo.Value{}, fmt.Errorf("invalid value")
 	}
 	return n.value, nil
@@ -332,8 +352,8 @@ func (f *function) Shape(v compute.Value) (shapes.Shape, error) {
 	return shapes.Make(elementDType(n.Type.ElementType), dims...), nil
 }
 func (f *function) Return(values []compute.Value, shardings []*compute.ShardingSpec) error {
-	if f.owner.returned {
-		return fmt.Errorf("already returned")
+	if f.returned || f.owner.closed {
+		return fmt.Errorf("function closed")
 	}
 	if len(shardings) > 0 {
 		return unsupported
@@ -353,12 +373,12 @@ func (f *function) Return(values []compute.Value, shardings []*compute.ShardingS
 		ss = append(ss, s)
 	}
 	f.raw.Return(raw...)
-	f.owner.outputs = ss
-	f.owner.returned = true
+	f.outputs = ss
+	f.returned = true
 	return nil
 }
 func (f *function) Add(a, b compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(a)
@@ -380,7 +400,7 @@ func (f *function) Add(a, b compute.Value) (compute.Value, error) {
 	return &node{f, z}, nil
 }
 func (f *function) DotGeneral(a compute.Value, ac, ab []int, b compute.Value, bc, bb []int, c compute.DotGeneralConfig) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	if !reflect.DeepEqual(c, compute.DotGeneralConfig{}) {
@@ -611,7 +631,7 @@ func (f *function) broadcastPair(a, b hlo.Value) (hlo.Value, hlo.Value, error) {
 }
 
 func (f *function) Constant(flat any, dims ...int) (compute.Value, error) {
-	if f.owner.closed || f.owner.returned {
+	if f.owner.closed || f.returned {
 		return nil, fmt.Errorf("function closed")
 	}
 	dtype, n := flatShape(flat)

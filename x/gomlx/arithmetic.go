@@ -11,7 +11,7 @@ import (
 )
 
 func (f *function) Mul(a, b compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(a)
@@ -33,7 +33,7 @@ func (f *function) Mul(a, b compute.Value) (compute.Value, error) {
 	return &node{f, z}, nil
 }
 func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	if err := validate(s); err != nil {
@@ -53,7 +53,7 @@ func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (
 	return &node{f, z}, nil
 }
 func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -76,7 +76,7 @@ func (f *function) ReduceMax(v compute.Value, axes ...int) (compute.Value, error
 	return f.reduce(v, "maximum", axes)
 }
 func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -136,7 +136,7 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 }
 
 func (f *function) binary(a, b compute.Value, emit func(hlo.Value, hlo.Value) (hlo.Value, error)) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(a)
@@ -164,7 +164,7 @@ func (f *function) Div(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, f.raw.Divide)
 }
 func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	info, ok := element(dtype)
@@ -182,7 +182,7 @@ func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Va
 	return &node{f, z}, nil
 }
 func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -215,7 +215,7 @@ func (f *function) Log(v compute.Value) (compute.Value, error) {
 	return f.unaryFloat(v, "log")
 }
 func (f *function) unaryFloat(v compute.Value, op string) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -231,7 +231,7 @@ func (f *function) unaryFloat(v compute.Value, op string) (compute.Value, error)
 }
 
 func (f *function) Identity(v compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -242,7 +242,7 @@ func (f *function) Identity(v compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Neg(v compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)

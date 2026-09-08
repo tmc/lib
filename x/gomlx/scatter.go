@@ -22,7 +22,7 @@ func (f *function) ScatterMax(operand, indices, updates compute.Value, vectorAxi
 }
 
 func (f *function) scatter(op string, operand, indices, updates compute.Value, vectorAxis int, windowAxes, insertedAxes, mapping []int, sorted, unique bool) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(operand)

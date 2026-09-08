@@ -11,7 +11,7 @@ import (
 )
 
 func (f *function) Transpose(v compute.Value, permutation ...int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -38,7 +38,7 @@ func (f *function) Transpose(v compute.Value, permutation ...int) (compute.Value
 }
 
 func (f *function) Iota(shape shapes.Shape, axis int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	if err := validate(shape); err != nil {
@@ -57,7 +57,7 @@ func (f *function) Iota(shape shapes.Shape, axis int) (compute.Value, error) {
 }
 
 func (f *function) Slice(v compute.Value, starts, limits, strides []int) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(v)
@@ -95,7 +95,7 @@ func (f *function) Slice(v compute.Value, starts, limits, strides []int) (comput
 }
 
 func (f *function) Concatenate(axis int, operands ...compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	if len(operands) == 0 {
@@ -133,7 +133,7 @@ func (f *function) Concatenate(axis int, operands ...compute.Value) (compute.Val
 }
 
 func (f *function) DynamicUpdateSlice(operand, update compute.Value, starts []compute.Value) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(operand)

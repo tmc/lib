@@ -12,7 +12,7 @@ import (
 )
 
 func (f *function) Gather(operand, indices compute.Value, indexVectorAxis int, offsetAxes, collapsedAxes, startMap, sizes []int, sorted bool) (compute.Value, error) {
-	if f.owner.returned {
+	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
 	x, err := f.value(operand)
