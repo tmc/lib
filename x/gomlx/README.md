@@ -111,3 +111,9 @@ backend; nine continuation steps agree bit-for-bit in outputs and state,
 including after cache wraparound. Resetting only cache values changes the next
 output. This fixed-capacity inference graph does not cover optimizer updates
 or variable cache growth within model.Exec.
+
+Gather supports the static compute interface, including implicit, leading,
+and trailing index-vector axes. Native tests check boundary clamping and exact
+Int64 values above 2^53, and execute the actual layers.Embedding consumer.
+Invalid dimensions, duplicate index mappings, and dynamic slice sizes return
+errors before emitting IR. Embedding gradients still require scatter support.
