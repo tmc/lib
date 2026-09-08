@@ -32,3 +32,47 @@ Mask tests cover causal prefill, cached decoding, per-batch padding, and fully
 masked rows.
 The tests are skipped when the environment variable is unset. They do not install a
 plugin or validate TPU/GPU execution.
+
+## Benchmarks and Go profiles
+
+`BenchmarkNativePJRT` covers 64×64 and 512×512 F32 matrix multiplication.
+It checks an asymmetric matrix multiplied by the identity before timing and
+checks the final result afterward. `compile_close`, `upload_close`, and
+`execute_close` include destruction of the resources they create. `download`
+reuses its destination. Execute waits for native completion. Setup and validation
+are excluded from benchmark time; CPU profiles can still sample that work.
+
+Run from this module with a CPU PJRT plugin installed separately:
+
+```sh
+mkdir -p "$HOME/tmp/pjrt-profile"
+export XLA_PJRT_CPU_PLUGIN=/path/to/pjrt_c_api_cpu_plugin.so
+GOWORK=off CGO_ENABLED=0 go test -run '^$' \
+  -bench '^BenchmarkNativePJRT$' -benchmem -count=8 \
+  > "$HOME/tmp/pjrt-profile/bench.txt"
+```
+
+Profile one operation to avoid mixing compilation and execution:
+
+```sh
+GOWORK=off CGO_ENABLED=0 go test -run '^$' \
+  -bench '^BenchmarkNativePJRT/512/execute_close$' -benchtime=3s \
+  -cpuprofile="$HOME/tmp/pjrt-profile/cpu.pprof" \
+  -memprofile="$HOME/tmp/pjrt-profile/heap.pprof" \
+  -o "$HOME/tmp/pjrt-profile/xla.test"
+go tool pprof -tags "$HOME/tmp/pjrt-profile/xla.test" "$HOME/tmp/pjrt-profile/cpu.pprof"
+go tool pprof -http=127.0.0.1:0 "$HOME/tmp/pjrt-profile/xla.test" "$HOME/tmp/pjrt-profile/cpu.pprof"
+go tool pprof -alloc_objects "$HOME/tmp/pjrt-profile/xla.test" "$HOME/tmp/pjrt-profile/heap.pprof"
+```
+
+Go CPU samples within the measured callbacks carry `pjrt.operation`,
+`pjrt.shape`, and `pjrt.dtype` labels. Native PJRT worker samples may lack
+these labels.
+Go heap profiles do not carry these labels; select one benchmark when collecting
+them. Profiles describe host Go work and waits, not device kernel durations.
+Go allocation counts exclude PJRT's native allocator and device memory.
+A missing plugin skips the benchmarks; a configured plugin that fails to load
+fails the run. Retain the Go version, code revision, plugin checksum, benchmark
+output, and matching test binary alongside profiles. Use repeated runs and
+`benchstat` for comparisons; these operation benchmarks do not establish model
+inference throughput.
