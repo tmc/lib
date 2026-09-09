@@ -112,6 +112,8 @@ func (fr *FlightRecorder) Reset() {
 }
 
 // SnapshotPprof serializes the current ring buffer history into a compressed pprof profile.
+// Functions are source-only anchors (empty filename, line 0) because FlightRecorder
+// events are caller-supplied records without verified shader source line mappings.
 func (fr *FlightRecorder) SnapshotPprof(w io.Writer) error {
 	events := fr.Events()
 	if len(events) == 0 {
@@ -121,8 +123,8 @@ func (fr *FlightRecorder) SnapshotPprof(w io.Writer) error {
 
 	b := NewBuilder()
 	for _, ev := range events {
-		fnID := b.AddFunction(ev.Name, "MetalShaders.metal", 1)
-		locID := b.AddLocation(fnID, 1)
+		fnID := b.AddFunction(ev.Name, "", 0)
+		locID := b.AddLocation(fnID, 0)
 
 		vals := SampleValues{
 			Samples:   1,

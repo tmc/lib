@@ -145,12 +145,13 @@ func (b *Builder) AddFunction(name, filename string, startLine int64) uint64 {
 }
 
 // AddLocation registers a source location referencing a function.
+// For source-only profiles, address is 0 rather than a fabricated memory offset.
 func (b *Builder) AddLocation(funcID uint64, lineNum int64) uint64 {
 	id := uint64(len(b.locations) + 1)
 	b.locations = append(b.locations, location{
 		id:        id,
 		mappingID: 1,
-		address:   0x1000 + (id * 4),
+		address:   0,
 		lines: []line{
 			{functionID: funcID, line: lineNum},
 		},
