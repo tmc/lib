@@ -15,10 +15,16 @@ func (f *function) LessThan(a, b compute.Value) (compute.Value, error) {
 	return f.compare(a, b, "LT")
 }
 func (f *function) compare(a, b compute.Value, direction string) (compute.Value, error) {
+	return f.compareOrder(a, b, direction, false)
+}
+func (f *function) compareOrder(a, b compute.Value, direction string, total bool) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
 		kind := "SIGNED"
 		if elementDType(x.Type.ElementType).IsFloat() {
 			kind = "FLOAT"
+			if total {
+				kind = "TOTALORDER"
+			}
 		}
 		if x.Type.ElementType == "i1" || x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 			kind = "UNSIGNED"
