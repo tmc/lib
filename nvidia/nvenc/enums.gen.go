@@ -12,6 +12,7 @@ type ParamsFrameFieldMode int32
 const (
 	ParamsFrameFieldModeFrame ParamsFrameFieldMode = 0x01 // NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME
 	ParamsFrameFieldModeField ParamsFrameFieldMode = 0x02 // NV_ENC_PARAMS_FRAME_FIELD_MODE_FIELD
+	ParamsFrameFieldModeMbaff ParamsFrameFieldMode = 0x03 // NV_ENC_PARAMS_FRAME_FIELD_MODE_MBAFF
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -21,6 +22,8 @@ func (e ParamsFrameFieldMode) String() string {
 		return "ParamsFrameFieldModeFrame"
 	case ParamsFrameFieldModeField:
 		return "ParamsFrameFieldModeField"
+	case ParamsFrameFieldModeMbaff:
+		return "ParamsFrameFieldModeMbaff"
 	}
 	return "ParamsFrameFieldMode(" + strconv.FormatInt(int64(e), 10) + ")"
 }
@@ -621,8 +624,6 @@ const (
 	PicFlagEos                    PicFlags = 0x8  // NV_ENC_PIC_FLAG_EOS
 	PicFlagDisableEncStateAdvance PicFlags = 0x10 // NV_ENC_PIC_FLAG_DISABLE_ENC_STATE_ADVANCE
 	PicFlagOutputReconFrame       PicFlags = 0x20 // NV_ENC_PIC_FLAG_OUTPUT_RECON_FRAME
-	PicFlagPreqpdeltaminqp        PicFlags = 0x40 // NV_ENC_PIC_FLAG_PREQPDELTAMINQP
-	PicFlagPreqpdeltamaxqp        PicFlags = 0x80 // NV_ENC_PIC_FLAG_PREQPDELTAMAXQP
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -640,10 +641,6 @@ func (e PicFlags) String() string {
 		return "PicFlagDisableEncStateAdvance"
 	case PicFlagOutputReconFrame:
 		return "PicFlagOutputReconFrame"
-	case PicFlagPreqpdeltaminqp:
-		return "PicFlagPreqpdeltaminqp"
-	case PicFlagPreqpdeltamaxqp:
-		return "PicFlagPreqpdeltamaxqp"
 	}
 	return "PicFlags(" + strconv.FormatInt(int64(e), 10) + ")"
 }
@@ -677,10 +674,9 @@ func (e MemoryHeap) String() string {
 type BframeRefMode int32
 
 const (
-	BframeRefModeDisabled     BframeRefMode = 0x0 // NV_ENC_BFRAME_REF_MODE_DISABLED
-	BframeRefModeEach         BframeRefMode = 0x1 // NV_ENC_BFRAME_REF_MODE_EACH
-	BframeRefModeMiddle       BframeRefMode = 0x2 // NV_ENC_BFRAME_REF_MODE_MIDDLE
-	BframeRefModeHierarchical BframeRefMode = 0x4 // NV_ENC_BFRAME_REF_MODE_HIERARCHICAL
+	BframeRefModeDisabled BframeRefMode = 0x0 // NV_ENC_BFRAME_REF_MODE_DISABLED
+	BframeRefModeEach     BframeRefMode = 0x1 // NV_ENC_BFRAME_REF_MODE_EACH
+	BframeRefModeMiddle   BframeRefMode = 0x2 // NV_ENC_BFRAME_REF_MODE_MIDDLE
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -692,8 +688,6 @@ func (e BframeRefMode) String() string {
 		return "BframeRefModeEach"
 	case BframeRefModeMiddle:
 		return "BframeRefModeMiddle"
-	case BframeRefModeHierarchical:
-		return "BframeRefModeHierarchical"
 	}
 	return "BframeRefMode(" + strconv.FormatInt(int64(e), 10) + ")"
 }
