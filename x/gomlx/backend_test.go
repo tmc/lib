@@ -146,7 +146,11 @@ func TestRejectedContracts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.Tanh(p); !errors.Is(err, compute.ErrNotImplemented) {
+	integer, err := f.Parameter("integer", shapes.Make(dtypes.Int32, 2), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Tanh(integer); !errors.Is(err, compute.ErrNotImplemented) {
 		t.Fatalf("tanh: %v", err)
 	}
 	foreign := b.Builder("foreign").Main()
