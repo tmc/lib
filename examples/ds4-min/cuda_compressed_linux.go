@@ -59,6 +59,8 @@ func (r *cudaFoundation) encodeCompressor(kv, gate cudamem.Slice[float32], ape, 
 	return emit, err
 }
 
+// encodeMixedAttention retains the memoized single-block qualification path.
+// Production uses encodeMixedAttentionParallel.
 func (r *cudaFoundation) encodeMixedAttention(q, kv cudamem.Slice[float32], sinks cudaModelTensor, raw, comp cudamem.Slice[float32], nComp int, allowed cudamem.Slice[uint32], scores, out cudamem.Slice[float32], position, layer int) error {
 	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 || raw.Len() == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 || allowed.Len() < max(1, nComp) || position < 0 || layer < 2 || out.Len() != 32768+512+32768 {
 		return fmt.Errorf("cuda: mixed attention: invalid shape")
@@ -73,6 +75,30 @@ func (r *cudaFoundation) encodeMixedAttention(q, kv cudamem.Slice[float32], sink
 		}
 		if err := cudalaunch.Kernel(r.mixedAttentionFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeMixedAttentionParallel queues preparation and pairwise value evaluation.
+// The single stream orders both kernels before any reuse of token scratch.
+func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float32], sinks cudaModelTensor, raw, comp cudamem.Slice[float32], nComp int, allowed cudamem.Slice[uint32], scores, denominators, out cudamem.Slice[float32], position, layer int) error {
+	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 || raw.Len() == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 || allowed.Len() < max(1, nComp) || denominators.Len() != 64 || position < 0 || layer < 2 || out.Len() != 32768+512+32768 {
+		return fmt.Errorf("cuda: mixed attention: invalid shape")
+	}
+	total := min(position+1, raw.Len()/512) + nComp
+	if scores.Len() < 64*total {
+		return fmt.Errorf("cuda: mixed attention: invalid score capacity")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention preparation: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionValuesFn).Grid(64).Block(256).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention values: %w", err)
 		}
 		return nil
 	})
@@ -250,12 +276,19 @@ extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,co
     scores[head*total+n_raw+cidx]=score;
   }
   float denom=expf(sinks[head]-maximum);
-  for(unsigned int t=0;t<n_raw;t++)denom+=expf(scores[head*total+t]-maximum);
-  for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])denom+=expf(scores[head*total+n_raw+cidx]-maximum);
+  // Retain each softmax weight. The value loop consumes the same float that
+  // the denominator did instead of evaluating expf again for every value
+  // dimension.
+  for(unsigned int t=0;t<n_raw;t++){
+    const unsigned int i=head*total+t;const float weight=expf(scores[i]-maximum);scores[i]=weight;denom+=weight;
+  }
+  for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx]){
+    const unsigned int i=head*total+n_raw+cidx;const float weight=expf(scores[i]-maximum);scores[i]=weight;denom+=weight;
+  }
   for(unsigned int i=0;i<512;i++){
     float value=0.0f;
-    for(unsigned int t=0;t<n_raw;t++){const unsigned int row=(first+t)%raw_cap;value+=expf(scores[head*total+t]-maximum)*raw[row*512+i];}
-    for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])value+=expf(scores[head*total+n_raw+cidx]-maximum)*comp[cidx*512+i];
+    for(unsigned int t=0;t<n_raw;t++){const unsigned int row=(first+t)%raw_cap;value+=scores[head*total+t]*raw[row*512+i];}
+    for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])value+=scores[head*total+n_raw+cidx]*comp[cidx*512+i];
     out[33280+qoff+i]=value/denom;
   }
   for(unsigned int r=0;r<64;r+=2){
@@ -264,5 +297,74 @@ extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,co
   }
   (void)layer;
 }
+
+extern "C" __global__ void ds4_attention_mixed_prepare(const float *q,const float *kv,const float *sinks,float *raw,const float *comp,const unsigned int *allowed,float *scores,float *denominators,float *out,unsigned int position,unsigned int layer,unsigned int raw_cap,unsigned int n_comp) {
+ const unsigned int head=threadIdx.x;if(blockIdx.x || head>=64)return;
+  const unsigned int qoff=head*512;
+  for(unsigned int i=0;i<512;i++)out[qoff+i]=q[qoff+i];
+  if(head==0)for(unsigned int i=0;i<512;i++)out[32768+i]=kv[i];
+  for(unsigned int r=0;r<64;r+=2){
+    const unsigned int qi=qoff+448+r;float theta=ds4_compressed_theta(position,r),c=cosf(theta),s=sinf(theta),a=out[qi],b=out[qi+1];
+    out[qi]=a*c-b*s;out[qi+1]=a*s+b*c;
+    if(head==0){unsigned int ki=32768+448+r;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
+  }
+  __syncthreads();
+  if(head==0){
+    for(unsigned int off=0;off<448;off+=64){
+      float amax=1.0e-4f;for(unsigned int i=0;i<64;i++)amax=fmaxf(amax,fabsf(out[32768+off+i]));
+      const float scale=exp2f(ceilf(log2f(amax/448.0f)));
+      for(unsigned int i=0;i<64;i++)out[32768+off+i]=ds4_e4m3fn_round(fminf(fmaxf(out[32768+off+i]/scale,-448.0f),448.0f))*scale;
+    }
+    const unsigned int row=position%raw_cap;
+    for(unsigned int i=0;i<512;i++)raw[row*512+i]=ds4_half_round(out[32768+i]);
+  }
+  __syncthreads();
+  const unsigned int n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+  float maximum=sinks[head];
+  for(unsigned int t=0;t<n_raw;t++){
+    const unsigned int row=(first+t)%raw_cap;float score=0.0f;
+    // Both dot operands go through f16 as the oracle does; see ds4_attention_raw.
+    for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*raw[row*512+i];
+    score*=0.04419417382415922f;scores[head*total+t]=score;maximum=fmaxf(maximum,score);
+  }
+  for(unsigned int cidx=0;cidx<n_comp;cidx++){
+    float score=-1.0e30f;
+    if(allowed[cidx]){score=0.0f;for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*comp[cidx*512+i];score*=0.04419417382415922f;maximum=fmaxf(maximum,score);}
+    scores[head*total+n_raw+cidx]=score;
+  }
+  float denom=expf(sinks[head]-maximum);
+  // Retain each softmax weight. The value loop consumes the same float that
+  // the denominator did instead of evaluating expf again for every value
+  // dimension.
+  for(unsigned int t=0;t<n_raw;t++){
+    const unsigned int i=head*total+t;const float weight=expf(scores[i]-maximum);scores[i]=weight;denom+=weight;
+  }
+  for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx]){
+    const unsigned int i=head*total+n_raw+cidx;const float weight=expf(scores[i]-maximum);scores[i]=weight;denom+=weight;
+  }
+  denominators[head]=denom;
+}
+
+extern "C" __global__ void ds4_attention_mixed_values(const float *raw,const float *comp,const unsigned int *allowed,const float *scores,const float *denominators,float *out,unsigned int position,unsigned int raw_cap,unsigned int n_comp) {
+ const unsigned int head=blockIdx.x,pair=threadIdx.x;
+ if(head>=64 || pair>=256)return;
+ const unsigned int i=2*pair,qoff=head*512;
+ const unsigned int n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+ float a=0.0f,b=0.0f;
+ for(unsigned int t=0;t<n_raw;t++){
+  const unsigned int row=(first+t)%raw_cap;const float weight=scores[head*total+t];
+  a+=weight*raw[row*512+i];b+=weight*raw[row*512+i+1];
+ }
+ for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx]){
+  const float weight=scores[head*total+n_raw+cidx];
+  a+=weight*comp[cidx*512+i];b+=weight*comp[cidx*512+i+1];
+ }
+ const float denom=denominators[head];a/=denom;b/=denom;
+ if(i>=448){
+  const float theta=ds4_compressed_theta(position,i-448),c=cosf(theta),s=-sinf(theta);
+  out[33280+qoff+i]=a*c-b*s;out[33280+qoff+i+1]=a*s+b*c;
+ }else{out[33280+qoff+i]=a;out[33280+qoff+i+1]=b;}
+}
+
 
 `

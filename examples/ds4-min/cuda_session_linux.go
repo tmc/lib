@@ -36,18 +36,18 @@ type cudaSessionState struct {
 // cudaTokenState holds one token row's transient layer activations. Layer
 // history is session state and deliberately lives outside this type.
 type cudaTokenState struct {
-	hc                                                           [2]cudamem.Slice[float32]
-	attnPre, attnNorm, qLora, qHeads, kvRaw, kvCur               cudamem.Slice[float32]
-	compressorKV, compressorGate, indexerKV, indexerGate         cudamem.Slice[float32]
-	indexerQ, indexerWeights, indexerScratch, indexerScores      cudamem.Slice[float32]
-	rawScores, rawOutput, mixedScores, mixedOutput               cudamem.Slice[float32]
-	allowed                                                      cudamem.Slice[uint32]
-	attnLow, attnOut, ffnPre, ffnNorm, router, probs             cudamem.Slice[float32]
-	expertIDs                                                    cudamem.Slice[int32]
-	expertW, sharedGate, sharedUp, sharedMid                     cudamem.Slice[float32]
-	expertGate, expertUp, expertMid, expertDown                  cudamem.Slice[float32]
-	ffnBlocks, sharedOut, routedOut, ffnOut, outputMixed, logits cudamem.Slice[float32]
-	q80Input, q81Input, q81Experts                               cudamem.Slice[byte]
+	hc                                                                [2]cudamem.Slice[float32]
+	attnPre, attnNorm, qLora, qHeads, kvRaw, kvCur                    cudamem.Slice[float32]
+	compressorKV, compressorGate, indexerKV, indexerGate              cudamem.Slice[float32]
+	indexerQ, indexerWeights, indexerScratch, indexerScores           cudamem.Slice[float32]
+	rawScores, rawOutput, mixedScores, mixedDenominators, mixedOutput cudamem.Slice[float32]
+	allowed                                                           cudamem.Slice[uint32]
+	attnLow, attnOut, ffnPre, ffnNorm, router, probs                  cudamem.Slice[float32]
+	expertIDs                                                         cudamem.Slice[int32]
+	expertW, sharedGate, sharedUp, sharedMid                          cudamem.Slice[float32]
+	expertGate, expertUp, expertMid, expertDown                       cudamem.Slice[float32]
+	ffnBlocks, sharedOut, routedOut, ffnOut, outputMixed, logits      cudamem.Slice[float32]
+	q80Input, q81Input, q81Experts                                    cudamem.Slice[byte]
 }
 
 type cudaSessionLayer struct {
@@ -135,6 +135,9 @@ func (r *cudaRuntime) allocTokenState(a *cudamem.Arena, s *cudaTokenState, prefi
 	rawCap, maxComp := min(r.ctx, cudaRawCap), r.ctx/4+2
 	s.indexerScores = alloc("indexer-scores", maxComp)
 	s.rawScores, s.rawOutput = alloc("raw-scores", 64*rawCap), alloc("raw-output", 32768+512+32768)
+	// mixedScores holds softmax weights between mixed-attention kernels.
+	// mixedDenominators holds one denominator per head for the value kernel.
+	s.mixedDenominators = alloc("mixed-denominators", 64)
 	s.mixedScores, s.mixedOutput = alloc("mixed-scores", 64*(rawCap+maxComp)), alloc("mixed-output", 32768+512+32768)
 	s.allowed = cudamem.AllocIn[uint32](a, "allowed-rows", maxComp)
 	s.attnLow, s.attnOut = alloc("attention-low", 8192), alloc("attention-output", cudaWidth)
@@ -634,7 +637,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 		if err := r.markCUDAPhase("attention", position, index); err != nil {
 			return err
 		}
-		if err := r.encodeMixedAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedOutput, position, index); err != nil {
+		if err := r.encodeMixedAttentionParallel(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedDenominators, s.mixedOutput, position, index); err != nil {
 			return err
 		}
 		heads = s.mixedOutput.Slice(32768+512, 32768+512+32768)
