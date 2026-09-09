@@ -14,4 +14,5 @@ use (
 	./x/xla
 	/Users/tmc/go/src/github.com/tmc/apple
 	/Users/tmc/go/src/github.com/tmc/modelir
+	/Volumes/tmc/go/src/github.com/tmc/ffi
 )

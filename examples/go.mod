@@ -21,6 +21,7 @@ require (
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/quic-go/quic-go v0.62.0 // indirect
+	github.com/tmc/ffi v0.0.0
 	github.com/tmc/lib/x/hftokenizer v0.0.0
 	github.com/tmc/lib/x/stablehlo v0.0.0-00010101000000-000000000000 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
@@ -52,3 +53,5 @@ replace github.com/tmc/lib/x/xla => ../x/xla
 replace github.com/tmc/lib/x/stablehlo => ../x/stablehlo
 
 replace github.com/tmc/lib/x/hftokenizer => ../x/hftokenizer
+
+replace github.com/tmc/ffi => ../../ffi
