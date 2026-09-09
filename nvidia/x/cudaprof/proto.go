@@ -183,7 +183,7 @@ type Frame struct {
 	FunctionName string
 	FileName     string
 	Line         int64
-	Address      uint64
+	Address      uint64 // Zero denotes a source-only frame, without a binary mapping.
 }
 
 type sample struct {
@@ -191,6 +191,11 @@ type sample struct {
 	values      []int64
 	labels      map[string]string
 }
+
+// DefaultMappingStart is the profile's logical image base. Addresses are
+// DefaultMappingStart plus CUBIN file offsets; they are not sampled device
+// program counters.
+const DefaultMappingStart = uint64(0x7f000000)
 
 // NewBuilder initializes a profile builder.
 func NewBuilder() *Builder {
@@ -201,7 +206,7 @@ func NewBuilder() *Builder {
 	}
 	b.mappings = append(b.mappings, mapping{
 		id:              1,
-		memoryStart:     0x7f000000,
+		memoryStart:     DefaultMappingStart,
 		memoryLimit:     0x7fffffff,
 		fileOffset:      0,
 		filename:        b.st.Index("cuda_kernels.so"),
@@ -274,9 +279,13 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 	for _, frame := range frames {
 		fnID := b.getOrCreateFunction(frame.FunctionName, frame.FileName, frame.Line)
 		locID := uint64(len(b.locations) + 1)
+		var mappingID uint64
+		if frame.Address != 0 {
+			mappingID = 1
+		}
 		b.locations = append(b.locations, location{
 			id:         locID,
-			mappingID:  1,
+			mappingID:  mappingID,
 			address:    frame.Address,
 			functionID: fnID,
 			line:       frame.Line,
