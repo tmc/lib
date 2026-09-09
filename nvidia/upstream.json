@@ -624,13 +624,13 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "514164ac067ac95939e5535217f6898a88c5db50",
+          "tree": "f7df59cec8d5e3078710302d702366038ee06cfd"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
-          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "tree": "7a2390523705addb69cbbcde6db77b6d1ee03f3d"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -727,7 +727,7 @@
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "839b00cc37fbd3cc99c2a905cef964747caa61861ef187aeebba386084516290"
+            "sha256": "18a1ee56fb719e0ac94ee2719f14ff4a506838644eb58cd40fd1faac78fa8d60"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
