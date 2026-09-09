@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -28,18 +29,25 @@ var (
 	// present records which symbols resolved during registerFuncs. It is
 	// written under loadMu before ready is set, and only read afterwards.
 	present = make(map[string]bool)
+	unbound = make(map[string]error)
 )
 
-// SymbolError reports that a symbol is absent from the loaded library,
-// which happens when the installed version predates the symbol.
+// SymbolError reports an absent symbol or a failed binding.
 type SymbolError struct {
 	Symbol string
+	Err    error
 }
 
 // Error reports the unavailable library symbol.
 func (e *SymbolError) Error() string {
+	if e.Err != nil {
+		return "driver: symbol " + e.Symbol + " unavailable: " + e.Err.Error()
+	}
 	return "driver: symbol " + e.Symbol + " unavailable"
 }
+
+// Unwrap returns the binding failure, or nil for an absent symbol.
+func (e *SymbolError) Unwrap() error { return e.Err }
 
 // LibraryConflictError reports a Load call naming a different library than
 // the one already loaded. Only one library is loaded per process.
@@ -118,6 +126,7 @@ func Close() error {
 	attempted = false
 	ready.Store(false)
 	present = make(map[string]bool)
+	unbound = make(map[string]error)
 	clearFuncs()
 	if err != nil {
 		return fmt.Errorf("driver: close: %w", err)
@@ -202,10 +211,16 @@ func register(fn interface{}, symbol string) {
 		return
 	}
 	if !bindSymbol(fn, sym) {
+		unbound[symbol] = errArgumentSlots
 		return
 	}
 	present[symbol] = true
 }
+
+// errArgumentSlots is the reason a symbol the library exports could still
+// not be bound: the signature needs more argument registers and stack slots
+// than this architecture's calling convention provides.
+var errArgumentSlots = errors.New("signature needs more argument slots than this architecture provides")
 
 // bindSymbol binds fn to the resolved symbol address sym and reports whether
 // the binding succeeded. purego.RegisterFunc panics when it cannot build a
@@ -251,7 +266,7 @@ func checkLibSym(symbol string) error {
 		return err
 	}
 	if !present[symbol] {
-		return &SymbolError{Symbol: symbol}
+		return &SymbolError{Symbol: symbol, Err: unbound[symbol]}
 	}
 	return nil
 }
@@ -3538,4 +3553,33 @@ func HasuserObjectRetain() bool {
 // HaswaitExternalSemaphoresAsync reports whether cuWaitExternalSemaphoresAsync resolved in the loaded library.
 func HaswaitExternalSemaphoresAsync() bool {
 	return Has("cuWaitExternalSemaphoresAsync")
+}
+
+// BindFailure names a symbol the loaded library exports but that could not
+// be bound, and why.
+type BindFailure struct {
+	Symbol string
+	Err    error
+}
+
+// BindFailures returns the symbols the loaded library exports that could
+// not be bound, sorted by symbol name, or nil if every exported symbol
+// bound. Calling one of these reports *SymbolError with the same Err.
+//
+// A load that reports no error can still leave symbols unbound: the
+// library is fine and the signatures are not representable here. Call this
+// after Load to find that out at once rather than one call site at a time.
+// It does not trigger a load, and returns nil if none has happened.
+func BindFailures() []BindFailure {
+	loadMu.Lock()
+	defer loadMu.Unlock()
+	if len(unbound) == 0 {
+		return nil
+	}
+	out := make([]BindFailure, 0, len(unbound))
+	for sym, err := range unbound {
+		out = append(out, BindFailure{Symbol: sym, Err: err})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
+	return out
 }
