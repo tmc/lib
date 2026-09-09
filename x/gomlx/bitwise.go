@@ -60,3 +60,40 @@ func (f *function) countBits(v compute.Value, op string) (compute.Value, error) 
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.%s %s : %s", z.ID, op, x.ID, x.Type))
 	return &node{f, z}, nil
 }
+
+func (f *function) ShiftLeft(lhs, rhs compute.Value) (compute.Value, error) {
+	return f.shift(lhs, rhs, "shift_left")
+}
+
+func (f *function) ShiftRightArithmetic(lhs, rhs compute.Value) (compute.Value, error) {
+	return f.shift(lhs, rhs, "shift_right_arithmetic")
+}
+
+func (f *function) ShiftRightLogical(lhs, rhs compute.Value) (compute.Value, error) {
+	return f.shift(lhs, rhs, "shift_right_logical")
+}
+
+func (f *function) shift(lhs, rhs compute.Value, op string) (compute.Value, error) {
+	if f.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	sLHS, err := f.Shape(lhs)
+	if err != nil {
+		return nil, err
+	}
+	sRHS, err := f.Shape(rhs)
+	if err != nil {
+		return nil, err
+	}
+	if !sLHS.DType.IsInt() || !sRHS.DType.IsInt() {
+		return nil, unsupported
+	}
+	if sLHS.DType != sRHS.DType {
+		return nil, fmt.Errorf("%s operand dtypes mismatch: %v vs %v", op, sLHS.DType, sRHS.DType)
+	}
+	return f.binary(lhs, rhs, func(x, y hlo.Value) (hlo.Value, error) {
+		z := hlo.Value{ID: fmt.Sprintf("%%shift_%d", len(f.raw.Ops)), Type: x.Type}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.%s %s, %s : %s", z.ID, op, x.ID, y.ID, x.Type))
+		return z, nil
+	})
+}
