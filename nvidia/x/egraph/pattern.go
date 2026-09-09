@@ -74,7 +74,7 @@ func tokenize(s string) []string {
 
 	for _, r := range s {
 		switch {
-		case r == '(' || r == ')' || r == ',' :
+		case r == '(' || r == ')' || r == ',':
 			flush()
 			if r != ',' {
 				tokens = append(tokens, string(r))
