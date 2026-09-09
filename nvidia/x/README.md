@@ -14,6 +14,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cublasltx](cublasltx/) | Package cublasltx provides an owning cuBLASLt matrix multiplication engine. |
 | [cuda](cuda/) | Package cuda provides idiomatic, high-level Go abstractions over NVIDIA CUDA devices, execution contexts, streams, and events. |
 | [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
+| [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged Key-Value (KV) cache memory management for autoregressive transformer sequence generation. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
