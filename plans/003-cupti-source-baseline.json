@@ -1,0 +1,61 @@
+{
+  "status": "source_only_runtime_unverified",
+  "files": [
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cupti/init.gen.go",
+      "sha256": "5ee87a9f6b4001cbeb9805bfb67d3c332665d836da02fc511042cc4e9821d534"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cupti/enums.gen.go",
+      "sha256": "950c436a0777b6682f1757fa04eacee62673d2e958428f36f9a5a69e1cebecab"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cupti/provenance.json",
+      "sha256": "1d0b4d5f3f5a3c6ad1efdaf1094ff1361f4a9b785453e8756c95b5be4bf915ea"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptiactivity/layout.go",
+      "sha256": "62005e7b42c7225d3852c6836860cd4deef96095fe649b0ab46aa54eaac7a8bf"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptiactivity/record.go",
+      "sha256": "3abf8084769bd33d800fb56742d600728a08af34c619e2cebdce007c5ddd2128"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptirange/plan.go",
+      "sha256": "21b107491f9ff029ac3eea2a440e26e7351d54155a78e20b4c386b6940ab4b39"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptirange/collect.go",
+      "sha256": "448b48f5b05a52ee666e59944e1e501aa28e722f56ce0c0400caf5e983a7917d"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptirange/evaluate.go",
+      "sha256": "bf831ceaae4daaf75da6f335a32e25b9af9ec8187ade40e69e302075263a8097"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cuptirange/trace.go",
+      "sha256": "78e0690b6572eedc35a88aab8349bfa1ee98d6e1c9a11dce4a9878484adb5b81"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaprof/profile.go",
+      "sha256": "c68e83b135b5f46edf3e9206a1392efe80d7a5e064236fb42b365d0b25c5db94"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaprof/proto.go",
+      "sha256": "41a95cd7b8c856fa3664ebdfa7bfe2baf52ab76dfbe7b3134688c68ec5fa2179"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/x/cudaprof/flightrecorder.go",
+      "sha256": "d8d79fe5d1c4c59afd71eb91eeadc7e1c42852e04ddda3e0e7d8ebbf3a04c2f5"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/codegen/cmd/cupti-survey/main.go",
+      "sha256": "a2a7d72523a2d35c84565f7f5d68107b64dd5636ecbf3ddc4d3c2670e856d273"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/codegen/contrib/cuda/cupti_config.go",
+      "sha256": "8dfc07a7d9adae771e87ea15effbefbc72952c643b61c3655572c0ba3f201143"
+    }
+  ]
+}
