@@ -1,5 +1,14 @@
 # Physical decode fixtures
 
+For the H.264 cell, run `./nvdec/testdata/run-nvenc.sh` from the NVIDIA module
+(or invoke it by absolute path). It runs NVENC, preserves `output.h264`, creates
+`three.h264` and an independent FFmpeg CPU-decoded reference, and passes that
+artifact directory as `NVDEC_FIXTURE_DIR`. An optional first argument selects
+the artifact directory; the default is under `~/tmp`. Both Go tests use
+`GOWORK=off` and fresh executions. This qualifies only the H.264 subtest; HEVC
+and AV1 still require the fixtures below. It requires a supported NVIDIA GPU,
+its encode/decode driver libraries, Go, and FFmpeg on the execution host.
+
 TestPhysicalDecode requires NVDEC_FIXTURE_DIR containing three 256x256
 frames per codec and CPU-decoded NV12 references. Generate outside git:
 
