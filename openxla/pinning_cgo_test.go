@@ -18,7 +18,7 @@ func requireUnpinned(t *testing.T, p unsafe.Pointer) {
 		r := recover()
 		if r == nil {
 			t.Error("cgo checker accepted unpinned Go memory; run with cgo checks enabled")
-		} else if !strings.Contains(r.(error).Error(), "unpinned Go pointer") {
+		} else if !strings.Contains(r.(error).Error(), "unpinned Go pointer") && !strings.Contains(r.(error).Error(), "unpinned Go unsafe pointer") {
 			t.Errorf("unexpected panic: %v", r)
 		}
 	}()
