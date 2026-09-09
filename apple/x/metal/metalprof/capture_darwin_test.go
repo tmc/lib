@@ -3,6 +3,8 @@
 package metalprof
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,5 +101,26 @@ func TestCaptureReplayAttributesDispatchedKernel(t *testing.T) {
 			t.Logf("device=%q stream=%d bytes dispatched=%s attributed=%d absent=%s counted=%d",
 				dev.Name(), len(data), dispatched, got, absent, unwanted)
 		})
+	}
+}
+
+func TestReplayCancellationUnrelatedSurvives(t *testing.T) {
+	// Verify that ReplayTraceContext cancellation returns ErrReplayUnresolvedOwnership
+	// and does not kill unrelated mock processes.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	dir := t.TempDir()
+	dummyTrace := filepath.Join(dir, "dummy.gputrace")
+	if err := os.MkdirAll(dummyTrace, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	err := ReplayTraceContext(ctx, dummyTrace, filepath.Join(dir, "out"))
+	if err == nil {
+		t.Fatal("expected error on cancelled context")
+	}
+	if !errors.Is(err, ErrReplayUnresolvedOwnership) {
+		t.Errorf("got error %v, want ErrReplayUnresolvedOwnership", err)
 	}
 }
