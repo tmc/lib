@@ -86,7 +86,7 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 	if err != nil {
 		return nil, err
 	}
-	if x.Type.ElementType == "i1" {
+	if x.Type.ElementType == "i1" && op != "and" && op != "or" && op != "xor" {
 		return nil, unsupported
 	}
 	if len(axes) == 0 {
@@ -109,7 +109,14 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 		}
 	}
 	var zero hlo.Value
-	if elementDType(x.Type.ElementType).IsFloat() {
+	if x.Type.ElementType == "i1" {
+		literal := "false"
+		if op == "and" {
+			literal = "true"
+		}
+		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: "i1"}}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", zero.ID, literal, zero.Type))
+	} else if elementDType(x.Type.ElementType).IsFloat() {
 		initial := float32(0)
 		if op == "multiply" {
 			initial = 1
@@ -117,16 +124,40 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 		if op == "maximum" {
 			initial = float32(math.Inf(-1))
 		}
+		if op == "minimum" {
+			initial = float32(math.Inf(1))
+		}
 		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: x.Type.ElementType})
 	} else if x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: x.Type.ElementType}}
-		initial := 0
+		initial := uint64(0)
+		if op == "minimum" || op == "and" {
+			initial = math.MaxUint64
+			if x.Type.ElementType == "ui8" {
+				initial = math.MaxUint8
+			}
+			if x.Type.ElementType == "ui32" {
+				initial = math.MaxUint32
+			}
+		}
 		if op == "multiply" {
 			initial = 1
 		}
 		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%d> : %s", zero.ID, initial, zero.Type))
 	} else {
 		initial := int64(0)
+		if op == "and" {
+			initial = -1
+		}
+		if op == "minimum" {
+			initial = math.MaxInt64
+			if x.Type.ElementType == "i8" {
+				initial = math.MaxInt8
+			}
+			if x.Type.ElementType == "i32" {
+				initial = math.MaxInt32
+			}
+		}
 		if op == "multiply" {
 			initial = 1
 		}
