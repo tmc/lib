@@ -1,0 +1,7 @@
+Commit bceeefab2e6bd00abdf7e7ca35ab3dd66e152d73
+Date 2026-09-09T20:10:07.523495+00:00
+Codex agent; model not exposed by runtime; Claude Code version not applicable; tty noninteractive; writer pid 64075; ITERM_SESSION_ID=w14t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+
+Production source exactly matches captured candidate ops3bf4d139 and batch03e239cf. Full-model receipt metal-split-model-128-129-20260909 manifest05acc90018f9da1aaad1f2cd9bbe90bfa8a3a69779897acc71ec3e0a760569e6: both named tests reach/close0, four full finite vectors exact. Synthetic retained split-rotation receipt manifest57fc4291,24 direct/batch coordinates with mutation controls. New test tag aligned to darwin&&arm64, test-only difference from prior synthetic source. Current package and vet pass. No2048/parity/throughput claim.
+
+Patch originated in DF6906F6 lane; root integrated after independent review and bound physical comparison. Existing unrelated dirt preserved. Manual commit fallback: git-auto-commit-message had already failed twice earlier in this session for missing API key; no repeated attempts.
