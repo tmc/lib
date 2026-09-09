@@ -33,7 +33,10 @@ func TestToolkitLibraryPathsFindsLibraryOffTheLinkerPath(t *testing.T) {
 	if err := os.MkdirAll(libDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	stub := filepath.Join(libDir, "libnvvm.so")
+	// The soname is pinned, so the stub carries the name the loader asks
+	// for. A real toolkit installs libnvvm.so.4 here and adds a libnvvm.so
+	// development symlink beside it, which the loader deliberately ignores.
+	stub := filepath.Join(libDir, "libnvvm.so.4")
 	if b, err := exec.Command(cc, "-shared", "-fPIC", "-o", stub, src).CombinedOutput(); err != nil {
 		t.Skipf("cc -shared: %v: %s", err, b)
 	}
