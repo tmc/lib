@@ -79,7 +79,15 @@ func (sb *SampleBuffer) SampleCount() int {
 	return sb.count
 }
 
+// MTLCounterErrorValue is the sentinel value written to a counter sample
+// when the hardware or driver cannot sample the counter.
+// Equivalent to ((uint64_t)~0ULL).
+const MTLCounterErrorValue uint64 = 0xFFFFFFFFFFFFFFFF
+
 // ResolveTimestamps extracts resolved GPU timestamp values from the sample buffer.
+// Returned timestamps are hardware clock ticks (nanoseconds on Apple Silicon GPU timestamp sets).
+// If any sample contains MTLCounterErrorValue or the data length does not match
+// the exact requested byte count, an error is returned.
 func (sb *SampleBuffer) ResolveTimestamps(start, count int) ([]uint64, error) {
 	if sb == nil || sb.raw == nil || sb.raw.GetID() == 0 {
 		return nil, ErrTimestampCountersUnavailable
@@ -97,15 +105,23 @@ func (sb *SampleBuffer) ResolveTimestamps(start, count int) ([]uint64, error) {
 	}
 
 	dataLen := int(nsData.Length())
-	numSamples := dataLen / 8
-	if numSamples > count {
-		numSamples = count
+	rawBytes := unsafe.Slice((*byte)(nsData.Bytes()), dataLen)
+	return decodeTimestamps(rawBytes, start, count)
+}
+
+func decodeTimestamps(data []byte, start, count int) ([]uint64, error) {
+	expectedBytes := count * 8
+	if len(data) != expectedBytes {
+		return nil, fmt.Errorf("metalprof: unexpected resolved counter data length: got %d bytes, want %d bytes for %d samples", len(data), expectedBytes, count)
 	}
 
-	rawBytes := unsafe.Slice((*byte)(nsData.Bytes()), dataLen)
-	out := make([]uint64, numSamples)
-	for i := 0; i < numSamples; i++ {
-		out[i] = binary.LittleEndian.Uint64(rawBytes[i*8:])
+	out := make([]uint64, count)
+	for i := 0; i < count; i++ {
+		val := binary.LittleEndian.Uint64(data[i*8:])
+		if val == MTLCounterErrorValue {
+			return nil, fmt.Errorf("metalprof: sample at index %d contains MTLCounterErrorValue (~0ULL)", start+i)
+		}
+		out[i] = val
 	}
 	return out, nil
 }
