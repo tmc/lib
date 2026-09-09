@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-09-09T21:59:06Z",
+  "host": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83",
+    "kernel": "Darwin mac-host 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:17:26 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6041 arm64",
+    "build": "",
+    "arch": "arm64"
+  },
+  "toolchain": {
+    "go_version": "go version go1.27.0 darwin/arm64",
+    "xcode_version": "Xcode 26.6\nBuild version 17F113",
+    "metal_toolchain_version": "Apple metal version 32023.883 (metalfe-32023.883)"
+  },
+  "device": {
+    "name": "Apple M4 Max",
+    "supports_stage_boundary": true,
+    "supports_dispatch_boundary": false,
+    "supports_blit_boundary": false,
+    "counter_sets": [
+      "timestamp"
+    ]
+  },
+  "coverage": {
+    "air_intermediate_representation": {
+      "declaration": "xcrun -sdk macosx metal -c ...",
+      "collector": "metal toolchain (air-objdump, metal-objdump)",
+      "status": "verified",
+      "evidence": "Can compile MSL to .air and inspect/embed AIR sections"
+    },
+    "blit_boundary_timestamps": {
+      "declaration": "MTLBlitCommandEncoder.SampleCountersInBufferAtSampleIndexWithBarrier",
+      "collector": "metalprof/counters.go",
+      "status": "unsupported",
+      "reason": "Apple M4 Max reports SupportsCounterSampling(MTLCounterSamplingPointAtBlitBoundary) == false",
+      "evidence": "dev.Raw().SupportsCounterSampling(MTLCounterSamplingPointAtBlitBoundary) is false"
+    },
+    "command_buffer_timing": {
+      "declaration": "MTLCommandBuffer.GPUStartTime, GPUEndTime",
+      "collector": "metal/commandbuffer.go",
+      "status": "verified",
+      "evidence": "Hardware completed execution returns verified positive duration in seconds"
+    },
+    "dispatch_boundary_timestamps": {
+      "declaration": "MTLComputeCommandEncoder.SampleCountersInBufferAtSampleIndexWithBarrier",
+      "collector": "metalprof/counters.go",
+      "status": "unsupported",
+      "reason": "Apple M4 Max reports SupportsCounterSampling(MTLCounterSamplingPointAtDispatchBoundary) == false",
+      "evidence": "dev.Raw().SupportsCounterSampling(MTLCounterSamplingPointAtDispatchBoundary) is false"
+    },
+    "mtlreplayer_headless": {
+      "declaration": "MTLReplayer.app -CLI ... -profileTrace -collectProfilerData",
+      "collector": "metalprof/capture.go",
+      "status": "verified",
+      "evidence": "Executes MTLReplayer headlessly and produces .gpuprofiler_raw with streamData and counter blobs"
+    },
+    "native_isa_attribution": {
+      "declaration": "GTMioShaderBinaryData.isaForInstructionAtIndex: / GTLLVMHelper / applegpu-nt",
+      "collector": "gputrace/internal/xcodebindings & GTShaderProfilerStreamDataProcessor",
+      "status": "unsupported",
+      "reason": "GTMioShaderBinaryData.isaForInstructionAtIndex: selector exists and is reachable via GTShaderProfilerStreamDataProcessor using GTLLVMHelper, but the installed helper logs: ''g16c-b1' is not a recognized processor for this target (ignoring processor)' and 'program counter updates are ignored', returning placeholder '-' strings for instructions; instruction tables, debug locations, and addresses are populated, but per-instruction disassembled native ISA and live register costs are not exposed",
+      "evidence": "TestProbeISAForInstruction in gputrace verified that with GTLLVMHelper (Xcode 26.6 17F113), 5 shader binaries with 137 instructions and 5 debug locations are produced, but GTLLVMHelper warns that target 'g16c-b1' is unrecognized and program counter updates are ignored; isaForInstructionAtIndex: returns '-' for all instructions; highRegisterCount is 0"
+    },
+    "programmatic_capture": {
+      "declaration": "MTLCaptureManager.StartCaptureWithDescriptorError",
+      "collector": "metalprof/capture.go",
+      "status": "verified",
+      "evidence": "Successfully creates .gputrace directory with complete command stream when MTL_CAPTURE_ENABLED=1"
+    },
+    "shader_profiler_dispatch_timing": {
+      "declaration": "GTShaderProfilerStreamData (encoderInfoData / gpuCommandInfoData)",
+      "collector": "gputrace streamData decoder",
+      "status": "verified",
+      "evidence": "Extracts per-dispatch spans and SIMD-group execution shares across encoders"
+    },
+    "stage_boundary_timestamps": {
+      "declaration": "MTLComputePassDescriptor.SampleBufferAttachments",
+      "collector": "metalprof/counters.go",
+      "status": "verified",
+      "evidence": "Pass descriptor attachments sample GPUTimestamp at stage boundary; diff matches command buffer duration within overhead"
+    }
+  },
+  "gaps": [
+    {
+      "feature": "Hardware Dispatch-Level Counter Sampling",
+      "reason": "M4 Max hardware only supports stage-boundary timestamp counter sampling, not dispatch-boundary or blit-boundary sampling.",
+      "action": "Use one compute stage per command buffer or stage-boundary pass attachments for hardware counter timing; record explicit scope."
+    },
+    {
+      "feature": "Exact Pipeline Hardware Native ISA Disassembly & PC Updates",
+      "reason": "GTShaderProfilerStreamDataProcessor and GTMioShaderBinaryData expose line/instruction indices, debug locations, and addresses, but the installed Xcode GTLLVMHelper fails to recognize the 'g16c-b1' target (Apple M4 Max), ignores program counter updates, and yields '-' placeholder strings rather than disassembled native instructions.",
+      "action": "Preserve tool-target mismatch and PC ignore warnings as concrete unresolved prerequisites; document AIR/MSL line attribution independently of native disassembly."
+    }
+  ]
+}
