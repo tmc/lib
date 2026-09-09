@@ -80,8 +80,8 @@ func (r *cudaFoundation) encodeMixedAttention(q, kv cudamem.Slice[float32], sink
 	})
 }
 
-// encodeMixedAttentionParallel queues preparation and pairwise value evaluation.
-// The single stream orders both kernels before any reuse of token scratch.
+// encodeMixedAttentionParallel queues rotation, independent scores, ordered
+// normalization, and pairwise values. One stream orders all scratch access.
 func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float32], sinks cudaModelTensor, raw, comp cudamem.Slice[float32], nComp int, allowed cudamem.Slice[uint32], scores, denominators, out cudamem.Slice[float32], position, layer int) error {
 	if q.Len() != 64*512 || kv.Len() != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 || raw.Len() == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 || allowed.Len() < max(1, nComp) || denominators.Len() != 64 || position < 0 || layer < 2 || out.Len() != 32768+512+32768 {
 		return fmt.Errorf("cuda: mixed attention: invalid shape")
@@ -96,6 +96,12 @@ func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float3
 		}
 		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention preparation: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionScoresFn).Grid(64, uint32((total+63)/64)).Block(64).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention scores: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.mixedAttentionNormalizeFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(sinks.device, allowed, scores, denominators, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			return fmt.Errorf("cuda: launch mixed attention normalization: %w", err)
 		}
 		if err := cudalaunch.Kernel(r.mixedAttentionValuesFn).Grid(64).Block(256).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention values: %w", err)
@@ -319,19 +325,32 @@ extern "C" __global__ void ds4_attention_mixed_prepare(const float *q,const floa
     for(unsigned int i=0;i<512;i++)raw[row*512+i]=ds4_half_round(out[32768+i]);
   }
   __syncthreads();
-  const unsigned int n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
-  float maximum=sinks[head];
-  for(unsigned int t=0;t<n_raw;t++){
-    const unsigned int row=(first+t)%raw_cap;float score=0.0f;
-    // Both dot operands go through f16 as the oracle does; see ds4_attention_raw.
-    for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*raw[row*512+i];
-    score*=0.04419417382415922f;scores[head*total+t]=score;maximum=fmaxf(maximum,score);
-  }
-  for(unsigned int cidx=0;cidx<n_comp;cidx++){
-    float score=-1.0e30f;
-    if(allowed[cidx]){score=0.0f;for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*comp[cidx*512+i];score*=0.04419417382415922f;maximum=fmaxf(maximum,score);}
-    scores[head*total+n_raw+cidx]=score;
-  }
+  (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
+}
+
+extern "C" __global__ void ds4_attention_mixed_scores(const float *raw,const float *comp,const unsigned int *allowed,float *scores,const float *out,unsigned int position,unsigned int raw_cap,unsigned int n_comp) {
+ const unsigned int head=blockIdx.x,t=blockIdx.y*blockDim.x+threadIdx.x;
+ const unsigned int n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+ if(head>=64 || t>=total)return;
+ const unsigned int qoff=head*512;
+ float score=-1.0e30f;
+ if(t<n_raw){
+  const unsigned int row=(first+t)%raw_cap;score=0.0f;
+  for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*raw[row*512+i];
+  score*=0.04419417382415922f;
+ }else{
+  const unsigned int cidx=t-n_raw;
+  if(allowed[cidx]){score=0.0f;for(unsigned int i=0;i<512;i++)score+=ds4_half_round(out[qoff+i])*comp[cidx*512+i];score*=0.04419417382415922f;}
+ }
+ scores[head*total+t]=score;
+}
+
+extern "C" __global__ void ds4_attention_mixed_normalize(const float *sinks,const unsigned int *allowed,float *scores,float *denominators,unsigned int position,unsigned int raw_cap,unsigned int n_comp) {
+ const unsigned int head=threadIdx.x;if(blockIdx.x || head>=64)return;
+ const unsigned int n_raw=min(position+1,raw_cap),total=n_raw+n_comp;
+ float maximum=sinks[head];
+ for(unsigned int t=0;t<n_raw;t++)maximum=fmaxf(maximum,scores[head*total+t]);
+ for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])maximum=fmaxf(maximum,scores[head*total+n_raw+cidx]);
   float denom=expf(sinks[head]-maximum);
   // Retain each softmax weight. The value loop consumes the same float that
   // the denominator did instead of evaluating expf again for every value

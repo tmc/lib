@@ -554,29 +554,31 @@ type cudaFoundation struct {
 	hcCollapseFn     driver.Function
 	hcExpandFn       driver.Function
 
-	hcPostFn                driver.Function
-	rowFn                   driver.Function
-	rawAttentionFn          driver.Function
-	routerHashFn            driver.Function
-	routerBiasedFn          driver.Function
-	swigluFn                driver.Function
-	sumVectorsFn            driver.Function
-	iq2SelectedFn           driver.Function
-	q2KSelectedFn           driver.Function
-	quantQ8KFn              driver.Function
-	iq2SelectedQ8KFn        driver.Function
-	q2KSelectedQ8KFn        driver.Function
-	iq2SelectedQ81Fn        driver.Function
-	q2KSelectedQ81Fn        driver.Function
-	compressorPoolFn        driver.Function
-	compressorAttentionFn   driver.Function
-	compressorIndexerFn     driver.Function
-	mixedAttentionFn        driver.Function
-	mixedAttentionPrepareFn driver.Function
-	mixedAttentionValuesFn  driver.Function
-	indexerQueryFn          driver.Function
-	indexerSelectFn         driver.Function
-	fillU32Fn               driver.Function
+	hcPostFn                  driver.Function
+	rowFn                     driver.Function
+	rawAttentionFn            driver.Function
+	routerHashFn              driver.Function
+	routerBiasedFn            driver.Function
+	swigluFn                  driver.Function
+	sumVectorsFn              driver.Function
+	iq2SelectedFn             driver.Function
+	q2KSelectedFn             driver.Function
+	quantQ8KFn                driver.Function
+	iq2SelectedQ8KFn          driver.Function
+	q2KSelectedQ8KFn          driver.Function
+	iq2SelectedQ81Fn          driver.Function
+	q2KSelectedQ81Fn          driver.Function
+	compressorPoolFn          driver.Function
+	compressorAttentionFn     driver.Function
+	compressorIndexerFn       driver.Function
+	mixedAttentionFn          driver.Function
+	mixedAttentionPrepareFn   driver.Function
+	mixedAttentionScoresFn    driver.Function
+	mixedAttentionNormalizeFn driver.Function
+	mixedAttentionValuesFn    driver.Function
+	indexerQueryFn            driver.Function
+	indexerSelectFn           driver.Function
+	fillU32Fn                 driver.Function
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
@@ -1248,6 +1250,8 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_compressor_indexer", &r.compressorIndexerFn},
 		{"ds4_attention_mixed", &r.mixedAttentionFn},
 		{"ds4_attention_mixed_prepare", &r.mixedAttentionPrepareFn},
+		{"ds4_attention_mixed_scores", &r.mixedAttentionScoresFn},
+		{"ds4_attention_mixed_normalize", &r.mixedAttentionNormalizeFn},
 		{"ds4_attention_mixed_values", &r.mixedAttentionValuesFn},
 		{"ds4_indexer_query", &r.indexerQueryFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
