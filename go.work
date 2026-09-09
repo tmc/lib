@@ -5,6 +5,7 @@ use (
 	./examples
 	./ggml
 	./hfsync
+	./libgit2
 	./lm
 	./nvidia
 	./openxla

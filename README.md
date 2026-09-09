@@ -14,6 +14,7 @@ There is no root module. Each subdirectory is an independent Go module with its 
 | `gopccl` | `github.com/tmc/lib/gopccl` | Cross-accelerator collective communication interface |
 | `gorccl` | `github.com/tmc/lib/gorccl` | High-level RCCL interface |
 | `kvm` | `github.com/tmc/lib/kvm` | Linux KVM API wrapper |
+| `libgit2` | `github.com/tmc/lib/libgit2` | Purego libgit2 bindings |
 | `libp2p` | `github.com/tmc/lib/libp2p` | Pinned libp2p host/node wrapper |
 | `lldb` | `github.com/tmc/lib/lldb` | Purego LLDB C API bindings |
 | `mgccl` | `github.com/tmc/lib/mgccl` | Multi-GPU collective communication pump |
