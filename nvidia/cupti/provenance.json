@@ -3,56 +3,56 @@
   "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$TMPDIR/work/provenance/codegen",
+  "cwd": "$TMPDIR/work/tier0/codegen",
   "argv": [
-    "$TMPDIR/work/provenance/go-build1282123217/b001/exe/gen-nvidia",
+    "$TMPDIR/work/tier0/go-build1802362349/b001/exe/gen-nvidia",
     "-api",
     "cupti",
     "-headers-dir",
-    "$TMPDIR/work/provenance/codegen/../cuda-headers",
+    "$TMPDIR/work/tier0/cuda-headers",
     "-clang=false",
     "-output",
-    "$TMPDIR/work/provenance/codegen/../generated/candidate/cupti"
+    "$TMPDIR/work/tier0/lib/nvidia/cupti"
   ],
   "inputs": [
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti.h",
       "sha256": "2b0a3268524bf80c13ffb173b7271295ee81161d220ea28951d748d5af26bd0e"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_checkpoint.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_checkpoint.h",
       "sha256": "ad3cfc2685b1a844815f26565216491a6e31798731e0e24eb49ecb775dd3fdbd"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_pcsampling.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_pcsampling.h",
       "sha256": "c9c2474f7e8398f21a5731ec077c718d792117211f30224e9772db0ac1c58320"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_pmsampling.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_pmsampling.h",
       "sha256": "53de6128ec0891949b18d54fd7541298c6b007ca9d26c96363fb54258e2f79d7"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_profiler_host.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_profiler_host.h",
       "sha256": "8913cfad9b09f01c30ef857577483d087ef0b67ecbfa15fc62058d3068534a35"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_profiler_target.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_profiler_target.h",
       "sha256": "2aac4e121b85139483a7ee9105802a70e0610a20f3276d78fc4780b1b0d89b2d"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_range_profiler.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_range_profiler.h",
       "sha256": "b9ee5b500fb7c42c00b501b20dee4ed5de6b02645b55b72b5ca7c84dde313352"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_sass_metrics.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_sass_metrics.h",
       "sha256": "dd15bdb2726e15074e86b127df00c93abbb4e6ad15ff3b2c5aba83eedbd524ac"
     },
     {
-      "path": "$TMPDIR/work/provenance/cuda-headers/cupti/cupti_target.h",
+      "path": "$TMPDIR/work/tier0/cuda-headers/cupti/cupti_target.h",
       "sha256": "c78573d54a5bea6f62c6656998668a425743598408dce67ea1c1171b334ad041"
     }
   ],
-  "source_hash": "8df4426ee3c22ffc09c5b35a0c39e296e7a376144b7cadda34c459b3784b8f5f",
+  "source_hash": "15cc650508122e2f6ab2d1c5169abe70f55fd4e090d0ef9fd88829472256ac70",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

@@ -3799,7 +3799,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "5ee87a9f6b4001cbeb9805bfb67d3c332665d836da02fc511042cc4e9821d534"
+            "sha256": "8b2541e3e43eb29b113ccf0657b9e651a8ba2a61130acb5b59f9f7485cad7f89"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -3819,7 +3819,7 @@
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
-            "sha256": "7199a0ab26a6370d41404644e53f774f386cb1bac2a089640c11ed0465131134"
+            "sha256": "46a0a04497e7d46cae7723a0934fea9eead9e24e9ff11c5f2c3fe8e1e100030c"
           },
           {
             "path": "nvidia/cupti/result.gen.go",
@@ -3838,7 +3838,7 @@
             "sha256": "901df8574e9969f2775fcd68d68ea33fce81d43459f3e1bbe15fb2f200aaa7f0"
           }
         ],
-        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files."
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files. Tier 0 cleanup regenerated with raw/10000 CUPTI version admission and reordered existing candidates; source and invocation receipt retained at $TMPDIR/work/tier0."
       },
       "maintained_files_excluded": [
         "example_test.go",
