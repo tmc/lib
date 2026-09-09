@@ -1,0 +1,30 @@
+package openxla
+
+import (
+	"unsafe"
+
+	"github.com/tmc/ffi/calls"
+)
+
+// callPJRT invokes a PJRT C API function that takes a single struct pointer argument
+// and returns a *Error pointer.
+//
+//go:uintptrescapes
+func callPJRT(fn uintptr, args uintptr) *Error {
+	if fn == 0 {
+		return nil
+	}
+	r1 := calls.Call1(fn, args)
+	return (*Error)(unsafe.Pointer(r1))
+}
+
+// callPJRTProc invokes a PJRT C API function that takes a single struct pointer argument
+// and returns void (such as Error_Destroy, Error_Message).
+//
+//go:uintptrescapes
+func callPJRTProc(fn uintptr, args uintptr) {
+	if fn == 0 {
+		return
+	}
+	calls.Call1(fn, args)
+}

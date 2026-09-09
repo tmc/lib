@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"runtime"
 	"unsafe"
-
-	"github.com/ebitengine/purego"
 )
 
 // ClientWrapper provides idiomatic Go access to PJRT Client operations.
@@ -88,9 +86,7 @@ func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
 
 	var createArgs Client_Create_Args
 	createArgs.Struct_size = PJRT_Client_Create_Args_STRUCT_SIZE
-	var fnCreate func(*Client_Create_Args) *Error
-	purego.RegisterFunc(&fnCreate, api.Client_Create)
-	if errPtr := fnCreate(&createArgs); errPtr != nil {
+	if errPtr := callPJRT(api.Client_Create, uintptr(unsafe.Pointer(&createArgs))); errPtr != nil {
 		return nil, decodeError(api, errPtr)
 	}
 
@@ -104,9 +100,7 @@ func initializePlugin(api *Api) error {
 	if api.StructSize >= unsafe.Offsetof(api.Plugin_Initialize)+unsafe.Sizeof(api.Plugin_Initialize) && api.Plugin_Initialize != 0 {
 		var initArgs Plugin_Initialize_Args
 		initArgs.Struct_size = PJRT_Plugin_Initialize_Args_STRUCT_SIZE
-		var fn func(*Plugin_Initialize_Args) *Error
-		purego.RegisterFunc(&fn, api.Plugin_Initialize)
-		if errPtr := fn(&initArgs); errPtr != nil {
+		if errPtr := callPJRT(api.Plugin_Initialize, uintptr(unsafe.Pointer(&initArgs))); errPtr != nil {
 			return decodeError(api, errPtr)
 		}
 	}
@@ -122,9 +116,7 @@ func (c *ClientWrapper) PlatformName() (string, error) {
 	var args Client_PlatformName_Args
 	args.Struct_size = PJRT_Client_PlatformName_Args_STRUCT_SIZE
 	args.Client = c.client
-	var fn func(*Client_PlatformName_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_PlatformName)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_PlatformName, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return "", decodeError(c.api, errPtr)
 	}
 	if args.Platform_name == nil {
@@ -142,9 +134,7 @@ func (c *ClientWrapper) PlatformVersion() (string, error) {
 	var args Client_PlatformVersion_Args
 	args.Struct_size = PJRT_Client_PlatformVersion_Args_STRUCT_SIZE
 	args.Client = c.client
-	var fn func(*Client_PlatformVersion_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_PlatformVersion)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_PlatformVersion, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return "", decodeError(c.api, errPtr)
 	}
 	if args.Platform_version == nil {
@@ -162,9 +152,7 @@ func (c *ClientWrapper) Devices() ([]*Device, error) {
 	var args Client_Devices_Args
 	args.Struct_size = PJRT_Client_Devices_Args_STRUCT_SIZE
 	args.Client = c.client
-	var fn func(*Client_Devices_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_Devices)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_Devices, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
 	}
 	if args.Num_devices == 0 || args.Devices == nil {
@@ -182,9 +170,7 @@ func (c *ClientWrapper) AddressableDevices() ([]*Device, error) {
 	var args Client_AddressableDevices_Args
 	args.Struct_size = PJRT_Client_AddressableDevices_Args_STRUCT_SIZE
 	args.Client = c.client
-	var fn func(*Client_AddressableDevices_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_AddressableDevices)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_AddressableDevices, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
 	}
 	if args.Num_addressable_devices == 0 || args.Addressable_devices == nil {
@@ -231,9 +217,7 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	args.Device = dev
 	args.Host_buffer_semantics = HostBufferSemantics_kImmutableOnlyDuringCall
 
-	var fn func(*Client_BufferFromHostBuffer_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_BufferFromHostBuffer)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_BufferFromHostBuffer, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
 	}
 
@@ -274,9 +258,7 @@ func (c *ClientWrapper) DefaultDeviceAssignment(replicas, partitions int) ([]int
 		Num_replicas: int32(replicas), Num_partitions: int32(partitions),
 		Default_assignment_size: uintptr(len(ids)), Default_assignment: &ids[0],
 	}
-	var fn func(*Client_DefaultDeviceAssignment_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_DefaultDeviceAssignment)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_DefaultDeviceAssignment, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
 	}
 	return ids, nil
@@ -317,9 +299,7 @@ func (c *ClientWrapper) MemoryStats(device *Device) (DeviceMemoryStats, error) {
 		Struct_size: PJRT_Device_MemoryStats_Args_STRUCT_SIZE,
 		Device:      device,
 	}
-	var fn func(*Device_MemoryStats_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Device_MemoryStats)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Device_MemoryStats, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return DeviceMemoryStats{}, decodeError(c.api, errPtr)
 	}
 	stats := DeviceMemoryStats{BytesInUse: args.Bytes_in_use}
@@ -416,9 +396,7 @@ func (c *ClientWrapper) Compile(programCode []byte, format string, compileOption
 		args.Compile_options_size = uintptr(len(compileOptions))
 	}
 
-	var fn func(*Client_Compile_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_Compile)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(c.api.Client_Compile, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
 	}
 
@@ -449,17 +427,13 @@ func (e *ExecutableWrapper) SerializedDeviceAssignment() ([]byte, error) {
 		Struct_size: PJRT_LoadedExecutable_GetDeviceAssignment_Args_STRUCT_SIZE,
 		Executable:  e.executable,
 	}
-	var fn func(*LoadedExecutable_GetDeviceAssignment_Args) *Error
-	purego.RegisterFunc(&fn, e.api.LoadedExecutable_GetDeviceAssignment)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(e.api.LoadedExecutable_GetDeviceAssignment, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(e.api, errPtr)
 	}
 	if args.Serialized_device_assignment == nil || args.Serialized_device_assignment_deleter == 0 {
 		return nil, fmt.Errorf("openxla: device assignment has no backing allocation or deleter")
 	}
-	var free func(*DeviceAssignmentSerialized)
-	purego.RegisterFunc(&free, args.Serialized_device_assignment_deleter)
-	defer free(args.Serialized_device_assignment)
+	defer callPJRTProc(args.Serialized_device_assignment_deleter, uintptr(unsafe.Pointer(args.Serialized_device_assignment)))
 	if args.Serialized_bytes_size > uintptr(^uint(0)>>1) {
 		return nil, fmt.Errorf("openxla: serialized device assignment size overflows")
 	}
@@ -507,9 +481,7 @@ func (e *ExecutableWrapper) CompiledMemoryStats() (stats CompiledMemoryStats, er
 		Struct_size:       PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE,
 		Loaded_executable: e.executable,
 	}
-	var acquire func(*LoadedExecutable_GetExecutable_Args) *Error
-	purego.RegisterFunc(&acquire, e.api.LoadedExecutable_GetExecutable)
-	if errPtr := acquire(&get); errPtr != nil {
+	if errPtr := callPJRT(e.api.LoadedExecutable_GetExecutable, uintptr(unsafe.Pointer(&get))); errPtr != nil {
 		return stats, decodeError(e.api, errPtr)
 	}
 	if get.Executable == nil {
@@ -520,9 +492,7 @@ func (e *ExecutableWrapper) CompiledMemoryStats() (stats CompiledMemoryStats, er
 			Struct_size: PJRT_Executable_Destroy_Args_STRUCT_SIZE,
 			Executable:  get.Executable,
 		}
-		var destroy func(*Executable_Destroy_Args) *Error
-		purego.RegisterFunc(&destroy, e.api.Executable_Destroy)
-		if errPtr := destroy(&args); errPtr != nil {
+		if errPtr := callPJRT(e.api.Executable_Destroy, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 			err = errors.Join(err, decodeError(e.api, errPtr))
 			stats = CompiledMemoryStats{}
 		}
@@ -531,9 +501,7 @@ func (e *ExecutableWrapper) CompiledMemoryStats() (stats CompiledMemoryStats, er
 		Struct_size: PJRT_Executable_GetCompiledMemoryStats_Args_STRUCT_SIZE,
 		Executable:  get.Executable,
 	}
-	var query func(*Executable_GetCompiledMemoryStats_Args) *Error
-	purego.RegisterFunc(&query, e.api.Executable_GetCompiledMemoryStats)
-	if errPtr := query(&args); errPtr != nil {
+	if errPtr := callPJRT(e.api.Executable_GetCompiledMemoryStats, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return stats, decodeError(e.api, errPtr)
 	}
 	return CompiledMemoryStats{
@@ -566,9 +534,7 @@ func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 	var getArgs LoadedExecutable_GetExecutable_Args
 	getArgs.Struct_size = PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE
 	getArgs.Loaded_executable = e.executable
-	var fnGet func(*LoadedExecutable_GetExecutable_Args) *Error
-	purego.RegisterFunc(&fnGet, e.api.LoadedExecutable_GetExecutable)
-	if errPtr := fnGet(&getArgs); errPtr != nil {
+	if errPtr := callPJRT(e.api.LoadedExecutable_GetExecutable, uintptr(unsafe.Pointer(&getArgs))); errPtr != nil {
 		return 0, decodeError(e.api, errPtr)
 	}
 	defer func() {
@@ -576,9 +542,7 @@ func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 			var dArgs Executable_Destroy_Args
 			dArgs.Struct_size = PJRT_Executable_Destroy_Args_STRUCT_SIZE
 			dArgs.Executable = getArgs.Executable
-			var fnD func(*Executable_Destroy_Args) *Error
-			purego.RegisterFunc(&fnD, e.api.Executable_Destroy)
-			if errPtr := fnD(&dArgs); errPtr != nil {
+			if errPtr := callPJRT(e.api.Executable_Destroy, uintptr(unsafe.Pointer(&dArgs))); errPtr != nil {
 				err = errors.Join(err, decodeError(e.api, errPtr))
 				count = 0
 			}
@@ -588,9 +552,7 @@ func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 	var numArgs Executable_NumOutputs_Args
 	numArgs.Struct_size = PJRT_Executable_NumOutputs_Args_STRUCT_SIZE
 	numArgs.Executable = getArgs.Executable
-	var fnNum func(*Executable_NumOutputs_Args) *Error
-	purego.RegisterFunc(&fnNum, e.api.Executable_NumOutputs)
-	if errPtr := fnNum(&numArgs); errPtr != nil {
+	if errPtr := callPJRT(e.api.Executable_NumOutputs, uintptr(unsafe.Pointer(&numArgs))); errPtr != nil {
 		return 0, decodeError(e.api, errPtr)
 	}
 	if numArgs.Num_outputs > uintptr(int(^uint(0)>>1)) {
@@ -682,12 +644,9 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 		return nil, fmt.Errorf("openxla: Buffer_Destroy not available")
 	}
 
-	var fn func(*LoadedExecutable_Execute_Args) *Error
-	purego.RegisterFunc(&fn, e.api.LoadedExecutable_Execute)
-
 	// Await every device before releasing outputs, even if an earlier device
 	// reports failure. Event destruction failures are returned to the caller.
-	runErr := decodeError(e.api, fn(&args))
+	runErr := decodeError(e.api, callPJRT(e.api.LoadedExecutable_Execute, uintptr(unsafe.Pointer(&args))))
 	for _, ev := range events {
 		runErr = errors.Join(runErr, awaitEvent(e.api, ev))
 	}
@@ -721,9 +680,7 @@ func (e *ExecutableWrapper) Destroy() error {
 	var args LoadedExecutable_Destroy_Args
 	args.Struct_size = PJRT_LoadedExecutable_Destroy_Args_STRUCT_SIZE
 	args.Executable = e.executable
-	var fn func(*LoadedExecutable_Destroy_Args) *Error
-	purego.RegisterFunc(&fn, e.api.LoadedExecutable_Destroy)
-	errPtr := fn(&args)
+	errPtr := callPJRT(e.api.LoadedExecutable_Destroy, uintptr(unsafe.Pointer(&args)))
 	e.executable = nil
 	if errPtr != nil {
 		return decodeError(e.api, errPtr)
@@ -746,9 +703,7 @@ func (b *BufferWrapper) Device() (*Device, error) {
 		return nil, fmt.Errorf("openxla: buffer device query not available")
 	}
 	args := Buffer_Device_Args{Struct_size: PJRT_Buffer_Device_Args_STRUCT_SIZE, Buffer: b.buffer}
-	var fn func(*Buffer_Device_Args) *Error
-	purego.RegisterFunc(&fn, b.api.Buffer_Device)
-	if err := decodeError(b.api, fn(&args)); err != nil {
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_Device, uintptr(unsafe.Pointer(&args)))); err != nil {
 		return nil, err
 	}
 	if args.Device == nil {
@@ -768,17 +723,13 @@ func (b *BufferWrapper) Shape() (Buffer_Type, []int64, error) {
 	var typeArgs Buffer_ElementType_Args
 	typeArgs.Struct_size = PJRT_Buffer_ElementType_Args_STRUCT_SIZE
 	typeArgs.Buffer = b.buffer
-	var typeFn func(*Buffer_ElementType_Args) *Error
-	purego.RegisterFunc(&typeFn, b.api.Buffer_ElementType)
-	if errPtr := typeFn(&typeArgs); errPtr != nil {
+	if errPtr := callPJRT(b.api.Buffer_ElementType, uintptr(unsafe.Pointer(&typeArgs))); errPtr != nil {
 		return Buffer_Type_INVALID, nil, decodeError(b.api, errPtr)
 	}
 	var dimsArgs Buffer_Dimensions_Args
 	dimsArgs.Struct_size = PJRT_Buffer_Dimensions_Args_STRUCT_SIZE
 	dimsArgs.Buffer = b.buffer
-	var dimsFn func(*Buffer_Dimensions_Args) *Error
-	purego.RegisterFunc(&dimsFn, b.api.Buffer_Dimensions)
-	if errPtr := dimsFn(&dimsArgs); errPtr != nil {
+	if errPtr := callPJRT(b.api.Buffer_Dimensions, uintptr(unsafe.Pointer(&dimsArgs))); errPtr != nil {
 		return Buffer_Type_INVALID, nil, decodeError(b.api, errPtr)
 	}
 	if dimsArgs.Num_dims > uintptr(int(^uint(0)>>1))/unsafe.Sizeof(int64(0)) || (dimsArgs.Num_dims != 0 && dimsArgs.Dims == nil) {
@@ -811,9 +762,7 @@ func (b *BufferWrapper) ToHost(dst unsafe.Pointer, dstSize uintptr) error {
 	args.Src = b.buffer
 	args.Dst = dst
 	args.Dst_size = dstSize
-	var fn func(*Buffer_ToHostBuffer_Args) *Error
-	purego.RegisterFunc(&fn, b.api.Buffer_ToHostBuffer)
-	if errPtr := fn(&args); errPtr != nil {
+	if errPtr := callPJRT(b.api.Buffer_ToHostBuffer, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return decodeError(b.api, errPtr)
 	}
 	return awaitEvent(b.api, args.Event)
@@ -827,9 +776,7 @@ func (b *BufferWrapper) Destroy() error {
 	var args Buffer_Destroy_Args
 	args.Struct_size = PJRT_Buffer_Destroy_Args_STRUCT_SIZE
 	args.Buffer = b.buffer
-	var fn func(*Buffer_Destroy_Args) *Error
-	purego.RegisterFunc(&fn, b.api.Buffer_Destroy)
-	errPtr := fn(&args)
+	errPtr := callPJRT(b.api.Buffer_Destroy, uintptr(unsafe.Pointer(&args)))
 	b.buffer = nil
 	if errPtr != nil {
 		return decodeError(b.api, errPtr)
@@ -845,9 +792,7 @@ func (c *ClientWrapper) Destroy() error {
 	var args Client_Destroy_Args
 	args.Struct_size = PJRT_Client_Destroy_Args_STRUCT_SIZE
 	args.Client = c.client
-	var fn func(*Client_Destroy_Args) *Error
-	purego.RegisterFunc(&fn, c.api.Client_Destroy)
-	errPtr := fn(&args)
+	errPtr := callPJRT(c.api.Client_Destroy, uintptr(unsafe.Pointer(&args)))
 	c.client = nil
 	if errPtr != nil {
 		return decodeError(c.api, errPtr)
@@ -862,14 +807,10 @@ func awaitEvent(api *Api, event *Event) (err error) {
 	}
 	defer func() {
 		args := Event_Destroy_Args{Struct_size: PJRT_Event_Destroy_Args_STRUCT_SIZE, Event: event}
-		var destroy func(*Event_Destroy_Args) *Error
-		purego.RegisterFunc(&destroy, api.Event_Destroy)
-		err = errors.Join(err, decodeError(api, destroy(&args)))
+		err = errors.Join(err, decodeError(api, callPJRT(api.Event_Destroy, uintptr(unsafe.Pointer(&args)))))
 	}()
 	args := Event_Await_Args{Struct_size: PJRT_Event_Await_Args_STRUCT_SIZE, Event: event}
-	var await func(*Event_Await_Args) *Error
-	purego.RegisterFunc(&await, api.Event_Await)
-	return decodeError(api, await(&args))
+	return decodeError(api, callPJRT(api.Event_Await, uintptr(unsafe.Pointer(&args))))
 }
 
 func decodeError(api *Api, errPtr *Error) error {
@@ -881,9 +822,7 @@ func decodeError(api *Api, errPtr *Error) error {
 			var dArgs Error_Destroy_Args
 			dArgs.Struct_size = PJRT_Error_Destroy_Args_STRUCT_SIZE
 			dArgs.Error = errPtr
-			var fnD func(*Error_Destroy_Args)
-			purego.RegisterFunc(&fnD, api.Error_Destroy)
-			fnD(&dArgs)
+			callPJRTProc(api.Error_Destroy, uintptr(unsafe.Pointer(&dArgs)))
 		}
 	}()
 
@@ -891,9 +830,7 @@ func decodeError(api *Api, errPtr *Error) error {
 		var mArgs Error_Message_Args
 		mArgs.Struct_size = PJRT_Error_Message_Args_STRUCT_SIZE
 		mArgs.Error = errPtr
-		var fnM func(*Error_Message_Args)
-		purego.RegisterFunc(&fnM, api.Error_Message)
-		fnM(&mArgs)
+		callPJRTProc(api.Error_Message, uintptr(unsafe.Pointer(&mArgs)))
 		if mArgs.Message != nil {
 			msgBytes := unsafe.Slice(mArgs.Message, mArgs.Message_size)
 			return fmt.Errorf("openxla error: %s", string(msgBytes))
