@@ -8906,7 +8906,7 @@
           },
           {
             "path": "nvidia/driver/init.gen.go",
-            "sha256": "d4fdfb2d7167a928952ad3c1e28227285f04e67a0a047d23d40841d846f63efc"
+            "sha256": "91d2c83d9ebe1f425d0597ad89955f6dcf1e4be3b6c80878948dc2f15e09d1cc"
           },
           {
             "path": "nvidia/driver/kernel.gen.go",
@@ -8977,7 +8977,8 @@
             "sha256": "8232bbd7d6cee2e3c50b29d28960080abacb4a21f7efd3de78f450ce4469420e"
           }
         ],
-        "comparison": "Regeneration diverges across most of the package. Measured again 2026-09-08 against codegen 746029c: 42 incompatible apidiff changes, all of them out-parameters becoming return values, plus 58 compatible additions. The 52 removed #define constants reported earlier were cmd/driver-survey failing to pass CUDAConfig's DefineGroups through to ffigen; they are emitted again."
+        "comparison": "Regeneration diverges across most of the package. Measured again 2026-09-08 against codegen 746029c: 42 incompatible apidiff changes, all of them out-parameters becoming return values, plus 58 compatible additions. The 52 removed #define constants reported earlier were cmd/driver-survey failing to pass CUDAConfig's DefineGroups through to ffigen; they are emitted again.",
+        "note": " Tier 0 loader-only BindFailures backport from existing emitter; no driver API regeneration or signature changes."
       },
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
