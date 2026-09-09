@@ -6,7 +6,7 @@ import (
 )
 
 // ScatterRows replaces rows along operand's first axis. indices is a vector
-// of i32 or i64 row indices; updates has shape [len(indices), operand.shape[1:]...]
+// of integer row indices; updates has shape [len(indices), operand.shape[1:]...]
 // and operand's element type. Shapes must be static and operand non-scalar.
 // Out-of-range indices are ignored. For repeated in-range indices, the chosen
 // update is unspecified. An error leaves the builder unchanged.
@@ -16,7 +16,7 @@ func (b *FuncBuilder) ScatterRows(operand, indices, updates Value) (Value, error
 	}
 	rank := len(operand.Type.Shape)
 	if rank == 0 || len(updates.Type.Shape) != rank || len(indices.Type.Shape) != 1 ||
-		(indices.Type.ElementType != "i32" && indices.Type.ElementType != "i64") {
+		!integerIndexType(indices.Type.ElementType) {
 		return Value{}, fmt.Errorf("scatter rows: matching non-scalar ranks and integer index vector required")
 	}
 	for _, typ := range []Type{operand.Type, indices.Type, updates.Type} {

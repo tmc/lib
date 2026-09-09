@@ -1,6 +1,7 @@
 package gomlx
 
 import (
+	"math"
 	"os"
 	"reflect"
 	"sort"
@@ -90,6 +91,57 @@ func TestNativeSortFunc(t *testing.T) {
 			}
 		}
 		e.Finalize()
+	}
+}
+
+func TestNativeSort16(t *testing.T) {
+	path := os.Getenv("TMC_COMPUTE_PLUGIN")
+	if path == "" {
+		t.Skip("set TMC_COMPUTE_PLUGIN")
+	}
+	b, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	for _, tc := range []struct {
+		name  string
+		dtype dtypes.DType
+		keys  any
+		want  any
+		ids   []int32
+	}{
+		{"i16", dtypes.Int16, []int16{2, math.MinInt16, 2, math.MaxInt16}, []int16{math.MinInt16, 2, 2, math.MaxInt16}, []int32{20, 10, 30, 40}},
+		{"ui16", dtypes.Uint16, []uint16{2, 0x8000, 2, 0xffff}, []uint16{2, 2, 0x8000, 0xffff}, []int32{10, 30, 20, 40}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := graph.NewExec(b, func(k, id *graph.Node) []*graph.Node {
+				c := graph.NewClosure(k.Graph(), func(g *graph.Graph) []*graph.Node {
+					lhs := graph.Parameter(g, "lhs", shapes.Make(tc.dtype))
+					rhs := graph.Parameter(g, "rhs", shapes.Make(tc.dtype))
+					graph.Parameter(g, "lhsID", shapes.Make(dtypes.Int32))
+					graph.Parameter(g, "rhsID", shapes.Make(dtypes.Int32))
+					return []*graph.Node{graph.LessThan(lhs, rhs)}
+				})
+				return graph.SortFunc(c, 0, true, k, id)
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer e.Finalize()
+			out, err := e.Call(tc.keys, []int32{10, 20, 30, 40})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer out[0].FinalizeAll()
+			defer out[1].FinalizeAll()
+			if !reflect.DeepEqual(out[0].Value(), tc.want) {
+				t.Fatalf("keys = %v, want %v", out[0].Value(), tc.want)
+			}
+			if want := tc.ids; !reflect.DeepEqual(out[1].Value(), want) {
+				t.Fatalf("carried input = %v, want %v", out[1].Value(), want)
+			}
+		})
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// GatherRows selects rows along operand's first axis using i32 or i64 indices.
+// GatherRows selects rows along operand's first axis using an integer index type.
 // indices may have any rank, including zero. The result has shape
 // [indices.shape..., operand.shape[1:]...]. Shapes must be static and operand's
 // first axis nonempty. StableHLO clamps runtime indices to the available rows;
@@ -15,7 +15,7 @@ func (b *FuncBuilder) GatherRows(operand, indices Value) (Value, error) {
 	if err := checkType(operand.Type); err != nil {
 		return Value{}, fmt.Errorf("gather rows: %w", err)
 	}
-	if len(operand.Type.Shape) == 0 || operand.Type.Shape[0] <= 0 || (indices.Type.ElementType != "i32" && indices.Type.ElementType != "i64") {
+	if len(operand.Type.Shape) == 0 || operand.Type.Shape[0] <= 0 || !integerIndexType(indices.Type.ElementType) {
 		return Value{}, fmt.Errorf("gather rows: nonempty first axis and integer indices required")
 	}
 	shape := append(slices.Clone(indices.Type.Shape), operand.Type.Shape[1:]...)
@@ -30,6 +30,14 @@ func (b *FuncBuilder) GatherRows(operand, indices Value) (Value, error) {
 		}
 	}
 	return b.gatherRows(operand, indices, shape), nil
+}
+
+func integerIndexType(typ string) bool {
+	switch typ {
+	case "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64":
+		return true
+	}
+	return false
 }
 
 func (b *FuncBuilder) gatherRows(operand, indices Value, shape []int64) Value {

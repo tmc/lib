@@ -35,6 +35,8 @@ func TestNativeGatherIndices(t *testing.T) {
 		axis    int
 	}{
 		{"implicit", []int32{-1, 2, 99, 0}, 1},
+		{"implicit i16", []int16{-1, 2, 99, 0}, 1},
+		{"implicit ui16", []uint16{0, 2, 99, 0}, 1},
 		{"leading vector", [][]int32{{-1, 2, 99, 0}}, 0},
 		{"trailing vector", [][]int64{{-1}, {2}, {99}, {0}}, 1},
 	} {

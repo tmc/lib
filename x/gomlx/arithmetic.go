@@ -128,13 +128,16 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 			initial = float32(math.Inf(1))
 		}
 		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: x.Type.ElementType})
-	} else if x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
+	} else if x.Type.ElementType == "ui8" || x.Type.ElementType == "ui16" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: x.Type.ElementType}}
 		initial := uint64(0)
 		if op == "minimum" || op == "and" {
 			initial = math.MaxUint64
 			if x.Type.ElementType == "ui8" {
 				initial = math.MaxUint8
+			}
+			if x.Type.ElementType == "ui16" {
+				initial = math.MaxUint16
 			}
 			if x.Type.ElementType == "ui32" {
 				initial = math.MaxUint32
@@ -168,6 +171,14 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 			}
 			if x.Type.ElementType == "i32" {
 				initial = math.MinInt32
+			}
+		}
+		if x.Type.ElementType == "i16" {
+			if op == "minimum" {
+				initial = math.MaxInt16
+			}
+			if op == "maximum" {
+				initial = math.MinInt16
 			}
 		}
 		zero, err = f.raw.IntegerConstant(initial, hlo.Type{ElementType: x.Type.ElementType})

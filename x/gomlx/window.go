@@ -75,6 +75,8 @@ func (f *function) ReduceWindow(input compute.Value, reduction compute.ReduceOpT
 		switch s.DType {
 		case dtypes.Int8, dtypes.Uint8:
 			bits = 8
+		case dtypes.Int16, dtypes.Uint16:
+			bits = 16
 		case dtypes.Int32, dtypes.Uint32:
 			bits = 32
 		}

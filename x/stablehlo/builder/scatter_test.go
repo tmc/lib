@@ -36,6 +36,17 @@ func TestScatterRowsValidation(t *testing.T) {
 	}
 }
 
+func TestScatterRows16Indices(t *testing.T) {
+	for _, element := range []string{"i16", "ui16"} {
+		t.Run(element, func(t *testing.T) {
+			b := NewFunc("main", Type{Shape: []int64{3, 2}, ElementType: "f32"}, Type{Shape: []int64{2}, ElementType: element}, Type{Shape: []int64{2, 2}, ElementType: "f32"})
+			if _, err := b.ScatterRows(b.Arg(0), b.Arg(1), b.Arg(2)); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestBatchedCausalMaskValidation(t *testing.T) {
 	i := func(shape ...int64) Type { return Type{Shape: shape, ElementType: "i64"} }
 	for _, tt := range []struct {

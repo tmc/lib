@@ -27,7 +27,7 @@ func TestNativeBitwise(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	for _, dtype := range []dtypes.DType{dtypes.Int8, dtypes.Int32, dtypes.Int64, dtypes.Uint8, dtypes.Uint32, dtypes.Uint64} {
+	for _, dtype := range []dtypes.DType{dtypes.Int8, dtypes.Int16, dtypes.Int32, dtypes.Int64, dtypes.Uint8, dtypes.Uint16, dtypes.Uint32, dtypes.Uint64} {
 		t.Run(dtype.String(), func(t *testing.T) {
 			input := newFlat(dtype, 4)
 			rv := reflect.ValueOf(input)
@@ -255,39 +255,51 @@ func TestNativeShifts(t *testing.T) {
 	// Full 18-combination matrix table-driven test: 6 integer dtypes x 3 shift operations
 	t.Run("All18CombinationsMatrix", func(t *testing.T) {
 		table := []struct {
-			name   string
-			x, c   any
-			op     func(f compute.Function, lhs, rhs compute.Value) (compute.Value, error)
-			want   any
+			name string
+			x, c any
+			op   func(f compute.Function, lhs, rhs compute.Value) (compute.Value, error)
+			want any
 		}{
 			// Int8
 			{"Int8_SHL", []int8{16, -16}, []int8{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []int8{64, -64}},
-			{"Int8_SRA", []int8{16, -16}, []int8{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []int8{4, -4}},
+			{"Int8_SRA", []int8{16, -16}, []int8{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []int8{4, -4}},
 			{"Int8_SRL", []int8{16, -16}, []int8{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []int8{4, 60}},
 
 			// Uint8 (including high-bit arithmetic right shift sign-extension)
 			{"Uint8_SHL", []uint8{0x80, 16}, []uint8{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []uint8{0, 32}},
-			{"Uint8_SRA", []uint8{0x80, 16}, []uint8{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []uint8{192, 8}},
+			{"Uint8_SRA", []uint8{0x80, 16}, []uint8{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []uint8{192, 8}},
 			{"Uint8_SRL", []uint8{0x80, 16}, []uint8{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []uint8{64, 8}},
 
 			// Int32
 			{"Int32_SHL", []int32{16, -16}, []int32{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []int32{64, -64}},
-			{"Int32_SRA", []int32{16, -16}, []int32{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []int32{4, -4}},
+			{"Int32_SRA", []int32{16, -16}, []int32{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []int32{4, -4}},
 			{"Int32_SRL", []int32{16, -16}, []int32{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []int32{4, 1073741820}},
 
 			// Uint32 (including high-bit arithmetic right shift sign-extension)
 			{"Uint32_SHL", []uint32{0x80000000, 16}, []uint32{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []uint32{0, 32}},
-			{"Uint32_SRA", []uint32{0x80000000, 16}, []uint32{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []uint32{0xc0000000, 8}},
+			{"Uint32_SRA", []uint32{0x80000000, 16}, []uint32{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []uint32{0xc0000000, 8}},
 			{"Uint32_SRL", []uint32{0x80000000, 16}, []uint32{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []uint32{0x40000000, 8}},
 
 			// Int64
 			{"Int64_SHL", []int64{16, -16}, []int64{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []int64{64, -64}},
-			{"Int64_SRA", []int64{16, -16}, []int64{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []int64{4, -4}},
+			{"Int64_SRA", []int64{16, -16}, []int64{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []int64{4, -4}},
 			{"Int64_SRL", []int64{16, -16}, []int64{2, 2}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []int64{4, 4611686018427387900}},
 
 			// Uint64 (including high-bit arithmetic right shift sign-extension)
 			{"Uint64_SHL", []uint64{0x8000000000000000, 16}, []uint64{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftLeft(l, r) }, []uint64{0, 32}},
-			{"Uint64_SRA", []uint64{0x8000000000000000, 16}, []uint64{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightArithmetic(l, r) }, []uint64{0xc000000000000000, 8}},
+			{"Uint64_SRA", []uint64{0x8000000000000000, 16}, []uint64{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) {
+				return f.ShiftRightArithmetic(l, r)
+			}, []uint64{0xc000000000000000, 8}},
 			{"Uint64_SRL", []uint64{0x8000000000000000, 16}, []uint64{1, 1}, func(f compute.Function, l, r compute.Value) (compute.Value, error) { return f.ShiftRightLogical(l, r) }, []uint64{0x4000000000000000, 8}},
 		}
 

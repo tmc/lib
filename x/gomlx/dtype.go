@@ -37,6 +37,10 @@ func element(dtype dtypes.DType) (elementInfo, bool) {
 		return elementInfo{"f32", openxla.Buffer_Type_F32, 4}, true
 	case dtypes.Int8:
 		return elementInfo{"i8", openxla.Buffer_Type_S8, 1}, true
+	case dtypes.Int16:
+		return elementInfo{"i16", openxla.Buffer_Type_S16, 2}, true
+	case dtypes.Uint16:
+		return elementInfo{"ui16", openxla.Buffer_Type_U16, 2}, true
 	case dtypes.Int32:
 		return elementInfo{"i32", openxla.Buffer_Type_S32, 4}, true
 	case dtypes.Int64:
@@ -64,6 +68,10 @@ func elementDType(name string) dtypes.DType {
 		return dtypes.Float32
 	case "i8":
 		return dtypes.Int8
+	case "i16":
+		return dtypes.Int16
+	case "ui16":
+		return dtypes.Uint16
 	case "i32":
 		return dtypes.Int32
 	case "i64":
@@ -91,6 +99,10 @@ func flatShape(flat any) (dtypes.DType, int) {
 		return dtypes.Float32, len(v)
 	case []int8:
 		return dtypes.Int8, len(v)
+	case []int16:
+		return dtypes.Int16, len(v)
+	case []uint16:
+		return dtypes.Uint16, len(v)
 	case []int32:
 		return dtypes.Int32, len(v)
 	case []int64:
@@ -118,6 +130,10 @@ func newFlat(dtype dtypes.DType, n int) any {
 		return make([]float32, n)
 	case dtypes.Int8:
 		return make([]int8, n)
+	case dtypes.Int16:
+		return make([]int16, n)
+	case dtypes.Uint16:
+		return make([]uint16, n)
 	case dtypes.Int32:
 		return make([]int32, n)
 	case dtypes.Int64:
@@ -163,6 +179,14 @@ func encodeFlat(flat any, raw []byte) {
 	case []int8:
 		for i, x := range v {
 			raw[i] = byte(x)
+		}
+	case []int16:
+		for i, x := range v {
+			binary.LittleEndian.PutUint16(raw[2*i:], uint16(x))
+		}
+	case []uint16:
+		for i, x := range v {
+			binary.LittleEndian.PutUint16(raw[2*i:], x)
 		}
 	case []int32:
 		for i, x := range v {
@@ -210,6 +234,14 @@ func decodeFlat(flat any, raw []byte) {
 		for i := range v {
 			v[i] = int8(raw[i])
 		}
+	case []int16:
+		for i := range v {
+			v[i] = int16(binary.LittleEndian.Uint16(raw[2*i:]))
+		}
+	case []uint16:
+		for i := range v {
+			v[i] = binary.LittleEndian.Uint16(raw[2*i:])
+		}
 	case []int32:
 		for i := range v {
 			v[i] = int32(binary.LittleEndian.Uint32(raw[4*i:]))
@@ -239,6 +271,10 @@ func constantLiteral(flat any, i int) string {
 	case []float32:
 		return fmt.Sprintf("0x%08X", math.Float32bits(v[i]))
 	case []int8:
+		return fmt.Sprint(v[i])
+	case []int16:
+		return fmt.Sprint(v[i])
+	case []uint16:
 		return fmt.Sprint(v[i])
 	case []int32:
 		return fmt.Sprint(v[i])

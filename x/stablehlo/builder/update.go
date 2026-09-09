@@ -7,20 +7,26 @@ import (
 	"strings"
 )
 
-// IntegerConstant emits a splat constant with i8, i32, or i64 elements and a static
+// IntegerConstant emits a splat constant with i8, i16, i32, i64, or ui16 elements and a static
 // shape. The value must fit the element type. An error leaves the builder unchanged.
 func (b *FuncBuilder) IntegerConstant(value int64, typ Type) (Value, error) {
 	if err := checkType(typ); err != nil {
 		return Value{}, fmt.Errorf("integer constant: %w", err)
 	}
-	if typ.ElementType != "i64" && typ.ElementType != "i32" && typ.ElementType != "i8" {
-		return Value{}, fmt.Errorf("integer constant: i8, i32, or i64 elements required")
+	if typ.ElementType != "i64" && typ.ElementType != "i32" && typ.ElementType != "i16" && typ.ElementType != "i8" && typ.ElementType != "ui16" {
+		return Value{}, fmt.Errorf("integer constant: i8, i16, i32, i64, or ui16 elements required")
 	}
 	if typ.ElementType == "i8" && (value < math.MinInt8 || value > math.MaxInt8) {
 		return Value{}, fmt.Errorf("integer constant: value overflows i8")
 	}
+	if typ.ElementType == "i16" && (value < math.MinInt16 || value > math.MaxInt16) {
+		return Value{}, fmt.Errorf("integer constant: value overflows i16")
+	}
 	if typ.ElementType == "i32" && (value < math.MinInt32 || value > math.MaxInt32) {
 		return Value{}, fmt.Errorf("integer constant: value overflows i32")
+	}
+	if typ.ElementType == "ui16" && (value < 0 || value > math.MaxUint16) {
+		return Value{}, fmt.Errorf("integer constant: value overflows ui16")
 	}
 	for _, n := range typ.Shape {
 		if n < 0 {
@@ -37,8 +43,8 @@ func (b *FuncBuilder) IntegerConstant(value int64, typ Type) (Value, error) {
 
 // DynamicUpdateSlice replaces a slice of operand with update. Both shapes must
 // be static, have equal ranks and element types, and update must fit operand.
-// starts contains one scalar i32 or i64 value per dimension, all of the same
-// type. StableHLO clamps each start to [0, operandSize-updateSize]; callers that
+// starts contains one scalar integer value per dimension, all of the same type.
+// StableHLO clamps each start to [0, operandSize-updateSize]; callers that
 // need rejection must validate runtime positions before execution.
 // An error leaves the builder unchanged.
 func (b *FuncBuilder) DynamicUpdateSlice(operand, update Value, starts []Value) (Value, error) {
@@ -55,8 +61,8 @@ func (b *FuncBuilder) DynamicUpdateSlice(operand, update Value, starts []Value) 
 			return Value{}, fmt.Errorf("dynamic update slice: update must fit static operand")
 		}
 		typ := starts[i].Type
-		if len(typ.Shape) != 0 || (typ.ElementType != "i32" && typ.ElementType != "i64") {
-			return Value{}, fmt.Errorf("dynamic update slice: scalar i32 or i64 indices required")
+		if len(typ.Shape) != 0 || !integerIndexType(typ.ElementType) {
+			return Value{}, fmt.Errorf("dynamic update slice: scalar integer indices required")
 		}
 		if i > 0 && indexType != typ.ElementType {
 			return Value{}, fmt.Errorf("dynamic update slice: index types differ")

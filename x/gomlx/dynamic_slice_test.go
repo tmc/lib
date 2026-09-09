@@ -38,6 +38,8 @@ func TestNativeDynamicSlice(t *testing.T) {
 		{"vector", []any{[]int32{1, 1}}, [][]int64{{5, 9007199254740995}}},
 		{"int8", []any{int8(1), int8(1)}, [][]int64{{5, 9007199254740995}}},
 		{"uint8", []any{uint8(255), uint8(255)}, [][]int64{{5, 9007199254740995}}},
+		{"int16", []any{int16(1), int16(1)}, [][]int64{{5, 9007199254740995}}},
+		{"uint16", []any{uint16(math.MaxUint16), uint16(math.MaxUint16)}, [][]int64{{5, 9007199254740995}}},
 		{"uint32", []any{uint32(math.MaxUint32), uint32(math.MaxUint32)}, [][]int64{{5, 9007199254740995}}},
 		{"uint64", []any{uint64(math.MaxUint64), uint64(math.MaxUint64)}, [][]int64{{5, 9007199254740995}}},
 	} {

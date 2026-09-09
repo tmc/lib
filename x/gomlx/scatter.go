@@ -52,6 +52,9 @@ func (f *function) scatter(op string, operand, indices, updates compute.Value, v
 	if x.Type.ElementType == "i1" {
 		return nil, fmt.Errorf("scatter: numeric operand required")
 	}
+	if !elementDType(idx.Type.ElementType).IsInt() {
+		return nil, fmt.Errorf("scatter: integer indices required")
+	}
 	if vectorAxis < 0 || vectorAxis > is.Rank() {
 		return nil, fmt.Errorf("scatter: invalid index vector axis")
 	}

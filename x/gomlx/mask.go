@@ -26,7 +26,7 @@ func (f *function) compareOrder(a, b compute.Value, direction string, total bool
 				kind = "TOTALORDER"
 			}
 		}
-		if x.Type.ElementType == "i1" || x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
+		if x.Type.ElementType == "i1" || x.Type.ElementType == "ui8" || x.Type.ElementType == "ui16" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 			kind = "UNSIGNED"
 		}
 		z := hlo.Value{ID: fmt.Sprintf("%%compare%d", len(f.raw.Ops)), Type: hlo.Type{Shape: slices.Clone(x.Type.Shape), ElementType: "i1"}}

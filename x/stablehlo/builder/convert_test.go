@@ -3,7 +3,7 @@ package builder
 import "testing"
 
 func TestConvert(t *testing.T) {
-	for _, element := range []string{"f16", "bf16", "f32", "f64", "i1", "i8", "i32", "i64", "ui8", "ui32", "ui64"} {
+	for _, element := range []string{"f16", "bf16", "f32", "f64", "i1", "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64"} {
 		t.Run(element, func(t *testing.T) {
 			b := NewFunc("main", Type{Shape: []int64{-1, 4}, ElementType: "f32"})
 			out, err := b.Convert(b.Arg(0), element)

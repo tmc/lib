@@ -24,7 +24,7 @@ func (f *function) Gather(operand, indices compute.Value, indexVectorAxis int, o
 		return nil, err
 	}
 	switch idx.Type.ElementType {
-	case "i8", "i32", "i64", "ui8", "ui32", "ui64":
+	case "i8", "i16", "i32", "i64", "ui8", "ui16", "ui32", "ui64":
 	default:
 		return nil, fmt.Errorf("gather: integer indices required")
 	}

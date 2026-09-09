@@ -2,6 +2,7 @@ package builder
 
 import (
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -41,6 +42,21 @@ func TestModelOpsValidation(t *testing.T) {
 			}
 			if len(b.Ops) != 0 || b.nextID != 0 {
 				t.Fatal("error changed builder")
+			}
+		})
+	}
+}
+
+func TestGatherRows16Indices(t *testing.T) {
+	for _, element := range []string{"i16", "ui16"} {
+		t.Run(element, func(t *testing.T) {
+			b := NewFunc("main", Type{Shape: []int64{3, 2}, ElementType: "f32"}, Type{Shape: []int64{2}, ElementType: element})
+			out, err := b.GatherRows(b.Arg(0), b.Arg(1))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := []int64{2, 2}; !slices.Equal(out.Type.Shape, want) {
+				t.Fatalf("shape = %v, want %v", out.Type.Shape, want)
 			}
 		})
 	}

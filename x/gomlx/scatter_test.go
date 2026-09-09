@@ -26,6 +26,8 @@ func TestNativeScatterSum(t *testing.T) {
 		axis    int
 	}{
 		{"implicit", []int32{2, 0, 2, -1, 99}, 1},
+		{"implicit i16", []int16{2, 0, 2, -1, 99}, 1},
+		{"implicit ui16", []uint16{2, 0, 2, 3, 99}, 1},
 		{"leading", [][]int32{{2, 0, 2, -1, 99}}, 0},
 		{"trailing", [][]int64{{2}, {0}, {2}, {-1}, {99}}, 1},
 	} {
