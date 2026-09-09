@@ -20,7 +20,14 @@ func TestMetalOracleTrace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	closed := false
+	defer func() {
+		if !closed {
+			if err := r.Close(); err != nil {
+				t.Errorf("close runtime: %v", err)
+			}
+		}
+	}()
 	tok, err := newTokenizer(r.model)
 	if err != nil {
 		t.Fatal(err)
@@ -49,4 +56,8 @@ func TestMetalOracleTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	compareOracleTrace(t, s, dir, []int{19923, 3, 1730, 588, 342, 1694, 440, 4316, 33, 1})
+	closed = true
+	if err := r.Close(); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
 }
