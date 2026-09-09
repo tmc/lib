@@ -3,9 +3,9 @@
   "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Volumes/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
   "argv": [
-    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build2996909674/b001/exe/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/e5/e5dde487f130e5b36c12468e42dbc840b8148af0808d6d6c8ee7ecea75712f34-d/gen-nvidia",
     "-api",
     "nvjitlink",
     "-headers-dir",
@@ -18,7 +18,7 @@
     "nvjitlink",
     "-deprecated=true",
     "-docs-dir",
-    "/Volumes/tmc/go/src/github.com/tmc/codegen/docs"
+    "./docs"
   ],
   "inputs": [
     {
