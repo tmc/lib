@@ -72,6 +72,9 @@ func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) 
 func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error) {
 	return f.reduce(v, "add", axes)
 }
+func (f *function) ReduceProduct(v compute.Value, axes ...int) (compute.Value, error) {
+	return f.reduce(v, "multiply", axes)
+}
 func (f *function) ReduceMax(v compute.Value, axes ...int) (compute.Value, error) {
 	return f.reduce(v, "maximum", axes)
 }
@@ -82,6 +85,9 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 	x, err := f.value(v)
 	if err != nil {
 		return nil, err
+	}
+	if x.Type.ElementType == "i1" {
+		return nil, unsupported
 	}
 	if len(axes) == 0 {
 		axes = make([]int, len(x.Type.Shape))
@@ -105,15 +111,25 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 	var zero hlo.Value
 	if elementDType(x.Type.ElementType).IsFloat() {
 		initial := float32(0)
+		if op == "multiply" {
+			initial = 1
+		}
 		if op == "maximum" {
 			initial = float32(math.Inf(-1))
 		}
 		zero, err = f.raw.Constant(initial, hlo.Type{ElementType: x.Type.ElementType})
 	} else if x.Type.ElementType == "ui8" || x.Type.ElementType == "ui32" || x.Type.ElementType == "ui64" {
 		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: x.Type.ElementType}}
-		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<0> : %s", zero.ID, zero.Type))
+		initial := 0
+		if op == "multiply" {
+			initial = 1
+		}
+		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%d> : %s", zero.ID, initial, zero.Type))
 	} else {
 		initial := int64(0)
+		if op == "multiply" {
+			initial = 1
+		}
 		if op == "maximum" {
 			initial = math.MinInt64
 			if x.Type.ElementType == "i8" {
@@ -268,4 +284,33 @@ func (f *function) Rem(a, b compute.Value) (compute.Value, error) {
 		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.remainder %s, %s : %s", z.ID, x.ID, y.ID, x.Type))
 		return z, nil
 	})
+}
+
+func (f *function) Rsqrt(v compute.Value) (compute.Value, error) {
+	return f.unaryFloat(v, "rsqrt")
+}
+
+func (f *function) LogicalNot(v compute.Value) (compute.Value, error) {
+	return f.invert(v, true)
+}
+
+func (f *function) BitwiseNot(v compute.Value) (compute.Value, error) {
+	return f.invert(v, false)
+}
+
+func (f *function) invert(v compute.Value, logical bool) (compute.Value, error) {
+	if f.returned {
+		return nil, fmt.Errorf("function already returned")
+	}
+	x, err := f.value(v)
+	if err != nil {
+		return nil, err
+	}
+	dtype := elementDType(x.Type.ElementType)
+	if logical && dtype != dtypes.Bool || !logical && !dtype.IsInt() {
+		return nil, unsupported
+	}
+	z := hlo.Value{ID: fmt.Sprintf("%%not%d", len(f.raw.Ops)), Type: x.Type}
+	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.not %s : %s", z.ID, x.ID, x.Type))
+	return &node{f, z}, nil
 }
