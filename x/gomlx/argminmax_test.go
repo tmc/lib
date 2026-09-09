@@ -10,6 +10,7 @@ import (
 	"github.com/gomlx/compute/dtypes"
 	"github.com/gomlx/compute/shapes"
 	"github.com/gomlx/compute/support/testutil"
+	"github.com/gomlx/gomlx/core/graph"
 )
 
 func TestNativeArgMinMax(t *testing.T) {
@@ -83,6 +84,93 @@ func TestArgMinMaxValidation(t *testing.T) {
 		}
 		if len(raw.Ops) != n {
 			t.Fatal("invalid argminmax emitted IR")
+		}
+	}
+}
+
+func TestNativeArgMinMaxGraph(t *testing.T) {
+	path := os.Getenv("TMC_COMPUTE_PLUGIN")
+	if path == "" {
+		t.Skip("set TMC_COMPUTE_PLUGIN")
+	}
+	b, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	e, err := graph.NewExec(b, func(x *graph.Node) []*graph.Node {
+		return []*graph.Node{graph.ArgMax(x, -1, dtypes.Int8), graph.ArgMax(x, -1, dtypes.Int64)}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Finalize()
+	input := make([]float32, 260)
+	input[130] = 10
+	input[258] = 10
+	out, err := e.Call(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range out {
+		defer v.FinalizeAll()
+	}
+	if got := out[0].Value(); got != int8(-126) {
+		t.Fatalf("narrow index %v, want -126 after conversion", got)
+	}
+	if got := out[1].Value(); got != int64(130) {
+		t.Fatalf("wide index %v, want first tie130", got)
+	}
+}
+
+func TestNativeArgMinMaxEmptyAxis(t *testing.T) {
+	path := os.Getenv("TMC_COMPUTE_PLUGIN")
+	if path == "" {
+		t.Skip("set TMC_COMPUTE_PLUGIN")
+	}
+	b, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	for _, min := range []bool{false, true} {
+		builder := b.Builder("emptyarg")
+		f := builder.Main()
+		shape := shapes.Make(dtypes.Float32, 2, 0)
+		x, err := f.Parameter("x", shape, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		y, err := f.ArgMinMax(x, 1, dtypes.Int32, min)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := f.Return([]compute.Value{y}, nil); err != nil {
+			t.Fatal(err)
+		}
+		e, err := builder.Compile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer e.Finalize()
+		in, err := b.BufferFromFlatData(0, []float32{}, shape)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer in.Finalize()
+		out, err := e.Execute([]compute.Buffer{in}, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range out {
+			defer v.Finalize()
+			got := make([]int32, 2)
+			if err := v.ToFlatData(got); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, []int32{0, 0}) {
+				t.Fatalf("empty reduction %v", got)
+			}
 		}
 	}
 }
