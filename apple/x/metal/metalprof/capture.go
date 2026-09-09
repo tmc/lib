@@ -3,14 +3,21 @@
 package metalprof
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/tmc/apple/foundation"
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/lib/apple/x/metal"
 )
+
+// ErrReplayUnresolvedOwnership is returned when replay cancellation occurs but the underlying
+// process cannot be proven terminated via direct process handle ownership.
+var ErrReplayUnresolvedOwnership = errors.New("metalprof: replay cancelled with unresolved process ownership")
 
 // CaptureSession tracks an active programmatic Metal GPU trace capture.
 type CaptureSession struct {
@@ -72,9 +79,17 @@ func (cs *CaptureSession) Stop() error {
 // ReplayTrace invokes the macOS system MTLReplayer headlessly to profile a
 // captured trace. It writes <outTracePath>/<trace base name>.gpuprofiler_raw,
 // holding the replayer's per-frame counter, timeline, and shader profiler
-// payloads. ReplayTrace does not parse them; it reports only whether the
-// replayer ran.
+// payloads.
 func ReplayTrace(inTracePath, outTracePath string) error {
+	return ReplayTraceContext(context.Background(), inTracePath, outTracePath)
+}
+
+// ReplayTraceContext invokes MTLReplayer with context cancellation.
+// Because MTLReplayer on macOS is launched via LaunchServices (`open -W -n -a ...`),
+// child process ownership is not directly held by the caller. If the context expires or is
+// cancelled, ReplayTraceContext leaves the scratch directory intact and returns a typed
+// ErrReplayUnresolvedOwnership rather than attempting broad, unsafe process kills by name/path.
+func ReplayTraceContext(ctx context.Context, inTracePath, outTracePath string) error {
 	if _, err := os.Stat(inTracePath); err != nil {
 		return fmt.Errorf("metalprof: input trace not found: %w", err)
 	}
@@ -87,15 +102,27 @@ func ReplayTrace(inTracePath, outTracePath string) error {
 		return fmt.Errorf("metalprof: MTLReplayer not available at %s", replayerApp)
 	}
 
-	cmd := exec.Command("open", "-W", "-n", "-a", replayerApp, "--args",
-		"-CLI", inTracePath,
+	absIn, err := filepath.Abs(inTracePath)
+	if err != nil {
+		return err
+	}
+	absOut, err := filepath.Abs(outTracePath)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.CommandContext(ctx, "open", "-W", "-n", "-a", replayerApp, "--args",
+		"-CLI", absIn,
 		"-profileTrace",
 		"-collectProfilerData",
-		"-outputPath", outTracePath,
+		"-outputPath", absOut,
 	)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("%w: %w (output: %s)", ErrReplayUnresolvedOwnership, ctx.Err(), string(out))
+		}
 		return fmt.Errorf("metalprof: headless replay failed: %w (output: %s)", err, string(out))
 	}
 	return nil
