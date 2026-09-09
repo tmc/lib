@@ -122,6 +122,10 @@ The `nvjitlink` package provides LTO-capable device-code linking;
 `x/nvjitlinkx` owns linker inputs, diagnostics, and cleanup. The driver's
 `LinkState` also supports JIT linking.
 
+The [PTX/SASS trace example](examples/ptx-sass-trace/) records a two-kernel
+pipeline in Go trace and pprof, with CUDA event timing and portable source
+and NVIDIA disassembly views.
+
 ## Graphs
 
 Capture a stream of work once, then replay it with near-zero launch
