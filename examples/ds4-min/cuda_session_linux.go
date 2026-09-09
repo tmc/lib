@@ -766,7 +766,16 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 	}
 	if state.indexer.cap != 0 {
 		if state.indexer.n > 512 {
-			if err := r.encodeQ80Matvec(l.indexerQB, s.qLora, s.indexerQ); err != nil {
+			var err error
+			switch l.indexerQB.typeID {
+			case 1:
+				err = r.encodeF16MatvecDefault(l.indexerQB, s.qLora, s.indexerQ)
+			case 8:
+				err = r.encodeQ80Matvec(l.indexerQB, s.qLora, s.indexerQ)
+			default:
+				err = fmt.Errorf("cuda: indexer query: unsupported weight type %d", l.indexerQB.typeID)
+			}
+			if err != nil {
 				return err
 			}
 			if err := r.encodeF16MatvecDefault(l.indexerProj, s.attnNorm, s.indexerWeights); err != nil {
