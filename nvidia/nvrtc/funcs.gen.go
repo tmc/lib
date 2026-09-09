@@ -142,6 +142,7 @@ func DestroyProgram(prog *Program) error {
 // No cubin is available if the value specified to -arch is a virtual architecture instead of an actual architecture. The cubin does not contain code for the Tile functions ( __tile__ / __tile_global__) or variables ( __tile__); use [Program.GetTileIR] to extract the cuda_tile IR generated for Tile code. [Program.GetCUBINSize]
 //
 //   - prog: in CUDA Runtime Compilation program
+//   - cubin: out Compiled and assembled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcGetCUBIN.
 func getCUBIN(prog Program) ([]byte, error) {
@@ -187,6 +188,7 @@ func getCUBINSize(prog Program) (uint, error) {
 // No LTO IR is available if the program was compiled without -dlto. [Program.GetLTOIRSize]
 //
 //   - prog: in CUDA Runtime Compilation program
+//   - LTOIR: out Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcGetLTOIR.
 func getLTOIR(prog Program) ([]byte, error) {
@@ -266,6 +268,7 @@ func GetNumSupportedArchs() (int32, error) {
 // No OptiX IR is available if the program was compiled with options incompatible with OptiX IR generation. [Program.GetOptiXIRSize]
 //
 //   - prog: in CUDA Runtime Compilation program
+//   - optixir: out Optix IR Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcGetOptiXIR.
 func getOptiXIR(prog Program) ([]byte, error) {
@@ -359,6 +362,7 @@ func getPCHHeapSizeRequired(prog Program) (uint, error) {
 // [Program.GetPTXSize]
 //
 //   - prog: in CUDA Runtime Compilation program
+//   - ptx: out Compiled result. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcGetPTX.
 func getPTX(prog Program) ([]byte, error) {
@@ -404,6 +408,7 @@ func getPTXSize(prog Program) (uint, error) {
 // [Program.GetProgramLogSize]
 //
 //   - prog: in CUDA Runtime Compilation program
+//   - log: out Compilation log. Returns [Success] [ErrInvalidInput] [ErrInvalidProgram]
 //
 // Wraps nvrtcGetProgramLog.
 func getProgramLog(prog Program) (string, error) {

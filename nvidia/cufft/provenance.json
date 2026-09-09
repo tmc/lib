@@ -5,7 +5,7 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/codegen",
   "argv": [
-    "$TMPDIR/go-build3909841322/b001/exe/gen-nvidia",
+    "$GOCACHE/e5/e5dde487f130e5b36c12468e42dbc840b8148af0808d6d6c8ee7ecea75712f34-d/gen-nvidia",
     "-api",
     "cufft",
     "-headers-dir",

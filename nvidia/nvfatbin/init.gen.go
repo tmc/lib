@@ -176,7 +176,58 @@ func loadLocked(path string) error {
 		return libErr
 	}
 	registerFuncs()
+	if libErr = checkVersion(); libErr != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		unbound = make(map[string]error)
+		clearFuncs()
+		return libErr
+	}
 	ready.Store(true)
+	return nil
+}
+
+// VersionMismatchError reports that the shared library that opened is not
+// from the version train nvfatbin was generated for. dlsym matches on name
+// alone, so a library from a neighbouring train opens and resolves nearly
+// every symbol; asking it its own version is what tells the two apart.
+type VersionMismatchError struct {
+	Path string // the library that was opened
+	Want int    // major version these bindings were generated for
+	Got  int    // major version the library reports
+	Raw  int    // the version value the library reported, undecoded
+}
+
+// Error reports which library was opened and the two majors that disagree.
+func (e *VersionMismatchError) Error() string {
+	return fmt.Sprintf("nvfatbin: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
+}
+
+// checkVersion asks the loaded library its version through nvFatbinVersion and
+// compares the major against 13, the soname major these bindings were
+// generated against. It runs under loadMu, after registerFuncs, so it
+// calls the bound pointer directly rather than the exported wrapper.
+//
+// A library that does not export the entry point, or that fails the call,
+// is admitted. Absence is what an installation older than the entry point
+// looks like, and refusing on it would reject working hosts to catch a
+// case the soname already covers.
+func checkVersion() error {
+	if fnVersion == nil {
+		return nil
+	}
+	var out0 uint32
+	var out1 uint32
+	if err := toError(fnVersion(&out0, &out1)); err != nil {
+		return nil
+	}
+	raw := int(out0)
+	got := raw
+	if got != 13 {
+		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
+	}
 	return nil
 }
 

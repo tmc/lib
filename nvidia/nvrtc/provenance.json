@@ -5,7 +5,7 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/codegen",
   "argv": [
-    "$GOCACHE/15/15a0386d24228393e224ccf26a742a45a75c79a519e3342e185afc1389e51935-d/gen-nvidia",
+    "$GOCACHE/e5/e5dde487f130e5b36c12468e42dbc840b8148af0808d6d6c8ee7ecea75712f34-d/gen-nvidia",
     "-api",
     "nvrtc",
     "-headers-dir",
@@ -18,7 +18,7 @@
     "nvrtc",
     "-deprecated=true",
     "-docs-dir",
-    "$HOME/go/src/github.com/tmc/codegen/docs"
+    "./docs"
   ],
   "inputs": [
     {
