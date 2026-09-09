@@ -8,11 +8,11 @@ import (
 
 // Module represents a parsed PTX module containing version information and kernels.
 type Module struct {
-	Version string
-	Target  string
+	Version     string
+	Target      string
 	AddressSize int
-	Kernels []*Kernel
-	kernelMap map[string]*Kernel
+	Kernels     []*Kernel
+	kernelMap   map[string]*Kernel
 }
 
 // Kernel represents a parsed .entry or .func definition in PTX.
