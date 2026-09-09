@@ -5,3 +5,7 @@ CLI: codex-cli 0.153.4; Claude Code: not applicable
 TTY: not a tty; note writer PID: 64718
 ITERM_SESSION_ID: w14t0p1:392735FA-AF2F-4734-A236-CFA9D0C8CB44
 Receipts: /Users/tmc/tmp/agent-collab/codegen/20260909-392735FA-tier0
+
+Original commit: c1808e0
+Integrated commit: 975ab4d9275f8951fbcab534650fec088ff5b125
+The identity/date/receipt details in the preceding note apply to this paired change.
