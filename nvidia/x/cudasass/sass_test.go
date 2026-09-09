@@ -75,3 +75,24 @@ func TestParseReader(t *testing.T) {
 		t.Fatalf("expected 2 functions, got %d", len(d.Functions))
 	}
 }
+
+func TestDataDirectives(t *testing.T) {
+	for _, tt := range []struct{ name, line string }{
+		{"byte", "/*0000*/ .byte 0x01, 0x02"},
+		{"word", "/*0004*/ .word 0x00000000"},
+		{"symbol", "/*0044*/ .dword compute"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := cudasass.ParseInstructionLine(tt.line); ok {
+				t.Fatal("data directive parsed as an instruction")
+			}
+			d, err := cudasass.ParseString(tt.line + "\n.section .text.compute,\"ax\",@progbits\n/*0000*/ FFMA R0, R1, R2, R0;\n" + tt.line)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(d.Functions) != 1 || d.Functions[0].Name != "compute" || len(d.Functions[0].Instructions) != 1 {
+				t.Fatalf("unexpected functions: %+v", d.Functions)
+			}
+		})
+	}
+}

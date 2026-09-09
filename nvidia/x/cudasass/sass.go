@@ -187,6 +187,10 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 	}
 
 	opcode := fields[0]
+	// nvdisasm also prefixes data directives with byte-offset comments.
+	if strings.HasPrefix(opcode, ".") {
+		return Instruction{}, false
+	}
 	operands := strings.TrimSpace(strings.TrimPrefix(rest, opcode))
 
 	return Instruction{
