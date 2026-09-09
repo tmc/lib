@@ -3,6 +3,7 @@ package cudaprof_test
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/binary"
 	"io"
 	"reflect"
@@ -44,11 +45,85 @@ func profileFields(t *testing.T, data []byte) (map[int][]uint64, map[int][][]byt
 	return ints, blobs
 }
 
+func TestSelectedSampleTypes(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		names      []string
+		wantNames  [][2]string
+		wantValues []uint64
+		wantErr    bool
+	}{
+		{"time", []string{"gpu_time"}, [][2]string{{"gpu_time", "nanoseconds"}}, []uint64{23}, false},
+		{"reordered", []string{"gpu_time", "dram_read"}, [][2]string{{"gpu_time", "nanoseconds"}, {"dram_read", "bytes"}}, []uint64{23, 3}, false},
+		{"unknown", []string{"dram_read", "missing"}, [][2]string{{"gpu_time", "nanoseconds"}}, []uint64{23}, true},
+		{"duplicate", []string{"dram_read", "dram_read"}, [][2]string{{"gpu_time", "nanoseconds"}}, []uint64{23}, true},
+		{"reset", nil, [][2]string{
+			{"samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"}, {"dram_write", "bytes"},
+			{"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"}, {"shared_mem", "bytes"}, {"bank_conflicts", "count"},
+			{"tensor_warps", "count"}, {"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
+			{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"}, {"interconnect_rx", "bytes"},
+			{"stall_scoreboard", "count"}, {"stall_wait", "count"}, {"stall_math", "count"}, {"stall_mem", "count"},
+			{"launch_delay", "nanoseconds"}, {"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
+		}, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			s := cudaprof.NewSession(&buf)
+			if err := s.SetSampleTypes("gpu_time"); err != nil {
+				t.Fatal(err)
+			}
+			s.RecordDetailedSample(context.Background(), "kernel", "kernel.cu", 1, 0, cudaprof.SampleValues{
+				Samples: 1, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
+				L2SectorsRead: 5, L2SectorsMiss: 6, SharedMemBytes: 7, BankConflicts: 8,
+				TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
+				InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
+				StallScoreboard: 17, StallWait: 18, StallMath: 19, StallMem: 20,
+				LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
+			})
+			if err := s.SetSampleTypes(tt.names...); (err != nil) != tt.wantErr {
+				t.Fatalf("SetSampleTypes = %v, want error %v", err, tt.wantErr)
+			}
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+			r, err := gzip.NewReader(&buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.Close()
+			data, err := io.ReadAll(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, fields := profileFields(t, data)
+			var got [][2]string
+			for _, data := range fields[1] {
+				v, _ := profileFields(t, data)
+				got = append(got, [2]string{string(fields[6][v[1][0]]), string(fields[6][v[2][0]])})
+			}
+			if !reflect.DeepEqual(got, tt.wantNames) {
+				t.Fatalf("types = %v, want %v", got, tt.wantNames)
+			}
+			if len(fields[2]) != 1 {
+				t.Fatalf("got %d samples, want 1", len(fields[2]))
+			}
+			v, _ := profileFields(t, fields[2][0])
+			if !reflect.DeepEqual(v[2], tt.wantValues) {
+				t.Fatalf("values = %v, want %v", v[2], tt.wantValues)
+			}
+		})
+	}
+}
+
 func TestProfileSampleSchema(t *testing.T) {
 	b := cudaprof.NewBuilder()
 	b.AddDetailedSample("kernel", "kernel.cu", 1, 0, cudaprof.SampleValues{
 		Samples: 1, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
-		SharedMemBytes: 5, TensorWarps: 6, StallScoreboard: 7, StallWait: 8, GPUNanos: 9,
+		L2SectorsRead: 5, L2SectorsMiss: 6, SharedMemBytes: 7, BankConflicts: 8,
+		TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
+		InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
+		StallScoreboard: 17, StallWait: 18, StallMath: 19, StallMem: 20,
+		LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
 	}, nil)
 	var buf bytes.Buffer
 	if err := b.WriteGzip(&buf); err != nil {
@@ -64,10 +139,14 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, fields := profileFields(t, data)
-	want := [][2]string{{"samples", "count"}, {"vram_alloc", "bytes"},
-		{"dram_read", "bytes"}, {"dram_write", "bytes"}, {"shared_mem", "bytes"},
-		{"tensor_warps", "count"}, {"stall_scoreboard", "count"},
-		{"stall_wait", "count"}, {"gpu_time", "nanoseconds"}}
+	want := [][2]string{
+		{"samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"}, {"dram_write", "bytes"},
+		{"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"}, {"shared_mem", "bytes"}, {"bank_conflicts", "count"},
+		{"tensor_warps", "count"}, {"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
+		{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"}, {"interconnect_rx", "bytes"},
+		{"stall_scoreboard", "count"}, {"stall_wait", "count"}, {"stall_math", "count"}, {"stall_mem", "count"},
+		{"launch_delay", "nanoseconds"}, {"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
+	}
 	var got [][2]string
 	for _, data := range fields[1] {
 		v, _ := profileFields(t, data)
@@ -80,7 +159,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatalf("got %d samples, want 1", len(fields[2]))
 	}
 	v, _ := profileFields(t, fields[2][0])
-	if !reflect.DeepEqual(v[2], []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+	if !reflect.DeepEqual(v[2], []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}) {
 		t.Fatalf("sample values = %v", v[2])
 	}
 }

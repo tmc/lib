@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -61,28 +62,91 @@ func encodeString(fieldNum int, s string) []byte {
 // SampleValues contains caller-supplied metrics for an instruction or source
 // line. The caller is responsible for measurement and attribution; the builder
 // does not collect or verify hardware counters. Leave unmeasured fields zero.
+// All metrics are strictly additive to support valid pprof callstack aggregation;
+// ratios (such as hit rates or occupancies) must be computed post-aggregation.
 type SampleValues struct {
-	Samples         int64 // Execution clock cycles / sample hits
-	VRAMAllocBytes  int64 // VRAM allocated / staged (bytes)
-	DRAMReadBytes   int64 // Global memory / DRAM read traffic (bytes)
-	DRAMWriteBytes  int64 // Global memory / DRAM write traffic (bytes)
-	SharedMemBytes  int64 // Shared memory read/write traffic (bytes)
-	TensorWarps     int64 // Tensor Core (HMMA/IMMA) warp executions
-	StallScoreboard int64 // Warps stalled on register/memory scoreboard
-	StallWait       int64 // Warps stalled on synchronization barrier (__syncthreads)
-	GPUNanos        int64 // Observed device timeline interval (nanoseconds)
+	Samples             int64 // Execution clock cycles / sample hits
+	VRAMAllocBytes      int64 // VRAM allocated / staged (bytes)
+	DRAMReadBytes       int64 // Global memory / DRAM read traffic (bytes)
+	DRAMWriteBytes      int64 // Global memory / DRAM write traffic (bytes)
+	L2SectorsRead       int64 // L2 cache read sectors (32 bytes per sector)
+	L2SectorsMiss       int64 // L2 cache read miss sectors (32 bytes per sector)
+	SharedMemBytes      int64 // Shared memory read/write traffic (bytes)
+	BankConflicts       int64 // Shared memory bank conflict replay cycles
+	TensorWarps         int64 // Tensor Core (HMMA/IMMA/WGMMA) warp executions
+	ActiveWarps         int64 // Active warp cycles across SMs (for occupancy derivation)
+	EligibleWarps       int64 // Eligible warp cycles ready to issue
+	IssuedWarps         int64 // Warp instructions issued
+	InstExecuted        int64 // Instructions executed
+	RegSpillBytes       int64 // Register spills to local memory (bytes)
+	InterconnectTxBytes int64 // Multi-GPU interconnect / NVLink / PCIe transmit traffic (bytes)
+	InterconnectRxBytes int64 // Multi-GPU interconnect / NVLink / PCIe receive traffic (bytes)
+	StallScoreboard     int64 // Warps stalled on register/memory scoreboard
+	StallWait           int64 // Warps stalled on synchronization barrier (__syncthreads)
+	StallMath           int64 // Warps stalled on arithmetic pipe throttle
+	StallMem            int64 // Warps stalled on memory throttle or load latency
+	LaunchDelayNanos    int64 // Host enqueue to device launch delay (nanoseconds)
+	QueueDelayNanos     int64 // Stream queue latency (nanoseconds)
+	GPUNanos            int64 // Observed device timeline interval (nanoseconds)
 }
 
 // Builder constructs a pprof profile containing GPU kernel, PTX, and SASS samples.
 type Builder struct {
-	st         *stringTable
-	mappings   []mapping
-	locations  []location
-	functions  []function
-	funcMap    map[string]uint64
-	symbols    map[string]*Symbol
-	binaryPath string
-	samples    []sample
+	st          *stringTable
+	mappings    []mapping
+	locations   []location
+	functions   []function
+	funcMap     map[string]uint64
+	symbols     map[string]*Symbol
+	binaryPath  string
+	samples     []sample
+	sampleTypes []int
+}
+
+var profileSampleTypes = []struct{ name, unit string }{
+	{"samples", "count"},
+	{"vram_alloc", "bytes"},
+	{"dram_read", "bytes"},
+	{"dram_write", "bytes"},
+	{"l2_sectors_read", "count"},
+	{"l2_sectors_miss", "count"},
+	{"shared_mem", "bytes"},
+	{"bank_conflicts", "count"},
+	{"tensor_warps", "count"},
+	{"active_warps", "count"},
+	{"eligible_warps", "count"},
+	{"issued_warps", "count"},
+	{"inst_executed", "count"},
+	{"reg_spill", "bytes"},
+	{"interconnect_tx", "bytes"},
+	{"interconnect_rx", "bytes"},
+	{"stall_scoreboard", "count"},
+	{"stall_wait", "count"},
+	{"stall_math", "count"},
+	{"stall_mem", "count"},
+	{"launch_delay", "nanoseconds"},
+	{"queue_delay", "nanoseconds"},
+	{"gpu_time", "nanoseconds"},
+}
+
+// SetSampleTypes selects the metrics to write, in order. The last metric is
+// pprof's default view. With no names, it restores all metrics. Invalid or
+// duplicate names leave the selection unchanged. Selection applies to all
+// recorded samples.
+func (b *Builder) SetSampleTypes(names ...string) error {
+	var selected []int
+	for _, name := range names {
+		i := slices.IndexFunc(profileSampleTypes, func(t struct{ name, unit string }) bool { return t.name == name })
+		if i < 0 {
+			return fmt.Errorf("cudaprof: unknown sample type %q", name)
+		}
+		if slices.Contains(selected, i) {
+			return fmt.Errorf("cudaprof: duplicate sample type %q", name)
+		}
+		selected = append(selected, i)
+	}
+	b.sampleTypes = selected
+	return nil
 }
 
 type mapping struct {
@@ -243,10 +307,24 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 		vals.VRAMAllocBytes,
 		vals.DRAMReadBytes,
 		vals.DRAMWriteBytes,
+		vals.L2SectorsRead,
+		vals.L2SectorsMiss,
 		vals.SharedMemBytes,
+		vals.BankConflicts,
 		vals.TensorWarps,
+		vals.ActiveWarps,
+		vals.EligibleWarps,
+		vals.IssuedWarps,
+		vals.InstExecuted,
+		vals.RegSpillBytes,
+		vals.InterconnectTxBytes,
+		vals.InterconnectRxBytes,
 		vals.StallScoreboard,
 		vals.StallWait,
+		vals.StallMath,
+		vals.StallMem,
+		vals.LaunchDelayNanos,
+		vals.QueueDelayNanos,
 		vals.GPUNanos,
 	}
 
@@ -324,26 +402,17 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 
 	var body []byte
 
-	// 1. SampleTypes: [samples/count, vram_alloc/bytes, dram_read/bytes, dram_write/bytes, shared_mem/bytes, tensor_warps/count, stall_scoreboard/count, stall_wait/count, gpu_time/nanoseconds]
-	// gpu_time is last so pprof selects it by default.
-	sampleTypes := []struct {
-		typ  string
-		unit string
-	}{
-		{"samples", "count"},
-		{"vram_alloc", "bytes"},
-		{"dram_read", "bytes"},
-		{"dram_write", "bytes"},
-		{"shared_mem", "bytes"},
-		{"tensor_warps", "count"},
-		{"stall_scoreboard", "count"},
-		{"stall_wait", "count"},
-		{"gpu_time", "nanoseconds"},
+	// 1. Sample types. Keep the same selection for each sample's values.
+	selected := b.sampleTypes
+	if len(selected) == 0 {
+		for i := range profileSampleTypes {
+			selected = append(selected, i)
+		}
 	}
-
-	for _, st := range sampleTypes {
+	for _, i := range selected {
+		st := profileSampleTypes[i]
 		var stBody []byte
-		stBody = append(stBody, encodeVarint(1, uint64(b.st.Index(st.typ)))...)
+		stBody = append(stBody, encodeVarint(1, uint64(b.st.Index(st.name)))...)
 		stBody = append(stBody, encodeVarint(2, uint64(b.st.Index(st.unit)))...)
 		body = append(body, encodeLengthDelimited(1, stBody)...)
 	}
@@ -354,8 +423,8 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		for _, locID := range s.locationIDs {
 			sBody = append(sBody, encodeVarint(1, locID)...) // location_id (repeated uint64)
 		}
-		for _, val := range s.values {
-			sBody = append(sBody, encodeVarint(2, uint64(val))...) // values (repeated int64)
+		for _, i := range selected {
+			sBody = append(sBody, encodeVarint(2, uint64(s.values[i]))...) // values (repeated int64)
 		}
 
 		for k, v := range s.labels {

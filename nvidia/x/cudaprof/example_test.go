@@ -4,10 +4,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
+
+func ExampleSession_SetSampleTypes() {
+	s := cudaprof.NewSession(io.Discard)
+	fmt.Println(s.SetSampleTypes("gpu_time"))
+	// Output: <nil>
+}
+
+func ExampleBuilder_SetSampleTypes() {
+	b := cudaprof.NewBuilder()
+	fmt.Println(b.SetSampleTypes("dram_read", "gpu_time"))
+	// Output: <nil>
+}
 
 func ExampleDo() {
 	ctx := context.Background()

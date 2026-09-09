@@ -180,9 +180,23 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 	pw := perfetto.NewWriter(w)
 	_ = pw.WriteTrackDescriptor(1000, "GPU Flight Recorder", 0)
 	_ = pw.WriteCounterDescriptor(1001, "VRAM Allocation", "bytes", 1000)
-	_ = pw.WriteCounterDescriptor(1002, "DRAM Read Bandwidth", "bytes", 1000)
-	_ = pw.WriteCounterDescriptor(1003, "DRAM Write Bandwidth", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1002, "DRAM Read Traffic", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1003, "DRAM Write Traffic", "bytes", 1000)
 	_ = pw.WriteCounterDescriptor(1004, "Tensor Core Warps", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1005, "L2 Sectors Read", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1006, "L2 Sectors Miss", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1007, "Active Warp Cycles", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1008, "Eligible Warp Cycles", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1009, "Issued Warps", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1010, "Instructions Executed", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1011, "Bank Conflicts", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1012, "Register Spills", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1013, "Interconnect TX", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1014, "Interconnect RX", "bytes", 1000)
+	_ = pw.WriteCounterDescriptor(1015, "Stall Math Throttle", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1016, "Stall Mem Latency", "count", 1000)
+	_ = pw.WriteCounterDescriptor(1017, "Launch Delay", "nanoseconds", 1000)
+	_ = pw.WriteCounterDescriptor(1018, "Queue Delay", "nanoseconds", 1000)
 
 	n := len(fr.buffer)
 	for i := 0; i < n; i++ {
@@ -236,6 +250,48 @@ func (fr *FlightRecorder) WritePerfettoTo(w io.Writer) error {
 		}
 		if rec.Values.TensorWarps > 0 {
 			_ = pw.WriteCounterValue(1004, ts, rec.Values.TensorWarps)
+		}
+		if rec.Values.L2SectorsRead > 0 {
+			_ = pw.WriteCounterValue(1005, ts, rec.Values.L2SectorsRead)
+		}
+		if rec.Values.L2SectorsMiss > 0 {
+			_ = pw.WriteCounterValue(1006, ts, rec.Values.L2SectorsMiss)
+		}
+		if rec.Values.ActiveWarps > 0 {
+			_ = pw.WriteCounterValue(1007, ts, rec.Values.ActiveWarps)
+		}
+		if rec.Values.EligibleWarps > 0 {
+			_ = pw.WriteCounterValue(1008, ts, rec.Values.EligibleWarps)
+		}
+		if rec.Values.IssuedWarps > 0 {
+			_ = pw.WriteCounterValue(1009, ts, rec.Values.IssuedWarps)
+		}
+		if rec.Values.InstExecuted > 0 {
+			_ = pw.WriteCounterValue(1010, ts, rec.Values.InstExecuted)
+		}
+		if rec.Values.BankConflicts > 0 {
+			_ = pw.WriteCounterValue(1011, ts, rec.Values.BankConflicts)
+		}
+		if rec.Values.RegSpillBytes > 0 {
+			_ = pw.WriteCounterValue(1012, ts, rec.Values.RegSpillBytes)
+		}
+		if rec.Values.InterconnectTxBytes > 0 {
+			_ = pw.WriteCounterValue(1013, ts, rec.Values.InterconnectTxBytes)
+		}
+		if rec.Values.InterconnectRxBytes > 0 {
+			_ = pw.WriteCounterValue(1014, ts, rec.Values.InterconnectRxBytes)
+		}
+		if rec.Values.StallMath > 0 {
+			_ = pw.WriteCounterValue(1015, ts, rec.Values.StallMath)
+		}
+		if rec.Values.StallMem > 0 {
+			_ = pw.WriteCounterValue(1016, ts, rec.Values.StallMem)
+		}
+		if rec.Values.LaunchDelayNanos > 0 {
+			_ = pw.WriteCounterValue(1017, ts, rec.Values.LaunchDelayNanos)
+		}
+		if rec.Values.QueueDelayNanos > 0 {
+			_ = pw.WriteCounterValue(1018, ts, rec.Values.QueueDelayNanos)
 		}
 	}
 

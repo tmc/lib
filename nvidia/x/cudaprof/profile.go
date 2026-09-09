@@ -102,6 +102,14 @@ func NewSession(w io.Writer) *Session {
 	}
 }
 
+// SetSampleTypes selects the metrics to write; see [Builder.SetSampleTypes].
+// Use it to omit metrics the caller does not measure.
+func (s *Session) SetSampleTypes(names ...string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.builder.SetSampleTypes(names...)
+}
+
 // SetBinaryPath sets the target path for the synthesized ELF binary sidecar.
 func (s *Session) SetBinaryPath(path string) {
 	s.mu.Lock()
@@ -115,8 +123,6 @@ func (s *Session) SetMappingFile(filename, buildID string) {
 	defer s.mu.Unlock()
 	s.builder.SetMappingFile(filename, buildID)
 }
-
-
 
 // RecordSample adds a GPU sample correlated with Go context pprof labels and OS thread affinity.
 
