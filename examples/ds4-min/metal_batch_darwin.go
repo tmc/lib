@@ -230,21 +230,43 @@ func (b *metalBatch) EncodeRopeAttentionMixed(q, kv metalmem.Slice[float32], sin
 		return fmt.Errorf("mixed attention: invalid shape")
 	}
 	enc := b.encoder()
-	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionMix)
-	for i, data := range []metalmem.Slice[float32]{q, kv} {
-		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
-	}
-	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 3)
-	enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 4)
-	enc.SetBufferWithOffsetAtIndex(allowed.Buffer(), allowed.Offset(), 5)
-	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 6)
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 7)
-	libmetal.SetScalar(enc, uint32(position), 8)
-	libmetal.SetScalar(enc, uint32(layer), 9)
-	libmetal.SetScalar(enc, uint32(rowCap), 10)
-	libmetal.SetScalar(enc, uint32(nComp), 11)
+	// Four dispatches for one logical operation, matching
+	// metalPinnedOps.ropeAttentionMixed. The KV preamble is separated so the
+	// attention kernel can put each head in its own threadgroup; ordering
+	// within the encoder supplies the dependency the old device-scope barrier
+	// enforced. b.encoded counts operations at this API's level, so it still
+	// advances by one.
+	enc.SetComputePipelineState(b.ops.kernels.RopeQPrepare)
+	enc.SetBufferWithOffsetAtIndex(q.Buffer(), q.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(kv.Buffer(), kv.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
+	libmetal.SetScalar(enc, uint32(position), 3)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+
+	enc.SetComputePipelineState(b.ops.kernels.RopeKVCommit)
+	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 1)
+	libmetal.SetScalar(enc, uint32(position), 2)
+	libmetal.SetScalar(enc, uint32(rowCap), 3)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(mixedWideThreads))
+
+	enc.SetComputePipelineState(b.ops.kernels.RopeAttentionWide)
+	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(allowed.Buffer(), allowed.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(position), 6)
+	libmetal.SetScalar(enc, uint32(rowCap), 7)
+	libmetal.SetScalar(enc, uint32(nComp), 8)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(64), libmetal.Threads(mixedWideThreads))
+
+	enc.SetComputePipelineState(b.ops.kernels.RopeOutUnrotate)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 0)
+	libmetal.SetScalar(enc, uint32(position), 1)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	_ = layer
 	b.encoded++
 	return nil
 }

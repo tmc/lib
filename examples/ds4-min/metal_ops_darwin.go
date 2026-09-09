@@ -180,12 +180,29 @@ type metalPinnedKernels struct {
 	RopeAttention     apple.MTLComputePipelineState `metal:"rope_attention_one"`
 	RopeAttentionRaw  apple.MTLComputePipelineState `metal:"rope_attention_raw"`
 	RopeAttentionMix  apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
+	RopeKVCommit      apple.MTLComputePipelineState `metal:"rope_kv_commit"`
+	RopeAttentionWide apple.MTLComputePipelineState `metal:"rope_attention_mixed_wide"`
+	RopeQPrepare      apple.MTLComputePipelineState `metal:"rope_q_prepare"`
+	RopeOutUnrotate   apple.MTLComputePipelineState `metal:"rope_out_unrotate"`
 	CompressorPool    apple.MTLComputePipelineState `metal:"compressor_pool"`
 	CompressorFinish  apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
 	IndexerFinish     apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
 }
 
+// mixedWideThreads is the threadgroup width of rope_attention_mixed_wide. It
+// must be a power of two, because the kernel's reductions halve the thread
+// count each round, and must not exceed the 256-element threadgroup scratch
+// array those reductions use.
+const mixedWideThreads = 256
+
 func (o *metalPinnedOps) RopeAttentionMixed(q, kv []float32, sinks boundMetalTensor, raw, comp metalmem.Slice[float32], nComp int, allowed []uint32, position int, layer int) ([]float32, []float32, []float32, error) {
+	return o.ropeAttentionMixed(q, kv, sinks, raw, comp, nComp, allowed, position, layer, true)
+}
+
+// ropeAttentionMixed encodes either the wide two-kernel path or the original
+// single-threadgroup kernel. The narrow path is retained solely as the
+// reference the wide path is checked against; production always takes wide.
+func (o *metalPinnedOps) ropeAttentionMixed(q, kv []float32, sinks boundMetalTensor, raw, comp metalmem.Slice[float32], nComp int, allowed []uint32, position int, layer int, wide bool) ([]float32, []float32, []float32, error) {
 	if len(q) != 64*512 || len(kv) != 512 || sinks.typeID != 0 || len(sinks.dimensions) != 1 || sinks.dimensions[0] != 64 ||
 		raw.Len() == 0 || raw.Len()%512 != 0 || comp.Len()%512 != 0 || nComp < 0 || nComp > comp.Len()/512 || position < 0 || layer < 2 {
 		return nil, nil, nil, fmt.Errorf("mixed attention: invalid shape")
@@ -230,25 +247,74 @@ func (o *metalPinnedOps) RopeAttentionMixed(q, kv []float32, sinks boundMetalTen
 	defer out.Free()
 	cb := o.dev.Queue().CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(o.kernels.RopeAttentionMix)
-	for i, data := range []metalmem.Slice[float32]{qbuf, kvbuf} {
-		enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+	// Two dispatches, not one. The KV preamble writes state every head reads,
+	// which the single-threadgroup kernel ordered with a device barrier; that
+	// barrier is what pinned all 64 heads to one threadgroup, and so to one GPU
+	// core. Encoder ordering enforces the same dependency across threadgroups.
+	if !wide {
+		enc.SetComputePipelineState(o.kernels.RopeAttentionMix)
+		for i, data := range []metalmem.Slice[float32]{qbuf, kvbuf} {
+			enc.SetBufferWithOffsetAtIndex(data.Buffer(), data.Offset(), uint(i))
+		}
+		enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
+		enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 3)
+		enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 4)
+		enc.SetBufferWithOffsetAtIndex(allowbuf.Buffer(), allowbuf.Offset(), 5)
+		enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 6)
+		enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 7)
+		libmetal.SetScalar(enc, uint32(position), 8)
+		libmetal.SetScalar(enc, uint32(layer), 9)
+		libmetal.SetScalar(enc, uint32(rowCap), 10)
+		libmetal.SetScalar(enc, uint32(nComp), 11)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+	} else {
+		enc.SetComputePipelineState(o.kernels.RopeQPrepare)
+		enc.SetBufferWithOffsetAtIndex(qbuf.Buffer(), qbuf.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(kvbuf.Buffer(), kvbuf.Offset(), 1)
+		enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
+		libmetal.SetScalar(enc, uint32(position), 3)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
+
+		enc.SetComputePipelineState(o.kernels.RopeKVCommit)
+		enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 1)
+		libmetal.SetScalar(enc, uint32(position), 2)
+		libmetal.SetScalar(enc, uint32(rowCap), 3)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(mixedWideThreads))
+
+		enc.SetComputePipelineState(o.kernels.RopeAttentionWide)
+		enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 1)
+		enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 2)
+		enc.SetBufferWithOffsetAtIndex(allowbuf.Buffer(), allowbuf.Offset(), 3)
+		enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 4)
+		enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
+		libmetal.SetScalar(enc, uint32(position), 6)
+		libmetal.SetScalar(enc, uint32(rowCap), 7)
+		libmetal.SetScalar(enc, uint32(nComp), 8)
+		// One threadgroup per head, so the head axis reaches the whole device.
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(64), libmetal.Threads(mixedWideThreads))
+
+		enc.SetComputePipelineState(o.kernels.RopeOutUnrotate)
+		enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 0)
+		libmetal.SetScalar(enc, uint32(position), 1)
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
 	}
-	enc.SetBufferWithOffsetAtIndex(sinks.data.Buffer(), sinks.data.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(raw.Buffer(), raw.Offset(), 3)
-	enc.SetBufferWithOffsetAtIndex(comp.Buffer(), comp.Offset(), 4)
-	enc.SetBufferWithOffsetAtIndex(allowbuf.Buffer(), allowbuf.Offset(), 5)
-	enc.SetBufferWithOffsetAtIndex(scores.Buffer(), scores.Offset(), 6)
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 7)
-	libmetal.SetScalar(enc, uint32(position), 8)
-	libmetal.SetScalar(enc, uint32(layer), 9)
-	libmetal.SetScalar(enc, uint32(rowCap), 10)
-	libmetal.SetScalar(enc, uint32(nComp), 11)
-	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
 	enc.EndEncoding()
+	_ = layer
 	cb.Commit()
 	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("mixed attention: %w", err)
+	}
+	// After completion, so this reads a settled buffer and encodes nothing.
+	if o.regions != nil {
+		o.regions.add(metalRegion{
+			Region:   "rope-attention-mixed",
+			Layer:    layer,
+			Position: position,
+			Start:    float64(cb.GPUStartTime()),
+			End:      float64(cb.GPUEndTime()),
+		})
 	}
 	host := out.HostSlice()
 	return append([]float32(nil), host[:len(q)]...), append([]float32(nil), host[len(q):len(q)+len(kv)]...), append([]float32(nil), host[len(q)+len(kv):]...), nil
@@ -1037,7 +1103,7 @@ func (o *metalPinnedOps) Close() {
 		o.hc.Close()
 		o.hc = nil
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention} {
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -1729,6 +1795,157 @@ kernel void rope_attention_mixed(
     out[oi]=a*c-b*s;out[oi+1]=a*s+b*c;
   }
   (void)layer;
+}
+
+// rope_kv_commit is the head==0 quantisation pass of rope_attention_mixed,
+// lifted into its own dispatch. rope_attention_mixed synchronised this work
+// against the other heads with a device-scope threadgroup barrier, which
+// confines every head to one threadgroup and so to one GPU core. Separating it
+// lets the attention kernel spread heads across the device; ordering within the
+// command buffer supplies the synchronisation the barrier used to.
+kernel void rope_kv_commit(
+    device float *raw [[buffer(0)]],
+    device float *out [[buffer(1)]],
+    constant uint &position [[buffer(2)]],
+    constant uint &raw_cap [[buffer(3)]],
+    uint tid [[thread_position_in_threadgroup]],
+    uint nthreads [[threads_per_threadgroup]]) {
+  // Quantisation only. rope_q_prepare has already written and rotated
+  // out[32768,33280); encoder ordering supplies the dependency. Quantisation
+  // covers [0,448) of that range and the rotation covered [448,512), so the two
+  // do not overlap.
+  for(uint blk=tid;blk<7;blk+=nthreads){
+    const uint off=blk*64;
+    float amax=1.0e-4f;for(uint i=0;i<64;i++)amax=max(amax,abs(out[32768+off+i]));
+    const float scale=exp2(ceil(log2(amax/448.0f)));
+    for(uint i=0;i<64;i++)out[32768+off+i]=e4m3fn_round(clamp(out[32768+off+i]/scale,-448.0f,448.0f))*scale;
+  }
+  threadgroup_barrier(mem_flags::mem_device);
+  const uint row=position%raw_cap;
+  for(uint i=tid;i<512;i+=nthreads)raw[row*512+i]=float(half(out[32768+i]));
+}
+
+// rope_q_prepare and rope_out_unrotate carry the two rotations of
+// rope_attention_mixed unchanged: one thread per head, a constant-bound r loop,
+// and the same index arithmetic. Keeping that shape keeps the compiler's
+// constant folding of compressed_rope_theta, which is what a strided p=tid loop
+// loses. They bracket rope_attention_mixed_wide, which is then left with only
+// the score and value work -- the part that actually benefits from width.
+kernel void rope_q_prepare(
+    device const float *q [[buffer(0)]],
+    device const float *kv [[buffer(1)]],
+    device float *out [[buffer(2)]],
+    constant uint &position [[buffer(3)]],
+    uint head [[thread_position_in_threadgroup]]) {
+  const uint qoff=head*512;
+  for(uint i=0;i<512;i++)out[qoff+i]=q[qoff+i];
+  if(head==0)for(uint i=0;i<512;i++)out[32768+i]=kv[i];
+  // Byte-for-byte the preamble of rope_attention_mixed, KV block included. An
+  // earlier version rotated only Q here, on the theory that a constant-bound r
+  // loop was what mattered. It was exact at eight of ten test positions and
+  // 1-3 ULP off at r=34 for the other two: the reference's loop body carries
+  // this if(head==0) block, and the compiler unrolls -- and so constant-folds
+  // compressed_rope_theta's pow -- differently for a body without it. Textual
+  // identity of the loop is the property being relied on, not any weaker
+  // paraphrase of it, so the KV rotation stays here rather than in
+  // rope_kv_commit and the copy above feeds it.
+  for(uint r=0;r<64;r+=2){
+    const uint qi=qoff+448+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=sin(theta),a=out[qi],b=out[qi+1];
+    out[qi]=a*c-b*s;out[qi+1]=a*s+b*c;
+    if(head==0){uint ki=32768+448+r;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
+  }
+}
+
+kernel void rope_out_unrotate(
+    device float *out [[buffer(0)]],
+    constant uint &position [[buffer(1)]],
+    uint head [[thread_position_in_threadgroup]]) {
+  const uint qoff=head*512;
+  for(uint r=0;r<64;r+=2){
+    const uint oi=33280+qoff+448+r;float theta=compressed_rope_theta(position,r),c=cos(theta),s=-sin(theta),a=out[oi],b=out[oi+1];
+    out[oi]=a*c-b*s;out[oi+1]=a*s+b*c;
+  }
+}
+
+// tg_reduce_max and tg_reduce_sum reduce one value per thread down to slot 0.
+// Plain tree reductions rather than simd_ intrinsics, so the reduction does not
+// depend on the SIMD width of the part it runs on.
+static inline float tg_reduce_max(threadgroup float *scratch, uint tid, uint nthreads, float value) {
+  scratch[tid]=value;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  for(uint half_n=nthreads/2;half_n>0;half_n/=2){
+    if(tid<half_n)scratch[tid]=max(scratch[tid],scratch[tid+half_n]);
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+  }
+  return scratch[0];
+}
+
+
+// rope_attention_mixed_wide is rope_attention_mixed with the head axis promoted
+// from a thread index to a threadgroup index. One threadgroup owns one head;
+// within it, threads divide the timestep axis for the score pass and the
+// head_dim axis for the value pass, so neither inner loop is serial in one
+// thread. It expects rope_kv_commit and rope_q_prepare to have run first in the
+// same command buffer, and rope_out_unrotate to run after: the two rotations
+// stay in those head-mapped kernels, in the reference's exact code shape, so
+// this kernel holds only score and value work.
+kernel void rope_attention_mixed_wide(
+    device const float *sinks [[buffer(0)]],
+    device const float *raw [[buffer(1)]],
+    device const float *comp [[buffer(2)]],
+    device const uint *allowed [[buffer(3)]],
+    device float *scores [[buffer(4)]],
+    device float *out [[buffer(5)]],
+    constant uint &position [[buffer(6)]],
+    constant uint &raw_cap [[buffer(7)]],
+    constant uint &n_comp [[buffer(8)]],
+    uint head [[threadgroup_position_in_grid]],
+    uint tid [[thread_position_in_threadgroup]],
+    uint nthreads [[threads_per_threadgroup]]) {
+  threadgroup float scratch[256];
+  const uint qoff=head*512;
+  const uint n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+  float local_max=-1.0e30f;
+  for(uint t=tid;t<n_raw;t+=nthreads){
+    const uint row=(first+t)%raw_cap;float score=0.0f;
+    for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*raw[row*512+i];
+    score*=0.04419417382415922f;scores[head*total+t]=score;local_max=max(local_max,score);
+  }
+  for(uint cidx=tid;cidx<n_comp;cidx+=nthreads){
+    float score=-1.0e30f;
+    if(allowed[cidx]){score=0.0f;for(uint i=0;i<512;i++)score+=float(half(out[qoff+i]))*comp[cidx*512+i];score*=0.04419417382415922f;local_max=max(local_max,score);}
+    scores[head*total+n_raw+cidx]=score;
+  }
+  threadgroup_barrier(mem_flags::mem_device|mem_flags::mem_threadgroup);
+  // sinks[head] seeds the maximum exactly as the single-threadgroup kernel did.
+  const float maximum=max(sinks[head],tg_reduce_max(scratch,tid,nthreads,local_max));
+
+  // One thread sums the denominator in the original order -- sink first, then
+  // raw timesteps ascending, then compressed entries -- and broadcasts it. A
+  // tree reduction over strided partial sums computes the same value under
+  // exact arithmetic but a different association, which perturbs the low bits;
+  // summing in order keeps the wide kernel bit-identical to the narrow one, so
+  // the two can be compared for equality rather than within a tolerance. The
+  // serial pass is over at most raw_cap+n_comp terms, against the value pass's
+  // 512 coordinates times the same count, so it is not the cost here.
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  if(tid==0){
+    float d=exp(sinks[head]-maximum);
+    for(uint t=0;t<n_raw;t++)d+=exp(scores[head*total+t]-maximum);
+    for(uint cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])d+=exp(scores[head*total+n_raw+cidx]-maximum);
+    scratch[0]=d;
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  const float denom=scratch[0];
+
+  // The value pass partitions head_dim, so each thread accumulates its own
+  // slice over every timestep and no reduction is needed here.
+  for(uint i=tid;i<512;i+=nthreads){
+    float value=0.0f;
+    for(uint t=0;t<n_raw;t++){const uint row=(first+t)%raw_cap;value+=exp(scores[head*total+t]-maximum)*raw[row*512+i];}
+    for(uint cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])value+=exp(scores[head*total+n_raw+cidx]-maximum)*comp[cidx*512+i];
+    out[33280+qoff+i]=value/denom;
+  }
 }
 
 kernel void rope_attention_raw(
