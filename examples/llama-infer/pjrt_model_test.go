@@ -155,6 +155,18 @@ func TestNativePJRTModel(t *testing.T) {
 				t.Fatal(err)
 			}
 			compare(got, want)
+			got[0] = 123
+			saved, err = p.readLogits()
+			if err != nil {
+				t.Fatal(err)
+			}
+			compare(saved, want)
+			saved[0] = 456
+			saved, err = p.readLogits()
+			if err != nil {
+				t.Fatal(err)
+			}
+			compare(saved, want)
 			if err := p.reset(); err != nil {
 				t.Fatal(err)
 			}
