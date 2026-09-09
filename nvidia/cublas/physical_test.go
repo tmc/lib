@@ -319,6 +319,7 @@ func TestLevel1(t *testing.T) {
 	py := devp[float32](yd)
 
 	t.Run("Sdot", func(t *testing.T) {
+		bind(t)
 		var want float64
 		for i := 0; i < n; i++ {
 			want += x[i*incx] * y[i*incy]
@@ -337,6 +338,7 @@ func TestLevel1(t *testing.T) {
 	})
 
 	t.Run("Sasum", func(t *testing.T) {
+		bind(t)
 		var want float64
 		for i := 0; i < n; i++ {
 			want += math.Abs(x[i*incx])
@@ -355,6 +357,7 @@ func TestLevel1(t *testing.T) {
 	})
 
 	t.Run("Snrm2", func(t *testing.T) {
+		bind(t)
 		var sum float64
 		for i := 0; i < n; i++ {
 			sum += x[i*incx] * x[i*incx]
@@ -375,6 +378,7 @@ func TestLevel1(t *testing.T) {
 	})
 
 	t.Run("Isamax", func(t *testing.T) {
+		bind(t)
 		// cuBLAS returns a one-based index, and ties resolve to the first.
 		best, bestIdx := -1.0, 0
 		for i := 0; i < n; i++ {
@@ -396,6 +400,7 @@ func TestLevel1(t *testing.T) {
 	})
 
 	t.Run("Saxpy", func(t *testing.T) {
+		bind(t)
 		const alpha = 3
 		want := make([]float64, len(y))
 		copy(want, y)
