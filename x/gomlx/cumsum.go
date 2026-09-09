@@ -24,6 +24,9 @@ func (f *function) CumSum(input compute.Value, axis int, options compute.CumSumO
 	if err != nil {
 		return nil, err
 	}
+	if s.Size() == 0 {
+		return &node{f, x}, nil
+	}
 	scalar := hlo.Type{ElementType: x.Type.ElementType}
 	initial := hlo.Value{ID: fmt.Sprintf("%%scaninit%d", len(f.raw.Ops)), Type: scalar}
 	literal := "0"

@@ -115,3 +115,21 @@ func TestCumSumValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestCumSumEmptyGraph(t *testing.T) {
+	f := (&Backend{}).Builder("empty").Main()
+	shape := shapes.Make(dtypes.Float32, 2, 0)
+	x, err := f.Parameter("x", shape, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, axis := range []int{0, 1} {
+		y, err := f.CumSum(x, axis, compute.CumSumOptions{Exclusive: true, Reverse: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if y.(*node).value.ID != x.(*node).value.ID {
+			t.Fatal("empty sum must preserve operand")
+		}
+	}
+}
