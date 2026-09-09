@@ -163,3 +163,96 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatalf("sample values = %v", v[2])
 	}
 }
+
+func TestSourceOnlyFrames(t *testing.T) {
+	var buf bytes.Buffer
+	s := cudaprof.NewSession(&buf)
+	s.RecordStackSample(context.Background(), cudaprof.SampleValues{GPUNanos: 10}, []cudaprof.Frame{
+		{FunctionName: "kernel", FileName: "kernel.sass", Address: cudaprof.DefaultMappingStart + 0x1000},
+		{FunctionName: "caller", FileName: "main.go", Line: 10},
+	})
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r, err := gzip.NewReader(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, fields := profileFields(t, data)
+	if len(fields[4]) != 2 {
+		t.Fatalf("locations = %d", len(fields[4]))
+	}
+	leaf, _ := profileFields(t, fields[4][0])
+	caller, _ := profileFields(t, fields[4][1])
+	if !reflect.DeepEqual(leaf[2], []uint64{1}) || len(caller[2]) != 0 {
+		t.Fatalf("mapping IDs: leaf=%v caller=%v", leaf[2], caller[2])
+	}
+}
+
+func TestRecordSASSMetric(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		metric          cudaprof.SASSMetric
+		wantTensorWarps uint64
+		wantSamples     uint64
+	}{
+		{
+			name: "non-tensor scalar fma",
+			metric: cudaprof.SASSMetric{
+				InstructionPC: cudaprof.DefaultMappingStart + 0x100,
+				Opcode:        "FFMA",
+				StallReason:   "stall_wait",
+				IssuedWarps:   4,
+				ExecutedWarps: 4,
+			},
+			wantTensorWarps: 0,
+			wantSamples:     4,
+		},
+		{
+			name: "tensor hmma instruction",
+			metric: cudaprof.SASSMetric{
+				InstructionPC: cudaprof.DefaultMappingStart + 0x200,
+				Opcode:        "HMMA.16816.F32",
+				IssuedWarps:   8,
+				ExecutedWarps: 8,
+			},
+			wantTensorWarps: 8,
+			wantSamples:     8,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			s := cudaprof.NewSession(&buf)
+			s.RecordSASSMetric(context.Background(), "kernel", "kernel.cu", 1, tt.metric)
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+			r, err := gzip.NewReader(&buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.Close()
+			data, err := io.ReadAll(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, fields := profileFields(t, data)
+			if len(fields[2]) != 1 {
+				t.Fatalf("got %d samples, want 1", len(fields[2]))
+			}
+			v, _ := profileFields(t, fields[2][0])
+			// profileSampleTypes order: samples(0), vram_alloc(1), dram_read(2), dram_write(3), l2_sectors_read(4), l2_sectors_miss(5), shared_mem(6), bank_conflicts(7), tensor_warps(8), ...
+			if v[2][0] != tt.wantSamples {
+				t.Errorf("samples = %d, want %d", v[2][0], tt.wantSamples)
+			}
+			if v[2][8] != tt.wantTensorWarps {
+				t.Errorf("tensor_warps = %d, want %d", v[2][8], tt.wantTensorWarps)
+			}
+		})
+	}
+}

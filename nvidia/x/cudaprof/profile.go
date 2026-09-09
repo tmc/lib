@@ -2,19 +2,23 @@ package cudaprof
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"sync"
 )
 
-// SASSMetric represents a modern hardware performance counter associated with a SASS instruction.
+// SASSMetric represents hardware performance counters associated with a SASS instruction.
+// Stalls and issued/executed counts must be provided from native hardware collection.
 type SASSMetric struct {
 	InstructionPC uint64
 	Opcode        string
 	StallReason   string
-	IssuedWarps   int64
-	ExecutedWarps int64
+	StallWarps    int64 // Stalled warp count/cycles attributed to StallReason
+	IssuedWarps   int64 // Warp instructions issued
+	ExecutedWarps int64 // Warp instructions executed
 }
 
 // Session manages active GPU profile collection and thread-safe callstack correlation.
@@ -34,7 +38,9 @@ type profileConfig struct {
 // Option configures GPU profiling parameters.
 type Option func(*profileConfig)
 
-// WithPCSampling enables live SM PC sampling at the given sample period.
+// WithPCSampling configures the SM PC sampling period for native collectors.
+// In the current session builder, PC samples must be explicitly recorded via
+// [Session.RecordDetailedSample] or [Session.RecordSASSMetric].
 func WithPCSampling(samplePeriod uint32) Option {
 	return func(c *profileConfig) {
 		c.pcSamplingPeriod = samplePeriod
@@ -48,7 +54,8 @@ func WithBinaryPath(path string) Option {
 	}
 }
 
-// WithSourceAttribution enables automatic ELF/Dwarf line resolution to .cu files.
+// WithSourceAttribution configures source-line attribution for native collectors.
+// The session builder expects resolved line numbers in recorded frames.
 func WithSourceAttribution(enabled bool) Option {
 	return func(c *profileConfig) {
 		c.sourceAttribution = enabled
@@ -185,11 +192,38 @@ func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename str
 	if m.StallReason != "" {
 		labels["sass.stall"] = m.StallReason
 	}
+	if m.IssuedWarps > 0 {
+		labels["sass.issued_warps"] = fmt.Sprintf("%d", m.IssuedWarps)
+	}
 
-	s.builder.AddDetailedSample(kernelName, filename, line, m.InstructionPC, SampleValues{
-		Samples:     m.ExecutedWarps,
-		TensorWarps: m.ExecutedWarps,
-	}, labels)
+	vals := SampleValues{
+		Samples: m.ExecutedWarps,
+	}
+	if isTensorOpcode(m.Opcode) {
+		vals.TensorWarps = m.ExecutedWarps
+	}
+	// Stall reasons must only account for stalled warps/cycles, never issued warps.
+	if m.StallWarps > 0 {
+		switch m.StallReason {
+		case "stall_scoreboard", "stall_long_scoreboard", "stall_short_scoreboard":
+			vals.StallScoreboard = m.StallWarps
+		case "stall_wait", "stall_barrier":
+			vals.StallWait = m.StallWarps
+		case "stall_math_pipe_throttle", "stall_math":
+			vals.StallMath = m.StallWarps
+		case "stall_mem_throttle", "stall_mem":
+			vals.StallMem = m.StallWarps
+		}
+	}
+
+	s.builder.AddDetailedSample(kernelName, filename, line, m.InstructionPC, vals, labels)
+}
+
+func isTensorOpcode(op string) bool {
+	upper := strings.ToUpper(op)
+	return strings.HasPrefix(upper, "HMMA") || strings.HasPrefix(upper, "IMMA") ||
+		strings.HasPrefix(upper, "QMMA") || strings.HasPrefix(upper, "BMMA") ||
+		strings.HasPrefix(upper, "MMA") || strings.HasPrefix(upper, "WGMMA")
 }
 
 // RecordStackSample records a multi-frame callstack sample with Go context labels.

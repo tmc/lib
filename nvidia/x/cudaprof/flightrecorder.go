@@ -54,7 +54,9 @@ func WithWindowDuration(d time.Duration) FlightRecorderOption {
 	}
 }
 
-// WithPCSamplingPeriod sets the hardware SM PC sampling frequency.
+// WithPCSamplingPeriod sets the target SM PC sampling period configuration.
+// Callers ingesting PC samples into the ring buffer must provide native samples
+// via RecordSample, RecordDetailedSample, or RecordTraceback.
 func WithPCSamplingPeriod(period uint32) FlightRecorderOption {
 	return func(fr *FlightRecorder) {
 		fr.samplePeriod = period
