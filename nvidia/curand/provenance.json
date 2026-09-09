@@ -5,7 +5,7 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/codegen",
   "argv": [
-    "$GOCACHE/b0/b0a58a493f13b253476fd81232b41c476216b252c0d09486f7a94d2500d71d71-d/curand-survey",
+    "$GOCACHE/e8/e8f9950fb32085815e325524657ecbdb21d8e318d4b70905ab88a1a2ebf96ab1-d/curand-survey",
     "-header",
     "$HOME/go/src/github.com/tmc/cuda-headers/curand/curand.h",
     "-headers-dir",
