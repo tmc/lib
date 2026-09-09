@@ -200,13 +200,7 @@ func TestLayout(t *testing.T) {
 		if got, want := unsafe.Offsetof(v.PictureType), uintptr(16); got != want {
 			t.Errorf("offsetof(LookaheadPicParams.PictureType) = %d, C says %d", got, want)
 		}
-		if got, want := unsafe.Offsetof(v.BufferFmt), uintptr(20); got != want {
-			t.Errorf("offsetof(LookaheadPicParams.BufferFmt) = %d, C says %d", got, want)
-		}
-		if got, want := unsafe.Offsetof(v.EncodePicFlags), uintptr(24); got != want {
-			t.Errorf("offsetof(LookaheadPicParams.EncodePicFlags) = %d, C says %d", got, want)
-		}
-		if got, want := unsafe.Offsetof(v.Reserved1), uintptr(28); got != want {
+		if got, want := unsafe.Offsetof(v.Reserved1), uintptr(20); got != want {
 			t.Errorf("offsetof(LookaheadPicParams.Reserved1) = %d, C says %d", got, want)
 		}
 		if got, want := unsafe.Offsetof(v.Reserved2), uintptr(272); got != want {
@@ -1622,8 +1616,8 @@ func TestLayout(t *testing.T) {
 		if got, want := unsafe.Offsetof(v.MeHintRefPicDist), uintptr(1728); got != want {
 			t.Errorf("offsetof(PicParams.MeHintRefPicDist) = %d, C says %d", got, want)
 		}
-		if got, want := unsafe.Offsetof(v.DiffPicNumHint), uintptr(1732); got != want {
-			t.Errorf("offsetof(PicParams.DiffPicNumHint) = %d, C says %d", got, want)
+		if got, want := unsafe.Offsetof(v.Reserved4), uintptr(1732); got != want {
+			t.Errorf("offsetof(PicParams.Reserved4) = %d, C says %d", got, want)
 		}
 		if got, want := unsafe.Offsetof(v.AlphaBuffer), uintptr(1736); got != want {
 			t.Errorf("offsetof(PicParams.AlphaBuffer) = %d, C says %d", got, want)

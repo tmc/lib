@@ -30,7 +30,7 @@ type Rect struct {
 	Bottom uint32 // uint32_t @12
 }
 
-// CapsParam corresponds to C NV_ENC_CAPS_PARAM, declared in nvEncodeAPI.h:1373.
+// CapsParam corresponds to C NV_ENC_CAPS_PARAM, declared in nvEncodeAPI.h:1360.
 // Size 256, alignment 4.
 type CapsParam struct {
 	Version     uint32     // uint32_t @0
@@ -38,7 +38,7 @@ type CapsParam struct {
 	Reserved    [62]uint32 // uint32_t[62] @8
 }
 
-// RestoreEncoderStateParams corresponds to C NV_ENC_RESTORE_ENCODER_STATE_PARAMS, declared in nvEncodeAPI.h:1387.
+// RestoreEncoderStateParams corresponds to C NV_ENC_RESTORE_ENCODER_STATE_PARAMS, declared in nvEncodeAPI.h:1374.
 // Size 800, alignment 8.
 type RestoreEncoderStateParams struct {
 	Version         uint32           // uint32_t @0
@@ -51,7 +51,7 @@ type RestoreEncoderStateParams struct {
 	Reserved2       [64]uintptr      // void *[64] @288
 }
 
-// OutputStatsBlock corresponds to C NV_ENC_OUTPUT_STATS_BLOCK, declared in nvEncodeAPI.h:1407.
+// OutputStatsBlock corresponds to C NV_ENC_OUTPUT_STATS_BLOCK, declared in nvEncodeAPI.h:1394.
 // Size 64, alignment 4.
 type OutputStatsBlock struct {
 	Version   uint32     // uint32_t @0
@@ -62,7 +62,7 @@ type OutputStatsBlock struct {
 	Reserved1 [12]uint32 // uint32_t[12] @16
 }
 
-// OutputStatsRow corresponds to C NV_ENC_OUTPUT_STATS_ROW, declared in nvEncodeAPI.h:1423.
+// OutputStatsRow corresponds to C NV_ENC_OUTPUT_STATS_ROW, declared in nvEncodeAPI.h:1410.
 // Size 64, alignment 4.
 type OutputStatsRow struct {
 	Version   uint32     // uint32_t @0
@@ -73,7 +73,7 @@ type OutputStatsRow struct {
 	Reserved1 [12]uint32 // uint32_t[12] @16
 }
 
-// EncodeOutParams corresponds to C NV_ENC_ENCODE_OUT_PARAMS, declared in nvEncodeAPI.h:1439.
+// EncodeOutParams corresponds to C NV_ENC_ENCODE_OUT_PARAMS, declared in nvEncodeAPI.h:1426.
 // Size 256, alignment 4.
 type EncodeOutParams struct {
 	Version              uint32     // uint32_t @0
@@ -81,20 +81,18 @@ type EncodeOutParams struct {
 	Reserved             [62]uint32 // uint32_t[62] @8
 }
 
-// LookaheadPicParams corresponds to C NV_ENC_LOOKAHEAD_PIC_PARAMS, declared in nvEncodeAPI.h:1452.
+// LookaheadPicParams corresponds to C NV_ENC_LOOKAHEAD_PIC_PARAMS, declared in nvEncodeAPI.h:1439.
 // Size 784, alignment 8.
 type LookaheadPicParams struct {
-	Version        uint32       // uint32_t @0
-	Reserved       uint32       // uint32_t @4
-	InputBuffer    uintptr      // NV_ENC_INPUT_PTR @8
-	PictureType    PicType      // NV_ENC_PIC_TYPE @16
-	BufferFmt      BufferFormat // NV_ENC_BUFFER_FORMAT @20
-	EncodePicFlags uint32       // uint32_t @24
-	Reserved1      [61]uint32   // uint32_t[61] @28
-	Reserved2      [64]uintptr  // void *[64] @272
+	Version     uint32      // uint32_t @0
+	Reserved    uint32      // uint32_t @4
+	InputBuffer uintptr     // NV_ENC_INPUT_PTR @8
+	PictureType PicType     // NV_ENC_PIC_TYPE @16
+	Reserved1   [63]uint32  // uint32_t[63] @20
+	Reserved2   [64]uintptr // void *[64] @272
 }
 
-// CreateInputBuffer corresponds to C NV_ENC_CREATE_INPUT_BUFFER, declared in nvEncodeAPI.h:1470.
+// CreateInputBuffer corresponds to C NV_ENC_CREATE_INPUT_BUFFER, declared in nvEncodeAPI.h:1455.
 // Size 776, alignment 8.
 type CreateInputBuffer struct {
 	Version       uint32       // uint32_t @0
@@ -109,7 +107,7 @@ type CreateInputBuffer struct {
 	Reserved2     [63]uintptr  // void *[63] @272
 }
 
-// CreateBitstreamBuffer corresponds to C NV_ENC_CREATE_BITSTREAM_BUFFER, declared in nvEncodeAPI.h:1490.
+// CreateBitstreamBuffer corresponds to C NV_ENC_CREATE_BITSTREAM_BUFFER, declared in nvEncodeAPI.h:1475.
 // Size 776, alignment 8.
 type CreateBitstreamBuffer struct {
 	Version            uint32      // uint32_t @0
@@ -122,14 +120,14 @@ type CreateBitstreamBuffer struct {
 	Reserved2          [64]uintptr // void *[64] @264
 }
 
-// Mvector corresponds to C NV_ENC_MVECTOR, declared in nvEncodeAPI.h:1508.
+// Mvector corresponds to C NV_ENC_MVECTOR, declared in nvEncodeAPI.h:1493.
 // Size 4, alignment 2.
 type Mvector struct {
 	Mvx int16 // int16_t @0
 	Mvy int16 // int16_t @2
 }
 
-// H264MvData corresponds to C NV_ENC_H264_MV_DATA, declared in nvEncodeAPI.h:1517.
+// H264MvData corresponds to C NV_ENC_H264_MV_DATA, declared in nvEncodeAPI.h:1502.
 // Size 24, alignment 4.
 type H264MvData struct {
 	Mv            [4]Mvector // NV_ENC_MVECTOR[4] @0
@@ -139,7 +137,7 @@ type H264MvData struct {
 	MbCost        uint32     // uint32_t @20
 }
 
-// HevcMvData corresponds to C NV_ENC_HEVC_MV_DATA, declared in nvEncodeAPI.h:1529.
+// HevcMvData corresponds to C NV_ENC_HEVC_MV_DATA, declared in nvEncodeAPI.h:1514.
 // Size 20, alignment 2.
 type HevcMvData struct {
 	Mv            [4]Mvector // NV_ENC_MVECTOR[4] @0
@@ -149,7 +147,7 @@ type HevcMvData struct {
 	LastCUInCTB   uint8      // uint8_t @19
 }
 
-// CreateMvBuffer corresponds to C NV_ENC_CREATE_MV_BUFFER, declared in nvEncodeAPI.h:1543.
+// CreateMvBuffer corresponds to C NV_ENC_CREATE_MV_BUFFER, declared in nvEncodeAPI.h:1528.
 // Size 1536, alignment 8.
 type CreateMvBuffer struct {
 	Version   uint32      // uint32_t @0
@@ -159,7 +157,7 @@ type CreateMvBuffer struct {
 	Reserved2 [63]uintptr // void *[63] @1032
 }
 
-// Qp corresponds to C NV_ENC_QP, declared in nvEncodeAPI.h:1558.
+// Qp corresponds to C NV_ENC_QP, declared in nvEncodeAPI.h:1543.
 // Size 12, alignment 4.
 type Qp struct {
 	QpInterP uint32 // uint32_t @0
@@ -167,7 +165,7 @@ type Qp struct {
 	QpIntra  uint32 // uint32_t @8
 }
 
-// RcParams corresponds to C NV_ENC_RC_PARAMS, declared in nvEncodeAPI.h:1570.
+// RcParams corresponds to C NV_ENC_RC_PARAMS, declared in nvEncodeAPI.h:1555.
 // Size 128, alignment 4.
 type RcParams struct {
 	Version                uint32         // uint32_t @0
@@ -367,21 +365,21 @@ func (s *RcParams) SetReservedBitFields(v uint32) {
 	setBits(s.bits36[:], 17, 15, uint64(v))
 }
 
-// ClockTimestampSet corresponds to C NV_ENC_CLOCK_TIMESTAMP_SET, declared in nvEncodeAPI.h:1656.
+// ClockTimestampSet corresponds to C NV_ENC_CLOCK_TIMESTAMP_SET, declared in nvEncodeAPI.h:1641.
 // Size 8, alignment 4.
 type ClockTimestampSet struct {
-	bits0      [4]byte // countingTypeLSB:1 discontinuityFlag:1 cntDroppedFrames:1 nFrames:8 secondsValue:6 minutesValue:6 hoursValue:5 countingTypeMSB:4
+	bits0      [4]byte // countingType:1 discontinuityFlag:1 cntDroppedFrames:1 nFrames:8 secondsValue:6 minutesValue:6 hoursValue:5 reserved2:4
 	TimeOffset uint32  // uint32_t @4
 }
 
-// CountingTypeLSB reads the 1-bit member countingTypeLSB.
-func (s *ClockTimestampSet) CountingTypeLSB() uint32 {
+// CountingType reads the 1-bit member countingType.
+func (s *ClockTimestampSet) CountingType() uint32 {
 	return uint32(getBits(s.bits0[:], 0, 1))
 }
 
-// SetCountingTypeLSB writes the 1-bit member countingTypeLSB. Bits of v above the member's
+// SetCountingType writes the 1-bit member countingType. Bits of v above the member's
 // width are discarded.
-func (s *ClockTimestampSet) SetCountingTypeLSB(v uint32) {
+func (s *ClockTimestampSet) SetCountingType(v uint32) {
 	setBits(s.bits0[:], 0, 1, uint64(v))
 }
 
@@ -451,18 +449,18 @@ func (s *ClockTimestampSet) SetHoursValue(v uint32) {
 	setBits(s.bits0[:], 23, 5, uint64(v))
 }
 
-// CountingTypeMSB reads the 4-bit member countingTypeMSB.
-func (s *ClockTimestampSet) CountingTypeMSB() uint32 {
+// Reserved2 reads the 4-bit member reserved2.
+func (s *ClockTimestampSet) Reserved2() uint32 {
 	return uint32(getBits(s.bits0[:], 28, 4))
 }
 
-// SetCountingTypeMSB writes the 4-bit member countingTypeMSB. Bits of v above the member's
+// SetReserved2 writes the 4-bit member reserved2. Bits of v above the member's
 // width are discarded.
-func (s *ClockTimestampSet) SetCountingTypeMSB(v uint32) {
+func (s *ClockTimestampSet) SetReserved2(v uint32) {
 	setBits(s.bits0[:], 28, 4, uint64(v))
 }
 
-// TimeCode corresponds to C NV_ENC_TIME_CODE, declared in nvEncodeAPI.h:1669.
+// TimeCode corresponds to C NV_ENC_TIME_CODE, declared in nvEncodeAPI.h:1654.
 // Size 32, alignment 4.
 type TimeCode struct {
 	DisplayPicStruct            DisplayPicStruct     // NV_ENC_DISPLAY_PIC_STRUCT @0
@@ -470,7 +468,7 @@ type TimeCode struct {
 	SkipClockTimestampInsertion uint32               // uint32_t @28
 }
 
-// Hevc3DReferenceDisplayInfo corresponds to C HEVC_3D_REFERENCE_DISPLAY_INFO, declared in nvEncodeAPI.h:1683.
+// Hevc3DReferenceDisplayInfo corresponds to C HEVC_3D_REFERENCE_DISPLAY_INFO, declared in nvEncodeAPI.h:1668.
 // Size 960, alignment 4.
 type Hevc3DReferenceDisplayInfo struct {
 	bits0                      [4]byte   // refViewingDistanceFlag:1 threeDimensionalReferenceDisplaysExtensionFlag:1 reserved:30
@@ -521,14 +519,14 @@ func (s *Hevc3DReferenceDisplayInfo) SetReserved(v uint32) {
 	setBits(s.bits0[:], 2, 30, uint64(v))
 }
 
-// ChromaPoints corresponds to C CHROMA_POINTS, declared in nvEncodeAPI.h:1705.
+// ChromaPoints corresponds to C CHROMA_POINTS, declared in nvEncodeAPI.h:1690.
 // Size 4, alignment 2.
 type ChromaPoints struct {
 	X uint16 // uint16_t @0
 	Y uint16 // uint16_t @2
 }
 
-// MasteringDisplayInfo corresponds to C MASTERING_DISPLAY_INFO, declared in nvEncodeAPI.h:1715.
+// MasteringDisplayInfo corresponds to C MASTERING_DISPLAY_INFO, declared in nvEncodeAPI.h:1700.
 // Size 24, alignment 4.
 type MasteringDisplayInfo struct {
 	G          ChromaPoints // CHROMA_POINTS @0
@@ -539,14 +537,14 @@ type MasteringDisplayInfo struct {
 	MinLuma    uint32       // uint32_t @20
 }
 
-// ContentLightLevel corresponds to C CONTENT_LIGHT_LEVEL, declared in nvEncodeAPI.h:1728.
+// ContentLightLevel corresponds to C CONTENT_LIGHT_LEVEL, declared in nvEncodeAPI.h:1713.
 // Size 4, alignment 2.
 type ContentLightLevel struct {
 	MaxContentLightLevel    uint16 // uint16_t @0
 	MaxPicAverageLightLevel uint16 // uint16_t @2
 }
 
-// ConfigH264VuiParameters corresponds to C NV_ENC_CONFIG_H264_VUI_PARAMETERS, declared in nvEncodeAPI.h:1739.
+// ConfigH264VuiParameters corresponds to C NV_ENC_CONFIG_H264_VUI_PARAMETERS, declared in nvEncodeAPI.h:1724.
 // Size 112, alignment 4.
 type ConfigH264VuiParameters struct {
 	OverscanInfoPresentFlag      uint32                    // uint32_t @0
@@ -568,7 +566,7 @@ type ConfigH264VuiParameters struct {
 	Reserved                     [12]uint32                // uint32_t[12] @64
 }
 
-// ExternalMeHintCountsPerBlocktype corresponds to C NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE, declared in nvEncodeAPI.h:1768.
+// ExternalMeHintCountsPerBlocktype corresponds to C NVENC_EXTERNAL_ME_HINT_COUNTS_PER_BLOCKTYPE, declared in nvEncodeAPI.h:1753.
 // Size 16, alignment 4.
 type ExternalMeHintCountsPerBlocktype struct {
 	bits0     [4]byte   // numCandsPerBlk16x16:4 numCandsPerBlk16x8:4 numCandsPerBlk8x16:4 numCandsPerBlk8x8:4 numCandsPerSb:8 reserved:8
@@ -641,7 +639,7 @@ func (s *ExternalMeHintCountsPerBlocktype) SetReserved(v uint32) {
 	setBits(s.bits0[:], 24, 8, uint64(v))
 }
 
-// ExternalMeHint corresponds to C NVENC_EXTERNAL_ME_HINT, declared in nvEncodeAPI.h:1784.
+// ExternalMeHint corresponds to C NVENC_EXTERNAL_ME_HINT, declared in nvEncodeAPI.h:1769.
 // Size 4, alignment 4.
 type ExternalMeHint struct {
 	_     [0]uint32 // alignment 4
@@ -732,7 +730,7 @@ func (s *ExternalMeHint) SetLastOfMB(v int32) {
 	setBits(s.bits0[:], 31, 1, uint64(v))
 }
 
-// ExternalMeSbHint corresponds to C NVENC_EXTERNAL_ME_SB_HINT, declared in nvEncodeAPI.h:1799.
+// ExternalMeSbHint corresponds to C NVENC_EXTERNAL_ME_SB_HINT, declared in nvEncodeAPI.h:1784.
 // Size 6, alignment 2.
 type ExternalMeSbHint struct {
 	_     [0]uint16 // alignment 2
@@ -895,7 +893,7 @@ func (s *ExternalMeSbHint) SetReserved1(v int32) {
 	setBits(s.bits0[:], 47, 1, uint64(v))
 }
 
-// ConfigH264 corresponds to C NV_ENC_CONFIG_H264, declared in nvEncodeAPI.h:1820.
+// ConfigH264 corresponds to C NV_ENC_CONFIG_H264, declared in nvEncodeAPI.h:1805.
 // Size 1792, alignment 8.
 type ConfigH264 struct {
 	bits0                      [4]byte                   // enableTemporalSVC:1 enableStereoMVC:1 hierarchicalPFrames:1 hierarchicalBFrames:1 outputBufferingPeriodSEI:1 outputPictureTimingSEI:1 outputAUD:1 disableSPSPPS:1 outputFramePackingSEI:1 outputRecoveryPointSEI:1 enableIntraRefresh:1 enableConstrainedEncoding:1 repeatSPSPPS:1 enableVFR:1 enableLTR:1 qpPrimeYZeroTransformBypassFlag:1 useConstrainedIntraPred:1 enableFillerDataInsertion:1 disableSVCPrefixNalu:1 enableScalabilityInfoSEI:1 singleSliceIntraRefresh:1 enableTimeCode:1 reservedBitFields:10
@@ -1184,14 +1182,14 @@ func (s *ConfigH264) SetReservedBitFields(v uint32) {
 	setBits(s.bits0[:], 22, 10, uint64(v))
 }
 
-// ConfigHevc corresponds to C NV_ENC_CONFIG_HEVC, declared in nvEncodeAPI.h:1930.
+// ConfigHevc corresponds to C NV_ENC_CONFIG_HEVC, declared in nvEncodeAPI.h:1915.
 // Size 1560, alignment 8.
 type ConfigHevc struct {
 	Level                      uint32                  // uint32_t @0
 	Tier                       uint32                  // uint32_t @4
 	MinCUSize                  HevcCusize              // NV_ENC_HEVC_CUSIZE @8
 	MaxCUSize                  HevcCusize              // NV_ENC_HEVC_CUSIZE @12
-	bits16                     [4]byte                 // useConstrainedIntraPred:1 disableDeblockAcrossSliceBoundary:1 outputBufferingPeriodSEI:1 outputPictureTimingSEI:1 outputAUD:1 enableLTR:1 disableSPSPPS:1 repeatSPSPPS:1 enableIntraRefresh:1 chromaFormatIDC:2 reserved3:3 enableFillerDataInsertion:1 enableConstrainedEncoding:1 enableAlphaLayerEncoding:1 singleSliceIntraRefresh:1 outputRecoveryPointSEI:1 outputTimeCodeSEI:1 enableTemporalSVC:1 enableMVHEVC:1 outputHevc3DReferenceDisplayInfo:1 outputMaxCll:1 outputMasteringDisplay:1 reserved0:1 enableRefPicListModification:1 reserved:5
+	bits16                     [4]byte                 // useConstrainedIntraPred:1 disableDeblockAcrossSliceBoundary:1 outputBufferingPeriodSEI:1 outputPictureTimingSEI:1 outputAUD:1 enableLTR:1 disableSPSPPS:1 repeatSPSPPS:1 enableIntraRefresh:1 chromaFormatIDC:2 reserved3:3 enableFillerDataInsertion:1 enableConstrainedEncoding:1 enableAlphaLayerEncoding:1 singleSliceIntraRefresh:1 outputRecoveryPointSEI:1 outputTimeCodeSEI:1 enableTemporalSVC:1 enableMVHEVC:1 outputHevc3DReferenceDisplayInfo:1 outputMaxCll:1 outputMasteringDisplay:1 reserved:7
 	IdrPeriod                  uint32                  // uint32_t @20
 	IntraRefreshPeriod         uint32                  // uint32_t @24
 	IntraRefreshCnt            uint32                  // uint32_t @28
@@ -1460,40 +1458,18 @@ func (s *ConfigHevc) SetOutputMasteringDisplay(v uint32) {
 	setBits(s.bits16[:], 24, 1, uint64(v))
 }
 
-// Reserved0 reads the 1-bit member reserved0.
-func (s *ConfigHevc) Reserved0() uint32 {
-	return uint32(getBits(s.bits16[:], 25, 1))
-}
-
-// SetReserved0 writes the 1-bit member reserved0. Bits of v above the member's
-// width are discarded.
-func (s *ConfigHevc) SetReserved0(v uint32) {
-	setBits(s.bits16[:], 25, 1, uint64(v))
-}
-
-// EnableRefPicListModification reads the 1-bit member enableRefPicListModification.
-func (s *ConfigHevc) EnableRefPicListModification() uint32 {
-	return uint32(getBits(s.bits16[:], 26, 1))
-}
-
-// SetEnableRefPicListModification writes the 1-bit member enableRefPicListModification. Bits of v above the member's
-// width are discarded.
-func (s *ConfigHevc) SetEnableRefPicListModification(v uint32) {
-	setBits(s.bits16[:], 26, 1, uint64(v))
-}
-
-// Reserved reads the 5-bit member reserved.
+// Reserved reads the 7-bit member reserved.
 func (s *ConfigHevc) Reserved() uint32 {
-	return uint32(getBits(s.bits16[:], 27, 5))
+	return uint32(getBits(s.bits16[:], 25, 7))
 }
 
-// SetReserved writes the 5-bit member reserved. Bits of v above the member's
+// SetReserved writes the 7-bit member reserved. Bits of v above the member's
 // width are discarded.
 func (s *ConfigHevc) SetReserved(v uint32) {
-	setBits(s.bits16[:], 27, 5, uint64(v))
+	setBits(s.bits16[:], 25, 7, uint64(v))
 }
 
-// FilmGrainParamsAV1 corresponds to C NV_ENC_FILM_GRAIN_PARAMS_AV1, declared in nvEncodeAPI.h:2041.
+// FilmGrainParamsAV1 corresponds to C NV_ENC_FILM_GRAIN_PARAMS_AV1, declared in nvEncodeAPI.h:2024.
 // Size 156, alignment 4.
 type FilmGrainParamsAV1 struct {
 	_                 [0]uint32 // alignment 4
@@ -1648,7 +1624,7 @@ func (s *FilmGrainParamsAV1) SetReserved1(v uint32) {
 	setBits(s.bits0[:], 24, 8, uint64(v))
 }
 
-// ConfigAV1 corresponds to C NV_ENC_CONFIG_AV1, declared in nvEncodeAPI.h:2077.
+// ConfigAV1 corresponds to C NV_ENC_CONFIG_AV1, declared in nvEncodeAPI.h:2060.
 // Size 1552, alignment 8.
 type ConfigAV1 struct {
 	Level                   uint32                    // uint32_t @0
@@ -1873,7 +1849,7 @@ func (s *ConfigAV1) SetReserved(v uint32) {
 	setBits(s.bits16[:], 18, 14, uint64(v))
 }
 
-// ConfigH264Meonly corresponds to C NV_ENC_CONFIG_H264_MEONLY, declared in nvEncodeAPI.h:2155.
+// ConfigH264Meonly corresponds to C NV_ENC_CONFIG_H264_MEONLY, declared in nvEncodeAPI.h:2138.
 // Size 1536, alignment 8.
 type ConfigH264Meonly struct {
 	bits0     [4]byte     // disablePartition16x16:1 disablePartition8x16:1 disablePartition16x8:1 disablePartition8x8:1 disableIntraSearch:1 bStereoEnable:1 reserved:26
@@ -1958,14 +1934,14 @@ func (s *ConfigH264Meonly) SetReserved(v uint32) {
 	setBits(s.bits0[:], 6, 26, uint64(v))
 }
 
-// ConfigHevcMeonly corresponds to C NV_ENC_CONFIG_HEVC_MEONLY, declared in nvEncodeAPI.h:2174.
+// ConfigHevcMeonly corresponds to C NV_ENC_CONFIG_HEVC_MEONLY, declared in nvEncodeAPI.h:2157.
 // Size 1536, alignment 8.
 type ConfigHevcMeonly struct {
 	Reserved  [256]uint32 // uint32_t[256] @0
 	Reserved1 [64]uintptr // void *[64] @1024
 }
 
-// CodecConfig corresponds to C NV_ENC_CODEC_CONFIG, declared in nvEncodeAPI.h:2184.
+// CodecConfig corresponds to C NV_ENC_CODEC_CONFIG, declared in nvEncodeAPI.h:2167.
 // It is a union: the members below all start at offset 0 and share the
 // same 1792 bytes, so writing one invalidates the others. Size 1792, alignment 8.
 type CodecConfig struct {
@@ -2003,7 +1979,7 @@ func (u *CodecConfig) Reserved() *[320]uint32 {
 	return (*[320]uint32)(unsafe.Pointer(&u.Raw[0]))
 }
 
-// Config corresponds to C NV_ENC_CONFIG, declared in nvEncodeAPI.h:2199.
+// Config corresponds to C NV_ENC_CONFIG, declared in nvEncodeAPI.h:2182.
 // Size 3584, alignment 8.
 type Config struct {
 	Version            uint32               // uint32_t @0
@@ -2019,7 +1995,7 @@ type Config struct {
 	Reserved2          [64]uintptr          // void *[64] @3072
 }
 
-// InitializeParams corresponds to C NV_ENC_INITIALIZE_PARAMS, declared in nvEncodeAPI.h:2250.
+// InitializeParams corresponds to C NV_ENC_INITIALIZE_PARAMS, declared in nvEncodeAPI.h:2233.
 // Size 1800, alignment 8.
 type InitializeParams struct {
 	Version                 uint32                              // uint32_t @0
@@ -2170,7 +2146,7 @@ func (s *InitializeParams) SetReservedBitFields(v uint32) {
 	setBits(s.bits68[:], 13, 19, uint64(v))
 }
 
-// ReconfigureParams corresponds to C NV_ENC_RECONFIGURE_PARAMS, declared in nvEncodeAPI.h:2319.
+// ReconfigureParams corresponds to C NV_ENC_RECONFIGURE_PARAMS, declared in nvEncodeAPI.h:2302.
 // Size 1816, alignment 8.
 type ReconfigureParams struct {
 	Version            uint32           // uint32_t @0
@@ -2213,7 +2189,7 @@ func (s *ReconfigureParams) SetReserved1(v uint32) {
 	setBits(s.bits1808[:], 2, 30, uint64(v))
 }
 
-// PresetConfig corresponds to C NV_ENC_PRESET_CONFIG, declared in nvEncodeAPI.h:2354.
+// PresetConfig corresponds to C NV_ENC_PRESET_CONFIG, declared in nvEncodeAPI.h:2337.
 // Size 5128, alignment 8.
 type PresetConfig struct {
 	Version   uint32      // uint32_t @0
@@ -2223,7 +2199,7 @@ type PresetConfig struct {
 	Reserved2 [64]uintptr // void *[64] @4616
 }
 
-// PicParamsMvc corresponds to C NV_ENC_PIC_PARAMS_MVC, declared in nvEncodeAPI.h:2371.
+// PicParamsMvc corresponds to C NV_ENC_PIC_PARAMS_MVC, declared in nvEncodeAPI.h:2354.
 // Size 128, alignment 8.
 type PicParamsMvc struct {
 	Version    uint32     // uint32_t @0
@@ -2234,7 +2210,7 @@ type PicParamsMvc struct {
 	Reserved2  [8]uintptr // void *[8] @64
 }
 
-// PicParamsH264Ext corresponds to C NV_ENC_PIC_PARAMS_H264_EXT, declared in nvEncodeAPI.h:2389.
+// PicParamsH264Ext corresponds to C NV_ENC_PIC_PARAMS_H264_EXT, declared in nvEncodeAPI.h:2372.
 // It is a union: the members below all start at offset 0 and share the
 // same 128 bytes, so writing one invalidates the others. Size 128, alignment 8.
 type PicParamsH264Ext struct {
@@ -2252,7 +2228,7 @@ func (u *PicParamsH264Ext) Reserved1() *[32]uint32 {
 	return (*[32]uint32)(unsafe.Pointer(&u.Raw[0]))
 }
 
-// SeiPayload corresponds to C NV_ENC_SEI_PAYLOAD, declared in nvEncodeAPI.h:2399.
+// SeiPayload corresponds to C NV_ENC_SEI_PAYLOAD, declared in nvEncodeAPI.h:2382.
 // Size 16, alignment 8.
 type SeiPayload struct {
 	PayloadSize uint32  // uint32_t @0
@@ -2260,7 +2236,7 @@ type SeiPayload struct {
 	Payload     uintptr // uint8_t * @8
 }
 
-// PicParamsH264 corresponds to C NV_ENC_PIC_PARAMS_H264, declared in nvEncodeAPI.h:2412.
+// PicParamsH264 corresponds to C NV_ENC_PIC_PARAMS_H264, declared in nvEncodeAPI.h:2395.
 // Size 1536, alignment 8.
 type PicParamsH264 struct {
 	DisplayPOCSyntax              uint32           // uint32_t @0
@@ -2341,7 +2317,7 @@ func (s *PicParamsH264) SetReservedBitFields(v uint32) {
 	setBits(s.bits20[:], 4, 28, uint64(v))
 }
 
-// PicParamsHevc corresponds to C NV_ENC_PIC_PARAMS_HEVC, declared in nvEncodeAPI.h:2458.
+// PicParamsHevc corresponds to C NV_ENC_PIC_PARAMS_HEVC, declared in nvEncodeAPI.h:2441.
 // Size 1536, alignment 8.
 type PicParamsHevc struct {
 	DisplayPOCSyntax              uint32      // uint32_t @0
@@ -2436,7 +2412,7 @@ func (s *PicParamsHevc) SetReservedBitFields(v uint32) {
 	setBits(s.bits16[:], 5, 27, uint64(v))
 }
 
-// PicParamsAV1 corresponds to C NV_ENC_PIC_PARAMS_AV1, declared in nvEncodeAPI.h:2509.
+// PicParamsAV1 corresponds to C NV_ENC_PIC_PARAMS_AV1, declared in nvEncodeAPI.h:2495.
 // Size 1544, alignment 8.
 type PicParamsAV1 struct {
 	DisplayPOCSyntax              uint32      // uint32_t @0
@@ -2617,7 +2593,7 @@ func (s *PicParamsAV1) SetReservedBitFields(v uint32) {
 	setBits(s.bits16[:], 13, 19, uint64(v))
 }
 
-// CodecPicParams corresponds to C NV_ENC_CODEC_PIC_PARAMS, declared in nvEncodeAPI.h:2565.
+// CodecPicParams corresponds to C NV_ENC_CODEC_PIC_PARAMS, declared in nvEncodeAPI.h:2551.
 // It is a union: the members below all start at offset 0 and share the
 // same 1544 bytes, so writing one invalidates the others. Size 1544, alignment 8.
 type CodecPicParams struct {
@@ -2645,7 +2621,7 @@ func (u *CodecPicParams) Reserved() *[256]uint32 {
 	return (*[256]uint32)(unsafe.Pointer(&u.Raw[0]))
 }
 
-// PicParams corresponds to C NV_ENC_PIC_PARAMS, declared in nvEncodeAPI.h:2578.
+// PicParams corresponds to C NV_ENC_PIC_PARAMS, declared in nvEncodeAPI.h:2564.
 // Size 3360, alignment 8.
 type PicParams struct {
 	Version              uint32                              // uint32_t @0
@@ -2673,7 +2649,7 @@ type PicParams struct {
 	QpDeltaMapSize       uint32                              // uint32_t @1720
 	ReservedBitFields    uint32                              // uint32_t @1724
 	MeHintRefPicDist     [2]uint16                           // uint16_t[2] @1728
-	DiffPicNumHint       int32                               // int32_t @1732
+	Reserved4            uint32                              // uint32_t @1732
 	AlphaBuffer          uintptr                             // NV_ENC_INPUT_PTR @1736
 	MeExternalSbHints    uintptr                             // NVENC_EXTERNAL_ME_SB_HINT * @1744
 	MeSbHintsCount       uint32                              // uint32_t @1752
@@ -2683,7 +2659,7 @@ type PicParams struct {
 	Reserved6            [57]uintptr                         // void *[57] @2904
 }
 
-// MeonlyParams corresponds to C NV_ENC_MEONLY_PARAMS, declared in nvEncodeAPI.h:2650.
+// MeonlyParams corresponds to C NV_ENC_MEONLY_PARAMS, declared in nvEncodeAPI.h:2636.
 // Size 1544, alignment 8.
 type MeonlyParams struct {
 	Version              uint32                              // uint32_t @0
@@ -2705,7 +2681,7 @@ type MeonlyParams struct {
 	Reserved3            [59]uintptr                         // void *[59] @1072
 }
 
-// LockBitstream corresponds to C NV_ENC_LOCK_BITSTREAM, declared in nvEncodeAPI.h:2689.
+// LockBitstream corresponds to C NV_ENC_LOCK_BITSTREAM, declared in nvEncodeAPI.h:2675.
 // Size 1544, alignment 8.
 type LockBitstream struct {
 	Version               uint32      // uint32_t @0
@@ -2784,7 +2760,7 @@ func (s *LockBitstream) SetReservedBitFields(v uint32) {
 	setBits(s.bits4[:], 3, 29, uint64(v))
 }
 
-// LockInputBuffer corresponds to C NV_ENC_LOCK_INPUT_BUFFER, declared in nvEncodeAPI.h:2736.
+// LockInputBuffer corresponds to C NV_ENC_LOCK_INPUT_BUFFER, declared in nvEncodeAPI.h:2722.
 // Size 1544, alignment 8.
 type LockInputBuffer struct {
 	Version       uint32      // uint32_t @0
@@ -2818,7 +2794,7 @@ func (s *LockInputBuffer) SetReservedBitFields(v uint32) {
 	setBits(s.bits4[:], 1, 31, uint64(v))
 }
 
-// MapInputResource corresponds to C NV_ENC_MAP_INPUT_RESOURCE, declared in nvEncodeAPI.h:2756.
+// MapInputResource corresponds to C NV_ENC_MAP_INPUT_RESOURCE, declared in nvEncodeAPI.h:2742.
 // Size 1544, alignment 8.
 type MapInputResource struct {
 	Version            uint32       // uint32_t @0
@@ -2831,14 +2807,14 @@ type MapInputResource struct {
 	Reserved2          [63]uintptr  // void *[63] @1040
 }
 
-// InputResourceOpenglTex corresponds to C NV_ENC_INPUT_RESOURCE_OPENGL_TEX, declared in nvEncodeAPI.h:2776.
+// InputResourceOpenglTex corresponds to C NV_ENC_INPUT_RESOURCE_OPENGL_TEX, declared in nvEncodeAPI.h:2762.
 // Size 8, alignment 4.
 type InputResourceOpenglTex struct {
 	Texture uint32 // uint32_t @0
 	Target  uint32 // uint32_t @4
 }
 
-// FencePointD3d12 corresponds to C NV_ENC_FENCE_POINT_D3D12, declared in nvEncodeAPI.h:2785.
+// FencePointD3d12 corresponds to C NV_ENC_FENCE_POINT_D3D12, declared in nvEncodeAPI.h:2771.
 // Size 64, alignment 8.
 type FencePointD3d12 struct {
 	Version     uint32    // uint32_t @0
@@ -2883,7 +2859,7 @@ func (s *FencePointD3d12) SetReservedBitField(v uint32) {
 	setBits(s.bits32[:], 2, 30, uint64(v))
 }
 
-// InputResourceD3d12 corresponds to C NV_ENC_INPUT_RESOURCE_D3D12, declared in nvEncodeAPI.h:2805.
+// InputResourceD3d12 corresponds to C NV_ENC_INPUT_RESOURCE_D3D12, declared in nvEncodeAPI.h:2791.
 // Size 272, alignment 8.
 type InputResourceD3d12 struct {
 	Version         uint32          // uint32_t @0
@@ -2894,7 +2870,7 @@ type InputResourceD3d12 struct {
 	Reserved2       [16]uintptr     // void *[16] @144
 }
 
-// OutputResourceD3d12 corresponds to C NV_ENC_OUTPUT_RESOURCE_D3D12, declared in nvEncodeAPI.h:2823.
+// OutputResourceD3d12 corresponds to C NV_ENC_OUTPUT_RESOURCE_D3D12, declared in nvEncodeAPI.h:2809.
 // Size 272, alignment 8.
 type OutputResourceD3d12 struct {
 	Version          uint32          // uint32_t @0
@@ -2905,7 +2881,7 @@ type OutputResourceD3d12 struct {
 	Reserved2        [16]uintptr     // void *[16] @144
 }
 
-// RegisterResource corresponds to C NV_ENC_REGISTER_RESOURCE, declared in nvEncodeAPI.h:2840.
+// RegisterResource corresponds to C NV_ENC_REGISTER_RESOURCE, declared in nvEncodeAPI.h:2826.
 // Size 1536, alignment 8.
 type RegisterResource struct {
 	Version            uint32            // uint32_t @0
@@ -2925,7 +2901,7 @@ type RegisterResource struct {
 	Reserved2          [61]uintptr       // void *[61] @1048
 }
 
-// Stat corresponds to C NV_ENC_STAT, declared in nvEncodeAPI.h:2892.
+// Stat corresponds to C NV_ENC_STAT, declared in nvEncodeAPI.h:2878.
 // Size 1544, alignment 8.
 type Stat struct {
 	Version             uint32      // uint32_t @0
@@ -2969,7 +2945,7 @@ func (s *Stat) SetReservedBitFields(v uint32) {
 	setBits(s.bits100[:], 1, 31, uint64(v))
 }
 
-// SequenceParamPayload corresponds to C NV_ENC_SEQUENCE_PARAM_PAYLOAD, declared in nvEncodeAPI.h:2922.
+// SequenceParamPayload corresponds to C NV_ENC_SEQUENCE_PARAM_PAYLOAD, declared in nvEncodeAPI.h:2908.
 // Size 1544, alignment 8.
 type SequenceParamPayload struct {
 	Version              uint32      // uint32_t @0
@@ -2982,7 +2958,7 @@ type SequenceParamPayload struct {
 	Reserved2            [64]uintptr // void *[64] @1032
 }
 
-// EventParams corresponds to C NV_ENC_EVENT_PARAMS, declared in nvEncodeAPI.h:2942.
+// EventParams corresponds to C NV_ENC_EVENT_PARAMS, declared in nvEncodeAPI.h:2928.
 // Size 1544, alignment 8.
 type EventParams struct {
 	Version         uint32      // uint32_t @0
@@ -2992,7 +2968,7 @@ type EventParams struct {
 	Reserved2       [64]uintptr // void *[64] @1032
 }
 
-// OpenEncodeSessionExParams corresponds to C NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, declared in nvEncodeAPI.h:2957.
+// OpenEncodeSessionExParams corresponds to C NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS, declared in nvEncodeAPI.h:2943.
 // Size 1552, alignment 8.
 type OpenEncodeSessionExParams struct {
 	Version    uint32      // uint32_t @0
@@ -3004,7 +2980,7 @@ type OpenEncodeSessionExParams struct {
 	Reserved2  [64]uintptr // void *[64] @1040
 }
 
-// FunctionList corresponds to C NV_ENCODE_API_FUNCTION_LIST, declared in nvEncodeAPI.h:4607.
+// FunctionList corresponds to C NV_ENCODE_API_FUNCTION_LIST, declared in nvEncodeAPI.h:4591.
 // Size 2552, alignment 8.
 type FunctionList struct {
 	Version                        uint32       // uint32_t @0
