@@ -164,8 +164,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
-          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -174,8 +174,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "efe8042d27a5f8289466c419962bf9a1483b2568",
-          "tree": "caaf05ac46fa32f4206c75283c4a97dc4ff8858c"
+          "commit": "ad82f1d186683bee7854ef26f4752c11346f77c7",
+          "tree": "f5e7eb754cb15ae038f175d4aed94f5ea8295af7"
         }
       },
       "vendor": {
@@ -260,7 +260,7 @@
           },
           {
             "path": "nvidia/nvrtc/funcs.gen.go",
-            "sha256": "152d1a50d82b1180c6b03d55c44bea40dbaf597d05b4c9b6d76d47b1fe46ed19"
+            "sha256": "b43c510d2e60ecb66bca028fc9ff9d3baa0c4ce45d56ed800dcdece968d283a2"
           },
           {
             "path": "nvidia/nvrtc/handles.gen.go",
@@ -268,7 +268,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "d75f5f5c39eb80a5625e15933b6ac68adfc7bf925f0189a10c11b4e8bdf6ab3b"
+            "sha256": "4fa1cce5a839b4efa2ca720f82bcf9a0b655ac4352ef0288918594e919257e62"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
@@ -308,7 +308,7 @@
         "portable reconstruction of Apple clang and SDK environment; executable and75 C include hashes are retained in local evidence but no distributable toolchain pin is established"
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support.",
-      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed."
+      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "nvjitlink": {
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
@@ -316,8 +316,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -326,8 +326,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
-          "tree": "f5566422d5906a899658a3b36113069fb211431b"
+          "commit": "ad82f1d186683bee7854ef26f4752c11346f77c7",
+          "tree": "f5e7eb754cb15ae038f175d4aed94f5ea8295af7"
         }
       },
       "vendor": {
@@ -422,7 +422,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "88e3a8e7eee137d4b27540785498c976a2dcd1b10665dcf0f0947bae4457bfdd"
+            "sha256": "6b0acf122c54e694c90a868f0190933ca5b6702e4fe733cfd072b6f75976af6b"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -459,7 +459,8 @@
         "documentation upstream retrieval identities beyond retained JSON bytes"
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
-      "binding_policy": "Explicit pinned13.0header preserves __nvJitLink*_13_0 targets; top-level header is not this input."
+      "binding_policy": "Explicit pinned13.0header preserves __nvJitLink*_13_0 targets; top-level header is not this input.",
+      "note": "Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "nvfatbin": {
       "package": "github.com/tmc/lib/nvidia/nvfatbin",
@@ -467,8 +468,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -477,8 +478,8 @@
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
-          "tree": "f5566422d5906a899658a3b36113069fb211431b"
+          "commit": "ad82f1d186683bee7854ef26f4752c11346f77c7",
+          "tree": "f5e7eb754cb15ae038f175d4aed94f5ea8295af7"
         }
       },
       "vendor": {
@@ -574,7 +575,7 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "6fa209b228d99a434c6ad65edb7089300b57eb0e6ed58c0d79448a80565513d1"
+            "sha256": "b40f791b2e7c0e7fe1ab2711b72bdd349fa0c0d17ec9d4899a00231c6b335157"
           },
           {
             "path": "nvidia/nvfatbin/loader_test.go",
@@ -614,7 +615,8 @@
         "transitive Go module source contents",
         "documentation upstream retrieval identities beyond retained JSON bytes"
       ],
-      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed."
+      "runtime_support": "Not established by this manifest; no public minimum/newest runtime or native ABI/platform promotion is claimed.",
+      "note": "Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "sanitizer": {
       "package": "github.com/tmc/lib/nvidia/sanitizer",
@@ -3034,29 +3036,29 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "37b65752623331403efd2eb9826f261e0f749b84",
-          "tree": "c44bd69999889f01025db19dd216847ed457e558"
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "c30b2935e8073f0b02cd5f10edf751d5c7ea7eca",
-          "tree": "f5566422d5906a899658a3b36113069fb211431b"
+          "commit": "ad82f1d186683bee7854ef26f4752c11346f77c7",
+          "tree": "f5e7eb754cb15ae038f175d4aed94f5ea8295af7"
         }
       },
       "vendor": {
         "product": "nv-codec-headers",
-        "version": "n13.1.15.0",
+        "version": "n13.0.19.0",
         "source": {
           "url": "https://github.com/FFmpeg/nv-codec-headers",
-          "revision": "0a6fba9a2820628b8103464f4c8753ee05838baa"
+          "revision": "e844e5b26f46bb77479f063029595293aa8f812d"
         },
         "note": "NVIDIA's Video Codec SDK download requires a developer-program login and cannot be pinned by URL; the FFmpeg mirror carries the same declarations.",
         "verification": "Vendored header SHA-256 recomputed from the recorded codegen commit and compared with the per-file digests in the generator's headers/README.md. The vendor archive was not re-downloaded or rehashed for this record, and the online redistribution manifest was not freshly retrieved."
       },
       "header": {
         "repository": "codegen",
-        "path": "cmd/gen-nvcodec/headers/nvEncodeAPI.h",
-        "sha256": "8776fddcb8febc6aec4d73989b1f21831eb30306bc583da55b4bf0c14a1dc228"
+        "path": "cmd/gen-nvcodec/headers/nvenc-13.0/nvEncodeAPI.h",
+        "sha256": "4fe4094541ef0f8a13249d97a8692dc5f835a6e9dd42eeadb3e2f7321d54dc7e"
       },
       "generation": {
         "cwd": "${CODEGEN_REPO}",
@@ -3067,7 +3069,7 @@
           "-api",
           "nvenc",
           "-headers",
-          "cmd/gen-nvcodec/headers",
+          "cmd/gen-nvcodec/headers/nvenc-13.0",
           "-out",
           "${OUTPUT_DIR}"
         ],
@@ -3089,7 +3091,7 @@
             "GOVERSION": "go1.27.0"
           }
         },
-        "source_state": "clean codegen checkout at the recorded commit; generation re-run and every output compared byte for byte with the recorded lib commit",
+        "source_state": "regenerated from the vendored API 13.0 header on a clean codegen checkout at the recorded commit; outputs written directly into the lib tree",
         "outputs": [
           {
             "path": "nvidia/nvenc/api.gen.go",
@@ -3097,7 +3099,7 @@
           },
           {
             "path": "nvidia/nvenc/consts.gen.go",
-            "sha256": "b6a5cfd46482a466fb574395e0b9315d214d774959ea1bddccef8abf8241a56c"
+            "sha256": "e9126fbc5074f11924d691a12cd057b34eb91c139cf58bbc9dbc8a0d28d235e4"
           },
           {
             "path": "nvidia/nvenc/doc.gen.go",
@@ -3105,7 +3107,7 @@
           },
           {
             "path": "nvidia/nvenc/enums.gen.go",
-            "sha256": "56d9312cd0730d64fc4e21d56a39abae80859b2d4c9aa12bdd71fa0105f4f78c"
+            "sha256": "1da9b629643d5ceb82ce8b25dd68683ef55c2360b83cf40c07f42dcb767c8827"
           },
           {
             "path": "nvidia/nvenc/funcs.gen.go",
@@ -3121,7 +3123,7 @@
           },
           {
             "path": "nvidia/nvenc/layout_test.go",
-            "sha256": "3532b93a1191307692f1419598c9d853020c898f430ea0663de36baacff5700a"
+            "sha256": "0f3609c949c2ff0fc3d32bcaf179da0e515c1c91f1ceef5639d03f84d3ff9f1b"
           },
           {
             "path": "nvidia/nvenc/loader_unix.gen.go",
@@ -3133,11 +3135,11 @@
           },
           {
             "path": "nvidia/nvenc/provenance.gen.go",
-            "sha256": "56c8e625506666c975fa682a5fcdc2899f72cd8747e2d699a209400a9a45f15a"
+            "sha256": "bc72b3de5fe65f65d9240178c3fcffbf0e42350f0bde77ea3ef28c9a4b766ea0"
           },
           {
             "path": "nvidia/nvenc/structs.gen.go",
-            "sha256": "8fb963a24cdbc38f4bc137dc07db91f21eeed23de99cf34d4a4b2c0452978681"
+            "sha256": "84454d36274c6f42c5edbbcabe252ca47a06d2cbdb42915037532ef979ff33e5"
           },
           {
             "path": "nvidia/nvenc/types.gen.go",
@@ -3148,7 +3150,7 @@
       "documentation": {
         "note": "This generator takes no documentation directory and reads no header outside the recorded codegen commit; its documentation text is embedded in codegen."
       },
-      "note": "Regenerated 2026-09-08 after gen-nvcodec started recording bind failures. init.gen.go is the only file that changed; it gains BindFailure/BindFailures and SymbolError gains Err/Unwrap. No other exported identifier moved."
+      "note": "Generated from the API 13.0 header, not the 13.1 default. NVENC refuses a session whose requested API version exceeds the driver's, and the newest driver at hand (580.173.02) reports 0xd0; the 13.1 package could not open a session on it. See cmd/gen-nvcodec/headers/nvenc-13.0/README.md in codegen."
     },
     "nvdec": {
       "package": "github.com/tmc/lib/nvidia/nvdec",
@@ -3858,8 +3860,9 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "29b70dfd036bc73c9e84c727bd1d3d6e9ff82636",
-          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce."
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce.",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3916,7 +3919,7 @@
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "23cf7321db03faeedcef15a93d1333a1f993d66eb904b1e945bf669f4d561d6d"
+            "sha256": "200153b914c9e2b5d654e7053554f577f1ab5c5a787b5ec3242aa28ff97e6ac9"
           },
           {
             "path": "nvidia/cufft/layout_test.go",
@@ -3950,7 +3953,7 @@
         "comparison": "All 12 outputs regenerated into the committed package; gen.CheckAPIRemoval passed, so no exported declaration was dropped.",
         "note": "Vendor archive provenance is not recorded for this package: no retained libcufft archive or redistribution manifest identity was established."
       },
-      "note": "cufft previously carried a hand-ported LibraryError loader that no generator commit could produce, which made it unregenerable. contrib/cuda now emits it behind APIConfig.LibraryError, and this entry records the first generation that reproduces the package."
+      "note": "cufft previously carried a hand-ported LibraryError loader that no generator commit could produce, which made it unregenerable. contrib/cuda now emits it behind APIConfig.LibraryError, and this entry records the first generation that reproduces the package. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "curand": {
       "package": "github.com/tmc/lib/nvidia/curand",
@@ -3958,8 +3961,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "0e0888a9572bcd5d24b60c49fcdba0d1d6834c51",
-          "tree": "9ed340de4dc51382b9b0a1ba09c728807c555c9b"
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4448,7 +4451,7 @@
           },
           {
             "path": "nvidia/curand/init.gen.go",
-            "sha256": "3537e537d5f80cfdd6fc29fdbc7d04f4f60c3f9bd8742792e4c396e3a38b1f63"
+            "sha256": "209fcf29d45cc877a092a7060490f5b842879982be6e17c18127a70015f31f34"
           },
           {
             "path": "nvidia/curand/loader_test.go",
@@ -4586,7 +4589,7 @@
         "status": "archive-origin-unverified",
         "note": "Selected header hashes and repository commit verified; no vendor archive freshly acquired or authenticated in this offline pass."
       },
-      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcurand.so; see the soname-pinning note in the cufft entry. Exported API is unchanged."
+      "note": "Regenerated 2026-09-08 from the recorded recipe. The only change is the Linux candidate list, which no longer ends with the unversioned libcurand.so; see the soname-pinning note in the cufft entry. Exported API is unchanged. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "cufile": {
       "package": "github.com/tmc/lib/nvidia/cufile",
@@ -8634,7 +8637,7 @@
           },
           {
             "path": "nvidia/cusolver/init.gen.go",
-            "sha256": "5e29df5996f04848199bea4dcc262e7f3eb32b2531588e76c81ba350a8df865f"
+            "sha256": "4ed03499397e796f624b452d853e0f30a970c4b129be9852679a2125bf91d372"
           },
           {
             "path": "nvidia/cusolver/irs_infos.gen.go",
@@ -8679,8 +8682,9 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "00dacb0daa8bce4937df1109511037cae3d59ac8",
-          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package."
+          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package.",
+          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8693,7 +8697,7 @@
         "path": "cusolver/cusolverDn.h",
         "sha256": "8d620eab0a3433baa9ee6309bec968633647a743c970bdc00a469eefab07f0e9"
       },
-      "note": "The generator is cmd/cusolver-survey, not cmd/gen-nvidia, which has no cusolver API. The recipe was recovered by diffing a scratch regeneration against the committed package, then the package was regenerated to record this entry. That regeneration also pinned the Linux soname major: the loader no longer falls back to the unversioned libcusolver.so, which on a CUDA-12-only host silently bound a CUDA 12 library."
+      "note": "The generator is cmd/cusolver-survey, not cmd/gen-nvidia, which has no cusolver API. The recipe was recovered by diffing a scratch regeneration against the committed package, then the package was regenerated to record this entry. That regeneration also pinned the Linux soname major: the loader no longer falls back to the unversioned libcusolver.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
     },
     "cutensor": {
       "status": "generation-reproduced",
