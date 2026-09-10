@@ -4,6 +4,11 @@ A record of which packages in `nvidia/x` this example uses, and why the rest
 are not used. Written 2026-09-10 against lib HEAD; a package that changes may
 deserve a different answer.
 
+The Where column names the API a tracked file actually calls, not what the
+package offers: an import establishes a dependency, never a feature. Three rows
+first published in af01edb described capabilities the tracked code does not
+reach, corrected here.
+
 Nothing below has been executed on a GPU. Adoption here means the code is
 written, typechecked for linux, and unit-tested where the logic is
 platform-neutral. It does not mean it has run.
@@ -14,11 +19,12 @@ platform-neutral. It does not mean it has run.
 | --- | --- |
 | cuda, cudalaunch, cudamem | the CUDA engine and every kernel launch |
 | nvrtcx | `CompileGPUModulesAs` compiles `forward.cu` at run time |
-| cudaattn | paged attention kernels |
-| cudakv | the KV cache |
+| cudaattn | `Compile` only: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` is not called by any tracked file. |
+| cudakv | `NewTracked` only: the dense per-sequence and single-stream KV caches. `NewPagedCache` and `NewFP8` are not called. |
 | cudasafetensors | checkpoint loading |
 | cudasample | sampling |
-| nvtx, perfetto, cudatrace | `-cuda-trace`: host submission and device-interval tracks |
+| perfetto, cudatrace | `-cuda-trace`: host submission and device-interval tracks |
+| nvtx | `ScopedRange` in the inferbench path, not in `-cuda-trace` |
 | cudacapture | `gpuprof` reads cudaprof captures and qualifies them |
 | cudaptx, cudasass | `-kernel-report`: what NVRTC produced for the forward kernels |
 | cudatest | the hardware-test gate |
