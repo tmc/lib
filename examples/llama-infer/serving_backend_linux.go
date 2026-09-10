@@ -10,6 +10,7 @@ import (
 
 	"github.com/tmc/lib/examples/internal/continuousbatch"
 	"github.com/tmc/lib/examples/internal/inferbench"
+	"github.com/tmc/lib/nvidia/x/cudakv"
 )
 
 // cudaServingBackend connects the continuous scheduler to the complete CUDA
@@ -27,12 +28,32 @@ type cudaServingBackend struct {
 	next            uint64
 	closed          bool
 	physical        *physicalWaveLedger
+
+	// prefixes reuses finished sequences' blocks for prompts that begin with
+	// their tokens. It is set only when the engine is paged and
+	// LLAMA_INFER_PAGED_PREFIX=1 (prefix_cache_paged.go, UNQUALIFIED).
+	prefixes *pagedPrefixCache
 }
 
-// CUDA does not yet retain a shared prefix cache, so reset is exact and has no
-// device work to perform.
-func (b *cudaServingBackend) resetBenchmarkPrefixes() error { return nil }
-func (b *cudaServingBackend) enableBenchmarkLedger()        { b.physical = new(physicalWaveLedger) }
+// resetBenchmarkPrefixes drops what the prefix cache retained, so no sample
+// reuses blocks an earlier one computed. Without the cache nothing is
+// retained and the reset is exact with no work.
+func (b *cudaServingBackend) resetBenchmarkPrefixes() error {
+	if b.prefixes == nil {
+		return nil
+	}
+	b.engine.generateMu.Lock()
+	defer b.engine.generateMu.Unlock()
+	return b.prefixes.reset()
+}
+
+func (b *cudaServingBackend) prefixCacheMetrics() (PrefixCacheMetrics, bool) {
+	if b == nil || b.prefixes == nil {
+		return PrefixCacheMetrics{}, false
+	}
+	return b.prefixes.metrics(), true
+}
+func (b *cudaServingBackend) enableBenchmarkLedger() { b.physical = new(physicalWaveLedger) }
 func (b *cudaServingBackend) benchmarkLedgerSnapshot() physicalLedgerSnapshot {
 	return b.physical.Snapshot()
 }
@@ -58,6 +79,16 @@ func (b *cudaServingBackend) benchmarkOutputs(ids []string) ([]inferbench.Observ
 type cudaSequenceState struct {
 	cache      *SequenceKVCache
 	generation uint64
+
+	// prefix is the sequence's standing in the prefix cache: the node it
+	// joined on and every token it has written, for the leave that stores
+	// them. Nil without the cache.
+	prefix *cudaPrefixHold
+}
+
+type cudaPrefixHold struct {
+	node   *cudakv.RadixNode
+	tokens []int32
 }
 
 func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (servingBackend, error) {
@@ -70,11 +101,61 @@ func newPlatformServingBackend(engine *ModelEngine, cfg Config, capacity int) (s
 	if engine.tokenizer == nil {
 		return nil, fmt.Errorf("%w: tokenizer unavailable", errServingBackendUnavailable)
 	}
+	var prefixes *pagedPrefixCache
+	if pagedPrefixEnabled() {
+		if engine.paged == nil {
+			return nil, errors.New("cuda serving backend: LLAMA_INFER_PAGED_PREFIX=1 needs an engine compiled with LLAMA_INFER_PAGED_KV=1")
+		}
+		var err error
+		prefixes, err = newPagedPrefixCache(engine.paged.cache, engine.paged.cfg.BlockSize, defaultPagedPrefixNodes, engine.paged.blockBytes())
+		if err != nil {
+			return nil, fmt.Errorf("cuda serving backend: %w", err)
+		}
+	}
 	batch, err := newGPUBatchScratchpad(engine.dev, engine.memory, &engine.mCfg, capacity)
 	if err != nil {
 		return nil, fmt.Errorf("cuda serving backend: allocate batch scratch: %w", err)
 	}
-	return &cudaServingBackend{engine: engine, cfg: cudaServingConfig(engine, cfg), batch: batch, live: make(map[*SequenceKVCache]uint64)}, nil
+	return &cudaServingBackend{engine: engine, cfg: cudaServingConfig(engine, cfg), batch: batch, live: make(map[*SequenceKVCache]uint64), prefixes: prefixes}, nil
+}
+
+// joinSequence allocates the cache a prompt is prefilled into and reports the
+// position prefill starts at. Without the prefix cache that is a fresh cache
+// and position zero; with it, the prompt's stored prefix is reused and only
+// the tail is computed. The caller holds generateMu.
+func (b *cudaServingBackend) joinSequence(tokens []int32) (*SequenceKVCache, *cudaPrefixHold, int, error) {
+	if b.prefixes == nil {
+		cache, err := b.engine.NewSequenceKV(b.cfg)
+		return cache, nil, 0, err
+	}
+	blocks, matched, node, err := b.prefixes.join(tokens)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	// The tail needs its blocks now and the first decode step may need one
+	// more; make room before the pool is asked, since a full pool is an
+	// error there rather than an eviction.
+	blockSize := b.engine.paged.cfg.BlockSize
+	need := (len(tokens)+blockSize-1)/blockSize - len(blocks) + 1
+	if _, err := b.prefixes.ensureFree(need); err != nil {
+		b.prefixes.abandon(node)
+		return nil, nil, 0, err
+	}
+	seq, err := b.engine.paged.newSequenceWithPrefix(blocks, matched)
+	if err != nil {
+		b.prefixes.abandon(node)
+		return nil, nil, 0, err
+	}
+	return &SequenceKVCache{paged: seq}, &cudaPrefixHold{node: node, tokens: append([]int32(nil), tokens...)}, matched, nil
+}
+
+// discardSequence frees a cache whose prefill did not complete. Nothing of it
+// is stored: the prefix cache only learns from sequences that finished.
+func (b *cudaServingBackend) discardSequence(cache *SequenceKVCache, hold *cudaPrefixHold) {
+	if hold != nil && b.prefixes != nil {
+		b.prefixes.abandon(hold.node)
+	}
+	cache.Free()
 }
 
 // cudaServingConfig takes model semantics from the compiled engine while
@@ -146,33 +227,32 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 			return continuousbatch.Result{Err: errors.New("cuda prefill: invalid prompt token")}
 		}
 	}
-	cache, err := b.engine.NewSequenceKV(b.cfg)
-	if err != nil {
-		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
-	}
 	b.engine.generateMu.Lock()
 	b.mu.Lock()
 	closed := b.closed
 	b.mu.Unlock()
 	if closed {
 		b.engine.generateMu.Unlock()
-		cache.Free()
 		return continuousbatch.Result{Err: errors.New("cuda prefill: backend closed")}
 	}
 	if err = cudaContextErr(ctx, "cuda prefill"); err != nil {
 		b.engine.generateMu.Unlock()
-		cache.Free()
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
 	}
-	next, dispatches, err := gpuPrefillPassKVMeasured(b.engine, b.cfg, cache, tokens)
+	cache, hold, start, err := b.joinSequence(tokens)
+	if err != nil {
+		b.engine.generateMu.Unlock()
+		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: %w", err)}
+	}
+	next, dispatches, err := gpuBatchedPrefillPassKVMeasured(b.engine, cache, tokens[start:], start)
 	b.engine.generateMu.Unlock()
 	if err != nil {
-		cache.Free()
+		b.discardSequence(cache, hold)
 		return continuousbatch.Result{Err: err}
 	}
 	text, err := b.engine.tokenizer.Decode([]int32{next})
 	if err != nil {
-		cache.Free()
+		b.discardSequence(cache, hold)
 		return continuousbatch.Result{Err: fmt.Errorf("cuda prefill: decode token: %w", err)}
 	}
 	b.mu.Lock()
@@ -180,7 +260,7 @@ func (b *cudaServingBackend) prefill(ctx context.Context, state *continuousbatch
 	generation := b.next
 	b.live[cache] = generation
 	b.mu.Unlock()
-	state.KV = cudaSequenceState{cache: cache, generation: generation}
+	state.KV = cudaSequenceState{cache: cache, generation: generation, prefix: hold}
 	if err := b.recordPhysical("cuda-prefill", []string{fmt.Sprintf("%s@0/%d", state.ID, generation)}, dispatches); err != nil {
 		b.Release(state)
 		return continuousbatch.Result{Err: err}
@@ -249,6 +329,16 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 	if b.engine == nil {
 		return batchError(results, errors.New("cuda decode: backend unavailable"))
 	}
+	if b.prefixes != nil {
+		// Every row may cross a block boundary this step. Make room before
+		// the step binds, where the pool is asked and a full pool is an error.
+		if _, err := b.prefixes.ensureFree(len(valid)); err != nil {
+			for _, i := range valid {
+				results[i].Err = fmt.Errorf("cuda decode: %w", err)
+			}
+			return results
+		}
+	}
 	next, stats, err := b.decodeCUDA(ctx, states, valid, sequences, caches, tokens, positions)
 	b.mu.Lock()
 	b.last = stats
@@ -273,6 +363,11 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 		}
 	}
 	for row, i := range valid {
+		if sequences[row].prefix != nil {
+			// The step wrote tokens[row] at positions[row]; the leave that
+			// stores the sequence needs every written token in order.
+			sequences[row].prefix.tokens = append(sequences[row].prefix.tokens, tokens[row])
+		}
 		text, decodeErr := b.engine.tokenizer.Decode([]int32{next[row]})
 		results[i] = continuousbatch.Result{Token: continuousbatch.Token{ID: next[row], Text: text}, Done: b.cfg.IsEOS(next[row]), Err: decodeErr}
 	}
@@ -371,6 +466,11 @@ func (b *cudaServingBackend) Release(state *continuousbatch.State) {
 		b.observedOutputs.observeCUDAKV(state, sequence, b.cfg)
 	}
 	b.mu.Unlock()
+	if sequence.prefix != nil && b.prefixes != nil && sequence.cache.paged != nil {
+		// A bookkeeping failure poisons the cache, which reports it on the
+		// next join; there is nothing to return from here.
+		_ = b.prefixes.leave(sequence.prefix.node, sequence.prefix.tokens, sequence.cache.paged.table())
+	}
 	sequence.cache.Free()
 	state.KV = nil
 }

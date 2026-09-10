@@ -41,6 +41,37 @@ func (r *pagedKVRuntime) newSequence() (*pagedSequence, error) {
 	return &pagedSequence{rt: r, id: id}, nil
 }
 
+// newSequenceWithPrefix registers a sequence whose first tokens positions are
+// already held in prefix, blocks another holder (the prefix cache) has, so the
+// sequence writes from tokens on. tokens must be exactly the blocks' capacity.
+func (r *pagedKVRuntime) newSequenceWithPrefix(prefix []int, tokens int) (*pagedSequence, error) {
+	if tokens != len(prefix)*r.cfg.BlockSize {
+		return nil, fmt.Errorf("paged kv: %d prefix blocks of %d tokens do not cover exactly %d tokens", len(prefix), r.cfg.BlockSize, tokens)
+	}
+	if len(prefix) == 0 {
+		return r.newSequence()
+	}
+	r.nextSeq++
+	id := r.nextSeq
+	if err := r.cache.AllocSequenceWithPrefix(id, prefix, tokens); err != nil {
+		return nil, fmt.Errorf("paged kv: sequence %d: %w", id, err)
+	}
+	return &pagedSequence{rt: r, id: id, reserved: tokens}, nil
+}
+
+// blockBytes is the device memory one block holds across every layer.
+func (r *pagedKVRuntime) blockBytes() int64 {
+	return int64(r.layers) * 2 * int64(r.cfg.BlockSize) * int64(r.kvHeads) * int64(r.headDim) * 4
+}
+
+// table is a copy of the sequence's block table, in position order.
+func (s *pagedSequence) table() []int {
+	if s == nil || s.rt == nil {
+		return nil
+	}
+	return s.rt.cache.BlockTable(s.id)
+}
+
 // reserve makes sure every position up to and including pos has a block.
 func (s *pagedSequence) reserve(pos int) error {
 	if s == nil || s.rt == nil {
