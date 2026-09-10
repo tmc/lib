@@ -184,6 +184,21 @@ func weightKernelNames(d WeightDType) []string {
 	return names
 }
 
+// weightBearingKernelNames returns the entry points that read model weights,
+// which are the only ones whose generated code depends on d.
+func weightBearingKernelNames(d WeightDType) []string {
+	rt := reflect.TypeOf(Kernels{})
+	var names []string
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		if f.Tag.Get("weights") != "yes" {
+			continue
+		}
+		names = append(names, f.Tag.Get("cuda")+d.Suffix())
+	}
+	return names
+}
+
 // weightKernelReport describes the selected dtype and the kernels it bound.
 //
 // A run reports what it actually dispatched rather than what it requested, so
