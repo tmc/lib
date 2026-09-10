@@ -16,7 +16,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/tmc/ffi v0.0.0 // indirect
+	github.com/tmc/ffi v0.0.0-20260906092449-1be2d95a8044 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 )
@@ -26,5 +26,3 @@ replace github.com/tmc/lib/x/xla => ../xla
 replace github.com/tmc/lib/x/stablehlo => ../stablehlo
 
 replace github.com/tmc/lib/openxla => ../../openxla
-
-replace github.com/tmc/ffi => ../../../ffi
