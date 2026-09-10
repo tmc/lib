@@ -35,6 +35,10 @@ func element(dtype dtypes.DType) (elementInfo, bool) {
 		return elementInfo{"f64", openxla.Buffer_Type_F64, 8}, true
 	case dtypes.Float32:
 		return elementInfo{"f32", openxla.Buffer_Type_F32, 4}, true
+	case dtypes.Complex64:
+		return elementInfo{"complex<f32>", openxla.Buffer_Type_C64, 8}, true
+	case dtypes.Complex128:
+		return elementInfo{"complex<f64>", openxla.Buffer_Type_C128, 16}, true
 	case dtypes.Int8:
 		return elementInfo{"i8", openxla.Buffer_Type_S8, 1}, true
 	case dtypes.Int16:
@@ -66,6 +70,10 @@ func elementDType(name string) dtypes.DType {
 		return dtypes.Float64
 	case "f32":
 		return dtypes.Float32
+	case "complex<f32>":
+		return dtypes.Complex64
+	case "complex<f64>":
+		return dtypes.Complex128
 	case "i8":
 		return dtypes.Int8
 	case "i16":
@@ -97,6 +105,10 @@ func flatShape(flat any) (dtypes.DType, int) {
 		return dtypes.Float64, len(v)
 	case []float32:
 		return dtypes.Float32, len(v)
+	case []complex64:
+		return dtypes.Complex64, len(v)
+	case []complex128:
+		return dtypes.Complex128, len(v)
 	case []int8:
 		return dtypes.Int8, len(v)
 	case []int16:
@@ -128,6 +140,10 @@ func newFlat(dtype dtypes.DType, n int) any {
 		return make([]float64, n)
 	case dtypes.Float32:
 		return make([]float32, n)
+	case dtypes.Complex64:
+		return make([]complex64, n)
+	case dtypes.Complex128:
+		return make([]complex128, n)
 	case dtypes.Int8:
 		return make([]int8, n)
 	case dtypes.Int16:
@@ -175,6 +191,16 @@ func encodeFlat(flat any, raw []byte) {
 	case []float32:
 		for i, x := range v {
 			binary.LittleEndian.PutUint32(raw[4*i:], math.Float32bits(x))
+		}
+	case []complex64:
+		for i, x := range v {
+			binary.LittleEndian.PutUint32(raw[8*i:], math.Float32bits(real(x)))
+			binary.LittleEndian.PutUint32(raw[8*i+4:], math.Float32bits(imag(x)))
+		}
+	case []complex128:
+		for i, x := range v {
+			binary.LittleEndian.PutUint64(raw[16*i:], math.Float64bits(real(x)))
+			binary.LittleEndian.PutUint64(raw[16*i+8:], math.Float64bits(imag(x)))
 		}
 	case []int8:
 		for i, x := range v {
@@ -230,6 +256,14 @@ func decodeFlat(flat any, raw []byte) {
 		for i := range v {
 			v[i] = math.Float32frombits(binary.LittleEndian.Uint32(raw[4*i:]))
 		}
+	case []complex64:
+		for i := range v {
+			v[i] = complex(math.Float32frombits(binary.LittleEndian.Uint32(raw[8*i:])), math.Float32frombits(binary.LittleEndian.Uint32(raw[8*i+4:])))
+		}
+	case []complex128:
+		for i := range v {
+			v[i] = complex(math.Float64frombits(binary.LittleEndian.Uint64(raw[16*i:])), math.Float64frombits(binary.LittleEndian.Uint64(raw[16*i+8:])))
+		}
 	case []int8:
 		for i := range v {
 			v[i] = int8(raw[i])
@@ -270,6 +304,10 @@ func constantLiteral(flat any, i int) string {
 		return fmt.Sprintf("0x%016X", math.Float64bits(v[i]))
 	case []float32:
 		return fmt.Sprintf("0x%08X", math.Float32bits(v[i]))
+	case []complex64:
+		return fmt.Sprintf("(0x%08X, 0x%08X)", math.Float32bits(real(v[i])), math.Float32bits(imag(v[i])))
+	case []complex128:
+		return fmt.Sprintf("(0x%016X, 0x%016X)", math.Float64bits(real(v[i])), math.Float64bits(imag(v[i])))
 	case []int8:
 		return fmt.Sprint(v[i])
 	case []int16:

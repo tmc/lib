@@ -136,7 +136,7 @@ func TestNativeCompute(t *testing.T) {
 func TestRejectedContracts(t *testing.T) {
 	b := &Backend{}
 	f := b.Builder("contracts").Main()
-	if _, err := f.Parameter("x", shapes.Make(dtypes.Complex64, 2), nil); !errors.Is(err, compute.ErrNotImplemented) {
+	if _, err := f.Parameter("complex", shapes.Make(dtypes.Complex64, 2), nil); err != nil {
 		t.Fatalf("dtype: %v", err)
 	}
 	if err := f.Builder().DeviceAssignment(); !errors.Is(err, compute.ErrNotImplemented) {

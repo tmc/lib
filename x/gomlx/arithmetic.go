@@ -86,7 +86,11 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 	if err != nil {
 		return nil, err
 	}
+	dtype := elementDType(x.Type.ElementType)
 	if x.Type.ElementType == "i1" && op != "and" && op != "or" && op != "xor" {
+		return nil, unsupported
+	}
+	if dtype.IsComplex() && op != "add" && op != "multiply" {
 		return nil, unsupported
 	}
 	if len(axes) == 0 {
@@ -116,7 +120,13 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 		}
 		zero = hlo.Value{ID: fmt.Sprintf("%%zero%d", len(f.raw.Ops)), Type: hlo.Type{ElementType: "i1"}}
 		f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", zero.ID, literal, zero.Type))
-	} else if elementDType(x.Type.ElementType).IsFloat() {
+	} else if dtype.IsComplex() {
+		initial := float64(0)
+		if op == "multiply" {
+			initial = 1
+		}
+		zero, err = f.raw.ComplexConstant(initial, 0, hlo.Type{ElementType: x.Type.ElementType})
+	} else if dtype.IsFloat() {
 		initial := float32(0)
 		if op == "multiply" {
 			initial = 1
@@ -233,6 +243,10 @@ func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Va
 	if err != nil {
 		return nil, err
 	}
+	from := elementDType(x.Type.ElementType)
+	if from.IsComplex() != dtype.IsComplex() {
+		return nil, unsupported
+	}
 	z, err := f.raw.Convert(x, info.hlo)
 	if err != nil {
 		return nil, err
@@ -257,7 +271,7 @@ func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
 
 func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
-		if x.Type.ElementType == "i1" {
+		if x.Type.ElementType == "i1" || elementDType(x.Type.ElementType).IsComplex() {
 			return hlo.Value{}, unsupported
 		}
 		z := hlo.Value{ID: fmt.Sprintf("%%pow%d", len(f.raw.Ops)), Type: x.Type}
@@ -319,7 +333,7 @@ func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unaryF
 
 func (f *function) Rem(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
-		if x.Type.ElementType == "i1" {
+		if x.Type.ElementType == "i1" || elementDType(x.Type.ElementType).IsComplex() {
 			return hlo.Value{}, unsupported
 		}
 		z := hlo.Value{ID: fmt.Sprintf("%%rem%d", len(f.raw.Ops)), Type: x.Type}

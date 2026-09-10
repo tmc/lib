@@ -19,6 +19,9 @@ func (f *function) compare(a, b compute.Value, direction string) (compute.Value,
 }
 func (f *function) compareOrder(a, b compute.Value, direction string, total bool) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
+		if elementDType(x.Type.ElementType).IsComplex() {
+			return hlo.Value{}, unsupported
+		}
 		kind := "SIGNED"
 		if elementDType(x.Type.ElementType).IsFloat() {
 			kind = "FLOAT"

@@ -39,7 +39,7 @@ func (f *function) Min(a, b compute.Value) (compute.Value, error) { return f.ext
 func (f *function) Max(a, b compute.Value) (compute.Value, error) { return f.extreme(a, b, "maximum") }
 func (f *function) extreme(a, b compute.Value, op string) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
-		if x.Type.ElementType == "i1" {
+		if x.Type.ElementType == "i1" || elementDType(x.Type.ElementType).IsComplex() {
 			return hlo.Value{}, unsupported
 		}
 		z := hlo.Value{ID: fmt.Sprintf("%%extreme%d", len(f.raw.Ops)), Type: x.Type}

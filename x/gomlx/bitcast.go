@@ -39,6 +39,9 @@ func (f *function) Bitcast(input compute.Value, dtype dtypes.DType) (compute.Val
 	if s.DType == dtype {
 		return &node{f, x}, nil
 	}
+	if s.DType.IsComplex() || dtype.IsComplex() {
+		return nil, fmt.Errorf("bitcast: cross-type complex bitcast is unsupported: %w", unsupported)
+	}
 	// StableHLO boolean (i1) is 1-bit, while GoMLX dtypes.Bool is treated as 8-bit in compute.
 	// Cross-type bitcast between Bool and other dtypes is not natively supported by the PJRT plugin.
 	if s.DType == dtypes.Bool || dtype == dtypes.Bool {
