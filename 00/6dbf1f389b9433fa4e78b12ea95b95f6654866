@@ -1,0 +1,8 @@
+commit: 006dbf1
+date: 2026-09-10T11:26:52Z
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+session=81966754-74fd-480a-8ceb-8e53cf129cbe
+session_url=https://claude.ai/code/session_015HRdpSMTz24cg6AUZWCrzH
+verification: linux cross-vet with an overlay stub for metalprof.ReplayTraceContext; no GPU available, so the tracer is typechecked and its disabled-path controls are written but not executed
+note: git-auto-commit-message unavailable (missing ANTHROPIC_API_KEY); message hand-written
