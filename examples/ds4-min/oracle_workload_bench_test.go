@@ -71,7 +71,7 @@ func oracleWorkloadToken(logits []float32, eos int) int {
 	return best
 }
 
-func measureOracleWorkload(r oracleWorkloadRuntime, tokens []int, eos int, now func() time.Time) (result oracleWorkloadResult, err error) {
+func measureOracleWorkload(r oracleWorkloadRuntime, tokens []int, eos int, now func() time.Time, checkpoint func(oracleWorkloadResult)) (result oracleWorkloadResult, err error) {
 	if len(tokens) != oracleWorkloadPrefill || eos < 0 || eos >= 129280 {
 		return result, fmt.Errorf("invalid oracle workload input")
 	}
@@ -88,6 +88,14 @@ func measureOracleWorkload(r oracleWorkloadRuntime, tokens []int, eos int, now f
 	result.PrefillTokens = len(tokens)
 	if result.PrefillHash, err = oracleWorkloadHash(r.Logits()); err != nil {
 		return result, err
+	}
+	// The prefill hash is final here, but the decode loop below runs for
+	// minutes and dies by panic on a test timeout. That panic is raised in
+	// testing's own goroutine and kills the process without unwinding this
+	// function, so a result held only in memory is lost even though half of it
+	// is already computed. Hand it to the caller now.
+	if checkpoint != nil {
+		checkpoint(result)
 	}
 	result.Generated = make([]int, 0, oracleWorkloadDecode)
 	start = now()
@@ -271,7 +279,13 @@ func TestOracleWorkload(t *testing.T) {
 	if !ok {
 		t.Fatal("backend lacks EvalBatch")
 	}
-	result, err := measureOracleWorkload(batch, tokens, tok.eos, time.Now)
+	result, err := measureOracleWorkload(batch, tokens, tok.eos, time.Now, func(partial oracleWorkloadResult) {
+		partialData, err := json.MarshalIndent(partial, "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		write("prefill.json", partialData)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,13 +340,56 @@ func oracleWorkloadClock() func() time.Time {
 	next := time.Unix(0, 0)
 	return func() time.Time { next = next.Add(time.Millisecond); return next }
 }
+
+// TestOracleWorkloadPrefillCheckpoint pins the reason the checkpoint exists: the
+// prefill hash must reach the caller BEFORE the decode loop starts, because a
+// test-timeout panic during decode kills the process without unwinding
+// measureOracleWorkload. Asserting only that the hash is eventually correct
+// would pass even if the checkpoint fired at the very end, which is the bug.
+func TestOracleWorkloadPrefillCheckpoint(t *testing.T) {
+	r := newOracleWorkloadFake()
+	tokens := make([]int, 2048)
+	for i := range tokens {
+		tokens[i] = i
+	}
+	var calls int
+	var atCall oracleWorkloadResult
+	var decodedAtCall int
+	got, err := measureOracleWorkload(r, tokens, 1, oracleWorkloadClock(), func(partial oracleWorkloadResult) {
+		calls++
+		atCall = partial
+		decodedAtCall = len(r.positions)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("checkpoint called %d times, want exactly 1", calls)
+	}
+	if decodedAtCall != 0 {
+		t.Fatalf("checkpoint fired after %d decode positions, want 0", decodedAtCall)
+	}
+	if atCall.PrefillHash == "" || atCall.PrefillHash != got.PrefillHash {
+		t.Fatalf("checkpoint hash %q, final %q", atCall.PrefillHash, got.PrefillHash)
+	}
+	if atCall.PrefillTokens != len(tokens) {
+		t.Fatalf("checkpoint prefill tokens %d, want %d", atCall.PrefillTokens, len(tokens))
+	}
+	if len(atCall.Generated) != 0 {
+		t.Fatalf("checkpoint carried %d generated tokens, want 0", len(atCall.Generated))
+	}
+	if atCall.FinalHash != "" {
+		t.Fatal("checkpoint carried a final hash before decode ran")
+	}
+}
+
 func TestOracleWorkloadContract(t *testing.T) {
 	r := newOracleWorkloadFake()
 	tokens := make([]int, 2048)
 	for i := range tokens {
 		tokens[i] = i
 	}
-	got, err := measureOracleWorkload(r, tokens, 1, oracleWorkloadClock())
+	got, err := measureOracleWorkload(r, tokens, 1, oracleWorkloadClock(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +426,7 @@ func TestOracleWorkloadFailures(t *testing.T) {
 			case "invalid eos":
 				eos = -1
 			}
-			if _, err := measureOracleWorkload(r, tokens, eos, oracleWorkloadClock()); err == nil {
+			if _, err := measureOracleWorkload(r, tokens, eos, oracleWorkloadClock(), nil); err == nil {
 				t.Fatal("invalid workload accepted")
 			}
 		})
