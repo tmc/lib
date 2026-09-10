@@ -148,6 +148,7 @@ type ModelEngine struct {
 	consumption     CheckpointReceipt
 	memory          *cudamem.Tracker
 	benchmarkSerial bool
+	tracer          *cudaTracer
 }
 
 // CheckpointReceipt returns the validated tensor-consumption account.
@@ -156,6 +157,17 @@ func (eng *ModelEngine) CheckpointReceipt() CheckpointReceipt {
 		return CheckpointReceipt{}
 	}
 	return eng.consumption
+}
+
+// closeTracer flushes and closes the Perfetto trace, if one was opened. It is
+// safe to call on an engine that was never tracing.
+func (eng *ModelEngine) closeTracer() error {
+	if eng == nil {
+		return nil
+	}
+	err := eng.tracer.close()
+	eng.tracer = nil
+	return err
 }
 
 // FlightRecorder returns nil on CUDA targets until unified event recorder is attached.
@@ -528,6 +540,10 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		memory:      memory,
 	}
 
+	if eng.tracer, err = newCUDATracer(context.Background(), *cudaTracePath, stream); err != nil {
+		return nil, err
+	}
+
 	cudaEngineCache[key] = eng
 	committed = true
 	return eng, nil
@@ -564,6 +580,12 @@ func runPlatform(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("cuda initialization: %w", err)
 	}
+
+	defer func() {
+		if err := eng.closeTracer(); err != nil {
+			fmt.Printf("[cuda trace] close: %v\n", err)
+		}
+	}()
 
 	// Report the weight storage that was actually bound, so a run's precision
 	// is a matter of record rather than of the flag that requested it.
@@ -621,7 +643,12 @@ func runPlatform(cfg Config) error {
 
 // GPUPrefillPassKV executes prompt prefill across promptTokens using an isolated SequenceKVCache.
 func GPUPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32) (int32, error) {
-	tok, _, err := gpuSerialPrefillPassKVMeasured(eng, cfg, skv, promptTokens)
+	var tok int32
+	err := eng.tracer.region(context.Background(), "prefill", "llama-infer", func() error {
+		var err error
+		tok, _, err = gpuSerialPrefillPassKVMeasured(eng, cfg, skv, promptTokens)
+		return err
+	})
 	return tok, err
 }
 
@@ -664,7 +691,12 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 	if skv != nil && skv.Cache != nil {
 		kv = skv.Cache
 	}
-	tok, err := GPUForwardPassStream(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
+	var tok int32
+	err := eng.tracer.region(context.Background(), "decode", "llama-infer", func() error {
+		var err error
+		tok, err = GPUForwardPassStream(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
+		return err
+	})
 	if err != nil {
 		return 0, fmt.Errorf("cuda forward step %d: %w", pos, err)
 	}
@@ -685,7 +717,12 @@ func GPUBatchedPrefillPass(eng *ModelEngine, cfg Config, promptTokens []int32) (
 // GPUBatchedPrefillPassKV processes prompt rows with matrix projections,
 // preserving cache positions before startPos. Callers must serialize engine use.
 func GPUBatchedPrefillPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, promptTokens []int32, startPos int) (int32, error) {
-	tok, _, err := gpuBatchedPrefillPassKVMeasured(eng, skv, promptTokens, startPos)
+	var tok int32
+	err := eng.tracer.region(context.Background(), "batched-prefill", "llama-infer", func() error {
+		var err error
+		tok, _, err = gpuBatchedPrefillPassKVMeasured(eng, skv, promptTokens, startPos)
+		return err
+	})
 	return tok, err
 }
 
