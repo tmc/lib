@@ -1,0 +1,20 @@
+commit a9d8863, 2026-09-10
+
+Adjudicated at rank 1 before the comment fix: read evalPosition
+(metal_runtime_darwin.go:517) and EvalBatch (:561). evalPosition returns
+early at 'if !logits' before the output projection, and EvalBatch passes
+logits=true only at i == len(tokens)-1. So the head runs once per
+EvalBatch, not once per token, and a 32-token prefill chunk is
+32*86 + 1 = 2753 spans. The 87-per-token figure the head fix was
+adjudicated against is the decode path, where every Eval is its own
+last position.
+
+Not benchmarked: df69-hostqualify reports load 8.28 against -max-load
+8.00, DEGRADED. The metrics added here are counts and ratios, not
+wall-clock rates, so they are the ones that survive a contended host --
+but the benchmarks that emit them still need a model slot.
+
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094,
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C,
+session=2b9497cd-7408-4e8b-a617-38b19820dab9,
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
