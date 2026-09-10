@@ -15,6 +15,13 @@ test:
 	done
 
 check:
+	@missing=0; \
+	for f in $$(git ls-files '*/go.mod'); do \
+		d=$$(dirname "$$f"); \
+		grep -qx "	./$$d" go.work || { echo "error: $$d is not listed in go.work"; missing=1; }; \
+	done; \
+	[ $$missing -eq 0 ] || exit 1; \
+	echo "go.work covers every module."
 	@for f in $$(git ls-files '*.go'); do \
 		dir=$$(dirname "$$f"); \
 		found=0; \
