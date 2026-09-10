@@ -20,6 +20,10 @@ func TestKVInvalidDims(t *testing.T) {
 			_, err := cudakv.NewFP8(nil, -1, 8, 128, 2048)
 			return err
 		}},
+		{"fp8 tracked cache", func() error {
+			_, err := cudakv.NewFP8Tracked(nil, nil, 2, 0, 128, 2048)
+			return err
+		}},
 		{"paged cache", func() error {
 			_, err := cudakv.NewPagedCache(nil, -1, 8, 128, 16, 64)
 			return err

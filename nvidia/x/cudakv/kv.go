@@ -139,11 +139,20 @@ type FP8Cache struct {
 	headDim    int
 	maxSeqLen  int
 	layers     []FP8LayerCache
-	pos        int
 }
 
 // NewFP8 creates a new static FP8 KV-cache allocating per-layer 8-bit K and V buffers on dev.
 func NewFP8(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*FP8Cache, error) {
+	return NewFP8Tracked(dev, nil, numLayers, numKVHeads, headDim, maxSeqLen)
+}
+
+// NewFP8Tracked creates an FP8 cache whose device allocations, the K and V
+// buffers and the per-head scales, are accounted by tracker.
+//
+// The scales are left uninitialized: the caller decides the quantization
+// and writes one factor per KV head into KScale and VScale of every layer
+// before storing into the cache.
+func NewFP8Tracked(dev *cuda.Device, tracker *cudamem.Tracker, numLayers, numKVHeads, headDim, maxSeqLen int) (*FP8Cache, error) {
 	if dev == nil {
 		return nil, fmt.Errorf("cudakv: nil device")
 	}
@@ -153,39 +162,43 @@ func NewFP8(dev *cuda.Device, numLayers, numKVHeads, headDim, maxSeqLen int) (*F
 	}
 
 	elementsPerLayer := maxSeqLen * numKVHeads * headDim
-	layers := make([]FP8LayerCache, numLayers)
-
-	for i := 0; i < numLayers; i++ {
-		k, err := cudamem.Alloc[uint8](dev, elementsPerLayer)
-		if err != nil {
-			return nil, fmt.Errorf("cudakv: alloc layer %d FP8 K buffer: %w", i, err)
-		}
-		v, err := cudamem.Alloc[uint8](dev, elementsPerLayer)
-		if err != nil {
-			_ = k.Free()
-			return nil, fmt.Errorf("cudakv: alloc layer %d FP8 V buffer: %w", i, err)
-		}
-		kScale, _ := cudamem.Alloc[float32](dev, numKVHeads)
-		vScale, _ := cudamem.Alloc[float32](dev, numKVHeads)
-
-		layers[i] = FP8LayerCache{
-			LayerIndex: i,
-			K:          k,
-			V:          v,
-			KScale:     kScale,
-			VScale:     vScale,
-		}
-	}
-
-	return &FP8Cache{
+	c := &FP8Cache{
 		dev:        dev,
 		numLayers:  numLayers,
 		numKVHeads: numKVHeads,
 		headDim:    headDim,
 		maxSeqLen:  maxSeqLen,
-		layers:     layers,
-		pos:        0,
-	}, nil
+	}
+	for i := 0; i < numLayers; i++ {
+		layer := FP8LayerCache{LayerIndex: i}
+		var err error
+		for _, buf := range []struct {
+			name string
+			dst  *cudamem.Slice[uint8]
+		}{{"K", &layer.K}, {"V", &layer.V}} {
+			if *buf.dst, err = cudamem.AllocTracked[uint8](dev, tracker, elementsPerLayer); err != nil {
+				err = fmt.Errorf("cudakv: alloc layer %d FP8 %s buffer: %w", i, buf.name, err)
+				break
+			}
+		}
+		if err == nil {
+			for _, scale := range []struct {
+				name string
+				dst  *cudamem.Slice[float32]
+			}{{"K", &layer.KScale}, {"V", &layer.VScale}} {
+				if *scale.dst, err = cudamem.AllocTracked[float32](dev, tracker, numKVHeads); err != nil {
+					err = fmt.Errorf("cudakv: alloc layer %d FP8 %s scale: %w", i, scale.name, err)
+					break
+				}
+			}
+		}
+		c.layers = append(c.layers, layer)
+		if err != nil {
+			_ = c.Close()
+			return nil, err
+		}
+	}
+	return c, nil
 }
 
 // Layer returns the FP8 KV buffers for the specified layer index.
