@@ -1,0 +1,22 @@
+dd73523 2026-09-10
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Verification:
+- go vet ./... clean; go test -c untagged and -tags metalprof both build.
+- scripts/compare-encode-sequence.py f8cff9c:<file> <file> IDENTICAL for all
+  three modified files (207/207, 144/144, 6/6). No float32 bits move.
+- Full suite green, run in a sibling package copy (examples/ds4-min-verify-df69,
+  removed afterwards) because a peer's in-flight metal_matmul_darwin.go does not
+  yet compile in the shared package. testdata copied alongside.
+- TestCommandBufferCreationIsCentralized and TestRegionRecordingIsCentralized
+  were red at f8cff9c and at 6118071; both green here.
+- Mutation-checked, each red with the naming message, then restored:
+  1. head creates its own buffer -> 0 command buffers counted
+  2. head span not recorded -> 0 spans
+  3. commandBuffer stops incrementing -> 0 command buffers counted
+
+Not done here: the metalprof (*metalPinnedOps).run wiring, which subsumes this
+centralization and can replace both helpers.
