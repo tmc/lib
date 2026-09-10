@@ -210,3 +210,36 @@ func TestCreateViewDimensionPinLifetime(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteNonDonatablePinLifetime(t *testing.T) {
+	indices := []int64{0}
+	var borrowed unsafe.Pointer
+	awaited, destroyed := 0, 0
+	e := protectedExecutable(t, func(a *LoadedExecutable_Execute_Args) {
+		borrowed = unsafe.Pointer(a.Options.Non_donatable_input_indices)
+		runtime.GC()
+		pincheck.Check(borrowed)
+	})
+	e.api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *ErrorHandle {
+		runtime.GC()
+		pincheck.Check(borrowed)
+		if *(*int64)(borrowed) != 0 {
+			t.Error("protected index changed")
+		}
+		awaited++
+		return nil
+	})
+	e.api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *ErrorHandle {
+		pincheck.Check(borrowed)
+		destroyed++
+		return nil
+	})
+	b := &BufferWrapper{api: e.api, buffer: &Buffer{}}
+	if _, err := e.ExecuteWithNonDonatableInputs([][]*BufferWrapper{{b}}, indices); err != nil {
+		t.Fatal(err)
+	}
+	if awaited != 1 || destroyed != 1 {
+		t.Fatalf("awaited=%d destroyed=%d", awaited, destroyed)
+	}
+	requireUnpinned(t, borrowed)
+}

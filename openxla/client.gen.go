@@ -607,14 +607,36 @@ func (e *ExecutableWrapper) NumOutputs() (count int, err error) {
 
 // Execute runs the loaded executable across devices with the given input buffers.
 func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferWrapper, error) {
+	return e.execute(inputLists, nil)
+}
+
+// ExecuteWithNonDonatableInputs runs the executable while preventing donation
+// of the indexed inputs on every device. Indices are zero-based argument
+// positions, not device IDs. The caller must not modify indices during the call.
+func (e *ExecutableWrapper) ExecuteWithNonDonatableInputs(inputLists [][]*BufferWrapper, indices []int64) ([][]*BufferWrapper, error) {
+	return e.execute(inputLists, indices)
+}
+
+func (e *ExecutableWrapper) execute(inputLists [][]*BufferWrapper, indices []int64) ([][]*BufferWrapper, error) {
+	if e == nil || e.api == nil || e.executable == nil {
+		return nil, fmt.Errorf("openxla: executable is closed")
+	}
 	if e.api.LoadedExecutable_Execute == 0 {
 		return nil, fmt.Errorf("LoadedExecutable_Execute not available")
 	}
 	numDevices := len(inputLists)
 	if numDevices == 0 {
+		if len(indices) != 0 {
+			return nil, fmt.Errorf("openxla: non-donatable indices require inputs")
+		}
 		return nil, nil
 	}
 	numArgs := len(inputLists[0])
+	for _, index := range indices {
+		if index < 0 || index >= int64(numArgs) {
+			return nil, fmt.Errorf("openxla: non-donatable input index %d out of range", index)
+		}
+	}
 
 	for d := 0; d < numDevices; d++ {
 		if len(inputLists[d]) != numArgs {
@@ -662,6 +684,14 @@ func (e *ExecutableWrapper) Execute(inputLists [][]*BufferWrapper) ([][]*BufferW
 
 	var opts ExecuteOptions
 	opts.Struct_size = PJRT_ExecuteOptions_STRUCT_SIZE
+	var pin runtime.Pinner
+	defer pin.Unpin()
+	if len(indices) != 0 {
+		protected := append([]int64(nil), indices...)
+		pin.Pin(&protected[0])
+		opts.Non_donatable_input_indices = &protected[0]
+		opts.Num_non_donatable_input_indices = uintptr(len(protected))
+	}
 
 	var args LoadedExecutable_Execute_Args
 	args.Struct_size = PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE

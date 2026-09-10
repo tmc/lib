@@ -25,3 +25,10 @@ func ExampleClientWrapper_CreateViewOfDeviceBuffer() {
 	fmt.Println(err)
 	// Output: openxla: client is closed
 }
+
+func ExampleExecutableWrapper_ExecuteWithNonDonatableInputs() {
+	var executable openxla.ExecutableWrapper
+	_, err := executable.ExecuteWithNonDonatableInputs(nil, []int64{0})
+	fmt.Println(err)
+	// Output: openxla: executable is closed
+}
