@@ -1,0 +1,9 @@
+authored-by: Claude Opus 5 via claude-code 2.1.257
+date: 2026-09-10T20:20:17Z
+model: claude-opus-5
+tty: not a tty pid: 12032
+ITERM_SESSION_ID: w22t0p8:7BCB0960-C21E-4660-8395-608138C07A1B
+session: 81966754-74fd-480a-8ceb-8e53cf129cbe
+session_url: https://claude.ai/code/session_015HRdpSMTz24cg6AUZWCrzH
+note: git-auto-commit-message unavailable (cgpt: missing ANTHROPIC_API_KEY); message hand-written. cudaattn row reported by peer session B0183971; the cudakv and nvtx rows were found by re-checking the rest under the same method.
+verification: every Used row re-derived by grepping '<pkg>.<Symbol>' across git ls-files output, so untracked files cannot contribute; cudaattn.Compile confirmed to compile CausalFlashAttentionTemplate at nvidia/x/cudaattn/attn.go:528.
