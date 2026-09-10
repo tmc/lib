@@ -663,15 +663,12 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 			return nil, err
 		}
 	}
-	// Submit the opening without blocking. The closing batch goes to the same
-	// queue, and a queue completes its buffers in submission order, so the
-	// host can encode and submit the closing work while the GPU is still
-	// running the opening instead of idling until it finishes. Nothing here
-	// skips the wait: settleOpening below performs it before anything reads
-	// what the opening produced, and before the closing batch's span is
-	// recorded, so spans still reach the log in completion order.
-	if err := batch.Commit(); err != nil {
-		return nil, err
+	// Only the compressor fallback needs the opening's results on the host.
+	// Otherwise keep encoding the layer into the same command buffer.
+	if i >= 2 && !batchedCompressed {
+		if err := batch.Commit(); err != nil {
+			return nil, err
+		}
 	}
 	if attnEmit {
 		state.attn.n++
@@ -753,11 +750,16 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 			return nil, fmt.Errorf("attention closing: copy heads: %w", err)
 		}
 	}
-	closing, err := newMetalBatch(r.ops)
-	if err != nil {
-		return nil, err
+	closing := batch
+	if i >= 2 && !batchedCompressed {
+		closing, err = newMetalBatch(r.ops)
+		if err != nil {
+			return nil, err
+		}
+		closing.inRegion("closing-ffn", i, position)
+	} else {
+		closing.inRegion("layer", i, position)
 	}
-	closing.inRegion("closing-ffn", i, position)
 	for group := range 8 {
 		rows, err := layer.attnOutA.Rows(group*1024, 1024)
 		if err != nil {
@@ -779,6 +781,11 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		return nil, err
 	}
 	attentionState := r.state.hc[(i+1)%len(r.state.hc)]
+	// The old command boundary made this post recompute its split rather than
+	// reuse HCPre's. Keep that arithmetic when both share a buffer.
+	if closing == batch {
+		r.ops.hc.pending = nil
+	}
 	if err := closing.EncodeHCPost(stateIn, r.state.attnOut, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, attentionState); err != nil {
 		return nil, err
 	}
@@ -868,17 +875,19 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffn.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
 		return nil, err
 	}
-	// Queue the closing before settling the opening so both buffers are in
-	// flight together and the GPU runs them back to back. The opening is
-	// waited on first regardless, so its span is logged before the closing's.
+	// In the batched path, settling the opening now settles the whole layer.
+	// The fallback already settled its opening before the host readback and
+	// still needs to wait for its separate closing buffer.
 	if err := ffn.Commit(); err != nil {
 		return nil, err
 	}
 	if err := settleOpening(); err != nil {
 		return nil, err
 	}
-	if err := ffn.Wait(context.Background()); err != nil {
-		return nil, err
+	if ffn != batch {
+		if err := ffn.Wait(context.Background()); err != nil {
+			return nil, err
+		}
 	}
 	// One command buffer carries attention and FFN, so both name it.
 	r.lastAttentionBatch = ffn.Stats()

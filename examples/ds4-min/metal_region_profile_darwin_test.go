@@ -48,22 +48,23 @@ const metalRegionVocab = 129280
 // expectedMetalRegions returns the spans a run of tokens positions must
 // produce, in completion order.
 //
-// evalLayer builds exactly two command buffers per layer per position:
-// the attention opening, and the attention closing sharing a buffer with
-// the FFN. Nothing else in the layer path commits, so any other span is
-// an unaccounted buffer rather than a region this profile can name.
+// This inventory covers the batched regime, before zero-based position 2051.
+// Each position submits an embedding lookup and one buffer per layer. The last
+// position also submits the four output-logit operations. Standalone operations
+// currently record zero layer and position coordinates.
 func expectedMetalRegions(tokens int) []metalRegion {
-	if tokens < 1 {
+	if tokens < 1 || tokens > 2051 {
 		return nil
 	}
-	regions := make([]metalRegion, 0, tokens*ds4Layers*2)
+	regions := make([]metalRegion, 0, tokens*(ds4Layers+1)+4)
 	for position := range tokens {
+		regions = append(regions, metalRegion{Region: "get-row-f16"})
 		for layer := range ds4Layers {
-			regions = append(regions,
-				metalRegion{Region: "opening", Layer: layer, Position: position},
-				metalRegion{Region: "closing-ffn", Layer: layer, Position: position},
-			)
+			regions = append(regions, metalRegion{Region: "layer", Layer: layer, Position: position})
 		}
+	}
+	for _, name := range []string{"rms", "output-head", "rms", "matvec-q80"} {
+		regions = append(regions, metalRegion{Region: name})
 	}
 	return regions
 }
@@ -79,7 +80,7 @@ func expectedMetalRegions(tokens int) []metalRegion {
 func validateMetalRegions(tokens int, regions []metalRegion) error {
 	want := expectedMetalRegions(tokens)
 	if len(want) == 0 {
-		return fmt.Errorf("metal region profile: token count %d is not positive", tokens)
+		return fmt.Errorf("metal region profile: token count %d is outside the batched inventory (1..2051)", tokens)
 	}
 	if len(regions) != len(want) {
 		return fmt.Errorf("metal region profile: got %d spans, want %d", len(regions), len(want))
@@ -135,8 +136,8 @@ func metalRegionTotals(regions []metalRegion) map[string]float64 {
 
 func TestMetalRegionInventory(t *testing.T) {
 	want := expectedMetalRegions(metalRegionTokens)
-	if n := len(want); n != metalRegionTokens*ds4Layers*2 {
-		t.Fatalf("inventory has %d spans, want %d", n, metalRegionTokens*ds4Layers*2)
+	if n := len(want); n != metalRegionTokens*(ds4Layers+1)+4 {
+		t.Fatalf("inventory has %d spans, want %d", n, metalRegionTokens*(ds4Layers+1)+4)
 	}
 	fill := func(regions []metalRegion) []metalRegion {
 		out := append([]metalRegion(nil), regions...)
@@ -149,12 +150,24 @@ func TestMetalRegionInventory(t *testing.T) {
 	if err := validateMetalRegions(metalRegionTokens, fill(want)); err != nil {
 		t.Fatalf("exact inventory rejected: %v", err)
 	}
+	if err := validateMetalRegions(2052, fill(want)); err == nil {
+		t.Fatal("accepted a fallback run as a batched inventory")
+	}
 	for _, tt := range []struct {
 		name    string
 		regions []metalRegion
 	}{
 		{"short", fill(want[:len(want)-1])},
 		{"long", fill(append(append([]metalRegion(nil), want...), want[0]))},
+		{"old split layer", func() []metalRegion {
+			out := fill(want)
+			out[1].Region = "opening"
+			closing := out[1]
+			closing.Region = "closing-ffn"
+			split := append([]metalRegion(nil), out[:2]...)
+			split = append(split, closing)
+			return append(split, out[2:]...)
+		}()},
 		{"swapped order", func() []metalRegion {
 			out := fill(want)
 			out[0], out[1] = out[1], out[0]
@@ -210,7 +223,7 @@ func TestMetalRegionInventory(t *testing.T) {
 		{"region with no duration", func() []metalRegion {
 			out := fill(want)
 			for i := range out {
-				if out[i].Region == "opening" {
+				if out[i].Region == "layer" {
 					out[i].End = out[i].Start
 				}
 			}
@@ -492,7 +505,13 @@ func TestMetalRegionProfile(t *testing.T) {
 	if err := out.Close(); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"opening", "closing-ffn"} {
-		t.Logf("%s: %d spans, %.6f s GPU time", name, len(regions)/2, totals[name])
+	for _, name := range []string{"get-row-f16", "layer", "rms", "output-head", "matvec-q80"} {
+		count := 0
+		for _, region := range regions {
+			if region.Region == name {
+				count++
+			}
+		}
+		t.Logf("%s: %d spans, %.6f s GPU time", name, count, totals[name])
 	}
 }

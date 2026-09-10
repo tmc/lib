@@ -435,26 +435,26 @@ func TestMetalRuntimePositionZeroExecution(t *testing.T) {
 	if len(logits) != 129280 || r.pos != 1 {
 		t.Fatalf("logits/position = %d/%d, want 129280/1", len(logits), r.pos)
 	}
-	if got := r.lastOpeningBatch; got != (metalBatchStats{Encoded: 14, Commits: 1, Waits: 1}) {
-		t.Fatalf("last opening batch = %+v, want {Encoded:14 Commits:1 Waits:1}", got)
+	if got := r.lastOpeningBatch; got != (metalBatchStats{Encoded: 44, Commits: 1, Waits: 1}) {
+		t.Fatalf("last opening batch = %+v, want {Encoded:44 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastRawOpeningBatch; got != (metalBatchStats{Encoded: 8, Commits: 1, Waits: 1}) {
-		t.Fatalf("last raw opening batch = %+v, want {Encoded:8 Commits:1 Waits:1}", got)
+	if got := r.lastRawOpeningBatch; got != (metalBatchStats{Encoded: 38, Commits: 1, Waits: 1}) {
+		t.Fatalf("last raw opening batch = %+v, want {Encoded:38 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastCompressedOdd; got != (metalBatchStats{Encoded: 11, Commits: 1, Waits: 1}) {
-		t.Fatalf("last odd compressed batch = %+v, want {Encoded:11 Commits:1 Waits:1}", got)
+	if got := r.lastCompressedOdd; got != (metalBatchStats{Encoded: 41, Commits: 1, Waits: 1}) {
+		t.Fatalf("last odd compressed batch = %+v, want {Encoded:41 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastCompressedEven; got != (metalBatchStats{Encoded: 14, Commits: 1, Waits: 1}) {
-		t.Fatalf("last even compressed batch = %+v, want {Encoded:14 Commits:1 Waits:1}", got)
+	if got := r.lastCompressedEven; got != (metalBatchStats{Encoded: 44, Commits: 1, Waits: 1}) {
+		t.Fatalf("last even compressed batch = %+v, want {Encoded:44 Commits:1 Waits:1}", got)
 	}
-	// One command buffer now carries the attention closing and the FFN, so both
-	// fields name it and its encoded count is the sum of the two former halves.
+	// One command buffer carries the whole layer, so the opening, attention,
+	// and FFN fields all describe that buffer.
 	// A second commit and wait here would mean the merge had come undone.
-	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 30, Commits: 1, Waits: 1}) {
-		t.Fatalf("last attention batch = %+v, want {Encoded:30 Commits:1 Waits:1}", got)
+	if got := r.lastAttentionBatch; got != (metalBatchStats{Encoded: 44, Commits: 1, Waits: 1}) {
+		t.Fatalf("last attention batch = %+v, want {Encoded:44 Commits:1 Waits:1}", got)
 	}
-	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 30, Commits: 1, Waits: 1}) {
-		t.Fatalf("last FFN batches = %+v, want {Encoded:30 Commits:1 Waits:1}", got)
+	if got := r.lastFFNBatches; got != (metalBatchStats{Encoded: 44, Commits: 1, Waits: 1}) {
+		t.Fatalf("last FFN batches = %+v, want {Encoded:44 Commits:1 Waits:1}", got)
 	}
 	for i, value := range logits {
 		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
