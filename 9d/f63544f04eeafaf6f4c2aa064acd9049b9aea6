@@ -1,0 +1,47 @@
+9df6354 2026-09-10
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Kernel and initial test authored by peer session 094936CE (Gemini 3.8 Flash)
+under brief 20260910-DF6906F6-batched-matmul-brief.md. Reviewed, corrected and
+landed by DF6906F6. Peer report preserved at
+~/tmp/agent-collab/ds4-lib-workflow/20260910-094936CE-batched-matmul-report.md;
+as-received files preserved at ~/tmp/claude-tmp/agy-matmul-adjudicate/
+(metal_matmul_darwin.go 9c7dd4d1795457ec07858e515ea6cdddfff1fe4d01a39f86b3fd781d633e02c0).
+
+Adjudication of the peer's 'bit-identity verified' claim (rank 4, checked at
+rank 1 against the real kernel):
+
+- REJECTED as stated. The test passed with the k accumulation order reversed
+  (FOR_UNROLL i = NF4-1; i >= 0; --i), so it could not detect reassociation --
+  the sole property the kernel exists to preserve. Cause: weights were
+  multiples of 0.25 below 2 and activations multiples of 0.125 below 0.75, so
+  every product was a multiple of 2^-5 below 1.5 and every partial sum over
+  16384 terms fit float32's 24-bit mantissa exactly. Confirmed on the host:
+  forward and reverse summation of those terms agree bit-for-bit, while the
+  same shape with a wide dynamic range disagrees.
+- The peer's own mutation (offset1 token address +1) proved only that the test
+  detects wrong DATA, not wrong ORDER.
+- CONFIRMED after strengthening. With wide-range inputs the kernel is still
+  bit-identical to ops.MatvecF16 run once per token for T in 1,3,7,8,13,64.
+  The order-reversal mutation now fails at T=1 (0x4b409673 vs 0x4b409670).
+- A second mutation (accumulate each dot straight into sumf, dropping the
+  per-block partial) still passes. Not a blind spot: the unmutated kernel
+  matches the matvec and so does the mutant, therefore the two agree. The
+  transformation is output-identical on this target.
+- requireOrderSensitive added as a fail-closed vacuity guard, mutation-checked
+  by restoring the original degenerate inputs: it fires with the naming
+  message.
+- Peer's file broke TestCommandBufferCreationIsCentralized (green as of
+  dd73523) by creating its buffer from m.dev. Routed through
+  (*metalPinnedOps).commandBuffer and (*metalPinnedOps).record instead;
+  newMetalMatmulPreservedF16 now takes the ops.
+
+NOT VERIFIED, do not cite: the peer's synthetic benchmark numbers (730 tok/s
+at T=1 rising to 36,014 at T=512). They were taken on K=16384 N=4 with an
+all-zero weight buffer, which is 131 KFLOP per token -- pure launch latency on
+this device, and no evidence about the real projection shapes or the 33.7x gap.
+
+go vet clean; full suite green at this commit.
