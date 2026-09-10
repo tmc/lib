@@ -98,7 +98,7 @@ func gpuBatchedPrefillPassKVMeasured(eng *ModelEngine, skv *SequenceKVCache, tok
 			caches[row] = cache
 			positions[row] = startPos + base + row
 		}
-		if err := eng.bindPagedBatch(sp, caches[:n], positions[:n]); err != nil {
+		if err := eng.bindKVBatch(sp, caches[:n], positions[:n]); err != nil {
 			return 0, dispatches, fmt.Errorf("cuda prefill rows %d:%d: %w", base, base+n, err)
 		}
 		result, stats, err := gpuForwardBatchKV(context.Background(), eng, sp, caches[:n], tokens[base:base+n], positions[:n], true)

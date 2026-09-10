@@ -26,7 +26,7 @@ the measurement each one needs is unchanged and still unmade.
 | cuda, cudalaunch, cudamem | the CUDA engine and every kernel launch |
 | nvrtcx | `CompileGPUModulesAs` compiles `forward.cu` at run time |
 | cudaattn | `Compile` and `DefaultConfig`: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` and `PagedSharedMemoryBytes`: the paged kernels, reached from the single-stream decode, the batched prefill and the serving decode when the engine is compiled with `LLAMA_INFER_PAGED_KV=1` (`paged_kv_cuda.go`, UNQUALIFIED, off by default). |
-| cudakv | `NewTracked`: the dense per-sequence and single-stream KV caches. `NewPagedCacheTracked`, `AllocSequence`, `AppendToken`, `BlockTable`, `Page`, `FreeSequence`: the block pool behind `LLAMA_INFER_PAGED_KV=1` (`paged_kv_cuda.go`, `paged_kv_step_cuda.go`, UNQUALIFIED). `Retain`, `Release`, `AllocSequenceWithPrefix` and `RadixTree` are not yet called: no CUDA prefix cache exists. `NewFP8` is not called. |
+| cudakv | `NewTracked`: the dense per-sequence and single-stream KV caches. `NewPagedCacheTracked`, `AllocSequence`, `AppendToken`, `BlockTable`, `Page`, `FreeSequence`: the block pool behind `LLAMA_INFER_PAGED_KV=1` (`paged_kv_cuda.go`, `paged_kv_step_cuda.go`, UNQUALIFIED). `Retain`, `Release`, `AllocSequenceWithPrefix` and `RadixTree` are not yet called: no CUDA prefix cache exists. `NewFP8Tracked` and `FP8Cache.Layer`: the E4M3 caches behind `LLAMA_INFER_FP8_KV=1` (`fp8_kv_cuda.go`, UNQUALIFIED); the store and dequantize kernels are the example's, since cudaattn reads only float32, so this saves cache memory and costs bandwidth. |
 | cudasafetensors | checkpoint loading |
 | cudasample | sampling |
 | perfetto, cudatrace | `-cuda-trace`: host submission and device-interval tracks |

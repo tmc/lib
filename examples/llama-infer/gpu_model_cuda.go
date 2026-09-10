@@ -81,8 +81,10 @@ type GPUScratchpad struct {
 
 	// paged is the paged attention of the current step when the engine was
 	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
-	// it before every forward call (paged_kv_step_cuda.go).
+	// it before every forward call (paged_kv_step_cuda.go). fp8 is the same
+	// for LLAMA_INFER_FP8_KV=1 (fp8_kv_cuda.go); at most one is set.
 	paged *pagedStep
+	fp8   *fp8Step
 }
 
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
@@ -398,9 +400,15 @@ func gpuForwardPassBody(
 		// Steps 2c-2e rotate q and k, store k and v at pos and attend over
 		// the cache. A paged step, bound by the engine when the engine was
 		// compiled with LLAMA_INFER_PAGED_KV=1, does all three through its
-		// block table; otherwise the dense cache is read and written in place.
+		// block table; an FP8 step (LLAMA_INFER_FP8_KV=1) does them through
+		// its E4M3 cache; otherwise the dense cache is read and written in
+		// place.
 		if sp.paged != nil {
 			if err := sp.paged.attend(stream, counter, i, sp.Q, sp.K, sp.V, sp.AttnOut, 1, cfg.RopeTheta); err != nil {
+				return err
+			}
+		} else if sp.fp8 != nil {
+			if err := sp.fp8.attend(stream, counter, i, sp.Q, sp.K, sp.V, sp.AttnOut, 1, cfg.RopeTheta); err != nil {
 				return err
 			}
 		} else {

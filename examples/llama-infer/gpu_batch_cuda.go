@@ -38,8 +38,10 @@ type GPUBatchScratchpad struct {
 
 	// paged is the paged attention of the current batch when the engine was
 	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
-	// it before every batch (paged_kv_step_cuda.go).
+	// it before every batch (paged_kv_step_cuda.go). fp8 is the same for
+	// LLAMA_INFER_FP8_KV=1 (fp8_kv_cuda.go); at most one is set.
 	paged *pagedStep
+	fp8   *fp8Step
 
 	// layer is non-nil only under LLAMA_INFER_CUDALAYER=1; see cudalayer_cuda.go.
 	layer *cudalayerRuntime
@@ -246,10 +248,18 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 		}
 		// A paged step, bound by the engine when it was compiled with
 		// LLAMA_INFER_PAGED_KV=1, rotates, stores and attends every row of
-		// the batch at once through the rows' block tables; the dense path
-		// does the three launches per row against each row's own cache.
+		// the batch at once through the rows' block tables; an FP8 step
+		// (LLAMA_INFER_FP8_KV=1) does the same row by row on E4M3 caches;
+		// the dense path does the three launches per row against each row's
+		// own cache.
 		if sp.paged != nil {
 			if err := sp.paged.attend(eng.stream, &launches, layer,
+				sp.Q.Slice(0, batch*qDim), sp.K.Slice(0, batch*kvDim), sp.V.Slice(0, batch*kvDim), sp.AttnOut.Slice(0, batch*qDim),
+				batch, cfg.RopeTheta); err != nil {
+				return nil, stats, err
+			}
+		} else if sp.fp8 != nil {
+			if err := sp.fp8.attend(eng.stream, &launches, layer,
 				sp.Q.Slice(0, batch*qDim), sp.K.Slice(0, batch*kvDim), sp.V.Slice(0, batch*kvDim), sp.AttnOut.Slice(0, batch*qDim),
 				batch, cfg.RopeTheta); err != nil {
 				return nil, stats, err

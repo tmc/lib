@@ -136,8 +136,12 @@ type ModelEngine struct {
 	// paged replaces kvCache and every SequenceKVCache when the engine was
 	// compiled with LLAMA_INFER_PAGED_KV=1; pagedMain is then the single-stream
 	// sequence kvCache would have been. Both are nil on a dense engine.
-	paged           *pagedKVRuntime
-	pagedMain       *pagedSequence
+	paged     *pagedKVRuntime
+	pagedMain *pagedSequence
+	// fp8 and fp8Main are the same pair for LLAMA_INFER_FP8_KV=1: the E4M3
+	// kernels and scratch, and the single-stream cache. Both nil otherwise.
+	fp8             *fp8KVRuntime
+	fp8Main         *cudakv.FP8Cache
 	attnFn          *boundedKernel
 	sampleFn        *cuda.Kernel
 	mCfg            ModelConfig
@@ -263,6 +267,11 @@ func (eng *ModelEngine) ResetKV() error {
 	if eng.pagedMain != nil {
 		return eng.pagedMain.reset()
 	}
+	if eng.fp8Main != nil {
+		// Rows are rewritten in position order and attention reads only
+		// positions up to the current one, so there is no state to clear.
+		return nil
+	}
 	if eng.kvCache == nil {
 		return nil
 	}
@@ -328,6 +337,7 @@ type cudaEngineKey struct {
 	// pagedKV is the environment switch at compile time, so a process that
 	// compiles one config both ways holds two engines rather than one.
 	pagedKV bool
+	fp8KV   bool
 }
 
 func cudaEngineCacheKey(cfg Config) cudaEngineKey {
@@ -341,6 +351,7 @@ func cudaEngineCacheKey(cfg Config) cudaEngineKey {
 		precision:  cfg.Precision,
 		fuseEGraph: cfg.FuseEGraph,
 		pagedKV:    pagedKVEnabled(),
+		fp8KV:      fp8KVEnabled(),
 	}
 }
 
@@ -361,6 +372,12 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	if key.pagedKV && cudaGraphEnabled() {
 		return nil, errors.New("LLAMA_INFER_PAGED_KV=1 and LLAMA_INFER_CUDA_GRAPH=1 are exclusive: the paged step is not graph-captured")
 	}
+	if key.fp8KV && key.pagedKV {
+		return nil, errors.New("LLAMA_INFER_FP8_KV=1 and LLAMA_INFER_PAGED_KV=1 are exclusive: the block pool holds float32")
+	}
+	if key.fp8KV && cudaGraphEnabled() {
+		return nil, errors.New("LLAMA_INFER_FP8_KV=1 and LLAMA_INFER_CUDA_GRAPH=1 are exclusive: the FP8 step is not graph-captured")
+	}
 
 	dev, err := cuda.NewDevice(0)
 	if err != nil {
@@ -380,6 +397,8 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		kvCache    *cudakv.Cache
 		paged      *pagedKVRuntime
 		pagedMain  *pagedSequence
+		fp8        *fp8KVRuntime
+		fp8Main    *cudakv.FP8Cache
 		committed  bool
 	)
 	defer func() {
@@ -391,7 +410,11 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 				if kvCache != nil {
 					return kvCache.Close()
 				}
-				return paged.Close()
+				var errs []error
+				if fp8Main != nil {
+					errs = append(errs, fp8Main.Close())
+				}
+				return errors.Join(append(errs, fp8.Close(), paged.Close())...)
 			},
 			sampleMod.Close, attnMod.Close,
 			func() error {
@@ -564,6 +587,22 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		if pagedMain, err = paged.newSequence(); err != nil {
 			return nil, fmt.Errorf("create paged kv cache: %w", err)
 		}
+	} else if key.fp8KV {
+		// UNQUALIFIED: see fp8_kv_cuda.go. The runtime borrows the RoPE and
+		// attention kernels compiled above and allocates the single-stream
+		// cache; sequences get their own from NewSequenceKV.
+		scale, err := fp8KVScale()
+		if err != nil {
+			return nil, err
+		}
+		fp8, err = newFP8KVRuntime(dev, memory, modules.RoPE, attnFn,
+			mCfg.NumHiddenLayers, mCfg.NumAttentionHeads, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen, scale)
+		if err != nil {
+			return nil, fmt.Errorf("create fp8 kv cache: %w", err)
+		}
+		if fp8Main, err = fp8.newCache(); err != nil {
+			return nil, fmt.Errorf("create fp8 kv cache: %w", err)
+		}
 	} else {
 		kvCache, err = cudakv.NewTracked(dev, memory, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
 		if err != nil {
@@ -581,6 +620,8 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		kvCache:     kvCache,
 		paged:       paged,
 		pagedMain:   pagedMain,
+		fp8:         fp8,
+		fp8Main:     fp8Main,
 		attnFn:      attnFn,
 		sampleFn:    sampleFn,
 		mCfg:        mCfg,
@@ -609,11 +650,15 @@ type SequenceKVCache struct {
 	// paged is the sequence's block table in the engine's pool when the
 	// engine was compiled with LLAMA_INFER_PAGED_KV=1; Cache is nil then.
 	paged *pagedSequence
+
+	// fp8 is the sequence's E4M3 cache when the engine was compiled with
+	// LLAMA_INFER_FP8_KV=1; Cache is nil then.
+	fp8 *cudakv.FP8Cache
 }
 
-// usable reports whether the cache can back a forward call on either path.
+// usable reports whether the cache can back a forward call on any path.
 func (skv *SequenceKVCache) usable() bool {
-	return skv != nil && (skv.Cache != nil || skv.paged != nil)
+	return skv != nil && (skv.Cache != nil || skv.paged != nil || skv.fp8 != nil)
 }
 
 // NewSequenceKV allocates an isolated KV-cache for a sequence on CUDA.
@@ -627,6 +672,13 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 			return nil, fmt.Errorf("alloc sequence kv cache: %w", err)
 		}
 		return &SequenceKVCache{paged: seq}, nil
+	}
+	if eng.fp8 != nil {
+		c, err := eng.fp8.newCache()
+		if err != nil {
+			return nil, fmt.Errorf("alloc sequence kv cache: %w", err)
+		}
+		return &SequenceKVCache{fp8: c}, nil
 	}
 	cache, err := cudakv.NewTracked(eng.dev, eng.memory, eng.mCfg.NumHiddenLayers, eng.mCfg.NumKeyValueHeads, eng.mCfg.HeadDim(), eng.mCfg.MaxSeqLen)
 	if err != nil {
@@ -642,6 +694,10 @@ func (skv *SequenceKVCache) Free() {
 	}
 	skv.paged.free()
 	skv.paged = nil
+	if skv.fp8 != nil {
+		_ = skv.fp8.Close()
+		skv.fp8 = nil
+	}
 	if skv.Cache == nil {
 		return
 	}
@@ -745,7 +801,7 @@ func gpuSerialPrefillPassKVMeasured(eng *ModelEngine, cfg Config, skv *SequenceK
 	var nextTok int32
 	for pos, tokID := range promptTokens {
 		isLast := (pos == len(promptTokens)-1)
-		if err := eng.bindPagedSingle(skv, pos); err != nil {
+		if err := eng.bindKVStep(skv, pos); err != nil {
 			return 0, launches.Value(), fmt.Errorf("cuda prefill step %d: %w", pos, err)
 		}
 		tok, err := gpuForwardPassStep(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast, &launches)
@@ -770,7 +826,7 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 	}
 	var tok int32
 	err := eng.tracer.region(context.Background(), "decode", "llama-infer", func() error {
-		if err := eng.bindPagedSingle(skv, pos); err != nil {
+		if err := eng.bindKVStep(skv, pos); err != nil {
 			return err
 		}
 		var err error
@@ -936,7 +992,7 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 		}
 
 		tStep0 := time.Now()
-		if err := eng.bindPagedSingle(nil, curPos); err != nil {
+		if err := eng.bindKVStep(nil, curPos); err != nil {
 			return err
 		}
 		tok, fErr := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, nextTokID, curPos, eng.stream)
