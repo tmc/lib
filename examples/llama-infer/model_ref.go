@@ -162,6 +162,11 @@ func LoadModelConfig(dir string) (*ModelConfig, error) {
 	if cfg.MaxSeqLen == 0 {
 		cfg.MaxSeqLen = 2048
 	}
+	if modelirEnabled() {
+		if err := checkModelConfigAgainstModelir(dir, &cfg); err != nil {
+			return nil, err
+		}
+	}
 	return &cfg, nil
 }
 
