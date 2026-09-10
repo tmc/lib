@@ -165,6 +165,29 @@ func ExampleFuncBuilder_IntegerConstant() {
 	// Output: tensor<i64>
 }
 
+func ExampleFuncBuilder_Sqrt() {
+	typ := builder.Type{Shape: []int64{2}, ElementType: "f32"}
+	b := builder.NewFunc("main", typ)
+	out, err := b.Sqrt(b.Arg(0))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<2xf32>
+}
+
+func ExampleFuncBuilder_Int32VectorConstant() {
+	b := builder.NewFunc("main")
+	out, err := b.Int32VectorConstant([]int32{2, 3})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(out.Type)
+	// Output: tensor<2xi32>
+}
+
 func ExampleFuncBuilder_DynamicUpdateSlice() {
 	typ := func(n int64) builder.Type { return builder.Type{Shape: []int64{n}, ElementType: "f32"} }
 	b := builder.NewFunc("main", typ(8), typ(1), builder.Type{ElementType: "i64"})

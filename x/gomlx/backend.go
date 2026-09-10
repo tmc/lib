@@ -26,6 +26,7 @@ type Backend struct {
 	mu sync.Mutex // Guards the engine and all native child resources.
 	notimplemented.Backend
 	engine      *xla.Engine
+	compile     func([]byte, string, *xla.CompileOptions) (nativeExecutable, error)
 	closeErr    error
 	buffers     map[*buffer]struct{}
 	executables map[*executable]struct{}
@@ -42,7 +43,11 @@ func New(path string) (*Backend, error) {
 	if err != nil || len(devices) == 0 {
 		return nil, errors.Join(fmt.Errorf("gomlx: no addressable devices"), err, e.Close())
 	}
-	return &Backend{engine: e, buffers: make(map[*buffer]struct{}), executables: make(map[*executable]struct{})}, nil
+	b := &Backend{engine: e, buffers: make(map[*buffer]struct{}), executables: make(map[*executable]struct{})}
+	b.compile = func(code []byte, format string, opts *xla.CompileOptions) (nativeExecutable, error) {
+		return e.Compile(code, format, opts)
+	}
+	return b, nil
 }
 func (b *Backend) Name() string   { return "tmc-pjrt" }
 func (b *Backend) String() string { return b.Name() }
@@ -83,7 +88,7 @@ func (b *Backend) Capabilities() compute.Capabilities {
 }
 func (b *Backend) Builder(name string) compute.Builder {
 	v := &builder{backend: b, name: name}
-	v.main = &function{owner: v, name: "main", raw: hlo.NewFunc("main")}
+	v.main = &function{owner: v, name: "main", raw: hlo.NewFunc("main"), valueShapes: make(map[string]shapes.Shape)}
 	v.functions = []*function{v.main}
 	v.main.Function.ErrFn = func(op compute.OpType) error { return fmt.Errorf("%s: %w", op, unsupported) }
 	return v
@@ -117,6 +122,31 @@ func validate(s shapes.Shape) error {
 			return fmt.Errorf("shape byte count overflows int")
 		}
 		n *= d
+	}
+	return nil
+}
+
+func validateGraphShape(s shapes.Shape) error {
+	if _, ok := element(s.DType); !ok || len(s.TupleShapes) > 0 {
+		return unsupported
+	}
+	for axis, dim := range s.Dimensions {
+		name := s.AxisName(axis)
+		if dim == shapes.DynamicDim {
+			if name == "" {
+				return fmt.Errorf("dynamic axis %d has no name", axis)
+			}
+			continue
+		}
+		if dim < 0 {
+			return fmt.Errorf("negative dimension")
+		}
+		if name != "" {
+			return fmt.Errorf("static axis %d has name %q", axis, name)
+		}
+	}
+	if !s.IsDynamic() {
+		return validate(s)
 	}
 	return nil
 }
@@ -265,6 +295,15 @@ func (b *builder) Compile() (compute.Executable, error) {
 		return nil, fmt.Errorf("builder unavailable")
 	}
 	b.closed = true
+	if slices.ContainsFunc(b.main.inputs, shapes.Shape.IsDynamic) {
+		if err := b.main.checkDynamicSlice(); err != nil {
+			return nil, err
+		}
+		template := b.main.snapshot()
+		out := &executable{owner: b.backend, template: template, names: slices.Clone(b.main.names), inputs: cloneShapes(b.main.inputs), outputs: cloneShapes(b.main.outputs), specializations: make(map[string]*specialization), maxSpecializations: 32}
+		b.backend.executables[out] = struct{}{}
+		return out, nil
+	}
 	var text strings.Builder
 	text.WriteString("module {\n")
 	for _, f := range b.functions {
@@ -284,13 +323,31 @@ func (b *builder) Compile() (compute.Executable, error) {
 		text.WriteString(code)
 	}
 	text.WriteString("}\n")
-	e, err := b.backend.engine.Compile([]byte(text.String()), "mlir", nil)
+	e, err := b.backend.compileProgram([]byte(text.String()), "mlir", nil)
 	if err != nil {
 		return nil, err
 	}
 	out := &executable{owner: b.backend, raw: e, names: b.main.names, inputs: b.main.inputs, outputs: b.main.outputs}
 	b.backend.executables[out] = struct{}{}
 	return out, nil
+}
+
+func (f *function) snapshot() *function {
+	copy := *f
+	raw := *f.raw
+	raw.Args = slices.Clone(f.raw.Args)
+	raw.Ops = slices.Clone(f.raw.Ops)
+	raw.Returns = slices.Clone(f.raw.Returns)
+	copy.raw = &raw
+	copy.names = slices.Clone(f.names)
+	copy.inputs = cloneShapes(f.inputs)
+	copy.outputs = cloneShapes(f.outputs)
+	copy.dynamicOps = slices.Clone(f.dynamicOps)
+	copy.valueShapes = make(map[string]shapes.Shape, len(f.valueShapes))
+	for id, shape := range f.valueShapes {
+		copy.valueShapes[id] = shape.Clone()
+	}
+	return &copy
 }
 
 type node struct {
@@ -308,6 +365,8 @@ type function struct {
 	parent          *function
 	captures        []*node
 	captureArgs     []hlo.Value
+	dynamicOps      []dynamicOp
+	valueShapes     map[string]shapes.Shape
 }
 
 func (f *function) Builder() compute.Builder { return f.owner }
@@ -318,7 +377,7 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 	if sharding != nil {
 		return nil, unsupported
 	}
-	if err := validate(s); err != nil {
+	if err := validateGraphShape(s); err != nil {
 		return nil, err
 	}
 	for _, n := range f.names {
@@ -335,6 +394,10 @@ func (f *function) Parameter(name string, s shapes.Shape, sharding *compute.Shar
 	f.raw.Args = append(f.raw.Args, v)
 	f.names = append(f.names, name)
 	f.inputs = append(f.inputs, s.Clone())
+	if f.valueShapes == nil {
+		f.valueShapes = make(map[string]shapes.Shape)
+	}
+	f.valueShapes[v.ID] = s.Clone()
 	return &node{f, v}, nil
 }
 func (f *function) value(v compute.Value) (hlo.Value, error) {
@@ -377,11 +440,14 @@ func (f *function) Shape(v compute.Value) (shapes.Shape, error) {
 	if err != nil {
 		return shapes.Shape{}, err
 	}
+	if shape, ok := f.valueShapes[n.ID]; ok {
+		return shape.Clone(), nil
+	}
 	dims := make([]int, len(n.Type.Shape))
 	for i, v := range n.Type.Shape {
 		dims[i] = int(v)
 	}
-	return shapes.Make(elementDType(n.Type.ElementType), dims...), nil
+	return shapes.Shape{DType: elementDType(n.Type.ElementType), Dimensions: dims}, nil
 }
 func (f *function) Return(values []compute.Value, shardings []*compute.ShardingSpec) error {
 	if f.returned || f.owner.closed {
@@ -433,11 +499,28 @@ func (f *function) Add(a, b compute.Value) (compute.Value, error) {
 }
 
 type executable struct {
-	owner           *Backend
-	raw             *xla.Executable
-	names           []string
+	owner              *Backend
+	raw                nativeExecutable
+	names              []string
+	inputs, outputs    []shapes.Shape
+	closeErr           error
+	template           *function
+	specializations    map[string]*specialization
+	maxSpecializations int
+	clock              uint64
+	compileCalls       int
+	finalized          bool
+}
+
+type nativeExecutable interface {
+	Execute(context.Context, []*xla.Buffer) ([]*xla.Buffer, error)
+	Close() error
+}
+
+type specialization struct {
+	raw             nativeExecutable
 	inputs, outputs []shapes.Shape
-	closeErr        error
+	lastUsed        uint64
 }
 
 func (e *executable) Finalize() {
@@ -446,12 +529,21 @@ func (e *executable) Finalize() {
 	e.finalize()
 }
 func (e *executable) finalize() {
+	if e.finalized {
+		return
+	}
+	e.finalized = true
+	for key, spec := range e.specializations {
+		e.closeErr = errors.Join(e.closeErr, spec.raw.Close())
+		delete(e.specializations, key)
+	}
 	if e.raw != nil {
-		delete(e.owner.executables, e)
-		e.closeErr = e.raw.Close()
-		e.owner.closeErr = errors.Join(e.owner.closeErr, e.closeErr)
+		e.closeErr = errors.Join(e.closeErr, e.raw.Close())
 		e.raw = nil
 	}
+	e.template = nil
+	delete(e.owner.executables, e)
+	e.owner.closeErr = errors.Join(e.owner.closeErr, e.closeErr)
 }
 func cloneShapes(ss []shapes.Shape) []shapes.Shape {
 	out := make([]shapes.Shape, len(ss))
@@ -467,7 +559,7 @@ func (e *executable) Outputs() []shapes.Shape { return cloneShapes(e.outputs) }
 func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device compute.DeviceNum) (outputs []compute.Buffer, resultErr error) {
 	e.owner.mu.Lock()
 	defer e.owner.mu.Unlock()
-	if e.raw == nil || e.owner.engine == nil {
+	if e.raw == nil && e.template == nil || e.owner.engine == nil {
 		return nil, fmt.Errorf("executable closed")
 	}
 	if device != 0 {
@@ -476,10 +568,61 @@ func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device comp
 	if len(inputs) != len(e.inputs) || len(donate) > 0 && len(donate) != len(inputs) {
 		return nil, fmt.Errorf("input count mismatch")
 	}
+	expectedInputs, expectedOutputs, raw := e.inputs, e.outputs, e.raw
+	if e.template != nil {
+		bindings := make(shapes.AxisBindings)
+		if len(inputs) != len(e.inputs) {
+			return nil, fmt.Errorf("input count mismatch")
+		}
+		for i, input := range inputs {
+			buf, ok := input.(*buffer)
+			if !ok || buf.backend != e.owner || buf.raw == nil {
+				return nil, fmt.Errorf("invalid input")
+			}
+			if buf.shape.DType != e.inputs[i].DType {
+				return nil, fmt.Errorf("bind input %q: dtype mismatch", e.names[i])
+			}
+			if err := bindings.Extract(e.inputs[i], buf.shape); err != nil {
+				return nil, fmt.Errorf("bind input %q: %w", e.names[i], err)
+			}
+		}
+		key := bindings.Key()
+		spec := e.specializations[key]
+		if spec == nil {
+			program, concreteInputs, concreteOutputs, err := e.template.specialize(bindings)
+			if err != nil {
+				return nil, err
+			}
+			e.compileCalls++
+			compiled, err := e.owner.compileProgram([]byte(program), "mlir", nil)
+			if err != nil {
+				return nil, err
+			}
+			if len(e.specializations) >= e.maxSpecializations {
+				var oldestKey string
+				var oldest uint64 = ^uint64(0)
+				for k, candidate := range e.specializations {
+					if candidate.lastUsed < oldest {
+						oldestKey, oldest = k, candidate.lastUsed
+					}
+				}
+				old := e.specializations[oldestKey]
+				delete(e.specializations, oldestKey)
+				if err := old.raw.Close(); err != nil {
+					return nil, errors.Join(err, compiled.Close())
+				}
+			}
+			spec = &specialization{raw: compiled, inputs: concreteInputs, outputs: concreteOutputs}
+			e.specializations[key] = spec
+		}
+		e.clock++
+		spec.lastUsed = e.clock
+		raw, expectedInputs, expectedOutputs = spec.raw, spec.inputs, spec.outputs
+	}
 	args := make([]*xla.Buffer, len(inputs))
 	for i, v := range inputs {
 		b, ok := v.(*buffer)
-		if !ok || b.backend != e.owner || b.raw == nil || !b.shape.Equal(e.inputs[i]) {
+		if !ok || b.backend != e.owner || b.raw == nil || b.shape.DType != expectedInputs[i].DType || !b.shape.EqualDimensions(expectedInputs[i]) {
 			return nil, fmt.Errorf("invalid input")
 		}
 		args[i] = b.raw
@@ -500,41 +643,48 @@ func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device comp
 			resultErr = errors.Join(resultErr, closeErr)
 		}
 	}()
-	raw, err := e.raw.Execute(context.Background(), args)
+	rawOutputs, err := raw.Execute(context.Background(), args)
 	if err != nil {
 		return nil, err
 	}
 	fail := func(err error) ([]compute.Buffer, error) {
-		for _, v := range raw {
+		for _, v := range rawOutputs {
 			err = errors.Join(err, v.Close())
 		}
 		return nil, err
 	}
-	if len(raw) != len(e.outputs) {
+	if len(rawOutputs) != len(expectedOutputs) {
 		return fail(fmt.Errorf("output count mismatch"))
 	}
-	for i, v := range raw {
+	for i, v := range rawOutputs {
 		dtype, dims, err := v.Shape()
 		if err != nil {
 			return fail(err)
 		}
-		info, _ := element(e.outputs[i].DType)
-		if dtype != info.pjrt || len(dims) != len(e.outputs[i].Dimensions) {
+		info, _ := element(expectedOutputs[i].DType)
+		if dtype != info.pjrt || len(dims) != len(expectedOutputs[i].Dimensions) {
 			return fail(fmt.Errorf("output shape mismatch"))
 		}
 		for j, d := range dims {
-			if d != int64(e.outputs[i].Dimensions[j]) {
+			if d != int64(expectedOutputs[i].Dimensions[j]) {
 				return fail(fmt.Errorf("output shape mismatch"))
 			}
 		}
 	}
-	out := make([]compute.Buffer, len(raw))
-	for i, v := range raw {
-		buf := &buffer{e.owner, v, e.outputs[i].Clone()}
+	out := make([]compute.Buffer, len(rawOutputs))
+	for i, v := range rawOutputs {
+		buf := &buffer{e.owner, v, expectedOutputs[i].Clone()}
 		e.owner.buffers[buf] = struct{}{}
 		out[i] = buf
 	}
 	return out, nil
+}
+
+func (b *Backend) compileProgram(code []byte, format string, opts *xla.CompileOptions) (nativeExecutable, error) {
+	if b.compile != nil {
+		return b.compile(code, format, opts)
+	}
+	return b.engine.Compile(code, format, opts)
 }
 
 var _ compute.Backend = (*Backend)(nil)

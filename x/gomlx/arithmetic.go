@@ -2,10 +2,11 @@ package gomlx
 
 import (
 	"fmt"
+	"math"
+	"slices"
+
 	"github.com/gomlx/compute"
 	"github.com/gomlx/compute/dtypes"
-	"math"
-
 	"github.com/gomlx/compute/shapes"
 	hlo "github.com/tmc/lib/x/stablehlo/builder"
 )
@@ -13,6 +14,9 @@ import (
 func (f *function) Mul(a, b compute.Value) (compute.Value, error) {
 	if f.returned {
 		return nil, fmt.Errorf("function already returned")
+	}
+	if err := f.checkBinaryAxisNames(a, b); err != nil {
+		return nil, err
 	}
 	x, err := f.value(a)
 	if err != nil {
@@ -30,6 +34,8 @@ func (f *function) Mul(a, b compute.Value) (compute.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicMultiply, operands: []hlo.Value{x, y}, result: z})
+	f.recordBinaryShape(z, x, y)
 	return &node{f, z}, nil
 }
 func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (compute.Value, error) {
@@ -70,7 +76,21 @@ func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) 
 	return &node{f, z}, nil
 }
 func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error) {
-	return f.reduce(v, "add", axes)
+	result, err := f.reduce(v, "add", axes)
+	if err == nil {
+		n := result.(*node)
+		x, _ := f.value(v)
+		resolvedAxes := slices.Clone(axes)
+		if len(resolvedAxes) == 0 {
+			resolvedAxes = make([]int, len(x.Type.Shape))
+			for i := range resolvedAxes {
+				resolvedAxes[i] = i
+			}
+		}
+		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicReduceSum, operand: x, axes: resolvedAxes, result: n.value})
+		f.recordReductionShape(n.value, x, resolvedAxes)
+	}
+	return result, err
 }
 func (f *function) ReduceProduct(v compute.Value, axes ...int) (compute.Value, error) {
 	return f.reduce(v, "multiply", axes)
@@ -226,7 +246,34 @@ func (f *function) binary(a, b compute.Value, emit func(hlo.Value, hlo.Value) (h
 	return &node{f, z}, nil
 }
 func (f *function) Sub(a, b compute.Value) (compute.Value, error) {
-	return f.binary(a, b, f.raw.Subtract)
+	if err := f.checkBinaryAxisNames(a, b); err != nil {
+		return nil, err
+	}
+	result, err := f.binary(a, b, f.raw.Subtract)
+	if err == nil {
+		n := result.(*node)
+		x, _ := f.value(a)
+		y, _ := f.value(b)
+		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicSubtract, operands: []hlo.Value{x, y}, result: n.value})
+		f.recordBinaryShape(n.value, x, y)
+	}
+	return result, err
+}
+
+func (f *function) checkBinaryAxisNames(a, b compute.Value) error {
+	left, err := f.Shape(a)
+	if err != nil {
+		return err
+	}
+	right, err := f.Shape(b)
+	if err != nil {
+		return err
+	}
+	if left.Rank() != right.Rank() {
+		return nil
+	}
+	_, err = shapes.UnifyAxisNames(left, right)
+	return err
 }
 func (f *function) Div(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, f.raw.Divide)
@@ -266,6 +313,10 @@ func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
 	}
 	z := hlo.Value{ID: fmt.Sprintf("%%sqrt%d", len(f.raw.Ops)), Type: x.Type}
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.sqrt %s : %s", z.ID, x.ID, x.Type))
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicSqrt, operand: x, result: z})
+	if shape, ok := f.valueShapes[x.ID]; ok {
+		f.valueShapes[z.ID] = shape.Clone()
+	}
 	return &node{f, z}, nil
 }
 

@@ -171,6 +171,22 @@ func (b *FuncBuilder) Exponential(v Value) (Value, error) {
 	return b.unaryOp("stablehlo.exponential", v)
 }
 
+// Sqrt emits stablehlo.sqrt.
+func (b *FuncBuilder) Sqrt(v Value) (Value, error) {
+	return b.unaryOp("stablehlo.sqrt", v)
+}
+
+// Int32VectorConstant emits a rank-one i32 constant.
+func (b *FuncBuilder) Int32VectorConstant(values []int32) (Value, error) {
+	out := Value{ID: b.next(), Type: Type{Shape: []int64{int64(len(values))}, ElementType: "i32"}}
+	parts := make([]string, len(values))
+	for i, value := range values {
+		parts[i] = strconv.FormatInt(int64(value), 10)
+	}
+	b.Ops = append(b.Ops, fmt.Sprintf("%s = stablehlo.constant dense<[%s]> : %s", out.ID, strings.Join(parts, ", "), out.Type))
+	return out, nil
+}
+
 func (b *FuncBuilder) unaryOp(op string, v Value) (Value, error) {
 	if err := checkType(v.Type); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", op, err)

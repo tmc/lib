@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gomlx/compute"
+	"github.com/gomlx/compute/shapes"
 	hlo "github.com/tmc/lib/x/stablehlo/builder"
 )
 
@@ -20,7 +21,7 @@ func (f *function) Closure() (compute.Function, error) {
 	if f.owner.closed || f.returned {
 		return nil, fmt.Errorf("function closed")
 	}
-	c := &function{owner: f.owner, parent: f, raw: hlo.NewFunc(fmt.Sprintf("function%d", len(f.owner.functions)))}
+	c := &function{owner: f.owner, parent: f, raw: hlo.NewFunc(fmt.Sprintf("function%d", len(f.owner.functions))), valueShapes: make(map[string]shapes.Shape)}
 	c.Function.ErrFn = func(op compute.OpType) error { return fmt.Errorf("%s: %w", op, unsupported) }
 	f.owner.functions = append(f.owner.functions, c)
 	return c, nil
@@ -38,7 +39,7 @@ func (b *builder) NewFunction(name string) (compute.Function, error) {
 			return nil, fmt.Errorf("duplicate function name %q", name)
 		}
 	}
-	f := &function{owner: b, name: name, raw: hlo.NewFunc(fmt.Sprintf("function%d", len(b.functions)))}
+	f := &function{owner: b, name: name, raw: hlo.NewFunc(fmt.Sprintf("function%d", len(b.functions))), valueShapes: make(map[string]shapes.Shape)}
 	f.Function.ErrFn = func(op compute.OpType) error { return fmt.Errorf("%s: %w", op, unsupported) }
 	b.functions = append(b.functions, f)
 	return f, nil
