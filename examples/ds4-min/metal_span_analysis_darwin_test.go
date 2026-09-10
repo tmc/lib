@@ -10,7 +10,8 @@ import (
 // Span statistics recovered from a single run.
 //
 // A workload run records one metalRegion per command buffer: 86 per token for
-// prefill, so a 32-token chunk yields 2752 spans in roughly seven seconds. That
+// prefill plus one for the output head, which EvalBatch runs only at the last
+// position, so a 32-token chunk yields 2753 spans in roughly seven seconds. That
 // is the sample the benchmarks have been discarding. Averaging the spans into
 // one rate per run leaves six samples to reason from, all of them wall-clock
 // rates with double-digit variance; the spans themselves describe the structure
@@ -95,7 +96,7 @@ func spansByRegion(spans []metalRegion) map[string][]metalRegion {
 // counts and ratios do not. This probe reports only the second kind.
 //
 // The sample size that matters is inside the run, not across runs. One 32-token
-// chunk records 32*86 = 2752 spans, each with a start, an end, a layer and a
+// chunk records 32*86 + 1 = 2753 spans, each with a start, an end, a layer and a
 // region. The baseline reduced all of that to one mean per run and compared six
 // such means. The metrics below describe the structure of a single run at a
 // sample size three orders of magnitude larger.
@@ -111,6 +112,7 @@ func BenchmarkMetalSpanProbe(b *testing.B) {
 		}
 		log := &metalRegionLog{}
 		r.ops.regions = log
+		beforeSubs := r.ops.submissions
 		b.StartTimer()
 
 		if err := r.EvalBatch(tokens, 0); err != nil {
@@ -119,7 +121,7 @@ func BenchmarkMetalSpanProbe(b *testing.B) {
 
 		b.StopTimer()
 		r.ops.regions = nil
-		reportSpanStructure(b, chunk, log.all())
+		reportSpanStructure(b, chunk, log.all(), r.ops.submissions.sub(beforeSubs))
 		b.StartTimer()
 	}
 }
@@ -127,14 +129,22 @@ func BenchmarkMetalSpanProbe(b *testing.B) {
 // reportSpanStructure reports the contention-independent structure of one run.
 // Every metric is a count or a ratio of intervals measured against each other,
 // so none of them is a wall-clock rate against a shared host.
-func reportSpanStructure(b *testing.B, tokens int, spans []metalRegion) {
+func reportSpanStructure(b *testing.B, tokens int, spans []metalRegion, subs metalSubmissions) {
 	b.Helper()
 	if len(spans) == 0 {
 		b.Fatal("no command buffer spans recorded")
 	}
 	st := analyzeSpans(spans)
+	if st.Count != subs.Buffers {
+		b.Fatalf("recorded %d command buffer spans but created %d command buffers; one of the two paths is missing a buffer", st.Count, subs.Buffers)
+	}
 
-	b.ReportMetric(float64(st.Count)/float64(tokens), "cbufs/tok")
+	// cbufs/tok comes from the creation counter, not the span count. The two
+	// are required to agree just above, and the counter is the one that cannot
+	// silently omit a buffer: a buffer created but never recorded is invisible
+	// to the log, which is how the output head's buffer went unnoticed until a
+	// gputrace disagreed with the metric.
+	b.ReportMetric(float64(subs.Buffers)/float64(tokens), "cbufs/tok")
 	// Occupancy from the union. A sum double-counts buffers that are in
 	// flight together and can exceed the extent outright; see
 	// TestAnalyzeSpansSumIsUpperBound.

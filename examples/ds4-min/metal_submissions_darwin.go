@@ -37,6 +37,17 @@ func (s metalSubmissions) sub(start metalSubmissions) metalSubmissions {
 	}
 }
 
+// add returns the sum of two readings, so a caller measuring across several
+// bracketed phases can accumulate them.
+func (s metalSubmissions) add(more metalSubmissions) metalSubmissions {
+	return metalSubmissions{
+		Buffers: s.Buffers + more.Buffers,
+		Commits: s.Commits + more.Commits,
+		Waits:   s.Waits + more.Waits,
+		Encoded: s.Encoded + more.Encoded,
+	}
+}
+
 // perToken reports the counts divided by a token count, which is the form the
 // ds4.c comparison takes: two command buffers per layer per token against a
 // whole-chunk submission. It returns zeroes for a non-positive token count

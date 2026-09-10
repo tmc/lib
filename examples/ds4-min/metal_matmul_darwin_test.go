@@ -167,14 +167,20 @@ func BenchmarkMetalMatmulPreservedF16(b *testing.B) {
 	for _, T := range []int{1, 8, 64, 256, 512} {
 		activations := make([]float32, k*T)
 		b.Run(fmt.Sprintf("T=%d", T), func(b *testing.B) {
+			before := ops.submissions
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				if _, err := mm.Mul(weightTensor, activations, T); err != nil {
 					b.Fatal(err)
 				}
 			}
+			b.StopTimer()
+			// Measured, not asserted. A literal 1 here would report the same
+			// number whatever the kernel did, which is the shape of metric
+			// that let cbufs/tok read 86 for as long as it did.
+			buffers := ops.submissions.sub(before).Buffers
 			b.ReportMetric(float64(b.N*T)/b.Elapsed().Seconds(), "tokens/s")
-			b.ReportMetric(1, "cbufs/batch")
+			b.ReportMetric(float64(buffers)/float64(b.N), "cbufs/batch")
 		})
 	}
 }

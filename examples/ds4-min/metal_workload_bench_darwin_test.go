@@ -141,7 +141,7 @@ func benchWorkloadSizes(b *testing.B, key string, sweep []int) []int {
 // There is no %idle here. Spans accumulate across benchmark iterations while
 // wall does not include the untimed reset between them, so the extent of the
 // whole span set is not a duration these metrics may divide by.
-func reportWorkload(b *testing.B, tokens int, spans []metalRegion, wall time.Duration) {
+func reportWorkload(b *testing.B, tokens int, spans []metalRegion, subs metalSubmissions, wall time.Duration) {
 	b.Helper()
 	if tokens == 0 {
 		b.Fatal("no tokens evaluated")
@@ -150,11 +150,18 @@ func reportWorkload(b *testing.B, tokens int, spans []metalRegion, wall time.Dur
 		b.Fatal("no command buffer spans recorded")
 	}
 	st := analyzeSpans(spans)
+	if st.Count != subs.Buffers {
+		b.Fatalf("recorded %d command buffer spans but created %d command buffers; one of the two paths is missing a buffer", st.Count, subs.Buffers)
+	}
+	buffers, commits, waits, encoded := subs.perToken(tokens)
 	seconds := wall.Seconds()
 	perToken := seconds / float64(tokens)
 	gpuPerToken := st.Union / float64(tokens)
 	b.ReportMetric(float64(tokens)/seconds, "tok/s")
-	b.ReportMetric(float64(st.Count)/float64(tokens), "cbufs/tok")
+	b.ReportMetric(buffers, "cbufs/tok")
+	b.ReportMetric(commits, "commits/tok")
+	b.ReportMetric(waits, "waits/tok")
+	b.ReportMetric(encoded, "dispatch/tok")
 	b.ReportMetric(gpuPerToken*1e3, "gpu_ms/tok")
 	b.ReportMetric(st.Sum/float64(tokens)*1e3, "gpumax_ms/tok")
 	b.ReportMetric((perToken-gpuPerToken)*1e3, "host_ms/tok")
@@ -177,6 +184,7 @@ func BenchmarkMetalPrefill(b *testing.B) {
 			}
 			tokens := benchWorkloadTokens(chunk)
 			var spans []metalRegion
+			var subs metalSubmissions
 			var wall time.Duration
 			evaluated := 0
 			for b.Loop() {
@@ -186,6 +194,11 @@ func BenchmarkMetalPrefill(b *testing.B) {
 				}
 				log := &metalRegionLog{}
 				r.ops.regions = log
+				// The counter is bracketed at the same two points the region
+				// log is installed and removed, so the two cover the same
+				// buffers and reportWorkload can require them to agree. Reset
+				// falls outside deliberately: it is untimed setup.
+				beforeSubs := r.ops.submissions
 				b.StartTimer()
 
 				start := time.Now()
@@ -194,6 +207,7 @@ func BenchmarkMetalPrefill(b *testing.B) {
 
 				b.StopTimer()
 				r.ops.regions = nil
+				subs = subs.add(r.ops.submissions.sub(beforeSubs))
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -202,7 +216,7 @@ func BenchmarkMetalPrefill(b *testing.B) {
 				spans = append(spans, log.all()...)
 				b.StartTimer()
 			}
-			reportWorkload(b, evaluated, spans, wall)
+			reportWorkload(b, evaluated, spans, subs, wall)
 		})
 	}
 }
@@ -233,6 +247,7 @@ func BenchmarkMetalDecode(b *testing.B) {
 			log := &metalRegionLog{}
 			r.ops.regions = log
 			defer func() { r.ops.regions = nil }()
+			beforeSubs := r.ops.submissions
 
 			var wall time.Duration
 			evaluated := 0
@@ -250,7 +265,7 @@ func BenchmarkMetalDecode(b *testing.B) {
 				evaluated++
 			}
 			b.StopTimer()
-			reportWorkload(b, evaluated, log.all(), wall)
+			reportWorkload(b, evaluated, log.all(), r.ops.submissions.sub(beforeSubs), wall)
 		})
 	}
 }
