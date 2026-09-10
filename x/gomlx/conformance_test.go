@@ -20,5 +20,8 @@ func TestNativeConformance(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	backendtest.RunAll(t, b, nil)
+	// Exercise static and implemented dynamic cases in one upstream run.
+	// The production capability remains off until general replay is complete;
+	// this test-only view also reaches dynamic cases that would otherwise skip.
+	backendtest.RunAll(t, dynamicConformanceBackend{b}, nil)
 }

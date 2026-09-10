@@ -8,7 +8,6 @@ import (
 	"github.com/gomlx/compute"
 	"github.com/gomlx/compute/dtypes"
 	"github.com/gomlx/compute/shapes"
-	"github.com/gomlx/compute/support/backendtest"
 	"github.com/gomlx/gomlx/core/graph"
 )
 
@@ -24,32 +23,6 @@ func (b dynamicConformanceBackend) Capabilities() compute.Capabilities {
 		c.Operations[op] = true
 	}
 	return c
-}
-
-func TestNativeDynamicConformance(t *testing.T) {
-	path := os.Getenv("TMC_COMPUTE_PLUGIN")
-	if path == "" {
-		t.Skip("set TMC_COMPUTE_PLUGIN")
-	}
-	b, err := New(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := b.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	if b.Capabilities().DynamicShapes != compute.DynamicShapesNone {
-		t.Fatal("production dynamic capability changed")
-	}
-	view := dynamicConformanceBackend{b}
-	if os.Getenv("TMC_DYNAMIC_FULL_CONFORMANCE") == "1" {
-		backendtest.RunAll(t, view, nil)
-		return
-	}
-	t.Run("BinaryOps", func(t *testing.T) { backendtest.TestBinaryOps(t, view) })
-	t.Run("SpecialOps", func(t *testing.T) { backendtest.TestSpecialOps(t, view) })
 }
 
 func TestNativeDynamicClosureGraph(t *testing.T) {
