@@ -17,6 +17,7 @@ use (
 	./lm
 	./nvidia
 	./openxla
+	./rocm
 	./tpu
 	./treesitter
 	./x/gomlx
