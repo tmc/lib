@@ -51,3 +51,17 @@ func ExampleBufferWrapper_OpaqueDeviceMemoryDataPointer() {
 	fmt.Println(err)
 	// Output: openxla: buffer is closed
 }
+
+func ExampleBufferWrapper_IsDenseRowMajor() {
+	var buffer openxla.BufferWrapper
+	_, err := buffer.IsDenseRowMajor()
+	fmt.Println(err)
+	// Output: openxla: buffer is closed
+}
+
+func ExampleBufferWrapper_OnDeviceSizeInBytes() {
+	var buffer openxla.BufferWrapper
+	_, err := buffer.OnDeviceSizeInBytes()
+	fmt.Println(err)
+	// Output: openxla: buffer is closed
+}
