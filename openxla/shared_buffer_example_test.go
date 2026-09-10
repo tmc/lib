@@ -32,3 +32,22 @@ func ExampleExecutableWrapper_ExecuteWithNonDonatableInputs() {
 	fmt.Println(err)
 	// Output: openxla: executable is closed
 }
+
+func ExampleBufferWrapper_IncreaseExternalReferenceCount() {
+	var buffer openxla.BufferWrapper
+	fmt.Println(buffer.IncreaseExternalReferenceCount())
+	// Output: openxla: buffer is closed
+}
+
+func ExampleBufferWrapper_DecreaseExternalReferenceCount() {
+	var buffer openxla.BufferWrapper
+	fmt.Println(buffer.DecreaseExternalReferenceCount())
+	// Output: openxla: buffer is closed
+}
+
+func ExampleBufferWrapper_OpaqueDeviceMemoryDataPointer() {
+	var buffer openxla.BufferWrapper
+	_, err := buffer.OpaqueDeviceMemoryDataPointer()
+	fmt.Println(err)
+	// Output: openxla: buffer is closed
+}

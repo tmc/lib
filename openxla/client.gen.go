@@ -784,6 +784,53 @@ func (b *BufferWrapper) IsOnCPU() (bool, error) {
 	return args.Is_on_cpu, nil
 }
 
+// IncreaseExternalReferenceCount prevents PJRT from moving or deleting the
+// buffer's storage until the matching DecreaseExternalReferenceCount call.
+// The buffer and client must remain open, and callers must serialize reference
+// operations with each other and with Destroy. This does not wait for readiness.
+func (b *BufferWrapper) IncreaseExternalReferenceCount() error {
+	if b == nil || b.buffer == nil {
+		return fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_IncreaseExternalReferenceCount == 0 || b.api.Buffer_DecreaseExternalReferenceCount == 0 {
+		return fmt.Errorf("openxla: external buffer references not available")
+	}
+	args := Buffer_IncreaseExternalReferenceCount_Args{Struct_size: PJRT_Buffer_IncreaseExternalReferenceCount_Args_STRUCT_SIZE, Buffer: b.buffer}
+	return decodeError(b.api, callPJRT(b.api.Buffer_IncreaseExternalReferenceCount, uintptr(unsafe.Pointer(&args))))
+}
+
+// DecreaseExternalReferenceCount releases one reference previously acquired by
+// IncreaseExternalReferenceCount. The buffer must remain open until this returns.
+func (b *BufferWrapper) DecreaseExternalReferenceCount() error {
+	if b == nil || b.buffer == nil {
+		return fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_DecreaseExternalReferenceCount == 0 {
+		return fmt.Errorf("openxla: external buffer references not available")
+	}
+	args := Buffer_DecreaseExternalReferenceCount_Args{Struct_size: PJRT_Buffer_DecreaseExternalReferenceCount_Args_STRUCT_SIZE, Buffer: b.buffer}
+	return decodeError(b.api, callPJRT(b.api.Buffer_DecreaseExternalReferenceCount, uintptr(unsafe.Pointer(&args))))
+}
+
+// OpaqueDeviceMemoryDataPointer returns a plugin-specific device memory pointer.
+// The caller must hold a positive external reference count for the entire use
+// of the pointer. This method does not establish CPU accessibility, readiness,
+// element layout, or permission to mutate memory. A nil pointer may describe
+// an empty allocation; the caller must check its expected storage size.
+func (b *BufferWrapper) OpaqueDeviceMemoryDataPointer() (unsafe.Pointer, error) {
+	if b == nil || b.buffer == nil {
+		return nil, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_OpaqueDeviceMemoryDataPointer == 0 {
+		return nil, fmt.Errorf("openxla: device memory pointer not available")
+	}
+	args := Buffer_OpaqueDeviceMemoryDataPointer_Args{Struct_size: PJRT_Buffer_OpaqueDeviceMemoryDataPointer_Args_STRUCT_SIZE, Buffer: b.buffer}
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_OpaqueDeviceMemoryDataPointer, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return nil, err
+	}
+	return args.Device_memory_ptr, nil
+}
+
 // WaitReady waits for this buffer's producer to finish.
 func (b *BufferWrapper) WaitReady() error {
 	if b == nil || b.buffer == nil {
