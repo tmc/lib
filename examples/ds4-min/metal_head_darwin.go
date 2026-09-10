@@ -21,6 +21,11 @@ type metalHeadProjection struct {
 	dev      *libmetal.Device
 	library  apple.MTLLibrary
 	pipeline apple.MTLComputePipelineState
+
+	// ops owns this projection and centralizes command buffer creation.
+	// The head's buffer is one per token; counting it elsewhere is what
+	// made cbufs/tok read 86.00 against a gputrace count of 87.0.
+	ops *metalPinnedOps
 }
 
 func newMetalHeadProjection(dev *libmetal.Device) (_ *metalHeadProjection, err error) {
@@ -77,7 +82,7 @@ type metalHeadProjectionArgs struct {
 }
 
 func (h *metalHeadProjection) matvec(t boundMetalTensor, x []float32) ([]float32, error) {
-	if h == nil || h.pipeline == nil {
+	if h == nil || h.pipeline == nil || h.ops == nil {
 		return nil, fmt.Errorf("output head projection: closed")
 	}
 	if t.typeID != 1 || len(t.dimensions) != 2 || t.dimensions[0] != 16384 || t.dimensions[1] != 4 || len(x) != 16384 || t.data.Len() < 4*16384*2 {
@@ -94,7 +99,7 @@ func (h *metalHeadProjection) matvec(t boundMetalTensor, x []float32) ([]float32
 	}
 	defer out.Free()
 	args := metalHeadProjectionArgs{NE00: 16384, NE01: 4, NE02: 1, NB00: 2, NB01: 32768, NB02: 131072, NB03: 131072, NE10: 16384, NE11: 1, NE12: 1, NB10: 4, NB11: 65536, NB12: 65536, NB13: 65536, NE0: 4, NE1: 1, NR0: 2, R2: 1, R3: 1}
-	cb := h.dev.Queue().CommandBuffer()
+	cb := h.ops.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(h.pipeline)
 	enc.SetBytesLengthAtIndex(unsafe.Slice((*byte)(unsafe.Pointer(&args)), unsafe.Sizeof(args)), 0)
@@ -108,6 +113,10 @@ func (h *metalHeadProjection) matvec(t boundMetalTensor, x []float32) ([]float32
 	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
 		return nil, fmt.Errorf("output head projection %q: %w", t.name, err)
 	}
+	// Layer -1: the head is not part of any layer, and it runs at a position
+	// this call is not told. The span still has to be filed, because it is a
+	// command buffer per token and a cbufs/tok that omits it is short by one.
+	h.ops.record("output-head", -1, 0, cb)
 	return append([]float32(nil), out.HostSlice()...), nil
 }
 

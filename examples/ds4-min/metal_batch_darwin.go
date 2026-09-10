@@ -47,8 +47,7 @@ func newMetalBatch(ops *metalPinnedOps) (*metalBatch, error) {
 	if ops == nil || ops.dev == nil {
 		return nil, fmt.Errorf("Metal batch: missing ops")
 	}
-	ops.submissions.Buffers++
-	return &metalBatch{ops: ops, buffer: ops.dev.Queue().CommandBuffer()}, nil
+	return &metalBatch{ops: ops, buffer: ops.commandBuffer()}, nil
 }
 
 // EncodeHCPre appends the hyper-connection input projection and normalization.
@@ -574,16 +573,7 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("Metal batch: %w", err)
 	}
-	// After completion, so this reads a settled buffer and encodes nothing.
-	if b.ops.regions != nil {
-		b.ops.regions.add(metalRegion{
-			Region:   b.region,
-			Layer:    b.layer,
-			Position: b.position,
-			Start:    float64(b.buffer.GPUStartTime()),
-			End:      float64(b.buffer.GPUEndTime()),
-		})
-	}
+	b.ops.record(b.region, b.layer, b.position, b.buffer)
 	return nil
 }
 

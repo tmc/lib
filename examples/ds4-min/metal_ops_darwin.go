@@ -245,7 +245,7 @@ func (o *metalPinnedOps) ropeAttentionMixed(q, kv []float32, sinks boundMetalTen
 		return nil, nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	// Two dispatches, not one. The KV preamble writes state every head reads,
 	// which the single-threadgroup kernel ordered with a device barrier; that
@@ -306,16 +306,7 @@ func (o *metalPinnedOps) ropeAttentionMixed(q, kv []float32, sinks boundMetalTen
 	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("mixed attention: %w", err)
 	}
-	// After completion, so this reads a settled buffer and encodes nothing.
-	if o.regions != nil {
-		o.regions.add(metalRegion{
-			Region:   "rope-attention-mixed",
-			Layer:    layer,
-			Position: position,
-			Start:    float64(cb.GPUStartTime()),
-			End:      float64(cb.GPUEndTime()),
-		})
-	}
+	o.record("rope-attention-mixed", layer, position, cb)
 	host := out.HostSlice()
 	return append([]float32(nil), host[:len(q)]...), append([]float32(nil), host[len(q):len(q)+len(kv)]...), append([]float32(nil), host[len(q)+len(kv):]...), nil
 }
@@ -353,7 +344,7 @@ func (o *metalPinnedOps) compressor(kv, score []float32, ape, norm boundMetalTen
 		return nil, false, err
 	}
 	defer scorebuf.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.CompressorPool)
 	for i, data := range []metalmem.Slice[float32]{kvbuf, scorebuf, state.stateKV, state.stateScore, state.pooled} {
@@ -424,7 +415,7 @@ func (o *metalPinnedOps) RopeAttentionRaw(q, kv []float32, sinks boundMetalTenso
 		return nil, nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RopeAttentionRaw)
 	for i, data := range []metalmem.Slice[float32]{qbuf, kvbuf} {
@@ -461,7 +452,7 @@ func (o *metalPinnedOps) MatvecQ2KF32(t boundMetalTensor, x []float32) ([]float3
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.MatvecQ2KF32)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
@@ -493,7 +484,7 @@ func (o *metalPinnedOps) SumVectors(vectors []float32, count int) ([]float32, er
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.SumVectors)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -529,7 +520,7 @@ func (o *metalPinnedOps) MatvecQ2K(t boundMetalTensor, x []float32) ([]float32, 
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.QuantQ8K)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -575,7 +566,7 @@ func (o *metalPinnedOps) clamp10(x []float32, gate bool) ([]float32, error) {
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.Clamp10)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -617,7 +608,7 @@ func (o *metalPinnedOps) MatvecIQ2PairQ8K(gate, up boundMetalTensor, x []float32
 		return nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.QuantQ8K)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -660,7 +651,7 @@ func (o *metalPinnedOps) MatvecIQ2PairF32(gate, up boundMetalTensor, x []float32
 		return nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.MatvecIQ2PairF32)
 	enc.SetBufferWithOffsetAtIndex(gate.data.Buffer(), gate.data.Offset(), 0)
@@ -706,7 +697,7 @@ func (o *metalPinnedOps) swiglu(gate, up []float32, weight float32) ([]float32, 
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.SwiGLU)
 	enc.SetBufferWithOffsetAtIndex(g.Buffer(), g.Offset(), 0)
@@ -747,7 +738,7 @@ func (o *metalPinnedOps) RouterHash(logits []float32, table boundMetalTensor, to
 		return nil, nil, nil, err
 	}
 	defer weights.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RouterHash)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -789,7 +780,7 @@ func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) (
 		return nil, nil, nil, err
 	}
 	defer weights.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RouterBiased)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -821,7 +812,7 @@ func (o *metalPinnedOps) Layer0AttentionPost(embedding boundMetalTensor, block [
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.Layer0Post)
 	for i, tensor := range []boundMetalTensor{embedding, hcFn, hcScale, hcBase} {
@@ -858,7 +849,7 @@ func (o *metalPinnedOps) RopeAttentionOne(q, kv []float32, sinks boundMetalTenso
 		return nil, nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RopeAttention)
 	enc.SetBufferWithOffsetAtIndex(qbuf.Buffer(), qbuf.Offset(), 0)
@@ -894,7 +885,7 @@ func (o *metalPinnedOps) RMS(x []float32, weight boundMetalTensor, groups int, w
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.RMS)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -931,7 +922,7 @@ func (o *metalPinnedOps) Layer0AttentionPre(embedding, hcFn, hcScale, hcBase, no
 		return nil, nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.Layer0Attention)
 	for i, tensor := range []boundMetalTensor{embedding, hcFn, hcScale, hcBase, norm} {
@@ -990,6 +981,7 @@ func newMetalPinnedOps(dev *libmetal.Device) (*metalPinnedOps, error) {
 		o.Close()
 		return nil, err
 	}
+	o.head.ops = o
 	return o, nil
 }
 
@@ -1024,7 +1016,7 @@ func (o *metalPinnedOps) MatvecQ80(t boundMetalTensor, x []float32) ([]float32, 
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.MatvecQ80)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
@@ -1063,7 +1055,7 @@ func (o *metalPinnedOps) MatvecF16(t boundMetalTensor, x []float32) ([]float32, 
 		return nil, err
 	}
 	defer out.Free()
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(o.kernels.MatvecF16)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
@@ -1080,7 +1072,7 @@ func (o *metalPinnedOps) MatvecF16(t boundMetalTensor, x []float32) ([]float32, 
 }
 
 func (o *metalPinnedOps) dispatch(pipeline apple.MTLComputePipelineState, in metalmem.Slice[byte], out metalmem.Slice[float32], a, b uint32, threads int) error {
-	cb := o.dev.Queue().CommandBuffer()
+	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(pipeline)
 	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
@@ -2060,3 +2052,36 @@ kernel void rope_attention_one(
   for(uint i=0;i<512;i++)out[32768+512+qoff+i]=weight*float(half(out[32768+i]));
 }
 `
+
+// commandBuffer creates a command buffer and counts it.
+//
+// Every command buffer the inference runtime creates comes from here. That is
+// what makes submissions.Buffers the whole count rather than a subset, and it
+// is enforced at the source level by TestCommandBufferCreationIsCentralized:
+// before centralization the package held 28 creation sites, cbufs/tok read
+// 86.00 against a gputrace count of 87.0, and the missing term was the output
+// head's buffer -- one per token, invisible to a metric with no variance.
+func (o *metalPinnedOps) commandBuffer() apple.MTLCommandBuffer {
+	o.submissions.Buffers++
+	return o.dev.Queue().CommandBuffer()
+}
+
+// record files a completed command buffer's GPU-time span, if a log is
+// installed. It is a no-op in production.
+//
+// Call it only after the buffer has completed: it reads two properties of a
+// finished object and encodes nothing, so a run with a log installed submits
+// the same dispatches in the same order as a run without one. That is what
+// makes bit-identity the right gate for the profiling build.
+func (o *metalPinnedOps) record(region string, layer, position int, cb apple.MTLCommandBuffer) {
+	if o == nil || o.regions == nil {
+		return
+	}
+	o.regions.add(metalRegion{
+		Region:   region,
+		Layer:    layer,
+		Position: position,
+		Start:    float64(cb.GPUStartTime()),
+		End:      float64(cb.GPUEndTime()),
+	})
+}
