@@ -56,6 +56,7 @@ func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (
 	if err != nil {
 		return nil, err
 	}
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "broadcast_static", operand: x, axes: slices.Clone(axes), result: z})
 	return &node{f, z}, nil
 }
 func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) {
@@ -73,6 +74,7 @@ func (f *function) Reshape(v compute.Value, dims ...int) (compute.Value, error) 
 	if err != nil {
 		return nil, err
 	}
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "reshape_static", operand: x, result: z})
 	return &node{f, z}, nil
 }
 func (f *function) ReduceSum(v compute.Value, axes ...int) (compute.Value, error) {
@@ -276,7 +278,13 @@ func (f *function) checkBinaryAxisNames(a, b compute.Value) error {
 	return err
 }
 func (f *function) Div(a, b compute.Value) (compute.Value, error) {
-	return f.binary(a, b, f.raw.Divide)
+	result, err := f.binary(a, b, f.raw.Divide)
+	if err == nil {
+		x, _ := f.value(a)
+		y, _ := f.value(b)
+		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "divide", operands: []hlo.Value{x, y}, result: result.(*node).value})
+	}
+	return result, err
 }
 func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Value, error) {
 	if f.returned {
@@ -297,6 +305,12 @@ func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Va
 	z, err := f.raw.Convert(x, info.hlo)
 	if err != nil {
 		return nil, err
+	}
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "convert", operand: x, result: z})
+	if shape, ok := f.valueShapes[x.ID]; ok {
+		shape = shape.Clone()
+		shape.DType = dtype
+		f.valueShapes[z.ID] = shape
 	}
 	return &node{f, z}, nil
 }

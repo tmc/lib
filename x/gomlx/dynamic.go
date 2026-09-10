@@ -3,7 +3,6 @@ package gomlx
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/gomlx/compute"
 	"github.com/gomlx/compute/dtypes"
@@ -12,12 +11,15 @@ import (
 )
 
 type dynamicOp struct {
-	kind     string
-	operands []hlo.Value
-	operand  hlo.Value
-	axis     int
-	axes     []int
-	result   hlo.Value
+	dimensions []dimensionSpec
+	pads       []padSpec
+	literal    string
+	kind       string
+	operands   []hlo.Value
+	operand    hlo.Value
+	axis       int
+	axes       []int
+	result     hlo.Value
 }
 
 const (
@@ -102,7 +104,7 @@ func (f *function) checkDynamicSlice() error {
 	wantRawOps := 0
 	for _, op := range f.dynamicOps {
 		switch op.kind {
-		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicSqrt, dynamicIntegerConstant, dynamicInt32VectorConstant:
+		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicSqrt, dynamicIntegerConstant, dynamicInt32VectorConstant, "reshape_dynamic", "broadcast_dynamic", "iota_dynamic", "pad_dynamic", "literal", "add", "divide", "convert", "reshape_static", "broadcast_static":
 			wantRawOps++
 		case dynamicReduceSum:
 			wantRawOps += 2
@@ -117,9 +119,18 @@ func (f *function) checkDynamicSlice() error {
 }
 
 func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Shape, []shapes.Shape, error) {
+	return f.specializeRuntime(bindings, nil)
+}
+
+func (f *function) specializeRuntime(bindings shapes.AxisBindings, evaluate scalarEvaluator) (string, []shapes.Shape, []shapes.Shape, error) {
 	if err := f.checkDynamicSlice(); err != nil {
 		return "", nil, nil, err
 	}
+	localBindings := make(shapes.AxisBindings)
+	for k, v := range bindings {
+		localBindings[k] = v
+	}
+	bindings = localBindings
 	inputs := make([]shapes.Shape, len(f.inputs))
 	concrete := make(map[string]hlo.Value, len(f.raw.Args))
 	raw := hlo.NewFunc("main")
@@ -135,12 +146,31 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 		raw.Args = append(raw.Args, v)
 		concrete[f.raw.Args[i].ID] = v
 	}
+	known := make(map[string]int64)
+	scalar := func(old hlo.Value) (int64, error) {
+		if n, ok := known[old.ID]; ok {
+			return n, nil
+		}
+		value, ok := concrete[old.ID]
+		if !ok {
+			return 0, fmt.Errorf("dynamic dimension: unknown value %s", old.ID)
+		}
+		if evaluate == nil {
+			return 0, fmt.Errorf("dynamic dimension: runtime evaluation required for %s", old.ID)
+		}
+		n, err := evaluate(raw, value)
+		if err == nil {
+			known[old.ID] = n
+		}
+		return n, err
+	}
 	for _, op := range f.dynamicOps {
 		operand := concrete[op.operand.ID]
 		var result hlo.Value
 		var err error
 		switch op.kind {
 		case dynamicDimensionSize:
+			known[op.result.ID] = operand.Type.Shape[op.axis]
 			result, err = raw.IntegerConstant(operand.Type.Shape[op.axis], hlo.Type{ElementType: "i32"})
 		case dynamicShape:
 			values := make([]int32, len(operand.Type.Shape))
@@ -148,7 +178,7 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 				values[j] = int32(dim)
 			}
 			result, err = raw.Int32VectorConstant(values)
-		case dynamicSubtract, dynamicMultiply:
+		case dynamicSubtract, dynamicMultiply, "add", "divide":
 			a, aok := concrete[op.operands[0].ID]
 			b, bok := concrete[op.operands[1].ID]
 			if !aok || !bok {
@@ -156,11 +186,25 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 			}
 			if op.kind == dynamicSubtract {
 				result, err = raw.Subtract(a, b)
+			} else if op.kind == "add" {
+				result, err = raw.Add(a, b)
+			} else if op.kind == "divide" {
+				result, err = raw.Divide(a, b)
 			} else {
 				result, err = raw.Multiply(a, b)
 			}
 		case dynamicReduceSum:
-			zero, zerr := raw.Constant(float32(0), hlo.Type{ElementType: operand.Type.ElementType})
+			var zero hlo.Value
+			var zerr error
+			typ := hlo.Type{ElementType: operand.Type.ElementType}
+			if elementDType(typ.ElementType).IsInt() {
+				zero = hlo.Value{ID: fmt.Sprintf("%%replay_zero%d", len(raw.Ops)), Type: typ}
+				raw.Ops = append(raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<0> : %s", zero.ID, typ))
+			} else if elementDType(typ.ElementType).IsComplex() {
+				zero, zerr = raw.ComplexConstant(0, 0, typ)
+			} else {
+				zero, zerr = raw.Constant(0, typ)
+			}
 			if zerr != nil {
 				err = zerr
 				break
@@ -179,6 +223,7 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 		case dynamicSqrt:
 			result, err = raw.Sqrt(operand)
 		case dynamicIntegerConstant:
+			known[op.result.ID] = int64(op.axis)
 			result, err = raw.IntegerConstant(int64(op.axis), hlo.Type{ElementType: "i32"})
 		case dynamicInt32VectorConstant:
 			values := make([]int32, len(op.axes))
@@ -186,6 +231,33 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 				values[i] = int32(value)
 			}
 			result, err = raw.Int32VectorConstant(values)
+		case "literal":
+			result = hlo.Value{ID: fmt.Sprintf("%%replay_constant%d", len(raw.Ops)), Type: op.result.Type}
+			raw.Ops = append(raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", result.ID, op.literal, result.Type))
+		case "convert":
+			result, err = raw.Convert(operand, op.result.Type.ElementType)
+		case "reshape_static":
+			result, err = raw.Reshape(operand, op.result.Type)
+		case "broadcast_static":
+			result, err = raw.BroadcastInDim(operand, int64s(op.axes), op.result.Type)
+		case "reshape_dynamic", "broadcast_dynamic", "iota_dynamic":
+			var dims []int64
+			dims, err = resolveDimensions(op.dimensions, operand, op.kind == "reshape_dynamic", bindings, scalar)
+			if err != nil {
+				break
+			}
+			t := hlo.Type{Shape: dims, ElementType: op.result.Type.ElementType}
+			switch op.kind {
+			case "reshape_dynamic":
+				result, err = raw.Reshape(operand, t)
+			case "broadcast_dynamic":
+				result, err = raw.BroadcastInDim(operand, int64s(op.axes), t)
+			case "iota_dynamic":
+				result = hlo.Value{ID: fmt.Sprintf("%%replay_iota%d", len(raw.Ops)), Type: t}
+				raw.Ops = append(raw.Ops, fmt.Sprintf(`%s = "stablehlo.iota"() {iota_dimension = %d : i64} : () -> %s`, result.ID, op.axis, t))
+			}
+		case "pad_dynamic":
+			result, err = replayPad(raw, operand, concrete[op.operands[0].ID], op.pads, scalar)
 		default:
 			return "", nil, nil, fmt.Errorf("dynamic specialization: unsupported operation %s", op.kind)
 		}
@@ -193,6 +265,17 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 			return "", nil, nil, err
 		}
 		concrete[op.result.ID] = result
+		if shape, ok := f.valueShapes[op.result.ID]; ok {
+			for axis, name := range shape.AxisNames {
+				if name != "" && name != shapes.AnonymousAxis {
+					size := int(result.Type.Shape[axis])
+					if previous, ok := bindings[name]; ok && previous != size {
+						return "", nil, nil, fmt.Errorf("dynamic axis %q has conflicting values: %d vs %d", name, previous, size)
+					}
+					bindings[name] = size
+				}
+			}
+		}
 	}
 	outputs := make([]shapes.Shape, len(f.raw.Returns))
 	returns := make([]hlo.Value, len(f.raw.Returns))
@@ -206,13 +289,8 @@ func (f *function) specialize(bindings shapes.AxisBindings) (string, []shapes.Sh
 		outputs[i] = shapes.Make(elementDType(result.Type.ElementType), dims...)
 	}
 	raw.Return(returns...)
-	var text strings.Builder
-	text.WriteString("module {\n")
-	if err := raw.Emit(&text); err != nil {
-		return "", nil, nil, err
-	}
-	text.WriteString("}\n")
-	return text.String(), inputs, outputs, nil
+	program, err := emitDynamicProgram(raw)
+	return program, inputs, outputs, err
 }
 
 func ints32(values []int32) []int {

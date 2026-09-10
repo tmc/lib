@@ -2,6 +2,7 @@ package gomlx
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"slices"
@@ -295,7 +296,7 @@ func (b *builder) Compile() (compute.Executable, error) {
 		return nil, fmt.Errorf("builder unavailable")
 	}
 	b.closed = true
-	if slices.ContainsFunc(b.main.inputs, shapes.Shape.IsDynamic) {
+	if slices.ContainsFunc(b.main.inputs, shapes.Shape.IsDynamic) || slices.ContainsFunc(b.main.dynamicOps, func(op dynamicOp) bool { return strings.HasSuffix(op.kind, "_dynamic") }) {
 		if err := b.main.checkDynamicSlice(); err != nil {
 			return nil, err
 		}
@@ -335,19 +336,48 @@ func (b *builder) Compile() (compute.Executable, error) {
 func (f *function) snapshot() *function {
 	copy := *f
 	raw := *f.raw
-	raw.Args = slices.Clone(f.raw.Args)
+	raw.Args = cloneValues(f.raw.Args)
 	raw.Ops = slices.Clone(f.raw.Ops)
-	raw.Returns = slices.Clone(f.raw.Returns)
+	raw.Returns = cloneValues(f.raw.Returns)
 	copy.raw = &raw
 	copy.names = slices.Clone(f.names)
 	copy.inputs = cloneShapes(f.inputs)
 	copy.outputs = cloneShapes(f.outputs)
 	copy.dynamicOps = slices.Clone(f.dynamicOps)
+	for i, op := range copy.dynamicOps {
+		copy.dynamicOps[i].operand = cloneValue(op.operand)
+		copy.dynamicOps[i].result = cloneValue(op.result)
+		copy.dynamicOps[i].operands = cloneValues(op.operands)
+		copy.dynamicOps[i].axes = slices.Clone(op.axes)
+		copy.dynamicOps[i].dimensions = slices.Clone(op.dimensions)
+		copy.dynamicOps[i].pads = slices.Clone(op.pads)
+		for j := range op.dimensions {
+			copy.dynamicOps[i].dimensions[j].value = cloneValue(op.dimensions[j].value)
+		}
+		for j, pad := range op.pads {
+			copy.dynamicOps[i].pads[j].start.value = cloneValue(pad.start.value)
+			copy.dynamicOps[i].pads[j].end.value = cloneValue(pad.end.value)
+			copy.dynamicOps[i].pads[j].interior.value = cloneValue(pad.interior.value)
+		}
+	}
 	copy.valueShapes = make(map[string]shapes.Shape, len(f.valueShapes))
 	for id, shape := range f.valueShapes {
 		copy.valueShapes[id] = shape.Clone()
 	}
 	return &copy
+}
+
+func cloneValue(v hlo.Value) hlo.Value {
+	v.Type.Shape = slices.Clone(v.Type.Shape)
+	return v
+}
+
+func cloneValues(values []hlo.Value) []hlo.Value {
+	out := make([]hlo.Value, len(values))
+	for i, v := range values {
+		out[i] = cloneValue(v)
+	}
+	return out
 }
 
 type node struct {
@@ -476,6 +506,9 @@ func (f *function) Return(values []compute.Value, shardings []*compute.ShardingS
 	return nil
 }
 func (f *function) Add(a, b compute.Value) (compute.Value, error) {
+	if err := f.checkBinaryAxisNames(a, b); err != nil {
+		return nil, err
+	}
 	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
@@ -495,6 +528,8 @@ func (f *function) Add(a, b compute.Value) (compute.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "add", operands: []hlo.Value{x, y}, result: z})
+	f.recordBinaryShape(z, x, y)
 	return &node{f, z}, nil
 }
 
@@ -586,13 +621,20 @@ func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device comp
 				return nil, fmt.Errorf("bind input %q: %w", e.names[i], err)
 			}
 		}
-		key := bindings.Key()
+		nativeInputs := make([]*xla.Buffer, len(inputs))
+		for i, input := range inputs {
+			nativeInputs[i] = input.(*buffer).raw
+		}
+		evaluate := func(raw *hlo.FuncBuilder, value hlo.Value) (int64, error) {
+			return e.owner.evaluateDimension(raw, value, nativeInputs)
+		}
+		program, concreteInputs, concreteOutputs, err := e.template.specializeRuntime(bindings, evaluate)
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("%s:%x", bindings.Key(), sha256.Sum256([]byte(program)))
 		spec := e.specializations[key]
 		if spec == nil {
-			program, concreteInputs, concreteOutputs, err := e.template.specialize(bindings)
-			if err != nil {
-				return nil, err
-			}
 			e.compileCalls++
 			compiled, err := e.owner.compileProgram([]byte(program), "mlir", nil)
 			if err != nil {
@@ -826,5 +868,7 @@ func (f *function) Constant(flat any, dims ...int) (compute.Value, error) {
 	}
 	v := hlo.Value{ID: fmt.Sprintf("%%constant%d", len(f.raw.Ops)), Type: hlo.Type{Shape: int64s(dims), ElementType: info.hlo}}
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.constant dense<%s> : %s", v.ID, text.String(), v.Type))
+	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "literal", literal: text.String(), result: v})
+	f.valueShapes[v.ID] = shape.Clone()
 	return &node{f, v}, nil
 }
