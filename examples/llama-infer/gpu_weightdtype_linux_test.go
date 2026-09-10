@@ -10,6 +10,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 // Native acceptance tests for half weight storage.
@@ -29,15 +30,25 @@ import (
 // that half precision is imprecise. Quantization error is measured separately
 // in halfref_test.go and its permissive budget is NOT reused here.
 
-func requireCUDAHardware(t *testing.T) *cuda.Device {
+// requireCUDAHardware returns a device satisfying reqs, or skips.
+//
+// The LIB_CUDA_HARDWARE_TEST opt-in stays: these tests compile kernels and
+// allocate tens of MiB on whatever device they find, which is not something a
+// shared host should get from an ordinary `go test`. Everything after the
+// opt-in is delegated to cudatest.Require, which distinguishes an absent
+// driver from a broken one: a machine with no libcuda skips, while a libcuda
+// that loads and then fails to initialize is a failure. The previous guard
+// called cuda.NewDevice directly and reported both as the same t.Fatal, so a
+// host without a GPU failed the suite instead of skipping it.
+//
+// A skip establishes nothing. None of these tests has been executed by the
+// author; see the package comment above.
+func requireCUDAHardware(t *testing.T, reqs ...cudatest.Requirement) *cuda.Device {
 	t.Helper()
 	if os.Getenv("LIB_CUDA_HARDWARE_TEST") != "1" {
 		t.Skip("set LIB_CUDA_HARDWARE_TEST=1 on a CUDA host")
 	}
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dev := cudatest.Require(t, reqs...)
 	t.Cleanup(func() { dev.Close() })
 	return dev
 }
@@ -51,6 +62,11 @@ func requireCUDAHardware(t *testing.T) *cuda.Device {
 // on the weight dtype. It is three orders of magnitude below the quantization
 // budgets in halfref_test.go, and reusing those here would let a genuinely
 // wrong kernel pass.
+// halfCapable is the compute capability the half weight path needs: __half
+// arithmetic is sm_53 and later. Requiring it turns a launch failure on an
+// older device into a skip that names the reason.
+var halfCapable = cudatest.MinCompute(5, 3)
+
 const (
 	implRelTol = 2e-6
 	implAbsTol = 1e-5
@@ -85,7 +101,7 @@ func checkImpl(t *testing.T, name string, got, want, scale []float32) {
 // multiple of four, so 129/130/131 exercise the alignment-aware fallback that
 // the aligned cases never reach.
 func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +185,7 @@ func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
 // If the test still passes, the oracle is not reading what the kernel computed
 // and every other result in this file is worthless.
 func TestCUDAWeightDTypeGEMVNegativeControl(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -259,7 +275,7 @@ func TestCUDAWeightDTypeGEMVNegativeControl(t *testing.T) {
 // The three counts sum to 65536 in each format, and the test asserts that, so a
 // classification that silently dropped a class could not pass.
 func TestCUDADeviceConversionMatchesGo(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -388,7 +404,7 @@ func TestCUDADeviceConversionMatchesGo(t *testing.T) {
 // implRelTol. A dimension that is a multiple of four is included as the control
 // that passed even before the fix.
 func TestCUDASingleAndBatchFusedAgreeOnOddDimensions(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -509,7 +525,7 @@ func deterministicFloats(n int, seed uint32) []float32 {
 // exactly. Negative zeros in the table are preserved by that path and are
 // included deliberately.
 func TestCUDAEmbeddingLookupOddStride(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)

@@ -4,23 +4,14 @@ package main
 
 import (
 	"math"
-	"os"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
 func TestCUDABatchArgmaxTieAndLowestFiniteValue(t *testing.T) {
-	if os.Getenv("LIB_CUDA_HARDWARE_TEST") != "1" {
-		t.Skip("set LIB_CUDA_HARDWARE_TEST=1 on a CUDA host")
-	}
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dev.Close()
+	dev := requireCUDAHardware(t)
 	modules, err := CompileGPUModules(dev)
 	if err != nil {
 		t.Fatal(err)

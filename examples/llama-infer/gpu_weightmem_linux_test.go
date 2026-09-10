@@ -39,7 +39,7 @@ import (
 // read here, and required to fall by at least the allocation, because that
 // direction is sound on any device; the ratio it implies is only logged.
 func TestCUDAHalfWeightsHalveDeviceMemory(t *testing.T) {
-	dev := requireCUDAHardware(t)
+	dev := requireCUDAHardware(t, halfCapable)
 
 	// 8M weights: 32 MiB in f32, 16 MiB in f16, both far above any plausible
 	// allocation granularity.
