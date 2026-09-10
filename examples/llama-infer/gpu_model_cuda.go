@@ -37,6 +37,10 @@ type GPUModelWeights struct {
 	LMHead      WeightSlice
 	dtype       WeightDType
 	arena       *cudamem.Arena
+
+	// mx holds MXFP4 copies of the linear projections when
+	// LLAMA_INFER_MXFP4=1; nil otherwise.
+	mx *mxfp4Weights
 }
 
 // Free releases all model parameter storage. It is safe to call more than once.
@@ -46,6 +50,8 @@ func (w *GPUModelWeights) Free() {
 	}
 	arena := w.arena
 	w.arena = nil
+	_ = w.mx.close()
+	w.mx = nil
 	_ = arena.Free()
 }
 
@@ -214,6 +220,13 @@ func UploadModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeig
 		}
 	}
 
+	var mx *mxfp4Weights
+	if mxfp4Enabled() {
+		if mx, err = uploadMXFP4(dev, tracker, w, cfg); err != nil {
+			return nil, err
+		}
+	}
+
 	committed = true
 	return &GPUModelWeights{
 		EmbedTokens: embed,
@@ -222,6 +235,7 @@ func UploadModelToGPUAs(dev *cuda.Device, tracker *cudamem.Tracker, w *ModelWeig
 		LMHead:      lmHead,
 		dtype:       d,
 		arena:       arena,
+		mx:          mx,
 	}, nil
 }
 
@@ -323,10 +337,20 @@ func gpuForwardPassBody(
 
 	// noBias stands in for an absent optional kernel argument: an empty slice
 	// packs as a null device pointer.
-	var noBias cudamem.Slice[float32]
+	var noBias WeightSlice
 
 	launcher := func(fn *cuda.Kernel) *cudalaunch.Launcher {
 		return cudalaunch.OwnedKernel(fn).On(stream).Count(counter)
+	}
+
+	// gemv is one linear projection, out = W x + bias. It reads the MXFP4 copy
+	// when the model carries one for this matrix and the dtype kernel otherwise.
+	gemv := func(x cudamem.Slice[float32], w, bias WeightSlice, out cudamem.Slice[float32], inDim, outDim int, mx *mxfp4Matrix) error {
+		if mx != nil {
+			return gpuW.mx.linear(stream, launcher, gm, x, mx, bias, out)
+		}
+		return launcher(gm.GEMV).Grid(uint32(outDim)).Block(128).
+			Launch(x, w, bias, out, int32(inDim), int32(outDim))
 	}
 
 	// 1. Embedding lookup
@@ -338,13 +362,14 @@ func gpuForwardPassBody(
 	// 2. Transformer Decoder Layers
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
 		layerW := &gpuW.Layers[i]
+		layerMX := gpuW.mx.layer(i)
 		layerKV, err := kv.Layer(i)
 		if err != nil {
 			return err
 		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
-		if cfg.FuseEGraph && layerW.QBias.Len() == 0 {
+		if cfg.FuseEGraph && layerW.QBias.Len() == 0 && layerMX == nil {
 			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
 			if err := launcher(gm.FusedQKV).Grid(uint32(qHeads*headDim)).Block(128).
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
@@ -358,16 +383,13 @@ func gpuForwardPassBody(
 				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 				return err
 			}
-			if err := launcher(gm.GEMV).Grid(uint32(qHeads*headDim)).Block(128).
-				Launch(sp.NormX, layerW.WQ, layerW.QBias, sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
+			if err := gemv(sp.NormX, layerW.WQ, layerW.QBias, sp.Q, hiddenSize, qHeads*headDim, layerMX.q()); err != nil {
 				return err
 			}
-			if err := launcher(gm.GEMV).Grid(uint32(kvHeads*headDim)).Block(128).
-				Launch(sp.NormX, layerW.WK, layerW.KBias, sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+			if err := gemv(sp.NormX, layerW.WK, layerW.KBias, sp.K, hiddenSize, kvHeads*headDim, layerMX.k()); err != nil {
 				return err
 			}
-			if err := launcher(gm.GEMV).Grid(uint32(kvHeads*headDim)).Block(128).
-				Launch(sp.NormX, layerW.WV, layerW.VBias, sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+			if err := gemv(sp.NormX, layerW.WV, layerW.VBias, sp.V, hiddenSize, kvHeads*headDim, layerMX.v()); err != nil {
 				return err
 			}
 		}
@@ -399,8 +421,7 @@ func gpuForwardPassBody(
 		}
 
 		// Step 2f: Output GEMV
-		if err := launcher(gm.GEMV).Grid(uint32(hiddenSize)).Block(128).
-			Launch(sp.AttnOut, layerW.WO, noBias, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+		if err := gemv(sp.AttnOut, layerW.WO, noBias, sp.NormX, qHeads*headDim, hiddenSize, layerMX.o()); err != nil {
 			return err
 		}
 
@@ -417,17 +438,15 @@ func gpuForwardPassBody(
 		}
 
 		// Step 2i: Gate & Up GEMVs
-		if err := launcher(gm.GEMV).Grid(uint32(interSize)).Block(128).
-			Launch(sp.NormX, layerW.WGate, noBias, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
+		if err := gemv(sp.NormX, layerW.WGate, noBias, sp.Gate, hiddenSize, interSize, layerMX.gate()); err != nil {
 			return err
 		}
-		if err := launcher(gm.GEMV).Grid(uint32(interSize)).Block(128).
-			Launch(sp.NormX, layerW.WUp, noBias, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
+		if err := gemv(sp.NormX, layerW.WUp, noBias, sp.Up, hiddenSize, interSize, layerMX.up()); err != nil {
 			return err
 		}
 
 		// Step 2j & 2k: Fused SwiGLU + Down GEMV
-		if cfg.FuseEGraph {
+		if cfg.FuseEGraph && layerMX == nil {
 			// Fused SwiGLU Down Projection (Single kernel launch)
 			if err := launcher(gm.FusedSwiGLU).Grid(uint32(hiddenSize)).Block(128).
 				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
@@ -441,8 +460,7 @@ func gpuForwardPassBody(
 			}
 
 			// Step 2k: Down GEMV
-			if err := launcher(gm.GEMV).Grid(uint32(hiddenSize)).Block(128).
-				Launch(sp.FFNAct, layerW.WDown, noBias, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
+			if err := gemv(sp.FFNAct, layerW.WDown, noBias, sp.FFNOut, interSize, hiddenSize, layerMX.down()); err != nil {
 				return err
 			}
 		}
@@ -461,8 +479,7 @@ func gpuForwardPassBody(
 	}
 
 	// 4. LM Head Logits GEMV
-	if err := launcher(gm.GEMV).Grid(uint32(vocabSize)).Block(128).
-		Launch(sp.NormX, gpuW.LMHead, noBias, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
+	if err := gemv(sp.NormX, gpuW.LMHead, noBias, sp.Logits, hiddenSize, vocabSize, gpuW.mx.head()); err != nil {
 		return err
 	}
 

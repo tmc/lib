@@ -35,6 +35,7 @@ the measurement each one needs is unchanged and still unmade.
 | cudaptx, cudasass | `-kernel-report`: what NVRTC produced for the forward kernels |
 | cudatest | the hardware-test gate |
 | cudagraph | *gated* `LLAMA_INFER_CUDA_GRAPH=1`: `Capture`, `Instantiate`, `Exec.Update`, `Exec.Launch` replay the single-stream decode step (`cudagraph_cuda.go`) |
+| mxfp4 | *gated* `LLAMA_INFER_MXFP4=1`: `QuantizeMatrix` at load, `Engine.LinearGEMVOn` for the seven per-layer projections and the LM head of the single-stream decode (`mxfp4_cuda.go`). The full-precision copies stay resident; this is not a memory saving. |
 
 ## Not used, with the reason
 
@@ -53,10 +54,11 @@ kernel in the decode path is exactly the change that cannot be justified
 without measuring it on hardware. Not adopted for lack of a GPU, not for lack
 of merit.
 
-**cudaquant, mxfp4** — Q4_0/Q8_0 and MXFP4 weights. This example's weight path
-is f32/f16/bf16 with a checked dtype dispatch; quantized weights are a feature,
-not an adoption of an existing one, and they need an accuracy control against a
-reference before they can be believed.
+**cudaquant** — Q4_0/Q8_0 dequantization on the host, with no device kernel.
+There is nothing for the CUDA path to call; a Q4_0 checkpoint would be
+dequantized to float32 at load and uploaded as such, which is a loader feature
+this example does not have. mxfp4 has a device kernel and is adopted above,
+gated, without the accuracy control its own doc says adoption requires.
 
 **cudasanitizer** — runs a program under compute-sanitizer. Belongs in a test
 harness on a CUDA host, and would report nothing here.
