@@ -225,6 +225,9 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 		buffer := &BufferWrapper{api: c.api, buffer: args.Buffer}
 		return nil, errors.Join(err, buffer.Destroy())
 	}
+	if args.Buffer == nil {
+		return nil, fmt.Errorf("openxla: Client_BufferFromHostBuffer returned nil buffer")
+	}
 
 	return &BufferWrapper{
 		api:    c.api,
@@ -398,6 +401,9 @@ func (c *ClientWrapper) Compile(programCode []byte, format string, compileOption
 
 	if errPtr := callPJRT(c.api.Client_Compile, uintptr(unsafe.Pointer(&args))); errPtr != nil {
 		return nil, decodeError(c.api, errPtr)
+	}
+	if args.Executable == nil {
+		return nil, fmt.Errorf("openxla: Client_Compile returned nil executable")
 	}
 
 	return &ExecutableWrapper{
