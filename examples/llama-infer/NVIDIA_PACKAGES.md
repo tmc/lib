@@ -57,6 +57,17 @@ harness on a CUDA host, and would report nothing here.
 This example gets its GPU telemetry from cudaprof captures instead, which is
 one collector rather than two competing for the same CUPTI subscriber slot.
 
+**cudasass, from the capture side** — measured, not assumed. A cudaprof
+capture can carry the CUBIN, PTX, SASS, and source for the kernels it observed,
+and `cudacapture.LoadCode` parses them, so `gpuprof` could report a register
+floor per kernel instead of leaving `HardwareReplayData.PeakGPRs` at zero. All
+three retained captures checked on 2026-09-10 (`serving-20260910b/sglang`,
+`serving-20260910b/sglang-perkind`, `20260909-native-cuda13-final`) record every
+code role as explicitly unavailable, so nothing available here could exercise
+that path. Not written: an unexercisable path is worse than a documented zero.
+The compile-side use of cudasass in `-kernel-report` stands, since it
+disassembles the cubin NVRTC produced.
+
 **cudaobjdump** — inspects cubins in host binaries. The kernels here are
 compiled at run time by NVRTC, so the cubin is in memory and `cudasass`
 disassembles it directly; there is no host binary to dump.
