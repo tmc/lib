@@ -6,8 +6,9 @@ import (
 	"unsafe"
 )
 
-// Error is an opaque PJRT handle.
-type Error struct{}
+// ErrorHandle is an opaque PJRT_Error handle, not a Go error.
+// Its message and lifetime are managed through the PJRT API table.
+type ErrorHandle struct{}
 
 // Event is an opaque PJRT handle.
 type Event struct{}
@@ -95,14 +96,14 @@ type Api_Version struct {
 type Error_Destroy_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
-	Error           *Error
+	Error           *ErrorHandle
 }
 
 // Error_Message_Args represents PJRT_Error_Message_Args.
 type Error_Message_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
-	Error           *Error
+	Error           *ErrorHandle
 	Message         *byte
 	Message_size    uintptr
 }
@@ -122,7 +123,7 @@ type Error_FunctionTable struct {
 type Error_GetCode_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
-	Error           *Error
+	Error           *ErrorHandle
 	Code            Error_Code
 }
 
@@ -130,7 +131,7 @@ type Error_GetCode_Args struct {
 type Error_ForEachPayload_Args struct {
 	Struct_size     uintptr
 	Extension_start *Extension_Base
-	Error           *Error
+	Error           *ErrorHandle
 	Visitor         uintptr
 	User_arg        unsafe.Pointer
 }

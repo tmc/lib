@@ -15,19 +15,19 @@ func TestCompiledMemoryStats(t *testing.T) {
 			queries, destroys, errorsDestroyed := 0, 0, 0
 			api := &Api{}
 			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { errorsDestroyed++ })
-			api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *LoadedExecutable_GetExecutable_Args) *Error {
+			api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *LoadedExecutable_GetExecutable_Args) *ErrorHandle {
 				if a.Struct_size != PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE || a.Loaded_executable != loaded {
 					t.Error("invalid acquire arguments")
 				}
 				if mode == "acquire error" {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				if mode != "nil handle" {
 					a.Executable = raw
 				}
 				return nil
 			})
-			api.Executable_GetCompiledMemoryStats = purego.NewCallback(func(a *Executable_GetCompiledMemoryStats_Args) *Error {
+			api.Executable_GetCompiledMemoryStats = purego.NewCallback(func(a *Executable_GetCompiledMemoryStats_Args) *ErrorHandle {
 				queries++
 				if a.Struct_size != PJRT_Executable_GetCompiledMemoryStats_Args_STRUCT_SIZE || a.Executable != raw || a.Extension_start != nil {
 					t.Error("invalid query arguments")
@@ -37,17 +37,17 @@ func TestCompiledMemoryStats(t *testing.T) {
 					v.Field(i).SetInt(int64(100 + i))
 				}
 				if mode == "query error" || mode == "both errors" {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				return nil
 			})
-			api.Executable_Destroy = purego.NewCallback(func(a *Executable_Destroy_Args) *Error {
+			api.Executable_Destroy = purego.NewCallback(func(a *Executable_Destroy_Args) *ErrorHandle {
 				destroys++
 				if a.Struct_size != PJRT_Executable_Destroy_Args_STRUCT_SIZE || a.Executable != raw {
 					t.Error("invalid destroy arguments")
 				}
 				if mode == "destroy error" || mode == "both errors" {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				return nil
 			})

@@ -13,5 +13,5 @@ func NewClient() (*ClientWrapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	return openxla.NewClientFromApi(api)
+	return openxla.NewClientFromAPI(api)
 }

@@ -13,10 +13,10 @@ func TestBufferFromHostMalformedSuccessGuard(t *testing.T) {
 		t.Run(map[bool]string{false: "nil", true: "valid"}[wantBuffer], func(t *testing.T) {
 			awaited, destroyed := false, false
 			api := &Api{}
-			api.Buffer_Destroy = purego.NewCallback(func(*Buffer_Destroy_Args) *Error { return nil })
-			api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *Error { awaited = true; return nil })
-			api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *Error { destroyed = true; return nil })
-			api.Client_BufferFromHostBuffer = purego.NewCallback(func(a *Client_BufferFromHostBuffer_Args) *Error {
+			api.Buffer_Destroy = purego.NewCallback(func(*Buffer_Destroy_Args) *ErrorHandle { return nil })
+			api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *ErrorHandle { awaited = true; return nil })
+			api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *ErrorHandle { destroyed = true; return nil })
+			api.Client_BufferFromHostBuffer = purego.NewCallback(func(a *Client_BufferFromHostBuffer_Args) *ErrorHandle {
 				a.Done_with_host_buffer = &Event{}
 				if wantBuffer {
 					a.Buffer = &Buffer{}
@@ -47,8 +47,8 @@ func TestCompileMalformedSuccessGuard(t *testing.T) {
 	for _, wantExecutable := range []bool{false, true} {
 		t.Run(map[bool]string{false: "nil", true: "valid"}[wantExecutable], func(t *testing.T) {
 			api := &Api{}
-			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *Error { return nil })
-			api.Client_Compile = purego.NewCallback(func(a *Client_Compile_Args) *Error {
+			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *ErrorHandle { return nil })
+			api.Client_Compile = purego.NewCallback(func(a *Client_Compile_Args) *ErrorHandle {
 				if wantExecutable {
 					a.Executable = &LoadedExecutable{}
 				}

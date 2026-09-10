@@ -4,7 +4,7 @@ package tpu
 
 import "github.com/tmc/lib/openxla"
 
-type Error = openxla.Error
+type ErrorHandle = openxla.ErrorHandle
 type Event = openxla.Event
 type Client = openxla.Client
 type Device = openxla.Device

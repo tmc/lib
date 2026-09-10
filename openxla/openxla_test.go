@@ -7,12 +7,12 @@ import (
 	"unsafe"
 )
 
-func TestNewClientFromApi_Truncated(t *testing.T) {
+func TestNewClientFromAPI_Truncated(t *testing.T) {
 	// 1. Api table too small for version
 	api1 := &Api{
 		StructSize: 8,
 	}
-	_, err := NewClientFromApi(api1)
+	_, err := NewClientFromAPI(api1)
 	if err == nil || err.Error() != "openxla: API table too small to contain API version" {
 		t.Errorf("expected version truncation error, got %v", err)
 	}
@@ -22,7 +22,7 @@ func TestNewClientFromApi_Truncated(t *testing.T) {
 		StructSize: unsafe.Offsetof(Api{}.ApiVersion) + unsafe.Sizeof(Api{}.ApiVersion),
 		ApiVersion: Api_Version{Major_version: 1, Minor_version: 0},
 	}
-	_, err = NewClientFromApi(api2)
+	_, err = NewClientFromAPI(api2)
 	if err == nil || err.Error() != "openxla: unsupported PJRT API major version: 1 (expected 0)" {
 		t.Errorf("expected version error, got %v", err)
 	}
@@ -32,30 +32,30 @@ func TestNewClientFromApi_Truncated(t *testing.T) {
 		StructSize: unsafe.Offsetof(Api{}.Plugin_Initialize) + unsafe.Sizeof(Api{}.Plugin_Initialize),
 		ApiVersion: Api_Version{Major_version: 0, Minor_version: 30},
 	}
-	_, err = NewClientFromApi(api3)
+	_, err = NewClientFromAPI(api3)
 	if err == nil || !strings.Contains(err.Error(), "API table too small to contain Client_Create and Client_Destroy") {
 		t.Errorf("expected Client_Create/Client_Destroy truncation error, got %v", err)
 	}
 }
 
-func TestNewClientFromApi_Success(t *testing.T) {
+func TestNewClientFromAPI_Success(t *testing.T) {
 	api := &Api{
 		StructSize:     unsafe.Offsetof(Api{}.Client_Destroy) + unsafe.Sizeof(Api{}.Client_Destroy),
 		ApiVersion:     Api_Version{Major_version: 0, Minor_version: 30},
 		Error_Destroy:  purego.NewCallback(func(args *Error_Destroy_Args) {}),
 		Error_Message:  purego.NewCallback(func(args *Error_Message_Args) {}),
-		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil }),
+		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *ErrorHandle { return nil }),
 	}
 
 	clientCreated := false
-	cbCreate := func(args *Client_Create_Args) *Error {
+	cbCreate := func(args *Client_Create_Args) *ErrorHandle {
 		clientCreated = true
 		args.Client = &Client{}
 		return nil
 	}
 	api.Client_Create = purego.NewCallback(cbCreate)
 
-	client, err := NewClientFromApi(api)
+	client, err := NewClientFromAPI(api)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,15 +81,15 @@ func TestExecutableWrapper_NumOutputs_Zero(t *testing.T) {
 		t.Errorf("expected error for missing query functions, got %d, %v", num, err)
 	}
 
-	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *LoadedExecutable_GetExecutable_Args) *Error {
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *LoadedExecutable_GetExecutable_Args) *ErrorHandle {
 		args.Executable = &Executable{}
 		return nil
 	})
-	api.Executable_NumOutputs = purego.NewCallback(func(args *Executable_NumOutputs_Args) *Error {
+	api.Executable_NumOutputs = purego.NewCallback(func(args *Executable_NumOutputs_Args) *ErrorHandle {
 		args.Num_outputs = 0
 		return nil
 	})
-	api.Executable_Destroy = purego.NewCallback(func(args *Executable_Destroy_Args) *Error { return nil })
+	api.Executable_Destroy = purego.NewCallback(func(args *Executable_Destroy_Args) *ErrorHandle { return nil })
 
 	num, err = exec.NumOutputs()
 	if err != nil {
@@ -103,7 +103,7 @@ func TestExecutableWrapper_NumOutputs_Zero(t *testing.T) {
 func TestBufferFromHost_EventCleanup(t *testing.T) {
 	api := &Api{
 		StructSize:     1000,
-		Buffer_Destroy: purego.NewCallback(func(args *Buffer_Destroy_Args) *Error { return nil }),
+		Buffer_Destroy: purego.NewCallback(func(args *Buffer_Destroy_Args) *ErrorHandle { return nil }),
 	}
 	client := &ClientWrapper{
 		api:    api,
@@ -113,16 +113,16 @@ func TestBufferFromHost_EventCleanup(t *testing.T) {
 	destroyed := false
 	awaited := false
 
-	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *Error {
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *ErrorHandle {
 		args.Buffer = &Buffer{}
 		args.Done_with_host_buffer = &Event{}
 		return nil
 	})
-	api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *Error {
+	api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *ErrorHandle {
 		awaited = true
 		return nil
 	})
-	api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *Error {
+	api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *ErrorHandle {
 		destroyed = true
 		return nil
 	})
@@ -143,7 +143,7 @@ func TestBufferFromHost_EventCleanup(t *testing.T) {
 	}
 }
 
-func TestNewClientFromApi_ShortNativeAllocation(t *testing.T) {
+func TestNewClientFromAPI_ShortNativeAllocation(t *testing.T) {
 	// The native table ends at a guard page immediately after Client_Destroy.
 	ptrSize := unsafe.Sizeof(uintptr(0))
 	neededSize := unsafe.Offsetof(Api{}.Client_Destroy) + ptrSize
@@ -155,17 +155,17 @@ func TestNewClientFromApi_ShortNativeAllocation(t *testing.T) {
 	shortApi.ApiVersion = Api_Version{Major_version: 0, Minor_version: 30}
 	shortApi.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
 	shortApi.Error_Message = purego.NewCallback(func(args *Error_Message_Args) {})
-	shortApi.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil })
+	shortApi.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *ErrorHandle { return nil })
 
 	clientCreated := false
-	cbCreate := purego.NewCallback(func(args *Client_Create_Args) *Error {
+	cbCreate := purego.NewCallback(func(args *Client_Create_Args) *ErrorHandle {
 		clientCreated = true
 		args.Client = &Client{}
 		return nil
 	})
 	shortApi.Client_Create = cbCreate
 
-	client, err := NewClientFromApi(shortApi)
+	client, err := NewClientFromAPI(shortApi)
 	if err != nil {
 		t.Fatalf("unexpected error with short native allocation: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestToHost_MissingAwaitRejection(t *testing.T) {
 		StructSize: 1000,
 	}
 	// Missing Event_Await and Event_Destroy
-	api.Buffer_ToHostBuffer = purego.NewCallback(func(args *Buffer_ToHostBuffer_Args) *Error {
+	api.Buffer_ToHostBuffer = purego.NewCallback(func(args *Buffer_ToHostBuffer_Args) *ErrorHandle {
 		t.Fatal("Buffer_ToHostBuffer should not be called when Await/Destroy are missing")
 		return nil
 	})
@@ -212,19 +212,19 @@ func TestExecute_MissingAwaitRejection(t *testing.T) {
 		StructSize: 1000,
 	}
 	// Missing Event_Await and Event_Destroy
-	api.LoadedExecutable_Execute = purego.NewCallback(func(args *LoadedExecutable_Execute_Args) *Error {
+	api.LoadedExecutable_Execute = purego.NewCallback(func(args *LoadedExecutable_Execute_Args) *ErrorHandle {
 		t.Fatal("LoadedExecutable_Execute should not be called when Await/Destroy are missing")
 		return nil
 	})
-	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *LoadedExecutable_GetExecutable_Args) *Error {
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *LoadedExecutable_GetExecutable_Args) *ErrorHandle {
 		args.Executable = &Executable{}
 		return nil
 	})
-	api.Executable_NumOutputs = purego.NewCallback(func(args *Executable_NumOutputs_Args) *Error {
+	api.Executable_NumOutputs = purego.NewCallback(func(args *Executable_NumOutputs_Args) *ErrorHandle {
 		args.Num_outputs = 1
 		return nil
 	})
-	api.Executable_Destroy = purego.NewCallback(func(args *Executable_Destroy_Args) *Error { return nil })
+	api.Executable_Destroy = purego.NewCallback(func(args *Executable_Destroy_Args) *ErrorHandle { return nil })
 
 	exec := &ExecutableWrapper{
 		api:        api,
@@ -253,21 +253,21 @@ func TestBufferFromHost_AwaitFailureCleansBuffer(t *testing.T) {
 	eventDestroyed := false
 	errorDestroyed := false
 
-	mockErr := &Error{}
+	mockErr := &ErrorHandle{}
 
-	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *Error {
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *ErrorHandle {
 		args.Buffer = &Buffer{}
 		args.Done_with_host_buffer = &Event{}
 		return nil
 	})
-	api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *Error {
+	api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *ErrorHandle {
 		return mockErr
 	})
-	api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *Error {
+	api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *ErrorHandle {
 		eventDestroyed = true
 		return nil
 	})
-	api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *Error {
+	api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *ErrorHandle {
 		bufferDestroyed = true
 		return nil
 	})
@@ -334,13 +334,13 @@ func TestCopyApiTable_UnalignedSlotTruncation(t *testing.T) {
 func TestMissingDestructor_Rejection(t *testing.T) {
 	api := &Api{
 		StructSize:    1000,
-		Event_Await:   purego.NewCallback(func(args *Event_Await_Args) *Error { return nil }),
-		Event_Destroy: purego.NewCallback(func(args *Event_Destroy_Args) *Error { return nil }),
+		Event_Await:   purego.NewCallback(func(args *Event_Await_Args) *ErrorHandle { return nil }),
+		Event_Destroy: purego.NewCallback(func(args *Event_Destroy_Args) *ErrorHandle { return nil }),
 	}
 	client := &ClientWrapper{api: api, client: &Client{}}
 
 	// 1. BufferFromHost requires Buffer_Destroy
-	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *Error {
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *ErrorHandle {
 		t.Fatal("Client_BufferFromHostBuffer should not be called when Buffer_Destroy is missing")
 		return nil
 	})
@@ -351,7 +351,7 @@ func TestMissingDestructor_Rejection(t *testing.T) {
 	}
 
 	// 2. Compile requires LoadedExecutable_Destroy
-	api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *Error {
+	api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *ErrorHandle {
 		t.Fatal("Client_Compile should not be called when LoadedExecutable_Destroy is missing")
 		return nil
 	})
@@ -361,21 +361,21 @@ func TestMissingDestructor_Rejection(t *testing.T) {
 	}
 }
 
-func TestNewClientFromApi_ErrorDestroyMissingRejectionPrecedesInit(t *testing.T) {
+func TestNewClientFromAPI_ErrorDestroyMissingRejectionPrecedesInit(t *testing.T) {
 	initCalled := false
 	api := &Api{
 		StructSize: 1000,
 		ApiVersion: Api_Version{Major_version: 0, Minor_version: 30},
-		Plugin_Initialize: purego.NewCallback(func(args *Plugin_Initialize_Args) *Error {
+		Plugin_Initialize: purego.NewCallback(func(args *Plugin_Initialize_Args) *ErrorHandle {
 			initCalled = true
 			return nil
 		}),
-		Client_Create:  purego.NewCallback(func(args *Client_Create_Args) *Error { return nil }),
-		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *Error { return nil }),
+		Client_Create:  purego.NewCallback(func(args *Client_Create_Args) *ErrorHandle { return nil }),
+		Client_Destroy: purego.NewCallback(func(args *Client_Destroy_Args) *ErrorHandle { return nil }),
 		// Missing Error_Destroy and Error_Message
 	}
 
-	_, err := NewClientFromApi(api)
+	_, err := NewClientFromAPI(api)
 	if err == nil || !strings.Contains(err.Error(), "missing required error reporting functions") {
 		t.Fatalf("expected missing error reporting functions error, got %v", err)
 	}
@@ -388,8 +388,8 @@ func TestClientWrapper_Destroy_FailurePropagation(t *testing.T) {
 	api := &Api{
 		StructSize: 1000,
 	}
-	mockErr := &Error{}
-	api.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *Error {
+	mockErr := &ErrorHandle{}
+	api.Client_Destroy = purego.NewCallback(func(args *Client_Destroy_Args) *ErrorHandle {
 		return mockErr
 	})
 	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
@@ -413,8 +413,8 @@ func TestExecutableWrapper_Destroy_FailurePropagation(t *testing.T) {
 	api := &Api{
 		StructSize: 1000,
 	}
-	mockErr := &Error{}
-	api.LoadedExecutable_Destroy = purego.NewCallback(func(args *LoadedExecutable_Destroy_Args) *Error {
+	mockErr := &ErrorHandle{}
+	api.LoadedExecutable_Destroy = purego.NewCallback(func(args *LoadedExecutable_Destroy_Args) *ErrorHandle {
 		return mockErr
 	})
 	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
@@ -438,8 +438,8 @@ func TestBufferWrapper_Destroy_FailurePropagation(t *testing.T) {
 	api := &Api{
 		StructSize: 1000,
 	}
-	mockErr := &Error{}
-	api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *Error {
+	mockErr := &ErrorHandle{}
+	api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *ErrorHandle {
 		return mockErr
 	})
 	api.Error_Destroy = purego.NewCallback(func(args *Error_Destroy_Args) {})
@@ -462,10 +462,10 @@ func TestBufferWrapper_Destroy_FailurePropagation(t *testing.T) {
 func TestBufferFromHostRejectsNilDevice(t *testing.T) {
 	called := false
 	api := &Api{
-		Client_BufferFromHostBuffer: purego.NewCallback(func(*Client_BufferFromHostBuffer_Args) *Error { called = true; return nil }),
-		Buffer_Destroy:              purego.NewCallback(func(*Buffer_Destroy_Args) *Error { return nil }),
-		Event_Await:                 purego.NewCallback(func(*Event_Await_Args) *Error { return nil }),
-		Event_Destroy:               purego.NewCallback(func(*Event_Destroy_Args) *Error { return nil }),
+		Client_BufferFromHostBuffer: purego.NewCallback(func(*Client_BufferFromHostBuffer_Args) *ErrorHandle { called = true; return nil }),
+		Buffer_Destroy:              purego.NewCallback(func(*Buffer_Destroy_Args) *ErrorHandle { return nil }),
+		Event_Await:                 purego.NewCallback(func(*Event_Await_Args) *ErrorHandle { return nil }),
+		Event_Destroy:               purego.NewCallback(func(*Event_Destroy_Args) *ErrorHandle { return nil }),
 	}
 	c := &ClientWrapper{api: api, client: &Client{}}
 	var value float32

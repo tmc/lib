@@ -26,13 +26,13 @@ func TestDefaultDeviceAssignment(t *testing.T) {
 			calls, destroys := 0, 0
 			api := &Api{}
 			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { destroys++ })
-			api.Client_DefaultDeviceAssignment = purego.NewCallback(func(a *Client_DefaultDeviceAssignment_Args) *Error {
+			api.Client_DefaultDeviceAssignment = purego.NewCallback(func(a *Client_DefaultDeviceAssignment_Args) *ErrorHandle {
 				calls++
 				if a.Struct_size != PJRT_Client_DefaultDeviceAssignment_Args_STRUCT_SIZE || a.Num_replicas != 2 || a.Num_partitions != 3 || a.Default_assignment_size != 6 {
 					t.Errorf("invalid args: %+v", a)
 				}
 				if tt.fail {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				copy(unsafe.Slice(a.Default_assignment, a.Default_assignment_size), []int32{9, 4, 8, 2, 7, 1})
 				return nil
@@ -74,13 +74,13 @@ func TestSerializedDeviceAssignment(t *testing.T) {
 				}
 				clear(data)
 			})
-			api.LoadedExecutable_GetDeviceAssignment = purego.NewCallback(func(a *LoadedExecutable_GetDeviceAssignment_Args) *Error {
+			api.LoadedExecutable_GetDeviceAssignment = purego.NewCallback(func(a *LoadedExecutable_GetDeviceAssignment_Args) *ErrorHandle {
 				calls++
 				if a.Struct_size != PJRT_LoadedExecutable_GetDeviceAssignment_Args_STRUCT_SIZE {
 					t.Error("wrong struct size")
 				}
 				if name == "error" {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				a.Serialized_bytes, a.Serialized_bytes_size = &data[0], uintptr(len(data))
 				a.Serialized_device_assignment, a.Serialized_device_assignment_deleter = owner, free
