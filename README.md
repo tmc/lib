@@ -46,11 +46,13 @@ go get github.com/tmc/lib/nvidia@latest
 
 `go.work` covers every module in the repository, which is the invariant that
 keeps a module from quietly rotting: if it is here, `make` builds and tests it.
-`make check` fails if a module on disk is missing from the workspace.
+`make check` checks tracked files and nonignored untracked files. It fails if a
+module is missing from the workspace or a Go file has no enclosing module.
 
 ```bash
-make          # build and test every module
-make check    # verify go.work covers every module on disk
+make               # check, build, and test every module
+make check         # verify workspace coverage and Go file ownership
+make gate-selftest # exercise the gates in temporary fixtures
 ```
 
 Every module also builds on its own, without the workspace:
