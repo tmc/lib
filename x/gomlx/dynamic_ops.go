@@ -51,8 +51,8 @@ func (f *function) dimensionSpecs(specs []compute.DynamicDimensionSpec) ([]dimen
 func (f *function) knownAxisNames() sets.Set[string] {
 	names := sets.Make[string]()
 	for _, s := range f.valueShapes {
-		for _, name := range s.AxisNames {
-			if name != "" && name != shapes.AnonymousAxis {
+		for axis, name := range s.AxisNames {
+			if s.Dimensions[axis] == shapes.DynamicDim && name != "" && name != shapes.AnonymousAxis {
 				names.Insert(name)
 			}
 		}

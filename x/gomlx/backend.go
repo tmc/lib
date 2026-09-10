@@ -349,6 +349,9 @@ func (f *function) snapshot() *function {
 		copy.dynamicOps[i].result = cloneValue(op.result)
 		copy.dynamicOps[i].operands = cloneValues(op.operands)
 		copy.dynamicOps[i].axes = slices.Clone(op.axes)
+		copy.dynamicOps[i].starts = slices.Clone(op.starts)
+		copy.dynamicOps[i].limits = slices.Clone(op.limits)
+		copy.dynamicOps[i].strides = slices.Clone(op.strides)
 		copy.dynamicOps[i].dimensions = slices.Clone(op.dimensions)
 		copy.dynamicOps[i].pads = slices.Clone(op.pads)
 		for j := range op.dimensions {
@@ -506,31 +509,7 @@ func (f *function) Return(values []compute.Value, shardings []*compute.ShardingS
 	return nil
 }
 func (f *function) Add(a, b compute.Value) (compute.Value, error) {
-	if err := f.checkBinaryAxisNames(a, b); err != nil {
-		return nil, err
-	}
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	x, err := f.value(a)
-	if err != nil {
-		return nil, err
-	}
-	y, err := f.value(b)
-	if err != nil {
-		return nil, err
-	}
-	x, y, err = f.broadcastPair(x, y)
-	if err != nil {
-		return nil, err
-	}
-	z, err := f.raw.Add(x, y)
-	if err != nil {
-		return nil, err
-	}
-	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "add", operands: []hlo.Value{x, y}, result: z})
-	f.recordBinaryShape(z, x, y)
-	return &node{f, z}, nil
+	return f.binaryRecord(a, b, f.raw.Add, "add")
 }
 
 type executable struct {
@@ -793,27 +772,12 @@ func (f *function) broadcastPair(a, b hlo.Value) (hlo.Value, hlo.Value, error) {
 	if a.Type.ElementType != b.Type.ElementType {
 		return hlo.Value{}, hlo.Value{}, fmt.Errorf("operand dtypes mismatch: %s vs %s", a.Type.ElementType, b.Type.ElementType)
 	}
-	rank := max(len(a.Type.Shape), len(b.Type.Shape))
-	dims := make([]int64, rank)
-	for i := range rank {
-		x, y := int64(1), int64(1)
-		if j := i - rank + len(a.Type.Shape); j >= 0 {
-			x = a.Type.Shape[j]
-		}
-		if j := i - rank + len(b.Type.Shape); j >= 0 {
-			y = b.Type.Shape[j]
-		}
-		switch {
-		case x == y:
-			dims[i] = x
-		case x == 1:
-			dims[i] = y
-		case y == 1:
-			dims[i] = x
-		default:
-			return hlo.Value{}, hlo.Value{}, fmt.Errorf("incompatible broadcast dimensions")
-		}
+	shape, err := broadcastShape(f.valueShape(a), f.valueShape(b))
+	if err != nil {
+		return hlo.Value{}, hlo.Value{}, err
 	}
+	dims := int64s(shape.Dimensions)
+	rank := len(dims)
 	expand := func(v hlo.Value) (hlo.Value, error) {
 		if slices.Equal(v.Type.Shape, dims) {
 			return v, nil
@@ -822,7 +786,13 @@ func (f *function) broadcastPair(a, b hlo.Value) (hlo.Value, hlo.Value, error) {
 		for i := range axes {
 			axes[i] = int64(rank - len(axes) + i)
 		}
-		return f.raw.BroadcastInDim(v, axes, hlo.Type{Shape: dims, ElementType: v.Type.ElementType})
+		result, err := f.raw.BroadcastInDim(v, axes, hlo.Type{Shape: dims, ElementType: v.Type.ElementType})
+		if err != nil {
+			return hlo.Value{}, err
+		}
+		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "broadcast_pair", operand: v, operands: []hlo.Value{a, b}, axes: ints(axes), result: result})
+		f.valueShapes[result.ID] = shape.Clone()
+		return result, nil
 	}
 	x, err := expand(a)
 	if err != nil {

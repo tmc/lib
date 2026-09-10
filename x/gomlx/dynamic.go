@@ -11,15 +11,16 @@ import (
 )
 
 type dynamicOp struct {
-	dimensions []dimensionSpec
-	pads       []padSpec
-	literal    string
-	kind       string
-	operands   []hlo.Value
-	operand    hlo.Value
-	axis       int
-	axes       []int
-	result     hlo.Value
+	starts, limits, strides []int
+	dimensions              []dimensionSpec
+	pads                    []padSpec
+	literal                 string
+	kind                    string
+	operands                []hlo.Value
+	operand                 hlo.Value
+	axis                    int
+	axes                    []int
+	result                  hlo.Value
 }
 
 const (
@@ -104,7 +105,7 @@ func (f *function) checkDynamicSlice() error {
 	wantRawOps := 0
 	for _, op := range f.dynamicOps {
 		switch op.kind {
-		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicSqrt, dynamicIntegerConstant, dynamicInt32VectorConstant, "reshape_dynamic", "broadcast_dynamic", "iota_dynamic", "pad_dynamic", "literal", "add", "divide", "convert", "reshape_static", "broadcast_static":
+		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicSqrt, dynamicIntegerConstant, dynamicInt32VectorConstant, "reshape_dynamic", "broadcast_dynamic", "iota_dynamic", "pad_dynamic", "literal", "add", "divide", "convert", "reshape_static", "broadcast_static", "broadcast_pair", "concatenate", "slice":
 			wantRawOps++
 		case dynamicReduceSum:
 			wantRawOps += 2
@@ -240,6 +241,30 @@ func (f *function) specializeRuntime(bindings shapes.AxisBindings, evaluate scal
 			result, err = raw.Reshape(operand, op.result.Type)
 		case "broadcast_static":
 			result, err = raw.BroadcastInDim(operand, int64s(op.axes), op.result.Type)
+		case "broadcast_pair":
+			left, right := concrete[op.operands[0].ID], concrete[op.operands[1].ID]
+			var shape shapes.Shape
+			shape, err = broadcastShape(shapes.Make(elementDType(left.Type.ElementType), ints(left.Type.Shape)...), shapes.Make(elementDType(right.Type.ElementType), ints(right.Type.Shape)...))
+			if err == nil {
+				result, err = raw.BroadcastInDim(operand, int64s(op.axes), hlo.Type{Shape: int64s(shape.Dimensions), ElementType: operand.Type.ElementType})
+			}
+		case "concatenate":
+			values := make([]hlo.Value, len(op.operands))
+			for i, v := range op.operands {
+				values[i] = concrete[v.ID]
+			}
+			var typ hlo.Type
+			typ, err = concatenateType(values, op.axis)
+			if err == nil {
+				result, err = raw.Concatenate(values, int64(op.axis), typ)
+			}
+		case "slice":
+			var shape shapes.Shape
+			var ends []int
+			shape, ends, err = sliceShape(shapes.Make(elementDType(operand.Type.ElementType), ints(operand.Type.Shape)...), op.starts, op.limits, op.strides)
+			if err == nil {
+				result, err = raw.Slice(operand, int64s(op.starts), int64s(ends), int64s(op.strides), hlo.Type{Shape: int64s(shape.Dimensions), ElementType: operand.Type.ElementType})
+			}
 		case "reshape_dynamic", "broadcast_dynamic", "iota_dynamic":
 			var dims []int64
 			dims, err = resolveDimensions(op.dimensions, operand, op.kind == "reshape_dynamic", bindings, scalar)
@@ -267,7 +292,7 @@ func (f *function) specializeRuntime(bindings shapes.AxisBindings, evaluate scal
 		concrete[op.result.ID] = result
 		if shape, ok := f.valueShapes[op.result.ID]; ok {
 			for axis, name := range shape.AxisNames {
-				if name != "" && name != shapes.AnonymousAxis {
+				if shape.Dimensions[axis] == shapes.DynamicDim && name != "" && name != shapes.AnonymousAxis {
 					size := int(result.Type.Shape[axis])
 					if previous, ok := bindings[name]; ok && previous != size {
 						return "", nil, nil, fmt.Errorf("dynamic axis %q has conflicting values: %d vs %d", name, previous, size)

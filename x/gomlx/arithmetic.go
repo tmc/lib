@@ -12,31 +12,7 @@ import (
 )
 
 func (f *function) Mul(a, b compute.Value) (compute.Value, error) {
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	if err := f.checkBinaryAxisNames(a, b); err != nil {
-		return nil, err
-	}
-	x, err := f.value(a)
-	if err != nil {
-		return nil, err
-	}
-	y, err := f.value(b)
-	if err != nil {
-		return nil, err
-	}
-	x, y, err = f.broadcastPair(x, y)
-	if err != nil {
-		return nil, err
-	}
-	z, err := f.raw.Multiply(x, y)
-	if err != nil {
-		return nil, err
-	}
-	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicMultiply, operands: []hlo.Value{x, y}, result: z})
-	f.recordBinaryShape(z, x, y)
-	return &node{f, z}, nil
+	return f.binaryRecord(a, b, f.raw.Multiply, dynamicMultiply)
 }
 func (f *function) BroadcastInDim(v compute.Value, s shapes.Shape, axes []int) (compute.Value, error) {
 	if f.returned {
@@ -226,6 +202,10 @@ func (f *function) reduce(v compute.Value, op string, axes []int) (compute.Value
 }
 
 func (f *function) binary(a, b compute.Value, emit func(hlo.Value, hlo.Value) (hlo.Value, error)) (compute.Value, error) {
+	return f.binaryRecord(a, b, emit, "")
+}
+
+func (f *function) binaryRecord(a, b compute.Value, emit func(hlo.Value, hlo.Value) (hlo.Value, error), kind string) (compute.Value, error) {
 	if f.returned {
 		return nil, fmt.Errorf("function already returned")
 	}
@@ -245,46 +225,17 @@ func (f *function) binary(a, b compute.Value, emit func(hlo.Value, hlo.Value) (h
 	if err != nil {
 		return nil, err
 	}
+	if kind != "" {
+		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: kind, operands: []hlo.Value{x, y}, result: z})
+	}
+	f.recordBinaryShape(z, x, y)
 	return &node{f, z}, nil
 }
 func (f *function) Sub(a, b compute.Value) (compute.Value, error) {
-	if err := f.checkBinaryAxisNames(a, b); err != nil {
-		return nil, err
-	}
-	result, err := f.binary(a, b, f.raw.Subtract)
-	if err == nil {
-		n := result.(*node)
-		x, _ := f.value(a)
-		y, _ := f.value(b)
-		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicSubtract, operands: []hlo.Value{x, y}, result: n.value})
-		f.recordBinaryShape(n.value, x, y)
-	}
-	return result, err
-}
-
-func (f *function) checkBinaryAxisNames(a, b compute.Value) error {
-	left, err := f.Shape(a)
-	if err != nil {
-		return err
-	}
-	right, err := f.Shape(b)
-	if err != nil {
-		return err
-	}
-	if left.Rank() != right.Rank() {
-		return nil
-	}
-	_, err = shapes.UnifyAxisNames(left, right)
-	return err
+	return f.binaryRecord(a, b, f.raw.Subtract, dynamicSubtract)
 }
 func (f *function) Div(a, b compute.Value) (compute.Value, error) {
-	result, err := f.binary(a, b, f.raw.Divide)
-	if err == nil {
-		x, _ := f.value(a)
-		y, _ := f.value(b)
-		f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: "divide", operands: []hlo.Value{x, y}, result: result.(*node).value})
-	}
-	return result, err
+	return f.binaryRecord(a, b, f.raw.Divide, "divide")
 }
 func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Value, error) {
 	if f.returned {
