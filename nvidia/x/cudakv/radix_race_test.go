@@ -13,10 +13,10 @@ import (
 // blocks its own sequence was stored with, not another's.
 func TestMatchPrefixConcurrent(t *testing.T) {
 	tree := NewRadixTree(64, 2)
-	if err := tree.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
+	if _, err := tree.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
-	if err := tree.Insert([]int32{5, 6, 7, 8}, []int{12, 13}); err != nil {
+	if _, err := tree.Insert([]int32{5, 6, 7, 8}, []int{12, 13}); err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
 

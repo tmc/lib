@@ -143,22 +143,25 @@ func commonBlocks(a, b []int32, tpb int) int {
 }
 
 // Insert stores tokens and the blocks holding them, sharing the parts already
-// stored.
+// stored, and returns the blocks the tree took: those it will later hand back
+// through Evict, and which the caller must keep alive until then, for instance
+// with PagedCache.Retain.
 //
 // len(tokens) must be a whole number of blocks and blocks must hold one entry
-// per block of tokens. Inserting a sequence already stored refreshes it and
-// keeps the stored blocks: the caller's blocks for the shared part are then
-// redundant, which MatchPrefix would have told it before it computed them.
-func (r *RadixTree) Insert(tokens []int32, blocks []int) error {
+// per block of tokens. Where a prefix is already stored the tree keeps its own
+// blocks and takes none of the caller's for that part, so the caller's blocks
+// there are redundant and stay the caller's to free. Inserting a sequence
+// already stored in full refreshes it and takes nothing.
+func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
 	tpb := r.TokensPerBlock
 	if len(tokens) == 0 {
-		return fmt.Errorf("%s: inserting an empty sequence", pkgName)
+		return nil, fmt.Errorf("%s: inserting an empty sequence", pkgName)
 	}
 	if len(tokens)%tpb != 0 {
-		return fmt.Errorf("%s: %d tokens is not a whole number of %d-token blocks", pkgName, len(tokens), tpb)
+		return nil, fmt.Errorf("%s: %d tokens is not a whole number of %d-token blocks", pkgName, len(tokens), tpb)
 	}
 	if len(blocks) != len(tokens)/tpb {
-		return fmt.Errorf("%s: %d tokens need %d blocks, got %d", pkgName, len(tokens), len(tokens)/tpb, len(blocks))
+		return nil, fmt.Errorf("%s: %d tokens need %d blocks, got %d", pkgName, len(tokens), len(tokens)/tpb, len(blocks))
 	}
 
 	r.mu.Lock()
@@ -186,7 +189,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) error {
 			for _, b := range node.Blocks {
 				r.NodeMap[b] = node
 			}
-			return nil
+			return append([]int(nil), node.Blocks...), nil
 		}
 
 		n := commonBlocks(child.Tokens, tokens[pos:], tpb)
@@ -204,7 +207,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) error {
 		}
 		pos += n
 	}
-	return nil
+	return nil, nil
 }
 
 // split divides node after its first n tokens. It inserts a new parent holding

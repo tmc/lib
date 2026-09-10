@@ -10,7 +10,7 @@ import (
 // insert stores a sequence and fails the test if the tree refuses it.
 func insert(t *testing.T, tree *RadixTree, tokens []int32, blocks []int) {
 	t.Helper()
-	if err := tree.Insert(tokens, blocks); err != nil {
+	if _, err := tree.Insert(tokens, blocks); err != nil {
 		t.Fatalf("Insert(%v, %v): %v", tokens, blocks, err)
 	}
 }
@@ -102,7 +102,7 @@ func TestRadixTreeInsertRejectsUnalignedInput(t *testing.T) {
 		{"too few blocks", []int32{1, 2, 3, 4, 5, 6, 7, 8}, []int{10}},
 		{"too many blocks", []int32{1, 2, 3, 4}, []int{10, 11}},
 	} {
-		if err := tree.Insert(tt.tokens, tt.blocks); err == nil {
+		if _, err := tree.Insert(tt.tokens, tt.blocks); err == nil {
 			t.Errorf("Insert(%s) was accepted", tt.name)
 		}
 	}
@@ -210,5 +210,30 @@ func TestRadixTreeNodeMap(t *testing.T) {
 	}
 	if got := tree.NodeMap[10].Tokens; !reflect.DeepEqual(got, []int32{1, 2}) {
 		t.Errorf("after the split, block 10 belongs to a node holding %v, want [1 2]", got)
+	}
+}
+
+func TestRadixTreeInsertReportsAdoptedBlocks(t *testing.T) {
+	tree := NewRadixTree(8, 2)
+	got, err := tree.Insert([]int32{1, 2, 3, 4}, []int{10, 11})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{10, 11}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("fresh insert adopted %v; want %v", got, want)
+	}
+	got, err = tree.Insert([]int32{1, 2, 7, 8}, []int{20, 21})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{21}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("insert sharing one stored block adopted %v; want %v", got, want)
+	}
+	got, err = tree.Insert([]int32{1, 2, 3, 4}, []int{30, 31})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Fatalf("re-insert of a stored sequence adopted %v; want nothing", got)
 	}
 }

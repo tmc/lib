@@ -208,7 +208,14 @@ func (c *FP8Cache) Close() error {
 	return nil
 }
 
-// PagedCache manages dynamic, non-contiguous physical KV memory blocks for multi-sequence continuous batching.
+// PagedCache is a pool of fixed-size KV blocks shared by many sequences, each
+// with its own block table, for continuous batching.
+//
+// A block is freed when its last holder lets go. A sequence holds the blocks
+// in its table; a prefix cache keeps blocks past the end of the sequence that
+// wrote them with Retain and gives them up with Release. AllocSequenceWithPrefix
+// starts a sequence on blocks another holder already has. Nothing here reads or
+// writes the blocks: that is the attention kernel's job, through Page.
 type PagedCache struct {
 	mu sync.Mutex
 
@@ -218,9 +225,7 @@ type PagedCache struct {
 	headDim     int
 	blockSize   int
 	totalBlocks int
-	freeBlocks  []int
-	blockTables map[int64][]int
-	seqLens     map[int64]int
+	blocks      *blockAllocator
 	kBlocks     []cudamem.Slice[float32]
 	vBlocks     []cudamem.Slice[float32]
 }
@@ -234,6 +239,11 @@ type Page struct {
 
 // NewPagedCache creates a paged KV cache allocator with totalBlocks physical slots of blockSize tokens.
 func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, totalBlocks int) (*PagedCache, error) {
+	return NewPagedCacheTracked(dev, nil, numLayers, numKVHeads, headDim, blockSize, totalBlocks)
+}
+
+// NewPagedCacheTracked creates a paged cache whose pool is accounted by tracker.
+func NewPagedCacheTracked(dev *cuda.Device, tracker *cudamem.Tracker, numLayers, numKVHeads, headDim, blockSize, totalBlocks int) (*PagedCache, error) {
 	if err := validatePagedDimensions(numLayers, numKVHeads, headDim, blockSize, totalBlocks); err != nil {
 		return nil, err
 	}
@@ -246,7 +256,7 @@ func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, 
 	vBlocks := make([]cudamem.Slice[float32], numLayers)
 
 	for i := 0; i < numLayers; i++ {
-		k, err := cudamem.Alloc[float32](dev, elementsPerLayer)
+		k, err := cudamem.AllocTracked[float32](dev, tracker, elementsPerLayer)
 		if err != nil {
 			for j := 0; j < i; j++ {
 				_ = kBlocks[j].Free()
@@ -255,7 +265,7 @@ func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, 
 			return nil, fmt.Errorf("cudakv: alloc paged K layer %d: %w", i, err)
 		}
 
-		v, err := cudamem.Alloc[float32](dev, elementsPerLayer)
+		v, err := cudamem.AllocTracked[float32](dev, tracker, elementsPerLayer)
 		if err != nil {
 			_ = k.Free()
 			for j := 0; j < i; j++ {
@@ -269,11 +279,6 @@ func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, 
 		vBlocks[i] = v
 	}
 
-	free := make([]int, totalBlocks)
-	for i := 0; i < totalBlocks; i++ {
-		free[i] = i
-	}
-
 	return &PagedCache{
 		dev:         dev,
 		numLayers:   numLayers,
@@ -281,9 +286,7 @@ func NewPagedCache(dev *cuda.Device, numLayers, numKVHeads, headDim, blockSize, 
 		headDim:     headDim,
 		blockSize:   blockSize,
 		totalBlocks: totalBlocks,
-		freeBlocks:  free,
-		blockTables: make(map[int64][]int),
-		seqLens:     make(map[int64]int),
+		blocks:      newBlockAllocator(blockSize, totalBlocks),
 		kBlocks:     kBlocks,
 		vBlocks:     vBlocks,
 	}, nil
@@ -309,82 +312,80 @@ func validatePagedDimensions(numLayers, numKVHeads, headDim, blockSize, totalBlo
 	return nil
 }
 
-// AllocSequence allocates initial block storage for a new incoming sequence.
+// AllocSequence gives a new sequence enough blocks for promptTokens tokens.
 func (pc *PagedCache) AllocSequence(seqID int64, promptTokens int) error {
+	return pc.AllocSequenceWithPrefix(seqID, nil, promptTokens)
+}
+
+// AllocSequenceWithPrefix gives a new sequence a block table that begins with
+// prefix, blocks another holder (a finished sequence kept by a prefix cache, or
+// a live one) already has, and continues with fresh blocks up to promptTokens.
+//
+// The prefix blocks count as full: promptTokens must be at least
+// len(prefix)*blockSize, and the sequence writes only from that position on.
+// Every prefix block must currently be held; sharing a free block is an error,
+// since nothing guarantees what it contains.
+func (pc *PagedCache) AllocSequenceWithPrefix(seqID int64, prefix []int, promptTokens int) error {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-
-	if _, exists := pc.blockTables[seqID]; exists {
-		return fmt.Errorf("cudakv: sequence %d already allocated", seqID)
-	}
-
-	neededBlocks := (promptTokens + pc.blockSize - 1) / pc.blockSize
-	if len(pc.freeBlocks) < neededBlocks {
-		return fmt.Errorf("cudakv: out of physical KV blocks (needed %d, available %d)", neededBlocks, len(pc.freeBlocks))
-	}
-
-	blocks := make([]int, neededBlocks)
-	for i := 0; i < neededBlocks; i++ {
-		blocks[i] = pc.freeBlocks[len(pc.freeBlocks)-1]
-		pc.freeBlocks = pc.freeBlocks[:len(pc.freeBlocks)-1]
-	}
-
-	pc.blockTables[seqID] = blocks
-	pc.seqLens[seqID] = promptTokens
-	return nil
+	return pc.blocks.allocSequence(seqID, prefix, promptTokens)
 }
 
 // AppendToken reserves physical memory for an additional decoded token in sequence.
 func (pc *PagedCache) AppendToken(seqID int64) error {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-
-	blocks, exists := pc.blockTables[seqID]
-	if !exists {
-		return fmt.Errorf("cudakv: sequence %d not found", seqID)
-	}
-
-	currentLen := pc.seqLens[seqID]
-	if currentLen%pc.blockSize == 0 {
-		// Needs a new block
-		if len(pc.freeBlocks) == 0 {
-			return fmt.Errorf("cudakv: out of KV blocks during generation")
-		}
-		newBlock := pc.freeBlocks[len(pc.freeBlocks)-1]
-		pc.freeBlocks = pc.freeBlocks[:len(pc.freeBlocks)-1]
-		pc.blockTables[seqID] = append(blocks, newBlock)
-	}
-
-	pc.seqLens[seqID]++
-	return nil
+	return pc.blocks.appendToken(seqID)
 }
 
-// FreeSequence recycles physical memory blocks for a completed sequence.
+// FreeSequence ends a sequence's hold on its blocks. Blocks nothing else holds
+// return to the pool; blocks a prefix cache retained, or another sequence
+// shares, stay allocated. Freeing an unknown sequence does nothing.
 func (pc *PagedCache) FreeSequence(seqID int64) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
+	pc.blocks.freeSequence(seqID)
+}
 
-	if blocks, exists := pc.blockTables[seqID]; exists {
-		pc.freeBlocks = append(pc.freeBlocks, blocks...)
-		delete(pc.blockTables, seqID)
-		delete(pc.seqLens, seqID)
+// Retain keeps blocks allocated after the sequence holding them is freed,
+// until a matching Release. It is how a prefix cache takes ownership of the
+// blocks a finished sequence wrote. Every block must currently be held.
+func (pc *PagedCache) Retain(blocks []int) error {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.blocks.retain(blocks)
+}
+
+// Release undoes one Retain, or one share taken by AllocSequenceWithPrefix,
+// returning to the pool any block left with no holder.
+func (pc *PagedCache) Release(blocks []int) error {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.blocks.release(blocks)
+}
+
+// Holders reports how many sequences and retainers hold block. Zero means free.
+func (pc *PagedCache) Holders(block int) (int, error) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if block < 0 || block >= len(pc.blocks.holders) {
+		return 0, fmt.Errorf("cudakv: block index %d out of bounds (total %d)", block, len(pc.blocks.holders))
 	}
+	return pc.blocks.holders[block], nil
 }
 
 // NumFreeBlocks returns the count of currently unallocated physical blocks.
 func (pc *PagedCache) NumFreeBlocks() int {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	return len(pc.freeBlocks)
+	return len(pc.blocks.free)
 }
 
 // BlockTable returns a copy of the block table for sequence seqID.
 func (pc *PagedCache) BlockTable(seqID int64) []int {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	res := make([]int, len(pc.blockTables[seqID]))
-	copy(res, pc.blockTables[seqID])
-	return res
+	return pc.blocks.table(seqID)
 }
 
 // Page returns the storage for layer and physical slot. The returned views are
@@ -414,7 +415,6 @@ func (pc *PagedCache) Close() error {
 	}
 	pc.kBlocks = nil
 	pc.vBlocks = nil
-	pc.blockTables = nil
-	pc.freeBlocks = nil
+	pc.blocks = newBlockAllocator(pc.blockSize, 0)
 	return nil
 }
