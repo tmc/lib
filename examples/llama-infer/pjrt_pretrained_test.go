@@ -53,6 +53,18 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 			t.Error(err)
 		}
 	}()
+	hostAccess := os.Getenv("PJRT_CPU_HOST_ACCESS") == "1"
+	if hostAccess {
+		checksum := os.Getenv("PJRT_CPU_HOST_ACCESS_SHA256")
+		if checksum == "" {
+			t.Fatal("host access requires PJRT_CPU_HOST_ACCESS_SHA256 for the qualified plugin")
+		}
+		checkPJRTReferenceHash(t, plugin, checksum)
+		t.Logf("CPU host access plugin SHA256: %s", checksum)
+		if err := engine.EnableCPUHostAccess(); err != nil {
+			t.Fatal(err)
+		}
+	}
 	model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta, xla.F32)
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +102,9 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				if model.lastHostRead != hostAccess {
+					t.Fatalf("step %d readout route direct=%v, want %v", step, model.lastHostRead, hostAccess)
+				}
 				if got := sampleArgmax(logits); got != wantID {
 					t.Fatalf("step %d token %d, want %d", step, got, wantID)
 				}
@@ -108,6 +123,9 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 			var generated []int32
 			var text strings.Builder
 			err = model.generateText(context.Background(), tok, tt.Prompt, len(tt.Generated), nil, func(id int32, fragment string) bool {
+				if model.lastHostRead != hostAccess {
+					t.Fatalf("stream step %d readout route direct=%v, want %v", len(generated), model.lastHostRead, hostAccess)
+				}
 				if !utf8.ValidString(fragment) {
 					t.Errorf("invalid UTF-8 fragment %x", fragment)
 				}
@@ -118,7 +136,7 @@ func TestNativePJRTPretrainedReference(t *testing.T) {
 			if err != nil || !slices.Equal(generated, tt.Generated) || text.String() != tt.Decoded {
 				t.Fatalf("stream IDs %v text %q error %v; want %v %q", generated, text.String(), err, tt.Generated, tt.Decoded)
 			}
-			t.Logf("compared %d logits, %d greedy IDs; maximum absolute logit error %g", len(tt.Generated)*ref.Vocab, len(generated), maxError)
+			t.Logf("compared %d logits, %d greedy IDs; maximum absolute logit error %g; direct host readout=%v", len(tt.Generated)*ref.Vocab, len(generated), maxError, hostAccess)
 		})
 	}
 }

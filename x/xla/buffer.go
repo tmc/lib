@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 	"unsafe"
 
 	"github.com/tmc/lib/openxla"
@@ -25,6 +26,9 @@ const (
 
 // Buffer represents a typed device memory buffer.
 type Buffer struct {
+	viewMu  sync.Mutex // Guards scoped host access and Close.
+	viewing bool
+	engine  *Engine
 	wrapper *openxla.BufferWrapper
 	dims    []int64
 	elemTyp ElementType
@@ -54,6 +58,7 @@ func (e *Engine) NewBufferFromHost(data []byte, elemTyp ElementType, dims []int6
 	}
 
 	return &Buffer{
+		engine:  e,
 		wrapper: wrapper,
 		dims:    slices.Clone(dims),
 		elemTyp: elemTyp,
@@ -78,6 +83,7 @@ func (e *Engine) NewBufferFromFloats(data []float32, dims []int64, dev *openxla.
 		return nil, fmt.Errorf("xla: failed to create buffer from host: %w", err)
 	}
 	return &Buffer{
+		engine:  e,
 		wrapper: wrapper,
 		dims:    slices.Clone(dims),
 		elemTyp: F32,
@@ -102,6 +108,7 @@ func (e *Engine) NewBufferFromInts(data []int64, dims []int64, dev *openxla.Devi
 		return nil, fmt.Errorf("xla: failed to create buffer from host: %w", err)
 	}
 	return &Buffer{
+		engine:  e,
 		wrapper: wrapper,
 		dims:    slices.Clone(dims),
 		elemTyp: openxla.Buffer_Type_S64,
@@ -238,12 +245,21 @@ func bufferSize(elemTyp ElementType, dims []int64) (int, error) {
 
 // Close destroys the device buffer, releasing its memory.
 func (b *Buffer) Close() error {
-	if b == nil || b.wrapper == nil {
+	if b == nil {
+		return nil
+	}
+	b.viewMu.Lock()
+	defer b.viewMu.Unlock()
+	if b.viewing {
+		return fmt.Errorf("xla: buffer has an active host view")
+	}
+	if b.wrapper == nil {
 		return nil
 	}
 	resource := b.wrapper
 	b.wrapper = nil
 	b.shared = nil
+	b.engine = nil
 	if err := resource.Destroy(); err != nil {
 		return fmt.Errorf("xla: close buffer: %w", err)
 	}

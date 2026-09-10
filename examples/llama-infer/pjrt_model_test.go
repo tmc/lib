@@ -68,6 +68,16 @@ func TestPJRTMappingValidation(t *testing.T) {
 }
 
 func TestNativePJRTModel(t *testing.T) {
+	for _, direct := range []bool{false, true} {
+		name := "copied"
+		if direct {
+			name = "host view"
+		}
+		t.Run(name, func(t *testing.T) { testNativePJRTModel(t, direct) })
+	}
+}
+
+func testNativePJRTModel(t *testing.T, direct bool) {
 	path := os.Getenv("XLA_PJRT_CPU_PLUGIN")
 	if path == "" {
 		t.Skip("set XLA_PJRT_CPU_PLUGIN to a CPU PJRT library")
@@ -81,6 +91,11 @@ func TestNativePJRTModel(t *testing.T) {
 			t.Error(err)
 		}
 	}()
+	if direct {
+		if err := engine.EnableCPUHostAccess(); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, tied := range []bool{false, true} {
 		name := "untied"
 		if tied {
@@ -116,7 +131,7 @@ func TestNativePJRTModel(t *testing.T) {
 					t.Fatal("logit shape")
 				}
 				for i, v := range got {
-					if math.Abs(float64(v-want[i])) > 2e-5*(1+math.Abs(float64(want[i]))) {
+					if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || math.Abs(float64(v-want[i])) > 2e-5*(1+math.Abs(float64(want[i]))) {
 						t.Fatalf("logit %d=%g, want %g", i, v, want[i])
 					}
 				}
@@ -129,6 +144,9 @@ func TestNativePJRTModel(t *testing.T) {
 			got, err := p.forward(context.Background(), []int32{3, 1, 9}, 0)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if p.lastHostRead != direct {
+				t.Fatalf("direct readout=%v, want %v", p.lastHostRead, direct)
 			}
 			compare(got, want)
 			got[0] = 123
@@ -149,12 +167,19 @@ func TestNativePJRTModel(t *testing.T) {
 			if !slices.Equal(p.model.Lengths(), []int64{3}) {
 				t.Fatal("validation changed history")
 			}
+			previousReturn, previousRead := got, saved
 			want = Forward(w, c, kv, 2, 3)
 			got, err = p.forward(context.Background(), []int32{2}, 3)
 			if err != nil {
 				t.Fatal(err)
 			}
+			if p.lastHostRead != direct {
+				t.Fatalf("direct readout=%v, want %v", p.lastHostRead, direct)
+			}
 			compare(got, want)
+			if previousReturn[0] != 123 || previousRead[0] != 456 {
+				t.Fatal("later forward mutated retained caller slices")
+			}
 			got[0] = 123
 			saved, err = p.readLogits()
 			if err != nil {
@@ -178,6 +203,9 @@ func TestNativePJRTModel(t *testing.T) {
 			got, err = p.forward(context.Background(), []int32{5}, 0)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if p.lastHostRead != direct {
+				t.Fatalf("direct readout=%v, want %v", p.lastHostRead, direct)
 			}
 			compare(got, want)
 			// Four Err checks precede adapter readback; the fifth reports cancellation

@@ -20,6 +20,7 @@ type pjrtModel struct {
 	capacity     int
 	weightReport WeightReport
 	logits       []float32
+	lastHostRead bool
 }
 
 func newPJRTModel(ctx context.Context, engine *xla.Engine, cfg *ModelConfig, weights *ModelWeights, ropeTheta float64, element xla.ElementType) (*pjrtModel, error) {
@@ -82,6 +83,7 @@ func (p *pjrtModel) forward(ctx context.Context, ids []int32, position int) ([]f
 	if p == nil || p.model == nil {
 		return nil, fmt.Errorf("pjrt: model is closed")
 	}
+	p.lastHostRead = false
 	lengths := p.model.Lengths()
 	if len(lengths) != 1 || int64(position) != lengths[0] {
 		return nil, fmt.Errorf("pjrt: position does not match cached length")
@@ -100,22 +102,32 @@ func (p *pjrtModel) forward(ctx context.Context, ids []int32, position int) ([]f
 	if shapeErr != nil {
 		return nil, errors.Join(shapeErr, out.Close(), p.close())
 	}
-	allLogits := make([]float32, len(ids)*p.vocab)
-	readErr := out.ReadFloats(allLogits)
+	read := func(all []float32) error {
+		logits := all[(len(ids)-1)*p.vocab:]
+		for _, v := range logits {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return fmt.Errorf("pjrt: nonfinite logits")
+			}
+		}
+		p.logits = append(p.logits[:0], logits...)
+		return nil
+	}
+	readErr := out.WithReadOnlyFloats(read)
+	p.lastHostRead = readErr == nil
+	if errors.Is(readErr, xla.ErrHostAccessUnavailable) {
+		allLogits := make([]float32, len(ids)*p.vocab)
+		readErr = out.ReadFloats(allLogits)
+		if readErr == nil {
+			readErr = read(allLogits)
+		}
+	}
 	if err := errors.Join(readErr, out.Close()); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, errors.Join(err, p.close())
 	}
-	logits := allLogits[(len(ids)-1)*p.vocab:]
-	for _, v := range logits {
-		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
-			return nil, errors.Join(fmt.Errorf("pjrt: nonfinite logits"), p.close())
-		}
-	}
-	p.logits = slices.Clone(logits)
-	return slices.Clone(logits), nil
+	return slices.Clone(p.logits), nil
 }
 
 func (p *pjrtModel) readLogits() ([]float32, error) {

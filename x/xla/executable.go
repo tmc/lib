@@ -74,7 +74,7 @@ func (e *Executable) execute(ctx context.Context, args []*openxla.BufferWrapper,
 		if _, err := bufferSize(typ, dims); err != nil {
 			return nil, fmt.Errorf("xla: output %d: %w", i, err)
 		}
-		outputs[i] = &Buffer{wrapper: out, dims: dims, elemTyp: typ}
+		outputs[i] = &Buffer{wrapper: out, dims: dims, elemTyp: typ, engine: e.engine}
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("xla: execution cancelled: %w", err)

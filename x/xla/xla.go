@@ -2,6 +2,7 @@ package xla
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/tmc/lib/openxla"
 )
@@ -9,8 +10,11 @@ import (
 // Engine owns a PJRT client. Close its buffers, executables and models before
 // closing the engine. Its zero value is closed.
 type Engine struct {
-	plugin *openxla.Plugin
-	client *openxla.ClientWrapper
+	viewMu        sync.Mutex // Guards active host views and Close.
+	hostViews     int
+	plugin        *openxla.Plugin
+	client        *openxla.ClientWrapper
+	cpuHostAccess bool
 }
 
 // NewEngine loads a PJRT plugin and initializes the client.
@@ -44,7 +48,15 @@ func NewEngineFromAPI(api *openxla.Api) (*Engine, error) {
 
 // Close destroys the client and shuts down the engine.
 func (e *Engine) Close() error {
-	if e == nil || e.client == nil {
+	if e == nil {
+		return nil
+	}
+	e.viewMu.Lock()
+	defer e.viewMu.Unlock()
+	if e.hostViews != 0 {
+		return fmt.Errorf("xla: engine has active host views")
+	}
+	if e.client == nil {
 		return nil
 	}
 	resource := e.client

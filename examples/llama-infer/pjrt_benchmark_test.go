@@ -14,7 +14,7 @@ import (
 )
 
 // BenchmarkPJRTInference measures warm F32 adapter calls against a pinned
-// checkpoint reference. Calls include token upload and complete logit readback.
+// checkpoint reference. Calls include token upload and last-row logit extraction.
 func BenchmarkPJRTInference(b *testing.B) {
 	dir, refDir, plugin := os.Getenv("PJRT_PRETRAINED_CHECKPOINT"), os.Getenv("PJRT_PRETRAINED_REFERENCE"), os.Getenv("XLA_PJRT_CPU_PLUGIN")
 	if dir == "" || refDir == "" || plugin == "" {
@@ -43,6 +43,18 @@ func BenchmarkPJRTInference(b *testing.B) {
 			b.Error(err)
 		}
 	})
+	hostAccess := os.Getenv("PJRT_CPU_HOST_ACCESS") == "1"
+	if hostAccess {
+		checksum := os.Getenv("PJRT_CPU_HOST_ACCESS_SHA256")
+		if checksum == "" {
+			b.Fatal("host access requires PJRT_CPU_HOST_ACCESS_SHA256 for the qualified plugin")
+		}
+		checkPJRTReferenceHash(b, plugin, checksum)
+		b.Logf("CPU host access plugin SHA256: %s", checksum)
+		if err := engine.EnableCPUHostAccess(); err != nil {
+			b.Fatal(err)
+		}
+	}
 	model, err := newPJRTModel(context.Background(), engine, &p.config, p.weights, p.theta, xla.F32)
 	if err != nil {
 		b.Fatal(err)
@@ -65,6 +77,9 @@ func BenchmarkPJRTInference(b *testing.B) {
 			}
 			check := func(b *testing.B, logits []float32, step int) {
 				b.Helper()
+				if model.lastHostRead != hostAccess {
+					b.Fatalf("readout route direct=%v, want %v", model.lastHostRead, hostAccess)
+				}
 				if len(logits) != ref.Vocab {
 					b.Fatalf("got %d logits, want %d", len(logits), ref.Vocab)
 				}
@@ -125,6 +140,11 @@ func BenchmarkPJRTInference(b *testing.B) {
 						check(b, logits, step)
 					}
 					b.ReportMetric(float64(len(input)*b.N)/b.Elapsed().Seconds(), "tokens/s")
+					if hostAccess {
+						b.ReportMetric(1, "hostview/op")
+					} else {
+						b.ReportMetric(0, "hostview/op")
+					}
 				})
 			}
 		})

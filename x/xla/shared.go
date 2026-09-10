@@ -101,7 +101,7 @@ func (e *Engine) NewSharedBuffer(typ ElementType, dims []int64, dev *openxla.Dev
 		releaseShared(data)
 		return nil, nil, err
 	}
-	b := &Buffer{wrapper: wrapper, dims: slices.Clone(dims), elemTyp: typ, shared: a}
+	b := &Buffer{wrapper: wrapper, dims: slices.Clone(dims), elemTyp: typ, shared: a, engine: e}
 	cpu, err = wrapper.IsOnCPU()
 	if err == nil && !cpu {
 		err = fmt.Errorf("xla: shared view is not on CPU")
