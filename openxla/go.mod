@@ -4,7 +4,5 @@ go 1.25.0
 
 require (
 	github.com/ebitengine/purego v0.11.0
-	github.com/tmc/ffi v0.0.0
+	github.com/tmc/ffi v0.0.0-20260906092449-1be2d95a8044
 )
-
-replace github.com/tmc/ffi => ../../ffi
