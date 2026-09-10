@@ -865,16 +865,13 @@ func (b *BufferWrapper) IsDenseRowMajor() (bool, error) {
 		return false, err
 	}
 	layout := args.Layout
-	if layout.Struct_size < PJRT_Buffer_MemoryLayout_STRUCT_SIZE {
-		return false, fmt.Errorf("openxla: truncated buffer memory layout")
-	}
+	// Legacy XLA fills this embedded output by value without initializing
+	// its struct_size fields. The enclosing call's ABI fixes its storage size;
+	// bound the referenced axis data by the independently queried shape rank.
 	if layout.Type != Buffer_MemoryLayout_Type_Tiled {
 		return false, nil
 	}
 	tiled := layout.Union_pad
-	if tiled.Struct_size < PJRT_Buffer_MemoryLayout_Tiled_STRUCT_SIZE {
-		return false, fmt.Errorf("openxla: truncated tiled buffer memory layout")
-	}
 	if tiled.Num_tiles != 0 {
 		return false, nil
 	}

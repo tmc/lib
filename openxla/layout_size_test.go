@@ -9,11 +9,11 @@ import (
 
 func TestDenseRowMajor(t *testing.T) {
 	for _, tt := range []struct {
-		name                                  string
-		rank                                  int
-		axes                                  []int64
-		tiles                                 uintptr
-		badHeader, missingAxes, want, wantErr bool
+		name                                   string
+		rank                                   int
+		axes                                   []int64
+		tiles                                  uintptr
+		unsetSizes, missingAxes, want, wantErr bool
 	}{
 		{name: "scalar", want: true},
 		{name: "matrix", rank: 2, axes: []int64{1, 0}, want: true},
@@ -21,7 +21,7 @@ func TestDenseRowMajor(t *testing.T) {
 		{name: "tiled", rank: 2, axes: []int64{1, 0}, tiles: 1},
 		{name: "rank_mismatch", rank: 2, axes: []int64{0}, wantErr: true},
 		{name: "missing_axes", rank: 2, axes: []int64{1, 0}, missingAxes: true, wantErr: true},
-		{name: "truncated", badHeader: true, wantErr: true},
+		{name: "unset_output_sizes", unsetSizes: true, want: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			api := new(Api)
@@ -39,8 +39,9 @@ func TestDenseRowMajor(t *testing.T) {
 				}
 				a.Layout = Buffer_MemoryLayout{Struct_size: PJRT_Buffer_MemoryLayout_STRUCT_SIZE, Type: Buffer_MemoryLayout_Type_Tiled}
 				a.Layout.Union_pad = Buffer_MemoryLayout_Tiled{Struct_size: PJRT_Buffer_MemoryLayout_Tiled_STRUCT_SIZE, Minor_to_major: unsafe.SliceData(tt.axes), Minor_to_major_size: uintptr(len(tt.axes)), Num_tiles: tt.tiles}
-				if tt.badHeader {
+				if tt.unsetSizes {
 					a.Layout.Struct_size = 0
+					a.Layout.Union_pad.Struct_size = 0
 				}
 				if tt.missingAxes {
 					a.Layout.Union_pad.Minor_to_major = nil
