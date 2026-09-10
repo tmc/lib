@@ -1,0 +1,9 @@
+authored-by: Claude Opus 5 (1M context) via claude-code 2.1.257 (Claude Code)
+date: 2026-09-10T11:39:50Z
+model: claude-opus-5[1m]
+tty: not a tty pid: 68108
+ITERM_SESSION_ID: w22t0p9:7BCB0960-C21E-4660-8395-608138C07A1B
+session: 81966754-74fd-480a-8ceb-8e53cf129cbe
+session_url: https://claude.ai/code/session_015HRdpSMTz24cg6AUZWCrzH
+note: git-auto-commit-message unavailable (cgpt: missing ANTHROPIC_API_KEY); message hand-written.
+verification: darwin GOWORK=off go test ./gpuprof/ ok; GOOS=linux go build and go vet with a metalprof cross-typecheck overlay, both clean; validated against three retained captures (sglang, 20260909-native-cuda13-final, sglang-perkind). No CUDA runtime was exercised.
