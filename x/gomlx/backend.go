@@ -229,7 +229,6 @@ func (b *buffer) DeviceNum() (compute.DeviceNum, error) {
 	}
 	return 0, nil
 }
-func (b *buffer) Data() (any, error) { return nil, unsupported }
 func (b *buffer) ToFlatData(flat any) error {
 	b.backend.mu.Lock()
 	defer b.backend.mu.Unlock()
@@ -581,6 +580,11 @@ func (e *executable) Execute(inputs []compute.Buffer, donate []bool, device comp
 	}
 	if len(inputs) != len(e.inputs) || len(donate) > 0 && len(donate) != len(inputs) {
 		return nil, fmt.Errorf("input count mismatch")
+	}
+	for i, d := range donate {
+		if buf, ok := inputs[i].(*buffer); d && ok && buf != nil && buf.raw.IsShared() {
+			return nil, fmt.Errorf("cannot donate shared input %d", i)
+		}
 	}
 	expectedInputs, expectedOutputs, raw := e.inputs, e.outputs, e.raw
 	if e.template != nil {

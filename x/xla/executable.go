@@ -18,7 +18,7 @@ type Executable struct {
 // Cancellation before execution prevents dispatch. Cancellation during execution
 // is reported after PJRT completes and the outputs have been released; it does
 // not interrupt native execution. The executable, engine and input buffers must
-// remain open until Execute returns.
+// remain open until Execute returns. Shared inputs are never donated to PJRT.
 func (e *Executable) Execute(ctx context.Context, args []*Buffer) ([]*Buffer, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("xla: context error before execution: %w", err)
@@ -28,18 +28,22 @@ func (e *Executable) Execute(ctx context.Context, args []*Buffer) ([]*Buffer, er
 		return nil, fmt.Errorf("xla: executable is closed")
 	}
 	rawArgs := make([]*openxla.BufferWrapper, len(args))
+	var nonDonatable []int64
 	for i, a := range args {
 		if a == nil || a.wrapper == nil {
 			return nil, fmt.Errorf("xla: nil buffer at argument index %d", i)
 		}
 		rawArgs[i] = a.wrapper
+		if a.IsShared() {
+			nonDonatable = append(nonDonatable, int64(i))
+		}
 	}
 
-	return e.execute(ctx, rawArgs)
+	return e.execute(ctx, rawArgs, nonDonatable)
 }
 
-func (e *Executable) execute(ctx context.Context, args []*openxla.BufferWrapper) (outputs []*Buffer, err error) {
-	raw, err := e.wrapper.Execute([][]*openxla.BufferWrapper{args})
+func (e *Executable) execute(ctx context.Context, args []*openxla.BufferWrapper, nonDonatable []int64) (outputs []*Buffer, err error) {
+	raw, err := e.wrapper.ExecuteWithNonDonatableInputs([][]*openxla.BufferWrapper{args}, nonDonatable)
 	if err != nil {
 		return nil, fmt.Errorf("xla: execute: %w", err)
 	}

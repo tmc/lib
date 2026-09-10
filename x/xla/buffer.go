@@ -28,6 +28,7 @@ type Buffer struct {
 	wrapper *openxla.BufferWrapper
 	dims    []int64
 	elemTyp ElementType
+	shared  *sharedAllocation
 }
 
 // NewBufferFromHost copies data to a device buffer with the given element type
@@ -242,6 +243,7 @@ func (b *Buffer) Close() error {
 	}
 	resource := b.wrapper
 	b.wrapper = nil
+	b.shared = nil
 	if err := resource.Destroy(); err != nil {
 		return fmt.Errorf("xla: close buffer: %w", err)
 	}
