@@ -227,7 +227,7 @@ func GPUForwardPassStep(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn *cuda.Kernel,
+	attnFn *boundedKernel,
 	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,
@@ -243,7 +243,7 @@ func gpuForwardPassStep(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn *cuda.Kernel,
+	attnFn *boundedKernel,
 	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,
@@ -336,8 +336,15 @@ func gpuForwardPassStep(
 		}
 
 		// Step 2e: Causal FlashAttention Decode
+		// A one-thread block needs 4*seqLen bytes, per DecodeSharedMemoryBytes:
+		// the reduction scratch is never touched. The request grows with the
+		// position, so it is checked against the device on every step.
 		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads)).Block(1).SharedMem(uint32(seqLen*4)).
+		attnShared, err := attnFn.sharedMem(seqLen * 4)
+		if err != nil {
+			return 0, fmt.Errorf("attention at position %d: %w", pos, err)
+		}
+		if err := launcher(attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
 			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 			return 0, err
 		}
@@ -436,7 +443,7 @@ func GPUForwardPassStream(
 	kv *cudakv.Cache,
 	sp *GPUScratchpad,
 	gm *GPUModules,
-	attnFn *cuda.Kernel,
+	attnFn *boundedKernel,
 	sampleFn *cuda.Kernel,
 	tokenID int32,
 	pos int,

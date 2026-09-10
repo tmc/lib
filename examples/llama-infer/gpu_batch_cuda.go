@@ -239,7 +239,11 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 				return nil, stats, err
 			}
 			attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-			if err := launcher(eng.attnFn).Grid(uint32(qHeads)).Block(1).SharedMem(uint32((positions[row]+1)*4)).
+			attnShared, err := eng.attnFn.sharedMem((positions[row] + 1) * 4)
+			if err != nil {
+				return nil, stats, fmt.Errorf("attention at position %d: %w", positions[row], err)
+			}
+			if err := launcher(eng.attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
 				Launch(q, layerKV.K, layerKV.V, out, int32(positions[row]), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 				return nil, stats, err
 			}

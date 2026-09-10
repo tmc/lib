@@ -133,7 +133,7 @@ type ModelEngine struct {
 	prefillScratch  *GPUBatchScratchpad
 	modules         *GPUModules
 	kvCache         *cudakv.Cache
-	attnFn          *cuda.Kernel
+	attnFn          *boundedKernel
 	sampleFn        *cuda.Kernel
 	mCfg            ModelConfig
 	fuseActive      bool
@@ -483,8 +483,11 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	if got, want := modules.WeightDType(), gpuWeights.DType(); got != want {
 		return nil, fmt.Errorf("kernels bound for %s weights but model uploaded as %s", got, want)
 	}
+	// Both flag-named outputs are per engine, and the cache holds one engine
+	// per config, so a second config in one process gets its own file rather
+	// than truncating the first. The lock is held, so the count is stable.
 	if *kernelReportPath != "" {
-		if err := writeKernelReport(*kernelReportPath, modules); err != nil {
+		if err := writeKernelReport(engineOutputPath(*kernelReportPath, len(cudaEngineCache)), modules); err != nil {
 			return nil, fmt.Errorf("kernel report: %w", err)
 		}
 	}
@@ -502,9 +505,13 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	if err != nil {
 		return nil, fmt.Errorf("load attention module: %w", err)
 	}
-	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
+	attnRaw, err := attnMod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		return nil, fmt.Errorf("get attention fn: %w", err)
+	}
+	attnFn, err := newBoundedKernel(dev, attnRaw)
+	if err != nil {
+		return nil, fmt.Errorf("bound attention fn: %w", err)
 	}
 
 	sampleModCompiled, err := cudasample.Compile(major, minor)
@@ -545,7 +552,7 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		memory:      memory,
 	}
 
-	if eng.tracer, err = newCUDATracer(context.Background(), *cudaTracePath, stream); err != nil {
+	if eng.tracer, err = newCUDATracer(context.Background(), engineOutputPath(*cudaTracePath, len(cudaEngineCache)), stream); err != nil {
 		return nil, err
 	}
 
