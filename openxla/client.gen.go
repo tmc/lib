@@ -235,6 +235,44 @@ func (c *ClientWrapper) BufferFromHost(data unsafe.Pointer, bufType Buffer_Type,
 	}, nil
 }
 
+// CreateViewOfDeviceBuffer creates a non-owning view of device memory.
+// The caller must keep data and onDeleteArg valid until the plugin no longer
+// uses them. Supply onDelete to observe this boundary; closing the returned
+// buffer alone does not establish it. Go storage must remain pinned for that
+// lifetime. On failure, the caller retains ownership.
+// Layout and all memory it references must remain valid and pinned, when backed
+// by Go storage, during this call. A nil layout selects the plugin default.
+// The device must belong to this client. Support is plugin-dependent.
+func (c *ClientWrapper) CreateViewOfDeviceBuffer(data unsafe.Pointer, typ Buffer_Type, dims []int64, layout *Buffer_MemoryLayout, dev *Device, onDelete uintptr, onDeleteArg unsafe.Pointer) (*BufferWrapper, error) {
+	if c == nil || c.client == nil {
+		return nil, fmt.Errorf("openxla: client is closed")
+	}
+	if c.api.Client_CreateViewOfDeviceBuffer == 0 {
+		return nil, fmt.Errorf("openxla: Client_CreateViewOfDeviceBuffer not available")
+	}
+	if c.api.Buffer_Destroy == 0 {
+		return nil, fmt.Errorf("openxla: Buffer_Destroy not available")
+	}
+	if data == nil || dev == nil {
+		return nil, fmt.Errorf("openxla: data and device are required")
+	}
+	args := Client_CreateViewOfDeviceBuffer_Args{Struct_size: PJRT_Client_CreateViewOfDeviceBuffer_Args_STRUCT_SIZE, Client: c.client, Device_buffer_ptr: data, Element_type: typ, Layout: layout, Device: dev, On_delete_callback: onDelete, On_delete_callback_arg: onDeleteArg}
+	var pin runtime.Pinner
+	defer pin.Unpin()
+	if len(dims) > 0 {
+		pin.Pin(&dims[0])
+		args.Dims = &dims[0]
+		args.Num_dims = uintptr(len(dims))
+	}
+	if err := decodeError(c.api, callPJRT(c.api.Client_CreateViewOfDeviceBuffer, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return nil, err
+	}
+	if args.Buffer == nil {
+		return nil, fmt.Errorf("openxla: CreateViewOfDeviceBuffer returned nil buffer")
+	}
+	return &BufferWrapper{api: c.api, buffer: args.Buffer}, nil
+}
+
 // DefaultDeviceAssignment returns the runtime's default device IDs for the
 // requested replica and partition counts. Both counts must be positive and fit
 // a C int. The caller owns the returned slice.
@@ -698,6 +736,43 @@ func (e *ExecutableWrapper) Destroy() error {
 type BufferWrapper struct {
 	api    *Api
 	buffer *Buffer
+}
+
+// IsOnCPU reports whether PJRT stores this buffer on the CPU. It does not
+// establish that its address may be exposed to Go.
+func (b *BufferWrapper) IsOnCPU() (bool, error) {
+	if b == nil || b.buffer == nil {
+		return false, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_IsOnCpu == 0 {
+		return false, fmt.Errorf("openxla: Buffer_IsOnCpu not available")
+	}
+	args := Buffer_IsOnCpu_Args{Struct_size: PJRT_Buffer_IsOnCpu_Args_STRUCT_SIZE, Buffer: b.buffer}
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_IsOnCpu, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return false, err
+	}
+	return args.Is_on_cpu, nil
+}
+
+// WaitReady waits for this buffer's producer to finish.
+func (b *BufferWrapper) WaitReady() error {
+	if b == nil || b.buffer == nil {
+		return fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_ReadyEvent == 0 {
+		return fmt.Errorf("openxla: Buffer_ReadyEvent not available")
+	}
+	if b.api.Event_Await == 0 || b.api.Event_Destroy == 0 {
+		return fmt.Errorf("openxla: required Event_Await or Event_Destroy not available")
+	}
+	args := Buffer_ReadyEvent_Args{Struct_size: PJRT_Buffer_ReadyEvent_Args_STRUCT_SIZE, Buffer: b.buffer}
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_ReadyEvent, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return err
+	}
+	if args.Event == nil {
+		return fmt.Errorf("openxla: Buffer_ReadyEvent returned nil event")
+	}
+	return awaitEvent(b.api, args.Event)
 }
 
 // Device returns the device on which the buffer resides.
