@@ -47,6 +47,7 @@ func newMetalBatch(ops *metalPinnedOps) (*metalBatch, error) {
 	if ops == nil || ops.dev == nil {
 		return nil, fmt.Errorf("Metal batch: missing ops")
 	}
+	ops.submissions.Buffers++
 	return &metalBatch{ops: ops, buffer: ops.dev.Queue().CommandBuffer()}, nil
 }
 
@@ -545,6 +546,8 @@ func (b *metalBatch) Commit() error {
 	b.done = true
 	b.buffer.Commit()
 	b.commits++
+	b.ops.submissions.Commits++
+	b.ops.submissions.Encoded += b.encoded
 	return nil
 }
 
@@ -561,6 +564,7 @@ func (b *metalBatch) Wait(ctx context.Context) error {
 		return fmt.Errorf("Metal batch: already waited")
 	}
 	b.waits++
+	b.ops.submissions.Waits++
 	// One span per command buffer: the batch's dispatches are the GPU
 	// work, and everything between this span and the next is host cost.
 	wait := beginOp("batch.wait")

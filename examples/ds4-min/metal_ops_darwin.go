@@ -959,6 +959,11 @@ type metalPinnedOps struct {
 	// regions, when installed, collects each command buffer's GPU-time
 	// span as it completes. Nil in production.
 	regions *metalRegionLog
+
+	// submissions counts command buffer traffic for the life of these ops.
+	// Always on: it costs four increments per batch and it is the only way to
+	// tell a submission-structure change from a rearrangement.
+	submissions metalSubmissions
 }
 
 func newMetalPinnedOps(dev *libmetal.Device) (*metalPinnedOps, error) {
