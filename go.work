@@ -1,19 +1,26 @@
+// The workspace covers every module in this repository. A module that is not
+// listed here is not built by anything, so keep this list complete: experimental
+// and not-yet-ready modules belong in github.com/tmc/libexp, not outside the
+// workspace.
+//
+// External modules are resolved through published versions or the relative
+// replace directives in each go.mod. Do not add absolute host paths here.
+
 go 1.27.0
 
 use (
 	./apple
 	./examples
-	./ggml
 	./hfsync
 	./libgit2
+	./lldb
 	./lm
 	./nvidia
 	./openxla
 	./tpu
 	./treesitter
+	./x/gomlx
+	./x/hftokenizer
 	./x/stablehlo
 	./x/xla
-	../apple
-	../modelir
-	../ffi
 )
