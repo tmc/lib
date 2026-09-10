@@ -160,7 +160,7 @@ func TestBlockAllocatorWithRadixTree(t *testing.T) {
 	if err := a.allocSequence(1, nil, len(tokens1)); err != nil {
 		t.Fatal(err)
 	}
-	adopted, err := tree.Insert(tokens1, a.table(1))
+	adopted, _, err := tree.Insert(tokens1, a.table(1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestBlockAllocatorWithRadixTree(t *testing.T) {
 	// Sequence 2 publishes. The prefix is already stored, so the tree adopts
 	// only the new last block; the sequence's shared blocks are not doubly
 	// counted.
-	adopted, err = tree.Insert(tokens2, a.table(2))
+	adopted, _, err = tree.Insert(tokens2, a.table(2))
 	if err != nil {
 		t.Fatal(err)
 	}

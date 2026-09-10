@@ -143,25 +143,26 @@ func commonBlocks(a, b []int32, tpb int) int {
 }
 
 // Insert stores tokens and the blocks holding them, sharing the parts already
-// stored, and returns the blocks the tree took: those it will later hand back
-// through Evict, and which the caller must keep alive until then, for instance
-// with PagedCache.Retain.
+// stored. It returns the blocks the tree took, which the caller must keep alive
+// until the tree hands them back, for instance with PagedCache.Retain, and the
+// blocks the tree gave up to make room, which the caller now owns again as it
+// would after Evict.
 //
 // len(tokens) must be a whole number of blocks and blocks must hold one entry
 // per block of tokens. Where a prefix is already stored the tree keeps its own
 // blocks and takes none of the caller's for that part, so the caller's blocks
 // there are redundant and stay the caller's to free. Inserting a sequence
 // already stored in full refreshes it and takes nothing.
-func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
+func (r *RadixTree) Insert(tokens []int32, blocks []int) (taken, evicted []int, err error) {
 	tpb := r.TokensPerBlock
 	if len(tokens) == 0 {
-		return nil, fmt.Errorf("%s: inserting an empty sequence", pkgName)
+		return nil, nil, fmt.Errorf("%s: inserting an empty sequence", pkgName)
 	}
 	if len(tokens)%tpb != 0 {
-		return nil, fmt.Errorf("%s: %d tokens is not a whole number of %d-token blocks", pkgName, len(tokens), tpb)
+		return nil, nil, fmt.Errorf("%s: %d tokens is not a whole number of %d-token blocks", pkgName, len(tokens), tpb)
 	}
 	if len(blocks) != len(tokens)/tpb {
-		return nil, fmt.Errorf("%s: %d tokens need %d blocks, got %d", pkgName, len(tokens), len(tokens)/tpb, len(blocks))
+		return nil, nil, fmt.Errorf("%s: %d tokens need %d blocks, got %d", pkgName, len(tokens), len(tokens)/tpb, len(blocks))
 	}
 
 	r.mu.Lock()
@@ -174,7 +175,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
 		child, ok := curr.Children[key]
 		if !ok {
 			r.pin(curr)
-			r.evictFor(1)
+			evicted = append(evicted, r.evictFor(1)...)
 			r.unpin(curr)
 			node := &RadixNode{
 				Tokens:   append([]int32(nil), tokens[pos:]...),
@@ -189,7 +190,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
 			for _, b := range node.Blocks {
 				r.NodeMap[b] = node
 			}
-			return append([]int(nil), node.Blocks...), nil
+			return append([]int(nil), node.Blocks...), evicted, nil
 		}
 
 		n := commonBlocks(child.Tokens, tokens[pos:], tpb)
@@ -199,7 +200,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
 			// The stored segment continues past where this sequence
 			// leaves it. Split it so the shared part is one node.
 			r.pin(child)
-			r.evictFor(1)
+			evicted = append(evicted, r.evictFor(1)...)
 			r.unpin(child)
 			curr = r.split(child, n)
 		} else {
@@ -207,7 +208,7 @@ func (r *RadixTree) Insert(tokens []int32, blocks []int) ([]int, error) {
 		}
 		pos += n
 	}
-	return nil, nil
+	return nil, evicted, nil
 }
 
 // split divides node after its first n tokens. It inserts a new parent holding
@@ -313,11 +314,12 @@ func (r *RadixTree) evict(n int) []int {
 	return freed
 }
 
-// evictFor makes room for n more nodes.
-func (r *RadixTree) evictFor(n int) {
+// evictFor makes room for n more nodes and returns the blocks it freed.
+func (r *RadixTree) evictFor(n int) []int {
 	if r.nodes+n > r.maxNodes {
-		r.evict(r.nodes + n - r.maxNodes)
+		return r.evict(r.nodes + n - r.maxNodes)
 	}
+	return nil
 }
 
 // lruLeaf returns the least recently matched evictable node: a leaf that

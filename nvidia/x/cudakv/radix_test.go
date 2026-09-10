@@ -10,7 +10,7 @@ import (
 // insert stores a sequence and fails the test if the tree refuses it.
 func insert(t *testing.T, tree *RadixTree, tokens []int32, blocks []int) {
 	t.Helper()
-	if _, err := tree.Insert(tokens, blocks); err != nil {
+	if _, _, err := tree.Insert(tokens, blocks); err != nil {
 		t.Fatalf("Insert(%v, %v): %v", tokens, blocks, err)
 	}
 }
@@ -102,7 +102,7 @@ func TestRadixTreeInsertRejectsUnalignedInput(t *testing.T) {
 		{"too few blocks", []int32{1, 2, 3, 4, 5, 6, 7, 8}, []int{10}},
 		{"too many blocks", []int32{1, 2, 3, 4}, []int{10, 11}},
 	} {
-		if _, err := tree.Insert(tt.tokens, tt.blocks); err == nil {
+		if _, _, err := tree.Insert(tt.tokens, tt.blocks); err == nil {
 			t.Errorf("Insert(%s) was accepted", tt.name)
 		}
 	}
@@ -215,25 +215,58 @@ func TestRadixTreeNodeMap(t *testing.T) {
 
 func TestRadixTreeInsertReportsAdoptedBlocks(t *testing.T) {
 	tree := NewRadixTree(8, 2)
-	got, err := tree.Insert([]int32{1, 2, 3, 4}, []int{10, 11})
+	got, _, err := tree.Insert([]int32{1, 2, 3, 4}, []int{10, 11})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := []int{10, 11}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("fresh insert adopted %v; want %v", got, want)
 	}
-	got, err = tree.Insert([]int32{1, 2, 7, 8}, []int{20, 21})
+	got, _, err = tree.Insert([]int32{1, 2, 7, 8}, []int{20, 21})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := []int{21}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("insert sharing one stored block adopted %v; want %v", got, want)
 	}
-	got, err = tree.Insert([]int32{1, 2, 3, 4}, []int{30, 31})
+	got, _, err = tree.Insert([]int32{1, 2, 3, 4}, []int{30, 31})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != nil {
 		t.Fatalf("re-insert of a stored sequence adopted %v; want nothing", got)
+	}
+}
+
+// TestRadixTreeInsertReportsEvictedBlocks checks that the blocks a full tree
+// gives up to make room come back to the inserter, since it is the inserter
+// that holds them alive on the tree's behalf.
+func TestRadixTreeInsertReportsEvictedBlocks(t *testing.T) {
+	tree := NewRadixTree(2, 2)
+	insert(t, tree, []int32{1, 1}, []int{10})
+	insert(t, tree, []int32{2, 2}, []int{20})
+	taken, evicted, err := tree.Insert([]int32{3, 3}, []int{30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{30}; !reflect.DeepEqual(taken, want) {
+		t.Errorf("insert into a full tree took %v; want %v", taken, want)
+	}
+	if want := []int{10}; !reflect.DeepEqual(evicted, want) {
+		t.Errorf("insert into a full tree evicted %v; want the least recently matched %v", evicted, want)
+	}
+	// A split of a stored node also needs a node, and reports what it cost.
+	taken, evicted, err = tree.Insert([]int32{3, 3, 4, 4}, []int{30, 40})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []int{40}; !reflect.DeepEqual(taken, want) {
+		t.Errorf("extending a stored sequence took %v; want %v", taken, want)
+	}
+	if want := []int{20}; !reflect.DeepEqual(evicted, want) {
+		t.Errorf("extending a stored sequence in a full tree evicted %v; want %v", evicted, want)
+	}
+	if _, evicted, err = tree.Insert([]int32{3, 3, 4, 4}, []int{30, 40}); err != nil || evicted != nil {
+		t.Errorf("re-insert of a stored sequence: evicted %v, err %v; want nothing", evicted, err)
 	}
 }

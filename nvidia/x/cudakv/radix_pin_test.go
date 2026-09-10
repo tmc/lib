@@ -8,7 +8,7 @@ import "testing"
 // acquired: releasing it has to make the whole path evictable again.
 func TestRadixTreeReleaseAfterSplitUnpinsEverything(t *testing.T) {
 	r := NewRadixTree(64, 2)
-	if _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
 		t.Fatal(err)
 	}
 	_, _, node := r.Acquire([]int32{1, 2, 3, 4})
@@ -16,7 +16,7 @@ func TestRadixTreeReleaseAfterSplitUnpinsEverything(t *testing.T) {
 		t.Fatal("Acquire matched nothing")
 	}
 	// Diverges inside the acquired segment, so the node is split under it.
-	if _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
 		t.Fatal(err)
 	}
 	r.Release(node)
@@ -33,7 +33,7 @@ func TestRadixTreeReleaseAfterSplitUnpinsEverything(t *testing.T) {
 // pin it for good.
 func TestRadixTreeExtraReleaseDoesNotOverPin(t *testing.T) {
 	r := NewRadixTree(64, 2)
-	if _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
 		t.Fatal(err)
 	}
 	_, _, node := r.Acquire([]int32{1, 2, 3, 4})
@@ -43,7 +43,7 @@ func TestRadixTreeExtraReleaseDoesNotOverPin(t *testing.T) {
 	r.Release(node)
 	r.Release(node)
 
-	if _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
 		t.Fatal(err)
 	}
 	n := r.Len()
@@ -57,14 +57,14 @@ func TestRadixTreeExtraReleaseDoesNotOverPin(t *testing.T) {
 // whole segment, so every block of it stays live until the caller releases.
 func TestRadixTreeSplitKeepsHeldBlocks(t *testing.T) {
 	r := NewRadixTree(64, 2)
-	if _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 3, 4}, []int{10, 11}); err != nil {
 		t.Fatal(err)
 	}
 	_, blocks, node := r.Acquire([]int32{1, 2, 3, 4})
 	if node == nil {
 		t.Fatal("Acquire matched nothing")
 	}
-	if _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 7, 8}, []int{10, 12}); err != nil {
 		t.Fatal(err)
 	}
 	held := map[int]bool{}
@@ -89,14 +89,14 @@ func TestRadixTreeSplitKeepsHeldBlocks(t *testing.T) {
 func TestRadixTreeSplitBelowRoot(t *testing.T) {
 	r := NewRadixTree(64, 2)
 	// Two levels: {1,2} is shared, then {3,4,5,6} hangs below it.
-	if _, err := r.Insert([]int32{1, 2, 3, 4, 5, 6}, []int{10, 11, 12}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 3, 4, 5, 6}, []int{10, 11, 12}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Insert([]int32{1, 2, 9, 9}, []int{10, 19}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 9, 9}, []int{10, 19}); err != nil {
 		t.Fatal(err)
 	}
 	// Now split the second-level node {3,4,5,6} after its first block.
-	if _, err := r.Insert([]int32{1, 2, 3, 4, 7, 7}, []int{10, 11, 17}); err != nil {
+	if _, _, err := r.Insert([]int32{1, 2, 3, 4, 7, 7}, []int{10, 11, 17}); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
