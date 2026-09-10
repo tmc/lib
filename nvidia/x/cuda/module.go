@@ -3,6 +3,7 @@ package cuda
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"unsafe"
@@ -112,6 +113,50 @@ func (m *Module) Function(name string) (*Kernel, error) {
 		return nil, fmt.Errorf("cuda: find kernel %q: %w", name, err)
 	}
 	return &Kernel{module: m, raw: fn}, nil
+}
+
+// Attribute queries an integer attribute of the kernel, such as its static
+// shared-memory size or register count.
+func (k *Kernel) Attribute(attrib driver.FunctionAttribute) (int, error) {
+	var val int32
+	err := k.run(func() error {
+		var err error
+		val, err = k.raw.GetAttribute(attrib)
+		return err
+	})
+	if err != nil {
+		return 0, fmt.Errorf("cuda: kernel get attribute %v: %w", attrib, err)
+	}
+	return int(val), nil
+}
+
+// SetAttribute sets an integer attribute of the kernel. The driver accepts
+// only a few attributes here; raising
+// [driver.FuncAttributeMaxDynamicSharedSizeBytes] above the default is the
+// common use, and the device caps it at
+// [driver.DevAttrMaxSharedMemoryPerBlockOptin] less the static allocation.
+func (k *Kernel) SetAttribute(attrib driver.FunctionAttribute, value int) error {
+	if value < 0 || value > math.MaxInt32 {
+		return fmt.Errorf("cuda: kernel set attribute %v: value %d out of range", attrib, value)
+	}
+	if err := k.run(func() error { return k.raw.SetAttribute(attrib, int32(value)) }); err != nil {
+		return fmt.Errorf("cuda: kernel set attribute %v: %w", attrib, err)
+	}
+	return nil
+}
+
+// run executes fn in the module's context while holding the module open.
+func (k *Kernel) run(fn func() error) error {
+	if k == nil || k.module == nil {
+		return fmt.Errorf("cuda: closed module")
+	}
+	m := k.module
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.raw == 0 {
+		return fmt.Errorf("cuda: closed module")
+	}
+	return m.ctx.Run(fn)
 }
 
 // Launch submits a kernel with grid and block dimensions in x, y, z order.
