@@ -831,6 +831,67 @@ func (b *BufferWrapper) OpaqueDeviceMemoryDataPointer() (unsafe.Pointer, error) 
 	return args.Device_memory_ptr, nil
 }
 
+// OnDeviceSizeInBytes reports the size of this buffer's device storage.
+func (b *BufferWrapper) OnDeviceSizeInBytes() (uint64, error) {
+	if b == nil || b.buffer == nil {
+		return 0, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_OnDeviceSizeInBytes == 0 {
+		return 0, fmt.Errorf("openxla: device buffer size not available")
+	}
+	args := Buffer_OnDeviceSizeInBytes_Args{Struct_size: PJRT_Buffer_OnDeviceSizeInBytes_Args_STRUCT_SIZE, Buffer: b.buffer}
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_OnDeviceSizeInBytes, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return 0, err
+	}
+	return uint64(args.On_device_size_in_bytes), nil
+}
+
+// IsDenseRowMajor reports whether the buffer has an untiled, dense row-major
+// layout. Other layout representations return false. This query uses the
+// legacy PJRT layout API and does not establish CPU accessibility or readiness.
+func (b *BufferWrapper) IsDenseRowMajor() (bool, error) {
+	if b == nil || b.buffer == nil {
+		return false, fmt.Errorf("openxla: buffer is closed")
+	}
+	if b.api.Buffer_GetMemoryLayout == 0 {
+		return false, fmt.Errorf("openxla: buffer memory layout not available")
+	}
+	_, dims, err := b.Shape()
+	if err != nil {
+		return false, err
+	}
+	args := Buffer_GetMemoryLayout_Args{Struct_size: PJRT_Buffer_GetMemoryLayout_Args_STRUCT_SIZE, Buffer: b.buffer}
+	if err := decodeError(b.api, callPJRT(b.api.Buffer_GetMemoryLayout, uintptr(unsafe.Pointer(&args)))); err != nil {
+		return false, err
+	}
+	layout := args.Layout
+	if layout.Struct_size < PJRT_Buffer_MemoryLayout_STRUCT_SIZE {
+		return false, fmt.Errorf("openxla: truncated buffer memory layout")
+	}
+	if layout.Type != Buffer_MemoryLayout_Type_Tiled {
+		return false, nil
+	}
+	tiled := layout.Union_pad
+	if tiled.Struct_size < PJRT_Buffer_MemoryLayout_Tiled_STRUCT_SIZE {
+		return false, fmt.Errorf("openxla: truncated tiled buffer memory layout")
+	}
+	if tiled.Num_tiles != 0 {
+		return false, nil
+	}
+	if tiled.Minor_to_major_size != uintptr(len(dims)) {
+		return false, fmt.Errorf("openxla: buffer layout rank mismatch")
+	}
+	if len(dims) != 0 && tiled.Minor_to_major == nil {
+		return false, fmt.Errorf("openxla: buffer layout axes missing")
+	}
+	for i, axis := range unsafe.Slice(tiled.Minor_to_major, len(dims)) {
+		if axis != int64(len(dims)-1-i) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // WaitReady waits for this buffer's producer to finish.
 func (b *BufferWrapper) WaitReady() error {
 	if b == nil || b.buffer == nil {
