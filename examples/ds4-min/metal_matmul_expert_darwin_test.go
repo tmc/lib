@@ -59,10 +59,11 @@ func TestMetalMatmulExpertIQ2PreservedBitIdentity(t *testing.T) {
 		return rng
 	}
 
-	detectedReassociationAny := false
+	var ordered, blind []string
 
 	for _, s := range shapes {
 		cols, rows, experts, slots := s.cols, s.rows, s.experts, s.slots
+		shapeSensitive := false
 		gate := selectedExpertTensor(arena, fmt.Sprintf("gate-%d-%d-%d", cols, rows, experts), 16, cols, rows, experts, 3)
 		up := selectedExpertTensor(arena, fmt.Sprintf("up-%d-%d-%d", cols, rows, experts), 16, cols, rows, experts, 11)
 
@@ -134,16 +135,19 @@ func TestMetalMatmulExpertIQ2PreservedBitIdentity(t *testing.T) {
 						}
 					}
 					if diff {
-						detectedReassociationAny = true
+						shapeSensitive = true
 					}
 				})
 			}
 		}
+		if shapeSensitive {
+			ordered = append(ordered, fmt.Sprintf("%dx%d", cols, rows))
+		} else {
+			blind = append(blind, fmt.Sprintf("%dx%d", cols, rows))
+		}
 	}
 
-	if !detectedReassociationAny {
-		t.Fatal("no shape in the sweep could detect reassociation; order-sensitivity guard cannot verify teeth")
-	}
+	reportOrderSensitivity(t, "IQ2_XXS", ordered, blind)
 }
 
 func TestMetalMatmulExpertQ2KPreservedBitIdentity(t *testing.T) {
@@ -197,10 +201,11 @@ func TestMetalMatmulExpertQ2KPreservedBitIdentity(t *testing.T) {
 		return rng
 	}
 
-	detectedReassociationAny := false
+	var ordered, blind []string
 
 	for _, s := range shapes {
 		cols, rows, experts, slots := s.cols, s.rows, s.experts, s.slots
+		shapeSensitive := false
 		down := selectedExpertTensor(arena, fmt.Sprintf("down-%d-%d-%d", cols, rows, experts), 10, cols, rows, experts, 7)
 
 		for _, T := range testTokens {
@@ -261,16 +266,19 @@ func TestMetalMatmulExpertQ2KPreservedBitIdentity(t *testing.T) {
 						}
 					}
 					if diff {
-						detectedReassociationAny = true
+						shapeSensitive = true
 					}
 				})
 			}
 		}
+		if shapeSensitive {
+			ordered = append(ordered, fmt.Sprintf("%dx%d", cols, rows))
+		} else {
+			blind = append(blind, fmt.Sprintf("%dx%d", cols, rows))
+		}
 	}
 
-	if !detectedReassociationAny {
-		t.Fatal("no shape in the sweep could detect reassociation; order-sensitivity guard cannot verify teeth")
-	}
+	reportOrderSensitivity(t, "Q2_K", ordered, blind)
 }
 
 // expertIDPatterns names the routing shapes the sweeps run. "shared" makes
@@ -550,5 +558,34 @@ func TestMetalMatmulExpertRejectsMalformedCalls(t *testing.T) {
 				t.Errorf("rejected call still created %d command buffers, want 0", got)
 			}
 		})
+	}
+}
+
+// reportOrderSensitivity keeps the sweeps' order-preservation claim honest
+// about where it is actually tested.
+//
+// Bit-identity against the per-token reference is asserted at every shape. The
+// reversed twin is what says that assertion could have failed, and it cannot
+// say so everywhere: where a reversal is provably not a reversal, the two
+// pipelines are the same computation and their agreement is empty. Q2_K at
+// cols=256 has nb=1, so `block = kReverseBlocks ? (nb-1-bi) : bi` is the same
+// instruction on both branches. IQ2 at cols<=1024 has parts<=32, so every
+// active lane holds one part and reversal only permutes parts across lanes --
+// and for a power-of-two count that permutation is XOR with parts-1, which a
+// butterfly simd_sum pairs identically at every level. Same mechanism the Q8_0
+// sweep documents and measured at cols=512.
+//
+// So the requirement is the suite-level one: at least one shape must be able to
+// tell, or a twin that quietly stopped reversing would leave the whole sweep
+// green. The blind shapes are named rather than dropped -- they still exercise
+// their own dispatch geometry -- and the log says which is which, so nobody has
+// to re-derive it from the kernel.
+func reportOrderSensitivity(t *testing.T, kind string, ordered, blind []string) {
+	t.Helper()
+	if len(ordered) == 0 {
+		t.Errorf("%s: no shape in the sweep could detect reassociation; the order-preservation claim is untested at every one of %v", kind, blind)
+	}
+	if len(blind) > 0 {
+		t.Logf("%s: order sensitivity established at %v; not available at %v", kind, ordered, blind)
 	}
 }
