@@ -8,17 +8,17 @@ import (
 )
 
 func (f *function) Expm1(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "exponential_minus_one")
+	return f.unary(v, "exponential_minus_one")
 }
 func (f *function) Log1p(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "log_plus_one")
+	return f.unary(v, "log_plus_one")
 }
-func (f *function) Ceil(v compute.Value) (compute.Value, error)  { return f.unaryFloat(v, "ceil") }
-func (f *function) Floor(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "floor") }
+func (f *function) Ceil(v compute.Value) (compute.Value, error)  { return f.unary(v, "ceil") }
+func (f *function) Floor(v compute.Value) (compute.Value, error) { return f.unary(v, "floor") }
 func (f *function) Round(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "round_nearest_even")
+	return f.unary(v, "round_nearest_even")
 }
-func (f *function) Tanh(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "tanh") }
+func (f *function) Tanh(v compute.Value) (compute.Value, error) { return f.unary(v, "tanh") }
 
 func (f *function) Sign(v compute.Value) (compute.Value, error) {
 	if f.returned {

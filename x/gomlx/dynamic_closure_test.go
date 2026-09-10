@@ -129,7 +129,7 @@ func TestNativeDynamicCapabilityBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	y, err := f.Exp(x)
+	y, err := f.Erf(x)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestNativeDynamicCapabilityBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := builder.Compile(); err == nil {
-		t.Fatal("unrecorded dynamic Exp unexpectedly compiled; reassess capability boundary")
+		t.Fatal("unrecorded dynamic Erf unexpectedly compiled; reassess capability boundary")
 	}
 	if b.Capabilities().DynamicShapes != compute.DynamicShapesNone {
 		t.Fatal("partial replay advertised dynamic capability")

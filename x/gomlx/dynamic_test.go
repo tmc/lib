@@ -69,7 +69,7 @@ func TestDynamicUnsupportedOperationRejectsBeforeCompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := f.Exp(x)
+	value, err := f.Erf(x)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestDynamicUnsupportedOperationRejectsBeforeCompile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := f.checkDynamicSlice(); err == nil {
-		t.Fatal("unsupported dynamic exp was accepted")
+		t.Fatal("unsupported dynamic erf was accepted")
 	}
 }
 

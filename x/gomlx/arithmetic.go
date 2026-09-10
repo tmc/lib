@@ -266,23 +266,7 @@ func (f *function) ConvertDType(v compute.Value, dtype dtypes.DType) (compute.Va
 	return &node{f, z}, nil
 }
 func (f *function) Sqrt(v compute.Value) (compute.Value, error) {
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	x, err := f.value(v)
-	if err != nil {
-		return nil, err
-	}
-	if !elementDType(x.Type.ElementType).IsFloat() {
-		return nil, unsupported
-	}
-	z := hlo.Value{ID: fmt.Sprintf("%%sqrt%d", len(f.raw.Ops)), Type: x.Type}
-	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.sqrt %s : %s", z.ID, x.ID, x.Type))
-	f.dynamicOps = append(f.dynamicOps, dynamicOp{kind: dynamicSqrt, operand: x, result: z})
-	if shape, ok := f.valueShapes[x.ID]; ok {
-		f.valueShapes[z.ID] = shape.Clone()
-	}
-	return &node{f, z}, nil
+	return f.unary(v, "sqrt")
 }
 
 func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
@@ -297,25 +281,10 @@ func (f *function) Pow(a, b compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Exp(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "exponential")
+	return f.unary(v, "exponential")
 }
 func (f *function) Log(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "log")
-}
-func (f *function) unaryFloat(v compute.Value, op string) (compute.Value, error) {
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	x, err := f.value(v)
-	if err != nil {
-		return nil, err
-	}
-	if !elementDType(x.Type.ElementType).IsFloat() {
-		return nil, unsupported
-	}
-	z := hlo.Value{ID: fmt.Sprintf("%%unary%d", len(f.raw.Ops)), Type: x.Type}
-	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.%s %s : %s", z.ID, op, x.ID, x.Type))
-	return &node{f, z}, nil
+	return f.unary(v, "log")
 }
 
 func (f *function) Identity(v compute.Value) (compute.Value, error) {
@@ -330,22 +299,10 @@ func (f *function) Identity(v compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Neg(v compute.Value) (compute.Value, error) {
-	if f.returned {
-		return nil, fmt.Errorf("function already returned")
-	}
-	x, err := f.value(v)
-	if err != nil {
-		return nil, err
-	}
-	if x.Type.ElementType == "i1" {
-		return nil, unsupported
-	}
-	z := hlo.Value{ID: fmt.Sprintf("%%neg%d", len(f.raw.Ops)), Type: x.Type}
-	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s = stablehlo.negate %s : %s", z.ID, x.ID, x.Type))
-	return &node{f, z}, nil
+	return f.unary(v, "negate")
 }
 
-func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unaryFloat(v, "sine") }
+func (f *function) Sin(v compute.Value) (compute.Value, error) { return f.unary(v, "sine") }
 
 func (f *function) Rem(a, b compute.Value) (compute.Value, error) {
 	return f.binary(a, b, func(x, y hlo.Value) (hlo.Value, error) {
@@ -359,7 +316,7 @@ func (f *function) Rem(a, b compute.Value) (compute.Value, error) {
 }
 
 func (f *function) Rsqrt(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "rsqrt")
+	return f.unary(v, "rsqrt")
 }
 
 func (f *function) LogicalNot(v compute.Value) (compute.Value, error) {

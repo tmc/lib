@@ -33,8 +33,8 @@ func (f *function) RNGBitGenerator(state compute.Value, shape shapes.Shape) (com
 	f.raw.Ops = append(f.raw.Ops, fmt.Sprintf("%s, %s = \"stablehlo.rng_bit_generator\"(%s) {rng_algorithm = #stablehlo<rng_algorithm PHILOX>} : (%s) -> (%s, %s)", next.ID, bits.ID, x.ID, x.Type, next.Type, bits.Type))
 	return &node{f, next}, &node{f, bits}, nil
 }
-func (f *function) Abs(v compute.Value) (compute.Value, error)    { return f.unaryFloat(v, "abs") }
-func (f *function) Cos(v compute.Value) (compute.Value, error)    { return f.unaryFloat(v, "cosine") }
+func (f *function) Abs(v compute.Value) (compute.Value, error)    { return f.unary(v, "abs") }
+func (f *function) Cos(v compute.Value) (compute.Value, error)    { return f.unary(v, "cosine") }
 func (f *function) Min(a, b compute.Value) (compute.Value, error) { return f.extreme(a, b, "minimum") }
 func (f *function) Max(a, b compute.Value) (compute.Value, error) { return f.extreme(a, b, "maximum") }
 func (f *function) extreme(a, b compute.Value, op string) (compute.Value, error) {

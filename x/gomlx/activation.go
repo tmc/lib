@@ -8,7 +8,7 @@ import (
 )
 
 func (f *function) Logistic(v compute.Value) (compute.Value, error) {
-	return f.unaryFloat(v, "logistic")
+	return f.unary(v, "logistic")
 }
 
 func (f *function) Erf(v compute.Value) (compute.Value, error) {

@@ -11,6 +11,7 @@ import (
 )
 
 type dynamicOp struct {
+	unary                   unaryOp
 	starts, limits, strides []int
 	dimensions              []dimensionSpec
 	pads                    []padSpec
@@ -29,7 +30,7 @@ const (
 	dynamicSubtract            = "subtract"
 	dynamicMultiply            = "multiply"
 	dynamicReduceSum           = "reduce_sum"
-	dynamicSqrt                = "sqrt"
+	dynamicUnary               = "unary"
 	dynamicIntegerConstant     = "integer_constant"
 	dynamicInt32VectorConstant = "int32_vector_constant"
 )
@@ -105,7 +106,7 @@ func (f *function) checkDynamicSlice() error {
 	wantRawOps := 0
 	for _, op := range f.dynamicOps {
 		switch op.kind {
-		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicSqrt, dynamicIntegerConstant, dynamicInt32VectorConstant, "reshape_dynamic", "broadcast_dynamic", "iota_dynamic", "pad_dynamic", "literal", "add", "divide", "convert", "reshape_static", "broadcast_static", "broadcast_pair", "concatenate", "slice":
+		case dynamicDimensionSize, dynamicShape, dynamicSubtract, dynamicMultiply, dynamicUnary, dynamicIntegerConstant, dynamicInt32VectorConstant, "reshape_dynamic", "broadcast_dynamic", "iota_dynamic", "pad_dynamic", "literal", "add", "divide", "convert", "reshape_static", "broadcast_static", "broadcast_pair", "concatenate", "slice":
 			wantRawOps++
 		case dynamicReduceSum:
 			wantRawOps += 2
@@ -221,8 +222,8 @@ func (f *function) specializeRuntime(bindings shapes.AxisBindings, evaluate scal
 				}
 			}
 			result, err = raw.Reduce(operand, zero, int64s(op.axes), hlo.Type{Shape: dims, ElementType: operand.Type.ElementType}, "add")
-		case dynamicSqrt:
-			result, err = raw.Sqrt(operand)
+		case dynamicUnary:
+			result, err = emitUnary(raw, operand, op.unary)
 		case dynamicIntegerConstant:
 			known[op.result.ID] = int64(op.axis)
 			result, err = raw.IntegerConstant(int64(op.axis), hlo.Type{ElementType: "i32"})
