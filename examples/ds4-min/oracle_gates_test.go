@@ -81,6 +81,10 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PREFILL_PROGRESS_OUT", "new CUDA prefill progress JSONL file"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
 
+	{"DS4_BENCH_CONTEXT", "how much context the Metal workload benchmarks allocate"},
+	{"DS4_BENCH_CHUNKS", "which prefill chunk sizes the workload benchmark sweeps"},
+	{"DS4_BENCH_DEPTHS", "which decode depths the workload benchmark sweeps"},
+
 	{"DS4_REQUIRE_GATES", "failing this test when any gate above is unset"},
 }
 
