@@ -40,6 +40,9 @@ type GPUBatchScratchpad struct {
 	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
 	// it before every batch (paged_kv_step_cuda.go).
 	paged *pagedStep
+
+	// layer is non-nil only under LLAMA_INFER_CUDALAYER=1; see cudalayer_cuda.go.
+	layer *cudalayerRuntime
 }
 
 func newGPUBatchScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
@@ -107,6 +110,13 @@ func newGPUBatchScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *Mode
 		_ = a.Free()
 		return nil, fmt.Errorf("cuda batch scratchpad: gate/up matrix plans: %w", err)
 	}
+	if cudalayerEnabled() {
+		if sp.layer, err = newCudalayerRuntime(dev, tracker, capacity); err != nil {
+			_ = sp.lmHead.close()
+			_ = a.Free()
+			return nil, fmt.Errorf("cuda batch scratchpad: %w", err)
+		}
+	}
 	return sp, nil
 }
 
@@ -127,6 +137,8 @@ func (sp *GPUBatchScratchpad) Free() {
 		sp.arena = nil
 		_ = sp.lmHead.close()
 		sp.lmHead = nil
+		_ = sp.layer.close()
+		sp.layer = nil
 		_ = a.Free()
 	}
 }
@@ -186,7 +198,13 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	weightLaunches++
 	for layer := 0; layer < cfg.NumHiddenLayers; layer++ {
 		w := &eng.weights.Layers[layer]
-		if !prefill && cfg.FuseEGraph && w.QBias.Len() == 0 && w.KBias.Len() == 0 && w.VBias.Len() == 0 {
+		fused := sp.layer.applies(w, batch, prefill)
+		if fused {
+			if err := sp.layer.qkv(launcher, sp, w, cfg, batch); err != nil {
+				return nil, stats, err
+			}
+			weightLaunches += 3
+		} else if !prefill && cfg.FuseEGraph && w.QBias.Len() == 0 && w.KBias.Len() == 0 && w.VBias.Len() == 0 {
 			if err := launcher(eng.modules.BatchFusedQKV).Grid(uint32(qDim), uint32(batch)).Block(128).
 				Launch(sp.X, w.InputNorm, w.WQ, w.WK, w.WV, sp.Q, sp.K, sp.V,
 					int32(hidden), int32(qDim), int32(kvDim), int32(batch), cfg.RmsNormEps); err != nil {
@@ -201,8 +219,8 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 			for _, projection := range []struct {
 				weight, bias WeightSlice
 				out          cudamem.Slice[float32]
-				dim               int
-				plans             []cudaMatrixPlan
+				dim          int
+				plans        []cudaMatrixPlan
 			}{
 				{w.WQ, w.QBias, sp.Q, qDim, sp.prefillQ}, {w.WK, w.KBias, sp.K, kvDim, sp.prefillKV}, {w.WV, w.VBias, sp.V, kvDim, sp.prefillKV},
 			} {
@@ -268,59 +286,66 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 				}
 			}
 		}
-		if prefill {
-			if err := sp.lmHead.runPlanSet(sp.prefillOut, eng.stream, sp.AttnOut, w.WO, sp.NormX, batch); err != nil {
+		if fused {
+			if err := sp.layer.ffn(launcher, sp, w, cfg, batch); err != nil {
 				return nil, stats, err
 			}
-			matrixLaunches++
+			weightLaunches += 4
 		} else {
-			if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
-				Launch(sp.AttnOut, w.WO, noBias, sp.NormX, int32(qDim), int32(hidden), int32(batch)); err != nil {
-				return nil, stats, err
-			}
-		}
-		if err := launcher(eng.modules.BatchAddResidual).Grid(1, uint32(batch)).Block(256).
-			Launch(sp.X, sp.NormX, int32(hidden), int32(batch)); err != nil {
-			return nil, stats, err
-		}
-		if err := launcher(eng.modules.BatchNorm).Grid(1, uint32(batch)).Block(256).
-			Launch(sp.X, w.PostNorm, sp.NormX, int32(hidden), int32(batch), cfg.RmsNormEps); err != nil {
-			return nil, stats, err
-		}
-		if err := sp.lmHead.runPlanSet(sp.gateUp, eng.stream, sp.NormX, w.WGate, sp.Gate, batch); err != nil {
-			return nil, stats, err
-		}
-		if err := sp.lmHead.runPlanSet(sp.gateUp, eng.stream, sp.NormX, w.WUp, sp.Up, batch); err != nil {
-			return nil, stats, err
-		}
-		matrixLaunches += 2
-		if !prefill && cfg.FuseEGraph {
-			if err := launcher(eng.modules.BatchFusedSwiGLU).Grid(uint32(hidden), uint32(batch)).Block(128).
-				Launch(sp.Gate, sp.Up, w.WDown, sp.FFNOut, int32(hidden), int32(inter), int32(batch)); err != nil {
-				return nil, stats, err
-			}
-			weightLaunches += 5
-		} else {
-			if err := launcher(eng.modules.BatchSwiGLU).Grid(1, uint32(batch)).Block(256).
-				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(inter), int32(batch)); err != nil {
-				return nil, stats, err
-			}
 			if prefill {
-				if err := sp.lmHead.runPlanSet(sp.prefillDown, eng.stream, sp.FFNAct, w.WDown, sp.FFNOut, batch); err != nil {
+				if err := sp.lmHead.runPlanSet(sp.prefillOut, eng.stream, sp.AttnOut, w.WO, sp.NormX, batch); err != nil {
 					return nil, stats, err
 				}
 				matrixLaunches++
 			} else {
 				if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
-					Launch(sp.FFNAct, w.WDown, noBias, sp.FFNOut, int32(inter), int32(hidden), int32(batch)); err != nil {
+					Launch(sp.AttnOut, w.WO, noBias, sp.NormX, int32(qDim), int32(hidden), int32(batch)); err != nil {
 					return nil, stats, err
 				}
 			}
-			weightLaunches += 5
-		}
-		if err := launcher(eng.modules.BatchAddResidual).Grid(1, uint32(batch)).Block(256).
-			Launch(sp.X, sp.FFNOut, int32(hidden), int32(batch)); err != nil {
-			return nil, stats, err
+			if err := launcher(eng.modules.BatchAddResidual).Grid(1, uint32(batch)).Block(256).
+				Launch(sp.X, sp.NormX, int32(hidden), int32(batch)); err != nil {
+				return nil, stats, err
+			}
+			if err := launcher(eng.modules.BatchNorm).Grid(1, uint32(batch)).Block(256).
+				Launch(sp.X, w.PostNorm, sp.NormX, int32(hidden), int32(batch), cfg.RmsNormEps); err != nil {
+				return nil, stats, err
+			}
+			if err := sp.lmHead.runPlanSet(sp.gateUp, eng.stream, sp.NormX, w.WGate, sp.Gate, batch); err != nil {
+				return nil, stats, err
+			}
+			if err := sp.lmHead.runPlanSet(sp.gateUp, eng.stream, sp.NormX, w.WUp, sp.Up, batch); err != nil {
+				return nil, stats, err
+			}
+			matrixLaunches += 2
+			if !prefill && cfg.FuseEGraph {
+				if err := launcher(eng.modules.BatchFusedSwiGLU).Grid(uint32(hidden), uint32(batch)).Block(128).
+					Launch(sp.Gate, sp.Up, w.WDown, sp.FFNOut, int32(hidden), int32(inter), int32(batch)); err != nil {
+					return nil, stats, err
+				}
+				weightLaunches += 5
+			} else {
+				if err := launcher(eng.modules.BatchSwiGLU).Grid(1, uint32(batch)).Block(256).
+					Launch(sp.Gate, sp.Up, sp.FFNAct, int32(inter), int32(batch)); err != nil {
+					return nil, stats, err
+				}
+				if prefill {
+					if err := sp.lmHead.runPlanSet(sp.prefillDown, eng.stream, sp.FFNAct, w.WDown, sp.FFNOut, batch); err != nil {
+						return nil, stats, err
+					}
+					matrixLaunches++
+				} else {
+					if err := launcher(eng.modules.BatchGEMV).Grid(uint32(hidden), uint32(batch)).Block(128).
+						Launch(sp.FFNAct, w.WDown, noBias, sp.FFNOut, int32(inter), int32(hidden), int32(batch)); err != nil {
+						return nil, stats, err
+					}
+				}
+				weightLaunches += 5
+			}
+			if err := launcher(eng.modules.BatchAddResidual).Grid(1, uint32(batch)).Block(256).
+				Launch(sp.X, sp.FFNOut, int32(hidden), int32(batch)); err != nil {
+				return nil, stats, err
+			}
 		}
 	}
 	if err := launcher(eng.modules.BatchNorm).Grid(1, uint32(batch)).Block(256).
@@ -350,8 +375,18 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 			return nil, stats, err
 		}
 	}
+	if sp.layer != nil && !prefill {
+		if err := sp.layer.readStatus(eng.stream, batch); err != nil {
+			return nil, stats, err
+		}
+	}
 	if err := eng.stream.Synchronize(ctx); err != nil {
 		return nil, stats, err
+	}
+	if sp.layer != nil && !prefill {
+		if err := sp.layer.check(batch); err != nil {
+			return nil, stats, err
+		}
 	}
 	result = append([]int32(nil), sp.hostTokenOut[:outputRows]...)
 	stats.WeightLaunches = weightLaunches
