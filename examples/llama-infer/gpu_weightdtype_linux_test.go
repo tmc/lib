@@ -62,10 +62,14 @@ func requireCUDAHardware(t *testing.T, reqs ...cudatest.Requirement) *cuda.Devic
 // on the weight dtype. It is three orders of magnitude below the quantization
 // budgets in halfref_test.go, and reusing those here would let a genuinely
 // wrong kernel pass.
-// halfCapable is the compute capability the half weight path needs: __half
-// arithmetic is sm_53 and later. Requiring it turns a launch failure on an
-// older device into a skip that names the reason.
-var halfCapable = cudatest.MinCompute(5, 3)
+// No compute-capability requirement is declared for the half weight tests.
+//
+// sm_53 would be the floor for __half arithmetic, but forward.cu does none:
+// f16_to_f32 is a single inline cvt.f32.f16, a conversion instruction far
+// older than half arithmetic, and bf16_to_f32 is an integer shift with no
+// half support at all. Requiring sm_53 would skip devices these kernels run
+// on. cudatest.MinCompute and MinVRAM are available through the variadic
+// above for a test that has a real floor to declare.
 
 const (
 	implRelTol = 2e-6
@@ -101,7 +105,7 @@ func checkImpl(t *testing.T, name string, got, want, scale []float32) {
 // multiple of four, so 129/130/131 exercise the alignment-aware fallback that
 // the aligned cases never reach.
 func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
-	dev := requireCUDAHardware(t, halfCapable)
+	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +189,7 @@ func TestCUDAWeightDTypeGEMVMatchesRoundedOracle(t *testing.T) {
 // If the test still passes, the oracle is not reading what the kernel computed
 // and every other result in this file is worthless.
 func TestCUDAWeightDTypeGEMVNegativeControl(t *testing.T) {
-	dev := requireCUDAHardware(t, halfCapable)
+	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -275,7 +279,7 @@ func TestCUDAWeightDTypeGEMVNegativeControl(t *testing.T) {
 // The three counts sum to 65536 in each format, and the test asserts that, so a
 // classification that silently dropped a class could not pass.
 func TestCUDADeviceConversionMatchesGo(t *testing.T) {
-	dev := requireCUDAHardware(t, halfCapable)
+	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -404,7 +408,7 @@ func TestCUDADeviceConversionMatchesGo(t *testing.T) {
 // implRelTol. A dimension that is a multiple of four is included as the control
 // that passed even before the fix.
 func TestCUDASingleAndBatchFusedAgreeOnOddDimensions(t *testing.T) {
-	dev := requireCUDAHardware(t, halfCapable)
+	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
@@ -525,7 +529,7 @@ func deterministicFloats(n int, seed uint32) []float32 {
 // exactly. Negative zeros in the table are preserved by that path and are
 // included deliberately.
 func TestCUDAEmbeddingLookupOddStride(t *testing.T) {
-	dev := requireCUDAHardware(t, halfCapable)
+	dev := requireCUDAHardware(t)
 	stream, err := dev.NewStream()
 	if err != nil {
 		t.Fatal(err)
