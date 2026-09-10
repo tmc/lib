@@ -253,7 +253,7 @@ func TestNativeDynamicRecompiling(t *testing.T) {
 			t.Fatalf("weighted=%v want=%d", gotWeighted, batch*6)
 		}
 		for _, value := range gotDistance {
-			if math.Abs(float64(value)-math.Sqrt(3)) > 1e-5 {
+			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || math.Abs(float64(value)-math.Sqrt(3)) > 1e-5 {
 				t.Fatalf("run %d: distance=%v", run, gotDistance)
 			}
 		}
