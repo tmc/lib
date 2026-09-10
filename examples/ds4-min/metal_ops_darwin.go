@@ -1037,6 +1037,89 @@ func (o *metalPinnedOps) MatvecQ80(t boundMetalTensor, x []float32) ([]float32, 
 	return append([]float32(nil), out.HostSlice()...), nil
 }
 
+// MatvecIQ2Selected runs one token's routed gate and up projections and
+// returns their outputs, slot-major.
+//
+// It is the per-token reference a batched selected kernel has to reproduce
+// bit for bit, so it does not reimplement the dispatch: it drives the same
+// metalBatch encoder the runtime uses at metal_runtime_darwin.go:825. A
+// reference that hand-copies the bindings can drift from the path it claims
+// to stand for, and a bit-identity test against a drifted reference proves
+// nothing about production.
+func (o *metalPinnedOps) MatvecIQ2Selected(gate, up boundMetalTensor, expertIDs []int32, x []float32) (gateOut, upOut []float32, err error) {
+	if len(gate.dimensions) != 3 {
+		return nil, nil, fmt.Errorf("matvec %q: IQ2_XXS selected tensor is not 3-D", gate.name)
+	}
+	rows := int(gate.dimensions[1])
+	ids, err := metalmem.AllocFromSlice(o.dev, expertIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer ids.Free()
+	in, err := metalmem.AllocFromSlice(o.dev, x)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer in.Free()
+	gateBuf, err := metalmem.Alloc[float32](o.dev, rows*len(expertIDs))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer gateBuf.Free()
+	upBuf, err := metalmem.Alloc[float32](o.dev, rows*len(expertIDs))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer upBuf.Free()
+	batch, err := newMetalBatch(o)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := batch.EncodeMatvecIQ2Selected(gate, up, ids, in, gateBuf, upBuf); err != nil {
+		return nil, nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("matvec %q: %w", gate.name, err)
+	}
+	return append([]float32(nil), gateBuf.HostSlice()...), append([]float32(nil), upBuf.HostSlice()...), nil
+}
+
+// MatvecQ2KSelected runs one token's routed down projection over its already
+// slot-major input and returns the six slot outputs. Like MatvecIQ2Selected it
+// drives the production encoder rather than restating its dispatch.
+func (o *metalPinnedOps) MatvecQ2KSelected(t boundMetalTensor, expertIDs []int32, x []float32) ([]float32, error) {
+	if len(t.dimensions) != 3 {
+		return nil, fmt.Errorf("matvec %q: Q2_K selected tensor is not 3-D", t.name)
+	}
+	rows := int(t.dimensions[1])
+	ids, err := metalmem.AllocFromSlice(o.dev, expertIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer ids.Free()
+	in, err := metalmem.AllocFromSlice(o.dev, x)
+	if err != nil {
+		return nil, err
+	}
+	defer in.Free()
+	out, err := metalmem.Alloc[float32](o.dev, rows*len(expertIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer out.Free()
+	batch, err := newMetalBatch(o)
+	if err != nil {
+		return nil, err
+	}
+	if err := batch.EncodeMatvecQ2KSelected(t, ids, in, out); err != nil {
+		return nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
+		return nil, fmt.Errorf("matvec %q: %w", t.name, err)
+	}
+	return append([]float32(nil), out.HostSlice()...), nil
+}
+
 func (o *metalPinnedOps) MatvecF16(t boundMetalTensor, x []float32) ([]float32, error) {
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(len(x)) != t.dimensions[0] {
 		return nil, fmt.Errorf("matvec %q: invalid F16 tensor or input", t.name)
