@@ -3,6 +3,7 @@
 package openxla
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -168,4 +169,44 @@ func TestDefaultDeviceAssignmentPinLifetime(t *testing.T) {
 		t.Fatalf("assignment %v, %v", ids, err)
 	}
 	requireUnpinned(t, data)
+}
+
+func TestCreateViewDimensionPinLifetime(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(fmt.Sprint(fail), func(t *testing.T) {
+			dims := []int64{32}
+			requireUnpinned(t, unsafe.Pointer(&dims[0]))
+			data := make([]byte, 32)
+			var owner runtime.Pinner
+			owner.Pin(&data[0])
+			defer owner.Unpin()
+			api := new(Api)
+			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) {})
+			api.Buffer_Destroy = purego.NewCallback(func(*Buffer_Destroy_Args) *ErrorHandle { return nil })
+			api.Client_CreateViewOfDeviceBuffer = purego.NewCallback(func(a *Client_CreateViewOfDeviceBuffer_Args) *ErrorHandle {
+				runtime.GC()
+				pincheck.Check(unsafe.Pointer(a.Dims))
+				pincheck.Check(a.Device_buffer_ptr)
+				if fail {
+					return &ErrorHandle{}
+				}
+				a.Buffer = &Buffer{}
+				return nil
+			})
+			c := &ClientWrapper{api: api, client: &Client{}}
+			b, err := c.CreateViewOfDeviceBuffer(unsafe.Pointer(&data[0]), Buffer_Type_U8, dims, nil, &Device{}, 0, nil)
+			if (err != nil) != fail {
+				t.Fatalf("error=%v, want failure=%v", err, fail)
+			}
+			if b != nil {
+				if err := b.Destroy(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// The wrapper borrows dimensions only during creation. Device data
+			// remains the caller's responsibility and is still pinned here.
+			requireUnpinned(t, unsafe.Pointer(&dims[0]))
+			pincheck.Check(unsafe.Pointer(&data[0]))
+		})
+	}
 }
