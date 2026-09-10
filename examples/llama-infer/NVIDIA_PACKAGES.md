@@ -19,7 +19,7 @@ platform-neutral. It does not mean it has run.
 | --- | --- |
 | cuda, cudalaunch, cudamem | the CUDA engine and every kernel launch |
 | nvrtcx | `CompileGPUModulesAs` compiles `forward.cu` at run time |
-| cudaattn | `Compile` only: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` is not called by any tracked file. |
+| cudaattn | `Compile` and `DefaultConfig`: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` is not called by any tracked file. |
 | cudakv | `NewTracked` only: the dense per-sequence and single-stream KV caches. `NewPagedCache` and `NewFP8` are not called. |
 | cudasafetensors | checkpoint loading |
 | cudasample | sampling |
