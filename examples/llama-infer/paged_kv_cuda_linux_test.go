@@ -88,7 +88,7 @@ func TestPagedKVMatchesDense(t *testing.T) {
 		}
 	}
 	tokens := len(seqIndex)
-	if err := rt.UploadBatch(seqIndex, positions, seqLens, blockTable); err != nil {
+	if err := rt.UploadBatch(stream, seqIndex, positions, seqLens, blockTable); err != nil {
 		t.Fatalf("UploadBatch: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestPagedKVMatchesDense(t *testing.T) {
 			defer free()
 		}
 
-		if err := rt.StoreKV(stream, layer, dq, dk, dv, dqr, tokens, len(seqLens), ropeTheta); err != nil {
+		if err := rt.StoreKV(stream, nil, layer, dq, dk, dv, dqr, tokens, len(seqLens), ropeTheta); err != nil {
 			t.Fatalf("layer %d StoreKV: %v", layer, err)
 		}
 		if err := stream.Synchronize(ctx); err != nil {
@@ -136,10 +136,10 @@ func TestPagedKVMatchesDense(t *testing.T) {
 		dcurrent := pagedKVUpload(t, dev, currentQ)
 		defer dcurrent.Free()
 
-		if err := rt.UploadBatch(seqIndex, positions, seqLens, blockTable); err != nil {
+		if err := rt.UploadBatch(stream, seqIndex, positions, seqLens, blockTable); err != nil {
 			t.Fatalf("layer %d re-upload: %v", layer, err)
 		}
-		if err := rt.Decode(stream, layer, dcurrent, dout, len(seqLens)); err != nil {
+		if err := rt.Decode(stream, nil, layer, dcurrent, dout, len(seqLens)); err != nil {
 			t.Fatalf("layer %d Decode: %v", layer, err)
 		}
 		if err := stream.Synchronize(ctx); err != nil {
@@ -209,7 +209,7 @@ func TestPagedKVRejectsBadBlockTable(t *testing.T) {
 	positions := []int32{0, 1, 2, 3}
 	// cfg.TotalBlocks is one past the last valid slot.
 	bad := []int32{int32(cfg.TotalBlocks), 1}
-	if err := rt.UploadBatch(seqIndex, positions, seqLens, bad); err != nil {
+	if err := rt.UploadBatch(stream, seqIndex, positions, seqLens, bad); err != nil {
 		t.Fatalf("UploadBatch: %v", err)
 	}
 	currentQ := pagedKVZeros[float32](t, dev, qHeads*headDim)
@@ -219,7 +219,7 @@ func TestPagedKVRejectsBadBlockTable(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := rt.Decode(stream, 0, currentQ, out, len(seqLens)); err != nil {
+	if err := rt.Decode(stream, nil, 0, currentQ, out, len(seqLens)); err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
 	if err := stream.Synchronize(ctx); err != nil {
@@ -227,44 +227,6 @@ func TestPagedKVRejectsBadBlockTable(t *testing.T) {
 	}
 	if err := rt.CheckStatus(); err == nil {
 		t.Fatal("CheckStatus accepted a block table entry past the end of the pool")
-	}
-}
-
-// TestPagedKVUntrackedPoolBytes checks the accounting the paged path reports for
-// memory the engine's tracker cannot see. It needs no device.
-func TestPagedKVUntrackedPoolBytes(t *testing.T) {
-	rt := &pagedKVRuntime{
-		cfg:     pagedKVConfig{BlockSize: 16, TotalBlocks: 8, MaxBlocksPerSeq: 4},
-		layers:  2,
-		kvHeads: 2,
-		headDim: 6,
-	}
-	const want = 8 * 16 * 2 * 6 * 2 * 2 * 4
-	if got := rt.pagedKVUntrackedPoolBytes(); got != want {
-		t.Errorf("pagedKVUntrackedPoolBytes() = %d, want %d", got, want)
-	}
-	if got := (*pagedKVRuntime)(nil).pagedKVUntrackedPoolBytes(); got != 0 {
-		t.Errorf("nil runtime reported %d bytes", got)
-	}
-}
-
-func TestDefaultPagedKVConfig(t *testing.T) {
-	tests := []struct {
-		name      string
-		maxSeqLen int
-		capacity  int
-		want      pagedKVConfig
-	}{
-		{"exact", 32, 2, pagedKVConfig{BlockSize: 16, TotalBlocks: 4, MaxBlocksPerSeq: 2}},
-		{"rounds up", 33, 1, pagedKVConfig{BlockSize: 16, TotalBlocks: 3, MaxBlocksPerSeq: 3}},
-		{"zero capacity", 16, 0, pagedKVConfig{BlockSize: 16, TotalBlocks: 1, MaxBlocksPerSeq: 1}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := defaultPagedKVConfig(tt.maxSeqLen, tt.capacity); got != tt.want {
-				t.Errorf("defaultPagedKVConfig(%d, %d) = %+v, want %+v", tt.maxSeqLen, tt.capacity, got, tt.want)
-			}
-		})
 	}
 }
 

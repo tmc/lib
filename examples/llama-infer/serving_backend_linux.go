@@ -226,7 +226,7 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 			continue
 		}
 		sequence, ok := state.KV.(cudaSequenceState)
-		if !ok || sequence.cache == nil || sequence.cache.Cache == nil {
+		if !ok || !sequence.cache.usable() {
 			results[i].Err = errors.New("cuda decode: invalid cache state")
 			continue
 		}
@@ -282,6 +282,9 @@ func (b *cudaServingBackend) DecodeBatch(ctx context.Context, states []*continuo
 func (b *cudaServingBackend) decodeCUDA(ctx context.Context, states []*continuousbatch.State, valid []int, sequences []cudaSequenceState, caches []*SequenceKVCache, tokens []int32, positions []int) ([]int32, cudaBatchLaunches, error) {
 	widths := cudaBatchWidths(len(valid), b.engine.benchmarkSerial)
 	if len(widths) == 1 {
+		if err := b.engine.bindPagedBatch(b.batch, caches, positions); err != nil {
+			return nil, cudaBatchLaunches{}, err
+		}
 		next, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches, tokens, positions)
 		if err != nil {
 			return nil, stats, err
@@ -295,6 +298,9 @@ func (b *cudaServingBackend) decodeCUDA(ctx context.Context, states []*continuou
 	next := make([]int32, len(valid))
 	var total cudaBatchLaunches
 	for row, i := range valid {
+		if err := b.engine.bindPagedBatch(b.batch, caches[row:row+1], positions[row:row+1]); err != nil {
+			return nil, total, err
+		}
 		one, stats, err := GPUForwardBatchKV(ctx, b.engine, b.batch, caches[row:row+1], tokens[row:row+1], positions[row:row+1])
 		if err != nil {
 			return nil, total, err

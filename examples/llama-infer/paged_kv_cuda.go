@@ -10,40 +10,50 @@ package main
 // shared between sequences. serving_backend_linux.go records the consequence:
 // CUDA retains no shared prefix cache.
 //
-// The pieces that fix this already exist in the library and were simply never
-// called: cudakv.PagedCache is a block pool with a per-sequence block table,
-// and cudaattn.CompilePaged emits the two kernels that read through one --
-// PagedRoPEStoreKV and BatchedPagedAttentionDecode. This file wires them
-// together. It adds no kernel and changes no dense code path.
+// The pieces that fix this already exist in the library: cudakv.PagedCache is
+// a block pool with a per-sequence block table, and cudaattn.CompilePaged
+// emits the two kernels that read through one, PagedRoPEStoreKV and
+// BatchedPagedAttentionDecode. This file owns the pool and the kernels;
+// paged_kv_step_cuda.go binds them to a forward call, and paged_kv.go holds
+// the host-only switches and table layout. It adds no kernel and changes no
+// dense code path.
 //
-// UNQUALIFIED, AND NOT YET REACHABLE. Paging changes the memory layout the
-// attention kernel reads, so a type-check proves nothing about it. Nothing here
-// has run on a real device: this session has no GPU, and the L4 VM was released
-// and terminated before the work began.
+// UNQUALIFIED. Reachable, off by default: LLAMA_INFER_PAGED_KV=1 at engine
+// compile time replaces the dense caches with this pool for the single-stream
+// decode, the batched prefill and the serving decode batch. Paging changes the
+// memory layout the attention kernel reads, so a type-check proves nothing
+// about it, and nothing here has run on a real device: no host that built it
+// has a GPU. The default path is byte-for-byte unchanged.
 //
-// Nothing in the engine calls any of this yet, pagedKVEnabled included. Calling
-// it "behind a flag" would overstate it: the flag exists so that whoever wires
-// this up has the off switch already written, but today the only caller is
-// paged_kv_cuda_linux_test.go. Wiring it into the serving path is deliberately
-// left until TestPagedKVMatchesDense reports a pass from real hardware, and
-// until it can be coordinated with the engine_other.go work in flight. Until
-// then this must not be described as working.
+// The test that qualifies it is TestPagedKVEngineMatchesDense
+// (paged_kv_engine_linux_test.go), which compiles a dense and a paged engine
+// from one deterministic config and requires the same tokens and logits from
+// both, single-stream and batched. TestPagedKVMatchesDense qualifies this file
+// alone, below the engine. Both skip without a device, and a skip is not a
+// pass: until one of them reports a real pass the paged path must not be
+// described as working.
 //
-// Retained deliberately in this unreachable state rather than wired or deleted:
-// the hardware qualification it needs is written (the test above) and the code
-// is the smallest thing that test can run against. Whoever wires it should also
-// read the two x/cudakv gaps recorded alongside it. PagedCache.FreeSequence
-// returns a sequence's whole block list unconditionally, while RadixTree keeps
-// its own pin/unpin refcount and hands blocks back to "the caller's allocator";
-// nothing connects the two, so a naive shared prefix cache recycles blocks the
-// tree still has pinned for another sequence. And NewPagedCache has no tracked
-// constructor, which pagedKVUntrackedPoolBytes exists to make visible.
+// Known limits of this first wiring, all deliberate:
+//   - No sharing yet. Every sequence gets fresh blocks and frees them when it
+//     ends. The pool is what a CUDA shared prefix cache needs to sit on, and
+//     cudakv now has the join for it (Retain, Release, AllocSequenceWithPrefix,
+//     RadixTree.Insert reporting adopted blocks), but no engine code calls it.
+//   - Exclusive with LLAMA_INFER_CUDA_GRAPH=1: the paged step uploads its side
+//     tables synchronously and is not graph-captured. The engine refuses the
+//     pair at compile time.
+//   - The pool is fixed at compile time from LLAMA_INFER_PAGED_KV_SEQS (default
+//     8) plus one for the single-stream sequence, before any server names its
+//     capacity. Admission past that fails with an out-of-blocks error.
+//   - KV observation for inferbench (observed_output_linux.go) reads the dense
+//     cache and records nothing for a paged sequence.
+//   - Not safe for concurrent use: the side tables and the rotated-query
+//     scratch are shared by every call, so callers serialize under the same
+//     generateMu the dense path uses.
 
 import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
@@ -52,49 +62,14 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
-// pagedKVEnabled reports whether the paged KV path was explicitly requested.
-// It is opt-in rather than a Config field so that enabling it is always a
-// deliberate act by whoever is holding the device, and so that this file stays
-// self-contained while another session edits the shared engine files.
-func pagedKVEnabled() bool { return os.Getenv("LLAMA_INFER_PAGED_KV") == "1" }
-
-// pagedKVConfig sizes the block pool. TotalBlocks is the pool shared by every
-// resident sequence, which is the whole point: MaxBlocksPerSeq bounds one
-// sequence's block table but reserves nothing.
-type pagedKVConfig struct {
-	BlockSize       int
-	TotalBlocks     int
-	MaxBlocksPerSeq int
-}
-
-// defaultPagedKVConfig derives a pool from the model's context window and the
-// number of sequences the server admits. BlockSize 16 matches the Metal prefix
-// cache's block size, so the two backends describe prefixes the same way.
-func defaultPagedKVConfig(maxSeqLen, capacity int) pagedKVConfig {
-	const blockSize = 16
-	perSeq := (maxSeqLen + blockSize - 1) / blockSize
-	if capacity < 1 {
-		capacity = 1
-	}
-	return pagedKVConfig{
-		BlockSize:       blockSize,
-		TotalBlocks:     perSeq * capacity,
-		MaxBlocksPerSeq: perSeq,
-	}
-}
-
 // pagedKVRuntime owns the block pool and the two paged kernels.
-//
-// It is not safe for concurrent use: the scratch device buffers below are
-// shared by every call, so a caller must serialize StoreKV and Decode the same
-// way the dense path serializes its engine scratch.
 type pagedKVRuntime struct {
 	dev   *cuda.Device
 	cache *cudakv.PagedCache
 	mod   *cuda.Module
 
 	store  *cuda.Kernel
-	decode *cuda.Kernel
+	decode *boundedKernel
 
 	cfg       pagedKVConfig
 	layers    int
@@ -111,15 +86,20 @@ type pagedKVRuntime struct {
 	seqLens    cudamem.Slice[int32]
 	status     cudamem.Slice[int32]
 
+	// qRoped receives the rotated queries of one step, one row per sequence
+	// entry; PagedRoPEStoreKV does not rotate q in place.
+	qRoped cudamem.Slice[float32]
+
 	maxSeqs   int
 	maxTokens int
+
+	nextSeq int64
 }
 
 // newPagedKVRuntime compiles the paged kernels and allocates the block pool.
-// tracker may be nil; when it is not, the side tables are charged to it. The
-// pool itself is not tracked, because cudakv.NewPagedCache allocates through
-// cudamem.Alloc and exposes no tracked constructor -- see the note on
-// pagedKVUntrackedPoolBytes.
+// The pool and the side tables are charged to tracker, which may be nil.
+// maxSeqs bounds the sequence entries of one step: serving rows, or the rows of
+// one prefill tile.
 func newPagedKVRuntime(dev *cuda.Device, tracker *cudamem.Tracker, cfg pagedKVConfig, layers, qHeads, kvHeads, headDim, maxSeqLen, maxSeqs int) (r *pagedKVRuntime, err error) {
 	if dev == nil {
 		return nil, errors.New("paged kv: nil device")
@@ -152,52 +132,35 @@ func newPagedKVRuntime(dev *cuda.Device, tracker *cudamem.Tracker, cfg pagedKVCo
 	if rt.store, err = mod.Function("PagedRoPEStoreKV"); err != nil {
 		return nil, fmt.Errorf("paged kv: PagedRoPEStoreKV: %w", err)
 	}
-	if rt.decode, err = mod.Function("BatchedPagedAttentionDecode"); err != nil {
+	decodeRaw, err := mod.Function("BatchedPagedAttentionDecode")
+	if err != nil {
 		return nil, fmt.Errorf("paged kv: BatchedPagedAttentionDecode: %w", err)
 	}
-	if rt.cache, err = cudakv.NewPagedCache(dev, layers, kvHeads, headDim, cfg.BlockSize, cfg.TotalBlocks); err != nil {
+	if rt.decode, err = newBoundedKernel(dev, decodeRaw); err != nil {
+		return nil, fmt.Errorf("paged kv: %w", err)
+	}
+	if rt.cache, err = cudakv.NewPagedCacheTracked(dev, tracker, layers, kvHeads, headDim, cfg.BlockSize, cfg.TotalBlocks); err != nil {
 		return nil, fmt.Errorf("paged kv: block pool: %w", err)
 	}
-	alloc := func(n int) (cudamem.Slice[int32], error) {
-		if tracker != nil {
-			return cudamem.AllocTracked[int32](dev, tracker, n)
-		}
-		return cudamem.Alloc[int32](dev, n)
-	}
-	if rt.blockTable, err = alloc(maxSeqs * cfg.MaxBlocksPerSeq); err != nil {
+	if rt.blockTable, err = cudamem.AllocTracked[int32](dev, tracker, maxSeqs*cfg.MaxBlocksPerSeq); err != nil {
 		return nil, fmt.Errorf("paged kv: block table: %w", err)
 	}
-	if rt.seqIndex, err = alloc(rt.maxTokens); err != nil {
+	if rt.seqIndex, err = cudamem.AllocTracked[int32](dev, tracker, rt.maxTokens); err != nil {
 		return nil, fmt.Errorf("paged kv: sequence index: %w", err)
 	}
-	if rt.positions, err = alloc(rt.maxTokens); err != nil {
+	if rt.positions, err = cudamem.AllocTracked[int32](dev, tracker, rt.maxTokens); err != nil {
 		return nil, fmt.Errorf("paged kv: positions: %w", err)
 	}
-	if rt.seqLens, err = alloc(maxSeqs); err != nil {
+	if rt.seqLens, err = cudamem.AllocTracked[int32](dev, tracker, maxSeqs); err != nil {
 		return nil, fmt.Errorf("paged kv: sequence lengths: %w", err)
 	}
-	if rt.status, err = alloc(1); err != nil {
+	if rt.status, err = cudamem.AllocTracked[int32](dev, tracker, 1); err != nil {
 		return nil, fmt.Errorf("paged kv: status: %w", err)
 	}
-	return rt, nil
-}
-
-// pagedKVUntrackedPoolBytes reports the device memory the block pool holds
-// outside the engine's tracker.
-//
-// cudakv.NewPagedCache allocates with cudamem.Alloc, so unlike the dense
-// cudakv.NewTracked path the pool is invisible to the engine's memory report. A
-// tracked constructor in x/cudakv would close this; that is a change to the
-// nvidia module rather than to this example, so it is reported here instead of
-// worked around.
-func (r *pagedKVRuntime) pagedKVUntrackedPoolBytes() int64 {
-	if r == nil {
-		return 0
+	if rt.qRoped, err = cudamem.AllocTracked[float32](dev, tracker, maxSeqs*qHeads*headDim); err != nil {
+		return nil, fmt.Errorf("paged kv: rotated queries: %w", err)
 	}
-	const bytesPerElement = 4
-	const buffersPerLayer = 2 // K and V
-	perLayer := int64(r.cfg.TotalBlocks) * int64(r.cfg.BlockSize) * int64(r.kvHeads) * int64(r.headDim)
-	return perLayer * int64(r.layers) * buffersPerLayer * bytesPerElement
+	return rt, nil
 }
 
 // layerPool returns whole-pool views of one layer's K and V storage.
@@ -229,7 +192,7 @@ func (r *pagedKVRuntime) Close() error {
 		errs = append(errs, r.cache.Close())
 		r.cache = nil
 	}
-	for _, s := range []interface{ Free() error }{r.blockTable, r.seqIndex, r.positions, r.seqLens, r.status} {
+	for _, s := range []interface{ Free() error }{r.blockTable, r.seqIndex, r.positions, r.seqLens, r.status, r.qRoped} {
 		if err := s.Free(); err != nil {
 			errs = append(errs, err)
 		}
@@ -247,11 +210,12 @@ func (r *pagedKVRuntime) Close() error {
 // leaving 31 lanes idle.
 const pagedThreads = 32
 
-// UploadBatch stages the int32 side tables the kernels read. blockTable is
-// row-major [seqs][MaxBlocksPerSeq] physical slot indices, seqIndex and
-// positions are per token, and seqLens is per sequence. It must be called once
-// per step, before StoreKV and Decode for that step.
-func (r *pagedKVRuntime) UploadBatch(seqIndex, positions, seqLens, blockTable []int32) error {
+// UploadBatch stages the int32 side tables the kernels read, ordered on stream
+// after whatever is already queued there. blockTable is row-major
+// [seqs][MaxBlocksPerSeq] physical slot indices, seqIndex and positions are per
+// token, and seqLens is per sequence. It must be called once per step, before
+// StoreKV and Decode for that step, and it clears the kernels' status word.
+func (r *pagedKVRuntime) UploadBatch(stream *cuda.Stream, seqIndex, positions, seqLens, blockTable []int32) error {
 	if len(seqIndex) != len(positions) {
 		return fmt.Errorf("paged kv: %d sequence indices for %d positions", len(seqIndex), len(positions))
 	}
@@ -264,6 +228,8 @@ func (r *pagedKVRuntime) UploadBatch(seqIndex, positions, seqLens, blockTable []
 	if want := len(seqLens) * r.cfg.MaxBlocksPerSeq; len(blockTable) != want {
 		return fmt.Errorf("paged kv: block table has %d entries, want %d", len(blockTable), want)
 	}
+	// The host slices may be reused by the caller as soon as this returns: a
+	// copy from pageable memory is staged before the async call returns.
 	return r.dev.WithContext(func() error {
 		for _, up := range []struct {
 			dst cudamem.Slice[int32]
@@ -278,7 +244,7 @@ func (r *pagedKVRuntime) UploadBatch(seqIndex, positions, seqLens, blockTable []
 			if len(up.src) == 0 {
 				continue
 			}
-			if err := up.dst.Slice(0, len(up.src)).CopyFromHost(up.src); err != nil {
+			if err := up.dst.Slice(0, len(up.src)).CopyFromHostAsync(up.src, stream); err != nil {
 				return err
 			}
 		}
@@ -288,8 +254,9 @@ func (r *pagedKVRuntime) UploadBatch(seqIndex, positions, seqLens, blockTable []
 
 // StoreKV applies RoPE to one layer's q and k and scatters k and v into the
 // block pool at the positions staged by UploadBatch. qRoped receives the
-// rotated queries; the kernel does not write q in place.
-func (r *pagedKVRuntime) StoreKV(stream *cuda.Stream, layer int, q, k, v, qRoped cudamem.Slice[float32], tokens, seqs int, ropeTheta float32) error {
+// rotated queries; the kernel does not write q in place. Launches are counted
+// on counter, which may be nil.
+func (r *pagedKVRuntime) StoreKV(stream *cuda.Stream, counter *cudalaunch.Counter, layer int, q, k, v, qRoped cudamem.Slice[float32], tokens, seqs int, ropeTheta float32) error {
 	kPool, vPool, err := r.layerPool(layer)
 	if err != nil {
 		return err
@@ -299,7 +266,7 @@ func (r *pagedKVRuntime) StoreKV(stream *cuda.Stream, layer int, q, k, v, qRoped
 		width = kv
 	}
 	gridX := uint32((width + pagedThreads - 1) / pagedThreads)
-	return cudalaunch.OwnedKernel(r.store).Grid(gridX, uint32(tokens)).Block(pagedThreads).On(stream).Launch(
+	return cudalaunch.OwnedKernel(r.store).Grid(gridX, uint32(tokens)).Block(pagedThreads).On(stream).Count(counter).Launch(
 		q, k, v, qRoped, kPool, vPool, r.blockTable, r.seqIndex, r.positions,
 		int32(tokens), int32(r.cfg.MaxBlocksPerSeq), int32(r.cfg.BlockSize),
 		int32(r.qHeads), int32(r.kvHeads), int32(r.headDim),
@@ -310,7 +277,11 @@ func (r *pagedKVRuntime) StoreKV(stream *cuda.Stream, layer int, q, k, v, qRoped
 // Decode computes one attention row per sequence for one layer, reading K and V
 // through each sequence's block table. currentQ holds the rotated query for
 // each sequence's current token and out receives seqs*qHeads*headDim values.
-func (r *pagedKVRuntime) Decode(stream *cuda.Stream, layer int, currentQ, out cudamem.Slice[float32], seqs int) error {
+//
+// The shared-memory request is sized from the context window, so it is the
+// same on every step and is checked against the kernel's raised ceiling
+// through the same boundedKernel the dense sites use.
+func (r *pagedKVRuntime) Decode(stream *cuda.Stream, counter *cudalaunch.Counter, layer int, currentQ, out cudamem.Slice[float32], seqs int) error {
 	kPool, vPool, err := r.layerPool(layer)
 	if err != nil {
 		return err
@@ -319,20 +290,12 @@ func (r *pagedKVRuntime) Decode(stream *cuda.Stream, layer int, currentQ, out cu
 	if err != nil {
 		return fmt.Errorf("paged kv: shared memory for %d tokens: %w", r.maxSeqLen, err)
 	}
-	// Unchecked against the device limit, deliberately and in company. Nothing
-	// in nvidia/x offers the dynamic shared-memory opt-in (no
-	// CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES anywhere), so every
-	// attention path here is capped at the default 48 KB per block: 12256
-	// tokens for this kernel, 12288 for the dense sites, which hand-compute
-	// the same quantity and check it just as little
-	// (gpu_model_cuda.go:340, gpu_batch_cuda.go:242). Adding a limit check
-	// here alone would imply the dense path has one. Default MaxSeqLen is 2048
-	// (engine_other.go:415), so this is a ceiling, not a live defect. Note the
-	// failure modes differ: this size comes from maxSeqLen and fails at the
-	// first launch, while gpu_batch_cuda.go:242 sizes from the live position
-	// and would fail partway through a long generation.
+	sharedMem, err := r.decode.sharedMem(shared)
+	if err != nil {
+		return fmt.Errorf("paged kv: attention over %d tokens: %w", r.maxSeqLen, err)
+	}
 	scale := float32(1 / math.Sqrt(float64(r.headDim)))
-	return cudalaunch.OwnedKernel(r.decode).Grid(uint32(r.qHeads), uint32(seqs)).Block(pagedThreads).SharedMem(uint32(shared)).On(stream).Launch(
+	return cudalaunch.OwnedKernel(r.decode.fn).Grid(uint32(r.qHeads), uint32(seqs)).Block(pagedThreads).SharedMem(sharedMem).On(stream).Count(counter).Launch(
 		currentQ, kPool, vPool, r.blockTable, r.seqLens, out,
 		int32(r.cfg.MaxBlocksPerSeq), int32(r.cfg.BlockSize),
 		int32(r.qHeads), int32(r.kvHeads), int32(r.headDim),

@@ -78,6 +78,11 @@ type GPUScratchpad struct {
 	// graph replays the decode step when LLAMA_INFER_CUDA_GRAPH=1; nil
 	// otherwise. It lives here because it captures exactly these buffers.
 	graph *decodeGraph
+
+	// paged is the paged attention of the current step when the engine was
+	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
+	// it before every forward call (paged_kv_step_cuda.go).
+	paged *pagedStep
 }
 
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
@@ -363,10 +368,6 @@ func gpuForwardPassBody(
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
 		layerW := &gpuW.Layers[i]
 		layerMX := gpuW.mx.layer(i)
-		layerKV, err := kv.Layer(i)
-		if err != nil {
-			return err
-		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
 		if cfg.FuseEGraph && layerW.QBias.Len() == 0 && layerMX == nil {
@@ -394,30 +395,48 @@ func gpuForwardPassBody(
 			}
 		}
 
-		// Step 2c: RoPE
-		if err := launcher(gm.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
-			Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-			return err
-		}
+		// Steps 2c-2e rotate q and k, store k and v at pos and attend over
+		// the cache. A paged step, bound by the engine when the engine was
+		// compiled with LLAMA_INFER_PAGED_KV=1, does all three through its
+		// block table; otherwise the dense cache is read and written in place.
+		if sp.paged != nil {
+			if err := sp.paged.attend(stream, counter, i, sp.Q, sp.K, sp.V, sp.AttnOut, 1, cfg.RopeTheta); err != nil {
+				return err
+			}
+		} else {
+			if kv == nil {
+				return fmt.Errorf("layer %d: no kv cache", i)
+			}
+			layerKV, err := kv.Layer(i)
+			if err != nil {
+				return err
+			}
 
-		// Step 2d: Store K and V in KV Cache
-		if err := launcher(gm.StoreKV).Grid(1).Block(128).
-			Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
-			return err
-		}
+			// Step 2c: RoPE
+			if err := launcher(gm.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
+				Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+				return err
+			}
 
-		// Step 2e: Causal FlashAttention Decode
-		// A one-thread block needs 4*seqLen bytes, per DecodeSharedMemoryBytes:
-		// the reduction scratch is never touched. The request grows with the
-		// position, so it is checked against the device on every step.
-		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		attnShared, err := attnFn.sharedMem(seqLen * 4)
-		if err != nil {
-			return fmt.Errorf("attention at position %d: %w", pos, err)
-		}
-		if err := launcher(attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
-			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
-			return err
+			// Step 2d: Store K and V in KV Cache
+			if err := launcher(gm.StoreKV).Grid(1).Block(128).
+				Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
+				return err
+			}
+
+			// Step 2e: Causal FlashAttention Decode
+			// A one-thread block needs 4*seqLen bytes, per DecodeSharedMemoryBytes:
+			// the reduction scratch is never touched. The request grows with the
+			// position, so it is checked against the device on every step.
+			attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
+			attnShared, err := attnFn.sharedMem(seqLen * 4)
+			if err != nil {
+				return fmt.Errorf("attention at position %d: %w", pos, err)
+			}
+			if err := launcher(attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
+				Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+				return err
+			}
 		}
 
 		// Step 2f: Output GEMV

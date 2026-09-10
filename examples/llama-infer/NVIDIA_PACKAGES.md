@@ -25,8 +25,8 @@ the measurement each one needs is unchanged and still unmade.
 | --- | --- |
 | cuda, cudalaunch, cudamem | the CUDA engine and every kernel launch |
 | nvrtcx | `CompileGPUModulesAs` compiles `forward.cu` at run time |
-| cudaattn | `Compile` and `DefaultConfig`: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` and `PagedSharedMemoryBytes` are called only by `paged_kv_cuda.go`, which nothing in the engine reaches (see its header). |
-| cudakv | `NewTracked`: the dense per-sequence and single-stream KV caches. `NewPagedCache` is called only by `paged_kv_cuda.go`, which nothing in the engine reaches. `NewFP8` is not called. |
+| cudaattn | `Compile` and `DefaultConfig`: the dense `CausalFlashAttentionDecode` kernel. `CompilePaged` and `PagedSharedMemoryBytes`: the paged kernels, reached from the single-stream decode, the batched prefill and the serving decode when the engine is compiled with `LLAMA_INFER_PAGED_KV=1` (`paged_kv_cuda.go`, UNQUALIFIED, off by default). |
+| cudakv | `NewTracked`: the dense per-sequence and single-stream KV caches. `NewPagedCacheTracked`, `AllocSequence`, `AppendToken`, `BlockTable`, `Page`, `FreeSequence`: the block pool behind `LLAMA_INFER_PAGED_KV=1` (`paged_kv_cuda.go`, `paged_kv_step_cuda.go`, UNQUALIFIED). `Retain`, `Release`, `AllocSequenceWithPrefix` and `RadixTree` are not yet called: no CUDA prefix cache exists. `NewFP8` is not called. |
 | cudasafetensors | checkpoint loading |
 | cudasample | sampling |
 | perfetto, cudatrace | `-cuda-trace`: host submission and device-interval tracks |
@@ -36,6 +36,7 @@ the measurement each one needs is unchanged and still unmade.
 | cudatest | the hardware-test gate |
 | cudagraph | *gated* `LLAMA_INFER_CUDA_GRAPH=1`: `Capture`, `Instantiate`, `Exec.Update`, `Exec.Launch` replay the single-stream decode step (`cudagraph_cuda.go`) |
 | mxfp4 | *gated* `LLAMA_INFER_MXFP4=1`: `QuantizeMatrix` at load, `Engine.LinearGEMVOn` for the seven per-layer projections and the LM head of the single-stream decode (`mxfp4_cuda.go`). The full-precision copies stay resident; this is not a memory saving. |
+| cudalayer | *gated* `LLAMA_INFER_CUDALAYER=1`: `Compile`, `ProjectionNormConfig.SharedMemoryBytes`, and the `RMSNormQKV`, `ProjectionResidualRMSNorm`, `GateUpSiLU`, `DownResidual` kernels for the per-layer projections of batched decode (`cudalayer_cuda.go`); attention stays on the per-row path. F32 weights without QKV bias only; other layers fall back per layer. Not necessarily faster: one block per token with a plain inner loop, against warp-reduced GEMVs and cublasLt. |
 
 ## Not used, with the reason
 
@@ -45,14 +46,6 @@ the measurement each one needs is unchanged and still unmade.
 descriptor, three layouts, and the preference, and re-runs the heuristic on
 every call. Adopting it would move that work into the per-token path. It would
 become the better choice if the engine grew a persistent plan.
-
-**cudalayer** — the closest call here: its doc says it exists for this example.
-It offers a fused `ProjectionResidualRMSNorm`. `forward.cu` already fuses
-`FusedRMSNormQKV` and `FusedSwiGLUDown`, so the gain is not obviously positive,
-and the package says its API and kernel layout are not stable. Substituting a
-kernel in the decode path is exactly the change that cannot be justified
-without measuring it on hardware. Not adopted for lack of a GPU, not for lack
-of merit.
 
 **cudaquant** — Q4_0/Q8_0 dequantization on the host, with no device kernel.
 There is nothing for the CUDA path to call; a Q4_0 checkpoint would be

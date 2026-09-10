@@ -126,13 +126,18 @@ func init() {
 
 // ModelEngine maintains cached CUDA allocations, JIT modules, and device contexts on Linux.
 type ModelEngine struct {
-	dev             *cuda.Device
-	stream          *cuda.Stream
-	weights         *GPUModelWeights
-	scratch         *GPUScratchpad
-	prefillScratch  *GPUBatchScratchpad
-	modules         *GPUModules
-	kvCache         *cudakv.Cache
+	dev            *cuda.Device
+	stream         *cuda.Stream
+	weights        *GPUModelWeights
+	scratch        *GPUScratchpad
+	prefillScratch *GPUBatchScratchpad
+	modules        *GPUModules
+	kvCache        *cudakv.Cache
+	// paged replaces kvCache and every SequenceKVCache when the engine was
+	// compiled with LLAMA_INFER_PAGED_KV=1; pagedMain is then the single-stream
+	// sequence kvCache would have been. Both are nil on a dense engine.
+	paged           *pagedKVRuntime
+	pagedMain       *pagedSequence
 	attnFn          *boundedKernel
 	sampleFn        *cuda.Kernel
 	mCfg            ModelConfig
@@ -252,7 +257,13 @@ func (eng *ModelEngine) ReadLogits() ([]float32, error) {
 
 // ResetKV zeroes out the entire KV cache buffer on device and resets position.
 func (eng *ModelEngine) ResetKV() error {
-	if eng == nil || eng.kvCache == nil {
+	if eng == nil {
+		return nil
+	}
+	if eng.pagedMain != nil {
+		return eng.pagedMain.reset()
+	}
+	if eng.kvCache == nil {
 		return nil
 	}
 	eng.kvCache.Reset()
@@ -314,6 +325,9 @@ type cudaEngineKey struct {
 	maxSeqLen  int
 	precision  string
 	fuseEGraph bool
+	// pagedKV is the environment switch at compile time, so a process that
+	// compiles one config both ways holds two engines rather than one.
+	pagedKV bool
 }
 
 func cudaEngineCacheKey(cfg Config) cudaEngineKey {
@@ -326,6 +340,7 @@ func cudaEngineCacheKey(cfg Config) cudaEngineKey {
 		maxSeqLen:  cfg.MaxSeqLen,
 		precision:  cfg.Precision,
 		fuseEGraph: cfg.FuseEGraph,
+		pagedKV:    pagedKVEnabled(),
 	}
 }
 
@@ -342,6 +357,9 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	key := cudaEngineCacheKey(cfg)
 	if eng, ok := cudaEngineCache[key]; ok {
 		return eng, nil
+	}
+	if key.pagedKV && cudaGraphEnabled() {
+		return nil, errors.New("LLAMA_INFER_PAGED_KV=1 and LLAMA_INFER_CUDA_GRAPH=1 are exclusive: the paged step is not graph-captured")
 	}
 
 	dev, err := cuda.NewDevice(0)
@@ -360,6 +378,8 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		attnMod    *cuda.Module
 		sampleMod  *cuda.Module
 		kvCache    *cudakv.Cache
+		paged      *pagedKVRuntime
+		pagedMain  *pagedSequence
 		committed  bool
 	)
 	defer func() {
@@ -371,7 +391,7 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 				if kvCache != nil {
 					return kvCache.Close()
 				}
-				return nil
+				return paged.Close()
 			},
 			sampleMod.Close, attnMod.Close,
 			func() error {
@@ -527,9 +547,28 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		return nil, fmt.Errorf("get sample fn: %w", err)
 	}
 
-	kvCache, err = cudakv.NewTracked(dev, memory, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
-	if err != nil {
-		return nil, fmt.Errorf("create kv cache: %w", err)
+	if key.pagedKV {
+		// UNQUALIFIED: see paged_kv_cuda.go. One block pool stands in for
+		// the single-stream cache and every per-sequence cache, sized for
+		// the serving sequences plus the single-stream one. A step carries
+		// at most one row per serving sequence or one per prefill row.
+		seqs, err := pagedKVSequences()
+		if err != nil {
+			return nil, err
+		}
+		paged, err = newPagedKVRuntime(dev, memory, defaultPagedKVConfig(mCfg.MaxSeqLen, seqs+1),
+			mCfg.NumHiddenLayers, mCfg.NumAttentionHeads, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen, max(seqs, cudaPrefillRows))
+		if err != nil {
+			return nil, fmt.Errorf("create paged kv cache: %w", err)
+		}
+		if pagedMain, err = paged.newSequence(); err != nil {
+			return nil, fmt.Errorf("create paged kv cache: %w", err)
+		}
+	} else {
+		kvCache, err = cudakv.NewTracked(dev, memory, mCfg.NumHiddenLayers, mCfg.NumKeyValueHeads, mCfg.HeadDim(), mCfg.MaxSeqLen)
+		if err != nil {
+			return nil, fmt.Errorf("create kv cache: %w", err)
+		}
 	}
 
 	metrics := NewRuntimeMetrics(256)
@@ -540,6 +579,8 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 		scratch:     scratch,
 		modules:     modules,
 		kvCache:     kvCache,
+		paged:       paged,
+		pagedMain:   pagedMain,
 		attnFn:      attnFn,
 		sampleFn:    sampleFn,
 		mCfg:        mCfg,
@@ -564,12 +605,28 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 // SequenceKVCache holds isolated per-sequence CUDA KV-cache allocations.
 type SequenceKVCache struct {
 	Cache *cudakv.Cache
+
+	// paged is the sequence's block table in the engine's pool when the
+	// engine was compiled with LLAMA_INFER_PAGED_KV=1; Cache is nil then.
+	paged *pagedSequence
+}
+
+// usable reports whether the cache can back a forward call on either path.
+func (skv *SequenceKVCache) usable() bool {
+	return skv != nil && (skv.Cache != nil || skv.paged != nil)
 }
 
 // NewSequenceKV allocates an isolated KV-cache for a sequence on CUDA.
 func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 	if eng == nil || eng.dev == nil {
 		return nil, errors.New("new sequence kv: nil engine or device")
+	}
+	if eng.paged != nil {
+		seq, err := eng.paged.newSequence()
+		if err != nil {
+			return nil, fmt.Errorf("alloc sequence kv cache: %w", err)
+		}
+		return &SequenceKVCache{paged: seq}, nil
 	}
 	cache, err := cudakv.NewTracked(eng.dev, eng.memory, eng.mCfg.NumHiddenLayers, eng.mCfg.NumKeyValueHeads, eng.mCfg.HeadDim(), eng.mCfg.MaxSeqLen)
 	if err != nil {
@@ -580,7 +637,12 @@ func (eng *ModelEngine) NewSequenceKV(cfg Config) (*SequenceKVCache, error) {
 
 // Free releases the isolated KV-cache buffers on CUDA.
 func (skv *SequenceKVCache) Free() {
-	if skv == nil || skv.Cache == nil {
+	if skv == nil {
+		return
+	}
+	skv.paged.free()
+	skv.paged = nil
+	if skv.Cache == nil {
 		return
 	}
 	_ = skv.Cache.Close()
@@ -683,6 +745,9 @@ func gpuSerialPrefillPassKVMeasured(eng *ModelEngine, cfg Config, skv *SequenceK
 	var nextTok int32
 	for pos, tokID := range promptTokens {
 		isLast := (pos == len(promptTokens)-1)
+		if err := eng.bindPagedSingle(skv, pos); err != nil {
+			return 0, launches.Value(), fmt.Errorf("cuda prefill step %d: %w", pos, err)
+		}
 		tok, err := gpuForwardPassStep(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokID, pos, eng.stream, isLast, &launches)
 		if err != nil {
 			return 0, launches.Value(), fmt.Errorf("cuda prefill step %d: %w", pos, err)
@@ -705,6 +770,9 @@ func GPUForwardPassKV(eng *ModelEngine, cfg Config, skv *SequenceKVCache, tokenI
 	}
 	var tok int32
 	err := eng.tracer.region(context.Background(), "decode", "llama-infer", func() error {
+		if err := eng.bindPagedSingle(skv, pos); err != nil {
+			return err
+		}
 		var err error
 		tok, err = GPUForwardPassStream(eng.weights, &eng.mCfg, kv, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, tokenID, pos, eng.stream)
 		return err
@@ -868,6 +936,9 @@ func (eng *ModelEngine) Generate(ctx context.Context, cfg Config, prompt string,
 		}
 
 		tStep0 := time.Now()
+		if err := eng.bindPagedSingle(nil, curPos); err != nil {
+			return err
+		}
 		tok, fErr := GPUForwardPassStream(eng.weights, &eng.mCfg, eng.kvCache, eng.scratch, eng.modules, eng.attnFn, eng.sampleFn, nextTokID, curPos, eng.stream)
 		if fErr != nil {
 			return fErr

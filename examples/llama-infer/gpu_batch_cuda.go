@@ -35,6 +35,11 @@ type GPUBatchScratchpad struct {
 	lmHead                                       *cudaMatrixProjection
 	gateUp                                       []cudaMatrixPlan
 	prefillQ, prefillKV, prefillOut, prefillDown []cudaMatrixPlan
+
+	// paged is the paged attention of the current batch when the engine was
+	// compiled with LLAMA_INFER_PAGED_KV=1; nil otherwise. The engine binds
+	// it before every batch (paged_kv_step_cuda.go).
+	paged *pagedStep
 }
 
 func newGPUBatchScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConfig, capacity int) (*GPUBatchScratchpad, error) {
@@ -154,7 +159,7 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 	cfg := &eng.mCfg
 	batch := len(tokens)
 	for i := range tokens {
-		if caches[i] == nil || caches[i].Cache == nil || tokens[i] < 0 || int(tokens[i]) >= cfg.VocabSize || positions[i] < 0 || positions[i] >= cfg.MaxSeqLen {
+		if !caches[i].usable() || tokens[i] < 0 || int(tokens[i]) >= cfg.VocabSize || positions[i] < 0 || positions[i] >= cfg.MaxSeqLen {
 			return nil, stats, fmt.Errorf("cuda batch decode: invalid row %d", i)
 		}
 	}
@@ -221,31 +226,46 @@ func gpuForwardBatchKV(ctx context.Context, eng *ModelEngine, sp *GPUBatchScratc
 			}
 			weightLaunches += 4
 		}
-		for row := range batch {
-			q := sp.Q.Slice(row*qDim, (row+1)*qDim)
-			k := sp.K.Slice(row*kvDim, (row+1)*kvDim)
-			v := sp.V.Slice(row*kvDim, (row+1)*kvDim)
-			out := sp.AttnOut.Slice(row*qDim, (row+1)*qDim)
-			layerKV, err := caches[row].Cache.Layer(layer)
-			if err != nil {
+		// A paged step, bound by the engine when it was compiled with
+		// LLAMA_INFER_PAGED_KV=1, rotates, stores and attends every row of
+		// the batch at once through the rows' block tables; the dense path
+		// does the three launches per row against each row's own cache.
+		if sp.paged != nil {
+			if err := sp.paged.attend(eng.stream, &launches, layer,
+				sp.Q.Slice(0, batch*qDim), sp.K.Slice(0, batch*kvDim), sp.V.Slice(0, batch*kvDim), sp.AttnOut.Slice(0, batch*qDim),
+				batch, cfg.RopeTheta); err != nil {
 				return nil, stats, err
 			}
-			if err := launcher(eng.modules.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
-				Launch(q, k, int32(positions[row]), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-				return nil, stats, err
-			}
-			if err := launcher(eng.modules.StoreKV).Grid(1).Block(128).
-				Launch(k, v, layerKV.K, layerKV.V, int32(positions[row]), int32(kvHeads), int32(headDim)); err != nil {
-				return nil, stats, err
-			}
-			attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-			attnShared, err := eng.attnFn.sharedMem((positions[row] + 1) * 4)
-			if err != nil {
-				return nil, stats, fmt.Errorf("attention at position %d: %w", positions[row], err)
-			}
-			if err := launcher(eng.attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
-				Launch(q, layerKV.K, layerKV.V, out, int32(positions[row]), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
-				return nil, stats, err
+		} else {
+			for row := range batch {
+				q := sp.Q.Slice(row*qDim, (row+1)*qDim)
+				k := sp.K.Slice(row*kvDim, (row+1)*kvDim)
+				v := sp.V.Slice(row*kvDim, (row+1)*kvDim)
+				out := sp.AttnOut.Slice(row*qDim, (row+1)*qDim)
+				if caches[row].Cache == nil {
+					return nil, stats, fmt.Errorf("cuda batch decode: row %d has no dense cache", row)
+				}
+				layerKV, err := caches[row].Cache.Layer(layer)
+				if err != nil {
+					return nil, stats, err
+				}
+				if err := launcher(eng.modules.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
+					Launch(q, k, int32(positions[row]), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+					return nil, stats, err
+				}
+				if err := launcher(eng.modules.StoreKV).Grid(1).Block(128).
+					Launch(k, v, layerKV.K, layerKV.V, int32(positions[row]), int32(kvHeads), int32(headDim)); err != nil {
+					return nil, stats, err
+				}
+				attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
+				attnShared, err := eng.attnFn.sharedMem((positions[row] + 1) * 4)
+				if err != nil {
+					return nil, stats, fmt.Errorf("attention at position %d: %w", positions[row], err)
+				}
+				if err := launcher(eng.attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
+					Launch(q, layerKV.K, layerKV.V, out, int32(positions[row]), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+					return nil, stats, err
+				}
 			}
 		}
 		if prefill {

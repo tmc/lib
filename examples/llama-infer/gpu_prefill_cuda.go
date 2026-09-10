@@ -67,12 +67,14 @@ func gpuBatchedPrefillPassKVMeasured(eng *ModelEngine, skv *SequenceKVCache, tok
 	}
 	cache := skv
 	if cache == nil {
-		cache = &SequenceKVCache{Cache: eng.kvCache}
+		cache = &SequenceKVCache{Cache: eng.kvCache, paged: eng.pagedMain}
 	}
-	if cache.Cache == nil {
+	if !cache.usable() {
 		return 0, 0, errors.New("cuda prefill: nil cache")
 	}
-	for layer := 0; layer < eng.mCfg.NumHiddenLayers; layer++ {
+	// A paged sequence has no fixed shape to check: its blocks are reserved
+	// per tile when the step is bound.
+	for layer := 0; cache.Cache != nil && layer < eng.mCfg.NumHiddenLayers; layer++ {
 		state, err := cache.Cache.Layer(layer)
 		if err != nil {
 			return 0, 0, fmt.Errorf("cuda prefill cache: %w", err)
@@ -95,6 +97,9 @@ func gpuBatchedPrefillPassKVMeasured(eng *ModelEngine, skv *SequenceKVCache, tok
 		for row := 0; row < n; row++ {
 			caches[row] = cache
 			positions[row] = startPos + base + row
+		}
+		if err := eng.bindPagedBatch(sp, caches[:n], positions[:n]); err != nil {
+			return 0, dispatches, fmt.Errorf("cuda prefill rows %d:%d: %w", base, base+n, err)
 		}
 		result, stats, err := gpuForwardBatchKV(context.Background(), eng, sp, caches[:n], tokens[base:base+n], positions[:n], true)
 		dispatches += stats.Dispatches
