@@ -68,6 +68,10 @@ type GPUScratchpad struct {
 	HostTokenOut []int32
 
 	arena *cudamem.Arena
+
+	// graph replays the decode step when LLAMA_INFER_CUDA_GRAPH=1; nil
+	// otherwise. It lives here because it captures exactly these buffers.
+	graph *decodeGraph
 }
 
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
@@ -99,6 +103,9 @@ func NewGPUScratchpad(dev *cuda.Device, tracker *cudamem.Tracker, cfg *ModelConf
 		_ = a.Free()
 		return nil, err
 	}
+	if cudaGraphEnabled() {
+		sp.graph = &decodeGraph{}
+	}
 	return sp, nil
 }
 
@@ -107,6 +114,7 @@ func (sp *GPUScratchpad) Free() {
 	if sp == nil {
 		return
 	}
+	_ = sp.graph.close()
 	_ = sp.arena.Free()
 }
 
@@ -251,7 +259,60 @@ func gpuForwardPassStep(
 	syncHost bool,
 	counter *cudalaunch.Counter,
 ) (int32, error) {
+	// Every step is stream-ordered: a caller that named no stream gets the device's
+	// default one, and asks for a host-visible result with syncHost.
+	if stream == nil {
+		stream = sp.arena.Device().DefaultStream()
+	}
+	if err := gpuStageToken(sp, tokenID, stream); err != nil {
+		return 0, err
+	}
+	if err := gpuForwardPassBody(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, pos, stream, counter); err != nil {
+		return 0, err
+	}
+	if !syncHost {
+		return 0, nil
+	}
+	return gpuReadToken(sp, stream)
+}
 
+// gpuStageToken copies the input token to the device ahead of the step. It
+// uses an isolated per-step host slice to avoid an async lifetime hazard, and
+// is kept apart from the body because a pageable host copy cannot be captured
+// into a graph.
+func gpuStageToken(sp *GPUScratchpad, tokenID int32, stream *cuda.Stream) error {
+	hostTokenIn := []int32{tokenID}
+	return sp.TokenIn.CopyFromHostAsync(hostTokenIn, stream)
+}
+
+// gpuReadToken returns the sampled token once the stream has drained.
+func gpuReadToken(sp *GPUScratchpad, stream *cuda.Stream) (int32, error) {
+	if err := sp.TokenOut.CopyToHostAsync(sp.HostTokenOut, stream); err != nil {
+		return 0, err
+	}
+	if err := stream.Synchronize(context.Background()); err != nil {
+		return 0, err
+	}
+	return sp.HostTokenOut[0], nil
+}
+
+// gpuForwardPassBody runs one decode step from the embedding lookup through
+// sampling, all on stream and all from device-resident inputs: the token is
+// already in sp.TokenIn and the result is left in sp.TokenOut. Everything it
+// submits is stream work with no host synchronization, which is what lets a
+// graph capture it.
+func gpuForwardPassBody(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	kv *cudakv.Cache,
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn *boundedKernel,
+	sampleFn *cuda.Kernel,
+	pos int,
+	stream *cuda.Stream,
+	counter *cudalaunch.Counter,
+) error {
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
 	kvHeads := cfg.NumKeyValueHeads
@@ -259,18 +320,6 @@ func gpuForwardPassStep(
 	interSize := cfg.IntermediateSize
 	vocabSize := cfg.VocabSize
 	seqLen := pos + 1
-
-	// Every step is stream-ordered: a caller that named no stream gets the device's
-	// default one, and asks for a host-visible result with syncHost.
-	if stream == nil {
-		stream = sp.arena.Device().DefaultStream()
-	}
-
-	// Copy input token ID (4 bytes) to device using an isolated per-step host slice to avoid async lifetime hazard
-	hostTokenIn := []int32{tokenID}
-	if err := sp.TokenIn.CopyFromHostAsync(hostTokenIn, stream); err != nil {
-		return 0, err
-	}
 
 	// noBias stands in for an absent optional kernel argument: an empty slice
 	// packs as a null device pointer.
@@ -283,7 +332,7 @@ func gpuForwardPassStep(
 	// 1. Embedding lookup
 	if err := launcher(gm.Embed).Grid(1).Block(256).
 		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
-		return 0, err
+		return err
 	}
 
 	// 2. Transformer Decoder Layers
@@ -291,7 +340,7 @@ func gpuForwardPassStep(
 		layerW := &gpuW.Layers[i]
 		layerKV, err := kv.Layer(i)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
@@ -301,38 +350,38 @@ func gpuForwardPassStep(
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
 					sp.Q, sp.K, sp.V,
 					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
-				return 0, err
+				return err
 			}
 		} else {
 			// Unfused fallback path
 			if err := launcher(gm.Norm).Grid(1).Block(256).
 				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-				return 0, err
+				return err
 			}
 			if err := launcher(gm.GEMV).Grid(uint32(qHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WQ, layerW.QBias, sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
-				return 0, err
+				return err
 			}
 			if err := launcher(gm.GEMV).Grid(uint32(kvHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WK, layerW.KBias, sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
+				return err
 			}
 			if err := launcher(gm.GEMV).Grid(uint32(kvHeads*headDim)).Block(128).
 				Launch(sp.NormX, layerW.WV, layerW.VBias, sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
+				return err
 			}
 		}
 
 		// Step 2c: RoPE
 		if err := launcher(gm.RoPE).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
 			Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2d: Store K and V in KV Cache
 		if err := launcher(gm.StoreKV).Grid(1).Block(128).
 			Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2e: Causal FlashAttention Decode
@@ -342,39 +391,39 @@ func gpuForwardPassStep(
 		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
 		attnShared, err := attnFn.sharedMem(seqLen * 4)
 		if err != nil {
-			return 0, fmt.Errorf("attention at position %d: %w", pos, err)
+			return fmt.Errorf("attention at position %d: %w", pos, err)
 		}
 		if err := launcher(attnFn.fn).Grid(uint32(qHeads)).Block(1).SharedMem(attnShared).
 			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2f: Output GEMV
 		if err := launcher(gm.GEMV).Grid(uint32(hiddenSize)).Block(128).
 			Launch(sp.AttnOut, layerW.WO, noBias, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2g: Residual 1
 		if err := launcher(gm.AddResidual).Grid(1).Block(256).
 			Launch(sp.X, sp.NormX, int32(hiddenSize)); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2h: FFN Pre-RMSNorm
 		if err := launcher(gm.Norm).Grid(1).Block(256).
 			Launch(sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2i: Gate & Up GEMVs
 		if err := launcher(gm.GEMV).Grid(uint32(interSize)).Block(128).
 			Launch(sp.NormX, layerW.WGate, noBias, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
+			return err
 		}
 		if err := launcher(gm.GEMV).Grid(uint32(interSize)).Block(128).
 			Launch(sp.NormX, layerW.WUp, noBias, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
+			return err
 		}
 
 		// Step 2j & 2k: Fused SwiGLU + Down GEMV
@@ -382,58 +431,47 @@ func gpuForwardPassStep(
 			// Fused SwiGLU Down Projection (Single kernel launch)
 			if err := launcher(gm.FusedSwiGLU).Grid(uint32(hiddenSize)).Block(128).
 				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
-				return 0, err
+				return err
 			}
 		} else {
 			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
 			if err := launcher(gm.SwiGLU).Grid(1).Block(256).
 				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
-				return 0, err
+				return err
 			}
 
 			// Step 2k: Down GEMV
 			if err := launcher(gm.GEMV).Grid(uint32(hiddenSize)).Block(128).
 				Launch(sp.FFNAct, layerW.WDown, noBias, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
-				return 0, err
+				return err
 			}
 		}
 
 		// Step 2l: Residual 2
 		if err := launcher(gm.AddResidual).Grid(1).Block(256).
 			Launch(sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
-			return 0, err
+			return err
 		}
 	}
 
 	// 3. Final RMSNorm
 	if err := launcher(gm.Norm).Grid(1).Block(256).
 		Launch(sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-		return 0, err
+		return err
 	}
 
 	// 4. LM Head Logits GEMV
 	if err := launcher(gm.GEMV).Grid(uint32(vocabSize)).Block(128).
 		Launch(sp.NormX, gpuW.LMHead, noBias, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
-		return 0, err
+		return err
 	}
 
 	// 5. In-GPU Argmax Sampling
 	if err := launcher(sampleFn).Grid(1).Block(256).
 		Launch(sp.Logits, sp.TokenOut, int32(vocabSize)); err != nil {
-		return 0, err
+		return err
 	}
-
-	if !syncHost {
-		return 0, nil
-	}
-
-	if err := sp.TokenOut.CopyToHostAsync(sp.HostTokenOut, stream); err != nil {
-		return 0, err
-	}
-	if err := stream.Synchronize(context.Background()); err != nil {
-		return 0, err
-	}
-	return sp.HostTokenOut[0], nil
+	return nil
 }
 
 // GPUForwardPassStream executes one full transformer decoder forward step with synchronous host copy.
@@ -449,5 +487,8 @@ func GPUForwardPassStream(
 	pos int,
 	stream *cuda.Stream,
 ) (int32, error) {
+	if sp.graph != nil {
+		return sp.graph.step(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, nil)
+	}
 	return GPUForwardPassStep(gpuW, cfg, kv, sp, gm, attnFn, sampleFn, tokenID, pos, stream, true)
 }

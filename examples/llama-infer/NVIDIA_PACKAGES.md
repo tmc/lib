@@ -13,6 +13,12 @@ Nothing below has been executed on a GPU. Adoption here means the code is
 written, typechecked for linux, and unit-tested where the logic is
 platform-neutral. It does not mean it has run.
 
+Rows marked *gated* are off unless their environment variable is set, leave
+the default path unchanged, and carry an UNQUALIFIED header in the file that
+adds them. They were written on 2026-09-10 after the user chose
+implemented-but-unqualified over not-implemented for every deferred package;
+the measurement each one needs is unchanged and still unmade.
+
 ## Used
 
 | Package | Where |
@@ -28,6 +34,7 @@ platform-neutral. It does not mean it has run.
 | cudacapture | `gpuprof` reads cudaprof captures and qualifies them |
 | cudaptx, cudasass | `-kernel-report`: what NVRTC produced for the forward kernels |
 | cudatest | the hardware-test gate |
+| cudagraph | *gated* `LLAMA_INFER_CUDA_GRAPH=1`: `Capture`, `Instantiate`, `Exec.Update`, `Exec.Launch` replay the single-stream decode step (`cudagraph_cuda.go`) |
 
 ## Not used, with the reason
 
@@ -45,11 +52,6 @@ and the package says its API and kernel layout are not stable. Substituting a
 kernel in the decode path is exactly the change that cannot be justified
 without measuring it on hardware. Not adopted for lack of a GPU, not for lack
 of merit.
-
-**cudagraph** — capturing the decode loop into a replayable graph is the
-standard win for a small-batch decoder, and it is the strongest unclaimed
-candidate. It is also a change whose entire value is a launch-overhead
-measurement, so writing it blind would produce an unqualifiable claim.
 
 **cudaquant, mxfp4** — Q4_0/Q8_0 and MXFP4 weights. This example's weight path
 is f32/f16/bf16 with a checked dtype dispatch; quantized weights are a feature,
