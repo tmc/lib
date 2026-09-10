@@ -1,0 +1,11 @@
+commit f46675d 2026-09-10 15:33 PDT
+claude-code: 2.1.257 (Claude Code)
+model: claude-fable-5-1
+tty: not a tty
+n/a
+pid: 42090
+ITERM_SESSION_ID: w22t0p8:7BCB0960-C21E-4660-8395-608138C07A1B
+session=81966754-74fd-480a-8ceb-8e53cf129cbe
+session_url=https://claude.ai/code/session_015HRdpSMTz24cg6AUZWCrzH
+git-auto-commit-message: unavailable this session (cgpt: missing Anthropic API key); message hand-written per CLAUDE.md.
+verification: GOOS=linux build+vet with metalprof overlay, -tags tpu build, darwin go test ./llama-infer/... all green; no CUDA device on this host.
