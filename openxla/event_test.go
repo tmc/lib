@@ -21,18 +21,18 @@ func TestAwaitEventPreservesErrors(t *testing.T) {
 			api := &Api{}
 			api.Error_Message = purego.NewCallback(func(a *Error_Message_Args) { a.Message = &message[0]; a.Message_size = uintptr(len(message)) })
 			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { freed++ })
-			api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *Error {
+			api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *ErrorHandle {
 				if tt.await {
 					message = []byte("await failure")
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				return nil
 			})
-			api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *Error {
+			api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *ErrorHandle {
 				events++
 				if tt.destroy {
 					message = []byte("destroy failure")
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				return nil
 			})
@@ -66,10 +66,10 @@ func TestExecuteDrainsDevicesOnFailure(t *testing.T) {
 	var message []byte
 	api.Error_Message = purego.NewCallback(func(a *Error_Message_Args) { a.Message = &message[0]; a.Message_size = uintptr(len(message)) })
 	api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { freed++ })
-	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *LoadedExecutable_GetExecutable_Args) *Error { a.Executable = &Executable{}; return nil })
-	api.Executable_NumOutputs = purego.NewCallback(func(a *Executable_NumOutputs_Args) *Error { a.Num_outputs = 1; return nil })
-	api.Executable_Destroy = purego.NewCallback(func(*Executable_Destroy_Args) *Error { return nil })
-	api.LoadedExecutable_Execute = purego.NewCallback(func(a *LoadedExecutable_Execute_Args) *Error {
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *LoadedExecutable_GetExecutable_Args) *ErrorHandle { a.Executable = &Executable{}; return nil })
+	api.Executable_NumOutputs = purego.NewCallback(func(a *Executable_NumOutputs_Args) *ErrorHandle { a.Num_outputs = 1; return nil })
+	api.Executable_Destroy = purego.NewCallback(func(*Executable_Destroy_Args) *ErrorHandle { return nil })
+	api.LoadedExecutable_Execute = purego.NewCallback(func(a *LoadedExecutable_Execute_Args) *ErrorHandle {
 		out := unsafe.Slice((***Buffer)(a.Output_lists), a.Num_devices)
 		events := unsafe.Slice((**Event)(a.Device_complete_events), a.Num_devices)
 		for i := range out {
@@ -78,23 +78,23 @@ func TestExecuteDrainsDevicesOnFailure(t *testing.T) {
 		}
 		return nil
 	})
-	api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *Error {
+	api.Event_Await = purego.NewCallback(func(*Event_Await_Args) *ErrorHandle {
 		awaited++
 		if awaited == 1 {
 			message = []byte("first device failed")
-			return &Error{}
+			return &ErrorHandle{}
 		}
 		return nil
 	})
-	api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *Error {
+	api.Event_Destroy = purego.NewCallback(func(*Event_Destroy_Args) *ErrorHandle {
 		events++
 		if events == 2 {
 			message = []byte("second event release failed")
-			return &Error{}
+			return &ErrorHandle{}
 		}
 		return nil
 	})
-	api.Buffer_Destroy = purego.NewCallback(func(*Buffer_Destroy_Args) *Error { buffers++; return nil })
+	api.Buffer_Destroy = purego.NewCallback(func(*Buffer_Destroy_Args) *ErrorHandle { buffers++; return nil })
 	e := &ExecutableWrapper{api: api, executable: &LoadedExecutable{}}
 	out, err := e.Execute([][]*BufferWrapper{nil, nil})
 	if out != nil || err == nil || !strings.Contains(err.Error(), "first device failed") || !strings.Contains(err.Error(), "second event release failed") {

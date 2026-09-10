@@ -20,8 +20,8 @@ func TestCompileDefaults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
 			api := &Api{}
-			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *Error { return nil })
-			api.Client_Compile = purego.NewCallback(func(a *Client_Compile_Args) *Error {
+			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *ErrorHandle { return nil })
+			api.Client_Compile = purego.NewCallback(func(a *Client_Compile_Args) *ErrorHandle {
 				called = true
 				got := unsafe.Slice(a.Compile_options, a.Compile_options_size)
 				if !bytes.Equal(got, tt.want) {

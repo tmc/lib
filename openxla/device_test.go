@@ -13,7 +13,7 @@ func TestBufferDevice(t *testing.T) {
 	if _, err := b.Device(); err == nil {
 		t.Fatal("accepted missing device query")
 	}
-	api.Buffer_Device = purego.NewCallback(func(args *Buffer_Device_Args) *Error {
+	api.Buffer_Device = purego.NewCallback(func(args *Buffer_Device_Args) *ErrorHandle {
 		if args.Struct_size != PJRT_Buffer_Device_Args_STRUCT_SIZE || args.Buffer != raw {
 			t.Error("wrong device query arguments")
 		}
@@ -24,7 +24,7 @@ func TestBufferDevice(t *testing.T) {
 	if err != nil || got != device {
 		t.Fatalf("got %p, %v", got, err)
 	}
-	api.Buffer_Device = purego.NewCallback(func(*Buffer_Device_Args) *Error { return nil })
+	api.Buffer_Device = purego.NewCallback(func(*Buffer_Device_Args) *ErrorHandle { return nil })
 	if _, err := b.Device(); err == nil {
 		t.Fatal("accepted null device")
 	}

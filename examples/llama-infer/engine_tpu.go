@@ -230,9 +230,9 @@ func newTPUSmokeEngine(cfg Config) (*ModelEngine, error) {
 		return nil, fmt.Errorf("tpu.GetApi: %w", err)
 	}
 
-	client, err := openxla.NewClientFromApi(tpuApi)
+	client, err := openxla.NewClientFromAPI(tpuApi)
 	if err != nil {
-		return nil, fmt.Errorf("NewClientFromApi: %w", err)
+		return nil, fmt.Errorf("NewClientFromAPI: %w", err)
 	}
 
 	devs, err := client.AddressableDevices()

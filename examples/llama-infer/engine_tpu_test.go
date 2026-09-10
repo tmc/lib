@@ -126,7 +126,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 		StructSize: 2048,
 	}
 
-	mockErr := &openxla.Error{}
+	mockErr := &openxla.ErrorHandle{}
 	api.Error_Destroy = purego.NewCallback(func(args *openxla.Error_Destroy_Args) {})
 	api.Error_Message = purego.NewCallback(func(args *openxla.Error_Message_Args) {
 		msg := "mock injected error"
@@ -139,16 +139,16 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 	dummyDev := (*openxla.Device)(unsafe.Pointer(dummyDevMem))
 	devList := []*openxla.Device{dummyDev}
 
-	api.Client_AddressableDevices = purego.NewCallback(func(args *openxla.Client_AddressableDevices_Args) *openxla.Error {
+	api.Client_AddressableDevices = purego.NewCallback(func(args *openxla.Client_AddressableDevices_Args) *openxla.ErrorHandle {
 		args.Addressable_devices = (*openxla.Device)(unsafe.Pointer(&devList[0]))
 		args.Num_addressable_devices = 1
 		return nil
 	})
 
-	api.Event_Await = purego.NewCallback(func(args *openxla.Event_Await_Args) *openxla.Error {
+	api.Event_Await = purego.NewCallback(func(args *openxla.Event_Await_Args) *openxla.ErrorHandle {
 		return nil
 	})
-	api.Event_Destroy = purego.NewCallback(func(args *openxla.Event_Destroy_Args) *openxla.Error {
+	api.Event_Destroy = purego.NewCallback(func(args *openxla.Event_Destroy_Args) *openxla.ErrorHandle {
 		return nil
 	})
 
@@ -166,7 +166,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 	outBufDestroyed := false
 
 	bufAllocCount := 0
-	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *openxla.Client_BufferFromHostBuffer_Args) *openxla.Error {
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *openxla.Client_BufferFromHostBuffer_Args) *openxla.ErrorHandle {
 		if args.Device != dummyDev {
 			t.Errorf("Client_BufferFromHostBuffer received unexpected device: got %p, want %p", args.Device, dummyDev)
 		}
@@ -185,7 +185,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 		return mockErr
 	})
 
-	api.Buffer_Destroy = purego.NewCallback(func(args *openxla.Buffer_Destroy_Args) *openxla.Error {
+	api.Buffer_Destroy = purego.NewCallback(func(args *openxla.Buffer_Destroy_Args) *openxla.ErrorHandle {
 		switch args.Buffer {
 		case b1Ptr:
 			b1Destroyed = true
@@ -206,19 +206,19 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 		return nil
 	})
 
-	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *openxla.LoadedExecutable_GetExecutable_Args) *openxla.Error {
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(args *openxla.LoadedExecutable_GetExecutable_Args) *openxla.ErrorHandle {
 		args.Executable = &openxla.Executable{}
 		return nil
 	})
-	api.Executable_NumOutputs = purego.NewCallback(func(args *openxla.Executable_NumOutputs_Args) *openxla.Error {
+	api.Executable_NumOutputs = purego.NewCallback(func(args *openxla.Executable_NumOutputs_Args) *openxla.ErrorHandle {
 		args.Num_outputs = 1
 		return nil
 	})
-	api.Executable_Destroy = purego.NewCallback(func(args *openxla.Executable_Destroy_Args) *openxla.Error {
+	api.Executable_Destroy = purego.NewCallback(func(args *openxla.Executable_Destroy_Args) *openxla.ErrorHandle {
 		return nil
 	})
 
-	api.LoadedExecutable_Execute = purego.NewCallback(func(args *openxla.LoadedExecutable_Execute_Args) *openxla.Error {
+	api.LoadedExecutable_Execute = purego.NewCallback(func(args *openxla.LoadedExecutable_Execute_Args) *openxla.ErrorHandle {
 		if opts.execFail {
 			return mockErr
 		}
@@ -235,7 +235,7 @@ func buildMockTPUEngine(t *testing.T, opts mockTPUOpts) (*ModelEngine, *openxla.
 		return nil
 	})
 
-	api.Buffer_ToHostBuffer = purego.NewCallback(func(args *openxla.Buffer_ToHostBuffer_Args) *openxla.Error {
+	api.Buffer_ToHostBuffer = purego.NewCallback(func(args *openxla.Buffer_ToHostBuffer_Args) *openxla.ErrorHandle {
 		if opts.toHostFail {
 			return mockErr
 		}
@@ -365,14 +365,14 @@ func TestModelEngine_Free_ProductionErrorPropagation(t *testing.T) {
 	api := &openxla.Api{
 		StructSize: 2048,
 	}
-	mockErr := &openxla.Error{}
+	mockErr := &openxla.ErrorHandle{}
 	api.Error_Destroy = purego.NewCallback(func(args *openxla.Error_Destroy_Args) {})
 	api.Error_Message = purego.NewCallback(func(args *openxla.Error_Message_Args) {
 		msg := "client destroy failed"
 		args.Message = &([]byte(msg))[0]
 		args.Message_size = uintptr(len(msg))
 	})
-	api.Client_Destroy = purego.NewCallback(func(args *openxla.Client_Destroy_Args) *openxla.Error {
+	api.Client_Destroy = purego.NewCallback(func(args *openxla.Client_Destroy_Args) *openxla.ErrorHandle {
 		return mockErr
 	})
 

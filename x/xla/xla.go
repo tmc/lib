@@ -35,7 +35,7 @@ func NewEngine(pluginPath string) (*Engine, error) {
 // The caller must keep the API table and its library loaded until all engine
 // resources have been closed. Close destroys the client, not the API or library.
 func NewEngineFromAPI(api *openxla.Api) (*Engine, error) {
-	client, err := openxla.NewClientFromApi(api)
+	client, err := openxla.NewClientFromAPI(api)
 	if err != nil {
 		return nil, fmt.Errorf("xla: initialize client: %w", err)
 	}

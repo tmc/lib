@@ -9,15 +9,15 @@ import (
 )
 
 // callPJRT invokes a PJRT C API function that takes a single struct pointer argument
-// and returns a *Error pointer.
+// and returns a *ErrorHandle pointer.
 //
 //go:uintptrescapes
-func callPJRT(fn uintptr, args uintptr) *Error {
+func callPJRT(fn uintptr, args uintptr) *ErrorHandle {
 	if fn == 0 {
 		return nil
 	}
 	r1 := calls.Call1(fn, args)
-	return (*Error)(unsafe.Pointer(r1))
+	return (*ErrorHandle)(unsafe.Pointer(r1))
 }
 
 // callPJRTProc invokes a PJRT C API function that takes a single struct pointer argument

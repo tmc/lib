@@ -15,7 +15,7 @@ func TestMemoryStats(t *testing.T) {
 			calls, destroys := 0, 0
 			api := &Api{}
 			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { destroys++ })
-			api.Device_MemoryStats = purego.NewCallback(func(a *Device_MemoryStats_Args) *Error {
+			api.Device_MemoryStats = purego.NewCallback(func(a *Device_MemoryStats_Args) *ErrorHandle {
 				calls++
 				if a.Device != device || a.Struct_size != PJRT_Device_MemoryStats_Args_STRUCT_SIZE || a.Extension_start != nil {
 					t.Errorf("invalid arguments: %+v", a)
@@ -32,7 +32,7 @@ func TestMemoryStats(t *testing.T) {
 					v.Field(i + 1).SetBool(mode == "zero" || mode == "values")
 				}
 				if mode == "error" {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				return nil
 			})

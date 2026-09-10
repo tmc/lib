@@ -153,7 +153,7 @@ func TestPluginInitializationShared(t *testing.T) {
 					case 1:
 						client, err = b.NewClient()
 					case 2:
-						client, err = NewClientFromApi(a.Api())
+						client, err = NewClientFromAPI(a.Api())
 					}
 					if err != nil {
 						t.Error(err)
@@ -244,12 +244,12 @@ func TestExternalAPIInitializationIsNotRetained(t *testing.T) {
 		StructSize:        unsafe.Sizeof(Api{}),
 		Error_Destroy:     purego.NewCallback(func(*Error_Destroy_Args) {}),
 		Error_Message:     purego.NewCallback(func(*Error_Message_Args) {}),
-		Plugin_Initialize: purego.NewCallback(func(*Plugin_Initialize_Args) *Error { inits++; return nil }),
-		Client_Create:     purego.NewCallback(func(args *Client_Create_Args) *Error { args.Client = &Client{}; return nil }),
-		Client_Destroy:    purego.NewCallback(func(*Client_Destroy_Args) *Error { return nil }),
+		Plugin_Initialize: purego.NewCallback(func(*Plugin_Initialize_Args) *ErrorHandle { inits++; return nil }),
+		Client_Create:     purego.NewCallback(func(args *Client_Create_Args) *ErrorHandle { args.Client = &Client{}; return nil }),
+		Client_Destroy:    purego.NewCallback(func(*Client_Destroy_Args) *ErrorHandle { return nil }),
 	}
 	for i := 0; i < 2; i++ {
-		client, err := NewClientFromApi(api)
+		client, err := NewClientFromAPI(api)
 		if err != nil {
 			t.Fatal(err)
 		}

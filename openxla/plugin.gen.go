@@ -109,5 +109,5 @@ func (p *Plugin) Api() *Api {
 // Concurrent calls share initialization. A failed initialization may be retried
 // by a later call; a client creation failure does not repeat successful setup.
 func (p *Plugin) NewClient() (*ClientWrapper, error) {
-	return NewClientFromApi(p.api)
+	return NewClientFromAPI(p.api)
 }

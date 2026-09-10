@@ -17,15 +17,15 @@ func TestExecutableCleanupErrorRetained(t *testing.T) {
 	executableCloses, clientCloses, errorCloses := 0, 0, 0
 	api.Error_Message = purego.NewCallback(func(a *openxla.Error_Message_Args) { a.Message = &message[0]; a.Message_size = uintptr(len(message)) })
 	api.Error_Destroy = purego.NewCallback(func(*openxla.Error_Destroy_Args) { errorCloses++ })
-	api.Client_Create = purego.NewCallback(func(a *openxla.Client_Create_Args) *openxla.Error { a.Client = &openxla.Client{}; return nil })
-	api.Client_Destroy = purego.NewCallback(func(*openxla.Client_Destroy_Args) *openxla.Error { clientCloses++; return nil })
-	api.Client_Compile = purego.NewCallback(func(a *openxla.Client_Compile_Args) *openxla.Error {
+	api.Client_Create = purego.NewCallback(func(a *openxla.Client_Create_Args) *openxla.ErrorHandle { a.Client = &openxla.Client{}; return nil })
+	api.Client_Destroy = purego.NewCallback(func(*openxla.Client_Destroy_Args) *openxla.ErrorHandle { clientCloses++; return nil })
+	api.Client_Compile = purego.NewCallback(func(a *openxla.Client_Compile_Args) *openxla.ErrorHandle {
 		a.Executable = &openxla.LoadedExecutable{}
 		return nil
 	})
-	api.LoadedExecutable_Destroy = purego.NewCallback(func(*openxla.LoadedExecutable_Destroy_Args) *openxla.Error {
+	api.LoadedExecutable_Destroy = purego.NewCallback(func(*openxla.LoadedExecutable_Destroy_Args) *openxla.ErrorHandle {
 		executableCloses++
-		return &openxla.Error{}
+		return &openxla.ErrorHandle{}
 	})
 	engine, err := xla.NewEngineFromAPI(api)
 	if err != nil {

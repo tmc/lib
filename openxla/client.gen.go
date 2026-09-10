@@ -42,13 +42,13 @@ func copyApiTable(src *Api) *Api {
 	return dst
 }
 
-// NewClientFromApi creates a ClientWrapper from an Api function table.
+// NewClientFromAPI creates a ClientWrapper from an Api function table.
 // Tables returned by OpenPlugin share its initialization state. Other tables
 // are borrowed, are never registered globally, and are initialized on each call;
 // their owner must ensure this is valid and keep the library loaded until all
 // clients and their resources have been destroyed. API tables must not be mutated
 // concurrently with calls into this package.
-func NewClientFromApi(rawApi *Api) (*ClientWrapper, error) {
+func NewClientFromAPI(rawApi *Api) (*ClientWrapper, error) {
 	if rawApi == nil {
 		return nil, fmt.Errorf("openxla: nil Api pointer")
 	}
@@ -819,7 +819,7 @@ func awaitEvent(api *Api, event *Event) (err error) {
 	return decodeError(api, callPJRT(api.Event_Await, uintptr(unsafe.Pointer(&args))))
 }
 
-func decodeError(api *Api, errPtr *Error) error {
+func decodeError(api *Api, errPtr *ErrorHandle) error {
 	if errPtr == nil {
 		return nil
 	}

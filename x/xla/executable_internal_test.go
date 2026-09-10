@@ -18,59 +18,59 @@ func testExecutable(t *testing.T, onAwait func(), badShape, failDestroy bool) (*
 	destroyed, downloads := new(int), new(int)
 	api.Error_Destroy = purego.NewCallback(func(*openxla.Error_Destroy_Args) {})
 	api.Error_Message = purego.NewCallback(func(*openxla.Error_Message_Args) {})
-	api.Client_Create = purego.NewCallback(func(a *openxla.Client_Create_Args) *openxla.Error { a.Client = &openxla.Client{}; return nil })
-	api.Client_Destroy = purego.NewCallback(func(*openxla.Client_Destroy_Args) *openxla.Error { return nil })
-	api.Client_BufferFromHostBuffer = purego.NewCallback(func(a *openxla.Client_BufferFromHostBuffer_Args) *openxla.Error {
+	api.Client_Create = purego.NewCallback(func(a *openxla.Client_Create_Args) *openxla.ErrorHandle { a.Client = &openxla.Client{}; return nil })
+	api.Client_Destroy = purego.NewCallback(func(*openxla.Client_Destroy_Args) *openxla.ErrorHandle { return nil })
+	api.Client_BufferFromHostBuffer = purego.NewCallback(func(a *openxla.Client_BufferFromHostBuffer_Args) *openxla.ErrorHandle {
 		a.Buffer = &openxla.Buffer{}
 		return nil
 	})
-	api.Client_Compile = purego.NewCallback(func(a *openxla.Client_Compile_Args) *openxla.Error {
+	api.Client_Compile = purego.NewCallback(func(a *openxla.Client_Compile_Args) *openxla.ErrorHandle {
 		a.Executable = &openxla.LoadedExecutable{}
 		return nil
 	})
-	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *openxla.LoadedExecutable_GetExecutable_Args) *openxla.Error {
+	api.LoadedExecutable_GetExecutable = purego.NewCallback(func(a *openxla.LoadedExecutable_GetExecutable_Args) *openxla.ErrorHandle {
 		a.Executable = &openxla.Executable{}
 		return nil
 	})
-	api.Executable_Destroy = purego.NewCallback(func(*openxla.Executable_Destroy_Args) *openxla.Error { return nil })
-	api.LoadedExecutable_Destroy = purego.NewCallback(func(*openxla.LoadedExecutable_Destroy_Args) *openxla.Error { return nil })
-	api.Executable_NumOutputs = purego.NewCallback(func(a *openxla.Executable_NumOutputs_Args) *openxla.Error { a.Num_outputs = 2; return nil })
-	api.LoadedExecutable_Execute = purego.NewCallback(func(a *openxla.LoadedExecutable_Execute_Args) *openxla.Error {
+	api.Executable_Destroy = purego.NewCallback(func(*openxla.Executable_Destroy_Args) *openxla.ErrorHandle { return nil })
+	api.LoadedExecutable_Destroy = purego.NewCallback(func(*openxla.LoadedExecutable_Destroy_Args) *openxla.ErrorHandle { return nil })
+	api.Executable_NumOutputs = purego.NewCallback(func(a *openxla.Executable_NumOutputs_Args) *openxla.ErrorHandle { a.Num_outputs = 2; return nil })
+	api.LoadedExecutable_Execute = purego.NewCallback(func(a *openxla.LoadedExecutable_Execute_Args) *openxla.ErrorHandle {
 		ptrs := unsafe.Slice((***openxla.Buffer)(a.Output_lists), 1)
 		out := unsafe.Slice(ptrs[0], 2)
 		out[0], out[1] = &openxla.Buffer{}, &openxla.Buffer{}
 		unsafe.Slice((**openxla.Event)(a.Device_complete_events), 1)[0] = &openxla.Event{}
 		return nil
 	})
-	api.Event_Await = purego.NewCallback(func(*openxla.Event_Await_Args) *openxla.Error {
+	api.Event_Await = purego.NewCallback(func(*openxla.Event_Await_Args) *openxla.ErrorHandle {
 		if onAwait != nil {
 			onAwait()
 		}
 		return nil
 	})
-	api.Event_Destroy = purego.NewCallback(func(*openxla.Event_Destroy_Args) *openxla.Error { return nil })
-	api.Buffer_Destroy = purego.NewCallback(func(*openxla.Buffer_Destroy_Args) *openxla.Error {
+	api.Event_Destroy = purego.NewCallback(func(*openxla.Event_Destroy_Args) *openxla.ErrorHandle { return nil })
+	api.Buffer_Destroy = purego.NewCallback(func(*openxla.Buffer_Destroy_Args) *openxla.ErrorHandle {
 		*destroyed++
 		if failDestroy {
-			return &openxla.Error{}
+			return &openxla.ErrorHandle{}
 		}
 		return nil
 	})
-	api.Buffer_ElementType = purego.NewCallback(func(a *openxla.Buffer_ElementType_Args) *openxla.Error { a.Type = openxla.Buffer_Type_U8; return nil })
+	api.Buffer_ElementType = purego.NewCallback(func(a *openxla.Buffer_ElementType_Args) *openxla.ErrorHandle { a.Type = openxla.Buffer_Type_U8; return nil })
 	dims := []int64{3}
-	api.Buffer_Dimensions = purego.NewCallback(func(a *openxla.Buffer_Dimensions_Args) *openxla.Error {
+	api.Buffer_Dimensions = purego.NewCallback(func(a *openxla.Buffer_Dimensions_Args) *openxla.ErrorHandle {
 		a.Num_dims = 1
 		if !badShape {
 			a.Dims = &dims[0]
 		}
 		return nil
 	})
-	api.Buffer_ToHostBuffer = purego.NewCallback(func(a *openxla.Buffer_ToHostBuffer_Args) *openxla.Error {
+	api.Buffer_ToHostBuffer = purego.NewCallback(func(a *openxla.Buffer_ToHostBuffer_Args) *openxla.ErrorHandle {
 		*downloads++
 		copy(unsafe.Slice((*byte)(a.Dst), a.Dst_size), []byte{1, 2, 3})
 		return nil
 	})
-	client, err := openxla.NewClientFromApi(api)
+	client, err := openxla.NewClientFromAPI(api)
 	if err != nil {
 		t.Fatal(err)
 	}

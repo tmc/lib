@@ -36,21 +36,21 @@ func TestTransferPinLifetime(t *testing.T) {
 			var borrowed unsafe.Pointer
 			awaited, destroyed := false, false
 			api := &Api{}
-			api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *Error {
+			api.Event_Await = purego.NewCallback(func(args *Event_Await_Args) *ErrorHandle {
 				runtime.GC()
 				pincheck.Check(borrowed)
 				unsafe.Slice((*byte)(borrowed), 32)[31] = 73
 				awaited = true
 				return nil
 			})
-			api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *Error {
+			api.Event_Destroy = purego.NewCallback(func(args *Event_Destroy_Args) *ErrorHandle {
 				pincheck.Check(borrowed)
 				destroyed = true
 				return nil
 			})
-			api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *Error { return nil })
+			api.Buffer_Destroy = purego.NewCallback(func(args *Buffer_Destroy_Args) *ErrorHandle { return nil })
 			if direction == "upload" {
-				api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *Error {
+				api.Client_BufferFromHostBuffer = purego.NewCallback(func(args *Client_BufferFromHostBuffer_Args) *ErrorHandle {
 					pincheck.Check(args.Data)
 					pincheck.Check(unsafe.Pointer(args.Dims))
 					borrowed = args.Data
@@ -67,7 +67,7 @@ func TestTransferPinLifetime(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				api.Buffer_ToHostBuffer = purego.NewCallback(func(args *Buffer_ToHostBuffer_Args) *Error {
+				api.Buffer_ToHostBuffer = purego.NewCallback(func(args *Buffer_ToHostBuffer_Args) *ErrorHandle {
 					pincheck.Check(args.Dst)
 					borrowed = args.Dst
 					args.Event = &Event{}
@@ -104,8 +104,8 @@ func TestCompilePinLifetime(t *testing.T) {
 			called, errorDestroyed := false, false
 			api := &Api{}
 			api.Error_Destroy = purego.NewCallback(func(*Error_Destroy_Args) { errorDestroyed = true })
-			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *Error { return nil })
-			api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *Error {
+			api.LoadedExecutable_Destroy = purego.NewCallback(func(*LoadedExecutable_Destroy_Args) *ErrorHandle { return nil })
+			api.Client_Compile = purego.NewCallback(func(args *Client_Compile_Args) *ErrorHandle {
 				called = true
 				pointers = []unsafe.Pointer{unsafe.Pointer(args.Program.Code), unsafe.Pointer(args.Program.Format), unsafe.Pointer(args.Compile_options), unsafe.Pointer(args.Program)}
 				runtime.GC()
@@ -123,7 +123,7 @@ func TestCompilePinLifetime(t *testing.T) {
 					t.Error("compile program changed during call")
 				}
 				if tt.fail {
-					return &Error{}
+					return &ErrorHandle{}
 				}
 				args.Executable = &LoadedExecutable{}
 				return nil
@@ -155,7 +155,7 @@ func TestCompilePinLifetime(t *testing.T) {
 func TestDefaultDeviceAssignmentPinLifetime(t *testing.T) {
 	var data unsafe.Pointer
 	api := &Api{}
-	api.Client_DefaultDeviceAssignment = purego.NewCallback(func(a *Client_DefaultDeviceAssignment_Args) *Error {
+	api.Client_DefaultDeviceAssignment = purego.NewCallback(func(a *Client_DefaultDeviceAssignment_Args) *ErrorHandle {
 		data = unsafe.Pointer(a.Default_assignment)
 		runtime.GC()
 		pincheck.Check(data)
