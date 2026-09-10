@@ -42,6 +42,7 @@ type GPUModules struct {
 	Kernels
 	mod   *cuda.Module
 	ptx   string
+	cubin []byte
 	dtype WeightDType
 }
 
@@ -58,6 +59,13 @@ func (gm *GPUModules) KernelReport() string { return weightKernelReport(gm.dtype
 // PTX returns the exact JIT-compiled PTX assembly string.
 func (gm *GPUModules) PTX() string {
 	return gm.ptx
+}
+
+// CUBIN returns the native image NVRTC produced, or nil when the compiler
+// returned PTX only. It is the artifact that was loaded when it is present:
+// loadCUDAProgram prefers it.
+func (gm *GPUModules) CUBIN() []byte {
+	return gm.cubin
 }
 
 // CompileGPUModules compiles and loads the forward kernels onto dev.
@@ -96,7 +104,7 @@ func CompileGPUModulesAs(dev *cuda.Device, d WeightDType) (*GPUModules, error) {
 		return nil, fmt.Errorf("load module: %w", err)
 	}
 
-	gm := &GPUModules{mod: loaded, ptx: mod.PTX(), dtype: d}
+	gm := &GPUModules{mod: loaded, ptx: mod.PTX(), cubin: mod.CUBIN(), dtype: d}
 	if err := bindWeightKernels(loaded, d, &gm.Kernels); err != nil {
 		return nil, finishCUDAInit(fmt.Errorf("bind forward kernels: %w", err), loaded.Close)
 	}

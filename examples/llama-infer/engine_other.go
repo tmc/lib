@@ -483,9 +483,9 @@ func GetOrCompileCudaEngine(cfg Config) (_ *ModelEngine, resultErr error) {
 	if got, want := modules.WeightDType(), gpuWeights.DType(); got != want {
 		return nil, fmt.Errorf("kernels bound for %s weights but model uploaded as %s", got, want)
 	}
-	if *ptxReportPath != "" {
-		if err := writeCompiledPTXReport(*ptxReportPath, modules); err != nil {
-			return nil, fmt.Errorf("ptx report: %w", err)
+	if *kernelReportPath != "" {
+		if err := writeKernelReport(*kernelReportPath, modules); err != nil {
+			return nil, fmt.Errorf("kernel report: %w", err)
 		}
 	}
 
