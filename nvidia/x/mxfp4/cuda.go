@@ -153,8 +153,24 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 	return e, nil
 }
 
-// LinearGEMV launches fused MXFP4 matrix-vector multiplication on the GPU.
+// LinearGEMV launches fused MXFP4 matrix-vector multiplication on the GPU's
+// null stream. Use [Engine.LinearGEMVOn] to order it with other stream work.
 func (e *Engine) LinearGEMV(
+	x cudamem.Slice[float32],
+	packed cudamem.Slice[uint8],
+	scales cudamem.Slice[float32],
+	outY cudamem.Slice[float32],
+	inDim, outDim, groupSize int,
+) error {
+	return e.LinearGEMVOn(nil, x, packed, scales, outY, inDim, outDim, groupSize)
+}
+
+// LinearGEMVOn is [Engine.LinearGEMV] on stream s. A nil s is the null
+// stream. packed holds outDim rows of inDim/2 bytes and scales one float per
+// group of groupSize weights, in row-major order, as [QuantizeMatrix]
+// produces them.
+func (e *Engine) LinearGEMVOn(
+	s *cuda.Stream,
 	x cudamem.Slice[float32],
 	packed cudamem.Slice[uint8],
 	scales cudamem.Slice[float32],
@@ -169,7 +185,7 @@ func (e *Engine) LinearGEMV(
 	}
 	return e.run(func() error {
 		return cudalaunch.Kernel(e.fusedGEMVFn).
-			Grid(uint32(outDim)).Block(128).
+			Grid(uint32(outDim)).Block(128).On(s).
 			Launch(x, packed, scales, outY, int32(inDim), int32(outDim), int32(groupSize))
 	})
 }
