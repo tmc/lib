@@ -1,0 +1,13 @@
+commit f1b7fbf6 date 2026-09-11T05:30:52-07:00
+model claude-code/antigravity, tty not a tty, pid 87379, ITERM_SESSION_ID=w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+
+verified: CUDA parity gates and kernel qualifications on DGX (NVIDIA GB10 sm_121).
+  - TestCUDAProductionHash: PASS (reproduced exact sha256 e1500b2e... before and after Reset).
+  - TestCUDADeterminism: PASS (32 repeats bit-identical).
+  - TestCUDAObserveModel (count-30): PASS (all 59 accepted decode tokens matched capture-count-30-01).
+  - TestCUDAOracleTrace (prompt-A): evaluated clean across all 10 steps, identifying step 5 margin discrepancy (8233 vs 1694).
+  - TestCUDAPhaseProfile: PASS (64-token batched prefill).
+  - TestCUDAPrefillProgress: PASS (2048-token batched prefill).
+  - TestPrefillCapture: PASS (cases 2,64 continuation 1).
+  - TestCUDAHCOracleEquivalence: PASS.
+  - All package tests pass cleanly on Darwin and Linux sm_121.
