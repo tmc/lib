@@ -15,6 +15,27 @@ import (
 // command buffer. TestDeepRegimeBoundary derives its first position
 // arithmetically: 2051. Nothing executed it.
 //
+// The condition is metal_runtime_darwin.go:635:
+//
+//	batchedCompressed := i >= 2 && (i%2 != 0 || state.indexer.n < 512 ||
+//		state.indexer.n == 512 && !indexerWillEmit)
+//
+// so an even layer leaves the batched regime when its indexer cache passes 512
+// entries. The indexer emits on (position+1)%ratio == 0 at ratio 4, which puts
+// the 512th emit at position 2047 and the 513th at 2051; 2048 through 2050 are
+// still batched because n == 512 and no emit is due. Hence 2051, and hence the
+// windows below: the constant is a consequence of the branch, and it moves if
+// the ratio ever does. That is why the assertion reads the runtime's counters
+// instead of this number.
+//
+// The same branch exists on CUDA. cuda_session_linux.go:804 is
+// `if state.indexer.n > 512`, checked after the increment at :801, over the
+// same emit rule at cuda_compressed_linux.go:36 -- so it turns on at position
+// 2051 too, and gates two extra matvecs per indexer layer rather than a
+// command-buffer split. One model-level branch, two runtimes, one position.
+// It is the only mechanism found so far in this work that does cross backends;
+// the constant-cache serialization measured in ea822874 does not.
+//
 // That mattered more than it looked. The registered 2048-token workload stops
 // at position 2047 and the n=64 anchor covers 0-63, so every gate the project
 // had ran entirely in the batched regime. A change to the closing-batch split,
