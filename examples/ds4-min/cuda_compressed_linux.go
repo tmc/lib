@@ -130,7 +130,7 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.device.DefaultStream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer score: %w", err)
 		}
-		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(scores, allowed, uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.device.DefaultStream()).Launch(scores, allowed, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer selection: %w", err)
 		}
 		return nil
@@ -247,37 +247,110 @@ extern "C" __global__ void ds4_indexer_score(const float *q,const float *weights
  }
  scores[c]=score;
 }
-extern "C" __global__ void ds4_indexer_select(const float *scores,unsigned int *allowed,unsigned int count) {
- for(unsigned int i=threadIdx.x;i<count;i+=blockDim.x)allowed[i]=count<=512?1:0;
- if(count<=512)return;
- __syncthreads();
- __shared__ float s_scores[256];
- __shared__ unsigned int s_indices[256];
- for(unsigned int k=0;k<512;k++) {
-  float localScore=-__int_as_float(0x7f800000);
-  unsigned int localIndex=threadIdx.x==0?0:0xFFFFFFFF;
-  for(unsigned int i=threadIdx.x;i<count;i+=blockDim.x) {
-   if(!allowed[i]) {
-    float s=scores[i];
-    if(s>localScore){localScore=s;localIndex=i;}
-   }
-  }
-  s_scores[threadIdx.x]=localScore;
-  s_indices[threadIdx.x]=localIndex;
-  __syncthreads();
-  for(unsigned int stride=128;stride>0;stride>>=1) {
-   if(threadIdx.x<stride) {
-    float otherScore=s_scores[threadIdx.x+stride];
-    unsigned int otherIndex=s_indices[threadIdx.x+stride];
-    if(otherScore>s_scores[threadIdx.x] || (otherScore==s_scores[threadIdx.x] && otherIndex<s_indices[threadIdx.x])) {
-     s_scores[threadIdx.x]=otherScore;
-     s_indices[threadIdx.x]=otherIndex;
+__device__ __forceinline__ static unsigned int ds4_topk_float_key(float v) {
+ unsigned int u = __float_as_uint(v);
+ return (u & 0x80000000u) ? ~u : (u ^ 0x80000000u);
+}
+__device__ __forceinline__ static unsigned long long ds4_topk_pack_key(float v, unsigned int idx) {
+ return ((unsigned long long)ds4_topk_float_key(v) << 32ULL) | (unsigned long long)(0xffffffffu - idx);
+}
+__device__ __forceinline__ static void ds4_bitonic_sort_2048(unsigned long long *buf, unsigned int tid) {
+ for (unsigned int k = 2; k <= 2048; k <<= 1) {
+  for (unsigned int j = k >> 1; j > 0; j >>= 1) {
+   for (unsigned int i = tid; i < 2048; i += blockDim.x) {
+    unsigned int other = i ^ j;
+    if (other > i) {
+     unsigned long long a = buf[i];
+     unsigned long long b = buf[other];
+     bool desc = (i & k) == 0;
+     if (desc ? (b > a) : (a > b)) {
+      buf[i] = b;
+      buf[other] = a;
+     }
     }
    }
    __syncthreads();
   }
-  if(threadIdx.x==0)allowed[s_indices[0]]=1;
+ }
+}
+extern "C" __global__ void ds4_indexer_select(const float *scores, unsigned int *allowed, unsigned int count) {
+ const unsigned int tid = threadIdx.x;
+ if (count <= 512) {
+  for (unsigned int i = tid; i < count; i += blockDim.x) allowed[i] = 1;
+  return;
+ }
+ for (unsigned int i = tid; i < count; i += blockDim.x) allowed[i] = 0;
+ __syncthreads();
+
+ __shared__ unsigned long long buf[2048];
+ __shared__ unsigned int s_cnt;
+ __shared__ unsigned long long s_thr;
+
+ if (tid == 0) {
+  s_cnt = 0;
+  s_thr = 0ULL;
+ }
+ __syncthreads();
+
+ const unsigned int tile = blockDim.x;
+ for (unsigned int base = 0; base < count; base += tile) {
+  const unsigned int i = base + tid;
+  const unsigned long long thr = s_thr;
+  unsigned long long key = 0ULL;
+  bool take = false;
+  if (i < count) {
+   float s = scores[i];
+   if (s > -1.0e30f && !isnan(s)) {
+    key = ds4_topk_pack_key(s, i);
+    take = (key > thr);
+   }
+  }
+  const unsigned int ballot = __ballot_sync(0xffffffffu, take);
+  if (take) {
+   const unsigned int lane = tid & 31u;
+   const unsigned int rank = __popc(ballot & ((1u << lane) - 1u));
+   unsigned int pos = 0;
+   if (rank == 0) pos = atomicAdd(&s_cnt, __popc(ballot));
+   pos = __shfl_sync(ballot, pos, __ffs(ballot) - 1);
+   buf[pos + rank] = key;
+  }
   __syncthreads();
+
+  if (s_cnt > 2048 - tile) {
+   for (unsigned int j = tid; j < 2048; j += blockDim.x) {
+    if (j >= s_cnt) buf[j] = 0ULL;
+   }
+   __syncthreads();
+   ds4_bitonic_sort_2048(buf, tid);
+   if (tid == 0) {
+    s_thr = buf[511];
+    s_cnt = 512;
+   }
+   __syncthreads();
+  }
+ }
+
+ if (s_cnt > 512) {
+  for (unsigned int j = tid; j < 2048; j += blockDim.x) {
+   if (j >= s_cnt) buf[j] = 0ULL;
+  }
+  __syncthreads();
+  ds4_bitonic_sort_2048(buf, tid);
+  if (tid == 0) s_cnt = 512;
+  __syncthreads();
+ }
+
+ const unsigned int n_admit = s_cnt < 512 ? s_cnt : 512;
+ for (unsigned int j = tid; j < n_admit; j += blockDim.x) {
+  unsigned long long k = buf[j];
+  if (k != 0ULL) {
+   unsigned int idx = 0xffffffffu - (unsigned int)(k & 0xffffffffu);
+   allowed[idx] = 1;
+  }
+ }
+ __syncthreads();
+ if (tid == 0 && s_cnt < 512) {
+  allowed[0] = 1;
  }
 }
 extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,const float *sinks,float *raw,const float *comp,const unsigned int *allowed,float *scores,float *out,unsigned int position,unsigned int layer,unsigned int raw_cap,unsigned int n_comp) {

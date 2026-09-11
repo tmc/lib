@@ -33,7 +33,7 @@ func serialSelectIndexerRows(scores []float32, k int) []uint32 {
 	k = min(k, len(scores))
 	for range k {
 		best := 0
-		bestScore := float32(math.Inf(-1))
+		bestScore := float32(-1e30)
 		for i, score := range scores {
 			if allowed[i] == 0 && score > bestScore {
 				best = i
@@ -182,7 +182,7 @@ func TestCUDAIndexerTieBreakingByLowestIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := r.device.WithContext(func() error {
-		return cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(ds, allowed, uint32(count))
+		return cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.device.DefaultStream()).Launch(ds, allowed, uint32(count))
 	})
 	if err != nil {
 		t.Fatalf("indexerSelectFn: %v", err)
@@ -204,4 +204,128 @@ func TestCUDAIndexerTieBreakingByLowestIndex(t *testing.T) {
 		}
 	}
 	t.Logf("tie-breaking gate: all %d equal scores admitted strictly indices 0..511", count)
+}
+
+func TestCUDASelectIndexerRowsMatchesTheScan(t *testing.T) {
+	r := cudaSynthFoundation(t)
+	if err := r.loadMathKernels(); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name   string
+		k      int
+		scores func() []float32
+	}{
+		{"distinct", 512, func() []float32 {
+			s := make([]float32, 1000)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)*1.7 + 0.3))
+			}
+			return s
+		}},
+		{"all tied", 512, func() []float32 {
+			s := make([]float32, 700)
+			for i := range s {
+				s[i] = 2.5
+			}
+			return s
+		}},
+		{"ties straddling the cut", 512, func() []float32 {
+			// 400 clear winners, then 300 identical scores competing for the
+			// remaining 112 slots: the cut lands inside a tie group.
+			s := make([]float32, 700)
+			for i := range s {
+				if i < 400 {
+					s[i] = 10 + float32(i)
+				} else {
+					s[i] = 1
+				}
+			}
+			return s
+		}},
+		{"below the sentinel", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)))
+				if i%3 == 0 {
+					s[i] = -2e30 // under the scan's floor: never picked
+				}
+			}
+			return s
+		}},
+		{"fewer eligible than k", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = -2e30
+			}
+			for i := 100; i < 110; i++ {
+				s[i] = float32(i)
+			}
+			return s
+		}},
+		{"none eligible", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Inf(-1))
+			}
+			return s
+		}},
+		{"nan", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)))
+				if i%5 == 0 {
+					s[i] = float32(math.NaN())
+				}
+			}
+			return s
+		}},
+		{"k exceeds the rows", 512, func() []float32 {
+			s := make([]float32, 100)
+			for i := range s {
+				s[i] = float32(i % 7)
+			}
+			return s
+		}},
+		{"deep regime shape", 512, func() []float32 {
+			s := make([]float32, 16418)
+			for i := range s {
+				s[i] = float32(math.Cos(float64(i) * 0.011))
+			}
+			return s
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			scores := c.scores()
+			count := len(scores)
+			want := serialSelectIndexerRows(scores, c.k)
+
+			ds := cudaTestAlloc(t, r, count)
+			allowed := cudaCompressedMask(t, r, count)
+			cudaCompressedUpload(t, ds, scores)
+
+			err := r.device.WithContext(func() error {
+				return cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.device.DefaultStream()).Launch(ds, allowed, uint32(count))
+			})
+			if err != nil {
+				t.Fatalf("indexerSelectFn: %v", err)
+			}
+
+			got := make([]uint32, count)
+			if err := allowed.CopyToHost(got); err != nil {
+				t.Fatal(err)
+			}
+
+			admitted := 0
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("row %d (score %v): admitted %d, scan admitted %d", i, scores[i], got[i], want[i])
+				}
+				admitted += int(want[i])
+			}
+			t.Logf("%d rows, %d admitted", len(scores), admitted)
+		})
+	}
 }
