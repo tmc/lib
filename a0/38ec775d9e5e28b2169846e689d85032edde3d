@@ -1,0 +1,30 @@
+commit a038ec77  2026-09-11
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Derived by combining two subagent reports, neither of which states it. The
+state inventory rated the ffnBlocks pair the hardest to widen and named a
+hazard; the batch agent had independently removed that hazard from the
+consumer side hours earlier. The remaining blocker is on the producers, and
+it follows from tokenRow being contiguous (metal_batch_darwin.go:424).
+
+Adjudicated at rank 2 before writing: routedOut/sharedOut are indeed
+[0:4096] and [4096:8192] of ffnBlocks (metal_runtime_darwin.go:422-423),
+:842 does reduce across them with count=2, and tokenRow is
+s.Slice(token*width, (token+1)*width) with no stride.
+
+Also confirmed from the same report, independently by grep: state.q8 and
+state.outputNorm are allocated and never read, joining attnCur and ffnCur.
+Every other hit on those names is a different type -- cuda's q80Input,
+tiny_stack's weights.outputNorm -- which is the conflation the inventory
+warned a package-wide grep on field names would make. Not deleted here;
+q8 is the exact scratch shape EncodeMatmulQ2K wants and is the natural
+buffer to wire when the FFN moves to it.
+
+Stale-anchor note: that report's line numbers for metal_hc_darwin.go and
+metal_batch_darwin.go predate 953109fc and c22fdb9b and no longer resolve.
+Several of its listed blockers are already gone -- state.Len() == 16384 is
+now *tokens, and the single-token EncodeRouterHash scalar now has a
+...Tokens form. Re-anchor by symbol before using it.
