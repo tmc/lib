@@ -580,6 +580,7 @@ type cudaFoundation struct {
 	mixedAttentionNormalizeFn driver.Function
 	mixedAttentionValuesFn    driver.Function
 	indexerQueryFn            driver.Function
+	indexerScoreFn            driver.Function
 	indexerSelectFn           driver.Function
 	fillU32Fn                 driver.Function
 }
@@ -1260,6 +1261,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_attention_mixed_normalize", &r.mixedAttentionNormalizeFn},
 		{"ds4_attention_mixed_values", &r.mixedAttentionValuesFn},
 		{"ds4_indexer_query", &r.indexerQueryFn},
+		{"ds4_indexer_score", &r.indexerScoreFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
 		{"ds4_fill_u32", &r.fillU32Fn},
 	}

@@ -821,7 +821,11 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 		return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position)
 	}
 	// An odd layer must not inherit the preceding even layer's selection mask.
-	return r.encodeFillU32(s.allowed, s.allowed.Len(), 1)
+	count := max(1, state.attn.n)
+	if count > s.allowed.Len() {
+		count = s.allowed.Len()
+	}
+	return r.encodeFillU32(s.allowed, count, 1)
 }
 
 func cudaTensorRows(t cudaModelTensor, start, count int) (cudaModelTensor, error) {

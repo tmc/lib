@@ -121,12 +121,16 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if nComp > 512 {
-			if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.device.DefaultStream()).Launch(q, qScratch, uint32(position)); err != nil {
-				return fmt.Errorf("cuda: launch indexer query: %w", err)
-			}
+		if nComp <= 512 {
+			return r.encodeFillU32(allowed, nComp, 1)
 		}
-		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(qScratch, weights, cache, scores, allowed, uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.device.DefaultStream()).Launch(q, qScratch, uint32(position)); err != nil {
+			return fmt.Errorf("cuda: launch indexer query: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.device.DefaultStream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
+			return fmt.Errorf("cuda: launch indexer score: %w", err)
+		}
+		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(scores, allowed, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer selection: %w", err)
 		}
 		return nil
@@ -232,19 +236,48 @@ extern "C" __global__ void ds4_indexer_query(const float *q,float *out,unsigned 
  for(unsigned int i=0;i<128;i++)row[i]=q[blockIdx.x*128+i];
  ds4_compressed_rope(row,128,position,false);ds4_indexer_qat(row);
 }
-extern "C" __global__ void ds4_indexer_select(const float *q,const float *weights,const float *cache,float *scores,unsigned int *allowed,unsigned int count) {
- if(blockIdx.x || threadIdx.x)return;
- for(unsigned int i=0;i<count;i++)allowed[i]=count<=512?1:0;
- if(count<=512)return;
- for(unsigned int c=0;c<count;c++) {
-  float score=0;
-  for(unsigned int h=0;h<64;h++) { float dot=0;for(unsigned int i=0;i<128;i++)dot+=q[h*128+i]*cache[c*128+i];score+=fmaxf(0.0f,dot)*weights[h]*.011048543456039805f; }
-  scores[c]=score;
+extern "C" __global__ void ds4_indexer_score(const float *q,const float *weights,const float *cache,float *scores,unsigned int count) {
+ const unsigned int c=blockIdx.x*blockDim.x+threadIdx.x;
+ if(c>=count)return;
+ float score=0.0f;
+ for(unsigned int h=0;h<64;h++) {
+  float dot=0.0f;
+  for(unsigned int i=0;i<128;i++)dot+=q[h*128+i]*cache[c*128+i];
+  score+=fmaxf(0.0f,dot)*weights[h]*0.011048543456039805f;
  }
+ scores[c]=score;
+}
+extern "C" __global__ void ds4_indexer_select(const float *scores,unsigned int *allowed,unsigned int count) {
+ for(unsigned int i=threadIdx.x;i<count;i+=blockDim.x)allowed[i]=count<=512?1:0;
+ if(count<=512)return;
+ __syncthreads();
+ __shared__ float s_scores[256];
+ __shared__ unsigned int s_indices[256];
  for(unsigned int k=0;k<512;k++) {
-  unsigned int best=0;float bestScore=-__int_as_float(0x7f800000);
-  for(unsigned int i=0;i<count;i++)if(!allowed[i] && scores[i]>bestScore) { best=i;bestScore=scores[i]; }
-  allowed[best]=1;
+  float localScore=-__int_as_float(0x7f800000);
+  unsigned int localIndex=threadIdx.x==0?0:0xFFFFFFFF;
+  for(unsigned int i=threadIdx.x;i<count;i+=blockDim.x) {
+   if(!allowed[i]) {
+    float s=scores[i];
+    if(s>localScore){localScore=s;localIndex=i;}
+   }
+  }
+  s_scores[threadIdx.x]=localScore;
+  s_indices[threadIdx.x]=localIndex;
+  __syncthreads();
+  for(unsigned int stride=128;stride>0;stride>>=1) {
+   if(threadIdx.x<stride) {
+    float otherScore=s_scores[threadIdx.x+stride];
+    unsigned int otherIndex=s_indices[threadIdx.x+stride];
+    if(otherScore>s_scores[threadIdx.x] || (otherScore==s_scores[threadIdx.x] && otherIndex<s_indices[threadIdx.x])) {
+     s_scores[threadIdx.x]=otherScore;
+     s_indices[threadIdx.x]=otherIndex;
+    }
+   }
+   __syncthreads();
+  }
+  if(threadIdx.x==0)allowed[s_indices[0]]=1;
+  __syncthreads();
  }
 }
 extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,const float *sinks,float *raw,const float *comp,const unsigned int *allowed,float *scores,float *out,unsigned int position,unsigned int layer,unsigned int raw_cap,unsigned int n_comp) {
