@@ -1,0 +1,24 @@
+antigravity-cli, model gemini-2.5-pro, pid 10161
+ITERM_SESSION_ID=w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+session=726510d6-5980-4ebf-a5b3-dc4279f1347b
+date=2026-09-11T21:47:33Z
+
+Step 1: attention-output block-diagonal fusion on CUDA.
+Verified bit-identity against the 8-group loop on synthetic swept-scale data.
+Verified source lockstep against ds4_q8_0_matvec_quantized via TestCUDAMatvecQ80BlockDiagIsMatvecQ80WithBasePointers.
+
+Mutation receipts:
+  M1  Multiply reassociated to d * float(dot) * xb[b].d -> FAIL (both tests)
+  M2  Weight base offset dropped                         -> FAIL (both tests)
+
+Strict interleaved A/B benchmark (N=160 matched steps per arm, positions 0..15 on GB10 sm_121):
+  - attention-output GPU phase: 20.38 ms -> 18.49 ms (-1.90 ms, -9.3%)
+  - expert-ffn GPU phase:       23.07 ms -> 23.08 ms (+0.01 ms)
+  - attention GPU phase:        26.04 ms -> 26.26 ms (+0.23 ms)
+  - compression GPU phase:      10.17 ms -> 10.17 ms (+0.00 ms)
+  - ffn-post GPU phase:         14.77 ms -> 14.76 ms (-0.01 ms)
+  - ffn-pre GPU phase:           8.39 ms ->  8.39 ms (+0.00 ms)
+  - shared-ffn GPU phase:        7.56 ms ->  7.55 ms (-0.01 ms)
+  - Inter-kernel gap:            3.89 ms ->  3.89 ms (-0.00 ms)
+  - Full decode stream time:    115.27 ms -> 113.44 ms (-1.83 ms, -1.6%)
+  - Full decode host wall:      115.24 ms -> 113.43 ms (-1.80 ms, -1.6%)
