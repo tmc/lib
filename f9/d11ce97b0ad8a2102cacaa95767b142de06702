@@ -1,0 +1,25 @@
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+date=2026-09-11T21:00:42Z
+
+Adjudication: rank 2 throughout -- metal_ops_darwin.go:1598 (rms_norm),
+:1254 (clamp10), :1298 (swiglu), :1305 (swiglu_weighted_slots) read
+directly, not inferred from the encoders.
+
+Mutation evidence, each restoring metal_ops_darwin.go to sha256
+f5dac10bb88f99ca7873fc0bbcb487511f6fb9e97803d4cb714d2e519964dd0d:
+  off=uint64_t(group)*width -> 0              => rms red only
+  weights[i/width] -> weights[0]              => swiglu-slots red only
+  gate[i] -> gate[i%512] in swiglu            => swiglu red only
+  x[i] -> x[i%512] in clamp10                 => clamp10 red only
+
+One mutation was vacuous and is documented in the test: (i/width)%slots
+is the identity because the encoder passes slots=weights.Len(), which
+at T rows is T*6. The kernel carries no per-row slot count.
+
+Consequence for the token-major widening: the remaining blockers in
+evalLayer are the attention path (EncodeRopeAttention*, EncodeCompressor)
+and the producer-side ffnBlocks aliasing recorded in a038ec77. The
+element-wise and normalization call sites are not blockers.
