@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"slices"
 	"sync"
 
 	apple "github.com/tmc/apple/metal"
@@ -103,22 +104,54 @@ func indexerScores(rows, q, weights []float32, nComp int) []float32 {
 	return scores
 }
 
+// selectIndexerRows admits the k highest-scoring rows, ties going to the lowest
+// index. It replaces a k-pass scan whose cost was 512*nComp comparisons per
+// indexer layer -- 8.4M at a full context, 318 ms/token across the 21 indexer
+// layers, and the larger term once the scoring loop is parallel.
+//
+// The rewrite is exact rather than close. Selection is a total order on
+// (score descending, index ascending) and involves no arithmetic at all, only
+// comparisons, so there is nothing here to reassociate. The two corners the
+// old scan had are reproduced deliberately:
+//
+//   - A row scoring at or below the -1e30 sentinel is never picked by the
+//     scan, because the comparison was a strict >. Neither is NaN, for the
+//     same reason. Both fall out of the same predicate here.
+//   - When fewer than k rows clear the sentinel, the scan's remaining passes
+//     each fall through to best == 0 and set allowed[0], whatever its score.
+//     The trailing assignment below does that once, which has the same effect.
 func selectIndexerRows(scores []float32, k int) []uint32 {
 	allowed := make([]uint32, len(scores))
 	k = min(k, len(scores))
-	for range k {
-		best := 0
-		bestScore := float32(-1e30)
-		for i, score := range scores {
-			if allowed[i] == 0 && score > bestScore {
-				best = i
-				bestScore = score
-			}
+	order := make([]int32, 0, len(scores))
+	for i, score := range scores {
+		if score > selectIndexerSentinel {
+			order = append(order, int32(i))
 		}
-		allowed[best] = 1
+	}
+	slices.SortFunc(order, func(a, b int32) int {
+		if scores[a] != scores[b] {
+			if scores[a] > scores[b] {
+				return -1
+			}
+			return 1
+		}
+		return int(a - b)
+	})
+	n := min(k, len(order))
+	for _, i := range order[:n] {
+		allowed[i] = 1
+	}
+	if n < k {
+		allowed[0] = 1
 	}
 	return allowed
 }
+
+// selectIndexerSentinel is the floor the k-pass scan compared against. It is
+// named because it is load-bearing: it decides what a row has to beat to be
+// eligible at all, not merely how the scan was initialised.
+const selectIndexerSentinel = float32(-1e30)
 
 func ropeCompressedTail(x []float32, position int, inverse bool) {
 	start := len(x) - 64

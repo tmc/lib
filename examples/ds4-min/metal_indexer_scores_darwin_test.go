@@ -139,3 +139,158 @@ func TestMetalSelectIndexerRowsBreaksTiesByLowestIndex(t *testing.T) {
 		}
 	}
 }
+
+// scanIndexerRows is the k-pass scan selectIndexerRows replaced, transcribed
+// verbatim. The sort-based version is meant to be indistinguishable from it on
+// every input, including the inputs the scan handles by accident.
+func scanIndexerRows(scores []float32, k int) []uint32 {
+	allowed := make([]uint32, len(scores))
+	k = min(k, len(scores))
+	for range k {
+		best := 0
+		bestScore := float32(-1e30)
+		for i, score := range scores {
+			if allowed[i] == 0 && score > bestScore {
+				best = i
+				bestScore = score
+			}
+		}
+		allowed[best] = 1
+	}
+	return allowed
+}
+
+func TestMetalSelectIndexerRowsMatchesTheScan(t *testing.T) {
+	// The cases that matter are the ones where a reasonable rewrite and the
+	// scan part company: ties, values at or below the sentinel, NaN, and
+	// fewer eligible rows than k. A pile of distinct random floats agrees
+	// under any correct implementation and proves the least.
+	cases := []struct {
+		name   string
+		k      int
+		scores func() []float32
+	}{
+		{"distinct", 512, func() []float32 {
+			s := make([]float32, 1000)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)*1.7 + 0.3))
+			}
+			return s
+		}},
+		{"all tied", 512, func() []float32 {
+			s := make([]float32, 700)
+			for i := range s {
+				s[i] = 2.5
+			}
+			return s
+		}},
+		{"ties straddling the cut", 512, func() []float32 {
+			// 400 clear winners, then 300 identical scores competing for the
+			// remaining 112 slots: the cut lands inside a tie group.
+			s := make([]float32, 700)
+			for i := range s {
+				if i < 400 {
+					s[i] = 10 + float32(i)
+				} else {
+					s[i] = 1
+				}
+			}
+			return s
+		}},
+		{"below the sentinel", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)))
+				if i%3 == 0 {
+					s[i] = -2e30 // under the scan's floor: never picked
+				}
+			}
+			return s
+		}},
+		{"fewer eligible than k", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = -2e30
+			}
+			for i := 100; i < 110; i++ {
+				s[i] = float32(i)
+			}
+			return s
+		}},
+		{"none eligible", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Inf(-1))
+			}
+			return s
+		}},
+		{"nan", 512, func() []float32 {
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Sin(float64(i)))
+				if i%5 == 0 {
+					s[i] = float32(math.NaN())
+				}
+			}
+			return s
+		}},
+		{"k exceeds the rows", 512, func() []float32 {
+			s := make([]float32, 100)
+			for i := range s {
+				s[i] = float32(i % 7)
+			}
+			return s
+		}},
+		{"deep regime shape", 512, func() []float32 {
+			s := make([]float32, 16418)
+			for i := range s {
+				s[i] = float32(math.Cos(float64(i) * 0.011))
+			}
+			return s
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			scores := c.scores()
+			want := scanIndexerRows(scores, c.k)
+			got := selectIndexerRows(scores, c.k)
+			if len(got) != len(want) {
+				t.Fatalf("length %d, want %d", len(got), len(want))
+			}
+			admitted := 0
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("row %d (score %v): admitted %d, scan admitted %d", i, scores[i], got[i], want[i])
+				}
+				admitted += int(want[i])
+			}
+			t.Logf("%d rows, %d admitted", len(scores), admitted)
+		})
+	}
+}
+
+func TestMetalSelectIndexerRowComparisonSeesATieBreakFlip(t *testing.T) {
+	// Mutation receipt for the test above: a selection that resolves ties to
+	// the highest index instead of the lowest must be caught. Without this,
+	// the agreement cases prove only that both implementations pick 512 large
+	// scores.
+	scores := make([]float32, 700)
+	for i := range scores {
+		scores[i] = 2.5
+	}
+	want := scanIndexerRows(scores, 512)
+	flipped := make([]uint32, len(scores))
+	for i := len(scores) - 512; i < len(scores); i++ {
+		flipped[i] = 1
+	}
+	moved := 0
+	for i := range want {
+		if want[i] != flipped[i] {
+			moved++
+		}
+	}
+	if moved == 0 {
+		t.Fatal("the highest-index tie-break is indistinguishable from the scan on this fixture; the agreement test above proves nothing about ties")
+	}
+	t.Logf("flipping the tie-break moves %d of %d rows", moved, len(scores))
+}
