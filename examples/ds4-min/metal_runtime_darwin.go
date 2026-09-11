@@ -749,22 +749,13 @@ func (r *metalRuntime) evalLayer(batch *metalBatch, i int, token int32, position
 		}
 		closing.inRegion("closing-ffn", i, position)
 	}
-	for group := range 8 {
-		rows, err := layer.attnOutA.Rows(group*1024, 1024)
-		if err != nil {
-			return nil, err
-		}
-		head, err := headsGPU.Slice(group*4096, (group+1)*4096)
-		if err != nil {
-			return nil, err
-		}
-		low, err := r.state.attnLow.Slice(group*1024, (group+1)*1024)
-		if err != nil {
-			return nil, err
-		}
-		if err := closing.EncodeMatvecQ80(rows, head, low); err != nil {
-			return nil, err
-		}
+	// attn_output_a is block diagonal: group g reads heads[g*4096:(g+1)*4096]
+	// and writes attnLow[g*1024:(g+1)*1024], touching only its own 1024 rows.
+	// One dispatch over the whole tensor produces the same floats as the eight
+	// it replaces, bit for bit, because each output row still sums the same
+	// terms in the same order -- see TestMetalMatvecQ80BlockDiagMatchesLoop.
+	if err := closing.EncodeMatvecQ80BlockDiag(layer.attnOutA, headsGPU, r.state.attnLow, 8); err != nil {
+		return nil, err
 	}
 	if err := closing.EncodeMatvecQ80(layer.attnOutB, r.state.attnLow, r.state.attnOut); err != nil {
 		return nil, err

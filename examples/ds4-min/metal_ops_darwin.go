@@ -158,36 +158,36 @@ func roundE2M1(x float32) float32 {
 }
 
 type metalPinnedKernels struct {
-	GetRowF16         apple.MTLComputePipelineState `metal:"get_row_f16"`
-	MatvecF16         apple.MTLComputePipelineState `metal:"matvec_f16"`
-	MatvecQ80         apple.MTLComputePipelineState `metal:"matvec_q8_0"`
+	GetRowF16          apple.MTLComputePipelineState `metal:"get_row_f16"`
+	MatvecF16          apple.MTLComputePipelineState `metal:"matvec_f16"`
+	MatvecQ80          apple.MTLComputePipelineState `metal:"matvec_q8_0"`
 	MatvecQ80BlockDiag apple.MTLComputePipelineState `metal:"matvec_q8_0_blockdiag"`
-	Layer0Attention   apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
-	Layer0Post        apple.MTLComputePipelineState `metal:"layer0_attention_post"`
-	RouterHash        apple.MTLComputePipelineState `metal:"router_hash"`
-	RouterBiased      apple.MTLComputePipelineState `metal:"router_biased"`
-	SwiGLU            apple.MTLComputePipelineState `metal:"swiglu"`
-	SwiGLUWeights     apple.MTLComputePipelineState `metal:"swiglu_weighted_slots"`
-	MatvecIQ2Pair     apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair"`
-	MatvecIQ2PairF32  apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_f32"`
-	MatvecIQ2Selected apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_selected_f32"`
-	QuantQ8K          apple.MTLComputePipelineState `metal:"quant_q8_k"`
-	Clamp10           apple.MTLComputePipelineState `metal:"clamp10"`
-	MatvecQ2K         apple.MTLComputePipelineState `metal:"matvec_q2_k"`
-	MatvecQ2KF32      apple.MTLComputePipelineState `metal:"matvec_q2_k_f32"`
-	MatvecQ2KSelected apple.MTLComputePipelineState `metal:"matvec_q2_k_selected_f32"`
-	SumVectors        apple.MTLComputePipelineState `metal:"sum_vectors"`
-	RMS               apple.MTLComputePipelineState `metal:"rms_norm"`
-	RopeAttention     apple.MTLComputePipelineState `metal:"rope_attention_one"`
-	RopeAttentionRaw  apple.MTLComputePipelineState `metal:"rope_attention_raw"`
-	RopeAttentionMix  apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
-	RopeKVCommit      apple.MTLComputePipelineState `metal:"rope_kv_commit"`
-	RopeAttentionWide apple.MTLComputePipelineState `metal:"rope_attention_mixed_wide"`
-	RopeQPrepare      apple.MTLComputePipelineState `metal:"rope_q_prepare"`
-	RopeOutUnrotate   apple.MTLComputePipelineState `metal:"rope_out_unrotate"`
-	CompressorPool    apple.MTLComputePipelineState `metal:"compressor_pool"`
-	CompressorFinish  apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
-	IndexerFinish     apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
+	Layer0Attention    apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
+	Layer0Post         apple.MTLComputePipelineState `metal:"layer0_attention_post"`
+	RouterHash         apple.MTLComputePipelineState `metal:"router_hash"`
+	RouterBiased       apple.MTLComputePipelineState `metal:"router_biased"`
+	SwiGLU             apple.MTLComputePipelineState `metal:"swiglu"`
+	SwiGLUWeights      apple.MTLComputePipelineState `metal:"swiglu_weighted_slots"`
+	MatvecIQ2Pair      apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair"`
+	MatvecIQ2PairF32   apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_f32"`
+	MatvecIQ2Selected  apple.MTLComputePipelineState `metal:"matvec_iq2_xxs_pair_selected_f32"`
+	QuantQ8K           apple.MTLComputePipelineState `metal:"quant_q8_k"`
+	Clamp10            apple.MTLComputePipelineState `metal:"clamp10"`
+	MatvecQ2K          apple.MTLComputePipelineState `metal:"matvec_q2_k"`
+	MatvecQ2KF32       apple.MTLComputePipelineState `metal:"matvec_q2_k_f32"`
+	MatvecQ2KSelected  apple.MTLComputePipelineState `metal:"matvec_q2_k_selected_f32"`
+	SumVectors         apple.MTLComputePipelineState `metal:"sum_vectors"`
+	RMS                apple.MTLComputePipelineState `metal:"rms_norm"`
+	RopeAttention      apple.MTLComputePipelineState `metal:"rope_attention_one"`
+	RopeAttentionRaw   apple.MTLComputePipelineState `metal:"rope_attention_raw"`
+	RopeAttentionMix   apple.MTLComputePipelineState `metal:"rope_attention_mixed"`
+	RopeKVCommit       apple.MTLComputePipelineState `metal:"rope_kv_commit"`
+	RopeAttentionWide  apple.MTLComputePipelineState `metal:"rope_attention_mixed_wide"`
+	RopeQPrepare       apple.MTLComputePipelineState `metal:"rope_q_prepare"`
+	RopeOutUnrotate    apple.MTLComputePipelineState `metal:"rope_out_unrotate"`
+	CompressorPool     apple.MTLComputePipelineState `metal:"compressor_pool"`
+	CompressorFinish   apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
+	IndexerFinish      apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
 }
 
 // mixedWideThreads is the threadgroup width of rope_attention_mixed_wide. It
