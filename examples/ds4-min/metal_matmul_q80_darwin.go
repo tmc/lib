@@ -49,6 +49,9 @@ func newMetalMatmulPreservedQ80(ops *metalPinnedOps) (_ *metalMatmulPreservedQ80
 	if ops == nil || ops.dev == nil {
 		return nil, fmt.Errorf("metal matmul q8_0: missing ops")
 	}
+	if ops.matmulQ80 != nil {
+		return ops.matmulQ80, nil
+	}
 	dev := ops.dev
 	m := &metalMatmulPreservedQ80{dev: dev, ops: ops}
 	defer func() {
@@ -68,12 +71,16 @@ func newMetalMatmulPreservedQ80(ops *metalPinnedOps) (_ *metalMatmulPreservedQ80
 	if err != nil {
 		return nil, fmt.Errorf("metal matmul q8_0 reversed pipeline: %w", err)
 	}
+	ops.matmulQ80 = m
 	return m, nil
 }
 
 func (m *metalMatmulPreservedQ80) Close() {
 	if m == nil {
 		return
+	}
+	if m.ops != nil && m.ops.matmulQ80 == m {
+		m.ops.matmulQ80 = nil
 	}
 	if m.matmulPip != nil && m.matmulPip.GetID() != 0 {
 		objectivec.ObjectFromID(m.matmulPip.GetID()).Release()
@@ -87,6 +94,67 @@ func (m *metalMatmulPreservedQ80) Close() {
 	m.matmulPip = nil
 	m.reversedPip = nil
 	m.library = nil
+}
+
+func checkMatmulQ80Profile(t boundMetalTensor, inLen, tokens int) (k, n int, err error) {
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.dimensions[0]%32 != 0 {
+		return 0, 0, fmt.Errorf("metal matmul q8_0 %q: invalid weight tensor (must be 2D Q8_0 with K multiple of 32)", t.name)
+	}
+	k = int(t.dimensions[0])
+	n = int(t.dimensions[1])
+	if tokens <= 0 {
+		return 0, 0, fmt.Errorf("metal matmul q8_0: non-positive tokens %d", tokens)
+	}
+	if inLen != k*tokens {
+		return 0, 0, fmt.Errorf("metal matmul q8_0: input slice length %d != K(%d)*T(%d)", inLen, k, tokens)
+	}
+	blocks := k / 32
+	if t.data.Len() < n*blocks*34 {
+		return 0, 0, fmt.Errorf("metal matmul q8_0 %q: weight buffer too small", t.name)
+	}
+	return k, n, nil
+}
+
+// EncodeMatmulQ80 appends a Q8_0 batched matrix multiplication using caller-owned storage:
+// out [N x T] = weight [K x N] * in [K x T].
+func (b *metalBatch) EncodeMatmulQ80(t boundMetalTensor, in, out metalmem.Slice[float32], tokens int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	mm, err := b.ops.ensureMatmulQ80()
+	if err != nil {
+		return err
+	}
+	return b.encodeMatmulQ80(t, in, out, tokens, mm.matmulPip)
+}
+
+func (b *metalBatch) encodeMatmulQ80(t boundMetalTensor, in, out metalmem.Slice[float32], tokens int, pipeline apple.MTLComputePipelineState) error {
+	if pipeline == nil {
+		return fmt.Errorf("metal matmul q8_0: missing pipeline")
+	}
+	k, n, err := checkMatmulQ80Profile(t, in.Len(), tokens)
+	if err != nil {
+		return err
+	}
+	if out.Len() != n*tokens {
+		return fmt.Errorf("metal matmul q8_0: output slice length %d != N(%d)*T(%d)", out.Len(), n, tokens)
+	}
+
+	enc := b.encoder()
+	enc.SetComputePipelineState(pipeline)
+	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
+	libmetal.SetScalar(enc, uint32(k), 3)
+	libmetal.SetScalar(enc, uint32(n), 4)
+	libmetal.SetScalar(enc, uint32(tokens), 5)
+	enc.SetThreadgroupMemoryLengthAtIndex(2*32*4, 0)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint((n + 1) / 2), Height: uint(tokens), Depth: 1},
+		apple.MTLSize{Width: 32, Height: 4, Depth: 1},
+	)
+	b.encoded++
+	return nil
 }
 
 // Mul performs out [N x T] = weight [K x N] * in [K x T].
@@ -103,25 +171,13 @@ func (m *metalMatmulPreservedQ80) mulReversed(t boundMetalTensor, inSlice []floa
 }
 
 func (m *metalMatmulPreservedQ80) mul(t boundMetalTensor, inSlice []float32, tokens int, pipeline apple.MTLComputePipelineState) ([]float32, error) {
-	if m == nil || m.matmulPip == nil || m.ops == nil {
+	if m == nil || m.ops == nil {
 		return nil, fmt.Errorf("metal matmul q8_0: closed")
 	}
-	if t.typeID != 8 || len(t.dimensions) != 2 || t.dimensions[0]%32 != 0 {
-		return nil, fmt.Errorf("metal matmul q8_0 %q: invalid weight tensor (must be 2D Q8_0 with K multiple of 32)", t.name)
+	_, n, err := checkMatmulQ80Profile(t, len(inSlice), tokens)
+	if err != nil {
+		return nil, err
 	}
-	k := int(t.dimensions[0])
-	n := int(t.dimensions[1])
-	if tokens <= 0 {
-		return nil, fmt.Errorf("metal matmul q8_0: non-positive tokens %d", tokens)
-	}
-	if len(inSlice) != k*tokens {
-		return nil, fmt.Errorf("metal matmul q8_0: input slice length %d != K(%d)*T(%d)", len(inSlice), k, tokens)
-	}
-	blocks := k / 32
-	if t.data.Len() < n*blocks*34 {
-		return nil, fmt.Errorf("metal matmul q8_0 %q: weight buffer too small", t.name)
-	}
-
 	inBuf, err := metalmem.AllocFromSlice(m.dev, inSlice)
 	if err != nil {
 		return nil, err
@@ -134,27 +190,16 @@ func (m *metalMatmulPreservedQ80) mul(t boundMetalTensor, inSlice []float32, tok
 	}
 	defer outBuf.Free()
 
-	cb := m.ops.commandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(pipeline)
-	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(inBuf.Buffer(), inBuf.Offset(), 1)
-	enc.SetBufferWithOffsetAtIndex(outBuf.Buffer(), outBuf.Offset(), 2)
-	libmetal.SetScalar(enc, uint32(k), 3)
-	libmetal.SetScalar(enc, uint32(n), 4)
-	libmetal.SetScalar(enc, uint32(tokens), 5)
-	enc.SetThreadgroupMemoryLengthAtIndex(2*32*4, 0)
-	enc.DispatchThreadgroupsThreadsPerThreadgroup(
-		apple.MTLSize{Width: uint((n + 1) / 2), Height: uint(tokens), Depth: 1},
-		apple.MTLSize{Width: 32, Height: 4, Depth: 1},
-	)
-	enc.EndEncoding()
-	cb.Commit()
-
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	batch, err := newMetalBatch(m.ops)
+	if err != nil {
+		return nil, err
+	}
+	if err := batch.encodeMatmulQ80(t, inBuf, outBuf, tokens, pipeline); err != nil {
+		return nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
 		return nil, fmt.Errorf("metal matmul q8_0 %q: %w", t.name, err)
 	}
-	m.ops.record("batched-matmul-q80", -1, 0, cb)
 	return append([]float32(nil), outBuf.HostSlice()...), nil
 }
 

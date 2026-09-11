@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -106,13 +107,54 @@ func TestMetalMatmulPreservedBitIdentity(t *testing.T) {
 				copy(wantOut[tok*n:(tok+1)*n], res)
 			}
 
-			// 2. Run batched matmul for all T tokens
+			// 2. Run standalone batched matmul for all T tokens: exactly 1 command buffer.
+			beforeStandalone := ops.submissions
 			gotOut, err := mm.Mul(weightTensor, activations, T)
 			if err != nil {
 				t.Fatalf("mm.Mul(T=%d) failed: %v", T, err)
 			}
 			if len(gotOut) != n*T {
 				t.Fatalf("mm.Mul returned %d elements, want %d", len(gotOut), n*T)
+			}
+			if got := ops.submissions.sub(beforeStandalone).Buffers; got != 1 {
+				t.Errorf("standalone matmul over %d tokens used %d command buffers, want 1", T, got)
+			}
+
+			// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+			inBuf, err := metalmem.AllocFromSlice(dev, activations)
+			if err != nil {
+				t.Fatalf("inBuf alloc failed: %v", err)
+			}
+			defer inBuf.Free()
+			outBuf, err := metalmem.Alloc[float32](dev, n*T)
+			if err != nil {
+				t.Fatalf("outBuf alloc failed: %v", err)
+			}
+			defer outBuf.Free()
+
+			batch, err := newMetalBatch(ops)
+			if err != nil {
+				t.Fatalf("newMetalBatch failed: %v", err)
+			}
+			beforeEnc := ops.submissions
+			if err := batch.EncodeMatmulF16(weightTensor, inBuf, outBuf, T); err != nil {
+				t.Fatalf("batch.EncodeMatmulF16 failed: %v", err)
+			}
+			if got := ops.submissions.sub(beforeEnc).Buffers; got != 0 {
+				t.Errorf("EncodeMatmulF16 used %d command buffers, want 0", got)
+			}
+			if err := batch.Wait(context.Background()); err != nil {
+				t.Fatalf("batch.Wait failed: %v", err)
+			}
+			encOut := outBuf.HostSlice()
+			if len(encOut) != n*T {
+				t.Fatalf("encoded matmul returned %d elements, want %d", len(encOut), n*T)
+			}
+			for i := range gotOut {
+				if math.Float32bits(encOut[i]) != math.Float32bits(gotOut[i]) {
+					t.Fatalf("encoded mismatch with standalone at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+						i, math.Float32bits(encOut[i]), encOut[i], math.Float32bits(gotOut[i]), gotOut[i])
+				}
 			}
 
 			// 3. Bit-exact float32 comparison across all elements using math.Float32bits

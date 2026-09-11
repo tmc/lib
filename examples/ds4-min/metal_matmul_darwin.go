@@ -34,6 +34,9 @@ func newMetalMatmulPreservedF16(ops *metalPinnedOps) (_ *metalMatmulPreservedF16
 	if ops == nil || ops.dev == nil {
 		return nil, fmt.Errorf("metal matmul: missing ops")
 	}
+	if ops.matmulF16 != nil {
+		return ops.matmulF16, nil
+	}
 	dev := ops.dev
 	m := &metalMatmulPreservedF16{dev: dev, ops: ops}
 	defer func() {
@@ -58,12 +61,16 @@ func newMetalMatmulPreservedF16(ops *metalPinnedOps) (_ *metalMatmulPreservedF16
 	if err != nil {
 		return nil, fmt.Errorf("metal matmul pipeline: %w", err)
 	}
+	ops.matmulF16 = m
 	return m, nil
 }
 
 func (m *metalMatmulPreservedF16) Close() {
 	if m == nil {
 		return
+	}
+	if m.ops != nil && m.ops.matmulF16 == m {
+		m.ops.matmulF16 = nil
 	}
 	if m.pipeline != nil && m.pipeline.GetID() != 0 {
 		objectivec.ObjectFromID(m.pipeline.GetID()).Release()
@@ -85,40 +92,48 @@ type metalMatmulArgs struct {
 	R2, R3                 int16
 }
 
-// Mul performs out [N x T] = weight [K x N] * in [K x T].
-// weight: boundMetalTensor of F16 (typeID 1), dimensions [K, N]
-// in: slice of float32, length K * T (column-major: token t is in[t*K : (t+1)*K])
-// tokens: T
-func (m *metalMatmulPreservedF16) Mul(t boundMetalTensor, inSlice []float32, tokens int) ([]float32, error) {
-	if m == nil || m.pipeline == nil || m.ops == nil {
-		return nil, fmt.Errorf("metal matmul: closed")
-	}
+func checkMatmulF16Profile(t boundMetalTensor, inLen, tokens int) (k, n int, err error) {
 	if t.typeID != 1 || len(t.dimensions) != 2 {
-		return nil, fmt.Errorf("metal matmul %q: invalid weight tensor (must be 2D F16)", t.name)
+		return 0, 0, fmt.Errorf("metal matmul %q: invalid weight tensor (must be 2D F16)", t.name)
 	}
-	k := int(t.dimensions[0])
-	n := int(t.dimensions[1])
+	k = int(t.dimensions[0])
+	n = int(t.dimensions[1])
 	if tokens <= 0 {
-		return nil, fmt.Errorf("metal matmul: non-positive tokens %d", tokens)
+		return 0, 0, fmt.Errorf("metal matmul: non-positive tokens %d", tokens)
 	}
-	if len(inSlice) != k*tokens {
-		return nil, fmt.Errorf("metal matmul: input slice length %d != K(%d)*T(%d)", len(inSlice), k, tokens)
+	if inLen != k*tokens {
+		return 0, 0, fmt.Errorf("metal matmul: input slice length %d != K(%d)*T(%d)", inLen, k, tokens)
 	}
 	if t.data.Len() < k*n*2 {
-		return nil, fmt.Errorf("metal matmul %q: weight buffer too small", t.name)
+		return 0, 0, fmt.Errorf("metal matmul %q: weight buffer too small", t.name)
 	}
+	return k, n, nil
+}
 
-	inBuf, err := metalmem.AllocFromSlice(m.dev, inSlice)
-	if err != nil {
-		return nil, err
+// EncodeMatmulF16 appends an F16 batched matrix multiplication using caller-owned storage:
+// out [N x T] = weight [K x N] * in [K x T].
+func (b *metalBatch) EncodeMatmulF16(t boundMetalTensor, in, out metalmem.Slice[float32], tokens int) error {
+	if err := b.ready(); err != nil {
+		return err
 	}
-	defer inBuf.Free()
+	mm, err := b.ops.ensureMatmulF16()
+	if err != nil {
+		return err
+	}
+	return b.encodeMatmulF16(t, in, out, tokens, mm.pipeline)
+}
 
-	outBuf, err := metalmem.Alloc[float32](m.dev, n*tokens)
-	if err != nil {
-		return nil, err
+func (b *metalBatch) encodeMatmulF16(t boundMetalTensor, in, out metalmem.Slice[float32], tokens int, pipeline apple.MTLComputePipelineState) error {
+	if pipeline == nil {
+		return fmt.Errorf("metal matmul f16: missing pipeline")
 	}
-	defer outBuf.Free()
+	k, n, err := checkMatmulF16Profile(t, in.Len(), tokens)
+	if err != nil {
+		return err
+	}
+	if out.Len() != n*tokens {
+		return fmt.Errorf("metal matmul: output slice length %d != N(%d)*T(%d)", out.Len(), n, tokens)
+	}
 
 	const nr0 = 2
 	tgX := (n + nr0 - 1) / nr0
@@ -148,25 +163,55 @@ func (m *metalMatmulPreservedF16) Mul(t boundMetalTensor, inSlice []float32, tok
 		R3:  1,
 	}
 
-	cb := m.ops.commandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(m.pipeline)
+	enc := b.encoder()
+	enc.SetComputePipelineState(pipeline)
 	enc.SetBytesLengthAtIndex(unsafe.Slice((*byte)(unsafe.Pointer(&args)), unsafe.Sizeof(args)), 0)
 	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 1)
-	enc.SetBufferWithOffsetAtIndex(inBuf.Buffer(), inBuf.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(outBuf.Buffer(), outBuf.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
 	enc.SetThreadgroupMemoryLengthAtIndex(256, 0)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(
 		apple.MTLSize{Width: uint(tgX), Height: uint(tgY), Depth: 1},
 		apple.MTLSize{Width: 256, Height: 1, Depth: 1},
 	)
-	enc.EndEncoding()
-	cb.Commit()
+	b.encoded++
+	return nil
+}
 
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+// Mul performs out [N x T] = weight [K x N] * in [K x T].
+// weight: boundMetalTensor of F16 (typeID 1), dimensions [K, N]
+// in: slice of float32, length K * T (column-major: token t is in[t*K : (t+1)*K])
+// tokens: T
+func (m *metalMatmulPreservedF16) Mul(t boundMetalTensor, inSlice []float32, tokens int) ([]float32, error) {
+	if m == nil || m.ops == nil {
+		return nil, fmt.Errorf("metal matmul: closed")
+	}
+	_, n, err := checkMatmulF16Profile(t, len(inSlice), tokens)
+	if err != nil {
+		return nil, err
+	}
+	inBuf, err := metalmem.AllocFromSlice(m.dev, inSlice)
+	if err != nil {
+		return nil, err
+	}
+	defer inBuf.Free()
+
+	outBuf, err := metalmem.Alloc[float32](m.dev, n*tokens)
+	if err != nil {
+		return nil, err
+	}
+	defer outBuf.Free()
+
+	batch, err := newMetalBatch(m.ops)
+	if err != nil {
+		return nil, err
+	}
+	if err := batch.EncodeMatmulF16(t, inBuf, outBuf, tokens); err != nil {
+		return nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
 		return nil, fmt.Errorf("metal matmul %q: %w", t.name, err)
 	}
-	m.ops.record("batched-matmul", -1, 0, cb)
 	return append([]float32(nil), outBuf.HostSlice()...), nil
 }
 

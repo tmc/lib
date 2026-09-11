@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -103,6 +104,55 @@ func TestMetalMatmulExpertIQ2PreservedBitIdentity(t *testing.T) {
 					}
 					if got := ops.submissions.sub(before).Buffers; got != 1 {
 						t.Errorf("batched IQ2 matmul over %d tokens used %d command buffers, want 1", T, got)
+					}
+
+					// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+					dGateOut, err := metalmem.Alloc[float32](ops.dev, T*slots*rows)
+					if err != nil {
+						t.Fatalf("dGateOut alloc failed: %v", err)
+					}
+					defer dGateOut.Free()
+					dUpOut, err := metalmem.Alloc[float32](ops.dev, T*slots*rows)
+					if err != nil {
+						t.Fatalf("dUpOut alloc failed: %v", err)
+					}
+					defer dUpOut.Free()
+					dExpertIDs, err := metalmem.AllocFromSlice(ops.dev, expertIDs)
+					if err != nil {
+						t.Fatalf("dExpertIDs alloc failed: %v", err)
+					}
+					defer dExpertIDs.Free()
+					dIn, err := metalmem.AllocFromSlice(ops.dev, inValues)
+					if err != nil {
+						t.Fatalf("dIn alloc failed: %v", err)
+					}
+					defer dIn.Free()
+
+					batch, err := newMetalBatch(ops)
+					if err != nil {
+						t.Fatalf("newMetalBatch failed: %v", err)
+					}
+					beforeEnc := ops.submissions
+					if err := batch.EncodeMatmulIQ2Selected(gate, up, dExpertIDs, dIn, dGateOut, dUpOut, T, slots); err != nil {
+						t.Fatalf("batch.EncodeMatmulIQ2Selected failed: %v", err)
+					}
+					if got := ops.submissions.sub(beforeEnc).Buffers; got != 0 {
+						t.Errorf("EncodeMatmulIQ2Selected used %d command buffers, want 0", got)
+					}
+					if err := batch.Wait(context.Background()); err != nil {
+						t.Fatalf("batch.Wait failed: %v", err)
+					}
+					encGate := dGateOut.HostSlice()
+					encUp := dUpOut.HostSlice()
+					for i := range gotGate {
+						if math.Float32bits(encGate[i]) != math.Float32bits(gotGate[i]) {
+							t.Fatalf("encoded mismatch with standalone gate at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+								i, math.Float32bits(encGate[i]), encGate[i], math.Float32bits(gotGate[i]), gotGate[i])
+						}
+						if math.Float32bits(encUp[i]) != math.Float32bits(gotUp[i]) {
+							t.Fatalf("encoded mismatch with standalone up at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+								i, math.Float32bits(encUp[i]), encUp[i], math.Float32bits(gotUp[i]), gotUp[i])
+						}
 					}
 
 					// 3. Bit-exact float32 comparison
@@ -240,6 +290,45 @@ func TestMetalMatmulExpertQ2KPreservedBitIdentity(t *testing.T) {
 					}
 					if got := ops.submissions.sub(before).Buffers; got != 1 {
 						t.Errorf("batched Q2_K matmul over %d tokens used %d command buffers, want 1", T, got)
+					}
+
+					// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+					dOut, err := metalmem.Alloc[float32](ops.dev, T*slots*rows)
+					if err != nil {
+						t.Fatalf("dOut alloc failed: %v", err)
+					}
+					defer dOut.Free()
+					dExpertIDs, err := metalmem.AllocFromSlice(ops.dev, expertIDs)
+					if err != nil {
+						t.Fatalf("dExpertIDs alloc failed: %v", err)
+					}
+					defer dExpertIDs.Free()
+					dIn, err := metalmem.AllocFromSlice(ops.dev, inValues)
+					if err != nil {
+						t.Fatalf("dIn alloc failed: %v", err)
+					}
+					defer dIn.Free()
+
+					batch, err := newMetalBatch(ops)
+					if err != nil {
+						t.Fatalf("newMetalBatch failed: %v", err)
+					}
+					beforeEnc := ops.submissions
+					if err := batch.EncodeMatmulQ2KSelected(down, dExpertIDs, dIn, dOut, T, slots); err != nil {
+						t.Fatalf("batch.EncodeMatmulQ2KSelected failed: %v", err)
+					}
+					if got := ops.submissions.sub(beforeEnc).Buffers; got != 0 {
+						t.Errorf("EncodeMatmulQ2KSelected used %d command buffers, want 0", got)
+					}
+					if err := batch.Wait(context.Background()); err != nil {
+						t.Fatalf("batch.Wait failed: %v", err)
+					}
+					encOut := dOut.HostSlice()
+					for i := range gotOut {
+						if math.Float32bits(encOut[i]) != math.Float32bits(gotOut[i]) {
+							t.Fatalf("encoded mismatch with standalone at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+								i, math.Float32bits(encOut[i]), encOut[i], math.Float32bits(gotOut[i]), gotOut[i])
+						}
 					}
 
 					// 3. Bit-exact float32 comparison

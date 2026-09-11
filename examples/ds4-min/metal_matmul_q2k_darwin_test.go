@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -108,6 +109,48 @@ func TestMetalMatmulQ2KPreservedBitIdentity(t *testing.T) {
 				t.Errorf("batched matmul over %d tokens used %d command buffers, want 1", T, got)
 			}
 			requireOrderSensitiveQ2K(t, mm, weightTensor, activations, T, gotOut)
+
+			// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+			inBuf, err := metalmem.AllocFromSlice(dev, activations)
+			if err != nil {
+				t.Fatalf("inBuf alloc failed: %v", err)
+			}
+			defer inBuf.Free()
+			q8Scratch, err := metalmem.Alloc[byte](dev, T*blocks*292)
+			if err != nil {
+				t.Fatalf("q8Scratch alloc failed: %v", err)
+			}
+			defer q8Scratch.Free()
+			outBuf, err := metalmem.Alloc[float32](dev, rows*T)
+			if err != nil {
+				t.Fatalf("outBuf alloc failed: %v", err)
+			}
+			defer outBuf.Free()
+
+			batch, err := newMetalBatch(ops)
+			if err != nil {
+				t.Fatalf("newMetalBatch failed: %v", err)
+			}
+			beforeEnc := ops.submissions
+			if err := batch.EncodeMatmulQ2K(weightTensor, inBuf, outBuf, q8Scratch, T); err != nil {
+				t.Fatalf("batch.EncodeMatmulQ2K failed: %v", err)
+			}
+			if got := ops.submissions.sub(beforeEnc).Buffers; got != 0 {
+				t.Errorf("EncodeMatmulQ2K used %d command buffers, want 0", got)
+			}
+			if err := batch.Wait(context.Background()); err != nil {
+				t.Fatalf("batch.Wait failed: %v", err)
+			}
+			encOut := outBuf.HostSlice()
+			if len(encOut) != rows*T {
+				t.Fatalf("encoded matmul returned %d elements, want %d", len(encOut), rows*T)
+			}
+			for i := range gotOut {
+				if math.Float32bits(encOut[i]) != math.Float32bits(gotOut[i]) {
+					t.Fatalf("encoded mismatch with standalone at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+						i, math.Float32bits(encOut[i]), encOut[i], math.Float32bits(gotOut[i]), gotOut[i])
+				}
+			}
 
 			// 3. Bit-exact float32 comparison across all elements using math.Float32bits
 			for tok := 0; tok < T; tok++ {

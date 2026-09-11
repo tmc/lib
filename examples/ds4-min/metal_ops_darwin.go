@@ -947,6 +947,11 @@ type metalPinnedOps struct {
 	hc      *metalHC
 	head    *metalHeadProjection
 
+	matmulF16    *metalMatmulPreservedF16
+	matmulQ80    *metalMatmulPreservedQ80
+	matmulQ2K    *metalMatmulPreservedQ2K
+	matmulExpert *metalMatmulPreservedExpert
+
 	// regions, when installed, collects each command buffer's GPU-time
 	// span as it completes. Nil in production.
 	regions *metalRegionLog
@@ -1183,6 +1188,22 @@ func (o *metalPinnedOps) Close() {
 		o.hc.Close()
 		o.hc = nil
 	}
+	if o.matmulF16 != nil {
+		o.matmulF16.Close()
+		o.matmulF16 = nil
+	}
+	if o.matmulQ80 != nil {
+		o.matmulQ80.Close()
+		o.matmulQ80 = nil
+	}
+	if o.matmulQ2K != nil {
+		o.matmulQ2K.Close()
+		o.matmulQ2K = nil
+	}
+	if o.matmulExpert != nil {
+		o.matmulExpert.Close()
+		o.matmulExpert = nil
+	}
 	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
@@ -1192,6 +1213,46 @@ func (o *metalPinnedOps) Close() {
 		objectivec.ObjectFromID(o.library.GetID()).Release()
 	}
 	o.library = nil
+}
+
+func (o *metalPinnedOps) ensureMatmulF16() (*metalMatmulPreservedF16, error) {
+	if o == nil {
+		return nil, fmt.Errorf("Metal ops: missing ops")
+	}
+	if o.matmulF16 != nil {
+		return o.matmulF16, nil
+	}
+	return newMetalMatmulPreservedF16(o)
+}
+
+func (o *metalPinnedOps) ensureMatmulQ80() (*metalMatmulPreservedQ80, error) {
+	if o == nil {
+		return nil, fmt.Errorf("Metal ops: missing ops")
+	}
+	if o.matmulQ80 != nil {
+		return o.matmulQ80, nil
+	}
+	return newMetalMatmulPreservedQ80(o)
+}
+
+func (o *metalPinnedOps) ensureMatmulQ2K() (*metalMatmulPreservedQ2K, error) {
+	if o == nil {
+		return nil, fmt.Errorf("Metal ops: missing ops")
+	}
+	if o.matmulQ2K != nil {
+		return o.matmulQ2K, nil
+	}
+	return newMetalMatmulPreservedQ2K(o)
+}
+
+func (o *metalPinnedOps) ensureMatmulExpert() (*metalMatmulPreservedExpert, error) {
+	if o == nil {
+		return nil, fmt.Errorf("Metal ops: missing ops")
+	}
+	if o.matmulExpert != nil {
+		return o.matmulExpert, nil
+	}
+	return newMetalMatmulPreservedExpert(o)
 }
 
 const metalPinnedMSL = `

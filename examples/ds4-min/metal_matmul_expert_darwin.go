@@ -50,6 +50,9 @@ func newMetalMatmulPreservedExpert(ops *metalPinnedOps) (_ *metalMatmulPreserved
 	if ops == nil || ops.dev == nil {
 		return nil, fmt.Errorf("metal matmul expert: missing ops")
 	}
+	if ops.matmulExpert != nil {
+		return ops.matmulExpert, nil
+	}
 	dev := ops.dev
 	m := &metalMatmulPreservedExpert{dev: dev, ops: ops}
 	defer func() {
@@ -77,12 +80,16 @@ func newMetalMatmulPreservedExpert(ops *metalPinnedOps) (_ *metalMatmulPreserved
 	if err != nil {
 		return nil, fmt.Errorf("metal matmul expert q2k reversed pipeline: %w", err)
 	}
+	ops.matmulExpert = m
 	return m, nil
 }
 
 func (m *metalMatmulPreservedExpert) Close() {
 	if m == nil {
 		return
+	}
+	if m.ops != nil && m.ops.matmulExpert == m {
+		m.ops.matmulExpert = nil
 	}
 	if m.iq2Pip != nil && m.iq2Pip.GetID() != 0 {
 		objectivec.ObjectFromID(m.iq2Pip.GetID()).Release()
@@ -106,6 +113,82 @@ func (m *metalMatmulPreservedExpert) Close() {
 	m.library = nil
 }
 
+// EncodeMatmulIQ2Selected appends paired IQ2_XXS projections for GPU-selected experts across tokens:
+// gate, up: 3D boundMetalTensor of IQ2_XXS (typeID 16), dimensions [K, N, E]
+// expertIDs: slice of int32, length tokens * slots
+// in: slice of float32, length K * tokens
+// gateOut, upOut: slices of float32, each length N * slots * tokens
+func (b *metalBatch) EncodeMatmulIQ2Selected(gate, up boundMetalTensor, expertIDs metalmem.Slice[int32], in, gateOut, upOut metalmem.Slice[float32], tokens, slots int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	mm, err := b.ops.ensureMatmulExpert()
+	if err != nil {
+		return err
+	}
+	return b.encodeMatmulIQ2Selected(gate, up, expertIDs, in, gateOut, upOut, tokens, slots, mm.iq2Pip)
+}
+
+func checkMatmulIQ2Profile(gate, up boundMetalTensor, expertIDsLen, inLen, tokens, slots int) (cols, rows, experts int, err error) {
+	if gate.typeID != 16 || up.typeID != 16 || len(gate.dimensions) != 3 || len(up.dimensions) != 3 ||
+		gate.dimensions[0] != up.dimensions[0] || gate.dimensions[1] != up.dimensions[1] || gate.dimensions[2] != up.dimensions[2] ||
+		gate.dimensions[0]%256 != 0 {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert IQ2_XXS: invalid tensor profile")
+	}
+	cols = int(gate.dimensions[0])
+	rows = int(gate.dimensions[1])
+	experts = int(gate.dimensions[2])
+	if tokens <= 0 || slots <= 0 {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert IQ2_XXS: non-positive tokens (%d) or slots (%d)", tokens, slots)
+	}
+	if expertIDsLen != tokens*slots {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert IQ2_XXS: expertIDs length %d != tokens(%d)*slots(%d)", expertIDsLen, tokens, slots)
+	}
+	if inLen != cols*tokens {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert IQ2_XXS: input slice length %d != cols(%d)*tokens(%d)", inLen, cols, tokens)
+	}
+	blocks := cols / 256
+	expectedBytes := rows * blocks * 66 * experts
+	if gate.data.Len() < expectedBytes || up.data.Len() < expectedBytes {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert IQ2_XXS: weight buffer too small")
+	}
+	return cols, rows, experts, nil
+}
+
+func (b *metalBatch) encodeMatmulIQ2Selected(gate, up boundMetalTensor, expertIDs metalmem.Slice[int32], in, gateOut, upOut metalmem.Slice[float32], tokens, slots int, pipeline apple.MTLComputePipelineState) error {
+	if pipeline == nil {
+		return fmt.Errorf("metal matmul expert IQ2_XXS: missing pipeline")
+	}
+	cols, rows, experts, err := checkMatmulIQ2Profile(gate, up, expertIDs.Len(), in.Len(), tokens, slots)
+	if err != nil {
+		return err
+	}
+	outCount := rows * slots * tokens
+	if gateOut.Len() != outCount || upOut.Len() != outCount {
+		return fmt.Errorf("metal matmul expert IQ2_XXS: output slice length != rows(%d)*slots(%d)*tokens(%d)", rows, slots, tokens)
+	}
+
+	enc := b.encoder()
+	enc.SetComputePipelineState(pipeline)
+	enc.SetBufferWithOffsetAtIndex(gate.data.Buffer(), gate.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(up.data.Buffer(), up.data.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 3)
+	enc.SetBufferWithOffsetAtIndex(gateOut.Buffer(), gateOut.Offset(), 4)
+	enc.SetBufferWithOffsetAtIndex(upOut.Buffer(), upOut.Offset(), 5)
+	libmetal.SetScalar(enc, uint32(cols), 6)
+	libmetal.SetScalar(enc, uint32(rows), 7)
+	libmetal.SetScalar(enc, uint32(experts), 8)
+	libmetal.SetScalar(enc, uint32(slots), 9)
+	libmetal.SetScalar(enc, uint32(tokens), 10)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(rows), Height: uint(slots), Depth: uint(tokens)},
+		libmetal.Threads(32),
+	)
+	b.encoded++
+	return nil
+}
+
 // MulIQ2 performs batched selected IQ2_XXS paired gate & up projections:
 // gate, up: 3D boundMetalTensor of IQ2_XXS (typeID 16), dimensions [K, N, E]
 // expertIDs: slice of int32, length tokens * slots (token t, slot s at t*slots + s)
@@ -123,30 +206,12 @@ func (m *metalMatmulPreservedExpert) MulIQ2Reversed(gate, up boundMetalTensor, e
 }
 
 func (m *metalMatmulPreservedExpert) mulIQ2(gate, up boundMetalTensor, expertIDs []int32, inSlice []float32, tokens, slots int, pipeline apple.MTLComputePipelineState) ([]float32, []float32, error) {
-	if m == nil || m.iq2Pip == nil || m.ops == nil {
+	if m == nil || m.ops == nil {
 		return nil, nil, fmt.Errorf("metal matmul expert: closed")
 	}
-	if gate.typeID != 16 || up.typeID != 16 || len(gate.dimensions) != 3 || len(up.dimensions) != 3 ||
-		gate.dimensions[0] != up.dimensions[0] || gate.dimensions[1] != up.dimensions[1] || gate.dimensions[2] != up.dimensions[2] ||
-		gate.dimensions[0]%256 != 0 {
-		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: invalid tensor profile")
-	}
-	cols := int(gate.dimensions[0])
-	rows := int(gate.dimensions[1])
-	experts := int(gate.dimensions[2])
-	if tokens <= 0 || slots <= 0 {
-		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: non-positive tokens (%d) or slots (%d)", tokens, slots)
-	}
-	if len(expertIDs) != tokens*slots {
-		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: expertIDs length %d != tokens(%d)*slots(%d)", len(expertIDs), tokens, slots)
-	}
-	if len(inSlice) != cols*tokens {
-		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: input slice length %d != cols(%d)*tokens(%d)", len(inSlice), cols, tokens)
-	}
-	blocks := cols / 256
-	expectedBytes := rows * blocks * 66 * experts
-	if gate.data.Len() < expectedBytes || up.data.Len() < expectedBytes {
-		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: weight buffer too small")
+	_, rows, _, err := checkMatmulIQ2Profile(gate, up, len(expertIDs), len(inSlice), tokens, slots)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	idsBuf, err := metalmem.AllocFromSlice(m.dev, expertIDs)
@@ -174,32 +239,89 @@ func (m *metalMatmulPreservedExpert) mulIQ2(gate, up boundMetalTensor, expertIDs
 	}
 	defer upOutBuf.Free()
 
-	cb := m.ops.commandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(pipeline)
-	enc.SetBufferWithOffsetAtIndex(gate.data.Buffer(), gate.data.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(up.data.Buffer(), up.data.Offset(), 1)
-	enc.SetBufferWithOffsetAtIndex(idsBuf.Buffer(), idsBuf.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(inBuf.Buffer(), inBuf.Offset(), 3)
-	enc.SetBufferWithOffsetAtIndex(gateOutBuf.Buffer(), gateOutBuf.Offset(), 4)
-	enc.SetBufferWithOffsetAtIndex(upOutBuf.Buffer(), upOutBuf.Offset(), 5)
-	libmetal.SetScalar(enc, uint32(cols), 6)
-	libmetal.SetScalar(enc, uint32(rows), 7)
-	libmetal.SetScalar(enc, uint32(experts), 8)
-	libmetal.SetScalar(enc, uint32(slots), 9)
-	libmetal.SetScalar(enc, uint32(tokens), 10)
-	enc.DispatchThreadgroupsThreadsPerThreadgroup(
-		apple.MTLSize{Width: uint(rows), Height: uint(slots), Depth: uint(tokens)},
-		libmetal.Threads(32),
-	)
-	enc.EndEncoding()
-	cb.Commit()
-
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	batch, err := newMetalBatch(m.ops)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := batch.encodeMatmulIQ2Selected(gate, up, idsBuf, inBuf, gateOutBuf, upOutBuf, tokens, slots, pipeline); err != nil {
+		return nil, nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
 		return nil, nil, fmt.Errorf("metal matmul expert IQ2_XXS: %w", err)
 	}
-	m.ops.record("batched-matmul-iq2-selected", -1, 0, cb)
 	return append([]float32(nil), gateOutBuf.HostSlice()...), append([]float32(nil), upOutBuf.HostSlice()...), nil
+}
+
+func checkMatmulQ2KSelectedProfile(down boundMetalTensor, expertIDsLen, inLen, tokens, slots int) (cols, rows, experts int, err error) {
+	if down.typeID != 10 || len(down.dimensions) != 3 || down.dimensions[0]%256 != 0 {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert Q2_K: invalid tensor profile")
+	}
+	cols = int(down.dimensions[0])
+	rows = int(down.dimensions[1])
+	experts = int(down.dimensions[2])
+	if tokens <= 0 || slots <= 0 {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert Q2_K: non-positive tokens (%d) or slots (%d)", tokens, slots)
+	}
+	if expertIDsLen != tokens*slots {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert Q2_K: expertIDs length %d != tokens(%d)*slots(%d)", expertIDsLen, tokens, slots)
+	}
+	if inLen != cols*tokens*slots {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert Q2_K: input slice length %d != cols(%d)*tokens(%d)*slots(%d)", inLen, cols, tokens, slots)
+	}
+	blocks := cols / 256
+	expectedBytes := rows * blocks * 84 * experts
+	if down.data.Len() < expectedBytes {
+		return 0, 0, 0, fmt.Errorf("metal matmul expert Q2_K: weight buffer too small")
+	}
+	return cols, rows, experts, nil
+}
+
+// EncodeMatmulQ2KSelected appends Q2_K down projections for GPU-selected experts across tokens:
+// down: 3D boundMetalTensor of Q2_K (typeID 10), dimensions [K, N, E]
+// expertIDs: slice of int32, length tokens * slots
+// in: slice of float32, length K * tokens * slots
+// out: slice of float32, length N * slots * tokens
+func (b *metalBatch) EncodeMatmulQ2KSelected(down boundMetalTensor, expertIDs metalmem.Slice[int32], in, out metalmem.Slice[float32], tokens, slots int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	mm, err := b.ops.ensureMatmulExpert()
+	if err != nil {
+		return err
+	}
+	return b.encodeMatmulQ2KSelected(down, expertIDs, in, out, tokens, slots, mm.q2kPip)
+}
+
+func (b *metalBatch) encodeMatmulQ2KSelected(down boundMetalTensor, expertIDs metalmem.Slice[int32], in, out metalmem.Slice[float32], tokens, slots int, pipeline apple.MTLComputePipelineState) error {
+	if pipeline == nil {
+		return fmt.Errorf("metal matmul expert Q2_K: missing pipeline")
+	}
+	cols, rows, experts, err := checkMatmulQ2KSelectedProfile(down, expertIDs.Len(), in.Len(), tokens, slots)
+	if err != nil {
+		return err
+	}
+	outCount := rows * slots * tokens
+	if out.Len() != outCount {
+		return fmt.Errorf("metal matmul expert Q2_K: output slice length %d != rows(%d)*slots(%d)*tokens(%d)", out.Len(), rows, slots, tokens)
+	}
+
+	enc := b.encoder()
+	enc.SetComputePipelineState(pipeline)
+	enc.SetBufferWithOffsetAtIndex(down.data.Buffer(), down.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
+	libmetal.SetScalar(enc, uint32(cols), 4)
+	libmetal.SetScalar(enc, uint32(rows), 5)
+	libmetal.SetScalar(enc, uint32(experts), 6)
+	libmetal.SetScalar(enc, uint32(slots), 7)
+	libmetal.SetScalar(enc, uint32(tokens), 8)
+	enc.DispatchThreadsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint(rows), Height: uint(slots), Depth: uint(tokens)},
+		apple.MTLSize{Width: uint(min(rows, 256)), Height: 1, Depth: 1},
+	)
+	b.encoded++
+	return nil
 }
 
 // MulQ2K performs batched selected Q2_K down projections:
@@ -219,28 +341,12 @@ func (m *metalMatmulPreservedExpert) MulQ2KReversed(down boundMetalTensor, exper
 }
 
 func (m *metalMatmulPreservedExpert) mulQ2K(down boundMetalTensor, expertIDs []int32, inSlice []float32, tokens, slots int, pipeline apple.MTLComputePipelineState) ([]float32, error) {
-	if m == nil || m.q2kPip == nil || m.ops == nil {
+	if m == nil || m.ops == nil {
 		return nil, fmt.Errorf("metal matmul expert: closed")
 	}
-	if down.typeID != 10 || len(down.dimensions) != 3 || down.dimensions[0]%256 != 0 {
-		return nil, fmt.Errorf("metal matmul expert Q2_K: invalid tensor profile")
-	}
-	cols := int(down.dimensions[0])
-	rows := int(down.dimensions[1])
-	experts := int(down.dimensions[2])
-	if tokens <= 0 || slots <= 0 {
-		return nil, fmt.Errorf("metal matmul expert Q2_K: non-positive tokens (%d) or slots (%d)", tokens, slots)
-	}
-	if len(expertIDs) != tokens*slots {
-		return nil, fmt.Errorf("metal matmul expert Q2_K: expertIDs length %d != tokens(%d)*slots(%d)", len(expertIDs), tokens, slots)
-	}
-	if len(inSlice) != cols*tokens*slots {
-		return nil, fmt.Errorf("metal matmul expert Q2_K: input slice length %d != cols(%d)*tokens(%d)*slots(%d)", len(inSlice), cols, tokens, slots)
-	}
-	blocks := cols / 256
-	expectedBytes := rows * blocks * 84 * experts
-	if down.data.Len() < expectedBytes {
-		return nil, fmt.Errorf("metal matmul expert Q2_K: weight buffer too small")
+	_, rows, _, err := checkMatmulQ2KSelectedProfile(down, len(expertIDs), len(inSlice), tokens, slots)
+	if err != nil {
+		return nil, err
 	}
 
 	idsBuf, err := metalmem.AllocFromSlice(m.dev, expertIDs)
@@ -262,29 +368,16 @@ func (m *metalMatmulPreservedExpert) mulQ2K(down boundMetalTensor, expertIDs []i
 	}
 	defer outBuf.Free()
 
-	cb := m.ops.commandBuffer()
-	enc := cb.ComputeCommandEncoder()
-	enc.SetComputePipelineState(pipeline)
-	enc.SetBufferWithOffsetAtIndex(down.data.Buffer(), down.data.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(idsBuf.Buffer(), idsBuf.Offset(), 1)
-	enc.SetBufferWithOffsetAtIndex(inBuf.Buffer(), inBuf.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(outBuf.Buffer(), outBuf.Offset(), 3)
-	libmetal.SetScalar(enc, uint32(cols), 4)
-	libmetal.SetScalar(enc, uint32(rows), 5)
-	libmetal.SetScalar(enc, uint32(experts), 6)
-	libmetal.SetScalar(enc, uint32(slots), 7)
-	libmetal.SetScalar(enc, uint32(tokens), 8)
-	enc.DispatchThreadsThreadsPerThreadgroup(
-		apple.MTLSize{Width: uint(rows), Height: uint(slots), Depth: uint(tokens)},
-		apple.MTLSize{Width: uint(min(rows, 256)), Height: 1, Depth: 1},
-	)
-	enc.EndEncoding()
-	cb.Commit()
-
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	batch, err := newMetalBatch(m.ops)
+	if err != nil {
+		return nil, err
+	}
+	if err := batch.encodeMatmulQ2KSelected(down, idsBuf, inBuf, outBuf, tokens, slots, pipeline); err != nil {
+		return nil, err
+	}
+	if err := batch.Wait(context.Background()); err != nil {
 		return nil, fmt.Errorf("metal matmul expert Q2_K: %w", err)
 	}
-	m.ops.record("batched-matmul-q2k-selected", -1, 0, cb)
 	return append([]float32(nil), outBuf.HostSlice()...), nil
 }
 

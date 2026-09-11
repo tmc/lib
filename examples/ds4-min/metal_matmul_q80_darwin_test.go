@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -151,6 +152,43 @@ func checkMatmulQ80Shape(t *testing.T, ops *metalPinnedOps, mm *metalMatmulPrese
 			}
 			if orderSensitiveQ80(t, mm, weightTensor, activations, T, gotOut) {
 				orderSensitive = true
+			}
+
+			// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+			inBuf, err := metalmem.AllocFromSlice(ops.dev, activations)
+			if err != nil {
+				t.Fatalf("inBuf alloc failed: %v", err)
+			}
+			defer inBuf.Free()
+			outBuf, err := metalmem.Alloc[float32](ops.dev, rows*T)
+			if err != nil {
+				t.Fatalf("outBuf alloc failed: %v", err)
+			}
+			defer outBuf.Free()
+
+			batch, err := newMetalBatch(ops)
+			if err != nil {
+				t.Fatalf("newMetalBatch failed: %v", err)
+			}
+			beforeEnc := ops.submissions
+			if err := batch.EncodeMatmulQ80(weightTensor, inBuf, outBuf, T); err != nil {
+				t.Fatalf("batch.EncodeMatmulQ80 failed: %v", err)
+			}
+			if got := ops.submissions.sub(beforeEnc).Buffers; got != 0 {
+				t.Errorf("EncodeMatmulQ80 used %d command buffers, want 0", got)
+			}
+			if err := batch.Wait(context.Background()); err != nil {
+				t.Fatalf("batch.Wait failed: %v", err)
+			}
+			encOut := outBuf.HostSlice()
+			if len(encOut) != rows*T {
+				t.Fatalf("encoded matmul returned %d elements, want %d", len(encOut), rows*T)
+			}
+			for i := range gotOut {
+				if math.Float32bits(encOut[i]) != math.Float32bits(gotOut[i]) {
+					t.Fatalf("encoded mismatch with standalone at index %d: got 0x%08x (%g), want 0x%08x (%g)",
+						i, math.Float32bits(encOut[i]), encOut[i], math.Float32bits(gotOut[i]), gotOut[i])
+				}
 			}
 
 			// 3. Bit-exact float32 comparison across all elements using math.Float32bits
