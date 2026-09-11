@@ -112,3 +112,32 @@ func TestMetalSubmissionsSub(t *testing.T) {
 		t.Fatalf("sub = %+v, want %+v", got, want)
 	}
 }
+
+// TestMetalSubmissionsEmptyBatch records why the fallback path must not
+// eagerly allocate a trailing buffer: committing an empty batch consumes a
+// command buffer with zero encoded dispatches.
+func TestMetalSubmissionsEmptyBatch(t *testing.T) {
+	dev, err := libmetal.NewDevice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Close()
+	ops, err := newMetalPinnedOps(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ops.Close()
+
+	start := ops.submissions
+	b, err := newMetalBatch(ops)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := ops.submissions.sub(start)
+	if got != (metalSubmissions{Buffers: 1, Commits: 1, Waits: 1, Encoded: 0}) {
+		t.Fatalf("empty batch submissions = %+v, want {Buffers:1 Commits:1 Waits:1 Encoded:0}", got)
+	}
+}

@@ -28,23 +28,18 @@ const (
 // metalRuntime owns the immutable model bindings and mutable buffers for one
 // DS4 session.
 type metalRuntime struct {
-	file                *os.File
-	dev                 *libmetal.Device
-	views               *metalModelViews
-	ops                 *metalPinnedOps
-	arena               *metalmem.Arena
-	model               *gguf.File
-	layers              [ds4Layers]metalLayer
-	output              metalOutput
-	state               metalSessionState
-	ctx                 int
-	pos                 int
-	lastOpeningBatch    metalBatchStats
-	lastRawOpeningBatch metalBatchStats
-	lastCompressedOdd   metalBatchStats
-	lastCompressedEven  metalBatchStats
-	lastAttentionBatch  metalBatchStats
-	lastFFNBatches      metalBatchStats
+	file      *os.File
+	dev       *libmetal.Device
+	views     *metalModelViews
+	ops       *metalPinnedOps
+	arena     *metalmem.Arena
+	model     *gguf.File
+	layers    [ds4Layers]metalLayer
+	output    metalOutput
+	state     metalSessionState
+	ctx       int
+	pos       int
+	lastBatch metalBatchStats
 }
 
 var (
@@ -526,21 +521,41 @@ func (r *metalRuntime) evalPosition(token int32, position int, logits bool) ([]f
 	if err != nil {
 		return nil, err
 	}
-	hc := make([]float32, ds4HCWidth)
-	for stream := range 4 {
-		copy(hc[stream*ds4Width:], embedding)
+	dst := r.state.hc[0].HostSlice()
+	if len(dst) < ds4HCWidth {
+		return nil, errors.New("Metal runtime: invalid residual buffer")
 	}
+	for stream := range 4 {
+		copy(dst[stream*ds4Width:], embedding)
+	}
+	var batch *metalBatch
 	for i := range r.layers {
-		hc, err = r.evalLayer(hc, i, token, position)
+		if batch == nil {
+			batch, err = newMetalBatch(r.ops)
+			if err != nil {
+				return nil, err
+			}
+			batch.inRegion("layer", 0, position)
+		}
+		batch, err = r.evalLayer(batch, i, token, position)
 		if err != nil {
 			return nil, fmt.Errorf("Metal runtime: layer %d: %w", i, err)
 		}
+	}
+	if batch != nil {
+		if err := batch.Commit(); err != nil {
+			return nil, err
+		}
+		if err := batch.Wait(context.Background()); err != nil {
+			return nil, err
+		}
+		r.lastBatch = batch.Stats()
 	}
 	if !logits {
 		r.pos++
 		return nil, nil
 	}
-	out, err := r.outputLogits(hc)
+	out, err := r.outputLogits(r.state.hc[0].HostSlice())
 	if err != nil {
 		return nil, fmt.Errorf("Metal runtime: output: %w", err)
 	}
@@ -574,18 +589,10 @@ func (r *metalRuntime) Logits() []float32 {
 	return r.state.logits.HostSlice()
 }
 
-func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int) ([]float32, error) {
+func (r *metalRuntime) evalLayer(batch *metalBatch, i int, token int32, position int) (*metalBatch, error) {
 	defer beginLayer(i).end()
 	layer := &r.layers[i]
-	stateIn := r.state.hc[i%len(r.state.hc)]
-	if err := stateIn.CopyFromHost(hc); err != nil {
-		return nil, fmt.Errorf("attention opening: copy state: %w", err)
-	}
-	batch, err := newMetalBatch(r.ops)
-	if err != nil {
-		return nil, err
-	}
-	batch.inRegion("opening", i, position)
+	stateIn := r.state.hc[0]
 	if err := batch.EncodeHCPre(stateIn, layer.hcAttnFn, layer.hcAttnScale, layer.hcAttnBase, layer.attnNorm, r.state.attnPre); err != nil {
 		return nil, err
 	}
@@ -616,6 +623,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err := batch.EncodeRopeAttentionRaw(r.state.qHeads, r.state.kvCur, layer.attnSinks, state.rawKV, r.state.rawScores, r.state.rawOutput, position); err != nil {
 			return nil, err
 		}
+		var err error
 		headsGPU, err = r.state.rawOutput.Slice(32768+512, 32768+512+32768)
 		if err != nil {
 			return nil, err
@@ -635,6 +643,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 		if err := batch.EncodeMatvecF16(layer.attnCompressorGate, r.state.attnNorm, compGate); err != nil {
 			return nil, err
 		}
+		var err error
 		attnEmit, err = batch.EncodeCompressor(compKV, compGate, layer.attnCompressorAPE, layer.attnCompressorNorm, &state.attn, position, false)
 		if err != nil {
 			return nil, err
@@ -663,50 +672,20 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 			return nil, err
 		}
 	}
-	// Only the compressor fallback needs the opening's results on the host.
-	// Otherwise keep encoding the layer into the same command buffer.
-	if i >= 2 && !batchedCompressed {
-		if err := batch.Commit(); err != nil {
-			return nil, err
-		}
-	}
 	if attnEmit {
 		state.attn.n++
 	}
 	if indexerEmit {
 		state.indexer.n++
 	}
-	openingSettled := false
-	settleOpening := func() error {
-		if openingSettled {
-			return nil
-		}
-		if err := batch.Wait(context.Background()); err != nil {
-			return err
-		}
-		openingSettled = true
-		r.lastOpeningBatch = batch.Stats()
-		if i < 2 {
-			r.lastRawOpeningBatch = batch.Stats()
-		}
-		if i >= 2 && batchedCompressed {
-			if i%2 == 0 {
-				r.lastCompressedEven = batch.Stats()
-			} else {
-				r.lastCompressedOdd = batch.Stats()
-			}
-		}
-		return nil
-	}
-	// The compressor fallback reads the opening's results from host memory, so
-	// it cannot run until the opening has actually completed.
+	closing := batch
 	if i >= 2 && !batchedCompressed {
-		if err := settleOpening(); err != nil {
+		if err := batch.Commit(); err != nil {
 			return nil, err
 		}
-	}
-	var heads []float32
-	if i >= 2 && !batchedCompressed {
+		if err := batch.Wait(context.Background()); err != nil {
+			return nil, err
+		}
 		attnNorm := r.state.attnNorm.HostSlice()
 		qNorm := r.state.qLora.HostSlice()
 		q := r.state.qHeads.HostSlice()
@@ -740,25 +719,20 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 				return nil, e
 			}
 		}
+		var heads []float32
+		var err error
 		_, _, heads, err = r.ops.RopeAttentionMixed(q, kv, layer.attnSinks, state.rawKV, state.attn.cache, state.attn.n, allowed, position, i)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if i >= 2 && !batchedCompressed {
+		if err != nil {
+			return nil, err
+		}
 		if err := headsGPU.CopyFromHost(heads); err != nil {
 			return nil, fmt.Errorf("attention closing: copy heads: %w", err)
 		}
-	}
-	closing := batch
-	if i >= 2 && !batchedCompressed {
 		closing, err = newMetalBatch(r.ops)
 		if err != nil {
 			return nil, err
 		}
 		closing.inRegion("closing-ffn", i, position)
-	} else {
-		closing.inRegion("layer", i, position)
 	}
 	for group := range 8 {
 		rows, err := layer.attnOutA.Rows(group*1024, 1024)
@@ -780,7 +754,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := closing.EncodeMatvecQ80(layer.attnOutB, r.state.attnLow, r.state.attnOut); err != nil {
 		return nil, err
 	}
-	attentionState := r.state.hc[(i+1)%len(r.state.hc)]
+	attentionState := r.state.hc[1]
 	// The old command boundary made this post recompute its split rather than
 	// reuse HCPre's. Keep that arithmetic when both share a buffer.
 	if closing == batch {
@@ -804,6 +778,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := closing.EncodeMatvecQ80(layer.sharedUp, r.state.ffnNorm, r.state.sharedUp); err != nil {
 		return nil, err
 	}
+	var err error
 	if i < 3 {
 		err = closing.EncodeRouterHash(r.state.router, layer.expertMap, uint32(token), r.state.probs, r.state.expertIDs, r.state.expertW)
 	} else {
@@ -867,7 +842,7 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffn.EncodeSumVectors(r.state.ffnBlocks, r.state.ffnOut, 2); err != nil {
 		return nil, err
 	}
-	stateOut := r.state.hc[i%len(r.state.hc)]
+	stateOut := r.state.hc[0]
 	// The old command boundary made this post recompute its split rather than
 	// reuse HCPre's. Clearing the cache owner keeps that arithmetic exactly,
 	// now that the two share a buffer.
@@ -875,24 +850,17 @@ func (r *metalRuntime) evalLayer(hc []float32, i int, token int32, position int)
 	if err := ffn.EncodeHCPost(stateIn, r.state.ffnOut, layer.hcFFNFn, layer.hcFFNScale, layer.hcFFNBase, stateOut); err != nil {
 		return nil, err
 	}
-	// In the batched path, settling the opening now settles the whole layer.
-	// The fallback already settled its opening before the host readback and
-	// still needs to wait for its separate closing buffer.
-	if err := ffn.Commit(); err != nil {
-		return nil, err
-	}
-	if err := settleOpening(); err != nil {
-		return nil, err
-	}
-	if ffn != batch {
+	if closing != batch {
+		if err := ffn.Commit(); err != nil {
+			return nil, err
+		}
 		if err := ffn.Wait(context.Background()); err != nil {
 			return nil, err
 		}
+		r.lastBatch = ffn.Stats()
+		return nil, nil
 	}
-	// One command buffer carries attention and FFN, so both name it.
-	r.lastAttentionBatch = ffn.Stats()
-	r.lastFFNBatches = ffn.Stats()
-	return stateOut.HostSlice(), nil
+	return batch, nil
 }
 
 func (r *metalRuntime) outputLogits(hc []float32) ([]float32, error) {

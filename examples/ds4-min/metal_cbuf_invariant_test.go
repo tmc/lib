@@ -82,6 +82,40 @@ func TestRegionRecordingIsCentralized(t *testing.T) {
 	}
 }
 
+// Stage 1 merged all 43 layer evaluations into a single Metal command buffer per
+// token (dropping cbufs/tok from 44 to 2). To maintain this invariant,
+// metal_runtime_darwin.go must contain exactly two newMetalBatch call sites:
+//  1. evalPosition: lazily opens the single per-token command buffer.
+//  2. evalLayer: opens a fallback closing command buffer only when the router falls
+//     off the fast path into the deep regime.
+//
+// A third call site means an eager trailing batch or unmerged layer buffer has been
+// introduced, breaking the 2 cbufs/tok budget.
+func TestRuntimeBatchAllocationIsBounded(t *testing.T) {
+	const target = "metal_runtime_darwin.go"
+	src, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sites []string
+	for i, line := range strings.Split(string(src), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if strings.Contains(line, "newMetalBatch(") {
+			sites = append(sites, fileLine(target, i+1, line))
+		}
+	}
+	if len(sites) != 2 {
+		t.Errorf("got %d newMetalBatch call sites in %s, want exactly 2:\n\t%s\n"+
+			"call site 1: evalPosition (per-token batch across 43 layers)\n"+
+			"call site 2: evalLayer (fallback closing batch in deep regime)\n"+
+			"a third site means an unmerged or eager trailing command buffer has been introduced",
+			len(sites), target, strings.Join(sites, "\n\t"))
+	}
+}
+
 func fileLine(file string, line int, text string) string {
 	return file + ":" + itoa(line) + ": " + strings.TrimSpace(text)
 }

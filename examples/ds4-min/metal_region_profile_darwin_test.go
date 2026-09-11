@@ -63,19 +63,19 @@ const metalRegionVocab = 129280
 // produce, in completion order.
 //
 // This inventory covers the batched regime, before zero-based position 2051.
-// Each position submits an embedding lookup and one buffer per layer. The last
-// position also submits the four output-logit operations. Standalone operations
-// currently record zero layer and position coordinates.
+// Each position submits an embedding lookup and one command buffer carrying
+// all 43 layers. The last position also submits the four output-logit operations.
+// Standalone operations currently record zero layer and position coordinates.
 func expectedMetalRegions(tokens int) []metalRegion {
 	if tokens < 1 || tokens > 2051 {
 		return nil
 	}
-	regions := make([]metalRegion, 0, tokens*(ds4Layers+1)+4)
+	regions := make([]metalRegion, 0, tokens*2+4)
 	for position := range tokens {
-		regions = append(regions, metalRegion{Region: "get-row-f16"})
-		for layer := range ds4Layers {
-			regions = append(regions, metalRegion{Region: "layer", Layer: layer, Position: position})
-		}
+		regions = append(regions,
+			metalRegion{Region: "get-row-f16"},
+			metalRegion{Region: "layer", Layer: 0, Position: position},
+		)
 	}
 	for _, name := range []string{"rms", "output-head", "rms", "matvec-q80"} {
 		regions = append(regions, metalRegion{Region: name})
@@ -150,8 +150,8 @@ func metalRegionTotals(regions []metalRegion) map[string]float64 {
 
 func TestMetalRegionInventory(t *testing.T) {
 	want := expectedMetalRegions(metalRegionTokens)
-	if n := len(want); n != metalRegionTokens*(ds4Layers+1)+4 {
-		t.Fatalf("inventory has %d spans, want %d", n, metalRegionTokens*(ds4Layers+1)+4)
+	if n := len(want); n != metalRegionTokens*2+4 {
+		t.Fatalf("inventory has %d spans, want %d", n, metalRegionTokens*2+4)
 	}
 	fill := func(regions []metalRegion) []metalRegion {
 		out := append([]metalRegion(nil), regions...)
