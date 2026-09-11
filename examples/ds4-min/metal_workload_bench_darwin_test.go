@@ -128,6 +128,16 @@ func benchWorkloadSizes(b *testing.B, key string, sweep []int) []int {
 // rates it is unaffected by measurement overhead and comparable against any
 // other implementation of the same model.
 //
+// ops/tok counts operations at the batch API's level, not GPU dispatches: a
+// call that encodes four dispatches for one logical operation advances it by
+// one (metal_batch_darwin.go documents that convention), and a token-major call
+// that encodes one dispatch per token advances it by one for the whole batch.
+// It was called dispatch/tok until the token-major encoders landed, which made
+// the two diverge by a factor of the token count -- and in the flattering
+// direction, since batching N tokens into one call would have shown the metric
+// falling while the GPU ran exactly as many dispatches as before. Nothing here
+// counts GPU dispatches; do not read this as though something did.
+//
 // gpu_ms/tok and %gpu come from the union of the command-buffer spans, not
 // their sum. Buffers overlap in wall time by design -- commit ed187ec commits a
 // layer's opening buffer without waiting so the closing buffer can be encoded
@@ -161,7 +171,7 @@ func reportWorkload(b *testing.B, tokens int, spans []metalRegion, subs metalSub
 	b.ReportMetric(buffers, "cbufs/tok")
 	b.ReportMetric(commits, "commits/tok")
 	b.ReportMetric(waits, "waits/tok")
-	b.ReportMetric(encoded, "dispatch/tok")
+	b.ReportMetric(encoded, "ops/tok")
 	b.ReportMetric(gpuPerToken*1e3, "gpu_ms/tok")
 	b.ReportMetric(st.Sum/float64(tokens)*1e3, "gpumax_ms/tok")
 	b.ReportMetric((perToken-gpuPerToken)*1e3, "host_ms/tok")
