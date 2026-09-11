@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/apple/objectivec"
@@ -51,23 +53,54 @@ func (o *metalPinnedOps) IndexerAllowed(qrNorm, current []float32, qWeight, head
 		indexerQAT(row)
 		weights[h] *= 1 / float32(math.Sqrt(64*128))
 	}
+	return selectIndexerRows(indexerScores(cache.HostSlice(), q, weights, nComp), 512), nil
+}
+
+// indexerScores scores every compressed row against the projected query.
+//
+// Each row's score depends on nothing but that row, so the rows are split
+// across goroutines. Within a row the h and i loops stay serial and in their
+// original order: both accumulate into a float32, so reassociating either one
+// would change the result bit for bit, and the scores decide which rows
+// selectIndexerRows admits. Splitting by row changes no float operation and no
+// order, which is why this needs no tolerance.
+//
+// It is worth the goroutines. At position 2051 nComp is 513 and this loop is
+// 513*64*128 = 4,202,496 multiply-accumulates, run once for each of the 22
+// even layers, on every token. Serially that is ~102 ms per token on this
+// host, and it grows linearly with the compressed count: ~3.4 s per token at a
+// full 65,665-token context. The GPU should own this, but that is a kernel and
+// a gate; this is the part that is exact by construction.
+func indexerScores(rows, q, weights []float32, nComp int) []float32 {
 	scores := make([]float32, nComp)
-	rows := cache.HostSlice()
-	for c := range scores {
-		row := rows[c*128 : (c+1)*128]
-		var score float32
-		for h := range 64 {
-			var dot float32
-			for i, value := range row {
-				dot += value * q[h*128+i]
-			}
-			if dot > 0 {
-				score += dot * weights[h]
-			}
-		}
-		scores[c] = score
+	chunk := (nComp + runtime.NumCPU() - 1) / runtime.NumCPU()
+	if chunk < 1 {
+		chunk = 1
 	}
-	return selectIndexerRows(scores, 512), nil
+	var wg sync.WaitGroup
+	for start := 0; start < nComp; start += chunk {
+		end := min(start+chunk, nComp)
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			for c := start; c < end; c++ {
+				row := rows[c*128 : (c+1)*128]
+				var score float32
+				for h := range 64 {
+					var dot float32
+					for i, value := range row {
+						dot += value * q[h*128+i]
+					}
+					if dot > 0 {
+						score += dot * weights[h]
+					}
+				}
+				scores[c] = score
+			}
+		}(start, end)
+	}
+	wg.Wait()
+	return scores
 }
 
 func selectIndexerRows(scores []float32, k int) []uint32 {
