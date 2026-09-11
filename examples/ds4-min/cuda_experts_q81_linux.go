@@ -36,19 +36,22 @@ __device__ float ds4_iq2_part_q8_1_scalar(const unsigned char *p, const ds4_q8_1
   return d * ds4_half_to_float(x->d) * float(sum * ls / 8);
 }
 
-__device__ float ds4_iq2_part_q8_1(const unsigned char *p, const ds4_q8_1_activation *x, unsigned part) {
+__device__ float ds4_iq2_part_q8_1(
+    const unsigned char *p, const ds4_q8_1_activation *x, unsigned part,
+    const unsigned int *grid_lo_table, const unsigned int *grid_hi_table, const unsigned char *ksigns_table) {
   const unsigned char *q = p + 2 + part * 8;
   unsigned aux = unsigned(q[4]) | unsigned(q[5]) << 8 | unsigned(q[6]) << 16 | unsigned(q[7]) << 24;
   const int *u = reinterpret_cast<const int *>(x->qs);
   int sum = 0;
   for (unsigned group = 0; group < 4; group++) {
-    unsigned long long grid = ds4_cuda_iq2xxs_grid[q[group]];
-    unsigned signs = ds4_cuda_ksigns_iq2xs[(aux >> (group * 7)) & 127] * 0x01010101u;
+    unsigned signs = ksigns_table[(aux >> (group * 7)) & 127] * 0x01010101u;
+    unsigned grid_lo = grid_lo_table[q[group]];
     int signs0 = __vcmpne4(signs & 0x08040201u, 0);
-    int grid0 = __vsub4(unsigned(grid) ^ signs0, signs0);
+    int grid0 = __vsub4(grid_lo ^ signs0, signs0);
     sum = __dp4a(grid0, u[group * 2 + 0], sum);
+    unsigned grid_hi = grid_hi_table[q[group]];
     int signs1 = __vcmpne4(signs & 0x80402010u, 0);
-    int grid1 = __vsub4(unsigned(grid >> 32) ^ signs1, signs1);
+    int grid1 = __vsub4(grid_hi ^ signs1, signs1);
     sum = __dp4a(grid1, u[group * 2 + 1], sum);
   }
   int ls = int(aux >> 27) | 1;
@@ -60,6 +63,20 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
     const unsigned char *gate, const unsigned char *up, const int *ids,
     const ds4_q8_1_activation *x, float *gate_out, float *up_out,
     unsigned cols, unsigned rows, unsigned slots, unsigned experts) {
+  __shared__ unsigned int s_grid_lo[256];
+  __shared__ unsigned int s_grid_hi[256];
+  __shared__ unsigned char s_ksigns[128];
+
+  for (unsigned i = threadIdx.x; i < 256; i += blockDim.x) {
+    unsigned long long grid = ds4_cuda_iq2xxs_grid[i];
+    s_grid_lo[i] = unsigned(grid);
+    s_grid_hi[i] = unsigned(grid >> 32);
+  }
+  for (unsigned i = threadIdx.x; i < 32; i += blockDim.x) {
+    reinterpret_cast<unsigned int *>(s_ksigns)[i] = reinterpret_cast<const unsigned int *>(ds4_cuda_ksigns_iq2xs)[i];
+  }
+  __syncthreads();
+
   unsigned output = blockIdx.x * (blockDim.x / 32) + threadIdx.x / 32;
   if (output >= rows * slots) return;
   unsigned row = output % rows, slot = output / rows, lane = threadIdx.x % 32;
@@ -73,8 +90,8 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
   float g = 0.0f, u = 0.0f;
   for (unsigned part = lane; part < cols / 32; part += 32) {
     unsigned b = part / 8, sub = part % 8;
-    g += ds4_iq2_part_q8_1(gate + offset + (unsigned long long)b * 66, x + part, sub);
-    u += ds4_iq2_part_q8_1(up + offset + (unsigned long long)b * 66, x + part, sub);
+    g += ds4_iq2_part_q8_1(gate + offset + (unsigned long long)b * 66, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
+    u += ds4_iq2_part_q8_1(up + offset + (unsigned long long)b * 66, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
   }
   for (unsigned stride = 16; stride; stride >>= 1) {
     g += __shfl_down_sync(0xffffffff, g, stride);

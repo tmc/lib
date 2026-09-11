@@ -229,14 +229,21 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 		if medA > 0 {
 			pct = (medDelta / medA) * 100.0
 		}
-		fmt.Printf("%-18s | %6.2f [%6.2f, %6.2f] | %6.2f [%6.2f, %6.2f] | %+6.2f [%+6.2f, %+6.2f] (%+5.1f%%)\n",
-			label, medA, minA, maxA, medB, minB, maxB, medDelta, minDelta, maxDelta, pct)
+		favorsB := 0
+		for _, d := range pairedDeltas {
+			if d < 0 {
+				favorsB++
+			}
+		}
+		fmt.Printf("%-18s | %6.2f [%6.2f, %6.2f] | %6.2f [%6.2f, %6.2f] | %+6.2f [%+6.2f, %+6.2f] (%+5.1f%%) [B wins: %3d/%d]\n",
+			label, medA, minA, maxA, medB, minB, maxB, medDelta, minDelta, maxDelta, pct, favorsB, len(pairedDeltas))
 	}
 
 	fmt.Printf("\n=== STEP 2 INTERLEAVED A/B BENCHMARK (N=%d matched steps per arm, positions 0..%d) ===\n",
 		len(allArmA), tokensPerRun-1)
-	fmt.Printf("%-18s | %-24s | %-24s | %-32s\n", "Metric", "Arm A (Scalar Reference)", "Arm B (Step 2 SIMD)", "Paired Delta (B - A) [min, max]")
-	fmt.Println("-------------------+--------------------------+--------------------------+----------------------------------")
+	fmt.Printf("%-18s | %-24s | %-24s | %-45s\n", "Metric", "Arm A (Pre-Staged)", "Arm B (Table Staged)", "Paired Delta (B - A) [min, max] (Sign Test)")
+	fmt.Println("-------------------+--------------------------+--------------------------+---------------------------------------------------")
+
 	printRow("Full Step (Stream)", func(s stepMetrics) float64 { return s.streamTime })
 	printRow("Full Step (Host)", func(s stepMetrics) float64 { return s.hostTime })
 	printRow("Sum of Phases", func(s stepMetrics) float64 { return s.sumPhases })
