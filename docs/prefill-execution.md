@@ -236,3 +236,67 @@ All 11 controls pass there (`authoritative-tool-tests-v5.log`). Actual hashing
 failure is now fatal as well as unreadable/missing identity input. The earlier
 v4 run failed because it targeted the old path during this move; no tool verdict
 was obtained in that run.
+
+## Metal widening surface at f9d11ce9
+
+What it would take to make the Metal runtime evaluate T tokens per dispatch
+instead of one. This is source evidence across every encoder in
+`examples/ds4-min`, not a measurement; no model was loaded to produce it.
+
+The encoders fall into four classes, and only one of them is a real obstacle.
+
+**Already token-aware.** `EncodeMatmulF16`, `EncodeMatmulQ80`,
+`EncodeMatmulQ2K`, `EncodeMatmulIQ2Selected` and `EncodeMatmulQ2KSelected` take
+a `tokens` parameter. `EncodeHCPre`/`EncodeHCPost` carry a token dimension as of
+`953109fc`; `EncodeRouterHashTokens`, `EncodeRouterBiasedTokens` and
+`EncodeSumVectorsTokens` as of `c22fdb9b`. The runtime still calls the
+single-token forms, so the work at these sites is changing call sites, not
+kernels.
+
+**Free, and now asserted.** `EncodeRMS`, `EncodeClamp10`, `EncodeSwiGLU`,
+`EncodeSwiGLUWeightedGPU` and `EncodeSwiGLUWeightedSlots` need no change at all.
+`rms_norm` offsets by `group*width` and reduces within one group; the other
+kernels index a flat thread position. A T-row call is already T independent row
+computations. `TestMetalElementwiseTokenIndependence` (`f9d11ce9`) pins each row
+as bit-identical dispatched alone and dispatched as one row of five, and each of
+the four kernels was mutated individually to confirm the assertion turns red.
+
+**Widenable, decomposition already correct.** `EncodeRopeAttentionMixed` is four
+dispatches -- `RopeQPrepare`, `RopeKVCommit`, `RopeAttentionWide`,
+`RopeOutUnrotate` -- with encoder ordering supplying the dependency that a
+device-scope barrier used to. That split is exactly what a batched form needs:
+commit all T rows of the KV cache, then let all T tokens attend causally over a
+cache that already contains their in-batch predecessors. What is missing is a
+per-token `position` rather than the single scalar, and the fixed
+`out.Len() != 32768+512+32768` guard.
+
+**The one real scan.** `compressor_pool` writes row `position%ratio` of a
+scratch window and pools when the window closes, and the two ratios differ in
+kind. At ratio 128 the indexer pools and keeps nothing, so windows are
+independent and batch cleanly. At ratio 4 the attention compressor pools across
+a `2*ratio` sliding buffer and shifts the upper rows down, so each window reads
+the previous one: T tokens are T/4 dependent steps, not one dispatch. This is
+the only place in the Metal path where a token loop survives widening.
+`cudaPrefillBatchWidth = 8` is two such steps.
+
+It bounds the shape of a batched prefill without bounding its value. The scan
+moves state buffers, not weights, so it is not what the streaming cost is made
+of.
+
+**Separate blocker, producer side.** `metalSession.routedOut` and `sharedOut` are
+stored sub-slices of `ffnBlocks` at `[0,4096)` and `[4096,8192)`. The consumer is
+already handled -- `EncodeSumVectorsTokens` reduces across the pair at a
+`[token][routed|shared]` layout -- but `tokenRow` is contiguous, so a token-major
+`routedOut` would place token t at `4096*t` where the layout needs `8192*t`.
+These two fields should be deleted in favour of per-token windows rather than
+widened. Recorded at `a038ec77`.
+
+### Not established here
+
+No throughput claim. Whether widening moves the registered oracle rate is a
+measurement nobody has taken, and the one prior structural change of this family
+-- 44 command buffers per token down to 2.1 -- bought 6 percent
+(`ds4-prefill-gap-is-batching`). The F16 lineage defect and the hyper-connection
+`sqrt`/`rsqrt` selector both remain open and both move
+`metalRegionProfileLogitsSHA256` if resolved, so a widening that changes either
+needs the digest re-registered deliberately rather than adjusted.
