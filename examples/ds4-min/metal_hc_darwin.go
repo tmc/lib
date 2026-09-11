@@ -30,6 +30,7 @@ type metalHC struct {
 	}
 	arena      *metalmem.Arena
 	mix, split metalmem.Slice[float32]
+	scratch    int // tokens the mix/split scratch currently holds
 	key        metalHCKey
 	pending    *metalBatch
 }
@@ -38,13 +39,17 @@ type metalHC struct {
 // Cached splits are reused only within their producing command buffer. A
 // cross-batch post recomputes its split in the same buffer as its expansion,
 // so another submitted batch cannot overwrite an already-encoded dependency.
+// Tokens is part of the identity because the split scratch is written per
+// token: a post over fewer tokens than the pre that filled the scratch would
+// otherwise reuse a split whose token count it never agreed to.
 type metalHCKey struct {
 	State, Fn, Scale, Base             uintptr
 	StateOff, FnOff, ScaleOff, BaseOff uint
+	Tokens                             int
 }
 
-func metalHCIdentity(state metalmem.Slice[float32], fn, scale, base boundMetalTensor) metalHCKey {
-	return metalHCKey{uintptr(state.Buffer().GetID()), uintptr(fn.data.Buffer().GetID()), uintptr(scale.data.Buffer().GetID()), uintptr(base.data.Buffer().GetID()), state.Offset(), fn.data.Offset(), scale.data.Offset(), base.data.Offset()}
+func metalHCIdentity(state metalmem.Slice[float32], fn, scale, base boundMetalTensor, tokens int) metalHCKey {
+	return metalHCKey{uintptr(state.Buffer().GetID()), uintptr(fn.data.Buffer().GetID()), uintptr(scale.data.Buffer().GetID()), uintptr(base.data.Buffer().GetID()), state.Offset(), fn.data.Offset(), scale.data.Offset(), base.data.Offset(), tokens}
 }
 func newMetalHC(dev *libmetal.Device) (h *metalHC, err error) {
 	h = &metalHC{dev: dev}
@@ -62,12 +67,34 @@ func newMetalHC(dev *libmetal.Device) (h *metalHC, err error) {
 		return nil, err
 	}
 	h.arena = metalmem.NewArena(dev)
-	h.mix = metalmem.AllocIn[float32](h.arena, "hc-mix", 24)
-	h.split = metalmem.AllocIn[float32](h.arena, "hc-split", 24)
-	if err = h.arena.Err(); err != nil {
+	if err = h.reserve(1); err != nil {
 		return nil, err
 	}
 	return h, nil
+}
+
+// reserve grows the per-token mix and split scratch to hold tokens tokens.
+//
+// The previous allocation is not released: a batch encoded before the growth
+// may still be in flight with the old buffers bound, and Metal does not
+// reference-count a buffer against an unsubmitted or running encoder. The
+// arena frees every generation at Close. Growth is monotonic in the largest
+// token count ever seen and each token costs 192 bytes across both buffers,
+// so the retained total is bounded and small.
+func (h *metalHC) reserve(tokens int) error {
+	if tokens <= h.scratch {
+		return nil
+	}
+	mix := metalmem.AllocIn[float32](h.arena, "hc-mix", 24*tokens)
+	split := metalmem.AllocIn[float32](h.arena, "hc-split", 24*tokens)
+	if err := h.arena.Err(); err != nil {
+		return err
+	}
+	// A grown scratch invalidates the cached split: it lives in the old
+	// buffer, which nothing encoded from here on will bind.
+	h.pending = nil
+	h.mix, h.split, h.scratch = mix, split, tokens
+	return nil
 }
 func (h *metalHC) Close() {
 	if h == nil {
@@ -94,10 +121,10 @@ func (h *metalHC) complete(b *metalBatch) {
 		h.pending = nil
 	}
 }
-func metalHCProfile(state metalmem.Slice[float32], fn, scale, base boundMetalTensor) bool {
-	return state.Len() == 16384 && fn.typeID == 1 && len(fn.dimensions) == 2 && fn.dimensions[0] == 16384 && fn.dimensions[1] == 24 && fn.data.Len() == 786432 && scale.typeID == 0 && len(scale.dimensions) == 1 && scale.dimensions[0] == 3 && scale.data.Len() == 12 && base.typeID == 0 && len(base.dimensions) == 1 && base.dimensions[0] == 24 && base.data.Len() == 96
+func metalHCProfile(state metalmem.Slice[float32], fn, scale, base boundMetalTensor, tokens int) bool {
+	return tokens >= 1 && state.Len() == 16384*tokens && fn.typeID == 1 && len(fn.dimensions) == 2 && fn.dimensions[0] == 16384 && fn.dimensions[1] == 24 && fn.data.Len() == 786432 && scale.typeID == 0 && len(scale.dimensions) == 1 && scale.dimensions[0] == 3 && scale.data.Len() == 12 && base.typeID == 0 && len(base.dimensions) == 1 && base.dimensions[0] == 24 && base.data.Len() == 96
 }
-func (h *metalHC) encodeMix(b *metalBatch, state metalmem.Slice[float32], fn boundMetalTensor) {
+func (h *metalHC) encodeMix(b *metalBatch, state metalmem.Slice[float32], fn boundMetalTensor, tokens int) {
 	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Mix)
 	args := make([]byte, 12)
@@ -109,14 +136,33 @@ func (h *metalHC) encodeMix(b *metalBatch, state metalmem.Slice[float32], fn bou
 	enc.SetBufferWithOffsetAtIndex(fn.data.Buffer(), fn.data.Offset(), 2)
 	enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 3)
 	enc.SetThreadgroupMemoryLengthAtIndex(96*4, 0)
-	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(12), libmetal.Threads(256))
+	// The token dimension is the grid's y: each (x, tok) threadgroup runs the
+	// same 12-threadgroup x 256-thread arithmetic the single-token dispatch
+	// ran, over that token's own 16384-element state row.
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(apple.MTLSize{Width: 12, Height: uint(tokens), Depth: 1}, libmetal.Threads(256))
 }
 func (h *metalHC) encodePre(b *metalBatch, state metalmem.Slice[float32], fn, scale, base, norm boundMetalTensor, out metalmem.Slice[float32]) error {
+	return h.encodePreTokens(b, state, fn, scale, base, norm, out, 1)
+}
+
+// encodePreTokens encodes the HC input projection and normalization for
+// tokens consecutive token-major rows of state.
+//
+// state holds tokens rows of 16384; out holds the tokens 4096-element
+// projections followed by the tokens 4096-element normalizations, so the
+// single-token layout is the tokens == 1 case of it unchanged. The weights
+// are shared by every token. No arithmetic differs from the single-token
+// dispatch: each token's threadgroup runs the same reduction tree over its
+// own row.
+func (h *metalHC) encodePreTokens(b *metalBatch, state metalmem.Slice[float32], fn, scale, base, norm boundMetalTensor, out metalmem.Slice[float32], tokens int) error {
 	h.pending = nil
-	if !metalHCProfile(state, fn, scale, base) || out.Len() != 8192 || norm.typeID != 0 || len(norm.dimensions) != 1 || norm.dimensions[0] != 4096 || norm.data.Len() != 16384 {
+	if !metalHCProfile(state, fn, scale, base, tokens) || out.Len() != 8192*tokens || norm.typeID != 0 || len(norm.dimensions) != 1 || norm.dimensions[0] != 4096 || norm.data.Len() != 16384 {
 		return fmt.Errorf("HC pre: invalid tensor profile")
 	}
-	h.encodeMix(b, state, fn)
+	if err := h.reserve(tokens); err != nil {
+		return fmt.Errorf("HC pre: %w", err)
+	}
+	h.encodeMix(b, state, fn, tokens)
 	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Pre)
 	enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 0)
@@ -126,48 +172,71 @@ func (h *metalHC) encodePre(b *metalBatch, state metalmem.Slice[float32], fn, sc
 	enc.SetBufferWithOffsetAtIndex(h.split.Buffer(), h.split.Offset(), 4)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 5)
 	enc.SetBufferWithOffsetAtIndex(norm.data.Buffer(), norm.data.Offset(), 6)
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset()+4096*4, 7)
+	// The normalized rows follow every projection row, so both regions keep
+	// the kernel's per-token stride of one 4096-element row.
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset()+uint(tokens)*4096*4, 7)
+	libmetal.SetScalar(enc, uint32(tokens), 8)
 	enc.SetThreadgroupMemoryLengthAtIndex((4096+4+32)*4, 0)
-	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1024))
-	h.key = metalHCIdentity(state, fn, scale, base)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(tokens), libmetal.Threads(1024))
+	h.key = metalHCIdentity(state, fn, scale, base, tokens)
 	h.pending = b
 	return nil
 }
 func (h *metalHC) encodePost(b *metalBatch, state, block metalmem.Slice[float32], fn, scale, base boundMetalTensor, out metalmem.Slice[float32]) error {
-	if !metalHCProfile(state, fn, scale, base) || block.Len() != 4096 || out.Len() != 16384 {
+	return h.encodePostTokens(b, state, block, fn, scale, base, out, 1)
+}
+
+// encodePostTokens encodes the HC residual update for tokens consecutive
+// token-major rows. state and out hold tokens rows of 16384 and block tokens
+// rows of 4096; the split cached by a preceding encodePreTokens is reused only
+// when it was produced for the same tokens, buffers and weights.
+func (h *metalHC) encodePostTokens(b *metalBatch, state, block metalmem.Slice[float32], fn, scale, base boundMetalTensor, out metalmem.Slice[float32], tokens int) error {
+	if !metalHCProfile(state, fn, scale, base, tokens) || block.Len() != 4096*tokens || out.Len() != 16384*tokens {
 		h.pending = nil
 		return fmt.Errorf("HC post: invalid tensor profile")
 	}
-	hit := h.key == metalHCIdentity(state, fn, scale, base) && h.pending == b
+	hit := h.key == metalHCIdentity(state, fn, scale, base, tokens) && h.pending == b
 	h.pending = nil
 	if !hit {
+		if err := h.reserve(tokens); err != nil {
+			return fmt.Errorf("HC post: %w", err)
+		}
 		// Standalone callers get the same parallel projection/split arithmetic;
 		// a cached split belonging to another residual or weight is never reused.
-		h.encodeMix(b, state, fn)
+		h.encodeMix(b, state, fn, tokens)
 		enc := b.encoder()
 		enc.SetComputePipelineState(h.kernels.Split)
 		enc.SetBufferWithOffsetAtIndex(h.mix.Buffer(), h.mix.Offset(), 0)
 		enc.SetBufferWithOffsetAtIndex(scale.data.Buffer(), scale.data.Offset(), 1)
 		enc.SetBufferWithOffsetAtIndex(base.data.Buffer(), base.data.Offset(), 2)
 		enc.SetBufferWithOffsetAtIndex(h.split.Buffer(), h.split.Offset(), 3)
-		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(tokens), libmetal.Threads(1))
 	}
 	enc := b.encoder()
 	enc.SetComputePipelineState(h.kernels.Post)
 	for i, v := range []metalmem.Slice[float32]{state, block, h.split, out} {
 		enc.SetBufferWithOffsetAtIndex(v.Buffer(), v.Offset(), uint(i))
 	}
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(4096), libmetal.Threads(256))
+	// Grid y is the token: each column of 4096 threads is one token's
+	// expansion, with the per-thread arithmetic of the single-token dispatch.
+	enc.DispatchThreadsThreadsPerThreadgroup(apple.MTLSize{Width: 4096, Height: uint(tokens), Depth: 1}, apple.MTLSize{Width: 256, Height: 1, Depth: 1})
 	return nil
 }
 
 func (o *metalPinnedOps) HCPre(state []float32, fn, scale, base, norm boundMetalTensor) ([]float32, []float32, error) {
+	return o.HCPreTokens(state, fn, scale, base, norm, 1)
+}
+
+// HCPreTokens runs HC pre over tokens token-major rows of state in one command
+// buffer and returns the tokens projections and the tokens normalizations, each
+// concatenated token-major.
+func (o *metalPinnedOps) HCPreTokens(state []float32, fn, scale, base, norm boundMetalTensor, tokens int) ([]float32, []float32, error) {
 	in, err := metalmem.AllocFromSlice(o.dev, state)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer in.Free()
-	out, err := metalmem.Alloc[float32](o.dev, 8192)
+	out, err := metalmem.Alloc[float32](o.dev, 8192*tokens)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -176,17 +245,27 @@ func (o *metalPinnedOps) HCPre(state []float32, fn, scale, base, norm boundMetal
 	if err != nil {
 		return nil, nil, err
 	}
-	if err = b.EncodeHCPre(in, fn, scale, base, norm, out); err != nil {
+	// EncodeHCPre's body, with the token count it cannot yet carry.
+	if err = b.ready(); err != nil {
 		return nil, nil, err
 	}
+	if err = o.hc.encodePreTokens(b, in, fn, scale, base, norm, out, tokens); err != nil {
+		return nil, nil, err
+	}
+	b.encoded++
 	if err = b.Wait(context.Background()); err != nil {
 		return nil, nil, err
 	}
 	// The producing batch completed, so a later post recomputes its split.
 	v := out.HostSlice()
-	return append([]float32(nil), v[:4096]...), append([]float32(nil), v[4096:]...), nil
+	return append([]float32(nil), v[:4096*tokens]...), append([]float32(nil), v[4096*tokens:]...), nil
 }
 func (o *metalPinnedOps) HCPost(state, block []float32, fn, scale, base boundMetalTensor) ([]float32, error) {
+	return o.HCPostTokens(state, block, fn, scale, base, 1)
+}
+
+// HCPostTokens runs HC post over tokens token-major rows in one command buffer.
+func (o *metalPinnedOps) HCPostTokens(state, block []float32, fn, scale, base boundMetalTensor, tokens int) ([]float32, error) {
 	in, err := metalmem.AllocFromSlice(o.dev, state)
 	if err != nil {
 		return nil, err
@@ -197,7 +276,7 @@ func (o *metalPinnedOps) HCPost(state, block []float32, fn, scale, base boundMet
 		return nil, err
 	}
 	defer blockIn.Free()
-	out, err := metalmem.Alloc[float32](o.dev, 16384)
+	out, err := metalmem.Alloc[float32](o.dev, 16384*tokens)
 	if err != nil {
 		return nil, err
 	}
@@ -207,9 +286,14 @@ func (o *metalPinnedOps) HCPost(state, block []float32, fn, scale, base boundMet
 	if err != nil {
 		return nil, err
 	}
-	if err = b.EncodeHCPost(in, blockIn, fn, scale, base, out); err != nil {
+	// EncodeHCPost's body, with the token count it cannot yet carry.
+	if err = b.ready(); err != nil {
 		return nil, err
 	}
+	if err = o.hc.encodePostTokens(b, in, blockIn, fn, scale, base, out, tokens); err != nil {
+		return nil, err
+	}
+	b.encoded++
 	if err = b.Wait(context.Background()); err != nil {
 		return nil, err
 	}
@@ -281,6 +365,11 @@ struct ds4_metal_args_hc_norm_mix {
 // rounds identically to the materialized normalized row.  The host wrapper
 // gates this to n == 16384 && out_dim == 24, where the virtual-thread count
 // is exactly 1024 and the mv tail loop is empty.
+//
+// tgpig.y is the token. It selects this threadgroup's 16384-element state row
+// and its 24-element output row and changes nothing else: every threadgroup
+// runs the reduction trees above over one token, exactly as the single-token
+// dispatch did.
 kernel void hc_parallel_mix(
         constant ds4_metal_args_hc_norm_mix & args [[buffer(0)]],
         device const char  * x [[buffer(1)]],
@@ -301,8 +390,9 @@ kernel void hc_parallel_mix(
 
     const uint n  = (uint)args.n;
     const uint n4 = n >> 2;
+    const uint tok = tgpig.y;
 
-    device const float4 *x4 = (device const float4 *)x;
+    device const float4 *x4 = (device const float4 *)x + (uint64_t)tok*(uint64_t)n4;
 
     threadgroup float *norm_shmem = (threadgroup float *)shmem;        // NW slots
     threadgroup float *mv_shmem   = (threadgroup float *)shmem + NW;   // NW*NR0 slots
@@ -364,7 +454,7 @@ kernel void hc_parallel_mix(
     }
 
     // n == 16384 makes the scalar tail loop of the original empty.
-    device float * dst_f32 = (device float *) dst;
+    device float * dst_f32 = (device float *) dst + (uint64_t)tok*(uint64_t)args.out_dim;
     helper_mv_reduce_and_write<NR0>(dst_f32, sumf_mv, r0, args.out_dim,
                                     tiisg, sgitg, (threadgroup char *)mv_shmem);
 }
@@ -378,13 +468,18 @@ kernel void hc_parallel_pre(
         device        char  * dst [[buffer(5)]],
         device  const char  * norm_weight [[buffer(6)]],
         device        char  * norm_dst [[buffer(7)]],
+        constant      uint  & n_tokens [[buffer(8)]],
         threadgroup   float * shared [[threadgroup(0)]],
         uint row [[threadgroup_position_in_grid]],
         ushort tid [[thread_position_in_threadgroup]],
         ushort sgitg [[simdgroup_index_in_threadgroup]],
         ushort tiisg [[thread_index_in_simdgroup]],
         ushort ntg [[threads_per_threadgroup]]) {
-    if ((int64_t)row >= 1 || 4 != 4 || (4096 & 3) != 0) {
+    // row is the token. Every device pointer below already carries a per-row
+    // stride, so widening this bound from the pinned 1 to the dispatched token
+    // count is the whole of the token dimension here: no expression inside the
+    // threadgroup changes.
+    if ((int64_t)row >= (int64_t)n_tokens || 4 != 4 || (4096 & 3) != 0) {
         return;
     }
 
@@ -504,6 +599,26 @@ kernel void hc_parallel_pre(
     // Batched prefill must match kernel_rms_norm_fuse_impl so enabling this
     // fusion does not change its scale by an ULP. Keep the established
     // single-row decode result unchanged; that path historically used rsqrt.
+    //
+    // The literal 1 in the selector is the row count this kernel was pinned
+    // to, and it stays a literal: substituting n_tokens would switch a
+    // multi-token dispatch to 1.0f/sqrt and make its rows differ from the
+    // same rows evaluated one at a time. Which branch a prefill wants is a
+    // separate question from batching, so it is left where it was.
+    //
+    // That question is undetermined, not merely deferred: kernel_rms_norm_fuse_impl
+    // is an upstream llama.cpp kernel with no copy in this repo, so the claim
+    // above that batched prefill must match it could not be checked against
+    // the thing it names. Settle it against upstream before touching this.
+    //
+    // Note what the pinning now costs: with a token dimension in place, a
+    // batched prefill takes rsqrt -- the branch the first paragraph says it
+    // must not take -- and TestMetalHCTokensBitIdentity holds it there. This is
+    // the same shape as the F16 matmul lineage
+    // (metal_matmul_f16_runtime_shape_darwin_test.go): the batched and
+    // single-token paths are different functions, a green bit-identity test is
+    // what pins them apart, and making them agree moves the registered logits
+    // digest. Re-register deliberately rather than discover it downstream.
     const float norm_arg = sumf / float(n_embd) + 1.0e-6f;
     const float norm_scale = 1 > 1 ? 1.0f / sqrt(norm_arg) : rsqrt(norm_arg);
 
@@ -520,8 +635,12 @@ kernel void hc_parallel_pre(
 // Expands an embedding-sized block back into HC channels after attention/FFN.
 // The post gate scales the current block, while the Sinkhorn combination matrix
 // mixes residual HC channels from the previous state.
-kernel void hc_parallel_post(device const float *state [[buffer(0)]], device const float *block [[buffer(1)]], device const float *split [[buffer(2)]], device float *out [[buffer(3)]], uint d [[thread_position_in_grid]]) {
+// gid.y is the token: it rebases state, block, split and out onto that token's
+// rows and leaves the per-thread expression untouched.
+kernel void hc_parallel_post(device const float *state [[buffer(0)]], device const float *block [[buffer(1)]], device const float *split [[buffer(2)]], device float *out [[buffer(3)]], uint2 gid [[thread_position_in_grid]]) {
+ const uint d=gid.x;
  if(d>=4096)return;
+ state+=(uint64_t)gid.y*16384;block+=(uint64_t)gid.y*4096;split+=(uint64_t)gid.y*24;out+=(uint64_t)gid.y*16384;
  float r0=state[d],r1=state[4096+d],r2=state[8192+d],r3=state[12288+d];
  for(uint dst=0;dst<4;dst++) {
  float acc=block[d]*split[4+dst];
@@ -530,8 +649,12 @@ kernel void hc_parallel_post(device const float *state [[buffer(0)]], device con
  }
 }
 
-kernel void hc_parallel_split(device const float *mix [[buffer(0)]], device const float *scale [[buffer(1)]], device const float *base [[buffer(2)]], device float *out [[buffer(3)]]) {
+// One thread per token; tok rebases the token's own 24-element mix and split
+// rows. scale and base are shared, and the body is unchanged.
+kernel void hc_parallel_split(device const float *mix [[buffer(0)]], device const float *scale [[buffer(1)]], device const float *base [[buffer(2)]], device float *out [[buffer(3)]], uint tok [[thread_position_in_grid]]) {
 thread float pre_shmem[4];
+        mix += (uint64_t)tok*24;
+        out += (uint64_t)tok*24;
 
         const float epsv = 1.0e-6f;
         const float pre_scale = scale[0];
