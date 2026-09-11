@@ -155,6 +155,10 @@ func checkMatmulQ80Shape(t *testing.T, ops *metalPinnedOps, mm *metalMatmulPrese
 			}
 
 			// 2b. Run encoded batched matmul: exactly 0 command buffers on encode, bit-identical to standalone.
+			// Note: Encoded-vs-standalone bit identity compares two arms that call the same encode* body.
+			// A defect in that body moves both arms equally and this check stays green. Its teeth are on
+			// wrapper, allocation and pipeline divergence only. What covers the shared body is the reference
+			// comparison and the reversed-twin machinery above.
 			inBuf, err := metalmem.AllocFromSlice(ops.dev, activations)
 			if err != nil {
 				t.Fatalf("inBuf alloc failed: %v", err)

@@ -40,6 +40,20 @@ const (
 // sequence, and only on both sides does it bind the comparison.
 const metalRegionPrefixSHA256 = "8e2073735828d7714e51be5fdc31d2b5b40ed2ce091d226371dba62517354310"
 
+// metalRegionProfileLogitsSHA256 is the SHA-256 digest of the metalRegionVocab
+// float32 logits produced by evaluating the first metalRegionTokens tokens of
+// the canonical oracle prefix at metalRegionContext.
+//
+// Unlike the two oracle workload digests, this one is measured: four qualified
+// runs on 2026-09-07 produced it on both the instrumented and the reference
+// arm, recorded under evidence/worker-DF6906F6/metal-region-*-n64-*/result.json
+// with tokens=64, context=1024 and the token prefix this file already pins.
+//
+// It is the cheap anchor. A restructuring of evalLayer that changes the output
+// changes this digest, and reaching it costs one model load rather than the
+// 2048-token prefill and 128 decodes the oracle workload needs.
+const metalRegionProfileLogitsSHA256 = "d06e9c92a278e6079030cc3a204aff3ace54032beb5695ea25231a683a746d80"
+
 // metalRegionVocab is the logit count both arms must produce. A run that
 // returns a different count has not evaluated this model, and comparing
 // two such runs to each other proves nothing about it.
@@ -454,6 +468,9 @@ func TestMetalRegionProfile(t *testing.T) {
 	if instrumentedHash != referenceHash {
 		t.Fatalf("logit hashes differ: instrumented %s, reference %s", instrumentedHash, referenceHash)
 	}
+	if instrumentedHash != metalRegionProfileLogitsSHA256 {
+		t.Fatalf("metal region profile logits hash %s, want registered %s", instrumentedHash, metalRegionProfileLogitsSHA256)
+	}
 
 	regions := log.all()
 	if err := validateMetalRegions(metalRegionTokens, regions); err != nil {
@@ -513,5 +530,54 @@ func TestMetalRegionProfile(t *testing.T) {
 			}
 		}
 		t.Logf("%s: %d spans, %.6f s GPU time", name, count, totals[name])
+	}
+}
+
+// TestMetalRegionProfileLogitsAnchor computes the cheap anchor logits over 64 tokens
+// with context 1024 and asserts exact bit-level reproduction of the registered digest.
+func TestMetalRegionProfileLogitsAnchor(t *testing.T) {
+	model := os.Getenv("DS4_MODEL")
+	if model == "" {
+		t.Skip("DS4_MODEL is not set")
+	}
+	input, err := os.ReadFile(metalRegionTokensPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tokens, err := parsePrefillTokens(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) < metalRegionTokens {
+		t.Fatalf("token file holds %d tokens, want at least %d", len(tokens), metalRegionTokens)
+	}
+	tokens = tokens[:metalRegionTokens]
+	if _, err := checkMetalRegionPrefix(tokens); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := newMetalRuntime(model, metalRegionContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	if err := r.Reset(); err != nil {
+		t.Fatalf("reset: %v", err)
+	}
+	if err := r.EvalBatch(tokens, 0); err != nil {
+		t.Fatalf("eval: %v", err)
+	}
+	logits := r.Logits()
+	if len(logits) != metalRegionVocab {
+		t.Fatalf("produced %d logits, want %d", len(logits), metalRegionVocab)
+	}
+	hash, err := oracleWorkloadHash(logits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("metal region profile logits sha256=%s", hash)
+	if hash != metalRegionProfileLogitsSHA256 {
+		t.Fatalf("logits hash = %s, want registered %s", hash, metalRegionProfileLogitsSHA256)
 	}
 }

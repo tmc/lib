@@ -21,8 +21,8 @@ import (
 // of matvec_q2_k across the K dimension, guaranteeing bit-exact identity
 // with sequential single-token MatvecQ2K calls.
 type metalMatmulPreservedQ2K struct {
-	dev      *libmetal.Device
-	library  apple.MTLLibrary
+	dev       *libmetal.Device
+	library   apple.MTLLibrary
 	quantPip  apple.MTLComputePipelineState
 	matmulPip apple.MTLComputePipelineState
 

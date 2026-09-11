@@ -24,6 +24,25 @@ const oracleWorkloadContext = 65665
 // SHA-256 of the first 2048 pinned-oracle IDs as little-endian uint32.
 const oracleWorkloadTokenHash = "5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380"
 
+// oracleWorkloadPrefillLogitsSHA256 and oracleWorkloadFinalLogitsSHA256 are the
+// digests this project has quoted for the 2048-token prefill and for the state
+// after 128 further non-EOS greedy decodes.
+//
+// Neither has a measurement behind it that anyone can point to. Both were
+// searched for across the tracked tree, the whole of git history, and every
+// result.json under evidence/, and appear in none of them: they exist only in
+// prose. They are registered here so that a restructuring which moves the
+// output moves a tracked file, and so the first gated run writes the measured
+// pair into its result.json and finally gives them a provenance. Until that run
+// happens, a mismatch is as likely to mean the constant was never right as to
+// mean the code regressed -- which is what the failure message says. Do not
+// edit a constant to match a run; record the run and say which one is wrong.
+//
+// Contrast metalRegionProfileLogitsSHA256, which four qualified runs on
+// 2026-09-07 reproduced on both arms.
+const oracleWorkloadPrefillLogitsSHA256 = "1877b6d33bcc9f790b6c5b9247bfdf06c861168f507ab8f07cfa5bffc490bc78"
+const oracleWorkloadFinalLogitsSHA256 = "ab3364ea856d3a0ffe215809afb17ace90a9720e600d18aec33562edc466f372"
+
 type oracleWorkloadRuntime interface {
 	EvalBatch([]int, int) error
 	Eval(int, int) error
@@ -301,6 +320,14 @@ func TestOracleWorkload(t *testing.T) {
 	write("result.json", data)
 	write("COMPLETE", []byte("runtime closed; 2048 prefill and 128 non-EOS decodes completed\n"))
 	t.Logf("prefill %.2f tokens/s, generation %.2f tokens/s", float64(result.PrefillTokens)/result.PrefillSeconds, float64(len(result.Generated))/result.GenerationSeconds)
+	t.Logf("measured prefill logits sha256=%s", result.PrefillHash)
+	t.Logf("measured final logits sha256=%s", result.FinalHash)
+	if result.PrefillHash != oracleWorkloadPrefillLogitsSHA256 {
+		t.Errorf("prefill logits hash %s, registered %s; the registered digest has never been reproduced, so this may be the constant rather than the code", result.PrefillHash, oracleWorkloadPrefillLogitsSHA256)
+	}
+	if result.FinalHash != oracleWorkloadFinalLogitsSHA256 {
+		t.Errorf("final logits hash %s, registered %s; the registered digest has never been reproduced, so this may be the constant rather than the code", result.FinalHash, oracleWorkloadFinalLogitsSHA256)
+	}
 }
 
 type oracleWorkloadFake struct {
