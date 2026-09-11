@@ -163,6 +163,34 @@ func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks
 // EncodeCompressor appends one compressor update and, at emission positions,
 // writes the completed row to the compressed cache. The caller advances state.n
 // only after the batch completes successfully.
+//
+// This is the encoder that does not widen the way the matmuls did, and the
+// reason is in compressor_pool rather than here. The kernel writes row
+// position%ratio of a scratch window and pools only when the window closes, so
+// a token's work depends on where it sits in its window -- but the two ratios
+// differ in kind, which decides what a batched prefill can do with each:
+//
+//	ratio 128 (indexer): rows 0..ratio, pooled, no shift. Windows are
+//	independent, so this is a map over T/128 windows and batches cleanly.
+//
+//	ratio 4 (attention): a 2*ratio sliding buffer. The pool reads the previous
+//	window's rows alongside the current one, and the kernel then shifts rows
+//	[ratio,2*ratio) down into [0,ratio). That carry makes it a scan: T tokens
+//	are T/4 dependent window steps, not one dispatch.
+//
+// So batching prefill does not collapse the attention compressor, only the
+// matmuls around it. That bounds the shape of a widening but not its value:
+// the scan moves state buffers, not weights, so it is not what the streaming
+// cost is made of. CUDA's cudaPrefillBatchWidth of 8 is two window steps.
+//
+// One difference from the CUDA port, noted and deliberately not changed here.
+// ds4_compressor_pool does the down-shift alone; compressor_pool follows it
+// with a device barrier and a copy back up, which restores what the shift just
+// read and so leaves both halves holding the old upper rows. The net values
+// agree with CUDA -- the backends are not divergent -- but Metal pays 16
+// redundant stores per thread per emission for the round trip. Removing it is
+// a kernel edit under the logits digest, so it wants the model-loading anchor
+// as its gate rather than a reviewer's reading of the loop.
 func (b *metalBatch) EncodeCompressor(kv, score metalmem.Slice[float32], ape, norm boundMetalTensor, state *metalCompressedState, position int, indexer bool) (bool, error) {
 	if err := b.ready(); err != nil {
 		return false, err
