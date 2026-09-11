@@ -330,3 +330,44 @@ So the F16 decision is not one blocker among many. It is the only numerics
 blocker on the matmul call sites, and it gates exactly five of them: the
 attention compressor KV and gate, the indexer compressor KV and gate, and the
 router. The other three forms can be swapped without moving a bit.
+
+## The GB10 decode floor
+
+Measured 2026-09-11 on the DGX host by session `094936CE` with a compiled
+`nvcc -O3 -arch=sm_121` benchmark. This is a peer's run, recorded here because
+it bounds the parity target; it was not reproduced on this side.
+
+GB10 is an integrated 256-bit LPDDR5x part, not HBM: ~273.06 GB/s theoretical,
+**247.89 GB/s measured streaming read** over a 2 GB buffer at 20 iterations
+(D2D kernel copy 225.41 GB/s, `cudaMemcpyDefault` 242.46 GB/s). An earlier
+analysis had assumed ~1,000 GB/s.
+
+A token must read about 8.5 GB of weights -- 43 layers of dense projections plus
+six selected experts, not the 86.72 GB model, because `cuda_experts_linux.go`
+computes its weight base from `ids[slot]` over a six-element buffer. So
+
+	8.50 GB / 247.89 GB/s = 34.29 ms/token  ->  29.16 tok/s
+
+is a ceiling for any implementation on this host that reads the weights it
+needs. Observed against it: the oracle's 56.4 ms is 1.64x the floor, our port's
+118.0 ms is 3.44x.
+
+State CUDA decode goals as a distance from 34.29 ms rather than a multiple of
+the oracle. A multiple moves when the oracle does and implies headroom that does
+not exist; the floor is fixed, and it says decode cannot be made more than about
+3.4x faster here whatever else is fixed.
+
+### What this does not establish
+
+Not the mechanism of the 2.09x gap. Dividing both engines by the same assumed
+8.5 GB makes "percent of achievable bandwidth" the time ratio rescaled --
+`(8.50/0.0564)/(8.50/0.1180)` and `0.1180/0.0564` are both 2.0922 -- so those
+fractions cannot separate poor coalescing from launch serialization. Both
+mechanisms produce them identically.
+
+One measured inconsistency is worth more than either fraction: chunked prefill
+moves an estimated 2.2-5.2 TB in 288.5 s, or 7.6-18.0 GB/s, against decode's
+72.0 GB/s on the same kernels. A kernel-efficiency explanation does not predict
+a 4x swing between two phases running the same code. GPU busy time against wall
+time per token, and `dram__bytes_read` rather than a derived byte count, are
+what would settle it.
