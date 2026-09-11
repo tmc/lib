@@ -22,9 +22,15 @@ import (
 // never been compared against the serial one the runtime actually runs.
 //
 // The five call sites that matter are the attention compressor KV and gate, the
-// indexer compressor KV and gate, and the router (metal_runtime_darwin.go:640,
-// 643, 652, 655, 772). Their weights are 4096x1024 and 4096x256 -- neither is
-// 16384x4, so all five take matvec_f16.
+// indexer compressor KV and gate, and the router. They are every
+// EncodeMatvecF16 in metal_runtime_darwin.go and nothing else, so
+//
+//	grep -n EncodeMatvecF16 metal_runtime_darwin.go
+//
+// names them; an earlier revision of this comment carried line numbers instead
+// and they were four commits stale by the time anyone read them. Their weights
+// are 4096x1024 and 4096x256 -- neither is 16384x4, so all five take
+// matvec_f16.
 //
 // Measured at both shapes: they disagree on ~97% of outputs, at T=1 as much as
 // at T=8. The difference is not a batching artifact -- the two kernels are not

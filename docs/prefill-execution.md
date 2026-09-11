@@ -300,3 +300,33 @@ measurement nobody has taken, and the one prior structural change of this family
 `sqrt`/`rsqrt` selector both remain open and both move
 `metalRegionProfileLogitsSHA256` if resolved, so a widening that changes either
 needs the digest re-registered deliberately rather than adjusted.
+
+### Is the swap numerically free?
+
+Swapping a call site from `EncodeMatvecX` to `EncodeMatmulX(..., tokens)` is only
+safe if the batched kernel at T=1 reproduces the serial one bit for bit. The
+runtime calls exactly four matvec forms. Three are settled, one is not.
+
+`EncodeMatvecQ80` and `ops.MatvecQ80` dispatch `kernels.MatvecQ80` with the same
+grid `(rows+1)/2`, the same `32x4` threads, the same `2*32*4` threadgroup bytes
+and the same scalars; they differ only in submission. So
+`TestMetalMatmulQ80PreservedBitIdentity`, which compares the batched `Mul`
+against per-token `ops.MatvecQ80` at T of 1, 3, 7, 8, 13, 32 and 64 -- and since
+`8c3cf6ca` at the seven production Q8_0 shapes -- transitively covers the
+runtime's encoder.
+
+`ops.MatvecIQ2Selected` and `ops.MatvecQ2KSelected` are thinner still: they
+allocate, then call `EncodeMatvecIQ2Selected` and `EncodeMatvecQ2KSelected`
+themselves rather than restating a dispatch. The equivalence there is
+definitional. `cf0bc5c8` added the two production `(cols,rows)` pairs.
+
+`EncodeMatvecF16` is the exception, and it is the known one.
+`TestMetalMatmulF16AtRuntimeShape` asserts that `EncodeMatmulF16` -- a clone of
+the output-head SIMD kernel -- and `matvec_f16` disagree on about 97% of outputs
+at both runtime shapes, at T=1 as much as at T=8, with worst relative
+differences up to 1.6e-2 against a registered tolerance of 1e-4.
+
+So the F16 decision is not one blocker among many. It is the only numerics
+blocker on the matmul call sites, and it gates exactly five of them: the
+attention compressor KV and gate, the indexer compressor KV and gate, and the
+router. The other three forms can be swapped without moving a bit.
