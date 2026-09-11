@@ -237,6 +237,13 @@ func (r *cudaRuntime) Reset() error {
 	if err := r.state.allowed.CopyFromHost(allowed); err != nil {
 		return err
 	}
+	if r.batch != nil {
+		for i := range r.batch.rows {
+			if err := r.batch.rows[i].allowed.CopyFromHost(allowed); err != nil {
+				return err
+			}
+		}
+	}
 	clear(r.logits)
 	r.pos, r.failed = 0, nil
 	return nil
@@ -438,6 +445,15 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		b.hc[i], err = newCUDAHC(r.cudaFoundation)
 		if err != nil {
 			return nil, fmt.Errorf("cuda runtime: allocate batch HC %d: %w", i, err)
+		}
+	}
+	allowed := make([]uint32, r.state.allowed.Len())
+	for j := range allowed {
+		allowed[j] = 1
+	}
+	for i := range b.rows {
+		if err := b.rows[i].allowed.CopyFromHost(allowed); err != nil {
+			return nil, fmt.Errorf("cuda runtime: initialize batch allowed %d: %w", i, err)
 		}
 	}
 	return b, nil

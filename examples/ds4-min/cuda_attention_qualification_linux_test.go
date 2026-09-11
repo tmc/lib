@@ -199,7 +199,7 @@ func cudaAttentionQualificationReference(q []float32, history [][]float32, sinks
 		for j, row := range history {
 			dot := 0.0
 			for i, v := range row {
-				dot += float64(q[h*512+i]) * float64(v)
+				dot += float64(cudaAttentionQualificationRound(q[h*512+i], 10, -14)) * float64(v)
 			}
 			weights[j] = dot / math.Sqrt(512)
 			scores[h*len(history)+j] = float32(weights[j])

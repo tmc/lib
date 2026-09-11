@@ -570,12 +570,16 @@ func TestCUDACompressedMixedAttention(t *testing.T) {
 				if begin < 0 {
 					t.Fatal("mixed kernel mutation anchor missing")
 				}
+				end := strings.Index(cudaMathSource[begin:], "\n}\n")
+				if end < 0 {
+					t.Fatal("mixed kernel mutation end missing")
+				}
+				fn := cudaMathSource[begin : begin+end+3]
 				store := "raw[row*512+i]=ds4_half_round(out[32768+i]);"
-				tail := cudaMathSource[begin:]
-				if strings.Count(tail, store) != 1 {
+				if strings.Count(fn, store) != 1 {
 					t.Fatal("mixed cache-store mutation anchor changed")
 				}
-				source := cudaMathSource[:begin] + strings.Replace(tail, store, "(void)row;", 1)
+				source := cudaMathSource[:begin] + strings.Replace(fn, store, "(void)row;", 1) + cudaMathSource[begin+end+3:]
 				program, err := nvrtcx.Compile(source, nvrtcx.WithName("missing_cache_store.cu"), nvrtcx.WithArch(r.major, r.minor))
 				if err != nil {
 					t.Fatal(err)
