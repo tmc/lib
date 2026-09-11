@@ -1,0 +1,27 @@
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+date=2026-09-11T21:33:55Z
+
+Mutation receipts (metal_ops_darwin.go sha256 restored to
+557f8467d2cb53fca8232f0937b83823a9cbae5d9e08d33d19e2e09bc3efa934 after each):
+  M1  weights base offset dropped (all groups read block 0)   -> FAIL
+  M2  first_block simdgroup*8+block_part -> block_part*4+simdgroup,
+      applied to the blockdiag kernel only                     -> FAIL
+
+M2 passed on the first data set and that was the interesting failure: with
+testBatchQ80Tensor's uniform 0.125 scales and small integer weights, every
+partial sum is exactly representable and float addition is associative on the
+data, so a pure reassociation is undetectable. Replaced with swept F16 scale
+bits and a full-mantissa input; M2 then goes red. The poison-NaN guard in the
+test also caught a real bug while writing it -- Commit is asynchronous and the
+first draft read the buffer back without Wait, which would have compared two
+untouched buffers and passed.
+
+Origin: 094936CE measured attention-output at 20.50 ms / 0.89 waves per SM on
+GB10 (rank 1, peer's run, not reproduced here) and is making the same change on
+the CUDA side as step 1 of an agreed staged sequence. The Metal shape was read
+here at rank 2 (metal_runtime_darwin.go:752, cuda_session_linux.go:664).
+
+Not yet wired into the runtime; the swap needs the logits anchor.
