@@ -50,6 +50,22 @@ func TestMetalMatmulExpertIQ2PreservedBitIdentity(t *testing.T) {
 		{cols: 512, rows: 11, experts: 256, slots: 6}, // 256 experts; the "high" ID pattern reaches 255
 		{cols: 512, rows: 11, experts: 8, slots: 1},   // one slot: MulIQ2 accepts any slot count and production encodes some
 		{cols: 512, rows: 11, experts: 8, slots: 3},   // three slots, so the Height axis is neither 1 nor 6
+
+		// The two shapes the model actually holds. ffn_gate_exps and
+		// ffn_up_exps are [4096 2048 256] and ffn_down_exps is [2048 4096 256],
+		// so every case above runs a row count two orders of magnitude below the
+		// dispatched one and none of them exercises the grid at its real Width.
+		//
+		// These deliberately do not also carry 256 experts: the weight bytes go
+		// as cols*rows*experts, and the full product is a gigabyte per tensor to
+		// fill synthetically for no added signal. The expert count reaches its
+		// production value in the 256-expert case above, where the concern is ID
+		// addressing and rows is irrelevant; here rows reaches its production
+		// value, where the concern is grid geometry and the expert count is. The
+		// sweep covers each axis at its real value rather than their product,
+		// which is a choice and not an oversight.
+		{cols: 4096, rows: 2048, experts: 8, slots: 6}, // ffn_gate_exps, ffn_up_exps
+		{cols: 2048, rows: 4096, experts: 8, slots: 6}, // ffn_down_exps
 	}
 
 	testTokens := []int{1, 3, 7, 13} // 1, plus prime token counts that are not multiples of anything
