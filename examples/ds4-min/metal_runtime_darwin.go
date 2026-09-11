@@ -418,6 +418,21 @@ func (r *metalRuntime) allocState() {
 	s.sharedGate = metalmem.AllocIn[float32](a, "shared-gate", 2048)
 	s.sharedUp = metalmem.AllocIn[float32](a, "shared-up", 2048)
 	s.sharedMid = metalmem.AllocIn[float32](a, "shared-middle", 2048)
+	// routedOut and sharedOut are the two halves of one allocation because the
+	// sum at the end of the FFN reduces across them: adjacency is what makes
+	// EncodeSumVectors(ffnBlocks, ffnOut, 2) the right call, not a convenience.
+	//
+	// Widening this to N tokens: the layout must stay [token][routed|shared],
+	// so that each token's two rows remain adjacent. EncodeSumVectorsTokens
+	// handles the consumer correctly at that layout -- it takes the width from
+	// out.Len()/tokens and gives each token its own dispatch over its own two
+	// rows. What does not survive is these two stored sub-slices. tokenRow is
+	// contiguous (s.Slice(token*width, (token+1)*width)), so a token-major
+	// routedOut of N*4096 would place token t at 4096*t when it belongs at
+	// 8192*t. The producers, not the consumer, are the blocker: the expert sum
+	// writing routedOut and the shared projection writing sharedOut each need a
+	// per-token window computed from ffnBlocks directly, and these two fields
+	// should go away rather than be widened.
 	s.ffnBlocks = metalmem.AllocIn[float32](a, "ffn-blocks", 2*ds4Width)
 	s.routedOut, _ = s.ffnBlocks.Slice(0, ds4Width)
 	s.sharedOut, _ = s.ffnBlocks.Slice(ds4Width, 2*ds4Width)
