@@ -417,6 +417,14 @@ func (b *metalBatch) EncodeSwiGLUWeightedSlots(gate, up, weights, out metalmem.S
 	return nil
 }
 
+// tokenRow returns row token of a token-major slice whose rows are width
+// elements wide. Row 0 of a one-row slice is the slice itself: the same
+// buffer at the same offset with the same length, so a one-token call
+// through a token-major path binds exactly what the single-token form binds.
+func tokenRow[T any](s metalmem.Slice[T], token, width int) (metalmem.Slice[T], error) {
+	return s.Slice(token*width, (token+1)*width)
+}
+
 // EncodeRouterHash appends hash routing into caller-owned GPU storage.
 func (b *metalBatch) EncodeRouterHash(logits metalmem.Slice[float32], table boundMetalTensor, token uint32, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32]) error {
 	if err := b.ready(); err != nil {
@@ -438,22 +446,124 @@ func (b *metalBatch) EncodeRouterHash(logits metalmem.Slice[float32], table boun
 	return nil
 }
 
-// EncodeRouterBiased appends biased top-six routing into caller-owned GPU storage.
-func (b *metalBatch) EncodeRouterBiased(logits metalmem.Slice[float32], bias boundMetalTensor, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32]) error {
+// EncodeRouterHashTokens appends hash routing for tokens token rows.
+//
+// logits and probs hold 256 elements for each token, expertIDs and expertW
+// six, and tokenIDs one token id for each row, all token-major. The token id
+// the kernel hashes with comes from tokenIDs rather than an encode-time
+// scalar: the kernel declares it as a constant reference, which Metal binds
+// from a buffer as readily as from SetBytes, so the uniform each dispatch
+// sees is the one the scalar form produces. EncodeSwiGLUWeightedGPU rests on
+// the same property.
+//
+// Each token keeps its own dispatch. router_hash is a one-thread kernel that
+// reads 256 logits and writes six slots with no cross-token term, so widening
+// it to a thread per token would mean a different kernel; the rows here are
+// the same arithmetic the single-token form runs, moved into one command
+// buffer. TestMetalRouterTokensBitIdentity pins that against N single-token
+// calls.
+func (b *metalBatch) EncodeRouterHashTokens(logits metalmem.Slice[float32], table boundMetalTensor, tokenIDs metalmem.Slice[uint32], probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32], tokens int) error {
 	if err := b.ready(); err != nil {
 		return err
 	}
-	if logits.Len() != 256 || probs.Len() != 256 || expertIDs.Len() != 6 || expertW.Len() != 6 || bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
+	if tokens <= 0 || logits.Len() != 256*tokens || probs.Len() != 256*tokens || expertIDs.Len() != 6*tokens || expertW.Len() != 6*tokens ||
+		tokenIDs.Len() != tokens || table.typeID != 26 || len(table.dimensions) != 2 || table.dimensions[0] != 6 {
+		return fmt.Errorf("router hash: invalid tensor profile")
+	}
+	// The single-token form rejects an out-of-range token id at encode time.
+	// The ids now live in a buffer, but it is unified memory the caller
+	// filled before encoding, so the same check still runs here.
+	ids := tokenIDs.HostSlice()
+	if len(ids) != tokens {
+		return fmt.Errorf("router hash: token ids are not host-visible")
+	}
+	for i, id := range ids {
+		if uint64(id) >= table.dimensions[1] {
+			return fmt.Errorf("router hash: token %d id %d out of range", i, id)
+		}
+	}
+	enc := b.encoder()
+	enc.SetComputePipelineState(b.ops.kernels.RouterHash)
+	enc.SetBufferWithOffsetAtIndex(table.data.Buffer(), table.data.Offset(), 1)
+	for token := 0; token < tokens; token++ {
+		rowLogits, err := tokenRow(logits, token, 256)
+		if err != nil {
+			return fmt.Errorf("router hash: logits row %d: %w", token, err)
+		}
+		rowProbs, err := tokenRow(probs, token, 256)
+		if err != nil {
+			return fmt.Errorf("router hash: probs row %d: %w", token, err)
+		}
+		rowIDs, err := tokenRow(expertIDs, token, 6)
+		if err != nil {
+			return fmt.Errorf("router hash: expert IDs row %d: %w", token, err)
+		}
+		rowW, err := tokenRow(expertW, token, 6)
+		if err != nil {
+			return fmt.Errorf("router hash: expert weights row %d: %w", token, err)
+		}
+		rowToken, err := tokenRow(tokenIDs, token, 1)
+		if err != nil {
+			return fmt.Errorf("router hash: token id row %d: %w", token, err)
+		}
+		enc.SetBufferWithOffsetAtIndex(rowLogits.Buffer(), rowLogits.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(rowProbs.Buffer(), rowProbs.Offset(), 2)
+		enc.SetBufferWithOffsetAtIndex(rowIDs.Buffer(), rowIDs.Offset(), 3)
+		enc.SetBufferWithOffsetAtIndex(rowW.Buffer(), rowW.Offset(), 4)
+		enc.SetBufferWithOffsetAtIndex(rowToken.Buffer(), rowToken.Offset(), 5)
+		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+	}
+	// Encoded counts API operations, not the operation's internal dispatches.
+	b.encoded++
+	return nil
+}
+
+// EncodeRouterBiased appends biased top-six routing into caller-owned GPU storage.
+func (b *metalBatch) EncodeRouterBiased(logits metalmem.Slice[float32], bias boundMetalTensor, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32]) error {
+	return b.EncodeRouterBiasedTokens(logits, bias, probs, expertIDs, expertW, 1)
+}
+
+// EncodeRouterBiasedTokens appends biased top-six routing for tokens token rows.
+//
+// logits and probs hold 256 elements for each token and expertIDs and expertW
+// six, all token-major. Each token keeps its own dispatch of the same
+// one-thread kernel the single-token form runs, so the selection scan and the
+// weight normalization see one token's 256 scores in the order they always
+// did. TestMetalRouterTokensBitIdentity pins that against N single-token calls.
+func (b *metalBatch) EncodeRouterBiasedTokens(logits metalmem.Slice[float32], bias boundMetalTensor, probs metalmem.Slice[float32], expertIDs metalmem.Slice[int32], expertW metalmem.Slice[float32], tokens int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if tokens <= 0 || logits.Len() != 256*tokens || probs.Len() != 256*tokens || expertIDs.Len() != 6*tokens || expertW.Len() != 6*tokens ||
+		bias.typeID != 0 || len(bias.dimensions) != 1 || bias.dimensions[0] != 256 {
 		return fmt.Errorf("biased router: invalid tensor profile")
 	}
 	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.RouterBiased)
-	enc.SetBufferWithOffsetAtIndex(logits.Buffer(), logits.Offset(), 0)
 	enc.SetBufferWithOffsetAtIndex(bias.data.Buffer(), bias.data.Offset(), 1)
-	enc.SetBufferWithOffsetAtIndex(probs.Buffer(), probs.Offset(), 2)
-	enc.SetBufferWithOffsetAtIndex(expertIDs.Buffer(), expertIDs.Offset(), 3)
-	enc.SetBufferWithOffsetAtIndex(expertW.Buffer(), expertW.Offset(), 4)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+	for token := 0; token < tokens; token++ {
+		rowLogits, err := tokenRow(logits, token, 256)
+		if err != nil {
+			return fmt.Errorf("biased router: logits row %d: %w", token, err)
+		}
+		rowProbs, err := tokenRow(probs, token, 256)
+		if err != nil {
+			return fmt.Errorf("biased router: probs row %d: %w", token, err)
+		}
+		rowIDs, err := tokenRow(expertIDs, token, 6)
+		if err != nil {
+			return fmt.Errorf("biased router: expert IDs row %d: %w", token, err)
+		}
+		rowW, err := tokenRow(expertW, token, 6)
+		if err != nil {
+			return fmt.Errorf("biased router: expert weights row %d: %w", token, err)
+		}
+		enc.SetBufferWithOffsetAtIndex(rowLogits.Buffer(), rowLogits.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(rowProbs.Buffer(), rowProbs.Offset(), 2)
+		enc.SetBufferWithOffsetAtIndex(rowIDs.Buffer(), rowIDs.Offset(), 3)
+		enc.SetBufferWithOffsetAtIndex(rowW.Buffer(), rowW.Offset(), 4)
+		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
+	}
 	b.encoded++
 	return nil
 }
@@ -479,19 +589,51 @@ func (b *metalBatch) encodeSwiGLU(gate, up, out metalmem.Slice[float32], weight 
 
 // EncodeSumVectors appends a reduction across count adjacent vectors.
 func (b *metalBatch) EncodeSumVectors(in, out metalmem.Slice[float32], count int) error {
+	return b.EncodeSumVectorsTokens(in, out, count, 1)
+}
+
+// EncodeSumVectorsTokens appends, for each of tokens token rows, a reduction
+// across that token's count vectors.
+//
+// The slices are token-major: out holds one width-element vector for each
+// token, and in holds that token's count vectors of width elements each,
+// grouped by token. The kernel reduces across vectors adjacent in memory, so
+// the stride it must not cross is the token's, not the whole buffer's:
+// deriving the width from in.Len()/count instead of out.Len()/tokens reduces
+// down the token axis and sums one slot of every token together.
+//
+// Each token gets its own dispatch over its own count rows, which is the
+// accumulation the single-token form performs, in the same slot order.
+// TestMetalSumVectorsTokensBitIdentity pins that against N single-token calls,
+// and its negative control pins that the two axes disagree on that data.
+func (b *metalBatch) EncodeSumVectorsTokens(in, out metalmem.Slice[float32], count, tokens int) error {
 	if err := b.ready(); err != nil {
 		return err
 	}
-	if count <= 0 || in.Len() == 0 || in.Len()%count != 0 || out.Len() != in.Len()/count {
+	if count <= 0 || tokens <= 0 || out.Len() == 0 || out.Len()%tokens != 0 {
+		return fmt.Errorf("sum vectors: invalid shape")
+	}
+	width := out.Len() / tokens
+	if in.Len() != width*count*tokens {
 		return fmt.Errorf("sum vectors: invalid shape")
 	}
 	enc := b.encoder()
 	enc.SetComputePipelineState(b.ops.kernels.SumVectors)
-	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 0)
-	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 1)
-	libmetal.SetScalar(enc, uint32(out.Len()), 2)
-	libmetal.SetScalar(enc, uint32(count), 3)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(out.Len()), libmetal.Threads(min(out.Len(), 256)))
+	for token := 0; token < tokens; token++ {
+		src, err := tokenRow(in, token, width*count)
+		if err != nil {
+			return fmt.Errorf("sum vectors: input row %d: %w", token, err)
+		}
+		dst, err := tokenRow(out, token, width)
+		if err != nil {
+			return fmt.Errorf("sum vectors: output row %d: %w", token, err)
+		}
+		enc.SetBufferWithOffsetAtIndex(src.Buffer(), src.Offset(), 0)
+		enc.SetBufferWithOffsetAtIndex(dst.Buffer(), dst.Offset(), 1)
+		libmetal.SetScalar(enc, uint32(width), 2)
+		libmetal.SetScalar(enc, uint32(count), 3)
+		enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(width), libmetal.Threads(min(width, 256)))
+	}
 	b.encoded++
 	return nil
 }
