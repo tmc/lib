@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/nvml-survey",
+  "upstream_version": "13.3.29",
+  "version_source": "explicit generator flag; not independently verified",
+  "cwd": "$TMPDIR/work/nvml/libgen",
+  "argv": [
+    "$GOCACHE/95/95c67164fe62619dfaa810dba193ecfd1727357e895460131b3fc3238abbdeb9-d/nvml-survey",
+    "-constants-only",
+    "-header",
+    "$TMPDIR/work/nvml/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+    "-headers-dir",
+    "$TMPDIR/work/nvml/cuda-headers",
+    "-upstream-version",
+    "13.3.29",
+    "-output",
+    "$TMPDIR/work/nvml/lib/nvidia/nvml"
+  ],
+  "inputs": [
+    {
+      "path": "$TMPDIR/work/nvml/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+      "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+    }
+  ],
+  "source_hash": "e0b952f274d25f864d80a3aa823bbf56c272da9fbfd671b08acbc01b58520697",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}
