@@ -568,7 +568,9 @@ type cudaFoundation struct {
 	iq2SelectedQ8KFn          driver.Function
 	q2KSelectedQ8KFn          driver.Function
 	iq2SelectedQ81Fn          driver.Function
+	iq2SelectedQ81ScalarFn    driver.Function
 	q2KSelectedQ81Fn          driver.Function
+	q2KSelectedQ81ScalarFn    driver.Function
 	compressorPoolFn          driver.Function
 	compressorAttentionFn     driver.Function
 	compressorIndexerFn       driver.Function
@@ -1246,7 +1248,9 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_iq2_xxs_pair_selected_q8_k", &r.iq2SelectedQ8KFn},
 		{"ds4_q2_k_selected_q8_k", &r.q2KSelectedQ8KFn},
 		{"ds4_iq2_xxs_pair_selected_q8_1", &r.iq2SelectedQ81Fn},
+		{"ds4_iq2_xxs_pair_selected_q8_1_scalar", &r.iq2SelectedQ81ScalarFn},
 		{"ds4_q2_k_selected_q8_1", &r.q2KSelectedQ81Fn},
+		{"ds4_q2_k_selected_q8_1_scalar", &r.q2KSelectedQ81ScalarFn},
 		{"ds4_compressor_pool", &r.compressorPoolFn},
 		{"ds4_compressor_attention", &r.compressorAttentionFn},
 		{"ds4_compressor_indexer", &r.compressorIndexerFn},

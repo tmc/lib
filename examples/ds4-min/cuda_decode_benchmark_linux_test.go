@@ -83,8 +83,9 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 		tokens[i] = 1000 + i*13
 	}
 
-	runArm := func(disableBlockDiag bool) ([]stepMetrics, error) {
-		r.disableBlockDiagAttnOut = disableBlockDiag
+	runArm := func(disableSIMD bool) ([]stepMetrics, error) {
+		r.disableBlockDiagAttnOut = false
+		r.disableSIMDExperts = disableSIMD
 		if err := r.Reset(); err != nil {
 			return nil, err
 		}
@@ -182,22 +183,22 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 	// Run 10 interleaved trials alternating order to eliminate thermal bias
 	for trial := 0; trial < numTrials; trial++ {
 		if trial%2 == 0 {
-			mA, err := runArm(true) // Arm A: 8-group loop
+			mA, err := runArm(true) // Arm A: Scalar reference
 			if err != nil {
 				t.Fatal(err)
 			}
-			mB, err := runArm(false) // Arm B: BlockDiag fused
+			mB, err := runArm(false) // Arm B: SIMD __dp4a
 			if err != nil {
 				t.Fatal(err)
 			}
 			allArmA = append(allArmA, mA...)
 			allArmB = append(allArmB, mB...)
 		} else {
-			mB, err := runArm(false) // Arm B: BlockDiag fused
+			mB, err := runArm(false) // Arm B: SIMD __dp4a
 			if err != nil {
 				t.Fatal(err)
 			}
-			mA, err := runArm(true) // Arm A: 8-group loop
+			mA, err := runArm(true) // Arm A: Scalar reference
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -215,32 +216,38 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 	}
 
 	printRow := func(label string, field func(s stepMetrics) float64) {
-		medA, minA, maxA := calcStats(extract(allArmA, field))
-		medB, minB, maxB := calcStats(extract(allArmB, field))
-		delta := medB - medA
+		valsA := extract(allArmA, field)
+		valsB := extract(allArmB, field)
+		medA, minA, maxA := calcStats(valsA)
+		medB, minB, maxB := calcStats(valsB)
+		pairedDeltas := make([]float64, len(valsA))
+		for i := range pairedDeltas {
+			pairedDeltas[i] = valsB[i] - valsA[i]
+		}
+		medDelta, minDelta, maxDelta := calcStats(pairedDeltas)
 		pct := 0.0
 		if medA > 0 {
-			pct = (delta / medA) * 100.0
+			pct = (medDelta / medA) * 100.0
 		}
-		fmt.Printf("%-18s | %6.2f [%6.2f, %6.2f] | %6.2f [%6.2f, %6.2f] | %+6.2f ms (%+5.1f%%)\n",
-			label, medA, minA, maxA, medB, minB, maxB, delta, pct)
+		fmt.Printf("%-18s | %6.2f [%6.2f, %6.2f] | %6.2f [%6.2f, %6.2f] | %+6.2f [%+6.2f, %+6.2f] (%+5.1f%%)\n",
+			label, medA, minA, maxA, medB, minB, maxB, medDelta, minDelta, maxDelta, pct)
 	}
 
-	fmt.Printf("\n=== STRICT INTERLEAVED A/B BENCHMARK (N=%d matched steps per arm, positions 0..%d) ===\n",
+	fmt.Printf("\n=== STEP 2 INTERLEAVED A/B BENCHMARK (N=%d matched steps per arm, positions 0..%d) ===\n",
 		len(allArmA), tokensPerRun-1)
-	fmt.Printf("%-18s | %-24s | %-24s | %-16s\n", "Metric", "Arm A (8-Group Loop)", "Arm B (BlockDiag Fused)", "Delta (B - A)")
-	fmt.Println("-------------------+--------------------------+--------------------------+-----------------")
+	fmt.Printf("%-18s | %-24s | %-24s | %-32s\n", "Metric", "Arm A (Scalar Reference)", "Arm B (Step 2 SIMD)", "Paired Delta (B - A) [min, max]")
+	fmt.Println("-------------------+--------------------------+--------------------------+----------------------------------")
 	printRow("Full Step (Stream)", func(s stepMetrics) float64 { return s.streamTime })
 	printRow("Full Step (Host)", func(s stepMetrics) float64 { return s.hostTime })
 	printRow("Sum of Phases", func(s stepMetrics) float64 { return s.sumPhases })
 	printRow("Inter-kernel Gap", func(s stepMetrics) float64 { return s.interKernelGap })
-	fmt.Println("-------------------+--------------------------+--------------------------+-----------------")
-	printRow("attention-output", func(s stepMetrics) float64 { return s.attnOutPhase })
+	fmt.Println("-------------------+--------------------------+--------------------------+----------------------------------")
 	printRow("expert-ffn", func(s stepMetrics) float64 { return s.expertFFNPhase })
+	printRow("attention-output", func(s stepMetrics) float64 { return s.attnOutPhase })
 	printRow("attention", func(s stepMetrics) float64 { return s.attentionPhase })
 	printRow("ffn-post", func(s stepMetrics) float64 { return s.ffnPostPhase })
 	printRow("compression", func(s stepMetrics) float64 { return s.compressionPhase })
 	printRow("ffn-pre", func(s stepMetrics) float64 { return s.ffnPrePhase })
 	printRow("shared-ffn", func(s stepMetrics) float64 { return s.sharedFFNPhase })
-	fmt.Println("==========================================================================================")
+	fmt.Println("==========================================================================================================")
 }

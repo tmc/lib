@@ -27,6 +27,7 @@ type cudaRuntime struct {
 	phaseMark               func(string, int, int) error
 	batchProgress           func(int) error
 	disableBlockDiagAttnOut bool
+	disableSIMDExperts      bool
 }
 
 type cudaSessionState struct {
@@ -724,8 +725,14 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
 		return err
 	}
-	if err := r.encodeMatvecIQ2SelectedQ81(l.expertGate, l.expertUp, s.expertIDs, s.q81Input, s.expertGate, s.expertUp); err != nil {
-		return err
+	if !r.disableSIMDExperts {
+		if err := r.encodeMatvecIQ2SelectedQ81(l.expertGate, l.expertUp, s.expertIDs, s.q81Input, s.expertGate, s.expertUp); err != nil {
+			return err
+		}
+	} else {
+		if err := r.encodeMatvecIQ2SelectedQ81Scalar(l.expertGate, l.expertUp, s.expertIDs, s.q81Input, s.expertGate, s.expertUp); err != nil {
+			return err
+		}
 	}
 	if err := r.encodeSwiGLUSlots(s.expertGate, s.expertUp, s.expertW, s.expertMid, 6, 1); err != nil {
 		return err
@@ -733,8 +740,14 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeQuantQ81(s.expertMid, s.q81Experts, 2048); err != nil {
 		return err
 	}
-	if err := r.encodeMatvecQ2KSelectedQ81(l.expertDown, s.expertIDs, s.q81Experts, s.expertDown); err != nil {
-		return err
+	if !r.disableSIMDExperts {
+		if err := r.encodeMatvecQ2KSelectedQ81(l.expertDown, s.expertIDs, s.q81Experts, s.expertDown); err != nil {
+			return err
+		}
+	} else {
+		if err := r.encodeMatvecQ2KSelectedQ81Scalar(l.expertDown, s.expertIDs, s.q81Experts, s.expertDown); err != nil {
+			return err
+		}
 	}
 	if err := r.markCUDAPhase("ffn-post", position, index); err != nil {
 		return err
