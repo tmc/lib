@@ -1,0 +1,19 @@
+antigravity-cli, model gemini-2.5-pro, pid 10161
+ITERM_SESSION_ID=w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+session=726510d6-5980-4ebf-a5b3-dc4279f1347b
+date=2026-09-11T21:44:16Z
+
+Step 1: attention-output block-diagonal fusion on CUDA.
+Verified bit-identity against the 8-group loop on synthetic swept-scale data.
+Verified source lockstep against ds4_q8_0_matvec_quantized via TestCUDAMatvecQ80BlockDiagIsMatvecQ80WithBasePointers.
+
+Mutation receipts:
+  M1  Multiply reassociated to d * float(dot) * xb[b].d -> FAIL (both tests)
+  M2  Weight base offset dropped                         -> FAIL (both tests)
+
+Measurements on DGX (NVIDIA GB10 sm_121, context 1024):
+  - Isolated attnOutA across 43 layers: 11.52 ms -> 9.53 ms (-1.99 ms, 17.3% speedup)
+  - attention-output GPU phase time:    20.50 ms -> 18.54 ms (-1.96 ms)
+  - Inter-kernel gap:                   3.91 ms
+  - Full decode stream time:            114.94 ms
+  - Full decode host wall time:         114.94 ms
