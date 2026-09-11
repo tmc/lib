@@ -14,7 +14,7 @@ import (
 // are from antirez/ds4 b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd,
 // metal/moe.metal; block layouts match lm/quant's pinned C oracle fixtures.
 const cudaExpertSource = `
-__device__ __constant__ unsigned char ds4_cuda_ksigns_iq2xs[128] = {
+__device__ const unsigned char ds4_cuda_ksigns_iq2xs[128] = {
       0, 129, 130,   3, 132,   5,   6, 135, 136,   9,  10, 139,  12, 141, 142,  15,
     144,  17,  18, 147,  20, 149, 150,  23,  24, 153, 154,  27, 156,  29,  30, 159,
     160,  33,  34, 163,  36, 165, 166,  39,  40, 169, 170,  43, 172,  45,  46, 175,
@@ -25,7 +25,7 @@ __device__ __constant__ unsigned char ds4_cuda_ksigns_iq2xs[128] = {
     240, 113, 114, 243, 116, 245, 246, 119, 120, 249, 250, 123, 252, 125, 126, 255,
 };
 
-__device__ __constant__ unsigned long long ds4_cuda_iq2xxs_grid[256] = {
+__device__ const unsigned long long ds4_cuda_iq2xxs_grid[256] = {
     0x0808080808080808, 0x080808080808082b, 0x0808080808081919, 0x0808080808082b08,
     0x0808080808082b2b, 0x0808080808190819, 0x0808080808191908, 0x08080808082b0808,
     0x08080808082b082b, 0x08080808082b2b08, 0x08080808082b2b2b, 0x0808080819080819,
