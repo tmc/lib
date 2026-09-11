@@ -22,3 +22,13 @@ TestMetalIndexerScoreComparisonSeesReassociation (logs 463/513 moved),
 TestMetalSelectIndexerRowsBreaksTiesByLowestIndex -- all PASS.
 git-auto-commit-message was not used: cgpt is missing its Anthropic API key
 on this host (verified twice this session), so the message is hand-written.
+
+CORRECTION (same session, after the commit landed): the indexer runs on 21
+layers, not 22. Both runtimes skip layers 0 and 1 entirely --
+metal_runtime_darwin.go:451 'if i < 2 { continue }' allocates no compressed
+state, and metal_runtime_darwin.go:696 guards the unbatched block with
+'i >= 2'; cuda_session_linux.go:173 is the identical 'if i < 2 { continue }'.
+Even layers 2..42 inclusive is 21, not the 22 the commit message and the
+receipts above say. Per-layer figures are unaffected; every per-token total
+in this note and in the commit message is 4.8% high. Corrected per-token:
+120.0 -> 32.6 ms at nComp 513, 3844 -> 734 ms at nComp 16,418.
