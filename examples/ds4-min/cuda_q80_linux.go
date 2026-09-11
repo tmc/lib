@@ -64,6 +64,26 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized(
     sum += __shfl_down_sync(0xffffffff, sum, stride);
   if (lane == 0) out[row] = sum;
 }
+
+extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
+    const unsigned char *weights, const ds4_q8_activation *x, float *out,
+    unsigned blocks, unsigned rows) {
+  const unsigned row = blockIdx.x, diag = blockIdx.y, lane = threadIdx.x;
+  const unsigned char *weight_row = weights + ((unsigned long long)diag * rows + row) * blocks * 34;
+  const ds4_q8_activation *xb = x + (unsigned long long)diag * blocks;
+  float sum = 0.0f;
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
+    int dot = 0;
+    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(xb[b].qs[i]);
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+    sum += d * xb[b].d * float(dot);
+  }
+  for (unsigned stride = 16; stride; stride >>= 1)
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
+  if (lane == 0) out[(unsigned long long)diag * rows + row] = sum;
+}
 `
 
 // encodeQuantQ80 appends the pinned CUDA Q8_0 activation quantizer. Each
@@ -100,6 +120,31 @@ func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.
 		}
 		if err := cudalaunch.Kernel(r.q80QuantizedFn).Grid(uint32(rows)).Block(32).On(r.device.DefaultStream()).Launch(t.device, in, out, uint32(cols/32)); err != nil {
 			return fmt.Errorf("cuda: launch quantized Q8_0 matvec %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
+
+// encodeQ80MatvecQuantizedBlockDiag projects block-diagonal Q8_0 weights using quantized activations.
+func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiag(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], diag int) error {
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || diag <= 0 {
+		return fmt.Errorf("cuda: quantized Q8_0 block-diagonal matvec %q: invalid tensor", t.name)
+	}
+	cols, totalRows := t.dimensions[0], t.dimensions[1]
+	if totalRows%uint64(diag) != 0 {
+		return fmt.Errorf("cuda: quantized Q8_0 block-diagonal matvec %q: total rows not divisible by diag", t.name)
+	}
+	rows := totalRows / uint64(diag)
+	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||
+		uint64(in.Len()) != (cols/32*36)*uint64(diag) || uint64(out.Len()) != totalRows || totalRows > t.bytes/(cols/32*34) {
+		return fmt.Errorf("cuda: quantized Q8_0 block-diagonal matvec %q: invalid shape or extent", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.q80QuantizedBlockDiagFn).Grid(uint32(rows), uint32(diag)).Block(32).On(r.device.DefaultStream()).Launch(t.device, in, out, uint32(cols/32), uint32(rows)); err != nil {
+			return fmt.Errorf("cuda: launch quantized Q8_0 block-diagonal matvec %q: %w", t.name, err)
 		}
 		return nil
 	})

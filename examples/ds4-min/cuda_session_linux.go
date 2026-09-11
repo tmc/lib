@@ -16,16 +16,17 @@ import (
 // runs on the device; only the final logits are copied to the host.
 type cudaRuntime struct {
 	*cudaFoundation
-	model         *cudaModel
-	arena         *cudamem.Arena
-	batch         *cudaBatchResources
-	state         cudaSessionState
-	hcMath        *cudaHC
-	ctx, pos      int
-	logits        []float32
-	failed        error
-	phaseMark     func(string, int, int) error
-	batchProgress func(int) error
+	model                   *cudaModel
+	arena                   *cudamem.Arena
+	batch                   *cudaBatchResources
+	state                   cudaSessionState
+	hcMath                  *cudaHC
+	ctx, pos                int
+	logits                  []float32
+	failed                  error
+	phaseMark               func(string, int, int) error
+	batchProgress           func(int) error
+	disableBlockDiagAttnOut bool
 }
 
 type cudaSessionState struct {
@@ -151,7 +152,7 @@ func (r *cudaRuntime) allocTokenState(a *cudamem.Arena, s *cudaTokenState, prefi
 	s.ffnBlocks, s.ffnOut = alloc("ffn-blocks", 2*cudaWidth), alloc("ffn-output", cudaWidth)
 	s.outputMixed = alloc("output-mixed", 2*cudaWidth)
 	s.logits = alloc("logits", int(r.model.output.weight.dimensions[1]))
-	s.q80Input = cudamem.AllocIn[byte](a, "q80-input", 8192/32*36)
+	s.q80Input = cudamem.AllocIn[byte](a, "q80-input", 32768/32*36)
 	s.q81Input = cudamem.AllocIn[byte](a, "q81-input", cudaWidth/32*36)
 	s.q81Experts = cudamem.AllocIn[byte](a, "q81-experts", 6*2048/32*36)
 	if a.Err() != nil {
@@ -661,13 +662,19 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
 		return err
 	}
-	for group := range 8 {
-		rows, err := cudaTensorRows(l.attnOutA, group*1024, 1024)
-		if err != nil {
+	if !r.disableBlockDiagAttnOut {
+		if err := r.encodeQ80NativeBlockDiag(l.attnOutA, heads, s.attnLow, 8); err != nil {
 			return err
 		}
-		if err := r.encodeQ80Native(rows, heads.Slice(group*4096, (group+1)*4096), s.attnLow.Slice(group*1024, (group+1)*1024)); err != nil {
-			return err
+	} else {
+		for group := range 8 {
+			rows, err := cudaTensorRows(l.attnOutA, group*1024, 1024)
+			if err != nil {
+				return err
+			}
+			if err := r.encodeQ80Native(rows, heads.Slice(group*4096, (group+1)*4096), s.attnLow.Slice(group*1024, (group+1)*1024)); err != nil {
+				return err
+			}
 		}
 	}
 	// The pinned attention-output/HC fusion uses native float32 Q8_0 scales.
@@ -836,8 +843,21 @@ func (r *cudaRuntime) encodeQ80Native(t cudaModelTensor, in, out cudamem.Slice[f
 	return r.encodeQ80MatvecQuantized(t, q, out)
 }
 
+// encodeQ80NativeBlockDiag uses the pinned CUDA block-diagonal fallback quantization.
+func (r *cudaRuntime) encodeQ80NativeBlockDiag(t cudaModelTensor, in, out cudamem.Slice[float32], diag int) error {
+	if in.Len() == 0 || in.Len()%32 != 0 || in.Len()/32*36 > r.state.q80Input.Len() {
+		return errors.New("cuda runtime: invalid q8_0 input length")
+	}
+	q := r.state.q80Input.Slice(0, in.Len()/32*36)
+	if err := r.encodeQuantQ80(in, q, in.Len()); err != nil {
+		return err
+	}
+	return r.encodeQ80MatvecQuantizedBlockDiag(t, q, out, diag)
+}
+
 // encodeQ80Matvec matches the default aligned-artifact route for eligible dense
-// tensors. Grouped attention output uses encodeQ80Native explicitly.
+// tensors. Grouped attention output uses encodeQ80NativeBlockDiag explicitly to
+// project all 8 head groups in a single grid dispatch.
 func (r *cudaRuntime) encodeQ80Matvec(t cudaModelTensor, in, out cudamem.Slice[float32]) error {
 	if len(t.dimensions) != 2 || t.dimensions[0]%1024 != 0 || t.dimensions[1]%128 != 0 || t.bytes < 2<<20 {
 		return r.encodeQ80Native(t, in, out)

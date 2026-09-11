@@ -527,32 +527,33 @@ type cudaFoundation struct {
 	gguf   *gguf.File
 	mapped cudaModelRange
 
-	probeTensor      string
-	probeHost        uint16
-	probeDevice      uint16
-	probeCols        uint32
-	probeRows        uint32
-	probeBytes       uint64
-	probeOffset      uint64
-	probePtr         driver.DevicePtr
-	matrixMod        driver.Module
-	quantQ80Mod      driver.Module
-	matrixFn         driver.Function
-	quantQ80Fn       driver.Function
-	quantQ81Fn       driver.Function
-	quantQ81BatchFn  driver.Function
-	q81MatvecFn      driver.Function
-	q81MatvecBatchFn driver.Function
-	q80QuantizedFn   driver.Function
-	rmsFn            driver.Function
-	f16Fn            driver.Function
-	f16DefaultFn     driver.Function
-	f16PairOrderedFn driver.Function
-	hcPreFn          driver.Function
-	hcHalfFn         driver.Function
-	hcSplitFn        driver.Function
-	hcCollapseFn     driver.Function
-	hcExpandFn       driver.Function
+	probeTensor             string
+	probeHost               uint16
+	probeDevice             uint16
+	probeCols               uint32
+	probeRows               uint32
+	probeBytes              uint64
+	probeOffset             uint64
+	probePtr                driver.DevicePtr
+	matrixMod               driver.Module
+	quantQ80Mod             driver.Module
+	matrixFn                driver.Function
+	quantQ80Fn              driver.Function
+	quantQ81Fn              driver.Function
+	quantQ81BatchFn         driver.Function
+	q81MatvecFn             driver.Function
+	q81MatvecBatchFn        driver.Function
+	q80QuantizedFn          driver.Function
+	q80QuantizedBlockDiagFn driver.Function
+	rmsFn                   driver.Function
+	f16Fn                   driver.Function
+	f16DefaultFn            driver.Function
+	f16PairOrderedFn        driver.Function
+	hcPreFn                 driver.Function
+	hcHalfFn                driver.Function
+	hcSplitFn               driver.Function
+	hcCollapseFn            driver.Function
+	hcExpandFn              driver.Function
 
 	hcPostFn                  driver.Function
 	rowFn                     driver.Function
@@ -1222,6 +1223,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_q8_0_matvec_q8_1", &r.q81MatvecFn},
 		{"ds4_q8_0_matvec_q8_1_batch", &r.q81MatvecBatchFn},
 		{"ds4_q8_0_matvec_quantized", &r.q80QuantizedFn},
+		{"ds4_q8_0_matvec_quantized_blockdiag", &r.q80QuantizedBlockDiagFn},
 		{"ds4_rms", &r.rmsFn},
 		{"ds4_f16_matvec", &r.f16Fn},
 		{"ds4_f16_matvec_half_input", &r.f16DefaultFn},
