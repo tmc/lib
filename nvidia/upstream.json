@@ -3524,6 +3524,14 @@
             "sha256": "8dee7b7a7b98c331177a36eb72660f1fd8b86caa6fc5acfae57bd724eac560d7"
           },
           {
+            "path": "nvidia/nvml/constants.gen.go",
+            "sha256": "6ba2cbdac44339fdb9a1428d1974c209c81502e5de24978e8b679af4e6323c9d"
+          },
+          {
+            "path": "nvidia/nvml/constants.provenance.json",
+            "sha256": "20d98d0228da8fc87afd699f99c042614d0446be2017c746b50ad6b3f7c703ce"
+          },
+          {
             "path": "nvidia/nvml/device.gen.go",
             "sha256": "504fae591f7b006e6f977a9815f9ec56b8576e78d02db2d3bade2de68d3635f8"
           },
@@ -3604,7 +3612,60 @@
             "sha256": "ebab184317052394206c86e9913ad08004fc8dc723c53cbe1895b7856a080c09"
           }
         ],
-        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files."
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files.",
+        "supplemental_runs": [
+          {
+            "purpose": "Add field, event and architecture constants without regenerating existing bindings, loaders, documentation or their original receipt.",
+            "repository": {
+              "url": "https://github.com/tmc/libgen.git",
+              "commit": "91d0dee88577a6a4ce8e7682da95708fe8deefc7",
+              "tree": "29c6304aed2f75e45f71f28b966deb0ad1df99ca"
+            },
+            "source_state": {
+              "kind": "clean-checkout",
+              "status_porcelain": ""
+            },
+            "header": {
+              "repository": "headers",
+              "path": "pinned/nvml/cuda-13.3/nvml.h",
+              "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+            },
+            "argv": [
+              "go",
+              "run",
+              "./cmd/nvml-survey",
+              "-constants-only",
+              "-header",
+              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+              "-headers-dir",
+              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers",
+              "-upstream-version",
+              "13.3.29",
+              "-output",
+              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/lib/nvidia/nvml"
+            ],
+            "cwd": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/libgen",
+            "environment": {
+              "GOWORK": "off",
+              "TMPDIR": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml"
+            },
+            "toolchain": {
+              "go": "go version go1.25.0 darwin/arm64",
+              "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+            },
+            "outputs": [
+              {
+                "path": "nvidia/nvml/constants.gen.go",
+                "sha256": "6ba2cbdac44339fdb9a1428d1974c209c81502e5de24978e8b679af4e6323c9d"
+              },
+              {
+                "path": "nvidia/nvml/constants.provenance.json",
+                "sha256": "20d98d0228da8fc87afd699f99c042614d0446be2017c746b50ad6b3f7c703ce"
+              }
+            ],
+            "note": "This supplemental run applies only the listed outputs. The original repository records and generation receipt describe the older binding outputs and are retained unchanged. No uncommitted documentation-rollout changes were used."
+          }
+        ]
       },
       "maintained_files_excluded": [
         "AUDIT-vs-go-nvml.md",
