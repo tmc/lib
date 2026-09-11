@@ -349,25 +349,83 @@ computes its weight base from `ids[slot]` over a six-element buffer. So
 	8.50 GB / 247.89 GB/s = 34.29 ms/token  ->  29.16 tok/s
 
 is a ceiling for any implementation on this host that reads the weights it
-needs. Observed against it: the oracle's 56.4 ms is 1.64x the floor, our port's
-118.0 ms is 3.44x.
+needs.
 
-State CUDA decode goals as a distance from 34.29 ms rather than a multiple of
-the oracle. A multiple moves when the oracle does and implies headroom that does
-not exist; the floor is fixed, and it says decode cannot be made more than about
-3.4x faster here whatever else is fixed.
+State CUDA decode goals as a distance from this floor rather than as a multiple
+of the oracle. A multiple moves when the oracle does and implies headroom that
+does not exist; the floor is fixed for a given context.
+
+### The floor is not one number: it has a KV term
+
+Weights are the whole story only at short context. The KV cache adds `ds4RawCap`
+raw entries (128) plus `ctx/4+2` compressed, each `ds4KVWidth` = 512 floats, per
+layer over 43 layers -- see `metal_runtime_darwin.go:24-25,385,450,464` and the
+matching `cuda_session_linux.go:135-170`. That term is negligible in the regime
+the port has been measured in and is not negligible where the oracle was
+measured:
+
+	ctx  1,024:    128 +    258 entries   0.034 GB/token   floor 34.43 ms
+	ctx 65,665:    128 + 16,418 entries   1.457 GB/token   floor 40.17 ms
+
+So 34.29 ms is a short-context floor. Quote the floor with the context it was
+computed for, and compare two engines only at the same one.
+
+This matters immediately, because the two figures that have been compared all
+week were taken at different contexts: the oracle's 56.40 ms at context 65,665
+positions 2048..2176, our port's 111.25 ms at context 1024 positions 0..5
+(disclosed by `094936CE`, 2026-09-11). Against its own floor the oracle is 1.40x,
+not the 1.64x that a short-context floor implies -- it is nearer saturation than
+the earlier framing said. The port was measured in the easier regime, so the real
+gap is wider than the ratio of the two numbers, not narrower. Every fraction
+downstream of that pair is unsettled until both are re-run at one context.
 
 ### What this does not establish
 
-Not the mechanism of the 2.09x gap. Dividing both engines by the same assumed
+Not a mechanism, from the fractions. Dividing both engines by the same assumed
 8.5 GB makes "percent of achievable bandwidth" the time ratio rescaled --
 `(8.50/0.0564)/(8.50/0.1180)` and `0.1180/0.0564` are both 2.0922 -- so those
 fractions cannot separate poor coalescing from launch serialization. Both
-mechanisms produce them identically.
+mechanisms produce them identically. The mechanism was settled instead by direct
+measurement, below.
 
-One measured inconsistency is worth more than either fraction: chunked prefill
-moves an estimated 2.2-5.2 TB in 288.5 s, or 7.6-18.0 GB/s, against decode's
-72.0 GB/s on the same kernels. A kernel-efficiency explanation does not predict
-a 4x swing between two phases running the same code. GPU busy time against wall
-time per token, and `dram__bytes_read` rather than a derived byte count, are
-what would settle it.
+And not that decode is bandwidth bound. It is not. `094936CE` measured GPU stream
+time at 99.99% of wall and the per-phase sum at 96.51% of that, which kills the
+launch-serialization hypothesis; then `ncu` put the dominant kernel,
+`ds4_iq2_xxs_pair_selected_q8_1` (542.2 us/layer), at 89.1% SM compute against
+10.0% memory. Decode is ALU bound inside IQ2 dequantization. The mechanism is
+visible in the source: our inner loop
+(`examples/ds4-min/cuda_experts_q81_linux.go:25-33`) does 32 scalar
+shift/mask/branch/multiply steps per 32 weights where the oracle
+(`ds4_mmq.cu:2594-2615`) issues 8 `__dp4a` with `__vcmpne4`/`__vsub4` for
+branchless signs.
+
+The floor still binds -- it is a bound, not a prediction -- but a workload can sit
+far above it for reasons that have nothing to do with bandwidth, and this one does.
+
+### Where decode parity actually lives
+
+What the floor does say, and what the phase table says with it, is that the
+expert kernel cannot carry decode parity on its own. Zeroing the whole
+`expert-ffn` phase leaves `111.25 - 23.22 = 88.03 ms`, still 1.56x the oracle's
+56.40. The other 88 ms is attention (22.57), attention-output (20.50, at 0.89
+waves/SM -- an occupancy problem, not an ALU one), ffn-post (14.81), compression
+(10.40), ffn-pre (8.34) and shared-ffn (7.52).
+
+### Batching does not amortize dequantization by T
+
+Worth stating because it is the natural assumption and it is wrong by about 40x.
+A dequantized weight block is reusable only across tokens that routed to that
+same expert. With 6 of 256 experts per token, a chunk of W tokens shares an
+expert about `W*6/256` times, so the amortization factor is that, not W -- 48 at
+W=2048, and below 1 at the port's current `cudaPrefillBatchWidth` of 8, where a
+dedup kernel would do nothing at all.
+
+Adding a token axis to the existing kernel does not help either. Metal already
+has the batched variant and it carries `tok` as a grid dimension only
+(`examples/ds4-min/metal_matmul_expert_darwin.go:390`): every `(row, slot, tok)`
+threadgroup re-reads the weight bytes and redoes the grid lookup, the sign lookup
+and the multiply-accumulates. It is T independent copies fused into one dispatch.
+The shape that does amortize is expert-major with first-owner dedup, which the
+oracle implements at `ds4_mmq.cu:2656-2760` -- gather the slots that chose this
+expert, dequantize once, accumulate against each. Its `MAXM` bound and the chunk
+width are what set the real factor.
