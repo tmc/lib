@@ -377,8 +377,7 @@ func (o *metalPinnedOps) compressor(kv, score []float32, ape, norm boundMetalTen
 		enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(128))
 		enc.EndEncoding()
 	}
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("compressor", cb); err != nil {
 		return nil, false, fmt.Errorf("attention compressor: %w", err)
 	}
 	if !emit {
@@ -429,8 +428,7 @@ func (o *metalPinnedOps) RopeAttentionRaw(q, kv []float32, sinks boundMetalTenso
 	libmetal.SetScalar(enc, uint32(cap), 7)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(64))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("rope-attention-raw", cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("raw attention: %w", err)
 	}
 	host := out.HostSlice()
@@ -462,8 +460,7 @@ func (o *metalPinnedOps) MatvecQ2KF32(t boundMetalTensor, x []float32) ([]float3
 	libmetal.SetScalar(enc, uint32(rows), 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(rows), libmetal.Threads(min(rows, 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-q2k-f32", cb); err != nil {
 		return nil, fmt.Errorf("matvec %q F32: %w", t.name, err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -493,8 +490,7 @@ func (o *metalPinnedOps) SumVectors(vectors []float32, count int) ([]float32, er
 	libmetal.SetScalar(enc, uint32(count), 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(width), libmetal.Threads(min(width, 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("sum-vectors", cb); err != nil {
 		return nil, fmt.Errorf("sum vectors: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -537,8 +533,7 @@ func (o *metalPinnedOps) MatvecQ2K(t boundMetalTensor, x []float32) ([]float32, 
 	libmetal.SetScalar(enc, uint32(rows), 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(rows), libmetal.Threads(min(rows, 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-q2k", cb); err != nil {
 		return nil, fmt.Errorf("matvec %q: %w", t.name, err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -579,8 +574,7 @@ func (o *metalPinnedOps) clamp10(x []float32, gate bool) ([]float32, error) {
 	libmetal.SetScalar(enc, mode, 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(len(x)), libmetal.Threads(min(len(x), 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("clamp10", cb); err != nil {
 		return nil, fmt.Errorf("clamp: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -626,8 +620,7 @@ func (o *metalPinnedOps) MatvecIQ2PairQ8K(gate, up boundMetalTensor, x []float32
 	libmetal.SetScalar(enc, uint32(rows), 5)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(rows), libmetal.Threads(32))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-iq2-pair-q8k", cb); err != nil {
 		return nil, nil, fmt.Errorf("IQ2_XXS pair: %w", err)
 	}
 	host := out.HostSlice()
@@ -662,8 +655,7 @@ func (o *metalPinnedOps) MatvecIQ2PairF32(gate, up boundMetalTensor, x []float32
 	libmetal.SetScalar(enc, uint32(rows), 5)
 	enc.DispatchThreadgroupsThreadsPerThreadgroup(libmetal.Threads(rows), libmetal.Threads(32))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-iq2-pair-f32", cb); err != nil {
 		return nil, nil, fmt.Errorf("IQ2_XXS pair F32: %w", err)
 	}
 	host := out.HostSlice()
@@ -707,8 +699,7 @@ func (o *metalPinnedOps) swiglu(gate, up []float32, weight float32) ([]float32, 
 	libmetal.SetScalar(enc, weight, 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(len(gate)), libmetal.Threads(min(len(gate), 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("swiglu", cb); err != nil {
 		return nil, fmt.Errorf("SwiGLU: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -749,8 +740,7 @@ func (o *metalPinnedOps) RouterHash(logits []float32, table boundMetalTensor, to
 	libmetal.SetScalar(enc, token, 5)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("router-hash", cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("router hash: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), weights.HostSlice()...), nil
@@ -790,8 +780,7 @@ func (o *metalPinnedOps) RouterBiased(logits []float32, bias boundMetalTensor) (
 	enc.SetBufferWithOffsetAtIndex(weights.Buffer(), weights.Offset(), 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("router-biased", cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("biased router: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), append([]int32(nil), selected.HostSlice()...), append([]float32(nil), weights.HostSlice()...), nil
@@ -823,8 +812,7 @@ func (o *metalPinnedOps) Layer0AttentionPost(embedding boundMetalTensor, block [
 	libmetal.SetScalar(enc, token, 6)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("layer0-attention-post", cb); err != nil {
 		return nil, fmt.Errorf("layer 0 attention post: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -859,8 +847,7 @@ func (o *metalPinnedOps) RopeAttentionOne(q, kv []float32, sinks boundMetalTenso
 	libmetal.SetScalar(enc, position, 4)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(64), libmetal.Threads(64))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("rope-attention-one", cb); err != nil {
 		return nil, nil, nil, fmt.Errorf("rope attention: %w", err)
 	}
 	host := out.HostSlice()
@@ -904,8 +891,7 @@ func (o *metalPinnedOps) RMS(x []float32, weight boundMetalTensor, groups int, w
 		apple.MTLSize{Width: 256, Height: 1, Depth: 1},
 	)
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("rms", cb); err != nil {
 		return nil, fmt.Errorf("RMS norm: %w", err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -932,8 +918,7 @@ func (o *metalPinnedOps) Layer0AttentionPre(embedding, hcFn, hcScale, hcBase, no
 	libmetal.SetScalar(enc, token, 6)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(1), libmetal.Threads(1))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("layer0-attention-pre", cb); err != nil {
 		return nil, nil, fmt.Errorf("layer 0 attention pre: %w", err)
 	}
 	host := out.HostSlice()
@@ -1000,7 +985,7 @@ func (o *metalPinnedOps) GetRowF16(t boundMetalTensor, row uint32) ([]float32, e
 		return nil, err
 	}
 	defer out.Free()
-	if err := o.dispatch(o.kernels.GetRowF16, t.data, out, row, uint32(cols), cols); err != nil {
+	if err := o.dispatch("get-row-f16", o.kernels.GetRowF16, t.data, out, row, uint32(cols), cols); err != nil {
 		return nil, err
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -1035,8 +1020,7 @@ func (o *metalPinnedOps) MatvecQ80(t boundMetalTensor, x []float32) ([]float32, 
 		apple.MTLSize{Width: 32, Height: 4, Depth: 1},
 	)
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-q80", cb); err != nil {
 		return nil, fmt.Errorf("matvec %q: %w", t.name, err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
@@ -1152,14 +1136,13 @@ func (o *metalPinnedOps) MatvecF16(t boundMetalTensor, x []float32) ([]float32, 
 	libmetal.SetScalar(enc, uint32(len(x)), 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(rows), libmetal.Threads(min(rows, 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait("matvec-f16", cb); err != nil {
 		return nil, fmt.Errorf("matvec %q: %w", t.name, err)
 	}
 	return append([]float32(nil), out.HostSlice()...), nil
 }
 
-func (o *metalPinnedOps) dispatch(pipeline apple.MTLComputePipelineState, in metalmem.Slice[byte], out metalmem.Slice[float32], a, b uint32, threads int) error {
+func (o *metalPinnedOps) dispatch(region string, pipeline apple.MTLComputePipelineState, in metalmem.Slice[byte], out metalmem.Slice[float32], a, b uint32, threads int) error {
 	cb := o.commandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(pipeline)
@@ -1169,8 +1152,7 @@ func (o *metalPinnedOps) dispatch(pipeline apple.MTLComputePipelineState, in met
 	libmetal.SetScalar(enc, b, 3)
 	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(threads), libmetal.Threads(min(threads, 256)))
 	enc.EndEncoding()
-	cb.Commit()
-	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+	if err := o.submitAndWait(region, cb); err != nil {
 		return fmt.Errorf("Metal dispatch: %w", err)
 	}
 	return nil
@@ -2150,4 +2132,25 @@ func (o *metalPinnedOps) record(region string, layer, position int, cb apple.MTL
 		Start:    float64(cb.GPUStartTime()),
 		End:      float64(cb.GPUEndTime()),
 	})
+}
+
+// submitAndWait commits cb, waits for it, and files its span.
+//
+// Every immediate-submit op goes through here so the span log covers the same
+// buffers the creation counter does. Before it existed, 18 of the 20 sites
+// committed and waited inline and filed nothing, so each was a buffer the
+// counter saw and the log did not -- which is why the workload benchmarks,
+// whose reports require the two counts to agree, could not run at all: a
+// 512-token prefill created 44*512+4 buffers and recorded 43*512+1 spans.
+//
+// The span carries no layer or position because an immediate op is not told
+// either. rope-attention-mixed keeps its own record call rather than using
+// this, since it does know both and a span that names them is worth more.
+func (o *metalPinnedOps) submitAndWait(region string, cb apple.MTLCommandBuffer) error {
+	cb.Commit()
+	if err := libmetal.WaitCommandBuffer(context.Background(), cb); err != nil {
+		return err
+	}
+	o.record(region, -1, 0, cb)
+	return nil
 }

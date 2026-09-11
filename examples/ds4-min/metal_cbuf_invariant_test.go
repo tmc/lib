@@ -131,3 +131,68 @@ func itoa(n int) string {
 	}
 	return string(b)
 }
+
+// Creating a command buffer and filing its span are two separate acts, and for
+// most of this package's life only the first happened. The creation counter saw
+// every buffer; the span log saw the two that went through a metalBatch Wait or
+// rope-attention-mixed. The workload benchmarks require the two counts to agree
+// -- a3c3ae7c's reportWorkload calls b.Fatalf when they differ -- so a 512-token
+// prefill that created 44*512+4 buffers and recorded 43*512+1 spans made
+// BenchmarkMetalPrefill and BenchmarkMetalDecode unrunnable, on every arm, with
+// no number printed at all. The missing per-token span was the embedding fetch,
+// which reaches the GPU through dispatch.
+//
+// The count agreeing is a property of the whole file, not of any one call, so
+// no unit test can hold it: the way it breaks is that someone adds an
+// eighteenth immediate op and commits and waits inline, exactly as the other
+// seventeen did. This asserts the shape in the source instead. It needs no GPU
+// and no model, which is the point -- the defect it guards was invisible for
+// weeks precisely because seeing it required a quiet host and an 80 GiB load.
+func TestEveryImmediateBufferFilesASpan(t *testing.T) {
+	// metal_batch_darwin.go is exempt: newMetalBatch creates the buffer and
+	// (*metalBatch).Wait files the span, so creation and recording are
+	// deliberately in different functions there.
+	files := []string{"metal_ops_darwin.go", "metal_head_darwin.go"}
+	var offenders []string
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(string(src), "\n")
+		start, name := 0, ""
+		flush := func(end int) {
+			if name == "" {
+				return
+			}
+			// The factory itself names the method it defines; it hands the
+			// buffer to a caller that records, and records nothing itself.
+			if strings.Contains(name, ") commandBuffer(") {
+				return
+			}
+			body := strings.Join(lines[start:end], "\n")
+			if !strings.Contains(body, "commandBuffer()") {
+				return
+			}
+			if strings.Contains(body, "submitAndWait(") || strings.Contains(body, ".record(") {
+				return
+			}
+			offenders = append(offenders, fileLine(f, start+1, name))
+		}
+		for i, line := range lines {
+			if strings.HasPrefix(line, "func ") {
+				flush(i)
+				start, name = i, line
+			}
+		}
+		flush(len(lines))
+	}
+	if len(offenders) > 0 {
+		t.Errorf("%d function(s) create a command buffer without filing its span:\n\t%s\n"+
+			"commit and wait through (*metalPinnedOps).submitAndWait, which records, "+
+			"rather than calling cb.Commit and libmetal.WaitCommandBuffer inline; "+
+			"a buffer the counter sees and the log does not makes every workload "+
+			"benchmark fail its span-count check",
+			len(offenders), strings.Join(offenders, "\n\t"))
+	}
+}
