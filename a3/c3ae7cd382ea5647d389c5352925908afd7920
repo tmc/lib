@@ -12,3 +12,21 @@ mutation-check: reverting the fallback nil-return left the full suite green;
   TestRuntimeBatchAllocationIsBounded goes red on it (3 call sites, want 2)
 unmeasured: Encoded=1820 and the tokens*2+4 region inventory; anchor run
   blocked on host qualification (load 29, stuck root mds at 12.9 GB)
+
+anchor pair 2026-09-11T11:42-11:47Z, M4 Max, launch gate: 6 consecutive
+  df69-hostqualify -max-load 8.00 passes 30s apart; both arms under memguard
+  -max-wired-gib 100 -max-wired-rise-gib -1 -max-segments 0.35 -interval 2s.
+  TestMetalRegionProfileLogitsAnchor, DS4_MODEL 86720111488 bytes, tokens
+  fixture sha a35e61e8edcb2616, 64 tokens at context 1024.
+    9981df92 (baseline): PASS 53.93s, peak wired 87.98 GiB, compressor 0.172
+    a3c3ae7c (head):     PASS 46.09s, peak wired 88.81 GiB, compressor 0.175
+  Both logits sha256=d06e9c92a278e6079030cc3a204aff3ace54032beb5695ea25231a683a746d80,
+  asserted against metalRegionProfileLogitsSHA256, not merely logged.
+  So merging 43 command buffers per token into one changed no float bit here.
+coverage limit: this exercises ONLY the newMetalBatch site at :534. The second
+  site at :731 needs i>=2 && !batchedCompressed, first reachable at position
+  2051 (TestDeepRegimeBoundary). The anchor covers positions 0-63, and
+  TestPrefill2048MissesDeepRegime records that the registered 2048-token oracle
+  workload stops at 2047. No registered workload reaches the deep regime, so
+  the closing-batch split Stage 1 also touched remains unmeasured.
+timings above are not throughput: shared host, n=1 per arm.
