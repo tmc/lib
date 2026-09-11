@@ -1,0 +1,22 @@
+committed 2026-09-11 by Antigravity (model inherit)
+tty=not a tty pid=70134 ITERM_SESSION_ID=w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+conversation=726510d6-5980-4ebf-a5b3-dc4279f1347b
+
+Receipts (CUDA sm_121 on DGX):
+  ds4_indexer_score parallelised over c with serial h and i loops:
+    100% bit-exact against serial reference under math.Float32bits
+    Mutation gate confirms reassociating head sum moves 418 of 513 scores (81.5%)
+  ds4_indexer_select:
+    Preserves total order (score descending, index ascending)
+    Tie-breaking gate admits strictly indices 0..511 across 600 equal scores
+  encodeFillU32 on odd layers:
+    Truncated to max(1, state.attn.n), saving 1.38 MB/token of unread stores
+
+Deep decode benchmark (ctx=65,665, positions 2048..2063, N=16):
+  Full Step: 844.66 ms -> 166.19 ms (-678.47 ms, 5.08x speedup)
+  compression: 713.72 ms -> 33.95 ms (-679.77 ms, 21.0x speedup)
+  attention: 65.39 ms
+  expert-ffn: 12.36 ms
+  Parity against oracle (56.40 ms): 15.0x -> 2.95x
+
+git-auto-commit-message was not used: cgpt missing Anthropic API key, failed twice. Message hand-written.
