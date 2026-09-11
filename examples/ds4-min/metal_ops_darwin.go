@@ -161,6 +161,7 @@ type metalPinnedKernels struct {
 	GetRowF16         apple.MTLComputePipelineState `metal:"get_row_f16"`
 	MatvecF16         apple.MTLComputePipelineState `metal:"matvec_f16"`
 	MatvecQ80         apple.MTLComputePipelineState `metal:"matvec_q8_0"`
+	MatvecQ80BlockDiag apple.MTLComputePipelineState `metal:"matvec_q8_0_blockdiag"`
 	Layer0Attention   apple.MTLComputePipelineState `metal:"layer0_attention_pre"`
 	Layer0Post        apple.MTLComputePipelineState `metal:"layer0_attention_post"`
 	RouterHash        apple.MTLComputePipelineState `metal:"router_hash"`
@@ -1186,7 +1187,7 @@ func (o *metalPinnedOps) Close() {
 		o.matmulExpert.Close()
 		o.matmulExpert = nil
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate} {
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecQ80BlockDiag, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -1350,6 +1351,66 @@ kernel void matvec_q8_0(
   for (ushort r=0; r<rows_per_group; r++) {
     float total=simd_sum(scratch[r*32+lane]);
     if (lane==0 && simdgroup==0 && first_row+r<rows) out[first_row+r]=total;
+  }
+}
+
+// matvec_q8_0_blockdiag runs the block-diagonal form of matvec_q8_0: blocks
+// independent (rows x cols) matvecs over disjoint slices of x and out, laid out
+// contiguously in all three buffers. The attention output projection is eight of
+// these -- one per group of eight heads -- and the runtime used to encode them as
+// eight dispatches of 1024 rows each, which on a 48-SM part is well under one
+// wave apiece.
+//
+// The per-output arithmetic is untouched: blocks, first_block, the strided
+// accumulation loop and the two-stage simd_sum below are character for character
+// what matvec_q8_0 does, and only the three base pointers move. Each output
+// element is therefore the same sequence of float operations in the same order,
+// so the fused dispatch is bit-identical to the loop it replaces rather than
+// merely close. metal_matvec_blockdiag_darwin_test.go asserts that against
+// Float32bits, and any future edit here has to keep the two bodies in step.
+kernel void matvec_q8_0_blockdiag(
+    device const uchar *weights [[buffer(0)]],
+    device const float *x [[buffer(1)]],
+    device float *out [[buffer(2)]],
+    constant uint &cols [[buffer(3)]],
+    constant uint &rows [[buffer(4)]],
+    threadgroup float *scratch [[threadgroup(0)]],
+    uint3 group [[threadgroup_position_in_grid]],
+    ushort lane [[thread_index_in_simdgroup]],
+    ushort simdgroup [[simdgroup_index_in_threadgroup]]) {
+  constexpr uint rows_per_group = 2;
+  constexpr uint simdgroups = 4;
+  const uint blocks = cols/32;
+  const uint diag = group.y;
+  device const uchar *w = weights+uint64_t(diag)*uint64_t(rows)*blocks*34;
+  device const float *xb = x+uint64_t(diag)*cols;
+  device float *ob = out+uint64_t(diag)*rows;
+  const uint first_row = group.x*rows_per_group;
+  const ushort block_part = lane/4;
+  const ushort element_part = lane%4;
+  const uint first_block = simdgroup*8+block_part;
+  float sums[rows_per_group] = {0.0f};
+  for (uint b=first_block; b<blocks; b+=simdgroups*8) {
+    float xv[8];
+    for (ushort i=0; i<8; i++) xv[i]=xb[b*32+element_part*8+i];
+    for (ushort r=0; r<rows_per_group; r++) {
+      if (first_row+r>=rows) continue;
+      const device uchar *p=w+uint64_t(first_row+r)*blocks*34+uint64_t(b)*34;
+      float dot=0.0f;
+      for (ushort i=0; i<8; i++) dot+=float(as_type<char>(p[2+element_part*8+i]))*xv[i];
+      sums[r]+=dot*float(*reinterpret_cast<device const half *>(p));
+    }
+  }
+  for (ushort r=0; r<rows_per_group; r++) {
+    if(simdgroup==0)scratch[r*32+lane]=0.0f;
+    sums[r]=simd_sum(sums[r]);
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  for (ushort r=0; r<rows_per_group; r++) if (lane==0) scratch[r*32+simdgroup]=sums[r];
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  for (ushort r=0; r<rows_per_group; r++) {
+    float total=simd_sum(scratch[r*32+lane]);
+    if (lane==0 && simdgroup==0 && first_row+r<rows) ob[first_row+r]=total;
   }
 }
 

@@ -133,6 +133,49 @@ func (b *metalBatch) EncodeMatvecQ80(t boundMetalTensor, in, out metalmem.Slice[
 	return nil
 }
 
+// EncodeMatvecQ80BlockDiag appends one dispatch covering diag independent Q8_0
+// matvecs over disjoint, contiguous slices of in and out. The weight tensor holds
+// all diag blocks end to end, so t has diag*rows rows of the shared column count.
+//
+// It exists because the attention output projection is eight 1024x4096 matvecs
+// and the runtime encoded them one at a time. Each was a 512-threadgroup grid,
+// which measures 0.89 waves per SM on a 48-SM GB10 -- not even one full wave, so
+// the launches were latency bound rather than limited by anything they computed.
+// At 8 groups over 43 layers that is 344 under-occupied dispatches per token on
+// both backends; 094936CE measured the CUDA phase at 20.50 ms of a 111.25 ms
+// decode step.
+//
+// The fusion is numerically free by construction rather than within a tolerance:
+// matvec_q8_0_blockdiag differs from matvec_q8_0 only in three base pointers, so
+// every output element accumulates the same terms in the same order. That is what
+// metal_matvec_blockdiag_darwin_test.go asserts, comparing Float32bits against the
+// loop this replaces.
+func (b *metalBatch) EncodeMatvecQ80BlockDiag(t boundMetalTensor, in, out metalmem.Slice[float32], diag int) error {
+	if err := b.ready(); err != nil {
+		return err
+	}
+	if t.typeID != 8 || len(t.dimensions) != 2 || diag <= 0 || t.dimensions[0]%32 != 0 ||
+		t.dimensions[1]%uint64(diag) != 0 ||
+		uint64(in.Len()) != t.dimensions[0]*uint64(diag) || uint64(out.Len()) != t.dimensions[1] {
+		return fmt.Errorf("matvec %q: invalid block-diagonal Q8_0 tensor or input", t.name)
+	}
+	cols, rows := t.dimensions[0], t.dimensions[1]/uint64(diag)
+	enc := b.encoder()
+	enc.SetComputePipelineState(b.ops.kernels.MatvecQ80BlockDiag)
+	enc.SetBufferWithOffsetAtIndex(t.data.Buffer(), t.data.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(in.Buffer(), in.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 2)
+	libmetal.SetScalar(enc, uint32(cols), 3)
+	libmetal.SetScalar(enc, uint32(rows), 4)
+	enc.SetThreadgroupMemoryLengthAtIndex(2*32*4, 0)
+	enc.DispatchThreadgroupsThreadsPerThreadgroup(
+		apple.MTLSize{Width: uint((rows + 1) / 2), Height: uint(diag), Depth: 1},
+		apple.MTLSize{Width: 32, Height: 4, Depth: 1},
+	)
+	b.encoded++
+	return nil
+}
+
 // EncodeRopeAttentionRaw appends rotary attention over the uncompressed cache.
 // out holds the rotated query, rotated key-value vector, and inverse-rotated
 // attention heads, in that order.
