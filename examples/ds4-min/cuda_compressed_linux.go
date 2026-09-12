@@ -131,9 +131,13 @@ func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float3
 // encodeIndexer consumes projected queries and head weights. Up to 512 rows
 // need no projections; all are allowed. Above that boundary it selects exactly
 // 512 rows, resolving score ties in favor of the lower cache index.
-func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32], nComp int, qScratch, scores cudamem.Slice[float32], allowed cudamem.Slice[uint32], position int) error {
+func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32], nComp int, qScratch, scores cudamem.Slice[float32], allowed cudamem.Slice[uint32], position int, layer ...int) error {
 	if nComp < 0 || nComp > cache.Len()/128 || cache.Len()%128 != 0 || allowed.Len() < max(1, nComp) || position < 0 || nComp > 512 && (q.Len() != 64*128 || weights.Len() != 64 || qScratch.Len() != 64*128 || scores.Len() < nComp) {
 		return fmt.Errorf("cuda: indexer: invalid shape")
+	}
+	layerIdx := -1
+	if len(layer) > 0 {
+		layerIdx = layer[0]
 	}
 	return r.device.WithContext(func() error {
 		if err := r.loadMathKernels(); err != nil {
@@ -142,11 +146,20 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if nComp <= 512 {
 			return r.encodeFillU32(allowed, nComp, 1)
 		}
+		if err := r.markCUDAPhase("indexer-query", position, layerIdx); err != nil {
+			return err
+		}
 		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.device.DefaultStream()).Launch(q, qScratch, uint32(position)); err != nil {
 			return fmt.Errorf("cuda: launch indexer query: %w", err)
 		}
+		if err := r.markCUDAPhase("indexer-score", position, layerIdx); err != nil {
+			return err
+		}
 		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.device.DefaultStream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer score: %w", err)
+		}
+		if err := r.markCUDAPhase("indexer-select", position, layerIdx); err != nil {
+			return err
 		}
 		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.device.DefaultStream()).Launch(scores, allowed, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer selection: %w", err)

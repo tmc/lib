@@ -108,7 +108,7 @@ func TestCUDAIndexerProjectionBoundary(t *testing.T) {
 			}
 			cudaCompressedUpload(t, s.qLora, qin)
 		}
-		if err := r.compress(&l, &ls, &s, position); err != nil {
+		if err := r.compress(&l, &ls, &s, position, 2); err != nil {
 			t.Fatalf("position %d: compress: %v", position, err)
 		}
 		if err := f.device.WithContext(func() error { return syncStream(f.device.DefaultStream()) }); err != nil {

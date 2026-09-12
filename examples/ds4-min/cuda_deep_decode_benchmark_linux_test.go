@@ -177,8 +177,13 @@ func TestCUDADeepDecodeBenchmark(t *testing.T) {
 			expertFFNPhase:   float64(phaseTotals["expert-ffn"].Microseconds()) / 1000.0,
 			sharedFFNPhase:   float64(phaseTotals["shared-ffn"].Microseconds()) / 1000.0,
 			attnOutPhase:     float64(phaseTotals["attention-output"].Microseconds()) / 1000.0,
-			ffnPrePhase:      float64(phaseTotals["ffn-pre"].Microseconds()) / 1000.0,
-			ffnPostPhase:     float64(phaseTotals["ffn-post"].Microseconds()) / 1000.0,
+			ffnPrePhase:            float64(phaseTotals["ffn-pre"].Microseconds()) / 1000.0,
+			ffnPostPhase:           float64(phaseTotals["ffn-post"].Microseconds()) / 1000.0,
+			indexerQBMatvecPhase:   float64(phaseTotals["indexer-qb-matvec"].Microseconds()) / 1000.0,
+			indexerProjMatvecPhase: float64(phaseTotals["indexer-proj-matvec"].Microseconds()) / 1000.0,
+			indexerQueryPhase:      float64(phaseTotals["indexer-query"].Microseconds()) / 1000.0,
+			indexerScorePhase:      float64(phaseTotals["indexer-score"].Microseconds()) / 1000.0,
+			indexerSelectPhase:     float64(phaseTotals["indexer-select"].Microseconds()) / 1000.0,
 		}
 	}
 
@@ -187,15 +192,45 @@ func TestCUDADeepDecodeBenchmark(t *testing.T) {
 	t.Logf("post-decode live state at layer %d: attn.n = %d, indexer.n = %d (boundary >512 crossed = %t)",
 		evenLayerIdx, finalAttnN, finalIndexerN, finalIndexerN > 512)
 
-	fmt.Printf("\nPer-step progression across position 2051 boundary:\n")
-	fmt.Printf("%-6s | %-12s | %-12s | %-12s | %-12s\n", "Pos", "Full Step", "compression", "attention", "expert-ffn")
-	fmt.Println("-------+--------------+--------------+--------------+-------------")
+	// Sum-rule structural gate: every position must have strictly positive unattributed residue.
 	for step := 0; step < numDecodeTokens; step++ {
 		m := metrics[step]
-		fmt.Printf("%-6d | %9.2f ms | %9.2f ms | %9.2f ms | %9.2f ms\n",
-			oracleWorkloadPrefill+step, m.streamTime, m.compressionPhase, m.attentionPhase, m.expertFFNPhase)
+		if m.sumPhases >= m.streamTime {
+			t.Fatalf("position %d: phases sum to %.3f ms against a %.3f ms step; a phase was solved for, not measured",
+				oracleWorkloadPrefill+step, m.sumPhases, m.streamTime)
+		}
+		if m.interKernelGap <= 0 {
+			t.Fatalf("position %d: zero unattributed residue; every nanosecond of the step is claimed by a phase, which cannot be true",
+				oracleWorkloadPrefill+step)
+		}
 	}
 
+	// Per-position full phase progression
+	fmt.Printf("\n=== PER-POSITION PHASE BREAKDOWN (ctx=%d, positions %d..%d) ===\n",
+		oracleWorkloadContext, oracleWorkloadPrefill, oracleWorkloadPrefill+numDecodeTokens-1)
+	fmt.Printf("%-5s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s | %-8s\n",
+		"Pos", "FullStep", "compress", "attn-out", "ffn-post", "exp-ffn", "ffn-pre", "sh-ffn", "attention", "residue", "sum-ph")
+	fmt.Println("------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+-----------+----------+---------")
+	for step := 0; step < numDecodeTokens; step++ {
+		m := metrics[step]
+		fmt.Printf("%-5d | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms\n",
+			oracleWorkloadPrefill+step, m.streamTime, m.compressionPhase, m.attnOutPhase, m.ffnPostPhase,
+			m.expertFFNPhase, m.ffnPrePhase, m.sharedFFNPhase, m.attentionPhase, m.interKernelGap, m.sumPhases)
+	}
+
+	// Dedicated 5-way indexer breakdown per position
+	fmt.Printf("\n=== PER-POSITION INDEXER FIVE-WAY BREAKDOWN (positions %d..%d) ===\n",
+		oracleWorkloadPrefill, oracleWorkloadPrefill+numDecodeTokens-1)
+	fmt.Printf("%-5s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s | %-9s\n",
+		"Pos", "compress", "idx-qb", "idx-proj", "idx-query", "idx-score", "idx-sel", "idx-5-sum")
+	fmt.Println("------+-----------+-----------+-----------+-----------+-----------+-----------+----------")
+	for step := 0; step < numDecodeTokens; step++ {
+		m := metrics[step]
+		idxSum := m.indexerQBMatvecPhase + m.indexerProjMatvecPhase + m.indexerQueryPhase + m.indexerScorePhase + m.indexerSelectPhase
+		fmt.Printf("%-5d | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms | %6.2f ms\n",
+			oracleWorkloadPrefill+step, m.compressionPhase, m.indexerQBMatvecPhase, m.indexerProjMatvecPhase,
+			m.indexerQueryPhase, m.indexerScorePhase, m.indexerSelectPhase, idxSum)
+	}
 
 	calcStats := func(vals []float64) (median, min, max float64) {
 		if len(vals) == 0 {
@@ -224,8 +259,8 @@ func TestCUDADeepDecodeBenchmark(t *testing.T) {
 
 	fmt.Printf("\n=== CUDA DEEP-CONTEXT DECODE BREAKDOWN (ctx=%d, positions %d..%d, live indexer.n=%d..%d) ===\n",
 		oracleWorkloadContext, oracleWorkloadPrefill, oracleWorkloadPrefill+numDecodeTokens-1, liveIndexerN, finalIndexerN)
-	fmt.Printf("%-20s | %s\n", "Metric / Phase", "Duration ms: Median [Min, Max]")
-	fmt.Println("---------------------+---------------------------------")
+	fmt.Printf("%-24s | %s\n", "Metric / Phase", "Duration ms: Median [Min, Max]")
+	fmt.Println("-------------------------+---------------------------------")
 	for _, row := range []struct {
 		name  string
 		field func(s stepMetrics) float64
@@ -233,22 +268,48 @@ func TestCUDADeepDecodeBenchmark(t *testing.T) {
 		{"Full Step (Stream)", func(s stepMetrics) float64 { return s.streamTime }},
 		{"Full Step (Host)", func(s stepMetrics) float64 { return s.hostTime }},
 		{"Sum of Phases", func(s stepMetrics) float64 { return s.sumPhases }},
-		{"Inter-kernel Gap", func(s stepMetrics) float64 { return s.interKernelGap }},
+		{"Unattributed Residue", func(s stepMetrics) float64 { return s.interKernelGap }},
 		{"---", nil},
-		{"attention", func(s stepMetrics) float64 { return s.attentionPhase }},
+		{"compression (base)", func(s stepMetrics) float64 { return s.compressionPhase }},
+		{"indexer-qb-matvec", func(s stepMetrics) float64 { return s.indexerQBMatvecPhase }},
+		{"indexer-proj-matvec", func(s stepMetrics) float64 { return s.indexerProjMatvecPhase }},
+		{"indexer-query", func(s stepMetrics) float64 { return s.indexerQueryPhase }},
+		{"indexer-score", func(s stepMetrics) float64 { return s.indexerScorePhase }},
+		{"indexer-select", func(s stepMetrics) float64 { return s.indexerSelectPhase }},
 		{"attention-output", func(s stepMetrics) float64 { return s.attnOutPhase }},
-		{"compression", func(s stepMetrics) float64 { return s.compressionPhase }},
 		{"ffn-post", func(s stepMetrics) float64 { return s.ffnPostPhase }},
 		{"expert-ffn", func(s stepMetrics) float64 { return s.expertFFNPhase }},
 		{"ffn-pre", func(s stepMetrics) float64 { return s.ffnPrePhase }},
 		{"shared-ffn", func(s stepMetrics) float64 { return s.sharedFFNPhase }},
+		{"attention", func(s stepMetrics) float64 { return s.attentionPhase }},
 	} {
 		if row.field == nil {
-			fmt.Println("---------------------+---------------------------------")
+			fmt.Println("-------------------------+---------------------------------")
 			continue
 		}
 		med, minV, maxV := calcStats(extract(row.field))
-		fmt.Printf("%-20s | %6.2f [%6.2f, %6.2f]\n", row.name, med, minV, maxV)
+		fmt.Printf("%-24s | %6.2f [%6.2f, %6.2f]\n", row.name, med, minV, maxV)
 	}
-	fmt.Println("=======================================================")
+	fmt.Println("=========================================================")
+
+	// Sum rule check on instrumented phases
+	compMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.compressionPhase }))
+	idxQBMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.indexerQBMatvecPhase }))
+	idxProjMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.indexerProjMatvecPhase }))
+	idxQryMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.indexerQueryPhase }))
+	idxScoreMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.indexerScorePhase }))
+	idxSelMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.indexerSelectPhase }))
+	attnOutMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.attnOutPhase }))
+	ffnPostMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.ffnPostPhase }))
+	expFFNMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.expertFFNPhase }))
+	ffnPreMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.ffnPrePhase }))
+	shFFNMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.sharedFFNPhase }))
+	attnMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.attentionPhase }))
+	stepMed, _, _ := calcStats(extract(func(s stepMetrics) float64 { return s.streamTime }))
+
+	sumAllPhases := compMed + idxQBMed + idxProjMed + idxQryMed + idxScoreMed + idxSelMed + attnOutMed + ffnPostMed + expFFNMed + ffnPreMed + shFFNMed + attnMed
+	unattributedResidue := stepMed - sumAllPhases
+	fmt.Printf("\nSum of 12 measured phase medians: %.2f ms vs Step median: %.2f ms (unattributed residue: %+.2f ms, %.1f%%)\n",
+		sumAllPhases, stepMed, unattributedResidue, unattributedResidue/stepMed*100.0)
+	fmt.Println("=================================================================")
 }

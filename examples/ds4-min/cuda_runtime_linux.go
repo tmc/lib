@@ -721,6 +721,15 @@ type cudaFoundation struct {
 	indexerScoreFn            driver.Function
 	indexerSelectFn           driver.Function
 	fillU32Fn                 driver.Function
+
+	phaseMark func(name string, position, layer int) error
+}
+
+func (r *cudaFoundation) markCUDAPhase(name string, position, layer int) error {
+	if r == nil || r.phaseMark == nil {
+		return nil
+	}
+	return r.phaseMark(name, position, layer)
 }
 
 func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {

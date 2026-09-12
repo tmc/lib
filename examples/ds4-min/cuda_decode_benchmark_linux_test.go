@@ -27,11 +27,16 @@ type stepMetrics struct {
 	expertFFNPhase   float64
 	attentionPhase   float64
 	ffnPostPhase     float64
-	compressionPhase float64
-	ffnPrePhase      float64
-	sharedFFNPhase   float64
-	sumPhases        float64
-	interKernelGap   float64
+	compressionPhase       float64
+	ffnPrePhase            float64
+	sharedFFNPhase         float64
+	sumPhases              float64
+	interKernelGap         float64
+	indexerQBMatvecPhase   float64
+	indexerProjMatvecPhase float64
+	indexerQueryPhase      float64
+	indexerScorePhase      float64
+	indexerSelectPhase     float64
 }
 
 func calcStats(vals []float64) (med, minVal, maxVal float64) {
@@ -167,12 +172,17 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 				attnOutPhase:     float64(phaseTotals["attention-output"].Microseconds()) / 1000.0,
 				expertFFNPhase:   float64(phaseTotals["expert-ffn"].Microseconds()) / 1000.0,
 				attentionPhase:   float64(phaseTotals["attention"].Microseconds()) / 1000.0,
-				ffnPostPhase:     float64(phaseTotals["ffn-post"].Microseconds()) / 1000.0,
-				compressionPhase: float64(phaseTotals["compression"].Microseconds()) / 1000.0,
-				ffnPrePhase:      float64(phaseTotals["ffn-pre"].Microseconds()) / 1000.0,
-				sharedFFNPhase:   float64(phaseTotals["shared-ffn"].Microseconds()) / 1000.0,
-				sumPhases:        float64(sumPhases.Microseconds()) / 1000.0,
-				interKernelGap:   float64(gap.Microseconds()) / 1000.0,
+				ffnPostPhase:           float64(phaseTotals["ffn-post"].Microseconds()) / 1000.0,
+				compressionPhase:       float64(phaseTotals["compression"].Microseconds()) / 1000.0,
+				ffnPrePhase:            float64(phaseTotals["ffn-pre"].Microseconds()) / 1000.0,
+				sharedFFNPhase:         float64(phaseTotals["shared-ffn"].Microseconds()) / 1000.0,
+				sumPhases:              float64(sumPhases.Microseconds()) / 1000.0,
+				interKernelGap:         float64(gap.Microseconds()) / 1000.0,
+				indexerQBMatvecPhase:   float64(phaseTotals["indexer-qb-matvec"].Microseconds()) / 1000.0,
+				indexerProjMatvecPhase: float64(phaseTotals["indexer-proj-matvec"].Microseconds()) / 1000.0,
+				indexerQueryPhase:      float64(phaseTotals["indexer-query"].Microseconds()) / 1000.0,
+				indexerScorePhase:      float64(phaseTotals["indexer-score"].Microseconds()) / 1000.0,
+				indexerSelectPhase:     float64(phaseTotals["indexer-select"].Microseconds()) / 1000.0,
 			}
 		}
 		return metrics, nil
@@ -254,6 +264,11 @@ func TestCUDADecodeBenchmark(t *testing.T) {
 	printRow("attention", func(s stepMetrics) float64 { return s.attentionPhase })
 	printRow("ffn-post", func(s stepMetrics) float64 { return s.ffnPostPhase })
 	printRow("compression", func(s stepMetrics) float64 { return s.compressionPhase })
+	printRow("indexer-qb-matvec", func(s stepMetrics) float64 { return s.indexerQBMatvecPhase })
+	printRow("indexer-proj-matvec", func(s stepMetrics) float64 { return s.indexerProjMatvecPhase })
+	printRow("indexer-query", func(s stepMetrics) float64 { return s.indexerQueryPhase })
+	printRow("indexer-score", func(s stepMetrics) float64 { return s.indexerScorePhase })
+	printRow("indexer-select", func(s stepMetrics) float64 { return s.indexerSelectPhase })
 	printRow("ffn-pre", func(s stepMetrics) float64 { return s.ffnPrePhase })
 	printRow("shared-ffn", func(s stepMetrics) float64 { return s.sharedFFNPhase })
 	fmt.Println("==========================================================================================================")

@@ -24,7 +24,6 @@ type cudaRuntime struct {
 	ctx, pos                int
 	logits                  []float32
 	failed                  error
-	phaseMark               func(string, int, int) error
 	batchProgress           func(int) error
 	disableBlockDiagAttnOut bool
 	disableSIMDExperts      bool
@@ -649,7 +648,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 		if err := r.markCUDAPhase("compression", position, index); err != nil {
 			return err
 		}
-		if err := r.compress(l, state, s, position); err != nil {
+		if err := r.compress(l, state, s, position, index); err != nil {
 			return err
 		}
 		if err := r.markCUDAPhase("attention", position, index); err != nil {
@@ -764,18 +763,11 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	return nil
 }
 
-func (r *cudaRuntime) markCUDAPhase(name string, position, layer int) error {
-	if r.phaseMark == nil {
-		return nil
-	}
-	return r.phaseMark(name, position, layer)
-}
-
 func (r *cudaRuntime) evalLayer(index, token, position int) error {
 	return r.evalLayerState(&r.state.cudaTokenState, &r.state.layers[index], index, token, position)
 }
 
-func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position int) error {
+func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position, index int) error {
 	kv, gate := s.compressorKV.Slice(0, state.attn.width), s.compressorGate.Slice(0, state.attn.width)
 	if err := r.encodeF16PairOrdered(l.attnCompressorKV, l.attnCompressorGate, s.attnNorm, kv, gate); err != nil {
 		return err
@@ -802,6 +794,9 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 	}
 	if state.indexer.cap != 0 {
 		if state.indexer.n > 512 {
+			if err := r.markCUDAPhase("indexer-qb-matvec", position, index); err != nil {
+				return err
+			}
 			var err error
 			switch l.indexerQB.typeID {
 			case 1:
@@ -814,11 +809,14 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 			if err != nil {
 				return err
 			}
+			if err := r.markCUDAPhase("indexer-proj-matvec", position, index); err != nil {
+				return err
+			}
 			if err := r.encodeF16MatvecDefault(l.indexerProj, s.attnNorm, s.indexerWeights); err != nil {
 				return err
 			}
 		}
-		return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position)
+		return r.encodeIndexer(s.indexerQ, s.indexerWeights, state.indexer.cache, state.indexer.n, s.indexerScratch, s.indexerScores, s.allowed, position, index)
 	}
 	// An odd layer must not inherit the preceding even layer's selection mask.
 	count := max(1, state.attn.n)
