@@ -5,3 +5,7 @@ tty: not a tty
 none
 pid: 39500
 iterm_session_id: w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+
+Correction on sentinel floor:
+The commit message states "Scores at or below the -1e30 sentinel and NaNs are strictly excluded ... matching reference scan behavior."
+Historically, the pre-970f5e19 CUDA scan in ds4_indexer_select floored at -__int_as_float(0x7f800000) = -inf, whereas Metal floored at -1e30 (selectIndexerSentinel in metal_ops_darwin.go). Commit 970f5e19 deliberately aligned CUDA with Metal's -1e30 sentinel, rather than preserving the legacy -inf floor.
