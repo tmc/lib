@@ -268,15 +268,33 @@ extern "C" __global__ void ds4_indexer_query(const float *q,float *out,unsigned 
  ds4_compressed_rope(row,128,position,false);ds4_indexer_qat(row);
 }
 extern "C" __global__ void ds4_indexer_score(const float *q,const float *weights,const float *cache,float *scores,unsigned int count) {
- const unsigned int c=blockIdx.x*blockDim.x+threadIdx.x;
- if(c>=count)return;
- float score=0.0f;
- for(unsigned int h=0;h<64;h++) {
-  float dot=0.0f;
-  for(unsigned int i=0;i<128;i++)dot+=q[h*128+i]*cache[c*128+i];
-  score+=fmaxf(0.0f,dot)*weights[h]*0.011048543456039805f;
- }
- scores[c]=score;
+  __shared__ float s_cache[64 * 128];
+  const unsigned int block_row_start = blockIdx.x * 64;
+  const unsigned int global_float_start = block_row_start * 128;
+  const unsigned int max_valid_floats = count * 128;
+
+  const float4 *cache4 = (const float4 *)(cache + global_float_start);
+  float4 *s_cache4 = (float4 *)s_cache;
+  const unsigned int max_valid4 = max_valid_floats / 4;
+  const unsigned int global_float4_start = global_float_start / 4;
+
+  for (unsigned int idx = threadIdx.x; idx < 2048; idx += blockDim.x) {
+    unsigned int g_idx = global_float4_start + idx;
+    s_cache4[idx] = (g_idx < max_valid4) ? cache4[idx] : make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  }
+  __syncthreads();
+
+  const unsigned int c = block_row_start + threadIdx.x;
+  if (c >= count) return;
+
+  const float *row = s_cache + threadIdx.x * 128;
+  float score = 0.0f;
+  for (unsigned int h = 0; h < 64; h++) {
+    float dot = 0.0f;
+    for (unsigned int i = 0; i < 128; i++) dot += q[h * 128 + i] * row[i];
+    score += fmaxf(0.0f, dot) * weights[h] * 0.011048543456039805f;
+  }
+  scores[c] = score;
 }
 __device__ __forceinline__ static unsigned int ds4_topk_float_key(float v) {
  unsigned int u = __float_as_uint(v);
