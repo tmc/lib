@@ -180,6 +180,14 @@ func loadLocked(path string) error {
 		return libErr
 	}
 	registerFuncs()
+	if libErr = checkVersion(); libErr != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		clearFuncs()
+		return libErr
+	}
 	ready.Store(true)
 	return nil
 }
@@ -224,6 +232,48 @@ func libraryNames() []string {
 		return []string{"libnvidia-encode.so.1", "libnvidia-encode.so"}
 	case "windows":
 		return []string{"nvEncodeAPI64.dll", "nvEncodeAPI.dll"}
+	}
+	return nil
+}
+
+// VersionError reports that the loaded library implements an older API than
+// the headers these bindings were generated from.
+type VersionError struct {
+	Path      string // the library the version was read from
+	Supported uint32 // the highest API version the library implements
+	Required  uint32 // the API version the bindings were generated for
+}
+
+// formatVersion renders a version in the encoding NvEncodeAPIGetMaxSupportedVersion reports.
+func formatVersion(v uint32) string { return fmt.Sprintf("%d.%d", v>>4, v&0xf) }
+
+func (e *VersionError) Error() string {
+	return fmt.Sprintf("nvenc: %s supports API version %s, these bindings require %s", e.Path, formatVersion(e.Supported), formatVersion(e.Required))
+}
+
+// checkVersion refuses a library that implements an older API than the header
+// these bindings were generated from.
+//
+// NvEncodeAPIGetMaxSupportedVersion packs the version as major<<4|minor, the
+// same encoding NVENCAPI_VERSION uses. The driver refuses a session opened
+// with a struct version it does not know, so a caller that ignored the
+// mismatch would fail at NvEncOpenEncodeSessionEx instead, several calls
+// later and with a status that does not name the cause.
+//
+// A library predating the symbol itself is admitted: register leaves an
+// absent symbol unbound so the package still works against older releases,
+// and a library that cannot be asked cannot be refused on its answer.
+func checkVersion() error {
+	if !present["NvEncodeAPIGetMaxSupportedVersion"] {
+		return nil
+	}
+	var supported uint32
+	if st := fnGetMaxSupportedVersion(&supported); st != Success {
+		return fmt.Errorf("nvenc: %s: NvEncodeAPIGetMaxSupportedVersion: %w", libPath, st)
+	}
+	required := uint32(APIMajorVersion<<4 | APIMinorVersion)
+	if supported < required {
+		return &VersionError{Path: libPath, Supported: supported, Required: required}
 	}
 	return nil
 }

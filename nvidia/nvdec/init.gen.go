@@ -182,6 +182,14 @@ func loadLocked(path string) error {
 		return libErr
 	}
 	registerFuncs()
+	if libErr = checkVersion(); libErr != nil {
+		closeLibrary(lib)
+		lib = 0
+		libPath = ""
+		present = make(map[string]bool)
+		clearFuncs()
+		return libErr
+	}
 	ready.Store(true)
 	return nil
 }
@@ -229,6 +237,11 @@ func libraryNames() []string {
 	}
 	return nil
 }
+
+// checkVersion reports whether the loaded library is one these bindings can
+// drive. nvdec exposes no way to ask a loaded library which API it implements,
+// so there is nothing to check.
+func checkVersion() error { return nil }
 
 // register binds a Go function pointer to a library symbol, recording whether
 // the symbol resolved. A symbol absent from the loaded driver is left unbound
