@@ -28,7 +28,14 @@ func (c *collection) complete(context cupti.Context, stream uint32, ptr uintptr,
 		return decodeBuffer(data, c.layouts, c.next, c.name, func(r Record) error {
 			c.mu.Lock()
 			defer c.mu.Unlock()
-			if !r.Complete {
+			incomplete := !r.Complete
+			switch r.Kind {
+			case cupti.ActivityKindExternalCorrelation:
+				incomplete = false
+			case cupti.ActivityKindMemory2:
+				incomplete = r.Timestamp == 0
+			}
+			if incomplete {
 				c.incomplete++
 			}
 			if len(c.records) >= c.limit {

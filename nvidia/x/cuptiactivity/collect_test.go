@@ -63,3 +63,56 @@ func TestCollectionErrors(t *testing.T) {
 		t.Fatal("callback errors lost")
 	}
 }
+
+func TestExternalCorrelationIsNotIncompleteTiming(t *testing.T) {
+	pool, err := newBufferPool(64, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ptr, size := pool.request()
+	a := (*cupti.ActivityExternalCorrelation)(unsafe.Pointer(&pool.buffers[ptr].words[0]))
+	*a = cupti.ActivityExternalCorrelation{Kind: cupti.ActivityKindExternalCorrelation, ExternalKind: cupti.ExternalCorrelationKindCustom0, ExternalId: 99, CorrelationId: 42}
+	calls := 0
+	c := collection{pool: pool, limit: 1, layouts: map[cupti.ActivityKind]uint{a.Kind: uint(unsafe.Sizeof(*a))}, next: func(_ *uint8, _ uint, out **cupti.Activity) error {
+		calls++
+		if calls > 1 {
+			return cupti.ErrMaxLimitReached
+		}
+		*out = (*cupti.Activity)(unsafe.Pointer(a))
+		return nil
+	}, dropped: func(cupti.Context, uint32) (uint, error) { return 0, nil }}
+	c.complete(0, 0, ptr, size, uint(unsafe.Sizeof(*a)))
+	if c.incomplete != 0 || c.failures != 0 || len(c.records) != 1 || c.records[0].ExternalID != 99 {
+		t.Fatalf("incomplete=%d failures=%d records=%v", c.incomplete, c.failures, c.records)
+	}
+}
+
+func TestMemoryInstantCompleteness(t *testing.T) {
+	for _, timestamp := range []uint64{0, 10} {
+		size := int(unsafe.Sizeof(cupti.ActivityMemory4{}))
+		pool, err := newBufferPool(size, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ptr, n := pool.request()
+		a := (*cupti.ActivityMemory4)(unsafe.Pointer(&pool.buffers[ptr].words[0]))
+		*a = cupti.ActivityMemory4{Kind: cupti.ActivityKindMemory2, Timestamp: timestamp}
+		calls := 0
+		c := collection{pool: pool, limit: 1, layouts: map[cupti.ActivityKind]uint{a.Kind: uint(size)}, next: func(_ *uint8, _ uint, out **cupti.Activity) error {
+			calls++
+			if calls > 1 {
+				return cupti.ErrMaxLimitReached
+			}
+			*out = (*cupti.Activity)(unsafe.Pointer(a))
+			return nil
+		}, dropped: func(cupti.Context, uint32) (uint, error) { return 0, nil }}
+		c.complete(0, 0, ptr, n, n)
+		want := uint64(0)
+		if timestamp == 0 {
+			want = 1
+		}
+		if c.incomplete != want || c.failures != 0 || len(c.records) != 1 {
+			t.Fatalf("timestamp=%d incomplete=%d failures=%d", timestamp, c.incomplete, c.failures)
+		}
+	}
+}

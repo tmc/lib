@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
 
@@ -37,6 +38,47 @@ func WriteRecord(w *perfetto.Writer, track uint64, origin uint64, r Record) erro
 		perfetto.NewUintAnnotation("callback_id", uint64(r.CallbackID)),
 		perfetto.NewUintAnnotation("return_value", uint64(r.ReturnValue)),
 		perfetto.NewUintAnnotation("bytes", r.Bytes),
+	}
+	if r.Kind == cupti.ActivityKindConcurrentKernel {
+		for i, axis := range []string{"x", "y", "z"} {
+			annotations = append(annotations,
+				perfetto.NewIntAnnotation("grid_"+axis, int64(r.Grid[i])),
+				perfetto.NewIntAnnotation("block_"+axis, int64(r.Block[i])))
+		}
+		annotations = append(annotations,
+			perfetto.NewIntAnnotation("grid_id", r.GridID),
+			perfetto.NewUintAnnotation("registers_per_thread", uint64(r.RegistersPerThread)),
+			perfetto.NewIntAnnotation("static_shared_memory_bytes", int64(r.StaticSharedMemory)),
+			perfetto.NewIntAnnotation("dynamic_shared_memory_bytes", int64(r.DynamicSharedMemory)),
+			perfetto.NewUintAnnotation("local_memory_per_thread_bytes", uint64(r.LocalMemoryPerThread)),
+			perfetto.NewUintAnnotation("local_memory_total_bytes", r.LocalMemoryTotal),
+			perfetto.NewUintAnnotation("launch_type", uint64(r.LaunchType)))
+		if r.Queued != 0 {
+			annotations = append(annotations, perfetto.NewUintAnnotation("queued_ns", r.Queued))
+		}
+		if r.Submitted != 0 {
+			annotations = append(annotations, perfetto.NewUintAnnotation("submitted_ns", r.Submitted))
+		}
+	}
+	if r.Kind == cupti.ActivityKindMemcpy {
+		annotations = append(annotations,
+			perfetto.NewUintAnnotation("copy_kind", uint64(r.CopyKind)),
+			perfetto.NewUintAnnotation("runtime_correlation_id", uint64(r.RuntimeCorrelationID)),
+			perfetto.NewUintAnnotation("copy_count", r.CopyCount),
+			perfetto.NewUintAnnotation("source_memory_kind", uint64(r.SourceMemoryKind)),
+			perfetto.NewUintAnnotation("destination_memory_kind", uint64(r.DestinationMemoryKind)))
+	}
+	if r.Kind == cupti.ActivityKindConcurrentKernel || r.Kind == cupti.ActivityKindMemcpy || r.Kind == cupti.ActivityKindMemset {
+		annotations = append(annotations,
+			perfetto.NewUintAnnotation("graph_id", uint64(r.GraphID)),
+			perfetto.NewUintAnnotation("graph_node_id", r.GraphNodeID),
+			perfetto.NewBoolAnnotation("device_launched", r.DeviceLaunched))
+	}
+	if r.Kind == cupti.ActivityKindSynchronization {
+		annotations = append(annotations,
+			perfetto.NewUintAnnotation("synchronization_type", uint64(r.Synchronization)),
+			perfetto.NewUintAnnotation("cuda_event_id", uint64(r.CudaEventID)),
+			perfetto.NewUintAnnotation("cuda_event_sync_id", r.CudaEventSyncID))
 	}
 	if err := w.WriteSliceBeginWithAnnotations(track, r.Start-origin, name, "cupti", annotations, nil); err != nil {
 		return fmt.Errorf("cuptiactivity: write activity start: %w", err)

@@ -10,7 +10,10 @@ import (
 )
 
 // Config bounds collection memory. Kinds must be nonempty and contain only
-// driver/runtime API, concurrent kernel, memcpy, or memset activities.
+// driver/runtime API, concurrent kernel, memcpy, memset, memory operation,
+// synchronization, or external-correlation
+// activities. External-correlation records require an instrumented producer
+// that pushes and pops external IDs on the thread issuing CUDA calls.
 type Config struct {
 	Kinds       []cupti.ActivityKind
 	BufferBytes int
