@@ -178,6 +178,36 @@ directly; it is faster than any viewer:
     from CUPTI_ACTIVITY_KIND_KERNEL k join StringIds s on s.id=k.demangledName
     group by s.value order by ms desc limit 15;
 
+## Measured CUDA digests, DGX spark-31db, 2026-09-12
+
+Binary built at `a02c5c62`, sha256 `4aa8f6dc…ff4910`, `-backend cuda`,
+`-ctx 4096`, `-prompt-tokens scripts/testdata/oracle-workload-tokens2048.json`,
+`-tokens 2`:
+
+    token_ids_sha256  5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380
+    prefill logits    4eee1b147ac1b839cf80148919e598dd4623e862fbd6a7d9dbc8d5e06b80fd4a
+    final logits      837a6b8716431254516705085ace5d59393c4fffe92fe44069a38720995ea6a3
+    accepted IDs      15342, then 201
+
+Three runs produced these, not one. `checkLogits` returns early on an empty
+expectation (`logits_check.go:24`), so a digest is only computed when one is
+supplied, and the prefill check returns on mismatch before decode
+(`main.go:157`). So: measure prefill against a placeholder; measure final while
+re-checking prefill against the measured value; then supply both. Only the
+third run exits 0, and until it does the pair is one sample rather than a
+constant.
+
+The token-ID digest is byte-identical to `oracleWorkloadTokenHash` at
+`oracle_workload_bench_test.go:25`, so this is provably the same input the
+bench harness names.
+
+**These are not comparable to the registered logits constants in that file.**
+`oracleWorkloadPrefillLogitsSHA256` and `oracleWorkloadFinalLogitsSHA256` belong
+to a harness that runs at `oracleWorkloadContext = 65665` and decodes 128
+tokens (`:121`), excluding EOS (`:86`). Same tokens, different context and
+different decode. A disagreement between these digests and those constants
+would say nothing about either. Do not edit a constant to match a run.
+
 ## Reference run, DGX spark-31db, 2026-09-12
 
 Commit `8fd3f4e9`, go1.26.7 linux/arm64, nsys 2026.1.1.204, model
@@ -227,15 +257,29 @@ The clock backing `systemClockNs` has to be established before either is
 subtracted from anything — done blindly it drives the first host timestamp
 negative, which is the tell that the domains were mismatched.
 
-### Prefill and decode are the same code path
+### Batching prefill buys almost nothing here
 
 Activity is uniform across the entire 158.78 s device span: every 5-second
 bucket holds 127k-131k launches over the same 32 kernel kinds, and there is no
-gap longer than 5 ms anywhere in the final two seconds. The Go CUDA prefill
-runs the single-token path 2048 times at roughly 77 ms per token, which is why
-prefill and generation throughput sit within 8% of each other — a spread no
-batched prefill would show. The decode window uses 29 distinct kernel kinds
-against prefill's 32.
+gap longer than 5 ms anywhere in the final two seconds. The decode window uses
+29 distinct kernel kinds against prefill's 32.
 
-This is a property of the runtime, not of the profiler, and it is the first
-thing a prefill comparison against the oracle has to account for.
+Prefill *is* batched. `EvalBatch` at `cuda_session_linux.go:308` runs chunks of
+`cudaPrefillBatchWidth = 8` (`:72`), and the `*_batch` kernels are in the
+capture to prove that path ran: `ds4_q8_0_matvec_q8_1_batch` 32,643 launches,
+`ds4_quant_q8_1_batch` 21,762. It simply does not pay — 12.96 t/s prefill
+against 11.92 t/s generation, a 9% spread where batched prefill would normally
+run several times faster than decode.
+
+So what a prefill comparison against the oracle has to account for is not a
+missing batch path but an ineffective one. That is a property of the runtime,
+not of the profiler.
+
+### Prefill emits no layer spans, and why
+
+`beginLayer` is called from `evalLayerState` (`cuda_session_linux.go:607`),
+which is on the single-token path under `evalPosition`. The batched prefill
+path goes through `evalBatch` and `evalLayerProjected` instead, and neither
+opens a span. That is why `-span-level layer` yields 86 spans on this workload
+— 2 decode tokens x 43 layers — and nothing at all for the 2048-token prefill
+that consumed 99.9% of the run. Arming the batched path is open work.
