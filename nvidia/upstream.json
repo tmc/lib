@@ -2697,8 +2697,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "94941f0384bec53d15319fd18b405a7c101da15e",
-          "tree": "a3de8412188f1650d0d1c202e65fecfa20ce05c4"
+          "commit": "e4814956a518cc63f03e97915bf50455a22788d1",
+          "tree": "059a4b2e3155651fce576738f26037baebda4f21"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -2764,7 +2764,7 @@
           },
           {
             "path": "nvidia/nvshmem/doc.gen.go",
-            "sha256": "95f68d7f305a4f3a5c830158b465a596fb413af86de7224f56580ad995b7109f"
+            "sha256": "632c4fa3ca04c6e26e2d07aeb91683f97a1954bda0610591dd6e880e65b9a9c7"
           },
           {
             "path": "nvidia/nvshmem/enums.gen.go",
@@ -2776,7 +2776,7 @@
           },
           {
             "path": "nvidia/nvshmem/init.gen.go",
-            "sha256": "842bef53d8c0df213b3fc72eb7a108bf3ea35874623b365934da53d72cd8baaf"
+            "sha256": "2b0e25131cdd0289fd88738ddafcac81c9c392a5eb465d647b1ceab4979cd741"
           },
           {
             "path": "nvidia/nvshmem/layout_test.go",
@@ -7532,8 +7532,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "6de8d1a4ac28ac8e2441fbf2e1ecc2d464baccf8",
-          "tree": "9dc79a689bafb9366dd47f6e863c1cb99a80aedb"
+          "commit": "e4814956a518cc63f03e97915bf50455a22788d1",
+          "tree": "059a4b2e3155651fce576738f26037baebda4f21"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8274,7 +8274,7 @@
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
         },
         "outputs": [
@@ -8313,7 +8313,7 @@
           },
           {
             "path": "nvidia/nccl/init.gen.go",
-            "sha256": "34a8a8872803d91ce7bf1a4cb4be96e412667630f6ea3f156c075d0b8b00a3a4"
+            "sha256": "663bc582ae25b62b135a8c3d3d7cc87e7ca07bcac09c9529dae7334f4bb5c9c4"
           },
           {
             "path": "nvidia/nccl/layout_test.go",

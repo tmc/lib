@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package nvshmem binds the host-callable API of the NVSHMEM library,
 // libnvshmem_host.so.3, using purego. NVSHMEM gives the processing elements
 // (PEs) of a multi-GPU job a symmetric heap: an allocation that every PE makes
