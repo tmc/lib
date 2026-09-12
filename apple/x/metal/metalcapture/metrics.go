@@ -32,6 +32,7 @@ const (
 type Scope string
 
 const (
+	ScopeRun           Scope = "run"
 	ScopeCommandBuffer Scope = "command_buffer"
 	ScopeStageBoundary Scope = "stage_boundary"
 	ScopeEncoder       Scope = "encoder"
@@ -134,6 +135,8 @@ type Observation struct {
 	Scope       Scope             `json:"scope"`                  // Measurement scope (command_buffer, stage_boundary, pipeline, dispatch, etc.)
 	Origin      MetricOrigin      `json:"origin"`                 // Live execution vs post-capture replay
 	Status      ObservationStatus `json:"status,omitempty"`       // Availability status: collected, unavailable, unsupported
+	Source      string            `json:"source,omitempty"`       // Field path in the retained collector export
+	Reason      string            `json:"reason,omitempty"`       // Availability or interpretation explanation
 	Device      string            `json:"device,omitempty"`       // Device name or registry identity
 	RunID       string            `json:"run_id,omitempty"`       // Correlated run or pass identifier
 	Pipeline    string            `json:"pipeline,omitempty"`     // Associated pipeline function name or identifier

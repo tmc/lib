@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/google/pprof/profile"
@@ -27,10 +28,11 @@ type ReplayProfilerOutput struct {
 		SIMDShare     *float64 `json:"simd_share"`
 	} `json:"dispatches"`
 	Pipelines []struct {
-		PipelineID       *int    `json:"pipeline_id"`
-		FunctionName     *string `json:"function_name"`
-		InstructionCount *int64  `json:"instruction_count"`
-		SpilledBytes     *int64  `json:"spilled_bytes"`
+		RecordedStatistics []string `json:"recorded_statistics"`
+		PipelineID         *int     `json:"pipeline_id"`
+		FunctionName       *string  `json:"function_name"`
+		InstructionCount   *int64   `json:"instruction_count"`
+		SpilledBytes       *int64   `json:"spilled_bytes"`
 	} `json:"pipelines"`
 	TotalDispatchTimeUs *int64 `json:"total_dispatch_time_us"`
 }
@@ -151,6 +153,9 @@ func ParseReplayProfilerOutput(out []byte) (*profile.Profile, []metalcapture.Obs
 		if *d.DurationUs > math.MaxInt64/1000 {
 			return nil, nil, fmt.Errorf("metalprof: dispatch %d duration overflows nanoseconds: %d us", i, *d.DurationUs)
 		}
+		if *d.DurationUs > math.MaxInt64/1000-sumDispatchUs {
+			return nil, nil, fmt.Errorf("metalprof: dispatch total overflows nanoseconds")
+		}
 		sumDispatchUs += *d.DurationUs
 	}
 
@@ -165,10 +170,10 @@ func ParseReplayProfilerOutput(out []byte) (*profile.Profile, []metalcapture.Obs
 	replayProf := &profile.Profile{
 		SampleType: []*profile.ValueType{
 			{Type: "samples", Unit: "count"},
-			{Type: "gpu_time", Unit: "nanoseconds"},
+			{Type: "inferred_dispatch_time", Unit: "nanoseconds"},
 		},
 		PeriodType: &profile.ValueType{
-			Type: "gpu_time", Unit: "nanoseconds",
+			Type: "inferred_dispatch_time", Unit: "nanoseconds",
 		},
 		Comments: []string{
 			"Replay profile generated from headless MTLReplayer and gputrace profiler streamData.",
@@ -291,7 +296,10 @@ func ParseReplayProfilerOutput(out []byte) (*profile.Profile, []metalcapture.Obs
 		if p.PipelineID != nil {
 			pipeIDStr = fmt.Sprintf("_%d", *p.PipelineID)
 		}
-		if p.InstructionCount != nil {
+		if p.InstructionCount != nil && slices.Contains(p.RecordedStatistics, "Instruction count") {
+			if *p.InstructionCount < 0 {
+				return nil, nil, fmt.Errorf("metalprof: negative pipeline instruction count")
+			}
 			observations = append(observations, metalcapture.Observation{
 				ID:          fmt.Sprintf("compiled_pipeline%s_%s_instructions", pipeIDStr, pipeName),
 				Name:        "Compiled Pipeline Instruction Count",
@@ -308,7 +316,10 @@ func ParseReplayProfilerOutput(out []byte) (*profile.Profile, []metalcapture.Obs
 				NonAdditive: true,
 			})
 		}
-		if p.SpilledBytes != nil {
+		if p.SpilledBytes != nil && slices.Contains(p.RecordedStatistics, "Spilled bytes") {
+			if *p.SpilledBytes < 0 {
+				return nil, nil, fmt.Errorf("metalprof: negative pipeline spilled bytes")
+			}
 			observations = append(observations, metalcapture.Observation{
 				ID:          fmt.Sprintf("compiled_pipeline%s_%s_spilled_bytes", pipeIDStr, pipeName),
 				Name:        "Compiled Pipeline Spilled Memory",
@@ -327,5 +338,20 @@ func ParseReplayProfilerOutput(out []byte) (*profile.Profile, []metalcapture.Obs
 		}
 	}
 
+	extra, err := replayPipelineObservations(out, deviceName)
+	if err != nil {
+		return nil, nil, err
+	}
+	observations = append(observations, extra...)
+	timeline, err := replayTimelineObservations(out, deviceName)
+	if err != nil {
+		return nil, nil, err
+	}
+	observations = append(observations, timeline...)
+	counters, err := replayCounterObservations(out, deviceName)
+	if err != nil {
+		return nil, nil, err
+	}
+	observations = append(observations, counters...)
 	return replayProf, observations, nil
 }

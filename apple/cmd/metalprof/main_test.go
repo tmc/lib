@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +45,8 @@ func TestFetcherProfileSeparation(t *testing.T) {
 	}
 
 	cap := &metalcapture.Capture{
-		Profile: liveProf,
+		Profile:  liveProf,
+		Metadata: []byte(`{"device":"test GPU","verified_results":100,"timing_actual":"counter"}`),
 		Files: map[string][]byte{
 			"kernels.metal": []byte("kernel void vector_add() {}\nkernel void compute() {}"),
 			"replay.pprof":  replayBuf.Bytes(),
@@ -79,6 +81,12 @@ func TestFetcherProfileSeparation(t *testing.T) {
 	pReplay, _, err := fetchReplay.Fetch("/test/capture.pprof", 0, time.Second)
 	if err != nil {
 		t.Fatalf("Fetch replay: %v", err)
+	}
+	if strings.Contains(strings.Join(pReplay.Comments, "\n"), "all results checked") {
+		t.Fatal("replay inherited live correctness claim")
+	}
+	if !strings.Contains(strings.Join(pLive.Comments, "\n"), "all results checked") {
+		t.Fatal("live correctness metadata missing")
 	}
 	if pReplay.SampleType[0].Type != "replay_gpu_time" {
 		t.Errorf("replay SampleType = %q, want replay_gpu_time", pReplay.SampleType[0].Type)

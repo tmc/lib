@@ -19,8 +19,8 @@ func TestParseReplayProfilerOutput(t *testing.T) {
 			{"index": 1, "pipeline_id": 10, "function_name": "compute", "duration_us": 12, "simd_share": 0.85}
 		],
 		"pipelines": [
-			{"pipeline_id": 8, "function_name": "vector_add", "instruction_count": 9, "spilled_bytes": 0},
-			{"pipeline_id": 10, "function_name": "compute", "instruction_count": 20, "spilled_bytes": 0}
+			{"pipeline_id": 8, "function_name": "vector_add", "recorded_statistics":["Instruction count","Spilled bytes"], "instruction_count": 9, "spilled_bytes": 0},
+			{"pipeline_id": 10, "function_name": "compute", "recorded_statistics":["Instruction count","Spilled bytes"], "instruction_count": 20, "spilled_bytes": 0}
 		],
 		"total_dispatch_time_us": 47
 	}`)
@@ -28,6 +28,13 @@ func TestParseReplayProfilerOutput(t *testing.T) {
 	prof, obs, err := metalprof.ParseReplayProfilerOutput(validJSON)
 	if err != nil {
 		t.Fatalf("ParseReplayProfilerOutput failed: %v", err)
+	}
+
+	if got := prof.SampleType[1].Type; got != "inferred_dispatch_time" {
+		t.Fatalf("replay metric = %q, want inferred_dispatch_time", got)
+	}
+	if _, _, err := metalprof.ParseReplayProfilerOutput([]byte(`{"dispatches":[{"duration_us":9223372036854775},{"duration_us":1}]}`)); err == nil {
+		t.Fatal("accepted a replay total that overflows nanoseconds")
 	}
 
 	if len(prof.Sample) != 2 {
@@ -102,8 +109,8 @@ func TestPipelineIDSpecializationDisambiguation(t *testing.T) {
 			{"index": 1, "pipeline_id": 12, "function_name": "compute", "duration_us": 30}
 		],
 		"pipelines": [
-			{"pipeline_id": 10, "function_name": "compute", "instruction_count": 25, "spilled_bytes": 0},
-			{"pipeline_id": 12, "function_name": "compute", "instruction_count": 40, "spilled_bytes": 16}
+			{"pipeline_id": 10, "function_name": "compute", "recorded_statistics":["Instruction count","Spilled bytes"], "instruction_count": 25, "spilled_bytes": 0},
+			{"pipeline_id": 12, "function_name": "compute", "recorded_statistics":["Instruction count","Spilled bytes"], "instruction_count": 40, "spilled_bytes": 16}
 		],
 		"total_dispatch_time_us": 50
 	}`)

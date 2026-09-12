@@ -257,7 +257,7 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		fn.Filename = filepath.Join(f.dir, name)
 	}
 
-	if len(f.cap.Metadata) > 0 {
+	if f.selected != "replay" && len(f.cap.Metadata) > 0 {
 		var meta exampleMetadata
 		if err := json.Unmarshal(f.cap.Metadata, &meta); err == nil && meta.Device != "" {
 			timingDesc := meta.TimingMode
@@ -274,7 +274,9 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		}
 	}
 
-	p.Comments = append(p.Comments,
-		"Metal event intervals measure whole launches or command buffers. Source lines are navigation anchors, not instruction-level hotness.")
+	if f.selected != "replay" {
+		p.Comments = append(p.Comments,
+			"Metal event intervals measure whole launches or command buffers. Source lines are navigation anchors, not instruction-level hotness.")
+	}
 	return p, "", nil
 }

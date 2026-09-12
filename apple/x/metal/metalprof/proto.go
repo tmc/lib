@@ -57,18 +57,22 @@ func encodeString(fieldNum int, s string) []byte {
 
 // SampleValues represents metric counts for a profiling sample.
 type SampleValues struct {
-	Samples   int64 // Number of occurrences / dispatches
-	GPUTimeNs int64 // Cumulative GPU execution duration in nanoseconds
+	Samples                   int64 // Number of occurrences / dispatches
+	GPUTimeNs                 int64 // Cumulative GPU execution duration in nanoseconds
+	CommandBufferCount        int64 // Successful command-buffer creations
+	CommandBufferCommitCount  int64 // Command-buffer submissions
+	CommandBufferCreateTimeNs int64 // Host time spent creating command buffers
 }
 
 // Builder constructs a standard pprof profile from recorded Metal samples.
 type Builder struct {
-	st        *stringTable
-	mappings  []mapping
-	locations []location
-	functions []function
-	funcMap   map[string]uint64
-	samples   []sample
+	st             *stringTable
+	mappings       []mapping
+	locations      []location
+	functions      []function
+	funcMap        map[string]uint64
+	commandBuffers bool
+	samples        []sample
 }
 
 type mapping struct {
@@ -161,6 +165,9 @@ func (b *Builder) AddLocation(funcID uint64, lineNum int64) uint64 {
 
 // AddSample records a sample with the given callstack location IDs, values, and string labels.
 func (b *Builder) AddSample(locIDs []uint64, vals SampleValues, strLabels map[string]string) {
+	if vals.CommandBufferCount != 0 || vals.CommandBufferCommitCount != 0 || vals.CommandBufferCreateTimeNs != 0 {
+		b.commandBuffers = true
+	}
 	var pbLabels []label
 	for k, v := range strLabels {
 		pbLabels = append(pbLabels, label{
@@ -171,7 +178,7 @@ func (b *Builder) AddSample(locIDs []uint64, vals SampleValues, strLabels map[st
 
 	b.samples = append(b.samples, sample{
 		locationIDs: locIDs,
-		values:      []int64{vals.Samples, vals.GPUTimeNs},
+		values:      []int64{vals.Samples, vals.GPUTimeNs, vals.CommandBufferCount, vals.CommandBufferCommitCount, vals.CommandBufferCreateTimeNs},
 		labels:      pbLabels,
 	})
 }
@@ -196,13 +203,31 @@ func (b *Builder) Encode(w io.Writer) error {
 	st2 = append(st2, encodeVarint(2, uint64(b.st.Index("nanoseconds")))...)
 	msg = append(msg, encodeLengthDelimited(1, st2)...)
 
+	if b.commandBuffers {
+		for _, typ := range []struct{ name, unit string }{
+			{"command_buffer_count", "count"},
+			{"command_buffer_commit_count", "count"},
+			{"command_buffer_create_time", "nanoseconds"},
+		} {
+			var st []byte
+			st = append(st, encodeVarint(1, uint64(b.st.Index(typ.name)))...)
+			st = append(st, encodeVarint(2, uint64(b.st.Index(typ.unit)))...)
+			msg = append(msg, encodeLengthDelimited(1, st)...)
+		}
+	}
+	msg = append(msg, encodeVarint(14, uint64(b.st.Index("gpu_time")))...)
+
 	// 2. Samples
 	for _, s := range b.samples {
 		var sMsg []byte
 		for _, locID := range s.locationIDs {
 			sMsg = append(sMsg, encodeVarint(1, locID)...)
 		}
-		for _, val := range s.values {
+		values := s.values
+		if !b.commandBuffers {
+			values = values[:2]
+		}
+		for _, val := range values {
 			sMsg = append(sMsg, encodeVarint(2, uint64(val))...)
 		}
 		for _, lbl := range s.labels {
