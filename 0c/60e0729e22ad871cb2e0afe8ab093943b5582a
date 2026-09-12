@@ -1,0 +1,7 @@
+Commit: 0c60e0729e22ad871cb2e0afe8ab093943b5582a
+Date: 2026-09-12T04:18:28.365743+00:00
+Agent: Codex API; Claude Code version not applicable; exact model identifier not exposed
+TTY: not exposed
+Note-writer PID: 92425
+ITERM_SESSION_ID: w14t0p15:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Evidence: cuda-gate-scanner-fix-6e6a manifest703e51364034a285a1ac5c22b888a4394532159aa07d08ec2e43406dd5868c25; independent scanner review in cuda-raw-integration-test-inventory-6e6a. Corrected host package exit0; unanchored-regex mutant exit1; no CUDA kernel change. git-auto-commit-message failed once because Anthropic API key missing; manual fallback used without retrying unchanged credentials.
