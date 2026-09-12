@@ -15,7 +15,7 @@ func (c Context) Destroy() error {
 //
 // See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
-// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext]() or NewContextAttach(), and must be current to the calling thread.
+// Deprecated: Note that this function is deprecated and should not be used. Decrements the usage count of the context ctx, and destroys the context if the usage count goes to 0. The context must be a handle that was passed back by [NewContext]() or [NewContextAttach](), and must be current to the calling thread.
 //
 // Wraps cuCtxDetach.
 func (c Context) Detach() error {
@@ -120,7 +120,7 @@ func (c Context) SynchronizeV2() error {
 
 // WaitEvent Make a context wait on an event.
 //
-// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [NewContextFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Makes all future work submitted to context hCtx wait for all work captured in hEvent. The synchronization will be performed on the device and will not block the calling CPU thread. See [Context.RecordEvent] for details on what is captured by an event. If the context passed to hCtx is the primary context, the primary context and its green contexts will wait for hEvent. If the context passed to hCtx is a context converted from green context via [NewContextFromGreenCtx], the green context will wait for hEvent. See also: [Context.RecordEvent], [GreenCtx.RecordEvent], [GreenCtx.WaitEvent], [Stream.WaitEvent]
 //
 //   - hEvent: Event to wait on
 //
@@ -131,12 +131,11 @@ func (c Context) WaitEvent(hEvent Event) error {
 
 // NewContextAttach Increment a context's usage-count
 //
-//   - pctx: Returned context handle of the current context
 //   - flags: Context attach flags (must be 0)
 //
-// See also: [NewContext], [Context.Destroy], Context.Detach, [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
+// See also: [NewContext], [Context.Destroy], [Context.Detach], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
 //
-// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to Context.Detach() when the application is done with the context. NewContextAttach() fails if there is no context current to the thread. Currently, the flags parameter must be 0.
+// Deprecated: Note that this function is deprecated and should not be used. Increments the usage count of the context and passes back a context handle in *pctx that must be passed to [Context.Detach]() when the application is done with the context. [NewContextAttach]() fails if there is no context current to the thread. Currently, the flags parameter must be 0.
 //
 // Wraps cuCtxAttach.
 func NewContextAttach(flags uint32) (Context, error) {
@@ -147,7 +146,6 @@ func NewContextAttach(flags uint32) (Context, error) {
 //
 // Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Destroy] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [NewContextPopCurrent]. A regular CUDA context can be created by setting ctxCreateParams to NULL. A CUDA context can be created with execution affinity. The type and the amount of execution resource the context can use is limited by paramsArray and numExecAffinityParams in execAffinity. The paramsArray is an array of [ExecAffinityParam] and the numExecAffinityParams describes the size of the paramsArray. If two [ExecAffinityParam] in the array have the same type, the latter execution affinity parameter overrides the former execution affinity parameter. The supported execution affinity types are: A CUDA context can be created in CIG(CUDA in Graphics) mode by setting cigParams. Data from graphics client is shared with CUDA via the sharedData in cigParams. Support for D3D12 graphics client can be determined using [Device.GetAttribute] with [DevAttrD3d12CigSupported]. sharedData is a ID3D12CommandQueue handle. Support for Vulkan graphics client can be determined using [Device.GetAttribute] with [DevAttrVulkanCigSupported]. sharedData is a Nvidia specific data blob populated by calling vkGetExternalComputeQueueDataNV(). execAffinityParams and cigParams are mutually exclusive and cannot both be non-NULL. Setting both to non-NULL values will result in undefined behavior. If both execAffinityParams and cigParams are NULL, the context will be created as a regular CUDA context. The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync]. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Instead, the per-thread stack size can be controlled with [CtxSetLimit]. Context creation will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.GetAttribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for * devices. Documentation for nvidia-smi can be obtained by passing a -h option to it. Context creation will fail with [ErrInvalidValue] if invalid parameter was passed by client to create the CUDA context. Context creation in CIG mode will fail with [ErrNotSupported] if CIG is not supported by the device or the driver. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CoredumpSetAttributeGlobal], [CoredumpSetAttribute], [CtxSynchronize] [CtxGetExecAffinity],
 //
-//   - pctx: Returned context handle of the new context
 //   - ctxCreateParams: Context creation parameters. Can be NULL to create a regular CUDA context. See [CtxCreateParams] for details
 //   - flags: Context creation flags
 //   - dev: Device to create context on
@@ -168,7 +166,6 @@ func NewContext(ctxCreateParams *CtxCreateParams, flags uint32, dev Device) (Con
 // Users are expected to call this API before calling any CUDA APIs that accept a
 // [Context]. Failing to do so will result in the APIs returning [ErrInvalidContext].
 //
-//   - pContext: Returned primary context with green context resources
 //   - hCtx: Green context to convert
 //
 // See also: [NewGreenCtx]
@@ -182,8 +179,6 @@ func NewContextFromGreenCtx(hCtx GreenCtx) (Context, error) {
 //
 // Returns in *pctx the CUDA context bound to the calling CPU thread. If no context is bound to the calling CPU thread then *pctx is set to NULL and [Success] is returned. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.SetCurrent], [NewContext], [Context.Destroy], cudaGetDevice
 //
-//   - pctx: Returned context handle
-//
 // Wraps cuCtxGetCurrent.
 func NewContextGetCurrent() (Context, error) {
 	return ctxGetCurrent()
@@ -192,8 +187,6 @@ func NewContextGetCurrent() (Context, error) {
 // NewContextPopCurrent Pops the current CUDA context from the current CPU thread.
 //
 // Pops the current CUDA context from the CPU thread and passes back the old context handle in *pctx. That context may then be made current to a different CPU thread by calling [Context.PushCurrent]. If a context was current to the CPU thread before [NewContext] or [Context.PushCurrent] was called, this function makes that context current to the CPU thread again. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize]
-//
-//   - pctx: Returned popped context handle
 //
 // Wraps cuCtxPopCurrent, bound as cuCtxPopCurrent_v2.
 func NewContextPopCurrent() (Context, error) {

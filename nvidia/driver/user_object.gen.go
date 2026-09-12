@@ -15,7 +15,7 @@ func (u UserObject) Release(count uint32) error {
 
 // Retain Retain a reference to a user object.
 //
-// Retains new references to a user object. The new references are owned by the caller. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Retains new references to a user object. The new references are owned by the caller. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [NewUserObject], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
 //   - count: The number of references to retain, typically 1. Must be nonzero and not larger than INT_MAX
 //
@@ -28,7 +28,6 @@ func (u UserObject) Retain(count uint32) error {
 //
 // Create a user object with the specified destructor callback and initial reference count. The initial references are owned by the caller. Destructor callbacks cannot make CUDA API calls and should avoid blocking behavior, as they are executed by a shared internal thread. Another thread may be signaled to perform such actions, if it does not block forward progress of tasks scheduled through CUDA. See CUDA User Objects in the CUDA C++ Programming Guide for more information on user objects. See also: [UserObject.Retain], [UserObject.Release], [Graph.RetainUserObject], [Graph.ReleaseUserObject], [NewGraph]
 //
-//   - object_out: Location to return the user object handle
 //   - ptr: The pointer to pass to the destroy function
 //   - destroy: Callback to free the user object when it is no longer in use (see [HostFn])
 //   - initialRefcount: The initial refcount to create the object with, typically 1. The initial references are owned by the calling thread

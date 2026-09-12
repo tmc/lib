@@ -19,9 +19,9 @@
 // CUPTI runs in the process being profiled and requires elevated GPU
 // performance counter permissions for most counter APIs.
 //
-// This package maps every function from the cupti.h header family to a Go
-// function using [github.com/ebitengine/purego] for cgo-free dynamic
-// loading of libcupti. All functions return errors wrapping CUptiResult
+// This package provides bindings generated from the cupti.h header family
+// using [github.com/ebitengine/purego] for cgo-free dynamic
+// loading of libcupti. Functions returning a C status report errors wrapping CUptiResult
 // with descriptive messages from cuptiGetResultString.
 //
 // # Activity API

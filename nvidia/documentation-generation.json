@@ -1,0 +1,725 @@
+{
+  "recorded_at": "2026-09-10T01:01:40.785213+00:00",
+  "scope": "Documentation-only outputs copied verbatim from successful scratch generation. Historical generator repository metadata in upstream.json applies to the baseline; listed output hashes are superseded here. Files with code changes and provenance stamps were not integrated.",
+  "generator": {
+    "base_commit": "9a254c1106a83f522507af2213f4d4ef47b61220",
+    "working_tree_changes": {
+      "cmd/cublas-survey/main.go": "d4d90659a77dfce7a36bbf7cfaa242a92504b9f70554326a735ab4e7867505a3",
+      "cmd/cudnn-survey/main.go": "fa1a116956d278d5a201ed683b3f5a8f185b65b8a056da2ec54296b9c98d8473",
+      "cmd/cufft-survey/main.go": "e0432dc21ee9713b9cc1abf6c2876df82a79525d3af82fe1490e0953ef1b6a0a",
+      "cmd/cufile-survey/main.go": "3a23b8ec56d1a13c0754fd6aba15fe99050501ca6ff24dae95dd0f48ba97403c",
+      "cmd/nvml-survey/main.go": "0de1fb375008706071cf23f695410de4e18ffce27045546a1b82bb88adec4fdf",
+      "cmd/nvrtc-survey/main.go": "39926865aa89bfdfb0113b7a0dcc5cae1d2b99ed50870329e27bac8e15bb1902",
+      "contrib/cuda/cublas_config.go": "2ae5d51dc83c08f838970d19a85d7b2425ebfcec0422d34efea10605d1a6e2f5",
+      "contrib/cuda/cuda_config.go": "278efdcb746677eca7e1b0dd8bcccd34f6845efc4c8f1cb59b69e735fdb2593f",
+      "contrib/cuda/cufft_config.go": "5d61e2bf770369b5c161dc5a124c5473e60cc7c63932b3e4c1f409349d3e9669",
+      "contrib/cuda/cupti_config.go": "3add2e6cbb309af1babba5e73c20b9803f8c36fec01a7b8a92cdc85dc4b5c601",
+      "contrib/cuda/nccl_config.go": "e6ac1673926506a165135af9c56ec9df622d67f4df0156010e6049458dda5d4d",
+      "contrib/cuda/nvml_config.go": "6f9087bf62aed2bca62859bd410e37c9adbda6e140a351cb113bf5eb33a7da46",
+      "contrib/cuda/nvrtc_config.go": "466603cc396d8d347437524045a9b2434b75f1a55afc4662a4b4c7db21c221b5",
+      "contrib/cuda/sanitizer_config.go": "d64bce452401a5b82ebbe0c5b74f381d7aae8b4f3ac12cfd9f16f5453292bb31",
+      "internal/ffigen/generator.go": "ec60b379acb8277757ad993085834facd0500f018d7bf52e1fc6622356bab9a7"
+    },
+    "note": "Working-tree snapshot; not a claim of clean-commit reproduction. Untracked inputs are not captured by this inventory."
+  },
+  "headers": {
+    "base_commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+    "working_tree_changes": {
+      "cuda_cudart/channel_descriptor.h": "b78717961fe4aa0c3529fd5e6260331746249bd59b5fad1eebfdc7bc12ba9d1a",
+      "cuda_cudart/cooperative_groups.h": "64f650713034bfb355c12c5d64ce12efbd03a01efcfd67a76f2e2c8fa37376da",
+      "cuda_cudart/cooperative_groups/details/helpers.h": "063f2d5718bfd6d741949e65fb7a08044919a81f73675ca875acf8cf3890466a",
+      "cuda_cudart/cooperative_groups/details/sync.h": "a87015022bfa70d4ff0343b23518f2e1e3dd00051ce40b8a2dcd4185b274ca70",
+      "cuda_cudart/cuda.h": "31df84e16179b6d97db4b3c0bae7697392a370b41983f4a8962f0e5a8069b577",
+      "cuda_cudart/cudaTypedefs.h": "30d517cfa051f7a498e432eb1a1964abb11c1cd32098125bba3dfef0b059381f",
+      "cuda_cudart/cuda_bf16.h": "5d5a824f1d4401189b501cd934067d3e5a20e58c6d5176ad99665a4843fa8e03",
+      "cuda_cudart/cuda_bf16.hpp": "c71f7902fc526861db301028ad8966dfd93a97dd9be802e5962821a73f373e27",
+      "cuda_cudart/cuda_device_runtime_api.h": "0a159d4210c02213df336c8582700b617d6d298a7d74d9eb16c561bc5f4e9b7c",
+      "cuda_cudart/cuda_fp16.h": "2e34ed9c273f569a4600cfe30694a9c5a980b183fbcb33262fd6f1150c7f4927",
+      "cuda_cudart/cuda_fp16.hpp": "016ce919f3c729be3ae2df385941dabc0a48b8861a75fe3fe880134914b9bbbb",
+      "cuda_cudart/cuda_fp8.h": "f2a897a3bb59e2ffb1e7e814e577a928951104d0db0d00ab2d85f288e53830c6",
+      "cuda_cudart/cuda_fp8.hpp": "4ed3ecb636dc223b26488768cf55ed311df1225d89d3a73d6c3360b18c2dc25f",
+      "cuda_cudart/cuda_occupancy.h": "9aa9d20e11c10856b9748452119400141886a4b18f6a73f27e856b51a1053789",
+      "cuda_cudart/cuda_runtime.h": "c93f92894cabfeafab0c1b7c575b8c932416e2959f8046ef19b79eb82199b6ae",
+      "cuda_cudart/cuda_runtime_api.h": "a848e416776a49904e8bace4bd377c0c5b379461e6bb2fb8accb7e6162c3a96d",
+      "cuda_cudart/driver_types.h": "b37eb334124c5e43cfa2baa087aa128b44ddd8913da476ca0e92358d5d1be9c4",
+      "cuda_cupti/cupti_activity.h": "306ed811227ae7a0a154fd27f977c72e0e5ea0082f63d5395624f6abfd44596a",
+      "cuda_cupti/cupti_activity_deprecated.h": "cf930a89a337c5ba76b73e61d31e3cee76bc5b056a98c3de63ca17b153cde262",
+      "cuda_cupti/cupti_callbacks.h": "c0147bf1a2ee213b97fbe4e788a4c89ecfd55a5c3bede50214103f143f9249a0",
+      "cuda_cupti/cupti_checkpoint.h": "4266976f733b55c0e1c67a2158396d1051575cab82aadd148cf4d2f541abebb4",
+      "cuda_cupti/cupti_driver_cbid.h": "d4997cbb0b4643a48898d10c336ec0f5c3fe2b1a338b1d832ed5faa7494197f1",
+      "cuda_cupti/cupti_pcsampling_util.h": "5a0033d9d53db880b5d34cbeeafb54837e34c10b4527f306874ca769ffd6e7ab",
+      "cuda_cupti/cupti_pmsampling.h": "c3608944fd809745d70f9b131f39628482e8e3ae3a066f65d40be62b2123a6b9",
+      "cuda_cupti/cupti_profiler_host.h": "debbeb8dd5970a538a98f43aea31bc667f6d958af6152751a8f502dd74d5f7a4",
+      "cuda_cupti/cupti_profiler_target.h": "7af2691b15fdabb43d5314cec656454bb4c2a804d3e17f5f98500fc8aa0f8537",
+      "cuda_cupti/cupti_range_profiler.h": "c01f435805cc02ec9a210541af9925d0c1a23370f6185054fca22a0dca9876d6",
+      "cuda_cupti/cupti_result.h": "16ef400771ab213243d76d49372b7d4409eb0ff685238aee20b8ad1ee30bbaee",
+      "cuda_cupti/cupti_version.h": "64e69e72b7e8ccd3ce6818bc0d9bd380068ad3935cbd09211a4cf6b8abd16d07",
+      "cuda_cupti/generated_cuda_meta.h": "c3e2bb756a595da776095177bbc169fd6692f54ec31481ccf0d60be41a718542",
+      "cuda_cupti/generated_cuda_runtime_api_meta.h": "2f5f7d8b0f7358d088b7258935affc733931db8272bed48a21bc95286c20ef0c",
+      "cuda_cupti/generated_cudart_removed_meta.h": null,
+      "cuda_nvml_dev/nvml.h": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+    },
+    "note": "Working-tree snapshot; not a claim of clean-commit reproduction. Untracked inputs are not captured by this inventory."
+  },
+  "runs": [
+    {
+      "package": "cublas",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/cublas-survey",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/cublas/cublas_api.h",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-docs-dir",
+        "$HOME/go/src/github.com/tmc/libgen/docs",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/cublas"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "cudnn",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "cudnn",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/cudnn",
+        "-package",
+        "cudnn"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "cufft",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "cufft",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/cufft",
+        "-package",
+        "cufft"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "nvml",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/nvml-survey",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+        "-docs-dir",
+        "docs",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/nvml"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "nvrtc",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "nvrtc",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/nvrtc/nvrtc.h",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/nvrtc",
+        "-package",
+        "nvrtc",
+        "-deprecated=true",
+        "-docs-dir",
+        "$HOME/go/src/github.com/tmc/libgen/docs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "driver",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/driver-survey",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/driver/cuda.h",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-docs-dir",
+        "$HOME/go/src/github.com/tmc/libgen/docs",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/driver"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "nccl",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "nccl",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/nccl/nccl.h",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/nccl",
+        "-package",
+        "nccl",
+        "-deprecated=true",
+        "-docs-dir",
+        "$HOME/go/src/github.com/tmc/libgen/docs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "cupti",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "cupti",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-clang=false",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/cupti"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "sanitizer",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/gen-nvidia",
+        "-api",
+        "sanitizer",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer.h",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/sanitizer",
+        "-package",
+        "sanitizer",
+        "-deprecated=true",
+        "-docs-dir",
+        "$HOME/go/src/github.com/tmc/libgen/docs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "package": "cufile",
+      "argv": [
+        "go",
+        "run",
+        "./cmd/cufile-survey",
+        "-header",
+        "$HOME/go/src/github.com/tmc/cuda-headers/libcufile/cufile.h",
+        "-headers-dir",
+        "$HOME/go/src/github.com/tmc/cuda-headers",
+        "-output",
+        "$TMPDIR/nvidia-docs/generated/cufile"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "outputs": [
+    {
+      "path": "nvidia/cublas/doc.gen.go",
+      "previous_sha256": "68e1ff0a3b8e113e093316611cac9b9331131653ace61f6479edb467d68deb3d",
+      "sha256": "2993ddbd7c14ab42d99cea1a3a72392ae3a0bff382efabe6de20e5d5b33192bb"
+    },
+    {
+      "path": "nvidia/cufft/doc.gen.go",
+      "previous_sha256": "dd7f7a074562b417eca0ce7fa033c9a673eee931c24a6e58292c5b9e771e9b58",
+      "sha256": "a4339d6fa8557e4f1040847800d0650408817a8fe5c0b3f12e773b31c1322a95"
+    },
+    {
+      "path": "nvidia/cupti/doc.gen.go",
+      "previous_sha256": "9cd83e0855e17beadc69a47e68726b60564213c168db4e96dcfa5aed2789f93f",
+      "sha256": "3ef09a4b1f497b6c27fb967977780bb1759d330e3a325cdbafdb1b82b9705626"
+    },
+    {
+      "path": "nvidia/driver/array.gen.go",
+      "previous_sha256": "3bdaee0705b09f874eb009bf6f7e60ab123a9d1a9a9e95c70201db668394192f",
+      "sha256": "82ec43f59c1772702e928da29dfed790f436cd7999ef05bffebe0fbceb62a51c"
+    },
+    {
+      "path": "nvidia/driver/context.gen.go",
+      "previous_sha256": "002b49667e46042e3482b9e071c1e6206662c540d1cedb39e3ffd922a7cf1196",
+      "sha256": "bf0daf1ade09111788516a276212dd42dca1ebde93325cd85dcd29e1c56b14f0"
+    },
+    {
+      "path": "nvidia/driver/doc.gen.go",
+      "previous_sha256": "7924748dba0cdcf5d5eaa767b2290740ec401dba691c1058723cf33969b90520",
+      "sha256": "0e4df87e256dd1209be3b841a53ac3d657858a7cf78ca66fef808bce2aa51ac1"
+    },
+    {
+      "path": "nvidia/driver/event.gen.go",
+      "previous_sha256": "ae3363fb979a5166d75ccbeb6fd2e156d9741c503ba636b1debebefc73b4b90b",
+      "sha256": "723af62cded3c90e85db68fa6ac47003210cabb981d51a1bb361e3218f8a0707"
+    },
+    {
+      "path": "nvidia/driver/graph.gen.go",
+      "previous_sha256": "1f7ee7727ec19637a70458b15044314e646cf2e42eb831d3d8b02a772aa956c8",
+      "sha256": "0361540556c593e820b7bcc1c9cf836f812a57d920dfd69c77823ebfcf7fcfea"
+    },
+    {
+      "path": "nvidia/driver/graph_exec.gen.go",
+      "previous_sha256": "e00797672c73059188da0c8df4f4d84c588216c00cdbcf370618864e5842b309",
+      "sha256": "c1406bb37b72e1a347ceed68703acb2c6de2564c2953b13c96dadd85c69dd2ed"
+    },
+    {
+      "path": "nvidia/driver/green_ctx.gen.go",
+      "previous_sha256": "5967d2eb4f51c0f67832bfe89bff382d1275378f94553d750eeb125b2cb3c998",
+      "sha256": "b2284e224237360d68bc3749aaab214d80a345a84efe348714b994e9e2fb8231"
+    },
+    {
+      "path": "nvidia/driver/memory_pool.gen.go",
+      "previous_sha256": "29a58e51834a3633a9342116c9c0abb006667abb231e1c155f2cfe7dec6221df",
+      "sha256": "64995d4bcfa04b5c7a0aac434176101b1d7344f8f5c6af665f2421159c4fb487"
+    },
+    {
+      "path": "nvidia/driver/mipmapped_array.gen.go",
+      "previous_sha256": "fbea89813d8b8459efe37ae47c9bb4e0cc6bd9ac2d4bafb04903f7debc1feb47",
+      "sha256": "168c0d8fc307421312abe338559d4d1e2064be69bdf5314604593409c5b8d739"
+    },
+    {
+      "path": "nvidia/driver/module.gen.go",
+      "previous_sha256": "3475675a5dacaafd47473b7aaa25b2717ce054500f24ae1e18c73e2906d77085",
+      "sha256": "2dbd04280c6d408f5088ab67d660dd9d5c7beedacb4da246e2f4be3c82ee2e5e"
+    },
+    {
+      "path": "nvidia/driver/result.gen.go",
+      "previous_sha256": "4ebf77c8fad50f8ce5b5fc4001128de7143fb1aa3190a105bc3babcd9c548906",
+      "sha256": "1945a607afe0db69fe8ba9db639324d566abed80fc3af685b1a5ed1193fa2327"
+    },
+    {
+      "path": "nvidia/driver/stream.gen.go",
+      "previous_sha256": "ddd8bc8d76d5cdd6a70182fbee9598e7a4825cfda7fd080435cb1304abfe6e2c",
+      "sha256": "31aa66d63ad48f8c2f91a94bcb7c9e51e1148f13cff7c1564c44531f09ee95be"
+    },
+    {
+      "path": "nvidia/driver/surf_ref.gen.go",
+      "previous_sha256": "c61daba8e4c40b4b21b3fcff679fb002d31ca99942f5d5cb1228df1e97bceb73",
+      "sha256": "ba992270846890372a666e5ce136010f5afe1e7693413d02e0e64e3295f8ed09"
+    },
+    {
+      "path": "nvidia/driver/user_object.gen.go",
+      "previous_sha256": "8232bbd7d6cee2e3c50b29d28960080abacb4a21f7efd3de78f450ce4469420e",
+      "sha256": "96be6a569a5b46f18bab0d6e6be7c0db8056429929039bc06e35de5c8671b5cc"
+    },
+    {
+      "path": "nvidia/nccl/doc.gen.go",
+      "previous_sha256": "e6948447d242b283a3c643f593ae665daaccbb20062e6c8eefb35fe6c617855e",
+      "sha256": "28cacdcf6ed08f3d957332220b29e694255b1f59fe4f468e34aaf5c4b2508db6"
+    },
+    {
+      "path": "nvidia/nvml/doc.gen.go",
+      "previous_sha256": "23b59faf577f393137db3879b8d2c4084e2f967a169c72adb6122e4243b1c698",
+      "sha256": "7fabb3d51b3e9460a3623e5e60839dce0401c482f0a136733c89992a823cb069"
+    },
+    {
+      "path": "nvidia/nvrtc/doc.gen.go",
+      "previous_sha256": "569ba7e5da2226fcbbc2eba1e54c831934b63f69ccb5feb743aafed52e537d2b",
+      "sha256": "fd262541261a2ae9affe75061b3aafc3bbc4aa5419d7f5b6b70ae0ad1d8f68a2"
+    },
+    {
+      "path": "nvidia/sanitizer/doc.gen.go",
+      "previous_sha256": "7b73a1681a43eaa86ecb4ae057e3313ba34f7d70090c0298e476e0db9f9ae9be",
+      "sha256": "4adf0f496189a3893ebe87cb4e252df69f1f8511a9dc7ea31859c89db5bec4d7"
+    },
+    {
+      "path": "nvidia/cufile/doc.gen.go",
+      "previous_sha256": null,
+      "sha256": "08feda37b7997c992bc5ecfd9449d114db1daa6dfc0b136d419b517d916f5c35"
+    }
+  ],
+  "comment_refreshes": [
+    {
+      "recorded_at": "2026-09-10T01:11:05.648701+00:00",
+      "mode": "Matched-declaration comments projected from fresh generation; all non-comment Go tokens preserved. Existing source must match its upstream output digest before installation.",
+      "runs": [
+        {
+          "package": "curand",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/curand-survey",
+            "-header",
+            "$HOME/go/src/github.com/tmc/cuda-headers/curand/curand.h",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/curand"
+          ],
+          "exit_code": 0
+        },
+        {
+          "package": "cutensor",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/cutensor-survey",
+            "-header",
+            "$HOME/go/src/github.com/tmc/cuda-headers/libcutensor/cutensor.h",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/cutensor"
+          ],
+          "exit_code": 0
+        },
+        {
+          "package": "dcgm",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/gen-dcgm",
+            "-headers",
+            "cmd/gen-dcgm/headers",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/dcgm"
+          ],
+          "exit_code": 0
+        },
+        {
+          "package": "driver",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/driver-survey",
+            "-header",
+            "$HOME/go/src/github.com/tmc/cuda-headers/driver/cuda.h",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-docs-dir",
+            "$HOME/go/src/github.com/tmc/libgen/docs",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/driver"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "projection_tool": {
+        "path": "$TMPDIR/nvidia-docs/project-comments.go",
+        "sha256": "fe7fab5d439229a4124f2086fdc73b677d26f1a5586e3800ebdb13e9f515bbf1"
+      },
+      "outputs": [
+        {
+          "path": "nvidia/curand/enums.gen.go",
+          "previous_sha256": "76ec8a916d18ff4c2f3ca7f77fe19391270f305224bc0f1e41a55a9c656caa12",
+          "sha256": "0428cc27be60e60cc7c9e4c316c6260114642cce484be506ca39d3320a00a506"
+        },
+        {
+          "path": "nvidia/cutensor/enums.gen.go",
+          "previous_sha256": "a3382d068fcc819502f9f207047844b1b95bdd3866a361f079fc8cfc1569d97f",
+          "sha256": "797b96d8dce847b8e380b4359293d383015952b34955186ef5247ebc20f180ef"
+        },
+        {
+          "path": "nvidia/dcgm/structs.gen.go",
+          "previous_sha256": "967bc482c0587512cf2811526868d34a4a7eaf7fc97a16bf40b17600da64e8be",
+          "sha256": "262ec8f33c43a63070d46fae5249ed9fde8bca83c2d4a815378e6af2ccaa8cf7"
+        },
+        {
+          "path": "nvidia/dcgm/enums.gen.go",
+          "previous_sha256": "5711ca4ff90889ebbe33c5744d28ce26b49f6226727fcc05824495a16cfe10a4",
+          "sha256": "d9081fe1ae0a27a33a25e88ee1cf5f85cbc6e83b4ee9de15b8238544a45b3e48"
+        },
+        {
+          "path": "nvidia/dcgm/handle.gen.go",
+          "previous_sha256": "05b5bdb40a70831d30f4a113fb6f306d31dba164d3938b8df13589ad121ea8e0",
+          "sha256": "10dc6671b35fb120f0eb003da86a5c0ab73d0c142dbbc16abb1cf5cef048a2ae"
+        },
+        {
+          "path": "nvidia/dcgm/funcs.gen.go",
+          "previous_sha256": "dcb116e9145a6f0791e2051ff55ec9886ba861de9457586f9d49aee6360cd121",
+          "sha256": "c2769dec5019661a887eb118054ccc63e34d275c07c09bfdb29bfcefe1f57d5d"
+        },
+        {
+          "path": "nvidia/dcgm/result.gen.go",
+          "previous_sha256": "e1d1c7325a25d2139fd2b6b4ef7b9001bb15590836b2d34720249e138b76e753",
+          "sha256": "5d9160509ca23b063948117c5bf3d9780bdf587b35d2ca1ef3d125a9dd7128af"
+        },
+        {
+          "path": "nvidia/driver/library.gen.go",
+          "previous_sha256": "d42e50e25910ce5ecfebb424264f38e5eb98562e8a98cc9cb4759f985e17b283",
+          "sha256": "f7e12acc5c578cb3ff1675334e0a98f66e5944d2eb5ff2f6d9039dd5c6248a3f"
+        },
+        {
+          "path": "nvidia/driver/structs.gen.go",
+          "previous_sha256": "399568486e0772e2a3962909bd46b73923439c3bef69600abbde47b56e7610d2",
+          "sha256": "95bc96be60fea8712b08ddacc0a0e51919ea1bc656968e040c2967fcac5c0611"
+        },
+        {
+          "path": "nvidia/driver/function.gen.go",
+          "previous_sha256": "1509dbe54e4432bc47eadd837b9d08e6b71083ecde35dd1e6c272de0fe508966",
+          "sha256": "4b9c72bd44d7b71f63cd2c52af6f18e6fe4f4834e202b21fd9723833acd24e05"
+        },
+        {
+          "path": "nvidia/driver/tex_ref.gen.go",
+          "previous_sha256": "4c47ed496e127ea361de618590760ab453a870a9d2e9f6796a33d25d7d8fc11d",
+          "sha256": "9df095887e6cbee2502637a00dcaf6f54dea5e85cfaeaa2a8d5aaea457834a06"
+        },
+        {
+          "path": "nvidia/driver/enums.gen.go",
+          "previous_sha256": "96302c9ecfab1e60678e82f87001589659556955e3655ed2fe53b2d3af14bab9",
+          "sha256": "4d770743cb1149365b1ee77106ac8726dba1c427bf6a871ca99c87137d1ee58c"
+        },
+        {
+          "path": "nvidia/driver/device.gen.go",
+          "previous_sha256": "ae62eb0c01912806bf196a967ea589e83d117ff106658d81cc74105d09285e4c",
+          "sha256": "ec65dfab880161609b693f2c312a7b5fbd10e707569555fb9ae653595809be72"
+        },
+        {
+          "path": "nvidia/driver/funcs.gen.go",
+          "previous_sha256": "4eac11dc3cd6e839d6d6263b980eb7bcd9cb77746c252e40fbef8eb8a51cb37f",
+          "sha256": "c638a5e24f0d381c96624ca5ef69eece1b175e33f86b2a9e37f88dc702ec8282"
+        },
+        {
+          "path": "nvidia/driver/init.gen.go",
+          "previous_sha256": "91d2c83d9ebe1f425d0597ad89955f6dcf1e4be3b6c80878948dc2f15e09d1cc",
+          "sha256": "718a37910639919ea7652a4095fee9e6468f52d5d3fc8a9f573b2def0e6a96e7"
+        },
+        {
+          "path": "nvidia/driver/result.gen.go",
+          "previous_sha256": "1945a607afe0db69fe8ba9db639324d566abed80fc3af685b1a5ed1193fa2327",
+          "sha256": "fc692c6029565a9a01f46449afd40dcb61af3e940f95d48cf4111d3b2f5c9dc1"
+        }
+      ],
+      "generator_base_commit": "9a254c1106a83f522507af2213f4d4ef47b61220",
+      "generator_patch": {
+        "path": "$TMPDIR/nvidia-docs/doc-generator.patch",
+        "sha256": "35d8e21fa4cb7b5d337f8c1b6a9121ef83c08e3e400afffaf5788224ff43fce5",
+        "note": "Retained local working-tree patch; not a published immutable source revision."
+      }
+    },
+    {
+      "recorded_at": "2026-09-10T01:15:30.146978+00:00",
+      "mode": "Matched-declaration comments projected from fresh generation to remove scraped site footers; non-comment Go tokens preserved.",
+      "runs": [
+        {
+          "package": "driver",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/driver-survey",
+            "-header",
+            "$HOME/go/src/github.com/tmc/cuda-headers/driver/cuda.h",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-docs-dir",
+            "$HOME/go/src/github.com/tmc/libgen/docs",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/driver"
+          ],
+          "exit_code": 0
+        },
+        {
+          "package": "cupti",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/gen-nvidia",
+            "-api",
+            "cupti",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-clang=false",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/cupti"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "projection_tool": {
+        "path": "$TMPDIR/nvidia-docs/project-comments.go",
+        "sha256": "fe7fab5d439229a4124f2086fdc73b677d26f1a5586e3800ebdb13e9f515bbf1"
+      },
+      "generator_sources": {
+        "cmd/cublas-survey/main.go": "d4d90659a77dfce7a36bbf7cfaa242a92504b9f70554326a735ab4e7867505a3",
+        "cmd/cudnn-survey/main.go": "fa1a116956d278d5a201ed683b3f5a8f185b65b8a056da2ec54296b9c98d8473",
+        "cmd/cufft-survey/main.go": "e0432dc21ee9713b9cc1abf6c2876df82a79525d3af82fe1490e0953ef1b6a0a",
+        "cmd/cufile-survey/main.go": "3a23b8ec56d1a13c0754fd6aba15fe99050501ca6ff24dae95dd0f48ba97403c",
+        "cmd/curand-survey/main.go": "8e3d6b0870f256921df523a9e8e299c4baa2b1b5d6b901a7fcb3b64d2f39f1a3",
+        "cmd/cutensor-survey/main.go": "686060a9845201b137aee9b80ff8083a23cb4911d57f06fc0a4a3fc53b163c5c",
+        "cmd/gen-dcgm/config.go": "e8b10e396c47fcd373b03fc2029dbb41ac134500c4041247e6615cad80d1e14e",
+        "cmd/nvml-survey/main.go": "0de1fb375008706071cf23f695410de4e18ffce27045546a1b82bb88adec4fdf",
+        "cmd/nvrtc-survey/main.go": "39926865aa89bfdfb0113b7a0dcc5cae1d2b99ed50870329e27bac8e15bb1902",
+        "contrib/cuda/cublas_config.go": "2ae5d51dc83c08f838970d19a85d7b2425ebfcec0422d34efea10605d1a6e2f5",
+        "contrib/cuda/cuda_config.go": "278efdcb746677eca7e1b0dd8bcccd34f6845efc4c8f1cb59b69e735fdb2593f",
+        "contrib/cuda/cufft_config.go": "5d61e2bf770369b5c161dc5a124c5473e60cc7c63932b3e4c1f409349d3e9669",
+        "contrib/cuda/cupti_config.go": "3add2e6cbb309af1babba5e73c20b9803f8c36fec01a7b8a92cdc85dc4b5c601",
+        "contrib/cuda/generator.go": "ff5c0f5ec76ce06b0438fad48a29cfbcecb7ff58d65e4d7ab5ee7f091e7a9411",
+        "contrib/cuda/nccl_config.go": "e6ac1673926506a165135af9c56ec9df622d67f4df0156010e6049458dda5d4d",
+        "contrib/cuda/nvml_config.go": "6f9087bf62aed2bca62859bd410e37c9adbda6e140a351cb113bf5eb33a7da46",
+        "contrib/cuda/nvrtc_config.go": "466603cc396d8d347437524045a9b2434b75f1a55afc4662a4b4c7db21c221b5",
+        "contrib/cuda/sanitizer_config.go": "d64bce452401a5b82ebbe0c5b74f381d7aae8b4f3ac12cfd9f16f5453292bb31",
+        "internal/ffigen/apiconfig.go": "a60f98991558a6145b6b334cbb9199611c2cee67288fd63cb42e0ae442a7bf38",
+        "internal/ffigen/generator.go": "85e8939ee37fcc6c59437ebe14f76b098eaeaf5b8e3e1b49681da74dfef62c88",
+        "internal/ffigen/docfooter.go": "fd9a2481221f825893cd813613b055e402c27a6d6f574f5166e828a3b487bf75",
+        "contrib/cuda/docfooter.go": "a886d04c0ccbfe3d24457a8e956ad4f98617390cc38a015789742be4c1088cb6"
+      },
+      "outputs": [
+        {
+          "path": "nvidia/driver/function.gen.go",
+          "previous_sha256": "4b9c72bd44d7b71f63cd2c52af6f18e6fe4f4834e202b21fd9723833acd24e05",
+          "sha256": "a6f693bcdb339544ea958bba4f30e18701e239932b27029857f3aa3ca6e8e8dd"
+        },
+        {
+          "path": "nvidia/driver/user_object.gen.go",
+          "previous_sha256": "96be6a569a5b46f18bab0d6e6be7c0db8056429929039bc06e35de5c8671b5cc",
+          "sha256": "20cce8fa0ced7c7a268a47abf181ab301917c62f314c7ba8f092c2fec042ac6f"
+        },
+        {
+          "path": "nvidia/driver/context.gen.go",
+          "previous_sha256": "bf0daf1ade09111788516a276212dd42dca1ebde93325cd85dcd29e1c56b14f0",
+          "sha256": "63bfd21cfce6044ce83f96e1f2ca58439b8ee2888dc49f469e85e32b9dbf336f"
+        },
+        {
+          "path": "nvidia/driver/surf_ref.gen.go",
+          "previous_sha256": "ba992270846890372a666e5ce136010f5afe1e7693413d02e0e64e3295f8ed09",
+          "sha256": "f05b16d1db0cfbf8b7f72e3f97c18922efb2271fc6edbe3d3971e00131232bd4"
+        },
+        {
+          "path": "nvidia/driver/tex_ref.gen.go",
+          "previous_sha256": "9df095887e6cbee2502637a00dcaf6f54dea5e85cfaeaa2a8d5aaea457834a06",
+          "sha256": "dd10c92879dd497d3596f78f8a45074af71b8be21233ab019e2189915721feb6"
+        },
+        {
+          "path": "nvidia/driver/device.gen.go",
+          "previous_sha256": "ec65dfab880161609b693f2c312a7b5fbd10e707569555fb9ae653595809be72",
+          "sha256": "3b2944c9514b6f2838b8550ee8a13a97c7b537bfc41d8ee9c053e5e96a2ef838"
+        },
+        {
+          "path": "nvidia/driver/device_ptr.gen.go",
+          "previous_sha256": "0e5f836b08050765d3bca2b7b4d917c5991f75d862d3c12dba398e8ca0dcce74",
+          "sha256": "fdba20caee43a1090b6bbf4a25fe9f8a129c60426bf35015be901fb12d05809f"
+        },
+        {
+          "path": "nvidia/driver/memory_pool.gen.go",
+          "previous_sha256": "64995d4bcfa04b5c7a0aac434176101b1d7344f8f5c6af665f2421159c4fb487",
+          "sha256": "7ba92b1d5a8f4408bceef3b64a0bbca34c99de78a516fd2988cd1c8cd1d1aa6f"
+        },
+        {
+          "path": "nvidia/driver/funcs.gen.go",
+          "previous_sha256": "c638a5e24f0d381c96624ca5ef69eece1b175e33f86b2a9e37f88dc702ec8282",
+          "sha256": "4c60e506ce084f7c24d4046cee57a63b370f1427c31b4e6703d677f82847fa9c"
+        },
+        {
+          "path": "nvidia/driver/event.gen.go",
+          "previous_sha256": "723af62cded3c90e85db68fa6ac47003210cabb981d51a1bb361e3218f8a0707",
+          "sha256": "8f36429873616d23d3419cd974ea98bd22eac9bb29f685df4b6643bdeae152cb"
+        },
+        {
+          "path": "nvidia/driver/module.gen.go",
+          "previous_sha256": "2dbd04280c6d408f5088ab67d660dd9d5c7beedacb4da246e2f4be3c82ee2e5e",
+          "sha256": "9dd9dc7d9037a72ec015f4be286d21d4eac8ca81e6366cdd2194be737821ec1c"
+        },
+        {
+          "path": "nvidia/driver/mipmapped_array.gen.go",
+          "previous_sha256": "168c0d8fc307421312abe338559d4d1e2064be69bdf5314604593409c5b8d739",
+          "sha256": "45ef801ce2dd2a1399c9116762d7c8dd9c19aa9e72e35514f4a0894b5ca9b82e"
+        },
+        {
+          "path": "nvidia/driver/stream.gen.go",
+          "previous_sha256": "31aa66d63ad48f8c2f91a94bcb7c9e51e1148f13cff7c1564c44531f09ee95be",
+          "sha256": "1c3a5bbe2b38d276619f21cd6c46663a26d9274ea1092f22fbae9d9c0fd496e7"
+        },
+        {
+          "path": "nvidia/cupti/funcs.gen.go",
+          "previous_sha256": "378139fd36b5703db954a510386e94b676702d2e76acd028cb6e4190819f2ac7",
+          "sha256": "3320768f2cd6725560a615a2d5d61c734f0211cd4d30165b52cc61a3bd8b9577"
+        }
+      ],
+      "generator_base_commit": "9a254c1106a83f522507af2213f4d4ef47b61220"
+    },
+    {
+      "recorded_at": "2026-09-10T01:16:36.247154+00:00",
+      "mode": "Applied the exact generator stripDocPageFooter implementation to existing comments where newer wrapper signatures prevented whole-comment projection. Go token comparison confirms no code changes.",
+      "normalizer_source": {
+        "path": "internal/ffigen/docfooter.go",
+        "sha256": "fd9a2481221f825893cd813613b055e402c27a6d6f574f5166e828a3b487bf75"
+      },
+      "retained_runner": "$TMPDIR/nvidia-docs/footer-pass",
+      "outputs": [
+        {
+          "path": "nvidia/driver/device.gen.go",
+          "previous_sha256": "3b2944c9514b6f2838b8550ee8a13a97c7b537bfc41d8ee9c053e5e96a2ef838",
+          "sha256": "16d83e332aee70a8f7f31192b81c0c33f9794a3d6d2defe6792eb52842fe9fc6"
+        },
+        {
+          "path": "nvidia/driver/funcs.gen.go",
+          "previous_sha256": "4c60e506ce084f7c24d4046cee57a63b370f1427c31b4e6703d677f82847fa9c",
+          "sha256": "975e2020d1cc69032b3123c21c29c7e240dfe9abfbc0c0c3ff948a644cc7e231"
+        }
+      ]
+    },
+    {
+      "recorded_at": "2026-09-10T01:18:56.913082+00:00",
+      "mode": "Matched-declaration comments from fresh NVML generation; prevent recursive linking of already-converted Go identifiers. Go tokens preserved.",
+      "runs": [
+        {
+          "package": "nvml",
+          "argv": [
+            "go",
+            "run",
+            "./cmd/nvml-survey",
+            "-headers-dir",
+            "$HOME/go/src/github.com/tmc/cuda-headers",
+            "-header",
+            "$HOME/go/src/github.com/tmc/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+            "-docs-dir",
+            "docs",
+            "-output",
+            "$TMPDIR/nvidia-docs/generated/nvml"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "generator_source": {
+        "path": "cmd/nvml-survey/main.go",
+        "sha256": "676778404bf50fc716708b4d5719ce777ff931c7e5f1aa7e9c4cfccf5f2b7f6d"
+      },
+      "outputs": [
+        {
+          "path": "nvidia/nvml/structs.gen.go",
+          "previous_sha256": "c4d87ec2fc5f0302fd7f6ec5bff90f9bbe1e8e4f2246ded9db86b6de4a965c96",
+          "sha256": "64632118a403e07df9273d5e5c9d892ea7460e31b238431ace16125df4202ec8"
+        },
+        {
+          "path": "nvidia/nvml/device.gen.go",
+          "previous_sha256": "504fae591f7b006e6f977a9815f9ec56b8576e78d02db2d3bade2de68d3635f8",
+          "sha256": "3db98c3c525d2e34fd648275a61f2f25f3f5e661848b0f0315bf6be6029c166e"
+        },
+        {
+          "path": "nvidia/nvml/funcs.gen.go",
+          "previous_sha256": "7e627d5986fd756e25e4ef63799ac25892695a09f222c4dc38e0d49ac0a01ed9",
+          "sha256": "f10f165069daa3897eb6b9b216b00e3b7918f6aaa90e61cbe844a76be427a5fa"
+        }
+      ]
+    }
+  ]
+}

@@ -2408,7 +2408,7 @@ func GetTimestamp() (uint64, error) {
 // Return the API version in *version. CUPTI_API_VERSION
 //
 // Returns:
-//   - [ErrInvalidParameter]: if version is NULL previous6.11. CUPTI SASS Metrics API next7. Data Structures On this page 6.12.1. Macros 6.12.2. Functions 6.12.3. MacrosCUPTI_API_VERSION 6.12.4. FunctionscuptiGetVersion() NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
+//   - [ErrInvalidParameter]: if version is NULL
 //   - [Success]: on success
 //
 // Wraps cuptiGetVersion.
@@ -3683,7 +3683,7 @@ func ProfilerSetConfig(pParams *ProfilerSetConfigParams) error {
 
 // ProfilerUnsetConfig Unset metrics configuration profiled.
 //
-// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h. previous6.7. CUPTI Profiler Host API next6.9. CUPTI Range Profiling API On this page NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
+// DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
 // Deprecated: DEPRECATED This function is deprecated as of CUDA 13.0 and will be removed in the future. It is recommended to use the Range Profiling API from the header cupti_range_profiler.h.
 //
@@ -4071,7 +4071,7 @@ func SassMetricsSetConfig(pParams *SassMetricsSetConfigParams) error {
 //   - [ErrInvalidContext]: if any cuda context has not been created prior to this API call
 //   - [ErrInvalidOperation]: if this is called multiple times for the device without calling set config API
 //   - [ErrInvalidParameter]: if any pParams is not valid
-//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection previous6.10. CUPTI Result Codes next6.12. CUPTI Version On this page 6.11.1. Data Structures 6.11.2. Macros 6.11.3. Enumerations 6.11.4. Functions 6.11.5. MacrosCUpti_SassMetricsDisable_Params_STRUCT_SIZECUpti_SassMetricsEnable_Params_STRUCT_SIZECUpti_SassMetricsFlushData_Params_STRUCT_SIZECUpti_SassMetricsGetDataProperties_Params_STRUCT_SIZECUpti_SassMetricsSetConfig_Params_STRUCT_SIZECUpti_SassMetricsUnsetConfig_Params_STRUCT_SIZECUpti_SassMetrics_GetMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetNumOfMetrics_Params_STRUCT_SIZECUpti_SassMetrics_GetProperties_Params_STRUCT_SIZECUpti_SassMetrics_InstanceValue_STRUCT_SIZE 6.11.6. EnumerationsCUpti_SassMetrics_OutputGranularityCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_GPUCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_SMSPCUPTI_SASS_METRICS_OUTPUT_GRANULARITY_INVALID 6.11.7. FunctionscuptiSassMetricsDisable() [SassMetricsEnable][SassMetricsFlushData][SassMetricsGetDataProperties][SassMetricsGetMetrics][SassMetricsGetNumOfMetrics][SassMetricsGetProperties][SassMetricsSetConfig][SassMetricsUnsetConfig] NVIDIANVIDIA Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2018-2026, NVIDIA Corporation & Affiliates. All rights reserved. Last updated on Jun 12, 2026.
+//   - [ErrNotSupported]: indicates that the system/device doesn’t support SASS metric data collection
 //
 // Wraps cuptiSassMetricsUnsetConfig.
 func SassMetricsUnsetConfig(pParams *SassMetricsUnsetConfigParams) error {

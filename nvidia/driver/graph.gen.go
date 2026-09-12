@@ -355,7 +355,6 @@ func (g Graph) RetainUserObject(object UserObject, count uint32, flags uint32) e
 // Gets a handle to the embedded graph in a child graph node. This call does not clone the graph. Changes to the graph will be reflected in the node, and the node retains ownership of the graph. Allocation and free nodes cannot be added to the returned graph. Attempting to do so will return an error. See also: [Graph.AddChildGraphNode], [GraphNode.FindInClone]
 //
 //   - hNode: Node to get the embedded graph for
-//   - phGraph: Location to store a handle to the graph
 //
 // Wraps cuGraphChildGraphNodeGetGraph.
 func NewGraphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
@@ -366,7 +365,6 @@ func NewGraphChildGraphNodeGetGraph(hNode GraphNode) (Graph, error) {
 //
 // Creates an empty graph, which is returned via phGraph. See also: [Graph.AddChildGraphNode], [Graph.AddEmptyNode], [Graph.AddKernelNode], [Graph.AddHostNode], [Graph.AddMemcpyNode], [Graph.AddMemsetNode], [Graph.Instantiate], [Graph.Destroy], [Graph.GetNodes], [Graph.GetRootNodes], [Graph.GetEdges], [Graph.Clone]
 //
-//   - phGraph: Returns newly created graph
 //   - flags: Graph creation flags, must be 0
 //
 // Wraps cuGraphCreate.

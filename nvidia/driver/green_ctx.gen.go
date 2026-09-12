@@ -133,7 +133,6 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 //
 // Note: The API is not supported on 32-bit platforms.
 //
-//   - phCtx: Pointer for the output handle to the green context
 //   - desc: Descriptor generated via [DevResourceGenerateDesc] which contains the set of resources to be used
 //   - dev: Device on which to create the green context
 //   - flags: One of the supported green context creation flags. [GreenCtxDefaultStream] is required. The supported flags are: - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context. Required

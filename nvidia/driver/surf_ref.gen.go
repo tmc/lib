@@ -4,7 +4,7 @@ package driver
 
 // GetArray Passes back the CUDA array bound to a surface reference.
 //
-// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: cuModuleGetSurfRef, cuSurfRefSetArray
+// Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array. See also: [Module.GetSurfRef], [SurfRef.SetArray]
 //
 // Deprecated: Returns in *phArray the CUDA array bound to the surface reference hSurfRef, or returns [ErrInvalidValue] if the surface reference is not bound to any CUDA array.
 //
@@ -15,7 +15,7 @@ func (s SurfRef) GetArray() (Array, error) {
 
 // SetArray Sets the CUDA array for a surface reference.
 //
-// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: cuModuleGetSurfRef, cuSurfRefGetArray Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Sets the CUDA array hArray to be read and written by the surface reference hSurfRef. Any previous CUDA array state associated with the surface reference is superseded by this function. Flags must be set to 0. The CUDA_ARRAY3D_SURFACE_LDST flag must have been set for the CUDA array. Any CUDA array previously bound to hSurfRef is unbound. See also: [Module.GetSurfRef], [SurfRef.GetArray]
 //
 //   - hArray: CUDA array handle
 //   - Flags: set to 0

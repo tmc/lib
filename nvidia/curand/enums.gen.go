@@ -58,7 +58,7 @@ type Ordering int32
 
 const (
 	CURAND_ORDERING_PseudoBest    Ordering = 100 // Best ordering for pseudorandom results
-	CURAND_ORDERING_PseudoDefault Ordering = 101 // Specific default thread sequence for pseudorandom results, same as [OrderingPseudoBest]
+	CURAND_ORDERING_PseudoDefault Ordering = 101 // Specific default thread sequence for pseudorandom results, same as [CURAND_ORDERING_PseudoBest]
 	CURAND_ORDERING_PseudoSeeded  Ordering = 102 // Specific seeding pattern for fast lower quality pseudorandom results
 	CURAND_ORDERING_PseudoLegacy  Ordering = 103 // Specific legacy sequence for pseudorandom results, guaranteed to remain the same for all cuRAND release
 	CURAND_ORDERING_PseudoDynamic Ordering = 104 // Specific ordering adjusted to the device it is being executed on, provides the best performance

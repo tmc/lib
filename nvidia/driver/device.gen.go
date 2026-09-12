@@ -155,7 +155,7 @@ func (d Device) GetP2PAtomicCapabilities(capabilities *uint32, operations *Atomi
 
 // GetP2PAttribute Queries attributes of the link between two devices.
 //
-// Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.GetP2PAtomicCapabilities], cudaDeviceGetP2PAttribute Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.GetP2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
 //   - value: Returned value of the requested attribute
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
@@ -259,7 +259,7 @@ func (d Device) PrimaryCtxRetain() (Context, error) {
 
 // PrimaryCtxSetFlags Set flags for the primary context.
 //
-// Sets the flags for the primary context on the device overwriting perviously set ones. The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync]. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxGetState], [NewContext], [CtxGetFlags], [CtxSetFlags], cudaSetDeviceFlags Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Sets the flags for the primary context on the device overwriting perviously set ones. The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync]. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxRetain], [Device.PrimaryCtxGetState], [NewContext], [CtxGetFlags], [CtxSetFlags], cudaSetDeviceFlags
 //
 //   - flags: New flags for the device
 //
@@ -367,7 +367,7 @@ func (d Device) MulticastBindMemV2(mcHandle uint64, mcOffset uint, memHandle uin
 
 // MulticastUnbind Unbind any memory allocations bound to a multicast object at a given offset and upto a given size.
 //
-// Unbinds any memory allocations hosted on dev and bound to a multicast object at mcOffset and upto a given size. The intended size of the unbind and the offset in the multicast range ( mcOffset ) must be a multiple of the value returned by [MulticastGetGranularity] flag [MulticastGranularityMinimum]. The size + mcOffset cannot be larger than the total size of the multicast object. Note: Warning: The mcOffset and the size must match the corresponding values specified during the bind call. Any other values may result in undefined behavior. See also: [MulticastBindMem], [DevicePtr.MulticastBindAddr] [Device.MulticastBindMemV2], [Device.MulticastBindAddrV2] Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Unbinds any memory allocations hosted on dev and bound to a multicast object at mcOffset and upto a given size. The intended size of the unbind and the offset in the multicast range ( mcOffset ) must be a multiple of the value returned by [MulticastGetGranularity] flag [MulticastGranularityMinimum]. The size + mcOffset cannot be larger than the total size of the multicast object. Note: Warning: The mcOffset and the size must match the corresponding values specified during the bind call. Any other values may result in undefined behavior. See also: [MulticastBindMem], [DevicePtr.MulticastBindAddr] [Device.MulticastBindMemV2], [Device.MulticastBindAddrV2]
 //
 //   - mcHandle: Handle representing a multicast object
 //   - mcOffset: Offset into the multicast object
@@ -382,7 +382,6 @@ func (d Device) MulticastUnbind(mcHandle uint64, mcOffset uint, size uint) error
 //
 // Returns in *device a device handle given an ordinal in the range [0, [DeviceGetCount]-1]. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [Device.GetLuid], [Device.TotalMem], [Device.GetExecAffinitySupport]
 //
-//   - device: Returned device handle
 //   - ordinal: Device number to get handle for
 //
 // Wraps cuDeviceGet.
@@ -394,7 +393,6 @@ func NewDeviceGet(ordinal int) (Device, error) {
 //
 // Returns in *device a device handle given a PCI bus ID string. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewDeviceGet], [Device.GetAttribute], [Device.GetPCIBusId], cudaDeviceGetByPCIBusId
 //
-//   - dev: Returned device handle
 //   - pciBusId: String in one of the following forms: domain:bus:device.function domain:bus:device bus:device.function where domain, bus, device, and function are all hexadecimal values
 //
 // Wraps cuDeviceGetByPCIBusId.

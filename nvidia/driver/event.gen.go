@@ -56,7 +56,7 @@ func (e Event) RecordWithFlags(hStream Stream, flags uint32) error {
 
 // Synchronize Waits for an event to complete.
 //
-// Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event. Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewEvent], [Event.Record], [Event.Query], [Event.Destroy], [Event.ElapsedTime], cudaEventSynchronize Privacy Policy | Manage My Privacy | Do Not Sell or Share My Data | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact Copyright © 2026 NVIDIA Corporation
+// Waits until the completion of all work currently captured in hEvent. See [Event.Record] for details on what is captured by an event. Waiting for an event that was created with the [EventBlockingSync] flag will cause the calling CPU thread to block until the event has been completed by the device. If the [EventBlockingSync] flag has not been set, then the CPU thread will busy-wait until the event has been completed by the device. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewEvent], [Event.Record], [Event.Query], [Event.Destroy], [Event.ElapsedTime], cudaEventSynchronize
 //
 // Wraps cuEventSynchronize.
 func (e Event) Synchronize() error {
@@ -78,7 +78,6 @@ func (e Event) IpcGetEventHandle(pHandle *IpcEventHandle) error {
 //
 // Creates an event *phEvent for the current context with the flags specified via Flags. Valid flags include: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Event.Record], [Event.Query], [Event.Synchronize], [Event.Destroy], [Event.ElapsedTime], cudaEventCreate, cudaEventCreateWithFlags
 //
-//   - phEvent: Returns newly created event
 //   - Flags: Event creation flags
 //
 // Wraps cuEventCreate.

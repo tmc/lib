@@ -8,9 +8,9 @@
 // operations are methods on Handle. Create one with [Create] and clean up
 // with [Handle.Destroy].
 //
-// This package maps every function from cublas_api.h to a Go function using
+// This package provides bindings generated from cublas_api.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libcublas.
-// All functions return errors wrapping cublasStatus_t with descriptive messages
+// Functions returning a C status report errors wrapping cublasStatus_t with descriptive messages
 // from cublasGetStatusName.
 //
 // # BLAS3

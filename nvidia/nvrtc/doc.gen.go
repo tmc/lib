@@ -7,9 +7,9 @@
 // [Program.Compile], and retrieve output with [Program.GetPTX] or [Program.GetCUBIN].
 // Clean up with [DestroyProgram].
 //
-// This package maps every function from nvrtc.h to a Go function using
+// This package provides bindings generated from nvrtc.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libnvrtc.
-// All functions return errors wrapping nvrtcResult with descriptive messages
+// Functions returning a C status report errors wrapping nvrtcResult with descriptive messages
 // from nvrtcGetErrorString.
 //
 // # Name Expressions

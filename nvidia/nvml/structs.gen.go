@@ -957,7 +957,7 @@ type CPERCursorV1 struct {
 	Handle       uint64
 }
 
-// GetCPERV1 represents Input/output structure for [[SystemGetCPER]]..
+// GetCPERV1 represents Input/output structure for [SystemGetCPER]..
 type GetCPERV1 struct {
 	Cursor     CPERCursorV1
 	Buffer     uintptr

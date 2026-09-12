@@ -1,8 +1,8 @@
 // Package driver provides low-level Go bindings for the NVIDIA CUDA driver API.
 //
-// This package maps every function from cuda.h to a Go function using
+// This package provides bindings generated from cuda.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libcuda.
-// All functions return errors wrapping CUresult with descriptive messages
+// Functions returning a C status report errors wrapping CUresult with descriptive messages
 // from cuGetErrorName and cuGetErrorString.
 //
 // # Array Management
@@ -38,8 +38,10 @@
 //
 // # Context Management
 //
+//   - [NewContextAttach]: Increment a context's usage-count
 //   - [NewContext]: Create a CUDA context.
 //   - [Context.Destroy]: Destroy a CUDA context.
+//   - [Context.Detach]: Decrement a context's usage-count
 //   - [Context.DisablePeerAccess]: Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
 //   - [Context.EnablePeerAccess]: Enables direct access to memory allocations in a peer context.
 //   - [NewContextFromGreenCtx]: Converts a green context into the primary context
@@ -53,6 +55,7 @@
 //   - [CtxGetFlags]: Returns the flags for the current context.
 //   - [Context.GetId]: Returns the unique Id associated with the context supplied.
 //   - [CtxGetLimit]: Returns resource limits.
+//   - [CtxGetSharedMemConfig]: Returns the current shared memory configuration for the current context.
 //   - [CtxGetStreamPriorityRange]: Returns numerical values that correspond to the least and greatest stream priorities.
 //   - [NewContextPopCurrent]: Pops the current CUDA context from the current CPU thread.
 //   - [Context.PushCurrent]: Pushes a context on the current CPU thread.
@@ -62,6 +65,7 @@
 //   - [Context.SetCurrent]: Binds the specified CUDA context to the calling CPU thread.
 //   - [CtxSetFlags]: Sets the flags for the current context.
 //   - [CtxSetLimit]: Set resource limits.
+//   - [CtxSetSharedMemConfig]: Sets the shared memory configuration for the current context.
 //   - [CtxSynchronize]: Block for the current context's tasks to complete.
 //   - [Context.SynchronizeV2]: Block for the specified context's tasks to complete.
 //   - [Context.WaitEvent]: Make a context wait on an event.
@@ -90,6 +94,7 @@
 //   - [DevSmResourceSplit]: Splits a [DevResourceTypeSm] resource into structured groups.
 //   - [DevSmResourceSplitByCount]: Splits [DevResourceTypeSm] resources.
 //   - [Device.CanAccessPeer]: Queries if a device may directly access a peer device's memory.
+//   - [Device.ComputeCapability]: Returns the compute capability of the device
 //   - [NewDeviceGet]: Returns a handle to a compute device.
 //   - [Device.GetAttribute]: Returns information about the device.
 //   - [NewDeviceGetByPCIBusId]: Returns a handle to a compute device.
@@ -106,6 +111,7 @@
 //   - [Device.GetP2PAtomicCapabilities]: Queries details about atomic operations supported between two devices.
 //   - [Device.GetP2PAttribute]: Queries attributes of the link between two devices.
 //   - [Device.GetPCIBusId]: Returns a PCI Bus Id string for the device.
+//   - [Device.GetProperties]: Returns properties for a selected device
 //   - [Device.GetTexture1DLinearMaxWidth]: Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size.
 //   - [Device.GetUuid]: Return an UUID for the device.
 //   - [Device.GraphMemTrim]: Free unused memory that was cached on the specified device for use with graphs back to the OS.
@@ -149,7 +155,10 @@
 //   - [Function.IsLoaded]: Returns if the function is loaded.
 //   - [Function.Load]: Loads a function.
 //   - [Function.SetAttribute]: Sets information about a function.
+//   - [Function.SetBlockShape]: Sets the block-dimensions for the function
 //   - [Function.SetCacheConfig]: Sets the preferred cache configuration for a device function.
+//   - [Function.SetSharedMemConfig]: Sets the shared memory configuration for a device function.
+//   - [Function.SetSharedSize]: Sets the dynamic shared-memory size for the function
 //
 // # Graph Management
 //
@@ -268,7 +277,11 @@
 //
 // # Kernel Execution
 //
+//   - [Function.Launch]: Launches a CUDA function
 //   - [Function.LaunchCooperativeKernel]: Launches a CUDA function [Function] or a CUDA kernel [Kernel] where thread blocks can cooperate and synchronize as they execute.
+//   - [LaunchCooperativeKernelMultiDevice]: Launches CUDA functions on multiple devices where thread blocks can cooperate and synchronize as they execute
+//   - [Function.LaunchGrid]: Launches a CUDA function
+//   - [Function.LaunchGridAsync]: Launches a CUDA function
 //   - [Stream.LaunchHostFunc]: Enqueues a host function call in a stream.
 //   - [Function.LaunchKernel]: Launches a CUDA function [Function] or a CUDA kernel [Kernel].
 //   - [Function.LaunchKernelEx]: Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
@@ -411,6 +424,33 @@
 //   - [TexObjectGetResourceDesc]: Returns a texture object's resource descriptor.
 //   - [TexObjectGetResourceViewDesc]: Returns a texture object's resource view descriptor.
 //   - [TexObjectGetTextureDesc]: Returns a texture object's texture descriptor.
+//   - [NewTexRef]: Creates a texture reference.
+//   - [TexRef.Destroy]: Destroys a texture reference.
+//   - [TexRef.GetAddress]: Gets the address associated with a texture reference.
+//   - [TexRef.GetAddressMode]: Gets the addressing mode used by a texture reference.
+//   - [TexRef.GetArray]: Gets the array bound to a texture reference.
+//   - [TexRef.GetBorderColor]: Gets the border color used by a texture reference.
+//   - [TexRef.GetFilterMode]: Gets the filter-mode used by a texture reference.
+//   - [TexRef.GetFlags]: Gets the flags used by a texture reference.
+//   - [TexRef.GetFormat]: Gets the format used by a texture reference.
+//   - [TexRef.GetMaxAnisotropy]: Gets the maximum anisotropy for a texture reference.
+//   - [TexRef.GetMipmapFilterMode]: Gets the mipmap filtering mode for a texture reference.
+//   - [TexRef.GetMipmapLevelBias]: Gets the mipmap level bias for a texture reference.
+//   - [TexRef.GetMipmapLevelClamp]: Gets the min/max mipmap level clamps for a texture reference.
+//   - [TexRef.GetMipmappedArray]: Gets the mipmapped array bound to a texture reference.
+//   - [TexRef.SetAddress]: Binds an address as a texture reference.
+//   - [TexRef.SetAddress2D]: Binds an address as a 2D texture reference.
+//   - [TexRef.SetAddressMode]: Sets the addressing mode for a texture reference.
+//   - [TexRef.SetArray]: Binds an array as a texture reference.
+//   - [TexRef.SetBorderColor]: Sets the border color for a texture reference.
+//   - [TexRef.SetFilterMode]: Sets the filtering mode for a texture reference.
+//   - [TexRef.SetFlags]: Sets the flags for a texture reference.
+//   - [TexRef.SetFormat]: Sets the format for a texture reference.
+//   - [TexRef.SetMaxAnisotropy]: Sets the maximum anisotropy for a texture reference.
+//   - [TexRef.SetMipmapFilterMode]: Sets the mipmap filtering mode for a texture reference.
+//   - [TexRef.SetMipmapLevelBias]: Sets the mipmap level bias for a texture reference.
+//   - [TexRef.SetMipmapLevelClamp]: Sets the mipmap min/max mipmap level clamps for a texture reference.
+//   - [TexRef.SetMipmappedArray]: Binds a mipmapped array to a texture reference.
 //
 // # Module Management
 //
@@ -419,6 +459,8 @@
 //   - [Module.GetFunctionCount]: Returns the number of functions within a module.
 //   - [Module.GetGlobal]: Returns a global pointer from a module.
 //   - [ModuleGetLoadingMode]: Query lazy loading mode.
+//   - [Module.GetSurfRef]: Returns a handle to a surface reference
+//   - [Module.GetTexRef]: Returns a handle to a texture reference
 //   - [NewModuleLoad]: Loads a compute module.
 //   - [NewModuleLoadData]: Load a module's data.
 //   - [NewModuleLoadDataEx]: Load a module's data with options.
@@ -488,6 +530,8 @@
 //   - [SurfObjectCreate]: Creates a surface object.
 //   - [SurfObjectDestroy]: Destroys a surface object.
 //   - [SurfObjectGetResourceDesc]: Returns a surface object's resource descriptor.
+//   - [SurfRef.GetArray]: Passes back the CUDA array bound to a surface reference.
+//   - [SurfRef.SetArray]: Sets the CUDA array for a surface reference.
 //
 // # Tensor Core
 //
@@ -509,6 +553,11 @@
 //   - [LogsDumpToMemory]: Dump accumulated driver logs into a buffer
 //   - [LogsRegisterCallback]: Register a callback function to receive error log messages
 //   - [LogsCallbackHandle.LogsUnregisterCallback]: Unregister a log message callback
+//   - [Function.ParamSetSize]: Sets the parameter size for the function
+//   - [Function.ParamSetTexRef]: Adds a texture-reference to the function's argument list
+//   - [Function.ParamSetf]: Adds a floating-point parameter to the function's argument list
+//   - [Function.ParamSeti]: Adds an integer parameter to the function's argument list
+//   - [Function.ParamSetv]: Adds arbitrary data to the function's argument list
 //   - [ThreadExchangeStreamCaptureMode]: Swaps the stream capture interaction mode for a thread.
 //
 // [CUDA Driver API Documentation]: https://docs.nvidia.com/cuda/cuda-driver-api/
