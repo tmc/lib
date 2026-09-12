@@ -34,10 +34,10 @@ func (v VgpuInstance) GetAccountingPids(buf []uint32) ([]uint32, error) {
 	for {
 		n := count
 		err := vgpuInstanceGetAccountingPids(v, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -84,10 +84,10 @@ func (v VgpuInstance) GetEncoderSessions(buf []EncoderSessionInfo) ([]EncoderSes
 	for {
 		n := count
 		err := vgpuInstanceGetEncoderSessions(v, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -121,10 +121,10 @@ func (v VgpuInstance) GetFBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, er
 	for {
 		n := count
 		err := vgpuInstanceGetFBCSessions(v, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
