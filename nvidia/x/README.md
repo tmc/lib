@@ -16,7 +16,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
-| [cudakv](cudakv/) | Package cudakv provides static and paged Key-Value (KV) cache memory management for autoregressive transformer sequence generation. |
+| [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
@@ -26,16 +26,18 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaptx](cudaptx/) | Package cudaptx parses and analyzes NVIDIA Parallel Thread Execution (PTX) virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors reads Hugging Face .safetensors files and copies tensors into CUDA device memory. |
-| [cudasample](cudasample/) | Package cudasample provides CUDA greedy argmax and its CPU reference. |
+| [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
 | [cuptiactivity](cuptiactivity/) | Package cuptiactivity collects bounded CUPTI activity records and exports complete records to Perfetto. |
+| [cuptipcsampling](cuptipcsampling/) | Package cuptipcsampling provides bounded modern CUPTI PC sampling. |
 | [cuptirange](cuptirange/) | Package cuptirange configures, collects and evaluates CUPTI Range Profiling metrics with explicit memory and replay limits. |
 | [egraph](egraph/) | Package egraph implements a lightweight, pure-Go E-Graph (equivalence graph) and equality saturation engine for term rewriting, program optimization, and kernel fusion. |
 | [moonep](moonep/) | Package moonep is a Go port of the host-side layer of MoonEP (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication library. |
 | [mxfp4](mxfp4/) | Package mxfp4 provides OCP Microscaling FP4 (E2M1) quantization, dequantization, and CUDA fused GEMV kernels. |
+| [nccltest](nccltest/) | Package nccltest provides Go testing support for NCCL collective correctness and performance comparisons with NVIDIA/nccl-tests. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
