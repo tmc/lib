@@ -348,7 +348,11 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 	return nil
 }
 
+// evalBatch spans the chunk rather than each token in it: the batched
+// front end evaluates all of them together, so a per-token interval here
+// would report the chunk's duration once per token.
 func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err error) {
+	defer begin(levelToken, "batch", nil).end()
 	if len(tokens) < 2 || len(tokens) > cudaPrefillBatchWidth {
 		return errors.New("cuda runtime: dense batch has invalid length")
 	}
@@ -481,7 +485,11 @@ func (r *cudaRuntime) ensureBatch(allocate func() (*cudaBatchResources, error)) 
 	return nil
 }
 
+// evalLayerBatch carries the layer span for prefill. evalLayerState has
+// the decode one, and the projected tail both paths share has none, so
+// without this a prefill emits no layer intervals at all.
 func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index int, tokens []int, position int) error {
+	defer beginLayer(index).end()
 	if len(base) != len(tokens) || len(hc) != len(tokens) || len(tokens) < 2 || len(tokens) > cudaPrefillBatchWidth {
 		return errors.New("cuda runtime: dense batch has invalid length")
 	}
