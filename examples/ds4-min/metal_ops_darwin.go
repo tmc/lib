@@ -54,7 +54,11 @@ func (o *metalPinnedOps) IndexerAllowed(qrNorm, current []float32, qWeight, head
 		indexerQAT(row)
 		weights[h] *= 1 / float32(math.Sqrt(64*128))
 	}
-	return selectIndexerRows(indexerScores(cache.HostSlice(), q, weights, nComp), 512), nil
+	scores, err := o.IndexerScores(cache, q, weights, nComp)
+	if err != nil {
+		return nil, err
+	}
+	return selectIndexerRows(scores, 512), nil
 }
 
 // indexerScores scores every compressed row against the projected query.
