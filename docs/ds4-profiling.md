@@ -289,15 +289,31 @@ Measured on 2026-09-12 with both logits digests supplied and reproduced:
 
 | span | n | total |
 | --- | --- | --- |
-| prefill | 1 | 158.155 s |
-| batch | 256 | 158.155 s |
-| layer | 11,094 | 147.733 s |
-| generation | 1 | 166.664 ms |
-| token | 2 | 166.412 ms |
+| prefill | 1 | 158,155,050,285 ns |
+| batch | 256 | 158,154,800,221 |
+| layer | 11,094 | 147,733,008,877 |
+| generation | 1 | 166,664,130 |
+| token | 2 | 166,412,034 |
 
-The layer intervals account for 93.4% of prefill. The remaining 10.4 s is the
-work outside the layer loop — per-token embedding rows, the group tail, the
-vocabulary projection, and the stream synchronization at each chunk's end.
+The `layer` row is every layer interval in the file. Split it by which phase
+span contains it before comparing against either phase, or the decode layers
+inflate the prefill figure:
+
+| | n | total |
+| --- | --- | --- |
+| layer, within `prefill` | 11,008 | 147,647,267,982 ns |
+| layer, within `generation` | 86 | 85,740,895 |
+
+So prefill's layer intervals are 93.36% of the prefill span, and the residual
+is 10,507,782,303 ns — 10.508 s the layer spans do not cover. Decode's are
+51.4% of its span, a much larger share left over, which is what you would
+expect when 43 layers are amortized over one token instead of eight.
+
+That residual is host time outside the layer spans. It is not a measured
+attribution: nothing here says which of the per-token embedding rows, the
+group tail, the vocabulary projection, or the per-chunk stream synchronization
+it went to. Naming the candidates is not measuring them, and a finer span
+level is what would settle it.
 
 Do not reach for `markCUDAPhase` to get finer detail into this sidecar. The
 shallow-regime phase count is `(tokens/8)*(43+1) + tokens*43*8`
