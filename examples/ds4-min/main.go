@@ -30,6 +30,10 @@ Load one DeepSeek-V4-Flash Q2 model and generate a non-thinking response.
         read a JSON token-id array verbatim; conflicts with prose prompts
   -tokens int
         maximum generated tokens (default 16)
+  -expect-prefill-logits string
+        require this SHA-256 of little-endian float32 prefill logits
+  -expect-final-logits string
+        require this final logits SHA-256 and exactly -tokens accepted tokens
 
 Profiling. These start after the model is loaded, so a profile describes
 generation rather than the mmap residency wait.
@@ -64,6 +68,9 @@ type config struct {
 	context      int
 	tokens       int
 	log          io.Writer
+
+	expectPrefillLogits string
+	expectFinalLogits   string
 
 	cpuProfile   string
 	memProfile   string
@@ -113,6 +120,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
+	cfg.logLogitsWorkload(prompt, stderr)
 	b, closer, err := openSessionBackend(cfg)
 	if err != nil {
 		return err
@@ -146,6 +154,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	}
 	prefillSpan.end()
 	prefill := time.Since(prefillStart)
+	if err := checkLogits("prefill", s.logits, len(tok.tokens), cfg.expectPrefillLogits, stderr); err != nil {
+		return err
+	}
 	var text textAssembler
 	generated := 0
 	decodeStart := time.Now()
@@ -170,11 +181,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 			return err
 		}
 		generated++
+		if cfg.checkingLogits() {
+			fmt.Fprintf(stderr, "ds4-min: accepted token %d=%d\n", generated, id)
+		}
 	}
 	decodeSpan.end()
 	// Same definition as ds4_cli.c:679-686: prompt tokens over the prefill
 	// wall time, generated tokens over the decode wall time.
 	decode := time.Since(decodeStart)
+	if err := cfg.checkFinalLogits(s.logits, generated, len(tok.tokens), stderr); err != nil {
+		return err
+	}
 	rate := func(n int, d time.Duration) float64 {
 		if d <= 0 {
 			return 0
@@ -217,6 +234,8 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&promptFile, "prompt-file", "", "read user prompt from file")
 	fs.StringVar(&promptTokens, "prompt-tokens", "", "read JSON token IDs from file")
 	fs.IntVar(&cfg.tokens, "tokens", 16, "maximum generated tokens")
+	fs.StringVar(&cfg.expectPrefillLogits, "expect-prefill-logits", "", "expected prefill logits SHA-256")
+	fs.StringVar(&cfg.expectFinalLogits, "expect-final-logits", "", "expected final logits SHA-256")
 	fs.StringVar(&cfg.cpuProfile, "cpuprofile", "", "write a Go CPU profile")
 	fs.StringVar(&cfg.memProfile, "memprofile", "", "write a Go heap profile")
 	fs.StringVar(&cfg.traceProfile, "trace", "", "write a Go execution trace")
@@ -241,6 +260,21 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	}
 	set := make(map[string]bool)
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	for _, check := range []struct {
+		name  string
+		value *string
+	}{
+		{"expect-prefill-logits", &cfg.expectPrefillLogits},
+		{"expect-final-logits", &cfg.expectFinalLogits},
+	} {
+		if set[check.name] {
+			value, err := normalizeLogitsDigest(*check.value)
+			if err != nil {
+				return config{}, fmt.Errorf("%s: %w", check.name, err)
+			}
+			*check.value = value
+		}
+	}
 	if set["prompt-tokens"] && (set["prompt"] || set["prompt-file"]) {
 		return config{}, errors.New("prompt-tokens conflicts with prompt and prompt-file")
 	}
