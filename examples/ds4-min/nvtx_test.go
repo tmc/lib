@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCalibrationName(t *testing.T) {
@@ -84,5 +86,64 @@ func TestCalibrateWithoutProvider(t *testing.T) {
 	}
 	if c.Name != calibrationName("unit", "start") || c.Schema == "" {
 		t.Fatalf("calibration = %+v", c)
+	}
+}
+
+// A phase span is closed both by a defer, for the error paths, and at the
+// phase's real boundary. end must therefore be exactly-once: a second call
+// would restamp the span's duration with the time spent after the phase,
+// and would unbalance the NVTX range.
+func TestTracedEndIsExactlyOnce(t *testing.T) {
+	spans = newSpanRecorder(levelPhase, "exactly-once")
+	defer func() { spans = nil }()
+
+	e := beginTraced(levelPhase, "prefill", nil)
+	e.end()
+	first := spans.spans[0].durationN
+	if first == 0 {
+		t.Fatal("end did not stamp a duration")
+	}
+	// Sleep long enough that a second stamp could not equal the first.
+	time.Sleep(2 * time.Millisecond)
+	e.end()
+	if got := spans.spans[0].durationN; got != first {
+		t.Fatalf("second end restamped the duration: %d, then %d", first, got)
+	}
+	if !*e.done {
+		t.Fatal("end did not record that it ran")
+	}
+	// The zero value must stay a no-op rather than panicking on nil done.
+	tracedEnd{}.end()
+}
+
+// The phase spans in run are closed by a deferred end, so a failure between
+// begin and the normal boundary still closes the interval. This models that
+// control flow: it fails if the defer is dropped.
+func TestTracedEndClosesOnErrorPath(t *testing.T) {
+	spans = newSpanRecorder(levelPhase, "error-path")
+	defer func() { spans = nil }()
+
+	phase := func(fail bool) error {
+		e := beginTraced(levelPhase, "prefill", nil)
+		defer e.end()
+		if fail {
+			return errors.New("sync failed")
+		}
+		e.end()
+		return nil
+	}
+	if err := phase(true); err == nil {
+		t.Fatal("want an error")
+	}
+	if err := phase(false); err != nil {
+		t.Fatal(err)
+	}
+	if len(spans.spans) != 2 {
+		t.Fatalf("recorded %d spans, want 2", len(spans.spans))
+	}
+	for i, s := range spans.spans {
+		if s.durationN == 0 {
+			t.Errorf("span %d (%s) was left open", i, s.name)
+		}
 	}
 }

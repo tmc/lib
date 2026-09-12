@@ -18,12 +18,21 @@ import (
 
 // A tracedEnd ends a span and its NVTX range. The zero value is the no-op
 // end, so a call site needs no guard for tracing being off.
+// The zero value's nil done makes end a no-op, and a non-nil done makes it
+// idempotent, so a call site can both defer end for its error paths and
+// call it at the interval's real boundary. Closing twice would otherwise
+// restamp the span's duration and unbalance the NVTX range.
 type tracedEnd struct {
 	span spanEnd
 	rng  nvtx.RangeID
+	done *bool
 }
 
 func (e tracedEnd) end() {
+	if e.done == nil || *e.done {
+		return
+	}
+	*e.done = true
 	e.span.end()
 	if e.rng != 0 {
 		nvtx.RangeEnd(e.rng)
@@ -41,7 +50,7 @@ func beginTraced(level spanLevel, name string, labels map[string]string) tracedE
 	if spans == nil || level > spans.level {
 		return tracedEnd{}
 	}
-	return tracedEnd{span: begin(level, name, labels), rng: nvtx.RangeStart(name)}
+	return tracedEnd{span: begin(level, name, labels), rng: nvtx.RangeStart(name), done: new(bool)}
 }
 
 // beginTracedLayer is beginTraced for one transformer layer. The NVTX name
@@ -55,7 +64,18 @@ func beginTracedLayer(i int) tracedEnd {
 	return tracedEnd{
 		span: beginLayer(i),
 		rng:  nvtx.RangeStart("layer " + strconv.Itoa(i)),
+		done: new(bool),
 	}
+}
+
+// requireNVTXProvider reports why calibration cannot run. It is checked at
+// flag time because the alternative is paying a model load and a GPU
+// context to learn that nsys is not attached.
+func requireNVTXProvider() error {
+	if !nvtx.Enabled() {
+		return errors.New("-calibration needs an attached NVTX provider; run under nsys")
+	}
+	return nil
 }
 
 // A calibration brackets one NVTX range start between two reads of the span

@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/gguf"
-
-	"github.com/tmc/lib/nvidia/x/nvtx"
 )
 
 const usage = `usage: ds4-min -model file [-backend auto|metal|cuda|cpu] [-prompt text | -prompt-file file | -prompt-tokens file] [-tokens n] [-ctx n]
@@ -154,14 +152,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	// offset relates the two clocks at all.
 	var calibrations []calibration
 	if cfg.calibPath != "" {
-		if !nvtx.Enabled() {
-			return errors.New("-calibration needs an NVTX provider; run under nsys")
-		}
 		calibrations = append(calibrations, calibrate(runID, "start"))
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
 	prefillSpan := beginTraced(levelPhase, "prefill", nil)
+	// end is idempotent, so the defer closes the range on the error paths
+	// and the call below closes it at the phase's real boundary.
+	defer prefillSpan.end()
 	if err := s.Sync(prompt); err != nil {
 		return err
 	}
@@ -174,6 +172,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	generated := 0
 	decodeStart := time.Now()
 	decodeSpan := beginTraced(levelPhase, "generation", nil)
+	defer decodeSpan.end()
 	for range cfg.tokens {
 		id := greedyToken(s.logits)
 		if tok.IsStop(id) {
@@ -313,6 +312,11 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 		return config{}, err
 	}
 	cfg.spanLevel = level
+	if cfg.calibPath != "" {
+		if err := requireNVTXProvider(); err != nil {
+			return config{}, err
+		}
+	}
 	backend, err := selectBackend(cfg.backend)
 	if err != nil {
 		return config{}, err
