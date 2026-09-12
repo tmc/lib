@@ -1,6 +1,7 @@
 package cudaprof
 
 import (
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -63,7 +64,10 @@ func WithPCSamplingPeriod(period uint32) FlightRecorderOption {
 	}
 }
 
-// WithFlightRecorderBinaryPath sets the target path for synthesized ELF disassembly sidecars.
+// WithFlightRecorderBinaryPath requests the legacy generated ELF sidecar.
+// Nonempty paths cause Start and WriteTo to fail; sample names do not supply code.
+//
+// Deprecated: retain native code artifacts separately instead.
 func WithFlightRecorderBinaryPath(path string) FlightRecorderOption {
 	return func(fr *FlightRecorder) {
 		fr.binaryPath = path
@@ -88,6 +92,9 @@ func NewFlightRecorder(opts ...FlightRecorderOption) *FlightRecorder {
 func (fr *FlightRecorder) Start() error {
 	fr.mu.Lock()
 	defer fr.mu.Unlock()
+	if fr.binaryPath != "" {
+		return errors.New("cudaprof: generated ELF sidecars are not captured code")
+	}
 	fr.enabled = true
 	return nil
 }

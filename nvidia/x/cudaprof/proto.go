@@ -97,7 +97,6 @@ type Builder struct {
 	locations   []location
 	functions   []function
 	funcMap     map[string]uint64
-	symbols     map[string]*Symbol
 	binaryPath  string
 	samples     []sample
 	sampleTypes []int
@@ -202,7 +201,6 @@ func NewBuilder() *Builder {
 	b := &Builder{
 		st:      newStringTable(),
 		funcMap: make(map[string]uint64),
-		symbols: make(map[string]*Symbol),
 	}
 	b.mappings = append(b.mappings, mapping{
 		id:              1,
@@ -219,7 +217,11 @@ func NewBuilder() *Builder {
 	return b
 }
 
-// SetBinaryPath sets the target path for the synthesized ELF binary sidecar.
+// SetBinaryPath requests the legacy generated ELF sidecar. Nonempty paths now
+// cause WriteGzip to fail: instruction bytes cannot be inferred from samples.
+// Use SetMappingFile with a retained native code artifact instead.
+//
+// Deprecated: generated sidecars do not represent captured GPU instructions.
 func (b *Builder) SetBinaryPath(path string) {
 	b.binaryPath = path
 }
@@ -291,24 +293,6 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 			line:       frame.Line,
 		})
 		locIDs = append(locIDs, locID)
-
-		// Track symbol address range
-		if frame.Address > 0 && frame.FunctionName != "" {
-			if sym, ok := b.symbols[frame.FunctionName]; !ok {
-				b.symbols[frame.FunctionName] = &Symbol{
-					Name:    frame.FunctionName,
-					Address: frame.Address,
-					Size:    0x100,
-				}
-			} else {
-				if frame.Address < sym.Address {
-					sym.Address = frame.Address
-				}
-				if (frame.Address + 0x20) > (sym.Address + sym.Size) {
-					sym.Size = (frame.Address + 0x20) - sym.Address
-				}
-			}
-		}
 	}
 
 	metricVals := []int64{
@@ -396,17 +380,8 @@ func (b *Builder) AddTracebackSample(
 
 // WriteGzip encodes the profile as a standard gzipped pprof profile with multiple metric dimensions.
 func (b *Builder) WriteGzip(w io.Writer) error {
-	// Synthesize ELF binary sidecar if binaryPath is specified
-	if b.binaryPath != "" && len(b.symbols) > 0 {
-		syms := make([]Symbol, 0, len(b.symbols))
-		for _, s := range b.symbols {
-			syms = append(syms, *s)
-		}
-		if err := WriteELFBinary(b.binaryPath, syms); err == nil {
-			if len(b.mappings) > 0 {
-				b.mappings[0].filename = b.st.Index(b.binaryPath)
-			}
-		}
+	if b.binaryPath != "" {
+		return fmt.Errorf("cudaprof: generated ELF sidecars are not captured code; use SetMappingFile with a retained native artifact")
 	}
 
 	var body []byte
