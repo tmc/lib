@@ -1,0 +1,11 @@
+commit: 482c2d66c44029c686c300555a3ee496461fd507
+date: 2026-09-12T01:08:32Z
+agent: antigravity
+version: 2.0
+model: inherit
+claude-code version: not applicable
+tty: not a tty
+not a tty
+pid: 53617
+iterm_session_id: w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+Validation: TestCUDAAttentionFusedBits (all 15 position/comp/mask subtests + 3 mutation tests PASS), TestCUDARawAttentionFastBits (positions 0..2048 PASS 100% bit-exact), TestCUDASynthRawAttention PASS, TestCUDAAttentionScoreParallelBits PASS, TestCUDAAttentionValueParallelBits PASS, TestCUDAAttentionWeightCacheBits PASS on NVIDIA GB10 sm_121.
