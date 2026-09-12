@@ -24,8 +24,7 @@ func TestCUDAMatvecQ80BlockDiagIsMatvecQ80WithBasePointers(t *testing.T) {
 
 	rebased := strings.NewReplacer(
 		"extern \"C\" __global__ void ds4_q8_0_matvec_quantized_blockdiag(", "extern \"C\" __global__ void ds4_q8_0_matvec_quantized(",
-		"unsigned blocks, unsigned rows) {", "unsigned blocks) {",
-		"const unsigned row = blockIdx.x, diag = blockIdx.y, lane = threadIdx.x;", "const unsigned row = blockIdx.x, lane = threadIdx.x;",
+		"const unsigned row = blockIdx.x * 8 + warp_id, diag = blockIdx.y;", "const unsigned row = blockIdx.x * 8 + warp_id;",
 		"weight_row = weights + ((unsigned long long)diag * rows + row) * blocks * 34;", "weight_row = weights + (unsigned long long)row * blocks * 34;",
 		"xb[b].qs[i]", "x[b].qs[i]",
 		"xb[b].d", "x[b].d",
