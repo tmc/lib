@@ -28,6 +28,10 @@ func serialIndexerScoresReference(q, weights, cache []float32, count int) []floa
 	return scores
 }
 
+// serialSelectIndexerRows is the reference selection logic. Note on sentinel floor:
+// The legacy CUDA scan (pre-970f5e19) floored at -inf (-__int_as_float(0x7f800000)).
+// Commit 970f5e19 deliberately aligned CUDA with Metal's -1e30 sentinel
+// (selectIndexerSentinel) to ensure cross-backend behavioral convergence.
 func serialSelectIndexerRows(scores []float32, k int) []uint32 {
 	allowed := make([]uint32, len(scores))
 	k = min(k, len(scores))
@@ -288,6 +292,22 @@ func TestCUDASelectIndexerRowsMatchesTheScan(t *testing.T) {
 			}
 			return s
 		}},
+		{"sentinel divergence band (-inf, -1e30]", 512, func() []float32 {
+			// Tests the boundary between the legacy CUDA -inf floor and the aligned
+			// Metal -1e30 floor. Rows at -1e30, just below it, and -1e35 must NOT be
+			// admitted under the -1e30 floor even when fewer than 512 rows exist above them.
+			s := make([]float32, 600)
+			for i := range s {
+				s[i] = float32(math.Inf(-1))
+			}
+			for i := 0; i < 100; i++ {
+				s[i] = float32(i + 1)
+			}
+			s[100] = -1e30
+			s[101] = float32(math.Nextafter(float64(-1e30), math.Inf(-1)))
+			s[102] = -1e35
+			return s
+		}},
 		{"deep regime shape", 512, func() []float32 {
 			s := make([]float32, 16418)
 			for i := range s {
@@ -328,4 +348,50 @@ func TestCUDASelectIndexerRowsMatchesTheScan(t *testing.T) {
 			t.Logf("%d rows, %d admitted", len(scores), admitted)
 		})
 	}
+}
+
+func TestCUDASentinelFloorDivergenceReceipt(t *testing.T) {
+	// Mutation receipt demonstrating the divergence between the legacy CUDA -inf
+	// floor and the aligned -1e30 floor.
+	s := make([]float32, 600)
+	for i := range s {
+		s[i] = float32(math.Inf(-1))
+	}
+	for i := 0; i < 10; i++ {
+		s[i] = float32(i + 1)
+	}
+	s[10] = -1e30
+	s[11] = float32(math.Nextafter(float64(-1e30), math.Inf(-1)))
+	s[12] = -1e35
+
+	// Legacy CUDA scan (-inf floor):
+	legacyScan := func(scores []float32, k int) []uint32 {
+		allowed := make([]uint32, len(scores))
+		k = min(k, len(scores))
+		for range k {
+			best := 0
+			bestScore := float32(math.Inf(-1))
+			for i, score := range scores {
+				if allowed[i] == 0 && score > bestScore {
+					best = i
+					bestScore = score
+				}
+			}
+			allowed[best] = 1
+		}
+		return allowed
+	}
+
+	legacyWant := legacyScan(s, 512)
+	alignedWant := serialSelectIndexerRows(s, 512)
+
+	// In legacy scan, rows 10, 11, 12 were admitted because they are > -inf:
+	if legacyWant[10] != 1 || legacyWant[11] != 1 || legacyWant[12] != 1 {
+		t.Fatalf("expected legacy -inf scan to admit rows in (-inf, -1e30]")
+	}
+	// In aligned scan, rows 10, 11, 12 are excluded by the strict > -1e30 floor:
+	if alignedWant[10] != 0 || alignedWant[11] != 0 || alignedWant[12] != 0 {
+		t.Fatalf("expected aligned -1e30 scan to exclude rows in (-inf, -1e30]")
+	}
+	t.Logf("receipt confirmed: legacy CUDA -inf admitted rows in (-inf, -1e30], aligned Metal/CUDA -1e30 strictly excludes them")
 }
