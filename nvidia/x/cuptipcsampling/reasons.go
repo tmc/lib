@@ -1,0 +1,110 @@
+package cuptipcsampling
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"runtime"
+	"sort"
+	"unsafe"
+
+	"github.com/tmc/lib/nvidia/cupti"
+)
+
+// StallReason identifies a reason returned by the native PC sampling API.
+// Index is not a legacy ActivityPCSamplingStallReason enum value. Names are
+// preserved verbatim, including distinctions such as not-issued reasons.
+type StallReason struct {
+	Index uint32
+	Name  string
+}
+
+// ReasonInventory retains the native version with the queried reason table.
+// Discovery alone establishes neither sampling permission nor collected data.
+type ReasonInventory struct {
+	CUPTIVersion uint32
+	Reasons      []StallReason
+}
+
+// StallReasons queries the modern native reason inventory without enabling PC
+// sampling or launching work. The caller must keep ctx alive and coordinate its
+// use with other collectors. maxReasons must be between 1 and 65536. Exceeding
+// the limit or receiving malformed output fails without a partial inventory.
+// Names and IDs are owned copies sorted by ID. Native errors remain inspectable.
+//
+// The 64-bit parameter layouts for CUPTI 27, 130001 and 130200 are admitted;
+// other versions fail before querying the layout. Runtime/device support must
+// still be established by the native result on the selected configuration.
+func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {
+	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
+		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
+	}
+	v, err := cupti.GetVersion()
+	if err != nil {
+		return ReasonInventory{}, err
+	}
+	return stallReasons(ctx, maxReasons, v, cupti.PCSamplingGetNumStallReasons, cupti.PCSamplingGetStallReasons)
+}
+
+func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery func(*cupti.PCSamplingGetNumStallReasonsParams) error, namesQuery func(*cupti.PCSamplingGetStallReasonsParams) error) (ReasonInventory, error) {
+	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
+		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
+	}
+	if unsafe.Sizeof(uintptr(0)) != 8 || (version != 27 && version != 130001 && version != 130200) {
+		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: unqualified reason inventory layout for CUPTI %d", version)
+	}
+	var pin runtime.Pinner
+	defer pin.Unpin()
+	count := ^uint(0)
+	pin.Pin(&count)
+	q := cupti.PCSamplingGetNumStallReasonsParams{Size: 32, Ctx: ctx, NumStallReasons: uintptr(unsafe.Pointer(&count))}
+	if err := countQuery(&q); err != nil {
+		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: query reason count: %w", err)
+	}
+	if count > uint(maxReasons) {
+		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: reason count %d exceeds limit %d", count, maxReasons)
+	}
+	out := ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{}}
+	if count == 0 {
+		return out, nil
+	}
+	indices := make([]uint32, int(count))
+	names := make([][cupti.StallReasonStringSize]byte, int(count))
+	pointers := make([]uintptr, int(count))
+	for i := range pointers {
+		// An unwritten entry must not be mistaken for a valid empty name.
+		for j := range names[i] {
+			names[i][j] = 0xff
+		}
+		pin.Pin(&names[i][0])
+		pointers[i] = uintptr(unsafe.Pointer(&names[i][0]))
+	}
+	pin.Pin(&indices[0])
+	pin.Pin(&pointers[0])
+	n := cupti.PCSamplingGetStallReasonsParams{Size: 48, Ctx: ctx, NumStallReasons: count, StallReasonIndex: uintptr(unsafe.Pointer(&indices[0])), StallReasons: uintptr(unsafe.Pointer(&pointers[0]))}
+	if err := namesQuery(&n); err != nil {
+		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: query reason names: %w", err)
+	}
+	if n.NumStallReasons != count || n.StallReasonIndex != uintptr(unsafe.Pointer(&indices[0])) || n.StallReasons != uintptr(unsafe.Pointer(&pointers[0])) {
+		return ReasonInventory{}, errors.New("cuptipcsampling: native reason output changed storage")
+	}
+	seen := make(map[uint32]bool)
+	seenNames := make(map[string]bool)
+	for i, index := range indices {
+		if pointers[i] != uintptr(unsafe.Pointer(&names[i][0])) {
+			return ReasonInventory{}, errors.New("cuptipcsampling: native reason name changed storage")
+		}
+		end := bytes.IndexByte(names[i][:], 0)
+		if end <= 0 {
+			return ReasonInventory{}, errors.New("cuptipcsampling: empty or unterminated native reason")
+		}
+		name := string(names[i][:end])
+		if seen[index] || seenNames[name] {
+			return ReasonInventory{}, errors.New("cuptipcsampling: duplicate native reason")
+		}
+		seen[index], seenNames[name] = true, true
+		out.Reasons = append(out.Reasons, StallReason{Index: index, Name: name})
+	}
+	sort.Slice(out.Reasons, func(i, j int) bool { return out.Reasons[i].Index < out.Reasons[j].Index })
+	return out, nil
+}
