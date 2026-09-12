@@ -3,6 +3,9 @@ package metalprof
 import (
 	"fmt"
 	"io"
+	"maps"
+	"runtime"
+	"slices"
 	"sync"
 	"time"
 )
@@ -11,6 +14,7 @@ import (
 // Duration has the clock semantics of the value passed to [FlightRecorder.Record].
 // TimestampNs is host wall time recorded when Record is called.
 type KernelEvent struct {
+	stack       []runtime.Frame
 	Name        string
 	Duration    time.Duration
 	GridSize    [3]int
@@ -48,8 +52,21 @@ func NewFlightRecorder(capacity int) *FlightRecorder {
 }
 
 // Record adds an event to the in-memory ring buffer. Record does not measure
-// dur or verify that it came from a GPU clock.
+// dur or verify that it came from a GPU clock. The pprof snapshot includes the
+// Go stack at Record, which is the recording site, not necessarily the submission
+// site if Record is called from a completion callback.
 func (fr *FlightRecorder) Record(name string, dur time.Duration, grid, tg [3]int, labels map[string]string) {
+	var pcs [64]uintptr
+	n := runtime.Callers(2, pcs[:])
+	frames := runtime.CallersFrames(pcs[:n])
+	var stack []runtime.Frame
+	for {
+		frame, more := frames.Next()
+		stack = append(stack, frame)
+		if !more {
+			break
+		}
+	}
 	fr.mu.Lock()
 	defer fr.mu.Unlock()
 
@@ -59,6 +76,7 @@ func (fr *FlightRecorder) Record(name string, dur time.Duration, grid, tg [3]int
 	}
 
 	fr.events[fr.head] = KernelEvent{
+		stack:       stack,
 		Name:        name,
 		Duration:    dur,
 		GridSize:    grid,
@@ -80,11 +98,15 @@ func (fr *FlightRecorder) Events() []KernelEvent {
 	out := make([]KernelEvent, fr.count)
 	if fr.count < fr.capacity {
 		copy(out, fr.events[:fr.count])
-		return out
+	} else {
+		// Ring wrapped around
+		n1 := copy(out, fr.events[fr.head:])
+		copy(out[n1:], fr.events[:fr.head])
 	}
-	// Ring wrapped around
-	n1 := copy(out, fr.events[fr.head:])
-	copy(out[n1:], fr.events[:fr.head])
+	for i := range out {
+		out[i].Labels = maps.Clone(out[i].Labels)
+		out[i].stack = slices.Clone(out[i].stack)
+	}
 	return out
 }
 
@@ -112,8 +134,8 @@ func (fr *FlightRecorder) Reset() {
 }
 
 // SnapshotPprof serializes the current ring buffer history into a compressed pprof profile.
-// Functions are source-only anchors (empty filename, line 0) because FlightRecorder
-// events are caller-supplied records without verified shader source line mappings.
+// Each sample has a source-unmapped kernel leaf followed by the Go recording
+// stack. No shader source mapping or asynchronous submission correlation is inferred.
 func (fr *FlightRecorder) SnapshotPprof(w io.Writer) error {
 	events := fr.Events()
 	if len(events) == 0 {
@@ -130,7 +152,17 @@ func (fr *FlightRecorder) SnapshotPprof(w io.Writer) error {
 			Samples:   1,
 			GPUTimeNs: ev.Duration.Nanoseconds(),
 		}
-		b.AddSample([]uint64{locID}, vals, ev.Labels)
+		locations := []uint64{locID}
+		for _, frame := range ev.stack {
+			fn := b.AddFunction(frame.Function, frame.File, int64(frame.Line))
+			locations = append(locations, b.AddLocation(fn, int64(frame.Line)))
+		}
+		labels := maps.Clone(ev.Labels)
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels["stack_origin"] = "record"
+		b.AddSample(locations, vals, labels)
 	}
 
 	return b.Encode(w)
