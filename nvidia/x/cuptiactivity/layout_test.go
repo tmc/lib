@@ -10,11 +10,14 @@ import (
 
 func TestRecordLayouts(t *testing.T) {
 	sizes := map[cupti.ActivityKind]uint{
-		cupti.ActivityKindDriver:           uint(unsafe.Sizeof(cupti.ActivityAPI{})),
-		cupti.ActivityKindRuntime:          uint(unsafe.Sizeof(cupti.ActivityAPI{})),
-		cupti.ActivityKindConcurrentKernel: uint(unsafe.Sizeof(cupti.ActivityKernel11{})),
-		cupti.ActivityKindMemcpy:           uint(unsafe.Sizeof(cupti.ActivityMemcpy6{})),
-		cupti.ActivityKindMemset:           uint(unsafe.Sizeof(cupti.ActivityMemset4{})),
+		cupti.ActivityKindDriver:              uint(unsafe.Sizeof(cupti.ActivityAPI{})),
+		cupti.ActivityKindRuntime:             uint(unsafe.Sizeof(cupti.ActivityAPI{})),
+		cupti.ActivityKindConcurrentKernel:    uint(unsafe.Sizeof(cupti.ActivityKernel11{})),
+		cupti.ActivityKindMemcpy:              uint(unsafe.Sizeof(cupti.ActivityMemcpy6{})),
+		cupti.ActivityKindMemset:              uint(unsafe.Sizeof(cupti.ActivityMemset4{})),
+		cupti.ActivityKindExternalCorrelation: uint(unsafe.Sizeof(cupti.ActivityExternalCorrelation{})),
+		cupti.ActivityKindMemory2:             uint(unsafe.Sizeof(cupti.ActivityMemory4{})),
+		cupti.ActivityKindSynchronization:     uint(unsafe.Sizeof(cupti.ActivitySynchronization2{})),
 	}
 	for _, version := range []uint32{0, 24, 130000, 130201, 130300} {
 		if _, err := recordLayouts(version, func(cupti.ActivityKind, uint32) (uint, error) { t.Fatal("queried unknown layout"); return 0, nil }); err == nil {

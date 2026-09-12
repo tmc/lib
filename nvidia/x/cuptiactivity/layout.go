@@ -16,11 +16,14 @@ func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, 
 		return nil, fmt.Errorf("cuptiactivity: unqualified CUPTI record version %d (headers are 130200)", version)
 	}
 	layouts := map[cupti.ActivityKind]uint{
-		cupti.ActivityKindDriver:           uint(unsafe.Sizeof(cupti.ActivityAPI{})),
-		cupti.ActivityKindRuntime:          uint(unsafe.Sizeof(cupti.ActivityAPI{})),
-		cupti.ActivityKindConcurrentKernel: uint(unsafe.Sizeof(cupti.ActivityKernel11{})),
-		cupti.ActivityKindMemcpy:           uint(unsafe.Sizeof(cupti.ActivityMemcpy6{})),
-		cupti.ActivityKindMemset:           uint(unsafe.Sizeof(cupti.ActivityMemset4{})),
+		cupti.ActivityKindDriver:              uint(unsafe.Sizeof(cupti.ActivityAPI{})),
+		cupti.ActivityKindRuntime:             uint(unsafe.Sizeof(cupti.ActivityAPI{})),
+		cupti.ActivityKindConcurrentKernel:    uint(unsafe.Sizeof(cupti.ActivityKernel11{})),
+		cupti.ActivityKindMemcpy:              uint(unsafe.Sizeof(cupti.ActivityMemcpy6{})),
+		cupti.ActivityKindMemset:              uint(unsafe.Sizeof(cupti.ActivityMemset4{})),
+		cupti.ActivityKindExternalCorrelation: uint(unsafe.Sizeof(cupti.ActivityExternalCorrelation{})),
+		cupti.ActivityKindMemory2:             uint(unsafe.Sizeof(cupti.ActivityMemory4{})),
+		cupti.ActivityKindSynchronization:     uint(unsafe.Sizeof(cupti.ActivitySynchronization2{})),
 	}
 	for kind, want := range layouts {
 		got, err := size(kind, 0) // Ask about records actually emitted by this library.
