@@ -1,10 +1,14 @@
 package main
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -122,7 +126,7 @@ func TestOracleGates(t *testing.T) {
 	}
 }
 
-var ds4EnvName = regexp.MustCompile(`DS4_[A-Z0-9_]+`)
+var ds4EnvName = regexp.MustCompile(`^DS4_[A-Z0-9_]+$`)
 
 // TestOracleGatesDocumented keeps oracleGates honest. A gate the tests read
 // but the table omits is invisible in the summary, which is exactly the
@@ -148,7 +152,11 @@ func TestOracleGatesDocumented(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, name := range ds4EnvName.FindAllString(string(src), -1) {
+		names, err := oracleGateNames(e.Name(), src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range names {
 			used[name] = true
 		}
 	}
@@ -167,4 +175,26 @@ func TestOracleGatesDocumented(t *testing.T) {
 			t.Errorf("%s is listed but no test reads it", g.name)
 		}
 	}
+}
+
+// oracleGateNames excludes comments and embedded kernel source. Gate names
+// are complete Go string literals, including names passed through helpers.
+func oracleGateNames(filename string, src []byte) ([]string, error) {
+	f, err := parser.ParseFile(token.NewFileSet(), filename, src, 0)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
+		}
+		value, err := strconv.Unquote(lit.Value)
+		if err == nil && ds4EnvName.MatchString(value) {
+			names = append(names, value)
+		}
+		return true
+	})
+	return names, nil
 }
