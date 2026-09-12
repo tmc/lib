@@ -194,7 +194,19 @@ func run() error {
 		codeFiles.AIR = "kernels.air"
 	}
 
+	evidence := make(map[string][]map[string]any)
+	for kernel, stages := range workloadRes.Stages {
+		for _, st := range stages {
+			evidence[kernel] = append(evidence[kernel], map[string]any{
+				"mode": st.mode, "scope": st.scope, "reason": st.reason,
+				"counter_start_ns": st.counterStart, "counter_end_ns": st.counterEnd,
+				"gpu_start_seconds": st.gpuStart, "gpu_end_seconds": st.gpuEnd,
+				"duration_ns": st.nanos,
+			})
+		}
+	}
 	meta := map[string]any{
+		"timing_evidence":        evidence,
 		"device":                 dev.Name(),
 		"elements":               cfg.elements,
 		"fma_rounds":             cfg.rounds,
@@ -216,13 +228,16 @@ func run() error {
 	var liveObs []metalcapture.Observation
 	for kName, intervals := range workloadRes.Intervals {
 		for passIdx, ns := range intervals {
+			st := workloadRes.Stages[kName][passIdx]
 			liveObs = append(liveObs, metalcapture.Observation{
 				ID:          fmt.Sprintf("live_pass_%d_%s_duration", passIdx, kName),
 				Name:        fmt.Sprintf("Live %s Pass Duration", kName),
 				Unit:        "nanoseconds",
 				Kind:        metalcapture.MetricKindDuration,
 				Aggregation: metalcapture.AggregationSum,
-				Scope:       metalcapture.Scope(workloadRes.TimingScope),
+				Scope:       metalcapture.Scope(st.scope),
+				Source:      "metadata.timing_evidence." + kName,
+				Reason:      st.reason,
 				Origin:      metalcapture.OriginLive,
 				Status:      metalcapture.StatusCollected,
 				Device:      dev.Name(),

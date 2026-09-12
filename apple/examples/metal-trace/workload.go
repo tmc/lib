@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
 	"strconv"
+	"time"
 
 	apple "github.com/tmc/apple/metal"
 	"github.com/tmc/apple/objectivec"
@@ -16,6 +18,7 @@ import (
 )
 
 type workloadResult struct {
+	Stages          map[string][]stageTiming
 	Intervals       map[string][]int64
 	Verified        int
 	MaxError        float64
@@ -110,6 +113,7 @@ func runWorkload(ctx context.Context, dev *metal.Device, lib apple.MTLLibrary, p
 	}
 
 	res.Intervals = make(map[string][]int64)
+	res.Stages = make(map[string][]stageTiming)
 
 	// Copy initial inputs into Metal buffers
 	copySliceToBuffer(bufA, a)
@@ -141,15 +145,17 @@ func runWorkload(ctx context.Context, dev *metal.Device, lib apple.MTLLibrary, p
 		for i, got := range c {
 			want := a[i] + b[i]
 			diff := math.Abs(float64(got) - float64(want))
-			if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || diff > 1e-5 {
+			if invalidOutput(got, want, 1e-5) {
 				return res, fmt.Errorf("vector_add pass %d verification failed at [%d]: got %g, want %g", pass, i, got, want)
 			}
 			res.MaxError = math.Max(res.MaxError, diff)
 		}
 		if pass >= 0 {
+			res.Stages["vector_add"] = append(res.Stages["vector_add"], stAdd)
 			res.Intervals["vector_add"] = append(res.Intervals["vector_add"], stAdd.nanos)
 			res.Verified += n
 			recordSample(profBuilder, "vector_add", stAdd.nanos, pass, "memory")
+			recordCommandBuffers(profBuilder, stAdd, "vector_add", pass)
 		}
 
 		// Stage 2: Compute (dependent FMA chain)
@@ -175,15 +181,17 @@ func runWorkload(ctx context.Context, dev *metal.Device, lib apple.MTLLibrary, p
 			want := wantCompute[i%len(wantCompute)]
 			tolerance := 1e-6*math.Abs(float64(want)) + 1e-5
 			diff := math.Abs(float64(got) - float64(want))
-			if math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || diff > tolerance {
+			if invalidOutput(got, want, tolerance) {
 				return res, fmt.Errorf("compute pass %d verification failed at [%d]: got %g, want %g (tolerance %g)", pass, i, got, want, tolerance)
 			}
 			res.MaxError = math.Max(res.MaxError, diff)
 		}
 		if pass >= 0 {
+			res.Stages["compute"] = append(res.Stages["compute"], stCompute)
 			res.Intervals["compute"] = append(res.Intervals["compute"], stCompute.nanos)
 			res.Verified += n
 			recordSample(profBuilder, "compute", stCompute.nanos, pass, "compute")
+			recordCommandBuffers(profBuilder, stCompute, "compute", pass)
 		}
 
 		trace.Logf(ctx, "metal.validation", "pass=%d verified %d elements for vector_add and compute", pass, n)
@@ -193,10 +201,14 @@ func runWorkload(ctx context.Context, dev *metal.Device, lib apple.MTLLibrary, p
 }
 
 type stageTiming struct {
-	nanos  int64
-	mode   string
-	scope  string
-	reason string
+	counterStart, counterEnd uint64
+	gpuStart, gpuEnd         float64
+	createTime               int64
+	createStack, commitStack []runtime.Frame
+	nanos                    int64
+	mode                     string
+	scope                    string
+	reason                   string
 }
 
 func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipelineState, b0, b1, b2 apple.MTLBuffer, n, rounds int, isCompute bool, sb *metalprof.SampleBuffer, reqMode string) (stageTiming, error) {
@@ -209,9 +221,16 @@ func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipeli
 	region := trace.StartRegion(ctx, name+": host launch and wait")
 	defer region.End()
 
-	cb := dev.Queue().CommandBuffer()
+	queue := dev.Queue()
+	start := time.Now()
+	cb := queue.CommandBuffer()
+	st.createTime = time.Since(start).Nanoseconds()
+	if cb.GetID() == 0 {
+		return st, fmt.Errorf("create command buffer: nil result")
+	}
+	st.createStack = commandBufferStack()
 	var passDesc apple.MTLComputePassDescriptor
-	usePassDesc := sb != nil && dev.Raw().SupportsCounterSampling(apple.MTLCounterSamplingPointAtStageBoundary)
+	usePassDesc := reqMode != "command-buffer" && sb != nil && dev.Raw().SupportsCounterSampling(apple.MTLCounterSamplingPointAtStageBoundary)
 	if usePassDesc {
 		passDesc = apple.GetMTLComputePassDescriptorClass().Alloc().Init()
 		att := passDesc.SampleBufferAttachments().ObjectAtIndexedSubscript(0)
@@ -247,10 +266,12 @@ func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipeli
 	enc.EndEncoding()
 
 	cb.Commit()
+	st.commitStack = commandBufferStack()
 	if err := metal.WaitCommandBuffer(ctx, cb); err != nil {
 		return st, err
 	}
 
+	st.gpuStart, st.gpuEnd = cb.GPUStartTime(), cb.GPUEndTime()
 	// Calculate measured GPU interval
 	var nanos int64
 	var counterErr error
@@ -260,7 +281,7 @@ func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipeli
 			counterErr = fmt.Errorf("resolve timestamps: %w", err)
 		} else if len(ts) != 2 {
 			counterErr = fmt.Errorf("expected 2 counter samples, got %d", len(ts))
-		} else if ts[0] == 0 && ts[1] == 0 {
+		} else if ts[0] == 0 || ts[1] == 0 {
 			counterErr = fmt.Errorf("counter samples remained unlatched (0, 0)")
 		} else if ts[1] <= ts[0] {
 			counterErr = fmt.Errorf("nonpositive counter interval: start=%d end=%d", ts[0], ts[1])
@@ -269,6 +290,7 @@ func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipeli
 			if delta > math.MaxInt64 {
 				counterErr = fmt.Errorf("counter timestamp delta overflows int64: %d", delta)
 			} else {
+				st.counterStart, st.counterEnd = ts[0], ts[1]
 				nanos = int64(delta)
 				st.nanos = nanos
 				st.mode = "counter"
@@ -287,14 +309,11 @@ func runStage(ctx context.Context, dev *metal.Device, pso apple.MTLComputePipeli
 	}
 
 	// Fallback to command-buffer GPU duration
-	durSec := cb.GPUEndTime() - cb.GPUStartTime()
-	if math.IsNaN(durSec) || math.IsInf(durSec, 0) || durSec <= 0 {
-		return st, fmt.Errorf("command-buffer gpu duration unavailable or nonpositive: start=%g end=%g delta=%g",
-			cb.GPUStartTime(), cb.GPUEndTime(), durSec)
-	}
-	nanos = int64(durSec * 1e9)
-	if nanos <= 0 {
-		return st, fmt.Errorf("command-buffer duration converted to nonpositive nanoseconds: %d ns", nanos)
+	st.gpuStart, st.gpuEnd = cb.GPUStartTime(), cb.GPUEndTime()
+	var err error
+	nanos, err = commandBufferNanos(st.gpuStart, st.gpuEnd)
+	if err != nil {
+		return st, err
 	}
 
 	st.nanos = nanos
@@ -357,4 +376,52 @@ func reference(rounds int) []float32 {
 		out[i] = v
 	}
 	return out
+}
+
+// commandBufferStack captures the caller before asynchronous completion.
+func commandBufferStack() []runtime.Frame {
+	pcs := make([]uintptr, 32)
+	n := runtime.Callers(2, pcs)
+	frames := runtime.CallersFrames(pcs[:n])
+	var stack []runtime.Frame
+	for {
+		f, more := frames.Next()
+		stack = append(stack, f)
+		if !more {
+			break
+		}
+	}
+	return stack
+}
+
+func recordCommandBuffers(b *metalprof.Builder, st stageTiming, kernel string, pass int) {
+	if b == nil {
+		return
+	}
+	record := func(stack []runtime.Frame, vals metalprof.SampleValues, operation string) {
+		var locations []uint64
+		for _, f := range stack {
+			// Names preserve the real Go stack; source files are not bundled here.
+			fn := b.AddFunction(f.Function, "", 0)
+			locations = append(locations, b.AddLocation(fn, 0))
+		}
+		b.AddSample(locations, vals, map[string]string{"kernel": kernel, "pass": strconv.Itoa(pass), "operation": operation, "origin": "host"})
+	}
+	record(st.createStack, metalprof.SampleValues{CommandBufferCount: 1, CommandBufferCreateTimeNs: st.createTime}, "command_buffer_create")
+	record(st.commitStack, metalprof.SampleValues{CommandBufferCommitCount: 1}, "command_buffer_commit")
+}
+
+func commandBufferNanos(start, end float64) (int64, error) {
+	if math.IsNaN(start) || math.IsNaN(end) || math.IsInf(start, 0) || math.IsInf(end, 0) || start <= 0 || end <= start {
+		return 0, fmt.Errorf("invalid command-buffer GPU timestamps: start=%g end=%g", start, end)
+	}
+	ns := (end - start) * 1e9
+	if ns < 1 || ns >= float64(math.MaxInt64) {
+		return 0, fmt.Errorf("command-buffer duration outside int64 nanoseconds: %g", ns)
+	}
+	return int64(ns), nil
+}
+
+func invalidOutput(got, want float32, tolerance float64) bool {
+	return math.IsNaN(float64(got)) || math.IsInf(float64(got), 0) || math.Abs(float64(got)-float64(want)) > tolerance
 }
