@@ -304,8 +304,11 @@ func TestCUDASelectIndexerRowsMatchesTheScan(t *testing.T) {
 				s[i] = float32(i + 1)
 			}
 			s[100] = -1e30
-			s[101] = float32(math.Nextafter(float64(-1e30), math.Inf(-1)))
+			s[101] = math.Nextafter32(-1e30, float32(math.Inf(-1)))
 			s[102] = -1e35
+			if math.Float32bits(s[100]) == math.Float32bits(s[101]) || math.Float32bits(s[101]) == math.Float32bits(s[102]) {
+				panic("band values are not distinct float32 representations")
+			}
 			return s
 		}},
 		{"deep regime shape", 512, func() []float32 {
@@ -361,8 +364,11 @@ func TestCUDASentinelFloorDivergenceReceipt(t *testing.T) {
 		s[i] = float32(i + 1)
 	}
 	s[10] = -1e30
-	s[11] = float32(math.Nextafter(float64(-1e30), math.Inf(-1)))
+	s[11] = math.Nextafter32(-1e30, float32(math.Inf(-1)))
 	s[12] = -1e35
+	if math.Float32bits(s[10]) == math.Float32bits(s[11]) || math.Float32bits(s[11]) == math.Float32bits(s[12]) {
+		t.Fatal("band values are not distinct float32 representations")
+	}
 
 	// Legacy CUDA scan (-inf floor):
 	legacyScan := func(scores []float32, k int) []uint32 {
