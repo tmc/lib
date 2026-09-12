@@ -72,6 +72,7 @@ const cudaAttentionValueReference = `extern "C" __global__ void ds4_attention_mi
 
 func TestCUDAAttentionValueParallelBits(t *testing.T) {
 	r := cudaSynthFoundation(t)
+	r.disableMixedAttentionFused = true
 	if err := r.device.WithContext(r.loadMathKernels); err != nil {
 		t.Fatal(err)
 	}

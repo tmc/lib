@@ -97,6 +97,24 @@ func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float3
 		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention preparation: %w", err)
 		}
+		if r.mixedAttentionTileScoresFn != 0 && r.mixedAttentionFinalizeFn != 0 && !r.disableMixedAttentionFused {
+			tileGridX := uint32((total + 15) / 16)
+			if err := cudalaunch.Kernel(r.mixedAttentionTileScoresFn).Grid(tileGridX, 4).Block(256).SharedMem(66048).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+				return fmt.Errorf("cuda: launch mixed attention tile scores: %w", err)
+			}
+			shmemFinal := uint32(total * 4)
+			if err := cudalaunch.Kernel(r.mixedAttentionFinalizeFn).Grid(64).Block(512).SharedMem(shmemFinal).On(r.device.DefaultStream()).Launch(sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+				return fmt.Errorf("cuda: launch mixed attention finalize: %w", err)
+			}
+			return nil
+		}
+		if r.mixedAttentionFusedFn != 0 && !r.disableMixedAttentionFused {
+			shmem := uint32(total * 4)
+			if err := cudalaunch.Kernel(r.mixedAttentionFusedFn).Grid(64).Block(256).SharedMem(shmem).On(r.device.DefaultStream()).Launch(sinks.device, raw, comp, allowed, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+				return fmt.Errorf("cuda: launch mixed attention fused: %w", err)
+			}
+			return nil
+		}
 		if err := cudalaunch.Kernel(r.mixedAttentionScoresFn).Grid(64, uint32((total+63)/64)).Block(64).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention scores: %w", err)
 		}
@@ -421,16 +439,27 @@ extern "C" __global__ void ds4_attention_mixed_prepare(const float *q,const floa
     if(head==0){unsigned int ki=32768+448+r;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
   }
   __syncthreads();
-  if(head==0){
-    for(unsigned int off=0;off<448;off+=64){
-      float amax=1.0e-4f;for(unsigned int i=0;i<64;i++)amax=fmaxf(amax,fabsf(out[32768+off+i]));
-      const float scale=exp2f(ceilf(log2f(amax/448.0f)));
-      for(unsigned int i=0;i<64;i++)out[32768+off+i]=ds4_e4m3fn_round(fminf(fmaxf(out[32768+off+i]/scale,-448.0f),448.0f))*scale;
+  for (unsigned int b = 0; b < 7; b++) {
+    const unsigned int off = b * 64;
+    const float val = out[32768 + off + head];
+    float amax = fabsf(val);
+    __shared__ float s_amax[2];
+    for (int offset = 16; offset > 0; offset /= 2) {
+      amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
     }
-    const unsigned int row=position%raw_cap;
-    for(unsigned int i=0;i<512;i++)raw[row*512+i]=ds4_half_round(out[32768+i]);
+    if ((head & 31) == 0) s_amax[head >> 5] = amax;
+    __syncthreads();
+    if (head == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
+    __syncthreads();
+    const float group_amax = s_amax[0];
+    const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
+    out[32768 + off + head] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
+    __syncthreads();
   }
-  __syncthreads();
+  const unsigned int row = position % raw_cap;
+  for (unsigned int i = head; i < 512; i += 64) {
+    raw[row * 512 + i] = ds4_half_round(out[32768 + i]);
+  }
   (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
 }
 
@@ -491,5 +520,269 @@ extern "C" __global__ void ds4_attention_mixed_values(const float *raw,const flo
  }else{out[33280+qoff+i]=a;out[33280+qoff+i+1]=b;}
 }
 
+extern "C" __global__ void ds4_attention_mixed_fused(const float *sinks,const float *raw,const float *comp,const unsigned int *allowed,float *denominators,float *out,unsigned int position,unsigned int raw_cap,unsigned int n_comp) {
+ const unsigned int head=blockIdx.x;if(head>=64)return;
+ const unsigned int tid=threadIdx.x,qoff=head*512;
+ alignas(16) __shared__ float s_q[512];
+ alignas(16) __shared__ float s_kv[16*512];
+ __shared__ float s_max;
+ __shared__ float s_denom;
+ extern __shared__ float s_scores[];
+
+ s_q[tid]=ds4_half_round(out[qoff+tid]);
+ s_q[tid+256]=ds4_half_round(out[qoff+tid+256]);
+ __syncthreads();
+
+ const unsigned int n_raw=min(position+1,raw_cap),first=position+1-n_raw,total=n_raw+n_comp;
+
+ for(unsigned int base=0;base<total;base+=16){
+  const unsigned int count=(total-base<16)?(total-base):16;
+  const unsigned int total_vec4=count*128;
+  for(unsigned int idx=tid;idx<total_vec4;idx+=256){
+   const unsigned int r=idx>>7,d4=idx&127,g=base+r;
+   float4 v=make_float4(0.0f,0.0f,0.0f,0.0f);
+   if(g<n_raw){
+    const unsigned int row=(first+g)%raw_cap;
+    v=((const float4 *)(raw+row*512))[d4];
+   }else{
+    const unsigned int cidx=g-n_raw;
+    if(allowed[cidx]){
+     v=((const float4 *)(comp+cidx*512))[d4];
+    }
+   }
+   ((float4 *)(s_kv+r*512))[d4]=v;
+  }
+  __syncthreads();
+
+  if(tid<count){
+   const unsigned int g=base+tid;
+   float score=-1.0e30f;
+   if(g<n_raw || allowed[g-n_raw]){
+    score=0.0f;
+    const float *kvrow=s_kv+tid*512;
+    for(unsigned int i=0;i<512;i++)score+=s_q[i]*kvrow[i];
+    score*=0.04419417382415922f;
+   }
+   s_scores[g]=score;
+  }
+  __syncthreads();
+ }
+
+ if(tid==0){
+  float mx=sinks[head];
+  for(unsigned int t=0;t<n_raw;t++)mx=fmaxf(mx,s_scores[t]);
+  for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])mx=fmaxf(mx,s_scores[n_raw+cidx]);
+  s_max=mx;
+ }
+ __syncthreads();
+
+ const float mx=s_max;
+ for(unsigned int t=tid;t<n_raw;t+=256)s_scores[t]=expf(s_scores[t]-mx);
+ for(unsigned int cidx=tid;cidx<n_comp;cidx+=256)if(allowed[cidx])s_scores[n_raw+cidx]=expf(s_scores[n_raw+cidx]-mx);
+ __syncthreads();
+
+ if(tid==0){
+  float denom=expf(sinks[head]-mx);
+  for(unsigned int t=0;t<n_raw;t++)denom+=s_scores[t];
+  for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx])denom+=s_scores[n_raw+cidx];
+  s_denom=denom;
+  if(denominators!=0)denominators[head]=denom;
+ }
+ __syncthreads();
+
+ const float denom=s_denom;
+ float val0=0.0f,val1=0.0f;
+ for(unsigned int t=0;t<n_raw;t++){
+  const unsigned int row=(first+t)%raw_cap;const float w=s_scores[t];
+  val0+=w*raw[row*512+tid];val1+=w*raw[row*512+tid+256];
+ }
+ for(unsigned int cidx=0;cidx<n_comp;cidx++)if(allowed[cidx]){
+  const float w=s_scores[n_raw+cidx];
+  val0+=w*comp[cidx*512+tid];val1+=w*comp[cidx*512+tid+256];
+ }
+ out[33280+qoff+tid]=val0/denom;
+ out[33280+qoff+tid+256]=val1/denom;
+ __syncthreads();
+
+ if(tid<32){
+  const unsigned int r=tid*2;
+  const unsigned int oi=33280+qoff+448+r;
+  float theta=ds4_compressed_theta(position,r),c=cosf(theta),s=-sinf(theta),a=out[oi],b=out[oi+1];
+  out[oi]=a*c-b*s;out[oi+1]=a*s+b*c;
+ }
+}
+
+#define DS4_SCORE_TILE_HEADS 16u
+#define DS4_SCORE_TILE_ROWS  16u
+#define DS4_SCORE_TILE_STRIDE 516u
+
+extern "C" __global__ void ds4_attention_mixed_scores_tile(
+    const float *raw,
+    const float *comp,
+    const unsigned int *allowed,
+    float *scores,
+    const float *out,
+    unsigned int position,
+    unsigned int raw_cap,
+    unsigned int n_comp) {
+  const unsigned int n_raw = min(position + 1, raw_cap);
+  const unsigned int first = position + 1 - n_raw;
+  const unsigned int total = n_raw + n_comp;
+  if (total == 0) return;
+
+  extern __shared__ float s_tile_mem[];
+  float *sh_q = s_tile_mem;
+  float *sh_kv = sh_q + DS4_SCORE_TILE_HEADS * DS4_SCORE_TILE_STRIDE;
+  __shared__ float sh_add[DS4_SCORE_TILE_ROWS];
+
+  const unsigned int g_base = blockIdx.x * DS4_SCORE_TILE_ROWS;
+  const unsigned int h_base = blockIdx.y * DS4_SCORE_TILE_HEADS;
+  if (g_base >= total || h_base >= 64) return;
+
+  const unsigned int tile_heads = 64 - h_base < DS4_SCORE_TILE_HEADS ? 64 - h_base : DS4_SCORE_TILE_HEADS;
+  for (unsigned int idx = threadIdx.x; idx < tile_heads * 128u; idx += blockDim.x) {
+    const unsigned int hh = idx >> 7u;
+    const unsigned int dd = idx & 127u;
+    const float4 v = ((const float4 *)(out + (h_base + hh) * 512u))[dd];
+    float *dst = sh_q + hh * DS4_SCORE_TILE_STRIDE + dd * 4u;
+    dst[0] = ds4_half_round(v.x);
+    dst[1] = ds4_half_round(v.y);
+    dst[2] = ds4_half_round(v.z);
+    dst[3] = ds4_half_round(v.w);
+  }
+
+  if (threadIdx.x < DS4_SCORE_TILE_ROWS) {
+    const unsigned int g = g_base + threadIdx.x;
+    float add = -1.0e30f;
+    if (g < total) {
+      if (g < n_raw) {
+        add = 0.0f;
+      } else {
+        const unsigned int cidx = g - n_raw;
+        if (allowed[cidx]) add = 0.0f;
+      }
+    }
+    sh_add[threadIdx.x] = add;
+  }
+  __syncthreads();
+
+  const unsigned int rr0 = threadIdx.x >> 7u;
+  const unsigned int dd = threadIdx.x & 127u;
+  for (unsigned int r = rr0; r < DS4_SCORE_TILE_ROWS; r += 2u) {
+    const unsigned int g = g_base + r;
+    if (g >= total) continue;
+    if (sh_add[r] <= -1.0e20f) continue;
+    const float4 *src;
+    if (g < n_raw) {
+      const unsigned int raw_row = (first + g) % raw_cap;
+      src = (const float4 *)(raw + raw_row * 512u);
+    } else {
+      const unsigned int cidx = g - n_raw;
+      src = (const float4 *)(comp + cidx * 512u);
+    }
+    const float4 v = src[dd];
+    float *dst = sh_kv + r * DS4_SCORE_TILE_STRIDE + dd * 4u;
+    dst[0] = v.x; dst[1] = v.y; dst[2] = v.z; dst[3] = v.w;
+  }
+  __syncthreads();
+
+  const unsigned int r = threadIdx.x & 15u;
+  const unsigned int hh = threadIdx.x >> 4u;
+  const unsigned int h = h_base + hh;
+  const unsigned int g = g_base + r;
+  if (h >= 64 || g >= total) return;
+
+  float *row_scores = scores + (unsigned long long)h * total;
+  const float *qh = sh_q + hh * DS4_SCORE_TILE_STRIDE;
+  const float *kvrow = sh_kv + r * DS4_SCORE_TILE_STRIDE;
+  float s = -1.0e30f;
+  if (sh_add[r] > -1.0e20f) {
+    float dot = 0.0f;
+    #pragma unroll 1
+    for (unsigned int d = 0; d < 512u; d++) {
+      dot += qh[d] * kvrow[d];
+    }
+    s = dot * 0.04419417382415922f;
+  }
+  row_scores[g] = s;
+}
+
+extern "C" __global__ void ds4_attention_mixed_finalize(
+    const float *sinks,
+    const float *raw,
+    const float *comp,
+    const unsigned int *allowed,
+    const float *scores,
+    float *denominators,
+    float *out,
+    unsigned int position,
+    unsigned int raw_cap,
+    unsigned int n_comp) {
+  const unsigned int h = blockIdx.x;
+  if (h >= 64) return;
+  const unsigned int tid = threadIdx.x;
+  const unsigned int qoff = h * 512;
+  const unsigned int n_raw = min(position + 1, raw_cap);
+  const unsigned int first = position + 1 - n_raw;
+  const unsigned int total = n_raw + n_comp;
+
+  __shared__ float s_max;
+  __shared__ float s_denom;
+  extern __shared__ float s_scores[];
+
+  const float *row_scores = scores + (unsigned long long)h * total;
+  for (unsigned int i = tid; i < total; i += 512) {
+    s_scores[i] = row_scores[i];
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float mx = sinks[h];
+    for (unsigned int t = 0; t < n_raw; t++) mx = fmaxf(mx, s_scores[t]);
+    for (unsigned int cidx = 0; cidx < n_comp; cidx++) if (allowed[cidx]) mx = fmaxf(mx, s_scores[n_raw + cidx]);
+    s_max = mx;
+  }
+  __syncthreads();
+
+  const float mx = s_max;
+  for (unsigned int i = tid; i < n_raw; i += 512) s_scores[i] = expf(s_scores[i] - mx);
+  for (unsigned int i = tid; i < n_comp; i += 512) {
+    if (allowed[i]) s_scores[n_raw + i] = expf(s_scores[n_raw + i] - mx);
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float denom = expf(sinks[h] - mx);
+    for (unsigned int t = 0; t < n_raw; t++) denom += s_scores[t];
+    for (unsigned int cidx = 0; cidx < n_comp; cidx++) if (allowed[cidx]) denom += s_scores[n_raw + cidx];
+    s_denom = denom;
+    if (denominators != 0) denominators[h] = denom;
+  }
+  __syncthreads();
+
+  const float denom = s_denom;
+  const unsigned int d = tid;
+  float acc = 0.0f;
+  for (unsigned int r = 0; r < n_raw; r++) {
+    const unsigned int raw_row = (first + r) % raw_cap;
+    acc += s_scores[r] * raw[raw_row * 512 + d];
+  }
+  for (unsigned int c = 0; c < n_comp; c++) {
+    if (allowed[c]) {
+      acc += s_scores[n_raw + c] * comp[c * 512 + d];
+    }
+  }
+  out[33280 + qoff + d] = acc / denom;
+  __syncthreads();
+
+  if (tid < 32) {
+    const unsigned int r = tid * 2;
+    const unsigned int oi = 33280 + qoff + 448 + r;
+    float theta = ds4_compressed_theta(position, r), c = cosf(theta), s = -sinf(theta);
+    float a = out[oi], b = out[oi + 1];
+    out[oi] = a * c - b * s;
+    out[oi + 1] = a * s + b * c;
+  }
+}
 
 `

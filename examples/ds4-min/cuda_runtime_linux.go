@@ -417,6 +417,137 @@ extern "C" __global__ void ds4_rope_attention_raw(
   }
 }
 
+extern "C" __global__ void ds4_raw_attention_prepare(
+    const float *q, const float *kv, float *cache, float *out,
+    unsigned int position, unsigned int cache_cap) {
+  const unsigned int head = threadIdx.x;
+  if (blockIdx.x != 0 || head >= 64) return;
+  const unsigned int qoff = head * 512;
+  for (unsigned int i = 0; i < 512; i++) out[qoff + i] = q[qoff + i];
+  if (head == 0)
+    for (unsigned int i = 0; i < 512; i++) out[32768 + i] = kv[i];
+  const float theta_scale = powf(10000.0f, -2.0f / 64.0f);
+  float theta = (float)position;
+  for (unsigned int i = 0; i < 64; i += 2) {
+    const unsigned int qi = qoff + 448 + i;
+    const float c = cosf(theta), s = sinf(theta);
+    float a = out[qi], b = out[qi + 1];
+    out[qi] = a * c - b * s;
+    out[qi + 1] = a * s + b * c;
+    if (head == 0) {
+      const unsigned int ki = 32768 + 448 + i;
+      a = out[ki];
+      b = out[ki + 1];
+      out[ki] = a * c - b * s;
+      out[ki + 1] = a * s + b * c;
+    }
+    theta *= theta_scale;
+  }
+  __syncthreads();
+  for (unsigned int b = 0; b < 7; b++) {
+    const unsigned int off = b * 64;
+    const float val = out[32768 + off + head];
+    float amax = fabsf(val);
+    __shared__ float s_amax[2];
+    for (int offset = 16; offset > 0; offset /= 2) {
+      amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
+    }
+    if ((head & 31) == 0) s_amax[head >> 5] = amax;
+    __syncthreads();
+    if (head == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
+    __syncthreads();
+    const float group_amax = s_amax[0];
+    const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
+    out[32768 + off + head] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
+    __syncthreads();
+  }
+  const unsigned int row = position % cache_cap;
+  for (unsigned int i = head; i < 512; i += 64) {
+    cache[row * 512 + i] = ds4_half_round(out[32768 + i]);
+  }
+}
+
+extern "C" __global__ void ds4_raw_attention_eval(
+    const float *sinks,
+    const float *cache,
+    float *scores,
+    float *out,
+    unsigned int position,
+    unsigned int cache_cap) {
+  const unsigned int h = blockIdx.x;
+  if (h >= 64) return;
+  const unsigned int tid = threadIdx.x;
+  const unsigned int qoff = h * 512;
+  const unsigned int count = min(position + 1, cache_cap);
+  const unsigned int first = position + 1 - count;
+
+  extern __shared__ float s_raw_dyn[];
+  float *s_scores = s_raw_dyn;
+  __shared__ float s_q[512];
+  __shared__ float s_max;
+  __shared__ float s_denom;
+
+  s_q[tid] = ds4_half_round(out[qoff + tid]);
+  __syncthreads();
+
+  if (tid < count) {
+    const unsigned int row = (first + tid) % cache_cap;
+    const float *values = cache + row * 512;
+    float dot = 0.0f;
+    #pragma unroll 1
+    for (unsigned int i = 0; i < 512; i++) {
+      dot += s_q[i] * values[i];
+    }
+    const float score = dot / sqrtf(512.0f);
+    s_scores[tid] = score;
+    scores[h * cache_cap + tid] = score;
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float mx = sinks[h];
+    for (unsigned int t = 0; t < count; t++) mx = fmaxf(mx, s_scores[t]);
+    s_max = mx;
+  }
+  __syncthreads();
+
+  const float mx = s_max;
+  if (tid < count) {
+    s_scores[tid] = expf(s_scores[tid] - mx);
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    float denom = expf(sinks[h] - mx);
+    for (unsigned int t = 0; t < count; t++) denom += s_scores[t];
+    s_denom = denom;
+  }
+  __syncthreads();
+
+  const float denom = s_denom;
+  float acc = 0.0f;
+  for (unsigned int t = 0; t < count; t++) {
+    const unsigned int row = (first + t) % cache_cap;
+    acc += s_scores[t] * cache[row * 512 + tid];
+  }
+  out[33280 + qoff + tid] = acc / denom;
+  __syncthreads();
+
+  if (tid == 0) {
+    const float theta_scale = powf(10000.0f, -2.0f / 64.0f);
+    float theta = (float)position;
+    for (unsigned int i = 0; i < 64; i += 2) {
+      const unsigned int oi = 33280 + qoff + 448 + i;
+      const float c = cosf(theta), s = -sinf(theta);
+      const float a = out[oi], b = out[oi + 1];
+      out[oi] = a * c - b * s;
+      out[oi + 1] = a * s + b * c;
+      theta *= theta_scale;
+    }
+  }
+}
+
+
 __device__ float ds4_router_softplus(float x) {
   if (x > 20.0f) return x;
   if (x < -20.0f) return expf(x);
@@ -558,6 +689,9 @@ type cudaFoundation struct {
 	hcPostFn                  driver.Function
 	rowFn                     driver.Function
 	rawAttentionFn            driver.Function
+	rawAttentionPrepareFn     driver.Function
+	rawAttentionEvalFn        driver.Function
+	disableRawAttentionFused  bool
 	routerHashFn              driver.Function
 	routerBiasedFn            driver.Function
 	swigluFn                  driver.Function
@@ -579,6 +713,10 @@ type cudaFoundation struct {
 	mixedAttentionScoresFn    driver.Function
 	mixedAttentionNormalizeFn driver.Function
 	mixedAttentionValuesFn    driver.Function
+	mixedAttentionFusedFn     driver.Function
+	mixedAttentionTileScoresFn driver.Function
+	mixedAttentionFinalizeFn  driver.Function
+	disableMixedAttentionFused bool
 	indexerQueryFn            driver.Function
 	indexerScoreFn            driver.Function
 	indexerSelectFn           driver.Function
@@ -1122,6 +1260,18 @@ func (r *cudaFoundation) encodeRawAttention(q, kv cudamem.Slice[float32], sinks 
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
+		if r.rawAttentionPrepareFn != 0 && r.rawAttentionEvalFn != 0 && !r.disableRawAttentionFused {
+			if err := cudalaunch.Kernel(r.rawAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(
+				q, kv, cache, out, uint32(position), uint32(cache.Len()/512)); err != nil {
+				return fmt.Errorf("cuda: launch raw attention prepare: %w", err)
+			}
+			shmem := uint32((cache.Len() / 512) * 4)
+			if err := cudalaunch.Kernel(r.rawAttentionEvalFn).Grid(64).Block(512).SharedMem(shmem).On(r.device.DefaultStream()).Launch(
+				sinks.device, cache, scores, out, uint32(position), uint32(cache.Len()/512)); err != nil {
+				return fmt.Errorf("cuda: launch raw attention eval: %w", err)
+			}
+			return nil
+		}
 		if err := cudalaunch.Kernel(r.rawAttentionFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(
 			q, kv, sinks.device, cache, scores, out, uint32(position), uint32(cache.Len()/512)); err != nil {
 			return fmt.Errorf("cuda: launch raw attention: %w", err)
@@ -1239,6 +1389,8 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_hc_post", &r.hcPostFn},
 		{"ds4_get_row_f16", &r.rowFn},
 		{"ds4_rope_attention_raw", &r.rawAttentionFn},
+		{"ds4_raw_attention_prepare", &r.rawAttentionPrepareFn},
+		{"ds4_raw_attention_eval", &r.rawAttentionEvalFn},
 		{"ds4_router_hash", &r.routerHashFn},
 		{"ds4_router_biased", &r.routerBiasedFn},
 		{"ds4_swiglu", &r.swigluFn},
@@ -1260,6 +1412,9 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_attention_mixed_scores", &r.mixedAttentionScoresFn},
 		{"ds4_attention_mixed_normalize", &r.mixedAttentionNormalizeFn},
 		{"ds4_attention_mixed_values", &r.mixedAttentionValuesFn},
+		{"ds4_attention_mixed_fused", &r.mixedAttentionFusedFn},
+		{"ds4_attention_mixed_scores_tile", &r.mixedAttentionTileScoresFn},
+		{"ds4_attention_mixed_finalize", &r.mixedAttentionFinalizeFn},
 		{"ds4_indexer_query", &r.indexerQueryFn},
 		{"ds4_indexer_score", &r.indexerScoreFn},
 		{"ds4_indexer_select", &r.indexerSelectFn},
@@ -1290,6 +1445,18 @@ func (r *cudaFoundation) loadMathKernels() error {
 			return fmt.Errorf("cuda: find kernel %q: %w", kernel.name, err)
 		}
 		*kernel.dst = fn
+	}
+	optin, err := r.device.Raw().GetAttribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	if err != nil || optin <= 0 {
+		optin = 49152
+	}
+	if r.mixedAttentionTileScoresFn != 0 {
+		if err := r.mixedAttentionTileScoresFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048); err != nil {
+			return fmt.Errorf("cuda: set tile scores shmem: %w", err)
+		}
+	}
+	if r.mixedAttentionFinalizeFn != 0 {
+		_ = r.mixedAttentionFinalizeFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
 	}
 	r.matrixMod = mod
 	return nil
