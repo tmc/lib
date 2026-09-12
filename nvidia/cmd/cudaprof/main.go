@@ -37,16 +37,39 @@ type ncclMeta struct {
 func main() {
 	log.SetFlags(0)
 	if err := run(); err != nil {
+		var exitErr *exitCodeError
+		if errors.As(err, &exitErr) {
+			log.Print(exitErr)
+			os.Exit(exitErr.Code)
+		}
 		log.Fatal(err)
 	}
 }
 
+type exitCodeError struct {
+	Code int
+	Err  error
+}
+
+func (e *exitCodeError) Error() string { return e.Err.Error() }
+func (e *exitCodeError) Unwrap() error { return e.Err }
+
 func run() error {
+	if len(os.Args) > 1 && os.Args[1] == "capture" {
+		return runCaptureCommand(os.Args[2:])
+	}
+	if len(os.Args) > 1 && os.Args[1] == "inspect" {
+		return runInspectCommand(os.Args[2:])
+	}
 	if len(os.Args) > 1 && os.Args[1] == "-extract" {
-		if len(os.Args) != 4 {
-			return fmt.Errorf("usage: cudaprof -extract new-directory capture.pprof")
+		args, limits, err := parseReadLimits(os.Args[2:])
+		if err != nil {
+			return err
 		}
-		return extract(os.Args[2], os.Args[3])
+		if len(args) != 2 {
+			return fmt.Errorf("usage: cudaprof -extract [--capture-file-bytes=N] [--capture-total-bytes=N] new-directory capture.pprof")
+		}
+		return extract(args[0], args[1], limits)
 	}
 	if len(os.Args) > 1 && os.Args[1] == "-pack" {
 		if len(os.Args) != 4 {
@@ -128,11 +151,20 @@ func run() error {
 
 	code, err := cudacapture.LoadCode(cap)
 	if err != nil {
-		return err
+		// A v3 capture can be useful as an ordinary pprof profile even when
+		// source, PTX, CUBIN, or SASS was unavailable. Object navigation then
+		// fails explicitly, while duration and typed profile views remain usable.
+		if len(cap.CodeUnavailable) == 0 {
+			return err
+		}
+		code = &cudacapture.Code{}
 	}
 	tool, err := newObjectTool(cap, code, extractDir)
-	if err != nil {
+	if err != nil && len(cap.CodeUnavailable) == 0 {
 		return err
+	}
+	if tool == nil {
+		tool = &objectTool{images: make(map[string]*objectImage)}
 	}
 	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool}
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
@@ -159,18 +191,21 @@ func pack(output, input string) (err error) {
 	return err
 }
 
-func extract(dir, input string) (err error) {
+// extract unpacks a capture under explicit limits. A zero Limits keeps the
+// package defaults, so an artifact written under a raised producer budget must
+// be asked for by name on both sides.
+func extract(dir, input string, limits cudacapture.Limits) (err error) {
 	f, err := os.Open(input)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	cap, err := cudacapture.Read(f)
+	cap, err := cudacapture.ReadLimits(f, limits)
 	if err != nil {
 		return err
 	}
-	return cudacapture.WriteDir(dir, cap)
+	return cudacapture.WriteDirLimits(dir, cap, limits)
 }
 
 type fetcher struct {
@@ -194,14 +229,18 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 			fn.Filename = filepath.Join(f.dir, name)
 		}
 	}
-	for _, m := range p.Mapping {
-		base := filepath.Base(m.File)
-		if base != filepath.Base(f.cap.Code.CUBIN) && base != filepath.Base(f.cap.Code.PTX) {
-			return nil, "", fmt.Errorf("unexpected object %q", m.File)
+	if f.cap.Code.CUBIN != "" || f.cap.Code.PTX != "" {
+		for _, m := range p.Mapping {
+			base := filepath.Base(m.File)
+			if base != filepath.Base(f.cap.Code.CUBIN) && base != filepath.Base(f.cap.Code.PTX) {
+				continue
+			}
+			m.File = filepath.Join(f.dir, base)
 		}
-		m.File = filepath.Join(f.dir, base)
 	}
-	f.tool.mapPTX(p)
+	if f.tool != nil && f.tool.ptx != nil {
+		f.tool.mapPTX(p)
+	}
 
 	if len(f.cap.Metadata) > 0 {
 		var meta exampleMetadata
