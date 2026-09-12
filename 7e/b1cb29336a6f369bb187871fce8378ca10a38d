@@ -7,3 +7,5 @@ tty: non-interactive exec
 pid: 6553
 ITERM_SESSION_ID: w14t0p2:D699F357-1AA9-4E60-8BF4-2690EF93A74E
 session: D699F357-1AA9-4E60-8BF4-2690EF93A74E
+
+Validation: nativecontrol TestBurst failed in the CPU-only GOMAXPROCS=2 batch, dropping 10 of 640000 offered records. Other injection Go packages passed. No retry or threshold change. Evidence: /Users/tmc/tmp/atomic-commits-20260911/nvidia-tests.log
