@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package vpi provides Go bindings for the NVIDIA Vision Programming Interface (VPI),
 // libnvvpi, generated from the VPI 3.2.4 public headers.
 //
