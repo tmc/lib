@@ -3043,8 +3043,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "commit": "b9d9a13bc655966cb642d8a80c3005ca9676b043",
+          "tree": "f63ddda0832d4406319fd67b416c9d39fc03ccb8"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -3126,7 +3126,7 @@
           },
           {
             "path": "nvidia/nvenc/init.gen.go",
-            "sha256": "63487f69cb2c231f9f776939a87e4293146c65e5e2a67b6f8ef301e0051ad143"
+            "sha256": "8d32fbdf56912591945a5f6ddde19c3d45b4f588affa313ca4016cc5c35edb6c"
           },
           {
             "path": "nvidia/nvenc/layout_test.go",
@@ -3142,7 +3142,7 @@
           },
           {
             "path": "nvidia/nvenc/provenance.gen.go",
-            "sha256": "bc72b3de5fe65f65d9240178c3fcffbf0e42350f0bde77ea3ef28c9a4b766ea0"
+            "sha256": "c5a0c44bf6d9c11703b4eba4941c37860ad1a56b8fdfc79d1418f27399bd076a"
           },
           {
             "path": "nvidia/nvenc/structs.gen.go",
@@ -3165,8 +3165,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "37b65752623331403efd2eb9826f261e0f749b84",
-          "tree": "c44bd69999889f01025db19dd216847ed457e558"
+          "commit": "b9d9a13bc655966cb642d8a80c3005ca9676b043",
+          "tree": "f63ddda0832d4406319fd67b416c9d39fc03ccb8"
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
@@ -3252,7 +3252,7 @@
           },
           {
             "path": "nvidia/nvdec/init.gen.go",
-            "sha256": "6483f5ab0052269e64a751e8fadfd53e3b25c0c3b5b4e44aefb1484c513665d1"
+            "sha256": "e9416f7391108244c95d1fc85cc1fc40841f6bc4e631203b3543b6ee32700890"
           },
           {
             "path": "nvidia/nvdec/init_windows.gen.go",
@@ -3276,7 +3276,7 @@
           },
           {
             "path": "nvidia/nvdec/provenance.gen.go",
-            "sha256": "de823ecf47f8f09e2d57e37b91796449c5b3c019f79d4bfd8a2637929e6489be"
+            "sha256": "e449f822a2eb09237364097ffdf75506b7e69de7e70ab6159b652c94118471c2"
           },
           {
             "path": "nvidia/nvdec/structs.gen.go",

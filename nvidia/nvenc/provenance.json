@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-nvcodec",
+  "generator": "github.com/tmc/libgen/cmd/gen-nvcodec",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Users/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/f2/f2620cd4ba6104357fa7e560b27d480a41242fb5c410720c33e06aed2e71b700-d/gen-nvcodec",
+    "/Users/tmc/Library/Caches/go-build/cc/cce7ac2f1c7f21956fee66d19ac469061777d09bc31819979f0dbdd10ef8a9c9-d/gen-nvcodec",
     "-api",
     "nvenc",
     "-headers",
@@ -15,11 +15,11 @@
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-nvcodec/headers/nvenc-13.0/nvEncodeAPI.h",
+      "path": "/Users/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvcodec/headers/nvenc-13.0/nvEncodeAPI.h",
       "sha256": "4fe4094541ef0f8a13249d97a8692dc5f835a6e9dd42eeadb3e2f7321d54dc7e"
     }
   ],
-  "source_hash": "56c3975c6d0a57f83a1f80ef5e7d10c1e409efdc5e346f90a721539fc1610e38",
+  "source_hash": "3f8b470f22c51811782017d6c7c7e9165abbe855158f70f43df1eba7991d9790",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
