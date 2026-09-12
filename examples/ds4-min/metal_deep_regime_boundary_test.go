@@ -1,9 +1,9 @@
 // Deep-regime boundary.
 //
 // A layer takes the batched-compressed path when batchedCompressed is true.
-// The interesting regime, where it is false, is what the workload benchmarks
-// have never reached: both the prefill and the decode baselines report 86.00
-// command buffers per token at every depth they sample, including ctx512.
+// The interesting regime, where it is false, is beyond the shallow prefill
+// and decode benchmark contexts, including ctx512. TestOracleWorkload differs:
+// its 128 decodes after a 2048-token prefill cross this boundary.
 //
 // The condition is deterministic integer arithmetic over the position, so the
 // first position that reaches the deep regime can be derived rather than

@@ -13,7 +13,7 @@ import (
 // commits the batch mid-layer, runs the compressor and attention on the host,
 // copies the heads back, and encodes the rest of the layer into a second
 // command buffer. TestDeepRegimeBoundary derives its first position
-// arithmetically: 2051. Nothing executed it.
+// arithmetically: 2051.
 //
 // The condition is metal_runtime_darwin.go:635:
 //
@@ -36,22 +36,18 @@ import (
 // It is the only mechanism found so far in this work that does cross backends;
 // the constant-cache serialization measured in ea822874 does not.
 //
-// That mattered more than it looked. The registered 2048-token workload stops
-// at position 2047 and the n=64 anchor covers 0-63, so every gate the project
-// had ran entirely in the batched regime. A change to the closing-batch split,
-// or to anything encoded into `closing` after it, was invisible.
+// A 2048-token prefill ends at position 2047, but TestOracleWorkload also
+// decodes 128 tokens at positions 2048 through 2175. That decode crosses this
+// boundary. Its final-logits digest covers the endpoint of that execution,
+// not each intermediate. The n=64 anchor covers only positions 0 through 63.
 //
-// This anchor crosses the boundary and asserts two different things:
+// This anchor brackets command-buffer counts on either side of the boundary
+// and requires the deep count to exceed the shallow count. It records the
+// final-logits digest; bit-for-bit regression checking remains disabled until
+// deepRegimeAnchorLogitsSHA256 is registered.
 //
-//   - that the run entered the regime at all, read from the runtime's own
-//     command-buffer counters rather than from the arithmetic that predicted
-//     it. A digest that reproduces while the regime was never entered is a
-//     fail-open gate, and the arithmetic cannot tell the difference.
-//   - that the logits reproduce bit for bit once it did.
-//
-// The first run to cross the boundary measured what the regime costs, which
-// nothing had: 2.50 command buffers per token below it against 232.50 above,
-// and 1.00 GPU wait per token against 42.00. The gap is not the mid-layer
+// The first run of this anchor recorded 2.50 command buffers per token below
+// the boundary against 232.50 above, and 1.00 GPU wait per token against 42.00. The gap is not the mid-layer
 // split itself -- that is one extra buffer for each of the 21 even layers at
 // or above 2 -- but the host-side ops the branch then calls, each of which
 // opens and commits a command buffer of its own. Those numbers are recorded
@@ -77,13 +73,10 @@ const (
 // a recorded output.
 const deepRegimeAnchorTokensSHA256 = "23c22002cdb61c989960a54692828f46b3fab6ba76f1b0fd9dab761e4e3f9fa4"
 
-// deepRegimeAnchorLogitsSHA256 is empty because nothing has measured it. The
-// two 2048-token digests in this package were registered from prose, which
-// turned their first real run into a failure that could not distinguish a
-// broken kernel from a wrong constant while holding an exclusive model slot.
-// An empty constant here means the test reports the digest and declines to
-// assert, so the first run establishes provenance instead of spending it.
-// Fill it in from two independent runs that agree, and never from one.
+// deepRegimeAnchorLogitsSHA256 is unset pending two independent agreeing
+// runs. While it is empty, a successful test records a finite output digest
+// and checks the submission counts; it does not assert numerical identity.
+// Fill it in only from retained results of two independent runs that agree.
 const deepRegimeAnchorLogitsSHA256 = ""
 
 // deepRegimeAnchorTokenIDs extends the 2048-token oracle workload to 2060 by
@@ -142,7 +135,14 @@ func TestMetalDeepRegimeAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	closed := false
+	defer func() {
+		if !closed {
+			if err := r.Close(); err != nil {
+				t.Errorf("close: %v", err)
+			}
+		}
+	}()
 	if err := r.Reset(); err != nil {
 		t.Fatalf("reset: %v", err)
 	}
@@ -187,6 +187,10 @@ func TestMetalDeepRegimeAnchor(t *testing.T) {
 	hash, err := oracleWorkloadHash(logits)
 	if err != nil {
 		t.Fatal(err)
+	}
+	closed = true
+	if err := r.Close(); err != nil {
+		t.Fatalf("close: %v", err)
 	}
 	t.Logf("metal deep regime logits sha256=%s (tokens=%d, context=%d)", hash, deepRegimeAnchorTokens, deepRegimeAnchorContext)
 	if deepRegimeAnchorLogitsSHA256 == "" {
