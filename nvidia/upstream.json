@@ -7532,8 +7532,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "e4814956a518cc63f03e97915bf50455a22788d1",
-          "tree": "059a4b2e3155651fce576738f26037baebda4f21"
+          "commit": "b4564946a2d0d1ba49bed73415c19caa8149a213",
+          "tree": "730cb9b7fe6f9922c94bbe98ef9c8e9a520eeada"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -8292,7 +8292,7 @@
           },
           {
             "path": "nvidia/nccl/doc.gen.go",
-            "sha256": "28cacdcf6ed08f3d957332220b29e694255b1f59fe4f468e34aaf5c4b2508db6",
+            "sha256": "ab090f227186ad630206abe8a8dce7c14865995a8af7fb8bf0f7eddec5121754",
             "documentation_refresh": "documentation-generation.json"
           },
           {

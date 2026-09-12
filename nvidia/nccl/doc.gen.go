@@ -17,13 +17,13 @@
 //
 // # Quick Start
 //
-//   // Initialize communicators across GPUs.
-//   id, _ := nccl.GetUniqueId()
-//   comm, _ := nccl.CommInitRank(nranks, id, rank)
-//   defer nccl.CommDestroy(comm)
+//	// Initialize communicators across GPUs.
+//	id, _ := nccl.GetUniqueId()
+//	comm, _ := nccl.CommInitRank(nranks, id, rank)
+//	defer nccl.CommDestroy(comm)
 //
-//   // AllReduce on a CUDA stream.
-//   nccl.AllReduce(sendBuf, recvBuf, count, nccl.Float32, nccl.Sum, comm, stream)
+//	// AllReduce on a CUDA stream.
+//	nccl.AllReduce(sendBuf, recvBuf, count, nccl.Float32, nccl.Sum, comm, stream)
 //
 // # Collective Operations
 //
