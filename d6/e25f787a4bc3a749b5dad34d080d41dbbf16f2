@@ -1,0 +1,11 @@
+commit: d6e25f787a4bc3a749b5dad34d080d41dbbf16f2
+commit_date: 2026-09-12T15:25:03-07:00
+agent: Codex
+model: GPT-6 (runtime family; exact variant not exposed)
+claude-code_version: not applicable (Codex session)
+codex_version: codex-cli 0.154.0
+tty: not a tty
+note_writer_pid: 13484
+ITERM_SESSION_ID: w14t0p16:6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+session: 6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+validation: focused admission/digest/session tests, ds4-min vet and build passed with GOWORK=off; no GPU execution
