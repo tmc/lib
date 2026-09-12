@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/e5/e5dde487f130e5b36c12468e42dbc840b8148af0808d6d6c8ee7ecea75712f34-d/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/f5/f5afd169a897f7e0332d3992d23a6f3d3f827dd44e46da4001d486161322e91d-d/gen-nvidia",
     "-api",
     "cufft",
     "-headers-dir",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Users/tmc/tmp/hdr-3d5d12b",
     "-output",
     "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cufft",
     "-package",
@@ -17,11 +17,11 @@
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/cufft/cufft.h",
+      "path": "/Users/tmc/tmp/hdr-3d5d12b/cufft/cufft.h",
       "sha256": "7172df0d7581ff27d44f3d546c285f8804cd111537ee916b768d2e5f566ea272"
     }
   ],
-  "source_hash": "c39dd9f6e6f196154aeadbd6b1db73285721226b176f6c62c8efdeab5f95a836",
+  "source_hash": "69559c55231b0ac7e13f3dd35178cae6f1764ff0d4132b9b4bb0efcd873a11a1",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

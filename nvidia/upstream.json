@@ -164,8 +164,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -269,7 +269,7 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "4fa1cce5a839b4efa2ca720f82bcf9a0b655ac4352ef0288918594e919257e62"
+            "sha256": "e21528a8638a9d4f07a39d3a3507f824a3174ffb2fef42ccb6badfe8ede41858"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
@@ -289,7 +289,7 @@
           },
           {
             "path": "nvidia/nvrtc/provenance.gen.go",
-            "sha256": "9f17a306410784cbac04210c5c9413a865903eb476f66e4855aecf9114a62b59"
+            "sha256": "ac2e21ff2914daf17b1f6f474aad376adf93c9d8f4c48569057114b5c5dcb572"
           },
           {
             "path": "nvidia/nvrtc/result.gen.go",
@@ -317,8 +317,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -386,7 +386,7 @@
           "package": "nvjitlink"
         },
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
           "go_environment": {
@@ -423,7 +423,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "6b0acf122c54e694c90a868f0190933ca5b6702e4fe733cfd072b6f75976af6b"
+            "sha256": "32925a3960755a1b5fe52cecf1ddc0c13bc264e53fe5d213f7c321a858a14103"
           },
           {
             "path": "nvidia/nvjitlink/loader_test.go",
@@ -439,7 +439,7 @@
           },
           {
             "path": "nvidia/nvjitlink/provenance.gen.go",
-            "sha256": "cd9e59ea0d3ce5192e221b66896f6ca641c872b814bfe5a3cf80c82545c79ca4"
+            "sha256": "49b75e3f8a331b1cbbc3bb18521dfe3a9019da1aeb61470e3d30265a7a5e7ce6"
           },
           {
             "path": "nvidia/nvjitlink/result.gen.go",
@@ -469,8 +469,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -539,7 +539,7 @@
           "package": "nvfatbin"
         },
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
           "go_environment": {
@@ -576,7 +576,7 @@
           },
           {
             "path": "nvidia/nvfatbin/init.gen.go",
-            "sha256": "b40f791b2e7c0e7fe1ab2711b72bdd349fa0c0d17ec9d4899a00231c6b335157"
+            "sha256": "9b5fe440afd9418cc760d5ee360ee6c8aa110164d3197ae7324941b773363690"
           },
           {
             "path": "nvidia/nvfatbin/loader_test.go",
@@ -592,7 +592,7 @@
           },
           {
             "path": "nvidia/nvfatbin/provenance.gen.go",
-            "sha256": "8ec833566b39c1be935c9c3b82b0f79ab01044149f5fb16ef7a1e405acbcc4c2"
+            "sha256": "76a5df2590fbbd15b170fa8387fadc95d9190f7a7f0d1917c7e156fd8640ac75"
           },
           {
             "path": "nvidia/nvfatbin/result.gen.go",
@@ -3757,8 +3757,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "712abfb69da9d38c85f5202a1d3b256ea792b300",
-          "tree": "7902f8e98cea15f8f0933f8eb5e4929de268041c"
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -3900,7 +3900,7 @@
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
         },
         "outputs": [
@@ -3932,7 +3932,7 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "8b2541e3e43eb29b113ccf0657b9e651a8ba2a61130acb5b59f9f7485cad7f89"
+            "sha256": "26b24beb7c8b393d4e0e7d7c2a30eacab900acd3d0a2a61eeed448fd4f93981f"
           },
           {
             "path": "nvidia/cupti/layout_test.go",
@@ -3952,7 +3952,7 @@
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
-            "sha256": "46a0a04497e7d46cae7723a0934fea9eead9e24e9ff11c5f2c3fe8e1e100030c"
+            "sha256": "22f1780fa690241d964e3a7b6bf8ea8226a6a29c7fc50dd473c300bdb14f51fc"
           },
           {
             "path": "nvidia/cupti/result.gen.go",
@@ -3993,9 +3993,9 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
           "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce.",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4053,7 +4053,7 @@
           },
           {
             "path": "nvidia/cufft/init.gen.go",
-            "sha256": "200153b914c9e2b5d654e7053554f577f1ab5c5a787b5ec3242aa28ff97e6ac9"
+            "sha256": "042a0372777e490382713d9ceaaf19186e6cd9ffae58725bbf1b88d949922b21"
           },
           {
             "path": "nvidia/cufft/layout_test.go",
@@ -4073,7 +4073,7 @@
           },
           {
             "path": "nvidia/cufft/provenance.gen.go",
-            "sha256": "d7b0a6e2048e0cfd3deeffbcf3238bf8d9242a295a7600d11d1f54b6a947a625"
+            "sha256": "2f5859770db412d02e246d77743dd7ba23faac9c480b6139c7dea63069270be7"
           },
           {
             "path": "nvidia/cufft/result.gen.go",
@@ -4095,8 +4095,8 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
@@ -4555,7 +4555,7 @@
           "TMPDIR": "${SCRATCH_DIR}"
         },
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
+          "go": "go version go1.27.0 darwin/arm64",
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
         },
         "outputs": [
@@ -4586,7 +4586,7 @@
           },
           {
             "path": "nvidia/curand/init.gen.go",
-            "sha256": "209fcf29d45cc877a092a7060490f5b842879982be6e17c18127a70015f31f34"
+            "sha256": "7c01ac6d2732681466f4fdd671aac7170f128cd801b2416474ea50594236a469"
           },
           {
             "path": "nvidia/curand/loader_test.go",
@@ -4602,7 +4602,7 @@
           },
           {
             "path": "nvidia/curand/provenance.gen.go",
-            "sha256": "fcca2ba84ae0f3bbc752bbaeb44b837e8ee2ea5dc45114e7883a0f8059b598d1"
+            "sha256": "f2302a4340aa6d0a90bbc9131418afbe8c8ff516760d2acff6e013488058a11f"
           },
           {
             "path": "nvidia/curand/result.gen.go",
@@ -8779,7 +8779,7 @@
           },
           {
             "path": "nvidia/cusolver/init.gen.go",
-            "sha256": "4ed03499397e796f624b452d853e0f30a970c4b129be9852679a2125bf91d372"
+            "sha256": "9bc17abeb4deea6e852fcbc544fc90836825e7256e08ed6b3f13b4b683c441ad"
           },
           {
             "path": "nvidia/cusolver/irs_infos.gen.go",
@@ -8824,9 +8824,9 @@
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/codegen.git",
-          "commit": "cdf673a2540d51d07ecfd1a177b02c4663b6248e",
+          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package.",
-          "tree": "db6c9da6028b7f1190dbc579666b6abb2a2a84c6"
+          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",

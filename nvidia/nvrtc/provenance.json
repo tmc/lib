@@ -1,32 +1,32 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/e5/e5dde487f130e5b36c12468e42dbc840b8148af0808d6d6c8ee7ecea75712f34-d/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/f5/f5afd169a897f7e0332d3992d23a6f3d3f827dd44e46da4001d486161322e91d-d/gen-nvidia",
     "-api",
     "nvrtc",
     "-headers-dir",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Users/tmc/tmp/hdr-cupti",
     "-header",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers/nvrtc/nvrtc.h",
+    "/Users/tmc/tmp/hdr-cupti/nvrtc/nvrtc.h",
     "-output",
     "/Users/tmc/go/src/github.com/tmc/lib/nvidia/nvrtc",
     "-package",
     "nvrtc",
     "-deprecated=true",
     "-docs-dir",
-    "./docs"
+    "/Volumes/tmc/go/src/github.com/tmc/libgen/docs"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/nvrtc/nvrtc.h",
+      "path": "/Users/tmc/tmp/hdr-cupti/nvrtc/nvrtc.h",
       "sha256": "7c84d86fdcb50843da7d1f6f95b805a9d6d5a388164f13b8672e3f25c0c111f4"
     }
   ],
-  "source_hash": "8f2c3f59b918c5e12ee11c7efa4c30b049d7fcf07cb92cd9ff91cdef51eabaca",
+  "source_hash": "97b4ae65a64d3460af22e739a3d3a999f5c8bd4b3c1e960d45059466ce89befd",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
