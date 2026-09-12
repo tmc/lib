@@ -47,7 +47,10 @@ func WithPCSampling(samplePeriod uint32) Option {
 	}
 }
 
-// WithBinaryPath sets the target path for the synthesized ELF binary sidecar.
+// WithBinaryPath requests the legacy generated ELF sidecar. A nonempty path
+// causes Start to return an error; inferred instructions are not captured code.
+//
+// Deprecated: use a retained native artifact with Session.SetMappingFile.
 func WithBinaryPath(path string) Option {
 	return func(c *profileConfig) {
 		c.binaryPath = path
@@ -76,11 +79,11 @@ func Start(w io.Writer, opts ...Option) error {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	if cfg.binaryPath != "" {
+		return fmt.Errorf("cudaprof: generated ELF sidecars are not captured code")
+	}
 
 	s := NewSession(w)
-	if cfg.binaryPath != "" {
-		s.SetBinaryPath(cfg.binaryPath)
-	}
 	if cfg.mappingFile != "" {
 		s.SetMappingFile(cfg.mappingFile, "")
 	}
@@ -117,7 +120,10 @@ func (s *Session) SetSampleTypes(names ...string) error {
 	return s.builder.SetSampleTypes(names...)
 }
 
-// SetBinaryPath sets the target path for the synthesized ELF binary sidecar.
+// SetBinaryPath requests the legacy generated ELF sidecar. A nonempty path
+// causes Close to fail without writing an inferred instruction image.
+//
+// Deprecated: use SetMappingFile with a retained native artifact instead.
 func (s *Session) SetBinaryPath(path string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

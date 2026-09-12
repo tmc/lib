@@ -19,9 +19,9 @@ type Symbol struct {
 	Code    []byte
 }
 
-// SynthesizeELFBinary creates a valid ELF64 shared object binary containing symbol tables
-// and instruction bytes for GPU kernels, allowing standard go tool pprof disassemblers
-// to resolve and display kernel instruction disassembly.
+// SynthesizeELFBinary creates an illustrative host-architecture ELF64 image.
+// It is not a captured CUBIN and must not be used as GPU disassembly evidence.
+// Missing symbol code is generated from names for synthetic fixtures only.
 func SynthesizeELFBinary(symbols []Symbol) ([]byte, error) {
 	if len(symbols) == 0 {
 		return nil, fmt.Errorf("no symbols provided")
@@ -300,7 +300,9 @@ func WriteELFBinary(path string, symbols []Symbol) error {
 	return os.WriteFile(path, elfBytes, 0755)
 }
 
-// SynthesizeKernelInstructions generates realistic machine opcodes corresponding to the GPU kernel semantics.
+// SynthesizeKernelInstructions returns illustrative host CPU opcodes selected
+// by a name heuristic. They are not NVIDIA instructions and have no established
+// relationship to any captured kernel. Use only for synthetic fixtures.
 func SynthesizeKernelInstructions(kernelName string) []byte {
 	if runtime.GOARCH == "arm64" {
 		switch {
