@@ -109,12 +109,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
-	prompt := cfg.promptTokens
-	if prompt == nil {
-		prompt, err = tok.RenderNonThinking("You are a helpful assistant", string(cfg.prompt))
-		if err != nil {
-			return fmt.Errorf("render prompt: %w", err)
-		}
+	prompt, err := preparePrompt(cfg, tok)
+	if err != nil {
+		return err
 	}
 	b, closer, err := openSessionBackend(cfg)
 	if err != nil {
@@ -270,8 +267,8 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 		if err != nil {
 			return config{}, err
 		}
-		if len(cfg.promptTokens) > cfg.context {
-			return config{}, errors.New("prompt tokens exceed context")
+		if err := cfg.checkPromptCapacity(len(cfg.promptTokens)); err != nil {
+			return config{}, err
 		}
 	case promptFile != "":
 		cfg.prompt, err = os.ReadFile(promptFile)
@@ -333,10 +330,40 @@ func parsePromptTokens(data []byte) ([]int, error) {
 	}
 	tokens := make([]int, len(values))
 	for i, value := range values {
-		if value == nil || *value < 0 || *value >= 129280 {
-			return nil, fmt.Errorf("prompt token %d: expected an integer in 0..129279", i)
+		if value == nil || *value < 0 {
+			return nil, fmt.Errorf("prompt token %d: expected a nonnegative integer", i)
 		}
 		tokens[i] = *value
 	}
 	return tokens, nil
+}
+
+// preparePrompt checks the loaded vocabulary and reserves room for every
+// requested decode step before the backend is opened.
+func preparePrompt(cfg config, tok *tokenizer) ([]int, error) {
+	prompt := cfg.promptTokens
+	if prompt == nil {
+		var err error
+		prompt, err = tok.RenderNonThinking("You are a helpful assistant", string(cfg.prompt))
+		if err != nil {
+			return nil, fmt.Errorf("render prompt: %w", err)
+		}
+	}
+	for i, id := range prompt {
+		if id < 0 || id >= len(tok.tokens) {
+			return nil, fmt.Errorf("prompt token %d: ID %d outside model vocabulary of %d tokens", i, id, len(tok.tokens))
+		}
+	}
+	if err := cfg.checkPromptCapacity(len(prompt)); err != nil {
+		return nil, err
+	}
+	return prompt, nil
+}
+
+func (cfg config) checkPromptCapacity(n int) error {
+	// Subtraction avoids overflow for a very large -tokens value.
+	if n > cfg.context || cfg.tokens > cfg.context-n {
+		return fmt.Errorf("prompt length %d and %d generated tokens exceed context %d", n, cfg.tokens, cfg.context)
+	}
+	return nil
 }
