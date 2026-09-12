@@ -215,7 +215,7 @@ func openLibrary(path string) (uintptr, string, error) {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnccl.so.2", "libnccl.so"}
+		return []string{"libnccl.so.2"}
 	case "darwin":
 		return []string{"libnccl.dylib"}
 	default:
