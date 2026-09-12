@@ -86,3 +86,8 @@
 /nvidia/ptx-sass-trace
 
 /examples/hostqualify/hostqualify
+
+# Local measurement artifacts and Python bytecode.
+evidence/
+__pycache__/
+*.pyc
