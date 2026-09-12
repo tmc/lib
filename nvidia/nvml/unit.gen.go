@@ -41,10 +41,10 @@ func (u Unit) GetDevices(buf []Device) ([]Device, error) {
 	for {
 		n := count
 		err := unitGetDevices(u, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4

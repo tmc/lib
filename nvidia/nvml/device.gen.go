@@ -217,10 +217,10 @@ func (d Device) GetAccountingPids(buf []uint32) ([]uint32, error) {
 	for {
 		n := count
 		err := deviceGetAccountingPids(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -259,10 +259,10 @@ func (d Device) GetActiveVgpus(buf []VgpuInstance) ([]VgpuInstance, error) {
 	for {
 		n := count
 		err := deviceGetActiveVgpus(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -522,10 +522,10 @@ func (d Device) GetComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, er
 	for {
 		n := count
 		err := deviceGetComputeRunningProcesses(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -633,10 +633,10 @@ func (d Device) GetCreatableVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 	for {
 		n := count
 		err := deviceGetCreatableVgpus(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -893,10 +893,10 @@ func (d Device) GetEncoderSessions(buf []EncoderSessionInfo) ([]EncoderSessionIn
 	for {
 		n := count
 		err := deviceGetEncoderSessions(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -968,10 +968,10 @@ func (d Device) GetFBCSessions(buf []FBCSessionInfo) ([]FBCSessionInfo, error) {
 	for {
 		n := count
 		err := deviceGetFBCSessions(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -1231,10 +1231,10 @@ func (d Device) GetGraphicsRunningProcesses(buf []ProcessInfo) ([]ProcessInfo, e
 	for {
 		n := count
 		err := deviceGetGraphicsRunningProcesses(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -1408,10 +1408,10 @@ func (d Device) GetMPSComputeRunningProcesses(buf []ProcessInfo) ([]ProcessInfo,
 	for {
 		n := count
 		err := deviceGetMPSComputeRunningProcesses(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2116,10 +2116,10 @@ func (d Device) GetProcessUtilization(lastSeenTimeStamp uint64, buf []ProcessUti
 	for {
 		n := count
 		err := deviceGetProcessUtilization(d, p, &n, lastSeenTimeStamp)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2189,10 +2189,10 @@ func (d Device) GetRetiredPages(cause PageRetirementCause) (addresses, timestamp
 	for {
 		n := count
 		err := deviceGetRetiredPages(d, cause, &n, p1, p2)
-		if err == nil {
+		if err == nil && n <= count {
 			return addresses[:n], timestamps[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, nil, err
 		}
 		count = n + n/2 + 4
@@ -2271,10 +2271,10 @@ func (d Device) GetSamples(type_ SamplingType, lastSeenTimeStamp uint64, buf []S
 	for {
 		n := count
 		err := deviceGetSamples(d, type_, lastSeenTimeStamp, &extra, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], extra, nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			var zero ValueType
 			return nil, zero, err
 		}
@@ -2377,10 +2377,10 @@ func (d Device) GetSupportedGraphicsClocks(memoryClockMHz uint32, buf []uint32) 
 	for {
 		n := count
 		err := deviceGetSupportedGraphicsClocks(d, memoryClockMHz, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2410,10 +2410,10 @@ func (d Device) GetSupportedMemoryClocks(buf []uint32) ([]uint32, error) {
 	for {
 		n := count
 		err := deviceGetSupportedMemoryClocks(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2451,10 +2451,10 @@ func (d Device) GetSupportedVgpus(buf []VgpuTypeId) ([]VgpuTypeId, error) {
 	for {
 		n := count
 		err := deviceGetSupportedVgpus(d, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2551,10 +2551,10 @@ func (d Device) GetTopologyNearestGpus(level GpuTopologyLevel, buf []Device) ([]
 	for {
 		n := count
 		err := deviceGetTopologyNearestGpus(d, level, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2693,10 +2693,10 @@ func (d Device) GetVgpuProcessUtilization(lastSeenTimeStamp uint64, buf []VgpuPr
 	for {
 		n := count
 		err := deviceGetVgpuProcessUtilization(d, lastSeenTimeStamp, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			return nil, err
 		}
 		count = n + n/2 + 4
@@ -2778,10 +2778,10 @@ func (d Device) GetVgpuUtilization(lastSeenTimeStamp uint64, buf []VgpuInstanceU
 	for {
 		n := count
 		err := deviceGetVgpuUtilization(d, lastSeenTimeStamp, &extra, &n, p)
-		if err == nil {
+		if err == nil && n <= count {
 			return buf[:n], extra, nil
 		}
-		if !errors.Is(err, ErrInsufficientSize) {
+		if err != nil && !errors.Is(err, ErrInsufficientSize) {
 			var zero ValueType
 			return nil, zero, err
 		}
