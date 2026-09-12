@@ -12,17 +12,18 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-// AutotuneBudget controls the tradeoff between instant startup and deep kernel search.
+// AutotuneBudget is a search deadline checked between candidates.
+// Compiling or benchmarking a candidate can exceed the remaining budget.
 type AutotuneBudget time.Duration
 
 const (
 	// BudgetInstant skips background candidate micro-benchmarking (instant startup).
 	BudgetInstant AutotuneBudget = 0
 
-	// BudgetQuick searches up to ~50ms of candidate tile configurations.
+	// BudgetQuick requests a 50 ms search budget.
 	BudgetQuick = AutotuneBudget(50 * time.Millisecond)
 
-	// BudgetThorough searches up to ~1s of candidate kernels for maximum sustained decode throughput.
+	// BudgetThorough requests a one-second search budget.
 	BudgetThorough = AutotuneBudget(1 * time.Second)
 )
 
@@ -131,7 +132,8 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 }
 
 // BenchmarkCandidate compiles, loads, warms up, and benchmarks the candidate on the GPU,
-// measuring pure execution duration (excluding compilation/load time).
+// returning average host wall time per iteration across launches and stream
+// synchronization. Compilation, loading and warmup precede the measured interval.
 func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time.Duration, error) {
 	if dev == nil {
 		return 0, fmt.Errorf("egraph: nil CUDA device for benchmark")
@@ -217,7 +219,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 		return 0, fmt.Errorf("egraph: warmup sync: %w", err)
 	}
 
-	// 2. Timed GPU Microbenchmark (pure execution time)
+	// 2. Host elapsed time for launches and synchronization.
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
 		if err := launcher.Launch(args...); err != nil {

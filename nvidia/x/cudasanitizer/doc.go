@@ -8,7 +8,7 @@
 // subscribes to device events; compute-sanitizer is driven as a subprocess.
 //
 // It is also not Go's race detector. The -race flag instruments Go code on the
-// CPU. [Racecheck] instruments CUDA shared and global memory accesses on the
+// CPU. [Racecheck] instruments CUDA shared memory accesses on the
 // GPU. Enabling one says nothing about the other, and a package can need both.
 //
 // # The exit-code trap

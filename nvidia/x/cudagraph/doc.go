@@ -8,14 +8,12 @@
 //
 // # Stream Capture
 //
-// The simplest way to create a CUDA graph is by recording existing stream operations:
+// [Capture] records operations enqueued by its callback on the supplied stream.
+// The caller must handle operation errors inside that callback; Capture accepts
+// func(), so it cannot return those errors on the caller's behalf.
 //
-//	g, err := cudagraph.Capture(stream, func() {
-//		launcher.On(stream).Launch(...)
-//		sliceB.CopyDeviceToDeviceAsync(sliceA, stream)
-//	})
-//	exec, err := g.Instantiate()
-//	defer exec.Destroy()
-//
-//	err = exec.Launch(stream)
+// After a successful capture, release the graph with [Graph.Destroy]. Create
+// an executable with [Graph.Instantiate], check its error, and release that
+// executable with [Exec.Destroy]. Check [Exec.Launch] and synchronize the stream
+// before releasing resources still used by queued work.
 package cudagraph

@@ -10,9 +10,8 @@
 // while this package stores an arbitrary float32 (the group's maximum
 // magnitude divided by 6). Data written here therefore does not interchange
 // with a conformant MXFP4 consumer in either direction, and a 32-element group
-// costs 20 bytes rather than 17. The two representations are otherwise
-// equivalent in accuracy; the choice is a compatibility one, not a numerical
-// one, and it has not been made.
+// costs 20 bytes rather than 17. Float32 and E8M0 scales define different
+// quantization grids; accuracy depends on the input and must be measured.
 //
 // The CUDA engine is experimental and has no production consumer in this
 // repository. Its numerical tests and opt-in hardware benchmark do not establish

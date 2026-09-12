@@ -21,7 +21,7 @@ type Buffer struct {
 	// Hidden is the token payload buffer: R chunks of [NvSPadded, H] bf16;
 	// dispatch writes rows directly into remote ranks' chunks.
 	Hidden *nvlshm.DistBuffer
-	// Meta is the metadata buffer: R chunks of [MetaChunkPadded] int32
+	// Meta is the metadata buffer: R chunks of [Layout.MetaChunkPadded] int32
 	// with the region layout described in the package documentation, plus
 	// a multicast mapping used by planning's one-shot plan broadcast.
 	Meta *nvlshm.DistBuffer

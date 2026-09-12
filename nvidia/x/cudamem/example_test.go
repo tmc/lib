@@ -53,6 +53,7 @@ func ExampleArena() {
 	}
 
 	a := cudamem.NewArena(devs[0])
+	defer a.Free()
 	x := cudamem.AllocIn[float32](a, "x", 4096)
 	y := cudamem.AllocIn[float32](a, "y", 4096)
 	tokens := cudamem.AllocIn[int32](a, "tokens", 1)
@@ -60,7 +61,5 @@ func ExampleArena() {
 		fmt.Println(err)
 		return
 	}
-	defer a.Free()
-
 	fmt.Println(x.Len(), y.Len(), tokens.Len())
 }

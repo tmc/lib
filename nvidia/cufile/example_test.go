@@ -10,10 +10,11 @@ import (
 	"github.com/tmc/lib/nvidia/cufile"
 )
 
-// Example opens the cuFile driver and registers a file for GPUDirect
+// Example is an illustrative registration sequence; replace /path/to/data
+// with a file on a cuFile-supported filesystem before running it. It opens the cuFile driver and registers a file for GPUDirect
 // Storage I/O. It returns early when the cuFile library is not available.
-// Handle.Read and Handle.Write transfer directly between the file and
-// CUDA device memory, e.g. from the driver package's MemAlloc.
+// Handle.Read and Handle.Write transfer between the file and CUDA device
+// memory. The transfer path depends on the system and cuFile configuration.
 func Example() {
 	if err := cufile.DriverOpen(); err != nil {
 		fmt.Println("cuFile unavailable:", err)

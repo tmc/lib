@@ -16,6 +16,7 @@ type kernels struct {
 	GEMV  driver.Function `cuda:"LinearGEMV"`
 }
 
+// This illustrative fragment requires a loaded module and allocated device buffers.
 func ExampleBind() {
 	// mod is a module already loaded onto a device, for example by
 	// nvrtcx.CompiledModule.Load.
@@ -37,6 +38,7 @@ func ExampleBind() {
 
 // A zero Slice packs as a null device pointer, so an optional kernel argument
 // such as a missing bias vector needs no sentinel of its own.
+// This illustrative fragment requires a real kernel and allocated input/output buffers.
 func ExampleLauncher_Launch_optionalArgument() {
 	var fn driver.Function
 	var in, weight, out cudamem.Slice[float32]
