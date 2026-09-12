@@ -156,14 +156,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
-	prefillSpan := beginTraced(levelPhase, "prefill", nil)
-	// end is idempotent, so the defer closes the range on the error paths
-	// and the call below closes it at the phase's real boundary.
-	defer prefillSpan.end()
-	if err := s.Sync(prompt); err != nil {
+	if err := tracePhase(levelPhase, "prefill", func() error { return s.Sync(prompt) }); err != nil {
 		return err
 	}
-	prefillSpan.end()
 	prefill := time.Since(prefillStart)
 	if err := checkLogits("prefill", s.logits, len(tok.tokens), cfg.expectPrefillLogits, stderr); err != nil {
 		return err
@@ -171,33 +166,35 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	var text textAssembler
 	generated := 0
 	decodeStart := time.Now()
-	decodeSpan := beginTraced(levelPhase, "generation", nil)
-	defer decodeSpan.end()
-	for range cfg.tokens {
-		id := greedyToken(s.logits)
-		if tok.IsStop(id) {
-			break
+	if err := tracePhase(levelPhase, "generation", func() error {
+		for range cfg.tokens {
+			id := greedyToken(s.logits)
+			if tok.IsStop(id) {
+				break
+			}
+			fragment, err := tok.Decode([]int{id})
+			if err != nil {
+				return err
+			}
+			out, err := text.Add(fragment)
+			if err != nil {
+				return err
+			}
+			if _, err := io.WriteString(stdout, out); err != nil {
+				return fmt.Errorf("write output: %w", err)
+			}
+			if _, err := s.Accept(id); err != nil {
+				return err
+			}
+			generated++
+			if cfg.checkingLogits() {
+				fmt.Fprintf(stderr, "ds4-min: accepted token %d=%d\n", generated, id)
+			}
 		}
-		fragment, err := tok.Decode([]int{id})
-		if err != nil {
-			return err
-		}
-		out, err := text.Add(fragment)
-		if err != nil {
-			return err
-		}
-		if _, err := io.WriteString(stdout, out); err != nil {
-			return fmt.Errorf("write output: %w", err)
-		}
-		if _, err := s.Accept(id); err != nil {
-			return err
-		}
-		generated++
-		if cfg.checkingLogits() {
-			fmt.Fprintf(stderr, "ds4-min: accepted token %d=%d\n", generated, id)
-		}
+		return nil
+	}); err != nil {
+		return err
 	}
-	decodeSpan.end()
 	// Same definition as ds4_cli.c:679-686: prompt tokens over the prefill
 	// wall time, generated tokens over the decode wall time.
 	decode := time.Since(decodeStart)

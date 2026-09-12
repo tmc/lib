@@ -39,6 +39,17 @@ func (e tracedEnd) end() {
 	}
 }
 
+// tracePhase runs fn as one traced phase, closing the span and its NVTX
+// range however fn returns. The phase spans go through here rather than
+// pairing begin and end at the call site, so that the close lives in one
+// place a test can drive: a defer written beside a long loop is exactly
+// the kind that a later edit drops without anything noticing.
+func tracePhase(level spanLevel, name string, fn func() error) error {
+	e := beginTraced(level, name, nil)
+	defer e.end()
+	return fn()
+}
+
 // beginTraced starts a recorded span and an NVTX range for the same
 // interval. The two are independent on purpose: the recorder drops a span
 // past its caps, and the range still opens, so a truncated sidecar does

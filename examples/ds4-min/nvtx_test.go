@@ -116,34 +116,34 @@ func TestTracedEndIsExactlyOnce(t *testing.T) {
 	tracedEnd{}.end()
 }
 
-// The phase spans in run are closed by a deferred end, so a failure between
-// begin and the normal boundary still closes the interval. This models that
-// control flow: it fails if the defer is dropped.
-func TestTracedEndClosesOnErrorPath(t *testing.T) {
-	spans = newSpanRecorder(levelPhase, "error-path")
+// run closes its phase spans through tracePhase, so this drives that
+// function rather than a copy of its control flow: removing the defer in
+// tracePhase must fail this test, and a test that re-implements the
+// begin/defer/end shape locally would not notice.
+func TestTracePhaseClosesHoweverItReturns(t *testing.T) {
+	spans = newSpanRecorder(levelPhase, "trace-phase")
 	defer func() { spans = nil }()
 
-	phase := func(fail bool) error {
-		e := beginTraced(levelPhase, "prefill", nil)
-		defer e.end()
-		if fail {
-			return errors.New("sync failed")
-		}
-		e.end()
-		return nil
+	want := errors.New("sync failed")
+	if err := tracePhase(levelPhase, "prefill", func() error { return want }); !errors.Is(err, want) {
+		t.Fatalf("tracePhase returned %v, want %v", err, want)
 	}
-	if err := phase(true); err == nil {
-		t.Fatal("want an error")
-	}
-	if err := phase(false); err != nil {
+	if err := tracePhase(levelPhase, "generation", func() error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if len(spans.spans) != 2 {
-		t.Fatalf("recorded %d spans, want 2", len(spans.spans))
+	// A panicking phase must not leave the range open either: the deferred
+	// close is the only thing that runs on the way out.
+	func() {
+		defer func() { recover() }()
+		_ = tracePhase(levelPhase, "panicking", func() error { panic("boom") })
+	}()
+
+	if len(spans.spans) != 3 {
+		t.Fatalf("recorded %d spans, want 3", len(spans.spans))
 	}
-	for i, s := range spans.spans {
-		if s.durationN == 0 {
-			t.Errorf("span %d (%s) was left open", i, s.name)
+	for i, sp := range spans.spans {
+		if sp.durationN == 0 {
+			t.Errorf("span %d (%s) was left open", i, sp.name)
 		}
 	}
 }
