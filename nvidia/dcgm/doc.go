@@ -132,5 +132,6 @@
 // field group was created, that a watch was accepted, or that a sample ever
 // arrived -- which is every step this package's paths depend on. The physical
 // test in physical_test.go, behind the dcgm_physical build tag, is what checks
-// those, and it has never been run.
+// those prerequisites and the resulting samples when run against a host engine.
+// A successful host-only test run does not establish that physical behavior.
 package dcgm

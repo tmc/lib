@@ -44,7 +44,7 @@ const (
 	// Memcheck detects out-of-bounds and misaligned device memory accesses,
 	// invalid API usage, and (with [Config.LeakCheck]) leaked allocations.
 	Memcheck Tool = "memcheck"
-	// Racecheck detects shared and global memory data hazards between
+	// Racecheck detects shared memory data hazards between
 	// threads of a kernel.
 	Racecheck Tool = "racecheck"
 	// Initcheck detects device reads of uninitialized global memory.

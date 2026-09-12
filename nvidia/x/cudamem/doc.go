@@ -22,7 +22,8 @@
 //
 // # Standard Library Streaming I/O
 //
-// [Reader] and [Writer] wrap byte slices in device memory to implement [io.ReaderFrom]
-// and [io.WriterTo], enabling direct streaming DMA between GPU device buffers and
-// standard Go interfaces such as [os.File] or [net.Conn].
+// [Reader] implements [io.Reader] and [io.WriterTo]; [Writer] implements
+// [io.Writer] and [io.ReaderFrom]. Transfers between device memory and these
+// interfaces use host staging buffers. They do not provide direct file or
+// network DMA into device memory.
 package cudamem

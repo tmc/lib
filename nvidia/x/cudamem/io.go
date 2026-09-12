@@ -39,7 +39,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	return toRead, nil
 }
 
-// WriteTo writes data from the device slice directly to the specified io.Writer.
+// WriteTo copies device data through a host staging buffer to w.
 func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	bufSize := 64 * 1024 // 64KB staging chunk
 	buf := make([]byte, bufSize)

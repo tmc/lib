@@ -1,163 +1,123 @@
-# nvidia
+# NVIDIA bindings for Go
 
-Pure-Go bindings for the NVIDIA CUDA libraries, generated from the vendor
-headers and loaded at runtime with [purego]. No cgo, no C toolchain, and
-no NVIDIA SDK at build time: programs cross-compile anywhere Go does, and
-the libraries are located and loaded on first use. Two exceptions:
-`x/nvlshm` and `x/moonep` are `//go:build !windows`, because they exchange
-file descriptors over a Unix domain socket.
+This module contains Go bindings for NVIDIA libraries, loaded dynamically with
+[purego](https://github.com/ebitengine/purego), and higher-level packages under
+[x/](x/README.md). The module requires Go 1.27 or later.
 
-[purego]: https://github.com/ebitengine/purego
+Building the bindings does not require NVIDIA headers. Running a native
+operation requires the library and any devices, drivers or services that the
+operation uses. Platform availability and build constraints vary by package;
+cuFile, for example, is a Linux-only package.
 
 ## Packages
 
 | Package | Binds | Use it for |
 |---|---|---|
-| driver | CUDA driver API (cuda.h) | contexts, memory, module loading, kernel launch, streams, events, graphs |
-| nvrtc | NVRTC | compiling CUDA C++ to PTX, cubin, LTOIR, or TileIR at runtime |
-| nvvm | NVVM | compiling NVVM IR and libdevice to PTX or LTOIR |
-| nvjitlink | nvJitLink | linking device code to cubin or PTX |
-| nvfatbin | nvFatbin | packaging alternative CUDA device images into fatbinaries |
-| nvml | NVML | device enumeration, telemetry, and management |
-| cublas | cuBLAS | dense BLAS on device buffers |
-| cublaslt | cuBLASLt | lightweight matmul with algorithm selection |
-| cudnn | cuDNN | deep-learning primitives |
-| cufft | cuFFT | fast Fourier transforms |
-| curand | cuRAND | random number generation (device and host) |
-| cusolver | cuSOLVER (dense) | factorizations and eigensolvers |
-| cusparse | cuSPARSE (generic API) | sparse matrices and SpMV/SpMM |
-| cutensor | cuTENSOR | tensor contractions, reductions, permutations |
-| cudss | cuDSS | direct sparse linear solves: analysis, factorization, solve |
-| cublasmp | cuBLASMp | multi-process, multi-GPU dense linear algebra over an NCCL process grid |
-| cusolvermp | cuSOLVERMp | multi-process, multi-GPU dense factorization and solve |
-| custatevec | cuStateVec (cuQuantum) | state-vector quantum circuit simulation |
-| cutensornet | cuTensorNet (cuQuantum) | tensor-network path finding and contraction |
-| cudensitymat | cuDensityMat (cuQuantum) | many-body operator action and expectation values |
-| vpi | VPI (Vision Programming Interface) | context and stream lifecycle, image wrapping, rescale |
-| cupti | CUPTI | profiling and activity tracing |
-| sanitizer | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
-| dcgm | DCGM client library (libdcgm) | host-engine telemetry, entity and field discovery, health and diagnostics |
-| nccl | NCCL | multi-GPU collectives |
-| ncclep | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
-| ncclm2n | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
-| nvshmem | NVSHMEM host API (`libnvshmem_host`) | symmetric heap allocation and PE-to-PE communication; host calls only |
-| gdrcopy | GDRCopy (`libgdrapi`) | mapping GPU memory into a process's address space |
-| cufile | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
-| nvcomp | nvCOMP (batched LZ4) | compressing and decompressing independent chunks on device |
-| nvjpeg2k | nvJPEG2000 | JPEG 2000 decoding on device |
-| nvdec | NVDEC (nv-codec-headers) | hardware video decoding: parser, decoder, surface mapping |
-| nvenc | NVENC (nv-codec-headers) | hardware video encoding through the driver's function table |
-| fabricmanager | NVIDIA Fabric Manager | NVSwitch fabric partitions |
+| [driver](driver/) | CUDA driver API (cuda.h) | contexts, memory, module loading, kernel launch, streams, events, graphs |
+| [nvrtc](nvrtc/) | NVRTC | compiling CUDA C++ to PTX, cubin, LTOIR, or TileIR at runtime |
+| [nvvm](nvvm/) | NVVM | compiling NVVM IR and libdevice to PTX or LTOIR |
+| [nvjitlink](nvjitlink/) | nvJitLink | linking device code to cubin or PTX |
+| [nvfatbin](nvfatbin/) | nvFatbin | packaging alternative CUDA device images into fatbinaries |
+| [nvml](nvml/) | NVML | device enumeration, telemetry, and management |
+| [cublas](cublas/) | cuBLAS | dense BLAS on device buffers |
+| [cublaslt](cublaslt/) | cuBLASLt | lightweight matmul with algorithm selection |
+| [cudnn](cudnn/) | cuDNN | deep-learning primitives |
+| [cufft](cufft/) | cuFFT | fast Fourier transforms |
+| [curand](curand/) | cuRAND | host APIs for random number generation |
+| [cusolver](cusolver/) | cuSOLVER (dense) | factorizations and eigensolvers |
+| [cusparse](cusparse/) | cuSPARSE (generic API) | sparse matrices and SpMV/SpMM |
+| [cutensor](cutensor/) | cuTENSOR | tensor contractions, reductions, permutations |
+| [cudss](cudss/) | cuDSS | direct sparse linear solves: analysis, factorization, solve |
+| [cublasmp](cublasmp/) | cuBLASMp | multi-process, multi-GPU dense linear algebra over an NCCL process grid |
+| [cusolvermp](cusolvermp/) | cuSOLVERMp | multi-process, multi-GPU dense factorization and solve |
+| [custatevec](custatevec/) | cuStateVec (cuQuantum) | state-vector quantum circuit simulation |
+| [cutensornet](cutensornet/) | cuTensorNet (cuQuantum) | tensor-network path finding and contraction |
+| [cudensitymat](cudensitymat/) | cuDensityMat (cuQuantum) | many-body operator action and expectation values |
+| [vpi](vpi/) | VPI (Vision Programming Interface) | context and stream lifecycle, image wrapping, rescale |
+| [cupti](cupti/) | CUPTI | profiling and activity tracing |
+| [sanitizer](sanitizer/) | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
+| [dcgm](dcgm/) | DCGM client library (libdcgm) | host-engine telemetry, entity and field discovery, health and diagnostics |
+| [nccl](nccl/) | NCCL | multi-GPU collectives |
+| [ncclep](ncclep/) | NCCL EP (`libnccl_ep`) | expert-parallel dispatch and combine |
+| [ncclm2n](ncclm2n/) | NCCL M2N (`libnccl_m2n`) | mesh-to-mesh tensor resharding |
+| [nvshmem](nvshmem/) | NVSHMEM host API (`libnvshmem_host`) | symmetric heap allocation and PE-to-PE communication; host calls only |
+| [gdrcopy](gdrcopy/) | GDRCopy (`libgdrapi`) | mapping GPU memory into a process's address space |
+| [cufile](cufile/) | cuFile (GPUDirect Storage) | direct file↔GPU I/O; Linux only |
+| [nvcomp](nvcomp/) | nvCOMP (batched LZ4) | compressing and decompressing independent chunks on device |
+| [nvjpeg2k](nvjpeg2k/) | nvJPEG2000 | JPEG 2000 decoding on device |
+| [nvdec](nvdec/) | NVDEC (nv-codec-headers) | hardware video decoding: parser, decoder, surface mapping |
+| [nvenc](nvenc/) | NVENC (nv-codec-headers) | hardware video encoding through the driver's function table |
+| [fabricmanager](fabricmanager/) | NVIDIA Fabric Manager | NVSwitch fabric partitions |
 | x/... | — | idiomatic layer over the raw bindings; see the [generated package inventory](x/README.md) |
 
-Every package follows the same conventions, so knowing one is knowing
-them all.
+## Loading libraries
 
-## Load model
+The direct binding packages expose `Load(path)`, `Loaded()`, `Path()` and
+`Close()`. A native call can trigger lazy loading. Use an explicit load when
+you want to handle availability before starting a workflow. Consult each
+package's loader documentation for its environment variable, search list and
+supported platforms. Loading a library does not establish that every symbol,
+device or operation is available.
 
-Packages load their library lazily on the first call, searching the
-standard soname list for the platform. Nothing happens at import time.
-Every package builds on every platform Go supports; what varies is
-whether the vendor ships a library there. Where NVIDIA publishes no
-build for an operating system, the search list for it is empty and the
-first call reports that, rather than searching for a name that cannot
-exist. NCCL, Fabric Manager, cuFile, DCGM, cuBLASMp, cuSOLVERMp, nvCOMP
-and GDRCopy are Linux-only for that reason; CUPTI, cuTENSOR, the
-cuQuantum packages and nvJPEG2000 ship on Windows but no Windows name is
-configured for them yet, so they too report an empty search list there.
+`Has` and generated capability predicates check for individual symbols.
+Functions with an error result report loading, missing-symbol or native-status
+errors through that result. Wrappers without an error result can panic when a
+library or symbol is unavailable. Inspect the function's signature and comment;
+do not assume every operation follows one error convention.
 
-  - `Load(path)` loads explicitly (empty path = default search list) and
-    is idempotent; loading a second, different path fails rather than
-    replacing the library.
-  - `Loaded()`, `Path()` report state; `Close()` exists for test teardown.
-  - Symbols absent from an older installed library are left unbound;
-    calling one returns a `*SymbolError` instead of panicking. `Has()`
-    and per-function `HasX()` probes let you check capability up front.
+`Close` is for controlled teardown. Release native resources first, and do not
+close a library while other goroutines or callbacks may still use it.
 
-## Error model
+## Native resources and errors
 
-Functions return `error` (nil on success). The concrete type is the
-package's `Result` (or a small struct where the C API reports more than a
-status), so `errors.Is`/`errors.As` work against exported codes:
+The raw bindings closely follow the C APIs. A returned handle usually needs an
+explicit release operation; Go garbage collection does not release native
+resources. Buffers, offsets, pointer lifetimes and synchronization remain the
+caller's responsibility unless a particular helper documents otherwise.
 
-	if errors.Is(err, nvml.ErrNotSupported) { ... }
+Status-returning APIs translate failures to Go errors. Many packages expose a
+`Result` type and named error constants; cuFile instead reports its structured
+native status and also has byte-count-returning I/O methods. Use the package's
+actual error types and codes with `errors.Is` or `errors.As` as appropriate.
 
-Where the library exports an error-string function, messages are rich;
-otherwise they fall back to the Go constant name and numeric code.
+The CUDA driver associates a current context with an OS thread. Raw context
+workflows must keep related calls on that thread with `runtime.LockOSThread`.
+The [cuda wrapper](x/cuda/) provides `Device.WithContext` for scoped operations.
 
-## Regenerating
+## Examples and validation
 
-`cufft/init.gen.go` used to carry hand-written declarations -- `LibraryError`,
-`LibraryAttempt` and their helpers -- that no generator commit produced, so the
-API-removal check refused to regenerate the package rather than delete them.
-`contrib/cuda` now emits those declarations behind `APIConfig.LibraryError`,
-which cufft sets, and the package regenerates normally.
+Direct binding packages include `example_test.go` files. Examples requiring
+NVIDIA libraries or devices illustrate native workflows; those without an
+`Output:` directive are compiled but are not executed by `go test`. They do
+not establish that the workflow has run successfully on a GPU. Read each
+example's prerequisites before adapting it.
 
-Moving such declarations into a maintained file beside the generated ones is
-not the fix it appears to be. The check does not read those files, so the
-regeneration succeeds and the package still builds, vets and tests -- but the
-regenerated loader no longer returns the type, so `errors.As` stops matching it
-with nothing to say so. Teach the generator to emit what the person wrote.
+Examples with an `Output:` directive are executed and checked by:
 
-`-allow-api-removal` is for a removal or rename you intend and will review in
-the diff, such as regenerating nccl to pick up the `HascommInitAll` ->
-`HasCommInitAll` fix. It is not a way to quiet a check that is telling you an
-input is wrong: a header pinned to the wrong revision reports the same way, as
-hundreds of unrelated declarations going missing at once.
+```sh
+go test ./... -run '^Example' -count=1
+```
 
-## The pure-Go kernel path
+This command covers packages available on the current platform. It does not
+exercise Linux-only cuFile on macOS, or opt-in hardware tests behind build
+tags. Compilation, an unavailable-library return path and a successful native
+workflow are different checks.
 
-CUDA kernels can be compiled, linked, and launched entirely from Go at
-runtime — no nvcc, no cgo:
+The [PTX/SASS trace example](examples/ptx-sass-trace/) demonstrates a larger
+compile-and-launch workflow. The [x package inventory](x/README.md) lists
+higher-level memory, compilation, graph and tracing helpers.
 
- 1. nvrtc: compile CUDA C++ source to PTX (`CreateProgram`, `Compile`,
-    `GetPTX`).
- 2. driver: `Init`, `NewDeviceGet`, `NewContext`, then either load the
-    PTX directly (`NewModuleLoadData`) or JIT-link several inputs with
-    `LinkCreate`/`LinkState` first.
- 3. driver: `Module.GetFunction`, allocate with `MemAlloc`, copy with
-    `DevicePtr.MemcpyHtoD`, and `Function.LaunchKernel`.
+## Regeneration
 
-The `nvjitlink` package provides LTO-capable device-code linking;
-`x/nvjitlinkx` owns linker inputs, diagnostics, and cleanup. The driver's
-`LinkState` also supports JIT linking.
+[upstream.json](upstream.json) records package inputs and generation commands.
+The generator repository is `tmc/libgen` (formerly `tmc/codegen`). Read the
+package's recorded command and header pins rather than choosing a generator
+by name: several packages use dedicated survey commands.
 
-The [PTX/SASS trace example](examples/ptx-sass-trace/) records a two-kernel
-pipeline in Go trace and pprof, with CUDA event timing and portable source
-and NVIDIA disassembly views.
+Generate into a separate output directory, then review the diff and validate
+the affected package. Generated API fixes belong in libgen; editing generated
+output alone loses the fix on the next run. Preserve historical provenance and
+record which new outputs were actually regenerated.
 
-## Graphs
-
-Capture a stream of work once, then replay it with near-zero launch
-overhead:
-
-	s.BeginCapture(driver.StreamCaptureModeGlobal)
-	// ... enqueue kernels, copies ...
-	graph, _ := s.EndCapture()
-	exec, _ := graph.Instantiate(0)
-	// exec.Launch(stream) each iteration
-
-## Building an inference or training engine
-
-The raw bindings closely follow the C APIs. Callers manage device memory
-explicitly; sized-output helpers return allocated Go slices.
-Engine-level ergonomics — typed device slices,
-context plumbing, kernel caching, graph fusion, test/bench integration —
-are the charter of the `x/` packages; see the
-[generated package inventory](x/README.md).
-
-## Platform notes
-
-  - Linux and Windows are the primary targets; darwin loads nothing (no
-    current NVIDIA driver) but everything compiles, so cross-platform
-    builds and tests stay green.
-  - cufile is Linux-only at the package level: its files carry a linux
-    build constraint and the package disappears from other platforms.
-  - nvptxcompiler (static PTX compiler library) does not fit the dynamic
-    loading model and is planned as a separate cgo-opt-in package.
-
-## Examples
-
-Each package has a runnable example in its `example_test.go` showing the
-primary workflow behind a load-check guard. Larger programs live in the
-repository's `examples/` directory.
+Use `-allow-api-removal` only for an intended, reviewed removal. An unexpected
+removal can indicate a wrong header pin or generator command.

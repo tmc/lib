@@ -17,5 +17,6 @@
 //	eg.Union(mul, shift)
 //	eg.Rebuild()
 //
-// Package egraph contains zero external dependencies and standard library idioms.
+// Graph construction and rewriting run in Go. GPU candidate benchmarking
+// additionally uses the CUDA driver and runtime compiler through the CUDA wrappers.
 package egraph

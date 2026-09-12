@@ -2,6 +2,7 @@ package driver_test
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -9,8 +10,12 @@ import (
 
 // Example initializes the driver, takes a context on the first device, and
 // round-trips a slice through device memory. It returns early when no CUDA
-// driver is installed, which is every machine without an NVIDIA GPU.
+// driver is unavailable. Successful execution also requires a CUDA device.
 func Example() {
+	// A CUDA context is current on an OS thread, not on a goroutine.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	if err := driver.Init(0); err != nil {
 		fmt.Println("CUDA driver unavailable:", err)
 		return

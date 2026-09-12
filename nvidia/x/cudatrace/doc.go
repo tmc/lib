@@ -11,6 +11,7 @@
 //
 // # Go runtime/trace Integration
 //
-// Alongside GPU tracks, cudatrace links with Go's standard runtime/trace regions and tasks
-// allowing seamless navigation between CPU goroutines, memory copies, and GPU execution.
+// [Tracer.Span] creates a runtime/trace region around the supplied host function.
+// Runtime trace regions and Perfetto GPU spans are separate outputs; this
+// package does not create runtime/trace tasks or automatically align device clocks.
 package cudatrace

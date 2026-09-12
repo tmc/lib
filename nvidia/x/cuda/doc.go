@@ -13,7 +13,7 @@
 //
 // Package cuda avoids context-drift by managing device primary contexts and providing
 // explicit, stream-ordered operations. When thread-local context manipulation is necessary,
-// use [LockContext] or [Device.WithContext] which pin the calling goroutine to its OS thread
+// use [Device.WithContext], which pins the calling goroutine to its OS thread
 // via [runtime.LockOSThread] for the duration of the closure.
 //
 // # Streams
@@ -28,6 +28,7 @@
 //
 // [Stream.Synchronize] accepts a [context.Context]. If the context is cancelled or expires
 // before the stream completes all enqueued operations, [Stream.Synchronize] unblocks
-// immediately and returns [context.Canceled] or [context.DeadlineExceeded]. Note that hardware
+// while polling and returns [context.Canceled] or [context.DeadlineExceeded]. Native
+// calls and lock acquisition are not interrupted by cancellation. Hardware
 // execution on the physical GPU Streaming Multiprocessors continues until the kernel finishes.
 package cuda
