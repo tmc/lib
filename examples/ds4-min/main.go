@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"github.com/tmc/lib/gguf"
 )
 
-const usage = `usage: ds4-min -model file [-backend auto|metal|cuda|cpu] [-prompt text | -prompt-file file] [-tokens n] [-ctx n]
+const usage = `usage: ds4-min -model file [-backend auto|metal|cuda|cpu] [-prompt text | -prompt-file file | -prompt-tokens file] [-tokens n] [-ctx n]
 
 Load one DeepSeek-V4-Flash Q2 model and generate a non-thinking response.
 
@@ -22,9 +23,11 @@ Load one DeepSeek-V4-Flash Q2 model and generate a non-thinking response.
   -model string
         path to the pinned GGUF model (required)
   -prompt string
-        user prompt; conflicts with -prompt-file
+        user prompt; conflicts with -prompt-file and -prompt-tokens
   -prompt-file string
-        read the user prompt from file; conflicts with -prompt
+        read the user prompt from file; conflicts with -prompt and -prompt-tokens
+  -prompt-tokens string
+        read a JSON token-id array verbatim; conflicts with prose prompts
   -tokens int
         maximum generated tokens (default 16)
 
@@ -54,12 +57,13 @@ near 40,000 spans in practice, which one 2048-token prefill exceeds at
 `
 
 type config struct {
-	model   string
-	backend string
-	prompt  []byte
-	context int
-	tokens  int
-	log     io.Writer
+	model        string
+	backend      string
+	prompt       []byte
+	promptTokens []int
+	context      int
+	tokens       int
+	log          io.Writer
 
 	cpuProfile   string
 	memProfile   string
@@ -105,9 +109,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	if err != nil {
 		return err
 	}
-	prompt, err := tok.RenderNonThinking("You are a helpful assistant", string(cfg.prompt))
-	if err != nil {
-		return fmt.Errorf("render prompt: %w", err)
+	prompt := cfg.promptTokens
+	if prompt == nil {
+		prompt, err = tok.RenderNonThinking("You are a helpful assistant", string(cfg.prompt))
+		if err != nil {
+			return fmt.Errorf("render prompt: %w", err)
+		}
 	}
 	b, closer, err := openSessionBackend(cfg)
 	if err != nil {
@@ -202,7 +209,7 @@ func greedyToken(logits []float32) int {
 
 func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, error) {
 	var cfg config
-	var prompt, promptFile string
+	var prompt, promptFile, promptTokens string
 	fs := flag.NewFlagSet("ds4-min", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() { fmt.Fprint(stderr, usage) }
@@ -211,6 +218,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&cfg.model, "model", "", "path to model")
 	fs.StringVar(&prompt, "prompt", "", "user prompt")
 	fs.StringVar(&promptFile, "prompt-file", "", "read user prompt from file")
+	fs.StringVar(&promptTokens, "prompt-tokens", "", "read JSON token IDs from file")
 	fs.IntVar(&cfg.tokens, "tokens", 16, "maximum generated tokens")
 	fs.StringVar(&cfg.cpuProfile, "cpuprofile", "", "write a Go CPU profile")
 	fs.StringVar(&cfg.memProfile, "memprofile", "", "write a Go heap profile")
@@ -234,6 +242,11 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	if cfg.tokens <= 0 {
 		return config{}, errors.New("tokens must be positive")
 	}
+	set := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if set["prompt-tokens"] && (set["prompt"] || set["prompt-file"]) {
+		return config{}, errors.New("prompt-tokens conflicts with prompt and prompt-file")
+	}
 	if prompt != "" && promptFile != "" {
 		return config{}, errors.New("prompt and prompt-file conflict")
 	}
@@ -248,6 +261,18 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	}
 	cfg.backend = backend
 	switch {
+	case set["prompt-tokens"]:
+		data, readErr := os.ReadFile(promptTokens)
+		if readErr != nil {
+			return config{}, fmt.Errorf("read prompt tokens: %w", readErr)
+		}
+		cfg.promptTokens, err = parsePromptTokens(data)
+		if err != nil {
+			return config{}, err
+		}
+		if len(cfg.promptTokens) > cfg.context {
+			return config{}, errors.New("prompt tokens exceed context")
+		}
 	case promptFile != "":
 		cfg.prompt, err = os.ReadFile(promptFile)
 		if err != nil {
@@ -295,4 +320,23 @@ func writeSpans(cfg config, log io.Writer) error {
 		fmt.Fprintf(log, "ds4-min: recorded %d spans, dropped %d at the record limit; use a shallower -span-level\n", r.Len(), dropped)
 	}
 	return errors.Join(errs...)
+}
+
+// parsePromptTokens reads IDs without adding a chat template or special tokens.
+func parsePromptTokens(data []byte) ([]int, error) {
+	var values []*int
+	if err := json.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("prompt tokens: %w", err)
+	}
+	if len(values) == 0 {
+		return nil, errors.New("prompt tokens: empty array")
+	}
+	tokens := make([]int, len(values))
+	for i, value := range values {
+		if value == nil || *value < 0 || *value >= 129280 {
+			return nil, fmt.Errorf("prompt token %d: expected an integer in 0..129279", i)
+		}
+		tokens[i] = *value
+	}
+	return tokens, nil
 }
