@@ -104,6 +104,54 @@ func indexerScores(rows, q, weights []float32, nComp int) []float32 {
 	return scores
 }
 
+// IndexerScores runs indexerScores on the GPU, one thread per compressed row.
+//
+// It is a bit-identical replacement for the CPU loop, not an approximation:
+// the kernel keeps the h and i accumulations serial and in order inside each
+// thread, so the only thing that moves is which processor runs a row. See
+// indexer_scores in metalPinnedMSL for why both multiply-accumulates are fma.
+//
+// The rows stay where they already are -- state.indexer.cache is a GPU slice --
+// so only q (8192 floats) and weights (64) are uploaded, and only nComp floats
+// come back.
+func (o *metalPinnedOps) IndexerScores(cache metalmem.Slice[float32], q, weights []float32, nComp int) ([]float32, error) {
+	if len(q) != 64*128 || len(weights) != 64 || nComp < 0 || nComp > cache.Len()/128 {
+		return nil, fmt.Errorf("indexer scores: invalid shape")
+	}
+	if nComp == 0 {
+		return []float32{}, nil
+	}
+	qbuf, err := metalmem.AllocFromSlice(o.dev, q)
+	if err != nil {
+		return nil, err
+	}
+	defer qbuf.Free()
+	wbuf, err := metalmem.AllocFromSlice(o.dev, weights)
+	if err != nil {
+		return nil, err
+	}
+	defer wbuf.Free()
+	out, err := metalmem.Alloc[float32](o.dev, nComp)
+	if err != nil {
+		return nil, err
+	}
+	defer out.Free()
+	cb := o.commandBuffer()
+	enc := cb.ComputeCommandEncoder()
+	enc.SetComputePipelineState(o.kernels.IndexerScores)
+	enc.SetBufferWithOffsetAtIndex(cache.Buffer(), cache.Offset(), 0)
+	enc.SetBufferWithOffsetAtIndex(qbuf.Buffer(), qbuf.Offset(), 1)
+	enc.SetBufferWithOffsetAtIndex(wbuf.Buffer(), wbuf.Offset(), 2)
+	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
+	libmetal.SetScalar(enc, uint32(nComp), 4)
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(nComp), libmetal.Threads(min(nComp, 256)))
+	enc.EndEncoding()
+	if err := o.submitAndWait("indexer-scores", cb); err != nil {
+		return nil, fmt.Errorf("indexer scores: %w", err)
+	}
+	return append([]float32(nil), out.HostSlice()...), nil
+}
+
 // selectIndexerRows admits the k highest-scoring rows, ties going to the lowest
 // index. It replaces a k-pass scan whose cost was 512*nComp comparisons per
 // indexer layer -- 8.4M at a full context, 318 ms/token across the 21 indexer
@@ -254,6 +302,7 @@ type metalPinnedKernels struct {
 	CompressorPool     apple.MTLComputePipelineState `metal:"compressor_pool"`
 	CompressorFinish   apple.MTLComputePipelineState `metal:"compressor_finish_attention"`
 	IndexerFinish      apple.MTLComputePipelineState `metal:"compressor_finish_indexer"`
+	IndexerScores      apple.MTLComputePipelineState `metal:"indexer_scores"`
 }
 
 // mixedWideThreads is the threadgroup width of rope_attention_mixed_wide. It
@@ -1253,7 +1302,7 @@ func (o *metalPinnedOps) Close() {
 		o.matmulExpert.Close()
 		o.matmulExpert = nil
 	}
-	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecQ80BlockDiag, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate} {
+	for _, pipeline := range []apple.MTLComputePipelineState{o.kernels.GetRowF16, o.kernels.MatvecF16, o.kernels.MatvecQ80, o.kernels.MatvecQ80BlockDiag, o.kernels.MatvecIQ2Pair, o.kernels.MatvecIQ2PairF32, o.kernels.MatvecIQ2Selected, o.kernels.QuantQ8K, o.kernels.MatvecQ2K, o.kernels.MatvecQ2KF32, o.kernels.MatvecQ2KSelected, o.kernels.Clamp10, o.kernels.SumVectors, o.kernels.Layer0Attention, o.kernels.Layer0Post, o.kernels.RouterHash, o.kernels.RouterBiased, o.kernels.SwiGLU, o.kernels.SwiGLUWeights, o.kernels.RMS, o.kernels.RopeAttention, o.kernels.RopeAttentionMix, o.kernels.RopeKVCommit, o.kernels.RopeAttentionWide, o.kernels.RopeQPrepare, o.kernels.RopeOutUnrotate, o.kernels.IndexerScores} {
 		if pipeline != nil && pipeline.GetID() != 0 {
 			objectivec.ObjectFromID(pipeline.GetID()).Release()
 		}
@@ -2225,6 +2274,44 @@ kernel void rope_attention_one(
   const float mx=max(score,sinks[head]);
   const float weight=exp(score-mx)/(exp(score-mx)+exp(sinks[head]-mx));
   for(uint i=0;i<512;i++)out[32768+512+qoff+i]=weight*float(half(out[32768+i]));
+}
+
+// indexer_scores is the GPU form of indexerScores (metal_ops_darwin.go:75). It
+// is bit-identical to that loop rather than close to it, because the scores
+// decide which rows selectIndexerRows admits and a moved bit can move the
+// selection.
+//
+// One thread per row c. The h and i loops stay serial inside the thread, in
+// ascending order, exactly as the Go loop runs them: splitting either one
+// across threads would reassociate a float32 accumulation. That is the same
+// split the goroutine version already uses, and it needs no tolerance for the
+// same reason.
+//
+// Both accumulations are fma because Go's arm64 backend fuses both. The
+// compiler emits FMADDS for dot += value * q[h*128+i] (line 93) and again for
+// score += dot * weights[h] (line 96), so each is one rounding, not two, and
+// a plain a*b+c here would round twice and diverge.
+//
+// The guard is dot > 0.0f, strictly, matching Go's if dot > 0: -0.0 and NaN
+// contribute nothing. This is not the CUDA kernel's fmaxf(0, dot), and it does
+// not fold the 1/sqrt(64*128) scale in per head -- the caller already scaled
+// weights.
+kernel void indexer_scores(
+    device const float *rows [[buffer(0)]],
+    device const float *q [[buffer(1)]],
+    device const float *weights [[buffer(2)]],
+    device float *scores [[buffer(3)]],
+    constant uint &n_comp [[buffer(4)]],
+    uint c [[thread_position_in_grid]]) {
+  if(c>=n_comp)return;
+  device const float *row=rows+uint64_t(c)*128;
+  float score=0.0f;
+  for(uint h=0;h<64;h++){
+    float dot=0.0f;
+    for(uint i=0;i<128;i++)dot=fma(row[i],q[h*128+i],dot);
+    if(dot>0.0f)score=fma(dot,weights[h],score);
+  }
+  scores[c]=score;
 }
 `
 
