@@ -108,6 +108,24 @@ func TestRoundTripDirectory(t *testing.T) {
 	}
 }
 
+func TestWriteDirDoesNotReplaceExistingOutput(t *testing.T) {
+	dir := t.TempDir()
+	marker := []byte("keep this file")
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), marker, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := cudacapture.WriteDir(dir, validFixture()); err == nil || !strings.Contains(err.Error(), "output file already exists") {
+		t.Fatalf("WriteDir error = %v, want collision", err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, marker) {
+		t.Fatal("existing manifest was replaced")
+	}
+}
+
 func TestValidationErrors(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
@@ -169,6 +187,13 @@ func TestValidationErrors(t *testing.T) {
 				c.Metadata = json.RawMessage(`{not json}`)
 			},
 			wantErr: "invalid metadata JSON",
+		},
+		{
+			name: "file size limit",
+			mutate: func(c *cudacapture.Capture) {
+				c.Files["extra.go"] = bytes.Repeat([]byte{'x'}, cudacapture.MaxCaptureFileBytes+1)
+			},
+			wantErr: "exceeds size limit",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -270,5 +295,113 @@ func TestLegacyV1ReadEmbedded(t *testing.T) {
 	}
 	if string(c.Files["kernels.cu"]) != "foo" {
 		t.Errorf("expected kernels.cu to be 'foo', got %q", string(c.Files["kernels.cu"]))
+	}
+}
+
+func TestVersion3OptionalArtifactsAndModules(t *testing.T) {
+	c := validFixture()
+	delete(c.Files, c.Code.Source)
+	delete(c.Files, c.Code.PTX)
+	c.Code.Source = ""
+	c.Code.PTX = ""
+	c.CodeUnavailable = map[string]string{
+		"source": "third-party source was not present",
+		"ptx":    "module was loaded from cubin only",
+	}
+	c.Modules = []cudacapture.Module{{
+		ID: "module-7", Generation: 2, Name: "library-kernel",
+		Code: cudacapture.CodeFiles{CUBIN: "kernels.cubin", SASS: "kernels.sass"},
+	}}
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cudacapture.Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Modules) != 1 || got.Modules[0].ID != "module-7" {
+		t.Fatalf("modules = %+v", got.Modules)
+	}
+	if got.CodeUnavailable["source"] == "" || got.Code.Source != "" {
+		t.Fatalf("unavailable code = %+v code=%+v", got.CodeUnavailable, got.Code)
+	}
+	if _, err := cudacapture.LoadCode(got); err == nil || !strings.Contains(err.Error(), "ptx unavailable") {
+		t.Fatalf("LoadCode error = %v", err)
+	}
+	dir := t.TempDir()
+	if err := cudacapture.WriteDir(dir, c); err != nil {
+		t.Fatal(err)
+	}
+	fromDir, err := cudacapture.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fromDir.Modules) != 1 || fromDir.CodeUnavailable["source"] == "" {
+		t.Fatalf("directory extension = %+v", fromDir)
+	}
+}
+
+func TestVersion3TypedObservationsAndHonestBanner(t *testing.T) {
+	c := validFixture()
+	delete(c.Files, c.Code.Source)
+	delete(c.Files, c.Code.PTX)
+	c.Code.Source, c.Code.PTX = "", ""
+	c.CodeUnavailable = map[string]string{"source": "not retained", "ptx": "not retained"}
+	c.Descriptors = []cudacapture.MetricDescriptor{{ID: "gpu.kernel_time", Namespace: "cupti", Name: "kernel time", Unit: "nanoseconds", NumericType: "uint64", Aggregation: "sum", Scope: "kernel", Collector: "native-cupti", Support: "cuda13"}}
+	c.Observations = []cudacapture.Observation{{DescriptorID: "gpu.kernel_time", EntityID: "kernel:1", Start: 10, End: 20, Value: json.RawMessage(`10`), Availability: "collected"}}
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cudacapture.Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Descriptors) != 1 || len(got.Observations) != 1 {
+		t.Fatalf("typed data = %+v %+v", got.Descriptors, got.Observations)
+	}
+	joined := strings.Join(got.Profile.Comments, "\n")
+	if !strings.Contains(joined, "#cudaprof:capture:v3\n") || strings.Contains(joined, "Source, PTX, SASS, CUBIN, and artifacts are embedded") || !strings.Contains(joined, "Embedded code artifacts: cubin, sass") || strings.Contains(joined, "No source, PTX, CUBIN, or SASS code artifacts were captured") {
+		t.Fatalf("banner = %q", joined)
+	}
+}
+
+func TestReadDirRejectsSymlinkedAttachment(t *testing.T) {
+	c := validFixture()
+	dir := t.TempDir()
+	if err := cudacapture.WriteDir(dir, c); err != nil {
+		t.Fatal(err)
+	}
+	attachment := filepath.Join(dir, "extra.go")
+	if err := os.Remove(attachment); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/etc/hosts", attachment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cudacapture.ReadDir(dir); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("ReadDir error = %v, want symlink rejection", err)
+	}
+}
+
+func TestReadDirRejectsSymlinkedControlFiles(t *testing.T) {
+	for _, name := range []string{"manifest.json", "gpu.pprof"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := cudacapture.WriteDir(dir, validFixture()); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, name)
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(path+".target", path); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := cudacapture.ReadDir(dir); err == nil || !strings.Contains(err.Error(), "regular file") {
+				t.Fatalf("ReadDir error = %v, want symlink rejection", err)
+			}
+		})
 	}
 }

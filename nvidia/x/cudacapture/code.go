@@ -49,18 +49,30 @@ func LoadCode(c *Capture) (*Code, error) {
 	}
 	cubinBytes, ok := c.Files[c.Code.CUBIN]
 	if !ok {
+		if reason := c.CodeUnavailable["cubin"]; reason != "" {
+			return nil, fmt.Errorf("cudacapture: cubin unavailable: %s", reason)
+		}
 		return nil, fmt.Errorf("cudacapture: missing CUBIN file %q", c.Code.CUBIN)
 	}
 	ptxBytes, ok := c.Files[c.Code.PTX]
 	if !ok {
+		if reason := c.CodeUnavailable["ptx"]; reason != "" {
+			return nil, fmt.Errorf("cudacapture: ptx unavailable: %s", reason)
+		}
 		return nil, fmt.Errorf("cudacapture: missing PTX file %q", c.Code.PTX)
 	}
 	sassBytes, ok := c.Files[c.Code.SASS]
 	if !ok {
+		if reason := c.CodeUnavailable["sass"]; reason != "" {
+			return nil, fmt.Errorf("cudacapture: sass unavailable: %s", reason)
+		}
 		return nil, fmt.Errorf("cudacapture: missing SASS file %q", c.Code.SASS)
 	}
 	sourceBytes, ok := c.Files[c.Code.Source]
 	if !ok {
+		if reason := c.CodeUnavailable["source"]; reason != "" {
+			return nil, fmt.Errorf("cudacapture: source unavailable: %s", reason)
+		}
 		return nil, fmt.Errorf("cudacapture: missing source file %q", c.Code.Source)
 	}
 
