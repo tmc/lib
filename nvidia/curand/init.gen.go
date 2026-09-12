@@ -203,7 +203,16 @@ type VersionMismatchError struct {
 }
 
 // Error reports which library was opened and the two majors that disagree.
+//
+// A decoder is only a decoder for the version schemes it was measured
+// against, and a library from a train that predates the scheme can report
+// a value it does not decode. Naming a major of 0 in that case would
+// attribute to the library a claim it never made, so the raw value is
+// reported instead.
 func (e *VersionMismatchError) Error() string {
+	if e.Got == 0 {
+		return fmt.Sprintf("curand: %s reported version %d, which does not decode as a version these bindings recognise; they require major %d", e.Path, e.Raw, e.Want)
+	}
 	return fmt.Sprintf("curand: %s reports version major %d, these bindings require %d", e.Path, e.Got, e.Want)
 }
 

@@ -9,6 +9,19 @@ import (
 	"testing"
 )
 
+// firstLibraryName returns the candidate the toolkit search tries first, and
+// skips the test where there is none. toolkitLibraryPaths only ever tries the
+// names libraryNames returns, so a test that stubs a fixed soname stops
+// exercising the search the moment the candidate list changes.
+func firstLibraryName(t *testing.T) string {
+	t.Helper()
+	names := libraryNames()
+	if len(names) == 0 {
+		t.Skipf("libraryNames has no entry for %s", runtime.GOOS)
+	}
+	return names[0]
+}
+
 // stubLibrary compiles a shared library into dir and returns its path. The
 // directory is a fresh temporary one, so it is not on the dynamic linker's
 // search path and can only be found by full path.
@@ -48,7 +61,7 @@ func stubLibrary(t *testing.T, dir, name string) string {
 func TestToolkitLibraryPathsFindsLibraryOffTheLinkerPath(t *testing.T) {
 	root := t.TempDir()
 	libDir := filepath.Join(root, "extras", "CUPTI", "lib64")
-	stub := stubLibrary(t, libDir, "libcupti.so")
+	stub := stubLibrary(t, libDir, firstLibraryName(t))
 
 	t.Setenv("CUDA_HOME", root)
 	t.Setenv("CUDA_PATH", "")
@@ -116,7 +129,7 @@ func TestToolkitSearchDoesNotPreemptTheLinker(t *testing.T) {
 
 	// Point the toolkit search at a directory holding a different library.
 	root := t.TempDir()
-	stubLibrary(t, filepath.Join(root, "extras", "CUPTI", "lib64"), "libcupti.so")
+	stubLibrary(t, filepath.Join(root, "extras", "CUPTI", "lib64"), firstLibraryName(t))
 	t.Setenv("CUDA_HOME", root)
 	t.Setenv("CUDA_PATH", "")
 
