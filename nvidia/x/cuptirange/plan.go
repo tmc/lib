@@ -24,6 +24,7 @@ type Plan struct {
 }
 
 type hostAPI struct {
+	version      func() (uint32, error)
 	evaluate     func(*cupti.ProfilerHostEvaluateToGpuValuesParams) error
 	initialize   func(*cupti.ProfilerHostInitializeParams) error
 	deinitialize func(*cupti.ProfilerHostDeinitializeParams) error
@@ -37,12 +38,15 @@ type hostAPI struct {
 // counter availability image. maxConfigBytes bounds native-requested storage.
 // It does not collect counters or replay application work. A nonnil Plan
 // accompanying an error must be closed to retry failed native cleanup.
+// Host initialization admits the 64-bit layouts for CUPTI 27, 130001 and
+// 130200. Other versions fail before creating a host object.
 func NewPlan(chip string, availability []byte, metrics []string, maxConfigBytes int) (plan *Plan, err error) {
 	return newPlan(chip, availability, metrics, maxConfigBytes, hostAPI{
-		cupti.ProfilerHostEvaluateToGpuValues,
-		cupti.ProfilerHostInitialize, cupti.ProfilerHostDeinitialize,
-		cupti.ProfilerHostConfigAddMetrics, cupti.ProfilerHostGetConfigImageSize,
-		cupti.ProfilerHostGetConfigImage, cupti.ProfilerHostGetNumOfPasses,
+		version:    cupti.GetVersion,
+		evaluate:   cupti.ProfilerHostEvaluateToGpuValues,
+		initialize: cupti.ProfilerHostInitialize, deinitialize: cupti.ProfilerHostDeinitialize,
+		add: cupti.ProfilerHostConfigAddMetrics, size: cupti.ProfilerHostGetConfigImageSize,
+		config: cupti.ProfilerHostGetConfigImage, passes: cupti.ProfilerHostGetNumOfPasses,
 	})
 }
 
@@ -55,19 +59,6 @@ func newPlan(chip string, availability []byte, metrics []string, maxConfigBytes 
 		return nil, err
 	}
 	p := &Plan{api: api, names: names, chip: append([]byte(chip), 0), availability: append([]byte(nil), availability...)}
-	p.pin.Pin(&p.chip[0])
-	init := cupti.ProfilerHostInitializeParams{ProfilerType: cupti.ProfilerTypeRangeProfiler, PChipName: uintptr(unsafe.Pointer(&p.chip[0]))}
-	init.StructSize = uint(unsafe.Offsetof(init.PSinglePassMetricSetName) + unsafe.Sizeof(init.PSinglePassMetricSetName))
-	if len(p.availability) != 0 {
-		p.pin.Pin(&p.availability[0])
-		init.PCounterAvailabilityImage = uintptr(unsafe.Pointer(&p.availability[0]))
-	}
-	if err := api.initialize(&init); err != nil {
-		p.pin.Unpin()
-		names.close()
-		return nil, fmt.Errorf("cuptirange: initialize host: %w", err)
-	}
-	p.host = init.PHostObject
 	defer func() {
 		if err != nil {
 			if cleanup := p.Close(); cleanup != nil {
@@ -75,8 +66,12 @@ func newPlan(chip string, availability []byte, metrics []string, maxConfigBytes 
 			}
 		}
 	}()
-	if p.host == 0 {
-		return nil, errors.New("cuptirange: empty host object")
+	version, err := api.version()
+	if err != nil {
+		return nil, fmt.Errorf("cuptirange: query CUPTI version: %w", err)
+	}
+	if err := p.initializeHost(version); err != nil {
+		return nil, err
 	}
 	add := cupti.ProfilerHostConfigAddMetricsParams{PHostObject: p.host, PpMetricNames: uintptr(unsafe.Pointer(&names.pointers[0])), NumMetrics: uint(len(names.pointers))}
 	add.StructSize = uint(unsafe.Offsetof(add.NumMetrics) + unsafe.Sizeof(add.NumMetrics))

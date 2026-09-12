@@ -20,13 +20,14 @@ type counterAPI struct {
 // counterStore owns the target object and all memory it can reference. Methods
 // must execute with the owning CUDA context current. Failed disable retains pins.
 type counterStore struct {
-	mu     sync.Mutex
-	api    counterAPI
-	host   uintptr
-	names  *metricNames
-	image  []byte
-	config []byte
-	pin    runtime.Pinner
+	mu      sync.Mutex
+	api     counterAPI
+	host    uintptr
+	names   *metricNames
+	image   []byte
+	config  []byte
+	quality CollectionQuality
+	pin     runtime.Pinner
 }
 
 func newCounterStore(context cupti.Context, metrics []string, maxRanges uint, maxNodes uint32, maxBytes int, api counterAPI) (store *counterStore, err error) {
@@ -40,10 +41,7 @@ func newCounterStore(context cupti.Context, metrics []string, maxRanges uint, ma
 	c := &counterStore{api: api, names: names}
 	enable := cupti.RangeProfilerEnableParams{Ctx: context}
 	enable.StructSize = uint(unsafe.Offsetof(enable.PRangeProfilerObject) + unsafe.Sizeof(enable.PRangeProfilerObject))
-	if err := api.enable(&enable); err != nil {
-		names.close()
-		return nil, fmt.Errorf("cuptirange: enable: %w", err)
-	}
+	enableErr := api.enable(&enable)
 	c.host = enable.PRangeProfilerObject
 	defer func() {
 		if err != nil {
@@ -52,6 +50,9 @@ func newCounterStore(context cupti.Context, metrics []string, maxRanges uint, ma
 			}
 		}
 	}()
+	if enableErr != nil {
+		return nil, fmt.Errorf("cuptirange: enable: %w", enableErr)
+	}
 	if c.host == 0 {
 		return nil, errors.New("cuptirange: empty range profiler object")
 	}

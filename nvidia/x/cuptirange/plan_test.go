@@ -14,6 +14,7 @@ func TestPlanFailures(t *testing.T) {
 			failure := errors.New("native failure")
 			closed := 0
 			api := hostAPI{
+				version: func() (uint32, error) { return 130200, nil },
 				initialize: func(p *cupti.ProfilerHostInitializeParams) error {
 					if stage == "initialize" {
 						return failure
@@ -105,6 +106,7 @@ func TestPlanCleanupRetry(t *testing.T) {
 	failure := errors.New("native failure")
 	closes := 0
 	api := hostAPI{
+		version:    func() (uint32, error) { return 130200, nil },
 		initialize: func(p *cupti.ProfilerHostInitializeParams) error { p.PHostObject = 9; return nil },
 		add:        func(*cupti.ProfilerHostConfigAddMetricsParams) error { return failure },
 		deinitialize: func(p *cupti.ProfilerHostDeinitializeParams) error {
@@ -144,5 +146,44 @@ func TestPlanCleanupRetry(t *testing.T) {
 	wg.Wait()
 	if closes != 3 || p.names != nil || p.host != 0 {
 		t.Fatalf("closes=%d host=%d names retained=%v", closes, p.host, p.names != nil)
+	}
+}
+
+func TestPlanRuntimeHostLayout(t *testing.T) {
+	stop := errors.New("stop after host layout check")
+	for _, tt := range []struct {
+		name     string
+		version  uint32
+		queryErr error
+		wantSize uint
+	}{
+		{"CUDA 12.9", 27, nil, 48},
+		{"CUDA 13.0", 130001, nil, 48},
+		{"CUDA 13.2", 130200, nil, 56},
+		{"unknown version", 28, nil, 0},
+		{"version failure", 0, stop, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			p, err := newPlan("chip", nil, []string{"metric"}, 64, hostAPI{
+				version: func() (uint32, error) { return tt.version, tt.queryErr },
+				initialize: func(p *cupti.ProfilerHostInitializeParams) error {
+					calls++
+					if tt.wantSize == 0 || p.StructSize != tt.wantSize {
+						t.Fatalf("native initialization size %d, want %d", p.StructSize, tt.wantSize)
+					}
+					return stop
+				},
+			})
+			if p != nil || err == nil {
+				t.Fatalf("plan=%v err=%v", p, err)
+			}
+			if tt.wantSize == 0 && calls != 0 || tt.wantSize != 0 && calls != 1 {
+				t.Fatalf("native calls=%d", calls)
+			}
+			if tt.queryErr != nil && !errors.Is(err, stop) {
+				t.Fatal("lost version error")
+			}
+		})
 	}
 }

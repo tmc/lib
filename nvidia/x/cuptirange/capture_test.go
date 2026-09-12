@@ -2,10 +2,12 @@ package cuptirange
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 type testCaptureContext struct {
@@ -71,5 +73,50 @@ func TestCaptureInvalid(t *testing.T) {
 	var c *Capture
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCaptureRejectsKnownInsufficientPassBudget(t *testing.T) {
+	names, err := newMetricNames([]string{"metric"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer names.close()
+	p := &Plan{host: 1, names: names, passes: 3}
+	// An uninitialized device ensures preflight does not need a native context.
+	dev := new(cuda.Device)
+	result, err := p.Capture(dev, Limits{MaxPasses: 2, MaxRanges: 1, MaxRangeTreeNodes: 1, MaxCounterBytes: 1024}, func(uint) error {
+		t.Fatal("workload executed despite known insufficient budget")
+		return nil
+	})
+	if result != nil || err == nil || !strings.Contains(err.Error(), "requires 3 passes, limit is 2") {
+		t.Fatalf("capture=%v error=%v", result, err)
+	}
+}
+
+func TestCaptureRetainsCollectionEvidence(t *testing.T) {
+	for _, failed := range []bool{false, true} {
+		store := &counterStore{image: []byte{1, 2, 3}, quality: CollectionQuality{Decoded: true}}
+		var err error
+		if failed {
+			err = errors.New("collection incomplete")
+			store.quality.DroppedRanges = 1<<63 + 7
+		}
+		var c Capture
+		c.retainCollection(store, 3, err)
+		if c.Quality != store.quality {
+			t.Fatal("lost quality evidence")
+		}
+		if failed {
+			if c.Image != nil || c.Ranges != 0 || len(c.DiagnosticImage) != 3 {
+				t.Fatalf("failed capture=%+v", &c)
+			}
+		} else if c.DiagnosticImage != nil || c.Ranges != 3 || len(c.Image) != 3 {
+			t.Fatalf("successful capture=%+v", &c)
+		}
+		store.image[0] = 99
+		if failed && c.DiagnosticImage[0] != 1 || !failed && c.Image[0] != 1 {
+			t.Fatal("capture borrows counter buffer")
+		}
 	}
 }
