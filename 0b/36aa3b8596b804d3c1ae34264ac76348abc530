@@ -1,0 +1,11 @@
+commit: 0b36aa3b8596b804d3c1ae34264ac76348abc530
+commit_date: 2026-09-12T15:32:01-07:00
+agent: Codex
+model: GPT-6 (runtime family; exact variant not exposed)
+claude-code_version: not applicable (Codex session)
+codex_version: codex-cli 0.154.0
+tty: not a tty
+note_writer_pid: 34963
+ITERM_SESSION_ID: w14t0p16:6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+session: 6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+validation: TestNSYS passed with GOWORK=off; final executable/version correction from 20260912-DF6906F6-dgx-device-findings.md; no DGX action by this session
