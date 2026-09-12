@@ -40,11 +40,22 @@ func (c *counterStore) collect(config []byte, maxRanges, maxPasses uint, run fun
 	err := replayRuns(maxPasses, func() error {
 		p := cupti.RangeProfilerStartParams{PRangeProfilerObject: c.host}
 		p.StructSize = uint(unsafe.Offsetof(p.PRangeProfilerObject) + unsafe.Sizeof(p.PRangeProfilerObject))
-		return api.start(&p)
+		err := api.start(&p)
+		if err == nil {
+			c.quality.PassesStarted++
+		}
+		return err
 	}, run, func() (cupti.RangeProfilerStopParams, error) {
-		p := cupti.RangeProfilerStopParams{PRangeProfilerObject: c.host}
+		// An unwritten output is neither completion nor permission to replay.
+		p := cupti.RangeProfilerStopParams{PRangeProfilerObject: c.host, IsAllPassSubmitted: 255}
 		p.StructSize = uint(unsafe.Offsetof(p.IsAllPassSubmitted) + unsafe.Sizeof(p.IsAllPassSubmitted))
 		err := api.stop(&p)
+		if err == nil {
+			c.quality.PassesStopped++
+			if p.IsAllPassSubmitted == 1 {
+				c.quality.AllPassesSubmitted = true
+			}
+		}
 		return p, err
 	})
 	if err != nil {
@@ -55,6 +66,8 @@ func (c *counterStore) collect(config []byte, maxRanges, maxPasses uint, run fun
 	if err := api.decode(&decode); err != nil {
 		return 0, fmt.Errorf("cuptirange: decode counters: %w", err)
 	}
+	c.quality.Decoded = true
+	c.quality.DroppedRanges = uint64(decode.NumOfRangeDropped)
 	if decode.NumOfRangeDropped != 0 {
 		return 0, fmt.Errorf("cuptirange: dropped %d ranges", decode.NumOfRangeDropped)
 	}

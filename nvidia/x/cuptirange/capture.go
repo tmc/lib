@@ -2,6 +2,7 @@ package cuptirange
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
@@ -17,14 +18,31 @@ type Limits struct {
 	MaxPasses         uint
 }
 
-// Capture contains a completed counter image and owns any pending cleanup.
+// CollectionQuality retains native collection progress independently of capture
+// success. Pass counts count successful native Start/Stop calls, not verified
+// workload outputs. AllPassesSubmitted means a successful Stop reported 1.
+// DroppedRanges is meaningful only when Decoded is true; an unattempted or failed
+// decode must not be reported as zero loss. Cleanup failures remain separate.
+type CollectionQuality struct {
+	PassesStarted, PassesStopped uint
+	AllPassesSubmitted           bool
+	Decoded                      bool
+	DroppedRanges                uint64
+}
+
+// Capture retains counter data, collection quality and any pending cleanup.
 // Image and Ranges must not be used if Capture returned an error.
 type Capture struct {
 	Image   []byte
 	Ranges  uint
-	mu      sync.Mutex
-	context captureContext
-	store   *counterStore
+	Quality CollectionQuality
+	// DiagnosticImage is a copy of the counter buffer after a failed collection.
+	// It may contain only initialization or partial data. Retain it for diagnostics,
+	// never evaluate it as a completed image. Its size is bounded by MaxCounterBytes.
+	DiagnosticImage []byte
+	mu              sync.Mutex
+	context         captureContext
+	store           *counterStore
 }
 
 type captureContext interface {
@@ -62,6 +80,9 @@ func (c *Capture) Close() error {
 // The caller must exclusively own profiling on this context and arrange device
 // isolation externally. Profiling changes execution and is not a timing baseline.
 // Any nonnil result accompanying an error must be closed to retry cleanup.
+// If the configuration's required pass count exceeds MaxPasses, Capture fails
+// before acquiring a CUDA context or invoking run. The count is a planning
+// bound, not proof of completion: native completion is still checked after runs.
 func (p *Plan) Capture(dev *cuda.Device, limits Limits, run func(uint) error) (result *Capture, err error) {
 	if p == nil || dev == nil || run == nil || limits.MaxPasses == 0 || limits.MaxRanges == 0 || limits.MaxRangeTreeNodes == 0 || limits.MaxCounterBytes <= 0 {
 		return nil, errors.New("cuptirange: invalid capture arguments")
@@ -70,6 +91,10 @@ func (p *Plan) Capture(dev *cuda.Device, limits Limits, run func(uint) error) (r
 	if p.host == 0 || p.names == nil {
 		p.mu.Unlock()
 		return nil, errors.New("cuptirange: closed plan")
+	}
+	if p.passes > limits.MaxPasses {
+		p.mu.Unlock()
+		return nil, fmt.Errorf("cuptirange: configuration requires %d passes, limit is %d", p.passes, limits.MaxPasses)
 	}
 	config := append([]byte(nil), p.config...)
 	metrics := make([]string, len(p.names.data))
@@ -94,12 +119,21 @@ func (p *Plan) Capture(dev *cuda.Device, limits Limits, run func(uint) error) (r
 			defer func() { err = errors.Join(err, driver.CtxSynchronize()) }()
 			return run(pass)
 		}, collectionAPI{cupti.RangeProfilerSetConfig, cupti.RangeProfilerStart, cupti.RangeProfilerStop, cupti.RangeProfilerDecodeData, cupti.RangeProfilerGetCounterDataInfo})
+		result.retainCollection(store, ranges, err)
 		if err != nil {
 			return err
 		}
-		result.Image = append([]byte(nil), store.image...)
-		result.Ranges = ranges
 		return nil
 	})
 	return result, err
+}
+
+func (c *Capture) retainCollection(store *counterStore, ranges uint, err error) {
+	c.Quality = store.quality
+	if err != nil {
+		c.DiagnosticImage = append([]byte(nil), store.image...)
+		return
+	}
+	c.Image = append([]byte(nil), store.image...)
+	c.Ranges = ranges
 }
