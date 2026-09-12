@@ -148,7 +148,7 @@ func (o *metalPinnedOps) IndexerScores(cache metalmem.Slice[float32], q, weights
 	enc.SetBufferWithOffsetAtIndex(wbuf.Buffer(), wbuf.Offset(), 2)
 	enc.SetBufferWithOffsetAtIndex(out.Buffer(), out.Offset(), 3)
 	libmetal.SetScalar(enc, uint32(nComp), 4)
-	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(nComp), libmetal.Threads(min(nComp, 256)))
+	enc.DispatchThreadsThreadsPerThreadgroup(libmetal.Threads(((nComp+3)/4)*256), libmetal.Threads(256))
 	enc.EndEncoding()
 	if err := o.submitAndWait("indexer-scores", cb); err != nil {
 		return nil, fmt.Errorf("indexer scores: %w", err)
@@ -2300,22 +2300,43 @@ kernel void rope_attention_one(
 // contribute nothing. This is not the CUDA kernel's fmaxf(0, dot), and it does
 // not fold the 1/sqrt(64*128) scale in per head -- the caller already scaled
 // weights.
+// One thread per (row, head): the 64 head dot products of a row are
+// independent, so only the fold over h has to stay ordered. Each dot keeps its
+// own 128 fma calls in index order and the fold keeps its own 64 in head order,
+// so this produces the same float32 bits as one-thread-per-row -- see
+// TestMetalIndexerScoresGPUIsBitIdenticalToCPU. A threadgroup covers four rows
+// and stages them once through threadgroup memory, which is what makes the 64
+// readers of a row cheap.
 kernel void indexer_scores(
     device const float *rows [[buffer(0)]],
     device const float *q [[buffer(1)]],
     device const float *weights [[buffer(2)]],
     device float *scores [[buffer(3)]],
     constant uint &n_comp [[buffer(4)]],
-    uint c [[thread_position_in_grid]]) {
-  if(c>=n_comp)return;
-  device const float *row=rows+uint64_t(c)*128;
-  float score=0.0f;
-  for(uint h=0;h<64;h++){
-    float dot=0.0f;
-    for(uint i=0;i<128;i++)dot=fma(row[i],q[h*128+i],dot);
-    if(dot>0.0f)score=fma(dot,weights[h],score);
+    uint tid [[thread_position_in_threadgroup]],
+    uint tgid [[threadgroup_position_in_grid]]) {
+  threadgroup float shrow[4*128];
+  threadgroup float shdot[4*64];
+  const uint base=tgid*4;
+  for(uint j=tid;j<4*128;j+=256){
+    const uint r=base+j/128;
+    shrow[j]=r<n_comp?rows[uint64_t(r)*128+j%128]:0.0f;
   }
-  scores[c]=score;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  const uint local=tid/64,h=tid%64,c=base+local;
+  float dot=0.0f;
+  if(c<n_comp){
+    threadgroup const float *row=shrow+local*128;
+    for(uint i=0;i<128;i++)dot=fma(row[i],q[h*128+i],dot);
+  }
+  shdot[tid]=dot;
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+  if(h==0&&c<n_comp){
+    float score=0.0f;
+    threadgroup const float *d=shdot+local*64;
+    for(uint k=0;k<64;k++)if(d[k]>0.0f)score=fma(d[k],weights[k],score);
+    scores[c]=score;
+  }
 }
 `
 
