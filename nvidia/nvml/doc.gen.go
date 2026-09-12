@@ -1,8 +1,8 @@
 // Package nvml provides low-level Go bindings for the NVIDIA Management Library (NVML).
 //
-// This package maps every function from nvml.h to a Go function using
+// This package provides bindings generated from nvml.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libnvidia-ml.
-// All functions return errors wrapping nvmlReturn_t with descriptive messages
+// Functions returning a C status report errors wrapping nvmlReturn_t with descriptive messages
 // from nvmlErrorString.
 //
 // # MIG Management

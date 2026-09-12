@@ -5,9 +5,9 @@
 // [Comm.AllGather], [Comm.AlltoAll], [Comm.Send]/[Comm.Recv], and one-sided
 // [Window.PutSignal]/[Comm.Signal]/[Comm.WaitSignal] operations.
 //
-// This package maps every function from nccl.h to a Go function using
+// This package provides bindings generated from nccl.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libnccl.
-// All functions return errors wrapping ncclResult_t with descriptive messages
+// Functions returning a C status report errors wrapping ncclResult_t with descriptive messages
 // from ncclGetErrorString.
 //
 // The host-side NCCL device communicator and GIN setup APIs are also exposed.

@@ -8,9 +8,9 @@
 // with [Plan1d], [Plan2d], [Plan3d], or [PlanMany], execute with the Exec*
 // methods (e.g., [Handle.ExecC2C]), and clean up with [Handle.Destroy].
 //
-// This package maps every function from cufft.h to a Go function using
+// This package provides bindings generated from cufft.h using
 // [github.com/ebitengine/purego] for cgo-free dynamic loading of libcufft.
-// All functions return errors wrapping cufftResult.
+// Functions returning a C status report errors wrapping cufftResult.
 //
 // # Plan Creation
 //

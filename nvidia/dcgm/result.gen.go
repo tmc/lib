@@ -22,7 +22,7 @@ const (
 	ErrMemory                       Result = -4  // An out of memory error occurred
 	ErrNotConfigured                Result = -5  // Setting not configured
 	ErrNotSupported                 Result = -6  // Feature not supported
-	ErrInitError                    Result = -7  // DCGM [Init] error
+	ErrInitError                    Result = -7  // DCGM Init error
 	ErrNVMLError                    Result = -8  // When NVML returns error
 	ErrPending                      Result = -9  // Object is in pending state of something else
 	ErrUninitialized                Result = -10 // Object is in undefined state

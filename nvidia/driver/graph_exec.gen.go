@@ -85,7 +85,7 @@ func (g GraphExec) ExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodePara
 
 // GetFlags Query the instantiation flags of an executable graph.
 //
-// Returns the flags that were passed to instantiation for the given executable graph. CUDA_GRAPH_INSTANTIATE_FLAG_UPLOAD will not be returned by this API as it does not affect the resulting executable graph. See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
+// Returns the flags that were passed to instantiation for the given executable graph. [GraphInstantiateFlagUpload] will not be returned by this API as it does not affect the resulting executable graph. See also: [Graph.Instantiate], [Graph.InstantiateWithParams]
 //
 // Wraps cuGraphExecGetFlags.
 func (g GraphExec) GetFlags() (uint64, error) {

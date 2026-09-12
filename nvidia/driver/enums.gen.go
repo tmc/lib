@@ -398,7 +398,7 @@ const (
 	StreamMemOpWaitValue64  StreamBatchMemOpType = 4 // Represents a [Stream.WaitValue64] operation
 	StreamMemOpWriteValue64 StreamBatchMemOpType = 5 // Represents a [Stream.WriteValue64] operation
 	StreamMemOpBarrier      StreamBatchMemOpType = 6 // Insert a memory barrier of the specified type
-	// StreamMemOpAtomicReduction: Perform a atomic reduction. See ::[StreamBatchMemOpParams].atomicReduction
+	// StreamMemOpAtomicReduction: Perform a atomic reduction. See CUstreamBatchMemOpParams.atomicReduction
 	StreamMemOpAtomicReduction   StreamBatchMemOpType = 8
 	StreamMemOpFlushRemoteWrites StreamBatchMemOpType = 3
 )
@@ -423,7 +423,7 @@ func (e StreamBatchMemOpType) String() string {
 	return fmt.Sprintf("StreamBatchMemOpType(%d)", e)
 }
 
-// StreammemorybarrierFlags Flags for [StreamBatchMemOpParams].memoryBarrier
+// StreammemorybarrierFlags Flags for CUstreamBatchMemOpParams.memoryBarrier
 type StreammemorybarrierFlags int32
 
 const (
@@ -441,7 +441,7 @@ func (e StreammemorybarrierFlags) String() string {
 	return fmt.Sprintf("StreammemorybarrierFlags(%d)", e)
 }
 
-// StreamAtomicReductionOpType Atomic reduction operation types for [StreamBatchMemOpParams].atomicReductionreductionOp
+// StreamAtomicReductionOpType Atomic reduction operation types for CUstreamBatchMemOpParams.atomicReductionreductionOp
 type StreamAtomicReductionOpType int32
 
 const (
@@ -462,7 +462,7 @@ func (e StreamAtomicReductionOpType) String() string {
 	return fmt.Sprintf("StreamAtomicReductionOpType(%d)", e)
 }
 
-// StreamAtomicReductionDataType Atomic reduction data types for [StreamBatchMemOpParams].atomicReductiondataType
+// StreamAtomicReductionDataType Atomic reduction data types for CUstreamBatchMemOpParams.atomicReductiondataType
 type StreamAtomicReductionDataType int32
 
 const (
@@ -965,7 +965,7 @@ const (
 	DevAttrReadOnlyHostRegisterSupported DeviceAttribute = 113
 	// DevAttrTimelineSemaphoreInteropSupported: External timeline semaphore interop is supported on the device
 	DevAttrTimelineSemaphoreInteropSupported DeviceAttribute = 114
-	// DevAttrMemoryPoolsSupported: Device supports using the [Stream.MemAllocAsync] and MemPool family of APIs
+	// DevAttrMemoryPoolsSupported: Device supports using the [Stream.MemAllocAsync] and cuMemPool family of APIs
 	DevAttrMemoryPoolsSupported DeviceAttribute = 115
 	// DevAttrGpuDirectRdmaSupported: Device supports GPUDirect RDMA APIs, like nvidia_p2p_get_pages (see https://docs.nvidia.com/cuda/gpudirect-rdma for more information)
 	DevAttrGpuDirectRdmaSupported DeviceAttribute = 116
@@ -1006,11 +1006,11 @@ const (
 	DevAttrGpuPciSubsystemId DeviceAttribute = 140
 	// DevAttrHostNumaVirtualMemoryManagementSupported: Device supports HOST_NUMA location with the virtual memory management APIs like [MemCreate], [DevicePtr.MemMap] and related APIs
 	DevAttrHostNumaVirtualMemoryManagementSupported DeviceAttribute = 141
-	// DevAttrHostNumaMemoryPoolsSupported: Device supports HOST_NUMA location with the [Stream.MemAllocAsync] and MemPool family of APIs
+	// DevAttrHostNumaMemoryPoolsSupported: Device supports HOST_NUMA location with the [Stream.MemAllocAsync] and cuMemPool family of APIs
 	DevAttrHostNumaMemoryPoolsSupported DeviceAttribute = 142
 	// DevAttrHostNumaMultinodeIpcSupported: Device supports HOST_NUMA location IPC between nodes in a multi-node system.
 	DevAttrHostNumaMultinodeIpcSupported DeviceAttribute = 143
-	// DevAttrHostMemoryPoolsSupported: Device suports HOST location with the [Stream.MemAllocAsync] and MemPool family of APIs
+	// DevAttrHostMemoryPoolsSupported: Device suports HOST location with the [Stream.MemAllocAsync] and cuMemPool family of APIs
 	DevAttrHostMemoryPoolsSupported DeviceAttribute = 144
 	// DevAttrHostVirtualMemoryManagementSupported: Device supports HOST location with the virtual memory management APIs like [MemCreate], [DevicePtr.MemMap] and related APIs
 	DevAttrHostVirtualMemoryManagementSupported DeviceAttribute = 145
@@ -2441,9 +2441,9 @@ const (
 	LaunchAttributeAccessPolicyWindow    LaunchAttributeID = 1
 	LaunchAttributeCooperative           LaunchAttributeID = 2
 	LaunchAttributeSynchronizationPolicy LaunchAttributeID = 3
-	// LaunchAttributeClusterDimension: Valid for graph nodes, launches. See ::[LaunchAttributeValue].clusterDim.
+	// LaunchAttributeClusterDimension: Valid for graph nodes, launches. See CUlaunchAttributeValue.clusterDim.
 	LaunchAttributeClusterDimension LaunchAttributeID = 4
-	// LaunchAttributeClusterSchedulingPolicyPreference: Valid for graph nodes, launches. See ::[LaunchAttributeValue].clusterSchedulingPolicyPreference.
+	// LaunchAttributeClusterSchedulingPolicyPreference: Valid for graph nodes, launches. See CUlaunchAttributeValue.clusterSchedulingPolicyPreference.
 	LaunchAttributeClusterSchedulingPolicyPreference LaunchAttributeID = 5
 	LaunchAttributeProgrammaticStreamSerialization   LaunchAttributeID = 6
 	LaunchAttributeProgrammaticEvent                 LaunchAttributeID = 7

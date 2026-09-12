@@ -735,7 +735,7 @@ type HealthResponse struct {
 	Incidents     [1024]IncidentInfo
 }
 
-// HealthSetParamsV2 represents Structure used to set health watches via the [HealthSet] API.
+// HealthSetParamsV2 represents Structure used to set health watches via the dcgmHealthSet_v2 API.
 type HealthSetParamsV2 struct {
 	Version        uint32
 	GroupId        GpuGrp

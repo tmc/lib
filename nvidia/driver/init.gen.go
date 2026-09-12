@@ -32,7 +32,12 @@ var (
 	unbound = make(map[string]error)
 )
 
-// SymbolError reports an absent symbol or a failed binding.
+// SymbolError reports that a symbol is not callable.
+//
+// Err distinguishes the two ways that happens. A nil Err means the loaded
+// library does not export the symbol, which is what an installation older
+// than the symbol looks like. A non-nil Err means the library does export
+// it and the binding itself failed; the library is not at fault.
 type SymbolError struct {
 	Symbol string
 	Err    error
@@ -260,7 +265,7 @@ func checkLib() error {
 
 // checkLibSym loads the library if necessary and reports whether symbol is
 // callable. It returns the load error if the library is unavailable, or
-// *SymbolError if the library loaded but does not export symbol.
+// *SymbolError if the library loaded but symbol is not callable.
 func checkLibSym(symbol string) error {
 	if err := checkLib(); err != nil {
 		return err

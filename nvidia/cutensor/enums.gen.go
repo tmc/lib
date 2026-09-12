@@ -144,7 +144,7 @@ func (e AlgoT) String() string {
 	return fmt.Sprintf("AlgoT(%d)", e)
 }
 
-// WorksizepreferenceT represents This enum gives users finer control over the suggested workspace This enum gives users finer control over the amount of workspace that is suggested by [Handle.[Handle.EstimateWorkspaceSize]].
+// WorksizepreferenceT represents This enum gives users finer control over the suggested workspace This enum gives users finer control over the amount of workspace that is suggested by [Handle.EstimateWorkspaceSize].
 type WorksizepreferenceT int32
 
 const (
@@ -177,7 +177,7 @@ const (
 	OperationDescriptorPaddingLeft             OperationdescriptorattributeT = 4  // uint32_t[] (of size descOut->numModes): Each entry i holds the number of padded values that should be padded to the left of the ith dimension
 	OperationDescriptorPaddingRight            OperationdescriptorattributeT = 5  // uint32_t[] (of size descOut->numModes): Each entry i holds the number of padded values that should be padded to the right of the ith dimension
 	OperationDescriptorPaddingValue            OperationdescriptorattributeT = 6  // host-side pointer to element of the same type as the output tensor: Constant padding value
-	OperationDescriptorBlocksparseReproducible OperationdescriptorattributeT = 14 // int32_t: if non-zero, request bitwise-reproducible results from a block-sparse contraction at a performance cost. See [[CreateBlockSparseContraction]] for details. (default: 0)
+	OperationDescriptorBlocksparseReproducible OperationdescriptorattributeT = 14 // int32_t: if non-zero, request bitwise-reproducible results from a block-sparse contraction at a performance cost. See cutensorCreateBlockSparseContraction for details. (default: 0)
 )
 
 // String returns the constant name, or a numeric representation for unknown values.

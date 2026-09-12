@@ -1329,7 +1329,7 @@ func (d Device) GetInforomConfigurationChecksum() (uint32, error) {
 // GetInforomImageVersion Retrieves the global infoROM image version
 //
 // For all products with an inforom.
-// Image version just like VBIOS version uniquely describes the exact version of the infoROM flashed on the board in contrast to infoROM object version which is only an indicator of supported features. Version string will not exceed 16 characters in length (including the NULL terminator). See Constants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
+// Image version just like VBIOS version uniquely describes the exact version of the infoROM flashed on the board in contrast to infoROM object version which is only an indicator of supported features. Version string will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
 // See also: [Device.GetInforomVersion]
 //
 //   - version: Reference in which to return the infoROM image version
@@ -1343,7 +1343,7 @@ func (d Device) GetInforomImageVersion() (string, error) {
 // GetInforomVersion Retrieves the version information for the device's infoROM object.
 //
 // For all products with an inforom.
-// Fermi and higher parts have non-volatile on-board memory for persisting device info, such as aggregate ECC counts. The version of the data structures in this memory may change from time to time. It will not exceed 16 characters in length (including the NULL terminator). See Constants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
+// Fermi and higher parts have non-volatile on-board memory for persisting device info, such as aggregate ECC counts. The version of the data structures in this memory may change from time to time. It will not exceed 16 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_INFOROM_VERSION_BUFFER_SIZE.
 // See [InforomObject] for details on the available infoROM objects.
 // See also: [Device.GetInforomImageVersion]
 //
@@ -1654,7 +1654,7 @@ func (d Device) GetMultiGpuBoard() (uint32, error) {
 // GetName Retrieves the name of this device.
 //
 // For all products.
-// The name is an alphanumeric string that denotes a particular product, e.g. Tesla C2070. It will not exceed 96 characters in length (including the NULL terminator). See Constants.NVML_DEVICE_NAME_V2_BUFFER_SIZE.
+// The name is an alphanumeric string that denotes a particular product, e.g. Tesla C2070. It will not exceed 96 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_NAME_V2_BUFFER_SIZE.
 // When used with MIG device handles the API returns MIG device names which can be used to identify devices based on their attributes.
 //
 //   - name: Reference in which to return the product name
@@ -2287,7 +2287,7 @@ func (d Device) GetSamples(type_ SamplingType, lastSeenTimeStamp uint64, buf []S
 // GetSerial Retrieves the globally unique board serial number associated with this device's board.
 //
 // For all products with an inforom.
-// The serial number is an alphanumeric string that will not exceed 30 characters (including the NULL terminator). This number matches the serial number tag that is physically attached to the board. See Constants.NVML_DEVICE_SERIAL_BUFFER_SIZE.
+// The serial number is an alphanumeric string that will not exceed 30 characters (including the NULL terminator). This number matches the serial number tag that is physically attached to the board. See nvmlConstants.NVML_DEVICE_SERIAL_BUFFER_SIZE.
 //
 //   - serial: Reference in which to return the board/module serial number
 //   - length: The maximum allowed length of the string returned in serial
@@ -2593,7 +2593,7 @@ func (d Device) GetTotalEnergyConsumption() (uint64, error) {
 // GetUUID Retrieves the globally unique immutable UUID associated with this device, as a 5 part hexadecimal string, that augments the immutable, board serial identifier.
 //
 // For all products.
-// The UUID is a globally unique identifier. It is the only available identifier for pre-Fermi-architecture products. It does NOT correspond to any identifier printed on the board. It will not exceed 96 characters in length (including the NULL terminator). See Constants.NVML_DEVICE_UUID_V2_BUFFER_SIZE.
+// The UUID is a globally unique identifier. It is the only available identifier for pre-Fermi-architecture products. It does NOT correspond to any identifier printed on the board. It will not exceed 96 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_UUID_V2_BUFFER_SIZE.
 // When used with MIG device handles the API returns globally unique UUIDs which can be used to identify MIG devices across both GPU and MIG devices. UUIDs are immutable for the lifetime of a MIG device.
 //
 //   - uuid: Reference in which to return the GPU UUID
@@ -2631,7 +2631,7 @@ func (d Device) GetUtilizationRates() (Utilization, error) {
 // GetVbiosVersion Get VBIOS version of the device.
 //
 // For all products.
-// The VBIOS version may change from time to time. It will not exceed 32 characters in length (including the NULL terminator). See Constants.NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE.
+// The VBIOS version may change from time to time. It will not exceed 32 characters in length (including the NULL terminator). See nvmlConstants.NVML_DEVICE_VBIOS_VERSION_BUFFER_SIZE.
 //
 //   - version: Reference to which to return the VBIOS version
 //   - length: The maximum allowed length of the string returned in version

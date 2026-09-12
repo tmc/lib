@@ -837,7 +837,7 @@ type Memcpy3DOperand struct {
 	Op   [4]uint64
 }
 
-// Memcpy3dBatchOp represents CUDA_MEMCPY3D_BATCH_OP.
+// Memcpy3dBatchOp represents CUDA_MEMCPY3D_BATCH_OP_v1.
 type Memcpy3dBatchOp struct {
 	// Source memcpy operand.
 	Src Memcpy3DOperand

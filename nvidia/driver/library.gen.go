@@ -147,7 +147,6 @@ func (l Library) Unload() error {
 //
 // supports managed variables this call is expected to return [ErrNotSupported]
 //
-//   - library: Returned library
 //   - code: Code to load
 //   - jitOptions: Options for JIT
 //   - jitOptionsValues: Option values for JIT
@@ -191,7 +190,6 @@ func NewLibraryLoadData(code unsafe.Pointer, jitOptions *JITOption, jitOptionsVa
 //
 // supports managed variables this call is expected to return [ErrNotSupported]
 //
-//   - library: Returned library
 //   - fileName: File to load from
 //   - jitOptions: Options for JIT
 //   - jitOptionsValues: Option values for JIT

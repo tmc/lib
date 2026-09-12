@@ -192,9 +192,9 @@
 // the authors of this package. The functions are bound; that a bound function
 // succeeds outside the launcher is the caller's to establish.
 //
-// This package maps every host function from the sanitizer.h header family to
-// a Go function using [github.com/ebitengine/purego] for cgo-free dynamic
-// loading. All functions return errors wrapping SanitizerResult with
+// This package provides host bindings generated from the sanitizer.h header family
+// using [github.com/ebitengine/purego] for cgo-free dynamic
+// loading. Functions returning a C status report errors wrapping SanitizerResult with
 // descriptive messages from sanitizerGetResultString.
 //
 // # Patching API

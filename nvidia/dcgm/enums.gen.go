@@ -78,7 +78,7 @@ func (e FieldEntityGroup) String() string {
 	return fmt.Sprintf("FieldEntityGroup(%d)", e)
 }
 
-// OperationMode represents Operation mode for DCGM DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as [[PolicyTrigger]] and [Handle.[Handle.UpdateAllFields]] which tells DCGM to wake up and perform data collection and operations needed for policy management..
+// OperationMode represents Operation mode for DCGM DCGM can run in auto-mode where it runs additional threads in the background to collect any metrics of interest and auto manages any operations needed for policy management. DCGM can also operate in manual-mode where it's execution is controlled by the user. In this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and operations needed for policy management..
 type OperationMode int32
 
 const (

@@ -156,7 +156,7 @@ func ConnectV3(connectionString *byte, connectParams *ConnectV3Params) (Handle, 
 
 // Disconnect This method is used to disconnect from a stand-alone host engine process.
 //
-//   - pDcgmHandle: IN: DCGM Handle that came from [Connect]
+//   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //
 // Wraps dcgmDisconnect.
 func Disconnect(pDcgmHandle Handle) error {
@@ -226,7 +226,7 @@ func FieldGroupCreate(dcgmHandle Handle, numFieldIds int32, fieldIds *uint16, fi
 	return out, nil
 }
 
-// FieldGroupDestroy Used to remove a field group that was created with [Handle.[Handle.FieldGroupCreate]]
+// FieldGroupDestroy Used to remove a field group that was created with [Handle.FieldGroupCreate]
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - dcgmFieldGroupId: IN: Field group to remove
@@ -242,7 +242,7 @@ func FieldGroupDestroy(dcgmHandle Handle, dcgmFieldGroupId FieldGrp) error {
 // FieldGroupGetAll Used to get information about all field groups in the system.
 //
 //   - dcgmHandle: IN: DCGM handle
-//   - allGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to AllFieldGroup_version before this call
+//   - allGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmAllFieldGroup_version before this call
 //
 // Wraps dcgmFieldGroupGetAll.
 func FieldGroupGetAll(dcgmHandle Handle, allGroupInfo *AllFieldGroup) error {
@@ -252,10 +252,10 @@ func FieldGroupGetAll(dcgmHandle Handle, allGroupInfo *AllFieldGroup) error {
 	return toError(fnFieldGroupGetAll(dcgmHandle, allGroupInfo))
 }
 
-// FieldGroupGetInfo Used to get information about a field group that was created with [Handle.[Handle.FieldGroupCreate]].
+// FieldGroupGetInfo Used to get information about a field group that was created with [Handle.FieldGroupCreate].
 //
 //   - dcgmHandle: IN: DCGM handle
-//   - fieldGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to FieldGroupInfo_version before this call .fieldGroupId should contain the fieldGroupId you are interested in querying information for
+//   - fieldGroupInfo: IN/OUT: Info about all of the field groups that exist. .version should be set to dcgmFieldGroupInfo_version before this call .fieldGroupId should contain the fieldGroupId you are interested in querying information for
 //
 // Wraps dcgmFieldGroupGetInfo.
 func FieldGroupGetInfo(dcgmHandle Handle, fieldGroupInfo *FieldGroupInfo) error {
@@ -330,7 +330,7 @@ func GetCpuHierarchyV2(dcgmHandle Handle, cpuHierarchy *CpuHierarchy) error {
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - gpuId: IN: GPU Id corresponding to which the attributes should be fetched
-//   - pDcgmAttr: IN/OUT: Device attributes corresponding to gpuId. pDcgmAttr->version should be set to DeviceAttributes_version before this call
+//   - pDcgmAttr: IN/OUT: Device attributes corresponding to gpuId. pDcgmAttr->version should be set to dcgmDeviceAttributes_version before this call
 //
 // Wraps dcgmGetDeviceAttributes.
 func GetDeviceAttributes(pDcgmHandle Handle, gpuId uint32, pDcgmAttr *DeviceAttributes) error {
@@ -541,8 +541,8 @@ func GroupAddEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEntit
 // To create the group with all the entities present on the system, the type field should be
 // specified as [GroupDefault] or DCGM_GROUP_ALL_NVSWITCHES. To create an empty group,
 // the type field should be specified as [GroupEmpty]. The empty group can be updated
-// with the desired set of entities using the APIs [Handle.[Handle.GroupAddDevice]], [Handle.[Handle.GroupAddEntity]],
-// [Handle.[Handle.GroupRemoveDevice]], and [Handle.[Handle.GroupRemoveEntity]].
+// with the desired set of entities using the APIs [Handle.GroupAddDevice], [Handle.GroupAddEntity],
+// [Handle.GroupRemoveDevice], and [Handle.GroupRemoveEntity].
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - type_: IN: Type of Entity Group to be formed
@@ -642,7 +642,7 @@ func GroupRemoveEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEn
 // HealthCheck Check the configured watches for any errors/failures/warnings that have occurred since the last time this check was invoked.
 //
 //   - pDcgmHandle: IN: DCGM Handle
-//   - groupId: IN: Group ID representing a collection of one or more entities. Refer to [Handle.[Handle.GroupCreate]] for details on creating a group
+//   - groupId: IN: Group ID representing a collection of one or more entities. Refer to [Handle.GroupCreate] for details on creating a group
 //   - results: OUT: A reference to the [HealthResponse] structure to populate. results->version must be set to dcgmHealthResponse_version
 //
 // Wraps dcgmHealthCheck.
@@ -656,7 +656,7 @@ func HealthCheck(pDcgmHandle Handle, groupId GpuGrp, results *HealthResponse) er
 // HealthGet Retrieve the current state of the DCGM health check system
 //
 //   - pDcgmHandle: IN: DCGM Handle
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.[Handle.GroupCreate]] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to perform operation on all the NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to perform operation on all the NvSwitches
 //   - systems: OUT: An integer representing the enabled systems for the given group Refer to [HealthSystems] for details
 //
 // Wraps dcgmHealthGet.
@@ -669,7 +669,7 @@ func HealthGet(pDcgmHandle Handle, groupId GpuGrp, systems *HealthSystems) error
 
 // HostengineEnvironmentVariableInfo This method is used to retrieve the value of an environment variable from the hostengine.
 //
-//   - pDcgmHandle: IN: DCGM Handle that came from [Connect]
+//   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //   - pEnvVarInfo: IN/OUT: Pointer to a [EnvVarInfo] structure. - envVarName must be set to the name of the environment variable to query (input). - envVarValue will be filled with the value of the environment variable (output)
 //
 // Wraps dcgmHostengineEnvironmentVariableInfo.
@@ -695,7 +695,7 @@ func HostengineIsHealthy(pDcgmHandle Handle, heHealth *HostengineHealth) error {
 
 // HostengineVersionInfo This method is used to return information about the build environment of the hostengine.
 //
-//   - pDcgmHandle: IN: DCGM Handle that came from [Connect]
+//   - pDcgmHandle: IN: DCGM Handle that came from [ConnectV2]
 //   - pVersionInfo: OUT: Build environment information
 //
 // Wraps dcgmHostengineVersionInfo.
@@ -815,8 +815,8 @@ func PowerProfileIdToName(id PowerProfileType) (uintptr, error) {
 // the same concurrency restrictions as on older architectures. On these platforms, all GPM metric and profiling groups
 // can be watched concurrently without hardware resource conflicts.
 //
-// See [Handle.[Handle.GroupCreate]] for details on creating a GPU group
-// See [Handle.[Handle.WatchFields]] to actually watch the underlying profiling fields
+// See [Handle.GroupCreate] for details on creating a GPU group
+// See [Handle.WatchFields] to actually watch the underlying profiling fields
 //
 //   - pDcgmHandle: IN: DCGM Handle
 //   - metricGroups: IN/OUT: Metric groups supported for metricGroups->groupId. metricGroups->version should be set to dcgmProfGetMetricGroups_version upon calling
@@ -843,7 +843,7 @@ func Shutdown() error {
 //
 // The agent is loaded as a shared library. This mode is provided to avoid any
 // extra jitter associated with an additional autonomous agent needs to be managed. In
-// this mode, the user has to periodically call APIs such as [PolicyTrigger] and
+// this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and
 // [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and
 // operations needed for policy management.
 //
@@ -942,9 +942,9 @@ func StatusPopError(statusHandle StatusHandle, pDcgmErrorInfo *ErrorInfo) error 
 	return toError(fnStatusPopError(statusHandle, pDcgmErrorInfo))
 }
 
-// StopEmbedded Stop the embedded host engine within this process that was started with [StartEmbedded]
+// StopEmbedded Stop the embedded host engine within this process that was started with [StartEmbeddedV2]
 //
-//   - pDcgmHandle: IN : DCGM Handle of the embedded host engine that came from [StartEmbedded]
+//   - pDcgmHandle: IN : DCGM Handle of the embedded host engine that came from [StartEmbeddedV2]
 //
 // Wraps dcgmStopEmbedded.
 func StopEmbedded(pDcgmHandle Handle) error {
@@ -957,7 +957,7 @@ func StopEmbedded(pDcgmHandle Handle) error {
 // UnwatchFields Request that DCGM stop recording updates for a given field collection.
 //
 //   - pDcgmHandle: IN: DCGM Handle
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.[Handle.GroupCreate]] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
 //   - fieldGroupId: IN: Fields to unwatch
 //
 // Wraps dcgmUnwatchFields.
@@ -971,7 +971,7 @@ func UnwatchFields(pDcgmHandle Handle, groupId GpuGrp, fieldGroupId FieldGrp) er
 // UpdateAllFields This method is used to tell the DCGM module to update all the fields being watched.
 //
 // Note: If the if the operation mode was set to manual mode ([OperationModeManual]) during
-// initialization ([[Init]]), this method must be caused periodically to allow field value watches
+// initialization ([Init]), this method must be caused periodically to allow field value watches
 // the opportunity to gather samples.
 //
 //   - pDcgmHandle: IN: DCGM Handle
@@ -1003,7 +1003,7 @@ func VersionInfo(pVersionInfo *VersionInfoStruct) error {
 // To force a field update cycle, call [Handle.UpdateAllFields](1).
 //
 //   - pDcgmHandle: IN: DCGM Handle
-//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.[Handle.GroupCreate]] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
+//   - groupId: IN: Group ID representing collection of one or more entities. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as DCGM_GROUP_ALL_GPUS to perform operation on all the GPUs or DCGM_GROUP_ALL_NVSWITCHES to to perform the operation on all NvSwitches
 //   - fieldGroupId: IN: Fields to watch
 //   - updateFreq: IN: How often to update this field in usec
 //   - maxKeepAge: IN: How long to keep data for this field in seconds
