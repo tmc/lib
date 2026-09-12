@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/tmc/lib/gguf"
+
+	"github.com/tmc/lib/nvidia/x/nvtx"
 )
 
 const usage = `usage: ds4-min -model file [-backend auto|metal|cuda|cpu] [-prompt text | -prompt-file file | -prompt-tokens file] [-tokens n] [-ctx n]
@@ -78,6 +80,7 @@ type config struct {
 	spanPath     string
 	spanLevel    spanLevel
 	runID        string
+	calibPath    string
 }
 
 func main() {
@@ -139,16 +142,26 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, prof.Stop(), writeSpans(cfg, stderr)) }()
+	runID := cfg.runID
+	if runID == "" {
+		runID = defaultRunID()
+	}
 	if cfg.spanLevel != levelOff {
-		id := cfg.runID
-		if id == "" {
-			id = defaultRunID()
+		spans = newSpanRecorder(cfg.spanLevel, runID)
+	}
+	// Bracket the calibration ranges around the whole workload rather than
+	// beside it: two readings far apart are what test whether one constant
+	// offset relates the two clocks at all.
+	var calibrations []calibration
+	if cfg.calibPath != "" {
+		if !nvtx.Enabled() {
+			return errors.New("-calibration needs an NVTX provider; run under nsys")
 		}
-		spans = newSpanRecorder(cfg.spanLevel, id)
+		calibrations = append(calibrations, calibrate(runID, "start"))
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
-	prefillSpan := begin(levelPhase, "prefill", nil)
+	prefillSpan := beginTraced(levelPhase, "prefill", nil)
 	if err := s.Sync(prompt); err != nil {
 		return err
 	}
@@ -160,7 +173,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	var text textAssembler
 	generated := 0
 	decodeStart := time.Now()
-	decodeSpan := begin(levelPhase, "generation", nil)
+	decodeSpan := beginTraced(levelPhase, "generation", nil)
 	for range cfg.tokens {
 		id := greedyToken(s.logits)
 		if tok.IsStop(id) {
@@ -191,6 +204,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	decode := time.Since(decodeStart)
 	if err := cfg.checkFinalLogits(s.logits, generated, len(tok.tokens), stderr); err != nil {
 		return err
+	}
+	if cfg.calibPath != "" {
+		calibrations = append(calibrations, calibrate(runID, "end"))
+		f, err := os.Create(cfg.calibPath)
+		if err != nil {
+			return err
+		}
+		if err := errors.Join(writeCalibrations(f, calibrations), f.Close()); err != nil {
+			return err
+		}
+		for _, c := range calibrations {
+			fmt.Fprintf(stderr, "ds4-min: calibration %s host %d..%d\n", c.Name, c.Before, c.After)
+		}
 	}
 	rate := func(n int, d time.Duration) float64 {
 		if d <= 0 {
@@ -243,6 +269,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	var spanLevel string
 	fs.StringVar(&spanLevel, "span-level", "token", "span depth: off, phase, token, layer, or op")
 	fs.StringVar(&cfg.runID, "run-id", "", "run identity shared with a gputrace timing sidecar")
+	fs.StringVar(&cfg.calibPath, "calibration", "", "write NVTX clock-calibration brackets to this file")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
