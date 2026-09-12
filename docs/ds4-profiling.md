@@ -44,12 +44,13 @@ is compared against.
       -cpuprofile go.cpu.pprof -memprofile go.heap.pprof \
       -trace go.trace -spans go.spans.jsonl -span-level layer
 
-`-span-level layer` writes a `gputrace.host-event/v1` JSONL sidecar. On
-2026-09-12 this workload produced **90 spans**: one `prefill`, one
-`generation`, two `token`, and 86 `layer` — 2 tokens x 43 layers, all of them
-from decode. **Prefill emits no layer spans**, so 158.3 s of the 158.5 s run is
-one opaque interval while the 166.3 ms of decode is fully resolved. Arming
-prefill spans is open work, not a setting.
+`-span-level layer` writes a `gputrace.host-event/v1` JSONL sidecar. Since
+8d5baa4d this workload produces **11,354 spans** in a 2.0 MiB file: one
+`prefill`, one `generation`, two `token`, 256 `batch` — 2048 tokens at a batch
+width of 8 — and 11,094 `layer`, of which 11,008 are prefill (256 x 43) and 86
+are decode (2 x 43). The recorder is bounded at 100,000 records and 8 MiB and
+drops silently past either, so check the count against what the shape predicts
+rather than trusting the file's existence.
 
 ### Then run under Nsight
 
@@ -275,11 +276,32 @@ So what a prefill comparison against the oracle has to account for is not a
 missing batch path but an ineffective one. That is a property of the runtime,
 not of the profiler.
 
-### Prefill emits no layer spans, and why
+### Where the prefill layer spans come from
 
-`beginLayer` is called from `evalLayerState` (`cuda_session_linux.go:607`),
-which is on the single-token path under `evalPosition`. The batched prefill
-path goes through `evalBatch` and `evalLayerProjected` instead, and neither
-opens a span. That is why `-span-level layer` yields 86 spans on this workload
-— 2 decode tokens x 43 layers — and nothing at all for the 2048-token prefill
-that consumed 99.9% of the run. Arming the batched path is open work.
+`beginLayer` sits in two places. `evalLayerState` carries the decode one, on
+the single-token path under `evalPosition`. `evalLayerBatch` carries prefill's,
+and spans the whole chunk rather than each token in it: the batched front end
+evaluates all eight together, so a per-token interval would report one duration
+eight times. The projected tail both paths share opens no span, which is why
+before 8d5baa4d a 2048-token prefill emitted no layer intervals at all.
+
+Measured on 2026-09-12 with both logits digests supplied and reproduced:
+
+| span | n | total |
+| --- | --- | --- |
+| prefill | 1 | 158.155 s |
+| batch | 256 | 158.155 s |
+| layer | 11,094 | 147.733 s |
+| generation | 1 | 166.664 ms |
+| token | 2 | 166.412 ms |
+
+The layer intervals account for 93.4% of prefill. The remaining 10.4 s is the
+work outside the layer loop — per-token embedding rows, the group tail, the
+vocabulary projection, and the stream synchronization at each chunk's end.
+
+Do not reach for `markCUDAPhase` to get finer detail into this sidecar. The
+shallow-regime phase count is `(tokens/8)*(43+1) + tokens*43*8`
+(`cuda_phase_profile_linux_test.go:95`), which is 715,776 intervals at 2048
+tokens — seven times the record cap and far past the byte cap, so most of
+prefill and probably all of decode would be dropped, and the sidecar would
+still be written. Detailed phase names belong in NVTX, not here.
