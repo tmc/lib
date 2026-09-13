@@ -266,6 +266,32 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 		vals.StallMem += count
 		return true
 
+	// Front-end: the warp has no instruction to issue yet. The instruction
+	// cache miss behind no_instructions is a fetch stall, not a data stall, so
+	// it gets its own type rather than joining stall_mem.
+	case strings.Contains(name, "no_instruction") || strings.Contains(name, "inst_fetch"):
+		vals.StallFetch += count
+		return true
+
+	case strings.Contains(name, "branch"):
+		vals.StallBranch += count
+		return true
+
+	case strings.Contains(name, "drain"):
+		vals.StallDrain += count
+		return true
+
+	case strings.Contains(name, "dispatch"):
+		vals.StallDispatch += count
+		return true
+
+	// Not a stall in the usual sense: the warp was ready and the scheduler
+	// issued a different one. It is reported among the stall reasons, so it is
+	// counted here, but it measures issue contention rather than latency.
+	case strings.Contains(name, "not_selected"):
+		vals.StallNotSelected += count
+		return true
+
 	default:
 		return false
 	}

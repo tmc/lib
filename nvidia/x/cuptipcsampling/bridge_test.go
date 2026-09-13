@@ -37,7 +37,7 @@ func TestProfileBridge(t *testing.T) {
 			{Index: 3, Name: "short_scoreboard"},
 			{Index: 4, Name: "math_pipe_throttle"},
 			{Index: 5, Name: "lg_throttle"},
-			{Index: 6, Name: "drain"},
+			{Index: 6, Name: "sleeping"},
 			{Index: 7, Name: "selected_not_issued"},
 		},
 	}
@@ -84,7 +84,7 @@ func TestProfileBridge(t *testing.T) {
 					{Index: 3, Samples: 6},  // short_scoreboard -> StallScoreboard
 					{Index: 4, Samples: 7},  // math_pipe_throttle -> StallMath
 					{Index: 5, Samples: 9},  // lg_throttle -> StallMem
-					{Index: 6, Samples: 2},  // drain -> UnmappedStalls
+					{Index: 6, Samples: 2},  // sleeping -> UnmappedStalls
 					{Index: 7, Samples: 4},  // selected_not_issued -> UnmappedStalls (not InstExecuted)
 				},
 			},
@@ -97,8 +97,8 @@ func TestProfileBridge(t *testing.T) {
 	}
 
 	// Verify unmapped stall reasons are preserved and not silently discarded
-	if got := bridge.UnmappedStalls["drain"]; got != 2 {
-		t.Errorf("UnmappedStalls[\"drain\"] = %d, want 2", got)
+	if got := bridge.UnmappedStalls["sleeping"]; got != 2 {
+		t.Errorf("UnmappedStalls[\"sleeping\"] = %d, want 2", got)
 	}
 	if got := bridge.UnmappedStalls["selected_not_issued"]; got != 4 {
 		t.Errorf("UnmappedStalls[\"selected_not_issued\"] = %d, want 4", got)
@@ -183,8 +183,8 @@ func TestProfileBridgeDoesNotDoubleCountNotIssued(t *testing.T) {
 		Reasons: []cuptipcsampling.StallReason{
 			{Index: 1, Name: "short_scoreboard"},
 			{Index: 2, Name: "short_scoreboard_not_issued"},
-			{Index: 3, Name: "drain"},
-			{Index: 4, Name: "drain_not_issued"},
+			{Index: 3, Name: "sleeping"},
+			{Index: 4, Name: "sleeping_not_issued"},
 		},
 	}
 	var buf bytes.Buffer
@@ -222,13 +222,13 @@ func TestProfileBridgeDoesNotDoubleCountNotIssued(t *testing.T) {
 	if got := p.Sample[0].Value[types["stall_scoreboard"]]; got != 23 {
 		t.Errorf("stall_scoreboard = %d, want 23 counted once, not 46", got)
 	}
-	// drain is not modelled, so the base reason is unmapped under its own name
-	// and the companion under its own, neither folded into a stall bucket.
-	if got := bridge.UnmappedStalls["drain"]; got != 4 {
-		t.Errorf("UnmappedStalls[drain] = %d, want 4", got)
+	// sleeping is not modelled, so the base reason is unmapped under its own
+	// name and the companion under its own, neither folded into a stall bucket.
+	if got := bridge.UnmappedStalls["sleeping"]; got != 4 {
+		t.Errorf("UnmappedStalls[sleeping] = %d, want 4", got)
 	}
-	if got := bridge.UnmappedStalls["drain_not_issued"]; got != 4 {
-		t.Errorf("UnmappedStalls[drain_not_issued] = %d, want 4", got)
+	if got := bridge.UnmappedStalls["sleeping_not_issued"]; got != 4 {
+		t.Errorf("UnmappedStalls[sleeping_not_issued] = %d, want 4", got)
 	}
 }
 
@@ -397,10 +397,11 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 	if got, ok := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_selected"]; ok {
 		t.Errorf("selected counted as an unmapped stall (%d)", got)
 	}
-	// not_selected is a stall this package does not model, and the suffix test
-	// must not mistake it for the selected reason.
-	if got := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_not_selected"]; got != 18 {
-		t.Errorf("UnmappedStalls[not_selected] = %d, want 18", got)
+	// not_selected has its own type, and the suffix test must not mistake it
+	// for the selected reason: 18 warps that were ready while another issued
+	// are not 18 warps that issued.
+	if got, ok := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_not_selected"]; ok {
+		t.Errorf("not_selected counted as an unmapped stall (%d)", got)
 	}
 	p, err := profile.ParseData(buf.Bytes())
 	if err != nil {
@@ -412,6 +413,9 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 	}
 	if got := p.Sample[0].Value[types["inst_executed"]]; got != 206 {
 		t.Errorf("inst_executed = %d, want 206", got)
+	}
+	if got := p.Sample[0].Value[types["stall_not_selected"]]; got != 18 {
+		t.Errorf("stall_not_selected = %d, want 18", got)
 	}
 	// The batch total CUPTI reports is the base reasons; the profile's own
 	// count has to agree with it or the manifest beside it reads 1.9x off.
@@ -477,5 +481,65 @@ func TestProfileBridgeHostFramesPerKernel(t *testing.T) {
 	}
 	if depth["known"] != depth["unknown"]+1 {
 		t.Errorf("stack depths known=%d unknown=%d, want the known kernel to carry one more frame", depth["known"], depth["unknown"])
+	}
+}
+
+// Every reason CUPTI collected has to land in a sample type or the profile
+// shows less than the hardware measured: a reason left unmodelled appears only
+// in the manifest's unmapped tally, where no pprof view can reach it. On a GB10
+// capture that was 172 of 2765 samples across five reasons.
+func TestProfileBridgeFrontEndAndIssueReasons(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		reason string
+		want   string
+	}{
+		{"branch", "smsp__pcsamp_warps_issue_stalled_branch_resolving", "stall_branch"},
+		{"fetch", "smsp__pcsamp_warps_issue_stalled_no_instructions", "stall_fetch"},
+		{"drain", "smsp__pcsamp_warps_issue_stalled_drain", "stall_drain"},
+		{"dispatch", "smsp__pcsamp_warps_issue_stalled_dispatch_stall", "stall_dispatch"},
+		{"not_selected", "smsp__pcsamp_warps_issue_stalled_not_selected", "stall_not_selected"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			inv := cuptipcsampling.ReasonInventory{
+				CUPTIVersion: 130001,
+				Reasons:      []cuptipcsampling.StallReason{{Index: 1, Name: tt.reason}},
+			}
+			var buf bytes.Buffer
+			session := cudaprof.NewSession(&buf)
+			session.SetMappingFile("kernels.cubin", "")
+			bridge := &cuptipcsampling.ProfileBridge{Session: session, Inventory: inv}
+			batch := cuptipcsampling.Batch{
+				Valid:        true,
+				TotalSamples: 5,
+				PCs: []cuptipcsampling.PC{{
+					CRC:     1,
+					Name:    "kernel",
+					Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 5}},
+				}},
+			}
+			if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+				t.Fatalf("RecordBatch: %v", err)
+			}
+			if err := session.Close(); err != nil {
+				t.Fatalf("session.Close: %v", err)
+			}
+			if len(bridge.UnmappedStalls) != 0 {
+				t.Errorf("UnmappedStalls = %v, want empty", bridge.UnmappedStalls)
+			}
+			p, err := profile.ParseData(buf.Bytes())
+			if err != nil {
+				t.Fatalf("ParseData: %v", err)
+			}
+			for i, st := range p.SampleType {
+				got := p.Sample[0].Value[i]
+				switch {
+				case st.Type == tt.want && got != 5:
+					t.Errorf("%s = %d, want 5", st.Type, got)
+				case st.Type != tt.want && st.Type != "pc_samples" && got != 0:
+					t.Errorf("%s = %d, want 0", st.Type, got)
+				}
+			}
+		})
 	}
 }
