@@ -506,4 +506,126 @@ func TestSASSStallHeatmap(t *testing.T) {
 	}
 }
 
+func TestTileIRRichSupportInView(t *testing.T) {
+	tileSrc := `cuda_tile.module @gemm_mod {
+  cuda_tile.entry @gemm(%A: !cuda_tile.tile<ptr<f16>>, %B: !cuda_tile.tile<ptr<f16>>, %C: !cuda_tile.tile<ptr<f32>>) {
+    %tok0 = cuda_tile.make_token : !cuda_tile.token
+    %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
+    %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16>
+    %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    cuda_tile.return
+  }
+}`
+	remarksYAML := `--- !Passed
+Pass:            tileiras-tma-lowering
+Name:            TMALoadOptimized
+Function:        gemm
+Args:
+  - String:          'Lowered load_view_tko on A to TMA 2D descriptor'
+--- !Passed
+Pass:            tileiras-mma-selection
+Name:            TensorCoreMMASelected
+Function:        gemm
+Args:
+  - String:          'Selected wgmma.mma_async for Tensor Core execution'
+`
+
+	files := map[string][]byte{
+		"kernels.tileir":        []byte(tileSrc),
+		"tileiras-remarks.yaml": []byte(remarksYAML),
+		"kernels.ptx":           []byte(".version 8.8\n.target sm_121a\n.entry gemm() { ret; }"),
+		"kernels.sass":          []byte("Function : gemm\n/*0000*/ RET;\n"),
+	}
+
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{
+			TileIR: "kernels.tileir",
+			PTX:    "kernels.ptx",
+			SASS:   "kernels.sass",
+		},
+		Files: files,
+	}
+
+	data, err := buildPipelineViewData(cap, "test-tileir.pprof", "")
+	if err != nil {
+		t.Fatalf("buildPipelineViewData: %v", err)
+	}
+
+	// 1. Verify Tile IR Audit & Verification
+	if !strings.Contains(data.TileIRAudit, "Tile IR: Verified") {
+		t.Errorf("TileIRAudit = %q, want Verified status", data.TileIRAudit)
+	}
+	if data.RemarksCount != 2 {
+		t.Errorf("RemarksCount = %d, want 2", data.RemarksCount)
+	}
+
+	// 2. Verify Tile IR tier annotations
+	if len(data.Tiers) < 3 {
+		t.Fatalf("len(Tiers) = %d, want at least 3", len(data.Tiers))
+	}
+	tileTier := data.Tiers[2]
+	if tileTier.Name != "Tile IR" {
+		t.Fatalf("Tiers[2].Name = %q, want Tile IR", tileTier.Name)
+	}
+
+	var foundLoad, foundMMA bool
+	for _, l := range tileTier.Lines {
+		if strings.Contains(l.Text, "load_view_tko") {
+			foundLoad = true
+			if l.Category != "Tile Memory" {
+				t.Errorf("load_view_tko Category = %q, want Tile Memory", l.Category)
+			}
+			if !strings.Contains(l.HoverDoc, "cp.async.bulk.tensor") {
+				t.Errorf("load_view_tko HoverDoc missing TMA lowering: %q", l.HoverDoc)
+			}
+			if l.RemarkBadge != "TMALoadOptimized" {
+				t.Errorf("load_view_tko RemarkBadge = %q, want TMALoadOptimized", l.RemarkBadge)
+			}
+		}
+		if strings.Contains(l.Text, "mma_f") {
+			foundMMA = true
+			if l.Category != "Tensor Core MMA" {
+				t.Errorf("mma_f Category = %q, want Tensor Core MMA", l.Category)
+			}
+			if !strings.Contains(l.HoverDoc, "wgmma") {
+				t.Errorf("mma_f HoverDoc missing wgmma lowering: %q", l.HoverDoc)
+			}
+			if l.RemarkBadge != "TensorCoreMMASelected" {
+				t.Errorf("mma_f RemarkBadge = %q, want TensorCoreMMASelected", l.RemarkBadge)
+			}
+		}
+	}
+	if !foundLoad {
+		t.Error("missing load_view_tko line in Tile IR tier")
+	}
+	if !foundMMA {
+		t.Error("missing mma_f line in Tile IR tier")
+	}
+
+	// 3. Verify HTML rendering has Tile IR styling and badges
+	var buf bytes.Buffer
+	if err := renderPipelineHTML(&buf, data); err != nil {
+		t.Fatalf("renderPipelineHTML: %v", err)
+	}
+	html := buf.String()
+
+	for _, expected := range []string{
+		"badge-category",
+		"badge-remark",
+		"badge-audit",
+		"opcode-hover-tile",
+		"highlight-match",
+		"TMALoadOptimized",
+		"TensorCoreMMASelected",
+		"Tile Memory",
+		"Tensor Core MMA",
+	} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("rendered HTML missing expected token %q", expected)
+		}
+	}
+}
+
+
 
