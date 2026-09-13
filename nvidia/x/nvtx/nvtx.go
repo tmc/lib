@@ -107,6 +107,17 @@ var (
 	fnDomainDestroy         uintptr
 	fnInitialize            uintptr
 
+	// Native CUDA resource naming slots populated by the NVTX injection
+	// provider. The slot order is NVTX_CBID_CUDA_NameCu* in nvtxTypes.h.
+	fnNameCuDeviceA  uintptr
+	fnNameCuDeviceW  uintptr
+	fnNameCuContextA uintptr
+	fnNameCuContextW uintptr
+	fnNameCuStreamA  uintptr
+	fnNameCuStreamW  uintptr
+	fnNameCuEventA   uintptr
+	fnNameCuEventW   uintptr
+
 	// Slot pointer tables passed to the injection library
 	tableCORE   [cbCoreSize + 1]uintptr
 	tableCUDA   [cbCUDASize + 1]uintptr
@@ -162,6 +173,16 @@ func initTables() {
 	tableCORE2[15] = uintptr(unsafe.Pointer(&fnInitialize))
 	tableCORE2[16] = 0 // null terminator
 
+	slotsCUDA = [cbCUDASize - 1]uintptr{
+		uintptr(unsafe.Pointer(&fnNameCuDeviceA)),
+		uintptr(unsafe.Pointer(&fnNameCuDeviceW)),
+		uintptr(unsafe.Pointer(&fnNameCuContextA)),
+		uintptr(unsafe.Pointer(&fnNameCuContextW)),
+		uintptr(unsafe.Pointer(&fnNameCuStreamA)),
+		uintptr(unsafe.Pointer(&fnNameCuStreamW)),
+		uintptr(unsafe.Pointer(&fnNameCuEventA)),
+		uintptr(unsafe.Pointer(&fnNameCuEventW)),
+	}
 	initCallbackTable(tableCUDA[:], slotsCUDA[:])
 	initCallbackTable(tableOpenCL[:], slotsOpenCL[:])
 	initCallbackTable(tableCUDART[:], slotsCUDART[:])
@@ -546,6 +567,53 @@ func NameCategory(category uint32, name string) {
 		return
 	}
 	purego.SyscallN(fnNameCategoryA, uintptr(category), uintptr(unsafe.Pointer(cString(name))))
+}
+
+// NameCUDADevice assigns a name to a CUDA driver device.
+//
+// The call is a no-op when no NVTX injection provider is attached.
+func NameCUDADevice(device int32, name string) {
+	ensureInit()
+	if !enabled || fnNameCuDeviceA == 0 {
+		return
+	}
+	purego.SyscallN(fnNameCuDeviceA, uintptr(device), uintptr(unsafe.Pointer(cString(name))))
+}
+
+// NameCUDAContext assigns a name to a CUDA driver context.
+//
+// The context is the opaque CUcontext value represented by uintptr. The call
+// is a no-op when no NVTX injection provider is attached.
+func NameCUDAContext(context uintptr, name string) {
+	ensureInit()
+	if !enabled || fnNameCuContextA == 0 {
+		return
+	}
+	purego.SyscallN(fnNameCuContextA, context, uintptr(unsafe.Pointer(cString(name))))
+}
+
+// NameCUDAStream assigns a name to a CUDA driver stream.
+//
+// The stream is the opaque CUstream value represented by uintptr. The call is
+// a no-op when no NVTX injection provider is attached.
+func NameCUDAStream(stream uintptr, name string) {
+	ensureInit()
+	if !enabled || fnNameCuStreamA == 0 {
+		return
+	}
+	purego.SyscallN(fnNameCuStreamA, stream, uintptr(unsafe.Pointer(cString(name))))
+}
+
+// NameCUDAEvent assigns a name to a CUDA driver event.
+//
+// The event is the opaque CUevent value represented by uintptr. The call is
+// a no-op when no NVTX injection provider is attached.
+func NameCUDAEvent(event uintptr, name string) {
+	ensureInit()
+	if !enabled || fnNameCuEventA == 0 {
+		return
+	}
+	purego.SyscallN(fnNameCuEventA, event, uintptr(unsafe.Pointer(cString(name))))
 }
 
 // NameCategory assigns a name to an integer category ID in d.
