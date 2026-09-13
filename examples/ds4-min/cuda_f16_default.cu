@@ -23,7 +23,6 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
 
   __shared__ unsigned short s_a[32][130];
   __shared__ unsigned short s_b[32][130];
-  __shared__ float s_x[32][129];
   __shared__ float partial_a[32], partial_b[32];
 
   if (cols == 4096) {
@@ -32,15 +31,15 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
       unsigned k = i & 127;
       s_a[c][k] = a[offset + i];
       s_b[c][k] = b[offset + i];
-      s_x[c][k] = x[i];
     }
     __syncthreads();
 
     if (tid < 32) {
+      const float *xk = x + (tid << 7);
       float sum_a = 0.0f, sum_b = 0.0f;
       for (unsigned k = 0; k < 128; k++) {
-        sum_a += ds4_half_to_float(s_a[tid][k]) * s_x[tid][k];
-        sum_b += ds4_half_to_float(s_b[tid][k]) * s_x[tid][k];
+        sum_a += ds4_half_to_float(s_a[tid][k]) * xk[k];
+        sum_b += ds4_half_to_float(s_b[tid][k]) * xk[k];
       }
       partial_a[tid] = sum_a;
       partial_b[tid] = sum_b;
@@ -64,7 +63,6 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
       if (c < 32 && k < 130) {
         s_a[c][k] = a[offset + i];
         s_b[c][k] = b[offset + i];
-        s_x[c][k] = x[i];
       }
     }
     __syncthreads();
@@ -73,10 +71,11 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
       unsigned start = tid * chunk;
       unsigned count = (cols > start) ? (cols - start) : 0;
       if (count > chunk) count = chunk;
+      const float *xk = x + start;
       float sum_a = 0.0f, sum_b = 0.0f;
       for (unsigned k = 0; k < count; k++) {
-        sum_a += ds4_half_to_float(s_a[tid][k]) * s_x[tid][k];
-        sum_b += ds4_half_to_float(s_b[tid][k]) * s_x[tid][k];
+        sum_a += ds4_half_to_float(s_a[tid][k]) * xk[k];
+        sum_b += ds4_half_to_float(s_b[tid][k]) * xk[k];
       }
       partial_a[tid] = sum_a;
       partial_b[tid] = sum_b;
