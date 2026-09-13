@@ -192,9 +192,27 @@ func (e *Exec) Update(g *Graph) error {
 	}
 	var result driver.GraphExecUpdateResultInfo
 	if err := e.withContext(func() error { return e.raw.Update(g.raw, &result) }); err != nil {
-		return fmt.Errorf("cudagraph: update graph (result=%v): %w", result.Result, err)
+		return fmt.Errorf("cudagraph: update graph (result=%v%s): %w", result.Result, updateErrorNodes(result), err)
 	}
 	return nil
+}
+
+// updateErrorNodes formats the nodes a failed update blamed, for appending to
+// the error. The driver leaves them zero when the failure is not a node's, as a
+// topology change is not, so they are named only when it set them.
+//
+// The handles are printed because they are matchable: [Node.Raw] returns the
+// same value, so a caller can tell which of the nodes it added was rejected.
+func updateErrorNodes(info driver.GraphExecUpdateResultInfo) string {
+	switch {
+	case info.ErrorNode == 0 && info.ErrorFromNode == 0:
+		return ""
+	case info.ErrorFromNode == 0:
+		return fmt.Sprintf(", node=%#x", uintptr(info.ErrorNode))
+	case info.ErrorNode == 0:
+		return fmt.Sprintf(", from node=%#x", uintptr(info.ErrorFromNode))
+	}
+	return fmt.Sprintf(", node=%#x, from node=%#x", uintptr(info.ErrorNode), uintptr(info.ErrorFromNode))
 }
 
 // Destroy destroys the executable graph.
