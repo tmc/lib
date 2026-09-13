@@ -2,6 +2,7 @@ package cudapipeline
 
 import (
 	"fmt"
+	"strings"
 )
 
 // TMABox specifies the tile geometry and element layout for a 2D Tensor Memory
@@ -193,4 +194,86 @@ func (p *Pipeline) TotalSharedBytes() int {
 		}
 	}
 	return maxOffset
+}
+
+// Violation kinds identified during static pipeline analysis.
+const (
+	ErrUninitializedBarrier = "uninitialized barrier"
+	ErrDuplicateInit        = "duplicate barrier initialization"
+	ErrInvalidatedBarrier   = "barrier invalidated"
+	ErrMissingArrive        = "missing barrier arrive"
+	ErrMismatchedTxBytes    = "mismatched transaction byte count"
+	ErrUnexpectedTx         = "unexpected transaction without expect_tx"
+	ErrPhaseParity          = "phase parity mismatch"
+	ErrInvalidParity        = "invalid parity value"
+)
+
+// ValidationError records a static pipeline or mbarrier protocol violation.
+type ValidationError struct {
+	Line      int    // 1-based source line of the instruction
+	Opcode    string // instruction opcode token (e.g. "mbarrier.arrive.expect_tx")
+	Violation string // category of protocol violation
+	Barrier   string // barrier operand or symbol, if applicable
+	Phase     int    // pipeline or barrier phase index
+	Expected  int64  // expected quantity (bytes, parity, arrival count), if applicable
+	Actual    int64  // observed quantity, if applicable
+	Message   string // human-readable explanation of the violation
+}
+
+func (e ValidationError) Error() string {
+	var b strings.Builder
+	if e.Line > 0 {
+		fmt.Fprintf(&b, "line %d: ", e.Line)
+	}
+	if e.Opcode != "" {
+		fmt.Fprintf(&b, "%s: ", e.Opcode)
+	}
+	if e.Barrier != "" {
+		fmt.Fprintf(&b, "barrier %q: ", e.Barrier)
+	}
+	b.WriteString(e.Violation)
+	if e.Message != "" {
+		fmt.Fprintf(&b, ": %s", e.Message)
+	}
+	return b.String()
+}
+
+// EventKind identifies an mbarrier lifecycle event during static analysis.
+type EventKind string
+
+const (
+	EventInit     EventKind = "init"
+	EventInval    EventKind = "inval"
+	EventExpectTx EventKind = "expect_tx"
+	EventArrive   EventKind = "arrive"
+	EventCopy     EventKind = "copy"
+	EventWait     EventKind = "wait"
+)
+
+// BarrierEvent records an operation applied to an mbarrier during static analysis.
+type BarrierEvent struct {
+	Line   int       // instruction line number
+	Opcode string    // instruction opcode
+	Kind   EventKind // event kind
+	Phase  int       // barrier phase at time of event
+	Bytes  int64     // bytes expected or completed, if applicable
+	Count  int       // thread arrival count, if applicable
+	Parity int       // parity value, if applicable
+}
+
+// Option configures a BarrierTracker.
+type Option func(*BarrierTracker)
+
+// WithTensorSize associates a tensor-map parameter or register name with a known transfer byte size.
+func WithTensorSize(tensorMap string, bytes int64) Option {
+	return func(t *BarrierTracker) {
+		t.SetTensorSize(tensorMap, bytes)
+	}
+}
+
+// WithBarrierArrivalCount sets the expected arrival count for a barrier if not literal in PTX.
+func WithBarrierArrivalCount(barrier string, count int) Option {
+	return func(t *BarrierTracker) {
+		t.barrierArrivals[barrier] = count
+	}
 }

@@ -25,7 +25,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudamlx](cudamlx/) | Package cudamlx is an experimental, minimal Go conversion of the host-side runtime of MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and nvrtc bindings. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
-| [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier (mbarrier) analysis for asynchronous memory pipelines targeting Hopper and Blackwell GPUs. |
+| [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
