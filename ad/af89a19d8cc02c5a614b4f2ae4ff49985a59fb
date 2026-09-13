@@ -1,0 +1,7 @@
+commit: $(git rev-parse HEAD)
+date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+session_id: w4t0p20:9980FF84-BD51-4FCA-85B8-3DDBFC0B3EE9
+agent: Antigravity
+model: gemini
+tty: not a tty
+pid: 78747
