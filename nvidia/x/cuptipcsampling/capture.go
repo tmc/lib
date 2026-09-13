@@ -75,6 +75,15 @@ type Config struct {
 	// MaxNames >= 2*PCsPerBuffer, since each drain reserves both buffers. A
 	// session that then exhausts MaxNames fails its next Read visibly; it
 	// never drops a name silently.
+	//
+	// That minimum leaves no room to accumulate anything, and it is the one
+	// accepted value that cannot: a read reserves 2*PCsPerBuffer of configured
+	// capacity whatever it receives, so at MaxNames == 2*PCsPerBuffer the first
+	// read that retains a name leaves the next one unable to reserve. Size it as
+	// 2*PCsPerBuffer plus the distinct functions expected, where the headroom is
+	// what grows. The growth term is functions, not PCs or reads: CUPTI returns
+	// one stable pointer per function, and on a GB10 a headroom of 10 held 649
+	// distinct PCs across 2578 PC records over several reads.
 	MaxNames, MaxNameBytes, MaxTotalNameBytes int
 }
 
