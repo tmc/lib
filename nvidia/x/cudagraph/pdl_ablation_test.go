@@ -478,6 +478,13 @@ func TestPDLAblationRun(t *testing.T) {
 		return (cp[n/2-1] + cp[n/2]) / 2.0
 	}
 
+	abs := func(v float64) float64 {
+		if v < 0 {
+			return -v
+		}
+		return v
+	}
+
 	mNull1 := median(evalData["NULL_1"])
 	mNull2 := median(evalData["NULL_2"])
 	mPDL := median(evalData["PDL"])
@@ -486,11 +493,47 @@ func TestPDLAblationRun(t *testing.T) {
 	nullDiff := mNull2 - mNull1
 	pdlDiff := mNOPDL - mPDL
 
-	t.Logf("Evaluated Iterations: %d (warmup %d discarded)", totalIters-warmupIters, warmupIters)
+	nEval := totalIters - warmupIters
+	nullS1Faster, nullS2Faster, nullTies := 0, 0, 0
+	pdlFaster, nopdlFaster, pdlTies := 0, 0, 0
+	for i := 0; i < nEval; i++ {
+		nd := evalData["NULL_2"][i] - evalData["NULL_1"][i]
+		if nd > 0 {
+			nullS1Faster++
+		} else if nd < 0 {
+			nullS2Faster++
+		} else {
+			nullTies++
+		}
+
+		pd := evalData["NOPDL"][i] - evalData["PDL"][i]
+		if pd > 0 {
+			pdlFaster++
+		} else if pd < 0 {
+			nopdlFaster++
+		} else {
+			pdlTies++
+		}
+	}
+
+	t.Logf("Evaluated Iterations: %d (warmup %d discarded)", nEval, warmupIters)
 	t.Logf("NULL_1 Median: %.1f ns (%.2f us)", mNull1, mNull1/1000)
 	t.Logf("NULL_2 Median: %.1f ns (%.2f us)", mNull2, mNull2/1000)
 	t.Logf("Null Drift: %.1f - %.1f = %+.1f ns (%+.3f us)", mNull2, mNull1, nullDiff, nullDiff/1000)
+	t.Logf("Null Sign Test: Slot1<Slot2 %d/%d (%.1f%%), Slot2<Slot1 %d/%d (%.1f%%), Ties %d",
+		nullS1Faster, nEval, float64(nullS1Faster)/float64(nEval)*100,
+		nullS2Faster, nEval, float64(nullS2Faster)/float64(nEval)*100,
+		nullTies)
 	t.Logf("PDL    Median: %.1f ns (%.2f us)", mPDL, mPDL/1000)
 	t.Logf("NOPDL  Median: %.1f ns (%.2f us)", mNOPDL, mNOPDL/1000)
-	t.Logf("PDL Effect: %.1f - %.1f = %+.1f ns (%+.3f us)", mNOPDL, mPDL, pdlDiff, pdlDiff/1000)
+	t.Logf("PDL Sign Test:  PDL<NOPDL   %d/%d (%.1f%%), NOPDL<PDL   %d/%d (%.1f%%), Ties %d",
+		pdlFaster, nEval, float64(pdlFaster)/float64(nEval)*100,
+		nopdlFaster, nEval, float64(nopdlFaster)/float64(nEval)*100,
+		pdlTies)
+
+	if abs(nullDiff) >= abs(pdlDiff) {
+		t.Logf("VERDICT: NO ATTRIBUTABLE EFFECT (null drift %.1f ns >= apparent effect %.1f ns)", abs(nullDiff), abs(pdlDiff))
+	} else {
+		t.Logf("PDL Effect: %.1f - %.1f = %+.1f ns (%+.3f us)", mNOPDL, mPDL, pdlDiff, pdlDiff/1000)
+	}
 }
