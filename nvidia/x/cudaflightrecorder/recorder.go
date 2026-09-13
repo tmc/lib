@@ -171,11 +171,6 @@ func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
 	return bracketNs + int64(elapsed)*clockDriftPPM/1e6
 }
 
-// UncertaintyAfterForTest exposes the pure aging calculation to external tests.
-func UncertaintyAfterForTest(bracketNs int64, elapsed time.Duration) int64 {
-	return uncertaintyAfter(bracketNs, elapsed)
-}
-
 // Stop halts flight recording.
 func (r *Recorder) Stop() {
 	r.mu.Lock()
@@ -314,6 +309,9 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	gpuProvider := r.gpuPprofProvider
 	perfettoProvider := r.perfettoProvider
 	cfg := r.cfg
+	calibrated := r.activityCalibrated
+	calibratedBracketNs := r.activityUncertaintyNs
+	calibratedAt := r.activityCalibratedAt
 	extraFiles := make(map[string][]byte, len(r.extraFiles))
 	for k, v := range r.extraFiles {
 		extraFiles[k] = v
@@ -380,8 +378,8 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	clockUncertaintyNs := int64(-1)
 	clockUncertaintySource := "unavailable"
 	switch {
-	case r.activityCalibrated:
-		clockUncertaintyNs = uncertaintyAfter(r.activityUncertaintyNs, now.Sub(r.activityCalibratedAt))
+	case calibrated:
+		clockUncertaintyNs = uncertaintyAfter(calibratedBracketNs, now.Sub(calibratedAt))
 		clockUncertaintySource = "measured"
 	case cfg.ClockUncertaintyNs > 0:
 		clockUncertaintyNs = cfg.ClockUncertaintyNs
