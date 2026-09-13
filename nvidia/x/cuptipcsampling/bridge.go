@@ -89,8 +89,14 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			if !isCompanion(name) {
 				totalSamples += count
 			}
-			if isSelected(name) {
-				selectedSamples += count
+			// The selected reason's own companion has to be recognised here
+			// too. classifyStall has no selected case for its recursion to
+			// land on, so a name that reaches it falls through to the
+			// unmapped tally under a reason this package does model.
+			if isSelected(strings.TrimSuffix(strings.ToLower(name), "_not_issued")) {
+				if !isCompanion(name) {
+					selectedSamples += count
+				}
 				continue
 			}
 			if !classifyStall(name, count, &vals) {
