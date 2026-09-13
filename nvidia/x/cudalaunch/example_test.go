@@ -50,3 +50,24 @@ func ExampleLauncher_Launch_optionalArgument() {
 		fmt.Println(err)
 	}
 }
+
+// ExampleLauncher_WithProgrammaticStreamSerialization demonstrates configuring
+// a kernel dispatch with Programmatic Dependent Launch (PDL) enabled. When
+// paired with PTX griddepcontrol.launch_dependents, dependent stream operations
+// can begin execution prior to full grid completion.
+func ExampleLauncher_WithProgrammaticStreamSerialization() {
+	var fn driver.Function
+	l := cudalaunch.Kernel(fn).
+		Grid(64).
+		Block(256).
+		WithProgrammaticStreamSerialization(true)
+
+	attrs := l.Attrs()
+	fmt.Printf("num attrs: %d\n", len(attrs))
+	fmt.Printf("attr[0] id: %v\n", attrs[0].Id)
+	fmt.Printf("attr[0] value: %d\n", attrs[0].Value[0])
+	// Output:
+	// num attrs: 1
+	// attr[0] id: LaunchAttributeProgrammaticStreamSerialization
+	// attr[0] value: 1
+}
