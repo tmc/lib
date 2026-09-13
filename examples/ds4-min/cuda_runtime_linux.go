@@ -740,7 +740,7 @@ func (r *cudaFoundation) encodeRouterBiased(logits cudamem.Slice[float32], bias 
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.routerBiasedFn).Grid(1).Block(1).On(r.stream()).Launch(
+		if err := cudalaunch.Kernel(r.routerBiasedFn).Grid(1).Block(256).On(r.stream()).Launch(
 			logits, bias.device, scores, selected, weights); err != nil {
 			return fmt.Errorf("cuda: launch router biased: %w", err)
 		}

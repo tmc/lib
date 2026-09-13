@@ -556,26 +556,72 @@ extern "C" __global__ void ds4_router_hash(
 // them by their unbiased scores, as the contract requires.
 extern "C" __global__ void ds4_router_biased(
     const float *logits, const float *bias, float *out, int *selected, float *weights) {
-  if (blockIdx.x != 0 || threadIdx.x != 0) return;
-  float selection[256];
-  for (unsigned int i = 0; i < 256; i++) {
-    const float x = logits[i];
-    out[i] = sqrtf(ds4_router_softplus(x));
-    selection[i] = out[i] + bias[i];
-  }
+  if (blockIdx.x != 0) return;
+  const unsigned int tid = threadIdx.x;
+  const unsigned int lane = tid & 31, warp_id = tid >> 5;
+
+  __shared__ float s_out[256];
+  __shared__ float warp_vals[8];
+  __shared__ int warp_idxs[8];
+  __shared__ int s_best_idx;
+
+  const float x = logits[tid];
+  const float s = sqrtf(ds4_router_softplus(x));
+  out[tid] = s;
+  s_out[tid] = s;
+  float val = s + bias[tid];
+  bool active = true;
+
   for (unsigned int k = 0; k < 6; k++) {
-    int best = -1;
-    for (unsigned int i = 0; i < 256; i++) {
-      bool used = false;
-      for (unsigned int j = 0; j < k; j++) used = used || selected[j] == (int)i;
-      if (!used && (best < 0 || selection[i] > selection[best])) best = (int)i;
+    float my_val = active ? val : -1e38f;
+    int my_idx = (int)tid;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride > 0; stride >>= 1) {
+      float o_val = __shfl_down_sync(0xffffffff, my_val, stride);
+      int o_idx = __shfl_down_sync(0xffffffff, my_idx, stride);
+      if (o_val > my_val || (o_val == my_val && o_idx < my_idx)) {
+        my_val = o_val;
+        my_idx = o_idx;
+      }
     }
-    selected[k] = best;
+    if (lane == 0) {
+      warp_vals[warp_id] = my_val;
+      warp_idxs[warp_id] = my_idx;
+    }
+    __syncthreads();
+
+    if (warp_id == 0) {
+      float w_val = (tid < 8) ? warp_vals[tid] : -1e38f;
+      int w_idx = (tid < 8) ? warp_idxs[tid] : 999;
+      #pragma unroll
+      for (unsigned int stride = 4; stride > 0; stride >>= 1) {
+        float o_val = __shfl_down_sync(0xff, w_val, stride);
+        int o_idx = __shfl_down_sync(0xff, w_idx, stride);
+        if (o_val > w_val || (o_val == w_val && o_idx < w_idx)) {
+          w_val = o_val;
+          w_idx = o_idx;
+        }
+      }
+      if (tid == 0) {
+        s_best_idx = w_idx;
+        selected[k] = w_idx;
+      }
+    }
+    __syncthreads();
+
+    if ((int)tid == s_best_idx) {
+      active = false;
+    }
+    __syncthreads();
   }
-  float sum = 0.0f;
-  for (unsigned int k = 0; k < 6; k++) sum += out[selected[k]];
-  sum = fmaxf(sum, 6.103515625e-5f);
-  for (unsigned int k = 0; k < 6; k++) weights[k] = out[selected[k]] / sum * 1.5f;
+
+  if (tid == 0) {
+    float sum = 0.0f;
+    for (unsigned int k = 0; k < 6; k++) sum += s_out[selected[k]];
+    sum = fmaxf(sum, 6.103515625e-5f);
+    for (unsigned int k = 0; k < 6; k++) weights[k] = s_out[selected[k]] / sum * 1.5f;
+  }
 }
 
 // ds4_swiglu applies the clamped SwiGLU activation. Slots take either one
