@@ -1219,11 +1219,16 @@ runs are instrumented; neither number below is an uninstrumented rate.
 | | C oracle | Go ds4-min | ratio |
 | --- | ---: | ---: | ---: |
 | prefill kernels | 3,472 | 4,117,514 | **1186x** |
-| prefill device time | 3,280.79 ms | 150,476.96 ms | **45.87x** |
+| prefill device time | 3,280.79 ms | 150,476.96 ms | 45.87x † |
 | prefill kernel envelope | 3,744.5 ms | 160,463.3 ms | 42.9x |
 | envelope occupancy | 87.6% | 93.8% | — |
 | decode kernels (2 tokens) | 3,536 | 4,480 | 1.27x |
 | decode device time | 99.8 ms | 160.2 ms | **1.60x** |
+
+† **This is one sample and it is not the ratio.** Two more C runs of this
+exact workload, with the identical 3472 launches, put it at 58.53x and 31.69x.
+Read *One C sample was not enough* below before using this row for anything.
+The decode row is stable across the samples; the prefill row is not.
 
 Read the row labels carefully. Device time is summed kernel duration; the
 envelope is first-kernel-start to last-kernel-end, which is neither the
@@ -1236,8 +1241,8 @@ summed kernel time is not an operation count.
 
 The 1186x launch ratio invites the conclusion that ds4-min is drowning in
 launch overhead. It is not: at 87.6% and 93.8% envelope occupancy there is no
-idle gap for the extra launches to hide in, and the summed kernel time differs
-by 45.87x on its own. Whatever is wrong is happening *inside* the kernels.
+idle gap for the extra launches to hide in, and the summed kernel time
+differs by tens of times on its own — 31.7x at the narrowest sample. Whatever is wrong is happening *inside* the kernels.
 
 The oracle's heaviest launches are small multiples of the 43 layers:
 
