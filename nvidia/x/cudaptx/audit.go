@@ -83,9 +83,46 @@ func (m *Module) Summary(kernelName string) (*OpcodeSummary, error) {
 	return k.Summary(), nil
 }
 
+// Fallback opcode forbid lists for [Module.AssertOpcodes].
+//
+// These lists capture legal-but-unoptimized fallback sequences that compiler
+// toolchains emit when they fail to lower to specialized hardware instructions.
+// Auditing against these lists ensures that silent performance regressions
+// fail the audit gate.
+var (
+	// ForbidSIMDFallbacks contains scalar integer arithmetic and bit extraction
+	// opcodes emitted when packed SIMD operations (such as dp4a or dp2a) fall back
+	// to scalar computation and lane unpacking.
+	ForbidSIMDFallbacks = []string{
+		"mul.lo",
+		"mul.wide",
+		"mad.lo",
+		"mad.wide",
+		"shr",
+		"bfe",
+		"shf",
+	}
+
+	// ForbidFMAFallbacks contains separate multiply and add opcodes emitted when
+	// fused multiply-add (fma) falls back to unfused arithmetic.
+	ForbidFMAFallbacks = []string{
+		"mul",
+		"add",
+	}
+
+	// ForbidWarpShuffleFallbacks contains shared memory opcodes emitted when
+	// warp register shuffles (shfl.sync) fall back to shared memory staging.
+	ForbidWarpShuffleFallbacks = []string{
+		"ld.shared",
+		"st.shared",
+	}
+)
+
 // AssertOpcodes checks that all required opcodes are present and forbidden
 // opcodes are absent. Opcode matching is case-insensitive and prefix-aware
-// (e.g. "ld.global" matches "ld.global.v4.f32").
+// (e.g. "ld.global" matches "ld.global.v4.f32"). Common fallback forbid lists
+// like [ForbidSIMDFallbacks], [ForbidFMAFallbacks], and [ForbidWarpShuffleFallbacks]
+// can be passed to catch optimization regressions.
 func (m *Module) AssertOpcodes(kernelName string, require, forbid []string) error {
 	sum, err := m.Summary(kernelName)
 	if err != nil {
