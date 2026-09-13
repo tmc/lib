@@ -21,6 +21,24 @@ const testSASSFixture = `
 /* 0120 */   IMAD.WIDE R0, R5, R6, R0 ;
 /* 0130 */   IMAD.WIDE R1, R7, R8, R1 ;
 /* 0140 */   EXIT ;
+
+--- Kernel: ds4_iq2_scalar_unpack ---
+/* 0150 */   SHF.R.WRAP.B32 R5, R4, 0x8, R5 ;
+/* 0160 */   BFE.U32 R6, R4, 0x808 ;
+/* 0170 */   IMAD R0, R5, R6, R0 ;
+/* 0180 */   EXIT ;
+
+--- Kernel: fma_unfused_fallback ---
+/* 0200 */   FMUL R0, R1, R2 ;
+/* 0210 */   FADD R3, R0, R4 ;
+/* 0220 */   DMUL R6, R7, R8 ;
+/* 0230 */   DADD R10, R6, R9 ;
+/* 0240 */   EXIT ;
+
+--- Kernel: shuffle_shared_fallback ---
+/* 0300 */   STS.128 [R0], R4 ;
+/* 0310 */   LDS.128 R8, [R0] ;
+/* 0320 */   EXIT ;
 `
 
 func TestSummary(t *testing.T) {
@@ -62,6 +80,42 @@ func TestSummary(t *testing.T) {
 				"IMAD.WIDE": 2,
 				"SHR.B64":   1,
 				"IDP4A":     0,
+			},
+		},
+		{
+			name:      "scalar_unpack_kernel",
+			kernel:    "ds4_iq2_scalar_unpack",
+			wantTotal: 4,
+			wantPred:  0,
+			wantCounts: map[string]int{
+				"SHF":  1,
+				"BFE":  1,
+				"IMAD": 1,
+				"EXIT": 1,
+			},
+		},
+		{
+			name:      "fma_unfused_kernel",
+			kernel:    "fma_unfused_fallback",
+			wantTotal: 5,
+			wantPred:  0,
+			wantCounts: map[string]int{
+				"FMUL": 1,
+				"FADD": 1,
+				"DMUL": 1,
+				"DADD": 1,
+				"EXIT": 1,
+			},
+		},
+		{
+			name:      "shuffle_shared_kernel",
+			kernel:    "shuffle_shared_fallback",
+			wantTotal: 3,
+			wantPred:  0,
+			wantCounts: map[string]int{
+				"STS":  1,
+				"LDS":  1,
+				"EXIT": 1,
 			},
 		},
 		{
@@ -145,6 +199,111 @@ func TestAssertOpcodes(t *testing.T) {
 			require: []string{"IMAD.WIDE"},
 			forbid:  []string{"IDP4A"},
 			wantErr: false,
+		},
+		{
+			name:      "scalar_fails_forbidden_imad",
+			kernel:    "ds4_iq2_scalar",
+			forbid:    []string{"IMAD"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "IMAD" (count 2)`,
+		},
+		{
+			name:      "scalar_fails_forbidden_imad_wide",
+			kernel:    "ds4_iq2_scalar",
+			forbid:    []string{"IMAD.WIDE"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "IMAD.WIDE" (count 2)`,
+		},
+		{
+			name:      "scalar_fails_forbidden_shr",
+			kernel:    "ds4_iq2_scalar",
+			forbid:    []string{"SHR"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "SHR" (count 1)`,
+		},
+		{
+			name:      "scalar_fails_forbidden_shf",
+			kernel:    "ds4_iq2_scalar_unpack",
+			forbid:    []string{"SHF"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "SHF" (count 1)`,
+		},
+		{
+			name:      "scalar_fails_forbidden_bfe",
+			kernel:    "ds4_iq2_scalar_unpack",
+			forbid:    []string{"BFE"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "BFE" (count 1)`,
+		},
+		{
+			name:      "scalar_fails_forbid_simd_fallbacks_slice",
+			kernel:    "ds4_iq2_scalar",
+			forbid:    cudasass.ForbidSIMDFallbacks,
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "IMAD" (count 2)`,
+		},
+		{
+			name:    "simd_passes_forbid_simd_fallbacks_slice",
+			kernel:  "ds4_iq2_simd",
+			require: []string{"IDP4A"},
+			forbid:  cudasass.ForbidSIMDFallbacks,
+			wantErr: false,
+		},
+		{
+			name:      "fma_unfused_fails_forbidden_fmul",
+			kernel:    "fma_unfused_fallback",
+			forbid:    []string{"FMUL"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "FMUL" (count 1)`,
+		},
+		{
+			name:      "fma_unfused_fails_forbidden_fadd",
+			kernel:    "fma_unfused_fallback",
+			forbid:    []string{"FADD"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "FADD" (count 1)`,
+		},
+		{
+			name:      "fma_unfused_fails_forbidden_dmul",
+			kernel:    "fma_unfused_fallback",
+			forbid:    []string{"DMUL"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "DMUL" (count 1)`,
+		},
+		{
+			name:      "fma_unfused_fails_forbidden_dadd",
+			kernel:    "fma_unfused_fallback",
+			forbid:    []string{"DADD"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "DADD" (count 1)`,
+		},
+		{
+			name:      "fma_unfused_fails_forbid_fma_fallbacks_slice",
+			kernel:    "fma_unfused_fallback",
+			forbid:    cudasass.ForbidFMAFallbacks,
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "FMUL" (count 1)`,
+		},
+		{
+			name:      "shuffle_shared_fails_forbidden_lds",
+			kernel:    "shuffle_shared_fallback",
+			forbid:    []string{"LDS"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "LDS" (count 1)`,
+		},
+		{
+			name:      "shuffle_shared_fails_forbidden_sts",
+			kernel:    "shuffle_shared_fallback",
+			forbid:    []string{"STS"},
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "STS" (count 1)`,
+		},
+		{
+			name:      "shuffle_shared_fails_forbid_warp_shuffle_fallbacks_slice",
+			kernel:    "shuffle_shared_fallback",
+			forbid:    cudasass.ForbidWarpShuffleFallbacks,
+			wantErr:   true,
+			errSubstr: `contains forbidden opcode "LDS" (count 1)`,
 		},
 		{
 			name:      "kernel_not_found",

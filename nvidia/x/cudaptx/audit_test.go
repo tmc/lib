@@ -137,6 +137,18 @@ func TestAssertOpcodes(t *testing.T) {
 		forbid:  []string{"call"},
 		wantErr: `contains forbidden opcode "call" (count 1)`,
 	}, {
+		name:    "ScalarLoadForbiddenOnScalarKernel",
+		file:    "lexer.sm90.ptx",
+		kernel:  "guarded",
+		forbid:  []string{"ld.global.f32"},
+		wantErr: `contains forbidden opcode "ld.global.f32" (count 1)`,
+	}, {
+		name:    "UnfusedAddForbiddenOnVectorKernel",
+		file:    "vector.sm90.ptx",
+		kernel:  "vec4",
+		forbid:  []string{"add.f32"},
+		wantErr: `contains forbidden opcode "add.f32" (count 4)`,
+	}, {
 		name:    "UnknownKernel",
 		file:    "vector.sm90.ptx",
 		kernel:  "nosuchkernel",
@@ -146,6 +158,164 @@ func TestAssertOpcodes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := parseFixture(t, tt.file)
+			err := m.AssertOpcodes(tt.kernel, tt.require, tt.forbid)
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Errorf("AssertOpcodes() = %v, want nil", err)
+			case tt.wantErr != "" && err == nil:
+				t.Errorf("AssertOpcodes() = nil, want error containing %q", tt.wantErr)
+			case tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr):
+				t.Errorf("AssertOpcodes() = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAssertOpcodesForbidFallbacks(t *testing.T) {
+	const ptxText = `.version 8.0
+.target sm_90
+.address_size 64
+
+.visible .entry simd_kernel() {
+	dp4a.s32.s32 %r1, %r2, %r3, %r4;
+	ret;
+}
+
+.visible .entry simd_scalar_fallback() {
+	shr.u32        %r5, %r4, 8;
+	bfe.u32        %r6, %r4, 8, 8;
+	shf.l.wrap.b32 %r7, %r2, %r3, 16;
+	mul.lo.s32     %r8, %r5, %r6;
+	mul.wide.s32   %rd1, %r5, %r6;
+	mad.lo.s32     %r9, %r5, %r6, %r8;
+	mad.wide.s32   %rd2, %r5, %r6, %rd1;
+	ret;
+}
+
+.visible .entry fma_unfused_fallback() {
+	mul.f32 %f3, %f1, %f2;
+	add.f32 %f4, %f3, %f0;
+	ret;
+}
+
+.visible .entry shuffle_shared_fallback() {
+	st.shared.u32 [%r1], %r2;
+	ld.shared.u32 %r3, [%r1];
+	ret;
+}
+`
+	m, err := cudaptx.ParseString(ptxText)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		kernel  string
+		require []string
+		forbid  []string
+		wantErr string
+	}{
+		// SIMD scalar fallbacks:
+		{
+			name:    "simd_passes_forbidden_fallbacks_slice",
+			kernel:  "simd_kernel",
+			require: []string{"dp4a"},
+			forbid:  cudaptx.ForbidSIMDFallbacks,
+			wantErr: "",
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_mul_lo",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"mul.lo"},
+			wantErr: `contains forbidden opcode "mul.lo" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_mul_wide",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"mul.wide"},
+			wantErr: `contains forbidden opcode "mul.wide" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_mad_lo",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"mad.lo"},
+			wantErr: `contains forbidden opcode "mad.lo" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_mad_wide",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"mad.wide"},
+			wantErr: `contains forbidden opcode "mad.wide" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_shr",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"shr"},
+			wantErr: `contains forbidden opcode "shr" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_bfe",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"bfe"},
+			wantErr: `contains forbidden opcode "bfe" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_shf",
+			kernel:  "simd_scalar_fallback",
+			forbid:  []string{"shf"},
+			wantErr: `contains forbidden opcode "shf" (count 1)`,
+		},
+		{
+			name:    "simd_fallback_fails_forbidden_simd_fallbacks_slice",
+			kernel:  "simd_scalar_fallback",
+			forbid:  cudaptx.ForbidSIMDFallbacks,
+			wantErr: `contains forbidden opcode "mul.lo" (count 1)`,
+		},
+
+		// FMA unfused arithmetic fallbacks:
+		{
+			name:    "fma_unfused_fails_forbidden_mul",
+			kernel:  "fma_unfused_fallback",
+			forbid:  []string{"mul"},
+			wantErr: `contains forbidden opcode "mul" (count 1)`,
+		},
+		{
+			name:    "fma_unfused_fails_forbidden_add",
+			kernel:  "fma_unfused_fallback",
+			forbid:  []string{"add"},
+			wantErr: `contains forbidden opcode "add" (count 1)`,
+		},
+		{
+			name:    "fma_unfused_fails_forbidden_fma_fallbacks_slice",
+			kernel:  "fma_unfused_fallback",
+			forbid:  cudaptx.ForbidFMAFallbacks,
+			wantErr: `contains forbidden opcode "mul" (count 1)`,
+		},
+
+		// Warp shuffle shared memory fallbacks:
+		{
+			name:    "shuffle_shared_fails_forbidden_ld_shared",
+			kernel:  "shuffle_shared_fallback",
+			forbid:  []string{"ld.shared"},
+			wantErr: `contains forbidden opcode "ld.shared" (count 1)`,
+		},
+		{
+			name:    "shuffle_shared_fails_forbidden_st_shared",
+			kernel:  "shuffle_shared_fallback",
+			forbid:  []string{"st.shared"},
+			wantErr: `contains forbidden opcode "st.shared" (count 1)`,
+		},
+		{
+			name:    "shuffle_shared_fails_forbidden_warp_shuffle_fallbacks_slice",
+			kernel:  "shuffle_shared_fallback",
+			forbid:  cudaptx.ForbidWarpShuffleFallbacks,
+			wantErr: `contains forbidden opcode "ld.shared" (count 1)`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			err := m.AssertOpcodes(tt.kernel, tt.require, tt.forbid)
 			switch {
 			case tt.wantErr == "" && err != nil:
