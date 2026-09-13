@@ -1558,3 +1558,107 @@ own front mark.
 The spans are host-only by design and open no NVTX range: at this
 granularity that would add about 715,000 ranges to a capture that carries
 11,356, which changes the thing being measured.
+
+## Where decode time is, and what it is running, DGX spark-31db, 2026-09-13
+
+Three questions the PC sampling capture can answer without a second tool:
+which kernels hold decode, where in Go each one is launched, and which
+hardware units the compiled code actually touches. All three are measured
+here, and each one has a population that has to be named or the number is
+ambiguous.
+
+### Six kernels hold 97% of decode
+
+Shares below are over **ds4's own kernels only** — the population the
+ledger's `ds4` column describes, not the CUDA context, which also runs
+cuBLAS, cublasLt and CUTLASS. Three warm captures, each `go test -count=1`,
+period exponent 16, 4 decode steps:
+
+| kernel | r1 | r2 | r3 | range |
+| --- | ---: | ---: | ---: | ---: |
+| `ds4_q8_0_matvec_q8_1` | 29.66% | 29.93% | 30.04% | 0.37pp |
+| `ds4_q8_0_matvec_quantized` | 18.72% | 18.69% | 18.80% | 0.11pp |
+| `ds4_f16_pair_ordered_chunks` | 15.67% | 15.39% | 15.32% | 0.35pp |
+| `ds4_q8_0_matvec_quantized_blockdiag` | 13.97% | 13.80% | 13.93% | 0.17pp |
+| `ds4_iq2_xxs_pair_selected_q8_1` | 11.75% | 11.65% | 11.60% | 0.15pp |
+| `ds4_q2_k_selected_q8_1` | 7.19% | 7.40% | 7.33% | 0.20pp |
+| **six-kernel total** | **96.97%** | **96.87%** | **97.01%** | **0.15pp** |
+
+Denominators 479,135 / 477,371 / 475,075 samples over 27–28 distinct ds4
+kernels. Every share is stable to under half a point, so the six-kernel
+focus is not an artifact of one draw.
+
+**Three runs on one arm is a spread, not a rate.** It licenses "these six
+kernels, in this order, on this host, at this context length". It says
+nothing about other context lengths, and nothing about the C oracle.
+
+### One Go launch site per hot kernel
+
+Cardinality is the property worth asserting, and it is asserted rather than
+declared: `TestCUDALaunchSiteCardinality`
+(`examples/ds4-min/cuda_launch_sites_linux_test.go:33`) parses every
+`*_linux.go` with `go/parser`, binds kernel names to struct fields from the
+`cudaKernels` composite literal, and counts `cudalaunch.Kernel` call sites.
+It resolves **49 kernels bound to fields** and **54 launch sites across 14
+files**, and fails if any hot kernel resolves to other than exactly one:
+
+| kernel | launch site |
+| --- | --- |
+| `ds4_q8_0_matvec_q8_1` | `cuda_q81_linux.go:156` |
+| `ds4_q8_0_matvec_quantized` | `cuda_q80_linux.go:126` |
+| `ds4_q8_0_matvec_quantized_blockdiag` | `cuda_q80_linux.go:152` |
+| `ds4_f16_pair_ordered_chunks` | `cuda_f16_default_linux.go:94` |
+| `ds4_iq2_xxs_pair_selected_q8_1` | `cuda_experts_q81_linux.go:241` |
+| `ds4_q2_k_selected_q8_1` | `cuda_experts_q81_linux.go:262` |
+
+The local-variable resolution deliberately **over-approximates**: a local
+assigned from a kernel field is attributed to every field that flows into
+it, ignoring branches. It can therefore report more sites than exist, never
+fewer, so a cardinality of 1 is a real bound. An unresolved site is a test
+failure, not a logged caveat.
+
+**This is why a per-kernel host stack adds nothing here.** `HostFrames` is
+keyed on `CodeLocation`, a code address carrying no launch identity, so it
+can attach at most one stack per kernel — and with one launch site per hot
+kernel that stack is constant by construction. The table above is the
+deliverable; a stack column would be a column of one repeated value dressed
+as attribution.
+
+### The compiled code touches no texture unit
+
+`cudaMathSource` (`cuda_runtime_linux.go:25`) is a concatenation of nine Go
+string constants — **`ds4_math.cu` is not a file** — compiled by
+`loadMathKernels` (`cuda_runtime_linux.go:845`) through NVRTC. Compiling it
+for `sm_121` with the production flags and disassembling the cubin:
+
+```
+source 83,695 bytes -> cubin 2,305,264 bytes -> ptx 1,314,425 bytes -> sass 2,746,389 bytes
+41,984 instructions, 80 distinct base opcodes, 191 distinct full mnemonics
+TEX TLD TLD4 TXD TXQ TMML SULD SUST SURED SUATOM — all zero
+LDG family 3,516 (8.37% of instructions)
+```
+
+Quote the definition with the count: **80** is distinct base opcodes,
+**191** is distinct opcode-plus-modifier spellings. They are both counts of
+the same disassembly and neither is wrong, but a bare "191 opcodes" invites
+the reader to compare it against a base-opcode figure.
+
+The zeros matter because stall reasons are named after hardware units. A
+reason spelled `tex_throttle` cannot be reporting texture pressure in code
+that contains no texture instruction, so a nonzero `tex_throttle` share is
+evidence about the *label*, not about ds4. Note the bound precisely: this
+refutes the literal reading of the name. It does not choose between a
+mislabelled counter and a unit genuinely shared with another pipe, and it
+says nothing about kernels outside this cubin.
+
+### Regenerating these
+
+The launch-site table is a test — run it. The census is not committed; it
+was a throwaway in-package test calling `nvrtcx.Compile(cudaMathSource, …)`
+with `--gpu-architecture=sm_121 --generate-line-info`, then
+`cudasass.Disassembler` with `PrintCode: true`, counting the first field
+after each `/*offset*/` comment. None of it needs a GPU or the model: NVRTC
+and `nvdisasm` are compilers. That matters more than it sounds — when the
+GB10's PC sampling unit is claimed and every capture returns
+`CUPTI_ERROR_HARDWARE_BUSY`, this section is still reproducible and the
+sampling-based one is not.
