@@ -58,16 +58,19 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	var violations []ValidationError
 
 	for _, inst := range k.Instructions {
-		errs := t.processInstruction(inst)
+		errs := t.ProcessInstruction(&inst)
 		violations = append(violations, errs...)
 	}
 
 	return violations, nil
 }
 
-func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []ValidationError {
+func (t *BarrierTracker) ProcessInstruction(inst *cudaptx.Instruction) []ValidationError {
+	if inst == nil {
+		return nil
+	}
 	var violations []ValidationError
-	operands := splitOperands(inst.Operands)
+	operands := cudaptx.SplitOperands(inst.Operands)
 
 	// Register tracking
 	if strings.HasPrefix(inst.Opcode, "mov.") && len(operands) >= 2 {
@@ -683,55 +686,4 @@ func extractTensorMap(op string) string {
 		op = op[:i]
 	}
 	return strings.TrimSpace(op)
-}
-
-func splitOperands(s string) []string {
-	var ops []string
-	var cur strings.Builder
-	depthSquare := 0
-	depthCurly := 0
-	depthParen := 0
-	for _, r := range s {
-		switch r {
-		case '[':
-			depthSquare++
-			cur.WriteRune(r)
-		case ']':
-			if depthSquare > 0 {
-				depthSquare--
-			}
-			cur.WriteRune(r)
-		case '{':
-			depthCurly++
-			cur.WriteRune(r)
-		case '}':
-			if depthCurly > 0 {
-				depthCurly--
-			}
-			cur.WriteRune(r)
-		case '(':
-			depthParen++
-			cur.WriteRune(r)
-		case ')':
-			if depthParen > 0 {
-				depthParen--
-			}
-			cur.WriteRune(r)
-		case ',':
-			if depthSquare == 0 && depthCurly == 0 && depthParen == 0 {
-				ops = append(ops, strings.TrimSpace(cur.String()))
-				cur.Reset()
-				continue
-			}
-			cur.WriteRune(r)
-		default:
-			cur.WriteRune(r)
-		}
-	}
-	if cur.Len() > 0 {
-		if trimmed := strings.TrimSpace(cur.String()); trimmed != "" {
-			ops = append(ops, trimmed)
-		}
-	}
-	return ops
 }
