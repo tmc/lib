@@ -145,3 +145,71 @@ func TestHTTPHandler(t *testing.T) {
 		t.Errorf("Reason = %q, want manual_dump", bundle.Manifest.Reason)
 	}
 }
+
+func TestCompleteBundleStreaming(t *testing.T) {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:         2 * time.Second,
+		Capacity:       50,
+		GoTraceEnabled: true,
+		RecordGPUPprof: true,
+		RecordPerfetto: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Stop()
+
+	rec.SetGoTraceProvider(func(ctx context.Context) ([]byte, error) {
+		return []byte("fake_v2_trace_payload"), nil
+	})
+	rec.SetGPUPprofProvider(func(ctx context.Context) ([]byte, error) {
+		return []byte("\x1f\x8b\x08fake_gpu_pprof_gzip"), nil
+	})
+	rec.SetPerfettoProvider(func(ctx context.Context) ([]byte, error) {
+		return []byte("fake_pftrace_timeline_protobuf"), nil
+	})
+	rec.AttachFile("kernels.ptx", []byte(".version 9.4\n.target sm_100\n"))
+
+	// Register on ServeMux at default /debug/flightrecorder
+	mux := http.NewServeMux()
+	rec.Register(mux)
+
+	req := httptest.NewRequest(http.MethodPost, cudaflightrecorder.DefaultEndpoint+"?reason=oom_watchdog", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("HTTP status = %d, want 200", w.Code)
+	}
+
+	bundle, err := cudaflightrecorder.ReadBundle(w.Body)
+	if err != nil {
+		t.Fatalf("ReadBundle failed: %v", err)
+	}
+
+	if bundle.Manifest.Reason != "oom_watchdog" {
+		t.Errorf("Reason = %q, want oom_watchdog", bundle.Manifest.Reason)
+	}
+
+	// Verify all 4 primary multimodal files exist in the TAR archive:
+	// manifest.json, go.trace, gpu.pprof, timeline.pftrace
+	requiredFiles := []string{"go.trace", "gpu.pprof", "timeline.pftrace", "kernels.ptx", "gpu_records.txt"}
+	for _, name := range requiredFiles {
+		if _, ok := bundle.Files[name]; !ok {
+			t.Errorf("expected %q in streamed bundle archive", name)
+		}
+	}
+
+	if string(bundle.Files["go.trace"]) != "fake_v2_trace_payload" {
+		t.Errorf("go.trace content mismatch")
+	}
+	if string(bundle.Files["gpu.pprof"]) != "\x1f\x8b\x08fake_gpu_pprof_gzip" {
+		t.Errorf("gpu.pprof content mismatch")
+	}
+	if string(bundle.Files["timeline.pftrace"]) != "fake_pftrace_timeline_protobuf" {
+		t.Errorf("timeline.pftrace content mismatch")
+	}
+}
