@@ -30,6 +30,7 @@ type inspectReport struct {
 	TileIR        *inspectTileIRSummary          `json:"tileir,omitempty"`
 	Remarks       *inspectRemarksSummary         `json:"remarks,omitempty"`
 	PTX           *inspectPTXSummary             `json:"ptx,omitempty"`
+	Advice        *AdviceReport                  `json:"advice,omitempty"`
 }
 
 type inspectPTXSummary struct {
@@ -114,8 +115,11 @@ func runInspectCommand(args []string) error {
 	if len(args) >= 1 && args[0] == "--pressure" {
 		return runInspectPressure(args, limits)
 	}
+	if len(args) >= 1 && args[0] == "--advise" {
+		return runInspectAdvise(args, limits)
+	}
 	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir" && args[0] != "--ptx") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure [kernel] capture.pprof")
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure|--advise [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(args[1])
 	if err != nil {
@@ -412,3 +416,23 @@ func runInspectPressure(args []string, limits cudacapture.Limits) error {
 	}
 	return printCapturePressure(os.Stdout, cap, kernel)
 }
+
+func runInspectAdvise(args []string, limits cudacapture.Limits) error {
+	if len(args) != 2 {
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --advise capture.pprof")
+	}
+	path, err := filepath.Abs(args[1])
+	if err != nil {
+		return err
+	}
+	cap, err := readCapturePathLimits(path, limits)
+	if err != nil {
+		return fmt.Errorf("read capture: %w", err)
+	}
+	adv, err := AnalyzeCapture(cap)
+	if err != nil {
+		return fmt.Errorf("analyze capture: %w", err)
+	}
+	return json.NewEncoder(os.Stdout).Encode(adv)
+}
+
