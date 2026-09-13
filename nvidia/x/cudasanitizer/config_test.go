@@ -129,7 +129,7 @@ func TestArgsOrder(t *testing.T) {
 		"--log-file", "/tmp/report.log",
 		"--require-cuda-init", "yes",
 		"--leak-check", "no",
-		"--track-unused-memory", "yes",
+		"--track-unused-memory",
 		"--target-processes", "all",
 		"--print-limit", "7",
 		"--launch-timeout", "90",
@@ -156,6 +156,41 @@ func TestArgsToggleDefaultEmitsNothing(t *testing.T) {
 		if indexOf(args, unwanted) >= 0 {
 			t.Errorf("Args() = %q, want no %s when it was not configured", args, unwanted)
 		}
+	}
+}
+
+// TestArgsBareFlags checks the options compute-sanitizer spells without an
+// argument. Passing one is a hard error ("extra yes detected on the input
+// command line"), so ToggleYes must emit the option alone and ToggleNo must
+// emit nothing rather than an "off" spelling the tool does not accept.
+func TestArgsBareFlags(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		cfg  Config
+		flag string
+		want bool
+	}{
+		{"kill yes", Config{Tool: Memcheck, MissingTool: MissingToolFail, Kill: ToggleYes}, "--kill", true},
+		{"kill no", Config{Tool: Memcheck, MissingTool: MissingToolFail, Kill: ToggleNo}, "--kill", false},
+		{"track-unused-memory yes", Config{Tool: Initcheck, MissingTool: MissingToolFail, TrackUnusedMemory: ToggleYes}, "--track-unused-memory", true},
+		{"track-unused-memory no", Config{Tool: Initcheck, MissingTool: MissingToolFail, TrackUnusedMemory: ToggleNo}, "--track-unused-memory", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			args, err := tt.cfg.Args("", "/bin/app")
+			if err != nil {
+				t.Fatalf("Args: %v", err)
+			}
+			i := indexOf(args, tt.flag)
+			if (i >= 0) != tt.want {
+				t.Fatalf("Args() = %q, want %s present=%v", args, tt.flag, tt.want)
+			}
+			if i < 0 {
+				return
+			}
+			if next := i + 1; next < len(args) && !strings.HasPrefix(args[next], "-") {
+				t.Fatalf("Args() = %q, want %s with no argument, got %q after it", args, tt.flag, args[next])
+			}
+		})
 	}
 }
 
