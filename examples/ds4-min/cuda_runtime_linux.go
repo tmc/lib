@@ -668,6 +668,7 @@ type cudaFoundation struct {
 	probePtr                driver.DevicePtr
 	matrixMod               driver.Module
 	quantQ80Mod             driver.Module
+	mathCompiled            *nvrtcx.CompiledModule
 	matrixFn                driver.Function
 	quantQ80Fn              driver.Function
 	quantQ81Fn              driver.Function
@@ -1442,10 +1443,12 @@ func (r *cudaFoundation) loadMathKernels() error {
 	compiled, err := nvrtcx.Compile(cudaMathSource,
 		nvrtcx.WithName("ds4_math.cu"),
 		nvrtcx.WithArch(r.major, r.minor),
+		nvrtcx.WithFlag("--generate-line-info"),
 	)
 	if err != nil {
 		return fmt.Errorf("cuda: compile math kernels: %w", err)
 	}
+	r.mathCompiled = compiled
 	mod, err := compiled.Load(r.device)
 	if err != nil {
 		return fmt.Errorf("cuda: load math kernels: %w", err)
@@ -1473,6 +1476,13 @@ func (r *cudaFoundation) loadMathKernels() error {
 	}
 	r.matrixMod = mod
 	return nil
+}
+
+func (r *cudaFoundation) MathCompiled() *nvrtcx.CompiledModule {
+	if r == nil {
+		return nil
+	}
+	return r.mathCompiled
 }
 
 func (r *cudaFoundation) clearMathKernels() {
