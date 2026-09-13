@@ -1,6 +1,6 @@
 # CUPTI versioned parameter and record layouts
 
-Status: proposed  
+Status: proposed (revised 2026-09-13)
 Scope: `libgen`, `nvidia/cupti`, and `nvidia/x`  
 Audience: maintainers of generated NVIDIA bindings and their runtime wrappers
 
@@ -21,22 +21,30 @@ that do not exist in its ABI.
 
 ## Evidence baseline
 
-The qualification matrix currently covers these CUPTI API encodings:
+The qualification matrix currently covers these CUPTI API encodings measured
+from each toolkit's own `libcupti.so`:
 
 | toolkit | reported API version |
 | --- | ---: |
+| CUDA 12.6 | 24 |
+| CUDA 12.8 | 26 |
+| CUDA 12.9 | 28 |
 | CUDA 13.0 | 130001 |
 | CUDA 13.1 | 130101 |
 | CUDA 13.2 | 130202 |
 | CUDA 13.3 | 130301 |
 | CUDA 13.4 | 130400 |
 
-The following `cupti_pcsampling.h` parameter layouts are byte-identical in all
-five toolkits and may use complete `sizeof` initialization:
+`130200` is a generation/header constant seen in one binding closure, not a
+runtime witness for CUDA 13.2; the installed 13.2 library reports `130202`.
+
+`cupti_pcsampling.h` is byte-identical across these eight toolkits (32,144
+bytes, MD5 prefix `ea3daa87f34f`), so the following parameter layouts may use
+complete `sizeof` initialization after the per-version witness is recorded:
 
 | struct | size |
 | --- | ---: |
-| `CUpti_PCSamplingConfigurationInfoParams` | 32 |
+| `CUpti_PCSamplingConfigurationInfoParams` | 40 |
 | `CUpti_PCSamplingGetDataParams` | 32 |
 | `CUpti_PCSamplingEnableParams` | 24 |
 | `CUpti_PCSamplingDisableParams` | 24 |
@@ -44,18 +52,20 @@ five toolkits and may use complete `sizeof` initialization:
 | `CUpti_PCSamplingStopParams` | 24 |
 | `CUpti_PCSamplingGetNumStallReasonsParams` | 32 |
 | `CUpti_PCSamplingGetStallReasonsParams` | 48 |
+| `CUpti_GetCubinCrcParams` | 32 |
+| `CUpti_GetSassToSourceCorrelationParams` | 64 |
 
 `CUpti_PCSamplingData` is a record and is 80 bytes. It is not a parameter
 struct and must be handled by the record decoder.
 
 The following parameter layouts are versioned prefixes:
 
-| struct | runtime range | valid prefix end |
+| struct | measured runtime versions | valid prefix end |
 | --- | --- | --- |
-| `CUpti_Profiler_Host_Initialize_Params` | 130001–130101 | `PHostObject` (48 bytes) |
-| `CUpti_Profiler_Host_Initialize_Params` | 130202+ | `PSinglePassMetricSetName` (56 bytes) |
-| `CUpti_Profiler_Host_GetMetricProperties_Params` | 130001 | `MetricType` (48 bytes) |
-| `CUpti_Profiler_Host_GetMetricProperties_Params` | 130101+ | `MetricCollectionScope` (64 bytes) |
+| `CUpti_Profiler_Host_Initialize_Params` | 24, 26, 28, 130001, 130101 | `PHostObject` (48 bytes) |
+| `CUpti_Profiler_Host_Initialize_Params` | 130202, 130301, 130400 | `PSinglePassMetricSetName` (56 bytes) |
+| `CUpti_Profiler_Host_GetMetricProperties_Params` | 24, 26, 28, 130001 | `MetricType` (60 bytes) |
+| `CUpti_Profiler_Host_GetMetricProperties_Params` | 130101, 130202, 130301, 130400 | `MetricCollectionScope` (64 bytes) |
 
 The apparent Go `sizeof` may include trailing alignment padding. Prefix sizes
 must be computed as the end of the last supported field:
@@ -64,10 +74,18 @@ must be computed as the end of the last supported field:
 uint(unsafe.Offsetof(p.PHostObject) + unsafe.Sizeof(p.PHostObject))
 ```
 
-Activity records have a separate evolution policy. For example,
-`CUpti_ActivityKernel` is 216 bytes (`Kernel10`) in CUDA 13.0 and 224 bytes
-(`Kernel11`) from CUDA 13.1 onward. A parameter-size selector must never be
-reused for activity record decoding.
+Activity records have a separate evolution policy. The generated names are
+the suffixed C types; there is no unsuffixed `CUpti_ActivityKernel` type in the
+13.x headers:
+
+| record type | toolkits | size |
+| --- | --- | ---: |
+| `CUpti_ActivityKernel10` | CUDA 13.0–13.4 | 216 |
+| `CUpti_ActivityKernel11` | CUDA 13.1–13.4 | 224 |
+| `CUpti_ActivityKernel12` | CUDA 13.4 | 232 |
+| `CUpti_ActivityKernel13` | CUDA 13.4 | 248 |
+
+A parameter-size selector must never be reused for activity record decoding.
 
 ## Generation contract
 
@@ -81,7 +99,8 @@ type; that is an ABI change that must be reviewed against the runtime matrix.
 
 The generator does not silently manufacture compatibility variants from one
 header. A single `ProfilerHostInitializeParams` therefore represents the
-closure it was generated from, usually the newest admitted toolkit.
+exact closure recorded in its provenance; that closure is not itself evidence
+that every runtime version has the same layout.
 
 ### Stable complete-size initialization
 
@@ -113,15 +132,14 @@ were appended in later releases:
 
 ```go
 type ParamLayout struct {
-	MinVersion uint32
-	MaxVersion uint32 // zero means no upper bound
-	EndField   string
+	Versions []uint32 // measured runtime versions only
+	EndField string
 }
 
 VersionedParamLayouts: map[string][]ParamLayout{
 	"ProfilerHostInitializeParams": {
-		{MinVersion: 130001, MaxVersion: 130201, EndField: "PHostObject"},
-		{MinVersion: 130202, EndField: "PSinglePassMetricSetName"},
+		{Versions: []uint32{24, 26, 28, 130001, 130101}, EndField: "PHostObject"},
+		{Versions: []uint32{130202, 130301, 130400}, EndField: "PSinglePassMetricSetName"},
 	},
 }
 ```
@@ -143,7 +161,8 @@ require the caller to qualify the runtime version before calling native code.
 
 Generated selectors must also expose the selected end field or size in a
 machine-readable layout table so tests and higher-level packages do not repeat
-the ranges by hand.
+the measured version set by hand. A version absent from `Versions` is
+unqualified, even when it falls numerically between two listed versions.
 
 ### Records
 
@@ -195,17 +214,23 @@ unchanged.
 
 1. An allowlisted stable struct receives zero-size initialization.
 2. A struct with a leading size field but no allowlist entry does not.
-3. A versioned struct never receives complete `sizeof` initialization.
+3. A versioned struct never receives complete `sizeof` initialization, even
+   when its runtime version is numerically between two measured versions.
 4. Every generated `EndField` resolves and produces compilable Go.
 5. Explicit non-zero sizes remain unchanged in generated wrappers.
 
 ### Layout tests
 
-For every admitted architecture and toolkit closure, generate tests that pin:
+For every admitted architecture, toolkit closure, and parameter struct, generate
+tests from the header's own `*_STRUCT_SIZE` macro and pin:
 
 - `unsafe.Sizeof` and alignment for complete stable structs;
 - `unsafe.Offsetof(lastField) + unsafe.Sizeof(lastField)` for each prefix row;
 - record sizes and field offsets for each activity record version.
+
+The evidence row must include the runtime-reported version, not only the
+compile-time header macro. A per-struct change at one version must produce a
+separate row even if another struct remains unchanged.
 
 ### Runtime probes
 
@@ -217,12 +242,18 @@ alone is not runtime qualification.
 
 ## Migration order
 
-1. Keep the current stable PC-sampling allowlist and layout tests.
-2. Add generated versioned-prefix metadata and selector APIs.
-3. Migrate `x/cuptirange` from hand-written field-end arithmetic to the
+1. Keep the current stable PC-sampling allowlist and layout tests, correcting
+   `PCSamplingConfigurationInfoParams` to 40 bytes and adding the verified CRC
+   parameter layouts.
+2. Enumerate qualified PC-sampling versions explicitly; do not admit an
+   unmeasured point release or inferred legacy value.
+3. Add generated versioned-prefix metadata and selector APIs.
+4. Migrate `x/cuptirange` from hand-written field-end arithmetic to the
    generated selectors, retaining its runtime qualification policy.
-4. Add activity record version metadata and bounded decoders.
-5. Regenerate each package only from a pinned, reproducible header closure;
+5. Remove duplicated `Size: 32`/`Size: 48` literals from higher-level code.
+6. Add activity record version metadata and bounded decoders for Kernel10
+   through Kernel13.
+7. Regenerate each package only from a pinned, reproducible header closure;
    never hand-edit generated output.
 
 The acceptance condition is that every supported call has either a verified
