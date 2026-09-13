@@ -15,16 +15,20 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cuda](cuda/) | Package cuda provides idiomatic, high-level Go abstractions over NVIDIA CUDA devices, execution contexts, streams, and events. |
 | [cudaattn](cudaattn/) | Package cudaattn provides causal attention CUDA source and JIT compilation. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
+| [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
+| [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
 | [cudamlx](cudamlx/) | Package cudamlx is an experimental, minimal Go conversion of the host-side runtime of MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and nvrtc bindings. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
+| [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
+| [cudaroofline](cudaroofline/) | Package cudaroofline models empirical arithmetic intensity (FLOPs/byte) and evaluates kernel performance against empirical device hardware ceilings. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors reads Hugging Face .safetensors files and copies tensors into CUDA device memory. |
 | [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
 | [cudasanitizer](cudasanitizer/) | Package cudasanitizer runs a program under the NVIDIA compute-sanitizer command-line tool and classifies what happened. |
