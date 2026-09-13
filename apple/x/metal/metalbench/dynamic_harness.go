@@ -53,6 +53,7 @@ type StaticBaselineEngine struct {
 	weightBuf metalmem.Slice[float32]
 	inBuf     metalmem.Slice[float32]
 	outBuf    metalmem.Slice[float32]
+	params    metalmem.Slice[uint32]
 	mem       *metalmem.Arena
 }
 
@@ -85,6 +86,7 @@ func NewStaticBaselineEngine(dev *metal.Device, dim, outDim int) (*StaticBaselin
 		weightBuf: metalmem.AllocIn[float32](a, "weights", dim*outDim),
 		inBuf:     metalmem.AllocIn[float32](a, "in", 64*dim), // up to batch=64
 		outBuf:    metalmem.AllocIn[float32](a, "out", 64*outDim),
+		params:    metalmem.UploadIn(a, "params", []uint32{uint32(dim), uint32(outDim)}),
 		mem:       a,
 	}
 	if err := a.Err(); err != nil {
@@ -104,6 +106,8 @@ func (e *StaticBaselineEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, 
 		cb := e.dev.Queue().CommandBuffer()
 		enc := cb.ComputeCommandEncoder()
 		enc.SetComputePipelineState(e.gemvPSO)
+		enc.SetBufferWithOffsetAtIndex(e.params.Buffer(), 0, 3)
+		enc.SetBufferWithOffsetAtIndex(e.params.Buffer(), 4, 4)
 
 		// Static engine repeats B single-vector dispatches sequentially
 		for b := 0; b < phase.BatchSize; b++ {
@@ -113,7 +117,7 @@ func (e *StaticBaselineEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, 
 			enc.SetBufferWithOffsetAtIndex(e.inBuf.Buffer(), inOffset, 0)
 			enc.SetBufferWithOffsetAtIndex(e.weightBuf.Buffer(), 0, 1)
 			enc.SetBufferWithOffsetAtIndex(e.outBuf.Buffer(), outOffset, 2)
-			enc.DispatchThreadsThreadsPerThreadgroup(
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
 				apple.MTLSize{Width: uint(e.outDim), Height: 1, Depth: 1},
 				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 			)
@@ -148,6 +152,7 @@ type AdaptivePGOEngine struct {
 	inBuf        metalmem.Slice[float32]
 	outBuf       metalmem.Slice[float32]
 	recorder     *metalprof.FlightRecorder
+	params       metalmem.Slice[uint32]
 	mem          *metalmem.Arena
 	mu           sync.Mutex
 	currentBatch int
@@ -222,6 +227,7 @@ func NewAdaptivePGOEngine(dev *metal.Device, dim, outDim int) (*AdaptivePGOEngin
 		inBuf:      metalmem.AllocIn[float32](a, "in", 64*dim),
 		outBuf:     metalmem.AllocIn[float32](a, "out", 64*outDim),
 		recorder:   metalprof.NewFlightRecorder(256),
+		params:     metalmem.UploadIn(a, "params", []uint32{uint32(dim), uint32(outDim), 0}),
 		mem:        a,
 	}
 	if err := a.Err(); err != nil {
@@ -251,6 +257,7 @@ func (e *AdaptivePGOEngine) AdaptTopology(batchSize int) {
 func (e *AdaptivePGOEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, error) {
 	// Dynamically shift graph topology to match current workload regime
 	e.AdaptTopology(phase.BatchSize)
+	e.params.HostSlice()[2] = uint32(phase.BatchSize)
 
 	start := time.Now()
 	totalTokens := phase.Steps * phase.BatchSize
@@ -261,8 +268,11 @@ func (e *AdaptivePGOEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, err
 
 		pso := *e.activePSO.Load()
 		enc.SetComputePipelineState(pso)
+		enc.SetBufferWithOffsetAtIndex(e.params.Buffer(), 0, 3)
+		enc.SetBufferWithOffsetAtIndex(e.params.Buffer(), 4, 4)
 
 		if phase.BatchSize >= 8 {
+			enc.SetBufferWithOffsetAtIndex(e.params.Buffer(), 8, 5)
 			// Fast 2D Grid Batched GEMM
 			enc.SetBufferWithOffsetAtIndex(e.inBuf.Buffer(), 0, 0)
 			enc.SetBufferWithOffsetAtIndex(e.weightBuf.Buffer(), 0, 1)
@@ -282,7 +292,7 @@ func (e *AdaptivePGOEngine) ExecutePhase(phase WorkloadPhase) (PhaseMetrics, err
 				enc.SetBufferWithOffsetAtIndex(e.inBuf.Buffer(), inOffset, 0)
 				enc.SetBufferWithOffsetAtIndex(e.weightBuf.Buffer(), 0, 1)
 				enc.SetBufferWithOffsetAtIndex(e.outBuf.Buffer(), outOffset, 2)
-				enc.DispatchThreadsThreadsPerThreadgroup(
+				enc.DispatchThreadgroupsThreadsPerThreadgroup(
 					apple.MTLSize{Width: uint(e.outDim), Height: 1, Depth: 1},
 					apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 				)

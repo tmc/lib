@@ -24,6 +24,18 @@ func BenchmarkAutoTunedDecoding(b *testing.B) {
 	xBuf, _ := metalmem.Alloc[float32](dev, dim)
 	wBuf, _ := metalmem.Alloc[float32](dev, dim*outDim)
 	outBuf, _ := metalmem.Alloc[float32](dev, outDim)
+	defer xBuf.Free()
+	defer wBuf.Free()
+	defer outBuf.Free()
+	for i := range xBuf.HostSlice() {
+		xBuf.HostSlice()[i] = 1
+	}
+	for i := range wBuf.HostSlice() {
+		wBuf.HostSlice()[i] = 1
+	}
+	for i := range outBuf.HostSlice() {
+		outBuf.HostSlice()[i] = -1
+	}
 
 	dimVal := uint32(dim)
 	outDimVal := uint32(outDim)
@@ -49,7 +61,7 @@ func BenchmarkAutoTunedDecoding(b *testing.B) {
 		enc.SetBufferWithOffsetAtIndex(outBuf.Buffer(), 0, 2)
 		enc.SetBufferWithOffsetAtIndex(dimBuf, 0, 3)
 		enc.SetBufferWithOffsetAtIndex(outDimBuf, 0, 4)
-		enc.DispatchThreadsThreadsPerThreadgroup(
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: outDim, Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
@@ -59,6 +71,12 @@ func BenchmarkAutoTunedDecoding(b *testing.B) {
 	bestRes, err := harness.AutoTune(candidates, 10, dispatchFn)
 	if err != nil {
 		b.Fatalf("AutoTune failed: %v", err)
+	}
+
+	for i, got := range outBuf.HostSlice() {
+		if got != dim {
+			b.Fatalf("output[%d] = %g, want %d", i, got, dim)
+		}
 	}
 
 	// 3. Compile Baseline vs AutoTuned PSO
