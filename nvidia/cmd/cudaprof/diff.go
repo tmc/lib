@@ -6,8 +6,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -29,6 +31,7 @@ func runDiff(w io.Writer, rawArgs []string) error {
 		useColor = false
 	}
 
+	var explain bool
 	var kernelFilter string
 	posArgs := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
@@ -36,6 +39,8 @@ func runDiff(w io.Writer, rawArgs []string) error {
 		switch {
 		case arg == "--no-color" || arg == "-no-color":
 			useColor = false
+		case arg == "--explain" || arg == "-explain":
+			explain = true
 		case strings.HasPrefix(arg, "--kernel="):
 			kernelFilter = strings.TrimPrefix(arg, "--kernel=")
 		case strings.HasPrefix(arg, "-kernel="):
@@ -55,7 +60,11 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	}
 
 	if len(posArgs) != 2 {
-		return errors.New("usage: cudaprof diff [--no-color] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>")
+		return errors.New("usage: cudaprof diff [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>")
+	}
+
+	if explain {
+		return runDiffExplain(w, posArgs[0], posArgs[1], kernelFilter, limits)
 	}
 
 	baseDisasm, err := loadDisassembly(posArgs[0], limits)
@@ -269,3 +278,275 @@ func printDiff(w io.Writer, diff *cudasass.DisassemblyDiff, kernelFilter string,
 
 	return nil
 }
+
+func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limits cudacapture.Limits) error {
+	baseCap, err := readCapturePathLimits(basePath, limits)
+	if err != nil {
+		return fmt.Errorf("read base capture %s: %w", basePath, err)
+	}
+	targetCap, err := readCapturePathLimits(targetPath, limits)
+	if err != nil {
+		return fmt.Errorf("read target capture %s: %w", targetPath, err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("# CUDA Profile Diff & Optimization Explanation\n\n")
+
+	// 1. Performance Duration Delta
+	var baseTotalNs, targetTotalNs int64
+	baseKernelNs := make(map[string]int64)
+	targetKernelNs := make(map[string]int64)
+
+	baseTimeIdx := findTimeIndex(baseCap.Profile)
+	if baseCap.Profile != nil && baseTimeIdx >= 0 {
+		for _, s := range baseCap.Profile.Sample {
+			kName := sampleKernelName(s)
+			if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+				continue
+			}
+			val := s.Value[baseTimeIdx]
+			baseTotalNs += val
+			baseKernelNs[kName] += val
+		}
+	}
+
+	targetTimeIdx := findTimeIndex(targetCap.Profile)
+	if targetCap.Profile != nil && targetTimeIdx >= 0 {
+		for _, s := range targetCap.Profile.Sample {
+			kName := sampleKernelName(s)
+			if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+				continue
+			}
+			val := s.Value[targetTimeIdx]
+			targetTotalNs += val
+			targetKernelNs[kName] += val
+		}
+	}
+
+	sb.WriteString("## Execution Duration Delta\n\n")
+	if baseTotalNs > 0 || targetTotalNs > 0 {
+		baseUs := float64(baseTotalNs) / 1000.0
+		targetUs := float64(targetTotalNs) / 1000.0
+		deltaUs := targetUs - baseUs
+		speedup := 1.0
+		if targetTotalNs > 0 {
+			speedup = float64(baseTotalNs) / float64(targetTotalNs)
+		}
+		pctSaved := 0.0
+		if baseTotalNs > 0 {
+			pctSaved = float64(baseTotalNs-targetTotalNs) / float64(baseTotalNs) * 100.0
+		}
+
+		sb.WriteString(fmt.Sprintf("- **Base Runtime**:   %.2f µs\n", baseUs))
+		sb.WriteString(fmt.Sprintf("- **Target Runtime**: %.2f µs\n", targetUs))
+		sb.WriteString(fmt.Sprintf("- **Duration Delta**: %+.2f µs (%.1f%% reduction, %.2f× speedup)\n\n", deltaUs, pctSaved, speedup))
+
+		// Per-kernel breakdown if multiple kernels
+		allKernels := make(map[string]bool)
+		for k := range baseKernelNs {
+			allKernels[k] = true
+		}
+		for k := range targetKernelNs {
+			allKernels[k] = true
+		}
+		if len(allKernels) > 1 {
+			sb.WriteString("| Kernel | Base (µs) | Target (µs) | Delta (µs) | Speedup |\n")
+			sb.WriteString("|---|---|---|---|---|\n")
+			sortedKernels := make([]string, 0, len(allKernels))
+			for k := range allKernels {
+				sortedKernels = append(sortedKernels, k)
+			}
+			sort.Strings(sortedKernels)
+			for _, k := range sortedKernels {
+				bUs := float64(baseKernelNs[k]) / 1000.0
+				tUs := float64(targetKernelNs[k]) / 1000.0
+				dUs := tUs - bUs
+				sp := 1.0
+				if tUs > 0 {
+					sp = bUs / tUs
+				}
+				sb.WriteString(fmt.Sprintf("| `%s` | %.2f | %.2f | %+.2f | %.2f× |\n", k, bUs, tUs, dUs, sp))
+			}
+			sb.WriteString("\n")
+		}
+	} else {
+		sb.WriteString("No execution duration samples recorded in profiles.\n\n")
+	}
+
+	// 2. PC Stall Reason Shifts
+	baseStalls := collectStallCounts(baseCap.Profile, kernelFilter)
+	targetStalls := collectStallCounts(targetCap.Profile, kernelFilter)
+
+	allStallReasons := make(map[string]bool)
+	for r := range baseStalls {
+		allStallReasons[r] = true
+	}
+	for r := range targetStalls {
+		allStallReasons[r] = true
+	}
+
+	var explanations []string
+
+	if len(allStallReasons) > 0 {
+		sb.WriteString("## PC Sampling Stall Reason Shifts\n\n")
+		sb.WriteString("| Stall Reason | Base Samples | Target Samples | Delta | Shift (%) |\n")
+		sb.WriteString("|---|---|---|---|---|\n")
+
+		sortedReasons := make([]string, 0, len(allStallReasons))
+		for r := range allStallReasons {
+			sortedReasons = append(sortedReasons, r)
+		}
+		sort.Strings(sortedReasons)
+
+		for _, r := range sortedReasons {
+			b := baseStalls[r]
+			t := targetStalls[r]
+			delta := t - b
+			shiftStr := "N/A"
+			if b > 0 {
+				shift := float64(delta) / float64(b) * 100.0
+				shiftStr = fmt.Sprintf("%+.1f%%", shift)
+
+				// Analyze shifts
+				if r == "stall_memory_throttle" || r == "stall_mem_throttle" {
+					if shift <= -15.0 {
+						explanations = append(explanations, fmt.Sprintf(
+							"**Memory Pipeline Efficiency**: `%s` decreased by %.1f%% (%d -> %d samples), indicating successful memory prefetching, prologue hoisting, or contiguous TMA alignment.",
+							r, -shift, b, t))
+					} else if shift >= 15.0 {
+						explanations = append(explanations, fmt.Sprintf(
+							"**Memory Bottleneck**: `%s` increased by +%.1f%% (%d -> %d samples), indicating DRAM/L2 bandwidth pressure or uncoalesced memory accesses.",
+							r, shift, b, t))
+					}
+				}
+				if r == "stall_barrier" {
+					if shift <= -15.0 {
+						explanations = append(explanations, fmt.Sprintf(
+							"**Synchronization Overhead Reduction**: `stall_barrier` decreased by %.1f%% (%d -> %d samples), indicating reduced thread-block sync wait times.",
+							-shift, b, t))
+					} else if shift >= 15.0 {
+						explanations = append(explanations, fmt.Sprintf(
+							"**Barrier Waiting Overhead**: `stall_barrier` increased by +%.1f%% (%d -> %d samples), indicating CTA load imbalance or barrier latency.",
+							shift, b, t))
+					}
+				}
+				if r == "stall_short_scoreboard" {
+					if shift <= -15.0 {
+						explanations = append(explanations, fmt.Sprintf(
+							"**Instruction-Level Parallelism**: `stall_short_scoreboard` decreased by %.1f%% (%d -> %d samples), indicating better register dependency spacing and pipeline utilization.",
+							-shift, b, t))
+					}
+				}
+			} else if t > 0 {
+				shiftStr = "+inf"
+			}
+			sb.WriteString(fmt.Sprintf("| `%s` | %d | %d | %+d | %s |\n", r, b, t, delta, shiftStr))
+		}
+		sb.WriteString("\n")
+	}
+
+	// 3. SASS Instruction Architecture Diff
+	baseDisasm, err1 := loadDisassembly(basePath, limits)
+	targetDisasm, err2 := loadDisassembly(targetPath, limits)
+	if err1 == nil && err2 == nil && baseDisasm != nil && targetDisasm != nil {
+		diff, err := cudasass.Diff(baseDisasm, targetDisasm)
+		if err == nil && diff != nil {
+			sb.WriteString("## SASS Assembly Differences\n\n")
+			sb.WriteString(fmt.Sprintf("- **Instruction Count**: %d -> %d (%+d)\n",
+				diff.Architecture.BaseInstructions, diff.Architecture.TargetInstructions, diff.Architecture.InstructionDelta))
+			sb.WriteString(fmt.Sprintf("- **Binary Size**:        %d bytes -> %d bytes (%+d bytes)\n",
+				diff.Architecture.BaseSizeBytes, diff.Architecture.TargetSizeBytes, diff.Architecture.TotalSizeDelta))
+			sb.WriteString(fmt.Sprintf("- **Branch Instructions**: %d -> %d (%+d)\n",
+				diff.Architecture.BaseBranches, diff.Architecture.TargetBranches, diff.Architecture.BranchDelta))
+			if diff.Spills.TotalAdded > 0 || diff.Spills.TotalRemoved > 0 {
+				sb.WriteString(fmt.Sprintf("- **Register Spills**:    +%d / -%d (net %+d)\n",
+					diff.Spills.TotalAdded, diff.Spills.TotalRemoved, diff.Spills.Delta()))
+			}
+			if len(diff.Architecture.Substitutions) > 0 {
+				sb.WriteString("- **Opcode Substitutions**:\n")
+				for _, sub := range diff.Architecture.Substitutions {
+					sb.WriteString(fmt.Sprintf("  - `%s` -> `%s` (%d occurrences)\n", sub.From, sub.To, sub.Count))
+				}
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// 4. Architectural Synthesis
+	sb.WriteString("## Architectural Synthesis\n\n")
+	if len(explanations) > 0 {
+		for _, exp := range explanations {
+			sb.WriteString(fmt.Sprintf("- %s\n", exp))
+		}
+	} else if baseTotalNs > targetTotalNs {
+		sb.WriteString("- Performance improvement observed across kernel execution with maintained pipeline balance.\n")
+	} else {
+		sb.WriteString("- No significant architectural bottlenecks or shifts identified between runs.\n")
+	}
+
+	_, err = io.WriteString(w, sb.String())
+	return err
+}
+
+func sampleKernelName(s *profile.Sample) string {
+	if s == nil {
+		return "unknown"
+	}
+	if s.Label != nil {
+		if k, ok := s.Label["kernel"]; ok && len(k) > 0 && k[0] != "" {
+			return k[0]
+		}
+	}
+	for _, loc := range s.Location {
+		for _, line := range loc.Line {
+			if line.Function != nil && line.Function.Name != "" {
+				return line.Function.Name
+			}
+		}
+	}
+	return "unknown"
+}
+
+func findTimeIndex(p *profile.Profile) int {
+	if p == nil {
+		return -1
+	}
+	for i, st := range p.SampleType {
+		tLower := strings.ToLower(st.Type)
+		uLower := strings.ToLower(st.Unit)
+		if strings.Contains(tLower, "time") || strings.Contains(uLower, "nanosecond") || strings.Contains(uLower, "ns") {
+			return i
+		}
+	}
+	if len(p.SampleType) > 0 && !strings.HasPrefix(p.SampleType[0].Type, "stall_") {
+		return 0
+	}
+	return -1
+}
+
+func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int64 {
+	counts := make(map[string]int64)
+	if p == nil {
+		return counts
+	}
+	stallIndices := make(map[int]string)
+	for i, st := range p.SampleType {
+		if strings.HasPrefix(st.Type, "stall_") {
+			stallIndices[i] = st.Type
+		}
+	}
+	for _, s := range p.Sample {
+		kName := sampleKernelName(s)
+		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+			continue
+		}
+		for idx, name := range stallIndices {
+			val := s.Value[idx]
+			if val > 0 {
+				counts[name] += val
+			}
+		}
+	}
+	return counts
+}
+
