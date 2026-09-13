@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-)
 
-import "github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/cudasass"
+)
 
 func TestIsSpillOpcode(t *testing.T) {
 	for _, tt := range []struct {
@@ -87,5 +87,31 @@ func TestRenderDiffHTML(t *testing.T) {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("rendered HTML missing %q", want)
 		}
+	}
+}
+
+func TestConvertInstruction(t *testing.T) {
+	if got := convertInstruction(nil, "", nil, nil); got != nil {
+		t.Fatalf("convertInstruction(nil) = %#v, want nil", got)
+	}
+	got := convertInstruction(&cudasass.Instruction{
+		Address: 0x20, Predicate: "@P0", Opcode: "LDG.E.128", Operands: "R1, [R2]",
+	}, "kernel", nil, nil)
+	if got.Offset != "0020" || got.Text != "@P0 LDG.E.128 R1, [R2]" || got.SemanticTag != "memory" {
+		t.Fatalf("convertInstruction = %#v", got)
+	}
+	got = convertInstruction(&cudasass.Instruction{Opcode: "STS"}, "", nil, nil)
+	if !got.IsSpill || got.SpillType != "STS" {
+		t.Fatalf("spill conversion = %#v", got)
+	}
+}
+
+func TestComputeTopStallShifts(t *testing.T) {
+	got := computeTopStallShifts(map[string]int64{"stall_mem": 10, "stall_tex": 10}, map[string]int64{"stall_mem": 15, "stall_tex": 15})
+	if len(got) != 2 || got[0].Reason != "stall_mem" || got[0].Delta != 5 {
+		t.Fatalf("computeTopStallShifts = %#v", got)
+	}
+	if got := computeTopStallShifts(nil, nil); got != nil {
+		t.Fatalf("empty shifts = %#v, want nil", got)
 	}
 }
