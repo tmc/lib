@@ -183,22 +183,21 @@ func WithArch(major, minor int) Option {
 }
 
 // WithPhysicalArch configures the target physical GPU architecture (for example,
-// sm_80 for major=8, minor=0) and selects OutputCUBIN binary generation.
-// Use WithPhysicalArch when compiling code intended to run immediately on a device
-// with known compute capability; this avoids driver-side JIT compilation and
-// prevents PTX version incompatibilities.
+// sm_80 for major=8, minor=0). When compiled with default OutputAuto, this generates
+// native CUBIN machine code while retaining PTX for inspection. Load automatically
+// loads the CUBIN onto the device, avoiding driver-side JIT compilation and
+// preventing PTX version incompatibilities.
 func WithPhysicalArch(major, minor int) Option {
 	return func(o *options) {
 		if major <= 0 || minor < 0 {
 			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
 			return
 		}
-		if o.outputSet && o.output != OutputCUBIN && o.output != OutputAuto {
-			o.err = fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(o.output))
+		if o.outputSet && (o.output == OutputLTOIR || o.output == OutputTileIR || o.output == OutputPTXTileIR) {
+			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(o.output))
 			return
 		}
 		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
-		o.output = OutputCUBIN
 		o.physicalArch = true
 	}
 }
@@ -309,8 +308,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if cfg.err != nil {
 		return nil, cfg.err
 	}
-	if cfg.physicalArch && cfg.outputSet && cfg.output != OutputCUBIN && cfg.output != OutputAuto {
-		return nil, fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(cfg.output))
+	if cfg.physicalArch && cfg.outputSet && (cfg.output == OutputLTOIR || cfg.output == OutputTileIR || cfg.output == OutputPTXTileIR) {
+		return nil, fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(cfg.output))
 	}
 	flags, err := outputFlags(cfg.output, cfg.flags)
 	if err != nil {

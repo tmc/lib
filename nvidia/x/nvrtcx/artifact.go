@@ -50,8 +50,8 @@ func WithOutput(kind OutputKind) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid output kind %d", kind)
 			return
 		}
-		if o.physicalArch && kind != OutputCUBIN && kind != OutputAuto {
-			o.err = fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(kind))
+		if o.physicalArch && (kind == OutputLTOIR || kind == OutputTileIR || kind == OutputPTXTileIR) {
+			o.err = fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(kind))
 			return
 		}
 		o.output = kind
