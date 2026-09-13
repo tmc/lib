@@ -360,27 +360,37 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	} else if timer, ok := gt.(interface{ StartTime() time.Time }); ok && !timer.StartTime().IsZero() {
 		goStartNs = timer.StartTime().UnixNano()
 	}
+	clockUncertaintyNs := cfg.ClockUncertaintyNs
+	clockUncertaintySource := "configured"
+	if r.activityCalibrated {
+		clockUncertaintyNs = r.activityUncertaintyNs
+		clockUncertaintySource = "measured"
+	} else if hasUncalibratedActivity(records) {
+		clockUncertaintyNs = -1
+		clockUncertaintySource = "unavailable"
+	}
 	goSpanNs, gpuSpanNs, overlapSpanNs, overlapReliable := AlignSpans(
 		nowNs,
 		windowNs,
 		goStartNs,
 		goHasData,
 		records,
-		cfg.ClockUncertaintyNs,
+		clockUncertaintyNs,
 	)
 
 	manifest := Manifest{
-		Timestamp:          now,
-		Reason:             reason,
-		WindowRequestedNs:  windowNs,
-		GoSpanNs:           goSpanNs,
-		GPUSpanNs:          gpuSpanNs,
-		OverlapSpanNs:      overlapSpanNs,
-		GPURecords:         len(records),
-		GPUDropped:         dropped,
-		GoTraceBytes:       goTraceBytes,
-		ClockUncertaintyNs: cfg.ClockUncertaintyNs,
-		OverlapReliable:    overlapReliable,
+		Timestamp:              now,
+		Reason:                 reason,
+		WindowRequestedNs:      windowNs,
+		GoSpanNs:               goSpanNs,
+		GPUSpanNs:              gpuSpanNs,
+		OverlapSpanNs:          overlapSpanNs,
+		GPURecords:             len(records),
+		GPUDropped:             dropped,
+		GoTraceBytes:           goTraceBytes,
+		ClockUncertaintyNs:     clockUncertaintyNs,
+		ClockUncertaintySource: clockUncertaintySource,
+		OverlapReliable:        overlapReliable,
 	}
 	bundle.Manifest = manifest
 
@@ -389,6 +399,15 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	}
 
 	return &manifest, nil
+}
+
+func hasUncalibratedActivity(records []Record) bool {
+	for _, rec := range records {
+		if rec.Labels["activity.uncalibrated"] == "true" {
+			return true
+		}
+	}
+	return false
 }
 
 // Register registers the flight recorder HTTP handler at DefaultEndpoint ("/debug/flightrecorder") on mux.
