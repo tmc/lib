@@ -134,7 +134,13 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("nvdisasm version: %w", err)
 	}
-	assembly, err := d.Disassemble(toolCtx, cubin, cudasass.Options{
+	disassemblyInput := cubin
+	if sanitized := sanitizeCUDA12CUBIN(cubin); sanitized != nil {
+		disassemblyInput = sanitized
+		captureFiles["kernels.cubin.original"] = cubin
+		captureFiles["disassembly-note.txt"] = []byte("nvrtc CUDA 12 emitted nonstandard ELF identification/version bytes; kernels.cubin is a private repaired copy for offline readers, while kernels.cubin.original retains the original bytes\n")
+	}
+	assembly, err := d.Disassemble(toolCtx, disassemblyInput, cudasass.Options{
 		PrintCode:   true,
 		InlineLines: true,
 		PTXLines:    true,
@@ -144,7 +150,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	}
 
 	captureFiles["kernels.ptx"] = []byte(ptx)
-	captureFiles["kernels.cubin"] = cubin
+	captureFiles["kernels.cubin"] = disassemblyInput
 	captureFiles["kernels.sass"] = rewriteSASSSourcePath(assembly.Stdout, "kernels.cu")
 	captureFiles["nvdisasm.txt"] = version.Stdout
 
@@ -166,7 +172,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse virtual ptx: %w", err)
 	}
-	discovered, err := discoverKernels(cubin)
+	discovered, err := discoverKernels(disassemblyInput)
 	if err != nil {
 		return nil, fmt.Errorf("discover kernels from cubin: %w", err)
 	}
@@ -199,7 +205,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 	var profBuf bytes.Buffer
 	prof := cudaprof.NewSession(&profBuf)
-	prof.SetMappingFile("kernels.cubin", fmt.Sprintf("%x", sha256.Sum256(cubin)))
+	prof.SetMappingFile("kernels.cubin", fmt.Sprintf("%x", sha256.Sum256(disassemblyInput)))
 	if err := prof.SetSampleTypes(sampleTypes(cfg.pcSampling)...); err != nil {
 		return nil, fmt.Errorf("set sample types: %w", err)
 	}
@@ -324,6 +330,19 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	}
 
 	return meta, nil
+}
+
+// sanitizeCUDA12CUBIN returns a private copy for nvdisasm when CUDA 12 NVRTC
+// emits the known nonstandard ELF identification/version bytes. The original
+// CUBIN remains in the capture, so the artifact and this diagnostic repair are
+// distinguishable. A nil result means the input already has standard bytes.
+func sanitizeCUDA12CUBIN(cubin []byte) []byte {
+	if len(cubin) < 24 || !bytes.Equal(cubin[:4], []byte{0x7f, 'E', 'L', 'F'}) || cubin[7] != 0x33 || cubin[8] != 0x07 || cubin[20] != 0x81 {
+		return nil
+	}
+	sanitized := append([]byte(nil), cubin...)
+	sanitized[7], sanitized[8], sanitized[20] = 0, 0, 1
+	return sanitized
 }
 
 func logLines(ctx context.Context, category, text string) {

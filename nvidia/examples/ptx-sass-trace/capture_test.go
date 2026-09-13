@@ -114,6 +114,34 @@ func TestIsArithmeticOpcode(t *testing.T) {
 	}
 }
 
+func TestSanitizeCUDA12CUBIN(t *testing.T) {
+	standard := make([]byte, 24)
+	copy(standard, []byte{0x7f, 'E', 'L', 'F'})
+	standard[7], standard[8], standard[20] = 0, 0, 1
+	legacy := append([]byte(nil), standard...)
+	legacy[7], legacy[8], legacy[20] = 0x33, 0x07, 0x81
+
+	for _, tt := range []struct {
+		name string
+		in   []byte
+		want []byte
+	}{
+		{name: "standard", in: standard, want: nil},
+		{name: "legacy", in: legacy, want: standard},
+		{name: "short", in: legacy[:23], want: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeCUDA12CUBIN(tt.in)
+			if !bytes.Equal(got, tt.want) {
+				t.Fatalf("sanitizeCUDA12CUBIN() = %x, want %x", got, tt.want)
+			}
+			if tt.name == "legacy" && bytes.Equal(got, tt.in) {
+				t.Fatal("sanitizer returned the input backing array")
+			}
+		})
+	}
+}
+
 func TestKernelsNVRTCCompile(t *testing.T) {
 	major, minor := cudatest.RequireNVRTC(t)
 	src, err := sources.ReadFile("kernels.cu")
