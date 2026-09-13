@@ -353,6 +353,8 @@ func (r *cudaRuntime) EvalBatch(tokens []int, position int) error {
 // would report the chunk's duration once per token.
 func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err error) {
 	defer beginTraced(levelToken, "batch", nil).end()
+	// The last phase in the group has no following mark to close it.
+	defer closePhaseSpan()
 	if len(tokens) < 2 || len(tokens) > cudaPrefillBatchWidth {
 		return errors.New("cuda runtime: dense batch has invalid length")
 	}
@@ -557,6 +559,8 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 
 func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error) {
 	defer beginTraced(levelToken, "token", nil).end()
+	// The last phase in the group has no following mark to close it.
+	defer closePhaseSpan()
 	if r == nil || r.arena == nil {
 		return errors.New("cuda runtime: closed")
 	}

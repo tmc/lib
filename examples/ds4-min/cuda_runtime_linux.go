@@ -726,6 +726,10 @@ type cudaFoundation struct {
 }
 
 func (r *cudaFoundation) markCUDAPhase(name string, position, layer int) error {
+	// The host span is driven here rather than at each call site, and
+	// before the hook check, so it does not depend on a profiler being
+	// installed.
+	markPhaseSpan(name)
 	if r == nil || r.phaseMark == nil {
 		return nil
 	}
