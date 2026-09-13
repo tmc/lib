@@ -115,10 +115,13 @@ and `stall_wait` as "synchronization" inverts both: `stall_wait` also carries
 place they separate.
 
 These descriptions are of the PC sampling reasons. The classifier also maps the
-activity API's legacy stall names, where the same waits are spelled
-`memory_dependency` and `exec_dependency`; both route to `stall_scoreboard` so
-that a bucket means the same thing whichever API produced the capture, but a
-capture from that path has not been taken here.
+activity API's legacy stall names, which are routed so that a bucket means the
+same thing whichever API produced the capture: `memory_dependency` joins
+`long_scoreboard` in `stall_scoreboard`, and `exec_dependency` joins `wait` in
+`stall_wait`. The second is a union of `wait` and `short_scoreboard` with no
+split available on the parts that reported it, so it is routed to its dominant
+member -- 71.88% against 0.06% on the measurement above. No capture from that
+path has been taken here.
 
 Two things make that identity hold and are worth knowing before reading a reason
 breakdown. CUPTI reports every reason twice, as `<reason>` and
