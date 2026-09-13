@@ -283,4 +283,3 @@ func TestGeneratedQ2KMatvecRaggedColsReturnsNaN(t *testing.T) {
 		}
 	}
 }
-

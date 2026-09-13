@@ -107,12 +107,12 @@ func TestUnsupportedOperatorRejected(t *testing.T) {
 
 // TestOperatorTaxonomy systematically validates the two-tier operator model:
 //
-// 1. TerminalOps and PlaceholderOps are strictly disjoint.
-// 2. Every TerminalOp is recognized by IsTerminalOp, rejected by IsPlaceholderOp,
-//    and produces valid CUDA code via GenerateCUDA.
-// 3. Every PlaceholderOp is recognized by IsPlaceholderOp, rejected by IsTerminalOp,
-//    is refused by GenerateCUDA ("no CUDA kernel"), and is priced by FusedMegakernelCost
-//    with a specific non-default heuristic cost (> 0).
+//  1. TerminalOps and PlaceholderOps are strictly disjoint.
+//  2. Every TerminalOp is recognized by IsTerminalOp, rejected by IsPlaceholderOp,
+//     and produces valid CUDA code via GenerateCUDA.
+//  3. Every PlaceholderOp is recognized by IsPlaceholderOp, rejected by IsTerminalOp,
+//     is refused by GenerateCUDA ("no CUDA kernel"), and is priced by FusedMegakernelCost
+//     with a specific non-default heuristic cost (> 0).
 func TestOperatorTaxonomy(t *testing.T) {
 	// Check disjointness
 	terminalSet := make(map[string]bool)

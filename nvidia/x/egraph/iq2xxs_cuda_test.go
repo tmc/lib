@@ -276,7 +276,7 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 	want := iq2xxsMatvecReference(blocks, x, rows, cols)
 	for i := range want {
 		tol := 1e-4 * math.Max(1, math.Abs(float64(want[i])))
-		if diff := math.Abs(float64(got[i]-want[i])); diff > tol {
+		if diff := math.Abs(float64(got[i] - want[i])); diff > tol {
 			t.Errorf("y[%d] = %v, want %v (diff %v)", i, got[i], want[i], diff)
 		}
 	}
