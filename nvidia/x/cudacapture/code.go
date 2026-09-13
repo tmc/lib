@@ -120,6 +120,9 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			currentKernel, cuLine = m[1], 0
 		}
 		if m := sourceLocation.FindStringSubmatch(line); m != nil {
+			if m[1] == ".nv_debug_ptx_txt" {
+				continue
+			}
 			cuLine = 0
 			if filepath.Base(m[1]) == sourceBase {
 				cuLine, _ = strconv.Atoi(m[2])
@@ -187,7 +190,15 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 
 			ptxLine := k.PTXLine
 			var inlinedAt []cudaptx.Location
-			if candidates := ptxByLine[cuLine]; len(candidates) > 0 {
+			if inst.InlinedLine > 0 {
+				inlinedAt = []cudaptx.Location{{
+					File: filepath.Base(inst.InlinedFile),
+					Line: inst.InlinedLine,
+				}}
+			}
+			if inst.PTXLine > 0 {
+				ptxLine = inst.PTXLine
+			} else if candidates := ptxByLine[cuLine]; len(candidates) > 0 {
 				matched := candidates[0]
 				for _, c := range candidates {
 					if matchOpcodeAffinity(inst.Opcode, c.Mnemonic) {
@@ -196,12 +207,16 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 					}
 				}
 				ptxLine = matched.Line
-				inlinedAt = matched.InlinedAt
+				if len(inlinedAt) == 0 {
+					inlinedAt = matched.InlinedAt
+				}
 			} else if strings.HasPrefix(strings.ToUpper(inst.Opcode), "RET") || strings.HasPrefix(strings.ToUpper(inst.Opcode), "EXIT") {
 				for j := len(pk.Instructions) - 1; j >= 0; j-- {
 					if pk.Instructions[j].Mnemonic == "ret" || pk.Instructions[j].Mnemonic == "exit" {
 						ptxLine = pk.Instructions[j].Line
-						inlinedAt = pk.Instructions[j].InlinedAt
+						if len(inlinedAt) == 0 {
+							inlinedAt = pk.Instructions[j].InlinedAt
+						}
 						break
 					}
 				}
