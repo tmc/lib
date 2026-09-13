@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/tileir"
+	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
 type inspectReport struct {
@@ -24,6 +26,27 @@ type inspectReport struct {
 	Observations  int                            `json:"observations,omitempty"`
 	ArtifactNames []string                       `json:"artifacts"`
 	Coverage      *inspectCoverage               `json:"coverage,omitempty"`
+	TileIR        *inspectTileIRSummary          `json:"tileir,omitempty"`
+	Remarks       *inspectRemarksSummary         `json:"remarks,omitempty"`
+}
+
+type inspectTileIRSummary struct {
+	File       string   `json:"file"`
+	IsBytecode bool     `json:"is_bytecode"`
+	Producer   string   `json:"producer,omitempty"`
+	Functions  []string `json:"functions,omitempty"`
+	TMAOps     int      `json:"tma_operations"`
+	MMAOps     int      `json:"mma_operations"`
+	TotalOps   int      `json:"total_operations"`
+}
+
+type inspectRemarksSummary struct {
+	File               string            `json:"file,omitempty"`
+	Total              int               `json:"total"`
+	TMAFailures        int               `json:"tma_failures"`
+	TensorCoreMMAs     int               `json:"tensor_core_mmas"`
+	TensorCoreFailures int               `json:"tensor_core_failures"`
+	Records            []tileiras.Remark `json:"records,omitempty"`
 }
 
 type inspectCoverage struct {
@@ -75,8 +98,8 @@ func runInspectCommand(args []string) error {
 	if len(args) >= 1 && (args[0] == "--cfg" || args[0] == "--bbcfg") {
 		return runInspectCFG(args, limits)
 	}
-	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--cfg|--bbcfg [kernel] capture.pprof")
+	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir") {
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--cfg|--bbcfg [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(args[1])
 	if err != nil {
@@ -103,10 +126,25 @@ func runInspectCommand(args []string) error {
 			report.Coverage = &envelope.Status
 		}
 	}
+	report.TileIR = inspectTileIR(cap)
+	report.Remarks = inspectRemarks(cap)
+
 	if args[0] == "--profiles" {
 		for _, typ := range cap.Profile.SampleType {
 			report.Profiles = append(report.Profiles, inspectProfile{Type: typ.Type, Unit: typ.Unit, Samples: len(cap.Profile.Sample)})
 		}
+	}
+	if args[0] == "--remarks" {
+		if report.Remarks == nil {
+			report.Remarks = &inspectRemarksSummary{}
+		}
+		return json.NewEncoder(os.Stdout).Encode(report.Remarks)
+	}
+	if args[0] == "--tileir" {
+		if report.TileIR == nil {
+			report.TileIR = &inspectTileIRSummary{}
+		}
+		return json.NewEncoder(os.Stdout).Encode(report.TileIR)
 	}
 	return json.NewEncoder(os.Stdout).Encode(report)
 }
@@ -205,3 +243,96 @@ func parseReadLimits(args []string) ([]string, cudacapture.Limits, error) {
 	}
 	return rest, limits, nil
 }
+
+func inspectTileIR(cap *cudacapture.Capture) *inspectTileIRSummary {
+	if cap == nil || cap.Code.TileIR == "" {
+		return nil
+	}
+	data, ok := cap.Files[cap.Code.TileIR]
+	if !ok || len(data) == 0 {
+		return nil
+	}
+	isBytecode := tileir.IsTileIRBytecode(data)
+	var mod *tileir.Module
+	var err error
+	if isBytecode {
+		bm, decErr := tileir.DecodeBytecodeBytes(data)
+		if decErr == nil {
+			mod = bm.ToModule()
+		}
+	} else {
+		mod, err = tileir.ParseBytes(data)
+	}
+	if mod == nil || err != nil {
+		return nil
+	}
+	summary := &inspectTileIRSummary{
+		File:       cap.Code.TileIR,
+		IsBytecode: isBytecode,
+		Producer:   mod.Producer,
+	}
+	for _, fn := range mod.Functions {
+		summary.Functions = append(summary.Functions, fn.Name)
+		for _, op := range fn.Operations {
+			summary.TotalOps++
+			if op.IsTMA() {
+				summary.TMAOps++
+			}
+			if op.IsMMA() {
+				summary.MMAOps++
+			}
+		}
+	}
+	return summary
+}
+
+func inspectRemarks(cap *cudacapture.Capture) *inspectRemarksSummary {
+	rems, name, _ := findRemarks(cap)
+	if len(rems) == 0 {
+		return nil
+	}
+	summary := &inspectRemarksSummary{
+		File:    name,
+		Total:   len(rems),
+		Records: rems,
+	}
+	for _, r := range rems {
+		if r.IsTMAFailure() {
+			summary.TMAFailures++
+		}
+		if r.IsTensorCoreMMA() {
+			summary.TensorCoreMMAs++
+		}
+		if r.IsTensorCoreFailure() {
+			summary.TensorCoreFailures++
+		}
+	}
+	return summary
+}
+
+func findRemarks(cap *cudacapture.Capture) ([]tileiras.Remark, string, error) {
+	if cap == nil || len(cap.Files) == 0 {
+		return nil, "", nil
+	}
+	candidateNames := []string{"tileiras-remarks.yaml", "remarks.yaml", "remarks.yml"}
+	for _, name := range candidateNames {
+		if d, ok := cap.Files[name]; ok {
+			rems, err := tileiras.ParseRemarksYAML(d)
+			if err == nil && len(rems) > 0 {
+				return rems, name, nil
+			}
+		}
+	}
+	for name, d := range cap.Files {
+		if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+			if strings.Contains(string(d), "--- !") || strings.Contains(string(d), "Remark") {
+				rems, err := tileiras.ParseRemarksYAML(d)
+				if err == nil && len(rems) > 0 {
+					return rems, name, nil
+				}
+			}
+		}
+	}
+	return nil, "", nil
+}
+

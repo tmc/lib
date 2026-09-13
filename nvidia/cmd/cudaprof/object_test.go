@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -102,3 +103,66 @@ func TestPTXCoordinates(t *testing.T) {
 		t.Fatal("accepted incomplete PTX function")
 	}
 }
+
+func TestTileIRCoordinates(t *testing.T) {
+	const text = `
+cuda_tile.module @kernels {
+  cuda_tile.entry @matmul(%arg0: !cuda_tile.tile<ptr<f32>>) {
+    %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<16x16xf32>
+    cuda_tile.return
+  }
+}
+`
+	path := filepath.Join(t.TempDir(), "kernels.tileir")
+	image, err := tileIRImage(path, "tileir-build", []byte(text))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool := &objectTool{images: map[string]*objectImage{path: image}, tileir: image}
+	inst, err := tool.Disasm(path, 0, 100, false)
+	if err != nil || len(inst) != 2 {
+		t.Fatalf("Disasm = %+v, %v", inst, err)
+	}
+	if !strings.Contains(inst[0].Text, "cuda_tile.constant") {
+		t.Fatalf("unexpected instruction text: %s", inst[0].Text)
+	}
+
+	fn := &profile.Function{ID: 1, Name: "matmul.TILEIR", Filename: "kernels.tileir"}
+	loc := &profile.Location{ID: 1, Line: []profile.Line{{Function: fn, Line: int64(inst[0].Line)}}}
+	p := &profile.Profile{Function: []*profile.Function{fn}, Location: []*profile.Location{loc}, Sample: []*profile.Sample{{Location: []*profile.Location{loc}, Value: []int64{456}}}}
+	tool.mapTileIR(p)
+	tool.mapTileIR(p)
+	if len(p.Mapping) != 1 || loc.Address != tileirBase+inst[0].Addr || p.Sample[0].Value[0] != 456 {
+		t.Fatalf("TileIR mapping changed samples or coordinates: %+v", p)
+	}
+
+	f, err := tool.Open(path, tileirBase, tileirBase+uint64(len(text)), 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frames, err := f.SourceLine(loc.Address)
+	if err != nil || len(frames) != 1 || frames[0].Func != "matmul.TILEIR" {
+		t.Fatalf("TileIR source = %+v, %v", frames, err)
+	}
+}
+
+func TestTileIRBytecodeCoordinates(t *testing.T) {
+	goldenPath := "/Users/tmc/go/src/github.com/NVIDIA/cuda-tile/test/Bytecode/encoding_stability/goldens/bf16_splat.golden.tileirbc"
+	data, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Skip("golden file not found, skipping")
+	}
+
+	path := filepath.Join(t.TempDir(), "kernels.tilebc")
+	image, err := tileIRImage(path, "tilebc-build", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(image.functions) != 1 {
+		t.Fatalf("got %d functions, want 1", len(image.functions))
+	}
+	if image.functions[0].name != "bf16_splat.TILEIR" {
+		t.Errorf("function name = %s, want bf16_splat.TILEIR", image.functions[0].name)
+	}
+}
+
