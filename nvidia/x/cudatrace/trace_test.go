@@ -2,12 +2,69 @@ package cudatrace_test
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 )
+
+var errDumpPostMortemWrite = errors.New("dump post-mortem write failed")
+
+type failAtDumpWriter struct {
+	n      int
+	failAt int
+}
+
+func (w *failAtDumpWriter) Write(p []byte) (int, error) {
+	w.n++
+	if w.n == w.failAt {
+		return 0, errDumpPostMortemWrite
+	}
+	return len(p), nil
+}
+
+func newPostMortemTracer(t *testing.T) *cudatrace.Tracer {
+	t.Helper()
+	tracer := cudatrace.New(new(bytes.Buffer))
+	if _, err := tracer.RegisterStream(nil, "Default Stream"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tracer.Span(nil, "Kernel", "kernel", func() {}); err != nil {
+		t.Fatal(err)
+	}
+	return tracer
+}
+
+func TestDumpPostMortemWriteErrors(t *testing.T) {
+	var baseline bytes.Buffer
+	if err := newPostMortemTracer(t).DumpPostMortem(&baseline); err != nil {
+		t.Fatal(err)
+	}
+	if baseline.Len() == 0 {
+		t.Fatal("expected post-mortem output")
+	}
+
+	var count failAtDumpWriter
+	if err := newPostMortemTracer(t).DumpPostMortem(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count.n == 0 {
+		t.Fatal("expected post-mortem writes")
+	}
+
+	for i := 1; i <= count.n; i++ {
+		t.Run(fmt.Sprintf("write_%d", i), func(t *testing.T) {
+			w := &failAtDumpWriter{failAt: i}
+			err := newPostMortemTracer(t).DumpPostMortem(w)
+			if !errors.Is(err, errDumpPostMortemWrite) {
+				t.Fatalf("DumpPostMortem error %v, want %v", err, errDumpPostMortemWrite)
+			}
+		})
+	}
+}
 
 func TestTracer(t *testing.T) {
 	var buf bytes.Buffer
