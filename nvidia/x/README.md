@@ -27,6 +27,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
+| [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
