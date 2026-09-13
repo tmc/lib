@@ -7,7 +7,7 @@
 // and call Close before destroying the context. Start may return both a session
 // and an error when native cleanup ownership must be retained.
 //
-// Collection is restricted to Linux amd64/arm64 and CUPTI 130001 or 130400 layouts.
+// Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts.
 // This layout restriction is not native hardware qualification. Native reason
 // counts are not legacy stall enums or inferred instruction metrics.
 package cuptipcsampling

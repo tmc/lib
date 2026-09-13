@@ -59,7 +59,7 @@ func TestStallReasonBounds(t *testing.T) {
 		limit   int
 		version uint32
 	}{
-		{"nil context", 0, 2, 27}, {"zero limit", 1, 0, 27}, {"negative limit", 1, -1, 27}, {"large limit", 1, 65537, 27}, {"unknown ABI", 1, 2, 130201},
+		{"nil context", 0, 2, 27}, {"zero limit", 1, 0, 27}, {"negative limit", 1, -1, 27}, {"large limit", 1, 65537, 27}, {"unknown ABI", 1, 2, 140000},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := stallReasons(tt.ctx, tt.limit, tt.version, func(*cupti.PCSamplingGetNumStallReasonsParams) error { t.Fatal("queried invalid request"); return nil }, nil)

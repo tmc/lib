@@ -117,7 +117,7 @@ func TestSamplingDrainFailure(t *testing.T) {
 }
 
 func TestSamplingDrainGate(t *testing.T) {
-	for _, version := range []uint32{0, 27, 130200} {
+	for _, version := range []uint32{0, 27, 130000, 140000} {
 		b := testSamplingBuffer(t)
 		_, err := b.drain(5, version, func(*cupti.PCSamplingGetDataParams) error {
 			t.Fatal("called native for unqualified layout")
