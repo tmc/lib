@@ -16,7 +16,7 @@ import (
 
 func TestNativeCollection(t *testing.T) {
 	if os.Getenv("CUPTI_ACTIVITY_TEST") != "1" {
-		t.Skip("CUPTI_ACTIVITY_TEST=1 required")
+		t.Skip("CUPTI_ACTIVITY_TEST=1 required; also needs a CUPTI matching the generated layouts, see the package doc")
 	}
 	config := cuptiactivity.Config{
 		Kinds:       []cupti.ActivityKind{cupti.ActivityKindDriver, cupti.ActivityKindMemcpy},
