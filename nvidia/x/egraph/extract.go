@@ -148,8 +148,8 @@ type FusedMegakernelCost struct{}
 func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	baseCost := 1.0
 	switch {
-	case n.Op == "tile_load" || n.Op == "tile_store" || n.Op == "load_strided" || n.Op == "partition_view":
-		// Penalized: Unaligned / unoptimized memory access patterns
+	case n.Op == "tile_load" || n.Op == "tile_store" || n.Op == "load_strided" || n.Op == "partition_view" || n.Op == "cublaslt_gemm":
+		// Penalized: Unaligned memory access patterns or unlowerable host library operators
 		baseCost = 4.0
 	case strings.HasPrefix(n.Op, "tma_") || strings.HasPrefix(n.Op, "assume_") || strings.HasPrefix(n.Op, "coalesce_") || n.Op == "mmaf_scaled" || n.Op == "tile_mma_aligned":
 		// Rewarded: Hardware TMA / Tensor Core hardware-aligned acceleration
@@ -163,9 +163,6 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	case strings.HasPrefix(n.Op, "ptx_"):
 		// Rewarded: In-register bit-unswizzling
 		baseCost = 0.4
-	case n.Op == "cublaslt_gemm":
-		// Rewarded: High-throughput Tensor Core GEMM for batched matrix multiply
-		baseCost = 0.5
 	case n.Op == "gemv" || n.Op == "matmul":
 		baseCost = 2.0
 	case n.Op == "rmsnorm" || n.Op == "rope" || n.Op == "silu" || n.Op == "gelu" || n.Op == "swish":
