@@ -6,7 +6,7 @@ import (
 )
 
 func TestPCSamplingReasonLayoutFor(t *testing.T) {
-	for _, version := range []uint32{27, 130001, 130101, 130202, 130301, 130400} {
+	for _, version := range []uint32{27, 130001, 130101, 130200, 130202, 130301, 130400} {
 		layout, ok := PCSamplingReasonLayoutFor(version)
 		if !ok {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) rejected validated layout", version)
@@ -15,7 +15,9 @@ func TestPCSamplingReasonLayoutFor(t *testing.T) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, want 32/48", version, layout)
 		}
 	}
-	for _, version := range []uint32{0, 26, 28, 120000, 140000} {
+	// A version inside the CUDA 13 range but with no measured header is
+	// refused: the witness is per version, not per family.
+	for _, version := range []uint32{0, 26, 28, 120000, 130002, 130100, 130201, 130500, 139999, 140000} {
 		if layout, ok := PCSamplingReasonLayoutFor(version); ok || layout != (PCSamplingReasonLayout{}) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, %v, want zero, false", version, layout, ok)
 		}

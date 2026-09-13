@@ -21,15 +21,21 @@ type PCSamplingReasonLayout struct {
 }
 
 // PCSamplingReasonLayoutFor reports the validated parameter layout for a CUPTI
-// API version. CUPTI 27 is the legacy CUDA 12 encoding; CUDA 13 releases
-// (130001 <= version < 140000) use the validated 64-bit parameter layout.
-// The parameter structs contain pointers and are admitted only on 64-bit hosts.
+// API version. CUPTI 27 is the legacy CUDA 12 encoding; 130001, 130101, 130200,
+// 130202, 130301 and 130400 are the CUDA 13 versions whose cupti_pcsampling.h
+// has been measured, 130200 being [ApiVersion], the header these types were
+// generated from. A version absent from that list has no layout witness and is
+// refused, because these structs are filled in place by CUPTI through the
+// pointer it is given: a size declared for an unmeasured layout is a native
+// write at the wrong offset rather than an error. The parameter structs contain
+// pointers and are admitted only on 64-bit hosts.
 func PCSamplingReasonLayoutFor(version uint32) (PCSamplingReasonLayout, bool) {
 	if unsafe.Sizeof(uintptr(0)) != 8 {
 		return PCSamplingReasonLayout{}, false
 	}
 	switch {
-	case version == 27, version >= 130001 && version < 140000:
+	case version == 27, version == 130001, version == 130101, version == 130200,
+		version == 130202, version == 130301, version == 130400:
 		return PCSamplingReasonLayout{
 			CountParamsSize: uint(unsafe.Sizeof(PCSamplingGetNumStallReasonsParams{})),
 			NamesParamsSize: uint(unsafe.Sizeof(PCSamplingGetStallReasonsParams{})),
