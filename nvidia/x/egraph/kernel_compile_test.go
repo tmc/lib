@@ -10,7 +10,18 @@ import (
 
 // codegenOps are every operator GenerateCUDA has a kernel for. Anything else
 // is an error, which TestUnsupportedOperatorRejected covers.
-var codegenOps = []string{"fused_swiglu_gemv", "fused_rmsnorm_gemv", "add"}
+var codegenOps = []string{
+	"fused_swiglu_gemv",
+	"fused_swiglu_q8_0",
+	"fused_rmsnorm_gemv",
+	"q8_0_matvec",
+	"q8_1_matvec",
+	"iq2_simd",
+	"iq2_scalar",
+	"q2_k_matvec",
+	"fused_rope_store_kv",
+	"add",
+}
 
 // TestGeneratedKernelsCompile compiles the output of GenerateCUDA for every
 // operator it dispatches on. The generator's own test asserts only that the
@@ -46,14 +57,13 @@ func TestScaledFP8TemplateCompiles(t *testing.T) {
 // TestUnsupportedPrecisionRejected checks that a precision GenerateCUDA cannot
 // emit valid source for is refused rather than returned.
 //
-// CodegenOptions documents "float", "half" and "__nv_bfloat16". The generator
-// emits the precision as a bare type name, so half and __nv_bfloat16 produced
-// source in which the type was an undefined identifier: two of the three
-// documented precisions could not compile. Supporting them needs more than an
-// #include, because nvrtc is given no header search path, so the contract was
-// narrowed to the precision that works and the others are now an error.
+// Half-precision ("half", "float16") is supported via uint16_t storage and
+// inline PTX cvt instructions, while quantization formats ("q8_0", "q8_1",
+// "iq2_xxs", "q2_k") are supported via self-contained block structures.
+// Unsupported types like "double", "float64", "int64", and "__nv_bfloat16"
+// are rejected.
 func TestUnsupportedPrecisionRejected(t *testing.T) {
-	for _, prec := range []string{"half", "__nv_bfloat16", "double"} {
+	for _, prec := range []string{"double", "float64", "int64", "__nv_bfloat16"} {
 		t.Run(prec, func(t *testing.T) {
 			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
@@ -62,6 +72,23 @@ func TestUnsupportedPrecisionRejected(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), prec) {
 				t.Errorf("error %q does not name the precision", err)
+			}
+		})
+	}
+}
+
+// TestSupportedPrecisionsAccepted checks that supported floating point and
+// quantized precision formats are accepted by GenerateCUDA.
+func TestSupportedPrecisionsAccepted(t *testing.T) {
+	for _, prec := range []string{"float", "float32", "half", "float16", "q8_0", "q8_1", "iq2_xxs", "iq2", "q2_k"} {
+		t.Run(prec, func(t *testing.T) {
+			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
+			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
+			if err != nil {
+				t.Fatalf("GenerateCUDA rejected supported precision %q: %v", prec, err)
+			}
+			if len(src) == 0 {
+				t.Fatalf("GenerateCUDA returned empty source for precision %q", prec)
 			}
 		})
 	}

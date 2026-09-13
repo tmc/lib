@@ -127,6 +127,37 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 			shared:  benchInter * 4,
 			grid:    func(uint32) uint32 { return 1 },
 		}, nil
+	case "fused_swiglu_q8_0":
+		return launchPlan{
+			buffers: []int{benchHidden * 4, benchInter * benchHidden, benchInter * benchHidden, benchHidden * benchInter, benchHidden * 4},
+			scalars: []any{int32(benchHidden), int32(benchInter)},
+			shared:  benchInter * 4,
+			grid:    func(uint32) uint32 { return 1 },
+		}, nil
+	case "q8_0_matvec", "q8_1_matvec":
+		return launchPlan{
+			buffers: []int{benchOutDim * benchInDim, benchInDim * 4, benchOutDim * 4},
+			scalars: []any{int32(benchOutDim), int32(benchInDim)},
+			grid:    func(block uint32) uint32 { return (benchOutDim*32 + block - 1) / block },
+		}, nil
+	case "iq2_simd", "iq2_scalar":
+		return launchPlan{
+			buffers: []int{benchElements * 4, benchElements * 4, benchElements * 4},
+			scalars: []any{float32(1.0), int32(benchElements)},
+			grid:    func(block uint32) uint32 { return (benchElements + block - 1) / block },
+		}, nil
+	case "q2_k_matvec":
+		return launchPlan{
+			buffers: []int{benchOutDim * (benchInDim / 256) * 84, benchInDim * 4, benchOutDim * 4},
+			scalars: []any{int32(benchOutDim), int32(benchInDim)},
+			grid:    func(block uint32) uint32 { return (benchOutDim*32 + block - 1) / block },
+		}, nil
+	case "fused_rope_store_kv":
+		return launchPlan{
+			buffers: []int{benchHidden * 4, benchHidden * 4, benchHidden * 4, benchHidden * 4, benchHidden * 4, benchHidden * 4},
+			scalars: []any{int32(0), float32(10000.0), int32(benchHidden), int32(benchHidden), int32(128), int32(2048)},
+			grid:    func(block uint32) uint32 { return (benchHidden + block - 1) / block },
+		}, nil
 	}
 	return launchPlan{}, fmt.Errorf("egraph: no benchmark launch plan for operator %q", op)
 }
