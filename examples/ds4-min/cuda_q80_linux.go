@@ -164,7 +164,12 @@ func (r *cudaFoundation) loadQ80Quantizer() error {
 		return nil
 	}
 	if r.quantQ80Mod == 0 {
-		compiled, err := nvrtcx.Compile(cudaQ80QuantSource, nvrtcx.WithName("ds4_quant_q8_0.cu"), nvrtcx.WithArch(r.major, r.minor), nvrtcx.WithFlag("--use_fast_math"))
+		compiled, err := nvrtcx.Compile(cudaQ80QuantSource,
+			nvrtcx.WithName("ds4_quant_q8_0.cu"),
+			nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
+			nvrtcx.WithFlag("--generate-line-info"),
+			nvrtcx.WithFlag("--use_fast_math"),
+		)
 		if err != nil {
 			return fmt.Errorf("cuda: compile Q8_0 quantizer: %w", err)
 		}

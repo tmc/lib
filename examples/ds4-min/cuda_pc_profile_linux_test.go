@@ -18,7 +18,6 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
@@ -129,12 +128,15 @@ func TestCUDAPCProfile(t *testing.T) {
 		t.Skipf("model not accessible: %v", err)
 	}
 
-	dev, err := cuda.NewDevice(0)
+	// Instantiate runtime
+	t.Logf("loading DS4 model from %s...", modelPath)
+	r, err := newCUDARuntime(modelPath, 1024)
 	if err != nil {
-		t.Skipf("cuda device 0 not available: %v", err)
+		t.Fatalf("newCUDARuntime: %v", err)
 	}
-	defer dev.Close()
+	defer r.Close()
 
+	dev := r.device
 	devName, err := dev.Name()
 	if err != nil {
 		t.Fatal(err)
@@ -150,7 +152,6 @@ func TestCUDAPCProfile(t *testing.T) {
 	if err != nil {
 		t.Skipf("retain primary context: %v", err)
 	}
-	defer cuCtx.Release()
 
 	// Check CUPTI stall reasons
 	inv, err := queryStallReasons(cupti.Context(cuCtx.Raw()))
@@ -158,14 +159,6 @@ func TestCUDAPCProfile(t *testing.T) {
 		t.Skipf("query stall reasons: %v", err)
 	}
 	t.Logf("CUPTI stall reason inventory: %d reasons", len(inv.Reasons))
-
-	// Instantiate runtime
-	t.Logf("loading DS4 model from %s...", modelPath)
-	r, err := newCUDARuntime(modelPath, 1024)
-	if err != nil {
-		t.Fatalf("newCUDARuntime: %v", err)
-	}
-	defer r.Close()
 
 	// Warmup 1 step to trigger JIT compilation of ds4_math.cu
 	t.Log("warming up 1 step to compile kernels...")
