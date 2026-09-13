@@ -1,9 +1,14 @@
 package cuptipcsampling_test
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
+
 
 func Example() {
 	_, err := cuptipcsampling.StallReasons(0, 128)
@@ -130,3 +135,36 @@ func ExampleInfo() {
 	fmt.Println(info.Verified, info.Failed, info.Reads)
 	// Output: false false 0
 }
+
+func ExampleProfileBridge() {
+	var buf bytes.Buffer
+	prof := cudaprof.NewSession(&buf)
+
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session: prof,
+		Inventory: cuptipcsampling.ReasonInventory{
+			Reasons: []cuptipcsampling.StallReason{
+				{Index: 1, Name: "stall_math_pipe_throttle"},
+			},
+		},
+	}
+
+	batch := cuptipcsampling.Batch{
+		Valid: true,
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   "compute_kernel",
+				Offset: 0x40,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 1, Samples: 16},
+				},
+			},
+		},
+	}
+
+	err := bridge.RecordBatch(context.Background(), batch)
+	fmt.Println("Recorded:", err == nil)
+	// Output:
+	// Recorded: true
+}
+

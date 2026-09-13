@@ -26,6 +26,18 @@ type ReasonInventory struct {
 	Reasons      []StallReason
 }
 
+// Lookup returns the name of the stall reason for the given native index,
+// or an empty string if not found.
+func (inv ReasonInventory) Lookup(index uint32) string {
+	for _, r := range inv.Reasons {
+		if r.Index == index {
+			return r.Name
+		}
+	}
+	return ""
+}
+
+
 // StallReasons queries the modern native reason inventory without enabling PC
 // sampling or launching work. The caller must keep ctx alive and coordinate its
 // use with other collectors. maxReasons must be between 1 and 65536. Exceeding
