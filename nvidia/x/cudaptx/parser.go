@@ -31,12 +31,18 @@ import (
 
 // newlineTerminated lists the directives written without a terminator that may
 // appear at module scope or inside a function body.
-var newlineTerminated = []string{".version", ".target", ".address_size", ".file", ".loc", ".loc_intermediate"}
+var newlineTerminated = []string{
+	".version", ".target", ".address_size", ".file", ".loc", ".loc_intermediate",
+	".nv_intermediate_source_section",
+}
 
 // tuningDirectives lists the performance-tuning directives, which are written
 // without a terminator between a function header's ")" and its "{"
-// (docs/ptx/11-directives.md:925-1218).
-var tuningDirectives = []string{".maxnreg", ".maxntid", ".reqntid", ".minnctapersm", ".maxnctapersm"}
+// (docs/ptx/11-directives.md:925-1218, 11-directives.md:1830-1920).
+var tuningDirectives = []string{
+	".maxnreg", ".maxntid", ".reqntid", ".minnctapersm", ".maxnctapersm",
+	".reqnctapercluster", ".maxclusterrank", ".explicitcluster",
+}
 
 // hasAnyPrefix reports whether s begins with one of prefixes followed by a
 // delimiter, so that ".maxnt" does not match ".maxntid".
@@ -239,9 +245,16 @@ func Parse(r io.Reader) (*Module, error) {
 			case ':':
 				// A label is a lone identifier at the start of a
 				// statement (docs/ptx/04-syntax.md:39-40); a ":" anywhere
-				// else belongs to an operand.
+				// else belongs to an operand or double-colon qualifier (e.g. .cta_group::1).
+				if i+1 < len(trimmed) && trimmed[i+1] == ':' {
+					i++
+					continue
+				}
+				if i > 0 && trimmed[i-1] == ':' {
+					continue
+				}
 				tok := strings.TrimSpace(trimmed[seg:i])
-				if len(stmt) > 0 || tok == "" || strings.ContainsAny(tok, " \t") {
+				if len(stmt) > 0 || tok == "" || strings.ContainsAny(tok, " \t.") {
 					continue
 				}
 				add(trimmed[seg : i+1])
@@ -419,8 +432,16 @@ func parseTuningDirective(stmt string, t *Tuning) {
 		t.MaxNTID = parseTuple3(arg)
 	case ".reqntid":
 		t.ReqNTID = parseTuple3(arg)
-	case ".minnctapersm", ".maxnctapersm":
+	case ".minnctapersm":
 		t.MinNCTAPerSM, _ = strconv.Atoi(arg)
+	case ".maxnctapersm":
+		t.MaxNCTAPerSM, _ = strconv.Atoi(arg)
+	case ".reqnctapercluster":
+		t.ReqNCTAPerCluster = parseTuple3(arg)
+	case ".maxclusterrank":
+		t.MaxClusterRank, _ = strconv.Atoi(arg)
+	case ".explicitcluster":
+		t.ExplicitCluster = true
 	}
 }
 

@@ -11,8 +11,9 @@
 // consumers in this repository attribute samples to source lines rather than
 // interpret addressing modes.
 //
-// Instruction keyword tables are generated from the PTX ISA documentation; see
-// IsInstructionKeyword and PTXISAVersion.
+// Instruction keyword, category, directive, data type, and special register
+// tables are generated from the PTX ISA documentation; see IsInstructionKeyword,
+// InstructionCategory, IsDataType, IsSpecialRegister, and PTXISAVersion.
 //
 // Reference: PTX ISA 9.4. The keyword table is deliberately newer than the
 // fixtures in testdata, which nvcc from CUDA 13.0 emits as PTX ISA 9.0: the
@@ -21,4 +22,4 @@
 // the other.
 package cudaptx
 
-//go:generate go run ./internal/genptxtables -docs ../../../libgen/docs/ptx -out keywords.gen.go
+//go:generate go run ./internal/genptxtables -docs ../../../../libgen/docs/ptx -out tables.gen.go
