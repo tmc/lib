@@ -475,12 +475,18 @@ func TestLoadCodeWithFixture(t *testing.T) {
 	if inst0.SourceLine != 2 {
 		t.Errorf("inst0.SourceLine = %d, want 2", inst0.SourceLine)
 	}
+	if inst0.PTXLine != 12 {
+		t.Errorf("inst0.PTXLine = %d, want 12", inst0.PTXLine)
+	}
 	inst1 := k.Instruction(0x10)
 	if inst1 == nil {
 		t.Fatal("instruction at offset 0x10 not found")
 	}
 	if inst1.SourceLine != 3 {
 		t.Errorf("inst1.SourceLine = %d, want 3", inst1.SourceLine)
+	}
+	if inst1.PTXLine != 14 {
+		t.Errorf("inst1.PTXLine = %d, want 14", inst1.PTXLine)
 	}
 }
 

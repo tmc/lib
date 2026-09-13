@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudatest"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
 func TestCapture(t *testing.T) {
@@ -111,5 +118,125 @@ func TestKernelsNVRTCCompile(t *testing.T) {
 	}
 	if _, err := cudatest.CompileSource(string(src), major, minor); err != nil {
 		t.Fatalf("kernels.cu does not compile with NVRTC: %v", err)
+	}
+}
+
+func TestPTXInstructionAttribution(t *testing.T) {
+	dir := filepath.Join("..", "..", "x", "cudacapture", "testdata")
+	cubinHex, err := os.ReadFile(filepath.Join(dir, "kernels.cubin.hex"))
+	if err != nil {
+		t.Fatalf("read kernels.cubin.hex: %v", err)
+	}
+	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(cubinHex)))
+	if err != nil {
+		t.Fatalf("decode cubin hex: %v", err)
+	}
+	cuBytes, err := os.ReadFile(filepath.Join(dir, "kernels.cu"))
+	if err != nil {
+		t.Fatalf("read kernels.cu: %v", err)
+	}
+	ptxBytes, err := os.ReadFile(filepath.Join(dir, "kernels.ptx"))
+	if err != nil {
+		t.Fatalf("read kernels.ptx: %v", err)
+	}
+	sassBytes, err := os.ReadFile(filepath.Join(dir, "kernels.sass"))
+	if err != nil {
+		t.Fatalf("read kernels.sass: %v", err)
+	}
+
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			PTX:    "kernels.ptx",
+			CUBIN:  "kernels.cubin",
+			SASS:   "kernels.sass",
+		},
+		Files: map[string][]byte{
+			"kernels.cu":    cuBytes,
+			"kernels.ptx":   ptxBytes,
+			"kernels.cubin": cubinBytes,
+			"kernels.sass":  sassBytes,
+		},
+	}
+
+	code, err := cudacapture.LoadCode(cap)
+	if err != nil {
+		t.Fatalf("LoadCode: %v", err)
+	}
+	k := code.Kernel("compute")
+	if k == nil {
+		t.Fatal("kernel compute not found")
+	}
+	if len(k.Instructions) != 2 {
+		t.Fatalf("got %d instructions, want 2", len(k.Instructions))
+	}
+	if k.Instructions[0].PTXLine != 12 {
+		t.Errorf("inst0.PTXLine = %d, want 12", k.Instructions[0].PTXLine)
+	}
+	if k.Instructions[1].PTXLine != 14 {
+		t.Errorf("inst1.PTXLine = %d, want 14", k.Instructions[1].PTXLine)
+	}
+
+	res := cuptipcsampling.NewCaptureResolver(code, 0)
+	loc0 := res.ResolvePC(cuptipcsampling.ModuleID{}, "compute", 0)
+	if loc0.PTXLine != 12 || loc0.SASSLine != 3 || loc0.SourceLine != 2 {
+		t.Errorf("loc0 = %+v, want PTX:12, SASS:3, Cu:2", loc0)
+	}
+	loc1 := res.ResolvePC(cuptipcsampling.ModuleID{}, "compute", 0x10)
+	if loc1.PTXLine != 14 || loc1.SASSLine != 5 || loc1.SourceLine != 3 {
+		t.Errorf("loc1 = %+v, want PTX:14, SASS:5, Cu:3", loc1)
+	}
+
+	var buf bytes.Buffer
+	profSession := cudaprof.NewSession(&buf)
+	if err := profSession.SetSampleTypes("samples"); err != nil {
+		t.Fatalf("SetSampleTypes: %v", err)
+	}
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:  profSession,
+		Resolver: res,
+		Inventory: cuptipcsampling.ReasonInventory{
+			CUPTIVersion: 130001,
+			Reasons: []cuptipcsampling.StallReason{
+				{Index: 0, Name: "selected"},
+			},
+		},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid: true,
+		PCs: []cuptipcsampling.PC{
+			{Name: "compute", Offset: 0, Reasons: []cuptipcsampling.StallSamples{{Index: 0, Samples: 10}}},
+			{Name: "compute", Offset: 0x10, Reasons: []cuptipcsampling.StallSamples{{Index: 0, Samples: 20}}},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := profSession.Close(); err != nil {
+		t.Fatalf("profSession.Close: %v", err)
+	}
+
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	if len(p.Sample) != 2 {
+		t.Fatalf("got %d samples, want 2", len(p.Sample))
+	}
+	s0 := p.Sample[0]
+	if len(s0.Location) != 3 {
+		t.Fatalf("got %d locations in sample, want 3 (SASS, PTX, Cu)", len(s0.Location))
+	}
+	if s0.Location[0].Line[0].Line != 3 || s0.Location[1].Line[0].Line != 12 || s0.Location[2].Line[0].Line != 2 {
+		t.Errorf("unexpected lines in s0 stack: SASS=%d, PTX=%d, Cu=%d",
+			s0.Location[0].Line[0].Line, s0.Location[1].Line[0].Line, s0.Location[2].Line[0].Line)
+	}
+	s1 := p.Sample[1]
+	if len(s1.Location) != 3 {
+		t.Fatalf("got %d locations in sample 1, want 3", len(s1.Location))
+	}
+	if s1.Location[0].Line[0].Line != 5 || s1.Location[1].Line[0].Line != 14 || s1.Location[2].Line[0].Line != 3 {
+		t.Errorf("unexpected lines in s1 stack: SASS=%d, PTX=%d, Cu=%d",
+			s1.Location[0].Line[0].Line, s1.Location[1].Line[0].Line, s1.Location[2].Line[0].Line)
 	}
 }

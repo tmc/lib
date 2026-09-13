@@ -39,6 +39,8 @@ type Instruction struct {
 	Text       string
 	SASSLine   int
 	SourceLine int
+	PTXLine    int
+	InlinedAt  []cudaptx.Location
 }
 
 var sourceLocation = regexp.MustCompile(`//## File "([^"]+)", line ([0-9]+)`)
@@ -138,6 +140,15 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			return nil, fmt.Errorf("cudacapture: %s: invalid CUBIN section", fn.Name)
 		}
 		k := &Kernel{Name: fn.Name, Offset: section.Offset, Size: section.Size, PTXLine: pk.StartLine}
+		if len(pk.Instructions) > 0 {
+			k.PTXLine = pk.Instructions[0].Line
+			for _, inst := range pk.Instructions {
+				if isArithmeticPTXOpcode(inst.Opcode) {
+					k.PTXLine = inst.Line
+					break
+				}
+			}
+		}
 		for i, line := range strings.Split(source, "\n") {
 			if strings.Contains(line, "void "+fn.Name+"(") {
 				k.SourceLine = i + 1
@@ -147,6 +158,14 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 		if k.SourceLine == 0 {
 			return nil, fmt.Errorf("cudacapture: %s: missing CUDA definition", fn.Name)
 		}
+
+		ptxByLine := make(map[int][]cudaptx.Instruction)
+		for _, pInst := range pk.Instructions {
+			if pInst.Loc.Line > 0 {
+				ptxByLine[pInst.Loc.Line] = append(ptxByLine[pInst.Loc.Line], pInst)
+			}
+		}
+
 		for _, inst := range fn.Instructions {
 			if inst.Address >= section.Size || inst.Address%16 != 0 {
 				return nil, fmt.Errorf("cudacapture: %s: invalid SASS offset %#x", fn.Name, inst.Address)
@@ -165,9 +184,38 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			if cuLine == 0 {
 				cuLine = cuLines[line]
 			}
-			text := strings.TrimSpace(strings.TrimSpace(inst.Predicate+" "+inst.Opcode)+" "+inst.Operands) + ";"
-			k.Instructions = append(k.Instructions, Instruction{inst.Address, text, line, cuLine})
 
+			ptxLine := k.PTXLine
+			var inlinedAt []cudaptx.Location
+			if candidates := ptxByLine[cuLine]; len(candidates) > 0 {
+				matched := candidates[0]
+				for _, c := range candidates {
+					if matchOpcodeAffinity(inst.Opcode, c.Mnemonic) {
+						matched = c
+						break
+					}
+				}
+				ptxLine = matched.Line
+				inlinedAt = matched.InlinedAt
+			} else if strings.HasPrefix(strings.ToUpper(inst.Opcode), "RET") || strings.HasPrefix(strings.ToUpper(inst.Opcode), "EXIT") {
+				for j := len(pk.Instructions) - 1; j >= 0; j-- {
+					if pk.Instructions[j].Mnemonic == "ret" || pk.Instructions[j].Mnemonic == "exit" {
+						ptxLine = pk.Instructions[j].Line
+						inlinedAt = pk.Instructions[j].InlinedAt
+						break
+					}
+				}
+			}
+
+			text := strings.TrimSpace(strings.TrimSpace(inst.Predicate+" "+inst.Opcode)+" "+inst.Operands) + ";"
+			k.Instructions = append(k.Instructions, Instruction{
+				Offset:     inst.Address,
+				Text:       text,
+				SASSLine:   line,
+				SourceLine: cuLine,
+				PTXLine:    ptxLine,
+				InlinedAt:  inlinedAt,
+			})
 		}
 		if len(k.Instructions) == 0 || k.Instructions[0].Offset != 0 {
 			return nil, fmt.Errorf("cudacapture: %s: missing SASS entry instruction", fn.Name)
@@ -239,4 +287,47 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 		return &k.Instructions[idx]
 	}
 	return nil
+}
+
+func matchOpcodeAffinity(sassOp, ptxMnemonic string) bool {
+	s := strings.ToUpper(sassOp)
+	p := strings.ToLower(ptxMnemonic)
+	switch {
+	case strings.HasPrefix(s, "LD") && p == "ld":
+		return true
+	case strings.HasPrefix(s, "ST") && p == "st":
+		return true
+	case (strings.Contains(s, "FMA") || strings.Contains(s, "MAD") || strings.Contains(s, "MUL")) && (p == "fma" || p == "mad" || p == "mul"):
+		return true
+	case (strings.Contains(s, "ADD") || strings.Contains(s, "SUB")) && (p == "add" || p == "sub"):
+		return true
+	case strings.Contains(s, "DP4A") && p == "dp4a":
+		return true
+	case strings.Contains(s, "SHFL") && p == "shfl":
+		return true
+	case strings.Contains(s, "BRA") && p == "bra":
+		return true
+	case (strings.Contains(s, "RET") || strings.Contains(s, "EXIT")) && (p == "ret" || p == "exit"):
+		return true
+	case strings.Contains(s, "BAR") && p == "bar":
+		return true
+	case (strings.Contains(s, "SETP") || strings.Contains(s, "SEL")) && (p == "setp" || p == "selp"):
+		return true
+	case strings.Contains(s, "MOV") && (p == "mov" || p == "cvt" || p == "ld"):
+		return true
+	default:
+		return false
+	}
+}
+
+func isArithmeticPTXOpcode(op string) bool {
+	lower := strings.ToLower(op)
+	for _, prefix := range []string{
+		"add", "sub", "mul", "fma", "mad", "dp4a", "shfl", "rsqrt", "div", "cvt", "ld", "st",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
