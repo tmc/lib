@@ -461,10 +461,18 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 		}
 		defer exec.Destroy()
 
-		_ = startEv.Record(stream)
-		_ = exec.Launch(stream)
-		_ = stopEv.Record(stream)
-		_ = stream.Synchronize(context.Background())
+		if err := startEv.Record(stream); err != nil {
+			t.Fatalf("record start: %v", err)
+		}
+		if err := exec.Launch(stream); err != nil {
+			t.Fatalf("launch: %v", err)
+		}
+		if err := stopEv.Record(stream); err != nil {
+			t.Fatalf("record stop: %v", err)
+		}
+		if err := stream.Synchronize(context.Background()); err != nil {
+			t.Fatalf("synchronize: %v", err)
+		}
 		d, err := stopEv.ElapsedSince(startEv)
 		if err != nil {
 			t.Fatal(err)
@@ -475,16 +483,38 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	// Verify numerical accuracy across arms before running timing loop
 	_ = launchArm(cEntryFn, false) // NOPDL
 	hOutRef := make([]float32, dim)
-	_ = outBuf.CopyToHost(hOutRef)
+	if err := outBuf.CopyToHost(hOutRef); err != nil {
+		t.Fatalf("copy reference: %v", err)
+	}
+	for i := range hX {
+		hX[i] += 0.03125
+	}
+	if err := xBuf.CopyFromHost(hX); err != nil {
+		t.Fatalf("copy changed input: %v", err)
+	}
+	poison := make([]float32, dim)
+	for i := range poison {
+		poison[i] = float32(math.NaN())
+	}
+	if err := outBuf.CopyFromHost(poison); err != nil {
+		t.Fatalf("poison output: %v", err)
+	}
 
 	_ = launchArm(cHoistFn, true) // PDL_HOISTED
 	hOutHoist := make([]float32, dim)
-	_ = outBuf.CopyToHost(hOutHoist)
+	if err := outBuf.CopyToHost(hOutHoist); err != nil {
+		t.Fatalf("copy hoisted: %v", err)
+	}
+	_ = launchArm(cEntryFn, false)
+	hExpected := make([]float32, dim)
+	if err := outBuf.CopyToHost(hExpected); err != nil {
+		t.Fatalf("copy changed reference: %v", err)
+	}
 
 	for i := 0; i < dim; i++ {
-		diff := math.Abs(float64(hOutRef[i] - hOutHoist[i]))
+		diff := math.Abs(float64(hExpected[i] - hOutHoist[i]))
 		if diff > 1e-4 {
-			t.Fatalf("numerical divergence at [%d]: ref=%f, hoisted=%f", i, hOutRef[i], hOutHoist[i])
+			t.Fatalf("numerical divergence at [%d]: ref=%f, hoisted=%f", i, hExpected[i], hOutHoist[i])
 		}
 	}
 	t.Log("Numerical output verified: Hoisted arm produces identical output to sequential baseline")
