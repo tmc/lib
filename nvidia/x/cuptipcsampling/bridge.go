@@ -339,15 +339,17 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 	// Waits: synchronization, memory barriers, and dependencies on a result
 	// whose latency is fixed. Checked before the memory throttle arm below,
 	// which the bare mem of membar would otherwise reach. That ordering is
-	// measured, not assumed: a __threadfence loop on a GB10 puts 86.80% of
-	// 263890 samples in membar, so reversing the two arms moves 229055 samples
-	// from stall_wait to stall_mem.
+	// measured, not assumed: a __threadfence loop on a GB10 at driver
+	// 580.173.02 puts 86.80% of 263890 samples in membar, so reversing the two
+	// arms moves 229055 samples from stall_wait to stall_mem. The part and the
+	// driver are named because that is what makes the number checkable by a
+	// reader who has not run the kernel.
 	//
 	// exec_dependency is the legacy activity-API name for a warp waiting on a
 	// non-memory input, a union of what the PC sampling API splits into wait and
 	// short_scoreboard. A union can only be routed to its dominant member, and
-	// the measurement says wait: a dependent FMA chain on a GB10 reports wait
-	// 71.88% against short_scoreboard 0.06%, because a fixed-latency result is
+	// the measurement says wait: a dependent FMA chain on the same GB10 reports
+	// wait 71.88% against short_scoreboard 0.06%, because a fixed-latency result is
 	// resolved with compiler-inserted stall cycles rather than a scoreboard slot.
 	case strings.Contains(name, "barrier") || strings.Contains(name, "membar") || strings.Contains(name, "sync") ||
 		strings.Contains(name, "wait") || strings.Contains(name, "exec_dependency"):
