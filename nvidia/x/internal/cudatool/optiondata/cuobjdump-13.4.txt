@@ -1,0 +1,19 @@
+--all-fatbin bare short=-all
+--dump-elf bare short=-elf
+--dump-elf-symbols bare short=-symbols
+--dump-ptx bare short=-ptx
+--dump-resource-usage bare short=-res-usage
+--dump-sass bare short=-sass
+--extract-elf value short=-xelf
+--extract-ptx value short=-xptx
+--extract-text value short=-xtext
+--function value short=-fun
+--function-index value short=-findex
+--gpu-architecture value short=-arch values=sm_100,sm_100a,sm_100f,sm_103,sm_103a,sm_103f,sm_107,sm_107a,sm_107f,sm_110,sm_110a,sm_110f,sm_120,sm_120a,sm_120f,sm_121,sm_121a,sm_121f,sm_75,sm_80,sm_86,sm_87,sm_88,sm_89,sm_90,sm_90a
+--help bare short=-h
+--list-elf bare short=-lelf
+--list-ptx bare short=-lptx
+--list-text value short=-ltext
+--options-file value short=-optf
+--sort-functions bare short=-sort
+--version bare short=-V

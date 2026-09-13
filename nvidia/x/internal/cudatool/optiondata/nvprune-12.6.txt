@@ -1,0 +1,9 @@
+--arch value short=-arch
+--generate-code bare short=-gencode
+--help bare short=-h
+--include-possible-codes bare short=-ipc
+--no-relocatable-elf bare short=-no-relocatable-elf
+--options-file value short=-optf
+--output-file value short=-o
+--verbose bare short=-v
+--version bare short=-V

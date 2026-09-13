@@ -1,0 +1,69 @@
+--backtrace-short value default=yes
+--check-api-memory-access value default=yes
+--check-bulk-copy value default=yes
+--check-cache-control bare
+--check-device-heap value default=yes
+--check-exit-code value default=yes
+--check-optix bare
+--check-optix-leaks bare
+--check-warpgroup-mma value default=yes
+--coredump-behavior value default=full values=full,exit
+--coredump-name value
+--demangle value default=full values=full,simple,no
+--destroy-on-device-error value values=context,kernel
+--detect-missing-module-unload bare
+--error-exitcode value
+--force-blocking-launches bare
+--force-synchronization-limit value
+--generate-coredump bare
+--help bare short=-h
+--ignore-getprocaddress-notfound bare
+--injection-path value
+--injection-path32 value
+--kernel-name value values=regex
+--kernel-name-exclude value values=regex
+--kill bare
+--language value default=c
+--launch-count value short=-c default=0
+--launch-skip value short=-s default=0
+--launch-timeout value
+--leak-check value default=no
+--log-file value
+--max-connections value default=10
+--missing-barrier-init-is-fatal value
+--mode value default=launch-and-attach
+--num-callers-device value default=0
+--num-callers-host value default=0
+--num-cuda-barriers value default=0
+--nvtx value default=yes
+--padding value default=0
+--port value default=49152
+--prefix value default==========
+--preload-library value
+--print-level value default=warn
+--print-limit value default=100
+--print-session-details bare
+--quiet bare short=-q
+--racecheck-continue-on-deadlock value
+--racecheck-deadlock-timeout value default=0
+--racecheck-detect-level value default=warn
+--racecheck-memcpy-async value default=yes
+--racecheck-num-workers value default=0
+--racecheck-report value default=analysis values=all,hazard,analysis
+--racecheck-trace-sync value default=no
+--read value
+--report-api-errors value default=explicit values=all,explicit,no
+--require-cuda-init value default=yes
+--save value
+--save-session-details bare
+--show-backtrace value default=yes values=no,host,device,yes
+--strip-paths value default=yes
+--suppressions value
+--target-processes value default=all values=application-only,all
+--target-processes-filter value
+--tool value default=memcheck values=memcheck,racecheck,synccheck,initcheck
+--track-stream-ordered-races value values=all,use-before-alloc,use-after-free,no
+--track-unused-memory bare
+--unused-memory-threshold value default=0
+--version bare short=-v
+--xml bare
