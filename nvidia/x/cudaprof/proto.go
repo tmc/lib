@@ -234,6 +234,10 @@ const DefaultMappingStart = uint64(0x7f000000)
 // below DefaultMappingStart so the PTX and CUBIN images never overlap.
 const PTXMappingStart = uint64(0x7e000000)
 
+// TileIRMappingStart is the logical image base for recorded Tile IR. It sits
+// below PTXMappingStart so Tile IR, PTX, and CUBIN images never overlap.
+const TileIRMappingStart = uint64(0x7d000000)
+
 // PTXLineOffsets returns the byte offset at which each one-based line of text
 // begins. Element 0 is unused so that a line number indexes the slice directly,
 // and the last element is the length of text, so the line past the final one

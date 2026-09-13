@@ -16,6 +16,7 @@ import (
 	"github.com/google/pprof/driver"
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
 type exampleMetadata struct {
@@ -248,6 +249,61 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 	}
 	if f.tool != nil && f.tool.ptx != nil {
 		f.tool.mapPTX(p)
+	}
+	if f.tool != nil && f.tool.tileir != nil {
+		f.tool.mapTileIR(p)
+	}
+
+	if f.cap.Code.TileIR != "" && len(f.cap.Files[f.cap.Code.TileIR]) > 0 {
+		tileData := f.cap.Files[f.cap.Code.TileIR]
+		var mod *tileir.Module
+		if tileir.IsTileIRBytecode(tileData) {
+			if bm, err := tileir.DecodeBytecodeBytes(tileData); err == nil {
+				mod = bm.ToModule()
+			}
+		} else {
+			mod, _ = tileir.ParseBytes(tileData)
+		}
+		if mod != nil {
+			tmaOps, mmaOps := 0, 0
+			for _, fn := range mod.Functions {
+				for _, op := range fn.Operations {
+					if op.IsTMA() {
+						tmaOps++
+					}
+					if op.IsMMA() {
+						mmaOps++
+					}
+				}
+			}
+			p.Comments = append(p.Comments,
+				fmt.Sprintf("Tile IR (%s): %d functions, %d TMA operations, %d Tensor Core MMAs",
+					f.cap.Code.TileIR, len(mod.Functions), tmaOps, mmaOps))
+		}
+	}
+
+	if remarks, rName, _ := findRemarks(f.cap); len(remarks) > 0 {
+		var tmaFails, tcMMAs, tcFails int
+		for _, r := range remarks {
+			if r.IsTMAFailure() {
+				tmaFails++
+			}
+			if r.IsTensorCoreMMA() {
+				tcMMAs++
+			}
+			if r.IsTensorCoreFailure() {
+				tcFails++
+			}
+		}
+		p.Comments = append(p.Comments,
+			fmt.Sprintf("Compiler remarks (%s): %d total (%d Tensor Core MMA, %d TMA failures, %d Tensor Core fallbacks)",
+				rName, len(remarks), tcMMAs, tmaFails, tcFails))
+		for _, r := range remarks {
+			if r.IsTMAFailure() {
+				p.Comments = append(p.Comments,
+					fmt.Sprintf("WARNING: TMA failure at %s:%d: %s (reason: %s)", r.File, r.Line, r.Remark, r.Reason))
+			}
+		}
 	}
 
 	var meta exampleMetadata

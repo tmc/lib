@@ -13,14 +13,17 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
-	"github.com/tmc/lib/nvidia/x/tileirdisasm"
+	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
-// PTX addresses are byte offsets in the recorded text, with a separate logical
-// image base. They are neither native instruction addresses nor sampled PCs.
-// The base and the offsets come from x/cudaprof so that an address synthesized
-// here is the one a capture would have written.
-const ptxBase = cudaprof.PTXMappingStart
+// PTX and TileIR addresses are byte offsets or line coordinates in the recorded text,
+// with separate logical image bases. They are neither native instruction addresses
+// nor sampled PCs. The bases and offsets come from x/cudaprof so that an address
+// synthesized here is the one a capture would have written.
+const (
+	ptxBase    = cudaprof.PTXMappingStart
+	tileirBase = cudaprof.TileIRMappingStart
+)
 
 type objectTool struct {
 	images map[string]*objectImage
@@ -79,7 +82,7 @@ func newObjectTool(c *cudacapture.Capture, code *cudacapture.Code, dir string) (
 		tileData := c.Files[c.Code.TileIR]
 		tileSum := fmt.Sprintf("%x", sha256.Sum256(tileData))
 		tilePath := filepath.Join(dir, c.Code.TileIR)
-		tileImg, err := tileIRImage(tilePath, tileSum, string(tileData))
+		tileImg, err := tileIRImage(tilePath, tileSum, tileData)
 		if err == nil && tileImg != nil {
 			tool.images[tileImg.file] = tileImg
 			tool.tileir = tileImg
@@ -89,22 +92,41 @@ func newObjectTool(c *cudacapture.Capture, code *cudacapture.Code, dir string) (
 	return tool, nil
 }
 
-func tileIRImage(file, buildID, text string) (*objectImage, error) {
-	mod, err := tileirdisasm.ParseString(text)
-	if err != nil {
-		return nil, err
+func tileIRImage(file, buildID string, data []byte) (*objectImage, error) {
+	var mod *tileir.Module
+	var err error
+	if tileir.IsTileIRBytecode(data) {
+		bm, decErr := tileir.DecodeBytecodeBytes(data)
+		if decErr != nil {
+			return nil, decErr
+		}
+		mod = bm.ToModule()
+	} else {
+		mod, err = tileir.ParseBytes(data)
+		if err != nil {
+			return nil, err
+		}
 	}
-	image := &objectImage{file: file, buildID: buildID, size: uint64(len(text))}
+	image := &objectImage{file: file, buildID: buildID, size: uint64(len(data))}
 	for _, fn := range mod.Functions {
-		objFn := objectFunction{name: fn.Name + ".IR"}
-		for _, in := range fn.Operations {
+		objFn := objectFunction{name: fn.Name + ".TILEIR"}
+		for i, in := range fn.Operations {
+			line := in.Line
+			if line <= 0 {
+				line = i + 1
+			}
+			addr := uint64(line)
 			objFn.instructions = append(objFn.instructions, driver.Inst{
-				Addr:     uint64(in.Line),
-				Text:     strings.TrimSpace(in.Raw),
+				Addr:     addr,
+				Text:     strings.TrimSpace(in.String()),
 				Function: objFn.name,
 				File:     file,
-				Line:     in.Line,
+				Line:     line,
 			})
+		}
+		if len(objFn.instructions) > 0 {
+			objFn.start = objFn.instructions[0].Addr
+			objFn.end = objFn.instructions[len(objFn.instructions)-1].Addr + 1
 		}
 		image.functions = append(image.functions, objFn)
 	}
@@ -170,6 +192,53 @@ func (t *objectTool) mapPTX(p *profile.Profile) {
 				if int64(in.Line) == line.Line {
 					loc.Address = ptxBase + in.Addr
 					break
+				}
+			}
+		}
+	}
+}
+
+// mapTileIR gives existing Tile IR source frames file coordinates for pprof's assembly
+// view. It does not add samples or assign instruction-level costs.
+func (t *objectTool) mapTileIR(p *profile.Profile) {
+	if t.tileir == nil {
+		return
+	}
+	var id uint64
+	var mapping *profile.Mapping
+	for _, m := range p.Mapping {
+		id = max(id, m.ID)
+		if filepath.Base(m.File) == filepath.Base(t.tileir.file) {
+			mapping = m
+		}
+	}
+	if mapping == nil {
+		mapping = &profile.Mapping{ID: id + 1}
+		p.Mapping = append(p.Mapping, mapping)
+	}
+	mapping.Start, mapping.Limit, mapping.Offset = tileirBase, tileirBase+t.tileir.size, 0
+	mapping.File, mapping.BuildID = t.tileir.file, t.tileir.buildID
+	mapping.HasFunctions, mapping.HasFilenames, mapping.HasLineNumbers = true, true, true
+	mapping.HasInlineFrames = false
+	for _, loc := range p.Location {
+		if len(loc.Line) != 1 {
+			continue
+		}
+		line := loc.Line[0]
+		if line.Function == nil {
+			continue
+		}
+		for _, fn := range t.tileir.functions {
+			if line.Function.Name != fn.name && line.Function.Name != strings.TrimSuffix(fn.name, ".TILEIR") {
+				continue
+			}
+			if len(fn.instructions) > 0 {
+				loc.Mapping, loc.Address = mapping, tileirBase+fn.instructions[0].Addr
+				for _, in := range fn.instructions {
+					if int64(in.Line) == line.Line {
+						loc.Address = tileirBase + in.Addr
+						break
+					}
 				}
 			}
 		}
