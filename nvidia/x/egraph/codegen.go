@@ -19,6 +19,12 @@ type CodegenOptions struct {
 	Precision string
 	// UseWarpSum enables intra-warp reduction helpers.
 	UseWarpSum bool
+	// EnablePDL partitions the generated kernel into preamble, barrier
+	// (cudaGridDependencySynchronize), and dependent body.
+	EnablePDL bool
+	// PredecessorInput optionally specifies the variable name representing
+	// the predecessor kernel output. Defaults to "x" or "in".
+	PredecessorInput string
 }
 
 // GenerateCUDA generates a complete, compilable CUDA C++ kernel from an
@@ -181,9 +187,24 @@ __device__ __forceinline__ float warp_sum(float val) {
     return val;
 }
 
+// Grid dependency synchronization for Programmatic Dependent Launch (PDL).
+__device__ __forceinline__ void cudaGridDependencySynchronize(void) {
+    asm volatile("griddepcontrol.wait;":::"memory");
+}
+
+// Trigger launch of dependent grids for Programmatic Dependent Launch (PDL).
+__device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
+    asm volatile("griddepcontrol.launch_dependents;":::);
+}
+
 #endif // EGRAPH_COMMON_DEFINED
 
 `)
+
+	if opts.EnablePDL || strings.HasPrefix(expr.Op, "pdl_") {
+		sb.WriteString(generatePDLKernel(expr, opts))
+		return sb.String(), nil
+	}
 
 	switch expr.Op {
 	case "fused_swiglu_gemv", "tile_swiglu":
