@@ -24,6 +24,11 @@ type Lowering struct {
 	// unsourced occurrence is a register spill ptxas introduced rather than an
 	// access the kernel wrote. Only meaningful with Exclusive.
 	Spill bool
+
+	// VectorWidth is the number of scalar operations represented by PTX.
+	VectorWidth int
+	// ScalarSASS lists scalar SASS forms that can replace the vector form.
+	ScalarSASS []string
 }
 
 // DefaultLowerings is the table [Compare] uses when [Options.Lowerings] is nil.
@@ -38,6 +43,10 @@ type Lowering struct {
 // FFMA and DFMA, so an entry for them would flag every kernel compiled with the
 // default -fmad=true. A caller auditing for contraction adds them.
 var DefaultLowerings = []Lowering{
+	{PTX: "ld.global.v4", SASS: []string{"LDG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"LDG.E.32"}},
+	{PTX: "st.global.v4", SASS: []string{"STG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"STG.E.32"}},
+	{PTX: "ld.global.v2", SASS: []string{"LDG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E.32"}},
+	{PTX: "st.global.v2", SASS: []string{"STG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"STG.E.32"}},
 	{PTX: "ld.local", SASS: []string{"LDL"}, Exclusive: true, Spill: true},
 	{PTX: "st.local", SASS: []string{"STL"}, Exclusive: true, Spill: true},
 
