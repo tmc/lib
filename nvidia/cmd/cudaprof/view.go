@@ -89,6 +89,7 @@ func runViewCommand(rawArgs []string) error {
 	httpAddr := ":8088"
 	htmlOut := ""
 	noBrowser := false
+	var diffPath string
 	var kernel string
 	var posArgs []string
 
@@ -108,6 +109,10 @@ func runViewCommand(rawArgs []string) error {
 			htmlOut = strings.TrimPrefix(a, "--output=")
 		case a == "-no-browser" || a == "--no-browser" || a == "-no_browser":
 			noBrowser = true
+		case strings.HasPrefix(a, "-diff="):
+			diffPath = strings.TrimPrefix(a, "-diff=")
+		case strings.HasPrefix(a, "--diff="):
+			diffPath = strings.TrimPrefix(a, "--diff=")
 		default:
 			posArgs = append(posArgs, a)
 		}
@@ -120,7 +125,7 @@ func runViewCommand(rawArgs []string) error {
 		if _, err := os.Stat("capture.pprof"); err == nil {
 			capturePath = "capture.pprof"
 		} else {
-			return errors.New("usage: cudaprof view [-http=addr] [-html=file] [kernel] capture.pprof")
+			return errors.New("usage: cudaprof view [-http=addr] [-html=file] [-diff=candidate.pprof] [kernel] capture.pprof")
 		}
 	case 1:
 		capturePath = posArgs[0]
@@ -128,7 +133,20 @@ func runViewCommand(rawArgs []string) error {
 		kernel = posArgs[0]
 		capturePath = posArgs[1]
 	default:
-		return errors.New("usage: cudaprof view [-http=addr] [-html=file] [kernel] capture.pprof")
+		return errors.New("usage: cudaprof view [-http=addr] [-html=file] [-diff=candidate.pprof] [kernel] capture.pprof")
+	}
+
+	if diffPath != "" {
+		return runDiffWeb(DiffWebOptions{
+			BaseFile:     capturePath,
+			TargetFile:   diffPath,
+			KernelFilter: kernel,
+			HTTPAddr:     httpAddr,
+			HTMLOut:      htmlOut,
+			NoBrowser:    noBrowser,
+			Limits:       limits,
+			Writer:       os.Stdout,
+		})
 	}
 
 	absPath, err := filepath.Abs(capturePath)
