@@ -113,6 +113,15 @@ var OpcodeNames = map[uint32]string{
 	0x60: "cuda_tile.shl_i",
 }
 
+// OpcodeNumbers maps known Tile IR operation mnemonics to their numeric opcodes.
+var OpcodeNumbers = func() map[string]uint32 {
+	m := make(map[string]uint32, len(OpcodeNames))
+	for k, v := range OpcodeNames {
+		m[v] = k
+	}
+	return m
+}()
+
 // BytecodeVersion captures the major, minor, and tag version components.
 type BytecodeVersion struct {
 	Major uint8
@@ -711,3 +720,463 @@ func readVarInt(b []byte) (uint64, int) {
 	}
 	return 0, -1
 }
+
+func appendVarInt(b []byte, v uint64) []byte {
+	for v >= 0x80 {
+		b = append(b, byte(v)|0x80)
+		v >>= 7
+	}
+	return append(b, byte(v))
+}
+
+// EncodeBytecode encodes a BytecodeModule into binary Tile IR bytecode.
+func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
+	if bm == nil {
+		return nil, errors.New("tileir: nil bytecode module")
+	}
+
+	var buf bytes.Buffer
+
+	// 1. Magic header (8 bytes)
+	buf.Write(Magic[:])
+
+	// 2. Version (4 bytes: major, minor, tag uint16 LE)
+	major := bm.Version.Major
+	minor := bm.Version.Minor
+	tag := bm.Version.Tag
+	if major == 0 && minor == 0 {
+		major = 13
+		minor = 4
+	}
+	buf.WriteByte(major)
+	buf.WriteByte(minor)
+	var tagBytes [2]byte
+	binary.LittleEndian.PutUint16(tagBytes[:], tag)
+	buf.Write(tagBytes[:])
+
+	// Helper to write a section
+	writeSection := func(secID uint8, payload []byte) {
+		buf.WriteByte(secID) // no alignment flag
+		buf.Write(appendVarInt(nil, uint64(len(payload))))
+		buf.Write(payload)
+	}
+
+	// 3. String section (SectionString = 0x01)
+	if len(bm.Strings) > 0 {
+		strPayload := encodeStringSection(bm.Strings)
+		writeSection(SectionString, strPayload)
+	}
+
+	// 4. Producer section (SectionProducer = 0x07)
+	if bm.Producer != "" {
+		prodIdx := -1
+		for i, s := range bm.Strings {
+			if s == bm.Producer {
+				prodIdx = i
+				break
+			}
+		}
+		if prodIdx >= 0 {
+			prodPayload := appendVarInt(nil, uint64(prodIdx))
+			writeSection(SectionProducer, prodPayload)
+		}
+	}
+
+	// 5. Constant section (SectionConstant = 0x04)
+	if len(bm.Constants) > 0 {
+		constPayload := encodeConstantSection(bm.Constants)
+		writeSection(SectionConstant, constPayload)
+	}
+
+	// 6. Type section (SectionType = 0x05)
+	if len(bm.Types) > 0 {
+		typePayload, err := encodeTypeSection(bm.Types)
+		if err != nil {
+			return nil, fmt.Errorf("encoding type section: %w", err)
+		}
+		writeSection(SectionType, typePayload)
+	}
+
+	// 7. Function section (SectionFunc = 0x02)
+	if len(bm.Functions) > 0 {
+		funcPayload := encodeFunctionSection(bm.Functions, bm.Strings, bm.Types)
+		writeSection(SectionFunc, funcPayload)
+	}
+
+	// 8. End of bytecode (SectionEndOfBytecode = 0x00)
+	buf.WriteByte(SectionEndOfBytecode)
+
+	return buf.Bytes(), nil
+}
+
+func encodeStringSection(strs []string) []byte {
+	numStrings := uint64(len(strs))
+	payload := appendVarInt(nil, numStrings)
+
+	// Align to 4 bytes
+	rem := len(payload) % 4
+	pad := (4 - rem) % 4
+	for i := 0; i < pad; i++ {
+		payload = append(payload, 0)
+	}
+
+	offsets := make([]byte, numStrings*4)
+	var strData []byte
+	for i, s := range strs {
+		binary.LittleEndian.PutUint32(offsets[i*4:], uint32(len(strData)))
+		strData = append(strData, []byte(s)...)
+	}
+
+	payload = append(payload, offsets...)
+	payload = append(payload, strData...)
+	return payload
+}
+
+func encodeConstantSection(constants [][]byte) []byte {
+	numConstants := uint64(len(constants))
+	payload := appendVarInt(nil, numConstants)
+
+	// Align to 8 bytes
+	rem := len(payload) % 8
+	pad := (8 - rem) % 8
+	for i := 0; i < pad; i++ {
+		payload = append(payload, 0)
+	}
+
+	offsets := make([]byte, numConstants*8)
+	var data []byte
+	for i, c := range constants {
+		binary.LittleEndian.PutUint64(offsets[i*8:], uint64(len(data)))
+		data = append(data, c...)
+	}
+
+	payload = append(payload, offsets...)
+	payload = append(payload, data...)
+	return payload
+}
+
+func encodeTypeSection(types []Type) ([]byte, error) {
+	numTypes := uint64(len(types))
+	payload := appendVarInt(nil, numTypes)
+
+	// Align to 4 bytes
+	rem := len(payload) % 4
+	pad := (4 - rem) % 4
+	for i := 0; i < pad; i++ {
+		payload = append(payload, 0)
+	}
+
+	offsets := make([]byte, numTypes*4)
+	var typeData []byte
+	for i, t := range types {
+		binary.LittleEndian.PutUint32(offsets[i*4:], uint32(len(typeData)))
+		raw := encodeSingleType(t, types)
+		typeData = append(typeData, raw...)
+	}
+
+	payload = append(payload, offsets...)
+	payload = append(payload, typeData...)
+	return payload, nil
+}
+
+func encodeSingleType(t Type, pool []Type) []byte {
+	if t == nil {
+		return appendVarInt(nil, uint64(KindInt32))
+	}
+	switch pt := t.(type) {
+	case PrimitiveType:
+		return appendVarInt(nil, uint64(pt.Kind()))
+	case TokenType:
+		return appendVarInt(nil, uint64(KindToken))
+	case *PointerType:
+		pIdx := findTypeIndex(pool, pt.Pointee)
+		b := appendVarInt(nil, uint64(KindPointer))
+		return appendVarInt(b, uint64(pIdx))
+	case *TileType:
+		eIdx := findTypeIndex(pool, pt.ElementType)
+		b := appendVarInt(nil, uint64(KindTile))
+		b = appendVarInt(b, uint64(eIdx))
+		b = appendVarInt(b, uint64(len(pt.Shape)))
+		for _, dim := range pt.Shape {
+			var dimBytes [8]byte
+			binary.LittleEndian.PutUint64(dimBytes[:], uint64(dim))
+			b = append(b, dimBytes[:]...)
+		}
+		return b
+	case *TensorViewType:
+		eIdx := findTypeIndex(pool, pt.ElementType)
+		b := appendVarInt(nil, uint64(KindTensorView))
+		return appendVarInt(b, uint64(eIdx))
+	case *FunctionType:
+		b := appendVarInt(nil, uint64(KindFunction))
+		b = appendVarInt(b, uint64(len(pt.Inputs)))
+		for _, in := range pt.Inputs {
+			b = appendVarInt(b, uint64(findTypeIndex(pool, in)))
+		}
+		b = appendVarInt(b, uint64(len(pt.Results)))
+		for _, res := range pt.Results {
+			b = appendVarInt(b, uint64(findTypeIndex(pool, res)))
+		}
+		return b
+	default:
+		return appendVarInt(nil, uint64(t.Kind()))
+	}
+}
+
+func findTypeIndex(pool []Type, t Type) int {
+	if t == nil {
+		return 0
+	}
+	for i, existing := range pool {
+		if typeEqual(existing, t) {
+			return i
+		}
+	}
+	return 0
+}
+
+func typeEqual(a, b Type) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Kind() != b.Kind() {
+		return false
+	}
+	switch ta := a.(type) {
+	case PrimitiveType:
+		tb, ok := b.(PrimitiveType)
+		return ok && ta.kind == tb.kind
+	case *PointerType:
+		tb, ok := b.(*PointerType)
+		return ok && typeEqual(ta.Pointee, tb.Pointee)
+	case *TileType:
+		tb, ok := b.(*TileType)
+		if !ok || len(ta.Shape) != len(tb.Shape) || !typeEqual(ta.ElementType, tb.ElementType) {
+			return false
+		}
+		for i := range ta.Shape {
+			if ta.Shape[i] != tb.Shape[i] {
+				return false
+			}
+		}
+		return true
+	case *TensorViewType:
+		tb, ok := b.(*TensorViewType)
+		if !ok || len(ta.Shape) != len(tb.Shape) || !typeEqual(ta.ElementType, tb.ElementType) {
+			return false
+		}
+		for i := range ta.Shape {
+			if ta.Shape[i] != tb.Shape[i] {
+				return false
+			}
+		}
+		return true
+	case *FunctionType:
+		tb, ok := b.(*FunctionType)
+		if !ok || len(ta.Inputs) != len(tb.Inputs) || len(ta.Results) != len(tb.Results) {
+			return false
+		}
+		for i := range ta.Inputs {
+			if !typeEqual(ta.Inputs[i], tb.Inputs[i]) {
+				return false
+			}
+		}
+		for i := range ta.Results {
+			if !typeEqual(ta.Results[i], tb.Results[i]) {
+				return false
+			}
+		}
+		return true
+	case TokenType:
+		_, ok := b.(TokenType)
+		return ok
+	}
+	return a.String() == b.String()
+}
+
+func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable []Type) []byte {
+	payload := appendVarInt(nil, uint64(len(fns)))
+	for _, fn := range fns {
+		nameIdx := 0
+		for i, s := range strTable {
+			if s == fn.Name {
+				nameIdx = i
+				break
+			}
+		}
+		payload = appendVarInt(payload, uint64(nameIdx))
+		payload = appendVarInt(payload, uint64(fn.SignatureIndex))
+		payload = append(payload, fn.EntryFlag)
+		payload = appendVarInt(payload, uint64(fn.LocIndex))
+
+		bodyBytes := fn.BodyBytes
+		if len(bodyBytes) == 0 && len(fn.Operations) > 0 {
+			for _, op := range fn.Operations {
+				opName := op.OpCode
+				opCodeNum, ok := OpcodeNumbers[opName]
+				if !ok {
+					opCodeNum = 0x00
+				}
+				bodyBytes = appendVarInt(bodyBytes, uint64(opCodeNum))
+				if opCodeNum == 0x10 { // constant
+					tIdx := 0
+					if op.TypeVal != nil {
+						tIdx = findTypeIndex(typeTable, op.TypeVal)
+					}
+					bodyBytes = appendVarInt(bodyBytes, uint64(tIdx))
+					bodyBytes = appendVarInt(bodyBytes, 0)
+				}
+			}
+		}
+
+		payload = appendVarInt(payload, uint64(len(bodyBytes)))
+		payload = append(payload, bodyBytes...)
+	}
+	return payload
+}
+
+func registerType(pool *[]Type, t Type) int {
+	if t == nil {
+		return 0
+	}
+	// Register dependencies first
+	switch pt := t.(type) {
+	case *PointerType:
+		registerType(pool, pt.Pointee)
+	case *TileType:
+		registerType(pool, pt.ElementType)
+	case *TensorViewType:
+		registerType(pool, pt.ElementType)
+	case *FunctionType:
+		for _, in := range pt.Inputs {
+			registerType(pool, in)
+		}
+		for _, res := range pt.Results {
+			registerType(pool, res)
+		}
+	}
+
+	for i, existing := range *pool {
+		if typeEqual(existing, t) {
+			return i
+		}
+	}
+	idx := len(*pool)
+	*pool = append(*pool, t)
+	return idx
+}
+
+func registerString(pool *[]string, s string) int {
+	for i, existing := range *pool {
+		if existing == s {
+			return i
+		}
+	}
+	idx := len(*pool)
+	*pool = append(*pool, s)
+	return idx
+}
+
+// ToBytecode converts an AST Module into a BytecodeModule suitable for binary serialization.
+func (m *Module) ToBytecode() (*BytecodeModule, error) {
+	if m == nil {
+		return nil, errors.New("tileir: nil module")
+	}
+
+	bm := &BytecodeModule{
+		Version:  BytecodeVersion{Major: 13, Minor: 4, Tag: 0},
+		Producer: m.Producer,
+	}
+
+	var strPool []string
+	var typePool []Type
+
+	if m.Producer != "" {
+		registerString(&strPool, m.Producer)
+	}
+	if m.Name != "" {
+		registerString(&strPool, m.Name)
+	}
+
+	for _, fn := range m.Functions {
+		registerString(&strPool, fn.Name)
+
+		var inTypes []Type
+		for _, p := range fn.Params {
+			t := p.TypeVal
+			if t == nil && p.Type != "" {
+				t, _ = ParseType(p.Type)
+			}
+			if t == nil {
+				t = Float32
+			}
+			registerType(&typePool, t)
+			inTypes = append(inTypes, t)
+		}
+
+		var resTypes []Type
+		for _, r := range fn.Returns {
+			t, _ := ParseType(r)
+			if t != nil {
+				registerType(&typePool, t)
+				resTypes = append(resTypes, t)
+			}
+		}
+
+		fnSig := NewFunction(inTypes, resTypes)
+		sigIdx := registerType(&typePool, fnSig)
+
+		entryFlag := uint8(0)
+		if fn.Entry {
+			entryFlag |= FuncKindKernel
+		}
+
+		var bodyBytes []byte
+		for _, op := range fn.Operations {
+			opName := op.OpCode
+			opCodeNum, ok := OpcodeNumbers[opName]
+			if !ok {
+				opCodeNum = 0x00
+			}
+			bodyBytes = appendVarInt(bodyBytes, uint64(opCodeNum))
+			if opCodeNum == 0x10 { // constant
+				t := op.TypeVal
+				if t == nil && op.Type != "" {
+					t, _ = ParseType(op.Type)
+				}
+				if t == nil {
+					t = Float32
+				}
+				tIdx := registerType(&typePool, t)
+				bodyBytes = appendVarInt(bodyBytes, uint64(tIdx))
+				bodyBytes = appendVarInt(bodyBytes, 0)
+			}
+		}
+
+		bfn := &BytecodeFunction{
+			Name:           fn.Name,
+			SignatureIndex: sigIdx,
+			Signature:      fnSig,
+			EntryFlag:      entryFlag,
+			IsEntry:        fn.Entry,
+			BodyBytes:      bodyBytes,
+			Operations:     fn.Operations,
+		}
+		bm.Functions = append(bm.Functions, bfn)
+	}
+
+	bm.Strings = strPool
+	bm.Types = typePool
+
+	return bm, nil
+}
+
+// EncodeBytecode serializes the Module directly to binary Tile IR bytecode.
+func (m *Module) EncodeBytecode() ([]byte, error) {
+	bm, err := m.ToBytecode()
+	if err != nil {
+		return nil, err
+	}
+	return EncodeBytecode(bm)
+}
+

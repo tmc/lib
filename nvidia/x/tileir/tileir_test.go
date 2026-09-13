@@ -232,3 +232,81 @@ func TestBytecodeGoldens(t *testing.T) {
 		})
 	}
 }
+
+func TestSubByteTypeAliases(t *testing.T) {
+	tests := []struct {
+		input    string
+		wantKind tileir.TypeKind
+	}{
+		{"fp8", tileir.KindFloat8E4M3},
+		{"fp8_e4m3", tileir.KindFloat8E4M3},
+		{"e4m3", tileir.KindFloat8E4M3},
+		{"e4m3fn", tileir.KindFloat8E4M3},
+		{"fp8_e5m2", tileir.KindFloat8E5M2},
+		{"e5m2", tileir.KindFloat8E5M2},
+		{"fp8_e8m0", tileir.KindFloat8E8M0},
+		{"e8m0", tileir.KindFloat8E8M0},
+		{"fp4", tileir.KindFloat4E2M1},
+		{"f4", tileir.KindFloat4E2M1},
+		{"e2m1", tileir.KindFloat4E2M1},
+		{"f4e2m1", tileir.KindFloat4E2M1},
+		{"fp8_e5m3", tileir.KindFloat8E5M3},
+		{"e5m3", tileir.KindFloat8E5M3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			typ, err := tileir.ParseType(tt.input)
+			if err != nil {
+				t.Fatalf("ParseType(%q): %v", tt.input, err)
+			}
+			if typ.Kind() != tt.wantKind {
+				t.Errorf("Kind() = %v, want %v", typ.Kind(), tt.wantKind)
+			}
+		})
+	}
+}
+
+func TestEncodeBytecodeRoundTrip(t *testing.T) {
+	const textSample = `cuda_tile.module @subbyte_kernels {
+  cuda_tile.entry @gemm_fp4(%A: !cuda_tile.tile<ptr<f4E2M1FN>>, %B: !cuda_tile.tile<ptr<f4E2M1FN>>, %C: !cuda_tile.tile<ptr<f32>>) {
+    %tok0 = cuda_tile.make_token : !cuda_tile.token
+    %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f4E2M1FN>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf4E2M1FN>
+    %vB = cuda_tile.load_view_tko %B, %tok0 : (!cuda_tile.tile<ptr<f4E2M1FN>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf4E2M1FN>
+    %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mma_f %vA, %vB, %cst : (!cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf4E2M1FN>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    cuda_tile.return
+  }
+}
+`
+	mod, err := tileir.ParseString(textSample)
+	if err != nil {
+		t.Fatalf("ParseString failed: %v", err)
+	}
+
+	bcBytes, err := mod.EncodeBytecode()
+	if err != nil {
+		t.Fatalf("EncodeBytecode failed: %v", err)
+	}
+
+	if !tileir.IsTileIRBytecode(bcBytes) {
+		t.Fatal("encoded bytes not recognized by IsTileIRBytecode")
+	}
+
+	decoded, err := tileir.DecodeBytecodeBytes(bcBytes)
+	if err != nil {
+		t.Fatalf("DecodeBytecodeBytes failed: %v", err)
+	}
+
+	if len(decoded.Functions) != 1 {
+		t.Fatalf("decoded %d functions, want 1", len(decoded.Functions))
+	}
+	fn := decoded.Functions[0]
+	if fn.Name != "gemm_fp4" {
+		t.Errorf("fn.Name = %q, want gemm_fp4", fn.Name)
+	}
+	if !fn.IsEntry {
+		t.Errorf("fn.IsEntry = false, want true")
+	}
+}
+
