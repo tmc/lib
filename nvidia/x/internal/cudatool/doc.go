@@ -16,9 +16,15 @@
 // toolkit can fail under another. Measured across the toolkits installed on the
 // GB10 host, 13.0 to 13.4 renamed nvcc's --sanitize to --fdevice-sanitize, added
 // five ptxas options and two nvlink options, and left nvdisasm's and cuobjdump's
-// option names alone. Going further back, 12.6 to 13.0 gave nvdisasm
-// --emit-json, which is the one option the packages in this tree emit that an
-// installed toolkit may not have.
+// option names alone. Going further back, nvdisasm gained --emit-json in 12.8:
+// it is absent in 12.6 and present in every later toolkit on that host, and it
+// is the one option the packages in this tree emit that an installed toolkit may
+// not have.
+//
+// The recorded option sets cover 12.6, 13.0 and 13.4, the three versions worth
+// distinguishing, not every prefix a host happens to carry. A version with no
+// record is not a refusal: [Capabilities] reads its --help instead, which costs
+// one extra execution and answers for the tool actually installed.
 //
 // Within compute-sanitizer, --kill and --track-unused-memory take no argument on
 // any recorded version, and passing one is rejected outright rather than

@@ -28,8 +28,13 @@ var corpusTools = []string{"nvcc", "ptxas", "nvdisasm", "cuobjdump", "nvlink", "
 // It is the gate on a toolkit upgrade: when /usr/local/cuda moves to a version
 // the corpus records, every option and every arity must still match, and a
 // difference is reported here rather than discovered in a caller's command line.
-// A version the corpus does not record is reported too, as a record worth
-// adding, since until it is added [Capabilities] must run --help for it.
+// Moving it to a version the corpus does not record fails too, because that is
+// the version every caller gets and nothing describes it without running it.
+//
+// A prefix installed beside the one [LookTool] resolves is only logged. A
+// development host accumulates them — the GB10 host carries eight — and no
+// lookup reaches them; something pointed at one deliberately gets its options
+// from [Capabilities] reading its --help.
 //
 // With -update, the option sets are rewritten from the installed toolkits, or
 // from a directory of captured --help output named <tool>-<version>.txt given
@@ -62,7 +67,11 @@ func TestCorpusMatchesInstalledToolkits(t *testing.T) {
 				t.Fatalf("%s does not name a major.minor version: %v", f.version, err)
 			}
 			if known := KnownVersions(f.tool); !containsVersion(known, f.version) {
-				t.Errorf("%s %s is installed but not recorded (records: %v); capture it with -update", f.tool, f.version, known)
+				if f.reachable {
+					t.Errorf("%s %s is the toolkit a lookup resolves to but is not recorded (records: %v); capture it with -update", f.tool, f.version, known)
+					return
+				}
+				t.Logf("%s %s is installed beside the resolved toolkit and not recorded (records: %v); --help is probed for it", f.tool, f.version, known)
 				return
 			}
 			recorded, _, ok := KnownOptions(f.tool, v)
@@ -108,6 +117,34 @@ type toolHelp struct {
 	version string
 	path    string
 	help    []byte
+	// reachable reports whether [LookTool] selects this toolkit for this
+	// tool on this host, which is true of exactly one prefix per tool.
+	reachable bool
+}
+
+// resolvedToolkits maps each corpus tool to the toolkit prefix [LookTool]
+// selects for it on this host, so the toolkit callers actually get is
+// distinguished from the ones installed beside it. A host can carry any number
+// of side-by-side prefixes; only one of them answers a lookup.
+func resolvedToolkits(t *testing.T) map[string]string {
+	t.Helper()
+	resolved := make(map[string]string)
+	for _, tool := range corpusTools {
+		for _, path := range SearchPaths(tool) {
+			if !IsExecutableFile(path) {
+				continue
+			}
+			// <prefix>/<subdir>/<tool>, resolved so a link such as
+			// /usr/local/cuda names the version it points at.
+			real, err := filepath.EvalSymlinks(filepath.Dir(filepath.Dir(path)))
+			if err != nil {
+				t.Fatalf("resolving %s: %v", path, err)
+			}
+			resolved[tool] = real
+			break
+		}
+	}
+	return resolved
 }
 
 // installedToolkits runs --help for every corpus tool in every toolkit prefix
@@ -120,6 +157,7 @@ func installedToolkits(t *testing.T) []toolHelp {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	resolved := resolvedToolkits(t)
 	var found []toolHelp
 	for _, prefix := range prefixes {
 		version := strings.TrimPrefix(filepath.Base(prefix), "cuda-")
@@ -142,7 +180,11 @@ func installedToolkits(t *testing.T) []toolHelp {
 					t.Logf("%s --help produced nothing: %v", path, err)
 					break
 				}
-				found = append(found, toolHelp{tool: tool, version: version, path: path, help: help})
+				real, err := filepath.EvalSymlinks(prefix)
+				if err != nil {
+					real = prefix
+				}
+				found = append(found, toolHelp{tool: tool, version: version, path: path, help: help, reachable: resolved[tool] == real})
 				break
 			}
 		}
@@ -174,7 +216,10 @@ func capturedHelp(t *testing.T, dir string) []toolHelp {
 		if err != nil {
 			t.Fatal(err)
 		}
-		found = append(found, toolHelp{tool: name[:i], version: name[i+1:], path: file, help: b})
+		// Capturing a toolkit's help by hand is a statement that it belongs
+		// in the corpus, so an unrecorded one is a failure here even though
+		// no prefix on this host reaches it.
+		found = append(found, toolHelp{tool: name[:i], version: name[i+1:], path: file, help: b, reachable: true})
 	}
 	return found
 }
