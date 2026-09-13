@@ -69,24 +69,24 @@ type DiffRow struct {
 
 // DiffSummary contains high-level differential statistics between two captures.
 type DiffSummary struct {
-	BaseInstructions   int                          `json:"base_instructions"`
-	TargetInstructions int                          `json:"target_instructions"`
-	InstructionDelta   int                          `json:"instruction_delta"`
-	BaseSizeBytes      int                          `json:"base_size_bytes"`
-	TargetSizeBytes    int                          `json:"target_size_bytes"`
-	TotalSizeDelta     int                          `json:"total_size_delta"`
-	BaseBranches       int                          `json:"base_branches"`
-	TargetBranches     int                          `json:"target_branches"`
-	BranchDelta        int                          `json:"branch_delta"`
-	SpillsAdded        int                          `json:"spills_added"`
-	SpillsRemoved      int                          `json:"spills_removed"`
-	SpillsDelta        int                          `json:"spills_delta"`
-	BaseRuntimeUs      float64                      `json:"base_runtime_us,omitempty"`
-	TargetRuntimeUs    float64                      `json:"target_runtime_us,omitempty"`
-	DurationDeltaUs    float64                      `json:"duration_delta_us,omitempty"`
-	Speedup            float64                      `json:"speedup,omitempty"`
+	BaseInstructions   int                           `json:"base_instructions"`
+	TargetInstructions int                           `json:"target_instructions"`
+	InstructionDelta   int                           `json:"instruction_delta"`
+	BaseSizeBytes      int                           `json:"base_size_bytes"`
+	TargetSizeBytes    int                           `json:"target_size_bytes"`
+	TotalSizeDelta     int                           `json:"total_size_delta"`
+	BaseBranches       int                           `json:"base_branches"`
+	TargetBranches     int                           `json:"target_branches"`
+	BranchDelta        int                           `json:"branch_delta"`
+	SpillsAdded        int                           `json:"spills_added"`
+	SpillsRemoved      int                           `json:"spills_removed"`
+	SpillsDelta        int                           `json:"spills_delta"`
+	BaseRuntimeUs      float64                       `json:"base_runtime_us,omitempty"`
+	TargetRuntimeUs    float64                       `json:"target_runtime_us,omitempty"`
+	DurationDeltaUs    float64                       `json:"duration_delta_us,omitempty"`
+	Speedup            float64                       `json:"speedup,omitempty"`
 	Substitutions      []cudasass.OpcodeSubstitution `json:"substitutions,omitempty"`
-	TopStallShifts     []StallShiftSummary          `json:"top_stall_shifts,omitempty"`
+	TopStallShifts     []StallShiftSummary           `json:"top_stall_shifts,omitempty"`
 }
 
 // StallShiftSummary records the aggregate shift of a PC stall reason across two captures.
@@ -578,7 +578,7 @@ func computeStallDelta(base, cand *DiffInstruction) (float64, string, string) {
 			cVal = cand.StallBreakdown[r]
 		}
 		diff := math.Abs(cVal - bVal)
-		if diff > maxShift {
+		if diff > maxShift || (diff == maxShift && (bestReason == "" || r < bestReason)) {
 			maxShift = diff
 			bestReason = r
 		}
