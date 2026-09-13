@@ -140,6 +140,14 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 			k->contextId = 1;
 			k->streamId = 7;
 			k->correlationId = correlation;
+			k->gridX = 1;
+			k->gridY = 1;
+			k->gridZ = 1;
+			k->blockX = 32;
+			k->blockY = 1;
+			k->blockZ = 1;
+			k->registersPerThread = 32;
+			k->dynamicSharedMemory = 1024;
 			break;
 		}
 		case CUPTI_ACTIVITY_KIND_MEMCPY: {

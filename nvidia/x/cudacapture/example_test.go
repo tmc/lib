@@ -48,3 +48,50 @@ func Example() {
 	// write: true
 	// read: true, files: 4
 }
+
+func ExampleAttachKernelLabels() {
+	labels := make(map[string][]string)
+	rec := cudacapture.ActivityRecord{
+		Subtype:             "kernel",
+		Name:                "vectorAdd",
+		GridDim:             [3]uint32{256, 1, 1},
+		BlockDim:            [3]uint32{64, 1, 1},
+		RegistersPerThread:  32,
+		DynamicSharedMemory: 1024,
+	}
+	cudacapture.AttachKernelLabels(labels, rec)
+
+	fmt.Println("grid:", labels["grid"][0])
+	fmt.Println("block:", labels["block"][0])
+	fmt.Println("registers:", labels["registers"][0])
+	fmt.Println("smem:", labels["smem"][0])
+
+	// Output:
+	// grid: 256,1,1
+	// block: 64,1,1
+	// registers: 32
+	// smem: 1024
+}
+
+func ExampleBuildActivityProfile() {
+	activities := []cudacapture.ActivityRecord{
+		{
+			Subtype:             "kernel",
+			Name:                "vectorAdd",
+			Valid:               true,
+			Start:               1000,
+			End:                 2000,
+			GridDim:             [3]uint32{128, 1, 1},
+			BlockDim:            [3]uint32{32, 1, 1},
+			RegistersPerThread:  16,
+			DynamicSharedMemory: 256,
+		},
+	}
+	p := cudacapture.BuildActivityProfile("session-1", 1234, activities)
+	fmt.Println("samples:", len(p.Sample))
+	fmt.Println("grid:", p.Sample[0].Label["grid"][0])
+
+	// Output:
+	// samples: 1
+	// grid: 128,1,1
+}
