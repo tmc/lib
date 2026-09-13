@@ -82,7 +82,7 @@ func (b *samplingBuffer) fetch(ctx cupti.Context, version uint32, query func(*cu
 	}
 	b.reset()
 	ptr := uintptr(unsafe.Pointer(&b.data))
-	p := cupti.PCSamplingGetDataParams{Size: 32, Ctx: ctx, PcSamplingData: ptr}
+	p := cupti.PCSamplingGetDataParams{Size: getDataParamsSize(), Ctx: ctx, PcSamplingData: ptr}
 	err := query(&p)
 	out := b.diagnostics()
 	if err != nil {

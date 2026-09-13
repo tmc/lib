@@ -84,7 +84,7 @@ func (c *samplingConfig) apply(ctx cupti.Context, query func(*cupti.PCSamplingCo
 	before := slices.Clone(c.attrs)
 	reasons := slices.Clone(c.reasons)
 	ptr := uintptr(unsafe.Pointer(&c.attrs[0]))
-	p := cupti.PCSamplingConfigurationInfoParams{Size: 40, Ctx: ctx, NumAttributes: uint(len(c.attrs)), PPCSamplingConfigurationInfo: ptr}
+	p := cupti.PCSamplingConfigurationInfoParams{Size: configurationInfoParamsSize(), Ctx: ctx, NumAttributes: uint(len(c.attrs)), PPCSamplingConfigurationInfo: ptr}
 	if err := query(&p); err != nil {
 		return fmt.Errorf("cuptipcsampling: configure sampling: %w", err)
 	}
