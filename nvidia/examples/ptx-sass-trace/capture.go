@@ -28,7 +28,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-//go:embed main.go capture.go workload.go kernels.cu bundle.README.md nccl_oracle.go nccl_workload.go profileshape.go pcsampling.go
+//go:embed main.go capture.go workload.go kernels.cu bundle.README.md nccl_oracle.go nccl_workload.go profileshape.go pcsampling.go kernels.tileir tileiras-remarks.yaml intermediate_ptx.go hotspots.go graph_workload.go cupti_metrics.go
 var sources embed.FS
 
 type captureMetadata struct {
@@ -45,6 +45,10 @@ type captureMetadata struct {
 	MaxError     float64            `json:"max_absolute_error"`
 	NCCL         *ncclResult        `json:"nccl,omitempty"`
 	PCSampling   *pcSamplingResult  `json:"pc_sampling,omitempty"`
+	Hotspots     bool               `json:"instruction_hotspots,omitempty"`
+	Graph        *graphResult       `json:"cuda_graph,omitempty"`
+	SassMetrics  *sassMetricsResult `json:"sass_metrics,omitempty"`
+	PMSampling   *pmSamplingResult  `json:"pm_sampling,omitempty"`
 }
 
 func capture(dir string, cfg config) (result *captureMetadata, err error) {
@@ -164,6 +168,9 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		return nil, fmt.Errorf("generate basic block flow graph: %w", err)
 	}
 
+	tileIRData := captureFiles["kernels.tileir"]
+	ptx = injectTileIRLocations(ptx, string(tileIRData))
+
 	captureFiles["kernels.ptx"] = []byte(ptx)
 	captureFiles["kernels.cubin"] = disassemblyInput
 	captureFiles["kernels.sass"] = rewriteSASSSourcePath(assembly.Stdout, "kernels.cu")
@@ -180,6 +187,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 			SASS:   "kernels.sass",
 			CFG:    "kernels.cfg.dot",
 			BBCFG:  "kernels.bbcfg.dot",
+			TileIR: "kernels.tileir",
 		},
 	}
 
@@ -226,7 +234,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	var profBuf bytes.Buffer
 	prof := cudaprof.NewSession(&profBuf)
 	prof.SetMappingFile("kernels.cubin", fmt.Sprintf("%x", sha256.Sum256(disassemblyInput)))
-	if err := prof.SetSampleTypes(sampleTypes(cfg.pcSampling)...); err != nil {
+	if err := prof.SetSampleTypes(sampleTypesWithHotspots(cfg.pcSampling, cfg.hotspots)...); err != nil {
 		return nil, fmt.Errorf("set sample types: %w", err)
 	}
 	// gpu_time is the type that always carries data; a consumer defaulting to
@@ -243,6 +251,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	// synthesizes the mapping at view time.
 	ptxLines := cudaprof.PTXLineOffsets(ptx)
 	rec := newLaunchRecorder(prof, ptxLines)
+	rec.SetHotspots(cfg.hotspots)
+	rec.SetTileIRLines(kernelTileIRLines(string(tileIRData)))
 	prof.AddMapping("kernels.ptx", fmt.Sprintf("%x", sha256.Sum256([]byte(ptx))), ptxBase, ptxBase+uint64(len(ptx)))
 	var wRes workloadResult
 	workloadStart := time.Now()
@@ -253,6 +263,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	attribution := "whole launch at entry; no PC sampling"
 	if cfg.pcSampling {
 		attribution = "hardware PC samples attributed to SASS, PTX and source"
+	} else if cfg.hotspots {
+		attribution = "instruction-level hotspot attribution across SASS, PTX, and TileIR"
 	}
 	// These three are constant for the whole run, so they are comments rather
 	// than labels: a label with one value across every sample splits nothing,
@@ -302,6 +314,24 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		meta.NCCL = ncclRes
 	}
 
+	if cfg.sassMetrics {
+		parsedDis, _ := cudasass.Parse(bytes.NewReader(assembly.Stdout))
+		sRes, sData, sErr := collectSassMetrics(dev, parsedDis)
+		if sErr != nil {
+			return nil, fmt.Errorf("collect sass metrics: %w", sErr)
+		}
+		meta.SassMetrics = sRes
+		captureFiles["sass_metrics.json"] = sData
+	}
+	if cfg.pmSampling {
+		pmRes, pmData, pmErr := collectPMSampling(dev)
+		if pmErr != nil {
+			return nil, fmt.Errorf("collect pm sampling: %w", pmErr)
+		}
+		meta.PMSampling = pmRes
+		captureFiles["pm_sampling.json"] = pmData
+	}
+
 	// Written after the workload rather than before it: the keys a PC sample
 	// cannot carry are whichever ones varied between a kernel's launches, which
 	// is a property of the workload and not a list to maintain by hand. A stale
@@ -321,6 +351,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	meta.Intervals = wRes.Intervals
 	meta.Verified = wRes.Verified
 	meta.MaxError = wRes.MaxError
+	meta.Hotspots = cfg.hotspots
+	meta.Graph = wRes.Graph
 
 	parsedProf, err := profile.ParseData(profBuf.Bytes())
 	if err != nil {

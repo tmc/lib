@@ -328,3 +328,57 @@ func TestCFGAttachedInCapture(t *testing.T) {
 		t.Fatalf("extracted dot = %q, want digraph compute", extracted)
 	}
 }
+
+func TestTileIRAttachedInCapture(t *testing.T) {
+	tileIRBytes, err := sources.ReadFile("kernels.tileir")
+	if err != nil {
+		t.Fatalf("read embedded kernels.tileir: %v", err)
+	}
+	remarksBytes, err := sources.ReadFile("tileiras-remarks.yaml")
+	if err != nil {
+		t.Fatalf("read embedded tileiras-remarks.yaml: %v", err)
+	}
+
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "gpu_time", Unit: "nanoseconds"}},
+		},
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			PTX:    "kernels.ptx",
+			CUBIN:  "kernels.cubin",
+			SASS:   "kernels.sass",
+			CFG:    "kernels.cfg.dot",
+			BBCFG:  "kernels.bbcfg.dot",
+			TileIR: "kernels.tileir",
+		},
+		Files: map[string][]byte{
+			"kernels.cu":            []byte("void compute() {}\n"),
+			"kernels.ptx":           []byte("// PTX\n"),
+			"kernels.cubin":         []byte("CUBIN"),
+			"kernels.sass":          []byte("// SASS\n"),
+			"kernels.cfg.dot":       []byte("digraph G {}\n"),
+			"kernels.bbcfg.dot":     []byte("digraph G {}\n"),
+			"kernels.tileir":        tileIRBytes,
+			"tileiras-remarks.yaml": remarksBytes,
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, cap); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got, err := cudacapture.Read(&buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if got.Code.TileIR != "kernels.tileir" {
+		t.Fatalf("got Code.TileIR = %q, want kernels.tileir", got.Code.TileIR)
+	}
+	if len(got.Files["kernels.tileir"]) == 0 {
+		t.Fatal("expected non-empty kernels.tileir in capture")
+	}
+	if len(got.Files["tileiras-remarks.yaml"]) == 0 {
+		t.Fatal("expected non-empty tileiras-remarks.yaml in capture")
+	}
+}

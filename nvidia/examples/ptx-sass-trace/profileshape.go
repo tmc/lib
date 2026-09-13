@@ -17,11 +17,14 @@ import (
 // address whether it is written at capture time or synthesized at view time.
 const ptxBase = cudaprof.PTXMappingStart
 
-// sampleTypes reports the profile's value types. Stall counters exist only
-// under PC sampling, so a run without it advertises the two types it can fill
-// rather than five of which three are always zero.
+// sampleTypes reports the profile's value types. Stall counters exist under
+// PC sampling or when instruction hotspot attribution is active.
 func sampleTypes(pcSampling bool) []string {
-	if pcSampling {
+	return sampleTypesWithHotspots(pcSampling, false)
+}
+
+func sampleTypesWithHotspots(pcSampling, hotspots bool) []string {
+	if pcSampling || hotspots {
 		return []string{
 			"samples", "pc_samples", "inst_executed",
 			"stall_mem", "stall_wait", "stall_scoreboard", "stall_math",

@@ -28,6 +28,7 @@ type workloadResult struct {
 	Intervals map[string][]int64
 	Verified  int
 	MaxError  float64
+	Graph     *graphResult
 }
 
 // launchRecorder records one sample per kernel launch and remembers the Go
@@ -38,29 +39,41 @@ type launchRecorder struct {
 	prof     *cudaprof.Session
 	ptxLines []uint64
 
-	mu     sync.Mutex
-	stacks map[string][]cudaprof.Frame
+	mu          sync.Mutex
+	stacks      map[string][]cudaprof.Frame
 	// ambiguous holds the kernels launched from more than one distinct stack.
 	// One of several stacks is not attribution, so those kernels report none.
-	ambiguous map[string]bool
-	// labels holds, per kernel, the context labels that were the same on every
-	// launch of it. A PC sample is an aggregate over all of a kernel's
-	// launches, so a label that varied between them describes none of it.
-	labels map[string]map[string]string
+	ambiguous   map[string]bool
+	labels      map[string]map[string]string
 	// seenKeys holds every label key any launch carried, kept so the keys no PC
 	// sample can reach are a measurement rather than a fixed list.
-	seenKeys map[string]bool
+	seenKeys    map[string]bool
+	hotspots    bool
+	tileIRLines map[string]int
 }
 
 func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorder {
 	return &launchRecorder{
-		prof:      prof,
-		ptxLines:  ptxLines,
-		stacks:    make(map[string][]cudaprof.Frame),
-		ambiguous: make(map[string]bool),
-		labels:    make(map[string]map[string]string),
-		seenKeys:  make(map[string]bool),
+		prof:        prof,
+		ptxLines:    ptxLines,
+		stacks:      make(map[string][]cudaprof.Frame),
+		ambiguous:   make(map[string]bool),
+		labels:      make(map[string]map[string]string),
+		seenKeys:    make(map[string]bool),
+		tileIRLines: make(map[string]int),
 	}
+}
+
+func (r *launchRecorder) SetHotspots(h bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.hotspots = h
+}
+
+func (r *launchRecorder) SetTileIRLines(lines map[string]int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tileIRLines = lines
 }
 
 // observe records frames as the stack that launched the kernel named name.
@@ -713,6 +726,60 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		trace.Logf(ctx, "cuda.validation", "pipeline pass=%d verified total=%d max_err=%g", pass, res.Verified, res.MaxError)
 	}
 
+	if cfg.graphMode != "" && cfg.graphMode != "off" {
+		var steps []PipelineStep
+		steps = append(steps, PipelineStep{
+			Name:     kNorm.Name,
+			Launcher: cudalaunch.OwnedKernel(fnNorm).Grid(uint32(normRows)).Block(256).On(stream),
+			Args:     []any{dX, dGamma, dXNorm, int32(normRows), int32(cols), float32(1e-5)},
+		})
+		steps = append(steps, PipelineStep{
+			Name:     kQ8.Name,
+			Launcher: cudalaunch.OwnedKernel(fnQ8).Grid(uint32((q8Rows*32 + 255) / 256)).Block(256).On(stream),
+			Args:     []any{dWQ8, dXNorm, dH, int32(q8Rows), int32(cols)},
+		})
+		steps = append(steps, PipelineStep{
+			Name:     kSwiGLU.Name,
+			Launcher: cudalaunch.OwnedKernel(fnSwiGLU).Grid(uint32((cols + 255) / 256)).Block(256).On(stream),
+			Args:     []any{dH, dUp, dSwiGLU, int32(cols)},
+		})
+		for slot := 0; slot < 6; slot++ {
+			steps = append(steps, PipelineStep{
+				Name:     kMoE.Name,
+				Launcher: cudalaunch.OwnedKernel(fnMoE).Grid(uint32((expertRows + 255) / 256)).Block(256).On(stream),
+				Args:     []any{dExpertWeights, dSwiGLU, dMoEOut, dExpertIDs, int32(slot), int32(expertRows), int32(cols)},
+			})
+		}
+		steps = append(steps, PipelineStep{
+			Name:     kIQ2Simd.Name,
+			Launcher: cudalaunch.OwnedKernel(fnIQ2Simd).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream),
+			Args:     []any{dIQQ, dIQA, dIQOutSimd, scaleIQ, int32(iqCount)},
+		})
+		steps = append(steps, PipelineStep{
+			Name:     kIQ2Scalar.Name,
+			Launcher: cudalaunch.OwnedKernel(fnIQ2Scalar).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream),
+			Args:     []any{dIQQ, dIQA, dIQOutScalar, scaleIQ, int32(iqCount)},
+		})
+		steps = append(steps, PipelineStep{
+			Name:     kSmem.Name,
+			Launcher: cudalaunch.OwnedKernel(fnSmem).Grid(uint32(expertRows)).Block(256).SharedMem(uint32(cols * 4)).On(stream),
+			Args:     []any{dSmemA, dSwiGLU, dSmemOut, int32(expertRows), int32(cols)},
+		})
+		steps = append(steps, PipelineStep{
+			Name:     kCompute.Name,
+			Launcher: cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream),
+			Args:     []any{dcVec, int32(nVec), int32(cfg.rounds)},
+		})
+
+		gRes, gIntervals, gErr := runWorkloadInGraph(ctx, dev, stream, cfg.graphMode, cfg.passes, steps)
+		if gErr != nil {
+			return res, fmt.Errorf("cuda graph execution (%s): %w", cfg.graphMode, gErr)
+		}
+		res.Graph = gRes
+		res.Intervals["cuda_graph_exec"] = gIntervals
+		trace.Logf(ctx, "cuda.graph", "mode=%s nodes=%d passes=%d", gRes.Mode, gRes.NodeCount, gRes.Passes)
+	}
+
 	return res, nil
 }
 
@@ -762,22 +829,38 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 	rec.observe(k.Name, stack)
 	rec.observeLabels(ctx, k.Name)
 	if record {
-		// One launch per sample, so -sample_index=samples reports launch counts
-		// instead of an empty report.
-		vals := cudaprof.SampleValues{
-			Samples:  1,
-			GPUNanos: elapsed.Nanoseconds(),
+		rec.mu.Lock()
+		hotspotsActive := rec.hotspots
+		tileLine := rec.tileIRLines[k.Name]
+		rec.mu.Unlock()
+
+		if hotspotsActive && len(k.Instructions) > 0 {
+			recordInstructionHotspots(ctx, rec, k, tileLine, elapsed.Nanoseconds(), stack)
+		} else {
+			// One launch per sample, so -sample_index=samples reports launch counts
+			// instead of an empty report.
+			vals := cudaprof.SampleValues{
+				Samples:  1,
+				GPUNanos: elapsed.Nanoseconds(),
+			}
+			sassLine := 1
+			if len(k.Instructions) > 0 {
+				sassLine = k.Instructions[0].SASSLine
+			}
+			frames := []cudaprof.Frame{
+				{FunctionName: k.Name + ".SASS", FileName: "kernels.sass", Line: int64(sassLine), Address: cudaprof.DefaultMappingStart + k.Offset},
+				{FunctionName: k.Name + ".PTX", FileName: "kernels.ptx", Line: int64(k.PTXLine), Address: ptxAddress(rec.ptxLines, k.PTXLine)},
+			}
+			if tileLine > 0 {
+				frames = append(frames, cudaprof.Frame{
+					FunctionName: k.Name + ".TileIR",
+					FileName:     "kernels.tileir",
+					Line:         int64(tileLine),
+				})
+			}
+			frames = append(frames, cudaprof.Frame{FunctionName: k.Name, FileName: "kernels.cu", Line: int64(k.SourceLine)})
+			rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
 		}
-		sassLine := 1
-		if len(k.Instructions) > 0 {
-			sassLine = k.Instructions[0].SASSLine
-		}
-		frames := []cudaprof.Frame{
-			{FunctionName: k.Name + ".SASS", FileName: "kernels.sass", Line: int64(sassLine), Address: cudaprof.DefaultMappingStart + k.Offset},
-			{FunctionName: k.Name + ".PTX", FileName: "kernels.ptx", Line: int64(k.PTXLine), Address: ptxAddress(rec.ptxLines, k.PTXLine)},
-			{FunctionName: k.Name, FileName: "kernels.cu", Line: int64(k.SourceLine)},
-		}
-		rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
 	}
 	return elapsed.Nanoseconds(), nil
 }

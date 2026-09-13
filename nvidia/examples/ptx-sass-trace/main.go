@@ -24,6 +24,11 @@ type config struct {
 
 	pcSampling bool
 	pcPeriod   uint
+
+	hotspots    bool
+	graphMode   string
+	sassMetrics bool
+	pmSampling  bool
 }
 
 func main() {
@@ -37,11 +42,22 @@ func main() {
 	ncclFlag := flag.String("nccl", "off", "optional NCCL collective mode: off, allreduce, allgather, both")
 	flag.BoolVar(&cfg.pcSampling, "pcsampling", false, "collect hardware PC samples; perturbs the CUDA event intervals and requires Linux with CUPTI 130001 or 130400")
 	flag.UintVar(&cfg.pcPeriod, "pcsampling-period", 10, "PC sampling period exponent: 2^n GPU cycles, 5 through 31")
+	flag.BoolVar(&cfg.hotspots, "hotspots", false, "synthesize instruction-level hotspot and stall attribution across PTX and SASS instructions")
+	graphFlag := flag.String("graph", "off", "CUDA graph execution mode: off, capture, or pdl")
+	flag.BoolVar(&cfg.sassMetrics, "sass-metrics", false, "collect CUPTI SASS metrics instrumentation")
+	flag.BoolVar(&cfg.pmSampling, "pmsampling", false, "collect CUPTI Performance Monitor (PM) counter availability")
 	devicesFlag := flag.String("devices", "", "ordered comma-separated CUDA device ordinals (e.g. 0,1) for NCCL")
 	flag.Parse()
 
 	if len(flag.Args()) > 0 {
 		log.Fatalf("unexpected positional arguments: %v", flag.Args())
+	}
+
+	cfg.graphMode = strings.ToLower(strings.TrimSpace(*graphFlag))
+	switch cfg.graphMode {
+	case "off", "capture", "pdl":
+	default:
+		log.Fatalf("unknown -graph mode %q; allowed: off, capture, pdl", *graphFlag)
 	}
 
 	cfg.ncclMode = strings.ToLower(strings.TrimSpace(*ncclFlag))
@@ -133,10 +149,23 @@ func run(dir string, cfg config) error {
 			fmt.Printf("nccl %-10s verified %d outputs across all ranks\n", op, totalVerified)
 		}
 	}
+	if m.Graph != nil {
+		fmt.Printf("cuda graph mode: %s (%d nodes, %d pdl edges)\n", m.Graph.Mode, m.Graph.NodeCount, m.Graph.PDLEdges)
+	}
+	if m.SassMetrics != nil {
+		fmt.Printf("cupti sass metrics: status=%s (%d census entries, %d supported)\n",
+			m.SassMetrics.Status, len(m.SassMetrics.Census), len(m.SassMetrics.SupportedMetrics))
+	}
+	if m.PMSampling != nil {
+		fmt.Printf("cupti pm sampling: status=%s (%d bytes availability image)\n",
+			m.PMSampling.Status, m.PMSampling.AvailabilitySize)
+	}
 	fmt.Printf("capture: %s\n", dir)
 	if m.PCSampling != nil {
 		fmt.Printf("Hardware PC sampling active: %d samples collected across %d PCs, %.1f%% resolved to PTX.\n",
 			m.PCSampling.TotalSamples, m.PCSampling.PCs, 100*m.PCSampling.Resolution())
+	} else if m.Hotspots {
+		fmt.Println("Instruction hotspot attribution active: opcode cost modeled across SASS/PTX/TileIR instructions.")
 	} else {
 		fmt.Println("Timings cover whole kernel launches; instruction rows are navigation anchors, not sampled PC costs.")
 	}

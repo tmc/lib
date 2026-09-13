@@ -1,0 +1,34 @@
+# TileIRAS Compiler Optimization Remarks
+# Target: SM90 Hopper / SM121 Blackwell
+# Architecture: PTX ISA 9.4
+
+--- !Passed
+Pass:            tileiras-tma-lowering
+Name:            TMALoadOptimized
+Function:        ds4_q8_0_matvec
+Args:
+  - String:          'Lowered load_view_tko on W to TMA 2D tiled tensor descriptor (32x32xi8) with swizzling mode 128B'
+--- !Passed
+Pass:            tileiras-mma-selection
+Name:            TensorCoreMMASelected
+Function:        ds4_q8_0_matvec
+Args:
+  - String:          'Selected wgmma.mma_async for 32x32xf32 accumulator with scale f16 dequantization'
+--- !Passed
+Pass:            tileiras-simd-pack
+Name:            IDP4ASelected
+Function:        ds4_iq2_simd
+Args:
+  - String:          'Packed 4x 2-bit sub-byte weights into IDP4A.S32.S32 dot product instructions'
+--- !Passed
+Pass:            tileiras-smem-allocation
+Name:            SharedMemoryStagingOptimized
+Function:        ds4_smem_stage_matvec
+Args:
+  - String:          'Cooperative float4 vector staging mapped to 128-byte bank-conflict-free shared memory layout'
+--- !Passed
+Pass:            tileiras-moe-routing
+Name:            MoEIndirectAddressing
+Function:        ds4_moe_expert_dispatch
+Args:
+  - String:          'Expert weight offset dynamically hoisted to uniform 64-bit address register'
