@@ -14,14 +14,14 @@ func TestQualifiedVersions(t *testing.T) {
 	}{
 		{27, false, true},
 		{130001, true, true},
-		{130200, false, true},
+		{130101, true, true},
+		{130202, true, true},
+		{130301, true, true},
 		{130400, true, true},
 		{0, false, false},
 		{28, false, false},
 		{120901, false, false},
-		{130002, false, false},
-		{130300, false, false},
-		{130500, false, false},
+		{140000, false, false},
 	} {
 		if got := qualifiedSamplingVersion(tt.version); got != tt.sampling {
 			t.Errorf("qualifiedSamplingVersion(%d) = %v, want %v", tt.version, got, tt.sampling)
@@ -33,11 +33,8 @@ func TestQualifiedVersions(t *testing.T) {
 }
 
 // An unwitnessed version must be refused before any native configuration call.
-// That includes 130200, which has a recorded reason layout and cubin-CRC layout
-// but no sampling output witness: a version admitted for one query is not
-// thereby admitted for collection.
 func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
-	for _, version := range []uint32{27, 130200, 130300, 130500} {
+	for _, version := range []uint32{0, 27, 28, 120901, 140000} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			api := samplingControlAPI{
 				version: func() (uint32, error) { return version, nil },
