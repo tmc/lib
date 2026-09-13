@@ -74,6 +74,38 @@ func (g *Graph) AddEmptyNode(dependencies ...*Node) (*Node, error) {
 	return &Node{raw: rawNode, graph: g}, nil
 }
 
+// AddKernelNode creates a kernel execution node in g with the given parameters and dependencies.
+func (g *Graph) AddKernelNode(params *driver.KernelNodeParams, dependencies ...*Node) (*Node, error) {
+	if g == nil || g.raw == 0 {
+		return nil, errors.New("cudagraph: graph is closed")
+	}
+	if params == nil {
+		return nil, errors.New("cudagraph: nil kernel node params")
+	}
+	var depRaw []driver.GraphNode
+	var depPtr *driver.GraphNode
+	if len(dependencies) > 0 {
+		depRaw = make([]driver.GraphNode, len(dependencies))
+		for i, d := range dependencies {
+			if d == nil || d.raw == 0 {
+				return nil, errors.New("cudagraph: nil dependency node")
+			}
+			depRaw[i] = d.raw
+		}
+		depPtr = &depRaw[0]
+	}
+	var rawNode driver.GraphNode
+	err := g.withContext(func() error {
+		var err error
+		rawNode, err = g.raw.AddKernelNode(depPtr, uint(len(dependencies)), params)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cudagraph: add kernel node: %w", err)
+	}
+	return &Node{raw: rawNode, graph: g}, nil
+}
+
 // ProgrammaticEdgeData returns a driver.GraphEdgeData configured for a
 // Programmatic Dependent Launch (PDL) dependency edge.
 func ProgrammaticEdgeData() driver.GraphEdgeData {
@@ -84,7 +116,7 @@ func ProgrammaticEdgeData() driver.GraphEdgeData {
 	}
 }
 
-// AddDependencies adds dependency edges from nodes in 'from' to nodes in 'to'.
+// AddDependencies adds dependency edges from nodes in from to nodes in to.
 // from and to must have equal non-zero lengths.
 // Optional edgeData specifies annotations (such as Programmatic edges). If omitted,
 // standard (default) dependency edges are created.
@@ -126,12 +158,15 @@ func (g *Graph) AddDependencies(from, to []*Node, edgeData ...driver.GraphEdgeDa
 	return nil
 }
 
-// AddDependency adds a single standard dependency edge from 'from' to 'to'.
+// AddDependency adds a single standard dependency edge from from to to.
 func (g *Graph) AddDependency(from, to *Node) error {
 	return g.AddDependencies([]*Node{from}, []*Node{to})
 }
 
-// AddProgrammaticDependency adds a typed Programmatic dependent launch edge from 'from' to 'to'.
+// AddProgrammaticDependency adds a typed Programmatic dependent launch edge from from to to.
+// Both from and to must be kernel execution nodes (created via [Graph.AddKernelNode]).
+// Empty nodes (created via [Graph.AddEmptyNode]) do not possess programmatic completion ports
+// and will be rejected by the CUDA driver with CUDA_ERROR_INVALID_VALUE.
 func (g *Graph) AddProgrammaticDependency(from, to *Node) error {
 	return g.AddDependencies([]*Node{from}, []*Node{to}, ProgrammaticEdgeData())
 }
