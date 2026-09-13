@@ -7,5 +7,5 @@
 // When NVTX_INJECTION64_PATH is unset, calls are safe no-ops without a native
 // provider invocation.
 // When set, the injection provider is dynamically loaded via purego, enabling high-resolution
-// timeline markers, nested ranges, domains, and thread naming for Nsight timelines.
+// timeline markers, nested ranges, domains, CUDA resource naming, and thread naming for Nsight timelines.
 package nvtx

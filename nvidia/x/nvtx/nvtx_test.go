@@ -16,6 +16,10 @@ var (
 	mockDomainMarkCount int
 	mockCategory        uint32
 	mockDomainCategory  uint32
+	mockCUDADevice      int32
+	mockCUDAContext     uintptr
+	mockCUDAStream      uintptr
+	mockCUDAEvent       uintptr
 )
 
 func mockMarkA(msg *byte) {
@@ -59,6 +63,22 @@ func mockDomainNameCategoryA(domain uintptr, category uint32, name *byte) {
 	mockDomainCategory = category
 }
 
+func mockNameCuDeviceA(device int32, name *byte) {
+	mockCUDADevice = device
+}
+
+func mockNameCuContextA(context uintptr, name *byte) {
+	mockCUDAContext = context
+}
+
+func mockNameCuStreamA(stream uintptr, name *byte) {
+	mockCUDAStream = stream
+}
+
+func mockNameCuEventA(event uintptr, name *byte) {
+	mockCUDAEvent = event
+}
+
 func TestNoOpPath(t *testing.T) {
 	// With enabled == false, all calls must be safe no-ops
 	enabled = false
@@ -80,6 +100,10 @@ func TestNoOpPath(t *testing.T) {
 	done()
 
 	NameOSThread(1234, "WorkerGoroutine")
+	NameCUDADevice(0, "GPU 0")
+	NameCUDAContext(1, "Context")
+	NameCUDAStream(2, "Stream")
+	NameCUDAEvent(3, "Event")
 
 	dom := CreateDomain("InferenceDomain")
 	defer dom.Destroy()
@@ -151,6 +175,10 @@ func TestExportTableHandshake(t *testing.T) {
 	fnDomainDestroy = purego.NewCallback(mockDomainDestroy)
 	fnNameCategoryA = purego.NewCallback(mockNameCategoryA)
 	fnDomainNameCategoryA = purego.NewCallback(mockDomainNameCategoryA)
+	fnNameCuDeviceA = purego.NewCallback(mockNameCuDeviceA)
+	fnNameCuContextA = purego.NewCallback(mockNameCuContextA)
+	fnNameCuStreamA = purego.NewCallback(mockNameCuStreamA)
+	fnNameCuEventA = purego.NewCallback(mockNameCuEventA)
 
 	enabled = true
 
@@ -189,6 +217,13 @@ func TestExportTableHandshake(t *testing.T) {
 	dom.NameCategory(9, "Transfer")
 	if mockCategory != 7 || mockDomainCategory != 9 {
 		t.Fatalf("category callbacks = global %d, domain %d", mockCategory, mockDomainCategory)
+	}
+	NameCUDADevice(3, "GPU 3")
+	NameCUDAContext(0x101, "context")
+	NameCUDAStream(0x202, "stream")
+	NameCUDAEvent(0x303, "event")
+	if mockCUDADevice != 3 || mockCUDAContext != 0x101 || mockCUDAStream != 0x202 || mockCUDAEvent != 0x303 {
+		t.Fatalf("CUDA naming callbacks = device %d context %#x stream %#x event %#x", mockCUDADevice, mockCUDAContext, mockCUDAStream, mockCUDAEvent)
 	}
 	dom.Destroy()
 }
