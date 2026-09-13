@@ -741,10 +741,25 @@ mechanism is now blocking a deliverable rather than qualifying a footnote.
 
 ## The two captures compared, and what the comparison shows
 
-Both captures were put through the same per-batch containment query, and in
-both the accounting closes: every batch is classified and the classified
-counts sum to the capture's total kernel count, so no kernel falls outside a
-prefill batch range.
+Both captures were put through the same per-batch containment query. In both,
+every batch is classified and the classifications account for all 256. The
+*sums* differ in what they prove, and an earlier draft of this section
+overstated it: in the qualification capture the batch sum equals the capture's
+total kernel count exactly, so nothing lies outside a prefill batch range; in
+P3a the batch sum is 3,919,871 against a total of 3,919,873, leaving **two
+kernels outside every batch range**. Two is not a rounding error, it is two
+rows with a location, and the claim that nothing lies outside holds for one
+run and not the other. Bound the query by `min(start)` and `max(end)` over
+the batch ranges rather than with a `NOT EXISTS` over 3.9M rows, which does
+not finish, and the two rows come back named:
+
+```
+1951625856|1951628064|ds4_probe|before first batch
+1953446272|1953449952|ds4_read_u16|before first batch
+```
+
+Both start before the first batch range opens, so they are warm-up rather
+than loss. That is now a measurement and not an assumption.
 
 | | NVTX qualification | P3a |
 | --- | --- | --- |
@@ -771,9 +786,9 @@ This is the finding that matters, and it was visible in the first capture
 without being stated. Its last kernel lands at 160.807 s while `prefill`
 closes at 161.897 s and decode runs to 162.067 s — so device recording had
 already stopped more than a second before decode began. P3a repeats it with a
-1.47 s cut. The batch accounting closes on the capture total in both runs,
-which says the same thing independently: every captured kernel is a prefill
-kernel.
+1.47 s cut. The batch accounting says the same thing independently: in the
+qualification run every one of its 3,973,441 kernels is inside a prefill
+batch, and in P3a all but two are.
 
 The workload is "prefill 2048, then decode two tokens". On the device side we
 have only ever had the first half. Any statement in this guide or elsewhere
@@ -813,6 +828,75 @@ inside a neighbour's range. It is not. No batch in either capture exceeds the
 baseline, so there is no surplus anywhere to receive shifted work, and each
 damaged window is a net deficit of roughly 22,800 kernels against a baseline
 that 243 of 256 batches hit exactly in one run and 234 of 256 in the other.
+
+## The cut is a fixed residual at exit, not a ceiling
+
+Three full-length captures stopped within a 0.63 s window of each other, at
+160.807 s, 161.323 s and 161.438 s, each having recorded close to four
+million kernels. Two readings fit that: a *time* ceiling somewhere near 161 s,
+or a *volume* ceiling somewhere near 4M kernels. The two are confounded in
+every full-length run, because the workload always takes about the same time
+to emit about the same number of kernels.
+
+A shorter prompt separates them. `probe512` is the same binary, the same
+flags and the same `--cuda-flush-interval=1000` as `p3aflush`, with a 512-token
+prompt instead of 2048 — a quarter of the duration and a quarter of the
+kernels. If either ceiling were real the run would finish under it and record
+to the end.
+
+| run | prompt | flush interval | kernels | last kernel | `prefill` closes | cut |
+| --- | --- | --- | --- | --- | --- | --- |
+| nvtx-qual | 2048 | none | 3,973,441 | 160.807 s | 161.897 s | 1.091 s |
+| P3a | 2048 | none | 3,919,873 | 161.438 s | 161.952 s | 0.514 s |
+| p3aflush | 2048 | 1000 ms | 4,049,488 | 161.323 s | 162.159 s | 0.836 s |
+| probe512 | 512 | 1000 ms | 993,771 | 41.205 s | 41.885 s | 0.680 s |
+
+**Both ceilings are refuted.** `probe512` cuts at 41.205 s with 993,771
+kernels recorded — a quarter of the way to either proposed ceiling — and it
+cuts for the same reason, 0.680 s before its own `prefill` range closes, with
+decode again holding zero device rows. The run length varies by a factor of
+four and the kernel count by a factor of four; the cut stays between 0.514 s
+and 1.091 s. It scales with neither.
+
+The hypothesis was stated in writing before the probe ran, and the probe
+killed it. It is recorded here rather than deleted because the shape of the
+refutation is the useful part: two candidate ceilings that a single workload
+length cannot tell apart, separated by changing the one input that moves them
+independently.
+
+### What the cut is instead
+
+What survives is a residual measured from the *end*: recording stops a
+fraction of a second before the process does, by an amount that looks like
+buffered data that was never written out. Under a periodic flush the residual
+is bounded by the interval — at 1000 ms, `p3aflush` lost 0.836 s of prefill
+plus decode's 0.170 s, and `probe512` lost 0.680 s plus the same 0.170 s, both
+just under one interval. With no interval set at all the residual is bounded
+instead by however much CUPTI buffers before it fills and drains on its own,
+which lands in the same range at this launch rate.
+
+Decode is the casualty in every run for a structural reason rather than a
+coincidence: decode is the last 0.17 s of the process, and the residual is
+larger than that in all four captures. Decode has never been outside the lost
+window.
+
+This predicts something cheap to test. Shrink the flush interval well below
+decode's duration and the residual should shrink with it, and decode should
+start appearing on the device timeline. It also says what the real fix is: a
+flush at exit. The capture's own diagnostics name it —
+
+```
+Buffers holding CUDA trace data will be flushed on CudaProfilerStop() call.
+```
+
+— and `ds4-min` never calls `cudaProfilerStop`; there is no binding for it
+anywhere in the tree. Go's `runtime.exit` on linux/arm64 goes straight to
+`SYS_exit_group` (`src/runtime/sys_linux_arm64.s:53`), so no libc teardown
+runs either. Nothing in the process ever asks for that final flush.
+
+A successful short-interval run would qualify a *mitigation*, not confirm the
+mechanism. Confirming the mechanism means making the flush happen and watching
+the residual go to zero.
 
 ## Fine phase names, and what they do not isolate
 
