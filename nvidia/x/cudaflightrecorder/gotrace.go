@@ -335,10 +335,16 @@ func AlignSpans(
 
 	// 2. Compute GPU records span
 	var gpuMinTs, gpuMaxTs int64
-	if len(records) > 0 {
-		gpuMinTs = records[0].TimestampNs
-		gpuMaxTs = records[0].TimestampNs + int64(records[0].DurationNs)
-		for _, rec := range records[1:] {
+	calibrated := records[:0]
+	for _, rec := range records {
+		if rec.Labels["activity.uncalibrated"] != "true" {
+			calibrated = append(calibrated, rec)
+		}
+	}
+	if len(calibrated) > 0 {
+		gpuMinTs = calibrated[0].TimestampNs
+		gpuMaxTs = calibrated[0].TimestampNs + int64(calibrated[0].DurationNs)
+		for _, rec := range calibrated[1:] {
 			if rec.TimestampNs < gpuMinTs {
 				gpuMinTs = rec.TimestampNs
 			}

@@ -24,16 +24,17 @@ const (
 
 // Config configures in-memory flight recording.
 type Config struct {
-	Window             time.Duration   // Time window to retain in memory (default 10s)
-	Capacity           int             // Maximum number of GPU records in ring buffer (default 65536)
-	ClockUncertaintyNs int64           // Estimated host-to-device clock alignment error (nanoseconds)
-	GoTraceEnabled     bool            // Whether to capture Go execution trace in snapshots (go.trace)
-	GoTraceWindow      time.Duration   // Time window for Go execution trace (default: matches Window)
-	GoTraceMaxBytes    uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
-	GoTraceStandard    bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
-	GoTracer           GoTraceRecorder // Optional custom Go execution trace flight recorder
-	RecordGPUPprof     bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
-	RecordPerfetto     bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
+	Window              time.Duration   // Time window to retain in memory (default 10s)
+	Capacity            int             // Maximum number of GPU records in ring buffer (default 65536)
+	ClockUncertaintyNs  int64           // Estimated host-to-device clock alignment error (nanoseconds)
+	CalibrationInterval time.Duration   // Reserved interval for refreshing the CUPTI clock anchor.
+	GoTraceEnabled      bool            // Whether to capture Go execution trace in snapshots (go.trace)
+	GoTraceWindow       time.Duration   // Time window for Go execution trace (default: matches Window)
+	GoTraceMaxBytes     uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
+	GoTraceStandard     bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
+	GoTracer            GoTraceRecorder // Optional custom Go execution trace flight recorder
+	RecordGPUPprof      bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
+	RecordPerfetto      bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
 }
 
 // Record represents a single timestamped GPU execution observation in the ring buffer.
@@ -59,12 +60,16 @@ type Recorder struct {
 	dropped int64
 
 	// Multi-modal artifact providers
-	goTracer         GoTraceRecorder
-	startTime        time.Time
-	goTraceProvider  func(context.Context) ([]byte, error)
-	gpuPprofProvider func(context.Context) ([]byte, error)
-	perfettoProvider func(context.Context) ([]byte, error)
-	extraFiles       map[string][]byte
+	goTracer              GoTraceRecorder
+	startTime             time.Time
+	goTraceProvider       func(context.Context) ([]byte, error)
+	gpuPprofProvider      func(context.Context) ([]byte, error)
+	perfettoProvider      func(context.Context) ([]byte, error)
+	extraFiles            map[string][]byte
+	activityHostNs        int64
+	activityDeviceNs      int64
+	activityUncertaintyNs int64
+	activityCalibrated    bool
 }
 
 // New creates a new flight recorder with the supplied configuration.
@@ -147,6 +152,10 @@ func (r *Recorder) Start() error {
 	}
 
 	r.startTime = time.Now()
+	if hostNs, deviceNs, uncertaintyNs, err := calibrateCUPTITimestamp(); err == nil {
+		r.activityHostNs, r.activityDeviceNs = hostNs, deviceNs
+		r.activityUncertaintyNs, r.activityCalibrated = uncertaintyNs, true
+	}
 	r.running = true
 	return nil
 }
@@ -219,38 +228,40 @@ func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
 		duration = activity.End - activity.Start
 	}
 	timestampNs := int64(0)
-	if hostNs, deviceNs, err := calibrateCUPTITimestamp(); err == nil {
-		timestampNs = mapCUPTITimestamp(hostNs, deviceNs, activity.Start)
+	labels := map[string]string{"activity.kind": fmt.Sprintf("%d", activity.Kind)}
+	if r.activityCalibrated {
+		timestampNs = mapCUPTITimestamp(r.activityHostNs, r.activityDeviceNs, activity.Start)
+	} else {
+		labels["activity.uncalibrated"] = "true"
 	}
 	r.Push(Record{
 		TimestampNs:   timestampNs,
 		KernelName:    activity.Name,
 		CorrelationID: uint64(activity.CorrelationID),
 		DurationNs:    duration,
-		Labels: map[string]string{
-			"activity.kind": fmt.Sprintf("%d", activity.Kind),
-		},
+		Labels:        labels,
 	})
 }
 
 func mapCUPTITimestamp(hostNs, deviceNs int64, activityNs uint64) int64 {
+	// The unsigned difference wraps before int64 reinterprets it, preserving offsets within 2^63.
 	return hostNs + int64(activityNs-uint64(deviceNs))
 }
 
-func calibrateCUPTITimestamp() (hostNs, deviceNs int64, err error) {
+func calibrateCUPTITimestamp() (hostNs, deviceNs, uncertaintyNs int64, err error) {
 	if !cupti.HasGetTimestamp() {
-		return 0, 0, errors.New("cudaflightrecorder: CUPTI timestamp unavailable")
+		return 0, 0, 0, errors.New("cudaflightrecorder: CUPTI timestamp unavailable")
 	}
 	before := time.Now().UnixNano()
 	device, err := cupti.GetTimestamp()
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	after := time.Now().UnixNano()
 	if after < before {
-		return 0, 0, errors.New("cudaflightrecorder: host clock went backwards")
+		return 0, 0, 0, errors.New("cudaflightrecorder: host clock went backwards")
 	}
-	return before + (after-before)/2, int64(device), nil
+	return before + (after-before)/2, int64(device), (after - before) / 2, nil
 }
 
 // Snapshot writes a multi-modal diagnostic bundle (.tar) to w containing
