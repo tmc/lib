@@ -1,23 +1,21 @@
 package cudaoccupancy_test
 
 import (
+	_ "embed"
 	"encoding/hex"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 )
 
+//go:embed testdata/kernels.cubin.hex
+var testCubinHex string
+
 func loadTestCubin(t *testing.T) []byte {
 	t.Helper()
-	hexData, err := os.ReadFile(filepath.Join("testdata", "kernels.cubin.hex"))
-	if err != nil {
-		t.Fatalf("load kernels.cubin.hex: %v", err)
-	}
-	clean := strings.TrimSpace(string(hexData))
+	clean := strings.TrimSpace(testCubinHex)
 	cubin, err := hex.DecodeString(clean)
 	if err != nil {
 		t.Fatalf("decode cubin hex: %v", err)
