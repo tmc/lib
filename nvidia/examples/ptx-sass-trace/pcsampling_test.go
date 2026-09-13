@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
+)
 
 // The native output buffer is split in half, each half holding an 80 byte
 // header and one record per PC, so the admitted PC capacity falls as the
@@ -71,5 +76,39 @@ func TestPCSamplingResolution(t *testing.T) {
 				t.Errorf("Resolution() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// A batch that reaches the profiler and fails to record leaves its samples in
+// total_samples and in no sample type, so the reconciliation identity falls
+// short by exactly that much. record keeps going -- a reporting failure must not
+// discard a workload that ran -- and counts the loss so a reader does not have
+// to infer it from arithmetic that may not be performed.
+func TestRecordCountsFailedBatches(t *testing.T) {
+	// A bridge with no session rejects every batch, which is the failure mode
+	// under test: collected, counted, not recorded.
+	bridge := &cuptipcsampling.ProfileBridge{}
+	batch := cuptipcsampling.Batch{Valid: true, TotalSamples: 7, DroppedSamples: 2}
+	res := &pcSamplingResult{}
+	record(context.Background(), res, bridge, cuptipcsampling.CodeResolver(nil), batch)
+	if res.RecordErrors != 1 {
+		t.Errorf("RecordErrors = %d, want 1", res.RecordErrors)
+	}
+	// The collection counters still hold what the batch contained, which is what
+	// makes the shortfall computable rather than merely suspected.
+	if res.TotalSamples != 7 {
+		t.Errorf("TotalSamples = %d, want 7", res.TotalSamples)
+	}
+	if res.DroppedSamples != 2 {
+		t.Errorf("DroppedSamples = %d, want 2", res.DroppedSamples)
+	}
+	// An invalid batch never reaches RecordBatch, so it is not a record failure.
+	res = &pcSamplingResult{}
+	record(context.Background(), res, bridge, cuptipcsampling.CodeResolver(nil), cuptipcsampling.Batch{DroppedSamples: 3})
+	if res.RecordErrors != 0 {
+		t.Errorf("RecordErrors after an invalid batch = %d, want 0", res.RecordErrors)
+	}
+	if res.DroppedSamples != 3 {
+		t.Errorf("DroppedSamples = %d, want 3", res.DroppedSamples)
 	}
 }

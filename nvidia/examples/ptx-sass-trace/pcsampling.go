@@ -30,16 +30,21 @@ import (
 // resolution fraction over a batch that dropped most of its samples is not a
 // working attribution path, so the loss counters travel with the ratio.
 type pcSamplingResult struct {
-	PeriodExponent     uint32           `json:"period_exponent"`
-	SelectedReasons    int              `json:"selected_reasons"`
-	Batches            int              `json:"batches"`
-	PCs                int              `json:"pcs"`
-	TotalSamples       uint64           `json:"total_samples"`
-	DroppedSamples     uint64           `json:"dropped_samples"`
-	NonUserSamples     uint64           `json:"non_user_samples"`
-	HardwareBufferFull bool             `json:"hardware_buffer_full"`
-	PCsResolvedToPTX   int              `json:"pcs_resolved_to_ptx"`
-	UnmappedStalls     map[string]int64 `json:"unmapped_stalls,omitempty"`
+	PeriodExponent     uint32 `json:"period_exponent"`
+	SelectedReasons    int    `json:"selected_reasons"`
+	Batches            int    `json:"batches"`
+	PCs                int    `json:"pcs"`
+	TotalSamples       uint64 `json:"total_samples"`
+	DroppedSamples     uint64 `json:"dropped_samples"`
+	NonUserSamples     uint64 `json:"non_user_samples"`
+	HardwareBufferFull bool   `json:"hardware_buffer_full"`
+	PCsResolvedToPTX   int    `json:"pcs_resolved_to_ptx"`
+	// RecordErrors counts batches that were collected but failed to reach the
+	// profile. Those samples are in total_samples and in no sample type, so the
+	// reconciliation identity stops closing by exactly their count; this field
+	// says so directly rather than leaving the identity as the only detector.
+	RecordErrors   int              `json:"record_errors,omitempty"`
+	UnmappedStalls map[string]int64 `json:"unmapped_stalls,omitempty"`
 	// ReasonRouting records where every reason the hardware inventory names
 	// would be counted, sampled on this run or not. The reconciliation identity
 	// sums all the stall types, so it stays closed when a reason is counted in
@@ -227,6 +232,12 @@ func record(ctx context.Context, res *pcSamplingResult, bridge *cuptipcsampling.
 		}
 	}
 	// A batch that fails to record is a reporting failure, not a collection
-	// failure; the counters above already hold what it contained.
-	_ = bridge.RecordBatch(ctx, batch)
+	// failure: the counters above already hold what it contained, so the capture
+	// keeps going rather than discarding a workload that ran. The count travels
+	// with it because the loss is otherwise visible only as the reconciliation
+	// identity falling short, and a capture path without that identity would
+	// lose the samples silently.
+	if err := bridge.RecordBatch(ctx, batch); err != nil {
+		res.RecordErrors++
+	}
 }
