@@ -415,6 +415,7 @@ func TestLowerabilityDifferential(t *testing.T) {
 		// Invalid / ghost / invented ops that MUST NOT be lowerable by either backend
 		"mma_anything", "tma_future", "assume_aligned_x", "fp8_cast", "fp4_cast",
 		"gemma_proj", "comma_split", "fused_anything", "tile_unknown", "pdl",
+		"tile_gamma_scale", "dequant_gamma", "gamma_rms", "zzz_total_nonsense",
 		"matmul", "gemv", "rmsnorm", "silu", "gelu", "swish",
 	}
 
