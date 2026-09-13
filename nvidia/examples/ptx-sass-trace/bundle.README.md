@@ -71,6 +71,11 @@ across both capture modes.
 
 `pass`, `layer`, `moe.expert` and `moe.slot` are numeric labels, so pprof's
 range filters apply: `-tagfocus='layer=0:3'` selects the first four layers.
+Those filters reach launch rows only. A PC sample aggregates every launch of its
+kernel, so a label that differed between those launches describes none of it and
+is left off; only labels identical across all of them are attached. The profile
+names the ones it dropped in a `label-omissions` comment, and `phase`,
+`kernel.impl` and `kernel` are what remain to filter stall data by.
 
 SASS addresses in Disassemble are CUBIN file offsets: each function's .text
 section offset plus its instruction offset. PTX addresses are byte offsets in
