@@ -117,12 +117,14 @@ func TestProfileBridge(t *testing.T) {
 	for i, st := range p.SampleType {
 		sampleTypes[st.Type] = i
 	}
-	if idx, ok := sampleTypes["samples"]; ok {
+	// PC samples land in pc_samples, not samples: the latter counts launches,
+	// and one type cannot mean both without meaning neither.
+	if idx, ok := sampleTypes["pc_samples"]; ok {
 		if got := p.Sample[0].Value[idx]; got != 46 {
-			t.Errorf("samples = %d, want 46", got)
+			t.Errorf("pc_samples = %d, want 46", got)
 		}
 	} else {
-		t.Error("missing samples type in profile")
+		t.Error("missing pc_samples type in profile")
 	}
 	if idx, ok := sampleTypes["inst_executed"]; ok {
 		if got := p.Sample[0].Value[idx]; got != 10 {
@@ -164,3 +166,183 @@ func TestProfileBridgeErrors(t *testing.T) {
 		t.Error("expected error for invalid batch, got nil")
 	}
 }
+
+// CUPTI reports each stall reason alongside a _not_issued companion counting a
+// subset of the same cycles, so adding both counts those samples twice. On a
+// GB10 capture that inflated the stall totals to about 1.9x the samples
+// actually collected. The companion of a reason this package does not model
+// still has to stay visible as unmapped.
+func TestProfileBridgeDoesNotDoubleCountNotIssued(t *testing.T) {
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "short_scoreboard"},
+			{Index: 2, Name: "short_scoreboard_not_issued"},
+			{Index: 3, Name: "drain"},
+			{Index: 4, Name: "drain_not_issued"},
+		},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	bridge := &cuptipcsampling.ProfileBridge{Session: session, Inventory: inv}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 23,
+		PCs: []cuptipcsampling.PC{{
+			CRC:  1,
+			Name: "kernel",
+			Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 23},
+				{Index: 2, Samples: 23},
+				{Index: 3, Samples: 4},
+				{Index: 4, Samples: 4},
+			},
+		}},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	types := make(map[string]int)
+	for i, st := range p.SampleType {
+		types[st.Type] = i
+	}
+	if got := p.Sample[0].Value[types["stall_scoreboard"]]; got != 23 {
+		t.Errorf("stall_scoreboard = %d, want 23 counted once, not 46", got)
+	}
+	// drain is not modelled, so the base reason is unmapped under its own name
+	// and the companion under its own, neither folded into a stall bucket.
+	if got := bridge.UnmappedStalls["drain"]; got != 4 {
+		t.Errorf("UnmappedStalls[drain] = %d, want 4", got)
+	}
+	if got := bridge.UnmappedStalls["drain_not_issued"]; got != 4 {
+		t.Errorf("UnmappedStalls[drain_not_issued] = %d, want 4", got)
+	}
+}
+
+// A PTX frame with no address leaves pprof's address granularity blind to the
+// only samples that have real instruction addresses.
+func TestProfileBridgePTXAddress(t *testing.T) {
+	ptx := "// line 1\n// line 2\n// line 3\n"
+	offsets := cudaprof.PTXLineOffsets(ptx)
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons:      []cuptipcsampling.StallReason{{Index: 1, Name: "short_scoreboard"}},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	session.AddMapping("kernels.ptx", "", cudaprof.PTXMappingStart, cudaprof.PTXMappingStart+uint64(len(ptx)))
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:    session,
+		Inventory:  inv,
+		PTXOffsets: offsets,
+		Resolver: &mockResolver{locations: map[string]cuptipcsampling.CodeLocation{
+			"kernel": {KernelName: "kernel", PTXFile: "kernels.ptx", PTXLine: 3, SASSLine: 1},
+		}},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 1,
+		PCs:          []cuptipcsampling.PC{{CRC: 1, Name: "kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 1}}}},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	want := cudaprof.PTXMappingStart + offsets[3]
+	var found bool
+	for _, loc := range p.Location {
+		for _, line := range loc.Line {
+			if line.Function != nil && line.Function.Name == "kernel.PTX" {
+				found = true
+				if loc.Address != want {
+					t.Errorf("PTX address = %#x, want %#x (line 3 at byte %d)", loc.Address, want, offsets[3])
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no PTX frame in the profile")
+	}
+}
+
+func TestProfileBridgeLabelsAndHostFrames(t *testing.T) {
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons:      []cuptipcsampling.StallReason{{Index: 1, Name: "short_scoreboard"}},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:   session,
+		Inventory: inv,
+		Resolver: &mockResolver{locations: map[string]cuptipcsampling.CodeLocation{
+			"test_kernel": {KernelName: "test_kernel", SourceFile: "kernel.cu", SourceLine: 10, SASSLine: 1},
+		}},
+		HostFrames: []cudaprof.Frame{
+			{FunctionName: "main.runWorkload", FileName: "workload.go", Line: 50},
+			{FunctionName: "main.main", FileName: "main.go", Line: 100},
+		},
+		LabelFunc: func(loc cuptipcsampling.CodeLocation) map[string]string {
+			return map[string]string{"phase": "compute"}
+		},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 1,
+		PCs:          []cuptipcsampling.PC{{CRC: 1, Name: "test_kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 1}}}},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	if len(p.Sample) != 1 {
+		t.Fatalf("got %d samples, want 1", len(p.Sample))
+	}
+	s := p.Sample[0]
+	if len(s.Label["kernel"]) != 1 || s.Label["kernel"][0] != "test_kernel" {
+		t.Errorf("kernel label = %v, want [test_kernel]", s.Label["kernel"])
+	}
+	if len(s.Label["phase"]) != 1 || s.Label["phase"][0] != "compute" {
+		t.Errorf("phase label = %v, want [compute]", s.Label["phase"])
+	}
+	// Verify host frames are present
+	var hasRunWorkload, hasMain bool
+	for _, loc := range s.Location {
+		for _, line := range loc.Line {
+			if line.Function != nil {
+				if line.Function.Name == "main.runWorkload" {
+					hasRunWorkload = true
+				}
+				if line.Function.Name == "main.main" {
+					hasMain = true
+				}
+			}
+		}
+	}
+	if !hasRunWorkload || !hasMain {
+		t.Errorf("host frames missing: hasRunWorkload=%v, hasMain=%v", hasRunWorkload, hasMain)
+	}
+}
+
