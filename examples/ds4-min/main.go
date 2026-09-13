@@ -95,6 +95,7 @@ type config struct {
 	spanLevel    spanLevel
 	runID        string
 	calibPath    string
+	profilerStop bool
 }
 
 func main() {
@@ -258,6 +259,15 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	}
 	fmt.Fprintf(stderr, "ds4-min: prefill: %.2f t/s, generation: %.2f t/s\n",
 		rate(len(prompt), prefill), rate(generated, decode))
+	// Last thing before the process unwinds: the context is still alive, all
+	// device work is done, and every NVTX range is closed, so a flush here
+	// costs nothing and loses nothing.
+	if cfg.profilerStop {
+		if err := stopCUDAProfiler(); err != nil {
+			return err
+		}
+		fmt.Fprintf(stderr, "ds4-min: cuProfilerStop ok\n")
+	}
 	return nil
 }
 
@@ -296,6 +306,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&cfg.runID, "run-id", "", "run identity shared with a gputrace timing sidecar")
 	fs.StringVar(&cfg.calibPath, "calibration", "", "write NVTX clock-calibration brackets to this file")
 	fs.IntVar(&cfg.calibEvery, "calibration-every", 64, "also bracket every Nth prefill batch; 0 for boundaries only")
+	fs.BoolVar(&cfg.profilerStop, "cuda-profiler-stop", false, "call cuProfilerStop after the last kernel so the profiler flushes its buffers")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
