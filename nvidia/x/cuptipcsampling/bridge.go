@@ -9,12 +9,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 )
 
-// ModuleID identifies a loaded CUDA module image.
-// CRC is CUPTI's native code identifier. Generation identifies the loaded module
-// instance when multiple generations or instances of the same binary are loaded.
+// ModuleID identifies a loaded CUDA module image by its native CUBIN CRC.
 type ModuleID struct {
-	CRC        uint64
-	Generation uint64
+	CRC uint64
 }
 
 // CodeLocation identifies the source, assembly, and CUBIN coordinates for a kernel PC.
