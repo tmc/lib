@@ -1198,6 +1198,82 @@ IDs. Teacher forcing would pin the execution trajectory while proving nothing
 about selection, so if it is ever used it gets its own label and its own row —
 never a substitute for the argmax result.
 
+## Both sides, same tokens: where the time actually goes
+
+With input identity established above, the oracle was captured on the same
+workload — prefill 2048, two decode tokens, context allocation 4096:
+
+    DS4_BENCH_CUDA_PROFILE_PREFILL=1 DS4_BENCH_CUDA_PROFILE_RANGE=0:2 \
+    nsys profile -t cuda-sw,nvtx,osrt \
+      -c cudaProfilerApi --capture-range-end=repeat-shutdown:2 \
+      --cuda-flush-interval=100 --flush-on-cudaprofilerstop=true \
+      ./ds4-bench --cuda -m $MODEL \
+        --prompt-file speed-bench/promessi_sposi.txt \
+        --ctx-start 2048 --ctx-max 2048 --ctx-alloc 4096 --gen-tokens 2
+
+`ds4-bench` calls `cudaProfilerStart`/`Stop` twice — around prefill
+(`ds4_bench.c:822,827`) and around the decode range (`:914,963`) — so
+`repeat-shutdown:2` yields two reports, `.1` prefill and `.2` decode. Both
+runs are instrumented; neither number below is an uninstrumented rate.
+
+| | C oracle | Go ds4-min | ratio |
+| --- | ---: | ---: | ---: |
+| prefill kernels | 3,472 | 4,117,516 | **1186x** |
+| prefill device time | 3,280.8 ms | 150,477.0 ms | **45.9x** |
+| prefill span | 3,744.5 ms | 160,463.3 ms | 42.9x |
+| prefill device busy | 87.6% | 93.8% | — |
+| decode kernels (2 tokens) | 3,536 | 4,480 | 1.27x |
+| decode device time | 99.8 ms | 160.2 ms | **1.60x** |
+
+### The prefill gap is not launch overhead
+
+The 1186x launch ratio invites the conclusion that ds4-min is drowning in
+launch overhead. It is not. Both sides are device-bound — 87.6% and 93.8% of
+their spans are kernels actually executing — so there is no idle gap for the
+extra launches to be hiding in. Go issues 1186x more launches *and* does 45.9x
+more device work. The launches are a symptom of the shape, not the cost.
+
+The shape is visible in the oracle's launch counts, which are all small
+multiples of the 43 layers:
+
+    gateup_iq2_swiglu_q8_d2r_kernel     43 launches    846.1 ms
+    dense_q8_d2r_kernel                172 launches    658.4 ms
+    down_q2k_d2r_kernel                 43 launches    330.8 ms
+    attention_tokentile_hmma_kernel     41 launches    227.1 ms
+
+Forty-three gate-up launches for the entire 2048-token prefill is **one per
+layer** — the oracle's `prefill_chunk` defaults to 4096 on CUDA, so all 2048
+tokens cross each layer in a single pass. ds4-min's `cudaPrefillBatchWidth` is
+8, so the same prefill is 256 batches: 16,084 kernels each, ~374 per layer per
+batch, and every batch re-reads that layer's weights.
+
+That reframes the parity problem. It is not 43 slow kernels to optimize; it is
+one constant deciding whether the weights are read once or 256 times.
+
+### The decode arm is close, and its gate is open
+
+Decode is 1.60x on device time — a different regime from prefill entirely, and
+the first measurement putting a number on that difference.
+
+**This comparison is not qualified.** It assumes both runtimes decoded the same
+two tokens, and nothing here establishes that. ds4-min accepted 15342 then 201.
+The C side's IDs were not retained, and cannot be recovered from this capture:
+
+- `--show-output` converts `gen_token_buf` to text only (`ds4_bench.c:985-997`);
+  no integer IDs are printed, and deriving IDs from text is not a receipt.
+- `--dump-frontier-logits-dir` writes *before* decode (`:841`), and its
+  `argmax_id` is `ds4_session_argmax`, which is EOS-**inclusive** (`:502`),
+  while decode uses `argmax_excluding(eos)` (`:906`). It answers a different
+  question.
+- `--capture-range-end=repeat-shutdown:2` terminates the process when the
+  second range closes, so this run printed no CSV row either.
+
+Closing the gate needs a same-process emission of `gen_token_buf` after the
+timed loop — a harness-only change to `ds4_bench.c`, labelled as such, with its
+source and binary identity retained. Until then the prefill row is qualified by
+the token hash and the decode row is a measurement of two runs that were
+probably, but not demonstrably, doing the same thing.
+
 ## Fine phase names, and what they do not isolate
 
 `-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
