@@ -72,6 +72,13 @@ They reconcile against the manifest exactly: the `stall_*` totals plus
 reading the breakdown -- on a GB10 capture it held 172 of 2765 samples across
 five reasons that now have types.
 
+A non-empty `unmapped_stalls` is a statement about the workload, not about the
+classifier. It says the kernel hit a reason no sample type models -- `misc` and
+`sleeping` on a GB10 -- and the identity above still closes with those samples
+on the `unmapped_stalls` side. Read it as coverage to extend, not as a
+regression, and read an empty one as evidence the workload stayed inside the
+modelled set rather than as evidence about the routing.
+
 The identity sums every stall type, so it stays closed when a reason is counted
 in the wrong one: a fetch stall filed under `stall_mem` balances exactly and
 sends a reader to the memory system for a front-end problem. `reason_routing` in
@@ -82,14 +89,36 @@ count is discarded as a subset of its base, or `unmapped`. `reason_samples`
 records how much each reason actually contributed, so the routing is checkable
 against the same file rather than taken as a declaration.
 
-One routing decision is worth stating here because a reader will otherwise draw
-the wrong conclusion from a correct number. `stall_mem` counts memory-pipe
-*throttling* -- `lg_throttle`, `mio_throttle`, `tex_throttle`, `imc_miss`. A warp
-waiting for global memory data is `long_scoreboard`, which is a scoreboard stall
-and counted under `stall_scoreboard`. So `stall_mem` near zero does not mean the
-kernel is not memory bound; the `long_scoreboard` entry in `reason_samples` is
-where that question is answered, and `stall_scoreboard` alone cannot separate it
-from an ordinary register dependency.
+Two type names read as answers to questions they do not answer, and both are
+worth stating here because the numbers under them are correct.
+
+`stall_mem` counts memory-pipe *throttling* -- on a GB10, `lg_throttle`,
+`mio_throttle` and `tex_throttle`. A warp waiting for global memory data is
+`long_scoreboard`, which is a scoreboard stall and counted under
+`stall_scoreboard`. So `stall_mem` near zero does not mean the kernel is not
+memory bound, and the distinction is measurable rather than argued: a shuffled
+pointer chase, which is pure DRAM latency and nothing else, reports
+`long_scoreboard` at 99.71% of 1.69M samples with `lg_throttle`, `mio_throttle`
+and `tex_throttle` all exactly zero, while a kernel issuing wide independent
+loads from the same data puts `lg_throttle` at 89.94%. Queue pressure is what
+`stall_mem` sees; latency is what it cannot.
+
+`stall_wait` is the other one. It counts the `wait` reason, which is where
+NVIDIA puts a dependency on a *fixed-latency* result: the compiler knows when an
+FMA retires, so it inserts stall cycles rather than allocating a scoreboard
+slot, and scoreboards are left for results whose latency is not known at compile
+time. A dependent chain of arithmetic therefore appears as `stall_wait`, not as
+`stall_scoreboard` -- measured, a serial FMA chain reports `wait` at 71.88% and
+`short_scoreboard` at 0.06%. Reading `stall_scoreboard` as "dependency stalls"
+and `stall_wait` as "synchronization" inverts both: `stall_wait` also carries
+`barrier` and `membar`, so it mixes the two, and `reason_samples` is the only
+place they separate.
+
+These descriptions are of the PC sampling reasons. The classifier also maps the
+activity API's legacy stall names, where the same waits are spelled
+`memory_dependency` and `exec_dependency`; both route to `stall_scoreboard` so
+that a bucket means the same thing whichever API produced the capture, but a
+capture from that path has not been taken here.
 
 Two things make that identity hold and are worth knowing before reading a reason
 breakdown. CUPTI reports every reason twice, as `<reason>` and
