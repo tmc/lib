@@ -24,6 +24,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/tileir"
+	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
 // PipelineTier represents one stage in the Go -> CUDA C++ -> Tile IR -> PTX -> SASS compilation hierarchy.
@@ -39,25 +40,31 @@ type PipelineLine struct {
 	Num            int                `json:"num"`
 	Text           string             `json:"text"`
 	Opcode         string             `json:"opcode,omitempty"`
+	Category       string             `json:"category,omitempty"`
 	Offset         string             `json:"offset,omitempty"`
 	StallPct       float64            `json:"stall_pct,omitempty"`
 	StallBreakdown map[string]float64 `json:"stall_breakdown,omitempty"`
 	StallTooltip   string             `json:"stall_tooltip,omitempty"`
 	HoverDoc       string             `json:"hover_doc,omitempty"`
+	RemarkBadge    string             `json:"remark_badge,omitempty"`
+	RemarkTooltip  string             `json:"remark_tooltip,omitempty"`
 }
 
 // PipelineViewData is the data model passed to the web template and API endpoints.
 type PipelineViewData struct {
-	Title        string                  `json:"title"`
-	Device       string                  `json:"device"`
-	Architecture string                  `json:"architecture"`
-	CaptureFile  string                  `json:"capture_file"`
-	Kernels      []string                `json:"kernels"`
-	ActiveKernel string                  `json:"active_kernel"`
-	Tiers        []PipelineTier          `json:"tiers"`
-	KernelTiers  map[string][]PipelineTier `json:"kernel_tiers"`
-	Remarks      string                  `json:"remarks,omitempty"`
-	CFGDot       string                  `json:"cfg_dot,omitempty"`
+	Title         string                    `json:"title"`
+	Device        string                    `json:"device"`
+	Architecture  string                    `json:"architecture"`
+	CaptureFile   string                    `json:"capture_file"`
+	Kernels       []string                  `json:"kernels"`
+	ActiveKernel  string                    `json:"active_kernel"`
+	Tiers         []PipelineTier            `json:"tiers"`
+	KernelTiers   map[string][]PipelineTier `json:"kernel_tiers"`
+	Remarks       string                    `json:"remarks,omitempty"`
+	RemarksCount  int                       `json:"remarks_count,omitempty"`
+	TileIRAudit   string                    `json:"tileir_audit,omitempty"`
+	TileIROpcodes map[string]int            `json:"tileir_opcodes,omitempty"`
+	CFGDot        string                    `json:"cfg_dot,omitempty"`
 }
 
 func runViewCommand(rawArgs []string) error {
@@ -252,8 +259,13 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 	sassContent := string(cap.Files[sassFileName])
 
 	// Remarks & CFG if present
+	var remarksList []tileiras.Remark
 	if rmkBytes, ok := cap.Files["tileiras-remarks.yaml"]; ok {
 		data.Remarks = string(rmkBytes)
+		if rList, err := tileiras.ParseRemarksYAML(rmkBytes); err == nil {
+			remarksList = rList
+			data.RemarksCount = len(remarksList)
+		}
 	}
 	if dotBytes, ok := cap.Files[cap.Code.CFG]; ok && len(dotBytes) > 0 {
 		data.CFGDot = string(dotBytes)
@@ -261,7 +273,28 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		data.CFGDot = string(dotBytes)
 	}
 
-	// 3. Discover kernels across PTX and SASS
+	// Analyze Tile IR module for verification & audit
+	if tileContent != "" {
+		if mod, err := tileir.ParseString(tileContent); err == nil && mod != nil {
+			if len(remarksList) > 0 {
+				mod.AttachRemarks(remarksList)
+			}
+			summary := mod.Summary()
+			data.TileIROpcodes = summary.Counts
+			hazards, shapeErrs := mod.Verify()
+			status := "Verified"
+			if len(hazards) > 0 || len(shapeErrs) > 0 {
+				status = fmt.Sprintf("%d hazard(s)", len(hazards)+len(shapeErrs))
+			}
+			data.TileIRAudit = fmt.Sprintf("Tile IR: %s (%d ops • %d TMA, %d MMA)",
+				status, summary.Total,
+				summary.CategoryCount(tileir.CatTileMemory),
+				summary.CategoryCount(tileir.CatComputeMMA),
+			)
+		}
+	}
+
+	// 3. Discover kernels across PTX, SASS, CUDA C++, and Tile IR
 	kernelNames := discoverKernelNames(ptxContent, sassContent, cuContent)
 	data.Kernels = kernelNames
 
@@ -270,11 +303,11 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 
 	// Build full tiers
 	data.Tiers = []PipelineTier{
-		buildTier("Go", goFileName, "go", goContent, nil, ""),
-		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, ""),
-		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, ""),
-		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, ""),
-		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel),
+		buildTier("Go", goFileName, "go", goContent, nil, "", nil),
+		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, "", nil),
+		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, "", remarksList),
+		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, "", nil),
+		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel, nil),
 	}
 
 	// 5. Build per-kernel slice views
@@ -286,11 +319,11 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		kSass := extractKernelSection(sassContent, kName, "sass")
 
 		data.KernelTiers[kName] = []PipelineTier{
-			buildTier("Go", goFileName, "go", kGo, nil, kName),
-			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName),
-			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName),
-			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName),
-			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName),
+			buildTier("Go", goFileName, "go", kGo, nil, kName, nil),
+			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName, nil),
+			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName, remarksList),
+			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName, nil),
+			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName, nil),
 		}
 	}
 
@@ -481,7 +514,28 @@ func formatStallTooltip(pct float64, breakdown map[string]float64, totalCount in
 	return fmt.Sprintf("Stall: %.1f%%", pct)
 }
 
-func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string) PipelineTier {
+func extractTileIROpcode(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "#") {
+		return ""
+	}
+	if idx := strings.Index(trimmed, "cuda_tile."); idx >= 0 {
+		rest := trimmed[idx+len("cuda_tile."):]
+		end := len(rest)
+		for i, r := range rest {
+			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+				end = i
+				break
+			}
+		}
+		if end > 0 {
+			return "cuda_tile." + rest[:end]
+		}
+	}
+	return ""
+}
+
+func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark) PipelineTier {
 	rawLines := strings.Split(content, "\n")
 	lines := make([]PipelineLine, len(rawLines))
 
@@ -535,6 +589,85 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 				if doc := cudaptx.LookupDoc(op); doc != nil {
 					line.Opcode = op
 					line.HoverDoc = doc.Summary
+				}
+			}
+		} else if lang == "mlir" || lang == "tileir" {
+			if strings.Contains(trimmed, "cuda_tile.entry @") || strings.Contains(trimmed, "cuda_tile.func @") {
+				idx := strings.Index(trimmed, "@")
+				if idx >= 0 {
+					rest := trimmed[idx+1:]
+					if end := strings.IndexAny(rest, "( \t{"); end >= 0 {
+						currentKernel = rest[:end]
+					} else {
+						currentKernel = rest
+					}
+				}
+			}
+
+			if op := extractTileIROpcode(trimmed); op != "" {
+				line.Opcode = op
+				if doc := tileir.LookupDoc(op); doc != nil {
+					line.Category = doc.Category.String()
+					if doc.HardwareLowering != "" {
+						line.HoverDoc = fmt.Sprintf("[%s] %s | Lowering: %s", doc.Category, doc.Summary, doc.HardwareLowering)
+					} else {
+						line.HoverDoc = fmt.Sprintf("[%s] %s", doc.Category, doc.Summary)
+					}
+				}
+			}
+
+			// Correlate compiler remarks with Tile IR operations
+			for _, r := range remarks {
+				if r.Function != "" && currentKernel != "" {
+					if !strings.EqualFold(r.Function, currentKernel) &&
+						!strings.Contains(currentKernel, r.Function) &&
+						!strings.Contains(r.Function, currentKernel) {
+						continue
+					}
+				}
+
+				match := false
+				if r.Line > 0 && r.Line == line.Num {
+					match = true
+				} else if line.Opcode != "" {
+					opLower := strings.ToLower(line.Opcode)
+					if r.IsTMAFailure() || strings.Contains(r.Name, "TMA") {
+						if strings.Contains(opLower, "load_view_tko") || strings.Contains(opLower, "store_view_tko") {
+							match = true
+						}
+					} else if r.IsTensorCoreMMA() || strings.Contains(r.Name, "TensorCore") || strings.Contains(r.Name, "MMA") {
+						if strings.Contains(opLower, "mma") {
+							match = true
+						}
+					} else if strings.Contains(r.Name, "IDP4A") || strings.Contains(r.Name, "SIMD") {
+						if strings.Contains(opLower, "mma") || strings.Contains(opLower, "mul") {
+							match = true
+						}
+					} else if strings.Contains(r.Name, "SharedMemory") || strings.Contains(r.Name, "Staging") {
+						if strings.Contains(opLower, "load_view_tko") {
+							match = true
+						}
+					} else if strings.Contains(r.Name, "MoE") {
+						if strings.Contains(opLower, "load_view_tko") || strings.Contains(opLower, "offset") {
+							match = true
+						}
+					}
+				}
+
+				if match {
+					line.RemarkBadge = r.Name
+					desc := r.Remark
+					if desc == "" && len(r.Args) > 0 {
+						if s, ok := r.Args["String"]; ok {
+							desc = s
+						}
+					}
+					if desc != "" {
+						line.RemarkTooltip = fmt.Sprintf("✓ %s: %s", r.Name, desc)
+					} else {
+						line.RemarkTooltip = fmt.Sprintf("✓ %s (Pass: %s)", r.Name, r.Pass)
+					}
+					break
 				}
 			}
 		}
@@ -906,6 +1039,52 @@ select:focus, input[type="text"]:focus {
   cursor: help;
   text-decoration: underline dotted var(--accent-ptx);
 }
+.opcode-hover-tile {
+  cursor: help;
+  text-decoration: underline dotted var(--accent-tile);
+  color: #f6b93b;
+  font-weight: 500;
+}
+.badge-category {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(155, 89, 182, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(155, 89, 182, 0.35);
+  margin-right: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-remark {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, 0.35);
+  margin-left: 8px;
+  cursor: help;
+  font-weight: 500;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-audit {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, 0.35);
+  font-weight: 500;
+}
+.highlight-match {
+  background-color: rgba(243, 156, 18, 0.22) !important;
+  border-left: 2px solid var(--accent-tile);
+}
 .badge-offset {
   color: var(--text-muted);
   font-size: 10px;
@@ -980,6 +1159,8 @@ select:focus, input[type="text"]:focus {
     <h1>{{.Title}}</h1>
     {{if .Device}}<span class="badge">{{.Device}} ({{.Architecture}})</span>{{end}}
     <span class="badge" style="border-color: #2b384e; color: #8b949e;">{{.CaptureFile}}</span>
+    {{if .TileIRAudit}}<span class="badge-audit" title="Static Verification & Linearity Audit">{{.TileIRAudit}}</span>{{end}}
+    {{if gt .RemarksCount 0}}<span class="badge" style="border-color: rgba(46, 213, 115, 0.4); color: #2ed573;">✓ {{.RemarksCount}} Remarks</span>{{end}}
   </div>
 
   <div class="controls">
@@ -1014,9 +1195,9 @@ select:focus, input[type="text"]:focus {
     <div class="code-container" id="code-scroll-{{$idx}}">
       <div class="code-table">
         {{range $tier.Lines}}
-        <div class="code-row" id="line-{{$idx}}-{{.Num}}">
+        <div class="code-row" id="line-{{$idx}}-{{.Num}}" data-tier="{{$idx}}" data-opcode="{{.Opcode}}">
           <div class="line-num">{{.Num}}</div>
-          <div class="line-content">{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .HoverDoc}}<span class="opcode-hover" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}</div>
+          <div class="line-content">{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .Category}}<span class="badge-category" title="Tile IR Category: {{.Category}}">{{.Category}}</span>{{end}}{{if .HoverDoc}}<span class="{{if eq $tier.Language "mlir"}}opcode-hover-tile{{else}}opcode-hover{{end}}" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}{{if .RemarkBadge}}<span class="badge-remark" title="{{.RemarkTooltip}}">✓ {{.RemarkBadge}}</span>{{end}}</div>
         </div>
         {{end}}
       </div>
@@ -1047,6 +1228,20 @@ scrollContainers.forEach((c, idx) => {
       }
     });
   });
+});
+
+document.addEventListener('mouseover', e => {
+  const row = e.target.closest('.code-row');
+  if (!row) return;
+  const opcode = row.getAttribute('data-opcode');
+  if (opcode && opcode !== '') {
+    document.querySelectorAll('.code-row[data-opcode="' + opcode + '"]').forEach(r => r.classList.add('highlight-match'));
+  }
+});
+document.addEventListener('mouseout', e => {
+  const row = e.target.closest('.code-row');
+  if (!row) return;
+  document.querySelectorAll('.highlight-match').forEach(r => r.classList.remove('highlight-match'));
 });
 
 function showTab(tabIndex) {
@@ -1084,8 +1279,11 @@ function onKernelChange(kernelName) {
               '<span class="stall-text ' + intensity + '">' + l.stall_pct.toFixed(1) + '%</span>' +
               '</span>';
           }
-          const textSpan = l.hover_doc ? '<span class="opcode-hover" title="' + l.hover_doc + '">' + escapeHtml(l.text) + '</span>' : escapeHtml(l.text);
-          html += '<div class="code-row"><div class="line-num">' + l.num + '</div><div class="line-content">' + offsetSpan + stallSpan + textSpan + '</div></div>';
+          const catSpan = l.category ? '<span class="badge-category" title="Tile IR Category: ' + escapeHtml(l.category) + '">' + escapeHtml(l.category) + '</span>' : '';
+          const hoverClass = tier.language === 'mlir' ? 'opcode-hover-tile' : 'opcode-hover';
+          const textSpan = l.hover_doc ? '<span class="' + hoverClass + '" title="' + escapeHtml(l.hover_doc) + '">' + escapeHtml(l.text) + '</span>' : escapeHtml(l.text);
+          const remarkSpan = l.remark_badge ? '<span class="badge-remark" title="' + escapeHtml(l.remark_tooltip) + '">✓ ' + escapeHtml(l.remark_badge) + '</span>' : '';
+          html += '<div class="code-row" data-tier="' + idx + '" data-opcode="' + (l.opcode || '') + '"><div class="line-num">' + l.num + '</div><div class="line-content">' + offsetSpan + stallSpan + catSpan + textSpan + remarkSpan + '</div></div>';
         });
         table.innerHTML = html;
       });
