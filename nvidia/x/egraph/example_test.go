@@ -1,10 +1,13 @@
 package egraph_test
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/tmc/lib/nvidia/x/egraph"
 	"strings"
+	"time"
+
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
 func Example() {
@@ -134,4 +137,76 @@ func ExampleGenerateTileIR() {
 	// true
 	// true
 	// true
+}
+
+type exampleShadowExecutor struct{}
+
+func (e *exampleShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream, cand egraph.TuningCandidate) (time.Duration, error) {
+	if cand.BlockDim == 256 {
+		return 35 * time.Microsecond, nil
+	}
+	return 50 * time.Microsecond, nil
+}
+
+func ExampleShadowTuner() {
+	eg := egraph.New()
+
+	// Represent expression: (gemv (rmsnorm x w_norm 1e-5) w_qkv)
+	x := eg.Add(egraph.NewLeaf("x"))
+	wNorm := eg.Add(egraph.NewLeaf("w_norm"))
+	eps := eg.Add(egraph.NewLeaf("1e-5"))
+	wQKV := eg.Add(egraph.NewLeaf("w_qkv"))
+
+	norm := eg.Add(egraph.NewNode("rmsnorm", x, wNorm, eps))
+	qkvProj := eg.Add(egraph.NewNode("gemv", norm, wQKV))
+
+	rule := egraph.MustRewrite("fuse_rmsnorm_gemv",
+		"(gemv (rmsnorm ?x ?w_n ?e) ?w_q)",
+		"(fused_rmsnorm_gemv ?x ?w_n ?e ?w_q)",
+	)
+	egraph.Saturate(eg, []*egraph.Rewrite{rule}, 5)
+
+	candidates, err := egraph.ExtractCandidatePlans(eg, qkvProj, []int{128, 256})
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+
+	// Throttle gating: sample memory bus saturation
+	dramUtilization := 0.40 // 40% memory bus saturation (below 80% threshold)
+	throttle := egraph.NewMemoryThrottle(0.80, func() float64 {
+		return dramUtilization
+	})
+
+	tuner, err := egraph.NewShadowTuner(nil,
+		egraph.WithThrottle(throttle),
+		egraph.WithShadowExecutor(&exampleShadowExecutor{}),
+	)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	defer tuner.Close()
+
+	ctx := context.Background()
+	results, err := tuner.EvaluateCandidates(ctx, candidates[:2])
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+
+	for _, r := range results {
+		fmt.Printf("candidate: %s (block %d)\n", r.Candidate.Expr.Op, r.Candidate.BlockDim)
+	}
+
+	// Compare candidate Block(256) vs baseline Block(128)
+	baseline := candidates[0]
+	cand256 := candidates[1]
+	shouldPromote := tuner.ShouldPromote(baseline, cand256, egraph.PromotionPolicy{MinObservations: 1})
+	fmt.Printf("promote Block(256): %v\n", shouldPromote)
+
+	// Output:
+	// candidate: fused_rmsnorm_gemv (block 128)
+	// candidate: fused_rmsnorm_gemv (block 256)
+	// promote Block(256): true
 }

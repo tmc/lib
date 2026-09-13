@@ -45,6 +45,18 @@
 //	eg.Union(mul, shift)
 //	eg.Rebuild()
 //
+// Speculative shadow tuning:
+//
+// [ShadowTuner] speculatively evaluates alternative candidate kernel plans extracted from
+// an E-Graph on an isolated CUDA stream using isolated shadow buffers, feeding profile
+// observations directly into [PGOTracker]. [MemoryThrottle] gates shadow launches based
+// on DRAM bus saturation to prevent tail latency degradation during memory-bandwidth-bound
+// decode phases.
+//
+// When candidate plans prove faster on real workload shapes, [ShadowTuner.PromoteAndApply]
+// or [HotSwapNode] applies in-place kernel node updates directly onto instantiated CUDA
+// graphs ([GraphNodeUpdater]) without graph re-instantiation overhead.
+//
 // Graph construction and rewriting run in Go. GPU candidate benchmarking
 // additionally uses the CUDA driver and runtime compiler through the CUDA wrappers.
 package egraph
