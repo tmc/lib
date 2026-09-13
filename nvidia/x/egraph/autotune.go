@@ -72,6 +72,15 @@ func NewTuner(dev *cuda.Device) *Tuner {
 	}
 }
 
+// PGO returns the tracker's live measurements. It is safe for a recorder
+// consumer to call Record while SelectBest is running.
+func (t *Tuner) PGO() *PGOTracker {
+	if t == nil {
+		return nil
+	}
+	return t.pgo
+}
+
 // benchmarkSizes are the problem dimensions the autotuner measures at. They are
 // small enough to keep a tuning sweep quick and large enough that the block
 // size being swept actually changes the work per thread.
