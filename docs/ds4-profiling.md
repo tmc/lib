@@ -537,10 +537,13 @@ Number of CUPTI events produced: 	12075623, CUPTI buffers: 50.
 ```
 
 Both captures in this guide report only the first line. The second is printed
-by CUPTI's teardown, which runs from an `atexit` handler — and Go's
-`runtime.exit` on linux/arm64 goes straight to `SYS_exit_group`
-(`src/runtime/sys_linux_arm64.s:53`), so that handler never runs. Every C
-control arm above returns from `main` and does run it.
+during process teardown, and Go's `runtime.exit` on linux/arm64 goes straight
+to `SYS_exit_group` (`src/runtime/sys_linux_arm64.s:53`), skipping the libc
+teardown every C control arm above performs by returning from `main`. Which
+part of that teardown emits the line is unestablished: an `atexit` handler is
+the obvious candidate, but nothing here reads CUPTI's source or intercepts its
+registration, and `_exit` removes all of libc's teardown rather than one
+handler.
 
 Changing only that in the control reproduces the signature:
 
@@ -572,7 +575,11 @@ does not yet reproduce *that*.
 Treat gaps in a capture as unproven until the diagnostics are read. Concretely:
 
 - Check for the `Number of CUPTI events produced` line in every capture before
-  drawing a conclusion from device timing. Its absence means events were lost.
+  drawing a conclusion from device timing. Its absence means the capture shut
+  down on a path that skipped the accounting, which is a reason to distrust the
+  totals — **not** a completeness gate: the threaded `_exit` arm above retained
+  all 1,500,000 kernels with no produced line. The gates are source counts and
+  NVTX containment; the missing line only tells you to go check them.
 - Do not use `Not all CUDA events might have been collected` as the signal. A
   control arm printed `Not all NVTX events might have been collected` on a
   capture whose NVTX and kernel accounting is exactly complete; the warning
