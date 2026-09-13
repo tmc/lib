@@ -178,14 +178,131 @@ func TestSummaryZeroValues(t *testing.T) {
 }
 
 func TestIsInstructionKeyword(t *testing.T) {
-	// Authority: docs/ptx/04-syntax.md:78-125 Table 2
+	// Authority: docs/ptx/04-syntax.md:78-125 Table 2, plus 09-instruction-set.md Section 9.7.11 (fabric)
 	if !cudaptx.IsInstructionKeyword("fma") {
 		t.Errorf("expected IsInstructionKeyword('fma') = true")
 	}
 	if !cudaptx.IsInstructionKeyword("dp4a") {
 		t.Errorf("expected IsInstructionKeyword('dp4a') = true")
 	}
+	if !cudaptx.IsInstructionKeyword("fabric") {
+		t.Errorf("expected IsInstructionKeyword('fabric') = true")
+	}
+	if !cudaptx.IsInstructionKeyword("tcgen05") {
+		t.Errorf("expected IsInstructionKeyword('tcgen05') = true")
+	}
 	if cudaptx.IsInstructionKeyword("not_a_real_opcode_123") {
 		t.Errorf("expected IsInstructionKeyword('not_a_real_opcode_123') = false")
+	}
+}
+
+func TestInstructionCategory(t *testing.T) {
+	tests := []struct {
+		mnemonic string
+		want     cudaptx.Category
+		isCompute bool
+		isMemory  bool
+		isMatrix  bool
+	}{
+		{"fma", cudaptx.CatFloatingPoint, true, false, false},
+		{"add", cudaptx.CatInteger, true, false, false},
+		{"ld", cudaptx.CatDataMovement, false, true, false},
+		{"st", cudaptx.CatDataMovement, false, true, false},
+		{"fabric", cudaptx.CatFabric, false, true, false},
+		{"bra", cudaptx.CatControlFlow, false, false, false},
+		{"bar", cudaptx.CatParallelSync, false, false, false},
+		{"wmma", cudaptx.CatMatrixWMMA, true, false, true},
+		{"wgmma", cudaptx.CatMatrixWGMMA, true, false, true},
+		{"tcgen05", cudaptx.CatTensorCore5thGen, true, false, true},
+	}
+
+	for _, tt := range tests {
+		cat := cudaptx.InstructionCategory(tt.mnemonic)
+		if cat != tt.want {
+			t.Errorf("InstructionCategory(%q) = %v (%s), want %v", tt.mnemonic, cat, cat, tt.want)
+		}
+		if got := cat.IsCompute(); got != tt.isCompute {
+			t.Errorf("Category(%v).IsCompute() = %t, want %t", cat, got, tt.isCompute)
+		}
+		if got := cat.IsMemory(); got != tt.isMemory {
+			t.Errorf("Category(%v).IsMemory() = %t, want %t", cat, got, tt.isMemory)
+		}
+		if got := cat.IsMatrix(); got != tt.isMatrix {
+			t.Errorf("Category(%v).IsMatrix() = %t, want %t", cat, got, tt.isMatrix)
+		}
+	}
+}
+
+func TestCategoryCount(t *testing.T) {
+	m := parseFixture(t, "lexer.sm90.ptx")
+	sum, err := m.Summary("guarded")
+	if err != nil {
+		t.Fatalf("Summary(guarded): %v", err)
+	}
+
+	// guarded: 4 ld.param, 3 mov, 1 ld.global, 1 st.global, 1 fma, 1 setp, 1 bra, 1 ret (total 19 - some directives/registers)
+	memCount := sum.CategoryCount(cudaptx.CatDataMovement)
+	if memCount == 0 {
+		t.Errorf("expected CatDataMovement > 0, got %d", memCount)
+	}
+	fpCount := sum.CategoryCount(cudaptx.CatFloatingPoint)
+	if fpCount != 1 {
+		t.Errorf("expected 1 CatFloatingPoint (fma), got %d", fpCount)
+	}
+	cfCount := sum.CategoryCount(cudaptx.CatControlFlow)
+	if cfCount != 2 { // bra, ret
+		t.Errorf("expected 2 CatControlFlow, got %d", cfCount)
+	}
+}
+
+func TestAuditArchitecture(t *testing.T) {
+	ptxSm90 := `.version 9.0
+.target sm_90
+.address_size 64
+.visible .entry k_sm90() {
+	fma.rn.f32 %f1, %f2, %f3, %f4;
+	ret;
+}`
+	m90, err := cudaptx.ParseString(ptxSm90)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+	if err := m90.AuditArchitecture("k_sm90"); err != nil {
+		t.Errorf("AuditArchitecture on sm_90 kernel = %v, want nil", err)
+	}
+
+	ptxSm100OnSm90 := `.version 9.0
+.target sm_90
+.address_size 64
+.visible .entry k_blackwell() {
+	tcgen05.alloc.cta_group::1.sync.aligned.b32 [%r1], 4;
+	ret;
+}`
+	mBad, err := cudaptx.ParseString(ptxSm100OnSm90)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+	if err := mBad.AuditArchitecture("k_blackwell"); err == nil {
+		t.Error("expected AuditArchitecture to report error for tcgen05 on sm_90, got nil")
+	} else if !strings.Contains(err.Error(), "requires sm_100") {
+		t.Errorf("expected error containing 'requires sm_100', got %v", err)
+	}
+}
+
+func TestInstructionMinPTXAndTarget(t *testing.T) {
+	if sm := cudaptx.InstructionMinTarget("tcgen05"); !strings.HasPrefix(sm, "sm_100") {
+		t.Errorf("InstructionMinTarget(tcgen05) = %q, want sm_100*", sm)
+	}
+	if sm := cudaptx.InstructionMinTarget("wgmma"); !strings.HasPrefix(sm, "sm_90") {
+		t.Errorf("InstructionMinTarget(wgmma) = %q, want sm_90*", sm)
+	}
+	if sm := cudaptx.InstructionMinTarget("wmma"); sm != "sm_70" {
+		t.Errorf("InstructionMinTarget(wmma) = %q, want sm_70", sm)
+	}
+	if ptx := cudaptx.InstructionMinPTX("tcgen05"); ptx != "8.6" {
+		t.Errorf("InstructionMinPTX(tcgen05) = %q, want 8.6", ptx)
+	}
+	if ptx := cudaptx.InstructionMinPTX("fabric"); ptx != "9.3" {
+		t.Errorf("InstructionMinPTX(fabric) = %q, want 9.3", ptx)
 	}
 }

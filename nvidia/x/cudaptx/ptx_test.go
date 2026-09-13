@@ -549,3 +549,152 @@ func TestPTX94Keywords(t *testing.T) {
 		t.Errorf("instDual.IntermediateLoc = %v, want kernel.ir:42:8", instDual.IntermediateLoc)
 	}
 }
+
+func TestPTXDataTypes(t *testing.T) {
+	types := []struct {
+		name      string
+		bitSize   int
+		packed    bool
+		elemCount int
+	}{
+		// Fundamental types
+		{".s8", 8, false, 1},
+		{".u32", 32, false, 1},
+		{".f32", 32, false, 1},
+		{".f64", 64, false, 1},
+		{".b128", 128, false, 1},
+		{".pred", 1, false, 1},
+		// Packed types
+		{".f16x2", 32, true, 2},
+		{".f32x2", 64, true, 2},
+		{".s8x4", 32, true, 4},
+		{".u8x4", 32, true, 4},
+		{".s16x2", 32, true, 2},
+		{".u16x2", 32, true, 2},
+		// Microscaling & sub-byte types
+		{".e4m3", 8, false, 1},
+		{".e4m3x2", 16, true, 2},
+		{".e4m3x4", 32, true, 4},
+		{".e5m2", 8, false, 1},
+		{".e5m2x2", 16, true, 2},
+		{".e5m2x4", 32, true, 4},
+		{".e2m1", 4, false, 1},
+		{".e2m1x2", 8, true, 2},
+		{".e2m1x4", 16, true, 4},
+		{".ue8m0", 8, false, 1},
+		{".ue8m0x2", 16, true, 2},
+		{".ue8m0x4", 32, true, 4},
+		{".ue5m3", 8, false, 1},
+		{".ue5m3x2", 16, true, 2},
+	}
+
+	for _, tt := range types {
+		t.Run(tt.name, func(t *testing.T) {
+			if !cudaptx.IsDataType(tt.name) {
+				t.Errorf("IsDataType(%q) = false, want true", tt.name)
+			}
+			withoutDot := strings.TrimPrefix(tt.name, ".")
+			if !cudaptx.IsDataType(withoutDot) {
+				t.Errorf("IsDataType(%q) = false, want true", withoutDot)
+			}
+			if sz := cudaptx.TypeBitSize(tt.name); sz != tt.bitSize {
+				t.Errorf("TypeBitSize(%q) = %d, want %d", tt.name, sz, tt.bitSize)
+			}
+			if p := cudaptx.IsPackedType(tt.name); p != tt.packed {
+				t.Errorf("IsPackedType(%q) = %t, want %t", tt.name, p, tt.packed)
+			}
+			if c := cudaptx.VectorElementCount(tt.name); c != tt.elemCount {
+				t.Errorf("VectorElementCount(%q) = %d, want %d", tt.name, c, tt.elemCount)
+			}
+		})
+	}
+}
+
+func TestSpecialRegisters(t *testing.T) {
+	specialRegs := []string{
+		"%tid", "%ntid", "%laneid", "%warpid", "%nwarpid",
+		"%ctaid", "%nctaid", "%smid", "%nsmid", "%gridid",
+		"%clock", "%clock64", "%globaltimer", "%globaltimer_lo", "%globaltimer_hi",
+		"%clusterid", "%nclusterid", "%cluster_ctaid", "%cluster_nctaid", "%cluster_ctarank", "%cluster_nctarank",
+		"%dynamic_smem_size", "%total_smem_size", "%aggr_smem_size", "%current_graph_exec",
+		"%lanemask_eq", "%lanemask_le", "%lanemask_lt", "%lanemask_ge", "%lanemask_gt",
+		"%pm0", "%pm7", "%pm0_64", "%pm7_64", "%envreg<32>",
+		"%reserved_smem_offset_0", "%reserved_smem_offset_begin", "WARP_SZ",
+	}
+
+	for _, reg := range specialRegs {
+		if !cudaptx.IsSpecialRegister(reg) {
+			t.Errorf("IsSpecialRegister(%q) = false, want true", reg)
+		}
+	}
+
+	for _, nonReg := range []string{"%r0", "%f1", "%p2", "my_var", "%rd10"} {
+		if cudaptx.IsSpecialRegister(nonReg) {
+			t.Errorf("IsSpecialRegister(%q) = true, want false", nonReg)
+		}
+	}
+}
+
+func TestDirectives(t *testing.T) {
+	directives := []string{
+		".version", ".target", ".address_size", ".entry", ".func",
+		".reg", ".param", ".shared", ".global", ".const", ".local",
+		".maxnreg", ".maxntid", ".reqntid", ".minnctapersm", ".maxnctapersm",
+		".reqnctapercluster", ".explicitcluster", ".maxclusterrank",
+		".file", ".loc", ".loc_intermediate", ".pragma", ".section",
+	}
+
+	for _, d := range directives {
+		if !cudaptx.IsDirective(d) {
+			t.Errorf("IsDirective(%q) = false, want true", d)
+		}
+		withoutDot := strings.TrimPrefix(d, ".")
+		if !cudaptx.IsDirective(withoutDot) {
+			t.Errorf("IsDirective(%q) = false, want true", withoutDot)
+		}
+	}
+}
+
+func TestClusterTuningDirectives(t *testing.T) {
+	ptx := `.version 9.0
+.target sm_90
+.address_size 64
+.visible .entry cluster_kernel()
+	.maxnreg 64
+	.minnctapersm 2
+	.maxnctapersm 4
+	.reqnctapercluster 2, 2, 1
+	.maxclusterrank 8
+	.explicitcluster
+{
+	ret;
+}`
+	m, err := cudaptx.ParseString(ptx)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+	k := m.Kernel("cluster_kernel")
+	if k == nil {
+		t.Fatal("kernel cluster_kernel not found")
+	}
+
+	if k.Tuning.MaxNReg != 64 {
+		t.Errorf("MaxNReg = %d, want 64", k.Tuning.MaxNReg)
+	}
+	if k.Tuning.MinNCTAPerSM != 2 {
+		t.Errorf("MinNCTAPerSM = %d, want 2", k.Tuning.MinNCTAPerSM)
+	}
+	if k.Tuning.MaxNCTAPerSM != 4 {
+		t.Errorf("MaxNCTAPerSM = %d, want 4", k.Tuning.MaxNCTAPerSM)
+	}
+	wantCluster := [3]int{2, 2, 1}
+	if k.Tuning.ReqNCTAPerCluster != wantCluster {
+		t.Errorf("ReqNCTAPerCluster = %v, want %v", k.Tuning.ReqNCTAPerCluster, wantCluster)
+	}
+	if k.Tuning.MaxClusterRank != 8 {
+		t.Errorf("MaxClusterRank = %d, want 8", k.Tuning.MaxClusterRank)
+	}
+	if !k.Tuning.ExplicitCluster {
+		t.Errorf("ExplicitCluster = false, want true")
+	}
+}

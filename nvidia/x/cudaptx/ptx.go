@@ -2,7 +2,6 @@ package cudaptx
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Location represents a source position from a .loc directive, with the file
@@ -14,32 +13,6 @@ type Location struct {
 	Line         int    // 1-based source line
 	Column       int    // 1-based source column
 	Intermediate bool   // true if from .loc_intermediate directive (PTX ISA 9.4)
-}
-
-// IsDataType reports whether typ (with or without leading dot) is a recognized
-// PTX fundamental, packed, or sub-byte data type (such as .f32, .b8, or .ue5m3x2).
-func IsDataType(typ string) bool {
-	typ = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(typ)), ".")
-	_, ok := ptxDataTypes[typ]
-	return ok
-}
-
-var ptxDataTypes = map[string]struct{}{
-	// Fundamental integer types
-	"s8": {}, "s16": {}, "s32": {}, "s64": {},
-	"u8": {}, "u16": {}, "u32": {}, "u64": {},
-	// Untyped bit fields
-	"b8": {}, "b16": {}, "b32": {}, "b64": {}, "b128": {},
-	// Floating point types
-	"f16": {}, "f16x2": {}, "f32": {}, "f64": {},
-	"bf16": {}, "bf16x2": {}, "tf32": {},
-	// Sub-byte & microscaling formats (PTX ISA 8.x / 9.4)
-	"e4m3": {}, "e4m3x2": {}, "e5m2": {}, "e5m2x2": {},
-	"e2m3": {}, "e3m2": {}, "e2m1": {},
-	"ue4m3": {}, "ue4m3x2": {},
-	"ue5m3": {}, "ue5m3x2": {}, // Microscaling sub-byte formats
-	// Predicate type
-	"pred": {},
 }
 
 func (l Location) String() string {
@@ -67,26 +40,35 @@ type Param struct {
 }
 
 // Tuning retains kernel resource and launch bounds directives.
-// Authority: docs/ptx/11-directives.md:925-1218
+// Authority: docs/ptx/11-directives.md:925-1218, 11-directives.md:1830-1920
 type Tuning struct {
-	MaxNReg      int    // .maxnreg limit
-	MaxNTID      [3]int // .maxntid [nx, ny, nz]
-	ReqNTID      [3]int // .reqntid [nx, ny, nz]
-	MinNCTAPerSM int    // .minnctapersm
+	MaxNReg           int    // .maxnreg limit
+	MaxNTID           [3]int // .maxntid [nx, ny, nz]
+	ReqNTID           [3]int // .reqntid [nx, ny, nz]
+	MinNCTAPerSM      int    // .minnctapersm
+	MaxNCTAPerSM      int    // .maxnctapersm
+	ReqNCTAPerCluster [3]int // .reqnctapercluster [cx, cy, cz]
+	MaxClusterRank    int    // .maxclusterrank
+	ExplicitCluster   bool   // .explicitcluster
 }
 
 // Instruction represents a single PTX instruction statement.
 // Authority: docs/ptx/04-syntax.md:37-55
 type Instruction struct {
-	Line      int        // 1-based line number of statement's first token
-	Predicate string     // guard predicate, e.g. "@%p1", "@!%p2"
-	Opcode    string     // full opcode token, e.g. "fma.rn.f32"
-	Mnemonic  string     // base mnemonic, e.g. "fma"
-	Operands  string     // comma-separated operand text, unparsed
+	Line            int        // 1-based line number of statement's first token
+	Predicate       string     // guard predicate, e.g. "@%p1", "@!%p2"
+	Opcode          string     // full opcode token, e.g. "fma.rn.f32"
+	Mnemonic        string     // base mnemonic, e.g. "fma"
+	Operands        string     // comma-separated operand text, unparsed
 	Loc             Location   // nearest lexically preceding .loc; zero if none
 	IntermediateLoc Location   // nearest lexically preceding .loc_intermediate; zero if none
 	InlinedAt       []Location // .inlined_at chain, innermost first; nil if not inlined
 	Raw             string     // full raw statement text
+}
+
+// Category returns the functional category for this instruction statement.
+func (inst Instruction) Category() Category {
+	return InstructionCategory(inst.Mnemonic)
 }
 
 // Kernel represents a parsed .entry kernel or .func device function in PTX.

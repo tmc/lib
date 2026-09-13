@@ -33,6 +33,24 @@ func (s *OpcodeSummary) Count(prefix string) int {
 	return total
 }
 
+// CategoryCount returns the number of instructions whose mnemonic belongs to cat.
+func (s *OpcodeSummary) CategoryCount(cat Category) int {
+	if s == nil || len(s.Counts) == 0 {
+		return 0
+	}
+	var total int
+	for op, count := range s.Counts {
+		mnemonic := op
+		if i := strings.Index(op, "."); i > 0 {
+			mnemonic = op[:i]
+		}
+		if InstructionCategory(mnemonic) == cat {
+			total += count
+		}
+	}
+	return total
+}
+
 // Summary returns opcode frequency statistics for this kernel.
 func (k *Kernel) Summary() *OpcodeSummary {
 	if k == nil {
@@ -87,4 +105,74 @@ func (m *Module) AssertOpcodes(kernelName string, require, forbid []string) erro
 	}
 
 	return nil
+}
+
+// AuditArchitecture checks that instructions in kernelName are supported on the
+// module's target architecture. If kernelName is empty, it checks all kernels.
+func (m *Module) AuditArchitecture(kernelName string) error {
+	if m == nil {
+		return fmt.Errorf("cudaptx: nil module")
+	}
+	target := m.Target
+	if target == "" {
+		return nil
+	}
+	if kernelName != "" {
+		k := m.Kernel(kernelName)
+		if k == nil {
+			return fmt.Errorf("cudaptx: kernel %q not found", kernelName)
+		}
+		return k.AuditArchitecture(target)
+	}
+	for _, k := range m.Kernels {
+		if err := k.AuditArchitecture(target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// AuditArchitecture verifies that the kernel's instructions are supported on target.
+func (k *Kernel) AuditArchitecture(target string) error {
+	if k == nil {
+		return nil
+	}
+	for _, inst := range k.Instructions {
+		req := InstructionMinTarget(inst.Mnemonic)
+		if req == "" || req == "all" {
+			continue
+		}
+		if !architectureCompatible(target, req) {
+			return fmt.Errorf("cudaptx: kernel %q: instruction %q (%s) requires %s, target is %s",
+				k.Name, inst.Opcode, inst.Mnemonic, req, target)
+		}
+	}
+	return nil
+}
+
+// architectureCompatible reports whether target meets or exceeds req architecture.
+func architectureCompatible(target, req string) bool {
+	target = strings.ToLower(strings.TrimSpace(target))
+	req = strings.ToLower(strings.TrimSpace(req))
+	if req == "" || req == "all" || target == req {
+		return true
+	}
+	parseSM := func(s string) int {
+		s = strings.TrimPrefix(s, "sm_")
+		var num int
+		for _, ch := range s {
+			if ch >= '0' && ch <= '9' {
+				num = num*10 + int(ch-'0')
+			} else {
+				break
+			}
+		}
+		return num
+	}
+	targetVal := parseSM(target)
+	reqVal := parseSM(req)
+	if targetVal > 0 && reqVal > 0 {
+		return targetVal >= reqVal
+	}
+	return target >= req
 }
