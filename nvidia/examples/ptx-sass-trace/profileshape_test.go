@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -18,8 +19,12 @@ func TestSampleTypes(t *testing.T) {
 	if !slices.Contains(off, "gpu_time") || !slices.Contains(off, "samples") {
 		t.Errorf("sampleTypes(false) = %v, want samples and gpu_time", off)
 	}
+	// Every type the PC-sampling path writes has to be advertised here:
+	// SetSampleTypes is a projection, so a metric classifyStall fills and this
+	// list omits is written nowhere and does not show up as unmapped either.
+	// pc_samples is separate from samples because samples counts launches.
 	on := sampleTypes(true)
-	for _, want := range []string{"samples", "stall_mem", "stall_wait", "stall_scoreboard", "gpu_time"} {
+	for _, want := range []string{"samples", "pc_samples", "stall_mem", "stall_wait", "stall_scoreboard", "stall_math", "gpu_time"} {
 		if !slices.Contains(on, want) {
 			t.Errorf("sampleTypes(true) = %v, missing %q", on, want)
 		}
@@ -113,3 +118,40 @@ func TestGoFramesReportsTheCaller(t *testing.T) {
 
 // outerForTest exists so the test has a known caller frame to find.
 func outerForTest() []cudaprof.Frame { return goFrames(0) }
+
+// The label plumbing is three frames deep and appears once per cudaprof.Do on
+// the stack, so a nested launch shows it twice. Eliding it the way the runtime
+// elides its own leaves only frames the reader wrote.
+func TestGoFramesElidesLabelPlumbing(t *testing.T) {
+	frames := throughLabelledDo(t)
+	if len(frames) == 0 {
+		t.Fatal("goFrames returned no frames")
+	}
+	for _, f := range frames {
+		if strings.Contains(f.FunctionName, "cudaprof.Do") || strings.Contains(f.FunctionName, "runtime/pprof.Do") {
+			t.Errorf("frames include label plumbing %q: %+v", f.FunctionName, frames)
+		}
+	}
+	var sawInner bool
+	for _, f := range frames {
+		if strings.HasSuffix(f.FunctionName, "throughLabelledDo") {
+			sawInner = true
+		}
+	}
+	if !sawInner {
+		t.Errorf("frames lost the caller under Do: %+v", frames)
+	}
+}
+
+// throughLabelledDo takes the stack from inside nested cudaprof.Do calls, the
+// shape capture.go produces: Do for the run-wide labels, Do again per kernel.
+func throughLabelledDo(t *testing.T) []cudaprof.Frame {
+	t.Helper()
+	var frames []cudaprof.Frame
+	cudaprof.Do(context.Background(), cudaprof.Labels("phase", "test"), func(ctx context.Context) {
+		cudaprof.Do(ctx, cudaprof.Labels("kernel", "test"), func(ctx context.Context) {
+			frames = goFrames(0)
+		})
+	})
+	return frames
+}
