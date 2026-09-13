@@ -139,3 +139,34 @@ func ExampleNewPipeline() {
 	// Stages: 3
 	// Stage 0 Payload: 4096 bytes
 }
+
+func ExampleNewPipeline_tmem() {
+	box := cudapipeline.TMABox{
+		DimX:        64,
+		DimY:        16,
+		ElementSize: 2, // 2048 bytes per stage
+	}
+
+	pipe, err := cudapipeline.NewPipeline(cudapipeline.PipelineConfig{
+		TargetArch:  cudapipeline.ArchSM100,
+		NumStages:   3,
+		MemorySpace: cudapipeline.MemorySpaceTMEM,
+		Box:         box,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	report := pipe.Validate()
+	fmt.Printf("Valid: %t\n", report.Valid())
+	fmt.Printf("Stages: %d\n", pipe.NumStages())
+	fmt.Printf("Space: %s\n", pipe.Stage(0).Buffer.Space)
+	fmt.Printf("Total TMEM: %d bytes\n", pipe.TotalTMEMBytes())
+	fmt.Printf("TMEM Columns: %d\n", pipe.TotalTMEMColumns())
+	// Output:
+	// Valid: true
+	// Stages: 3
+	// Space: tmem
+	// Total TMEM: 6144 bytes
+	// TMEM Columns: 32
+}

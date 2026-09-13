@@ -1,6 +1,5 @@
 package cudapipeline
 
-
 // BarrierState tracks the lifecycle and transaction state of an individual mbarrier object.
 type BarrierState struct {
 	Name             string         // symbol or register operand representing the barrier
@@ -33,11 +32,13 @@ func (s *BarrierState) TxPending() int64 {
 //
 // The zero value is not usable; use NewBarrierTracker.
 type BarrierTracker struct {
-	barriers        map[string]*BarrierState
-	tensorSizes     map[string]int64
-	barrierArrivals map[string]int
-	regs            map[string]int64
-	regSyms         map[string]string
+	barriers          map[string]*BarrierState
+	tensorSizes       map[string]int64
+	barrierArrivals   map[string]int
+	regs              map[string]int64
+	regSyms           map[string]string
+	targetArch        string
+	tmemAllocatedCols int
 }
 
 // NewBarrierTracker constructs an initialized BarrierTracker configured with opts.
@@ -83,6 +84,7 @@ func (t *BarrierTracker) Reset() {
 	t.barriers = make(map[string]*BarrierState)
 	t.regs = make(map[string]int64)
 	t.regSyms = make(map[string]string)
+	t.tmemAllocatedCols = 0
 }
 
 func (t *BarrierTracker) resolveSymbol(sym string) string {

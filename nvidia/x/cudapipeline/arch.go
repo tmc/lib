@@ -19,6 +19,16 @@ const (
 	FeatureMultimem = "multimem"
 	FeatureWGMMA    = "wgmma"
 	FeatureTCGen05  = "tcgen05"
+	FeatureTMEM     = "tmem"
+)
+
+// Architectural limits and dimensions for Blackwell Tensor Memory (TMEM).
+const (
+	BlackwellTMEMCapacityBytes = 256 * 1024 // 256 KiB capacity per SM (512 columns * 512 bytes)
+	BlackwellTMEMColumns       = 512        // Total addressable TMEM columns per SM
+	BlackwellTMEMBytesPerCol   = 512        // 512 bytes per column (128 rows * 4 bytes)
+	BlackwellTMEMAllocUnitCols = 32         // Column allocation granularity (32 columns = 16 KiB)
+	BlackwellTMEMMinAlignBytes = 16         // 16-byte minimum alignment required for bulk async copy
 )
 
 // ArchProfile describes the architectural capabilities and physical constraints
@@ -30,9 +40,15 @@ type ArchProfile struct {
 	SupportsMultimem     bool
 	SupportsWGMMA        bool
 	SupportsTCGen05      bool
+	SupportsTMEM         bool
 	MinBufferAlignBytes  int
 	MinBarrierAlignBytes int
 	MaxBoxWidthBytes     int
+	MaxTMEMCapacityBytes int
+	MinTMEMAlignBytes    int
+	TMEMBytesPerColumn   int
+	TMEMColumnsPerSM     int
+	TMEMAllocColUnit     int
 }
 
 // knownProfiles maps canonical architecture names to their hardware capabilities.
@@ -44,9 +60,15 @@ var knownProfiles = map[string]ArchProfile{
 		SupportsMultimem:     false,
 		SupportsWGMMA:        true,
 		SupportsTCGen05:      false,
+		SupportsTMEM:         false,
 		MinBufferAlignBytes:  16,
 		MinBarrierAlignBytes: 8,
 		MaxBoxWidthBytes:     128,
+		MaxTMEMCapacityBytes: 0,
+		MinTMEMAlignBytes:    0,
+		TMEMBytesPerColumn:   0,
+		TMEMColumnsPerSM:     0,
+		TMEMAllocColUnit:     0,
 	},
 	ArchSM100: {
 		Name:                 ArchSM100,
@@ -55,9 +77,15 @@ var knownProfiles = map[string]ArchProfile{
 		SupportsMultimem:     true,
 		SupportsWGMMA:        false,
 		SupportsTCGen05:      true,
+		SupportsTMEM:         true,
 		MinBufferAlignBytes:  16,
 		MinBarrierAlignBytes: 8,
 		MaxBoxWidthBytes:     128,
+		MaxTMEMCapacityBytes: BlackwellTMEMCapacityBytes,
+		MinTMEMAlignBytes:    BlackwellTMEMMinAlignBytes,
+		TMEMBytesPerColumn:   BlackwellTMEMBytesPerCol,
+		TMEMColumnsPerSM:     BlackwellTMEMColumns,
+		TMEMAllocColUnit:     BlackwellTMEMAllocUnitCols,
 	},
 	ArchSM121a: {
 		Name:                 ArchSM121a,
@@ -66,9 +94,15 @@ var knownProfiles = map[string]ArchProfile{
 		SupportsMultimem:     true,
 		SupportsWGMMA:        false, // Blackwell sm_121a rejects wgmma
 		SupportsTCGen05:      false, // Blackwell sm_121a rejects tcgen05
+		SupportsTMEM:         true,
 		MinBufferAlignBytes:  16,
 		MinBarrierAlignBytes: 8,
 		MaxBoxWidthBytes:     128,
+		MaxTMEMCapacityBytes: BlackwellTMEMCapacityBytes,
+		MinTMEMAlignBytes:    BlackwellTMEMMinAlignBytes,
+		TMEMBytesPerColumn:   BlackwellTMEMBytesPerCol,
+		TMEMColumnsPerSM:     BlackwellTMEMColumns,
+		TMEMAllocColUnit:     BlackwellTMEMAllocUnitCols,
 	},
 }
 
@@ -105,6 +139,8 @@ func (p ArchProfile) SupportsFeature(feature string) bool {
 		return p.SupportsWGMMA
 	case FeatureTCGen05:
 		return p.SupportsTCGen05
+	case FeatureTMEM:
+		return p.SupportsTMEM
 	default:
 		return false
 	}
@@ -118,6 +154,8 @@ func (p ArchProfile) ValidateFeature(feature string) error {
 		return nil
 	}
 	switch feat {
+	case FeatureTMEM:
+		return fmt.Errorf("target %s does not support tmem: Tensor Memory requires Blackwell sm_100 or sm_121a", p.Name)
 	case FeatureWGMMA:
 		if p.Name == ArchSM121a {
 			return fmt.Errorf("target %s rejects wgmma: Hopper warp-group MMA instructions are not supported on Blackwell sm_121a", p.Name)

@@ -88,6 +88,59 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		return nil
 	}
 
+	// tcgen05.alloc
+	if strings.HasPrefix(inst.Opcode, "tcgen05.alloc") {
+		if t.targetArch != "" {
+			arch, err := ArchProfileFor(t.targetArch)
+			if err == nil && !arch.SupportsTMEM {
+				violations = append(violations, ValidationError{
+					Line:      inst.Line,
+					Opcode:    inst.Opcode,
+					Violation: ErrUnsupportedTMEM,
+					Message:   fmt.Sprintf("architecture %s does not support tcgen05/TMEM instructions", t.targetArch),
+				})
+			}
+		}
+		if len(operands) >= 2 {
+			if cols, ok := t.resolveInt(operands[1]); ok {
+				if cols < 32 || cols > 512 || cols%32 != 0 {
+					violations = append(violations, ValidationError{
+						Line:      inst.Line,
+						Opcode:    inst.Opcode,
+						Violation: ErrInvalidTMEMColumns,
+						Actual:    cols,
+						Message:   fmt.Sprintf("tcgen05.alloc column count %d must be in [32, 512] and a multiple of 32", cols),
+					})
+				}
+				t.tmemAllocatedCols += int(cols)
+				if t.tmemAllocatedCols > BlackwellTMEMColumns {
+					violations = append(violations, ValidationError{
+						Line:      inst.Line,
+						Opcode:    inst.Opcode,
+						Violation: ErrTMEMCapacityExceeded,
+						Expected:  int64(BlackwellTMEMColumns),
+						Actual:    int64(t.tmemAllocatedCols),
+						Message:   fmt.Sprintf("total allocated TMEM columns %d exceeds SM limit of %d", t.tmemAllocatedCols, BlackwellTMEMColumns),
+					})
+				}
+			}
+		}
+		return violations
+	}
+
+	// tcgen05.dealloc
+	if strings.HasPrefix(inst.Opcode, "tcgen05.dealloc") {
+		if len(operands) >= 2 {
+			if cols, ok := t.resolveInt(operands[1]); ok {
+				t.tmemAllocatedCols -= int(cols)
+				if t.tmemAllocatedCols < 0 {
+					t.tmemAllocatedCols = 0
+				}
+			}
+		}
+		return nil
+	}
+
 	// 1. mbarrier.init
 	if strings.HasPrefix(inst.Opcode, "mbarrier.init") {
 		if len(operands) < 1 {

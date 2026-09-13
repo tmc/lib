@@ -35,6 +35,39 @@ func EmitTMABulkAsync2DCluster(dstSmem, descAddr, coord0, coord1, mbarAddr strin
 	)
 }
 
+// EmitTMEMAlloc returns a PTX instruction string allocating nCols of Tensor Memory (TMEM).
+func EmitTMEMAlloc(dstSharedAddr string, nCols int) string {
+	return fmt.Sprintf("tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%s], %d;", dstSharedAddr, nCols)
+}
+
+// EmitTMEMDealloc returns a PTX instruction string deallocating nCols of Tensor Memory (TMEM).
+func EmitTMEMDealloc(taddrReg string, nCols int) string {
+	return fmt.Sprintf("tcgen05.dealloc.cta_group::1.sync.aligned.b32 %s, %d;", taddrReg, nCols)
+}
+
+// EmitTMEMRelinquishPermit returns a PTX instruction string relinquishing the TMEM allocation permit.
+func EmitTMEMRelinquishPermit() string {
+	return "tcgen05.relinquish_alloc_permit.cta_group::1.sync.aligned;"
+}
+
+// EmitTMABulkAsync2DTMEM returns a PTX instruction string issuing a 2D TMA bulk asynchronous copy
+// directly from global memory into TMEM, signaling completion to an mbarrier in shared memory.
+func EmitTMABulkAsync2DTMEM(dstTmem, descAddr, coord0, coord1, mbarAddr string) string {
+	return fmt.Sprintf(
+		"cp.async.bulk.tensor.2d.tmem.global.mbarrier::complete_tx::bytes [%s], [%s, {%s, %s}], [%s];",
+		dstTmem, descAddr, coord0, coord1, mbarAddr,
+	)
+}
+
+// EmitTMABulkAsyncTMEM returns a PTX instruction string issuing a 1D bulk asynchronous copy
+// directly from global memory into TMEM, signaling completion to an mbarrier in shared memory.
+func EmitTMABulkAsyncTMEM(dstTmem, srcGlobal string, sizeBytes int, mbarAddr string) string {
+	return fmt.Sprintf(
+		"cp.async.bulk.tmem.global.mbarrier::complete_tx::bytes [%s], [%s], %d, [%s];",
+		dstTmem, srcGlobal, sizeBytes, mbarAddr,
+	)
+}
+
 // EmitWaitParity returns a single PTX try_wait instruction testing completion of a phase parity.
 func EmitWaitParity(mbarAddr string, phaseParity int, predReg string) string {
 	return fmt.Sprintf("mbarrier.try_wait.parity.shared::cta.b64 %s, [%s], %d;", predReg, mbarAddr, phaseParity)
@@ -77,6 +110,31 @@ func EmitInlineAsmTMA2D(dstOffset int, descPtrReg, coord0Reg, coord1Reg string, 
 	)
 }
 
+// EmitInlineAsmTMEMAlloc returns a CUDA C++ inline assembly snippet allocating nCols in TMEM.
+func EmitInlineAsmTMEMAlloc(dstSharedOffset int, nCols int) string {
+	return fmt.Sprintf(
+		`asm volatile("tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%%0], %%1;" :: "r"(smem_base + %d), "r"(%d) : "memory");`,
+		dstSharedOffset, nCols,
+	)
+}
+
+// EmitInlineAsmTMEMDealloc returns a CUDA C++ inline assembly snippet deallocating nCols from TMEM.
+func EmitInlineAsmTMEMDealloc(taddrReg string, nCols int) string {
+	return fmt.Sprintf(
+		`asm volatile("tcgen05.dealloc.cta_group::1.sync.aligned.b32 %%0, %%1;" :: "r"(%s), "r"(%d) : "memory");`,
+		taddrReg, nCols,
+	)
+}
+
+// EmitInlineAsmTMA2DTMEM returns a CUDA C++ inline assembly snippet issuing a 2D TMA copy into TMEM.
+func EmitInlineAsmTMA2DTMEM(dstTmemReg, descPtrReg, coord0Reg, coord1Reg string, mbarOffset int) string {
+	return fmt.Sprintf(
+		`asm volatile("cp.async.bulk.tensor.2d.tmem.global.mbarrier::complete_tx::bytes [%%0], [%%1, {%%2, %%3}], [%%4];"`+
+			` :: "r"(%s), "l"(%s), "r"(%s), "r"(%s), "r"(smem_base + %d) : "memory");`,
+		dstTmemReg, descPtrReg, coord0Reg, coord1Reg, mbarOffset,
+	)
+}
+
 // EmitInlineAsmWait returns a CUDA C++ inline assembly snippet implementing a spin-wait loop on phase parity.
 func EmitInlineAsmWait(mbarOffset int, phaseParity int) string {
 	return fmt.Sprintf(
@@ -93,10 +151,17 @@ func EmitInlineAsmWait(mbarOffset int, phaseParity int) string {
 	)
 }
 
-// EmitPrologPTX generates PTX sequence to initialize all stage mbarriers in the pipeline.
+// EmitPrologPTX generates PTX sequence to initialize all stage mbarriers in the pipeline
+// and, if targeting TMEM, allocates the required TMEM columns.
 func (p *Pipeline) EmitPrologPTX() string {
 	var b strings.Builder
 	b.WriteString("// Pipeline Prolog: initialize stage mbarriers\n")
+	if p.Config.MemorySpace == MemorySpaceTMEM {
+		cols := p.TotalTMEMColumns()
+		fmt.Fprintf(&b, "// Allocate %d TMEM columns (%d bytes) across %d stages\n",
+			cols, p.TotalTMEMBytes(), len(p.Stages))
+		fmt.Fprintf(&b, "%s\n", EmitTMEMAlloc("smem_base", cols))
+	}
 	for i, s := range p.Stages {
 		fmt.Fprintf(&b, "// Stage %d mbarrier init (offset %d, arrival count %d)\n",
 			i, s.Barrier.Offset, s.Barrier.ArrivalCount)
@@ -112,12 +177,19 @@ func (p *Pipeline) EmitStageLoadPTX(stageIdx int, descAddr, coord0, coord1 strin
 	}
 	s := &p.Stages[stageIdx]
 	mbarAddr := fmt.Sprintf("smem_base+%d", s.Barrier.Offset)
-	dstAddr := fmt.Sprintf("smem_base+%d", s.Buffer.Offset)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "// Stage %d load (%d bytes via TMA)\n", stageIdx, s.TMABox.PayloadBytes())
-	fmt.Fprintf(&b, "%s\n", EmitArriveExpectTx(mbarAddr, s.TMABox.PayloadBytes()))
-	fmt.Fprintf(&b, "%s\n", EmitTMABulkAsync2D(dstAddr, descAddr, coord0, coord1, mbarAddr))
+	if s.Buffer.Space == MemorySpaceTMEM {
+		dstAddr := fmt.Sprintf("tmem_base+%d", s.Buffer.Offset)
+		fmt.Fprintf(&b, "// Stage %d load to TMEM (%d bytes via TMA)\n", stageIdx, s.TMABox.PayloadBytes())
+		fmt.Fprintf(&b, "%s\n", EmitArriveExpectTx(mbarAddr, s.TMABox.PayloadBytes()))
+		fmt.Fprintf(&b, "%s\n", EmitTMABulkAsync2DTMEM(dstAddr, descAddr, coord0, coord1, mbarAddr))
+	} else {
+		dstAddr := fmt.Sprintf("smem_base+%d", s.Buffer.Offset)
+		fmt.Fprintf(&b, "// Stage %d load (%d bytes via TMA)\n", stageIdx, s.TMABox.PayloadBytes())
+		fmt.Fprintf(&b, "%s\n", EmitArriveExpectTx(mbarAddr, s.TMABox.PayloadBytes()))
+		fmt.Fprintf(&b, "%s\n", EmitTMABulkAsync2D(dstAddr, descAddr, coord0, coord1, mbarAddr))
+	}
 	return b.String()
 }
 
@@ -133,5 +205,17 @@ func (p *Pipeline) EmitStageWaitPTX(stageIdx int, phaseParity int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "// Stage %d wait (phase parity %d)\n", stageIdx, phaseParity)
 	fmt.Fprintf(&b, "%s\n", EmitWaitLoop(mbarAddr, phaseParity, label))
+	return b.String()
+}
+
+// EmitEpilogPTX generates PTX sequence to deallocate TMEM columns if the pipeline targeted TMEM.
+func (p *Pipeline) EmitEpilogPTX() string {
+	var b strings.Builder
+	if p.Config.MemorySpace == MemorySpaceTMEM {
+		b.WriteString("// Pipeline Epilog: deallocate TMEM columns\n")
+		cols := p.TotalTMEMColumns()
+		fmt.Fprintf(&b, "%s\n", EmitTMEMDealloc("tmem_base", cols))
+		fmt.Fprintf(&b, "%s\n", EmitTMEMRelinquishPermit())
+	}
 	return b.String()
 }

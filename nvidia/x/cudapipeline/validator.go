@@ -157,6 +157,35 @@ func ValidatePipeline(p *Pipeline) *Report {
 		})
 	}
 
+	hasTMEM := false
+	for _, s := range p.Stages {
+		if s.Buffer.Space == MemorySpaceTMEM {
+			hasTMEM = true
+			break
+		}
+	}
+	if hasTMEM && !p.Arch.SupportsTMEM {
+		r.Issues = append(r.Issues, Issue{
+			StageIndex: -1,
+			Severity:   SeverityError,
+			Category:   CatHardwareConstraint,
+			Message:    fmt.Sprintf("architecture %s does not support Tensor Memory (TMEM)", p.Arch.Name),
+		})
+	}
+	if hasTMEM && p.Arch.SupportsTMEM && p.Arch.MaxTMEMCapacityBytes > 0 {
+		totalTMEM := p.TotalTMEMBytes()
+		if totalTMEM > p.Arch.MaxTMEMCapacityBytes {
+			r.Issues = append(r.Issues, Issue{
+				StageIndex: -1,
+				Severity:   SeverityError,
+				Category:   CatBufferCapacity,
+				Message: fmt.Sprintf(
+					"total TMEM allocation (%d bytes) exceeds maximum SM capacity limit (%d bytes) on %s",
+					totalTMEM, p.Arch.MaxTMEMCapacityBytes, p.Arch.Name),
+			})
+		}
+	}
+
 	// 2. Stage-by-stage validation.
 	for i := range p.Stages {
 		s := &p.Stages[i]
@@ -189,35 +218,76 @@ func ValidatePipeline(p *Pipeline) *Report {
 
 		// Buffer capacity check.
 		if s.Buffer.SizeBytes < payload {
+			bufName := "buffer"
+			if s.Buffer.Space == MemorySpaceTMEM {
+				bufName = "TMEM buffer"
+			}
 			r.Issues = append(r.Issues, Issue{
 				StageIndex: s.Index,
 				Severity:   SeverityError,
 				Category:   CatBufferCapacity,
 				Message: fmt.Sprintf(
-					"buffer size (%d bytes) is smaller than TMA payload (%d bytes)",
-					s.Buffer.SizeBytes, payload),
+					"%s size (%d bytes) is smaller than TMA payload (%d bytes)",
+					bufName, s.Buffer.SizeBytes, payload),
 			})
 		}
 
+		// TMEM buffer boundary check.
+		if s.Buffer.Space == MemorySpaceTMEM && p.Arch.MaxTMEMCapacityBytes > 0 {
+			bufEnd := s.Buffer.Offset + s.Buffer.SizeBytes
+			if bufEnd > p.Arch.MaxTMEMCapacityBytes {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: s.Index,
+					Severity:   SeverityError,
+					Category:   CatBufferCapacity,
+					Message: fmt.Sprintf(
+						"TMEM buffer [%d, %d) exceeds maximum SM TMEM capacity (%d bytes)",
+						s.Buffer.Offset, bufEnd, p.Arch.MaxTMEMCapacityBytes),
+				})
+			}
+		}
+
 		// Buffer alignment conformance.
-		if s.Buffer.Offset%16 != 0 {
-			r.Issues = append(r.Issues, Issue{
-				StageIndex: s.Index,
-				Severity:   SeverityError,
-				Category:   CatAlignmentStride,
-				Message: fmt.Sprintf(
-					"shared memory buffer offset %d is not 16-byte aligned (required by TMA cp.async.bulk)",
-					s.Buffer.Offset),
-			})
-		} else if s.Buffer.Offset%128 != 0 {
-			r.Issues = append(r.Issues, Issue{
-				StageIndex: s.Index,
-				Severity:   SeverityWarning,
-				Category:   CatAlignmentStride,
-				Message: fmt.Sprintf(
-					"shared memory buffer offset %d is not 128-byte aligned (recommended for maximum TMA throughput)",
-					s.Buffer.Offset),
-			})
+		if s.Buffer.Space == MemorySpaceTMEM {
+			if s.Buffer.Offset%16 != 0 {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: s.Index,
+					Severity:   SeverityError,
+					Category:   CatAlignmentStride,
+					Message: fmt.Sprintf(
+						"TMEM buffer offset %d is not 16-byte aligned (required by async bulk transfer to TMEM)",
+						s.Buffer.Offset),
+				})
+			} else if s.Buffer.Offset%128 != 0 {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: s.Index,
+					Severity:   SeverityWarning,
+					Category:   CatAlignmentStride,
+					Message: fmt.Sprintf(
+						"TMEM buffer offset %d is not 128-byte aligned (recommended for optimal TMEM throughput)",
+						s.Buffer.Offset),
+				})
+			}
+		} else {
+			if s.Buffer.Offset%16 != 0 {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: s.Index,
+					Severity:   SeverityError,
+					Category:   CatAlignmentStride,
+					Message: fmt.Sprintf(
+						"shared memory buffer offset %d is not 16-byte aligned (required by TMA cp.async.bulk)",
+						s.Buffer.Offset),
+				})
+			} else if s.Buffer.Offset%128 != 0 {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: s.Index,
+					Severity:   SeverityWarning,
+					Category:   CatAlignmentStride,
+					Message: fmt.Sprintf(
+						"shared memory buffer offset %d is not 128-byte aligned (recommended for maximum TMA throughput)",
+						s.Buffer.Offset),
+				})
+			}
 		}
 
 		// Barrier alignment conformance.
@@ -307,33 +377,51 @@ func ValidatePipeline(p *Pipeline) *Report {
 	for i := 0; i < len(p.Stages); i++ {
 		b1Start := p.Stages[i].Buffer.Offset
 		b1End := b1Start + p.Stages[i].Buffer.SizeBytes
+		b1Space := p.Stages[i].Buffer.Space
+		if b1Space == "" {
+			b1Space = MemorySpaceShared
+		}
+
 		for j := i + 1; j < len(p.Stages); j++ {
-			b2Start := p.Stages[j].Buffer.Offset
-			b2End := b2Start + p.Stages[j].Buffer.SizeBytes
-			if !(b1End <= b2Start || b2End <= b1Start) {
-				r.Issues = append(r.Issues, Issue{
-					StageIndex: j,
-					Severity:   SeverityError,
-					Category:   CatBufferCapacity,
-					Message: fmt.Sprintf(
-						"stage %d buffer [%d, %d) overlaps with stage %d buffer [%d, %d)",
-						j, b2Start, b2End, i, b1Start, b1End),
-				})
+			b2Space := p.Stages[j].Buffer.Space
+			if b2Space == "" {
+				b2Space = MemorySpaceShared
+			}
+			if b1Space == b2Space {
+				b2Start := p.Stages[j].Buffer.Offset
+				b2End := b2Start + p.Stages[j].Buffer.SizeBytes
+				if !(b1End <= b2Start || b2End <= b1Start) {
+					label := "buffer"
+					if b1Space == MemorySpaceTMEM {
+						label = "TMEM buffer"
+					}
+					r.Issues = append(r.Issues, Issue{
+						StageIndex: j,
+						Severity:   SeverityError,
+						Category:   CatBufferCapacity,
+						Message: fmt.Sprintf(
+							"stage %d %s [%d, %d) overlaps with stage %d %s [%d, %d)",
+							j, label, b2Start, b2End, i, label, b1Start, b1End),
+					})
+				}
 			}
 		}
-		// Also check if stage buffer overlaps with any stage barrier.
-		for j := 0; j < len(p.Stages); j++ {
-			barStart := p.Stages[j].Barrier.Offset
-			barEnd := barStart + 8
-			if !(b1End <= barStart || barEnd <= b1Start) {
-				r.Issues = append(r.Issues, Issue{
-					StageIndex: i,
-					Severity:   SeverityError,
-					Category:   CatBufferCapacity,
-					Message: fmt.Sprintf(
-						"stage %d buffer [%d, %d) overlaps with stage %d mbarrier [%d, %d)",
-						i, b1Start, b1End, j, barStart, barEnd),
-				})
+
+		// Stage barriers reside in shared memory. Only check overlap with shared memory stage buffers.
+		if b1Space == MemorySpaceShared {
+			for j := 0; j < len(p.Stages); j++ {
+				barStart := p.Stages[j].Barrier.Offset
+				barEnd := barStart + 8
+				if !(b1End <= barStart || barEnd <= b1Start) {
+					r.Issues = append(r.Issues, Issue{
+						StageIndex: i,
+						Severity:   SeverityError,
+						Category:   CatBufferCapacity,
+						Message: fmt.Sprintf(
+							"stage %d buffer [%d, %d) overlaps with stage %d mbarrier [%d, %d)",
+							i, b1Start, b1End, j, barStart, barEnd),
+					})
+				}
 			}
 		}
 	}
@@ -347,7 +435,7 @@ func ValidatePipeline(p *Pipeline) *Report {
 	if memLat > 0 && computeInt > 0 {
 		actualStages := len(p.Stages)
 		hiddenCycles := (actualStages - 1) * computeInt
-		stagesNeeded := (memLat + computeInt - 1) / computeInt + 1
+		stagesNeeded := (memLat+computeInt-1)/computeInt + 1
 		pct := (float64(hiddenCycles) / float64(memLat)) * 100.0
 		if pct > 100.0 {
 			pct = 100.0
