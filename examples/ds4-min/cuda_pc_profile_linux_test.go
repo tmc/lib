@@ -293,6 +293,9 @@ func TestCUDAPCProfile(t *testing.T) {
 	var totalSamples, droppedSamples, nonUserSamples uint64
 	var pcsResolvedToPTX, totalPCs int
 
+	kernelCounts := make(map[string]int)
+	kernelSampleCounts := make(map[string]uint64)
+
 	drainBatch := func(b cuptipcsampling.Batch) {
 		droppedSamples += b.DroppedSamples
 		nonUserSamples += b.NonUserSamples
@@ -301,8 +304,12 @@ func TestCUDAPCProfile(t *testing.T) {
 		}
 		totalSamples += b.TotalSamples
 		for _, pc := range b.PCs {
+			kernelCounts[pc.Name]++
 			if pc.Name == "" {
 				continue
+			}
+			for _, r := range pc.Reasons {
+				kernelSampleCounts[pc.Name] += uint64(r.Samples)
 			}
 			totalPCs++
 			loc := resolver.ResolvePC(cuptipcsampling.ModuleID{CRC: pc.CRC}, pc.Name, pc.Offset)
@@ -373,6 +380,9 @@ func TestCUDAPCProfile(t *testing.T) {
 	t.Logf("  resolved to PTX:  %d (%.1f%%)", pcsResolvedToPTX, 100.0*resolution)
 	t.Logf("  dropped samples:  %d", droppedSamples)
 	t.Logf("  non-user samples: %d", nonUserSamples)
+	for k, count := range kernelCounts {
+		t.Logf("  kernel %q: %d PCs, %d samples", k, count, kernelSampleCounts[k])
+	}
 
 	prof.SetTimespan(workloadStart, workloadDur)
 	if err := prof.Close(); err != nil {
