@@ -587,3 +587,36 @@ Treat gaps in a capture as unproven until the diagnostics are read. Concretely:
 - Check NVTX range containment rather than eyeballing a timeline. A batch with
   finished layer ranges and no CUDA runtime rows is missing data, and only the
   containment query shows it.
+
+## Fine phase names, and what they do not isolate
+
+`-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
+the host sidecar: `dense-front`, `qkv-normalization`, `attention`,
+`attention-output`, `compression` (or `compression-raw` on the first two
+layers), `ffn-pre`, `shared-ffn`, `expert-ffn`, `ffn-post`, `group-tail`.
+
+The counts are fixed by the source. `validateCUDAPhaseCounts`
+(`cuda_phase_profile_linux_test.go:91`) mandates them, and at 2048 tokens,
+43 layers and `cudaPrefillBatchWidth` 8 they sum to **715,776** prefill
+intervals. The two decode tokens add **602** more: the shared path is
+`evalLayerProjected` (`cuda_session_linux.go:645`), which marks seven phases
+per layer per token, so 2 x 43 x 7. With the coarse levels `op` subsumes
+(1 prefill, 1 generation, 2 token, 256 batch, 11,094 layer) a complete
+sidecar holds **727,732** records. Anything else means the workload or the
+instrumentation changed, and the accounting receipt must independently show
+`spans_begun == spans_ended == spans_encoded` with `complete` true.
+
+**A phase interval is the gap between two marks, which on the decode path is
+not the same as an operator's cost.** `dense-front`, `qkv-normalization` and
+`group-tail` are marked in `evalLayerBatch` and `evalBatch` only. The
+single-token path has no front mark, so a decode `ffn-post` interval runs
+until the next layer's first mark and absorbs that layer's front work — and
+the last layer's runs into the final output and stream sync. The counts can
+be exactly right while the decode durations attribute work to the wrong
+name. Use the prefill intervals for per-operator cost; treat the decode ones
+as a timeline, not an attribution, until the single-token path carries its
+own front mark.
+
+The spans are host-only by design and open no NVTX range: at this
+granularity that would add about 715,000 ranges to a capture that carries
+11,356, which changes the thing being measured.
