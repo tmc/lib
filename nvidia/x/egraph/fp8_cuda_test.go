@@ -62,14 +62,9 @@ func TestScaledFP8GEMVMatchesReference(t *testing.T) {
 func testFP8GEMV(t *testing.T, threads uint32) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
 	compiled, err := nvrtcx.Compile(egraph.ScaledFP8GEMVTemplate,
 		nvrtcx.WithName("fp8.cu"),
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

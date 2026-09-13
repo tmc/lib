@@ -2,7 +2,6 @@ package egraph_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -43,11 +42,6 @@ func swigluReference(x, wGate, wUp, wDown []float32, hidden, inter int) []float3
 func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	expr := &egraph.Expr{Op: "fused_swiglu_gemv", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 	src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "SwiGLU"})
 	if err != nil {
@@ -55,8 +49,7 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("swiglu.cu"),
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

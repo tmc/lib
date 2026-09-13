@@ -173,15 +173,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 		iters = 5
 	}
 
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return 0, fmt.Errorf("egraph: compute capability: %w", err)
-	}
-
-	mod, err := nvrtcx.Compile(cand.CUDASource,
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
-	)
+	mod, err := nvrtcx.Compile(cand.CUDASource, nvrtcx.WithDeviceArch(dev))
 	if err != nil {
 		return 0, fmt.Errorf("egraph: compile candidate: %w", err)
 	}
