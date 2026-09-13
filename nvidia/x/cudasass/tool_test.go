@@ -17,14 +17,56 @@ import (
 )
 
 // This is only an ELF header fixture, not executable GPU code.
-func testCUBIN() []byte {
+func testCUBIN() []byte { return testCUBINVersion(1) }
+
+// testCUBINVersion writes version into e_version, which nvcc uses for its own
+// toolkit version rather than EV_CURRENT: a 12.6 cubin carries 126.
+func testCUBINVersion(version uint32) []byte {
 	b := make([]byte, 64)
 	copy(b, "\x7fELF\x02\x01\x01")
 	binary.LittleEndian.PutUint16(b[16:], 2)
 	binary.LittleEndian.PutUint16(b[18:], 190)
-	binary.LittleEndian.PutUint32(b[20:], 1)
+	binary.LittleEndian.PutUint32(b[20:], version)
 	binary.LittleEndian.PutUint16(b[52:], 64)
 	return b
+}
+
+func TestCheckCUBIN(t *testing.T) {
+	elf32 := func() []byte {
+		b := testCUBINVersion(126)[:52]
+		b[4] = 1 // ELFCLASS32
+		return b
+	}
+	tests := []struct {
+		name  string
+		cubin []byte
+		want  string
+	}{
+		{"current version", testCUBIN(), ""},
+		{"toolkit 12.6 version", testCUBINVersion(126), ""},
+		{"toolkit 12.0 version", testCUBINVersion(120), ""},
+		{"32-bit", elf32(), ""},
+		{"nil", nil, "not an ELF image"},
+		{"short", testCUBIN()[:51], "not an ELF image"},
+		{"not ELF", append([]byte("not elf"), make([]byte, 57)...), "not an ELF image"},
+		{"truncated 64-bit", testCUBIN()[:63], "truncated 64-bit ELF header"},
+		{"bad class", func() []byte { b := testCUBIN(); b[4] = 9; return b }(), "ELF class is ELFCLASS64+7"},
+		{"big endian", func() []byte { b := testCUBIN(); b[5] = 2; return b }(), "ELF data encoding is ELFDATA2MSB"},
+		{"x86 machine", func() []byte { b := testCUBIN(); b[18] = 62; return b }(), "cubin machine is EM_X86_64"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkCUBIN(tt.cubin)
+			switch {
+			case tt.want == "" && err != nil:
+				t.Fatalf("rejected: %v", err)
+			case tt.want != "" && err == nil:
+				t.Fatal("accepted")
+			case tt.want != "" && !strings.Contains(err.Error(), tt.want):
+				t.Fatalf("error %v, want %q", err, tt.want)
+			}
+		})
+	}
 }
 
 func fakeTool(t *testing.T, body string) string {
@@ -227,6 +269,13 @@ func TestInstalledTools(t *testing.T) {
 	for _, mode := range []Mode{Text, JSON, ControlFlow, BasicBlockFlow, RegisterLife} {
 		r, err := d.Disassemble(ctx, b, Options{Mode: mode})
 		t.Logf("args %q stderr %s", r.Args, r.Stderr)
+		if errors.Is(err, cudatool.ErrUnsupportedOption) {
+			// The resolved nvdisasm is older than the option this mode
+			// needs, which the capability check reports before running it:
+			// 12.6 has no --emit-json.
+			t.Logf("mode %d: %v", mode, err)
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

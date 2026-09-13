@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"debug/elf"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -141,6 +142,40 @@ func (d Disassembler) ControlFlowGraph(ctx context.Context, cubin []byte, basicB
 	})
 }
 
+// checkCUBIN reports whether cubin identifies itself as a CUDA ELF image.
+//
+// It reads the header directly instead of calling [elf.NewFile], which rejects
+// any e_version but EV_CURRENT. nvcc writes its own toolkit version into that
+// field through CUDA 12: a 12.6 cubin carries 126 and a 13.4 cubin carries 1,
+// measured with nvcc -cubin on the GB10 host, so elf.NewFile fails on every
+// 12.x cubin with "mismatched ELF version" even though nvdisasm reads it.
+// Nothing here needs the section table, only the identification bytes and
+// e_machine, which sit at the same offsets in both ELF classes.
+func checkCUBIN(cubin []byte) error {
+	// Header sizes for the two classes, the minimum a complete header needs.
+	const ehsize32, ehsize64 = 52, 64
+	if len(cubin) < ehsize32 || string(cubin[:len(elf.ELFMAG)]) != elf.ELFMAG {
+		return errors.New("not an ELF image")
+	}
+	switch class := elf.Class(cubin[elf.EI_CLASS]); class {
+	case elf.ELFCLASS32:
+	case elf.ELFCLASS64:
+		if len(cubin) < ehsize64 {
+			return errors.New("truncated 64-bit ELF header")
+		}
+	default:
+		return fmt.Errorf("ELF class is %s, want 32-bit or 64-bit", class)
+	}
+	if data := elf.Data(cubin[elf.EI_DATA]); data != elf.ELFDATA2LSB {
+		return fmt.Errorf("ELF data encoding is %s, want little-endian", data)
+	}
+	// e_machine follows the 16-byte identification and the 2-byte e_type.
+	if m := elf.Machine(binary.LittleEndian.Uint16(cubin[18:])); m != elf.EM_CUDA {
+		return fmt.Errorf("cubin machine is %s, want CUDA", m)
+	}
+	return nil
+}
+
 // Disassemble validates a CUDA ELF image and disassembles a private file copy.
 // Scratch files are removed before return. Output remains available on failure.
 func (d Disassembler) Disassemble(ctx context.Context, cubin []byte, opts Options) (out Output, err error) {
@@ -158,13 +193,8 @@ func (d Disassembler) Disassemble(ctx context.Context, cubin []byte, opts Option
 			return Output{}, err
 		}
 	}
-	f, err := elf.NewFile(bytes.NewReader(cubin))
-	if err != nil {
+	if err := checkCUBIN(cubin); err != nil {
 		return Output{}, fmt.Errorf("read cubin: %w", err)
-	}
-	defer f.Close()
-	if f.Machine != elf.EM_CUDA {
-		return Output{}, fmt.Errorf("cubin machine is %s, want CUDA", f.Machine)
 	}
 	dir, err := os.MkdirTemp(d.TempDir, "cudasass-")
 	if err != nil {
