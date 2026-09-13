@@ -32,6 +32,10 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	}
 
 	var explain bool
+	var web bool
+	var httpAddr string
+	var htmlOut string
+	var noBrowser bool
 	var kernelFilter string
 	posArgs := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
@@ -41,6 +45,24 @@ func runDiff(w io.Writer, rawArgs []string) error {
 			useColor = false
 		case arg == "--explain" || arg == "-explain":
 			explain = true
+		case arg == "--web" || arg == "-web":
+			web = true
+		case strings.HasPrefix(arg, "--http="):
+			httpAddr = strings.TrimPrefix(arg, "--http=")
+			web = true
+		case strings.HasPrefix(arg, "-http="):
+			httpAddr = strings.TrimPrefix(arg, "-http=")
+			web = true
+		case strings.HasPrefix(arg, "--html="):
+			htmlOut = strings.TrimPrefix(arg, "--html=")
+		case strings.HasPrefix(arg, "-html="):
+			htmlOut = strings.TrimPrefix(arg, "-html=")
+		case strings.HasPrefix(arg, "--output="):
+			htmlOut = strings.TrimPrefix(arg, "--output=")
+		case strings.HasPrefix(arg, "-output="):
+			htmlOut = strings.TrimPrefix(arg, "-output=")
+		case arg == "--no-browser" || arg == "-no-browser" || arg == "-no_browser":
+			noBrowser = true
 		case strings.HasPrefix(arg, "--kernel="):
 			kernelFilter = strings.TrimPrefix(arg, "--kernel=")
 		case strings.HasPrefix(arg, "-kernel="):
@@ -60,7 +82,20 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	}
 
 	if len(posArgs) != 2 {
-		return errors.New("usage: cudaprof diff [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>")
+		return errors.New("usage: cudaprof diff [--web] [-http=addr] [--html=file] [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>")
+	}
+
+	if web || htmlOut != "" {
+		return runDiffWeb(DiffWebOptions{
+			BaseFile:     posArgs[0],
+			TargetFile:   posArgs[1],
+			KernelFilter: kernelFilter,
+			HTTPAddr:     httpAddr,
+			HTMLOut:      htmlOut,
+			NoBrowser:    noBrowser,
+			Limits:       limits,
+			Writer:       w,
+		})
 	}
 
 	if explain {
