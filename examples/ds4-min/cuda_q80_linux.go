@@ -3,6 +3,7 @@
 package main
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"math"
@@ -12,83 +13,21 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
+//go:embed cuda_q80_layout.cu
+var cudaQ80Layout string
+
+//go:embed cuda_q80_quant.cu
+var cudaQ80QuantBody string
+
+var cudaQ80QuantSource = cudaQ80Layout + cudaQ80QuantBody
+
+//go:embed cuda_q80_matvec.cu
+var cudaQ80MatvecBody string
+
 // cudaQ80Source follows antirez/ds4 b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd
 // ds4_cuda.cu:5037 (activation quantization) and :5152 (single-token matvec).
 // Activations retain float32 scales; GGUF weight scales remain binary16.
-const cudaQ80Source = cudaQ80QuantSource + cudaQ80MatvecBody
-
-const cudaQ80Layout = `
-struct ds4_q8_activation { float d; signed char qs[32]; };
-static_assert(sizeof(ds4_q8_activation) == 36, "Q8 activation block size");
-
-`
-
-const cudaQ80QuantSource = cudaQ80Layout + `
-extern "C" __global__ void ds4_quant_q8_0(const float *in, ds4_q8_activation *out) {
-  const unsigned tid = threadIdx.x;
-  const float *x = in + (unsigned long long)blockIdx.x * 32;
-  ds4_q8_activation *q = out + blockIdx.x;
-  __shared__ float magnitude[32];
-  magnitude[tid] = fabsf(x[tid]);
-  __syncthreads();
-  for (unsigned stride = 16; stride; stride >>= 1) {
-    if (tid < stride) magnitude[tid] = fmaxf(magnitude[tid], magnitude[tid + stride]);
-    __syncthreads();
-  }
-  const float d = magnitude[0] / 127.0f;
-  const float inverse = d != 0.0f ? 1.0f / d : 0.0f;
-  int value = (int)lrintf(x[tid] * inverse);
-  value = value > 127 ? 127 : value < -128 ? -128 : value;
-  q->qs[tid] = (signed char)value;
-  if (tid == 0) q->d = d;
-}
-
-`
-
-const cudaQ80MatvecBody = `
-extern "C" __global__ void ds4_q8_0_matvec_quantized(
-    const unsigned char *weights, const ds4_q8_activation *x, float *out,
-    unsigned blocks, unsigned rows) {
-  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
-  const unsigned row = blockIdx.x * 8 + warp_id;
-  if (row >= rows) return;
-  const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
-  float sum = 0.0f;
-  for (unsigned b = lane; b < blocks; b += 32) {
-    const unsigned char *p = weight_row + (unsigned long long)b * 34;
-    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
-    int dot = 0;
-    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(x[b].qs[i]);
-    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
-    sum += d * x[b].d * float(dot);
-  }
-  for (unsigned stride = 16; stride; stride >>= 1)
-    sum += __shfl_down_sync(0xffffffff, sum, stride);
-  if (lane == 0) out[row] = sum;
-}
-
-extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
-    const unsigned char *weights, const ds4_q8_activation *x, float *out,
-    unsigned blocks, unsigned rows) {
-  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
-  const unsigned row = blockIdx.x * 8 + warp_id, diag = blockIdx.y;
-  if (row >= rows) return;
-  const unsigned char *weight_row = weights + ((unsigned long long)diag * rows + row) * blocks * 34;
-  const ds4_q8_activation *xb = x + (unsigned long long)diag * blocks;
-  float sum = 0.0f;
-  for (unsigned b = lane; b < blocks; b += 32) {
-    const unsigned char *p = weight_row + (unsigned long long)b * 34;
-    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
-    int dot = 0;
-    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(xb[b].qs[i]);
-    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
-    sum += d * xb[b].d * float(dot);
-  }
-  for (unsigned stride = 16; stride; stride >>= 1)
-    sum += __shfl_down_sync(0xffffffff, sum, stride);
-  if (lane == 0) out[(unsigned long long)diag * rows + row] = sum;
-}
-`
+var cudaQ80Source = cudaQ80QuantSource + cudaQ80MatvecBody
 
 // encodeQuantQ80 appends the pinned CUDA Q8_0 activation quantizer. Each
 // 32-element block occupies 36 bytes: one float32 scale and 32 signed bytes.
