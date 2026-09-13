@@ -113,6 +113,17 @@ problem from `stall_mem` gives 11.75% and points at bandwidth, when the 82.97%
 is dependency latency. The split of `stall_scoreboard` into its two reasons is
 what decides that, and it exists only in `reason_samples`.
 
+One reason in `stall_mem` is observed where nothing explains it, and a reader
+should know before sizing anything from that bucket: `tex_throttle` reaches 9.4%
+on fp64 arithmetic kernels whose SASS contains no `TEX` instruction at all, with
+a threshold at eight independent accumulators (0 / 0 / 0 / 4.89% at 1 / 2 / 4 / 8,
+work-matched). It is exactly 0 in every memory kernel measured, including a
+read-only `__ldg` path. Either the reason index is mismapped on this part or the
+fp64 units share a dispatch path the counter names after texture; the experiment
+that would separate those -- a real texture object -- has not been run. Until it
+is, a small `stall_mem` on an fp64-heavy kernel may be counting no memory
+instruction at all.
+
 `stall_wait` is the other one. It counts the `wait` reason, which is where
 NVIDIA puts a dependency on a *fixed-latency* result: the compiler knows when an
 FMA retires, so it inserts stall cycles rather than allocating a scoreboard
