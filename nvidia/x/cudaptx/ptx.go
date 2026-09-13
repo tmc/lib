@@ -83,9 +83,10 @@ type Instruction struct {
 	Opcode    string     // full opcode token, e.g. "fma.rn.f32"
 	Mnemonic  string     // base mnemonic, e.g. "fma"
 	Operands  string     // comma-separated operand text, unparsed
-	Loc       Location   // nearest lexically preceding .loc; zero if none
-	InlinedAt []Location // .inlined_at chain, innermost first; nil if not inlined
-	Raw       string     // full raw statement text
+	Loc             Location   // nearest lexically preceding .loc; zero if none
+	IntermediateLoc Location   // nearest lexically preceding .loc_intermediate; zero if none
+	InlinedAt       []Location // .inlined_at chain, innermost first; nil if not inlined
+	Raw             string     // full raw statement text
 }
 
 // Kernel represents a parsed .entry kernel or .func device function in PTX.

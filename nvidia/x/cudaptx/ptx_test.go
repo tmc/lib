@@ -523,4 +523,29 @@ func TestPTX94Keywords(t *testing.T) {
 	if inst.Loc.Line != 42 || inst.Loc.Column != 8 {
 		t.Errorf("inst.Loc = %v, want line 42 col 8", inst.Loc)
 	}
+
+	// 4. Check paired .loc and .loc_intermediate
+	ptxDual := `.version 9.4
+.target sm_100
+.address_size 64
+.file 1 "kernel.cu"
+.file 2 "kernel.ir"
+.visible .entry test_dual() {
+	.loc 1 10 2
+	.loc_intermediate 2 42 8
+	spcompress.b32 %r1, %r2, %r3;
+	ret;
+}`
+	mDual, err := cudaptx.ParseString(ptxDual)
+	if err != nil {
+		t.Fatalf("ParseString dual failed: %v", err)
+	}
+	kDual := mDual.Kernel("test_dual")
+	instDual := kDual.Instructions[0]
+	if instDual.Loc.File != "kernel.cu" || instDual.Loc.Line != 10 || instDual.Loc.Column != 2 {
+		t.Errorf("instDual.Loc = %v, want kernel.cu:10:2", instDual.Loc)
+	}
+	if instDual.IntermediateLoc.File != "kernel.ir" || instDual.IntermediateLoc.Line != 42 || instDual.IntermediateLoc.Column != 8 {
+		t.Errorf("instDual.IntermediateLoc = %v, want kernel.ir:42:8", instDual.IntermediateLoc)
+	}
 }

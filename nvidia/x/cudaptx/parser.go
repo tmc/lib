@@ -60,18 +60,20 @@ func Parse(r io.Reader) (*Module, error) {
 		curKernel      *Kernel
 		pendingTuning  Tuning
 		depth          int
-		curLoc         Location
-		curInlinedAt   []Location
-		inBlockComment bool
-		stmt           []string
-		stmtLine       int
-		lineNum        int
+		curLoc             Location
+		curIntermediateLoc Location
+		curInlinedAt       []Location
+		inBlockComment     bool
+		stmt               []string
+		stmtLine           int
+		lineNum            int
 	)
 
 	// resetLoc drops the sticky source position at a function boundary,
 	// matching cudasass.Parse.
 	resetLoc := func() {
 		curLoc = Location{}
+		curIntermediateLoc = Location{}
 		curInlinedAt = nil
 	}
 
@@ -120,6 +122,10 @@ func Parse(r io.Reader) (*Module, error) {
 
 		if curKernel != nil {
 			inst := parseInstructionStatement(s, line, curLoc, curInlinedAt)
+			inst.IntermediateLoc = curIntermediateLoc
+			if inst.Loc.FileIndex == 0 && curIntermediateLoc.FileIndex != 0 {
+				inst.Loc = curIntermediateLoc
+			}
 			if inst.Opcode != "" {
 				curKernel.Instructions = append(curKernel.Instructions, inst)
 			}
@@ -180,7 +186,9 @@ func Parse(r io.Reader) (*Module, error) {
 					m.AddressSize, _ = strconv.Atoi(directiveArg(trimmed, ".address_size"))
 				case strings.HasPrefix(trimmed, ".file"):
 					parseFileDirective(trimmed, m)
-				case strings.HasPrefix(trimmed, ".loc_intermediate"), strings.HasPrefix(trimmed, ".loc"):
+				case strings.HasPrefix(trimmed, ".loc_intermediate"):
+					curIntermediateLoc, _ = parseLocDirective(trimmed)
+				case strings.HasPrefix(trimmed, ".loc"):
 					curLoc, curInlinedAt = parseLocDirective(trimmed)
 				}
 				continue
@@ -269,6 +277,7 @@ func (m *Module) resolveFiles() {
 		for i := range k.Instructions {
 			inst := &k.Instructions[i]
 			fix(&inst.Loc)
+			fix(&inst.IntermediateLoc)
 			for j := range inst.InlinedAt {
 				fix(&inst.InlinedAt[j])
 			}
