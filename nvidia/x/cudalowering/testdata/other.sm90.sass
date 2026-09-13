@@ -1,0 +1,46 @@
+	.target	sm_90
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text._Z9unrelatedPii     --------------------------
+	.section	.text._Z9unrelatedPii,"ax",@progbits
+	.align	128
+        .global         _Z9unrelatedPii
+        .type           _Z9unrelatedPii,@function
+        .size           _Z9unrelatedPii,(.L_x_1 - _Z9unrelatedPii)
+        .other          _Z9unrelatedPii,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z9unrelatedPii:
+.text._Z9unrelatedPii:
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDC R5, c[0x0][RZ] ;
+        /*0040*/                   IMAD R5, R5, UR4, R0 ;
+        /*0050*/                   ULDC UR4, c[0x0][0x218] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R5, UR4, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*00b0*/                   STG.E desc[UR4][R2.64], R5 ;
+        /*00c0*/                   EXIT ;
+.L_x_0:
+        /*00d0*/                   BRA `(.L_x_0);
+        /*00e0*/                   NOP;
+        /*00f0*/                   NOP;
+        /*0100*/                   NOP;
+        /*0110*/                   NOP;
+        /*0120*/                   NOP;
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+.L_x_1:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4

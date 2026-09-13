@@ -1,0 +1,316 @@
+	.target	sm_90
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text.atomicDrop(float *, const float *, int) --------------------------
+	.section	.text.atomicDrop(float *, const float *, int),"ax",@progbits
+	.align	128
+        .global         atomicDrop(float *, const float *, int)
+        .type           atomicDrop(float *, const float *, int),@function
+        .size           atomicDrop(float *, const float *, int),(.L_x_7 - atomicDrop(float *, const float *, int))
+        .other          atomicDrop(float *, const float *, int),@"STO_CUDA_ENTRY STV_DEFAULT"
+atomicDrop(float *, const float *, int):
+.text.atomicDrop(float *, const float *, int):
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDC R5, c[0x0][RZ] ;
+        /*0040*/                   IMAD R5, R5, UR4, R0 ;
+        /*0050*/                   ULDC UR4, c[0x0][0x220] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R5, UR4, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*00b0*/                   LDG.E R3, desc[UR4][R2.64] ;
+        /*00c0*/                   LDC.64 R4, c[0x0][0x210] ;
+        /*00d0*/                   REDG.E.ADD.F32.FTZ.RN.STRONG.GPU desc[UR4][R4.64], R3 ;
+        /*00e0*/                   EXIT ;
+.L_x_0:
+        /*00f0*/                   BRA `(.L_x_0);
+        /*0100*/                   NOP;
+        /*0110*/                   NOP;
+        /*0120*/                   NOP;
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+.L_x_7:
+
+
+//--------------------- .text.atomicKeep(float *, const float *, int) --------------------------
+	.section	.text.atomicKeep(float *, const float *, int),"ax",@progbits
+	.align	128
+        .global         atomicKeep(float *, const float *, int)
+        .type           atomicKeep(float *, const float *, int),@function
+        .size           atomicKeep(float *, const float *, int),(.L_x_8 - atomicKeep(float *, const float *, int))
+        .other          atomicKeep(float *, const float *, int),@"STO_CUDA_ENTRY STV_DEFAULT"
+atomicKeep(float *, const float *, int):
+.text.atomicKeep(float *, const float *, int):
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R9, SR_CTAID.X ;
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+        /*0030*/                   S2R R0, SR_TID.X ;
+        /*0040*/                   IMAD R9, R9, UR4, R0 ;
+        /*0050*/                   ULDC UR4, c[0x0][0x220] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R9, UR4, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/                   LDC.64 R4, c[0x0][0x210] ;
+        /*00b0*/                   LDC.64 R6, c[0x0][0x210] ;
+        /*00c0*/                   IMAD.WIDE R2, R9, 0x4, R2 ;
+        /*00d0*/                   LDG.E R3, desc[UR4][R2.64] ;
+        /*00e0*/                   ATOMG.E.ADD.F32.FTZ.RN.STRONG.GPU PT, R5, desc[UR4][R4.64], R3 ;
+        /*00f0*/                   IMAD.WIDE R6, R9, 0x4, R6 ;
+        /*0100*/                   STG.E desc[UR4][R6.64], R5 ;
+        /*0110*/                   EXIT ;
+.L_x_1:
+        /*0120*/                   BRA `(.L_x_1);
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+        /*0180*/                   NOP;
+        /*0190*/                   NOP;
+        /*01a0*/                   NOP;
+        /*01b0*/                   NOP;
+        /*01c0*/                   NOP;
+        /*01d0*/                   NOP;
+        /*01e0*/                   NOP;
+        /*01f0*/                   NOP;
+.L_x_8:
+
+
+//--------------------- .text.shuffleReduce(float *, const float *, int) --------------------------
+	.section	.text.shuffleReduce(float *, const float *, int),"ax",@progbits
+	.align	128
+        .global         shuffleReduce(float *, const float *, int)
+        .type           shuffleReduce(float *, const float *, int),@function
+        .size           shuffleReduce(float *, const float *, int),(.L_x_9 - shuffleReduce(float *, const float *, int))
+        .other          shuffleReduce(float *, const float *, int),@"STO_CUDA_ENTRY STV_DEFAULT"
+shuffleReduce(float *, const float *, int):
+.text.shuffleReduce(float *, const float *, int):
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R5, SR_CTAID.X ;
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+        /*0030*/                   BSSY B0, `(.L_x_2) ;
+        /*0040*/                   HFMA2.MMA R2, -RZ, RZ, 0, 0 ;
+        /*0050*/                   S2R R6, SR_TID.X ;
+        /*0060*/                   IMAD R5, R5, UR4, R6 ;
+        /*0070*/                   ULDC UR4, c[0x0][0x220] ;
+        /*0080*/                   ISETP.GE.AND P0, PT, R5, UR4, PT ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/               @P0 BRA `(.L_x_3) ;
+        /*00b0*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*00c0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*00d0*/                   LDG.E R2, desc[UR4][R2.64] ;
+.L_x_3:
+        /*00e0*/                   BSYNC B0 ;
+.L_x_2:
+        /*00f0*/                   SHFL.DOWN PT, R3, R2, 0x10, 0x1f ;
+        /*0100*/                   LOP3.LUT P0, RZ, R6, 0x1f, RZ, 0xc0, !PT ;
+        /*0110*/                   FADD R3, R3, R2 ;
+        /*0120*/                   SHFL.DOWN PT, R0, R3, 0x8, 0x1f ;
+        /*0130*/                   FADD R0, R3, R0 ;
+        /*0140*/                   SHFL.DOWN PT, R7, R0, 0x4, 0x1f ;
+        /*0150*/                   FADD R7, R0, R7 ;
+        /*0160*/                   SHFL.DOWN PT, R4, R7, 0x2, 0x1f ;
+        /*0170*/                   FADD R4, R7, R4 ;
+        /*0180*/                   SHFL.DOWN PT, R9, R4, 0x1, 0x1f ;
+        /*0190*/               @P0 EXIT ;
+        /*01a0*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*01b0*/                   SHF.R.S32.HI R5, RZ, 0x5, R5 ;
+        /*01c0*/                   FADD R9, R4, R9 ;
+        /*01d0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*01e0*/                   STG.E desc[UR4][R2.64], R9 ;
+        /*01f0*/                   EXIT ;
+.L_x_4:
+        /*0200*/                   BRA `(.L_x_4);
+        /*0210*/                   NOP;
+        /*0220*/                   NOP;
+        /*0230*/                   NOP;
+        /*0240*/                   NOP;
+        /*0250*/                   NOP;
+        /*0260*/                   NOP;
+        /*0270*/                   NOP;
+        /*0280*/                   NOP;
+        /*0290*/                   NOP;
+        /*02a0*/                   NOP;
+        /*02b0*/                   NOP;
+        /*02c0*/                   NOP;
+        /*02d0*/                   NOP;
+        /*02e0*/                   NOP;
+        /*02f0*/                   NOP;
+.L_x_9:
+
+
+//--------------------- .text.spiller(float *, const float *, int)    --------------------------
+	.section	.text.spiller(float *, const float *, int),"ax",@progbits
+	.align	128
+        .global         spiller(float *, const float *, int)
+        .type           spiller(float *, const float *, int),@function
+        .size           spiller(float *, const float *, int),(.L_x_10 - spiller(float *, const float *, int))
+        .other          spiller(float *, const float *, int),@"STO_CUDA_ENTRY STV_DEFAULT"
+spiller(float *, const float *, int):
+.text.spiller(float *, const float *, int):
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R4, SR_CTAID.X ;
+        /*0020*/                   ULDC UR4, c[0x0][0x0] ;
+        /*0030*/                   S2R R3, SR_TID.X ;
+        /*0040*/                   IMAD R4, R4, UR4, R3 ;
+        /*0050*/                   ULDC UR4, c[0x0][0x220] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R4, UR4, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/                   IMAD.WIDE R2, R4, 0x4, R2 ;
+        /*00b0*/                   LDG.E R0, desc[UR4][R2.64+0xc] ;
+        /*00c0*/                   LDG.E R20, desc[UR4][R2.64+0x4] ;
+        /*00d0*/                   LDG.E R21, desc[UR4][R2.64+0x28] ;
+        /*00e0*/                   LDG.E R27, desc[UR4][R2.64] ;
+        /*00f0*/                   LDG.E R19, desc[UR4][R2.64+0x8] ;
+        /*0100*/                   LDG.E R24, desc[UR4][R2.64+0x44] ;
+        /*0110*/                   LDG.E R26, desc[UR4][R2.64+0x10] ;
+        /*0120*/                   LDG.E R25, desc[UR4][R2.64+0x1c] ;
+        /*0130*/                   LDG.E R23, desc[UR4][R2.64+0x14] ;
+        /*0140*/                   LDG.E R22, desc[UR4][R2.64+0x38] ;
+        /*0150*/                   LDG.E R18, desc[UR4][R2.64+0x18] ;
+        /*0160*/                   LDG.E R5, desc[UR4][R2.64+0x54] ;
+        /*0170*/                   LDG.E R6, desc[UR4][R2.64+0x20] ;
+        /*0180*/                   LDG.E R7, desc[UR4][R2.64+0x2c] ;
+        /*0190*/                   LDG.E R8, desc[UR4][R2.64+0x24] ;
+        /*01a0*/                   LDG.E R9, desc[UR4][R2.64+0x48] ;
+        /*01b0*/                   LDG.E R10, desc[UR4][R2.64+0x30] ;
+        /*01c0*/                   LDG.E R11, desc[UR4][R2.64+0x3c] ;
+        /*01d0*/                   LDG.E R12, desc[UR4][R2.64+0x34] ;
+        /*01e0*/                   LDG.E R13, desc[UR4][R2.64+0x58] ;
+        /*01f0*/                   LDG.E R14, desc[UR4][R2.64+0x40] ;
+        /*0200*/                   LDG.E R15, desc[UR4][R2.64+0x4c] ;
+        /*0210*/                   LDG.E R16, desc[UR4][R2.64+0x50] ;
+        /*0220*/                   LDG.E R17, desc[UR4][R2.64+0x5c] ;
+        /*0230*/                   FMUL R0, R0, 4 ;
+        /*0240*/                   FADD R20, R20, R20 ;
+        /*0250*/                   FMUL R21, R21, 11 ;
+        /*0260*/                   FFMA R29, R0, R27, RZ ;
+        /*0270*/                   FMUL R19, R19, 3 ;
+        /*0280*/                   FFMA R28, R20, R21, R29 ;
+        /*0290*/                   FMUL R24, R24, 18 ;
+        /*02a0*/                   FFMA R29, R19, R24, R28 ;
+        /*02b0*/                   FMUL R26, R26, 5 ;
+        /*02c0*/                   FFMA R29, R0, R27, R29 ;
+        /*02d0*/                   FMUL R25, R25, 8 ;
+        /*02e0*/                   FMUL R23, R23, 6 ;
+        /*02f0*/                   FFMA R0, R26, R25, R29 ;
+        /*0300*/                   FMUL R22, R22, 15 ;
+        /*0310*/                   FMUL R18, R18, 7 ;
+        /*0320*/                   FFMA R3, R23, R22, R0 ;
+        /*0330*/                   FMUL R5, R5, 22 ;
+        /*0340*/                   FFMA R3, R18, R5, R3 ;
+        /*0350*/                   FMUL R6, R6, 9 ;
+        /*0360*/                   FFMA R3, R26, R25, R3 ;
+        /*0370*/                   FMUL R7, R7, 12 ;
+        /*0380*/                   FMUL R8, R8, 10 ;
+        /*0390*/                   FFMA R3, R6, R7, R3 ;
+        /*03a0*/                   FMUL R9, R9, 19 ;
+        /*03b0*/                   FFMA R3, R8, R9, R3 ;
+        /*03c0*/                   FMUL R10, R10, 13 ;
+        /*03d0*/                   FFMA R3, R20, R21, R3 ;
+        /*03e0*/                   FMUL R11, R11, 16 ;
+        /*03f0*/                   FFMA R3, R6, R7, R3 ;
+        /*0400*/                   FMUL R12, R12, 14 ;
+        /*0410*/                   FMUL R13, R13, 23 ;
+        /*0420*/                   FFMA R3, R10, R11, R3 ;
+        /*0430*/                   FMUL R14, R14, 17 ;
+        /*0440*/                   FFMA R0, R12, R13, R3 ;
+        /*0450*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0460*/                   FMUL R15, R15, 20 ;
+        /*0470*/                   FFMA R0, R23, R22, R0 ;
+        /*0480*/                   FMUL R16, R16, 21 ;
+        /*0490*/                   FFMA R11, R10, R11, R0 ;
+        /*04a0*/                   FMUL R17, R17, 24 ;
+        /*04b0*/                   FFMA R0, R14, R15, R11 ;
+        /*04c0*/                   FFMA R19, R19, R24, R0 ;
+        /*04d0*/                   FFMA R19, R8, R9, R19 ;
+        /*04e0*/                   FFMA R19, R14, R15, R19 ;
+        /*04f0*/                   IMAD.WIDE R2, R4, 0x4, R2 ;
+        /*0500*/                   FFMA R19, R16, R17, R19 ;
+        /*0510*/                   FFMA R19, R18, R5, R19 ;
+        /*0520*/                   FFMA R19, R12, R13, R19 ;
+        /*0530*/                   FFMA R19, R16, R17, R19 ;
+        /*0540*/                   STG.E desc[UR4][R2.64], R19 ;
+        /*0550*/                   EXIT ;
+.L_x_5:
+        /*0560*/                   BRA `(.L_x_5);
+        /*0570*/                   NOP;
+        /*0580*/                   NOP;
+        /*0590*/                   NOP;
+        /*05a0*/                   NOP;
+        /*05b0*/                   NOP;
+        /*05c0*/                   NOP;
+        /*05d0*/                   NOP;
+        /*05e0*/                   NOP;
+        /*05f0*/                   NOP;
+.L_x_10:
+
+
+//--------------------- .text.fmaChain(double *, const double *, const double *, int) --------------------------
+	.section	.text.fmaChain(double *, const double *, const double *, int),"ax",@progbits
+	.align	128
+        .global         fmaChain(double *, const double *, const double *, int)
+        .type           fmaChain(double *, const double *, const double *, int),@function
+        .size           fmaChain(double *, const double *, const double *, int),(.L_x_11 - fmaChain(double *, const double *, const double *, int))
+        .other          fmaChain(double *, const double *, const double *, int),@"STO_CUDA_ENTRY STV_DEFAULT"
+fmaChain(double *, const double *, const double *, int):
+.text.fmaChain(double *, const double *, const double *, int):
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R3, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDC R0, c[0x0][RZ] ;
+        /*0040*/                   IMAD R0, R0, UR4, R3 ;
+        /*0050*/                   ULDC UR4, c[0x0][0x228] ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R0, UR4, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x218] ;
+        /*0090*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*00a0*/                   LDC.64 R4, c[0x0][0x220] ;
+        /*00b0*/                   LDC.64 R8, c[0x0][0x210] ;
+        /*00c0*/                   IMAD.WIDE R2, R0, 0x8, R2 ;
+        /*00d0*/                   LDG.E.64 R2, desc[UR4][R2.64] ;
+        /*00e0*/                   IMAD.WIDE R4, R0, 0x8, R4 ;
+        /*00f0*/                   LDG.E.64 R4, desc[UR4][R4.64] ;
+        /*0100*/                   DFMA R6, R2, R4, R2 ;
+        /*0110*/                   DFMA R6, R4, R6, R2 ;
+        /*0120*/                   DFMA R6, R4, R6, R2 ;
+        /*0130*/                   DFMA R6, R4, R6, R2 ;
+        /*0140*/                   DFMA R6, R4, R6, R2 ;
+        /*0150*/                   DFMA R6, R4, R6, R2 ;
+        /*0160*/                   DFMA R6, R4, R6, R2 ;
+        /*0170*/                   DFMA R6, R4, R6, R2 ;
+        /*0180*/                   IMAD.WIDE R2, R0, 0x8, R8 ;
+        /*0190*/                   STG.E.64 desc[UR4][R2.64], R6 ;
+        /*01a0*/                   EXIT ;
+.L_x_6:
+        /*01b0*/                   BRA `(.L_x_6);
+        /*01c0*/                   NOP;
+        /*01d0*/                   NOP;
+        /*01e0*/                   NOP;
+        /*01f0*/                   NOP;
+        /*0200*/                   NOP;
+        /*0210*/                   NOP;
+        /*0220*/                   NOP;
+        /*0230*/                   NOP;
+        /*0240*/                   NOP;
+        /*0250*/                   NOP;
+        /*0260*/                   NOP;
+        /*0270*/                   NOP;
+.L_x_11:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4
