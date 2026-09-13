@@ -59,7 +59,8 @@ func (inv ReasonInventory) Lookup(index uint32) string {
 // partial inventory.
 // Names and IDs are owned copies sorted by ID. Native errors remain inspectable.
 //
-// The 64-bit parameter layouts for CUPTI 27 and CUDA 13 releases (13.x) are admitted;
+// The 64-bit parameter layouts for CUPTI 27 and the measured CUDA 13 versions
+// are admitted;
 // other versions fail before querying the layout. Runtime/device support must
 // still be established by the native result on the selected configuration.
 func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {

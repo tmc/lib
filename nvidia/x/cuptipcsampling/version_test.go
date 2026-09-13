@@ -17,10 +17,18 @@ func TestQualifiedVersions(t *testing.T) {
 		{130101, true, true},
 		{130202, true, true},
 		{130301, true, true},
+		{130200, true, true},
 		{130400, true, true},
 		{0, false, false},
 		{28, false, false},
 		{120901, false, false},
+		// Inside CUDA 13 but unmeasured: a range gate would admit these.
+		{130002, false, false},
+		{130100, false, false},
+		{130201, false, false},
+		{130300, false, false},
+		{130500, false, false},
+		{139999, false, false},
 		{140000, false, false},
 	} {
 		if got := qualifiedSamplingVersion(tt.version); got != tt.sampling {
@@ -34,7 +42,7 @@ func TestQualifiedVersions(t *testing.T) {
 
 // An unwitnessed version must be refused before any native configuration call.
 func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
-	for _, version := range []uint32{0, 27, 28, 120901, 140000} {
+	for _, version := range []uint32{0, 27, 28, 120901, 130300, 130500, 140000} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			api := samplingControlAPI{
 				version: func() (uint32, error) { return version, nil },
