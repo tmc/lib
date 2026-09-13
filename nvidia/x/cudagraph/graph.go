@@ -17,12 +17,27 @@ type Graph struct {
 }
 
 // New creates an empty CUDA graph.
-func New() (*Graph, error) {
-	raw, err := driver.NewGraph(0)
+func New(dev ...*cuda.Device) (*Graph, error) {
+	var d *cuda.Device
+	if len(dev) > 0 {
+		d = dev[0]
+	}
+	var raw driver.Graph
+	create := func() error {
+		var err error
+		raw, err = driver.NewGraph(0)
+		return err
+	}
+	var err error
+	if d != nil {
+		err = d.WithContext(create)
+	} else {
+		err = create()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: create graph: %w", err)
 	}
-	return &Graph{raw: raw}, nil
+	return &Graph{raw: raw, device: d}, nil
 }
 
 // Capture executes fn on stream while recording all enqueued operations into a Graph.
