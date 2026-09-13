@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
@@ -202,10 +203,28 @@ func (r *Recorder) PushPMSample(sample cuptipmsampling.Sample) {
 		labels["pm."+k] = fmt.Sprintf("%.4f", v)
 	}
 	r.Push(Record{
-		TimestampNs:   int64(sample.StartTimestamp),
-		KernelName:    "device.pm_sampling",
-		DurationNs:    sample.DurationNs,
-		Labels:        labels,
+		TimestampNs: int64(sample.StartTimestamp),
+		KernelName:  "device.pm_sampling",
+		DurationNs:  sample.DurationNs,
+		Labels:      labels,
+	})
+}
+
+// PushActivityRecord records a CUPTI activity using the host clock as its timestamp.
+// Device timestamps are not comparable with the host timestamps used by Go traces.
+func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
+	var duration uint64
+	if activity.Complete {
+		duration = activity.End - activity.Start
+	}
+	r.Push(Record{
+		TimestampNs:   time.Now().UnixNano(),
+		KernelName:    activity.Name,
+		CorrelationID: uint64(activity.CorrelationID),
+		DurationNs:    duration,
+		Labels: map[string]string{
+			"activity.kind": fmt.Sprintf("%d", activity.Kind),
+		},
 	})
 }
 
