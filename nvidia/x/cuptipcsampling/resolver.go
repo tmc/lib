@@ -88,6 +88,10 @@ func (r *CaptureResolver) ResolvePC(mod ModuleID, kernelName string, pcOffset ui
 		if inst.SASSLine > 0 {
 			loc.SASSLine = int64(inst.SASSLine)
 		}
+		if inst.PTXLine > 0 {
+			loc.PTXLine = int64(inst.PTXLine)
+		}
+		loc.InlinedAt = inst.InlinedAt
 	}
 	return loc
 }

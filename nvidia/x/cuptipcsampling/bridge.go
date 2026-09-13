@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 )
 
 // ModuleID identifies a loaded CUDA module image.
@@ -27,6 +28,7 @@ type CodeLocation struct {
 	SASSLine    int64
 	CUBINOffset uint64 // Absolute byte offset within the CUBIN ELF image.
 	Resolved    bool   // True if the kernel and instruction were successfully located.
+	InlinedAt   []cudaptx.Location
 }
 
 // CodeResolver resolves a kernel function and function-relative PC offset to its source
@@ -125,6 +127,21 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 				FileName:     ptxFile,
 				Line:         loc.PTXLine,
 			})
+		}
+
+		// Inlined frames (innermost first)
+		for _, inl := range loc.InlinedAt {
+			if inl.Line > 0 {
+				file := inl.File
+				if file == "" {
+					file = "kernels.cu"
+				}
+				frames = append(frames, cudaprof.Frame{
+					FunctionName: loc.KernelName + ".inlined",
+					FileName:     file,
+					Line:         int64(inl.Line),
+				})
+			}
 		}
 
 		// Top device frame: CUDA source line (if resolved)

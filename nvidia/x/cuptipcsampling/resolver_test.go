@@ -84,6 +84,9 @@ func TestCaptureResolverResolvePC(t *testing.T) {
 	if loc0.PTXFile != "kernels.ptx" {
 		t.Errorf("PTXFile = %q, want kernels.ptx", loc0.PTXFile)
 	}
+	if loc0.PTXLine != 12 {
+		t.Errorf("PTXLine = %d, want 12", loc0.PTXLine)
+	}
 	if loc0.SASSFile != "kernels.sass" {
 		t.Errorf("SASSFile = %q, want kernels.sass", loc0.SASSFile)
 	}
@@ -101,6 +104,9 @@ func TestCaptureResolverResolvePC(t *testing.T) {
 	}
 	if loc1.SourceLine != 3 {
 		t.Errorf("SourceLine = %d, want 3", loc1.SourceLine)
+	}
+	if loc1.PTXLine != 14 {
+		t.Errorf("PTXLine = %d, want 14", loc1.PTXLine)
 	}
 	if loc1.SASSLine != 5 {
 		t.Errorf("SASSLine = %d, want 5", loc1.SASSLine)
