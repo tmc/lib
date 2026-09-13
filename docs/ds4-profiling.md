@@ -1262,11 +1262,19 @@ the shared FFN and the whole expert path at `:717-762` — is `Matvec`: matrix-
 time. Widening the batch changes dense-front batching and buffer sizes; it
 does not turn expert gate/up/down into cross-token launches.
 
-So the difference is algorithmic, not a tuning constant. The oracle computes
-the expert path as a matmul over the chunk and reads each expert's weights
-once; ds4-min computes it as 2048 matvecs and reads them 2048 times. Batching
-the expert path is a real piece of work, and any proposed optimization gets
-measured on its own rather than inherited from this observation.
+So the difference is algorithmic, not a tuning constant: **the oracle batches
+expert evaluation across tokens, and ds4-min executes token-specific
+matvecs.**
+
+Resist the next step, which an earlier draft took — that the oracle reads each
+expert's weights once where ds4-min reads them 2048 times. Launch structure is
+not memory traffic. Tiling and cache behaviour can reread data inside a single
+matmul, and experts are routed *per token*, so ds4-min does not touch every
+expert on every one of the 2048 passes. Batched evaluation creates the
+opportunity for weight reuse; actual bytes moved need counters or an explicit
+access model, and neither has been collected. Batching the expert path is a
+real piece of work, and any proposed optimization gets measured on its own
+rather than inherited from this observation.
 
 ### What qualifies this comparison, and what does not
 
@@ -1279,17 +1287,33 @@ equivalent.** No source-derived expected count has been established for
 counter domains, not subtractable as missing kernels, but retained). The
 comparison is therefore asymmetrically qualified.
 
-Note which way that cuts: undercounting the C side would *inflate* the ratio,
-so 45.87x is the number at risk, not a floor. Two things bound it. The
-oracle's heaviest kernel families are exact multiples of 43 (43, 86, 129,
-172, 344), which is not what ragged record loss looks like — though several
-small utility kernels are not multiples, and no source expectation exists to
-say whether they should be. And the registered uninstrumented rates give an
-independent route to the same gap: 661.18 t/s against ds4-min's 12.96 t/s is
-**51.0x**, arrived at without any capture at all. Two methods landing on 46x
-and 51x is why the gap is credible even though the C capture is unqualified.
+Note which way that cuts, conditionally: *if* C duration is undercounted and
+the Go retained duration is held fixed, the observed ratio is inflated. That
+is not an unconditional upper bound, because Go completeness is itself only
+tested by necessary sentinels.
 
-What remains open is the exact figure, not the finding.
+An earlier draft offered two bounds against that risk. Neither is a bound, and
+both are withdrawn:
+
+- **Divisibility by 43 constrains nothing.** Losing an entire 43-launch family,
+  or 43 launches out of 86, preserves divisibility exactly. Whole-buffer loss
+  need not look ragged. The multiples are a pattern worth deriving expectations
+  from, not a retention measurement.
+- **The registered 661.18 t/s is not a replication.** It is wall prefill
+  throughput; 45.87x is a ratio of summed instrumented kernel durations — a
+  different metric. It also ran at context allocation 65665 against this run's
+  4096 (`docs/oracle-workload-bench.md:48-49`), on a different binary, host
+  load and profiling condition, and that document says in its own words that
+  one repetition establishes "neither statistical significance nor a
+  port/oracle ratio" (`:70`). Two numbers computed different ways from
+  unmatched runs do not corroborate each other by landing nearby.
+
+What the evidence supports is narrower than the earlier draft claimed: this
+capture reports 45.87x on summed kernel duration, an unmatched historical
+observation reports 51.0x on wall throughput, and both motivate work on the Go
+prefill path. Neither establishes a qualified ratio until C retention is
+checked against source-derived expectations and the run conditions are
+matched.
 
 ### The decode arm is close, and its gate is open
 
