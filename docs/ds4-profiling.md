@@ -1324,6 +1324,48 @@ as missing-kernel counts). Passing sentinels detects deficits in the named
 families; it does not erase that diagnostic for the families nobody has
 accounted for.
 
+### One C sample was not enough, and the ratio is a range
+
+The 45.87x above is one draw. Two further runs of the same workload on the
+same host, each with the identical 3472 prefill launches, give summed kernel
+durations of **2570.92 ms** and **4748.80 ms** against the published
+3280.79 ms. Holding the single Go sample fixed, that is:
+
+| C prefill sample | summed kernel duration | Go / C |
+| --- | ---: | ---: |
+| run 3 (pristine binary) | 2,570.92 ms | **58.53x** |
+| run 1 (pristine binary, published above) | 3,280.79 ms | **45.87x** |
+| run 2 (receipt-patched binary) | 4,748.80 ms | **31.69x** |
+
+The binary is not the variable: the pristine binary produced both the lowest
+and the middle figure, and the patched binary's added host work is an 8 KB
+write outside the prefill capture range entirely. Nor is it clocks or
+thermals, which would move everything together. It is concentrated:
+
+| kernel | launches | run 3 | run 1 | run 2 | spread |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `dense_q8_d2r` | 172 | 300.3 ms | 658.4 ms | 1512.5 ms | **5.04x** |
+| `gateup_iq2_swiglu_q8_d2r` | 43 | 665.5 ms | 846.1 ms | 1294.4 ms | 1.94x |
+| `down_q2k_d2r` | 43 | 286.2 ms | 330.8 ms | 355.0 ms | 1.24x |
+| `attention_tokentile_hmma` | 41 | 204.8 ms | 227.1 ms | 246.1 ms | 1.20x |
+
+`dense_q8_d2r` spans a factor of five across 172 launches that are identical
+in number and in the work they are asked to do. What drives it is not
+established here; the ordering of the three runs does not follow the ordering
+of anything we recorded about host state.
+
+So: **treat 45.87x as one sample of a quantity whose observed range is
+31.7x to 58.5x, and do not quote it as the ratio.** The direction survives
+this easily — every sample is a factor of thirty or more, and no amount of
+C-side variance closes a gap that size. The figure does not survive it. The
+Go side has exactly one sample and its own variance is unmeasured, so the
+range above is a lower bound on the total spread, not a confidence interval.
+
+Anything measuring a future optimization against 45.87x would be measuring
+against noise. Re-measure both sides, repeatedly, before crediting a change.
+
+### The retention risk, and two withdrawn bounds
+
 Note which way that cuts, conditionally: *if* C duration is undercounted and
 the Go retained duration is held fixed, the observed ratio is inflated. That
 is not an unconditional upper bound, because Go completeness is itself only
