@@ -3,6 +3,10 @@
 // It provides structured access to disassembled GPU machine instructions, PC offsets,
 // instruction predicates, opcodes, memory operands, and control codes.
 //
+// [Diff] and [DiffFunctions] perform normalized differential inspection between
+// kernel versions, aligning instructions across loop unrolls and memory offset drift,
+// and computing architectural summaries including register spills and opcode substitutions.
+//
 // # Toolkit versions
 //
 // [Disassembler] runs nvdisasm, whose options differ between toolkits. Of the
