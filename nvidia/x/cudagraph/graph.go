@@ -176,7 +176,10 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 	return nil
 }
 
-// Update updates the parameters of this executable graph from a topologically identical graph.
+// Update updates this executable graph from a topologically identical graph.
+// CUDA checks the graph topology, but does not check that kernel nodes use the
+// same kernel function, parameters, or shared-memory size. Callers must ensure
+// those properties themselves.
 func (e *Exec) Update(g *Graph) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
