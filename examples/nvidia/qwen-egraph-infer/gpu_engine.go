@@ -106,90 +106,96 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	// Copy input token ID (4 bytes) to GPU
-	if err := rt.sp.TokenIn.CopyFromHost([]int32{tokenID}); err != nil {
-		return 0, err
-	}
-
-	// 1. Embedding lookup
-	if err := cudalaunch.Kernel(rt.engine.embedFn).Grid(1).Block(256).
-		Launch(rt.weights.EmbedTokens, rt.sp.TokenIn, rt.sp.X, int32(cfg.HiddenSize)); err != nil {
-		return 0, err
-	}
-
-	// 2. Transformer Decoder Layers using Fused Megakernels
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
-		layerW := &rt.weights.Layers[i]
-		layerKV, err := rt.kvCache.Layer(i)
-		if err != nil {
-			return 0, err
+	var nextTok int32
+	err := rt.dev.WithContext(func() error {
+		// Copy input token ID (4 bytes) to GPU
+		if err := rt.sp.TokenIn.CopyFromHost([]int32{tokenID}); err != nil {
+			return err
 		}
 
-		// (a) Pre-Attention RMSNorm
-		if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
-			Launch(rt.sp.X, layerW.InputNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
+		// 1. Embedding lookup
+		if err := cudalaunch.Kernel(rt.engine.embedFn).Grid(1).Block(256).
+			Launch(rt.weights.EmbedTokens, rt.sp.TokenIn, rt.sp.X, int32(cfg.HiddenSize)); err != nil {
+			return err
 		}
 
-		// (b) Fused QKV GEMV Projections
-		maxQKV := qDim
-		if kvDim > maxQKV {
-			maxQKV = kvDim
+		// 2. Transformer Decoder Layers using Fused Megakernels
+		for i := 0; i < cfg.NumHiddenLayers; i++ {
+			layerW := &rt.weights.Layers[i]
+			layerKV, err := rt.kvCache.Layer(i)
+			if err != nil {
+				return err
+			}
+
+			// (a) Pre-Attention RMSNorm
+			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+				Launch(rt.sp.X, layerW.InputNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+
+			// (b) Fused QKV GEMV Projections
+			maxQKV := qDim
+			if kvDim > maxQKV {
+				maxQKV = kvDim
+			}
+			if err := cudalaunch.Kernel(rt.engine.fusedQKVFn).
+				Grid(uint32((maxQKV+127)/128)).Block(128).
+				Launch(rt.sp.NormX, layerW.WQ, layerW.WK, layerW.WV,
+					rt.sp.Q, rt.sp.K, rt.sp.V,
+					int32(cfg.HiddenSize), int32(qDim), int32(kvDim)); err != nil {
+				return err
+			}
+
+			// (c) Fused RoPE + Paged KV Cache Store
+			if err := cudalaunch.Kernel(rt.engine.fusedRoPEKV).
+				Grid(uint32(cfg.NumAttentionHeads)).Block(uint32(headDim/2)).
+				Launch(rt.sp.Q, rt.sp.K, rt.sp.V,
+					layerKV.K, layerKV.V,
+					int32(pos), int32(cfg.NumAttentionHeads), int32(cfg.NumKeyValueHeads),
+					int32(headDim), cfg.RopeTheta, int32(cfg.MaxSeqLen)); err != nil {
+				return err
+			}
+
+			// (d) Post-Attention RMSNorm
+			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+				Launch(rt.sp.X, layerW.PostNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+
+			// (e) Fused Gate + Up + SiLU + Product
+			if err := cudalaunch.Kernel(rt.engine.fusedGateUp).
+				Grid(uint32((cfg.IntermediateSize+127)/128)).Block(128).
+				Launch(rt.sp.NormX, layerW.WGate, layerW.WUp, rt.sp.FFNAct,
+					int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
+				return err
+			}
+
+			// (f) Fused Down-Projection + Residual Add
+			if err := cudalaunch.Kernel(rt.engine.fusedDownAdd).
+				Grid(uint32((cfg.HiddenSize+127)/128)).Block(128).
+				Launch(rt.sp.FFNAct, layerW.WDown, rt.sp.X, rt.sp.X,
+					int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
+				return err
+			}
 		}
-		if err := cudalaunch.Kernel(rt.engine.fusedQKVFn).
-			Grid(uint32((maxQKV+127)/128)).Block(128).
-			Launch(rt.sp.NormX, layerW.WQ, layerW.WK, layerW.WV,
-				rt.sp.Q, rt.sp.K, rt.sp.V,
-				int32(cfg.HiddenSize), int32(qDim), int32(kvDim)); err != nil {
-			return 0, err
+
+		// 3. Argmax Next-Token Sampling
+		if err := cudalaunch.Kernel(rt.engine.argmaxFn).Grid(1).Block(1).
+			Launch(rt.sp.X, rt.sp.TokenOut, int32(cfg.HiddenSize)); err != nil {
+			return err
 		}
 
-		// (c) Fused RoPE + Paged KV Cache Store
-		if err := cudalaunch.Kernel(rt.engine.fusedRoPEKV).
-			Grid(uint32(cfg.NumAttentionHeads)).Block(uint32(headDim/2)).
-			Launch(rt.sp.Q, rt.sp.K, rt.sp.V,
-				layerKV.K, layerKV.V,
-				int32(pos), int32(cfg.NumAttentionHeads), int32(cfg.NumKeyValueHeads),
-				int32(headDim), cfg.RopeTheta, int32(cfg.MaxSeqLen)); err != nil {
-			return 0, err
+		// Read sampled token back (4 bytes)
+		out := make([]int32, 1)
+		if err := rt.sp.TokenOut.CopyToHost(out); err != nil {
+			return err
 		}
 
-		// (d) Post-Attention RMSNorm
-		if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
-			Launch(rt.sp.X, layerW.PostNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
-		}
+		nextTok = out[0]
+		return nil
+	})
 
-		// (e) Fused Gate + Up + SiLU + Product
-		if err := cudalaunch.Kernel(rt.engine.fusedGateUp).
-			Grid(uint32((cfg.IntermediateSize+127)/128)).Block(128).
-			Launch(rt.sp.NormX, layerW.WGate, layerW.WUp, rt.sp.FFNAct,
-				int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
-			return 0, err
-		}
-
-		// (f) Fused Down-Projection + Residual Add
-		if err := cudalaunch.Kernel(rt.engine.fusedDownAdd).
-			Grid(uint32((cfg.HiddenSize+127)/128)).Block(128).
-			Launch(rt.sp.FFNAct, layerW.WDown, rt.sp.X, rt.sp.X,
-				int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
-			return 0, err
-		}
-	}
-
-	// 3. Argmax Next-Token Sampling
-	if err := cudalaunch.Kernel(rt.engine.argmaxFn).Grid(1).Block(1).
-		Launch(rt.sp.X, rt.sp.TokenOut, int32(cfg.HiddenSize)); err != nil {
-		return 0, err
-	}
-
-	// Read sampled token back (4 bytes)
-	out := make([]int32, 1)
-	if err := rt.sp.TokenOut.CopyToHost(out); err != nil {
-		return 0, err
-	}
-
-	return out[0], nil
+	return nextTok, err
 }
 
 // Close frees runtime allocations.

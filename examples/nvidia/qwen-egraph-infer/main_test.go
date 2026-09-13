@@ -73,3 +73,53 @@ func TestQwenEGraphMegakernelPlan(t *testing.T) {
 	}
 	t.Logf("Qwen optimal plan: %s (cost: %.2f)", planStr, cost)
 }
+
+func TestGenerateQwenMegakernelsFromPlan(t *testing.T) {
+	cfg := DefaultQwenConfig()
+
+	// 1. Nil plan rejected
+	if _, err := generateQwenMegakernels(nil, &cfg); err == nil {
+		t.Fatalf("expected error for nil plan")
+	}
+
+	// 2. Fused plan generates fused kernels
+	fusedPlan := &egraph.Expr{
+		Op: "add",
+		Children: []*egraph.Expr{
+			{Op: "fused_rope_store_kv"},
+			{Op: "fused_swiglu_gemv"},
+		},
+	}
+	fusedSrc, err := generateQwenMegakernels(fusedPlan, &cfg)
+	if err != nil {
+		t.Fatalf("failed generating CUDA from fused plan: %v", err)
+	}
+	if !strings.Contains(fusedSrc, "Fused RoPE + Paged KV Store (selected by e-graph plan)") {
+		t.Errorf("expected fused RoPE kernel in output")
+	}
+	if !strings.Contains(fusedSrc, "Fused Gate + Up + SiLU (selected by e-graph plan)") {
+		t.Errorf("expected fused GateUp kernel in output")
+	}
+	if !strings.Contains(fusedSrc, "QwenEmbeddingLookup") || !strings.Contains(fusedSrc, "QwenArgmaxSampling") {
+		t.Errorf("expected common embedding and argmax kernels in output")
+	}
+
+	// 3. Unfused plan generates unfused baseline kernels
+	unfusedPlan := &egraph.Expr{
+		Op: "add",
+		Children: []*egraph.Expr{
+			{Op: "store_kv"},
+			{Op: "gemv"},
+		},
+	}
+	unfusedSrc, err := generateQwenMegakernels(unfusedPlan, &cfg)
+	if err != nil {
+		t.Fatalf("failed generating CUDA from unfused plan: %v", err)
+	}
+	if !strings.Contains(unfusedSrc, "Unfused RoPE + Paged KV Store (baseline fallback)") {
+		t.Errorf("expected unfused RoPE baseline kernel in output")
+	}
+	if !strings.Contains(unfusedSrc, "Unfused Gate + Up + SiLU (baseline fallback)") {
+		t.Errorf("expected unfused GateUp baseline kernel in output")
+	}
+}

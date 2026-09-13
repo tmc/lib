@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -9,10 +10,25 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-const qwenFusedMegakernelCU = `
-// --- Qwen JIT Fused Megakernels Optimized via E-Graph Saturation ---
+// hasOp returns whether expr or any of its descendants has the given operator.
+func hasOp(expr *egraph.Expr, op string) bool {
+	if expr == nil {
+		return false
+	}
+	if expr.Op == op {
+		return true
+	}
+	for _, child := range expr.Children {
+		if hasOp(child, op) {
+			return true
+		}
+	}
+	return false
+}
 
-extern "C" __global__ void QwenEmbeddingLookup(
+// generateEmbeddingLookup generates the token embedding lookup kernel.
+func generateEmbeddingLookup() string {
+	return `extern "C" __global__ void QwenEmbeddingLookup(
     const float* __restrict__ embedTable,
     const int* __restrict__ tokenIn,
     float* __restrict__ outX,
@@ -22,9 +38,12 @@ extern "C" __global__ void QwenEmbeddingLookup(
     if (idx >= hiddenSize) return;
     int tokenID = tokenIn[0];
     outX[idx] = embedTable[tokenID * hiddenSize + idx];
+}`
 }
 
-extern "C" __global__ void QwenRMSNorm(
+// generateRMSNorm generates the layer root-mean-square normalization kernel.
+func generateRMSNorm() string {
+	return `extern "C" __global__ void QwenRMSNorm(
     const float* __restrict__ x,
     const float* __restrict__ normWeight,
     float* __restrict__ outNormX,
@@ -47,9 +66,12 @@ extern "C" __global__ void QwenRMSNorm(
     for (int i = threadIdx.x; i < hiddenSize; i += blockDim.x) {
         outNormX[i] = x[i] * normWeight[i] * invRms;
     }
+}`
 }
 
-extern "C" __global__ void QwenFusedQKVGEMV(
+// generateFusedQKVGEMV generates the combined query, key, and value projection kernel.
+func generateFusedQKVGEMV() string {
+	return `extern "C" __global__ void QwenFusedQKVGEMV(
     const float* __restrict__ normX,
     const float* __restrict__ W_q,
     const float* __restrict__ W_k,
@@ -77,8 +99,14 @@ extern "C" __global__ void QwenFusedQKVGEMV(
         out_k[row] = sumK;
         out_v[row] = sumV;
     }
+}`
 }
 
+// generateRoPEKV generates the RoPE rotation and KV cache store kernel.
+// When fused is true, it fuses rotation and cache storage into a single launch.
+func generateRoPEKV(fused bool) string {
+	if fused {
+		return `// Fused RoPE + Paged KV Store (selected by e-graph plan)
 extern "C" __global__ void QwenFusedRoPEStoreKV(
     float* __restrict__ Q,
     float* __restrict__ K,
@@ -119,8 +147,58 @@ extern "C" __global__ void QwenFusedRoPEStoreKV(
         vCache[cacheIdx0]     = V[vOffset];
         vCache[cacheIdx0 + 1] = V[vOffset + 1];
     }
+}`
+	}
+	return `// Unfused RoPE + Paged KV Store (baseline fallback)
+extern "C" __global__ void QwenFusedRoPEStoreKV(
+    float* __restrict__ Q,
+    float* __restrict__ K,
+    const float* __restrict__ V,
+    float* __restrict__ kCache,
+    float* __restrict__ vCache,
+    int pos, int numQHeads, int numKVHeads, int headDim, float ropeTheta, int maxSeqLen
+) {
+    int headIdx = blockIdx.x;
+    int pairIdx = threadIdx.x;
+    if (headIdx >= numQHeads || pairIdx >= headDim / 2) return;
+
+    float freq = 1.0f / powf(ropeTheta, (float)(2 * pairIdx) / (float)headDim);
+    float val = (float)pos * freq;
+    float cosVal = cosf(val);
+    float sinVal = sinf(val);
+
+    // Step 1: RoPE on Q
+    int qOffset = headIdx * headDim + 2 * pairIdx;
+    float q0 = Q[qOffset];
+    float q1 = Q[qOffset + 1];
+    Q[qOffset]     = q0 * cosVal - q1 * sinVal;
+    Q[qOffset + 1] = q0 * sinVal + q1 * cosVal;
+
+    // Step 2: RoPE on K and store to cache
+    if (headIdx < numKVHeads) {
+        int kOffset = headIdx * headDim + 2 * pairIdx;
+        float k0 = K[kOffset];
+        float k1 = K[kOffset + 1];
+        float rotK0 = k0 * cosVal - k1 * sinVal;
+        float rotK1 = k0 * sinVal + k1 * cosVal;
+        K[kOffset]     = rotK0;
+        K[kOffset + 1] = rotK1;
+
+        int cacheIdx0 = (headIdx * maxSeqLen + pos) * headDim + 2 * pairIdx;
+        kCache[cacheIdx0]     = rotK0;
+        kCache[cacheIdx0 + 1] = rotK1;
+
+        int vOffset = headIdx * headDim + 2 * pairIdx;
+        vCache[cacheIdx0]     = V[vOffset];
+        vCache[cacheIdx0 + 1] = V[vOffset + 1];
+    }
+}`
 }
 
+// generateGateUpSilu generates the FFN Gate + Up projection and SiLU activation kernel.
+func generateGateUpSilu(fused bool) string {
+	if fused {
+		return `// Fused Gate + Up + SiLU (selected by e-graph plan)
 extern "C" __global__ void QwenFusedGateUpSilu(
     const float* __restrict__ normX,
     const float* __restrict__ W_gate,
@@ -140,8 +218,36 @@ extern "C" __global__ void QwenFusedGateUpSilu(
     }
     float silu = gate / (1.0f + expf(-gate));
     outFFNAct[idx] = silu * up;
+}`
+	}
+	return `// Unfused Gate + Up + SiLU (baseline fallback)
+extern "C" __global__ void QwenFusedGateUpSilu(
+    const float* __restrict__ normX,
+    const float* __restrict__ W_gate,
+    const float* __restrict__ W_up,
+    float* __restrict__ outFFNAct,
+    int hiddenSize, int intermediateSize
+) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= intermediateSize) return;
+
+    float gate = 0.0f;
+    for (int k = 0; k < hiddenSize; k++) {
+        gate += normX[k] * W_gate[idx * hiddenSize + k];
+    }
+    float up = 0.0f;
+    for (int k = 0; k < hiddenSize; k++) {
+        up += normX[k] * W_up[idx * hiddenSize + k];
+    }
+    float silu = gate / (1.0f + expf(-gate));
+    outFFNAct[idx] = silu * up;
+}`
 }
 
+// generateDownAdd generates the FFN Down-projection and residual addition kernel.
+func generateDownAdd(fused bool) string {
+	if fused {
+		return `// Fused Down GEMV + Residual Add (selected by e-graph plan)
 extern "C" __global__ void QwenFusedDownAdd(
     const float* __restrict__ ffnAct,
     const float* __restrict__ W_down,
@@ -157,9 +263,30 @@ extern "C" __global__ void QwenFusedDownAdd(
         acc += ffnAct[j] * W_down[idx * intermediateSize + j];
     }
     outX[idx] = inX[idx] + acc;
+}`
+	}
+	return `// Unfused Down GEMV + Residual Add (baseline fallback)
+extern "C" __global__ void QwenFusedDownAdd(
+    const float* __restrict__ ffnAct,
+    const float* __restrict__ W_down,
+    const float* __restrict__ inX,
+    float* __restrict__ outX,
+    int hiddenSize, int intermediateSize
+) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= hiddenSize) return;
+
+    float acc = 0.0f;
+    for (int j = 0; j < intermediateSize; j++) {
+        acc += ffnAct[j] * W_down[idx * intermediateSize + j];
+    }
+    outX[idx] = inX[idx] + acc;
+}`
 }
 
-extern "C" __global__ void QwenArgmaxSampling(
+// generateArgmaxSampling generates the greedy argmax next-token selection kernel.
+func generateArgmaxSampling() string {
+	return `extern "C" __global__ void QwenArgmaxSampling(
     const float* __restrict__ logits,
     int* __restrict__ tokenOut,
     int vocabSize
@@ -174,8 +301,50 @@ extern "C" __global__ void QwenArgmaxSampling(
         }
     }
     tokenOut[0] = maxIdx;
+}`
 }
-`
+
+// generateQwenMegakernels dynamically generates the CUDA source code for the
+// Qwen inference engine driven directly by the extracted e-graph AST plan.
+func generateQwenMegakernels(plan *egraph.Expr, cfg *QwenConfig) (string, error) {
+	if plan == nil {
+		return "", fmt.Errorf("egraph: nil plan passed to generateQwenMegakernels")
+	}
+
+	var sb strings.Builder
+	sb.WriteString("// Auto-generated by Qwen E-Graph JIT Optimizer\n")
+	sb.WriteString(fmt.Sprintf("// Extracted Plan: %s\n\n", plan.String()))
+
+	// Common device constants
+	sb.WriteString("#define WARP_SIZE 32\n")
+	sb.WriteString("#define FULL_WARP_MASK 0xffffffff\n\n")
+
+	// 1. Core architecture-invariant kernels
+	sb.WriteString(generateEmbeddingLookup())
+	sb.WriteString("\n\n")
+	sb.WriteString(generateRMSNorm())
+	sb.WriteString("\n\n")
+	sb.WriteString(generateFusedQKVGEMV())
+	sb.WriteString("\n\n")
+
+	// 2. Attention RoPE + KV Cache Store: driven by e-graph plan
+	fusedRoPE := hasOp(plan, "fused_rope_store_kv")
+	sb.WriteString(generateRoPEKV(fusedRoPE))
+	sb.WriteString("\n\n")
+
+	// 3. FFN SwiGLU: driven by e-graph plan
+	fusedSwiGLU := hasOp(plan, "fused_swiglu_gemv")
+	sb.WriteString(generateGateUpSilu(fusedSwiGLU))
+	sb.WriteString("\n\n")
+	sb.WriteString(generateDownAdd(fusedSwiGLU))
+	sb.WriteString("\n\n")
+
+	// 4. Argmax sampling
+	sb.WriteString(generateArgmaxSampling())
+	sb.WriteString("\n")
+
+	return sb.String(), nil
+}
 
 // FusedQwenEngine holds compiled GPU functions derived from the E-Graph optimizer.
 type FusedQwenEngine struct {
@@ -186,10 +355,22 @@ type FusedQwenEngine struct {
 	fusedGateUp  driver.Function
 	fusedDownAdd driver.Function
 	argmaxFn     driver.Function
+	plan         *egraph.Expr
 	planSummary  string
 }
 
-// OptimizeAndCompileQwen runs equality saturation on the Qwen layer DAG and compiles JIT megakernels.
+// Plan returns the optimal AST expression extracted by equality saturation.
+func (e *FusedQwenEngine) Plan() *egraph.Expr {
+	return e.plan
+}
+
+// PlanSummary returns the string representation of the optimal AST plan.
+func (e *FusedQwenEngine) PlanSummary() string {
+	return e.planSummary
+}
+
+// OptimizeAndCompileQwen runs equality saturation on the Qwen layer DAG and
+// compiles dynamically generated JIT megakernels synthesized from the optimal plan.
 func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine, error) {
 	eg := egraph.New()
 
@@ -240,6 +421,11 @@ func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine
 		return nil, fmt.Errorf("egraph extract plan: %w", err)
 	}
 
+	cudaSrc, err := generateQwenMegakernels(bestPlan, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("generate megakernels from plan: %w", err)
+	}
+
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		return nil, fmt.Errorf("device compute capability: %w", err)
@@ -249,7 +435,7 @@ func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine
 		nvrtcx.WithName("qwen_megakernels.cu"),
 		nvrtcx.WithArch(major, minor),
 	}
-	compiled, err := nvrtcx.Compile(qwenFusedMegakernelCU, opts...)
+	compiled, err := nvrtcx.Compile(cudaSrc, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("compile megakernels: %w", err)
 	}
@@ -275,6 +461,7 @@ func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine
 		fusedGateUp:  kGateUp,
 		fusedDownAdd: kDownAdd,
 		argmaxFn:     kArgmax,
+		plan:         bestPlan,
 		planSummary:  bestPlan.String(),
 	}, nil
 }
