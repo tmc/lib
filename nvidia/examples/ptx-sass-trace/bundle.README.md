@@ -104,14 +104,22 @@ loads from the same data puts `lg_throttle` at 89.94%. Queue pressure is what
 `stall_mem` sees; latency is what it cannot.
 
 A production capture shows the same inversion from the other side, where it
-costs something: a DeepSeek-V4-Flash IQ2XXS decode arm on a GB10 (4 tokens at
-context 1024, captured 2026-09-13), 1313345 samples,
-reports `stall_mem` at 11.75% -- entirely the throttle family, `lg_throttle`
-106412 + `mio_throttle` 47631 + `tex_throttle` 271 -- while `long_scoreboard`
-alone is 82.97% and `short_scoreboard` 1.68%. Sizing that workload's memory
-problem from `stall_mem` gives 11.75% and points at bandwidth, when the 82.97%
-is dependency latency. The split of `stall_scoreboard` into its two reasons is
-what decides that, and it exists only in `reason_samples`.
+costs something: a DeepSeek-V4-Flash IQ2XXS decode arm on a GB10. Three
+independent captures (`go test -count=1`, 2026-09-13, warm cache, ~3.8 s each,
+478820 to 483231 accepted samples over the workload's own kernels) report
+`long_scoreboard` at 66.08 / 66.53 / 66.12% against `short_scoreboard` at
+2.29 / 2.26 / 2.31% -- a long-to-short ratio of 28.7:1 to 29.5:1. Sizing that
+workload's memory problem from `stall_mem` points at bandwidth; two thirds of
+the samples are dependency latency. The split of `stall_scoreboard` into its two
+reasons is what decides that, and it exists only in `reason_samples`.
+
+An earlier single capture of the same arm reported `long_scoreboard` 82.97% and
+a 49.3:1 ratio, and those numbers are withdrawn: they do not reproduce. That
+capture carried 4.9x the pre-decode discarded samples, the signature of a cold
+model load, so it is probably a different condition rather than a wrong
+measurement -- but nothing has isolated that, and a ratio needs its capture named
+as much as a percentage does. The `stall_mem` share is omitted above for the same
+reason: it was read from the withdrawn capture and has not been re-measured.
 
 One reason in `stall_mem` is observed where nothing explains it, and a reader
 should know before sizing anything from that bucket: on a GB10 at driver
