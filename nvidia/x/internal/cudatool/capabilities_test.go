@@ -91,8 +91,12 @@ func TestMeasuredVersionDifferences(t *testing.T) {
 		// Nothing in any installed version emits CSV, though the tool's docs
 		// have been read that way before.
 		{tool: "compute-sanitizer", option: "--csv", absent: []Version{V(12, 6), V(13, 0), V(13, 4)}},
-		// The two tools this tree drives did not change at all.
+		// Of the two tools this tree drives, cuobjdump's option names and
+		// arities are identical across all three versions, while nvdisasm
+		// gained exactly one option in 13.0: --emit-json, which cudasass
+		// emits for JSON mode and must therefore refuse under 12.6.
 		{tool: "nvdisasm", option: "--print-code", present: []Version{V(12, 6), V(13, 0), V(13, 4)}, arity: Bare},
+		{tool: "nvdisasm", option: "--emit-json", present: []Version{V(13, 0), V(13, 4)}, absent: []Version{V(12, 6)}, arity: Bare},
 		{tool: "cuobjdump", option: "--dump-sass", present: []Version{V(12, 6), V(13, 0), V(13, 4)}, arity: Bare},
 	}
 	for _, tt := range tests {
