@@ -275,7 +275,7 @@ func parseOperation(stmt string, line int) *Operation {
 }
 
 func extractOperandsAndAttributes(s string) (operands []string, attributes string) {
-	for _, tok := range strings.Split(s, ",") {
+	for _, tok := range SplitOperands(s) {
 		tok = strings.TrimSpace(tok)
 		if tok == "" {
 			continue
@@ -304,6 +304,10 @@ func findTopLevelColon(s string) int {
 	for i := len(s) - 1; i >= 0; i-- {
 		switch s[i] {
 		case '>':
+			if i > 0 && s[i-1] == '-' {
+				// Arrow '->' is not a closing angle bracket
+				continue
+			}
 			angle++
 		case '<':
 			if angle > 0 {

@@ -3,6 +3,8 @@ package tileir
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
 // Location represents a source code coordinate attached to an operation or function.
@@ -72,6 +74,7 @@ type Function struct {
 	StartLine  int
 	EndLine    int
 	OptHints   string
+	Remarks    []tileiras.Remark
 }
 
 // OperationAtLine returns the operation located on the given line number, or nil.
@@ -135,6 +138,7 @@ type Operation struct {
 	Loc        Location // resolved source location
 	LocRef     string   // raw location symbol, e.g. "#loc10"
 	Raw        string   // full raw text of the operation line
+	Remarks    []tileiras.Remark // compiler remarks attached to this operation
 }
 
 // IsTMA reports whether this operation represents an asynchronous TMA memory transfer.

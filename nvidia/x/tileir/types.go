@@ -433,6 +433,41 @@ func ParseType(s string) (Type, error) {
 		return &TensorViewType{Shape: t.Shape, ElementType: t.ElementType}, nil
 	}
 
+	if strings.Contains(s, "->") {
+		arrowIdx := strings.Index(s, "->")
+		inPart := strings.TrimSpace(s[:arrowIdx])
+		resPart := strings.TrimSpace(s[arrowIdx+2:])
+
+		inPart = strings.TrimPrefix(inPart, "(")
+		inPart = strings.TrimSuffix(inPart, ")")
+		var inputs []Type
+		for _, inStr := range SplitOperands(inPart) {
+			inStr = strings.TrimSpace(inStr)
+			if inStr != "" {
+				inType, err := ParseType(inStr)
+				if err != nil {
+					return nil, err
+				}
+				inputs = append(inputs, inType)
+			}
+		}
+
+		resPart = strings.TrimPrefix(resPart, "(")
+		resPart = strings.TrimSuffix(resPart, ")")
+		var results []Type
+		for _, resStr := range SplitOperands(resPart) {
+			resStr = strings.TrimSpace(resStr)
+			if resStr != "" {
+				resType, err := ParseType(resStr)
+				if err != nil {
+					return nil, err
+				}
+				results = append(results, resType)
+			}
+		}
+		return NewFunction(inputs, results), nil
+	}
+
 	return nil, fmt.Errorf("unrecognized tileir type: %q", s)
 }
 
