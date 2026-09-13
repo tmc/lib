@@ -28,7 +28,7 @@ type CubinIdentity struct {
 // It loads no CUDA module, launches no code and enables no collector.
 //
 // This query is for post-processing outside CUPTI callbacks. It admits the
-// 64-bit parameter layout for CUPTI 27, 130001 and 130200. A matching sampled
+// 64-bit parameter layout for CUPTI 27, 130001, 130200 and 130400. A matching sampled
 // CRC is only a candidate code-image link: retain module/process generation,
 // the artifact digest and function/offset evidence when resolving PCs.
 func IdentifyCubin(cubin []byte, maxBytes int) (CubinIdentity, error) {
@@ -53,7 +53,7 @@ func identifyCubin(cubin []byte, maxBytes int, version func() (uint32, error), q
 	if err != nil {
 		return CubinIdentity{}, fmt.Errorf("cuptipcsampling: query version: %w", err)
 	}
-	if unsafe.Sizeof(uintptr(0)) != 8 || (v != 27 && v != 130001 && v != 130200) {
+	if unsafe.Sizeof(uintptr(0)) != 8 || !qualifiedQueryVersion(v) {
 		return CubinIdentity{}, fmt.Errorf("cuptipcsampling: unqualified cubin CRC layout for CUPTI %d", v)
 	}
 	var pin runtime.Pinner
