@@ -31,7 +31,7 @@ import (
 
 // newlineTerminated lists the directives written without a terminator that may
 // appear at module scope or inside a function body.
-var newlineTerminated = []string{".version", ".target", ".address_size", ".file", ".loc"}
+var newlineTerminated = []string{".version", ".target", ".address_size", ".file", ".loc", ".loc_intermediate"}
 
 // tuningDirectives lists the performance-tuning directives, which are written
 // without a terminator between a function header's ")" and its "{"
@@ -180,7 +180,7 @@ func Parse(r io.Reader) (*Module, error) {
 					m.AddressSize, _ = strconv.Atoi(directiveArg(trimmed, ".address_size"))
 				case strings.HasPrefix(trimmed, ".file"):
 					parseFileDirective(trimmed, m)
-				case strings.HasPrefix(trimmed, ".loc"):
+				case strings.HasPrefix(trimmed, ".loc_intermediate"), strings.HasPrefix(trimmed, ".loc"):
 					curLoc, curInlinedAt = parseLocDirective(trimmed)
 				}
 				continue
@@ -354,22 +354,31 @@ func parseFileDirective(stmt string, m *Module) {
 	m.Files[idx] = strings.TrimSuffix(name, ",")
 }
 
-// parseLocDirective parses ".loc file line column" and its optional
-// function_name and inlined_at suffixes (docs/ptx/11-directives.md:1686-1791).
+// parseLocDirective parses ".loc file line column" or ".loc_intermediate file line column"
+// and their optional function_name and inlined_at suffixes (docs/ptx/11-directives.md:1686-1791).
 // Filenames are left empty; Module.resolveFiles fills them in once the file
 // table is known.
 func parseLocDirective(stmt string) (Location, []Location) {
-	rest := directiveArg(stmt, ".loc")
+	directive := ".loc"
+	intermediate := false
+	if strings.HasPrefix(stmt, ".loc_intermediate") {
+		directive = ".loc_intermediate"
+		intermediate = true
+	}
+	rest := directiveArg(stmt, directive)
 	parts := strings.Split(rest, ",")
 
 	loc := parseLocTriple(strings.Fields(parts[0]))
+	loc.Intermediate = intermediate
 	var inlinedAt []Location
 	for _, p := range parts[1:] {
 		p = strings.TrimSpace(p)
 		if !strings.HasPrefix(p, "inlined_at") {
 			continue
 		}
-		inlinedAt = append(inlinedAt, parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at"))))
+		inlinedLoc := parseLocTriple(strings.Fields(strings.TrimPrefix(p, "inlined_at")))
+		inlinedLoc.Intermediate = intermediate
+		inlinedAt = append(inlinedAt, inlinedLoc)
 	}
 	return loc, inlinedAt
 }
