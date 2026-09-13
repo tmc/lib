@@ -1412,9 +1412,16 @@ treated as.
 The two readings are consistent with each other. Run 2 retains 0.654% fewer
 kernels than run 1 and accumulates 0.625% less duration; run 3, 0.640% fewer
 for 0.549% less. Deficit in records tracks deficit in time, which is what
-broadly uniform loss looks like and what a real slowdown would not. **So take
-150,476.96 ms as the Go figure — it is the only complete capture of the
-three — and read the other two as undercounts, not as a range.**
+broad loss looks like and what a real slowdown would not — though it is only
+consistent with loss being spread across positions and families, not proof of
+it; a deficit concentrated in kernels of near-average duration would look the
+same. **So take 150,476.96 ms as the Go figure and read the other two as
+undercounts rather than as a range.**
+
+Say precisely what run 1 is, though: the only run that *passes the sentinels*.
+Three necessary families are not an enumeration of the capture, so "complete"
+is not available for any of these runs — run 1 is inventory-gated where the
+others are not, and that is a weaker and more accurate thing to call it.
 
 This does not narrow the ratio. It relocates the uncertainty: the Go numerator
 is one complete measurement with no second complete measurement beside it, and
