@@ -5,7 +5,10 @@
 // instruction its opcode, guard predicate, operand text, and the source
 // location attached by .file and .loc. Module.AssertOpcodes audits a kernel's
 // instruction mix, mirroring the same method on cudasass.Disassembly so that a
-// lowering can be checked at both levels.
+// lowering can be checked at both levels. Module.AuditArchitecture and
+// Module.AuditVersion check the instructions a kernel uses against the .target
+// and .version the module declares; Module.ExplainLoadError names that header
+// in a module load the driver has already rejected.
 //
 // Operands are kept as unparsed text. PTX operand syntax is large and the
 // consumers in this repository attribute samples to source lines rather than
