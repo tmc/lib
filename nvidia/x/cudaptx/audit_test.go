@@ -368,8 +368,8 @@ func TestIsInstructionKeyword(t *testing.T) {
 
 func TestInstructionCategory(t *testing.T) {
 	tests := []struct {
-		mnemonic string
-		want     cudaptx.Category
+		mnemonic  string
+		want      cudaptx.Category
 		isCompute bool
 		isMemory  bool
 		isMatrix  bool
@@ -457,9 +457,38 @@ func TestAuditArchitecture(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "requires sm_100") {
 		t.Errorf("expected error containing 'requires sm_100', got %v", err)
 	}
-	m90.Target = "sm_90, debug"
-	if err := m90.AuditArchitecture("k_sm90"); err != nil {
-		t.Errorf("AuditArchitecture with target extension = %v, want nil", err)
+	// A .target may carry extensions after the architecture. These cases
+	// characterize that: architectureCompatible reads the leading digits and
+	// stops at the comma, so an extension never changed a compatibility
+	// verdict. They are here to keep it that way, not to cover a past defect.
+	mBad.Target = "sm_100, debug"
+	if err := mBad.AuditArchitecture("k_blackwell"); err != nil {
+		t.Errorf("AuditArchitecture on %q = %v, want nil", mBad.Target, err)
+	}
+	mBad.Target = "sm_90, debug"
+	if err := mBad.AuditArchitecture("k_blackwell"); err == nil {
+		t.Errorf("AuditArchitecture on %q = nil, want tcgen05 rejected", mBad.Target)
+	}
+
+	// A .target whose architecture does not parse is rejected outright. Before
+	// this check the audit fell through to a lexical comparison, which decides
+	// by alphabetical accident: "notarch" sorts below "sm_20", so the module
+	// was reported as too old for fma rather than as malformed. Assert the
+	// malformed-architecture error specifically, because the lexical path also
+	// produces an error that quotes the same target string.
+	mJunk, err := cudaptx.ParseString(strings.Replace(ptxSm90, ".target sm_90", ".target notarch, debug", 1))
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+	err = mJunk.AuditArchitecture("k_sm90")
+	if err == nil {
+		t.Fatal("AuditArchitecture on malformed target = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "malformed architecture") {
+		t.Errorf("AuditArchitecture error = %v, want a malformed-architecture error", err)
+	}
+	if !strings.Contains(err.Error(), `"notarch, debug"`) {
+		t.Errorf("AuditArchitecture error = %v, want it to quote the original .target", err)
 	}
 }
 
