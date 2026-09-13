@@ -1442,7 +1442,7 @@ func (r *cudaFoundation) loadMathKernels() error {
 	}
 	compiled, err := nvrtcx.Compile(cudaMathSource,
 		nvrtcx.WithName("ds4_math.cu"),
-		nvrtcx.WithArch(r.major, r.minor),
+		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
 		nvrtcx.WithFlag("--generate-line-info"),
 	)
 	if err != nil {
