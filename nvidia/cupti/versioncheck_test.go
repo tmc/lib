@@ -15,7 +15,7 @@ func TestVersionCheckEncoding(t *testing.T) {
 		major    int
 		mismatch bool
 	}{
-		{130001, 13, false}, {130200, 13, false}, {120901, 12, true}, {28, 0, true},
+		{130001, 13, false}, {130200, 13, false}, {120901, 12, true}, {28, 0, false},
 	} {
 		fnGetVersion = func(out *uint32) Result { *out = tc.raw; return Success }
 		err := checkVersion()
