@@ -457,6 +457,10 @@ func TestAuditArchitecture(t *testing.T) {
 	} else if !strings.Contains(err.Error(), "requires sm_100") {
 		t.Errorf("expected error containing 'requires sm_100', got %v", err)
 	}
+	m90.Target = "sm_90, debug"
+	if err := m90.AuditArchitecture("k_sm90"); err != nil {
+		t.Errorf("AuditArchitecture with target extension = %v, want nil", err)
+	}
 }
 
 func TestInstructionMinPTXAndTarget(t *testing.T) {

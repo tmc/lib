@@ -154,6 +154,10 @@ func (m *Module) AuditArchitecture(kernelName string) error {
 	if target == "" {
 		return nil
 	}
+	target, ok := targetArchitecture(target)
+	if !ok {
+		return fmt.Errorf("cudaptx: malformed target architecture %q", target)
+	}
 	if kernelName != "" {
 		k := m.Kernel(kernelName)
 		if k == nil {
