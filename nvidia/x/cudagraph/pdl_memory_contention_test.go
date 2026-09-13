@@ -639,11 +639,8 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 		t.Fatalf("copy changed reference: %v", err)
 	}
 
-	for r := 0; r < rows; r++ {
-		diff := math.Abs(float64(hExpected[r] - hHoist[r]))
-		if math.IsNaN(float64(hExpected[r])) || math.IsNaN(float64(hHoist[r])) || !(diff <= 1e-4) {
-			t.Fatalf("numerical divergence at row %d: ref=%f, hoisted=%f, diff=%e", r, hExpected[r], hHoist[r], diff)
-		}
+	if err := checkPDLNumerical(hExpected, hHoist); err != nil {
+		t.Fatal(err)
 	}
 	t.Log("Bitwise elementwise validation passed: Hoisted arm matches sequential reference")
 
@@ -980,11 +977,8 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 				t.Fatalf("copy changed reference: %v", err)
 			}
 
-			for r := 0; r < rows; r++ {
-				diff := math.Abs(float64(hExpected[r] - hHoist[r]))
-				if math.IsNaN(float64(hExpected[r])) || math.IsNaN(float64(hHoist[r])) || !(diff <= 1e-4) {
-					t.Fatalf("numerical divergence for %s at row %d: ref=%f, hoisted=%f", name, r, hExpected[r], hHoist[r])
-				}
+			if err := checkPDLNumerical(hExpected, hHoist); err != nil {
+				t.Fatalf("numerical divergence for %s: %v", name, err)
 			}
 
 			hoistTimes := make([]float64, 0, totalIters)
