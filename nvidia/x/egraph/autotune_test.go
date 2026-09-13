@@ -31,6 +31,14 @@ func TestAutotunerInstant(t *testing.T) {
 
 // TestAutotunerWithHardware tunes an operator that GenerateCUDA can lower and
 // checks that the returned candidate was actually compiled and launched.
+// TestAutotunerWithHardware tunes an operator this package can actually
+// generate, and checks the returned candidate was benchmarked.
+//
+// It used to tune "matmul", for which there is no kernel, and assert only that
+// the result was non-nil. Every candidate was discarded and SelectBest returned
+// the unbenchmarked default, so the test passed over an autotuner that had
+// tuned nothing -- and would have passed just as well if the benchmark path
+// were removed entirely.
 func TestAutotunerWithHardware(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
@@ -49,6 +57,8 @@ func TestAutotunerWithHardware(t *testing.T) {
 
 // TestAutotunerRejectsUngeneratableOperator prevents a failed benchmark sweep
 // from being reported as a successful, sourceless default candidate.
+// TestAutotunerRejectsUngeneratableOperator checks that an operator with no
+// kernel is refused rather than returned as an unbenchmarked default.
 func TestAutotunerRejectsUngeneratableOperator(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()

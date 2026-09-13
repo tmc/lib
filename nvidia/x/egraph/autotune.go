@@ -38,7 +38,8 @@ type TuningCandidate struct {
 	CUDASource string
 }
 
-// Key returns a unique composite identifier for the candidate expression and launch configuration.
+// Key returns a unique composite identifier for the candidate expression,
+// kernel, and launch configuration.
 func (c TuningCandidate) Key() string {
 	exprStr := ""
 	if c.Expr != nil {
