@@ -2,6 +2,7 @@ package cudacapture_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
-	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
 func validFixture() *cudacapture.Capture {
@@ -407,7 +407,84 @@ func TestReadDirRejectsSymlinkedControlFiles(t *testing.T) {
 	}
 }
 
-func TestCodeResolvePCWithCapture(t *testing.T) {
+func TestLoadCodeWithFixture(t *testing.T) {
+	cubinHex, err := os.ReadFile(filepath.Join("testdata", "kernels.cubin.hex"))
+	if err != nil {
+		t.Fatalf("read kernels.cubin.hex: %v", err)
+	}
+	cubinBytes, err := hex.DecodeString(strings.TrimSpace(string(cubinHex)))
+	if err != nil {
+		t.Fatalf("decode cubin hex: %v", err)
+	}
+	cuBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.cu"))
+	if err != nil {
+		t.Fatalf("read kernels.cu: %v", err)
+	}
+	ptxBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.ptx"))
+	if err != nil {
+		t.Fatalf("read kernels.ptx: %v", err)
+	}
+	sassBytes, err := os.ReadFile(filepath.Join("testdata", "kernels.sass"))
+	if err != nil {
+		t.Fatalf("read kernels.sass: %v", err)
+	}
+
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			PTX:    "kernels.ptx",
+			CUBIN:  "kernels.cubin",
+			SASS:   "kernels.sass",
+		},
+		Files: map[string][]byte{
+			"kernels.cu":    cuBytes,
+			"kernels.ptx":   ptxBytes,
+			"kernels.cubin": cubinBytes,
+			"kernels.sass":  sassBytes,
+		},
+	}
+
+	code, err := cudacapture.LoadCode(cap)
+	if err != nil {
+		t.Fatalf("LoadCode: %v", err)
+	}
+
+	if len(code.Kernels) != 1 {
+		t.Fatalf("got %d kernels, want 1", len(code.Kernels))
+	}
+	k := code.Kernels[0]
+	if k.Name != "compute" {
+		t.Errorf("Kernel.Name = %q, want %q", k.Name, "compute")
+	}
+	if k.Offset != 96 {
+		t.Errorf("Kernel.Offset = %d, want 96", k.Offset)
+	}
+	if k.Size != 32 {
+		t.Errorf("Kernel.Size = %d, want 32", k.Size)
+	}
+	if k.SourceLine != 2 {
+		t.Errorf("Kernel.SourceLine = %d, want 2", k.SourceLine)
+	}
+	if len(k.Instructions) != 2 {
+		t.Fatalf("got %d instructions, want 2", len(k.Instructions))
+	}
+	inst0 := k.Instruction(0)
+	if inst0 == nil {
+		t.Fatal("instruction at offset 0 not found")
+	}
+	if inst0.SourceLine != 2 {
+		t.Errorf("inst0.SourceLine = %d, want 2", inst0.SourceLine)
+	}
+	inst1 := k.Instruction(0x10)
+	if inst1 == nil {
+		t.Fatal("instruction at offset 0x10 not found")
+	}
+	if inst1.SourceLine != 3 {
+		t.Errorf("inst1.SourceLine = %d, want 3", inst1.SourceLine)
+	}
+}
+
+func TestLoadCodeWithCaptureSmoke(t *testing.T) {
 	path := filepath.Join("..", "..", "testdata", "captures", "v2-gb10-capture.pprof")
 	f, err := os.Open(path)
 	if err != nil {
@@ -427,20 +504,5 @@ func TestCodeResolvePCWithCapture(t *testing.T) {
 
 	if len(code.Kernels) == 0 {
 		t.Fatal("expected at least one kernel in capture")
-	}
-
-	k := code.Kernels[0]
-	loc := code.ResolvePC(cuptipcsampling.ModuleID{}, k.Name, 0)
-	if !loc.Resolved {
-		t.Fatalf("expected kernel %s at offset 0 to be resolved", k.Name)
-	}
-	if loc.KernelName != k.Name {
-		t.Errorf("KernelName = %q, want %q", loc.KernelName, k.Name)
-	}
-	if loc.CUBINOffset != k.Offset {
-		t.Errorf("CUBINOffset = %#x, want %#x", loc.CUBINOffset, k.Offset)
-	}
-	if loc.SourceLine == 0 {
-		t.Errorf("expected nonzero SourceLine for kernel %s", k.Name)
 	}
 }

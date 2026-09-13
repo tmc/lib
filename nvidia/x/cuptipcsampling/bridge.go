@@ -8,9 +8,12 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
-// ModuleID identifies a loaded CUDA module or binary image generation.
+// ModuleID identifies a loaded CUDA module image.
+// CRC is CUPTI's native code identifier. Generation identifies the loaded module
+// instance when multiple generations or instances of the same binary are loaded.
 type ModuleID struct {
-	CRC uint64
+	CRC        uint64
+	Generation uint64
 }
 
 // CodeLocation identifies the source, assembly, and CUBIN coordinates for a kernel PC.
@@ -89,7 +92,7 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		if b.Resolver != nil {
 			loc = b.Resolver.ResolvePC(ModuleID{CRC: pc.CRC}, pc.Name, pc.Offset)
 		}
-		if !loc.Resolved {
+		if loc.KernelName == "" {
 			loc.KernelName = pc.Name
 		}
 

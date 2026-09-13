@@ -13,7 +13,6 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
-	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
 // Code represents decoded CUDA kernel instructions, source mappings, and sections.
@@ -22,7 +21,6 @@ type Code struct {
 	SourceFile string
 	PTXFile    string
 	SASSFile   string
-	CUBINCRC   uint64
 }
 
 // Kernel represents a disassembled GPU kernel function with its instruction sequence.
@@ -241,41 +239,4 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 		return &k.Instructions[idx]
 	}
 	return nil
-}
-
-// ResolvePC implements cuptipcsampling.CodeResolver.
-// It maps the function-relative pcOffset to the CUBIN-absolute offset (k.Offset + pcOffset)
-// and looks up source, PTX, and SASS lines.
-func (c *Code) ResolvePC(mod cuptipcsampling.ModuleID, kernelName string, pcOffset uint64) cuptipcsampling.CodeLocation {
-	if c == nil {
-		return cuptipcsampling.CodeLocation{KernelName: kernelName}
-	}
-	if mod.CRC != 0 && c.CUBINCRC != 0 && mod.CRC != c.CUBINCRC {
-		return cuptipcsampling.CodeLocation{KernelName: kernelName}
-	}
-	k := c.Kernel(kernelName)
-	if k == nil {
-		return cuptipcsampling.CodeLocation{KernelName: kernelName}
-	}
-
-	loc := cuptipcsampling.CodeLocation{
-		KernelName:  k.Name,
-		SourceFile:  c.SourceFile,
-		SourceLine:  int64(k.SourceLine),
-		PTXFile:     c.PTXFile,
-		PTXLine:     int64(k.PTXLine),
-		SASSFile:    c.SASSFile,
-		CUBINOffset: k.Offset + pcOffset,
-		Resolved:    true,
-	}
-
-	if inst := k.Instruction(pcOffset); inst != nil {
-		if inst.SourceLine > 0 {
-			loc.SourceLine = int64(inst.SourceLine)
-		}
-		if inst.SASSLine > 0 {
-			loc.SASSLine = int64(inst.SASSLine)
-		}
-	}
-	return loc
 }
