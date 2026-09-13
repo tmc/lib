@@ -56,6 +56,19 @@ to a PTX statement, and what was dropped -- read those counters before trusting
 the attribution, because a high resolved fraction over a batch that dropped
 most of its samples is not a working measurement.
 
+Under `-pcsampling` the hardware counts live in their own types. `pc_samples`
+counts samples taken at an address, `inst_executed` the subset where the
+scheduler issued, and the `stall_*` types the subset where it could not, broken
+down by reason. They reconcile against the manifest exactly: the `stall_*`
+totals plus `inst_executed` plus the manifest's `unmapped_stalls` equal
+`pc_sampling.total_samples`. Two things make that identity hold and are worth
+knowing before reading a reason breakdown. CUPTI reports every reason twice,
+as `<reason>` and `<reason>_not_issued`, the second counting a subset of the
+cycles the first already counted; only the base reason is added, and both are
+listed in `unmapped_stalls` when the reason has no type of its own. And
+`samples` still counts launches only, so it stays comparable with `gpu_time`
+across both capture modes.
+
 `pass`, `layer`, `moe.expert` and `moe.slot` are numeric labels, so pprof's
 range filters apply: `-tagfocus='layer=0:3'` selects the first four layers.
 

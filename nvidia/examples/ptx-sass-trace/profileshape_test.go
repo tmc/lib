@@ -24,7 +24,7 @@ func TestSampleTypes(t *testing.T) {
 	// list omits is written nowhere and does not show up as unmapped either.
 	// pc_samples is separate from samples because samples counts launches.
 	on := sampleTypes(true)
-	for _, want := range []string{"samples", "pc_samples", "stall_mem", "stall_wait", "stall_scoreboard", "stall_math", "gpu_time"} {
+	for _, want := range []string{"samples", "pc_samples", "inst_executed", "stall_mem", "stall_wait", "stall_scoreboard", "stall_math", "gpu_time"} {
 		if !slices.Contains(on, want) {
 			t.Errorf("sampleTypes(true) = %v, missing %q", on, want)
 		}
