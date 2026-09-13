@@ -156,11 +156,7 @@ func newFP8KVRuntime(dev *cuda.Device, tracker *cudamem.Tracker, rope *cuda.Kern
 		return nil, fmt.Errorf("fp8 kv: invalid shape (layers=%d, q_heads=%d, kv_heads=%d, head_dim=%d, max_seq=%d, scale=%g)",
 			layers, qHeads, kvHeads, headDim, maxSeqLen, scale)
 	}
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return nil, fmt.Errorf("fp8 kv: compute capability: %w", err)
-	}
-	compiled, err := nvrtcx.Compile(fp8KVKernelsCUDA, nvrtcx.WithName("fp8_kv.cu"), nvrtcx.WithArch(major, minor))
+	compiled, err := nvrtcx.Compile(fp8KVKernelsCUDA, nvrtcx.WithName("fp8_kv.cu"), nvrtcx.WithDeviceArch(dev))
 	if err != nil {
 		return nil, fmt.Errorf("fp8 kv: compile kernels: %w", err)
 	}

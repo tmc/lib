@@ -36,14 +36,9 @@ func (gm *GPUModules) PTX() string {
 
 // CompileGPUModules compiles and loads the forward kernels onto dev.
 func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return nil, fmt.Errorf("compute capability: %w", err)
-	}
-
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("llama_forward.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithDeviceArch(dev),
 	}
 	mod, err := nvrtcx.Compile(ForwardKernelsCUDA, opts...)
 	if err != nil {

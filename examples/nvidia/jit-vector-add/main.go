@@ -31,11 +31,7 @@ func run() error {
 		return err
 	}
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return err
-	}
-	compiled, err := nvrtcx.Compile(source, nvrtcx.WithName("add.cu"), nvrtcx.WithArch(major, minor))
+	compiled, err := nvrtcx.Compile(source, nvrtcx.WithName("add.cu"), nvrtcx.WithDeviceArch(dev))
 	if err != nil {
 		return err
 	}
@@ -94,7 +90,11 @@ func run() error {
 				return fmt.Errorf("c[%d] = %g, want %g", i, c[i], want)
 			}
 		}
-		fmt.Printf("compiled %d bytes of PTX and added %d floats\n", len(compiled.PTX()), n)
+		bytesCount := len(compiled.CUBIN())
+		if bytesCount == 0 {
+			bytesCount = len(compiled.PTX())
+		}
+		fmt.Printf("compiled %d bytes and added %d floats\n", bytesCount, n)
 		return nil
 	})
 }

@@ -90,8 +90,7 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 	}()
 
 	// JIT compile kernels
-	major, minor, _ := dev.ComputeCapability()
-	mod, err := nvrtcx.Compile(benchKernelsCU, nvrtcx.WithArch(major, minor))
+	mod, err := nvrtcx.Compile(benchKernelsCU, nvrtcx.WithDeviceArch(dev))
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcx compile: %w", err)
 	}

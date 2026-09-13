@@ -85,14 +85,9 @@ func CompileGPUModulesAs(dev *cuda.Device, d WeightDType) (*GPUModules, error) {
 	if err := d.check(); err != nil {
 		return nil, err
 	}
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return nil, fmt.Errorf("compute capability: %w", err)
-	}
-
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("llama_forward.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithDeviceArch(dev),
 	}
 	mod, err := nvrtcx.Compile(ForwardKernelsCUDA, opts...)
 	if err != nil {
