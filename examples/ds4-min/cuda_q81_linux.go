@@ -70,7 +70,8 @@ func (r *cudaFoundation) encodeQ80MatvecQ81(t cudaModelTensor, in cudamem.Slice[
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q81MatvecFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(t.device, in, out, uint32(cols/32)); err != nil {
+		gridRows := (uint32(rows) + 7) / 8
+		if err := cudalaunch.Kernel(r.q81MatvecFn).Grid(gridRows).Block(256).On(r.stream()).Launch(t.device, in, out, uint32(cols/32), uint32(rows)); err != nil {
 			return fmt.Errorf("cuda: launch quantized Q8_0 matvec %q: %w", t.name, err)
 		}
 		return nil
@@ -92,7 +93,8 @@ func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.S
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(uint32(rows), uint32(batch)).Block(32).On(r.stream()).Launch(
+		gridRows := (uint32(rows) + 7) / 8
+		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(gridRows, uint32(batch)).Block(256).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
 		}
