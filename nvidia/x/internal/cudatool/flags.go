@@ -94,7 +94,11 @@ func (c Caps) unsupported(bad []string) error {
 	if len(bad) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%s %v (%s): %w: %s", c.Tool, c.Version, c.origin(), ErrUnsupportedOption, strings.Join(bad, "; "))
+	version := c.Version.String()
+	if !c.Version.Valid() {
+		version = "unknown version"
+	}
+	return fmt.Errorf("%s %s (%s): %w: %s", c.Tool, version, c.origin(), ErrUnsupportedOption, strings.Join(bad, "; "))
 }
 
 // origin names where Options came from, so an error a caller reads says whether

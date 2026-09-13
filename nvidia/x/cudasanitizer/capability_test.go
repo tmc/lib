@@ -29,9 +29,13 @@ func recordedCaps(t *testing.T, v cudatool.Version) cudatool.Caps {
 // builds against every compute-sanitizer the option corpus records.
 //
 // Every option this package emits exists, with the same arity, on 12.6, 13.0 and
-// 13.4. The value of the check is forward-looking: a release that renames one of
-// these options or changes its arity is reported here, and by [Run] as a Go
-// error, rather than as a command line the tool rejects while writing no report.
+// 13.4, so none of these rows fails today. They are the gate on the release that
+// renames one of these options or changes its arity: a change lands here, and at
+// run time as a Go error, rather than as a command line the tool rejects while
+// writing no report.
+//
+// Arity changes do happen. Compute Sanitizer 2022.4.1 spells --kill and
+// --track-unused-memory with an argument, where 12.6 and later spell both bare.
 func TestConfigFlagsAgainstRecordedToolkits(t *testing.T) {
 	tests := []struct {
 		name string
