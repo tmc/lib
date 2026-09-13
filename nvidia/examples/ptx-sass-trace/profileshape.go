@@ -22,7 +22,13 @@ const ptxBase = cudaprof.PTXMappingStart
 // rather than five of which three are always zero.
 func sampleTypes(pcSampling bool) []string {
 	if pcSampling {
-		return []string{"samples", "pc_samples", "inst_executed", "stall_mem", "stall_wait", "stall_scoreboard", "stall_math", "gpu_time"}
+		return []string{
+			"samples", "pc_samples", "inst_executed",
+			"stall_mem", "stall_wait", "stall_scoreboard", "stall_math",
+			"stall_branch", "stall_fetch", "stall_drain", "stall_dispatch",
+			"stall_not_selected",
+			"gpu_time",
+		}
 	}
 	return []string{"samples", "gpu_time"}
 }

@@ -59,11 +59,22 @@ most of its samples is not a working measurement.
 Under `-pcsampling` the hardware counts live in their own types. `pc_samples`
 counts samples taken at an address, `inst_executed` the subset where the
 scheduler issued, and the `stall_*` types the subset where it could not, broken
-down by reason. They reconcile against the manifest exactly: the `stall_*`
-totals plus `inst_executed` plus the manifest's `unmapped_stalls` equal
-`pc_sampling.total_samples`. Two things make that identity hold and are worth
-knowing before reading a reason breakdown. CUPTI reports every reason twice,
-as `<reason>` and `<reason>_not_issued`, the second counting a subset of the
+down by reason: `stall_mem`, `stall_wait`, `stall_scoreboard` and `stall_math`
+for the back end, `stall_fetch`, `stall_branch`, `stall_drain` and
+`stall_dispatch` for the front end, and `stall_not_selected` for warps that were
+ready while the scheduler issued a different one -- issue contention rather than
+latency, which is why it is not folded in with the rest.
+
+They reconcile against the manifest exactly: the `stall_*` totals plus
+`inst_executed` plus the manifest's `unmapped_stalls` equal
+`pc_sampling.total_samples`. A reason with no type of its own appears only in
+`unmapped_stalls`, where no pprof view reaches it, so read that map before
+reading the breakdown -- on a GB10 capture it held 172 of 2765 samples across
+five reasons that now have types.
+
+Two things make that identity hold and are worth knowing before reading a reason
+breakdown. CUPTI reports every reason twice, as `<reason>` and
+`<reason>_not_issued`, the second counting a subset of the
 cycles the first already counted; only the base reason is added, and both are
 listed in `unmapped_stalls` when the reason has no type of its own. And
 `samples` still counts launches only, so it stays comparable with `gpu_time`
