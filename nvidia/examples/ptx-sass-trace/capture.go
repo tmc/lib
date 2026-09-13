@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"debug/elf"
 	"embed"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
@@ -42,6 +44,7 @@ type captureMetadata struct {
 	Verified     int                `json:"verified_results"`
 	MaxError     float64            `json:"max_absolute_error"`
 	NCCL         *ncclResult        `json:"nccl,omitempty"`
+	PCSampling   *pcSamplingResult  `json:"pc_sampling,omitempty"`
 }
 
 func capture(dir string, cfg config) (result *captureMetadata, err error) {
@@ -138,14 +141,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 	captureFiles["kernels.ptx"] = []byte(ptx)
 	captureFiles["kernels.cubin"] = cubin
-	captureFiles["kernels.sass"] = assembly.Stdout
+	captureFiles["kernels.sass"] = rewriteSASSSourcePath(assembly.Stdout, "kernels.cu")
 	captureFiles["nvdisasm.txt"] = version.Stdout
-
-	trace.Stop()
-	traceData, err := os.ReadFile(tracePath)
-	if err == nil && len(traceData) > 0 {
-		captureFiles["go.trace"] = traceData
-	}
 
 	cap := &cudacapture.Capture{
 		Files: captureFiles,
@@ -198,14 +195,63 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 	var profBuf bytes.Buffer
 	prof := cudaprof.NewSession(&profBuf)
-	prof.SetMappingFile("kernels.cubin", "")
-	if err := prof.SetSampleTypes("samples", "stall_mem", "stall_wait", "stall_scoreboard", "gpu_time"); err != nil {
+	prof.SetMappingFile("kernels.cubin", fmt.Sprintf("%x", sha256.Sum256(cubin)))
+	if err := prof.SetSampleTypes(sampleTypes(cfg.pcSampling)...); err != nil {
 		return nil, fmt.Errorf("set sample types: %w", err)
 	}
+	// gpu_time is the type that always carries data; a consumer defaulting to
+	// index 0 would otherwise render an empty profile.
+	if err := prof.SetDefaultSampleType("gpu_time"); err != nil {
+		return nil, fmt.Errorf("set default sample type: %w", err)
+	}
+	prof.SetPeriod("gpu_time", "nanoseconds", 1)
+	prof.SetNumericLabels(numericLabelUnits())
+
+	// The PTX text is a second logical image, so PTX frames carry real
+	// addresses in the shipped file rather than only when cmd/cudaprof
+	// synthesizes the mapping at view time.
+	ptxLines := lineOffsets(ptx)
+	prof.AddMapping("kernels.ptx", "", ptxBase, ptxBase+uint64(len(ptx)))
 	var wRes workloadResult
-	cudaprof.Do(ctx, cudaprof.Labels("device", devName, "measurement", "CUDA event interval", "attribution", "whole launch at entry; no PC sampling"), func(ctx context.Context) {
-		wRes, err = runWorkload(ctx, dev, mod, prof, code, cfg)
-	})
+	workloadStart := time.Now()
+	runMeasured := func(ctx context.Context) {
+		wRes, err = runWorkload(ctx, dev, mod, prof, code, ptxLines, cfg)
+	}
+
+	attribution := "whole launch at entry; no PC sampling"
+	if cfg.pcSampling {
+		attribution = "hardware PC samples attributed to SASS, PTX and source"
+	}
+	labels := cudaprof.Labels("device", devName, "measurement", "CUDA event interval", "attribution", attribution)
+
+	if !cfg.pcSampling {
+		cudaprof.Do(ctx, labels, runMeasured)
+	} else {
+		// The collector needs the context handle, not a bound context: CUPTI
+		// takes it explicitly, and runWorkload manages its own thread affinity.
+		cuCtx, ctxErr := dev.PrimaryContext()
+		if ctxErr != nil {
+			return nil, fmt.Errorf("retain primary context for pc sampling: %w", ctxErr)
+		}
+		defer func() { err = errors.Join(err, cuCtx.Release()) }()
+
+		var sampErr error
+		cudaprof.Do(ctx, labels, func(ctx context.Context) {
+			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, prof, uint32(cfg.pcPeriod), runMeasured)
+		})
+		// A sampling failure must not discard a workload that ran and verified,
+		// so it is reported after the workload's own error.
+		if err != nil {
+			return nil, err
+		}
+		if sampErr != nil {
+			return nil, fmt.Errorf("pc sampling: %w", sampErr)
+		}
+		if r := meta.PCSampling; r != nil {
+			fmt.Printf("pc sampling: %d samples over %d PCs, %.1f%% resolved to PTX, %d dropped\n",
+				r.TotalSamples, r.PCs, 100*r.Resolution(), r.DroppedSamples)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +264,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		meta.NCCL = ncclRes
 	}
 
+	prof.SetTimespan(workloadStart, time.Since(workloadStart))
 	if err := prof.Close(); err != nil {
 		return nil, fmt.Errorf("finalize profile: %w", err)
 	}
@@ -237,6 +284,11 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		return nil, fmt.Errorf("marshal metadata: %w", err)
 	}
 	cap.Metadata = metaBytes
+
+	trace.Stop()
+	if traceData, readErr := os.ReadFile(tracePath); readErr == nil && len(traceData) > 0 {
+		captureFiles["go.trace"] = traceData
+	}
 
 	// Write unpacked directory capture
 	if err := cudacapture.WriteDir(dir, cap); err != nil {

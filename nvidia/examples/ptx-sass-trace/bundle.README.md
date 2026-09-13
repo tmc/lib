@@ -41,16 +41,29 @@ numbered task events; timeline regions show host launch-and-wait intervals.
 
 ## What the numbers mean
 
-`gpu_time` is the CUDA event interval around an entire kernel launch. Profile
+`gpu_time` is the CUDA event interval around an entire kernel launch, and it is
+the default view. `samples` counts launches, one per recorded launch. Profile
 cost is attached to each kernel's SASS entry; PTX arithmetic rows provide source
-navigation. It is not a cost
-for that individual instruction. The Go/CUDA/PTX/SASS stack expresses the
-launch and compilation relationship, rather than a sampled hardware stack.
-There are no sampled PCs or hardware memory/stall counters in this capture.
+navigation. It is not a cost for that individual instruction.
+
+Whether this capture holds sampled hardware PCs depends on how it was recorded.
+Without `-pcsampling`, the Go/CUDA/PTX/SASS stack expresses the launch and
+compilation relationship rather than a sampled hardware stack, and the capture
+carries no sampled PCs or stall counters; the sample types it advertises are
+only the two it can fill. With `-pcsampling`, the manifest's `pc_sampling`
+object records the period, how many samples were collected, how many resolved
+to a PTX statement, and what was dropped -- read those counters before trusting
+the attribution, because a high resolved fraction over a batch that dropped
+most of its samples is not a working measurement.
+
+`pass`, `layer`, `moe.expert` and `moe.slot` are numeric labels, so pprof's
+range filters apply: `-tagfocus='layer=0:3'` selects the first four layers.
 
 SASS addresses in Disassemble are CUBIN file offsets: each function's .text
 section offset plus its instruction offset. PTX addresses are byte offsets in
-the recorded text. Profile addresses add separate logical image bases.
+the recorded text, assigned at capture time against a second logical image, so
+any pprof consumer sees them and not only `cudaprof`. Profile addresses add
+separate logical image bases.
 These are reproducible file coordinates, not live device addresses.
 The viewer reads saved NVIDIA assembly; it does not substitute CPU opcodes.
 

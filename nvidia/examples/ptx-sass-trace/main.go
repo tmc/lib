@@ -21,6 +21,9 @@ type config struct {
 	nvdisasm string
 	ncclMode string
 	devices  []int
+
+	pcSampling bool
+	pcPeriod   uint
 }
 
 func main() {
@@ -32,6 +35,8 @@ func main() {
 	flag.IntVar(&cfg.rounds, "rounds", 512, "dependent fused multiply-add operations per compute thread")
 	flag.StringVar(&cfg.nvdisasm, "nvdisasm", "nvdisasm", "path to CUDA nvdisasm")
 	ncclFlag := flag.String("nccl", "off", "optional NCCL collective mode: off, allreduce, allgather, both")
+	flag.BoolVar(&cfg.pcSampling, "pcsampling", false, "collect hardware PC samples; perturbs the CUDA event intervals and requires Linux with CUPTI 130001")
+	flag.UintVar(&cfg.pcPeriod, "pcsampling-period", 10, "PC sampling period exponent: 2^n GPU cycles, 5 through 31")
 	devicesFlag := flag.String("devices", "", "ordered comma-separated CUDA device ordinals (e.g. 0,1) for NCCL")
 	flag.Parse()
 
