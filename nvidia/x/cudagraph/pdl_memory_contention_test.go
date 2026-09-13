@@ -614,6 +614,12 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if err := outBuf.CopyToHost(hRef); err != nil {
 		t.Fatalf("copy reference: %v", err)
 	}
+	for i := range hX {
+		hX[i] += 0.03125
+	}
+	if err := xBuf.CopyFromHost(hX); err != nil {
+		t.Fatalf("copy changed input: %v", err)
+	}
 
 	poison := make([]float32, rows)
 	for i := range poison {
@@ -627,9 +633,14 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if err := outBuf.CopyToHost(hHoist); err != nil {
 		t.Fatalf("copy hoisted: %v", err)
 	}
+	_ = launchArm(cEntryFn, false)
+	hExpected := make([]float32, rows)
+	if err := outBuf.CopyToHost(hExpected); err != nil {
+		t.Fatalf("copy changed reference: %v", err)
+	}
 
 	for r := 0; r < rows; r++ {
-		diff := math.Abs(float64(hRef[r] - hHoist[r]))
+		diff := math.Abs(float64(hExpected[r] - hHoist[r]))
 		if diff > 1e-4 {
 			t.Fatalf("numerical divergence at row %d: ref=%f, hoisted=%f, diff=%e", r, hRef[r], hHoist[r], diff)
 		}
@@ -944,6 +955,12 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 			if err := outBuf.CopyToHost(hRef); err != nil {
 				t.Fatalf("copy reference: %v", err)
 			}
+			for i := range hX {
+				hX[i] += 0.03125
+			}
+			if err := xBuf.CopyFromHost(hX); err != nil {
+				t.Fatalf("copy changed input: %v", err)
+			}
 
 			poison := make([]float32, rows)
 			for i := range poison {
@@ -957,9 +974,14 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 			if err := outBuf.CopyToHost(hHoist); err != nil {
 				t.Fatalf("copy hoisted: %v", err)
 			}
+			_ = launchArm(tc.entryFn, false)
+			hExpected := make([]float32, rows)
+			if err := outBuf.CopyToHost(hExpected); err != nil {
+				t.Fatalf("copy changed reference: %v", err)
+			}
 
 			for r := 0; r < rows; r++ {
-				diff := math.Abs(float64(hRef[r] - hHoist[r]))
+				diff := math.Abs(float64(hExpected[r] - hHoist[r]))
 				if diff > 1e-4 {
 					t.Fatalf("numerical divergence for %s at row %d: ref=%f, hoisted=%f", name, r, hRef[r], hHoist[r])
 				}
