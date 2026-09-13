@@ -5,6 +5,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
+	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
 
 func ExampleRecord() {
@@ -27,4 +28,30 @@ func ExampleRecord_SubmittedToStart() {
 	ns, ok := r.SubmittedToStart()
 	fmt.Println(ns, ok)
 	// Output: 5 true
+}
+
+func ExampleAttributePMSamples() {
+	records := []cuptiactivity.Record{
+		{
+			Kind:     cupti.ActivityKindConcurrentKernel,
+			Name:     "gemm",
+			Start:    1000,
+			End:      2000,
+			Complete: true,
+		},
+	}
+	samples := []cuptipmsampling.Sample{
+		{
+			Index:          0,
+			StartTimestamp: 1000,
+			EndTimestamp:   2000,
+			Values:         map[string]float64{"sm_busy": 85.0},
+		},
+	}
+	attributed := cuptiactivity.AttributePMSamples(records, samples)
+	if len(attributed) > 0 {
+		fmt.Printf("%s sm_busy=%.1f\n", attributed[0].KernelName, attributed[0].PMAverages["sm_busy"])
+	}
+	// Output:
+	// gemm sm_busy=85.0
 }
