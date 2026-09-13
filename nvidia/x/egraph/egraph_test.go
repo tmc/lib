@@ -272,4 +272,157 @@ func TestCublasLtNotPreferredOverLowerable(t *testing.T) {
 	}
 }
 
+func TestCostModelRewardsNoUnlowerableOp(t *testing.T) {
+	costModel := egraph.FusedMegakernelCost{}
 
+	// Ghost / unlowerable operators must be penalized and NEVER receive a reward (< 1.0).
+	ghostOps := []string{
+		"fused_unknown_megakernel",
+		"fused_ghost_reduction",
+		"tile_nonexistent_op",
+		"tile_arbitrary_unsupported",
+		"custom_unsupported_activation",
+	}
+
+	for _, op := range ghostOps {
+		cost := costModel.NodeCost(egraph.ENode{Op: op}, []float64{0.0, 0.0})
+		if cost < 1.0 {
+			t.Errorf("unlowerable ghost op %q received favorable cost %.2f; want >= 1.0", op, cost)
+		}
+		if egraph.IsLowerableOp(op) {
+			t.Errorf("IsLowerableOp(%q) = true, want false", op)
+		}
+	}
+
+	// Lowerable operators must be accepted by IsLowerableOp and receive rewarded costs (< 1.0).
+	lowerableOps := []struct {
+		op         string
+		childCosts []float64
+		maxCost    float64
+	}{
+		{"fused_swiglu_gemv", []float64{0.0, 0.0}, 0.5},
+		{"tile_swiglu", []float64{0.0, 0.0}, 0.5},
+		{"fused_swiglu_q8_0", []float64{0.0, 0.0}, 0.5},
+		{"fused_rmsnorm_gemv", []float64{0.0, 0.0}, 0.5},
+		{"tile_rmsnorm_qkv", []float64{0.0, 0.0}, 0.5},
+		{"tile_rmsnorm_proj", []float64{0.0, 0.0}, 0.5},
+		{"fused_gemv_pipeline", []float64{0.0, 0.0}, 0.5},
+		{"tile_mma", []float64{0.0, 0.0}, 0.5},
+		// PDL pipeline with independent preamble work (childCosts[1] > 0) receives 0.6 baseCost.
+		{"pdl_gemv_pipeline", []float64{0.0, 0.1, 0.1}, 0.9},
+	}
+
+	for _, tc := range lowerableOps {
+		if !egraph.IsLowerableOp(tc.op) {
+			t.Errorf("IsLowerableOp(%q) = false, want true", tc.op)
+		}
+		cost := costModel.NodeCost(egraph.ENode{Op: tc.op, Children: make([]egraph.Id, len(tc.childCosts))}, tc.childCosts)
+		if cost > tc.maxCost {
+			t.Errorf("lowerable op %q cost = %.2f; want <= %.2f", tc.op, cost, tc.maxCost)
+		}
+	}
+
+	// Entry-syncing PDL without preamble work must be penalized (>= 2.0).
+	entrySyncCost := costModel.NodeCost(egraph.ENode{Op: "pdl_entry_sync"}, []float64{0.0, 0.0})
+	if entrySyncCost < 2.0 {
+		t.Errorf("entry-syncing PDL cost = %.2f, want >= 2.0", entrySyncCost)
+	}
+}
+
+func TestLowerabilityPredicates(t *testing.T) {
+	tests := []struct {
+		op          string
+		wantCUDA    bool
+		wantTileIR  bool
+		wantUnified bool
+	}{
+		{"fused_swiglu_gemv", true, true, true},
+		{"fused_gemv_pipeline", true, false, true},
+		{"gemv", false, false, false},
+		{"matmul", false, false, false},
+		{"tile_rmsnorm_gemv_swiglu", false, true, true},
+		{"tile_rmsnorm_qkv_split", false, true, true},
+		{"tile_gelu", false, true, true},
+		{"tile_geglu", false, true, true},
+		{"tile_mma_fp8", false, true, true},
+		{"fused_nonexistent_ghost", false, false, false},
+		{"random_custom_op", false, false, false},
+	}
+
+	for _, tc := range tests {
+		gotCUDA := egraph.IsLowerableCUDAOp(tc.op)
+		if gotCUDA != tc.wantCUDA {
+			t.Errorf("IsLowerableCUDAOp(%q) = %v, want %v", tc.op, gotCUDA, tc.wantCUDA)
+		}
+		gotTileIR := egraph.IsLowerableTileIROp(tc.op)
+		if gotTileIR != tc.wantTileIR {
+			t.Errorf("IsLowerableTileIROp(%q) = %v, want %v", tc.op, gotTileIR, tc.wantTileIR)
+		}
+		gotUnified := egraph.IsLowerableOp(tc.op)
+		if gotUnified != tc.wantUnified {
+			t.Errorf("IsLowerableOp(%q) = %v, want %v", tc.op, gotUnified, tc.wantUnified)
+		}
+	}
+
+	// Test CanLower on expressions
+	validExpr := &egraph.Expr{
+		Op: "fused_gemv_pipeline",
+		Children: []*egraph.Expr{
+			{Op: "x"},
+			{Op: "w1"},
+			{Op: "w2"},
+		},
+	}
+	if !egraph.CanLower(validExpr) {
+		t.Errorf("CanLower(validExpr) = false, want true")
+	}
+
+	invalidExpr := &egraph.Expr{
+		Op: "fused_nonexistent_ghost",
+		Children: []*egraph.Expr{
+			{Op: "x"},
+		},
+	}
+	if egraph.CanLower(invalidExpr) {
+		t.Errorf("CanLower(invalidExpr) = true, want false")
+	}
+}
+
+func TestGenerateCUDA_NewLowerings(t *testing.T) {
+	opts := egraph.CodegenOptions{
+		KernelName: "TestKernel",
+		Precision:  "float",
+	}
+
+	// fused_gemv_pipeline must compile to valid CUDA C++
+	pipelineExpr := &egraph.Expr{
+		Op: "fused_gemv_pipeline",
+		Children: []*egraph.Expr{
+			{Op: "x"},
+			{Op: "W1"},
+			{Op: "W2"},
+		},
+	}
+	src, err := egraph.GenerateCUDA(pipelineExpr, opts)
+	if err != nil {
+		t.Fatalf("GenerateCUDA(fused_gemv_pipeline) failed: %v", err)
+	}
+	if !strings.Contains(src, "extern __shared__ float s_stage1[]") {
+		t.Errorf("GenerateCUDA output missing expected substring:\n%s", src)
+	}
+
+	// Unfused mathematical placeholder ops must be rejected by GenerateCUDA
+	for _, op := range []string{"gemv", "matmul"} {
+		expr := &egraph.Expr{
+			Op: op,
+			Children: []*egraph.Expr{
+				{Op: "A"},
+				{Op: "B"},
+			},
+		}
+		_, err := egraph.GenerateCUDA(expr, opts)
+		if err == nil {
+			t.Errorf("GenerateCUDA(%q) unexpectedly succeeded; want placeholder rejection", op)
+		}
+	}
+}
