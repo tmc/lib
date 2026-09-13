@@ -559,8 +559,13 @@ func TestProfileBridgeFrontEndAndIssueReasons(t *testing.T) {
 
 // Routing is the audit the identity cannot perform: a fetch stall counted as a
 // memory stall leaves every sum closed and sends a reader to the wrong hardware
-// unit. The table is the full reason set a GB10 inventory reports, including the
-// reasons this workload never sampled.
+// unit. The table is the 17 base stall reasons a GB10 inventory reported at
+// driver 580.173.02, including the ones no workload here has sampled. It is not
+// the whole inventory: that also carries one _not_issued companion per base and
+// two smsp__pcsamp_* counters, which are not stall reasons. Nor is it fixed --
+// StallReasons queries the map live precisely because another part or driver can
+// name a different set, so a name missing from this table is a reason whose
+// routing is asserted nowhere rather than a reason that cannot arrive.
 func TestReasonInventoryRouting(t *testing.T) {
 	const prefix = "smsp__pcsamp_warps_issue_stalled_"
 	want := map[string]string{
@@ -575,13 +580,23 @@ func TestReasonInventoryRouting(t *testing.T) {
 		"mio_throttle":       "stall_mem",
 		"lg_throttle":        "stall_mem",
 		"tex_throttle":       "stall_mem",
-		"imc_miss":           "stall_mem",
 		"drain":              "stall_drain",
 		"dispatch_stall":     "stall_dispatch",
 		"branch_resolving":   "stall_branch",
 		"no_instructions":    "stall_fetch",
 		"misc":               "unmapped",
 		"sleeping":           "unmapped",
+	}
+	// Names the classifier routes that this device never emits. They are kept
+	// out of the table above so that one stays a statement about the hardware,
+	// and kept here rather than dropped because the switch arms they exercise --
+	// the immediate-constant and texture cases -- are otherwise asserted by
+	// nothing at all.
+	absentFromGB10 := map[string]string{
+		"imc_miss": "stall_mem",
+	}
+	for reason, wantType := range absentFromGB10 {
+		want[reason] = wantType
 	}
 	var inv cuptipcsampling.ReasonInventory
 	for reason := range want {
