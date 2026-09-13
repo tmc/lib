@@ -60,12 +60,9 @@ func loadTestCode(t *testing.T) (*cudacapture.Code, *cudacapture.Capture) {
 func TestCaptureResolverResolvePC(t *testing.T) {
 	code, _ := loadTestCode(t)
 	const expectedCRC = 0x1122334455667788
-	const expectedGen = 42
 
 	res := cuptipcsampling.NewCaptureResolver(code, expectedCRC)
-	res.Generation = expectedGen
-
-	mod := cuptipcsampling.ModuleID{CRC: expectedCRC, Generation: expectedGen}
+	mod := cuptipcsampling.ModuleID{CRC: expectedCRC}
 
 	// Offset 0 (entry instruction)
 	loc0 := res.ResolvePC(mod, "compute", 0)
@@ -119,10 +116,8 @@ func TestCaptureResolverResolvePC(t *testing.T) {
 func TestCaptureResolverMismatches(t *testing.T) {
 	code, _ := loadTestCode(t)
 	const expectedCRC = 0x1122334455667788
-	const expectedGen = 42
 
 	res := cuptipcsampling.NewCaptureResolver(code, expectedCRC)
-	res.Generation = expectedGen
 
 	tests := []struct {
 		name       string
@@ -133,21 +128,14 @@ func TestCaptureResolverMismatches(t *testing.T) {
 	}{
 		{
 			name:       "mismatched CRC",
-			mod:        cuptipcsampling.ModuleID{CRC: 0xdeadbeef, Generation: expectedGen},
-			kernelName: "compute",
-			pcOffset:   0,
-			wantName:   "compute",
-		},
-		{
-			name:       "mismatched generation",
-			mod:        cuptipcsampling.ModuleID{CRC: expectedCRC, Generation: 999},
+			mod:        cuptipcsampling.ModuleID{CRC: 0xdeadbeef},
 			kernelName: "compute",
 			pcOffset:   0,
 			wantName:   "compute",
 		},
 		{
 			name:       "unknown kernel",
-			mod:        cuptipcsampling.ModuleID{CRC: expectedCRC, Generation: expectedGen},
+			mod:        cuptipcsampling.ModuleID{CRC: expectedCRC},
 			kernelName: "unknown_kernel",
 			pcOffset:   0,
 			wantName:   "unknown_kernel",
@@ -168,7 +156,7 @@ func TestCaptureResolverMismatches(t *testing.T) {
 
 	// Nil receiver and nil code
 	var nilRes *cuptipcsampling.CaptureResolver
-	mod := cuptipcsampling.ModuleID{CRC: expectedCRC, Generation: expectedGen}
+	mod := cuptipcsampling.ModuleID{CRC: expectedCRC}
 	if loc := nilRes.ResolvePC(mod, "compute", 0); loc.Resolved {
 		t.Error("nil resolver: expected Resolved=false")
 	}
@@ -181,18 +169,15 @@ func TestCaptureResolverMismatches(t *testing.T) {
 
 func TestCaptureResolverFromCapture(t *testing.T) {
 	code, cap := loadTestCode(t)
-	cap.Modules = []cudacapture.Module{
-		{ID: "mod1", Generation: 88},
-	}
 
 	res := cuptipcsampling.NewCaptureResolverFromCapture(code, cap)
-	if res.Generation != 88 {
-		t.Errorf("res.Generation = %d, want 88", res.Generation)
+	if res == nil || res.Code != code {
+		t.Errorf("res.Code = %v, want %v", res.Code, code)
 	}
 
 	// Nil capture safe check
 	resNil := cuptipcsampling.NewCaptureResolverFromCapture(code, nil)
-	if resNil.Generation != 0 {
-		t.Errorf("resNil.Generation = %d, want 0", resNil.Generation)
+	if resNil == nil || resNil.CUBINCRC != 0 {
+		t.Errorf("resNil.CUBINCRC = %d, want 0", resNil.CUBINCRC)
 	}
 }

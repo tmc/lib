@@ -7,9 +7,8 @@ import (
 // CaptureResolver maps PC sampling coordinates to source and SASS locations
 // using decoded code and assembly from a cudacapture.Code bundle.
 type CaptureResolver struct {
-	Code       *cudacapture.Code
-	CUBINCRC   uint64
-	Generation uint64
+	Code     *cudacapture.Code
+	CUBINCRC uint64
 }
 
 // NewCaptureResolver creates a CodeResolver from decoded capture code and expected CUBIN CRC.
@@ -34,8 +33,7 @@ func NewCaptureResolverFromCubin(code *cudacapture.Code, cubin []byte) *CaptureR
 }
 
 // NewCaptureResolverFromCapture creates a CaptureResolver from a Capture bundle and decoded Code.
-// It sets Generation if modules are recorded in the capture, and computes CUBINCRC via
-// IdentifyCubin if the CUBIN file is present.
+// It computes CUBINCRC via IdentifyCubin if the CUBIN file is present.
 func NewCaptureResolverFromCapture(code *cudacapture.Code, cap *cudacapture.Capture) *CaptureResolver {
 	r := &CaptureResolver{Code: code}
 	if cap == nil {
@@ -45,9 +43,6 @@ func NewCaptureResolverFromCapture(code *cudacapture.Code, cap *cudacapture.Capt
 		if id, err := IdentifyCubin(cubinBytes, len(cubinBytes)); err == nil {
 			r.CUBINCRC = id.CRC
 		}
-	}
-	if len(cap.Modules) > 0 {
-		r.Generation = cap.Modules[0].Generation
 	}
 	return r
 }
@@ -60,9 +55,6 @@ func (r *CaptureResolver) ResolvePC(mod ModuleID, kernelName string, pcOffset ui
 		return CodeLocation{KernelName: kernelName}
 	}
 	if mod.CRC != 0 && r.CUBINCRC != 0 && mod.CRC != r.CUBINCRC {
-		return CodeLocation{KernelName: kernelName}
-	}
-	if mod.Generation != 0 && r.Generation != 0 && mod.Generation != r.Generation {
 		return CodeLocation{KernelName: kernelName}
 	}
 	k := r.Code.Kernel(kernelName)
