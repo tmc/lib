@@ -587,13 +587,24 @@ func TestReasonInventoryRouting(t *testing.T) {
 		"misc":               "unmapped",
 		"sleeping":           "unmapped",
 	}
-	// Names the classifier routes that this device never emits. They are kept
-	// out of the table above so that one stays a statement about the hardware,
-	// and kept here rather than dropped because the switch arms they exercise --
-	// the immediate-constant and texture cases -- are otherwise asserted by
-	// nothing at all.
+	// Names the classifier routes that this device never emits, kept out of the
+	// table above so that one stays a statement about the hardware. They are
+	// kept at all because classifyStall covers two naming schemes: the modern
+	// smsp__pcsamp_* reasons above, and the legacy activity-API stall enum,
+	// whose names reach switch arms that nothing else witnesses. The routings
+	// asserted here are the cross-scheme agreements that matter -- most of all
+	// that memory_dependency and long_scoreboard land in the same bucket, since
+	// they are the same wait reported by two APIs, and a reader comparing
+	// captures from both must not find the same phenomenon under two names.
 	absentFromGB10 := map[string]string{
-		"imc_miss": "stall_mem",
+		"imc_miss":                   "stall_mem",
+		"memory_dependency":          "stall_scoreboard",
+		"exec_dependency":            "stall_scoreboard",
+		"constant_memory_dependency": "stall_mem",
+		"texture":                    "stall_mem",
+		"inst_fetch":                 "stall_fetch",
+		"pipe_busy":                  "stall_math",
+		"sync":                       "stall_wait",
 	}
 	for reason, wantType := range absentFromGB10 {
 		want[reason] = wantType

@@ -305,8 +305,17 @@ func reasonRouting(name string) string {
 	return "unmapped"
 }
 
-// classifyStall maps a native stall reason name to a cudaprof stall metric.
-// Order matters: barrier and membar checks must precede memory throttle checks.
+// classifyStall maps a native stall reason name to a cudaprof stall metric. It
+// covers two naming schemes: the modern smsp__pcsamp_warps_issue_stalled_*
+// reasons the PC sampling API reports, and the legacy stall enum of the
+// activity API, whose names are the only witnesses several arms below have.
+//
+// Order matters, because the names overlap by substring: membar must be matched
+// as a wait before the bare mem of the memory arm, and constant_memory_dependency
+// as a constant-cache stall before the memory_dependency of the scoreboard arm.
+// Reordering the switch moves counts between buckets with every test still
+// green unless a table row pins the name, so each dependency is noted where it
+// is created.
 func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {
 	name := strings.ToLower(reasonName)
 	// CUPTI reports each reason twice: smsp__pcsamp_warps_issue_stalled_<r>
@@ -330,8 +339,23 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 		vals.StallWait += count
 		return true
 
-	// Register scoreboard dependencies
-	case strings.Contains(name, "scoreboard"):
+	// Constant-cache misses, before the dependency arm below: the legacy name
+	// is constant_memory_dependency, which contains memory_dependency, and the
+	// modern equivalent imc_miss is a memory stall rather than a wait on a
+	// result the SM has already asked for.
+	case strings.Contains(name, "constant") || strings.Contains(name, "imc"):
+		vals.StallMem += count
+		return true
+
+	// Register scoreboard dependencies. exec_dependency and memory_dependency
+	// are the legacy activity-API names for the same two waits that
+	// short_scoreboard and long_scoreboard report: a result that is not ready
+	// yet. memory_dependency is matched here rather than by the memory arm
+	// below on purpose -- it means a warp waiting for load data, which is
+	// long_scoreboard's meaning, and filing it under stall_mem would make the
+	// bucket depend on which API produced the capture rather than on what the
+	// warp was doing.
+	case strings.Contains(name, "scoreboard") || strings.Contains(name, "exec_dependency") || strings.Contains(name, "memory_dependency"):
 		vals.StallScoreboard += count
 		return true
 
@@ -342,8 +366,7 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 
 	// Memory sub-system stalls and throttles
 	case strings.Contains(name, "mem") || strings.Contains(name, "lg_throttle") || strings.Contains(name, "mio_throttle") ||
-		strings.Contains(name, "constant") || strings.Contains(name, "texture") || strings.Contains(name, "tex_throttle") ||
-		strings.Contains(name, "imc") || strings.Contains(name, "dram"):
+		strings.Contains(name, "texture") || strings.Contains(name, "tex_throttle") || strings.Contains(name, "dram"):
 		vals.StallMem += count
 		return true
 
