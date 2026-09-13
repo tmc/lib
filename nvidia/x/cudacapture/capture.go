@@ -40,6 +40,7 @@ type CodeFiles struct {
 	PTX    string `json:"ptx"`
 	CUBIN  string `json:"cubin"`
 	SASS   string `json:"sass"`
+	TileIR string `json:"tileir,omitempty"`
 	CFG    string `json:"cfg,omitempty"`
 	BBCFG  string `json:"bbcfg,omitempty"`
 }
@@ -256,7 +257,7 @@ func validateCapture(c *Capture, l Limits) error {
 			return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
 		}
 	}
-	for role, name := range map[string]string{"cfg": c.Code.CFG, "bbcfg": c.Code.BBCFG} {
+	for role, name := range map[string]string{"cfg": c.Code.CFG, "bbcfg": c.Code.BBCFG, "tileir": c.Code.TileIR} {
 		if name != "" {
 			if _, ok := c.Files[name]; !ok {
 				return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
@@ -268,7 +269,7 @@ func validateCapture(c *Capture, l Limits) error {
 		if module.ID == "" {
 			return errors.New("cudacapture: module is missing identity")
 		}
-		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS, "cfg": module.Code.CFG, "bbcfg": module.Code.BBCFG} {
+		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS, "tileir": module.Code.TileIR, "cfg": module.Code.CFG, "bbcfg": module.Code.BBCFG} {
 			if name == "" {
 				continue
 			}

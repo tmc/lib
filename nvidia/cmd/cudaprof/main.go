@@ -237,10 +237,10 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 			fn.Filename = filepath.Join(f.dir, name)
 		}
 	}
-	if f.cap.Code.CUBIN != "" || f.cap.Code.PTX != "" {
+	if f.cap.Code.CUBIN != "" || f.cap.Code.PTX != "" || f.cap.Code.TileIR != "" {
 		for _, m := range p.Mapping {
 			base := filepath.Base(m.File)
-			if base != filepath.Base(f.cap.Code.CUBIN) && base != filepath.Base(f.cap.Code.PTX) {
+			if base != filepath.Base(f.cap.Code.CUBIN) && base != filepath.Base(f.cap.Code.PTX) && base != filepath.Base(f.cap.Code.TileIR) {
 				continue
 			}
 			m.File = filepath.Join(f.dir, base)

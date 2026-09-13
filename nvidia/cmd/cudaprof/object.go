@@ -13,6 +13,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
+	"github.com/tmc/lib/nvidia/x/tileirdisasm"
 )
 
 // PTX addresses are byte offsets in the recorded text, with a separate logical
@@ -24,6 +25,7 @@ const ptxBase = cudaprof.PTXMappingStart
 type objectTool struct {
 	images map[string]*objectImage
 	ptx    *objectImage
+	tileir *objectImage
 }
 
 type objectImage struct {
@@ -67,7 +69,46 @@ func newObjectTool(c *cudacapture.Capture, code *cudacapture.Code, dir string) (
 	if err != nil {
 		return nil, err
 	}
-	return &objectTool{images: map[string]*objectImage{sass.file: sass, ptx.file: ptx}, ptx: ptx}, nil
+
+	tool := &objectTool{
+		images: map[string]*objectImage{sass.file: sass, ptx.file: ptx},
+		ptx:    ptx,
+	}
+
+	if c.Code.TileIR != "" && len(c.Files[c.Code.TileIR]) > 0 {
+		tileData := c.Files[c.Code.TileIR]
+		tileSum := fmt.Sprintf("%x", sha256.Sum256(tileData))
+		tilePath := filepath.Join(dir, c.Code.TileIR)
+		tileImg, err := tileIRImage(tilePath, tileSum, string(tileData))
+		if err == nil && tileImg != nil {
+			tool.images[tileImg.file] = tileImg
+			tool.tileir = tileImg
+		}
+	}
+
+	return tool, nil
+}
+
+func tileIRImage(file, buildID, text string) (*objectImage, error) {
+	mod, err := tileirdisasm.ParseString(text)
+	if err != nil {
+		return nil, err
+	}
+	image := &objectImage{file: file, buildID: buildID, size: uint64(len(text))}
+	for _, fn := range mod.Functions {
+		objFn := objectFunction{name: fn.Name + ".IR"}
+		for _, in := range fn.Operations {
+			objFn.instructions = append(objFn.instructions, driver.Inst{
+				Addr:     uint64(in.Line),
+				Text:     strings.TrimSpace(in.Raw),
+				Function: objFn.name,
+				File:     file,
+				Line:     in.Line,
+			})
+		}
+		image.functions = append(image.functions, objFn)
+	}
+	return image, nil
 }
 
 func ptxImage(file, buildID, text string) (*objectImage, error) {
