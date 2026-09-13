@@ -43,7 +43,7 @@ func (m *Model) RenderSVG(w io.Writer, points []KernelPoint) error {
 		if logVal > maxLogX {
 			logVal = maxLogX
 		}
-		return padLeft + ((logVal - minLogX) / spanLogX) * plotWidth
+		return padLeft + ((logVal-minLogX)/spanLogX)*plotWidth
 	}
 
 	yToPixel := func(tflops float64) float64 {
@@ -57,7 +57,7 @@ func (m *Model) RenderSVG(w io.Writer, points []KernelPoint) error {
 		if logVal > maxLogY {
 			logVal = maxLogY
 		}
-		return padTop + ((maxLogY - logVal) / spanLogY) * plotHeight
+		return padTop + ((maxLogY-logVal)/spanLogY)*plotHeight
 	}
 
 	fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?>

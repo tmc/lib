@@ -450,4 +450,3 @@ func runInspectAdvise(args []string, limits cudacapture.Limits) error {
 	}
 	return json.NewEncoder(os.Stdout).Encode(adv)
 }
-

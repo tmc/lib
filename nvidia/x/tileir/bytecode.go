@@ -1179,4 +1179,3 @@ func (m *Module) EncodeBytecode() ([]byte, error) {
 	}
 	return EncodeBytecode(bm)
 }
-

@@ -151,11 +151,11 @@ func TestObserveJournalPreservesKernelGeometry(t *testing.T) {
 		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
 		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
 		{
-			Kind: recordActivity,
+			Kind:    recordActivity,
 			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelArray","valid":true,"start":100,"end":200,"grid":[256,1,1],"block":[32,1,1],"registers_per_thread":48,"dynamic_shared_memory":4096}`),
 		},
 		{
-			Kind: recordActivity,
+			Kind:    recordActivity,
 			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelCoords","valid":true,"start":300,"end":400,"grid_x":64,"grid_y":2,"grid_z":1,"block_x":128,"block_y":1,"block_z":1,"registers":24,"smem":1024}`),
 		},
 		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},

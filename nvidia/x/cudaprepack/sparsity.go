@@ -313,22 +313,22 @@ func SwizzleScales(scales []byte, rows, cols int, mode SwizzleMode) ([]byte, err
 				// 32B swizzle: 2 chunks of 16B in 32B period
 				chunk := (c / 16) % 2
 				swizzledChunk := chunk ^ (r & 0x01)
-				swizzledCol = (c / 32)*32 + swizzledChunk*16 + (c % 16)
+				swizzledCol = (c/32)*32 + swizzledChunk*16 + (c % 16)
 			case Swizzle64B:
 				// 64B swizzle: 4 chunks of 16B in 64B period
 				chunk := (c / 16) % 4
 				swizzledChunk := chunk ^ (r & 0x03)
-				swizzledCol = (c / 64)*64 + swizzledChunk*16 + (c % 16)
+				swizzledCol = (c/64)*64 + swizzledChunk*16 + (c % 16)
 			case Swizzle128B:
 				// 128B swizzle: 8 chunks of 16B in 128B period
 				chunk := (c / 16) % 8
 				swizzledChunk := chunk ^ (r & 0x07)
-				swizzledCol = (c / 128)*128 + swizzledChunk*16 + (c % 16)
+				swizzledCol = (c/128)*128 + swizzledChunk*16 + (c % 16)
 			case Swizzle128BAtom32B:
 				// 128B atom 32B swizzle: 4 atoms of 32B in 128B period
 				atom := (c / 32) % 4
 				swizzledAtom := atom ^ (r & 0x03)
-				swizzledCol = (c / 128)*128 + swizzledAtom*32 + (c % 32)
+				swizzledCol = (c/128)*128 + swizzledAtom*32 + (c % 32)
 			default:
 				return nil, fmt.Errorf("cudaprepack: unknown swizzle mode %s", mode)
 			}

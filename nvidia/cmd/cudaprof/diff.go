@@ -584,4 +584,3 @@ func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int6
 	}
 	return counts
 }
-

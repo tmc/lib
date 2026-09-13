@@ -309,4 +309,3 @@ func TestEncodeBytecodeRoundTrip(t *testing.T) {
 		t.Errorf("fn.IsEntry = false, want true")
 	}
 }
-

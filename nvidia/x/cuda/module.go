@@ -219,4 +219,3 @@ func (k *Kernel) LaunchEx(config *driver.LaunchConfig, args []unsafe.Pointer) er
 	}
 	return nil
 }
-

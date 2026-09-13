@@ -312,4 +312,3 @@ func BenchmarkCalculate(b *testing.B) {
 		_ = kernel.CalculateDevice(dev, 256, 16384)
 	}
 }
-

@@ -296,4 +296,3 @@ func TestRunDiffExplain(t *testing.T) {
 		t.Errorf("output missing expected speedup calculation: %s", out)
 	}
 }
-

@@ -165,4 +165,3 @@ func TestTileIRBytecodeCoordinates(t *testing.T) {
 		t.Errorf("function name = %s, want bf16_splat.TILEIR", image.functions[0].name)
 	}
 }
-

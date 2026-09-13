@@ -64,9 +64,9 @@ func Parse(r io.Reader) (*Module, error) {
 	m := &Module{Files: make(map[int]string)}
 
 	var (
-		curKernel      *Kernel
-		pendingTuning  Tuning
-		depth          int
+		curKernel          *Kernel
+		pendingTuning      Tuning
+		depth              int
 		curLoc             Location
 		curIntermediateLoc Location
 		curInlinedAt       []Location
