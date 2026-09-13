@@ -360,14 +360,26 @@ the steady-state bins without bucketing the whole span.
 
 The final-two-seconds claim does survive measurement: the largest inter-kernel
 gap in the last 2 s is 120,768 ns across 50,777 kernels, well under the 5 ms
-that was claimed. The decode window uses 29 distinct kernel kinds against
-prefill's 32.
+that was claimed. That window uses 29 distinct kernel kinds against prefill's
+32.
+
+It is called "the tail window" and not "the decode window" throughout, and one
+sentence here previously slipped and called it the latter. The slip now has
+evidence against it as well as the argument above: both NVTX-bearing captures,
+where containment settles the question, stop recording device events more than
+a second *before* decode begins, and hold zero decode kernels (see "The two
+captures compared"). This reference capture has no NVTX table, so its tail
+cannot be attributed either way — but the prior should be that it is prefill,
+not decode.
 
 **This reference capture is itself incomplete, and by the same mechanism
 described under "What the capture drops on exit" below.** Its diagnostics
-carry `Not all CUDA events might have been collected` and, decisively, no
-`Number of CUPTI events produced` line at all — the accounting line that every
-capture which lost nothing does carry. So the 801 ms gap is not evidence that
+carry `Not all CUDA events might have been collected` and no
+`Number of CUPTI events produced` line at all. That missing line is a
+shutdown-path diagnostic, not a completeness gate — the threaded `_exit`
+control arm retained all 1,500,000 of its kernels without it — so read it as a
+reason to go check the source counts and NVTX containment, which is what the
+first sentence of this paragraph rests on. So the 801 ms gap is not evidence that
 the GPU was idle at t=50.355 s; it is evidence that the capture stopped
 recording there. Nothing in this section's numbers should be read as a device
 occupancy measurement.
