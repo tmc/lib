@@ -389,15 +389,15 @@ func ParseType(s string) (Type, error) {
 		return TFloat32, nil
 	case "f64":
 		return Float64, nil
-	case "f8E4M3FN", "f8e4m3fn":
+	case "f8E4M3FN", "f8e4m3fn", "fp8", "fp8_e4m3", "e4m3", "e4m3fn":
 		return Float8E4M3, nil
-	case "f8E5M2", "f8e5m2":
+	case "f8E5M2", "f8e5m2", "fp8_e5m2", "e5m2":
 		return Float8E5M2, nil
-	case "f8E8M0FNU":
+	case "f8E8M0FNU", "f8e8m0fnu", "fp8_e8m0", "e8m0":
 		return Float8E8M0, nil
-	case "f4E2M1FN":
+	case "f4E2M1FN", "f4e2m1fn", "f4", "fp4", "e2m1", "f4e2m1":
 		return Float4E2M1, nil
-	case "f8E5M3FNU":
+	case "f8E5M3FNU", "f8e5m3fnu", "fp8_e5m3", "e5m3":
 		return Float8E5M3, nil
 	case "token":
 		return Token, nil

@@ -199,7 +199,11 @@ func Assemble(ctx context.Context, input []byte, opts ...Option) (*Result, error
 	}
 	defer os.RemoveAll(tmpDir)
 
-	inputPath := filepath.Join(tmpDir, "input.tilebc")
+	inputExt := ".tileir"
+	if IsBytecode(input) {
+		inputExt = ".tilebc"
+	}
+	inputPath := filepath.Join(tmpDir, "input"+inputExt)
 	if err := os.WriteFile(inputPath, input, 0600); err != nil {
 		return nil, fmt.Errorf("tileiras: writing input: %w", err)
 	}
