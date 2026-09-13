@@ -25,6 +25,25 @@ func TestParseCaptureArgsPreservesTargetArgv(t *testing.T) {
 	}
 }
 
+func TestParseCaptureArgsMaxRecords(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want int64
+	}{
+		{[]string{"--max-records=5000000", "--", "true"}, 5000000},
+		{[]string{"--max-records", "10000000", "--", "true"}, 10000000},
+		{[]string{"-max-records=2000000", "--", "true"}, 2000000},
+	} {
+		o, err := parseCaptureArgs(tc.args)
+		if err != nil {
+			t.Fatalf("parseCaptureArgs(%v): %v", tc.args, err)
+		}
+		if o.MaxJournalRecords != tc.want {
+			t.Errorf("parseCaptureArgs(%v) MaxJournalRecords = %d, want %d", tc.args, o.MaxJournalRecords, tc.want)
+		}
+	}
+}
+
 func TestParseCaptureArgsRejectsInvalidPlanBeforeSpawn(t *testing.T) {
 	for _, args := range [][]string{{"--unknown", "--", "true"}, {"--timeout=0s", "--", "true"}} {
 		o, err := parseCaptureArgs(args)

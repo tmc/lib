@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -83,6 +84,7 @@ type captureOptions struct {
 	// carry no finalized record, as an explicitly labelled partial. It never
 	// makes a capture successful and never affects a finalized generation.
 	RecoverUnfinalized    bool
+	MaxJournalRecords     int64
 	Timeout, DrainTimeout time.Duration
 	Output                string
 	Inject                string
@@ -215,6 +217,8 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 		}
 		name, value, hasValue := strings.Cut(arg, "=")
 		switch name {
+		case "-h", "-help", "--help":
+			return o, flag.ErrHelp
 		case "--trace":
 			o.Trace = true
 		case "--deep":
@@ -249,6 +253,17 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 				return o, fmt.Errorf("invalid %s %q", name, v)
 			}
 			o.CaptureFileBytes = n
+		case "--max-records", "-max-records":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil || n <= 0 {
+				return o, fmt.Errorf("invalid %s %q", name, v)
+			}
+			o.MaxJournalRecords = n
 		case "--collect":
 			v, next, err := captureValue(args, i, value, hasValue)
 			if err != nil {
@@ -481,7 +496,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		}
 	}
 	result.State = captureStateFinalized
-	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", recoverUnfinalized: o.RecoverUnfinalized})
+	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
 	if waitErr == nil {
 		result.TargetExitCode = 0
 		if result.Cancelled {

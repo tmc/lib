@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -20,8 +21,16 @@ import (
 // It always emits a self-contained status recording when -o is supplied,
 // including no-CUDA and partial target outcomes.
 func runCaptureCommand(args []string) error {
+	if len(args) == 0 {
+		printCaptureHelp()
+		return nil
+	}
 	opts, err := parseCaptureArgs(args)
 	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printCaptureHelp()
+			return nil
+		}
 		return err
 	}
 	result, runErr := runCapture(context.Background(), opts)
@@ -298,3 +307,21 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	}
 	return nil
 }
+
+func printCaptureHelp() {
+	fmt.Println(`Usage: cudaprof capture [options] -- command [args...]
+
+Options:
+  -o <path>                     write capture output to file or directory
+  --max-records <N>             maximum journal records to retain (default 1048576)
+  --trace                       enable CUDA activity tracing (default true)
+  --deep                        enable deep tracing (API calls and activities)
+  --exhaustive                  enable exhaustive tracing
+  --collect <metric>            collect additional CUPTI metrics
+  --exclude <kernel>            exclude matching kernel names
+  --timeout <duration>          execution timeout
+  --drain-timeout <duration>    drain timeout after target completion
+  --require-complete            require complete capture without dropped records
+  --follow-children             follow spawned child processes`)
+}
+

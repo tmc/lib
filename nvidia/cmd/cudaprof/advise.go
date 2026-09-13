@@ -13,6 +13,7 @@ import (
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -73,6 +74,8 @@ type AdviceItem struct {
 	Location                 Location `json:"location"`
 	Finding                  string   `json:"finding"`
 	ActionableRecommendation string   `json:"actionable_recommendation"`
+	DeviceTimeNanos          int64    `json:"device_time_nanos,omitempty"`
+	ShareOfProfile           float64  `json:"share_of_profile,omitempty"`
 }
 
 // AdviceReport contains all recommendations resulting from analyzing a capture.
@@ -108,7 +111,12 @@ func (r *AdviceReport) Markdown() string {
 
 	sb.WriteString("## Findings\n\n")
 	for i, item := range r.Items {
-		sb.WriteString(fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding))
+		header := fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding)
+		if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
+			durMs := float64(item.DeviceTimeNanos) / 1e6
+			header = fmt.Sprintf("### %d. [%s] (%.2f%% of GPU time, %.2f ms) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, durMs, item.Category, item.Finding)
+		}
+		sb.WriteString(header)
 		locStr := item.Location.String()
 		if locStr != "" {
 			sb.WriteString(fmt.Sprintf("- **Location**: %s\n", locStr))
@@ -205,6 +213,12 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	}
 
 	// 2. Register Pressure Curves (via cudaprof/pressure.go)
+	launches := extractLaunches(cap)
+	launchesByKernel := make(map[string]launchRecord, len(launches))
+	for _, l := range launches {
+		launchesByKernel[l.Kernel] = l
+	}
+
 	disasm, _ := loadDisassemblyWithPressure(cap)
 	if disasm == nil {
 		if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
@@ -214,6 +228,10 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 		}
 	}
 	if disasm != nil {
+		arch := parseArchFromCapture(cap)
+		if arch == "" {
+			arch = "sm_121a"
+		}
 		for _, fn := range disasm.Functions {
 			var peakGPR, peakUGPR int
 			var peakGPRAddr, peakUGPRAddr uint64
@@ -289,6 +307,12 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				File:   peakGPRInst.SourceFile,
 				Line:   peakGPRInst.SourceLine,
 			}
+			threadsPerBlock := 128
+			if l, ok := launchesByKernel[fn.Name]; ok && l.BlockThreads > 0 {
+				threadsPerBlock = l.BlockThreads
+			}
+			occRes, occErr := cudaoccupancy.CalculateOccupancy(arch, peakGPR, 0, threadsPerBlock)
+
 			if peakGPR > 255 {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityCritical,
@@ -298,19 +322,29 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					ActionableRecommendation: "Reduce register consumption below 255 using compiler flags (-maxrregcount=255 or __launch_bounds__) to prevent excessive local memory spills.",
 				})
 			} else if peakGPR > 128 {
+				finding := fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>128 GPRs, capping SM occupancy at <= 16 warps)", peakGPR, fn.Name)
+				if occErr == nil {
+					finding = fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff on %s (>128 GPRs, capping SM occupancy at %d/%d warps, %.1f%% across %d blocks/SM limited by %s)",
+						peakGPR, fn.Name, occRes.Architecture, occRes.TheoreticalWarps, occRes.MaxWarps, occRes.Occupancy*100, occRes.ActiveBlocks, occRes.LimitingFactor)
+				}
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryRegisterPressure,
 					Location:                 locGPR,
-					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>128 GPRs, capping SM occupancy at <= 16 warps)", peakGPR, fn.Name),
+					Finding:                  finding,
 					ActionableRecommendation: "Optimize register reuse, hoist expressions, or use __launch_bounds__ to keep register pressure at or below 128 GPRs for higher occupancy.",
 				})
 			} else if peakGPR > 64 {
+				finding := fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name)
+				if occErr == nil {
+					finding = fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff on %s (>64 GPRs, capping SM occupancy at %d/%d warps, %.1f%% across %d blocks/SM limited by %s)",
+						peakGPR, fn.Name, occRes.Architecture, occRes.TheoreticalWarps, occRes.MaxWarps, occRes.Occupancy*100, occRes.ActiveBlocks, occRes.LimitingFactor)
+				}
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryRegisterPressure,
 					Location:                 locGPR,
-					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name),
+					Finding:                  finding,
 					ActionableRecommendation: "Evaluate whether limiting register usage to <= 64 GPRs with __launch_bounds__ improves throughput via higher warp occupancy.",
 				})
 			}
@@ -442,6 +476,12 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 		}
 	}
 
+	// 0. Capture Status & Integrity Audit
+	auditCaptureStatus(cap, report)
+
+	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
+	auditCUBINResourceOccupancy(cap, report, launchesByKernel)
+
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
 
@@ -450,6 +490,13 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 
 	// 6. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
+
+	// 7. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
+	kernelTimes, totalTime := computeProfileTimes(cap)
+	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime)
+
+	// Finalize device times and rank findings by device time
+	finalizeAndRankFindings(report, kernelTimes, totalTime)
 
 	return report, nil
 }
@@ -743,11 +790,10 @@ type launchRecord struct {
 	Location     Location
 }
 
-func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
+func extractLaunches(cap *cudacapture.Capture) []launchRecord {
 	if cap == nil {
-		return
+		return nil
 	}
-
 	var launches []launchRecord
 
 	// 1. From cap.Profile.Sample
@@ -846,6 +892,26 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 		}
 	}
+	return launches
+}
+
+func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+	launches := extractLaunches(cap)
+
+	if cap.Profile != nil && len(cap.Profile.Sample) > 0 && len(launches) == 0 {
+		report.Items = append(report.Items, AdviceItem{
+			Severity:                 SeverityInfo,
+			Category:                 CategoryArchitecture,
+			Finding:                  "Launch geometry labels ('grid', 'block') are absent in this profile (requires profiling with updated cupti_agent); launch geometry and SM occupancy audits skipped.",
+			ActionableRecommendation: "Re-capture the profile using an updated libcupti_agent that serializes kernel launch dimensions.",
+		})
+		return
+	}
+
+	smCount := determineSMCount(cap)
 
 	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
 	seenSingleWarp := make(map[string]bool)
@@ -855,18 +921,42 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				continue
 			}
 			seenSingleWarp[launch.Kernel] = true
+
+			warpsPerBlock := (launch.BlockThreads + 31) / 32
+			if warpsPerBlock <= 0 {
+				warpsPerBlock = 1
+			}
+			maxWarpsPerSM := 48
+			maxBlocksPerSM := 24
+			if smCount > 48 {
+				maxWarpsPerSM = 64
+				maxBlocksPerSM = 32
+			}
+			blocksPerSM := maxBlocksPerSM
+			if maxWarpsPerSM/warpsPerBlock < blocksPerSM {
+				blocksPerSM = maxWarpsPerSM / warpsPerBlock
+			}
+			residentWarpsPerSM := blocksPerSM * warpsPerBlock
+			occupancyPct := (residentWarpsPerSM * 100) / maxWarpsPerSM
+
+			severity := SeverityWarning
+			finding := fmt.Sprintf("Single-warp thread blocks cannot hide arithmetic or memory latency; threads stall on memory round-trips without alternate warps to issue (kernel %q launched with %d block threads <= 32: %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM)",
+				launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM)
+			if launch.GridBlocks == 1 {
+				finding = fmt.Sprintf("GPU-wide thread starvation: Single-warp thread blocks cannot hide arithmetic or memory latency (kernel %q launched with Grid(1).Block(%d) leaves the entire %d-SM GPU idle)", launch.Kernel, launch.BlockThreads, smCount)
+			}
+
 			report.Items = append(report.Items, AdviceItem{
-				Severity:                 SeverityWarning,
+				Severity:                 severity,
 				Category:                 CategoryArchitectureCompute,
 				Location:                 launch.Location,
-				Finding:                  fmt.Sprintf("Single-warp thread blocks cannot hide arithmetic or memory latency; threads stall on memory round-trips without alternate warps to issue (kernel %q launched with %d block threads <= 32)", launch.Kernel, launch.BlockThreads),
-				ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding.",
+				Finding:                  finding,
+				ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding (worth testing if kernel is latency-bound; note bandwidth-bound streaming kernels may see no speedup).",
 			})
 		}
 	}
 
 	// 2. SM Grid Starvation (< SMCount)
-	smCount := determineSMCount(cap)
 	seenGridStarvation := make(map[string]bool)
 	for _, launch := range launches {
 		if launch.GridBlocks > 0 && launch.GridBlocks < smCount {
@@ -881,6 +971,118 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				Location:                 launch.Location,
 				Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle", launch.Kernel, launch.GridBlocks, smCount, idlePct),
 				ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
+			})
+		}
+	}
+}
+
+// auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
+// EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
+// to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport, launchesByKernel map[string]launchRecord) {
+	if cap == nil {
+		return
+	}
+	cubinData, ok := findCUBIN(cap)
+	if !ok || len(cubinData) == 0 {
+		return
+	}
+
+	infos, err := cudaoccupancy.ReadKernelInfoBytes(cubinData)
+	if err != nil || len(infos) == 0 {
+		return
+	}
+
+	arch := parseArchFromCapture(cap)
+	if arch == "" {
+		arch = "sm_121a"
+	}
+	dev, err := cudaoccupancy.LookupDevice(arch)
+	if err != nil {
+		dev = cudaoccupancy.SM121
+	}
+
+	for _, k := range infos {
+		threadsPerBlock := 128
+		if l, ok := launchesByKernel[k.Name]; ok && l.BlockThreads > 0 {
+			threadsPerBlock = l.BlockThreads
+		} else if k.ReqNTID[0] > 0 {
+			threadsPerBlock = k.ReqNTID[0] * max(1, k.ReqNTID[1]) * max(1, k.ReqNTID[2])
+		}
+
+		// 1. Stack frame size (EIATTR_FRAME_SIZE)
+		if k.FrameSizeBytes > 0 {
+			report.Items = append(report.Items, AdviceItem{
+				Severity: SeverityCritical,
+				Category: CategoryRegisterPressure,
+				Location: Location{Kernel: k.Name},
+				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
+					k.Name, k.FrameSizeBytes),
+				ActionableRecommendation: "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills.",
+			})
+		}
+
+		// 2. Compiler register limit (EIATTR_MAXREG_COUNT)
+		if k.MaxRegCount > 0 && k.Registers >= k.MaxRegCount {
+			report.Items = append(report.Items, AdviceItem{
+				Severity: SeverityWarning,
+				Category: CategoryRegisterPressure,
+				Location: Location{Kernel: k.Name},
+				Finding: fmt.Sprintf("Kernel %q reached the compiler register limit of %d GPRs (EIATTR_MAXREG_COUNT), which may force register spilling or sub-optimal instruction scheduling",
+					k.Name, k.MaxRegCount),
+				ActionableRecommendation: "Raise compiler register budget (-maxrregcount) or restructure compute loops to reduce register demand.",
+			})
+		}
+
+		// 3. Analytical occupancy & hardware limiting factor
+		kRes := cudaoccupancy.KernelResource{
+			Registers:       k.Registers,
+			StaticSharedMem: k.SharedMemBytes,
+		}
+		rep := kRes.CalculateDevice(dev, threadsPerBlock, 0)
+		if rep.Occupancy < 1.0 {
+			warpsPerBlock := (threadsPerBlock + dev.WarpSize - 1) / dev.WarpSize
+			if warpsPerBlock <= 0 {
+				warpsPerBlock = 1
+			}
+
+			severity := SeverityWarning
+			if rep.Occupancy <= 0.25 {
+				severity = SeverityCritical
+			}
+
+			finding := fmt.Sprintf("Microarchitecture theoretical occupancy on %s for kernel %q is %.1f%% (%d/%d active warps, %d blocks/SM) constrained by %s (limits: %d blocks from registers, %d from smem, %d from block count, %d from block size)",
+				dev.Architecture, k.Name, rep.Occupancy*100, rep.TheoreticalWarps, rep.MaxWarps, rep.ActiveBlocks, rep.LimitingFactor, rep.RegLimit, rep.SmemLimit, rep.BlockLimit, rep.WarpLimit)
+
+			var rec string
+			switch rep.LimitingFactor {
+			case cudaoccupancy.LimitRegisters:
+				targetBlocks := rep.ActiveBlocks + 1
+				regsPerBlockTarget := dev.MaxRegistersPerSM / targetBlocks
+				regsPerWarpTarget := regsPerBlockTarget / warpsPerBlock
+				maxRegsTarget := regsPerWarpTarget / dev.WarpSize
+				targetWarps := targetBlocks * warpsPerBlock
+				targetOcc := (float64(targetWarps) / float64(dev.MaxWarpsPerSM)) * 100
+				rec = fmt.Sprintf("Register file capacity (%d regs/SM) limits residency to %d blocks/SM. Reducing registers from %d to <=%d GPRs would allow %d blocks/SM (%d warps, %.1f%% occupancy). Test with __launch_bounds__ or -maxrregcount=%d if latency-bound.",
+					dev.MaxRegistersPerSM, rep.ActiveBlocks, k.Registers, maxRegsTarget, targetBlocks, targetWarps, targetOcc, maxRegsTarget)
+			case cudaoccupancy.LimitSharedMemory:
+				rec = fmt.Sprintf("Static shared memory (%d bytes/block) limits residency to %d blocks/SM on %s (%d bytes/SM). Reduce shared memory or dynamically allocate to allow higher CTA residency.",
+					k.SharedMemBytes, rep.ActiveBlocks, dev.Architecture, dev.MaxSharedMemoryPerSM)
+			case cudaoccupancy.LimitBlocks:
+				rec = fmt.Sprintf("Maximum thread blocks per SM (%d on %s) limits occupancy because block size (%d threads) is small. Restructure thread block geometry to >=128 or 256 threads to reach higher occupancy (worth testing if latency-bound).",
+					dev.MaxBlocksPerSM, dev.Architecture, threadsPerBlock)
+			case cudaoccupancy.LimitBlockSize:
+				rec = "Restructure thread block geometry to fit within hardware block size limits (<= 1024 threads per block)."
+			default:
+				rec = "Tune thread block dimensions and resource consumption to maximize concurrent warp execution."
+			}
+
+			report.Items = append(report.Items, AdviceItem{
+				Severity:                 severity,
+				Category:                 CategoryRegisterPressure,
+				Location:                 Location{Kernel: k.Name},
+				Finding:                  finding,
+				ActionableRecommendation: rec,
 			})
 		}
 	}
@@ -1662,4 +1864,146 @@ func parseStreamEventsFromJSON(data []byte) []streamEvent {
 		}
 	}
 	return events
+}
+
+func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+	if statusData, ok := cap.Files["capture-status.json"]; ok {
+		var status map[string]any
+		if err := json.Unmarshal(statusData, &status); err == nil {
+			if success, ok := status["capture_success"].(bool); ok && !success {
+				errMsg := "capture marked as failed"
+				if failure, ok := status["failure"].(string); ok && failure != "" {
+					errMsg = failure
+				} else if captureErr, ok := status["capture_error"].(string); ok && captureErr != "" {
+					errMsg = captureErr
+				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity:                 SeverityCritical,
+					Category:                 CategoryArchitecture,
+					Finding:                  fmt.Sprintf("Incomplete or failed profile capture: %s", errMsg),
+					ActionableRecommendation: "Ensure target workload executes cleanly and does not exceed journal record capacity before analyzing performance.",
+				})
+			}
+		}
+	}
+}
+
+func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
+	kernelTimes := make(map[string]int64)
+	var totalTime int64
+	if cap == nil || cap.Profile == nil {
+		return kernelTimes, totalTime
+	}
+	p := cap.Profile
+	timeIdx := 0
+	for i, vt := range p.SampleType {
+		if vt.Type == "kernel_time" || vt.Type == "gpu_time" {
+			timeIdx = i
+			break
+		}
+	}
+	for _, s := range p.Sample {
+		val := int64(0)
+		if timeIdx < len(s.Value) {
+			val = s.Value[timeIdx]
+		}
+		totalTime += val
+		kName := extractKernelNameFromSample(s)
+		if kName != "" {
+			kernelTimes[kName] += val
+		}
+	}
+	return kernelTimes, totalTime
+}
+
+func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
+	if totalTime <= 0 || len(kernelTimes) == 0 {
+		return
+	}
+	familyTimes := make(map[string]int64)
+	familyCounts := make(map[string]int)
+
+	kernelCounts := make(map[string]int)
+	if cap.Profile != nil {
+		for _, s := range cap.Profile.Sample {
+			k := extractKernelNameFromSample(s)
+			if k != "" {
+				kernelCounts[k]++
+			}
+		}
+	}
+
+	for k, t := range kernelTimes {
+		parts := strings.Split(k, "_")
+		family := k
+		if len(parts) >= 4 {
+			family = strings.Join(parts[:len(parts)-1], "_")
+		} else if len(parts) >= 2 {
+			family = strings.Join(parts[:len(parts)-1], "_")
+		}
+		familyTimes[family] += t
+		familyCounts[family] += kernelCounts[k]
+	}
+
+	for family, fTime := range familyTimes {
+		pct := float64(fTime) / float64(totalTime) * 100.0
+		cnt := familyCounts[family]
+		if pct >= 50.0 && cnt >= 10 {
+			fTimeMs := float64(fTime) / 1e6
+			report.Items = append(report.Items, AdviceItem{
+				Severity:        SeverityCritical,
+				Category:        CategoryArchitecture,
+				DeviceTimeNanos: fTime,
+				ShareOfProfile:  pct,
+				Location: Location{
+					Kernel: family,
+				},
+				Finding: fmt.Sprintf("Kernel family %q dominates GPU execution, consuming %.1f%% of total device time (%.2f ms across %d dispatches). Fine-grained per-row dispatches incur massive submission and launch overhead.",
+					family, pct, fTimeMs, cnt),
+				ActionableRecommendation: "Restructure per-row dispatches into batched GEMM / GEMV operations or capture the entire layer sequence into a CUDA Graph.",
+			})
+		}
+	}
+}
+
+func severityRank(s Severity) int {
+	switch s {
+	case SeverityCritical:
+		return 0
+	case SeverityWarning:
+		return 1
+	case SeverityInfo:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
+	if report == nil || len(report.Items) == 0 {
+		return
+	}
+	for i := range report.Items {
+		item := &report.Items[i]
+		if item.DeviceTimeNanos == 0 && item.Location.Kernel != "" {
+			item.DeviceTimeNanos = kernelTimes[item.Location.Kernel]
+		}
+		if totalTime > 0 && item.DeviceTimeNanos > 0 && item.ShareOfProfile == 0 {
+			item.ShareOfProfile = float64(item.DeviceTimeNanos) / float64(totalTime) * 100.0
+		}
+	}
+
+	sort.SliceStable(report.Items, func(i, j int) bool {
+		a, b := report.Items[i], report.Items[j]
+		if a.DeviceTimeNanos != b.DeviceTimeNanos {
+			return a.DeviceTimeNanos > b.DeviceTimeNanos
+		}
+		if a.Severity != b.Severity {
+			return severityRank(a.Severity) < severityRank(b.Severity)
+		}
+		return false
+	})
 }

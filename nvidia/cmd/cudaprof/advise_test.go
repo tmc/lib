@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"debug/elf"
+	"encoding/binary"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 )
 
 const sampleHighPressureSASS = `
@@ -1399,3 +1402,203 @@ deepseek_decode:
 		})
 	}
 }
+
+func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
+	// Synthesize a CUBIN ELF image with three kernels:
+	// 1. "spilling_kernel": 48 regs, 256 bytes frame size (EIATTR_FRAME_SIZE)
+	// 2. "reg_limited_kernel": 80 regs, ReqNTID [128, 1, 1]
+	// 3. "smem_limited_kernel": 24 regs, 65536 bytes static smem, ReqNTID [256, 1, 1]
+	var nv1, nv2, nv3 bytes.Buffer
+
+	// spilling_kernel
+	nv1.Write([]byte{0x04, cudaoccupancy.EIATTR_REGCOUNT, 0x04, 0x00})
+	binary.Write(&nv1, binary.LittleEndian, uint32(48))
+	nv1.Write([]byte{0x04, cudaoccupancy.EIATTR_FRAME_SIZE, 0x04, 0x00})
+	binary.Write(&nv1, binary.LittleEndian, uint32(256))
+
+	// reg_limited_kernel
+	nv2.Write([]byte{0x04, cudaoccupancy.EIATTR_REGCOUNT, 0x04, 0x00})
+	binary.Write(&nv2, binary.LittleEndian, uint32(80))
+	nv2.Write([]byte{0x04, cudaoccupancy.EIATTR_REQ_NTID, 0x0c, 0x00})
+	binary.Write(&nv2, binary.LittleEndian, uint32(128))
+	binary.Write(&nv2, binary.LittleEndian, uint32(1))
+	binary.Write(&nv2, binary.LittleEndian, uint32(1))
+
+	// smem_limited_kernel
+	nv3.Write([]byte{0x04, cudaoccupancy.EIATTR_REGCOUNT, 0x04, 0x00})
+	binary.Write(&nv3, binary.LittleEndian, uint32(24))
+	nv3.Write([]byte{0x04, cudaoccupancy.EIATTR_REQ_NTID, 0x0c, 0x00})
+	binary.Write(&nv3, binary.LittleEndian, uint32(256))
+	binary.Write(&nv3, binary.LittleEndian, uint32(1))
+	binary.Write(&nv3, binary.LittleEndian, uint32(1))
+	nv3.Write([]byte{0x04, cudaoccupancy.EIATTR_SHARED_SIZE_SYSMEM, 0x04, 0x00})
+	binary.Write(&nv3, binary.LittleEndian, uint32(65536))
+
+	sections := map[string][]byte{
+		".text.spilling_kernel":         make([]byte, 32),
+		".nv.info.spilling_kernel":      nv1.Bytes(),
+		".text.reg_limited_kernel":      make([]byte, 32),
+		".nv.info.reg_limited_kernel":   nv2.Bytes(),
+		".text.smem_limited_kernel":     make([]byte, 32),
+		".nv.info.smem_limited_kernel":  nv3.Bytes(),
+	}
+
+	cubinBytes := synthesizeTestELFForAdvise(sections)
+
+	tests := []struct {
+		name         string
+		targetArch   string
+		wantKernel   string
+		wantFinding  string
+		wantRec      string
+		wantSeverity Severity
+	}{
+		{
+			name:         "frame_size_spill_detection",
+			targetArch:   "sm_121a",
+			wantKernel:   "spilling_kernel",
+			wantFinding:  "allocates 256 bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE)",
+			wantRec:      "eliminate local memory stack frame spills",
+			wantSeverity: SeverityCritical,
+		},
+		{
+			name:         "blackwell_sm121_reg_cliff",
+			targetArch:   "sm_121a",
+			wantKernel:   "reg_limited_kernel",
+			wantFinding:  "Microarchitecture theoretical occupancy on sm_121 for kernel \"reg_limited_kernel\"",
+			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
+			wantSeverity: SeverityWarning,
+		},
+		{
+			name:         "hopper_sm90_target_disambiguation",
+			targetArch:   "sm_90a",
+			wantKernel:   "reg_limited_kernel",
+			wantFinding:  "Microarchitecture theoretical occupancy on sm_90 for kernel \"reg_limited_kernel\"",
+			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
+			wantSeverity: SeverityWarning,
+		},
+		{
+			name:         "smem_capacity_limit",
+			targetArch:   "sm_121a",
+			wantKernel:   "smem_limited_kernel",
+			wantFinding:  "constrained by shared_memory",
+			wantRec:      "Static shared memory (65536 bytes/block) limits residency",
+			wantSeverity: SeverityCritical,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := &cudacapture.Capture{
+				Metadata: []byte(`{"architecture":"` + tt.targetArch + `"}`),
+				Code: cudacapture.CodeFiles{
+					CUBIN: "kernels.cubin",
+				},
+				Files: map[string][]byte{
+					"kernels.cubin": cubinBytes,
+				},
+			}
+
+			report, err := AnalyzeCapture(cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Location.Kernel == tt.wantKernel &&
+					item.Severity == tt.wantSeverity &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("did not find expected item for kernel %q with finding containing %q, severity %s; got report: %+v",
+					tt.wantKernel, tt.wantFinding, tt.wantSeverity, report.Items)
+			}
+		})
+	}
+}
+
+func synthesizeTestELFForAdvise(sections map[string][]byte) []byte {
+	var buf bytes.Buffer
+
+	secNames := []string{""}
+	secData := [][]byte{nil}
+	secTypes := []uint32{0}
+	secFlags := []uint64{0}
+
+	shstrtabIdx := len(secNames)
+	secNames = append(secNames, ".shstrtab")
+	secTypes = append(secTypes, uint32(elf.SHT_STRTAB))
+	secFlags = append(secFlags, 0)
+	secData = append(secData, nil)
+
+	for name, data := range sections {
+		secNames = append(secNames, name)
+		secTypes = append(secTypes, uint32(elf.SHT_PROGBITS))
+		secFlags = append(secFlags, 0)
+		secData = append(secData, data)
+	}
+
+	var shstrtab bytes.Buffer
+	shstrtab.WriteByte(0)
+	nameOffsets := make([]uint32, len(secNames))
+	for i, name := range secNames {
+		if i == 0 {
+			nameOffsets[i] = 0
+			continue
+		}
+		nameOffsets[i] = uint32(shstrtab.Len())
+		shstrtab.WriteString(name)
+		shstrtab.WriteByte(0)
+	}
+	secData[shstrtabIdx] = shstrtab.Bytes()
+
+	ehdr := make([]byte, 64)
+	copy(ehdr[0:4], []byte("\x7fELF"))
+	ehdr[4] = 2   // 64-bit
+	ehdr[5] = 1   // Little-endian
+	ehdr[6] = 1   // Version 1
+	binary.LittleEndian.PutUint16(ehdr[16:18], 1)   // ET_REL
+	binary.LittleEndian.PutUint16(ehdr[18:20], 190) // EM_CUDA
+	binary.LittleEndian.PutUint32(ehdr[20:24], 1)   // EV_CURRENT
+	binary.LittleEndian.PutUint16(ehdr[52:54], 64)  // ehsize
+	binary.LittleEndian.PutUint16(ehdr[58:60], 64)  // shentsize
+	binary.LittleEndian.PutUint16(ehdr[60:62], uint16(len(secNames)))
+	binary.LittleEndian.PutUint16(ehdr[62:64], uint16(shstrtabIdx))
+
+	buf.Write(ehdr)
+
+	secOffsets := make([]uint64, len(secNames))
+	for i, data := range secData {
+		if len(data) == 0 {
+			secOffsets[i] = 0
+			continue
+		}
+		secOffsets[i] = uint64(buf.Len())
+		buf.Write(data)
+	}
+
+	shoff := uint64(buf.Len())
+	binary.LittleEndian.PutUint64(ehdr[40:48], shoff)
+	copy(buf.Bytes()[40:48], ehdr[40:48])
+
+	for i := range secNames {
+		shdr := make([]byte, 64)
+		binary.LittleEndian.PutUint32(shdr[0:4], nameOffsets[i])
+		binary.LittleEndian.PutUint32(shdr[4:8], secTypes[i])
+		binary.LittleEndian.PutUint64(shdr[8:16], secFlags[i])
+		binary.LittleEndian.PutUint64(shdr[24:32], secOffsets[i])
+		binary.LittleEndian.PutUint64(shdr[32:40], uint64(len(secData[i])))
+		binary.LittleEndian.PutUint64(shdr[48:56], 1)
+		buf.Write(shdr)
+	}
+
+	return buf.Bytes()
+}
+

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
@@ -84,6 +85,7 @@ type observeOptions struct {
 	// forces the partial-recovered outcome; it never makes the capture
 	// successful.
 	recoverUnfinalized bool
+	maxJournalRecords  int64
 }
 
 // observeCaptureSession observes one capture session and always stamps the
@@ -179,7 +181,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			worker := captureWorker{Process: f.h.Process, Generation: f.h.Generation, Disposition: "incomplete"}
 			if f.h.InjectionFailure != "" {
 				worker.Failure, worker.Disposition = f.h.InjectionFailure, "injection-failed"
-			} else if records, state, metrics, activities, apis, _, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, int(f.h.Process)); err == nil || (opts.recoverUnfinalized && errors.Is(err, errJournalNotFinalized)) {
+			} else if records, state, metrics, activities, apis, _, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, int(f.h.Process), opts.maxJournalRecords); err == nil || (opts.recoverUnfinalized && errors.Is(err, errJournalNotFinalized)) {
 				// Identity is checked before anything is contributed, whether
 				// or not the generation finalized.
 				if state.generation != f.h.Generation {
@@ -229,7 +231,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			}
 			continue
 		}
-		records, state, metrics, activities, apis, innerWorkers, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, result.TargetPID)
+		records, state, metrics, activities, apis, innerWorkers, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, result.TargetPID, opts.maxJournalRecords)
 		if err != nil {
 			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Failure: err.Error(), Disposition: "invalid"})
 			continue
@@ -341,15 +343,26 @@ var errJournalNotFinalized = errors.New("capture journal missing finalized recor
 // allowing representative framework bursts to be inspected.
 const controllerMaxJournalRecords = 1 << 20
 
-func observeJournal(path, session string, targetPID int) (wire.Stats, journalState, journalMetrics, []captureActivity, []captureAPI, []captureWorker, error) {
+func observeJournal(path, session string, targetPID int, maxRecords int64) (wire.Stats, journalState, journalMetrics, []captureActivity, []captureAPI, []captureWorker, error) {
 	raw, err := hex.DecodeString(session)
 	if err != nil || len(raw) != 16 {
 		return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("invalid capture session nonce")
 	}
 	var id [16]byte
 	copy(id[:], raw)
-	recovered, err := journal.Recover(path, wire.Limits{MaxRecords: controllerMaxJournalRecords})
+	maxBound := int64(controllerMaxJournalRecords)
+	if maxRecords > 0 {
+		maxBound = maxRecords
+	}
+	limitsMaxRecords := uint32(maxBound)
+	if maxBound > math.MaxUint32 {
+		limitsMaxRecords = math.MaxUint32
+	}
+	recovered, err := journal.Recover(path, wire.Limits{MaxRecords: limitsMaxRecords})
 	if err != nil {
+		if strings.Contains(err.Error(), "record count exceeds limit") {
+			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal exceeded limit of %d records (re-run with --max-records=N or reduce workload size): %w", maxBound, err)
+		}
 		return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, err
 	}
 	if !recovered.Complete {
