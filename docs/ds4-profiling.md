@@ -606,6 +606,127 @@ Treat gaps in a capture as unproven until the diagnostics are read. Concretely:
   finished layer ranges and no CUDA runtime rows is missing data, and only the
   containment query shows it.
 
+## P3a qualification run, DGX spark-31db, 2026-09-12
+
+Run ID `p3a-20260912-DF6906F6`, revision `ed2bf798dff21580b7c01f58865a4b50e0dda375`
+with `vcs.modified=false`, same workload and model as above. This is the run
+that carries the fine phase names in the host sidecar (`-span-level op
+-spans-stream`) and four interior clock markers (`-calibration-every 64`).
+Both digest expectations were asserted on the command line and both
+reproduced bit for bit; the run exited 0. Prefill 12.81 t/s, generation
+11.83 t/s — 1.2% and 0.8% against the uninstrumented 12.96 and 11.92.
+
+The host half is complete, and its record count was predicted before the run:
+
+| | |
+| --- | --- |
+| `spans_begun` = `spans_ended` = `spans_encoded` | 727,732 |
+| `spans_unended`, `spans_dropped` | 0, 0 |
+| `open_peak` | 4 |
+| sidecar bytes | 148,725,448 |
+| `complete` | true |
+
+The per-name histogram matches the source formula for every name, with
+prefill and decode counted separately (L=43 layers, T=2048 prefill tokens,
+W=8 batch width, D=2 decoded):
+
+| name | count | formula |
+| --- | --- | --- |
+| `attention`, `attention-output`, `ffn-pre`, `shared-ffn`, `expert-ffn`, `ffn-post` | 88,150 each | T·L + D·L |
+| `qkv-normalization` | 88,064 | T·L, batched path only |
+| `compression` | 84,050 | T·(L−2) + D·(L−2) |
+| `compression-raw` | 4,100 | 2T + 2D |
+| `dense-front` | 11,008 | (T/W)·L, batched path only |
+| `group-tail` | 256 | T/W, batched path only |
+| `layer N` (×43) | 258 each | 11,094 total |
+| `batch`, `token`, `prefill`, `generation` | 256, 2, 1, 1 | |
+
+716,378 fine + 11,354 coarse = 727,732. The 602 decode intervals are the
+seven phases `evalLayerProjected` marks per layer per token, 2·43·7. No
+indexer phases appear, which is correct for 2048+2: the compressed indexer
+emits on `(position+1)%4==0` and its 513th emit is at position 2051, which
+this workload never reaches.
+
+**The device half of this capture is not usable, and the failure is worse
+than the reference run's.** Two losses, both measured:
+
+*Tail.* Device recording stops at 161.438 s (last kernel end; last CUDA
+runtime row 161.397 s) while the process ran to about 162.909 s. Kernel
+density is flat at ~6,300 per 250 ms right up to the cut, then one partial
+bin and nothing. All 3,919,871 of the 3,919,873 captured kernels fall inside
+the `prefill` range; `generation`, `token 1` and `token 2` each contain
+**zero**.
+
+A backfilled range must not be used as an ordinary containment bound, and
+two of those three are backfilled. Here it costs nothing, because the
+backfill only ever moves the end *later*: the interval counted is a superset
+of the true one, so a count of zero inside it proves zero inside the true
+range. `token 1` closed normally and also holds zero. Anywhere the count is
+nonzero, re-derive the bound before attributing it. The three last NVTX calls the process made are also gone — `token`
+2's `RangeEnd`, `generation`'s `RangeEnd`, and the whole `end` calibration
+range. The `end` range is absent in the strongest available sense: its text
+was never interned, so `StringIds` holds five of the six marker names.
+
+*Interior.* Per-batch kernel counts are otherwise exact — 219 batches hold
+16,083 and 15 hold 16,103 — so the baseline is measured, not estimated. The
+other 22 batches are damaged, and the damage comes in adjacent pairs:
+(55,56), (65,66), (138,139), (158,159), (186,187), (226,227), (238,239),
+each pair losing about one batch's worth across a two-batch window, plus
+ordinal 195 empty on its own and 256 truncated by the tail cut. The 22 hold
+156,149 where the baseline predicts ~353,826: a deficit of ~197,677 kernels,
+about 4.8% of prefill.
+
+Adding the fine names did not cause this. They are host-only in P3a — no
+NVTX range is opened for them, which `TestPhaseSpansOpenNoNVTXRange` pins —
+and the NVTX inventory here is the same 11,354 coarse ranges as the
+qualification run above.
+
+### The clock is not affine, and this is a proof
+
+The point of the interior markers was to decide whether the residual between
+the span clock and the Nsight domain is a step or a drift. Five markers
+reached the capture:
+
+| label | host bracket (ns) | Nsight start |
+| --- | --- | --- |
+| `start` | 501367652635873..501367652644689 | 2,060,603,232 |
+| `batch-64` | 501406611549429..501406611550485 | 41,019,136,928 |
+| `batch-128` | 501446322257679..501446322258879 | 80,729,473,472 |
+| `batch-192` | 501486467469733..501486467471317 | 120,874,319,312 |
+| `batch-256` | 501526899856810..501526899858346 | 161,306,346,944 |
+
+Do not answer this with a least-squares fit. A fit that misses a bracket is
+not evidence that no mapping exists, and a fit through every point has no
+held-out validation to offer. The question is feasibility, and it is a
+two-variable linear program: is there an (a, b) with
+`lo_i ≤ a + b·x_i ≤ hi_i` for every marker? Enumerate the 45 vertices formed
+by pairs of the 10 constraints, in exact rational arithmetic, and test each
+against all 10.
+
+| model | verdict |
+| --- | --- |
+| constant offset (b = 1) | infeasible by 1,468,409 ns |
+| affine, five recorded markers | infeasible |
+| affine, four interior markers alone | infeasible |
+
+Infeasibility is a proof rather than a failure to fit: no line stabs all five
+segments. It holds on the four interior markers alone, so it is not an
+artifact of the first NVTX call's wider bracket (8,816 ns, against
+1,056–1,584 ns for the others). This settles what the two-bracket 11.11 ppm
+result could not: the residual is neither a step nor a rate offset, so no
+constant and no linear rescaling maps one clock onto the other. What it does
+not establish is that the clocks are non-affine in general — this is one
+capture, and a truncated one.
+
+### What this capture is good for
+
+Host phase timing at fine granularity, numerics identity, the prefill device
+timeline through 161.438 s minus the 4.8% noted above, and the clock result.
+Not decode on the device. The stated goal is prefill *and two decode tokens*;
+on the device side this run delivers only the first, so the capture-loss
+mechanism is now blocking a deliverable rather than qualifying a footnote.
+
+
 ## Fine phase names, and what they do not isolate
 
 `-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
