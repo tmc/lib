@@ -1,0 +1,340 @@
+	.target	sm_121a
+
+	.elftype	@"ET_EXEC"
+
+
+//--------------------- .text._Z10atomicDropPfPKfi --------------------------
+	.section	.text._Z10atomicDropPfPKfi,"ax",@progbits
+	.align	128
+        .global         _Z10atomicDropPfPKfi
+        .type           _Z10atomicDropPfPKfi,@function
+        .size           _Z10atomicDropPfPKfi,(.L_x_7 - _Z10atomicDropPfPKfi)
+        .other          _Z10atomicDropPfPKfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z10atomicDropPfPKfi:
+.text._Z10atomicDropPfPKfi:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+        /*0040*/                   LDC R5, c[0x0][0x360] ;
+        /*0050*/                   IMAD R5, R5, UR4, R0 ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R5, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x388] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*00b0*/                   LDG.E R3, desc[UR4][R2.64] ;
+        /*00c0*/                   LDC.64 R4, c[0x0][0x380] ;
+        /*00d0*/                   REDG.E.ADD.F32.FTZ.RN.STRONG.GPU desc[UR4][R4.64], R3 ;
+        /*00e0*/                   EXIT ;
+.L_x_0:
+        /*00f0*/                   BRA `(.L_x_0);
+        /*0100*/                   NOP;
+        /*0110*/                   NOP;
+        /*0120*/                   NOP;
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+.L_x_7:
+
+
+//--------------------- .text._Z10atomicKeepPfPKfi --------------------------
+	.section	.text._Z10atomicKeepPfPKfi,"ax",@progbits
+	.align	128
+        .global         _Z10atomicKeepPfPKfi
+        .type           _Z10atomicKeepPfPKfi,@function
+        .size           _Z10atomicKeepPfPKfi,(.L_x_8 - _Z10atomicKeepPfPKfi)
+        .other          _Z10atomicKeepPfPKfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z10atomicKeepPfPKfi:
+.text._Z10atomicKeepPfPKfi:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+        /*0040*/                   LDC R9, c[0x0][0x360] ;
+        /*0050*/                   IMAD R9, R9, UR4, R0 ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R9, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x388] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/                   LDC.64 R4, c[0x0][0x380] ;
+        /*00b0*/                   LDC.64 R6, c[0x0][0x380] ;
+        /*00c0*/                   IMAD.WIDE R2, R9, 0x4, R2 ;
+        /*00d0*/                   LDG.E R3, desc[UR4][R2.64] ;
+        /*00e0*/                   IMAD.WIDE R6, R9, 0x4, R6 ;
+        /*00f0*/                   ATOMG.E.ADD.F32.FTZ.RN.STRONG.GPU PT, R5, desc[UR4][R4.64], R3 ;
+        /*0100*/                   STG.E desc[UR4][R6.64], R5 ;
+        /*0110*/                   EXIT ;
+.L_x_1:
+        /*0120*/                   BRA `(.L_x_1);
+        /*0130*/                   NOP;
+        /*0140*/                   NOP;
+        /*0150*/                   NOP;
+        /*0160*/                   NOP;
+        /*0170*/                   NOP;
+        /*0180*/                   NOP;
+        /*0190*/                   NOP;
+        /*01a0*/                   NOP;
+        /*01b0*/                   NOP;
+        /*01c0*/                   NOP;
+        /*01d0*/                   NOP;
+        /*01e0*/                   NOP;
+        /*01f0*/                   NOP;
+.L_x_8:
+
+
+//--------------------- .text._Z13shuffleReducePfPKfi --------------------------
+	.section	.text._Z13shuffleReducePfPKfi,"ax",@progbits
+	.align	128
+        .global         _Z13shuffleReducePfPKfi
+        .type           _Z13shuffleReducePfPKfi,@function
+        .size           _Z13shuffleReducePfPKfi,(.L_x_9 - _Z13shuffleReducePfPKfi)
+        .other          _Z13shuffleReducePfPKfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z13shuffleReducePfPKfi:
+.text._Z13shuffleReducePfPKfi:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   S2R R6, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+        /*0040*/                   BSSY.RECONVERGENT B0, `(.L_x_2) ;
+        /*0050*/                   HFMA2 R2, -RZ, RZ, 0, 0 ;
+        /*0060*/                   LDC R5, c[0x0][0x360] ;
+        /*0070*/                   IMAD R5, R5, UR4, R6 ;
+        /*0080*/                   ISETP.GE.AND P0, PT, R5, UR5, PT ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/               @P0 BRA `(.L_x_3) ;
+        /*00b0*/                   LDC.64 R2, c[0x0][0x388] ;
+        /*00c0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*00d0*/                   LDG.E R2, desc[UR4][R2.64] ;
+.L_x_3:
+        /*00e0*/                   BSYNC.RECONVERGENT B0 ;
+.L_x_2:
+        /*00f0*/                   SHFL.DOWN PT, R3, R2, 0x10, 0x1f ;
+        /*0100*/                   LOP3.LUT P0, RZ, R6, 0x1f, RZ, 0xc0, !PT ;
+        /*0110*/                   FADD R3, R3, R2 ;
+        /*0120*/                   SHFL.DOWN PT, R0, R3, 0x8, 0x1f ;
+        /*0130*/                   FADD R0, R3, R0 ;
+        /*0140*/                   SHFL.DOWN PT, R7, R0, 0x4, 0x1f ;
+        /*0150*/                   FADD R7, R0, R7 ;
+        /*0160*/                   SHFL.DOWN PT, R4, R7, 0x2, 0x1f ;
+        /*0170*/                   FADD R4, R7, R4 ;
+        /*0180*/                   SHFL.DOWN PT, R9, R4, 0x1, 0x1f ;
+        /*0190*/               @P0 EXIT ;
+        /*01a0*/                   LDC.64 R2, c[0x0][0x380] ;
+        /*01b0*/                   SHF.R.S32.HI R5, RZ, 0x5, R5 ;
+        /*01c0*/                   FADD R9, R4, R9 ;
+        /*01d0*/                   IMAD.WIDE R2, R5, 0x4, R2 ;
+        /*01e0*/                   STG.E desc[UR4][R2.64], R9 ;
+        /*01f0*/                   EXIT ;
+.L_x_4:
+        /*0200*/                   BRA `(.L_x_4);
+        /*0210*/                   NOP;
+        /*0220*/                   NOP;
+        /*0230*/                   NOP;
+        /*0240*/                   NOP;
+        /*0250*/                   NOP;
+        /*0260*/                   NOP;
+        /*0270*/                   NOP;
+        /*0280*/                   NOP;
+        /*0290*/                   NOP;
+        /*02a0*/                   NOP;
+        /*02b0*/                   NOP;
+        /*02c0*/                   NOP;
+        /*02d0*/                   NOP;
+        /*02e0*/                   NOP;
+        /*02f0*/                   NOP;
+.L_x_9:
+
+
+//--------------------- .text._Z7spillerPfPKfi    --------------------------
+	.section	.text._Z7spillerPfPKfi,"ax",@progbits
+	.align	128
+        .global         _Z7spillerPfPKfi
+        .type           _Z7spillerPfPKfi,@function
+        .size           _Z7spillerPfPKfi,(.L_x_10 - _Z7spillerPfPKfi)
+        .other          _Z7spillerPfPKfi,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z7spillerPfPKfi:
+.text._Z7spillerPfPKfi:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   S2R R3, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDCU UR5, c[0x0][0x390] ;
+        /*0040*/                   LDC R4, c[0x0][0x360] ;
+        /*0050*/                   IMAD R4, R4, UR4, R3 ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R4, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x388] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/                   IMAD.WIDE R2, R4, 0x4, R2 ;
+        /*00b0*/                   LDG.E R17, desc[UR4][R2.64+0xc] ;
+        /*00c0*/                   LDG.E R19, desc[UR4][R2.64+0x4] ;
+        /*00d0*/                   LDG.E R22, desc[UR4][R2.64+0x28] ;
+        /*00e0*/                   LDG.E R0, desc[UR4][R2.64] ;
+        /*00f0*/                   LDG.E R16, desc[UR4][R2.64+0x8] ;
+        /*0100*/                   LDG.E R28, desc[UR4][R2.64+0x44] ;
+        /*0110*/                   LDG.E R26, desc[UR4][R2.64+0x10] ;
+        /*0120*/                   LDG.E R27, desc[UR4][R2.64+0x1c] ;
+        /*0130*/                   LDG.E R24, desc[UR4][R2.64+0x14] ;
+        /*0140*/                   LDG.E R23, desc[UR4][R2.64+0x38] ;
+        /*0150*/                   LDG.E R21, desc[UR4][R2.64+0x18] ;
+        /*0160*/                   LDG.E R20, desc[UR4][R2.64+0x54] ;
+        /*0170*/                   LDG.E R18, desc[UR4][R2.64+0x20] ;
+        /*0180*/                   LDG.E R14, desc[UR4][R2.64+0x2c] ;
+        /*0190*/                   LDG.E R15, desc[UR4][R2.64+0x24] ;
+        /*01a0*/                   LDG.E R13, desc[UR4][R2.64+0x48] ;
+        /*01b0*/                   LDG.E R8, desc[UR4][R2.64+0x30] ;
+        /*01c0*/                   LDG.E R11, desc[UR4][R2.64+0x3c] ;
+        /*01d0*/                   LDG.E R12, desc[UR4][R2.64+0x34] ;
+        /*01e0*/                   LDG.E R7, desc[UR4][R2.64+0x58] ;
+        /*01f0*/                   LDG.E R10, desc[UR4][R2.64+0x40] ;
+        /*0200*/                   LDG.E R9, desc[UR4][R2.64+0x4c] ;
+        /*0210*/                   LDG.E R5, desc[UR4][R2.64+0x50] ;
+        /*0220*/                   LDG.E R6, desc[UR4][R2.64+0x5c] ;
+        /*0230*/                   FMUL R25, R17, 4 ;
+        /*0240*/                   FADD R19, R19, R19 ;
+        /*0250*/                   FMUL R22, R22, 11 ;
+        /*0260*/                   FFMA R30, R0, R25, RZ ;
+        /*0270*/                   FMUL R16, R16, 3 ;
+        /*0280*/                   FFMA R29, R19, R22, R30 ;
+        /*0290*/                   FMUL R17, R28, 18 ;
+        /*02a0*/                   FFMA R29, R16, R17, R29 ;
+        /*02b0*/                   FMUL R26, R26, 5 ;
+        /*02c0*/                   FFMA R29, R0, R25, R29 ;
+        /*02d0*/                   FMUL R27, R27, 8 ;
+        /*02e0*/                   FMUL R24, R24, 6 ;
+        /*02f0*/                   FFMA R29, R26, R27, R29 ;
+        /*0300*/                   FMUL R23, R23, 15 ;
+        /*0310*/                   FMUL R0, R21, 7 ;
+        /*0320*/                   FFMA R29, R24, R23, R29 ;
+        /*0330*/                   FMUL R3, R20, 22 ;
+        /*0340*/                   FFMA R29, R0, R3, R29 ;
+        /*0350*/                   FMUL R18, R18, 9 ;
+        /*0360*/                   FFMA R29, R26, R27, R29 ;
+        /*0370*/                   FMUL R21, R14, 12 ;
+        /*0380*/                   FMUL R15, R15, 10 ;
+        /*0390*/                   FFMA R14, R18, R21, R29 ;
+        /*03a0*/                   FMUL R2, R13, 19 ;
+        /*03b0*/                   FFMA R14, R15, R2, R14 ;
+        /*03c0*/                   FMUL R8, R8, 13 ;
+        /*03d0*/                   FFMA R14, R19, R22, R14 ;
+        /*03e0*/                   FMUL R11, R11, 16 ;
+        /*03f0*/                   FFMA R21, R18, R21, R14 ;
+        /*0400*/                   FMUL R12, R12, 14 ;
+        /*0410*/                   FMUL R13, R7, 23 ;
+        /*0420*/                   FFMA R21, R8, R11, R21 ;
+        /*0430*/                   FMUL R10, R10, 17 ;
+        /*0440*/                   FFMA R21, R12, R13, R21 ;
+        /*0450*/                   FMUL R7, R9, 20 ;
+        /*0460*/                   FFMA R21, R24, R23, R21 ;
+        /*0470*/                   FMUL R5, R5, 21 ;
+        /*0480*/                   FFMA R21, R8, R11, R21 ;
+        /*0490*/                   LDC.64 R8, c[0x0][0x380] ;
+        /*04a0*/                   FMUL R6, R6, 24 ;
+        /*04b0*/                   FFMA R21, R10, R7, R21 ;
+        /*04c0*/                   FFMA R16, R16, R17, R21 ;
+        /*04d0*/                   FFMA R15, R15, R2, R16 ;
+        /*04e0*/                   FFMA R10, R10, R7, R15 ;
+        /*04f0*/                   FFMA R7, R5, R6, R10 ;
+        /*0500*/                   FFMA R7, R0, R3, R7 ;
+        /*0510*/                   IMAD.WIDE R8, R4, 0x4, R8 ;
+        /*0520*/                   FFMA R12, R12, R13, R7 ;
+        /*0530*/                   FFMA R5, R5, R6, R12 ;
+        /*0540*/                   STG.E desc[UR4][R8.64], R5 ;
+        /*0550*/                   EXIT ;
+.L_x_5:
+        /*0560*/                   BRA `(.L_x_5);
+        /*0570*/                   NOP;
+        /*0580*/                   NOP;
+        /*0590*/                   NOP;
+        /*05a0*/                   NOP;
+        /*05b0*/                   NOP;
+        /*05c0*/                   NOP;
+        /*05d0*/                   NOP;
+        /*05e0*/                   NOP;
+        /*05f0*/                   NOP;
+.L_x_10:
+
+
+//--------------------- .text._Z8fmaChainPdPKdS1_i --------------------------
+	.section	.text._Z8fmaChainPdPKdS1_i,"ax",@progbits
+	.align	128
+        .global         _Z8fmaChainPdPKdS1_i
+        .type           _Z8fmaChainPdPKdS1_i,@function
+        .size           _Z8fmaChainPdPKdS1_i,(.L_x_11 - _Z8fmaChainPdPKdS1_i)
+        .other          _Z8fmaChainPdPKdS1_i,@"STO_CUDA_ENTRY STV_DEFAULT"
+_Z8fmaChainPdPKdS1_i:
+.text._Z8fmaChainPdPKdS1_i:
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;
+        /*0030*/                   LDCU UR5, c[0x0][0x398] ;
+        /*0040*/                   LDC R11, c[0x0][0x360] ;
+        /*0050*/                   IMAD R11, R11, UR4, R0 ;
+        /*0060*/                   ISETP.GE.AND P0, PT, R11, UR5, PT ;
+        /*0070*/               @P0 EXIT ;
+        /*0080*/                   LDC.64 R2, c[0x0][0x388] ;
+        /*0090*/                   LDCU.64 UR4, c[0x0][0x358] ;
+        /*00a0*/                   LDC.64 R4, c[0x0][0x390] ;
+        /*00b0*/                   LDC.64 R8, c[0x0][0x380] ;
+        /*00c0*/                   IMAD.WIDE R2, R11, 0x8, R2 ;
+        /*00d0*/                   LDG.E.64 R2, desc[UR4][R2.64] ;
+        /*00e0*/                   IMAD.WIDE R4, R11, 0x8, R4 ;
+        /*00f0*/                   LDG.E.64 R4, desc[UR4][R4.64] ;
+        /*0100*/                   IMAD.WIDE R8, R11, 0x8, R8 ;
+        /*0110*/                   DFMA R6, R2, R4, R2 ;
+        /*0120*/                   NOP ;
+        /*0130*/                   NOP ;
+        /*0140*/                   NOP ;
+        /*0150*/                   NOP ;
+        /*0160*/                   DFMA R6, R4, R6, R2 ;
+        /*0170*/                   NOP ;
+        /*0180*/                   NOP ;
+        /*0190*/                   NOP ;
+        /*01a0*/                   NOP ;
+        /*01b0*/                   DFMA R6, R4, R6, R2 ;
+        /*01c0*/                   NOP ;
+        /*01d0*/                   NOP ;
+        /*01e0*/                   NOP ;
+        /*01f0*/                   NOP ;
+        /*0200*/                   DFMA R6, R4, R6, R2 ;
+        /*0210*/                   NOP ;
+        /*0220*/                   NOP ;
+        /*0230*/                   NOP ;
+        /*0240*/                   NOP ;
+        /*0250*/                   DFMA R6, R4, R6, R2 ;
+        /*0260*/                   NOP ;
+        /*0270*/                   NOP ;
+        /*0280*/                   NOP ;
+        /*0290*/                   NOP ;
+        /*02a0*/                   DFMA R6, R4, R6, R2 ;
+        /*02b0*/                   NOP ;
+        /*02c0*/                   NOP ;
+        /*02d0*/                   NOP ;
+        /*02e0*/                   NOP ;
+        /*02f0*/                   DFMA R6, R4, R6, R2 ;
+        /*0300*/                   NOP ;
+        /*0310*/                   NOP ;
+        /*0320*/                   NOP ;
+        /*0330*/                   NOP ;
+        /*0340*/                   DFMA R6, R4, R6, R2 ;
+        /*0350*/                   STG.E.64 desc[UR4][R8.64], R6 ;
+        /*0360*/                   EXIT ;
+.L_x_6:
+        /*0370*/                   BRA `(.L_x_6);
+        /*0380*/                   NOP;
+        /*0390*/                   NOP;
+        /*03a0*/                   NOP;
+        /*03b0*/                   NOP;
+        /*03c0*/                   NOP;
+        /*03d0*/                   NOP;
+        /*03e0*/                   NOP;
+        /*03f0*/                   NOP;
+.L_x_11:
+
+
+//--------------------- SYMBOLS --------------------------
+
+	.type		.nv.reservedSmem.offset0,@object
+	.size		.nv.reservedSmem.offset0,0x4
