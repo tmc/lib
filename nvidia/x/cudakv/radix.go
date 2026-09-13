@@ -348,3 +348,31 @@ func (r *RadixTree) Len() int {
 	defer r.mu.Unlock()
 	return r.nodes
 }
+
+// RemapBlocks updates physical block IDs stored in the tree according to remappings.
+// The update is applied atomically under the tree's mutex.
+func (r *RadixTree) RemapBlocks(remappings map[int]int) {
+	if len(remappings) == 0 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.remapBlocksLocked(remappings)
+}
+
+func (r *RadixTree) remapBlocksLocked(remappings map[int]int) {
+	for oldB, newB := range remappings {
+		if oldB == newB {
+			continue
+		}
+		if node, ok := r.NodeMap[oldB]; ok {
+			for i, b := range node.Blocks {
+				if b == oldB {
+					node.Blocks[i] = newB
+				}
+			}
+			delete(r.NodeMap, oldB)
+			r.NodeMap[newB] = node
+		}
+	}
+}

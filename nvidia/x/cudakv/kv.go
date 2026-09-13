@@ -233,14 +233,18 @@ type PagedCache struct {
 	mu sync.Mutex
 
 	dev         *cuda.Device
+	tracker     *cudamem.Tracker
 	numLayers   int
 	numKVHeads  int
 	headDim     int
 	blockSize   int
 	totalBlocks int
-	blocks      *blockAllocator
+	blocks      *BlockAllocator
 	kBlocks     []cudamem.Slice[float32]
 	vBlocks     []cudamem.Slice[float32]
+
+	hostK [][]float32
+	hostV [][]float32
 }
 
 // Page holds the K and V storage for one layer and one physical slot.
@@ -294,12 +298,13 @@ func NewPagedCacheTracked(dev *cuda.Device, tracker *cudamem.Tracker, numLayers,
 
 	return &PagedCache{
 		dev:         dev,
+		tracker:     tracker,
 		numLayers:   numLayers,
 		numKVHeads:  numKVHeads,
 		headDim:     headDim,
 		blockSize:   blockSize,
 		totalBlocks: totalBlocks,
-		blocks:      newBlockAllocator(blockSize, totalBlocks),
+		blocks:      NewBlockAllocator(blockSize, totalBlocks),
 		kBlocks:     kBlocks,
 		vBlocks:     vBlocks,
 	}, nil
@@ -429,5 +434,193 @@ func (pc *PagedCache) Close() error {
 	pc.kBlocks = nil
 	pc.vBlocks = nil
 	pc.blocks = newBlockAllocator(pc.blockSize, 0)
+	return nil
+}
+
+// NewTestPagedCache creates a paged KV cache backed by host memory for testing
+// allocation, token retention, and compaction without a CUDA GPU.
+func NewTestPagedCache(numLayers, numKVHeads, headDim, blockSize, totalBlocks int) (*PagedCache, error) {
+	if err := validatePagedDimensions(numLayers, numKVHeads, headDim, blockSize, totalBlocks); err != nil {
+		return nil, err
+	}
+	elementsPerLayer := totalBlocks * blockSize * numKVHeads * headDim
+	hostK := make([][]float32, numLayers)
+	hostV := make([][]float32, numLayers)
+	for i := 0; i < numLayers; i++ {
+		hostK[i] = make([]float32, elementsPerLayer)
+		hostV[i] = make([]float32, elementsPerLayer)
+	}
+	return &PagedCache{
+		numLayers:   numLayers,
+		numKVHeads:  numKVHeads,
+		headDim:     headDim,
+		blockSize:   blockSize,
+		totalBlocks: totalBlocks,
+		blocks:      NewBlockAllocator(blockSize, totalBlocks),
+		hostK:       hostK,
+		hostV:       hostV,
+	}, nil
+}
+
+// Tracker returns the memory tracker associated with this cache, or nil.
+func (pc *PagedCache) Tracker() *cudamem.Tracker {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.tracker
+}
+
+// FragmentationStats returns current pool fragmentation statistics.
+func (pc *PagedCache) FragmentationStats() FragmentationStats {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.blocks.FragmentationStats()
+}
+
+// FragmentationIndex returns the current fragmentation ratio (0.0 to 1.0).
+func (pc *PagedCache) FragmentationIndex() float64 {
+	return pc.FragmentationStats().FragmentationIndex
+}
+
+// MemoryFragmentation reports fragmentation stats in bytes, connecting the block
+// pool metrics with cudamem.Tracker accounting.
+func (pc *PagedCache) MemoryFragmentation() (fragIndex float64, totalFreeBytes, largestFreeBytes uint64) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	stats := pc.blocks.FragmentationStats()
+	bytesPerBlock := uint64(pc.blockSize * pc.numKVHeads * pc.headDim * 4 * pc.numLayers * 2) // K and V
+	totalFreeBytes = uint64(stats.FreeBlocks) * bytesPerBlock
+	largestFreeBytes = uint64(stats.LargestContiguous) * bytesPerBlock
+	return stats.FragmentationIndex, totalFreeBytes, largestFreeBytes
+}
+
+// VirtualPageTable returns the virtual-to-physical block table for seqID.
+func (pc *PagedCache) VirtualPageTable(seqID int64) VirtualPageTable {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return VirtualPageTable{
+		SeqID:  seqID,
+		Blocks: pc.blocks.Table(seqID),
+	}
+}
+
+// VirtualPageTables returns virtual page tables for all sequences.
+func (pc *PagedCache) VirtualPageTables() []VirtualPageTable {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.blocks.VirtualPageTables()
+}
+
+// Defrag performs proactive compaction on pc according to policy.
+func (pc *PagedCache) Defrag(policy ...DefragPolicy) (CompactionPlan, error) {
+	p := DefaultDefragPolicy()
+	if len(policy) > 0 {
+		p = policy[0]
+	}
+	c := NewCompactor(p)
+	return c.Compact(pc)
+}
+
+// WriteToken stores K and V activations for tokenIdx of seqID in layer.
+// This is used for host-backed testing or CPU verification.
+func (pc *PagedCache) WriteToken(seqID int64, tokenIdx int, layer int, k, v []float32) error {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if layer < 0 || layer >= pc.numLayers {
+		return fmt.Errorf("%s: layer index %d out of bounds (total %d)", pkgName, layer, pc.numLayers)
+	}
+	table, exists := pc.blocks.tables[seqID]
+	if !exists {
+		return fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
+	}
+	blockIdx := tokenIdx / pc.blockSize
+	if blockIdx >= len(table) {
+		return fmt.Errorf("%s: token index %d exceeds allocated blocks (count %d)", pkgName, tokenIdx, len(table))
+	}
+	physBlock := table[blockIdx]
+	offsetInBlock := tokenIdx % pc.blockSize
+	elemPerToken := pc.numKVHeads * pc.headDim
+	if len(k) != elemPerToken || len(v) != elemPerToken {
+		return fmt.Errorf("%s: token dimension mismatch: got k=%d v=%d, want %d", pkgName, len(k), len(v), elemPerToken)
+	}
+	if len(pc.hostK) > layer {
+		blockElem := pc.blockSize * elemPerToken
+		start := physBlock*blockElem + offsetInBlock*elemPerToken
+		copy(pc.hostK[layer][start:start+elemPerToken], k)
+		copy(pc.hostV[layer][start:start+elemPerToken], v)
+	}
+	return nil
+}
+
+// ReadToken retrieves K and V activations for tokenIdx of seqID in layer.
+func (pc *PagedCache) ReadToken(seqID int64, tokenIdx int, layer int) (k, v []float32, err error) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if layer < 0 || layer >= pc.numLayers {
+		return nil, nil, fmt.Errorf("%s: layer index %d out of bounds (total %d)", pkgName, layer, pc.numLayers)
+	}
+	table, exists := pc.blocks.tables[seqID]
+	if !exists {
+		return nil, nil, fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
+	}
+	blockIdx := tokenIdx / pc.blockSize
+	if blockIdx >= len(table) {
+		return nil, nil, fmt.Errorf("%s: token index %d exceeds allocated blocks (count %d)", pkgName, tokenIdx, len(table))
+	}
+	physBlock := table[blockIdx]
+	offsetInBlock := tokenIdx % pc.blockSize
+	elemPerToken := pc.numKVHeads * pc.headDim
+	if len(pc.hostK) > layer {
+		blockElem := pc.blockSize * elemPerToken
+		start := physBlock*blockElem + offsetInBlock*elemPerToken
+		k = append([]float32(nil), pc.hostK[layer][start:start+elemPerToken]...)
+		v = append([]float32(nil), pc.hostV[layer][start:start+elemPerToken]...)
+		return k, v, nil
+	}
+	return nil, nil, fmt.Errorf("%s: host token storage not available", pkgName)
+}
+
+func (pc *PagedCache) copyBlockAsync(srcSlot, dstSlot int, stream *cuda.Stream) error {
+	if srcSlot < 0 || srcSlot >= pc.totalBlocks || dstSlot < 0 || dstSlot >= pc.totalBlocks {
+		return fmt.Errorf("%s: block index out of bounds (src=%d, dst=%d, total=%d)", pkgName, srcSlot, dstSlot, pc.totalBlocks)
+	}
+	elements := pc.blockSize * pc.numKVHeads * pc.headDim
+
+	// Copy host memory if present
+	if len(pc.hostK) > 0 {
+		for l := 0; l < pc.numLayers; l++ {
+			srcStart := srcSlot * elements
+			dstStart := dstSlot * elements
+			copy(pc.hostK[l][dstStart:dstStart+elements], pc.hostK[l][srcStart:srcStart+elements])
+			copy(pc.hostV[l][dstStart:dstStart+elements], pc.hostV[l][srcStart:srcStart+elements])
+		}
+	}
+
+	// Copy GPU device memory if present
+	if len(pc.kBlocks) > 0 && pc.dev != nil {
+		for l := 0; l < pc.numLayers; l++ {
+			srcStart := srcSlot * elements
+			dstStart := dstSlot * elements
+			srcK := pc.kBlocks[l].Slice(srcStart, srcStart+elements)
+			dstK := pc.kBlocks[l].Slice(dstStart, dstStart+elements)
+			srcV := pc.vBlocks[l].Slice(srcStart, srcStart+elements)
+			dstV := pc.vBlocks[l].Slice(dstStart, dstStart+elements)
+
+			if stream != nil {
+				if err := dstK.CopyDeviceToDeviceAsync(srcK, stream); err != nil {
+					return fmt.Errorf("%s: copy K layer %d: %w", pkgName, l, err)
+				}
+				if err := dstV.CopyDeviceToDeviceAsync(srcV, stream); err != nil {
+					return fmt.Errorf("%s: copy V layer %d: %w", pkgName, l, err)
+				}
+			} else {
+				if err := dstK.CopyDeviceToDevice(srcK); err != nil {
+					return fmt.Errorf("%s: copy K layer %d: %w", pkgName, l, err)
+				}
+				if err := dstV.CopyDeviceToDevice(srcV); err != nil {
+					return fmt.Errorf("%s: copy V layer %d: %w", pkgName, l, err)
+				}
+			}
+		}
+	}
 	return nil
 }

@@ -16,4 +16,17 @@
 // [SSDOffloader] spills layer data through host memory into process-local files.
 // Its files are scratch storage, not crash-durable checkpoints. Call
 // [SSDOffloader.Close] to remove files owned by that instance.
+//
+// # Compaction and Defragmentation
+//
+// Continuous batching causes VRAM pool fragmentation as sequences allocate and
+// free blocks with varying lifetimes. [Compactor] monitors pool fragmentation
+// through [Fragmentation] (1.0 - LargestBlock / TotalFree) and [DefragPolicy].
+// When fragmentation crosses a threshold (default 0.35) or when allocation would
+// fail, [Compactor.Compact] or [PagedCache.Defrag] computes an optimal compaction
+// plan moving scattered active pages into contiguous low-index blocks. Relocations
+// execute via stream-ordered copies or can be captured into a CUDA Graph using
+// [Compactor.CaptureGraph]. Allocator virtual page tables and attached [RadixTree]
+// prefix cache mappings are updated atomically so active generation streams
+// transparently read from compacted locations without stalling or losing tokens.
 package cudakv
