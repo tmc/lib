@@ -105,6 +105,19 @@ func TestCacheEntryRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDecodeCacheEntryRejectsOlderMagic(t *testing.T) {
+	cm := &CompiledModule{ptx: "valid", key: "key"}
+	data, err := encodeCacheEntry(cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Overwrite magic with older v5 magic
+	copy(data[:len(cacheMagic)], "nvrtcx\x00\x05")
+	if _, err := decodeCacheEntry("key", data); err == nil {
+		t.Fatal("decodeCacheEntry accepted older cache magic nvrtcx\\x00\\x05")
+	}
+}
+
 func TestLookupCacheRejectsTruncatedEntry(t *testing.T) {
 	useTestCache(t)
 	dir, err := getCacheDir()

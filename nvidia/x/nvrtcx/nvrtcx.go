@@ -203,8 +203,10 @@ func WithPhysicalArch(major, minor int) Option {
 }
 
 // WithDeviceArch queries dev's compute capability and targets its physical GPU
-// architecture with direct OutputCUBIN binary generation. This avoids driver-side
-// JIT compilation and prevents PTX version incompatibilities.
+// architecture. When compiled with default OutputAuto, this generates native CUBIN
+// machine code while retaining PTX for inspection. Load automatically loads the CUBIN
+// onto the device, avoiding driver-side JIT compilation and preventing PTX version
+// incompatibilities.
 func WithDeviceArch(dev *cuda.Device) Option {
 	if dev == nil {
 		return func(o *options) {
@@ -383,6 +385,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		res, err := getArtifact(prog, cfg.output)
 		if err != nil {
 			return nil, fmt.Errorf("%w\ncompiler log:\n%s", err, log)
+		}
+		if cfg.physicalArch && len(res.cubin) == 0 {
+			return nil, fmt.Errorf("nvrtcx: physical architecture compilation produced no CUBIN\ncompiler log:\n%s", log)
 		}
 		if len(cfg.expressions) > 0 {
 			res.lowered = make(map[string]string)

@@ -15,7 +15,7 @@ import (
 	"sync"
 )
 
-const cacheMagic = "nvrtcx\x00\x05"
+const cacheMagic = "nvrtcx\x00\x06"
 
 var (
 	memCacheMu sync.RWMutex
