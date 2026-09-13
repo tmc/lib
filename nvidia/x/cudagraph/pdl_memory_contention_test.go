@@ -49,7 +49,8 @@ static __device__ __forceinline__ float half2float_fast(unsigned short h) {
         float f = ((float)mant / 1024.0f) * (1.0f / 16384.0f);
         return sign ? -f : f;
     } else if (exp == 31) {
-        return mant ? nanf("") : (sign ? -INFINITY : INFINITY);
+        float inf = __int_as_float(0x7f800000);
+        return mant ? nanf("") : (sign ? -inf : inf);
     }
     float f = (1.0f + (float)mant / 1024.0f) * powf(2.0f, (float)((int)exp - 15));
     return sign ? -f : f;
