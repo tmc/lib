@@ -186,6 +186,19 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 			scalars: []any{int32(0), float32(10000.0), int32(benchHidden), int32(benchHidden), int32(128), int32(2048)},
 			grid:    func(block uint32) uint32 { return (benchHidden + block - 1) / block },
 		}, nil
+	case "pdl_gemv_pipeline":
+		return launchPlan{
+			buffers: []int{benchHidden, benchInter * benchHidden, benchHidden * benchInter, benchHidden},
+			scalars: []any{int32(benchHidden), int32(benchInter), int32(benchHidden)},
+			shared:  benchInter * 4,
+			grid:    func(block uint32) uint32 { return (benchHidden + block - 1) / block },
+		}, nil
+	case "pdl_split", "pdl_pipeline":
+		return launchPlan{
+			buffers: []int{benchInDim, benchOutDim * benchInDim, benchOutDim, benchOutDim},
+			scalars: []any{int32(benchOutDim), int32(benchInDim)},
+			grid:    func(block uint32) uint32 { return (benchOutDim + block - 1) / block },
+		}, nil
 	}
 	return launchPlan{}, fmt.Errorf("egraph: no benchmark launch plan for operator %q", op)
 }

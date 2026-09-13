@@ -156,6 +156,9 @@ var TerminalOps = []string{
 	"iq2_xxs_matvec",
 	"fused_rope_store_kv",
 	"add",
+	"pdl_split",
+	"pdl_gemv_pipeline",
+	"pdl_pipeline",
 }
 
 // PlaceholderOps are high-level mathematical primitives and intermediate memory
@@ -184,6 +187,9 @@ var PlaceholderOps = []string{
 
 // IsTerminalOp reports whether op is a terminal operator directly lowerable by GenerateCUDA.
 func IsTerminalOp(op string) bool {
+	if strings.HasPrefix(op, "pdl_") {
+		return true
+	}
 	for _, top := range TerminalOps {
 		if op == top {
 			return true
@@ -224,6 +230,18 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	case strings.HasPrefix(n.Op, "ptx_"):
 		// Rewarded: In-register bit-unswizzling
 		baseCost = 0.4
+	case strings.HasPrefix(n.Op, "pdl_"):
+		if hasPDLPreambleWork(n, childCosts) {
+			// Rewarded: Programmatic Dependent Launch (PDL) with independent preamble
+			// work (weight fetches, bias loads, RoPE indexing, dequantization) executed
+			// before cudaGridDependencySynchronize(), achieving ~20 µs (~29%) kernel span
+			// overlap (alpha ~ 0.71).
+			baseCost = 0.6
+		} else {
+			// Unearned: Entry-syncing kernels without independent preamble work yield
+			// 0 ns compute overlap on hardware.
+			baseCost = 2.0
+		}
 	case n.Op == "gemv" || n.Op == "matmul":
 		baseCost = 2.0
 	case n.Op == "rmsnorm" || n.Op == "rope" || n.Op == "silu" || n.Op == "gelu" || n.Op == "swish":
