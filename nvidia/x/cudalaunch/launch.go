@@ -279,14 +279,15 @@ func PackArgs(args ...any) ([]unsafe.Pointer, func(), error) {
 }
 
 // packArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
+// The returned params slice must remain live through the driver call. Its
+// pointers retain packed scalar and struct storage; caller-provided pointers
+// retain their usual caller-owned lifetime.
 func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 	if len(args) == 0 {
 		return nil, func() {}, nil
 	}
 
 	params := make([]unsafe.Pointer, len(args))
-	heapCopies := make([]any, len(args))
-	var pinner runtime.Pinner
 
 	for i, arg := range args {
 		if arg == nil {
@@ -304,7 +305,6 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 			if uintptr(ptrVal)%8 != 0 {
 				return nil, nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, ptrVal)
 			}
-			heapCopies[i] = ptrVal
 			params[i] = unsafe.Pointer(&ptrVal)
 			continue
 		}
@@ -314,56 +314,41 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 			if uintptr(v)%8 != 0 {
 				return nil, nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, v)
 			}
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 
 		case int8:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case int16:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case int32:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case int64:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case int:
 			val := int64(v)
-			heapCopies[i] = val
 			params[i] = unsafe.Pointer(&val)
 		case uint8:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case uint16:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case uint32:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case uint64:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case uint:
 			val := uint64(v)
-			heapCopies[i] = val
 			params[i] = unsafe.Pointer(&val)
 		case uintptr:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case float32:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case float64:
-			heapCopies[i] = v
 			params[i] = unsafe.Pointer(&v)
 		case bool:
 			var byteVal uint8
 			if v {
 				byteVal = 1
 			}
-			heapCopies[i] = byteVal
 			params[i] = unsafe.Pointer(&byteVal)
 		default:
 			rv := reflect.ValueOf(arg)
@@ -390,7 +375,6 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 				copy(dstSlice, srcSlice)
 
 				params[i] = alignedPtr
-				heapCopies[i] = buf
 				continue
 			}
 			return nil, nil, fmt.Errorf("arg %d has unsupported type %T", i, arg)
@@ -398,8 +382,6 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 	}
 
 	cleanup := func() {
-		pinner.Unpin()
-		_ = heapCopies // retain references
 	}
 
 	return params, cleanup, nil
