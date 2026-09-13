@@ -18,12 +18,12 @@ import (
 )
 
 type exampleMetadata struct {
-	Device   string    `json:"device"`
-	Arch     string    `json:"architecture"`
-	Elements int       `json:"elements"`
-	Passes   int       `json:"passes"`
-	Rounds   int       `json:"fma_rounds"`
-	Verified int       `json:"verified_results"`
+	Device     string          `json:"device"`
+	Arch       string          `json:"architecture"`
+	Elements   int             `json:"elements"`
+	Passes     int             `json:"passes"`
+	Rounds     int             `json:"fma_rounds"`
+	Verified   int             `json:"verified_results"`
 	MaxError   float64         `json:"max_absolute_error"`
 	NCCL       *ncclMeta       `json:"nccl,omitempty"`
 	PCSampling json.RawMessage `json:"pc_sampling,omitempty"`
