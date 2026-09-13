@@ -134,7 +134,11 @@ func run(dir string, cfg config) error {
 		}
 	}
 	fmt.Printf("capture: %s\n", dir)
-	fmt.Printf("share: %s\n", filepath.Join(dir, "capture.pprof"))
-	fmt.Println("Timings cover whole kernel launches; instruction rows are navigation anchors, not sampled PC costs.")
+	if m.PCSampling != nil {
+		fmt.Printf("Hardware PC sampling active: %d samples collected across %d PCs, %.1f%% resolved to PTX.\n",
+			m.PCSampling.TotalSamples, m.PCSampling.PCs, 100*m.PCSampling.Resolution())
+	} else {
+		fmt.Println("Timings cover whole kernel launches; instruction rows are navigation anchors, not sampled PC costs.")
+	}
 	return nil
 }

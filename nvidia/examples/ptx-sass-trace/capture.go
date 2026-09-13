@@ -28,7 +28,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-//go:embed main.go capture.go workload.go kernels.cu bundle.README.md nccl_oracle.go nccl_workload.go
+//go:embed main.go capture.go workload.go kernels.cu bundle.README.md nccl_oracle.go nccl_workload.go profileshape.go pcsampling.go
 var sources embed.FS
 
 type captureMetadata struct {
@@ -206,12 +206,13 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	}
 	prof.SetPeriod("gpu_time", "nanoseconds", 1)
 	prof.SetNumericLabels(numericLabelUnits())
+	prof.SetDocURL("https://github.com/tmc/lib/tree/main/nvidia/examples/ptx-sass-trace")
 
 	// The PTX text is a second logical image, so PTX frames carry real
 	// addresses in the shipped file rather than only when cmd/cudaprof
 	// synthesizes the mapping at view time.
 	ptxLines := cudaprof.PTXLineOffsets(ptx)
-	prof.AddMapping("kernels.ptx", "", ptxBase, ptxBase+uint64(len(ptx)))
+	prof.AddMapping("kernels.ptx", fmt.Sprintf("%x", sha256.Sum256([]byte(ptx))), ptxBase, ptxBase+uint64(len(ptx)))
 	var wRes workloadResult
 	workloadStart := time.Now()
 	runMeasured := func(ctx context.Context) {
@@ -243,7 +244,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 		var sampErr error
 		cudaprof.Do(ctx, labels, func(ctx context.Context) {
-			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, prof, uint32(cfg.pcPeriod), runMeasured)
+			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, prof, ptxLines, uint32(cfg.pcPeriod), runMeasured)
 		})
 		// A sampling failure must not discard a workload that ran and verified,
 		// so it is reported after the workload's own error.

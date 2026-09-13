@@ -22,7 +22,7 @@ const ptxBase = cudaprof.PTXMappingStart
 // rather than five of which three are always zero.
 func sampleTypes(pcSampling bool) []string {
 	if pcSampling {
-		return []string{"samples", "stall_mem", "stall_wait", "stall_scoreboard", "gpu_time"}
+		return []string{"samples", "pc_samples", "stall_mem", "stall_wait", "stall_scoreboard", "stall_math", "gpu_time"}
 	}
 	return []string{"samples", "gpu_time"}
 }
@@ -64,6 +64,13 @@ func goFrames(skip int) []cudaprof.Frame {
 		f, more := frames.Next()
 		if f.Function == "" {
 			break
+		}
+		// Filter out context label plumbing so the callstack shows application signal only.
+		if strings.Contains(f.Function, "cudaprof.Do") || strings.Contains(f.Function, "runtime/pprof.Do") {
+			if !more {
+				break
+			}
+			continue
 		}
 		// Stop at the runtime's entry into main; the scheduler frames above it
 		// describe the process, not the launch.

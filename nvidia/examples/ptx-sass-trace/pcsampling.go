@@ -110,7 +110,7 @@ func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err
 //
 // The returned result is valid even when fn fails, so a partial run still
 // reports what it collected.
-func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, prof *cudaprof.Session, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
+func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, prof *cudaprof.Session, ptxLines []uint64, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
 	// The reason inventory cannot be read on a context where sampling is off,
 	// and the configuration Start needs is built from that inventory, so this
 	// enable is scoped to the query alone. Start enables the context again on
@@ -141,9 +141,11 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 
 	resolver := cuptipcsampling.NewCaptureResolverFromCubin(code, cubin)
 	bridge := &cuptipcsampling.ProfileBridge{
-		Session:   prof,
-		Inventory: inv,
-		Resolver:  resolver,
+		Session:    prof,
+		Inventory:  inv,
+		Resolver:   resolver,
+		PTXOffsets: ptxLines,
+		HostFrames: goFrames(0),
 	}
 	res = &pcSamplingResult{PeriodExponent: period, SelectedReasons: len(config.ReasonIDs)}
 
@@ -154,7 +156,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 	}
 	for {
 		batch, readErr := session.Read()
-		record(res, bridge, resolver, batch)
+		record(ctx, res, bridge, resolver, batch)
 		if readErr != nil {
 			err = errors.Join(err, fmt.Errorf("read pc samples: %w", readErr))
 			break
@@ -165,7 +167,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 	}
 	closeErr := session.Close()
 	if final, ok := session.Final(); ok {
-		record(res, bridge, resolver, final)
+		record(ctx, res, bridge, resolver, final)
 	}
 	if closeErr != nil {
 		err = errors.Join(err, fmt.Errorf("close pc sampling: %w", closeErr))
@@ -178,7 +180,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 // counts resolutions separately from recording them: RecordBatch resolves
 // internally without reporting, and the resolved fraction is the evidence that
 // attribution reached PTX at all.
-func record(res *pcSamplingResult, bridge *cuptipcsampling.ProfileBridge, resolver cuptipcsampling.CodeResolver, batch cuptipcsampling.Batch) {
+func record(ctx context.Context, res *pcSamplingResult, bridge *cuptipcsampling.ProfileBridge, resolver cuptipcsampling.CodeResolver, batch cuptipcsampling.Batch) {
 	res.DroppedSamples += batch.DroppedSamples
 	res.NonUserSamples += batch.NonUserSamples
 	if batch.HardwareBufferFull != 0 {
@@ -201,5 +203,5 @@ func record(res *pcSamplingResult, bridge *cuptipcsampling.ProfileBridge, resolv
 	}
 	// A batch that fails to record is a reporting failure, not a collection
 	// failure; the counters above already hold what it contained.
-	_ = bridge.RecordBatch(context.Background(), batch)
+	_ = bridge.RecordBatch(ctx, batch)
 }
