@@ -169,6 +169,14 @@ func (s *Session) SetDefaultSampleType(name string) error {
 	return s.builder.SetDefaultSampleType(name)
 }
 
+// AddComment records a line of free text on the profile, for a fact that holds
+// for the whole run. See [Builder.AddComment].
+func (s *Session) AddComment(text string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.AddComment(text)
+}
+
 // SetNumericLabels declares which label keys hold numbers, so that pprof's
 // range filters apply to them. See [Builder.SetNumericLabels].
 func (s *Session) SetNumericLabels(unitByKey map[string]string) {
