@@ -114,15 +114,20 @@ is dependency latency. The split of `stall_scoreboard` into its two reasons is
 what decides that, and it exists only in `reason_samples`.
 
 One reason in `stall_mem` is observed where nothing explains it, and a reader
-should know before sizing anything from that bucket: `tex_throttle` reaches 9.4%
-on fp64 arithmetic kernels whose SASS contains no `TEX` instruction at all, with
-a threshold at eight independent accumulators (0 / 0 / 0 / 4.89% at 1 / 2 / 4 / 8,
-work-matched). It is exactly 0 in every memory kernel measured, including a
-read-only `__ldg` path. Either the reason index is mismapped on this part or the
-fp64 units share a dispatch path the counter names after texture; the experiment
-that would separate those -- a real texture object -- has not been run. Until it
-is, a small `stall_mem` on an fp64-heavy kernel may be counting no memory
-instruction at all.
+should know before sizing anything from that bucket: on a GB10 at driver
+580.173.02, `tex_throttle` reaches 9.4% on fp64 arithmetic kernels whose SASS
+contains no `TEX` instruction at all, with a threshold at eight independent
+accumulators (0 / 0 / 0 / 4.89% at 1 / 2 / 4 / 8, work-matched). It is exactly 0
+in every memory kernel measured on the same part, including a read-only `__ldg`
+path, whose `LDG.E.CONSTANT` is not the texture unit. Either the driver binds
+this counter to the wrong name -- it cannot be a mismap on our side, since
+routing is keyed by the name CUPTI reports and never by an index we hold -- or
+the fp64 units traverse a dispatch queue the counter names after texture. The
+experiment that would separate those is a real texture object with `tex1Dfetch`:
+a mislabel predicts 0 there, a shared queue predicts it fires. It has not been
+run. Until it is, a small `stall_mem` on an fp64-heavy kernel may be counting no
+memory instruction at all, and fp32 at the same geometry is only a control for
+block shape and accumulator count -- both readings predict 0 there.
 
 `stall_wait` is the other one. It counts the `wait` reason, which is where
 NVIDIA puts a dependency on a *fixed-latency* result: the compiler knows when an
