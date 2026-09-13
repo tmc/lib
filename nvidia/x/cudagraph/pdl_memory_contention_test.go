@@ -474,6 +474,42 @@ func TestPDLMemoryContentionCompilationAndPTX(t *testing.T) {
 	if !strings.Contains(ptx, "ld.global") && !strings.Contains(ptx, "ld.global.v4") {
 		t.Error("compiled PTX missing vector global memory loads")
 	}
+	for _, tt := range []struct {
+		name       string
+		loadBefore bool
+	}{
+		{name: "memory_contended_consumer_fp16_entry_sync", loadBefore: false},
+		{name: "memory_contended_consumer_fp16_hoisted", loadBefore: true},
+		{name: "memory_contended_consumer_int8_entry_sync", loadBefore: false},
+		{name: "memory_contended_consumer_int8_hoisted", loadBefore: true},
+	} {
+		body, ok := ptxFunctionBody(ptx, tt.name)
+		if !ok {
+			t.Errorf("compiled PTX missing function %q", tt.name)
+			continue
+		}
+		wait := strings.Index(body, "griddepcontrol.wait;")
+		load := strings.Index(body, "ld.global")
+		if wait < 0 || load < 0 {
+			t.Errorf("%s missing wait or global load", tt.name)
+			continue
+		}
+		if (load < wait) != tt.loadBefore {
+			t.Errorf("%s load/wait order = %d/%d, loadBefore=%t", tt.name, load, wait, tt.loadBefore)
+		}
+	}
+}
+
+func ptxFunctionBody(ptx, name string) (string, bool) {
+	start := strings.Index(ptx, ".entry "+name)
+	if start < 0 {
+		return "", false
+	}
+	body := ptx[start:]
+	if end := strings.Index(body, "\n}"); end >= 0 {
+		body = body[:end]
+	}
+	return body, true
 }
 
 // TestPDLMemoryContendedPrologue evaluates memory bus and LSU contention when
