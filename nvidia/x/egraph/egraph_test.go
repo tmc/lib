@@ -336,7 +336,7 @@ func TestLowerabilityPredicates(t *testing.T) {
 		wantTileIR  bool
 		wantUnified bool
 	}{
-		{"fused_swiglu_gemv", true, true, true},
+		{"fused_swiglu_gemv", true, false, true},
 		{"fused_gemv_pipeline", true, false, true},
 		{"gemv", false, false, false},
 		{"matmul", false, false, false},
@@ -345,6 +345,13 @@ func TestLowerabilityPredicates(t *testing.T) {
 		{"tile_gelu", false, true, true},
 		{"tile_geglu", false, true, true},
 		{"tile_mma_fp8", false, true, true},
+		{"mma_anything", false, false, false},
+		{"tma_future", false, false, false},
+		{"gemma_proj", false, false, false},
+		{"comma_split", false, false, false},
+		{"assume_aligned_x", false, false, false},
+		{"fp8_cast", false, false, false},
+		{"fp4_cast", false, false, false},
 		{"fused_nonexistent_ghost", false, false, false},
 		{"random_custom_op", false, false, false},
 	}
@@ -363,7 +370,6 @@ func TestLowerabilityPredicates(t *testing.T) {
 			t.Errorf("IsLowerableOp(%q) = %v, want %v", tc.op, gotUnified, tc.wantUnified)
 		}
 	}
-
 	// Test CanLower on expressions
 	validExpr := &egraph.Expr{
 		Op: "fused_gemv_pipeline",
@@ -385,6 +391,80 @@ func TestLowerabilityPredicates(t *testing.T) {
 	}
 	if egraph.CanLower(invalidExpr) {
 		t.Errorf("CanLower(invalidExpr) = true, want false")
+	}
+}
+
+func TestLowerabilityDifferential(t *testing.T) {
+	// Corpus of operators: valid CUDA ops, valid Tile IR ops, invalid ops,
+	// invented prefix ops, and decoy substring matches.
+	corpus := []string{
+		// Valid CUDA ops
+		"fused_swiglu_gemv", "tile_swiglu", "fused_swiglu_q8_0", "fused_rmsnorm_gemv",
+		"tile_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_gemv_pipeline", "q8_0_matvec",
+		"u2_simd", "u2_scalar", "q2_k_matvec", "iq2_xxs_matvec", "fused_rope_store_kv",
+		"pdl_gemv_pipeline", "pdl_fused_swiglu", "add",
+
+		// Valid Tile IR ops
+		"tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu",
+		"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
+		"tile_geglu", "fused_geglu", "tile_gelu", "fused_gelu",
+		"tile_mma", "tile_mma_aligned", "mma",
+		"tile_mma_fp8", "tile_fp8_gemm", "tile_fp8", "fp8_matmul",
+		"mmaf_scaled", "tile_fp4_gemm", "tile_fp4", "fp4_matmul",
+
+		// Invalid / ghost / invented ops that MUST NOT be lowerable by either backend
+		"mma_anything", "tma_future", "assume_aligned_x", "fp8_cast", "fp4_cast",
+		"gemma_proj", "comma_split", "fused_anything", "tile_unknown", "pdl",
+		"matmul", "gemv", "rmsnorm", "silu", "gelu", "swish",
+	}
+
+	costModel := egraph.FusedMegakernelCost{}
+
+	for _, op := range corpus {
+		t.Run(op, func(t *testing.T) {
+			expr := &egraph.Expr{Op: op}
+			if op == "add" {
+				expr.Children = []*egraph.Expr{{Op: "x"}, {Op: "y"}}
+			}
+
+			// 1. CUDA differential: IsLowerableCUDAOp(op) == (GenerateCUDA succeeds)
+			_, cudaErr := egraph.GenerateCUDA(expr, egraph.CodegenOptions{})
+			cudaLowerable := (cudaErr == nil)
+			if egraph.IsLowerableCUDAOp(op) != cudaLowerable {
+				t.Errorf("CUDA differential mismatch for %q: IsLowerableCUDAOp=%v, GenerateCUDA err=%v",
+					op, egraph.IsLowerableCUDAOp(op), cudaErr)
+			}
+
+			// 2. Tile IR differential: IsLowerableTileIROp(op) == (Lower and GenerateDeclarativeTile succeed)
+			node := &egraph.Node{Op: op}
+			_, tileErr := egraph.NewLowerer(egraph.CodegenOptions{}).Lower(node)
+			tileLowerable := (tileErr == nil)
+			if egraph.IsLowerableTileIROp(op) != tileLowerable {
+				t.Errorf("Tile IR Lower differential mismatch for %q: IsLowerableTileIROp=%v, Lower err=%v",
+					op, egraph.IsLowerableTileIROp(op), tileErr)
+			}
+
+			_, declErr := egraph.GenerateDeclarativeTile(expr, egraph.CodegenOptions{})
+			declLowerable := (declErr == nil)
+			if egraph.IsLowerableTileIROp(op) != declLowerable {
+				t.Errorf("Tile IR Declarative differential mismatch for %q: IsLowerableTileIROp=%v, GenerateDeclarativeTile err=%v",
+					op, egraph.IsLowerableTileIROp(op), declErr)
+			}
+
+			// 3. Combined lowerability: IsLowerableOp(op) == (IsLowerableCUDAOp(op) || IsLowerableTileIROp(op))
+			wantCombined := egraph.IsLowerableCUDAOp(op) || egraph.IsLowerableTileIROp(op)
+			if egraph.IsLowerableOp(op) != wantCombined {
+				t.Errorf("IsLowerableOp(%q) = %v, want %v", op, egraph.IsLowerableOp(op), wantCombined)
+			}
+
+			// 4. Cost model check: If op is unlowerable, cost model MUST penalize it (>= 1.0)
+			if !wantCombined {
+				cost := costModel.NodeCost(egraph.ENode{Op: op}, []float64{0.0, 0.0})
+				if cost < 1.0 {
+					t.Errorf("unlowerable op %q received favorable cost %.2f in cost model; want >= 1.0", op, cost)
+				}
+			}
+		})
 	}
 }
 

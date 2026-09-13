@@ -219,7 +219,10 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	case n.Op == "tile_load" || n.Op == "tile_store" || n.Op == "load_strided" || n.Op == "partition_view" || n.Op == "cublaslt_gemm":
 		// Penalized: Unaligned memory access patterns or unlowerable host library operators
 		baseCost = 4.0
-	case strings.HasPrefix(n.Op, "tma_") || strings.HasPrefix(n.Op, "tile_tma_") || strings.HasPrefix(n.Op, "assume_") || strings.HasPrefix(n.Op, "coalesce_") || n.Op == "mmaf_scaled" || n.Op == "tile_mma_aligned":
+	case n.Op == "tile_mma_aligned" || n.Op == "mmaf_scaled" ||
+		n.Op == "tile_tma_load" || n.Op == "tile_tma_store" ||
+		n.Op == "tma_box" || n.Op == "tma_stride_1" || n.Op == "tma_partition_view" ||
+		n.Op == "assume_aligned" || n.Op == "coalesce_contiguous":
 		// Rewarded: Hardware TMA / Tensor Core hardware-aligned acceleration
 		baseCost = 0.1
 	case strings.HasPrefix(n.Op, "fused_") || (strings.HasPrefix(n.Op, "tile_") && n.Op != "tile_mma"):

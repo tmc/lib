@@ -201,6 +201,10 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 
 `)
 
+	if !IsLowerableCUDAOp(expr.Op) {
+		return "", fmt.Errorf("egraph: no CUDA kernel for operator %q", expr.Op)
+	}
+
 	if opts.EnablePDL || strings.HasPrefix(expr.Op, "pdl_") {
 		sb.WriteString(generatePDLKernel(expr, opts))
 		return sb.String(), nil
@@ -770,22 +774,19 @@ func IsLowerableCUDAOp(op string) bool {
 
 // IsLowerableTileIROp reports whether an operator name can be lowered to Tile IR
 // by GenerateTileIR, ToTileIR, or GenerateDeclarativeTile.
+// It requires an exact match against the registered Tile IR operator set.
 func IsLowerableTileIROp(op string) bool {
-	switch {
-	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
-		return true
-	case strings.Contains(op, "rmsnorm_qkv_split"),
-		strings.Contains(op, "rmsnorm_qkv"),
-		strings.Contains(op, "rmsnorm_proj"),
-		strings.Contains(op, "swiglu"),
-		strings.Contains(op, "geglu"),
-		strings.Contains(op, "gelu"),
-		strings.Contains(op, "mma"),
-		strings.Contains(op, "tma"),
-		strings.Contains(op, "assume_aligned"),
-		strings.Contains(op, "coalesce_contiguous"),
-		strings.Contains(op, "fp8"),
-		strings.Contains(op, "fp4"):
+	switch op {
+	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu",
+		"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
+		"tile_rmsnorm_qkv", "fused_rmsnorm_qkv",
+		"tile_rmsnorm_proj", "fused_rmsnorm_proj",
+		"tile_swiglu", "fused_swiglu",
+		"tile_geglu", "fused_geglu",
+		"tile_gelu", "fused_gelu",
+		"tile_mma", "tile_mma_aligned", "mma",
+		"tile_mma_fp8", "tile_fp8_gemm", "tile_fp8", "fp8_matmul",
+		"mmaf_scaled", "tile_fp4_gemm", "tile_fp4", "fp4_matmul":
 		return true
 	default:
 		return false
