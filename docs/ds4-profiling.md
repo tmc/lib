@@ -1218,37 +1218,78 @@ runs are instrumented; neither number below is an uninstrumented rate.
 
 | | C oracle | Go ds4-min | ratio |
 | --- | ---: | ---: | ---: |
-| prefill kernels | 3,472 | 4,117,516 | **1186x** |
-| prefill device time | 3,280.8 ms | 150,477.0 ms | **45.9x** |
-| prefill span | 3,744.5 ms | 160,463.3 ms | 42.9x |
-| prefill device busy | 87.6% | 93.8% | — |
+| prefill kernels | 3,472 | 4,117,514 | **1186x** |
+| prefill device time | 3,280.79 ms | 150,476.96 ms | **45.87x** |
+| prefill kernel envelope | 3,744.5 ms | 160,463.3 ms | 42.9x |
+| envelope occupancy | 87.6% | 93.8% | — |
 | decode kernels (2 tokens) | 3,536 | 4,480 | 1.27x |
 | decode device time | 99.8 ms | 160.2 ms | **1.60x** |
 
-### The prefill gap is not launch overhead
+Read the row labels carefully. Device time is summed kernel duration; the
+envelope is first-kernel-start to last-kernel-end, which is neither the
+profiler range nor the function's wall interval. Occupancy is the ratio of the
+two and describes how little dead air sits between kernels — it is not
+evidence for a compute-bound, memory-bound, or launch-bound diagnosis, and
+summed kernel time is not an operation count.
+
+### The gap is not launch overhead, and not one constant either
 
 The 1186x launch ratio invites the conclusion that ds4-min is drowning in
-launch overhead. It is not. Both sides are device-bound — 87.6% and 93.8% of
-their spans are kernels actually executing — so there is no idle gap for the
-extra launches to be hiding in. Go issues 1186x more launches *and* does 45.9x
-more device work. The launches are a symptom of the shape, not the cost.
+launch overhead. It is not: at 87.6% and 93.8% envelope occupancy there is no
+idle gap for the extra launches to hide in, and the summed kernel time differs
+by 45.87x on its own. Whatever is wrong is happening *inside* the kernels.
 
-The shape is visible in the oracle's launch counts, which are all small
-multiples of the 43 layers:
+The oracle's heaviest launches are small multiples of the 43 layers:
 
     gateup_iq2_swiglu_q8_d2r_kernel     43 launches    846.1 ms
     dense_q8_d2r_kernel                172 launches    658.4 ms
     down_q2k_d2r_kernel                 43 launches    330.8 ms
     attention_tokentile_hmma_kernel     41 launches    227.1 ms
 
-Forty-three gate-up launches for the entire 2048-token prefill is **one per
-layer** — the oracle's `prefill_chunk` defaults to 4096 on CUDA, so all 2048
-tokens cross each layer in a single pass. ds4-min's `cudaPrefillBatchWidth` is
-8, so the same prefill is 256 batches: 16,084 kernels each, ~374 per layer per
-batch, and every batch re-reads that layer's weights.
+Forty-three gate-up launches for the entire 2048-token prefill is one per
+layer: the oracle's `prefill_chunk` defaults to 4096 on CUDA, so all 2048
+tokens cross each layer in a single **matrix-matrix** product, and each
+layer's weights are read once for the whole chunk.
 
-That reframes the parity problem. It is not 43 slow kernels to optimize; it is
-one constant deciding whether the weights are read once or 256 times.
+An earlier draft of this section concluded that raising
+`cudaPrefillBatchWidth` from 8 would therefore close the gap — "one constant,
+not 43 slow kernels". **That is wrong, and the source refutes it.**
+`cuda_session_linux.go:543-556` batches only the dense front
+(`encodeQ80MatvecQ81Batch(..., n)`) and then loops `for i := range rows`
+calling `evalLayerProjected` per token. Everything downstream of that loop —
+the shared FFN and the whole expert path at `:717-762` — is `Matvec`: matrix-
+*vector* products on one token's state, `encodeSwiGLU(..., 1)`, one token at a
+time. Widening the batch changes dense-front batching and buffer sizes; it
+does not turn expert gate/up/down into cross-token launches.
+
+So the difference is algorithmic, not a tuning constant. The oracle computes
+the expert path as a matmul over the chunk and reads each expert's weights
+once; ds4-min computes it as 2048 matvecs and reads them 2048 times. Batching
+the expert path is a real piece of work, and any proposed optimization gets
+measured on its own rather than inherited from this observation.
+
+### What qualifies this comparison, and what does not
+
+The Go side carries source-derived completeness checks that came out exact —
+8200 / 6150 / 82000 across three kernel families. **The C side has no
+equivalent.** No source-derived expected count has been established for
+`ds4-bench`, and both exported captures carry Nsight's
+`Not all CUDA events might have been collected` in `DIAGNOSTIC_EVENT`
+(cap1 13,149 produced / 12,492 collected; cap2 12,893 / 12,195 — different
+counter domains, not subtractable as missing kernels, but retained). The
+comparison is therefore asymmetrically qualified.
+
+Note which way that cuts: undercounting the C side would *inflate* the ratio,
+so 45.87x is the number at risk, not a floor. Two things bound it. The
+oracle's heaviest kernel families are exact multiples of 43 (43, 86, 129,
+172, 344), which is not what ragged record loss looks like — though several
+small utility kernels are not multiples, and no source expectation exists to
+say whether they should be. And the registered uninstrumented rates give an
+independent route to the same gap: 661.18 t/s against ds4-min's 12.96 t/s is
+**51.0x**, arrived at without any capture at all. Two methods landing on 46x
+and 51x is why the gap is credible even though the C capture is unqualified.
+
+What remains open is the exact figure, not the finding.
 
 ### The decode arm is close, and its gate is open
 
@@ -1268,11 +1309,24 @@ The C side's IDs were not retained, and cannot be recovered from this capture:
 - `--capture-range-end=repeat-shutdown:2` terminates the process when the
   second range closes, so this run printed no CSV row either.
 
-Closing the gate needs a same-process emission of `gen_token_buf` after the
-timed loop — a harness-only change to `ds4_bench.c`, labelled as such, with its
-source and binary identity retained. Until then the prefill row is qualified by
-the token hash and the decode row is a measurement of two runs that were
-probably, but not demonstrably, doing the same thing.
+Closing the gate needs a harness-only change to `ds4_bench.c`, labelled as
+such, with its source and binary identity retained — and "emit after the loop"
+does not work under this recipe: the second `cudaProfilerStop` at `:958-965`
+fires *before* the final token is accumulated at `:968-976`, and terminates the
+process. Either buffer each accepted ID as it is evaluated and flush the
+receipt before that stop, accepting that the added host work lands inside the
+capture range and labelling it as such, or use a capture-end mode that stops
+collection without killing the application and emit afterwards, outside the
+timing. Never emit unaccepted candidates. An env guard preserves the
+disabled-path behavior; it does not preserve binary byte identity.
+
+Note also that `RUN_RC=0` here is Nsight's exit, not the application's:
+`repeat-shutdown` terminated `ds4-bench` deliberately, so this run demonstrates
+no clean application completion or cleanup.
+
+Until then the prefill row is qualified by the token hash and the decode row is
+a measurement of two runs that were probably, but not demonstrably, doing the
+same thing.
 
 ## Fine phase names, and what they do not isolate
 
