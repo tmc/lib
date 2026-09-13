@@ -59,6 +59,7 @@ type Tuner struct {
 	dev        *cuda.Device
 	cache      map[string]TuningCandidate
 	bestScores map[string]time.Duration
+	pgo        *PGOTracker
 }
 
 // NewTuner creates a new hardware-in-the-loop kernel tuner.
@@ -67,6 +68,7 @@ func NewTuner(dev *cuda.Device) *Tuner {
 		dev:        dev,
 		cache:      make(map[string]TuningCandidate),
 		bestScores: make(map[string]time.Duration),
+		pgo:        &PGOTracker{},
 	}
 }
 
@@ -293,6 +295,9 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 
 	bestCand := defaultCand
 	bestDur := time.Duration(1<<63 - 1)
+	if score, ok := t.pgo.Score(defaultCand.Key()); ok {
+		bestDur = score
+	}
 	// Why every candidate was discarded, if every candidate was. Returning
 	// the unbenchmarked default and reporting success hid a total failure to
 	// tune behind a candidate that carried no source at all.
@@ -325,6 +330,7 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 			lastErr = err
 			continue
 		}
+		t.pgo.Record(cand.Key(), execDur)
 
 		if execDur < bestDur {
 			bestDur = execDur
