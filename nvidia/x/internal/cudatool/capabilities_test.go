@@ -93,8 +93,10 @@ func TestMeasuredVersionDifferences(t *testing.T) {
 		{tool: "compute-sanitizer", option: "--csv", absent: []Version{V(12, 6), V(13, 0), V(13, 4)}},
 		// Of the two tools this tree drives, cuobjdump's option names and
 		// arities are identical across all three versions, while nvdisasm
-		// gained exactly one option in 13.0: --emit-json, which cudasass
-		// emits for JSON mode and must therefore refuse under 12.6.
+		// gained exactly one option: --emit-json, which cudasass emits for
+		// JSON mode and must therefore refuse under 12.6. It arrives in 12.8,
+		// measured against every toolkit on the GB10 host; the corpus records
+		// only its absence in 12.6 and presence in 13.0 and 13.4.
 		{tool: "nvdisasm", option: "--print-code", present: []Version{V(12, 6), V(13, 0), V(13, 4)}, arity: Bare},
 		{tool: "nvdisasm", option: "--emit-json", present: []Version{V(13, 0), V(13, 4)}, absent: []Version{V(12, 6)}, arity: Bare},
 		{tool: "cuobjdump", option: "--dump-sass", present: []Version{V(12, 6), V(13, 0), V(13, 4)}, arity: Bare},
