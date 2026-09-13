@@ -1,10 +1,13 @@
 package egraph
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/tileir"
+	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
 // GenerateDeclarativeTile generates declarative C++ Tile IR source code
@@ -402,6 +405,30 @@ func GenerateTileIR(node *Node, opts ...CodegenOptions) (string, error) {
 // or serialized to Tile IR binary bytecode (mod.EncodeBytecode()).
 func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 	return NewLowerer(opts).Lower(expr)
+}
+
+// AssembleTileIR lowers expr and assembles its bytecode when tileiras is available.
+// If the external assembler is unavailable, the verified Tile IR bytecode is returned.
+func AssembleTileIR(expr *Expr, opts CodegenOptions) ([]byte, error) {
+	mod, err := ToTileIR(expr, opts)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: lower tile ir: %w", err)
+	}
+	bytecode, err := mod.EncodeBytecode()
+	if err != nil {
+		return nil, fmt.Errorf("egraph: encode tile ir bytecode: %w", err)
+	}
+	result, err := tileiras.Assemble(context.Background(), bytecode)
+	if errors.Is(err, tileiras.ErrNotFound) {
+		return bytecode, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("egraph: assemble tile ir: %w", err)
+	}
+	if len(result.CUBIN) > 0 {
+		return result.CUBIN, nil
+	}
+	return bytecode, nil
 }
 
 // Generate translates an egraph expression AST into valid Tile IR textual assembly syntax.
