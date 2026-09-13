@@ -157,16 +157,18 @@ type Config struct {
 	// error summary. Meaningful for [Memcheck].
 	LeakCheck Toggle
 
-	// TrackUnusedMemory maps to --track-unused-memory. Meaningful for
-	// [Initcheck].
+	// TrackUnusedMemory maps to --track-unused-memory, which the tool spells
+	// as a bare flag: ToggleYes emits it and ToggleNo emits nothing, leaving
+	// the tool's default. Meaningful for [Initcheck].
 	TrackUnusedMemory Toggle
 
 	// CheckAPIMemoryAccess maps to --check-api-memory-access. Meaningful
 	// for [Memcheck].
 	CheckAPIMemoryAccess Toggle
 
-	// Kill maps to --kill, which controls whether the application is
-	// terminated on the first error.
+	// Kill maps to --kill, which terminates the application on a
+	// communication error. The tool spells it as a bare flag: ToggleYes emits
+	// it and ToggleNo emits nothing, leaving the tool's default.
 	Kill Toggle
 
 	// NVTX maps to --nvtx, enabling NVTX range support in reports.
@@ -382,11 +384,19 @@ func (c Config) Args(logFile, prog string, appArgs ...string) ([]string, error) 
 		}
 		args = append(args, name, v)
 	}
+	// flag appends an option the tool spells without an argument. Passing one
+	// anyway is rejected outright ("extra yes detected on the input command
+	// line"), so ToggleNo selects the tool's own default by emitting nothing.
+	flag := func(name string, t Toggle) {
+		if t == ToggleYes {
+			args = append(args, name)
+		}
+	}
 	toggle("--require-cuda-init", c.RequireCUDAInit, "yes", "no")
 	toggle("--leak-check", c.LeakCheck, "full", "no")
-	toggle("--track-unused-memory", c.TrackUnusedMemory, "yes", "no")
+	flag("--track-unused-memory", c.TrackUnusedMemory)
 	toggle("--check-api-memory-access", c.CheckAPIMemoryAccess, "yes", "no")
-	toggle("--kill", c.Kill, "yes", "no")
+	flag("--kill", c.Kill)
 	toggle("--nvtx", c.NVTX, "yes", "no")
 	if c.RacecheckReport != "" {
 		args = append(args, "--racecheck-report", c.RacecheckReport)
