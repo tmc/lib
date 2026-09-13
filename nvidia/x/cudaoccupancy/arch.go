@@ -113,7 +113,12 @@ var (
 		SmemAllocationUnit:      128,
 	}
 
-	// Blackwell GB10 / GB200 (SM 12.1)
+	// Blackwell GB10 (SM 12.1)
+	// Provenance: measured on physical NVIDIA GB10 hardware via cudaGetDeviceProperties /
+	// cudaDeviceGetAttribute (CUDA 13.0.85, driver 580.173.02):
+	// SMs=48, maxThreadsPerSM=1536 (48 warps/SM), regsPerSM=65536, smemPerSM=102400,
+	// smemPerBlock=49152, smemOptin=101376 (102400 - 1024 B), maxBlocksPerSM=24.
+	// Note: GB200 is a different architecture (sm_100a, 64 warps/SM, tcgen05).
 	SM121 = DeviceProperties{
 		Architecture:            "sm_121",
 		MaxThreadsPerBlock:      1024,
