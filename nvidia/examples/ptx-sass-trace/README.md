@@ -1,9 +1,11 @@
 # Go → CUDA → PTX → SASS
 
-This example runs vector addition followed by 512 dependent fused multiply-add
-operations per element. It checks every output against a CPU reference after
-each stage. The defaults use 1,048,576 elements, one warmup, and 12 measured
-passes through both kernels.
+This example runs a realistic DeepSeek-V4 (ds4) inference pipeline:
+RMSNorm, Q8_0 quantized matrix-vector multiplication with warp reductions,
+SwiGLU activation, and sparse MoE expert dispatch with indirect indexing,
+along with sub-byte IQ2 SIMD vs scalar dot products and shared-memory staging.
+It checks every output against a CPU reference after each stage. The defaults
+use 1,048,576 elements, one warmup, and 12 measured passes through the pipeline.
 
 NVRTC produces PTX and CUBIN; `nvdisasm` decodes that CUBIN, and the program
 executes the same binary. The capture includes a Go execution trace, a pprof

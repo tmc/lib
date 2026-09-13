@@ -1,9 +1,12 @@
 # Go → CUDA → PTX → SASS
 
-This is a real GPU capture of a two-stage pipeline: vector addition, followed
-by a loop of dependent fused multiply-add operations. NVRTC compiled the code,
-nvdisasm decoded the CUBIN, and the program executed that same CUBIN on NVIDIA
-hardware. Every output was checked against a CPU reference after every stage.
+This is a real GPU capture of a DeepSeek-V4 (ds4) inference pipeline:
+RMSNorm, Q8_0 quantized matrix-vector multiplication with warp reductions,
+SwiGLU activation, and sparse MoE expert dispatch with indirect indexing,
+along with sub-byte IQ2 SIMD vs scalar dot products and shared-memory staging.
+NVRTC compiled the code, nvdisasm decoded the CUBIN, and the program executed
+that same CUBIN on NVIDIA hardware. Every output was checked against a CPU
+reference after every stage.
 
 ## Open the demo
 

@@ -1,4 +1,4 @@
-// Ptx-sass-trace captures a checked two-kernel CUDA workload for Go trace and
+// Ptx-sass-trace captures a checked DeepSeek-V4 CUDA micro-workload for Go trace and
 // pprof, including the real PTX, CUBIN, and SASS needed for offline inspection.
 package main
 
@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -105,12 +106,17 @@ func run(dir string, cfg config) error {
 		return err
 	}
 	fmt.Printf("verified %d results; %d elements, %d FMA rounds, %d measured passes\n", m.Verified, cfg.elements, cfg.rounds, cfg.passes)
-	for _, name := range []string{"vector_add", "compute"} {
+	names := make([]string, 0, len(m.Intervals))
+	for name := range m.Intervals {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
 		var total int64
 		for _, ns := range m.Intervals[name] {
 			total += ns
 		}
-		fmt.Printf("%-12s %d launches, %s CUDA event total\n", name, len(m.Intervals[name]), time.Duration(total))
+		fmt.Printf("%-24s %d launches, %s CUDA event total\n", name, len(m.Intervals[name]), time.Duration(total))
 	}
 	if m.NCCL != nil {
 		fmt.Printf("nccl mode: %s across %d ranks\n", m.NCCL.Mode, m.NCCL.Ranks)

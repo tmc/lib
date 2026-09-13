@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"debug/elf"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/trace"
+	"slices"
 	"strings"
 	"time"
 
@@ -158,13 +160,25 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse virtual ptx: %w", err)
 	}
-	for _, anchor := range []struct{ name, opcode string }{{"vector_add", "add.f32"}, {"compute", "fma.rn.f32"}} {
-		k := code.Kernel(anchor.name)
-		line := virtual.FirstOpcodeLine(anchor.name, anchor.opcode)
-		if k == nil || line == 0 {
-			return nil, fmt.Errorf("missing %s PTX arithmetic", anchor.name)
+	discovered, err := discoverKernels(cubin)
+	if err != nil {
+		return nil, fmt.Errorf("discover kernels from cubin: %w", err)
+	}
+	for _, name := range discovered {
+		k := code.Kernel(name)
+		if k == nil {
+			continue
 		}
-		k.PTXLine = line
+		pk := virtual.Kernel(name)
+		if pk != nil && len(pk.Instructions) > 0 {
+			k.PTXLine = pk.Instructions[0].Line
+			for _, inst := range pk.Instructions {
+				if isArithmeticOpcode(inst.Opcode) {
+					k.PTXLine = inst.Line
+					break
+				}
+			}
+		}
 	}
 
 	logLines(ctx, "CUDA", string(src))
@@ -180,7 +194,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	var profBuf bytes.Buffer
 	prof := cudaprof.NewSession(&profBuf)
 	prof.SetMappingFile("kernels.cubin", "")
-	if err := prof.SetSampleTypes("gpu_time"); err != nil {
+	if err := prof.SetSampleTypes("samples", "stall_mem", "stall_wait", "stall_scoreboard", "gpu_time"); err != nil {
 		return nil, fmt.Errorf("set sample types: %w", err)
 	}
 	var wRes workloadResult
@@ -246,4 +260,49 @@ func logLines(ctx context.Context, category, text string) {
 			trace.Logf(ctx, category, "%d: %s", i+1, line)
 		}
 	}
+}
+
+func discoverKernels(cubin []byte) ([]string, error) {
+	ef, err := elf.NewFile(bytes.NewReader(cubin))
+	if err != nil {
+		return nil, fmt.Errorf("read cubin elf: %w", err)
+	}
+	defer ef.Close()
+
+	var names []string
+	seen := make(map[string]bool)
+
+	// Discover function entry points from ELF symbol table
+	syms, _ := ef.Symbols()
+	for _, s := range syms {
+		if elf.ST_TYPE(s.Info) == elf.STT_FUNC && s.Name != "" && !seen[s.Name] {
+			seen[s.Name] = true
+			names = append(names, s.Name)
+		}
+	}
+
+	// Also discover from .text.<kernel_name> section headers
+	for _, sec := range ef.Sections {
+		if strings.HasPrefix(sec.Name, ".text.") {
+			kname := strings.TrimPrefix(sec.Name, ".text.")
+			if kname != "" && !seen[kname] {
+				seen[kname] = true
+				names = append(names, kname)
+			}
+		}
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+func isArithmeticOpcode(op string) bool {
+	lower := strings.ToLower(op)
+	for _, prefix := range []string{
+		"add", "sub", "mul", "fma", "mad", "dp4a", "shfl", "rsqrt", "div", "cvt", "ld", "st",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
