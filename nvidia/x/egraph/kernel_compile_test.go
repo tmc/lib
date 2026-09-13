@@ -8,30 +8,16 @@ import (
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
-// codegenOps are every operator GenerateCUDA has a kernel for. Anything else
-// is an error, which TestUnsupportedOperatorRejected covers.
-var codegenOps = []string{
-	"fused_swiglu_gemv",
-	"fused_swiglu_q8_0",
-	"fused_rmsnorm_gemv",
-	"q8_0_matvec",
-	"u2_simd",
-	"u2_scalar",
-	"q2_k_matvec",
-	"iq2_xxs_matvec",
-	"fused_rope_store_kv",
-	"add",
-}
-
 // TestGeneratedKernelsCompile compiles the output of GenerateCUDA for every
-// operator it dispatches on. The generator's own test asserts only that the
-// kernel name it passed in appears in the output, which is true of any body
-// whatsoever; this gate checks that what comes out is a CUDA program.
+// operator it dispatches on (egraph.TerminalOps). The generator's own test
+// asserts only that the kernel name it passed in appears in the output, which
+// is true of any body whatsoever; this gate checks that what comes out is a
+// valid, compilable CUDA program.
 //
 // It needs the toolkit but no GPU.
 func TestGeneratedKernelsCompile(t *testing.T) {
 	major, minor := cudatest.RequireNVRTC(t)
-	for _, op := range codegenOps {
+	for _, op := range egraph.TerminalOps {
 		t.Run(op, func(t *testing.T) {
 			expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K"})
@@ -94,7 +80,8 @@ func TestSupportedPrecisionsAccepted(t *testing.T) {
 }
 
 // TestUnsupportedOperatorRejected checks that an operator GenerateCUDA has no
-// kernel for is refused.
+// kernel for is refused. This covers all PlaceholderOps as well as unpriced
+// operators like "softmax" and the empty operator.
 //
 // The default branch used to emit a kernel that copied its input to its
 // output. It carried the requested kernel name and a signature unrelated to
@@ -103,7 +90,8 @@ func TestSupportedPrecisionsAccepted(t *testing.T) {
 // ExtractBest returns, so it would have benchmarked that copy -- the fastest
 // candidate in any field -- and reported it as the tuned kernel.
 func TestUnsupportedOperatorRejected(t *testing.T) {
-	for _, op := range []string{"gemv", "matmul", "softmax", ""} {
+	testOps := append([]string{"softmax", ""}, egraph.PlaceholderOps...)
+	for _, op := range testOps {
 		t.Run(op, func(t *testing.T) {
 			expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K"})
@@ -114,5 +102,78 @@ func TestUnsupportedOperatorRejected(t *testing.T) {
 				t.Errorf("GenerateCUDA(%q) error = %v, want it to name the missing kernel", op, err)
 			}
 		})
+	}
+}
+
+// TestOperatorTaxonomy systematically validates the two-tier operator model:
+//
+// 1. TerminalOps and PlaceholderOps are strictly disjoint.
+// 2. Every TerminalOp is recognized by IsTerminalOp, rejected by IsPlaceholderOp,
+//    and produces valid CUDA code via GenerateCUDA.
+// 3. Every PlaceholderOp is recognized by IsPlaceholderOp, rejected by IsTerminalOp,
+//    is refused by GenerateCUDA ("no CUDA kernel"), and is priced by FusedMegakernelCost
+//    with a specific non-default heuristic cost (> 0).
+func TestOperatorTaxonomy(t *testing.T) {
+	// Check disjointness
+	terminalSet := make(map[string]bool)
+	for _, op := range egraph.TerminalOps {
+		if terminalSet[op] {
+			t.Errorf("duplicate terminal operator: %q", op)
+		}
+		terminalSet[op] = true
+	}
+
+	placeholderSet := make(map[string]bool)
+	for _, op := range egraph.PlaceholderOps {
+		if placeholderSet[op] {
+			t.Errorf("duplicate placeholder operator: %q", op)
+		}
+		if terminalSet[op] {
+			t.Errorf("operator %q is listed as both terminal and placeholder", op)
+		}
+		placeholderSet[op] = true
+	}
+
+	// Verify terminal operator predicates and codegen
+	for _, op := range egraph.TerminalOps {
+		if !egraph.IsTerminalOp(op) {
+			t.Errorf("IsTerminalOp(%q) = false, want true", op)
+		}
+		if egraph.IsPlaceholderOp(op) {
+			t.Errorf("IsPlaceholderOp(%q) = true, want false for terminal op", op)
+		}
+		expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
+		src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "TaxonomyTest"})
+		if err != nil {
+			t.Errorf("GenerateCUDA(%q) failed: %v", op, err)
+		}
+		if len(src) == 0 {
+			t.Errorf("GenerateCUDA(%q) returned empty source", op)
+		}
+	}
+
+	// Verify placeholder operator predicates, codegen rejection, and cost model coverage
+	costModel := egraph.FusedMegakernelCost{}
+	for _, op := range egraph.PlaceholderOps {
+		if !egraph.IsPlaceholderOp(op) {
+			t.Errorf("IsPlaceholderOp(%q) = false, want true", op)
+		}
+		if egraph.IsTerminalOp(op) {
+			t.Errorf("IsTerminalOp(%q) = true, want false for placeholder op", op)
+		}
+		expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
+		src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "TaxonomyTest"})
+		if err == nil {
+			t.Errorf("GenerateCUDA(%q) unexpectedly succeeded:\n%s", op, src)
+		} else if !strings.Contains(err.Error(), "no CUDA kernel") {
+			t.Errorf("GenerateCUDA(%q) error = %v, want error to contain \"no CUDA kernel\"", op, err)
+		}
+
+		// Verify cost model recognizes the placeholder and assigns a non-zero cost
+		node := egraph.ENode{Op: op}
+		cost := costModel.NodeCost(node, nil)
+		if cost <= 0 {
+			t.Errorf("FusedMegakernelCost.NodeCost(%q) = %v, want > 0", op, cost)
+		}
 	}
 }
