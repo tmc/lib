@@ -251,7 +251,7 @@ func TestCUDAPCProfile(t *testing.T) {
 	prof := cudaprof.NewSession(&profBuf)
 	prof.SetMappingFile("ds4_math.cubin", fmt.Sprintf("%x", sha256.Sum256(cubin)))
 
-	sampleTypes := []string{"samples", "inst_executed", "stall_scoreboard", "stall_wait", "stall_mem", "stall_math_pipe_throttle", "gpu_time"}
+	sampleTypes := []string{"samples", "inst_executed", "stall_scoreboard", "stall_wait", "stall_mem", "stall_math", "gpu_time"}
 	if err := prof.SetSampleTypes(sampleTypes...); err != nil {
 		t.Fatalf("set sample types: %v", err)
 	}
