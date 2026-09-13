@@ -41,8 +41,8 @@ func TestNoFallbackFailsCleanly(t *testing.T) {
 		t.Fatal("Create succeeded against a library exporting no usable symbol")
 	} else if se := new(nvjitlink.SymbolError); !errors.As(err, &se) {
 		t.Fatalf("Create returned %v (%T), want *SymbolError", err, err)
-	} else if se.Symbol != "__nvJitLinkCreate_13_0" {
-		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_0")
+	} else if se.Symbol != "__nvJitLinkCreate_13_2" {
+		t.Errorf("SymbolError.Symbol = %q, want %q", se.Symbol, "__nvJitLinkCreate_13_2")
 	} else {
 		t.Logf("Create failed cleanly: %v", err)
 	}
