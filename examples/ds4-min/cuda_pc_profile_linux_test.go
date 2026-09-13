@@ -300,7 +300,7 @@ func TestCUDAPCProfile(t *testing.T) {
 			t.Fatalf("eval step %d: %v", step, err)
 		}
 	}
-	if err := driver.CtxSynchronize(); err != nil {
+	if err := r.device.WithContext(func() error { return driver.CtxSynchronize() }); err != nil {
 		t.Fatalf("synchronize: %v", err)
 	}
 	workloadDur := time.Since(workloadStart)
