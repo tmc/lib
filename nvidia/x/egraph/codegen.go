@@ -13,9 +13,8 @@ type CodegenOptions struct {
 	//   - "float", "float32" (default: IEEE 754 single-precision)
 	//   - "half", "float16" (16-bit half precision via native PTX conversions without external headers)
 	//   - "q8_0" (8-bit quantization with half-precision scale)
-	//   - "q8_1" (8-bit quantization with half-precision scale and min offset)
-	//   - "iq2_xxs", "iq2" (2-bit sub-byte quantization with dp4a SIMD unpacking)
-	//   - "q2_k" (2-bit k-quantization with super-block scaling)
+	//   - "u2" (2-bit packed unsigned quantization with dp4a SIMD unpacking)
+	//   - "q2_k" (2-bit k-quantization with super-block scaling and interleaved quants)
 	Precision string
 	// UseWarpSum enables intra-warp reduction helpers.
 	UseWarpSum bool
@@ -29,10 +28,9 @@ type CodegenOptions struct {
 //   - "fused_swiglu_q8_0" (Q8_0 quantized FFN fusion)
 //   - "fused_rmsnorm_gemv" (RMSNorm reduction + GEMV projection)
 //   - "q8_0_matvec" (Q8_0 quantized matrix-vector multiply with warp reduction)
-//   - "q8_1_matvec" (Q8_1 quantized matrix-vector multiply with scale and min)
-//   - "iq2_simd" (2-bit sub-byte dot product via dp4a SIMD)
-//   - "iq2_scalar" (2-bit sub-byte dot product via scalar shifts)
-//   - "q2_k_matvec" (Q2_K quantized matrix-vector multiply)
+//   - "u2_simd" (2-bit packed unsigned dot product via dp4a SIMD)
+//   - "u2_scalar" (2-bit packed unsigned dot product via scalar shifts)
+//   - "q2_k_matvec" (Q2_K quantized matrix-vector multiply with interleaved quants)
 //   - "fused_rope_store_kv" (RoPE rotation + KV-cache store)
 //   - "add" (two-input elementwise addition)
 func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
@@ -47,10 +45,10 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	switch opts.Precision {
-	case "float", "float32", "half", "float16", "q8_0", "q8_1", "iq2_xxs", "iq2", "q2_k":
+	case "float", "float32", "half", "float16", "q8_0", "u2", "q2_k":
 		// supported precisions
 	default:
-		return "", fmt.Errorf("egraph: unsupported precision %q: supported precisions are \"float\", \"half\", \"q8_0\", \"q8_1\", \"iq2_xxs\", \"q2_k\"", opts.Precision)
+		return "", fmt.Errorf("egraph: unsupported precision %q: supported precisions are \"float\", \"half\", \"q8_0\", \"u2\", \"q2_k\"", opts.Precision)
 	}
 
 	var sb strings.Builder
@@ -104,19 +102,13 @@ struct block_q8_0 {
     int8_t qs[32];     // 32 int8 quantized values
 };
 
-// Q8_1 block: 32 signed 8-bit quantized values with float16 scale and min offset.
-struct block_q8_1 {
-    uint16_t d;        // float16 scale
-    uint16_t s;        // float16 min offset
-    int8_t qs[32];     // 32 int8 quantized values
-};
-
 // Q2_K block: 256 2-bit quantized values with super-block scaling.
+// Laid out as block_q2_K (ds4.c:846, lm/quant/kquant.go:34).
 struct block_q2_k {
-    uint8_t scales[16]; // 16 8-bit scales
-    uint8_t qs[64];     // 256 2-bit weights
-    uint16_t d;         // float16 super-block scale
-    uint16_t dmin;      // float16 super-block min
+    uint8_t scales[16]; // low nibble scales quant, high nibble scales min
+    uint8_t qs[64];     // 256 2-bit weights, interleaved
+    uint16_t d;         // float16 super-block scale for quants
+    uint16_t dmin;      // float16 super-block scale for minimums
 };
 
 __device__ __forceinline__ float warp_sum(float val) {
@@ -140,12 +132,10 @@ __device__ __forceinline__ float warp_sum(float val) {
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "q8_0_matvec":
 		sb.WriteString(generateQ8_0MatvecKernel(opts))
-	case "q8_1_matvec":
-		sb.WriteString(generateQ8_1MatvecKernel(opts))
-	case "iq2_simd":
-		sb.WriteString(generateIQ2SIMDKernel(opts))
-	case "iq2_scalar":
-		sb.WriteString(generateIQ2ScalarKernel(opts))
+	case "u2_simd":
+		sb.WriteString(generateU2SIMDKernel(opts))
+	case "u2_scalar":
+		sb.WriteString(generateU2ScalarKernel(opts))
 	case "q2_k_matvec":
 		sb.WriteString(generateQ2KMatvecKernel(opts))
 	case "fused_rope_store_kv":
@@ -360,48 +350,7 @@ func generateQ8_0MatvecKernel(opts CodegenOptions) string {
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
-func generateQ8_1MatvecKernel(opts CodegenOptions) string {
-	src := `extern "C" __global__ void KERNEL_NAME(
-    const block_q8_1* __restrict__ W,
-    const float* __restrict__ x,
-    float* __restrict__ y,
-    int rows,
-    int cols
-) {
-    int warp_id = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
-    int lane = threadIdx.x % WARP_SIZE;
-    if (warp_id >= rows) return;
-
-    int row = warp_id;
-    int blocks_per_row = cols / 32;
-    float row_sum = 0.0f;
-
-    for (int b = 0; b < blocks_per_row; b++) {
-        const block_q8_1* blk = &W[row * blocks_per_row + b];
-        float scale = half_to_float(blk->d);
-        float sum_scale = half_to_float(blk->s);
-        float q = (float)blk->qs[lane];
-        float xv = x[b * 32 + lane];
-        float prod = q * xv;
-        float x_sum = xv;
-
-        for (int offset = 16; offset > 0; offset /= 2) {
-            prod += __shfl_down_sync(FULL_WARP_MASK, prod, offset);
-            x_sum += __shfl_down_sync(FULL_WARP_MASK, x_sum, offset);
-        }
-        if (lane == 0) {
-            row_sum += prod * scale + x_sum * sum_scale;
-        }
-    }
-    if (lane == 0) {
-        y[row] = row_sum;
-    }
-}
-`
-	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
-}
-
-func generateIQ2SIMDKernel(opts CodegenOptions) string {
+func generateU2SIMDKernel(opts CodegenOptions) string {
 	src := `extern "C" __global__ void KERNEL_NAME(
     const uint32_t* __restrict__ q,
     const int8_t* __restrict__ a,
@@ -432,7 +381,7 @@ func generateIQ2SIMDKernel(opts CodegenOptions) string {
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
 }
 
-func generateIQ2ScalarKernel(opts CodegenOptions) string {
+func generateU2ScalarKernel(opts CodegenOptions) string {
 	src := `extern "C" __global__ void KERNEL_NAME(
     const uint32_t* __restrict__ q,
     const int8_t* __restrict__ a,
@@ -482,11 +431,13 @@ func generateQ2KMatvecKernel(opts CodegenOptions) string {
         float acc = 0.0f;
         for (int i = 0; i < 8; i++) {
             int elem = lane * 8 + i;
-            int q_idx = elem / 4;
-            int q_shift = (elem % 4) * 2;
-            uint8_t q_val = (blk->qs[q_idx] >> q_shift) & 0x03;
-            uint8_t sc = blk->scales[elem / 16];
-            float val = d * (float)sc * (float)q_val - dmin;
+            int group = elem / 16;
+            int l = elem - group * 16;
+            int base = 32 * (group / 8) + 16 * (group & 1);
+            int shift = ((group / 2) & 3) * 2;
+            uint8_t q_val = (blk->qs[base + l] >> shift) & 0x03;
+            uint8_t sc = blk->scales[group];
+            float val = d * (float)(sc & 0x0f) * (float)q_val - dmin * (float)(sc >> 4);
             acc += val * x[b * 256 + elem];
         }
 

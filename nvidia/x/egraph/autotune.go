@@ -134,13 +134,13 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 			shared:  benchInter * 4,
 			grid:    func(uint32) uint32 { return 1 },
 		}, nil
-	case "q8_0_matvec", "q8_1_matvec":
+	case "q8_0_matvec":
 		return launchPlan{
 			buffers: []int{benchOutDim * benchInDim, benchInDim * 4, benchOutDim * 4},
 			scalars: []any{int32(benchOutDim), int32(benchInDim)},
 			grid:    func(block uint32) uint32 { return (benchOutDim*32 + block - 1) / block },
 		}, nil
-	case "iq2_simd", "iq2_scalar":
+	case "u2_simd", "u2_scalar":
 		return launchPlan{
 			buffers: []int{benchElements * 4, benchElements * 4, benchElements * 4},
 			scalars: []any{float32(1.0), int32(benchElements)},

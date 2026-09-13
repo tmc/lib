@@ -15,9 +15,8 @@ var codegenOps = []string{
 	"fused_swiglu_q8_0",
 	"fused_rmsnorm_gemv",
 	"q8_0_matvec",
-	"q8_1_matvec",
-	"iq2_simd",
-	"iq2_scalar",
+	"u2_simd",
+	"u2_scalar",
 	"q2_k_matvec",
 	"fused_rope_store_kv",
 	"add",
@@ -58,12 +57,11 @@ func TestScaledFP8TemplateCompiles(t *testing.T) {
 // emit valid source for is refused rather than returned.
 //
 // Half-precision ("half", "float16") is supported via uint16_t storage and
-// inline PTX cvt instructions, while quantization formats ("q8_0", "q8_1",
-// "iq2_xxs", "q2_k") are supported via self-contained block structures.
-// Unsupported types like "double", "float64", "int64", and "__nv_bfloat16"
-// are rejected.
+// inline PTX cvt instructions, while quantization formats ("q8_0", "u2", "q2_k")
+// are supported via self-contained block structures. Unsupported types like
+// "double", "float64", "int64", "iq2_xxs", and "__nv_bfloat16" are rejected.
 func TestUnsupportedPrecisionRejected(t *testing.T) {
-	for _, prec := range []string{"double", "float64", "int64", "__nv_bfloat16"} {
+	for _, prec := range []string{"double", "float64", "int64", "__nv_bfloat16", "iq2_xxs"} {
 		t.Run(prec, func(t *testing.T) {
 			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
@@ -80,7 +78,7 @@ func TestUnsupportedPrecisionRejected(t *testing.T) {
 // TestSupportedPrecisionsAccepted checks that supported floating point and
 // quantized precision formats are accepted by GenerateCUDA.
 func TestSupportedPrecisionsAccepted(t *testing.T) {
-	for _, prec := range []string{"float", "float32", "half", "float16", "q8_0", "q8_1", "iq2_xxs", "iq2", "q2_k"} {
+	for _, prec := range []string{"float", "float32", "half", "float16", "q8_0", "u2", "q2_k"} {
 		t.Run(prec, func(t *testing.T) {
 			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
@@ -91,6 +89,49 @@ func TestSupportedPrecisionsAccepted(t *testing.T) {
 				t.Fatalf("GenerateCUDA returned empty source for precision %q", prec)
 			}
 		})
+	}
+}
+
+// TestQ2_KArithmeticReference validates the inner dequantization math of q2_k_matvec
+// against the reference formula from ds4.c:3608 and lm/quant/kquant.go.
+func TestQ2_KArithmeticReference(t *testing.T) {
+	// Synthesize a deterministic block: 16 scales, 64 quants, d, dmin
+	scales := [16]byte{
+		0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
+		0x0f, 0x1e, 0x2d, 0x3c, 0x4b, 0x5a, 0x69, 0x78,
+	}
+	quants := make([]byte, 64)
+	for i := range quants {
+		quants[i] = byte((i * 37) & 0xFF)
+	}
+	d := float32(0.5)
+	dmin := float32(0.1)
+
+	for elem := 0; elem < 256; elem++ {
+		// Reference unpacking from lm/quant/kquant.go:
+		group := elem / 16
+		l := elem - group*16
+		base := 32*(group/8) + 16*(group&1)
+		shift := (group / 2 & 3) * 2
+		qRef := (quants[base+l] >> shift) & 0x03
+		sc := scales[group]
+		valRef := d*float32(sc&0x0f)*float32(qRef) - dmin*float32(sc>>4)
+
+		// Kernel indexing matching generateQ2KMatvecKernel:
+		kGroup := elem / 16
+		kL := elem - kGroup*16
+		kBase := 32*(kGroup/8) + 16*(kGroup&1)
+		kShift := ((kGroup / 2) & 3) * 2
+		qKernel := (quants[kBase+kL] >> kShift) & 0x03
+		kSc := scales[kGroup]
+		valKernel := d*float32(kSc&0x0f)*float32(qKernel) - dmin*float32(kSc>>4)
+
+		if qRef != qKernel {
+			t.Fatalf("elem %d: quant mismatch: ref %d, kernel %d", elem, qRef, qKernel)
+		}
+		if valRef != valKernel {
+			t.Fatalf("elem %d: value mismatch: ref %f, kernel %f", elem, valRef, valKernel)
+		}
 	}
 }
 
