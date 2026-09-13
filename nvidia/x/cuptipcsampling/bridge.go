@@ -338,7 +338,10 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 	switch {
 	// Waits: synchronization, memory barriers, and dependencies on a result
 	// whose latency is fixed. Checked before the memory throttle arm below,
-	// which the bare mem of membar would otherwise reach.
+	// which the bare mem of membar would otherwise reach. That ordering is
+	// measured, not assumed: a __threadfence loop on a GB10 puts 86.80% of
+	// 263890 samples in membar, so reversing the two arms moves 229055 samples
+	// from stall_wait to stall_mem.
 	//
 	// exec_dependency is the legacy activity-API name for a warp waiting on a
 	// non-memory input, a union of what the PC sampling API splits into wait and
