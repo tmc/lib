@@ -160,6 +160,7 @@ func TestPlanRuntimeHostLayout(t *testing.T) {
 		{"CUDA 12.9", 27, nil, 48},
 		{"CUDA 13.0", 130001, nil, 48},
 		{"CUDA 13.2", 130200, nil, 56},
+		{"CUDA 13.4", 130400, nil, 56},
 		{"unknown version", 28, nil, 0},
 		{"version failure", 0, stop, 0},
 	} {

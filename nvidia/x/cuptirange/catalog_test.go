@@ -9,14 +9,14 @@ import (
 )
 
 func TestCatalogHostVersions(t *testing.T) {
-	for _, version := range []uint32{27, 130001, 130200} {
+	for _, version := range []uint32{27, 130001, 130200, 130400} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			closed := 0
 			input := []byte{1, 2, 3}
 			c, err := newCatalog("chip", input, version, hostAPI{
 				initialize: func(v *cupti.ProfilerHostInitializeParams) error {
 					want := uint(48)
-					if version == 130200 {
+					if scopedLayout(version) {
 						want = 56
 					}
 					if v.StructSize != want || v.PCounterAvailabilityImage == 0 || v.ProfilerType != cupti.ProfilerTypeRangeProfiler {

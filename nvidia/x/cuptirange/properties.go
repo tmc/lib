@@ -24,8 +24,8 @@ type MetricProperties struct {
 
 // Properties queries a metric's native definition. maxStringBytes bounds each
 // returned string, including its terminator. CUPTI versions 27 and 130001 use
-// the older layout without collection scope; 130200 includes scope. Other
-// versions are rejected. A query does not prove collection permission or compatible
+// the older layout without collection scope; 130200 and 130400 include scope.
+// Other versions are rejected. A query does not prove collection permission or compatible
 // scheduling. The plan must remain open.
 func (p *Plan) Properties(name string, maxStringBytes int) (MetricProperties, error) {
 	if p == nil || maxStringBytes <= 0 {
@@ -43,7 +43,7 @@ func (p *Plan) properties(name string, maxStringBytes int, version uint32, query
 	if p == nil || maxStringBytes <= 0 {
 		return zero, errors.New("cuptirange: invalid metric properties request")
 	}
-	if version != 27 && version != 130001 && version != 130200 {
+	if !qualifiedLayout(version) {
 		return zero, fmt.Errorf("cuptirange: unqualified metric properties version %d", version)
 	}
 	names, err := newMetricNames([]string{name})
@@ -58,7 +58,7 @@ func (p *Plan) properties(name string, maxStringBytes int, version uint32, query
 	}
 	v := cupti.ProfilerHostGetMetricPropertiesParams{PHostObject: p.host, PMetricName: names.pointers[0], MetricCollectionScope: cupti.MetricCollectionScopeInvalid}
 	v.StructSize = uint(unsafe.Offsetof(v.MetricCollectionScope) + unsafe.Sizeof(v.MetricCollectionScope))
-	if version != 130200 {
+	if !scopedLayout(version) {
 		v.StructSize = uint(unsafe.Offsetof(v.MetricType) + unsafe.Sizeof(v.MetricType))
 	}
 	if err := query(&v); err != nil {
@@ -67,7 +67,7 @@ func (p *Plan) properties(name string, maxStringBytes int, version uint32, query
 	if v.MetricType < cupti.MetricTypeCounter || v.MetricType >= cupti.MetricTypeCount {
 		return zero, errors.New("cuptirange: invalid native metric type")
 	}
-	if version != 130200 {
+	if !scopedLayout(version) {
 		v.MetricCollectionScope = cupti.MetricCollectionScopeInvalid
 	} else if v.MetricCollectionScope != cupti.MetricCollectionScopeContext && v.MetricCollectionScope != cupti.MetricCollectionScopeDevice {
 		return zero, errors.New("cuptirange: native metric scope unavailable")

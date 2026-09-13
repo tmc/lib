@@ -19,7 +19,8 @@ type Catalog struct {
 
 // NewCatalog opens the Range Profiler's metric catalog for chip and an optional
 // counter availability image. No metric names or configuration are required.
-// Versions 27, 130001 and 130200 have explicit host layouts; others fail closed.
+// Versions 27, 130001, 130200 and 130400 have explicit host layouts; others
+// fail closed.
 // A nonnil Catalog accompanying an error retains cleanup ownership: retry Close.
 func NewCatalog(chip string, availability []byte) (*Catalog, error) {
 	if chip == "" || strings.ContainsRune(chip, 0) {
@@ -36,7 +37,7 @@ func newCatalog(chip string, availability []byte, version uint32, api hostAPI) (
 	if chip == "" || strings.ContainsRune(chip, 0) {
 		return nil, errors.New("cuptirange: invalid chip")
 	}
-	if version != 27 && version != 130001 && version != 130200 {
+	if !qualifiedLayout(version) {
 		return nil, fmt.Errorf("cuptirange: unqualified catalog version %d", version)
 	}
 	p := &Plan{api: api, chip: append([]byte(chip), 0), availability: append([]byte(nil), availability...)}
@@ -51,13 +52,13 @@ func newCatalog(chip string, availability []byte, version uint32, api hostAPI) (
 }
 
 func (p *Plan) initializeHost(version uint32) error {
-	if unsafe.Sizeof(uintptr(0)) != 8 || (version != 27 && version != 130001 && version != 130200) {
+	if unsafe.Sizeof(uintptr(0)) != 8 || !qualifiedLayout(version) {
 		return fmt.Errorf("cuptirange: unqualified host initialization layout for CUPTI %d", version)
 	}
 	p.pin.Pin(&p.chip[0])
 	v := cupti.ProfilerHostInitializeParams{ProfilerType: cupti.ProfilerTypeRangeProfiler, PChipName: uintptr(unsafe.Pointer(&p.chip[0]))}
 	v.StructSize = uint(unsafe.Offsetof(v.PHostObject) + unsafe.Sizeof(v.PHostObject))
-	if version == 130200 {
+	if scopedLayout(version) {
 		v.StructSize = uint(unsafe.Offsetof(v.PSinglePassMetricSetName) + unsafe.Sizeof(v.PSinglePassMetricSetName))
 	}
 	if len(p.availability) > 0 {
