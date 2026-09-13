@@ -116,7 +116,8 @@ func TestModes(t *testing.T) {
 		{Options{InlineLines: true}, []string{"--print-line-info-inline"}},
 		{Options{PrintCode: true}, []string{"--print-code"}},
 		{Options{PrintHex: true}, []string{"--print-instruction-encoding"}},
-		{Options{SeparateFunctions: true}, []string{"--separate-functions"}},
+		{Options{Mode: ControlFlow, PrintInstructionOffsetsCFG: true}, []string{"--output-control-flow-graph", "--print-instr-offsets-cfg"}},
+		{Options{Mode: BasicBlockFlow, PrintInstructionOffsetsCFG: true}, []string{"--output-control-flow-graph-with-basic-blocks", "--print-instr-offsets-cfg"}},
 		{Options{PrintCode: true, InlineLines: true, PTXLines: true}, []string{"--print-code", "--print-line-info-inline", "--print-line-info-ptx"}},
 	} {
 		got, err := tt.o.args()
@@ -124,10 +125,33 @@ func TestModes(t *testing.T) {
 			t.Errorf("%+v = %v, %v", tt.o, got, err)
 		}
 	}
-	for _, o := range []Options{{Mode: 99}, {Mode: JSON, SourceLines: true}, {Mode: RegisterLife, PTXLines: true}} {
+	for _, o := range []Options{{Mode: 99}, {Mode: JSON, SourceLines: true}, {Mode: RegisterLife, PTXLines: true}, {Mode: Text, PrintInstructionOffsetsCFG: true}} {
 		if _, err := o.args(); err == nil {
 			t.Errorf("accepted %+v", o)
 		}
+	}
+}
+
+func TestControlFlowGraphHelper(t *testing.T) {
+	p := fakeTool(t, `printf 'digraph kernel { bb0; }\n'`)
+	d := Disassembler{Path: p, TempDir: t.TempDir()}
+	out, err := d.ControlFlowGraph(context.Background(), testCUBIN(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out.Stdout), "digraph kernel") {
+		t.Fatalf("unexpected stdout: %s", out.Stdout)
+	}
+	if !reflect.DeepEqual(out.Args[:2], []string{"--output-control-flow-graph", "--print-instr-offsets-cfg"}) {
+		t.Fatalf("unexpected args: %v", out.Args)
+	}
+
+	outBB, err := d.ControlFlowGraph(context.Background(), testCUBIN(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(outBB.Args[:2], []string{"--output-control-flow-graph-with-basic-blocks", "--print-instr-offsets-cfg"}) {
+		t.Fatalf("unexpected args: %v", outBB.Args)
 	}
 }
 

@@ -34,12 +34,14 @@ var reservedNames = []string{
 }
 
 // CodeFiles specifies the filenames within the capture corresponding to
-// the CUDA source, PTX, CUBIN, and SASS disassembly.
+// the CUDA source, PTX, CUBIN, and SASS disassembly, and optional control flow graphs.
 type CodeFiles struct {
 	Source string `json:"source"`
 	PTX    string `json:"ptx"`
 	CUBIN  string `json:"cubin"`
 	SASS   string `json:"sass"`
+	CFG    string `json:"cfg,omitempty"`
+	BBCFG  string `json:"bbcfg,omitempty"`
 }
 
 // Module identifies one loaded code image generation. File roles may be empty
@@ -254,12 +256,19 @@ func validateCapture(c *Capture, l Limits) error {
 			return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
 		}
 	}
+	for role, name := range map[string]string{"cfg": c.Code.CFG, "bbcfg": c.Code.BBCFG} {
+		if name != "" {
+			if _, ok := c.Files[name]; !ok {
+				return fmt.Errorf("cudacapture: %s file %q not found in files", role, name)
+			}
+		}
+	}
 
 	for _, module := range c.Modules {
 		if module.ID == "" {
 			return errors.New("cudacapture: module is missing identity")
 		}
-		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS} {
+		for role, name := range map[string]string{"source": module.Code.Source, "ptx": module.Code.PTX, "cubin": module.Code.CUBIN, "sass": module.Code.SASS, "cfg": module.Code.CFG, "bbcfg": module.Code.BBCFG} {
 			if name == "" {
 				continue
 			}
@@ -845,6 +854,44 @@ func readDirV1(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 		files[name] = data
 	}
 
+	var cfgFile, bbcfgFile string
+	for _, name := range []string{"kernels.cfg.dot", "kernels.bbcfg.dot"} {
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, fmt.Errorf("cudacapture: stat file %q: %w", name, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("cudacapture: file %q is not a regular file", name)
+		}
+		if info.Size() > l.FileBytes {
+			return nil, fmt.Errorf("cudacapture: file %q exceeds size limit", name)
+		}
+		totalBytes += info.Size()
+		if totalBytes > l.TotalBytes {
+			return nil, errors.New("cudacapture: directory files exceed total size limit")
+		}
+		data, err := readRegularFile(path, l.FileBytes)
+		if err != nil {
+			return nil, fmt.Errorf("cudacapture: read file %q: %w", name, err)
+		}
+		if wantSum, ok := m.SHA256[name]; ok && wantSum != "" {
+			gotSum := fmt.Sprintf("%x", sha256.Sum256(data))
+			if gotSum != wantSum {
+				return nil, fmt.Errorf("cudacapture: checksum mismatch for %s", name)
+			}
+		}
+		files[name] = data
+		if name == "kernels.cfg.dot" {
+			cfgFile = name
+		} else if name == "kernels.bbcfg.dot" {
+			bbcfgFile = name
+		}
+	}
+
 	pprofBytes, err := readRegularFile(filepath.Join(dir, "gpu.pprof"), l.FileBytes)
 	if err != nil {
 		return nil, fmt.Errorf("cudacapture: read gpu.pprof: %w", err)
@@ -865,6 +912,8 @@ func readDirV1(dir string, manifestBytes []byte, l Limits) (*Capture, error) {
 			PTX:    "kernels.ptx",
 			CUBIN:  "kernels.cubin",
 			SASS:   "kernels.sass",
+			CFG:    cfgFile,
+			BBCFG:  bbcfgFile,
 		},
 		Metadata: manifestBytes,
 	}, nil
