@@ -6,32 +6,30 @@
 //
 // # Section Structure & Attribute Locations
 //
-// In CUBIN ELF files, kernel attributes are partitioned across two sections:
-//   - .nv.info (global): carries EIATTR_REGCOUNT (0x2f, the actual 32-bit register
-//     allocation per thread) and EIATTR_FRAME_SIZE (0x11, local stack frame size),
-//     keyed by function symbol index in .symtab.
-//   - .nv.info.<kernel> (per-function): carries EIATTR_MAXREG_COUNT (0x1b, the
-//     compiler limit rather than the allocation), EIATTR_PARAM_CBANK (0x0a),
-//     and parameter descriptors.
-//   - .nv.shared.<kernel>: the section size directly records the physical static
-//     shared memory charged per CTA (including the hardware/driver reservation).
-//
-// Note that presence of an attribute in .nv.compat (such as EICOMPAT_ATTR_INST_TCGEN05_MMA)
-// does not imply target architecture support (ptxas rejects tcgen05 on sm_121a).
+// In CUBIN ELF files, kernel attributes are partitioned across sections:
+//   - .nv.info (global): carries EIATTR_REGCOUNT (0x2f, 32-bit registers allocated
+//     per thread) and EIATTR_FRAME_SIZE (0x11, local stack frame size), keyed by
+//     function symbol index in .symtab.
+//   - .nv.info.<kernel> (per-function): carries EIATTR_MAXREG_COUNT (0x1b, compiler
+//     register limit), EIATTR_PARAM_CBANK (0x0a), and EIATTR_REQ_NTID (0x10).
+//   - .nv.shared.<kernel>: section size records physical static shared memory
+//     charged per CTA (including hardware/driver reservation), corresponding to
+//     EIATTR_SHARED_SIZE_SYSMEM (0x30).
 //
 // # Basic Usage
 //
-// Inspect a CUBIN and calculate theoretical occupancy:
+// Inspect a CUBIN reader and calculate analytical occupancy:
 //
-//	kernels, err := cudaoccupancy.InspectCubin(cubinBytes)
+//	infos, err := cudaoccupancy.ReadKernelInfo(cubinReader)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
-//	for _, k := range kernels {
-//		report, err := k.Calculate("sm_121", 256, 0)
+//	for _, k := range infos {
+//		res, err := cudaoccupancy.CalculateOccupancy("sm_90", k.Registers, k.SharedMemBytes, 256)
 //		if err != nil {
 //			log.Fatal(err)
 //		}
-//		fmt.Printf("%s: %.1f%% (%s)\n", k.Name, report.Occupancy*100, report.LimitingFactor)
+//		fmt.Printf("%s: %d/%d warps (%.1f%%) limited by %s\n",
+//			k.Name, res.TheoreticalWarps, res.MaxWarps, res.Occupancy*100, res.LimitingFactor)
 //	}
 package cudaoccupancy
