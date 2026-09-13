@@ -38,9 +38,9 @@ type hostAPI struct {
 // counter availability image. maxConfigBytes bounds native-requested storage.
 // It does not collect counters or replay application work. A nonnil Plan
 // accompanying an error must be closed to retry failed native cleanup.
-// Host initialization admits the measured 64-bit layouts for CUPTI 27, 130001,
-// 130101, 130200, 130202, 130301 and 130400. Other versions fail before
-// creating a host object.
+// Host initialization admits the measured 64-bit layouts for CUPTI 24, 26, 28,
+// 130001, 130101, 130200, 130202, 130301 and 130400. Other versions fail
+// before creating a host object.
 func NewPlan(chip string, availability []byte, metrics []string, maxConfigBytes int) (plan *Plan, err error) {
 	return newPlan(chip, availability, metrics, maxConfigBytes, hostAPI{
 		version:    cupti.GetVersion,

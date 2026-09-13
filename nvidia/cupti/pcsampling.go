@@ -21,7 +21,8 @@ type PCSamplingReasonLayout struct {
 }
 
 // PCSamplingReasonLayoutFor reports the validated parameter layout for a CUPTI
-// API version. CUPTI 27 is the legacy CUDA 12 encoding; 130001, 130101, 130200,
+// API version. 24, 26 and 28 are the CUDA 12 encodings, reported by the 12.6,
+// 12.8 and 12.9 libraries on the GB10 host; 130001, 130101, 130200,
 // 130202, 130301 and 130400 are the CUDA 13 versions whose cupti_pcsampling.h
 // has been measured, 130200 being [ApiVersion], the header these types were
 // generated from. A version absent from that list has no layout witness and is
@@ -34,7 +35,8 @@ func PCSamplingReasonLayoutFor(version uint32) (PCSamplingReasonLayout, bool) {
 		return PCSamplingReasonLayout{}, false
 	}
 	switch {
-	case version == 27, version == 130001, version == 130101, version == 130200,
+	case version == 24, version == 26, version == 28,
+		version == 130001, version == 130101, version == 130200,
 		version == 130202, version == 130301, version == 130400:
 		return PCSamplingReasonLayout{
 			CountParamsSize: uint(unsafe.Sizeof(PCSamplingGetNumStallReasonsParams{})),

@@ -14,7 +14,9 @@ func TestLayoutShapes(t *testing.T) {
 		singlePass bool // Initialize_Params ends at pSinglePassMetricSetName.
 		scoped     bool // GetMetricProperties_Params ends at metricCollectionScope.
 	}{
-		{version: 27, qualified: true},
+		{version: 24, qualified: true},
+		{version: 26, qualified: true},
+		{version: 28, qualified: true},
 		{version: 130001, qualified: true},
 		{version: 130101, qualified: true, scoped: true},
 		{version: 130200, qualified: true, singlePass: true, scoped: true},
@@ -22,7 +24,9 @@ func TestLayoutShapes(t *testing.T) {
 		{version: 130301, qualified: true, singlePass: true, scoped: true},
 		{version: 130400, qualified: true, singlePass: true, scoped: true},
 		{version: 0},
-		{version: 28},
+		{version: 25},
+		{version: 27},
+		{version: 29},
 		{version: 120901},
 		{version: 130002},
 		{version: 130100},

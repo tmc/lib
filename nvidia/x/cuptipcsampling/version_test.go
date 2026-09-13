@@ -12,7 +12,10 @@ func TestQualifiedVersions(t *testing.T) {
 		version         uint32
 		sampling, query bool
 	}{
-		{27, false, true},
+		{24, false, true},
+		{26, false, true},
+		{28, false, true},
+		{27, false, false},
 		{130001, true, true},
 		{130101, true, true},
 		{130202, true, true},
@@ -20,7 +23,8 @@ func TestQualifiedVersions(t *testing.T) {
 		{130200, true, true},
 		{130400, true, true},
 		{0, false, false},
-		{28, false, false},
+		{25, false, false},
+		{29, false, false},
 		{120901, false, false},
 		// Inside CUDA 13 but unmeasured: a range gate would admit these.
 		{130002, false, false},

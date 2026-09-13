@@ -9,7 +9,7 @@ import (
 )
 
 func TestCatalogHostVersions(t *testing.T) {
-	for _, version := range []uint32{27, 130001, 130101, 130200, 130202, 130301, 130400} {
+	for _, version := range []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			closed := 0
 			input := []byte{1, 2, 3}
@@ -57,7 +57,7 @@ func TestCatalogHostVersions(t *testing.T) {
 func TestCatalogFailureOwnership(t *testing.T) {
 	want := errors.New("native failure")
 	closes := 0
-	c, err := newCatalog("chip", nil, 27, hostAPI{
+	c, err := newCatalog("chip", nil, 28, hostAPI{
 		initialize: func(v *cupti.ProfilerHostInitializeParams) error { v.PHostObject = 3; return want },
 		deinitialize: func(*cupti.ProfilerHostDeinitializeParams) error {
 			closes++
@@ -76,7 +76,7 @@ func TestCatalogFailureOwnership(t *testing.T) {
 	if _, err := newCatalog("chip", nil, 999, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { t.Fatal("unknown ABI called"); return nil }}); err == nil {
 		t.Fatal("unknown version accepted")
 	}
-	if _, err := newCatalog("chip", nil, 27, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { return nil }}); err == nil {
+	if _, err := newCatalog("chip", nil, 28, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { return nil }}); err == nil {
 		t.Fatal("null host accepted")
 	}
 }

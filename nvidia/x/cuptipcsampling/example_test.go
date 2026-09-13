@@ -28,9 +28,9 @@ func ExampleStallReason() {
 }
 
 func ExampleReasonInventory() {
-	r := cuptipcsampling.ReasonInventory{CUPTIVersion: 27}
+	r := cuptipcsampling.ReasonInventory{CUPTIVersion: 28}
 	fmt.Println(r.CUPTIVersion, len(r.Reasons))
-	// Output: 27 0
+	// Output: 28 0
 }
 
 func ExampleIdentifyCubin() {
