@@ -374,9 +374,7 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 // OccupancyMaxPotentialBlockSize calculates the maximum potential block size and minimum
 // number of blocks per SM for a kernel function.
 func OccupancyMaxPotentialBlockSize(fn driver.Function, dynamicSMemBytes uint, blockSizeLimit int) (minGridSize, blockSize int, err error) {
-	var minGrid int32
-	var block int32
-	err = fn.MaxPotentialBlockSize(&minGrid, &block, 0, dynamicSMemBytes, int32(blockSizeLimit))
+	minGrid, block, err := fn.MaxPotentialBlockSize(0, dynamicSMemBytes, int32(blockSizeLimit))
 	if err != nil {
 		return 0, 0, fmt.Errorf("cudalaunch: occupancy calculation: %w", err)
 	}

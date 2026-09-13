@@ -109,9 +109,9 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 		if err != nil {
 			return nil, fmt.Errorf("open device %d: %w", ord, err)
 		}
-		var uuid driver.Uuid
 		drvDev := driver.Device(ord)
-		if err := drvDev.GetUuid(&uuid); err != nil {
+		uuid, err := drvDev.GetUuid()
+		if err != nil {
 			dev.Close()
 			return nil, fmt.Errorf("get device %d UUID: %w", ord, err)
 		}

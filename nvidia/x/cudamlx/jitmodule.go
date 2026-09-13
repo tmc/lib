@@ -272,8 +272,12 @@ func (m *JitModule) GetKernel(kernelName string, configure func(driver.Function)
 					return err
 				}
 			}
-			var minGrid int32
-			return e.fn.MaxPotentialBlockSize(&minGrid, &blockDim, 0, 0, 0)
+			_, block, err := e.fn.MaxPotentialBlockSize(0, 0, 0)
+			if err != nil {
+				return err
+			}
+			blockDim = block
+			return nil
 		})
 		if err != nil {
 			return 0, 0, err

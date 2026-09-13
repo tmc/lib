@@ -85,7 +85,7 @@ func newDevice(ordinal int) (*Device, error) {
 		if err != nil {
 			return nil, fmt.Errorf("device %d attribute %v: %w", ordinal, a.attr, err)
 		}
-		*a.dst = v
+		*a.dst = int(v)
 	}
 	bools := []struct {
 		attr driver.DeviceAttribute
