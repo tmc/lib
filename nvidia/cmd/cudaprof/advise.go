@@ -6,8 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/google/pprof/profile"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
@@ -26,10 +30,14 @@ const (
 type Category string
 
 const (
-	CategoryMemory           Category = "Memory"
-	CategoryCompute          Category = "Compute"
-	CategoryRegisterPressure Category = "RegisterPressure"
-	CategoryArchitecture     Category = "Architecture"
+	CategoryMemory               Category = "Memory"
+	CategoryCompute              Category = "Compute"
+	CategoryRegisterPressure     Category = "RegisterPressure"
+	CategoryArchitecture         Category = "Architecture"
+	CategoryArchitectureCompute  Category = "Architecture/Compute"
+	CategoryArchitectureDispatch Category = "Architecture/Dispatch"
+	CategoryMemoryCompute        Category = "Memory/Compute"
+	CategoryDispatch             Category = "Dispatch"
 )
 
 // Location specifies the source or machine code position associated with an advice item.
@@ -283,26 +291,26 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			}
 			if peakGPR > 255 {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityCritical,
-					Category: CategoryRegisterPressure,
-					Location: locGPR,
-					Finding:  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q exceeds hardware register limit (255 GPRs), forcing spilling to local memory", peakGPR, fn.Name),
+					Severity:                 SeverityCritical,
+					Category:                 CategoryRegisterPressure,
+					Location:                 locGPR,
+					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q exceeds hardware register limit (255 GPRs), forcing spilling to local memory", peakGPR, fn.Name),
 					ActionableRecommendation: "Reduce register consumption below 255 using compiler flags (-maxrregcount=255 or __launch_bounds__) to prevent excessive local memory spills.",
 				})
 			} else if peakGPR > 128 {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryRegisterPressure,
-					Location: locGPR,
-					Finding:  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>128 GPRs, capping SM occupancy at <= 16 warps)", peakGPR, fn.Name),
+					Severity:                 SeverityWarning,
+					Category:                 CategoryRegisterPressure,
+					Location:                 locGPR,
+					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>128 GPRs, capping SM occupancy at <= 16 warps)", peakGPR, fn.Name),
 					ActionableRecommendation: "Optimize register reuse, hoist expressions, or use __launch_bounds__ to keep register pressure at or below 128 GPRs for higher occupancy.",
 				})
 			} else if peakGPR > 64 {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryRegisterPressure,
-					Location: locGPR,
-					Finding:  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name),
+					Severity:                 SeverityWarning,
+					Category:                 CategoryRegisterPressure,
+					Location:                 locGPR,
+					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name),
 					ActionableRecommendation: "Evaluate whether limiting register usage to <= 64 GPRs with __launch_bounds__ improves throughput via higher warp occupancy.",
 				})
 			}
@@ -346,10 +354,10 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 							loc.Line = inst.Line
 						}
 						report.Items = append(report.Items, AdviceItem{
-							Severity: SeverityCritical,
-							Category: CategoryArchitecture,
-							Location: loc,
-							Finding:  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
+							Severity:                 SeverityCritical,
+							Category:                 CategoryArchitecture,
+							Location:                 loc,
+							Finding:                  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
 							ActionableRecommendation: fmt.Sprintf("Compile with target architecture >= %s or replace with instructions compatible with %s.", req, target),
 						})
 					}
@@ -399,10 +407,10 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 							loc.Line = sLoad.Line
 						}
 						report.Items = append(report.Items, AdviceItem{
-							Severity: SeverityWarning,
-							Category: CategoryArchitecture,
-							Location: loc,
-							Finding:  fmt.Sprintf("Scalar global load (%s) detected on target %s without vectorized or TMA path", sLoad.Opcode, target),
+							Severity:                 SeverityWarning,
+							Category:                 CategoryArchitecture,
+							Location:                 loc,
+							Finding:                  fmt.Sprintf("Scalar global load (%s) detected on target %s without vectorized or TMA path", sLoad.Opcode, target),
 							ActionableRecommendation: "Upgrade memory loads to 128-bit vector accesses (e.g. ld.global.v4) or use TMA asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures to maximize memory bandwidth utilization.",
 						})
 					}
@@ -422,10 +430,10 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 							loc.Line = mad.Line
 						}
 						report.Items = append(report.Items, AdviceItem{
-							Severity: SeverityWarning,
-							Category: CategoryArchitecture,
-							Location: loc,
-							Finding:  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
+							Severity:                 SeverityWarning,
+							Category:                 CategoryArchitecture,
+							Location:                 loc,
+							Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
 							ActionableRecommendation: "Use vectorized pointer indexing or TMA multidimensional tensor descriptors to eliminate scalar 64-bit integer address multiplications.",
 						})
 					}
@@ -433,6 +441,15 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			}
 		}
 	}
+
+	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
+	auditLaunchGeometry(cap, report)
+
+	// 5. Uncoalesced Memory Access Audit (SASS & PC Sampling & Remarks)
+	auditUncoalescedMemory(cap, report)
+
+	// 6. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
+	auditStreamKernelSequences(cap, report)
 
 	return report, nil
 }
@@ -533,4 +550,1116 @@ func parseSM(s string) int {
 		}
 	}
 	return num
+}
+
+// queryLiveDeviceSMCount attempts to query the physical SM count from a live CUDA device.
+func queryLiveDeviceSMCount() int {
+	defer func() {
+		_ = recover()
+	}()
+	dev, err := cuda.NewDevice(0)
+	if err != nil || dev == nil {
+		return 0
+	}
+	defer dev.Close()
+	count, err := dev.MultiprocessorCount()
+	if err != nil || count <= 0 {
+		return 0
+	}
+	return count
+}
+
+// determineSMCount determines the device SM count by inspecting capture metadata,
+// querying a live device if available, looking up device architecture tables,
+// or defaulting to modern architecture SM counts (132/136).
+func determineSMCount(cap *cudacapture.Capture) int {
+	if cap != nil {
+		if count := parseSMCountFromCapture(cap); count > 0 {
+			return count
+		}
+	}
+
+	if count := queryLiveDeviceSMCount(); count > 0 {
+		return count
+	}
+
+	if cap != nil {
+		if arch := parseArchFromCapture(cap); arch != "" {
+			if count := smCountForArch(arch); count > 0 {
+				return count
+			}
+		}
+	}
+
+	// Modern architecture default (e.g. Blackwell sm_121a has 136 SMs).
+	return 136
+}
+
+func parseSMCountFromCapture(cap *cudacapture.Capture) int {
+	if cap == nil {
+		return 0
+	}
+	if len(cap.Metadata) > 0 {
+		if count := parseSMCountFromJSON(cap.Metadata); count > 0 {
+			return count
+		}
+	}
+	for _, name := range []string{"capture-status.json", "status.json", "manifest.json"} {
+		if data, ok := cap.Files[name]; ok && len(data) > 0 {
+			if count := parseSMCountFromJSON(data); count > 0 {
+				return count
+			}
+		}
+	}
+	return 0
+}
+
+func parseSMCountFromJSON(data []byte) int {
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return 0
+	}
+	return findSMCountInMap(m)
+}
+
+func findSMCountInMap(m map[string]any) int {
+	keys := []string{"sm_count", "smCount", "multiprocessor_count", "multiprocessorCount", "sms", "sm_num"}
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			if f, ok := v.(float64); ok && f > 0 {
+				return int(f)
+			}
+			if s, ok := v.(string); ok {
+				if n, err := strconv.Atoi(s); err == nil && n > 0 {
+					return n
+				}
+			}
+		}
+	}
+	if dev, ok := m["device"].(string); ok && dev != "" {
+		devLower := strings.ToLower(dev)
+		switch {
+		case strings.Contains(devLower, "gb200"):
+			return 136
+		case strings.Contains(devLower, "b200") || strings.Contains(devLower, "b100"):
+			return 132
+		case strings.Contains(devLower, "h100"):
+			return 132
+		case strings.Contains(devLower, "a100"):
+			return 108
+		}
+	}
+	for _, v := range m {
+		if subMap, ok := v.(map[string]any); ok {
+			if count := findSMCountInMap(subMap); count > 0 {
+				return count
+			}
+		}
+	}
+	return 0
+}
+
+func parseArchFromCapture(cap *cudacapture.Capture) string {
+	if cap == nil {
+		return ""
+	}
+	if ptxData, _, _ := findPTX(cap); len(ptxData) > 0 {
+		if mod, err := cudaptx.ParseBytes(ptxData); err == nil && mod != nil && mod.Target != "" {
+			return mod.Target
+		}
+	}
+	if len(cap.Metadata) > 0 {
+		var m map[string]any
+		if json.Unmarshal(cap.Metadata, &m) == nil {
+			if arch := findArchInMap(m); arch != "" {
+				return arch
+			}
+		}
+	}
+	for _, name := range []string{"capture-status.json", "status.json", "manifest.json"} {
+		if data, ok := cap.Files[name]; ok && len(data) > 0 {
+			var m map[string]any
+			if json.Unmarshal(data, &m) == nil {
+				if arch := findArchInMap(m); arch != "" {
+					return arch
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func findArchInMap(m map[string]any) string {
+	for _, k := range []string{"arch", "architecture", "target", "compute_capability"} {
+		if v, ok := m[k]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	for _, v := range m {
+		if subMap, ok := v.(map[string]any); ok {
+			if arch := findArchInMap(subMap); arch != "" {
+				return arch
+			}
+		}
+	}
+	return ""
+}
+
+func smCountForArch(arch string) int {
+	arch = strings.ToLower(strings.TrimSpace(arch))
+	arch = strings.TrimPrefix(arch, "compute_")
+	arch = strings.TrimPrefix(arch, "sm_")
+	switch {
+	case strings.HasPrefix(arch, "121"):
+		return 136 // Blackwell GB200 sm_121a
+	case strings.HasPrefix(arch, "120"):
+		return 136 // Blackwell sm_120
+	case strings.HasPrefix(arch, "100"):
+		return 132 // Blackwell sm_100 (B100)
+	case strings.HasPrefix(arch, "90"):
+		return 132 // Hopper H100 SXM (132 SMs) / PCIe (114 SMs)
+	case strings.HasPrefix(arch, "89"):
+		return 128 // Ada Lovelace AD102 (RTX 4090: 128, L40S: 142)
+	case strings.HasPrefix(arch, "86"):
+		return 84 // Ampere GA102
+	case strings.HasPrefix(arch, "80"):
+		return 108 // Ampere A100 SXM (108 SMs)
+	case strings.HasPrefix(arch, "75"):
+		return 72 // Turing TU102
+	case strings.HasPrefix(arch, "70"):
+		return 80 // Volta GV100
+	default:
+		return 0
+	}
+}
+
+type launchRecord struct {
+	Kernel       string
+	StreamID     uint32
+	BlockThreads int
+	GridBlocks   int
+	Location     Location
+}
+
+func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+
+	var launches []launchRecord
+
+	// 1. From cap.Profile.Sample
+	if cap.Profile != nil {
+		for _, s := range cap.Profile.Sample {
+			kName := extractKernelNameFromSample(s)
+			if kName == "" {
+				continue
+			}
+			var bThreads, gBlocks int
+			if len(s.NumLabel["block_threads"]) > 0 {
+				bThreads = int(s.NumLabel["block_threads"][0])
+			} else if len(s.NumLabel["threads"]) > 0 {
+				bThreads = int(s.NumLabel["threads"][0])
+			} else if len(s.NumLabel["block_x"]) > 0 {
+				bx := int(s.NumLabel["block_x"][0])
+				by, bz := 1, 1
+				if len(s.NumLabel["block_y"]) > 0 && s.NumLabel["block_y"][0] > 0 {
+					by = int(s.NumLabel["block_y"][0])
+				}
+				if len(s.NumLabel["block_z"]) > 0 && s.NumLabel["block_z"][0] > 0 {
+					bz = int(s.NumLabel["block_z"][0])
+				}
+				bThreads = bx * by * bz
+			} else if len(s.Label["block"]) > 0 {
+				bThreads = parseDimProduct(s.Label["block"][0])
+			}
+
+			if len(s.NumLabel["grid_blocks"]) > 0 {
+				gBlocks = int(s.NumLabel["grid_blocks"][0])
+			} else if len(s.NumLabel["blocks"]) > 0 {
+				gBlocks = int(s.NumLabel["blocks"][0])
+			} else if len(s.NumLabel["grid_x"]) > 0 {
+				gx := int(s.NumLabel["grid_x"][0])
+				gy, gz := 1, 1
+				if len(s.NumLabel["grid_y"]) > 0 && s.NumLabel["grid_y"][0] > 0 {
+					gy = int(s.NumLabel["grid_y"][0])
+				}
+				if len(s.NumLabel["grid_z"]) > 0 && s.NumLabel["grid_z"][0] > 0 {
+					gz = int(s.NumLabel["grid_z"][0])
+				}
+				gBlocks = gx * gy * gz
+			} else if len(s.Label["grid"]) > 0 {
+				gBlocks = parseDimProduct(s.Label["grid"][0])
+			}
+
+			if bThreads > 0 || gBlocks > 0 {
+				var loc Location
+				loc.Kernel = kName
+				if len(s.Location) > 0 && len(s.Location[0].Line) > 0 {
+					line := s.Location[0].Line[0]
+					if line.Function != nil && line.Function.Filename != "" {
+						loc.File = line.Function.Filename
+						loc.Line = int(line.Line)
+					}
+				}
+				launches = append(launches, launchRecord{
+					Kernel:       kName,
+					BlockThreads: bThreads,
+					GridBlocks:   gBlocks,
+					Location:     loc,
+				})
+			}
+		}
+	}
+
+	// 2. From cap.Files (activities.json, capture-status.json, etc.)
+	for _, name := range []string{"activities.json", "capture-status.json", "status.json", "trace.json"} {
+		if data, ok := cap.Files[name]; ok && len(data) > 0 {
+			fileLaunches := parseLaunchesFromJSON(data)
+			launches = append(launches, fileLaunches...)
+		}
+	}
+
+	// 3. From PTX
+	if ptxData, ptxFile, _ := findPTX(cap); len(ptxData) > 0 {
+		if mod, err := cudaptx.ParseBytes(ptxData); err == nil && mod != nil {
+			for _, k := range mod.Kernels {
+				threads := 0
+				if k.Tuning.ReqNTID[0] > 0 {
+					threads = k.Tuning.ReqNTID[0] * max(1, k.Tuning.ReqNTID[1]) * max(1, k.Tuning.ReqNTID[2])
+				} else if k.Tuning.MaxNTID[0] > 0 {
+					threads = k.Tuning.MaxNTID[0] * max(1, k.Tuning.MaxNTID[1]) * max(1, k.Tuning.MaxNTID[2])
+				}
+				if threads > 0 {
+					launches = append(launches, launchRecord{
+						Kernel:       k.Name,
+						BlockThreads: threads,
+						Location: Location{
+							Kernel: k.Name,
+							File:   ptxFile,
+							Line:   k.StartLine,
+						},
+					})
+				}
+			}
+		}
+	}
+
+	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
+	seenSingleWarp := make(map[string]bool)
+	for _, launch := range launches {
+		if launch.BlockThreads > 0 && launch.BlockThreads <= 32 {
+			if seenSingleWarp[launch.Kernel] {
+				continue
+			}
+			seenSingleWarp[launch.Kernel] = true
+			report.Items = append(report.Items, AdviceItem{
+				Severity:                 SeverityWarning,
+				Category:                 CategoryArchitectureCompute,
+				Location:                 launch.Location,
+				Finding:                  fmt.Sprintf("Single-warp thread blocks cannot hide arithmetic or memory latency; threads stall on memory round-trips without alternate warps to issue (kernel %q launched with %d block threads <= 32)", launch.Kernel, launch.BlockThreads),
+				ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding.",
+			})
+		}
+	}
+
+	// 2. SM Grid Starvation (< SMCount)
+	smCount := determineSMCount(cap)
+	seenGridStarvation := make(map[string]bool)
+	for _, launch := range launches {
+		if launch.GridBlocks > 0 && launch.GridBlocks < smCount {
+			if seenGridStarvation[launch.Kernel] {
+				continue
+			}
+			seenGridStarvation[launch.Kernel] = true
+			idlePct := (smCount - launch.GridBlocks) * 100 / smCount
+			report.Items = append(report.Items, AdviceItem{
+				Severity:                 SeverityWarning,
+				Category:                 CategoryArchitecture,
+				Location:                 launch.Location,
+				Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle", launch.Kernel, launch.GridBlocks, smCount, idlePct),
+				ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
+			})
+		}
+	}
+}
+
+func parseDimProduct(s string) int {
+	s = strings.Trim(s, "()[]{} ")
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == ',' || r == 'x' || r == 'X' || r == ' ' || r == '	'
+	})
+	prod := 1
+	valid := false
+	for _, p := range parts {
+		if n, err := strconv.Atoi(strings.TrimSpace(p)); err == nil && n > 0 {
+			prod *= n
+			valid = true
+		}
+	}
+	if !valid {
+		return 0
+	}
+	return prod
+}
+
+func parseDim3(s string) [3]int {
+	s = strings.Trim(s, "()[]{} ")
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == ',' || r == 'x' || r == 'X' || r == ' ' || r == '	'
+	})
+	var res [3]int
+	res[0], res[1], res[2] = 1, 1, 1
+	for i, p := range parts {
+		if i >= 3 {
+			break
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(p)); err == nil && n > 0 {
+			res[i] = n
+		}
+	}
+	return res
+}
+
+func parseDim3FromSlice(items []any) [3]int {
+	var res [3]int
+	res[0], res[1], res[2] = 1, 1, 1
+	for i, it := range items {
+		if i >= 3 {
+			break
+		}
+		if f, ok := it.(float64); ok && f > 0 {
+			res[i] = int(f)
+		}
+	}
+	return res
+}
+
+func parseLaunchesFromJSON(data []byte) []launchRecord {
+	var launches []launchRecord
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+
+	var items []any
+	switch v := raw.(type) {
+	case []any:
+		items = v
+	case map[string]any:
+		if acts, ok := v["activities"].([]any); ok {
+			items = acts
+		} else if status, ok := v["status"].(map[string]any); ok {
+			if acts, ok := status["activities"].([]any); ok {
+				items = acts
+			}
+		}
+	}
+
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		var kName string
+		if s, ok := m["name"].(string); ok {
+			kName = s
+		} else if s, ok := m["kernel"].(string); ok {
+			kName = s
+		}
+		if kName == "" {
+			continue
+		}
+
+		var bThreads, gBlocks int
+		if t, ok := m["threads"].(float64); ok && t > 0 {
+			bThreads = int(t)
+		}
+		if t, ok := m["block_threads"].(float64); ok && t > 0 {
+			bThreads = int(t)
+		}
+		if g, ok := m["grid_blocks"].(float64); ok && g > 0 {
+			gBlocks = int(g)
+		}
+		if g, ok := m["blocks"].(float64); ok && g > 0 {
+			gBlocks = int(g)
+		}
+
+		if blk, ok := m["block"].([]any); ok && len(blk) > 0 {
+			dim := parseDim3FromSlice(blk)
+			bThreads = dim[0] * max(1, dim[1]) * max(1, dim[2])
+		}
+		if grd, ok := m["grid"].([]any); ok && len(grd) > 0 {
+			dim := parseDim3FromSlice(grd)
+			gBlocks = dim[0] * max(1, dim[1]) * max(1, dim[2])
+		}
+
+		if bThreads > 0 || gBlocks > 0 {
+			launches = append(launches, launchRecord{
+				Kernel:       kName,
+				BlockThreads: bThreads,
+				GridBlocks:   gBlocks,
+				Location:     Location{Kernel: kName},
+			})
+		}
+	}
+	return launches
+}
+
+func extractKernelNameFromSample(s *profile.Sample) string {
+	if s == nil {
+		return ""
+	}
+	if len(s.Label["kernel"]) > 0 && s.Label["kernel"][0] != "" {
+		return s.Label["kernel"][0]
+	}
+	if len(s.Label["name"]) > 0 && s.Label["name"][0] != "" {
+		return s.Label["name"][0]
+	}
+	if len(s.Location) > 0 && len(s.Location[0].Line) > 0 {
+		line := s.Location[0].Line[0]
+		if line.Function != nil && line.Function.Name != "" {
+			name := line.Function.Name
+			name = strings.TrimSuffix(name, ".SASS")
+			name = strings.TrimSuffix(name, ".PTX")
+			name = strings.TrimSuffix(name, ".TILEIR")
+			return name
+		}
+	}
+	return ""
+}
+
+func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+
+	code, _ := cudacapture.LoadCode(cap)
+	disasm, _ := loadDisassemblyWithPressure(cap)
+	if disasm == nil {
+		if sassData, ok := findSASS(cap); ok && len(sassData) > 0 {
+			if parsed, err := cudasass.Parse(bytes.NewReader(sassData)); err == nil {
+				disasm = parsed
+			}
+		}
+	}
+
+	reportedLocations := make(map[string]bool)
+
+	// 1. Correlate SASS metrics / PC sampling stalls
+	if cap.Profile != nil && len(cap.Profile.Sample) > 0 {
+		var stallIndices []int
+		var memThrottleIndices []int
+		for i, st := range cap.Profile.SampleType {
+			if strings.HasPrefix(st.Type, "stall_") {
+				stallIndices = append(stallIndices, i)
+			}
+			tLower := strings.ToLower(st.Type)
+			if tLower == "stall_memory_throttle" || tLower == "stall_mem_throttle" || tLower == "stall_mem" {
+				memThrottleIndices = append(memThrottleIndices, i)
+			}
+		}
+
+		type pcStats struct {
+			totalStalls int64
+			memStalls   int64
+			opcode      string
+			file        string
+			line        int
+		}
+		byKernelPC := make(map[string]map[uint64]*pcStats)
+
+		for _, s := range cap.Profile.Sample {
+			var totalStall, memStall int64
+			for _, idx := range stallIndices {
+				totalStall += s.Value[idx]
+			}
+			for _, idx := range memThrottleIndices {
+				memStall += s.Value[idx]
+			}
+
+			if memStall == 0 && s.Label != nil {
+				stallReason := ""
+				if len(s.Label["sass.stall"]) > 0 {
+					stallReason = s.Label["sass.stall"][0]
+				} else if len(s.Label["stall"]) > 0 {
+					stallReason = s.Label["stall"][0]
+				}
+				rLower := strings.ToLower(stallReason)
+				if strings.Contains(rLower, "memory_throttle") || strings.Contains(rLower, "mem_throttle") || strings.Contains(rLower, "stall_mem") {
+					if len(s.Value) > 0 {
+						memStall = s.Value[0]
+						if totalStall == 0 {
+							totalStall = s.Value[0]
+						}
+					}
+				}
+			}
+
+			if totalStall == 0 && memStall == 0 {
+				continue
+			}
+
+			var kName string
+			var pc uint64
+			var file string
+			var line int
+			if len(s.Location) > 0 {
+				kName, pc = resolveLocationPC(s.Location[0], s, code, disasm)
+				if len(s.Location[0].Line) > 0 && s.Location[0].Line[0].Function != nil {
+					file = s.Location[0].Line[0].Function.Filename
+					line = int(s.Location[0].Line[0].Line)
+				}
+			}
+			if kName == "" && s.Label != nil && len(s.Label["kernel"]) > 0 {
+				kName = s.Label["kernel"][0]
+			}
+			if kName == "" && disasm != nil && len(disasm.Functions) == 1 {
+				kName = disasm.Functions[0].Name
+			}
+			if kName == "" {
+				continue
+			}
+
+			opcode := ""
+			if s.Label != nil {
+				if len(s.Label["sass.opcode"]) > 0 {
+					opcode = s.Label["sass.opcode"][0]
+				} else if len(s.Label["opcode"]) > 0 {
+					opcode = s.Label["opcode"][0]
+				}
+			}
+
+			if byKernelPC[kName] == nil {
+				byKernelPC[kName] = make(map[uint64]*pcStats)
+			}
+			stat := byKernelPC[kName][pc]
+			if stat == nil {
+				stat = &pcStats{opcode: opcode, file: file, line: line}
+				byKernelPC[kName][pc] = stat
+			}
+			stat.totalStalls += totalStall
+			stat.memStalls += memStall
+			if stat.opcode == "" && opcode != "" {
+				stat.opcode = opcode
+			}
+		}
+
+		for kName, pcMap := range byKernelPC {
+			var fn *cudasass.Function
+			if disasm != nil {
+				fn = disasm.Function(kName)
+				if fn == nil && len(disasm.Functions) == 1 {
+					fn = disasm.Functions[0]
+				}
+			}
+
+			for pc, stat := range pcMap {
+				if stat.totalStalls <= 0 {
+					continue
+				}
+				ratio := float64(stat.memStalls) / float64(stat.totalStalls)
+				if ratio <= 0.35 {
+					continue
+				}
+
+				opcode := stat.opcode
+				file := stat.file
+				line := stat.line
+				if fn != nil {
+					for _, in := range fn.Instructions {
+						if in.Address == pc {
+							opcode = in.Opcode
+							if in.SourceFile != "" {
+								file = in.SourceFile
+								line = in.SourceLine
+							}
+							break
+						}
+					}
+				}
+
+				opUpper := strings.ToUpper(opcode)
+				if strings.HasPrefix(opUpper, "LDG.E") || strings.HasPrefix(opUpper, "LDG") || strings.Contains(opUpper, "LDG") {
+					sev := SeverityWarning
+					if ratio >= 0.50 {
+						sev = SeverityCritical
+					}
+					locKey := fmt.Sprintf("%s:0x%x", kName, pc)
+					reportedLocations[locKey] = true
+
+					report.Items = append(report.Items, AdviceItem{
+						Severity: sev,
+						Category: CategoryMemory,
+						Location: Location{
+							Kernel: kName,
+							PC:     pc,
+							File:   file,
+							Line:   line,
+						},
+						Finding:                  fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (stall_memory_throttle %.1f%% exceeds 35%% on %s at PC 0x%04x in kernel %q)", ratio*100, opcode, pc, kName),
+						ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+					})
+				}
+			}
+		}
+	}
+
+	// 2. Address arithmetic exhibiting non-contiguous strides
+	remarks, _, _ := findRemarks(cap)
+	for _, rmk := range remarks {
+		rLower := strings.ToLower(rmk.Reason)
+		remLower := strings.ToLower(rmk.Remark)
+		nameLower := strings.ToLower(rmk.Name)
+		if (strings.Contains(rLower, "non-contiguous") || strings.Contains(rLower, "stride") ||
+			strings.Contains(remLower, "uncoalesced") || strings.Contains(nameLower, "uncoalesced")) &&
+			!rmk.IsTMAFailure() {
+			locKey := fmt.Sprintf("%s:%s:%d", rmk.Function, rmk.File, rmk.Line)
+			if !reportedLocations[locKey] {
+				reportedLocations[locKey] = true
+				finding := "Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction"
+				if rmk.Reason != "" {
+					finding += fmt.Sprintf(" (reason: %s)", rmk.Reason)
+				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryMemory,
+					Location: Location{
+						Kernel: rmk.Function,
+						File:   rmk.File,
+						Line:   rmk.Line,
+					},
+					Finding:                  finding,
+					ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+				})
+			}
+		}
+	}
+
+	if cap.Profile != nil {
+		for _, s := range cap.Profile.Sample {
+			kName := extractKernelNameFromSample(s)
+			isUncoalesced := false
+			strideVal := ""
+			if s.Label != nil {
+				if len(s.Label["uncoalesced"]) > 0 && s.Label["uncoalesced"][0] == "true" {
+					isUncoalesced = true
+				}
+				if len(s.Label["stride"]) > 0 {
+					strideVal = s.Label["stride"][0]
+					if strideVal != "1" && strideVal != "" {
+						isUncoalesced = true
+					}
+				}
+			}
+			if isUncoalesced && kName != "" {
+				locKey := fmt.Sprintf("%s:uncoalesced", kName)
+				if !reportedLocations[locKey] {
+					reportedLocations[locKey] = true
+					finding := fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (address arithmetic exhibits non-contiguous stride in kernel %q)", kName)
+					if strideVal != "" {
+						finding = fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (stride %s in kernel %q)", strideVal, kName)
+					}
+					report.Items = append(report.Items, AdviceItem{
+						Severity: SeverityWarning,
+						Category: CategoryMemory,
+						Location: Location{
+							Kernel: kName,
+						},
+						Finding:                  finding,
+						ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+					})
+				}
+			}
+		}
+	}
+}
+
+type streamEvent struct {
+	Subtype    string
+	Name       string
+	Stream     uint32
+	DurationNs uint64
+	Shape      string
+	Buffer     string
+	Grid       [3]int
+	Block      [3]int
+}
+
+func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+
+	streamEvents := extractStreamEvents(cap)
+	if len(streamEvents) == 0 {
+		return
+	}
+
+	streams := make([]uint32, 0, len(streamEvents))
+	for s := range streamEvents {
+		streams = append(streams, s)
+	}
+	sort.Slice(streams, func(i, j int) bool { return streams[i] < streams[j] })
+
+	for _, streamID := range streams {
+		events := streamEvents[streamID]
+		if len(events) == 0 {
+			continue
+		}
+
+		// 1. Heuristic 4: CUDA Graph Launch Sequence Candidates
+		var kernelSeq []streamEvent
+		checkGraphCandidate := func() {
+			if len(kernelSeq) >= 5 {
+				durations := make([]uint64, len(kernelSeq))
+				for i, k := range kernelSeq {
+					durations[i] = k.DurationNs
+				}
+				sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+				var median uint64
+				n := len(durations)
+				if n%2 == 1 {
+					median = durations[n/2]
+				} else {
+					median = (durations[n/2-1] + durations[n/2]) / 2
+				}
+
+				if median < 10000 {
+					sev := SeverityWarning
+					if median >= 5000 {
+						sev = SeverityInfo
+					}
+					report.Items = append(report.Items, AdviceItem{
+						Severity: sev,
+						Category: CategoryArchitectureDispatch,
+						Location: Location{
+							Kernel: kernelSeq[0].Name,
+						},
+						Finding:                  fmt.Sprintf("Driver submission overhead dominates short kernel execution: sequence of %d consecutive kernels on stream %d has median duration %.2f µs (< 10 µs)", len(kernelSeq), streamID, float64(median)/1000.0),
+						ActionableRecommendation: "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency.",
+					})
+				}
+			}
+			kernelSeq = kernelSeq[:0]
+		}
+
+		for _, ev := range events {
+			sub := strings.ToLower(ev.Subtype)
+			nameLower := strings.ToLower(ev.Name)
+			if sub == "memcpy" || strings.Contains(nameLower, "memcpy") ||
+				sub == "synchronization" || sub == "sync" || strings.Contains(nameLower, "synchroniz") {
+				checkGraphCandidate()
+				continue
+			}
+			if sub == "kernel" || sub == "" {
+				kernelSeq = append(kernelSeq, ev)
+			}
+		}
+		checkGraphCandidate()
+
+		// 2. Heuristic 5: Pointwise Producer-Consumer Fusion
+		seenFusion := make(map[string]bool)
+		for i := 0; i < len(events)-1; i++ {
+			ev1 := events[i]
+			ev2 := events[i+1]
+			sub1 := strings.ToLower(ev1.Subtype)
+			sub2 := strings.ToLower(ev2.Subtype)
+			if (sub1 != "kernel" && sub1 != "") || (sub2 != "kernel" && sub2 != "") {
+				continue
+			}
+			if isElementwise(ev1) && isElementwise(ev2) {
+				if matchingShapesOrBuffers(ev1, ev2) {
+					key := fmt.Sprintf("%s->%s:%d", ev1.Name, ev2.Name, streamID)
+					if seenFusion[key] {
+						continue
+					}
+					seenFusion[key] = true
+
+					cleanName1 := cleanKernelName(ev1.Name)
+					cleanName2 := cleanKernelName(ev2.Name)
+					rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s).", cleanName1, cleanName2)
+
+					report.Items = append(report.Items, AdviceItem{
+						Severity: SeverityWarning,
+						Category: CategoryMemoryCompute,
+						Location: Location{
+							Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
+						},
+						Finding:                  fmt.Sprintf("Redundant global memory round-trips for intermediate tensors: sequential back-to-back elementwise kernels (%s followed by %s) on stream %d operate on matching tensors", ev1.Name, ev2.Name, streamID),
+						ActionableRecommendation: rec,
+					})
+				}
+			}
+		}
+	}
+}
+
+func isElementwise(ev streamEvent) bool {
+	name := strings.ToLower(ev.Name)
+	if strings.Contains(name, "gemm") || strings.Contains(name, "matmul") ||
+		strings.Contains(name, "attention") || strings.Contains(name, "conv") ||
+		strings.Contains(name, "allreduce") || strings.Contains(name, "reduce") {
+		return false
+	}
+	keywords := []string{
+		"swiglu", "silu", "gelu", "relu", "sigmoid", "tanh", "activation",
+		"quant", "quantize", "dequant", "pointwise", "elementwise",
+		"add", "mul", "scale", "bias", "dropout", "cast", "convert",
+	}
+	for _, kw := range keywords {
+		if strings.Contains(name, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchingShapesOrBuffers(ev1, ev2 streamEvent) bool {
+	if ev1.Shape != "" && ev2.Shape != "" {
+		return ev1.Shape == ev2.Shape
+	}
+	if ev1.Buffer != "" && ev2.Buffer != "" {
+		return ev1.Buffer == ev2.Buffer
+	}
+	if ev1.Grid != [3]int{} && ev1.Grid == ev2.Grid && ev1.Block != [3]int{} && ev1.Block == ev2.Block {
+		return true
+	}
+	n1 := strings.ToLower(ev1.Name)
+	n2 := strings.ToLower(ev2.Name)
+	if strings.Contains(n1, "swiglu") && strings.Contains(n2, "quant") {
+		return true
+	}
+	return false
+}
+
+func cleanKernelName(name string) string {
+	name = strings.TrimSuffix(name, ".SASS")
+	name = strings.TrimSuffix(name, ".PTX")
+	name = strings.TrimSuffix(name, ".TILEIR")
+	nameLower := strings.ToLower(name)
+	switch {
+	case strings.Contains(nameLower, "swiglu"):
+		return "SwiGLU"
+	case strings.Contains(nameLower, "quant"):
+		return "quant"
+	case strings.Contains(nameLower, "gelu"):
+		return "GELU"
+	case strings.Contains(nameLower, "silu"):
+		return "SiLU"
+	case strings.Contains(nameLower, "relu"):
+		return "ReLU"
+	case strings.Contains(nameLower, "rmsnorm"):
+		return "RMSNorm"
+	case strings.Contains(nameLower, "layernorm"):
+		return "LayerNorm"
+	default:
+		return name
+	}
+}
+
+func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
+	res := make(map[uint32][]streamEvent)
+	if cap == nil {
+		return res
+	}
+
+	if cap.Profile != nil && len(cap.Profile.Sample) > 0 {
+		kernelTimeIdx := -1
+		gpuTimeIdx := -1
+		copyTimeIdx := -1
+		for i, st := range cap.Profile.SampleType {
+			switch st.Type {
+			case "kernel_time":
+				kernelTimeIdx = i
+			case "gpu_time":
+				gpuTimeIdx = i
+			case "copy_time":
+				copyTimeIdx = i
+			}
+		}
+
+		for _, s := range cap.Profile.Sample {
+			var streamID uint32
+			if len(s.NumLabel["stream"]) > 0 {
+				streamID = uint32(s.NumLabel["stream"][0])
+			} else if len(s.NumLabel["stream_id"]) > 0 {
+				streamID = uint32(s.NumLabel["stream_id"][0])
+			} else if len(s.Label["stream"]) > 0 {
+				if n, err := strconv.ParseUint(s.Label["stream"][0], 10, 32); err == nil {
+					streamID = uint32(n)
+				}
+			}
+
+			name := ""
+			if len(s.Label["name"]) > 0 {
+				name = s.Label["name"][0]
+			} else if len(s.Label["kernel"]) > 0 {
+				name = s.Label["kernel"][0]
+			} else if len(s.Location) > 0 && len(s.Location[0].Line) > 0 && s.Location[0].Line[0].Function != nil {
+				name = s.Location[0].Line[0].Function.Name
+			}
+
+			subtype := ""
+			if len(s.Label["subtype"]) > 0 {
+				subtype = s.Label["subtype"][0]
+			} else {
+				nLower := strings.ToLower(name)
+				if copyTimeIdx >= 0 && s.Value[copyTimeIdx] > 0 {
+					subtype = "memcpy"
+				} else if strings.Contains(nLower, "memcpy") {
+					subtype = "memcpy"
+				} else if strings.Contains(nLower, "synchroniz") || strings.Contains(nLower, "sync") {
+					subtype = "synchronization"
+				} else if name != "" {
+					subtype = "kernel"
+				}
+			}
+
+			var durationNs uint64
+			if kernelTimeIdx >= 0 && s.Value[kernelTimeIdx] > 0 {
+				durationNs = uint64(s.Value[kernelTimeIdx])
+			} else if gpuTimeIdx >= 0 && s.Value[gpuTimeIdx] > 0 {
+				durationNs = uint64(s.Value[gpuTimeIdx])
+			} else if copyTimeIdx >= 0 && s.Value[copyTimeIdx] > 0 {
+				durationNs = uint64(s.Value[copyTimeIdx])
+			} else if len(s.NumLabel["duration_ns"]) > 0 {
+				durationNs = uint64(s.NumLabel["duration_ns"][0])
+			} else if len(s.NumLabel["end"]) > 0 && len(s.NumLabel["start"]) > 0 && s.NumLabel["end"][0] >= s.NumLabel["start"][0] {
+				durationNs = uint64(s.NumLabel["end"][0] - s.NumLabel["start"][0])
+			} else if len(s.Label["duration_ns"]) > 0 {
+				durationNs, _ = strconv.ParseUint(s.Label["duration_ns"][0], 10, 64)
+			}
+
+			shape := ""
+			if len(s.Label["shape"]) > 0 {
+				shape = s.Label["shape"][0]
+			} else if len(s.Label["tensor"]) > 0 {
+				shape = s.Label["tensor"][0]
+			}
+
+			buffer := ""
+			if len(s.Label["buffer"]) > 0 {
+				buffer = s.Label["buffer"][0]
+			}
+
+			var grid, block [3]int
+			if len(s.Label["grid"]) > 0 {
+				grid = parseDim3(s.Label["grid"][0])
+			}
+			if len(s.Label["block"]) > 0 {
+				block = parseDim3(s.Label["block"][0])
+			}
+
+			if name != "" || subtype != "" {
+				res[streamID] = append(res[streamID], streamEvent{
+					Subtype:    subtype,
+					Name:       name,
+					Stream:     streamID,
+					DurationNs: durationNs,
+					Shape:      shape,
+					Buffer:     buffer,
+					Grid:       grid,
+					Block:      block,
+				})
+			}
+		}
+	}
+
+	if len(res) == 0 && len(cap.Files) > 0 {
+		for _, fname := range []string{"activities.json", "capture-status.json", "status.json", "trace.json"} {
+			if data, ok := cap.Files[fname]; ok && len(data) > 0 {
+				events := parseStreamEventsFromJSON(data)
+				for _, ev := range events {
+					res[ev.Stream] = append(res[ev.Stream], ev)
+				}
+				if len(res) > 0 {
+					break
+				}
+			}
+		}
+	}
+
+	return res
+}
+
+func parseStreamEventsFromJSON(data []byte) []streamEvent {
+	var events []streamEvent
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+
+	var items []any
+	switch v := raw.(type) {
+	case []any:
+		items = v
+	case map[string]any:
+		if acts, ok := v["activities"].([]any); ok {
+			items = acts
+		} else if status, ok := v["status"].(map[string]any); ok {
+			if acts, ok := status["activities"].([]any); ok {
+				items = acts
+			}
+		}
+	}
+
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		var ev streamEvent
+		if s, ok := m["subtype"].(string); ok {
+			ev.Subtype = s
+		} else if s, ok := m["kind"].(string); ok {
+			ev.Subtype = s
+		}
+		if s, ok := m["name"].(string); ok {
+			ev.Name = s
+		}
+		if s, ok := m["stream"].(float64); ok {
+			ev.Stream = uint32(s)
+		} else if s, ok := m["stream_id"].(float64); ok {
+			ev.Stream = uint32(s)
+		}
+
+		var start, end uint64
+		if s, ok := m["start"].(float64); ok {
+			start = uint64(s)
+		}
+		if e, ok := m["end"].(float64); ok {
+			end = uint64(e)
+		}
+		if end >= start && start > 0 {
+			ev.DurationNs = end - start
+		}
+		if d, ok := m["duration"].(float64); ok && d > 0 {
+			ev.DurationNs = uint64(d)
+		}
+		if d, ok := m["duration_ns"].(float64); ok && d > 0 {
+			ev.DurationNs = uint64(d)
+		}
+
+		if s, ok := m["shape"].(string); ok {
+			ev.Shape = s
+		}
+		if b, ok := m["buffer"].(string); ok {
+			ev.Buffer = b
+		}
+
+		if blk, ok := m["block"].([]any); ok && len(blk) > 0 {
+			ev.Block = parseDim3FromSlice(blk)
+		}
+		if grd, ok := m["grid"].([]any); ok && len(grd) > 0 {
+			ev.Grid = parseDim3FromSlice(grd)
+		}
+
+		if ev.Name != "" || ev.Subtype != "" {
+			events = append(events, ev)
+		}
+	}
+	return events
 }
