@@ -234,6 +234,13 @@ func checkVersion() error {
 		return nil
 	}
 	raw := int(out0)
+	// CUPTI used a small sequential API counter through CUDA 12 and
+	// changed to the toolkit encoding in CUDA 13. Positive legacy values
+	// are admitted here; version-sensitive records and symbols must still
+	// perform their own capability checks.
+	if raw > 0 && raw < 1000 {
+		return nil
+	}
 	got := raw / 10000
 	if got != 13 {
 		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
@@ -309,7 +316,7 @@ func toolkitRoots() []string {
 // CUDA packages install libcupti into and that the dynamic linker does not
 // search.
 func toolkitLibDirs() []string {
-	return []string{"extras/CUPTI/lib64", "extras/CUPTI/lib"}
+	return []string{"extras/CUPTI/lib64", "extras/CUPTI/lib", "targets/x86_64-linux/lib"}
 }
 
 // toolkitLibraryPaths returns the full paths worth trying once every bare
@@ -356,7 +363,7 @@ func toolkitSearchHint() string {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcupti.so.13"}
+		return []string{"libcupti.so.13", "libcupti.so.12", "libcupti.so"}
 	default:
 		return nil
 	}
