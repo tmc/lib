@@ -7,9 +7,9 @@
 // failed cleanup retains ownership for retry. Inspect Session.Result for losses,
 // pending buffers, incomplete records and errors before using a trace.
 //
-// Record decoding currently accepts only CUPTI version 130200 with matching
-// native record sizes. Other versions return an error, not guessed layouts.
-// WriteRecord produces a standalone CUPTI-relative timeline; it does not align
+// Record decoding accepts CUPTI 13.x versions when the loaded library reports
+// matching native record sizes. Other major versions return an error, not
+// guessed layouts. WriteRecord produces a standalone CUPTI-relative timeline; it does not align
 // CUPTI timestamps with host clocks. This package does not collect hardware
 // metrics; see github.com/tmc/lib/nvidia/x/cuptirange for Range Profiling.
 package cuptiactivity
