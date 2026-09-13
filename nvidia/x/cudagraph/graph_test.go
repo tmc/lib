@@ -283,3 +283,65 @@ func TestBucketManagerDeduplicatesConcurrentBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGraphCaptureWithPDL(t *testing.T) {
+	dev := cudatest.Require(t)
+	compiled, err := nvrtcx.Compile(incrementKernel, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mod, err := compiled.Load(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(mod.Unload)
+	fn, err := mod.GetFunction("increment")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(stream.Destroy)
+
+	const n = 128
+	buf, err := cudamem.Alloc[uint32](dev, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(buf.Free)
+
+	// Launch with Programmatic Stream Serialization (PDL) inside Stream Capture
+	var captureErr error
+	graph, err := cudagraph.Capture(stream, func() {
+		captureErr = cudalaunch.Kernel(fn).
+			Grid(1).
+			Block(128).
+			WithProgrammaticStreamSerialization(true).
+			On(stream).
+			Launch(buf, int32(n))
+	})
+	if err != nil {
+		t.Fatalf("Capture failed: %v", err)
+	}
+	if captureErr != nil {
+		graph.Destroy()
+		t.Fatalf("captured PDL launch failed: %v", captureErr)
+	}
+	defer graph.Destroy()
+
+	exec, err := graph.Instantiate()
+	if err != nil {
+		t.Fatalf("Instantiate PDL graph failed: %v", err)
+	}
+	defer exec.Destroy()
+
+	if err := exec.Launch(stream); err != nil {
+		t.Fatalf("Launch PDL graph failed: %v", err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatalf("Synchronize failed: %v", err)
+	}
+}
+

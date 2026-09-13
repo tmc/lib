@@ -52,6 +52,7 @@ type Launcher struct {
 	shmem   uint32
 	stream  *cuda.Stream
 	counter *Counter
+	attrs   []driver.LaunchAttribute
 }
 
 // Counter counts successful CUDA kernel submissions.
@@ -112,6 +113,60 @@ func (l *Launcher) On(s *cuda.Stream) *Launcher {
 	return l
 }
 
+// WithAttrs appends launch attributes to the kernel configuration.
+func (l *Launcher) WithAttrs(attrs ...driver.LaunchAttribute) *Launcher {
+	l.attrs = append(l.attrs, attrs...)
+	return l
+}
+
+// Attrs returns a copy of configured launch attributes.
+func (l *Launcher) Attrs() []driver.LaunchAttribute {
+	if len(l.attrs) == 0 {
+		return nil
+	}
+	out := make([]driver.LaunchAttribute, len(l.attrs))
+	copy(out, l.attrs)
+	return out
+}
+
+// WithProgrammaticStreamSerialization enables or disables programmatic stream
+// serialization (Programmatic Dependent Launch) for this launch.
+// When enabled, subsequent work in the stream is released when all CTAs
+// in this grid execute griddepcontrol.launch_dependents.
+func (l *Launcher) WithProgrammaticStreamSerialization(enable bool) *Launcher {
+	return l.WithAttrs(ProgrammaticStreamSerializationAttr(enable))
+}
+
+// WithCooperative enables or disables cooperative grid launch.
+func (l *Launcher) WithCooperative(enable bool) *Launcher {
+	return l.WithAttrs(CooperativeAttr(enable))
+}
+
+// ProgrammaticStreamSerializationAttr returns a LaunchAttribute enabling or disabling
+// programmatic stream serialization (PDL) for cuLaunchKernelEx.
+func ProgrammaticStreamSerializationAttr(enable bool) driver.LaunchAttribute {
+	var val uint64
+	if enable {
+		val = 1
+	}
+	return driver.LaunchAttribute{
+		Id:    driver.LaunchAttributeProgrammaticStreamSerialization,
+		Value: [8]uint64{val},
+	}
+}
+
+// CooperativeAttr returns a LaunchAttribute enabling or disabling cooperative grid launch.
+func CooperativeAttr(enable bool) driver.LaunchAttribute {
+	var val uint64
+	if enable {
+		val = 1
+	}
+	return driver.LaunchAttribute{
+		Id:    driver.LaunchAttributeCooperative,
+		Value: [8]uint64{val},
+	}
+}
+
 // Launch packs the provided Go arguments and dispatches the kernel.
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
@@ -126,7 +181,32 @@ func (l *Launcher) Launch(args ...any) error {
 	}
 	defer cleanup()
 
+	var pinner runtime.Pinner
+	if len(l.attrs) > 0 {
+		pinner.Pin(&l.attrs[0])
+		defer pinner.Unpin()
+	}
+
 	launch := func(stream driver.Stream) error {
+		if len(l.attrs) > 0 {
+			cfg := driver.LaunchConfig{
+				GridDimX:       l.grid.X,
+				GridDimY:       l.grid.Y,
+				GridDimZ:       l.grid.Z,
+				BlockDimX:      l.block.X,
+				BlockDimY:      l.block.Y,
+				BlockDimZ:      l.block.Z,
+				SharedMemBytes: l.shmem,
+				HStream:        stream,
+				Attrs:          uintptr(unsafe.Pointer(&l.attrs[0])),
+				NumAttrs:       uint32(len(l.attrs)),
+			}
+			if l.owned != nil {
+				return l.owned.LaunchEx(&cfg, kernelParams)
+			}
+			return l.fn.LaunchKernelEx(&cfg, kernelParams, nil)
+		}
+
 		if l.owned != nil {
 			return l.owned.Launch([3]uint32{l.grid.X, l.grid.Y, l.grid.Z}, [3]uint32{l.block.X, l.block.Y, l.block.Z}, l.shmem, stream, kernelParams)
 		}

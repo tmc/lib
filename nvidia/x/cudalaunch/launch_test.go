@@ -106,3 +106,45 @@ func TestPackArgsNullSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestLaunchAttributes(t *testing.T) {
+	pdlAttr := cudalaunch.ProgrammaticStreamSerializationAttr(true)
+	if pdlAttr.Id != driver.LaunchAttributeProgrammaticStreamSerialization {
+		t.Errorf("Id = %v, want %v", pdlAttr.Id, driver.LaunchAttributeProgrammaticStreamSerialization)
+	}
+	if pdlAttr.Value[0] != 1 {
+		t.Errorf("Value[0] = %d, want 1", pdlAttr.Value[0])
+	}
+
+	pdlOff := cudalaunch.ProgrammaticStreamSerializationAttr(false)
+	if pdlOff.Value[0] != 0 {
+		t.Errorf("Value[0] = %d, want 0", pdlOff.Value[0])
+	}
+
+	coopAttr := cudalaunch.CooperativeAttr(true)
+	if coopAttr.Id != driver.LaunchAttributeCooperative {
+		t.Errorf("Id = %v, want %v", coopAttr.Id, driver.LaunchAttributeCooperative)
+	}
+	if coopAttr.Value[0] != 1 {
+		t.Errorf("Value[0] = %d, want 1", coopAttr.Value[0])
+	}
+
+	var mockFn driver.Function = 42
+	l := cudalaunch.Kernel(mockFn).
+		Grid(64, 2).
+		Block(128).
+		WithProgrammaticStreamSerialization(true).
+		WithCooperative(true)
+
+	attrs := l.Attrs()
+	if len(attrs) != 2 {
+		t.Fatalf("Attrs len = %d, want 2", len(attrs))
+	}
+	if attrs[0].Id != driver.LaunchAttributeProgrammaticStreamSerialization {
+		t.Errorf("attrs[0].Id = %v, want %v", attrs[0].Id, driver.LaunchAttributeProgrammaticStreamSerialization)
+	}
+	if attrs[1].Id != driver.LaunchAttributeCooperative {
+		t.Errorf("attrs[1].Id = %v, want %v", attrs[1].Id, driver.LaunchAttributeCooperative)
+	}
+}
+

@@ -185,3 +185,38 @@ func (k *Kernel) Launch(grid, block [3]uint32, sharedBytes uint32, stream driver
 	}
 	return nil
 }
+
+// Raw returns the underlying driver.Function handle.
+func (k *Kernel) Raw() driver.Function {
+	if k == nil {
+		return 0
+	}
+	return k.raw
+}
+
+// LaunchEx submits a kernel with extended launch configuration (such as launch attributes).
+func (k *Kernel) LaunchEx(config *driver.LaunchConfig, args []unsafe.Pointer) error {
+	if k == nil || k.module == nil {
+		return fmt.Errorf("cuda: closed module")
+	}
+	m := k.module
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.raw == 0 {
+		return fmt.Errorf("cuda: closed module")
+	}
+	if config == nil {
+		return fmt.Errorf("cuda: nil launch config")
+	}
+	if config.GridDimX == 0 || config.GridDimY == 0 || config.GridDimZ == 0 ||
+		config.BlockDimX == 0 || config.BlockDimY == 0 || config.BlockDimZ == 0 {
+		return fmt.Errorf("cuda: zero launch dimension")
+	}
+	if err := m.ctx.Run(func() error {
+		return k.raw.LaunchKernelEx(config, args, nil)
+	}); err != nil {
+		return fmt.Errorf("cuda: launch kernel ex: %w", err)
+	}
+	return nil
+}
+
