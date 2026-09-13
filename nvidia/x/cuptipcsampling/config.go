@@ -84,11 +84,12 @@ func (c *samplingConfig) apply(ctx cupti.Context, query func(*cupti.PCSamplingCo
 	before := slices.Clone(c.attrs)
 	reasons := slices.Clone(c.reasons)
 	ptr := uintptr(unsafe.Pointer(&c.attrs[0]))
-	p := cupti.PCSamplingConfigurationInfoParams{Size: configurationInfoParamsSize(), Ctx: ctx, NumAttributes: uint(len(c.attrs)), PPCSamplingConfigurationInfo: ptr}
+	size := configurationInfoParamsSize()
+	p := cupti.PCSamplingConfigurationInfoParams{Size: size, Ctx: ctx, NumAttributes: uint(len(c.attrs)), PPCSamplingConfigurationInfo: ptr}
 	if err := query(&p); err != nil {
 		return fmt.Errorf("cuptipcsampling: configure sampling: %w", err)
 	}
-	if p.Size != 40 || p.PPriv != 0 || p.Ctx != ctx || p.NumAttributes != uint(len(c.attrs)) || p.PPCSamplingConfigurationInfo != ptr || !slices.Equal(reasons, c.reasons) {
+	if p.Size != size || p.PPriv != 0 || p.Ctx != ctx || p.NumAttributes != uint(len(c.attrs)) || p.PPCSamplingConfigurationInfo != ptr || !slices.Equal(reasons, c.reasons) {
 		return errors.New("cuptipcsampling: native configuration changed input storage")
 	}
 	for i, a := range c.attrs {
