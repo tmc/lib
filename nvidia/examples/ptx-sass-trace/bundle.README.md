@@ -72,6 +72,14 @@ They reconcile against the manifest exactly: the `stall_*` totals plus
 reading the breakdown -- on a GB10 capture it held 172 of 2765 samples across
 five reasons that now have types.
 
+The identity sums every stall type, so it stays closed when a reason is counted
+in the wrong one: a fetch stall filed under `stall_mem` balances exactly and
+sends a reader to the memory system for a front-end problem. `reason_routing` in
+the manifest is the check the identity cannot be. It names every reason the
+hardware inventory reports -- sampled on this run or not -- and where each one
+would be counted: a sample type, `companion` for a `_not_issued` reason whose
+count is discarded as a subset of its base, or `unmapped`.
+
 Two things make that identity hold and are worth knowing before reading a reason
 breakdown. CUPTI reports every reason twice, as `<reason>` and
 `<reason>_not_issued`, the second counting a subset of the

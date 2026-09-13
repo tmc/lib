@@ -40,6 +40,11 @@ type pcSamplingResult struct {
 	HardwareBufferFull bool             `json:"hardware_buffer_full"`
 	PCsResolvedToPTX   int              `json:"pcs_resolved_to_ptx"`
 	UnmappedStalls     map[string]int64 `json:"unmapped_stalls,omitempty"`
+	// ReasonRouting records where every reason the hardware inventory names
+	// would be counted, sampled on this run or not. The reconciliation identity
+	// sums all the stall types, so it stays closed when a reason is counted in
+	// the wrong one; this map is what makes that auditable from the bundle.
+	ReasonRouting map[string]string `json:"reason_routing,omitempty"`
 }
 
 // Resolution reports the fraction of sampled PCs that resolved to a PTX
@@ -185,6 +190,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 		err = errors.Join(err, fmt.Errorf("close pc sampling: %w", closeErr))
 	}
 	res.UnmappedStalls = bridge.UnmappedStalls
+	res.ReasonRouting = inv.Routing()
 	return res, err
 }
 
