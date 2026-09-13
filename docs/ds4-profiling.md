@@ -1281,7 +1281,10 @@ rather than inherited from this observation.
 The Go side carries source-derived completeness checks that came out exact —
 8200 / 6150 / 82000 across three kernel families. The C side now has an
 equivalent, derived from `ds4_cuda.cu` and `cuda/mmq/ds4_mmq_d2r.cu` against
-this build's CUDA identity, and every one of them passes:
+this build's CUDA identity, and every one of them passes. They hold only for
+this source revision, these build defines, the default env toggles, and the
+selected D2R path; change any of those and the expectations have to be
+re-derived.
 
 | family | expected | prefill | | expected | decode |
 | --- | ---: | ---: | --- | ---: | ---: |
@@ -1294,6 +1297,12 @@ this build's CUDA identity, and every one of them passes:
 | `swiglu` | 43 | **43** | | 86 | **86** |
 | `embed_token(s)_hc` | 1 | **1** | | 2 | **2** |
 | `output_hc_weights` | 1 | **1** | | 2 | **2** |
+| `hc_weighted_sum` | — | — | | 2 | **2** |
+
+Ten rows, sixteen individual counts (ten in prefill, six in decode) over
+twelve distinct kernel symbols: the `d2r_build_worklist` row carries two
+template instantiations, and prefill's `embed_tokens_hc` is a different symbol
+from decode's `embed_token_hc`.
 
 One launch per layer for a single layer-major prefill call over all 2048
 tokens, and 43x2 for two single-token decode Evals. `d2r_build_worklist`
@@ -1340,9 +1349,9 @@ What the evidence supports is narrower than the earlier draft claimed: this
 capture reports 45.87x on summed kernel duration, an unmatched historical
 observation reports 51.0x on wall throughput, and both motivate work on the Go
 prefill path. Neither establishes a qualified ratio: C retention is now
-checked against source-derived expectations for thirteen families and passes,
-but the remaining families are unaccounted and the run conditions are still
-unmatched.
+checked against source-derived expectations for twelve kernel symbols and
+passes, but the remaining families are unaccounted and the run conditions are
+still unmatched.
 
 ### The decode arm is close, and its gate is open
 
