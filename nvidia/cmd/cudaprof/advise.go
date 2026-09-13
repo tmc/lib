@@ -638,7 +638,7 @@ func determineSMCount(cap *cudacapture.Capture) int {
 		}
 	}
 
-	// Modern architecture default (e.g. Blackwell sm_121a has 136 SMs).
+	// Modern data-center default (e.g. GB200 sm_100a has 136 SMs).
 	return 136
 }
 
@@ -760,7 +760,9 @@ func smCountForArch(arch string) int {
 	arch = strings.TrimPrefix(arch, "sm_")
 	switch {
 	case strings.HasPrefix(arch, "121"):
-		return 136 // Blackwell GB200 sm_121a
+		// GB10 (SM 12.1). Measured on hardware; see x/cudaoccupancy SM121.
+		// GB200 is sm_100a, not sm_121a.
+		return 48
 	case strings.HasPrefix(arch, "120"):
 		return 136 // Blackwell sm_120
 	case strings.HasPrefix(arch, "100"):
