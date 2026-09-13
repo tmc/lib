@@ -77,9 +77,16 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			if count == 0 {
 				continue
 			}
-			totalSamples += count
 			name := b.Inventory.Lookup(r.Index)
-			if name == "selected" {
+			// A _not_issued count is a companion over a subset of the cycles
+			// its base reason already counted, so only base reasons add to the
+			// sample total. Measured on a GB10 capture: base reasons sum to
+			// 2938, exactly CUPTI's own total_samples, while adding the
+			// companions gives 5527.
+			if !isCompanion(name) {
+				totalSamples += count
+			}
+			if isSelected(name) {
 				selectedSamples += count
 				continue
 			}
@@ -196,6 +203,22 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	}
 
 	return nil
+}
+
+// isCompanion reports whether name is the _not_issued companion of another
+// reason rather than a reason of its own.
+func isCompanion(name string) bool {
+	return strings.HasSuffix(strings.ToLower(name), "_not_issued")
+}
+
+// isSelected reports whether name is the reason counting warps the scheduler
+// selected, which is issued work rather than a stall. CUPTI names reasons in
+// full, as smsp__pcsamp_warps_issue_stalled_selected, so an equality test
+// against the short name matches nothing a native inventory reports; the
+// suffix has to carry the stalled_ qualifier to keep not_selected out.
+func isSelected(name string) bool {
+	lower := strings.ToLower(name)
+	return lower == "selected" || strings.HasSuffix(lower, "stalled_selected")
 }
 
 // classifyStall maps a native stall reason name to a cudaprof stall metric.

@@ -65,9 +65,12 @@ func TestProfileBridge(t *testing.T) {
 		Resolver:  resolver,
 	}
 
+	// 42 = the six base reasons; the companion at index 7 counts a subset of
+	// the cycles index 1 already counted, which is why CUPTI's own total for a
+	// batch matches the base reasons alone.
 	batch := cuptipcsampling.Batch{
 		Valid:        true,
-		TotalSamples: 46,
+		TotalSamples: 42,
 		PCs: []cuptipcsampling.PC{
 			{
 				CRC:    0x12345678,
@@ -120,8 +123,8 @@ func TestProfileBridge(t *testing.T) {
 	// PC samples land in pc_samples, not samples: the latter counts launches,
 	// and one type cannot mean both without meaning neither.
 	if idx, ok := sampleTypes["pc_samples"]; ok {
-		if got := p.Sample[0].Value[idx]; got != 46 {
-			t.Errorf("pc_samples = %d, want 46", got)
+		if got := p.Sample[0].Value[idx]; got != 42 {
+			t.Errorf("pc_samples = %d, want 42 (base reasons only)", got)
 		}
 	} else {
 		t.Error("missing pc_samples type in profile")
@@ -343,5 +346,69 @@ func TestProfileBridgeLabelsAndHostFrames(t *testing.T) {
 	}
 	if !hasRunWorkload || !hasMain {
 		t.Errorf("host frames missing: hasRunWorkload=%v, hasMain=%v", hasRunWorkload, hasMain)
+	}
+}
+
+// A native inventory names every reason in full, and the selected reason is
+// issued work rather than a stall. Reported under its native name it was
+// landing in the unmapped tally, where a manifest calls it an unmapped stall
+// and nothing counts the warps that did issue.
+func TestProfileBridgeNativeReasonNames(t *testing.T) {
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_selected"},
+			{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_not_selected"},
+			{Index: 3, Name: "smsp__pcsamp_warps_issue_stalled_short_scoreboard"},
+			{Index: 4, Name: "smsp__pcsamp_warps_issue_stalled_short_scoreboard_not_issued"},
+		},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	bridge := &cuptipcsampling.ProfileBridge{Session: session, Inventory: inv}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 226,
+		PCs: []cuptipcsampling.PC{{
+			CRC:  1,
+			Name: "kernel",
+			Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 206},
+				{Index: 2, Samples: 18},
+				{Index: 3, Samples: 2},
+				{Index: 4, Samples: 2},
+			},
+		}},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	if got, ok := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_selected"]; ok {
+		t.Errorf("selected counted as an unmapped stall (%d)", got)
+	}
+	// not_selected is a stall this package does not model, and the suffix test
+	// must not mistake it for the selected reason.
+	if got := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_not_selected"]; got != 18 {
+		t.Errorf("UnmappedStalls[not_selected] = %d, want 18", got)
+	}
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	types := make(map[string]int)
+	for i, st := range p.SampleType {
+		types[st.Type] = i
+	}
+	if got := p.Sample[0].Value[types["inst_executed"]]; got != 206 {
+		t.Errorf("inst_executed = %d, want 206", got)
+	}
+	// The batch total CUPTI reports is the base reasons; the profile's own
+	// count has to agree with it or the manifest beside it reads 1.9x off.
+	if got := p.Sample[0].Value[types["pc_samples"]]; got != int64(batch.TotalSamples) {
+		t.Errorf("pc_samples = %d, want %d, the batch total", got, batch.TotalSamples)
 	}
 }
