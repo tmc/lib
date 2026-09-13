@@ -11,13 +11,14 @@ import (
 
 func TestSnapshotClockUncertaintySource(t *testing.T) {
 	for _, tt := range []struct {
-		name         string
-		uncertainty  int64
-		wantSource   string
-		wantReliable bool
+		name            string
+		uncertainty     int64
+		wantSource      string
+		wantUncertainty int64
+		wantReliable    bool
 	}{
-		{"unavailable", 0, "unavailable", false},
-		{"configured", 1000, "configured", false},
+		{"unavailable", 0, "unavailable", -1, false},
+		{"configured", 1000, "configured", 1000, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			r, err := cudaflightrecorder.New(cudaflightrecorder.Config{GoTraceEnabled: true, ClockUncertaintyNs: tt.uncertainty})
@@ -27,13 +28,16 @@ func TestSnapshotClockUncertaintySource(t *testing.T) {
 			if err := r.Start(); err != nil {
 				t.Fatal(err)
 			}
-			r.Push(cudaflightrecorder.Record{TimestampNs: time.Now().UnixNano(), DurationNs: 1_000_000})
+			defer r.Stop()
+			time.Sleep(5 * time.Millisecond)
+			now := time.Now().UnixNano()
+			r.Push(cudaflightrecorder.Record{TimestampNs: now - 2_000_000, DurationNs: 1_000_000})
 			var buf bytes.Buffer
 			manifest, err := r.Snapshot(context.Background(), &buf, tt.name)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if manifest.ClockUncertaintySource != tt.wantSource || manifest.ClockUncertaintyNs != map[int64]int64{0: -1, 1000: 1000}[tt.uncertainty] || manifest.OverlapReliable != tt.wantReliable {
+			if manifest.OverlapSpanNs <= 0 || manifest.ClockUncertaintySource != tt.wantSource || manifest.ClockUncertaintyNs != tt.wantUncertainty || manifest.OverlapReliable != tt.wantReliable {
 				t.Fatalf("manifest source=%q uncertainty=%d reliable=%t", manifest.ClockUncertaintySource, manifest.ClockUncertaintyNs, manifest.OverlapReliable)
 			}
 		})
