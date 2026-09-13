@@ -515,11 +515,8 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 		t.Fatalf("copy changed reference: %v", err)
 	}
 
-	for i := 0; i < dim; i++ {
-		diff := math.Abs(float64(hExpected[i] - hOutHoist[i]))
-		if math.IsNaN(float64(hExpected[i])) || math.IsNaN(float64(hOutHoist[i])) || !(diff <= 1e-4) {
-			t.Fatalf("numerical divergence at [%d]: ref=%f, hoisted=%f", i, hExpected[i], hOutHoist[i])
-		}
+	if err := checkPDLNumerical(hExpected, hOutHoist); err != nil {
+		t.Fatal(err)
 	}
 	t.Log("Numerical output verified: Hoisted arm produces identical output to sequential baseline")
 
