@@ -25,7 +25,7 @@ func testCubin() []byte {
 }
 
 func TestIdentifyCubin(t *testing.T) {
-	for _, v := range []uint32{27, 130001, 130200, 130400} {
+	for _, v := range []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400} {
 		for _, crc := range []uint64{0, 1<<63 + 7} {
 			data := testCubin()
 			got, err := identifyCubin(data, len(data), func() (uint32, error) { return v, nil }, func(p *cupti.GetCubinCrcParams) error {
@@ -73,11 +73,13 @@ func TestIdentifyCubinNativeFailure(t *testing.T) {
 		version uint32
 		mutate  func(*cupti.GetCubinCrcParams) error
 	}{
-		{"version", 28, nil},
-		{"native error", 27, func(p *cupti.GetCubinCrcParams) error { return failure }},
-		{"pointer", 27, func(p *cupti.GetCubinCrcParams) error { p.Cubin++; return nil }},
-		{"length", 27, func(p *cupti.GetCubinCrcParams) error { p.CubinSize++; return nil }},
-		{"bytes", 27, func(p *cupti.GetCubinCrcParams) error { *(*byte)(nativePointer(p.Cubin)) = 0; return nil }},
+		// 27 is refused: it is not an encoding any library reports. 28 is
+		// CUDA 12.9's, and the rows below reach the native query.
+		{"version", 27, nil},
+		{"native error", 28, func(p *cupti.GetCubinCrcParams) error { return failure }},
+		{"pointer", 28, func(p *cupti.GetCubinCrcParams) error { p.Cubin++; return nil }},
+		{"length", 28, func(p *cupti.GetCubinCrcParams) error { p.CubinSize++; return nil }},
+		{"bytes", 28, func(p *cupti.GetCubinCrcParams) error { *(*byte)(nativePointer(p.Cubin)) = 0; return nil }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := identifyCubin(testCubin(), 64, func() (uint32, error) { return tt.version, nil }, tt.mutate)

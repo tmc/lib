@@ -157,7 +157,7 @@ func TestPlanRuntimeHostLayout(t *testing.T) {
 		queryErr error
 		wantSize uint
 	}{
-		{"CUDA 12.9", 27, nil, 48},
+		{"CUDA 12.9", 28, nil, 48},
 		{"CUDA 13.0", 130001, nil, 48},
 		// 13.1 extends the properties struct only, so initialization keeps
 		// the 13.0 size while 13.2 and later grow to 56.
@@ -166,7 +166,7 @@ func TestPlanRuntimeHostLayout(t *testing.T) {
 		{"CUDA 13.2", 130202, nil, 56},
 		{"CUDA 13.3", 130301, nil, 56},
 		{"CUDA 13.4", 130400, nil, 56},
-		{"unknown version", 28, nil, 0},
+		{"unknown version", 27, nil, 0},
 		{"unreported 13.1 encoding", 130100, nil, 0},
 		{"version failure", 0, stop, 0},
 	} {

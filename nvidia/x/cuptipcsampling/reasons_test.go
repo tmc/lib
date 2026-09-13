@@ -38,7 +38,7 @@ func fillNames(t *testing.T, p *cupti.PCSamplingGetStallReasonsParams) [][]byte 
 }
 
 func TestStallReasons(t *testing.T) {
-	for _, version := range []uint32{27, 130001, 130200, 130400} {
+	for _, version := range []uint32{28, 130001, 130101, 130200, 130202, 130301, 130400} {
 		var native [][]byte
 		out, err := stallReasons(1, 10, version, countTwo(t), func(p *cupti.PCSamplingGetStallReasonsParams) error { native = fillNames(t, p); return nil })
 		want := []StallReason{{Index: 3, Name: "selected"}, {Index: 9, Name: "selected_not_issued"}}
@@ -59,7 +59,7 @@ func TestStallReasonBounds(t *testing.T) {
 		limit   int
 		version uint32
 	}{
-		{"nil context", 0, 2, 27}, {"zero limit", 1, 0, 27}, {"negative limit", 1, -1, 27}, {"large limit", 1, 65537, 27}, {"unknown ABI", 1, 2, 140000},
+		{"nil context", 0, 2, 28}, {"zero limit", 1, 0, 28}, {"negative limit", 1, -1, 28}, {"large limit", 1, 65537, 28}, {"unknown ABI", 1, 2, 140000},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := stallReasons(tt.ctx, tt.limit, tt.version, func(*cupti.PCSamplingGetNumStallReasonsParams) error { t.Fatal("queried invalid request"); return nil }, nil)
@@ -68,17 +68,17 @@ func TestStallReasonBounds(t *testing.T) {
 			}
 		})
 	}
-	if _, err := stallReasons(1, 1, 27, countTwo(t), func(*cupti.PCSamplingGetStallReasonsParams) error { t.Fatal("queried oversized result"); return nil }); err == nil {
+	if _, err := stallReasons(1, 1, 28, countTwo(t), func(*cupti.PCSamplingGetStallReasonsParams) error { t.Fatal("queried oversized result"); return nil }); err == nil {
 		t.Fatal("count bound ignored")
 	}
-	if _, err := stallReasons(1, 10, 27, func(*cupti.PCSamplingGetNumStallReasonsParams) error { return nil }, nil); err == nil {
+	if _, err := stallReasons(1, 10, 28, func(*cupti.PCSamplingGetNumStallReasonsParams) error { return nil }, nil); err == nil {
 		t.Fatal("unwritten count accepted")
 	}
-	out, err := stallReasons(1, 10, 27, func(p *cupti.PCSamplingGetNumStallReasonsParams) error {
+	out, err := stallReasons(1, 10, 28, func(p *cupti.PCSamplingGetNumStallReasonsParams) error {
 		*(*uint)(nativePointer(p.NumStallReasons)) = 0
 		return nil
 	}, nil)
-	if err != nil || out.CUPTIVersion != 27 || len(out.Reasons) != 0 {
+	if err != nil || out.CUPTIVersion != 28 || len(out.Reasons) != 0 {
 		t.Fatal("empty inventory not retained")
 	}
 }
@@ -106,7 +106,7 @@ func TestMalformedReasons(t *testing.T) {
 		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			out, err := stallReasons(1, 10, 27, countTwo(t), func(p *cupti.PCSamplingGetStallReasonsParams) error {
+			out, err := stallReasons(1, 10, 28, countTwo(t), func(p *cupti.PCSamplingGetStallReasonsParams) error {
 				n := fillNames(t, p)
 				tt.change(p, n)
 				return nil
@@ -117,10 +117,10 @@ func TestMalformedReasons(t *testing.T) {
 		})
 	}
 	want := errors.New("native unsupported")
-	if _, err := stallReasons(1, 10, 27, func(*cupti.PCSamplingGetNumStallReasonsParams) error { return want }, nil); !errors.Is(err, want) {
+	if _, err := stallReasons(1, 10, 28, func(*cupti.PCSamplingGetNumStallReasonsParams) error { return want }, nil); !errors.Is(err, want) {
 		t.Fatal("lost native count error")
 	}
-	if _, err := stallReasons(1, 10, 27, countTwo(t), func(*cupti.PCSamplingGetStallReasonsParams) error { return want }); !errors.Is(err, want) {
+	if _, err := stallReasons(1, 10, 28, countTwo(t), func(*cupti.PCSamplingGetStallReasonsParams) error { return want }); !errors.Is(err, want) {
 		t.Fatal("lost native names error")
 	}
 }

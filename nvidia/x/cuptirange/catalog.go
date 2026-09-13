@@ -19,8 +19,8 @@ type Catalog struct {
 
 // NewCatalog opens the Range Profiler's metric catalog for chip and an optional
 // counter availability image. No metric names or configuration are required.
-// Versions 27, 130001, 130101, 130200, 130202, 130301 and 130400 have measured
-// host layouts; others fail closed.
+// Versions 24, 26, 28, 130001, 130101, 130200, 130202, 130301 and 130400 have
+// measured host layouts; others fail closed.
 // A nonnil Catalog accompanying an error retains cleanup ownership: retry Close.
 func NewCatalog(chip string, availability []byte) (*Catalog, error) {
 	if chip == "" || strings.ContainsRune(chip, 0) {
