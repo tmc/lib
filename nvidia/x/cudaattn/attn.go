@@ -523,7 +523,7 @@ extern "C" __global__ void PackedPagedRoPEStoreKV(
 func Compile(major, minor int) (*nvrtcx.CompiledModule, error) {
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("flash_attn.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithPhysicalArch(major, minor),
 	}
 	mod, err := nvrtcx.Compile(CausalFlashAttentionTemplate, opts...)
 	if err != nil {
@@ -536,7 +536,7 @@ func Compile(major, minor int) (*nvrtcx.CompiledModule, error) {
 func CompilePaged(major, minor int) (*nvrtcx.CompiledModule, error) {
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("paged_attn.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithPhysicalArch(major, minor),
 	}
 	mod, err := nvrtcx.Compile(BatchedPagedAttentionTemplate, opts...)
 	if err != nil {

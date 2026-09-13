@@ -2,7 +2,6 @@ package egraph_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -37,10 +36,6 @@ func u2Reference(q []uint32, a []int8, scale float32) []float32 {
 func TestGeneratedU2MatchesReference(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	const n = 64 // 64 elements = 64 * 16 = 1024 activations
 	q := make([]uint32, n)
@@ -67,8 +62,7 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 
 			compiled, err := nvrtcx.Compile(src,
 				nvrtcx.WithName(op+".cu"),
-				nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-				nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+				nvrtcx.WithDeviceArch(dev),
 				nvrtcx.WithNoCache(),
 			)
 			if err != nil {

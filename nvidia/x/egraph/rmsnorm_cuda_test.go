@@ -67,11 +67,6 @@ func TestGeneratedRMSNormGEMVMatchesReference(t *testing.T) {
 func testRMSNormGEMV(t *testing.T, threads uint32) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "fused_rmsnorm_gemv", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}},
 		egraph.CodegenOptions{KernelName: "RMSNormGEMV"},
@@ -81,8 +76,7 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("rmsnorm.cu"),
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

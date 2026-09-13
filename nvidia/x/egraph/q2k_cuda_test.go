@@ -141,11 +141,6 @@ func TestGeneratedQ2KMatvecMatchesReference(t *testing.T) {
 func testQ2KMatvec(t *testing.T, threads uint32) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "q2_k_matvec", Children: []*egraph.Expr{{Op: "w"}, {Op: "x"}}},
 		egraph.CodegenOptions{KernelName: "Q2KMatvec", Precision: "q2_k"},
@@ -155,8 +150,7 @@ func testQ2KMatvec(t *testing.T, threads uint32) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("q2k.cu"),
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

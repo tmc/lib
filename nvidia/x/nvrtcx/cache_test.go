@@ -170,6 +170,8 @@ func TestCompileRejectsInvalidOptions(t *testing.T) {
 		{name: "nil option", src: "x", opts: []Option{nil}},
 		{name: "empty name", src: "x", opts: []Option{WithName("")}},
 		{name: "invalid architecture", src: "x", opts: []Option{WithArch(0, 0)}},
+		{name: "invalid physical architecture", src: "x", opts: []Option{WithPhysicalArch(0, 0)}},
+		{name: "nil device", src: "x", opts: []Option{WithDeviceArch(nil)}},
 		{name: "empty flag", src: "x", opts: []Option{WithFlag("")}},
 		{name: "empty header name", src: "x", opts: []Option{WithHeader("", "x")}},
 	}

@@ -57,11 +57,7 @@ func TestGraphCapture(t *testing.T) {
 
 func TestGraphReplayOutputAndLifetime(t *testing.T) {
 	dev := cudatest.Require(t)
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-	compiled, err := nvrtcx.Compile(incrementKernel, nvrtcx.WithArch(major, minor), nvrtcx.WithNoCache())
+	compiled, err := nvrtcx.Compile(incrementKernel, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
 	if err != nil {
 		t.Fatal(err)
 	}

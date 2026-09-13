@@ -73,7 +73,7 @@ func SampleArgmaxCPU(logits []float32) int32 {
 func Compile(major, minor int) (*nvrtcx.CompiledModule, error) {
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("sample_argmax.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithPhysicalArch(major, minor),
 	}
 	mod, err := nvrtcx.Compile(ArgmaxKernelTemplate, opts...)
 	if err != nil {

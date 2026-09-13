@@ -115,14 +115,10 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 	if dev == nil {
 		return nil, errors.New("mxfp4: nil device")
 	}
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return nil, fmt.Errorf("mxfp4: compute capability: %w", err)
-	}
 
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("mxfp4_kernels.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithDeviceArch(dev),
 	}
 	compiled, err := nvrtcx.Compile(mxfp4KernelsCU, opts...)
 	if err != nil {

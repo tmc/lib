@@ -168,7 +168,8 @@ func WithName(name string) Option {
 }
 
 // WithArch configures the target virtual compute architecture (for example,
-// compute_80 for major=8, minor=0).
+// compute_80 for major=8, minor=0). Use WithArch when generating virtual PTX
+// for multi-target binaries or cross-compilation.
 func WithArch(major, minor int) Option {
 	return func(o *options) {
 		if major <= 0 || minor < 0 {
@@ -176,6 +177,45 @@ func WithArch(major, minor int) Option {
 			return
 		}
 		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=compute_%d%d", major, minor))
+	}
+}
+
+// WithPhysicalArch configures the target physical GPU architecture (for example,
+// sm_80 for major=8, minor=0) and selects OutputCUBIN binary generation.
+// Use WithPhysicalArch when compiling code intended to run immediately on a device
+// with known compute capability; this avoids driver-side JIT compilation and
+// prevents PTX version incompatibilities.
+func WithPhysicalArch(major, minor int) Option {
+	return func(o *options) {
+		if major <= 0 || minor < 0 {
+			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
+			return
+		}
+		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
+		o.output = OutputCUBIN
+	}
+}
+
+// WithDeviceArch queries dev's compute capability and targets its physical GPU
+// architecture with direct OutputCUBIN binary generation. This avoids driver-side
+// JIT compilation and prevents PTX version incompatibilities.
+func WithDeviceArch(dev *cuda.Device) Option {
+	return func(o *options) {
+		if dev == nil {
+			o.err = fmt.Errorf("nvrtcx: nil device passed to WithDeviceArch")
+			return
+		}
+		major, minor, err := dev.ComputeCapability()
+		if err != nil {
+			o.err = fmt.Errorf("nvrtcx: query device compute capability: %w", err)
+			return
+		}
+		if major <= 0 || minor < 0 {
+			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
+			return
+		}
+		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
+		o.output = OutputCUBIN
 	}
 }
 

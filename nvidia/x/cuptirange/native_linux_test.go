@@ -31,11 +31,7 @@ func TestNativeRangeCapture(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cm, err := nvrtcx.Compile(`extern "C" __global__ void measured(unsigned* out) { out[0] = 7; }`, nvrtcx.WithArch(major, minor), nvrtcx.WithNoCache())
+	cm, err := nvrtcx.Compile(`extern "C" __global__ void measured(unsigned* out) { out[0] = 7; }`, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
 	if err != nil {
 		t.Fatal(err)
 	}

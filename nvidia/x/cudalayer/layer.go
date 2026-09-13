@@ -235,7 +235,7 @@ func Compile(major, minor int) (*nvrtcx.CompiledModule, error) {
 		return nil, ErrInvalidConfig
 	}
 	module, err := nvrtcx.Compile(ProjectionResidualRMSNormTemplate,
-		nvrtcx.WithName("decoder_layer.cu"), nvrtcx.WithArch(major, minor))
+		nvrtcx.WithName("decoder_layer.cu"), nvrtcx.WithPhysicalArch(major, minor))
 	if err != nil {
 		return nil, fmt.Errorf("cudalayer: compile: %w", err)
 	}

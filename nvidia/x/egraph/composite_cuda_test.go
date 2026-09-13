@@ -2,7 +2,6 @@ package egraph_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -51,11 +50,6 @@ func TestCompositeKernelRejectsDeeperTrees(t *testing.T) {
 func TestGeneratedCompositeMatchesReference(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	expr := &egraph.Expr{Op: "add", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 	src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "Composite"})
 	if err != nil {
@@ -63,8 +57,7 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("composite.cu"),
-		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
-		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
+		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

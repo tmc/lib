@@ -426,14 +426,10 @@ func OptimizeAndCompileQwen(dev *cuda.Device, cfg *QwenConfig) (*FusedQwenEngine
 		return nil, fmt.Errorf("generate megakernels from plan: %w", err)
 	}
 
-	major, minor, err := dev.ComputeCapability()
-	if err != nil {
-		return nil, fmt.Errorf("device compute capability: %w", err)
-	}
 
 	opts := []nvrtcx.Option{
 		nvrtcx.WithName("qwen_megakernels.cu"),
-		nvrtcx.WithArch(major, minor),
+		nvrtcx.WithDeviceArch(dev),
 	}
 	compiled, err := nvrtcx.Compile(cudaSrc, opts...)
 	if err != nil {
