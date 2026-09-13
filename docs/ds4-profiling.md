@@ -68,12 +68,21 @@ alternatives-managed and its target has drifted:
 
     /opt/nvidia/nsight-systems/2026.1.1/bin/nsys profile \
       -t cuda-sw,nvtx,osrt --cuda-graph-trace=node --cuda-memory-usage=true \
+      --cuda-flush-interval=100 \
       -f true -o go-prefill2048-decode2 \
       ds4-min -model "$MODEL" -backend cuda \
         -prompt-tokens scripts/testdata/oracle-workload-tokens2048.json \
-        -tokens 2 -ctx 4096 \
+        -tokens 2 -ctx 4096 -cuda-profiler-stop \
         -cpuprofile go.cpu.pprof -trace go.trace \
         -spans go.spans.jsonl -span-level layer
+
+**`--cuda-flush-interval=100` and `-cuda-profiler-stop` are both required, and
+neither is optional.** Without them the capture silently loses its tail — with
+default settings that means all of decode and a percent or two of prefill,
+with no error and a report that opens normally. Why, and what each one buys,
+is in "The missing tail was never flushed" below; the short version is that
+`ds4-min` has to ask the profiler to flush before the process leaves, because
+Go's `runtime.exit` will not.
 
 One thing this does not give you: `nsys` reports CPU sampling unavailable on
 this host, so the Nsight report carries no host samples — the Go CPU profile is
@@ -824,10 +833,16 @@ batch 55 or 226 rather than at a run's worth of timeline.
 
 A CUPTI kernel row is stamped with *device execution* time, not launch time,
 so a deficit in one batch range could in principle be work that executed
-inside a neighbour's range. It is not. No batch in either capture exceeds the
-baseline, so there is no surplus anywhere to receive shifted work, and each
-damaged window is a net deficit of roughly 22,800 kernels against a baseline
-that 243 of 256 batches hit exactly in one run and 234 of 256 in the other.
+inside a neighbour's range. It is not. No batch in either of these two
+captures exceeds the baseline, so there is no surplus anywhere to receive
+shifted work, and each damaged window is a net deficit of roughly 22,800
+kernels against a baseline that 243 of 256 batches hit exactly in one run and
+234 of 256 in the other.
+
+The scope matters: later captures do hold a batch above baseline. With the
+exit flush in place the final batch comes in at 16,112, above both 16,083 and
+16,103, because it carries the tail work that earlier captures were losing.
+Re-derive the surplus before reusing this argument on a different run.
 
 ## The cut is a fixed residual at exit, not a ceiling
 
@@ -962,7 +977,7 @@ three and the forty come from the shared layer tail across 43 layers, where
 three sentinel families and still lose others. They are the strongest gate
 available without enumerating every launch in the program.
 
-### At 2048 the call is necessary and not sufficient
+### At 2048 the call recovers most of the loss, not all of it
 
 `p3astop` is the production workload — prefill 2048, two decode tokens, the
 registered logits digests asserted by the run itself — with the same one-flag
@@ -990,13 +1005,70 @@ holds 61% of its launches, consistent with the 35.4 ms residual against its
 
 The improvement is large — the deficit falls from 42 token-equivalents to
 8 on both `get_row_f16` and `router_hash` — and it is not zero, where the
-512-token arm's is. So the flush at exit is necessary and, at this scale,
-insufficient. The launch counts also stop moving together: `router_biased` is
-short by 12.8 token-equivalents against the other two families' 8, which rules
-out reading the remaining deficit as some whole number of lost tokens.
+512-token arm's is.
 
-`p3astop100` combines the two levers that each helped on their own — the exit
-flush and `--cuda-flush-interval=100` — and is the next arm.
+Do not read that as "the flush is necessary but insufficient". Insufficient at
+this scale is measured. Necessary is not: no control has excluded some other
+intervention recovering the same data, and an intervention that recovers
+something is evidence about the mechanism, not proof of it. What is
+established is that this call recovers most of the loss at 2048 and all of it
+at 512.
+
+The launch counts also stop moving together: `router_biased` is short by 12.8
+token-equivalents against the other two families' 8, which rules out reading
+the remaining deficit as some whole number of lost tokens.
+
+### Both levers together close it
+
+`p3astop100` is `p3astop` with `--cuda-flush-interval=100` instead of 1000 —
+one line different, both levers on. It is the first capture of the production
+workload that passes every gate:
+
+| gate | required | p3astop100 |
+| --- | --- | --- |
+| prefill logits sha256 | `4eee1b14…` | matches |
+| final logits sha256 | `837a6b87…` | matches |
+| accepted tokens | 15342, 201 | 15342, 201 |
+| exit status | 0 | 0 |
+| host spans begun = ended = encoded | 727,732 | 727,732 |
+| host spans unended / dropped | 0 / 0 | 0 / 0 |
+| `ds4_get_row_f16` | 8,200 | 8,200 |
+| `ds4_router_hash` | 6,150 | 6,150 |
+| `ds4_router_biased` | 82,000 | 82,000 |
+| decode token 1 / token 2 | 2,240 / 2,240 | 2,240 / 2,240 |
+| batches below 15,000 | 0 | 0 |
+| empty batches | 0 | 0 |
+| NVTX calibration markers | 6 | 6 |
+| unclosed NVTX ranges | 0 | 0 |
+
+The kernel accounting closes exactly, which no earlier capture managed:
+
+```
+total kernels                4,121,996
+prefill batch sum            4,117,514   = 239*16,083 + 15*16,103 + 16,020 + 16,112
+decode kernels                   4,480
+unaccounted                          2   the two pre-prefill warm-up probes
+```
+
+The residual from the last kernel to the close of `generation` is 131,936 ns.
+Throughput is 12.78 / 11.69 t/s against 12.96 / 11.92 uninstrumented, so the
+whole instrumented capture costs about 1.4% of prefill and 1.9% of decode.
+
+Neither lever does this alone. The exit flush alone leaves 8 token-equivalents
+and 39% of decode token 2 missing; a 100 ms interval alone leaves all of
+decode missing. **Use both.** The recipe is in the CUDA section above.
+
+### What the closure does and does not prove
+
+Every gate here is a necessary condition that something could still slip
+past — three sentinel kernel families are not an enumeration of every launch
+in the program, and per-batch equality against an empirical baseline is not a
+derivation of what each batch should contain. What can be said is that every
+independently derived count this project knows how to compute now comes out
+exact, the accounting closes on the capture total with the two warm-up rows
+named, and the workload's own numerics gate passed bit-for-bit on the same
+run. That is the strongest statement the available gates support, and it is
+the first time the production workload has earned it.
 
 ### What this does not establish
 
