@@ -49,11 +49,14 @@ func (inv ReasonInventory) Lookup(index uint32) string {
 	return ""
 }
 
-// StallReasons queries the modern native reason inventory without enabling PC
-
-// sampling or launching work. The caller must keep ctx alive and coordinate its
-// use with other collectors. maxReasons must be between 1 and 65536. Exceeding
-// the limit or receiving malformed output fails without a partial inventory.
+// StallReasons queries the modern native reason inventory without launching
+// work. PC sampling must already be enabled on ctx: CUPTI rejects the query
+// with CUPTI_ERROR_INVALID_OPERATION otherwise, an error its header does not
+// document for this call. Use [Enable], or query through [Start], which enables
+// the context before it reads the inventory. The caller must keep ctx alive and
+// coordinate its use with other collectors. maxReasons must be between 1 and
+// 65536. Exceeding the limit or receiving malformed output fails without a
+// partial inventory.
 // Names and IDs are owned copies sorted by ID. Native errors remain inspectable.
 //
 // The 64-bit parameter layouts for CUPTI 27, 130001 and 130200 are admitted;
