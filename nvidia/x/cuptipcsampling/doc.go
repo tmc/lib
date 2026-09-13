@@ -1,5 +1,6 @@
 // Package cuptipcsampling provides bounded modern CUPTI PC sampling.
-// StallReasons queries native reason IDs and names for an owned CUDA context.
+// StallReasons queries native reason IDs and names for an owned CUDA context on
+// which sampling is already enabled; Enable turns it on and returns its own off.
 // IdentifyCubin obtains a native code identifier and an exact artifact digest.
 // Start owns an explicit sampling range with caller-supplied memory and read
 // limits. Callers coordinate workload completion, preserve every Read batch,

@@ -174,6 +174,13 @@ func validateConfig(ctx cupti.Context, c Config) error {
 	return nil
 }
 
+// releasing returns the claim and reports no error, so it composes with the
+// native cleanup in an errors.Join without inventing a failure of its own.
+func releasing(release func()) error {
+	release()
+	return nil
+}
+
 func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventoryQuery func(cupti.Context, int) (ReasonInventory, error), nameOwner func(int, int, int) (*samplingNames, error), query func(*cupti.PCSamplingGetDataParams) error) (*Session, error) {
 	if err := validateConfig(ctx, c); err != nil {
 		return nil, err
@@ -185,12 +192,27 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	if version != 130001 {
 		return nil, fmt.Errorf("cuptipcsampling: unqualified sampling version %d", version)
 	}
-	inventory, err := inventoryQuery(ctx, c.MaxReasons)
+	// Claim the collector before any native call, so a start rejected for
+	// exclusivity leaves the context exactly as it found it.
+	adopt, release, err := reserveOwner()
 	if err != nil {
 		return nil, err
 	}
+	// Enable before the inventory query, not after: CUPTI rejects every PC
+	// sampling query on a context where sampling is off, so the reason table
+	// the configuration is built from cannot be read until this succeeds.
+	// Ownership of the disable passes to the session once one exists.
+	disable, err := enableSampling(ctx, api)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	inventory, err := inventoryQuery(ctx, c.MaxReasons)
+	if err != nil {
+		return nil, errors.Join(err, disable(), releasing(release))
+	}
 	if inventory.CUPTIVersion != version {
-		return nil, errors.New("cuptipcsampling: reason inventory version changed")
+		return nil, errors.Join(errors.New("cuptipcsampling: reason inventory version changed"), disable(), releasing(release))
 	}
 	if c.CollectionMode == 0 {
 		c.CollectionMode = cupti.PcSamplingCollectionModeContinuous
@@ -198,18 +220,18 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	c.ReasonIDs = slices.Clone(c.ReasonIDs)
 	out, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), c.MaxOutputBytes/2)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, disable(), releasing(release))
 	}
 	drain, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), c.MaxOutputBytes/2)
 	if err != nil {
 		out.release()
-		return nil, err
+		return nil, errors.Join(err, disable(), releasing(release))
 	}
 	names, err := nameOwner(c.MaxNames, c.MaxNameBytes, c.MaxTotalNameBytes)
 	if err != nil {
 		out.release()
 		drain.release()
-		return nil, err
+		return nil, errors.Join(err, disable(), releasing(release))
 	}
 	o := samplingOptions{period: c.Period, workerSleepMS: c.WorkerSleepMS, mode: c.CollectionMode, allowSerialization: c.AllowSerialization, scratchBytes: c.ScratchBytes, hardwareBytes: c.HardwareBytes, maxNativeBytes: c.MaxNativeBytes, reasons: c.ReasonIDs}
 	cfg, err := newSamplingConfig(o, inventory, out)
@@ -217,10 +239,14 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 		names.release()
 		out.release()
 		drain.release()
-		return nil, err
+		return nil, errors.Join(err, disable(), releasing(release))
 	}
-	core := &samplingSession{control: &samplingControl{ctx: ctx, config: cfg, api: api}, drain: drain, names: names, query: query, maxReads: c.MaxReads}
+	// The control inherits the enable performed above: touched so that shutdown
+	// still disables, enabled so that prepare does not enable a second time.
+	control := &samplingControl{ctx: ctx, config: cfg, api: api, enabled: true, touched: true}
+	core := &samplingSession{control: control, drain: drain, names: names, query: query, maxReads: c.MaxReads}
 	s := &Session{core: core, config: c, inventory: inventory}
+	adopt(core)
 	if err := core.begin(); err != nil {
 		if !core.control.touched {
 			_, _ = core.finish(true)

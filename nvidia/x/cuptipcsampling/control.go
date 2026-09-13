@@ -3,6 +3,7 @@ package cuptipcsampling
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
 )
@@ -26,6 +27,46 @@ func nativeSamplingControlAPI() samplingControlAPI {
 		stop:    cupti.PCSamplingStop,
 		disable: cupti.PCSamplingDisable,
 	}
+}
+
+// Enable turns on PC sampling for ctx and returns a function that turns it off.
+//
+// CUPTI rejects every PC sampling query on a context where sampling is not
+// enabled, including the reason inventory that a [Config] needs to name its
+// reasons. A caller that must build that inventory before [Start] therefore
+// enables the context itself; [Start] enables the context it is given, so a
+// caller with no inventory of its own never calls this.
+//
+// The returned function disables sampling once and reports the native error;
+// later calls report the same result without calling CUPTI again.
+func Enable(ctx cupti.Context) (disable func() error, err error) {
+	return enableSampling(ctx, nativeSamplingControlAPI())
+}
+
+func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, error) {
+	if ctx == 0 || api.enable == nil || api.disable == nil {
+		return nil, errors.New("cuptipcsampling: invalid enable request")
+	}
+	p := cupti.PCSamplingEnableParams{Size: 24, Ctx: ctx}
+	if err := api.enable(&p); err != nil {
+		return nil, fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
+	}
+	if p.Size != 24 || p.PPriv != 0 || p.Ctx != ctx {
+		return nil, errors.New("cuptipcsampling: enable changed input storage")
+	}
+	var (
+		once sync.Once
+		err  error
+	)
+	return func() error {
+		once.Do(func() {
+			d := cupti.PCSamplingDisableParams{Size: 24, Ctx: ctx}
+			if e := api.disable(&d); e != nil {
+				err = fmt.Errorf("cuptipcsampling: disable sampling: %w", e)
+			}
+		})
+		return err
+	}, nil
 }
 
 // samplingControl owns profiling state, never the workload or CUDA context.
@@ -65,16 +106,21 @@ func (s *samplingControl) prepare() error {
 		s.failed = true
 		return err
 	}
-	p := cupti.PCSamplingEnableParams{Size: 24, Ctx: s.ctx}
-	if err := a.enable(&p); err != nil {
-		s.failed = true
-		return fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
+	// A context enabled before the configuration was applied is already
+	// enabled here: the reason inventory the configuration names cannot be
+	// queried on a context where sampling is off.
+	if !s.enabled {
+		p := cupti.PCSamplingEnableParams{Size: 24, Ctx: s.ctx}
+		if err := a.enable(&p); err != nil {
+			s.failed = true
+			return fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
+		}
+		if p.Size != 24 || p.PPriv != 0 || p.Ctx != s.ctx {
+			s.failed = true
+			return errors.New("cuptipcsampling: enable changed input storage")
+		}
+		s.enabled = true
 	}
-	if p.Size != 24 || p.PPriv != 0 || p.Ctx != s.ctx {
-		s.failed = true
-		return errors.New("cuptipcsampling: enable changed input storage")
-	}
-	s.enabled = true
 	return nil
 }
 
