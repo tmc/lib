@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"strings"
 	"sync"
+	"time"
 )
 
 // SASSMetric represents hardware performance counters associated with a SASS instruction.
@@ -135,6 +136,45 @@ func (s *Session) SetMappingFile(filename, buildID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.builder.SetMappingFile(filename, buildID)
+}
+
+// AddMapping registers an additional logical image. See [Builder.AddMapping].
+func (s *Session) AddMapping(filename, buildID string, start, limit uint64) uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.builder.AddMapping(filename, buildID, start, limit)
+}
+
+// SetTimespan records the profile's start time and duration. See
+// [Builder.SetTimespan].
+func (s *Session) SetTimespan(start time.Time, d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetTimespan(start, d)
+}
+
+// SetPeriod records the sampling period and what it measures. See
+// [Builder.SetPeriod].
+func (s *Session) SetPeriod(name, unit string, period int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetPeriod(name, unit, period)
+}
+
+// SetDefaultSampleType names the sample type a viewer should open. See
+// [Builder.SetDefaultSampleType].
+func (s *Session) SetDefaultSampleType(name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.builder.SetDefaultSampleType(name)
+}
+
+// SetNumericLabels declares which label keys hold numbers, so that pprof's
+// range filters apply to them. See [Builder.SetNumericLabels].
+func (s *Session) SetNumericLabels(unitByKey map[string]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetNumericLabels(unitByKey)
 }
 
 // RecordSample adds a GPU sample correlated with Go context pprof labels and OS thread affinity.
