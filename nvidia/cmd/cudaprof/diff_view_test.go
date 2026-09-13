@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
 
 import "github.com/tmc/lib/nvidia/x/cudasass"
 
@@ -62,5 +66,26 @@ func TestAlignInstructions(t *testing.T) {
 	rows := alignInstructions(fd, nil, nil, nil, nil)
 	if len(rows) != 2 || rows[0].Type != DiffRowMatch || rows[1].Type != DiffRowModify || !rows[1].HasSpill {
 		t.Fatalf("alignInstructions = %#v", rows)
+	}
+}
+
+func TestRenderDiffHTML(t *testing.T) {
+	data := &DiffViewData{
+		Title:         "baseline vs candidate",
+		BaseCapture:   "base.pprof",
+		TargetCapture: "candidate.pprof",
+		Kernels:       []string{"kernel"},
+		ActiveKernel:  "kernel",
+		ActiveRows: []DiffRow{{Num: 1, Type: DiffRowModify,
+			Base: &DiffInstruction{Opcode: "LDG.E"}, Candidate: &DiffInstruction{Opcode: "LDG.E.128"}}},
+	}
+	var buf bytes.Buffer
+	if err := renderDiffHTML(&buf, data); err != nil {
+		t.Fatalf("renderDiffHTML: %v", err)
+	}
+	for _, want := range []string{"<!DOCTYPE html>", "baseline vs candidate", "base.pprof", "LDG.E.128"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("rendered HTML missing %q", want)
+		}
 	}
 }
