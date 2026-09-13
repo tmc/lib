@@ -316,7 +316,8 @@ func reasonRouting(name string) string {
 // memory_dependency (scoreboard before memory) and constant_memory_dependency
 // (constant before both). Each is pinned by a row in the routing test, because
 // reordering the switch moves their counts between buckets with every other
-// test still green. imc_miss also matches two arms, but both say stall_mem.
+// test still green, and TestArmCollisionsArePinned recomputes the set from this
+// source so the list above cannot go stale without a failure.
 func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {
 	name := strings.ToLower(reasonName)
 	// CUPTI reports each reason twice: smsp__pcsamp_warps_issue_stalled_<r>

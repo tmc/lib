@@ -3,8 +3,12 @@ package cuptipcsampling_test
 import (
 	"bytes"
 	"context"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -568,52 +572,7 @@ func TestProfileBridgeFrontEndAndIssueReasons(t *testing.T) {
 // routing is asserted nowhere rather than a reason that cannot arrive.
 func TestReasonInventoryRouting(t *testing.T) {
 	const prefix = "smsp__pcsamp_warps_issue_stalled_"
-	want := map[string]string{
-		"selected":           "inst_executed",
-		"not_selected":       "stall_not_selected",
-		"long_scoreboard":    "stall_scoreboard",
-		"short_scoreboard":   "stall_scoreboard",
-		"wait":               "stall_wait",
-		"barrier":            "stall_wait",
-		"membar":             "stall_wait",
-		"math_pipe_throttle": "stall_math",
-		"mio_throttle":       "stall_mem",
-		"lg_throttle":        "stall_mem",
-		"tex_throttle":       "stall_mem",
-		"drain":              "stall_drain",
-		"dispatch_stall":     "stall_dispatch",
-		"branch_resolving":   "stall_branch",
-		"no_instructions":    "stall_fetch",
-		"misc":               "unmapped",
-		"sleeping":           "unmapped",
-	}
-	// Names the classifier routes that this device never emits, kept out of the
-	// table above so that one stays a statement about the hardware. They are
-	// kept at all because classifyStall covers two naming schemes: the modern
-	// smsp__pcsamp_* reasons above, and the legacy activity-API stall enum,
-	// whose names reach switch arms that nothing else witnesses. The routings
-	// asserted here are the cross-scheme agreements that matter -- most of all
-	// that memory_dependency and long_scoreboard land in the same bucket, since
-	// they are the same wait reported by two APIs, and a reader comparing
-	// captures from both must not find the same phenomenon under two names.
-	// exec_dependency is here for the same reason in the other direction: it is
-	// a union of wait and short_scoreboard, and a dependent FMA chain measured
-	// on a GB10 puts 71.88% of its samples in wait against 0.06% in
-	// short_scoreboard, so stall_wait is the dominant member rather than a
-	// reading of the name.
-	absentFromGB10 := map[string]string{
-		"imc_miss":                   "stall_mem",
-		"memory_dependency":          "stall_scoreboard",
-		"exec_dependency":            "stall_wait",
-		"constant_memory_dependency": "stall_mem",
-		"texture":                    "stall_mem",
-		"inst_fetch":                 "stall_fetch",
-		"pipe_busy":                  "stall_math",
-		"sync":                       "stall_wait",
-	}
-	for reason, wantType := range absentFromGB10 {
-		want[reason] = wantType
-	}
+	want := reasonVocabularies()
 	var inv cuptipcsampling.ReasonInventory
 	for reason := range want {
 		inv.Reasons = append(inv.Reasons,
@@ -712,4 +671,158 @@ func TestProfileBridgeReasonSamples(t *testing.T) {
 	if got := want[prefix+"long_scoreboard"] + want[prefix+"short_scoreboard"]; scoreboard != got {
 		t.Errorf("stall_scoreboard = %d, want %d", scoreboard, got)
 	}
+}
+
+// reasonVocabularies returns every reason name whose routing is asserted, from
+// both naming schemes classifyStall covers, keyed to the sample type it must
+// reach. It is shared with TestArmCollisionsArePinned, which computes which of
+// these names more than one switch arm claims: a collision is a property of this
+// universe as much as of the switch, so a name added here joins that check too.
+func reasonVocabularies() map[string]string {
+	want := map[string]string{
+		"selected":           "inst_executed",
+		"not_selected":       "stall_not_selected",
+		"long_scoreboard":    "stall_scoreboard",
+		"short_scoreboard":   "stall_scoreboard",
+		"wait":               "stall_wait",
+		"barrier":            "stall_wait",
+		"membar":             "stall_wait",
+		"math_pipe_throttle": "stall_math",
+		"mio_throttle":       "stall_mem",
+		"lg_throttle":        "stall_mem",
+		"tex_throttle":       "stall_mem",
+		"drain":              "stall_drain",
+		"dispatch_stall":     "stall_dispatch",
+		"branch_resolving":   "stall_branch",
+		"no_instructions":    "stall_fetch",
+		"misc":               "unmapped",
+		"sleeping":           "unmapped",
+	}
+	// Names the classifier routes that this device never emits, kept out of the
+	// table above so that one stays a statement about the hardware. They are
+	// kept at all because classifyStall covers two naming schemes: the modern
+	// smsp__pcsamp_* reasons above, and the legacy activity-API stall enum,
+	// whose names reach switch arms that nothing else witnesses. The routings
+	// asserted here are the cross-scheme agreements that matter -- most of all
+	// that memory_dependency and long_scoreboard land in the same bucket, since
+	// they are the same wait reported by two APIs, and a reader comparing
+	// captures from both must not find the same phenomenon under two names.
+	// exec_dependency is here for the same reason in the other direction: it is
+	// a union of wait and short_scoreboard, and a dependent FMA chain measured
+	// on a GB10 puts 71.88% of its samples in wait against 0.06% in
+	// short_scoreboard, so stall_wait is the dominant member rather than a
+	// reading of the name.
+	absentFromGB10 := map[string]string{
+		"imc_miss":                   "stall_mem",
+		"memory_dependency":          "stall_scoreboard",
+		"exec_dependency":            "stall_wait",
+		"constant_memory_dependency": "stall_mem",
+		"texture":                    "stall_mem",
+		"inst_fetch":                 "stall_fetch",
+		"pipe_busy":                  "stall_math",
+		"sync":                       "stall_wait",
+	}
+	for reason, wantType := range absentFromGB10 {
+		want[reason] = wantType
+	}
+	return want
+}
+
+// TestArmCollisionsArePinned recomputes, from classifyStall's own source, which
+// reason names are matched by more than one arm of its switch. Those are the
+// names whose bucket depends on the order the arms appear in, and a comment
+// listing them goes stale the moment an arm is split or a vocabulary is added --
+// it already did, within one commit, because the list was rebuilt from
+// substrings transcribed earlier rather than from the file.
+//
+// The set is asserted rather than merely reported so that both kinds of drift
+// fail: widening an arm until it captures a name another arm already claimed,
+// and narrowing one until a listed collision stops being one. Every name here
+// must also appear in the routing table above, which is what pins the order.
+func TestArmCollisionsArePinned(t *testing.T) {
+	arms := classifyStallArms(t)
+	if len(arms) < 5 {
+		t.Fatalf("parsed %d arms from classifyStall, expected the whole switch", len(arms))
+	}
+	// The name universe is both vocabularies: the reasons a GB10 inventory
+	// reports and the legacy activity-API names. A collision is a property of
+	// the universe as much as of the switch, so a name added to either table
+	// joins this computation automatically.
+	names := slices.Sorted(maps.Keys(reasonVocabularies()))
+	got := make(map[string][]string)
+	for _, name := range names {
+		var matched []string
+		for _, arm := range arms {
+			for _, sub := range arm {
+				if strings.Contains(name, sub) {
+					matched = append(matched, sub)
+					break
+				}
+			}
+		}
+		if len(matched) > 1 {
+			got[name] = matched
+		}
+	}
+	// The winning arm is the first substring listed for each name; the rest are
+	// the arms the name would reach if the switch were reordered.
+	want := map[string][]string{
+		"membar":                     {"membar", "mem"},
+		"memory_dependency":          {"memory_dependency", "mem"},
+		"constant_memory_dependency": {"constant", "memory_dependency", "mem"},
+	}
+	if len(got) != len(want) {
+		t.Errorf("collisions = %v, want %v", got, want)
+	}
+	for name, wantArms := range want {
+		if !slices.Equal(got[name], wantArms) {
+			t.Errorf("collisions[%s] = %v, want %v", name, got[name], wantArms)
+		}
+	}
+	for name := range got {
+		if _, ok := reasonVocabularies()[name]; !ok {
+			t.Errorf("collision on %s is pinned by no routing table row", name)
+		}
+	}
+}
+
+// classifyStallArms returns the strings.Contains literals of each arm of
+// classifyStall's switch, in source order, read from bridge.go.
+func classifyStallArms(t *testing.T) [][]string {
+	t.Helper()
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "bridge.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse bridge.go: %v", err)
+	}
+	var arms [][]string
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "classifyStall" {
+			continue
+		}
+		ast.Inspect(fn, func(n ast.Node) bool {
+			clause, ok := n.(*ast.CaseClause)
+			if !ok {
+				return true
+			}
+			var subs []string
+			for _, expr := range clause.List {
+				ast.Inspect(expr, func(n ast.Node) bool {
+					lit, ok := n.(*ast.BasicLit)
+					if ok && lit.Kind == token.STRING {
+						if s, err := strconv.Unquote(lit.Value); err == nil {
+							subs = append(subs, s)
+						}
+					}
+					return true
+				})
+			}
+			if len(subs) > 0 {
+				arms = append(arms, subs)
+			}
+			return true
+		})
+	}
+	return arms
 }
