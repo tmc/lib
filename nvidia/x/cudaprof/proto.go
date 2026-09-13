@@ -69,6 +69,7 @@ func encodeString(fieldNum int, s string) []byte {
 // ratios (such as hit rates or occupancies) must be computed post-aggregation.
 type SampleValues struct {
 	Samples             int64 // Execution clock cycles / sample hits
+	PCSamples           int64 // Hardware PC samples collected at an address
 	VRAMAllocBytes      int64 // VRAM allocated / staged (bytes)
 	DRAMReadBytes       int64 // Global memory / DRAM read traffic (bytes)
 	DRAMWriteBytes      int64 // Global memory / DRAM write traffic (bytes)
@@ -111,6 +112,7 @@ type Builder struct {
 	period        int64
 	defaultType   string
 	comments      []string
+	docURL        string
 	numericLabels map[string]string
 }
 
@@ -125,6 +127,7 @@ type locationKey struct {
 
 var profileSampleTypes = []struct{ name, unit string }{
 	{"samples", "count"},
+	{"pc_samples", "count"},
 	{"vram_alloc", "bytes"},
 	{"dram_read", "bytes"},
 	{"dram_write", "bytes"},
@@ -328,6 +331,13 @@ func (b *Builder) AddComment(text string) {
 	}
 }
 
+// SetDocURL records a documentation link for the profile. pprof's web UI
+// renders it, which makes it the place to send a reader who needs to know how
+// these samples were produced and what tool reads them best.
+func (b *Builder) SetDocURL(url string) {
+	b.docURL = url
+}
+
 // SetNumericLabels declares label keys whose values are numbers, mapping each
 // to its unit. pprof filters a bare number or "a:b" in -tagfocus as a numeric
 // range against these, so a count left as a string label cannot be
@@ -458,6 +468,7 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 
 	metricVals := []int64{
 		vals.Samples,
+		vals.PCSamples,
 		vals.VRAMAllocBytes,
 		vals.DRAMReadBytes,
 		vals.DRAMWriteBytes,
@@ -663,6 +674,9 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 	}
 	if b.defaultType != "" {
 		header = append(header, encodeVarint(14, uint64(b.st.Index(b.defaultType)))...)
+	}
+	if b.docURL != "" {
+		header = append(header, encodeVarint(15, uint64(b.st.Index(b.docURL)))...)
 	}
 	body = append(body, header...)
 

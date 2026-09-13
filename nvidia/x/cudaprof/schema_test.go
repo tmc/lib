@@ -58,13 +58,15 @@ func TestSelectedSampleTypes(t *testing.T) {
 		{"unknown", []string{"dram_read", "missing"}, [][2]string{{"gpu_time", "nanoseconds"}}, []uint64{23}, true},
 		{"duplicate", []string{"dram_read", "dram_read"}, [][2]string{{"gpu_time", "nanoseconds"}}, []uint64{23}, true},
 		{"reset", nil, [][2]string{
-			{"samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"}, {"dram_write", "bytes"},
-			{"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"}, {"shared_mem", "bytes"}, {"bank_conflicts", "count"},
-			{"tensor_warps", "count"}, {"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
-			{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"}, {"interconnect_rx", "bytes"},
-			{"stall_scoreboard", "count"}, {"stall_wait", "count"}, {"stall_math", "count"}, {"stall_mem", "count"},
-			{"launch_delay", "nanoseconds"}, {"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
-		}, []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}, false},
+			{"samples", "count"}, {"pc_samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"},
+			{"dram_write", "bytes"}, {"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"},
+			{"shared_mem", "bytes"}, {"bank_conflicts", "count"}, {"tensor_warps", "count"},
+			{"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
+			{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"},
+			{"interconnect_rx", "bytes"}, {"stall_scoreboard", "count"}, {"stall_wait", "count"},
+			{"stall_math", "count"}, {"stall_mem", "count"}, {"launch_delay", "nanoseconds"},
+			{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
+		}, []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
@@ -73,7 +75,7 @@ func TestSelectedSampleTypes(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.RecordDetailedSample(context.Background(), "kernel", "kernel.cu", 1, 0, cudaprof.SampleValues{
-				Samples: 1, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
+				Samples: 1, PCSamples: 24, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
 				L2SectorsRead: 5, L2SectorsMiss: 6, SharedMemBytes: 7, BankConflicts: 8,
 				TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
 				InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
@@ -118,7 +120,7 @@ func TestSelectedSampleTypes(t *testing.T) {
 func TestProfileSampleSchema(t *testing.T) {
 	b := cudaprof.NewBuilder()
 	b.AddDetailedSample("kernel", "kernel.cu", 1, 0, cudaprof.SampleValues{
-		Samples: 1, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
+		Samples: 1, PCSamples: 24, VRAMAllocBytes: 2, DRAMReadBytes: 3, DRAMWriteBytes: 4,
 		L2SectorsRead: 5, L2SectorsMiss: 6, SharedMemBytes: 7, BankConflicts: 8,
 		TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
 		InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
@@ -140,12 +142,14 @@ func TestProfileSampleSchema(t *testing.T) {
 	}
 	_, fields := profileFields(t, data)
 	want := [][2]string{
-		{"samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"}, {"dram_write", "bytes"},
-		{"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"}, {"shared_mem", "bytes"}, {"bank_conflicts", "count"},
-		{"tensor_warps", "count"}, {"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
-		{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"}, {"interconnect_rx", "bytes"},
-		{"stall_scoreboard", "count"}, {"stall_wait", "count"}, {"stall_math", "count"}, {"stall_mem", "count"},
-		{"launch_delay", "nanoseconds"}, {"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
+		{"samples", "count"}, {"pc_samples", "count"}, {"vram_alloc", "bytes"}, {"dram_read", "bytes"},
+		{"dram_write", "bytes"}, {"l2_sectors_read", "count"}, {"l2_sectors_miss", "count"},
+		{"shared_mem", "bytes"}, {"bank_conflicts", "count"}, {"tensor_warps", "count"},
+		{"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
+		{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"},
+		{"interconnect_rx", "bytes"}, {"stall_scoreboard", "count"}, {"stall_wait", "count"},
+		{"stall_math", "count"}, {"stall_mem", "count"}, {"launch_delay", "nanoseconds"},
+		{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
 	}
 	var got [][2]string
 	for _, data := range fields[1] {
@@ -159,7 +163,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatalf("got %d samples, want 1", len(fields[2]))
 	}
 	v, _ := profileFields(t, fields[2][0])
-	if !reflect.DeepEqual(v[2], []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}) {
+	if !reflect.DeepEqual(v[2], []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}) {
 		t.Fatalf("sample values = %v", v[2])
 	}
 }
@@ -246,12 +250,14 @@ func TestRecordSASSMetric(t *testing.T) {
 				t.Fatalf("got %d samples, want 1", len(fields[2]))
 			}
 			v, _ := profileFields(t, fields[2][0])
-			// profileSampleTypes order: samples(0), vram_alloc(1), dram_read(2), dram_write(3), l2_sectors_read(4), l2_sectors_miss(5), shared_mem(6), bank_conflicts(7), tensor_warps(8), ...
+			// profileSampleTypes order: samples(0), pc_samples(1), vram_alloc(2),
+			// dram_read(3), dram_write(4), l2_sectors_read(5), l2_sectors_miss(6),
+			// shared_mem(7), bank_conflicts(8), tensor_warps(9), ...
 			if v[2][0] != tt.wantSamples {
 				t.Errorf("samples = %d, want %d", v[2][0], tt.wantSamples)
 			}
-			if v[2][8] != tt.wantTensorWarps {
-				t.Errorf("tensor_warps = %d, want %d", v[2][8], tt.wantTensorWarps)
+			if v[2][9] != tt.wantTensorWarps {
+				t.Errorf("tensor_warps = %d, want %d", v[2][9], tt.wantTensorWarps)
 			}
 		})
 	}

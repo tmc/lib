@@ -177,6 +177,14 @@ func (s *Session) AddComment(text string) {
 	s.builder.AddComment(text)
 }
 
+// SetDocURL records a documentation link for the profile.
+// See [Builder.SetDocURL].
+func (s *Session) SetDocURL(url string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.builder.SetDocURL(url)
+}
+
 // SetNumericLabels declares which label keys hold numbers, so that pprof's
 // range filters apply to them. See [Builder.SetNumericLabels].
 func (s *Session) SetNumericLabels(unitByKey map[string]string) {
