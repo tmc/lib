@@ -217,3 +217,33 @@ func TestExtractTopK(t *testing.T) {
 		t.Errorf("expected candidate 0 cost (%f) < candidate 1 cost (%f)", cands[0].Cost, cands[1].Cost)
 	}
 }
+
+func TestPDLPipelineCostModel(t *testing.T) {
+	eg := egraph.New()
+
+	x := eg.Add(egraph.NewLeaf("x"))
+	w1 := eg.Add(egraph.NewLeaf("w1"))
+	w2 := eg.Add(egraph.NewLeaf("w2"))
+
+	stage1 := eg.Add(egraph.NewNode("gemv", x, w1))
+	stage2 := eg.Add(egraph.NewNode("gemv", stage1, w2))
+
+	rules := []*egraph.Rewrite{
+		egraph.MustRewrite("pdl_overlap_gemv",
+			"(gemv (gemv ?x ?w1) ?w2)",
+			"(pdl_gemv_pipeline ?x ?w1 ?w2)"),
+	}
+
+	egraph.Saturate(eg, rules, 10)
+
+	best, cost, err := egraph.ExtractBest(eg, stage2, egraph.FusedMegakernelCost{})
+	if err != nil {
+		t.Fatalf("ExtractBest failed: %v", err)
+	}
+
+	if !strings.Contains(best.String(), "pdl_gemv_pipeline") {
+		t.Errorf("expected best plan to select pdl_gemv_pipeline, got %s", best.String())
+	}
+	t.Logf("Extracted PDL pipeline: %s (cost: %.2f)", best, cost)
+}
+
