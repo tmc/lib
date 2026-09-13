@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -455,12 +456,10 @@ func float32ToHalf(f float32) uint16 {
 // TestPDLMemoryContentionCompilationAndPTX verifies that NVRTC emits the required
 // griddepcontrol instructions and 128-bit coalesced memory loads.
 func TestPDLMemoryContentionCompilationAndPTX(t *testing.T) {
-	if os.Getenv(pdlAblationEnv) != "1" {
-		t.Skipf("%s=1 required: needs NVIDIA GPU with CUDA 13.0 PDL support", pdlAblationEnv)
+	if err := nvrtc.Load(""); err != nil {
+		t.Skipf("NVRTC unavailable: %v", err)
 	}
-	dev := cudatest.Require(t)
-
-	compiled, err := nvrtcx.Compile(memoryContentionKernelSource, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	compiled, err := nvrtcx.Compile(memoryContentionKernelSource, nvrtcx.WithArch(12, 1), nvrtcx.WithNoCache())
 	if err != nil {
 		t.Fatalf("nvrtcx.Compile failed: %v", err)
 	}
@@ -816,11 +815,11 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 	)
 
 	testCases := []struct {
-		dtype          string
-		k              int
-		bytesPerElem   int
-		entryFn        driver.Function
-		hoistFn        driver.Function
+		dtype        string
+		k            int
+		bytesPerElem int
+		entryFn      driver.Function
+		hoistFn      driver.Function
 	}{
 		{dtype: "FP16", k: 512, bytesPerElem: 2, entryFn: cFP16EntryFn, hoistFn: cFP16HoistFn},
 		{dtype: "FP16", k: 1024, bytesPerElem: 2, entryFn: cFP16EntryFn, hoistFn: cFP16HoistFn},
