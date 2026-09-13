@@ -131,6 +131,11 @@ func getArtifact(prog nvrtc.Program, kind OutputKind) (*CompiledModule, error) {
 	case OutputCUBIN:
 		data, err = prog.GetCUBIN()
 		cm.cubin = data
+		if err == nil {
+			if ptxData, ptxErr := prog.GetPTX(); ptxErr == nil {
+				cm.ptx = string(ptxData)
+			}
+		}
 	case OutputLTOIR:
 		data, err = prog.GetLTOIR()
 		cm.ltoir = data
@@ -169,7 +174,7 @@ func (cm *CompiledModule) validArtifact() bool {
 	case OutputPTX:
 		return cm.ptx != "" && len(cm.cubin) == 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
 	case OutputCUBIN:
-		return cm.ptx == "" && len(cm.cubin) > 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
+		return len(cm.cubin) > 0 && len(cm.ltoir) == 0 && len(cm.tileir) == 0
 	case OutputLTOIR:
 		return cm.ptx == "" && len(cm.cubin) == 0 && len(cm.ltoir) > 0 && len(cm.tileir) == 0
 	case OutputPTXTileIR:

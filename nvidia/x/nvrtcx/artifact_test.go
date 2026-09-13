@@ -12,6 +12,7 @@ func TestArtifactCache(t *testing.T) {
 		{output: OutputAuto, ptx: "ptx", cubin: []byte{1}},
 		{output: OutputPTX, ptx: "ptx"},
 		{output: OutputCUBIN, cubin: []byte{1}},
+		{output: OutputCUBIN, ptx: "ptx", cubin: []byte{1}},
 		{output: OutputLTOIR, ltoir: []byte{2}},
 		{output: OutputTileIR, tileir: []byte{3}},
 		{output: OutputPTXTileIR, ptx: "ptx", tileir: []byte{3}},
