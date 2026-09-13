@@ -9,9 +9,14 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized(
   float sum = 0.0f;
   for (unsigned b = lane; b < blocks; b += 32) {
     const unsigned char *p = weight_row + (unsigned long long)b * 34;
-    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    const int *x4 = reinterpret_cast<const int *>(x[b].qs);
     int dot = 0;
-    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(x[b].qs[i]);
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+      dot = __dp4a(w4, x4[i], dot);
+    }
     const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
     sum += d * x[b].d * float(dot);
   }
@@ -31,9 +36,14 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
   float sum = 0.0f;
   for (unsigned b = lane; b < blocks; b += 32) {
     const unsigned char *p = weight_row + (unsigned long long)b * 34;
-    const signed char *w = reinterpret_cast<const signed char *>(p + 2);
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    const int *x4 = reinterpret_cast<const int *>(xb[b].qs);
     int dot = 0;
-    for (unsigned i = 0; i < 32; i++) dot += int(w[i]) * int(xb[b].qs[i]);
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+      dot = __dp4a(w4, x4[i], dot);
+    }
     const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
     sum += d * xb[b].d * float(dot);
   }
