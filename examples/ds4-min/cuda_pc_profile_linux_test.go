@@ -83,14 +83,14 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 		return cuptipcsampling.Config{}, fmt.Errorf("pc sampling: period exponent %d outside 5 through 31", period)
 	}
 	const (
-		outputBytes = 4 << 20
+		outputBytes = 2 << 20
 		nameBytes   = 256
-		maxNames    = 4096
+		maxNames    = 65536
 	)
 	stride := uint64(64) + uint64(reasons)*8
 	capacity := (outputBytes/2 - 80) / stride
-	if capacity > maxNames/2 {
-		capacity = maxNames / 2
+	if capacity > 512 {
+		capacity = 512
 	}
 	if capacity < 1 {
 		return cuptipcsampling.Config{}, fmt.Errorf("pc sampling: %d reasons exceed the output budget", reasons)
