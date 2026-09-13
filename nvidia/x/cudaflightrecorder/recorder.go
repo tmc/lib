@@ -238,10 +238,14 @@ func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
 	if activity.Complete {
 		duration = activity.End - activity.Start
 	}
+	r.mu.Lock()
+	calibrated := r.activityCalibrated
+	hostNs, deviceNs := r.activityHostNs, r.activityDeviceNs
+	r.mu.Unlock()
 	timestampNs := int64(0)
 	labels := map[string]string{"activity.kind": fmt.Sprintf("%d", activity.Kind)}
-	if r.activityCalibrated {
-		timestampNs = mapCUPTITimestamp(r.activityHostNs, r.activityDeviceNs, activity.Start)
+	if calibrated {
+		timestampNs = mapCUPTITimestamp(hostNs, deviceNs, activity.Start)
 	} else {
 		labels["activity.uncalibrated"] = "true"
 	}
