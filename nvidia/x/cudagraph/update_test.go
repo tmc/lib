@@ -1,6 +1,7 @@
 package cudagraph_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -153,5 +154,107 @@ func TestUpdateDoesNotValidateKernelIdentity(t *testing.T) {
 				"so Update reported success without applying the swap", i)
 		}
 		t.Fatalf("after Update, buf[%d] = %d, want %d", i, v, factor)
+	}
+}
+
+// TestUpdateErrorNamesTheNode checks the two shapes a failed update takes: one
+// the driver blames on a node and one it does not.
+//
+// Both arms are needed. A formatter that always named a node would pass the
+// second and fail the first; one that never named a node would do the reverse.
+// Asserting only the case that carries a handle would not notice a zero handle
+// being printed as a node for every topology change.
+func TestUpdateErrorNamesTheNode(t *testing.T) {
+	dev := cudatest.Require(t)
+	compiled, err := nvrtcx.Compile(swapKernels, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mod, err := compiled.Load(dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(mod.Unload)
+	incFn, err := mod.GetFunction("swapIncrement")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(stream.Destroy)
+
+	const n, block = 256, 128
+	buf, err := cudamem.Alloc[uint32](dev, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.WithContext(buf.Free)
+
+	launch := func() error {
+		return cudalaunch.Kernel(incFn).Grid(n/block).Block(block).On(stream).Launch(buf, int32(n))
+	}
+	capture := func(fn func() error) *cudagraph.Graph {
+		t.Helper()
+		var launchErr error
+		g, err := cudagraph.Capture(stream, func() { launchErr = fn() })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if launchErr != nil {
+			g.Destroy()
+			t.Fatalf("captured operation: %v", launchErr)
+		}
+		return g
+	}
+
+	one := capture(launch)
+	defer one.Destroy()
+	exec, err := one.Instantiate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer exec.Destroy()
+
+	// A topology change is not a node's fault, and the driver leaves both
+	// blame handles zero. Naming a node here would be inventing one.
+	two := capture(func() error {
+		if err := launch(); err != nil {
+			return err
+		}
+		return launch()
+	})
+	defer two.Destroy()
+
+	err = exec.Update(two)
+	if err == nil {
+		t.Fatal("Update with a second node = nil, want a topology-change failure")
+	}
+	if !strings.Contains(err.Error(), "TopologyChanged") {
+		t.Errorf("Update error = %v, want it to report a topology change", err)
+	}
+	if strings.Contains(err.Error(), "node=") {
+		t.Errorf("Update error = %v, want no node named: the driver blames no node for a topology change", err)
+	}
+
+	// Same node count, different node type: a memcpy where the executable
+	// holds a kernel. This one the driver does blame on a node.
+	host := make([]uint32, n)
+	copyGraph := capture(func() error { return buf.CopyFromHostAsync(host, stream) })
+	defer copyGraph.Destroy()
+
+	err = exec.Update(copyGraph)
+	if err == nil {
+		t.Fatal("Update with a memcpy node = nil, want a node-type-change failure")
+	}
+	if !strings.Contains(err.Error(), "NodeTypeChanged") {
+		t.Errorf("Update error = %v, want it to report a node type change", err)
+	}
+	if !strings.Contains(err.Error(), "node=0x") {
+		t.Errorf("Update error = %v, want the rejected node named", err)
+	}
+	if strings.Contains(err.Error(), "node=0x0") {
+		t.Errorf("Update error = %v, want a real node handle, not a zero one", err)
 	}
 }
