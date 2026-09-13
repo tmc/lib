@@ -59,7 +59,7 @@ func (inv ReasonInventory) Lookup(index uint32) string {
 // partial inventory.
 // Names and IDs are owned copies sorted by ID. Native errors remain inspectable.
 //
-// The 64-bit parameter layouts for CUPTI 27, 130001 and 130200 are admitted;
+// The 64-bit parameter layouts for CUPTI 27, 130001, 130200 and 130400 are admitted;
 // other versions fail before querying the layout. Runtime/device support must
 // still be established by the native result on the selected configuration.
 func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {
@@ -77,7 +77,7 @@ func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery 
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
 	}
-	if unsafe.Sizeof(uintptr(0)) != 8 || (version != 27 && version != 130001 && version != 130200) {
+	if unsafe.Sizeof(uintptr(0)) != 8 || (version != 27 && version != 130001 && version != 130200 && version != 130400) {
 		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: unqualified reason inventory layout for CUPTI %d", version)
 	}
 	var pin runtime.Pinner

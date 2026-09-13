@@ -38,7 +38,7 @@ func fillNames(t *testing.T, p *cupti.PCSamplingGetStallReasonsParams) [][]byte 
 }
 
 func TestStallReasons(t *testing.T) {
-	for _, version := range []uint32{27, 130001, 130200} {
+	for _, version := range []uint32{27, 130001, 130200, 130400} {
 		var native [][]byte
 		out, err := stallReasons(1, 10, version, countTwo(t), func(p *cupti.PCSamplingGetStallReasonsParams) error { native = fillNames(t, p); return nil })
 		want := []StallReason{{Index: 3, Name: "selected"}, {Index: 9, Name: "selected_not_issued"}}
