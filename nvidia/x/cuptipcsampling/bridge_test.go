@@ -687,9 +687,9 @@ func reasonVocabularies() map[string]string {
 		"wait":             "stall_wait",
 		"barrier":          "stall_wait",
 		// membar is the one name whose bucket depends on the order of two switch
-		// arms. A __threadfence loop measured 86.80% of 263890 samples here, so
-		// this row is a witnessed routing rather than a claim about a name no
-		// workload had produced.
+		// arms. A __threadfence loop on a GB10 at driver 580.173.02 measured
+		// 86.80% of 263890 samples here, so this row is a witnessed routing
+		// rather than a claim about a name no workload had produced.
 		"membar":             "stall_wait",
 		"math_pipe_throttle": "stall_math",
 		"mio_throttle":       "stall_mem",
