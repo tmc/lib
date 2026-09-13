@@ -3,6 +3,7 @@ package cuptipcsampling
 import (
 	"context"
 	"errors"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
@@ -36,9 +37,20 @@ type CodeResolver interface {
 
 // ProfileBridge routes native PC sampling batches into a cudaprof session.
 type ProfileBridge struct {
-	Session        *cudaprof.Session
-	Inventory      ReasonInventory
-	Resolver       CodeResolver // optional
+	Session   *cudaprof.Session
+	Inventory ReasonInventory
+	Resolver  CodeResolver // optional
+	// PTXOffsets indexes the byte offset of each one-based PTX line, as
+	// [cudaprof.PTXLineOffsets] returns it. Without it a PTX frame carries no
+	// address, and pprof's address granularity is blind to the samples that
+	// have real instruction addresses. Optional.
+	PTXOffsets []uint64
+	// HostFrames provides host-side callstack frames (e.g. Go caller functions)
+	// attached above the device frames on recorded PC samples. Optional.
+	HostFrames []cudaprof.Frame
+	// LabelFunc supplies additional context labels for a resolved location.
+	// Optional.
+	LabelFunc func(loc CodeLocation) map[string]string
 	UnmappedStalls map[string]int64
 }
 
@@ -82,7 +94,10 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		if totalSamples == 0 {
 			continue
 		}
-		vals.Samples = totalSamples
+		// PC samples count occurrences at an address, which is a different
+		// thing from the launch counts the samples type carries; summing the
+		// two would make neither readable.
+		vals.PCSamples = totalSamples
 		if selectedSamples > 0 {
 			vals.InstExecuted = selectedSamples
 		}
@@ -119,10 +134,15 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			if ptxFile == "" {
 				ptxFile = "kernels.ptx"
 			}
+			var ptxAddr uint64
+			if int(loc.PTXLine) < len(b.PTXOffsets) {
+				ptxAddr = cudaprof.PTXMappingStart + b.PTXOffsets[loc.PTXLine]
+			}
 			frames = append(frames, cudaprof.Frame{
 				FunctionName: loc.KernelName + ".PTX",
 				FileName:     ptxFile,
 				Line:         loc.PTXLine,
+				Address:      ptxAddr,
 			})
 		}
 
@@ -154,7 +174,25 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			})
 		}
 
-		b.Session.RecordStackSample(ctx, vals, frames)
+		if len(b.HostFrames) > 0 {
+			frames = append(frames, b.HostFrames...)
+		}
+
+		sampleCtx := ctx
+		if loc.KernelName != "" || b.LabelFunc != nil {
+			var pairs []string
+			if loc.KernelName != "" {
+				pairs = append(pairs, "kernel", loc.KernelName)
+			}
+			if b.LabelFunc != nil {
+				for k, v := range b.LabelFunc(loc) {
+					pairs = append(pairs, k, v)
+				}
+			}
+			sampleCtx = pprof.WithLabels(ctx, pprof.Labels(pairs...))
+		}
+
+		b.Session.RecordStackSample(sampleCtx, vals, frames)
 	}
 
 	return nil
@@ -164,6 +202,21 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 // Order matters: barrier and membar checks must precede memory throttle checks.
 func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {
 	name := strings.ToLower(reasonName)
+	// CUPTI reports each reason twice: smsp__pcsamp_warps_issue_stalled_<r>
+	// and the _not_issued companion counting the subset of those cycles where
+	// the scheduler issued nothing. Adding both counts the same samples twice,
+	// which is what made the stall totals run about 1.9x the collected sample
+	// count. NVIDIA's own pc_sampling_start_stop output shows the pairing
+	// plainly: long_scoreboard 23 beside long_scoreboard_not_issued 23. The
+	// companion is mapped, so it stays out of the unmapped tally, but only the
+	// base reason is added.
+	if base, ok := strings.CutSuffix(name, "_not_issued"); ok {
+		// Classify the base reason to decide, but discard the count: a reason
+		// this function does not model stays visible as unmapped under its own
+		// full name rather than vanishing.
+		var discard cudaprof.SampleValues
+		return classifyStall(base, count, &discard)
+	}
 	switch {
 	// Synchronization and memory barriers (check before general memory throttle)
 	case strings.Contains(name, "barrier") || strings.Contains(name, "membar") || strings.Contains(name, "sync") || strings.Contains(name, "wait"):
