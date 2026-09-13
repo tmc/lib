@@ -1018,13 +1018,15 @@ The launch counts also stop moving together: `router_biased` is short by 12.8
 token-equivalents against the other two families' 8, which rules out reading
 the remaining deficit as some whole number of lost tokens.
 
-### Both levers together close it
+### Both levers together close the inventory
 
 `p3astop100` is `p3astop` with `--cuda-flush-interval=100` instead of 1000 —
 one line different, both levers on. It is the first capture of the production
-workload that passes every gate:
+workload whose *inventory* is complete — every count the project knows how to
+derive comes out exact. It does not pass every gate: the host-to-device clock
+gate still fails, and that failure is the subject of the next subsection.
 
-| gate | required | p3astop100 |
+| inventory gate | required | p3astop100 |
 | --- | --- | --- |
 | prefill logits sha256 | `4eee1b14…` | matches |
 | final logits sha256 | `837a6b87…` | matches |
@@ -1058,17 +1060,45 @@ Neither lever does this alone. The exit flush alone leaves 8 token-equivalents
 and 39% of decode token 2 missing; a 100 ms interval alone leaves all of
 decode missing. **Use both.** The recipe is in the CUDA section above.
 
-### What the closure does and does not prove
+### The clock gate still fails, and now it means something
 
-Every gate here is a necessary condition that something could still slip
+A complete inventory is not an aligned trace. Lining a host span up against
+the device kernels it launched needs a mapping between the two clocks, and on
+this capture there is none: with the full six-marker inventory present, the
+constant-offset intersection is empty by 433,684 ns, and exact rational
+feasibility for *any* positive-rate affine map is infeasible — on all six
+markers and independently on the four interior ones. Witness brackets:
+
+```
+all six:  lower 39013512071/39013402240 (start, batch 64)
+        > upper 20685395543/20685341560 (batch 192, end)
+interior: lower  7966498707/7966476848  (batch 64, batch 128)
+        > upper 20274519825/20274466784 (batch 192, batch 256)
+```
+
+The earlier captures showed the same infeasibility, and it could always be
+waved away: they were missing markers, they were missing their tails, so
+perhaps the surviving brackets were simply wrong. This one is not missing
+either. **That removes truncation and tail loss as explanations** for this
+run. It does not exclude every timestamp error, and it does not speak to
+records nobody has enumerated — but the easy explanations are gone.
+
+Until that gate passes, this capture supports device-side reasoning and
+host-side reasoning separately. It does not yet support putting a host span
+and a device kernel on one timeline, which is the thing the guide exists to
+produce.
+
+### What the inventory closure does and does not prove
+
+Every inventory gate is a necessary condition that something could still slip
 past — three sentinel kernel families are not an enumeration of every launch
 in the program, and per-batch equality against an empirical baseline is not a
 derivation of what each batch should contain. What can be said is that every
 independently derived count this project knows how to compute now comes out
 exact, the accounting closes on the capture total with the two warm-up rows
 named, and the workload's own numerics gate passed bit-for-bit on the same
-run. That is the strongest statement the available gates support, and it is
-the first time the production workload has earned it.
+run. That is the strongest statement the inventory gates support. It is not a
+qualified aligned trace, and an earlier draft of this section called it one.
 
 ### What this does not establish
 
