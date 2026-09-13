@@ -57,18 +57,31 @@ func (d Disassembler) Version(ctx context.Context) (Output, error) {
 	return cudatool.Run(ctx, d.path(), "", nil, "--version")
 }
 
-func (o Options) args() ([]string, error) {
-	var args []string
+// ErrUnsupportedOption means the resolved nvdisasm does not accept an option the
+// requested [Options] would emit, by name or by arity. [Disassembler.Disassemble]
+// reports it instead of running a command line the tool would reject.
+var ErrUnsupportedOption = cudatool.ErrUnsupportedOption
+
+// ToolName is the executable [Disassembler] runs. It is also the name
+// [cudatool.Capabilities] records option sets under.
+const ToolName = "nvdisasm"
+
+// flags returns the options the command line emits, in order, without running
+// anything. It is the single account of what a command line contains, so the
+// capability check and the executed arguments cannot describe different runs.
+func (o Options) flags() ([]cudatool.Flag, error) {
+	var flags []cudatool.Flag
+	add := func(name string) { flags = append(flags, cudatool.Flag{Name: name}) }
 	switch o.Mode {
 	case Text:
 	case JSON:
-		args = append(args, "--emit-json")
+		add("--emit-json")
 	case ControlFlow:
-		args = append(args, "--output-control-flow-graph")
+		add("--output-control-flow-graph")
 	case BasicBlockFlow:
-		args = append(args, "--output-control-flow-graph-with-basic-blocks")
+		add("--output-control-flow-graph-with-basic-blocks")
 	case RegisterLife:
-		args = append(args, "--print-life-ranges")
+		add("--print-life-ranges")
 	default:
 		return nil, fmt.Errorf("unknown disassembly mode %d", o.Mode)
 	}
@@ -76,7 +89,7 @@ func (o Options) args() ([]string, error) {
 		if o.Mode != RegisterLife {
 			return nil, fmt.Errorf("life range mode requires register life mode")
 		}
-		args = append(args, "--life-range-mode", o.LifeRangeMode)
+		flags = append(flags, cudatool.Flag{Name: "--life-range-mode", Value: o.LifeRangeMode})
 	}
 	if o.Mode != Text && (o.SourceLines || o.InlineLines || o.PTXLines) {
 		return nil, fmt.Errorf("line annotations require text mode")
@@ -85,26 +98,33 @@ func (o Options) args() ([]string, error) {
 		if o.Mode != ControlFlow && o.Mode != BasicBlockFlow {
 			return nil, fmt.Errorf("instruction offsets cfg requires control flow mode")
 		}
-		args = append(args, "--print-instr-offsets-cfg")
+		add("--print-instr-offsets-cfg")
 	}
 	if o.PrintCode {
-		args = append(args, "--print-code")
+		add("--print-code")
 	}
 	if o.PrintHex {
-		args = append(args, "--print-instruction-encoding")
+		add("--print-instruction-encoding")
 	}
 	if o.SeparateFunctions {
-		args = append(args, "--separate-functions")
+		add("--separate-functions")
 	}
 	if o.InlineLines {
-		args = append(args, "--print-line-info-inline")
+		add("--print-line-info-inline")
 	} else if o.SourceLines {
-		args = append(args, "--print-line-info")
+		add("--print-line-info")
 	}
 	if o.PTXLines {
-		args = append(args, "--print-line-info-ptx")
+		add("--print-line-info-ptx")
 	}
-	return args, nil
+	return flags, nil
+}
+
+// Capabilities reports what the selected nvdisasm accepts. The answer comes
+// from the option sets recorded for the toolkit the executable belongs to, or
+// from its own --help for a toolkit newer than any recorded one.
+func (d Disassembler) Capabilities(ctx context.Context) (cudatool.Caps, error) {
+	return cudatool.Capabilities(ctx, ToolName, d.Path)
 }
 
 // ControlFlowGraph disassembles a CUDA ELF image into a Graphviz DOT control flow graph.
@@ -124,9 +144,19 @@ func (d Disassembler) ControlFlowGraph(ctx context.Context, cubin []byte, basicB
 // Disassemble validates a CUDA ELF image and disassembles a private file copy.
 // Scratch files are removed before return. Output remains available on failure.
 func (d Disassembler) Disassemble(ctx context.Context, cubin []byte, opts Options) (out Output, err error) {
-	args, err := opts.args()
+	flags, err := opts.flags()
 	if err != nil {
 		return Output{}, err
+	}
+	// A determinate answer about the tool is enforced; an indeterminate one
+	// is not. When the executable does not report a version and its --help
+	// cannot be read, nothing is known about what it accepts, and refusing to
+	// run it would be a claim this package cannot make. The tool's own
+	// diagnosis stands in that case.
+	if caps, err := d.Capabilities(ctx); err == nil {
+		if err := caps.Check(flags...); err != nil {
+			return Output{}, err
+		}
 	}
 	f, err := elf.NewFile(bytes.NewReader(cubin))
 	if err != nil {
@@ -149,7 +179,7 @@ func (d Disassembler) Disassemble(ctx context.Context, cubin []byte, opts Option
 	if err := os.WriteFile(path, cubin, 0600); err != nil {
 		return Output{}, err
 	}
-	return cudatool.Run(ctx, d.path(), "", nil, append(args, path)...)
+	return cudatool.Run(ctx, d.path(), "", nil, append(cudatool.Args(flags...), path)...)
 }
 
 // Demangler selects cu++filt. Its zero value searches PATH.

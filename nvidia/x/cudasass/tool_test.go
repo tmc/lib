@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // This is only an ELF header fixture, not executable GPU code.
@@ -120,13 +122,13 @@ func TestModes(t *testing.T) {
 		{Options{Mode: BasicBlockFlow, PrintInstructionOffsetsCFG: true}, []string{"--output-control-flow-graph-with-basic-blocks", "--print-instr-offsets-cfg"}},
 		{Options{PrintCode: true, InlineLines: true, PTXLines: true}, []string{"--print-code", "--print-line-info-inline", "--print-line-info-ptx"}},
 	} {
-		got, err := tt.o.args()
-		if err != nil || !reflect.DeepEqual(got, tt.want) {
+		flags, err := tt.o.flags()
+		if got := cudatool.Args(flags...); err != nil || !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%+v = %v, %v", tt.o, got, err)
 		}
 	}
 	for _, o := range []Options{{Mode: 99}, {Mode: JSON, SourceLines: true}, {Mode: RegisterLife, PTXLines: true}, {Mode: Text, PrintInstructionOffsetsCFG: true}} {
-		if _, err := o.args(); err == nil {
+		if _, err := o.flags(); err == nil {
 			t.Errorf("accepted %+v", o)
 		}
 	}

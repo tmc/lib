@@ -3,9 +3,12 @@ package cudasass
 import (
 	"context"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 const sampleLifeRangeText = `
@@ -76,9 +79,9 @@ func TestParseLifeRangeCount(t *testing.T) {
 	}
 
 	tests := []struct {
-		addr  uint64
-		want  RegisterPressure
-		desc  string
+		addr uint64
+		want RegisterPressure
+		desc string
 	}{
 		{0x0000, RegisterPressure{GPR: 1, Pred: 0, UGPR: 0, UPred: 0}, "initial load"},
 		{0x0020, RegisterPressure{GPR: 2, Pred: 0, UGPR: 1, UPred: 0}, "first uniform register"},
@@ -293,50 +296,33 @@ printf '.section .text.k,"ax",@progbits\nk:\n//## File "k.cu", line 5\n/*0000*/ 
 	}
 }
 
+// TestLifeRangeOptions covers register-life option validation and the command
+// line it produces. It inspects the flags rather than running a stub tool,
+// because Disassemble now checks the flags against what the resolved nvdisasm
+// accepts, and a stub accepts nothing.
 func TestLifeRangeOptions(t *testing.T) {
-	// Test Options validation and flag emission
-	d := Disassembler{Path: "echo"}
-
-	// Valid count mode
-	opts := Options{
-		Mode:          RegisterLife,
-		LifeRangeMode: "count",
-		PrintCode:     true,
-	}
-	out, err := d.Disassemble(context.Background(), testCUBIN(), opts)
+	flags, err := Options{Mode: RegisterLife, LifeRangeMode: "count", PrintCode: true}.flags()
 	if err != nil {
-		t.Fatalf("Disassemble failed: %v", err)
+		t.Fatalf("flags: %v", err)
 	}
-	wantFlags := []string{"--print-life-ranges", "--life-range-mode", "count", "--print-code"}
-	for _, flag := range wantFlags {
-		found := false
-		for _, arg := range out.Args {
-			if arg == flag {
-				found = true
-				break
+	got := cudatool.Args(flags...)
+	want := []string{"--print-life-ranges", "--life-range-mode", "count", "--print-code"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("args = %q, want %q", got, want)
+	}
+	rejected := []struct {
+		name string
+		o    Options
+	}{
+		{"life range mode without register life mode", Options{Mode: Text, LifeRangeMode: "count"}},
+		{"source lines with register life mode", Options{Mode: RegisterLife, SourceLines: true}},
+	}
+	for _, tt := range rejected {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.o.flags(); err == nil {
+				t.Errorf("flags accepted %+v", tt.o)
 			}
-		}
-		if !found {
-			t.Errorf("flag %q missing from args: %v", flag, out.Args)
-		}
-	}
-
-	// Invalid: LifeRangeMode on non-RegisterLife mode
-	invalidOpts := Options{
-		Mode:          Text,
-		LifeRangeMode: "count",
-	}
-	if _, err := d.Disassemble(context.Background(), testCUBIN(), invalidOpts); err == nil {
-		t.Error("expected error specifying LifeRangeMode without RegisterLife mode")
-	}
-
-	// Invalid: line info combined with RegisterLife mode
-	incompatibleOpts := Options{
-		Mode:        RegisterLife,
-		SourceLines: true,
-	}
-	if _, err := d.Disassemble(context.Background(), testCUBIN(), incompatibleOpts); err == nil {
-		t.Error("expected error combining SourceLines with RegisterLife mode")
+		})
 	}
 }
 
