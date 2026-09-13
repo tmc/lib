@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
+	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
 
 // Default settings for the flight recorder.
@@ -176,6 +179,34 @@ func (r *Recorder) Push(rec Record) {
 	} else {
 		r.dropped++
 	}
+}
+
+// PushSASSMetric records an instruction-level SASS metric into the flight recorder ring buffer.
+func (r *Recorder) PushSASSMetric(timestampNs int64, correlationID uint64, sm cuptipcsampling.SASSMetric) {
+	labels := sm.FlightRecordLabels()
+	r.Push(Record{
+		TimestampNs:   timestampNs,
+		KernelName:    sm.KernelName,
+		CorrelationID: correlationID,
+		DurationNs:    0,
+		Labels:        labels,
+	})
+}
+
+// PushPMSample records a hardware Performance Monitor counter observation into the flight recorder.
+func (r *Recorder) PushPMSample(sample cuptipmsampling.Sample) {
+	labels := make(map[string]string, len(sample.Values)+2)
+	labels["pm.sample_index"] = fmt.Sprintf("%d", sample.Index)
+	labels["pm.duration_ns"] = fmt.Sprintf("%d", sample.DurationNs)
+	for k, v := range sample.Values {
+		labels["pm."+k] = fmt.Sprintf("%.4f", v)
+	}
+	r.Push(Record{
+		TimestampNs:   int64(sample.StartTimestamp),
+		KernelName:    "device.pm_sampling",
+		DurationNs:    sample.DurationNs,
+		Labels:        labels,
+	})
 }
 
 // Snapshot writes a multi-modal diagnostic bundle (.tar) to w containing

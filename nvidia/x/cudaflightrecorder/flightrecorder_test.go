@@ -7,9 +7,12 @@ import (
 	"net/http/httptest"
 	"runtime/trace"
 	"testing"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaflightrecorder"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
+	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
 
 func TestBundleRoundTrip(t *testing.T) {
@@ -493,5 +496,68 @@ func TestGoTraceFlightRecording(t *testing.T) {
 				t.Errorf("gpu_records.txt missing kernel name 'gemm_wmma'")
 			}
 		})
+	}
+}
+
+func TestPushSASSMetric_And_PushPMSample(t *testing.T) {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   5 * time.Second,
+		Capacity: 100,
+	})
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+	if err := rec.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer rec.Stop()
+
+	// 1. Push SASS metric
+	sm := cuptipcsampling.SASSMetric{
+		PC:           0x300,
+		KernelName:   "gemm_fwd",
+		TotalSamples: 100,
+		Selected:     25,
+		SelectedPct:  25.0,
+		StallSamples: 75,
+		Dominant: &cuptipcsampling.PipelineStall{
+			Name:     "long_scoreboard",
+			Category: cuptipcsampling.StallCategoryMemory,
+			Samples:  50,
+			Percent:  66.67,
+		},
+	}
+	nowNs := time.Now().UnixNano()
+	rec.PushSASSMetric(nowNs, 42, sm)
+
+	// 2. Push PM sample
+	pm := cuptipmsampling.Sample{
+		Index:          0,
+		StartTimestamp: uint64(nowNs),
+		EndTimestamp:   uint64(nowNs + 1_000_000),
+		DurationNs:     1_000_000,
+		Values:         map[string]float64{"sm_busy": 82.5},
+	}
+	rec.PushPMSample(pm)
+
+	var buf bytes.Buffer
+	manifest, err := rec.Snapshot(context.Background(), &buf, "metrics_test")
+	if err != nil {
+		t.Fatalf("Snapshot failed: %v", err)
+	}
+	if manifest.GPURecords != 2 {
+		t.Errorf("manifest.GPURecords = %d, want 2", manifest.GPURecords)
+	}
+
+	bundle, err := cudaflightrecorder.ReadBundle(&buf)
+	if err != nil {
+		t.Fatalf("ReadBundle failed: %v", err)
+	}
+	gpuRecs := string(bundle.Files["gpu_records.txt"])
+	if !strings.Contains(gpuRecs, "gemm_fwd") {
+		t.Errorf("gpu_records.txt does not contain gemm_fwd: %s", gpuRecs)
+	}
+	if !strings.Contains(gpuRecs, "device.pm_sampling") {
+		t.Errorf("gpu_records.txt does not contain device.pm_sampling: %s", gpuRecs)
 	}
 }

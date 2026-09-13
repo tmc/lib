@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaflightrecorder"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
+	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
 
 func Example() {
@@ -61,12 +63,14 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	defer rec.Stop()
 
 	// Record a GPU execution observation
+	now := time.Now()
 	rec.Push(cudaflightrecorder.Record{
-		TimestampNs:   time.Now().UnixNano(),
+		TimestampNs:   now.UnixNano(),
 		KernelName:    "flash_attention_fwd",
 		CorrelationID: 101,
 		DurationNs:    15000,
 	})
+	time.Sleep(time.Millisecond)
 
 	// Take a multi-modal snapshot containing both Go trace and GPU records
 	var buf bytes.Buffer
@@ -92,3 +96,58 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	// Overlap reliable: true
 }
 
+
+func ExampleRecorder_PushSASSMetric() {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   5 * time.Second,
+		Capacity: 100,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		log.Fatal(err)
+	}
+	defer rec.Stop()
+
+	sm := cuptipcsampling.SASSMetric{
+		PC:           0x100,
+		KernelName:   "gemm_wmma",
+		TotalSamples: 200,
+		Selected:     40,
+		Dominant: &cuptipcsampling.PipelineStall{
+			Name:    "long_scoreboard",
+			Percent: 80.0,
+		},
+	}
+	rec.PushSASSMetric(time.Now().UnixNano(), 10, sm)
+	fmt.Println("Pushed SASS metric for:", sm.KernelName)
+	// Output:
+	// Pushed SASS metric for: gemm_wmma
+}
+
+func ExampleRecorder_PushPMSample() {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   5 * time.Second,
+		Capacity: 100,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		log.Fatal(err)
+	}
+	defer rec.Stop()
+
+	sample := cuptipmsampling.Sample{
+		Index:          0,
+		StartTimestamp: 1000,
+		EndTimestamp:   2000,
+		DurationNs:     1000,
+		Values:         map[string]float64{"sm_busy": 95.0},
+	}
+	rec.PushPMSample(sample)
+	fmt.Printf("Pushed PM sample: duration=%dns\n", sample.DurationNs)
+	// Output:
+	// Pushed PM sample: duration=1000ns
+}
