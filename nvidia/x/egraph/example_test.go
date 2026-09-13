@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
+	"strings"
 )
 
 func Example() {
@@ -104,4 +105,33 @@ func ExampleDequantizeIQ2XXS() {
 	fmt.Printf("first 4 weights: %.3f %.3f %.3f %.3f\n", dst[0], dst[1], dst[2], dst[3])
 	// Output:
 	// first 4 weights: 0.125 0.125 0.125 0.125
+}
+
+func ExampleGenerateTileIR() {
+	// Build an AST expression: RMSNorm -> GEMV
+	x := egraph.NewLeafNode("x")
+	wNorm := egraph.NewLeafNode("w_norm")
+	eps := egraph.NewLeafNode("eps")
+	wQKV := egraph.NewLeafNode("w_qkv")
+
+	norm := egraph.NewNodeExpr("rmsnorm", x, wNorm, eps)
+	qkvProj := egraph.NewNodeExpr("gemv", norm, wQKV)
+
+	// Lower directly to Tile IR assembly text (auto-fusing to tile_rmsnorm_qkv)
+	textIR, err := egraph.GenerateTileIR(qkvProj, egraph.CodegenOptions{
+		KernelName: "fused_rmsnorm_qkv",
+		Precision:  "f16",
+	})
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+
+	fmt.Println(strings.Contains(textIR, "cuda_tile.entry @fused_rmsnorm_qkv"))
+	fmt.Println(strings.Contains(textIR, "cuda_tile.rsqrt"))
+	fmt.Println(strings.Contains(textIR, "cuda_tile.mma_f"))
+	// Output:
+	// true
+	// true
+	// true
 }

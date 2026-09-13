@@ -58,6 +58,20 @@ func TransformerTileRules() []*Rewrite {
 		MustRewrite("fuse_geglu_matmul",
 			"(matmul (mul (gelu (matmul ?x ?w_g)) (matmul ?x ?w_u)) ?w_d)",
 			"(tile_geglu ?x ?w_g ?w_u ?w_d)"),
+
+		// 7. Full Transformer Block: RMSNorm -> GEMV / Projection -> SwiGLU FFN
+		MustRewrite("fuse_rmsnorm_proj_swiglu",
+			"(tile_swiglu (tile_rmsnorm_proj ?x ?w_norm ?eps ?w_proj) ?w_g ?w_u ?w_d)",
+			"(tile_rmsnorm_gemv_swiglu ?x ?w_norm ?eps ?w_proj ?w_g ?w_u ?w_d)"),
+		MustRewrite("fuse_rmsnorm_gemv_swiglu",
+			"(tile_swiglu (gemv (rmsnorm ?x ?w_norm ?eps) ?w_proj) ?w_g ?w_u ?w_d)",
+			"(tile_rmsnorm_gemv_swiglu ?x ?w_norm ?eps ?w_proj ?w_g ?w_u ?w_d)"),
+		MustRewrite("fuse_rmsnorm_matmul_swiglu",
+			"(tile_swiglu (matmul (rmsnorm ?x ?w_norm ?eps) ?w_proj) ?w_g ?w_u ?w_d)",
+			"(tile_rmsnorm_gemv_swiglu ?x ?w_norm ?eps ?w_proj ?w_g ?w_u ?w_d)"),
+		MustRewrite("fuse_rmsnorm_direct_swiglu",
+			"(tile_swiglu (rmsnorm ?x ?w_norm ?eps) ?w_g ?w_u ?w_d)",
+			"(tile_rmsnorm_swiglu ?x ?w_norm ?eps ?w_g ?w_u ?w_d)"),
 	}
 }
 

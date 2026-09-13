@@ -49,6 +49,8 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 
 	op := expr.Op
 	switch {
+	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
+		sb.WriteString(generateDeclarativeRMSNormGEMVSwiGLU(opts.KernelName, elemType))
 	case strings.Contains(op, "rmsnorm_qkv"):
 		sb.WriteString(generateDeclarativeRMSNormQKV(opts.KernelName, elemType))
 	case strings.Contains(op, "rmsnorm_proj"):
@@ -284,25 +286,111 @@ func generateDeclarativeFP4(kernelName string) string {
 `, kernelName)
 }
 
+func generateDeclarativeRMSNormGEMVSwiGLU(kernelName, elemType string) string {
+	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
+    const %s* __restrict__ X,
+    const %s* __restrict__ W_norm,
+    const %s* __restrict__ W_proj,
+    const %s* __restrict__ W_gate,
+    const %s* __restrict__ W_up,
+    const %s* __restrict__ W_down,
+    %s* __restrict__ Out,
+    int M, int N, int K,
+    float eps
+) {
+    constexpr int TM = 16, TN = 16, TK = 16;
+    auto x = partition_view{tensor_span{assume_aligned<16>(X), extents{M, K}}, shape<TM, TK>{}};
+    auto wn = partition_view{tensor_span{assume_aligned<16>(W_norm), extents{K, 1}}, shape<TK, 1>{}};
+    auto wp = partition_view{tensor_span{assume_aligned<16>(W_proj), extents{K, N}}, shape<TK, TN>{}};
+    auto wg = partition_view{tensor_span{assume_aligned<16>(W_gate), extents{N, N}}, shape<TN, TN>{}};
+    auto wu = partition_view{tensor_span{assume_aligned<16>(W_up), extents{N, N}}, shape<TN, TN>{}};
+    auto wd = partition_view{tensor_span{assume_aligned<16>(W_down), extents{N, K}}, shape<TN, TK>{}};
+    auto out = partition_view{tensor_span{assume_aligned<16>(Out), extents{M, K}}, shape<TM, TK>{}};
+
+    auto proj = full<tile<%s, shape<TM, TN>>>(0.0f);
+    for (auto k : irange(0, K / TK)) {
+        proj = mma(x.load(0, k), wp.load(k, 0), proj);
+    }
+
+    auto gate = full<tile<%s, shape<TM, TN>>>(0.0f);
+    auto up = full<tile<%s, shape<TM, TN>>>(0.0f);
+    for (auto n : irange(0, N / TN)) {
+        gate = mma(proj, wg.load(n, 0), gate);
+        up = mma(proj, wu.load(n, 0), up);
+    }
+    auto act = (gate / (1.0f + exp(-gate))) * up;
+
+    auto down = full<tile<%s, shape<TM, TK>>>(0.0f);
+    for (auto n : irange(0, N / TN)) {
+        down = mma(act, wd.load(n, 0), down);
+    }
+    out.store(down, 0, 0);
+}
+`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
+}
+
+// Lowerer translates egraph expressions into Tile IR modules and textual IR.
+type Lowerer struct {
+	opts CodegenOptions
+}
+
+// NewLowerer creates a new Lowerer configured with opts.
+func NewLowerer(opts CodegenOptions) *Lowerer {
+	if opts.KernelName == "" {
+		opts.KernelName = "tile_kernel"
+	}
+	if opts.Precision == "" {
+		opts.Precision = "float"
+	}
+	return &Lowerer{opts: opts}
+}
+
+// GenerateTileIR translates an egraph expression AST into valid Tile IR textual assembly syntax.
+func GenerateTileIR(node *Node, opts ...CodegenOptions) (string, error) {
+	var opt CodegenOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	return NewLowerer(opt).Generate(node)
+}
+
 // ToTileIR lowers an extracted AST Expr into an intermediate Tile IR Module (tileir.Module).
 //
 // The resulting Module can be rendered into canonical Tile IR MLIR text (mod.String())
 // or serialized to Tile IR binary bytecode (mod.EncodeBytecode()).
 func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
-	if expr == nil {
-		return nil, fmt.Errorf("egraph: nil expr passed to ToTileIR")
+	return NewLowerer(opts).Lower(expr)
+}
+
+// Generate translates an egraph expression AST into valid Tile IR textual assembly syntax.
+func (l *Lowerer) Generate(node *Node) (string, error) {
+	mod, err := l.Lower(node)
+	if err != nil {
+		return "", err
 	}
-	if opts.KernelName == "" {
-		opts.KernelName = "tile_kernel"
+	return mod.String(), nil
+}
+
+// Lower lowers an extracted AST Node into an intermediate Tile IR Module (tileir.Module).
+func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
+	if node == nil {
+		return nil, fmt.Errorf("egraph: nil node passed to Lower")
+	}
+
+	// If node is an unfused composite expression, attempt to fuse using TransformerTileRules.
+	if !strings.HasPrefix(node.Op, "tile_") && len(node.Children) > 0 {
+		if fused := fuseNode(node); fused != nil && strings.HasPrefix(fused.Op, "tile_") {
+			node = fused
+		}
 	}
 
 	var elemType tileir.Type = tileir.Float32
-	switch opts.Precision {
-	case "half", "float16":
+	switch l.opts.Precision {
+	case "half", "float16", "f16":
 		elemType = tileir.Float16
 	case "bf16", "bfloat16":
 		elemType = tileir.BFloat16
-	case "f8", "fp8", "e4m3", "f8E4M3FN":
+	case "f8", "fp8", "e4m3", "f8E4M3FN", "fp8_e4m3":
 		elemType = tileir.Float8E4M3
 	case "fp8_e5m2", "e5m2", "f8E5M2":
 		elemType = tileir.Float8E5M2
@@ -315,68 +403,304 @@ func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 		Producer: "egraph_compiler",
 	}
 
-	ptrType := tileir.NewPointer(elemType)
-	tilePtrType := tileir.NewTile(nil, ptrType)
-	tile64x64 := tileir.NewTile([]int64{64, 64}, elemType)
-	tile64x64f32 := tileir.NewTile([]int64{64, 64}, tileir.Float32)
-
 	fn := &tileir.Function{
-		Name:  opts.KernelName,
+		Name:  l.opts.KernelName,
 		Entry: true,
-		Params: []*tileir.Param{
-			{Name: "%A", Type: tilePtrType.String(), TypeVal: tilePtrType},
-			{Name: "%B", Type: tilePtrType.String(), TypeVal: tilePtrType},
-			{Name: "%C", Type: tilePtrType.String(), TypeVal: tilePtrType},
-		},
 	}
 
-	ops := []*tileir.Operation{
-		{
-			OpCode:  "cuda_tile.make_token",
-			Results: []string{"%tok0"},
-			Type:    tileir.Token.String(),
-			TypeVal: tileir.Token,
-		},
-		{
-			OpCode:   "cuda_tile.load_view_tko",
-			Results:  []string{"%vA"},
-			Operands: []string{"%A", "%tok0"},
-			Type:     tile64x64.String(),
-			TypeVal:  tile64x64,
-		},
-		{
-			OpCode:   "cuda_tile.load_view_tko",
-			Results:  []string{"%vB"},
-			Operands: []string{"%B", "%tok0"},
-			Type:     tile64x64.String(),
-			TypeVal:  tile64x64,
-		},
-		{
-			OpCode:     "cuda_tile.constant",
-			Results:    []string{"%cst"},
-			Attributes: "<f32: 0.0>",
-			Type:       tile64x64f32.String(),
-			TypeVal:    tile64x64f32,
-		},
-		{
-			OpCode:   "cuda_tile.mma_f",
-			Results:  []string{"%acc"},
-			Operands: []string{"%vA", "%vB", "%cst"},
-			Type:     tile64x64f32.String(),
-			TypeVal:  tile64x64f32,
-		},
-		{
-			OpCode: "cuda_tile.return",
-		},
+	tilePtr := tileir.NewTile(nil, tileir.NewPointer(elemType))
+	tileF32Ptr := tileir.NewTile(nil, tileir.NewPointer(tileir.Float32))
+	tile64 := tileir.NewTile([]int64{64, 64}, elemType)
+	tile64f32 := tileir.NewTile([]int64{64, 64}, tileir.Float32)
+
+	op := node.Op
+	switch {
+	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_proj", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_up", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_down", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWproj"}, Operands: []string{"%W_proj", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWg"}, Operands: []string{"%W_gate", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWu"}, Operands: []string{"%W_up", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWd"}, Operands: []string{"%W_down", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst1"}, Attributes: "<f32: 1.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			// RMSNorm
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
+			// GEMV Projection
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%proj"}, Operands: []string{"%x_scaled", "%vWproj", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			// SwiGLU FFN
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%gate"}, Operands: []string{"%proj", "%vWg", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%up"}, Operands: []string{"%proj", "%vWu", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.neg_f", Results: []string{"%neg_gate"}, Operands: []string{"%gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.exp", Results: []string{"%exp_gate"}, Operands: []string{"%neg_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%denom"}, Operands: []string{"%cst1", "%exp_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.div_f", Results: []string{"%sig_gate"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%silu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%act"}, Operands: []string{"%silu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "rmsnorm_qkv_split"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_q", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_k", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_v", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWq"}, Operands: []string{"%W_q", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWk"}, Operands: []string{"%W_k", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWv"}, Operands: []string{"%W_v", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%q"}, Operands: []string{"%x_scaled", "%vWq", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%k"}, Operands: []string{"%x_scaled", "%vWk", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%v"}, Operands: []string{"%x_scaled", "%vWv", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%kv"}, Operands: []string{"%k", "%v"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%acc"}, Operands: []string{"%q", "%kv"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "rmsnorm_qkv"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_qkv", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWqkv"}, Operands: []string{"%W_qkv", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%x_scaled", "%vWqkv", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "rmsnorm_proj"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_proj", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWproj"}, Operands: []string{"%W_proj", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%x_scaled", "%vWproj", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "swiglu"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_up", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_down", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWg"}, Operands: []string{"%W_gate", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWu"}, Operands: []string{"%W_up", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWd"}, Operands: []string{"%W_down", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst1"}, Attributes: "<f32: 1.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%gate"}, Operands: []string{"%vX", "%vWg", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%up"}, Operands: []string{"%vX", "%vWu", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.neg_f", Results: []string{"%neg_gate"}, Operands: []string{"%gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.exp", Results: []string{"%exp_gate"}, Operands: []string{"%neg_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%denom"}, Operands: []string{"%cst1", "%exp_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.div_f", Results: []string{"%sig_gate"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%silu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%act"}, Operands: []string{"%silu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "geglu"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_up", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_down", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWg"}, Operands: []string{"%W_gate", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWu"}, Operands: []string{"%W_up", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWd"}, Operands: []string{"%W_down", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst1"}, Attributes: "<f32: 1.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%gate"}, Operands: []string{"%vX", "%vWg", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%up"}, Operands: []string{"%vX", "%vWu", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.neg_f", Results: []string{"%neg_gate"}, Operands: []string{"%gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.exp", Results: []string{"%exp_gate"}, Operands: []string{"%neg_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%denom"}, Operands: []string{"%cst1", "%exp_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.div_f", Results: []string{"%sig_gate"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%gelu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%act"}, Operands: []string{"%gelu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "gelu"):
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_in", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%W_out", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWin"}, Operands: []string{"%W_in", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWout"}, Operands: []string{"%W_out", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst1"}, Attributes: "<f32: 1.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%mid"}, Operands: []string{"%vX", "%vWin", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.neg_f", Results: []string{"%neg_mid"}, Operands: []string{"%mid"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.exp", Results: []string{"%exp_mid"}, Operands: []string{"%neg_mid"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.add_f", Results: []string{"%denom"}, Operands: []string{"%cst1", "%exp_mid"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.div_f", Results: []string{"%sig"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%act"}, Operands: []string{"%mid", "%sig"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%act", "%vWout", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "fp8"):
+		tileFP8Ptr := tileir.NewTile(nil, tileir.NewPointer(tileir.Float8E4M3))
+		tile64FP8 := tileir.NewTile([]int64{64, 64}, tileir.Float8E4M3)
+		fn.Params = []*tileir.Param{
+			{Name: "%A", Type: tileFP8Ptr.String(), TypeVal: tileFP8Ptr},
+			{Name: "%B", Type: tileFP8Ptr.String(), TypeVal: tileFP8Ptr},
+			{Name: "%ScaleA", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+			{Name: "%ScaleB", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+			{Name: "%C", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vA"}, Operands: []string{"%A", "%tok0"}, Type: tile64FP8.String(), TypeVal: tile64FP8},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vB"}, Operands: []string{"%B", "%tok0"}, Type: tile64FP8.String(), TypeVal: tile64FP8},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vSa"}, Operands: []string{"%ScaleA", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vSb"}, Operands: []string{"%ScaleB", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%raw"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%scale"}, Operands: []string{"%vSa", "%vSb"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%acc"}, Operands: []string{"%raw", "%scale"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	case strings.Contains(op, "fp4"):
+		tileFP4Ptr := tileir.NewTile(nil, tileir.NewPointer(tileir.Float4E2M1))
+		tile64FP4 := tileir.NewTile([]int64{64, 64}, tileir.Float4E2M1)
+		fn.Params = []*tileir.Param{
+			{Name: "%A", Type: tileFP4Ptr.String(), TypeVal: tileFP4Ptr},
+			{Name: "%B", Type: tileFP4Ptr.String(), TypeVal: tileFP4Ptr},
+			{Name: "%ScaleA", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+			{Name: "%ScaleB", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+			{Name: "%C", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vA"}, Operands: []string{"%A", "%tok0"}, Type: tile64FP4.String(), TypeVal: tile64FP4},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vB"}, Operands: []string{"%B", "%tok0"}, Type: tile64FP4.String(), TypeVal: tile64FP4},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vSa"}, Operands: []string{"%ScaleA", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vSb"}, Operands: []string{"%ScaleB", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%raw"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%scale"}, Operands: []string{"%vSa", "%vSb"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mul_f", Results: []string{"%acc"}, Operands: []string{"%raw", "%scale"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
+
+	default:
+		// Default generic tile MMA (matmul, gemv, tile_mma, etc.)
+		fn.Params = []*tileir.Param{
+			{Name: "%A", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%B", Type: tilePtr.String(), TypeVal: tilePtr},
+			{Name: "%C", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
+		}
+		fn.Operations = []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vA"}, Operands: []string{"%A", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vB"}, Operands: []string{"%B", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.return"},
+		}
 	}
 
-	fn.Operations = ops
 	blk := &tileir.Block{
 		Name:       "^bb0",
-		Operations: ops,
+		Operations: fn.Operations,
 	}
-	fn.Blocks = append(fn.Blocks, blk)
-	mod.Functions = append(mod.Functions, fn)
+	fn.Blocks = []*tileir.Block{blk}
+	mod.Functions = []*tileir.Function{fn}
 
 	return mod, nil
+}
+
+func fuseNode(node *Node) *Node {
+	if node == nil {
+		return nil
+	}
+	g := New()
+	var addExpr func(e *Expr) Id
+	addExpr = func(e *Expr) Id {
+		if len(e.Children) == 0 {
+			return g.Add(NewLeaf(e.Op))
+		}
+		childIds := make([]Id, len(e.Children))
+		for i, child := range e.Children {
+			childIds[i] = addExpr(child)
+		}
+		return g.Add(NewNode(e.Op, childIds...))
+	}
+	rootId := addExpr(node)
+	rules := TransformerTileRules()
+	Saturate(g, rules, 15)
+	best, _, err := ExtractBest(g, rootId, FusedMegakernelCost{})
+	if err == nil && best != nil {
+		return best
+	}
+	return node
 }
