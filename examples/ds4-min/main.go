@@ -46,6 +46,9 @@ generation rather than the mmap residency wait.
         write a Go execution trace
   -spans file
         write a gputrace.host-event/v1 sidecar for "gputrace host-receipt"
+  -spans-stream file
+        write that sidecar a record at a time, with no cap and an
+        accounting receipt beside it; use this for -span-level=op
   -span-level string
         span depth: off, phase, token, layer, or op (default "token")
   -run-id string
@@ -54,10 +57,21 @@ generation rather than the mmap residency wait.
 
 Spans are also appended to $GPUTRACE_APP_EVENTS when that is set, which
 is what "gputrace capture" does, so a captured run carries them with no
-flag. Both sidecars are bounded: the host-event reader rejects a file over
-8 MiB or 100,000 records, and recording stops at whichever binds first —
-near 40,000 spans in practice, which one 2048-token prefill exceeds at
--span-level=layer.
+flag.
+
+-spans holds every interval in memory and stops recording at 8 MiB or
+100,000 records, whichever binds first — near 40,000 spans in practice,
+which one 2048-token prefill exceeds at -span-level=layer. Those are the
+recorder's own caps. The converter's reader imposes none: readHost in
+examples/cmd/profile2trace/spans.go decodes a file of any length, though
+it does materialize every record.
+
+-spans-stream writes each record as its span closes and holds only the
+spans currently open, so it is bounded by nesting depth rather than by run
+length. It writes <file>.accounting.json beside the sidecar, which reports
+how many spans began, ended and encoded, and refuses to call itself
+complete if any of those disagree or a write failed. The two flags are
+alternatives; -span-level=op needs the streaming one.
 `
 
 type config struct {
@@ -76,6 +90,7 @@ type config struct {
 	memProfile   string
 	traceProfile string
 	spanPath     string
+	spanStream   string
 	spanLevel    spanLevel
 	runID        string
 	calibPath    string
@@ -145,7 +160,15 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		runID = defaultRunID()
 	}
 	if cfg.spanLevel != levelOff {
-		spans = newSpanRecorder(cfg.spanLevel, runID)
+		if cfg.spanStream != "" {
+			r, err := newStreamRecorder(cfg.spanLevel, runID, cfg.spanStream)
+			if err != nil {
+				return err
+			}
+			streamSpans = r
+		} else {
+			spans = newSpanRecorder(cfg.spanLevel, runID)
+		}
 	}
 	// Bracket the calibration ranges around the whole workload rather than
 	// beside it: two readings far apart are what test whether one constant
@@ -262,6 +285,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&cfg.memProfile, "memprofile", "", "write a Go heap profile")
 	fs.StringVar(&cfg.traceProfile, "trace", "", "write a Go execution trace")
 	fs.StringVar(&cfg.spanPath, "spans", "", "write a gputrace host-event sidecar")
+	fs.StringVar(&cfg.spanStream, "spans-stream", "", "stream that sidecar with no record cap")
 	var spanLevel string
 	fs.StringVar(&spanLevel, "span-level", "token", "span depth: off, phase, token, layer, or op")
 	fs.StringVar(&cfg.runID, "run-id", "", "run identity shared with a gputrace timing sidecar")
@@ -303,6 +327,9 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	}
 	if prompt != "" && promptFile != "" {
 		return config{}, errors.New("prompt and prompt-file conflict")
+	}
+	if cfg.spanPath != "" && cfg.spanStream != "" {
+		return config{}, errors.New("-spans and -spans-stream both write the host-event sidecar; choose one")
 	}
 	level, err := parseSpanLevel(spanLevel)
 	if err != nil {
@@ -363,6 +390,16 @@ func defaultRunID() string {
 // writeSpans writes whichever span sidecars this run was asked for. The
 // GPUTRACE_APP_EVENTS path needs no flag: "gputrace capture" sets it.
 func writeSpans(cfg config, log io.Writer) error {
+	if sr := streamSpans; sr != nil {
+		streamSpans = nil
+		err := sr.Close()
+		acc := accountingPath(cfg.spanStream)
+		if err != nil {
+			return fmt.Errorf("streaming span sidecar: %w (see %s)", err, acc)
+		}
+		fmt.Fprintf(log, "ds4-min: streamed %d spans to %s; accounting in %s\n", sr.written, cfg.spanStream, acc)
+		return nil
+	}
 	r := spans
 	if r == nil {
 		return nil

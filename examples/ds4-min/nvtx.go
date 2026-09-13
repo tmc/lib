@@ -23,9 +23,10 @@ import (
 // call it at the interval's real boundary. Closing twice would otherwise
 // restamp the span's duration and unbalance the NVTX range.
 type tracedEnd struct {
-	span spanEnd
-	rng  nvtx.RangeID
-	done *bool
+	span   spanEnd
+	stream streamEnd
+	rng    nvtx.RangeID
+	done   *bool
 }
 
 func (e tracedEnd) end() {
@@ -34,6 +35,7 @@ func (e tracedEnd) end() {
 	}
 	*e.done = true
 	e.span.end()
+	e.stream.end()
 	if e.rng != 0 {
 		nvtx.RangeEnd(e.rng)
 	}
@@ -58,10 +60,26 @@ func tracePhase(level spanLevel, name string, fn func() error) error {
 // span.go is a copy of gputrace's hostspan and stays byte-identical to it,
 // so the pairing lives here rather than inside begin.
 func beginTraced(level spanLevel, name string, labels map[string]string) tracedEnd {
-	if spans == nil || level > spans.level {
+	if !tracing(level) {
 		return tracedEnd{}
 	}
-	return tracedEnd{span: begin(level, name, labels), rng: nvtx.RangeStart(name), done: new(bool)}
+	return tracedEnd{
+		span:   begin(level, name, labels),
+		stream: beginStream(level, name),
+		rng:    nvtx.RangeStart(name),
+		done:   new(bool),
+	}
+}
+
+// tracing reports whether any recorder wants a span at this level. The two
+// recorders are alternatives -- the buffered one in span.go caps its record
+// count, the streaming one in span_stream.go does not -- and a run installs
+// at most one, but the NVTX range opens for either.
+func tracing(level spanLevel) bool {
+	if spans != nil && level <= spans.level {
+		return true
+	}
+	return streamSpans != nil && level <= streamSpans.level
 }
 
 // beginTracedLayer is beginTraced for one transformer layer. The NVTX name
@@ -69,13 +87,17 @@ func beginTraced(level spanLevel, name string, labels map[string]string) tracedE
 // the span keeps it as a label so "gputrace pprof" still sums the 43 layers
 // into one frame.
 func beginTracedLayer(i int) tracedEnd {
-	if spans == nil || levelLayer > spans.level {
+	if !tracing(levelLayer) {
 		return tracedEnd{}
 	}
+	// The streamed sidecar carries the index in the name because
+	// gputrace.host-event/v1 has no labels; the buffered sidecar keeps it
+	// as a label, which is the same reason the NVTX name carries it.
 	return tracedEnd{
-		span: beginLayer(i),
-		rng:  nvtx.RangeStart("layer " + strconv.Itoa(i)),
-		done: new(bool),
+		span:   beginLayer(i),
+		stream: beginStream(levelLayer, "layer "+strconv.Itoa(i)),
+		rng:    nvtx.RangeStart("layer " + strconv.Itoa(i)),
+		done:   new(bool),
 	}
 }
 
