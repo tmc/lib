@@ -155,7 +155,8 @@ func testQ2KMatvec(t *testing.T, threads uint32) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("q2k.cu"),
-		nvrtcx.WithArch(int(major), int(minor)),
+		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
+		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

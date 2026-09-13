@@ -81,7 +81,8 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("rmsnorm.cu"),
-		nvrtcx.WithArch(int(major), int(minor)),
+		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
+		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

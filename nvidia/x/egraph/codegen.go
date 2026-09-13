@@ -420,6 +420,7 @@ func generateQ2KMatvecKernel(opts CodegenOptions) string {
     if (warp_id >= rows) return;
 
     int row = warp_id;
+    if (cols % 256 != 0) return;
     int blocks_per_row = cols / 256;
     float row_sum = 0.0f;
 
