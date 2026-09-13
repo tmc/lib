@@ -124,11 +124,11 @@ __device__ __forceinline__ float warp_sum(float val) {
 `)
 
 	switch expr.Op {
-	case "fused_swiglu_gemv":
+	case "fused_swiglu_gemv", "tile_swiglu":
 		sb.WriteString(generateSwiGLUKernel(opts))
 	case "fused_swiglu_q8_0":
 		sb.WriteString(generateSwiGLUQ8_0Kernel(opts))
-	case "fused_rmsnorm_gemv":
+	case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj":
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
 	case "q8_0_matvec":
 		sb.WriteString(generateQ8_0MatvecKernel(opts))
