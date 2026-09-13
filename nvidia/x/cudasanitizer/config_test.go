@@ -176,7 +176,8 @@ func TestArgsBareFlags(t *testing.T) {
 		{"track-unused-memory no", Config{Tool: Initcheck, MissingTool: MissingToolFail, TrackUnusedMemory: ToggleNo}, "--track-unused-memory", false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			args, err := tt.cfg.Args("", "/bin/app")
+			const prog = "/bin/app"
+			args, err := tt.cfg.Args("", prog)
 			if err != nil {
 				t.Fatalf("Args: %v", err)
 			}
@@ -187,7 +188,8 @@ func TestArgsBareFlags(t *testing.T) {
 			if i < 0 {
 				return
 			}
-			if next := i + 1; next < len(args) && !strings.HasPrefix(args[next], "-") {
+			next := i + 1
+			if next < len(args) && args[next] != prog && !strings.HasPrefix(args[next], "-") {
 				t.Fatalf("Args() = %q, want %s with no argument, got %q after it", args, tt.flag, args[next])
 			}
 		})
