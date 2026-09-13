@@ -1279,13 +1279,41 @@ rather than inherited from this observation.
 ### What qualifies this comparison, and what does not
 
 The Go side carries source-derived completeness checks that came out exact —
-8200 / 6150 / 82000 across three kernel families. **The C side has no
-equivalent.** No source-derived expected count has been established for
-`ds4-bench`, and both exported captures carry Nsight's
-`Not all CUDA events might have been collected` in `DIAGNOSTIC_EVENT`
-(cap1 13,149 produced / 12,492 collected; cap2 12,893 / 12,195 — different
-counter domains, not subtractable as missing kernels, but retained). The
-comparison is therefore asymmetrically qualified.
+8200 / 6150 / 82000 across three kernel families. The C side now has an
+equivalent, derived from `ds4_cuda.cu` and `cuda/mmq/ds4_mmq_d2r.cu` against
+this build's CUDA identity, and every one of them passes:
+
+| family | expected | prefill | | expected | decode |
+| --- | ---: | ---: | --- | ---: | ---: |
+| `router_select_warp_topk` | 43 | **43** | | 86 | **86** |
+| `moe_mmq_sum` | 43 | **43** | | 86 | **86** |
+| `store_raw_kv_batch` | 43 | **43** | | — | — |
+| `gateup_iq2_swiglu_q8_d2r` | 43 | **43** | | — | — |
+| `down_q2k_d2r` | 43 | **43** | | — | — |
+| `d2r_build_worklist<32,64>` | 86 | **86** | | — | — |
+| `swiglu` | 43 | **43** | | 86 | **86** |
+| `embed_token(s)_hc` | 1 | **1** | | 2 | **2** |
+| `output_hc_weights` | 1 | **1** | | 2 | **2** |
+
+One launch per layer for a single layer-major prefill call over all 2048
+tokens, and 43x2 for two single-token decode Evals. `d2r_build_worklist`
+reaching 86 is the `<32>` and `<64>` instantiations at 43 each.
+
+This is the same *kind* of check the Go side has, with the same limit: these
+are necessary conditions on named families, not an enumeration of every
+launch. Several families are deliberately excluded because their counts are
+not reducible to a fixed per-layer number without deriving the position and
+chunk branches — compressor pool/set-rows, fp8 quantization, the indexer
+hadamard/scores/topk/masks, attention token-tile, and the generic
+quantize/fill/sanitize/rms/cuBLAS/CUTLASS families. The captured multiples for
+those (41, 42, 62, 84, 87, 129, 169, 172, 344) stay observations.
+
+Both exported captures still carry Nsight's `Not all CUDA events might have
+been collected` in `DIAGNOSTIC_EVENT` (cap1 13,149 produced / 12,492
+collected; cap2 12,893 / 12,195 — different counter domains, not subtractable
+as missing-kernel counts). Passing sentinels detects deficits in the named
+families; it does not erase that diagnostic for the families nobody has
+accounted for.
 
 Note which way that cuts, conditionally: *if* C duration is undercounted and
 the Go retained duration is held fixed, the observed ratio is inflated. That
@@ -1311,9 +1339,10 @@ both are withdrawn:
 What the evidence supports is narrower than the earlier draft claimed: this
 capture reports 45.87x on summed kernel duration, an unmatched historical
 observation reports 51.0x on wall throughput, and both motivate work on the Go
-prefill path. Neither establishes a qualified ratio until C retention is
-checked against source-derived expectations and the run conditions are
-matched.
+prefill path. Neither establishes a qualified ratio: C retention is now
+checked against source-derived expectations for thirteen families and passes,
+but the remaining families are unaccounted and the run conditions are still
+unmatched.
 
 ### The decode arm is close, and its gate is open
 
