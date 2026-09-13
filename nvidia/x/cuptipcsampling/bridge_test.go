@@ -3,6 +3,7 @@ package cuptipcsampling_test
 import (
 	"bytes"
 	"context"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -604,5 +605,80 @@ func TestReasonInventoryRouting(t *testing.T) {
 		if got := routing[prefix+reason+"_not_issued"]; got != wantCompanion {
 			t.Errorf("Routing[%s_not_issued] = %q, want %q", reason, got, wantCompanion)
 		}
+	}
+}
+
+// Routing says where a reason would be counted and the identity says nothing was
+// lost; neither says how much of a bucket came from which reason. Without that
+// the long_scoreboard half of stall_scoreboard -- warps waiting on memory data,
+// the answer to "is this kernel memory bound" -- cannot be recovered from the
+// capture at all.
+func TestProfileBridgeReasonSamples(t *testing.T) {
+	const prefix = "smsp__pcsamp_warps_issue_stalled_"
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 1, Name: prefix + "long_scoreboard"},
+			{Index: 2, Name: prefix + "short_scoreboard"},
+			{Index: 3, Name: prefix + "long_scoreboard_not_issued"},
+			{Index: 4, Name: prefix + "selected"},
+			{Index: 5, Name: prefix + "misc"},
+		},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	bridge := &cuptipcsampling.ProfileBridge{Session: session, Inventory: inv}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 60,
+		PCs: []cuptipcsampling.PC{
+			{CRC: 1, Name: "kernel", Offset: 0x10, Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 30},
+				{Index: 2, Samples: 4},
+				{Index: 3, Samples: 25},
+				{Index: 4, Samples: 20},
+			}},
+			{CRC: 1, Name: "kernel", Offset: 0x20, Reasons: []cuptipcsampling.StallSamples{
+				{Index: 1, Samples: 5},
+				{Index: 5, Samples: 1},
+			}},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	// Accumulated across PCs, under native names, companions and selected
+	// included: the breakdown has to account for every reason the hardware
+	// reported, not only the ones that reached a bucket.
+	want := map[string]int64{
+		prefix + "long_scoreboard":            35,
+		prefix + "short_scoreboard":           4,
+		prefix + "long_scoreboard_not_issued": 25,
+		prefix + "selected":                   20,
+		prefix + "misc":                       1,
+	}
+	if !maps.Equal(bridge.ReasonSamples, want) {
+		t.Errorf("ReasonSamples = %v, want %v", bridge.ReasonSamples, want)
+	}
+	// The split is the point: stall_scoreboard is the sum of the two, and only
+	// ReasonSamples says which half it came from.
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	types := make(map[string]int)
+	for i, st := range p.SampleType {
+		types[st.Type] = i
+	}
+	var scoreboard int64
+	for _, s := range p.Sample {
+		scoreboard += s.Value[types["stall_scoreboard"]]
+	}
+	if got := want[prefix+"long_scoreboard"] + want[prefix+"short_scoreboard"]; scoreboard != got {
+		t.Errorf("stall_scoreboard = %d, want %d", scoreboard, got)
 	}
 }

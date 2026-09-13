@@ -53,8 +53,19 @@ type ProfileBridge struct {
 	HostFrames func(loc CodeLocation) []cudaprof.Frame
 	// LabelFunc supplies additional context labels for a resolved location.
 	// Optional.
-	LabelFunc      func(loc CodeLocation) map[string]string
+	LabelFunc func(loc CodeLocation) map[string]string
+	// UnmappedStalls accumulates, per native reason name, the samples of
+	// reasons this package does not model. They reach no sample type, so a
+	// nonempty map means the stall breakdown is not the whole measurement.
 	UnmappedStalls map[string]int64
+	// ReasonSamples accumulates every reason's samples under its native name,
+	// modelled or not. Routing says where a reason would be counted;
+	// ReasonSamples says how much was, which is what makes the routing
+	// falsifiable against the same capture. It is also the only place the
+	// long_scoreboard and short_scoreboard split survives, and that split is
+	// the difference between "waiting on memory data" and a register
+	// dependency, which stall_scoreboard alone cannot tell apart.
+	ReasonSamples map[string]int64
 }
 
 // RecordBatch records all valid PC samples and stall reasons in batch into the profile session.
@@ -81,6 +92,10 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 				continue
 			}
 			name := b.Inventory.Lookup(r.Index)
+			if b.ReasonSamples == nil {
+				b.ReasonSamples = make(map[string]int64)
+			}
+			b.ReasonSamples[name] += count
 			// A _not_issued count is a companion over a subset of the cycles
 			// its base reason already counted, so only base reasons add to the
 			// sample total. Measured on a GB10 capture: base reasons sum to
