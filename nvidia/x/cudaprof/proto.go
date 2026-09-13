@@ -5,9 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"maps"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type stringTable struct {
@@ -100,6 +103,23 @@ type Builder struct {
 	binaryPath  string
 	samples     []sample
 	sampleTypes []int
+	locMap      map[locationKey]uint64
+
+	timeNanos     int64
+	durationNanos int64
+	periodType    struct{ name, unit string }
+	period        int64
+	defaultType   string
+	numericLabels map[string]string
+}
+
+// locationKey identifies a location by everything the proto records about it,
+// so that repeated samples at one address reuse a single location entry.
+type locationKey struct {
+	mappingID  uint64
+	address    uint64
+	functionID uint64
+	line       int64
 }
 
 var profileSampleTypes = []struct{ name, unit string }{
@@ -201,18 +221,21 @@ func NewBuilder() *Builder {
 	b := &Builder{
 		st:      newStringTable(),
 		funcMap: make(map[string]uint64),
+		locMap:  make(map[locationKey]uint64),
 	}
 	b.mappings = append(b.mappings, mapping{
-		id:              1,
-		memoryStart:     DefaultMappingStart,
-		memoryLimit:     0x7fffffff,
-		fileOffset:      0,
-		filename:        b.st.Index("cuda_kernels.so"),
-		buildID:         0,
-		hasFunctions:    true,
-		hasFilenames:    true,
-		hasLineNumbers:  true,
-		hasInlineFrames: true,
+		id:             1,
+		memoryStart:    DefaultMappingStart,
+		memoryLimit:    0x7fffffff,
+		fileOffset:     0,
+		filename:       b.st.Index("cuda_kernels.so"),
+		buildID:        0,
+		hasFunctions:   true,
+		hasFilenames:   true,
+		hasLineNumbers: true,
+		// hasInlineFrames stays false: every location this builder emits carries
+		// exactly one Line. SASS, PTX and source are modeled as separate frames
+		// in the sample's stack, not as inline frames on one location.
 	})
 	return b
 }
@@ -234,6 +257,104 @@ func (b *Builder) SetMappingFile(filename, buildID string) {
 			b.mappings[0].buildID = b.st.Index(buildID)
 		}
 	}
+}
+
+// SetTimespan records when the profile was collected and how long it covers.
+// pprof reports the sampled total as a fraction of the duration, so a profile
+// without these prints no wall-clock context at all.
+func (b *Builder) SetTimespan(start time.Time, d time.Duration) {
+	if !start.IsZero() {
+		b.timeNanos = start.UnixNano()
+	}
+	if d > 0 {
+		b.durationNanos = int64(d)
+	}
+}
+
+// SetPeriod records the sampling period and what it measures. For an event
+// interval profile the period is the measurement granularity, not a rate.
+func (b *Builder) SetPeriod(name, unit string, period int64) {
+	b.periodType.name = name
+	b.periodType.unit = unit
+	b.period = period
+}
+
+// SetDefaultSampleType names the sample type a viewer should open. Without it
+// a consumer that defaults to index 0 may render an empty profile, because the
+// first type need not be the one carrying data. The name must be one of the
+// configured sample types.
+func (b *Builder) SetDefaultSampleType(name string) error {
+	for _, i := range b.selectedTypes() {
+		if profileSampleTypes[i].name == name {
+			b.defaultType = name
+			return nil
+		}
+	}
+	return fmt.Errorf("cudaprof: default sample type %q is not among the configured types", name)
+}
+
+// SetNumericLabels declares label keys whose values are numbers, mapping each
+// to its unit. pprof filters a bare number or "a:b" in -tagfocus as a numeric
+// range against these, so a count left as a string label cannot be
+// range-filtered. A declared value that does not parse as an integer is still
+// written as a string label rather than dropped.
+//
+// A key mapped to an empty unit is recorded with the unit "index", because
+// pprof discards a numeric label whose value and unit are both zero, and zero
+// is a valid index for a pass or a layer.
+func (b *Builder) SetNumericLabels(unitByKey map[string]string) {
+	b.numericLabels = maps.Clone(unitByKey)
+}
+
+// selectedTypes returns the configured sample type indexes, defaulting to all.
+func (b *Builder) selectedTypes() []int {
+	if len(b.sampleTypes) > 0 {
+		return b.sampleTypes
+	}
+	all := make([]int, len(profileSampleTypes))
+	for i := range profileSampleTypes {
+		all[i] = i
+	}
+	return all
+}
+
+// AddMapping registers an additional logical image and returns its mapping ID.
+// A frame whose address falls inside [start, limit) is attributed to this
+// mapping rather than the default one, which is how a profile can carry both
+// the CUBIN and the PTX text as separately addressed images. Ranges must not
+// overlap; the first containing range wins.
+func (b *Builder) AddMapping(filename, buildID string, start, limit uint64) uint64 {
+	id := uint64(len(b.mappings) + 1)
+	m := mapping{
+		id:             id,
+		memoryStart:    start,
+		memoryLimit:    limit,
+		filename:       b.st.Index(filename),
+		hasFunctions:   true,
+		hasFilenames:   true,
+		hasLineNumbers: true,
+	}
+	if buildID != "" {
+		m.buildID = b.st.Index(buildID)
+	}
+	b.mappings = append(b.mappings, m)
+	return id
+}
+
+// mappingFor returns the ID of the mapping containing addr, or zero when addr
+// is zero or falls outside every registered range.
+func (b *Builder) mappingFor(addr uint64) uint64 {
+	if addr == 0 {
+		return 0
+	}
+	for _, m := range b.mappings {
+		if addr >= m.memoryStart && addr < m.memoryLimit {
+			return m.id
+		}
+	}
+	// The default mapping keeps addresses it does not bound, so that an
+	// unregistered image still disassembles against the CUBIN as before.
+	return 1
 }
 
 func (b *Builder) getOrCreateFunction(kernelName, filename string, startLine int64) uint64 {
@@ -280,18 +401,23 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 	locIDs := make([]uint64, 0, len(frames))
 	for _, frame := range frames {
 		fnID := b.getOrCreateFunction(frame.FunctionName, frame.FileName, frame.Line)
-		locID := uint64(len(b.locations) + 1)
-		var mappingID uint64
-		if frame.Address != 0 {
-			mappingID = 1
+		mappingID := b.mappingFor(frame.Address)
+		key := locationKey{mappingID: mappingID, address: frame.Address, functionID: fnID, line: frame.Line}
+		locID, ok := b.locMap[key]
+		if !ok {
+			locID = uint64(len(b.locations) + 1)
+			b.locations = append(b.locations, location{
+				id:         locID,
+				mappingID:  mappingID,
+				address:    frame.Address,
+				functionID: fnID,
+				line:       frame.Line,
+			})
+			if b.locMap == nil {
+				b.locMap = make(map[locationKey]uint64)
+			}
+			b.locMap[key] = locID
 		}
-		b.locations = append(b.locations, location{
-			id:         locID,
-			mappingID:  mappingID,
-			address:    frame.Address,
-			functionID: fnID,
-			line:       frame.Line,
-		})
 		locIDs = append(locIDs, locID)
 	}
 
@@ -387,12 +513,7 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 	var body []byte
 
 	// 1. Sample types. Keep the same selection for each sample's values.
-	selected := b.sampleTypes
-	if len(selected) == 0 {
-		for i := range profileSampleTypes {
-			selected = append(selected, i)
-		}
-	}
+	selected := b.selectedTypes()
 	for _, i := range selected {
 		st := profileSampleTypes[i]
 		var stBody []byte
@@ -411,10 +532,21 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 			sBody = append(sBody, encodeVarint(2, uint64(s.values[i]))...) // values (repeated int64)
 		}
 
-		for k, v := range s.labels {
+		for _, k := range slices.Sorted(maps.Keys(s.labels)) {
+			v := s.labels[k]
 			var lBody []byte
 			lBody = append(lBody, encodeVarint(1, uint64(b.st.Index(k)))...)
-			lBody = append(lBody, encodeVarint(2, uint64(b.st.Index(v)))...)
+			unit, numeric := b.numericLabels[k]
+			n, convErr := strconv.ParseInt(v, 10, 64)
+			if numeric && convErr == nil {
+				if unit == "" {
+					unit = "index"
+				}
+				lBody = append(lBody, encodeVarint(3, uint64(n))...)
+				lBody = append(lBody, encodeVarint(4, uint64(b.st.Index(unit)))...)
+			} else {
+				lBody = append(lBody, encodeVarint(2, uint64(b.st.Index(v)))...)
+			}
 			sBody = append(sBody, encodeLengthDelimited(3, lBody)...)
 		}
 		body = append(body, encodeLengthDelimited(2, sBody)...)
@@ -473,7 +605,30 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		body = append(body, encodeLengthDelimited(5, fBody)...)
 	}
 
-	// 6. String table
+	// 6. Profile-level fields. period_type and default_sample_type intern
+	// strings, so they are resolved before the table is serialized.
+	var header []byte
+	if b.timeNanos != 0 {
+		header = append(header, encodeVarint(9, uint64(b.timeNanos))...)
+	}
+	if b.durationNanos != 0 {
+		header = append(header, encodeVarint(10, uint64(b.durationNanos))...)
+	}
+	if b.periodType.name != "" || b.periodType.unit != "" {
+		var ptBody []byte
+		ptBody = append(ptBody, encodeVarint(1, uint64(b.st.Index(b.periodType.name)))...)
+		ptBody = append(ptBody, encodeVarint(2, uint64(b.st.Index(b.periodType.unit)))...)
+		header = append(header, encodeLengthDelimited(11, ptBody)...)
+	}
+	if b.period != 0 {
+		header = append(header, encodeVarint(12, uint64(b.period))...)
+	}
+	if b.defaultType != "" {
+		header = append(header, encodeVarint(14, uint64(b.st.Index(b.defaultType)))...)
+	}
+	body = append(body, header...)
+
+	// 7. String table
 	for _, str := range b.st.strings {
 		body = append(body, encodeString(6, str)...)
 	}
