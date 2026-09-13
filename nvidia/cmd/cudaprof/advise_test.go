@@ -1264,7 +1264,7 @@ func TestAdvice_PointwiseFusion(t *testing.T) {
 }
 
 func TestAdvice_BlackwellDeepSeekV4DecodeProfiling(t *testing.T) {
-	// Comprehensive test synthesizing all 5 heuristics in a realistic Blackwell sm_121a
+	// Comprehensive test synthesizing all 5 heuristics in a realistic Blackwell sm_100a
 	// DeepSeek-V4 decode profiling session.
 	const sass = `
 	.section	.text.deepseek_decode,"ax",@progbits
@@ -1276,7 +1276,7 @@ deepseek_decode:
 `
 
 	cap := &cudacapture.Capture{
-		Metadata: []byte(`{"arch": "sm_121a", "sm_count": 136, "device": "NVIDIA GB200"}`),
+		Metadata: []byte(`{"arch": "sm_100a", "sm_count": 136, "device": "NVIDIA GB200"}`),
 		Code: cudacapture.CodeFiles{
 			SASS: "kernels.sass",
 		},
