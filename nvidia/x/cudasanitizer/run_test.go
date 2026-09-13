@@ -434,3 +434,166 @@ func TestTruncatedFallbackReportIsNotClean(t *testing.T) {
 		t.Fatalf("truncated report produced %v (%v)\n%s", res.Outcome, res.Err, res.Details())
 	}
 }
+
+func TestToolSearchPaths(t *testing.T) {
+	env := func(m map[string]string) func(string) string {
+		return func(k string) string { return m[k] }
+	}
+	tests := []struct {
+		name  string
+		goos  string
+		env   map[string]string
+		want  []string // a prefix of the result, in order
+		empty bool
+	}{
+		{
+			name: "default prefixes",
+			goos: "linux",
+			want: []string{
+				"/usr/local/cuda/bin/compute-sanitizer",
+				"/usr/local/cuda/compute-sanitizer/compute-sanitizer",
+				"/usr/local/cuda-13/bin/compute-sanitizer",
+			},
+		},
+		{
+			name: "CUDA_HOME first",
+			goos: "linux",
+			env:  map[string]string{"CUDA_HOME": "/usr/local/cuda-13.4"},
+			want: []string{
+				"/usr/local/cuda-13.4/bin/compute-sanitizer",
+				"/usr/local/cuda-13.4/compute-sanitizer/compute-sanitizer",
+				"/usr/local/cuda/bin/compute-sanitizer",
+			},
+		},
+		{
+			name: "env naming a default prefix is not repeated",
+			goos: "linux",
+			env:  map[string]string{"CUDA_PATH": "/usr/local/cuda"},
+			want: []string{
+				"/usr/local/cuda/bin/compute-sanitizer",
+				"/usr/local/cuda/compute-sanitizer/compute-sanitizer",
+				"/usr/local/cuda-13/bin/compute-sanitizer",
+			},
+		},
+		{name: "darwin has no toolkit layout", goos: "darwin", empty: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toolSearchPaths(tt.goos, env(tt.env))
+			if tt.empty {
+				if len(got) != 0 {
+					t.Fatalf("toolSearchPaths(%q) = %q, want none", tt.goos, got)
+				}
+				return
+			}
+			if len(got) < len(tt.want) {
+				t.Fatalf("toolSearchPaths(%q) = %q, want it to start with %q", tt.goos, got, tt.want)
+			}
+			for i, want := range tt.want {
+				if got[i] != want {
+					t.Fatalf("toolSearchPaths(%q)[%d] = %q, want %q\ngot %q", tt.goos, i, got[i], want, got)
+				}
+			}
+			seen := make(map[string]bool, len(got))
+			for _, p := range got {
+				if seen[p] {
+					t.Errorf("toolSearchPaths(%q) = %q, want no duplicate %q", tt.goos, got, p)
+				}
+				seen[p] = true
+			}
+		})
+	}
+}
+
+func TestLookToolExplicitPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "compute-sanitizer")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LookTool(path)
+	if err != nil {
+		t.Fatalf("LookTool(%q): %v", path, err)
+	}
+	if got != path {
+		t.Errorf("LookTool(%q) = %q, want the path as given", path, got)
+	}
+	missing := filepath.Join(dir, "absent")
+	if _, err := LookTool(missing); !errors.Is(err, ErrToolNotFound) {
+		t.Errorf("LookTool(%q) error = %v, want it to wrap ErrToolNotFound", missing, err)
+	}
+}
+
+func TestIsExecutableFile(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "exe")
+	if err := os.WriteFile(exe, nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	plain := filepath.Join(dir, "plain")
+	if err := os.WriteFile(plain, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"executable", exe, true},
+		{"not executable", plain, false},
+		{"directory", dir, false},
+		{"absent", filepath.Join(dir, "absent"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isExecutableFile(tt.path); got != tt.want {
+				t.Errorf("isExecutableFile(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToolVersionLine(t *testing.T) {
+	// Outputs measured from the compute-sanitizer builds installed on the
+	// GB10 host. The banner line is identical across every release, so a
+	// function that returned it would record nothing.
+	tests := []struct {
+		name string
+		out  string
+		want string
+	}{
+		{
+			name: "cuda 13.4",
+			out:  "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2026 NVIDIA Corporation\nVersion 2026.3.0.0 (build 38637409) (public-release)\n",
+			want: "Version 2026.3.0.0 (build 38637409) (public-release)",
+		},
+		{
+			name: "cuda 13.0",
+			out:  "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36400806) (public-release)\n",
+			want: "Version 2025.3.1.0 (build 36400806) (public-release)",
+		},
+		{
+			name: "distribution package 2022.4.1",
+			out:  "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2023 NVIDIA Corporation\nVersion 2022.4.1\n",
+			want: "Version 2022.4.1",
+		},
+		{
+			name: "leading blank lines",
+			out:  "\n\n  Version 2026.3.0.0\n",
+			want: "Version 2026.3.0.0",
+		},
+		{
+			name: "no version line falls back to the first line",
+			out:  "\nsome other build\nand more\n",
+			want: "some other build",
+		},
+		{name: "empty", out: "\n \n", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := toolVersionLine(tt.out); got != tt.want {
+				t.Errorf("toolVersionLine() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

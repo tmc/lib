@@ -9,8 +9,9 @@ import (
 	"time"
 )
 
-// DefaultToolName is the compute-sanitizer executable looked up on PATH when
-// [Config.Path] is empty.
+// DefaultToolName is the name of the compute-sanitizer executable sought when
+// [Config.Path] is empty, in the toolkit installs [ToolSearchPaths] names and
+// then on PATH.
 const DefaultToolName = "compute-sanitizer"
 
 // DefaultErrorExitCode is the value passed as --error-exitcode when
@@ -136,8 +137,9 @@ type Config struct {
 	// Required; see [MissingToolPolicy].
 	MissingTool MissingToolPolicy
 
-	// Path is the compute-sanitizer executable. Empty means look
-	// [DefaultToolName] up on PATH.
+	// Path is the compute-sanitizer executable. Empty means find
+	// [DefaultToolName] the way [LookTool] does: the CUDA toolkit installs
+	// [ToolSearchPaths] names, then PATH.
 	Path string
 
 	// ErrorExitCode is passed as --error-exitcode. Zero selects
