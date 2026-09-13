@@ -898,6 +898,141 @@ A successful short-interval run would qualify a *mitigation*, not confirm the
 mechanism. Confirming the mechanism means making the flush happen and watching
 the residual go to zero.
 
+## The missing tail was never flushed, and the fix is one call
+
+Every capture carries this line in its own diagnostics:
+
+```
+Buffers holding CUDA trace data will be flushed on CudaProfilerStop() call.
+```
+
+`ds4-min` never made that call — there was no binding for it anywhere in the
+tree — and nothing made it on the way out either, because `runtime.exit` on
+linux/arm64 issues `exit_group` directly (`src/runtime/sys_linux_arm64.s:53`)
+without running libc teardown. Whatever the profiler had buffered when the
+process left was discarded.
+
+`-cuda-profiler-stop` binds `cuProfilerStop` from `libcuda.so.1` through
+purego and calls it after the last kernel and after the last NVTX range
+closes. `probestop` is `probe512` with that one flag added and nothing else
+changed — the two run scripts differ by one line, and `--cuda-flush-interval`
+stays at 1000 ms in both:
+
+| | probe512 | probestop |
+| --- | --- | --- |
+| decode device kernels | 0 | 4,480 (2,240 + 2,240) |
+| last kernel to end of decode | 844.9 ms | 0.119 ms |
+| kernels | 993,771 | 1,033,820 |
+| last batch | empty | 16,112 |
+| batches below 15,000 | 5 | 0 |
+| `ds4_get_row_f16` | 1,984 | 2,056 |
+| `ds4_router_hash` | 1,488 | 1,542 |
+| `ds4_router_biased` | 19,769 | 20,560 |
+| prefill / decode | 12.81 / 11.83 t/s | 12.91 / 12.11 t/s |
+
+The throughput row matters as much as the others: the call happens once, at
+the end, so it costs nothing during the run. Compare `--cuda-flush-interval=10`,
+which also recovers some decode and inflates prefill wall time from 39.6 s to
+88.1 s doing it.
+
+### Why the counts are the gate and the symmetry is not
+
+Two decode tokens holding 2,240 kernels each is suggestive and proves
+nothing; a loss that happened to be symmetric would look the same. What
+settles it is a count derived from the source rather than from the capture.
+Three kernel families issue a fixed number of launches per *evaluated*
+token — prefill tokens and decode tokens alike, so a run of `n` prompt
+tokens plus two generated ones has `n + 2` evaluations:
+
+| kernel | launches per evaluation | n=512 | n=2048 |
+| --- | --- | --- | --- |
+| `ds4_get_row_f16` | 4 | 2,056 | 8,200 |
+| `ds4_router_hash` | 3 | 1,542 | 6,150 |
+| `ds4_router_biased` | 40 | 20,560 | 82,000 |
+
+The four come from `encodeEmbeddingRow` being called four times per token on
+both the batch path (`cuda_session_linux.go:377`) and the single-token path
+(`:581`), each issuing exactly one launch (`cuda_runtime_linux.go:1246`). The
+three and the forty come from the shared layer tail across 43 layers, where
+`index < 3` selects `encodeRouterHash` and every other layer selects
+`encodeRouterBiased` (`:708`).
+
+`probestop` hits all three exactly, and no capture before it did. These are
+**necessary conditions, not a completeness proof**: a capture can satisfy
+three sentinel families and still lose others. They are the strongest gate
+available without enumerating every launch in the program.
+
+### At 2048 the call is necessary and not sufficient
+
+`p3astop` is the production workload — prefill 2048, two decode tokens, the
+registered logits digests asserted by the run itself — with the same one-flag
+change against `p3a-flush-run.sh`. It passes every gate the 512-token arm
+passes except the one that matters most:
+
+| | p3aflush (no stop) | p3astop (stop) | required |
+| --- | --- | --- | --- |
+| `ds4_get_row_f16` | 8,032 | 8,168 | 8,200 |
+| `ds4_router_hash` | 6,024 | 6,126 | 6,150 |
+| `ds4_router_biased` | 80,585 | 81,488 | 82,000 |
+| last kernel to end of decode | 514 ms | 35.4 ms | 0 |
+| decode kernels | 0 | 3,602 | 4,480 |
+| decode token 1 | 0 | 2,240 | 2,240 |
+| decode token 2 | 0 | 1,362 | 2,240 |
+| batches below 15,000 | 10 | 4 | 0 |
+| empty batches | 1 | 0 | 0 |
+| prefill / decode | 12.90 / 12.10 t/s | 12.79 / 11.85 t/s | — |
+
+Both logits digests reproduce bit-for-bit and the host sidecar is complete at
+727,732 spans with nothing unended or dropped, so the run itself is sound;
+what is short is the device recording. Decode token 1 is complete and token 2
+holds 61% of its launches, consistent with the 35.4 ms residual against its
+84.2 ms span.
+
+The improvement is large — the deficit falls from 42 token-equivalents to
+8 on both `get_row_f16` and `router_hash` — and it is not zero, where the
+512-token arm's is. So the flush at exit is necessary and, at this scale,
+insufficient. The launch counts also stop moving together: `router_biased` is
+short by 12.8 token-equivalents against the other two families' 8, which rules
+out reading the remaining deficit as some whole number of lost tokens.
+
+`p3astop100` combines the two levers that each helped on their own — the exit
+flush and `--cuda-flush-interval=100` — and is the next arm.
+
+### What this does not establish
+
+The call is an intervention, and an intervention that recovers the missing
+data is strong evidence about the mechanism without being a proof of it: the
+binary changed, and the profiler's interception of the call can itself alter
+buffering. The honest claim is that the tail is recoverable by flushing at
+exit and that nothing else tried — flush intervals from 1000 ms down to
+10 ms, a `_exit` control, a `cudaDeviceReset` control — recovered it.
+
+Two smaller notes, both corrections to earlier drafts of this guide:
+
+`probestop` is not the first capture to hold any decode kernel. The 10 ms
+flush arm held 725, in token 1 only, with token 2 empty. `probestop` is the
+first *symmetric two-token* coverage.
+
+Interior batch damage is run-variable, not deterministic. The first
+`-cuda-profiler-stop` run had five batches below 15,000 and the second, with
+the same flag, had none. That rules out reading the interior loss as a
+separate defect that the flush leaves untouched; what can be said is that it
+persists across some runs under this intervention and vanishes in others.
+
+### One live bug found by the fix
+
+The first `-cuda-profiler-stop` run exited 1: `cuProfilerStop` returned
+`CUDA_ERROR_INVALID_CONTEXT`. The call operates on the calling thread's
+current context, and the goroutine that reaches the end of a run is not in
+general on the thread that established one. The fix pins the thread and makes
+device 0's primary context current first.
+
+The flush had happened anyway, because it is the profiler's interception of
+the call that flushes rather than the driver's own return path. That is not
+something to rely on. The error was real, the process exited 1, and a run that
+exits 1 is not a run — the corrected control reproduces the capture with the
+call returning success.
+
 ## Fine phase names, and what they do not isolate
 
 `-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
