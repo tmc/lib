@@ -25,9 +25,16 @@ type Lowering struct {
 	// access the kernel wrote. Only meaningful with Exclusive.
 	Spill bool
 
-	// VectorWidth is the number of scalar operations represented by PTX.
+	// VectorWidth is the number of scalar accesses PTX stands for: 4 for
+	// ld.global.v4, 2 for ld.global.v2. It only labels the report.
 	VectorWidth int
-	// ScalarSASS lists scalar SASS forms that can replace the vector form.
+
+	// ScalarSASS lists the scalar SASS forms ptxas would emit if it declined
+	// to keep the vector form. Unlike SASS these are matched exactly rather
+	// than by prefix, because the scalar spelling is a prefix of the vector
+	// one: nvdisasm writes a 32-bit load as "LDG.E" and a 128-bit load as
+	// "LDG.E.128", so a prefix match on the scalar form counts the vector
+	// loads this field exists to find the absence of.
 	ScalarSASS []string
 }
 
@@ -43,10 +50,16 @@ type Lowering struct {
 // FFMA and DFMA, so an entry for them would flag every kernel compiled with the
 // default -fmad=true. A caller auditing for contraction adds them.
 var DefaultLowerings = []Lowering{
-	{PTX: "ld.global.v4", SASS: []string{"LDG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"LDG.E.32"}},
-	{PTX: "st.global.v4", SASS: []string{"STG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"STG.E.32"}},
-	{PTX: "ld.global.v2", SASS: []string{"LDG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E.32"}},
-	{PTX: "st.global.v2", SASS: []string{"STG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"STG.E.32"}},
+	// Vector global accesses. ptxas honored every one of these in the shapes
+	// reachable here: float4 and float2 through aligned and offset pointers,
+	// at every --maxrregcount from 16 up, on CUDA 13.0 for sm_121a. These
+	// entries are a regression guard for a toolchain that stops doing that,
+	// not a record of one that does. The scalar forms have no width suffix:
+	// nvdisasm writes a 32-bit access as "LDG.E", not "LDG.E.32".
+	{PTX: "ld.global.v4", SASS: []string{"LDG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"LDG.E"}},
+	{PTX: "st.global.v4", SASS: []string{"STG.E.128"}, VectorWidth: 4, ScalarSASS: []string{"STG.E"}},
+	{PTX: "ld.global.v2", SASS: []string{"LDG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E"}},
+	{PTX: "st.global.v2", SASS: []string{"STG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"STG.E"}},
 	{PTX: "ld.local", SASS: []string{"LDL"}, Exclusive: true, Spill: true},
 	{PTX: "st.local", SASS: []string{"STL"}, Exclusive: true, Spill: true},
 
