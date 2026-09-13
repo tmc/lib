@@ -447,6 +447,7 @@ Every span has its range and every range closed:
 | --- | --- |
 | `NVTX_EVENTS` rows | 11,356 |
 | unfinished (`end IS NULL`) | 0 |
+| unclosed (`end > 1e12`, see below) | 0 |
 | rows not of `eventType` 60 | 0 |
 | rows with an absolute-magnitude start | 0 |
 | host sidecar spans | 11,354 |
@@ -455,6 +456,23 @@ Every span has its range and every range closed:
 The name histogram matches the sidecar inventory exactly — 11,094 `layer`,
 256 `batch`, 2 `token`, 1 `prefill`, 1 `generation`, summing to the 11,354
 spans, plus the 2 calibration ranges.
+
+`end IS NULL` is the obvious test for an unclosed range and it is the wrong
+one: Nsight does not leave an unclosed range NULL, it backfills the end with
+the session's end stamp taken on the **boot clock**, while every legitimate
+end is in the session domain, which starts at 0. `end IS NULL` therefore
+returns 0 whether or not ranges were lost.
+
+The test is *"is this end outside the session domain"*, and the session
+domain's upper bound comes from the capture itself — the session duration, or
+the last timestamp in the device tables. `end > 1e12` is the instance of that
+test for these runs, where the session is ~163 s and the boot clock is ~5e14;
+it is not a universal threshold, because a legitimately long capture would
+cross 1e12 on its own. Bound it against the session, not a constant.
+
+Both rows are recorded above because for *this* capture the two agree — its
+NVTX side did close cleanly, both calibration ranges survived, and the loss
+here is device events only. The P3a capture below is where they disagree.
 
 **What this run does not carry:** NVTX names below the layer, and the clock
 mapping. The ranges mirror the recorded spans, so a device kernel still cannot
