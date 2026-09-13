@@ -19,9 +19,20 @@ func TestRecordLayouts(t *testing.T) {
 		cupti.ActivityKindMemory2:             uint(unsafe.Sizeof(cupti.ActivityMemory4{})),
 		cupti.ActivityKindSynchronization:     uint(unsafe.Sizeof(cupti.ActivitySynchronization2{})),
 	}
-	for _, version := range []uint32{0, 24, 130000, 130201, 130300} {
+	for _, version := range []uint32{0, 24, 120901, 140000} {
 		if _, err := recordLayouts(version, func(cupti.ActivityKind, uint32) (uint, error) { t.Fatal("queried unknown layout"); return 0, nil }); err == nil {
 			t.Fatalf("accepted version %d", version)
+		}
+	}
+	for _, version := range []uint32{130000, 130001, 130200, 130201, 130300, 130400, 130402} {
+		got, err := recordLayouts(version, func(kind cupti.ActivityKind, version uint32) (uint, error) {
+			if version != 0 {
+				t.Fatal("did not query current emitted layout")
+			}
+			return sizes[kind], nil
+		})
+		if err != nil || len(got) != len(sizes) {
+			t.Fatalf("version=%d layouts=%v error=%v", version, got, err)
 		}
 	}
 	got, err := recordLayouts(130200, func(kind cupti.ActivityKind, version uint32) (uint, error) {

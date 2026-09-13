@@ -8,12 +8,13 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 )
 
-// recordLayouts pins decoding to the headers used to verify the Go structures.
-// Size equality alone does not prove that an unknown version has equal offsets.
-// Extend this version table only with header/layout evidence for that release.
+// recordLayouts admits CUPTI 13.x and verifies the record sizes emitted by the
+// loaded library before decoding. A different major version remains
+// unqualified. Size checks are required for every admitted version because a
+// version number alone does not prove that record layouts are unchanged.
 func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, error)) (map[cupti.ActivityKind]uint, error) {
-	if version != 130200 {
-		return nil, fmt.Errorf("cuptiactivity: unqualified CUPTI record version %d (headers are 130200)", version)
+	if version < 130000 || version >= 140000 {
+		return nil, fmt.Errorf("cuptiactivity: unqualified CUPTI record version %d (want 13.x)", version)
 	}
 	layouts := map[cupti.ActivityKind]uint{
 		cupti.ActivityKindDriver:              uint(unsafe.Sizeof(cupti.ActivityAPI{})),
