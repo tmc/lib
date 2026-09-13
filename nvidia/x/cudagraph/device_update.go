@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -352,6 +353,10 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 			return fmt.Errorf("cudagraph: pack args: %w", err)
 		}
 		defer cleanup()
+		// KernelParams is a uintptr, which the garbage collector does not
+		// trace, so kernelParams must be kept alive explicitly until the
+		// driver has read through it. See x/cudamlx.CommandEncoder.AddKernelNode.
+		defer runtime.KeepAlive(kernelParams)
 		params.KernelParams = uintptr(unsafe.Pointer(&kernelParams[0]))
 		params.Extra = 0
 		return e.SetKernelNodeParams(node, &params)
