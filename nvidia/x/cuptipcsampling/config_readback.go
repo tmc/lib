@@ -26,7 +26,7 @@ func (c *samplingConfig) verify(ctx cupti.Context, query func(*cupti.PCSamplingC
 	pin.Pin(&attrs[0])
 	defer pin.Unpin()
 	ptr := uintptr(unsafe.Pointer(&attrs[0]))
-	p := cupti.PCSamplingConfigurationInfoParams{Size: 40, Ctx: ctx, NumAttributes: uint(len(attrs)), PPCSamplingConfigurationInfo: ptr}
+	p := cupti.PCSamplingConfigurationInfoParams{Size: configurationInfoParamsSize(), Ctx: ctx, NumAttributes: uint(len(attrs)), PPCSamplingConfigurationInfo: ptr}
 	err := query(&p)
 	c.effective = slices.Clone(attrs)
 	if err != nil {

@@ -47,7 +47,7 @@ func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, er
 	if ctx == 0 || api.enable == nil || api.disable == nil {
 		return nil, errors.New("cuptipcsampling: invalid enable request")
 	}
-	p := cupti.PCSamplingEnableParams{Size: 24, Ctx: ctx}
+	p := cupti.PCSamplingEnableParams{Size: enableParamsSize(), Ctx: ctx}
 	if err := api.enable(&p); err != nil {
 		return nil, fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
 	}
@@ -60,7 +60,7 @@ func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, er
 	)
 	return func() error {
 		once.Do(func() {
-			d := cupti.PCSamplingDisableParams{Size: 24, Ctx: ctx}
+			d := cupti.PCSamplingDisableParams{Size: disableParamsSize(), Ctx: ctx}
 			if e := api.disable(&d); e != nil {
 				err = fmt.Errorf("cuptipcsampling: disable sampling: %w", e)
 			}
@@ -112,7 +112,7 @@ func (s *samplingControl) prepare() error {
 	// enabled here: the reason inventory the configuration names cannot be
 	// queried on a context where sampling is off.
 	if !s.enabled {
-		p := cupti.PCSamplingEnableParams{Size: 24, Ctx: s.ctx}
+		p := cupti.PCSamplingEnableParams{Size: enableParamsSize(), Ctx: s.ctx}
 		if err := a.enable(&p); err != nil {
 			s.failed = true
 			return fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
@@ -131,7 +131,7 @@ func (s *samplingControl) start() error {
 		return errors.New("cuptipcsampling: sampling cannot start")
 	}
 	s.startAttempted = true
-	p := cupti.PCSamplingStartParams{Size: 24, Ctx: s.ctx}
+	p := cupti.PCSamplingStartParams{Size: startParamsSize(), Ctx: s.ctx}
 	if err := s.api.start(&p); err != nil {
 		s.failed = true
 		return fmt.Errorf("cuptipcsampling: start sampling: %w", err)
@@ -148,7 +148,7 @@ func (s *samplingControl) stop() error {
 	if !s.enabled || s.disabled || !s.startAttempted {
 		return errors.New("cuptipcsampling: sampling cannot stop")
 	}
-	p := cupti.PCSamplingStopParams{Size: 24, Ctx: s.ctx}
+	p := cupti.PCSamplingStopParams{Size: stopParamsSize(), Ctx: s.ctx}
 	if err := s.api.stop(&p); err != nil {
 		s.failed = true
 		return fmt.Errorf("cuptipcsampling: stop sampling: %w", err)
@@ -175,7 +175,7 @@ func (s *samplingControl) shutdown() error {
 	if s.startAttempted {
 		stopErr = s.stop()
 	}
-	p := cupti.PCSamplingDisableParams{Size: 24, Ctx: s.ctx}
+	p := cupti.PCSamplingDisableParams{Size: disableParamsSize(), Ctx: s.ctx}
 	err := s.api.disable(&p)
 	if err == nil && (p.Size != 24 || p.PPriv != 0 || p.Ctx != s.ctx) {
 		err = errors.New("disable changed input storage")
