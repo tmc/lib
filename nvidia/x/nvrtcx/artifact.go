@@ -21,6 +21,25 @@ const (
 	OutputPTXTileIR
 )
 
+func outputKindName(k OutputKind) string {
+	switch k {
+	case OutputAuto:
+		return "OutputAuto"
+	case OutputPTX:
+		return "OutputPTX"
+	case OutputCUBIN:
+		return "OutputCUBIN"
+	case OutputLTOIR:
+		return "OutputLTOIR"
+	case OutputTileIR:
+		return "OutputTileIR"
+	case OutputPTXTileIR:
+		return "OutputPTXTileIR"
+	default:
+		return fmt.Sprintf("OutputKind(%d)", uint8(k))
+	}
+}
+
 // WithOutput selects the requested output format or formats. LTOIR enables link-time optimization;
 // TileIR enables tile-only compilation. Other language and target options remain
 // caller-owned. Mixed PTX/TileIR enables Tile constructs without suppressing
@@ -31,7 +50,12 @@ func WithOutput(kind OutputKind) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid output kind %d", kind)
 			return
 		}
+		if o.physicalArch && kind != OutputCUBIN && kind != OutputAuto {
+			o.err = fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(kind))
+			return
+		}
 		o.output = kind
+		o.outputSet = true
 	}
 }
 
