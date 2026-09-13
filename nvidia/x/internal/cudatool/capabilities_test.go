@@ -274,8 +274,12 @@ func TestVersionFromPath(t *testing.T) {
 	}{
 		{path: "/usr/local/cuda-13.4/bin/compute-sanitizer", want: V(13, 4), ok: true},
 		{path: "/usr/local/cuda-12.6/compute-sanitizer/compute-sanitizer", want: V(12, 6), ok: true},
-		// An unversioned prefix that is not a link to a versioned one.
-		{path: "/usr/local/cuda/bin/compute-sanitizer", ok: false},
+		// An unversioned prefix naming nothing on this host. The usual
+		// install reaches a versioned prefix through an unversioned link,
+		// which TestVersionFromPathFollowsLinks covers; asserting that
+		// /usr/local/cuda names no version would fail on any machine where
+		// it does link to one.
+		{path: "/nonexistent-prefix/cuda/bin/compute-sanitizer", ok: false},
 		{path: "/usr/bin/compute-sanitizer", ok: false},
 	}
 	for _, tt := range tests {
