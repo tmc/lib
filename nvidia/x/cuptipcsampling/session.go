@@ -2,6 +2,7 @@ package cuptipcsampling
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
 )
@@ -12,7 +13,9 @@ import (
 type samplingSession struct {
 	control         *samplingControl
 	drain           *samplingBuffer
+	ring            *RingBuffer
 	names           *samplingNames
+	nameMu          sync.Mutex
 	query           func(*cupti.PCSamplingGetDataParams) error
 	maxReads, reads uint
 	closed          bool
@@ -59,12 +62,36 @@ func (s *samplingSession) read() (samplingBatch, error) {
 		s.control.failed = true
 		return samplingBatch{}, errors.New("cuptipcsampling: sampling read budget exhausted")
 	}
-	if err := s.reserveRead(); err != nil {
+	s.nameMu.Lock()
+	err := s.reserveRead()
+	s.nameMu.Unlock()
+	if err != nil {
 		s.control.failed = true
 		return samplingBatch{}, err
 	}
 	s.reads++
-	batch, err := s.drain.drainOwned(s.control.ctx, s.control.version, s.query, s.names)
+
+	var (
+		batch samplingBatch
+	)
+	if s.ring != nil {
+		slot, aErr := s.ring.Acquire()
+		if aErr != nil {
+			s.lossObserved = true
+			s.ring.RecordDrops(1)
+			s.control.failed = true
+			return samplingBatch{}, aErr
+		}
+		s.nameMu.Lock()
+		batch, err = slot.sampling.drainOwned(s.control.ctx, s.control.version, s.query, s.names)
+		s.nameMu.Unlock()
+		s.ring.Release(slot)
+	} else {
+		s.nameMu.Lock()
+		batch, err = s.drain.drainOwned(s.control.ctx, s.control.version, s.query, s.names)
+		s.nameMu.Unlock()
+	}
+
 	if batch.dropped != 0 || batch.hardwareFull != 0 {
 		s.lossObserved = true
 	}
@@ -90,7 +117,9 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	if !s.control.canRelease() {
 		return samplingBatch{}, stopErr
 	}
+	s.nameMu.Lock()
 	batch, copyErr := s.control.config.output.snapshotOwned(s.names)
+	s.nameMu.Unlock()
 	var lossErr error
 	if s.lossObserved || batch.remaining != 0 || batch.dropped != 0 || batch.hardwareFull != 0 {
 		lossErr = errors.New("cuptipcsampling: final sampling output has loss or remaining PCs")
@@ -102,8 +131,14 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	if s.finalErr != nil {
 		s.control.failed = true
 	}
+	s.nameMu.Lock()
 	s.names.release()
-	s.drain.release()
+	s.nameMu.Unlock()
+	if s.ring != nil {
+		s.ring.Close()
+	} else {
+		s.drain.release()
+	}
 	s.control.config.output.release()
 	s.control.config.release()
 	s.closed = true

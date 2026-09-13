@@ -147,9 +147,9 @@ func TestDecodeSASSMetric(t *testing.T) {
 	}
 
 	pc := cuptipcsampling.PC{
-		Offset:     0x120,
-		Name:       "_Z12gemm_kernelPKfS0_Pf",
-		CRC:        0xfeedbeef,
+		Offset: 0x120,
+		Name:   "_Z12gemm_kernelPKfS0_Pf",
+		CRC:    0xfeedbeef,
 		Reasons: []cuptipcsampling.StallSamples{
 			{Index: 0, Samples: 100}, // Selected (issued)
 			{Index: 1, Samples: 300}, // long_scoreboard

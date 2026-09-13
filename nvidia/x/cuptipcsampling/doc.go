@@ -7,6 +7,11 @@
 // and call Close before destroying the context. Start may return both a session
 // and an error when native cleanup ownership must be retained.
 //
+// RingBuffer (also aliased as MultiBuffer) provides zero-copy circular
+// multi-buffering for PC sampling and CUPTI activity streams, enabling
+// asynchronous non-blocking handoffs and concurrent background draining during
+// high-rate profiling without stopping sampling.
+//
 // Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts.
 // This layout restriction is not native hardware qualification. Native reason
 // counts are not legacy stall enums or inferred instruction metrics.
