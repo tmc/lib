@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
@@ -173,4 +175,65 @@ func ExampleCaptureResolver() {
 	fmt.Println(loc.KernelName, loc.Resolved)
 	// Output:
 	// compute false
+}
+
+func ExampleClassifyPipelineStall() {
+	canonical, cat, desc, _ := cuptipcsampling.ClassifyPipelineStall("smsp__pcsamp_warps_issue_stalled_long_scoreboard")
+	fmt.Printf("%s [%s]: %s\n", canonical, cat, desc[:22])
+	// Output:
+	// long_scoreboard [memory]: Waiting on scoreboard 
+}
+
+func ExampleReasonInventory_DecodeSASSMetric() {
+	inv := cuptipcsampling.ReasonInventory{
+		Reasons: []cuptipcsampling.StallReason{
+			{Index: 0, Name: "selected"},
+			{Index: 1, Name: "long_scoreboard"},
+		},
+	}
+	pc := cuptipcsampling.PC{
+		Offset: 0x200,
+		Name:   "gemm",
+		Reasons: []cuptipcsampling.StallSamples{
+			{Index: 0, Samples: 50},
+			{Index: 1, Samples: 150},
+		},
+	}
+	metric := inv.DecodeSASSMetric(pc)
+	fmt.Printf("PC=0x%x Total=%d Dominant=%s (%.1f%%)\n",
+		metric.PC, metric.TotalSamples, metric.DominantReason(), metric.Dominant.Percent)
+	// Output:
+	// PC=0x200 Total=200 Dominant=long_scoreboard (100.0%)
+}
+
+func ExampleAttributePCSamples() {
+	records := []cuptiactivity.Record{
+		{
+			Kind:     cupti.ActivityKindConcurrentKernel,
+			Name:     "vec_add",
+			Start:    1000,
+			End:      3000,
+			Complete: true,
+		},
+	}
+	metrics := []cuptipcsampling.SASSMetric{
+		{
+			PC:           0x10,
+			KernelName:   "vec_add",
+			TotalSamples: 100,
+			Selected:     20,
+			StallSamples: 80,
+			Stalls: []cuptipcsampling.PipelineStall{
+				{Name: "long_scoreboard", Samples: 80, Percent: 100.0},
+			},
+		},
+	}
+	attributed := cuptipcsampling.AttributePCSamples(records, metrics)
+	if len(attributed) > 0 {
+		ak := attributed[0]
+		fmt.Printf("%s: %dns dominant=%s (%.1f%%)\n",
+			ak.KernelName, ak.DurationNs, ak.DominantStall, ak.DominantPct)
+	}
+	// Output:
+	// vec_add: 2000ns dominant=long_scoreboard (100.0%)
 }

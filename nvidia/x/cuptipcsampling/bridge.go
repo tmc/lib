@@ -229,6 +229,18 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	return nil
 }
 
+// RecordSASSMetric records a decoded SASS instruction metric into the profile session.
+func (b *ProfileBridge) RecordSASSMetric(ctx context.Context, sm SASSMetric, filename string, line int64) error {
+	if b == nil || b.Session == nil {
+		return errors.New("cuptipcsampling: nil profile session")
+	}
+	if filename == "" {
+		filename = "kernels.sass"
+	}
+	b.Session.RecordSASSMetric(ctx, sm.KernelName, filename, line, sm.ToCudaprof())
+	return nil
+}
+
 // isCompanion reports whether name is the _not_issued companion of another
 // reason rather than a reason of its own.
 func isCompanion(name string) bool {
