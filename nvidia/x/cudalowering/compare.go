@@ -29,6 +29,8 @@ const (
 	MissingSASS
 	// MissingPTX is a disassembled function with no kernel in the PTX.
 	MissingPTX
+	// WidthCollapse is a vector operation lowered to equivalent scalar traffic.
+	WidthCollapse
 )
 
 func (k Kind) String() string {
@@ -45,6 +47,8 @@ func (k Kind) String() string {
 		return "missing sass"
 	case MissingPTX:
 		return "missing ptx"
+	case WidthCollapse:
+		return "width collapse"
 	}
 	return fmt.Sprintf("kind(%d)", int(k))
 }
@@ -74,6 +78,8 @@ func (d Divergence) String() string {
 		b.WriteString("kernel is in the ptx and not in the disassembly")
 	case MissingPTX:
 		b.WriteString("function is in the disassembly and not in the ptx")
+	case WidthCollapse:
+		fmt.Fprintf(&b, "%d %s requested, %d %s emitted", d.PTXCount, d.PTXOpcode, d.SASSCount, d.SASSOpcode)
 	}
 	if d.Detail != "" {
 		fmt.Fprintf(&b, " (%s)", d.Detail)
@@ -193,6 +199,14 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 				sassCount += sass.Count(op)
 			}
 			switch {
+			case l.VectorWidth > 0 && ptxCount > 0 && sassCount == 0:
+				scalarCount := 0
+				for _, op := range l.ScalarSASS {
+					scalarCount += sass.Count(op)
+				}
+				if scalarCount >= ptxCount*l.VectorWidth {
+					r.Divergences = append(r.Divergences, Divergence{Kind: WidthCollapse, Kernel: p.PTX.Name, PTXOpcode: l.PTX, SASSOpcode: strings.Join(l.ScalarSASS, " or "), PTXCount: ptxCount, SASSCount: scalarCount, Detail: fmt.Sprintf("requested %d-wide vector, emitted scalar operations", l.VectorWidth)})
+				}
 			case ptxCount > 0 && sassCount == 0:
 				r.Divergences = append(r.Divergences, Divergence{
 					Kind:       Erased,
