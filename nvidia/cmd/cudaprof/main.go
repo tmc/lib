@@ -24,8 +24,9 @@ type exampleMetadata struct {
 	Passes   int       `json:"passes"`
 	Rounds   int       `json:"fma_rounds"`
 	Verified int       `json:"verified_results"`
-	MaxError float64   `json:"max_absolute_error"`
-	NCCL     *ncclMeta `json:"nccl,omitempty"`
+	MaxError   float64         `json:"max_absolute_error"`
+	NCCL       *ncclMeta       `json:"nccl,omitempty"`
+	PCSampling json.RawMessage `json:"pc_sampling,omitempty"`
 }
 
 type ncclMeta struct {
@@ -242,8 +243,8 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		f.tool.mapPTX(p)
 	}
 
+	var meta exampleMetadata
 	if len(f.cap.Metadata) > 0 {
-		var meta exampleMetadata
 		if err := json.Unmarshal(f.cap.Metadata, &meta); err == nil && meta.Device != "" {
 			p.Comments = append(p.Comments,
 				fmt.Sprintf("%s (%s): %d elements, %d FMA rounds, %d passes; all results checked", meta.Device, meta.Arch, meta.Elements, meta.Rounds, meta.Passes),
@@ -256,8 +257,14 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		}
 	}
 
-	p.Comments = append(p.Comments,
-		"CUDA event intervals measure whole launches. SASS entry and PTX source rows are navigation anchors, not instruction costs or PC samples.",
-		"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
+	if meta.PCSampling != nil {
+		p.Comments = append(p.Comments,
+			"Profile includes hardware PC samples collected via CUPTI and attributed to SASS, PTX and source.",
+			"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
+	} else {
+		p.Comments = append(p.Comments,
+			"CUDA event intervals measure whole launches. SASS entry and PTX source rows are navigation anchors, not instruction costs or PC samples.",
+			"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
+	}
 	return p, "", nil
 }
