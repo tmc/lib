@@ -10,6 +10,8 @@ github.com/quic-go/quic-go v0.62.0 h1:ZHDjCk5OacATwGvs8PWE97CTvX7AqZiVoW7++ZOXTf
 github.com/quic-go/quic-go v0.62.0/go.mod h1:RAro2j2yN9a9EiPACLHT9IB2NXCvGQmmo/alT0yYI0w=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
 github.com/stretchr/testify v1.12.1/go.mod h1:MDEgiDPPsNp5cuIrHPPCyornHKgEVbtFUmoNlxoYthg=
+github.com/tmc/go-iroh v0.2.0 h1:xUGFRx79CylM2cM1kHQyVkpGnuQcmY9xOOdv1QbzRvM=
+github.com/tmc/go-iroh v0.2.0/go.mod h1:LEz0wZxv378YDnwKoWg70QEnwkAvLH8VFHCRqBM9TLk=
 go.uber.org/mock v0.5.2 h1:LbtPTcP8A5k9WPXj54PPPbjcI4Y6lhyOZXn+VS7wNko=
 go.uber.org/mock v0.5.2/go.mod h1:wLlUxC2vVTPTaE3UD51E0BGOAElKrILxhVSDYQLld5o=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
