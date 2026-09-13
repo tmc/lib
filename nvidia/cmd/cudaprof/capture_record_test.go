@@ -162,7 +162,7 @@ func TestObserveJournalPreservesKernelGeometry(t *testing.T) {
 	}
 	appendRecords(t, journalPath, sid, 1234, 1, records)
 
-	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234)
+	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234, 0)
 	if err != nil {
 		t.Fatalf("observeJournal failed: %v", err)
 	}

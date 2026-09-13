@@ -155,10 +155,11 @@ func runViewCommand(rawArgs []string) error {
 	}
 	defer listener.Close()
 
-	url := fmt.Sprintf("http://%s", listener.Addr().String())
-	if strings.HasPrefix(httpAddr, ":") {
-		url = fmt.Sprintf("http://127.0.0.1%s", httpAddr)
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
+	if port == "" {
+		port = listener.Addr().String()
 	}
+	url := fmt.Sprintf("http://127.0.0.1:%s", port)
 	fmt.Printf("Serving 5-tier GPU pipeline view at %s\n", url)
 	fmt.Printf("Tiers: Go -> CUDA C++ -> Tile IR -> PTX -> SASS\n")
 	fmt.Printf("Press Ctrl+C to stop.\n")

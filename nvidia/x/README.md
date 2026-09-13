@@ -20,6 +20,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
+| [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
 | [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
 | [cudamlx](cudamlx/) | Package cudamlx is an experimental, minimal Go conversion of the host-side runtime of MLX's CUDA backend (mlx/backend/cuda), built on the pure-Go driver and nvrtc bindings. |
