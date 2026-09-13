@@ -348,11 +348,10 @@ func (e *Exec) UpdateKernelNode(node *Node, grid cudalaunch.Dim3, args ...any) e
 		params.GridDimZ = grid.Z
 	}
 	if len(args) > 0 {
-		kernelParams, cleanup, err := cudalaunch.PackArgs(args...)
+		kernelParams, err := cudalaunch.PackArgs(args...)
 		if err != nil {
 			return fmt.Errorf("cudagraph: pack args: %w", err)
 		}
-		defer cleanup()
 		// KernelParams is a uintptr, which the garbage collector does not
 		// trace, so kernelParams must be kept alive explicitly until the
 		// driver has read through it. See x/cudamlx.CommandEncoder.AddKernelNode.
