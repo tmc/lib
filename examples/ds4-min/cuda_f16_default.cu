@@ -26,11 +26,22 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
   __shared__ float partial_a[32], partial_b[32];
 
   if (cols == 4096) {
-    for (unsigned i = tid; i < 4096; i += blockDim.x) {
-      unsigned c = i >> 7;
-      unsigned k = i & 127;
-      s_a[c][k] = a[offset + i];
-      s_b[c][k] = b[offset + i];
+    const uint4 *a_vec = (const uint4 *)(a + offset);
+    const uint4 *b_vec = (const uint4 *)(b + offset);
+    for (unsigned idx = tid; idx < 512; idx += blockDim.x) {
+      uint4 va = a_vec[idx];
+      uint4 vb = b_vec[idx];
+      unsigned elem = idx << 3;
+      unsigned c = elem >> 7;
+      unsigned k = elem & 127;
+      *(unsigned int *)&s_a[c][k]     = va.x;
+      *(unsigned int *)&s_a[c][k + 2] = va.y;
+      *(unsigned int *)&s_a[c][k + 4] = va.z;
+      *(unsigned int *)&s_a[c][k + 6] = va.w;
+      *(unsigned int *)&s_b[c][k]     = vb.x;
+      *(unsigned int *)&s_b[c][k + 2] = vb.y;
+      *(unsigned int *)&s_b[c][k + 4] = vb.z;
+      *(unsigned int *)&s_b[c][k + 6] = vb.w;
     }
     __syncthreads();
 
