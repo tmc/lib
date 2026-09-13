@@ -68,6 +68,7 @@ type Recorder struct {
 	activityHostNs        int64
 	activityDeviceNs      int64
 	activityUncertaintyNs int64
+	activityCalibratedAt  time.Time
 	activityCalibrated    bool
 }
 
@@ -154,9 +155,25 @@ func (r *Recorder) Start() error {
 	if hostNs, deviceNs, uncertaintyNs, err := calibrateCUPTITimestamp(); err == nil {
 		r.activityHostNs, r.activityDeviceNs = hostNs, deviceNs
 		r.activityUncertaintyNs, r.activityCalibrated = uncertaintyNs, true
+		r.activityCalibratedAt = time.Now()
 	}
 	r.running = true
 	return nil
+}
+
+// clockDriftPPM is the measured host-to-device oscillator drift, in parts per million.
+const clockDriftPPM = 11
+
+func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	return bracketNs + int64(elapsed)*clockDriftPPM/1e6
+}
+
+// UncertaintyAfterForTest exposes the pure aging calculation to external tests.
+func UncertaintyAfterForTest(bracketNs int64, elapsed time.Duration) int64 {
+	return uncertaintyAfter(bracketNs, elapsed)
 }
 
 // Stop halts flight recording.
@@ -364,7 +381,7 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	clockUncertaintySource := "unavailable"
 	switch {
 	case r.activityCalibrated:
-		clockUncertaintyNs = r.activityUncertaintyNs
+		clockUncertaintyNs = uncertaintyAfter(r.activityUncertaintyNs, now.Sub(r.activityCalibratedAt))
 		clockUncertaintySource = "measured"
 	case cfg.ClockUncertaintyNs > 0:
 		clockUncertaintyNs = cfg.ClockUncertaintyNs
