@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
@@ -217,8 +218,12 @@ func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
 	if activity.Complete {
 		duration = activity.End - activity.Start
 	}
+	timestampNs := int64(0)
+	if hostNs, deviceNs, err := calibrateCUPTITimestamp(); err == nil {
+		timestampNs = mapCUPTITimestamp(hostNs, deviceNs, activity.Start)
+	}
 	r.Push(Record{
-		TimestampNs:   time.Now().UnixNano(),
+		TimestampNs:   timestampNs,
 		KernelName:    activity.Name,
 		CorrelationID: uint64(activity.CorrelationID),
 		DurationNs:    duration,
@@ -226,6 +231,26 @@ func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
 			"activity.kind": fmt.Sprintf("%d", activity.Kind),
 		},
 	})
+}
+
+func mapCUPTITimestamp(hostNs, deviceNs int64, activityNs uint64) int64 {
+	return hostNs + int64(activityNs-uint64(deviceNs))
+}
+
+func calibrateCUPTITimestamp() (hostNs, deviceNs int64, err error) {
+	if !cupti.HasGetTimestamp() {
+		return 0, 0, errors.New("cudaflightrecorder: CUPTI timestamp unavailable")
+	}
+	before := time.Now().UnixNano()
+	device, err := cupti.GetTimestamp()
+	if err != nil {
+		return 0, 0, err
+	}
+	after := time.Now().UnixNano()
+	if after < before {
+		return 0, 0, errors.New("cudaflightrecorder: host clock went backwards")
+	}
+	return before + (after-before)/2, int64(device), nil
 }
 
 // Snapshot writes a multi-modal diagnostic bundle (.tar) to w containing

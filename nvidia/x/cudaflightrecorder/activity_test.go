@@ -39,3 +39,12 @@ func TestPushActivityRecord(t *testing.T) {
 		})
 	}
 }
+
+func TestMapCUPTITimestamp(t *testing.T) {
+	if got, want := mapCUPTITimestamp(1_000, 500, 750), int64(1_250); got != want {
+		t.Fatalf("mapped timestamp = %d, want %d", got, want)
+	}
+	if got, want := mapCUPTITimestamp(1_000, 1_500, 750), int64(250); got != want {
+		t.Fatalf("mapped timestamp before anchor = %d, want %d", got, want)
+	}
+}
