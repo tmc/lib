@@ -481,16 +481,20 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 	}
 
 	// Verify numerical accuracy across arms before running timing loop
-	_ = launchArm(cEntryFn, false) // NOPDL
-	hOutRef := make([]float32, dim)
-	if err := outBuf.CopyToHost(hOutRef); err != nil {
-		t.Fatalf("copy reference: %v", err)
-	}
 	for i := range hX {
 		hX[i] += 0.03125
 	}
 	if err := xBuf.CopyFromHost(hX); err != nil {
 		t.Fatalf("copy changed input: %v", err)
+	}
+	// Poison the activation as well as the output. A premature consumer read
+	// must fail independently of whatever launch happened to run previously.
+	actPoison := make([]float32, dim)
+	for i := range actPoison {
+		actPoison[i] = float32(math.NaN())
+	}
+	if err := actBuf.CopyFromHost(actPoison); err != nil {
+		t.Fatalf("poison activation: %v", err)
 	}
 	poison := make([]float32, dim)
 	for i := range poison {
