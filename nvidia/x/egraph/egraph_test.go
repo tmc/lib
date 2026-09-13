@@ -253,3 +253,23 @@ func TestPDLNotPreferredOverLowerable(t *testing.T) {
 	t.Logf("Extracted plan: %s (cost: %.2f)", best, cost)
 }
 
+func TestCublasLtNotPreferredOverLowerable(t *testing.T) {
+	eg := egraph.New()
+	a := eg.Add(egraph.NewLeaf("a"))
+	b := eg.Add(egraph.NewLeaf("b"))
+	mul := eg.Add(egraph.NewNode("matmul", a, b))
+
+	// An e-graph containing both matmul and candidate cublaslt_gemm must not
+	// select the unlowerable host library operator in FusedMegakernelCost.
+	eg.Add(egraph.NewNode("cublaslt_gemm", b, a))
+
+	best, cost, err := egraph.ExtractBest(eg, mul, egraph.FusedMegakernelCost{})
+	if err != nil {
+		t.Fatalf("ExtractBest failed: %v", err)
+	}
+	if best.Op == "cublaslt_gemm" {
+		t.Errorf("unlowerable cublaslt_gemm must not be preferred over matmul, got %s (cost %.2f)", best.String(), cost)
+	}
+}
+
+
