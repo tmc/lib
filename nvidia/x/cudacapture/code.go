@@ -13,11 +13,16 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
 // Code represents decoded CUDA kernel instructions, source mappings, and sections.
 type Code struct {
-	Kernels []*Kernel
+	Kernels    []*Kernel
+	SourceFile string
+	PTXFile    string
+	SASSFile   string
+	CUBINCRC   uint64
 }
 
 // Kernel represents a disassembled GPU kernel function with its instruction sequence.
@@ -76,7 +81,14 @@ func LoadCode(c *Capture) (*Code, error) {
 		return nil, fmt.Errorf("cudacapture: missing source file %q", c.Code.Source)
 	}
 
-	return parseCode(cubinBytes, string(ptxBytes), string(sassBytes), string(sourceBytes), c.Code.Source)
+	code, err := parseCode(cubinBytes, string(ptxBytes), string(sassBytes), string(sourceBytes), c.Code.Source)
+	if err != nil {
+		return nil, err
+	}
+	code.SourceFile = c.Code.Source
+	code.PTXFile = c.Code.PTX
+	code.SASSFile = c.Code.SASS
+	return code, nil
 }
 
 func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, error) {
@@ -148,8 +160,16 @@ func parseCode(cubin []byte, ptx, sass, source, sourceFilename string) (*Code, e
 			if line == 0 {
 				return nil, fmt.Errorf("cudacapture: %s: missing SASS source line", fn.Name)
 			}
+			cuLine := inst.SourceLine
+			if inst.SourceFile != "" && filepath.Base(inst.SourceFile) != sourceBase {
+				cuLine = 0
+			}
+			if cuLine == 0 {
+				cuLine = cuLines[line]
+			}
 			text := strings.TrimSpace(strings.TrimSpace(inst.Predicate+" "+inst.Opcode)+" "+inst.Operands) + ";"
-			k.Instructions = append(k.Instructions, Instruction{inst.Address, text, line, cuLines[line]})
+			k.Instructions = append(k.Instructions, Instruction{inst.Address, text, line, cuLine})
+
 		}
 		if len(k.Instructions) == 0 || k.Instructions[0].Offset != 0 {
 			return nil, fmt.Errorf("cudacapture: %s: missing SASS entry instruction", fn.Name)
@@ -202,7 +222,8 @@ func (c *Code) KernelByOffset(offset uint64) *Kernel {
 }
 
 // Instruction returns the instruction at the specified SASS offset within the kernel,
-// or nil if not found.
+// or nil if not found. Instructions must be strictly ascending by Offset for
+// binary search.
 func (k *Kernel) Instruction(offset uint64) *Instruction {
 	if k == nil {
 		return nil
@@ -222,3 +243,39 @@ func (k *Kernel) Instruction(offset uint64) *Instruction {
 	return nil
 }
 
+// ResolvePC implements cuptipcsampling.CodeResolver.
+// It maps the function-relative pcOffset to the CUBIN-absolute offset (k.Offset + pcOffset)
+// and looks up source, PTX, and SASS lines.
+func (c *Code) ResolvePC(mod cuptipcsampling.ModuleID, kernelName string, pcOffset uint64) cuptipcsampling.CodeLocation {
+	if c == nil {
+		return cuptipcsampling.CodeLocation{KernelName: kernelName}
+	}
+	if mod.CRC != 0 && c.CUBINCRC != 0 && mod.CRC != c.CUBINCRC {
+		return cuptipcsampling.CodeLocation{KernelName: kernelName}
+	}
+	k := c.Kernel(kernelName)
+	if k == nil {
+		return cuptipcsampling.CodeLocation{KernelName: kernelName}
+	}
+
+	loc := cuptipcsampling.CodeLocation{
+		KernelName:  k.Name,
+		SourceFile:  c.SourceFile,
+		SourceLine:  int64(k.SourceLine),
+		PTXFile:     c.PTXFile,
+		PTXLine:     int64(k.PTXLine),
+		SASSFile:    c.SASSFile,
+		CUBINOffset: k.Offset + pcOffset,
+		Resolved:    true,
+	}
+
+	if inst := k.Instruction(pcOffset); inst != nil {
+		if inst.SourceLine > 0 {
+			loc.SourceLine = int64(inst.SourceLine)
+		}
+		if inst.SASSLine > 0 {
+			loc.SASSLine = int64(inst.SASSLine)
+		}
+	}
+	return loc
+}

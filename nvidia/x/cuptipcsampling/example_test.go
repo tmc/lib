@@ -9,7 +9,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
-
 func Example() {
 	_, err := cuptipcsampling.StallReasons(0, 128)
 	fmt.Println(err)
@@ -167,4 +166,3 @@ func ExampleProfileBridge() {
 	// Output:
 	// Recorded: true
 }
-

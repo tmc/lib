@@ -14,39 +14,42 @@ type mockResolver struct {
 	locations map[string]cuptipcsampling.CodeLocation
 }
 
-func (m *mockResolver) ResolvePC(kernelName string, pcOffset uint64) cuptipcsampling.CodeLocation {
+func (m *mockResolver) ResolvePC(mod cuptipcsampling.ModuleID, kernelName string, pcOffset uint64) cuptipcsampling.CodeLocation {
 	if loc, ok := m.locations[kernelName]; ok {
-		loc.Offset += pcOffset
+		loc.CUBINOffset += pcOffset
+		loc.Resolved = true
 		return loc
 	}
 	return cuptipcsampling.CodeLocation{
 		KernelName: kernelName,
-		Offset:     pcOffset,
 	}
 }
 
 func TestProfileBridge(t *testing.T) {
+	// Modern verbatim names from CUPTI 13 native reason inventory
 	inv := cuptipcsampling.ReasonInventory{
 		CUPTIVersion: 130001,
 		Reasons: []cuptipcsampling.StallReason{
-			{Index: 1, Name: "stall_memory_dependency"},
-			{Index: 2, Name: "stall_math_pipe_throttle"},
-			{Index: 3, Name: "stall_barrier"},
-			{Index: 4, Name: "stall_scoreboard"},
+			{Index: 1, Name: "selected"},
+			{Index: 2, Name: "membar"},
+			{Index: 3, Name: "short_scoreboard"},
+			{Index: 4, Name: "math_pipe_throttle"},
+			{Index: 5, Name: "lg_throttle"},
+			{Index: 6, Name: "drain"},
 		},
 	}
 
 	resolver := &mockResolver{
 		locations: map[string]cuptipcsampling.CodeLocation{
 			"ds4_iq2_simd": {
-				KernelName: "ds4_iq2_simd",
-				SourceFile: "cuda_experts_q81.cu",
-				SourceLine: 42,
-				PTXFile:    "cuda_experts_q81.ptx",
-				PTXLine:    105,
-				SASSFile:   "cuda_experts_q81.sass",
-				SASSLine:   30,
-				Offset:     0x1000,
+				KernelName:  "ds4_iq2_simd",
+				SourceFile:  "cuda_experts_q81.cu",
+				SourceLine:  42,
+				PTXFile:     "cuda_experts_q81.ptx",
+				PTXLine:     105,
+				SASSFile:    "cuda_experts_q81.sass",
+				SASSLine:    30,
+				CUBINOffset: 0x1000,
 			},
 		},
 	}
@@ -63,23 +66,32 @@ func TestProfileBridge(t *testing.T) {
 
 	batch := cuptipcsampling.Batch{
 		Valid:        true,
-		TotalSamples: 15,
+		TotalSamples: 42,
 		PCs: []cuptipcsampling.PC{
 			{
+				CRC:    0x12345678,
 				Name:   "ds4_iq2_simd",
 				Offset: 0x20,
 				Reasons: []cuptipcsampling.StallSamples{
-					{Index: 1, Samples: 10}, // memory dependency -> StallMem
-					{Index: 2, Samples: 5},  // math pipe throttle -> StallMath
+					{Index: 1, Samples: 10}, // selected -> InstExecuted
+					{Index: 2, Samples: 8},  // membar -> StallWait (must not be swallowed by mem)
+					{Index: 3, Samples: 6},  // short_scoreboard -> StallScoreboard
+					{Index: 4, Samples: 7},  // math_pipe_throttle -> StallMath
+					{Index: 5, Samples: 9},  // lg_throttle -> StallMem
+					{Index: 6, Samples: 2},  // drain -> UnmappedStalls
 				},
 			},
 		},
 	}
 
-
 	ctx := context.Background()
 	if err := bridge.RecordBatch(ctx, batch); err != nil {
 		t.Fatalf("RecordBatch: %v", err)
+	}
+
+	// Verify unmapped stall reasons are preserved and not silently discarded
+	if got := bridge.UnmappedStalls["drain"]; got != 2 {
+		t.Errorf("UnmappedStalls[\"drain\"] = %d, want 2", got)
 	}
 
 	if err := session.Close(); err != nil {

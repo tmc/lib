@@ -54,4 +54,3 @@ func ExampleDisassembly_AssertOpcodes() {
 	// Assert SIMD: true
 	// Assert Tensor Core: cudasass: kernel "QuantizedDotProduct" missing required opcode "HMMA"
 }
-

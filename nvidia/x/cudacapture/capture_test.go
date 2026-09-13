@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
 
 func validFixture() *cudacapture.Capture {
@@ -403,5 +404,43 @@ func TestReadDirRejectsSymlinkedControlFiles(t *testing.T) {
 				t.Fatalf("ReadDir error = %v, want symlink rejection", err)
 			}
 		})
+	}
+}
+
+func TestCodeResolvePCWithCapture(t *testing.T) {
+	path := filepath.Join("..", "..", "testdata", "captures", "v2-gb10-capture.pprof")
+	f, err := os.Open(path)
+	if err != nil {
+		t.Skipf("skipping test without fixture: %v", err)
+	}
+	defer f.Close()
+
+	cap, err := cudacapture.Read(f)
+	if err != nil {
+		t.Fatalf("Read capture: %v", err)
+	}
+
+	code, err := cudacapture.LoadCode(cap)
+	if err != nil {
+		t.Fatalf("LoadCode: %v", err)
+	}
+
+	if len(code.Kernels) == 0 {
+		t.Fatal("expected at least one kernel in capture")
+	}
+
+	k := code.Kernels[0]
+	loc := code.ResolvePC(cuptipcsampling.ModuleID{}, k.Name, 0)
+	if !loc.Resolved {
+		t.Fatalf("expected kernel %s at offset 0 to be resolved", k.Name)
+	}
+	if loc.KernelName != k.Name {
+		t.Errorf("KernelName = %q, want %q", loc.KernelName, k.Name)
+	}
+	if loc.CUBINOffset != k.Offset {
+		t.Errorf("CUBINOffset = %#x, want %#x", loc.CUBINOffset, k.Offset)
+	}
+	if loc.SourceLine == 0 {
+		t.Errorf("expected nonzero SourceLine for kernel %s", k.Name)
 	}
 }
