@@ -137,6 +137,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	assembly, err := d.Disassemble(toolCtx, cubin, cudasass.Options{
 		PrintCode:   true,
 		InlineLines: true,
+		PTXLines:    true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("disassemble cubin: %w", err)
@@ -233,6 +234,9 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	prof.AddComment("device: " + devName)
 	prof.AddComment("measurement: CUDA event interval")
 	prof.AddComment("attribution: " + attribution)
+	if cfg.pcSampling {
+		prof.AddComment("label-omissions: hardware PC sample: pass, moe.expert, moe.slot")
+	}
 	labels := cudaprof.Labels()
 
 	if !cfg.pcSampling {
