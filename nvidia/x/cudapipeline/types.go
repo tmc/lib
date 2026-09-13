@@ -24,12 +24,22 @@ func (b TMABox) RowBytes() int {
 	return b.DimX * b.ElementSize
 }
 
-// Buffer models a shared memory allocation for a single pipeline stage.
+// MemorySpace identifies the physical or logical storage tier targeted by a pipeline buffer.
+type MemorySpace string
+
+const (
+	MemorySpaceShared MemorySpace = "shared"
+	MemorySpaceGlobal MemorySpace = "global"
+	MemorySpaceTMEM   MemorySpace = "tmem"
+)
+
+// Buffer models a memory allocation (in shared memory or TMEM) for a single pipeline stage.
 type Buffer struct {
-	Offset      int // Offset in shared memory in bytes
-	SizeBytes   int // Total allocated byte capacity
-	Alignment   int // Byte alignment of the buffer (must be at least 16)
-	StrideBytes int // Row stride in shared memory
+	Space       MemorySpace // Storage tier (MemorySpaceShared or MemorySpaceTMEM; default: MemorySpaceShared)
+	Offset      int         // Offset in bytes within the memory space
+	SizeBytes   int         // Total allocated byte capacity
+	Alignment   int         // Byte alignment of the buffer (must be at least 16)
+	StrideBytes int         // Row stride in memory
 }
 
 // Barrier models the PTX mbarrier state used to synchronize an async pipeline stage.
@@ -62,14 +72,16 @@ type Stage struct {
 
 // PipelineConfig specifies parameters for constructing a multi-stage pipeline.
 type PipelineConfig struct {
-	TargetArch            string // Target GPU architecture (e.g. ArchSM90, ArchSM121a)
-	NumStages             int    // Number of pipeline stages (>= 2 for multi-stage buffering)
-	Box                   TMABox // TMA 2D box configuration for each stage
-	SharedMemBaseOffset   int    // Base shared memory offset for stage buffers
-	BarrierBaseOffset     int    // Base shared memory offset for mbarriers
-	ArrivalTokensPerStage int    // Arriving threads/tokens per stage (default: 1)
-	MemoryLatencyCycles   int    // Estimated round-trip memory latency in clock cycles (e.g. 600)
-	ComputeIntervalCycles int    // Estimated compute duration per stage in clock cycles (e.g. 300)
+	TargetArch            string      // Target GPU architecture (e.g. ArchSM90, ArchSM100, ArchSM121a)
+	NumStages             int         // Number of pipeline stages (>= 2 for multi-stage buffering)
+	Box                   TMABox      // TMA 2D box configuration for each stage
+	MemorySpace           MemorySpace // Target memory space (MemorySpaceShared or MemorySpaceTMEM; default: MemorySpaceShared)
+	SharedMemBaseOffset   int         // Base shared memory offset for stage buffers (when MemorySpace == MemorySpaceShared)
+	TMEMBaseOffset        int         // Base TMEM byte offset for stage buffers (when MemorySpace == MemorySpaceTMEM)
+	BarrierBaseOffset     int         // Base shared memory offset for mbarriers (always in shared memory)
+	ArrivalTokensPerStage int         // Arriving threads/tokens per stage (default: 1)
+	MemoryLatencyCycles   int         // Estimated round-trip memory latency in clock cycles (e.g. 600)
+	ComputeIntervalCycles int         // Estimated compute duration per stage in clock cycles (e.g. 300)
 }
 
 // Pipeline models a multi-stage producer-consumer asynchronous memory pipeline
@@ -93,7 +105,7 @@ func alignUp(val, align int) int {
 }
 
 // NewPipeline constructs a multi-stage pipeline from the given configuration,
-// calculating shared memory layout and initializing stage barriers.
+// calculating memory layout and initializing stage barriers.
 func NewPipeline(cfg PipelineConfig) (*Pipeline, error) {
 	if cfg.TargetArch == "" {
 		cfg.TargetArch = ArchSM121a
@@ -101,6 +113,13 @@ func NewPipeline(cfg PipelineConfig) (*Pipeline, error) {
 	arch, err := ArchProfileFor(cfg.TargetArch)
 	if err != nil {
 		return nil, fmt.Errorf("new pipeline: %w", err)
+	}
+
+	if cfg.MemorySpace == "" {
+		cfg.MemorySpace = MemorySpaceShared
+	}
+	if cfg.MemorySpace == MemorySpaceTMEM && !arch.SupportsTMEM {
+		return nil, fmt.Errorf("new pipeline: architecture %s does not support Tensor Memory (TMEM)", arch.Name)
 	}
 
 	if cfg.NumStages < 2 {
@@ -123,26 +142,49 @@ func NewPipeline(cfg PipelineConfig) (*Pipeline, error) {
 	// Buffer sizing and layout.
 	stageBufSize := cfg.Box.StrideBytes * cfg.Box.DimY
 	bufAlign := 128 // 128-byte alignment for optimal TMA throughput
-	curBufOffset := alignUp(cfg.SharedMemBaseOffset, bufAlign)
-
 	stages := make([]Stage, cfg.NumStages)
-	for i := 0; i < cfg.NumStages; i++ {
-		stages[i].Index = i
-		stages[i].Buffer = Buffer{
-			Offset:      curBufOffset,
-			SizeBytes:   stageBufSize,
-			Alignment:   bufAlign,
-			StrideBytes: cfg.Box.StrideBytes,
+
+	var curSharedBufOffset int
+	if cfg.MemorySpace == MemorySpaceTMEM {
+		curTMEMOffset := alignUp(cfg.TMEMBaseOffset, bufAlign)
+		for i := 0; i < cfg.NumStages; i++ {
+			stages[i].Index = i
+			stages[i].Buffer = Buffer{
+				Space:       MemorySpaceTMEM,
+				Offset:      curTMEMOffset,
+				SizeBytes:   stageBufSize,
+				Alignment:   bufAlign,
+				StrideBytes: cfg.Box.StrideBytes,
+			}
+			stages[i].TMABox = cfg.Box
+			stages[i].ArrivalTokens = cfg.ArrivalTokensPerStage
+			curTMEMOffset = alignUp(curTMEMOffset+stageBufSize, bufAlign)
 		}
-		stages[i].TMABox = cfg.Box
-		stages[i].ArrivalTokens = cfg.ArrivalTokensPerStage
-		curBufOffset = alignUp(curBufOffset+stageBufSize, bufAlign)
+	} else {
+		curSharedBufOffset = alignUp(cfg.SharedMemBaseOffset, bufAlign)
+		for i := 0; i < cfg.NumStages; i++ {
+			stages[i].Index = i
+			stages[i].Buffer = Buffer{
+				Space:       MemorySpaceShared,
+				Offset:      curSharedBufOffset,
+				SizeBytes:   stageBufSize,
+				Alignment:   bufAlign,
+				StrideBytes: cfg.Box.StrideBytes,
+			}
+			stages[i].TMABox = cfg.Box
+			stages[i].ArrivalTokens = cfg.ArrivalTokensPerStage
+			curSharedBufOffset = alignUp(curSharedBufOffset+stageBufSize, bufAlign)
+		}
 	}
 
-	// Barrier layout: 8 bytes per mbarrier.b64, 8-byte aligned.
+	// Barrier layout: 8 bytes per mbarrier.b64, 8-byte aligned in shared memory.
 	barrierBase := cfg.BarrierBaseOffset
 	if barrierBase == 0 {
-		barrierBase = curBufOffset
+		if cfg.MemorySpace == MemorySpaceTMEM {
+			barrierBase = cfg.SharedMemBaseOffset
+		} else {
+			barrierBase = curSharedBufOffset
+		}
 	}
 	curBarrierOffset := alignUp(barrierBase, 8)
 
@@ -177,16 +219,18 @@ func (p *Pipeline) Stage(i int) *Stage {
 }
 
 // TotalSharedBytes returns the total shared memory span in bytes occupied
-// by all stage buffers and barriers in the pipeline.
+// by stage buffers (if residing in shared memory) and stage barriers in the pipeline.
 func (p *Pipeline) TotalSharedBytes() int {
 	if len(p.Stages) == 0 {
 		return 0
 	}
 	maxOffset := 0
 	for _, s := range p.Stages {
-		bufEnd := s.Buffer.Offset + s.Buffer.SizeBytes
-		if bufEnd > maxOffset {
-			maxOffset = bufEnd
+		if s.Buffer.Space == MemorySpaceShared || s.Buffer.Space == "" {
+			bufEnd := s.Buffer.Offset + s.Buffer.SizeBytes
+			if bufEnd > maxOffset {
+				maxOffset = bufEnd
+			}
 		}
 		barEnd := s.Barrier.Offset + 8
 		if barEnd > maxOffset {
@@ -194,6 +238,43 @@ func (p *Pipeline) TotalSharedBytes() int {
 		}
 	}
 	return maxOffset
+}
+
+// TotalTMEMBytes returns the total TMEM span in bytes occupied by stage buffers
+// in the pipeline, or 0 if no stage resides in TMEM.
+func (p *Pipeline) TotalTMEMBytes() int {
+	if len(p.Stages) == 0 {
+		return 0
+	}
+	maxOffset := 0
+	for _, s := range p.Stages {
+		if s.Buffer.Space == MemorySpaceTMEM {
+			bufEnd := s.Buffer.Offset + s.Buffer.SizeBytes
+			if bufEnd > maxOffset {
+				maxOffset = bufEnd
+			}
+		}
+	}
+	return maxOffset
+}
+
+// TotalTMEMColumns returns the number of 512-byte TMEM columns required
+// to hold all TMEM stages in the pipeline, rounded up to the hardware allocation unit.
+func (p *Pipeline) TotalTMEMColumns() int {
+	bytes := p.TotalTMEMBytes()
+	if bytes == 0 {
+		return 0
+	}
+	bytesPerCol := p.Arch.TMEMBytesPerColumn
+	if bytesPerCol <= 0 {
+		bytesPerCol = BlackwellTMEMBytesPerCol
+	}
+	rawCols := (bytes + bytesPerCol - 1) / bytesPerCol
+	allocUnit := p.Arch.TMEMAllocColUnit
+	if allocUnit <= 0 {
+		allocUnit = BlackwellTMEMAllocUnitCols
+	}
+	return alignUp(rawCols, allocUnit)
 }
 
 // Violation kinds identified during static pipeline analysis.
@@ -206,6 +287,9 @@ const (
 	ErrUnexpectedTx         = "unexpected transaction without expect_tx"
 	ErrPhaseParity          = "phase parity mismatch"
 	ErrInvalidParity        = "invalid parity value"
+	ErrTMEMCapacityExceeded = "TMEM capacity exceeded"
+	ErrInvalidTMEMColumns   = "invalid TMEM column count"
+	ErrUnsupportedTMEM      = "unsupported TMEM operation on architecture"
 )
 
 // ValidationError records a static pipeline or mbarrier protocol violation.
@@ -275,5 +359,12 @@ func WithTensorSize(tensorMap string, bytes int64) Option {
 func WithBarrierArrivalCount(barrier string, count int) Option {
 	return func(t *BarrierTracker) {
 		t.barrierArrivals[barrier] = count
+	}
+}
+
+// WithTargetArch sets the target architecture for static PTX validation.
+func WithTargetArch(arch string) Option {
+	return func(t *BarrierTracker) {
+		t.targetArch = arch
 	}
 }

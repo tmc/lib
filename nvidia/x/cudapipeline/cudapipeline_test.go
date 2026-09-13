@@ -383,6 +383,12 @@ func TestArchConstraints(t *testing.T) {
 	if !p121.SupportsMultimem {
 		t.Errorf("sm_121a should support multimem")
 	}
+	if !p121.SupportsTMEM {
+		t.Errorf("sm_121a should support TMEM")
+	}
+	if err := p121.ValidateFeature(FeatureTMEM); err != nil {
+		t.Errorf("sm_121a should validate TMEM, got: %v", err)
+	}
 	// Verify sm_121a hardware reality: rejects wgmma and tcgen05
 	if err := p121.ValidateFeature(FeatureWGMMA); err == nil {
 		t.Errorf("expected sm_121a to reject wgmma, got nil error")
@@ -406,6 +412,14 @@ func TestArchConstraints(t *testing.T) {
 	if p90.SupportsTCGen05 {
 		t.Errorf("sm_90 should not support tcgen05")
 	}
+	if p90.SupportsTMEM {
+		t.Errorf("sm_90 should not support TMEM")
+	}
+	if err := p90.ValidateFeature(FeatureTMEM); err == nil {
+		t.Errorf("expected sm_90 to reject TMEM, got nil error")
+	} else if !strings.Contains(err.Error(), "does not support tmem") {
+		t.Errorf("expected error to explain sm_90 does not support tmem, got: %v", err)
+	}
 
 	// sm_100 verification
 	p100, err := ArchProfileFor(ArchSM100)
@@ -417,6 +431,12 @@ func TestArchConstraints(t *testing.T) {
 	}
 	if p100.SupportsWGMMA {
 		t.Errorf("sm_100 should not support wgmma")
+	}
+	if !p100.SupportsTMEM {
+		t.Errorf("sm_100 should support TMEM")
+	}
+	if err := p100.ValidateFeature(FeatureTMEM); err != nil {
+		t.Errorf("sm_100 should validate TMEM, got: %v", err)
 	}
 }
 
