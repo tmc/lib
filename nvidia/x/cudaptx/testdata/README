@@ -1,0 +1,44 @@
+PTX parser fixtures.
+
+Every .ptx file here is byte-exact nvcc output, produced by gen.sh from the .cu
+source beside it. Do not edit the .ptx files: a fixture adjusted to agree with
+the parser tests nothing. To change what a fixture covers, change the .cu and
+regenerate.
+
+	CUDA=/usr/local/cuda-13.0 ./gen.sh
+
+Generated 2026-09-12 with CUDA 13.0, V13.0.88 (PTX ISA 9.0) on an NVIDIA GB10
+host. gen.sh builds in /tmp/cudaptx-fixtures so that the absolute path NVVM
+embeds in .file is reproducible on any host.
+
+What each fixture covers:
+
+minimal.sm90.ptx   One kernel, no debug info. Baseline: .version/.target/
+                   .address_size are newline-terminated, and a kernel header
+                   spans four lines with "{" on its own.
+
+lexer.sm90.ptx     The main fixture.
+lexer.sm121a.ptx     - .extern .func bodiless declaration, terminated by ";"
+                       on its own line six lines after the header
+                     - .visible .func with a return parameter
+                     - a nested "{ ... }" call sequence inside a kernel body
+                     - a call.uni instruction split across five lines
+                     - @%p1 guard predicate
+                     - .loc with function_name and inlined_at
+                     - .maxntid / .minnctapersm between ")" and "{"
+                     - .param .align 4 .b8 name[36] struct-by-value parameter
+                     - .file emitted at the END of the module, after every
+                       .loc that references it
+                     - a .section .debug_str block with .b8 data and labels
+                   Two architectures, because instruction counts differ
+                   between them and the parser must not depend on either.
+
+vector.sm90.ptx    ld.global.v4.f32 {%f1, %f2, %f3, %f4}, [%rd5] -- a
+                   brace-delimited operand list that must not be read as a
+                   block delimiter.
+
+Not covered by real compiler output: .maxnreg and .reqntid. -maxrregcount is a
+ptxas option and changes no PTX (minimal.sm90.ptx is byte-identical with and
+without it), and nvcc emits no .reqntid for any __launch_bounds__ form. Those
+two fields are exercised only by the hand-written cases in ptx_test.go, which
+are marked as such.
