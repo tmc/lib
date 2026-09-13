@@ -110,6 +110,7 @@ type Builder struct {
 	periodType    struct{ name, unit string }
 	period        int64
 	defaultType   string
+	comments      []string
 	numericLabels map[string]string
 }
 
@@ -216,6 +217,29 @@ type sample struct {
 // program counters.
 const DefaultMappingStart = uint64(0x7f000000)
 
+// PTXMappingStart is the logical image base for recorded PTX text. It sits
+// below DefaultMappingStart so the PTX and CUBIN images never overlap.
+const PTXMappingStart = uint64(0x7e000000)
+
+// PTXLineOffsets returns the byte offset at which each one-based line of text
+// begins. Element 0 is unused so that a line number indexes the slice directly,
+// and the last element is the length of text, so the line past the final one
+// has an offset too.
+//
+// A PTX address is PTXMappingStart plus one of these offsets. The capture that
+// writes the profile and the viewer that annotates it must derive addresses the
+// same way, or one statement acquires two addresses; sharing this function is
+// what keeps them from drifting.
+func PTXLineOffsets(text string) []uint64 {
+	offsets := []uint64{0}
+	var offset uint64
+	for _, line := range strings.SplitAfter(text, "\n") {
+		offsets = append(offsets, offset)
+		offset += uint64(len(line))
+	}
+	return append(offsets, offset)
+}
+
 // NewBuilder initializes a profile builder.
 func NewBuilder() *Builder {
 	b := &Builder{
@@ -291,6 +315,17 @@ func (b *Builder) SetDefaultSampleType(name string) error {
 		}
 	}
 	return fmt.Errorf("cudaprof: default sample type %q is not among the configured types", name)
+}
+
+// AddComment records a line of free text on the profile. It is the home for a
+// fact that is true of the whole run -- the device, what was measured, how the
+// samples were attributed -- because a label carrying the same value on every
+// sample can neither filter nor split a profile, and pprof shows it on every
+// sample's tooltip regardless.
+func (b *Builder) AddComment(text string) {
+	if text != "" {
+		b.comments = append(b.comments, text)
+	}
 }
 
 // SetNumericLabels declares label keys whose values are numbers, mapping each
@@ -622,6 +657,9 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 	}
 	if b.period != 0 {
 		header = append(header, encodeVarint(12, uint64(b.period))...)
+	}
+	for _, c := range b.comments {
+		header = append(header, encodeVarint(13, uint64(b.st.Index(c)))...)
 	}
 	if b.defaultType != "" {
 		header = append(header, encodeVarint(14, uint64(b.st.Index(b.defaultType)))...)
