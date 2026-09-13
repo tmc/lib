@@ -2,6 +2,7 @@ package nvrtcx
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
@@ -213,3 +214,30 @@ func TestOwnedModuleConcurrentClose(t *testing.T) {
 	}
 	t.Logf("device count=%d matches accepted launches during Close race", got)
 }
+
+func TestPhysicalArchEmitsCUBINAndPTX(t *testing.T) {
+	dev, err := cuda.NewDevice(0)
+	if err != nil {
+		t.Skip(err)
+	}
+	defer dev.Close()
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cm, err := Compile("extern \"C\" __global__ void probe(int *x) { *x = 1; }",
+		WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
+		WithNoCache(),
+	)
+	if err != nil {
+		t.Fatalf("Compile with sm_%d%d: %v", major, minor, err)
+	}
+	t.Logf("Compile sm_%d%d output=%v: len(ptx)=%d, len(cubin)=%d", major, minor, cm.output, len(cm.ptx), len(cm.cubin))
+	mod, err := cm.Load(dev)
+	if err != nil {
+		t.Fatalf("Load sm_%d%d with OutputAuto: %v", major, minor, err)
+	}
+	defer dev.WithContext(mod.Unload)
+	t.Logf("Load succeeded on device with no driver JIT error!")
+}
+

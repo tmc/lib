@@ -550,7 +550,7 @@ func printKernelDisassembly(targetKernel, mode string) error {
 
 	if showPTX {
 		fmt.Printf("\n=======================================================\n")
-		fmt.Printf("=== 1. JIT-Compiled PTX Virtual Assembly (sm_%d%d) ===\n", archMajor, archMinor)
+		fmt.Printf("=== 1. JIT-Compiled PTX Virtual Assembly (compute_%d%d) ===\n", archMajor, archMinor)
 		fmt.Printf("=======================================================\n")
 		if targetKernel == "all" {
 			fmt.Println(ptx)
