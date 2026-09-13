@@ -100,6 +100,10 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 // The returned result is valid even when fn fails, so a partial run still
 // reports what it collected.
 func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, prof *cudaprof.Session, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
+	pEnable := cupti.PCSamplingEnableParams{Size: 24, Ctx: cuCtx}
+	if err := cupti.PCSamplingEnable(&pEnable); err != nil {
+		return nil, fmt.Errorf("enable pc sampling: %w", err)
+	}
 	inv, err := cuptipcsampling.StallReasons(cuCtx, 1<<10)
 	if err != nil {
 		return nil, fmt.Errorf("query stall reasons: %w", err)
