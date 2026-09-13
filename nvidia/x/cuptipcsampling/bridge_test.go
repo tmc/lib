@@ -345,4 +345,3 @@ func TestProfileBridgeLabelsAndHostFrames(t *testing.T) {
 		t.Errorf("host frames missing: hasRunWorkload=%v, hasMain=%v", hasRunWorkload, hasMain)
 	}
 }
-

@@ -50,7 +50,7 @@ type ProfileBridge struct {
 	HostFrames []cudaprof.Frame
 	// LabelFunc supplies additional context labels for a resolved location.
 	// Optional.
-	LabelFunc func(loc CodeLocation) map[string]string
+	LabelFunc      func(loc CodeLocation) map[string]string
 	UnmappedStalls map[string]int64
 }
 
