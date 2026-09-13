@@ -47,31 +47,73 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	sb.WriteString("#include \"cuda_tile.h\"\n")
 	sb.WriteString("using namespace cuda::tiles;\n\n")
 
-	op := expr.Op
-	switch {
-	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
+	if !IsLowerableTileIROp(expr.Op) {
+		return "", fmt.Errorf("egraph: no Tile IR lowering for operator %q", expr.Op)
+	}
+
+	switch expr.Op {
+	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu":
 		sb.WriteString(generateDeclarativeRMSNormGEMVSwiGLU(opts.KernelName, elemType))
-	case strings.Contains(op, "rmsnorm_qkv"):
+	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+		sb.WriteString(generateDeclarativeRMSNormQKVSplit(opts.KernelName, elemType))
+	case "tile_rmsnorm_qkv", "fused_rmsnorm_qkv":
 		sb.WriteString(generateDeclarativeRMSNormQKV(opts.KernelName, elemType))
-	case strings.Contains(op, "rmsnorm_proj"):
+	case "tile_rmsnorm_proj", "fused_rmsnorm_proj":
 		sb.WriteString(generateDeclarativeRMSNormProj(opts.KernelName, elemType))
-	case strings.Contains(op, "swiglu"):
+	case "tile_swiglu", "fused_swiglu":
 		sb.WriteString(generateDeclarativeSwiGLU(opts.KernelName, elemType))
-	case strings.Contains(op, "geglu"):
+	case "tile_geglu", "fused_geglu":
 		sb.WriteString(generateDeclarativeGeGLU(opts.KernelName, elemType))
-	case strings.Contains(op, "gelu"):
+	case "tile_gelu", "fused_gelu":
 		sb.WriteString(generateDeclarativeGeLU(opts.KernelName, elemType))
-	case strings.Contains(op, "mma"):
+	case "tile_mma", "tile_mma_aligned", "mma":
 		sb.WriteString(generateDeclarativeMMA(opts.KernelName, elemType))
-	case strings.Contains(op, "fp8"):
+	case "tile_mma_fp8", "tile_fp8_gemm", "tile_fp8", "fp8_matmul":
 		sb.WriteString(generateDeclarativeFP8(opts.KernelName))
-	case strings.Contains(op, "fp4"):
+	case "mmaf_scaled", "tile_fp4_gemm", "tile_fp4", "fp4_matmul":
 		sb.WriteString(generateDeclarativeFP4(opts.KernelName))
 	default:
-		sb.WriteString(generateDeclarativeMMA(opts.KernelName, elemType))
+		return "", fmt.Errorf("egraph: no Tile IR lowering for operator %q", expr.Op)
 	}
 
 	return sb.String(), nil
+}
+
+func generateDeclarativeRMSNormQKVSplit(kernelName, elemType string) string {
+	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
+    const %s* __restrict__ X,
+    const %s* __restrict__ W_norm,
+    const %s* __restrict__ W_q,
+    const %s* __restrict__ W_k,
+    const %s* __restrict__ W_v,
+    %s* __restrict__ Out,
+    int M, int N, int K,
+    float eps
+) {
+    constexpr int TM = 16, TN = 16, TK = 16;
+    auto x_span = tensor_span{assume_aligned<16>(X), extents{M, K}};
+    auto w_q_span = tensor_span{assume_aligned<16>(W_q), extents{K, N}};
+    auto w_k_span = tensor_span{assume_aligned<16>(W_k), extents{K, N}};
+    auto w_v_span = tensor_span{assume_aligned<16>(W_v), extents{K, N}};
+    auto out_span = tensor_span{assume_aligned<16>(Out), extents{M, N}};
+
+    auto x = partition_view{x_span, shape<TM, TK>{}};
+    auto w_q = partition_view{w_q_span, shape<TK, TN>{}};
+    auto w_k = partition_view{w_k_span, shape<TK, TN>{}};
+    auto w_v = partition_view{w_v_span, shape<TK, TN>{}};
+    auto out = partition_view{out_span, shape<TM, TN>{}};
+
+    auto sum_q = full<tile<%s, shape<TM, TN>>>(0.0f);
+    auto sum_k = full<tile<%s, shape<TM, TN>>>(0.0f);
+    auto sum_v = full<tile<%s, shape<TM, TN>>>(0.0f);
+    for (auto k : irange(0, K / TK)) {
+        sum_q = mma(x.load(0, k), w_q.load(k, 0), sum_q);
+        sum_k = mma(x.load(0, k), w_k.load(k, 0), sum_k);
+        sum_v = mma(x.load(0, k), w_v.load(k, 0), sum_v);
+    }
+    out.store(sum_q + sum_k + sum_v, 0, 0);
+}
+`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
 }
 
 func generateDeclarativeRMSNormQKV(kernelName, elemType string) string {
@@ -413,9 +455,12 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 	tile64 := tileir.NewTile([]int64{64, 64}, elemType)
 	tile64f32 := tileir.NewTile([]int64{64, 64}, tileir.Float32)
 
-	op := node.Op
-	switch {
-	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
+	if !IsLowerableTileIROp(node.Op) {
+		return nil, fmt.Errorf("egraph: no Tile IR lowering for operator %q", node.Op)
+	}
+
+	switch node.Op {
+	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -455,7 +500,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "rmsnorm_qkv_split"):
+	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -484,7 +529,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "rmsnorm_qkv"):
+	case "tile_rmsnorm_qkv", "fused_rmsnorm_qkv":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -505,7 +550,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "rmsnorm_proj"):
+	case "tile_rmsnorm_proj", "fused_rmsnorm_proj":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -526,7 +571,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "swiglu"):
+	case "tile_swiglu", "fused_swiglu":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -554,7 +599,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "geglu"):
+	case "tile_geglu", "fused_geglu":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -582,7 +627,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "gelu"):
+	case "tile_gelu", "fused_gelu":
 		fn.Params = []*tileir.Param{
 			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%W_in", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -606,7 +651,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "fp8"):
+	case "tile_mma_fp8", "tile_fp8_gemm", "tile_fp8", "fp8_matmul":
 		tileFP8Ptr := tileir.NewTile(nil, tileir.NewPointer(tileir.Float8E4M3))
 		tile64FP8 := tileir.NewTile([]int64{64, 64}, tileir.Float8E4M3)
 		fn.Params = []*tileir.Param{
@@ -629,7 +674,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	case strings.Contains(op, "fp4"):
+	case "mmaf_scaled", "tile_fp4_gemm", "tile_fp4", "fp4_matmul":
 		tileFP4Ptr := tileir.NewTile(nil, tileir.NewPointer(tileir.Float4E2M1))
 		tile64FP4 := tileir.NewTile([]int64{64, 64}, tileir.Float4E2M1)
 		fn.Params = []*tileir.Param{
@@ -652,8 +697,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.return"},
 		}
 
-	default:
-		// Default generic tile MMA (matmul, gemv, tile_mma, etc.)
+	case "tile_mma", "tile_mma_aligned", "mma":
 		fn.Params = []*tileir.Param{
 			{Name: "%A", Type: tilePtr.String(), TypeVal: tilePtr},
 			{Name: "%B", Type: tilePtr.String(), TypeVal: tilePtr},
@@ -667,6 +711,9 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.mma_f", Results: []string{"%acc"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
+
+	default:
+		return nil, fmt.Errorf("egraph: no Tile IR lowering for operator %q", node.Op)
 	}
 
 	blk := &tileir.Block{
