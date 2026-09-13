@@ -16,6 +16,7 @@ import (
 	"github.com/google/pprof/driver"
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
@@ -64,6 +65,9 @@ func run() error {
 	if len(os.Args) > 1 && os.Args[1] == "inspect" {
 		return runInspectCommand(os.Args[2:])
 	}
+	if len(os.Args) > 1 && os.Args[1] == "explain" {
+		return runExplainCommand(os.Args[2:])
+	}
 	if len(os.Args) > 1 && (os.Args[1] == "cfg" || os.Args[1] == "-cfg" || strings.HasPrefix(os.Args[1], "-cfg=") || strings.HasPrefix(os.Args[1], "--cfg")) {
 		return runCFGCommand(os.Args[1:])
 	}
@@ -87,7 +91,7 @@ func run() error {
 		return pack(os.Args[2], os.Args[3])
 	}
 	if len(os.Args) == 1 || len(os.Args) == 2 && slices.Contains([]string{"-h", "-help", "--help"}, os.Args[1]) {
-		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof")
+		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof")
 		return nil
 	}
 	path, err := filepath.Abs(os.Args[len(os.Args)-1])
@@ -330,4 +334,29 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 			"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
 	}
 	return p, "", nil
+}
+
+func runExplainCommand(args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: cudaprof explain <ptx-instruction-or-keyword>")
+	}
+	stmt := strings.Join(args, " ")
+	info := cudaptx.Explain(stmt)
+	if info != nil && (info.Doc != nil || len(info.Modifiers) > 0) {
+		fmt.Print(info.Markdown())
+		return nil
+	}
+	doc := cudaptx.LookupDoc(stmt)
+	if doc != nil {
+		h := &cudaptx.HoverInfo{
+			Opcode:    doc.Name,
+			Mnemonic:  doc.Name,
+			Doc:       doc,
+			MinPTX:    doc.MinPTX,
+			MinTarget: doc.MinTarget,
+		}
+		fmt.Print(h.Markdown())
+		return nil
+	}
+	return fmt.Errorf("no PTX documentation found for %q", stmt)
 }

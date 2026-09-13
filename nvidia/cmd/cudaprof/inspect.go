@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
@@ -28,6 +29,18 @@ type inspectReport struct {
 	Coverage      *inspectCoverage               `json:"coverage,omitempty"`
 	TileIR        *inspectTileIRSummary          `json:"tileir,omitempty"`
 	Remarks       *inspectRemarksSummary         `json:"remarks,omitempty"`
+	PTX           *inspectPTXSummary             `json:"ptx,omitempty"`
+}
+
+type inspectPTXSummary struct {
+	File              string         `json:"file,omitempty"`
+	Version           string         `json:"version,omitempty"`
+	Target            string         `json:"target,omitempty"`
+	AddressSize       int            `json:"address_size,omitempty"`
+	Kernels           []string       `json:"kernels,omitempty"`
+	TotalInstructions int            `json:"total_instructions"`
+	Categories        map[string]int `json:"categories,omitempty"`
+	Opcodes           map[string]int `json:"opcodes,omitempty"`
 }
 
 type inspectTileIRSummary struct {
@@ -98,8 +111,8 @@ func runInspectCommand(args []string) error {
 	if len(args) >= 1 && (args[0] == "--cfg" || args[0] == "--bbcfg") {
 		return runInspectCFG(args, limits)
 	}
-	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--cfg|--bbcfg [kernel] capture.pprof")
+	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir" && args[0] != "--ptx") {
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(args[1])
 	if err != nil {
@@ -128,6 +141,7 @@ func runInspectCommand(args []string) error {
 	}
 	report.TileIR = inspectTileIR(cap)
 	report.Remarks = inspectRemarks(cap)
+	report.PTX = inspectPTX(cap)
 
 	if args[0] == "--profiles" {
 		for _, typ := range cap.Profile.SampleType {
@@ -145,6 +159,12 @@ func runInspectCommand(args []string) error {
 			report.TileIR = &inspectTileIRSummary{}
 		}
 		return json.NewEncoder(os.Stdout).Encode(report.TileIR)
+	}
+	if args[0] == "--ptx" {
+		if report.PTX == nil {
+			report.PTX = &inspectPTXSummary{}
+		}
+		return json.NewEncoder(os.Stdout).Encode(report.PTX)
 	}
 	return json.NewEncoder(os.Stdout).Encode(report)
 }
@@ -334,5 +354,37 @@ func findRemarks(cap *cudacapture.Capture) ([]tileiras.Remark, string, error) {
 		}
 	}
 	return nil, "", nil
+}
+
+func inspectPTX(cap *cudacapture.Capture) *inspectPTXSummary {
+	if cap == nil || cap.Code.PTX == "" {
+		return nil
+	}
+	data, ok := cap.Files[cap.Code.PTX]
+	if !ok || len(data) == 0 {
+		return nil
+	}
+	mod, err := cudaptx.ParseBytes(data)
+	if err != nil || mod == nil {
+		return nil
+	}
+	summary := &inspectPTXSummary{
+		File:        cap.Code.PTX,
+		Version:     fmt.Sprintf("%d.%d", mod.Version[0], mod.Version[1]),
+		Target:      mod.Target,
+		AddressSize: mod.AddressSize,
+		Categories:  make(map[string]int),
+		Opcodes:     make(map[string]int),
+	}
+	for _, k := range mod.Kernels {
+		summary.Kernels = append(summary.Kernels, k.Name)
+		for _, in := range k.Instructions {
+			summary.TotalInstructions++
+			summary.Opcodes[in.Mnemonic]++
+			cat := cudaptx.InstructionCategory(in.Mnemonic).String()
+			summary.Categories[cat]++
+		}
+	}
+	return summary
 }
 
