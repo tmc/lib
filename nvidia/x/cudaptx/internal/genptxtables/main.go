@@ -8,6 +8,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/json"
 	"flag"
@@ -24,6 +26,7 @@ import (
 func main() {
 	docs := flag.String("docs", "", "path to a docs/ptx mirror")
 	out := flag.String("out", "tables.gen.go", "output file")
+	docout := flag.String("docout", "ptxdoc.json.gz", "path to write compressed JSON documentation database")
 	flag.Parse()
 	if *docs == "" {
 		log.Fatal("genptxtables: -docs is required")
@@ -68,6 +71,17 @@ func main() {
 	}
 	fmt.Printf("%s: %d keywords, %d types, %d directives, %d special registers from PTX ISA %s\n",
 		*out, len(instructions), len(types), len(directives), len(specialRegs), version)
+
+	if *docout != "" {
+		docData, docCount, err := generateDocs(*docs, *docout, types)
+		if err != nil {
+			log.Fatalf("genptxtables: generate docs: %v", err)
+		}
+		if err := os.WriteFile(*docout, docData, 0o644); err != nil {
+			log.Fatalf("genptxtables: write %s: %v", *docout, err)
+		}
+		fmt.Printf("%s: %d documentation records (%d bytes)\n", *docout, docCount, len(docData))
+	}
 }
 
 func source(docs string) (version, digest string, err error) {
@@ -756,4 +770,539 @@ var ptxDirectives = map[string]struct{}{
 	fmt.Fprintf(&b, "}\n")
 
 	return format.Source([]byte(b.String()))
+}
+
+type DocKind string
+
+const (
+	DocKindInstruction DocKind = "instruction"
+	DocKindDirective   DocKind = "directive"
+	DocKindRegister    DocKind = "register"
+	DocKindType        DocKind = "type"
+	DocKindModifier    DocKind = "modifier"
+)
+
+type Doc struct {
+	Name        string   `json:"name"`
+	Kind        DocKind  `json:"kind"`
+	Title       string   `json:"title,omitempty"`
+	Summary     string   `json:"summary,omitempty"`
+	Syntax      []string `json:"syntax,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Semantics   string   `json:"semantics,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	MinPTX      string   `json:"min_ptx,omitempty"`
+	MinTarget   string   `json:"min_target,omitempty"`
+	Notes       string   `json:"notes,omitempty"`
+}
+
+func generateDocs(docsDir, docout string, types []typeInfo) ([]byte, int, error) {
+	docs := make(map[string]*Doc)
+
+	// 1. Instructions from 09-instruction-set.md
+	ch9Path := filepath.Join(docsDir, "09-instruction-set.md")
+	ch9, err := os.ReadFile(ch9Path)
+	if err != nil {
+		return nil, 0, fmt.Errorf("read ch9: %w", err)
+	}
+	ch9Text := string(ch9)
+
+	catMatches := regexp.MustCompile(`### (9\.7\.\d+)\.\s+([^\n]+)`).FindAllStringSubmatch(ch9Text, -1)
+	catMap := make(map[string]string)
+	for _, m := range catMatches {
+		catMap[m[1]] = strings.TrimSpace(m[2])
+	}
+
+	headerPattern := regexp.MustCompile(`(?m)^(#{3,6})\s+(9\.7\.\d+(?:\.\d+)*)\.?\s+([^\n]+)$`)
+	headers := headerPattern.FindAllStringSubmatchIndex(ch9Text, -1)
+
+	for i, idxs := range headers {
+		secNum := ch9Text[idxs[4]:idxs[5]]
+		title := ch9Text[idxs[6]:idxs[7]]
+
+		mPrefix := regexp.MustCompile(`(9\.7\.\d+)`).FindString(secNum)
+		catName := catMap[mPrefix]
+		if catName == "" {
+			catName = title
+		}
+
+		startPos := idxs[1]
+		endPos := len(ch9Text)
+		if i+1 < len(headers) {
+			endPos = headers[i+1][0]
+		}
+		body := ch9Text[startPos:endPos]
+
+		tokens := regexp.MustCompile("`([a-zA-Z0-9_\\.]+)`").FindAllStringSubmatch(title, -1)
+		if len(tokens) == 0 {
+			continue
+		}
+
+		summary := extractDocSummary(body)
+		syntax := extractDocCodeBlocks(extractDocSection(body, "Syntax"))
+		desc := cleanDocProse(extractDocSection(body, "Description"))
+		semantics := cleanDocProse(extractDocSection(body, "Semantics"))
+		minPTX := extractDocMatch(body, `(?i)Introduced in PTX ISA version\s+(\d+\.\d+)`)
+		minTarget := extractDocTarget(body)
+		notes := cleanDocProse(extractDocSection(body, "Notes"))
+
+		for _, tok := range tokens {
+			name := strings.ToLower(tok[1])
+			base := strings.Split(name, ".")[0]
+			if base == "" {
+				continue
+			}
+
+			existing := docs[base]
+			if existing == nil {
+				existing = &Doc{
+					Name:        base,
+					Kind:        DocKindInstruction,
+					Title:       title,
+					Summary:     summary,
+					Syntax:      syntax,
+					Description: desc,
+					Semantics:   semantics,
+					Category:    catName,
+					MinPTX:      minPTX,
+					MinTarget:   minTarget,
+					Notes:       notes,
+				}
+				docs[base] = existing
+			} else {
+				for _, s := range syntax {
+					if !containsString(existing.Syntax, s) {
+						existing.Syntax = append(existing.Syntax, s)
+					}
+				}
+				if existing.Summary == "" {
+					existing.Summary = summary
+				}
+				if existing.MinPTX == "" {
+					existing.MinPTX = minPTX
+				}
+				if existing.MinTarget == "" {
+					existing.MinTarget = minTarget
+				}
+			}
+
+			// Also index compound instructions like tcgen05.alloc
+			if name != base && docs[name] == nil {
+				docs[name] = &Doc{
+					Name:        name,
+					Kind:        DocKindInstruction,
+					Title:       title,
+					Summary:     summary,
+					Syntax:      syntax,
+					Description: desc,
+					Semantics:   semantics,
+					Category:    catName,
+					MinPTX:      minPTX,
+					MinTarget:   minTarget,
+					Notes:       notes,
+				}
+			}
+		}
+	}
+
+	// Apply family overrides
+	overrides := map[string]struct{ ptx, sm string }{
+		"tcgen05":   {"8.6", "sm_100a"},
+		"wgmma":     {"8.0", "sm_90a"},
+		"wmma":      {"6.0", "sm_70"},
+		"mma":       {"6.4", "sm_70"},
+		"mbarrier":  {"7.0", "sm_80"},
+		"fabric":    {"9.3", "sm_100"},
+		"nanosleep": {"6.3", "sm_70"},
+	}
+	for m, ov := range overrides {
+		if d, ok := docs[m]; ok {
+			if d.MinPTX == "" {
+				d.MinPTX = ov.ptx
+			}
+			if d.MinTarget == "" {
+				d.MinTarget = ov.sm
+			}
+		}
+	}
+	// Inherit base mnemonic min versions for compounds if unset
+	for name, d := range docs {
+		if d.Kind == DocKindInstruction && strings.Contains(name, ".") {
+			base := strings.Split(name, ".")[0]
+			if baseDoc, ok := docs[base]; ok {
+				if d.MinPTX == "" {
+					d.MinPTX = baseDoc.MinPTX
+				}
+				if d.MinTarget == "" {
+					d.MinTarget = baseDoc.MinTarget
+				}
+			}
+		}
+	}
+
+	// 2. Special Registers from 10-special-registers.md
+	ch10Path := filepath.Join(docsDir, "10-special-registers.md")
+	if ch10, err := os.ReadFile(ch10Path); err == nil {
+		ch10Text := string(ch10)
+		headers10 := regexp.MustCompile(`(?m)^## 10\.\d+\.\s+Special Registers:\s*([^\n]+)$`).FindAllStringSubmatchIndex(ch10Text, -1)
+		for i, idxs := range headers10 {
+			title := ch10Text[idxs[2]:idxs[3]]
+			startPos := idxs[1]
+			endPos := len(ch10Text)
+			if i+1 < len(headers10) {
+				endPos = headers10[i+1][0]
+			}
+			body := ch10Text[startPos:endPos]
+			summary := extractDocSummary(body)
+			syntax := extractDocCodeBlocks(extractDocSection(body, "Syntax (predefined)"))
+			if len(syntax) == 0 {
+				syntax = extractDocCodeBlocks(extractDocSection(body, "Syntax"))
+			}
+			desc := cleanDocProse(extractDocSection(body, "Description"))
+			minPTX := extractDocMatch(body, `(?i)Introduced in PTX ISA version\s+(\d+\.\d+)`)
+			minTarget := extractDocTarget(body)
+
+			tokens := regexp.MustCompile("`(%[a-zA-Z0-9_<>]+)`").FindAllStringSubmatch(title, -1)
+			for _, tok := range tokens {
+				name := tok[1]
+				docs[name] = &Doc{
+					Name:        name,
+					Kind:        DocKindRegister,
+					Title:       "Special Register: " + name,
+					Summary:     summary,
+					Syntax:      syntax,
+					Description: desc,
+					Category:    "Special Registers",
+					MinPTX:      minPTX,
+					MinTarget:   minTarget,
+				}
+				// Vector register components .x, .y, .z
+				if name == "%tid" || name == "%ntid" || name == "%ctaid" || name == "%nctaid" || name == "%cluster_ctaid" || name == "%cluster_nctaid" {
+					for _, comp := range []string{".x", ".y", ".z"} {
+						docs[name+comp] = &Doc{
+							Name:        name + comp,
+							Kind:        DocKindRegister,
+							Title:       fmt.Sprintf("Special Register: %s%s", name, comp),
+							Summary:     fmt.Sprintf("%s (%s component)", summary, strings.TrimPrefix(comp, ".")),
+							Syntax:      syntax,
+							Description: desc,
+							Category:    "Special Registers",
+							MinPTX:      minPTX,
+							MinTarget:   minTarget,
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Directives from 11-directives.md
+	ch11Path := filepath.Join(docsDir, "11-directives.md")
+	if ch11, err := os.ReadFile(ch11Path); err == nil {
+		ch11Text := string(ch11)
+		headers11 := regexp.MustCompile(`(?m)^### 11\.\d+\.\d+\.\s+[^:]+:\s*` + "`" + `(\.[a-z0-9_]+)` + "`").FindAllStringSubmatchIndex(ch11Text, -1)
+		for i, idxs := range headers11 {
+			name := ch11Text[idxs[2]:idxs[3]]
+			startPos := idxs[1]
+			endPos := len(ch11Text)
+			if i+1 < len(headers11) {
+				endPos = headers11[i+1][0]
+			}
+			body := ch11Text[startPos:endPos]
+			summary := extractDocSummary(body)
+			syntax := extractDocCodeBlocks(extractDocSection(body, "Syntax"))
+			desc := cleanDocProse(extractDocSection(body, "Description"))
+			semantics := cleanDocProse(extractDocSection(body, "Semantics"))
+			minPTX := extractDocMatch(body, `(?i)Introduced in PTX ISA version\s+(\d+\.\d+)`)
+			minTarget := extractDocTarget(body)
+
+			docs[name] = &Doc{
+				Name:        name,
+				Kind:        DocKindDirective,
+				Title:       "Directive: " + name,
+				Summary:     summary,
+				Syntax:      syntax,
+				Description: desc,
+				Semantics:   semantics,
+				Category:    "Directives",
+				MinPTX:      minPTX,
+				MinTarget:   minTarget,
+			}
+		}
+	}
+
+	// 4. State spaces
+	stateSpaces := []struct{ name, desc, access, sharing string }{
+		{".reg", "Registers, fast per-thread storage", "R/W", "per-thread"},
+		{".sreg", "Special registers, read-only platform-specific registers", "RO", "per-CTA"},
+		{".const", "Constant memory, shared, read-only memory across grid", "RO", "per-grid"},
+		{".global", "Global memory, shared by all threads across contexts", "R/W", "Context"},
+		{".local", "Local memory, private to each thread", "R/W", "per-thread"},
+		{".param", "Kernel parameters (per-grid) or function parameters (per-thread)", "R/W", "per-grid / per-thread"},
+		{".shared", "Shared memory, defined per CTA, accessible within cluster", "R/W", "per-cluster"},
+		{".tex", "Global texture memory (deprecated)", "RO", "Context"},
+	}
+	for _, ss := range stateSpaces {
+		docs[ss.name] = &Doc{
+			Name:        ss.name,
+			Kind:        DocKindModifier,
+			Title:       "State Space: " + ss.name,
+			Summary:     ss.desc,
+			Description: fmt.Sprintf("%s. Access: %s, Sharing: %s.", ss.desc, ss.access, ss.sharing),
+			Category:    "State Spaces",
+		}
+	}
+
+	// 5. Data Types from types slice
+	typeDescriptions := map[string]string{
+		"s8":       "Signed 8-bit integer",
+		"s16":      "Signed 16-bit integer",
+		"s32":      "Signed 32-bit integer",
+		"s64":      "Signed 64-bit integer",
+		"u8":       "Unsigned 8-bit integer",
+		"u16":      "Unsigned 16-bit integer",
+		"u32":      "Unsigned 32-bit integer",
+		"u64":      "Unsigned 64-bit integer",
+		"f16":      "16-bit half-precision floating point (IEEE 754-2008)",
+		"f32":      "32-bit single-precision floating point (IEEE 754)",
+		"f64":      "64-bit double-precision floating point (IEEE 754)",
+		"b8":       "8-bit untyped bit field",
+		"b16":      "16-bit untyped bit field",
+		"b32":      "32-bit untyped bit field",
+		"b64":      "64-bit untyped bit field",
+		"b128":     "128-bit untyped bit field",
+		"pred":     "1-bit predicate register",
+		"bf16":     "16-bit Brain floating point",
+		"tf32":     "19-bit TensorFloat-32 floating point (stored in 32 bits)",
+		"e4m3":     "8-bit FP8 floating point (1 sign, 4 exponent, 3 mantissa)",
+		"e5m2":     "8-bit FP8 floating point (1 sign, 5 exponent, 2 mantissa)",
+		"e2m1":     "4-bit microscopic floating point",
+		"e2m3":     "6-bit floating point",
+		"e3m2":     "6-bit floating point",
+		"ue8m0":    "8-bit unsigned scale factor",
+		"ue4m3":    "7-bit unsigned floating point (stored in 8 bits)",
+		"ue5m3":    "8-bit unsigned floating point",
+		"s2f6":     "8-bit fixed point (2 signed integer bits, 6 fractional bits)",
+		"f16x2":    "Pair of 16-bit half-precision floats packed in 32 bits",
+		"f32x2":    "Pair of 32-bit single-precision floats packed in 64 bits",
+		"bf16x2":   "Pair of 16-bit Brain floats packed in 32 bits",
+		"e4m3x2":   "Pair of FP8 e4m3 floats packed in 16 bits",
+		"e5m2x2":   "Pair of FP8 e5m2 floats packed in 16 bits",
+		"e2m3x2":   "Pair of 6-bit e2m3 floats packed in 16 bits",
+		"e3m2x2":   "Pair of 6-bit e3m2 floats packed in 16 bits",
+		"ue8m0x2":  "Pair of 8-bit unsigned scale factors packed in 16 bits",
+		"ue4m3x2":  "Pair of 7-bit unsigned floats packed in 16 bits",
+		"ue5m3x2":  "Pair of 8-bit unsigned floats packed in 16 bits",
+		"s2f6x2":   "Pair of 8-bit fixed-point values packed in 16 bits",
+		"e2m1x2":   "Pair of 4-bit microscopic floats packed in 8 bits",
+		"e4m3x4":   "Four FP8 e4m3 floats packed in 32 bits",
+		"e5m2x4":   "Four FP8 e5m2 floats packed in 32 bits",
+		"e2m3x4":   "Four 6-bit e2m3 floats packed in 32 bits",
+		"e3m2x4":   "Four 6-bit e3m2 floats packed in 32 bits",
+		"e2m1p4x4": "Four 4-bit e2m1 floats packed with padding in 32 bits",
+		"ue8m0x4":  "Four 8-bit unsigned scale factors packed in 32 bits",
+		"e2m1x4":   "Four 4-bit e2m1 floats packed in 16 bits",
+		"u16x2":    "Pair of unsigned 16-bit integers packed in 32 bits",
+		"s16x2":    "Pair of signed 16-bit integers packed in 32 bits",
+		"u8x4":     "Four unsigned 8-bit integers packed in 32 bits",
+		"s8x4":     "Four signed 8-bit integers packed in 32 bits",
+	}
+	for _, t := range types {
+		name := "." + t.Name
+		desc := typeDescriptions[t.Name]
+		if desc == "" {
+			if t.Packed {
+				desc = fmt.Sprintf("%d-bit packed data type (%d elements)", t.BitSize, t.ElemCount)
+			} else {
+				desc = fmt.Sprintf("%d-bit scalar data type", t.BitSize)
+			}
+		}
+		docs[name] = &Doc{
+			Name:        name,
+			Kind:        DocKindType,
+			Title:       "Data Type: " + name,
+			Summary:     desc,
+			Description: fmt.Sprintf("%s. Total size: %d bits.", desc, t.BitSize),
+			Category:    "Data Types",
+		}
+	}
+
+	// 6. Standard Modifiers
+	modifiers := []struct{ name, meaning, cat string }{
+		{".rn", "Round to nearest even (IEEE 754 default)", "Rounding Mode"},
+		{".rz", "Round towards zero (truncate)", "Rounding Mode"},
+		{".rm", "Round towards negative infinity", "Rounding Mode"},
+		{".rp", "Round towards positive infinity", "Rounding Mode"},
+		{".rni", "Round to nearest integer, ties to even", "Rounding Mode"},
+		{".rzi", "Round to nearest integer towards zero", "Rounding Mode"},
+		{".rmi", "Round to nearest integer towards negative infinity", "Rounding Mode"},
+		{".rpi", "Round to nearest integer towards positive infinity", "Rounding Mode"},
+		{".ftz", "Flush subnormal inputs and results to sign-preserving zero", "Floating-Point Option"},
+		{".sat", "Saturate result to [0.0, 1.0] for float or [min, max] for integer", "Format Option"},
+		{".satfinite", "Saturate result to finite range [min, max]", "Format Option"},
+		{".relu", "Apply rectified linear unit (clamp negative numbers to zero)", "Math Option"},
+		{".ca", "Cache at all levels (L1 and L2)", "Cache Hint"},
+		{".cg", "Cache at global level only (L2, bypass L1)", "Cache Hint"},
+		{".cs", "Cache streaming (likely to be accessed once, discard soon)", "Cache Hint"},
+		{".lu", "Last use (discard from cache after this access)", "Cache Hint"},
+		{".cv", "Cache volatile (bypass caches, fetch latest memory)", "Cache Hint"},
+		{".wb", "Write-back to L2 cache", "Cache Hint"},
+		{".wt", "Write-through directly to system memory", "Cache Hint"},
+		{".relaxed", "Relaxed memory consistency (no acquire/release barrier)", "Memory Consistency"},
+		{".acquire", "Acquire memory barrier (subsequent reads/writes ordered after)", "Memory Consistency"},
+		{".release", "Release memory barrier (prior reads/writes ordered before)", "Memory Consistency"},
+		{".acq_rel", "Acquire-release fence/barrier (both acquire and release)", "Memory Consistency"},
+		{".volatile", "Volatile memory access (compiler cannot reorder or optimize away)", "Memory Consistency"},
+		{".cta", "CTA scope (synchronization/consistency visible within thread block)", "Memory Scope"},
+		{".cluster", "Cluster scope (synchronization/consistency visible within cluster)", "Memory Scope"},
+		{".gpu", "GPU scope (synchronization/consistency visible across device)", "Memory Scope"},
+		{".sys", "System scope (synchronization/consistency visible across GPU and CPU host)", "Memory Scope"},
+		{".sync", "Synchronous execution across participating threads", "Synchronization"},
+		{".aligned", "Threads in warp execute in lockstep at this instruction", "Synchronization"},
+		{".arrive", "Arrive at asynchronous barrier without waiting", "Asynchronous Barrier"},
+		{".wait", "Wait at asynchronous barrier until arrival count met", "Asynchronous Barrier"},
+		{".cta_group::1", "CTA group size 1 (single CTA in distributed shared memory)", "Cluster Modifier"},
+		{".cta_group::2", "CTA group size 2 (pair of CTAs in distributed shared memory)", "Cluster Modifier"},
+		{".eq", "Equal comparison", "Comparison Condition"},
+		{".ne", "Not-equal comparison", "Comparison Condition"},
+		{".lt", "Less-than comparison", "Comparison Condition"},
+		{".le", "Less-than-or-equal comparison", "Comparison Condition"},
+		{".gt", "Greater-than comparison", "Comparison Condition"},
+		{".ge", "Greater-than-or-equal comparison", "Comparison Condition"},
+		{".lo", "Lower (unsigned <) comparison", "Comparison Condition"},
+		{".ls", "Lower-or-same (unsigned <=) comparison", "Comparison Condition"},
+		{".hi", "Higher (unsigned >) comparison", "Comparison Condition"},
+		{".hs", "Higher-or-same (unsigned >=) comparison", "Comparison Condition"},
+		{".equ", "Equal or unordered comparison", "Comparison Condition"},
+		{".neu", "Not-equal or unordered comparison", "Comparison Condition"},
+		{".ltu", "Less-than or unordered comparison", "Comparison Condition"},
+		{".leu", "Less-than-or-equal or unordered comparison", "Comparison Condition"},
+		{".gtu", "Greater-than or unordered comparison", "Comparison Condition"},
+		{".geu", "Greater-than-or-equal or unordered comparison", "Comparison Condition"},
+		{".num", "Ordered comparison (neither operand is NaN)", "Comparison Condition"},
+		{".nan", "Unordered comparison (either operand is NaN)", "Comparison Condition"},
+		{".v2", "Two-element vector tuple", "Vector Specifier"},
+		{".v4", "Four-element vector tuple", "Vector Specifier"},
+		{".v8", "Eight-element vector tuple", "Vector Specifier"},
+	}
+	for _, m := range modifiers {
+		docs[m.name] = &Doc{
+			Name:        m.name,
+			Kind:        DocKindModifier,
+			Title:       "Modifier: " + m.name,
+			Summary:     m.meaning,
+			Description: m.meaning,
+			Category:    m.cat,
+		}
+	}
+
+	var buf bytes.Buffer
+	if strings.HasSuffix(docout, ".gz") {
+		gw := gzip.NewWriter(&buf)
+		if err := json.NewEncoder(gw).Encode(docs); err != nil {
+			return nil, 0, fmt.Errorf("encode docs: %w", err)
+		}
+		if err := gw.Close(); err != nil {
+			return nil, 0, fmt.Errorf("gzip docs: %w", err)
+		}
+	} else {
+		enc := json.NewEncoder(&buf)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(docs); err != nil {
+			return nil, 0, fmt.Errorf("encode docs: %w", err)
+		}
+	}
+
+	return buf.Bytes(), len(docs), nil
+}
+
+func extractDocSummary(body string) string {
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	var textLines []string
+	inCode := false
+	for _, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, "```") {
+			inCode = !inCode
+			continue
+		}
+		if inCode || trimmed == "" || strings.HasPrefix(trimmed, "`") || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "Syntax") || strings.HasPrefix(trimmed, "Description") || strings.HasPrefix(trimmed, "Semantics") || strings.HasPrefix(trimmed, "PTX ISA Notes") {
+			break
+		}
+		textLines = append(textLines, trimmed)
+		if len(textLines) >= 2 {
+			break
+		}
+	}
+	return strings.Join(textLines, " ")
+}
+
+func extractDocSection(body, secName string) string {
+	pattern := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(secName) + `\s*$`)
+	loc := pattern.FindStringIndex(body)
+	if loc == nil {
+		return ""
+	}
+	rest := body[loc[1]:]
+	nextPat := regexp.MustCompile(`(?m)^(?:#{2,6}\s+|Syntax\s*$|Description\s*$|Semantics\s*$|PTX ISA Notes\s*$|Target ISA Notes\s*$|Examples\s*$)`)
+	nextLoc := nextPat.FindStringIndex(rest)
+	if nextLoc != nil {
+		return strings.TrimSpace(rest[:nextLoc[0]])
+	}
+	return strings.TrimSpace(rest)
+}
+
+func extractDocCodeBlocks(text string) []string {
+	re := regexp.MustCompile("(?s)```(?:ptx)?\\n(.*?)\\n```")
+	matches := re.FindAllStringSubmatch(text, -1)
+	var blocks []string
+	for _, m := range matches {
+		code := strings.TrimSpace(m[1])
+		if code != "" {
+			blocks = append(blocks, code)
+		}
+	}
+	return blocks
+}
+
+func cleanDocProse(text string) string {
+	text = strings.ReplaceAll(text, "Copy to clipboard\n", "")
+	text = strings.ReplaceAll(text, "Copy to clipboard", "")
+	return strings.TrimSpace(text)
+}
+
+func extractDocMatch(body, pattern string) string {
+	m := regexp.MustCompile(pattern).FindStringSubmatch(body)
+	if len(m) >= 2 {
+		return m[1]
+	}
+	return ""
+}
+
+func extractDocTarget(body string) string {
+	idx := strings.Index(body, "Target ISA Notes")
+	if idx < 0 {
+		return ""
+	}
+	notePart := body[idx:]
+	if exIdx := strings.Index(notePart, "Examples"); exIdx >= 0 {
+		notePart = notePart[:exIdx]
+	}
+	if strings.Contains(strings.ToLower(notePart), "all target") {
+		return "all"
+	}
+	m := regexp.MustCompile(`sm_\d+[a-z]?`).FindString(notePart)
+	return m
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }

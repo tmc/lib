@@ -2,6 +2,7 @@ package cudaptx
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -278,6 +279,11 @@ func Parse(r io.Reader) (*Module, error) {
 // ParseString parses PTX assembly held in a string.
 func ParseString(ptx string) (*Module, error) {
 	return Parse(strings.NewReader(ptx))
+}
+
+// ParseBytes parses PTX assembly held in a byte slice.
+func ParseBytes(b []byte) (*Module, error) {
+	return Parse(bytes.NewReader(b))
 }
 
 func (m *Module) resolveFiles() {

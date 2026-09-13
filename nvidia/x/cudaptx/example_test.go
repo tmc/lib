@@ -105,3 +105,38 @@ func ExampleModule_AuditArchitecture() {
 	// Output:
 	// Architecture audit passed
 }
+
+func ExampleLookupDoc() {
+	doc := cudaptx.LookupDoc("fma")
+	if doc != nil {
+		fmt.Printf("%s: %s (Category: %s, Min PTX: %s, Target: %s)\n",
+			doc.Name, doc.Summary, doc.Category, doc.MinPTX, doc.MinTarget)
+	}
+
+	regDoc := cudaptx.LookupDoc("%tid")
+	if regDoc != nil {
+		fmt.Printf("%s: %s\n", regDoc.Name, regDoc.Summary)
+	}
+
+	// Output:
+	// fma: Fused multiply-add. (Category: Floating-Point Instructions, Min PTX: 1.4, Target: sm_20)
+	// %tid: Thread identifier within a CTA.
+}
+
+func ExampleExplain() {
+	stmt := "@%p1 fma.rn.ftz.f32 %f1, %f2, %f3, %f4;"
+	info := cudaptx.Explain(stmt)
+
+	fmt.Printf("Mnemonic: %s\n", info.Mnemonic)
+	fmt.Printf("Predicate: %s\n", info.Predicate)
+	for _, m := range info.Modifiers {
+		fmt.Printf("Modifier %s: %s\n", m.Name, m.Meaning)
+	}
+
+	// Output:
+	// Mnemonic: fma
+	// Predicate: @%p1
+	// Modifier .rn: Round to nearest even (IEEE 754 default)
+	// Modifier .ftz: Flush subnormal inputs and results to sign-preserving zero
+	// Modifier .f32: 32-bit single-precision floating point (IEEE 754)
+}
