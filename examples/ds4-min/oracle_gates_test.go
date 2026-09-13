@@ -84,6 +84,7 @@ var oracleGates = []oracleGate{
 	{"DS4_CUDA_PREFILL_PROGRESS", "CUDA EvalBatch progress diagnostic"},
 	{"DS4_CUDA_PREFILL_PROGRESS_OUT", "new CUDA prefill progress JSONL file"},
 	{"DS4_CUDA_HC_MATH_DIAGNOSTIC", "the CUDA HC mathematical diagnostic"},
+	{"DS4_DISABLE_CUDA_GRAPH", "disabling CUDA graph capture and replay in decode"},
 
 	{"DS4_BENCH_CONTEXT", "how much context the Metal workload benchmarks allocate"},
 	{"DS4_BENCH_CHUNKS", "which prefill chunk sizes the workload benchmark sweeps"},

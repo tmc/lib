@@ -86,16 +86,17 @@ type config struct {
 	expectPrefillLogits string
 	expectFinalLogits   string
 
-	cpuProfile   string
-	memProfile   string
-	traceProfile string
-	spanPath     string
-	spanStream   string
-	calibEvery   int
-	spanLevel    spanLevel
-	runID        string
-	calibPath    string
-	profilerStop bool
+	cpuProfile    string
+	memProfile    string
+	traceProfile  string
+	spanPath      string
+	spanStream    string
+	calibEvery    int
+	spanLevel     spanLevel
+	runID         string
+	calibPath     string
+	profilerStop  bool
+	profilerRange bool
 }
 
 func main() {
@@ -183,7 +184,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
+	if err := cfg.beginProfilerRange(); err != nil {
+		return err
+	}
 	if err := tracePhase(levelPhase, "prefill", func() error { return s.Sync(prompt) }); err != nil {
+		return err
+	}
+	if err := cfg.endProfilerRange(); err != nil {
 		return err
 	}
 	prefill := time.Since(prefillStart)
@@ -193,6 +200,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	var text textAssembler
 	generated := 0
 	decodeStart := time.Now()
+	if err := cfg.beginProfilerRange(); err != nil {
+		return err
+	}
 	if err := tracePhase(levelPhase, "generation", func() error {
 		for range cfg.tokens {
 			id := greedyToken(s.logits)
@@ -220,6 +230,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		}
 		return nil
 	}); err != nil {
+		return err
+	}
+	if err := cfg.endProfilerRange(); err != nil {
 		return err
 	}
 	// Same definition as ds4_cli.c:679-686: prompt tokens over the prefill
@@ -308,6 +321,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&cfg.calibPath, "calibration", "", "write NVTX clock-calibration brackets to this file")
 	fs.IntVar(&cfg.calibEvery, "calibration-every", 64, "also bracket every Nth prefill batch; 0 for boundaries only")
 	fs.BoolVar(&cfg.profilerStop, "cuda-profiler-stop", false, "call cuProfilerStop after the last kernel so the profiler flushes its buffers")
+	fs.BoolVar(&cfg.profilerRange, "cuda-profiler-range", false, "bracket prefill and generation with cuProfilerStart/Stop so a profiler run with -c cudaProfilerApi bounds each phase the way ds4_bench.c does")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}
@@ -475,6 +489,25 @@ func preparePrompt(cfg config, tok *tokenizer) ([]int, error) {
 		return nil, err
 	}
 	return prompt, nil
+}
+
+// beginProfilerRange and endProfilerRange bracket one phase with the
+// driver's profiler controls. ds4_bench.c:861-879 brackets the C oracle the
+// same way, so with -c cudaProfilerApi both implementations hand the
+// profiler the same phase boundary instead of one being an NVTX window and
+// the other a capture range.
+func (cfg config) beginProfilerRange() error {
+	if !cfg.profilerRange {
+		return nil
+	}
+	return startCUDAProfiler()
+}
+
+func (cfg config) endProfilerRange() error {
+	if !cfg.profilerRange {
+		return nil
+	}
+	return stopCUDAProfiler()
 }
 
 func (cfg config) checkPromptCapacity(n int) error {

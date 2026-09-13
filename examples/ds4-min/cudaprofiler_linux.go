@@ -8,24 +8,14 @@ import (
 	"github.com/ebitengine/purego"
 )
 
-// stopCUDAProfiler calls the CUDA driver's cuProfilerStop, which is what
-// makes a profiler flush its buffered activity records. The capture's own
-// diagnostics say so: "Buffers holding CUDA trace data will be flushed on
-// CudaProfilerStop() call". Nothing in a Go program makes that call, and
-// nothing makes it on the way out either, because runtime.exit on
-// linux/arm64 issues exit_group directly without running libc teardown.
-// Whatever the profiler has buffered when the process leaves is discarded,
-// which is why the tail of every capture was missing and decode, the last
-// 0.17 s of the run, never appeared on the device timeline at all.
+// cudaProfilerCall invokes one of the CUDA driver's nullary profiler control
+// entry points, cuProfilerStart or cuProfilerStop.
 //
-// cuProfilerStop operates on the calling thread's current context, and a
-// goroutine does not in general run on the thread that established one, so
-// the thread is pinned and the device's primary context made current first.
-// That is the same context the runtime API uses, so stopping on it stops the
-// profiling that covered the run.
-//
-// Call this after the last kernel and after the last NVTX range closes.
-func stopCUDAProfiler() error {
+// Both operate on the calling thread's current context, and a goroutine does
+// not in general run on the thread that established one, so the thread is
+// pinned and the device's primary context made current first. That is the
+// same context the runtime API uses, so a range opened here covers the run.
+func cudaProfilerCall(name string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -52,7 +42,7 @@ func stopCUDAProfiler() error {
 	if err != nil {
 		return err
 	}
-	fnProfilerStop, err := sym("cuProfilerStop")
+	fn, err := sym(name)
 	if err != nil {
 		return err
 	}
@@ -70,8 +60,30 @@ func stopCUDAProfiler() error {
 			return fmt.Errorf("cuCtxSetCurrent: CUresult %d", r)
 		}
 	}
-	if r, _, _ := purego.SyscallN(fnProfilerStop); r != 0 {
-		return fmt.Errorf("cuProfilerStop: CUresult %d", r)
+	if r, _, _ := purego.SyscallN(fn); r != 0 {
+		return fmt.Errorf("%s: CUresult %d", name, r)
 	}
 	return nil
 }
+
+// startCUDAProfiler calls cuProfilerStart, which opens a profiler capture
+// range when the profiler was launched with its capture range delegated to
+// the application. The ds4.c oracle brackets its phases the same way, from
+// ds4_bench.c, so a range opened here and closed by stopCUDAProfiler bounds
+// the Go phase by the same instrument that bounds the C one. Comparing the
+// two sides otherwise means comparing an NVTX window against a profiler
+// range and assuming the two agree.
+func startCUDAProfiler() error { return cudaProfilerCall("cuProfilerStart") }
+
+// stopCUDAProfiler calls cuProfilerStop, which closes a capture range and is
+// what makes a profiler flush its buffered activity records. The capture's
+// own diagnostics say so: "Buffers holding CUDA trace data will be flushed on
+// CudaProfilerStop() call". Nothing in a Go program makes that call on the
+// way out, because runtime.exit on linux/arm64 issues exit_group directly
+// without running libc teardown. Whatever the profiler has buffered when the
+// process leaves is discarded, which is why the tail of every capture was
+// missing and decode, the last 0.17 s of the run, never appeared on the
+// device timeline at all.
+//
+// Call this after the last kernel of a phase and after its NVTX range closes.
+func stopCUDAProfiler() error { return cudaProfilerCall("cuProfilerStop") }
