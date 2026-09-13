@@ -109,10 +109,10 @@ func inspectLauncher(l *cudalaunch.Launcher) (driver.Function, cudalaunch.Dim3, 
 }
 
 // stepToKernelParams converts a PipelineStep into driver.KernelNodeParams for cudagraph.AddKernelNode.
-func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, func(), error) {
-	kernelParams, cleanup, err := cudalaunch.PackArgs(step.Args...)
+func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, error) {
+	kernelParams, err := cudalaunch.PackArgs(step.Args...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("pack args: %w", err)
+		return nil, fmt.Errorf("pack args: %w", err)
 	}
 
 	var kparamsPtr uintptr
@@ -132,8 +132,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, func(), er
 	if step.Launcher != nil {
 		lFn, lGrid, lBlock, lShmem, err := inspectLauncher(step.Launcher)
 		if err != nil && fn == 0 {
-			cleanup()
-			return nil, nil, err
+			return nil, err
 		}
 		if fn == 0 {
 			fn = lFn
@@ -150,8 +149,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, func(), er
 	}
 
 	if fn == 0 {
-		cleanup()
-		return nil, nil, errors.New("kernel function is null")
+		return nil, errors.New("kernel function is null")
 	}
 
 	if gridX == 0 {
@@ -184,7 +182,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, func(), er
 		SharedMemBytes: shmem,
 		KernelParams:   kparamsPtr,
 	}
-	return params, cleanup, nil
+	return params, nil
 }
 
 // runWorkloadInGraph executes the DeepSeek-V4 pipeline inside a captured CUDA Graph
@@ -226,13 +224,6 @@ func runWorkloadInGraph(
 		}
 	}()
 
-	var cleanups []func()
-	defer func() {
-		for _, cleanup := range cleanups {
-			cleanup()
-		}
-	}()
-
 	var nodeCount int
 	var pdlCount int
 
@@ -264,12 +255,9 @@ func runWorkloadInGraph(
 		// Create kernel nodes for each pipeline step and connect them with ProgrammaticEdgeData
 		nodes := make([]*cudagraph.Node, len(steps))
 		for i, step := range steps {
-			params, cleanup, err := stepToKernelParams(step)
+			params, err := stepToKernelParams(step)
 			if err != nil {
 				return nil, nil, fmt.Errorf("step %d (%s) kernel params: %w", i, step.Name, err)
-			}
-			if cleanup != nil {
-				cleanups = append(cleanups, cleanup)
 			}
 			n, err := g.AddKernelNode(params)
 			if err != nil {

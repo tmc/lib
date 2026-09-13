@@ -209,11 +209,10 @@ func (l *Launcher) Launch(args ...any) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	kernelParams, cleanup, err := packArgs(args)
+	kernelParams, err := packArgs(args)
 	if err != nil {
 		return fmt.Errorf("cudalaunch: pack args: %w", err)
 	}
-	defer cleanup()
 
 	var pinner runtime.Pinner
 	if len(l.attrs) > 0 {
@@ -274,7 +273,7 @@ func (l *Launcher) Launch(args ...any) error {
 
 // PackArgs marshals Go values into an array of pointers as expected by cuLaunchKernel.
 // Struct arguments are guaranteed to have 16-byte alignment per NVCC ABI requirements.
-func PackArgs(args ...any) ([]unsafe.Pointer, func(), error) {
+func PackArgs(args ...any) ([]unsafe.Pointer, error) {
 	return packArgs(args)
 }
 
@@ -282,16 +281,16 @@ func PackArgs(args ...any) ([]unsafe.Pointer, func(), error) {
 // The returned params slice must remain live through the driver call. Its
 // pointers retain packed scalar and struct storage; caller-provided pointers
 // retain their usual caller-owned lifetime.
-func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
+func packArgs(args []any) ([]unsafe.Pointer, error) {
 	if len(args) == 0 {
-		return nil, func() {}, nil
+		return nil, nil
 	}
 
 	params := make([]unsafe.Pointer, len(args))
 
 	for i, arg := range args {
 		if arg == nil {
-			return nil, nil, fmt.Errorf("arg %d is nil", i)
+			return nil, fmt.Errorf("arg %d is nil", i)
 		}
 
 		// Check if argument satisfies DevicePtrProvider (e.g. cudamem.Slice).
@@ -303,7 +302,7 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 				ptrVal = 0
 			}
 			if uintptr(ptrVal)%8 != 0 {
-				return nil, nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, ptrVal)
+				return nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, ptrVal)
 			}
 			params[i] = unsafe.Pointer(&ptrVal)
 			continue
@@ -312,7 +311,7 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 		switch v := arg.(type) {
 		case driver.DevicePtr:
 			if uintptr(v)%8 != 0 {
-				return nil, nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, v)
+				return nil, fmt.Errorf("arg %d: device pointer 0x%x is not 8-byte aligned", i, v)
 			}
 			params[i] = unsafe.Pointer(&v)
 
@@ -354,7 +353,7 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 			rv := reflect.ValueOf(arg)
 			if rv.Kind() == reflect.Pointer {
 				if rv.IsNil() {
-					return nil, nil, fmt.Errorf("arg %d is a nil pointer", i)
+					return nil, fmt.Errorf("arg %d is a nil pointer", i)
 				}
 				p := rv.UnsafePointer()
 				params[i] = p
@@ -377,14 +376,11 @@ func packArgs(args []any) ([]unsafe.Pointer, func(), error) {
 				params[i] = alignedPtr
 				continue
 			}
-			return nil, nil, fmt.Errorf("arg %d has unsupported type %T", i, arg)
+			return nil, fmt.Errorf("arg %d has unsupported type %T", i, arg)
 		}
 	}
 
-	cleanup := func() {
-	}
-
-	return params, cleanup, nil
+	return params, nil
 }
 
 // OccupancyMaxPotentialBlockSize calculates the maximum potential block size and minimum

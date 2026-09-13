@@ -844,11 +844,10 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 
 	count := int32(n)
 	kernelArgs := []any{bufA, bufB, bufC, count}
-	packed, cleanup, err := cudalaunch.PackArgs(kernelArgs...)
+	packed, err := cudalaunch.PackArgs(kernelArgs...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
 
 	var kp driver.KernelNodeParams
 	kp.Func = fn

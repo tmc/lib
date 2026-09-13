@@ -51,11 +51,10 @@ type Float4 struct {
 func TestPackArgs16ByteAlignment(t *testing.T) {
 	// Call PackArgs directly via Exported/Internal helper
 	f4 := Float4{X: 1.0, Y: 2.0, Z: 3.0, W: 4.0}
-	params, cleanup, err := cudalaunch.PackArgs(f4, int32(42), uint64(100))
+	params, err := cudalaunch.PackArgs(f4, int32(42), uint64(100))
 	if err != nil {
 		t.Fatalf("PackArgs failed: %v", err)
 	}
-	defer cleanup()
 
 	if len(params) != 3 {
 		t.Fatalf("expected 3 params, got %d", len(params))
@@ -95,11 +94,10 @@ func TestPackArgsNullSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params, cleanup, err := cudalaunch.PackArgs(tt.arg)
+			params, err := cudalaunch.PackArgs(tt.arg)
 			if err != nil {
 				t.Fatalf("PackArgs(%v) failed: %v", tt.arg, err)
 			}
-			defer cleanup()
 			if got := *(*driver.DevicePtr)(params[0]); got != tt.want {
 				t.Errorf("PackArgs(%v) packed 0x%x, want 0x%x", tt.arg, got, tt.want)
 			}

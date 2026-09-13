@@ -87,11 +87,10 @@ func TestStepToKernelParams(t *testing.T) {
 			Args:     []any{dptr, n, scale},
 		}
 
-		params, cleanup, err := stepToKernelParams(step)
+		params, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
-		defer cleanup()
 
 		if params.Func != fn {
 			t.Errorf("params.Func = %v, want %v", params.Func, fn)
@@ -129,11 +128,10 @@ func TestStepToKernelParams(t *testing.T) {
 			Launcher: launcher,
 		}
 
-		params, cleanup, err := stepToKernelParams(step)
+		params, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
-		defer cleanup()
 
 		if params.GridDimX != 1 || params.GridDimY != 1 || params.GridDimZ != 1 {
 			t.Errorf("default grid dims = (%d, %d, %d), want (1, 1, 1)", params.GridDimX, params.GridDimY, params.GridDimZ)
@@ -158,11 +156,10 @@ func TestStepToKernelParams(t *testing.T) {
 			SharedMemBytes: 256,
 		}
 
-		params, cleanup, err := stepToKernelParams(step)
+		params, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
-		defer cleanup()
 
 		if params.Func != fn {
 			t.Errorf("params.Func = %v, want %v", params.Func, fn)
@@ -180,7 +177,7 @@ func TestStepToKernelParams(t *testing.T) {
 
 	t.Run("null function error", func(t *testing.T) {
 		step := PipelineStep{Name: "null_step"}
-		_, _, err := stepToKernelParams(step)
+		_, err := stepToKernelParams(step)
 		if err == nil {
 			t.Fatal("expected error for null function, got nil")
 		}
@@ -195,7 +192,7 @@ func TestStepToKernelParams(t *testing.T) {
 			Func: fn,
 			Args: []any{nil},
 		}
-		_, _, err := stepToKernelParams(step)
+		_, err := stepToKernelParams(step)
 		if err == nil {
 			t.Fatal("expected error for nil arg, got nil")
 		}
