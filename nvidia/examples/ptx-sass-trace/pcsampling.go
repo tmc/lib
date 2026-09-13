@@ -9,9 +9,9 @@ package main
 //
 // Enabling it also carries preconditions the interval path does not have.
 // Collection is admitted only on Linux amd64/arm64 against a CUPTI whose
-// version is exactly 130001 (CUDA 13.0), the process must own PC sampling
-// exclusively and cannot detect other registrants such as nsys or ncu, and the
-// driver must permit non-admin profiling
+// version is 130001 (CUDA 13.0) or 130400 (CUDA 13.4), the process must own PC
+// sampling exclusively and cannot detect other registrants such as nsys or ncu,
+// and the driver must permit non-admin profiling
 // (NVreg_RestrictProfilingToAdminUsers=0). A default that fails or silently
 // degrades under any of those is worse than an explicit flag.
 
