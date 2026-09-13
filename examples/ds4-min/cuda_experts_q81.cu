@@ -18,10 +18,15 @@ __device__ float ds4_iq2_part_q8_1_scalar(const unsigned char *p, const ds4_q8_1
 }
 
 __device__ float ds4_iq2_part_q8_1(
-    const unsigned char *p, const ds4_q8_1_activation *x, unsigned part,
-    const unsigned int *grid_lo_table, const unsigned int *grid_hi_table, const unsigned char *ksigns_table) {
+    const unsigned char *p,
+    const ds4_q8_1_activation *x,
+    unsigned part,
+    const unsigned int *grid_lo_table,
+    const unsigned int *grid_hi_table,
+    const unsigned char *ksigns_table) {
   const unsigned char *q = p + 2 + part * 8;
-  unsigned aux = unsigned(q[4]) | unsigned(q[5]) << 8 | unsigned(q[6]) << 16 | unsigned(q[7]) << 24;
+  unsigned aux = unsigned(*reinterpret_cast<const unsigned short *>(q + 4)) |
+                 (unsigned(*reinterpret_cast<const unsigned short *>(q + 6)) << 16);
   const int *u = reinterpret_cast<const int *>(x->qs);
   int sum = 0;
   for (unsigned group = 0; group < 4; group++) {
@@ -36,7 +41,7 @@ __device__ float ds4_iq2_part_q8_1(
     sum = __dp4a(grid1, u[group * 2 + 1], sum);
   }
   int ls = int(aux >> 27) | 1;
-  float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+  float d = ds4_half_to_float(*reinterpret_cast<const unsigned short *>(p));
   return d * ds4_half_to_float(x->d) * float(sum * ls / 8);
 }
 
@@ -71,8 +76,9 @@ extern "C" __global__ void ds4_iq2_xxs_pair_selected_q8_1(
   float g = 0.0f, u = 0.0f;
   for (unsigned part = lane; part < cols / 32; part += 32) {
     unsigned b = part / 8, sub = part % 8;
-    g += ds4_iq2_part_q8_1(gate + offset + (unsigned long long)b * 66, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
-    u += ds4_iq2_part_q8_1(up + offset + (unsigned long long)b * 66, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
+    unsigned long long block_offset = offset + (unsigned long long)b * 66;
+    g += ds4_iq2_part_q8_1(gate + block_offset, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
+    u += ds4_iq2_part_q8_1(up + block_offset, x + part, sub, s_grid_lo, s_grid_hi, s_ksigns);
   }
   for (unsigned stride = 16; stride; stride >>= 1) {
     g += __shfl_down_sync(0xffffffff, g, stride);
@@ -133,7 +139,7 @@ __device__ float ds4_q2_window_q8_1_scalar(const unsigned char *p, const ds4_q8_
 
 __device__ float ds4_q2_window_q8_1(const unsigned char *p, const ds4_q8_1_activation *x, unsigned iqs) {
   unsigned qoffset = 16 + iqs * 4;
-  unsigned v = unsigned(p[qoffset]) | unsigned(p[qoffset+1]) << 8 | unsigned(p[qoffset+2]) << 16 | unsigned(p[qoffset+3]) << 24;
+  unsigned v = *reinterpret_cast<const unsigned int *>(p + qoffset);
   unsigned scale_offset = iqs - iqs % 8 + (iqs % 8) / 4;
   float sum_d = 0.0f, sum_m = 0.0f;
   for (unsigned i = 0; i < 4; i++) {
@@ -147,8 +153,9 @@ __device__ float ds4_q2_window_q8_1(const unsigned char *p, const ds4_q8_1_activ
     sum_d += d8 * float(dot * int(scale & 15));
     sum_m += d8 * float(minimum);
   }
-  float d = ds4_half_to_float(unsigned(p[80]) | unsigned(p[81]) << 8);
-  float dm = ds4_half_to_float(unsigned(p[82]) | unsigned(p[83]) << 8);
+  unsigned d_pair = *reinterpret_cast<const unsigned int *>(p + 80);
+  float d = ds4_half_to_float(d_pair & 0xffff);
+  float dm = ds4_half_to_float(d_pair >> 16);
   return d * sum_d - dm * sum_m;
 }
 
