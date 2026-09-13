@@ -517,7 +517,7 @@ func TestRealKernelPrologueAblationRun(t *testing.T) {
 
 	for i := 0; i < dim; i++ {
 		diff := math.Abs(float64(hExpected[i] - hOutHoist[i]))
-		if diff > 1e-4 {
+		if math.IsNaN(float64(hExpected[i])) || math.IsNaN(float64(hOutHoist[i])) || !(diff <= 1e-4) {
 			t.Fatalf("numerical divergence at [%d]: ref=%f, hoisted=%f", i, hExpected[i], hOutHoist[i])
 		}
 	}
