@@ -9,10 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // Outcome is what a run turned out to be.
@@ -419,27 +420,6 @@ func (r *Result) Details() string {
 	return b.String()
 }
 
-// toolkitEnvVars are the environment variables that conventionally name a CUDA
-// toolkit root. They are consulted before the default prefixes.
-var toolkitEnvVars = []string{"CUDA_HOME", "CUDA_PATH", "CUDA_ROOT"}
-
-// toolkitRoots are the install prefixes searched when no environment variable
-// names one. /usr/local/cuda is first because a multi-version install points it
-// at the version the machine is configured for.
-var toolkitRoots = []string{
-	"/usr/local/cuda",
-	"/usr/local/cuda-13",
-	"/usr/local/cuda-12",
-	"/opt/cuda",
-	"/usr/lib/cuda",
-}
-
-// toolkitSubdirs are the directories inside a toolkit root that hold a
-// compute-sanitizer executable, in preference order: bin holds a small
-// launcher, and the compute-sanitizer directory holds the real binary beside
-// the libraries it needs.
-var toolkitSubdirs = []string{"bin", "compute-sanitizer"}
-
 // ToolSearchPaths returns the executables [LookTool] tries before PATH, in
 // order. The list is empty on GOOS values Compute Sanitizer does not ship for,
 // leaving PATH as the only source.
@@ -453,70 +433,18 @@ var toolkitSubdirs = []string{"bin", "compute-sanitizer"}
 //
 // A non-empty Config.Path, or a toolkit root in CUDA_HOME, CUDA_PATH or
 // CUDA_ROOT, overrides the defaults.
-func ToolSearchPaths() []string { return toolSearchPaths(runtime.GOOS, os.Getenv) }
-
-// toolSearchPaths is ToolSearchPaths with the platform and environment
-// injected, so the Linux ordering can be tested on any host.
-func toolSearchPaths(goos string, getenv func(string) string) []string {
-	if goos != "linux" {
-		return nil
-	}
-	var roots []string
-	for _, env := range toolkitEnvVars {
-		if v := getenv(env); v != "" {
-			roots = append(roots, v)
-		}
-	}
-	roots = append(roots, toolkitRoots...)
-
-	seen := make(map[string]bool, len(roots)*len(toolkitSubdirs))
-	paths := make([]string, 0, len(roots)*len(toolkitSubdirs))
-	for _, root := range roots {
-		for _, sub := range toolkitSubdirs {
-			p := filepath.Join(root, sub, DefaultToolName)
-			if seen[p] {
-				continue
-			}
-			seen[p] = true
-			paths = append(paths, p)
-		}
-	}
-	return paths
-}
+func ToolSearchPaths() []string { return cudatool.SearchPaths(DefaultToolName) }
 
 // LookTool returns the path to the compute-sanitizer executable. A non-empty
 // path is resolved the way a shell would, including a bare name on PATH. An
 // empty path tries the toolkit installs [ToolSearchPaths] names and then
 // [DefaultToolName] on PATH. The error wraps [ErrToolNotFound].
 func LookTool(path string) (string, error) {
-	if path != "" {
-		found, err := exec.LookPath(path)
-		if err != nil {
-			return "", fmt.Errorf("%w: %v", ErrToolNotFound, err)
-		}
-		return found, nil
-	}
-	for _, candidate := range ToolSearchPaths() {
-		if isExecutableFile(candidate) {
-			return candidate, nil
-		}
-	}
-	found, err := exec.LookPath(DefaultToolName)
+	found, err := cudatool.LookTool(DefaultToolName, path)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrToolNotFound, err)
+		return "", fmt.Errorf("%w: %v", ErrToolNotFound, errors.Unwrap(err))
 	}
 	return found, nil
-}
-
-// isExecutableFile reports whether path is a regular file with an execute bit
-// set. A directory of the same name, or a file that cannot be executed, is not
-// a candidate.
-func isExecutableFile(path string) bool {
-	fi, err := os.Stat(path)
-	if err != nil || !fi.Mode().IsRegular() {
-		return false
-	}
-	return fi.Mode().Perm()&0o111 != 0
 }
 
 // ToolVersion runs compute-sanitizer --version and returns the line naming the
