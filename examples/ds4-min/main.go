@@ -101,8 +101,9 @@ type config struct {
 func main() {
 	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "ds4-min:", err)
-		os.Exit(1)
+		exitProcess(1)
 	}
+	exitProcess(0)
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {

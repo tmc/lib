@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+
+	"github.com/ebitengine/purego"
 )
 
 func selectBackend(name string) (string, error) {
@@ -30,4 +33,20 @@ func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
 		return nil, nil, err
 	}
 	return r, r, nil
+}
+
+var libcExit func(int)
+
+func init() {
+	libc, err := purego.Dlopen("libc.so.6", purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	if err == nil {
+		purego.RegisterLibFunc(&libcExit, libc, "exit")
+	}
+}
+
+func exitProcess(code int) {
+	if libcExit != nil {
+		libcExit(code)
+	}
+	os.Exit(code)
 }

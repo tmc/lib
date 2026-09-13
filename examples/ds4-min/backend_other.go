@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 )
 
 func selectBackend(name string) (string, error) {
@@ -23,4 +24,8 @@ func selectBackend(name string) (string, error) {
 
 func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
 	return nil, nil, fmt.Errorf("%s backend execution not implemented", cfg.backend)
+}
+
+func exitProcess(code int) {
+	os.Exit(code)
 }

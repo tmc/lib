@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 )
 
 func selectBackend(name string) (string, error) {
@@ -30,4 +31,8 @@ func openSessionBackend(cfg config) (sessionBackend, io.Closer, error) {
 		return nil, nil, err
 	}
 	return r, r, nil
+}
+
+func exitProcess(code int) {
+	os.Exit(code)
 }
