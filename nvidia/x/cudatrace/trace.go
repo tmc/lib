@@ -388,10 +388,13 @@ func (t *Tracer) DumpToCrashFile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
 
 	if err := t.DumpPostMortem(f); err != nil {
+		f.Close()
 		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("cudatrace: close crash file: %w", err)
 	}
 	return path, nil
 }

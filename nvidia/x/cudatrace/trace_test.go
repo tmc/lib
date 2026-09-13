@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -63,6 +64,29 @@ func TestDumpPostMortemWriteErrors(t *testing.T) {
 				t.Fatalf("DumpPostMortem error %v, want %v", err, errDumpPostMortemWrite)
 			}
 		})
+	}
+}
+
+func TestDumpToCrashFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	tracer := newPostMortemTracer(t)
+	var want bytes.Buffer
+	if err := tracer.DumpPostMortem(&want); err != nil {
+		t.Fatalf("DumpPostMortem: %v", err)
+	}
+	path, err := tracer.DumpToCrashFile()
+	if err != nil {
+		t.Fatalf("DumpToCrashFile: %v", err)
+	}
+	written, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	if !bytes.Equal(written, want.Bytes()) {
+		t.Fatalf("crash file bytes differ from DumpPostMortem output")
 	}
 }
 
