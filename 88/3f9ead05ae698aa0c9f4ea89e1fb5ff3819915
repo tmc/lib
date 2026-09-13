@@ -1,0 +1,11 @@
+commit: 883f9ead05ae698aa0c9f4ea89e1fb5ff3819915
+commit_date: 2026-09-12T17:19:59-07:00
+agent: Codex
+model: GPT-6 (runtime family; exact variant not exposed)
+claude-code_version: not applicable (Codex session)
+codex_version: codex-cli 0.154.0
+tty: not a tty
+note_writer_pid: 22367
+ITERM_SESSION_ID: w14t0p16:6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+session: 6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+validation: profile2trace tests and vet passed; real SQLite missing-event diagnostics surfaced; no GPU execution
