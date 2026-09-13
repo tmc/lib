@@ -85,7 +85,7 @@ func TestProfileBridge(t *testing.T) {
 					{Index: 4, Samples: 7},  // math_pipe_throttle -> StallMath
 					{Index: 5, Samples: 9},  // lg_throttle -> StallMem
 					{Index: 6, Samples: 2},  // sleeping -> UnmappedStalls
-					{Index: 7, Samples: 4},  // selected_not_issued -> UnmappedStalls (not InstExecuted)
+					{Index: 7, Samples: 4},  // selected_not_issued -> discarded, neither issued nor unmapped
 				},
 			},
 		},
@@ -100,8 +100,11 @@ func TestProfileBridge(t *testing.T) {
 	if got := bridge.UnmappedStalls["sleeping"]; got != 2 {
 		t.Errorf("UnmappedStalls[\"sleeping\"] = %d, want 2", got)
 	}
-	if got := bridge.UnmappedStalls["selected_not_issued"]; got != 4 {
-		t.Errorf("UnmappedStalls[\"selected_not_issued\"] = %d, want 4", got)
+	// The companion of selected is a subset of cycles selected already counted,
+	// so it adds to neither inst_executed nor the unmapped tally: a reason this
+	// package models must not be reported as one it failed to model.
+	if got, ok := bridge.UnmappedStalls["selected_not_issued"]; ok {
+		t.Errorf("UnmappedStalls[\"selected_not_issued\"] = %d, want absent", got)
 	}
 
 	if err := session.Close(); err != nil {
@@ -368,6 +371,7 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 			{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_not_selected"},
 			{Index: 3, Name: "smsp__pcsamp_warps_issue_stalled_short_scoreboard"},
 			{Index: 4, Name: "smsp__pcsamp_warps_issue_stalled_short_scoreboard_not_issued"},
+			{Index: 5, Name: "smsp__pcsamp_warps_issue_stalled_selected_not_issued"},
 		},
 	}
 	var buf bytes.Buffer
@@ -385,6 +389,7 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 				{Index: 2, Samples: 18},
 				{Index: 3, Samples: 2},
 				{Index: 4, Samples: 2},
+				{Index: 5, Samples: 5},
 			},
 		}},
 	}
@@ -396,6 +401,13 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 	}
 	if got, ok := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_selected"]; ok {
 		t.Errorf("selected counted as an unmapped stall (%d)", got)
+	}
+	// classifyStall has no selected case, so the companion of selected reaches
+	// the unmapped tally unless the suffix comes off before the test. The
+	// identity still closes either way, which is what makes it easy to miss:
+	// the only symptom is a modelled reason reported as unmodelled.
+	if got, ok := bridge.UnmappedStalls["smsp__pcsamp_warps_issue_stalled_selected_not_issued"]; ok {
+		t.Errorf("selected_not_issued counted as an unmapped stall (%d)", got)
 	}
 	// not_selected has its own type, and the suffix test must not mistake it
 	// for the selected reason: 18 warps that were ready while another issued
