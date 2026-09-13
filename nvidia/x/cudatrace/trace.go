@@ -356,13 +356,19 @@ func (t *Tracer) DumpPostMortem(dest io.Writer) error {
 
 	// Write tracks
 	for streamKey, trackID := range t.streamTracks {
-		_ = pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d (Post-Mortem)", streamKey), 0)
+		if err := pw.WriteTrackDescriptor(trackID, fmt.Sprintf("Stream %d (Post-Mortem)", streamKey), 0); err != nil {
+			return fmt.Errorf("cudatrace: write post-mortem track descriptor: %w", err)
+		}
 	}
 
 	// Dump all buffered slices
 	for _, rec := range t.ringBuffer {
-		_ = pw.WriteSliceBegin(rec.TrackID, rec.StartNs, rec.Name, rec.Category)
-		_ = pw.WriteSliceEnd(rec.TrackID, rec.EndNs)
+		if err := pw.WriteSliceBegin(rec.TrackID, rec.StartNs, rec.Name, rec.Category); err != nil {
+			return fmt.Errorf("cudatrace: write post-mortem slice begin: %w", err)
+		}
+		if err := pw.WriteSliceEnd(rec.TrackID, rec.EndNs); err != nil {
+			return fmt.Errorf("cudatrace: write post-mortem slice end: %w", err)
+		}
 	}
 
 	return nil
