@@ -16,3 +16,24 @@ func TestAlignSpansAllUncalibrated(t *testing.T) {
 		t.Fatalf("AlignSpans = (%d, %d, %d, %t), want (100, 0, 0, false)", goSpan, gpuSpan, overlap, reliable)
 	}
 }
+
+func TestAlignSpansUncertaintyInputs(t *testing.T) {
+	tests := []struct {
+		name         string
+		uncertainty  int64
+		wantReliable bool
+	}{
+		{"unavailable", -1, false},
+		{"configured", 1, true},
+		{"zero input", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, reliable := cudaflightrecorder.AlignSpans(2_000_000, 1_000_000, 1_000_000, true,
+				[]cudaflightrecorder.Record{{TimestampNs: 1_000_000, DurationNs: 1_000_000}}, tt.uncertainty)
+			if reliable != tt.wantReliable {
+				t.Fatalf("reliable = %t, want %t", reliable, tt.wantReliable)
+			}
+		})
+	}
+}

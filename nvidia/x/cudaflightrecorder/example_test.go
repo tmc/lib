@@ -93,9 +93,8 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	// Snapshot reason: latency_spike
 	// GPU records: 1
 	// Has go.trace: true
-	// Overlap reliable: true
+	// Overlap reliable: false
 }
-
 
 func ExampleRecorder_PushSASSMetric() {
 	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{

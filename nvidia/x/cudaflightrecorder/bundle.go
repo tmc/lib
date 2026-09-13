@@ -13,18 +13,20 @@ import (
 
 // Manifest records metadata and time-window spans for a flight recorder snapshot.
 type Manifest struct {
-	Timestamp              time.Time `json:"timestamp"`
-	Reason                 string    `json:"reason"`
-	WindowRequestedNs      int64     `json:"window_requested_ns"`
-	GoSpanNs               int64     `json:"go_span_ns"`
-	GPUSpanNs              int64     `json:"gpu_span_ns"`
-	OverlapSpanNs          int64     `json:"overlap_span_ns"`
-	GPURecords             int       `json:"gpu_records"`
-	GPUDropped             int64     `json:"gpu_dropped"`
-	GoTraceBytes           int64     `json:"go_trace_bytes"`
-	ClockUncertaintyNs     int64     `json:"clock_uncertainty_ns"`
-	ClockUncertaintySource string    `json:"clock_uncertainty_source"`
-	OverlapReliable        bool      `json:"overlap_reliable"`
+	Timestamp         time.Time `json:"timestamp"`
+	Reason            string    `json:"reason"`
+	WindowRequestedNs int64     `json:"window_requested_ns"`
+	GoSpanNs          int64     `json:"go_span_ns"`
+	GPUSpanNs         int64     `json:"gpu_span_ns"`
+	OverlapSpanNs     int64     `json:"overlap_span_ns"`
+	GPURecords        int       `json:"gpu_records"`
+	GPUDropped        int64     `json:"gpu_dropped"`
+	GoTraceBytes      int64     `json:"go_trace_bytes"`
+	// ClockUncertaintyNs is the alignment uncertainty in nanoseconds; -1 means unavailable.
+	ClockUncertaintyNs int64 `json:"clock_uncertainty_ns"`
+	// ClockUncertaintySource is measured, configured, or unavailable.
+	ClockUncertaintySource string `json:"clock_uncertainty_source"`
+	OverlapReliable        bool   `json:"overlap_reliable"`
 }
 
 // WindowRequested reports the requested recording duration as time.Duration.

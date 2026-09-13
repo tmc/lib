@@ -360,14 +360,15 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	} else if timer, ok := gt.(interface{ StartTime() time.Time }); ok && !timer.StartTime().IsZero() {
 		goStartNs = timer.StartTime().UnixNano()
 	}
-	clockUncertaintyNs := cfg.ClockUncertaintyNs
-	clockUncertaintySource := "configured"
-	if r.activityCalibrated {
+	clockUncertaintyNs := int64(-1)
+	clockUncertaintySource := "unavailable"
+	switch {
+	case r.activityCalibrated:
 		clockUncertaintyNs = r.activityUncertaintyNs
 		clockUncertaintySource = "measured"
-	} else if hasUncalibratedActivity(records) {
-		clockUncertaintyNs = -1
-		clockUncertaintySource = "unavailable"
+	case cfg.ClockUncertaintyNs > 0:
+		clockUncertaintyNs = cfg.ClockUncertaintyNs
+		clockUncertaintySource = "configured"
 	}
 	goSpanNs, gpuSpanNs, overlapSpanNs, overlapReliable := AlignSpans(
 		nowNs,
@@ -399,15 +400,6 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	}
 
 	return &manifest, nil
-}
-
-func hasUncalibratedActivity(records []Record) bool {
-	for _, rec := range records {
-		if rec.Labels["activity.uncalibrated"] == "true" {
-			return true
-		}
-	}
-	return false
 }
 
 // Register registers the flight recorder HTTP handler at DefaultEndpoint ("/debug/flightrecorder") on mux.
