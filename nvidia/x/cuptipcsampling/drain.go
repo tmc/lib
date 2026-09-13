@@ -82,7 +82,8 @@ func (b *samplingBuffer) fetch(ctx cupti.Context, version uint32, query func(*cu
 	}
 	b.reset()
 	ptr := uintptr(unsafe.Pointer(&b.data))
-	p := cupti.PCSamplingGetDataParams{Size: getDataParamsSize(), Ctx: ctx, PcSamplingData: ptr}
+	size := getDataParamsSize()
+	p := cupti.PCSamplingGetDataParams{Size: size, Ctx: ctx, PcSamplingData: ptr}
 	err := query(&p)
 	out := b.diagnostics()
 	if err != nil {
@@ -90,7 +91,7 @@ func (b *samplingBuffer) fetch(ctx cupti.Context, version uint32, query func(*cu
 		// hardware-buffer exhaustion can return zero PCs and nonzero loss.
 		return out, fmt.Errorf("cuptipcsampling: drain PC data: %w", err)
 	}
-	if p.Size != 32 || p.PPriv != 0 || p.Ctx != ctx || p.PcSamplingData != ptr {
+	if p.Size != size || p.PPriv != 0 || p.Ctx != ctx || p.PcSamplingData != ptr {
 		return out, errors.New("cuptipcsampling: native drain changed input storage")
 	}
 	if out.hardwareFull != 0 {

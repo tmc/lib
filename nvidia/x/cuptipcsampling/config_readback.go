@@ -26,13 +26,14 @@ func (c *samplingConfig) verify(ctx cupti.Context, query func(*cupti.PCSamplingC
 	pin.Pin(&attrs[0])
 	defer pin.Unpin()
 	ptr := uintptr(unsafe.Pointer(&attrs[0]))
-	p := cupti.PCSamplingConfigurationInfoParams{Size: configurationInfoParamsSize(), Ctx: ctx, NumAttributes: uint(len(attrs)), PPCSamplingConfigurationInfo: ptr}
+	size := configurationInfoParamsSize()
+	p := cupti.PCSamplingConfigurationInfoParams{Size: size, Ctx: ctx, NumAttributes: uint(len(attrs)), PPCSamplingConfigurationInfo: ptr}
 	err := query(&p)
 	c.effective = slices.Clone(attrs)
 	if err != nil {
 		return fmt.Errorf("cuptipcsampling: read sampling configuration: %w", err)
 	}
-	if p.Size != 40 || p.PPriv != 0 || p.Ctx != ctx || p.NumAttributes != uint(len(attrs)) || p.PPCSamplingConfigurationInfo != ptr {
+	if p.Size != size || p.PPriv != 0 || p.Ctx != ctx || p.NumAttributes != uint(len(attrs)) || p.PPCSamplingConfigurationInfo != ptr {
 		return errors.New("cuptipcsampling: native readback changed input storage")
 	}
 	for i, j := range indices {
