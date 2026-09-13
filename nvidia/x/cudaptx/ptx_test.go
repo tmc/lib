@@ -475,3 +475,52 @@ func TestHandWrittenEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestPTX94Keywords(t *testing.T) {
+	// 1. Check instruction keyword spcompress
+	if !cudaptx.IsInstructionKeyword("spcompress") {
+		t.Errorf("expected spcompress to be recognized as an instruction keyword")
+	}
+
+	// 2. Check data type .ue5m3x2
+	for _, dt := range []string{".ue5m3x2", "ue5m3x2", ".ue4m3x2", ".e4m3", ".e5m2", ".f32"} {
+		if !cudaptx.IsDataType(dt) {
+			t.Errorf("expected %q to be recognized as a PTX data type", dt)
+		}
+	}
+
+	// 3. Check parsing of .loc_intermediate and PTX 9.4 keywords
+	ptxSrc := `.version 9.4
+.target sm_100
+.address_size 64
+.file 1 "kernel.cu"
+.visible .entry test_ptx94() {
+	.loc_intermediate 1 42 8
+	spcompress.b32 %r1, %r2, %r3;
+	ret;
+}`
+
+	m, err := cudaptx.ParseString(ptxSrc)
+	if err != nil {
+		t.Fatalf("ParseString failed: %v", err)
+	}
+
+	k := m.Kernel("test_ptx94")
+	if k == nil {
+		t.Fatal("kernel test_ptx94 not found")
+	}
+	if len(k.Instructions) != 2 {
+		t.Fatalf("expected 2 instructions, got %d", len(k.Instructions))
+	}
+
+	inst := k.Instructions[0]
+	if inst.Mnemonic != "spcompress" {
+		t.Errorf("inst Mnemonic = %q, want spcompress", inst.Mnemonic)
+	}
+	if !inst.Loc.Intermediate {
+		t.Errorf("expected inst.Loc.Intermediate to be true")
+	}
+	if inst.Loc.Line != 42 || inst.Loc.Column != 8 {
+		t.Errorf("inst.Loc = %v, want line 42 col 8", inst.Loc)
+	}
+}
