@@ -134,7 +134,10 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("nvdisasm version: %w", err)
 	}
-	assembly, err := d.Disassemble(toolCtx, cubin, cudasass.Options{SourceLines: true})
+	assembly, err := d.Disassemble(toolCtx, cubin, cudasass.Options{
+		PrintCode:   true,
+		InlineLines: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("disassemble cubin: %w", err)
 	}

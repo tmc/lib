@@ -80,6 +80,14 @@ func TestRewriteSASSSourcePath(t *testing.T) {
 		in:   "\t/*0000*/ IMAD R2, R3, R4, RZ ;\n",
 		want: "\t/*0000*/ IMAD R2, R3, R4, RZ ;\n",
 	}, {
+		name: "inlined directive rewrites both call site and inlined path",
+		in:   "\t//## File \"/home/tmc/kernels.cu\", line 27 inlined at \"/home/tmc/kernels.cu\", line 98\n",
+		want: "\t//## File \"kernels.cu\", line 27 inlined at \"kernels.cu\", line 98\n",
+	}, {
+		name: "ptx directive is preserved",
+		in:   "\t//## File \".nv_debug_ptx_txt\", line 1695\n",
+		want: "\t//## File \".nv_debug_ptx_txt\", line 1695\n",
+	}, {
 		name: "no trailing newline",
 		in:   "//## File \"/a/b.cu\", line 9",
 		want: "//## File \"kernels.cu\", line 9",
