@@ -1,0 +1,11 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+pid: 64533
+ITERM_SESSION_ID: w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D
+session: 423f1bbf-df69-46f3-87ae-1b4a46c379e2
+session_url: https://claude.ai/code/session_0187SBsrLu3gqbktcLUwwiaV
+review: repairs 080acfb6 (5F9AE590). Scalar spelling confirmed on dgx with
+  CUDA 13.0 ptxas/nvdisasm for sm_121a; ptxas honored v4/v2 at maxrregcount
+  16/20/24/32, so no collapse fixture exists. Mutations caught: prefix-matching
+  ScalarSASS, and dropping the scalar-present requirement.
