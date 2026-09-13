@@ -18,6 +18,7 @@ var codegenOps = []string{
 	"u2_simd",
 	"u2_scalar",
 	"q2_k_matvec",
+	"iq2_xxs_matvec",
 	"fused_rope_store_kv",
 	"add",
 }
@@ -57,11 +58,11 @@ func TestScaledFP8TemplateCompiles(t *testing.T) {
 // emit valid source for is refused rather than returned.
 //
 // Half-precision ("half", "float16") is supported via uint16_t storage and
-// inline PTX cvt instructions, while quantization formats ("q8_0", "u2", "q2_k")
+// inline PTX cvt instructions, while quantization formats ("q8_0", "u2", "q2_k", "iq2_xxs")
 // are supported via self-contained block structures. Unsupported types like
-// "double", "float64", "int64", "iq2_xxs", and "__nv_bfloat16" are rejected.
+// "double", "float64", "int64", and "__nv_bfloat16" are rejected.
 func TestUnsupportedPrecisionRejected(t *testing.T) {
-	for _, prec := range []string{"double", "float64", "int64", "__nv_bfloat16", "iq2_xxs"} {
+	for _, prec := range []string{"double", "float64", "int64", "__nv_bfloat16"} {
 		t.Run(prec, func(t *testing.T) {
 			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
@@ -78,7 +79,7 @@ func TestUnsupportedPrecisionRejected(t *testing.T) {
 // TestSupportedPrecisionsAccepted checks that supported floating point and
 // quantized precision formats are accepted by GenerateCUDA.
 func TestSupportedPrecisionsAccepted(t *testing.T) {
-	for _, prec := range []string{"float", "float32", "half", "float16", "q8_0", "u2", "q2_k"} {
+	for _, prec := range []string{"float", "float32", "half", "float16", "q8_0", "u2", "q2_k", "iq2_xxs"} {
 		t.Run(prec, func(t *testing.T) {
 			expr := &egraph.Expr{Op: "fused_swiglu_gemv"}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "K", Precision: prec})
