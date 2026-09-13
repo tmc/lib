@@ -1,0 +1,22 @@
+commit 14b192fb9db7e6435d952c121382d6160d10fe0d, 2026-09-13
+claude-code 2.1.257, model claude-opus-5
+tty ttys392, pid 33094
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_01QWBWoGrAo3vBG8BFrd9YBy
+
+Evidence, all taken on DGX spark-31db (GB10, sm_121) 2026-09-13:
+- per-kernel shares from three go test -count=1 captures retained at
+  /home/tmc/tmp/ledger-repeats/run{1,2,3}.log
+- launch-site table from TestCUDALaunchSiteCardinality run at 48e2fad2
+  in /home/tmc/tmp/ds4-pcs: 49 kernels bound, 54 sites across 14 files
+- opcode census from a throwaway in-package test calling
+  nvrtcx.Compile(cudaMathSource, sm_121, --generate-line-info) and
+  cudasass.Disassembler{PrintCode:true}; removed after the run, worktree
+  left clean. No GPU or model needed.
+
+Not measured here: the PC sampling unit on the DGX is claimed and every
+capture returns CUPTI_ERROR_HARDWARE_BUSY. Independently reproduced by
+session 3CE9C186 from nvidia/examples/ptx-sass-trace. No process maps
+libcupti; nvidia-smi --gpu-reset is refused because GB10 is the primary
+display GPU. Clearing it needs root.
