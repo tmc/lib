@@ -11,12 +11,15 @@ import (
 	"github.com/google/pprof/driver"
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 )
 
 // PTX addresses are byte offsets in the recorded text, with a separate logical
 // image base. They are neither native instruction addresses nor sampled PCs.
-const ptxBase = uint64(0x7e000000)
+// The base and the offsets come from x/cudaprof so that an address synthesized
+// here is the one a capture would have written.
+const ptxBase = cudaprof.PTXMappingStart
 
 type objectTool struct {
 	images map[string]*objectImage
@@ -72,14 +75,7 @@ func ptxImage(file, buildID, text string) (*objectImage, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Index by one-based source line, including the end-of-file sentinel.
-	offsets := []uint64{0}
-	var offset uint64
-	for _, line := range strings.SplitAfter(text, "\n") {
-		offsets = append(offsets, offset)
-		offset += uint64(len(line))
-	}
-	offsets = append(offsets, offset)
+	offsets := cudaprof.PTXLineOffsets(text)
 	image := &objectImage{file: file, buildID: buildID, size: uint64(len(text))}
 	for _, k := range mod.Kernels {
 		if k.StartLine < 1 || k.EndLine < k.StartLine || k.EndLine+1 >= len(offsets) || len(k.Instructions) == 0 {
@@ -111,7 +107,11 @@ func (t *objectTool) mapPTX(p *profile.Profile) {
 	}
 	mapping.Start, mapping.Limit, mapping.Offset = ptxBase, ptxBase+t.ptx.size, 0
 	mapping.File, mapping.BuildID = t.ptx.file, t.ptx.buildID
-	mapping.HasFunctions, mapping.HasFilenames, mapping.HasLineNumbers, mapping.HasInlineFrames = true, true, true, true
+	// Not HasInlineFrames: this view gives each location one line, exactly as
+	// the captured file does. Claiming inline frames here would contradict the
+	// file the viewer was handed.
+	mapping.HasFunctions, mapping.HasFilenames, mapping.HasLineNumbers = true, true, true
+	mapping.HasInlineFrames = false
 	for _, loc := range p.Location {
 		if len(loc.Line) != 1 {
 			continue
