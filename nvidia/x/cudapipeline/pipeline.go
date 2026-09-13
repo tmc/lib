@@ -58,17 +58,14 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	var violations []ValidationError
 
 	for _, inst := range k.Instructions {
-		errs := t.ProcessInstruction(&inst)
+		errs := t.processInstruction(inst)
 		violations = append(violations, errs...)
 	}
 
 	return violations, nil
 }
 
-func (t *BarrierTracker) ProcessInstruction(inst *cudaptx.Instruction) []ValidationError {
-	if inst == nil {
-		return nil
-	}
+func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []ValidationError {
 	var violations []ValidationError
 	operands := cudaptx.SplitOperands(inst.Operands)
 
