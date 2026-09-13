@@ -77,14 +77,15 @@ func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery 
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
 	}
-	if unsafe.Sizeof(uintptr(0)) != 8 || (version != 27 && version != 130001 && version != 130200 && version != 130400) {
+	layout, ok := cupti.PCSamplingReasonLayoutFor(version)
+	if !ok {
 		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: unqualified reason inventory layout for CUPTI %d", version)
 	}
 	var pin runtime.Pinner
 	defer pin.Unpin()
 	count := ^uint(0)
 	pin.Pin(&count)
-	q := cupti.PCSamplingGetNumStallReasonsParams{Size: 32, Ctx: ctx, NumStallReasons: uintptr(unsafe.Pointer(&count))}
+	q := cupti.PCSamplingGetNumStallReasonsParams{Size: layout.CountParamsSize, Ctx: ctx, NumStallReasons: uintptr(unsafe.Pointer(&count))}
 	if err := countQuery(&q); err != nil {
 		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: query reason count: %w", err)
 	}
@@ -108,7 +109,7 @@ func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery 
 	}
 	pin.Pin(&indices[0])
 	pin.Pin(&pointers[0])
-	n := cupti.PCSamplingGetStallReasonsParams{Size: 48, Ctx: ctx, NumStallReasons: count, StallReasonIndex: uintptr(unsafe.Pointer(&indices[0])), StallReasons: uintptr(unsafe.Pointer(&pointers[0]))}
+	n := cupti.PCSamplingGetStallReasonsParams{Size: layout.NamesParamsSize, Ctx: ctx, NumStallReasons: count, StallReasonIndex: uintptr(unsafe.Pointer(&indices[0])), StallReasons: uintptr(unsafe.Pointer(&pointers[0]))}
 	if err := namesQuery(&n); err != nil {
 		return ReasonInventory{}, fmt.Errorf("cuptipcsampling: query reason names: %w", err)
 	}
