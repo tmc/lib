@@ -45,9 +45,12 @@ type ProfileBridge struct {
 	// address, and pprof's address granularity is blind to the samples that
 	// have real instruction addresses. Optional.
 	PTXOffsets []uint64
-	// HostFrames provides host-side callstack frames (e.g. Go caller functions)
-	// attached above the device frames on recorded PC samples. Optional.
-	HostFrames []cudaprof.Frame
+	// HostFrames reports the host-side frames to attach above the device frames
+	// for a resolved location, outermost last. It is called once per PC, so a
+	// caller can return the stack that launched that kernel; returning a single
+	// stack for every location makes every row filter alike and attributes the
+	// device work to whatever host code happened to be running. Optional.
+	HostFrames func(loc CodeLocation) []cudaprof.Frame
 	// LabelFunc supplies additional context labels for a resolved location.
 	// Optional.
 	LabelFunc      func(loc CodeLocation) map[string]string
@@ -181,8 +184,8 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			})
 		}
 
-		if len(b.HostFrames) > 0 {
-			frames = append(frames, b.HostFrames...)
+		if b.HostFrames != nil {
+			frames = append(frames, b.HostFrames(loc)...)
 		}
 
 		sampleCtx := ctx

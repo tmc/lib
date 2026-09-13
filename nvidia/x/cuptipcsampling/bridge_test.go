@@ -3,6 +3,8 @@ package cuptipcsampling_test
 import (
 	"bytes"
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/pprof/profile"
@@ -297,9 +299,14 @@ func TestProfileBridgeLabelsAndHostFrames(t *testing.T) {
 		Resolver: &mockResolver{locations: map[string]cuptipcsampling.CodeLocation{
 			"test_kernel": {KernelName: "test_kernel", SourceFile: "kernel.cu", SourceLine: 10, SASSLine: 1},
 		}},
-		HostFrames: []cudaprof.Frame{
-			{FunctionName: "main.runWorkload", FileName: "workload.go", Line: 50},
-			{FunctionName: "main.main", FileName: "main.go", Line: 100},
+		HostFrames: func(loc cuptipcsampling.CodeLocation) []cudaprof.Frame {
+			if loc.KernelName != "test_kernel" {
+				return nil
+			}
+			return []cudaprof.Frame{
+				{FunctionName: "main.runWorkload", FileName: "workload.go", Line: 50},
+				{FunctionName: "main.main", FileName: "main.go", Line: 100},
+			}
 		},
 		LabelFunc: func(loc cuptipcsampling.CodeLocation) map[string]string {
 			return map[string]string{"phase": "compute"}
@@ -410,5 +417,65 @@ func TestProfileBridgeNativeReasonNames(t *testing.T) {
 	// count has to agree with it or the manifest beside it reads 1.9x off.
 	if got := p.Sample[0].Value[types["pc_samples"]]; got != int64(batch.TotalSamples) {
 		t.Errorf("pc_samples = %d, want %d, the batch total", got, batch.TotalSamples)
+	}
+}
+
+// A kernel whose launch stack is unknown gets no host frames rather than
+// another kernel's, because HostFrames is asked per location.
+func TestProfileBridgeHostFramesPerKernel(t *testing.T) {
+	inv := cuptipcsampling.ReasonInventory{
+		CUPTIVersion: 130001,
+		Reasons:      []cuptipcsampling.StallReason{{Index: 1, Name: "short_scoreboard"}},
+	}
+	var buf bytes.Buffer
+	session := cudaprof.NewSession(&buf)
+	session.SetMappingFile("kernels.cubin", "")
+	stacks := map[string][]cudaprof.Frame{
+		"known": {{FunctionName: "main.launchKnown", FileName: "workload.go", Line: 7}},
+	}
+	var asked []string
+	bridge := &cuptipcsampling.ProfileBridge{
+		Session:   session,
+		Inventory: inv,
+		HostFrames: func(loc cuptipcsampling.CodeLocation) []cudaprof.Frame {
+			asked = append(asked, loc.KernelName)
+			return stacks[loc.KernelName]
+		},
+	}
+	batch := cuptipcsampling.Batch{
+		Valid:        true,
+		TotalSamples: 2,
+		PCs: []cuptipcsampling.PC{
+			{CRC: 1, Name: "known", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 1}}},
+			{CRC: 1, Name: "unknown", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 1}}},
+		},
+	}
+	if err := bridge.RecordBatch(context.Background(), batch); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := session.Close(); err != nil {
+		t.Fatalf("session.Close: %v", err)
+	}
+	if !slices.Equal(asked, []string{"known", "unknown"}) {
+		t.Errorf("HostFrames asked for %v, want one call per PC", asked)
+	}
+	p, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ParseData: %v", err)
+	}
+	depth := make(map[string]int)
+	for _, s := range p.Sample {
+		var kernel string
+		for _, loc := range s.Location {
+			for _, line := range loc.Line {
+				if line.Function != nil && strings.HasSuffix(line.Function.Name, ".SASS") {
+					kernel = strings.TrimSuffix(line.Function.Name, ".SASS")
+				}
+			}
+		}
+		depth[kernel] = len(s.Location)
+	}
+	if depth["known"] != depth["unknown"]+1 {
+		t.Errorf("stack depths known=%d unknown=%d, want the known kernel to carry one more frame", depth["known"], depth["unknown"])
 	}
 }
