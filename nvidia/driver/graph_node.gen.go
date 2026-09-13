@@ -70,11 +70,9 @@ func (g GraphNode) GetLocalId() (uint32, error) {
 //
 // Returns the parameters of graph node hNode in *nodeParams. Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified. The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor. See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
 //
-//   - nodeParams: Pointer to return the parameters
-//
 // Wraps cuGraphNodeGetParams.
-func (g GraphNode) GetParams(nodeParams *GraphNodeParams) error {
-	return graphNodeGetParams(g, nodeParams)
+func (g GraphNode) GetParams() (GraphNodeParams, error) {
+	return graphNodeGetParams(g)
 }
 
 // GetToolsId Returns an id used by tools to identify a given node.
@@ -91,8 +89,8 @@ func (g GraphNode) GetToolsId() (uint64, error) {
 // Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.GetRootNodes], [NewGraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
 //
 // Wraps cuGraphNodeGetType.
-func (g GraphNode) GetType(type_ *GraphNodeType) error {
-	return graphNodeGetType(g, type_)
+func (g GraphNode) GetType() (GraphNodeType, error) {
+	return graphNodeGetType(g)
 }
 
 // SetEnabled Enables or disables the specified node in the given graphExec.
@@ -122,11 +120,9 @@ func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
 //
 // Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
 //
-//   - nodeParams_out: Pointer to return the parameters
-//
 // Wraps cuGraphBatchMemOpNodeGetParams.
-func (g GraphNode) GraphBatchMemOpNodeGetParams(nodeParams_out *BatchMemOpNodeParams) error {
-	return graphBatchMemOpNodeGetParams(g, nodeParams_out)
+func (g GraphNode) GraphBatchMemOpNodeGetParams() (BatchMemOpNodeParams, error) {
+	return graphBatchMemOpNodeGetParams(g)
 }
 
 // GraphBatchMemOpNodeSetParams Sets a batch mem op node's parameters.
@@ -193,11 +189,9 @@ func (g GraphNode) GraphEventWaitNodeSetEvent(event Event) error {
 //
 // Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
-//   - params_out: Pointer to return the parameters
-//
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
-func (g GraphNode) GraphExternalSemaphoresSignalNodeGetParams(params_out *ExtSemSignalNodeParams) error {
-	return graphExternalSemaphoresSignalNodeGetParams(g, params_out)
+func (g GraphNode) GraphExternalSemaphoresSignalNodeGetParams() (ExtSemSignalNodeParams, error) {
+	return graphExternalSemaphoresSignalNodeGetParams(g)
 }
 
 // GraphExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node's parameters.
@@ -215,11 +209,9 @@ func (g GraphNode) GraphExternalSemaphoresSignalNodeSetParams(nodeParams *ExtSem
 //
 // Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
-//   - params_out: Pointer to return the parameters
-//
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
-func (g GraphNode) GraphExternalSemaphoresWaitNodeGetParams(params_out *ExtSemWaitNodeParams) error {
-	return graphExternalSemaphoresWaitNodeGetParams(g, params_out)
+func (g GraphNode) GraphExternalSemaphoresWaitNodeGetParams() (ExtSemWaitNodeParams, error) {
+	return graphExternalSemaphoresWaitNodeGetParams(g)
 }
 
 // GraphExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node's parameters.
@@ -237,11 +229,9 @@ func (g GraphNode) GraphExternalSemaphoresWaitNodeSetParams(nodeParams *ExtSemWa
 //
 // Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.GetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
 //
-//   - nodeParams: Pointer to return the parameters
-//
 // Wraps cuGraphHostNodeGetParams.
-func (g GraphNode) GraphHostNodeGetParams(nodeParams *HostNodeParams) error {
-	return graphHostNodeGetParams(g, nodeParams)
+func (g GraphNode) GraphHostNodeGetParams() (HostNodeParams, error) {
+	return graphHostNodeGetParams(g)
 }
 
 // GraphHostNodeSetParams Sets a host node's parameters.
@@ -279,11 +269,9 @@ func (g GraphNode) GraphKernelNodeGetAttribute(attr int32) ([8]uint64, error) {
 //
 // Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
 //
-//   - nodeParams: Pointer to return the parameters
-//
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
-func (g GraphNode) GraphKernelNodeGetParams(nodeParams *KernelNodeParams) error {
-	return graphKernelNodeGetParams(g, nodeParams)
+func (g GraphNode) GraphKernelNodeGetParams() (KernelNodeParams, error) {
+	return graphKernelNodeGetParams(g)
 }
 
 // GraphKernelNodeSetAttribute Sets node attribute.
@@ -310,11 +298,9 @@ func (g GraphNode) GraphKernelNodeSetParams(nodeParams *KernelNodeParams) error 
 //
 // Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.GetParams], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
 //
-//   - params_out: Pointer to return the parameters
-//
 // Wraps cuGraphMemAllocNodeGetParams.
-func (g GraphNode) GraphMemAllocNodeGetParams(params_out *MemAllocNodeParams) error {
-	return graphMemAllocNodeGetParams(g, params_out)
+func (g GraphNode) GraphMemAllocNodeGetParams() (MemAllocNodeParams, error) {
+	return graphMemAllocNodeGetParams(g)
 }
 
 // GraphMemFreeNodeGetParams Returns a memory free node's parameters.
@@ -332,11 +318,9 @@ func (g GraphNode) GraphMemFreeNodeGetParams(dptr_out *DevicePtr) error {
 //
 // Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.GetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
 //
-//   - nodeParams: Pointer to return the parameters
-//
 // Wraps cuGraphMemcpyNodeGetParams.
-func (g GraphNode) GraphMemcpyNodeGetParams(nodeParams *Memcpy3d) error {
-	return graphMemcpyNodeGetParams(g, nodeParams)
+func (g GraphNode) GraphMemcpyNodeGetParams() (Memcpy3d, error) {
+	return graphMemcpyNodeGetParams(g)
 }
 
 // GraphMemcpyNodeSetParams Sets a memcpy node's parameters.
@@ -354,11 +338,9 @@ func (g GraphNode) GraphMemcpyNodeSetParams(nodeParams *Memcpy3d) error {
 //
 // Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.GetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
 //
-//   - nodeParams: Pointer to return the parameters
-//
 // Wraps cuGraphMemsetNodeGetParams.
-func (g GraphNode) GraphMemsetNodeGetParams(nodeParams *MemsetNodeParams) error {
-	return graphMemsetNodeGetParams(g, nodeParams)
+func (g GraphNode) GraphMemsetNodeGetParams() (MemsetNodeParams, error) {
+	return graphMemsetNodeGetParams(g)
 }
 
 // GraphMemsetNodeSetParams Sets a memset node's parameters.

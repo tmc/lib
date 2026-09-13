@@ -96,11 +96,9 @@ func (d DevicePtr) MemGetAccess(location *MemLocation) (uint64, error) {
 //
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
 //
-//   - psize: Returned size of device memory allocation
-//
 // Wraps cuMemGetAddressRange, bound as cuMemGetAddressRange_v2.
-func (d DevicePtr) MemGetAddressRange(psize *uint) (DevicePtr, error) {
-	return memGetAddressRange(psize, d)
+func (d DevicePtr) MemGetAddressRange() (pbase DevicePtr, psize uint, err error) {
+	return memGetAddressRange(d)
 }
 
 // MemGetHandleForAddressRange Retrieve handle for an address range.

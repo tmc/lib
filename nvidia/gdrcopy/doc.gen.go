@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package gdrcopy provides Go bindings for GDRCopy's libgdrapi, NVIDIA's
 // user-space interface to the gdrdrv kernel module for mapping GPU memory
 // into a process's address space.

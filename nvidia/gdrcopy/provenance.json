@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-gdrcopy",
+  "generator": "github.com/tmc/libgen/cmd/gen-gdrcopy",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build3196214284/b001/exe/gen-gdrcopy",
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build532712894/b001/exe/gen-gdrcopy",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/gdrcopy"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/gdrcopy"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-gdrcopy/headers/gdrapi.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-gdrcopy/headers/gdrapi.h",
       "sha256": "d10ebb8e963fab356ee2fc9841721743dc948f28d4056e40aae5661c510d9dc8"
     }
   ],
-  "source_hash": "9758184f3d6f73d5a959a127b9a6b5fbf295f77ab43430e6e2534ddfaa07148d",
+  "source_hash": "d0fe19312186e0531df1fb4fd39b022e9ba7dcf926a81988486a669d24e5f382",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

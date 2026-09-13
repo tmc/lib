@@ -120,7 +120,7 @@ func TestDeprecatedWrapperMissingSymbol(t *testing.T) {
 		present = oldPresent
 		ready.Store(oldReady)
 	}()
-	err := CtxGetSharedMemConfig(nil)
+	_, err := CtxGetSharedMemConfig()
 	var symErr *SymbolError
 	if !errors.As(err, &symErr) || symErr.Symbol != "cuCtxGetSharedMemConfig" {
 		t.Fatalf("error = %v, want SymbolError for cuCtxGetSharedMemConfig", err)

@@ -22,6 +22,53 @@ type IpcMemHandle struct {
 	Reserved [64]byte
 }
 
+// StreamBatchMemOpParams represents Per-operation parameters for [Stream.BatchMemOp].
+type StreamBatchMemOpParams struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [6]uint64
+}
+
+// StreammemopwaitvalueparamsSt represents CUstreamMemOpWaitValueParams_st.
+type StreammemopwaitvalueparamsSt struct {
+	Operation      StreamBatchMemOpType
+	Address        DevicePtr
+	AnonymousUnion [1]uint64
+	Flags          uint32
+	Alias          DevicePtr
+}
+
+// StreammemopwritevalueparamsSt represents CUstreamMemOpWriteValueParams_st.
+type StreammemopwritevalueparamsSt struct {
+	Operation      StreamBatchMemOpType
+	Address        DevicePtr
+	AnonymousUnion [1]uint64
+	Flags          uint32
+	Alias          DevicePtr
+}
+
+// StreammemopflushremotewritesparamsSt represents CUstreamMemOpFlushRemoteWritesParams_st.
+type StreammemopflushremotewritesparamsSt struct {
+	Operation StreamBatchMemOpType
+	Flags     uint32
+}
+
+// StreammemopmemorybarrierparamsSt represents CUstreamMemOpMemoryBarrierParams_st.
+type StreammemopmemorybarrierparamsSt struct {
+	Operation StreamBatchMemOpType
+	Flags     uint32
+}
+
+// StreammemopatomicreductionparamsSt represents CUstreamMemOpAtomicReductionParams_st.
+type StreammemopatomicreductionparamsSt struct {
+	Operation   StreamBatchMemOpType
+	Flags       uint32
+	ReductionOp StreamAtomicReductionOpType
+	DataType    StreamAtomicReductionDataType
+	Address     DevicePtr
+	Value       uint64
+	Alias       DevicePtr
+}
+
 // BatchMemOpNodeParams represents Batch memory operation node parameters Used in the legacy [Graph.AddBatchMemOpNode] api.
 type BatchMemOpNodeParams struct {
 	Ctx        Context
@@ -256,6 +303,12 @@ type LaunchMemSyncDomainMap struct {
 	Default uint8
 	// The remote domain ID to use for designated kernels
 	Remote uint8
+}
+
+// StreamAttrValueV1 represents Launch attributes union; used as value field of [LaunchAttribute].
+type StreamAttrValueV1 struct {
+	// Data stores the raw bytes of the underlying C union.
+	Data [8]uint64
 }
 
 // LaunchAttribute represents Launch attribute.
@@ -1006,21 +1059,6 @@ type CuDevSmResourceGroupParams struct {
 	Reserved [12]uint32
 }
 
-// StreamBatchMemOpParamsV1 represents Per-operation parameters for [Stream.BatchMemOp].
-type StreamBatchMemOpParamsV1 struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [6]uint64
-}
-
-// StreamAttrValueV1 represents Launch attributes union; used as value field of [LaunchAttribute].
-type StreamAttrValueV1 struct {
-	// Data stores the raw bytes of the underlying C union.
-	Data [8]uint64
-}
-
-// LaunchAttributeValue is an alias for StreamAttrValueV1.
-type LaunchAttributeValue = StreamAttrValueV1
-
 // DevResource represents CUdevResource_v1.
 type DevResource struct {
 	Type            DevResourceType
@@ -1029,5 +1067,146 @@ type DevResource struct {
 	NextResource    uintptr
 }
 
+// Array3dDescriptorV2 is an alias for Array3dDescriptor.
+type Array3dDescriptorV2 = Array3dDescriptor
+
+// ArrayDescriptorV2 is an alias for ArrayDescriptor.
+type ArrayDescriptorV2 = ArrayDescriptor
+
+// ArrayMemoryRequirementsV1 is an alias for ArrayMemoryRequirements.
+type ArrayMemoryRequirementsV1 = ArrayMemoryRequirements
+
+// ArraySparsePropertiesV1 is an alias for ArraySparseProperties.
+type ArraySparsePropertiesV1 = ArraySparseProperties
+
+// BatchMemOpNodeParamsV1 is an alias for BatchMemOpNodeParams.
+type BatchMemOpNodeParamsV1 = BatchMemOpNodeParams
+
+// ExternalMemoryBufferDescV1 is an alias for ExternalMemoryBufferDesc.
+type ExternalMemoryBufferDescV1 = ExternalMemoryBufferDesc
+
+// ExternalMemoryHandleDescV1 is an alias for ExternalMemoryHandleDesc.
+type ExternalMemoryHandleDescV1 = ExternalMemoryHandleDesc
+
+// ExternalMemoryMipmappedArrayDescV1 is an alias for ExternalMemoryMipmappedArrayDesc.
+type ExternalMemoryMipmappedArrayDescV1 = ExternalMemoryMipmappedArrayDesc
+
+// ExternalSemaphoreHandleDescV1 is an alias for ExternalSemaphoreHandleDesc.
+type ExternalSemaphoreHandleDescV1 = ExternalSemaphoreHandleDesc
+
+// ExternalSemaphoreSignalParamsV1 is an alias for ExternalSemaphoreSignalParams.
+type ExternalSemaphoreSignalParamsV1 = ExternalSemaphoreSignalParams
+
+// ExternalSemaphoreWaitParamsV1 is an alias for ExternalSemaphoreWaitParams.
+type ExternalSemaphoreWaitParamsV1 = ExternalSemaphoreWaitParams
+
+// ExtSemSignalNodeParamsV1 is an alias for ExtSemSignalNodeParams.
+type ExtSemSignalNodeParamsV1 = ExtSemSignalNodeParams
+
+// ExtSemWaitNodeParamsV1 is an alias for ExtSemWaitNodeParams.
+type ExtSemWaitNodeParamsV1 = ExtSemWaitNodeParams
+
+// HostNodeParamsV1 is an alias for HostNodeParams.
+type HostNodeParamsV1 = HostNodeParams
+
+// KernelNodeParamsV2 is an alias for KernelNodeParams.
+type KernelNodeParamsV2 = KernelNodeParams
+
+// LaunchParamsV1 is an alias for LaunchParams.
+type LaunchParamsV1 = LaunchParams
+
+// Memcpy2dV2 is an alias for Memcpy2d.
+type Memcpy2dV2 = Memcpy2d
+
+// Memcpy3dBatchOpV1 is an alias for Memcpy3dBatchOp.
+type Memcpy3dBatchOpV1 = Memcpy3dBatchOp
+
+// Memcpy3dPeerV1 is an alias for Memcpy3dPeer.
+type Memcpy3dPeerV1 = Memcpy3dPeer
+
+// Memcpy3dV2 is an alias for Memcpy3d.
+type Memcpy3dV2 = Memcpy3d
+
+// MemsetNodeParamsV1 is an alias for MemsetNodeParams.
+type MemsetNodeParamsV1 = MemsetNodeParams
+
+// MemAllocNodeParamsV1 is an alias for MemAllocNodeParams.
+type MemAllocNodeParamsV1 = MemAllocNodeParams
+
+// PointerAttributeP2PTokensV1 is an alias for PointerAttributeP2PTokens.
+type PointerAttributeP2PTokensV1 = PointerAttributeP2PTokens
+
+// ResourceDescV1 is an alias for ResourceDesc.
+type ResourceDescV1 = ResourceDesc
+
+// ResourceViewDescV1 is an alias for ResourceViewDesc.
+type ResourceViewDescV1 = ResourceViewDesc
+
+// TextureDescV1 is an alias for TextureDesc.
+type TextureDescV1 = TextureDesc
+
+// AccessPolicyWindowV1 is an alias for AccessPolicyWindow.
+type AccessPolicyWindowV1 = AccessPolicyWindow
+
+// ArrayMapInfoV1 is an alias for ArrayMapInfo.
+type ArrayMapInfoV1 = ArrayMapInfo
+
 // DevResourceV1 is an alias for DevResource.
 type DevResourceV1 = DevResource
+
+// DevpropV1 is an alias for Devprop.
+type DevpropV1 = Devprop
+
+// ExecAffinityParamV1 is an alias for ExecAffinityParam.
+type ExecAffinityParamV1 = ExecAffinityParam
+
+// ExecAffinitySmCountV1 is an alias for ExecAffinitySmCount.
+type ExecAffinitySmCountV1 = ExecAffinitySmCount
+
+// Extent3DV1 is an alias for Extent3D.
+type Extent3DV1 = Extent3D
+
+// GraphExecUpdateResultInfoV1 is an alias for GraphExecUpdateResultInfo.
+type GraphExecUpdateResultInfoV1 = GraphExecUpdateResultInfo
+
+// IpcEventHandleV1 is an alias for IpcEventHandle.
+type IpcEventHandleV1 = IpcEventHandle
+
+// IpcMemHandleV1 is an alias for IpcMemHandle.
+type IpcMemHandleV1 = IpcMemHandle
+
+// LaunchAttributeValue is an alias for StreamAttrValueV1.
+type LaunchAttributeValue = StreamAttrValueV1
+
+// MemAccessDescV1 is an alias for MemAccessDesc.
+type MemAccessDescV1 = MemAccessDesc
+
+// MemAllocationPropV1 is an alias for MemAllocationProp.
+type MemAllocationPropV1 = MemAllocationProp
+
+// MemFabricHandleV1 is an alias for MemFabricHandle.
+type MemFabricHandleV1 = MemFabricHandle
+
+// MemLocationV1 is an alias for MemLocation.
+type MemLocationV1 = MemLocation
+
+// MemPoolPropsV1 is an alias for MemPoolProps.
+type MemPoolPropsV1 = MemPoolProps
+
+// MemPoolPtrExportDataV1 is an alias for MemPoolPtrExportData.
+type MemPoolPtrExportDataV1 = MemPoolPtrExportData
+
+// Memcpy3DOperandV1 is an alias for Memcpy3DOperand.
+type Memcpy3DOperandV1 = Memcpy3DOperand
+
+// MemcpyAttributesV1 is an alias for MemcpyAttributes.
+type MemcpyAttributesV1 = MemcpyAttributes
+
+// MulticastObjectPropV1 is an alias for MulticastObjectProp.
+type MulticastObjectPropV1 = MulticastObjectProp
+
+// Offset3DV1 is an alias for Offset3D.
+type Offset3DV1 = Offset3D
+
+// StreamBatchMemOpParamsV1 is an alias for StreamBatchMemOpParams.
+type StreamBatchMemOpParamsV1 = StreamBatchMemOpParams

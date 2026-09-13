@@ -5,28 +5,28 @@
   "version_source": "unrecorded",
   "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/f5/f5afd169a897f7e0332d3992d23a6f3d3f827dd44e46da4001d486161322e91d-d/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
     "-api",
     "nvjitlink",
     "-headers-dir",
-    "/Users/tmc/tmp/hdr-cupti",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-header",
-    "/Users/tmc/tmp/hdr-cupti/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nvjitlink/nvJitLink.h",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/nvjitlink",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/nvjitlink",
     "-package",
     "nvjitlink",
     "-deprecated=true",
     "-docs-dir",
-    "/Volumes/tmc/go/src/github.com/tmc/libgen/docs"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/tmp/hdr-cupti/pinned/nvjitlink/cuda-13.0/nvJitLink.h",
-      "sha256": "97d833dbfb3b17b1fbd76bbed72caf1eb4a638b40c39720fe2bfa5f5238bab98"
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nvjitlink/nvJitLink.h",
+      "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
     }
   ],
-  "source_hash": "c05288905f198a153cd28a6be656fd81135c936899f7751ad6b56c71c1cec684",
+  "source_hash": "40f0c9959cac6eb26b6049af4100aee075109ee0d68ba679a26324045c1be000",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

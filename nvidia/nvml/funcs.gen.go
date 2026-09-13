@@ -18,7 +18,7 @@ var (
 	fndeviceGetAccountingBufferSize                    func(Device, *uint32) Result
 	fndeviceGetAccountingMode                          func(Device, *EnableState) Result
 	fndeviceGetAccountingPids                          func(Device, *uint32, *uint32) Result
-	fndeviceGetAccountingStats                         func(Device, *AccountingStatsV2) Result
+	fndeviceGetAccountingStats                         func(Device, uint32, *AccountingStats) Result
 	fndeviceGetActiveVgpus                             func(Device, *uint32, *VgpuInstance) Result
 	fndeviceGetAdaptiveClockInfoStatus                 func(Device, *uint32) Result
 	fndeviceGetAddressingMode                          func(Device, *DeviceAddressingMode) Result
@@ -27,7 +27,6 @@ var (
 	fndeviceGetAttributes                              func(Device, *DeviceAttributes) Result
 	fndeviceGetAutoBoostedClocksEnabled                func(Device, *EnableState, *EnableState) Result
 	fndeviceGetBAR1MemoryInfo                          func(Device, *BAR1Memory) Result
-	fndeviceGetBBXTimeData                             func(Device, *BBXTimeDataV1) Result
 	fndeviceGetBoardId                                 func(Device, *uint32) Result
 	fndeviceGetBoardPartNumber                         func(Device, *byte, uint32) Result
 	fndeviceGetBrand                                   func(Device, *BrandType) Result
@@ -170,7 +169,7 @@ var (
 	fndeviceGetPowerUsage                              func(Device, *uint32) Result
 	fndeviceGetProcessUtilization                      func(Device, *ProcessUtilizationSample, *uint32, uint64) Result
 	fndeviceGetProcessesUtilizationInfo                func(Device, *ProcessesUtilizationInfo) Result
-	fndeviceGetRemappedRows                            func(Device, *RemappedRowsInfoV2) Result
+	fndeviceGetRemappedRows                            func(Device, *uint32, *uint32, *uint32, *uint32) Result
 	fndeviceGetRepairStatus                            func(Device, *RepairStatus) Result
 	fndeviceGetRetiredPagesPendingStatus               func(Device, *EnableState) Result
 	fndeviceGetRetiredPages                            func(Device, PageRetirementCause, *uint32, *uint64, *uint64) Result
@@ -312,7 +311,6 @@ var (
 	fnSystemEventSetCreate                             func(*SystemEventSetCreateRequest) Result
 	fnSystemEventSetFree                               func(*SystemEventSetFreeRequest) Result
 	fnSystemEventSetWait                               func(*SystemEventSetWaitRequest) Result
-	fnSystemGetCPER                                    func(*GetCPERV1) Result
 	fnSystemGetConfComputeCapabilities                 func(*ConfComputeSystemCaps) Result
 	fnSystemGetConfComputeGpusReadyState               func(*uint32) Result
 	fnSystemGetConfComputeKeyRotationThresholdInfo     func(*ConfComputeGetKeyRotationThresholdInfo) Result
@@ -629,22 +627,23 @@ func deviceGetAccountingPids(device Device, count *uint32, pids *uint32) error {
 	return toError(fndeviceGetAccountingPids(device, count, pids))
 }
 
-// deviceGetAccountingStats Queries process's accounting stats (v2).
+// deviceGetAccountingStats Queries process's accounting stats.
 //
 // For Kepler or newer fully supported devices.
-// Accounting stats (v2) capture GPU utilization and other statistics across the lifetime of a process. Accounting stats (v2) can be queried during life time of the process and after its termination. The time field in [AccountingStatsV2] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats (v2) are kept in a circular buffer, newly created processes overwrite information about old processes.
-// See [AccountingStatsV2] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.GetAccountingPids].
+// Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.GetAccountingPids].
 // See also: [Device.GetAccountingBufferSize]
 //
 //   - device: The identifier of the target device
-//   - stats: Reference in which to return the process's accounting stats (v2)
+//   - pid: Process Id of the target process to query stats for
+//   - stats: Reference in which to return the process's accounting stats
 //
-// Wraps nvmlDeviceGetAccountingStats_v2.
-func deviceGetAccountingStats(device Device, stats *AccountingStatsV2) error {
-	if err := checkLibSym("nvmlDeviceGetAccountingStats_v2"); err != nil {
+// Wraps nvmlDeviceGetAccountingStats.
+func deviceGetAccountingStats(device Device, pid uint32, stats *AccountingStats) error {
+	if err := checkLibSym("nvmlDeviceGetAccountingStats"); err != nil {
 		return err
 	}
-	return toError(fndeviceGetAccountingStats(device, stats))
+	return toError(fndeviceGetAccountingStats(device, pid, stats))
 }
 
 // deviceGetActiveVgpus wraps nvmlDeviceGetActiveVgpus.
@@ -788,21 +787,6 @@ func deviceGetBAR1MemoryInfo(device Device) (BAR1Memory, error) {
 		return zero, err
 	}
 	return out, nil
-}
-
-// deviceGetBBXTimeData Retrieves the cumulative number of seconds the GPU has had the driver loaded.
-//
-// For all products with an inforom.
-//
-//   - device: The identifier of the target device
-//   - timeData: Reference in which to return the cumulative number of seconds the GPU has had the driver loaded
-//
-// Wraps nvmlDeviceGetBBXTimeData_v1.
-func deviceGetBBXTimeData(device Device, timeData *BBXTimeDataV1) error {
-	if err := checkLibSym("nvmlDeviceGetBBXTimeData_v1"); err != nil {
-		return err
-	}
-	return toError(fndeviceGetBBXTimeData(device, timeData))
 }
 
 // deviceGetBoardId Retrieves the device boardId from 0-N.
@@ -2103,17 +2087,11 @@ func deviceGetGspFirmwareMode(device Device, isEnabled *uint32, defaultMode *uin
 //   - version: The retrieved GSP firmware version
 //
 // Wraps nvmlDeviceGetGspFirmwareVersion.
-func deviceGetGspFirmwareVersion(device Device) (byte, error) {
+func deviceGetGspFirmwareVersion(device Device, version *byte) error {
 	if err := checkLibSym("nvmlDeviceGetGspFirmwareVersion"); err != nil {
-		var zero byte
-		return zero, err
+		return err
 	}
-	var out byte
-	if err := toError(fndeviceGetGspFirmwareVersion(device, &out)); err != nil {
-		var zero byte
-		return zero, err
-	}
-	return out, nil
+	return toError(fndeviceGetGspFirmwareVersion(device, version))
 }
 
 // deviceGetHandleByIndex wraps nvmlDeviceGetHandleByIndex, bound as nvmlDeviceGetHandleByIndex_v2.
@@ -3627,16 +3605,20 @@ func deviceGetProcessesUtilizationInfo(device Device, procesesUtilInfo *Processe
 // For Ampere or newer fully supported devices.
 //
 //   - device: The identifier of the target device
+//   - corrRows: Reference for number of rows remapped due to correctable errors
+//   - uncRows: Reference for number of rows remapped due to uncorrectable errors
+//   - isPending: Reference for whether or not remappings are pending
+//   - failureOccurred: Reference that is set when a remapping has failed in the past
 //
-// Wraps nvmlDeviceGetRemappedRows_v2.
-func deviceGetRemappedRows(device Device) (RemappedRowsInfoV2, error) {
-	if err := checkLibSym("nvmlDeviceGetRemappedRows_v2"); err != nil {
-		var zero RemappedRowsInfoV2
+// Wraps nvmlDeviceGetRemappedRows.
+func deviceGetRemappedRows(device Device, uncRows *uint32, isPending *uint32, failureOccurred *uint32) (uint32, error) {
+	if err := checkLibSym("nvmlDeviceGetRemappedRows"); err != nil {
+		var zero uint32
 		return zero, err
 	}
-	var out RemappedRowsInfoV2
-	if err := toError(fndeviceGetRemappedRows(device, &out)); err != nil {
-		var zero RemappedRowsInfoV2
+	var out uint32
+	if err := toError(fndeviceGetRemappedRows(device, &out, uncRows, isPending, failureOccurred)); err != nil {
+		var zero uint32
 		return zero, err
 	}
 	return out, nil
@@ -5992,22 +5974,6 @@ func SystemEventSetWait(request *SystemEventSetWaitRequest) error {
 		return err
 	}
 	return toError(fnSystemEventSetWait(request))
-}
-
-// SystemGetCPER Retrieves Common Platform Error Record (CPER) data.
-//
-// Records are returned in a caller-supplied buffer. Iteration is driven by the cursor ( [CPERCursorV1]) struct: pass the same cursor on every call in a sequence; the implementation updates cursor.handle. Do not modify cursor between calls. To change cursor.cperTypeMask or cursor.uuid, set cursor.handle to NVML_CPER_CURSOR_HANDLE_INIT and call again (new iteration).
-// For a size query, call with buffer NULL and bufferSize 0; the function returns [ErrInsufficientSize] and sets bufferSize when records exist, or [Success] with bufferSize set to 0 when there are no CPER records. Use bufferSize == 0 on return as the indicator for "no records" or "no more records".
-// This API requires root privileges. Records are available from initialization.
-//
-//   - cper: Pointer to an [GetCPERV1] . On entry set cursor.cperTypeMask, cursor.uuid (empty string for all), cursor.handle (to NVML_CPER_CURSOR_HANDLE_INIT for first call), buffer (or NULL), bufferSize. On return cursor.handle and bufferSize are updated
-//
-// Wraps nvmlSystemGetCPER_v1.
-func SystemGetCPER(cper *GetCPERV1) error {
-	if err := checkLibSym("nvmlSystemGetCPER_v1"); err != nil {
-		return err
-	}
-	return toError(fnSystemGetCPER(cper))
 }
 
 // SystemGetConfComputeCapabilities Get Conf Computing System capabilities.

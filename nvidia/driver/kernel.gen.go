@@ -130,14 +130,12 @@ func (k Kernel) GetParamCount() (uint, error) {
 // that kernel takes. paramSize can be set to NULL if only the parameter offset is desired.
 //
 //   - paramIndex: The parameter index to query
-//   - paramOffset: Returns the offset into the device-side parameter layout at which the parameter resides
-//   - paramSize: Optionally returns the size of the parameter in the device-side parameter layout
 //
 // See also: [Function.GetParamInfo]
 //
 // Wraps cuKernelGetParamInfo.
-func (k Kernel) GetParamInfo(paramIndex uint, paramOffset *uint, paramSize *uint) error {
-	return kernelGetParamInfo(k, paramIndex, paramOffset, paramSize)
+func (k Kernel) GetParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
+	return kernelGetParamInfo(k, paramIndex)
 }
 
 // SetAttribute Sets information about a kernel

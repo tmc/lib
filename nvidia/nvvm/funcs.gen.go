@@ -167,6 +167,7 @@ func DestroyProgram(prog *Program) error {
 // The result is stored in the memory pointed to by buffer.
 //
 //   - prog (in): NVVM program
+//   - buffer (out): Compiled result
 //
 // Wraps nvvmGetCompiledResult.
 func getCompiledResult(prog Program) ([]byte, error) {
@@ -211,6 +212,7 @@ func getCompiledResultSize(prog Program) (uint, error) {
 // buffer when the return value is [Success].
 //
 //   - prog (in): NVVM program
+//   - buffer (out): Compilation/Verification log
 //
 // Wraps nvvmGetProgramLog.
 func getProgramLog(prog Program) (string, error) {

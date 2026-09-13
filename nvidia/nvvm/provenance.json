@@ -1,32 +1,32 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/d8/d8cd2c88aba960532f6309e583cfb93ed947b309032e15644e8777f80b2d25ad-d/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
     "-api",
     "nvvm",
     "-headers-dir",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-header",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers/nvvm/nvvm.h",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nvvm/nvvm.h",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/nvvm",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/nvvm",
     "-package",
     "nvvm",
     "-deprecated=true",
     "-docs-dir",
-    "/Users/tmc/go/src/github.com/tmc/codegen/docs"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/nvvm/nvvm.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nvvm/nvvm.h",
       "sha256": "ae202212ab45f24a48c168b5fdb04246831048a7fa65e53b6238e3cf2e981605"
     }
   ],
-  "source_hash": "d283fe99ab398d4d377a4b3c6201215216e923fa5fdf3e3fcfccf76704b1b297",
+  "source_hash": "eb439ca9101863553ea1732387d8fc281d8f370a49e93f41c00635a308a405a8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

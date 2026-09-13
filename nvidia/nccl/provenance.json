@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
+  "argv": [
+    "/Users/tmc/Library/Caches/go-build/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
+    "-api",
+    "nccl",
+    "-header",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nccl/nccl.h",
+    "-headers-dir",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "-output",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/nccl",
+    "-package",
+    "nccl",
+    "-deprecated=true",
+    "-docs-dir",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
+  ],
+  "inputs": [
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl.h",
+      "sha256": "fc9720fe6d8b45a62775a2f9d13c43ed6e88b0e01fd771081d6f665e6df94bfb"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/core.h",
+      "sha256": "309cea58b4558f1f419a060b332df716939e6dbae41097747800dbf67f557a57"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/gin_barrier.h",
+      "sha256": "a610f3adbeeeaba9fe6fe8d3904cc989f31ef095223b256201a80e4211db6f37"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/impl/comm__types.h",
+      "sha256": "592ce87ef4cde398120282e583496401ee164ccc6d3508f5e3be5c8032c0cc1e"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/impl/core__types.h",
+      "sha256": "e709297f473bbc7789af8d90253568d8ba198159564f0d5b48a8a54ba5738155"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/impl/gin_barrier__types.h",
+      "sha256": "4bb1d075be74dd3e461889ecd9305ed16856222209fc6701d8cd43f786dfe597"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/impl/ll_a2a__types.h",
+      "sha256": "78057a7c9c5a8674ba33c7a46c11499e18a7ca044975f676a35c206e7bc33331"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/impl/lsa_barrier__types.h",
+      "sha256": "74b05656f01d5e192c7f12eeba8c9c7f60cb3668a5a698344ad1253bd9267f50"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/ll_a2a.h",
+      "sha256": "97a94c435b85e715332059efe49f00e251924089f4bbec2566bc298a8e043879"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nccl/nccl_device/lsa_barrier.h",
+      "sha256": "f35c6cc2a351d97e04aac8236ffd4bd5a0b6dd70ce97087a16fcb86b2f1d3534"
+    }
+  ],
+  "source_hash": "8cc22c290cb1ade02e1bacc3128d9af3dd6eafd37bc063e13e2375332fd04221",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

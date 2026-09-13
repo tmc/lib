@@ -1,25 +1,26 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/cusparse-survey",
+  "generator": "github.com/tmc/libgen/cmd/cusparse-survey",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/04/040d3ea99d168b4af4dfe438d60b121627978bbc877250ad6cac99f6b0bf7683-d/cusparse-survey",
+    "/Users/tmc/Library/Caches/go-build/df/df69f6ab32bb9d588369deff218f318402a909f8fb133009869975e27c7ada26-d/cusparse-survey",
+    "-allow-missing-contract",
     "-header",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers/cusparse/cusparse.h",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/cusparse/cusparse.h",
     "-headers-dir",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cusparse"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cusparse"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/cusparse/cusparse.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/cusparse/cusparse.h",
       "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
     }
   ],
-  "source_hash": "f95ea4973ac0a3918e04233b4fd0553f2dbf9e7b7e04e94ff80612b0d84f59f8",
+  "source_hash": "751b5a90b8df0b50e36907342690e1963b05720cdce78321580e56492853fd30",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

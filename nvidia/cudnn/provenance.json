@@ -1,47 +1,47 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-nvidia",
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/d8/d8cd2c88aba960532f6309e583cfb93ed947b309032e15644e8777f80b2d25ad-d/gen-nvidia",
+    "/Users/tmc/Library/Caches/go-build/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
     "-api",
     "cudnn",
     "-headers-dir",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cudnn",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cudnn",
     "-package",
     "cudnn"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_adv.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_adv.h",
       "sha256": "f74ee54b3fa51bbe10526f32fe2f34414530a790d0129462ed76254eab4f3f8e"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_cnn.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_cnn.h",
       "sha256": "86fe44b28e2c356cb0099a470e9894fe2fbdb231fdea144c35b1266e907f260a"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_combined.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_combined.h",
       "sha256": "b62a86b7e43495cc7829cc2d26983993e289bc20a6d092fa8c1c91c07d4789b1"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_graph.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_graph.h",
       "sha256": "75a70552a07660d25ad900dd45f180ec557965fd41433be8723bbd4c64337308"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_ops.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_ops.h",
       "sha256": "906942f64d5542c122101423d1a0e8d8711ee836c4cb61c9836c012bcb5f38c8"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_version.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/libcudnn/cudnn_version.h",
       "sha256": "8d79398cefba20da6ca84b9b9c3160490373709b4bc940893695a2b7bc2a9528"
     }
   ],
-  "source_hash": "f074f2b23a053e7bab8b06f516f1842c8393204ab5775e51c3c3d556394ffa96",
+  "source_hash": "c8d31368aad945fc0d2f19d29acf2e0d696ceab5134728610b87e1cf77b1aabc",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

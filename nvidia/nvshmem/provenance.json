@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/gen-nvshmem",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
+  "argv": [
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build1386574409/b001/exe/gen-nvshmem",
+    "-cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "-output",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/nvshmem"
+  ],
+  "inputs": [
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/bootstrap_device_host/nvshmem_uniqueid.h",
+      "sha256": "88765d476203a483e402634c57e0ffd30b18ef2ed001131a1efd0d2b66fb3854"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/device_host/nvshmem_types.h",
+      "sha256": "ff1d8b9ca48cdb135bd2ac80f5753bed8a110e0753d2f6a52c98b6d24cd7d9f3"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/device_host_transport/nvshmem_common_transport.h",
+      "sha256": "1f6350d54ec1f9e74e29c7289df3c7b5ec31aafd0d568b8a2aeec0f609166d55"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/device_host_transport/nvshmem_constants.h",
+      "sha256": "47913186f2659be07dcb09f397da181be7f8715a6221e8286b52cfab83924840"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/host/nvshmem_api.h",
+      "sha256": "bc73a478195072611f5ddb8f751a0420daee40ead12e8bf8f25fbcf2615c30f2"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/host/nvshmem_coll_api.h",
+      "sha256": "b5d4289c1f15514ffc047c5138a13063854812d0fea721e7fdfde9d5a7c84447"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/host/nvshmemx_api.h",
+      "sha256": "e7c39e20689af5c214384d630276b051d2b310bfb2375ed3e66075ddad69c3ce"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/host/nvshmemx_coll_api.h",
+      "sha256": "212b9fd920fe101f438eb700238cc190ecd438c359fddbf4949460e3a543a1a6"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/non_abi/nvshmemx_error.h",
+      "sha256": "161997a26af7b0b40dddae8e0b5065010cbb26f4b69d1004109be562ff5bd320"
+    },
+    {
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-nvshmem/headers/nvshmem_host.h",
+      "sha256": "17366838d3b1b0c4b56384135898db0993b1fa3040f94bbfbf1d466497c90692"
+    }
+  ],
+  "source_hash": "2719401d574faad332945e6619acf47d6bc8e90997e03bc1da63500516a357ce",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

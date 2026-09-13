@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-cutensornet",
+  "generator": "github.com/tmc/libgen/cmd/gen-cutensornet",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "/Users/tmc/go/src/github.com/tmc/codegen",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/Library/Caches/go-build/62/624877fd30a656caec7f8fe94ecacc40bc725c71b61344b143586ccc0d68557d-d/gen-cutensornet",
+    "/var/folders/kj/qbc32fzd2pv6ngnsysy8vpmw0000gn/T/go-build2506117436/b001/exe/gen-cutensornet",
     "-cuda-headers",
-    "/Users/tmc/go/src/github.com/tmc/cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
-    "/Users/tmc/go/src/github.com/tmc/lib/nvidia/cutensornet"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/cutensornet"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-cutensornet/headers/cuquantum/cutensornet.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-cutensornet/headers/cuquantum/cutensornet.h",
       "sha256": "f70f31595c3c7b44682a7e4bdcd468504615983a4ec628f519cf18f0036a4687"
     },
     {
-      "path": "/Users/tmc/go/src/github.com/tmc/codegen/cmd/gen-cutensornet/headers/cuquantum/cutensornet/types.h",
+      "path": "/Volumes/tmc/go/src/github.com/tmc/libgen/cmd/gen-cutensornet/headers/cuquantum/cutensornet/types.h",
       "sha256": "5c885b23649f1a35de6f2752534ee4a9839247744d71e715ca604215f02f9cd4"
     }
   ],
-  "source_hash": "6a41c85916a6eebfb7b9d528cbe9698f42b2e36431e153ba753dbcb21875f830",
+  "source_hash": "00fca7e54614761278099f99b7eae7ccc435f3be89519bda275e12954ba7cb16",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

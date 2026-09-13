@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package cudss provides Go bindings for the NVIDIA cuDSS direct sparse solver, libcudss.
 //
 // A solve runs as a sequence of phases against one library handle: analysis,

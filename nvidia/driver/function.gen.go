@@ -47,23 +47,19 @@ func (f Function) GetParamCount() (uint, error) {
 // Queries the kernel parameter at paramIndex into func's list of parameters, and returns in paramOffset and paramSize the offset and size, respectively, where the parameter will reside in the device-side parameter layout. This information can be used to update kernel node parameters from the device via cudaGraphKernelNodeSetParam() and cudaGraphKernelNodeUpdatesApply(). paramIndex must be less than the number of parameters that func takes. paramSize can be set to NULL if only the parameter offset is desired. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Kernel.GetParamInfo]
 //
 //   - paramIndex: The parameter index to query
-//   - paramOffset: Returns the offset into the device-side parameter layout at which the parameter resides
-//   - paramSize: Optionally returns the size of the parameter in the device-side parameter layout
 //
 // Wraps cuFuncGetParamInfo.
-func (f Function) GetParamInfo(paramIndex uint, paramOffset *uint, paramSize *uint) error {
-	return funcGetParamInfo(f, paramIndex, paramOffset, paramSize)
+func (f Function) GetParamInfo(paramIndex uint) (paramOffset uint, paramSize uint, err error) {
+	return funcGetParamInfo(f, paramIndex)
 }
 
 // IsLoaded Returns if the function is loaded.
 //
 // Returns in state the loading state of function. See also: [Function.Load], [Module.EnumerateFunctions]
 //
-//   - state: returned loading state
-//
 // Wraps cuFuncIsLoaded.
-func (f Function) IsLoaded(state *FunctionLoadingState) error {
-	return funcIsLoaded(state, f)
+func (f Function) IsLoaded() (FunctionLoadingState, error) {
+	return funcIsLoaded(f)
 }
 
 // Load Loads a function.
@@ -191,31 +187,27 @@ func (f Function) MaxActiveClusters(config *LaunchConfig) (int32, error) {
 //
 // Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy. If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead. If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0. If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL. Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSize
 //
-//   - minGridSize: Returned minimum grid size needed to achieve the maximum occupancy
-//   - blockSize: Returned maximum block size that can achieve the maximum occupancy
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
 //   - dynamicSMemSize: Dynamic shared memory usage intended, in bytes
 //   - blockSizeLimit: The maximum block size func is designed to handle
 //
 // Wraps cuOccupancyMaxPotentialBlockSize.
-func (f Function) MaxPotentialBlockSize(minGridSize *int32, blockSize *int32, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32) error {
-	return occupancyMaxPotentialBlockSize(minGridSize, blockSize, f, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit)
+func (f Function) MaxPotentialBlockSize(blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32) (minGridSize int32, blockSize int32, err error) {
+	return occupancyMaxPotentialBlockSize(f, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit)
 }
 
 // MaxPotentialBlockSizeWithFlags Suggest a launch configuration with reasonable occupancy.
 //
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
 //
-//   - minGridSize: Returned minimum grid size needed to achieve the maximum occupancy
-//   - blockSize: Returned maximum block size that can achieve the maximum occupancy
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
 //   - dynamicSMemSize: Dynamic shared memory usage intended, in bytes
 //   - blockSizeLimit: The maximum block size func is designed to handle
 //   - flags: Options
 //
 // Wraps cuOccupancyMaxPotentialBlockSizeWithFlags.
-func (f Function) MaxPotentialBlockSizeWithFlags(minGridSize *int32, blockSize *int32, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags uint32) error {
-	return occupancyMaxPotentialBlockSizeWithFlags(minGridSize, blockSize, f, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, flags)
+func (f Function) MaxPotentialBlockSizeWithFlags(blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags uint32) (minGridSize int32, blockSize int32, err error) {
+	return occupancyMaxPotentialBlockSizeWithFlags(f, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, flags)
 }
 
 // MaxPotentialClusterSize Given the kernel function ( func) and launch configuration ( config), return the maximum cluster size in *clusterSize.

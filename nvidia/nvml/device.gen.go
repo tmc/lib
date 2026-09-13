@@ -229,18 +229,19 @@ func (d Device) GetAccountingPids(buf []uint32) ([]uint32, error) {
 	}
 }
 
-// GetAccountingStats Queries process's accounting stats (v2).
+// GetAccountingStats Queries process's accounting stats.
 //
 // For Kepler or newer fully supported devices.
-// Accounting stats (v2) capture GPU utilization and other statistics across the lifetime of a process. Accounting stats (v2) can be queried during life time of the process and after its termination. The time field in [AccountingStatsV2] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats (v2) are kept in a circular buffer, newly created processes overwrite information about old processes.
-// See [AccountingStatsV2] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.GetAccountingPids].
+// Accounting stats capture GPU utilization and other statistics across the lifetime of a process. Accounting stats can be queried during life time of the process and after its termination. The time field in [AccountingStats] is reported as 0 during the lifetime of the process and updated to actual running time after its termination. Accounting stats are kept in a circular buffer, newly created processes overwrite information about old processes.
+// See [AccountingStats] for description of each returned metric. List of processes that can be queried can be retrieved from [Device.GetAccountingPids].
 // See also: [Device.GetAccountingBufferSize]
 //
-//   - stats: Reference in which to return the process's accounting stats (v2)
+//   - pid: Process Id of the target process to query stats for
+//   - stats: Reference in which to return the process's accounting stats
 //
-// Wraps nvmlDeviceGetAccountingStats_v2.
-func (d Device) GetAccountingStats(stats *AccountingStatsV2) error {
-	return deviceGetAccountingStats(d, stats)
+// Wraps nvmlDeviceGetAccountingStats.
+func (d Device) GetAccountingStats(pid uint32, stats *AccountingStats) error {
+	return deviceGetAccountingStats(d, pid, stats)
 }
 
 // GetActiveVgpus wraps nvmlDeviceGetActiveVgpus.
@@ -342,17 +343,6 @@ func (d Device) GetAutoBoostedClocksEnabled(isEnabled *EnableState, defaultIsEna
 // Wraps nvmlDeviceGetBAR1MemoryInfo.
 func (d Device) GetBAR1MemoryInfo() (BAR1Memory, error) {
 	return deviceGetBAR1MemoryInfo(d)
-}
-
-// GetBBXTimeData Retrieves the cumulative number of seconds the GPU has had the driver loaded.
-//
-// For all products with an inforom.
-//
-//   - timeData: Reference in which to return the cumulative number of seconds the GPU has had the driver loaded
-//
-// Wraps nvmlDeviceGetBBXTimeData_v1.
-func (d Device) GetBBXTimeData(timeData *BBXTimeDataV1) error {
-	return deviceGetBBXTimeData(d, timeData)
 }
 
 // GetBoardId Retrieves the device boardId from 0-N.
@@ -1269,8 +1259,8 @@ func (d Device) GetGspFirmwareMode(isEnabled *uint32, defaultMode *uint32) error
 //   - version: The retrieved GSP firmware version
 //
 // Wraps nvmlDeviceGetGspFirmwareVersion.
-func (d Device) GetGspFirmwareVersion() (byte, error) {
-	return deviceGetGspFirmwareVersion(d)
+func (d Device) GetGspFirmwareVersion(version *byte) error {
+	return deviceGetGspFirmwareVersion(d, version)
 }
 
 // GetHostVgpuMode Queries if SR-IOV host operation is supported on a vGPU supported device.
@@ -2152,9 +2142,14 @@ func (d Device) GetProcessesUtilizationInfo(procesesUtilInfo *ProcessesUtilizati
 // On MIG-enabled GPUs with active instances, querying the number of remapped rows is not supported
 // For Ampere or newer fully supported devices.
 //
-// Wraps nvmlDeviceGetRemappedRows_v2.
-func (d Device) GetRemappedRows() (RemappedRowsInfoV2, error) {
-	return deviceGetRemappedRows(d)
+//   - corrRows: Reference for number of rows remapped due to correctable errors
+//   - uncRows: Reference for number of rows remapped due to uncorrectable errors
+//   - isPending: Reference for whether or not remappings are pending
+//   - failureOccurred: Reference that is set when a remapping has failed in the past
+//
+// Wraps nvmlDeviceGetRemappedRows.
+func (d Device) GetRemappedRows(uncRows *uint32, isPending *uint32, failureOccurred *uint32) (uint32, error) {
+	return deviceGetRemappedRows(d, uncRows, isPending, failureOccurred)
 }
 
 // GetRepairStatus Get the repair status for TPC/Channel repair

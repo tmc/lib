@@ -1,29 +1,27 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/nvml-survey",
-  "upstream_version": "13.3.29",
-  "version_source": "explicit generator flag; not independently verified",
-  "cwd": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen",
+  "generator": "github.com/tmc/libgen/cmd/nvml-survey",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "/Volumes/tmc/go/src/github.com/tmc/libgen",
   "argv": [
-    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/go-build3830954895/b001/exe/nvml-survey",
+    "/Users/tmc/Library/Caches/go-build/40/406800dba5435450fddde5201a06732fa9f314fd7b1dace60b731a209c76897e-d/nvml-survey",
     "-headers-dir",
-    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../cuda-headers",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-header",
-    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nvml/nvml.h",
     "-docs-dir",
-    "docs",
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/../../libgen/docs",
     "-output",
-    "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/codegen/../generated/candidate/nvml",
-    "-upstream-version",
-    "13.3.29"
+    "/Volumes/tmc/go/src/github.com/tmc/lib/nvidia/nvml"
   ],
   "inputs": [
     {
-      "path": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
-      "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
+      "path": "/Volumes/tmc/go/src/github.com/tmc/cuda-headers/nvml/nvml.h",
+      "sha256": "3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca"
     }
   ],
-  "source_hash": "ce3cda8d648d44ecdbe5b1baebd55fa9db496b71fcff2ae6b91e11a34eb78b0f",
+  "source_hash": "23a0a5eedad59540d3b1d6ed6d8efec12273d1fa6755ffaf236c9a6c79a356a8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

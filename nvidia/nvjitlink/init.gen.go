@@ -400,19 +400,19 @@ func checkLibSym(symbol string) error {
 
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
-	register(&fnaddData, "__nvJitLinkAddData_13_0", "nvJitLinkAddData")
-	register(&fnaddFile, "__nvJitLinkAddFile_13_0", "nvJitLinkAddFile")
-	register(&fncomplete, "__nvJitLinkComplete_13_0", "nvJitLinkComplete")
-	register(&fnCreate, "__nvJitLinkCreate_13_0", "nvJitLinkCreate")
-	register(&fnDestroy, "__nvJitLinkDestroy_13_0", "nvJitLinkDestroy")
-	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_0", "nvJitLinkGetErrorLog")
-	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_0", "nvJitLinkGetErrorLogSize")
-	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_0", "nvJitLinkGetInfoLog")
-	register(&fngetInfoLogSize, "__nvJitLinkGetInfoLogSize_13_0", "nvJitLinkGetInfoLogSize")
-	register(&fngetLinkedCubin, "__nvJitLinkGetLinkedCubin_13_0", "nvJitLinkGetLinkedCubin")
-	register(&fngetLinkedCubinSize, "__nvJitLinkGetLinkedCubinSize_13_0", "nvJitLinkGetLinkedCubinSize")
-	register(&fngetLinkedPtx, "__nvJitLinkGetLinkedPtx_13_0", "nvJitLinkGetLinkedPtx")
-	register(&fngetLinkedPtxSize, "__nvJitLinkGetLinkedPtxSize_13_0", "nvJitLinkGetLinkedPtxSize")
+	register(&fnaddData, "__nvJitLinkAddData_13_2", "nvJitLinkAddData")
+	register(&fnaddFile, "__nvJitLinkAddFile_13_2", "nvJitLinkAddFile")
+	register(&fncomplete, "__nvJitLinkComplete_13_2", "nvJitLinkComplete")
+	register(&fnCreate, "__nvJitLinkCreate_13_2", "nvJitLinkCreate")
+	register(&fnDestroy, "__nvJitLinkDestroy_13_2", "nvJitLinkDestroy")
+	register(&fngetErrorLog, "__nvJitLinkGetErrorLog_13_2", "nvJitLinkGetErrorLog")
+	register(&fngetErrorLogSize, "__nvJitLinkGetErrorLogSize_13_2", "nvJitLinkGetErrorLogSize")
+	register(&fngetInfoLog, "__nvJitLinkGetInfoLog_13_2", "nvJitLinkGetInfoLog")
+	register(&fngetInfoLogSize, "__nvJitLinkGetInfoLogSize_13_2", "nvJitLinkGetInfoLogSize")
+	register(&fngetLinkedCubin, "__nvJitLinkGetLinkedCubin_13_2", "nvJitLinkGetLinkedCubin")
+	register(&fngetLinkedCubinSize, "__nvJitLinkGetLinkedCubinSize_13_2", "nvJitLinkGetLinkedCubinSize")
+	register(&fngetLinkedPtx, "__nvJitLinkGetLinkedPtx_13_2", "nvJitLinkGetLinkedPtx")
+	register(&fngetLinkedPtxSize, "__nvJitLinkGetLinkedPtxSize_13_2", "nvJitLinkGetLinkedPtxSize")
 	register(&fnVersion, "nvJitLinkVersion")
 }
 
@@ -434,69 +434,69 @@ func clearFuncs() {
 	fnVersion = nil
 }
 
-// HasaddData reports whether __nvJitLinkAddData_13_0 resolved in the loaded library.
+// HasaddData reports whether __nvJitLinkAddData_13_2 resolved in the loaded library.
 func HasaddData() bool {
-	return Has("__nvJitLinkAddData_13_0")
+	return Has("__nvJitLinkAddData_13_2")
 }
 
-// HasaddFile reports whether __nvJitLinkAddFile_13_0 resolved in the loaded library.
+// HasaddFile reports whether __nvJitLinkAddFile_13_2 resolved in the loaded library.
 func HasaddFile() bool {
-	return Has("__nvJitLinkAddFile_13_0")
+	return Has("__nvJitLinkAddFile_13_2")
 }
 
-// Hascomplete reports whether __nvJitLinkComplete_13_0 resolved in the loaded library.
+// Hascomplete reports whether __nvJitLinkComplete_13_2 resolved in the loaded library.
 func Hascomplete() bool {
-	return Has("__nvJitLinkComplete_13_0")
+	return Has("__nvJitLinkComplete_13_2")
 }
 
-// HasCreate reports whether __nvJitLinkCreate_13_0 resolved in the loaded library.
+// HasCreate reports whether __nvJitLinkCreate_13_2 resolved in the loaded library.
 func HasCreate() bool {
-	return Has("__nvJitLinkCreate_13_0")
+	return Has("__nvJitLinkCreate_13_2")
 }
 
-// HasDestroy reports whether __nvJitLinkDestroy_13_0 resolved in the loaded library.
+// HasDestroy reports whether __nvJitLinkDestroy_13_2 resolved in the loaded library.
 func HasDestroy() bool {
-	return Has("__nvJitLinkDestroy_13_0")
+	return Has("__nvJitLinkDestroy_13_2")
 }
 
-// HasgetErrorLog reports whether __nvJitLinkGetErrorLog_13_0 resolved in the loaded library.
+// HasgetErrorLog reports whether __nvJitLinkGetErrorLog_13_2 resolved in the loaded library.
 func HasgetErrorLog() bool {
-	return Has("__nvJitLinkGetErrorLog_13_0")
+	return Has("__nvJitLinkGetErrorLog_13_2")
 }
 
-// HasgetErrorLogSize reports whether __nvJitLinkGetErrorLogSize_13_0 resolved in the loaded library.
+// HasgetErrorLogSize reports whether __nvJitLinkGetErrorLogSize_13_2 resolved in the loaded library.
 func HasgetErrorLogSize() bool {
-	return Has("__nvJitLinkGetErrorLogSize_13_0")
+	return Has("__nvJitLinkGetErrorLogSize_13_2")
 }
 
-// HasgetInfoLog reports whether __nvJitLinkGetInfoLog_13_0 resolved in the loaded library.
+// HasgetInfoLog reports whether __nvJitLinkGetInfoLog_13_2 resolved in the loaded library.
 func HasgetInfoLog() bool {
-	return Has("__nvJitLinkGetInfoLog_13_0")
+	return Has("__nvJitLinkGetInfoLog_13_2")
 }
 
-// HasgetInfoLogSize reports whether __nvJitLinkGetInfoLogSize_13_0 resolved in the loaded library.
+// HasgetInfoLogSize reports whether __nvJitLinkGetInfoLogSize_13_2 resolved in the loaded library.
 func HasgetInfoLogSize() bool {
-	return Has("__nvJitLinkGetInfoLogSize_13_0")
+	return Has("__nvJitLinkGetInfoLogSize_13_2")
 }
 
-// HasgetLinkedCubin reports whether __nvJitLinkGetLinkedCubin_13_0 resolved in the loaded library.
+// HasgetLinkedCubin reports whether __nvJitLinkGetLinkedCubin_13_2 resolved in the loaded library.
 func HasgetLinkedCubin() bool {
-	return Has("__nvJitLinkGetLinkedCubin_13_0")
+	return Has("__nvJitLinkGetLinkedCubin_13_2")
 }
 
-// HasgetLinkedCubinSize reports whether __nvJitLinkGetLinkedCubinSize_13_0 resolved in the loaded library.
+// HasgetLinkedCubinSize reports whether __nvJitLinkGetLinkedCubinSize_13_2 resolved in the loaded library.
 func HasgetLinkedCubinSize() bool {
-	return Has("__nvJitLinkGetLinkedCubinSize_13_0")
+	return Has("__nvJitLinkGetLinkedCubinSize_13_2")
 }
 
-// HasgetLinkedPtx reports whether __nvJitLinkGetLinkedPtx_13_0 resolved in the loaded library.
+// HasgetLinkedPtx reports whether __nvJitLinkGetLinkedPtx_13_2 resolved in the loaded library.
 func HasgetLinkedPtx() bool {
-	return Has("__nvJitLinkGetLinkedPtx_13_0")
+	return Has("__nvJitLinkGetLinkedPtx_13_2")
 }
 
-// HasgetLinkedPtxSize reports whether __nvJitLinkGetLinkedPtxSize_13_0 resolved in the loaded library.
+// HasgetLinkedPtxSize reports whether __nvJitLinkGetLinkedPtxSize_13_2 resolved in the loaded library.
 func HasgetLinkedPtxSize() bool {
-	return Has("__nvJitLinkGetLinkedPtxSize_13_0")
+	return Has("__nvJitLinkGetLinkedPtxSize_13_2")
 }
 
 // HasVersion reports whether nvJitLinkVersion resolved in the loaded library.
