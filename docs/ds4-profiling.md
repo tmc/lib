@@ -1283,8 +1283,10 @@ rather than inherited from this observation.
 
 ### What qualifies this comparison, and what does not
 
-The Go side carries source-derived completeness checks that came out exact —
-8200 / 6150 / 82000 across three kernel families. The C side now has an
+The Go side carries source-derived completeness checks that came out exact in
+the published run — 8200 / 6150 / 82000 across three kernel families — but
+that run is the exception, not the recipe's guarantee; see *Go is stable, and
+its sentinels are not* below. The C side now has an
 equivalent, derived from `ds4_cuda.cu` and `cuda/mmq/ds4_mmq_d2r.cu` against
 this build's CUDA identity, and every one of them passes. They hold only for
 this source revision, these build defines, the default env toggles, and the
@@ -1379,6 +1381,45 @@ range above is a lower bound on the total spread, not a confidence interval.
 
 Anything measuring a future optimization against 45.87x would be measuring
 against noise. Re-measure both sides, repeatedly, before crediting a change.
+
+### Go is stable, and its sentinels are not
+
+Two more Go captures under the identical recipe answer the obvious question —
+is the Go side just as variable? — with a clear no, and turn up something else
+on the way:
+
+| Go prefill run | kernels in range | summed duration | `get_row_f16` | `router_hash` | `router_biased` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| expected | — | — | 8200 | 6150 | 82000 |
+| run 1 (published) | 4,117,514 | 150,476.96 ms | **8200** | **6150** | **82000** |
+| run 2 | 4,090,592 | 149,535.86 ms | 8168 | 6104 | 81471 |
+| run 3 | 4,091,172 | 149,650.94 ms | 8104 | 6078 | 81507 |
+
+Two things at once.
+
+**The duration spread is 0.63%**, against C's 85%. Whatever drives the C
+prefill spread has no Go counterpart, so the 31.7x–58.5x range is a C-side
+phenomenon end to end, not a property of the comparison.
+
+**The published run's exact sentinel match does not reproduce.** Runs 2 and 3
+lose records in all three families. That matters more than the timing does: it
+means the recipe does not *guarantee* a complete Go capture, and the one this
+document published happened to get one. An earlier arm
+(`DF6906F6-p3astop`) failed the same three families at 8168 / 6126 / 81488,
+which in hindsight was the normal outcome rather than the anomaly it was
+treated as.
+
+The two readings are consistent with each other. Run 2 retains 0.654% fewer
+kernels than run 1 and accumulates 0.625% less duration; run 3, 0.640% fewer
+for 0.549% less. Deficit in records tracks deficit in time, which is what
+broadly uniform loss looks like and what a real slowdown would not. **So take
+150,476.96 ms as the Go figure — it is the only complete capture of the
+three — and read the other two as undercounts, not as a range.**
+
+This does not narrow the ratio. It relocates the uncertainty: the Go numerator
+is one complete measurement with no second complete measurement beside it, and
+the denominator is a quantity observed to move by 1.85x. Neither is a ratio
+you can quote.
 
 ### The retention risk, and two withdrawn bounds
 
