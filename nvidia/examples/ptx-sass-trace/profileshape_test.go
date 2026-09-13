@@ -236,3 +236,74 @@ func TestLaunchRecorderLabels(t *testing.T) {
 		t.Errorf("launchLabels after one launch = %v, want %v", got, want)
 	}
 }
+
+// The label-omissions comment says which keys no PC sample carries, and a stale
+// list is worse than none: a missing label is invisible in every pprof surface
+// at once, so the comment is the only place a reader can learn of it. The set is
+// therefore computed from what the launches shared, per kernel, not fixed.
+func TestLaunchRecorderOmittedLabels(t *testing.T) {
+	launch := func(r *launchRecorder, kernel string, pairs ...string) {
+		cudaprof.Do(context.Background(), cudaprof.Labels(pairs...), func(ctx context.Context) {
+			r.observeLabels(ctx, kernel)
+		})
+	}
+	tests := []struct {
+		name   string
+		record func(*launchRecorder)
+		want   []string
+	}{
+		{"no launches", func(*launchRecorder) {}, nil},
+		{
+			"one launch omits nothing",
+			func(r *launchRecorder) { launch(r, "k", "phase", "compute", "pass", "0") },
+			nil,
+		},
+		{
+			"a key that varies is omitted",
+			func(r *launchRecorder) {
+				launch(r, "k", "phase", "compute", "pass", "0")
+				launch(r, "k", "phase", "compute", "pass", "1")
+			},
+			[]string{"pass"},
+		},
+		{
+			// Survival is per kernel, so a key constant within one kernel
+			// reaches that kernel's samples and is not omitted, even though
+			// another kernel saw it vary.
+			"constant for one kernel is not omitted",
+			func(r *launchRecorder) {
+				launch(r, "shared", "layer", "0")
+				launch(r, "shared", "layer", "1")
+				launch(r, "head", "layer", "42")
+			},
+			nil,
+		},
+		{
+			"every kernel varying omits the key",
+			func(r *launchRecorder) {
+				launch(r, "shared", "layer", "0")
+				launch(r, "shared", "layer", "1")
+				launch(r, "head", "layer", "41")
+				launch(r, "head", "layer", "42")
+			},
+			[]string{"layer"},
+		},
+		{
+			"sorted",
+			func(r *launchRecorder) {
+				launch(r, "k", "pass", "0", "moe.slot", "1", "layer", "2")
+				launch(r, "k", "pass", "1", "moe.slot", "2", "layer", "3")
+			},
+			[]string{"layer", "moe.slot", "pass"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newLaunchRecorder(nil, nil)
+			tt.record(r)
+			if got := r.omittedLabels(); !slices.Equal(got, tt.want) {
+				t.Errorf("omittedLabels = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

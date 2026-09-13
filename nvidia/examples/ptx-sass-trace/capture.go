@@ -240,9 +240,6 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	prof.AddComment("device: " + devName)
 	prof.AddComment("measurement: CUDA event interval")
 	prof.AddComment("attribution: " + attribution)
-	if cfg.pcSampling {
-		prof.AddComment("label-omissions: hardware PC sample: pass, moe.expert, moe.slot")
-	}
 	labels := cudaprof.Labels()
 
 	if !cfg.pcSampling {
@@ -283,6 +280,17 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 			return nil, fmt.Errorf("nccl workload: %w", ncclErr)
 		}
 		meta.NCCL = ncclRes
+	}
+
+	// Written after the workload rather than before it: the keys a PC sample
+	// cannot carry are whichever ones varied between a kernel's launches, which
+	// is a property of the workload and not a list to maintain by hand. A stale
+	// list is worse than none, because a label's absence from PC samples is
+	// invisible in every pprof surface at once.
+	if cfg.pcSampling {
+		if omitted := rec.omittedLabels(); len(omitted) > 0 {
+			prof.AddComment("label-omissions: hardware PC sample: " + strings.Join(omitted, ", "))
+		}
 	}
 
 	prof.SetTimespan(workloadStart, time.Since(workloadStart))

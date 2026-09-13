@@ -47,6 +47,9 @@ type launchRecorder struct {
 	// launch of it. A PC sample is an aggregate over all of a kernel's
 	// launches, so a label that varied between them describes none of it.
 	labels map[string]map[string]string
+	// seenKeys holds every label key any launch carried, kept so the keys no PC
+	// sample can reach are a measurement rather than a fixed list.
+	seenKeys map[string]bool
 }
 
 func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorder {
@@ -56,6 +59,7 @@ func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorde
 		stacks:    make(map[string][]cudaprof.Frame),
 		ambiguous: make(map[string]bool),
 		labels:    make(map[string]map[string]string),
+		seenKeys:  make(map[string]bool),
 	}
 }
 
@@ -103,6 +107,9 @@ func (r *launchRecorder) observeLabels(ctx context.Context, name string) {
 	})
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for key := range seen {
+		r.seenKeys[key] = true
+	}
 	prev, ok := r.labels[name]
 	if !ok {
 		r.labels[name] = seen
@@ -113,6 +120,30 @@ func (r *launchRecorder) observeLabels(ctx context.Context, name string) {
 			delete(prev, key)
 		}
 	}
+}
+
+// omittedLabels reports, sorted, the label keys some launch carried that no PC
+// sample can. A key reaches PC samples only where it held for every launch of a
+// kernel, so the omitted set is a property of the workload rather than a fixed
+// list: a label constant within each kernel propagates, and one that varies
+// across a kernel's launches describes none of that kernel's samples.
+func (r *launchRecorder) omittedLabels() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := make(map[string]bool)
+	for _, shared := range r.labels {
+		for key := range shared {
+			kept[key] = true
+		}
+	}
+	var out []string
+	for key := range r.seenKeys {
+		if !kept[key] {
+			out = append(out, key)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // launchLabels reports the labels every launch of name shared, or nil when no
