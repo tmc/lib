@@ -114,13 +114,15 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 }
 
 type options struct {
-	expressions []string
-	output      OutputKind
-	name        string
-	flags       []string
-	headers     map[string]string
-	useCache    bool
-	err         error
+	expressions  []string
+	output       OutputKind
+	outputSet    bool
+	physicalArch bool
+	name         string
+	flags        []string
+	headers      map[string]string
+	useCache     bool
+	err          error
 }
 
 // Option configures JIT compilation.
@@ -191,8 +193,13 @@ func WithPhysicalArch(major, minor int) Option {
 			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
 			return
 		}
+		if o.outputSet && o.output != OutputCUBIN && o.output != OutputAuto {
+			o.err = fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(o.output))
+			return
+		}
 		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
 		o.output = OutputCUBIN
+		o.physicalArch = true
 	}
 }
 
@@ -200,23 +207,18 @@ func WithPhysicalArch(major, minor int) Option {
 // architecture with direct OutputCUBIN binary generation. This avoids driver-side
 // JIT compilation and prevents PTX version incompatibilities.
 func WithDeviceArch(dev *cuda.Device) Option {
-	return func(o *options) {
-		if dev == nil {
+	if dev == nil {
+		return func(o *options) {
 			o.err = fmt.Errorf("nvrtcx: nil device passed to WithDeviceArch")
-			return
 		}
-		major, minor, err := dev.ComputeCapability()
-		if err != nil {
-			o.err = fmt.Errorf("nvrtcx: query device compute capability: %w", err)
-			return
-		}
-		if major <= 0 || minor < 0 {
-			o.err = fmt.Errorf("nvrtcx: invalid compute architecture %d.%d", major, minor)
-			return
-		}
-		o.flags = append(o.flags, fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor))
-		o.output = OutputCUBIN
 	}
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return func(o *options) {
+			o.err = fmt.Errorf("nvrtcx: query device compute capability: %w", err)
+		}
+	}
+	return WithPhysicalArch(major, minor)
 }
 
 // WithFlag adds a compiler flag to the NVRTC compilation.
@@ -306,6 +308,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	}
 	if cfg.err != nil {
 		return nil, cfg.err
+	}
+	if cfg.physicalArch && cfg.outputSet && cfg.output != OutputCUBIN && cfg.output != OutputAuto {
+		return nil, fmt.Errorf("nvrtcx: physical architecture implies CUBIN output, cannot combine with WithOutput(%s)", outputKindName(cfg.output))
 	}
 	flags, err := outputFlags(cfg.output, cfg.flags)
 	if err != nil {

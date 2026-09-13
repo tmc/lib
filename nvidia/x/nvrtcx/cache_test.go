@@ -174,6 +174,8 @@ func TestCompileRejectsInvalidOptions(t *testing.T) {
 		{name: "nil device", src: "x", opts: []Option{WithDeviceArch(nil)}},
 		{name: "empty flag", src: "x", opts: []Option{WithFlag("")}},
 		{name: "empty header name", src: "x", opts: []Option{WithHeader("", "x")}},
+		{name: "physical arch with ptx output", src: "x", opts: []Option{WithPhysicalArch(8, 0), WithOutput(OutputPTX)}},
+		{name: "ptx output with physical arch", src: "x", opts: []Option{WithOutput(OutputPTX), WithPhysicalArch(8, 0)}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
