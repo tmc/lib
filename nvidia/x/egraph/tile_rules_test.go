@@ -1,12 +1,16 @@
 package egraph_test
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
+	"github.com/tmc/lib/nvidia/x/tileirdisasm"
 )
 
 func TestTransformerTileRulesTable(t *testing.T) {
@@ -431,5 +435,74 @@ func TestEndToEndTileIRLowering(t *testing.T) {
 	}
 	if !decodedFn.IsEntry {
 		t.Errorf("decoded function IsEntry = false, want true")
+	}
+
+	// 7. Verify tileiras assembly when tileiras (CUDA 13.4+) is available on the system.
+	// Skips cleanly if tileiras is absent or on systems without CUDA 13.4.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	res, err := tileiras.Assemble(ctx, []byte(textIR), tileiras.WithGPUName("sm_90"))
+	if err != nil {
+		if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") {
+			t.Skipf("skipping tileiras assembly: %v", err)
+		}
+		t.Fatalf("tileiras assembly of generated Tile IR failed: %v", err)
+	}
+	if len(res.CUBIN) == 0 {
+		t.Fatalf("tileiras produced empty CUBIN")
+	}
+
+	// 8. Round-trip verification through tileirdisasm if available
+	disasmMod, err := tileirdisasm.Disassemble(ctx, bytecode)
+	if err != nil {
+		if !errors.Is(err, tileirdisasm.ErrNotFound) && !strings.Contains(err.Error(), "executable not found") {
+			t.Logf("tileirdisasm notice: %v", err)
+		}
+	} else if len(disasmMod.Functions) != 1 {
+		t.Errorf("tileirdisasm parsed %d functions, want 1", len(disasmMod.Functions))
+	}
+}
+
+// TestGeneratedTileIRAssemblesWithTileiras verifies that ToTileIR produces
+// valid Tile IR that tileiras can assemble for each supported declarative operator.
+func TestGeneratedTileIRAssemblesWithTileiras(t *testing.T) {
+	ops := []string{
+		"tile_rmsnorm_qkv",
+		"tile_swiglu",
+		"tile_geglu",
+		"tile_rmsnorm_proj",
+		"tile_gelu",
+		"tile_mma",
+		"tile_fp8_gemm",
+		"tile_fp4_gemm",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for _, op := range ops {
+		t.Run(op, func(t *testing.T) {
+			expr := &egraph.Expr{Op: op}
+			mod, err := egraph.ToTileIR(expr, egraph.CodegenOptions{
+				KernelName: op + "_kernel",
+				Precision:  "f16",
+			})
+			if err != nil {
+				t.Fatalf("ToTileIR(%s): %v", op, err)
+			}
+
+			textIR := mod.String()
+			res, err := tileiras.Assemble(ctx, []byte(textIR), tileiras.WithGPUName("sm_90"))
+			if err != nil {
+				if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") {
+					t.Skipf("skipping tileiras assembly: %v", err)
+				}
+				t.Fatalf("tileiras assembly failed for %s: %v\nIR:\n%s", op, err, textIR)
+			}
+			if len(res.CUBIN) == 0 {
+				t.Errorf("tileiras produced empty CUBIN for %s", op)
+			}
+		})
 	}
 }

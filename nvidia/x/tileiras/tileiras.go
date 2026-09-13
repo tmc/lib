@@ -14,6 +14,9 @@ import (
 // Magic header identifying Tile IR bytecode.
 var bytecodeMagic = []byte{0x7F, 'T', 'i', 'l', 'e', 'I', 'R', 0x00}
 
+// ErrNotFound is returned when the tileiras executable cannot be located in PATH or standard CUDA directories.
+var ErrNotFound = errors.New("tileiras: executable not found in PATH or standard CUDA directories")
+
 // IsBytecode reports whether data starts with the Tile IR bytecode magic number.
 func IsBytecode(data []byte) bool {
 	return bytes.HasPrefix(data, bytecodeMagic)
@@ -189,7 +192,7 @@ func Assemble(ctx context.Context, input []byte, opts ...Option) (*Result, error
 
 	tileirasBin := findTileiras(cfg.tileirasPath)
 	if tileirasBin == "" {
-		return nil, errors.New("tileiras: executable not found in PATH or standard CUDA directories")
+		return nil, ErrNotFound
 	}
 
 	// Prepare temp working directory

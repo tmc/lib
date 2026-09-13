@@ -34,6 +34,9 @@ func WithPrintDebugInfo(debug bool) Option {
 	}
 }
 
+// ErrNotFound is returned when the tileirdisasm executable cannot be located in PATH or standard CUDA directories.
+var ErrNotFound = errors.New("tileirdisasm: executable not found in PATH or standard CUDA directories")
+
 // Disassemble disassembles Tile IR bytecode using tileirdisasm and parses it into a Module AST.
 func Disassemble(ctx context.Context, bytecode []byte, opts ...Option) (*Module, error) {
 	if len(bytecode) == 0 {
@@ -49,7 +52,7 @@ func Disassemble(ctx context.Context, bytecode []byte, opts ...Option) (*Module,
 
 	disasmBin := findTileirdisasm(cfg.disasmPath)
 	if disasmBin == "" {
-		return nil, errors.New("tileirdisasm: executable not found in PATH or standard CUDA directories")
+		return nil, ErrNotFound
 	}
 
 	tmpDir, err := os.MkdirTemp("", "tileirdisasm-*")
