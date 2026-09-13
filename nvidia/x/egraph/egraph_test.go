@@ -218,7 +218,7 @@ func TestExtractTopK(t *testing.T) {
 	}
 }
 
-func TestPDLPipelineCostModel(t *testing.T) {
+func TestPDLNotPreferredOverLowerable(t *testing.T) {
 	eg := egraph.New()
 
 	x := eg.Add(egraph.NewLeaf("x"))
@@ -232,6 +232,9 @@ func TestPDLPipelineCostModel(t *testing.T) {
 		egraph.MustRewrite("pdl_overlap_gemv",
 			"(gemv (gemv ?x ?w1) ?w2)",
 			"(pdl_gemv_pipeline ?x ?w1 ?w2)"),
+		egraph.MustRewrite("fuse_gemv_pipeline",
+			"(gemv (gemv ?x ?w1) ?w2)",
+			"(fused_gemv_pipeline ?x ?w1 ?w2)"),
 	}
 
 	egraph.Saturate(eg, rules, 10)
@@ -241,9 +244,12 @@ func TestPDLPipelineCostModel(t *testing.T) {
 		t.Fatalf("ExtractBest failed: %v", err)
 	}
 
-	if !strings.Contains(best.String(), "pdl_gemv_pipeline") {
-		t.Errorf("expected best plan to select pdl_gemv_pipeline, got %s", best.String())
+	if strings.Contains(best.String(), "pdl_") {
+		t.Errorf("pdl_ node must not be preferred over lowerable node, got %s", best.String())
 	}
-	t.Logf("Extracted PDL pipeline: %s (cost: %.2f)", best, cost)
+	if !strings.Contains(best.String(), "fused_gemv_pipeline") {
+		t.Errorf("expected best plan to select fused_gemv_pipeline, got %s", best.String())
+	}
+	t.Logf("Extracted plan: %s (cost: %.2f)", best, cost)
 }
 

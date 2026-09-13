@@ -163,10 +163,6 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	case strings.HasPrefix(n.Op, "ptx_"):
 		// Rewarded: In-register bit-unswizzling
 		baseCost = 0.4
-	case strings.HasPrefix(n.Op, "pdl_") || strings.HasPrefix(n.Op, "pdl_pipeline"):
-		// Rewarded: Programmatic Dependent Launch (PDL) overlapping sequential stages
-		// with hardware overlap factor (alpha ~ 0.85) eliminating inter-kernel dispatch bubbles.
-		baseCost = 0.6
 	case n.Op == "cublaslt_gemm":
 		// Rewarded: High-throughput Tensor Core GEMM for batched matrix multiply
 		baseCost = 0.5
