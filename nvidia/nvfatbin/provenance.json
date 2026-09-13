@@ -5,28 +5,28 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "$GOCACHE/f5/f5afd169a897f7e0332d3992d23a6f3d3f827dd44e46da4001d486161322e91d-d/gen-nvidia",
+    "$GOCACHE/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
     "-api",
     "nvfatbin",
     "-headers-dir",
-    "$TMPDIR/hdr-cupti",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-header",
-    "$TMPDIR/hdr-cupti/nvfatbin/nvFatbin.h",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/nvfatbin/nvFatbin.h",
     "-output",
     "$HOME/go/src/github.com/tmc/lib/nvidia/nvfatbin",
     "-package",
     "nvfatbin",
     "-deprecated=true",
     "-docs-dir",
-    "$HOME/go/src/github.com/tmc/libgen/docs"
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
   ],
   "inputs": [
     {
-      "path": "$TMPDIR/hdr-cupti/nvfatbin/nvFatbin.h",
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/nvfatbin/nvFatbin.h",
       "sha256": "d2844bdfe8a938fd7434e6209486f5b0a28002f816245be3847e1cb0f54602ad"
     }
   ],
-  "source_hash": "c031b59623b9c16822baf86c58ba0d3ea46c18d1caca4d30993d658ea49103b3",
+  "source_hash": "ef3f54169b06a0503c31654c28ac33bc68f9f2233280bdc628d80fbcc3942bf8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

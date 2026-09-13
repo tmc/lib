@@ -208,11 +208,6 @@ type Pdi struct {
 	Value   uint64
 }
 
-// BBXTimeDataV1 represents BBX Time Data.
-type BBXTimeDataV1 struct {
-	TimeRun uint32
-}
-
 // DramEncryptionInfo represents DRAM Encryption Info.
 type DramEncryptionInfo struct {
 	Version         uint32
@@ -366,16 +361,6 @@ type EccSramUniqueUncorrectedErrorCounts struct {
 	Version    uint32
 	EntryCount uint32
 	Entries    uintptr
-}
-
-// RemappedRowsInfoV2 represents nvmlRemappedRowsInfo_v2_t.
-type RemappedRowsInfoV2 struct {
-	CorrActiveRemaps   uint32
-	CorrInactiveRemaps uint32
-	UncActiveRemaps    uint32
-	UncInactiveRemaps  uint32
-	BPending           uint32
-	BFailureOccurred   uint32
 }
 
 // RusdSettingsV1 represents nvmlRusdSettings_v1_t.
@@ -814,20 +799,6 @@ type AccountingStats struct {
 	Reserved          [5]uint32
 }
 
-// AccountingStatsV2 represents Describes accounting statistics (v2) of a process..
-type AccountingStatsV2 struct {
-	Pid               uint32
-	IsRunning         uint32
-	GpuUtilization    uint32
-	MemoryUtilization uint32
-	MaxMemoryUsage    uint64
-	SampleCount       uint32
-	SumGpuUtil        uint64
-	SumFbUtil         uint64
-	Time              uint64
-	StartTime         uint64
-}
-
 // EncoderSessionInfo represents Structure to hold encoder session data.
 type EncoderSessionInfo struct {
 	SessionId      uint32
@@ -948,20 +919,6 @@ type GpuFabricInfoV struct {
 	State         uint8
 	HealthMask    uint32
 	HealthSummary uint8
-}
-
-// CPERCursorV1 represents CPER query and cursor parameters..
-type CPERCursorV1 struct {
-	CperTypeMask uint32
-	Uuid         [80]byte
-	Handle       uint64
-}
-
-// GetCPERV1 represents Input/output structure for [SystemGetCPER]..
-type GetCPERV1 struct {
-	Cursor     CPERCursorV1
-	Buffer     uintptr
-	BufferSize uint32
 }
 
 // SystemDriverBranchInfo represents Structure to store Driver branch information.

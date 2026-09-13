@@ -5,21 +5,21 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "$TMPDIR/go-build3874949522/b001/exe/curand-survey",
+    "$GOCACHE/75/75dc8f1719672036e7e481bfe20f88d170d0fc87767e7d44a3caf8e652684aa7-d/curand-survey",
     "-header",
-    "$TMPDIR/hdr-cupti/curand/curand.h",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/curand/curand.h",
     "-headers-dir",
-    "$TMPDIR/hdr-cupti",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
     "$HOME/go/src/github.com/tmc/lib/nvidia/curand"
   ],
   "inputs": [
     {
-      "path": "$TMPDIR/hdr-cupti/curand/curand.h",
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/curand/curand.h",
       "sha256": "e1e56f0c668526253670f110b5c12171d099bdfff634ff1d0d9537e7c21c6c6e"
     }
   ],
-  "source_hash": "e30cbccae97c1f671562f1dc14d55035811b5840862225f9c8e7775fcc833784",
+  "source_hash": "579b756f862392b46f582811b9690556e5e452d61e518d31ea39d773bbdbd571",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

@@ -678,14 +678,19 @@ func CheckpointProcessGetRestoreThreadId(pid int32) (int32, error) {
 // Returns in *state the current state of the CUDA process specified by pid.
 //
 //   - pid: The process ID of the CUDA process
-//   - state: Returned CUDA process state
 //
 // Wraps cuCheckpointProcessGetState.
-func CheckpointProcessGetState(pid int32, state *ProcessState) error {
+func CheckpointProcessGetState(pid int32) (ProcessState, error) {
 	if err := checkLibSym("cuCheckpointProcessGetState"); err != nil {
-		return err
+		var zero ProcessState
+		return zero, err
 	}
-	return toError(fnCheckpointProcessGetState(pid, state))
+	var out ProcessState
+	if err := toError(fnCheckpointProcessGetState(pid, &out)); err != nil {
+		var zero ProcessState
+		return zero, err
+	}
+	return out, nil
 }
 
 // CheckpointProcessLock Lock a running CUDA process
@@ -926,16 +931,21 @@ func CoredumpGetAttributeGlobal(attrib CoredumpSettings, value uintptr, size *ui
 //
 //   - callback: The callback function to register (see [CoredumpStatusCallback])
 //   - userData: User data pointer to pass to the callback
-//   - callbackOut: Location to store the callback handle (optional, may be NULL)
 //
 // See also: [CoredumpCallbackHandle.CoredumpDeregisterCompleteCallback], [CoredumpRegisterStartCallback]
 //
 // Wraps cuCoredumpRegisterCompleteCallback.
-func CoredumpRegisterCompleteCallback(callback uintptr, userData uintptr, callbackOut *CoredumpCallbackHandle) error {
+func CoredumpRegisterCompleteCallback(callback uintptr, userData uintptr) (CoredumpCallbackHandle, error) {
 	if err := checkLibSym("cuCoredumpRegisterCompleteCallback"); err != nil {
-		return err
+		var zero CoredumpCallbackHandle
+		return zero, err
 	}
-	return toError(fnCoredumpRegisterCompleteCallback(callback, userData, callbackOut))
+	var out CoredumpCallbackHandle
+	if err := toError(fnCoredumpRegisterCompleteCallback(callback, userData, &out)); err != nil {
+		var zero CoredumpCallbackHandle
+		return zero, err
+	}
+	return out, nil
 }
 
 // CoredumpRegisterStartCallback Register a callback to be invoked when a GPU coredump begins
@@ -948,16 +958,21 @@ func CoredumpRegisterCompleteCallback(callback uintptr, userData uintptr, callba
 //
 //   - callback: The callback function to register (see [CoredumpStatusCallback])
 //   - userData: User data pointer to pass to the callback
-//   - callbackOut: Location to store the callback handle (optional, may be NULL)
 //
 // See also: [CoredumpCallbackHandle.CoredumpDeregisterStartCallback], [CoredumpRegisterCompleteCallback]
 //
 // Wraps cuCoredumpRegisterStartCallback.
-func CoredumpRegisterStartCallback(callback uintptr, userData uintptr, callbackOut *CoredumpCallbackHandle) error {
+func CoredumpRegisterStartCallback(callback uintptr, userData uintptr) (CoredumpCallbackHandle, error) {
 	if err := checkLibSym("cuCoredumpRegisterStartCallback"); err != nil {
-		return err
+		var zero CoredumpCallbackHandle
+		return zero, err
 	}
-	return toError(fnCoredumpRegisterStartCallback(callback, userData, callbackOut))
+	var out CoredumpCallbackHandle
+	if err := toError(fnCoredumpRegisterStartCallback(callback, userData, &out)); err != nil {
+		var zero CoredumpCallbackHandle
+		return zero, err
+	}
+	return out, nil
 }
 
 // CoredumpSetAttribute Allows caller to set a coredump attribute value for the current context
@@ -1256,14 +1271,18 @@ func ctxGetApiVersion(ctx Context) (uint32, error) {
 //
 // On devices where the L1 cache and shared memory use the same hardware resources, this function returns through pconfig the preferred cache configuration for the current context. This is only a preference. The driver will use the requested configuration if possible, but it is free to choose a different configuration if required to execute functions. This will return a pconfig of [FuncCachePreferNone] on devices where the size of the L1 cache and shared memory are fixed. The supported cache configurations are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], [Function.SetCacheConfig], cudaDeviceGetCacheConfig
 //
-//   - pconfig: Returned cache configuration
-//
 // Wraps cuCtxGetCacheConfig.
-func CtxGetCacheConfig(pconfig *FuncCacheConfig) error {
+func CtxGetCacheConfig() (FuncCacheConfig, error) {
 	if err := checkLibSym("cuCtxGetCacheConfig"); err != nil {
-		return err
+		var zero FuncCacheConfig
+		return zero, err
 	}
-	return toError(fnCtxGetCacheConfig(pconfig))
+	var out FuncCacheConfig
+	if err := toError(fnCtxGetCacheConfig(&out)); err != nil {
+		var zero FuncCacheConfig
+		return zero, err
+	}
+	return out, nil
 }
 
 // ctxGetCurrent Returns the CUDA context bound to the calling CPU thread.
@@ -1349,15 +1368,20 @@ func ctxGetDeviceV2(ctx Context) (Device, error) {
 //
 // Returns in *pExecAffinity the current value of type. The supported [ExecAffinityType] values are: Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [ExecAffinityParam]
 //
-//   - pExecAffinity: Returned execution affinity
 //   - type_: Execution affinity type to query
 //
 // Wraps cuCtxGetExecAffinity.
-func CtxGetExecAffinity(pExecAffinity *ExecAffinityParam, type_ ExecAffinityType) error {
+func CtxGetExecAffinity(type_ ExecAffinityType) (ExecAffinityParam, error) {
 	if err := checkLibSym("cuCtxGetExecAffinity"); err != nil {
-		return err
+		var zero ExecAffinityParam
+		return zero, err
 	}
-	return toError(fnCtxGetExecAffinity(pExecAffinity, type_))
+	var out ExecAffinityParam
+	if err := toError(fnCtxGetExecAffinity(&out, type_)); err != nil {
+		var zero ExecAffinityParam
+		return zero, err
+	}
+	return out, nil
 }
 
 // CtxGetFlags Returns the flags for the current context.
@@ -1420,18 +1444,22 @@ func CtxGetLimit(limit Limit) (uint, error) {
 
 // CtxGetSharedMemConfig Returns the current shared memory configuration for the current context.
 //
-//   - pConfig: returned shared memory configuration
+// See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], [CtxGetSharedMemConfig], [Function.SetCacheConfig]
 //
-// See also: [NewContext], [Context.Destroy], [Context.GetApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [NewContextPopCurrent], [Context.PushCurrent], [CtxSetLimit], [CtxSynchronize], CtxGetSharedMemConfig, [Function.SetCacheConfig]
-//
-// Deprecated: This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, CtxSetSharedMemConfig can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When CtxGetSharedMemConfig is called on devices without configurable shared memory, it will return the fixed bank size of the hardware. The returned bank configurations can be either: - [SharedMemConfigFourByteBankSize]: shared memory bank width is four bytes. - [SharedMemConfigEightByteBankSize]: shared memory bank width will eight bytes.
+// Deprecated: This function will return in pConfig the current size of shared memory banks in the current context. On devices with configurable shared memory banks, [CtxSetSharedMemConfig] can be used to change this setting, so that all subsequent kernel launches will by default use the new bank size. When [CtxGetSharedMemConfig] is called on devices without configurable shared memory, it will return the fixed bank size of the hardware. The returned bank configurations can be either: - [SharedMemConfigFourByteBankSize]: shared memory bank width is four bytes. - [SharedMemConfigEightByteBankSize]: shared memory bank width will eight bytes.
 //
 // Wraps cuCtxGetSharedMemConfig.
-func CtxGetSharedMemConfig(pConfig *Sharedconfig) error {
+func CtxGetSharedMemConfig() (Sharedconfig, error) {
 	if err := checkLibSym("cuCtxGetSharedMemConfig"); err != nil {
-		return err
+		var zero Sharedconfig
+		return zero, err
 	}
-	return toError(fnCtxGetSharedMemConfig(pConfig))
+	var out Sharedconfig
+	if err := toError(fnCtxGetSharedMemConfig(&out)); err != nil {
+		var zero Sharedconfig
+		return zero, err
+	}
+	return out, nil
 }
 
 // CtxGetStreamPriorityRange Returns numerical values that correspond to the least and greatest stream priorities.
@@ -1874,15 +1902,17 @@ func deviceGet(ordinal int) (Device, error) {
 //   - dev: Device handle
 //
 // Wraps cuDeviceGetAttribute.
-func deviceGetAttribute(attrib DeviceAttribute, dev Device) (int, error) {
+func deviceGetAttribute(attrib DeviceAttribute, dev Device) (int32, error) {
 	if err := checkLibSym("cuDeviceGetAttribute"); err != nil {
-		return 0, err
+		var zero int32
+		return zero, err
 	}
 	var out int32
 	if err := toError(fndeviceGetAttribute(&out, attrib, dev)); err != nil {
-		return 0, err
+		var zero int32
+		return zero, err
 	}
-	return int(out), nil
+	return out, nil
 }
 
 // deviceGetByPCIBusId Returns a handle to a compute device.
@@ -2005,17 +2035,22 @@ func deviceGetGraphMemAttribute(device Device, attr GraphmemAttribute, value uns
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if dev is not valid. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [Device.GetP2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
 //
-//   - capabilities: Returned capability details of each requested operation
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
 //   - dev: Device handle
 //
 // Wraps cuDeviceGetHostAtomicCapabilities.
-func deviceGetHostAtomicCapabilities(capabilities *uint32, operations *AtomicOperation, count uint32, dev Device) error {
+func deviceGetHostAtomicCapabilities(operations *AtomicOperation, count uint32, dev Device) (uint32, error) {
 	if err := checkLibSym("cuDeviceGetHostAtomicCapabilities"); err != nil {
-		return err
+		var zero uint32
+		return zero, err
 	}
-	return toError(fndeviceGetHostAtomicCapabilities(capabilities, operations, count, dev))
+	var out uint32
+	if err := toError(fndeviceGetHostAtomicCapabilities(&out, operations, count, dev)); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetLuid Return an LUID and device node mask for the device.
@@ -2023,15 +2058,20 @@ func deviceGetHostAtomicCapabilities(capabilities *uint32, operations *AtomicOpe
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaGetDeviceProperties
 //
 //   - luid: Returned LUID deviceNodeMask- Returned device node mask dev- Device to get identifier string for
-//   - deviceNodeMask: Returned device node mask
 //   - dev: Device to get identifier string for
 //
 // Wraps cuDeviceGetLuid.
-func deviceGetLuid(luid *byte, deviceNodeMask *uint32, dev Device) error {
+func deviceGetLuid(luid *byte, dev Device) (uint32, error) {
 	if err := checkLibSym("cuDeviceGetLuid"); err != nil {
-		return err
+		var zero uint32
+		return zero, err
 	}
-	return toError(fndeviceGetLuid(luid, deviceNodeMask, dev))
+	var out uint32
+	if err := toError(fndeviceGetLuid(luid, &out, dev)); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetMemPool Gets the current mempool for a device.
@@ -2096,35 +2136,45 @@ func deviceGetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, dev Device, 
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetP2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
 //
-//   - capabilities: Returned capability details of each requested operation
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
 //   - srcDevice: The source device of the target link
 //   - dstDevice: The destination device of the target link
 //
 // Wraps cuDeviceGetP2PAtomicCapabilities.
-func deviceGetP2PAtomicCapabilities(capabilities *uint32, operations *AtomicOperation, count uint32, srcDevice Device, dstDevice Device) error {
+func deviceGetP2PAtomicCapabilities(operations *AtomicOperation, count uint32, srcDevice Device, dstDevice Device) (uint32, error) {
 	if err := checkLibSym("cuDeviceGetP2PAtomicCapabilities"); err != nil {
-		return err
+		var zero uint32
+		return zero, err
 	}
-	return toError(fndeviceGetP2PAtomicCapabilities(capabilities, operations, count, srcDevice, dstDevice))
+	var out uint32
+	if err := toError(fndeviceGetP2PAtomicCapabilities(&out, operations, count, srcDevice, dstDevice)); err != nil {
+		var zero uint32
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetP2PAttribute Queries attributes of the link between two devices.
 //
 // Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.GetP2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
-//   - value: Returned value of the requested attribute
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
 //   - srcDevice: The source device of the target link
 //   - dstDevice: The destination device of the target link
 //
 // Wraps cuDeviceGetP2PAttribute.
-func deviceGetP2PAttribute(value *int32, attrib DeviceP2pattribute, srcDevice Device, dstDevice Device) error {
+func deviceGetP2PAttribute(attrib DeviceP2pattribute, srcDevice Device, dstDevice Device) (int32, error) {
 	if err := checkLibSym("cuDeviceGetP2PAttribute"); err != nil {
-		return err
+		var zero int32
+		return zero, err
 	}
-	return toError(fndeviceGetP2PAttribute(value, attrib, srcDevice, dstDevice))
+	var out int32
+	if err := toError(fndeviceGetP2PAttribute(&out, attrib, srcDevice, dstDevice)); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetPCIBusId Returns a PCI Bus Id string for the device.
@@ -2177,32 +2227,42 @@ func deviceGetProperties(dev Device) (Devprop, error) {
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], cudaMemGetInfo, [Device.TotalMem]
 //
-//   - maxWidthInElements: Returned maximum number of texture elements allocatable for given format and numChannels
 //   - format: Texture format
 //   - numChannels: Number of channels per texture element
 //   - dev: Device handle
 //
 // Wraps cuDeviceGetTexture1DLinearMaxWidth.
-func deviceGetTexture1DLinearMaxWidth(maxWidthInElements *uint, format ArrayFormat, numChannels uint32, dev Device) error {
+func deviceGetTexture1DLinearMaxWidth(format ArrayFormat, numChannels uint32, dev Device) (uint, error) {
 	if err := checkLibSym("cuDeviceGetTexture1DLinearMaxWidth"); err != nil {
-		return err
+		var zero uint
+		return zero, err
 	}
-	return toError(fndeviceGetTexture1DLinearMaxWidth(maxWidthInElements, format, numChannels, dev))
+	var out uint
+	if err := toError(fndeviceGetTexture1DLinearMaxWidth(&out, format, numChannels, dev)); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGetUuid Return an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetLuid], [NewDeviceGet], [Device.TotalMem], cudaGetDeviceProperties
 //
-//   - uuid: Returned UUID dev- Device to get identifier string for
 //   - dev: Device to get identifier string for
 //
 // Wraps cuDeviceGetUuid, bound as cuDeviceGetUuid_v2.
-func deviceGetUuid(uuid *Uuid, dev Device) error {
+func deviceGetUuid(dev Device) (Uuid, error) {
 	if err := checkLibSym("cuDeviceGetUuid_v2"); err != nil {
-		return err
+		var zero Uuid
+		return zero, err
 	}
-	return toError(fndeviceGetUuid(uuid, dev))
+	var out Uuid
+	if err := toError(fndeviceGetUuid(&out, dev)); err != nil {
+		var zero Uuid
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceGraphMemTrim Free unused memory that was cached on the specified device for use with graphs back to the OS.
@@ -2224,20 +2284,18 @@ func deviceGraphMemTrim(device Device) error {
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxSetFlags], [CtxGetFlags], [CtxSetFlags], cudaGetDeviceFlags
 //
 //   - dev: Device to get primary context flags for
-//   - active: Pointer to store context state; 0 = inactive, 1 = active
 //
 // Wraps cuDevicePrimaryCtxGetState.
-func devicePrimaryCtxGetState(dev Device, active *int32) (uint32, error) {
+func devicePrimaryCtxGetState(dev Device) (flags uint32, active int32, err error) {
 	if err := checkLibSym("cuDevicePrimaryCtxGetState"); err != nil {
-		var zero uint32
-		return zero, err
+		return 0, 0, err
 	}
-	var out uint32
-	if err := toError(fndevicePrimaryCtxGetState(dev, &out, active)); err != nil {
-		var zero uint32
-		return zero, err
+	var out1 uint32
+	var out2 int32
+	if err := toError(fndevicePrimaryCtxGetState(dev, &out1, &out2)); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return out1, out2, nil
 }
 
 // devicePrimaryCtxRelease Release the primary context on the GPU.
@@ -2357,15 +2415,20 @@ func deviceSetMemPool(dev Device, pool MemoryPool) error {
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.GetExecAffinitySupport], cudaMemGetInfo
 //
-//   - bytes: Returned memory available on device in bytes
 //   - dev: Device handle
 //
 // Wraps cuDeviceTotalMem, bound as cuDeviceTotalMem_v2.
-func deviceTotalMem(bytes *uint, dev Device) error {
+func deviceTotalMem(dev Device) (uint, error) {
 	if err := checkLibSym("cuDeviceTotalMem_v2"); err != nil {
-		return err
+		var zero uint
+		return zero, err
 	}
-	return toError(fndeviceTotalMem(bytes, dev))
+	var out uint
+	if err := toError(fndeviceTotalMem(&out, dev)); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return out, nil
 }
 
 // deviceUnregisterAsyncNotification Unregisters an async notification callback.
@@ -2657,30 +2720,38 @@ func funcGetParamCount(func_ Function) (uint, error) {
 //
 //   - func_: The function to query
 //   - paramIndex: The parameter index to query
-//   - paramOffset: Returns the offset into the device-side parameter layout at which the parameter resides
-//   - paramSize: Optionally returns the size of the parameter in the device-side parameter layout
 //
 // Wraps cuFuncGetParamInfo.
-func funcGetParamInfo(func_ Function, paramIndex uint, paramOffset *uint, paramSize *uint) error {
+func funcGetParamInfo(func_ Function, paramIndex uint) (paramOffset uint, paramSize uint, err error) {
 	if err := checkLibSym("cuFuncGetParamInfo"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnfuncGetParamInfo(func_, paramIndex, paramOffset, paramSize))
+	var out2 uint
+	var out3 uint
+	if err := toError(fnfuncGetParamInfo(func_, paramIndex, &out2, &out3)); err != nil {
+		return 0, 0, err
+	}
+	return out2, out3, nil
 }
 
 // funcIsLoaded Returns if the function is loaded.
 //
 // Returns in state the loading state of function. See also: [Function.Load], [Module.EnumerateFunctions]
 //
-//   - state: returned loading state
 //   - function: the function to check
 //
 // Wraps cuFuncIsLoaded.
-func funcIsLoaded(state *FunctionLoadingState, function Function) error {
+func funcIsLoaded(function Function) (FunctionLoadingState, error) {
 	if err := checkLibSym("cuFuncIsLoaded"); err != nil {
-		return err
+		var zero FunctionLoadingState
+		return zero, err
 	}
-	return toError(fnfuncIsLoaded(state, function))
+	var out FunctionLoadingState
+	if err := toError(fnfuncIsLoaded(&out, function)); err != nil {
+		var zero FunctionLoadingState
+		return zero, err
+	}
+	return out, nil
 }
 
 // funcLoad Loads a function.
@@ -3153,14 +3224,19 @@ func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEd
 // Returns the parameters of batch mem op node hNode in nodeParams_out. The paramArray returned in nodeParams_out is owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphBatchMemOpNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Stream.BatchMemOp], [Graph.AddBatchMemOpNode], [GraphNode.GraphBatchMemOpNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams_out: Pointer to return the parameters
 //
 // Wraps cuGraphBatchMemOpNodeGetParams.
-func graphBatchMemOpNodeGetParams(hNode GraphNode, nodeParams_out *BatchMemOpNodeParams) error {
+func graphBatchMemOpNodeGetParams(hNode GraphNode) (BatchMemOpNodeParams, error) {
 	if err := checkLibSym("cuGraphBatchMemOpNodeGetParams"); err != nil {
-		return err
+		var zero BatchMemOpNodeParams
+		return zero, err
 	}
-	return toError(fngraphBatchMemOpNodeGetParams(hNode, nodeParams_out))
+	var out BatchMemOpNodeParams
+	if err := toError(fngraphBatchMemOpNodeGetParams(hNode, &out)); err != nil {
+		var zero BatchMemOpNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphBatchMemOpNodeSetParams Sets a batch mem op node's parameters.
@@ -3629,14 +3705,19 @@ func graphExecUpdate(hGraphExec GraphExec, hGraph Graph, resultInfo *GraphExecUp
 // Returns the parameters of an external semaphore signal node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresSignalNode], [GraphNode.GraphExternalSemaphoresSignalNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
-//   - params_out: Pointer to return the parameters
 //
 // Wraps cuGraphExternalSemaphoresSignalNodeGetParams.
-func graphExternalSemaphoresSignalNodeGetParams(hNode GraphNode, params_out *ExtSemSignalNodeParams) error {
+func graphExternalSemaphoresSignalNodeGetParams(hNode GraphNode) (ExtSemSignalNodeParams, error) {
 	if err := checkLibSym("cuGraphExternalSemaphoresSignalNodeGetParams"); err != nil {
-		return err
+		var zero ExtSemSignalNodeParams
+		return zero, err
 	}
-	return toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, params_out))
+	var out ExtSemSignalNodeParams
+	if err := toError(fngraphExternalSemaphoresSignalNodeGetParams(hNode, &out)); err != nil {
+		var zero ExtSemSignalNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphExternalSemaphoresSignalNodeSetParams Sets an external semaphore signal node's parameters.
@@ -3659,14 +3740,19 @@ func graphExternalSemaphoresSignalNodeSetParams(hNode GraphNode, nodeParams *Ext
 // Returns the parameters of an external semaphore wait node hNode in params_out. The extSemArray and paramsArray returned in params_out, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphExternalSemaphoresSignalNodeSetParams] to update the parameters of this node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddExternalSemaphoresWaitNode], [GraphNode.GraphExternalSemaphoresWaitNodeSetParams], [Graph.AddExternalSemaphoresWaitNode], [Stream.SignalExternalSemaphoresAsync], [Stream.WaitExternalSemaphoresAsync]
 //
 //   - hNode: Node to get the parameters for
-//   - params_out: Pointer to return the parameters
 //
 // Wraps cuGraphExternalSemaphoresWaitNodeGetParams.
-func graphExternalSemaphoresWaitNodeGetParams(hNode GraphNode, params_out *ExtSemWaitNodeParams) error {
+func graphExternalSemaphoresWaitNodeGetParams(hNode GraphNode) (ExtSemWaitNodeParams, error) {
 	if err := checkLibSym("cuGraphExternalSemaphoresWaitNodeGetParams"); err != nil {
-		return err
+		var zero ExtSemWaitNodeParams
+		return zero, err
 	}
-	return toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, params_out))
+	var out ExtSemWaitNodeParams
+	if err := toError(fngraphExternalSemaphoresWaitNodeGetParams(hNode, &out)); err != nil {
+		var zero ExtSemWaitNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphExternalSemaphoresWaitNodeSetParams Sets an external semaphore wait node's parameters.
@@ -3769,14 +3855,19 @@ func graphGetRootNodes(hGraph Graph, numRootNodes *uint) (GraphNode, error) {
 // Returns the parameters of host node hNode in nodeParams. See also: [GraphNode.GetParams], [Stream.LaunchHostFunc], [Graph.AddHostNode], [GraphNode.GraphHostNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams: Pointer to return the parameters
 //
 // Wraps cuGraphHostNodeGetParams.
-func graphHostNodeGetParams(hNode GraphNode, nodeParams *HostNodeParams) error {
+func graphHostNodeGetParams(hNode GraphNode) (HostNodeParams, error) {
 	if err := checkLibSym("cuGraphHostNodeGetParams"); err != nil {
-		return err
+		var zero HostNodeParams
+		return zero, err
 	}
-	return toError(fngraphHostNodeGetParams(hNode, nodeParams))
+	var out HostNodeParams
+	if err := toError(fngraphHostNodeGetParams(hNode, &out)); err != nil {
+		var zero HostNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphHostNodeSetParams Sets a host node's parameters.
@@ -3874,14 +3965,19 @@ func graphKernelNodeGetAttribute(hNode GraphNode, attr int32) ([8]uint64, error)
 // Returns the parameters of kernel node hNode in nodeParams. The kernelParams or extra array returned in nodeParams, as well as the argument values it points to, are owned by the node. This memory remains valid until the node is destroyed or its parameters are modified, and should not be modified directly. Use [GraphNode.GraphKernelNodeSetParams] to update the parameters of this node. The params will contain either kernelParams or extra, according to which of these was most recently set on the node. See also: [GraphNode.GetParams], [Function.LaunchKernel], [Graph.AddKernelNode], [GraphNode.GraphKernelNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams: Pointer to return the parameters
 //
 // Wraps cuGraphKernelNodeGetParams, bound as cuGraphKernelNodeGetParams_v2.
-func graphKernelNodeGetParams(hNode GraphNode, nodeParams *KernelNodeParams) error {
+func graphKernelNodeGetParams(hNode GraphNode) (KernelNodeParams, error) {
 	if err := checkLibSym("cuGraphKernelNodeGetParams_v2"); err != nil {
-		return err
+		var zero KernelNodeParams
+		return zero, err
 	}
-	return toError(fngraphKernelNodeGetParams(hNode, nodeParams))
+	var out KernelNodeParams
+	if err := toError(fngraphKernelNodeGetParams(hNode, &out)); err != nil {
+		var zero KernelNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphKernelNodeSetAttribute Sets node attribute.
@@ -3931,14 +4027,19 @@ func graphLaunch(hGraphExec GraphExec, hStream Stream) error {
 // Returns the parameters of a memory alloc node hNode in params_out. The poolProps and accessDescs returned in params_out, are owned by the node. This memory remains valid until the node is destroyed. The returned parameters must not be modified. See also: [GraphNode.GetParams], [Graph.AddMemAllocNode], [GraphNode.GraphMemFreeNodeGetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - params_out: Pointer to return the parameters
 //
 // Wraps cuGraphMemAllocNodeGetParams.
-func graphMemAllocNodeGetParams(hNode GraphNode, params_out *MemAllocNodeParams) error {
+func graphMemAllocNodeGetParams(hNode GraphNode) (MemAllocNodeParams, error) {
 	if err := checkLibSym("cuGraphMemAllocNodeGetParams"); err != nil {
-		return err
+		var zero MemAllocNodeParams
+		return zero, err
 	}
-	return toError(fngraphMemAllocNodeGetParams(hNode, params_out))
+	var out MemAllocNodeParams
+	if err := toError(fngraphMemAllocNodeGetParams(hNode, &out)); err != nil {
+		var zero MemAllocNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphMemFreeNodeGetParams Returns a memory free node's parameters.
@@ -3961,14 +4062,19 @@ func graphMemFreeNodeGetParams(hNode GraphNode, dptr_out *DevicePtr) error {
 // Returns the parameters of memcpy node hNode in nodeParams. See also: [GraphNode.GetParams], [Memcpy3D], [Graph.AddMemcpyNode], [GraphNode.GraphMemcpyNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams: Pointer to return the parameters
 //
 // Wraps cuGraphMemcpyNodeGetParams.
-func graphMemcpyNodeGetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
+func graphMemcpyNodeGetParams(hNode GraphNode) (Memcpy3d, error) {
 	if err := checkLibSym("cuGraphMemcpyNodeGetParams"); err != nil {
-		return err
+		var zero Memcpy3d
+		return zero, err
 	}
-	return toError(fngraphMemcpyNodeGetParams(hNode, nodeParams))
+	var out Memcpy3d
+	if err := toError(fngraphMemcpyNodeGetParams(hNode, &out)); err != nil {
+		var zero Memcpy3d
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphMemcpyNodeSetParams Sets a memcpy node's parameters.
@@ -3991,14 +4097,19 @@ func graphMemcpyNodeSetParams(hNode GraphNode, nodeParams *Memcpy3d) error {
 // Returns the parameters of memset node hNode in nodeParams. See also: [GraphNode.GetParams], [DevicePtr.MemsetD2D32], [Graph.AddMemsetNode], [GraphNode.GraphMemsetNodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams: Pointer to return the parameters
 //
 // Wraps cuGraphMemsetNodeGetParams.
-func graphMemsetNodeGetParams(hNode GraphNode, nodeParams *MemsetNodeParams) error {
+func graphMemsetNodeGetParams(hNode GraphNode) (MemsetNodeParams, error) {
 	if err := checkLibSym("cuGraphMemsetNodeGetParams"); err != nil {
-		return err
+		var zero MemsetNodeParams
+		return zero, err
 	}
-	return toError(fngraphMemsetNodeGetParams(hNode, nodeParams))
+	var out MemsetNodeParams
+	if err := toError(fngraphMemsetNodeGetParams(hNode, &out)); err != nil {
+		var zero MemsetNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphMemsetNodeSetParams Sets a memset node's parameters.
@@ -4147,14 +4258,19 @@ func graphNodeGetLocalId(hNode GraphNode) (uint32, error) {
 // Returns the parameters of graph node hNode in *nodeParams. Any pointers returned in *nodeParams point to driver-owned memory associated with the node. This memory remains valid until the node is destroyed. Any memory pointed to from *nodeParams must not be modified. The returned parameters are a description of the node, but may not be identical to the struct provided at creation and may not be suitable for direct creation of identical nodes. This is because parameters may be partially unspecified and filled in by the driver at creation, may reference non-copyable handles, or may describe ownership semantics or other parameters that govern behavior of node creation but are not part of the final functional descriptor. See also: [GraphNode.SetParams], [Graph.AddNode], [GraphExec.NodeSetParams]
 //
 //   - hNode: Node to get the parameters for
-//   - nodeParams: Pointer to return the parameters
 //
 // Wraps cuGraphNodeGetParams.
-func graphNodeGetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
+func graphNodeGetParams(hNode GraphNode) (GraphNodeParams, error) {
 	if err := checkLibSym("cuGraphNodeGetParams"); err != nil {
-		return err
+		var zero GraphNodeParams
+		return zero, err
 	}
-	return toError(fngraphNodeGetParams(hNode, nodeParams))
+	var out GraphNodeParams
+	if err := toError(fngraphNodeGetParams(hNode, &out)); err != nil {
+		var zero GraphNodeParams
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphNodeGetToolsId Returns an id used by tools to identify a given node.
@@ -4182,14 +4298,19 @@ func graphNodeGetToolsId(hNode GraphNode) (uint64, error) {
 // Returns the node type of hNode in type. See also: [Graph.GetNodes], [Graph.GetRootNodes], [NewGraphChildGraphNodeGetGraph], [GraphNode.GraphKernelNodeGetParams], [GraphNode.GraphKernelNodeSetParams], [GraphNode.GraphHostNodeGetParams], [GraphNode.GraphHostNodeSetParams], [GraphNode.GraphMemcpyNodeGetParams], [GraphNode.GraphMemcpyNodeSetParams], [GraphNode.GraphMemsetNodeGetParams], [GraphNode.GraphMemsetNodeSetParams]
 //
 //   - hNode: Node to query type- Pointer to return the node type
-//   - type_: Pointer to return the node type
 //
 // Wraps cuGraphNodeGetType.
-func graphNodeGetType(hNode GraphNode, type_ *GraphNodeType) error {
+func graphNodeGetType(hNode GraphNode) (GraphNodeType, error) {
 	if err := checkLibSym("cuGraphNodeGetType"); err != nil {
-		return err
+		var zero GraphNodeType
+		return zero, err
 	}
-	return toError(fngraphNodeGetType(hNode, type_))
+	var out GraphNodeType
+	if err := toError(fngraphNodeGetType(hNode, &out)); err != nil {
+		var zero GraphNodeType
+		return zero, err
+	}
+	return out, nil
 }
 
 // graphNodeSetEnabled Enables or disables the specified node in the given graphExec.
@@ -5012,17 +5133,20 @@ func kernelGetParamCount(kernel Kernel) (uint, error) {
 //
 //   - kernel: The kernel to query
 //   - paramIndex: The parameter index to query
-//   - paramOffset: Returns the offset into the device-side parameter layout at which the parameter resides
-//   - paramSize: Optionally returns the size of the parameter in the device-side parameter layout
 //
 // See also: [Function.GetParamInfo]
 //
 // Wraps cuKernelGetParamInfo.
-func kernelGetParamInfo(kernel Kernel, paramIndex uint, paramOffset *uint, paramSize *uint) error {
+func kernelGetParamInfo(kernel Kernel, paramIndex uint) (paramOffset uint, paramSize uint, err error) {
 	if err := checkLibSym("cuKernelGetParamInfo"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnkernelGetParamInfo(kernel, paramIndex, paramOffset, paramSize))
+	var out2 uint
+	var out3 uint
+	if err := toError(fnkernelGetParamInfo(kernel, paramIndex, &out2, &out3)); err != nil {
+		return 0, 0, err
+	}
+	return out2, out3, nil
 }
 
 // kernelSetAttribute Sets information about a kernel
@@ -5315,23 +5439,23 @@ func libraryEnumerateKernels(kernels *Kernel, numKernels uint32, lib Library) er
 // One of the parameters dptr or bytes (not both) can be NULL in which
 // case it is ignored.
 //
-//   - bytes: Returned global size in bytes
 //   - library: Library to retrieve global from
 //   - name: Name of global to retrieve
 //
 // See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetModule], [Module.GetGlobal]
 //
 // Wraps cuLibraryGetGlobal.
-func libraryGetGlobal(bytes *uint, library Library, name string) (DevicePtr, error) {
+func libraryGetGlobal(library Library, name string) (dptr DevicePtr, bytes uint, err error) {
 	if err := checkLibSym("cuLibraryGetGlobal"); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out DevicePtr
-	if err := toError(fnlibraryGetGlobal(&out, bytes, library, &cstr_name[0])); err != nil {
-		return 0, err
+	var out0 DevicePtr
+	var out1 uint
+	if err := toError(fnlibraryGetGlobal(&out0, &out1, library, &cstr_name[0])); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return out0, out1, nil
 }
 
 // libraryGetKernel Returns a kernel handle
@@ -5386,23 +5510,23 @@ func libraryGetKernelCount(lib Library) (uint32, error) {
 // Note that managed memory for library library is shared across devices and is registered
 // when the library is loaded into atleast one context.
 //
-//   - bytes: Returned memory size in bytes
 //   - library: Library to retrieve managed memory from
 //   - name: Name of managed memory to retrieve
 //
 // See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetManaged.
-func libraryGetManaged(bytes *uint, library Library, name string) (DevicePtr, error) {
+func libraryGetManaged(library Library, name string) (dptr DevicePtr, bytes uint, err error) {
 	if err := checkLibSym("cuLibraryGetManaged"); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	cstr_name := append([]byte(name), 0)
-	var out DevicePtr
-	if err := toError(fnlibraryGetManaged(&out, bytes, library, &cstr_name[0])); err != nil {
-		return 0, err
+	var out0 DevicePtr
+	var out1 uint
+	if err := toError(fnlibraryGetManaged(&out0, &out1, library, &cstr_name[0])); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return out0, out1, nil
 }
 
 // libraryGetModule Returns a module handle
@@ -6112,21 +6236,19 @@ func memGetAccess(location *MemLocation, ptr DevicePtr) (uint64, error) {
 //
 // Returns the base address in *pbase and size in *psize of the allocation that contains the input pointer dptr. Both parameters pbase and psize are optional. If one of them is NULL, it is ignored. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewArray3D], [Array.Get3DDescriptor], [NewArray], [Array.Destroy], [Array.GetDescriptor], [MemAlloc], [MemAllocHost], [MemAllocPitch], [Memcpy2D], [Stream.Memcpy2DAsync], [Memcpy2DUnaligned], [Memcpy3D], [Stream.Memcpy3DAsync], [Array.MemcpyAtoA], [DevicePtr.MemcpyAtoD], [Array.MemcpyAtoH], [Array.MemcpyAtoHAsync], [Array.MemcpyDtoA], [DevicePtr.MemcpyDtoD], [DevicePtr.MemcpyDtoDAsync], [DevicePtr.MemcpyDtoH], [DevicePtr.MemcpyDtoHAsync], [Array.MemcpyHtoA], [Array.MemcpyHtoAAsync], [DevicePtr.MemcpyHtoD], [DevicePtr.MemcpyHtoDAsync], [DevicePtr.MemFree], [MemFreeHost], [MemGetInfo], [MemHostAlloc], [MemHostGetDevicePointer], [DevicePtr.MemsetD2D8], [DevicePtr.MemsetD2D16], [DevicePtr.MemsetD2D32], [DevicePtr.MemsetD8], [DevicePtr.MemsetD16], [DevicePtr.MemsetD32]
 //
-//   - psize: Returned size of device memory allocation
 //   - dptr: Device pointer to query
 //
 // Wraps cuMemGetAddressRange, bound as cuMemGetAddressRange_v2.
-func memGetAddressRange(psize *uint, dptr DevicePtr) (DevicePtr, error) {
+func memGetAddressRange(dptr DevicePtr) (pbase DevicePtr, psize uint, err error) {
 	if err := checkLibSym("cuMemGetAddressRange_v2"); err != nil {
-		var zero DevicePtr
-		return zero, err
+		return 0, 0, err
 	}
-	var out DevicePtr
-	if err := toError(fnmemGetAddressRange(&out, psize, dptr)); err != nil {
-		var zero DevicePtr
-		return zero, err
+	var out0 DevicePtr
+	var out1 uint
+	if err := toError(fnmemGetAddressRange(&out0, &out1, dptr)); err != nil {
+		return 0, 0, err
 	}
-	return out, nil
+	return out0, out1, nil
 }
 
 // MemGetAllocationGranularity Calculates either the minimal or recommended granularity.
@@ -7583,14 +7705,18 @@ func moduleGetGlobal(hmod Module, name string) (dptr DevicePtr, bytes uint, err 
 //
 // Returns lazy loading mode Module loading mode is controlled by CUDA_MODULE_LOADING env variable Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [NewModuleLoad],
 //
-//   - mode: Returns the lazy loading mode
-//
 // Wraps cuModuleGetLoadingMode.
-func ModuleGetLoadingMode(mode *ModuleLoadingMode) error {
+func ModuleGetLoadingMode() (ModuleLoadingMode, error) {
 	if err := checkLibSym("cuModuleGetLoadingMode"); err != nil {
-		return err
+		var zero ModuleLoadingMode
+		return zero, err
 	}
-	return toError(fnModuleGetLoadingMode(mode))
+	var out ModuleLoadingMode
+	if err := toError(fnModuleGetLoadingMode(&out)); err != nil {
+		var zero ModuleLoadingMode
+		return zero, err
+	}
+	return out, nil
 }
 
 // moduleGetSurfRef Returns a handle to a surface reference
@@ -7976,27 +8102,28 @@ func occupancyMaxActiveClusters(func_ Function, config *LaunchConfig) (int32, er
 //
 // Returns in *blockSize a reasonable block size that can achieve the maximum occupancy (or, the maximum number of active warps with the fewest blocks per multiprocessor), and in *minGridSize the minimum grid size to achieve the maximum occupancy. If blockSizeLimit is 0, the configurator will use the maximum block size permitted by the device / function instead. If per-block dynamic shared memory allocation is not needed, the user should leave both blockSizeToDynamicSMemSize and dynamicSMemSize as 0. If per-block dynamic shared memory allocation is needed, then if the dynamic shared memory size is constant regardless of block size, the size should be passed through dynamicSMemSize, and blockSizeToDynamicSMemSize should be NULL. Otherwise, if the per-block dynamic shared memory size varies with different block sizes, the user needs to provide a unary function through blockSizeToDynamicSMemSize that computes the dynamic shared memory needed by func for any given block size. dynamicSMemSize is ignored. An example signature is: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSize
 //
-//   - minGridSize: Returned minimum grid size needed to achieve the maximum occupancy
-//   - blockSize: Returned maximum block size that can achieve the maximum occupancy
 //   - func_: Kernel for which launch configuration is calculated
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
 //   - dynamicSMemSize: Dynamic shared memory usage intended, in bytes
 //   - blockSizeLimit: The maximum block size func is designed to handle
 //
 // Wraps cuOccupancyMaxPotentialBlockSize.
-func occupancyMaxPotentialBlockSize(minGridSize *int32, blockSize *int32, func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32) error {
+func occupancyMaxPotentialBlockSize(func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32) (minGridSize int32, blockSize int32, err error) {
 	if err := checkLibSym("cuOccupancyMaxPotentialBlockSize"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnoccupancyMaxPotentialBlockSize(minGridSize, blockSize, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit))
+	var out0 int32
+	var out1 int32
+	if err := toError(fnoccupancyMaxPotentialBlockSize(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit)); err != nil {
+		return 0, 0, err
+	}
+	return out0, out1, nil
 }
 
 // occupancyMaxPotentialBlockSizeWithFlags Suggest a launch configuration with reasonable occupancy.
 //
 // An extended version of [Function.MaxPotentialBlockSize]. In addition to arguments passed to [Function.MaxPotentialBlockSize], [Function.MaxPotentialBlockSizeWithFlags] also takes a Flags parameter. The Flags parameter controls how special cases are handled. The valid flags are: Note that the API can also be used with context-less kernel [Kernel] by querying the handle using [Library.GetKernel] and then passing it to the API by casting to [Function]. Here, the context to use for calculations will be the current context. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: cudaOccupancyMaxPotentialBlockSizeWithFlags
 //
-//   - minGridSize: Returned minimum grid size needed to achieve the maximum occupancy
-//   - blockSize: Returned maximum block size that can achieve the maximum occupancy
 //   - func_: Kernel for which launch configuration is calculated
 //   - blockSizeToDynamicSMemSize: A function that calculates how much per-block dynamic shared memory func uses based on the block size (see [OccupancyB2DSize])
 //   - dynamicSMemSize: Dynamic shared memory usage intended, in bytes
@@ -8004,11 +8131,16 @@ func occupancyMaxPotentialBlockSize(minGridSize *int32, blockSize *int32, func_ 
 //   - flags: Options
 //
 // Wraps cuOccupancyMaxPotentialBlockSizeWithFlags.
-func occupancyMaxPotentialBlockSizeWithFlags(minGridSize *int32, blockSize *int32, func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags uint32) error {
+func occupancyMaxPotentialBlockSizeWithFlags(func_ Function, blockSizeToDynamicSMemSize uintptr, dynamicSMemSize uint, blockSizeLimit int32, flags uint32) (minGridSize int32, blockSize int32, err error) {
 	if err := checkLibSym("cuOccupancyMaxPotentialBlockSizeWithFlags"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fnoccupancyMaxPotentialBlockSizeWithFlags(minGridSize, blockSize, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, flags))
+	var out0 int32
+	var out1 int32
+	if err := toError(fnoccupancyMaxPotentialBlockSizeWithFlags(&out0, &out1, func_, blockSizeToDynamicSMemSize, dynamicSMemSize, blockSizeLimit, flags)); err != nil {
+		return 0, 0, err
+	}
+	return out0, out1, nil
 }
 
 // occupancyMaxPotentialClusterSize Given the kernel function ( func) and launch configuration ( config), return the maximum cluster size in *clusterSize.
@@ -9441,20 +9573,25 @@ func texRefGetAddress(hTexRef TexRef) (DevicePtr, error) {
 
 // texRefGetAddressMode Gets the addressing mode used by a texture reference.
 //
-// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pam: Returned addressing mode
 //   - hTexRef: Texture reference
 //   - dim: Dimension
 //
 // Deprecated: Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
 //
 // Wraps cuTexRefGetAddressMode.
-func texRefGetAddressMode(pam *AddressMode, hTexRef TexRef, dim int32) error {
+func texRefGetAddressMode(hTexRef TexRef, dim int32) (AddressMode, error) {
 	if err := checkLibSym("cuTexRefGetAddressMode"); err != nil {
-		return err
+		var zero AddressMode
+		return zero, err
 	}
-	return toError(fntexRefGetAddressMode(pam, hTexRef, dim))
+	var out AddressMode
+	if err := toError(fntexRefGetAddressMode(&out, hTexRef, dim)); err != nil {
+		var zero AddressMode
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefGetArray Gets the array bound to a texture reference.
@@ -9503,19 +9640,24 @@ func texRefGetBorderColor(hTexRef TexRef) (float32, error) {
 
 // texRefGetFilterMode Gets the filter-mode used by a texture reference.
 //
-// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pfm: Returned filtering mode
 //   - hTexRef: Texture reference
 //
 // Deprecated: Returns in *pfm the filtering mode of the texture reference hTexRef.
 //
 // Wraps cuTexRefGetFilterMode.
-func texRefGetFilterMode(pfm *FilterMode, hTexRef TexRef) error {
+func texRefGetFilterMode(hTexRef TexRef) (FilterMode, error) {
 	if err := checkLibSym("cuTexRefGetFilterMode"); err != nil {
-		return err
+		var zero FilterMode
+		return zero, err
 	}
-	return toError(fntexRefGetFilterMode(pfm, hTexRef))
+	var out FilterMode
+	if err := toError(fntexRefGetFilterMode(&out, hTexRef)); err != nil {
+		var zero FilterMode
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefGetFlags Gets the flags used by a texture reference.
@@ -9542,94 +9684,110 @@ func texRefGetFlags(hTexRef TexRef) (uint32, error) {
 
 // texRefGetFormat Gets the format used by a texture reference.
 //
-// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags
+// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags]
 //
-//   - pFormat: Returned format pNumChannels- Returned number of components hTexRef- Texture reference
 //   - hTexRef: Texture reference
 //
 // Deprecated: Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
 //
 // Wraps cuTexRefGetFormat.
-func texRefGetFormat(pFormat *ArrayFormat, hTexRef TexRef) (int32, error) {
+func texRefGetFormat(hTexRef TexRef) (pFormat ArrayFormat, pNumChannels int32, err error) {
 	if err := checkLibSym("cuTexRefGetFormat"); err != nil {
+		return 0, 0, err
+	}
+	var out0 ArrayFormat
+	var out1 int32
+	if err := toError(fntexRefGetFormat(&out0, &out1, hTexRef)); err != nil {
+		return 0, 0, err
+	}
+	return out0, out1, nil
+}
+
+// texRefGetMaxAnisotropy Gets the maximum anisotropy for a texture reference.
+//
+// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
+//
+//   - hTexRef: Texture reference
+//
+// Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
+//
+// Wraps cuTexRefGetMaxAnisotropy.
+func texRefGetMaxAnisotropy(hTexRef TexRef) (int32, error) {
+	if err := checkLibSym("cuTexRefGetMaxAnisotropy"); err != nil {
 		var zero int32
 		return zero, err
 	}
 	var out int32
-	if err := toError(fntexRefGetFormat(pFormat, &out, hTexRef)); err != nil {
+	if err := toError(fntexRefGetMaxAnisotropy(&out, hTexRef)); err != nil {
 		var zero int32
 		return zero, err
 	}
 	return out, nil
 }
 
-// texRefGetMaxAnisotropy Gets the maximum anisotropy for a texture reference.
-//
-// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pmaxAniso: Returned maximum anisotropy
-//   - hTexRef: Texture reference
-//
-// Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
-//
-// Wraps cuTexRefGetMaxAnisotropy.
-func texRefGetMaxAnisotropy(pmaxAniso *int32, hTexRef TexRef) error {
-	if err := checkLibSym("cuTexRefGetMaxAnisotropy"); err != nil {
-		return err
-	}
-	return toError(fntexRefGetMaxAnisotropy(pmaxAniso, hTexRef))
-}
-
 // texRefGetMipmapFilterMode Gets the mipmap filtering mode for a texture reference.
 //
-// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pfm: Returned mipmap filtering mode
 //   - hTexRef: Texture reference
 //
 // Deprecated: Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapFilterMode.
-func texRefGetMipmapFilterMode(pfm *FilterMode, hTexRef TexRef) error {
+func texRefGetMipmapFilterMode(hTexRef TexRef) (FilterMode, error) {
 	if err := checkLibSym("cuTexRefGetMipmapFilterMode"); err != nil {
-		return err
+		var zero FilterMode
+		return zero, err
 	}
-	return toError(fntexRefGetMipmapFilterMode(pfm, hTexRef))
+	var out FilterMode
+	if err := toError(fntexRefGetMipmapFilterMode(&out, hTexRef)); err != nil {
+		var zero FilterMode
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefGetMipmapLevelBias Gets the mipmap level bias for a texture reference.
 //
-// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pbias: Returned mipmap level bias
 //   - hTexRef: Texture reference
 //
 // Deprecated: Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapLevelBias.
-func texRefGetMipmapLevelBias(pbias *float32, hTexRef TexRef) error {
+func texRefGetMipmapLevelBias(hTexRef TexRef) (float32, error) {
 	if err := checkLibSym("cuTexRefGetMipmapLevelBias"); err != nil {
-		return err
+		var zero float32
+		return zero, err
 	}
-	return toError(fntexRefGetMipmapLevelBias(pbias, hTexRef))
+	var out float32
+	if err := toError(fntexRefGetMipmapLevelBias(&out, hTexRef)); err != nil {
+		var zero float32
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefGetMipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
 //
-// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pminMipmapLevelClamp: Returned mipmap min level clamp
-//   - pmaxMipmapLevelClamp: Returned mipmap max level clamp
 //   - hTexRef: Texture reference
 //
 // Deprecated: Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapLevelClamp.
-func texRefGetMipmapLevelClamp(pminMipmapLevelClamp *float32, pmaxMipmapLevelClamp *float32, hTexRef TexRef) error {
+func texRefGetMipmapLevelClamp(hTexRef TexRef) (pminMipmapLevelClamp float32, pmaxMipmapLevelClamp float32, err error) {
 	if err := checkLibSym("cuTexRefGetMipmapLevelClamp"); err != nil {
-		return err
+		return 0, 0, err
 	}
-	return toError(fntexRefGetMipmapLevelClamp(pminMipmapLevelClamp, pmaxMipmapLevelClamp, hTexRef))
+	var out0 float32
+	var out1 float32
+	if err := toError(fntexRefGetMipmapLevelClamp(&out0, &out1, hTexRef)); err != nil {
+		return 0, 0, err
+	}
+	return out0, out1, nil
 }
 
 // texRefGetMipmappedArray Gets the mipmapped array bound to a texture reference.
@@ -9656,21 +9814,26 @@ func texRefGetMipmappedArray(hTexRef TexRef) (MipmappedArray, error) {
 
 // texRefSetAddress Binds an address as a texture reference.
 //
-// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, cuTexRefSetAddress() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using cuTexRefSetFormat(). See also: cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]. See also: [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - ByteOffset: Returned byte offset
 //   - hTexRef: Texture reference to bind
 //   - dptr: Device pointer to bind
 //   - bytes: Size of memory to bind in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, TexRef.SetAddress() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc](), the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using TexRef.SetFormat().
+// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress]() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc](), the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]().
 //
 // Wraps cuTexRefSetAddress, bound as cuTexRefSetAddress_v2.
-func texRefSetAddress(ByteOffset *uint, hTexRef TexRef, dptr DevicePtr, bytes uint) error {
+func texRefSetAddress(hTexRef TexRef, dptr DevicePtr, bytes uint) (uint, error) {
 	if err := checkLibSym("cuTexRefSetAddress_v2"); err != nil {
-		return err
+		var zero uint
+		return zero, err
 	}
-	return toError(fntexRefSetAddress(ByteOffset, hTexRef, dptr, bytes))
+	var out uint
+	if err := toError(fntexRefSetAddress(&out, hTexRef, dptr, bytes)); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return out, nil
 }
 
 // texRefSetAddress2D Binds an address as a 2D texture reference.

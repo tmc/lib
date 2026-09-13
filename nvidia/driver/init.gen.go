@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -26,9 +28,16 @@ var (
 	// successfully, calls skip loadMu entirely.
 	ready atomic.Bool
 
+	// explicitLoad records that a successful Load acknowledged the current library.
+	// It stays false while only the lazy path has opened it.
+	explicitLoad bool
+
 	// present records which symbols resolved during registerFuncs. It is
 	// written under loadMu before ready is set, and only read afterwards.
 	present = make(map[string]bool)
+
+	// unbound records symbols the library exports that could not be bound,
+	// keyed by symbol name. It follows the same locking discipline as present.
 	unbound = make(map[string]error)
 )
 
@@ -43,7 +52,8 @@ type SymbolError struct {
 	Err    error
 }
 
-// Error reports the unavailable library symbol.
+// Error reports the uncallable library symbol and, when the symbol was
+// present but could not be bound, why.
 func (e *SymbolError) Error() string {
 	if e.Err != nil {
 		return "driver: symbol " + e.Symbol + " unavailable: " + e.Err.Error()
@@ -51,7 +61,8 @@ func (e *SymbolError) Error() string {
 	return "driver: symbol " + e.Symbol + " unavailable"
 }
 
-// Unwrap returns the binding failure, or nil for an absent symbol.
+// Unwrap returns the reason the symbol could not be bound, or nil when the
+// loaded library does not export it.
 func (e *SymbolError) Unwrap() error { return e.Err }
 
 // LibraryConflictError reports a Load call naming a different library than
@@ -59,10 +70,20 @@ func (e *SymbolError) Unwrap() error { return e.Err }
 type LibraryConflictError struct {
 	Loaded    string
 	Requested string
+
+	// Implicit reports that the loaded library was opened lazily and no
+	// successful Load has since acknowledged it. A
+	// caller that sees this called some
+	// other function first, and that call took the default search list.
+	Implicit bool
 }
 
-// Error reports the conflicting library paths.
+// Error reports the conflicting library paths, and whether the library
+// that is already loaded got there without a Load call.
 func (e *LibraryConflictError) Error() string {
+	if e.Implicit {
+		return fmt.Sprintf("driver: an earlier call already loaded %q from the default search list, cannot load %q; call Load before any other function", e.Loaded, e.Requested)
+	}
 	return fmt.Sprintf("driver: already loaded from %q, cannot load %q", e.Loaded, e.Requested)
 }
 
@@ -80,11 +101,13 @@ func Load(path string) error {
 	defer loadMu.Unlock()
 	if lib != 0 {
 		if path != "" && path != libPath {
-			return &LibraryConflictError{Loaded: libPath, Requested: path}
+			return &LibraryConflictError{Loaded: libPath, Requested: path, Implicit: !explicitLoad}
 		}
+		explicitLoad = true
 		return nil
 	}
 	attempted = false
+	explicitLoad = true
 	return loadLocked(path)
 }
 
@@ -129,6 +152,7 @@ func Close() error {
 	libErr = nil
 	libPath = ""
 	attempted = false
+	explicitLoad = false
 	ready.Store(false)
 	present = make(map[string]bool)
 	unbound = make(map[string]error)
@@ -170,30 +194,109 @@ func openLibrary(path string) (uintptr, string, error) {
 		if err == nil {
 			return h, path, nil
 		}
-		return 0, "", fmt.Errorf("driver: open %q: %w", path, err)
+		return 0, "", newLibraryError(path, []LibraryAttempt{{Name: path, Err: err}})
 	}
 	names := libraryNames()
-	var firstErr error
+	var attempts []LibraryAttempt
 	for _, name := range names {
 		h, err := openDynamicLibrary(name)
 		if err == nil {
 			return h, name, nil
 		}
-		if firstErr == nil {
-			firstErr = err
+		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+	}
+	return 0, "", newLibraryError("", attempts)
+}
+
+// LibraryAttempt records one failed attempt to open the shared library.
+type LibraryAttempt struct {
+	Name string // path or soname passed to dlopen
+	Err  error
+}
+
+// LibraryError reports that libcuda could not be opened. Attempts lists
+// every name tried in order. Path is set when an explicit path, from Load or
+// CUDA_LIB_PATH, was requested and failed. Hint, when non-empty, says where
+// pkg-config believes the library is installed.
+type LibraryError struct {
+	Library  string
+	Env      string
+	Path     string
+	Attempts []LibraryAttempt
+	Hint     string
+}
+
+// Error describes the library load attempts and their errors.
+func (e *LibraryError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "driver: cannot open %s", e.Library)
+	switch {
+	case e.Path != "":
+		fmt.Fprintf(&b, " at %s", e.Path)
+	case len(e.Attempts) == 0:
+		fmt.Fprintf(&b, ": no library names for %s/%s", runtime.GOOS, runtime.GOARCH)
+	default:
+		b.WriteString(": tried ")
+		for i, a := range e.Attempts {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(a.Name)
 		}
 	}
-	if firstErr == nil {
-		firstErr = errors.New("no library paths to try")
+	if n := len(e.Attempts); n > 0 && e.Attempts[n-1].Err != nil {
+		fmt.Fprintf(&b, ": %v", e.Attempts[n-1].Err)
 	}
-	return 0, "", fmt.Errorf("driver: open libcuda: %w", firstErr)
+	if e.Hint != "" {
+		b.WriteString("; " + e.Hint)
+	}
+	if e.Path == "" && e.Env != "" {
+		fmt.Fprintf(&b, "; set %s to the library path", e.Env)
+	}
+	return b.String()
+}
+
+// Unwrap returns the error from each attempt.
+func (e *LibraryError) Unwrap() []error {
+	errs := make([]error, 0, len(e.Attempts))
+	for _, a := range e.Attempts {
+		if a.Err != nil {
+			errs = append(errs, a.Err)
+		}
+	}
+	return errs
+}
+
+func newLibraryError(path string, attempts []LibraryAttempt) *LibraryError {
+	return &LibraryError{Library: "libcuda", Env: "CUDA_LIB_PATH", Path: path, Attempts: attempts, Hint: pkgConfigHint()}
+}
+
+// pkgConfigHint asks pkg-config where the library is installed so that a
+// load failure can say so. It runs only after every dlopen attempt has
+// failed, never chooses the library, and is silent when pkg-config is
+// absent or does not know the package.
+func pkgConfigHint() string {
+	const pkg = "cuda"
+	exe, err := exec.LookPath("pkg-config")
+	if err != nil {
+		return ""
+	}
+	out, err := exec.Command(exe, "--variable=libdir", pkg).Output()
+	if err != nil {
+		return ""
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return ""
+	}
+	return "pkg-config reports " + pkg + " in " + dir
 }
 
 // libraryNames returns the platform-specific shared library names to try.
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libcuda.so.1", "libcuda.so"}
+		return []string{"libcuda.so.1"}
 	case "darwin":
 		return []string{"libcuda.dylib"}
 	case "windows":
@@ -245,6 +348,35 @@ func bindSymbol(fn interface{}, sym uintptr) (ok bool) {
 	}()
 	purego.RegisterFunc(fn, sym)
 	return true
+}
+
+// BindFailure names a symbol the loaded library exports but that could not
+// be bound, and why.
+type BindFailure struct {
+	Symbol string
+	Err    error
+}
+
+// BindFailures returns the symbols the loaded library exports that could
+// not be bound, sorted by symbol name, or nil if every exported symbol
+// bound. Calling one of these reports *SymbolError with the same Err.
+//
+// A load that reports no error can still leave symbols unbound: the
+// library is fine and the signatures are not representable here. Call this
+// after Load to find that out at once rather than one call site at a time.
+// It does not trigger a load, and returns nil if none has happened.
+func BindFailures() []BindFailure {
+	loadMu.Lock()
+	defer loadMu.Unlock()
+	if len(unbound) == 0 {
+		return nil
+	}
+	out := make([]BindFailure, 0, len(unbound))
+	for sym, err := range unbound {
+		out = append(out, BindFailure{Symbol: sym, Err: err})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
+	return out
 }
 
 // ptrAdd advances a byte pointer by n bytes.
@@ -3558,33 +3690,4 @@ func HasuserObjectRetain() bool {
 // HaswaitExternalSemaphoresAsync reports whether cuWaitExternalSemaphoresAsync resolved in the loaded library.
 func HaswaitExternalSemaphoresAsync() bool {
 	return Has("cuWaitExternalSemaphoresAsync")
-}
-
-// BindFailure names a symbol the loaded library exports but that could not
-// be bound, and why.
-type BindFailure struct {
-	Symbol string
-	Err    error
-}
-
-// BindFailures returns the symbols the loaded library exports that could
-// not be bound, sorted by symbol name, or nil if every exported symbol
-// bound. Calling one of these reports *SymbolError with the same Err.
-//
-// A load that reports no error can still leave symbols unbound: the
-// library is fine and the signatures are not representable here. Call this
-// after Load to find that out at once rather than one call site at a time.
-// It does not trigger a load, and returns nil if none has happened.
-func BindFailures() []BindFailure {
-	loadMu.Lock()
-	defer loadMu.Unlock()
-	if len(unbound) == 0 {
-		return nil
-	}
-	out := make([]BindFailure, 0, len(unbound))
-	for sym, err := range unbound {
-		out = append(out, BindFailure{Symbol: sym, Err: err})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
-	return out
 }

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "generator": "github.com/tmc/libgen/cmd/gen-nvidia",
+  "upstream_version": "unrecorded",
+  "version_source": "unrecorded",
+  "cwd": "$HOME/go/src/github.com/tmc/libgen",
+  "argv": [
+    "$GOCACHE/12/121d1cd7b70ed635f78a1b5d9906a4c1e9dc900ac1e7fa08aaf68687ab8c6261-d/gen-nvidia",
+    "-api",
+    "sanitizer",
+    "-headers-dir",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
+    "-header",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/sanitizer/sanitizer.h",
+    "-output",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/sanitizer",
+    "-package",
+    "sanitizer",
+    "-deprecated=true",
+    "-docs-dir",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../libgen/docs"
+  ],
+  "inputs": [
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer.h",
+      "sha256": "34f9100d71cc5cceafd67c5f297c6d8ca3c975f64e87d16aa0c19bea6c6bd515"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_barrier.h",
+      "sha256": "19a7f8c87fb9d35b8bf57e8817492c70b1fbfd5b5e681befcdba127a641fcfbf"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_callbacks.h",
+      "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_driver_cbid.h",
+      "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_memory.h",
+      "sha256": "d09b60e86dd77b1853f04d109dfd82d90f0bd06b772c2327966f080676ec8c36"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_patching.h",
+      "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_result.h",
+      "sha256": "c4570f868f57ad19c9d17fcc3b2bcdfecb49f107bc25aa6c595a8ed95b463d95"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_runtime_cbid.h",
+      "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+    },
+    {
+      "path": "$HOME/go/src/github.com/tmc/cuda-headers/sanitizer/sanitizer_stream.h",
+      "sha256": "8562bc83ccf6eb1d993bf8a19c6fd54e883ce8a67ba7f25b23925d1f6306bee3"
+    }
+  ],
+  "source_hash": "94fb6be170c6e5e14f45675f6bbbeceb418121d15565fce3d18ca1d566afcc0d",
+  "limitations": [
+    "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
+    "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."
+  ]
+}

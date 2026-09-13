@@ -449,15 +449,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(Pdi{}.Value); got != 8 {
 		t.Errorf("offsetof(Pdi.Value) = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(BBXTimeDataV1{}); got != 4 {
-		t.Errorf("sizeof(BBXTimeDataV1) = %d, want 4", got)
-	}
-	if got := unsafe.Alignof(BBXTimeDataV1{}); got != 4 {
-		t.Errorf("alignof(BBXTimeDataV1) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(BBXTimeDataV1{}.TimeRun); got != 0 {
-		t.Errorf("offsetof(BBXTimeDataV1.TimeRun) = %d, want 0", got)
-	}
 	if got := unsafe.Sizeof(DramEncryptionInfo{}); got != 8 {
 		t.Errorf("sizeof(DramEncryptionInfo) = %d, want 8", got)
 	}
@@ -814,30 +805,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(EccSramUniqueUncorrectedErrorCounts{}.Entries); got != 8 {
 		t.Errorf("offsetof(EccSramUniqueUncorrectedErrorCounts.Entries) = %d, want 8", got)
-	}
-	if got := unsafe.Sizeof(RemappedRowsInfoV2{}); got != 24 {
-		t.Errorf("sizeof(RemappedRowsInfoV2) = %d, want 24", got)
-	}
-	if got := unsafe.Alignof(RemappedRowsInfoV2{}); got != 4 {
-		t.Errorf("alignof(RemappedRowsInfoV2) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.CorrActiveRemaps); got != 0 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.CorrActiveRemaps) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.CorrInactiveRemaps); got != 4 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.CorrInactiveRemaps) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.UncActiveRemaps); got != 8 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.UncActiveRemaps) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.UncInactiveRemaps); got != 12 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.UncInactiveRemaps) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.BPending); got != 16 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.BPending) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(RemappedRowsInfoV2{}.BFailureOccurred); got != 20 {
-		t.Errorf("offsetof(RemappedRowsInfoV2.BFailureOccurred) = %d, want 20", got)
 	}
 	if got := unsafe.Sizeof(RusdSettingsV1{}); got != 16 {
 		t.Errorf("sizeof(RusdSettingsV1) = %d, want 16", got)
@@ -1817,42 +1784,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(AccountingStats{}.Reserved); got != 36 {
 		t.Errorf("offsetof(AccountingStats.Reserved) = %d, want 36", got)
 	}
-	if got := unsafe.Sizeof(AccountingStatsV2{}); got != 64 {
-		t.Errorf("sizeof(AccountingStatsV2) = %d, want 64", got)
-	}
-	if got := unsafe.Alignof(AccountingStatsV2{}); got != 8 {
-		t.Errorf("alignof(AccountingStatsV2) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.Pid); got != 0 {
-		t.Errorf("offsetof(AccountingStatsV2.Pid) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.IsRunning); got != 4 {
-		t.Errorf("offsetof(AccountingStatsV2.IsRunning) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.GpuUtilization); got != 8 {
-		t.Errorf("offsetof(AccountingStatsV2.GpuUtilization) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.MemoryUtilization); got != 12 {
-		t.Errorf("offsetof(AccountingStatsV2.MemoryUtilization) = %d, want 12", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.MaxMemoryUsage); got != 16 {
-		t.Errorf("offsetof(AccountingStatsV2.MaxMemoryUsage) = %d, want 16", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.SampleCount); got != 24 {
-		t.Errorf("offsetof(AccountingStatsV2.SampleCount) = %d, want 24", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.SumGpuUtil); got != 32 {
-		t.Errorf("offsetof(AccountingStatsV2.SumGpuUtil) = %d, want 32", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.SumFbUtil); got != 40 {
-		t.Errorf("offsetof(AccountingStatsV2.SumFbUtil) = %d, want 40", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.Time); got != 48 {
-		t.Errorf("offsetof(AccountingStatsV2.Time) = %d, want 48", got)
-	}
-	if got := unsafe.Offsetof(AccountingStatsV2{}.StartTime); got != 56 {
-		t.Errorf("offsetof(AccountingStatsV2.StartTime) = %d, want 56", got)
-	}
 	if got := unsafe.Sizeof(EncoderSessionInfo{}); got != 32 {
 		t.Errorf("sizeof(EncoderSessionInfo) = %d, want 32", got)
 	}
@@ -2134,36 +2065,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(GpuFabricInfoV{}.HealthSummary); got != 36 {
 		t.Errorf("offsetof(GpuFabricInfoV.HealthSummary) = %d, want 36", got)
-	}
-	if got := unsafe.Sizeof(CPERCursorV1{}); got != 96 {
-		t.Errorf("sizeof(CPERCursorV1) = %d, want 96", got)
-	}
-	if got := unsafe.Alignof(CPERCursorV1{}); got != 8 {
-		t.Errorf("alignof(CPERCursorV1) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(CPERCursorV1{}.CperTypeMask); got != 0 {
-		t.Errorf("offsetof(CPERCursorV1.CperTypeMask) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(CPERCursorV1{}.Uuid); got != 4 {
-		t.Errorf("offsetof(CPERCursorV1.Uuid) = %d, want 4", got)
-	}
-	if got := unsafe.Offsetof(CPERCursorV1{}.Handle); got != 88 {
-		t.Errorf("offsetof(CPERCursorV1.Handle) = %d, want 88", got)
-	}
-	if got := unsafe.Sizeof(GetCPERV1{}); got != 112 {
-		t.Errorf("sizeof(GetCPERV1) = %d, want 112", got)
-	}
-	if got := unsafe.Alignof(GetCPERV1{}); got != 8 {
-		t.Errorf("alignof(GetCPERV1) = %d, want 8", got)
-	}
-	if got := unsafe.Offsetof(GetCPERV1{}.Cursor); got != 0 {
-		t.Errorf("offsetof(GetCPERV1.Cursor) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(GetCPERV1{}.Buffer); got != 96 {
-		t.Errorf("offsetof(GetCPERV1.Buffer) = %d, want 96", got)
-	}
-	if got := unsafe.Offsetof(GetCPERV1{}.BufferSize); got != 104 {
-		t.Errorf("offsetof(GetCPERV1.BufferSize) = %d, want 104", got)
 	}
 	if got := unsafe.Sizeof(SystemDriverBranchInfo{}); got != 84 {
 		t.Errorf("sizeof(SystemDriverBranchInfo) = %d, want 84", got)

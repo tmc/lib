@@ -234,7 +234,9 @@ func checkVersion() error {
 	}
 	raw := int(out0)
 	got := raw
-	if got != 13 && got != 12 {
+	switch got {
+	case 13, 12:
+	default:
 		return &VersionMismatchError{Path: libPath, Want: 13, Got: got, Raw: raw}
 	}
 	return nil
@@ -275,7 +277,7 @@ func openLibrary(path string) (uintptr, string, error) {
 func libraryNames() []string {
 	switch runtime.GOOS {
 	case "linux":
-		return []string{"libnvrtc.so.13", "libnvrtc.so.12"}
+		return []string{"libnvrtc.so.13"}
 	case "darwin":
 		return []string{"libnvrtc.dylib"}
 	case "windows":

@@ -36,7 +36,7 @@ func (d Device) ComputeCapability(major *int32, minor *int32) error {
 //   - attrib: Device attribute to query
 //
 // Wraps cuDeviceGetAttribute.
-func (d Device) GetAttribute(attrib DeviceAttribute) (int, error) {
+func (d Device) GetAttribute(attrib DeviceAttribute) (int32, error) {
 	return deviceGetAttribute(attrib, d)
 }
 
@@ -88,13 +88,12 @@ func (d Device) GetGraphMemAttribute(attr GraphmemAttribute, value unsafe.Pointe
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between dev and the host. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if dev is not valid. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [Device.GetP2PAtomicCapabilities], cudaDeviceGeHostAtomicCapabilities
 //
-//   - capabilities: Returned capability details of each requested operation
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
 //
 // Wraps cuDeviceGetHostAtomicCapabilities.
-func (d Device) GetHostAtomicCapabilities(capabilities *uint32, operations *AtomicOperation, count uint32) error {
-	return deviceGetHostAtomicCapabilities(capabilities, operations, count, d)
+func (d Device) GetHostAtomicCapabilities(operations *AtomicOperation, count uint32) (uint32, error) {
+	return deviceGetHostAtomicCapabilities(operations, count, d)
 }
 
 // GetLuid Return an LUID and device node mask for the device.
@@ -102,11 +101,10 @@ func (d Device) GetHostAtomicCapabilities(capabilities *uint32, operations *Atom
 // Return identifying information ( luid and deviceNodeMask) to allow matching device with graphics APIs. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [NewDeviceGet], [Device.TotalMem], [Device.GetExecAffinitySupport], cudaGetDeviceProperties
 //
 //   - luid: Returned LUID deviceNodeMask- Returned device node mask dev- Device to get identifier string for
-//   - deviceNodeMask: Returned device node mask
 //
 // Wraps cuDeviceGetLuid.
-func (d Device) GetLuid(luid *byte, deviceNodeMask *uint32) error {
-	return deviceGetLuid(luid, deviceNodeMask, d)
+func (d Device) GetLuid(luid *byte) (uint32, error) {
+	return deviceGetLuid(luid, d)
 }
 
 // GetMemPool Gets the current mempool for a device.
@@ -143,27 +141,25 @@ func (d Device) GetNvSciSyncAttributes(nvSciSyncAttrList unsafe.Pointer, flags i
 //
 // Returns in *capabilities the details about requested atomic *operations over the the link between srcDevice and dstDevice. The allocated size of *operations and *capabilities must be count. For each [AtomicOperation] in *operations, the corresponding result in *capabilities will be a bitmask indicating which of [AtomicOperationCapability] the link supports natively. Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if *capabilities or *operations is NULL, if count is 0, or if any of *operations is not valid. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetP2PAttribute], cudaDeviceGetP2PAttribute, cudaDeviceGetP2PAtomicCapabilities
 //
-//   - capabilities: Returned capability details of each requested operation
 //   - operations: Requested operations
 //   - count: Count of requested operations and size of capabilities
 //   - dstDevice: The destination device of the target link
 //
 // Wraps cuDeviceGetP2PAtomicCapabilities.
-func (d Device) GetP2PAtomicCapabilities(capabilities *uint32, operations *AtomicOperation, count uint32, dstDevice Device) error {
-	return deviceGetP2PAtomicCapabilities(capabilities, operations, count, d, dstDevice)
+func (d Device) GetP2PAtomicCapabilities(operations *AtomicOperation, count uint32, dstDevice Device) (uint32, error) {
+	return deviceGetP2PAtomicCapabilities(operations, count, d, dstDevice)
 }
 
 // GetP2PAttribute Queries attributes of the link between two devices.
 //
 // Returns in *value the value of the requested attribute attrib of the link between srcDevice and dstDevice. The supported attributes are: Returns [ErrInvalidDevice] if srcDevice or dstDevice are not valid or if they represent the same device. Returns [ErrInvalidValue] if attrib is not valid or if value is a null pointer. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Context.EnablePeerAccess], [Context.DisablePeerAccess], [Device.CanAccessPeer], [Device.GetP2PAtomicCapabilities], cudaDeviceGetP2PAttribute
 //
-//   - value: Returned value of the requested attribute
 //   - attrib: The requested attribute of the link between srcDevice and dstDevice
 //   - dstDevice: The destination device of the target link
 //
 // Wraps cuDeviceGetP2PAttribute.
-func (d Device) GetP2PAttribute(value *int32, attrib DeviceP2pattribute, dstDevice Device) error {
-	return deviceGetP2PAttribute(value, attrib, d, dstDevice)
+func (d Device) GetP2PAttribute(attrib DeviceP2pattribute, dstDevice Device) (int32, error) {
+	return deviceGetP2PAttribute(attrib, d, dstDevice)
 }
 
 // GetPCIBusId Returns a PCI Bus Id string for the device.
@@ -190,24 +186,21 @@ func (d Device) GetProperties() (Devprop, error) {
 //
 // Returns in maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture for given format and numChannels. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], cudaMemGetInfo, [Device.TotalMem]
 //
-//   - maxWidthInElements: Returned maximum number of texture elements allocatable for given format and numChannels
 //   - format: Texture format
 //   - numChannels: Number of channels per texture element
 //
 // Wraps cuDeviceGetTexture1DLinearMaxWidth.
-func (d Device) GetTexture1DLinearMaxWidth(maxWidthInElements *uint, format ArrayFormat, numChannels uint32) error {
-	return deviceGetTexture1DLinearMaxWidth(maxWidthInElements, format, numChannels, d)
+func (d Device) GetTexture1DLinearMaxWidth(format ArrayFormat, numChannels uint32) (uint, error) {
+	return deviceGetTexture1DLinearMaxWidth(format, numChannels, d)
 }
 
 // GetUuid Return an UUID for the device.
 //
 // Returns 16-octets identifying the device dev in the structure pointed by the uuid. If the device is in MIG mode, returns its MIG UUID which uniquely identifies the subscribed MIG compute instance. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetLuid], [NewDeviceGet], [Device.TotalMem], cudaGetDeviceProperties
 //
-//   - uuid: Returned UUID dev- Device to get identifier string for
-//
 // Wraps cuDeviceGetUuid, bound as cuDeviceGetUuid_v2.
-func (d Device) GetUuid(uuid *Uuid) error {
-	return deviceGetUuid(uuid, d)
+func (d Device) GetUuid() (Uuid, error) {
+	return deviceGetUuid(d)
 }
 
 // GraphMemTrim Free unused memory that was cached on the specified device for use with graphs back to the OS.
@@ -223,11 +216,9 @@ func (d Device) GraphMemTrim() error {
 //
 // Returns in *flags the flags for the primary context of dev, and in *active whether it is active. See [Device.PrimaryCtxSetFlags] for flag values. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.PrimaryCtxSetFlags], [CtxGetFlags], [CtxSetFlags], cudaGetDeviceFlags
 //
-//   - active: Pointer to store context state; 0 = inactive, 1 = active
-//
 // Wraps cuDevicePrimaryCtxGetState.
-func (d Device) PrimaryCtxGetState(active *int32) (uint32, error) {
-	return devicePrimaryCtxGetState(d, active)
+func (d Device) PrimaryCtxGetState() (flags uint32, active int32, err error) {
+	return devicePrimaryCtxGetState(d)
 }
 
 // PrimaryCtxRelease Release the primary context on the GPU.
@@ -305,11 +296,9 @@ func (d Device) SetMemPool(pool MemoryPool) error {
 //
 // Returns in *bytes the total amount of memory available on the device dev in bytes. Note: Note that this function may also return error codes from previous, asynchronous launches. See also: [Device.GetAttribute], [DeviceGetCount], [Device.GetName], [Device.GetUuid], [NewDeviceGet], [Device.GetExecAffinitySupport], cudaMemGetInfo
 //
-//   - bytes: Returned memory available on device in bytes
-//
 // Wraps cuDeviceTotalMem, bound as cuDeviceTotalMem_v2.
-func (d Device) TotalMem(bytes *uint) error {
-	return deviceTotalMem(bytes, d)
+func (d Device) TotalMem() (uint, error) {
+	return deviceTotalMem(d)
 }
 
 // UnregisterAsyncNotification Unregisters an async notification callback.

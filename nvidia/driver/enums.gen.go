@@ -12,6 +12,7 @@ const (
 	IpcMemLazyEnablePeerAccess IpcmemFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e IpcmemFlags) String() string {
 	switch e {
 	case IpcMemLazyEnablePeerAccess:
@@ -30,6 +31,7 @@ const (
 	MemAttachSingle MemattachFlags = 0x4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemattachFlags) String() string {
 	switch e {
 	case MemAttachGlobal:
@@ -61,6 +63,7 @@ const (
 	CtxFlagsMask  CtxFlags = 0xFF
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CtxFlags) String() string {
 	switch e {
 	case CtxSchedAuto:
@@ -99,6 +102,7 @@ const (
 	EventSchedBlockingSync EventSchedFlags = 0x04 // Set blocking synchronization as default scheduling
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventSchedFlags) String() string {
 	switch e {
 	case EventSchedAuto:
@@ -123,6 +127,7 @@ const (
 	ClEventFlagsEventSchedBlockingSync ClEventFlags = 0x04 // Set blocking synchronization as default scheduling
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClEventFlags) String() string {
 	switch e {
 	case ClEventFlagsEventSchedAuto:
@@ -147,6 +152,7 @@ const (
 	ClContextFlagsCtxSchedBlockingSync ClContextFlags = 0x04 // Set blocking synchronization as default scheduling
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClContextFlags) String() string {
 	switch e {
 	case ClContextFlagsCtxSchedAuto:
@@ -171,6 +177,7 @@ const (
 	HostTaskSpinwait HostTaskSyncMode = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e HostTaskSyncMode) String() string {
 	switch e {
 	case HostTaskBlocking:
@@ -189,6 +196,7 @@ const (
 	StreamNonBlocking StreamFlags = 0x1 // Stream does not synchronize with stream 0 (the NULL stream)
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamFlags) String() string {
 	switch e {
 	case StreamDefault:
@@ -210,6 +218,7 @@ const (
 	EventInterprocess EventFlags = 0x4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventFlags) String() string {
 	switch e {
 	case EventDefault:
@@ -232,6 +241,7 @@ const (
 	EventRecordExternal EventRecordFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventRecordFlags) String() string {
 	switch e {
 	case EventRecordDefault:
@@ -250,6 +260,7 @@ const (
 	EventWaitExternal EventWaitFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e EventWaitFlags) String() string {
 	switch e {
 	case EventWaitDefault:
@@ -264,10 +275,9 @@ func (e EventWaitFlags) String() string {
 type AtomicOperation int32
 
 const (
-	AtomicOperationFloatMax         AtomicOperation = 12
-	AtomicOperationIntegerMax       AtomicOperation = 2
 	AtomicOperationIntegerAdd       AtomicOperation = 0
 	AtomicOperationIntegerMin       AtomicOperation = 1
+	AtomicOperationIntegerMax       AtomicOperation = 2
 	AtomicOperationIntegerIncrement AtomicOperation = 3
 	AtomicOperationIntegerDecrement AtomicOperation = 4
 	AtomicOperationAnd              AtomicOperation = 5
@@ -277,18 +287,18 @@ const (
 	AtomicOperationCas              AtomicOperation = 9
 	AtomicOperationFloatAdd         AtomicOperation = 10
 	AtomicOperationFloatMin         AtomicOperation = 11
+	AtomicOperationFloatMax         AtomicOperation = 12
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AtomicOperation) String() string {
 	switch e {
-	case AtomicOperationFloatMax:
-		return "AtomicOperationFloatMax"
-	case AtomicOperationIntegerMax:
-		return "AtomicOperationIntegerMax"
 	case AtomicOperationIntegerAdd:
 		return "AtomicOperationIntegerAdd"
 	case AtomicOperationIntegerMin:
 		return "AtomicOperationIntegerMin"
+	case AtomicOperationIntegerMax:
+		return "AtomicOperationIntegerMax"
 	case AtomicOperationIntegerIncrement:
 		return "AtomicOperationIntegerIncrement"
 	case AtomicOperationIntegerDecrement:
@@ -307,6 +317,8 @@ func (e AtomicOperation) String() string {
 		return "AtomicOperationFloatAdd"
 	case AtomicOperationFloatMin:
 		return "AtomicOperationFloatMin"
+	case AtomicOperationFloatMax:
+		return "AtomicOperationFloatMax"
 	}
 	return fmt.Sprintf("AtomicOperation(%d)", e)
 }
@@ -324,6 +336,7 @@ const (
 	AtomicCapabilityVector32x4 AtomicOperationCapability = 1 << 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AtomicOperationCapability) String() string {
 	switch e {
 	case AtomicCapabilitySigned:
@@ -355,6 +368,7 @@ const (
 	StreamWaitValueFlush StreamwaitvalueFlags = 1 << 30
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamwaitvalueFlags) String() string {
 	switch e {
 	case StreamWaitValueGeq:
@@ -379,6 +393,7 @@ const (
 	StreamWriteValueNoMemoryBarrier StreamwritevalueFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamwritevalueFlags) String() string {
 	switch e {
 	case StreamWriteValueDefault:
@@ -403,6 +418,7 @@ const (
 	StreamMemOpFlushRemoteWrites StreamBatchMemOpType = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamBatchMemOpType) String() string {
 	switch e {
 	case StreamMemOpWaitValue32:
@@ -431,6 +447,7 @@ const (
 	StreamMemoryBarrierTypeGpu StreammemorybarrierFlags = 0x1 // Limit memory barrier scope to the GPU.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreammemorybarrierFlags) String() string {
 	switch e {
 	case StreamMemoryBarrierTypeSys:
@@ -450,6 +467,7 @@ const (
 	StreamAtomicReductionOpAdd StreamAtomicReductionOpType = 0 // Performs an atomic ADD: *(address) = *(address) + value
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamAtomicReductionOpType) String() string {
 	switch e {
 	case StreamAtomicReductionOpOr:
@@ -470,6 +488,7 @@ const (
 	StreamAtomicReductionUnsigned64 StreamAtomicReductionDataType = 1<<1 | 1<<4 | 1<<2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamAtomicReductionDataType) String() string {
 	switch e {
 	case StreamAtomicReductionUnsigned32:
@@ -489,6 +508,7 @@ const (
 	OccupancyDisableCachingOverride OccupancyFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e OccupancyFlags) String() string {
 	switch e {
 	case OccupancyDefault:
@@ -507,6 +527,7 @@ const (
 	StreamSetCaptureDependencies StreamupdatecapturedependenciesFlags = 0x1 // Replace the dependency set with the new nodes
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamupdatecapturedependenciesFlags) String() string {
 	switch e {
 	case StreamAddCaptureDependencies:
@@ -524,6 +545,7 @@ const (
 	AsyncNotificationTypeOverBudget AsyncNotificationType = 0x1 // Sent when the process has exceeded its device memory budget
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AsyncNotificationType) String() string {
 	switch e {
 	case AsyncNotificationTypeOverBudget:
@@ -636,6 +658,7 @@ const (
 	AdFormatUint16Planar444 ArrayFormat = 0x5e
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ArrayFormat) String() string {
 	switch e {
 	case AdFormatUnsignedINT8:
@@ -782,6 +805,7 @@ const (
 	TrAddressModeBorder AddressMode = 3 // Border address mode
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AddressMode) String() string {
 	switch e {
 	case TrAddressModeWrap:
@@ -804,6 +828,7 @@ const (
 	TrFilterModeLinear FilterMode = 1 // Linear filter mode
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FilterMode) String() string {
 	switch e {
 	case TrFilterModePoint:
@@ -1022,6 +1047,7 @@ const (
 	DevAttrAtomicReductionSupported DeviceAttribute = 148
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceAttribute) String() string {
 	switch e {
 	case DevAttrMaxThreadsPerBlock:
@@ -1367,6 +1393,7 @@ const (
 	PointerAttributeIsHwDecompressCapable PointerAttribute = 21
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerAttribute) String() string {
 	switch e {
 	case PointerAttributeContext:
@@ -1453,6 +1480,7 @@ const (
 	FuncAttributeClusterSchedulingPolicyPreference FunctionAttribute = 15
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FunctionAttribute) String() string {
 	switch e {
 	case FuncAttributeMaxThreadsPerBlock:
@@ -1501,6 +1529,7 @@ const (
 	FuncCachePreferEqual  FuncCacheConfig = 0x03 // prefer equal sized L1 cache and shared memory
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FuncCacheConfig) String() string {
 	switch e {
 	case FuncCachePreferNone:
@@ -1524,6 +1553,7 @@ const (
 	SharedMemConfigEightByteBankSize Sharedconfig = 0x02 // set shared memory bank width to eight bytes
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Sharedconfig) String() string {
 	switch e {
 	case SharedMemConfigDefaultBankSize:
@@ -1545,6 +1575,7 @@ const (
 	SharedmemCarveoutMaxL1     SharedCarveout = 0   // Prefer maximum available L1 cache, minimum shared memory
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SharedCarveout) String() string {
 	switch e {
 	case SharedmemCarveoutDefault:
@@ -1567,6 +1598,7 @@ const (
 	MemoryTypeUnified MemoryType = 0x04 // Unified device or host memory
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemoryType) String() string {
 	switch e {
 	case MemoryTypeHost:
@@ -1592,6 +1624,7 @@ const (
 	ComputemodeExclusiveProcess Computemode = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Computemode) String() string {
 	switch e {
 	case ComputemodeDefault:
@@ -1619,6 +1652,7 @@ const (
 	MemAdviseUnsetAccessedBy MemAdvise = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemAdvise) String() string {
 	switch e {
 	case MemAdviseSetReadMostly:
@@ -1653,6 +1687,7 @@ const (
 	MemRangeAttributeLastPrefetchLocationId   MemRangeAttribute = 8 // The last location id to which the range was prefetched
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemRangeAttribute) String() string {
 	switch e {
 	case MemRangeAttributeReadMostly:
@@ -1753,6 +1788,7 @@ const (
 	JITNumOptions              JITOption = 36
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JITOption) String() string {
 	switch e {
 	case JITMaxRegisters:
@@ -1873,6 +1909,7 @@ const (
 	TargetCompute121F JitTarget = 131193
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JitTarget) String() string {
 	switch e {
 	case TargetCompute30:
@@ -1956,6 +1993,7 @@ const (
 	PreferBinary JitFallback = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JitFallback) String() string {
 	switch e {
 	case PreferPtx:
@@ -1975,6 +2013,7 @@ const (
 	JitCacheOptionCa   JitCachemode = 2 // Compile with L1 cache enabled
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JitCachemode) String() string {
 	switch e {
 	case JitCacheOptionNone:
@@ -2005,6 +2044,7 @@ const (
 	JitNumInputTypes JitInputType = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e JitInputType) String() string {
 	switch e {
 	case JitInputCubin:
@@ -2036,6 +2076,7 @@ const (
 	GraphicsRegisterFlagsTextureGather GraphicsRegisterFlags = 0x08
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphicsRegisterFlags) String() string {
 	switch e {
 	case GraphicsRegisterFlagsNone:
@@ -2061,6 +2102,7 @@ const (
 	GraphicsMapResourceFlagsWriteDiscard GraphicsMapResourceFlags = 0x02
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphicsMapResourceFlags) String() string {
 	switch e {
 	case GraphicsMapResourceFlagsNone:
@@ -2085,6 +2127,7 @@ const (
 	CubemapFaceNegativeZ ArrayCubemapFace = 0x05 // Negative Z face of cubemap
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ArrayCubemapFace) String() string {
 	switch e {
 	case CubemapFacePositiveX:
@@ -2123,6 +2166,7 @@ const (
 	LimitCigShmemFallbackEnabled Limit = 0x09
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Limit) String() string {
 	switch e {
 	case LimitStackSize:
@@ -2159,6 +2203,7 @@ const (
 	ResourceTypePitch2d        Resourcetype = 0x03 // Pitch 2D resource
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Resourcetype) String() string {
 	switch e {
 	case ResourceTypeArray:
@@ -2182,6 +2227,7 @@ const (
 	AccessPropertyPersisting AccessProperty = 2 // Persisting access is more likely to persist in cache.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e AccessProperty) String() string {
 	switch e {
 	case AccessPropertyNormal:
@@ -2206,6 +2252,7 @@ const (
 	GraphCondTypeSwitch GraphConditionalNodeType = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphConditionalNodeType) String() string {
 	switch e {
 	case GraphCondTypeIf:
@@ -2238,6 +2285,7 @@ const (
 	GraphNodeTypeConditional    GraphNodeType = 13
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphNodeType) String() string {
 	switch e {
 	case GraphNodeTypeKernel:
@@ -2280,6 +2328,7 @@ const (
 	GraphDependencyTypeProgrammatic GraphDependencyType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphDependencyType) String() string {
 	switch e {
 	case GraphDependencyTypeDefault:
@@ -2307,6 +2356,7 @@ const (
 	GraphInstantiateConditionalHandleUnused GraphInstantiateResult = 5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphInstantiateResult) String() string {
 	switch e {
 	case GraphInstantiateSuccess:
@@ -2335,6 +2385,7 @@ const (
 	SyncPolicyBlockingSync SynchronizationPolicy = 4
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SynchronizationPolicy) String() string {
 	switch e {
 	case SyncPolicyAuto:
@@ -2359,6 +2410,7 @@ const (
 	ClusterSchedulingPolicyLoadBalancing ClusterSchedulingPolicy = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ClusterSchedulingPolicy) String() string {
 	switch e {
 	case ClusterSchedulingPolicyDefault:
@@ -2379,6 +2431,7 @@ const (
 	LaunchMemSyncDomainRemote  LaunchMemSyncDomain = 1 // Launch kernels in the remote domain
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LaunchMemSyncDomain) String() string {
 	switch e {
 	case LaunchMemSyncDomainDefault:
@@ -2400,6 +2453,7 @@ const (
 	LaunchPortableClusterModeAllowNonPortable LaunchAttributePortableClusterMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LaunchAttributePortableClusterMode) String() string {
 	switch e {
 	case LaunchPortableClusterModeDefault:
@@ -2421,6 +2475,7 @@ const (
 	SharedMemoryModeAllowNonPortable SharedMemoryMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e SharedMemoryMode) String() string {
 	switch e {
 	case SharedMemoryModeDefault:
@@ -2460,6 +2515,7 @@ const (
 	LaunchAttributeSharedMemoryMode LaunchAttributeID = 18
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LaunchAttributeID) String() string {
 	switch e {
 	case LaunchAttributeIgnore:
@@ -2511,6 +2567,7 @@ const (
 	StreamCaptureStatusInvalidated StreamCaptureStatus = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamCaptureStatus) String() string {
 	switch e {
 	case StreamCaptureStatusNone:
@@ -2532,6 +2589,7 @@ const (
 	StreamCaptureModeRelaxed     StreamCaptureMode = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamCaptureMode) String() string {
 	switch e {
 	case StreamCaptureModeGlobal:
@@ -2553,6 +2611,7 @@ const (
 	GetProcAddressPerThreadDefaultStream DriverprocaddressFlags = 1 << 1 // Search for per-thread versions of driver symbols.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverprocaddressFlags) String() string {
 	switch e {
 	case GetProcAddressDefault:
@@ -2574,6 +2633,7 @@ const (
 	GetProcAddressVersionNotSufficient DriverProcAddressQueryResult = 2 // Symbol was found but version supplied was not sufficient
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DriverProcAddressQueryResult) String() string {
 	switch e {
 	case GetProcAddressSuccess:
@@ -2593,6 +2653,7 @@ const (
 	ExecAffinityTypeSmCount ExecAffinityType = 0 // Create a context with limited SMs.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ExecAffinityType) String() string {
 	switch e {
 	case ExecAffinityTypeSmCount:
@@ -2610,6 +2671,7 @@ const (
 	CigDataTypeNvBlob CigDataType = 0x2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CigDataType) String() string {
 	switch e {
 	case CigDataTypeD3d12CommandQueue:
@@ -2627,6 +2689,7 @@ const (
 	StreamCigDataTypeD3d12CommandList StreamCigDataType = 0x1 // D3D12 Command List Handle
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e StreamCigDataType) String() string {
 	switch e {
 	case StreamCigDataTypeD3d12CommandList:
@@ -2645,6 +2708,7 @@ const (
 	LibraryNumOptions        LibraryOption = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LibraryOption) String() string {
 	switch e {
 	case LibraryOptionLibraryHostUniversalFunctionAndDataTable:
@@ -2672,6 +2736,7 @@ const (
 	DeviceP2PAttributeOnlyPartialNativeAtomicSupported DeviceP2pattribute = 0x05
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceP2pattribute) String() string {
 	switch e {
 	case DeviceP2PAttributePerformanceRank:
@@ -2729,6 +2794,7 @@ const (
 	ResViewFormatUnsignedBC7  ResourceViewFormat = 0x22 // Block compressed 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ResourceViewFormat) String() string {
 	switch e {
 	case ResViewFormatNone:
@@ -2827,6 +2893,7 @@ const (
 	TensorMapDataType16U6Align16b TensorMapDataType = 15
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapDataType) String() string {
 	switch e {
 	case TensorMapDataTypeUint8:
@@ -2874,6 +2941,7 @@ const (
 	TensorMapInterleave32B  TensorMapInterleave = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapInterleave) String() string {
 	switch e {
 	case TensorMapInterleaveNone:
@@ -2899,6 +2967,7 @@ const (
 	TensorMapSwizzle128BAtom64B       TensorMapSwizzle = 6
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapSwizzle) String() string {
 	switch e {
 	case TensorMapSwizzleNone:
@@ -2929,6 +2998,7 @@ const (
 	TensorMapL2PromotionL2256B TensorMapL2promotion = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapL2promotion) String() string {
 	switch e {
 	case TensorMapL2PromotionNone:
@@ -2951,6 +3021,7 @@ const (
 	TensorMapFloatOobFillNanRequestZeroFma TensorMapFloatOOBfill = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapFloatOOBfill) String() string {
 	switch e {
 	case TensorMapFloatOobFillNone:
@@ -2969,6 +3040,7 @@ const (
 	TensorMapIm2colWideModeW128 TensorMapIm2ColWideMode = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e TensorMapIm2ColWideMode) String() string {
 	switch e {
 	case TensorMapIm2colWideModeW:
@@ -2991,6 +3063,7 @@ const (
 	PointerAttributeAccessFlagReadwrite PointerAttributeAccessFlags = 0x3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e PointerAttributeAccessFlags) String() string {
 	switch e {
 	case PointerAttributeAccessFlagNone:
@@ -3018,6 +3091,7 @@ const (
 	ExternalMemoryHandleTypeDmabufFd         ExternalMemoryHandleType = 9
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ExternalMemoryHandleType) String() string {
 	switch e {
 	case ExternalMemoryHandleTypeOpaqueFd:
@@ -3063,6 +3137,7 @@ const (
 	ExternalSemaphoreHandleTypeTimelineSemaphoreWin32 ExternalSemaphoreHandleType = 10
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ExternalSemaphoreHandleType) String() string {
 	switch e {
 	case ExternalSemaphoreHandleTypeOpaqueFd:
@@ -3103,6 +3178,7 @@ const (
 	MemHandleTypeFabric MemAllocationHandleType = 0x8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemAllocationHandleType) String() string {
 	switch e {
 	case MemHandleTypeNone:
@@ -3128,6 +3204,7 @@ const (
 	MemAccessFlagsProtReadwrite MemaccessFlags = 0x3 // Make the address range read-write accessible
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemaccessFlags) String() string {
 	switch e {
 	case MemAccessFlagsProtNone:
@@ -3156,6 +3233,7 @@ const (
 	MemLocationTypeInvisible MemLocationType = 0x5
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemLocationType) String() string {
 	switch e {
 	case MemLocationTypeInvalid:
@@ -3183,6 +3261,7 @@ const (
 	MemAllocationTypeManaged MemAllocationType = 0x2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemAllocationType) String() string {
 	switch e {
 	case MemAllocationTypeInvalid:
@@ -3203,6 +3282,7 @@ const (
 	MemAllocGranularityRecommended MemallocationgranularityFlags = 0x1 // Recommended granularity for allocation for best performance
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemallocationgranularityFlags) String() string {
 	switch e {
 	case MemAllocGranularityMinimum:
@@ -3220,6 +3300,7 @@ const (
 	MemRangeHandleTypeDmaBufFd MemRangeHandleType = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemRangeHandleType) String() string {
 	switch e {
 	case MemRangeHandleTypeDmaBufFd:
@@ -3235,6 +3316,7 @@ const (
 	MemRangeFlagDmaBufMappingTypePcie MemRangeFlags = 0x1 // Indicates that DMA_BUF handle should be mapped via PCIe BAR1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemRangeFlags) String() string {
 	switch e {
 	case MemRangeFlagDmaBufMappingTypePcie:
@@ -3251,6 +3333,7 @@ const (
 	ArraySparseSubresourceTypeMiptail     ArraySparseSubresourceType = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ArraySparseSubresourceType) String() string {
 	switch e {
 	case ArraySparseSubresourceTypeSparseLevel:
@@ -3269,6 +3352,7 @@ const (
 	MemOperationTypeUnmap MemOperationType = 2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemOperationType) String() string {
 	switch e {
 	case MemOperationTypeMap:
@@ -3286,6 +3370,7 @@ const (
 	MemHandleTypeGeneric MemHandleType = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemHandleType) String() string {
 	switch e {
 	case MemHandleTypeGeneric:
@@ -3302,6 +3387,7 @@ const (
 	MemAllocationCompGeneric MemAllocationCompType = 0x1 // Allocating compressible memory
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemAllocationCompType) String() string {
 	switch e {
 	case MemAllocationCompNone:
@@ -3320,6 +3406,7 @@ const (
 	MulticastGranularityRecommended MulticastgranularityFlags = 0x1 // Recommended granularity for best performance
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MulticastgranularityFlags) String() string {
 	switch e {
 	case MulticastGranularityMinimum:
@@ -3351,6 +3438,7 @@ const (
 	GraphExecUpdateErrorAttributesChanged GraphExecUpdateResult = 0x8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphExecUpdateResult) String() string {
 	switch e {
 	case GraphExecUpdateSuccess:
@@ -3396,6 +3484,7 @@ const (
 	MempoolAttrHwDecompressEnabled            MempoolAttribute = 14
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MempoolAttribute) String() string {
 	switch e {
 	case MempoolAttrReuseFollowEventDependencies:
@@ -3438,6 +3527,7 @@ const (
 	MemcpyFlagPreferOverlapWithCompute MemcpyFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemcpyFlags) String() string {
 	switch e {
 	case MemcpyFlagDefault:
@@ -3461,6 +3551,7 @@ const (
 	MemcpySrcAccessOrderAny MemcpySrcAccessOrder = 0x3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemcpySrcAccessOrder) String() string {
 	switch e {
 	case MemcpySrcAccessOrderInvalid:
@@ -3483,6 +3574,7 @@ const (
 	MemcpyOperandTypeArray   Memcpy3DOperandType = 0x2 // Memcpy operand is a [Array].
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e Memcpy3DOperandType) String() string {
 	switch e {
 	case MemcpyOperandTypePointer:
@@ -3503,6 +3595,7 @@ const (
 	GraphMemAttrReservedMemHigh    GraphmemAttribute = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphmemAttribute) String() string {
 	switch e {
 	case GraphMemAttrUsedMemCurrent:
@@ -3526,6 +3619,7 @@ const (
 	GraphChildGraphOwnershipInvalid GraphChildGraphNodeOwnership = -1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphChildGraphNodeOwnership) String() string {
 	switch e {
 	case GraphChildGraphOwnershipClone:
@@ -3548,6 +3642,7 @@ const (
 	FlushGpuDirectRdmaWritesOptionMemops FlushGPUDirectRDMAWritesOptions = 1 << 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FlushGPUDirectRDMAWritesOptions) String() string {
 	switch e {
 	case FlushGpuDirectRdmaWritesOptionHost:
@@ -3570,6 +3665,7 @@ const (
 	GpuDirectRdmaWritesOrderingAllDevices GPUDirectRDMAWritesOrdering = 200
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GPUDirectRDMAWritesOrdering) String() string {
 	switch e {
 	case GpuDirectRdmaWritesOrderingNone:
@@ -3592,6 +3688,7 @@ const (
 	FlushGpuDirectRdmaWritesToAllDevices FlushGPUDirectRDMAWritesScope = 200
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FlushGPUDirectRDMAWritesScope) String() string {
 	switch e {
 	case FlushGpuDirectRdmaWritesToOwner:
@@ -3610,6 +3707,7 @@ const (
 	FlushGpuDirectRdmaWritesTargetCurrentCtx FlushGPUDirectRDMAWritesTarget = 0
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FlushGPUDirectRDMAWritesTarget) String() string {
 	switch e {
 	case FlushGpuDirectRdmaWritesTargetCurrentCtx:
@@ -3640,6 +3738,7 @@ const (
 	GraphDebugDotFlagsConditionalNodeParams    GraphdebugdotFlags = 1 << 15 // Adds conditional node parameters to output
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphdebugdotFlags) String() string {
 	switch e {
 	case GraphDebugDotFlagsVerbose:
@@ -3686,6 +3785,7 @@ const (
 	UserObjectNoDestructorSync UserobjectFlags = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e UserobjectFlags) String() string {
 	switch e {
 	case UserObjectNoDestructorSync:
@@ -3702,6 +3802,7 @@ const (
 	GraphUserObjectMove UserobjectretainFlags = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e UserobjectretainFlags) String() string {
 	switch e {
 	case GraphUserObjectMove:
@@ -3721,6 +3822,7 @@ const (
 	GraphInstantiateFlagUseNodePriority  GraphinstantiateFlags = 8
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GraphinstantiateFlags) String() string {
 	switch e {
 	case GraphInstantiateFlagAutoFreeOnLaunch:
@@ -3743,6 +3845,7 @@ const (
 	DeviceNumaConfigNumaNode DeviceNumaConfig = 1 // The GPU is a NUMA node, [DevAttrNumaId] contains its NUMA ID
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DeviceNumaConfig) String() string {
 	switch e {
 	case DeviceNumaConfigNone:
@@ -3766,6 +3869,7 @@ const (
 	ProcessStateFailed ProcessState = 3
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ProcessState) String() string {
 	switch e {
 	case ProcessStateRunning:
@@ -3788,6 +3892,7 @@ const (
 	ModuleLazyLoading  ModuleLoadingMode = 0x2 // Lazy Kernel Loading is enabled
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e ModuleLoadingMode) String() string {
 	switch e {
 	case ModuleEagerLoading:
@@ -3808,6 +3913,7 @@ const (
 	MemDecompressAlgorithmLZ4     MemDecompressAlgorithm = 1 << 2 // LZ4 is supported.
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e MemDecompressAlgorithm) String() string {
 	switch e {
 	case MemDecompressUnsupported:
@@ -3830,6 +3936,7 @@ const (
 	FunctionLoadingStateLoaded   FunctionLoadingState = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e FunctionLoadingState) String() string {
 	switch e {
 	case FunctionLoadingStateUnloaded:
@@ -3853,6 +3960,7 @@ const (
 	CoredumpSettingsCoredumpGenerationFlags CoredumpSettings = 7
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CoredumpSettings) String() string {
 	switch e {
 	case CoredumpEnableOnException:
@@ -3888,6 +3996,7 @@ const (
 	CoredumpLightweightFlags          CoredumpGenerationFlags = CoredumpSkipNonrelocatedElfImages | CoredumpSkipGlobalMemory | CoredumpSkipSharedMemory | CoredumpSkipLocalMemory | CoredumpSkipConstbankMemory
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e CoredumpGenerationFlags) String() string {
 	switch e {
 	case CoredumpDefaultFlags:
@@ -3920,6 +4029,7 @@ const (
 	GreenCtxDefaultStream GreenctxcreateFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e GreenctxcreateFlags) String() string {
 	switch e {
 	case GreenCtxDefaultStream:
@@ -3936,6 +4046,7 @@ const (
 	DevSmResourceGroupBackfill DevsmresourcegroupFlags = 0x1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DevsmresourcegroupFlags) String() string {
 	switch e {
 	case DevSmResourceGroupDefault:
@@ -3954,6 +4065,7 @@ const (
 	DevSmResourceSplitMaxPotentialClusterSize DevsmresourcesplitbycountFlags = 0x2
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DevsmresourcesplitbycountFlags) String() string {
 	switch e {
 	case DevSmResourceSplitIgnoreSmCoscheduling:
@@ -3974,6 +4086,7 @@ const (
 	DevResourceTypeWorkqueue       DevResourceType = 10000 // Pre-existing workqueue related information
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DevResourceType) String() string {
 	switch e {
 	case DevResourceTypeInvalid:
@@ -3998,6 +4111,7 @@ const (
 	WorkqueueScopeGreenCtxBalanced DevWorkqueueConfigScope = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e DevWorkqueueConfigScope) String() string {
 	switch e {
 	case WorkqueueScopeDeviceCtx:
@@ -4016,6 +4130,7 @@ const (
 	LogLevelWarning LogLevel = 1
 )
 
+// String returns the constant name, or a numeric representation for unknown values.
 func (e LogLevel) String() string {
 	switch e {
 	case LogLevelError:

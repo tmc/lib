@@ -39,13 +39,12 @@
 //   - [Device.GetAccountingBufferSize]: Returns the number of processes that the circular buffer with accounting pids can hold.
 //   - [Device.GetAccountingMode]: Queries the state of per process accounting mode.
 //   - [Device.GetAccountingPids]: Queries list of processes that can be queried for accounting stats.
-//   - [Device.GetAccountingStats]: Queries process's accounting stats (v2).
+//   - [Device.GetAccountingStats]: Queries process's accounting stats.
 //   - [Device.GetAdaptiveClockInfoStatus]: Gets the device's Adaptive Clock status
 //   - [Device.GetAddressingMode]: Get the addressing mode for a given GPU.
 //   - [Device.GetArchitecture]: Get architecture for device
 //   - [Device.GetAutoBoostedClocksEnabled]: Retrieve the current state of Auto Boosted clocks on a device and store it in isEnabled
 //   - [Device.GetBAR1MemoryInfo]: Gets Total, Available and Used size of BAR1 memory.
-//   - [Device.GetBBXTimeData]: Retrieves the cumulative number of seconds the GPU has had the driver loaded.
 //   - [Device.GetBoardId]: Retrieves the device boardId from 0-N.
 //   - [Device.GetBoardPartNumber]: Retrieves the the device board part number which is programmed into the board's InfoROM
 //   - [Device.GetBrand]: Retrieves the brand of this device.
@@ -282,7 +281,6 @@
 //
 // # System Queries
 //
-//   - [SystemGetCPER]: Retrieves Common Platform Error Record (CPER) data.
 //   - [SystemGetConfComputeCapabilities]: Get Conf Computing System capabilities.
 //   - [SystemGetConfComputeGpusReadyState]: Get Conf Computing GPUs ready state.
 //   - [SystemGetConfComputeKeyRotationThresholdInfo]: Get Conf Computing key rotation threshold detail.

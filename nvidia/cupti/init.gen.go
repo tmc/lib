@@ -234,10 +234,6 @@ func checkVersion() error {
 		return nil
 	}
 	raw := int(out0)
-	// CUPTI used a small sequential API counter through CUDA 12 and
-	// changed to the toolkit encoding in CUDA 13. Positive legacy values
-	// are admitted here; version-sensitive records and symbols must still
-	// perform their own capability checks.
 	if raw > 0 && raw < 1000 {
 		return nil
 	}

@@ -5,7 +5,7 @@
   "version_source": "unrecorded",
   "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "$GOCACHE/cc/cce7ac2f1c7f21956fee66d19ac469061777d09bc31819979f0dbdd10ef8a9c9-d/gen-nvcodec",
+    "$GOCACHE/99/99b69e015445567b3fc975017df17e3334ac7f2cfc484d5b118d955133f2e379-d/gen-nvcodec",
     "-api",
     "nvenc",
     "-headers",
@@ -19,7 +19,7 @@
       "sha256": "4fe4094541ef0f8a13249d97a8692dc5f835a6e9dd42eeadb3e2f7321d54dc7e"
     }
   ],
-  "source_hash": "3f8b470f22c51811782017d6c7c7e9165abbe855158f70f43df1eba7991d9790",
+  "source_hash": "e53fd1ea6449f5ac7e9b25c1d4b6636cb01ecdb1a472e0bcc2780d2878f32b66",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

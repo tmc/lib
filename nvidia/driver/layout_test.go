@@ -7,6 +7,9 @@ import (
 	"unsafe"
 )
 
+// Parsed by: clang
+// Layouts: clang record dump for the host
+
 func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Sizeof(Uuid{}); got != 16 {
 		t.Errorf("sizeof(Uuid) = %d, want 16", got)
@@ -43,6 +46,99 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(IpcMemHandle{}.Reserved); got != 0 {
 		t.Errorf("offsetof(IpcMemHandle.Reserved) = %d, want 0", got)
+	}
+	if got := unsafe.Sizeof(StreamBatchMemOpParams{}); got != 48 {
+		t.Errorf("sizeof(StreamBatchMemOpParams) = %d, want 48", got)
+	}
+	if got := unsafe.Alignof(StreamBatchMemOpParams{}); got != 8 {
+		t.Errorf("alignof(StreamBatchMemOpParams) = %d, want 8", got)
+	}
+	if got := unsafe.Sizeof(StreammemopwaitvalueparamsSt{}); got != 40 {
+		t.Errorf("sizeof(StreammemopwaitvalueparamsSt) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(StreammemopwaitvalueparamsSt{}); got != 8 {
+		t.Errorf("alignof(StreammemopwaitvalueparamsSt) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwaitvalueparamsSt{}.Operation); got != 0 {
+		t.Errorf("offsetof(StreammemopwaitvalueparamsSt.Operation) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwaitvalueparamsSt{}.Address); got != 8 {
+		t.Errorf("offsetof(StreammemopwaitvalueparamsSt.Address) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwaitvalueparamsSt{}.Flags); got != 24 {
+		t.Errorf("offsetof(StreammemopwaitvalueparamsSt.Flags) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwaitvalueparamsSt{}.Alias); got != 32 {
+		t.Errorf("offsetof(StreammemopwaitvalueparamsSt.Alias) = %d, want 32", got)
+	}
+	if got := unsafe.Sizeof(StreammemopwritevalueparamsSt{}); got != 40 {
+		t.Errorf("sizeof(StreammemopwritevalueparamsSt) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(StreammemopwritevalueparamsSt{}); got != 8 {
+		t.Errorf("alignof(StreammemopwritevalueparamsSt) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwritevalueparamsSt{}.Operation); got != 0 {
+		t.Errorf("offsetof(StreammemopwritevalueparamsSt.Operation) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwritevalueparamsSt{}.Address); got != 8 {
+		t.Errorf("offsetof(StreammemopwritevalueparamsSt.Address) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwritevalueparamsSt{}.Flags); got != 24 {
+		t.Errorf("offsetof(StreammemopwritevalueparamsSt.Flags) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(StreammemopwritevalueparamsSt{}.Alias); got != 32 {
+		t.Errorf("offsetof(StreammemopwritevalueparamsSt.Alias) = %d, want 32", got)
+	}
+	if got := unsafe.Sizeof(StreammemopflushremotewritesparamsSt{}); got != 8 {
+		t.Errorf("sizeof(StreammemopflushremotewritesparamsSt) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(StreammemopflushremotewritesparamsSt{}); got != 4 {
+		t.Errorf("alignof(StreammemopflushremotewritesparamsSt) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(StreammemopflushremotewritesparamsSt{}.Operation); got != 0 {
+		t.Errorf("offsetof(StreammemopflushremotewritesparamsSt.Operation) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreammemopflushremotewritesparamsSt{}.Flags); got != 4 {
+		t.Errorf("offsetof(StreammemopflushremotewritesparamsSt.Flags) = %d, want 4", got)
+	}
+	if got := unsafe.Sizeof(StreammemopmemorybarrierparamsSt{}); got != 8 {
+		t.Errorf("sizeof(StreammemopmemorybarrierparamsSt) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(StreammemopmemorybarrierparamsSt{}); got != 4 {
+		t.Errorf("alignof(StreammemopmemorybarrierparamsSt) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(StreammemopmemorybarrierparamsSt{}.Operation); got != 0 {
+		t.Errorf("offsetof(StreammemopmemorybarrierparamsSt.Operation) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreammemopmemorybarrierparamsSt{}.Flags); got != 4 {
+		t.Errorf("offsetof(StreammemopmemorybarrierparamsSt.Flags) = %d, want 4", got)
+	}
+	if got := unsafe.Sizeof(StreammemopatomicreductionparamsSt{}); got != 40 {
+		t.Errorf("sizeof(StreammemopatomicreductionparamsSt) = %d, want 40", got)
+	}
+	if got := unsafe.Alignof(StreammemopatomicreductionparamsSt{}); got != 8 {
+		t.Errorf("alignof(StreammemopatomicreductionparamsSt) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.Operation); got != 0 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.Operation) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.Flags); got != 4 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.Flags) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.ReductionOp); got != 8 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.ReductionOp) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.DataType); got != 12 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.DataType) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.Address); got != 16 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.Address) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.Value); got != 24 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.Value) = %d, want 24", got)
+	}
+	if got := unsafe.Offsetof(StreammemopatomicreductionparamsSt{}.Alias); got != 32 {
+		t.Errorf("offsetof(StreammemopatomicreductionparamsSt.Alias) = %d, want 32", got)
 	}
 	if got := unsafe.Sizeof(BatchMemOpNodeParams{}); got != 32 {
 		t.Errorf("sizeof(BatchMemOpNodeParams) = %d, want 32", got)
@@ -415,6 +511,12 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(LaunchMemSyncDomainMap{}.Remote); got != 1 {
 		t.Errorf("offsetof(LaunchMemSyncDomainMap.Remote) = %d, want 1", got)
+	}
+	if got := unsafe.Sizeof(StreamAttrValueV1{}); got != 64 {
+		t.Errorf("sizeof(StreamAttrValueV1) = %d, want 64", got)
+	}
+	if got := unsafe.Alignof(StreamAttrValueV1{}); got != 8 {
+		t.Errorf("alignof(StreamAttrValueV1) = %d, want 8", got)
 	}
 	if got := unsafe.Sizeof(LaunchAttribute{}); got != 72 {
 		t.Errorf("sizeof(LaunchAttribute) = %d, want 72", got)
@@ -1653,19 +1755,6 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(CuDevSmResourceGroupParams{}.Reserved); got != 16 {
 		t.Errorf("offsetof(CuDevSmResourceGroupParams.Reserved) = %d, want 16", got)
 	}
-	if got := unsafe.Sizeof(StreamBatchMemOpParamsV1{}); got != 48 {
-		t.Errorf("sizeof(StreamBatchMemOpParamsV1) = %d, want 48", got)
-	}
-	if got := unsafe.Alignof(StreamBatchMemOpParamsV1{}); got != 8 {
-		t.Errorf("alignof(StreamBatchMemOpParamsV1) = %d, want 8", got)
-	}
-	if got := unsafe.Sizeof(StreamAttrValueV1{}); got != 64 {
-		t.Errorf("sizeof(StreamAttrValueV1) = %d, want 64", got)
-	}
-	if got := unsafe.Alignof(StreamAttrValueV1{}); got != 8 {
-		t.Errorf("alignof(StreamAttrValueV1) = %d, want 8", got)
-	}
-
 	if got := unsafe.Sizeof(DevResource{}); got != 144 {
 		t.Errorf("sizeof(DevResource) = %d, want 144", got)
 	}

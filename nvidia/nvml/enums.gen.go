@@ -4,31 +4,6 @@ package nvml
 
 import "fmt"
 
-// ProcessMode represents Enum to represent process mode..
-type ProcessMode int32
-
-const (
-	ProcessModeCompute  ProcessMode = 0 // Processes with a compute context
-	ProcessModeGraphics ProcessMode = 1 // Processes with a graphics context
-	ProcessModeMps      ProcessMode = 2 // Processes with a MPS (Multi-Process Service) compute context
-	ProcessModeAll      ProcessMode = 3 // All processes running on the GPU (compute, graphics, MPS, and other types)
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e ProcessMode) String() string {
-	switch e {
-	case ProcessModeCompute:
-		return "ProcessModeCompute"
-	case ProcessModeGraphics:
-		return "ProcessModeGraphics"
-	case ProcessModeMps:
-		return "ProcessModeMps"
-	case ProcessModeAll:
-		return "ProcessModeAll"
-	}
-	return fmt.Sprintf("ProcessMode(%d)", e)
-}
-
 // DeviceAddressingModeType represents Enum to represent device addressing mode values.
 type DeviceAddressingModeType int32
 
@@ -1400,12 +1375,11 @@ func (e DeviceVgpuCapability) String() string {
 type DeviceGpuRecoveryAction int32
 
 const (
-	GpuRecoveryActionNone              DeviceGpuRecoveryAction = 0 // No action needed
-	GpuRecoveryActionGpuReset          DeviceGpuRecoveryAction = 1 // Reset Gpu
-	GpuRecoveryActionNodeReboot        DeviceGpuRecoveryAction = 2 // Reboot Node
-	GpuRecoveryActionDrainP2P          DeviceGpuRecoveryAction = 3 // Drain P2P
-	GpuRecoveryActionDrainAndReset     DeviceGpuRecoveryAction = 4 // Drain P2P and Reset Gpu
-	GpuRecoveryActionRecoverImexDomain DeviceGpuRecoveryAction = 5 // Recover IMEX Domain.
+	GpuRecoveryActionNone          DeviceGpuRecoveryAction = 0 // No action needed
+	GpuRecoveryActionGpuReset      DeviceGpuRecoveryAction = 1 // Reset Gpu
+	GpuRecoveryActionNodeReboot    DeviceGpuRecoveryAction = 2 // Reboot Node
+	GpuRecoveryActionDrainP2P      DeviceGpuRecoveryAction = 3 // Drain P2P
+	GpuRecoveryActionDrainAndReset DeviceGpuRecoveryAction = 4 // Drain P2P and Reset Gpu
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1421,8 +1395,6 @@ func (e DeviceGpuRecoveryAction) String() string {
 		return "GpuRecoveryActionDrainP2P"
 	case GpuRecoveryActionDrainAndReset:
 		return "GpuRecoveryActionDrainAndReset"
-	case GpuRecoveryActionRecoverImexDomain:
-		return "GpuRecoveryActionRecoverImexDomain"
 	}
 	return fmt.Sprintf("DeviceGpuRecoveryAction(%d)", e)
 }
@@ -1556,22 +1528,6 @@ func (e PcieLinkState) String() string {
 	return fmt.Sprintf("PcieLinkState(%d)", e)
 }
 
-// CPERType represents Bitmask of CPER record types..
-type CPERType int32
-
-const (
-	CperAccessTypeGpu CPERType = 1 << 0 // Access GPU CPER records
-)
-
-// String returns the constant name, or a numeric representation for unknown values.
-func (e CPERType) String() string {
-	switch e {
-	case CperAccessTypeGpu:
-		return "CperAccessTypeGpu"
-	}
-	return fmt.Sprintf("CPERType(%d)", e)
-}
-
 // ClockLimitId represents nvmlClockLimitId_t.
 type ClockLimitId uint32
 
@@ -1606,7 +1562,6 @@ const (
 	NvlinkVersion31      NvlinkVersion = 5 // NVLink Version 3.1
 	NvlinkVersion40      NvlinkVersion = 6 // NVLink Version 4.0
 	NvlinkVersion50      NvlinkVersion = 7 // NVLink Version 5.0
-	NvlinkVersion60      NvlinkVersion = 8 // NVLink Version 6.0
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1628,8 +1583,6 @@ func (e NvlinkVersion) String() string {
 		return "NvlinkVersion40"
 	case NvlinkVersion50:
 		return "NvlinkVersion50"
-	case NvlinkVersion60:
-		return "NvlinkVersion60"
 	}
 	return fmt.Sprintf("NvlinkVersion(%d)", e)
 }
@@ -1933,42 +1886,6 @@ const (
 	GpmMetricGR7CtxswRequests       GpmMetricId = 207
 	GpmMetricGR7CtxswCyclesPerReq   GpmMetricId = 208
 	GpmMetricGR7CtxswActivePct      GpmMetricId = 209
-	GpmMetricNvlinkL18RxPerSec      GpmMetricId = 212
-	GpmMetricNvlinkL18TxPerSec      GpmMetricId = 213
-	GpmMetricNvlinkL19RxPerSec      GpmMetricId = 214
-	GpmMetricNvlinkL19TxPerSec      GpmMetricId = 215
-	GpmMetricNvlinkL20RxPerSec      GpmMetricId = 216
-	GpmMetricNvlinkL20TxPerSec      GpmMetricId = 217
-	GpmMetricNvlinkL21RxPerSec      GpmMetricId = 218
-	GpmMetricNvlinkL21TxPerSec      GpmMetricId = 219
-	GpmMetricNvlinkL22RxPerSec      GpmMetricId = 220
-	GpmMetricNvlinkL22TxPerSec      GpmMetricId = 221
-	GpmMetricNvlinkL23RxPerSec      GpmMetricId = 222
-	GpmMetricNvlinkL23TxPerSec      GpmMetricId = 223
-	GpmMetricNvlinkL24RxPerSec      GpmMetricId = 224
-	GpmMetricNvlinkL24TxPerSec      GpmMetricId = 225
-	GpmMetricNvlinkL25RxPerSec      GpmMetricId = 226
-	GpmMetricNvlinkL25TxPerSec      GpmMetricId = 227
-	GpmMetricNvlinkL26RxPerSec      GpmMetricId = 228
-	GpmMetricNvlinkL26TxPerSec      GpmMetricId = 229
-	GpmMetricNvlinkL27RxPerSec      GpmMetricId = 230
-	GpmMetricNvlinkL27TxPerSec      GpmMetricId = 231
-	GpmMetricNvlinkL28RxPerSec      GpmMetricId = 232
-	GpmMetricNvlinkL28TxPerSec      GpmMetricId = 233
-	GpmMetricNvlinkL29RxPerSec      GpmMetricId = 234
-	GpmMetricNvlinkL29TxPerSec      GpmMetricId = 235
-	GpmMetricNvlinkL30RxPerSec      GpmMetricId = 236
-	GpmMetricNvlinkL30TxPerSec      GpmMetricId = 237
-	GpmMetricNvlinkL31RxPerSec      GpmMetricId = 238
-	GpmMetricNvlinkL31TxPerSec      GpmMetricId = 239
-	GpmMetricNvlinkL32RxPerSec      GpmMetricId = 240
-	GpmMetricNvlinkL32TxPerSec      GpmMetricId = 241
-	GpmMetricNvlinkL33RxPerSec      GpmMetricId = 242
-	GpmMetricNvlinkL33TxPerSec      GpmMetricId = 243
-	GpmMetricNvlinkL34RxPerSec      GpmMetricId = 244
-	GpmMetricNvlinkL34TxPerSec      GpmMetricId = 245
-	GpmMetricNvlinkL35RxPerSec      GpmMetricId = 246
-	GpmMetricNvlinkL35TxPerSec      GpmMetricId = 247
 	GpmMetricSmCyclesElapsed        GpmMetricId = 248 // The GPU's SM cycles elapsed since reboot
 	GpmMetricSmCyclesActive         GpmMetricId = 249 // The GPU's SM activity since reboot
 	GpmMetricMmaCyclesActive        GpmMetricId = 250 // The GPU's SM MMA tensor activity since reboot
@@ -2018,42 +1935,6 @@ const (
 	GpmMetricNvlinkL16Tx            GpmMetricId = 294 // NvLink write for link 16 in bytes since reboot
 	GpmMetricNvlinkL17Rx            GpmMetricId = 295 // NvLink read for link 17 in bytes since reboot
 	GpmMetricNvlinkL17Tx            GpmMetricId = 296 // NvLink write for link 17 in bytes since reboot
-	GpmMetricNvlinkL18Rx            GpmMetricId = 297 // NvLink read for link 18 in bytes since reboot
-	GpmMetricNvlinkL18Tx            GpmMetricId = 298 // NvLink write for link 18 in bytes since reboot
-	GpmMetricNvlinkL19Rx            GpmMetricId = 299 // NvLink read for link 19 in bytes since reboot
-	GpmMetricNvlinkL19Tx            GpmMetricId = 300 // NvLink write for link 19 in bytes since reboot
-	GpmMetricNvlinkL20Rx            GpmMetricId = 301 // NvLink read for link 20 in bytes since reboot
-	GpmMetricNvlinkL20Tx            GpmMetricId = 302 // NvLink write for link 20 in bytes since reboot
-	GpmMetricNvlinkL21Rx            GpmMetricId = 303 // NvLink read for link 21 in bytes since reboot
-	GpmMetricNvlinkL21Tx            GpmMetricId = 304 // NvLink write for link 21 in bytes since reboot
-	GpmMetricNvlinkL22Rx            GpmMetricId = 305 // NvLink read for link 22 in bytes since reboot
-	GpmMetricNvlinkL22Tx            GpmMetricId = 306 // NvLink write for link 22 in bytes since reboot
-	GpmMetricNvlinkL23Rx            GpmMetricId = 307 // NvLink read for link 23 in bytes since reboot
-	GpmMetricNvlinkL23Tx            GpmMetricId = 308 // NvLink write for link 23 in bytes since reboot
-	GpmMetricNvlinkL24Rx            GpmMetricId = 309 // NvLink read for link 24 in bytes since reboot
-	GpmMetricNvlinkL24Tx            GpmMetricId = 310 // NvLink write for link 24 in bytes since reboot
-	GpmMetricNvlinkL25Rx            GpmMetricId = 311 // NvLink read for link 25 in bytes since reboot
-	GpmMetricNvlinkL25Tx            GpmMetricId = 312 // NvLink write for link 25 in bytes since reboot
-	GpmMetricNvlinkL26Rx            GpmMetricId = 313 // NvLink read for link 26 in bytes since reboot
-	GpmMetricNvlinkL26Tx            GpmMetricId = 314 // NvLink write for link 26 in bytes since reboot
-	GpmMetricNvlinkL27Rx            GpmMetricId = 315 // NvLink read for link 27 in bytes since reboot
-	GpmMetricNvlinkL27Tx            GpmMetricId = 316 // NvLink write for link 27 in bytes since reboot
-	GpmMetricNvlinkL28Rx            GpmMetricId = 317 // NvLink read for link 28 in bytes since reboot
-	GpmMetricNvlinkL28Tx            GpmMetricId = 318 // NvLink write for link 28 in bytes since reboot
-	GpmMetricNvlinkL29Rx            GpmMetricId = 319 // NvLink read for link 29 in bytes since reboot
-	GpmMetricNvlinkL29Tx            GpmMetricId = 320 // NvLink write for link 29 in bytes since reboot
-	GpmMetricNvlinkL30Rx            GpmMetricId = 321 // NvLink read for link 30 in bytes since reboot
-	GpmMetricNvlinkL30Tx            GpmMetricId = 322 // NvLink write for link 30 in bytes since reboot
-	GpmMetricNvlinkL31Rx            GpmMetricId = 323 // NvLink read for link 31 in bytes since reboot
-	GpmMetricNvlinkL31Tx            GpmMetricId = 324 // NvLink write for link 31 in bytes since reboot
-	GpmMetricNvlinkL32Rx            GpmMetricId = 325 // NvLink read for link 32 in bytes since reboot
-	GpmMetricNvlinkL32Tx            GpmMetricId = 326 // NvLink write for link 32 in bytes since reboot
-	GpmMetricNvlinkL33Rx            GpmMetricId = 327 // NvLink read for link 33 in bytes since reboot
-	GpmMetricNvlinkL33Tx            GpmMetricId = 328 // NvLink write for link 33 in bytes since reboot
-	GpmMetricNvlinkL34Rx            GpmMetricId = 329 // NvLink read for link 34 in bytes since reboot
-	GpmMetricNvlinkL34Tx            GpmMetricId = 330 // NvLink write for link 34 in bytes since reboot
-	GpmMetricNvlinkL35Rx            GpmMetricId = 331 // NvLink read for link 35 in bytes since reboot
-	GpmMetricNvlinkL35Tx            GpmMetricId = 332 // NvLink write for link 35 in bytes since reboot
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2421,78 +2302,6 @@ func (e GpmMetricId) String() string {
 		return "GpmMetricGR7CtxswCyclesPerReq"
 	case GpmMetricGR7CtxswActivePct:
 		return "GpmMetricGR7CtxswActivePct"
-	case GpmMetricNvlinkL18RxPerSec:
-		return "GpmMetricNvlinkL18RxPerSec"
-	case GpmMetricNvlinkL18TxPerSec:
-		return "GpmMetricNvlinkL18TxPerSec"
-	case GpmMetricNvlinkL19RxPerSec:
-		return "GpmMetricNvlinkL19RxPerSec"
-	case GpmMetricNvlinkL19TxPerSec:
-		return "GpmMetricNvlinkL19TxPerSec"
-	case GpmMetricNvlinkL20RxPerSec:
-		return "GpmMetricNvlinkL20RxPerSec"
-	case GpmMetricNvlinkL20TxPerSec:
-		return "GpmMetricNvlinkL20TxPerSec"
-	case GpmMetricNvlinkL21RxPerSec:
-		return "GpmMetricNvlinkL21RxPerSec"
-	case GpmMetricNvlinkL21TxPerSec:
-		return "GpmMetricNvlinkL21TxPerSec"
-	case GpmMetricNvlinkL22RxPerSec:
-		return "GpmMetricNvlinkL22RxPerSec"
-	case GpmMetricNvlinkL22TxPerSec:
-		return "GpmMetricNvlinkL22TxPerSec"
-	case GpmMetricNvlinkL23RxPerSec:
-		return "GpmMetricNvlinkL23RxPerSec"
-	case GpmMetricNvlinkL23TxPerSec:
-		return "GpmMetricNvlinkL23TxPerSec"
-	case GpmMetricNvlinkL24RxPerSec:
-		return "GpmMetricNvlinkL24RxPerSec"
-	case GpmMetricNvlinkL24TxPerSec:
-		return "GpmMetricNvlinkL24TxPerSec"
-	case GpmMetricNvlinkL25RxPerSec:
-		return "GpmMetricNvlinkL25RxPerSec"
-	case GpmMetricNvlinkL25TxPerSec:
-		return "GpmMetricNvlinkL25TxPerSec"
-	case GpmMetricNvlinkL26RxPerSec:
-		return "GpmMetricNvlinkL26RxPerSec"
-	case GpmMetricNvlinkL26TxPerSec:
-		return "GpmMetricNvlinkL26TxPerSec"
-	case GpmMetricNvlinkL27RxPerSec:
-		return "GpmMetricNvlinkL27RxPerSec"
-	case GpmMetricNvlinkL27TxPerSec:
-		return "GpmMetricNvlinkL27TxPerSec"
-	case GpmMetricNvlinkL28RxPerSec:
-		return "GpmMetricNvlinkL28RxPerSec"
-	case GpmMetricNvlinkL28TxPerSec:
-		return "GpmMetricNvlinkL28TxPerSec"
-	case GpmMetricNvlinkL29RxPerSec:
-		return "GpmMetricNvlinkL29RxPerSec"
-	case GpmMetricNvlinkL29TxPerSec:
-		return "GpmMetricNvlinkL29TxPerSec"
-	case GpmMetricNvlinkL30RxPerSec:
-		return "GpmMetricNvlinkL30RxPerSec"
-	case GpmMetricNvlinkL30TxPerSec:
-		return "GpmMetricNvlinkL30TxPerSec"
-	case GpmMetricNvlinkL31RxPerSec:
-		return "GpmMetricNvlinkL31RxPerSec"
-	case GpmMetricNvlinkL31TxPerSec:
-		return "GpmMetricNvlinkL31TxPerSec"
-	case GpmMetricNvlinkL32RxPerSec:
-		return "GpmMetricNvlinkL32RxPerSec"
-	case GpmMetricNvlinkL32TxPerSec:
-		return "GpmMetricNvlinkL32TxPerSec"
-	case GpmMetricNvlinkL33RxPerSec:
-		return "GpmMetricNvlinkL33RxPerSec"
-	case GpmMetricNvlinkL33TxPerSec:
-		return "GpmMetricNvlinkL33TxPerSec"
-	case GpmMetricNvlinkL34RxPerSec:
-		return "GpmMetricNvlinkL34RxPerSec"
-	case GpmMetricNvlinkL34TxPerSec:
-		return "GpmMetricNvlinkL34TxPerSec"
-	case GpmMetricNvlinkL35RxPerSec:
-		return "GpmMetricNvlinkL35RxPerSec"
-	case GpmMetricNvlinkL35TxPerSec:
-		return "GpmMetricNvlinkL35TxPerSec"
 	case GpmMetricSmCyclesElapsed:
 		return "GpmMetricSmCyclesElapsed"
 	case GpmMetricSmCyclesActive:
@@ -2591,78 +2400,6 @@ func (e GpmMetricId) String() string {
 		return "GpmMetricNvlinkL17Rx"
 	case GpmMetricNvlinkL17Tx:
 		return "GpmMetricNvlinkL17Tx"
-	case GpmMetricNvlinkL18Rx:
-		return "GpmMetricNvlinkL18Rx"
-	case GpmMetricNvlinkL18Tx:
-		return "GpmMetricNvlinkL18Tx"
-	case GpmMetricNvlinkL19Rx:
-		return "GpmMetricNvlinkL19Rx"
-	case GpmMetricNvlinkL19Tx:
-		return "GpmMetricNvlinkL19Tx"
-	case GpmMetricNvlinkL20Rx:
-		return "GpmMetricNvlinkL20Rx"
-	case GpmMetricNvlinkL20Tx:
-		return "GpmMetricNvlinkL20Tx"
-	case GpmMetricNvlinkL21Rx:
-		return "GpmMetricNvlinkL21Rx"
-	case GpmMetricNvlinkL21Tx:
-		return "GpmMetricNvlinkL21Tx"
-	case GpmMetricNvlinkL22Rx:
-		return "GpmMetricNvlinkL22Rx"
-	case GpmMetricNvlinkL22Tx:
-		return "GpmMetricNvlinkL22Tx"
-	case GpmMetricNvlinkL23Rx:
-		return "GpmMetricNvlinkL23Rx"
-	case GpmMetricNvlinkL23Tx:
-		return "GpmMetricNvlinkL23Tx"
-	case GpmMetricNvlinkL24Rx:
-		return "GpmMetricNvlinkL24Rx"
-	case GpmMetricNvlinkL24Tx:
-		return "GpmMetricNvlinkL24Tx"
-	case GpmMetricNvlinkL25Rx:
-		return "GpmMetricNvlinkL25Rx"
-	case GpmMetricNvlinkL25Tx:
-		return "GpmMetricNvlinkL25Tx"
-	case GpmMetricNvlinkL26Rx:
-		return "GpmMetricNvlinkL26Rx"
-	case GpmMetricNvlinkL26Tx:
-		return "GpmMetricNvlinkL26Tx"
-	case GpmMetricNvlinkL27Rx:
-		return "GpmMetricNvlinkL27Rx"
-	case GpmMetricNvlinkL27Tx:
-		return "GpmMetricNvlinkL27Tx"
-	case GpmMetricNvlinkL28Rx:
-		return "GpmMetricNvlinkL28Rx"
-	case GpmMetricNvlinkL28Tx:
-		return "GpmMetricNvlinkL28Tx"
-	case GpmMetricNvlinkL29Rx:
-		return "GpmMetricNvlinkL29Rx"
-	case GpmMetricNvlinkL29Tx:
-		return "GpmMetricNvlinkL29Tx"
-	case GpmMetricNvlinkL30Rx:
-		return "GpmMetricNvlinkL30Rx"
-	case GpmMetricNvlinkL30Tx:
-		return "GpmMetricNvlinkL30Tx"
-	case GpmMetricNvlinkL31Rx:
-		return "GpmMetricNvlinkL31Rx"
-	case GpmMetricNvlinkL31Tx:
-		return "GpmMetricNvlinkL31Tx"
-	case GpmMetricNvlinkL32Rx:
-		return "GpmMetricNvlinkL32Rx"
-	case GpmMetricNvlinkL32Tx:
-		return "GpmMetricNvlinkL32Tx"
-	case GpmMetricNvlinkL33Rx:
-		return "GpmMetricNvlinkL33Rx"
-	case GpmMetricNvlinkL33Tx:
-		return "GpmMetricNvlinkL33Tx"
-	case GpmMetricNvlinkL34Rx:
-		return "GpmMetricNvlinkL34Rx"
-	case GpmMetricNvlinkL34Tx:
-		return "GpmMetricNvlinkL34Tx"
-	case GpmMetricNvlinkL35Rx:
-		return "GpmMetricNvlinkL35Rx"
-	case GpmMetricNvlinkL35Tx:
-		return "GpmMetricNvlinkL35Tx"
 	}
 	return fmt.Sprintf("GpmMetricId(%d)", e)
 }

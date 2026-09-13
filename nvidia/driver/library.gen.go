@@ -27,14 +27,13 @@ func (l Library) EnumerateKernels(kernels *Kernel, numKernels uint32) error {
 // One of the parameters dptr or bytes (not both) can be NULL in which
 // case it is ignored.
 //
-//   - bytes: Returned global size in bytes
 //   - name: Name of global to retrieve
 //
 // See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload], [Library.GetModule], [Module.GetGlobal]
 //
 // Wraps cuLibraryGetGlobal.
-func (l Library) GetGlobal(bytes *uint, name string) (DevicePtr, error) {
-	return libraryGetGlobal(bytes, l, name)
+func (l Library) GetGlobal(name string) (dptr DevicePtr, bytes uint, err error) {
+	return libraryGetGlobal(l, name)
 }
 
 // GetKernel Returns a kernel handle
@@ -69,14 +68,13 @@ func (l Library) GetKernelCount() (uint32, error) {
 // Note that managed memory for library library is shared across devices and is registered
 // when the library is loaded into atleast one context.
 //
-//   - bytes: Returned memory size in bytes
 //   - name: Name of managed memory to retrieve
 //
 // See also: [NewLibraryLoadData], [NewLibraryLoadFromFile], [Library.Unload]
 //
 // Wraps cuLibraryGetManaged.
-func (l Library) GetManaged(bytes *uint, name string) (DevicePtr, error) {
-	return libraryGetManaged(bytes, l, name)
+func (l Library) GetManaged(name string) (dptr DevicePtr, bytes uint, err error) {
+	return libraryGetManaged(l, name)
 }
 
 // GetModule Returns a module handle

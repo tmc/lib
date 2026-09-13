@@ -32,7 +32,7 @@ func TestNativeLegacyCapability(t *testing.T) {
 	if err := dev.ComputeCapability(&oldMajor, &oldMinor); err != nil {
 		t.Fatal(err)
 	}
-	if major <= 0 || int(oldMajor) != major || int(oldMinor) != minor {
+	if major <= 0 || oldMajor != major || oldMinor != minor {
 		t.Fatalf("legacy capability %d.%d, modern attributes %d.%d", oldMajor, oldMinor, major, minor)
 	}
 	t.Logf("legacy and modern capability agree: %d.%d", major, minor)

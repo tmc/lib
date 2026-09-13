@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/gen-dcgm",
+  "generator": "github.com/tmc/libgen/cmd/gen-dcgm",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "$TMPDIR/go-build638591037/b001/exe/gen-dcgm",
+    "$TMPDIR/go-build4272197740/b001/exe/gen-dcgm",
     "-headers",
     "cmd/gen-dcgm/headers",
     "-output",
@@ -13,11 +13,11 @@
   ],
   "inputs": [
     {
-      "path": "$HOME/go/src/github.com/tmc/codegen/cmd/gen-dcgm/headers/dcgm_agent.h",
+      "path": "$HOME/go/src/github.com/tmc/libgen/cmd/gen-dcgm/headers/dcgm_agent.h",
       "sha256": "1089cc2aff5e32d28d4a5f90d90b2c2742966549e37655933e5faf59da25c708"
     }
   ],
-  "source_hash": "f2483eb2dd4531d3cfe14d5d836ace0b4d013fe78c2a47dd00c73ae74e086578",
+  "source_hash": "3fbeff49d3c9c22a65ae3aef7aff343d2d5f8e51aa8885a550e7b517084b3b0f",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

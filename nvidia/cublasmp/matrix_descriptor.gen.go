@@ -15,7 +15,7 @@ import (
 // satisfy 0 <= rsrc < grid->nprow and 0 <= csrc < grid->npcol. The local leading
 // dimension lld must be large enough for the local allocation on the calling rank.
 // The grid object, when non-NULL, must outlive the descriptor. Redistribution
-// routines (Gemr2D and Trmr2D) also allow grid == NULL on
+// routines (cublasMpGemr2D and cublasMpTrmr2D) also allow grid == NULL on
 // ranks that do not participate in that matrix's process grid.
 //
 //   - m: in Number of rows in the global matrix
@@ -49,7 +49,7 @@ func (m MatrixDescriptor) Destroy() error {
 // additional memory. The same validity requirements apply: mb/nb/lld must be
 // positive and, when grid is non-NULL, rsrc/csrc must be valid source coordinates
 // for that grid. The grid object, when non-NULL, must outlive the descriptor.
-// Redistribution routines (Gemr2D and Trmr2D) also allow
+// Redistribution routines (cublasMpGemr2D and cublasMpTrmr2D) also allow
 // grid == NULL on ranks that do not participate in that matrix's process grid.
 //
 //   - m: in Number of rows in the global matrix

@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generator": "github.com/tmc/codegen/cmd/cufile-survey",
+  "generator": "github.com/tmc/libgen/cmd/cufile-survey",
   "upstream_version": "unrecorded",
   "version_source": "unrecorded",
-  "cwd": "$HOME/go/src/github.com/tmc/codegen",
+  "cwd": "$HOME/go/src/github.com/tmc/libgen",
   "argv": [
-    "$GOCACHE/4f/4f58acb251bcf4d5797aecc748d64f761ac0030a16bf4eb8bba32c1b1c0050cc-d/cufile-survey",
+    "$GOCACHE/69/696f4ae31cc49e4415c2694b40587f106cf5232738452ea630cccda4682fc913-d/cufile-survey",
     "-header",
-    "$HOME/go/src/github.com/tmc/cuda-headers/libcufile/cufile.h",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers/libcufile/cufile.h",
     "-headers-dir",
-    "$HOME/go/src/github.com/tmc/cuda-headers",
+    "$HOME/go/src/github.com/tmc/lib/nvidia/../../cuda-headers",
     "-output",
     "$HOME/go/src/github.com/tmc/lib/nvidia/cufile"
   ],
@@ -19,7 +19,7 @@
       "sha256": "1cffa2c536842568ddd361ca65c5f61a616f18844ce42071736a38e46e9cd791"
     }
   ],
-  "source_hash": "7fa555606756dc19db4e03855316b1b51a4dcfdd5b03ce9f4bd032d7efb18568",
+  "source_hash": "1186d3fa1ac734c5d1229fc5e854c5a33231a8feec90cc318486ac639546988e",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records the running executable, which may be a temporary go run binary; it is not a claim that this executable will remain available."

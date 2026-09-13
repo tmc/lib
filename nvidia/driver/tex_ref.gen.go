@@ -26,16 +26,15 @@ func (t TexRef) GetAddress() (DevicePtr, error) {
 
 // GetAddressMode Gets the addressing mode used by a texture reference.
 //
-// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - pam: Returned addressing mode
 //   - dim: Dimension
 //
 // Deprecated: Returns in *pam the addressing mode corresponding to the dimension dim of the texture reference hTexRef. Currently, the only valid value for dim are 0 and 1.
 //
 // Wraps cuTexRefGetAddressMode.
-func (t TexRef) GetAddressMode(pam *AddressMode, dim int32) error {
-	return texRefGetAddressMode(pam, t, dim)
+func (t TexRef) GetAddressMode(dim int32) (AddressMode, error) {
+	return texRefGetAddressMode(t, dim)
 }
 
 // GetArray Gets the array bound to a texture reference.
@@ -62,15 +61,13 @@ func (t TexRef) GetBorderColor() (float32, error) {
 
 // GetFilterMode Gets the filter-mode used by a texture reference.
 //
-// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pfm: Returned filtering mode
+// Returns in *pfm the filtering mode of the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFlags], [TexRef.GetFormat]
 //
 // Deprecated: Returns in *pfm the filtering mode of the texture reference hTexRef.
 //
 // Wraps cuTexRefGetFilterMode.
-func (t TexRef) GetFilterMode(pfm *FilterMode) error {
-	return texRefGetFilterMode(pfm, t)
+func (t TexRef) GetFilterMode() (FilterMode, error) {
+	return texRefGetFilterMode(t)
 }
 
 // GetFlags Gets the flags used by a texture reference.
@@ -86,68 +83,57 @@ func (t TexRef) GetFlags() (uint32, error) {
 
 // GetFormat Gets the format used by a texture reference.
 //
-// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags
-//
-//   - pFormat: Returned format pNumChannels- Returned number of components hTexRef- Texture reference
+// Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags]
 //
 // Deprecated: Returns in *pFormat and *pNumChannels the format and number of components of the CUDA array bound to the texture reference hTexRef. If pFormat or pNumChannels is NULL, it will be ignored.
 //
 // Wraps cuTexRefGetFormat.
-func (t TexRef) GetFormat(pFormat *ArrayFormat) (int32, error) {
-	return texRefGetFormat(pFormat, t)
+func (t TexRef) GetFormat() (pFormat ArrayFormat, pNumChannels int32, err error) {
+	return texRefGetFormat(t)
 }
 
 // GetMaxAnisotropy Gets the maximum anisotropy for a texture reference.
 //
-// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pmaxAniso: Returned maximum anisotropy
+// Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
 // Deprecated: Returns the maximum anisotropy in pmaxAniso that's used when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMaxAnisotropy.
-func (t TexRef) GetMaxAnisotropy(pmaxAniso *int32) error {
-	return texRefGetMaxAnisotropy(pmaxAniso, t)
+func (t TexRef) GetMaxAnisotropy() (int32, error) {
+	return texRefGetMaxAnisotropy(t)
 }
 
 // GetMipmapFilterMode Gets the mipmap filtering mode for a texture reference.
 //
-// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pfm: Returned mipmap filtering mode
+// Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
 // Deprecated: Returns the mipmap filtering mode in pfm that's used when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapFilterMode.
-func (t TexRef) GetMipmapFilterMode(pfm *FilterMode) error {
-	return texRefGetMipmapFilterMode(pfm, t)
+func (t TexRef) GetMipmapFilterMode() (FilterMode, error) {
+	return texRefGetMipmapFilterMode(t)
 }
 
 // GetMipmapLevelBias Gets the mipmap level bias for a texture reference.
 //
-// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pbias: Returned mipmap level bias
+// Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
 // Deprecated: Returns the mipmap level bias in pBias that's added to the specified mipmap level when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapLevelBias.
-func (t TexRef) GetMipmapLevelBias(pbias *float32) error {
-	return texRefGetMipmapLevelBias(pbias, t)
+func (t TexRef) GetMipmapLevelBias() (float32, error) {
+	return texRefGetMipmapLevelBias(t)
 }
 
 // GetMipmapLevelClamp Gets the min/max mipmap level clamps for a texture reference.
 //
-// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: cuTexRefSetAddress, cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
-//
-//   - pminMipmapLevelClamp: Returned mipmap min level clamp
-//   - pmaxMipmapLevelClamp: Returned mipmap max level clamp
+// Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef. See also: [TexRef.SetAddress], [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
 // Deprecated: Returns the min/max mipmap level clamps in pminMipmapLevelClamp and pmaxMipmapLevelClamp that's used when reading memory through the texture reference hTexRef.
 //
 // Wraps cuTexRefGetMipmapLevelClamp.
-func (t TexRef) GetMipmapLevelClamp(pminMipmapLevelClamp *float32, pmaxMipmapLevelClamp *float32) error {
-	return texRefGetMipmapLevelClamp(pminMipmapLevelClamp, pmaxMipmapLevelClamp, t)
+func (t TexRef) GetMipmapLevelClamp() (pminMipmapLevelClamp float32, pmaxMipmapLevelClamp float32, err error) {
+	return texRefGetMipmapLevelClamp(t)
 }
 
 // GetMipmappedArray Gets the mipmapped array bound to a texture reference.
@@ -163,17 +149,16 @@ func (t TexRef) GetMipmappedArray() (MipmappedArray, error) {
 
 // SetAddress Binds an address as a texture reference.
 //
-// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, cuTexRefSetAddress() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using cuTexRefSetFormat(). See also: cuTexRefSetAddress2D, cuTexRefSetAddressMode, cuTexRefSetArray, cuTexRefSetFilterMode, cuTexRefSetFlags, cuTexRefSetFormat, cuTexRefGetAddress, cuTexRefGetAddressMode, cuTexRefGetArray, cuTexRefGetFilterMode, cuTexRefGetFlags, cuTexRefGetFormat
+// Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress] passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc], the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as ( bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]. See also: [TexRef.SetAddress2D], [TexRef.SetAddressMode], [TexRef.SetArray], [TexRef.SetFilterMode], [TexRef.SetFlags], [TexRef.SetFormat], [TexRef.GetAddress], [TexRef.GetAddressMode], [TexRef.GetArray], [TexRef.GetFilterMode], [TexRef.GetFlags], [TexRef.GetFormat]
 //
-//   - ByteOffset: Returned byte offset
 //   - dptr: Device pointer to bind
 //   - bytes: Size of memory to bind in bytes
 //
-// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, TexRef.SetAddress() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc](), the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using TexRef.SetFormat().
+// Deprecated: Binds a linear address range to the texture reference hTexRef. Any previous address or CUDA array state associated with the texture reference is superseded by this function. Any memory previously bound to hTexRef is unbound. Since the hardware enforces an alignment requirement on texture base addresses, [TexRef.SetAddress]() passes back a byte offset in *ByteOffset that must be applied to texture fetches in order to read from the desired memory. This offset must be divided by the texel size and passed to kernels that read from the texture so they can be applied to the tex1Dfetch() function. If the device memory pointer was returned from [MemAlloc](), the offset is guaranteed to be 0 and NULL may be passed as the ByteOffset parameter. The total number of elements (or texels) in the linear address range cannot exceed [DevAttrMaximumTexture1dLinearWidth]. The number of elements is computed as (bytes / bytesPerElement), where bytesPerElement is determined from the data format and number of components set using [TexRef.SetFormat]().
 //
 // Wraps cuTexRefSetAddress, bound as cuTexRefSetAddress_v2.
-func (t TexRef) SetAddress(ByteOffset *uint, dptr DevicePtr, bytes uint) error {
-	return texRefSetAddress(ByteOffset, t, dptr, bytes)
+func (t TexRef) SetAddress(dptr DevicePtr, bytes uint) (uint, error) {
+	return texRefSetAddress(t, dptr, bytes)
 }
 
 // SetAddress2D Binds an address as a 2D texture reference.

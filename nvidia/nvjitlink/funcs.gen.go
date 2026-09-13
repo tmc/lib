@@ -25,35 +25,35 @@ var (
 	fnVersion            func(*uint32, *uint32) Result
 )
 
-// addData wraps nvJitLinkAddData, bound as __nvJitLinkAddData_13_0.
+// addData wraps nvJitLinkAddData, bound as __nvJitLinkAddData_13_2.
 func addData(handle Handle, inputType InputType, data unsafe.Pointer, size uint, name string) error {
-	if err := checkLibSym("__nvJitLinkAddData_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkAddData_13_2"); err != nil {
 		return err
 	}
 	cstr_name := append([]byte(name), 0)
 	return toError(fnaddData(handle, inputType, data, size, &cstr_name[0]))
 }
 
-// addFile wraps nvJitLinkAddFile, bound as __nvJitLinkAddFile_13_0.
+// addFile wraps nvJitLinkAddFile, bound as __nvJitLinkAddFile_13_2.
 func addFile(handle Handle, inputType InputType, fileName string) error {
-	if err := checkLibSym("__nvJitLinkAddFile_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkAddFile_13_2"); err != nil {
 		return err
 	}
 	cstr_fileName := append([]byte(fileName), 0)
 	return toError(fnaddFile(handle, inputType, &cstr_fileName[0]))
 }
 
-// complete wraps nvJitLinkComplete, bound as __nvJitLinkComplete_13_0.
+// complete wraps nvJitLinkComplete, bound as __nvJitLinkComplete_13_2.
 func complete(handle Handle) error {
-	if err := checkLibSym("__nvJitLinkComplete_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkComplete_13_2"); err != nil {
 		return err
 	}
 	return toError(fncomplete(handle))
 }
 
-// Create wraps nvJitLinkCreate, bound as __nvJitLinkCreate_13_0.
+// Create wraps nvJitLinkCreate, bound as __nvJitLinkCreate_13_2.
 func Create(options []string) (Handle, error) {
-	if err := checkLibSym("__nvJitLinkCreate_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkCreate_13_2"); err != nil {
 		return 0, err
 	}
 	var carg_options **byte
@@ -74,17 +74,17 @@ func Create(options []string) (Handle, error) {
 	return out, nil
 }
 
-// Destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_0.
+// Destroy wraps nvJitLinkDestroy, bound as __nvJitLinkDestroy_13_2.
 func Destroy(handle *Handle) error {
-	if err := checkLibSym("__nvJitLinkDestroy_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkDestroy_13_2"); err != nil {
 		return err
 	}
 	return toError(fnDestroy(handle))
 }
 
-// getErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_0.
+// getErrorLog wraps nvJitLinkGetErrorLog, bound as __nvJitLinkGetErrorLog_13_2.
 func getErrorLog(handle Handle) (string, error) {
-	if err := checkLibSym("__nvJitLinkGetErrorLog_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetErrorLog_13_2"); err != nil {
 		return "", err
 	}
 	size, err := getErrorLogSize(handle)
@@ -104,9 +104,9 @@ func getErrorLog(handle Handle) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_0.
+// getErrorLogSize wraps nvJitLinkGetErrorLogSize, bound as __nvJitLinkGetErrorLogSize_13_2.
 func getErrorLogSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetErrorLogSize_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetErrorLogSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -118,9 +118,9 @@ func getErrorLogSize(handle Handle) (uint, error) {
 	return out, nil
 }
 
-// getInfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_0.
+// getInfoLog wraps nvJitLinkGetInfoLog, bound as __nvJitLinkGetInfoLog_13_2.
 func getInfoLog(handle Handle) (string, error) {
-	if err := checkLibSym("__nvJitLinkGetInfoLog_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetInfoLog_13_2"); err != nil {
 		return "", err
 	}
 	size, err := getInfoLogSize(handle)
@@ -140,9 +140,9 @@ func getInfoLog(handle Handle) (string, error) {
 	return string(buf[:size]), nil
 }
 
-// getInfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_0.
+// getInfoLogSize wraps nvJitLinkGetInfoLogSize, bound as __nvJitLinkGetInfoLogSize_13_2.
 func getInfoLogSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetInfoLogSize_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetInfoLogSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -154,9 +154,9 @@ func getInfoLogSize(handle Handle) (uint, error) {
 	return out, nil
 }
 
-// getLinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_0.
+// getLinkedCubin wraps nvJitLinkGetLinkedCubin, bound as __nvJitLinkGetLinkedCubin_13_2.
 func getLinkedCubin(handle Handle) ([]byte, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedCubin_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetLinkedCubin_13_2"); err != nil {
 		return nil, err
 	}
 	size, err := getLinkedCubinSize(handle)
@@ -173,9 +173,9 @@ func getLinkedCubin(handle Handle) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getLinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_0.
+// getLinkedCubinSize wraps nvJitLinkGetLinkedCubinSize, bound as __nvJitLinkGetLinkedCubinSize_13_2.
 func getLinkedCubinSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedCubinSize_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetLinkedCubinSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
@@ -187,9 +187,9 @@ func getLinkedCubinSize(handle Handle) (uint, error) {
 	return out, nil
 }
 
-// getLinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_0.
+// getLinkedPtx wraps nvJitLinkGetLinkedPtx, bound as __nvJitLinkGetLinkedPtx_13_2.
 func getLinkedPtx(handle Handle) ([]byte, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedPtx_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetLinkedPtx_13_2"); err != nil {
 		return nil, err
 	}
 	size, err := getLinkedPtxSize(handle)
@@ -206,9 +206,9 @@ func getLinkedPtx(handle Handle) ([]byte, error) {
 	return buf[:size], nil
 }
 
-// getLinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_0.
+// getLinkedPtxSize wraps nvJitLinkGetLinkedPtxSize, bound as __nvJitLinkGetLinkedPtxSize_13_2.
 func getLinkedPtxSize(handle Handle) (uint, error) {
-	if err := checkLibSym("__nvJitLinkGetLinkedPtxSize_13_0"); err != nil {
+	if err := checkLibSym("__nvJitLinkGetLinkedPtxSize_13_2"); err != nil {
 		var zero uint
 		return zero, err
 	}
