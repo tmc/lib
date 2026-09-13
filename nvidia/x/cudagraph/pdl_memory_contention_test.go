@@ -594,9 +594,13 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 		defer exec.Destroy()
 
 		_ = startEv.Record(stream)
-		_ = exec.Launch(stream)
+		if err := exec.Launch(stream); err != nil {
+			t.Fatalf("launch: %v", err)
+		}
 		_ = stopEv.Record(stream)
-		_ = stream.Synchronize(context.Background())
+		if err := stream.Synchronize(context.Background()); err != nil {
+			t.Fatalf("synchronize: %v", err)
+		}
 		d, err := stopEv.ElapsedSince(startEv)
 		if err != nil {
 			t.Fatal(err)
@@ -607,11 +611,22 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	// Numerical validation: ensure hoisted output equals sequential baseline
 	_ = launchArm(cEntryFn, false) // NOPDL reference
 	hRef := make([]float32, rows)
-	_ = outBuf.CopyToHost(hRef)
+	if err := outBuf.CopyToHost(hRef); err != nil {
+		t.Fatalf("copy reference: %v", err)
+	}
 
+	poison := make([]float32, rows)
+	for i := range poison {
+		poison[i] = float32(math.NaN())
+	}
+	if err := outBuf.CopyFromHost(poison); err != nil {
+		t.Fatalf("poison output: %v", err)
+	}
 	_ = launchArm(cHoistFn, true) // PDL_HOISTED
 	hHoist := make([]float32, rows)
-	_ = outBuf.CopyToHost(hHoist)
+	if err := outBuf.CopyToHost(hHoist); err != nil {
+		t.Fatalf("copy hoisted: %v", err)
+	}
 
 	for r := 0; r < rows; r++ {
 		diff := math.Abs(float64(hRef[r] - hHoist[r]))
@@ -909,9 +924,13 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 				defer exec.Destroy()
 
 				_ = startEv.Record(stream)
-				_ = exec.Launch(stream)
+				if err := exec.Launch(stream); err != nil {
+					t.Fatalf("launch: %v", err)
+				}
 				_ = stopEv.Record(stream)
-				_ = stream.Synchronize(context.Background())
+				if err := stream.Synchronize(context.Background()); err != nil {
+					t.Fatalf("synchronize: %v", err)
+				}
 				d, err := stopEv.ElapsedSince(startEv)
 				if err != nil {
 					t.Fatal(err)
@@ -922,11 +941,22 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 			// Numerical validation
 			_ = launchArm(tc.entryFn, false) // NOPDL
 			hRef := make([]float32, rows)
-			_ = outBuf.CopyToHost(hRef)
+			if err := outBuf.CopyToHost(hRef); err != nil {
+				t.Fatalf("copy reference: %v", err)
+			}
 
+			poison := make([]float32, rows)
+			for i := range poison {
+				poison[i] = float32(math.NaN())
+			}
+			if err := outBuf.CopyFromHost(poison); err != nil {
+				t.Fatalf("poison output: %v", err)
+			}
 			_ = launchArm(tc.hoistFn, true) // PDL_HOISTED
 			hHoist := make([]float32, rows)
-			_ = outBuf.CopyToHost(hHoist)
+			if err := outBuf.CopyToHost(hHoist); err != nil {
+				t.Fatalf("copy hoisted: %v", err)
+			}
 
 			for r := 0; r < rows; r++ {
 				diff := math.Abs(float64(hRef[r] - hHoist[r]))
