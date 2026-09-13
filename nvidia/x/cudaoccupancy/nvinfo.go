@@ -12,10 +12,24 @@ import (
 // KernelResource records static hardware resource allocations for a compiled CUDA kernel.
 type KernelResource struct {
 	Name             string // Kernel function name
-	Registers        int    // Physical 32-bit registers allocated per thread
-	StaticSharedMem  int    // Static shared memory allocated per thread block in bytes
-	StackFrameBytes  int    // Local stack frame size per thread in bytes
-	ConstantBankSize int    // Constant memory parameter bank 0 size in bytes
+	Registers        int    // Physical 32-bit registers allocated per thread (from global .nv.info EIATTR_REGCOUNT)
+	// StaticSharedMem is the physical static shared memory allocation charged per CTA in bytes.
+	//
+	// On sm_121a and modern architectures, the driver charges an extra 1024 bytes
+	// (driver/hardware reservation) whenever a kernel declares shared memory:
+	//
+	//   Declared tile    ptxas -v          cuobjdump -res-usage / ELF .nv.shared size
+	//   64 B             64 bytes smem     SHARED:1088
+	//   4096 B           4096 bytes smem   SHARED:5120
+	//   8192 B           8192 bytes smem   SHARED:9216
+	//   none declared    (no line)         SHARED:0 (no .nv.shared section)
+	//
+	// StaticSharedMem records the actual ELF section size (e.g. 1088, 5120, 9216),
+	// which is what cuOccupancyMaxActiveBlocksPerMultiprocessor charges against the SM.
+	// (Similarly, MaxSharedMemoryOptin of 101376 B is 102400 - 1024 B).
+	StaticSharedMem  int
+	StackFrameBytes  int // Local stack frame size per thread in bytes (EIATTR_FRAME_SIZE)
+	ConstantBankSize int // Constant memory parameter bank 0 size in bytes (.nv.constant0 / EIATTR_PARAM_CBANK)
 }
 
 // InspectCubin parses a CUBIN ELF image and extracts resource usage for all kernels.
