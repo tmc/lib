@@ -141,14 +141,14 @@ func TestDecodeKernelVersions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		data              []byte
-		wantSize          int
-		wantPriority      int32
-		wantExecModel     uint32
-		wantSrcGraphID    uint32
-		wantSrcNodeID     uint64
-		customDecoder     func([]byte, func(uintptr) (string, error)) (cuptiactivity.KernelRecord, error)
+		name           string
+		data           []byte
+		wantSize       int
+		wantPriority   int32
+		wantExecModel  uint32
+		wantSrcGraphID uint32
+		wantSrcNodeID  uint64
+		customDecoder  func([]byte, func(uintptr) (string, error)) (cuptiactivity.KernelRecord, error)
 	}{
 		{
 			name:          "Kernel10",
@@ -172,14 +172,14 @@ func TestDecodeKernelVersions(t *testing.T) {
 			customDecoder: cuptiactivity.DecodeKernel12,
 		},
 		{
-			name:              "Kernel13",
-			data:              unsafe.Slice((*byte)(unsafe.Pointer(&k13)), int(unsafe.Sizeof(k13))),
-			wantSize:          248,
-			wantPriority:      -2,
-			wantExecModel:     3,
-			wantSrcGraphID:    77,
-			wantSrcNodeID:     88,
-			customDecoder:     cuptiactivity.DecodeKernel13,
+			name:           "Kernel13",
+			data:           unsafe.Slice((*byte)(unsafe.Pointer(&k13)), int(unsafe.Sizeof(k13))),
+			wantSize:       248,
+			wantPriority:   -2,
+			wantExecModel:  3,
+			wantSrcGraphID: 77,
+			wantSrcNodeID:  88,
+			customDecoder:  cuptiactivity.DecodeKernel13,
 		},
 	}
 

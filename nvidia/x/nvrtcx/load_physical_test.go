@@ -240,4 +240,3 @@ func TestPhysicalArchEmitsCUBINAndPTX(t *testing.T) {
 	defer dev.WithContext(mod.Unload)
 	t.Logf("Load succeeded on device with no driver JIT error!")
 }
-

@@ -416,9 +416,9 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 
 // declarativeKernelConfig configures declarative C++ Tile IR source generation.
 type declarativeKernelConfig struct {
-	Name      string
-	Precision string
-	M, N, K   int
+	Name       string
+	Precision  string
+	M, N, K    int
 	TM, TN, TK int
 }
 

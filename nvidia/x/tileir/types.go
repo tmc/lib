@@ -19,16 +19,16 @@ const (
 	KindInt4  TypeKind = 22
 
 	// Floating point types (tags 5-11, 18, 19, 0x82).
-	KindFloat16     TypeKind = 5
-	KindBFloat16    TypeKind = 6
-	KindFloat32     TypeKind = 7
-	KindTFloat32    TypeKind = 8
-	KindFloat64     TypeKind = 9
-	KindFloat8E4M3  TypeKind = 10
-	KindFloat8E5M2  TypeKind = 11
-	KindFloat8E8M0  TypeKind = 18
-	KindFloat4E2M1  TypeKind = 19
-	KindFloat8E5M3  TypeKind = 0x82
+	KindFloat16    TypeKind = 5
+	KindBFloat16   TypeKind = 6
+	KindFloat32    TypeKind = 7
+	KindTFloat32   TypeKind = 8
+	KindFloat64    TypeKind = 9
+	KindFloat8E4M3 TypeKind = 10
+	KindFloat8E5M2 TypeKind = 11
+	KindFloat8E8M0 TypeKind = 18
+	KindFloat4E2M1 TypeKind = 19
+	KindFloat8E5M3 TypeKind = 0x82
 
 	// Structural / composite types (tags 12-17, 20-21).
 	KindPointer       TypeKind = 12
@@ -113,7 +113,7 @@ type PrimitiveType struct {
 	name string
 }
 
-func (p PrimitiveType) Kind() TypeKind   { return p.kind }
+func (p PrimitiveType) Kind() TypeKind { return p.kind }
 func (p PrimitiveType) String() string { return p.name }
 func (p PrimitiveType) IsTile() bool   { return false }
 func (p PrimitiveType) IsNumber() bool { return true }
@@ -142,16 +142,16 @@ var (
 	Int32 = PrimitiveType{kind: KindInt32, name: "i32"}
 	Int64 = PrimitiveType{kind: KindInt64, name: "i64"}
 
-	Float16     = PrimitiveType{kind: KindFloat16, name: "f16"}
-	BFloat16    = PrimitiveType{kind: KindBFloat16, name: "bf16"}
-	Float32     = PrimitiveType{kind: KindFloat32, name: "f32"}
-	TFloat32    = PrimitiveType{kind: KindTFloat32, name: "tf32"}
-	Float64     = PrimitiveType{kind: KindFloat64, name: "f64"}
-	Float8E4M3  = PrimitiveType{kind: KindFloat8E4M3, name: "f8E4M3FN"}
-	Float8E5M2  = PrimitiveType{kind: KindFloat8E5M2, name: "f8E5M2"}
-	Float8E8M0  = PrimitiveType{kind: KindFloat8E8M0, name: "f8E8M0FNU"}
-	Float4E2M1  = PrimitiveType{kind: KindFloat4E2M1, name: "f4E2M1FN"}
-	Float8E5M3  = PrimitiveType{kind: KindFloat8E5M3, name: "f8E5M3FNU"}
+	Float16    = PrimitiveType{kind: KindFloat16, name: "f16"}
+	BFloat16   = PrimitiveType{kind: KindBFloat16, name: "bf16"}
+	Float32    = PrimitiveType{kind: KindFloat32, name: "f32"}
+	TFloat32   = PrimitiveType{kind: KindTFloat32, name: "tf32"}
+	Float64    = PrimitiveType{kind: KindFloat64, name: "f64"}
+	Float8E4M3 = PrimitiveType{kind: KindFloat8E4M3, name: "f8E4M3FN"}
+	Float8E5M2 = PrimitiveType{kind: KindFloat8E5M2, name: "f8E5M2"}
+	Float8E8M0 = PrimitiveType{kind: KindFloat8E8M0, name: "f8E8M0FNU"}
+	Float4E2M1 = PrimitiveType{kind: KindFloat4E2M1, name: "f4E2M1FN"}
+	Float8E5M3 = PrimitiveType{kind: KindFloat8E5M3, name: "f8E5M3FNU"}
 )
 
 // PointerType represents a typed global device pointer.
@@ -160,7 +160,7 @@ type PointerType struct {
 	Attr    string // optional pointer classification (e.g. none)
 }
 
-func (p *PointerType) Kind() TypeKind   { return KindPointer }
+func (p *PointerType) Kind() TypeKind { return KindPointer }
 func (p *PointerType) IsTile() bool   { return false }
 func (p *PointerType) IsNumber() bool { return false }
 func (p *PointerType) IsFloat() bool  { return false }
@@ -181,7 +181,7 @@ type TileType struct {
 	ElementType Type
 }
 
-func (t *TileType) Kind() TypeKind   { return KindTile }
+func (t *TileType) Kind() TypeKind { return KindTile }
 func (t *TileType) IsTile() bool   { return true }
 func (t *TileType) IsNumber() bool { return false }
 func (t *TileType) IsFloat() bool  { return false }
@@ -228,7 +228,7 @@ func (t *TileType) String() string {
 // TokenType represents a synchronization token for ordering asynchronous TMA transfers.
 type TokenType struct{}
 
-func (TokenType) Kind() TypeKind   { return KindToken }
+func (TokenType) Kind() TypeKind { return KindToken }
 func (TokenType) String() string { return "!cuda_tile.token" }
 func (TokenType) IsTile() bool   { return false }
 func (TokenType) IsNumber() bool { return false }
@@ -244,7 +244,7 @@ type FunctionType struct {
 	Results []Type
 }
 
-func (f *FunctionType) Kind() TypeKind   { return KindFunction }
+func (f *FunctionType) Kind() TypeKind { return KindFunction }
 func (f *FunctionType) IsTile() bool   { return false }
 func (f *FunctionType) IsNumber() bool { return false }
 func (f *FunctionType) IsFloat() bool  { return false }
@@ -277,7 +277,7 @@ type TensorViewType struct {
 	ElementType Type
 }
 
-func (v *TensorViewType) Kind() TypeKind   { return KindTensorView }
+func (v *TensorViewType) Kind() TypeKind { return KindTensorView }
 func (v *TensorViewType) IsTile() bool   { return false }
 func (v *TensorViewType) IsNumber() bool { return false }
 func (v *TensorViewType) IsFloat() bool  { return false }
@@ -303,7 +303,7 @@ type PartitionViewType struct {
 	ElementType Type
 }
 
-func (p *PartitionViewType) Kind() TypeKind   { return KindPartitionView }
+func (p *PartitionViewType) Kind() TypeKind { return KindPartitionView }
 func (p *PartitionViewType) IsTile() bool   { return false }
 func (p *PartitionViewType) IsNumber() bool { return false }
 func (p *PartitionViewType) IsFloat() bool  { return false }
@@ -317,7 +317,7 @@ type StridedViewType struct {
 	ElementType Type
 }
 
-func (s *StridedViewType) Kind() TypeKind   { return KindStridedView }
+func (s *StridedViewType) Kind() TypeKind { return KindStridedView }
 func (s *StridedViewType) IsTile() bool   { return false }
 func (s *StridedViewType) IsNumber() bool { return false }
 func (s *StridedViewType) IsFloat() bool  { return false }
@@ -331,7 +331,7 @@ type GatherScatterViewType struct {
 	ElementType Type
 }
 
-func (g *GatherScatterViewType) Kind() TypeKind   { return KindGatherScatter }
+func (g *GatherScatterViewType) Kind() TypeKind { return KindGatherScatter }
 func (g *GatherScatterViewType) IsTile() bool   { return false }
 func (g *GatherScatterViewType) IsNumber() bool { return false }
 func (g *GatherScatterViewType) IsFloat() bool  { return false }

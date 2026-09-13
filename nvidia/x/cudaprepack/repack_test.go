@@ -19,14 +19,14 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "valid sm_121a 2d box",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat16,
-				GlobalAddress: 0x1000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{128, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1}, // 64 * 2 bytes = 128 bytes
+				Rank:           2,
+				DataType:       TypeFloat16,
+				GlobalAddress:  0x1000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{128, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1}, // 64 * 2 bytes = 128 bytes
 				ElementStrides: [3]uint32{1, 1, 1},
-				Swizzle:       SwizzleNone,
+				Swizzle:        SwizzleNone,
 			},
 			arch:    ArchSM121a,
 			wantErr: "",
@@ -34,12 +34,12 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "unaligned global address",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat16,
-				GlobalAddress: 0x1008, // Not 16-byte aligned (offset 8)
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{128, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1},
+				Rank:           2,
+				DataType:       TypeFloat16,
+				GlobalAddress:  0x1008, // Not 16-byte aligned (offset 8)
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{128, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1},
 				ElementStrides: [3]uint32{1, 1, 1},
 			},
 			arch:    ArchSM121a,
@@ -48,12 +48,12 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "box width exceeds sm_121a 128-byte limit",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat32,
-				GlobalAddress: 0x2000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{256, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1}, // 64 * 4 bytes = 256 bytes > 128 bytes
+				Rank:           2,
+				DataType:       TypeFloat32,
+				GlobalAddress:  0x2000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{256, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1}, // 64 * 4 bytes = 256 bytes > 128 bytes
 				ElementStrides: [3]uint32{1, 1, 1},
 			},
 			arch:    ArchSM121a,
@@ -62,14 +62,14 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "box width 256 bytes permitted on sm_100a unswizzled",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat32,
-				GlobalAddress: 0x2000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{256, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1}, // 256 bytes
+				Rank:           2,
+				DataType:       TypeFloat32,
+				GlobalAddress:  0x2000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{256, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1}, // 256 bytes
 				ElementStrides: [3]uint32{1, 1, 1},
-				Swizzle:       SwizzleNone,
+				Swizzle:        SwizzleNone,
 			},
 			arch:    ArchSM100a,
 			wantErr: "",
@@ -77,14 +77,14 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "sm_121a rejects tcgen05 atom swizzle",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat16,
-				GlobalAddress: 0x1000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{128, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1},
+				Rank:           2,
+				DataType:       TypeFloat16,
+				GlobalAddress:  0x1000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{128, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1},
 				ElementStrides: [3]uint32{1, 1, 1},
-				Swizzle:       Swizzle128BAtom32B,
+				Swizzle:        Swizzle128BAtom32B,
 			},
 			arch:    ArchSM121a,
 			wantErr: "rejects tcgen05 swizzle mode",
@@ -92,14 +92,14 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "sm_100a accepts tcgen05 atom swizzle",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat16,
-				GlobalAddress: 0x1000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{128, 0, 0},
-				BoxDims:       [3]uint32{64, 32, 1},
+				Rank:           2,
+				DataType:       TypeFloat16,
+				GlobalAddress:  0x1000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{128, 0, 0},
+				BoxDims:        [3]uint32{64, 32, 1},
 				ElementStrides: [3]uint32{1, 1, 1},
-				Swizzle:       Swizzle128BAtom32B,
+				Swizzle:        Swizzle128BAtom32B,
 			},
 			arch:    ArchSM100a,
 			wantErr: "",
@@ -107,12 +107,12 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 		{
 			name: "unaligned row stride",
 			desc: BoxDescriptor{
-				Rank:          2,
-				DataType:      TypeFloat16,
-				GlobalAddress: 0x1000,
-				GlobalDims:    [3]uint64{64, 64, 1},
-				GlobalStrides: [3]int64{130, 0, 0}, // 130 not divisible by 16
-				BoxDims:       [3]uint32{64, 32, 1},
+				Rank:           2,
+				DataType:       TypeFloat16,
+				GlobalAddress:  0x1000,
+				GlobalDims:     [3]uint64{64, 64, 1},
+				GlobalStrides:  [3]int64{130, 0, 0}, // 130 not divisible by 16
+				BoxDims:        [3]uint32{64, 32, 1},
 				ElementStrides: [3]uint32{1, 1, 1},
 			},
 			arch:    ArchSM121a,
@@ -293,7 +293,7 @@ func TestRepackMXFP4(t *testing.T) {
 
 	// Populate with known values
 	for i := range src {
-		src[i] = float32((i%13) - 6)
+		src[i] = float32((i % 13) - 6)
 	}
 
 	prepacked, err := PackMXFP4(src, rows, cols, 32)
@@ -369,8 +369,8 @@ func TestSparsity2to4(t *testing.T) {
 	dense := []float32{
 		10.0, 0.0, 20.0, 0.0, // top 2 are idx 0 and 2
 		0.0, 30.0, 0.0, 40.0, // top 2 are idx 1 and 3
-		5.0, 6.0, 0.0, 0.0,   // top 2 are idx 0 and 1
-		0.0, 0.0, 7.0, 8.0,   // top 2 are idx 2 and 3
+		5.0, 6.0, 0.0, 0.0, // top 2 are idx 0 and 1
+		0.0, 0.0, 7.0, 8.0, // top 2 are idx 2 and 3
 	}
 
 	sparse, meta, err := Compress2to4(dense, rows, cols)
@@ -462,12 +462,12 @@ func TestBinarySerializationAndZeroCopy(t *testing.T) {
 		Arch: ArchSM121a,
 		Type: TypeQ8_0,
 		BoxDesc: BoxDescriptor{
-			Rank:          2,
-			DataType:      TypeQ8_0,
-			GlobalAddress: 0x4000,
-			GlobalDims:    [3]uint64{128, 64, 1},
-			GlobalStrides: [3]int64{128, 0, 0},
-			BoxDims:       [3]uint32{128, 32, 1},
+			Rank:           2,
+			DataType:       TypeQ8_0,
+			GlobalAddress:  0x4000,
+			GlobalDims:     [3]uint64{128, 64, 1},
+			GlobalStrides:  [3]int64{128, 0, 0},
+			BoxDims:        [3]uint32{128, 32, 1},
 			ElementStrides: [3]uint32{1, 1, 1},
 		},
 		Payload:  make([]byte, 64*128),
@@ -531,15 +531,15 @@ func TestBinarySerializationAndZeroCopy(t *testing.T) {
 
 func TestEncodeTensorMap(t *testing.T) {
 	desc := BoxDescriptor{
-		Rank:          2,
-		DataType:      TypeFloat16,
-		GlobalAddress: 0x8000,
-		GlobalDims:    [3]uint64{256, 128, 1},
-		GlobalStrides: [3]int64{512, 0, 0},
-		BoxDims:       [3]uint32{64, 32, 1},
+		Rank:           2,
+		DataType:       TypeFloat16,
+		GlobalAddress:  0x8000,
+		GlobalDims:     [3]uint64{256, 128, 1},
+		GlobalStrides:  [3]int64{512, 0, 0},
+		BoxDims:        [3]uint32{64, 32, 1},
 		ElementStrides: [3]uint32{1, 1, 1},
-		Swizzle:       Swizzle128B,
-		Interleave:    InterleaveNone,
+		Swizzle:        Swizzle128B,
+		Interleave:     InterleaveNone,
 	}
 
 	encoded, err := desc.EncodeTensorMap()

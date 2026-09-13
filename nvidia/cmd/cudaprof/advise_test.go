@@ -1435,12 +1435,12 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 	binary.Write(&nv3, binary.LittleEndian, uint32(65536))
 
 	sections := map[string][]byte{
-		".text.spilling_kernel":         make([]byte, 32),
-		".nv.info.spilling_kernel":      nv1.Bytes(),
-		".text.reg_limited_kernel":      make([]byte, 32),
-		".nv.info.reg_limited_kernel":   nv2.Bytes(),
-		".text.smem_limited_kernel":     make([]byte, 32),
-		".nv.info.smem_limited_kernel":  nv3.Bytes(),
+		".text.spilling_kernel":        make([]byte, 32),
+		".nv.info.spilling_kernel":     nv1.Bytes(),
+		".text.reg_limited_kernel":     make([]byte, 32),
+		".nv.info.reg_limited_kernel":  nv2.Bytes(),
+		".text.smem_limited_kernel":    make([]byte, 32),
+		".nv.info.smem_limited_kernel": nv3.Bytes(),
 	}
 
 	cubinBytes := synthesizeTestELFForAdvise(sections)
@@ -1561,9 +1561,9 @@ func synthesizeTestELFForAdvise(sections map[string][]byte) []byte {
 
 	ehdr := make([]byte, 64)
 	copy(ehdr[0:4], []byte("\x7fELF"))
-	ehdr[4] = 2   // 64-bit
-	ehdr[5] = 1   // Little-endian
-	ehdr[6] = 1   // Version 1
+	ehdr[4] = 2                                     // 64-bit
+	ehdr[5] = 1                                     // Little-endian
+	ehdr[6] = 1                                     // Version 1
 	binary.LittleEndian.PutUint16(ehdr[16:18], 1)   // ET_REL
 	binary.LittleEndian.PutUint16(ehdr[18:20], 190) // EM_CUDA
 	binary.LittleEndian.PutUint32(ehdr[20:24], 1)   // EV_CURRENT
@@ -1601,4 +1601,3 @@ func synthesizeTestELFForAdvise(sections map[string][]byte) []byte {
 
 	return buf.Bytes()
 }
-

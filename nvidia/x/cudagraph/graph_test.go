@@ -344,4 +344,3 @@ func TestGraphCaptureWithPDL(t *testing.T) {
 		t.Fatalf("Synchronize failed: %v", err)
 	}
 }
-

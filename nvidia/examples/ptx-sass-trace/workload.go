@@ -39,12 +39,12 @@ type launchRecorder struct {
 	prof     *cudaprof.Session
 	ptxLines []uint64
 
-	mu          sync.Mutex
-	stacks      map[string][]cudaprof.Frame
+	mu     sync.Mutex
+	stacks map[string][]cudaprof.Frame
 	// ambiguous holds the kernels launched from more than one distinct stack.
 	// One of several stacks is not attribution, so those kernels report none.
-	ambiguous   map[string]bool
-	labels      map[string]map[string]string
+	ambiguous map[string]bool
+	labels    map[string]map[string]string
 	// seenKeys holds every label key any launch carried, kept so the keys no PC
 	// sample can reach are a measurement rather than a fixed list.
 	seenKeys    map[string]bool

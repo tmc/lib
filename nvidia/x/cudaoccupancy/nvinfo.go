@@ -11,8 +11,8 @@ import (
 
 // KernelResource records static hardware resource allocations for a compiled CUDA kernel.
 type KernelResource struct {
-	Name             string // Kernel function name
-	Registers        int    // Physical 32-bit registers allocated per thread (from global .nv.info EIATTR_REGCOUNT)
+	Name      string // Kernel function name
+	Registers int    // Physical 32-bit registers allocated per thread (from global .nv.info EIATTR_REGCOUNT)
 	// StaticSharedMem is the physical static shared memory allocation charged per CTA in bytes.
 	//
 	// On sm_121a and modern architectures, the driver charges an extra 1024 bytes
@@ -143,13 +143,13 @@ func ParseELF(f *elf.File) ([]KernelResource, error) {
 
 // ELF attribute IDs in NVIDIA .nv.info sections.
 const (
-	AttrParamCBank          = 0x0a // EIATTR_PARAM_CBANK (constant bank parameter offset & size)
-	AttrFrameSize           = 0x11 // EIATTR_FRAME_SIZE (per-thread stack frame bytes)
-	AttrMinStackSize        = 0x12 // EIATTR_MIN_STACK_SIZE
-	AttrMaxRegCount         = 0x1b // EIATTR_MAXREG_COUNT (compiler register ceiling)
-	AttrRegCount            = 0x2f // EIATTR_REGCOUNT / EIATTR_REG_COUNT (registers per thread)
-	AttrSharedScratch       = 0x30 // EIATTR_SHARED_SCRATCH / EIATTR_SHARED_SIZE_SYSMEM
-	AttrReservedSmem0Size   = 0x3e // EIATTR_RESERVED_SMEM_0_SIZE
+	AttrParamCBank        = 0x0a // EIATTR_PARAM_CBANK (constant bank parameter offset & size)
+	AttrFrameSize         = 0x11 // EIATTR_FRAME_SIZE (per-thread stack frame bytes)
+	AttrMinStackSize      = 0x12 // EIATTR_MIN_STACK_SIZE
+	AttrMaxRegCount       = 0x1b // EIATTR_MAXREG_COUNT (compiler register ceiling)
+	AttrRegCount          = 0x2f // EIATTR_REGCOUNT / EIATTR_REG_COUNT (registers per thread)
+	AttrSharedScratch     = 0x30 // EIATTR_SHARED_SCRATCH / EIATTR_SHARED_SIZE_SYSMEM
+	AttrReservedSmem0Size = 0x3e // EIATTR_RESERVED_SMEM_0_SIZE
 )
 
 // Legacy and specification aliases for attribute IDs.

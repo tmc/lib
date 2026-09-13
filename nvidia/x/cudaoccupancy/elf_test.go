@@ -352,9 +352,9 @@ func synthesizeTestELF(sections map[string][]byte) []byte {
 
 	ehdr := make([]byte, 64)
 	copy(ehdr[0:4], []byte("\x7fELF"))
-	ehdr[4] = 2   // 64-bit
-	ehdr[5] = 1   // Little-endian
-	ehdr[6] = 1   // Version 1
+	ehdr[4] = 2                                     // 64-bit
+	ehdr[5] = 1                                     // Little-endian
+	ehdr[6] = 1                                     // Version 1
 	binary.LittleEndian.PutUint16(ehdr[16:18], 1)   // ET_REL
 	binary.LittleEndian.PutUint16(ehdr[18:20], 190) // EM_CUDA
 	binary.LittleEndian.PutUint32(ehdr[20:24], 1)   // EV_CURRENT

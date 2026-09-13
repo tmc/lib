@@ -14,11 +14,11 @@ const (
 
 // Hardware alignment and box constraints.
 const (
-	MinAddressAlignment     = 16  // TMA requires 16-byte base address alignment
-	MinBoxWidthBytes        = 16  // TMA box width must be at least 16 bytes
-	MaxBoxWidthBytesSM121a  = 128 // sm_121a max box width in bytes
-	MaxBoxWidthBytesSM100a  = 128 // sm_100a swizzled max box width in bytes
-	BoxBoundaryBytesSM121a  = 128 // sm_121a box boundary constraint
+	MinAddressAlignment    = 16  // TMA requires 16-byte base address alignment
+	MinBoxWidthBytes       = 16  // TMA box width must be at least 16 bytes
+	MaxBoxWidthBytesSM121a = 128 // sm_121a max box width in bytes
+	MaxBoxWidthBytesSM100a = 128 // sm_100a swizzled max box width in bytes
+	BoxBoundaryBytesSM121a = 128 // sm_121a box boundary constraint
 )
 
 // DataType identifies tensor element precision and packing format.
@@ -61,11 +61,11 @@ func (d DataType) SubByte() bool {
 type SwizzleMode uint32
 
 const (
-	SwizzleNone              SwizzleMode = 0
-	Swizzle32B               SwizzleMode = 1
-	Swizzle64B               SwizzleMode = 2
-	Swizzle128B              SwizzleMode = 3
-	Swizzle128BAtom32B       SwizzleMode = 4 // sm_100a tcgen05 atom swizzle
+	SwizzleNone        SwizzleMode = 0
+	Swizzle32B         SwizzleMode = 1
+	Swizzle64B         SwizzleMode = 2
+	Swizzle128B        SwizzleMode = 3
+	Swizzle128BAtom32B SwizzleMode = 4 // sm_100a tcgen05 atom swizzle
 )
 
 // String returns the human-readable swizzle mode name.
@@ -134,7 +134,7 @@ func (b *BoxDescriptor) Validate(arch string) error {
 
 	// Compute box width in bytes
 	bitsPerElem := b.DataType.BitsPerElement()
-	boxWidthBytes := (int(b.BoxDims[0]) * bitsPerElem + 7) / 8
+	boxWidthBytes := (int(b.BoxDims[0])*bitsPerElem + 7) / 8
 	if boxWidthBytes < MinBoxWidthBytes {
 		return fmt.Errorf("cudaprepack: box width (%d bytes) less than minimum %d bytes", boxWidthBytes, MinBoxWidthBytes)
 	}
@@ -176,7 +176,7 @@ func (b *BoxDescriptor) Validate(arch string) error {
 // BoxSizeBytes returns the byte size of one 2D or 3D box tile.
 func (b *BoxDescriptor) BoxSizeBytes() int {
 	bitsPerElem := b.DataType.BitsPerElement()
-	wBytes := (int(b.BoxDims[0]) * bitsPerElem + 7) / 8
+	wBytes := (int(b.BoxDims[0])*bitsPerElem + 7) / 8
 	h := int(b.BoxDims[1])
 	d := 1
 	if b.Rank == 3 && b.BoxDims[2] > 0 {

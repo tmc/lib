@@ -147,4 +147,3 @@ func TestLaunchAttributes(t *testing.T) {
 		t.Errorf("attrs[1].Id = %v, want %v", attrs[1].Id, driver.LaunchAttributeCooperative)
 	}
 }
-

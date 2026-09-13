@@ -1001,7 +1001,7 @@ func generateDocs(docsDir, docout string, types []typeInfo) ([]byte, int, error)
 	ch11Path := filepath.Join(docsDir, "11-directives.md")
 	if ch11, err := os.ReadFile(ch11Path); err == nil {
 		ch11Text := string(ch11)
-		headers11 := regexp.MustCompile(`(?m)^### 11\.\d+\.\d+\.\s+[^:]+:\s*` + "`" + `(\.[a-z0-9_]+)` + "`").FindAllStringSubmatchIndex(ch11Text, -1)
+		headers11 := regexp.MustCompile(`(?m)^### 11\.\d+\.\d+\.\s+[^:]+:\s*`+"`"+`(\.[a-z0-9_]+)`+"`").FindAllStringSubmatchIndex(ch11Text, -1)
 		for i, idxs := range headers11 {
 			name := ch11Text[idxs[2]:idxs[3]]
 			startPos := idxs[1]

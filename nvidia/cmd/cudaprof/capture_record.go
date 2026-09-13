@@ -324,4 +324,3 @@ Options:
   --require-complete            require complete capture without dropped records
   --follow-children             follow spawned child processes`)
 }
-

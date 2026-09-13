@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func TestFragmentationCalculation(t *testing.T) {

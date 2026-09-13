@@ -94,10 +94,10 @@ func TestLookupDocUnknown(t *testing.T) {
 
 func TestCategoryProperties(t *testing.T) {
 	tests := []struct {
-		cat         tileir.Category
-		name        string
-		isCompute   bool
-		isMemory    bool
+		cat       tileir.Category
+		name      string
+		isCompute bool
+		isMemory  bool
 	}{
 		{tileir.CatComputeMMA, "Tensor Core MMA", true, false},
 		{tileir.CatComputeElement, "Compute Elementwise", true, false},

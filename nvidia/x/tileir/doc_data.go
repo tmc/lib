@@ -10,17 +10,17 @@ import (
 type Category uint8
 
 const (
-	CatUnknown Category = iota
-	CatTileMemory       // TMA loads/stores, views, partition views
-	CatComputeMMA       // Tensor Core matrix multiply-accumulate
-	CatComputeElement   // Elementwise vector arithmetic and transcendental functions
-	CatComputeInteger   // Packed integer arithmetic
-	CatShapeLayout      // Reshape, permute, broadcast, convert_layout
-	CatReduction        // Reductions and scans across tile dimensions
-	CatSyncToken        // Token creation and join operations
-	CatControlFlow      // Loops, conditionals, returns
-	CatIndexing         // Grid/Block ID and tensor shape queries
-	CatTypeCast         // Bitcast, floating-point conversions
+	CatUnknown        Category = iota
+	CatTileMemory              // TMA loads/stores, views, partition views
+	CatComputeMMA              // Tensor Core matrix multiply-accumulate
+	CatComputeElement          // Elementwise vector arithmetic and transcendental functions
+	CatComputeInteger          // Packed integer arithmetic
+	CatShapeLayout             // Reshape, permute, broadcast, convert_layout
+	CatReduction               // Reductions and scans across tile dimensions
+	CatSyncToken               // Token creation and join operations
+	CatControlFlow             // Loops, conditionals, returns
+	CatIndexing                // Grid/Block ID and tensor shape queries
+	CatTypeCast                // Bitcast, floating-point conversions
 )
 
 // String returns the human-readable category name.
@@ -68,13 +68,13 @@ type OpDoc struct {
 	Mnemonic         string   `json:"mnemonic"`                    // e.g. "load_view_tko"
 	Category         Category `json:"category"`                    // Functional classification
 	Summary          string   `json:"summary"`                     // 1-2 sentence overview
-	Syntax           []string `json:"syntax,omitempty"`             // MLIR textual prototype(s)
-	Description      string   `json:"description,omitempty"`        // Architectural behavior prose
-	MinArch          string   `json:"min_arch,omitempty"`           // e.g. "sm_90" (Hopper) or "sm_100" (Blackwell)
-	TokenInputs      int      `json:"token_inputs,omitempty"`       // Number of consumed tokens
-	TokenOutputs     int      `json:"token_outputs,omitempty"`      // Number of produced tokens
-	OperandTypes     []string `json:"operand_types,omitempty"`      // Acceptable operand type constraints
-	ResultTypes      []string `json:"result_types,omitempty"`       // Acceptable result type constraints
+	Syntax           []string `json:"syntax,omitempty"`            // MLIR textual prototype(s)
+	Description      string   `json:"description,omitempty"`       // Architectural behavior prose
+	MinArch          string   `json:"min_arch,omitempty"`          // e.g. "sm_90" (Hopper) or "sm_100" (Blackwell)
+	TokenInputs      int      `json:"token_inputs,omitempty"`      // Number of consumed tokens
+	TokenOutputs     int      `json:"token_outputs,omitempty"`     // Number of produced tokens
+	OperandTypes     []string `json:"operand_types,omitempty"`     // Acceptable operand type constraints
+	ResultTypes      []string `json:"result_types,omitempty"`      // Acceptable result type constraints
 	HardwareLowering string   `json:"hardware_lowering,omitempty"` // Target PTX/SASS instruction (e.g. "cp.async.bulk.tensor", "wgmma")
 	FallbackHazards  []string `json:"fallback_hazards,omitempty"`  // Fallback hazards if rejected by compiler
 }
@@ -222,10 +222,10 @@ var rawOpDocs = []*OpDoc{
 
 	// Vector Floating-Point Arithmetic
 	{
-		Mnemonic: "add_f",
-		Category: CatComputeElement,
-		Summary:  "Elementwise floating-point addition across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.add_f %a, %b : !cuda_tile.tile<...>"},
+		Mnemonic:        "add_f",
+		Category:        CatComputeElement,
+		Summary:         "Elementwise floating-point addition across tile elements.",
+		Syntax:          []string{"%res = cuda_tile.add_f %a, %b : !cuda_tile.tile<...>"},
 		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_f when computing matrix multiplications"},
 	},
 	{
@@ -235,10 +235,10 @@ var rawOpDocs = []*OpDoc{
 		Syntax:   []string{"%res = cuda_tile.sub_f %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "mul_f",
-		Category: CatComputeElement,
-		Summary:  "Elementwise floating-point multiplication across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.mul_f %a, %b : !cuda_tile.tile<...>"},
+		Mnemonic:        "mul_f",
+		Category:        CatComputeElement,
+		Summary:         "Elementwise floating-point multiplication across tile elements.",
+		Syntax:          []string{"%res = cuda_tile.mul_f %a, %b : !cuda_tile.tile<...>"},
 		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_f when computing matrix multiplications"},
 	},
 	{
@@ -275,10 +275,10 @@ var rawOpDocs = []*OpDoc{
 
 	// Vector Integer Arithmetic
 	{
-		Mnemonic: "add_i",
-		Category: CatComputeInteger,
-		Summary:  "Elementwise integer addition across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.add_i %a, %b : !cuda_tile.tile<...>"},
+		Mnemonic:        "add_i",
+		Category:        CatComputeInteger,
+		Summary:         "Elementwise integer addition across tile elements.",
+		Syntax:          []string{"%res = cuda_tile.add_i %a, %b : !cuda_tile.tile<...>"},
 		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_i when computing matrix multiplications"},
 	},
 	{
@@ -288,10 +288,10 @@ var rawOpDocs = []*OpDoc{
 		Syntax:   []string{"%res = cuda_tile.sub_i %a, %b : !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "mul_i",
-		Category: CatComputeInteger,
-		Summary:  "Elementwise integer multiplication across tile elements.",
-		Syntax:   []string{"%res = cuda_tile.mul_i %a, %b : !cuda_tile.tile<...>"},
+		Mnemonic:        "mul_i",
+		Category:        CatComputeInteger,
+		Summary:         "Elementwise integer multiplication across tile elements.",
+		Syntax:          []string{"%res = cuda_tile.mul_i %a, %b : !cuda_tile.tile<...>"},
 		FallbackHazards: []string{"Unfused arithmetic fallback; prefer mma_i when computing matrix multiplications"},
 	},
 	{
@@ -492,17 +492,17 @@ var rawOpDocs = []*OpDoc{
 		Syntax:   []string{"%res = cuda_tile.itof %a : !cuda_tile.tile<...> -> !cuda_tile.tile<...>"},
 	},
 	{
-		Mnemonic: "int_to_ptr",
-		Category: CatTypeCast,
-		Summary:  "Casts integer address to a typed pointer.",
-		Syntax:   []string{"%ptr = cuda_tile.int_to_ptr %val : i64 -> !cuda_tile.ptr<...>"},
+		Mnemonic:        "int_to_ptr",
+		Category:        CatTypeCast,
+		Summary:         "Casts integer address to a typed pointer.",
+		Syntax:          []string{"%ptr = cuda_tile.int_to_ptr %val : i64 -> !cuda_tile.ptr<...>"},
 		FallbackHazards: []string{"Scalar pointer arithmetic fallback; bypasses structured views"},
 	},
 	{
-		Mnemonic: "ptr_to_int",
-		Category: CatTypeCast,
-		Summary:  "Casts typed pointer to a 64-bit integer address.",
-		Syntax:   []string{"%val = cuda_tile.ptr_to_int %ptr : !cuda_tile.ptr<...> -> i64"},
+		Mnemonic:        "ptr_to_int",
+		Category:        CatTypeCast,
+		Summary:         "Casts typed pointer to a 64-bit integer address.",
+		Syntax:          []string{"%val = cuda_tile.ptr_to_int %ptr : !cuda_tile.ptr<...> -> i64"},
 		FallbackHazards: []string{"Scalar pointer arithmetic fallback; bypasses structured views"},
 	},
 	{

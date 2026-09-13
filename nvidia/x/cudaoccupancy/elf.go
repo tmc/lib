@@ -11,7 +11,7 @@ import (
 
 // ELF attribute IDs in NVIDIA .nv.info sections.
 const (
-	AttrReqNTID    = 0x10 // EIATTR_REQ_NTID (required CTA dimensions)
+	AttrReqNTID     = 0x10 // EIATTR_REQ_NTID (required CTA dimensions)
 	EIATTR_REQ_NTID = AttrReqNTID
 	EIATTR_REQNTID  = AttrReqNTID
 )

@@ -10,52 +10,52 @@ import (
 
 func TestActivityRecordUnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		wantGrid [3]uint32
+		name      string
+		input     string
+		wantGrid  [3]uint32
 		wantBlock [3]uint32
-		wantRegs uint32
-		wantSmem uint32
+		wantRegs  uint32
+		wantSmem  uint32
 	}{
 		{
-			name:     "array fields",
-			input:    `{"subtype":"kernel","valid":true,"grid":[128,2,1],"block":[32,4,1],"registers_per_thread":48,"dynamic_shared_memory":2048}`,
-			wantGrid: [3]uint32{128, 2, 1},
+			name:      "array fields",
+			input:     `{"subtype":"kernel","valid":true,"grid":[128,2,1],"block":[32,4,1],"registers_per_thread":48,"dynamic_shared_memory":2048}`,
+			wantGrid:  [3]uint32{128, 2, 1},
 			wantBlock: [3]uint32{32, 4, 1},
-			wantRegs: 48,
-			wantSmem: 2048,
+			wantRegs:  48,
+			wantSmem:  2048,
 		},
 		{
-			name:     "coordinate and alias fields",
-			input:    `{"subtype":"kernel","valid":true,"grid_x":64,"grid_y":1,"grid_z":1,"block_x":256,"block_y":1,"block_z":1,"registers":32,"smem":1024}`,
-			wantGrid: [3]uint32{64, 1, 1},
+			name:      "coordinate and alias fields",
+			input:     `{"subtype":"kernel","valid":true,"grid_x":64,"grid_y":1,"grid_z":1,"block_x":256,"block_y":1,"block_z":1,"registers":32,"smem":1024}`,
+			wantGrid:  [3]uint32{64, 1, 1},
 			wantBlock: [3]uint32{256, 1, 1},
-			wantRegs: 32,
-			wantSmem: 1024,
+			wantRegs:  32,
+			wantSmem:  1024,
 		},
 		{
-			name:     "grid_dim and block_dim arrays",
-			input:    `{"subtype":"kernel","valid":true,"grid_dim":[16,1,1],"block_dim":[64,1,1],"registers_per_thread":16,"dynamic_shared_memory":512}`,
-			wantGrid: [3]uint32{16, 1, 1},
+			name:      "grid_dim and block_dim arrays",
+			input:     `{"subtype":"kernel","valid":true,"grid_dim":[16,1,1],"block_dim":[64,1,1],"registers_per_thread":16,"dynamic_shared_memory":512}`,
+			wantGrid:  [3]uint32{16, 1, 1},
 			wantBlock: [3]uint32{64, 1, 1},
-			wantRegs: 16,
-			wantSmem: 512,
+			wantRegs:  16,
+			wantSmem:  512,
 		},
 		{
-			name:     "memcpy without geometry",
-			input:    `{"subtype":"memcpy","valid":true,"bytes":4096}`,
-			wantGrid: [3]uint32{0, 0, 0},
+			name:      "memcpy without geometry",
+			input:     `{"subtype":"memcpy","valid":true,"bytes":4096}`,
+			wantGrid:  [3]uint32{0, 0, 0},
 			wantBlock: [3]uint32{0, 0, 0},
-			wantRegs: 0,
-			wantSmem: 0,
+			wantRegs:  0,
+			wantSmem:  0,
 		},
 		{
-			name:     "legacy kernel without geometry",
-			input:    `{"subtype":"kernel","valid":true,"start":100,"end":200}`,
-			wantGrid: [3]uint32{0, 0, 0},
+			name:      "legacy kernel without geometry",
+			input:     `{"subtype":"kernel","valid":true,"start":100,"end":200}`,
+			wantGrid:  [3]uint32{0, 0, 0},
 			wantBlock: [3]uint32{0, 0, 0},
-			wantRegs: 0,
-			wantSmem: 0,
+			wantRegs:  0,
+			wantSmem:  0,
 		},
 	}
 
@@ -83,10 +83,10 @@ func TestActivityRecordUnmarshalJSON(t *testing.T) {
 
 func TestActivityRecordMarshalJSON(t *testing.T) {
 	tests := []struct {
-		name          string
-		record        cudacapture.ActivityRecord
-		wantContains  []string
-		wantOmit      []string
+		name         string
+		record       cudacapture.ActivityRecord
+		wantContains []string
+		wantOmit     []string
 	}{
 		{
 			name: "kernel serializes geometry and register allocations",
