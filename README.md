@@ -56,8 +56,12 @@ make check         # verify workspace coverage and Go file ownership
 make gate-selftest # exercise the gates in temporary fixtures
 ```
 
-Every module also builds on its own, without the workspace:
+To check a module without workspace dependency selection:
 
 ```bash
 cd nvidia && GOWORK=off go build ./... && GOWORK=off go test ./...
 ```
+
+Some modules still use relative `replace` directives and unpublished dependency
+versions. Building them in this checkout does not prove that consumers can
+install them. See [release readiness](RELEASE.md) for the remaining gates.

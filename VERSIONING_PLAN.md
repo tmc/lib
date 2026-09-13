@@ -1,7 +1,9 @@
 # Plan: per-subdirectory module versioning for tmc/lib
 
-Status: in progress. `nvidia/go.mod`, `libp2p/go.mod`, and the repo-root
-`go.work` exist in the working tree; nothing is tagged.
+Status: historical design. The repository is now rootless, its module layout
+has changed, and local module tags exist. Migration steps and inventory below
+are retained as design history, not current release instructions. See
+[RELEASE.md](RELEASE.md) for the current readiness checklist.
 
 Standing constraints:
 

@@ -47,3 +47,11 @@ check:
 
 gate-selftest:
 	@sh scripts/gate-selftest.sh
+
+# Metadata only; see RELEASE.md for consumer and runtime verification.
+.PHONY: release-check release-selftest
+release-check: check
+	@python3 scripts/check-release.py
+
+release-selftest:
+	@sh scripts/release-selftest.sh
