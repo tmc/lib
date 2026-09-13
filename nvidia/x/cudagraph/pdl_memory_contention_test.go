@@ -515,6 +515,8 @@ func ptxFunctionBody(ptx, name string) (string, bool) {
 // TestPDLMemoryContendedPrologue evaluates memory bus and LSU contention when
 // the hoisted consumer prologue prefetches genuine weight tiles while the producer
 // executes trailing memory stores to global DRAM.
+// The producer is one CTA; this is a single-CTA validation point, not a
+// saturated-memory contention result.
 func TestPDLMemoryContendedPrologue(t *testing.T) {
 	if os.Getenv(pdlAblationEnv) != "1" {
 		t.Skipf("%s=1 required: needs NVIDIA GPU with CUDA 13.0 PDL support", pdlAblationEnv)
@@ -1087,6 +1089,9 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 //	a) Producer standalone: only the producer executes on the SM.
 //	b) Producer with entry-syncing resident CTAs: consumer CTAs are resident on SMs parked in griddepcontrol.wait.
 //	c) Producer with active memory-prefetching hoisted CTAs: consumer CTAs actively prefetch W from DRAM into SMEM.
+//
+// The producer launch is intentionally one CTA. Results from this test are a
+// single-CTA baseline, not a memory-contention curve for the 48-SM GB10.
 func TestPDLResidentCTAStarvationIsolation(t *testing.T) {
 	if os.Getenv(pdlAblationEnv) != "1" {
 		t.Skipf("%s=1 required: needs NVIDIA GPU with CUDA 13.0 PDL support", pdlAblationEnv)
