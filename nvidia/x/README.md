@@ -36,8 +36,12 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
 | [cuptiactivity](cuptiactivity/) | Package cuptiactivity collects bounded CUPTI activity records and exports complete records to Perfetto. |
+| [cupticallback](cupticallback/) | Package cupticallback provides managed lifecycle ownership, thread safety, reentrancy control, and typed event dispatch for NVIDIA CUPTI callbacks. |
+| [cupticheckpoint](cupticheckpoint/) | Package cupticheckpoint provides managed ownership and replay lifecycle for NVIDIA CUPTI checkpoints. |
 | [cuptipcsampling](cuptipcsampling/) | Package cuptipcsampling provides bounded modern CUPTI PC sampling. |
+| [cuptipmsampling](cuptipmsampling/) | Package cuptipmsampling provides CUPTI Performance Monitor (PM) sampling for NVIDIA GPUs. |
 | [cuptirange](cuptirange/) | Package cuptirange configures, collects and evaluates CUPTI Range Profiling metrics with explicit memory and replay limits. |
+| [cuptisass](cuptisass/) | Package cuptisass provides CUPTI SASS metrics data collection for NVIDIA GPUs. |
 | [egraph](egraph/) | Package egraph implements a lightweight, pure-Go E-Graph (equivalence graph) and equality saturation engine for term rewriting, program optimization, and kernel fusion. |
 | [moonep](moonep/) | Package moonep is a Go port of the host-side layer of MoonEP (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication library. |
 | [mxfp4](mxfp4/) | Package mxfp4 provides OCP Microscaling FP4 (E2M1) quantization, dequantization, and CUDA fused GEMV kernels. |
@@ -49,3 +53,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
+| [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
+| [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
+| [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |
