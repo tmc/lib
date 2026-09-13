@@ -408,7 +408,13 @@ func generateU2ScalarKernel(opts CodegenOptions) string {
 }
 
 func generateQ2KMatvecKernel(opts CodegenOptions) string {
-	src := `extern "C" __global__ void KERNEL_NAME(
+	src := `// Q2_K matrix-vector multiplication kernel (y = W * x).
+// Requirements:
+// - cols must be a positive multiple of 256 (the Q2_K super-block size QK_K).
+//   If cols is not a multiple of 256, lane 0 writes NaN to y[row] to prevent
+//   uninitialized buffer reuse.
+// - blockDim.x must be a multiple of 32 (WARP_SIZE), with each warp processing one row.
+extern "C" __global__ void KERNEL_NAME(
     const block_q2_k* __restrict__ W,
     const float* __restrict__ x,
     float* __restrict__ y,
@@ -420,7 +426,12 @@ func generateQ2KMatvecKernel(opts CodegenOptions) string {
     if (warp_id >= rows) return;
 
     int row = warp_id;
-    if (cols % 256 != 0) return;
+    if (cols <= 0 || cols % 256 != 0) {
+        if (lane == 0) {
+            y[row] = __int_as_float(0x7fffffff);
+        }
+        return;
+    }
     int blocks_per_row = cols / 256;
     float row_sum = 0.0f;
 

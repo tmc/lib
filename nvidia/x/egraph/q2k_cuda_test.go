@@ -213,3 +213,74 @@ func testQ2KMatvec(t *testing.T, threads uint32) {
 		}
 	}
 }
+
+func TestGeneratedQ2KMatvecRaggedColsReturnsNaN(t *testing.T) {
+	dev := cudatest.Require(t)
+	defer dev.Close()
+	src, err := egraph.GenerateCUDA(
+		&egraph.Expr{Op: "q2_k_matvec", Children: []*egraph.Expr{{Op: "w"}, {Op: "x"}}},
+		egraph.CodegenOptions{KernelName: "Q2KMatvec", Precision: "q2_k"},
+	)
+	if err != nil {
+		t.Fatalf("GenerateCUDA: %v", err)
+	}
+	compiled, err := nvrtcx.Compile(src,
+		nvrtcx.WithName("q2k.cu"),
+		nvrtcx.WithDeviceArch(dev),
+		nvrtcx.WithNoCache(),
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	mod, err := compiled.Load(dev)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	defer mod.Unload()
+	fn, err := mod.GetFunction("Q2KMatvec")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := dev.NewStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Destroy()
+
+	const (
+		rows = 2
+		cols = 250 // ragged column count (not a multiple of 256)
+	)
+	blocks := q2kTestBlocks(2)
+	x := make([]float32, cols)
+	yInit := []float32{123.456, 789.012} // pre-populate with known values
+
+	dw := deviceSlice(t, dev, blocks)
+	dx := deviceSlice(t, dev, x)
+	dy := deviceSlice(t, dev, yInit)
+	for _, free := range []func() error{dw.Free, dx.Free, dy.Free} {
+		defer free()
+	}
+
+	if err := cudalaunch.Kernel(fn).Grid(1, 1).Block(64).On(stream).Launch(
+		dw, dx, dy, int32(rows), int32(cols),
+	); err != nil {
+		t.Fatalf("launch: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := stream.Synchronize(ctx); err != nil {
+		t.Fatalf("synchronize: %v", err)
+	}
+	got := make([]float32, rows)
+	if err := dev.WithContext(func() error { return dy.CopyToHost(got) }); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, v := range got {
+		if !math.IsNaN(float64(v)) {
+			t.Errorf("got y[%d] = %v, want NaN for ragged cols=%d", i, v, cols)
+		}
+	}
+}
+
