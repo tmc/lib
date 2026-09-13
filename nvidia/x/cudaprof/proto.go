@@ -89,6 +89,11 @@ type SampleValues struct {
 	StallWait           int64 // Warps stalled on synchronization barrier (__syncthreads)
 	StallMath           int64 // Warps stalled on arithmetic pipe throttle
 	StallMem            int64 // Warps stalled on memory throttle or load latency
+	StallBranch         int64 // Warps stalled resolving a branch target
+	StallFetch          int64 // Warps stalled with no instruction fetched (instruction cache)
+	StallDrain          int64 // Warps stalled draining memory operations before exit
+	StallDispatch       int64 // Warps stalled on a busy dispatch port
+	StallNotSelected    int64 // Warps ready to issue where the scheduler picked another
 	LaunchDelayNanos    int64 // Host enqueue to device launch delay (nanoseconds)
 	QueueDelayNanos     int64 // Stream queue latency (nanoseconds)
 	GPUNanos            int64 // Observed device timeline interval (nanoseconds)
@@ -147,6 +152,11 @@ var profileSampleTypes = []struct{ name, unit string }{
 	{"stall_wait", "count"},
 	{"stall_math", "count"},
 	{"stall_mem", "count"},
+	{"stall_branch", "count"},
+	{"stall_fetch", "count"},
+	{"stall_drain", "count"},
+	{"stall_dispatch", "count"},
+	{"stall_not_selected", "count"},
 	{"launch_delay", "nanoseconds"},
 	{"queue_delay", "nanoseconds"},
 	{"gpu_time", "nanoseconds"},
@@ -488,6 +498,11 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 		vals.StallWait,
 		vals.StallMath,
 		vals.StallMem,
+		vals.StallBranch,
+		vals.StallFetch,
+		vals.StallDrain,
+		vals.StallDispatch,
+		vals.StallNotSelected,
 		vals.LaunchDelayNanos,
 		vals.QueueDelayNanos,
 		vals.GPUNanos,

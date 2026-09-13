@@ -64,9 +64,11 @@ func TestSelectedSampleTypes(t *testing.T) {
 			{"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
 			{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"},
 			{"interconnect_rx", "bytes"}, {"stall_scoreboard", "count"}, {"stall_wait", "count"},
-			{"stall_math", "count"}, {"stall_mem", "count"}, {"launch_delay", "nanoseconds"},
+			{"stall_math", "count"}, {"stall_mem", "count"}, {"stall_branch", "count"},
+			{"stall_fetch", "count"}, {"stall_drain", "count"}, {"stall_dispatch", "count"},
+			{"stall_not_selected", "count"}, {"launch_delay", "nanoseconds"},
 			{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
-		}, []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}, false},
+		}, []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
@@ -80,6 +82,8 @@ func TestSelectedSampleTypes(t *testing.T) {
 				TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
 				InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
 				StallScoreboard: 17, StallWait: 18, StallMath: 19, StallMem: 20,
+				StallBranch: 25, StallFetch: 26, StallDrain: 27, StallDispatch: 28,
+				StallNotSelected: 29,
 				LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
 			})
 			if err := s.SetSampleTypes(tt.names...); (err != nil) != tt.wantErr {
@@ -125,6 +129,8 @@ func TestProfileSampleSchema(t *testing.T) {
 		TensorWarps: 9, ActiveWarps: 10, EligibleWarps: 11, IssuedWarps: 12,
 		InstExecuted: 13, RegSpillBytes: 14, InterconnectTxBytes: 15, InterconnectRxBytes: 16,
 		StallScoreboard: 17, StallWait: 18, StallMath: 19, StallMem: 20,
+		StallBranch: 25, StallFetch: 26, StallDrain: 27, StallDispatch: 28,
+		StallNotSelected: 29,
 		LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
 	}, nil)
 	var buf bytes.Buffer
@@ -148,7 +154,9 @@ func TestProfileSampleSchema(t *testing.T) {
 		{"active_warps", "count"}, {"eligible_warps", "count"}, {"issued_warps", "count"},
 		{"inst_executed", "count"}, {"reg_spill", "bytes"}, {"interconnect_tx", "bytes"},
 		{"interconnect_rx", "bytes"}, {"stall_scoreboard", "count"}, {"stall_wait", "count"},
-		{"stall_math", "count"}, {"stall_mem", "count"}, {"launch_delay", "nanoseconds"},
+		{"stall_math", "count"}, {"stall_mem", "count"}, {"stall_branch", "count"},
+		{"stall_fetch", "count"}, {"stall_drain", "count"}, {"stall_dispatch", "count"},
+		{"stall_not_selected", "count"}, {"launch_delay", "nanoseconds"},
 		{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
 	}
 	var got [][2]string
@@ -163,7 +171,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatalf("got %d samples, want 1", len(fields[2]))
 	}
 	v, _ := profileFields(t, fields[2][0])
-	if !reflect.DeepEqual(v[2], []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}) {
+	if !reflect.DeepEqual(v[2], []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23}) {
 		t.Fatalf("sample values = %v", v[2])
 	}
 }
