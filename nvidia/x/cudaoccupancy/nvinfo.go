@@ -143,10 +143,24 @@ func ParseELF(f *elf.File) ([]KernelResource, error) {
 
 // ELF attribute IDs in NVIDIA .nv.info sections.
 const (
-	attrParamCBank   = 0x0a // EIATTR_PARAM_CBANK (constant bank parameter offset & size)
-	attrFrameSize    = 0x11 // EIATTR_FRAME_SIZE (per-thread stack frame bytes)
-	attrMinStackSize = 0x12 // EIATTR_MIN_STACK_SIZE
-	attrRegCount     = 0x2f // EIATTR_REGCOUNT (registers per thread)
+	AttrParamCBank          = 0x0a // EIATTR_PARAM_CBANK (constant bank parameter offset & size)
+	AttrFrameSize           = 0x11 // EIATTR_FRAME_SIZE (per-thread stack frame bytes)
+	AttrMinStackSize        = 0x12 // EIATTR_MIN_STACK_SIZE
+	AttrMaxRegCount         = 0x1b // EIATTR_MAXREG_COUNT (compiler register ceiling)
+	AttrRegCount            = 0x2f // EIATTR_REGCOUNT / EIATTR_REG_COUNT (registers per thread)
+	AttrSharedScratch       = 0x30 // EIATTR_SHARED_SCRATCH / EIATTR_SHARED_SIZE_SYSMEM
+	AttrReservedSmem0Size   = 0x3e // EIATTR_RESERVED_SMEM_0_SIZE
+)
+
+// Legacy and specification aliases for attribute IDs.
+const (
+	EIATTR_PARAM_CBANK        = AttrParamCBank
+	EIATTR_FRAME_SIZE         = AttrFrameSize
+	EIATTR_MIN_STACK_SIZE     = AttrMinStackSize
+	EIATTR_MAXREG_COUNT       = AttrMaxRegCount
+	EIATTR_REGCOUNT           = AttrRegCount
+	EIATTR_REG_COUNT          = AttrRegCount
+	EIATTR_SHARED_SIZE_SYSMEM = AttrSharedScratch
 )
 
 func parseNVInfoGlobal(data []byte, syms []elf.Symbol, kernels map[string]*KernelResource) {
@@ -169,10 +183,14 @@ func parseNVInfoGlobal(data []byte, syms []elf.Symbol, kernels map[string]*Kerne
 				symName := syms[symIdx-1].Name
 				if k, ok := kernels[symName]; ok {
 					switch attr {
-					case attrRegCount:
+					case AttrRegCount:
 						k.Registers = int(val)
-					case attrFrameSize:
+					case AttrFrameSize:
 						k.StackFrameBytes = int(val)
+					case AttrSharedScratch:
+						if k.StaticSharedMem == 0 {
+							k.StaticSharedMem = int(val)
+						}
 					}
 				}
 			}
@@ -193,15 +211,19 @@ func parseNVInfoPerKernel(data []byte, k *KernelResource) {
 		i += totalLen
 
 		switch attr {
-		case attrRegCount:
+		case AttrRegCount:
 			if len(payload) >= 4 {
 				k.Registers = int(binary.LittleEndian.Uint32(payload[0:4]))
 			}
-		case attrFrameSize:
+		case AttrFrameSize:
 			if len(payload) >= 4 {
 				k.StackFrameBytes = int(binary.LittleEndian.Uint32(payload[0:4]))
 			}
-		case attrParamCBank:
+		case AttrSharedScratch:
+			if k.StaticSharedMem == 0 && len(payload) >= 4 {
+				k.StaticSharedMem = int(binary.LittleEndian.Uint32(payload[0:4]))
+			}
+		case AttrParamCBank:
 			// EIATTR_PARAM_CBANK encodes constant bank 0 parameter size if not already set.
 			if k.ConstantBankSize == 0 && len(payload) >= 8 {
 				offset := binary.LittleEndian.Uint16(payload[4:6])
@@ -210,4 +232,56 @@ func parseNVInfoPerKernel(data []byte, k *KernelResource) {
 			}
 		}
 	}
+}
+
+// ParseCuobjdumpResUsage parses the text output of `cuobjdump -res-usage`.
+// It returns a mapping of kernel symbol names to their reported resource usage.
+func ParseCuobjdumpResUsage(text string) (map[string]KernelResource, error) {
+	res := make(map[string]KernelResource)
+	lines := strings.Split(text, "\n")
+	var currentFunc string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Function ") {
+			// Format: "Function <name>:"
+			currentFunc = strings.TrimPrefix(trimmed, "Function ")
+			currentFunc = strings.TrimSuffix(currentFunc, ":")
+			continue
+		}
+
+		if currentFunc == "" {
+			continue
+		}
+
+		// Example line:
+		// "REG:12 STACK:0 SHARED:5120 LOCAL:0 CONSTANT[0]:548 TEXTURE:0 SURFACE:0 SAMPLER:0"
+		if strings.Contains(trimmed, "REG:") {
+			kr := KernelResource{Name: currentFunc}
+			fields := strings.Fields(trimmed)
+			for _, f := range fields {
+				kv := strings.SplitN(f, ":", 2)
+				if len(kv) != 2 {
+					continue
+				}
+				key, valStr := kv[0], kv[1]
+				val := 0
+				fmt.Sscanf(valStr, "%d", &val)
+				switch key {
+				case "REG":
+					kr.Registers = val
+				case "STACK":
+					kr.StackFrameBytes = val
+				case "SHARED":
+					kr.StaticSharedMem = val
+				case "CONSTANT[0]":
+					kr.ConstantBankSize = val
+				}
+			}
+			res[currentFunc] = kr
+			currentFunc = ""
+		}
+	}
+
+	return res, nil
 }
