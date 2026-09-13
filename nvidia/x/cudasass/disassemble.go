@@ -29,10 +29,13 @@ const (
 // Options selects disassembly output. Line annotations require Text mode and
 // corresponding debug sections in the input; absent sections yield no annotations.
 type Options struct {
-	Mode        Mode
-	SourceLines bool
-	InlineLines bool
-	PTXLines    bool
+	Mode              Mode
+	PrintCode         bool
+	PrintHex          bool
+	SeparateFunctions bool
+	SourceLines       bool
+	InlineLines       bool
+	PTXLines          bool
 }
 
 // Disassembler invokes nvdisasm. The zero value searches PATH and uses the
@@ -69,6 +72,15 @@ func (o Options) args() ([]string, error) {
 	}
 	if o.Mode != Text && (o.SourceLines || o.InlineLines || o.PTXLines) {
 		return nil, fmt.Errorf("line annotations require text mode")
+	}
+	if o.PrintCode {
+		args = append(args, "--print-code")
+	}
+	if o.PrintHex {
+		args = append(args, "--print-instruction-encoding")
+	}
+	if o.SeparateFunctions {
+		args = append(args, "--separate-functions")
 	}
 	if o.InlineLines {
 		args = append(args, "--print-line-info-inline")

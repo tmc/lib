@@ -138,3 +138,41 @@ func TestParseLineInfo(t *testing.T) {
 		t.Errorf("other inst source = %s:%d, want other.cu:99", other.Instructions[0].SourceFile, other.Instructions[0].SourceLine)
 	}
 }
+
+func TestParseInlineAndPTXInfo(t *testing.T) {
+	input := `
+--- Kernel: compute ---
+//## File "kernels.cu", line 27 inlined at "kernels.cu", line 98
+//## File ".nv_debug_ptx_txt", line 1695
+/* 0000 */   MOV R1, c[0x0][0x28] ;
+//## File "kernels.cu", line 105
+/* 0010 */   EXIT ;
+`
+	d, err := cudasass.ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+	fn := d.Function("compute")
+	if fn == nil || len(fn.Instructions) != 2 {
+		t.Fatalf("unexpected compute fn: %+v", fn)
+	}
+	inst0 := fn.Instructions[0]
+	if inst0.SourceFile != "kernels.cu" || inst0.SourceLine != 27 {
+		t.Errorf("inst0 source = %s:%d, want kernels.cu:27", inst0.SourceFile, inst0.SourceLine)
+	}
+	if inst0.InlinedFile != "kernels.cu" || inst0.InlinedLine != 98 {
+		t.Errorf("inst0 inlined = %s:%d, want kernels.cu:98", inst0.InlinedFile, inst0.InlinedLine)
+	}
+	if inst0.PTXLine != 1695 {
+		t.Errorf("inst0 ptx = %d, want 1695", inst0.PTXLine)
+	}
+
+	inst1 := fn.Instructions[1]
+	if inst1.SourceFile != "kernels.cu" || inst1.SourceLine != 105 {
+		t.Errorf("inst1 source = %s:%d, want kernels.cu:105", inst1.SourceFile, inst1.SourceLine)
+	}
+	if inst1.InlinedFile != "" || inst1.InlinedLine != 0 {
+		t.Errorf("inst1 inlined = %s:%d, want empty", inst1.InlinedFile, inst1.InlinedLine)
+	}
+}
+

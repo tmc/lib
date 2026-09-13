@@ -114,6 +114,10 @@ func TestModes(t *testing.T) {
 		{Options{Mode: RegisterLife}, []string{"--print-life-ranges"}},
 		{Options{SourceLines: true, PTXLines: true}, []string{"--print-line-info", "--print-line-info-ptx"}},
 		{Options{InlineLines: true}, []string{"--print-line-info-inline"}},
+		{Options{PrintCode: true}, []string{"--print-code"}},
+		{Options{PrintHex: true}, []string{"--print-instruction-encoding"}},
+		{Options{SeparateFunctions: true}, []string{"--separate-functions"}},
+		{Options{PrintCode: true, InlineLines: true, PTXLines: true}, []string{"--print-code", "--print-line-info-inline", "--print-line-info-ptx"}},
 	} {
 		got, err := tt.o.args()
 		if err != nil || !reflect.DeepEqual(got, tt.want) {
