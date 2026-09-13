@@ -8,28 +8,36 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
-// CodeLocation identifies the source and assembly location for a kernel PC.
-type CodeLocation struct {
-	KernelName string
-	SourceFile string
-	SourceLine int64
-	PTXFile    string
-	PTXLine    int64
-	SASSFile   string
-	SASSLine   int64
-	Offset     uint64 // Absolute offset within the CUBIN
+// ModuleID identifies a loaded CUDA module or binary image generation.
+type ModuleID struct {
+	CRC uint64
 }
 
-// CodeResolver resolves a kernel function and PC offset to its source coordinates.
+// CodeLocation identifies the source, assembly, and CUBIN coordinates for a kernel PC.
+type CodeLocation struct {
+	KernelName  string
+	SourceFile  string
+	SourceLine  int64
+	PTXFile     string
+	PTXLine     int64
+	SASSFile    string
+	SASSLine    int64
+	CUBINOffset uint64 // Absolute byte offset within the CUBIN ELF image.
+	Resolved    bool   // True if the kernel and instruction were successfully located.
+}
+
+// CodeResolver resolves a kernel function and function-relative PC offset to its source
+// coordinates and CUBIN-absolute offset.
 type CodeResolver interface {
-	ResolvePC(kernelName string, pcOffset uint64) CodeLocation
+	ResolvePC(mod ModuleID, kernelName string, pcOffset uint64) CodeLocation
 }
 
 // ProfileBridge routes native PC sampling batches into a cudaprof session.
 type ProfileBridge struct {
-	Session   *cudaprof.Session
-	Inventory ReasonInventory
-	Resolver  CodeResolver // optional
+	Session        *cudaprof.Session
+	Inventory      ReasonInventory
+	Resolver       CodeResolver // optional
+	UnmappedStalls map[string]int64
 }
 
 // RecordBatch records all valid PC samples and stall reasons in batch into the profile session.
@@ -48,6 +56,7 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 
 		var vals cudaprof.SampleValues
 		var totalSamples int64
+		var selectedSamples int64
 
 		for _, r := range pc.Reasons {
 			count := int64(r.Samples)
@@ -56,24 +65,32 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 			}
 			totalSamples += count
 			name := b.Inventory.Lookup(r.Index)
-			classifyStall(name, count, &vals)
+			if name == "selected" {
+				selectedSamples += count
+				continue
+			}
+			if !classifyStall(name, count, &vals) {
+				if b.UnmappedStalls == nil {
+					b.UnmappedStalls = make(map[string]int64)
+				}
+				b.UnmappedStalls[name] += count
+			}
 		}
 
 		if totalSamples == 0 {
 			continue
 		}
 		vals.Samples = totalSamples
-		vals.InstExecuted = totalSamples
+		if selectedSamples > 0 {
+			vals.InstExecuted = selectedSamples
+		}
 
 		var loc CodeLocation
 		if b.Resolver != nil {
-			loc = b.Resolver.ResolvePC(pc.Name, pc.Offset)
+			loc = b.Resolver.ResolvePC(ModuleID{CRC: pc.CRC}, pc.Name, pc.Offset)
 		}
-		if loc.KernelName == "" {
+		if !loc.Resolved {
 			loc.KernelName = pc.Name
-		}
-		if loc.Offset == 0 {
-			loc.Offset = pc.Offset
 		}
 
 		var frames []cudaprof.Frame
@@ -83,11 +100,15 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 		if sassFile == "" {
 			sassFile = "kernels.sass"
 		}
+		var leafAddr uint64
+		if loc.Resolved {
+			leafAddr = cudaprof.DefaultMappingStart + loc.CUBINOffset
+		}
 		frames = append(frames, cudaprof.Frame{
 			FunctionName: loc.KernelName + ".SASS",
 			FileName:     sassFile,
 			Line:         loc.SASSLine,
-			Address:      cudaprof.DefaultMappingStart + loc.Offset,
+			Address:      leafAddr,
 		})
 
 		// Intermediate: PTX virtual ISA (if resolved)
@@ -122,16 +143,34 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	return nil
 }
 
-func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) {
+// classifyStall maps a native stall reason name to a cudaprof stall metric.
+// Order matters: barrier and membar checks must precede memory throttle checks.
+func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {
 	name := strings.ToLower(reasonName)
 	switch {
-	case strings.Contains(name, "mem") || strings.Contains(name, "constant") || strings.Contains(name, "texture"):
-		vals.StallMem += count
+	// Synchronization and memory barriers (check before general memory throttle)
+	case strings.Contains(name, "barrier") || strings.Contains(name, "membar") || strings.Contains(name, "sync") || strings.Contains(name, "wait"):
+		vals.StallWait += count
+		return true
+
+	// Register scoreboard dependencies
+	case strings.Contains(name, "scoreboard"):
+		vals.StallScoreboard += count
+		return true
+
+	// Arithmetic and math pipeline throttle
 	case strings.Contains(name, "math") || strings.Contains(name, "pipe_busy") || strings.Contains(name, "pipe_throttle"):
 		vals.StallMath += count
-	case strings.Contains(name, "sync") || strings.Contains(name, "barrier") || strings.Contains(name, "wait"):
-		vals.StallWait += count
-	case strings.Contains(name, "scoreboard") || strings.Contains(name, "dependency") || strings.Contains(name, "exec"):
-		vals.StallScoreboard += count
+		return true
+
+	// Memory sub-system stalls and throttles
+	case strings.Contains(name, "mem") || strings.Contains(name, "lg_throttle") || strings.Contains(name, "mio_throttle") ||
+		strings.Contains(name, "constant") || strings.Contains(name, "texture") || strings.Contains(name, "tex_throttle") ||
+		strings.Contains(name, "imc") || strings.Contains(name, "dram"):
+		vals.StallMem += count
+		return true
+
+	default:
+		return false
 	}
 }

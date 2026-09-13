@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -23,12 +24,14 @@ type Function struct {
 
 // Instruction represents a single decoded hardware SASS instruction.
 type Instruction struct {
-	Address   uint64 // Hardware PC address (e.g. 0x7f001230)
-	Predicate string // Instruction predicate, e.g. "@P0", "@!PT"
-	Opcode    string // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
-	Operands  string // Register and memory operands, e.g. "R0, R4, R5, R0"
-	Comment   string // Optional disassembly comment
-	Raw       string // Full raw disassembly line
+	Address    uint64 // Hardware PC address (e.g. 0x7f001230)
+	Predicate  string // Instruction predicate, e.g. "@P0", "@!PT"
+	Opcode     string // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
+	Operands   string // Register and memory operands, e.g. "R0, R4, R5, R0"
+	SourceFile string // Source file name from line-info comments, e.g. "kernels.cu"
+	SourceLine int    // Source line number from line-info comments
+	Comment    string // Optional disassembly comment
+	Raw        string // Full raw disassembly line
 }
 
 // Function returns the function by name, or nil if not found.
@@ -42,6 +45,8 @@ func (d *Disassembly) Function(name string) *Function {
 	return d.funcMap[name]
 }
 
+var sourceLocationPattern = regexp.MustCompile(`^//##\s+File\s+"([^"]+)",\s+line\s+([0-9]+)`)
+
 // Parse reads SASS disassembly text from r and returns a Disassembly.
 func Parse(r io.Reader) (*Disassembly, error) {
 	scanner := bufio.NewScanner(r)
@@ -50,6 +55,8 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	}
 
 	var curFn *Function
+	var curSourceFile string
+	var curSourceLine int
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -59,8 +66,18 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			continue
 		}
 
+		if m := sourceLocationPattern.FindStringSubmatch(trimmed); m != nil {
+			curSourceFile = m[1]
+			if lineNum, err := strconv.Atoi(m[2]); err == nil {
+				curSourceLine = lineNum
+			}
+			continue
+		}
+
 		// Detect function header (e.g. ".text._Z10LinearGEMV...", "Function : LinearGEMV", "--- Kernel: LinearGEMV ---")
 		if fnName := extractFunctionName(trimmed); fnName != "" {
+			curSourceFile = ""
+			curSourceLine = 0
 			curFn = d.Function(fnName)
 			if curFn == nil {
 				curFn = &Function{
@@ -74,6 +91,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 
 		// Parse instruction line
 		if inst, ok := ParseInstructionLine(line); ok {
+			inst.SourceFile = curSourceFile
+			inst.SourceLine = curSourceLine
+
 			if curFn == nil {
 				curFn = &Function{
 					Name: "default",

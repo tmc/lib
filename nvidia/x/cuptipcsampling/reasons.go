@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"sort"
 	"unsafe"
 
@@ -27,18 +28,25 @@ type ReasonInventory struct {
 }
 
 // Lookup returns the name of the stall reason for the given native index,
-// or an empty string if not found.
+// or an empty string if not found. It relies on Reasons being sorted by Index.
 func (inv ReasonInventory) Lookup(index uint32) string {
-	for _, r := range inv.Reasons {
-		if r.Index == index {
-			return r.Name
+	idx, ok := slices.BinarySearchFunc(inv.Reasons, index, func(r StallReason, target uint32) int {
+		if r.Index < target {
+			return -1
 		}
+		if r.Index > target {
+			return 1
+		}
+		return 0
+	})
+	if ok {
+		return inv.Reasons[idx].Name
 	}
 	return ""
 }
 
-
 // StallReasons queries the modern native reason inventory without enabling PC
+
 // sampling or launching work. The caller must keep ctx alive and coordinate its
 // use with other collectors. maxReasons must be between 1 and 65536. Exceeding
 // the limit or receiving malformed output fails without a partial inventory.

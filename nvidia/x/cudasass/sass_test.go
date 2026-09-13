@@ -96,3 +96,45 @@ func TestDataDirectives(t *testing.T) {
 		})
 	}
 }
+
+func TestParseLineInfo(t *testing.T) {
+	input := `
+--- Kernel: compute ---
+//## File "kernels.cu", line 10
+/* 0000 */   MOV R1, c[0x0][0x28] ;
+/* 0010 */   ISETP.GE.AND P0, PT, R1, R8, PT ;
+//## File "kernels.cu", line 15
+/* 0020 */   @P0 RET.REL.NODEC ;
+
+--- Kernel: other ---
+//## File "other.cu", line 99
+/* 0000 */   EXIT ;
+`
+	d, err := cudasass.ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString: %v", err)
+	}
+
+	fn := d.Function("compute")
+	if fn == nil || len(fn.Instructions) != 3 {
+		t.Fatalf("unexpected compute fn: %+v", fn)
+	}
+
+	if fn.Instructions[0].SourceFile != "kernels.cu" || fn.Instructions[0].SourceLine != 10 {
+		t.Errorf("inst 0 source = %s:%d, want kernels.cu:10", fn.Instructions[0].SourceFile, fn.Instructions[0].SourceLine)
+	}
+	if fn.Instructions[1].SourceFile != "kernels.cu" || fn.Instructions[1].SourceLine != 10 {
+		t.Errorf("inst 1 source = %s:%d, want kernels.cu:10", fn.Instructions[1].SourceFile, fn.Instructions[1].SourceLine)
+	}
+	if fn.Instructions[2].SourceFile != "kernels.cu" || fn.Instructions[2].SourceLine != 15 {
+		t.Errorf("inst 2 source = %s:%d, want kernels.cu:15", fn.Instructions[2].SourceFile, fn.Instructions[2].SourceLine)
+	}
+
+	other := d.Function("other")
+	if other == nil || len(other.Instructions) != 1 {
+		t.Fatalf("unexpected other fn: %+v", other)
+	}
+	if other.Instructions[0].SourceFile != "other.cu" || other.Instructions[0].SourceLine != 99 {
+		t.Errorf("other inst source = %s:%d, want other.cu:99", other.Instructions[0].SourceFile, other.Instructions[0].SourceLine)
+	}
+}
