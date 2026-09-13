@@ -34,6 +34,7 @@ const (
 	ErrPchCreate                         Result = 15
 	ErrCancelled                         Result = 16
 	ErrTimeTraceFileWriteFailed          Result = 17
+	ErrBusy                              Result = 18
 )
 
 // Error implements the error interface. When the library is loaded,
@@ -83,6 +84,20 @@ func toError(r Result) error {
 	return r
 }
 
+// errorLogDetail wraps err with the message a call left in its const char **
+// error-log output. It returns err unchanged when the call succeeded or
+// wrote no message.
+func errorLogDetail(err error, log *byte) error {
+	if err == nil || log == nil {
+		return err
+	}
+	msg := goString(log)
+	if msg == "" {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, msg)
+}
+
 // resultNames maps Result constants to their Go names.
 var resultNames = map[Result]string{
 	Success:                              "Success",
@@ -103,4 +118,5 @@ var resultNames = map[Result]string{
 	ErrPchCreate:                         "ErrPchCreate",
 	ErrCancelled:                         "ErrCancelled",
 	ErrTimeTraceFileWriteFailed:          "ErrTimeTraceFileWriteFailed",
+	ErrBusy:                              "ErrBusy",
 }

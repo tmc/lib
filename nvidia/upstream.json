@@ -160,40 +160,42 @@
     },
     "nvrtc": {
       "package": "github.com/tmc/lib/nvidia/nvrtc",
-      "status": "generation-reproduced",
+      "status": "generation-partially-reproduced",
       "repositories": {
         "codegen": {
-          "url": "https://github.com/tmc/codegen.git",
-          "commit": "bc0b2b4731776c0c3a3c32ed78673697336c5205",
-          "tree": "3c3a3f4b68fa16c6c8061a08b8919fc42ce9ca94"
+          "url": "https://github.com/tmc/libgen.git",
+          "commit": "e2506a9a3524b01a9cb32eedf69b270ad4c38601",
+          "tree": "6e0c9dfa4292e42cec357b7476785b140b347919",
+          "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL."
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "a524c5ddc49f271aa2e0033d07de0c2b1920e835",
-          "tree": "91eadfc9e1d548a1c0688375bbb431f8e8847cc0"
+          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
+          "note": "The checkout carried uncommitted changes, including the cuda_nvrtc repin from 13.2.51 to 13.4.59 recorded below and unrelated work in other products, so this commit does not identify the whole input tree; the header below was the exact input and its sha256 is recorded."
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "ad82f1d186683bee7854ef26f4752c11346f77c7",
-          "tree": "f5e7eb754cb15ae038f175d4aed94f5ea8295af7"
+          "commit": "cd5c7856c9d09bb3e5a9978d4e441298eafca4dd",
+          "tree": "8525d10496bfb151a521ae7cbf364d5feb132e35",
+          "note": "HEAD at generation time; the worktree was dirty with unrelated concurrent work, so the outputs below are recorded by digest rather than by a comparison commit."
         }
       },
       "vendor": {
         "product": "cuda_nvrtc",
-        "version": "13.2.51",
+        "version": "13.4.59",
         "archive": {
-          "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvrtc/linux-x86_64/cuda_nvrtc-linux-x86_64-13.2.51-archive.tar.xz",
-          "sha256": "5a1897196b0276a82969db61ff4b3cd8d91fcf354f616945ed927f7224485083",
-          "header_member": "cuda_nvrtc-linux-x86_64-13.2.51-archive/include/nvrtc.h"
+          "url": "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvrtc/linux-x86_64/cuda_nvrtc-linux-x86_64-13.4.59-archive.tar.xz",
+          "sha256": "fe5de48fa0eb8aaf3f72cb2a86f913c727bf684f9d59072d359285dde32de783",
+          "header_member": "cuda_nvrtc-linux-x86_64-13.4.59-archive/include/nvrtc.h"
         },
-        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.2.0.json",
-        "redistribution_manifest_sha256": "8ce26ee1cb7ff13286f20dd2c6efbe268776bb13d71108c69cd04453b9d85d2b",
-        "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest; extracted header byte-identical to the selected Git-pinned header."
+        "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.4.1.json",
+        "redistribution_manifest_sha256": "291178934b2139727407c76f697bb0dfbac4014753a8094d7c290b0f4124a302",
+        "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest downloaded in this run; extracted header byte-identical to the vendored cuda-headers copy. The repin to 13.4.59 is uncommitted in the headers checkout: nvrtc/nvrtc.h and cuda_nvrtc/nvrtc.h were replaced and versions.lock updated, so the vendored bytes are identified by the hash below, not by a commit."
       },
       "header": {
         "repository": "headers",
         "path": "nvrtc/nvrtc.h",
-        "sha256": "7c84d86fdcb50843da7d1f6f95b805a9d6d5a388164f13b8672e3f25c0c111f4"
+        "sha256": "0b8cbeb0b5a6ec2c835b03b4b6c8b8e9e8eae4f1cd95a1a652e6fc5cb1b3efed"
       },
       "documentation": {
         "repository": "codegen",
@@ -248,20 +250,20 @@
             "GOVERSION": "go1.27.0"
           }
         },
-        "source_state": "clean codegen and lib comparison checkouts before and after generation",
+        "source_state": "clean codegen checkout at the recorded commit apart from two untracked unrelated directories; headers and lib checkouts dirty, so the header and the outputs are identified by content hash",
         "outputs": [
           {
             "path": "nvidia/nvrtc/doc.gen.go",
-            "sha256": "fd262541261a2ae9affe75061b3aafc3bbc4aa5419d7f5b6b70ae0ad1d8f68a2",
+            "sha256": "9e55221fe89b8b883c5250b8f23decc1726fa0fb21b52161027c8c8fd8159e4e",
             "documentation_refresh": "documentation-generation.json"
           },
           {
             "path": "nvidia/nvrtc/enums.gen.go",
-            "sha256": "a856e8424661a06c39523be4619ad1ab09c5a231e32d08220d1e7c81f5998ca6"
+            "sha256": "586ec3cb0c74561850974ce4fc575006b09e834a56b5ca7efa8dd2f409a294cb"
           },
           {
             "path": "nvidia/nvrtc/funcs.gen.go",
-            "sha256": "b43c510d2e60ecb66bca028fc9ff9d3baa0c4ce45d56ed800dcdece968d283a2"
+            "sha256": "de01fdd71ee8155d820ba2b9e58a096b14df038a711401c6f77ffc4d1e172be5"
           },
           {
             "path": "nvidia/nvrtc/handles.gen.go",
@@ -269,7 +271,11 @@
           },
           {
             "path": "nvidia/nvrtc/init.gen.go",
-            "sha256": "e21528a8638a9d4f07a39d3a3507f824a3174ffb2fef42ccb6badfe8ede41858"
+            "sha256": "cbda37433269952b78eeb4cae9e4bb6d6c468447fb760bf7d1c9c7d07d977c50"
+          },
+          {
+            "path": "nvidia/nvrtc/layout_test.go",
+            "sha256": "a7445db09eb86299a4c594b3cc64e425c4f912fd095d34895d299b956a9cb875"
           },
           {
             "path": "nvidia/nvrtc/loader_test.go",
@@ -289,19 +295,23 @@
           },
           {
             "path": "nvidia/nvrtc/provenance.gen.go",
-            "sha256": "ac2e21ff2914daf17b1f6f474aad376adf93c9d8f4c48569057114b5c5dcb572"
+            "sha256": "a3f047b1dae6c1462cc550e707239241e408ec4e8b2692c0d3e020f8f3ee0dd1"
           },
           {
             "path": "nvidia/nvrtc/result.gen.go",
-            "sha256": "86284762de8f1ae37455c5ce49353527be529911985186b7c6070685cf1b4932"
+            "sha256": "67f058fe3a7af24261dbe17a40f050a2a2f27d5172de2550c8574327ae1c822e"
+          },
+          {
+            "path": "nvidia/nvrtc/structs.gen.go",
+            "sha256": "5544cbcfee4359ddf2ec338226089848c39068afd08c90ce3fbbda23ebb1d6c5"
           }
         ],
-        "comparison": "All 11 outputs regenerated into the committed package; only init.gen.go and loader_test.go changed, and provenance.gen.go is new. No exported declaration was dropped.",
+        "comparison": "All 13 outputs regenerated. Against the previously recorded generation the change is additive: the 13.4.59 header adds nvrtcInstallBundledHeaders, nvrtcRemoveBundledHeaders and nvrtcGetBundledHeadersInfo, the NVRTC_INSTALL_HEADERS_* flags and NVRTC_ERROR_BUSY, which produce two new files (structs.gen.go for nvrtcBundledHeadersInfo and its layout_test.go) and additions in enums.gen.go, funcs.gen.go, init.gen.go and result.gen.go. doc.gen.go changed only where the generator now drops Doxygen \\ingroup lines. No exported declaration was dropped; apidiff reports additions only.",
         "maintained_files_excluded": [
           "example_test.go",
           "flow_physical_test.go"
         ],
-        "note": "The Windows library name in init.gen.go was corrected after this generation was recorded; the pinned codegen commit predates that fix, so it no longer reproduces init.gen.go byte for byte."
+        "note": "Regeneration from the recorded codegen commit reproduces all 13 outputs byte for byte, verified by generating into a scratch directory and comparing. The header input is not reachable from a commit: the cuda_nvrtc repin to 13.4.59 is uncommitted in the headers checkout, so it is identified by the sha256 above."
       },
       "unresolved_inputs": [
         "transitive Go module source contents",
@@ -309,7 +319,7 @@
         "portable reconstruction of Apple clang and SDK environment; executable and75 C include hashes are retained in local evidence but no distributable toolchain pin is established"
       ],
       "runtime_support": "Not established by this manifest; no public minimum/newest runtime, complete TileIR capability or native ABI/platform promotion is claimed. Separate targeted callback runtime tests do not establish general support.",
-      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major."
+      "note": "The package was regenerated to record this entry. It had been carrying a loader older than the generator: binding went straight through purego.RegisterFunc, which panics on a signature it cannot build, making nvrtc the last package that could panic at import. It was also the last package whose Linux candidate list still ended with the unversioned libnvrtc.so, which on a CUDA-12-only host silently bound a CUDA 12 library. Regenerating fixed both; nothing else in the package changed. Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major. Re-recorded after repinning cuda_nvrtc from 13.2.51 to 13.4.59 and regenerating: 13.2.51 predates the bundled-headers API, which is what lets NVRTC callers get the CUDA headers on disk for -I instead of hand-declaring fixed-width types in device source."
     },
     "nvjitlink": {
       "package": "github.com/tmc/lib/nvidia/nvjitlink",

@@ -394,6 +394,7 @@ func registerFuncs() {
 	register(&fncompileProgram, "nvrtcCompileProgram")
 	register(&fnCreateProgram, "nvrtcCreateProgram")
 	register(&fnDestroyProgram, "nvrtcDestroyProgram")
+	register(&fnGetBundledHeadersInfo, "nvrtcGetBundledHeadersInfo")
 	register(&fngetCUBIN, "nvrtcGetCUBIN")
 	register(&fngetCUBINSize, "nvrtcGetCUBINSize")
 	register(&fngetLTOIR, "nvrtcGetLTOIR")
@@ -412,6 +413,8 @@ func registerFuncs() {
 	register(&fnGetSupportedArchs, "nvrtcGetSupportedArchs")
 	register(&fngetTileIR, "nvrtcGetTileIR")
 	register(&fngetTileIRSize, "nvrtcGetTileIRSize")
+	register(&fnInstallBundledHeaders, "nvrtcInstallBundledHeaders")
+	register(&fnRemoveBundledHeaders, "nvrtcRemoveBundledHeaders")
 	register(&fnsetFlowCallback, "nvrtcSetFlowCallback")
 	register(&fnSetPCHHeapSize, "nvrtcSetPCHHeapSize")
 	register(&fnVersion, "nvrtcVersion")
@@ -424,6 +427,7 @@ func clearFuncs() {
 	fncompileProgram = nil
 	fnCreateProgram = nil
 	fnDestroyProgram = nil
+	fnGetBundledHeadersInfo = nil
 	fngetCUBIN = nil
 	fngetCUBINSize = nil
 	fngetLTOIR = nil
@@ -442,6 +446,8 @@ func clearFuncs() {
 	fnGetSupportedArchs = nil
 	fngetTileIR = nil
 	fngetTileIRSize = nil
+	fnInstallBundledHeaders = nil
+	fnRemoveBundledHeaders = nil
 	fnsetFlowCallback = nil
 	fnSetPCHHeapSize = nil
 	fnVersion = nil
@@ -470,6 +476,11 @@ func HasCreateProgram() bool {
 // HasDestroyProgram reports whether nvrtcDestroyProgram resolved in the loaded library.
 func HasDestroyProgram() bool {
 	return Has("nvrtcDestroyProgram")
+}
+
+// HasGetBundledHeadersInfo reports whether nvrtcGetBundledHeadersInfo resolved in the loaded library.
+func HasGetBundledHeadersInfo() bool {
+	return Has("nvrtcGetBundledHeadersInfo")
 }
 
 // HasgetCUBIN reports whether nvrtcGetCUBIN resolved in the loaded library.
@@ -560,6 +571,16 @@ func HasgetTileIR() bool {
 // HasgetTileIRSize reports whether nvrtcGetTileIRSize resolved in the loaded library.
 func HasgetTileIRSize() bool {
 	return Has("nvrtcGetTileIRSize")
+}
+
+// HasInstallBundledHeaders reports whether nvrtcInstallBundledHeaders resolved in the loaded library.
+func HasInstallBundledHeaders() bool {
+	return Has("nvrtcInstallBundledHeaders")
+}
+
+// HasRemoveBundledHeaders reports whether nvrtcRemoveBundledHeaders resolved in the loaded library.
+func HasRemoveBundledHeaders() bool {
+	return Has("nvrtcRemoveBundledHeaders")
 }
 
 // HassetFlowCallback reports whether nvrtcSetFlowCallback resolved in the loaded library.
