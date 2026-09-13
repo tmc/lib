@@ -249,3 +249,261 @@ func TestRunViewCommandHTMLExport(t *testing.T) {
 		t.Error("exported HTML missing kernel ds4_q8_0_matvec")
 	}
 }
+
+func TestFetcher_SecondaryProfileAndSourceResolution(t *testing.T) {
+	cap, capPath := createTest5TierCapture(t)
+	_, capPath2 := createTest5TierCapture(t)
+
+	f := &fetcher{
+		path:   capPath,
+		dir:    t.TempDir(),
+		cap:    cap,
+		limits: cudacapture.Limits{FileBytes: 10 << 20, TotalBytes: 50 << 20},
+	}
+
+	// 1. Primary profile fetch
+	p1, _, err := f.Fetch(capPath, 0, 0)
+	if err != nil {
+		t.Fatalf("Fetch primary profile: %v", err)
+	}
+	if len(p1.Function) == 0 {
+		t.Fatal("primary profile has no functions")
+	}
+	// Verify source file resolution
+	fn := p1.Function[0]
+	if fn.Filename == "" {
+		t.Errorf("function %q has empty Filename", fn.Name)
+	}
+	if fn.StartLine == 0 {
+		t.Errorf("function %q has StartLine == 0", fn.Name)
+	}
+	if len(p1.Location) > 0 && len(p1.Location[0].Line) > 0 {
+		line := p1.Location[0].Line[0].Line
+		if line == 0 {
+			t.Errorf("location line == 0")
+		}
+	}
+
+	// 2. Secondary profile fetch (simulating -diff_base)
+	p2, _, err := f.Fetch(capPath2, 0, 0)
+	if err != nil {
+		t.Fatalf("Fetch secondary profile (-diff_base): %v", err)
+	}
+	if len(p2.Function) == 0 {
+		t.Fatal("secondary profile has no functions")
+	}
+}
+
+func createTestStallCapture(t *testing.T) (*cudacapture.Capture, string) {
+	t.Helper()
+
+	metaJSON := `{"device":"NVIDIA H100","architecture":"sm_90a","verified_results":100}`
+	goSrc := `package main
+func Run() {}`
+	cuSrc := `extern "C" __global__ void saxpy(float a, float *x, float *y) {}`
+	ptxSrc := `.version 8.0
+.target sm_90a
+.visible .entry saxpy() { ret; }`
+	sassSrc := `Function : saxpy
+/*0000*/ LDG.E R0, [R2];
+/*0010*/ FADD R0, R0, R1;
+/*0020*/ BAR.SYNC 0x0;
+/*0030*/ DEPBAR.LE SB0, 0x0;
+/*0040*/ RET;
+`
+
+	files := map[string][]byte{
+		"workload.go":   []byte(goSrc),
+		"kernels.cu":    []byte(cuSrc),
+		"kernels.cubin": []byte("CUBIN_DATA"),
+		"kernels.ptx":   []byte(ptxSrc),
+		"kernels.sass":  []byte(sassSrc),
+	}
+
+	fn := &profile.Function{ID: 1, Name: "saxpy", Filename: "kernels.cu"}
+	loc0 := &profile.Location{ID: 1, Address: 0x0000, Line: []profile.Line{{Function: fn, Line: 1}}}
+	loc1 := &profile.Location{ID: 2, Address: 0x0010, Line: []profile.Line{{Function: fn, Line: 2}}}
+	loc2 := &profile.Location{ID: 3, Address: 0x0020, Line: []profile.Line{{Function: fn, Line: 3}}}
+	loc3 := &profile.Location{ID: 4, Address: 0x0030, Line: []profile.Line{{Function: fn, Line: 4}}}
+
+	// Sample with stall metrics breakdown:
+	// PC 0x0000 (LDG): stall_mem=50
+	// PC 0x0010 (FADD): stall_scoreboard=30
+	// PC 0x0020 (BAR.SYNC): stall_barrier=15
+	// PC 0x0030 (DEPBAR): stall_drain=5
+	// Total stalls = 100
+	p := &profile.Profile{
+		SampleType: []*profile.ValueType{
+			{Type: "stall_mem", Unit: "count"},
+			{Type: "stall_scoreboard", Unit: "count"},
+			{Type: "stall_barrier", Unit: "count"},
+			{Type: "stall_drain", Unit: "count"},
+		},
+		Sample: []*profile.Sample{
+			{Location: []*profile.Location{loc0}, Value: []int64{50, 0, 0, 0}},
+			{Location: []*profile.Location{loc1}, Value: []int64{0, 30, 0, 0}},
+			{Location: []*profile.Location{loc2}, Value: []int64{0, 0, 15, 0}},
+			{Location: []*profile.Location{loc3}, Value: []int64{0, 0, 0, 5}},
+		},
+		Location: []*profile.Location{loc0, loc1, loc2, loc3},
+		Function: []*profile.Function{fn},
+	}
+
+	cap := &cudacapture.Capture{
+		Profile:  p,
+		Metadata: []byte(metaJSON),
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			CUBIN:  "kernels.cubin",
+			PTX:    "kernels.ptx",
+			SASS:   "kernels.sass",
+		},
+		Files: files,
+	}
+
+	tmpDir := t.TempDir()
+	capPath := filepath.Join(tmpDir, "test-stall-capture.pprof")
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, cap); err != nil {
+		t.Fatalf("cudacapture.Write: %v", err)
+	}
+	if err := os.WriteFile(capPath, buf.Bytes(), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	return cap, capPath
+}
+
+func TestSASSStallHeatmap(t *testing.T) {
+	cap, capPath := createTestStallCapture(t)
+
+	// 1. Verify buildPipelineViewData correlates stalls
+	data, err := buildPipelineViewData(cap, filepath.Base(capPath), "saxpy")
+	if err != nil {
+		t.Fatalf("buildPipelineViewData: %v", err)
+	}
+
+	sassTier := data.Tiers[4]
+	if sassTier.Name != "SASS" {
+		t.Fatalf("tier 4 is %q, want SASS", sassTier.Name)
+	}
+
+	// Verify PC correlation on SASS lines
+	linesByOffset := make(map[string]PipelineLine)
+	for _, l := range sassTier.Lines {
+		if l.Offset != "" {
+			linesByOffset[l.Offset] = l
+		}
+	}
+
+	// Check PC 0x0000
+	l0, ok := linesByOffset["0000"]
+	if !ok {
+		t.Fatal("missing line with offset 0000")
+	}
+	if l0.StallPct != 50.0 {
+		t.Errorf("line 0000 StallPct = %v, want 50.0", l0.StallPct)
+	}
+	if l0.StallBreakdown["stall_mem"] != 50.0 {
+		t.Errorf("line 0000 breakdown stall_mem = %v, want 50.0", l0.StallBreakdown["stall_mem"])
+	}
+	if !strings.Contains(l0.StallTooltip, "stall_mem: 50.0%") {
+		t.Errorf("line 0000 tooltip missing stall_mem: %s", l0.StallTooltip)
+	}
+
+	// Check PC 0x0010
+	l1, ok := linesByOffset["0010"]
+	if !ok {
+		t.Fatal("missing line with offset 0010")
+	}
+	if l1.StallPct != 30.0 {
+		t.Errorf("line 0010 StallPct = %v, want 30.0", l1.StallPct)
+	}
+	if l1.StallBreakdown["stall_scoreboard"] != 30.0 {
+		t.Errorf("line 0010 breakdown stall_scoreboard = %v, want 30.0", l1.StallBreakdown["stall_scoreboard"])
+	}
+
+	// Check PC 0x0020
+	l2, ok := linesByOffset["0020"]
+	if !ok {
+		t.Fatal("missing line with offset 0020")
+	}
+	if l2.StallPct != 15.0 {
+		t.Errorf("line 0020 StallPct = %v, want 15.0", l2.StallPct)
+	}
+
+	// Check PC 0x0030
+	l3, ok := linesByOffset["0030"]
+	if !ok {
+		t.Fatal("missing line with offset 0030")
+	}
+	if l3.StallPct != 5.0 {
+		t.Errorf("line 0030 StallPct = %v, want 5.0", l3.StallPct)
+	}
+
+	// Check PC 0x0040 (no stalls)
+	l4, ok := linesByOffset["0040"]
+	if !ok {
+		t.Fatal("missing line with offset 0040")
+	}
+	if l4.StallPct != 0 {
+		t.Errorf("line 0040 StallPct = %v, want 0", l4.StallPct)
+	}
+
+	// 2. Verify HTML template rendering contains color-coded stall intensity bars and tooltips
+	var buf bytes.Buffer
+	if err := renderPipelineHTML(&buf, data); err != nil {
+		t.Fatalf("renderPipelineHTML: %v", err)
+	}
+	html := buf.String()
+
+	if !strings.Contains(html, "stall-heat") {
+		t.Error("rendered HTML missing stall-heat class")
+	}
+	if !strings.Contains(html, "stall-high") {
+		t.Error("rendered HTML missing stall-high class")
+	}
+	if !strings.Contains(html, "stall-med") {
+		t.Error("rendered HTML missing stall-med class")
+	}
+	if !strings.Contains(html, "stall-low") {
+		t.Error("rendered HTML missing stall-low class")
+	}
+	if !strings.Contains(html, "stall_mem: 50.0%") {
+		t.Error("rendered HTML missing stall_mem tooltip content")
+	}
+	if !strings.Contains(html, "50.0%") {
+		t.Error("rendered HTML missing 50.0% text")
+	}
+
+	// 3. Verify /api/kernel endpoint returns stall breakdown
+	handler := newPipelineServerHandler(data)
+	req := httptest.NewRequest("GET", "/api/kernel?name=saxpy", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/kernel returned %d", rec.Code)
+	}
+	var apiTiers []PipelineTier
+	if err := json.Unmarshal(rec.Body.Bytes(), &apiTiers); err != nil {
+		t.Fatalf("unmarshal api response: %v", err)
+	}
+	var apiL0 *PipelineLine
+	for _, l := range apiTiers[4].Lines {
+		if l.Offset == "0000" {
+			apiL0 = &l
+			break
+		}
+	}
+	if apiL0 == nil {
+		t.Fatal("API response missing SASS line 0000")
+	}
+	if apiL0.StallPct != 50.0 {
+		t.Errorf("API line 0000 StallPct = %v, want 50.0", apiL0.StallPct)
+	}
+	if apiL0.StallBreakdown["stall_mem"] != 50.0 {
+		t.Errorf("API line 0000 StallBreakdown[stall_mem] = %v, want 50.0", apiL0.StallBreakdown["stall_mem"])
+	}
+}
+
+

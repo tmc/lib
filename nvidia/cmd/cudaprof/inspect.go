@@ -118,10 +118,16 @@ func runInspectCommand(args []string) error {
 	if len(args) >= 1 && args[0] == "--advise" {
 		return runInspectAdvise(args, limits)
 	}
-	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir" && args[0] != "--ptx") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure|--advise [kernel] capture.pprof")
+	var mode, capturePath string
+	if len(args) == 1 {
+		capturePath = args[0]
+	} else if len(args) == 2 && (args[0] == "--coverage" || args[0] == "--profiles" || args[0] == "--remarks" || args[0] == "--tileir" || args[0] == "--ptx") {
+		mode = args[0]
+		capturePath = args[1]
+	} else {
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] [--coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure|--advise] [kernel] capture.pprof")
 	}
-	path, err := filepath.Abs(args[1])
+	path, err := filepath.Abs(capturePath)
 	if err != nil {
 		return err
 	}
@@ -150,24 +156,24 @@ func runInspectCommand(args []string) error {
 	report.Remarks = inspectRemarks(cap)
 	report.PTX = inspectPTX(cap)
 
-	if args[0] == "--profiles" {
+	if mode == "--profiles" {
 		for _, typ := range cap.Profile.SampleType {
 			report.Profiles = append(report.Profiles, inspectProfile{Type: typ.Type, Unit: typ.Unit, Samples: len(cap.Profile.Sample)})
 		}
 	}
-	if args[0] == "--remarks" {
+	if mode == "--remarks" {
 		if report.Remarks == nil {
 			report.Remarks = &inspectRemarksSummary{}
 		}
 		return json.NewEncoder(os.Stdout).Encode(report.Remarks)
 	}
-	if args[0] == "--tileir" {
+	if mode == "--tileir" {
 		if report.TileIR == nil {
 			report.TileIR = &inspectTileIRSummary{}
 		}
 		return json.NewEncoder(os.Stdout).Encode(report.TileIR)
 	}
-	if args[0] == "--ptx" {
+	if mode == "--ptx" {
 		if report.PTX == nil {
 			report.PTX = &inspectPTXSummary{}
 		}
@@ -231,12 +237,21 @@ func readCapturePathLimits(path string, limits cudacapture.Limits) (*cudacapture
 	if fi.IsDir() {
 		return cudacapture.ReadDirLimits(path, limits)
 	}
+	if isBundlePath(path) {
+		return readBundleCapturePath(path, limits)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return cudacapture.ReadLimits(io.Reader(f), limits)
+	cap, err := cudacapture.ReadLimits(io.Reader(f), limits)
+	if err != nil {
+		if bCap, bErr := readBundleCapturePath(path, limits); bErr == nil {
+			return bCap, nil
+		}
+	}
+	return cap, err
 }
 
 // parseReadLimits removes the explicit read-side bounds from args. They mirror
