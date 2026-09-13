@@ -15,6 +15,10 @@ import (
 // Output retains the command identity and both output streams, even on failure.
 type Output = cudatool.Output
 
+// ToolName is the executable [Tool] runs. It is also the name
+// [cudatool.Capabilities] records option sets under.
+const ToolName = "cuobjdump"
+
 // Tool selects cuobjdump and a scratch parent. The zero value searches PATH
 // and uses the operating system's temporary directory.
 type Tool struct{ Path, TempDir string }
@@ -38,6 +42,39 @@ const (
 	ELF Kind = iota
 	PTX
 )
+
+// listOption and extractOption are the options that inventory and extract
+// images of this kind. They exist as functions so that the option set this
+// package can emit is reachable from a test without a toolkit installed; see
+// TestOptionsAgainstRecordedToolkits.
+func (k Kind) listOption() (string, error) {
+	s, err := k.suffix()
+	if err != nil {
+		return "", err
+	}
+	return "--list-" + s, nil
+}
+
+func (k Kind) extractOption() (string, error) {
+	s, err := k.suffix()
+	if err != nil {
+		return "", err
+	}
+	return "--extract-" + s, nil
+}
+
+// option returns the option that dumps this section.
+func (s Section) option() (string, error) {
+	switch s {
+	case SASS:
+		return "--dump-sass", nil
+	case ELFSections:
+		return "--dump-elf", nil
+	case Resources:
+		return "--dump-resource-usage", nil
+	}
+	return "", fmt.Errorf("unknown dump section %d", s)
+}
 
 func (k Kind) suffix() (string, error) {
 	switch k {
@@ -73,7 +110,7 @@ type Image struct {
 // List inventories ELF or PTX images. Separate invocations are necessary because
 // cuobjdump's list options override other operations.
 func (t Tool) List(ctx context.Context, input string, kind Kind) ([]Image, Output, error) {
-	s, err := kind.suffix()
+	option, err := kind.listOption()
 	if err != nil {
 		return nil, Output{}, err
 	}
@@ -81,7 +118,7 @@ func (t Tool) List(ctx context.Context, input string, kind Kind) ([]Image, Outpu
 	if err != nil {
 		return nil, Output{}, err
 	}
-	out, err := cudatool.Run(ctx, t.path(), "", nil, "--list-"+s, p)
+	out, err := cudatool.Run(ctx, t.path(), "", nil, option, p)
 	if err != nil {
 		return nil, out, err
 	}
@@ -128,22 +165,15 @@ const (
 // Dump reports SASS, ELF sections, or resource usage. Resource output is kept
 // verbatim because common and per-function fields vary with toolkit versions.
 func (t Tool) Dump(ctx context.Context, input string, section Section) (Output, error) {
-	var flag string
-	switch section {
-	case SASS:
-		flag = "--dump-sass"
-	case ELFSections:
-		flag = "--dump-elf"
-	case Resources:
-		flag = "--dump-resource-usage"
-	default:
-		return Output{}, fmt.Errorf("unknown dump section %d", section)
+	option, err := section.option()
+	if err != nil {
+		return Output{}, err
 	}
 	p, err := inputPath(input)
 	if err != nil {
 		return Output{}, err
 	}
-	return cudatool.Run(ctx, t.path(), "", nil, flag, p)
+	return cudatool.Run(ctx, t.path(), "", nil, option, p)
 }
 
 // Artifact owns one extracted image's bytes. Name is a basename, not a path.
@@ -156,7 +186,7 @@ type Artifact struct {
 // files, then removes that directory. The original input is never an output.
 // It trusts the selected executable, not arbitrary scripts or hostile tools.
 func (t Tool) Extract(ctx context.Context, input string, kind Kind) (artifacts []Artifact, output Output, err error) {
-	s, err := kind.suffix()
+	option, err := kind.extractOption()
 	if err != nil {
 		return nil, Output{}, err
 	}
@@ -185,7 +215,7 @@ func (t Tool) Extract(ctx context.Context, input string, kind Kind) (artifacts [
 			err = errors.Join(err, fmt.Errorf("remove scratch %s: %w", dir, e))
 		}
 	}()
-	out, err := cudatool.Run(ctx, t.path(), dir, nil, "--extract-"+s, "all", p)
+	out, err := cudatool.Run(ctx, t.path(), dir, nil, option, "all", p)
 	if err != nil {
 		return nil, out, err
 	}
