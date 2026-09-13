@@ -739,6 +739,81 @@ on the device side this run delivers only the first, so the capture-loss
 mechanism is now blocking a deliverable rather than qualifying a footnote.
 
 
+## The two captures compared, and what the comparison shows
+
+Both captures were put through the same per-batch containment query, and in
+both the accounting closes: every batch is classified and the classified
+counts sum to the capture's total kernel count, so no kernel falls outside a
+prefill batch range.
+
+| | NVTX qualification | P3a |
+| --- | --- | --- |
+| batches at 16,083 | 228 | 219 |
+| batches at 16,103 | 15 | 15 |
+| ordinal 1 | 16,020 | 16,020 |
+| below baseline, excl. ordinal 1 | 12 | 21 |
+| of those, under 15,000 | 12 | 20 |
+| accounting | 228+15+1+12 = 256 | 219+15+1+21 = 256 |
+| sum over batches | 3,973,441 | 3,919,871 |
+| total kernels in capture | 3,973,441 | 3,919,873 |
+| last kernel end | 160.807 s | 161.438 s |
+| `prefill` range closes | 161.897 s | 161.952 s |
+| decode kernels | 0 | 0 |
+| NVTX ranges lost | none | last 3 calls |
+
+Ordinal 1 holds exactly 16,020 in *both* runs — 63 below baseline, the same
+number twice. That is deterministic first-batch warm-up, not loss, and it is
+excluded from the damage counts below.
+
+### We have never captured decode on the device
+
+This is the finding that matters, and it was visible in the first capture
+without being stated. Its last kernel lands at 160.807 s while `prefill`
+closes at 161.897 s and decode runs to 162.067 s — so device recording had
+already stopped more than a second before decode began. P3a repeats it with a
+1.47 s cut. The batch accounting closes on the capture total in both runs,
+which says the same thing independently: every captured kernel is a prefill
+kernel.
+
+The workload is "prefill 2048, then decode two tokens". On the device side we
+have only ever had the first half. Any statement in this guide or elsewhere
+about decode *device* behaviour on CUDA rests on no data.
+
+### The loss recurs at similar positions across runs
+
+The damaged batches are not scattered. They cluster into short runs of
+adjacent ordinals, and the runs partly repeat across two independent captures:
+
+```
+NVTX qualification:  [6,7,8]  [55,56]  [116,117]  [226,227,228]  [255,256]
+P3a:                 [54,55,56]  [65,66]  [138,139,140]  [158,159]
+                     [186,187]  [194,195,196]  [226,227]  [229]
+                     [238,239]  [256]
+```
+
+Three of the five qualification windows overlap a P3a window. Treating the
+P3a windows plus one ordinal of adjacency slack as covering ~43 of 256
+positions, independent placement would put ~0.84 of the five on top of one.
+Three landed there. That is a rough expectation, not a test.
+
+**This does not narrow the mechanism, and an earlier draft of this section
+wrongly said it pointed away from buffer pressure.** It does not. The workload
+is deterministic: the same launches and the same API volume happen at the same
+token positions every run, so a buffer that fills from launch volume fills at
+reproducible positions too. Recurrence at the same ordinals is exactly what
+buffer pressure predicts here, not evidence against it. What the recurrence
+does buy is a *predicted* place to look — a control can now be pointed at
+batch 55 or 226 rather than at a run's worth of timeline.
+
+### It is loss, not an async-launch shift
+
+A CUPTI kernel row is stamped with *device execution* time, not launch time,
+so a deficit in one batch range could in principle be work that executed
+inside a neighbour's range. It is not. No batch in either capture exceeds the
+baseline, so there is no surplus anywhere to receive shifted work, and each
+damaged window is a net deficit of roughly 22,800 kernels against a baseline
+that 243 of 256 batches hit exactly in one run and 234 of 256 in the other.
+
 ## Fine phase names, and what they do not isolate
 
 `-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
