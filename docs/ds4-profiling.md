@@ -1662,3 +1662,72 @@ and `nvdisasm` are compilers. That matters more than it sounds — when the
 GB10's PC sampling unit is claimed and every capture returns
 `CUPTI_ERROR_HARDWARE_BUSY`, this section is still reproducible and the
 sampling-based one is not.
+
+### Cold page cache changes nothing measurable, DGX spark-31db, 2026-09-13
+
+The host was rebooted, which empties the page cache and makes the first model
+load take about 80 s instead of 4 s. That is the only chance to test whether a
+cold load contaminates a capture, because it is gone the moment anything reads
+the model. One cold run, then three warm, same binary, same pinned toolchain:
+
+| | pre-decode discarded | accepted | `long_scoreboard` (ds4) | `short_scoreboard` (ds4) | ms/token |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **cold** | 118,944 | 476,665 | 65.89% | 2.22% | 95.25 |
+| warm 1 | 119,234 | 477,826 | 65.78% | 2.27% | 94.50 |
+| warm 2 | 120,409 | 476,222 | 66.05% | 2.21% | 95.25 |
+| warm 3 | 115,043 | 476,302 | 66.06% | 2.22% | 94.00 |
+
+**The cold run is inside the warm spread on every axis** — warm 3's pre-decode
+count sits further from the warm mean than the cold run's does. Cold cache does
+not inflate the pre-decode sample count, does not move the stall shares, and
+does not change decode time. That last one is expected: the weights are resident
+in device memory by the time decode starts, so the load is upstream of
+everything being measured. The first two were not expected and are the point of
+the run.
+
+This **refutes** a hypothesis worth recording precisely because it failed. An
+earlier capture, since withdrawn, reported 588,129 pre-decode samples and
+1,313,345 accepted against the ~119,000 and ~477,000 seen here, with
+`long_scoreboard` at 82.97%. Cold load was the proposed explanation, on the
+strength of the pre-decode count being 4.9x. It was never asserted, and it is
+now measured false: a genuinely cold run produces the ordinary numbers. **That
+capture remains unexplained, and the cold-cache story must not be repeated as
+its cause.**
+
+What this does establish is a variance envelope for the warm case, which is what
+later comparisons need: over four runs, pre-decode discarded 115,043-120,409,
+accepted 476,222-477,826, `long_scoreboard` 65.78-66.06%, `short_scoreboard`
+2.21-2.27%. An arm outside that band is doing something different, not sampling
+differently.
+
+The pre-decode discard count is only a number at all because a refused batch is
+reported (`242ece76`). Without it the cold and warm runs would have looked
+identical and there would have been nothing to compare.
+
+### Pin the toolchain, it is part of the measurement
+
+The reboot also repointed `/usr/local/cuda` to **13.4**, whose
+`libcupti.so.2026.3.0` reports CUPTI version **130400**.
+`cuptipcsampling.stallReasons` (`nvidia/x/cuptipcsampling/reasons.go:81`) admits
+only **27, 130001 and 130200**, so it refused the inventory and the test hit
+`t.Skipf` — and `go test` printed `ok … 0.510s` with **exit status 0**.
+
+Nothing in the environment chose 13.4. `LD_LIBRARY_PATH` was unset; `ldconfig -p`
+simply lists the `/usr/local/cuda` entry ahead of the `cuda-13.0` one. Any host
+with CUDA 13.4 installed resolves the same way.
+
+```
+export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/sbsa-linux/lib
+export PATH=/usr/local/cuda-13.0/bin:$PATH   # nvdisasm, so SASS matches too
+```
+
+Run every capture through that, and record the CUPTI version beside any capture
+that will be compared to another. The allowlist is not the problem — it refused
+to read a parameter struct whose layout it had not verified, rather than
+misreading it, which is the behavior you want. Widening it to 130400 requires
+checking those layouts against CUDA 13.4's `cupti_pcsampling.h`.
+
+**And the shape to remember: this arrived as a pass.** Four `t.Skipf` gates sit
+ahead of decode, and a skip is indistinguishable from success at the exit status.
+Never take a capture count, a failure rate, or a CI verdict from `rc`; run `-v`
+and require a line the measured path itself emits, such as `decode completed`.
