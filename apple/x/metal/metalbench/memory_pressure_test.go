@@ -3,6 +3,7 @@
 package metalbench
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"testing"
@@ -50,6 +51,9 @@ func NewRigidStaticEngine(dev *metal.Device, dim, outDim, memoryCap int) (*Rigid
 		_ = compiler.Close()
 		return nil, err
 	}
+	for i := range w.HostSlice() {
+		w.HostSlice()[i] = 1
+	}
 	return &RigidStaticEngine{
 		dev:        dev,
 		compiler:   compiler,
@@ -92,15 +96,22 @@ func (r *RigidStaticEngine) ProcessBatch(batchSize int) error {
 		return err
 	}
 	defer out.Free()
+	for i := range in.HostSlice() {
+		in.HostSlice()[i] = 1
+	}
+	for i := range out.HostSlice() {
+		out.HostSlice()[i] = -1
+	}
 
 	cb := r.dev.Queue().CommandBuffer()
 	enc := cb.ComputeCommandEncoder()
 	enc.SetComputePipelineState(r.pso)
+	setMemoryPressureDimensions(enc, r.dim, r.outDim)
 	for b := 0; b < batchSize; b++ {
 		enc.SetBufferWithOffsetAtIndex(in.Buffer(), uint(b*r.dim*4), 0)
 		enc.SetBufferWithOffsetAtIndex(r.w.Buffer(), 0, 1)
 		enc.SetBufferWithOffsetAtIndex(out.Buffer(), uint(b*r.outDim*4), 2)
-		enc.DispatchThreadsThreadsPerThreadgroup(
+		enc.DispatchThreadgroupsThreadsPerThreadgroup(
 			apple.MTLSize{Width: uint(r.outDim), Height: 1, Depth: 1},
 			apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 		)
@@ -108,7 +119,7 @@ func (r *RigidStaticEngine) ProcessBatch(batchSize int) error {
 	enc.EndEncoding()
 	cb.Commit()
 	cb.WaitUntilCompleted()
-	return nil
+	return checkMemoryPressureOutput(out.HostSlice(), r.dim)
 }
 
 // ElasticDegradationEngine adapts dynamically to shrinking memory headroom.
@@ -139,6 +150,9 @@ func NewElasticDegradationEngine(dev *metal.Device, dim, outDim, memoryCap int) 
 	if err != nil {
 		_ = compiler.Close()
 		return nil, err
+	}
+	for i := range w.HostSlice() {
+		w.HostSlice()[i] = 1
 	}
 	return &ElasticDegradationEngine{
 		dev:        dev,
@@ -199,14 +213,21 @@ func (e *ElasticDegradationEngine) ProcessBatch(batchSize int) (int, error) {
 			return tokensCompleted, err
 		}
 
+		for i := range in.HostSlice() {
+			in.HostSlice()[i] = 1
+		}
+		for i := range out.HostSlice() {
+			out.HostSlice()[i] = -1
+		}
 		cb := e.dev.Queue().CommandBuffer()
 		enc := cb.ComputeCommandEncoder()
 		enc.SetComputePipelineState(e.psoGEMV)
+		setMemoryPressureDimensions(enc, e.dim, e.outDim)
 		for b := 0; b < step; b++ {
 			enc.SetBufferWithOffsetAtIndex(in.Buffer(), uint(b*e.dim*4), 0)
 			enc.SetBufferWithOffsetAtIndex(e.w.Buffer(), 0, 1)
 			enc.SetBufferWithOffsetAtIndex(out.Buffer(), uint(b*e.outDim*4), 2)
-			enc.DispatchThreadsThreadsPerThreadgroup(
+			enc.DispatchThreadgroupsThreadsPerThreadgroup(
 				apple.MTLSize{Width: uint(e.outDim), Height: 1, Depth: 1},
 				apple.MTLSize{Width: 128, Height: 1, Depth: 1},
 			)
@@ -214,8 +235,12 @@ func (e *ElasticDegradationEngine) ProcessBatch(batchSize int) (int, error) {
 		enc.EndEncoding()
 		cb.Commit()
 		cb.WaitUntilCompleted()
+		outputErr := checkMemoryPressureOutput(out.HostSlice(), e.dim)
 		in.Free()
 		out.Free()
+		if outputErr != nil {
+			return tokensCompleted, outputErr
+		}
 
 		tokensCompleted += step
 		remaining -= step
@@ -307,4 +332,21 @@ func TestMemoryPressureDegradation(t *testing.T) {
 	t.Logf("  Rigid Static Engine: 0%% completion under pressure (FATAL OOM CRASH)")
 	t.Logf("  Elastic PGO Engine:  100%% completion under pressure (ZERO CRASHES, DYNAMIC DEGRADATION)")
 	t.Logf("==========================================================================================")
+}
+
+func checkMemoryPressureOutput(output []float32, dim int) error {
+	for i, got := range output {
+		if got != float32(dim) {
+			return fmt.Errorf("output[%d] = %g, want %d", i, got, dim)
+		}
+	}
+	return nil
+}
+
+func setMemoryPressureDimensions(enc apple.MTLComputeCommandEncoder, dim, outDim int) {
+	var value [4]byte
+	binary.LittleEndian.PutUint32(value[:], uint32(dim))
+	enc.SetBytesLengthAtIndex(value[:], 3)
+	binary.LittleEndian.PutUint32(value[:], uint32(outDim))
+	enc.SetBytesLengthAtIndex(value[:], 4)
 }
