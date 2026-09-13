@@ -24,14 +24,17 @@ type Function struct {
 
 // Instruction represents a single decoded hardware SASS instruction.
 type Instruction struct {
-	Address    uint64 // Hardware PC address (e.g. 0x7f001230)
-	Predicate  string // Instruction predicate, e.g. "@P0", "@!PT"
-	Opcode     string // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
-	Operands   string // Register and memory operands, e.g. "R0, R4, R5, R0"
-	SourceFile string // Source file name from line-info comments, e.g. "kernels.cu"
-	SourceLine int    // Source line number from line-info comments
-	Comment    string // Optional disassembly comment
-	Raw        string // Full raw disassembly line
+	Address     uint64 // Hardware PC address (e.g. 0x7f001230)
+	Predicate   string // Instruction predicate, e.g. "@P0", "@!PT"
+	Opcode      string // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
+	Operands    string // Register and memory operands, e.g. "R0, R4, R5, R0"
+	SourceFile  string // Source file name from line-info comments, e.g. "kernels.cu"
+	SourceLine  int    // Source line number from line-info comments
+	InlinedFile string // Inlined call site file name, if inlined
+	InlinedLine int    // Inlined call site line number, if inlined
+	PTXLine     int    // PTX line number from .nv_debug_ptx_txt comments, if present
+	Comment     string // Optional disassembly comment
+	Raw         string // Full raw disassembly line
 }
 
 // Function returns the function by name, or nil if not found.
@@ -46,6 +49,7 @@ func (d *Disassembly) Function(name string) *Function {
 }
 
 var sourceLocationPattern = regexp.MustCompile(`^//##\s+File\s+"([^"]+)",\s+line\s+([0-9]+)`)
+var inlineLocationPattern = regexp.MustCompile(`\s+inlined\s+at\s+"([^"]+)",\s+line\s+([0-9]+)`)
 
 // Parse reads SASS disassembly text from r and returns a Disassembly.
 func Parse(r io.Reader) (*Disassembly, error) {
@@ -57,6 +61,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	var curFn *Function
 	var curSourceFile string
 	var curSourceLine int
+	var curInlinedFile string
+	var curInlinedLine int
+	var curPTXLine int
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -67,9 +74,23 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		}
 
 		if m := sourceLocationPattern.FindStringSubmatch(trimmed); m != nil {
+			if m[1] == ".nv_debug_ptx_txt" {
+				if lineNum, err := strconv.Atoi(m[2]); err == nil {
+					curPTXLine = lineNum
+				}
+				continue
+			}
 			curSourceFile = m[1]
 			if lineNum, err := strconv.Atoi(m[2]); err == nil {
 				curSourceLine = lineNum
+			}
+			curInlinedFile = ""
+			curInlinedLine = 0
+			if mInline := inlineLocationPattern.FindStringSubmatch(trimmed); mInline != nil {
+				curInlinedFile = mInline[1]
+				if inlinedNum, err := strconv.Atoi(mInline[2]); err == nil {
+					curInlinedLine = inlinedNum
+				}
 			}
 			continue
 		}
@@ -78,6 +99,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		if fnName := extractFunctionName(trimmed); fnName != "" {
 			curSourceFile = ""
 			curSourceLine = 0
+			curInlinedFile = ""
+			curInlinedLine = 0
+			curPTXLine = 0
 			curFn = d.Function(fnName)
 			if curFn == nil {
 				curFn = &Function{
@@ -93,6 +117,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		if inst, ok := ParseInstructionLine(line); ok {
 			inst.SourceFile = curSourceFile
 			inst.SourceLine = curSourceLine
+			inst.InlinedFile = curInlinedFile
+			inst.InlinedLine = curInlinedLine
+			inst.PTXLine = curPTXLine
 
 			if curFn == nil {
 				curFn = &Function{
