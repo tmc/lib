@@ -45,6 +45,12 @@ type pcSamplingResult struct {
 	// sums all the stall types, so it stays closed when a reason is counted in
 	// the wrong one; this map is what makes that auditable from the bundle.
 	ReasonRouting map[string]string `json:"reason_routing,omitempty"`
+	// ReasonSamples records how much each reason actually contributed, which is
+	// what makes the routing falsifiable against this same file. It is also the
+	// only place the long_scoreboard and short_scoreboard split survives: both
+	// reach stall_scoreboard, and only the first means the warps were waiting
+	// on memory data.
+	ReasonSamples map[string]int64 `json:"reason_samples,omitempty"`
 }
 
 // Resolution reports the fraction of sampled PCs that resolved to a PTX
@@ -191,6 +197,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 	}
 	res.UnmappedStalls = bridge.UnmappedStalls
 	res.ReasonRouting = inv.Routing()
+	res.ReasonSamples = bridge.ReasonSamples
 	return res, err
 }
 

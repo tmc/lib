@@ -78,7 +78,18 @@ sends a reader to the memory system for a front-end problem. `reason_routing` in
 the manifest is the check the identity cannot be. It names every reason the
 hardware inventory reports -- sampled on this run or not -- and where each one
 would be counted: a sample type, `companion` for a `_not_issued` reason whose
-count is discarded as a subset of its base, or `unmapped`.
+count is discarded as a subset of its base, or `unmapped`. `reason_samples`
+records how much each reason actually contributed, so the routing is checkable
+against the same file rather than taken as a declaration.
+
+One routing decision is worth stating here because a reader will otherwise draw
+the wrong conclusion from a correct number. `stall_mem` counts memory-pipe
+*throttling* -- `lg_throttle`, `mio_throttle`, `tex_throttle`, `imc_miss`. A warp
+waiting for global memory data is `long_scoreboard`, which is a scoreboard stall
+and counted under `stall_scoreboard`. So `stall_mem` near zero does not mean the
+kernel is not memory bound; the `long_scoreboard` entry in `reason_samples` is
+where that question is answered, and `stall_scoreboard` alone cannot separate it
+from an ordinary register dependency.
 
 Two things make that identity hold and are worth knowing before reading a reason
 breakdown. CUPTI reports every reason twice, as `<reason>` and
