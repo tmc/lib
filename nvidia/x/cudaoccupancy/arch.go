@@ -113,6 +113,21 @@ var (
 		SmemAllocationUnit:      128,
 	}
 
+	// Blackwell GB200 (SM 10.0 / SM 10.0a)
+	SM100 = DeviceProperties{
+		Architecture:            "sm_100",
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                32,
+		MaxWarpsPerSM:           64,
+		MaxBlocksPerSM:          32,
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    233472,
+		MaxSharedMemoryPerBlock: 49152,
+		MaxSharedMemoryOptin:    232448,
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+	}
+
 	// Blackwell GB10 (SM 12.1)
 	// Provenance: measured on physical NVIDIA GB10 hardware via cudaGetDeviceProperties /
 	// cudaDeviceGetAttribute (CUDA 13.0.85, driver 580.173.02):
@@ -149,14 +164,18 @@ var knownArchitectures = map[string]DeviceProperties{
 	"sm90":    SM90,
 	"sm_90a":  SM90,
 	"sm90a":   SM90,
-	"sm_100":  SM90,
-	"sm100":   SM90,
+	"sm_100":  SM100,
+	"sm100":   SM100,
+	"sm_100a": SM100,
+	"sm100a":  SM100,
+	"gb200":   SM100,
 	"sm_120":  SM121,
 	"sm120":   SM121,
 	"sm_121":  SM121,
 	"sm121":   SM121,
 	"sm_121a": SM121,
 	"sm121a":  SM121,
+	"gb10":    SM121,
 }
 
 // LookupDevice returns device properties for the requested architecture string.

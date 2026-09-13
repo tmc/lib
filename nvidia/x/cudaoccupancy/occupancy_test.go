@@ -229,6 +229,64 @@ func TestLookupDevice(t *testing.T) {
 	}
 }
 
+func TestParseCuobjdumpResUsage(t *testing.T) {
+	// Sample real output from `cuobjdump -res-usage`
+	cuobjdumpOutput := `
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _Z18test_kernel_nosmemPfS_i:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:548 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11test_kernelPfS_i:
+  REG:12 STACK:0 SHARED:5120 LOCAL:0 CONSTANT[0]:548 TEXTURE:0 SURFACE:0 SAMPLER:0
+`
+	parsed, err := cudaoccupancy.ParseCuobjdumpResUsage(cuobjdumpOutput)
+	if err != nil {
+		t.Fatalf("ParseCuobjdumpResUsage: %v", err)
+	}
+
+	want := map[string]cudaoccupancy.KernelResource{
+		"_Z18test_kernel_nosmemPfS_i": {
+			Name:             "_Z18test_kernel_nosmemPfS_i",
+			Registers:        10,
+			StackFrameBytes:  0,
+			StaticSharedMem:  0,
+			ConstantBankSize: 548,
+		},
+		"_Z11test_kernelPfS_i": {
+			Name:             "_Z11test_kernelPfS_i",
+			Registers:        12,
+			StackFrameBytes:  0,
+			StaticSharedMem:  5120,
+			ConstantBankSize: 548,
+		},
+	}
+
+	if len(parsed) != len(want) {
+		t.Fatalf("parsed %d kernels, want %d", len(parsed), len(want))
+	}
+
+	for name, w := range want {
+		got, ok := parsed[name]
+		if !ok {
+			t.Errorf("kernel %q not found in parsed output", name)
+			continue
+		}
+		if got.Registers != w.Registers {
+			t.Errorf("%s: Registers = %d, want %d", name, got.Registers, w.Registers)
+		}
+		if got.StaticSharedMem != w.StaticSharedMem {
+			t.Errorf("%s: StaticSharedMem = %d, want %d", name, got.StaticSharedMem, w.StaticSharedMem)
+		}
+		if got.ConstantBankSize != w.ConstantBankSize {
+			t.Errorf("%s: ConstantBankSize = %d, want %d", name, got.ConstantBankSize, w.ConstantBankSize)
+		}
+		if got.StackFrameBytes != w.StackFrameBytes {
+			t.Errorf("%s: StackFrameBytes = %d, want %d", name, got.StackFrameBytes, w.StackFrameBytes)
+		}
+	}
+}
+
 func BenchmarkInspectCubin(b *testing.B) {
 	cubin := loadTestCubin(&testing.T{})
 	b.ResetTimer()
