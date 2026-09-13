@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"embed"
 	"encoding/hex"
 	"os"
 	"path/filepath"
@@ -16,6 +17,9 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 )
+
+//go:embed testdata/*
+var testFS embed.FS
 
 func TestCapture(t *testing.T) {
 	path := os.Getenv("CUDA_PROFILE_CAPTURE")
@@ -122,8 +126,7 @@ func TestKernelsNVRTCCompile(t *testing.T) {
 }
 
 func TestPTXInstructionAttribution(t *testing.T) {
-	dir := filepath.Join("..", "..", "x", "cudacapture", "testdata")
-	cubinHex, err := os.ReadFile(filepath.Join(dir, "kernels.cubin.hex"))
+	cubinHex, err := testFS.ReadFile("testdata/kernels.cubin.hex")
 	if err != nil {
 		t.Fatalf("read kernels.cubin.hex: %v", err)
 	}
@@ -131,15 +134,15 @@ func TestPTXInstructionAttribution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode cubin hex: %v", err)
 	}
-	cuBytes, err := os.ReadFile(filepath.Join(dir, "kernels.cu"))
+	cuBytes, err := testFS.ReadFile("testdata/kernels.cu")
 	if err != nil {
 		t.Fatalf("read kernels.cu: %v", err)
 	}
-	ptxBytes, err := os.ReadFile(filepath.Join(dir, "kernels.ptx"))
+	ptxBytes, err := testFS.ReadFile("testdata/kernels.ptx")
 	if err != nil {
 		t.Fatalf("read kernels.ptx: %v", err)
 	}
-	sassBytes, err := os.ReadFile(filepath.Join(dir, "kernels.sass"))
+	sassBytes, err := testFS.ReadFile("testdata/kernels.sass")
 	if err != nil {
 		t.Fatalf("read kernels.sass: %v", err)
 	}

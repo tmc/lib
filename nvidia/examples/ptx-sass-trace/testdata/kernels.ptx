@@ -1,0 +1,15 @@
+.version 8.0
+.target sm_90
+.address_size 64
+
+.file 1 "kernels.cu"
+
+.visible .entry compute(
+	.param .u64 a
+)
+{
+	.loc 1 2 0;
+	mov.u64 %rd1, %rd2;
+	.loc 1 3 0;
+	ret;
+}

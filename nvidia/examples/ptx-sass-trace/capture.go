@@ -45,10 +45,14 @@ type captureMetadata struct {
 }
 
 func capture(dir string, cfg config) (result *captureMetadata, err error) {
-	f, err := os.Create(filepath.Join(dir, "go.trace"))
+	// The trace is collected to a scratch file and folded into the capture
+	// bundle below; WriteDir refuses to overwrite files already in dir.
+	f, err := os.CreateTemp("", "ptx-sass-trace-*.trace")
 	if err != nil {
 		return nil, fmt.Errorf("create trace: %w", err)
 	}
+	tracePath := f.Name()
+	defer os.Remove(tracePath)
 	defer func() { err = errors.Join(err, f.Close()) }()
 	if err := trace.Start(f); err != nil {
 		return nil, fmt.Errorf("start trace: %w", err)
@@ -137,7 +141,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	captureFiles["kernels.sass"] = assembly.Stdout
 	captureFiles["nvdisasm.txt"] = version.Stdout
 
-	traceData, err := os.ReadFile(filepath.Join(dir, "go.trace"))
+	trace.Stop()
+	traceData, err := os.ReadFile(tracePath)
 	if err == nil && len(traceData) > 0 {
 		captureFiles["go.trace"] = traceData
 	}
