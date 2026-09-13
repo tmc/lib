@@ -15,6 +15,7 @@ type CodegenOptions struct {
 	//   - "q8_0" (8-bit quantization with half-precision scale)
 	//   - "u2" (2-bit packed unsigned quantization with dp4a SIMD unpacking)
 	//   - "q2_k" (2-bit k-quantization with super-block scaling and interleaved quants)
+	//   - "iq2_xxs" (2-bit quantization with codebook grid dequantization)
 	Precision string
 	// UseWarpSum enables intra-warp reduction helpers.
 	UseWarpSum bool
@@ -31,6 +32,7 @@ type CodegenOptions struct {
 //   - "u2_simd" (2-bit packed unsigned dot product via dp4a SIMD)
 //   - "u2_scalar" (2-bit packed unsigned dot product via scalar shifts)
 //   - "q2_k_matvec" (Q2_K quantized matrix-vector multiply with interleaved quants)
+//   - "iq2_xxs_matvec" (IQ2_XXS quantized matrix-vector multiply with codebook grid dequantization)
 //   - "fused_rope_store_kv" (RoPE rotation + KV-cache store)
 //   - "add" (two-input elementwise addition)
 func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
@@ -45,10 +47,10 @@ func GenerateCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	switch opts.Precision {
-	case "float", "float32", "half", "float16", "q8_0", "u2", "q2_k":
+	case "float", "float32", "half", "float16", "q8_0", "u2", "q2_k", "iq2_xxs":
 		// supported precisions
 	default:
-		return "", fmt.Errorf("egraph: unsupported precision %q: supported precisions are \"float\", \"half\", \"q8_0\", \"u2\", \"q2_k\"", opts.Precision)
+		return "", fmt.Errorf("egraph: unsupported precision %q: supported precisions are \"float\", \"half\", \"q8_0\", \"u2\", \"q2_k\", \"iq2_xxs\"", opts.Precision)
 	}
 
 	var sb strings.Builder
@@ -111,6 +113,66 @@ struct block_q2_k {
     uint16_t dmin;      // float16 super-block scale for minimums
 };
 
+// IQ2_XXS block: 256 2-bit quantized values with 8-element codebook grid indexing.
+// Laid out as block_iq2_xxs (66 bytes: float16 scale + 32 uint16_t qs).
+struct block_iq2_xxs {
+    uint16_t d;        // float16 super-block scale
+    uint16_t qs[32];   // 32 uint16_t = 64 bytes (grid indices, signs, sub-block scales)
+};
+
+// 2-bit 8-element codebook grid table (256 entries) for IQ2_XXS.
+// Each uint16_t packs 8 2-bit values: entry j in {0, 1, 2, 3}, producing grid value 2*j + 1.
+__device__ const uint16_t kgrid_2bit_256[256] = {
+        0,     2,     5,     8,    10,    17,    20,    32,    34,    40,    42,    65,    68,    80,    88,    97,
+      100,   128,   130,   138,   162,   257,   260,   272,   277,   320,   388,   408,   512,   514,   546,   642,
+     1025,  1028,  1040,  1057,  1060,  1088,  1090,  1096,  1120,  1153,  1156,  1168,  1188,  1280,  1282,  1288,
+     1312,  1350,  1385,  1408,  1425,  1545,  1552,  1600,  1668,  1700,  2048,  2053,  2056,  2068,  2088,  2113,
+     2116,  2128,  2130,  2184,  2308,  2368,  2562,  2580,  4097,  4100,  4112,  4129,  4160,  4192,  4228,  4240,
+     4245,  4352,  4360,  4384,  4432,  4442,  4480,  4644,  4677,  5120,  5128,  5152,  5157,  5193,  5248,  5400,
+     5474,  5632,  5654,  6145,  6148,  6160,  6208,  6273,  6400,  6405,  6560,  6737,  8192,  8194,  8202,  8260,
+     8289,  8320,  8322,  8489,  8520,  8704,  8706,  9217,  9220,  9232,  9280,  9302,  9472,  9537,  9572,  9872,
+    10248, 10272, 10388, 10820, 16385, 16388, 16400, 16408, 16417, 16420, 16448, 16456, 16470, 16480, 16513, 16516,
+    16528, 16640, 16672, 16737, 16768, 16773, 16897, 16912, 16968, 16982, 17000, 17408, 17416, 17440, 17536, 17561,
+    17682, 17700, 17920, 18433, 18436, 18448, 18496, 18501, 18688, 18776, 18785, 18818, 19013, 19088, 20480, 20488,
+    20497, 20505, 20512, 20608, 20616, 20740, 20802, 20900, 21137, 21648, 21650, 21770, 22017, 22100, 22528, 22545,
+    22553, 22628, 22848, 23048, 24580, 24592, 24640, 24680, 24832, 24917, 25112, 25184, 25600, 25605, 25872, 25874,
+    25988, 26690, 32768, 32770, 32778, 32833, 32898, 33028, 33048, 33088, 33297, 33793, 33796, 33808, 33813, 33856,
+    33888, 34048, 34118, 34196, 34313, 34368, 34400, 34818, 35076, 35345, 36868, 36880, 36900, 36928, 37025, 37142,
+    37248, 37445, 37888, 37922, 37956, 38225, 39041, 39200, 40962, 41040, 41093, 41225, 41472, 42008, 43088, 43268,
+};
+
+// 7-bit sign lookup table (128 entries) with parity bit for IQ2_XXS.
+__device__ const uint8_t ksigns_iq2xs[128] = {
+      0, 129, 130,   3, 132,   5,   6, 135, 136,   9,  10, 139,  12, 141, 142,  15,
+    144,  17,  18, 147,  20, 149, 150,  23,  24, 153, 154,  27, 156,  29,  30, 159,
+    160,  33,  34, 163,  36, 165, 166,  39,  40, 169, 170,  43, 172,  45,  46, 175,
+     48, 177, 178,  51, 180,  53,  54, 183, 184,  57,  58, 187,  60, 189, 190,  63,
+    192,  65,  66, 195,  68, 197, 198,  71,  72, 201, 202,  75, 204,  77,  78, 207,
+     80, 209, 210,  83, 212,  85,  86, 215, 216,  89,  90, 219,  92, 221, 222,  95,
+     96, 225, 226,  99, 228, 101, 102, 231, 232, 105, 106, 235, 108, 237, 238, 111,
+    240, 113, 114, 243, 116, 245, 246, 119, 120, 249, 250, 123, 252, 125, 126, 255,
+};
+
+__device__ const uint8_t kmask_iq2xs[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
+
+// Inlines dequantization of an IQ2_XXS 8-element sub-vector from codebook grid, signs, and sub-block scale.
+__device__ __forceinline__ void dequantize_iq2_xxs_sub8(
+    uint8_t grid_idx,
+    uint8_t sign_idx,
+    float db,
+    float* __restrict__ out8
+) {
+    uint16_t grid_entry = kgrid_2bit_256[grid_idx];
+    uint8_t signs = ksigns_iq2xs[sign_idx];
+    #pragma unroll
+    for (int j = 0; j < 8; j++) {
+        int l_val = (grid_entry >> (2 * j)) & 0x03;
+        float grid_val = (float)(2 * l_val + 1);
+        float sign = (signs & kmask_iq2xs[j]) ? -1.0f : 1.0f;
+        out8[j] = db * grid_val * sign;
+    }
+}
+
 __device__ __forceinline__ float warp_sum(float val) {
     #pragma unroll
     for (int offset = WARP_SIZE / 2; offset > 0; offset /= 2) {
@@ -138,6 +200,8 @@ __device__ __forceinline__ float warp_sum(float val) {
 		sb.WriteString(generateU2ScalarKernel(opts))
 	case "q2_k_matvec":
 		sb.WriteString(generateQ2KMatvecKernel(opts))
+	case "iq2_xxs_matvec":
+		sb.WriteString(generateIQ2XXSMatvecKernel(opts))
 	case "fused_rope_store_kv":
 		sb.WriteString(generateFusedRoPEStoreKVKernel(opts))
 	case "add":
@@ -451,6 +515,76 @@ extern "C" __global__ void KERNEL_NAME(
             uint8_t sc = blk->scales[group];
             float val = d * (float)(sc & 0x0f) * (float)q_val - dmin * (float)(sc >> 4);
             acc += val * x[b * 256 + elem];
+        }
+
+        for (int offset = 16; offset > 0; offset /= 2) {
+            acc += __shfl_down_sync(FULL_WARP_MASK, acc, offset);
+        }
+        if (lane == 0) {
+            row_sum += acc;
+        }
+    }
+    if (lane == 0) {
+        y[row] = row_sum;
+    }
+}
+`
+	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
+}
+
+func generateIQ2XXSMatvecKernel(opts CodegenOptions) string {
+	src := `// IQ2_XXS matrix-vector multiplication kernel (y = W * x).
+// Requirements:
+// - cols must be a positive multiple of 256 (the IQ2_XXS block size).
+//   If cols is not a multiple of 256, lane 0 writes NaN to y[row] to prevent
+//   uninitialized buffer reuse.
+// - blockDim.x must be a multiple of 32 (WARP_SIZE), with each warp processing one row.
+extern "C" __global__ void KERNEL_NAME(
+    const block_iq2_xxs* __restrict__ W,
+    const float* __restrict__ x,
+    float* __restrict__ y,
+    int rows,
+    int cols
+) {
+    int warp_id = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
+    int lane = threadIdx.x % WARP_SIZE;
+    if (warp_id >= rows) return;
+
+    int row = warp_id;
+    if (cols <= 0 || cols % 256 != 0) {
+        if (lane == 0) {
+            y[row] = __int_as_float(0x7fffffff);
+        }
+        return;
+    }
+    int blocks_per_row = cols / 256;
+    float row_sum = 0.0f;
+
+    int ib32 = lane >> 2;
+    int l = lane & 3;
+
+    for (int b = 0; b < blocks_per_row; b++) {
+        const block_iq2_xxs* blk = &W[row * blocks_per_row + b];
+        float d = half_to_float(blk->d);
+
+        const uint32_t* qs32 = reinterpret_cast<const uint32_t*>(blk->qs);
+        uint32_t aux0 = qs32[2 * ib32 + 0];
+        uint32_t aux1 = qs32[2 * ib32 + 1];
+
+        float db = d * (0.5f + (float)(aux1 >> 28)) * 0.25f;
+        uint8_t grid_idx = (aux0 >> (8 * l)) & 0xff;
+        uint8_t sign_idx = (aux1 >> (7 * l)) & 0x7f;
+        uint8_t signs = ksigns_iq2xs[sign_idx];
+        uint16_t grid_entry = kgrid_2bit_256[grid_idx];
+
+        float acc = 0.0f;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+            int l_val = (grid_entry >> (2 * i)) & 0x03;
+            float grid_val = (float)(2 * l_val + 1);
+            float sign = (signs & kmask_iq2xs[i]) ? -1.0f : 1.0f;
+            float w = db * grid_val * sign;
+            acc += w * x[b * 256 + lane * 8 + i];
         }
 
         for (int offset = 16; offset > 0; offset /= 2) {

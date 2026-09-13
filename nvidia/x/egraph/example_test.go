@@ -89,3 +89,19 @@ func ExampleSubByteRules() {
 	// (mmaf_scaled x (ptx_unswizzle_fp4_e2m1 w) scale)
 }
 
+func ExampleDequantizeIQ2XXS() {
+	// 66-byte IQ2_XXS block with scale d = 1.0 (0x3c00 in float16)
+	block := make([]byte, egraph.IQ2XXSBlockBytes)
+	block[0] = 0x00
+	block[1] = 0x3c
+
+	dst := make([]float32, egraph.IQ2XXSBlockSize)
+	if err := egraph.DequantizeIQ2XXS(dst, block); err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("first 4 weights: %.3f %.3f %.3f %.3f\n", dst[0], dst[1], dst[2], dst[3])
+	// Output:
+	// first 4 weights: 0.125 0.125 0.125 0.125
+}
