@@ -1078,10 +1078,12 @@ interior: lower  7966498707/7966476848  (batch 64, batch 128)
 
 The earlier captures showed the same infeasibility, and it could always be
 waved away: they were missing markers, they were missing their tails, so
-perhaps the surviving brackets were simply wrong. This one is not missing
-either. **That removes truncation and tail loss as explanations** for this
-run. It does not exclude every timestamp error, and it does not speak to
-records nobody has enumerated — but the easy explanations are gone.
+perhaps the surviving brackets were simply wrong. Here all six bracket
+records are present, and the device-tail cutoff seen in every earlier arm is
+absent under the checks above. **The two confounds we had actually observed
+are gone from this run.** That is the whole of it: records outside the
+enumerated checks, and timestamps assigned wrongly rather than lost, are
+untested either way. This is not a blanket exclusion of loss.
 
 Until that gate passes, this capture supports device-side reasoning and
 host-side reasoning separately. It does not yet support putting a host span
