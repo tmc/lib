@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -418,23 +419,114 @@ func (r *Result) Details() string {
 	return b.String()
 }
 
-// LookTool returns the path to the compute-sanitizer executable. An empty path
-// looks [DefaultToolName] up on PATH. The error wraps [ErrToolNotFound].
-func LookTool(path string) (string, error) {
-	name := path
-	if name == "" {
-		name = DefaultToolName
+// toolkitEnvVars are the environment variables that conventionally name a CUDA
+// toolkit root. They are consulted before the default prefixes.
+var toolkitEnvVars = []string{"CUDA_HOME", "CUDA_PATH", "CUDA_ROOT"}
+
+// toolkitRoots are the install prefixes searched when no environment variable
+// names one. /usr/local/cuda is first because a multi-version install points it
+// at the version the machine is configured for.
+var toolkitRoots = []string{
+	"/usr/local/cuda",
+	"/usr/local/cuda-13",
+	"/usr/local/cuda-12",
+	"/opt/cuda",
+	"/usr/lib/cuda",
+}
+
+// toolkitSubdirs are the directories inside a toolkit root that hold a
+// compute-sanitizer executable, in preference order: bin holds a small
+// launcher, and the compute-sanitizer directory holds the real binary beside
+// the libraries it needs.
+var toolkitSubdirs = []string{"bin", "compute-sanitizer"}
+
+// ToolSearchPaths returns the executables [LookTool] tries before PATH, in
+// order. The list is empty on GOOS values Compute Sanitizer does not ship for,
+// leaving PATH as the only source.
+//
+// A toolkit install is preferred over PATH because a distribution package can
+// leave an older compute-sanitizer earlier on PATH than the toolkit's own. Such
+// a binary is not merely out of date: it does not know the current devices, and
+// one that shipped against different sanitizer libraries fails to start at all
+// rather than reporting that it is too old. Checking the toolkit first picks the
+// build that matches the libraries beside it.
+//
+// A non-empty Config.Path, or a toolkit root in CUDA_HOME, CUDA_PATH or
+// CUDA_ROOT, overrides the defaults.
+func ToolSearchPaths() []string { return toolSearchPaths(runtime.GOOS, os.Getenv) }
+
+// toolSearchPaths is ToolSearchPaths with the platform and environment
+// injected, so the Linux ordering can be tested on any host.
+func toolSearchPaths(goos string, getenv func(string) string) []string {
+	if goos != "linux" {
+		return nil
 	}
-	found, err := exec.LookPath(name)
+	var roots []string
+	for _, env := range toolkitEnvVars {
+		if v := getenv(env); v != "" {
+			roots = append(roots, v)
+		}
+	}
+	roots = append(roots, toolkitRoots...)
+
+	seen := make(map[string]bool, len(roots)*len(toolkitSubdirs))
+	paths := make([]string, 0, len(roots)*len(toolkitSubdirs))
+	for _, root := range roots {
+		for _, sub := range toolkitSubdirs {
+			p := filepath.Join(root, sub, DefaultToolName)
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			paths = append(paths, p)
+		}
+	}
+	return paths
+}
+
+// LookTool returns the path to the compute-sanitizer executable. A non-empty
+// path is resolved the way a shell would, including a bare name on PATH. An
+// empty path tries the toolkit installs [ToolSearchPaths] names and then
+// [DefaultToolName] on PATH. The error wraps [ErrToolNotFound].
+func LookTool(path string) (string, error) {
+	if path != "" {
+		found, err := exec.LookPath(path)
+		if err != nil {
+			return "", fmt.Errorf("%w: %v", ErrToolNotFound, err)
+		}
+		return found, nil
+	}
+	for _, candidate := range ToolSearchPaths() {
+		if isExecutableFile(candidate) {
+			return candidate, nil
+		}
+	}
+	found, err := exec.LookPath(DefaultToolName)
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrToolNotFound, err)
 	}
 	return found, nil
 }
 
-// ToolVersion runs compute-sanitizer --version and returns its first line of
-// output, for recording which build produced a report. An empty path looks
-// [DefaultToolName] up on PATH.
+// isExecutableFile reports whether path is a regular file with an execute bit
+// set. A directory of the same name, or a file that cannot be executed, is not
+// a candidate.
+func isExecutableFile(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil || !fi.Mode().IsRegular() {
+		return false
+	}
+	return fi.Mode().Perm()&0o111 != 0
+}
+
+// ToolVersion runs compute-sanitizer --version and returns the line naming the
+// build, for recording which one produced a report. An empty path resolves the
+// tool the way [LookTool] does.
+//
+// The first line of --version output is a product banner identical across every
+// release, so it identifies nothing; the build is on the line that starts with
+// "Version", as in "Version 2026.3.0.0 (build 38637409) (public-release)". When
+// no line says that, the first non-empty line is returned instead.
 func ToolVersion(ctx context.Context, path string) (string, error) {
 	found, err := LookTool(path)
 	if err != nil {
@@ -452,12 +544,30 @@ func ToolVersion(ctx context.Context, path string) (string, error) {
 	if truncated {
 		return "", fmt.Errorf("%s --version: output exceeds 64 KiB", found)
 	}
-	for _, line := range strings.Split(out, "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			return line, nil
-		}
+	if v := toolVersionLine(out); v != "" {
+		return v, nil
 	}
 	return "", fmt.Errorf("%s --version: no output", found)
+}
+
+// toolVersionLine picks the build identifier out of --version output. It
+// returns the line introducing the version, else the first non-empty line, else
+// the empty string.
+func toolVersionLine(out string) string {
+	first := ""
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "Version") {
+			return line
+		}
+		if first == "" {
+			first = line
+		}
+	}
+	return first
 }
 
 // logFile returns a path for the tool's report. When dir is empty the file is
