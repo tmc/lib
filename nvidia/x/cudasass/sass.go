@@ -33,8 +33,22 @@ type Instruction struct {
 	InlinedFile string // Inlined call site file name, if inlined
 	InlinedLine int    // Inlined call site line number, if inlined
 	PTXLine     int    // PTX line number from .nv_debug_ptx_txt comments, if present
+	LiveGPR     int    // Live General Purpose Registers from register life-range analysis
+	LivePred    int    // Live Predicate registers
+	LiveUGPR    int    // Live Uniform GPRs (sm_70+)
+	LiveUPred   int    // Live Uniform Predicate registers (sm_70+)
 	Comment     string // Optional disassembly comment
 	Raw         string // Full raw disassembly line
+}
+
+// Pressure returns the live register pressure at this instruction.
+func (i Instruction) Pressure() RegisterPressure {
+	return RegisterPressure{
+		GPR:   i.LiveGPR,
+		Pred:  i.LivePred,
+		UGPR:  i.LiveUGPR,
+		UPred: i.LiveUPred,
+	}
 }
 
 // Function returns the function by name, or nil if not found.
@@ -153,6 +167,16 @@ func DisassembleCUBIN(cubin []byte) (*Disassembly, error) {
 		return nil, err
 	}
 	return ParseString(string(r.Stdout))
+}
+
+// DisassembleCFG invokes nvdisasm on cubin bytes to produce Graphviz DOT control flow graph text.
+// If basicBlocks is true, basic blocks are generated instead of hyperblocks.
+func DisassembleCFG(cubin []byte, basicBlocks bool) (string, error) {
+	r, err := (Disassembler{}).ControlFlowGraph(context.Background(), cubin, basicBlocks)
+	if err != nil {
+		return "", err
+	}
+	return string(r.Stdout), nil
 }
 
 func extractFunctionName(line string) string {
