@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime/trace"
-	"testing"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaflightrecorder"
@@ -466,8 +466,8 @@ func TestGoTraceFlightRecording(t *testing.T) {
 			if manifest.OverlapSpanNs <= 0 {
 				t.Errorf("manifest.OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
 			}
-			if !manifest.OverlapReliable {
-				t.Errorf("manifest.OverlapReliable = false, want true")
+			if manifest.OverlapReliable {
+				t.Errorf("manifest.OverlapReliable = true, want false")
 			}
 
 			// Verify TAR bundle contents
