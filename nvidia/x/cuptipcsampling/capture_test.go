@@ -2,6 +2,7 @@ package cuptipcsampling
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"unsafe"
@@ -42,79 +43,81 @@ func TestPublicConfig(t *testing.T) {
 // enabling is now the first native call, so a failed enable leaves nothing to
 // clean up. TestPublicStartEnableFailureTouchesNothing covers that case.
 func TestPublicStartCleanup(t *testing.T) {
-	for _, failConfig := range []bool{false, true} {
-		t.Run(map[bool]string{false: "success", true: "partial configure"}[failConfig], func(t *testing.T) {
-			var saved []cupti.PCSamplingConfigurationInfo
-			failure := errors.New("configure failed")
-			api := samplingControlAPI{
-				version: func() (uint32, error) { return 130001, nil },
-				set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
-					if failConfig {
-						return failure
-					}
-					a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
-					for i := range a {
-						a[i].AttributeStatus = 0
-					}
-					saved = append(saved, a...)
-					return nil
-				},
-				get: func(p *cupti.PCSamplingConfigurationInfoParams) error {
-					a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
-					for i := range a {
-						for _, v := range saved {
-							if a[i].AttributeType == v.AttributeType {
-								a[i] = v
+	for _, version := range []uint32{130001, 130400} {
+		for _, failConfig := range []bool{false, true} {
+			t.Run(fmt.Sprintf("v%d_%s", version, map[bool]string{false: "success", true: "partial configure"}[failConfig]), func(t *testing.T) {
+				var saved []cupti.PCSamplingConfigurationInfo
+				failure := errors.New("configure failed")
+				api := samplingControlAPI{
+					version: func() (uint32, error) { return version, nil },
+					set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
+						if failConfig {
+							return failure
+						}
+						a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
+						for i := range a {
+							a[i].AttributeStatus = 0
+						}
+						saved = append(saved, a...)
+						return nil
+					},
+					get: func(p *cupti.PCSamplingConfigurationInfoParams) error {
+						a := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))
+						for i := range a {
+							for _, v := range saved {
+								if a[i].AttributeType == v.AttributeType {
+									a[i] = v
+								}
 							}
 						}
-					}
-					return nil
-				},
-				enable:  func(*cupti.PCSamplingEnableParams) error { return nil },
-				start:   func(*cupti.PCSamplingStartParams) error { return nil },
-				stop:    func(*cupti.PCSamplingStopParams) error { return nil },
-				disable: func(*cupti.PCSamplingDisableParams) error { return nil },
-			}
-			inventory := ReasonInventory{CUPTIVersion: 130001, Reasons: []StallReason{{Index: 7, Name: "reason"}}}
-			config := testPublicConfig()
-			s, err := startSession(5, config, api, func(cupti.Context, int) (ReasonInventory, error) { return inventory, nil }, func(a, b, c int) (*samplingNames, error) {
-				return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
-			}, func(*cupti.PCSamplingGetDataParams) error { return nil })
-			if s == nil || (failConfig && !errors.Is(err, failure)) || (!failConfig && err != nil) {
-				t.Fatalf("session=%v err=%v", s, err)
-			}
-			t.Cleanup(func() { _ = s.Close() })
-			if _, ok := s.Final(); ok {
-				t.Fatal("premature final")
-			}
-			config.ReasonIDs[0] = 99
-			info := s.Info()
-			// A configuration that was never applied was never read back, so
-			// Verified reports the failure rather than the intent.
-			if info.Config.ReasonIDs[0] != 7 || info.Verified == failConfig {
-				t.Fatalf("info=%+v", info)
-			}
-			info.Config.ReasonIDs[0] = 98
-			info.Inventory.Reasons[0].Name = "changed"
-			if got := s.Info(); got.Config.ReasonIDs[0] != 7 || got.Inventory.Reasons[0].Name != "reason" {
-				t.Fatal("metadata aliases caller")
-			}
-			if !failConfig {
-				if b, err := s.Read(); err != nil || !b.Valid {
-					t.Fatalf("batch=%+v err=%v", b, err)
+						return nil
+					},
+					enable:  func(*cupti.PCSamplingEnableParams) error { return nil },
+					start:   func(*cupti.PCSamplingStartParams) error { return nil },
+					stop:    func(*cupti.PCSamplingStopParams) error { return nil },
+					disable: func(*cupti.PCSamplingDisableParams) error { return nil },
 				}
-			}
-			err = s.Close()
-			if (err != nil) != failConfig {
-				t.Fatalf("close=%v", err)
-			}
-			if b, ok := s.Final(); !ok || !b.Valid || b.CUPTIVersion != 130001 {
-				t.Fatalf("final=%+v available=%v", b, ok)
-			}
-			if got := s.Info(); !got.Closed || got.Failed != failConfig {
-				t.Fatalf("info=%+v", got)
-			}
-		})
+				inventory := ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{{Index: 7, Name: "reason"}}}
+				config := testPublicConfig()
+				s, err := startSession(5, config, api, func(cupti.Context, int) (ReasonInventory, error) { return inventory, nil }, func(a, b, c int) (*samplingNames, error) {
+					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
+				}, func(*cupti.PCSamplingGetDataParams) error { return nil })
+				if s == nil || (failConfig && !errors.Is(err, failure)) || (!failConfig && err != nil) {
+					t.Fatalf("session=%v err=%v", s, err)
+				}
+				t.Cleanup(func() { _ = s.Close() })
+				if _, ok := s.Final(); ok {
+					t.Fatal("premature final")
+				}
+				config.ReasonIDs[0] = 99
+				info := s.Info()
+				// A configuration that was never applied was never read back, so
+				// Verified reports the failure rather than the intent.
+				if info.Config.ReasonIDs[0] != 7 || info.Verified == failConfig {
+					t.Fatalf("info=%+v", info)
+				}
+				config.ReasonIDs[0] = 98
+				info.Inventory.Reasons[0].Name = "changed"
+				if got := s.Info(); got.Config.ReasonIDs[0] != 7 || got.Inventory.Reasons[0].Name != "reason" {
+					t.Fatal("metadata aliases caller")
+				}
+				if !failConfig {
+					if b, err := s.Read(); err != nil || !b.Valid {
+						t.Fatalf("batch=%+v err=%v", b, err)
+					}
+				}
+				err = s.Close()
+				if (err != nil) != failConfig {
+					t.Fatalf("close=%v", err)
+				}
+				if b, ok := s.Final(); !ok || !b.Valid || b.CUPTIVersion != version {
+					t.Fatalf("final=%+v available=%v", b, ok)
+				}
+				if got := s.Info(); !got.Closed || got.Failed != failConfig {
+					t.Fatalf("info=%+v", got)
+				}
+			})
+		}
 	}
 }
 

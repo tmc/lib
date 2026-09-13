@@ -73,10 +73,11 @@ func (b *samplingBuffer) fetch(ctx cupti.Context, version uint32, query func(*cu
 	if b.released || ctx == 0 || query == nil {
 		return samplingBatch{}, errors.New("cuptipcsampling: invalid drain request")
 	}
-	// This complete output layout has a retained 130001 C-header witness.
-	// Admitting other versions requires the same output-layout check, not
-	// merely the version gates of unrelated reason or CRC query functions.
-	if unsafe.Sizeof(uintptr(0)) != 8 || version != 130001 {
+	// This complete output layout has a retained C-header witness for every
+	// version qualifiedSamplingVersion admits. Admitting another version
+	// requires the same output-layout witness, not merely the version gates of
+	// unrelated reason or CRC query functions.
+	if unsafe.Sizeof(uintptr(0)) != 8 || !qualifiedSamplingVersion(version) {
 		return samplingBatch{}, fmt.Errorf("cuptipcsampling: unqualified drain layout for CUPTI %d", version)
 	}
 	b.reset()

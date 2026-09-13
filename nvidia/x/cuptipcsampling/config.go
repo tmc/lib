@@ -31,7 +31,7 @@ type samplingConfig struct {
 }
 
 func newSamplingConfig(o samplingOptions, inventory ReasonInventory, output *samplingBuffer) (*samplingConfig, error) {
-	if inventory.CUPTIVersion != 130001 || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64") {
+	if !qualifiedSamplingVersion(inventory.CUPTIVersion) || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64") {
 		return nil, errors.New("cuptipcsampling: unqualified configuration layout")
 	}
 	if output == nil || output.released || len(o.reasons) == 0 || len(o.reasons) > len(output.reasons[0]) || o.period < 5 || o.period > 31 || o.workerSleepMS == 0 {

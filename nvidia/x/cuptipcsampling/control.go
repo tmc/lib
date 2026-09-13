@@ -78,6 +78,7 @@ type samplingControl struct {
 	config                                                       *samplingConfig
 	api                                                          samplingControlAPI
 	prepared, touched, enabled, startAttempted, failed, disabled bool
+	version                                                      uint32
 	starts, stops                                                uint64
 }
 
@@ -94,9 +95,10 @@ func (s *samplingControl) prepare() error {
 	if err != nil {
 		return fmt.Errorf("cuptipcsampling: query sampling version: %w", err)
 	}
-	if v != 130001 {
+	if !qualifiedSamplingVersion(v) {
 		return fmt.Errorf("cuptipcsampling: unqualified sampling control version %d", v)
 	}
+	s.version = v
 	s.touched = true
 	if err := s.config.apply(s.ctx, a.set); err != nil {
 		s.failed = true

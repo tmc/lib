@@ -138,7 +138,8 @@ type Session struct {
 
 // Start configures, verifies, enables and starts an explicit sampling range.
 // It launches no workload and does not synchronize or replay CUDA work. Only
-// Linux amd64/arm64 with CUPTI 130001 is admitted; this is a header-layout gate,
+// Linux amd64/arm64 with CUPTI 130001 or 130400 is admitted; this is a
+// header-layout gate,
 // not a claim of native hardware qualification. Period must be 5 through 31.
 // A zero CollectionMode selects continuous collection. Serialized collection
 // requires AllowSerialization because it changes kernel concurrency.
@@ -198,7 +199,7 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	if err != nil {
 		return nil, err
 	}
-	if version != 130001 {
+	if !qualifiedSamplingVersion(version) {
 		return nil, fmt.Errorf("cuptipcsampling: unqualified sampling version %d", version)
 	}
 	// Claim the collector before any native call, so a start rejected for

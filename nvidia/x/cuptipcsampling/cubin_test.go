@@ -25,7 +25,7 @@ func testCubin() []byte {
 }
 
 func TestIdentifyCubin(t *testing.T) {
-	for _, v := range []uint32{27, 130001, 130200} {
+	for _, v := range []uint32{27, 130001, 130200, 130400} {
 		for _, crc := range []uint64{0, 1<<63 + 7} {
 			data := testCubin()
 			got, err := identifyCubin(data, len(data), func() (uint32, error) { return v, nil }, func(p *cupti.GetCubinCrcParams) error {

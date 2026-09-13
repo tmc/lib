@@ -64,7 +64,7 @@ func (s *samplingSession) read() (samplingBatch, error) {
 		return samplingBatch{}, err
 	}
 	s.reads++
-	batch, err := s.drain.drainOwned(s.control.ctx, 130001, s.query, s.names)
+	batch, err := s.drain.drainOwned(s.control.ctx, s.control.version, s.query, s.names)
 	if batch.dropped != 0 || batch.hardwareFull != 0 {
 		s.lossObserved = true
 	}
