@@ -233,3 +233,81 @@ func TestKindString(t *testing.T) {
 		}
 	}
 }
+
+// TestWidthCollapse exercises the vector-width arm against real artifacts.
+//
+// ptxas honored every vector global access reachable from a .cu here, so no
+// fixture in this directory contains a collapse. The arm is a regression guard,
+// and a guard that has never been seen to fire has to be fired deliberately or
+// it is only asserted to compile. These cases supply the table instead of the
+// fixture: fmaChain really does hold two ld.global.f64 lowered to two LDG.E.64,
+// so a table that claims f64 should have reached LDG.E.128 describes a kernel
+// whose vector form is absent and whose scalar form is present, which is what
+// the arm looks for.
+//
+// What this leaves unasserted is the vector entries in [DefaultLowerings]: no
+// fixture here holds a vector access, so their opcode spellings are carried on
+// the word of the probe that chose them. Asserting those needs a .cu with
+// float4 and float2 accesses in this directory, which also moves every count
+// in TestCompareStats.
+func TestWidthCollapse(t *testing.T) {
+	tests := []struct {
+		name      string
+		lowerings []Lowering
+		want      []string
+	}{{
+		// The vector form is absent and the scalar form is there.
+		name: "vector form absent",
+		lowerings: []Lowering{
+			{PTX: "ld.global.f64", SASS: []string{"LDG.E.128"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E.64"}},
+		},
+		want: []string{
+			"_Z8fmaChainPdPKdS1_i: width collapse: 2 ld.global.f64, 2 LDG.E.64 in the kernel (no LDG.E.128, 2-wide)",
+		},
+	}, {
+		// The same table naming the width ptxas actually emitted. Nothing to
+		// report: this is the control that keeps the case above from passing
+		// on any table at all.
+		name: "vector form present",
+		lowerings: []Lowering{
+			{PTX: "ld.global.f64", SASS: []string{"LDG.E.64"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E"}},
+		},
+		want: nil,
+	}, {
+		// The vector form is absent and so is the scalar form, so the width
+		// arm has nothing to say and the plain erased report stands. Without
+		// this the arm could swallow every Erased.
+		name: "neither form present",
+		lowerings: []Lowering{
+			{PTX: "ld.global.f64", SASS: []string{"LDG.E.128"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E.256"}},
+		},
+		want: []string{
+			"_Z8fmaChainPdPKdS1_i: erased: 2 ld.global.f64, no LDG.E.128",
+		},
+	}, {
+		// ScalarSASS is matched exactly. "LDG.E" is a prefix of "LDG.E.64", so
+		// a prefix match would count fmaChain's two vector loads as their own
+		// scalar replacements and report a collapse in a kernel that has none.
+		name: "scalar form is a prefix of the vector form",
+		lowerings: []Lowering{
+			{PTX: "ld.global.f64", SASS: []string{"LDG.E.128"}, VectorWidth: 2, ScalarSASS: []string{"LDG.E"}},
+		},
+		want: []string{
+			"_Z8fmaChainPdPKdS1_i: erased: 2 ld.global.f64, no LDG.E.128",
+		},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := Compare(readPTX(t, "lowering.sm90.ptx"), readSASS(t, "lowering.sm90.sass"),
+				&Options{Lowerings: tt.lowerings})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := divergences(r); !equalStrings(got, tt.want) {
+				t.Errorf("divergences:\ngot:\n\t%s\nwant:\n\t%s",
+					strings.Join(got, "\n\t"), strings.Join(tt.want, "\n\t"))
+			}
+		})
+	}
+}

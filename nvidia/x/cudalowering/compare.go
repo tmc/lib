@@ -79,7 +79,7 @@ func (d Divergence) String() string {
 	case MissingPTX:
 		b.WriteString("function is in the disassembly and not in the ptx")
 	case WidthCollapse:
-		fmt.Fprintf(&b, "%d %s requested, %d %s emitted", d.PTXCount, d.PTXOpcode, d.SASSCount, d.SASSOpcode)
+		fmt.Fprintf(&b, "%d %s, %d %s in the kernel", d.PTXCount, d.PTXOpcode, d.SASSCount, d.SASSOpcode)
 	}
 	if d.Detail != "" {
 		fmt.Fprintf(&b, " (%s)", d.Detail)
@@ -199,14 +199,22 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 				sassCount += sass.Count(op)
 			}
 			switch {
-			case l.VectorWidth > 0 && ptxCount > 0 && sassCount == 0:
-				scalarCount := 0
-				for _, op := range l.ScalarSASS {
-					scalarCount += sass.Count(op)
-				}
-				if scalarCount >= ptxCount*l.VectorWidth {
-					r.Divergences = append(r.Divergences, Divergence{Kind: WidthCollapse, Kernel: p.PTX.Name, PTXOpcode: l.PTX, SASSOpcode: strings.Join(l.ScalarSASS, " or "), PTXCount: ptxCount, SASSCount: scalarCount, Detail: fmt.Sprintf("requested %d-wide vector, emitted scalar operations", l.VectorWidth)})
-				}
+			case len(l.ScalarSASS) > 0 && ptxCount > 0 && sassCount == 0 && countExact(sass, l.ScalarSASS) > 0:
+				// A vector access the SASS does not contain, in a kernel that
+				// does contain the scalar form: report which it is rather than
+				// the bare Erased. The scalar count is the whole kernel's, so
+				// it is not a count of the replacements; requiring it to reach
+				// ptxCount*VectorWidth would miss a partial collapse and would
+				// still be inflated by scalar accesses the kernel wrote itself.
+				r.Divergences = append(r.Divergences, Divergence{
+					Kind:       WidthCollapse,
+					Kernel:     p.PTX.Name,
+					PTXOpcode:  l.PTX,
+					SASSOpcode: strings.Join(l.ScalarSASS, " or "),
+					PTXCount:   ptxCount,
+					SASSCount:  countExact(sass, l.ScalarSASS),
+					Detail:     fmt.Sprintf("no %s, %d-wide", strings.Join(l.SASS, " or "), l.VectorWidth),
+				})
 			case ptxCount > 0 && sassCount == 0:
 				r.Divergences = append(r.Divergences, Divergence{
 					Kind:       Erased,
@@ -282,4 +290,24 @@ func peakGPR(fn *cudasass.Function) int {
 		}
 	}
 	return peak
+}
+
+// countExact returns how many instructions in s have exactly one of the given
+// opcodes. [cudasass.OpcodeSummary.Count] matches by prefix, which is right for
+// a family such as LDG but wrong for a scalar form whose spelling is a prefix
+// of the vector one.
+func countExact(s *cudasass.OpcodeSummary, opcodes []string) int {
+	if s == nil {
+		return 0
+	}
+	var total int
+	for op, count := range s.Counts {
+		for _, want := range opcodes {
+			if strings.EqualFold(op, want) {
+				total += count
+				break
+			}
+		}
+	}
+	return total
 }
