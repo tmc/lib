@@ -18,9 +18,14 @@
 // five ptxas options and two nvlink options, and left nvdisasm's and cuobjdump's
 // option names alone. Going further back, 12.6 to 13.0 gave nvdisasm
 // --emit-json, which is the one option the packages in this tree emit that an
-// installed toolkit may not have. Within compute-sanitizer, --kill and
-// --track-unused-memory take no argument on any version, and passing one is
-// rejected outright rather than ignored.
+// installed toolkit may not have.
+//
+// Within compute-sanitizer, --kill and --track-unused-memory take no argument on
+// any recorded version, and passing one is rejected outright rather than
+// ignored. The 2022.4.1 build
+// that Ubuntu installs as /usr/bin/compute-sanitizer spells both with an
+// argument, so an option's arity is as much a property of the installed tool as
+// its name is.
 //
 // So that callers need not guess, the optiondata directory holds one distilled
 // option set per tool per toolkit version: a line per option naming its arity,

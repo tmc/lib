@@ -146,6 +146,26 @@ func TestCapsCheckNames(t *testing.T) {
 	}
 }
 
+// TestCheckReportsUnknownVersion covers a tool whose toolkit version cannot be
+// recovered, such as a compute-sanitizer installed outside a versioned prefix.
+// The option set then comes from the tool's own --help, and the error says so
+// rather than naming version 0.0.
+func TestCheckReportsUnknownVersion(t *testing.T) {
+	opts, err := ParseText("--kill value\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := Caps{Tool: "compute-sanitizer", Options: opts, Probed: true}
+	err = caps.Check(Flag{Name: "--kill"})
+	if err == nil {
+		t.Fatal("Check accepted a bare --kill against a tool that requires an argument")
+	}
+	want := "compute-sanitizer unknown version (from --help)"
+	if !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error %v does not start with %q", err, want)
+	}
+}
+
 // TestCapsOrigin pins what an error says about where the option set came from,
 // since that is what tells a reader whether to trust it.
 func TestCapsOrigin(t *testing.T) {

@@ -71,7 +71,13 @@
 // 13.0 and 13.4. In particular --kill and --track-unused-memory take no
 // argument on all three, which is why [Config.Kill] and
 // [Config.TrackUnusedMemory] emit a bare flag for [ToggleYes] and nothing for
-// [ToggleNo]. The check is there for the release that changes one of them.
+// [ToggleNo].
+//
+// An arity change is not hypothetical. Compute Sanitizer 2022.4.1, which Ubuntu
+// installs as /usr/bin/compute-sanitizer and which therefore sits ahead of the
+// toolkit's own build on PATH, spells both of those options with an argument
+// ("--kill arg (=yes)"). Pointing [Config.Path] at it reports that difference
+// by name instead of handing it a command line it misparses.
 //
 // # Running a test binary under the tool
 //
