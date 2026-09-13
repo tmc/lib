@@ -1137,6 +1137,67 @@ something to rely on. The error was real, the process exited 1, and a run that
 exits 1 is not a run — the corrected control reproduces the capture with the
 call returning success.
 
+## The C oracle eats the same tokens, and no patch was needed
+
+The other half of the comparison needs both runtimes to consume identical
+content. That looked like a problem: `ds4-min` takes a JSON array of token
+IDs (`-prompt-tokens`), while `ds4-bench` takes only prose
+(`--prompt-file` / `--chat-prompt-file`). The obvious move was to patch a
+third input arm into the oracle — which would have made every capture a
+measurement of a modified oracle.
+
+It is unnecessary, because the fixture was never ds4-min's tokenization in
+the first place. `docs/oracle-workload-bench.md` records that
+`scripts/testdata/oracle-workload-tokens2048.json` "comes from the pristine
+b0a147a CPU token dump of promessi_sposi.txt" — it is the *C* tokenizer's
+output, which the Go side consumes verbatim. So feeding `ds4-bench` that
+same text should reproduce it exactly. That is a claim, and it was checked
+rather than assumed:
+
+    ./ds4 --cpu -m $MODEL --ctx 4096 --raw \
+      --prompt-file speed-bench/promessi_sposi.txt --dump-tokens
+
+The first 2048 IDs, packed little-endian uint32 (8192 bytes) and hashed:
+
+    5fdf3b77e31c5cd253345ba1f8c4100e9f0b55eff30a1a5ed3029fb524c80380
+
+which is the registered fixture hash, exactly. `promessi_sposi.txt` is
+`f53e0d80cb2d4492d24ebd63c7000c397b16ae70f9bf09b3763e5d8323ec209f`, and all
+eight copies of it on the DGX are that same file.
+
+Three seams make the dump stand in for what `ds4-bench` actually prefills,
+each read in source rather than inferred:
+
+- `ds4_cli.c:522-523` — under `--raw`, the CLI tokenizes with
+  `ds4_tokenize_text(engine, prompt, out)`.
+- `ds4_bench.c:737` — under `--prompt-file`, the bench calls the same
+  `ds4_tokenize_text`. (The chat arm at `:735` does not; `--raw` is what
+  matches it, and `--chat-prompt-file` would not.)
+- `ds4_bench.c:810-814` — the prefilled prefix is `{.v = prompt.v, .len =
+  frontier}`, the first `frontier` IDs with nothing prepended.
+
+The two binaries are separate links over the same `ds4.o`, so this is a
+same-function argument, not a same-process observation. The stronger form —
+capturing the prefix inside the timed bench process — is what
+`docs/oracle-workload-bench.md` already flags as missing on the CUDA side,
+and this does not supply it.
+
+`ds4.c` here hashes to
+`2403b881be7adbdb50f5901aabe2a08f35e7b34ed09f5b57f1b608843894393b`, the same
+post-patch source as the qualified oracle references, so the tokenizer that
+produced this dump is the one those references used.
+
+### What still has to match, and what teacher forcing would not prove
+
+Identical prefill input is not identical decode. `ds4-bench.c:904-906`
+chooses `prompt.v[frontier + gen_done]` under `--teacher-forced-decode` and
+`ds4_session_argmax_excluding(session, eos)` otherwise. ds4-min is
+autoregressive and accepted 15342 then 201. The comparison worth capturing is
+the autoregressive one, and its gate is that the C side emits those same two
+IDs. Teacher forcing would pin the execution trajectory while proving nothing
+about selection, so if it is ever used it gets its own label and its own row —
+never a substitute for the argmax result.
+
 ## Fine phase names, and what they do not isolate
 
 `-span-level op` with `-spans-stream` carries the `markCUDAPhase` names into
