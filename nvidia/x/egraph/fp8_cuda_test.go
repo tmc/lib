@@ -68,7 +68,8 @@ func testFP8GEMV(t *testing.T, threads uint32) {
 	}
 	compiled, err := nvrtcx.Compile(egraph.ScaledFP8GEMVTemplate,
 		nvrtcx.WithName("fp8.cu"),
-		nvrtcx.WithArch(int(major), int(minor)),
+		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
+		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {

@@ -2,6 +2,7 @@ package egraph_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -54,7 +55,8 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 	}
 	compiled, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("swiglu.cu"),
-		nvrtcx.WithArch(int(major), int(minor)),
+		nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)),
+		nvrtcx.WithOutput(nvrtcx.OutputCUBIN),
 		nvrtcx.WithNoCache(),
 	)
 	if err != nil {
