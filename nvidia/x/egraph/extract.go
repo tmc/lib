@@ -148,9 +148,21 @@ type FusedMegakernelCost struct{}
 func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 	baseCost := 1.0
 	switch {
-	case strings.HasPrefix(n.Op, "fused_"):
-		// Rewarded: Mega-kernel executing in registers/shared-mem
+	case n.Op == "tile_load" || n.Op == "tile_store" || n.Op == "load_strided" || n.Op == "partition_view":
+		// Penalized: Unaligned / unoptimized memory access patterns
+		baseCost = 4.0
+	case strings.HasPrefix(n.Op, "tma_") || strings.HasPrefix(n.Op, "assume_") || strings.HasPrefix(n.Op, "coalesce_") || n.Op == "mmaf_scaled" || n.Op == "tile_mma_aligned":
+		// Rewarded: Hardware TMA / Tensor Core hardware-aligned acceleration
+		baseCost = 0.1
+	case strings.HasPrefix(n.Op, "fused_") || (strings.HasPrefix(n.Op, "tile_") && n.Op != "tile_mma"):
+		// Rewarded: Mega-kernel or declarative Tile IR executing in registers/shared-mem
 		baseCost = 0.2
+	case n.Op == "tile_mma":
+		// Rewarded over GEMV/Matmul, but tile_mma_aligned is preferred for hardware alignment
+		baseCost = 0.3
+	case strings.HasPrefix(n.Op, "ptx_"):
+		// Rewarded: In-register bit-unswizzling
+		baseCost = 0.4
 	case strings.HasPrefix(n.Op, "pdl_") || strings.HasPrefix(n.Op, "pdl_pipeline"):
 		// Rewarded: Programmatic Dependent Launch (PDL) overlapping sequential stages
 		// with hardware overlap factor (alpha ~ 0.85) eliminating inter-kernel dispatch bubbles.
@@ -160,7 +172,7 @@ func (FusedMegakernelCost) NodeCost(n ENode, childCosts []float64) float64 {
 		baseCost = 0.5
 	case n.Op == "gemv" || n.Op == "matmul":
 		baseCost = 2.0
-	case n.Op == "rmsnorm" || n.Op == "rope" || n.Op == "silu":
+	case n.Op == "rmsnorm" || n.Op == "rope" || n.Op == "silu" || n.Op == "gelu" || n.Op == "swish":
 		baseCost = 1.5
 	case n.Op == "store_kv" || n.Op == "load_kv":
 		baseCost = 1.8
