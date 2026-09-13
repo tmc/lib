@@ -34,7 +34,7 @@ type Doc struct {
 	Title       string   `json:"title,omitempty"`       // Descriptive section title
 	Summary     string   `json:"summary,omitempty"`     // 1-2 sentence overview
 	Syntax      []string `json:"syntax,omitempty"`      // Syntax prototypes
-	Description string   `json:"description,omitempty"`  // Detailed description prose
+	Description string   `json:"description,omitempty"` // Detailed description prose
 	Semantics   string   `json:"semantics,omitempty"`   // Algorithmic semantics if available
 	Category    string   `json:"category,omitempty"`    // Category name (e.g. "Floating-Point Instructions")
 	MinPTX      string   `json:"min_ptx,omitempty"`     // Earliest PTX ISA version
@@ -334,7 +334,7 @@ func explainInstruction(predicate, opcode, mnemonic, operands string) *HoverInfo
 
 	// Resolve operands and identify special registers
 	if operands != "" {
-		for _, op := range strings.Split(operands, ",") {
+		for _, op := range SplitOperands(operands) {
 			op = strings.TrimSpace(op)
 			opDoc := LookupDoc(op)
 			summary := ""
