@@ -60,8 +60,8 @@ func (d *Device) Name() (string, error) {
 
 // TotalMem returns the total available device global memory in bytes.
 func (d *Device) TotalMem() (uint64, error) {
-	var bytes uint
-	if err := d.raw.TotalMem(&bytes); err != nil {
+	bytes, err := d.raw.TotalMem()
+	if err != nil {
 		return 0, fmt.Errorf("cuda: device %d total mem: %w", d.ordinal, err)
 	}
 	return uint64(bytes), nil
@@ -77,7 +77,7 @@ func (d *Device) ComputeCapability() (major, minor int, err error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("cuda: device %d compute capability minor: %w", d.ordinal, err)
 	}
-	return maj, min, nil
+	return int(maj), int(min), nil
 }
 
 // Attribute queries an integer hardware or driver attribute on the device.
@@ -86,7 +86,7 @@ func (d *Device) Attribute(attrib driver.DeviceAttribute) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("cuda: device %d get attribute %v: %w", d.ordinal, attrib, err)
 	}
-	return val, nil
+	return int(val), nil
 }
 
 // MultiprocessorCount returns the number of physical Streaming Multiprocessors (SMs) on the device.

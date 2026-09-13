@@ -158,8 +158,8 @@ func TestPhysicalDistributedGemm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("driver.NewDeviceGet(%d): %v", j.local, err)
 	}
-	var uuid driver.Uuid
-	if err := device.GetUuid(&uuid); err != nil {
+	uuid, err := device.GetUuid()
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("rank %d device %d UUID %x", j.rank, device, uuid)

@@ -34,8 +34,8 @@ func TestNativeActivationForward(t *testing.T) {
 	check("CUDA init", driver.Init(0))
 	dev, err := driver.NewDeviceGet(0)
 	check("device", err)
-	var uuid driver.Uuid
-	check("UUID", dev.GetUuid(&uuid))
+	uuid, err := dev.GetUuid()
+	check("UUID", err)
 	ctx, err := dev.PrimaryCtxRetain()
 	check("retain context", err)
 	defer func() { clean("release context", dev.PrimaryCtxRelease()) }()
