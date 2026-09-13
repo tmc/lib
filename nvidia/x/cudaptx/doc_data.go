@@ -1,6 +1,7 @@
 package cudaptx
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	_ "embed"
@@ -11,8 +12,8 @@ import (
 	"sync"
 )
 
-//go:embed ptxdoc.json.gz
-var ptxDocGz []byte
+//go:embed ptxdoc.jsonl.gz
+var ptxDocJSONLGz []byte
 
 // DocKind describes the kind of PTX entity documented.
 type DocKind string
@@ -42,15 +43,30 @@ type Doc struct {
 }
 
 var getDocDatabase = sync.OnceValues(func() (map[string]*Doc, error) {
-	gr, err := gzip.NewReader(bytes.NewReader(ptxDocGz))
+	gr, err := gzip.NewReader(bytes.NewReader(ptxDocJSONLGz))
 	if err != nil {
-		return nil, fmt.Errorf("read ptxdoc.json.gz: %w", err)
+		return nil, fmt.Errorf("read ptxdoc.jsonl.gz: %w", err)
 	}
 	defer gr.Close()
 
-	var db map[string]*Doc
-	if err := json.NewDecoder(gr).Decode(&db); err != nil {
-		return nil, fmt.Errorf("decode ptxdoc: %w", err)
+	db := make(map[string]*Doc)
+	scanner := bufio.NewScanner(gr)
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var d Doc
+		if err := json.Unmarshal(line, &d); err != nil {
+			return nil, fmt.Errorf("decode doc line: %w", err)
+		}
+		db[strings.ToLower(d.Name)] = &d
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan ptxdoc.jsonl.gz: %w", err)
 	}
 	return db, nil
 })

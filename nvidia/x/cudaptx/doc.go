@@ -23,4 +23,4 @@
 // the other.
 package cudaptx
 
-//go:generate go run ./internal/genptxtables -docs ../../../../libgen/docs/ptx -out tables.gen.go -docout ptxdoc.json.gz
+//go:generate go run ./internal/genptxtables -docs ../../../../libgen/docs/ptx -out tables.gen.go -docout ptxdoc.jsonl.gz

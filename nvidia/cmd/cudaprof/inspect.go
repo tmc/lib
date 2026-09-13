@@ -111,8 +111,11 @@ func runInspectCommand(args []string) error {
 	if len(args) >= 1 && (args[0] == "--cfg" || args[0] == "--bbcfg") {
 		return runInspectCFG(args, limits)
 	}
+	if len(args) >= 1 && args[0] == "--pressure" {
+		return runInspectPressure(args, limits)
+	}
 	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles" && args[0] != "--remarks" && args[0] != "--tileir" && args[0] != "--ptx") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg [kernel] capture.pprof")
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--remarks|--tileir|--ptx|--cfg|--bbcfg|--pressure [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(args[1])
 	if err != nil {
@@ -388,3 +391,24 @@ func inspectPTX(cap *cudacapture.Capture) *inspectPTXSummary {
 	return summary
 }
 
+func runInspectPressure(args []string, limits cudacapture.Limits) error {
+	var kernel, capturePath string
+	switch len(args) {
+	case 2:
+		capturePath = args[1]
+	case 3:
+		kernel = args[1]
+		capturePath = args[2]
+	default:
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --pressure [kernel] capture.pprof")
+	}
+	path, err := filepath.Abs(capturePath)
+	if err != nil {
+		return err
+	}
+	cap, err := readCapturePathLimits(path, limits)
+	if err != nil {
+		return fmt.Errorf("read capture: %w", err)
+	}
+	return printCapturePressure(os.Stdout, cap, kernel)
+}

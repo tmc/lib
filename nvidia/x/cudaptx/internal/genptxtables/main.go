@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ import (
 func main() {
 	docs := flag.String("docs", "", "path to a docs/ptx mirror")
 	out := flag.String("out", "tables.gen.go", "output file")
-	docout := flag.String("docout", "ptxdoc.json.gz", "path to write compressed JSON documentation database")
+	docout := flag.String("docout", "ptxdoc.jsonl.gz", "path to write compressed JSONL documentation database")
 	flag.Parse()
 	if *docs == "" {
 		log.Fatal("genptxtables: -docs is required")
@@ -1196,20 +1197,36 @@ func generateDocs(docsDir, docout string, types []typeInfo) ([]byte, int, error)
 		}
 	}
 
+	var names []string
+	for name := range docs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	var buf bytes.Buffer
+	var out io.Writer = &buf
+	var gw *gzip.Writer
 	if strings.HasSuffix(docout, ".gz") {
-		gw := gzip.NewWriter(&buf)
-		if err := json.NewEncoder(gw).Encode(docs); err != nil {
-			return nil, 0, fmt.Errorf("encode docs: %w", err)
+		gw = gzip.NewWriter(&buf)
+		out = gw
+	}
+
+	for _, name := range names {
+		line, err := json.Marshal(docs[name])
+		if err != nil {
+			return nil, 0, fmt.Errorf("marshal doc %s: %w", name, err)
 		}
+		if _, err := out.Write(line); err != nil {
+			return nil, 0, err
+		}
+		if _, err := out.Write([]byte("\n")); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	if gw != nil {
 		if err := gw.Close(); err != nil {
 			return nil, 0, fmt.Errorf("gzip docs: %w", err)
-		}
-	} else {
-		enc := json.NewEncoder(&buf)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(docs); err != nil {
-			return nil, 0, fmt.Errorf("encode docs: %w", err)
 		}
 	}
 
