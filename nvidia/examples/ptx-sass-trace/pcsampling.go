@@ -92,6 +92,17 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 	}, nil
 }
 
+// stallReasons reads the native reason inventory for cuCtx, enabling sampling
+// for the duration of the query and disabling it again.
+func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
+	disable, err := cuptipcsampling.Enable(cuCtx)
+	if err != nil {
+		return cuptipcsampling.ReasonInventory{}, err
+	}
+	defer func() { err = errors.Join(err, disable()) }()
+	return cuptipcsampling.StallReasons(cuCtx, 1<<10)
+}
+
 // withPCSampling collects PC samples for the duration of fn and records them
 // into prof. It starts the collector before fn and drains after, because Read
 // never synchronizes the device and Final is a separate native buffer rather
@@ -100,11 +111,11 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 // The returned result is valid even when fn fails, so a partial run still
 // reports what it collected.
 func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, prof *cudaprof.Session, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
-	pEnable := cupti.PCSamplingEnableParams{Size: 24, Ctx: cuCtx}
-	if err := cupti.PCSamplingEnable(&pEnable); err != nil {
-		return nil, fmt.Errorf("enable pc sampling: %w", err)
-	}
-	inv, err := cuptipcsampling.StallReasons(cuCtx, 1<<10)
+	// The reason inventory cannot be read on a context where sampling is off,
+	// and the configuration Start needs is built from that inventory, so this
+	// enable is scoped to the query alone. Start enables the context again on
+	// its own terms and owns the matching disable.
+	inv, err := stallReasons(cuCtx)
 	if err != nil {
 		return nil, fmt.Errorf("query stall reasons: %w", err)
 	}

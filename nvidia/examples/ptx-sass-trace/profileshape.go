@@ -12,10 +12,10 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
-// ptxBase is the logical image base for the PTX text, matching the constant
-// cmd/cudaprof uses when it synthesizes the same mapping at view time. It sits
-// below cudaprof.DefaultMappingStart so the two images never overlap.
-const ptxBase = uint64(0x7e000000)
+// ptxBase is the logical image base for the PTX text. It is the same constant
+// cmd/cudaprof uses when it annotates the profile, so a statement has one
+// address whether it is written at capture time or synthesized at view time.
+const ptxBase = cudaprof.PTXMappingStart
 
 // sampleTypes reports the profile's value types. Stall counters exist only
 // under PC sampling, so a run without it advertises the two types it can fill
@@ -37,20 +37,6 @@ func numericLabelUnits() map[string]string {
 		"moe.expert": "index",
 		"moe.slot":   "index",
 	}
-}
-
-// lineOffsets indexes the byte offset of each one-based line in text, with an
-// end-of-file sentinel. PTX addresses are byte offsets into the PTX text, so a
-// statement's address is the offset of the line it starts on; cmd/cudaprof
-// derives the same addresses the same way when it disassembles the PTX.
-func lineOffsets(text string) []uint64 {
-	offsets := []uint64{0}
-	var offset uint64
-	for _, line := range strings.SplitAfter(text, "\n") {
-		offsets = append(offsets, offset)
-		offset += uint64(len(line))
-	}
-	return append(offsets, offset)
 }
 
 // ptxAddress returns the logical address of a one-based PTX line, or zero when

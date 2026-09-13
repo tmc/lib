@@ -29,7 +29,7 @@ func TestSampleTypes(t *testing.T) {
 func TestLineOffsetsAndPTXAddress(t *testing.T) {
 	// Three lines of two bytes each: offsets are 0, 2, 4, then the sentinel.
 	const text = "a\nb\nc\n"
-	offsets := lineOffsets(text)
+	offsets := cudaprof.PTXLineOffsets(text)
 	tests := []struct {
 		name string
 		line int

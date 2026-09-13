@@ -210,7 +210,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	// The PTX text is a second logical image, so PTX frames carry real
 	// addresses in the shipped file rather than only when cmd/cudaprof
 	// synthesizes the mapping at view time.
-	ptxLines := lineOffsets(ptx)
+	ptxLines := cudaprof.PTXLineOffsets(ptx)
 	prof.AddMapping("kernels.ptx", "", ptxBase, ptxBase+uint64(len(ptx)))
 	var wRes workloadResult
 	workloadStart := time.Now()
@@ -222,7 +222,13 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if cfg.pcSampling {
 		attribution = "hardware PC samples attributed to SASS, PTX and source"
 	}
-	labels := cudaprof.Labels("device", devName, "measurement", "CUDA event interval", "attribution", attribution)
+	// These three are constant for the whole run, so they are comments rather
+	// than labels: a label with one value across every sample splits nothing,
+	// and pprof renders it on every tooltip.
+	prof.AddComment("device: " + devName)
+	prof.AddComment("measurement: CUDA event interval")
+	prof.AddComment("attribution: " + attribution)
+	labels := cudaprof.Labels()
 
 	if !cfg.pcSampling {
 		cudaprof.Do(ctx, labels, runMeasured)
