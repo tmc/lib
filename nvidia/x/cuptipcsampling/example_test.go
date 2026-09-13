@@ -181,7 +181,7 @@ func ExampleClassifyPipelineStall() {
 	canonical, cat, desc, _ := cuptipcsampling.ClassifyPipelineStall("smsp__pcsamp_warps_issue_stalled_long_scoreboard")
 	fmt.Printf("%s [%s]: %s\n", canonical, cat, desc[:22])
 	// Output:
-	// long_scoreboard [memory]: Waiting on scoreboard 
+	// long_scoreboard [memory]: Waiting on scoreboard
 }
 
 func ExampleReasonInventory_DecodeSASSMetric() {

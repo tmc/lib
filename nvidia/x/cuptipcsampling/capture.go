@@ -52,6 +52,12 @@ type Config struct {
 	// single Read never returns more than PCsPerBuffer records.
 	PCsPerBuffer int
 
+	// BufferCount optionally configures the number of drain buffers in a circular
+	// ring buffer. When BufferCount < 2, the session uses a single static drain buffer.
+	// When BufferCount >= 2, the session allocates a zero-copy circular [RingBuffer]
+	// of BufferCount pinned buffers for asynchronous and concurrent draining.
+	BufferCount int
+
 	// MaxOutputBytes bounds both output buffers together, each receiving
 	// MaxOutputBytes/2; an odd value loses the remaining byte to truncation.
 	// The budget covers the output header, PC records and reason arrays, and
@@ -126,6 +132,7 @@ type Info struct {
 	Verified, Failed, Closed bool
 	Reads                    uint
 	Starts, Stops            uint64
+	RingStats                RingBufferStats
 }
 
 // Session owns an exclusively coordinated PC collector. Its zero value is not
@@ -159,7 +166,7 @@ func Start(ctx cupti.Context, config Config) (*Session, error) {
 }
 
 func validateConfig(ctx cupti.Context, c Config) error {
-	if ctx == 0 || c.Period < 5 || c.Period > 31 || c.WorkerSleepMS == 0 || len(c.ReasonIDs) == 0 || c.MaxReasons < 1 || c.MaxReasons > 65536 || len(c.ReasonIDs) > c.MaxReasons || c.PCsPerBuffer < 1 || c.MaxReads == 0 || c.MaxNames < 1 || c.MaxNameBytes < 1 || c.MaxTotalNameBytes < 1 {
+	if ctx == 0 || c.Period < 5 || c.Period > 31 || c.WorkerSleepMS == 0 || len(c.ReasonIDs) == 0 || c.MaxReasons < 1 || c.MaxReasons > 65536 || len(c.ReasonIDs) > c.MaxReasons || c.PCsPerBuffer < 1 || c.MaxReads == 0 || c.MaxNames < 1 || c.MaxNameBytes < 1 || c.MaxTotalNameBytes < 1 || c.BufferCount < 0 {
 		return errors.New("cuptipcsampling: invalid sampling configuration or limits")
 	}
 	if c.CollectionMode != 0 && c.CollectionMode != cupti.PcSamplingCollectionModeContinuous && (c.CollectionMode != cupti.PcSamplingCollectionModeKernelSerialized || !c.AllowSerialization) {
@@ -168,9 +175,13 @@ func validateConfig(ctx cupti.Context, c Config) error {
 	if c.ScratchBytes == 0 || c.HardwareBytes == 0 || c.ScratchBytes > c.MaxNativeBytes || c.HardwareBytes > c.MaxNativeBytes-c.ScratchBytes {
 		return errors.New("cuptipcsampling: native sampling memory exceeds budget")
 	}
+	totalBuffers := uint64(2)
+	if c.BufferCount >= 2 {
+		totalBuffers = uint64(c.BufferCount + 1)
+	}
 	stride := uint64(64) + uint64(len(c.ReasonIDs))*8
-	half := c.MaxOutputBytes / 2
-	if half < 80 || uint64(c.PCsPerBuffer) > (half-80)/stride || c.PCsPerBuffer > c.MaxNames/2 {
+	bufBytes := c.MaxOutputBytes / totalBuffers
+	if bufBytes < 80 || uint64(c.PCsPerBuffer) > (bufBytes-80)/stride || c.PCsPerBuffer > c.MaxNames/2 {
 		return errors.New("cuptipcsampling: output or name capacity budget too small")
 	}
 	seen := make(map[uint32]bool, len(c.ReasonIDs))
@@ -227,19 +238,41 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 		c.CollectionMode = cupti.PcSamplingCollectionModeContinuous
 	}
 	c.ReasonIDs = slices.Clone(c.ReasonIDs)
-	out, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), c.MaxOutputBytes/2)
+	totalBuffers := uint64(2)
+	if c.BufferCount >= 2 {
+		totalBuffers = uint64(c.BufferCount + 1)
+	}
+	bufBytes := c.MaxOutputBytes / totalBuffers
+	out, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
 	if err != nil {
 		return nil, errors.Join(err, disable(), releasing(release))
 	}
-	drain, err := newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), c.MaxOutputBytes/2)
-	if err != nil {
-		out.release()
-		return nil, errors.Join(err, disable(), releasing(release))
+	var (
+		drain *samplingBuffer
+		ring  *RingBuffer
+	)
+	if c.BufferCount >= 2 {
+		ring, err = NewRingBuffer(c.BufferCount, c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
+		if err != nil {
+			out.release()
+			return nil, errors.Join(err, disable(), releasing(release))
+		}
+		drain = ring.slots[0].sampling
+	} else {
+		drain, err = newSamplingBuffer(c.PCsPerBuffer, len(c.ReasonIDs), bufBytes)
+		if err != nil {
+			out.release()
+			return nil, errors.Join(err, disable(), releasing(release))
+		}
 	}
 	names, err := nameOwner(c.MaxNames, c.MaxNameBytes, c.MaxTotalNameBytes)
 	if err != nil {
 		out.release()
-		drain.release()
+		if ring != nil {
+			ring.Close()
+		} else {
+			drain.release()
+		}
 		return nil, errors.Join(err, disable(), releasing(release))
 	}
 	o := samplingOptions{period: c.Period, workerSleepMS: c.WorkerSleepMS, mode: c.CollectionMode, allowSerialization: c.AllowSerialization, scratchBytes: c.ScratchBytes, hardwareBytes: c.HardwareBytes, maxNativeBytes: c.MaxNativeBytes, reasons: c.ReasonIDs}
@@ -247,13 +280,17 @@ func startSession(ctx cupti.Context, c Config, api samplingControlAPI, inventory
 	if err != nil {
 		names.release()
 		out.release()
-		drain.release()
+		if ring != nil {
+			ring.Close()
+		} else {
+			drain.release()
+		}
 		return nil, errors.Join(err, disable(), releasing(release))
 	}
 	// The control inherits the enable performed above: touched so that shutdown
 	// still disables, enabled so that prepare does not enable a second time.
 	control := &samplingControl{ctx: ctx, config: cfg, api: api, enabled: true, touched: true}
-	core := &samplingSession{control: control, drain: drain, names: names, query: query, maxReads: c.MaxReads}
+	core := &samplingSession{control: control, drain: drain, ring: ring, names: names, query: query, maxReads: c.MaxReads}
 	s := &Session{core: core, config: c, inventory: inventory}
 	adopt(core)
 	if err := core.begin(); err != nil {
@@ -309,6 +346,102 @@ func (s *Session) Final() (Batch, bool) {
 	return s.batch(s.core.final), true
 }
 
+// RingBuffer returns the underlying circular ring buffer if the session was
+// configured with BufferCount >= 2, or nil otherwise.
+func (s *Session) RingBuffer() *RingBuffer {
+	if s == nil || s.core == nil {
+		return nil
+	}
+	return s.core.ring
+}
+
+// DrainConcurrent starts a background consumer goroutine that continuously drains
+// completed sampling buffers from the session's ring buffer and calls consumer with
+// each decoded Batch. It requires the session to be configured with BufferCount >= 2.
+// It returns a stop function that requests consumer shutdown and waits for it to finish.
+func (s *Session) DrainConcurrent(consumer func(Batch) error) (stop func() error, err error) {
+	if s == nil || s.core == nil || s.core.ring == nil {
+		return nil, errors.New("cuptipcsampling: concurrent draining requires a ring buffer session")
+	}
+	if consumer == nil {
+		return nil, errors.New("cuptipcsampling: nil batch consumer")
+	}
+	doneCh := make(chan error, 1)
+
+	go func() {
+		var firstErr error
+		defer func() { doneCh <- firstErr }()
+		for {
+			slot, err := s.core.ring.Consume()
+			if err != nil {
+				return
+			}
+			s.core.nameMu.Lock()
+			batch, snapErr := slot.SnapshotOwned(s.core.names)
+			s.core.nameMu.Unlock()
+			s.core.ring.Release(slot)
+
+			if snapErr != nil && firstErr == nil {
+				firstErr = snapErr
+				s.core.control.failed = true
+			}
+			if batch.dropped != 0 || batch.hardwareFull != 0 {
+				s.core.lossObserved = true
+			}
+			if bErr := consumer(s.batch(batch)); bErr != nil && firstErr == nil {
+				firstErr = bErr
+			}
+		}
+	}()
+
+	return func() error {
+		s.core.ring.Close()
+		return <-doneCh
+	}, nil
+}
+
+// Handoff drains CUPTI PC samples into the next available buffer from the ring buffer,
+// hands it off for concurrent background draining by DrainConcurrent, and readies
+// the subsequent buffer in the ring for CUPTI.
+func (s *Session) Handoff() error {
+	if s == nil || s.core == nil || s.core.ring == nil {
+		return errors.New("cuptipcsampling: handoff requires a ring buffer session")
+	}
+	c := s.core
+	if c.closed || c.control == nil || !c.control.enabled || c.control.failed {
+		return errors.New("cuptipcsampling: sampling session cannot read")
+	}
+	if c.reads >= c.maxReads {
+		c.control.failed = true
+		return errors.New("cuptipcsampling: sampling read budget exhausted")
+	}
+	c.nameMu.Lock()
+	err := c.reserveRead()
+	c.nameMu.Unlock()
+	if err != nil {
+		c.control.failed = true
+		return err
+	}
+	c.reads++
+	slot, err := c.ring.Acquire()
+	if err != nil {
+		c.lossObserved = true
+		c.ring.RecordDrops(1)
+		return err
+	}
+	out, err := slot.Fetch(c.control.ctx, c.control.version, c.query)
+	if err != nil {
+		c.ring.Abandon(slot)
+		c.control.failed = true
+		return err
+	}
+	if out.dropped != 0 || out.hardwareFull != 0 {
+		c.lossObserved = true
+		c.ring.RecordDrops(out.dropped)
+	}
+	return c.ring.Produce(slot)
+}
+
 // Info returns owned configuration and diagnostic metadata.
 func (s *Session) Info() Info {
 	if s == nil || s.core == nil {
@@ -319,7 +452,11 @@ func (s *Session) Info() Info {
 	config.ReasonIDs = slices.Clone(config.ReasonIDs)
 	inventory := s.inventory
 	inventory.Reasons = slices.Clone(inventory.Reasons)
-	return Info{CUPTIVersion: inventory.CUPTIVersion, Context: c.ctx, Config: config, Inventory: inventory, Effective: slices.Clone(c.config.effective), Verified: c.config.verified, Failed: c.failed, Closed: s.core.closed, Reads: s.core.reads, Starts: c.starts, Stops: c.stops}
+	ringStats := RingBufferStats{}
+	if s.core.ring != nil {
+		ringStats = s.core.ring.Stats()
+	}
+	return Info{CUPTIVersion: inventory.CUPTIVersion, Context: c.ctx, Config: config, Inventory: inventory, Effective: slices.Clone(c.config.effective), Verified: c.config.verified, Failed: c.failed, Closed: s.core.closed, Reads: s.core.reads, Starts: c.starts, Stops: c.stops, RingStats: ringStats}
 }
 
 func (s *Session) batch(b samplingBatch) Batch {
