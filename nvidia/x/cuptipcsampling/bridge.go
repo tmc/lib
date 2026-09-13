@@ -230,6 +230,66 @@ func isSelected(name string) bool {
 	return lower == "selected" || strings.HasSuffix(lower, "stalled_selected")
 }
 
+// Routing reports, for every reason the inventory names, where that reason's
+// count goes in the profile: a sample type name, "companion" for a _not_issued
+// reason whose count is deliberately discarded as a subset of its base reason,
+// or "unmapped" for a reason this package does not model and reports only in
+// the unmapped tally.
+//
+// It exists because the reconciliation identity cannot see a count in the wrong
+// bucket: the identity sums every stall type, so routing a fetch stall to
+// stall_mem leaves it closed. Recording this map beside a capture makes the
+// classifier's decisions auditable from the artifact, including for reasons the
+// hardware never sampled on that run. Routing is a pure function of the reason
+// name, so one entry per name is total coverage.
+func (inv ReasonInventory) Routing() map[string]string {
+	routing := make(map[string]string, len(inv.Reasons))
+	for _, r := range inv.Reasons {
+		routing[r.Name] = reasonRouting(r.Name)
+	}
+	return routing
+}
+
+func reasonRouting(name string) string {
+	if isSelected(strings.TrimSuffix(strings.ToLower(name), "_not_issued")) {
+		if isCompanion(name) {
+			return "companion"
+		}
+		return "inst_executed"
+	}
+	if isCompanion(name) {
+		if reasonRouting(strings.TrimSuffix(strings.ToLower(name), "_not_issued")) == "unmapped" {
+			return "unmapped"
+		}
+		return "companion"
+	}
+	var vals cudaprof.SampleValues
+	if !classifyStall(name, 1, &vals) {
+		return "unmapped"
+	}
+	switch {
+	case vals.StallScoreboard != 0:
+		return "stall_scoreboard"
+	case vals.StallWait != 0:
+		return "stall_wait"
+	case vals.StallMath != 0:
+		return "stall_math"
+	case vals.StallMem != 0:
+		return "stall_mem"
+	case vals.StallBranch != 0:
+		return "stall_branch"
+	case vals.StallFetch != 0:
+		return "stall_fetch"
+	case vals.StallDrain != 0:
+		return "stall_drain"
+	case vals.StallDispatch != 0:
+		return "stall_dispatch"
+	case vals.StallNotSelected != 0:
+		return "stall_not_selected"
+	}
+	return "unmapped"
+}
+
 // classifyStall maps a native stall reason name to a cudaprof stall metric.
 // Order matters: barrier and membar checks must precede memory throttle checks.
 func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {

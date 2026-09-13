@@ -555,3 +555,54 @@ func TestProfileBridgeFrontEndAndIssueReasons(t *testing.T) {
 		})
 	}
 }
+
+// Routing is the audit the identity cannot perform: a fetch stall counted as a
+// memory stall leaves every sum closed and sends a reader to the wrong hardware
+// unit. The table is the full reason set a GB10 inventory reports, including the
+// reasons this workload never sampled.
+func TestReasonInventoryRouting(t *testing.T) {
+	const prefix = "smsp__pcsamp_warps_issue_stalled_"
+	want := map[string]string{
+		"selected":           "inst_executed",
+		"not_selected":       "stall_not_selected",
+		"long_scoreboard":    "stall_scoreboard",
+		"short_scoreboard":   "stall_scoreboard",
+		"wait":               "stall_wait",
+		"barrier":            "stall_wait",
+		"membar":             "stall_wait",
+		"math_pipe_throttle": "stall_math",
+		"mio_throttle":       "stall_mem",
+		"lg_throttle":        "stall_mem",
+		"tex_throttle":       "stall_mem",
+		"imc_miss":           "stall_mem",
+		"drain":              "stall_drain",
+		"dispatch_stall":     "stall_dispatch",
+		"branch_resolving":   "stall_branch",
+		"no_instructions":    "stall_fetch",
+		"misc":               "unmapped",
+		"sleeping":           "unmapped",
+	}
+	var inv cuptipcsampling.ReasonInventory
+	for reason := range want {
+		inv.Reasons = append(inv.Reasons,
+			cuptipcsampling.StallReason{Name: prefix + reason},
+			cuptipcsampling.StallReason{Name: prefix + reason + "_not_issued"})
+	}
+	routing := inv.Routing()
+	for reason, wantType := range want {
+		if got := routing[prefix+reason]; got != wantType {
+			t.Errorf("Routing[%s] = %q, want %q", reason, got, wantType)
+		}
+		// A companion is a subset of the cycles its base reason already
+		// counted, so it is discarded rather than added anywhere -- unless the
+		// base reason is unmodelled, in which case both stay visible as
+		// unmapped instead of vanishing.
+		wantCompanion := "companion"
+		if wantType == "unmapped" {
+			wantCompanion = "unmapped"
+		}
+		if got := routing[prefix+reason+"_not_issued"]; got != wantCompanion {
+			t.Errorf("Routing[%s_not_issued] = %q, want %q", reason, got, wantCompanion)
+		}
+	}
+}
