@@ -160,7 +160,7 @@
     },
     "nvrtc": {
       "package": "github.com/tmc/lib/nvidia/nvrtc",
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "repositories": {
         "codegen": {
           "url": "https://github.com/tmc/libgen.git",
@@ -170,14 +170,15 @@
         },
         "headers": {
           "url": "https://github.com/tmc/cuda-headers.git",
-          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
-          "note": "The checkout carried uncommitted changes, including the cuda_nvrtc repin from 13.2.51 to 13.4.59 recorded below and unrelated work in other products, so this commit does not identify the whole input tree; the header below was the exact input and its sha256 is recorded."
+          "commit": "6947cc0079dbe9cb4c6a31adbcfdabe16c97d410",
+          "tree": "04993b20ac9290192a77636084dddbfd9a48b109",
+          "note": "The cuda_nvrtc repin to 13.4.59 is committed here. The checkout also carried a peer's uncommitted cuda_cudart and cuda_cupti work, which this commit does not contain and which no generation input reaches."
         },
         "lib": {
           "url": "https://github.com/tmc/lib.git",
-          "commit": "cd5c7856c9d09bb3e5a9978d4e441298eafca4dd",
-          "tree": "8525d10496bfb151a521ae7cbf364d5feb132e35",
-          "note": "HEAD at generation time; the worktree was dirty with unrelated concurrent work, so the outputs below are recorded by digest rather than by a comparison commit."
+          "commit": "f6e1184d9851ddcea1e4faf63e5e82536ee88a34",
+          "tree": "3c0838717f23fd5f48254f6ebfefcd9d94cc2100",
+          "note": "The outputs below are committed at this commit's ancestor cee1bf94; the checkout carried unrelated concurrent work in other packages."
         }
       },
       "vendor": {
@@ -190,7 +191,7 @@
         },
         "redistribution_manifest_url": "https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.4.1.json",
         "redistribution_manifest_sha256": "291178934b2139727407c76f697bb0dfbac4014753a8094d7c290b0f4124a302",
-        "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest downloaded in this run; extracted header byte-identical to the vendored cuda-headers copy. The repin to 13.4.59 is uncommitted in the headers checkout: nvrtc/nvrtc.h and cuda_nvrtc/nvrtc.h were replaced and versions.lock updated, so the vendored bytes are identified by the hash below, not by a commit."
+        "verification": "Archive SHA256 verified against the NVIDIA redistribution manifest downloaded in this run; extracted header byte-identical to both vendored copies, which are committed at the headers commit above."
       },
       "header": {
         "repository": "headers",
@@ -250,7 +251,7 @@
             "GOVERSION": "go1.27.0"
           }
         },
-        "source_state": "clean codegen checkout at the recorded commit apart from two untracked unrelated directories; headers and lib checkouts dirty, so the header and the outputs are identified by content hash",
+        "source_state": "codegen and headers checkouts clean at the recorded commits for every path reaching this generation; unrelated peer work in other products was present but is not an input",
         "outputs": [
           {
             "path": "nvidia/nvrtc/doc.gen.go",
@@ -311,7 +312,7 @@
           "example_test.go",
           "flow_physical_test.go"
         ],
-        "note": "Regeneration from the recorded codegen commit reproduces all 13 outputs byte for byte, verified by generating into a scratch directory and comparing. The header input is not reachable from a commit: the cuda_nvrtc repin to 13.4.59 is uncommitted in the headers checkout, so it is identified by the sha256 above."
+        "note": "Regeneration from the recorded codegen commit and header reproduces all 13 outputs byte for byte, verified by generating into a scratch directory and comparing. Both recorded commits are local at the time of recording and not yet pushed to their remotes."
       },
       "unresolved_inputs": [
         "transitive Go module source contents",
