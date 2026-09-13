@@ -1354,8 +1354,19 @@ in number and in the work they are asked to do. What drives it is not
 established here; the ordering of the three runs does not follow the ordering
 of anything we recorded about host state.
 
+All three states pass the sentinel sweep identically — the same twelve kernel
+symbols at the same counts as the published capture, in both the new prefill
+states and the new decode state — so the spread is not a retention artefact in
+any family anyone has expectations for. All three also still carry the
+`Not all CUDA events might have been collected` diagnostic, exactly as the
+published capture does. (Prefill's `hc_weighted_sum` is 1 in every state; no
+source-derived expectation has been established for it, so that is an
+observation.)
+
 So: **treat 45.87x as one sample of a quantity whose observed range is
-31.7x to 58.5x, and do not quote it as the ratio.** The direction survives
+31.7x to 58.5x, and do not quote it as the ratio.** Three samples are
+observed variability, not a bound and not a qualified ratio; the true spread
+could be wider in either direction. The direction survives
 this easily — every sample is a factor of thirty or more, and no amount of
 C-side variance closes a gap that size. The figure does not survive it. The
 Go side has exactly one sample and its own variance is unmeasured, so the
