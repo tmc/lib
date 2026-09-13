@@ -186,7 +186,7 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 			scalars: []any{int32(0), float32(10000.0), int32(benchHidden), int32(benchHidden), int32(128), int32(2048)},
 			grid:    func(block uint32) uint32 { return (benchHidden + block - 1) / block },
 		}, nil
-	case "pdl_gemv_pipeline":
+	case "pdl_gemv_pipeline", "fused_gemv_pipeline":
 		return launchPlan{
 			buffers: []int{benchHidden, benchInter * benchHidden, benchHidden * benchInter, benchHidden},
 			scalars: []any{int32(benchHidden), int32(benchInter), int32(benchHidden)},

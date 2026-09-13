@@ -213,6 +213,8 @@ __device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
 		sb.WriteString(generateSwiGLUQ8_0Kernel(opts))
 	case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj":
 		sb.WriteString(generateRMSNormGEMVKernel(opts))
+	case "fused_gemv_pipeline":
+		sb.WriteString(generateFusedGEMVPipelineKernel(opts))
 	case "q8_0_matvec":
 		sb.WriteString(generateQ8_0MatvecKernel(opts))
 	case "u2_simd":
@@ -699,4 +701,118 @@ func generateCompositeKernel(expr *Expr, opts CodegenOptions) string {
     }
 }
 `, opts.KernelName, scalarType, scalarType, scalarType)
+}
+
+func generateFusedGEMVPipelineKernel(opts CodegenOptions) string {
+	scalarType := "float"
+	if opts.Precision == "half" || opts.Precision == "float16" {
+		scalarType = "uint16_t"
+	}
+	return fmt.Sprintf(`extern "C" __global__ void %s(
+    const %s* __restrict__ x,
+    const %s* __restrict__ W1,
+    const %s* __restrict__ W2,
+    %s* __restrict__ out,
+    int in_dim,
+    int hidden_dim,
+    int out_dim
+) {
+    extern __shared__ float s_stage1[];
+
+    // Stage 1 GEMV: y = W1 * x
+    int row1 = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row1 < hidden_dim) {
+        float sum = 0.0f;
+        for (int k = 0; k < in_dim; k++) {
+            sum += (float)x[k] * (float)W1[row1 * in_dim + k];
+        }
+        s_stage1[row1] = sum;
+    }
+    __syncthreads();
+
+    // Stage 2 GEMV: out = W2 * y
+    int row2 = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row2 < out_dim) {
+        float sum = 0.0f;
+        for (int k = 0; k < hidden_dim; k++) {
+            sum += s_stage1[k] * (float)W2[row2 * hidden_dim + k];
+        }
+        out[row2] = (%s)sum;
+    }
+}
+`, opts.KernelName, scalarType, scalarType, scalarType, scalarType, scalarType)
+}
+
+// IsLowerableCUDAOp reports whether an operator name can be lowered directly
+// to CUDA source code by GenerateCUDA.
+// It reflects the exact switch arms in GenerateCUDA and handles pdl_ prefixes.
+func IsLowerableCUDAOp(op string) bool {
+	if strings.HasPrefix(op, "pdl_") {
+		return true
+	}
+	switch op {
+	case "fused_swiglu_gemv", "tile_swiglu",
+		"fused_swiglu_q8_0",
+		"fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj",
+		"fused_gemv_pipeline",
+		"q8_0_matvec",
+		"u2_simd",
+		"u2_scalar",
+		"q2_k_matvec",
+		"iq2_xxs_matvec",
+		"fused_rope_store_kv",
+		"add":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsLowerableTileIROp reports whether an operator name can be lowered to Tile IR
+// by GenerateTileIR, ToTileIR, or GenerateDeclarativeTile.
+func IsLowerableTileIROp(op string) bool {
+	switch {
+	case strings.Contains(op, "rmsnorm_gemv_swiglu") || strings.Contains(op, "rmsnorm_swiglu"):
+		return true
+	case strings.Contains(op, "rmsnorm_qkv_split"),
+		strings.Contains(op, "rmsnorm_qkv"),
+		strings.Contains(op, "rmsnorm_proj"),
+		strings.Contains(op, "swiglu"),
+		strings.Contains(op, "geglu"),
+		strings.Contains(op, "gelu"),
+		strings.Contains(op, "mma"),
+		strings.Contains(op, "tma"),
+		strings.Contains(op, "assume_aligned"),
+		strings.Contains(op, "coalesce_contiguous"),
+		strings.Contains(op, "fp8"),
+		strings.Contains(op, "fp4"):
+		return true
+	default:
+		return false
+	}
+}
+
+// IsLowerableOp reports whether an operator name can be lowered by at least one
+// backend (CUDA C++ or Tile IR).
+func IsLowerableOp(op string) bool {
+	return IsLowerableCUDAOp(op) || IsLowerableTileIROp(op)
+}
+
+// CanLower reports whether an expression AST can be completely lowered by GenerateCUDA.
+func CanLower(expr *Expr) bool {
+	if expr == nil {
+		return false
+	}
+	if len(expr.Children) == 0 {
+		return true // Leaf variable / constant
+	}
+	if !IsLowerableCUDAOp(expr.Op) {
+		return false
+	}
+	if expr.Op == "add" {
+		if len(expr.Children) != 2 || len(expr.Children[0].Children) != 0 || len(expr.Children[1].Children) != 0 {
+			return false
+		}
+	}
+	return true
 }
