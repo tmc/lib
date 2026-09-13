@@ -1,4 +1,5 @@
 //go:build !tpu
+
 package main
 
 import (
@@ -79,6 +80,44 @@ func (nt NodeTelemetry) CharacteristicRatio() float64 {
 	return (nt.ComputeTFLOPs * 1000.0) / nt.BandwidthGBS
 }
 
+// PeerLinkMetrics contains measured network latency and bandwidth for a peer link.
+type PeerLinkMetrics struct {
+	RTT          time.Duration `json:"rtt"`
+	BandwidthGBS float64       `json:"bandwidth_gbs"`
+}
+
+// MeshComponent identifies a transformer graph component.
+type MeshComponent string
+
+const (
+	ComponentPrefill   MeshComponent = "prefill"
+	ComponentDecode    MeshComponent = "decode"
+	ComponentAttention MeshComponent = "attention_gqa"
+	ComponentMLP       MeshComponent = "mlp_gemm"
+)
+
+// ComponentPlacement records the execution node and estimated latency for a graph component.
+type ComponentPlacement struct {
+	Component MeshComponent `json:"component"`
+	NodeID    string        `json:"node_id"`
+	LatencyMs float64       `json:"latency_ms"`
+}
+
+// MeshExecutionPlan represents the partitioned execution schedule across cluster nodes.
+type MeshExecutionPlan struct {
+	PrefillNodeID       string               `json:"prefill_node_id"`
+	DecodeNodeID        string               `json:"decode_node_id"`
+	AttentionNodeID     string               `json:"attention_node_id,omitempty"`
+	MLPNodeID           string               `json:"mlp_node_id,omitempty"`
+	ComponentPlacements []ComponentPlacement `json:"component_placements,omitempty"`
+
+	EstimatedLatencyMs float64 `json:"estimated_latency_ms"`
+	ComputeLatencyMs   float64 `json:"compute_latency_ms"`
+	NetworkLatencyMs   float64 `json:"network_latency_ms"`
+	TransferBytes      int64   `json:"transfer_bytes"`
+	Reason             string  `json:"reason"`
+}
+
 // DistributedRoleAssignment defines the computed execution placement for an inference request.
 type DistributedRoleAssignment struct {
 	PrefillNodeID      string  `json:"prefill_node_id"`
@@ -95,6 +134,7 @@ type ClusterMeshState struct {
 	ClusterTFLOPs       float64                   `json:"cluster_tflops"`
 	ClusterBandwidthGBS float64                   `json:"cluster_bandwidth_gbs"`
 	ActiveAssignment    DistributedRoleAssignment `json:"active_assignment"`
+	ActivePlan          MeshExecutionPlan         `json:"active_plan,omitempty"`
 }
 
 // IrohClusterNode coordinates distributed P2P inference over go-iroh QUIC endpoints.
@@ -105,6 +145,7 @@ type IrohClusterNode struct {
 	peersMu   sync.RWMutex
 	peers     map[string]NodeTelemetry
 	peerAddrs map[string]netaddr.EndpointAddr
+	peerLinks map[string]PeerLinkMetrics
 	stateMu   sync.Mutex
 	secret    key.SecretKey
 	engine    *ModelEngine
@@ -144,6 +185,7 @@ func NewIrohClusterNode(ctx context.Context, engine *ModelEngine, cfg Config, bi
 		secret:    sk,
 		peers:     make(map[string]NodeTelemetry),
 		peerAddrs: make(map[string]netaddr.EndpointAddr),
+		peerLinks: make(map[string]PeerLinkMetrics),
 		engine:    engine,
 		cfg:       cfg,
 		peerState: cfg.PeerStatePath,
@@ -529,10 +571,12 @@ func (n *IrohClusterNode) connectInference(ctx context.Context, addr netaddr.End
 
 // ConnectIroh connects to a remote peer over pure Iroh using its EndpointAddr.
 func (n *IrohClusterNode) ConnectIroh(ctx context.Context, addr netaddr.EndpointAddr) error {
+	start := time.Now()
 	conn, err := n.connectInference(ctx, addr)
 	if err != nil {
 		return fmt.Errorf("iroh connect: %w", err)
 	}
+	handshakeRTT := time.Since(start)
 
 	stream, err := conn.OpenStreamSync(ctx)
 	if err != nil {
@@ -557,6 +601,15 @@ func (n *IrohClusterNode) ConnectIroh(ctx context.Context, addr netaddr.Endpoint
 	// a working direct route.
 	n.peersMu.Lock()
 	n.peerAddrs[peerTel.NodeID] = addr
+	if n.peerLinks == nil {
+		n.peerLinks = make(map[string]PeerLinkMetrics)
+	}
+	if existing, ok := n.peerLinks[peerTel.NodeID]; !ok || existing.RTT == 0 {
+		n.peerLinks[peerTel.NodeID] = PeerLinkMetrics{
+			RTT:          handshakeRTT,
+			BandwidthGBS: 1.25,
+		}
+	}
 	n.peersMu.Unlock()
 	return nil
 }
@@ -736,8 +789,87 @@ func (n *IrohClusterNode) ConnectHTTPPeer(ctx context.Context, peerURL string) e
 	return nil
 }
 
-// InferRoles evaluates the distributed E-Graph cost function to choose optimal Prefill and Decode nodes.
-func (n *IrohClusterNode) InferRoles(promptLen, genTokens int) DistributedRoleAssignment {
+// SetPeerLinkMetrics records measured network telemetry for a peer.
+func (n *IrohClusterNode) SetPeerLinkMetrics(nodeID string, metrics PeerLinkMetrics) {
+	n.peersMu.Lock()
+	defer n.peersMu.Unlock()
+	if n.peerLinks == nil {
+		n.peerLinks = make(map[string]PeerLinkMetrics)
+	}
+	n.peerLinks[nodeID] = metrics
+}
+
+// PeerLink returns measured or fallback link metrics for the specified node ID.
+func (n *IrohClusterNode) PeerLink(nodeID string) PeerLinkMetrics {
+	n.peersMu.RLock()
+	defer n.peersMu.RUnlock()
+	return n.peerLinkLocked(nodeID)
+}
+
+func (n *IrohClusterNode) peerLinkLocked(nodeID string) PeerLinkMetrics {
+	if nodeID == n.self.NodeID {
+		bw := n.self.BandwidthGBS
+		if bw <= 0 {
+			bw = 400.0
+		}
+		return PeerLinkMetrics{
+			RTT:          0,
+			BandwidthGBS: bw,
+		}
+	}
+	if n.peerLinks != nil {
+		if m, ok := n.peerLinks[nodeID]; ok && (m.RTT > 0 || m.BandwidthGBS > 0) {
+			bw := m.BandwidthGBS
+			if bw <= 0 {
+				bw = 1.25 // default 10 Gbps (~1.25 GB/s)
+			}
+			return PeerLinkMetrics{
+				RTT:          m.RTT,
+				BandwidthGBS: bw,
+			}
+		}
+	}
+	// Fallback default: 1ms RTT, 10 Gbps (1.25 GB/s)
+	return PeerLinkMetrics{
+		RTT:          time.Millisecond,
+		BandwidthGBS: 1.25,
+	}
+}
+
+func (n *IrohClusterNode) linkBetween(uID, vID string) PeerLinkMetrics {
+	if uID == vID {
+		return n.peerLinkLocked(uID)
+	}
+	if uID == n.self.NodeID {
+		return n.peerLinkLocked(vID)
+	}
+	if vID == n.self.NodeID {
+		return n.peerLinkLocked(uID)
+	}
+	mU := n.peerLinkLocked(uID)
+	mV := n.peerLinkLocked(vID)
+	rtt := mU.RTT + mV.RTT
+	bw := mU.BandwidthGBS
+	if mV.BandwidthGBS > 0 && mV.BandwidthGBS < bw {
+		bw = mV.BandwidthGBS
+	}
+	if bw <= 0 {
+		bw = 1.25
+	}
+	return PeerLinkMetrics{
+		RTT:          rtt,
+		BandwidthGBS: bw,
+	}
+}
+
+// InferMeshPlan evaluates the distributed E-Graph cost function to determine the optimal
+// partitioned execution schedule across cluster nodes, taking into account peer link metrics
+// (RTT and throughput), arithmetic intensity, and tensor transfer overheads.
+func (n *IrohClusterNode) InferMeshPlan(promptLen, genTokens, batchSize int) MeshExecutionPlan {
+	if n == nil {
+		return MeshExecutionPlan{}
+	}
+
 	n.peersMu.RLock()
 	allNodes := make([]NodeTelemetry, 0, len(n.peers)+1)
 	allNodes = append(allNodes, n.self)
@@ -746,59 +878,186 @@ func (n *IrohClusterNode) InferRoles(promptLen, genTokens int) DistributedRoleAs
 	}
 	n.peersMu.RUnlock()
 
+	dim := float64(n.cfg.Dim)
+	if dim <= 0 {
+		dim = 2048
+	}
+	layers := float64(n.cfg.NumLayers)
+	if layers <= 0 {
+		layers = 32
+	}
+	hiddenDim := float64(n.cfg.HiddenDim)
+	if hiddenDim <= 0 {
+		hiddenDim = math.Floor(8.0 / 3.0 * dim)
+	}
+	kvDim := dim
+	if n.cfg.NumHeads > 0 && n.cfg.NumKVHeads > 0 {
+		kvDim = dim * float64(n.cfg.NumKVHeads) / float64(n.cfg.NumHeads)
+	} else {
+		kvDim = dim / 4.0
+	}
+	dtypeSize := 2.0
+	if strings.EqualFold(n.cfg.Precision, "f32") {
+		dtypeSize = 4.0
+	}
+	batch := float64(batchSize)
+	if batch <= 0 {
+		batch = 1.0
+	}
+	sPrompt := float64(promptLen)
+	if sPrompt <= 0 {
+		sPrompt = 1.0
+	}
+	sGen := float64(genTokens)
+	if sGen <= 0 {
+		sGen = 1.0
+	}
+
+	// 1. Prefill Attention Compute FLOPs (QKV + Score + Out projections across L layers)
+	attnPrefillFLOPs := layers * 2.0 * batch * sPrompt * (2.0*dim*dim + 2.0*dim*kvDim + sPrompt*dim)
+	// Prefill Dense MLP / MoE GEMM FLOPs (Gate + Up + Down projections)
+	mlpPrefillFLOPs := layers * 6.0 * batch * sPrompt * dim * hiddenDim
+	totalPrefillFLOPs := attnPrefillFLOPs + mlpPrefillFLOPs
+
+	// 2. Decode Memory Bytes and Compute FLOPs across S_g autoregressive steps
+	attnWeightBytes := layers * (2.0*dim*dim + 2.0*dim*kvDim) * dtypeSize
+	mlpWeightBytes := layers * 3.0 * dim * hiddenDim * dtypeSize
+	avgKVCacheBytes := 2.0 * layers * batch * (sPrompt + sGen/2.0) * kvDim * dtypeSize
+
+	attnDecodeBytes := sGen * (attnWeightBytes + avgKVCacheBytes)
+	mlpDecodeBytes := sGen * mlpWeightBytes
+	totalDecodeBytes := attnDecodeBytes + mlpDecodeBytes
+
+	attnDecodeFLOPs := sGen * layers * 2.0 * batch * (2.0*dim*dim + 2.0*dim*kvDim + (sPrompt+sGen/2.0)*dim)
+	mlpDecodeFLOPs := sGen * layers * 6.0 * batch * dim * hiddenDim
+	totalDecodeFLOPs := attnDecodeFLOPs + mlpDecodeFLOPs
+
 	if len(allNodes) == 1 {
-		return DistributedRoleAssignment{
-			PrefillNodeID:      n.self.NodeID,
-			DecodeNodeID:       n.self.NodeID,
-			EstimatedLatencyMs: 1.0,
+		cOps := math.Max(n.self.ComputeTFLOPs*1e12, 1e9)
+		bBytes := math.Max(n.self.BandwidthGBS*1e9, 1e9)
+		prefillSec := totalPrefillFLOPs / cOps
+		decodeSec := math.Max(totalDecodeBytes/bBytes, totalDecodeFLOPs/cOps)
+		totalSec := prefillSec + decodeSec
+		return MeshExecutionPlan{
+			PrefillNodeID:   n.self.NodeID,
+			DecodeNodeID:    n.self.NodeID,
+			AttentionNodeID: n.self.NodeID,
+			MLPNodeID:       n.self.NodeID,
+			ComponentPlacements: []ComponentPlacement{
+				{Component: ComponentPrefill, NodeID: n.self.NodeID, LatencyMs: prefillSec * 1000.0},
+				{Component: ComponentDecode, NodeID: n.self.NodeID, LatencyMs: decodeSec * 1000.0},
+				{Component: ComponentAttention, NodeID: n.self.NodeID, LatencyMs: (attnDecodeBytes / bBytes) * 1000.0},
+				{Component: ComponentMLP, NodeID: n.self.NodeID, LatencyMs: (mlpPrefillFLOPs / cOps) * 1000.0},
+			},
+			EstimatedLatencyMs: totalSec * 1000.0,
+			ComputeLatencyMs:   totalSec * 1000.0,
+			NetworkLatencyMs:   0,
+			TransferBytes:      0,
 			Reason:             "Single standalone node active",
 		}
 	}
 
-	dim := float64(n.cfg.Dim)
-	if dim == 0 {
-		dim = 2048
-	}
-	layers := float64(n.cfg.NumLayers)
-	if layers == 0 {
-		layers = 32
-	}
-
 	bestCost := math.MaxFloat64
-	var bestAssignment DistributedRoleAssignment
+	var bestP, bestD NodeTelemetry
+	var bestPrefillSec, bestDecodeSec, bestNetSec float64
+	var bestTransferBytes int64
 
 	for _, pNode := range allNodes {
-		for _, dNode := range allNodes {
-			// 1. Prefill Compute Time: O(2 * S * D^2 * L) / TFLOPs
-			prefillSec := (2.0 * float64(promptLen) * dim * dim * layers) / (pNode.ComputeTFLOPs * 1e12)
+		pCompute := math.Max(pNode.ComputeTFLOPs*1e12, 1e9)
+		pBandwidth := math.Max(pNode.BandwidthGBS*1e9, 1e9)
+		pTime := math.Max(totalPrefillFLOPs/pCompute, (layers*(2.0*dim*dim+2.0*dim*kvDim+3.0*dim*hiddenDim)*dtypeSize)/pBandwidth)
 
-			// 2. Inter-node activation transfer latency (if disaggregated)
-			transferSec := 0.0
+		for _, dNode := range allNodes {
+			dCompute := math.Max(dNode.ComputeTFLOPs*1e12, 1e9)
+			dBandwidth := math.Max(dNode.BandwidthGBS*1e9, 1e9)
+			dTime := math.Max(totalDecodeBytes/dBandwidth, totalDecodeFLOPs/dCompute)
+
+			var transferSec float64
+			var transBytes int64
 			if pNode.NodeID != dNode.NodeID {
-				// KV activation payload in FP16: 2 * promptLen * dim * layers * 2 bytes
-				kvBytes := 4.0 * float64(promptLen) * dim * layers
-				linkBandwidth := 10.0 * 1e9 / 8.0 // assume 10Gbps default link (~1.25 GB/s)
-				transferSec = kvBytes / linkBandwidth
+				activationBytes := int64(batch * sPrompt * dim * dtypeSize)
+				kvCacheBytes := int64(2.0 * layers * batch * sPrompt * kvDim * dtypeSize)
+				transBytes = activationBytes + kvCacheBytes
+
+				link := n.linkBetween(pNode.NodeID, dNode.NodeID)
+				linkBWBytes := math.Max(link.BandwidthGBS*1e9, 1e6)
+				transferSec = link.RTT.Seconds() + float64(transBytes)/linkBWBytes
 			}
 
-			// 3. Decode Step Latency: O(2 * GenTokens * D^2 * L) / Bandwidth
-			decodeSec := (2.0 * float64(genTokens) * dim * dim * layers) / (dNode.BandwidthGBS * 1e9)
-
-			totalSec := prefillSec + transferSec + decodeSec
+			totalSec := pTime + dTime + transferSec
 			if totalSec < bestCost {
 				bestCost = totalSec
-				bestAssignment = DistributedRoleAssignment{
-					PrefillNodeID:      pNode.NodeID,
-					DecodeNodeID:       dNode.NodeID,
-					EstimatedLatencyMs: totalSec * 1000.0,
-					Reason: fmt.Sprintf("Assigned Prefill on %s (%.0f TFLOPs) and Decode on %s (%.0f GB/s)",
-						pNode.OS, pNode.ComputeTFLOPs, dNode.OS, dNode.BandwidthGBS),
-				}
+				bestP = pNode
+				bestD = dNode
+				bestPrefillSec = pTime
+				bestDecodeSec = dTime
+				bestNetSec = transferSec
+				bestTransferBytes = transBytes
 			}
 		}
 	}
 
-	return bestAssignment
+	var bestAttnNode, bestMLPNode NodeTelemetry
+	for i, node := range allNodes {
+		if i == 0 || node.BandwidthGBS > bestAttnNode.BandwidthGBS {
+			bestAttnNode = node
+		}
+		if i == 0 || node.ComputeTFLOPs > bestMLPNode.ComputeTFLOPs {
+			bestMLPNode = node
+		}
+	}
+
+	attnNodeID := bestD.NodeID
+	if bestD.BandwidthGBS < bestAttnNode.BandwidthGBS && bestAttnNode.BandwidthGBS > 0 {
+		attnNodeID = bestAttnNode.NodeID
+	}
+	mlpNodeID := bestP.NodeID
+	if bestP.ComputeTFLOPs < bestMLPNode.ComputeTFLOPs && bestMLPNode.ComputeTFLOPs > 0 {
+		mlpNodeID = bestMLPNode.NodeID
+	}
+
+	attnLatMs := (attnDecodeBytes / math.Max(bestD.BandwidthGBS*1e9, 1e9)) * 1000.0
+	mlpLatMs := (mlpPrefillFLOPs / math.Max(bestP.ComputeTFLOPs*1e12, 1e9)) * 1000.0
+
+	var reason string
+	if bestP.NodeID == bestD.NodeID {
+		reason = fmt.Sprintf("Co-located on %s (%.0f TFLOPs, %.0f GB/s) avoiding network transfer overhead",
+			bestP.OS, bestP.ComputeTFLOPs, bestP.BandwidthGBS)
+	} else {
+		link := n.linkBetween(bestP.NodeID, bestD.NodeID)
+		reason = fmt.Sprintf("Disaggregated Prefill on %s (%.0f TFLOPs) and Decode on %s (%.0f GB/s) over link (RTT: %.2fms, BW: %.1f GB/s, Transfer: %.1f MB)",
+			bestP.OS, bestP.ComputeTFLOPs, bestD.OS, bestD.BandwidthGBS,
+			link.RTT.Seconds()*1000.0, link.BandwidthGBS, float64(bestTransferBytes)/(1024*1024))
+	}
+
+	return MeshExecutionPlan{
+		PrefillNodeID:   bestP.NodeID,
+		DecodeNodeID:    bestD.NodeID,
+		AttentionNodeID: attnNodeID,
+		MLPNodeID:       mlpNodeID,
+		ComponentPlacements: []ComponentPlacement{
+			{Component: ComponentPrefill, NodeID: bestP.NodeID, LatencyMs: bestPrefillSec * 1000.0},
+			{Component: ComponentDecode, NodeID: bestD.NodeID, LatencyMs: bestDecodeSec * 1000.0},
+			{Component: ComponentAttention, NodeID: attnNodeID, LatencyMs: attnLatMs},
+			{Component: ComponentMLP, NodeID: mlpNodeID, LatencyMs: mlpLatMs},
+		},
+		EstimatedLatencyMs: bestCost * 1000.0,
+		ComputeLatencyMs:   (bestPrefillSec + bestDecodeSec) * 1000.0,
+		NetworkLatencyMs:   bestNetSec * 1000.0,
+		TransferBytes:      bestTransferBytes,
+		Reason:             reason,
+	}
+}
+
+// InferRoles evaluates the distributed E-Graph cost function to choose optimal Prefill and Decode nodes.
+func (n *IrohClusterNode) InferRoles(promptLen, genTokens int) DistributedRoleAssignment {
+	plan := n.InferMeshPlan(promptLen, genTokens, 1)
+	return DistributedRoleAssignment{
+		PrefillNodeID:      plan.PrefillNodeID,
+		DecodeNodeID:       plan.DecodeNodeID,
+		EstimatedLatencyMs: plan.EstimatedLatencyMs,
+		Reason:             plan.Reason,
+	}
 }
 
 // MeshState returns a snapshot of the current cluster topology and active role assignment.
@@ -817,7 +1076,7 @@ func (n *IrohClusterNode) MeshState() ClusterMeshState {
 	}
 	n.peersMu.RUnlock()
 
-	assignment := n.InferRoles(2048, 64)
+	plan := n.InferMeshPlan(2048, 64, 1)
 
 	return ClusterMeshState{
 		SelfNode:            n.self,
@@ -825,6 +1084,12 @@ func (n *IrohClusterNode) MeshState() ClusterMeshState {
 		TotalNodes:          len(peersList) + 1,
 		ClusterTFLOPs:       totalTFLOPs,
 		ClusterBandwidthGBS: totalBW,
-		ActiveAssignment:    assignment,
+		ActiveAssignment: DistributedRoleAssignment{
+			PrefillNodeID:      plan.PrefillNodeID,
+			DecodeNodeID:       plan.DecodeNodeID,
+			EstimatedLatencyMs: plan.EstimatedLatencyMs,
+			Reason:             plan.Reason,
+		},
+		ActivePlan: plan,
 	}
 }

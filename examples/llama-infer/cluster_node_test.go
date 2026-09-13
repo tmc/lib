@@ -1,8 +1,10 @@
 //go:build !tpu
+
 package main
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -236,4 +238,302 @@ func TestIrohClusterNodeGenerateRemote(t *testing.T) {
 	if result.NodeID != remote.NodeID() || len(result.Tokens) != 2 || result.Text == "" {
 		t.Errorf("result = %+v, want two tokens from selected remote node", result)
 	}
+}
+
+func TestMeshExecutionPlan_StandaloneFallback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cfg := Config{
+		Dim:       2048,
+		NumLayers: 16,
+	}
+	node, err := NewIrohClusterNode(ctx, nil, cfg, 0)
+	if err != nil {
+		t.Fatalf("create standalone node: %v", err)
+	}
+	defer node.Close()
+
+	plan := node.InferMeshPlan(512, 64, 1)
+
+	if plan.PrefillNodeID != node.NodeID() {
+		t.Errorf("prefill node = %s, want %s", plan.PrefillNodeID, node.NodeID())
+	}
+	if plan.DecodeNodeID != node.NodeID() {
+		t.Errorf("decode node = %s, want %s", plan.DecodeNodeID, node.NodeID())
+	}
+	if plan.AttentionNodeID != node.NodeID() {
+		t.Errorf("attention node = %s, want %s", plan.AttentionNodeID, node.NodeID())
+	}
+	if plan.MLPNodeID != node.NodeID() {
+		t.Errorf("mlp node = %s, want %s", plan.MLPNodeID, node.NodeID())
+	}
+	if plan.TransferBytes != 0 {
+		t.Errorf("transfer bytes = %d, want 0", plan.TransferBytes)
+	}
+	if plan.NetworkLatencyMs != 0 {
+		t.Errorf("network latency = %.2f ms, want 0", plan.NetworkLatencyMs)
+	}
+	if plan.EstimatedLatencyMs <= 0 {
+		t.Errorf("estimated latency = %.2f ms, want > 0", plan.EstimatedLatencyMs)
+	}
+	if len(plan.ComponentPlacements) != 4 {
+		t.Errorf("component placements count = %d, want 4", len(plan.ComponentPlacements))
+	}
+}
+
+func TestMeshExecutionPlan_HeterogeneousAssignment(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cfg := Config{
+		Dim:       4096,
+		NumLayers: 32,
+	}
+	node, err := NewIrohClusterNode(ctx, nil, cfg, 0)
+	if err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	defer node.Close()
+
+	// High-compute Linux DGX peer (e.g. Blackwell/H100 NVLink cluster)
+	dgxPeer := NodeTelemetry{
+		NodeID:        "ed25519_peer_dgx_h100",
+		OS:            "linux",
+		Arch:          "amd64",
+		ComputeTFLOPs: 500.0,
+		BandwidthGBS:  200.0,
+		FreeVRAMMB:    80000,
+	}
+	// High-bandwidth Apple Silicon Mac Studio peer (unified memory ~1600 GB/s)
+	applePeer := NodeTelemetry{
+		NodeID:        "ed25519_peer_mac_m3max",
+		OS:            "darwin",
+		Arch:          "arm64",
+		ComputeTFLOPs: 40.0,
+		BandwidthGBS:  1600.0,
+		FreeVRAMMB:    128000,
+	}
+
+	_ = node.RegisterPeer(dgxPeer)
+	_ = node.RegisterPeer(applePeer)
+
+	// High-speed link between peers (e.g. 50 GB/s, 0.05ms RTT)
+	fastLink := PeerLinkMetrics{
+		RTT:          50 * time.Microsecond,
+		BandwidthGBS: 50.0,
+	}
+	node.SetPeerLinkMetrics(dgxPeer.NodeID, fastLink)
+	node.SetPeerLinkMetrics(applePeer.NodeID, fastLink)
+
+	tests := []struct {
+		name        string
+		promptLen   int
+		genTokens   int
+		batchSize   int
+		wantPrefill string
+		wantDecode  string
+		wantAttn    string
+		wantMLP     string
+	}{
+		{
+			name:        "ComputeDensePrefillAndMemoryDenseDecode",
+			promptLen:   4096,
+			genTokens:   128,
+			batchSize:   1,
+			wantPrefill: dgxPeer.NodeID,
+			wantDecode:  applePeer.NodeID,
+			wantAttn:    applePeer.NodeID,
+			wantMLP:     dgxPeer.NodeID,
+		},
+		{
+			name:        "LongSequenceBatchedPrefill",
+			promptLen:   8192,
+			genTokens:   64,
+			batchSize:   2,
+			wantPrefill: dgxPeer.NodeID,
+			wantDecode:  applePeer.NodeID,
+			wantAttn:    applePeer.NodeID,
+			wantMLP:     dgxPeer.NodeID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan := node.InferMeshPlan(tt.promptLen, tt.genTokens, tt.batchSize)
+			if plan.PrefillNodeID != tt.wantPrefill {
+				t.Errorf("prefill node = %s, want %s", plan.PrefillNodeID, tt.wantPrefill)
+			}
+			if plan.DecodeNodeID != tt.wantDecode {
+				t.Errorf("decode node = %s, want %s", plan.DecodeNodeID, tt.wantDecode)
+			}
+			if plan.AttentionNodeID != tt.wantAttn {
+				t.Errorf("attention node = %s, want %s", plan.AttentionNodeID, tt.wantAttn)
+			}
+			if plan.MLPNodeID != tt.wantMLP {
+				t.Errorf("mlp node = %s, want %s", plan.MLPNodeID, tt.wantMLP)
+			}
+			if plan.TransferBytes <= 0 {
+				t.Errorf("expected non-zero transfer bytes for disaggregated plan, got %d", plan.TransferBytes)
+			}
+			if plan.NetworkLatencyMs <= 0 {
+				t.Errorf("expected non-zero network latency for disaggregated plan, got %.2f", plan.NetworkLatencyMs)
+			}
+		})
+	}
+}
+
+func TestMeshExecutionPlan_NetworkLinkSensitivity(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cfg := Config{
+		Dim:       4096,
+		NumLayers: 32,
+	}
+	node, err := NewIrohClusterNode(ctx, nil, cfg, 0)
+	if err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	defer node.Close()
+
+	dgxPeer := NodeTelemetry{
+		NodeID:        "ed25519_peer_dgx",
+		OS:            "linux",
+		Arch:          "amd64",
+		ComputeTFLOPs: 250.0,
+		BandwidthGBS:  300.0,
+		FreeVRAMMB:    80000,
+	}
+	macPeer := NodeTelemetry{
+		NodeID:        "ed25519_peer_mac",
+		OS:            "darwin",
+		Arch:          "arm64",
+		ComputeTFLOPs: 35.0,
+		BandwidthGBS:  900.0,
+		FreeVRAMMB:    64000,
+	}
+
+	_ = node.RegisterPeer(dgxPeer)
+	_ = node.RegisterPeer(macPeer)
+
+	tests := []struct {
+		name              string
+		linkMetrics       PeerLinkMetrics
+		promptLen         int
+		genTokens         int
+		wantDisaggregated bool
+	}{
+		{
+			name: "FastInterconnectEnablesDisaggregation",
+			linkMetrics: PeerLinkMetrics{
+				RTT:          50 * time.Microsecond,
+				BandwidthGBS: 50.0, // 400 Gbps
+			},
+			promptLen:         4096,
+			genTokens:         256,
+			wantDisaggregated: true,
+		},
+		{
+			name: "SlowWANForcesCoLocation",
+			linkMetrics: PeerLinkMetrics{
+				RTT:          100 * time.Millisecond,
+				BandwidthGBS: 0.01, // 80 Mbps
+			},
+			promptLen:         4096,
+			genTokens:         256,
+			wantDisaggregated: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node.SetPeerLinkMetrics(dgxPeer.NodeID, tt.linkMetrics)
+			node.SetPeerLinkMetrics(macPeer.NodeID, tt.linkMetrics)
+
+			plan := node.InferMeshPlan(tt.promptLen, tt.genTokens, 1)
+			isDisaggregated := plan.PrefillNodeID != plan.DecodeNodeID
+
+			if isDisaggregated != tt.wantDisaggregated {
+				t.Errorf("disaggregated = %v, want %v (prefill=%s, decode=%s, reason=%s)",
+					isDisaggregated, tt.wantDisaggregated, plan.PrefillNodeID, plan.DecodeNodeID, plan.Reason)
+			}
+			if !tt.wantDisaggregated && plan.TransferBytes != 0 {
+				t.Errorf("co-located transfer bytes = %d, want 0", plan.TransferBytes)
+			}
+		})
+	}
+}
+
+func TestMeshExecutionPlan_TensorTransferAccounting(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cfg := Config{
+		Dim:        2048,
+		NumLayers:  16,
+		NumHeads:   16,
+		NumKVHeads: 4, // 4:1 GQA -> kvDim = 512
+		Precision:  "f16",
+	}
+	node, err := NewIrohClusterNode(ctx, nil, cfg, 0)
+	if err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	defer node.Close()
+
+	peer := NodeTelemetry{
+		NodeID:        "ed25519_remote_worker",
+		OS:            "linux",
+		Arch:          "amd64",
+		ComputeTFLOPs: 200.0,
+		BandwidthGBS:  400.0,
+	}
+	_ = node.RegisterPeer(peer)
+	node.SetPeerLinkMetrics(peer.NodeID, PeerLinkMetrics{
+		RTT:          10 * time.Microsecond,
+		BandwidthGBS: 100.0,
+	})
+
+	batch := 2
+	seqLen := 1024
+	plan := node.InferMeshPlan(seqLen, 32, batch)
+
+	// activationBytes: batch * seqLen * dim * sizeof(dtype) = 2 * 1024 * 2048 * 2 = 8,388,608 bytes
+	wantActivationBytes := int64(2 * 1024 * 2048 * 2)
+	// kvCacheBytes: 2 * layers * batch * seqLen * kvDim * sizeof(dtype) = 2 * 16 * 2 * 1024 * 512 * 2 = 67,108,864 bytes
+	wantKVCacheBytes := int64(2 * 16 * 2 * 1024 * 512 * 2)
+	wantTotalTransfer := wantActivationBytes + wantKVCacheBytes
+
+	if plan.PrefillNodeID != plan.DecodeNodeID {
+		if plan.TransferBytes != wantTotalTransfer {
+			t.Errorf("transfer bytes = %d, want %d (act=%d, kv=%d)",
+				plan.TransferBytes, wantTotalTransfer, wantActivationBytes, wantKVCacheBytes)
+		}
+	}
+}
+
+func ExampleIrohClusterNode_InferMeshPlan() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cfg := Config{
+		Dim:       2048,
+		NumLayers: 16,
+	}
+	node, err := NewIrohClusterNode(ctx, nil, cfg, 0)
+	if err != nil {
+		return
+	}
+	defer node.Close()
+
+	plan := node.InferMeshPlan(512, 32, 1)
+	fmt.Printf("Standalone prefill equal decode: %t\n", plan.PrefillNodeID == plan.DecodeNodeID)
+	fmt.Printf("Standalone transfer bytes: %d\n", plan.TransferBytes)
+	fmt.Printf("Standalone component count: %d\n", len(plan.ComponentPlacements))
+
+	// Output:
+	// Standalone prefill equal decode: true
+	// Standalone transfer bytes: 0
+	// Standalone component count: 4
 }
