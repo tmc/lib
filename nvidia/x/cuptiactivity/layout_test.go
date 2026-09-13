@@ -51,6 +51,44 @@ func TestRecordLayouts(t *testing.T) {
 	if _, err := recordLayouts(130200, func(cupti.ActivityKind, uint32) (uint, error) { return 0, want }); !errors.Is(err, want) {
 		t.Fatalf("lost query error: %v", err)
 	}
+
+	// Verify ActivityKernel versioned layout sizes
+	kernelTests := []struct {
+		name      string
+		version   uint32
+		kSize     uint
+		wantValid bool
+	}{
+		{"K10 on CUDA 13.0", 130001, cupti.ActivityKernel10Size, true},
+		{"K11 on CUDA 13.1", 130101, cupti.ActivityKernel11Size, true},
+		{"K12 on CUDA 13.4", 130400, cupti.ActivityKernel12Size, true},
+		{"K13 on CUDA 13.4", 130400, cupti.ActivityKernel13Size, true},
+		{"K12 on CUDA 13.0 rejected", 130001, cupti.ActivityKernel12Size, false},
+		{"K13 on CUDA 13.0 rejected", 130001, cupti.ActivityKernel13Size, false},
+		{"unknown kernel size rejected", 130400, 200, false},
+	}
+	for _, kt := range kernelTests {
+		t.Run(kt.name, func(t *testing.T) {
+			customSizes := make(map[cupti.ActivityKind]uint)
+			for k, v := range sizes {
+				customSizes[k] = v
+			}
+			customSizes[cupti.ActivityKindConcurrentKernel] = kt.kSize
+
+			got, err := recordLayouts(kt.version, func(kind cupti.ActivityKind, version uint32) (uint, error) {
+				return customSizes[kind], nil
+			})
+			if kt.wantValid && err != nil {
+				t.Fatalf("expected valid layout, got error: %v", err)
+			}
+			if !kt.wantValid && err == nil {
+				t.Fatalf("expected error for invalid layout version=%d size=%d", kt.version, kt.kSize)
+			}
+			if kt.wantValid && got[cupti.ActivityKindConcurrentKernel] != kt.kSize {
+				t.Fatalf("got kernel layout size %d, want %d", got[cupti.ActivityKindConcurrentKernel], kt.kSize)
+			}
+		})
+	}
 }
 
 func TestRecordBytes(t *testing.T) {

@@ -146,28 +146,12 @@ func decodeRecord(data []byte, kind cupti.ActivityKind, name func(uintptr) (stri
 		a := *(*cupti.ActivityAPI)(unsafe.Pointer(&data[0]))
 		r.Start, r.End, r.CorrelationID = a.Start, a.End, a.CorrelationId
 		r.ProcessID, r.ThreadID, r.CallbackID, r.ReturnValue = a.ProcessId, a.ThreadId, a.Cbid, a.ReturnValue
-	case cupti.ActivityKindConcurrentKernel:
-		a := *(*cupti.ActivityKernel11)(unsafe.Pointer(&data[0]))
-		r.Start, r.End, r.CorrelationID = a.Start, a.End, a.CorrelationId
-		r.DeviceID, r.ContextID, r.StreamID = a.DeviceId, a.ContextId, a.StreamId
-		r.Queued, r.Submitted = a.Queued, a.Submitted
-		r.Grid, r.Block = [3]int32{a.GridX, a.GridY, a.GridZ}, [3]int32{a.BlockX, a.BlockY, a.BlockZ}
-		r.GridID, r.RegistersPerThread = a.GridId, a.RegistersPerThread
-		r.StaticSharedMemory, r.DynamicSharedMemory = a.StaticSharedMemory, a.DynamicSharedMemory
-		r.LocalMemoryPerThread, r.LocalMemoryTotal = a.LocalMemoryPerThread, a.LocalMemoryTotalV2
-		r.LaunchType = cupti.ActivityLaunchType(a.LaunchType)
-		r.GraphID, r.GraphNodeID, r.DeviceLaunched = a.GraphId, a.GraphNodeId, a.IsDeviceLaunched != 0
-		if a.Name != 0 {
-			if name == nil {
-				return Record{}, errors.New("cuptiactivity: missing kernel name copier")
-			}
-			var err error
-			r.Name, err = name(a.Name)
-			if err != nil {
-				return Record{}, fmt.Errorf("cuptiactivity: copy kernel name: %w", err)
-			}
-			r.Name = strings.Clone(r.Name)
+	case cupti.ActivityKindConcurrentKernel, cupti.ActivityKindKernel:
+		k, err := DecodeKernel(data, name)
+		if err != nil {
+			return Record{}, err
 		}
+		r = k.Record()
 	case cupti.ActivityKindMemcpy:
 		a := *(*cupti.ActivityMemcpy6)(unsafe.Pointer(&data[0]))
 		r.Start, r.End, r.CorrelationID = a.Start, a.End, a.CorrelationId

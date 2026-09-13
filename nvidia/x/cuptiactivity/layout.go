@@ -31,11 +31,33 @@ func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, 
 		if err != nil {
 			return nil, fmt.Errorf("cuptiactivity: query %s layout: %w", kind, err)
 		}
+		if kind == cupti.ActivityKindConcurrentKernel {
+			if !validKernelLayout(version, got) {
+				return nil, fmt.Errorf("cuptiactivity: %s record size %d differs from Go layout %d", kind, got, want)
+			}
+			layouts[kind] = got
+			continue
+		}
 		if got != want {
 			return nil, fmt.Errorf("cuptiactivity: %s record size %d differs from Go layout %d", kind, got, want)
 		}
 	}
 	return layouts, nil
+}
+
+func validKernelLayout(version uint32, size uint) bool {
+	switch size {
+	case cupti.ActivityKernel10Size: // 216 bytes: CUDA 13.0–13.4
+		return version >= 130000 && version < 140000
+	case cupti.ActivityKernel11Size: // 224 bytes: CUDA 13.0–13.4
+		return version >= 130000 && version < 140000
+	case cupti.ActivityKernel12Size: // 232 bytes: CUDA 13.4
+		return version >= 130400 && version < 140000
+	case cupti.ActivityKernel13Size: // 248 bytes: CUDA 13.4
+		return version >= 130400 && version < 140000
+	default:
+		return false
+	}
 }
 
 // recordBytes bounds a native iterator's record pointer before decoding it.
