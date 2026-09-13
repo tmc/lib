@@ -19,12 +19,16 @@ const (
 
 // Config configures in-memory flight recording.
 type Config struct {
-	Window             time.Duration // Time window to retain in memory (default 10s)
-	Capacity           int           // Maximum number of GPU records in ring buffer (default 65536)
-	ClockUncertaintyNs int64         // Estimated host-to-device clock alignment error (nanoseconds)
-	GoTraceEnabled     bool          // Whether to capture Go execution trace in snapshots (go.trace)
-	RecordGPUPprof     bool          // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
-	RecordPerfetto     bool          // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
+	Window             time.Duration   // Time window to retain in memory (default 10s)
+	Capacity           int             // Maximum number of GPU records in ring buffer (default 65536)
+	ClockUncertaintyNs int64           // Estimated host-to-device clock alignment error (nanoseconds)
+	GoTraceEnabled     bool            // Whether to capture Go execution trace in snapshots (go.trace)
+	GoTraceWindow      time.Duration   // Time window for Go execution trace (default: matches Window)
+	GoTraceMaxBytes    uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
+	GoTraceStandard    bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
+	GoTracer           GoTraceRecorder // Optional custom Go execution trace flight recorder
+	RecordGPUPprof     bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
+	RecordPerfetto     bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
 }
 
 // Record represents a single timestamped GPU execution observation in the ring buffer.
@@ -50,6 +54,8 @@ type Recorder struct {
 	dropped int64
 
 	// Multi-modal artifact providers
+	goTracer         GoTraceRecorder
+	startTime        time.Time
 	goTraceProvider  func(context.Context) ([]byte, error)
 	gpuPprofProvider func(context.Context) ([]byte, error)
 	perfettoProvider func(context.Context) ([]byte, error)
@@ -65,11 +71,28 @@ func New(cfg Config) (*Recorder, error) {
 		cfg.Capacity = DefaultCapacity
 	}
 
-	return &Recorder{
+	r := &Recorder{
 		cfg:        cfg,
 		records:    make([]Record, cfg.Capacity),
 		extraFiles: make(map[string][]byte),
-	}, nil
+	}
+
+	if cfg.GoTraceEnabled {
+		if cfg.GoTracer != nil {
+			r.goTracer = cfg.GoTracer
+		} else if cfg.GoTraceStandard {
+			r.goTracer = NewStandardTraceAdapter(cfg.GoTraceMaxBytes)
+		} else {
+			window := cfg.GoTraceWindow
+			if window <= 0 {
+				window = cfg.Window
+			}
+			r.goTracer = NewAdaptiveTraceRecorder(window, cfg.GoTraceMaxBytes)
+		}
+		r.goTraceProvider = r.goTracer.Snapshot
+	}
+
+	return r, nil
 }
 
 // SetGoTraceProvider configures a provider that yields raw go.trace bytes.
@@ -112,6 +135,13 @@ func (r *Recorder) Start() error {
 		return errors.New("cudaflightrecorder: recorder already running")
 	}
 
+	if r.goTracer != nil {
+		if err := r.goTracer.Start(); err != nil {
+			return fmt.Errorf("cudaflightrecorder: start go trace: %w", err)
+		}
+	}
+
+	r.startTime = time.Now()
 	r.running = true
 	return nil
 }
@@ -120,6 +150,10 @@ func (r *Recorder) Start() error {
 func (r *Recorder) Stop() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if r.goTracer != nil {
+		r.goTracer.Stop()
+	}
 
 	r.running = false
 	r.closed = true
@@ -172,33 +206,21 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 		}
 	}
 	dropped := r.dropped
+	startTime := r.startTime
+	gt := r.goTracer
+	goProvider := r.goTraceProvider
+	gpuProvider := r.gpuPprofProvider
+	perfettoProvider := r.perfettoProvider
+	cfg := r.cfg
+	extraFiles := make(map[string][]byte, len(r.extraFiles))
+	for k, v := range r.extraFiles {
+		extraFiles[k] = v
+	}
 	r.mu.Unlock()
 
-	// Compute observed spans
-	var minTs, maxTs int64
-	if len(records) > 0 {
-		minTs = records[0].TimestampNs
-		maxTs = records[len(records)-1].TimestampNs
+	bundle := &Bundle{
+		Files: make(map[string][]byte),
 	}
-	gpuSpanNs := int64(0)
-	if maxTs > minTs {
-		gpuSpanNs = maxTs - minTs
-	}
-
-	manifest := Manifest{
-		Timestamp:          now,
-		Reason:             reason,
-		WindowRequestedNs:  windowNs,
-		GoSpanNs:           windowNs, // Full window captured
-		GPUSpanNs:          gpuSpanNs,
-		OverlapSpanNs:      gpuSpanNs,
-		GPURecords:         len(records),
-		GPUDropped:         dropped,
-		ClockUncertaintyNs: r.cfg.ClockUncertaintyNs,
-		OverlapReliable:    r.cfg.ClockUncertaintyNs < 100000, // < 100 microseconds
-	}
-
-	bundle := NewBundle(manifest)
 
 	// Format GPU records as a human-readable text dump inside the bundle
 	var recBuf []byte
@@ -209,38 +231,73 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	bundle.Files["gpu_records.txt"] = recBuf
 
 	// 1. go.trace
-	if r.goTraceProvider != nil {
-		if data, err := r.goTraceProvider(ctx); err == nil && len(data) > 0 {
+	var goTraceBytes int64
+	var goHasData bool
+	if goProvider != nil {
+		if data, err := goProvider(ctx); err == nil && len(data) > 0 {
 			bundle.Files["go.trace"] = data
-			manifest.GoTraceBytes = int64(len(data))
+			goTraceBytes = int64(len(data))
+			goHasData = true
 		}
-	} else if r.cfg.GoTraceEnabled {
+	} else if cfg.GoTraceEnabled {
 		bundle.Files["go.trace"] = []byte("go_trace_v2\x00")
-		manifest.GoTraceBytes = int64(len(bundle.Files["go.trace"]))
+		goTraceBytes = int64(len(bundle.Files["go.trace"]))
+		goHasData = true
 	}
 
-	// 2. gpu.pprof
-	if r.gpuPprofProvider != nil {
-		if data, err := r.gpuPprofProvider(ctx); err == nil && len(data) > 0 {
+	// 2. gpu.ppprof
+	if gpuProvider != nil {
+		if data, err := gpuProvider(ctx); err == nil && len(data) > 0 {
 			bundle.Files["gpu.pprof"] = data
 		}
-	} else if r.cfg.RecordGPUPprof {
+	} else if cfg.RecordGPUPprof {
 		bundle.Files["gpu.pprof"] = []byte("\x1f\x8b\x08gpu_pprof\x00")
 	}
 
 	// 3. timeline.pftrace
-	if r.perfettoProvider != nil {
-		if data, err := r.perfettoProvider(ctx); err == nil && len(data) > 0 {
+	if perfettoProvider != nil {
+		if data, err := perfettoProvider(ctx); err == nil && len(data) > 0 {
 			bundle.Files["timeline.pftrace"] = data
 		}
-	} else if r.cfg.RecordPerfetto {
+	} else if cfg.RecordPerfetto {
 		bundle.Files["timeline.pftrace"] = []byte("timeline_pftrace\x00")
 	}
 
 	// 4. Attach extra user files
-	for name, data := range r.extraFiles {
+	for name, data := range extraFiles {
 		bundle.Files[name] = data
 	}
+
+	// 5. Align host clock and device timestamps to compute spans
+	var goStartNs int64
+	if !startTime.IsZero() {
+		goStartNs = startTime.UnixNano()
+	} else if timer, ok := gt.(interface{ StartTime() time.Time }); ok && !timer.StartTime().IsZero() {
+		goStartNs = timer.StartTime().UnixNano()
+	}
+	goSpanNs, gpuSpanNs, overlapSpanNs, overlapReliable := AlignSpans(
+		nowNs,
+		windowNs,
+		goStartNs,
+		goHasData,
+		records,
+		cfg.ClockUncertaintyNs,
+	)
+
+	manifest := Manifest{
+		Timestamp:          now,
+		Reason:             reason,
+		WindowRequestedNs:  windowNs,
+		GoSpanNs:           goSpanNs,
+		GPUSpanNs:          gpuSpanNs,
+		OverlapSpanNs:      overlapSpanNs,
+		GPURecords:         len(records),
+		GPUDropped:         dropped,
+		GoTraceBytes:       goTraceBytes,
+		ClockUncertaintyNs: cfg.ClockUncertaintyNs,
+		OverlapReliable:    overlapReliable,
+	}
+	bundle.Manifest = manifest
 
 	if err := WriteBundle(w, bundle); err != nil {
 		return nil, fmt.Errorf("cudaflightrecorder: write snapshot bundle: %w", err)
