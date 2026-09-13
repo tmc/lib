@@ -14,7 +14,7 @@ type OpcodeSummary struct {
 
 // Count returns the number of instructions whose opcode matches the prefix.
 // Matching is case-insensitive. For example, Count("IDP4A") matches "IDP4A",
-// "IDP4A.U8.U8", and "idp4a.s8.s8".
+// "IDP4A.U8.U8", "idp4a.s8.s8", and the Blackwell sm_12x variant "IDP.4A.S8.S8".
 func (s *OpcodeSummary) Count(prefix string) int {
 	if s == nil || len(s.Counts) == 0 {
 		return 0
@@ -24,6 +24,10 @@ func (s *OpcodeSummary) Count(prefix string) int {
 	for op, count := range s.Counts {
 		opUpper := strings.ToUpper(op)
 		if opUpper == prefix || strings.HasPrefix(opUpper, prefix+".") {
+			total += count
+		} else if prefix == "IDP4A" && (opUpper == "IDP.4A" || strings.HasPrefix(opUpper, "IDP.4A.")) {
+			total += count
+		} else if prefix == "IDP.4A" && (opUpper == "IDP4A" || strings.HasPrefix(opUpper, "IDP4A.")) {
 			total += count
 		}
 	}
