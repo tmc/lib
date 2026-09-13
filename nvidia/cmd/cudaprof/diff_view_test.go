@@ -115,3 +115,13 @@ func TestComputeTopStallShifts(t *testing.T) {
 		t.Fatalf("empty shifts = %#v, want nil", got)
 	}
 }
+
+func TestBuildKernelSummaryEmptyCaptures(t *testing.T) {
+	sum := buildKernelSummary(cudasass.FunctionDiff{Name: "kernel"}, nil, nil)
+	if sum.BaseInstructions != 0 || sum.TargetInstructions != 0 || sum.TopStallShifts != nil {
+		t.Fatalf("buildKernelSummary empty = %#v", sum)
+	}
+	if profileOrNil(nil) != nil {
+		t.Fatal("profileOrNil(nil) returned a profile")
+	}
+}
