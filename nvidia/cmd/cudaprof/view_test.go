@@ -627,5 +627,206 @@ Args:
 	}
 }
 
+func TestCrossTierLinkageAndOverlays(t *testing.T) {
+	goSrc := `package main
+func run() {
+	// Launch kernel
+	r.launch("gemm_kernel", grid, block)
+}`
+	cuSrc := `// CUDA source
+__global__ void gemm_kernel(const half* A, const half* B, float* C) {
+	__shared__ float smem[1024];
+	int val = __dp4a(1, 2, 3);
+}`
+	tileSrc := `cuda_tile.module @gemm_mod {
+  cuda_tile.entry @gemm_kernel(%A: !cuda_tile.tile<ptr<f16>>, %B: !cuda_tile.tile<ptr<f16>>) {
+    %tok0 = cuda_tile.make_token : !cuda_tile.token
+    %vA = cuda_tile.load_view_tko %A, %tok0 : (!cuda_tile.tile<ptr<f16>>, !cuda_tile.token) -> !cuda_tile.tile<64x64xf16> loc("kernels.cu":3:10)
+    %cst = cuda_tile.constant <f32: 0.0> : !cuda_tile.tile<64x64xf32>
+    %acc = cuda_tile.mma_f %vA, %vA, %cst : (!cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf16>, !cuda_tile.tile<64x64xf32>) -> !cuda_tile.tile<64x64xf32>
+    cuda_tile.return
+  }
+}`
+	ptxSrc := `.version 8.8
+.target sm_121a
+.visible .entry gemm_kernel() {
+.loc 1 3 0
+cp.async.bulk.tensor.2d.shared::cta.global.mbarrier::complete_tx::bytes [%rd1], [%rd2, {%r1, %r2}];
+.loc 1 4 0
+mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%f1, %f2}, {%r3, %r4}, {%r5}, {%f1, %f2};
+ret;
+}`
+	sassSrc := `Function : gemm_kernel
+## File "kernels.cu", line 3
+/*0000*/ UTMA.LOAD.2D [R2], [R4];
+## File "kernels.cu", line 4
+/*0010*/ HMMA.16816.F32 R0, R2, R4, R0;
+/*0020*/ RET;
+`
+	lrmSrc := `Function: gemm_kernel
+/*0000*/ UTMA.LOAD.2D [R2], [R4] ; // | 4 | | 2 | |
+/*0010*/ HMMA.16816.F32 R0, R2, R4, R0 ; // | 8 | | 2 | |
+/*0020*/ RET ; // | 1 | | 0 | |
+`
+
+	files := map[string][]byte{
+		"workload.go":    []byte(goSrc),
+		"kernels.cu":     []byte(cuSrc),
+		"kernels.tileir": []byte(tileSrc),
+		"kernels.ptx":    []byte(ptxSrc),
+		"kernels.sass":   []byte(sassSrc),
+		"kernels.lrm":    []byte(lrmSrc),
+	}
+
+	cap := &cudacapture.Capture{
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			TileIR: "kernels.tileir",
+			PTX:    "kernels.ptx",
+			SASS:   "kernels.sass",
+		},
+		Files: files,
+	}
+
+	data, err := buildPipelineViewData(cap, "test-linkage.pprof", "")
+	if err != nil {
+		t.Fatalf("buildPipelineViewData: %v", err)
+	}
+
+	// 1. Verify Go tier launch detection
+	goTier := data.Tiers[0]
+	var foundGoLaunch bool
+	for _, l := range goTier.Lines {
+		if l.LaunchKernel == "gemm_kernel" {
+			foundGoLaunch = true
+			if l.SemanticTag != "entry" {
+				t.Errorf("Go launch SemanticTag = %q, want entry", l.SemanticTag)
+			}
+		}
+	}
+	if !foundGoLaunch {
+		t.Error("Go tier did not detect launch of gemm_kernel")
+	}
+
+	// 2. Verify CUDA C++ annotations and source lines
+	cuTier := data.Tiers[1]
+	if cuTier.Lines[1].SourceLine != 2 {
+		t.Errorf("CUDA C++ line 2 SourceLine = %d, want 2", cuTier.Lines[1].SourceLine)
+	}
+	if cuTier.Lines[1].Category != "Global Kernel" || cuTier.Lines[1].SemanticTag != "entry" {
+		t.Errorf("CUDA C++ kernel entry category/tag = %q/%q, want Global Kernel/entry", cuTier.Lines[1].Category, cuTier.Lines[1].SemanticTag)
+	}
+
+	// 3. Verify Tile IR semantic tags and source lines
+	tileTier := data.Tiers[2]
+	var foundTileTMA, foundTileMMA bool
+	for _, l := range tileTier.Lines {
+		if strings.Contains(l.Text, "load_view_tko") {
+			foundTileTMA = true
+			if l.SemanticTag != "tma" {
+				t.Errorf("Tile load_view_tko SemanticTag = %q, want tma", l.SemanticTag)
+			}
+			if l.SourceLine != 3 {
+				t.Errorf("Tile load_view_tko SourceLine = %d, want 3", l.SourceLine)
+			}
+		}
+		if strings.Contains(l.Text, "mma_f") {
+			foundTileMMA = true
+			if l.SemanticTag != "mma" {
+				t.Errorf("Tile mma_f SemanticTag = %q, want mma", l.SemanticTag)
+			}
+		}
+	}
+	if !foundTileTMA || !foundTileMMA {
+		t.Error("Tile IR missing load_view_tko or mma_f")
+	}
+
+	// 4. Verify PTX source line mapping (.loc) and semantic tags
+	ptxTier := data.Tiers[3]
+	var foundPtxTMA, foundPtxMMA bool
+	for _, l := range ptxTier.Lines {
+		if strings.Contains(l.Text, "cp.async.bulk.tensor") {
+			foundPtxTMA = true
+			if l.SemanticTag != "tma" {
+				t.Errorf("PTX cp.async.bulk SemanticTag = %q, want tma", l.SemanticTag)
+			}
+			if l.SourceLine != 3 {
+				t.Errorf("PTX cp.async.bulk SourceLine = %d, want 3", l.SourceLine)
+			}
+		}
+		if strings.Contains(l.Text, "mma.sync") {
+			foundPtxMMA = true
+			if l.SemanticTag != "mma" {
+				t.Errorf("PTX mma.sync SemanticTag = %q, want mma", l.SemanticTag)
+			}
+			if l.SourceLine != 4 {
+				t.Errorf("PTX mma.sync SourceLine = %d, want 4", l.SourceLine)
+			}
+		}
+	}
+	if !foundPtxTMA || !foundPtxMMA {
+		t.Error("PTX missing cp.async.bulk or mma.sync")
+	}
+
+	// 5. Verify SASS DWARF line info, register pressure, and semantic tags
+	sassTier := data.Tiers[4]
+	var foundSassTMA, foundSassMMA bool
+	for _, l := range sassTier.Lines {
+		if strings.Contains(l.Text, "UTMA.LOAD.2D") {
+			foundSassTMA = true
+			if l.SemanticTag != "tma" {
+				t.Errorf("SASS UTMA SemanticTag = %q, want tma", l.SemanticTag)
+			}
+			if l.SourceLine != 3 {
+				t.Errorf("SASS UTMA SourceLine = %d, want 3", l.SourceLine)
+			}
+			if l.Pressure != "R:4 UR:2" {
+				t.Errorf("SASS UTMA Pressure = %q, want R:4 UR:2", l.Pressure)
+			}
+		}
+		if strings.Contains(l.Text, "HMMA.16816.F32") {
+			foundSassMMA = true
+			if l.SemanticTag != "mma" {
+				t.Errorf("SASS HMMA SemanticTag = %q, want mma", l.SemanticTag)
+			}
+			if l.SourceLine != 4 {
+				t.Errorf("SASS HMMA SourceLine = %d, want 4", l.SourceLine)
+			}
+			if l.Pressure != "R:8 UR:2" {
+				t.Errorf("SASS HMMA Pressure = %q, want R:8 UR:2", l.Pressure)
+			}
+		}
+	}
+	if !foundSassTMA || !foundSassMMA {
+		t.Error("SASS missing UTMA or HMMA")
+	}
+
+	// 6. Verify HTML output contains new interactive classes and attributes
+	var buf bytes.Buffer
+	if err := renderPipelineHTML(&buf, data); err != nil {
+		t.Fatalf("renderPipelineHTML: %v", err)
+	}
+	html := buf.String()
+
+	for _, expected := range []string{
+		"highlight-srcline",
+		"highlight-semtag",
+		"badge-reg",
+		"badge-launch",
+		"data-sem-tag=\"tma\"",
+		"data-sem-tag=\"mma\"",
+		"data-source-line=\"3\"",
+		"data-source-line=\"4\"",
+		"▶ Launch: gemm_kernel",
+		"R:4 UR:2",
+		"R:8 UR:2",
+	} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("rendered HTML missing expected token %q", expected)
+		}
+	}
+}
+
+
 
 

@@ -37,17 +37,22 @@ type PipelineTier struct {
 
 // PipelineLine represents an annotated line in a pipeline tier.
 type PipelineLine struct {
-	Num            int                `json:"num"`
-	Text           string             `json:"text"`
-	Opcode         string             `json:"opcode,omitempty"`
-	Category       string             `json:"category,omitempty"`
-	Offset         string             `json:"offset,omitempty"`
-	StallPct       float64            `json:"stall_pct,omitempty"`
-	StallBreakdown map[string]float64 `json:"stall_breakdown,omitempty"`
-	StallTooltip   string             `json:"stall_tooltip,omitempty"`
-	HoverDoc       string             `json:"hover_doc,omitempty"`
-	RemarkBadge    string             `json:"remark_badge,omitempty"`
-	RemarkTooltip  string             `json:"remark_tooltip,omitempty"`
+	Num             int                `json:"num"`
+	Text            string             `json:"text"`
+	Opcode          string             `json:"opcode,omitempty"`
+	Category        string             `json:"category,omitempty"`
+	Offset          string             `json:"offset,omitempty"`
+	StallPct        float64            `json:"stall_pct,omitempty"`
+	StallBreakdown  map[string]float64 `json:"stall_breakdown,omitempty"`
+	StallTooltip    string             `json:"stall_tooltip,omitempty"`
+	HoverDoc        string             `json:"hover_doc,omitempty"`
+	RemarkBadge     string             `json:"remark_badge,omitempty"`
+	RemarkTooltip   string             `json:"remark_tooltip,omitempty"`
+	LaunchKernel    string             `json:"launch_kernel,omitempty"`
+	SemanticTag     string             `json:"semantic_tag,omitempty"`
+	SourceLine      int                `json:"source_line,omitempty"`
+	Pressure        string             `json:"pressure,omitempty"`
+	PressureTooltip string             `json:"pressure_tooltip,omitempty"`
 }
 
 // PipelineViewData is the data model passed to the web template and API endpoints.
@@ -295,22 +300,28 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 	}
 
 	// 3. Discover kernels across PTX, SASS, CUDA C++, and Tile IR
-	kernelNames := discoverKernelNames(ptxContent, sassContent, cuContent)
+	kernelNames := discoverKernelNames(ptxContent, sassContent, cuContent, tileContent)
 	data.Kernels = kernelNames
 
 	// 4. Extract stall metrics from PC sampling data in profile (gpu.pprof)
 	stallMap := extractSASSStallMap(cap, kernelNames)
 
-	// Build full tiers
-	data.Tiers = []PipelineTier{
-		buildTier("Go", goFileName, "go", goContent, nil, "", nil),
-		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, "", nil),
-		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, "", remarksList),
-		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, "", nil),
-		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel, nil),
+	// 5. Extract live register pressure if available
+	var pressureMap map[string]map[uint64]cudasass.RegisterPressure
+	if disasmWithPressure, err := loadDisassemblyWithPressure(cap); err == nil && disasmWithPressure != nil {
+		pressureMap = extractPressureMap(disasmWithPressure)
 	}
 
-	// 5. Build per-kernel slice views
+	// Build full tiers
+	data.Tiers = []PipelineTier{
+		buildTier("Go", goFileName, "go", goContent, nil, "", nil, kernelNames, nil),
+		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, "", nil, kernelNames, nil),
+		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, "", remarksList, kernelNames, nil),
+		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, "", nil, kernelNames, nil),
+		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel, nil, kernelNames, pressureMap),
+	}
+
+	// 6. Build per-kernel slice views
 	for _, kName := range kernelNames {
 		kGo := extractKernelSection(goContent, kName, "go")
 		kCu := extractKernelSection(cuContent, kName, "cuda")
@@ -319,11 +330,11 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		kSass := extractKernelSection(sassContent, kName, "sass")
 
 		data.KernelTiers[kName] = []PipelineTier{
-			buildTier("Go", goFileName, "go", kGo, nil, kName, nil),
-			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName, nil),
-			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName, remarksList),
-			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName, nil),
-			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName, nil),
+			buildTier("Go", goFileName, "go", kGo, nil, kName, nil, kernelNames, nil),
+			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName, nil, kernelNames, nil),
+			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName, remarksList, kernelNames, nil),
+			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName, nil, kernelNames, nil),
+			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName, nil, kernelNames, pressureMap),
 		}
 	}
 
@@ -535,11 +546,33 @@ func extractTileIROpcode(line string) string {
 	return ""
 }
 
-func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark) PipelineTier {
+func extractPressureMap(disasm *cudasass.Disassembly) map[string]map[uint64]cudasass.RegisterPressure {
+	if disasm == nil {
+		return nil
+	}
+	res := make(map[string]map[uint64]cudasass.RegisterPressure)
+	for _, fn := range disasm.Functions {
+		res[fn.Name] = make(map[uint64]cudasass.RegisterPressure)
+		for _, inst := range fn.Instructions {
+			if inst.LiveGPR > 0 || inst.LivePred > 0 || inst.LiveUGPR > 0 || inst.LiveUPred > 0 {
+				res[fn.Name][inst.Address] = cudasass.RegisterPressure{
+					GPR:   inst.LiveGPR,
+					Pred:  inst.LivePred,
+					UGPR:  inst.LiveUGPR,
+					UPred: inst.LiveUPred,
+				}
+			}
+		}
+	}
+	return res
+}
+
+func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark, knownKernels []string, pressureMap map[string]map[uint64]cudasass.RegisterPressure) PipelineTier {
 	rawLines := strings.Split(content, "\n")
 	lines := make([]PipelineLine, len(rawLines))
 
 	currentKernel := activeKernel
+	currentSourceLine := 0
 
 	for i, text := range rawLines {
 		line := PipelineLine{
@@ -548,50 +581,58 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 		}
 
 		trimmed := strings.TrimSpace(text)
-		if lang == "sass" {
-			if strings.HasPrefix(trimmed, "Function :") || strings.HasPrefix(trimmed, "Function ") {
-				fields := strings.Fields(trimmed)
-				if len(fields) >= 2 {
-					if fields[1] == ":" && len(fields) >= 3 {
-						currentKernel = fields[2]
-					} else if fields[1] != ":" {
-						currentKernel = fields[1]
-					}
+
+		switch lang {
+		case "go":
+			// Detect kernel launch calls in Go
+			for _, k := range knownKernels {
+				if k == "" {
+					continue
 				}
+				if strings.Contains(trimmed, `"`+k+`"`) ||
+					strings.Contains(trimmed, k+`(`) ||
+					strings.Contains(strings.ToLower(trimmed), "launch"+strings.ToLower(k)) {
+					line.LaunchKernel = k
+					line.SemanticTag = "entry"
+					break
+				}
+			}
+			if strings.Contains(trimmed, "trace.WithRegion") || strings.Contains(trimmed, "trace.NewTask") || strings.Contains(trimmed, "cudaprof.Labels") {
+				line.Category = "Trace"
 			}
 
-			// Extract hex offset if present (/*0010*/ or /* 0010 */)
-			if strings.HasPrefix(trimmed, "/*") {
-				if endIdx := strings.Index(trimmed, "*/"); endIdx != -1 {
-					offsetStr := strings.TrimSpace(trimmed[2:endIdx])
-					line.Offset = offsetStr
-
-					if stallMap != nil && stallMap.hasStalls {
-						if pc, err := strconv.ParseUint(strings.TrimPrefix(offsetStr, "0x"), 16, 64); err == nil {
-							if info, kernelTotal := stallMap.lookup(currentKernel, pc); info != nil && info.totalStalls > 0 && kernelTotal > 0 {
-								pct := float64(info.totalStalls) / float64(kernelTotal) * 100.0
-								line.StallPct = pct
-								line.StallBreakdown = make(map[string]float64, len(info.breakdown))
-								for reason, count := range info.breakdown {
-									line.StallBreakdown[reason] = float64(count) / float64(kernelTotal) * 100.0
-								}
-								line.StallTooltip = formatStallTooltip(pct, line.StallBreakdown, info.totalStalls)
-							}
-						}
+		case "cuda":
+			line.SourceLine = line.Num
+			if strings.Contains(trimmed, "__global__ void") {
+				line.Category = "Global Kernel"
+				line.SemanticTag = "entry"
+				for _, k := range knownKernels {
+					if strings.Contains(trimmed, k) {
+						currentKernel = k
+						break
 					}
 				}
+			} else if strings.Contains(trimmed, "__device__") {
+				line.Category = "Device Helper"
+			} else if strings.Contains(trimmed, "extern __shared__") || strings.Contains(trimmed, "__shared__") {
+				line.Category = "Shared Memory"
+				line.SemanticTag = "memory"
+			} else if strings.Contains(trimmed, "__launch_bounds__") {
+				line.Category = "Launch Bounds"
 			}
-		} else if lang == "ptx" {
-			// Check for opcode documentation
-			fields := strings.Fields(trimmed)
-			if len(fields) > 0 {
-				op := strings.TrimSuffix(fields[0], ";")
-				if doc := cudaptx.LookupDoc(op); doc != nil {
-					line.Opcode = op
-					line.HoverDoc = doc.Summary
-				}
+
+			if strings.Contains(trimmed, "__dp4a") {
+				line.SemanticTag = "simd"
+				line.HoverDoc = "SIMD: 4-way 8-bit dot product with 32-bit accumulator (__dp4a)"
+			} else if strings.Contains(trimmed, "__shfl_down_sync") {
+				line.SemanticTag = "barrier"
+				line.HoverDoc = "Warp Shuffle: Downward intra-warp exchange (__shfl_down_sync)"
+			} else if strings.Contains(trimmed, "__syncthreads") {
+				line.SemanticTag = "barrier"
+				line.HoverDoc = "Block Barrier: Synchronizes all threads in CTA (__syncthreads)"
 			}
-		} else if lang == "mlir" || lang == "tileir" {
+
+		case "mlir", "tileir":
 			if strings.Contains(trimmed, "cuda_tile.entry @") || strings.Contains(trimmed, "cuda_tile.func @") {
 				idx := strings.Index(trimmed, "@")
 				if idx >= 0 {
@@ -601,6 +642,30 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 					} else {
 						currentKernel = rest
 					}
+				}
+				line.SemanticTag = "entry"
+			}
+
+			// Check for source loc references: e.g. loc("kernels.cu":45:10) or "kernels.cu":45
+			if locIdx := strings.Index(trimmed, `loc("`); locIdx >= 0 {
+				locStr := trimmed[locIdx+len(`loc("`):]
+				if colon := strings.Index(locStr, `":`); colon >= 0 {
+					numStr := locStr[colon+2:]
+					if end := strings.IndexAny(numStr, ":)\""); end > 0 {
+						numStr = numStr[:end]
+					}
+					if lNum, err := strconv.Atoi(numStr); err == nil {
+						line.SourceLine = lNum
+					}
+				}
+			} else if idx := strings.Index(trimmed, "kernels.cu"); idx >= 0 {
+				sub := strings.TrimPrefix(trimmed[idx+len("kernels.cu"):], `"`)
+				sub = strings.TrimPrefix(sub, ":")
+				if end := strings.IndexAny(sub, ":)\" \t"); end > 0 {
+					sub = sub[:end]
+				}
+				if lNum, err := strconv.Atoi(sub); err == nil {
+					line.SourceLine = lNum
 				}
 			}
 
@@ -612,6 +677,23 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 						line.HoverDoc = fmt.Sprintf("[%s] %s | Lowering: %s", doc.Category, doc.Summary, doc.HardwareLowering)
 					} else {
 						line.HoverDoc = fmt.Sprintf("[%s] %s", doc.Category, doc.Summary)
+					}
+
+					switch doc.Category {
+					case tileir.CatTileMemory:
+						line.SemanticTag = "tma"
+					case tileir.CatComputeMMA:
+						line.SemanticTag = "mma"
+					case tileir.CatSyncToken:
+						line.SemanticTag = "barrier"
+					case tileir.CatComputeElement:
+						line.SemanticTag = "simd"
+					case tileir.CatControlFlow:
+						if strings.Contains(op, "entry") {
+							line.SemanticTag = "entry"
+						} else if strings.Contains(op, "return") {
+							line.SemanticTag = "return"
+						}
 					}
 				}
 			}
@@ -670,7 +752,151 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 					break
 				}
 			}
+
+		case "ptx":
+			// Check for .loc directive: .loc <file_id> <line_num> <col_num>
+			if strings.HasPrefix(trimmed, ".loc") {
+				fields := strings.Fields(trimmed)
+				if len(fields) >= 3 {
+					if lNum, err := strconv.Atoi(fields[2]); err == nil {
+						currentSourceLine = lNum
+					}
+				}
+				line.Category = "Source Loc"
+				line.SourceLine = currentSourceLine
+			} else if currentSourceLine > 0 && !strings.HasPrefix(trimmed, "//") && !strings.HasPrefix(trimmed, ".") {
+				line.SourceLine = currentSourceLine
+			}
+
+			fields := strings.Fields(trimmed)
+			if len(fields) > 0 {
+				rawOp := strings.TrimSuffix(fields[0], ";")
+				line.Opcode = rawOp
+				if doc := cudaptx.LookupDoc(rawOp); doc != nil {
+					line.HoverDoc = doc.Summary
+				}
+				if strings.HasPrefix(rawOp, "cp.async.bulk") {
+					line.SemanticTag = "tma"
+				} else if strings.HasPrefix(rawOp, "mma.") || strings.HasPrefix(rawOp, "wgmma.") || strings.HasPrefix(rawOp, "tcgen05.") {
+					line.SemanticTag = "mma"
+				} else if strings.HasPrefix(rawOp, "mbarrier.") || strings.HasPrefix(rawOp, "bar.") {
+					line.SemanticTag = "barrier"
+				} else if strings.HasPrefix(rawOp, "vadd4") || strings.HasPrefix(rawOp, "dp4a") || strings.HasPrefix(rawOp, "hfma2") {
+					line.SemanticTag = "simd"
+				} else if strings.HasPrefix(rawOp, ".entry") {
+					line.SemanticTag = "entry"
+				} else if rawOp == "ret" {
+					line.SemanticTag = "return"
+				} else if strings.HasPrefix(rawOp, "ld.global") || strings.HasPrefix(rawOp, "st.global") || strings.HasPrefix(rawOp, "ld.shared") || strings.HasPrefix(rawOp, "st.shared") {
+					line.SemanticTag = "memory"
+				}
+			}
+
+		case "sass":
+			if strings.HasPrefix(trimmed, "Function :") || strings.HasPrefix(trimmed, "Function ") {
+				fields := strings.Fields(trimmed)
+				if len(fields) >= 2 {
+					if fields[1] == ":" && len(fields) >= 3 {
+						currentKernel = fields[2]
+					} else if fields[1] != ":" {
+						currentKernel = fields[1]
+					}
+				}
+				line.SemanticTag = "entry"
+			}
+
+			// Parse SASS DWARF line info: ## File "kernels.cu", line 47
+			if strings.HasPrefix(trimmed, "## File") {
+				if idx := strings.Index(trimmed, "line "); idx >= 0 {
+					lStr := strings.TrimSpace(trimmed[idx+len("line "):])
+					if end := strings.IndexAny(lStr, ", \t"); end >= 0 {
+						lStr = lStr[:end]
+					}
+					if lNum, err := strconv.Atoi(lStr); err == nil {
+						currentSourceLine = lNum
+					}
+				}
+			}
+
+			// Extract hex offset if present (/*0010*/ or /* 0010 */)
+			if strings.HasPrefix(trimmed, "/*") {
+				if currentSourceLine > 0 {
+					line.SourceLine = currentSourceLine
+				}
+				if endIdx := strings.Index(trimmed, "*/"); endIdx != -1 {
+					offsetStr := strings.TrimSpace(trimmed[2:endIdx])
+					line.Offset = offsetStr
+
+					if pc, err := strconv.ParseUint(strings.TrimPrefix(offsetStr, "0x"), 16, 64); err == nil {
+						// Stall percentage
+						if stallMap != nil && stallMap.hasStalls {
+							if info, kernelTotal := stallMap.lookup(currentKernel, pc); info != nil && info.totalStalls > 0 && kernelTotal > 0 {
+								pct := float64(info.totalStalls) / float64(kernelTotal) * 100.0
+								line.StallPct = pct
+								line.StallBreakdown = make(map[string]float64, len(info.breakdown))
+								for reason, count := range info.breakdown {
+									line.StallBreakdown[reason] = float64(count) / float64(kernelTotal) * 100.0
+								}
+								line.StallTooltip = formatStallTooltip(pct, line.StallBreakdown, info.totalStalls)
+							}
+						}
+
+						// Register pressure
+						if pressureMap != nil {
+							var pres *cudasass.RegisterPressure
+							if pKernel, ok := pressureMap[currentKernel]; ok {
+								if p, ok := pKernel[pc]; ok {
+									pres = &p
+								}
+							}
+							if pres == nil && len(pressureMap) == 1 {
+								for _, pKernel := range pressureMap {
+									if p, ok := pKernel[pc]; ok {
+										pres = &p
+										break
+									}
+								}
+							}
+							if pres != nil {
+								line.Pressure = fmt.Sprintf("R:%d", pres.GPR)
+								if pres.UGPR > 0 {
+									line.Pressure += fmt.Sprintf(" UR:%d", pres.UGPR)
+								}
+								line.PressureTooltip = fmt.Sprintf("Live Registers: %d GPR, %d PRED, %d UGPR, %d UPRED",
+									pres.GPR, pres.Pred, pres.UGPR, pres.UPred)
+							}
+						}
+					}
+				}
+
+				// Semantic tagging for SASS instructions
+				fields := strings.Fields(trimmed)
+				for _, f := range fields {
+					if strings.HasPrefix(f, "/*") || strings.HasPrefix(f, "@") || strings.HasPrefix(f, "[") || strings.HasPrefix(f, "0x") {
+						continue
+					}
+					op := strings.TrimSuffix(f, ";")
+					opBase := strings.ToUpper(strings.Split(op, ".")[0])
+					line.Opcode = op
+					switch opBase {
+					case "UTMA", "TMA":
+						line.SemanticTag = "tma"
+					case "HMMA", "HGMMA", "MMA":
+						line.SemanticTag = "mma"
+					case "BAR", "DEPBAR":
+						line.SemanticTag = "barrier"
+					case "IDP4A", "HFMA2":
+						line.SemanticTag = "simd"
+					case "EXIT", "RET":
+						line.SemanticTag = "return"
+					case "LDG", "STG", "LDS", "STS", "LDC":
+						line.SemanticTag = "memory"
+					}
+					break
+				}
+			}
 		}
+
 		lines[i] = line
 	}
 
@@ -682,7 +908,7 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 	}
 }
 
-func discoverKernelNames(ptxText, sassText, cuText string) []string {
+func discoverKernelNames(ptxText, sassText, cuText, tileText string) []string {
 	seen := make(map[string]bool)
 	var names []string
 
@@ -713,6 +939,14 @@ func discoverKernelNames(ptxText, sassText, cuText string) []string {
 	// CUDA C++: __global__ void <name>
 	reCu := regexp.MustCompile(`__global__\s+void\s+([a-zA-Z0-9_]+)`)
 	for _, m := range reCu.FindAllStringSubmatch(cuText, -1) {
+		if len(m) > 1 {
+			add(m[1])
+		}
+	}
+
+	// Tile IR: cuda_tile.entry @<name> or cuda_tile.func @<name>
+	reTile := regexp.MustCompile(`cuda_tile\.(?:entry|func)\s+@([a-zA-Z0-9_]+)`)
+	for _, m := range reTile.FindAllStringSubmatch(tileText, -1) {
 		if len(m) > 1 {
 			add(m[1])
 		}
@@ -1085,6 +1319,46 @@ select:focus, input[type="text"]:focus {
   background-color: rgba(243, 156, 18, 0.22) !important;
   border-left: 2px solid var(--accent-tile);
 }
+.highlight-srcline {
+  background-color: rgba(56, 189, 248, 0.18) !important;
+  border-left: 2px solid #38bdf8 !important;
+}
+.highlight-semtag {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.4) !important;
+}
+.badge-reg {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  color: #c7d2fe;
+  background: #312e81;
+  border: 1px solid rgba(165, 180, 252, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 5px;
+  cursor: help;
+  vertical-align: middle;
+}
+.badge-launch {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6ee7b7;
+  background: rgba(6, 78, 59, 0.6);
+  border: 1px solid #059669;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 6px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+.badge-launch:hover {
+  background: #047857;
+  color: #ffffff;
+  border-color: #10b981;
+}
 .badge-offset {
   color: var(--text-muted);
   font-size: 10px;
@@ -1195,9 +1469,9 @@ select:focus, input[type="text"]:focus {
     <div class="code-container" id="code-scroll-{{$idx}}">
       <div class="code-table">
         {{range $tier.Lines}}
-        <div class="code-row" id="line-{{$idx}}-{{.Num}}" data-tier="{{$idx}}" data-opcode="{{.Opcode}}">
+        <div class="code-row" id="line-{{$idx}}-{{.Num}}" data-tier="{{$idx}}" data-opcode="{{.Opcode}}" data-sem-tag="{{.SemanticTag}}" data-source-line="{{.SourceLine}}">
           <div class="line-num">{{.Num}}</div>
-          <div class="line-content">{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .Category}}<span class="badge-category" title="Tile IR Category: {{.Category}}">{{.Category}}</span>{{end}}{{if .HoverDoc}}<span class="{{if eq $tier.Language "mlir"}}opcode-hover-tile{{else}}opcode-hover{{end}}" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}{{if .RemarkBadge}}<span class="badge-remark" title="{{.RemarkTooltip}}">✓ {{.RemarkBadge}}</span>{{end}}</div>
+          <div class="line-content">{{if .LaunchKernel}}<button class="badge-launch" onclick="onKernelChange('{{.LaunchKernel}}')" title="Switch view to {{.LaunchKernel}}">▶ Launch: {{.LaunchKernel}}</button>{{end}}{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if .Pressure}}<span class="badge-reg" title="{{.PressureTooltip}}">{{.Pressure}}</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .Category}}<span class="badge-category" title="{{$tier.Name}} Category: {{.Category}}">{{.Category}}</span>{{end}}{{if .HoverDoc}}<span class="{{if eq $tier.Language "mlir"}}opcode-hover-tile{{else}}opcode-hover{{end}}" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}{{if .RemarkBadge}}<span class="badge-remark" title="{{.RemarkTooltip}}">✓ {{.RemarkBadge}}</span>{{end}}</div>
         </div>
         {{end}}
       </div>
@@ -1237,11 +1511,21 @@ document.addEventListener('mouseover', e => {
   if (opcode && opcode !== '') {
     document.querySelectorAll('.code-row[data-opcode="' + opcode + '"]').forEach(r => r.classList.add('highlight-match'));
   }
+  const semTag = row.getAttribute('data-sem-tag');
+  if (semTag && semTag !== '') {
+    document.querySelectorAll('.code-row[data-sem-tag="' + semTag + '"]').forEach(r => r.classList.add('highlight-semtag'));
+  }
+  const srcLine = row.getAttribute('data-source-line');
+  if (srcLine && srcLine !== '' && srcLine !== '0') {
+    document.querySelectorAll('.code-row[data-source-line="' + srcLine + '"]').forEach(r => r.classList.add('highlight-srcline'));
+  }
 });
 document.addEventListener('mouseout', e => {
   const row = e.target.closest('.code-row');
   if (!row) return;
   document.querySelectorAll('.highlight-match').forEach(r => r.classList.remove('highlight-match'));
+  document.querySelectorAll('.highlight-semtag').forEach(r => r.classList.remove('highlight-semtag'));
+  document.querySelectorAll('.highlight-srcline').forEach(r => r.classList.remove('highlight-srcline'));
 });
 
 function showTab(tabIndex) {
@@ -1258,6 +1542,10 @@ function onKernelChange(kernelName) {
     window.location.href = window.location.pathname;
     return;
   }
+  const sel = document.getElementById('kernelSelect');
+  if (sel && sel.value !== kernelName) {
+    sel.value = kernelName;
+  }
   fetch('/api/kernel?name=' + encodeURIComponent(kernelName))
     .then(r => r.json())
     .then(tiers => {
@@ -1268,7 +1556,9 @@ function onKernelChange(kernelName) {
         if (!table) return;
         let html = '';
         tier.lines.forEach(l => {
+          const launchBtn = l.launch_kernel ? '<button class="badge-launch" onclick="onKernelChange(\'' + escapeHtml(l.launch_kernel) + '\')">▶ Launch: ' + escapeHtml(l.launch_kernel) + '</button>' : '';
           const offsetSpan = l.offset ? '<span class="badge-offset">/*' + l.offset + '*/</span>' : '';
+          const presSpan = l.pressure ? '<span class="badge-reg" title="' + escapeHtml(l.pressure_tooltip || '') + '">' + escapeHtml(l.pressure) + '</span>' : '';
           let stallSpan = '';
           if (l.stall_pct && l.stall_pct > 0) {
             const intensity = l.stall_pct >= 30 ? 'stall-high' : (l.stall_pct >= 10 ? 'stall-med' : 'stall-low');
@@ -1279,11 +1569,11 @@ function onKernelChange(kernelName) {
               '<span class="stall-text ' + intensity + '">' + l.stall_pct.toFixed(1) + '%</span>' +
               '</span>';
           }
-          const catSpan = l.category ? '<span class="badge-category" title="Tile IR Category: ' + escapeHtml(l.category) + '">' + escapeHtml(l.category) + '</span>' : '';
+          const catSpan = l.category ? '<span class="badge-category" title="' + escapeHtml(tier.name) + ' Category: ' + escapeHtml(l.category) + '">' + escapeHtml(l.category) + '</span>' : '';
           const hoverClass = tier.language === 'mlir' ? 'opcode-hover-tile' : 'opcode-hover';
           const textSpan = l.hover_doc ? '<span class="' + hoverClass + '" title="' + escapeHtml(l.hover_doc) + '">' + escapeHtml(l.text) + '</span>' : escapeHtml(l.text);
           const remarkSpan = l.remark_badge ? '<span class="badge-remark" title="' + escapeHtml(l.remark_tooltip) + '">✓ ' + escapeHtml(l.remark_badge) + '</span>' : '';
-          html += '<div class="code-row" data-tier="' + idx + '" data-opcode="' + (l.opcode || '') + '"><div class="line-num">' + l.num + '</div><div class="line-content">' + offsetSpan + stallSpan + catSpan + textSpan + remarkSpan + '</div></div>';
+          html += '<div class="code-row" data-tier="' + idx + '" data-opcode="' + (l.opcode || '') + '" data-sem-tag="' + (l.semantic_tag || '') + '" data-source-line="' + (l.source_line || '') + '"><div class="line-num">' + l.num + '</div><div class="line-content">' + launchBtn + offsetSpan + presSpan + stallSpan + catSpan + textSpan + remarkSpan + '</div></div>';
         });
         table.innerHTML = html;
       });

@@ -219,3 +219,81 @@ func TestRunDiffErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestRunDiffExplain(t *testing.T) {
+	createProfilingCapture := func(t *testing.T, kernelName string, durationNs int64, memStalls, barrierStalls int64) string {
+		t.Helper()
+		fn := &profile.Function{ID: 1, Name: kernelName, Filename: "kernels.cu"}
+		loc := &profile.Location{ID: 1, Line: []profile.Line{{Function: fn, Line: 1}}}
+		p := &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "gpu_time", Unit: "nanoseconds"},
+				{Type: "stall_memory_throttle", Unit: "samples"},
+				{Type: "stall_barrier", Unit: "samples"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Location: []*profile.Location{loc},
+					Value:    []int64{durationNs, memStalls, barrierStalls},
+				},
+			},
+			Location: []*profile.Location{loc},
+			Function: []*profile.Function{fn},
+		}
+
+		cap := &cudacapture.Capture{
+			Profile: p,
+			Code: cudacapture.CodeFiles{
+				Source: "kernels.cu",
+				PTX:    "kernels.ptx",
+				CUBIN:  "kernels.cubin",
+				SASS:   "kernels.sass",
+			},
+			Files: map[string][]byte{
+				"kernels.cu":    []byte("void compute() {}\n"),
+				"kernels.ptx":   []byte("// PTX\n"),
+				"kernels.cubin": []byte("CUBIN_MOCK"),
+				"kernels.sass":  []byte("--- Kernel: " + kernelName + " ---\n/*0000*/ NOP ;\n/*0010*/ EXIT ;\n"),
+			},
+		}
+
+		dir := t.TempDir()
+		path := filepath.Join(dir, kernelName+".pprof")
+		f, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if err := cudacapture.Write(f, cap); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+
+	basePath := createProfilingCapture(t, "gemv_kernel", 100000, 5000, 1000)
+	targetPath := createProfilingCapture(t, "gemv_kernel", 75000, 2000, 950)
+
+	var buf bytes.Buffer
+	err := runDiff(&buf, []string{"--explain", basePath, targetPath})
+	if err != nil {
+		t.Fatalf("runDiff(--explain) failed: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "CUDA Profile Diff & Optimization Explanation") {
+		t.Errorf("output missing title: %s", out)
+	}
+	if !strings.Contains(out, "Execution Duration Delta") {
+		t.Errorf("output missing duration delta section: %s", out)
+	}
+	if !strings.Contains(out, "stall_memory_throttle") {
+		t.Errorf("output missing stall_memory_throttle: %s", out)
+	}
+	if !strings.Contains(out, "Memory Pipeline Efficiency") {
+		t.Errorf("output missing architectural explanation: %s", out)
+	}
+	if !strings.Contains(out, "1.33×") && !strings.Contains(out, "1.33x") {
+		t.Errorf("output missing expected speedup calculation: %s", out)
+	}
+}
+
