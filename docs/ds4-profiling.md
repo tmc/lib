@@ -1137,7 +1137,7 @@ something to rely on. The error was real, the process exited 1, and a run that
 exits 1 is not a run — the corrected control reproduces the capture with the
 call returning success.
 
-## The C oracle eats the same tokens, and no patch was needed
+## The C oracle eats the same tokens, and the input path needed no patch
 
 The other half of the comparison needs both runtimes to consume identical
 content. That looked like a problem: `ds4-min` takes a JSON array of token
@@ -1193,8 +1193,8 @@ Identical prefill input is not identical decode. `ds4-bench.c:904-906`
 chooses `prompt.v[frontier + gen_done]` under `--teacher-forced-decode` and
 `ds4_session_argmax_excluding(session, eos)` otherwise. ds4-min is
 autoregressive and accepted 15342 then 201. The comparison worth capturing is
-the autoregressive one, and its gate is that the C side emits those same two
-IDs. Teacher forcing would pin the execution trajectory while proving nothing
+the autoregressive one, and its gate was that the C side emit those same two
+IDs. It does; see the receipt below. Teacher forcing would pin the execution trajectory while proving nothing
 about selection, so if it is ever used it gets its own label and its own row —
 never a substitute for the argmax result.
 
@@ -1395,14 +1395,15 @@ checked against source-derived expectations for twelve kernel symbols and
 passes, but the remaining families are unaccounted and the run conditions are
 still unmatched.
 
-### The decode arm is close, and its gate is open
+### The decode arm is close, and its gate is now closed
 
 Decode is 1.60x on device time — a different regime from prefill entirely, and
 the first measurement putting a number on that difference.
 
-**This comparison is not qualified.** It assumes both runtimes decoded the same
-two tokens, and nothing here establishes that. ds4-min accepted 15342 then 201.
-The C side's IDs were not retained, and cannot be recovered from this capture:
+That comparison assumed both runtimes decoded the same two tokens, and for a
+while nothing established it. ds4-min accepted 15342 then 201, recorded by the
+binary's own check in its capture's `run.stderr`. The C side's IDs were not
+retained and could not be recovered from that capture:
 
 - `--show-output` converts `gen_token_buf` to text only (`ds4_bench.c:985-997`);
   no integer IDs are printed, and deriving IDs from text is not a receipt.
@@ -1411,26 +1412,55 @@ The C side's IDs were not retained, and cannot be recovered from this capture:
   while decode uses `argmax_excluding(eos)` (`:906`). It answers a different
   question.
 - `--capture-range-end=repeat-shutdown:2` terminates the process when the
-  second range closes, so this run printed no CSV row either.
+  second range closes, so that run printed no CSV row either.
 
-Closing the gate needs a harness-only change to `ds4_bench.c`, labelled as
-such, with its source and binary identity retained — and "emit after the loop"
-does not work under this recipe: the second `cudaProfilerStop` at `:958-965`
-fires *before* the final token is accumulated at `:968-976`, and terminates the
-process. Either buffer each accepted ID as it is evaluated and flush the
-receipt before that stop, accepting that the added host work lands inside the
-capture range and labelling it as such, or use a capture-end mode that stops
-collection without killing the application and emit afterwards, outside the
-timing. Never emit unaccepted candidates. An env guard preserves the
-disabled-path behavior; it does not preserve binary byte identity.
+"Emit after the loop" does not work under this recipe: the second
+`cudaProfilerStop` at `:958-965` fires *before* the final token is accumulated
+at `:968-976`, and terminates the process. So the receipt has to be on disk
+before the stop, and the IDs accepted before the receipt. That is the patch
+that was written, and it is in `DF6906F6-c-receipt/receipt.patch`:
 
-Note also that `RUN_RC=0` here is Nsight's exit, not the application's:
-`repeat-shutdown` terminated `ds4-bench` deliberately, so this run demonstrates
-no clean application completion or cleanup.
+- `bench_write_ids_le32` writes IDs as little-endian int32, active only when
+  `DS4_BENCH_ID_RECEIPT_DIR` is set. A failed write fails the run.
+- `token_t1` and the acceptance loop move above the `cudaProfilerStop` block —
+  with no profiler range set, a pure reordering of two blocks that do not
+  touch each other. The accepted-ID receipt is flushed immediately before the
+  stop, once.
+- `gen_token_buf` is allocated whenever `--gen-tokens` is positive rather than
+  being gated on `--show-output`, because the receipt needs it either way.
+- The stop condition becomes `gen_done >= start + tokens` after accumulation,
+  plus `generation_stop`, so an EOS-truncated run still stops.
 
-Until then the prefill row is qualified by the token hash and the decode row is
-a measurement of two runs that were probably, but not demonstrably, doing the
-same thing.
+Only accepted IDs are ever written. Run it by setting the env var alongside
+the capture recipe:
+
+```
+DS4_BENCH_ID_RECEIPT_DIR=$OUT/ids \
+DS4_BENCH_CUDA_PROFILE_PREFILL=1 DS4_BENCH_CUDA_PROFILE_RANGE=0:2 \
+$NSYS profile ... ./ds4-bench --cuda -m "$M" ...
+```
+
+Under the full recipe it produces:
+
+| receipt | bytes | contents |
+| --- | ---: | --- |
+| `prefix-2048.le32.bin` | 8192 | sha256 `5fdf3b77…c80380` |
+| `accepted-2048.le32.bin` | 8 | **15342, 201** |
+
+**Both gates close at once.** The accepted IDs are the same two ds4-min
+accepted, each side's recorded by its own profiled process — so the decode row
+compares two runs demonstrably doing the same thing. And the prefix hash is
+the registered fixture hash exactly, emitted in-process by the binary under
+capture from the prefix it actually handed `ds4_session_sync`. That is
+stronger than the same-function argument the prefill row rested on, which
+spanned two binaries over one `ds4.o`.
+
+What the receipt does not do: the env guard preserves the disabled-path
+behaviour, not binary byte identity — the validated binary is a relink, and
+its hash is in the bundle's `binary-identity.sha256`, distinct from the one
+that produced the published capture. And `RUN_RC=0` remains Nsight's exit, not
+the application's: `repeat-shutdown` terminated `ds4-bench` deliberately, so
+the run still demonstrates no clean application completion or cleanup.
 
 ## Fine phase names, and what they do not isolate
 
