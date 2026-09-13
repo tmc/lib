@@ -187,3 +187,38 @@ func (c *Code) Kernel(name string) *Kernel {
 	}
 	return nil
 }
+
+// KernelByOffset returns the kernel containing the given CUBIN file offset.
+func (c *Code) KernelByOffset(offset uint64) *Kernel {
+	if c == nil {
+		return nil
+	}
+	for _, k := range c.Kernels {
+		if offset >= k.Offset && offset < k.Offset+k.Size {
+			return k
+		}
+	}
+	return nil
+}
+
+// Instruction returns the instruction at the specified SASS offset within the kernel,
+// or nil if not found.
+func (k *Kernel) Instruction(offset uint64) *Instruction {
+	if k == nil {
+		return nil
+	}
+	idx, ok := slices.BinarySearchFunc(k.Instructions, offset, func(inst Instruction, target uint64) int {
+		if inst.Offset < target {
+			return -1
+		}
+		if inst.Offset > target {
+			return 1
+		}
+		return 0
+	})
+	if ok {
+		return &k.Instructions[idx]
+	}
+	return nil
+}
+
