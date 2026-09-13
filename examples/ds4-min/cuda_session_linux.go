@@ -745,10 +745,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 			return err
 		}
 	}
-	if err := r.encodeSwiGLUSlots(s.expertGate, s.expertUp, s.expertW, s.expertMid, 6, 1); err != nil {
-		return err
-	}
-	if err := r.encodeQuantQ81(s.expertMid, s.q81Experts, 2048); err != nil {
+	if err := r.encodeSwiGLUQuantQ81(s.expertGate, s.expertUp, s.expertW, s.q81Experts, 2048, 6); err != nil {
 		return err
 	}
 	if !r.disableSIMDExperts {
@@ -763,10 +760,7 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.markCUDAPhase("ffn-post", position, index); err != nil {
 		return err
 	}
-	if err := r.encodeSumVectors(s.expertDown, s.routedOut, 6); err != nil {
-		return err
-	}
-	if err := r.encodeSumVectors(s.ffnBlocks, s.ffnOut, 2); err != nil {
+	if err := r.encodeSumRoutedShared(s.expertDown, s.sharedOut, s.ffnOut, cudaWidth); err != nil {
 		return err
 	}
 	if err := hc.post(s.hc[1], s.ffnOut, s.hc[0]); err != nil {

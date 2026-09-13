@@ -599,3 +599,14 @@ extern "C" __global__ void ds4_sum_vectors(
   for (unsigned int row = 0; row < count; row++) v += x[(unsigned long long)row * width + i];
   out[i] = v;
 }
+
+extern "C" __global__ void ds4_sum_routed_shared(
+    const float *experts, const float *shared, float *out, unsigned int width) {
+  const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= width) return;
+  float v = 0.0f;
+  #pragma unroll
+  for (unsigned int row = 0; row < 6; row++)
+    v += experts[(unsigned long long)row * width + i];
+  out[i] = v + shared[i];
+}

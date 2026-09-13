@@ -93,3 +93,28 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
     sum += __shfl_down_sync(0xffffffff, sum, stride);
   if (lane == 0) out[(unsigned long long)token * rows + row] = sum;
 }
+
+extern "C" __global__ void ds4_swiglu_quant_q8_1(
+    const float *gate, const float *up, const float *weights, ds4_q8_1_activation *out,
+    unsigned int width) {
+  const unsigned tid = threadIdx.x;
+  const unsigned block_idx = blockIdx.x;
+  const unsigned long long i = (unsigned long long)block_idx * 32 + tid;
+  const unsigned int slot = (block_idx * 32) / width;
+  const float w = weights[slot];
+  const float x = fminf(gate[i], 10.0f);
+  const float y = fminf(fmaxf(up[i], -10.0f), 10.0f);
+  const float value = (x / (1.0f + expf(-x))) * y * w;
+  float magnitude = fabsf(value), sum = value;
+  for (unsigned stride = 16; stride; stride >>= 1) {
+    magnitude = fmaxf(magnitude, __shfl_xor_sync(0xffffffff, magnitude, stride));
+    sum += __shfl_xor_sync(0xffffffff, sum, stride);
+  }
+  float d = magnitude / 127.0f;
+  out[block_idx].qs[tid] = magnitude == 0.0f ? 0 : (signed char)roundf(value / d);
+  if (tid == 0) {
+    out[block_idx].d = ds4_q81_half_bits(d);
+    out[block_idx].sum = ds4_q81_half_bits(sum);
+  }
+}
+

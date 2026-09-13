@@ -98,7 +98,9 @@ type cudaFoundation struct {
 	routerHashFn              driver.Function
 	routerBiasedFn            driver.Function
 	swigluFn                  driver.Function
+	swigluQuantQ81Fn          driver.Function
 	sumVectorsFn              driver.Function
+	sumRoutedSharedFn         driver.Function
 	iq2SelectedFn             driver.Function
 	q2KSelectedFn             driver.Function
 	quantQ8KFn                driver.Function
@@ -778,6 +780,41 @@ func (r *cudaFoundation) encodeSumVectors(in, out cudamem.Slice[float32], count 
 	})
 }
 
+// encodeSwiGLUQuantQ81 fuses clamped SwiGLU activation and Q8_1 quantization.
+func (r *cudaFoundation) encodeSwiGLUQuantQ81(gate, up, weights cudamem.Slice[float32], out cudamem.Slice[byte], width, slots int) error {
+	if width <= 0 || width%32 != 0 || slots <= 0 || gate.Len() != width*slots || up.Len() != width*slots || weights.Len() != slots || out.Len() != (width*slots/32)*36 {
+		return fmt.Errorf("cuda: SwiGLU quant Q8_1: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		blocks := uint32(width * slots / 32)
+		if err := cudalaunch.Kernel(r.swigluQuantQ81Fn).Grid(blocks).Block(32).On(r.device.DefaultStream()).Launch(
+			gate, up, weights, out, uint32(width)); err != nil {
+			return fmt.Errorf("cuda: launch SwiGLU quant Q8_1: %w", err)
+		}
+		return nil
+	})
+}
+
+// encodeSumRoutedShared sums 6 routed expert outputs and 1 shared output directly into out.
+func (r *cudaFoundation) encodeSumRoutedShared(experts, shared, out cudamem.Slice[float32], width int) error {
+	if width <= 0 || width%256 != 0 || experts.Len() != width*6 || shared.Len() != width || out.Len() != width {
+		return fmt.Errorf("cuda: sum routed shared: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.sumRoutedSharedFn).Grid(uint32(width / 256)).Block(256).On(r.device.DefaultStream()).Launch(
+			experts, shared, out, uint32(width)); err != nil {
+			return fmt.Errorf("cuda: launch sum routed shared: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *cudaFoundation) cudaKernels() []struct {
 	name string
 	dst  *driver.Function
@@ -810,7 +847,9 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_router_hash", &r.routerHashFn},
 		{"ds4_router_biased", &r.routerBiasedFn},
 		{"ds4_swiglu", &r.swigluFn},
+		{"ds4_swiglu_quant_q8_1", &r.swigluQuantQ81Fn},
 		{"ds4_sum_vectors", &r.sumVectorsFn},
+		{"ds4_sum_routed_shared", &r.sumRoutedSharedFn},
 		{"ds4_iq2_xxs_pair_selected_f32", &r.iq2SelectedFn},
 		{"ds4_q2_k_selected_f32", &r.q2KSelectedFn},
 		{"ds4_quant_q8_k", &r.quantQ8KFn},
