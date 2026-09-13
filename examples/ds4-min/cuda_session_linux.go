@@ -759,11 +759,12 @@ func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, 
 	if err := r.encodeQ80Matvec(l.sharedUp, s.ffnNorm, s.sharedUp); err != nil {
 		return err
 	}
-	if err := r.encodeSwiGLU(s.sharedGate, s.sharedUp, s.sharedMid, 1); err != nil {
+	// Fused SwiGLU activation + Q8_0 quantization into q80Input for shared-down projection.
+	q := r.state.q80Input.Slice(0, s.sharedGate.Len()/32*36)
+	if err := r.encodeSwiGLUQuantQ80(s.sharedGate, s.sharedUp, q, s.sharedGate.Len(), 1); err != nil {
 		return err
 	}
-	// The pinned fused shared-down/HC path uses native float32 Q8_0 scales.
-	if err := r.encodeQ80Native(l.sharedDown, s.sharedMid, s.sharedOut); err != nil {
+	if err := r.encodeQ80MatvecQuantized(l.sharedDown, q, s.sharedOut); err != nil {
 		return err
 	}
 	if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {

@@ -51,3 +51,27 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
     sum += __shfl_down_sync(0xffffffff, sum, stride);
   if (lane == 0) out[(unsigned long long)diag * rows + row] = sum;
 }
+
+extern "C" __global__ void ds4_swiglu_quant_q8_0(
+    const float *gate, const float *up, ds4_q8_activation *out,
+    unsigned int blocks, float weight) {
+  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
+  const unsigned block_idx = blockIdx.x * 8 + warp_id;
+  if (block_idx >= blocks) return;
+  const unsigned long long i = (unsigned long long)block_idx * 32 + lane;
+  const float x = fminf(gate[i], 10.0f);
+  const float y = fminf(fmaxf(up[i], -10.0f), 10.0f);
+  const float val = (x / (1.0f + expf(-x))) * y * weight;
+  float mag = fabsf(val);
+  #pragma unroll
+  for (unsigned stride = 16; stride; stride >>= 1) {
+    mag = fmaxf(mag, __shfl_xor_sync(0xffffffff, mag, stride));
+  }
+  const float d = mag / 127.0f;
+  const float inverse = d != 0.0f ? 1.0f / d : 0.0f;
+  int qval = (int)lrintf(val * inverse);
+  qval = qval > 127 ? 127 : qval < -128 ? -128 : qval;
+  ds4_q8_activation *q = out + block_idx;
+  q->qs[lane] = (signed char)qval;
+  if (lane == 0) q->d = d;
+}

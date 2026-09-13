@@ -99,6 +99,7 @@ type cudaFoundation struct {
 	routerHashFn              driver.Function
 	routerBiasedFn            driver.Function
 	swigluFn                  driver.Function
+	swigluQuantQ80Fn          driver.Function
 	swigluQuantQ81Fn          driver.Function
 	sumVectorsFn              driver.Function
 	sumRoutedSharedFn         driver.Function
@@ -810,6 +811,25 @@ func (r *cudaFoundation) encodeSwiGLUQuantQ81(gate, up, weights cudamem.Slice[fl
 	})
 }
 
+// encodeSwiGLUQuantQ80 fuses clamped SwiGLU activation and Q8_0 quantization.
+func (r *cudaFoundation) encodeSwiGLUQuantQ80(gate, up cudamem.Slice[float32], out cudamem.Slice[byte], width int, weight float32) error {
+	if width <= 0 || width%32 != 0 || gate.Len() != width || up.Len() != width || uint64(out.Len()) != uint64(width/32)*36 {
+		return fmt.Errorf("cuda: SwiGLU quant Q8_0: invalid shape")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		blocks := uint32(width / 32)
+		grid := (blocks + 7) / 8
+		if err := cudalaunch.Kernel(r.swigluQuantQ80Fn).Grid(grid).Block(256).On(r.stream()).Launch(
+			gate, up, out, blocks, weight); err != nil {
+			return fmt.Errorf("cuda: launch SwiGLU quant Q8_0: %w", err)
+		}
+		return nil
+	})
+}
+
 // encodeSumRoutedShared sums 6 routed expert outputs and 1 shared output directly into out.
 func (r *cudaFoundation) encodeSumRoutedShared(experts, shared, out cudamem.Slice[float32], width int) error {
 	if width <= 0 || width%256 != 0 || experts.Len() != width*6 || shared.Len() != width || out.Len() != width {
@@ -859,6 +879,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_router_hash", &r.routerHashFn},
 		{"ds4_router_biased", &r.routerBiasedFn},
 		{"ds4_swiglu", &r.swigluFn},
+		{"ds4_swiglu_quant_q8_0", &r.swigluQuantQ80Fn},
 		{"ds4_swiglu_quant_q8_1", &r.swigluQuantQ81Fn},
 		{"ds4_sum_vectors", &r.sumVectorsFn},
 		{"ds4_sum_routed_shared", &r.sumRoutedSharedFn},
