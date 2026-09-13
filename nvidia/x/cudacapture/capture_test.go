@@ -83,6 +83,48 @@ func TestRoundTripSingleFile(t *testing.T) {
 	}
 }
 
+func TestCFGAttachment(t *testing.T) {
+	c := validFixture()
+	c.Code.CFG = "kernels.cfg.dot"
+	c.Code.BBCFG = "kernels.bbcfg.dot"
+	c.Files["kernels.cfg.dot"] = []byte("digraph compute { bb0; }\n")
+	c.Files["kernels.bbcfg.dot"] = []byte("digraph compute { bb0; bb1; bb0 -> bb1; }\n")
+
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, c); err != nil {
+		t.Fatalf("Write with CFG failed: %v", err)
+	}
+
+	got, err := cudacapture.Read(&buf)
+	if err != nil {
+		t.Fatalf("Read with CFG failed: %v", err)
+	}
+	if got.Code.CFG != "kernels.cfg.dot" || got.Code.BBCFG != "kernels.bbcfg.dot" {
+		t.Errorf("Code CFG mismatch: %+v", got.Code)
+	}
+	if !bytes.Equal(got.Files["kernels.cfg.dot"], c.Files["kernels.cfg.dot"]) {
+		t.Errorf("kernels.cfg.dot content mismatch")
+	}
+	if !bytes.Equal(got.Files["kernels.bbcfg.dot"], c.Files["kernels.bbcfg.dot"]) {
+		t.Errorf("kernels.bbcfg.dot content mismatch")
+	}
+
+	dir := t.TempDir()
+	if err := cudacapture.WriteDir(dir, c); err != nil {
+		t.Fatalf("WriteDir with CFG failed: %v", err)
+	}
+	fromDir, err := cudacapture.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir with CFG failed: %v", err)
+	}
+	if fromDir.Code.CFG != "kernels.cfg.dot" || fromDir.Code.BBCFG != "kernels.bbcfg.dot" {
+		t.Errorf("ReadDir Code CFG mismatch: %+v", fromDir.Code)
+	}
+	if !bytes.Equal(fromDir.Files["kernels.cfg.dot"], c.Files["kernels.cfg.dot"]) {
+		t.Errorf("ReadDir kernels.cfg.dot content mismatch")
+	}
+}
+
 func TestRoundTripDirectory(t *testing.T) {
 	dir := t.TempDir()
 	orig := validFixture()

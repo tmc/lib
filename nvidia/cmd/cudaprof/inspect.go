@@ -72,8 +72,11 @@ func runInspectCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	if len(args) >= 1 && (args[0] == "--cfg" || args[0] == "--bbcfg") {
+		return runInspectCFG(args, limits)
+	}
 	if len(args) != 2 || (args[0] != "--coverage" && args[0] != "--profiles") {
-		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles capture.pprof")
+		return errors.New("usage: cudaprof inspect [--capture-file-bytes=N] [--capture-total-bytes=N] --coverage|--profiles|--cfg|--bbcfg [kernel] capture.pprof")
 	}
 	path, err := filepath.Abs(args[1])
 	if err != nil {

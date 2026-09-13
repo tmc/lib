@@ -149,9 +149,26 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		return nil, fmt.Errorf("disassemble cubin: %w", err)
 	}
 
+	cfgOut, err := d.Disassemble(toolCtx, disassemblyInput, cudasass.Options{
+		Mode:                       cudasass.ControlFlow,
+		PrintInstructionOffsetsCFG: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate control flow graph: %w", err)
+	}
+	bbcfgOut, err := d.Disassemble(toolCtx, disassemblyInput, cudasass.Options{
+		Mode:                       cudasass.BasicBlockFlow,
+		PrintInstructionOffsetsCFG: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate basic block flow graph: %w", err)
+	}
+
 	captureFiles["kernels.ptx"] = []byte(ptx)
 	captureFiles["kernels.cubin"] = disassemblyInput
 	captureFiles["kernels.sass"] = rewriteSASSSourcePath(assembly.Stdout, "kernels.cu")
+	captureFiles["kernels.cfg.dot"] = cfgOut.Stdout
+	captureFiles["kernels.bbcfg.dot"] = bbcfgOut.Stdout
 	captureFiles["nvdisasm.txt"] = version.Stdout
 
 	cap := &cudacapture.Capture{
@@ -161,6 +178,8 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 			PTX:    "kernels.ptx",
 			CUBIN:  "kernels.cubin",
 			SASS:   "kernels.sass",
+			CFG:    "kernels.cfg.dot",
+			BBCFG:  "kernels.bbcfg.dot",
 		},
 	}
 
@@ -196,6 +215,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	logLines(ctx, "CUDA", string(src))
 	logLines(ctx, "PTX", ptx)
 	logLines(ctx, "SASS", string(assembly.Stdout))
+	logLines(ctx, "CFG", string(cfgOut.Stdout))
 
 	mod, _, err := compiled.LoadOwnedOutput(dev, nvrtcx.OutputCUBIN)
 	if err != nil {

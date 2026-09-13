@@ -271,3 +271,60 @@ func TestPTXInstructionAttribution(t *testing.T) {
 			s1.Location[0].Line[0].Line, s1.Location[1].Line[0].Line, s1.Location[2].Line[0].Line)
 	}
 }
+
+func TestCFGAttachedInCapture(t *testing.T) {
+	cfgBytes, err := testFS.ReadFile("testdata/kernels.cfg.dot")
+	if err != nil {
+		t.Fatalf("read kernels.cfg.dot: %v", err)
+	}
+	bbcfgBytes, err := testFS.ReadFile("testdata/kernels.bbcfg.dot")
+	if err != nil {
+		t.Fatalf("read kernels.bbcfg.dot: %v", err)
+	}
+
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "gpu_time", Unit: "nanoseconds"}},
+		},
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			PTX:    "kernels.ptx",
+			CUBIN:  "kernels.cubin",
+			SASS:   "kernels.sass",
+			CFG:    "kernels.cfg.dot",
+			BBCFG:  "kernels.bbcfg.dot",
+		},
+		Files: map[string][]byte{
+			"kernels.cu":        []byte("void compute() {}\n"),
+			"kernels.ptx":       []byte("// PTX\n"),
+			"kernels.cubin":     []byte("CUBIN"),
+			"kernels.sass":      []byte("// SASS\n"),
+			"kernels.cfg.dot":   cfgBytes,
+			"kernels.bbcfg.dot": bbcfgBytes,
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := cudacapture.Write(&buf, cap); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got, err := cudacapture.Read(&buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if got.Code.CFG != "kernels.cfg.dot" || got.Code.BBCFG != "kernels.bbcfg.dot" {
+		t.Fatalf("got Code = %+v", got.Code)
+	}
+	cfgData := string(got.Files["kernels.cfg.dot"])
+	graphs := cudasass.ListDOTGraphs(cfgData)
+	if len(graphs) != 1 || graphs[0] != "compute" {
+		t.Fatalf("graphs = %v, want [compute]", graphs)
+	}
+	extracted, err := cudasass.ExtractDOTGraph(cfgData, "compute")
+	if err != nil {
+		t.Fatalf("ExtractDOTGraph: %v", err)
+	}
+	if !strings.Contains(extracted, "digraph compute") {
+		t.Fatalf("extracted dot = %q, want digraph compute", extracted)
+	}
+}

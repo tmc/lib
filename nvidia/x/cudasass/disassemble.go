@@ -29,13 +29,15 @@ const (
 // Options selects disassembly output. Line annotations require Text mode and
 // corresponding debug sections in the input; absent sections yield no annotations.
 type Options struct {
-	Mode              Mode
-	PrintCode         bool
-	PrintHex          bool
-	SeparateFunctions bool
-	SourceLines       bool
-	InlineLines       bool
-	PTXLines          bool
+	Mode                       Mode
+	LifeRangeMode              string // "count", "narrow", or "wide" for RegisterLife mode
+	PrintCode                  bool
+	PrintHex                   bool
+	SeparateFunctions          bool
+	PrintInstructionOffsetsCFG bool
+	SourceLines                bool
+	InlineLines                bool
+	PTXLines                   bool
 }
 
 // Disassembler invokes nvdisasm. The zero value searches PATH and uses the
@@ -70,8 +72,20 @@ func (o Options) args() ([]string, error) {
 	default:
 		return nil, fmt.Errorf("unknown disassembly mode %d", o.Mode)
 	}
+	if o.LifeRangeMode != "" {
+		if o.Mode != RegisterLife {
+			return nil, fmt.Errorf("life range mode requires register life mode")
+		}
+		args = append(args, "--life-range-mode", o.LifeRangeMode)
+	}
 	if o.Mode != Text && (o.SourceLines || o.InlineLines || o.PTXLines) {
 		return nil, fmt.Errorf("line annotations require text mode")
+	}
+	if o.PrintInstructionOffsetsCFG {
+		if o.Mode != ControlFlow && o.Mode != BasicBlockFlow {
+			return nil, fmt.Errorf("instruction offsets cfg requires control flow mode")
+		}
+		args = append(args, "--print-instr-offsets-cfg")
 	}
 	if o.PrintCode {
 		args = append(args, "--print-code")
@@ -91,6 +105,20 @@ func (o Options) args() ([]string, error) {
 		args = append(args, "--print-line-info-ptx")
 	}
 	return args, nil
+}
+
+// ControlFlowGraph disassembles a CUDA ELF image into a Graphviz DOT control flow graph.
+// If basicBlocks is true, basic blocks are generated instead of hyperblocks.
+// Instruction offsets are included in the graph nodes.
+func (d Disassembler) ControlFlowGraph(ctx context.Context, cubin []byte, basicBlocks bool) (Output, error) {
+	mode := ControlFlow
+	if basicBlocks {
+		mode = BasicBlockFlow
+	}
+	return d.Disassemble(ctx, cubin, Options{
+		Mode:                       mode,
+		PrintInstructionOffsetsCFG: true,
+	})
 }
 
 // Disassemble validates a CUDA ELF image and disassembles a private file copy.
