@@ -55,3 +55,27 @@ func (t *PGOTracker) Score(candidate string) (time.Duration, bool) {
 	}
 	return t.sums[candidate] / time.Duration(n), true
 }
+
+// Count returns the number of recorded observations for candidate.
+func (t *PGOTracker) Count(candidate string) int {
+	if t == nil {
+		return 0
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.count[candidate]
+}
+
+// Candidates returns all candidate identifiers recorded in the tracker.
+func (t *PGOTracker) Candidates() []string {
+	if t == nil {
+		return nil
+	}
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	keys := make([]string, 0, len(t.count))
+	for k := range t.count {
+		keys = append(keys, k)
+	}
+	return keys
+}
