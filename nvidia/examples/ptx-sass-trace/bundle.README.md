@@ -104,7 +104,8 @@ loads from the same data puts `lg_throttle` at 89.94%. Queue pressure is what
 `stall_mem` sees; latency is what it cannot.
 
 A production capture shows the same inversion from the other side, where it
-costs something: a DeepSeek-V4-Flash decode arm on a GB10, 1.31M samples,
+costs something: a DeepSeek-V4-Flash IQ2XXS decode arm on a GB10 (4 tokens at
+context 1024, captured 2026-09-13), 1313345 samples,
 reports `stall_mem` at 11.75% -- entirely the throttle family, `lg_throttle`
 106412 + `mio_throttle` 47631 + `tex_throttle` 271 -- while `long_scoreboard`
 alone is 82.97% and `short_scoreboard` 1.68%. Sizing that workload's memory

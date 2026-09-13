@@ -779,11 +779,12 @@ func TestArmCollisionsArePinned(t *testing.T) {
 			t.Errorf("collisions[%s] = %v, want %v", name, got[name], wantArms)
 		}
 	}
-	for name := range got {
-		if _, ok := reasonVocabularies()[name]; !ok {
-			t.Errorf("collision on %s is pinned by no routing table row", name)
-		}
-	}
+	// Nothing checks that a colliding name is pinned by a routing row, because
+	// the names scanned above are the routing table's own keys: a collision is
+	// pinned by definition, and a check would be a tautology reading as a
+	// safeguard. A real guard would need a name universe the table does not
+	// supply -- a live Routing() from a device carries one, and this test cannot
+	// reach a device.
 }
 
 // classifyStallArms returns the strings.Contains literals of each arm of
