@@ -106,6 +106,40 @@ func (g *Graph) AddKernelNode(params *driver.KernelNodeParams, dependencies ...*
 	return &Node{raw: rawNode, graph: g}, nil
 }
 
+// AddDeviceUpdatableKernelNode creates a kernel execution node in g marked as device-updatable.
+func (g *Graph) AddDeviceUpdatableKernelNode(params *driver.KernelNodeParams, dependencies ...*Node) (*Node, error) {
+	node, err := g.AddKernelNode(params, dependencies...)
+	if err != nil {
+		return nil, err
+	}
+	if err := node.SetDeviceUpdatable(true); err != nil {
+		_ = node.Destroy()
+		return nil, err
+	}
+	return node, nil
+}
+
+// Nodes returns all nodes contained within the graph.
+func (g *Graph) Nodes() ([]*Node, error) {
+	if g == nil || g.raw == 0 {
+		return nil, errors.New("cudagraph: graph is closed")
+	}
+	var rawNodes []driver.GraphNode
+	err := g.withContext(func() error {
+		var err error
+		rawNodes, err = g.raw.Nodes()
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cudagraph: get graph nodes: %w", err)
+	}
+	nodes := make([]*Node, len(rawNodes))
+	for i, r := range rawNodes {
+		nodes[i] = &Node{raw: r, graph: g}
+	}
+	return nodes, nil
+}
+
 // ProgrammaticEdgeData returns a driver.GraphEdgeData configured for a
 // Programmatic Dependent Launch (PDL) dependency edge.
 func ProgrammaticEdgeData() driver.GraphEdgeData {

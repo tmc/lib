@@ -167,6 +167,40 @@ func CooperativeAttr(enable bool) driver.LaunchAttribute {
 	}
 }
 
+// WithDeviceUpdatable enables or disables marking the kernel node as device-updatable
+// when launched into a capturing stream.
+func (l *Launcher) WithDeviceUpdatable(enable bool) *Launcher {
+	return l.WithAttrs(DeviceUpdatableAttr(enable))
+}
+
+// DeviceUpdatableAttr returns a LaunchAttribute enabling or disabling device-updatable
+// status for a captured kernel node launch.
+func DeviceUpdatableAttr(enable bool) driver.LaunchAttribute {
+	var val uint64
+	if enable {
+		val = 1
+	}
+	return driver.LaunchAttribute{
+		Id:    driver.LaunchAttributeDeviceUpdatableKernelNode,
+		Value: [8]uint64{val},
+	}
+}
+
+// DeviceNode returns the device-updatable kernel node handle recorded by the driver
+// for a captured launch, if this launcher had DeviceUpdatable configured and the handle is non-zero.
+func (l *Launcher) DeviceNode() (uintptr, bool) {
+	for _, attr := range l.attrs {
+		if attr.Id == driver.LaunchAttributeDeviceUpdatableKernelNode {
+			h := uintptr(attr.Value[1])
+			if h != 0 {
+				return h, true
+			}
+			return 0, false
+		}
+	}
+	return 0, false
+}
+
 // Launch packs the provided Go arguments and dispatches the kernel.
 func (l *Launcher) Launch(args ...any) error {
 	if l.owned == nil && l.fn == 0 {
