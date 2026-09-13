@@ -103,6 +103,15 @@ and `tex_throttle` all exactly zero, while a kernel issuing wide independent
 loads from the same data puts `lg_throttle` at 89.94%. Queue pressure is what
 `stall_mem` sees; latency is what it cannot.
 
+A production capture shows the same inversion from the other side, where it
+costs something: a DeepSeek-V4-Flash decode arm on a GB10, 1.31M samples,
+reports `stall_mem` at 11.75% -- entirely the throttle family, `lg_throttle`
+106412 + `mio_throttle` 47631 + `tex_throttle` 271 -- while `long_scoreboard`
+alone is 82.97% and `short_scoreboard` 1.68%. Sizing that workload's memory
+problem from `stall_mem` gives 11.75% and points at bandwidth, when the 82.97%
+is dependency latency. The split of `stall_scoreboard` into its two reasons is
+what decides that, and it exists only in `reason_samples`.
+
 `stall_wait` is the other one. It counts the `wait` reason, which is where
 NVIDIA puts a dependency on a *fixed-latency* result: the compiler knows when an
 FMA retires, so it inserts stall cycles rather than allocating a scoreboard
