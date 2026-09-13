@@ -66,11 +66,15 @@ func StallReasons(ctx cupti.Context, maxReasons int) (ReasonInventory, error) {
 	if ctx == 0 || maxReasons < 1 || maxReasons > 65536 {
 		return ReasonInventory{}, errors.New("cuptipcsampling: invalid reason inventory request")
 	}
-	v, err := cupti.GetVersion()
+	inv, err := cupti.PCSamplingStallReasons(ctx, maxReasons)
 	if err != nil {
 		return ReasonInventory{}, err
 	}
-	return stallReasons(ctx, maxReasons, v, cupti.PCSamplingGetNumStallReasons, cupti.PCSamplingGetStallReasons)
+	out := ReasonInventory{CUPTIVersion: inv.CUPTIVersion, Reasons: make([]StallReason, len(inv.Reasons))}
+	for i, reason := range inv.Reasons {
+		out.Reasons[i] = StallReason{Index: reason.Index, Name: reason.Name}
+	}
+	return out, nil
 }
 
 func stallReasons(ctx cupti.Context, maxReasons int, version uint32, countQuery func(*cupti.PCSamplingGetNumStallReasonsParams) error, namesQuery func(*cupti.PCSamplingGetStallReasonsParams) error) (ReasonInventory, error) {
