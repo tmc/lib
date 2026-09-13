@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
@@ -250,62 +249,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		}
 	}
 	limits := cudacapture.Limits{FileBytes: budget.FileBytes, TotalBytes: budget.TotalBytes}
-	p := &profile.Profile{SampleType: []*profile.ValueType{
-		{Type: "kernel_time", Unit: "nanoseconds"},
-		{Type: "copy_time", Unit: "nanoseconds"},
-		{Type: "copy_bytes", Unit: "bytes"},
-		{Type: "activity", Unit: "count"},
-	}}
-	functions := make(map[string]*profile.Function)
-	var nextFunctionID uint64 = 1
-	var nextLocationID uint64 = 1
-	for _, activity := range result.Activities {
-		if !activity.Valid {
-			continue
-		}
-		if activity.End < activity.Start || activity.End-activity.Start > uint64(^uint64(0)>>1) {
-			continue
-		}
-		value := []int64{0, 0, 0, 1}
-		if activity.Subtype == "kernel" {
-			value[0] = int64(activity.End - activity.Start)
-		} else if activity.Subtype == "memcpy" {
-			value[1] = int64(activity.End - activity.Start)
-			value[2] = int64(activity.Bytes)
-		}
-		labels := map[string][]string{
-			"subtype":             {activity.Subtype},
-			"name":                {activity.Name},
-			"session":             {result.Session},
-			"pid":                 {fmt.Sprint(result.TargetPID)},
-			"device":              {fmt.Sprint(activity.Device)},
-			"context":             {fmt.Sprint(activity.Context)},
-			"stream":              {fmt.Sprint(activity.Stream)},
-			"correlation":         {fmt.Sprint(activity.Correlation)},
-			"runtime_correlation": {fmt.Sprint(activity.RuntimeCorrelation)},
-			"queued":              {fmt.Sprint(activity.Queued)},
-			"submitted":           {fmt.Sprint(activity.Submitted)},
-			"copy_kind":           {fmt.Sprint(activity.CopyKind)},
-		}
-		if activity.Process != 0 {
-			labels["pid"] = []string{fmt.Sprint(activity.Process)}
-		}
-		name := activity.Name
-		if activity.Subtype == "memcpy" && name == "" {
-			name = "cudaMemcpy"
-		}
-		fn := functions[name]
-		if fn == nil {
-			fn = &profile.Function{ID: nextFunctionID, Name: name, SystemName: name}
-			nextFunctionID++
-			functions[name] = fn
-			p.Function = append(p.Function, fn)
-		}
-		loc := &profile.Location{ID: nextLocationID, Address: 0, Line: []profile.Line{{Function: fn}}}
-		nextLocationID++
-		p.Location = append(p.Location, loc)
-		p.Sample = append(p.Sample, &profile.Sample{Value: value, Label: labels, Location: []*profile.Location{loc}})
-	}
+	p := cudacapture.BuildActivityProfile(result.Session, uint64(result.TargetPID), result.Activities)
 	c := &cudacapture.Capture{
 		Profile: p,
 		Files:   map[string][]byte{"capture-status.json": metadata},

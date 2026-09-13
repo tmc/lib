@@ -39,6 +39,10 @@ typedef struct {
 	const char *name;
 	uint64_t start, end, queued, submitted;
 	uint32_t deviceId, contextId, streamId, correlationId;
+	int32_t gridX, gridY, gridZ;
+	int32_t blockX, blockY, blockZ;
+	uint16_t registersPerThread;
+	int32_t dynamicSharedMemory;
 } CUpti_ActivityKernel9;
 
 typedef CUpti_ActivityKernel9 CUpti_ActivityKernel10;

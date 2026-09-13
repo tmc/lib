@@ -137,23 +137,11 @@ type captureResult struct {
 	ScratchDir               string            `json:"scratch_dir,omitempty"`
 }
 
-type captureActivity struct {
-	Process            uint64 `json:"process,omitempty"`
-	Subtype            string `json:"subtype"`
-	Name               string `json:"name,omitempty"`
-	Valid              bool   `json:"valid"`
-	Start              uint64 `json:"start"`
-	End                uint64 `json:"end"`
-	Bytes              uint64 `json:"bytes,omitempty"`
-	Queued             uint64 `json:"queued,omitempty"`
-	Submitted          uint64 `json:"submitted,omitempty"`
-	CopyKind           uint8  `json:"copy_kind,omitempty"`
-	Device             uint32 `json:"device"`
-	Context            uint32 `json:"context,omitempty"`
-	Stream             uint32 `json:"stream,omitempty"`
-	Correlation        uint32 `json:"correlation,omitempty"`
-	RuntimeCorrelation uint32 `json:"runtime_correlation,omitempty"`
-}
+// captureActivity represents one observed GPU kernel execution or memory copy.
+type captureActivity = cudacapture.ActivityRecord
+
+// ActivityRecord is exported for callers inspecting captured activities.
+type ActivityRecord = cudacapture.ActivityRecord
 
 // captureAPI retains driver/runtime launch context separately from GPU
 // activity totals. Its timestamps describe the host API call, not GPU work.

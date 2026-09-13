@@ -34,29 +34,43 @@ const (
 )
 
 type captureRecordPayload struct {
-	State              string `json:"state"`
-	Kind               string `json:"kind"`
-	Subtype            string `json:"subtype"`
-	Name               string `json:"name"`
-	Valid              bool   `json:"valid"`
-	Start              uint64 `json:"start"`
-	End                uint64 `json:"end"`
-	Bytes              uint64 `json:"bytes"`
-	Queued             uint64 `json:"queued"`
-	Submitted          uint64 `json:"submitted"`
-	CopyKind           uint8  `json:"copy_kind"`
-	Device             uint32 `json:"device"`
-	Context            uint32 `json:"context"`
-	Stream             uint32 `json:"stream"`
-	Correlation        uint32 `json:"correlation"`
-	RuntimeCorrelation uint32 `json:"runtime_correlation"`
-	ExternalKind       uint32 `json:"external_kind"`
-	ExternalID         uint64 `json:"external_id"`
-	Domain             string `json:"domain"`
-	CallbackID         uint32 `json:"callback_id"`
-	ProcessID          uint32 `json:"process_id"`
-	ThreadID           uint32 `json:"thread_id"`
-	ReturnValue        uint32 `json:"return_value"`
+	State               string     `json:"state"`
+	Kind                string     `json:"kind"`
+	Subtype             string     `json:"subtype"`
+	Name                string     `json:"name"`
+	Valid               bool       `json:"valid"`
+	Start               uint64     `json:"start"`
+	End                 uint64     `json:"end"`
+	Bytes               uint64     `json:"bytes"`
+	Queued              uint64     `json:"queued"`
+	Submitted           uint64     `json:"submitted"`
+	CopyKind            uint8      `json:"copy_kind"`
+	Device              uint32     `json:"device"`
+	Context             uint32     `json:"context"`
+	Stream              uint32     `json:"stream"`
+	Correlation         uint32     `json:"correlation"`
+	RuntimeCorrelation  uint32     `json:"runtime_correlation"`
+	ExternalKind        uint32     `json:"external_kind"`
+	ExternalID          uint64     `json:"external_id"`
+	Domain              string     `json:"domain"`
+	CallbackID          uint32     `json:"callback_id"`
+	ProcessID           uint32     `json:"process_id"`
+	ThreadID            uint32     `json:"thread_id"`
+	ReturnValue         uint32     `json:"return_value"`
+	GridDim             [3]uint32  `json:"grid"`
+	GridDimRaw          *[3]uint32 `json:"grid_dim"`
+	GridX               uint32     `json:"grid_x"`
+	GridY               uint32     `json:"grid_y"`
+	GridZ               uint32     `json:"grid_z"`
+	BlockDim            [3]uint32  `json:"block"`
+	BlockDimRaw         *[3]uint32 `json:"block_dim"`
+	BlockX              uint32     `json:"block_x"`
+	BlockY              uint32     `json:"block_y"`
+	BlockZ              uint32     `json:"block_z"`
+	RegistersPerThread  uint32     `json:"registers_per_thread"`
+	Registers           uint32     `json:"registers"`
+	DynamicSharedMemory uint32     `json:"dynamic_shared_memory"`
+	Smem                uint32     `json:"smem"`
 }
 
 // observeOptions carries the caller's explicit choices into journal
@@ -434,7 +448,48 @@ func observeJournal(path, session string, targetPID int) (wire.Stats, journalSta
 			if valid {
 				validActivity++
 			}
-			activities = append(activities, captureActivity{Subtype: payload.Subtype, Name: payload.Name, Valid: valid, Start: payload.Start, End: payload.End, Bytes: payload.Bytes, Queued: payload.Queued, Submitted: payload.Submitted, CopyKind: payload.CopyKind, Device: payload.Device, Context: payload.Context, Stream: payload.Stream, Correlation: payload.Correlation, RuntimeCorrelation: payload.RuntimeCorrelation})
+			grid := payload.GridDim
+			if payload.GridDimRaw != nil {
+				grid = *payload.GridDimRaw
+			}
+			if grid == [3]uint32{0, 0, 0} && (payload.GridX != 0 || payload.GridY != 0 || payload.GridZ != 0) {
+				grid = [3]uint32{payload.GridX, payload.GridY, payload.GridZ}
+			}
+			block := payload.BlockDim
+			if payload.BlockDimRaw != nil {
+				block = *payload.BlockDimRaw
+			}
+			if block == [3]uint32{0, 0, 0} && (payload.BlockX != 0 || payload.BlockY != 0 || payload.BlockZ != 0) {
+				block = [3]uint32{payload.BlockX, payload.BlockY, payload.BlockZ}
+			}
+			regs := payload.RegistersPerThread
+			if regs == 0 && payload.Registers != 0 {
+				regs = payload.Registers
+			}
+			smem := payload.DynamicSharedMemory
+			if smem == 0 && payload.Smem != 0 {
+				smem = payload.Smem
+			}
+			activities = append(activities, captureActivity{
+				Subtype:             payload.Subtype,
+				Name:                payload.Name,
+				Valid:               valid,
+				Start:               payload.Start,
+				End:                 payload.End,
+				Bytes:               payload.Bytes,
+				Queued:              payload.Queued,
+				Submitted:           payload.Submitted,
+				CopyKind:            payload.CopyKind,
+				Device:              payload.Device,
+				Context:             payload.Context,
+				Stream:              payload.Stream,
+				Correlation:         payload.Correlation,
+				RuntimeCorrelation:  payload.RuntimeCorrelation,
+				GridDim:             grid,
+				BlockDim:            block,
+				RegistersPerThread:  regs,
+				DynamicSharedMemory: smem,
+			})
 			if !valid {
 				continue
 			}

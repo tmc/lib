@@ -87,6 +87,118 @@ func TestWriteCaptureStatusPreservesActivityAttributionLabels(t *testing.T) {
 	}
 }
 
+func TestWriteCaptureStatusPreservesKernelGeometryLabels(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.pprof")
+	result := captureResult{
+		Session: "session-geom", TargetPID: 42, Outcome: captureOutcomeCollected,
+		Activities: []captureActivity{
+			{
+				Subtype:             "kernel",
+				Name:                "vectorAdd",
+				Valid:               true,
+				Start:               100,
+				End:                 200,
+				Device:              0,
+				GridDim:             [3]uint32{128, 2, 1},
+				BlockDim:            [3]uint32{64, 1, 1},
+				RegistersPerThread:  32,
+				DynamicSharedMemory: 2048,
+			},
+		},
+	}
+	if err := writeCaptureStatus(path, result, captureArtifactBudget{}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := cudacapture.Read(f)
+	_ = f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Profile.Sample) != 1 {
+		t.Fatalf("samples = %d", len(c.Profile.Sample))
+	}
+	labels := c.Profile.Sample[0].Label
+	for key, want := range map[string]string{
+		"grid":      "128,2,1",
+		"block":     "64,1,1",
+		"registers": "32",
+		"smem":      "2048",
+		"subtype":   "kernel",
+		"name":      "vectorAdd",
+	} {
+		if got := labels[key]; len(got) != 1 || got[0] != want {
+			t.Errorf("label %s = %v, want %q", key, got, want)
+		}
+	}
+}
+
+func TestObserveJournalPreservesKernelGeometry(t *testing.T) {
+	dir := t.TempDir()
+	sessionHex := "0123456789abcdef0123456789abcdef"
+	raw, err := hex.DecodeString(sessionHex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	copy(sid[:], raw)
+
+	journalPath := filepath.Join(dir, "capture.journal")
+	records := []wire.Record{
+		{Kind: recordBootstrap, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Payload: []byte(`{"kind":"capability"}`)},
+		{
+			Kind: recordActivity,
+			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelArray","valid":true,"start":100,"end":200,"grid":[256,1,1],"block":[32,1,1],"registers_per_thread":48,"dynamic_shared_memory":4096}`),
+		},
+		{
+			Kind: recordActivity,
+			Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"kernelCoords","valid":true,"start":300,"end":400,"grid_x":64,"grid_y":2,"grid_z":1,"block_x":128,"block_y":1,"block_z":1,"registers":24,"smem":1024}`),
+		},
+		{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2}`)},
+	}
+	appendRecords(t, journalPath, sid, 1234, 1, records)
+
+	_, _, _, activities, _, _, err := observeJournal(journalPath, sessionHex, 1234)
+	if err != nil {
+		t.Fatalf("observeJournal failed: %v", err)
+	}
+	if len(activities) != 2 {
+		t.Fatalf("got %d activities, want 2", len(activities))
+	}
+
+	k1 := activities[0]
+	if k1.GridDim != [3]uint32{256, 1, 1} {
+		t.Errorf("k1 GridDim = %v, want [256 1 1]", k1.GridDim)
+	}
+	if k1.BlockDim != [3]uint32{32, 1, 1} {
+		t.Errorf("k1 BlockDim = %v, want [32 1 1]", k1.BlockDim)
+	}
+	if k1.RegistersPerThread != 48 {
+		t.Errorf("k1 RegistersPerThread = %d, want 48", k1.RegistersPerThread)
+	}
+	if k1.DynamicSharedMemory != 4096 {
+		t.Errorf("k1 DynamicSharedMemory = %d, want 4096", k1.DynamicSharedMemory)
+	}
+
+	k2 := activities[1]
+	if k2.GridDim != [3]uint32{64, 2, 1} {
+		t.Errorf("k2 GridDim = %v, want [64 2 1]", k2.GridDim)
+	}
+	if k2.BlockDim != [3]uint32{128, 1, 1} {
+		t.Errorf("k2 BlockDim = %v, want [128 1 1]", k2.BlockDim)
+	}
+	if k2.RegistersPerThread != 24 {
+		t.Errorf("k2 RegistersPerThread = %d, want 24", k2.RegistersPerThread)
+	}
+	if k2.DynamicSharedMemory != 1024 {
+		t.Errorf("k2 DynamicSharedMemory = %d, want 1024", k2.DynamicSharedMemory)
+	}
+}
+
 func TestWriteCaptureStatusRejectsUnrepresentableCopyBytes(t *testing.T) {
 	const maxInt64 = uint64(^uint64(0) >> 1)
 	for _, tc := range []struct {

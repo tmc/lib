@@ -414,7 +414,10 @@ static void write_handshake(const char *failure) {
 
 static int append_activity(const char *kind, const char *name, uint64_t start, uint64_t end, uint64_t bytes,
 	uint64_t queued, uint64_t submitted, uint8_t copy_kind,
-	uint32_t runtime_correlation, uint32_t device, uint32_t context, uint32_t stream, uint32_t correlation) {
+	uint32_t runtime_correlation, uint32_t device, uint32_t context, uint32_t stream, uint32_t correlation,
+	uint32_t grid_x, uint32_t grid_y, uint32_t grid_z,
+	uint32_t block_x, uint32_t block_y, uint32_t block_z,
+	uint32_t registers_per_thread, uint32_t dynamic_shared_memory) {
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"activity\",\"subtype\":\"%s\",\"name\":\"", kind);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
@@ -429,7 +432,12 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 		payload[n++] = (char)*p;
 	}
 	int valid = start != CUPTI_TIMESTAMP_UNKNOWN && end != CUPTI_TIMESTAMP_UNKNOWN && end >= start;
-	n += snprintf(payload + n, sizeof(payload) - (size_t)n, "\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u}", valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, runtime_correlation, device, context, stream, correlation);
+	n += snprintf(payload + n, sizeof(payload) - (size_t)n,
+		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u}",
+		valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, runtime_correlation, device, context, stream, correlation,
+		grid_x, grid_y, grid_z, block_x, block_y, block_z,
+		grid_x, grid_y, grid_z, block_x, block_y, block_z,
+		registers_per_thread, dynamic_shared_memory);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
 	return queue_pending(KIND_ACTIVITY, start, payload, (size_t)n);
 }
@@ -519,11 +527,20 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 		if (record->kind == CUPTI_ACTIVITY_KIND_KERNEL || record->kind == CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL) {
 			if (rp + sizeof(CUDAPROF_KERNEL_TYPE) < rp || rp + sizeof(CUDAPROF_KERNEL_TYPE) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short kernel record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUDAPROF_KERNEL_TYPE *k = (const CUDAPROF_KERNEL_TYPE *)record;
-			(void)append_activity("kernel", k->name, k->start, k->end, 0, k->queued, k->submitted, 0, 0, k->deviceId, k->contextId, k->streamId, k->correlationId);
+			(void)append_activity("kernel", k->name, k->start, k->end, 0, k->queued, k->submitted, 0, 0, k->deviceId, k->contextId, k->streamId, k->correlationId,
+				(uint32_t)(k->gridX > 0 ? k->gridX : 0),
+				(uint32_t)(k->gridY > 0 ? k->gridY : 0),
+				(uint32_t)(k->gridZ > 0 ? k->gridZ : 0),
+				(uint32_t)(k->blockX > 0 ? k->blockX : 0),
+				(uint32_t)(k->blockY > 0 ? k->blockY : 0),
+				(uint32_t)(k->blockZ > 0 ? k->blockZ : 0),
+				(uint32_t)k->registersPerThread,
+				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0));
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;
-			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId);
+			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId,
+				0, 0, 0, 0, 0, 0, 0, 0);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_DRIVER || record->kind == CUPTI_ACTIVITY_KIND_RUNTIME) {
 			if (rp + sizeof(CUpti_ActivityAPI) < rp || rp + sizeof(CUpti_ActivityAPI) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short API record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityAPI *api = (const CUpti_ActivityAPI *)record;
