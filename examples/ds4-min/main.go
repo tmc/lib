@@ -91,6 +91,7 @@ type config struct {
 	traceProfile string
 	spanPath     string
 	spanStream   string
+	calibEvery   int
 	spanLevel    spanLevel
 	runID        string
 	calibPath    string
@@ -176,6 +177,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 	var calibrations []calibration
 	if cfg.calibPath != "" {
 		calibrations = append(calibrations, calibrate(runID, "start"))
+		interiorCalib = &interiorCalibrator{runID: runID, every: cfg.calibEvery}
 	}
 	fmt.Fprintf(stderr, "ds4-min: processing %d input tokens\n", len(prompt))
 	prefillStart := time.Now()
@@ -225,6 +227,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (err error) {
 		return err
 	}
 	if cfg.calibPath != "" {
+		// Interior markers go between the two boundary brackets in the
+		// order they were taken, so the receipt reads in run order.
+		calibrations = append(calibrations, interiorCalib.calibrations()...)
 		calibrations = append(calibrations, calibrate(runID, "end"))
 		f, err := os.Create(cfg.calibPath)
 		if err != nil {
@@ -290,6 +295,7 @@ func parseConfig(args []string, stdin io.Reader, stderr io.Writer) (config, erro
 	fs.StringVar(&spanLevel, "span-level", "token", "span depth: off, phase, token, layer, or op")
 	fs.StringVar(&cfg.runID, "run-id", "", "run identity shared with a gputrace timing sidecar")
 	fs.StringVar(&cfg.calibPath, "calibration", "", "write NVTX clock-calibration brackets to this file")
+	fs.IntVar(&cfg.calibEvery, "calibration-every", 64, "also bracket every Nth prefill batch; 0 for boundaries only")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
 	}

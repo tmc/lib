@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/x/nvtx"
 )
@@ -60,6 +61,11 @@ func tracePhase(level spanLevel, name string, fn func() error) error {
 // span.go is a copy of gputrace's hostspan and stays byte-identical to it,
 // so the pairing lives here rather than inside begin.
 func beginTraced(level spanLevel, name string, labels map[string]string) tracedEnd {
+	if name == "batch" {
+		// Marked here rather than at the call site so the stride sees
+		// every batch, including a run with recording off entirely.
+		interiorCalib.markBatch()
+	}
 	if !tracing(level) {
 		return tracedEnd{}
 	}
@@ -175,4 +181,64 @@ func writeCalibrations(w io.Writer, cs []calibration) error {
 		}
 	}
 	return nil
+}
+
+// An interiorCalibrator takes a clock bracket at regular points inside the
+// workload. Two brackets at the ends of a run can only test whether one
+// constant offset relates the two clocks; when they disagree, as they do
+// for this workload, nothing in the pair says what the residual looks like
+// in between. Markers taken well inside prefill are what distinguishes a
+// step from a drift.
+//
+// It brackets a batch span's start rather than opening a range of its own
+// at an arbitrary moment, so each marker sits at a boundary the capture
+// already records and can be located in the export without a time search.
+type interiorCalibrator struct {
+	runID string
+	// every is the batch stride. A marker is taken when the batch
+	// ordinal is a multiple of it, so a 2048-token prefill at
+	// cudaPrefillBatchWidth 8 and every=64 marks ordinals 64, 128, 192
+	// and 256.
+	every int
+
+	mu    sync.Mutex
+	seen  int
+	taken []calibration
+}
+
+// interiorCalib is the process calibrator, nil when -calibration is off.
+var interiorCalib *interiorCalibrator
+
+// markBatch counts one batch span and takes a bracket at every stride.
+// The label carries the ordinal so the auditor's uniqueness requirement is
+// met by construction and a marker can be tied back to a batch.
+func (c *interiorCalibrator) markBatch() {
+	if c == nil || c.every <= 0 {
+		return
+	}
+	c.mu.Lock()
+	c.seen++
+	n := c.seen
+	if n%c.every != 0 {
+		c.mu.Unlock()
+		return
+	}
+	c.mu.Unlock()
+	// Taken outside the lock: calibrate opens and closes an NVTX range,
+	// and holding a mutex across a provider call would put the provider
+	// inside the bracket's own contention.
+	cal := calibrate(c.runID, "batch-"+strconv.Itoa(n))
+	c.mu.Lock()
+	c.taken = append(c.taken, cal)
+	c.mu.Unlock()
+}
+
+// calibrations returns the markers taken, in the order they were taken.
+func (c *interiorCalibrator) calibrations() []calibration {
+	if c == nil {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]calibration(nil), c.taken...)
 }
