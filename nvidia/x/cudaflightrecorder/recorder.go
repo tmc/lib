@@ -24,17 +24,16 @@ const (
 
 // Config configures in-memory flight recording.
 type Config struct {
-	Window              time.Duration   // Time window to retain in memory (default 10s)
-	Capacity            int             // Maximum number of GPU records in ring buffer (default 65536)
-	ClockUncertaintyNs  int64           // Estimated host-to-device clock alignment error (nanoseconds)
-	CalibrationInterval time.Duration   // Reserved interval for refreshing the CUPTI clock anchor.
-	GoTraceEnabled      bool            // Whether to capture Go execution trace in snapshots (go.trace)
-	GoTraceWindow       time.Duration   // Time window for Go execution trace (default: matches Window)
-	GoTraceMaxBytes     uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
-	GoTraceStandard     bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
-	GoTracer            GoTraceRecorder // Optional custom Go execution trace flight recorder
-	RecordGPUPprof      bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
-	RecordPerfetto      bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
+	Window             time.Duration   // Time window to retain in memory (default 10s)
+	Capacity           int             // Maximum number of GPU records in ring buffer (default 65536)
+	ClockUncertaintyNs int64           // Estimated host-to-device clock alignment error (nanoseconds)
+	GoTraceEnabled     bool            // Whether to capture Go execution trace in snapshots (go.trace)
+	GoTraceWindow      time.Duration   // Time window for Go execution trace (default: matches Window)
+	GoTraceMaxBytes    uint64          // Upper bound on in-memory Go execution trace size in bytes (0 = runtime default)
+	GoTraceStandard    bool            // If true, use standard trace.Start/Stop adapter instead of trace.FlightRecorder
+	GoTracer           GoTraceRecorder // Optional custom Go execution trace flight recorder
+	RecordGPUPprof     bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
+	RecordPerfetto     bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
 }
 
 // Record represents a single timestamped GPU execution observation in the ring buffer.

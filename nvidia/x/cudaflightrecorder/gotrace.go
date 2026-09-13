@@ -335,31 +335,29 @@ func AlignSpans(
 
 	// 2. Compute GPU records span
 	var gpuMinTs, gpuMaxTs int64
-	calibrated := records[:0]
+	seenGPU := false
 	for _, rec := range records {
-		if rec.Labels["activity.uncalibrated"] != "true" {
-			calibrated = append(calibrated, rec)
+		if rec.Labels["activity.uncalibrated"] == "true" {
+			continue
+		}
+		end := rec.TimestampNs + int64(rec.DurationNs)
+		if !seenGPU {
+			gpuMinTs, gpuMaxTs, seenGPU = rec.TimestampNs, end, true
+			continue
+		}
+		if rec.TimestampNs < gpuMinTs {
+			gpuMinTs = rec.TimestampNs
+		}
+		if end > gpuMaxTs {
+			gpuMaxTs = end
 		}
 	}
-	if len(calibrated) > 0 {
-		gpuMinTs = calibrated[0].TimestampNs
-		gpuMaxTs = calibrated[0].TimestampNs + int64(calibrated[0].DurationNs)
-		for _, rec := range calibrated[1:] {
-			if rec.TimestampNs < gpuMinTs {
-				gpuMinTs = rec.TimestampNs
-			}
-			end := rec.TimestampNs + int64(rec.DurationNs)
-			if end > gpuMaxTs {
-				gpuMaxTs = end
-			}
-		}
-		if gpuMaxTs > gpuMinTs {
-			gpuSpanNs = gpuMaxTs - gpuMinTs
-		}
+	if seenGPU && gpuMaxTs > gpuMinTs {
+		gpuSpanNs = gpuMaxTs - gpuMinTs
 	}
 
 	// 3. Compute overlap between host Go execution trace and GPU observations
-	if goHasData && len(records) > 0 && goSpanNs > 0 {
+	if goHasData && seenGPU && goSpanNs > 0 {
 		goEndNs := nowNs
 		overlapStart := goStartNs
 		if gpuMinTs > overlapStart {
