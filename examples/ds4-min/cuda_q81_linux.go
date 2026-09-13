@@ -27,7 +27,7 @@ func (r *cudaFoundation) encodeQuantQ81(in cudamem.Slice[float32], out cudamem.S
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.quantQ81Fn).Grid(uint32(in.Len()/32)).Block(32).On(r.device.DefaultStream()).Launch(in, out); err != nil {
+		if err := cudalaunch.Kernel(r.quantQ81Fn).Grid(uint32(in.Len()/32)).Block(32).On(r.stream()).Launch(in, out); err != nil {
 			return fmt.Errorf("cuda: launch Q8_1 activation quantization: %w", err)
 		}
 		return nil
@@ -49,7 +49,7 @@ func (r *cudaFoundation) encodeQuantQ81Batch(in cudamem.Slice[float32], out cuda
 			return err
 		}
 		blocks := uint32(cols / 32)
-		if err := cudalaunch.Kernel(r.quantQ81BatchFn).Grid(blocks*uint32(batch)).Block(32).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.quantQ81BatchFn).Grid(blocks*uint32(batch)).Block(32).On(r.stream()).Launch(
 			in, out, blocks, uint32(stride)); err != nil {
 			return fmt.Errorf("cuda: launch batched Q8_1 activation quantization: %w", err)
 		}
@@ -70,7 +70,7 @@ func (r *cudaFoundation) encodeQ80MatvecQ81(t cudaModelTensor, in cudamem.Slice[
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q81MatvecFn).Grid(uint32(rows)).Block(32).On(r.device.DefaultStream()).Launch(t.device, in, out, uint32(cols/32)); err != nil {
+		if err := cudalaunch.Kernel(r.q81MatvecFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(t.device, in, out, uint32(cols/32)); err != nil {
 			return fmt.Errorf("cuda: launch quantized Q8_0 matvec %q: %w", t.name, err)
 		}
 		return nil
@@ -92,7 +92,7 @@ func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.S
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(uint32(rows), uint32(batch)).Block(32).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(uint32(rows), uint32(batch)).Block(32).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
 		}

@@ -56,7 +56,7 @@ func (r *cudaFoundation) encodeMatvecIQ2Selected(gate, up cudaModelTensor, ids c
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.iq2SelectedFn).Grid(uint32(rows*slots)).Block(256).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.iq2SelectedFn).Grid(uint32(rows*slots)).Block(256).On(r.stream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch IQ2 selected pair: %w", err)
 		}
 		return nil
@@ -78,7 +78,7 @@ func (r *cudaFoundation) encodeMatvecQ2KSelected(t cudaModelTensor, ids cudamem.
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q2KSelectedFn).Grid(uint32(rows*slots)).Block(256).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.q2KSelectedFn).Grid(uint32(rows*slots)).Block(256).On(r.stream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch Q2_K selected: %w", err)
 		}
 		return nil
@@ -95,7 +95,7 @@ func (r *cudaFoundation) encodeQuantQ8K(in cudamem.Slice[float32], out cudamem.S
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.quantQ8KFn).Grid(uint32(in.Len()/256)).Block(256).On(r.device.DefaultStream()).Launch(in, out); err != nil {
+		if err := cudalaunch.Kernel(r.quantQ8KFn).Grid(uint32(in.Len()/256)).Block(256).On(r.stream()).Launch(in, out); err != nil {
 			return fmt.Errorf("cuda: launch Q8_K quantization: %w", err)
 		}
 		return nil
@@ -124,7 +124,7 @@ func (r *cudaFoundation) encodeMatvecIQ2SelectedQ8K(gate, up cudaModelTensor, id
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.iq2SelectedQ8KFn).Grid(uint32(rows*slots)).Block(256).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.iq2SelectedQ8KFn).Grid(uint32(rows*slots)).Block(256).On(r.stream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch IQ2 Q8_K selected pair: %w", err)
 		}
 		return nil
@@ -145,7 +145,7 @@ func (r *cudaFoundation) encodeMatvecQ2KSelectedQ8K(t cudaModelTensor, ids cudam
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.q2KSelectedQ8KFn).Grid(uint32(rows*slots)).Block(256).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.q2KSelectedQ8KFn).Grid(uint32(rows*slots)).Block(256).On(r.stream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch Q2_K Q8_K selected: %w", err)
 		}
 		return nil

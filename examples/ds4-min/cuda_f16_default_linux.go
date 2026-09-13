@@ -32,7 +32,7 @@ func (r *cudaFoundation) encodeF16MatvecDefault(t cudaModelTensor, in, out cudam
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.f16DefaultFn).Grid(uint32(rows)).Block(256).On(r.device.DefaultStream()).Launch(t.device, in, out, uint32(cols)); err != nil {
+		if err := cudalaunch.Kernel(r.f16DefaultFn).Grid(uint32(rows)).Block(256).On(r.stream()).Launch(t.device, in, out, uint32(cols)); err != nil {
 			return fmt.Errorf("cuda: launch default F16 matvec %q: %w", t.name, err)
 		}
 		return nil
@@ -53,7 +53,7 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.f16PairOrderedFn).Grid(uint32(rows)).Block(32).On(r.device.DefaultStream()).Launch(a.device, b.device, in, outA, outB, uint32(cols)); err != nil {
+		if err := cudalaunch.Kernel(r.f16PairOrderedFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(a.device, b.device, in, outA, outB, uint32(cols)); err != nil {
 			return fmt.Errorf("cuda: launch ordered F16 pair: %w", err)
 		}
 		return nil

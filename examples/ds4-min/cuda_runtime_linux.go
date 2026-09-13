@@ -50,9 +50,10 @@ type cudaModelTensor struct {
 // It deliberately does not implement sessionBackend until token evaluation is
 // available on CUDA.
 type cudaFoundation struct {
-	device *cuda.Device
-	file   *os.File
-	model  []byte
+	device     *cuda.Device
+	workStream *cuda.Stream
+	file       *os.File
+	model      []byte
 	name   string
 	major  int
 	minor  int
@@ -130,6 +131,13 @@ type cudaFoundation struct {
 	phaseMark func(name string, position, layer int) error
 }
 
+func (r *cudaFoundation) stream() *cuda.Stream {
+	if r != nil && r.workStream != nil {
+		return r.workStream
+	}
+	return r.device.DefaultStream()
+}
+
 func (r *cudaFoundation) markCUDAPhase(name string, position, layer int) error {
 	// The host span is driven here rather than at each call site, and
 	// before the hook check, so it does not depend on a profiler being
@@ -196,7 +204,11 @@ func newCUDAFoundation(path string) (_ *cudaFoundation, err error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &cudaFoundation{device: dev, file: f, model: model, name: name, major: major, minor: minor, hmm: hmm, gguf: g}
+	workStream, err := dev.NewStream()
+	if err != nil {
+		return nil, fmt.Errorf("cuda: create work stream: %w", err)
+	}
+	r := &cudaFoundation{device: dev, workStream: workStream, file: f, model: model, name: name, major: major, minor: minor, hmm: hmm, gguf: g}
 	if err := r.warmModel(); err != nil {
 		return nil, err
 	}
@@ -496,7 +508,7 @@ func (r *cudaFoundation) encodeQ80Matvec(t cudaModelTensor, x, out cudamem.Slice
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.matrixFn).Grid(uint32(t.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.matrixFn).Grid(uint32(t.dimensions[1])).Block(256).On(r.stream()).Launch(
 			t.device, x, out, uint32(t.dimensions[0]), uint32(t.dimensions[1])); err != nil {
 			return fmt.Errorf("cuda: launch matvec %q: %w", t.name, err)
 		}
@@ -523,7 +535,7 @@ func (r *cudaFoundation) encodeRMS(x cudamem.Slice[float32], weight cudaModelTen
 		if weighted {
 			weightedArg = 1
 		}
-		if err := cudalaunch.Kernel(r.rmsFn).Grid(uint32(groups)).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.rmsFn).Grid(uint32(groups)).Block(256).On(r.stream()).Launch(
 			x, weightPtr, out, uint32(x.Len()/groups), uint32(groups), weightedArg); err != nil {
 			return fmt.Errorf("cuda: launch RMS: %w", err)
 		}
@@ -540,7 +552,7 @@ func (r *cudaFoundation) encodeF16Matvec(t cudaModelTensor, x, out cudamem.Slice
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.f16Fn).Grid(uint32(t.dimensions[1])).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.f16Fn).Grid(uint32(t.dimensions[1])).Block(256).On(r.stream()).Launch(
 			t.device, x, out, uint32(t.dimensions[0]), uint32(t.dimensions[1])); err != nil {
 			return fmt.Errorf("cuda: launch matvec %q: %w", t.name, err)
 		}
@@ -568,7 +580,7 @@ func (r *cudaFoundation) encodeHCPrePrecision(state cudamem.Slice[float32], hcFn
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.stream()).Launch(
 			state, hcFn.device, scale.device, base.device, norm.device, out, half); err != nil {
 			return fmt.Errorf("cuda: launch HC pre: %w", err)
 		}
@@ -598,7 +610,7 @@ func (r *cudaFoundation) encodeHCPostPrecision(state, block cudamem.Slice[float3
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.hcPostFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.hcPostFn).Grid(1).Block(256).On(r.stream()).Launch(
 			state, block, hcFn.device, scale.device, base.device, out, half); err != nil {
 			return fmt.Errorf("cuda: launch HC post: %w", err)
 		}
@@ -639,7 +651,7 @@ func (r *cudaFoundation) encodeOutputTransform(state cudamem.Slice[float32], out
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.hcPreFn).Grid(1).Block(256).On(r.stream()).Launch(
 			state, out.hcFn.device, out.hcScale.device, out.hcBase.device, out.norm.device, mixed, half); err != nil {
 			return fmt.Errorf("cuda: launch output transform: %w", err)
 		}
@@ -657,7 +669,7 @@ func (r *cudaFoundation) encodeEmbeddingRow(t cudaModelTensor, row uint32, out c
 			return err
 		}
 		cols := uint32(t.dimensions[0])
-		if err := cudalaunch.Kernel(r.rowFn).Grid((cols+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.rowFn).Grid((cols+255)/256).Block(256).On(r.stream()).Launch(
 			t.device, out, row, cols); err != nil {
 			return fmt.Errorf("cuda: launch embedding row: %w", err)
 		}
@@ -679,18 +691,18 @@ func (r *cudaFoundation) encodeRawAttention(q, kv cudamem.Slice[float32], sinks 
 			return err
 		}
 		if r.rawAttentionPrepareFn != 0 && r.rawAttentionEvalFn != 0 && !r.disableRawAttentionFused {
-			if err := cudalaunch.Kernel(r.rawAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(
+			if err := cudalaunch.Kernel(r.rawAttentionPrepareFn).Grid(1).Block(64).On(r.stream()).Launch(
 				q, kv, cache, out, uint32(position), uint32(cache.Len()/512)); err != nil {
 				return fmt.Errorf("cuda: launch raw attention prepare: %w", err)
 			}
 			shmem := uint32((cache.Len() / 512) * 4)
-			if err := cudalaunch.Kernel(r.rawAttentionEvalFn).Grid(64).Block(512).SharedMem(shmem).On(r.device.DefaultStream()).Launch(
+			if err := cudalaunch.Kernel(r.rawAttentionEvalFn).Grid(64).Block(512).SharedMem(shmem).On(r.stream()).Launch(
 				sinks.device, cache, scores, out, uint32(position), uint32(cache.Len()/512)); err != nil {
 				return fmt.Errorf("cuda: launch raw attention eval: %w", err)
 			}
 			return nil
 		}
-		if err := cudalaunch.Kernel(r.rawAttentionFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.rawAttentionFn).Grid(1).Block(64).On(r.stream()).Launch(
 			q, kv, sinks.device, cache, scores, out, uint32(position), uint32(cache.Len()/512)); err != nil {
 			return fmt.Errorf("cuda: launch raw attention: %w", err)
 		}
@@ -709,7 +721,7 @@ func (r *cudaFoundation) encodeRouterHash(logits cudamem.Slice[float32], table c
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.routerHashFn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.routerHashFn).Grid(1).Block(1).On(r.stream()).Launch(
 			logits, table.device, scores, selected, weights, token); err != nil {
 			return fmt.Errorf("cuda: launch router hash: %w", err)
 		}
@@ -728,7 +740,7 @@ func (r *cudaFoundation) encodeRouterBiased(logits cudamem.Slice[float32], bias 
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.routerBiasedFn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.routerBiasedFn).Grid(1).Block(1).On(r.stream()).Launch(
 			logits, bias.device, scores, selected, weights); err != nil {
 			return fmt.Errorf("cuda: launch router biased: %w", err)
 		}
@@ -754,7 +766,7 @@ func (r *cudaFoundation) encodeSwiGLUSlots(gate, up, weights, out cudamem.Slice[
 			return err
 		}
 		n := uint32(gate.Len())
-		if err := cudalaunch.Kernel(r.swigluFn).Grid((n+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.swigluFn).Grid((n+255)/256).Block(256).On(r.stream()).Launch(
 			gate, up, out, n/uint32(slots), uint32(slots), weight, weights); err != nil {
 			return fmt.Errorf("cuda: launch SwiGLU: %w", err)
 		}
@@ -772,7 +784,7 @@ func (r *cudaFoundation) encodeSumVectors(in, out cudamem.Slice[float32], count 
 			return err
 		}
 		width := uint32(out.Len())
-		if err := cudalaunch.Kernel(r.sumVectorsFn).Grid((width+255)/256).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.sumVectorsFn).Grid((width+255)/256).Block(256).On(r.stream()).Launch(
 			in, out, width, uint32(count)); err != nil {
 			return fmt.Errorf("cuda: launch sum vectors: %w", err)
 		}
@@ -790,7 +802,7 @@ func (r *cudaFoundation) encodeSwiGLUQuantQ81(gate, up, weights cudamem.Slice[fl
 			return err
 		}
 		blocks := uint32(width * slots / 32)
-		if err := cudalaunch.Kernel(r.swigluQuantQ81Fn).Grid(blocks).Block(32).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.swigluQuantQ81Fn).Grid(blocks).Block(32).On(r.stream()).Launch(
 			gate, up, weights, out, uint32(width)); err != nil {
 			return fmt.Errorf("cuda: launch SwiGLU quant Q8_1: %w", err)
 		}
@@ -807,7 +819,7 @@ func (r *cudaFoundation) encodeSumRoutedShared(experts, shared, out cudamem.Slic
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.sumRoutedSharedFn).Grid(uint32(width / 256)).Block(256).On(r.device.DefaultStream()).Launch(
+		if err := cudalaunch.Kernel(r.sumRoutedSharedFn).Grid(uint32(width / 256)).Block(256).On(r.stream()).Launch(
 			experts, shared, out, uint32(width)); err != nil {
 			return fmt.Errorf("cuda: launch sum routed shared: %w", err)
 		}
@@ -1001,6 +1013,10 @@ func (r *cudaFoundation) Close() error {
 		errs = append(errs, err)
 		errs = append(errs, syscall.Munmap(r.mapped.view))
 		r.mapped = cudaModelRange{}
+	}
+	if r.workStream != nil {
+		errs = append(errs, r.workStream.Destroy())
+		r.workStream = nil
 	}
 	if r.device != nil {
 		errs = append(errs, r.device.Close())

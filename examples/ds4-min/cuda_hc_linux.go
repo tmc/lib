@@ -60,7 +60,7 @@ func newCUDAHC(r *cudaFoundation) (_ *cudaHC, err error) {
 		if err := h.blas.SetMathMode(cublas.TF32TensorOpMath); err != nil {
 			return err
 		}
-		return r.device.DefaultStream().WithHandle(func(s driver.Stream) error { return h.blas.SetStream(cublas.Stream(s)) })
+		return r.stream().WithHandle(func(s driver.Stream) error { return h.blas.SetStream(cublas.Stream(s)) })
 	}); err != nil {
 		return nil, fmt.Errorf("cuda hc: create cuBLAS: %w", err)
 	}
@@ -73,7 +73,7 @@ func (h *cudaHC) Close() error {
 	}
 	var errs []error
 	if h.r != nil && h.r.device != nil {
-		errs = append(errs, h.r.device.DefaultStream().Synchronize(context.Background()))
+		errs = append(errs, h.r.stream().Synchronize(context.Background()))
 		if h.blas != 0 {
 			errs = append(errs, h.r.device.WithContext(h.blas.Destroy))
 			h.blas = 0
@@ -104,7 +104,7 @@ func (h *cudaHC) project(state cudamem.Slice[float32], fn cudaModelTensor, rows 
 		if err := h.r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(h.r.hcHalfFn).Grid(64).Block(256).On(h.r.device.DefaultStream()).Launch(h.normalized, h.half); err != nil {
+		if err := cudalaunch.Kernel(h.r.hcHalfFn).Grid(64).Block(256).On(h.r.stream()).Launch(h.normalized, h.half); err != nil {
 			return fmt.Errorf("cuda hc: convert activation: %w", err)
 		}
 		// cuBLAS reads the scalars through the pointers while the call runs.
@@ -147,7 +147,7 @@ func (h *cudaHC) pre(state cudamem.Slice[float32], fn, scale, base, norm cudaMod
 		headArg = 1
 	}
 	if err := h.r.device.WithContext(func() error {
-		stream := h.r.device.DefaultStream()
+		stream := h.r.stream()
 		if err := cudalaunch.Kernel(h.r.hcSplitFn).Grid(1).Block(1).On(stream).Launch(h.mix, scale.device, base.device, h.split, headArg); err != nil {
 			return fmt.Errorf("cuda hc: split: %w", err)
 		}
@@ -171,7 +171,7 @@ func (h *cudaHC) post(state, block, out cudamem.Slice[float32]) error {
 		return errors.New("cuda hc: invalid residual or output")
 	}
 	return h.r.device.WithContext(func() error {
-		if err := cudalaunch.Kernel(h.r.hcExpandFn).Grid(64).Block(256).On(h.r.device.DefaultStream()).Launch(state, block, h.split, out); err != nil {
+		if err := cudalaunch.Kernel(h.r.hcExpandFn).Grid(64).Block(256).On(h.r.stream()).Launch(state, block, h.split, out); err != nil {
 			return fmt.Errorf("cuda hc: expand: %w", err)
 		}
 		return nil

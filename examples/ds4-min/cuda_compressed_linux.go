@@ -42,7 +42,7 @@ func (r *cudaFoundation) encodeCompressor(kv, gate cudamem.Slice[float32], ape, 
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.compressorPoolFn).Grid(1).Block(uint32(head)).On(r.device.DefaultStream()).Launch(kv, gate, state.stateKV, state.stateScore, state.pooled, ape.device, uint32(head), uint32(width), uint32(state.ratio), uint32(position)); err != nil {
+		if err := cudalaunch.Kernel(r.compressorPoolFn).Grid(1).Block(uint32(head)).On(r.stream()).Launch(kv, gate, state.stateKV, state.stateScore, state.pooled, ape.device, uint32(head), uint32(width), uint32(state.ratio), uint32(position)); err != nil {
 			return fmt.Errorf("cuda: launch compressor pool: %w", err)
 		}
 		if !emit {
@@ -52,7 +52,7 @@ func (r *cudaFoundation) encodeCompressor(kv, gate cudamem.Slice[float32], ape, 
 		if indexer {
 			fn = r.compressorIndexerFn
 		}
-		if err := cudalaunch.Kernel(fn).Grid(1).Block(1).On(r.device.DefaultStream()).Launch(state.pooled, norm.device, state.cache, uint32(state.n), uint32(position+1-state.ratio)); err != nil {
+		if err := cudalaunch.Kernel(fn).Grid(1).Block(1).On(r.stream()).Launch(state.pooled, norm.device, state.cache, uint32(state.n), uint32(position+1-state.ratio)); err != nil {
 			return fmt.Errorf("cuda: launch compressor finish: %w", err)
 		}
 		return nil
@@ -74,7 +74,7 @@ func (r *cudaFoundation) encodeMixedAttention(q, kv cudamem.Slice[float32], sink
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionFn).Grid(1).Block(64).On(r.stream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention: %w", err)
 		}
 		return nil
@@ -95,34 +95,34 @@ func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float3
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.stream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention preparation: %w", err)
 		}
 		if r.mixedAttentionTileScoresFn != 0 && r.mixedAttentionFinalizeFn != 0 && !r.disableMixedAttentionFused {
 			tileGridX := uint32((total + 15) / 16)
-			if err := cudalaunch.Kernel(r.mixedAttentionTileScoresFn).Grid(tileGridX, 4).Block(256).SharedMem(66048).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			if err := cudalaunch.Kernel(r.mixedAttentionTileScoresFn).Grid(tileGridX, 4).Block(256).SharedMem(66048).On(r.stream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 				return fmt.Errorf("cuda: launch mixed attention tile scores: %w", err)
 			}
 			shmemFinal := uint32(total * 4)
-			if err := cudalaunch.Kernel(r.mixedAttentionFinalizeFn).Grid(64).Block(512).SharedMem(shmemFinal).On(r.device.DefaultStream()).Launch(sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			if err := cudalaunch.Kernel(r.mixedAttentionFinalizeFn).Grid(64).Block(512).SharedMem(shmemFinal).On(r.stream()).Launch(sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 				return fmt.Errorf("cuda: launch mixed attention finalize: %w", err)
 			}
 			return nil
 		}
 		if r.mixedAttentionFusedFn != 0 && !r.disableMixedAttentionFused {
 			shmem := uint32(total * 4)
-			if err := cudalaunch.Kernel(r.mixedAttentionFusedFn).Grid(64).Block(256).SharedMem(shmem).On(r.device.DefaultStream()).Launch(sinks.device, raw, comp, allowed, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+			if err := cudalaunch.Kernel(r.mixedAttentionFusedFn).Grid(64).Block(256).SharedMem(shmem).On(r.stream()).Launch(sinks.device, raw, comp, allowed, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 				return fmt.Errorf("cuda: launch mixed attention fused: %w", err)
 			}
 			return nil
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionScoresFn).Grid(64, uint32((total+63)/64)).Block(64).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionScoresFn).Grid(64, uint32((total+63)/64)).Block(64).On(r.stream()).Launch(raw, comp, allowed, scores, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention scores: %w", err)
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionNormalizeFn).Grid(1).Block(64).On(r.device.DefaultStream()).Launch(sinks.device, allowed, scores, denominators, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionNormalizeFn).Grid(1).Block(64).On(r.stream()).Launch(sinks.device, allowed, scores, denominators, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention normalization: %w", err)
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionValuesFn).Grid(64).Block(256).On(r.device.DefaultStream()).Launch(raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionValuesFn).Grid(64).Block(256).On(r.stream()).Launch(raw, comp, allowed, scores, denominators, out, uint32(position), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention values: %w", err)
 		}
 		return nil
@@ -150,19 +150,19 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if err := r.markCUDAPhase("indexer-query", position, layerIdx); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.device.DefaultStream()).Launch(q, qScratch, uint32(position)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.stream()).Launch(q, qScratch, uint32(position)); err != nil {
 			return fmt.Errorf("cuda: launch indexer query: %w", err)
 		}
 		if err := r.markCUDAPhase("indexer-score", position, layerIdx); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.device.DefaultStream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerScoreFn).Grid(uint32((nComp + 63) / 64)).Block(64).On(r.stream()).Launch(qScratch, weights, cache, scores, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer score: %w", err)
 		}
 		if err := r.markCUDAPhase("indexer-select", position, layerIdx); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.device.DefaultStream()).Launch(scores, allowed, uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerSelectFn).Grid(1).Block(512).On(r.stream()).Launch(scores, allowed, uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch indexer selection: %w", err)
 		}
 		return nil
@@ -180,7 +180,7 @@ func (r *cudaFoundation) encodeFillU32(dst cudamem.Slice[uint32], count int, val
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.fillU32Fn).Grid(uint32((count+255)/256)).Block(256).On(r.device.DefaultStream()).Launch(dst, uint32(count), value); err != nil {
+		if err := cudalaunch.Kernel(r.fillU32Fn).Grid(uint32((count+255)/256)).Block(256).On(r.stream()).Launch(dst, uint32(count), value); err != nil {
 			return fmt.Errorf("cuda: launch fill uint32: %w", err)
 		}
 		return nil

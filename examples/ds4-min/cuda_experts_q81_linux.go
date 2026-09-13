@@ -43,7 +43,7 @@ func (r *cudaFoundation) encodeMatvecIQ2SelectedQ81(gate, up cudaModelTensor, id
 			return err
 		}
 		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
-		if err := cudalaunch.Kernel(r.iq2SelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.iq2SelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.stream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch IQ2 Q8_1 selected pair: %w", err)
 		}
 		return nil
@@ -64,7 +64,7 @@ func (r *cudaFoundation) encodeMatvecQ2KSelectedQ81(t cudaModelTensor, ids cudam
 			return err
 		}
 		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
-		if err := cudalaunch.Kernel(r.q2KSelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.q2KSelectedQ81Fn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.stream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch Q2_K Q8_1 selected: %w", err)
 		}
 		return nil
@@ -93,7 +93,7 @@ func (r *cudaFoundation) encodeMatvecIQ2SelectedQ81Scalar(gate, up cudaModelTens
 			return err
 		}
 		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
-		if err := cudalaunch.Kernel(r.iq2SelectedQ81ScalarFn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.iq2SelectedQ81ScalarFn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.stream()).Launch(gate.device, up.device, ids, in, gateOut, upOut, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch IQ2 Q8_1 selected pair scalar: %w", err)
 		}
 		return nil
@@ -114,7 +114,7 @@ func (r *cudaFoundation) encodeMatvecQ2KSelectedQ81Scalar(t cudaModelTensor, ids
 			return err
 		}
 		blocks := (rows*slots + cudaExpertWarps - 1) / cudaExpertWarps
-		if err := cudalaunch.Kernel(r.q2KSelectedQ81ScalarFn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.device.DefaultStream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
+		if err := cudalaunch.Kernel(r.q2KSelectedQ81ScalarFn).Grid(uint32(blocks)).Block(32*cudaExpertWarps).On(r.stream()).Launch(t.device, ids, in, out, uint32(cols), uint32(rows), uint32(slots), uint32(experts)); err != nil {
 			return fmt.Errorf("cuda: launch Q2_K Q8_1 selected scalar: %w", err)
 		}
 		return nil

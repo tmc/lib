@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/tmc/lib/gguf"
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -20,6 +22,7 @@ type cudaRuntime struct {
 	arena                   *cudamem.Arena
 	batch                   *cudaBatchResources
 	state                   cudaSessionState
+	graphs                  [cudaLayers]cudaLayerGraphs
 	hcMath                  *cudaHC
 	ctx, pos                int
 	logits                  []float32
@@ -27,6 +30,12 @@ type cudaRuntime struct {
 	batchProgress           func(int) error
 	disableBlockDiagAttnOut bool
 	disableSIMDExperts      bool
+	disableGraphs           bool
+}
+
+type cudaLayerGraphs struct {
+	qkv *cudagraph.Exec
+	ffn *cudagraph.Exec
 }
 
 type cudaSessionState struct {
@@ -84,7 +93,11 @@ func newCUDARuntime(path string, limit int) (_ *cudaRuntime, err error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &cudaRuntime{cudaFoundation: foundation, ctx: limit}
+	r := &cudaRuntime{
+		cudaFoundation: foundation,
+		ctx:            limit,
+		disableGraphs:  os.Getenv("DS4_DISABLE_CUDA_GRAPH") == "1",
+	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, r.Close())
@@ -204,7 +217,7 @@ func (r *cudaRuntime) Reset() error {
 		return errors.New("cuda runtime: closed")
 	}
 	r.failed = errors.New("cuda runtime: reset incomplete")
-	if err := syncStream(r.device.DefaultStream()); err != nil {
+	if err := syncStream(r.stream()); err != nil {
 		return err
 	}
 	for i := range r.state.layers {
@@ -256,7 +269,17 @@ func (r *cudaRuntime) Close() error {
 	}
 	var errs []error
 	if r.cudaFoundation != nil && r.device != nil {
-		errs = append(errs, syncStream(r.device.DefaultStream()))
+		errs = append(errs, syncStream(r.stream()))
+	}
+	for i := range r.graphs {
+		if r.graphs[i].qkv != nil {
+			errs = append(errs, r.graphs[i].qkv.Destroy())
+			r.graphs[i].qkv = nil
+		}
+		if r.graphs[i].ffn != nil {
+			errs = append(errs, r.graphs[i].ffn.Destroy())
+			r.graphs[i].ffn = nil
+		}
 	}
 	if r.hcMath != nil {
 		errs = append(errs, r.hcMath.Close())
@@ -398,7 +421,7 @@ func (r *cudaRuntime) evalBatch(tokens []int, position int, logits bool) (err er
 			return err
 		}
 	}
-	if err := syncStream(r.device.DefaultStream()); err != nil {
+	if err := syncStream(r.stream()); err != nil {
 		return err
 	}
 	if logits {
@@ -598,7 +621,7 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 			return err
 		}
 	}
-	if err := syncStream(r.device.DefaultStream()); err != nil {
+	if err := syncStream(r.stream()); err != nil {
 		return err
 	}
 	if logits {
@@ -615,8 +638,7 @@ func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error)
 	return nil
 }
 
-func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
-	defer beginTracedLayer(index).end()
+func (r *cudaRuntime) evalLayerQKV(s *cudaTokenState, index int) error {
 	l := &r.model.layers[index]
 	if err := r.hcMath.pre(s.hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, s.attnPre, false); err != nil {
 		return err
@@ -636,41 +658,55 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 	if err := r.encodeQ80Matvec(l.attnKV, s.attnNorm, s.kvRaw); err != nil {
 		return err
 	}
-	if err := r.encodeRMS(s.kvRaw, l.attnKVNorm, s.kvCur, 1, true); err != nil {
-		return err
+	return r.encodeRMS(s.kvRaw, l.attnKVNorm, s.kvCur, 1, true)
+}
+
+func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
+	defer beginTracedLayer(index).end()
+	useGraph := !r.disableGraphs && r.phaseMark == nil && s == &r.state.cudaTokenState
+	if useGraph {
+		if r.graphs[index].qkv != nil {
+			if err := r.graphs[index].qkv.Launch(r.stream()); err != nil {
+				return fmt.Errorf("cuda graph: launch qkv layer %d: %w", index, err)
+			}
+			r.hcMath.ready = true
+			r.hcMath.residual = s.hc[0].Ptr()
+		} else {
+			var bodyErr error
+			g, err := cudagraph.Capture(r.stream(), func() {
+				bodyErr = r.evalLayerQKV(s, index)
+			})
+			if err != nil {
+				if bodyErr != nil {
+					return fmt.Errorf("cuda graph: capture qkv layer %d: %w", index, errors.Join(bodyErr, err))
+				}
+				return fmt.Errorf("cuda graph: capture qkv layer %d: %w", index, err)
+			}
+			defer g.Destroy()
+			if bodyErr != nil {
+				return bodyErr
+			}
+			exec, err := g.Instantiate()
+			if err != nil {
+				return fmt.Errorf("cuda graph: instantiate qkv layer %d: %w", index, err)
+			}
+			r.graphs[index].qkv = exec
+			if err := exec.Launch(r.stream()); err != nil {
+				return fmt.Errorf("cuda graph: launch initial qkv layer %d: %w", index, err)
+			}
+			r.hcMath.ready = true
+			r.hcMath.residual = s.hc[0].Ptr()
+		}
+	} else {
+		if err := r.evalLayerQKV(s, index); err != nil {
+			return err
+		}
 	}
 	return r.evalLayerProjected(r.hcMath, s, state, index, token, position)
 }
 
-func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
+func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, position int, heads cudamem.Slice[float32]) error {
 	l := &r.model.layers[index]
-	var heads cudamem.Slice[float32]
-	if index < 2 {
-		if err := r.markCUDAPhase("compression-raw", position, index); err != nil {
-			return err
-		}
-		if err := r.markCUDAPhase("attention", position, index); err != nil {
-			return err
-		}
-		if err := r.encodeRawAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, s.rawScores, s.rawOutput, position); err != nil {
-			return err
-		}
-		heads = s.rawOutput.Slice(32768+512, 32768+512+32768)
-	} else {
-		if err := r.markCUDAPhase("compression", position, index); err != nil {
-			return err
-		}
-		if err := r.compress(l, state, s, position, index); err != nil {
-			return err
-		}
-		if err := r.markCUDAPhase("attention", position, index); err != nil {
-			return err
-		}
-		if err := r.encodeMixedAttentionParallel(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedDenominators, s.mixedOutput, position, index); err != nil {
-			return err
-		}
-		heads = s.mixedOutput.Slice(32768+512, 32768+512+32768)
-	}
 	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
 		return err
 	}
@@ -763,10 +799,74 @@ func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *c
 	if err := r.encodeSumRoutedShared(s.expertDown, s.sharedOut, s.ffnOut, cudaWidth); err != nil {
 		return err
 	}
-	if err := hc.post(s.hc[1], s.ffnOut, s.hc[0]); err != nil {
-		return err
+	return hc.post(s.hc[1], s.ffnOut, s.hc[0])
+}
+
+func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
+	l := &r.model.layers[index]
+	var heads cudamem.Slice[float32]
+	if index < 2 {
+		if err := r.markCUDAPhase("compression-raw", position, index); err != nil {
+			return err
+		}
+		if err := r.markCUDAPhase("attention", position, index); err != nil {
+			return err
+		}
+		if err := r.encodeRawAttention(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, s.rawScores, s.rawOutput, position); err != nil {
+			return err
+		}
+		heads = s.rawOutput.Slice(32768+512, 32768+512+32768)
+	} else {
+		if err := r.markCUDAPhase("compression", position, index); err != nil {
+			return err
+		}
+		if err := r.compress(l, state, s, position, index); err != nil {
+			return err
+		}
+		if err := r.markCUDAPhase("attention", position, index); err != nil {
+			return err
+		}
+		if err := r.encodeMixedAttentionParallel(s.qHeads, s.kvCur, l.attnSinks, state.rawKV, state.attn.cache, state.attn.n, s.allowed, s.mixedScores, s.mixedDenominators, s.mixedOutput, position, index); err != nil {
+			return err
+		}
+		heads = s.mixedOutput.Slice(32768+512, 32768+512+32768)
 	}
-	return nil
+
+	useGraph := !r.disableGraphs && r.phaseMark == nil && s == &r.state.cudaTokenState && index >= 3
+	if useGraph {
+		if r.graphs[index].ffn != nil {
+			if err := r.graphs[index].ffn.Launch(r.stream()); err != nil {
+				return fmt.Errorf("cuda graph: launch ffn layer %d: %w", index, err)
+			}
+			r.hcMath.ready = false
+			return nil
+		}
+		var bodyErr error
+		g, err := cudagraph.Capture(r.stream(), func() {
+			bodyErr = r.evalLayerFFN(hc, s, index, token, position, heads)
+		})
+		if err != nil {
+			if bodyErr != nil {
+				return fmt.Errorf("cuda graph: capture ffn layer %d: %w", index, errors.Join(bodyErr, err))
+			}
+			return fmt.Errorf("cuda graph: capture ffn layer %d: %w", index, err)
+		}
+		defer g.Destroy()
+		if bodyErr != nil {
+			return bodyErr
+		}
+		exec, err := g.Instantiate()
+		if err != nil {
+			return fmt.Errorf("cuda graph: instantiate ffn layer %d: %w", index, err)
+		}
+		r.graphs[index].ffn = exec
+		if err := exec.Launch(r.stream()); err != nil {
+			return fmt.Errorf("cuda graph: launch initial ffn layer %d: %w", index, err)
+		}
+		r.hcMath.ready = false
+		return nil
+	}
+	return r.evalLayerFFN(hc, s, index, token, position, heads)
 }
 
 func (r *cudaRuntime) evalLayer(index, token, position int) error {
