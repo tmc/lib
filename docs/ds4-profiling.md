@@ -226,12 +226,17 @@ nsight_start - host_before]`, the range of offsets consistent with that reading:
 **They are disjoint.** The whole end interval lies 1,779,102 ns below the start
 interval — 1,400 times the tighter bracket's own width, so this is not
 measurement slack. Over the 160.107485342 s the span clock counted, Nsight
-counted 160.105706240 s: the two clocks differ in *rate* by 11.11 ppm, which is
-what an NTP-slewed `CLOCK_MONOTONIC` against an undisciplined counter looks
-like. One constant offset cannot relate them, so **no value is passed to
+counted 160.105706240 s: the two clocks differ in *rate* by 11.11 ppm. One
+constant offset cannot relate them, so **no value is passed to
 `-spans-offset-ns` and merged-clock qualification stays open.** Do not split the
 difference; an averaged offset would be wrong at both ends and defensible at
 neither.
+
+The *cause* is unestablished. An NTP-slewed `CLOCK_MONOTONIC` read against an
+undisciplined counter would look like this, but nothing here measures the
+discipline of either clock, and 11.11 ppm is also within the range of plain
+crystal error. The gate fails on the arithmetic alone; naming a mechanism is not
+required to fail it, and would not be evidence if it were offered.
 
 The same measurement refutes the obvious guess about the Nsight timebase. If
 `TARGET_INFO_SESSION_START_TIME.systemClockNs` were the report's zero in the
@@ -331,6 +336,12 @@ the 200 ms tail was chosen to cover that with margin — but `cpu_uptime_ns` and
 `nsys_ns` are different domains, so which device kernels belong to decode is
 still inferred, not established.
 
+A second reason not to name it after decode has since been measured: this
+capture lost device events, so its device tail may end before the workload
+did. The window holds 5,105 kernels across 32 distinct kernel names, so it is
+populated — but with no NVTX table in this run, nothing in it attributes to a
+phase, and the tail's own completeness is not established.
+
 A concrete lead, not yet a mapping: the export's `TARGET_INFO_SESSION_START_TIME`
 carries `utcEpochNs=1789252196696595551` and `systemClockNs=491666116248656`.
 The clock backing `systemClockNs` has to be established before either is
@@ -339,10 +350,27 @@ negative, which is the tell that the domains were mismatched.
 
 ### Batching prefill buys almost nothing here
 
-Activity is uniform across the entire 158.78 s device span: every 5-second
-bucket holds 127k-131k launches over the same 32 kernel kinds, and there is no
-gap longer than 5 ms anywhere in the final two seconds. The decode window uses
-29 distinct kernel kinds against prefill's 32.
+Activity is close to uniform across the 158.78 s device span, with two
+exceptions that were missed the first time this was written. Bucketed into
+5-second bins, the interior bins hold 127k-131k launches over the same 32
+kernel kinds, but the first bin holds 122,904, the bin at 45-50 s holds
+109,126, and one 801,297,888 ns gap sits at t=50.355 s. The earlier claim here
+that *every* bucket holds 127k-131k launches was wrong; it was asserted from
+the steady-state bins without bucketing the whole span.
+
+The final-two-seconds claim does survive measurement: the largest inter-kernel
+gap in the last 2 s is 120,768 ns across 50,777 kernels, well under the 5 ms
+that was claimed. The decode window uses 29 distinct kernel kinds against
+prefill's 32.
+
+**This reference capture is itself incomplete, and by the same mechanism
+described under "What the capture drops on exit" below.** Its diagnostics
+carry `Not all CUDA events might have been collected` and, decisively, no
+`Number of CUPTI events produced` line at all — the accounting line that every
+capture which lost nothing does carry. So the 801 ms gap is not evidence that
+the GPU was idle at t=50.355 s; it is evidence that the capture stopped
+recording there. Nothing in this section's numbers should be read as a device
+occupancy measurement.
 
 Prefill *is* batched. `EvalBatch` at `cuda_session_linux.go:308` runs chunks of
 `cudaPrefillBatchWidth = 8` (`:72`), and the `*_batch` kernels are in the
@@ -440,3 +468,115 @@ Receipts on the DGX in `~/tmp/nvtx-qual` with `remote.sha256`, copied to
 `~/tmp/ds4-capture-local/nvtx-qual` with digests verified against it. The
 1.23 GB SQLite export and the 466 MB `.nsys-rep` stay on the DGX; everything
 else, including the binary, is local.
+
+## What the capture drops on exit
+
+Both captures above lose CUDA device events, and the loss is large enough to
+change what you may conclude from either. This section records what was
+measured, what the measurements refute, and what remains open — the mechanism
+is *not* fully established, and the guide should not be read as if it were.
+
+### The loss, measured
+
+In the NVTX qualification capture, NVTX tells you exactly where the device
+record is missing, because every prefill batch is a named range and containment
+is checkable. Counting kernels whose start falls inside a batch range
+(`batch.start <= k.start < batch.end` — "any kernel at or after the batch
+start" is the wrong query and reports 255/256):
+
+| | |
+| --- | --- |
+| prefill batches with at least one contained kernel | 253 of 256 |
+| empty batch ordinals | 7, 227, 256 |
+| kernels inside the `generation` range | 0 |
+| largest interior gaps | 1.765 s @ 5.223 s, 1.215 s @ 142.553 s, 0.804 s @ 35.395 s, 0.709 s @ 73.555 s |
+
+The three empty batches each hold **43 finished NVTX layer ranges and zero CUDA
+runtime rows**. A batch whose 43 layers all ran and closed cannot have issued
+zero CUDA API calls, so this is capture loss, not an idle device.
+
+It is also not a clock-domain artifact. The two calibration brackets bound the
+host-to-report rate difference at 11.11 ppm (see above), which accumulates to
+1.78 ms over the whole 160 s run — three orders of magnitude short of the
+0.709-1.765 s gaps it would have to explain.
+
+### What a matched control refutes
+
+`~/tmp/cupti-tail/tail.cu` and `threads.cu` on the DGX reproduce the capture's
+*shape* with no model: a long stream of small launches under NVTX ranges. Every
+arm is measured, not asserted.
+
+| arm | kernels | span | rate /s | ranges nonempty | min contained |
+| --- | --- | --- | --- | --- | --- |
+| baseline | 275,000 | 0.702 s | 391,522 | 11/11 | 25,000 |
+| `--cuda-flush-interval=200` | 275,000 | — | — | 11/11 | 25,000 |
+| `cudaDeviceReset` | 275,000 | — | — | 11/11 | 24,999 |
+| long | 4,025,000 | 10.443 s | 385,434 | 161/161 | 24,999 |
+| long + 3 s linger | 4,025,000 | 10.439 s | 385,585 | 161/161 | — |
+| **paced** | 4,025,000 | **154.420 s** | **26,065** | 161/161 | 25,000 |
+| **per-range pthread** | 4,000,000 | **153.914 s** | 25,988 | 160/160 | 25,000 |
+
+The paced arm matches the real capture on volume, rate and duration at once and
+loses nothing. The threaded arm additionally creates and destroys an OS thread
+per range — the Go runtime's thread churn, isolated — and also loses nothing.
+
+So launch volume, launch rate, run duration, a trailing linger,
+`cudaDeviceReset`, a 200 ms flush interval, and thread retirement are each
+**insufficient to produce the loss** in a C program. That is the exact claim
+they support. It is *not* the claim that `--cuda-flush-interval` would fail as
+a mitigation for the Go loss — that is untested.
+
+### The exit path reproduces the diagnostic signature
+
+The discriminator that survived is in Nsight's own diagnostics. A capture that
+lost nothing reports both sides of its accounting:
+
+```
+Number of CUDA events collected: 	12075169.
+Number of CUPTI events produced: 	12075623, CUPTI buffers: 50.
+```
+
+Both captures in this guide report only the first line. The second is printed
+by CUPTI's teardown, which runs from an `atexit` handler — and Go's
+`runtime.exit` on linux/arm64 goes straight to `SYS_exit_group`
+(`src/runtime/sys_linux_arm64.s:53`), so that handler never runs. Every C
+control arm above returns from `main` and does run it.
+
+Changing only that in the control reproduces the signature:
+
+| arm | ranges | kernels expected | kernels seen | short range | produced line |
+| --- | --- | --- | --- | --- | --- |
+| threaded, return from `main` | 160 | 4,000,000 | 4,000,000 | none | present |
+| threaded, `_exit(0)` | 60 | 1,500,000 | 1,500,000 | none | **absent** |
+| single-thread, `_exit(0)` | 60 | 1,500,000 | **1,499,944** | last range, 24,944 | **absent** |
+
+The return-from-`main` row is the 160-iteration threaded arm from the table
+above; the `_exit` arms were run at 60 iterations. The arms differ in length,
+so read the last three columns, not the kernel totals across rows.
+
+`_exit(0)` skips `atexit` exactly as `exit_group` does. It removes the produced
+counter from the report in both arms, and in one arm it also drops 56 kernels,
+all of them from the final range.
+
+**This is a reproduced signature, not a proven mechanism.** What it explains is
+the missing counter line and a truncated tail. What it does not explain on its
+own is the interior loss — batches 7 and 227 are nowhere near exit. A
+supporting observation, not a proof: in the real capture, five CUDA runtime
+thread IDs stop emitting 0.694-1.304 s before their own last NVTX boundary, and
+a sixth carries 122 NVTX boundaries with no runtime rows at all — the shape a
+per-thread buffer that was filled but never flushed would leave. The control
+does not yet reproduce *that*.
+
+### What to do about it meanwhile
+
+Treat gaps in a capture as unproven until the diagnostics are read. Concretely:
+
+- Check for the `Number of CUPTI events produced` line in every capture before
+  drawing a conclusion from device timing. Its absence means events were lost.
+- Do not use `Not all CUDA events might have been collected` as the signal. A
+  control arm printed `Not all NVTX events might have been collected` on a
+  capture whose NVTX and kernel accounting is exactly complete; the warning
+  fires in both directions.
+- Check NVTX range containment rather than eyeballing a timeline. A batch with
+  finished layer ranges and no CUDA runtime rows is missing data, and only the
+  containment query shows it.
