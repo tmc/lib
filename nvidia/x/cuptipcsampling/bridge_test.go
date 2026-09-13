@@ -36,6 +36,7 @@ func TestProfileBridge(t *testing.T) {
 			{Index: 4, Name: "math_pipe_throttle"},
 			{Index: 5, Name: "lg_throttle"},
 			{Index: 6, Name: "drain"},
+			{Index: 7, Name: "selected_not_issued"},
 		},
 	}
 
@@ -66,7 +67,7 @@ func TestProfileBridge(t *testing.T) {
 
 	batch := cuptipcsampling.Batch{
 		Valid:        true,
-		TotalSamples: 42,
+		TotalSamples: 46,
 		PCs: []cuptipcsampling.PC{
 			{
 				CRC:    0x12345678,
@@ -79,6 +80,7 @@ func TestProfileBridge(t *testing.T) {
 					{Index: 4, Samples: 7},  // math_pipe_throttle -> StallMath
 					{Index: 5, Samples: 9},  // lg_throttle -> StallMem
 					{Index: 6, Samples: 2},  // drain -> UnmappedStalls
+					{Index: 7, Samples: 4},  // selected_not_issued -> UnmappedStalls (not InstExecuted)
 				},
 			},
 		},
@@ -93,6 +95,9 @@ func TestProfileBridge(t *testing.T) {
 	if got := bridge.UnmappedStalls["drain"]; got != 2 {
 		t.Errorf("UnmappedStalls[\"drain\"] = %d, want 2", got)
 	}
+	if got := bridge.UnmappedStalls["selected_not_issued"]; got != 4 {
+		t.Errorf("UnmappedStalls[\"selected_not_issued\"] = %d, want 4", got)
+	}
 
 	if err := session.Close(); err != nil {
 		t.Fatalf("session.Close: %v", err)
@@ -106,6 +111,25 @@ func TestProfileBridge(t *testing.T) {
 
 	if len(p.Sample) != 1 {
 		t.Fatalf("got %d samples, want 1", len(p.Sample))
+	}
+
+	sampleTypes := make(map[string]int)
+	for i, st := range p.SampleType {
+		sampleTypes[st.Type] = i
+	}
+	if idx, ok := sampleTypes["samples"]; ok {
+		if got := p.Sample[0].Value[idx]; got != 46 {
+			t.Errorf("samples = %d, want 46", got)
+		}
+	} else {
+		t.Error("missing samples type in profile")
+	}
+	if idx, ok := sampleTypes["inst_executed"]; ok {
+		if got := p.Sample[0].Value[idx]; got != 10 {
+			t.Errorf("inst_executed = %d, want 10 (selected_not_issued must not contribute)", got)
+		}
+	} else {
+		t.Error("missing inst_executed type in profile")
 	}
 
 	// SASS Address should be DefaultMappingStart + 0x1000 + 0x20 = 0x7f001020

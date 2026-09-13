@@ -166,3 +166,11 @@ func ExampleProfileBridge() {
 	// Output:
 	// Recorded: true
 }
+
+func ExampleCaptureResolver() {
+	resolver := cuptipcsampling.NewCaptureResolver(nil, 0)
+	loc := resolver.ResolvePC(cuptipcsampling.ModuleID{}, "compute", 0)
+	fmt.Println(loc.KernelName, loc.Resolved)
+	// Output:
+	// compute false
+}

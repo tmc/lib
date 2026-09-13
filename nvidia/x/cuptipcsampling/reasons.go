@@ -28,7 +28,11 @@ type ReasonInventory struct {
 }
 
 // Lookup returns the name of the stall reason for the given native index,
-// or an empty string if not found. It relies on Reasons being sorted by Index.
+// or an empty string if not found.
+//
+// Precondition: inv.Reasons must be strictly sorted ascending by Index.
+// StallReasons guarantees this ordering; callers constructing ReasonInventory
+// literals manually must maintain it for binary search.
 func (inv ReasonInventory) Lookup(index uint32) string {
 	idx, ok := slices.BinarySearchFunc(inv.Reasons, index, func(r StallReason, target uint32) int {
 		if r.Index < target {
