@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"runtime/trace"
 	"testing"
 	"time"
 
@@ -211,5 +212,286 @@ func TestCompleteBundleStreaming(t *testing.T) {
 	}
 	if string(bundle.Files["timeline.pftrace"]) != "fake_pftrace_timeline_protobuf" {
 		t.Errorf("timeline.pftrace content mismatch")
+	}
+}
+
+func TestAlignSpans(t *testing.T) {
+	tests := []struct {
+		name               string
+		nowNs              int64
+		windowNs           int64
+		goStartNs          int64
+		goHasData          bool
+		records            []cudaflightrecorder.Record
+		clockUncertaintyNs int64
+		wantGoSpanNs       int64
+		wantGPUSpanNs      int64
+		wantOverlapSpanNs  int64
+		wantReliable       bool
+	}{
+		{
+			name:      "both_overlapping",
+			nowNs:     200_000_000,
+			windowNs:  100_000_000, // [100ms, 200ms]
+			goStartNs: 100_000_000,
+			goHasData: true,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 120_000_000, DurationNs: 30_000_000}, // [120ms, 150ms]
+			},
+			clockUncertaintyNs: 10_000, // 10µs < 100µs and < 30ms
+			wantGoSpanNs:       100_000_000,
+			wantGPUSpanNs:      30_000_000,
+			wantOverlapSpanNs:  30_000_000,
+			wantReliable:       true,
+		},
+		{
+			name:      "gpu_partially_outside_go",
+			nowNs:     200_000_000,
+			windowNs:  50_000_000, // [150ms, 200ms]
+			goStartNs: 150_000_000,
+			goHasData: true,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 120_000_000, DurationNs: 50_000_000}, // [120ms, 170ms]
+			},
+			clockUncertaintyNs: 5_000,
+			wantGoSpanNs:       50_000_000,
+			wantGPUSpanNs:      50_000_000,
+			wantOverlapSpanNs:  20_000_000, // [150ms, 170ms] = 20ms
+			wantReliable:       true,
+		},
+		{
+			name:      "gpu_completely_before_go",
+			nowNs:     200_000_000,
+			windowNs:  50_000_000, // [150ms, 200ms]
+			goStartNs: 150_000_000,
+			goHasData: true,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 100_000_000, DurationNs: 20_000_000}, // [100ms, 120ms]
+			},
+			clockUncertaintyNs: 5_000,
+			wantGoSpanNs:       50_000_000,
+			wantGPUSpanNs:      20_000_000,
+			wantOverlapSpanNs:  0,
+			wantReliable:       false,
+		},
+		{
+			name:               "no_gpu_records",
+			nowNs:              200_000_000,
+			windowNs:           100_000_000,
+			goStartNs:          100_000_000,
+			goHasData:          true,
+			records:            nil,
+			clockUncertaintyNs: 5_000,
+			wantGoSpanNs:       100_000_000,
+			wantGPUSpanNs:      0,
+			wantOverlapSpanNs:  0,
+			wantReliable:       false,
+		},
+		{
+			name:      "no_go_trace_data",
+			nowNs:     200_000_000,
+			windowNs:  100_000_000,
+			goStartNs: 100_000_000,
+			goHasData: false,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 120_000_000, DurationNs: 30_000_000},
+			},
+			clockUncertaintyNs: 5_000,
+			wantGoSpanNs:       0,
+			wantGPUSpanNs:      30_000_000,
+			wantOverlapSpanNs:  0,
+			wantReliable:       false,
+		},
+		{
+			name:      "excessive_clock_uncertainty",
+			nowNs:     200_000_000,
+			windowNs:  100_000_000,
+			goStartNs: 100_000_000,
+			goHasData: true,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 120_000_000, DurationNs: 30_000_000},
+			},
+			clockUncertaintyNs: 150_000, // 150µs >= 100µs threshold
+			wantGoSpanNs:       100_000_000,
+			wantGPUSpanNs:      30_000_000,
+			wantOverlapSpanNs:  30_000_000,
+			wantReliable:       false,
+		},
+		{
+			name:      "clock_uncertainty_exceeds_overlap",
+			nowNs:     200_000_000,
+			windowNs:  100_000_000,
+			goStartNs: 100_000_000,
+			goHasData: true,
+			records: []cudaflightrecorder.Record{
+				{TimestampNs: 199_995_000, DurationNs: 5_000}, // 5µs overlap
+			},
+			clockUncertaintyNs: 8_000, // 8µs > 5µs overlap
+			wantGoSpanNs:       100_000_000,
+			wantGPUSpanNs:      5_000,
+			wantOverlapSpanNs:  5_000,
+			wantReliable:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			goSpan, gpuSpan, overlap, reliable := cudaflightrecorder.AlignSpans(
+				tt.nowNs,
+				tt.windowNs,
+				tt.goStartNs,
+				tt.goHasData,
+				tt.records,
+				tt.clockUncertaintyNs,
+			)
+			if goSpan != tt.wantGoSpanNs {
+				t.Errorf("goSpanNs = %d, want %d", goSpan, tt.wantGoSpanNs)
+			}
+			if gpuSpan != tt.wantGPUSpanNs {
+				t.Errorf("gpuSpanNs = %d, want %d", gpuSpan, tt.wantGPUSpanNs)
+			}
+			if overlap != tt.wantOverlapSpanNs {
+				t.Errorf("overlapSpanNs = %d, want %d", overlap, tt.wantOverlapSpanNs)
+			}
+			if reliable != tt.wantReliable {
+				t.Errorf("overlapReliable = %v, want %v", reliable, tt.wantReliable)
+			}
+		})
+	}
+}
+
+func TestGoTraceFlightRecording(t *testing.T) {
+	tests := []struct {
+		name              string
+		cfg               cudaflightrecorder.Config
+		snapshotAfterStop bool
+	}{
+		{
+			name: "flight_recorder_active",
+			cfg: cudaflightrecorder.Config{
+				Window:         2 * time.Second,
+				Capacity:       100,
+				GoTraceEnabled: true,
+			},
+		},
+		{
+			name: "standard_trace_adapter",
+			cfg: cudaflightrecorder.Config{
+				Window:          2 * time.Second,
+				Capacity:        100,
+				GoTraceEnabled:  true,
+				GoTraceStandard: true,
+			},
+		},
+		{
+			name: "custom_window_and_max_bytes",
+			cfg: cudaflightrecorder.Config{
+				Window:          3 * time.Second,
+				Capacity:        100,
+				GoTraceEnabled:  true,
+				GoTraceWindow:   1 * time.Second,
+				GoTraceMaxBytes: 1048576,
+			},
+		},
+		{
+			name: "snapshot_after_stop",
+			cfg: cudaflightrecorder.Config{
+				Window:         2 * time.Second,
+				Capacity:       100,
+				GoTraceEnabled: true,
+			},
+			snapshotAfterStop: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, err := cudaflightrecorder.New(tt.cfg)
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+
+			if err := rec.Start(); err != nil {
+				t.Fatalf("Start failed: %v", err)
+			}
+
+			// Generate runtime activity while tracing
+			trace.Log(context.Background(), "cudaflightrecorder_test", tt.name)
+			ch := make(chan int, 1)
+			go func() {
+				ch <- 42
+			}()
+			<-ch
+			time.Sleep(15 * time.Millisecond)
+
+			// Push GPU records
+			now := time.Now()
+			rec.Push(cudaflightrecorder.Record{
+				TimestampNs:   now.UnixNano(),
+				KernelName:    "elementwise_add",
+				CorrelationID: 1001,
+				DurationNs:    8000,
+			})
+			rec.Push(cudaflightrecorder.Record{
+				TimestampNs:   now.Add(2 * time.Millisecond).UnixNano(),
+				KernelName:    "gemm_wmma",
+				CorrelationID: 1002,
+				DurationNs:    12000,
+			})
+
+			if tt.snapshotAfterStop {
+				rec.Stop()
+			} else {
+				defer rec.Stop()
+			}
+
+			var buf bytes.Buffer
+			manifest, err := rec.Snapshot(context.Background(), &buf, "integration_test")
+			if err != nil {
+				t.Fatalf("Snapshot failed: %v", err)
+			}
+
+			if manifest.GoTraceBytes <= 0 {
+				t.Errorf("manifest.GoTraceBytes = %d, want > 0", manifest.GoTraceBytes)
+			}
+			if manifest.GPURecords != 2 {
+				t.Errorf("manifest.GPURecords = %d, want 2", manifest.GPURecords)
+			}
+			if manifest.GoSpanNs <= 0 {
+				t.Errorf("manifest.GoSpanNs = %d, want > 0", manifest.GoSpanNs)
+			}
+			if manifest.OverlapSpanNs <= 0 {
+				t.Errorf("manifest.OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
+			}
+			if !manifest.OverlapReliable {
+				t.Errorf("manifest.OverlapReliable = false, want true")
+			}
+
+			// Verify TAR bundle contents
+			bundle, err := cudaflightrecorder.ReadBundle(&buf)
+			if err != nil {
+				t.Fatalf("ReadBundle failed: %v", err)
+			}
+
+			if bundle.Manifest.GoTraceBytes != manifest.GoTraceBytes {
+				t.Errorf("bundle GoTraceBytes = %d, want %d", bundle.Manifest.GoTraceBytes, manifest.GoTraceBytes)
+			}
+
+			traceData, ok := bundle.Files["go.trace"]
+			if !ok || len(traceData) == 0 {
+				t.Fatalf("missing or empty go.trace in bundle")
+			}
+			if !bytes.HasPrefix(traceData, []byte("go 1.")) {
+				t.Errorf("go.trace header does not start with 'go 1.', got %q", string(traceData[:min(len(traceData), 16)]))
+			}
+
+			gpuRecs, ok := bundle.Files["gpu_records.txt"]
+			if !ok || len(gpuRecs) == 0 {
+				t.Fatalf("missing or empty gpu_records.txt in bundle")
+			}
+			if !bytes.Contains(gpuRecs, []byte("gemm_wmma")) {
+				t.Errorf("gpu_records.txt missing kernel name 'gemm_wmma'")
+			}
+		})
 	}
 }

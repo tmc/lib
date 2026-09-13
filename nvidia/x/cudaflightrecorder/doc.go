@@ -7,11 +7,12 @@
 //
 // # Basic Usage
 //
-// Configure and start a flight recorder with a 10-second circular buffer:
+// Configure and start a flight recorder with a 10-second circular buffer and Go tracing:
 //
 //	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
-//		Window:   10 * time.Second,
-//		Capacity: 65536,
+//		Window:         10 * time.Second,
+//		Capacity:       65536,
+//		GoTraceEnabled: true,
 //	})
 //	if err != nil {
 //		log.Fatal(err)
@@ -29,5 +30,6 @@
 //	if err != nil {
 //		log.Fatal(err)
 //	}
-//	fmt.Printf("Recorded %d GPU records across %v\n", manifest.GPURecords, manifest.GPUSpan())
+//	fmt.Printf("Recorded %d GPU records across %v (overlap: %v, reliable: %t)\n",
+//		manifest.GPURecords, manifest.GPUSpan(), manifest.OverlapSpan(), manifest.OverlapReliable)
 package cudaflightrecorder
