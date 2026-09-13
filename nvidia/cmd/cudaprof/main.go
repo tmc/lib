@@ -68,11 +68,17 @@ func run() error {
 	if len(os.Args) > 1 && os.Args[1] == "explain" {
 		return runExplainCommand(os.Args[2:])
 	}
+	if len(os.Args) > 1 && os.Args[1] == "diff" {
+		return runDiffCommand(os.Args[2:])
+	}
 	if len(os.Args) > 1 && (os.Args[1] == "cfg" || os.Args[1] == "-cfg" || strings.HasPrefix(os.Args[1], "-cfg=") || strings.HasPrefix(os.Args[1], "--cfg")) {
 		return runCFGCommand(os.Args[1:])
 	}
 	if len(os.Args) > 1 && (os.Args[1] == "bbcfg" || os.Args[1] == "-bbcfg" || strings.HasPrefix(os.Args[1], "-bbcfg=") || strings.HasPrefix(os.Args[1], "--bbcfg")) {
 		return runCFGCommand(os.Args[1:])
+	}
+	if len(os.Args) > 1 && (os.Args[1] == "pressure" || os.Args[1] == "-pressure" || strings.HasPrefix(os.Args[1], "-pressure=") || strings.HasPrefix(os.Args[1], "--pressure")) {
+		return runPressureCommand(os.Args[1:])
 	}
 	if len(os.Args) > 1 && os.Args[1] == "-extract" {
 		args, limits, err := parseReadLimits(os.Args[2:])
@@ -91,7 +97,7 @@ func run() error {
 		return pack(os.Args[2], os.Args[3])
 	}
 	if len(os.Args) == 1 || len(os.Args) == 2 && slices.Contains([]string{"-h", "-help", "--help"}, os.Args[1]) {
-		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof")
+		fmt.Println("Usage: cudaprof [pprof flags] capture.pprof\n\n  -http=127.0.0.1:8087  open interactive pprof\n  -no_browser          serve without opening a browser\n  -top                 show kernel totals\n  -list=compute        show annotated source\n  -disasm=compute      show PTX and SASS\n  -cfg[=kernel]        print control flow graph (DOT format)\n  -bbcfg[=kernel]      print basic block control flow graph (DOT format)\n  -pressure[=kernel]   print live register pressure and stall metrics\n\nTo explain a PTX instruction, directive, register, or modifier:\n  cudaprof explain <ptx-statement-or-keyword>\n\nTo diff SASS disassembly between captures or assembly files:\n  cudaprof diff [flags] <base.pprof|base.sass> <target.pprof|target.sass>\n\nTo embed an existing capture's files:\n  cudaprof -pack output.pprof path/to/gpu.pprof\n\nTo extract source, assembly, control flow graphs, and Go trace:\n  cudaprof -extract new-directory capture.pprof\n\nTo view or render control flow graphs:\n  cudaprof cfg [kernel] capture.pprof | dot -Tsvg -o graph.svg\n  cudaprof inspect --cfg [kernel] capture.pprof\n\nTo view register pressure:\n  cudaprof pressure [kernel] capture.pprof\n  cudaprof inspect --pressure [kernel] capture.pprof")
 		return nil
 	}
 	path, err := filepath.Abs(os.Args[len(os.Args)-1])
