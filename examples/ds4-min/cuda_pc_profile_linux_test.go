@@ -269,7 +269,7 @@ func TestCUDAPCProfile(t *testing.T) {
 	prof.AddComment("attribution: hardware PC samples attributed to SASS, PTX and source")
 
 	// Start PC sampling
-	period := uint32(10) // 2^10 = 1024 cycles
+	period := uint32(16) // 2^16 = 65,536 cycles, suited for full multi-layer inference
 	config, err := pcSamplingBudget(len(inv.Reasons), period)
 	if err != nil {
 		t.Fatalf("pc sampling budget: %v", err)
@@ -288,27 +288,6 @@ func TestCUDAPCProfile(t *testing.T) {
 		Session:   prof,
 		Inventory: inv,
 		Resolver:  resolver,
-	}
-
-	const numTokens = 8
-	t.Logf("running %d decode steps under hardware PC sampling...", numTokens)
-	workloadStart := time.Now()
-
-	for step := 0; step < numTokens; step++ {
-		tok := 1000 + step*17
-		if err := r.Eval(tok, step); err != nil {
-			t.Fatalf("eval step %d: %v", step, err)
-		}
-	}
-	if err := r.device.WithContext(func() error { return driver.CtxSynchronize() }); err != nil {
-		t.Fatalf("synchronize: %v", err)
-	}
-	workloadDur := time.Since(workloadStart)
-	t.Logf("decode completed in %v (%.2f ms/token)", workloadDur, float64(workloadDur.Milliseconds())/float64(numTokens))
-
-	// Stop sampling and drain
-	if err := session.Stop(); err != nil {
-		t.Fatalf("stop pc sampling: %v", err)
 	}
 
 	var totalSamples, droppedSamples, nonUserSamples uint64
@@ -332,6 +311,38 @@ func TestCUDAPCProfile(t *testing.T) {
 			}
 		}
 		_ = bridge.RecordBatch(context.Background(), b)
+	}
+
+	const numTokens = 4
+	t.Logf("running %d decode steps under hardware PC sampling (period exponent %d)...", numTokens, period)
+	workloadStart := time.Now()
+
+	for step := 0; step < numTokens; step++ {
+		tok := 1000 + step*17
+		if err := r.Eval(tok, step); err != nil {
+			t.Fatalf("eval step %d: %v", step, err)
+		}
+		// Drain any ready batches between steps
+		for {
+			b, readErr := session.Read()
+			if readErr != nil || !b.Valid {
+				break
+			}
+			drainBatch(b)
+			if b.RemainingPCs == 0 {
+				break
+			}
+		}
+	}
+	if err := r.device.WithContext(func() error { return driver.CtxSynchronize() }); err != nil {
+		t.Fatalf("synchronize: %v", err)
+	}
+	workloadDur := time.Since(workloadStart)
+	t.Logf("decode completed in %v (%.2f ms/token)", workloadDur, float64(workloadDur.Milliseconds())/float64(numTokens))
+
+	// Stop sampling and drain
+	if err := session.Stop(); err != nil {
+		t.Fatalf("stop pc sampling: %v", err)
 	}
 
 	for {
