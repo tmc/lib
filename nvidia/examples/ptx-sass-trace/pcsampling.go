@@ -152,6 +152,12 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 		HostFrames: func(loc cuptipcsampling.CodeLocation) []cudaprof.Frame {
 			return rec.launchStack(loc.KernelName)
 		},
+		// Same argument as HostFrames: the labelled context the workload ran
+		// under is gone by the time CUPTI hands the samples over, so the labels
+		// have to come from what the launches shared.
+		LabelFunc: func(loc cuptipcsampling.CodeLocation) map[string]string {
+			return rec.launchLabels(loc.KernelName)
+		},
 	}
 	res = &pcSamplingResult{PeriodExponent: period, SelectedReasons: len(config.ReasonIDs)}
 

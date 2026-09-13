@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -195,5 +196,37 @@ func TestLaunchRecorderStacks(t *testing.T) {
 				t.Errorf("launchStack(other) = %v, want nil", got)
 			}
 		})
+	}
+}
+
+// A PC sample is an aggregate over every launch of its kernel, so only the
+// labels that held for all of them describe it. pass and moe.expert vary across
+// launches and must not survive; phase holds and must.
+func TestLaunchRecorderLabels(t *testing.T) {
+	r := newLaunchRecorder(nil, nil)
+	launch := func(pairs ...string) {
+		cudaprof.Do(context.Background(), cudaprof.Labels(pairs...), func(ctx context.Context) {
+			r.observeLabels(ctx, "kernel")
+		})
+	}
+	launch("kernel", "kernel", "phase", "compute", "pass", "0", "moe.expert", "3")
+	launch("kernel", "kernel", "phase", "compute", "pass", "1", "moe.expert", "4")
+	got := r.launchLabels("kernel")
+	want := map[string]string{"phase": "compute"}
+	if !maps.Equal(got, want) {
+		t.Errorf("launchLabels = %v, want %v", got, want)
+	}
+	// A kernel nobody launched has no labels, rather than another kernel's.
+	if got := r.launchLabels("other"); got != nil {
+		t.Errorf("launchLabels(other) = %v, want nil", got)
+	}
+	// One launch is not a pattern, but it is also not a disagreement: its labels
+	// hold for every launch there was.
+	single := newLaunchRecorder(nil, nil)
+	cudaprof.Do(context.Background(), cudaprof.Labels("phase", "memory", "pass", "7"), func(ctx context.Context) {
+		single.observeLabels(ctx, "vector_add")
+	})
+	if got, want := single.launchLabels("vector_add"), map[string]string{"phase": "memory", "pass": "7"}; !maps.Equal(got, want) {
+		t.Errorf("launchLabels after one launch = %v, want %v", got, want)
 	}
 }

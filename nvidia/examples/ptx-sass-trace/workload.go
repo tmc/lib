@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime/pprof"
 	"runtime/trace"
 	"slices"
 	"strconv"
@@ -42,6 +43,10 @@ type launchRecorder struct {
 	// ambiguous holds the kernels launched from more than one distinct stack.
 	// One of several stacks is not attribution, so those kernels report none.
 	ambiguous map[string]bool
+	// labels holds, per kernel, the context labels that were the same on every
+	// launch of it. A PC sample is an aggregate over all of a kernel's
+	// launches, so a label that varied between them describes none of it.
+	labels map[string]map[string]string
 }
 
 func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorder {
@@ -50,6 +55,7 @@ func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorde
 		ptxLines:  ptxLines,
 		stacks:    make(map[string][]cudaprof.Frame),
 		ambiguous: make(map[string]bool),
+		labels:    make(map[string]map[string]string),
 	}
 }
 
@@ -80,6 +86,52 @@ func (r *launchRecorder) launchStack(name string) []cudaprof.Frame {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.stacks[name]
+}
+
+// observeLabels records the context labels in effect for a launch of name,
+// keeping only those that have held for every launch of it so far. A label that
+// differs between two launches, pass or moe.expert for instance, cannot
+// describe a sample aggregated over both.
+func (r *launchRecorder) observeLabels(ctx context.Context, name string) {
+	if name == "" {
+		return
+	}
+	seen := make(map[string]string)
+	pprof.ForLabels(ctx, func(key, value string) bool {
+		seen[key] = value
+		return true
+	})
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	prev, ok := r.labels[name]
+	if !ok {
+		r.labels[name] = seen
+		return
+	}
+	for key, value := range prev {
+		if seen[key] != value {
+			delete(prev, key)
+		}
+	}
+}
+
+// launchLabels reports the labels every launch of name shared, or nil when no
+// launch was observed. The kernel label is the bridge's own and is not repeated
+// here.
+func (r *launchRecorder) launchLabels(name string) map[string]string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.labels[name]) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(r.labels[name]))
+	for key, value := range r.labels[name] {
+		if key == "kernel" {
+			continue
+		}
+		out[key] = value
+	}
+	return out
 }
 
 func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *launchRecorder, code *cudacapture.Code, cfg config) (res workloadResult, err error) {
@@ -677,6 +729,7 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 	// later cover the unmeasured passes too.
 	stack := goFrames(1)
 	rec.observe(k.Name, stack)
+	rec.observeLabels(ctx, k.Name)
 	if record {
 		// One launch per sample, so -sample_index=samples reports launch counts
 		// instead of an empty report.
