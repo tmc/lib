@@ -175,4 +175,3 @@ func TestParseInlineAndPTXInfo(t *testing.T) {
 		t.Errorf("inst1 inlined = %s:%d, want empty", inst1.InlinedFile, inst1.InlinedLine)
 	}
 }
-
