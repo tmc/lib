@@ -75,11 +75,57 @@ alternatives-managed and its target has drifted:
         -cpuprofile go.cpu.pprof -trace go.trace \
         -spans go.spans.jsonl -span-level layer
 
-Two things this does not give you. `nsys` reports CPU sampling unavailable on
+One thing this does not give you: `nsys` reports CPU sampling unavailable on
 this host, so the Nsight report carries no host samples — the Go CPU profile is
-the host-side instrument, not a fallback. And `ds4-min` carries no NVTX
-instrumentation, so the export has no `NVTX_EVENTS` table and the device
-timeline arrives unlabelled by phase. Adding NVTX ranges is open work.
+the host-side instrument, not a fallback.
+
+### NVTX, and what the export does to it
+
+`ds4-min` emits an NVTX range for every span it records, so the device timeline
+arrives labelled by phase, batch, token and layer. The ranges bypass the
+recorder's caps on purpose: a run that drops sidecar records still has a
+complete Nsight timeline. Add `-calibration <file>` to bracket two uniquely
+named ranges between reads of the span clock; `ds4-min` refuses the flag when no
+provider is attached rather than paying a model load to find out.
+
+Three things about the provider, measured with a standalone Go binary under
+`nsys -t nvtx` — no model, no GPU:
+
+`nvtx.Enabled()` tracks the real condition. Bare, `NVTX_INJECTION64_PATH` is
+unset and `RangeStart` returns 0. Under the 2026.1.1 binary the variable points
+at `target-linux-sbsa-armv8/libToolsInjection64.so`, `Enabled()` is true, and
+handles come back nonzero.
+
+A process that exits within a millisecond of its last range exports **no
+`NVTX_EVENTS` table at all**. The same program with sleeps, running about 2.5 s,
+exported all 15 of its events. This is a flush boundary at exit, not a
+capability limit — but it means a trivial smoke test reports "NVTX does not
+work" for the wrong reason.
+
+One row came out malformed in all three probes: the last
+`RangePush`/`RangePop` pair carries `start == end`, both holding an absolute
+`systemClockNs` value instead of the session-relative one every other row uses.
+Subtracting the session start puts it 2,624 ns after the preceding mark, where
+the program's emission order says it belongs — but the 50 ms duration is gone,
+not rescaled. **The cause is not established.** The probe pushed and popped
+across a `time.Sleep` without `runtime.LockOSThread`, and push/pop are
+current-thread stacks, so a migrated goroutine popping a different stack is not
+excluded; `ScopedRange` pins for exactly this reason. Treat it as a warning
+about unpinned push/pop, not as a known Nsight defect.
+
+It does not reach the calibration path. `calibrate` uses
+`RangeStart`/`RangeEnd`, and in the qualification capture below the end
+calibration is both an `eventType` 60 row and the last range emitted before
+exit: it is normalized, carries its true duration, and no row in the capture has
+an absolute-magnitude timestamp. The probes alone could not have shown that —
+they never put a `RangeStart`/`RangeEnd` last — so the capture, not the probe,
+is what closes it.
+
+`NVTX_EVENTS.text` carries the range string literally and `textId` is NULL for
+these, which is why `calibrate` puts the run ID in the range name. The schema
+does populate `rangeId`, but a unique name is still the better key: it is chosen
+by the program and survives into any other receipt.
+
 
 Export to SQLite, which is what the converter reads:
 
@@ -165,6 +211,39 @@ span sidecar is `cpu_uptime_ns`; the oracle is `CLOCK_MONOTONIC`. An offset is
 `(source_ns, reference_ns)` the offset is `reference_ns - source_ns`. Until
 such a pair is measured for this workload, keep the device trace and the host
 trace as separate files and read them side by side.
+
+### The pair has now been measured, and it refutes a constant offset
+
+Run `nvtx-20260912-DF6906F6` (below) bracketed two calibration ranges 160.1 s
+apart. Each bracket is the interval `[nsight_start - host_after,
+nsight_start - host_before]`, the range of offsets consistent with that reading:
+
+| bracket | offset interval (ns) | width |
+| --- | --- | --- |
+| start | `-496790522283921 .. -496790522271313` | 12,608 ns |
+| end | `-496790524064271 .. -496790524063023` | 1,248 ns |
+
+**They are disjoint.** The whole end interval lies 1,779,102 ns below the start
+interval — 1,400 times the tighter bracket's own width, so this is not
+measurement slack. Over the 160.107485342 s the span clock counted, Nsight
+counted 160.105706240 s: the two clocks differ in *rate* by 11.11 ppm, which is
+what an NTP-slewed `CLOCK_MONOTONIC` against an undisciplined counter looks
+like. One constant offset cannot relate them, so **no value is passed to
+`-spans-offset-ns` and merged-clock qualification stays open.** Do not split the
+difference; an averaged offset would be wrong at both ends and defensible at
+neither.
+
+The same measurement refutes the obvious guess about the Nsight timebase. If
+`TARGET_INFO_SESSION_START_TIME.systemClockNs` were the report's zero in the
+span clock's domain, the offset would be `-496805755631696`; the measured
+brackets sit 15.233 s away from it. The prediction was written down before the
+capture precisely so it could fail visibly. Treat `systemClockNs` as an
+unidentified clock until something measures it.
+
+What would close this: a third bracket mid-run. Two points fix a line with no
+residual left over, so a linear fit through these two is unfalsifiable as it
+stands; a third says whether the drift is linear or whether the clocks are
+related by something worse.
 
 ## Reading the Go profiles
 
@@ -321,3 +400,43 @@ shallow-regime phase count is `(tokens/8)*(43+1) + tokens*43*8`
 tokens — seven times the record cap and far past the byte cap, so most of
 prefill and probably all of decode would be dropped, and the sidecar would
 still be written. Detailed phase names belong in NVTX, not here.
+
+## NVTX qualification run, DGX spark-31db, 2026-09-12
+
+Run ID `nvtx-20260912-DF6906F6`, commit `80f8fcb5`, `ds4-min-nvtx` built
+go1.27.0 linux/arm64 with `vcs.modified=false`, nsys 2026.1.1, model content
+sha256 `ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0`.
+2048 prompt tokens, 2 decoded, `-ctx 4096`, both digest expectations passed on
+the binary's own check, accepted IDs 15342 and 201, stdout `" alla"`.
+
+The instrumentation is close to free. Prefill 12.81 t/s and generation
+11.84 t/s, against 12.96 and 11.92 for the same workload with spans but no
+NVTX and no profiler — about 1.2% and 0.7%.
+
+Every span has its range and every range closed:
+
+| | |
+| --- | --- |
+| `NVTX_EVENTS` rows | 11,356 |
+| unfinished (`end IS NULL`) | 0 |
+| rows not of `eventType` 60 | 0 |
+| rows with an absolute-magnitude start | 0 |
+| host sidecar spans | 11,354 |
+| CUDA kernel rows | 3,973,441 |
+
+The name histogram matches the sidecar inventory exactly — 11,094 `layer`,
+256 `batch`, 2 `token`, 1 `prefill`, 1 `generation`, summing to the 11,354
+spans, plus the 2 calibration ranges.
+
+**What this run does not carry:** NVTX names below the layer, and the clock
+mapping. The ranges mirror the recorded spans, so a device kernel still cannot
+be attributed to a phase name finer than `layer`; `markCUDAPhase` granularity
+is a separate capture, and putting those names in the host sidecar as well
+needs a streaming writer, not a larger cap. And the calibration brackets came
+back disjoint — see "Do not align two clocks by eye" — so the device and host
+traces still have to be read side by side.
+
+Receipts on the DGX in `~/tmp/nvtx-qual` with `remote.sha256`, copied to
+`~/tmp/ds4-capture-local/nvtx-qual` with digests verified against it. The
+1.23 GB SQLite export and the 466 MB `.nsys-rep` stay on the DGX; everything
+else, including the binary, is local.
