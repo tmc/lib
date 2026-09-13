@@ -1,0 +1,43 @@
+--Ofast-compile value short=-Ofc
+--Xnvvm value short=-Xnvvm
+--Xptxas value short=-Xptxas
+--arch value short=-arch values=compute_100,compute_100a,compute_100f,compute_103,compute_103a,compute_103f,compute_110,compute_110a,compute_110f,compute_120,compute_120a,compute_120f,compute_121,compute_121a,compute_121f,compute_75,compute_80,compute_86,compute_87,compute_88,compute_89,compute_90,compute_90a,lto_100,lto_100a,lto_100f,lto_103,lto_103a,lto_103f,lto_110,lto_110a,lto_110f,lto_120,lto_120a,lto_120f,lto_121,lto_121a,lto_121f,lto_75,lto_80,lto_86,lto_87,lto_88,lto_89,lto_90,lto_90a,sm_100,sm_100a,sm_100f,sm_103,sm_103a,sm_103f,sm_110,sm_110a,sm_110f,sm_120,sm_120a,sm_120f,sm_121,sm_121a,sm_121f,sm_75,sm_80,sm_86,sm_87,sm_88,sm_89,sm_90,sm_90a
+--cpu-arch value short=-cpu-arch default=unknown values=AARCH64,ARMv7,PPC64LE,X86,X86_64,unknown
+--debug bare short=-g
+--device-stack-protector bare short=-device-stack-protector
+--disable-infos bare short=-disable-infos
+--disable-warnings bare short=-w
+--dlto bare short=-dlto
+--dump-callgraph bare short=-dump-callgraph
+--dump-callgraph-no-demangle bare short=-dump-callgraph-no-demangle
+--emit-ptx bare short=-emit-ptx
+--extra-warnings bare short=-extrawarn
+--gen-host-linker-script value short=-ghls values=lcs-abs,lcs-aug
+--help bare short=-h
+--ignore-host-info bare short=-ignore-host-info
+--keep-system-libraries bare short=-keep-system-libraries
+--kernels-used value short=-kernels-used
+--library value short=-l
+--library-path value short=-L
+--link-time-opt bare short=-lto
+--machine value short=-m default=64 values=64
+--maxrregcount value short=-maxrregcount
+--nvvmpath bare short=-nvvmpath
+--options-file value short=-optf
+--output-file value short=-o
+--preserve-relocs bare short=-preserve-relocs
+--register-link-binaries value
+--relocatable-link bare short=-r
+--report-arch bare short=-report-arch
+--split-compile value short=-split-compile default=1
+--split-compile-extended value short=-split-compile-extended default=1
+--suppress-arch-warning bare short=-suppress-arch-warning
+--suppress-debug-info bare short=-suppress-debug-info
+--suppress-stack-size-warning bare short=-suppress-stack-size-warning
+--time value short=-time
+--uidx-file bare short=-uidx
+--use-host-info bare short=-use-host-info
+--variables-used value short=-variables-used
+--verbose bare short=-v
+--version bare short=-V
+--warning-as-error bare short=-Werror

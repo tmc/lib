@@ -1,4 +1,3 @@
-// Package cudatool runs CUDA binary utilities without a shell.
 package cudatool
 
 import (
@@ -7,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -44,28 +41,4 @@ func Run(ctx context.Context, path, dir string, stdin io.Reader, args ...string)
 		return r, fmt.Errorf("run %s: %w: %s", r.Path, errors.Join(err, ctx.Err()), r.Stderr)
 	}
 	return r, nil
-}
-
-// cudaToolDirs are the default CUDA toolkit locations searched for a bare tool
-// name that is not on PATH.
-var cudaToolDirs = []string{
-	"/usr/local/cuda/bin",
-	"/usr/local/cuda-13.0/bin",
-	"/usr/local/cuda-12.0/bin",
-}
-
-// lookupCUDA returns an executable in a default CUDA toolkit directory when
-// name is a bare tool name. Otherwise it returns name unchanged, leaving
-// resolution to exec.LookPath.
-func lookupCUDA(name string) string {
-	if filepath.IsAbs(name) || strings.ContainsRune(name, filepath.Separator) {
-		return name
-	}
-	for _, dir := range cudaToolDirs {
-		p := filepath.Join(dir, name)
-		if fi, err := os.Stat(p); err == nil && !fi.IsDir() && fi.Mode()&0111 != 0 {
-			return p
-		}
-	}
-	return name
 }

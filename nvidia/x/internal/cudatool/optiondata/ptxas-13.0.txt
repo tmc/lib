@@ -1,0 +1,54 @@
+--Ofast-compile value short=-Ofc default=0
+--allow-expensive-optimizations value short=-allow-expensive-optimizations
+--compile-as-tools-patch bare short=-astoolspatch
+--compile-only bare short=-c
+--compiler-annotations bare short=-annotate
+--def-load-cache bare short=-dlcm
+--def-store-cache bare short=-dscm
+--device-debug bare short=-g
+--device-function-maxrregcount value short=-func-maxrregcount
+--device-stack-protector value short=-device-stack-protector default=false
+--disable-optimizer-constants bare short=-disable-optimizer-consts
+--disable-warnings bare short=-w
+--dont-merge-basicblocks bare short=-no-bb-merge
+--entry value short=-e
+--extensible-whole-program bare short=-ewp
+--fmad value short=-fmad default=true
+--force-load-cache bare short=-flcm
+--force-store-cache bare short=-fscm
+--g-tensor-memory-access-check bare short=-g-tmem-access-check
+--generate-line-info bare short=-lineinfo
+--gno-tensor-memory-access-check bare short=-gno-tmem-access-check
+--gpu-name value short=-arch default=sm_75 values=compute_100,compute_100a,compute_100f,compute_103,compute_103a,compute_103f,compute_110,compute_110a,compute_110f,compute_120,compute_120a,compute_120f,compute_121,compute_121a,compute_121f,compute_75,compute_80,compute_86,compute_87,compute_88,compute_89,compute_90,compute_90a,lto_100,lto_100a,lto_100f,lto_103,lto_103a,lto_103f,lto_110,lto_110a,lto_110f,lto_120,lto_120a,lto_120f,lto_121,lto_121a,lto_121f,lto_75,lto_80,lto_86,lto_87,lto_88,lto_89,lto_90,lto_90a,sm_100,sm_100a,sm_100f,sm_103,sm_103a,sm_103f,sm_110,sm_110a,sm_110f,sm_120,sm_120a,sm_120f,sm_121,sm_121a,sm_121f,sm_75,sm_80,sm_86,sm_87,sm_88,sm_89,sm_90,sm_90a
+--help bare short=-h
+--input-as-string value short=-ias
+--legacy-bar-warp-wide-behavior bare short=-legacy-bar-warp-wide-behavior
+--list-version bare short=-version-ls
+--machine value short=-m default=64 values=64
+--make-errors-visible-at-exit bare short=-make-errors-visible-at-exit
+--maxntid value short=-maxntid
+--maxrregcount value short=-maxrregcount
+--minnctapersm value short=-minnctapersm
+--opt-level value short=-O default=3
+--optimize-float-atomics bare short=-opt-fp-atomics
+--options-file value short=-optf
+--output-file value short=-o default=elf.o
+--override-directive-values bare short=-override-directive-values
+--position-independent-code value short=-pic default=false
+--preserve-relocs bare short=-preserve-relocs
+--register-usage-level value short=-regUsageLevel default=5
+--return-at-end bare short=-ret-end
+--sanitize value short=-sanitize values=memcheck,threadsteer
+--sp-bounds-check bare short=-sp-bounds-check
+--split-compile value short=-split-compile
+--suppress-async-bulk-multicast-advisory-warning bare short=-suppress-async-bulk-multicast-advisory-warning
+--suppress-debug-info bare short=-suppress-debug-info
+--suppress-double-demote-warning bare short=-suppress-double-demote-warning
+--suppress-sparse-mma-advisory-info bare short=-suppress-sparse-mma-advisory-info
+--suppress-stack-size-warning bare short=-suppress-stack-size-warning
+--verbose bare short=-v
+--version bare short=-V
+--warn-on-double-precision-use bare short=-warn-double-usage
+--warn-on-local-memory-usage bare short=-warn-lmem-usage
+--warn-on-spills bare short=-warn-spills
+--warning-as-error bare short=-Werror

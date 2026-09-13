@@ -1,0 +1,161 @@
+--Ofast-compile value short=-Ofc values=0,max,mid,min
+--Wconversion bare short=-Wconversion
+--Wdefault-stream-launch bare short=-Wdefault-stream-launch
+--Werror value short=-Werror values=all-warnings,conversion,cross-execution-space-call,default-stream-launch,deprecated-declarations,ext-lambda-captures-this,missing-launch-bounds,reorder
+--Wext-lambda-captures-this bare short=-Wext-lambda-captures-this
+--Wmissing-launch-bounds bare short=-Wmissing-launch-bounds
+--Wno-deprecated-declarations bare short=-Wno-deprecated-declarations
+--Wno-deprecated-gpu-targets bare short=-Wno-deprecated-gpu-targets
+--Wreorder bare short=-Wreorder
+--allow-unsupported-compiler bare short=-allow-unsupported-compiler
+--apply-controls value short=-apply-controls
+--archive-options value short=-Xarchive
+--archiver-binary value short=-arbin
+--augment-host-linker-script bare short=-aug-hls
+--brief-diagnostics value short=-brief-diag default=false values=true,false
+--clean-targets bare short=-clean
+--compile bare short=-c
+--compile-as-tools-patch bare short=-astoolspatch
+--compiler-bindir value short=-ccbin
+--compiler-options value short=-Xcompiler
+--compress-mode value short=-compress-mode values=default,size,speed,balance,none
+--concat bare short=-concat
+--cubin bare short=-cubin
+--cuda bare short=-cuda
+--cudadevrt value short=-cudadevrt default=static values=none,static
+--cudart value short=-cudart default=static values=none,shared,static
+--debug bare short=-g
+--default-stream value short=-default-stream default=legacy values=legacy,null,per-thread
+--define-macro value short=-D
+--dependency-drive-prefix value short=-ddp
+--dependency-output bare short=-MF
+--dependency-target-name value short=-MT
+--device-c bare short=-dc
+--device-debug bare short=-G
+--device-entity-has-hidden-visibility value short=-device-entity-has-hidden-visibility default=true values=true,false
+--device-link bare short=-dlink
+--device-stack-protector value short=-device-stack-protector default=false values=true,false
+--device-w bare short=-dw
+--diag-error value short=-diag-error
+--diag-suppress value short=-diag-suppress
+--diag-warn value short=-diag-warn
+--disable-warnings bare short=-w
+--display-error-number bare short=-err-no
+--dlink-time-opt bare short=-dlto
+--dont-use-profile bare short=-noprof
+--dopt value short=-dopt values=on
+--drive-prefix value short=-dp
+--dryrun bare short=-dryrun
+--enable-tile bare short=-enable-tile
+--entries value short=-e
+--expt-extended-lambda bare short=-expt-extended-lambda
+--expt-relaxed-constexpr bare short=-expt-relaxed-constexpr
+--extended-lambda bare short=-extended-lambda
+--extensible-whole-program bare short=-ewp
+--extra-device-vectorization bare short=-extra-device-vectorization
+--fatbin bare short=-fatbin
+--fdevice-sanitize value short=-fdevice-sanitize
+--fdevice-syntax-only bare short=-fdevice-syntax-only
+--fdevice-time-trace value short=-fdevice-time-trace
+--fmad value short=-fmad default=true values=true,false
+--fmax-errors value short=-fmax-errors
+--force-cl-env-setup bare short=-force-cl-env-setup
+--forward-unknown-opts bare short=-forward-unknown-opts
+--forward-unknown-to-host-compiler bare short=-forward-unknown-to-host-compiler
+--forward-unknown-to-host-linker bare short=-forward-unknown-to-host-linker
+--frandom-seed value short=-frandom-seed
+--ftemplate-backtrace-limit value short=-ftemplate-backtrace-limit
+--ftemplate-depth value short=-ftemplate-depth
+--ftz value short=-ftz default=false values=true,false
+--gen-opt-lto bare short=-gen-opt-lto
+--generate-code value short=-gencode
+--generate-dependencies bare short=-M
+--generate-dependencies-with-compile bare short=-MD
+--generate-dependency-targets bare short=-MP
+--generate-line-info bare short=-lineinfo
+--generate-nonsystem-dependencies bare short=-MM
+--generate-nonsystem-dependencies-with-compile bare short=-MMD
+--gpu-architecture value short=-arch values=all,all-major,compute_100,compute_100a,compute_100f,compute_103,compute_103a,compute_103f,compute_107,compute_107a,compute_107f,compute_110,compute_110a,compute_110f,compute_120,compute_120a,compute_120f,compute_121,compute_121a,compute_121f,compute_75,compute_80,compute_86,compute_87,compute_88,compute_89,compute_90,compute_90a,lto_100,lto_100a,lto_100f,lto_103,lto_103a,lto_103f,lto_107,lto_107a,lto_107f,lto_110,lto_110a,lto_110f,lto_120,lto_120a,lto_120f,lto_121,lto_121a,lto_121f,lto_75,lto_80,lto_86,lto_87,lto_88,lto_89,lto_90,lto_90a,native,sm_100,sm_100a,sm_100f,sm_103,sm_103a,sm_103f,sm_107,sm_107a,sm_107f,sm_110,sm_110a,sm_110f,sm_120,sm_120a,sm_120f,sm_121,sm_121a,sm_121f,sm_75,sm_80,sm_86,sm_87,sm_88,sm_89,sm_90,sm_90a
+--gpu-code value short=-code values=compute_100,compute_100a,compute_100f,compute_103,compute_103a,compute_103f,compute_107,compute_107a,compute_107f,compute_110,compute_110a,compute_110f,compute_120,compute_120a,compute_120f,compute_121,compute_121a,compute_121f,compute_75,compute_80,compute_86,compute_87,compute_88,compute_89,compute_90,compute_90a,lto_100,lto_100a,lto_100f,lto_103,lto_103a,lto_103f,lto_107,lto_107a,lto_107f,lto_110,lto_110a,lto_110f,lto_120,lto_120a,lto_120f,lto_121,lto_121a,lto_121f,lto_75,lto_80,lto_86,lto_87,lto_88,lto_89,lto_90,lto_90a,sm_100,sm_100a,sm_100f,sm_103,sm_103a,sm_103f,sm_107,sm_107a,sm_107f,sm_110,sm_110a,sm_110f,sm_120,sm_120a,sm_120f,sm_121,sm_121a,sm_121f,sm_75,sm_80,sm_86,sm_87,sm_88,sm_89,sm_90,sm_90a
+--help bare short=-h
+--host-linker-script value short=-hls values=gen-lcs,use-lcs
+--include-path value short=-I
+--input-drive-prefix value short=-idp
+--jobserver bare short=-jobserver
+--jump-table-density value short=-jtd default=101
+--keep bare short=-keep
+--keep-device-functions bare short=-keep-device-functions
+--keep-dir value short=-keep-dir
+--lib bare short=-lib
+--libdevice-directory value short=-ldir
+--library value short=-l
+--library-path value short=-L
+--link bare short=-link
+--linker-options value short=-Xlinker
+--list-gpu-arch bare short=-arch-ls
+--list-gpu-code bare short=-code-ls
+--lto bare short=-lto
+--ltoir bare short=-ltoir
+--m64 bare short=-m64
+--machine value short=-m default=64 values=64
+--maxrregcount value short=-maxrregcount
+--no-align-double bare
+--no-compress bare short=-no-compress
+--no-device-link bare short=-nodlink
+--no-display-error-number bare short=-no-err-no
+--no-exceptions bare short=-noeh
+--no-host-device-initializer-list bare short=-nohdinitlist
+--no-host-device-move-forward bare short=-nohdmoveforward
+--nvlink-options value short=-Xnvlink
+--nvprune-options value short=-Xnvprune
+--objdir-as-tempdir bare short=-objtemp
+--optimization-info value short=-opt-info values=inline
+--optimize value short=-O
+--options-file value short=-optf
+--optix-ir bare short=-optix-ir
+--output-directory value short=-odir
+--output-file value short=-o
+--pre-include value short=-include
+--prec-div value short=-prec-div default=true values=true,false
+--prec-sqrt value short=-prec-sqrt default=true values=true,false
+--preprocess bare short=-E
+--profile bare short=-pg
+--prune bare short=-prune
+--ptx bare short=-ptx
+--ptxas-options value short=-Xptxas
+--qpp-config bare short=-qpp-config
+--relocatable-device-code value short=-rdc default=false values=true,false
+--relocatable-link bare short=-r
+--relocatable-ptx bare short=-reloc-ptx
+--resource-usage bare short=-res-usage
+--restrict bare short=-restrict
+--run bare short=-run
+--run-args value short=-run-args
+--safety-compatibility bare short=-safety-compat
+--save-temps bare short=-save-temps
+--shared bare short=-shared
+--simt-only bare short=-simt-only
+--skip-ptx-semantics-check bare short=-skip-ptx-semantics-check
+--source-in-ptx bare short=-src-in-ptx
+--split-compile value short=-split-compile
+--split-compile-extended value short=-split-compile-extended
+--static-global-template-stub value short=-static-global-template-stub default=true values=true,false
+--std value short=-std values=c++03,c++11,c++14,c++17,c++20,c++23
+--stdlib value short=-stdlib values=libc++,libstdc++
+--system-include value short=-isystem
+--target-directory value short=-target-dir
+--threads value short=-t
+--tile-only bare short=-tile-only
+--tilebc bare short=-tilebc
+--tilecubin bare short=-tilecubin
+--tilefatbin bare short=-tilefatbin
+--tileiras-options value short=-Xtileiras
+--time value short=-time
+--undefine-macro value short=-U
+--use-local-env bare short=-use-local-env
+--use_fast_math bare short=-use_fast_math
+--utf-8 bare short=-utf-8
+--verbose bare short=-v
+--verbose2 bare short=-v2
+--version bare short=-V
+--x value short=-x values=c,c++,cu

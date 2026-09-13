@@ -1,0 +1,10 @@
+--allow-no-device-code bare short=-allow-no-device-code
+--arch value short=-arch
+--force-cubin bare short=-force-cubin
+--generate-code bare short=-gencode
+--help bare short=-h
+--no-relocatable-elf bare short=-no-relocatable-elf
+--options-file value short=-optf
+--output-file value short=-o
+--verbose bare short=-v
+--version bare short=-V

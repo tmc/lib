@@ -1,0 +1,41 @@
+--Xnvvm value short=-Xnvvm
+--Xptxas value short=-Xptxas
+--arch value short=-arch values=compute_50,compute_52,compute_53,compute_60,compute_61,compute_62,compute_70,compute_72,compute_75,compute_80,compute_86,compute_87,compute_89,compute_90,compute_90a,lto_50,lto_52,lto_53,lto_60,lto_61,lto_62,lto_70,lto_72,lto_75,lto_80,lto_86,lto_87,lto_89,lto_90,lto_90a,sm_50,sm_52,sm_53,sm_60,sm_61,sm_62,sm_70,sm_72,sm_75,sm_80,sm_86,sm_87,sm_89,sm_90,sm_90a
+--cpu-arch value short=-cpu-arch default=unknown values=AARCH64,ARMv7,PPC64LE,X86,X86_64,unknown
+--debug bare short=-g
+--device-stack-protector bare short=-device-stack-protector
+--disable-infos bare short=-disable-infos
+--disable-warnings bare short=-w
+--dlto bare short=-dlto
+--dump-callgraph bare short=-dump-callgraph
+--dump-callgraph-no-demangle bare short=-dump-callgraph-no-demangle
+--emit-ptx bare short=-emit-ptx
+--extra-warnings bare short=-extrawarn
+--gen-host-linker-script value short=-ghls values=lcs-abs,lcs-aug
+--help bare short=-h
+--ignore-host-info bare short=-ignore-host-info
+--keep-system-libraries bare short=-keep-system-libraries
+--kernels-used value short=-kernels-used
+--library value short=-l
+--library-path value short=-L
+--link-time-opt bare short=-lto
+--machine value short=-m default=64 values=64
+--maxrregcount value short=-maxrregcount
+--nvvmpath bare short=-nvvmpath
+--options-file value short=-optf
+--output-file value short=-o
+--preserve-relocs bare short=-preserve-relocs
+--register-link-binaries value
+--report-arch bare short=-report-arch
+--split-compile value short=-split-compile default=1
+--split-compile-extended value short=-split-compile-extended default=1
+--suppress-arch-warning bare short=-suppress-arch-warning
+--suppress-debug-info bare short=-suppress-debug-info
+--suppress-stack-size-warning bare short=-suppress-stack-size-warning
+--time value short=-time
+--uidx-file bare short=-uidx
+--use-host-info bare short=-use-host-info
+--variables-used value short=-variables-used
+--verbose bare short=-v
+--version bare short=-V
+--warning-as-error bare short=-Werror
