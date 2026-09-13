@@ -26,7 +26,8 @@ type KernelResource struct {
 	//
 	// StaticSharedMem records the actual ELF section size (e.g. 1088, 5120, 9216),
 	// which is what cuOccupancyMaxActiveBlocksPerMultiprocessor charges against the SM.
-	// (Similarly, MaxSharedMemoryOptin of 101376 B is 102400 - 1024 B).
+	// (The same 1024 B arithmetic appears in MaxSharedMemoryOptin: 101376 B = 102400 - 1024 B,
+	// though whether this shares the identical hardware reservation mechanism is unproven).
 	StaticSharedMem  int
 	StackFrameBytes  int // Local stack frame size per thread in bytes (EIATTR_FRAME_SIZE)
 	ConstantBankSize int // Constant memory parameter bank 0 size in bytes (.nv.constant0 / EIATTR_PARAM_CBANK)
