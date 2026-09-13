@@ -528,3 +528,874 @@ func TestAdvice_CLI(t *testing.T) {
 		t.Error("expected non-empty items in inspect --advise output")
 	}
 }
+
+func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantKernel   string
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "single_warp_32_threads_profile",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_gemv"},
+								"block":  {"32,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "decode_gemv",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "underpopulated_16_threads_json",
+			cap: &cudacapture.Capture{
+				Files: map[string][]byte{
+					"activities.json": []byte(`[
+						{"name": "tiny_kernel", "subtype": "kernel", "threads": 16}
+					]`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "tiny_kernel",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "ptx_reqntid_single_warp",
+			cap: &cudacapture.Capture{
+				Code: cudacapture.CodeFiles{PTX: "test.ptx"},
+				Files: map[string][]byte{
+					"test.ptx": []byte(`.version 9.0
+.target sm_121a
+.address_size 64
+.visible .entry ptx_warp_kernel()
+.reqntid 32, 1, 1
+{
+	ret;
+}`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "ptx_warp_kernel",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "well_populated_128_threads",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"good_kernel"},
+								"block":  {"128,1,1"},
+								"grid":   {"256,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && item.Severity == tt.wantSeverity &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if tt.wantKernel != "" && !strings.Contains(item.Finding, tt.wantKernel) && item.Location.Kernel != tt.wantKernel {
+						t.Errorf("expected finding to mention kernel %q, got: %s", tt.wantKernel, item.Finding)
+					}
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected underpopulated thread block warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected underpopulated thread block warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_SMGridStarvation(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantKernel   string
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "grid_64_on_136_sm_blackwell",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a", "sm_count": 136}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_attention"},
+								"grid":   {"64,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "decode_attention",
+			wantCategory: CategoryArchitecture,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Grid size leaves physical SMs completely idle",
+			wantRec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+		},
+		{
+			name: "grid_starvation_json_activities",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"device": "NVIDIA B200"}`), // 132 SMs
+				Files: map[string][]byte{
+					"activities.json": []byte(`[
+						{"name": "starved_kernel", "subtype": "kernel", "grid_blocks": 32, "block_threads": 256}
+					]`),
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "starved_kernel",
+			wantCategory: CategoryArchitecture,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Grid size leaves physical SMs completely idle",
+			wantRec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+		},
+		{
+			name: "sufficient_grid_256_blocks",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"sm_count": 136}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"fully_saturated_kernel"},
+								"grid":   {"256,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && item.Severity == tt.wantSeverity &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if tt.wantKernel != "" && !strings.Contains(item.Finding, tt.wantKernel) && item.Location.Kernel != tt.wantKernel {
+						t.Errorf("expected finding to mention kernel %q, got: %s", tt.wantKernel, item.Finding)
+					}
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected grid starvation warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected grid starvation warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_UncoalescedMemoryAccess(t *testing.T) {
+	const sampleLDGSASS = `
+	.section	.text.uncoalesced_load,"ax",@progbits
+uncoalesced_load:
+.text.uncoalesced_load:
+        /*0000*/                   MOV R1, c[0x0][0x28] ;
+        /*0010*/                   LDG.E.128 R0, [R2] ;
+        /*0020*/                   EXIT ;
+`
+
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "uncoalesced_ldg_mem_throttle_gt_35pct",
+			cap: &cudacapture.Capture{
+				Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+				Files: map[string][]byte{
+					"kernels.sass": []byte(sampleLDGSASS),
+				},
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "stall_scoreboard", Unit: "count"},
+						{Type: "stall_memory_throttle", Unit: "count"},
+					},
+					Function: []*profile.Function{
+						{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"},
+					},
+					Location: []*profile.Location{
+						{ID: 1, Address: 0x0010, Line: []profile.Line{{Function: &profile.Function{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"}, Line: 42}}},
+					},
+					Sample: []*profile.Sample{
+						{
+							Location: []*profile.Location{
+								{ID: 1, Address: 0x0010, Line: []profile.Line{{Function: &profile.Function{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"}, Line: 42}}},
+							},
+							Value: []int64{55, 45}, // 45 / 100 = 45% > 35%
+							Label: map[string][]string{
+								"kernel": {"uncoalesced_load"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryMemory,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
+			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+		},
+		{
+			name: "uncoalesced_critical_high_mem_stalls_60pct",
+			cap: &cudacapture.Capture{
+				Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+				Files: map[string][]byte{
+					"kernels.sass": []byte(sampleLDGSASS),
+				},
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "stall_math", Unit: "count"},
+						{Type: "stall_mem", Unit: "count"},
+					},
+					Function: []*profile.Function{
+						{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"},
+					},
+					Location: []*profile.Location{
+						{ID: 1, Address: 0x0010, Line: []profile.Line{{Function: &profile.Function{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"}, Line: 42}}},
+					},
+					Sample: []*profile.Sample{
+						{
+							Location: []*profile.Location{
+								{ID: 1, Address: 0x0010, Line: []profile.Line{{Function: &profile.Function{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"}, Line: 42}}},
+							},
+							Value: []int64{40, 60}, // 60 / 100 = 60% >= 50% -> Critical
+							Label: map[string][]string{
+								"kernel": {"uncoalesced_load"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryMemory,
+			wantSeverity: SeverityCritical,
+			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
+			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+		},
+		{
+			name: "coalesced_ldg_low_mem_stalls_15pct",
+			cap: &cudacapture.Capture{
+				Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+				Files: map[string][]byte{
+					"kernels.sass": []byte(sampleLDGSASS),
+				},
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "stall_scoreboard", Unit: "count"},
+						{Type: "stall_memory_throttle", Unit: "count"},
+					},
+					Location: []*profile.Location{
+						{ID: 1, Address: 0x0010},
+					},
+					Sample: []*profile.Sample{
+						{
+							Location: []*profile.Location{{ID: 1, Address: 0x0010}},
+							Value:    []int64{85, 15}, // 15% <= 35%
+							Label: map[string][]string{
+								"kernel": {"uncoalesced_load"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "address_arithmetic_non_contiguous_stride_label",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"strided_access_kernel"},
+								"stride": {"32"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryMemory,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
+			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && (tt.wantSeverity == "" || item.Severity == tt.wantSeverity) &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected uncoalesced memory warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected uncoalesced memory warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_CUDAGraphCandidate(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "5_consecutive_short_kernels_under_10us",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{Value: []int64{3000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{5000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{6000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k5"}, "subtype": {"kernel"}, "stream": {"1"}}},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryArchitectureDispatch,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Driver submission overhead dominates short kernel execution",
+			wantRec:      "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency",
+		},
+		{
+			name: "broken_sequence_by_memcpy",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{Value: []int64{3000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{5000}, Label: map[string][]string{"name": {"cudaMemcpyAsync"}, "subtype": {"memcpy"}, "stream": {"1"}}},
+						{Value: []int64{6000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k5"}, "subtype": {"kernel"}, "stream": {"1"}}},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "broken_sequence_by_synchronization",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{Value: []int64{3000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{0}, Label: map[string][]string{"name": {"cudaStreamSynchronize"}, "subtype": {"synchronization"}, "stream": {"1"}}},
+						{Value: []int64{6000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{4000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "long_kernels_above_10us",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{Value: []int64{15000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{20000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{12000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{14000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						{Value: []int64{16000}, Label: map[string][]string{"name": {"k5"}, "subtype": {"kernel"}, "stream": {"1"}}},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && (tt.wantSeverity == "" || item.Severity == tt.wantSeverity) &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected cuda graph candidate warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected cuda graph candidate warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_PointwiseFusion(t *testing.T) {
+	tests := []struct {
+		name         string
+		cap          *cudacapture.Capture
+		wantWarning  bool
+		wantCategory Category
+		wantSeverity Severity
+		wantFinding  string
+		wantRec      string
+	}{
+		{
+			name: "swiglu_followed_by_quantization_matching_shape",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{50000},
+							Label: map[string][]string{
+								"name":    {"swiglu_forward_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+						{
+							Value: []int64{30000},
+							Label: map[string][]string{
+								"name":    {"quantize_fp8_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryMemoryCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
+			wantRec:      "Fuse into a single kernel (e.g. fused SwiGLU + quant)",
+		},
+		{
+			name: "pointwise_matching_buffers",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{20000},
+							Label: map[string][]string{
+								"name":    {"silu_activation"},
+								"subtype": {"kernel"},
+								"stream":  {"2"},
+								"buffer":  {"tensor_act_0"},
+							},
+						},
+						{
+							Value: []int64{15000},
+							Label: map[string][]string{
+								"name":    {"elementwise_scale_bias"},
+								"subtype": {"kernel"},
+								"stream":  {"2"},
+								"buffer":  {"tensor_act_0"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantCategory: CategoryMemoryCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "Redundant global memory round-trips for intermediate tensors",
+			wantRec:      "Fuse into a single kernel",
+		},
+		{
+			name: "different_streams_no_fusion",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{50000},
+							Label: map[string][]string{
+								"name":    {"swiglu_forward_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+						{
+							Value: []int64{30000},
+							Label: map[string][]string{
+								"name":    {"quantize_fp8_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"2"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "gemm_followed_by_quant_no_fusion",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100000},
+							Label: map[string][]string{
+								"name":    {"gemm_cutlass_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+						{
+							Value: []int64{30000},
+							Label: map[string][]string{
+								"name":    {"quantize_fp8_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "intervening_memcpy_no_fusion",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{50000},
+							Label: map[string][]string{
+								"name":    {"swiglu_forward_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+						{
+							Value: []int64{10000},
+							Label: map[string][]string{
+								"name":    {"cudaMemcpyAsync"},
+								"subtype": {"memcpy"},
+								"stream":  {"1"},
+							},
+						},
+						{
+							Value: []int64{30000},
+							Label: map[string][]string{
+								"name":    {"quantize_fp8_kernel"},
+								"subtype": {"kernel"},
+								"stream":  {"1"},
+								"shape":   {"[4096, 4096]"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report, err := AnalyzeCapture(tt.cap)
+			if err != nil {
+				t.Fatalf("AnalyzeCapture failed: %v", err)
+			}
+
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == tt.wantCategory && (tt.wantSeverity == "" || item.Severity == tt.wantSeverity) &&
+					strings.Contains(item.Finding, tt.wantFinding) {
+					found = true
+					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					break
+				}
+			}
+
+			if tt.wantWarning && !found {
+				t.Errorf("did not find expected pointwise fusion warning; items: %+v", report.Items)
+			} else if !tt.wantWarning && found {
+				t.Errorf("unexpected pointwise fusion warning found in %+v", report.Items)
+			}
+		})
+	}
+}
+
+func TestAdvice_BlackwellDeepSeekV4DecodeProfiling(t *testing.T) {
+	// Comprehensive test synthesizing all 5 heuristics in a realistic Blackwell sm_121a
+	// DeepSeek-V4 decode profiling session.
+	const sass = `
+	.section	.text.deepseek_decode,"ax",@progbits
+deepseek_decode:
+.text.deepseek_decode:
+        /*0000*/                   MOV R1, c[0x0][0x28] ;
+        /*0010*/                   LDG.E.128 R0, [R2] ;
+        /*0020*/                   EXIT ;
+`
+
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"arch": "sm_121a", "sm_count": 136, "device": "NVIDIA GB200"}`),
+		Code: cudacapture.CodeFiles{
+			SASS: "kernels.sass",
+		},
+		Files: map[string][]byte{
+			"kernels.sass": []byte(sass),
+		},
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+				{Type: "stall_scoreboard", Unit: "count"},
+				{Type: "stall_memory_throttle", Unit: "count"},
+			},
+			Location: []*profile.Location{
+				{ID: 1, Address: 0x0010},
+			},
+			Sample: []*profile.Sample{
+				// 1 & 2. Underpopulated thread block (32 threads) and SM Grid Starvation (64 blocks < 136 SMs)
+				{
+					Value: []int64{8000, 0, 0},
+					Label: map[string][]string{
+						"kernel":  {"deepseek_decode"},
+						"subtype": {"kernel"},
+						"stream":  {"0"},
+						"block":   {"32,1,1"},
+						"grid":    {"64,1,1"},
+					},
+				},
+				// 3. Uncoalesced memory access at PC 0x0010 (LDG.E with 45% stall_memory_throttle)
+				{
+					Location: []*profile.Location{{ID: 1, Address: 0x0010}},
+					Value:    []int64{0, 55, 45}, // 45 / 100 = 45% > 35%
+					Label: map[string][]string{
+						"kernel": {"deepseek_decode"},
+					},
+				},
+				// 4. CUDA Graph candidates: 5 consecutive short kernels on stream 1 (< 10 µs)
+				{Value: []int64{2000, 0, 0}, Label: map[string][]string{"name": {"rms_norm"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{4000, 0, 0}, Label: map[string][]string{"name": {"q_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{3000, 0, 0}, Label: map[string][]string{"name": {"k_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{3000, 0, 0}, Label: map[string][]string{"name": {"v_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{5000, 0, 0}, Label: map[string][]string{"name": {"rope_embed"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				// 5. Pointwise fusion: SwiGLU followed by quantization on stream 2
+				{
+					Value: []int64{45000, 0, 0},
+					Label: map[string][]string{
+						"name":    {"swiglu_mlp_gate"},
+						"subtype": {"kernel"},
+						"stream":  {"2"},
+						"shape":   {"[2048, 7168]"},
+					},
+				},
+				{
+					Value: []int64{35000, 0, 0},
+					Label: map[string][]string{
+						"name":    {"quantize_fp8_linear"},
+						"subtype": {"kernel"},
+						"stream":  {"2"},
+						"shape":   {"[2048, 7168]"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	expectedFindings := []struct {
+		name     string
+		category Category
+		finding  string
+		rec      string
+	}{
+		{
+			name:     "heuristic_1_single_warp",
+			category: CategoryArchitectureCompute,
+			finding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			rec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name:     "heuristic_2_grid_starvation",
+			category: CategoryArchitecture,
+			finding:  "Grid size leaves physical SMs completely idle",
+			rec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
+		},
+		{
+			name:     "heuristic_3_uncoalesced_memory",
+			category: CategoryMemory,
+			finding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
+			rec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+		},
+		{
+			name:     "heuristic_4_cuda_graph",
+			category: CategoryArchitectureDispatch,
+			finding:  "Driver submission overhead dominates short kernel execution",
+			rec:      "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency",
+		},
+		{
+			name:     "heuristic_5_pointwise_fusion",
+			category: CategoryMemoryCompute,
+			finding:  "Redundant global memory round-trips for intermediate tensors",
+			rec:      "Fuse into a single kernel (e.g. fused SwiGLU + quant)",
+		},
+	}
+
+	for _, ef := range expectedFindings {
+		t.Run(ef.name, func(t *testing.T) {
+			var found bool
+			for _, item := range report.Items {
+				if item.Category == ef.category && strings.Contains(item.Finding, ef.finding) {
+					found = true
+					if !strings.Contains(item.ActionableRecommendation, ef.rec) {
+						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, ef.rec)
+					}
+					break
+				}
+			}
+			if !found {
+				t.Errorf("expected finding %q in category %q not found; report: %+v", ef.finding, ef.category, report.Items)
+			}
+		})
+	}
+}
