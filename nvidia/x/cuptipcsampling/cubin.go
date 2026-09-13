@@ -59,11 +59,13 @@ func identifyCubin(cubin []byte, maxBytes int, version func() (uint32, error), q
 	var pin runtime.Pinner
 	pin.Pin(&data[0])
 	defer pin.Unpin()
-	p := cupti.GetCubinCrcParams{Size: 32, CubinSize: uint(len(data)), Cubin: uintptr(unsafe.Pointer(&data[0]))}
+	var p cupti.GetCubinCrcParams
+	structSize := uint(unsafe.Offsetof(p.CubinCrc) + unsafe.Sizeof(p.CubinCrc))
+	p = cupti.GetCubinCrcParams{Size: structSize, CubinSize: uint(len(data)), Cubin: uintptr(unsafe.Pointer(&data[0]))}
 	if err := query(&p); err != nil {
 		return CubinIdentity{}, fmt.Errorf("cuptipcsampling: query cubin CRC: %w", err)
 	}
-	if p.Size != 32 || p.CubinSize != uint(len(data)) || p.Cubin != uintptr(unsafe.Pointer(&data[0])) {
+	if p.Size != structSize || p.CubinSize != uint(len(data)) || p.Cubin != uintptr(unsafe.Pointer(&data[0])) {
 		return CubinIdentity{}, errors.New("cuptipcsampling: native cubin query changed input storage")
 	}
 	if sha256.Sum256(data) != digest {

@@ -9,7 +9,18 @@ import (
 // libraries. The caller must still arrange exclusive external collector use.
 var samplingOwner struct {
 	sync.Mutex
-	session *samplingSession
+	session     *samplingSession
+	sessionRuns uint64
+}
+
+// SessionRuns reports how many PC sampling sessions have been initiated in this
+// process. On GB200/GB10 (CUPTI 2025.x / 13.x), re-enabling PC sampling across
+// multiple sessions in a single process risks native heap corruption; workloads
+// should measure across a single continuous session whenever possible.
+func SessionRuns() uint64 {
+	samplingOwner.Lock()
+	defer samplingOwner.Unlock()
+	return samplingOwner.sessionRuns
 }
 
 // acquire takes ownership for s. A session that already holds the claim made
@@ -35,6 +46,7 @@ func reserveOwner() (adopt func(*samplingSession), release func(), err error) {
 	if samplingOwner.session != nil {
 		return nil, nil, errors.New("cuptipcsampling: another session owns PC sampling")
 	}
+	samplingOwner.sessionRuns++
 	claim := new(samplingSession)
 	samplingOwner.session = claim
 	adopt = func(s *samplingSession) {

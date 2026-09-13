@@ -128,6 +128,11 @@ func (b *samplingBuffer) checkOutput() error {
 
 func (b *samplingBuffer) release() {
 	if !b.released {
+		b.data = cupti.PCSamplingData{}
+		for i := range b.pcs {
+			b.pcs[i] = cupti.PCSamplingPCData{}
+			clear(b.reasons[i])
+		}
 		b.pin.Unpin()
 		b.released = true
 	}
