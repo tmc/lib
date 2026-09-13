@@ -20,4 +20,8 @@ func TestPGOTrackerMean(t *testing.T) {
 	if got, _ := tracker.Score("candidate"); got != 4*time.Nanosecond {
 		t.Fatalf("invalid observations changed score to %v", got)
 	}
+	tracker.RecordObservation(Observation{Candidate: "other", Duration: 10 * time.Nanosecond, Labels: map[string]string{"layer": "0"}})
+	if got, ok := tracker.Score("other"); !ok || got != 10*time.Nanosecond {
+		t.Fatalf("labeled observation score = %v, %v", got, ok)
+	}
 }

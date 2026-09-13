@@ -81,6 +81,15 @@ func (t *Tuner) PGO() *PGOTracker {
 	return t.pgo
 }
 
+// RecordObservation feeds a measured execution into the tuner's live PGO
+// tracker. It is safe to call from a background recorder consumer.
+func (t *Tuner) RecordObservation(o Observation) {
+	if t == nil {
+		return
+	}
+	t.pgo.RecordObservation(o)
+}
+
 // benchmarkSizes are the problem dimensions the autotuner measures at. They are
 // small enough to keep a tuning sweep quick and large enough that the block
 // size being swept actually changes the work per thread.

@@ -12,6 +12,13 @@ type PGOTracker struct {
 	count map[string]int
 }
 
+// Observation is one measured execution to feed the PGO tracker.
+type Observation struct {
+	Candidate string
+	Duration  time.Duration
+	Labels    map[string]string
+}
+
 // Record adds one positive observation for candidate. Candidate is normally
 // TuningCandidate.Key or a stable kernel name.
 func (t *PGOTracker) Record(candidate string, duration time.Duration) {
@@ -26,6 +33,13 @@ func (t *PGOTracker) Record(candidate string, duration time.Duration) {
 	}
 	t.sums[candidate] += duration
 	t.count[candidate]++
+}
+
+// RecordObservation records a measured execution. Labels are retained only by
+// the caller; they are accepted here so producer adapters can pass through
+// contextual metadata without a second API or a lossy conversion.
+func (t *PGOTracker) RecordObservation(o Observation) {
+	t.Record(o.Candidate, o.Duration)
 }
 
 // Score returns the mean measured duration for candidate.
