@@ -642,7 +642,7 @@ func TestPDLMemoryContendedPrologue(t *testing.T) {
 	for r := 0; r < rows; r++ {
 		diff := math.Abs(float64(hExpected[r] - hHoist[r]))
 		if diff > 1e-4 {
-			t.Fatalf("numerical divergence at row %d: ref=%f, hoisted=%f, diff=%e", r, hRef[r], hHoist[r], diff)
+			t.Fatalf("numerical divergence at row %d: ref=%f, hoisted=%f, diff=%e", r, hExpected[r], hHoist[r], diff)
 		}
 	}
 	t.Log("Bitwise elementwise validation passed: Hoisted arm matches sequential reference")
@@ -983,7 +983,7 @@ func TestPDLPrologueSizeSweep(t *testing.T) {
 			for r := 0; r < rows; r++ {
 				diff := math.Abs(float64(hExpected[r] - hHoist[r]))
 				if diff > 1e-4 {
-					t.Fatalf("numerical divergence for %s at row %d: ref=%f, hoisted=%f", name, r, hRef[r], hHoist[r])
+					t.Fatalf("numerical divergence for %s at row %d: ref=%f, hoisted=%f", name, r, hExpected[r], hHoist[r])
 				}
 			}
 
