@@ -3,6 +3,7 @@ package egraph
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -43,7 +44,7 @@ func (c TuningCandidate) Key() string {
 	if c.Expr != nil {
 		exprStr = c.Expr.String()
 	}
-	return fmt.Sprintf("%s::b%d::g%d", exprStr, c.BlockDim, c.GridDim)
+	return fmt.Sprintf("%s::%s::b%d::g%d", exprStr, c.KernelName, c.BlockDim, c.GridDim)
 }
 
 // AutotuneResult stores the benchmarked latency of a candidate kernel.
@@ -130,14 +131,14 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 				return (benchElements + block - 1) / block
 			},
 		}, nil
-	case "fused_rmsnorm_gemv":
+	case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj":
 		// x, weight, W_proj, out, in_dim, out_dim, eps; one block per row.
 		return launchPlan{
 			buffers: []int{benchInDim, benchInDim, benchOutDim * benchInDim, benchOutDim},
 			scalars: []any{int32(benchInDim), int32(benchOutDim), float32(1e-5)},
 			grid:    func(uint32) uint32 { return benchOutDim },
 		}, nil
-	case "fused_swiglu_gemv":
+	case "fused_swiglu_gemv", "tile_swiglu":
 		// x, W_gate, W_up, W_down, out, hidden_dim, intermediate_dim. Every
 		// block fills the whole activation buffer, so one block is the only
 		// shape the kernel's shared-memory indexing supports.
@@ -169,6 +170,12 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 	case "q2_k_matvec":
 		return launchPlan{
 			buffers: []int{benchOutDim * (benchInDim / 256) * 84, benchInDim * 4, benchOutDim * 4},
+			scalars: []any{int32(benchOutDim), int32(benchInDim)},
+			grid:    func(block uint32) uint32 { return (benchOutDim*32 + block - 1) / block },
+		}, nil
+	case "iq2_xxs_matvec":
+		return launchPlan{
+			buffers: []int{benchOutDim * (benchInDim / 256) * 66, benchInDim * 4, benchOutDim * 4},
 			scalars: []any{int32(benchOutDim), int32(benchInDim)},
 			grid:    func(block uint32) uint32 { return (benchOutDim*32 + block - 1) / block },
 		}, nil
@@ -264,6 +271,17 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	if err := stream.Synchronize(context.Background()); err != nil {
 		return 0, fmt.Errorf("egraph: warmup sync: %w", err)
 	}
+	if cand.Expr != nil && cand.Expr.Op == "iq2_xxs_matvec" {
+		out := make([]float32, benchOutDim)
+		if err := bufs[2].CopyToHost(out); err != nil {
+			return 0, fmt.Errorf("egraph: read iq2 benchmark output: %w", err)
+		}
+		for i, v := range out {
+			if math.IsNaN(float64(v)) {
+				return 0, fmt.Errorf("egraph: iq2 benchmark output is nan at index %d", i)
+			}
+		}
+	}
 
 	// 2. Host elapsed time for launches and synchronization.
 	t0 := time.Now()
@@ -313,9 +331,6 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 
 	bestCand := defaultCand
 	bestDur := time.Duration(1<<63 - 1)
-	if score, ok := t.pgo.Score(defaultCand.Key()); ok {
-		bestDur = score
-	}
 	// Why every candidate was discarded, if every candidate was. Returning
 	// the unbenchmarked default and reporting success hid a total failure to
 	// tune behind a candidate that carried no source at all.
