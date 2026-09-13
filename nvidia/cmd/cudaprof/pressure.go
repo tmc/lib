@@ -361,6 +361,10 @@ func resolveLocationPC(loc *profile.Location, s *profile.Sample, code *cudacaptu
 		}
 	}
 
+	if loc.Address >= base {
+		return kName, loc.Address - base
+	}
+
 	return kName, loc.Address
 }
 

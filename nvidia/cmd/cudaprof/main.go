@@ -127,6 +127,37 @@ func run() error {
 			return fmt.Errorf("verify capture: %w", err)
 		}
 		extractDir = path
+	} else if isBundlePath(path) {
+		cap, err = readBundleCapturePath(path, cudacapture.Limits{})
+		if err != nil {
+			return fmt.Errorf("verify capture: %w", err)
+		}
+		// Materialize embedded files into a temporary directory under ~/tmp for upstream pprof
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		parent := filepath.Join(home, "tmp")
+		if err := os.MkdirAll(parent, 0755); err != nil {
+			return err
+		}
+		td, err := os.MkdirTemp(parent, "cudaprof-")
+		if err != nil {
+			return err
+		}
+		isTempDir = true
+		extractDir = td
+		defer func() {
+			if isTempDir {
+				os.RemoveAll(extractDir)
+			}
+		}()
+
+		for name, data := range cap.Files {
+			if err := os.WriteFile(filepath.Join(extractDir, name), data, 0600); err != nil {
+				return err
+			}
+		}
 	} else {
 		f, err := os.Open(path)
 		if err != nil {
@@ -136,11 +167,13 @@ func run() error {
 
 		cap, err = cudacapture.Read(f)
 		if err != nil {
-			// If reading embedded capture fails, try reading as directory next to it
+			// If reading embedded capture fails, try reading as directory next to it or as bundle
 			dir := filepath.Dir(path)
 			if dCap, dErr := cudacapture.ReadDir(dir); dErr == nil {
 				cap = dCap
 				extractDir = dir
+			} else if bCap, bErr := readBundleCapturePath(path, cudacapture.Limits{}); bErr == nil {
+				cap = bCap
 			} else {
 				return fmt.Errorf("verify capture: %w", err)
 			}
@@ -191,7 +224,8 @@ func run() error {
 	if tool == nil {
 		tool = &objectTool{images: make(map[string]*objectImage)}
 	}
-	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool}
+	var limits cudacapture.Limits
+	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool, limits: limits}
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
 }
 
@@ -237,6 +271,7 @@ type fetcher struct {
 	path, dir string
 	cap       *cudacapture.Capture
 	tool      *objectTool
+	limits    cudacapture.Limits
 }
 
 func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.Profile, string, error) {
@@ -245,7 +280,23 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 		return nil, "", err
 	}
 	if path != f.path {
-		return nil, "", fmt.Errorf("expected the verified profile path")
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, "", err
+		}
+		defer file.Close()
+		if secCap, err := cudacapture.ReadLimits(file, f.limits); err == nil && secCap.Profile != nil {
+			p := secCap.Profile.Copy()
+			resolveSourceLocations(p, secCap.Files, f.dir)
+			return p, path, nil
+		}
+		if _, err := file.Seek(0, 0); err == nil {
+			if p, err := profile.Parse(file); err == nil {
+				resolveSourceLocations(p, nil, f.dir)
+				return p, path, nil
+			}
+		}
+		return nil, "", fmt.Errorf("read profile %s", path)
 	}
 	p := f.cap.Profile.Copy()
 	for _, fn := range p.Function {
@@ -254,6 +305,7 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 			fn.Filename = filepath.Join(f.dir, name)
 		}
 	}
+	resolveSourceLocations(p, f.cap.Files, f.dir)
 	if f.cap.Code.CUBIN != "" || f.cap.Code.PTX != "" || f.cap.Code.TileIR != "" {
 		for _, m := range p.Mapping {
 			base := filepath.Base(m.File)
@@ -371,4 +423,73 @@ func runExplainCommand(args []string) error {
 		return nil
 	}
 	return fmt.Errorf("no PTX documentation found for %q", stmt)
+}
+
+func resolveSourceLocations(p *profile.Profile, files map[string][]byte, dir string) {
+	if p == nil {
+		return
+	}
+	for _, fn := range p.Function {
+		if fn.Filename != "" && filepath.IsAbs(fn.Filename) && fn.StartLine > 0 {
+			continue
+		}
+		found := false
+		for fname, data := range files {
+			ext := filepath.Ext(fname)
+			if ext != ".cu" && ext != ".cpp" && ext != ".c" && ext != ".go" {
+				continue
+			}
+			if line := findFunctionLine(string(data), fn.Name); line > 0 {
+				if dir != "" {
+					fn.Filename = filepath.Join(dir, fname)
+				} else {
+					fn.Filename = fname
+				}
+				fn.StartLine = int64(line)
+				found = true
+				break
+			}
+		}
+		if !found {
+			matches, _ := filepath.Glob("*.cu")
+			if len(matches) == 0 && dir != "" {
+				matches, _ = filepath.Glob(filepath.Join(dir, "*.cu"))
+			}
+			for _, m := range matches {
+				data, err := os.ReadFile(m)
+				if err != nil {
+					continue
+				}
+				if line := findFunctionLine(string(data), fn.Name); line > 0 {
+					if abs, err := filepath.Abs(m); err == nil {
+						fn.Filename = abs
+					} else {
+						fn.Filename = m
+					}
+					fn.StartLine = int64(line)
+					break
+				}
+			}
+		}
+	}
+	for _, loc := range p.Location {
+		for i := range loc.Line {
+			if loc.Line[i].Function != nil && loc.Line[i].Line == 0 && loc.Line[i].Function.StartLine > 0 {
+				loc.Line[i].Line = loc.Line[i].Function.StartLine
+			}
+		}
+	}
+}
+
+func findFunctionLine(content, name string) int {
+	if name == "" {
+		return 0
+	}
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, name+"(") || strings.Contains(line, name+" (") {
+			return i + 1
+		}
+	}
+	return 0
 }

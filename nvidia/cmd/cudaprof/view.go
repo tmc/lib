@@ -14,11 +14,15 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
+	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
@@ -32,12 +36,14 @@ type PipelineTier struct {
 
 // PipelineLine represents an annotated line in a pipeline tier.
 type PipelineLine struct {
-	Num      int     `json:"num"`
-	Text     string  `json:"text"`
-	Opcode   string  `json:"opcode,omitempty"`
-	Offset   string  `json:"offset,omitempty"`
-	StallPct float64 `json:"stall_pct,omitempty"`
-	HoverDoc string  `json:"hover_doc,omitempty"`
+	Num            int                `json:"num"`
+	Text           string             `json:"text"`
+	Opcode         string             `json:"opcode,omitempty"`
+	Offset         string             `json:"offset,omitempty"`
+	StallPct       float64            `json:"stall_pct,omitempty"`
+	StallBreakdown map[string]float64 `json:"stall_breakdown,omitempty"`
+	StallTooltip   string             `json:"stall_tooltip,omitempty"`
+	HoverDoc       string             `json:"hover_doc,omitempty"`
 }
 
 // PipelineViewData is the data model passed to the web template and API endpoints.
@@ -254,20 +260,23 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		data.CFGDot = string(dotBytes)
 	}
 
-	// Build full tiers
-	data.Tiers = []PipelineTier{
-		buildTier("Go", goFileName, "go", goContent),
-		buildTier("CUDA C++", cuFileName, "cuda", cuContent),
-		buildTier("Tile IR", tileFileName, "mlir", tileContent),
-		buildTier("PTX", ptxFileName, "ptx", ptxContent),
-		buildTier("SASS", sassFileName, "sass", sassContent),
-	}
-
 	// 3. Discover kernels across PTX and SASS
 	kernelNames := discoverKernelNames(ptxContent, sassContent, cuContent)
 	data.Kernels = kernelNames
 
-	// 4. Build per-kernel slice views
+	// 4. Extract stall metrics from PC sampling data in profile (gpu.pprof)
+	stallMap := extractSASSStallMap(cap, kernelNames)
+
+	// Build full tiers
+	data.Tiers = []PipelineTier{
+		buildTier("Go", goFileName, "go", goContent, nil, ""),
+		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, ""),
+		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, ""),
+		buildTier("PTX", ptxFileName, "ptx", ptxContent, nil, ""),
+		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel),
+	}
+
+	// 5. Build per-kernel slice views
 	for _, kName := range kernelNames {
 		kGo := extractKernelSection(goContent, kName, "go")
 		kCu := extractKernelSection(cuContent, kName, "cuda")
@@ -276,20 +285,206 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		kSass := extractKernelSection(sassContent, kName, "sass")
 
 		data.KernelTiers[kName] = []PipelineTier{
-			buildTier("Go", goFileName, "go", kGo),
-			buildTier("CUDA C++", cuFileName, "cuda", kCu),
-			buildTier("Tile IR", tileFileName, "mlir", kTile),
-			buildTier("PTX", ptxFileName, "ptx", kPtx),
-			buildTier("SASS", sassFileName, "sass", kSass),
+			buildTier("Go", goFileName, "go", kGo, nil, kName),
+			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName),
+			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName),
+			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName),
+			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName),
+		}
+	}
+
+	if activeKernel != "" {
+		if kTiers, ok := data.KernelTiers[activeKernel]; ok {
+			data.Tiers = kTiers
 		}
 	}
 
 	return data, nil
 }
 
-func buildTier(name, fileName, lang, content string) PipelineTier {
+type sassStallMap struct {
+	hasStalls    bool
+	byKernelPC   map[string]map[uint64]*pcStallInfo
+	kernelTotals map[string]int64
+	totalStalls  int64
+}
+
+type pcStallInfo struct {
+	totalStalls int64
+	breakdown   map[string]int64
+}
+
+func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassStallMap {
+	if cap == nil {
+		return nil
+	}
+	prof := cap.Profile
+	if prof == nil && cap.Files != nil && len(cap.Files["gpu.pprof"]) > 0 {
+		if p, err := profile.ParseData(cap.Files["gpu.pprof"]); err == nil {
+			prof = p
+		}
+	}
+	if prof == nil || len(prof.Sample) == 0 {
+		return nil
+	}
+
+	var stallIndices []int
+	for i, st := range prof.SampleType {
+		if strings.HasPrefix(st.Type, "stall_") {
+			stallIndices = append(stallIndices, i)
+		}
+	}
+
+	code, _ := cudacapture.LoadCode(cap)
+	var disasm *cudasass.Disassembly
+	if sassBytes, ok := cap.Files[cap.Code.SASS]; ok && len(sassBytes) > 0 {
+		disasm, _ = cudasass.Parse(bytes.NewReader(sassBytes))
+	} else if sassBytes, ok := cap.Files["kernels.sass"]; ok && len(sassBytes) > 0 {
+		disasm, _ = cudasass.Parse(bytes.NewReader(sassBytes))
+	}
+
+	m := &sassStallMap{
+		byKernelPC:   make(map[string]map[uint64]*pcStallInfo),
+		kernelTotals: make(map[string]int64),
+	}
+
+	for _, s := range prof.Sample {
+		if len(s.Location) == 0 {
+			continue
+		}
+		loc := s.Location[0]
+		kName, pc := resolveLocationPC(loc, s, code, disasm)
+		if kName == "" {
+			if disasm != nil && len(disasm.Functions) == 1 {
+				kName = disasm.Functions[0].Name
+			} else if len(knownKernels) == 1 {
+				kName = knownKernels[0]
+			}
+		}
+
+		sampleStalls := make(map[string]int64)
+		var sampleTotal int64
+
+		if len(stallIndices) > 0 {
+			for _, idx := range stallIndices {
+				val := s.Value[idx]
+				if val > 0 {
+					metricName := prof.SampleType[idx].Type
+					sampleStalls[metricName] += val
+					sampleTotal += val
+				}
+			}
+		}
+
+		if sampleTotal == 0 && s.Label != nil {
+			var reason string
+			if len(s.Label["sass.stall"]) > 0 {
+				reason = s.Label["sass.stall"][0]
+			} else if len(s.Label["stall"]) > 0 {
+				reason = s.Label["stall"][0]
+			}
+			if reason != "" {
+				if !strings.HasPrefix(reason, "stall_") {
+					reason = "stall_" + reason
+				}
+				var val int64
+				if len(s.Value) > 0 {
+					val = s.Value[0]
+				} else {
+					val = 1
+				}
+				if val > 0 {
+					sampleStalls[reason] += val
+					sampleTotal += val
+				}
+			}
+		}
+
+		if sampleTotal == 0 {
+			continue
+		}
+
+		m.hasStalls = true
+		m.totalStalls += sampleTotal
+		m.kernelTotals[kName] += sampleTotal
+
+		if m.byKernelPC[kName] == nil {
+			m.byKernelPC[kName] = make(map[uint64]*pcStallInfo)
+		}
+		info := m.byKernelPC[kName][pc]
+		if info == nil {
+			info = &pcStallInfo{breakdown: make(map[string]int64)}
+			m.byKernelPC[kName][pc] = info
+		}
+		info.totalStalls += sampleTotal
+		for r, v := range sampleStalls {
+			info.breakdown[r] += v
+		}
+	}
+
+	return m
+}
+
+func (m *sassStallMap) lookup(kernel string, pc uint64) (*pcStallInfo, int64) {
+	if m == nil || !m.hasStalls {
+		return nil, 0
+	}
+	if kernel != "" {
+		if pcMap, ok := m.byKernelPC[kernel]; ok {
+			return pcMap[pc], m.kernelTotals[kernel]
+		}
+		for k, pcMap := range m.byKernelPC {
+			if strings.EqualFold(k, kernel) || strings.Contains(k, kernel) || strings.Contains(kernel, k) {
+				return pcMap[pc], m.kernelTotals[k]
+			}
+		}
+	}
+	if len(m.byKernelPC) == 1 {
+		for k, pcMap := range m.byKernelPC {
+			return pcMap[pc], m.kernelTotals[k]
+		}
+	}
+	if m.totalStalls > 0 {
+		for _, pcMap := range m.byKernelPC {
+			if info, ok := pcMap[pc]; ok {
+				return info, m.totalStalls
+			}
+		}
+	}
+	return nil, 0
+}
+
+func formatStallTooltip(pct float64, breakdown map[string]float64, totalCount int64) string {
+	type kv struct {
+		reason string
+		pct    float64
+	}
+	var list []kv
+	for k, v := range breakdown {
+		list = append(list, kv{reason: k, pct: v})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].pct != list[j].pct {
+			return list[i].pct > list[j].pct
+		}
+		return list[i].reason < list[j].reason
+	})
+
+	var parts []string
+	for _, item := range list {
+		parts = append(parts, fmt.Sprintf("%s: %.1f%%", item.reason, item.pct))
+	}
+	if len(parts) > 0 {
+		return fmt.Sprintf("Stall: %.1f%% (%s)", pct, strings.Join(parts, ", "))
+	}
+	return fmt.Sprintf("Stall: %.1f%%", pct)
+}
+
+func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string) PipelineTier {
 	rawLines := strings.Split(content, "\n")
 	lines := make([]PipelineLine, len(rawLines))
+
+	currentKernel := activeKernel
 
 	for i, text := range rawLines {
 		line := PipelineLine{
@@ -299,10 +494,36 @@ func buildTier(name, fileName, lang, content string) PipelineTier {
 
 		trimmed := strings.TrimSpace(text)
 		if lang == "sass" {
-			// Extract hex offset if present (/*0010*/)
+			if strings.HasPrefix(trimmed, "Function :") || strings.HasPrefix(trimmed, "Function ") {
+				fields := strings.Fields(trimmed)
+				if len(fields) >= 2 {
+					if fields[1] == ":" && len(fields) >= 3 {
+						currentKernel = fields[2]
+					} else if fields[1] != ":" {
+						currentKernel = fields[1]
+					}
+				}
+			}
+
+			// Extract hex offset if present (/*0010*/ or /* 0010 */)
 			if strings.HasPrefix(trimmed, "/*") {
 				if endIdx := strings.Index(trimmed, "*/"); endIdx != -1 {
-					line.Offset = trimmed[2:endIdx]
+					offsetStr := strings.TrimSpace(trimmed[2:endIdx])
+					line.Offset = offsetStr
+
+					if stallMap != nil && stallMap.hasStalls {
+						if pc, err := strconv.ParseUint(strings.TrimPrefix(offsetStr, "0x"), 16, 64); err == nil {
+							if info, kernelTotal := stallMap.lookup(currentKernel, pc); info != nil && info.totalStalls > 0 && kernelTotal > 0 {
+								pct := float64(info.totalStalls) / float64(kernelTotal) * 100.0
+								line.StallPct = pct
+								line.StallBreakdown = make(map[string]float64, len(info.breakdown))
+								for reason, count := range info.breakdown {
+									line.StallBreakdown[reason] = float64(count) / float64(kernelTotal) * 100.0
+								}
+								line.StallTooltip = formatStallTooltip(pct, line.StallBreakdown, info.totalStalls)
+							}
+						}
+					}
 				}
 			}
 		} else if lang == "ptx" {
@@ -466,7 +687,21 @@ func newPipelineServerHandler(data *PipelineViewData) http.Handler {
 }
 
 func renderPipelineHTML(w io.Writer, data *PipelineViewData) error {
-	tmpl, err := template.New("pipeline").Parse(pipelineHTMLTemplate)
+	tmpl, err := template.New("pipeline").Funcs(template.FuncMap{
+		"stallWidth": func(pct float64) string {
+			if pct <= 0 {
+				return "0"
+			}
+			w := pct
+			if w < 4 {
+				w = 4
+			}
+			if w > 100 {
+				w = 100
+			}
+			return fmt.Sprintf("%.1f", w)
+		},
+	}).Parse(pipelineHTMLTemplate)
 	if err != nil {
 		return fmt.Errorf("parse template: %w", err)
 	}
@@ -675,6 +910,54 @@ select:focus, input[type="text"]:focus {
   font-size: 10px;
   margin-right: 4px;
 }
+.stall-heat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  cursor: help;
+  vertical-align: middle;
+}
+.stall-bar-bg {
+  width: 44px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+.stall-bar {
+  height: 100%;
+  border-radius: 2px;
+  display: block;
+}
+.stall-bar.stall-high {
+  background: #ff4757;
+}
+.stall-bar.stall-med {
+  background: #ffa502;
+}
+.stall-bar.stall-low {
+  background: #2ed573;
+}
+.stall-text {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: right;
+}
+.stall-text.stall-high {
+  color: #ff6b81;
+  font-weight: 600;
+}
+.stall-text.stall-med {
+  color: #ffa502;
+}
+.stall-text.stall-low {
+  color: #2ed573;
+}
 .tab-bar {
   display: none;
   background-color: var(--bg-secondary);
@@ -732,7 +1015,7 @@ select:focus, input[type="text"]:focus {
         {{range $tier.Lines}}
         <div class="code-row" id="line-{{$idx}}-{{.Num}}">
           <div class="line-num">{{.Num}}</div>
-          <div class="line-content">{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if .HoverDoc}}<span class="opcode-hover" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}</div>
+          <div class="line-content">{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .HoverDoc}}<span class="opcode-hover" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}</div>
         </div>
         {{end}}
       </div>
@@ -790,8 +1073,18 @@ function onKernelChange(kernelName) {
         let html = '';
         tier.lines.forEach(l => {
           const offsetSpan = l.offset ? '<span class="badge-offset">/*' + l.offset + '*/</span>' : '';
+          let stallSpan = '';
+          if (l.stall_pct && l.stall_pct > 0) {
+            const intensity = l.stall_pct >= 30 ? 'stall-high' : (l.stall_pct >= 10 ? 'stall-med' : 'stall-low');
+            const tooltip = l.stall_tooltip ? escapeHtml(l.stall_tooltip) : (l.stall_pct.toFixed(1) + '% stall');
+            const width = Math.min(100, Math.max(4, l.stall_pct));
+            stallSpan = '<span class="stall-heat" title="' + tooltip + '">' +
+              '<span class="stall-bar-bg"><span class="stall-bar ' + intensity + '" style="width: ' + width + '%;"></span></span>' +
+              '<span class="stall-text ' + intensity + '">' + l.stall_pct.toFixed(1) + '%</span>' +
+              '</span>';
+          }
           const textSpan = l.hover_doc ? '<span class="opcode-hover" title="' + l.hover_doc + '">' + escapeHtml(l.text) + '</span>' : escapeHtml(l.text);
-          html += '<div class="code-row"><div class="line-num">' + l.num + '</div><div class="line-content">' + offsetSpan + textSpan + '</div></div>';
+          html += '<div class="code-row"><div class="line-num">' + l.num + '</div><div class="line-content">' + offsetSpan + stallSpan + textSpan + '</div></div>';
         });
         table.innerHTML = html;
       });
