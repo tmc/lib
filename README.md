@@ -16,6 +16,7 @@ its own release tags (`<dir>/vX.Y.Z`).
 | Module | Import path | Description |
 |---|---|---|
 | `nvidia` | `github.com/tmc/lib/nvidia` | Purego bindings for the CUDA driver, runtime, math libraries, NCCL, CUPTI, and Compute Sanitizer |
+| `rocm` | `github.com/tmc/lib/rocm` | Purego HIP runtime bindings |
 | `apple` | `github.com/tmc/lib/apple` | Purego bindings for Metal, plus Metal capture and profiling |
 | `openxla` | `github.com/tmc/lib/openxla` | Purego bindings for the PJRT C API |
 | `x/xla` | `github.com/tmc/lib/x/xla` | XLA client, compilation, and execution over `openxla` |
