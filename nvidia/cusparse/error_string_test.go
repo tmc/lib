@@ -19,10 +19,11 @@ func TestErrorStringsWithoutLibrary(t *testing.T) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, exe, "-test.run=^TestErrorStringsWithoutLibrary$")
+		// Let the test runner print goroutine stacks before the parent kills it.
+		cmd := exec.CommandContext(ctx, exe, "-test.run=^TestErrorStringsWithoutLibrary$", "-test.v", "-test.timeout=9s")
 		cmd.Env = append(os.Environ(), "CUSPARSE_ERROR_STRINGS_CHILD=1")
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("missing-library subprocess: %v\n%s", err, out)
+			t.Fatalf("missing-library subprocess: %v (context: %v)\n%s", err, ctx.Err(), out)
 		}
 		return
 	}
