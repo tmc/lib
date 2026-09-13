@@ -73,6 +73,12 @@ var (
 	// process job on Windows, and the direct child on other platforms.
 	ErrTimeout = errors.New("run timed out")
 
+	// ErrUnsupportedOption means the resolved compute-sanitizer does not
+	// accept an option the [Config] would emit, by name or by arity.
+	// [Config.CheckOptions] reports it before a run starts, so the tool
+	// never rejects the command line while writing no report.
+	ErrUnsupportedOption = cudatool.ErrUnsupportedOption
+
 	// ErrNoVerdict means no complete report was available: the tool emitted
 	// no summary, or its fallback output was truncated. A run that ends
 	// this way is classified as a tool failure no matter what the exit
@@ -91,8 +97,11 @@ type Result struct {
 	Outcome Outcome
 
 	// Err carries the reason for [OutcomeToolFailure]: [ErrToolNotFound],
-	// [ErrTimeout], [ErrNoVerdict], or an error from starting or waiting on
-	// the process. It is nil for the other outcomes.
+	// [ErrTimeout], [ErrNoVerdict], an option the resolved tool does not
+	// accept (wrapping [cudatool.ErrUnsupportedOption], reported by
+	// [ErrUnsupportedOption], reported by [Config.CheckOptions] before the
+	// run starts), or an error from
+	// starting or waiting on the process. It is nil for the other outcomes.
 	Err error
 
 	// Args is the argument vector that was executed, starting with the
@@ -172,6 +181,14 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 
 	toolPath, err := LookTool(cfg.Path)
 	if err != nil {
+		res.Err = err
+		return res, nil
+	}
+
+	// Check the options against the resolved tool before running it. A
+	// compute-sanitizer that rejects its command line writes no report, which
+	// would otherwise surface as ErrNoVerdict and say nothing about the cause.
+	if err := cfg.CheckOptions(ctx); err != nil {
 		res.Err = err
 		return res, nil
 	}

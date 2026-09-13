@@ -55,6 +55,24 @@
 // installed. Callers choose [MissingToolFail] (validation is required) or
 // [MissingToolSkip] (validation is optional, and its absence is announced).
 //
+// # Options that move between releases
+//
+// compute-sanitizer's options differ between toolkits, and a rejected option is
+// not ignored: the tool reports "extra yes detected on the input command line",
+// exits 255 and writes no report, which would otherwise reach a caller as
+// [ErrNoVerdict] with nothing to act on. [Config.Args] stays a pure function of
+// the [Config] and runs nothing; [Config.CheckOptions] resolves the executable
+// and checks every option the Config would emit, and every option name in
+// [Config.ExtraArgs], against what that toolkit accepts. [Run] calls it before
+// starting a run, so an option the installed tool does not have is
+// [ErrUnsupportedOption] rather than a silent tool failure.
+//
+// Every option this package models exists, with the same arity, in CUDA 12.6,
+// 13.0 and 13.4. In particular --kill and --track-unused-memory take no
+// argument on all three, which is why [Config.Kill] and
+// [Config.TrackUnusedMemory] emit a bare flag for [ToggleYes] and nothing for
+// [ToggleNo]. The check is there for the release that changes one of them.
+//
 // # Running a test binary under the tool
 //
 // [Main] re-executes the current test binary under compute-sanitizer:

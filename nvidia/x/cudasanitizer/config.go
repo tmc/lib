@@ -1,12 +1,15 @@
 package cudasanitizer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
 // DefaultToolName is the name of the compute-sanitizer executable sought when
@@ -355,13 +358,79 @@ func (c Config) killDelay() time.Duration {
 	return c.KillDelay
 }
 
+// flags returns the options this Config emits, in order, with the argument each
+// one carries. It is the single account of what the command line contains, so
+// [Config.Args] and [Config.CheckOptions] cannot describe different runs.
+//
+// A flag with no value is one the tool spells without an argument. Passing one
+// anyway is rejected outright ("extra yes detected on the input command line")
+// rather than ignored, which is why arity is part of what CheckOptions checks.
+func (c Config) flags(logFile string) []cudatool.Flag {
+	var flags []cudatool.Flag
+	add := func(name, value string) {
+		flags = append(flags, cudatool.Flag{Name: name, Value: value})
+	}
+	// toggle emits an option the tool spells with a yes-or-no argument.
+	toggle := func(name string, t Toggle, yes, no string) {
+		v, ok := t.arg()
+		if !ok {
+			return
+		}
+		if v == "yes" {
+			add(name, yes)
+		} else {
+			add(name, no)
+		}
+	}
+	// bare emits an option the tool spells without an argument, so ToggleNo
+	// selects the tool's own default by emitting nothing.
+	bare := func(name string, t Toggle) {
+		if t == ToggleYes {
+			flags = append(flags, cudatool.Flag{Name: name})
+		}
+	}
+	add("--tool", string(c.Tool))
+	add("--error-exitcode", strconv.Itoa(c.errorExitCode()))
+	if logFile != "" {
+		add("--log-file", logFile)
+	}
+	toggle("--require-cuda-init", c.RequireCUDAInit, "yes", "no")
+	toggle("--leak-check", c.LeakCheck, "full", "no")
+	bare("--track-unused-memory", c.TrackUnusedMemory)
+	toggle("--check-api-memory-access", c.CheckAPIMemoryAccess, "yes", "no")
+	bare("--kill", c.Kill)
+	toggle("--nvtx", c.NVTX, "yes", "no")
+	if c.RacecheckReport != "" {
+		add("--racecheck-report", c.RacecheckReport)
+	}
+	if c.TargetProcesses != "" {
+		add("--target-processes", c.TargetProcesses)
+	}
+	if c.Demangle != "" {
+		add("--demangle", c.Demangle)
+	}
+	if c.DestroyOnDeviceError != "" {
+		add("--destroy-on-device-error", c.DestroyOnDeviceError)
+	}
+	if c.PrintLimit > 0 {
+		add("--print-limit", strconv.Itoa(c.PrintLimit))
+	}
+	if secs := int(c.LaunchTimeout / time.Second); secs > 0 {
+		add("--launch-timeout", strconv.Itoa(secs))
+	}
+	return flags
+}
+
 // Args returns the full compute-sanitizer argument vector for running prog with
 // appArgs, writing the tool's report to logFile. The returned slice starts with
 // the compute-sanitizer options, then prog, then appArgs, matching the tool's
 // "compute-sanitizer [options] app [app args]" form. It does not include the
 // executable itself.
 //
-// Args reports an error for a Config that [Run] would reject.
+// Args reports an error for a Config that [Run] would reject. It runs nothing:
+// whether the installed compute-sanitizer accepts these options is
+// [Config.CheckOptions]'s question, because answering it means executing the
+// tool.
 func (c Config) Args(logFile, prog string, appArgs ...string) ([]string, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
@@ -369,57 +438,42 @@ func (c Config) Args(logFile, prog string, appArgs ...string) ([]string, error) 
 	if prog == "" {
 		return nil, fmt.Errorf("%w: empty program path", ErrInvalidConfig)
 	}
-	args := []string{"--tool", string(c.Tool)}
-	args = append(args, "--error-exitcode", strconv.Itoa(c.errorExitCode()))
-	if logFile != "" {
-		args = append(args, "--log-file", logFile)
-	}
-	toggle := func(name string, t Toggle, yes, no string) {
-		v, ok := t.arg()
-		if !ok {
-			return
-		}
-		if v == "yes" {
-			v = yes
-		} else {
-			v = no
-		}
-		args = append(args, name, v)
-	}
-	// flag appends an option the tool spells without an argument. Passing one
-	// anyway is rejected outright ("extra yes detected on the input command
-	// line"), so ToggleNo selects the tool's own default by emitting nothing.
-	flag := func(name string, t Toggle) {
-		if t == ToggleYes {
-			args = append(args, name)
-		}
-	}
-	toggle("--require-cuda-init", c.RequireCUDAInit, "yes", "no")
-	toggle("--leak-check", c.LeakCheck, "full", "no")
-	flag("--track-unused-memory", c.TrackUnusedMemory)
-	toggle("--check-api-memory-access", c.CheckAPIMemoryAccess, "yes", "no")
-	flag("--kill", c.Kill)
-	toggle("--nvtx", c.NVTX, "yes", "no")
-	if c.RacecheckReport != "" {
-		args = append(args, "--racecheck-report", c.RacecheckReport)
-	}
-	if c.TargetProcesses != "" {
-		args = append(args, "--target-processes", c.TargetProcesses)
-	}
-	if c.Demangle != "" {
-		args = append(args, "--demangle", c.Demangle)
-	}
-	if c.DestroyOnDeviceError != "" {
-		args = append(args, "--destroy-on-device-error", c.DestroyOnDeviceError)
-	}
-	if c.PrintLimit > 0 {
-		args = append(args, "--print-limit", strconv.Itoa(c.PrintLimit))
-	}
-	if secs := int(c.LaunchTimeout / time.Second); secs > 0 {
-		args = append(args, "--launch-timeout", strconv.Itoa(secs))
-	}
+	args := cudatool.Args(c.flags(logFile)...)
 	args = append(args, c.ExtraArgs...)
 	args = append(args, prog)
 	args = append(args, appArgs...)
 	return args, nil
+}
+
+// CheckOptions reports whether the compute-sanitizer this Config resolves to
+// accepts the options the Config would emit, by name and by arity.
+//
+// It is separate from [Config.Args] because it runs the tool: resolving the
+// executable and asking it for its version is a subprocess, and Args is a pure
+// function of the Config that a test can call without a toolkit installed. [Run]
+// calls it before starting a run, so a mismatch is reported as a Go error naming
+// the tool and its version rather than as a rejected command line with no
+// report. Callers that build a command line themselves, from [Config.Args], can
+// call it directly.
+//
+// The names in [Config.ExtraArgs] are checked too, but not their arity: how a
+// caller spells an option this package does not model is the caller's business,
+// while whether the installed tool has that option at all is knowable here.
+//
+// A Config whose options are all accepted returns nil, and so does one whose
+// tool cannot be resolved or whose capabilities cannot be determined: an
+// executable that reports no version and whose --help cannot be read supports a
+// claim about nothing. [Run] reports a missing tool through
+// [Result.Outcome] and [Config.MissingTool] instead.
+func (c Config) CheckOptions(ctx context.Context) error {
+	if err := c.validate(); err != nil {
+		return err
+	}
+	caps, err := cudatool.Capabilities(ctx, DefaultToolName, c.Path)
+	if err != nil {
+		return nil
+	}
+	// The log path's value does not matter to the check, only that --log-file
+	// is an option that takes one.
+	return errors.Join(caps.Check(c.flags("compute-sanitizer.log")...), caps.CheckNames(c.ExtraArgs...))
 }
