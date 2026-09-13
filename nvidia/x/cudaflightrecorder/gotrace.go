@@ -376,10 +376,10 @@ func AlignSpans(
 	// 4. Overlap reliability
 	// An overlap is reliable if:
 	// - Non-zero overlap span exists
-	// - Clock uncertainty is non-negative and strictly below 100 microseconds (100,000 ns)
+	// - Clock uncertainty is positive and strictly below 100 microseconds (100,000 ns)
 	// - Clock uncertainty is strictly less than the overlap span
 	const maxClockUncertaintyNs = 100000 // 100 microseconds
-	if overlapSpanNs > 0 && clockUncertaintyNs >= 0 &&
+	if overlapSpanNs > 0 && clockUncertaintyNs > 0 &&
 		clockUncertaintyNs < maxClockUncertaintyNs &&
 		clockUncertaintyNs < overlapSpanNs {
 		overlapReliable = true
