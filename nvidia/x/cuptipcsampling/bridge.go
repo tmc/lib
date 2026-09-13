@@ -310,12 +310,13 @@ func reasonRouting(name string) string {
 // reasons the PC sampling API reports, and the legacy stall enum of the
 // activity API, whose names are the only witnesses several arms below have.
 //
-// Order matters, because the names overlap by substring: membar must be matched
-// as a wait before the bare mem of the memory arm, and constant_memory_dependency
-// as a constant-cache stall before the memory_dependency of the scoreboard arm.
-// Reordering the switch moves counts between buckets with every test still
-// green unless a table row pins the name, so each dependency is noted where it
-// is created.
+// Order matters, because the names overlap by substring. Taking both
+// vocabularies together, three names match more than one arm and so depend on
+// the order: membar (wait before the bare mem of the memory arm),
+// memory_dependency (scoreboard before memory) and constant_memory_dependency
+// (constant before both). Each is pinned by a row in the routing test, because
+// reordering the switch moves their counts between buckets with every other
+// test still green. imc_miss also matches two arms, but both say stall_mem.
 func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) bool {
 	name := strings.ToLower(reasonName)
 	// CUPTI reports each reason twice: smsp__pcsamp_warps_issue_stalled_<r>
@@ -334,8 +335,18 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 		return classifyStall(base, count, &discard)
 	}
 	switch {
-	// Synchronization and memory barriers (check before general memory throttle)
-	case strings.Contains(name, "barrier") || strings.Contains(name, "membar") || strings.Contains(name, "sync") || strings.Contains(name, "wait"):
+	// Waits: synchronization, memory barriers, and dependencies on a result
+	// whose latency is fixed. Checked before the memory throttle arm below,
+	// which the bare mem of membar would otherwise reach.
+	//
+	// exec_dependency is the legacy activity-API name for a warp waiting on a
+	// non-memory input, a union of what the PC sampling API splits into wait and
+	// short_scoreboard. A union can only be routed to its dominant member, and
+	// the measurement says wait: a dependent FMA chain on a GB10 reports wait
+	// 71.88% against short_scoreboard 0.06%, because a fixed-latency result is
+	// resolved with compiler-inserted stall cycles rather than a scoreboard slot.
+	case strings.Contains(name, "barrier") || strings.Contains(name, "membar") || strings.Contains(name, "sync") ||
+		strings.Contains(name, "wait") || strings.Contains(name, "exec_dependency"):
 		vals.StallWait += count
 		return true
 
@@ -347,15 +358,14 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 		vals.StallMem += count
 		return true
 
-	// Register scoreboard dependencies. exec_dependency and memory_dependency
-	// are the legacy activity-API names for the same two waits that
-	// short_scoreboard and long_scoreboard report: a result that is not ready
-	// yet. memory_dependency is matched here rather than by the memory arm
-	// below on purpose -- it means a warp waiting for load data, which is
-	// long_scoreboard's meaning, and filing it under stall_mem would make the
+	// Register scoreboard dependencies: a result whose latency is not known at
+	// compile time, so the warp waits on a scoreboard slot. memory_dependency
+	// is the legacy activity-API name for the same wait long_scoreboard
+	// reports, and is matched here rather than by the memory arm below on
+	// purpose -- filing a wait on load data under stall_mem would make the
 	// bucket depend on which API produced the capture rather than on what the
 	// warp was doing.
-	case strings.Contains(name, "scoreboard") || strings.Contains(name, "exec_dependency") || strings.Contains(name, "memory_dependency"):
+	case strings.Contains(name, "scoreboard") || strings.Contains(name, "memory_dependency"):
 		vals.StallScoreboard += count
 		return true
 

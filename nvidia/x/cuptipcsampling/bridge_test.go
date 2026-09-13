@@ -596,10 +596,15 @@ func TestReasonInventoryRouting(t *testing.T) {
 	// that memory_dependency and long_scoreboard land in the same bucket, since
 	// they are the same wait reported by two APIs, and a reader comparing
 	// captures from both must not find the same phenomenon under two names.
+	// exec_dependency is here for the same reason in the other direction: it is
+	// a union of wait and short_scoreboard, and a dependent FMA chain measured
+	// on a GB10 puts 71.88% of its samples in wait against 0.06% in
+	// short_scoreboard, so stall_wait is the dominant member rather than a
+	// reading of the name.
 	absentFromGB10 := map[string]string{
 		"imc_miss":                   "stall_mem",
 		"memory_dependency":          "stall_scoreboard",
-		"exec_dependency":            "stall_scoreboard",
+		"exec_dependency":            "stall_wait",
 		"constant_memory_dependency": "stall_mem",
 		"texture":                    "stall_mem",
 		"inst_fetch":                 "stall_fetch",
