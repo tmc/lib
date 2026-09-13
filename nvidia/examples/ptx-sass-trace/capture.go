@@ -212,11 +212,12 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	// addresses in the shipped file rather than only when cmd/cudaprof
 	// synthesizes the mapping at view time.
 	ptxLines := cudaprof.PTXLineOffsets(ptx)
+	rec := newLaunchRecorder(prof, ptxLines)
 	prof.AddMapping("kernels.ptx", fmt.Sprintf("%x", sha256.Sum256([]byte(ptx))), ptxBase, ptxBase+uint64(len(ptx)))
 	var wRes workloadResult
 	workloadStart := time.Now()
 	runMeasured := func(ctx context.Context) {
-		wRes, err = runWorkload(ctx, dev, mod, prof, code, ptxLines, cfg)
+		wRes, err = runWorkload(ctx, dev, mod, rec, code, cfg)
 	}
 
 	attribution := "whole launch at entry; no PC sampling"
@@ -244,7 +245,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 		var sampErr error
 		cudaprof.Do(ctx, labels, func(ctx context.Context) {
-			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, prof, ptxLines, uint32(cfg.pcPeriod), runMeasured)
+			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, rec, uint32(cfg.pcPeriod), runMeasured)
 		})
 		// A sampling failure must not discard a workload that ran and verified,
 		// so it is reported after the workload's own error.

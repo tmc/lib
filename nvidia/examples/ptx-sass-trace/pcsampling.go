@@ -110,7 +110,7 @@ func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err
 //
 // The returned result is valid even when fn fails, so a partial run still
 // reports what it collected.
-func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, prof *cudaprof.Session, ptxLines []uint64, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
+func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, rec *launchRecorder, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
 	// The reason inventory cannot be read on a context where sampling is off,
 	// and the configuration Start needs is built from that inventory, so this
 	// enable is scoped to the query alone. Start enables the context again on
@@ -140,12 +140,18 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 	}
 
 	resolver := cuptipcsampling.NewCaptureResolverFromCubin(code, cubin)
+	// HostFrames resolves per kernel at record time rather than here: the
+	// samples are drained after fn returns, so a stack taken now is the
+	// recorder's own, identical on every row, and a constant stack filters
+	// like attribution without being any.
 	bridge := &cuptipcsampling.ProfileBridge{
-		Session:    prof,
+		Session:    rec.prof,
 		Inventory:  inv,
 		Resolver:   resolver,
-		PTXOffsets: ptxLines,
-		HostFrames: goFrames(0),
+		PTXOffsets: rec.ptxLines,
+		HostFrames: func(loc cuptipcsampling.CodeLocation) []cudaprof.Frame {
+			return rec.launchStack(loc.KernelName)
+		},
 	}
 	res = &pcSamplingResult{PeriodExponent: period, SelectedReasons: len(config.ReasonIDs)}
 

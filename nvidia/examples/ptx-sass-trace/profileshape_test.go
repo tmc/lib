@@ -155,3 +155,37 @@ func throughLabelledDo(t *testing.T) []cudaprof.Frame {
 	})
 	return frames
 }
+
+// PC samples are drained after the workload, so the launch stack has to be
+// remembered per kernel. A kernel launched from two different places has no
+// single launch site, and one of the two is not attribution.
+func TestLaunchRecorderStacks(t *testing.T) {
+	fromA := []cudaprof.Frame{{FunctionName: "main.runA", FileName: "workload.go", Line: 10}}
+	fromB := []cudaprof.Frame{{FunctionName: "main.runB", FileName: "workload.go", Line: 20}}
+	tests := []struct {
+		name     string
+		observed [][]cudaprof.Frame
+		want     []cudaprof.Frame
+	}{
+		{"never launched", nil, nil},
+		{"one site", [][]cudaprof.Frame{fromA}, fromA},
+		{"same site twice", [][]cudaprof.Frame{fromA, fromA}, fromA},
+		{"two sites", [][]cudaprof.Frame{fromA, fromB}, nil},
+		{"two sites then the first again", [][]cudaprof.Frame{fromA, fromB, fromA}, nil},
+		{"empty stack ignored", [][]cudaprof.Frame{fromA, {}}, fromA},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newLaunchRecorder(nil, nil)
+			for _, frames := range tt.observed {
+				r.observe("kernel", frames)
+			}
+			if got := r.launchStack("kernel"); !slices.Equal(got, tt.want) {
+				t.Errorf("launchStack = %v, want %v", got, tt.want)
+			}
+			if got := r.launchStack("other"); got != nil {
+				t.Errorf("launchStack(other) = %v, want nil", got)
+			}
+		})
+	}
+}

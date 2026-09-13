@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"math"
 	"runtime/trace"
+	"slices"
 	"strconv"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
@@ -27,7 +29,60 @@ type workloadResult struct {
 	MaxError  float64
 }
 
-func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *cudaprof.Session, code *cudacapture.Code, ptxLines []uint64, cfg config) (res workloadResult, err error) {
+// launchRecorder records one sample per kernel launch and remembers the Go
+// stack each launch came from. PC samples are drained after the workload has
+// finished, so the stack at drain time is the recorder's own; the launch stack
+// is the only host stack that says anything about the device work.
+type launchRecorder struct {
+	prof     *cudaprof.Session
+	ptxLines []uint64
+
+	mu     sync.Mutex
+	stacks map[string][]cudaprof.Frame
+	// ambiguous holds the kernels launched from more than one distinct stack.
+	// One of several stacks is not attribution, so those kernels report none.
+	ambiguous map[string]bool
+}
+
+func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorder {
+	return &launchRecorder{
+		prof:      prof,
+		ptxLines:  ptxLines,
+		stacks:    make(map[string][]cudaprof.Frame),
+		ambiguous: make(map[string]bool),
+	}
+}
+
+// observe records frames as the stack that launched the kernel named name.
+func (r *launchRecorder) observe(name string, frames []cudaprof.Frame) {
+	if name == "" || len(frames) == 0 {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.ambiguous[name] {
+		return
+	}
+	prev, ok := r.stacks[name]
+	if !ok {
+		r.stacks[name] = slices.Clone(frames)
+		return
+	}
+	if !slices.Equal(prev, frames) {
+		r.ambiguous[name] = true
+		delete(r.stacks, name)
+	}
+}
+
+// launchStack reports the Go stack that launched name, or nil when no launch
+// was observed or the kernel was launched from more than one stack.
+func (r *launchRecorder) launchStack(name string) []cudaprof.Frame {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.stacks[name]
+}
+
+func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *launchRecorder, code *cudacapture.Code, cfg config) (res workloadResult, err error) {
 	cols := 256
 	numExperts := 256
 	expertRows := 16
@@ -344,7 +399,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "warp_reduce",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsNorm, err = runKernel(ctx, launchNorm, []any{dX, dGamma, dXNorm, int32(normRows), int32(cols), float32(1e-5)}, stream, start, end, kNorm, prof, ptxLines, record)
+			nsNorm, err = runKernel(ctx, launchNorm, []any{dX, dGamma, dXNorm, int32(normRows), int32(cols), float32(1e-5)}, stream, start, end, kNorm, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -369,7 +424,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "simd_warp_reduce",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsQ8, err = runKernel(ctx, launchQ8, []any{dWQ8, dXNorm, dH, int32(q8Rows), int32(cols)}, stream, start, end, kQ8, prof, ptxLines, record)
+			nsQ8, err = runKernel(ctx, launchQ8, []any{dWQ8, dXNorm, dH, int32(q8Rows), int32(cols)}, stream, start, end, kQ8, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -394,7 +449,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "elementwise",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsSwiGLU, err = runKernel(ctx, launchSwiGLU, []any{dH, dUp, dSwiGLU, int32(cols)}, stream, start, end, kSwiGLU, prof, ptxLines, record)
+			nsSwiGLU, err = runKernel(ctx, launchSwiGLU, []any{dH, dUp, dSwiGLU, int32(cols)}, stream, start, end, kSwiGLU, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -423,7 +478,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 				"kernel", "ds4_moe_expert_dispatch",
 				"pass", passStr,
 			), func(ctx context.Context) {
-				nsMoE, err = runKernel(ctx, launchMoE, []any{dExpertWeights, dSwiGLU, dMoEOut, dExpertIDs, int32(slot), int32(expertRows), int32(cols)}, stream, start, end, kMoE, prof, ptxLines, record)
+				nsMoE, err = runKernel(ctx, launchMoE, []any{dExpertWeights, dSwiGLU, dMoEOut, dExpertIDs, int32(slot), int32(expertRows), int32(cols)}, stream, start, end, kMoE, rec, record)
 			})
 			if err != nil {
 				return res, err
@@ -451,7 +506,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "simd_dp4a",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsIQSimd, err = runKernel(ctx, launchIQSimd, []any{dIQQ, dIQA, dIQOutSimd, scaleIQ, int32(iqCount)}, stream, start, end, kIQ2Simd, prof, ptxLines, record)
+			nsIQSimd, err = runKernel(ctx, launchIQSimd, []any{dIQQ, dIQA, dIQOutSimd, scaleIQ, int32(iqCount)}, stream, start, end, kIQ2Simd, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -468,7 +523,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "scalar_loop",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsIQScalar, err = runKernel(ctx, launchIQScalar, []any{dIQQ, dIQA, dIQOutScalar, scaleIQ, int32(iqCount)}, stream, start, end, kIQ2Scalar, prof, ptxLines, record)
+			nsIQScalar, err = runKernel(ctx, launchIQScalar, []any{dIQQ, dIQA, dIQOutScalar, scaleIQ, int32(iqCount)}, stream, start, end, kIQ2Scalar, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -499,7 +554,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			"kernel.impl", "float4_smem",
 			"pass", passStr,
 		), func(ctx context.Context) {
-			nsSmem, err = runKernel(ctx, launchSmem, []any{dSmemA, dSwiGLU, dSmemOut, int32(expertRows), int32(cols)}, stream, start, end, kSmem, prof, ptxLines, record)
+			nsSmem, err = runKernel(ctx, launchSmem, []any{dSmemA, dSwiGLU, dSmemOut, int32(expertRows), int32(cols)}, stream, start, end, kSmem, rec, record)
 		})
 		if err != nil {
 			return res, err
@@ -519,7 +574,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			launchVec := cudalaunch.OwnedKernel(fnVecAdd).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream)
 			var nsVec int64
 			cudaprof.Do(ctx, cudaprof.Labels("kernel", "vector_add", "phase", "memory", "pass", passStr), func(ctx context.Context) {
-				nsVec, err = runKernel(ctx, launchVec, []any{daVec, dbVec, dcVec, int32(nVec)}, stream, start, end, kVecAdd, prof, ptxLines, record)
+				nsVec, err = runKernel(ctx, launchVec, []any{daVec, dbVec, dcVec, int32(nVec)}, stream, start, end, kVecAdd, rec, record)
 			})
 			if err != nil {
 				return res, err
@@ -547,7 +602,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, prof *
 			launchComp := cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream)
 			var nsComp int64
 			cudaprof.Do(ctx, cudaprof.Labels("kernel", "compute", "phase", "compute", "pass", passStr), func(ctx context.Context) {
-				nsComp, err = runKernel(ctx, launchComp, []any{dcVec, int32(nVec), int32(cfg.rounds)}, stream, start, end, kCompute, prof, ptxLines, record)
+				nsComp, err = runKernel(ctx, launchComp, []any{dcVec, int32(nVec), int32(cfg.rounds)}, stream, start, end, kCompute, rec, record)
 			})
 			if err != nil {
 				return res, err
@@ -593,7 +648,7 @@ func verifySlice(name string, pass int, got, want []float32, tol float64, res *w
 	return nil
 }
 
-func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, stream *cuda.Stream, start, end *cuda.Event, k *cudacapture.Kernel, prof *cudaprof.Session, ptxLines []uint64, record bool) (int64, error) {
+func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, stream *cuda.Stream, start, end *cuda.Event, k *cudacapture.Kernel, rec *launchRecorder, record bool) (int64, error) {
 	region := trace.StartRegion(ctx, k.Name+": host launch and wait")
 	defer region.End()
 	if err := start.Record(stream); err != nil {
@@ -616,6 +671,12 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 		return 0, fmt.Errorf("%s: nonpositive event interval %s", k.Name, elapsed)
 	}
 	trace.Logf(ctx, "cuda.event", "kernel=%s measured=%v gpu_time=%s", k.Name, record, elapsed)
+	// The Go stack above this launch, rather than this line: runtime.Caller(0)
+	// would name the code that records the sample, not the code that launched.
+	// Recorded for every launch, measured or not, because the PC samples drained
+	// later cover the unmeasured passes too.
+	stack := goFrames(1)
+	rec.observe(k.Name, stack)
 	if record {
 		// One launch per sample, so -sample_index=samples reports launch counts
 		// instead of an empty report.
@@ -629,12 +690,10 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 		}
 		frames := []cudaprof.Frame{
 			{FunctionName: k.Name + ".SASS", FileName: "kernels.sass", Line: int64(sassLine), Address: cudaprof.DefaultMappingStart + k.Offset},
-			{FunctionName: k.Name + ".PTX", FileName: "kernels.ptx", Line: int64(k.PTXLine), Address: ptxAddress(ptxLines, k.PTXLine)},
+			{FunctionName: k.Name + ".PTX", FileName: "kernels.ptx", Line: int64(k.PTXLine), Address: ptxAddress(rec.ptxLines, k.PTXLine)},
 			{FunctionName: k.Name, FileName: "kernels.cu", Line: int64(k.SourceLine)},
 		}
-		// The Go stack above this launch, rather than this line: runtime.Caller(0)
-		// would name the code that records the sample, not the code that launched.
-		prof.RecordStackSample(ctx, vals, append(frames, goFrames(1)...))
+		rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
 	}
 	return elapsed.Nanoseconds(), nil
 }
