@@ -61,6 +61,9 @@ func TestPropertiesRejectsUnknownABIAndScope(t *testing.T) {
 	}
 }
 
+// TestPropertiesOlderABIHasNoScope covers the versions whose properties struct
+// ends at metricType. Only 27 and 130001 do: 130101 already carries
+// metricCollectionScope even though its initialize struct does not grow.
 func TestPropertiesOlderABIHasNoScope(t *testing.T) {
 	strings, err := newMetricNames([]string{"description", "sm", "cycle"})
 	if err != nil {
@@ -79,6 +82,32 @@ func TestPropertiesOlderABIHasNoScope(t *testing.T) {
 		})
 		if err != nil || got.Scope != cupti.MetricCollectionScopeInvalid || got.Dimension != "cycle" || got.Type != cupti.MetricTypeRatio {
 			t.Fatalf("properties=%+v err=%v", got, err)
+		}
+	}
+}
+
+// TestPropertiesScopedVersions covers every version whose properties struct
+// reaches metricCollectionScope, which is the field CUPTI fills only when the
+// declared size includes it.
+func TestPropertiesScopedVersions(t *testing.T) {
+	names, err := newMetricNames([]string{"description", "sm", "cycle"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer names.close()
+	for _, version := range []uint32{130101, 130200, 130202, 130301, 130400} {
+		p := &Plan{host: 1}
+		got, err := p.properties("metric", 64, version, func(v *cupti.ProfilerHostGetMetricPropertiesParams) error {
+			if v.StructSize != 64 {
+				t.Fatalf("scoped struct size=%d", v.StructSize)
+			}
+			v.PDescription, v.PHwUnit, v.PDimUnit = names.pointers[0], names.pointers[1], names.pointers[2]
+			v.MetricType = cupti.MetricTypeRatio
+			v.MetricCollectionScope = cupti.MetricCollectionScopeDevice
+			return nil
+		})
+		if err != nil || got.Scope != cupti.MetricCollectionScopeDevice || got.CUPTIVersion != version {
+			t.Fatalf("%d: properties=%+v err=%v", version, got, err)
 		}
 	}
 }

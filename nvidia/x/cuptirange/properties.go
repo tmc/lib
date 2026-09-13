@@ -24,7 +24,7 @@ type MetricProperties struct {
 
 // Properties queries a metric's native definition. maxStringBytes bounds each
 // returned string, including its terminator. CUPTI versions 27 and 130001 use
-// the older layout without collection scope; 130200 and 130400 include scope.
+// the older layout without collection scope; 130101 and later include scope.
 // Other versions are rejected. A query does not prove collection permission or compatible
 // scheduling. The plan must remain open.
 func (p *Plan) Properties(name string, maxStringBytes int) (MetricProperties, error) {
@@ -58,7 +58,7 @@ func (p *Plan) properties(name string, maxStringBytes int, version uint32, query
 	}
 	v := cupti.ProfilerHostGetMetricPropertiesParams{PHostObject: p.host, PMetricName: names.pointers[0], MetricCollectionScope: cupti.MetricCollectionScopeInvalid}
 	v.StructSize = uint(unsafe.Offsetof(v.MetricCollectionScope) + unsafe.Sizeof(v.MetricCollectionScope))
-	if !scopedLayout(version) {
+	if !scopedProperties(version) {
 		v.StructSize = uint(unsafe.Offsetof(v.MetricType) + unsafe.Sizeof(v.MetricType))
 	}
 	if err := query(&v); err != nil {
@@ -67,7 +67,7 @@ func (p *Plan) properties(name string, maxStringBytes int, version uint32, query
 	if v.MetricType < cupti.MetricTypeCounter || v.MetricType >= cupti.MetricTypeCount {
 		return zero, errors.New("cuptirange: invalid native metric type")
 	}
-	if !scopedLayout(version) {
+	if !scopedProperties(version) {
 		v.MetricCollectionScope = cupti.MetricCollectionScopeInvalid
 	} else if v.MetricCollectionScope != cupti.MetricCollectionScopeContext && v.MetricCollectionScope != cupti.MetricCollectionScopeDevice {
 		return zero, errors.New("cuptirange: native metric scope unavailable")
