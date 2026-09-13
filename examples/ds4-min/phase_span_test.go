@@ -63,7 +63,7 @@ func TestPhaseSpansReportAnUnclosedGroup(t *testing.T) {
 
 // closeOpenPhaseForTest drops the open phase without ending it, which is
 // what a run that stopped mid-group leaves behind.
-func closeOpenPhaseForTest() { openPhase = tracedEnd{} }
+func closeOpenPhaseForTest() { openPhase = phaseEnd{} }
 
 // TestPhaseSpansCostNothingWhenOff guards the ordinary run: with no
 // recorder installed the marks must not allocate a span or leave state
@@ -73,8 +73,32 @@ func TestPhaseSpansCostNothingWhenOff(t *testing.T) {
 	spans, streamSpans = nil, nil
 	defer func() { spans, streamSpans = prevSpans, prevStream }()
 	markPhaseSpan("attention")
-	if openPhase.done != nil {
+	if openPhase != (phaseEnd{}) {
 		t.Error("a phase span opened with no recorder installed")
 	}
 	closePhaseSpan()
+}
+
+// TestPhaseSpansOpenNoNVTXRange pins the P3a/P3b split. Fine names in the
+// host sidecar and fine names in NVTX are separate work: a 2048-token
+// prefill would add about 715,000 ranges to a capture that carries 11,356,
+// which changes the thing being measured. If someone later routes these
+// through beginTraced, this fails and they have to decide deliberately.
+func TestPhaseSpansOpenNoNVTXRange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "spans.jsonl")
+	if err := withStreamRecorder(t, levelOp, path, func() {
+		markPhaseSpan("attention")
+		if openPhase == (phaseEnd{}) {
+			t.Fatal("no phase span opened with a recorder installed")
+		}
+		// A tracedEnd carries the NVTX range; a phaseEnd has no field
+		// for one, which is the guarantee. Assert the span reached the
+		// recorder so this is not vacuous.
+		if openPhase.stream.r == nil {
+			t.Error("phase span did not reach the streaming recorder")
+		}
+		closePhaseSpan()
+	}); err != nil {
+		t.Fatalf("close: %v", err)
+	}
 }
