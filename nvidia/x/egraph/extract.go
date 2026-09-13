@@ -141,6 +141,67 @@ func ExtractBest(g *EGraph, root Id, costModel CostModel) (*Expr, float64, error
 	return ext.Extract(root)
 }
 
+// TerminalOps are operators with direct CUDA C++ code generation support in GenerateCUDA.
+var TerminalOps = []string{
+	"fused_swiglu_gemv",
+	"tile_swiglu",
+	"fused_swiglu_q8_0",
+	"fused_rmsnorm_gemv",
+	"tile_rmsnorm_qkv",
+	"tile_rmsnorm_proj",
+	"q8_0_matvec",
+	"u2_simd",
+	"u2_scalar",
+	"q2_k_matvec",
+	"iq2_xxs_matvec",
+	"fused_rope_store_kv",
+	"add",
+}
+
+// PlaceholderOps are high-level mathematical primitives and intermediate memory
+// staging nodes recognized by equality saturation rewrite rules and priced by
+// cost models. They represent un-fused operations that must be rewritten into
+// terminal operators prior to CUDA codegen.
+var PlaceholderOps = []string{
+	"matmul",
+	"gemv",
+	"rmsnorm",
+	"rope",
+	"silu",
+	"gelu",
+	"swish",
+	"store_kv",
+	"load_kv",
+	"cublaslt_gemm",
+	"tile_mma",
+	"tile_mma_aligned",
+	"tile_load",
+	"tile_store",
+	"load_strided",
+	"partition_view",
+	"mmaf_scaled",
+}
+
+// IsTerminalOp reports whether op is a terminal operator directly lowerable by GenerateCUDA.
+func IsTerminalOp(op string) bool {
+	for _, top := range TerminalOps {
+		if op == top {
+			return true
+		}
+	}
+	return false
+}
+
+// IsPlaceholderOp reports whether op is an intermediate or placeholder operator.
+func IsPlaceholderOp(op string) bool {
+	for _, pop := range PlaceholderOps {
+		if op == pop {
+			return true
+		}
+	}
+	return false
+}
+
 // FusedMegakernelCost is a specialized cost model designed for CUDA megakernel fusion.
 // It assigns low cost to monolithic fused blocks and high cost to separate memory roundtrips.
 type FusedMegakernelCost struct{}
