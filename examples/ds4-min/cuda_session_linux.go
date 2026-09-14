@@ -643,7 +643,14 @@ func (r *cudaRuntime) evalLayerQKV(s *cudaTokenState, index int) error {
 	if err := r.hcMath.pre(s.hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, s.attnPre, false); err != nil {
 		return err
 	}
-	if err := r.encodeQ80Matvec(l.attnQA, s.attnNorm, s.qLora); err != nil {
+	qAttn := r.state.q80Input.Slice(0, s.attnNorm.Len()/32*36)
+	if err := r.encodeQuantQ81(s.attnNorm, qAttn, s.attnNorm.Len()); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81(l.attnQA, qAttn, s.qLora); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81(l.attnKV, qAttn, s.kvRaw); err != nil {
 		return err
 	}
 	if err := r.encodeRMS(s.qLora, l.attnQANorm, s.qLora, 1, true); err != nil {
@@ -653,9 +660,6 @@ func (r *cudaRuntime) evalLayerQKV(s *cudaTokenState, index int) error {
 		return err
 	}
 	if err := r.encodeRMS(s.qHeads, cudaModelTensor{}, s.qHeads, 64, false); err != nil {
-		return err
-	}
-	if err := r.encodeQ80Matvec(l.attnKV, s.attnNorm, s.kvRaw); err != nil {
 		return err
 	}
 	return r.encodeRMS(s.kvRaw, l.attnKVNorm, s.kvCur, 1, true)
@@ -753,10 +757,13 @@ func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, 
 	if err := r.markCUDAPhase("shared-ffn", position, index); err != nil {
 		return err
 	}
-	if err := r.encodeQ80Matvec(l.sharedGate, s.ffnNorm, s.sharedGate); err != nil {
+	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
 		return err
 	}
-	if err := r.encodeQ80Matvec(l.sharedUp, s.ffnNorm, s.sharedUp); err != nil {
+	if err := r.encodeQ80MatvecQ81(l.sharedGate, s.q81Input, s.sharedGate); err != nil {
+		return err
+	}
+	if err := r.encodeQ80MatvecQ81(l.sharedUp, s.q81Input, s.sharedUp); err != nil {
 		return err
 	}
 	// Fused SwiGLU activation + Q8_0 quantization into q80Input for shared-down projection.
@@ -768,9 +775,6 @@ func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, 
 		return err
 	}
 	if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {
-		return err
-	}
-	if err := r.encodeQuantQ81(s.ffnNorm, s.q81Input, cudaWidth); err != nil {
 		return err
 	}
 	if !r.disableSIMDExperts {
