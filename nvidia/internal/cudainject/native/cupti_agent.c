@@ -824,7 +824,10 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	extern CUptiResult CUDAPROF_TEST_STRUCT_SIZE_FN(CUpti_ActivityKind, uint32_t, size_t *);
 	pfn_get_struct_size fn_get_struct_size = CUDAPROF_TEST_STRUCT_SIZE_FN;
 #else
-	pfn_get_struct_size fn_get_struct_size = (pfn_get_struct_size)dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
+	/* ISO C forbids a direct object-to-function pointer cast, which -pedantic
+	   rejects. POSIX sanctions assigning through an object pointer instead. */
+	pfn_get_struct_size fn_get_struct_size = NULL;
+	*(void **)(&fn_get_struct_size) = dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
 #endif
 	if (fn_get_struct_size != NULL) {
 		size_t kernel_sz = 0, memcpy_sz = 0;
