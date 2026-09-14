@@ -1708,24 +1708,48 @@ identical and there would have been nothing to compare.
 
 The reboot also repointed `/usr/local/cuda` to **13.4**, whose
 `libcupti.so.2026.3.0` reports CUPTI version **130400**.
-`cuptipcsampling.stallReasons` (`nvidia/x/cuptipcsampling/reasons.go:81`) admits
-only **27, 130001 and 130200**, so it refused the inventory and the test hit
-`t.Skipf` — and `go test` printed `ok … 0.510s` with **exit status 0**.
+`cupti.PCSamplingReasonLayoutFor` (`nvidia/cupti/pcsampling.go:32`) admitted only
+**27, 130001 and 130200** at the time, so it refused the inventory and the test
+hit `t.Skipf` — and `go test` printed `ok … 0.510s` with **exit status 0**.
+130400 has since been qualified and added, so that particular refusal no longer
+reproduces; the shape below is what to carry forward, not the version list.
 
 Nothing in the environment chose 13.4. `LD_LIBRARY_PATH` was unset; `ldconfig -p`
 simply lists the `/usr/local/cuda` entry ahead of the `cuda-13.0` one. Any host
 with CUDA 13.4 installed resolves the same way.
 
+**It is two pins, not one, and they point at different toolkits.** The compiler
+and `nvdisasm` come from `PATH`; the CUPTI the agent dlopens comes from
+`LD_LIBRARY_PATH`. Pinning both to 13.0, as an earlier version of this section
+did, fails closed on the activity tier: `x/cuptiactivity` decodes a record only
+when the loaded library reports a matching native record size, and the size it
+expects is 13.2's.
+
 ```
-export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/sbsa-linux/lib
-export PATH=/usr/local/cuda-13.0/bin:$PATH   # nvdisasm, so SASS matches too
+export PATH=/usr/local/cuda-13.0/bin:$PATH                      # nvcc, nvdisasm
+export LD_LIBRARY_PATH=/usr/local/cuda-13.2/targets/sbsa-linux/lib   # CUPTI
 ```
 
-Run every capture through that, and record the CUPTI version beside any capture
-that will be compared to another. The allowlist is not the problem — it refused
-to read a parameter struct whose layout it had not verified, rather than
-misreading it, which is the behavior you want. Widening it to 130400 requires
-checking those layouts against CUDA 13.4's `cupti_pcsampling.h`.
+Run every capture through both, and record the CUPTI version beside any capture
+that will be compared to another.
+
+Ask the runtime for that version; do not infer it from the directory name. The
+two disagree in the middle of the 13.x series — measured with `cuptiGetVersion`
+against each toolkit on the DGX:
+
+| toolkit | 12.8 | 12.9 | 13.0 | 13.1 | 13.2 | 13.3 | 13.4 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| reported | 26 | 28 | 130001 | 130101 | **130202** | 130301 | 130400 |
+
+The allowlist is not the problem — it refuses to read a parameter struct whose
+layout it has not verified, rather than misreading it, which is the behavior you
+want. But note what the table says about its contents: the gate compares against
+`GetVersion()`, the **runtime** value, and **no toolkit on this host reports
+130200**. 13.2 reports 130202 and is therefore refused, while 130200 is
+presumably CUDA 13.2.0 rather than the 13.2.2 installed here. So the toolkit the
+activity tier requires is the one PC sampling will not admit, and the two tiers
+cannot share a single pin today. Qualifying 130202 means checking the layouts
+against 13.2's `cupti_pcsampling.h`; it is not an allowlist edit.
 
 **And the shape to remember: this arrived as a pass.** Four `t.Skipf` gates sit
 ahead of decode, and a skip is indistinguishable from success at the exit status.
