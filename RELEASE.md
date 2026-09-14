@@ -4,8 +4,11 @@ Status: blocked on license selection and dependency publication; not ready. Scop
 built and tested for development but is not tagged. There is no root module.
 
 The audit began at `75377ee0` on September 12, 2026, with Go 1.27.0 on
-Darwin/arm64 (Apple M4 Max). Subsequent working-tree fixes are not committed.
-Receipts below are local files under `~/tmp/lib-release/`.
+Darwin/arm64 (Apple M4 Max). The last revision it built and tested was
+`fa28c9c4`; any commit after that one changes only this document. The repairs it found are
+committed; see the "Verified changes" section for what each one was. No tags
+were created and no publication occurred. Receipts below are local files under
+`~/tmp/lib-release/` and `~/tmp/lib-release-current/`.
 
 ## Open requirements
 
@@ -91,6 +94,8 @@ before publication; do not silently move existing local tags.
 | NVIDIA Windows API comparison | Not possible: `nvidia/v0.1.0` does not compile for Windows, so the tag has no export data | `api/nvidia-darwin-vs-windows.log` compares current surfaces instead |
 | Tagged test packages | 22 built, 1 skipped for an unclaimed GOOS; the gate was checked against an injected signature error in `nvml/physical_test.go` and rejected it | `make testtag-check` output |
 | Burst admission failure observed directly | A full `make test` run lost 87 of 640,000 with `longest_wait=113ms longest_write=431ms`: the predicted mechanism, measured on a real failure rather than inferred | `make-test-head.log` |
+| Full workspace test at the final revision | All 15 modules, 144 packages passed at `fa28c9c4`; `check`, `gate-selftest`, `release-selftest`, `platform-check` and `testtag-check` all clean | `make-test-f3a541fe.log` and the gate logs beside it |
+| Release metadata at the final revision | Fails on the missing license and on `tpu`, `x/xla`, `x/gomlx` replacements and placeholders; nothing else | `release-check-fa28c9c4.log` |
 | Pinned `tmc/ffi` availability | Still 404; `git ls-remote` fails authentication, so the repository is private rather than unpublished | `proxy.golang.org` `.info` and `.zip`, rechecked September 13, 2026 |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
@@ -142,8 +147,11 @@ replacements/placeholders (`final-metadata.log`). A fresh public-proxy request
 for the pinned `ffi` version still returns HTTP 404 (`ffi-public-final.txt`).
 License selection has remained pending since the user asked about existing
 project licenses. Final licensed archives and publishable dependency manifests
-cannot be finalized from the currently available inputs. No commits or tags
-were created during this release-readiness pass, and no publication occurred.
+cannot be finalized from the currently available inputs. The repairs this pass
+found are committed on `main`; no tags were created and no publication occurred.
+`make release-check` at `fa28c9c4` fails on exactly those two blockers -- the
+missing license and the internal replacements and placeholder versions -- and
+on nothing else.
 
 ## Supported platforms
 
