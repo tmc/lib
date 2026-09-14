@@ -50,3 +50,53 @@ carrying that descriptor twice, the second copy's release digits edited to
 13.1 / V13.1.55 in place. It stands in for an image linked from objects two
 toolkits produced, which is the condition ReadToolchains exists to detect. No
 such image was available on this host to capture directly.
+
+# Loop fixture (backward branches)
+
+sm121a-loop-13.3.sass and sm121a-loop-13.4.sass are actual output from nvdisasm
+V13.4.49 on spark-31db, generated on 2026-09-14 from this CUDA source:
+
+    extern "C" __global__ void k4(const double* a, double* b, int n){
+      int i = blockIdx.x*blockDim.x + threadIdx.x;
+      double s = 0.0;
+      for (int j=0;j<n;j++) s = fma(s, a[i+j], 1.0);
+      if (i<n) b[i] = s;
+    }
+
+Compiled with `-cubin -arch=sm_121a` under two toolkits, then disassembled with
+`--print-code --print-instruction-encoding`. The ptxas identity in each image:
+
+    sm121a-loop-13.3.sass   release 13.3, V13.3.73   -arch sm_121a -m 64
+    sm121a-loop-13.4.sass   release 13.4, V13.4.59   -arch sm_121a -m 64
+
+These exist because every other SASS fixture in the repository has **no backward
+branch**: across the seven that carry labels, all 37 branches are either
+self-branches (27) or forward (10). Loop-membership logic tested only against
+those passes an implementation that reports "not in a loop" unconditionally.
+
+Each of these files carries all four label shapes in one kernel:
+
+    2  backward branches  (.L_x_2 at 0x170, .L_x_5) — real loops
+    7  forward branches
+    1  self-branch        (.L_x_6, the post-EXIT trap idiom)
+    1  trailing label     (.L_x_7, no following instruction)
+
+`BSSY` does not appear here, but note it takes a label operand in the
+x/cudalowering fixtures while not being a control transfer; match branches on
+opcode, not on the presence of a label operand.
+
+The pair is also the reproduction of the hot-loop padding result. Over the main
+loop body (backward branch at 0x760 targeting 0x170 under 13.3, 0x3c0 targeting
+0x170 under 13.4):
+
+    toolkit  body  NOP  LDG.E.64  DFMA  other
+    13.3       96   58        16    16      6
+    13.4       38    0        16    16      6
+
+13.4 removes every NOP from the hot loop — 58 of 96 instructions, 60% of issue
+slots per iteration — while leaving all 16 loads and all 16 DFMAs in place.
+Whole-.text totals go 232/110 NOP to 136/14 NOP with LDG and DFMA unchanged at
+29 each. A section-level census reports this as a 41% instruction-count drop and
+attributes it to the wrong thing; the loop-scoped census is the claim that
+survives. This is why the corpus diff has to be taken over the non-NOP stream
+and why loop membership has to be computed rather than assumed.
