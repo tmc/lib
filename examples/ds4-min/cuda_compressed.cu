@@ -358,8 +358,10 @@ extern "C" __global__ void ds4_attention_mixed_prepare(const float *q,const floa
       const float s = sinf(theta);
       const float a = kv[448 + r];
       const float b = kv[448 + r + 1];
-      out[ki]     = a * c - b * s;
-      out[ki + 1] = a * s + b * c;
+      const float bs = b * s;
+      const float bc = b * c;
+      out[ki]     = fmaf(a, c, -bs);
+      out[ki + 1] = fmaf(a, s, bc);
     }
     __syncthreads();
 
