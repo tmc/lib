@@ -28,3 +28,25 @@ The stamp it carries reads:
 
 tki_toolBranch is the unexpanded placeholder shown above in this image, while
 nvdisasm-13.0-sm121.json records a real branch string for a differently built
+cubin of the same release. The field is not parsed for that reason.
+
+# Instruction encoding fixture
+
+sm121a-encoding.sass is actual output from nvdisasm V13.0.85 on spark-31db,
+generated on 2026-09-14 from this CUDA source:
+
+    extern "C" __global__ void addk(const float* a, const float* b, float* c, int n) {
+      int i = blockIdx.x * blockDim.x + threadIdx.x;
+      if (i < n) c[i] = a[i] * b[i] + 1.0f;
+    }
+
+Compiled with CUDA 13.0 nvcc using `-cubin -arch=sm_121a`, then disassembled
+with `--print-code --print-instruction-encoding`. It carries the two encoding
+words of every instruction, which TestEncodingRoundTrip feeds back through
+`nvdisasm --binary SM121a` where nvdisasm is installed.
+
+tkinfo-mixed-13.0-13.1.cubin.hex is the same image with the note section
+carrying that descriptor twice, the second copy's release digits edited to
+13.1 / V13.1.55 in place. It stands in for an image linked from objects two
+toolkits produced, which is the condition ReadToolchains exists to detect. No
+such image was available on this host to capture directly.
