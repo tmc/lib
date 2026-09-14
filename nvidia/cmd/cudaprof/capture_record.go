@@ -14,7 +14,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 )
 
 // runCaptureCommand is the command-level adapter for the launcher foundation.
@@ -225,6 +228,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 			kept = append(kept, a)
 		}
 	}
+	provData := determineCaptureProvenance(result.Capability)
 	var metadata []byte
 	for {
 		result.OmittedFiles = sortedOmissions(omitted)
@@ -235,7 +239,7 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 		if err != nil {
 			return err
 		}
-		total := int64(len(metadata)) + int64(len(result.Capability))
+		total := int64(len(metadata)) + int64(len(provData))
 		for _, a := range kept {
 			total += a.size
 		}
@@ -272,8 +276,8 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	for name, data := range attachments {
 		c.Files[name] = data
 	}
-	if len(result.Capability) > 0 {
-		c.Files["capture-provenance.json"] = result.Capability
+	if len(provData) > 0 {
+		c.Files["capture-provenance.json"] = provData
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -324,3 +328,101 @@ Options:
   --require-complete            require complete capture without dropped records
   --follow-children             follow spawned child processes`)
 }
+
+type deviceProvenance struct {
+	Device            string `json:"device,omitempty"`
+	Arch              string `json:"arch,omitempty"`
+	ComputeCapability string `json:"compute_capability,omitempty"`
+	SMCount           int    `json:"sm_count,omitempty"`
+	MaxWarpsPerSM     int    `json:"max_warps_per_sm,omitempty"`
+	MaxBlocksPerSM    int    `json:"max_blocks_per_sm,omitempty"`
+}
+
+func queryLiveDeviceProvenanceJSON() []byte {
+	defer func() {
+		_ = recover()
+	}()
+	dev, err := cuda.NewDevice(0)
+	if err != nil || dev == nil {
+		return nil
+	}
+	defer dev.Close()
+
+	name, _ := dev.Name()
+	major, minor, _ := dev.ComputeCapability()
+	smCount, _ := dev.MultiprocessorCount()
+
+	arch := ""
+	cc := ""
+	if major > 0 {
+		arch = fmt.Sprintf("sm_%d%d", major, minor)
+		cc = fmt.Sprintf("%d.%d", major, minor)
+	}
+
+	maxWarps := 0
+	maxBlocks := 0
+	if arch != "" {
+		if occDev, err := cudaoccupancy.LookupDevice(arch); err == nil {
+			maxWarps = occDev.MaxWarpsPerSM
+			maxBlocks = occDev.MaxBlocksPerSM
+		}
+	}
+	if maxBlocks == 0 {
+		if mb, err := dev.Attribute(driver.DevAttrMaxBlocksPerMultiprocessor); err == nil && mb > 0 {
+			maxBlocks = mb
+		}
+	}
+	if maxWarps == 0 {
+		if mt, err := dev.Attribute(driver.DevAttrMaxThreadsPerMultiprocessor); err == nil && mt > 0 {
+			maxWarps = mt / 32
+		}
+	}
+
+	if arch == "" && smCount <= 0 && name == "" {
+		return nil
+	}
+
+	prov := deviceProvenance{
+		Device:            name,
+		Arch:              arch,
+		ComputeCapability: cc,
+		SMCount:           smCount,
+		MaxWarpsPerSM:     maxWarps,
+		MaxBlocksPerSM:    maxBlocks,
+	}
+	data, err := json.MarshalIndent(prov, "", "  ")
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+func determineCaptureProvenance(agentCapability []byte) []byte {
+	liveProv := queryLiveDeviceProvenanceJSON()
+	if len(liveProv) == 0 {
+		if len(agentCapability) > 0 {
+			return agentCapability
+		}
+		return nil
+	}
+	if len(agentCapability) == 0 {
+		return liveProv
+	}
+	var m map[string]any
+	if err := json.Unmarshal(liveProv, &m); err != nil {
+		return liveProv
+	}
+	var agentMap map[string]any
+	if err := json.Unmarshal(agentCapability, &agentMap); err == nil {
+		for k, v := range agentMap {
+			if _, exists := m[k]; !exists {
+				m[k] = v
+			}
+		}
+		if merged, err := json.MarshalIndent(m, "", "  "); err == nil {
+			return merged
+		}
+	}
+	return liveProv
+}
+

@@ -633,55 +633,71 @@ func queryLiveDeviceArch() string {
 	return fmt.Sprintf("sm_%d%d", major, minor)
 }
 
-// determineArch determines the GPU architecture/compute capability by inspecting capture
-// metadata/PTX, querying a live device if available, or returning empty string if unknown.
-func determineArch(cap *cudacapture.Capture) string {
+type deviceSource int
+
+const (
+	sourceUnknown deviceSource = iota
+	sourceCapture
+	sourceLiveDevice
+)
+
+// determineArchWithSource determines the GPU architecture/compute capability by inspecting
+// capture metadata/PTX/provenance, querying a live device if available, or returning empty string if unknown.
+func determineArchWithSource(cap *cudacapture.Capture) (string, deviceSource) {
 	if cap != nil {
 		if arch := parseArchFromCapture(cap); arch != "" {
-			return arch
+			return arch, sourceCapture
 		}
 	}
 	if arch := queryLiveDeviceArch(); arch != "" {
-		return arch
+		return arch, sourceLiveDevice
 	}
-	return ""
+	return "", sourceUnknown
+}
+
+func determineArch(cap *cudacapture.Capture) string {
+	arch, _ := determineArchWithSource(cap)
+	return arch
 }
 
 // determineDeviceLimits looks up the physical max warps per SM and max blocks per SM
 // keyed by compute capability via x/cudaoccupancy. Returns ok=false if architecture is unknown.
-func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, ok bool) {
-	arch := determineArch(cap)
+func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, src deviceSource, ok bool) {
+	arch, src := determineArchWithSource(cap)
 	if arch != "" {
 		if dev, err := cudaoccupancy.LookupDevice(arch); err == nil && dev.MaxWarpsPerSM > 0 {
-			return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, true
+			return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, src, true
 		}
 	}
-	return 0, 0, false
+	return 0, 0, sourceUnknown, false
 }
 
 // determineSMCount determines the device SM count by inspecting capture metadata,
-// querying a live device if available, or looking up device architecture tables.
+// looking up the capture's target architecture, or querying a live device as fallback.
 // It returns ok=false when the hardware SM count cannot be determined.
-func determineSMCount(cap *cudacapture.Capture) (int, bool) {
+func determineSMCount(cap *cudacapture.Capture) (int, deviceSource, bool) {
+	// 1. Explicit SM count from capture metadata/provenance.
 	if cap != nil {
 		if count := parseSMCountFromCapture(cap); count > 0 {
-			return count, true
+			return count, sourceCapture, true
 		}
 	}
 
-	if count := queryLiveDeviceSMCount(); count > 0 {
-		return count, true
-	}
-
+	// 2. SM count derived from the capture's own target architecture / PTX.
 	if cap != nil {
 		if arch := parseArchFromCapture(cap); arch != "" {
 			if count := smCountForArch(arch); count > 0 {
-				return count, true
+				return count, sourceCapture, true
 			}
 		}
 	}
 
-	return 0, false
+	// 3. Fall back to live CUDA device hardware only when capture has no device identity.
+	if count := queryLiveDeviceSMCount(); count > 0 {
+		return count, sourceLiveDevice, true
+	}
+
+	return 0, sourceUnknown, false
 }
 
 func parseSMCountFromCapture(cap *cudacapture.Capture) int {
@@ -693,7 +709,7 @@ func parseSMCountFromCapture(cap *cudacapture.Capture) int {
 			return count
 		}
 	}
-	for _, name := range []string{"capture-status.json", "status.json", "manifest.json"} {
+	for _, name := range []string{"capture-provenance.json", "capture-status.json", "status.json", "manifest.json", "provenance.json"} {
 		if data, ok := cap.Files[name]; ok && len(data) > 0 {
 			if count := parseSMCountFromJSON(data); count > 0 {
 				return count
@@ -728,12 +744,16 @@ func findSMCountInMap(m map[string]any) int {
 	if dev, ok := m["device"].(string); ok && dev != "" {
 		devLower := strings.ToLower(dev)
 		switch {
+		case strings.Contains(devLower, "gb10"):
+			return 48
 		case strings.Contains(devLower, "gb200"):
 			return 136
 		case strings.Contains(devLower, "b200") || strings.Contains(devLower, "b100"):
 			return 132
 		case strings.Contains(devLower, "h100"):
 			return 132
+		case strings.Contains(devLower, "rtx 4090"):
+			return 128
 		case strings.Contains(devLower, "a100"):
 			return 108
 		}
@@ -765,7 +785,7 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 			}
 		}
 	}
-	for _, name := range []string{"capture-status.json", "status.json", "manifest.json"} {
+	for _, name := range []string{"capture-provenance.json", "capture-status.json", "status.json", "manifest.json", "provenance.json"} {
 		if data, ok := cap.Files[name]; ok && len(data) > 0 {
 			var m map[string]any
 			if json.Unmarshal(data, &m) == nil {
@@ -779,7 +799,7 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 }
 
 func findArchInMap(m map[string]any) string {
-	for _, k := range []string{"arch", "architecture", "target", "compute_capability"} {
+	for _, k := range []string{"arch", "architecture", "target", "compute_capability", "computeCapability", "chip", "chip_name", "sm"} {
 		if v, ok := m[k]; ok {
 			if s, ok := v.(string); ok && s != "" {
 				return s
@@ -955,8 +975,17 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 		return
 	}
 
-	smCount, hasSMCount := determineSMCount(cap)
-	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
+	smCount, smSrc, hasSMCount := determineSMCount(cap)
+	maxWarpsPerSM, maxBlocksPerSM, limitSrc, hasLimits := determineDeviceLimits(cap)
+
+	if !hasLimits && !hasSMCount && cap.Profile != nil && len(launches) > 0 {
+		report.Items = append(report.Items, AdviceItem{
+			Severity:                 SeverityInfo,
+			Category:                 CategoryArchitecture,
+			Finding:                  "Device architecture and SM count metadata are not recorded in this capture, and no local CUDA device is available; theoretical SM occupancy and SM grid starvation audits were skipped.",
+			ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json) or run advise on a host equipped with the target GPU architecture.",
+		})
+	}
 
 	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
 	if hasLimits {
@@ -990,8 +1019,12 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				}
 				seenSingleWarp[launch.Kernel] = true
 
-				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM",
-					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM)
+				provSuffix := ""
+				if limitSrc == sourceLiveDevice {
+					provSuffix = " (hardware limits inferred from local host device, not recorded in capture)"
+				}
+				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
+					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM, provSuffix)
 
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
@@ -1035,11 +1068,15 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				}
 				seenGridStarvation[launch.Kernel] = true
 				idlePct := (smCount - launch.GridBlocks) * 100 / smCount
+				provSuffix := ""
+				if smSrc == sourceLiveDevice {
+					provSuffix = " (SM count inferred from local host device, not recorded in capture)"
+				}
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitecture,
 					Location:                 launch.Location,
-					Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle", launch.Kernel, launch.GridBlocks, smCount, idlePct),
+					Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle%s", launch.Kernel, launch.GridBlocks, smCount, idlePct, provSuffix),
 					ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
 				})
 			}
