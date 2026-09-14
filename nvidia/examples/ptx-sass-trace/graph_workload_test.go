@@ -87,7 +87,7 @@ func TestStepToKernelParams(t *testing.T) {
 			Args:     []any{dptr, n, scale},
 		}
 
-		params, _, err := stepToKernelParams(step)
+		params, packed, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
@@ -108,15 +108,24 @@ func TestStepToKernelParams(t *testing.T) {
 			t.Fatal("expected non-zero KernelParams pointer")
 		}
 
-		// Verify packed pointers point to values matching args
-		argPtrs := unsafe.Slice((*unsafe.Pointer)(unsafe.Pointer(params.KernelParams)), 3)
-		if got := *(*driver.DevicePtr)(argPtrs[0]); got != dptr {
+		// KernelParams is an untraced uintptr addressing packed, which the
+		// caller owns and must keep alive. Check that it addresses packed,
+		// then read the arguments through packed itself: recovering them from
+		// the integer instead would dereference memory this test has already
+		// dropped its only reference to.
+		if len(packed) != 3 {
+			t.Fatalf("packed args = %d, want 3", len(packed))
+		}
+		if want := uintptr(unsafe.Pointer(&packed[0])); params.KernelParams != want {
+			t.Errorf("params.KernelParams = 0x%x, want packed array at 0x%x", params.KernelParams, want)
+		}
+		if got := *(*driver.DevicePtr)(packed[0]); got != dptr {
 			t.Errorf("arg 0 = 0x%x, want 0x%x", got, dptr)
 		}
-		if got := *(*int32)(argPtrs[1]); got != n {
+		if got := *(*int32)(packed[1]); got != n {
 			t.Errorf("arg 1 = %d, want %d", got, n)
 		}
-		if got := *(*float32)(argPtrs[2]); got != scale {
+		if got := *(*float32)(packed[2]); got != scale {
 			t.Errorf("arg 2 = %g, want %g", got, scale)
 		}
 	})

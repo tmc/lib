@@ -24,6 +24,14 @@ func TestPCSamplingReasonLayoutFor(t *testing.T) {
 	}
 }
 
+// TestPCSamplingStallReasons stands in for CUPTI, which receives the output
+// addresses as plain integers. Reconstructing pointers from the uintptr
+// parameter fields is therefore the behavior under test, not an accident, and
+// go vet reports each conversion as a possible misuse. It is sound here for the
+// same reason it is sound for CUPTI: pcSamplingStallReasons pins every
+// referenced object with a [runtime.Pinner] that outlives both callbacks, so
+// nothing moves or is collected while an address is held as an integer. The
+// conversions would become unsound if the pinning were dropped.
 func TestPCSamplingStallReasons(t *testing.T) {
 	inv, err := pcSamplingStallReasons(1, 4, 130400,
 		func(p *PCSamplingGetNumStallReasonsParams) error {
