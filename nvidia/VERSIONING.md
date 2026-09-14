@@ -460,9 +460,13 @@ Consequences that make this manageable for one maintainer:
   keyed on the promise rather than on one word -- `changes at will`,
   `patch release`, `no API stability`, `API unstable`, `without
   notice`, `may be removed`, `not covered by`, `no compatibility` --
-  over all 49, and the same net finds nothing in `x/DESIGN.md`. Note
-  that `compatibility` alone is the wrong probe here: it appears in six
-  more packages and means ABI or toolkit compatibility in every one.
+  over all 49, and the same net finds nothing in `x/DESIGN.md`. Key the
+  search on the promise and not on a word that sounds like the topic:
+  `compatibility` is the worked example, matching six further packages
+  and meaning ABI or toolkit compatibility in all six, and the cheap
+  ones are `stab`, which matches "establish" twice in `x/DESIGN.md`,
+  and `may change`, which matches an `nccltest` comment about
+  successive samples.
 
   **Prerequisite for the tag:** every x/ package doc states the
   exemption, so that a consumer reading the package learns it without
