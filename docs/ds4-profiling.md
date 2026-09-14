@@ -1976,3 +1976,45 @@ residual non-bandwidth kernels.
 
 Harness `/home/tmc/tmp/df69-repack-abba.sh`, log `df69-repack-abba.log`, binary
 `ds4-bench.pristine` `d519e11128fe5a94`.
+
+### What the denominator change does to the claimable ledger
+
+Retiring the 238 GB/s denominator is not a presentational change: the claimable
+column was computed entirely out of it, so the column cannot survive it. The
+convention on this page is a reachable floor at 95% of the achievable ceiling
+(80% recovery on the single-thread block, which is not bandwidth-bound and is
+therefore untouched by any of this). Against 238 that convention reproduces the
+published entries exactly — Q8_0 10.84, experts 3.89, F16 8.20 — which is how we
+know the recomputation below applies the page's own rule rather than a new one.
+
+Re-run against the ceiling that actually describes the memory these kernels
+read, 162 GB/s (reachable floor 153.9 GB/s):
+
+    family        GB/tok   ms/tok   % of 162   floor ms   distance
+    Q8_0           6.599   40.031     101.8      42.88      -2.85 -> 0
+    experts        1.826   11.971      94.2      11.86       0.11
+    F16            1.132   13.204      52.9       7.36       5.85
+    single-thread     --    3.743        --         --       2.99  (not bandwidth)
+
+F16's 5.85 ms is **distance to the roofline, not claimable savings**: its only
+known lever was measured and lost — deleting the shared-memory staging costs
+2.84%, and the staged kernel is already inside the census. F16 was therefore
+zero in the claimable column before this recomputation and stays zero after it.
+Summing the distance column would give 8.95 and contradict the ledger; the
+claimable column is the subset with a surviving mechanism.
+
+    claimable   Q8_0 0 + experts 0.11 + single-thread 2.99  =  3.10 ms/tok
+                (was 10.84 + 3.89 + 2.99                    = 17.72)
+    needed                                                    24.99
+    shortfall                                                 21.89  (was 7.27)
+
+**14.62 ms/token of "reachable savings" was the denominator**, all of it from
+the Q8_0 (10.84) and expert (3.78) rows; F16 contributed zero to both ledgers
+and so contributes nothing to the delta. Not one arithmetic step in the old
+ledger was wrong. Every row divided correctly by a number that did not describe
+the memory the workload reads, which is why the error was invisible to
+re-checking the arithmetic and only a control could find it.
+
+Verbs: the per-family ms/tok rows are measured, the 162 ceiling is measured
+(twice, synthetically and end-to-end), and the recomputation is derived
+arithmetic over both.
