@@ -250,7 +250,7 @@ func TestWriteCaptureStatusRejectsUnrepresentableCopyBytes(t *testing.T) {
 func TestRunCaptureCommandPreservesTargetFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "capture.pprof")
 	old := os.Args
-	os.Args = []string{"cudaprof", "capture", "-o", path, "--", "/bin/sh", "-c", "exit 7"}
+	os.Args = []string{"cudaprof", "capture", "--no-inject", "-o", path, "--", "/bin/sh", "-c", "exit 7"}
 	t.Cleanup(func() { os.Args = old })
 	err := runCaptureCommand(os.Args[2:])
 	var exitErr *exitCodeError
@@ -758,4 +758,42 @@ func TestObserveCaptureSessionSurfacesInvalidActivityFailure(t *testing.T) {
 		t.Fatalf("captureError falsely reported handshake missing: %q", got.CaptureError)
 	}
 }
+
+func TestRunCaptureCommandOutputsCompactStatusWithoutRecordArrays(t *testing.T) {
+	// Verify that compactCaptureStatus strips Activities and APIRecords arrays.
+	res := captureResult{
+		Protocol:       1,
+		Session:        "test-session",
+		CaptureSuccess: true,
+		Activities: []captureActivity{
+			{Name: "k1", Subtype: "kernel", Device: 0, Start: 100, End: 200},
+			{Name: "k2", Subtype: "kernel", Device: 0, Start: 200, End: 400},
+		},
+		APIRecords: []captureAPI{
+			{Domain: "runtime", CallbackID: 1},
+		},
+	}
+	status := compactCaptureStatus(res)
+	if status.ActivitySamples != 2 {
+		t.Fatalf("ActivitySamples = %d, want 2", status.ActivitySamples)
+	}
+	if status.APIRecordCount != 1 {
+		t.Fatalf("APIRecordCount = %d, want 1", status.APIRecordCount)
+	}
+	b, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	str := string(b)
+	if strings.Contains(str, `"activities":`) {
+		t.Errorf("compact status JSON unexpectedly contains activities array: %s", str)
+	}
+	if strings.Contains(str, `"api_records":`) {
+		t.Errorf("compact status JSON unexpectedly contains api_records array: %s", str)
+	}
+	if !strings.Contains(str, `"activity_samples":2`) {
+		t.Errorf("compact status JSON missing activity_samples count: %s", str)
+	}
+}
+
 

@@ -83,6 +83,7 @@ type captureRecordPayload struct {
 // wrote a finalized record contribute anything.
 type observeOptions struct {
 	injectionRequested bool
+	noInject           bool
 	// recoverUnfinalized admits records from a worker generation that decoded
 	// completely but never finalized. Such a generation is labelled
 	// "unfinalized-partial", counted separately in RecoveredGenerations, and
@@ -297,6 +298,12 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			}
 		} else if !targetHandshakeSeen {
 			if !opts.injectionRequested {
+				if opts.noInject {
+					result.Outcome = captureOutcomeNoCUDA
+					result.CaptureSuccess = true
+					result.RunCompleteness = runComplete
+					return result
+				}
 				result.Outcome, result.CaptureError = captureOutcomeNoCUDA, "no injection library configured (specify --inject /path/to/agent.so or CUDAPROF_INJECT)"
 			} else {
 				result.Outcome, result.CaptureError = captureOutcomeTransport, "no identity-matching target handshake"
