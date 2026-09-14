@@ -104,56 +104,115 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
     unsigned blocks, unsigned rows, unsigned batch) {
   const unsigned tid = threadIdx.x;
   const unsigned warp_id = tid / 32, lane = tid % 32;
-  const unsigned row = blockIdx.x * 8 + warp_id, token = blockIdx.y;
-  if (token >= batch) return;
+  const unsigned row = blockIdx.x * 8 + warp_id;
 
-  const ds4_q8_1_activation *token_x = x + (unsigned long long)token * blocks;
-  __shared__ ds4_q8_1_activation s_x[256];
-  if (blocks <= 256) {
-    int *s_words = reinterpret_cast<int *>(s_x);
-    const int *x_words = reinterpret_cast<const int *>(token_x);
-    const unsigned total_words = blocks * 9;
-    for (unsigned idx = tid; idx < total_words; idx += 256) {
-      s_words[idx] = x_words[idx];
+  if (gridDim.y > 1) {
+    const unsigned token = blockIdx.y;
+    if (token >= batch) return;
+    const ds4_q8_1_activation *token_x = x + (unsigned long long)token * blocks;
+    __shared__ ds4_q8_1_activation s_x[256];
+    if (blocks <= 256) {
+      int *s_words = reinterpret_cast<int *>(s_x);
+      const int *x_words = reinterpret_cast<const int *>(token_x);
+      const unsigned total_words = blocks * 9;
+      for (unsigned idx = tid; idx < total_words; idx += 256) {
+        s_words[idx] = x_words[idx];
+      }
     }
+    __syncthreads();
+
+    if (row >= rows) return;
+    const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
+    float sum = 0.0f;
+    if (blocks <= 256) {
+      for (unsigned b = lane; b < blocks; b += 32) {
+        const unsigned char *p = weight_row + (unsigned long long)b * 34;
+        const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+        const int *x4 = reinterpret_cast<const int *>(s_x[b].qs);
+        int dot = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+          int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+          dot = __dp4a(w4, x4[i], dot);
+        }
+        const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+        sum += d * ds4_half_to_float(s_x[b].d) * float(dot);
+      }
+    } else {
+      for (unsigned b = lane; b < blocks; b += 32) {
+        const unsigned char *p = weight_row + (unsigned long long)b * 34;
+        const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+        const int *x4 = reinterpret_cast<const int *>(token_x[b].qs);
+        int dot = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+          int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+          dot = __dp4a(w4, x4[i], dot);
+        }
+        const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+        sum += d * ds4_half_to_float(token_x[b].d) * float(dot);
+      }
+    }
+    for (unsigned stride = 16; stride; stride >>= 1)
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    if (lane == 0) out[(unsigned long long)token * rows + row] = sum;
+    return;
+  }
+
+  // Weight-amortized 1D grid launch:
+  // Dynamically stage all batch activations in shared memory.
+  // Each warp loads weight_row once across all batch tokens.
+  extern __shared__ char s_mem[];
+  ds4_q8_1_activation *s_x = reinterpret_cast<ds4_q8_1_activation *>(s_mem);
+
+  const unsigned total_words = batch * blocks * 9;
+  const int *x_words = reinterpret_cast<const int *>(x);
+  int *s_words = reinterpret_cast<int *>(s_x);
+  for (unsigned idx = tid; idx < total_words; idx += 256) {
+    s_words[idx] = x_words[idx];
   }
   __syncthreads();
 
   if (row >= rows) return;
   const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
-  float sum = 0.0f;
-  if (blocks <= 256) {
-    for (unsigned b = lane; b < blocks; b += 32) {
-      const unsigned char *p = weight_row + (unsigned long long)b * 34;
-      const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
-      const int *x4 = reinterpret_cast<const int *>(s_x[b].qs);
-      int dot = 0;
-      #pragma unroll
-      for (int i = 0; i < 8; i++) {
-        int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
-        dot = __dp4a(w4, x4[i], dot);
-      }
-      const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
-      sum += d * ds4_half_to_float(s_x[b].d) * float(dot);
+
+  float sum[8] = {0.0f};
+
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    int w4[8];
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      w4[i] = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
     }
-  } else {
-    for (unsigned b = lane; b < blocks; b += 32) {
-      const unsigned char *p = weight_row + (unsigned long long)b * 34;
-      const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
-      const int *x4 = reinterpret_cast<const int *>(token_x[b].qs);
-      int dot = 0;
-      #pragma unroll
-      for (int i = 0; i < 8; i++) {
-        int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
-        dot = __dp4a(w4, x4[i], dot);
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+
+    #pragma unroll
+    for (unsigned t = 0; t < 8; t++) {
+      if (t < batch) {
+        const ds4_q8_1_activation *act = s_x + t * blocks + b;
+        const int *x4 = reinterpret_cast<const int *>(act->qs);
+        int dot = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+          dot = __dp4a(w4[i], x4[i], dot);
+        }
+        sum[t] += d * ds4_half_to_float(act->d) * float(dot);
       }
-      const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
-      sum += d * ds4_half_to_float(token_x[b].d) * float(dot);
     }
   }
-  for (unsigned stride = 16; stride; stride >>= 1)
-    sum += __shfl_down_sync(0xffffffff, sum, stride);
-  if (lane == 0) out[(unsigned long long)token * rows + row] = sum;
+
+  #pragma unroll
+  for (unsigned t = 0; t < 8; t++) {
+    if (t < batch) {
+      float s = sum[t];
+      #pragma unroll
+      for (unsigned stride = 16; stride; stride >>= 1)
+        s += __shfl_down_sync(0xffffffff, s, stride);
+      if (lane == 0) out[(unsigned long long)t * rows + row] = s;
+    }
+  }
 }
 
 extern "C" __global__ void ds4_swiglu_quant_q8_1(

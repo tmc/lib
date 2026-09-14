@@ -995,6 +995,9 @@ func (r *cudaFoundation) loadMathKernels() error {
 	if r.mixedAttentionFinalizeFn != 0 {
 		_ = r.mixedAttentionFinalizeFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, 66048)
 	}
+	if r.q81MatvecBatchFn != 0 {
+		_ = r.q81MatvecBatchFn.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, int32(optin))
+	}
 	r.matrixMod = mod
 	return nil
 }

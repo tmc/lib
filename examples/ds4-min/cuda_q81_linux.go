@@ -94,7 +94,8 @@ func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.S
 			return err
 		}
 		gridRows := (uint32(rows) + 7) / 8
-		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(gridRows, uint32(batch)).Block(256).On(r.stream()).Launch(
+		smemBytes := uint32(batch) * uint32(cols/32) * 36
+		if err := cudalaunch.Kernel(r.q81MatvecBatchFn).Grid(gridRows, 1).Block(256).SharedMem(smemBytes).On(r.stream()).Launch(
 			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
 		}
