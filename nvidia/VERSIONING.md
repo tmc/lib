@@ -457,6 +457,68 @@ bound-symbol table (`cuMemAlloc` → `cuMemAlloc_v2`) is diffed alongside:
 a moved binding is a train-only change and a changelog line even though
 apidiff is silent on it.
 
+The 13.3 train carries one known rename, and a value-based check cannot
+see it. CUPTI respelled two `CUpti_ActivityAttribute` enumerators between
+13.2 and 13.3 while leaving their values alone. Measured 2026-09-14 by
+reading `cupti_activity.h` from the installed 13.2, 13.3 and 13.4
+toolkits on dgx:
+
+| value | 13.2 | 13.3 and 13.4 |
+|---|---|---|
+| 20 | `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_LEVEL_TRACE` | `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_TRACE` |
+| 23 | `..._CIG_MODE` | `..._ENABLE_CIG_MODE` |
+
+`cupti/enums.gen.go` is frozen at the 13.2 spelling, so regenerating onto
+the 13.3.1 profile renames two exported Go identifiers,
+`ActivityAttrEnableMultiSubscriberGraphLevelTrace` and
+`ActivityAttrCigMode`, and changes what `String()` returns for both.
+Nothing in this repository names either identifier, so no build anywhere
+fails. Both are in the shipped surface, though: `nvidia/v0.1.0` is the
+only nvidia tag and its `cupti/enums.gen.go` carries both names, as
+declarations and as `String()` literals. This is a real break against a
+released API, not a hypothetical one. Because the values stay 20 and 23,
+a constant-drift check passes before and after — apidiff, which compares
+names, is the only check that reports it.
+
+Follow the header: the bindings mirror the C API, and holding a
+superseded spelling would misreport what 13.3 and later expose. Ship the
+rename as a named breaking change in the v0.2.0 changelog rather than
+aliasing it.
+
+These two are changelog entries, not a bump trigger, and the passage
+above should not be read as though they decided anything. The v0.2.0
+surface is already incompatible with `nvidia/v0.1.0` in 195 recorded
+ways, and 157 of those are outside `x/`. Counted in `../api/nvidia.log`
+on 2026-09-14: 93 `nvml` entries, 54 `driver` entries, all six
+`cufft.Handle.Exec*` methods retyped from typed pointers to `uintptr`,
+two in `cusparse`, and one each in `nvrtc` and `nccl`; plus a
+struct-shape change on `nvml.RemappedRowsInfoV2`, which is also the
+single `!` entry.
+
+The other 38 are under `x/`: 15 whole-package removals and 23 symbols.
+By the exemption stated above they neither add to this decision nor
+subtract from it, so quote the 157 and list the 38 separately. An
+earlier draft of this paragraph led with the 15 `x/` package removals,
+which argued against the exemption two sections up. The bump is decided
+on the 157 and written down in `../RELEASE.md`. The renames add to the
+list; they do not create it.
+
+The risk to manage is procedural, and it is narrow. `../api/nvidia.log`
+has no `ActivityAttr` entry, but apidiff emits only differences, so that
+records these identifiers as *unchanged* on 2026-09-13 rather than absent
+from the baseline. They were unchanged because this tree still carries
+the 13.2 spelling: the rename does not exist in our code yet. It appears
+the moment someone regenerates against a 13.3 or later toolkit, and that
+run is the only one where apidiff can see it. Since apidiff is run by
+hand rather than by a gate, a regeneration committed without re-running
+it ships the break invisibly.
+
+That is the one thing here worth building: the post-regeneration apidiff
+run belongs in the regeneration step itself, not in a person's memory.
+Zero `ActivityAttr` matches in both `../api/nvidia.log` and
+`../api/nvidia-linux.log` confirm no other artifact we keep can ever
+show this class of change.
+
 Rules that keep trains additive:
 
 - Deprecated declarations stay bound and marked `Deprecated:`
