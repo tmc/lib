@@ -55,10 +55,17 @@ gate-selftest:
 platform-check:
 	@sh scripts/check-platforms.sh
 
+# Compiles the test packages behind build tags like cupti_physical. Nothing a
+# workstation runs selects those tags, so without this they can stop building
+# for months while every other gate stays green.
+.PHONY: testtag-check
+testtag-check:
+	@sh scripts/check-testtags.sh
+
 # Metadata and cross-platform builds; see RELEASE.md for consumer and runtime
 # verification.
 .PHONY: release-check release-selftest
-release-check: check platform-check
+release-check: check platform-check testtag-check
 	@python3 scripts/check-release.py
 
 release-selftest:
