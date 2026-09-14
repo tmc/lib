@@ -1,7 +1,12 @@
 package cudasass_test
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
@@ -53,4 +58,25 @@ func ExampleDisassembly_AssertOpcodes() {
 	// Output:
 	// Assert SIMD: true
 	// Assert Tensor Core: cudasass: kernel "QuantizedDotProduct" missing required opcode "HMMA"
+}
+
+// ExampleReadToolchains reads the compiler stamp out of a CUDA ELF image.
+func ExampleReadToolchains() {
+	text, err := os.ReadFile("testdata/tkinfo-ptxas-13.0-sm121.cubin.hex")
+	if err != nil {
+		log.Fatal(err)
+	}
+	cubin, err := hex.DecodeString(strings.TrimSpace(string(text)))
+	if err != nil {
+		log.Fatal(err)
+	}
+	stamps, err := cudasass.ReadToolchains(bytes.NewReader(cubin))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, s := range stamps {
+		fmt.Println(s)
+	}
+	// Output:
+	// ptxas: Cuda compilation tools, release 13.0, V13.0.88
 }
