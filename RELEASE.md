@@ -90,7 +90,7 @@ before publication; do not silently move existing local tags.
 | Declared platform builds | 66 of 66 passed at `1584e1c6`; the gate was checked against a false claim and a missing module and rejected both | `make platform-check` output |
 | Burst admission boundary | Eight quiet runs retained 640,000 of 640,000; longest admission wait equals longest batch write to the millisecond in every run | `go test ./internal/cudainject/nativecontrol -run TestBurst -count=8 -v` |
 | Burst admission under host I/O | Three runs with 4.8 GB of concurrent writes; both maxima rose together to 99 ms against the 100 ms deadline and still retained everything | same test with a concurrent `dd` load |
-| NVIDIA Linux API comparison | 195 incompatible entries, identical to the Darwin set in both directions | `api/nvidia-linux.log` |
+| NVIDIA Linux API comparison | 195 incompatible entries plus one type-mismatch warning, identical to the Darwin set in both directions | `api/nvidia-linux.log` |
 | NVIDIA Windows API comparison | Not possible: `nvidia/v0.1.0` does not compile for Windows, so the tag has no export data | `api/nvidia-darwin-vs-windows.log` compares current surfaces instead |
 | Tagged test packages | 22 built, 1 skipped for an unclaimed GOOS; the gate was checked against an injected signature error in `nvml/physical_test.go` and rejected it | `make testtag-check` output |
 | Burst admission failure observed directly | A full `make test` run lost 87 of 640,000 with `longest_wait=113ms longest_write=431ms`: the predicted mechanism, measured on a real failure rather than inferred | `make-test-head.log` |
@@ -193,23 +193,32 @@ module tags required Go 1.26.2.
 
 | Modules | Candidate | Basis |
 |---|---|---|
-| `nvidia` | `v0.2.0` | 196 incompatible report entries relative to local `nvidia/v0.1.0` |
+| `nvidia` | `v0.2.0` | 195 incompatible report entries plus one type-mismatch warning, relative to local `nvidia/v0.1.0` |
 | `lldb` | `v0.2.0` | Adds the public `Require` function |
 | `rocm`, `treesitter` | `v0.1.1` | Dependency/toolchain updates; no public API differences in this comparison |
 | `apple`, `hfsync`, `libgit2`, `lm`, `openxla`, `tpu`, `x/gomlx`, `x/hftokenizer`, `x/stablehlo`, `x/xla` | `v0.1.0` | No existing local module release tags |
 
 `apidiff` from `golang.org/x/exp@v0.0.0-20260824195058-e88cd73687aa`
 compared export data from each exact local tag with the current module on
-Darwin/arm64 on 2026-09-13, with `GOWORK=off`. The four text reports are
+Darwin/arm64 on 2026-09-13, with `GOWORK=off`. The six text reports are
 committed under `api/`; export snapshots remain in `~/tmp/lib-release-current/api/`
 and are intentionally not committed. Internal packages were excluded. This is
 public Go API evidence for that build context, not native ABI or behavioral
 compatibility.
 
 The `nvidia` comparison was repeated with `GOOS=linux`: 195 incompatible
-entries, the same set as Darwin with no entry on either side that the other
-lacks (`api/nvidia-linux.log`). The Darwin-only comparison was therefore not
-under-reporting for Linux.
+entries and the same single type-mismatch warning, with no entry on either
+side that the other lacks (`api/nvidia-linux.log`). The two removal sets are
+identical as sets -- sorted, the diff is empty -- though apidiff emits them in
+a different order per platform, so a plain `diff` of the two files does report
+differences. The warning lines are identical unsorted. The Darwin-only
+comparison was therefore not under-reporting for Linux.
+
+Both counts describe one report. `api/nvidia.log` and `api/nvidia-linux.log`
+each hold 195 lines opening with `-` and one opening with `!`; quoting 196 for
+one platform and 195 for the other counted the warning in one place and not the
+other. The warning is a single entry, on `nvml.RemappedRowsInfoV2`, reporting
+two different messages for the same object.
 
 Windows has no baseline to compare against. `nvidia/v0.1.0` does not build for
 `GOOS=windows`: `x/nvlshm` calls `unix.Close` with no Windows guard, so
