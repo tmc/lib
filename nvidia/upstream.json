@@ -2263,7 +2263,7 @@
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
-        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files. Tier 0 cleanup regenerated with raw/10000 CUPTI version admission and reordered existing candidates; source and invocation receipt retained at /Users/tmc/tmp/agent-collab/codegen/20260909-392735FA-tier0.",
+        "note": "The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files. Tier 0 cleanup regenerated with raw/10000 CUPTI version admission and reordered existing candidates; the source and invocation receipt is retained outside this repository on the generating host, under agent-collab/codegen/20260909-392735FA-tier0, and is not reproducible from this file.",
         "outputs": [
           {
             "path": "nvidia/cupti/callbacks.gen.go",
@@ -7711,18 +7711,18 @@
               "./cmd/nvml-survey",
               "-constants-only",
               "-header",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+              "${HEADERS_REPO}/pinned/nvml/cuda-13.3/nvml.h",
               "-headers-dir",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers",
+              "${HEADERS_REPO}",
               "-upstream-version",
               "13.3.29",
               "-output",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/lib/nvidia/nvml"
+              "${OUTPUT_DIR}"
             ],
-            "cwd": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/libgen",
+            "cwd": "${CODEGEN_REPO}",
             "environment": {
               "GOWORK": "off",
-              "TMPDIR": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml"
+              "TMPDIR": "${SCRATCH_DIR}"
             },
             "header": {
               "path": "pinned/nvml/cuda-13.3/nvml.h",
@@ -7761,28 +7761,28 @@
               "run",
               "./cmd/nvml-survey",
               "-headers-dir",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers",
+              "${HEADERS_REPO}",
               "-header",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260911-392735FA-nvml/cuda-headers/pinned/nvml/cuda-13.3/nvml.h",
+              "${HEADERS_REPO}/pinned/nvml/cuda-13.3/nvml.h",
               "-docs-dir",
               "docs",
               "-output",
-              "/Users/tmc/tmp/agent-collab/lib-nvidia/20260912-392735FA-getsamples/lib/nvidia/nvml",
+              "${OUTPUT_DIR}",
               "-upstream-version",
               "13.3.29"
             ],
-            "cwd": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260912-392735FA-getsamples/libgen",
+            "cwd": "${CODEGEN_REPO}",
             "environment": {
               "GOWORK": "off",
-              "TMPDIR": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260912-392735FA-getsamples"
+              "TMPDIR": "${SCRATCH_DIR}"
             },
             "header": {
               "path": "pinned/nvml/cuda-13.3/nvml.h",
               "sha256": "31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f"
             },
             "output_selection": {
-              "patch": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260912-392735FA-getsamples/generated-sizing.patch",
-              "script": "/Users/tmc/tmp/agent-collab/lib-nvidia/20260912-392735FA-getsamples/promote.py",
+              "patch": "${SCRATCH_DIR}/generated-sizing.patch",
+              "script": "${SCRATCH_DIR}/promote.py",
               "script_sha256": "a059a938d432a0b90f60acf58a3fe1d51353507d42fd0eb8d28247282d061193",
               "sha256": "be311812b203f0ac9a09478bd2b58b5b27cb802a919a7b68334090c7cb652793"
             },
