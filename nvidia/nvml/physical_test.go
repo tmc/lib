@@ -257,8 +257,8 @@ func TestMemoryInfoLayout(t *testing.T) {
 	if err != nil {
 		t.Skipf("no CUDA device 0: %v", err)
 	}
-	var driverTotal uint
-	if err := cudev.TotalMem(&driverTotal); err != nil {
+	driverTotal, err := cudev.TotalMem()
+	if err != nil {
 		t.Fatalf("driver TotalMem: %v", err)
 	}
 	if want := mem.Total - mem.Reserved; uint64(driverTotal) != want {
@@ -312,8 +312,8 @@ func TestMemoryInfoLayout(t *testing.T) {
 	if got, want := after.Free+after.Used+after.Reserved, after.Total; got != want {
 		t.Fatalf("free+used+reserved = %d, want total = %d, after allocation", got, want)
 	}
-	var driverTotalAfter uint
-	if err := cudev.TotalMem(&driverTotalAfter); err != nil {
+	driverTotalAfter, err := cudev.TotalMem()
+	if err != nil {
 		t.Fatalf("driver TotalMem after alloc: %v", err)
 	}
 	if driverTotalAfter != driverTotal {
