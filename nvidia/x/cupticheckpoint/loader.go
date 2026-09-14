@@ -51,7 +51,7 @@ func loadLib() error {
 		var handle uintptr
 		var lastErr error
 		for _, path := range candidatePaths() {
-			h, err := purego.Dlopen(path, purego.RTLD_NOW|purego.RTLD_LOCAL)
+			h, err := openDynamicLibrary(path)
 			if err == nil && h != 0 {
 				handle = h
 				break
@@ -64,7 +64,7 @@ func loadLib() error {
 		}
 
 		bind := func(fn interface{}, name string) {
-			ptr, err := purego.Dlsym(handle, name)
+			ptr, err := lookupLibrarySymbol(handle, name)
 			if err != nil || ptr == 0 {
 				libErr = fmt.Errorf("cupticheckpoint: symbol %s: %w", name, err)
 				return
