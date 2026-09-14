@@ -24,8 +24,9 @@ var cudaQ80QuantSource = cudaQ80Layout + cudaQ80QuantBody
 //go:embed cuda_q80_matvec.cu
 var cudaQ80MatvecBody string
 
-// cudaQ80Source follows antirez/ds4 b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd
-// ds4_cuda.cu:5037 (activation quantization) and :5152 (single-token matvec).
+// cudaQ80Source follows antirez/ds4 b0a147a7fba6d1a104d047d5a140e9bb4bfc13cd:
+// ds4_cuda.cu:5037 quantize_q8_0_f32_kernel (activation quantization) and :5152
+// matmul_q8_0_preq_warp8_kernel, specialized here to a single token.
 // Activations retain float32 scales; GGUF weight scales remain binary16.
 var cudaQ80Source = cudaQ80QuantSource + cudaQ80MatvecBody
 
