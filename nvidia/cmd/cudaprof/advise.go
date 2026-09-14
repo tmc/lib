@@ -2182,6 +2182,9 @@ func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64,
 		if a.Severity != b.Severity {
 			return severityRank(a.Severity) < severityRank(b.Severity)
 		}
-		return false
+		if a.Category != b.Category {
+			return a.Category < b.Category
+		}
+		return a.Finding < b.Finding
 	})
 }
