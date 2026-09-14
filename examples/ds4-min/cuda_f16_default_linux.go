@@ -53,7 +53,7 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.f16PairOrderedFn).Grid(uint32(rows)).Block(128).On(r.stream()).Launch(a.device, b.device, in, outA, outB, uint32(cols)); err != nil {
+		if err := cudalaunch.Kernel(r.f16PairOrderedFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(a.device, b.device, in, outA, outB, uint32(cols)); err != nil {
 			return fmt.Errorf("cuda: launch ordered F16 pair: %w", err)
 		}
 		return nil
