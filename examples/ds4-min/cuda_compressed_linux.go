@@ -95,7 +95,7 @@ func (r *cudaFoundation) encodeMixedAttentionParallel(q, kv cudamem.Slice[float3
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(1).Block(64).On(r.stream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
+		if err := cudalaunch.Kernel(r.mixedAttentionPrepareFn).Grid(65).Block(64).On(r.stream()).Launch(q, kv, sinks.device, raw, comp, allowed, scores, denominators, out, uint32(position), uint32(layer), uint32(raw.Len()/512), uint32(nComp)); err != nil {
 			return fmt.Errorf("cuda: launch mixed attention preparation: %w", err)
 		}
 		if r.mixedAttentionTileScoresFn != 0 && r.mixedAttentionFinalizeFn != 0 && !r.disableMixedAttentionFused {

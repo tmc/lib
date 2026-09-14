@@ -272,38 +272,122 @@ extern "C" __global__ void ds4_attention_mixed(const float *q,const float *kv,co
 }
 
 extern "C" __global__ void ds4_attention_mixed_prepare(const float *q,const float *kv,const float *sinks,float *raw,const float *comp,const unsigned int *allowed,float *scores,float *denominators,float *out,unsigned int position,unsigned int layer,unsigned int raw_cap,unsigned int n_comp) {
- const unsigned int head=threadIdx.x;if(blockIdx.x || head>=64)return;
-  const unsigned int qoff=head*512;
-  for(unsigned int i=0;i<512;i++)out[qoff+i]=q[qoff+i];
-  if(head==0)for(unsigned int i=0;i<512;i++)out[32768+i]=kv[i];
-  for(unsigned int r=0;r<64;r+=2){
-    const unsigned int qi=qoff+448+r;float theta=ds4_compressed_theta(position,r),c=cosf(theta),s=sinf(theta),a=out[qi],b=out[qi+1];
-    out[qi]=a*c-b*s;out[qi+1]=a*s+b*c;
-    if(head==0){unsigned int ki=32768+448+r;a=out[ki];b=out[ki+1];out[ki]=a*c-b*s;out[ki+1]=a*s+b*c;}
-  }
-  __syncthreads();
-  for (unsigned int b = 0; b < 7; b++) {
-    const unsigned int off = b * 64;
-    const float val = out[32768 + off + head];
-    float amax = fabsf(val);
-    __shared__ float s_amax[2];
-    for (int offset = 16; offset > 0; offset /= 2) {
-      amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
+  const unsigned int bid = blockIdx.x;
+  const unsigned int tid = threadIdx.x;
+
+  if (gridDim.x == 1) {
+    const unsigned int head = tid;
+    if (head >= 64) return;
+    const unsigned int qoff = head * 512;
+    for (unsigned int i = 0; i < 512; i++) out[qoff + i] = q[qoff + i];
+    if (head == 0) {
+      for (unsigned int i = 0; i < 512; i++) out[32768 + i] = kv[i];
     }
-    if ((head & 31) == 0) s_amax[head >> 5] = amax;
+    for (unsigned int r = 0; r < 64; r += 2) {
+      const unsigned int qi = qoff + 448 + r;
+      float theta = ds4_compressed_theta(position, r), c = cosf(theta), s = sinf(theta), a = out[qi], b = out[qi + 1];
+      out[qi] = a * c - b * s;
+      out[qi + 1] = a * s + b * c;
+      if (head == 0) {
+        unsigned int ki = 32768 + 448 + r;
+        a = out[ki]; b = out[ki + 1];
+        out[ki] = a * c - b * s;
+        out[ki + 1] = a * s + b * c;
+      }
+    }
     __syncthreads();
-    if (head == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
-    __syncthreads();
-    const float group_amax = s_amax[0];
-    const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
-    out[32768 + off + head] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
-    __syncthreads();
+    for (unsigned int b = 0; b < 7; b++) {
+      const unsigned int off = b * 64;
+      const float val = out[32768 + off + head];
+      float amax = fabsf(val);
+      __shared__ float s_amax[2];
+      for (int offset = 16; offset > 0; offset /= 2) {
+        amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
+      }
+      if ((head & 31) == 0) s_amax[head >> 5] = amax;
+      __syncthreads();
+      if (head == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
+      __syncthreads();
+      const float group_amax = s_amax[0];
+      const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
+      out[32768 + off + head] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
+      __syncthreads();
+    }
+    const unsigned int row = position % raw_cap;
+    for (unsigned int i = head; i < 512; i += 64) {
+      raw[row * 512 + i] = ds4_half_round(out[32768 + i]);
+    }
+    (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
+    return;
   }
-  const unsigned int row = position % raw_cap;
-  for (unsigned int i = head; i < 512; i += 64) {
-    raw[row * 512 + i] = ds4_half_round(out[32768 + i]);
+
+  // Multi-block parallel grid: Grid(65), Block(64)
+  if (bid < 64) {
+    const unsigned int head = bid;
+    const unsigned int qoff = head * 512;
+
+    for (unsigned int i = tid; i < 448; i += 64) {
+      out[qoff + i] = q[qoff + i];
+    }
+    if (tid < 32) {
+      const unsigned int r = tid * 2;
+      const unsigned int qi = qoff + 448 + r;
+      const float theta = ds4_compressed_theta(position, r);
+      const float c = cosf(theta);
+      const float s = sinf(theta);
+      const float a = q[qi];
+      const float b = q[qi + 1];
+      out[qi]     = a * c - b * s;
+      out[qi + 1] = a * s + b * c;
+    }
+    (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
+    return;
   }
-  (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
+
+  if (bid == 64) {
+    const unsigned int koff = 32768;
+
+    for (unsigned int i = tid; i < 448; i += 64) {
+      out[koff + i] = kv[i];
+    }
+    if (tid < 32) {
+      const unsigned int r = tid * 2;
+      const unsigned int ki = koff + 448 + r;
+      const float theta = ds4_compressed_theta(position, r);
+      const float c = cosf(theta);
+      const float s = sinf(theta);
+      const float a = kv[448 + r];
+      const float b = kv[448 + r + 1];
+      out[ki]     = a * c - b * s;
+      out[ki + 1] = a * s + b * c;
+    }
+    __syncthreads();
+
+    __shared__ float s_amax[2];
+    for (unsigned int b = 0; b < 7; b++) {
+      const unsigned int off = b * 64;
+      const float val = out[koff + off + tid];
+      float amax = fabsf(val);
+      for (int offset = 16; offset > 0; offset /= 2) {
+        amax = fmaxf(amax, __shfl_down_sync(0xffffffff, amax, offset));
+      }
+      if ((tid & 31) == 0) s_amax[tid >> 5] = amax;
+      __syncthreads();
+      if (tid == 0) s_amax[0] = fmaxf(1.0e-4f, fmaxf(s_amax[0], s_amax[1]));
+      __syncthreads();
+      const float group_amax = s_amax[0];
+      const float scale = exp2f(ceilf(log2f(group_amax / 448.0f)));
+      out[koff + off + tid] = ds4_e4m3fn_round(fminf(fmaxf(val / scale, -448.0f), 448.0f)) * scale;
+      __syncthreads();
+    }
+
+    const unsigned int row = position % raw_cap;
+    for (unsigned int i = tid; i < 512; i += 64) {
+      raw[row * 512 + i] = ds4_half_round(out[koff + i]);
+    }
+    (void)sinks;(void)comp;(void)allowed;(void)scores;(void)denominators;(void)layer;(void)n_comp;
+    return;
+  }
 }
 
 extern "C" __global__ void ds4_attention_mixed_scores(const float *raw,const float *comp,const unsigned int *allowed,float *scores,const float *out,unsigned int position,unsigned int raw_cap,unsigned int n_comp) {
