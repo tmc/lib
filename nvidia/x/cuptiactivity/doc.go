@@ -21,9 +21,17 @@
 //					 bytes against a 224-byte Go layout
 //
 // Both ends fail closed, which is the intended behavior and not a bug to route
-// around: a mismatched layout decodes fields at the wrong offsets. Note that
-// this pins CUPTI independently of the compiler, so a host whose nvrtc and
-// ptxas are pinned to 13.0 still needs 13.2 on the loader path for collection. WriteRecord produces a standalone CUPTI-relative timeline; it does not align
+// around: a mismatched layout decodes fields at the wrong offsets. The narrowing
+// is this package's own, not a property of CUPTI: it compares whole runtime
+// records against Go layouts fixed at 13.2, where records grow append-only and a
+// consumer reading only the compiled prefix spans the band. Widening it means
+// decoding a prefix, not pinning CUPTI.
+//
+// Note that this pins CUPTI independently of the compiler, so a host whose
+// nvrtc and ptxas are pinned to 13.0 still needs 13.2 on the loader path for
+// collection.
+//
+// WriteRecord produces a standalone CUPTI-relative timeline; it does not align
 // CUPTI timestamps with host clocks. This package does not collect hardware
 // metrics; see github.com/tmc/lib/nvidia/x/cuptirange for Range Profiling.
 package cuptiactivity
