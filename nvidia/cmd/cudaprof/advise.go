@@ -660,29 +660,28 @@ func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks in
 }
 
 // determineSMCount determines the device SM count by inspecting capture metadata,
-// querying a live device if available, looking up device architecture tables,
-// or defaulting to modern architecture SM counts (132/136).
-func determineSMCount(cap *cudacapture.Capture) int {
+// querying a live device if available, or looking up device architecture tables.
+// It returns ok=false when the hardware SM count cannot be determined.
+func determineSMCount(cap *cudacapture.Capture) (int, bool) {
 	if cap != nil {
 		if count := parseSMCountFromCapture(cap); count > 0 {
-			return count
+			return count, true
 		}
 	}
 
 	if count := queryLiveDeviceSMCount(); count > 0 {
-		return count
+		return count, true
 	}
 
 	if cap != nil {
 		if arch := parseArchFromCapture(cap); arch != "" {
 			if count := smCountForArch(arch); count > 0 {
-				return count
+				return count, true
 			}
 		}
 	}
 
-	// Modern data-center default (e.g. GB200 sm_100a has 136 SMs).
-	return 136
+	return 0, false
 }
 
 func parseSMCountFromCapture(cap *cudacapture.Capture) int {
@@ -956,7 +955,7 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 		return
 	}
 
-	smCount := determineSMCount(cap)
+	smCount, hasSMCount := determineSMCount(cap)
 	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
 
 	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
@@ -1027,21 +1026,23 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 
 	// 2. SM Grid Starvation (< SMCount)
-	seenGridStarvation := make(map[string]bool)
-	for _, launch := range launches {
-		if launch.GridBlocks > 0 && launch.GridBlocks < smCount {
-			if seenGridStarvation[launch.Kernel] {
-				continue
+	if hasSMCount {
+		seenGridStarvation := make(map[string]bool)
+		for _, launch := range launches {
+			if launch.GridBlocks > 0 && launch.GridBlocks < smCount {
+				if seenGridStarvation[launch.Kernel] {
+					continue
+				}
+				seenGridStarvation[launch.Kernel] = true
+				idlePct := (smCount - launch.GridBlocks) * 100 / smCount
+				report.Items = append(report.Items, AdviceItem{
+					Severity:                 SeverityWarning,
+					Category:                 CategoryArchitecture,
+					Location:                 launch.Location,
+					Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle", launch.Kernel, launch.GridBlocks, smCount, idlePct),
+					ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
+				})
 			}
-			seenGridStarvation[launch.Kernel] = true
-			idlePct := (smCount - launch.GridBlocks) * 100 / smCount
-			report.Items = append(report.Items, AdviceItem{
-				Severity:                 SeverityWarning,
-				Category:                 CategoryArchitecture,
-				Location:                 launch.Location,
-				Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle", launch.Kernel, launch.GridBlocks, smCount, idlePct),
-				ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
-			})
 		}
 	}
 }
