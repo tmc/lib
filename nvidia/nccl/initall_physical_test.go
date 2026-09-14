@@ -97,8 +97,9 @@ func TestPhysicalInitAll(t *testing.T) {
 	}()
 	for i := range contexts {
 		dev := driver.Device(i)
-		check("device UUID", dev.GetUuid(&uuids[i]))
-		var err error
+		uuid, err := dev.GetUuid()
+		check("device UUID", err)
+		uuids[i] = uuid
 		contexts[i], err = dev.PrimaryCtxRetain()
 		check("retain primary context", err)
 		check("set current context", contexts[i].SetCurrent())

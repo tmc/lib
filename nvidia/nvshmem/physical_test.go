@@ -115,8 +115,8 @@ func TestPhysicalSymmetricHeap(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev := driver.Device(pe)
-	var uuid driver.Uuid
-	if err := dev.GetUuid(&uuid); err != nil {
+	uuid, err := dev.GetUuid()
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("PE %d device %d UUID %x", pe, dev, uuid)

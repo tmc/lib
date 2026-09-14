@@ -123,8 +123,8 @@ func TestDistributedContraction(t *testing.T) {
 	if size != 2 || int(rank) != mpi.Rank {
 		t.Fatalf("rank=%d size=%d", rank, size)
 	}
-	var uuid driver.Uuid
-	check("UUID", dev.GetUuid(&uuid))
+	uuid, err := dev.GetUuid()
+	check("UUID", err)
 	t.Logf("rank=%d device=%d uuid=%x", rank, dev, uuid)
 	ids := make([]byte, 32)
 	check("gather UUID", mpi.AllGather(unsafe.Slice((*byte)(unsafe.Pointer(&uuid)), 16), ids))
