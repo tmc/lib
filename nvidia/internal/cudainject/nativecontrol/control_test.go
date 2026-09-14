@@ -578,8 +578,10 @@ func TestActivityOnlyConfiguration(t *testing.T) {
 	}
 	checkReconciles(t, c, result.Offered)
 	if c.finalized.Retained != c.finalized.Offered {
-		t.Errorf("activity-only run lost %d of %d offered records",
-			c.finalized.Offered-c.finalized.Retained, c.finalized.Offered)
+		t.Errorf("activity-only run lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms)",
+			c.finalized.Offered-c.finalized.Retained, c.finalized.Offered,
+			c.finalized.QueueCapacityDropped, c.finalized.QueueContentionDrop, c.finalized.QueueOversizeDropped,
+			c.finalized.BackpressureMaxNanos/1e6, c.finalized.DrainWriteMaxNanos/1e6)
 	}
 }
 
