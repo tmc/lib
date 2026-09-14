@@ -2086,8 +2086,12 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 		return
 	}
 	if statusData, ok := cap.Files["capture-status.json"]; ok {
-		var status map[string]any
-		if err := json.Unmarshal(statusData, &status); err == nil {
+		var raw map[string]any
+		if err := json.Unmarshal(statusData, &raw); err == nil {
+			status := raw
+			if nested, ok := raw["status"].(map[string]any); ok {
+				status = nested
+			}
 			if success, ok := status["capture_success"].(bool); ok && !success {
 				errMsg := "capture marked as failed"
 				if failure, ok := status["failure"].(string); ok && failure != "" {
@@ -2106,7 +2110,7 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitecture,
-					Finding:                  fmt.Sprintf("Lossy capture: %d records dropped due to CUPTI buffer pressure", uint64(dropped)),
+					Finding:                  fmt.Sprintf("Lossy capture: %d records dropped due to buffer pressure", uint64(dropped)),
 					ActionableRecommendation: "Whole-run totals and aggregate launch counts are incomplete (a lower bound). Increase buffer pool or reduce profiling overhead to capture a complete trace.",
 				})
 			}
