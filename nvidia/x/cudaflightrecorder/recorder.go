@@ -267,8 +267,22 @@ func calibrateCUPTITimestamp() (hostNs, deviceNs, uncertaintyNs int64, err error
 	if !cupti.HasGetTimestamp() {
 		return 0, 0, 0, errors.New("cudaflightrecorder: CUPTI timestamp unavailable")
 	}
+	return calibrateWith(cupti.GetTimestamp)
+}
+
+// calibrateWith brackets one device clock read between two host clock reads
+// and returns the midpoint as the correspondence between the clocks, with half
+// the bracket as the uncertainty.
+//
+// The first read is taken and discarded. CUPTI initializes lazily, so
+// bracketing its first call times the library's cold start -- milliseconds --
+// and reports that as the uncertainty, when a warm read costs microseconds.
+func calibrateWith(read func() (uint64, error)) (hostNs, deviceNs, uncertaintyNs int64, err error) {
+	if _, err := read(); err != nil {
+		return 0, 0, 0, err
+	}
 	before := time.Now().UnixNano()
-	device, err := cupti.GetTimestamp()
+	device, err := read()
 	if err != nil {
 		return 0, 0, 0, err
 	}
