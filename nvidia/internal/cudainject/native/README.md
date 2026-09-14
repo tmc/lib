@@ -166,6 +166,6 @@ cc -std=c11 -O2 -fPIC -shared \
   -L"${CUDA_HOME}/targets/${CUDA_TARGET}/lib" -L"${CUDA_HOME}/lib64" -lcupti -lpthread
 ```
 
-**Version pinning note**:
-The CUPTI header include directory and library directory must match the *exact same* CUPTI version. At constructor time, the agent compares `cuptiGetVersion(&runtime_version)` with `CUPTI_API_VERSION`. If they diverge (e.g. headers from 13.2 but runtime from 13.0, or vice versa), the agent aborts initialization with `CUPTI runtime/header version mismatch` recorded in the journal. Ensure both point to the same CUDA installation.
+**Version compatibility and layout gating**:
+The agent enforces major version compatibility between compile-time headers and the target's active runtime (e.g. CUDA 12 `Kernel9` vs CUDA 13 `Kernel10`). Within CUDA 13 (13.0 through 13.4+), activity record structures grow append-only; the agent dynamically verifies via `cuptiActivityGetStructSize` (on runtimes exporting it) that the active runtime's record sizes satisfy the compiled layout requirements (`sizeof(Kernel10) == 216` and `sizeof(Memcpy6) == 96`), allowing minor- and update-version skews to collect cleanly while safely rejecting genuine layout incompatibilities. Both `compile_cupti` and `runtime_cupti` versions are recorded in the capability record.
 

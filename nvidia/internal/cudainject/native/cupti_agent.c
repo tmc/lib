@@ -784,11 +784,56 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	}
 	callback_registered = 1;
 	uint32_t runtime_version = 0;
-	if (cuptiGetVersion(&runtime_version) != CUPTI_SUCCESS || runtime_version != CUPTI_API_VERSION) {
-		const char *failure = "{\"state\":\"cupti_unavailable\",\"error\":\"CUPTI runtime/header version mismatch\"}";
+	if (cuptiGetVersion(&runtime_version) != CUPTI_SUCCESS) {
+		const char *failure = "{\"state\":\"cupti_unavailable\",\"error\":\"cuptiGetVersion failed\"}";
 		(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
 		write_handshake(NULL);
 		return;
+	}
+	/* Major layout family must match:
+	   - CUDA 13+ uses version format xxyyzz (major = version / 10000).
+	   - CUDA 12 uses legacy versions 19..28.
+	   Cross-major execution (CUDA 12 Kernel9 vs CUDA 13 Kernel10) is rejected. */
+	int compile_is_cu13 = (CUPTI_API_VERSION >= 130000);
+	int runtime_is_cu13 = (runtime_version >= 130000);
+	if (compile_is_cu13 != runtime_is_cu13) {
+		char failure[256];
+		snprintf(failure, sizeof(failure),
+			"{\"state\":\"cupti_unavailable\",\"error\":\"CUPTI major version mismatch (compile %u, runtime %u)\"}",
+			CUPTI_API_VERSION, runtime_version);
+		(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+		write_handshake(NULL);
+		return;
+	}
+	if (compile_is_cu13 && (CUPTI_API_VERSION / 10000 != runtime_version / 10000)) {
+		char failure[256];
+		snprintf(failure, sizeof(failure),
+			"{\"state\":\"cupti_unavailable\",\"error\":\"CUPTI major version mismatch (compile %u, runtime %u)\"}",
+			CUPTI_API_VERSION / 10000, runtime_version / 10000);
+		(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+		write_handshake(NULL);
+		return;
+	}
+	/* Feature-detect cuptiActivityGetStructSize (exported in CUDA 13.2+) to verify
+	   that runtime activity record sizes satisfy the compiled layout requirements. */
+	typedef CUptiResult (*pfn_get_struct_size)(CUpti_ActivityKind, uint32_t, size_t *);
+	pfn_get_struct_size fn_get_struct_size = (pfn_get_struct_size)dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
+	if (fn_get_struct_size != NULL) {
+		size_t kernel_sz = 0, memcpy_sz = 0;
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL, 0, &kernel_sz) != CUPTI_SUCCESS ||
+		    kernel_sz < sizeof(CUDAPROF_KERNEL_TYPE)) {
+			const char *failure = "{\"state\":\"cupti_unavailable\",\"error\":\"CUPTI runtime kernel activity layout incompatible\"}";
+			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+			write_handshake(NULL);
+			return;
+		}
+		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_MEMCPY, 0, &memcpy_sz) != CUPTI_SUCCESS ||
+		    memcpy_sz < sizeof(CUpti_ActivityMemcpy6)) {
+			const char *failure = "{\"state\":\"cupti_unavailable\",\"error\":\"CUPTI runtime memcpy activity layout incompatible\"}";
+			(void)write_record(KIND_FAILURE, now_ns(), failure, strlen(failure));
+			write_handshake(NULL);
+			return;
+		}
 	}
 	const char *kernel_mode = "concurrent_kernel";
 	result = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
