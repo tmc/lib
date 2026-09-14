@@ -191,3 +191,31 @@ int cudaprof_test_offer(unsigned kernels, unsigned memcpys, unsigned apis, unsig
 	complete_cb(NULL, 7, buffer, size, offset);
 	return placed;
 }
+
+CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
+	(void)flags;
+	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	if (kind == CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL || kind == CUPTI_ACTIVITY_KIND_KERNEL) {
+		*size = sizeof(CUpti_ActivityKernel9) > 8 ? sizeof(CUpti_ActivityKernel9) - 8 : 1;
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
+		*size = sizeof(CUpti_ActivityMemcpy6);
+		return CUPTI_SUCCESS;
+	}
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}
+
+CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size) {
+	(void)flags;
+	if (size == NULL) return CUPTI_ERROR_INVALID_PARAMETER;
+	if (kind == CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL || kind == CUPTI_ACTIVITY_KIND_KERNEL) {
+		*size = sizeof(CUpti_ActivityKernel9);
+		return CUPTI_SUCCESS;
+	}
+	if (kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
+		*size = sizeof(CUpti_ActivityMemcpy6) > 8 ? sizeof(CUpti_ActivityMemcpy6) - 8 : 1;
+		return CUPTI_SUCCESS;
+	}
+	return CUPTI_ERROR_NOT_SUPPORTED;
+}

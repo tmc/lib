@@ -854,3 +854,119 @@ func TestForkedChildKeepsApplicationSigtermMutation(t *testing.T) {
 			result.ChildSignaled, result.ChildTermsig, result.ChildStatus)
 	}
 }
+
+// TestMajorVersionMismatchIsRejected verifies that the producer rejects cross-major
+// execution skew (e.g. CUDA 12 Kernel9 vs CUDA 13 Kernel10, or CUDA 13 vs CUDA 14),
+// recording a failure record naming the major version mismatch and refusing to
+// collect activity records.
+func TestMajorVersionMismatchIsRejected(t *testing.T) {
+	tests := []struct {
+		name       string
+		compileVer string
+		runtimeVer string
+	}{
+		{
+			name:       "cuda12_compile_cuda13_runtime",
+			compileVer: "27",
+			runtimeVer: "130202",
+		},
+		{
+			name:       "cuda13_compile_cuda12_runtime",
+			compileVer: "130202",
+			runtimeVer: "27",
+		},
+		{
+			name:       "cuda13_compile_cuda14_runtime",
+			compileVer: "130202",
+			runtimeVer: "140000",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			defines := []string{
+				"-DCUPTI_API_VERSION=" + tc.compileVer,
+				"-DCUDAPROF_TEST_OVERRIDE_RUNTIME_VERSION=" + tc.runtimeVer,
+			}
+			bin := controlBinary(t, defines...)
+			_, status, captures := runBuilt(t, bin, nil, "sustained", "1", "1", "10", "0")
+			c := only(t, captures)
+
+			var found bool
+			for _, f := range c.failures {
+				if strings.Contains(f, "CUPTI major version mismatch") {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("no failure record names major version mismatch; failures = %q", c.failures)
+			}
+			if count := c.counts[kindActivity]; count != 0 {
+				t.Errorf("collected %d activity records; expected 0 due to rejection", count)
+			}
+			if c.capability.Activity {
+				t.Error("capability claimed activity support despite major version rejection")
+			}
+			if !status.Exited() || status.ExitStatus() != 0 {
+				t.Errorf("status = %v, want clean exit", status)
+			}
+		})
+	}
+}
+
+// TestShortKernelActivityLayoutIsRejected verifies that when the runtime's kernel activity
+// struct size is smaller than the compiled layout requirement, the producer fails closed,
+// writing a failure record naming the kernel layout incompatibility and refusing activity collection.
+func TestShortKernelActivityLayoutIsRejected(t *testing.T) {
+	bin := controlBinary(t, "-DCUDAPROF_TEST_STRUCT_SIZE_FN=cudaprof_test_mock_short_kernel_struct_size")
+	_, status, captures := runBuilt(t, bin, nil, "sustained", "1", "1", "10", "0")
+	c := only(t, captures)
+
+	var found bool
+	for _, f := range c.failures {
+		if strings.Contains(f, "CUPTI runtime kernel activity layout incompatible") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no failure record names kernel layout incompatibility; failures = %q", c.failures)
+	}
+	if count := c.counts[kindActivity]; count != 0 {
+		t.Errorf("collected %d activity records; expected 0", count)
+	}
+	if c.capability.Activity {
+		t.Error("capability claimed activity support despite kernel layout rejection")
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
+// TestShortMemcpyActivityLayoutIsRejected verifies that when the runtime's memcpy activity
+// struct size is smaller than the compiled layout requirement, the producer fails closed,
+// writing a failure record naming the memcpy layout incompatibility and refusing activity collection.
+func TestShortMemcpyActivityLayoutIsRejected(t *testing.T) {
+	bin := controlBinary(t, "-DCUDAPROF_TEST_STRUCT_SIZE_FN=cudaprof_test_mock_short_memcpy_struct_size")
+	_, status, captures := runBuilt(t, bin, nil, "sustained", "1", "1", "10", "0")
+	c := only(t, captures)
+
+	var found bool
+	for _, f := range c.failures {
+		if strings.Contains(f, "CUPTI runtime memcpy activity layout incompatible") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no failure record names memcpy layout incompatibility; failures = %q", c.failures)
+	}
+	if count := c.counts[kindActivity]; count != 0 {
+		t.Errorf("collected %d activity records; expected 0", count)
+	}
+	if c.capability.Activity {
+		t.Error("capability claimed activity support despite memcpy layout rejection")
+	}
+	if !status.Exited() || status.ExitStatus() != 0 {
+		t.Errorf("status = %v, want clean exit", status)
+	}
+}
+
