@@ -44,9 +44,11 @@ Two consequences follow:
   will" becomes something a version can say. A module-path change is
   breaking, but it is breaking for nobody until the first public tag, so
   the split is cheapest now and never cheaper later. Until then the
-  exemption is carried by prose, and by a charter document that is not
-  in the repository: `x/DESIGN.md` is excluded by `.git/info/exclude` and does
-  not exist in a clone.
+  exemption is carried by this file alone. It is not carried by
+  `x/DESIGN.md`, which is excluded by `.git/info/exclude`, is in no
+  clone, and does not discuss API stability in any case; nor by the x/
+  package docs, 44 of 48 of which say nothing about it. See "Release
+  trains".
 
 ## Problems in the current pipeline
 
@@ -434,10 +436,19 @@ Consequences that make this manageable for one maintainer:
   itself retire runtime support for the older major, which changes
   only through an explicit change to the contract in "Supported
   runtimes".
-- **x/ is exempt from the compatibility promise.** It is hand-written,
-  experimental by charter (x/DESIGN.md), and changes at will in patch
-  releases the way golang.org/x does. Each x/ package doc states this.
-  x/ never causes a bridge and never blocks a train.
+- **x/ is exempt from the compatibility promise.** It is hand-written
+  and changes at will in patch releases the way golang.org/x does. x/
+  never causes a bridge and never blocks a train. The exemption is
+  declared here and nowhere else, which is a defect to close before the
+  tag rather than a citation to make. Two earlier authorities for it do
+  not hold: `x/DESIGN.md` is a package map, ownership rules and
+  validation rules, and says nothing about API stability, so "by
+  charter" cited a document that does not contain the charter; and of
+  the 48 x/ packages, 44 say nothing about stability in any .go file
+  while the four that use the word "experimental" apply it to
+  implementation maturity, not to compatibility. **Prerequisite for the
+  tag:** every x/ package doc states the exemption, so that a consumer
+  reading the package learns it without reading this file.
 
 Promotion to `v1.0.0` happens when a train regenerates with no
 incompatible diff for two consecutive trains and the generator's
