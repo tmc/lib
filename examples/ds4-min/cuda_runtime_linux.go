@@ -536,8 +536,15 @@ func (r *cudaFoundation) encodeRMS(x cudamem.Slice[float32], weight cudaModelTen
 		if weighted {
 			weightedArg = 1
 		}
-		if err := cudalaunch.Kernel(r.rmsFn).Grid(uint32(groups)).Block(256).On(r.stream()).Launch(
-			x, weightPtr, out, uint32(x.Len()/groups), uint32(groups), weightedArg); err != nil {
+		width := x.Len() / groups
+		threads := 256
+		if width >= 1024 {
+			threads = 1024
+		} else if width == 128 {
+			threads = 128
+		}
+		if err := cudalaunch.Kernel(r.rmsFn).Grid(uint32(groups)).Block(uint32(threads)).On(r.stream()).Launch(
+			x, weightPtr, out, uint32(width), uint32(groups), weightedArg); err != nil {
 			return fmt.Errorf("cuda: launch RMS: %w", err)
 		}
 		return nil

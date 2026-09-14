@@ -65,31 +65,148 @@ extern "C" __global__ void ds4_rms(
   const unsigned int tid = threadIdx.x;
   const unsigned int warp_id = tid >> 5;
   const unsigned int lane = tid & 31;
-  const unsigned int num_warps = blockDim.x >> 5;
-
   const unsigned int offset = group * width;
+
+  if (width == 4096 && blockDim.x == 1024) {
+    const float *xg = x + offset;
+    float *outg = out + offset;
+    float v0 = xg[tid];
+    float v1 = xg[tid + 1024];
+    float v2 = xg[tid + 2048];
+    float v3 = xg[tid + 3072];
+    float sum = v0 * v0 + v1 * v1 + v2 * v2 + v3 * v3;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+
+    __shared__ float s_warp[32];
+    if (lane == 0) s_warp[warp_id] = sum;
+    __syncthreads();
+
+    float block_sum = 0.0f;
+    if (warp_id == 0) {
+      block_sum = s_warp[lane];
+      #pragma unroll
+      for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+        block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+      }
+    }
+
+    __shared__ float s_inv;
+    if (tid == 0) {
+      s_inv = rsqrtf(block_sum * 0.000244140625f + 1.0e-6f);
+    }
+    __syncthreads();
+
+    const float inv = s_inv;
+    if (weighted) {
+      outg[tid]        = v0 * inv * weight[tid];
+      outg[tid + 1024] = v1 * inv * weight[tid + 1024];
+      outg[tid + 2048] = v2 * inv * weight[tid + 2048];
+      outg[tid + 3072] = v3 * inv * weight[tid + 3072];
+    } else {
+      outg[tid]        = v0 * inv;
+      outg[tid + 1024] = v1 * inv;
+      outg[tid + 2048] = v2 * inv;
+      outg[tid + 3072] = v3 * inv;
+    }
+    return;
+  }
+
+  if (width == 1024 && blockDim.x == 1024) {
+    const float *xg = x + offset;
+    float *outg = out + offset;
+    float v = xg[tid];
+    float sum = v * v;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+
+    __shared__ float s_warp[32];
+    if (lane == 0) s_warp[warp_id] = sum;
+    __syncthreads();
+
+    float block_sum = 0.0f;
+    if (warp_id == 0) {
+      block_sum = s_warp[lane];
+      #pragma unroll
+      for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+        block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+      }
+    }
+
+    __shared__ float s_inv;
+    if (tid == 0) {
+      s_inv = rsqrtf(block_sum * 0.0009765625f + 1.0e-6f);
+    }
+    __syncthreads();
+
+    const float inv = s_inv;
+    outg[tid] = v * inv * (weighted ? weight[tid] : 1.0f);
+    return;
+  }
+
+  if (width == 128 && blockDim.x == 128) {
+    const float *xg = x + offset;
+    float *outg = out + offset;
+    float v = xg[tid];
+    float sum = v * v;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+
+    __shared__ float s_warp[4];
+    if (lane == 0) s_warp[warp_id] = sum;
+    __syncthreads();
+
+    float block_sum = 0.0f;
+    if (warp_id == 0) {
+      block_sum = (lane < 4) ? s_warp[lane] : 0.0f;
+      #pragma unroll
+      for (unsigned int stride = 2; stride != 0; stride >>= 1) {
+        block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+      }
+    }
+
+    __shared__ float s_inv;
+    if (tid == 0) {
+      s_inv = rsqrtf(block_sum * 0.0078125f + 1.0e-6f);
+    }
+    __syncthreads();
+
+    const float inv = s_inv;
+    outg[tid] = v * inv * (weighted ? weight[tid] : 1.0f);
+    return;
+  }
+
+  // General fallback for arbitrary width/blockDim
+  const unsigned int num_warps = blockDim.x >> 5;
   float sum = 0.0f;
   for (unsigned int i = tid; i < width; i += blockDim.x) {
     const float v = x[offset + i];
     sum += v * v;
   }
 
-  // Intra-warp shuffle reduction
   #pragma unroll
   for (unsigned int stride = 16; stride != 0; stride >>= 1) {
     sum += __shfl_down_sync(0xffffffff, sum, stride);
   }
 
   __shared__ float s_warp[32];
-  if (lane == 0) {
+  if (lane == 0 && warp_id < 32) {
     s_warp[warp_id] = sum;
   }
   __syncthreads();
 
-  // Warp 0 reduces the per-warp sums
   float block_sum = 0.0f;
   if (warp_id == 0) {
-    block_sum = (lane < num_warps) ? s_warp[lane] : 0.0f;
+    block_sum = (lane < num_warps && lane < 32) ? s_warp[lane] : 0.0f;
     #pragma unroll
     for (unsigned int stride = 16; stride != 0; stride >>= 1) {
       block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
