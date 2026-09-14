@@ -32,4 +32,25 @@
 // dataflow analysis, which makes [ControlFlow], [BasicBlockFlow] and
 // [RegisterLife] fail in the tool. Matching the disassembler to the toolkit
 // that produced the cubin is what makes every mode work.
+//
+// # Toolchain provenance
+//
+// e_version separates CUDA 12 from 13 and no more. The exact compiler is
+// stamped in the .note.nv.tkinfo ELF note ptxas writes into every cubin, which
+// [ReadToolchains] reads with [debug/elf] alone, loading no CUDA driver and
+// running no external tool:
+//
+//	stamps, err := cudasass.ReadToolchains(bytes.NewReader(cubin))
+//
+// Recording that stamp beside a checked-in cubin, disassembly or measurement
+// says which compiler produced the code, so artifacts captured months apart
+// are comparable and an image assembled from several toolkits is visible as
+// more than one stamp. ptxas codegen differs between CUDA minor releases;
+// nothing here claims a performance consequence for that.
+//
+// Only tki_toolName and tki_toolVersion are reported. tki_toolBranch is not:
+// in the cubin under testdata it holds the unexpanded placeholder "Build
+// system must define TOOLS_VERSION_EXTENDED" while nvdisasm-13.0-sm121.json
+// records a real branch string for another image of the same release, so the
+// field does not mean the same thing in every cubin.
 package cudasass
