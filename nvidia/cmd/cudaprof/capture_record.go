@@ -141,12 +141,12 @@ func detailedRecordsDisposition(result captureResult) string {
 	const projected = "per-record activity and API arrays are not embedded in this status; activity samples are projected into gpu.pprof"
 	journals := 0
 	for _, f := range result.OmittedFiles {
-		if strings.HasSuffix(f.Name, "capture.journal") {
+		if cudacapture.IsJournalName(f.Name) {
 			journals++
 		}
 	}
 	if journals == 0 {
-		return projected + " and the raw records remain in the attached capture journals"
+		return projected + " and the raw records remain in the attached capture journals, embedded gzip-compressed under a " + cudacapture.JournalGzipSuffix + " member name"
 	}
 	return fmt.Sprintf("%s; %d capture journal(s) exceeded the artifact budget and were not attached, so their raw records are not in this artifact (see omitted_files for exact size and sha256)", projected, journals)
 }
@@ -163,8 +163,50 @@ func sortedOmissions(omitted []captureOmittedFile) []captureOmittedFile {
 // captureAttachment is one raw artifact considered for embedding, identified
 // before it is read so an oversized file is never held in memory.
 type captureAttachment struct {
+	// name is the member name inside the capture; path is the file on disk.
 	name, path string
-	size       int64
+	// size is the embedded size: the encoded length of data when the member is
+	// encoded, otherwise the file's own size.
+	size int64
+	// data holds the member when it is not a byte copy of path, as for a
+	// gzip-compressed journal. rawName and rawSize then describe the file on
+	// disk, which is what an omission reports.
+	data    []byte
+	rawName string
+	rawSize int64
+}
+
+// raw describes the artifact as it exists on disk, which stays the identity
+// reported for an omission even when the member would have been encoded.
+func (a captureAttachment) raw() (string, int64) {
+	if a.data != nil {
+		return a.rawName, a.rawSize
+	}
+	return a.name, a.size
+}
+
+// compressJournal encodes the journal at a for embedding. Journals are CDW1
+// JSON payloads and compress by better than an order of magnitude, which is
+// what keeps a long run's raw records inside the per-file budget instead of
+// being dropped from the capture entirely.
+func compressJournal(a captureAttachment, limit int64) (captureAttachment, error) {
+	f, err := os.Open(a.path)
+	if err != nil {
+		return a, err
+	}
+	defer f.Close()
+	data, err := cudacapture.CompressJournal(f, limit)
+	if err != nil {
+		return a, err
+	}
+	return captureAttachment{
+		name:    a.name + cudacapture.JournalGzipSuffix,
+		path:    a.path,
+		size:    int64(len(data)),
+		data:    data,
+		rawName: a.name,
+		rawSize: a.size,
+	}, nil
 }
 
 // scratchAttachments lists the raw artifacts of a finished capture in a
@@ -206,7 +248,8 @@ func omitAttachment(a captureAttachment, reason string) captureOmittedFile {
 	if err != nil {
 		sum = ""
 	}
-	return captureOmittedFile{Name: a.name, Bytes: a.size, SHA256: sum, Reason: reason}
+	name, size := a.raw()
+	return captureOmittedFile{Name: name, Bytes: size, SHA256: sum, Reason: reason}
 }
 
 // fileSHA256 digests a file without holding it in memory.
@@ -248,6 +291,21 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	var omitted []captureOmittedFile
 	if result.ScratchDir != "" {
 		for _, a := range scratchAttachments(result.ScratchDir) {
+			if cudacapture.IsJournalName(a.name) {
+				// A journal is embedded compressed, so the budget is applied
+				// to the compressed member rather than to the raw file.
+				encoded, err := compressJournal(a, budget.FileBytes)
+				if err != nil {
+					reason := fmt.Sprintf("compress capture journal: %v", err)
+					if errors.Is(err, cudacapture.ErrJournalTooLarge) {
+						reason = fmt.Sprintf("compressed journal exceeds capture file budget of %d bytes", budget.FileBytes)
+					}
+					omitted = append(omitted, omitAttachment(a, reason))
+					continue
+				}
+				kept = append(kept, encoded)
+				continue
+			}
 			if a.size > budget.FileBytes {
 				omitted = append(omitted, omitAttachment(a, fmt.Sprintf("exceeds capture file budget of %d bytes", budget.FileBytes)))
 				continue
@@ -284,6 +342,10 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	}
 	attachments := make(map[string][]byte, len(kept))
 	for _, a := range kept {
+		if a.data != nil {
+			attachments[a.name] = a.data
+			continue
+		}
 		if data, err := os.ReadFile(a.path); err == nil {
 			attachments[a.name] = data
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,12 +31,32 @@ func budgetScratch(t *testing.T, workerBytes int) (dir string, size int64, sum s
 	if err := os.MkdirAll(workerDir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	data := bytes.Repeat([]byte{'j'}, workerBytes)
+	data := incompressibleJournal(workerBytes)
 	if err := os.WriteFile(filepath.Join(workerDir, "capture.journal"), data, 0600); err != nil {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(data)
 	return dir, int64(len(data)), hex.EncodeToString(digest[:])
+}
+
+// incompressibleJournal returns n deterministic bytes that gzip cannot shrink.
+// Journals are embedded compressed, so a size budget only bites in these tests
+// if the fixture does not compress away.
+func incompressibleJournal(n int) []byte {
+	b := make([]byte, n)
+	r := rand.New(rand.NewSource(1))
+	r.Read(b)
+	return b
+}
+
+// gzipLen is the embedded size of a journal holding data.
+func gzipLen(t *testing.T, data []byte) int64 {
+	t.Helper()
+	gz, err := cudacapture.CompressJournal(bytes.NewReader(data), 1<<30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return int64(len(gz))
 }
 
 func readWrittenCapture(t *testing.T, path string) (*cudacapture.Capture, captureStatus) {
@@ -71,10 +92,12 @@ func TestArtifactBudgetOmitsOnlyTheOversizedAttachment(t *testing.T) {
 	}
 	c, status := readWrittenCapture(t, out)
 
-	if _, ok := c.Files["worker-process-42-3-capture.journal"]; ok {
-		t.Fatal("oversized journal was attached")
+	for _, name := range []string{"worker-process-42-3-capture.journal", "worker-process-42-3-capture.journal.gz"} {
+		if _, ok := c.Files[name]; ok {
+			t.Fatalf("oversized journal was attached as %q", name)
+		}
 	}
-	for _, name := range []string{"capture.journal", "handshake.json"} {
+	for _, name := range []string{"capture.journal.gz", "handshake.json"} {
 		if _, ok := c.Files[name]; !ok {
 			t.Fatalf("within-budget attachment %q was dropped", name)
 		}
@@ -99,7 +122,8 @@ func TestArtifactBudgetOmitsOnlyTheOversizedAttachment(t *testing.T) {
 // (zero) attaches ordinary artifacts unchanged.
 func TestArtifactBudgetAttachesWithinBudget(t *testing.T) {
 	dir, size, _ := budgetScratch(t, 4096)
-	for _, budget := range []int64{0, size, size + 1} {
+	stored := gzipLen(t, incompressibleJournal(int(size)))
+	for _, budget := range []int64{0, stored, stored + 1} {
 		out := filepath.Join(t.TempDir(), "capture.pprof")
 		result := captureResult{Protocol: 1, Session: "session", State: captureStateFinalized, Outcome: captureOutcomeNoCUDA, CaptureSuccess: true, TransportReady: true, ScratchDir: dir}
 		if err := writeCaptureStatus(out, result, captureArtifactBudget{FileBytes: budget}); err != nil {
@@ -109,9 +133,16 @@ func TestArtifactBudgetAttachesWithinBudget(t *testing.T) {
 		if len(status.OmittedFiles) != 0 {
 			t.Fatalf("budget %d recorded omissions %+v", budget, status.OmittedFiles)
 		}
-		data, ok := c.Files["worker-process-42-3-capture.journal"]
-		if !ok || int64(len(data)) != size {
-			t.Fatalf("budget %d attached %d bytes, want %d (present=%v)", budget, len(data), size, ok)
+		data, ok := c.Files["worker-process-42-3-capture.journal.gz"]
+		if !ok || int64(len(data)) != stored {
+			t.Fatalf("budget %d attached %d bytes, want %d (present=%v)", budget, len(data), stored, ok)
+		}
+		raw, err := c.Journal("worker-process-42-3-capture.journal.gz")
+		if err != nil {
+			t.Fatalf("budget %d: read journal: %v", budget, err)
+		}
+		if !bytes.Equal(raw, incompressibleJournal(int(size))) {
+			t.Fatalf("budget %d: journal did not round-trip: %d bytes", budget, len(raw))
 		}
 	}
 }
@@ -165,7 +196,7 @@ func TestStatusIsIndependentOfRecordCount(t *testing.T) {
 		if len(status.OmittedFiles) != 0 {
 			t.Fatalf("%d records: omitted %+v", n, status.OmittedFiles)
 		}
-		if _, ok := c.Files["worker-process-42-3-capture.journal"]; !ok {
+		if _, ok := c.Files["worker-process-42-3-capture.journal.gz"]; !ok {
 			t.Fatalf("%d records: journal was not attached", n)
 		}
 		sizes = append(sizes, len(c.Files["capture-status.json"]))
@@ -275,7 +306,7 @@ func TestTotalBudgetOmitsLargestFirst(t *testing.T) {
 		if err := os.MkdirAll(workerDir, 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(workerDir, "capture.journal"), bytes.Repeat([]byte{'w'}, size), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(workerDir, "capture.journal"), incompressibleJournal(size), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -288,10 +319,15 @@ func TestTotalBudgetOmitsLargestFirst(t *testing.T) {
 	if len(status.OmittedFiles) != 1 || status.OmittedFiles[0].Name != "worker-process-50-1-capture.journal" {
 		t.Fatalf("omissions = %+v", status.OmittedFiles)
 	}
+	// The omission names the journal as it exists on disk, at its own size,
+	// not the compressed member it would have been embedded as.
+	if status.OmittedFiles[0].Bytes != 64<<10 {
+		t.Fatalf("omission reports %d bytes, want the raw journal size %d", status.OmittedFiles[0].Bytes, 64<<10)
+	}
 	if !strings.Contains(status.OmittedFiles[0].Reason, "total budget") {
 		t.Fatalf("reason = %q", status.OmittedFiles[0].Reason)
 	}
-	if _, ok := c.Files["worker-process-51-1-capture.journal"]; !ok {
+	if _, ok := c.Files["worker-process-51-1-capture.journal.gz"]; !ok {
 		t.Fatal("the smaller journal was dropped too")
 	}
 	var total int64
