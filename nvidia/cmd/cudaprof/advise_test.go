@@ -546,6 +546,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 		{
 			name: "single_warp_32_threads_profile",
 			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
 				Profile: &profile.Profile{
 					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
 					Sample: []*profile.Sample{
@@ -554,6 +555,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 							Label: map[string][]string{
 								"kernel": {"decode_gemv"},
 								"block":  {"32,1,1"},
+								"grid":   {"128,1,1"},
 							},
 						},
 					},
@@ -563,15 +565,16 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantKernel:   "decode_gemv",
 			wantCategory: CategoryArchitectureCompute,
 			wantSeverity: SeverityWarning,
-			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantFinding:  "Single-warp thread blocks",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
 		{
 			name: "underpopulated_16_threads_json",
 			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
 				Files: map[string][]byte{
 					"activities.json": []byte(`[
-						{"name": "tiny_kernel", "subtype": "kernel", "threads": 16}
+						{"name": "tiny_kernel", "subtype": "kernel", "threads": 16, "grid": 64}
 					]`),
 				},
 			},
@@ -579,7 +582,7 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantKernel:   "tiny_kernel",
 			wantCategory: CategoryArchitectureCompute,
 			wantSeverity: SeverityWarning,
-			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantFinding:  "Single-warp thread blocks",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
 		{
@@ -601,12 +604,77 @@ func TestAdvice_UnderpopulatedThreadBlock(t *testing.T) {
 			wantKernel:   "ptx_warp_kernel",
 			wantCategory: CategoryArchitectureCompute,
 			wantSeverity: SeverityWarning,
-			wantFinding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			wantFinding:  "Single-warp thread blocks",
+			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
+		},
+		{
+			name: "single_warp_unspecified_arch_suppressed",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"decode_gemv"},
+								"block":  {"32,1,1"},
+								"grid":   {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "single_warp_grid_1_suppressed",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"setup_kernel"},
+								"block":  {"32,1,1"},
+								"grid":   {"1,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "rtx_4090_sm_89_limits",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_89", "sm_count": 128, "device": "NVIDIA GeForce RTX 4090"}`),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"ada_gemv"},
+								"block":  {"32,1,1"},
+								"grid":   {"256,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning:  true,
+			wantKernel:   "ada_gemv",
+			wantCategory: CategoryArchitectureCompute,
+			wantSeverity: SeverityWarning,
+			wantFinding:  "reaches 50% theoretical occupancy with 24/48 resident warps/SM across 24 blocks/SM",
 			wantRec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
 		{
 			name: "well_populated_128_threads",
 			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`),
 				Profile: &profile.Profile{
 					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
 					Sample: []*profile.Sample{
@@ -1355,7 +1423,7 @@ deepseek_decode:
 		{
 			name:     "heuristic_1_single_warp",
 			category: CategoryArchitectureCompute,
-			finding:  "Single-warp thread blocks cannot hide arithmetic or memory latency",
+			finding:  "Single-warp thread blocks",
 			rec:      "Restructure thread block geometry to >=128 threads (4 warps)",
 		},
 		{
@@ -1600,4 +1668,229 @@ func synthesizeTestELFForAdvise(sections map[string][]byte) []byte {
 	}
 
 	return buf.Bytes()
+}
+
+func TestAdvice_ElementwiseExcludesGEMV(t *testing.T) {
+	// Verifies that matrix-vector multiplication (GEMV) kernels like ds4_q8_0_matvec_quantized
+	// are excluded from elementwise fusion recommendations, even if they have "quant" in name.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{50000},
+					Label: map[string][]string{
+						"name":    {"ds4_swiglu_quant_q8_0"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+					},
+				},
+				{
+					Value: []int64{30000},
+					Label: map[string][]string{
+						"name":    {"ds4_q8_0_matvec_quantized"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	for _, item := range report.Items {
+		if item.Category == CategoryMemoryCompute && strings.Contains(item.Finding, "ds4_q8_0_matvec_quantized") && strings.Contains(item.Finding, "elementwise") {
+			t.Errorf("unexpected elementwise fusion recommendation between SwiGLU and GEMV: %+v", item)
+		}
+	}
+}
+
+func TestAdvice_SequentialRMSNormQuantFusion(t *testing.T) {
+	// Verifies detection of sequential RMSNorm followed immediately by quantization.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{4000},
+					Label: map[string][]string{
+						"name":    {"ds4_rms"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+					},
+				},
+				{
+					Value: []int64{3000},
+					Label: map[string][]string{
+						"name":    {"ds4_quant_q8_1"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Category == CategoryMemoryCompute && strings.Contains(item.Finding, "Redundant global memory round-trips for normalized activations") {
+			found = true
+			if !strings.Contains(item.ActionableRecommendation, "Fuse normalization and quantization") {
+				t.Errorf("recommendation = %q, want containing fuse normalization and quantization", item.ActionableRecommendation)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected RMSNorm->Quant fusion advisory not found; items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_DualGEMVPairedProjections(t *testing.T) {
+	// Verifies detection of paired GEMVs operating on identical activation vectors.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{25000},
+					Label: map[string][]string{
+						"name":    {"ds4_attnQA_gemv"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+						"buffer":  {"attn_norm_out"},
+					},
+				},
+				{
+					Value: []int64{25000},
+					Label: map[string][]string{
+						"name":    {"ds4_attnKV_gemv"},
+						"subtype": {"kernel"},
+						"stream":  {"1"},
+						"buffer":  {"attn_norm_out"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Category == CategoryMemoryCompute && strings.Contains(item.Finding, "Redundant activation DRAM traffic") {
+			found = true
+			if !strings.Contains(item.ActionableRecommendation, "paired dual-GEMV") {
+				t.Errorf("recommendation = %q, want containing paired dual-GEMV", item.ActionableRecommendation)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected Dual-GEMV paired projection advisory not found; items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_MultiWarpReductionStarvation(t *testing.T) {
+	// Verifies detection of multi-warp thread blocks executing sequential chunk reductions with idle warps.
+	cap := &cudacapture.Capture{
+		Metadata: []byte(`{"arch": "sm_121a"}`),
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "samples", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{100},
+					Label: map[string][]string{
+						"kernel": {"ds4_f16_pair_ordered_chunks"},
+						"block":  {"128,1,1"},
+						"grid":   {"256,1,1"},
+					},
+				},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Category == CategoryArchitectureCompute && strings.Contains(item.Finding, "Multi-warp thread block underutilization in row reduction") {
+			found = true
+			if !strings.Contains(item.ActionableRecommendation, "Group multiple rows per thread block") {
+				t.Errorf("recommendation = %q, want containing Group multiple rows per thread block", item.ActionableRecommendation)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected Multi-Warp reduction starvation advisory not found; items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_CumulativeDriverSubmissionOverhead(t *testing.T) {
+	// Verifies that a stream with multiple micro-kernels reports cumulative statistics and top contributors.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+			},
+			Sample: []*profile.Sample{
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{3000}, Label: map[string][]string{"name": {"ds4_router_biased"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{3000}, Label: map[string][]string{"name": {"ds4_router_biased"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
+			},
+		},
+	}
+
+	report, err := AnalyzeCapture(cap)
+	if err != nil {
+		t.Fatalf("AnalyzeCapture failed: %v", err)
+	}
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Category == CategoryArchitectureDispatch && strings.Contains(item.Finding, "Driver submission overhead dominates short kernel execution") {
+			found = true
+			if !strings.Contains(item.Finding, "stream totals 10 micro-kernels") {
+				t.Errorf("finding = %q, want containing stream totals 10 micro-kernels", item.Finding)
+			}
+			if !strings.Contains(item.Finding, "top micro-kernels") {
+				t.Errorf("finding = %q, want containing top micro-kernels", item.Finding)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected Cumulative driver submission advisory not found; items: %+v", report.Items)
+	}
 }
