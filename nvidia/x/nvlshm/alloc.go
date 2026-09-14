@@ -4,6 +4,7 @@ package nvlshm
 
 import (
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -22,12 +23,16 @@ func allocChunk(dev driver.Device, size uintptr) (handle uint64, fd int, err err
 		return 0, -1, fmt.Errorf("cuMemCreate(%d bytes): %w", size, err)
 	}
 	var fd32 int32 = -1
+	var pin runtime.Pinner
+	pin.Pin(&fd32)
 	if err := driver.MemExportToShareableHandle(
 		uintptr(unsafe.Pointer(&fd32)), handle, driver.MemHandleTypePosixFileDescriptor, 0,
 	); err != nil {
+		pin.Unpin()
 		driver.MemRelease(handle)
 		return 0, -1, fmt.Errorf("cuMemExportToShareableHandle: %w", err)
 	}
+	pin.Unpin()
 	if fd32 < 0 {
 		driver.MemRelease(handle)
 		return 0, -1, fmt.Errorf("cuMemExportToShareableHandle returned invalid fd %d", fd32)
