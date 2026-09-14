@@ -226,6 +226,34 @@ func TestCUDASynthRMS(t *testing.T) {
 	cudaTestClose(t, "synthetic RMS, weighted", cudaTestRead(t, dout), cudaTestRMS(x, weight, 1))
 }
 
+func TestCUDASynthRMSPair(t *testing.T) {
+	r := cudaSynthFoundation(t)
+	rnd := rand.New(rand.NewSource(5))
+	const width0 = 1024
+	const width1 = 512
+
+	x0 := cudaSynthVector(rnd, width0, 1)
+	p0, weight0 := cudaSynthF32(rnd, width0, 1)
+	w0 := cudaSynthTensor(t, r, "synth.norm0", 0, []uint64{width0}, p0)
+	dx0 := cudaSynthUpload(t, r, x0)
+	dout0 := cudaTestAlloc(t, r, width0)
+
+	x1 := cudaSynthVector(rnd, width1, 1)
+	p1, weight1 := cudaSynthF32(rnd, width1, 1)
+	w1 := cudaSynthTensor(t, r, "synth.norm1", 0, []uint64{width1}, p1)
+	dx1 := cudaSynthUpload(t, r, x1)
+	dout1 := cudaTestAlloc(t, r, width1)
+
+	if err := r.encodeRMSPair(dx0, w0, dout0, dx1, w1, dout1); err != nil {
+		t.Fatal(err)
+	}
+	cudaSynthSync(t, r)
+
+	cudaTestClose(t, "synthetic RMS pair tensor 0 (1024)", cudaTestRead(t, dout0), cudaTestRMS(x0, weight0, 1))
+	cudaTestClose(t, "synthetic RMS pair tensor 1 (512)", cudaTestRead(t, dout1), cudaTestRMS(x1, weight1, 1))
+}
+
+
 func TestCUDASynthEmbeddingRow(t *testing.T) {
 	r := cudaSynthFoundation(t)
 	rnd := rand.New(rand.NewSource(4))

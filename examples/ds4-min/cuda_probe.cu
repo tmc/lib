@@ -224,6 +224,127 @@ extern "C" __global__ void ds4_rms(
     out[offset + i] = x[offset + i] * inv * (weighted ? weight[i] : 1.0f);
 }
 
+extern "C" __global__ void ds4_rms_pair(
+    const float *x0, const float *weight0, float *out0, unsigned int width0,
+    const float *x1, const float *weight1, float *out1, unsigned int width1) {
+  const unsigned int bid = blockIdx.x;
+  if (bid > 1) return;
+
+  const float *x = (bid == 0) ? x0 : x1;
+  const float *weight = (bid == 0) ? weight0 : weight1;
+  float *out = (bid == 0) ? out0 : out1;
+  const unsigned int width = (bid == 0) ? width0 : width1;
+
+  const unsigned int tid = threadIdx.x;
+  const unsigned int warp_id = tid >> 5;
+  const unsigned int lane = tid & 31;
+
+  __shared__ float s_warp[32];
+  __shared__ float s_inv;
+
+  if (width == 1024 && blockDim.x == 1024) {
+    float v = x[tid];
+    float sum = v * v;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+
+    if (lane == 0) s_warp[warp_id] = sum;
+    __syncthreads();
+
+    float block_sum = 0.0f;
+    if (warp_id == 0) {
+      block_sum = s_warp[lane];
+      #pragma unroll
+      for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+        block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+      }
+    }
+
+    if (tid == 0) {
+      s_inv = rsqrtf(block_sum * 0.0009765625f + 1.0e-6f);
+    }
+    __syncthreads();
+
+    const float inv = s_inv;
+    out[tid] = v * inv * (weight != nullptr ? weight[tid] : 1.0f);
+    return;
+  }
+
+  if (width == 512 && blockDim.x == 1024) {
+    float v = (tid < 512) ? x[tid] : 0.0f;
+    float sum = v * v;
+
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      sum += __shfl_down_sync(0xffffffff, sum, stride);
+    }
+
+    if (lane == 0) s_warp[warp_id] = sum;
+    __syncthreads();
+
+    float block_sum = 0.0f;
+    if (warp_id == 0) {
+      block_sum = s_warp[lane];
+      #pragma unroll
+      for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+        block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+      }
+    }
+
+    if (tid == 0) {
+      s_inv = rsqrtf(block_sum * 0.001953125f + 1.0e-6f);
+    }
+    __syncthreads();
+
+    if (tid < 512) {
+      const float inv = s_inv;
+      out[tid] = v * inv * (weight != nullptr ? weight[tid] : 1.0f);
+    }
+    return;
+  }
+
+  // Fallback for arbitrary width
+  const unsigned int num_warps = blockDim.x >> 5;
+  float sum = 0.0f;
+  for (unsigned int i = tid; i < width; i += blockDim.x) {
+    const float val = x[i];
+    sum += val * val;
+  }
+
+  #pragma unroll
+  for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
+  }
+
+  if (lane == 0 && warp_id < 32) {
+    s_warp[warp_id] = sum;
+  }
+  __syncthreads();
+
+  float block_sum = 0.0f;
+  if (warp_id == 0) {
+    block_sum = (lane < num_warps && lane < 32) ? s_warp[lane] : 0.0f;
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+    }
+  }
+
+  if (tid == 0) {
+    s_inv = rsqrtf(block_sum / float(width) + 1.0e-6f);
+  }
+  __syncthreads();
+
+  const float inv = s_inv;
+  for (unsigned int i = tid; i < width; i += blockDim.x) {
+    out[i] = x[i] * inv * (weight != nullptr ? weight[i] : 1.0f);
+  }
+}
+
+
 extern "C" __global__ void ds4_f16_matvec(
     const unsigned short *weights, const float *x, float *out,
     unsigned int cols, unsigned int rows) {

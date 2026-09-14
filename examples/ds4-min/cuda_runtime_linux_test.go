@@ -346,19 +346,16 @@ func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
 	if err := r.encodeQ80Matvec(qa, x, qRaw); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.encodeRMS(qRaw, qaNorm, qNorm, 1, true); err != nil {
+	if err := r.encodeQ80Matvec(kv, x, kvRaw); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.encodeRMSPair(qRaw, qaNorm, qNorm, kvRaw, kvNorm, kvOut); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.encodeQ80Matvec(qb, qNorm, qHeadsRaw); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.encodeRMS(qHeadsRaw, cudaModelTensor{}, qHeads, 64, false); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.encodeQ80Matvec(kv, x, kvRaw); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.encodeRMS(kvRaw, kvNorm, kvOut, 1, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.device.DefaultStream().Synchronize(context.Background()); err != nil {
@@ -391,7 +388,7 @@ func TestCUDALayer0AttentionProjectionChain(t *testing.T) {
 	cudaTestClose(t, "query head RMS", gotQHeads, wantQHeads)
 	cudaTestClose(t, "attnKV", gotKVRaw, wantKVRaw)
 	cudaTestClose(t, "attnKV RMS", gotKV, wantKV)
-	t.Logf("layer 0 HC and attention projection chain: 8 launches, 1 stream synchronization, %s", elapsed)
+	t.Logf("layer 0 HC and attention projection chain: 7 launches, 1 stream synchronization, %s", elapsed)
 }
 
 func cudaTestTensor(t *testing.T, r *cudaFoundation, name string) cudaModelTensor {

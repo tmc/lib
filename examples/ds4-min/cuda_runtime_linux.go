@@ -81,6 +81,7 @@ type cudaFoundation struct {
 	q80QuantizedFn          driver.Function
 	q80QuantizedBlockDiagFn driver.Function
 	rmsFn                   driver.Function
+	rmsPairFn               driver.Function
 	f16Fn                   driver.Function
 	f16DefaultFn            driver.Function
 	f16PairOrderedFn        driver.Function
@@ -551,6 +552,44 @@ func (r *cudaFoundation) encodeRMS(x cudamem.Slice[float32], weight cudaModelTen
 	})
 }
 
+// encodeRMSPair appends concurrent RMS normalization of two independent tensors
+// (e.g. qLora and kvRaw) to the foundation's CUDA stream using a Grid(2) launch.
+func (r *cudaFoundation) encodeRMSPair(
+	x0 cudamem.Slice[float32], weight0 cudaModelTensor, out0 cudamem.Slice[float32],
+	x1 cudamem.Slice[float32], weight1 cudaModelTensor, out1 cudamem.Slice[float32],
+) error {
+	weighted0 := weight0.device != 0
+	if x0.Len() == 0 || out0.Len() != x0.Len() ||
+		(weighted0 && (weight0.typeID != 0 || len(weight0.dimensions) != 1 || weight0.dimensions[0] != uint64(x0.Len()))) {
+		return fmt.Errorf("cuda: RMS pair: invalid input or weight 0")
+	}
+	weighted1 := weight1.device != 0
+	if x1.Len() == 0 || out1.Len() != x1.Len() ||
+		(weighted1 && (weight1.typeID != 0 || len(weight1.dimensions) != 1 || weight1.dimensions[0] != uint64(x1.Len()))) {
+		return fmt.Errorf("cuda: RMS pair: invalid input or weight 1")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		var weight0Ptr, weight1Ptr driver.DevicePtr
+		if weighted0 {
+			weight0Ptr = weight0.device
+		}
+		if weighted1 {
+			weight1Ptr = weight1.device
+		}
+		if err := cudalaunch.Kernel(r.rmsPairFn).Grid(2).Block(1024).On(r.stream()).Launch(
+			x0, weight0Ptr, out0, uint32(x0.Len()),
+			x1, weight1Ptr, out1, uint32(x1.Len()),
+		); err != nil {
+			return fmt.Errorf("cuda: launch RMS pair: %w", err)
+		}
+		return nil
+	})
+}
+
+
 // encodeF16Matvec appends an F16 matrix-vector product to the default stream.
 func (r *cudaFoundation) encodeF16Matvec(t cudaModelTensor, x, out cudamem.Slice[float32]) error {
 	if t.typeID != 1 || len(t.dimensions) != 2 || uint64(x.Len()) != t.dimensions[0] || uint64(out.Len()) != t.dimensions[1] {
@@ -870,6 +909,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_q8_0_matvec_quantized", &r.q80QuantizedFn},
 		{"ds4_q8_0_matvec_quantized_blockdiag", &r.q80QuantizedBlockDiagFn},
 		{"ds4_rms", &r.rmsFn},
+		{"ds4_rms_pair", &r.rmsPairFn},
 		{"ds4_f16_matvec", &r.f16Fn},
 		{"ds4_f16_matvec_half_input", &r.f16DefaultFn},
 		{"ds4_f16_pair_ordered_chunks", &r.f16PairOrderedFn},

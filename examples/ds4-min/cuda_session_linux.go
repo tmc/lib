@@ -653,16 +653,13 @@ func (r *cudaRuntime) evalLayerQKV(s *cudaTokenState, index int) error {
 	if err := r.encodeQ80MatvecQ81(l.attnKV, qAttn, s.kvRaw); err != nil {
 		return err
 	}
-	if err := r.encodeRMS(s.qLora, l.attnQANorm, s.qLora, 1, true); err != nil {
+	if err := r.encodeRMSPair(s.qLora, l.attnQANorm, s.qLora, s.kvRaw, l.attnKVNorm, s.kvCur); err != nil {
 		return err
 	}
 	if err := r.encodeQ80Matvec(l.attnQB, s.qLora, s.qHeads); err != nil {
 		return err
 	}
-	if err := r.encodeRMS(s.qHeads, cudaModelTensor{}, s.qHeads, 64, false); err != nil {
-		return err
-	}
-	return r.encodeRMS(s.kvRaw, l.attnKVNorm, s.kvCur, 1, true)
+	return r.encodeRMS(s.qHeads, cudaModelTensor{}, s.qHeads, 64, false)
 }
 
 func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
