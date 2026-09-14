@@ -15,7 +15,7 @@ LOG := $(REPO)/api/nvidia.log
 # is noisy but keeps apidiff's exit status from being hidden behind a pipe.
 FILTER := grep -v '^Ignoring internal package '
 
-.PHONY: regen version-check api-update api-added clean
+.PHONY: regen version-check api-update api-added provenance-check clean
 
 # Regenerate every binding package, then check what the regeneration did to
 # the API. The check runs here rather than in a person's memory: a rename
@@ -67,6 +67,13 @@ version-check: $(WORK)/old.api $(WORK)/new.api
 
 # Record the current set as reviewed. Commit the result with the change that
 # caused it, never on its own.
+# provenance-check verifies the generated provenance records. It is not part
+# of the release gate yet: all 28 records predate libgen's bdf4b61 redaction
+# and fail properties 1-3 today. It joins version-check in the commit that
+# regenerates them, which is when it first passes.
+provenance-check:
+	GOWORK=off go run ./internal/cmd/provenancecheck
+
 api-update: $(WORK)/old.api $(WORK)/new.api
 	GOWORK=off apidiff -m -incompatible $(WORK)/old.api $(WORK)/new.api \
 		> $(WORK)/raw.log
