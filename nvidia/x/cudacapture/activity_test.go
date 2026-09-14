@@ -278,3 +278,38 @@ func containsSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+// TestBuildActivityProfileDefaultSampleType pins the sample type a viewer
+// opens. pprof defaults to the last type when none is named, which here is
+// "activity" -- a launch count, not a duration -- so every consumer had to
+// pass -sample_index=0 to see device time.
+func TestBuildActivityProfileDefaultSampleType(t *testing.T) {
+	p := cudacapture.BuildActivityProfile("session-1", 1, []cudacapture.ActivityRecord{{
+		Subtype: "kernel",
+		Name:    "vectorAdd",
+		Valid:   true,
+		Start:   1000,
+		End:     2000,
+	}})
+	if p.DefaultSampleType != "kernel_time" {
+		t.Errorf("DefaultSampleType = %q, want %q", p.DefaultSampleType, "kernel_time")
+	}
+	// A default naming a type the profile does not carry is worse than none:
+	// pprof reports an error instead of silently picking the wrong column.
+	index := -1
+	for i, st := range p.SampleType {
+		if st.Type == p.DefaultSampleType {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		t.Fatalf("DefaultSampleType %q is not among the configured sample types", p.DefaultSampleType)
+	}
+	if p.Sample[0].Value[index] != 1000 {
+		t.Errorf("default sample type carries %d, want the kernel duration 1000", p.Sample[0].Value[index])
+	}
+	if err := p.CheckValid(); err != nil {
+		t.Errorf("CheckValid: %v", err)
+	}
+}

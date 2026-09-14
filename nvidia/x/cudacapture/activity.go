@@ -118,6 +118,10 @@ func BuildActivityProfile(session string, targetPID uint64, activities []Activit
 			{Type: "copy_bytes", Unit: "bytes"},
 			{Type: "activity", Unit: "count"},
 		},
+		// Without this pprof opens the last sample type, "activity", which is
+		// a launch count and not a duration. Every consumer would otherwise
+		// have to remember -sample_index=0 to see device time.
+		DefaultSampleType: "kernel_time",
 	}
 	functions := make(map[string]*profile.Function)
 	var nextFunctionID uint64 = 1
