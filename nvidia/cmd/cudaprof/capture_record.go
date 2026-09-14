@@ -36,8 +36,8 @@ func runCaptureCommand(args []string) error {
 		}
 		return err
 	}
-	if opts.Inject == "" {
-		fmt.Fprintln(os.Stderr, "cudaprof: warning: no injection library specified (--inject /path/to/agent.so or CUDAPROF_INJECT); target will run without CUPTI profiling")
+	if opts.Inject == "" && !opts.NoInject {
+		fmt.Fprintln(os.Stderr, "cudaprof: error: no injection library specified (--inject /path/to/agent.so, CUDAPROF_INJECT, or CUDAPROF_AGENT); target will not run")
 	}
 	result, runErr := runCapture(context.Background(), opts)
 	if opts.Output != "" {
@@ -45,8 +45,25 @@ func runCaptureCommand(args []string) error {
 			return fmt.Errorf("write capture: %w", err)
 		}
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
-		return fmt.Errorf("write capture status: %w", err)
+	status := compactCaptureStatus(result)
+	if opts.JSON || !isTerminal(os.Stdout) {
+		if err := json.NewEncoder(os.Stdout).Encode(status); err != nil {
+			return fmt.Errorf("write capture status: %w", err)
+		}
+	} else {
+		if result.CaptureSuccess {
+			fmt.Fprintf(os.Stdout, "capture complete: %d records, %d dropped, run_completeness: %s\n",
+				result.ActivityRecords, result.DroppedRecords, result.RunCompleteness)
+			if opts.Output != "" {
+				if fi, err := os.Stat(opts.Output); err == nil {
+					fmt.Fprintf(os.Stdout, "wrote %s (%s)\n", opts.Output, formatByteSize(fi.Size()))
+				} else {
+					fmt.Fprintf(os.Stdout, "wrote %s\n", opts.Output)
+				}
+			}
+		} else {
+			fmt.Fprintf(os.Stdout, "capture incomplete: %s (outcome: %s)\n", result.CaptureError, result.Outcome)
+		}
 	}
 	if runErr != nil {
 		return runErr
@@ -319,11 +336,26 @@ func writeCaptureStatus(path string, result captureResult, budget captureArtifac
 	return nil
 }
 
+func formatByteSize(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
 func printCaptureHelp() {
 	fmt.Println(`Usage: cudaprof capture [options] -- command [args...]
 
 Options:
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
+  --no-inject                   run target uninstrumented without injection library
+  --json                        write JSON status summary to stdout
   -o <path>                     write capture output to file or directory
   --max-records <N>             maximum journal records to retain (default 1048576)
   --trace                       enable CUDA activity tracing (default true)

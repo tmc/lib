@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,7 +58,7 @@ func TestParseCaptureArgsRejectsInvalidPlanBeforeSpawn(t *testing.T) {
 func TestRunCapturePreservesCWDEnvAndStdio(t *testing.T) {
 	dir := t.TempDir()
 	var stdout bytes.Buffer
-	o := captureOptions{command: []string{os.Args[0], "-test.run=TestCaptureHelper", "--", "-value"}, Dir: dir, Env: []string{"CUDAPROF_HELPER=1"}, Stdout: &stdout, Stderr: &stdout}
+	o := captureOptions{command: []string{os.Args[0], "-test.run=TestCaptureHelper", "--", "-value"}, Dir: dir, Env: []string{"CUDAPROF_HELPER=1"}, Stdout: &stdout, Stderr: &stdout, NoInject: true}
 	result, err := runCapture(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
@@ -72,12 +73,29 @@ func TestRunCapturePreservesCWDEnvAndStdio(t *testing.T) {
 }
 
 func TestRunCaptureSuccessfulChildWithoutBootstrapIsIncomplete(t *testing.T) {
-	result, err := runCapture(context.Background(), captureOptions{command: []string{"true"}})
+	result, err := runCapture(context.Background(), captureOptions{command: []string{"true"}, NoInject: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.TargetExitCode != 0 || result.Outcome != captureOutcomeNoCUDA || result.CaptureSuccess || result.BootstrapSeen {
 		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestRunCaptureFailsClosedWithoutSpawningWhenInjectMissing(t *testing.T) {
+	sentinel := filepath.Join(t.TempDir(), "should_not_exist")
+	result, err := runCapture(context.Background(), captureOptions{command: []string{"touch", sentinel}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CaptureSuccess {
+		t.Fatalf("expected failure, got success: %+v", result)
+	}
+	if !strings.Contains(result.CaptureError, "no injection library configured") {
+		t.Fatalf("unexpected error message: %q", result.CaptureError)
+	}
+	if _, err := os.Stat(sentinel); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("target was spawned despite missing injection library: %v", err)
 	}
 }
 
@@ -125,7 +143,7 @@ func TestRunCaptureSeparatesTargetExitAndSignal(t *testing.T) {
 		{"signal", []string{os.Args[0], "-test.run=TestCaptureHelper"}, -1, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := runCapture(context.Background(), captureOptions{command: tt.command, Env: []string{"CUDAPROF_HELPER_MODE=" + tt.name}, DrainTimeout: time.Second})
+			result, err := runCapture(context.Background(), captureOptions{command: tt.command, Env: []string{"CUDAPROF_HELPER_MODE=" + tt.name}, DrainTimeout: time.Second, NoInject: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -144,7 +162,7 @@ func TestRunCaptureCancellationKillsOwnedProcess(t *testing.T) {
 		err error
 	}, 1)
 	go func() {
-		r, err := runCapture(ctx, captureOptions{command: []string{os.Args[0], "-test.run=TestCaptureHelper"}, Env: []string{"CUDAPROF_HELPER_MODE=sleep"}, DrainTimeout: 100 * time.Millisecond})
+		r, err := runCapture(ctx, captureOptions{command: []string{os.Args[0], "-test.run=TestCaptureHelper"}, Env: []string{"CUDAPROF_HELPER_MODE=sleep"}, DrainTimeout: 100 * time.Millisecond, NoInject: true})
 		resultCh <- struct {
 			r   captureResult
 			err error
@@ -155,6 +173,19 @@ func TestRunCaptureCancellationKillsOwnedProcess(t *testing.T) {
 	got := <-resultCh
 	if !got.r.Cancelled || got.err == nil {
 		t.Fatalf("result=%+v err=%v", got.r, got.err)
+	}
+}
+
+func TestParseCaptureArgsNoInjectAndJSON(t *testing.T) {
+	o, err := parseCaptureArgs([]string{"--no-inject", "--json", "--", "true"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.NoInject {
+		t.Error("expected NoInject to be true")
+	}
+	if !o.JSON {
+		t.Error("expected JSON to be true")
 	}
 }
 

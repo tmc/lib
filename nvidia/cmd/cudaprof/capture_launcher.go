@@ -71,6 +71,8 @@ type captureOptions struct {
 	Replay                  string
 	FollowChildren          bool
 	RequireComplete         bool
+	NoInject                bool
+	JSON                    bool
 	// CaptureFileBytes is the per-file budget for artifacts attached to the
 	// written capture. Zero means the cudacapture package default. It applies
 	// only to the capture this process is producing from its own scratch
@@ -318,6 +320,10 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			}
 			i = next
 			o.Inject = v
+		case "--no-inject":
+			o.NoInject = true
+		case "--json":
+			o.JSON = true
 		default:
 			return o, fmt.Errorf("unknown capture option %q", name)
 		}
@@ -334,11 +340,16 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, fmt.Errorf("check capture output: %w", err)
 		}
 	}
-	if o.Inject == "" {
+	if o.Inject == "" && !o.NoInject {
 		if env := os.Getenv("CUDAPROF_INJECT"); env != "" {
 			o.Inject = env
 		} else if env := os.Getenv("CUDAPROF_AGENT"); env != "" {
 			o.Inject = env
+		} else if exe, err := os.Executable(); err == nil {
+			adj := filepath.Join(filepath.Dir(exe), "cupti_agent.so")
+			if fi, err := os.Stat(adj); err == nil && !fi.IsDir() {
+				o.Inject = adj
+			}
 		}
 	}
 	if o.Inject != "" {
@@ -456,8 +467,10 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		outcome = captureOutcomeInjection
 	}
 	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ScratchDir: dir}
-	if o.Inject == "" {
-		result.CaptureError = "no injection library configured (specify --inject /path/to/agent.so or CUDAPROF_INJECT)"
+	if o.Inject == "" && !o.NoInject {
+		result.CaptureError = "no injection library configured (specify --inject /path/to/agent.so, CUDAPROF_INJECT, or pass --no-inject to run uninstrumented)"
+		result.RunCompleteness = runUnknown
+		return result, nil
 	}
 	cmd := exec.Command(o.command[0], o.command[1:]...)
 	cmd.Dir, cmd.Env = o.Dir, captureEnvironment(o, session, dir)
@@ -504,7 +517,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		}
 	}
 	result.State = captureStateFinalized
-	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", noInject: o.NoInject, recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
 	if o.RequireComplete && result.RunCompleteness != runComplete {
 		result.CaptureSuccess = false
 		if result.CaptureError == "" {
