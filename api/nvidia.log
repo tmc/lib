@@ -1,0 +1,198 @@
+! second, different message for obj type github.com/tmc/lib/nvidia/nvml.RemappedRowsInfoV2 struct{CorrActiveRemaps uint32; CorrInactiveRemaps uint32; UncActiveRemaps uint32; UncInactiveRemaps uint32; BPending uint32; BFailureOccurred uint32}, isNew false, part ""
+  first:  changed from struct{CorrActiveRemaps uint32; CorrInactiveRemaps uint32; UncActiveRemaps uint32; UncInactiveRemaps uint32; BPending uint32; BFailureOccurred uint32} to uint32
+  second: removed
+- package github.com/tmc/lib/nvidia/x/cudakvrot: removed
+- package github.com/tmc/lib/nvidia/x/cudafuse: removed
+- ./cufft.Handle.ExecC2C: changed from func(*Complex, *Complex, int32) error to func(uintptr, uintptr, int32) error
+- ./cufft.Handle.ExecC2R: changed from func(*Complex, *Real) error to func(uintptr, uintptr) error
+- ./cufft.Handle.ExecD2Z: changed from func(*DoubleReal, *DoubleComplex) error to func(uintptr, uintptr) error
+- ./cufft.Handle.ExecR2C: changed from func(*Real, *Complex) error to func(uintptr, uintptr) error
+- ./cufft.Handle.ExecZ2D: changed from func(*DoubleComplex, *DoubleReal) error to func(uintptr, uintptr) error
+- ./cufft.Handle.ExecZ2Z: changed from func(*DoubleComplex, *DoubleComplex, int32) error to func(uintptr, uintptr, int32) error
+- ./nvml.AccountingStatsV2: removed
+- ./nvml.BBXTimeDataV1: removed
+- ./nvml.CPERCursorV1: removed
+- ./nvml.CPERType: removed
+- ./nvml.CperAccessTypeGpu: removed
+- ./nvml.Device.GetAccountingStats: changed from func(*AccountingStatsV2) error to func(uint32, *AccountingStats) error
+- ./nvml.Device.GetBBXTimeData: removed
+- ./nvml.Device.GetGspFirmwareVersion: changed from func() (byte, error) to func(*byte) error
+- ./nvml.Device.GetRemappedRows: changed from func() (RemappedRowsInfoV2, error) to func(*uint32, *uint32, *uint32) (uint32, error)
+- ./nvml.GetCPERV1: removed
+- ./nvml.GpmMetricNvlinkL18Rx: removed
+- ./nvml.GpmMetricNvlinkL18RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL18Tx: removed
+- ./nvml.GpmMetricNvlinkL18TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL19Rx: removed
+- ./nvml.GpmMetricNvlinkL19RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL19Tx: removed
+- ./nvml.GpmMetricNvlinkL19TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL20Rx: removed
+- ./nvml.GpmMetricNvlinkL20RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL20Tx: removed
+- ./nvml.GpmMetricNvlinkL20TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL21Rx: removed
+- ./nvml.GpmMetricNvlinkL21RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL21Tx: removed
+- ./nvml.GpmMetricNvlinkL21TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL22Rx: removed
+- ./nvml.GpmMetricNvlinkL22RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL22Tx: removed
+- ./nvml.GpmMetricNvlinkL22TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL23Rx: removed
+- ./nvml.GpmMetricNvlinkL23RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL23Tx: removed
+- ./nvml.GpmMetricNvlinkL23TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL24Rx: removed
+- ./nvml.GpmMetricNvlinkL24RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL24Tx: removed
+- ./nvml.GpmMetricNvlinkL24TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL25Rx: removed
+- ./nvml.GpmMetricNvlinkL25RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL25Tx: removed
+- ./nvml.GpmMetricNvlinkL25TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL26Rx: removed
+- ./nvml.GpmMetricNvlinkL26RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL26Tx: removed
+- ./nvml.GpmMetricNvlinkL26TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL27Rx: removed
+- ./nvml.GpmMetricNvlinkL27RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL27Tx: removed
+- ./nvml.GpmMetricNvlinkL27TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL28Rx: removed
+- ./nvml.GpmMetricNvlinkL28RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL28Tx: removed
+- ./nvml.GpmMetricNvlinkL28TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL29Rx: removed
+- ./nvml.GpmMetricNvlinkL29RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL29Tx: removed
+- ./nvml.GpmMetricNvlinkL29TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL30Rx: removed
+- ./nvml.GpmMetricNvlinkL30RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL30Tx: removed
+- ./nvml.GpmMetricNvlinkL30TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL31Rx: removed
+- ./nvml.GpmMetricNvlinkL31RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL31Tx: removed
+- ./nvml.GpmMetricNvlinkL31TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL32Rx: removed
+- ./nvml.GpmMetricNvlinkL32RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL32Tx: removed
+- ./nvml.GpmMetricNvlinkL32TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL33Rx: removed
+- ./nvml.GpmMetricNvlinkL33RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL33Tx: removed
+- ./nvml.GpmMetricNvlinkL33TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL34Rx: removed
+- ./nvml.GpmMetricNvlinkL34RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL34Tx: removed
+- ./nvml.GpmMetricNvlinkL34TxPerSec: removed
+- ./nvml.GpmMetricNvlinkL35Rx: removed
+- ./nvml.GpmMetricNvlinkL35RxPerSec: removed
+- ./nvml.GpmMetricNvlinkL35Tx: removed
+- ./nvml.GpmMetricNvlinkL35TxPerSec: removed
+- ./nvml.GpuRecoveryActionRecoverImexDomain: removed
+- ./nvml.HasDeviceGetBBXTimeData: removed
+- ./nvml.HasSystemGetCPER: removed
+- ./nvml.NvlinkVersion60: removed
+- ./nvml.ProcessMode: removed
+- ./nvml.ProcessModeAll: removed
+- ./nvml.ProcessModeCompute: removed
+- ./nvml.ProcessModeGraphics: removed
+- ./nvml.ProcessModeMps: removed
+- ./nvml.RemappedRowsInfoV2: removed
+- ./nvml.SystemGetCPER: removed
+- package github.com/tmc/lib/nvidia/x/cmd/cudavet: removed
+- package github.com/tmc/lib/nvidia/x/cudamega: removed
+- ./x/cuda.Stream: old is comparable, new is not
+- package github.com/tmc/lib/nvidia/x/cudahf: removed
+- ./x/cudakv.(*Cache).Advance: changed from func(int) to func(int) error
+- ./x/cudalaunch.Launcher: old is comparable, new is not
+- package github.com/tmc/lib/nvidia/x/cudatensor: removed
+- ./x/perfetto.ClockGPU: value changed from 6 to 64
+- ./x/perfetto.ClockMonotonic: value changed from 1 to 3
+- ./x/perfetto.FieldPacketClockSnapshot: value changed from 35 to 6
+- ./x/perfetto.FieldPacketSequenceFlags: value changed from 89 to 13
+- ./x/perfetto.FieldTrackEventName: value changed from 2 to 23
+- package github.com/tmc/lib/nvidia/x/cudalmvet: removed
+- ./x/moonep.(*Buffer).HiddenLocal: changed from func() github.com/tmc/lib/nvidia/driver.DevicePtr to func() (github.com/tmc/lib/nvidia/driver.DevicePtr, error)
+- ./x/moonep.(*Buffer).WeightsLocal: changed from func() github.com/tmc/lib/nvidia/driver.DevicePtr to func() (github.com/tmc/lib/nvidia/driver.DevicePtr, error)
+- ./nvrtc.Program.GetTileIR: changed from func(*byte) error to func() ([]byte, error)
+- package github.com/tmc/lib/nvidia/x/cudablock: removed
+- ./x/nvlshm.(*DistBuffer).ChunkPtr: changed from func(int) github.com/tmc/lib/nvidia/driver.DevicePtr to func(int) (github.com/tmc/lib/nvidia/driver.DevicePtr, error)
+- ./x/nvlshm.(*DistBuffer).LocalPtr: changed from func() github.com/tmc/lib/nvidia/driver.DevicePtr to func() (github.com/tmc/lib/nvidia/driver.DevicePtr, error)
+- ./x/nvlshm.(*DistBuffer).TotalBytes: changed from func() uintptr to func() (uintptr, error)
+- ./x/nvlshm.PadTo: changed from func(uintptr, uintptr) uintptr to func(uintptr, uintptr) (uintptr, error)
+- ./cusparse.GetErrorName: changed from func(Result) string to func(Result) (string, error)
+- ./cusparse.GetErrorString: changed from func(Result) string to func(Result) (string, error)
+- ./x/cudaattn.BatchedPagedAttentionTemplate: value changed from "\n#include <cuda_runtime.h>\n#include <math.h>\n\nextern \"C\" __glo... to "\n// status is set to 1 when device metadata names an invalid sequen...
+- ./x/cudaattn.CausalFlashAttentionTemplate: value changed from "\n#include <cuda_runtime.h>\n#include <math.h>\n\nextern \"C\" __glo... to "\nextern \"C\" __global__ void CausalFlashAttentionDecode(\n    cons...
+- package github.com/tmc/lib/nvidia/x/cudabench: removed
+- package github.com/tmc/lib/nvidia/x/cudaref: removed
+- ./x/cudatest.VerifyNoLeaks: removed
+- ./driver.CheckpointProcessGetState: changed from func(int32, *ProcessState) error to func(int32) (ProcessState, error)
+- ./driver.Context.GetDevResource: changed from func(*[512]byte, DevResourceType) error to func(DevResourceType) (DevResource, error)
+- ./driver.CoredumpLightweightFlags: value changed from 1 to 47
+- ./driver.CoredumpRegisterCompleteCallback: changed from func(uintptr, uintptr, *CoredumpCallbackHandle) error to func(uintptr, uintptr) (CoredumpCallbackHandle, error)
+- ./driver.CoredumpRegisterStartCallback: changed from func(uintptr, uintptr, *CoredumpCallbackHandle) error to func(uintptr, uintptr) (CoredumpCallbackHandle, error)
+- ./driver.CtxGetCacheConfig: changed from func(*FuncCacheConfig) error to func() (FuncCacheConfig, error)
+- ./driver.CtxGetExecAffinity: changed from func(*ExecAffinityParam, ExecAffinityType) error to func(ExecAffinityType) (ExecAffinityParam, error)
+- ./driver.CtxGetSharedMemConfig: changed from func(*Sharedconfig) error to func() (Sharedconfig, error)
+- ./driver.DevResourceGenerateDesc: changed from func(*DevResourceDesc, *[512]byte, uint32) error to func(*DevResourceDesc, *DevResource, uint32) error
+- ./driver.DevSmResourceSplit: changed from func(*[512]byte, uint32, *[512]byte, *[512]byte, uint32, *CuDevSmResourceGroupParams) error to func(*DevResource, uint32, *DevResource, *DevResource, uint32, *CuDevSmResourceGroupParams) error
+- ./driver.DevSmResourceSplitByCount: changed from func(*[512]byte, *uint32, *[512]byte, *[512]byte, uint32, uint32) error to func(*DevResource, *uint32, *DevResource, *DevResource, uint32, uint32) error
+- ./driver.Device.GetAttribute: changed from func(DeviceAttribute) (int, error) to func(DeviceAttribute) (int32, error)
+- ./driver.Device.GetDevResource: changed from func(*[512]byte, DevResourceType) error to func(DevResourceType) (DevResource, error)
+- ./driver.Device.GetHostAtomicCapabilities: changed from func(*uint32, *AtomicOperation, uint32) error to func(*AtomicOperation, uint32) (uint32, error)
+- ./driver.Device.GetLuid: changed from func(*byte, *uint32) error to func(*byte) (uint32, error)
+- ./driver.Device.GetP2PAtomicCapabilities: changed from func(*uint32, *AtomicOperation, uint32, Device) error to func(*AtomicOperation, uint32, Device) (uint32, error)
+- ./driver.Device.GetP2PAttribute: changed from func(*int32, DeviceP2pattribute, Device) error to func(DeviceP2pattribute, Device) (int32, error)
+- ./driver.Device.GetTexture1DLinearMaxWidth: changed from func(*uint, ArrayFormat, uint32) error to func(ArrayFormat, uint32) (uint, error)
+- ./driver.Device.GetUuid: changed from func(*Uuid) error to func() (Uuid, error)
+- ./driver.Device.PrimaryCtxGetState: changed from func(*int32) (uint32, error) to func() (uint32, int32, error)
+- ./driver.Device.TotalMem: changed from func(*uint) error to func() (uint, error)
+- ./driver.DevicePtr.MemGetAddressRange: changed from func(*uint) (DevicePtr, error) to func() (DevicePtr, uint, error)
+- ./driver.Function.GetParamInfo: changed from func(uint, *uint, *uint) error to func(uint) (uint, uint, error)
+- ./driver.Function.IsLoaded: changed from func(*FunctionLoadingState) error to func() (FunctionLoadingState, error)
+- ./driver.Function.MaxPotentialBlockSize: changed from func(*int32, *int32, uintptr, uint, int32) error to func(uintptr, uint, int32) (int32, int32, error)
+- ./driver.Function.MaxPotentialBlockSizeWithFlags: changed from func(*int32, *int32, uintptr, uint, int32, uint32) error to func(uintptr, uint, int32, uint32) (int32, int32, error)
+- ./driver.GraphNode.GetParams: changed from func(*GraphNodeParams) error to func() (GraphNodeParams, error)
+- ./driver.GraphNode.GetType: changed from func(*GraphNodeType) error to func() (GraphNodeType, error)
+- ./driver.GraphNode.GraphBatchMemOpNodeGetParams: changed from func(*BatchMemOpNodeParams) error to func() (BatchMemOpNodeParams, error)
+- ./driver.GraphNode.GraphExternalSemaphoresSignalNodeGetParams: changed from func(*ExtSemSignalNodeParams) error to func() (ExtSemSignalNodeParams, error)
+- ./driver.GraphNode.GraphExternalSemaphoresWaitNodeGetParams: changed from func(*ExtSemWaitNodeParams) error to func() (ExtSemWaitNodeParams, error)
+- ./driver.GraphNode.GraphHostNodeGetParams: changed from func(*HostNodeParams) error to func() (HostNodeParams, error)
+- ./driver.GraphNode.GraphKernelNodeGetParams: changed from func(*KernelNodeParams) error to func() (KernelNodeParams, error)
+- ./driver.GraphNode.GraphMemAllocNodeGetParams: changed from func(*MemAllocNodeParams) error to func() (MemAllocNodeParams, error)
+- ./driver.GraphNode.GraphMemcpyNodeGetParams: changed from func(*Memcpy3d) error to func() (Memcpy3d, error)
+- ./driver.GraphNode.GraphMemsetNodeGetParams: changed from func(*MemsetNodeParams) error to func() (MemsetNodeParams, error)
+- ./driver.GreenCtx.GetDevResource: changed from func(*[512]byte, DevResourceType) error to func(DevResourceType) (DevResource, error)
+- ./driver.Kernel.GetParamInfo: changed from func(uint, *uint, *uint) error to func(uint) (uint, uint, error)
+- ./driver.Library.GetGlobal: changed from func(*uint, string) (DevicePtr, error) to func(string) (DevicePtr, uint, error)
+- ./driver.Library.GetManaged: changed from func(*uint, string) (DevicePtr, error) to func(string) (DevicePtr, uint, error)
+- ./driver.ModuleGetLoadingMode: changed from func(*ModuleLoadingMode) error to func() (ModuleLoadingMode, error)
+- ./driver.Stream.GetDevResource: changed from func(*[512]byte, DevResourceType) error to func(DevResourceType) (DevResource, error)
+- ./driver.TensorMapEncodeIm2col: changed from func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *int32, *int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error to func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *int32, *int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error
+- ./driver.TensorMapEncodeIm2colWide: changed from func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, int32, int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapIm2ColWideMode, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error to func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, int32, int32, uint32, uint32, *uint32, TensorMapInterleave, TensorMapIm2ColWideMode, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error
+- ./driver.TensorMapEncodeTiled: changed from func(*[64]byte, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error to func(*TensorMap, TensorMapDataType, uint32, uintptr, *uint64, *uint64, *uint32, *uint32, TensorMapInterleave, TensorMapSwizzle, TensorMapL2promotion, TensorMapFloatOOBfill) error
+- ./driver.TensorMapReplaceAddress: changed from func(*[64]byte, uintptr) error to func(*TensorMap, uintptr) error
+- ./driver.TexRef.GetAddressMode: changed from func(*AddressMode, int32) error to func(int32) (AddressMode, error)
+- ./driver.TexRef.GetFilterMode: changed from func(*FilterMode) error to func() (FilterMode, error)
+- ./driver.TexRef.GetFormat: changed from func(*ArrayFormat) (int32, error) to func() (ArrayFormat, int32, error)
+- ./driver.TexRef.GetMaxAnisotropy: changed from func(*int32) error to func() (int32, error)
+- ./driver.TexRef.GetMipmapFilterMode: changed from func(*FilterMode) error to func() (FilterMode, error)
+- ./driver.TexRef.GetMipmapLevelBias: changed from func(*float32) error to func() (float32, error)
+- ./driver.TexRef.GetMipmapLevelClamp: changed from func(*float32, *float32) error to func() (float32, float32, error)
+- ./driver.TexRef.SetAddress: changed from func(*uint, DevicePtr, uint) error to func(DevicePtr, uint) (uint, error)
+- ./nccl.NewCommInitAll: removed
+- package github.com/tmc/lib/nvidia/x/cudair: removed
+- package github.com/tmc/lib/nvidia/x/cudagrammar: removed
+- package github.com/tmc/lib/nvidia/x/cudasrv: removed
+- package github.com/tmc/lib/nvidia/x/cmd/cuben: removed
+- ./x/cudagraph.New: changed from func() (*Graph, error) to func(...*github.com/tmc/lib/nvidia/x/cuda.Device) (*Graph, error)
+- ./x/cudasample.ArgmaxKernelTemplate: value changed from "\n#include <cuda_runtime.h>\n\nextern \"C\" __global__ void ArgmaxLo... to "\nextern \"C\" __global__ void ArgmaxLogits(\n    const float* __res...
+- ./x/cudasample.ArgmaxSampler: removed
+- ./x/cudasample.Config: removed
+- ./x/cudasample.Sampler: removed
+- ./x/cudasample.TemperatureSampler: removed
+- package github.com/tmc/lib/nvidia/x/cudatemplate: removed

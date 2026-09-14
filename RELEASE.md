@@ -100,16 +100,18 @@ module tags required Go 1.26.2.
 
 | Modules | Candidate | Basis |
 |---|---|---|
-| `nvidia` | `v0.2.0` | 58 incompatible report entries relative to local `nvidia/v0.1.0` |
+| `nvidia` | `v0.2.0` | 196 incompatible report entries relative to local `nvidia/v0.1.0` |
 | `lldb` | `v0.2.0` | Adds the public `Require` function |
 | `rocm`, `treesitter` | `v0.1.1` | Dependency/toolchain updates; no public API differences in this comparison |
 | `apple`, `hfsync`, `libgit2`, `lm`, `openxla`, `tpu`, `x/gomlx`, `x/hftokenizer`, `x/stablehlo`, `x/xla` | `v0.1.0` | No existing local module release tags |
 
 `apidiff` from `golang.org/x/exp@v0.0.0-20260824195058-e88cd73687aa`
 compared export data from each exact local tag with the current module on
-Darwin/arm64, with `GOWORK=off`. Reports and export snapshots are in
-`~/tmp/lib-release/api/`. Internal packages were excluded. This is public Go
-API evidence for that build context, not native ABI or behavioral compatibility.
+Darwin/arm64 on 2026-09-13, with `GOWORK=off`. The four text reports are
+committed under `api/`; export snapshots remain in `~/tmp/lib-release-current/api/`
+and are intentionally not committed. Internal packages were excluded. This is
+public Go API evidence for that build context, not native ABI or behavioral
+compatibility.
 
 NVIDIA migration review must account for removed packages and changed return
 contracts, including `nvrtc.Program.GetTileIR`, driver resource and tensor-map
