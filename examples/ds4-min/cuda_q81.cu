@@ -160,19 +160,8 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
   }
 
   // Weight-amortized 1D grid launch:
-  // Dynamically stage all batch activations in shared memory.
-  // Each warp loads weight_row once across all batch tokens.
-  extern __shared__ char s_mem[];
-  ds4_q8_1_activation *s_x = reinterpret_cast<ds4_q8_1_activation *>(s_mem);
-
-  const unsigned total_words = batch * blocks * 9;
-  const int *x_words = reinterpret_cast<const int *>(x);
-  int *s_words = reinterpret_cast<int *>(s_x);
-  for (unsigned idx = tid; idx < total_words; idx += 256) {
-    s_words[idx] = x_words[idx];
-  }
-  __syncthreads();
-
+  // Loads weight_row once across all batch tokens in registers.
+  // Activations (small footprint) hit L2 cache with zero shared memory overhead.
   if (row >= rows) return;
   const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
 
@@ -191,14 +180,14 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
     #pragma unroll
     for (unsigned t = 0; t < 8; t++) {
       if (t < batch) {
-        const ds4_q8_1_activation *act = s_x + t * blocks + b;
-        const int *x4 = reinterpret_cast<const int *>(act->qs);
+        const ds4_q8_1_activation *tx = x + (unsigned long long)t * blocks;
+        const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
         int dot = 0;
         #pragma unroll
         for (int i = 0; i < 8; i++) {
           dot = __dp4a(w4[i], x4[i], dot);
         }
-        sum[t] += d * ds4_half_to_float(act->d) * float(dot);
+        sum[t] += d * ds4_half_to_float(tx[b].d) * float(dot);
       }
     }
   }
