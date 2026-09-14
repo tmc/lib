@@ -3,6 +3,7 @@ package cudamlx
 import (
 	"fmt"
 	"math/bits"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -283,7 +284,11 @@ func (a *Allocator) MallocAsync(size uint64, device int, stream driver.Stream) (
 					continue
 				}
 				var used uint64
-				if err := p.GetAttribute(driver.MempoolAttrReservedMemCurrent, uintptr(unsafe.Pointer(&used))); err == nil {
+				var pin runtime.Pinner
+				pin.Pin(&used)
+				err := p.GetAttribute(driver.MempoolAttrReservedMemCurrent, uintptr(unsafe.Pointer(&used)))
+				pin.Unpin()
+				if err == nil {
 					if used > a.totalMemory-a.freeLimit {
 						a.cache.releaseCachedBuffers(a.freeLimit)
 						break
