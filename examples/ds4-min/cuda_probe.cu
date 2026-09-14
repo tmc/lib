@@ -61,21 +61,49 @@ extern "C" __global__ void ds4_rms(
     unsigned int width, unsigned int groups, unsigned int weighted) {
   const unsigned int group = blockIdx.x;
   if (group >= groups) return;
-  __shared__ float partial[256];
+
+  const unsigned int tid = threadIdx.x;
+  const unsigned int warp_id = tid >> 5;
+  const unsigned int lane = tid & 31;
+  const unsigned int num_warps = blockDim.x >> 5;
+
   const unsigned int offset = group * width;
   float sum = 0.0f;
-  for (unsigned int i = threadIdx.x; i < width; i += blockDim.x) {
+  for (unsigned int i = tid; i < width; i += blockDim.x) {
     const float v = x[offset + i];
     sum += v * v;
   }
-  partial[threadIdx.x] = sum;
-  __syncthreads();
-  for (unsigned int stride = blockDim.x / 2; stride != 0; stride >>= 1) {
-    if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
-    __syncthreads();
+
+  // Intra-warp shuffle reduction
+  #pragma unroll
+  for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
   }
-  const float inv = rsqrtf(partial[0] / float(width) + 1.0e-6f);
-  for (unsigned int i = threadIdx.x; i < width; i += blockDim.x)
+
+  __shared__ float s_warp[32];
+  if (lane == 0) {
+    s_warp[warp_id] = sum;
+  }
+  __syncthreads();
+
+  // Warp 0 reduces the per-warp sums
+  float block_sum = 0.0f;
+  if (warp_id == 0) {
+    block_sum = (lane < num_warps) ? s_warp[lane] : 0.0f;
+    #pragma unroll
+    for (unsigned int stride = 16; stride != 0; stride >>= 1) {
+      block_sum += __shfl_down_sync(0xffffffff, block_sum, stride);
+    }
+  }
+
+  __shared__ float s_inv;
+  if (tid == 0) {
+    s_inv = rsqrtf(block_sum / float(width) + 1.0e-6f);
+  }
+  __syncthreads();
+
+  const float inv = s_inv;
+  for (unsigned int i = tid; i < width; i += blockDim.x)
     out[offset + i] = x[offset + i] * inv * (weighted ? weight[i] : 1.0f);
 }
 
