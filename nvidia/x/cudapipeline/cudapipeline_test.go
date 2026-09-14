@@ -1,8 +1,12 @@
 package cudapipeline
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 )
 
 func TestPipelineConfigurations(t *testing.T) {
@@ -383,11 +387,11 @@ func TestArchConstraints(t *testing.T) {
 	if !p121.SupportsMultimem {
 		t.Errorf("sm_121a should support multimem")
 	}
-	if !p121.SupportsTMEM {
-		t.Errorf("sm_121a should support TMEM")
+	if p121.SupportsTMEM {
+		t.Errorf("sm_121a should not support TMEM: it is reachable only via tcgen05")
 	}
-	if err := p121.ValidateFeature(FeatureTMEM); err != nil {
-		t.Errorf("sm_121a should validate TMEM, got: %v", err)
+	if err := p121.ValidateFeature(FeatureTMEM); err == nil {
+		t.Errorf("expected sm_121a to reject TMEM, got nil error")
 	}
 	// Verify sm_121a hardware reality: rejects wgmma and tcgen05
 	if err := p121.ValidateFeature(FeatureWGMMA); err == nil {
@@ -523,4 +527,107 @@ func TestPTEmission(t *testing.T) {
 	if !strings.Contains(waitPTX, "mbarrier.try_wait.parity") {
 		t.Errorf("waitPTX missing try_wait: %s", waitPTX)
 	}
+}
+
+// TestTMEMRequiresTCGen05 checks the invariant that makes TMEM reachable at
+// all: Tensor Memory is addressable only through tcgen05.* instructions, so no
+// profile may claim TMEM without claiming tcgen05. A profile without TMEM also
+// carries no TMEM dimensions.
+func TestTMEMRequiresTCGen05(t *testing.T) {
+	for name, p := range knownProfiles {
+		t.Run(name, func(t *testing.T) {
+			if p.SupportsTMEM && !p.SupportsTCGen05 {
+				t.Errorf("SupportsTMEM = true with SupportsTCGen05 = false; TMEM is addressable only via tcgen05")
+			}
+			if p.SupportsTMEM {
+				return
+			}
+			dims := []struct {
+				field string
+				value int
+			}{
+				{"MaxTMEMCapacityBytes", p.MaxTMEMCapacityBytes},
+				{"MinTMEMAlignBytes", p.MinTMEMAlignBytes},
+				{"TMEMBytesPerColumn", p.TMEMBytesPerColumn},
+				{"TMEMColumnsPerSM", p.TMEMColumnsPerSM},
+				{"TMEMAllocColUnit", p.TMEMAllocColUnit},
+			}
+			for _, d := range dims {
+				if d.value != 0 {
+					t.Errorf("%s = %d without TMEM support, want 0", d.field, d.value)
+				}
+			}
+		})
+	}
+}
+
+// TestCapabilityFlagsRespectPTXFloor checks the hand-maintained capability
+// flags in knownProfiles against the instruction table generated from the PTX
+// ISA documentation: a profile must not claim a feature its architecture is
+// too old to have. The two are independent records of the same fact, and they
+// disagreed here — sm_90 was recorded as lacking multimem while the ISA
+// requires only sm_90.
+//
+// Only this direction holds. The converse, that any architecture at or above
+// the floor supports the feature, is false: sm_121a outranks both sm_90a and
+// sm_100a numerically and rejects wgmma and tcgen05 all the same. Capability
+// is not monotone in compute capability once family-specific targets exist, so
+// a table cannot settle the positive case. ptxas can, and it is what found the
+// multimem error: it accepts multimem at sm_90 and rejects it at sm_80.
+func TestCapabilityFlagsRespectPTXFloor(t *testing.T) {
+	features := []struct {
+		mnemonic string
+		flag     func(ArchProfile) bool
+	}{
+		{"multimem", func(p ArchProfile) bool { return p.SupportsMultimem }},
+		{"wgmma", func(p ArchProfile) bool { return p.SupportsWGMMA }},
+		{"tcgen05", func(p ArchProfile) bool { return p.SupportsTCGen05 }},
+	}
+	for _, f := range features {
+		min := cudaptx.InstructionMinTarget(f.mnemonic)
+		if min == "" {
+			t.Errorf("%s: no minimum target recorded in cudaptx", f.mnemonic)
+			continue
+		}
+		for name, p := range knownProfiles {
+			t.Run(f.mnemonic+"/"+name, func(t *testing.T) {
+				if !f.flag(p) {
+					return // says nothing; see the doc comment
+				}
+				ok, err := archAtLeast(name, min)
+				if err != nil {
+					t.Fatalf("compare %s to %s: %v", name, min, err)
+				}
+				if !ok {
+					t.Errorf("%s claims %s, but the PTX ISA requires %s",
+						name, f.mnemonic, min)
+				}
+			})
+		}
+	}
+}
+
+// archAtLeast reports whether architecture name is at least min, comparing the
+// numeric compute capability and ignoring the trailing architecture-specific
+// suffix. Both names are of the form sm_NN with an optional suffix.
+func archAtLeast(name, min string) (bool, error) {
+	n, err := archNumber(name)
+	if err != nil {
+		return false, err
+	}
+	m, err := archNumber(min)
+	if err != nil {
+		return false, err
+	}
+	return n >= m, nil
+}
+
+func archNumber(s string) (int, error) {
+	s = strings.TrimPrefix(s, "sm_")
+	s = strings.TrimRight(s, "abcdef")
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("parse architecture %q: %w", s, err)
+	}
+	return n, nil
 }
