@@ -33,7 +33,6 @@ cuFile, for example, is a Linux-only package.
 | [custatevec](custatevec/) | cuStateVec (cuQuantum) | state-vector quantum circuit simulation |
 | [cutensornet](cutensornet/) | cuTensorNet (cuQuantum) | tensor-network path finding and contraction |
 | [cudensitymat](cudensitymat/) | cuDensityMat (cuQuantum) | many-body operator action and expectation values |
-| [vpi](vpi/) | VPI (Vision Programming Interface) | context and stream lifecycle, image wrapping, rescale |
 | [cupti](cupti/) | CUPTI | profiling and activity tracing |
 | [sanitizer](sanitizer/) | Compute Sanitizer public API | host callbacks, instrumentation patch management, and callback-safe memory operations |
 | [dcgm](dcgm/) | DCGM client library (libdcgm) | host-engine telemetry, entity and field discovery, health and diagnostics |
@@ -109,15 +108,22 @@ higher-level memory, compilation, graph and tracing helpers.
 
 ## Regeneration
 
-[upstream.json](upstream.json) records package inputs and generation commands.
-The generator repository is `tmc/libgen` (formerly `tmc/codegen`). Read the
-package's recorded command and header pins rather than choosing a generator
-by name: several packages use dedicated survey commands.
+[generate.go](generate.go) names every generated package as a `go:generate`
+directive; `go generate` regenerates all of them. The recipe -- which generator
+runs with which arguments -- lives in `nvgen`, in the generator repository
+`tmc/libgen` (formerly `tmc/codegen`), because several packages use dedicated
+survey commands rather than one generator. `nvgen -list` prints the recipes and
+`nvgen -diff -output .` reports what a regeneration would change without
+writing.
 
-Generate into a separate output directory, then review the diff and validate
-the affected package. Generated API fixes belong in libgen; editing generated
-output alone loses the fix on the next run. Preserve historical provenance and
-record which new outputs were actually regenerated.
+[upstream.json](upstream.json) records package inputs, and each package's
+`provenance.json` records the arguments and input hashes its committed output
+was actually generated from. Those are the two different questions: what a
+package is supposed to be generated from, and what it was.
+
+Generated API fixes belong in libgen; editing generated output alone loses the
+fix on the next run. Preserve historical provenance and record which new
+outputs were actually regenerated.
 
 Use `-allow-api-removal` only for an intended, reviewed removal. An unexpected
 removal can indicate a wrong header pin or generator command.
