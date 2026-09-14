@@ -14,7 +14,7 @@ Receipts below are local files under `~/tmp/lib-release/`.
 | Repository license | User selection pending | Add the selected license and review third-party redistribution notices |
 | Public external dependencies | 22 of 23 declared external versions download; pinned `tmc/ffi` returns 404 with an upstream authentication failure | Make the exact dependency available before releasing its consumers |
 | Internal dependency versions | `tpu`, `x/xla`, and `x/gomlx` still have replacements and placeholder versions | Prepare releases in dependency order, then regenerate sums with Go |
-| NVIDIA parallel test reliability | One burst run lost a record; an earlier missing-library child timed out | Retain both failures and resolve the concurrency-sensitive qualification boundary |
+| NVIDIA parallel test reliability | The burst boundary is measured and attributed: admission waits on journal write latency against a 100 ms deadline, 16-40 ms quiet and 99 ms under host I/O. The missing-library child timeout is unchanged | Decide whether admission keeps the wall-clock deadline or waits on drain progress, then requalify |
 | Final archives | Draft archive checks exist; license and final revision are not fixed | Recheck immutable final artifacts after license/version preparation |
 | API/version review | Darwin export-data comparison completed for the four modules with local tags; candidates below | Confirm final versions and recheck platform-specific APIs on the final revision |
 | Native platform coverage | Build targets are declared in `scripts/platforms.txt` and gated by `make platform-check`; runtime qualification remains Darwin/arm64 plus named CUDA hosts | Record named runtime tests, library versions, and skips for each claimed platform |
@@ -69,6 +69,8 @@ before publication; do not silently move existing local tags.
 | Burst and deliberate-loss controls | Five repetitions each passed, with full retention in normal runs and reconciled drops in zero-wait controls | `burst-focused.log` |
 | Full NVIDIA suite, serialized packages | Passed with unchanged test set, queue, deadlines, and assertions | `nvidia-serial.log` |
 | Declared platform builds | 66 of 66 passed at `1584e1c6`; the gate was checked against a false claim and a missing module and rejected both | `make platform-check` output |
+| Burst admission boundary | Eight quiet runs retained 640,000 of 640,000; longest admission wait equals longest batch write to the millisecond in every run | `go test ./internal/cudainject/nativecontrol -run TestBurst -count=8 -v` |
+| Burst admission under host I/O | Three runs with 4.8 GB of concurrent writes; both maxima rose together to 99 ms against the 100 ms deadline and still retained everything | same test with a concurrent `dd` load |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
 `x/hftokenizer`, `x/stablehlo`, `hfsync`, `nvidia`, and the pre-repair Apple archive.
@@ -78,9 +80,27 @@ tests (`go get -t <module>/...@<version>`).
 
 The old Apple 0.71x result and earlier passing performance results used a
 broken dispatch and cannot qualify performance. A one-iteration benchmark
-smoke proves execution only. NVIDIA's passing serialized run does not explain
-the parallel failure or guarantee lossless admission under arbitrary host load;
-its admission wait is bounded at 100 ms. No limits or assertions were relaxed.
+smoke proves execution only. No limits or assertions were relaxed.
+
+The NVIDIA burst failure is now explained rather than merely retained. The
+producer's admission path waits for the drain to publish a freed ring slot,
+and the drain publishes only after its batch write to the journal returns, so
+the 100 ms admission deadline is a bound on journal write latency and on
+nothing else. The finalized record now carries the longest single admission
+wait and the longest single batch write; over 2,500 batches they are equal to
+the millisecond in every run, which is what identifies the cause. On a quiet
+Darwin/arm64 host the pair peaks at 16-40 ms; driving 4.8 GB of concurrent
+host writes moves both to 99 ms without losing a record. Crossing the deadline
+is the whole mechanism: the loss is bounded, attributed to
+`queue_capacity_dropped`, and reported with the stall that produced it.
+
+Lossless burst admission is therefore a property of the host, not of the
+producer alone, and `TestBurst` asserts it strictly. Two policies remain open:
+keep the wall-clock deadline and accept attributed loss on a loaded host, or
+let admission wait on drain progress instead of elapsed time, which removes
+this loss but gives up the per-record latency bound the current design chose
+on purpose. The decision belongs with the owner; no assertion was relaxed to
+avoid it.
 
 A separate draft dependency wave passed source and installed-consumer tests
 for `openxla`, `x/stablehlo`, `tpu`, `x/xla`, and `x/gomlx` at local draft
