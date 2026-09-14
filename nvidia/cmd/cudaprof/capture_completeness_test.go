@@ -357,3 +357,37 @@ func inspectCoverageOf(t *testing.T, status []byte) inspectCoverage {
 	addCoverageDetails(&envelope.Status, status)
 	return envelope.Status
 }
+
+// TestRunCompletenessDroppedRecordsIsPartial verifies that when records are dropped
+// (e.g. from CUPTI buffer pressure), run_completeness classifies as partial even if
+// all generations finalized cleanly without reported failures.
+func TestRunCompletenessDroppedRecordsIsPartial(t *testing.T) {
+	w := healthyWorker(50, 60, 2)
+	w.records[len(w.records)-1] = wire.Record{Kind: recordFinalized, Payload: []byte(`{"state":"collected","activity":2,"dropped":42}`)}
+
+	got := observeCompleteness(t, completenessSession(t, w))
+	if got.DroppedRecords != 42 {
+		t.Fatalf("dropped records = %d, want 42", got.DroppedRecords)
+	}
+	if got.UnqualifiedGenerations != 0 {
+		t.Fatalf("unqualified generations = %d, want 0", got.UnqualifiedGenerations)
+	}
+	if got.RunCompleteness != runPartial {
+		t.Fatalf("run_completeness = %q, want %q (dropped records must classify as partial)", got.RunCompleteness, runPartial)
+	}
+	if !got.CaptureSuccess {
+		t.Fatal("target generation should remain successful when require-complete is not set")
+	}
+}
+
+// TestInspectDerivesPartialWhenRecordsDropped covers legacy artifacts without published
+// run_completeness that have dropped records: inspect must derive runPartial.
+func TestInspectDerivesPartialWhenRecordsDropped(t *testing.T) {
+	legacy := []byte(`{"status":{"outcome":"collected","capture_success":true,"transport_ready":true,` +
+		`"bootstrap_seen":true,"collector_finalized":true,"activity_records":1000,"dropped_records":500}}`)
+	coverage := inspectCoverageOf(t, legacy)
+	if coverage.RunCompleteness != runPartial {
+		t.Fatalf("run_completeness = %q, want %q", coverage.RunCompleteness, runPartial)
+	}
+}
+

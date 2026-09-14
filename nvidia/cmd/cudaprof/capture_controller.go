@@ -75,6 +75,7 @@ type captureRecordPayload struct {
 	Registers           uint32     `json:"registers"`
 	DynamicSharedMemory uint32     `json:"dynamic_shared_memory"`
 	Smem                uint32     `json:"smem"`
+	Dropped             uint64     `json:"dropped"`
 }
 
 // observeOptions carries the caller's explicit choices into journal
@@ -103,19 +104,19 @@ func observeCaptureSession(result captureResult, dir, session string, opts obser
 // for a run whose worker generations failed.
 func withRunCompleteness(result captureResult) captureResult {
 	result.UnqualifiedGenerations = unqualifiedGenerations(result.WorkerGenerations)
-	result.RunCompleteness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, result.UnqualifiedGenerations)
+	result.RunCompleteness = runCompletenessOf(result.TransportReady, result.CollectorFinalized, result.UnqualifiedGenerations, result.DroppedRecords)
 	return result
 }
 
 // runCompletenessOf is the single classification rule, shared by the writer and
 // by inspect so a reader can never report a different answer than the capture.
-func runCompletenessOf(transportReady, collectorFinalized bool, unqualified uint64) string {
+func runCompletenessOf(transportReady, collectorFinalized bool, unqualified uint64, dropped uint64) string {
 	switch {
 	case !transportReady:
 		return runUnknown
 	case !collectorFinalized:
 		return runFailed
-	case unqualified > 0:
+	case unqualified > 0 || dropped > 0:
 		return runPartial
 	}
 	return runComplete
@@ -594,6 +595,9 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")
 			}
 			terminal, state.finalized = true, true
+			if payload.Dropped > recovered.Stats.Dropped {
+				recovered.Stats.Dropped = payload.Dropped
+			}
 			switch payload.State {
 			case "no_cuda_observed":
 				state.noCUDA = true

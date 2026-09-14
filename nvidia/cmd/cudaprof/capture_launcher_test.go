@@ -174,3 +174,14 @@ func TestCaptureHelper(t *testing.T) {
 		fmt.Fprintf(os.Stdout, "%s|%s|%s", cwd, os.Getenv("CUDAPROF_HELPER"), os.Args[len(os.Args)-1])
 	}
 }
+
+func TestParseCaptureArgsRequireComplete(t *testing.T) {
+	o, err := parseCaptureArgs([]string{"--require-complete", "--", "true"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !o.RequireComplete {
+		t.Fatal("RequireComplete was not set")
+	}
+}
+
