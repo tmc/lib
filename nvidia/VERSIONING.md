@@ -258,16 +258,49 @@ built" below; a passing oracle does not advance it.
 
 ### Fail-closed today
 
-The frozen `nvidia/x/cuptiactivity` implementation demonstrates the
-intended rejection ordering in synthetic tests. `recordLayouts` accepts
-only CUPTI API version 130200. CUDA 12.9.1 headers define version 28;
-if `GetVersion` returns 28, `Start` rejects it before any record-size
-query, callback registration or activity enable. Native version
-responses and rejection behavior remain unqualified. Loading and the
-version query may already have native initialization effects. The
-bounds check validates against the whole valid activity buffer, not an
-individual record extent, so it would not make bypassing the version
-gate safe. Successful collection on both majors remains unmet and
+Two independent gates exist. Both now read record sizes, but they
+admit different things: the Go package requires an exact size match for
+most kinds, the agent requires only that the runtime record be at least
+its compiled prefix.
+
+`nvidia/x/cuptiactivity` gates on record layout. `recordLayouts`
+admits any CUPTI 13.x version and then queries
+`cuptiActivityGetStructSize` for every kind it decodes, rejecting a
+kind whose native size differs from the Go layout; kernel records are
+checked against the measured Kernel10-Kernel13 sizes instead. A
+different major version is rejected before any size query, callback
+registration or activity enable. `recordBytes` bounds each record to
+the size that gate admitted, not to the whole activity buffer.
+
+`nvidia/internal/cudainject/native/cupti_agent.c` gates on record size.
+It rejects a cross-major pair, CUDA 12 `Kernel9` against CUDA 13
+`Kernel10`, and within CUDA 13 it feature-detects
+`cuptiActivityGetStructSize` through `dlsym` and requires the runtime
+kernel and memcpy records to be at least as large as the structs it was
+compiled against. When the symbol is absent, which is every runtime
+before 13.2, the size check is skipped and the major check carries the
+policy alone.
+
+That replaced a strict `cuptiGetVersion() == CUPTI_API_VERSION`
+equality, which was our policy rather than a CUPTI requirement and was
+stricter than the layouts require. Measured 2026-09-13 on dgx: an agent
+built against each of the 13.0, 13.1, 13.2, 13.3 and 13.4 header sets,
+run against each of the five runtimes, all 25 cells collected kernel and
+memcpy records with no drops, including a four-minor skew. The reason is
+that the compiled struct is a stable prefix and runtime records grow
+append-only, so `sizeof(CUpti_ActivityKernel10)` stays 216 and
+`sizeof(CUpti_ActivityMemcpy6)` stays 96 across the band while the
+runtime records reach 248 and 112.
+
+The agent's `kernel_layout` and `memcpy_layout` fields are layout
+*names*, and they stayed `Kernel10` and `Memcpy6` across all five pairs
+while the sizes changed underneath. `memcpy_layout` is a fixed string
+literal besides. Both are retained as provenance and neither is a gate;
+the size is what the policy reads.
+
+Native version responses and rejection behavior remain unqualified.
+Loading and the version query may already have native initialization
+effects. Successful collection on both majors remains unmet and
 requires investigation of older-record support and native delivery.
 
 ### Not yet built
@@ -280,9 +313,63 @@ requires investigation of older-record support and native delivery.
   lazy load kept `Implicit=true`) is fixed in the emitter and
   regenerated for `nccl` and `cufile`; it persists in every generated
   package not yet regenerated against that fix.
+- The cudainject size gate is unmeasured outside CUDA 13. The CUDA 12
+  `Kernel9` arm is rejected by the major check rather than qualified,
+  and PC sampling carries its own record structs and is not covered by
+  the kernel and memcpy size checks at all.
+- `nvidia/x/cuptiactivity` needs a prefix read. It pins whole 13.2
+  runtime records, which is why 13.3 and 13.4 runtimes fail its size
+  check, and that failure is unrelated to the agent's version policy.
+  The fix is to decode the compiled prefix and admit a larger runtime
+  record, not to pin CUPTI to 13.2.
 - The lifecycle gate is not established. The existing examples use
   unchecked deferred cleanup and do not demonstrate leak-free repeated
   in-process reuse.
+- The executed examples are not evidence of anything native. Measured
+  2026-09-14 on dgx (linux/arm64): `go test ./... -run '^Example'`
+  produced the same 196 passing examples, with no skips and no
+  failures, against every toolkit tried. Examples carrying an `Output:`
+  directive print Go values and error strings and do not reach a CUDA
+  library, so a green example matrix says nothing about runtime
+  compatibility.
+
+  Label matrix cells by what the loader mapped, not by the
+  `LD_LIBRARY_PATH` that was set. Every installed toolkit is in this
+  host's `ld.so.cache`, and a soname absent from the named directory
+  falls back to the cache silently. A cell pointed at a nonexistent
+  directory mapped CUDA 13.4's cuBLAS, cuFFT and CUPTI together with
+  `/lib/aarch64-linux-gnu/libnvvm.so.4`: not an absence control and not
+  a coherent toolkit. A cell pointed at CUDA 12.6 took only
+  `libcurand.so.10` from 12.6 and fell back to 13.4 for the four
+  `.so.13`/`.so.12` sonames 12.6 does not ship, so cross-major cells are
+  structurally invalid rather than merely unqualified. Within CUDA 13
+  the pin holds: 13.0 through 13.4 mapped five distinct library sets
+  reporting `cuptiGetVersion` 130001, 130101, 130202, 130301 and 130400.
+  `Path()` cannot be used for this, because it returns the soname handed
+  to `dlopen` and was byte-identical in all five cells; read
+  `/proc/self/maps` or the library's own version call.
+
+- The version-sensitive population is the hardware tier behind the
+  `*_physical` tags, and it does discriminate. Measured 2026-09-14 on
+  dgx with `cublas`, `cublaslt`, `cufft`, `curand`, `nvjitlink`,
+  `nvfatbin`, `nvvm`, `cupti` and `nvml` `_physical` tags, `go test
+  ./... -count=1 -p 1`, one cell per toolkit:
+
+  | cell | cuptiGetVersion | PASS | SKIP | FAIL |
+  |---|---|---|---|---|
+  | 13.0 | 130001 | 1508 | 134 | 8 |
+  | 13.1 | 130101 | 1508 | 133 | 9 |
+  | 13.2 | 130202 | 1508 | 133 | 9 |
+  | 13.3 | 130301 | 1508 | 133 | 9 |
+  | 13.4 | 130400 | 1508 | 133 | 9 |
+
+  Exactly one result moves across the band. `nvvm.TestCompileAndRun`
+  passes on 13.0 and fails on 13.1 through 13.4 with
+  `CUDA_ERROR_UNSUPPORTED_PTX_VERSION` at module load, after compiling
+  1048 bytes of NVVM IR into 830 bytes of PTX for `sm_121`. The host
+  driver is 580.173.02; this is a driver ceiling on the PTX that newer
+  libNVVM emits, not a binding defect. The other eight failures are
+  version-invariant and unrelated to toolkit selection.
 
 Claims remain limited to the exact qualified variant cells and their
 stated exclusions. Fixing loader diagnostics, adding an admission
