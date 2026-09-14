@@ -41,9 +41,11 @@ Two consequences follow:
   nvidia tag has ever been cut, so no tag has been forced by anything,
   and the predicate stays false however large the churn gets. Split
   `nvidia/x` into its own module at the next train, so that "changes at
-  will" becomes something a version can say. Until then the exemption is
-  carried by prose, and by a charter document that is not in the
-  repository: `x/DESIGN.md` is excluded by `.git/info/exclude` and does
+  will" becomes something a version can say. A module-path change is
+  breaking, but it is breaking for nobody until the first public tag, so
+  the split is cheapest now and never cheaper later. Until then the
+  exemption is carried by prose, and by a charter document that is not
+  in the repository: `x/DESIGN.md` is excluded by `.git/info/exclude` and does
   not exist in a clone.
 
 ## Problems in the current pipeline
@@ -456,6 +458,13 @@ Decision (2026-09-01): not adopted yet. Trains stay on small minors
 since versions only increase, so it is made deliberately at a train
 boundary and never retracted. Until then the `cuda-13.x` branch is how
 consumers ask by CUDA name.
+
+The one-way constraint binds only after publication. Versions only
+increase for a consumer who has resolved one, and none has --
+`proxy.golang.org` 404s on `github.com/tmc/lib/nvidia/@v/list`, as
+recorded under the CUPTI rename below. Before the first public tag the
+numbering can be rewritten outright, so if the CUDA minor is wanted this
+is the moment it is free.
 
 ### Deciding the bump, mechanically
 
