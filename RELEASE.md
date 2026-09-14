@@ -16,7 +16,7 @@ Receipts below are local files under `~/tmp/lib-release/`.
 | Internal dependency versions | `tpu`, `x/xla`, and `x/gomlx` still have replacements and placeholder versions | Prepare releases in dependency order, then regenerate sums with Go |
 | NVIDIA parallel test reliability | The burst boundary is measured and attributed: admission waits on journal write latency against a 100 ms deadline, 16-40 ms quiet and 99 ms under host I/O. The missing-library child timeout is unchanged | Decide whether admission keeps the wall-clock deadline or waits on drain progress, then requalify |
 | Final archives | Draft archive checks exist; license and final revision are not fixed | Recheck immutable final artifacts after license/version preparation |
-| API/version review | Darwin export-data comparison completed for the four modules with local tags; candidates below | Confirm final versions and recheck platform-specific APIs on the final revision |
+| API/version review | Export data compared for the four tagged modules on Darwin, and for `nvidia` on Linux as well; the Windows surface has no baseline because `nvidia/v0.1.0` does not compile for Windows | Confirm final versions and recheck on the final revision |
 | Native platform coverage | Build targets are declared in `scripts/platforms.txt` and gated by `make platform-check`; runtime qualification remains Darwin/arm64 plus named CUDA hosts | Record named runtime tests, library versions, and skips for each claimed platform |
 
 Origin HEAD was `d26d4c225ffc` (May 19); it predates the `openxla`,
@@ -71,6 +71,9 @@ before publication; do not silently move existing local tags.
 | Declared platform builds | 66 of 66 passed at `1584e1c6`; the gate was checked against a false claim and a missing module and rejected both | `make platform-check` output |
 | Burst admission boundary | Eight quiet runs retained 640,000 of 640,000; longest admission wait equals longest batch write to the millisecond in every run | `go test ./internal/cudainject/nativecontrol -run TestBurst -count=8 -v` |
 | Burst admission under host I/O | Three runs with 4.8 GB of concurrent writes; both maxima rose together to 99 ms against the 100 ms deadline and still retained everything | same test with a concurrent `dd` load |
+| NVIDIA Linux API comparison | 195 incompatible entries, identical to the Darwin set in both directions | `api/nvidia-linux.log` |
+| NVIDIA Windows API comparison | Not possible: `nvidia/v0.1.0` does not compile for Windows, so the tag has no export data | `api/nvidia-darwin-vs-windows.log` compares current surfaces instead |
+| Pinned `tmc/ffi` availability | Still 404; `git ls-remote` fails authentication, so the repository is private rather than unpublished | `proxy.golang.org` `.info` and `.zip`, rechecked September 13, 2026 |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
 `x/hftokenizer`, `x/stablehlo`, `hfsync`, `nvidia`, and the pre-repair Apple archive.
@@ -161,6 +164,34 @@ committed under `api/`; export snapshots remain in `~/tmp/lib-release-current/ap
 and are intentionally not committed. Internal packages were excluded. This is
 public Go API evidence for that build context, not native ABI or behavioral
 compatibility.
+
+The `nvidia` comparison was repeated with `GOOS=linux`: 195 incompatible
+entries, the same set as Darwin with no entry on either side that the other
+lacks (`api/nvidia-linux.log`). The Darwin-only comparison was therefore not
+under-reporting for Linux.
+
+Windows has no baseline to compare against. `nvidia/v0.1.0` does not build for
+`GOOS=windows`: `x/nvlshm` calls `unix.Close` with no Windows guard, so
+`apidiff` cannot write export data for the tag at all. Whatever the tag
+promised on Windows, nothing there was ever compiled or compared. The current
+tree does build, so `api/nvidia-darwin-vs-windows.log` compares the two
+current surfaces instead:
+
+- `x/moonep` and `x/nvlshm` do not exist on Windows.
+- `nvdec.SymbolError.Err`, `nvdec.(*SymbolError).Unwrap`, `nvdec.BindFailure`,
+  and `nvdec.BindFailures` exist only on unix. The Windows layer comes from an
+  older generator lineage that predates them.
+- Thirteen `nvdec.DecodeCreateInfo` and `nvdec.SourceDataPacket` fields are
+  `uint32` on Windows and `uint64` elsewhere. The generator models C
+  `unsigned long`, which is 32 bits under LLP64; `layout_windows_test.go` and
+  `windows_abi_test.go` hold that layout. Portable consumer code cannot assume
+  either width.
+
+On `windows/arm64` the `nvdec` bindings are absent entirely: `init_windows.gen.go`
+and its siblings are `windows && amd64`, so the package compiles down to its
+doc, loader, and provenance files and exports no API. It is the only package in
+the module that does this, and a build gate cannot see it -- an empty package
+compiles. A consumer gets an undefined-symbol error at its own call site.
 
 NVIDIA migration review must account for removed packages and changed return
 contracts, including `nvrtc.Program.GetTileIR`, driver resource and tensor-map

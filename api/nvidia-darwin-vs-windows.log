@@ -1,0 +1,40 @@
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/wire
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/journal
+Ignoring internal package github.com/tmc/lib/nvidia/x/internal/cudatool
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cmd/xinventory
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/journalstat
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/nativecontrol
+Ignoring internal package github.com/tmc/lib/nvidia/internal/profilebundle
+Ignoring internal package github.com/tmc/lib/nvidia/x/cudaptx/internal/genptxtables
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/wire
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/journal
+Ignoring internal package github.com/tmc/lib/nvidia/x/internal/cudatool
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cmd/xinventory
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/journalstat
+Ignoring internal package github.com/tmc/lib/nvidia/internal/cudainject/nativecontrol
+Ignoring internal package github.com/tmc/lib/nvidia/internal/profilebundle
+Ignoring internal package github.com/tmc/lib/nvidia/x/cudaptx/internal/genptxtables
+Incompatible changes:
+- package github.com/tmc/lib/nvidia/x/moonep: removed
+- ./nvdec.(*SymbolError).Unwrap: removed
+- ./nvdec.BindFailure: removed
+- ./nvdec.BindFailures: removed
+- ./nvdec.DecodeCreateInfo.BitDepthMinus8: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.EnableDecodeFeatures: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.EnableHistogram: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.Reserved1: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.Reserved2: changed from [3]uint64 to [3]uint32
+- ./nvdec.DecodeCreateInfo.UlCreationFlags: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlHeight: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlIntraDecodeOnly: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlMaxHeight: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlMaxWidth: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlNumDecodeSurfaces: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlNumOutputSurfaces: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlTargetHeight: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlTargetWidth: changed from uint64 to uint32
+- ./nvdec.DecodeCreateInfo.UlWidth: changed from uint64 to uint32
+- ./nvdec.SourceDataPacket.Flags: changed from uint64 to uint32
+- ./nvdec.SourceDataPacket.PayloadSize: changed from uint64 to uint32
+- ./nvdec.SymbolError.Err: removed
+- package github.com/tmc/lib/nvidia/x/nvlshm: removed
