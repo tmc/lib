@@ -1755,3 +1755,131 @@ against 13.2's `cupti_pcsampling.h`; it is not an allowlist edit.
 ahead of decode, and a skip is indistinguishable from success at the exit status.
 Never take a capture count, a failure rate, or a CI verdict from `rc`; run `-v`
 and require a line the measured path itself emits, such as `decode completed`.
+
+## Ordered F16 pair loads, measured ABBA, DGX spark-31db, 2026-09-14
+
+`ds4_f16_pair_ordered_chunks` holds 9.56% of decode device time, and the F16 pair
+rows move 1.132 GB/token at 85.7 GB/s — the worst per-family rate in the decode
+census. The kernel had 32 lanes each walking a separate contiguous 128-element run
+in global memory, which is 32 separate short runs per block rather than one
+coalesced stream. `c34b9362` and `7852b743` replaced that with a `cols == 4096`
+fast path: stage both weight rows into shared memory through `uint4` 16-byte
+loads, then accumulate out of shared.
+
+That trade is not obviously a win. Coalescing improves, but the staging is what
+puts the kernel at `SHARED 17920` — measured with `cuobjdump -res-usage` on the
+sm_121a cubin, not summed from the declarations, which undercount what the
+compiler actually allocates. Against a probed `sharedMemPerMultiprocessor` of
+102,400 that is 6 resident blocks against a 24-block cap, or 12.5% occupancy, on
+a 128-step dependent FFMA chain. Deleting the staging takes the kernel to
+`SHARED 1280, REG 40->38`, and `17920 - 16640 = 1280` exactly, the 16,640 being
+the two `[32][130]` arrays and nothing else. Either side could have won.
+
+### The design, and what it guards against
+
+Six arms in `A B B A A B` order, A staged and B baseline, one process per arm.
+Arm B is not a synthetic control: it is a live proposal. The occupancy argument
+above — delete the staging, read the weights straight from global, bit-identical
+by index arithmetic — was an open recommendation at the time of the run, and B is
+HEAD with the staged branches deleted, which is that recommendation compiled.
+Fixed-order A/B manufactures a first-slot penalty; the ABBA ordering puts A at
+positions 1, 4, 5 and B at 2, 3, 6 so that monotonic drift cannot produce a
+separation in either direction.
+
+Every arm asserted **both logits digests**, not a hash of the generated text.
+Argmax absorbs low-bit float differences, so a text digest agreeing tells you the
+tokens matched and nothing about whether the kernel is bit-exact — which is the
+entire premise of a staging change. The expected digests were discovered by two
+dummy runs ahead of the timed arms, split in two because a dummy expectation makes
+its phase error and abort the run, so one dummy run can only ever reveal the first
+phase. Discovery run 2 had to reproduce run 1's prefill digest before the timed
+arms were allowed to start.
+
+All six arms carry a byte-identical flag set in identical order. `checkingLogits()`
+puts a per-token stderr write inside the decode timer (`main.go:226-228`), so the
+flags are not free; identical across arms, that cost is common-mode and cancels in
+the difference. **These rates are therefore not comparable to any unflagged
+number**, and the result below is quoted in ms/token, because that subtraction is
+what cancels the flag cost.
+
+### The result
+
+| arm | prefill t/s | generation t/s |
+| --- | ---: | ---: |
+| f16-r1A | 17.09 | 12.42 |
+| f16-r2B | 16.29 | 12.10 |
+| f16-r3B | 16.63 | 12.03 |
+| f16-r4A | 17.10 | 12.40 |
+| f16-r5A | 17.03 | 12.45 |
+| f16-r6B | 16.61 | 12.11 |
+
+| | baseline (B) | staged (A) | delta |
+| --- | ---: | ---: | ---: |
+| generation | 12.080 t/s | 12.423 t/s | **+2.84%** |
+| per token | 82.78 ms | 80.49 ms | **−2.29 ms** |
+| prefill | 16.510 t/s | 17.073 t/s | +3.41% |
+
+Both phases separate perfectly: min(A) 12.40 > max(B) 12.11 on generation, and a
+0.40 t/s gap on prefill. The last run overall is r6B at 12.11, B's *best* arm, so
+no downward drift explains A > B, and A does not decay across its own three
+positions.
+
+**So the occupancy lead is refuted.** The resource counts were right — 12.5%
+occupancy on a dependent FFMA chain is real, and the bit-identity held, proved
+here by six matching digests rather than by the index argument alone. The
+recommendation drawn from them was still backwards: occupancy and coalescing
+trade against each other in this kernel, and `-res-usage` cannot say which
+dominates. Only the measurement can. Worth setting beside the opposite result on
+the Q8_0 kernels, where the same global-to-shared transformation bought nothing
+at all: the transformation has no fixed sign, and each kernel has to be measured.
+
+**The strength of this is n=3 against n=3.** Exact permutation on perfect
+separation gives one-tailed p = 1/C(6,3) = 0.050. That is suggestive, not
+decisive, and the effect should be re-measured before anything is built on the
+precise 2.84%.
+
+**This is banked, not headroom, and the distinction is the whole point.** Both
+staging commits are ancestors of `fd719c7d`, the commit the decode census ran at,
+so the staged kernel is already inside that census's 81.066 ms/token and inside
+its 13.204 ms/token F16 row. The 2.29 ms/token is what reverting would **lose**,
+not what tuning stands to gain. F16's entry in the claimable column stays zero and
+the 24.99 ms/token still needed is unchanged. A measured win on a landed commit is
+exactly the shape of number that gets added a second time to a ledger it is
+already inside.
+
+### Bit-identity, measured rather than argued
+
+All six arms reproduced both digests exactly:
+
+```
+prefill  3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5
+final    4544a95549a790cd90472d4a484439acc9b6226aeb96e9ffd79115e90ad41754
+```
+
+Zero changed float32 bits across the staging change. The mechanism is that the
+summation order is preserved exactly — `tid` covers the same 32 chunks of 128 and
+`k` ascends within each — so the shared-memory round trip reassociates nothing.
+The `[130]` second dimension is padding rather than capacity: 130 shorts is 260
+bytes, so consecutive rows start off the 32-bank alignment and the shared reads do
+not bank-conflict.
+
+### Which arm was which was settled from the binaries, not from provenance
+
+Worth recording, because it nearly went in backwards. Both build trees were gone
+by the time the run finished — bare binaries, no `.git`, no `.go` — and a working
+note recording "~12.42 baseline" was wrong: 12.42 is the *staged* arm.
+
+Provenance being unavailable, the arms were identified at rank 1 by diffing the
+embedded CUDA source out of the two binaries, which reduced to four lines present
+in A and none in B:
+
+```
+__shared__ unsigned short s_a[32][130];
+__shared__ unsigned short s_b[32][130];
+sum_a += ds4_half_to_float(s_a[tid][k]) * xk[k];
+sum_b += ds4_half_to_float(s_b[tid][k]) * xk[k];
+```
+
+A binary carries the kernel it will actually run. When a tree is gone, or is merely
+*claimed* to correspond to a binary, that embedded text is the stronger evidence
+anyway — and it is available for any capture in this document.
