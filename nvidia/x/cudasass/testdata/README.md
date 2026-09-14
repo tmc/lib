@@ -100,3 +100,43 @@ Whole-.text totals go 232/110 NOP to 136/14 NOP with LDG and DFMA unchanged at
 attributes it to the wrong thing; the loop-scoped census is the claim that
 survives. This is why the corpus diff has to be taken over the non-NOP stream
 and why loop membership has to be computed rather than assumed.
+
+# Reconvergence fixture (non-branch label operands)
+
+sm121a-reconvergence.sass is actual output from nvdisasm V13.4.49 on gpu-host,
+generated on 2026-09-14 from this CUDA source:
+
+    extern "C" __global__ void reconv(const int* c, float* b, int n){
+      int i = blockIdx.x*blockDim.x + threadIdx.x;
+      float s = 0.0f;
+      int m = c[i];
+      for (int j=0;j<m;j++){ s += j; if (s > 100.0f) { b[i+j] = s; s = 0.0f; } }
+      b[i] = s;
+    }
+
+Compiled with `-cubin -arch=sm_121a` under ptxas 13.4.59 (release 13.4, V13.4.59)
+and disassembled with `--print-code --print-instruction-encoding`.
+
+It exists as the negative control the loop fixtures lack. Those contain only
+BRA and BRA.U, so every label operand in them is a branch and a classifier that
+matches any instruction carrying a label operand scores perfectly. Here the
+census is:
+
+    branches      8 forward, 1 backward, 1 self
+    non-branches  6 forward  (BSSY.RECONVERGENT, BSSY.RELIABLE)
+    trailing      1 (.L_x_13)
+
+BSSY takes a label operand and is not a control transfer; it sets up the
+reconvergence point for a divergent region. A classifier must match on opcode.
+The per-thread loop bound and the conditional store are both load-bearing: a
+predicable if/else is compiled without any reconvergence instruction at all.
+
+One limit to state plainly, because it decides what this fixture can and cannot
+prove. Across every fixture available here — these, the loop pair, and the six
+in x/cudalowering/testdata — all 14 non-branch label operands point **forward**,
+and none points backward. That is structural: BSSY names a reconvergence point
+ahead of the divergence it guards. A forward target never creates a loop, so
+misclassifying BSSY as a branch does not change a backward-branch-derived
+InLoop result on any input we can produce. This fixture therefore discriminates
+only against an assertion made on the branch classification itself. An InLoop
+table alone cannot fail on it, and should not be claimed to cover it.
