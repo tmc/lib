@@ -797,6 +797,45 @@ func TestAdvice_SMGridStarvation(t *testing.T) {
 			},
 			wantWarning: false,
 		},
+		{
+			name: "grid_starvation_unspecified_sm_count_suppressed",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"some_kernel"},
+								"grid":   {"64,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
+		{
+			name: "gb10_60_blocks_fills_48_sms_no_starvation",
+			cap: &cudacapture.Capture{
+				Metadata: []byte(`{"arch": "sm_121a"}`), // GB10 has 48 SMs; 60 blocks >= 48 SMs
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "samples", Unit: "count"}},
+					Sample: []*profile.Sample{
+						{
+							Value: []int64{100},
+							Label: map[string][]string{
+								"kernel": {"gb10_batch_kernel"},
+								"grid":   {"60,1,1"},
+								"block":  {"128,1,1"},
+							},
+						},
+					},
+				},
+			},
+			wantWarning: false,
+		},
 	}
 
 	for _, tt := range tests {
