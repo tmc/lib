@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -460,12 +461,10 @@ func extractInstructions(syntaxPath, ch9Path string) ([]instInfo, error) {
 						existing.CatEnum = newCat
 					}
 				}
-				if existing.MinPTX == "" && ptxVer != "" {
-					existing.MinPTX = ptxVer
-				}
-				if existing.MinTarget == "" && targetSM != "" {
-					existing.MinTarget = targetSM
-				}
+				// A mnemonic is documented once per instruction form; the
+				// mnemonic's requirement is the lowest across all of them.
+				existing.MinPTX = minPTXVersion(existing.MinPTX, ptxVer)
+				existing.MinTarget = minTargetArch(existing.MinTarget, targetSM)
 			}
 		}
 	}
@@ -879,12 +878,8 @@ func generateDocs(docsDir, docout string, types []typeInfo) ([]byte, int, error)
 				if existing.Summary == "" {
 					existing.Summary = summary
 				}
-				if existing.MinPTX == "" {
-					existing.MinPTX = minPTX
-				}
-				if existing.MinTarget == "" {
-					existing.MinTarget = minTarget
-				}
+				existing.MinPTX = minPTXVersion(existing.MinPTX, minPTX)
+				existing.MinTarget = minTargetArch(existing.MinTarget, minTarget)
 			}
 
 			// Also index compound instructions like tcgen05.alloc
@@ -1322,4 +1317,102 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// minPTXVersion returns the earlier of two "major.minor" PTX ISA versions.
+// An empty string means "unknown" and loses to any known version.
+func minPTXVersion(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	am, an, aok := parsePTXVersion(a)
+	bm, bn, bok := parsePTXVersion(b)
+	if !aok {
+		return b
+	}
+	if !bok {
+		return a
+	}
+	if am != bm {
+		if am < bm {
+			return a
+		}
+		return b
+	}
+	if an <= bn {
+		return a
+	}
+	return b
+}
+
+func parsePTXVersion(s string) (major, minor int, ok bool) {
+	maj, min, found := strings.Cut(s, ".")
+	if !found {
+		return 0, 0, false
+	}
+	major, err := strconv.Atoi(maj)
+	if err != nil {
+		return 0, 0, false
+	}
+	minor, err = strconv.Atoi(min)
+	if err != nil {
+		return 0, 0, false
+	}
+	return major, minor, true
+}
+
+// minTargetArch returns the lower of two target ISA requirements. "all" is
+// lower than any sm_NN, and a plain sm_NN is lower than the same NN with an
+// architecture-specific suffix. An empty string means "unknown" and loses to
+// any known target.
+func minTargetArch(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a == "all" || b == "all" {
+		return "all"
+	}
+	an, asuf, aok := parseTargetArch(a)
+	bn, bsuf, bok := parseTargetArch(b)
+	if !aok {
+		return b
+	}
+	if !bok {
+		return a
+	}
+	if an != bn {
+		if an < bn {
+			return a
+		}
+		return b
+	}
+	if asuf == "" || asuf <= bsuf {
+		return a
+	}
+	return b
+}
+
+func parseTargetArch(s string) (num int, suffix string, ok bool) {
+	rest, found := strings.CutPrefix(s, "sm_")
+	if !found {
+		return 0, "", false
+	}
+	i := 0
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	if i == 0 {
+		return 0, "", false
+	}
+	num, err := strconv.Atoi(rest[:i])
+	if err != nil {
+		return 0, "", false
+	}
+	return num, rest[i:], true
 }
