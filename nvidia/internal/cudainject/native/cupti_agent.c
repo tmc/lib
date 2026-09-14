@@ -38,13 +38,24 @@
    the drain at one syscall and one journal-lock acquisition per DRAIN_BATCH
    records. Two iovecs per record must stay under IOV_MAX. */
 #define DRAIN_BATCH 256
-/* Upper bound on how long a CUPTI callback may wait for ring space before the
-   record is declared lost. Backpressure converts capacity loss into bounded
-   callback latency; it is never an unbounded wait and is abandoned as soon as
-   callbacks are closed. */
 /* How long admission will wait for the drain to free a slot before charging
    the record to queue_capacity_dropped. Overridable only so a control can set
-   it to zero and exercise the real drop path under real pressure. */
+   it to zero and exercise the real drop path under real pressure.
+
+   This bounds one record's wait, not one callback's: a CUPTI buffer callback
+   offers thousands of records and pays this wait per record that finds the
+   ring full. Under the burst control, callbacks reach half a second while no
+   single admission waits more than a few tens of milliseconds.
+
+   The wait ends when the drain publishes a freed tail, which it does only
+   after its batch write returns, so this deadline is really a bound on
+   journal write latency. Measured over 2,500 batches on a quiet Darwin/arm64
+   host the longest admission wait equals the longest batch write to the
+   millisecond -- 16 to 40 ms -- and under concurrent host I/O that pair rises
+   together to 99 ms. A write slower than this deadline is what a capacity
+   drop is made of; queue_backpressure_max_nanos and drain_write_max_nanos in
+   the finalized record are there to say so rather than leave the loss
+   unattributed. */
 #ifndef ADMIT_WAIT_NANOS
 #define ADMIT_WAIT_NANOS (100 * 1000 * 1000L)
 #endif
@@ -106,10 +117,18 @@ static void count_kind(_Atomic uint64_t *counters, uint16_t kind, uint64_t n) {
 }
 static _Atomic uint64_t queue_backpressure_waits;
 static _Atomic uint64_t queue_backpressure_nanos;
+/* The longest single admission wait. The totals above say how much latency
+   backpressure spent; only the maximum says how close any one record came to
+   ADMIT_WAIT_NANOS, which is the boundary a capacity drop crosses. */
+static _Atomic uint64_t queue_backpressure_max_nanos;
 static _Atomic uint64_t drain_batches;
 static _Atomic uint64_t drain_records;
 static _Atomic uint64_t drain_max_batch;
 static _Atomic uint64_t drain_write_nanos;
+/* The longest single batch write. Admission waits on exactly this: the drain
+   publishes a freed tail only after its write returns, so a write longer than
+   ADMIT_WAIT_NANOS is what a capacity drop is made of. */
+static _Atomic uint64_t drain_write_max_nanos;
 static _Atomic uint64_t callback_count;
 static _Atomic uint64_t callback_total_nanos;
 static _Atomic uint64_t callback_max_nanos;
@@ -199,8 +218,11 @@ static int queue_pending(uint16_t kind, uint64_t timestamp, const char *payload,
 				if (pthread_cond_timedwait(&pending_space_cond, &pending_mu, &deadline) == ETIMEDOUT) break;
 			}
 		}
+		uint64_t waited = now_ns() - began;
 		atomic_fetch_add(&queue_backpressure_waits, 1);
-		atomic_fetch_add(&queue_backpressure_nanos, now_ns() - began);
+		atomic_fetch_add(&queue_backpressure_nanos, waited);
+		uint64_t longest = atomic_load(&queue_backpressure_max_nanos);
+		while (waited > longest && !atomic_compare_exchange_weak(&queue_backpressure_max_nanos, &longest, waited)) { }
 	}
 	if (pending_head - pending_tail >= PENDING_RECORDS) { atomic_fetch_add(&dropped_count, 1); atomic_fetch_add(&queue_dropped_count, 1); atomic_fetch_add(&queue_capacity_dropped, 1); count_kind(dropped_by_kind, kind, 1); atomic_store(&producer_failed, 1); pthread_mutex_unlock(&pending_mu); return -1; }
 	struct pending_record *r = &pending[pending_head % PENDING_RECORDS];
@@ -340,7 +362,10 @@ static int write_batch(size_t tail, size_t n) {
 	int result = write_all_v(journal_fd, batch_iov, iov);
 	pthread_mutex_unlock(&journal_mu);
 	if (result != 0) { atomic_store(&producer_failed, 1); return -1; }
-	atomic_fetch_add(&drain_write_nanos, now_ns() - began);
+	uint64_t wrote = now_ns() - began;
+	atomic_fetch_add(&drain_write_nanos, wrote);
+	uint64_t slowest = atomic_load(&drain_write_max_nanos);
+	while (wrote > slowest && !atomic_compare_exchange_weak(&drain_write_max_nanos, &slowest, wrote)) { }
 	atomic_fetch_add(&drain_batches, 1);
 	atomic_fetch_add(&drain_records, (uint64_t)n);
 	uint64_t observed = atomic_load(&drain_max_batch);
@@ -864,7 +889,7 @@ static void cudaprof_cupti_finalize(void) {
 	if (pthread_join(worker, NULL) != 0) atomic_store(&producer_failed, 1);
 	char payload[MAX_PAYLOAD];
 	const char *state = atomic_load(&producer_failed) ? "producer_failure" : (atomic_load(&activity_count) ? "collected" : "initialized_no_activity");
-	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}}}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
+	int n = snprintf(payload, sizeof(payload), "{\"state\":\"%s\",\"trigger\":\"%s\",\"activity\":%" PRIu64 ",\"dropped\":%" PRIu64 ",\"native_dropped\":%" PRIu64 ",\"queue_dropped\":%" PRIu64 ",\"queue_oversize_dropped\":%" PRIu64 ",\"queue_contention_dropped\":%" PRIu64 ",\"queue_capacity_dropped\":%" PRIu64 ",\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"backpressure_waits\":%" PRIu64 ",\"backpressure_nanos\":%" PRIu64 ",\"backpressure_max_nanos\":%" PRIu64 ",\"drain_batches\":%" PRIu64 ",\"drain_max_batch\":%" PRIu64 ",\"drain_write_nanos\":%" PRIu64 ",\"drain_write_max_nanos\":%" PRIu64 ",\"callbacks\":%" PRIu64 ",\"callback_nanos\":%" PRIu64 ",\"callback_max_nanos\":%" PRIu64 ",\"by_kind\":{\"activity\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"api\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"external\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "},\"failure\":{\"offered\":%" PRIu64 ",\"retained\":%" PRIu64 ",\"dropped\":%" PRIu64 "}}}", state, finalize_trigger, atomic_load(&activity_count), atomic_load(&dropped_count), atomic_load(&native_dropped_count), atomic_load(&queue_dropped_count), atomic_load(&queue_oversize_dropped), atomic_load(&queue_contention_dropped), atomic_load(&queue_capacity_dropped), atomic_load(&offered_count), atomic_load(&drain_records), atomic_load(&queue_backpressure_waits), atomic_load(&queue_backpressure_nanos), atomic_load(&queue_backpressure_max_nanos), atomic_load(&drain_batches), atomic_load(&drain_max_batch), atomic_load(&drain_write_nanos), atomic_load(&drain_write_max_nanos), atomic_load(&callback_count), atomic_load(&callback_total_nanos), atomic_load(&callback_max_nanos),
 		atomic_load(&offered_by_kind[KIND_ACTIVITY]), atomic_load(&retained_by_kind[KIND_ACTIVITY]), atomic_load(&dropped_by_kind[KIND_ACTIVITY]),
 		atomic_load(&offered_by_kind[KIND_API]), atomic_load(&retained_by_kind[KIND_API]), atomic_load(&dropped_by_kind[KIND_API]),
 		atomic_load(&offered_by_kind[KIND_EXTERNAL]), atomic_load(&retained_by_kind[KIND_EXTERNAL]), atomic_load(&dropped_by_kind[KIND_EXTERNAL]),
