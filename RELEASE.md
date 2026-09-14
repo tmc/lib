@@ -50,6 +50,22 @@ before publication; do not silently move existing local tags.
   claims in `scripts/platforms.txt`, and `release-check` now requires it. The
   claim list must name exactly the modules in `go.work`, so a new module cannot
   join the workspace without declaring its platforms.
+- Four hardware qualification tests behind `nvml_physical` and `cuda` had
+  stopped compiling: `nvidia/nvml/physical_test.go` called `Device.TotalMem`
+  with its old single-return signature at two sites, and three `example_cuda_test.go`
+  files referenced APIs the packages no longer export. The `nvml` calls were
+  repaired; the three example files were deleted rather than rewritten against
+  a guessed API. No default gate could see any of it: nothing a workstation
+  runs selects those tags.
+- `make testtag-check` compiles the test package behind every non-GOOS/GOARCH
+  build tag in the tracked test files, and `release-check` now requires it.
+  The tag list is discovered, not declared, so a new tag is covered the day it
+  appears; a tag whose GOOS the owning module does not claim in
+  `scripts/platforms.txt` is skipped with that reason rather than failed.
+- `cudaprof diff` ranked stall shifts by absolute delta alone over a slice built
+  by ranging a map, so tied reasons permuted per run and the top-five truncation
+  could drop a different reason each time: two diffs of the same pair of
+  profiles disagreed. Ties now break on the reason name.
 
 ## Evidence and limits
 
@@ -73,6 +89,8 @@ before publication; do not silently move existing local tags.
 | Burst admission under host I/O | Three runs with 4.8 GB of concurrent writes; both maxima rose together to 99 ms against the 100 ms deadline and still retained everything | same test with a concurrent `dd` load |
 | NVIDIA Linux API comparison | 195 incompatible entries, identical to the Darwin set in both directions | `api/nvidia-linux.log` |
 | NVIDIA Windows API comparison | Not possible: `nvidia/v0.1.0` does not compile for Windows, so the tag has no export data | `api/nvidia-darwin-vs-windows.log` compares current surfaces instead |
+| Tagged test packages | 22 built, 1 skipped for an unclaimed GOOS; the gate was checked against an injected signature error in `nvml/physical_test.go` and rejected it | `make testtag-check` output |
+| Burst admission failure observed directly | A full `make test` run lost 87 of 640,000 with `longest_wait=113ms longest_write=431ms`: the predicted mechanism, measured on a real failure rather than inferred | `make-test-head.log` |
 | Pinned `tmc/ffi` availability | Still 404; `git ls-remote` fails authentication, so the repository is private rather than unpublished | `proxy.golang.org` `.info` and `.zip`, rechecked September 13, 2026 |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
@@ -96,6 +114,13 @@ Darwin/arm64 host the pair peaks at 16-40 ms; driving 4.8 GB of concurrent
 host writes moves both to 99 ms without losing a record. Crossing the deadline
 is the whole mechanism: the loss is bounded, attributed to
 `queue_capacity_dropped`, and reported with the stall that produced it.
+
+A full `make test` run under heavy local load then crossed it and said so:
+`burst lost 87 of 640000 offered records (capacity=87 contention=0 oversize=0
+longest_wait=113ms longest_write=431ms)`. A 431 ms batch write held admission
+past the 100 ms deadline, and the count of lost records equals the capacity
+counter exactly. That is the mechanism observed on a failure, not inferred
+from passing runs.
 
 Lossless burst admission is therefore a property of the host, not of the
 producer alone, and `TestBurst` asserts it strictly. Two policies remain open:
@@ -139,6 +164,14 @@ These are build targets. Compiling for a target is not a tested runtime on it:
 native execution evidence in this document is Darwin/arm64 plus the named CUDA
 hosts, and every other row is source-level only. The builds use the workspace,
 so local dependency resolution still applies.
+
+`examples/llama-infer` carries 22 test files gated on `linux` inside a module
+that cannot build for linux: it depends on `apple`, which is darwin-only
+(`apple/x/metal/metalprof/enrich.go:82: undefined: ReplayTraceContext` under
+`GOOS=linux`). Those files are unreachable from any platform the module claims,
+so `testtag-check` skips the `tpu` tag there with that reason rather than
+reporting a failure the module never promised to avoid. `examples` is not
+tagged for release, so this is recorded and not fixed here.
 
 An earlier pass recorded 26 linux builds with `CGO_ENABLED=0`
 (`linux-builds/results.json`); `platform-check` supersedes it and covers
@@ -210,8 +243,8 @@ candidate as a compatible patch update.
 3. Review exported API changes against prior module tags. Record each module's
    version, commit, dependency versions, and validation receipts. No root tag.
 4. Run `make`, `make gate-selftest`, `make release-selftest`, and
-   `make release-check`, which now includes `make platform-check`. Preserve
-   failures and native-test skips.
+   `make release-check`, which now includes `make platform-check` and
+   `make testtag-check`. Preserve failures and native-test skips.
 5. Test immutable module archives from independent consumer modules with
    `GOWORK=off`, no local replacements, and an initially empty module cache.
    Before publication, a local proxy can prove packaging and ordering; label
