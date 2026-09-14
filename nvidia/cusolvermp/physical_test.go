@@ -108,8 +108,8 @@ func TestPhysicalGetrfSolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("device %d: %v", device, err)
 	}
-	var uuid driver.Uuid
-	if err := dev.GetUuid(&uuid); err != nil {
+	uuid, err := dev.GetUuid()
+	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("rank %d device %d UUID %x", rank, dev, uuid)

@@ -43,8 +43,8 @@ func TestDistributedNorm(t *testing.T) {
 	}
 	check("CUDA init", driver.Init(0))
 	dev := driver.Device(mpi.Rank)
-	var uuid driver.Uuid
-	check("UUID", dev.GetUuid(&uuid))
+	uuid, err := dev.GetUuid()
+	check("UUID", err)
 	t.Logf("rank=%d device=%d uuid=%x", mpi.Rank, dev, uuid)
 	ids := make([]byte, 32)
 	check("gather UUID", mpi.AllGather(unsafe.Slice((*byte)(unsafe.Pointer(&uuid)), 16), ids))

@@ -61,8 +61,9 @@ func TestPhysicalMultiGPU(t *testing.T) {
 	}()
 	for i := range contexts {
 		dev := driver.Device(i)
-		check("UUID", dev.GetUuid(&uuids[i]))
-		var err error
+		uuid, err := dev.GetUuid()
+		check("UUID", err)
+		uuids[i] = uuid
 		contexts[i], err = dev.PrimaryCtxRetain()
 		check("retain context", err)
 		check("select device", contexts[i].SetCurrent())
