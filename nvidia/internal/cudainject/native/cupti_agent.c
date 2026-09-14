@@ -790,6 +790,9 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 		write_handshake(NULL);
 		return;
 	}
+#ifdef CUDAPROF_TEST_OVERRIDE_RUNTIME_VERSION
+	runtime_version = (uint32_t)(CUDAPROF_TEST_OVERRIDE_RUNTIME_VERSION);
+#endif
 	/* Major layout family must match:
 	   - CUDA 13+ uses version format xxyyzz (major = version / 10000).
 	   - CUDA 12 uses legacy versions 19..28.
@@ -817,7 +820,12 @@ __attribute__((constructor)) static void cudaprof_cupti_init(void) {
 	/* Feature-detect cuptiActivityGetStructSize (exported in CUDA 13.2+) to verify
 	   that runtime activity record sizes satisfy the compiled layout requirements. */
 	typedef CUptiResult (*pfn_get_struct_size)(CUpti_ActivityKind, uint32_t, size_t *);
+#ifdef CUDAPROF_TEST_STRUCT_SIZE_FN
+	extern CUptiResult CUDAPROF_TEST_STRUCT_SIZE_FN(CUpti_ActivityKind, uint32_t, size_t *);
+	pfn_get_struct_size fn_get_struct_size = CUDAPROF_TEST_STRUCT_SIZE_FN;
+#else
 	pfn_get_struct_size fn_get_struct_size = (pfn_get_struct_size)dlsym(RTLD_DEFAULT, "cuptiActivityGetStructSize");
+#endif
 	if (fn_get_struct_size != NULL) {
 		size_t kernel_sz = 0, memcpy_sz = 0;
 		if (fn_get_struct_size(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL, 0, &kernel_sz) != CUPTI_SUCCESS ||

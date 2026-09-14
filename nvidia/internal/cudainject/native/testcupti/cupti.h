@@ -20,4 +20,8 @@ int cudaprof_test_callbacks_registered(void);
    needs to ask without also delivering a completed buffer. */
 int cudaprof_test_request_buffer(void);
 
+/* Mock struct size functions for layout compatibility test injection. */
+CUptiResult cudaprof_test_mock_short_kernel_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
+CUptiResult cudaprof_test_mock_short_memcpy_struct_size(CUpti_ActivityKind kind, uint32_t flags, size_t *size);
+
 #endif
