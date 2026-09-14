@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
@@ -668,3 +669,86 @@ func TestObserveCaptureSessionRejectsInvalidIntervals(t *testing.T) {
 		})
 	}
 }
+
+func TestObserveCaptureSessionSurfacesCUPTIVersionMismatch(t *testing.T) {
+	dir := t.TempDir()
+	session := "00112233445566778899aabbccddeeff"
+	h := captureHandshake{Protocol: 1, Session: session, Process: 41, Generation: 2, TransportReady: true}
+	b, _ := json.Marshal(h)
+	if err := os.WriteFile(filepath.Join(dir, "handshake.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+	j, err := journal.Create(filepath.Join(dir, "capture.journal"), sid, journal.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := []wire.Record{
+		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"state":"cupti_unavailable","error":"CUPTI runtime/header version mismatch"}`)},
+	}
+	for _, r := range records {
+		if err := j.Append(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+	if got.CaptureSuccess || got.Outcome != captureOutcomeUnsupported {
+		t.Fatalf("outcome = %q, want %q; got: %+v", got.Outcome, captureOutcomeUnsupported, got)
+	}
+	if !strings.Contains(got.CaptureError, "CUPTI runtime/header version mismatch") {
+		t.Fatalf("captureError = %q, want containing version mismatch", got.CaptureError)
+	}
+	if strings.Contains(got.CaptureError, "no identity-matching target handshake") {
+		t.Fatalf("captureError falsely reported handshake missing: %q", got.CaptureError)
+	}
+}
+
+func TestObserveCaptureSessionSurfacesInvalidActivityFailure(t *testing.T) {
+	dir := t.TempDir()
+	session := "00112233445566778899aabbccddeeff"
+	h := captureHandshake{Protocol: 1, Session: session, Process: 41, Generation: 2, TransportReady: true}
+	b, _ := json.Marshal(h)
+	if err := os.WriteFile(filepath.Join(dir, "handshake.json"), b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var sid [16]byte
+	raw, _ := hex.DecodeString(session)
+	copy(sid[:], raw)
+	j, err := journal.Create(filepath.Join(dir, "capture.journal"), sid, journal.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := []wire.Record{
+		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
+		{Kind: recordCapability, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"kind":"capability"}`)},
+		{Kind: recordActivity, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 3, Payload: []byte(`{"kind":"activity","subtype":"kernel","name":"k1"}`)}, // no valid field
+		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 4, Payload: []byte(`{"state":"collected"}`)},
+	}
+	for _, r := range records {
+		if err := j.Append(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := observeCaptureSession(captureResult{TargetPID: 41}, dir, session, observeOptions{injectionRequested: true})
+	if got.CaptureSuccess || got.Outcome != captureOutcomeTransport {
+		t.Fatalf("outcome = %q, want %q; got: %+v", got.Outcome, captureOutcomeTransport, got)
+	}
+	if !strings.Contains(got.CaptureError, "collected finalization without valid activity") {
+		t.Fatalf("captureError = %q, want 'collected finalization without valid activity'", got.CaptureError)
+	}
+	if strings.Contains(got.CaptureError, "no identity-matching target handshake") {
+		t.Fatalf("captureError falsely reported handshake missing: %q", got.CaptureError)
+	}
+}
+

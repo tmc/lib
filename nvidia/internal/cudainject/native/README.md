@@ -150,3 +150,22 @@ activity capture. The producer currently qualifies kernel, memcpy, and API
 activity only; deeper counters, code images, PC sampling and child-process
 aggregation remain separate dispositions. Queue loss is reported by origin
 (oversize, contention, or capacity) in the finalized record.
+
+## Building the CUPTI Producer Shared Library (.so)
+
+To compile `cupti_agent.c` into the loadable CUPTI producer library (`libcupti_agent.so`) for use with `cudaprof capture --inject`:
+
+```sh
+CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
+CUDA_TARGET="$(uname -m)-linux"
+[ "$CUDA_TARGET" = "aarch64-linux" ] && CUDA_TARGET="sbsa-linux"
+
+cc -std=c11 -O2 -fPIC -shared \
+  -I"${CUDA_HOME}/targets/${CUDA_TARGET}/include" -I"${CUDA_HOME}/include" -I. \
+  cupti_agent.c -o "$HOME/tmp/libcupti_agent.so" \
+  -L"${CUDA_HOME}/targets/${CUDA_TARGET}/lib" -L"${CUDA_HOME}/lib64" -lcupti -lpthread
+```
+
+**Version pinning note**:
+The CUPTI header include directory and library directory must match the *exact same* CUPTI version. At constructor time, the agent compares `cuptiGetVersion(&runtime_version)` with `CUPTI_API_VERSION`. If they diverge (e.g. headers from 13.2 but runtime from 13.0, or vice versa), the agent aborts initialization with `CUPTI runtime/header version mismatch` recorded in the journal. Ensure both point to the same CUDA installation.
+
