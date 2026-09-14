@@ -52,9 +52,11 @@ type finalizedRecord struct {
 	Retained             uint64 `json:"retained"`
 	BackpressureWaits    uint64 `json:"backpressure_waits"`
 	BackpressureNanos    uint64 `json:"backpressure_nanos"`
+	BackpressureMaxNanos uint64 `json:"backpressure_max_nanos"`
 	DrainBatches         uint64 `json:"drain_batches"`
 	DrainMaxBatch        uint64 `json:"drain_max_batch"`
 	DrainWriteNanos      uint64 `json:"drain_write_nanos"`
+	DrainWriteMaxNanos   uint64 `json:"drain_write_max_nanos"`
 	Callbacks            uint64 `json:"callbacks"`
 	CallbackNanos        uint64 `json:"callback_nanos"`
 	CallbackMaxNanos     uint64 `json:"callback_max_nanos"`
@@ -445,9 +447,15 @@ func TestBurst(t *testing.T) {
 		t.Fatalf("burst offered only %d records; the control is not applying pressure", result.Offered)
 	}
 	if fin.Retained != fin.Offered {
-		t.Errorf("burst lost %d of %d offered records (capacity=%d contention=%d oversize=%d)",
+		// Capacity is the only drop backpressure can lose to, and it loses
+		// only when the drain does not publish a freed slot within the
+		// admission deadline. Report both maxima: the longest wait says how
+		// far past that deadline admission went, and the longest batch write
+		// says whether the drain was the reason.
+		t.Errorf("burst lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms)",
 			fin.Offered-fin.Retained, fin.Offered,
-			fin.QueueCapacityDropped, fin.QueueContentionDrop, fin.QueueOversizeDropped)
+			fin.QueueCapacityDropped, fin.QueueContentionDrop, fin.QueueOversizeDropped,
+			fin.BackpressureMaxNanos/1e6, fin.DrainWriteMaxNanos/1e6)
 	}
 	if fin.DrainMaxBatch < 2 {
 		t.Errorf("drain wrote one record per batch under burst: %+v", fin)
@@ -458,9 +466,11 @@ func TestBurst(t *testing.T) {
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want a clean exit", status)
 	}
-	t.Logf("burst offered=%d retained=%d batches=%d max_batch=%d backpressure_waits=%d backpressure_ms=%d callback_max_us=%d",
+	t.Logf("burst offered=%d retained=%d batches=%d max_batch=%d backpressure_waits=%d backpressure_ms=%d longest_wait_ms=%d longest_write_ms=%d callback_max_us=%d",
 		fin.Offered, fin.Retained, fin.DrainBatches, fin.DrainMaxBatch,
-		fin.BackpressureWaits, fin.BackpressureNanos/1e6, fin.CallbackMaxNanos/1e3)
+		fin.BackpressureWaits, fin.BackpressureNanos/1e6,
+		fin.BackpressureMaxNanos/1e6, fin.DrainWriteMaxNanos/1e6,
+		fin.CallbackMaxNanos/1e3)
 }
 
 // TestTerminationRace signals SIGTERM while callbacks are still offering. The
