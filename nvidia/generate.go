@@ -31,9 +31,8 @@ package nvidia
 //	nvgen -diff -output .
 //
 // A clean -diff means every committed package matches its inputs. This is the
-// check to run in CI; it is not run by go generate. Note that nvgen -list
-// prints only the recipes whose gates are satisfied, so it reports 34 of the
-// 35 directives below on a host without JetPack.
+// check to run in CI; it is not run by go generate. nvgen -list prints all 35
+// recipes, marking one whose gate is unset as skipped rather than omitting it.
 //
 // Two packages are not generated from here. x/cudamlx and x/cudaptx carry
 // their own go:generate directives, because their inputs are not the CUDA
