@@ -10,14 +10,20 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 )
 
-// readCString reads a NUL-terminated C string from pointer p.
+// readCString reads a NUL-terminated C string from pointer p. The uintptr is a
+// C pointer field, never the address of Go memory. Interpret its pointer
+// representation once and index with [unsafe.Add]: holding a pointer value in a
+// uintptr across statements is what makes the conversion unsound. An
+// unterminated string is truncated rather than walked off the end of its
+// mapping.
 func readCString(p uintptr) string {
 	if p == 0 {
 		return ""
 	}
+	base := *(*unsafe.Pointer)(unsafe.Pointer(&p))
 	var b []byte
-	for i := 0; ; i++ {
-		c := *(*byte)(unsafe.Pointer(p + uintptr(i)))
+	for i := 0; i < 1<<20; i++ {
+		c := *(*byte)(unsafe.Add(base, i))
 		if c == 0 {
 			break
 		}

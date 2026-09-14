@@ -25,18 +25,26 @@ import (
 func perturb(name string) bool { return os.Getenv("CUPTI_PHYSICAL_PERTURB") == name }
 
 // goString reads a NUL-terminated C string from an address CUPTI handed back.
+// goString reads a NUL-terminated C string from pointer p. The uintptr is a C
+// pointer field, never the address of Go memory. Interpret its pointer
+// representation once and index with [unsafe.Add]: holding a pointer value in a
+// uintptr across statements is what makes the conversion unsound. An
+// unterminated string is truncated rather than walked off the end of its
+// mapping.
 func goString(p uintptr) string {
 	if p == 0 {
 		return ""
 	}
+	base := *(*unsafe.Pointer)(unsafe.Pointer(&p))
 	var b []byte
-	for i := 0; ; i++ {
-		c := *(*byte)(unsafe.Pointer(p + uintptr(i)))
+	for i := 0; i < 1<<20; i++ {
+		c := *(*byte)(unsafe.Add(base, i))
 		if c == 0 {
-			return string(b)
+			break
 		}
 		b = append(b, c)
 	}
+	return string(b)
 }
 
 // withContext retains the primary context on device 0 for the duration of t.
@@ -140,6 +148,8 @@ func TestCallbackSubscription(t *testing.T) {
 		if cbdata == 0 {
 			return 0
 		}
+		// cbdata addresses CUPTI's own callback record, not Go memory, so
+		// the conversion go vet flags here cannot observe a moved object.
 		data := (*cupti.CallbackData)(unsafe.Pointer(cbdata))
 		obs.mu.Lock()
 		obs.total++
@@ -246,6 +256,8 @@ func TestActivityMemcpyRecord(t *testing.T) {
 
 	requested := purego.NewCallback(func(buffer **uint8, size *uint, maxRecords *uint) uintptr {
 		inUse.Lock()
+		// host is a driver allocation held for the life of the test, so the
+		// conversion go vet flags here addresses pinned native memory.
 		*buffer = (*uint8)(unsafe.Pointer(host))
 		*size = activityBufferSize
 		*maxRecords = 0
