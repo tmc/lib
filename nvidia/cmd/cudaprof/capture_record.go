@@ -36,6 +36,9 @@ func runCaptureCommand(args []string) error {
 		}
 		return err
 	}
+	if opts.Inject == "" {
+		fmt.Fprintln(os.Stderr, "cudaprof: warning: no injection library specified (--inject /path/to/agent.so or CUDAPROF_INJECT); target will run without CUPTI profiling")
+	}
 	result, runErr := runCapture(context.Background(), opts)
 	if opts.Output != "" {
 		if err := writeCaptureStatus(opts.Output, result, captureArtifactBudget{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes}); err != nil {
@@ -55,7 +58,11 @@ func runCaptureCommand(args []string) error {
 		return &exitCodeError{Code: result.TargetExitCode, Err: fmt.Errorf("target exited with status %d", result.TargetExitCode)}
 	}
 	if !result.CaptureSuccess {
-		return &exitCodeError{Code: 2, Err: errors.New("capture incomplete")}
+		msg := "capture incomplete"
+		if result.CaptureError != "" {
+			msg = fmt.Sprintf("capture incomplete: %s", result.CaptureError)
+		}
+		return &exitCodeError{Code: 2, Err: errors.New(msg)}
 	}
 	return nil
 }
@@ -316,6 +323,7 @@ func printCaptureHelp() {
 	fmt.Println(`Usage: cudaprof capture [options] -- command [args...]
 
 Options:
+  --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
   -o <path>                     write capture output to file or directory
   --max-records <N>             maximum journal records to retain (default 1048576)
   --trace                       enable CUDA activity tracing (default true)

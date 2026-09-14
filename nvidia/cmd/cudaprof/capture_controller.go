@@ -39,6 +39,9 @@ type captureRecordPayload struct {
 	Kind                string     `json:"kind"`
 	Subtype             string     `json:"subtype"`
 	Name                string     `json:"name"`
+	Error               string     `json:"error"`
+	Message             string     `json:"message"`
+	Operation           string     `json:"operation"`
 	Valid               bool       `json:"valid"`
 	Start               uint64     `json:"start"`
 	End                 uint64     `json:"end"`
@@ -175,6 +178,10 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	var workerAPIs []captureAPI
 	var workerDuration, workerCopyBytes, workerExternal, workerDropped, workerRecords uint64
 	workers := make([]captureWorker, 0)
+	var targetHandshakeSeen bool
+	var targetInjectionFailure string
+	var targetFailureState journalState
+	var targetJournalErr error
 	for i := range files {
 		f := &files[i]
 		if f.h.Process != uint64(result.TargetPID) {
@@ -225,15 +232,26 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 			workers = append(workers, worker)
 			continue
 		}
+		targetHandshakeSeen = true
 		if f.h.InjectionFailure != "" {
-			if selected == nil {
-				result.Outcome, result.CaptureError = captureOutcomeInjection, f.h.InjectionFailure
-			}
+			targetInjectionFailure = f.h.InjectionFailure
+			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Failure: f.h.InjectionFailure, Disposition: "injection-failed"})
 			continue
 		}
 		records, state, metrics, activities, apis, innerWorkers, err := observeJournal(filepath.Join(f.path, "capture.journal"), session, result.TargetPID, opts.maxJournalRecords)
+		if state.failure != "" {
+			targetFailureState = state
+		}
 		if err != nil {
-			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Failure: err.Error(), Disposition: "invalid"})
+			targetJournalErr = err
+			failMsg := err.Error()
+			if state.failure != "" {
+				failMsg = state.failure
+				if state.failureError != "" {
+					failMsg += ": " + state.failureError
+				}
+			}
+			workers = append(workers, captureWorker{Process: f.h.Process, Generation: f.h.Generation, Failure: failMsg, Disposition: "invalid"})
 			continue
 		}
 		if selected != nil {
@@ -249,7 +267,36 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	}
 	result.WorkerGenerations = workers
 	if selected == nil {
-		result.Outcome, result.CaptureError = captureOutcomeTransport, "no identity-matching target handshake"
+		if targetInjectionFailure != "" {
+			result.Outcome, result.CaptureError = captureOutcomeInjection, targetInjectionFailure
+		} else if targetFailureState.failure != "" {
+			errStr := targetFailureState.failure
+			if targetFailureState.failureError != "" {
+				errStr += ": " + targetFailureState.failureError
+			}
+			if targetFailureState.failure == "cupti_unavailable" {
+				result.Outcome, result.CaptureError = captureOutcomeUnsupported, errStr
+			} else {
+				result.Outcome, result.CaptureError = captureOutcomeInjection, errStr
+			}
+		} else if targetJournalErr != nil {
+			result.Outcome, result.CaptureError = captureOutcomeTransport, targetJournalErr.Error()
+		} else if len(workers) > 0 && workers[len(workers)-1].Failure != "" {
+			w := workers[len(workers)-1]
+			if w.Disposition == "injection-failed" {
+				result.Outcome, result.CaptureError = captureOutcomeInjection, w.Failure
+			} else {
+				result.Outcome, result.CaptureError = captureOutcomeTransport, w.Failure
+			}
+		} else if !targetHandshakeSeen {
+			if !opts.injectionRequested {
+				result.Outcome, result.CaptureError = captureOutcomeNoCUDA, "no injection library configured (specify --inject /path/to/agent.so or CUDAPROF_INJECT)"
+			} else {
+				result.Outcome, result.CaptureError = captureOutcomeTransport, "no identity-matching target handshake"
+			}
+		} else {
+			result.Outcome, result.CaptureError = captureOutcomeTransport, "target journal incomplete"
+		}
 		return applyPartialRecovery(result)
 	}
 	result.TransportReady = true
@@ -274,7 +321,11 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	}
 	result.Capability = selectedState.capabilityData
 	if selectedState.failure != "" {
-		result.CaptureError = selectedState.failure
+		errStr := selectedState.failure
+		if selectedState.failureError != "" {
+			errStr += ": " + selectedState.failureError
+		}
+		result.CaptureError = errStr
 		if selectedState.failure == "cupti_unavailable" {
 			result.Outcome = captureOutcomeUnsupported
 		} else {
@@ -329,6 +380,7 @@ type journalState struct {
 	records                                                         uint64
 	capabilityData                                                  json.RawMessage
 	failure                                                         string
+	failureError                                                    string
 }
 type journalMetrics struct{ duration, copyBytes, external uint64 }
 
@@ -557,6 +609,15 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			state.failure = payload.State
 			if state.failure == "" {
 				state.failure = "producer_failure"
+			}
+			if payload.Error != "" {
+				state.failureError = payload.Error
+			} else if payload.Message != "" {
+				if payload.Operation != "" {
+					state.failureError = fmt.Sprintf("%s: %s", payload.Operation, payload.Message)
+				} else {
+					state.failureError = payload.Message
+				}
 			}
 		default:
 			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("unknown record kind")

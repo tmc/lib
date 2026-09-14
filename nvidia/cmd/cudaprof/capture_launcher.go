@@ -333,6 +333,13 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			return o, fmt.Errorf("check capture output: %w", err)
 		}
 	}
+	if o.Inject == "" {
+		if env := os.Getenv("CUDAPROF_INJECT"); env != "" {
+			o.Inject = env
+		} else if env := os.Getenv("CUDAPROF_AGENT"); env != "" {
+			o.Inject = env
+		}
+	}
 	if o.Inject != "" {
 		if fi, err := os.Stat(o.Inject); err != nil {
 			return o, fmt.Errorf("check injection library: %w", err)
@@ -451,6 +458,9 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		outcome = captureOutcomeInjection
 	}
 	result := captureResult{Protocol: captureProtocolVersion, Session: session, State: captureStatePlanned, Outcome: outcome, ScratchDir: dir}
+	if o.Inject == "" {
+		result.CaptureError = "no injection library configured (specify --inject /path/to/agent.so or CUDAPROF_INJECT)"
+	}
 	cmd := exec.Command(o.command[0], o.command[1:]...)
 	cmd.Dir, cmd.Env = o.Dir, captureEnvironment(o, session, dir)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = o.Stdin, o.Stdout, o.Stderr
