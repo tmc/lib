@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -87,6 +88,15 @@ func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 			testCUDAQualificationQ81BatchMatvec(t, r, tensor, weights, batch, cols, rows)
 		})
 	}
+	t.Run("reject-oversized-batch", func(t *testing.T) {
+		oversizedIn := cudaExpertAllocBytes(t, r, (cudaQ81MaxBatch+1)*cols/32*36)
+		oversizedOut := cudaTestAlloc(t, r, (cudaQ81MaxBatch+1)*rows)
+		err := r.encodeQ80MatvecQ81Batch(tensor, oversizedIn, oversizedOut, cudaQ81MaxBatch+1)
+		wantSubstr := fmt.Sprintf("batch %d (max %d)", cudaQ81MaxBatch+1, cudaQ81MaxBatch)
+		if err == nil || !strings.Contains(err.Error(), wantSubstr) {
+			t.Fatalf("expected error containing %q, got %v", wantSubstr, err)
+		}
+	})
 }
 
 func testCUDAQualificationQ81BatchMatvec(t *testing.T, r *cudaFoundation, tensor cudaModelTensor, weights []byte, batch, cols, rows int) {
@@ -137,6 +147,13 @@ func testCUDAQualificationQ81BatchMatvec(t *testing.T, r *cudaFoundation, tensor
 	}
 	if err := r.encodeQ80MatvecQ81Batch(tensor, q, out.Slice(0, out.Len()-1), batch); err == nil {
 		t.Fatal("accepted short output")
+	}
+}
+
+func TestCUDAQualificationQ81MaxBatchConstantSync(t *testing.T) {
+	needle := fmt.Sprintf("#define DS4_Q81_MAX_BATCH %d", cudaQ81MaxBatch)
+	if !strings.Contains(cudaQ81Source, needle) {
+		t.Fatalf("cuda_q81.cu does not contain expected constant definition %q", needle)
 	}
 }
 

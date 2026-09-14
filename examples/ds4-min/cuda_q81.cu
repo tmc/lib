@@ -2,6 +2,8 @@
 struct ds4_q8_1_activation { unsigned short d, sum; signed char qs[32]; };
 static_assert(sizeof(ds4_q8_1_activation) == 36, "Q8_1 block size");
 
+#define DS4_Q81_MAX_BATCH 8
+
 // ds4_half_round already implements the binary16 nearest-even boundary. Encode
 // its rounded float result without another rounding step or toolkit headers.
 __device__ unsigned short ds4_q81_half_bits(float value) {
@@ -165,7 +167,7 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
   if (row >= rows) return;
   const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
 
-  float sum[8] = {0.0f};
+  float sum[DS4_Q81_MAX_BATCH] = {0.0f};
 
   for (unsigned b = lane; b < blocks; b += 32) {
     const unsigned char *p = weight_row + (unsigned long long)b * 34;
@@ -178,7 +180,7 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
     const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
 
     #pragma unroll
-    for (unsigned t = 0; t < 8; t++) {
+    for (unsigned t = 0; t < DS4_Q81_MAX_BATCH; t++) {
       if (t < batch) {
         const ds4_q8_1_activation *tx = x + (unsigned long long)t * blocks;
         const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
@@ -193,7 +195,7 @@ extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
   }
 
   #pragma unroll
-  for (unsigned t = 0; t < 8; t++) {
+  for (unsigned t = 0; t < DS4_Q81_MAX_BATCH; t++) {
     if (t < batch) {
       float s = sum[t];
       #pragma unroll

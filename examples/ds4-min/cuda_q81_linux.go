@@ -78,11 +78,15 @@ func (r *cudaFoundation) encodeQ80MatvecQ81(t cudaModelTensor, in cudamem.Slice[
 	})
 }
 
+// cudaQ81MaxBatch is the compile-time maximum batch width supported by
+// ds4_q8_0_matvec_q8_1_batch in cuda_q81.cu.
+const cudaQ81MaxBatch = 8
+
 // encodeQ80MatvecQ81Batch projects batch adjacent Q8_1 activation rows with
 // one two-dimensional launch. Input and output are token-major.
 func (r *cudaFoundation) encodeQ80MatvecQ81Batch(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], batch int) error {
-	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 || uint64(batch) > math.MaxUint32 {
-		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch", t.name)
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 || batch > cudaQ81MaxBatch {
+		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d (max %d)", t.name, batch, cudaQ81MaxBatch)
 	}
 	cols, rows := t.dimensions[0], t.dimensions[1]
 	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||

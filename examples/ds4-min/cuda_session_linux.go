@@ -78,7 +78,9 @@ type cudaBatchResources struct {
 	dense      cudaBatchDense
 }
 
-const cudaPrefillBatchWidth = 8
+// cudaPrefillBatchWidth matches the compile-time maximum batch width of the
+// batched matvec kernel (cudaQ81MaxBatch).
+const cudaPrefillBatchWidth = cudaQ81MaxBatch
 
 var (
 	_ sessionBackend = (*cudaRuntime)(nil)
