@@ -3,6 +3,8 @@ package cudasass
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
+	"fmt"
 	"io"
 	"regexp"
 	"strconv"
@@ -24,21 +26,57 @@ type Function struct {
 
 // Instruction represents a single decoded hardware SASS instruction.
 type Instruction struct {
-	Address     uint64 // Hardware PC address (e.g. 0x7f001230)
-	Predicate   string // Instruction predicate, e.g. "@P0", "@!PT"
-	Opcode      string // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
-	Operands    string // Register and memory operands, e.g. "R0, R4, R5, R0"
-	SourceFile  string // Source file name from line-info comments, e.g. "kernels.cu"
-	SourceLine  int    // Source line number from line-info comments
-	InlinedFile string // Inlined call site file name, if inlined
-	InlinedLine int    // Inlined call site line number, if inlined
-	PTXLine     int    // PTX line number from .nv_debug_ptx_txt comments, if present
-	LiveGPR     int    // Live General Purpose Registers from register life-range analysis
-	LivePred    int    // Live Predicate registers
-	LiveUGPR    int    // Live Uniform GPRs (sm_70+)
-	LiveUPred   int    // Live Uniform Predicate registers (sm_70+)
-	Comment     string // Optional disassembly comment
-	Raw         string // Full raw disassembly line
+	Address     uint64   // Hardware PC address (e.g. 0x7f001230)
+	Predicate   string   // Instruction predicate, e.g. "@P0", "@!PT"
+	Opcode      string   // Mnemonic and modifiers, e.g. "FFMA", "LDG.E.CONSTANT.F32", "STS.32"
+	Operands    string   // Register and memory operands, e.g. "R0, R4, R5, R0"
+	SourceFile  string   // Source file name from line-info comments, e.g. "kernels.cu"
+	SourceLine  int      // Source line number from line-info comments
+	InlinedFile string   // Inlined call site file name, if inlined
+	InlinedLine int      // Inlined call site line number, if inlined
+	PTXLine     int      // PTX line number from .nv_debug_ptx_txt comments, if present
+	LiveGPR     int      // Live General Purpose Registers from register life-range analysis
+	LivePred    int      // Live Predicate registers
+	LiveUGPR    int      // Live Uniform GPRs (sm_70+)
+	LiveUPred   int      // Live Uniform Predicate registers (sm_70+)
+	Encoding    Encoding // Raw instruction encoding, when [Options.PrintHex] was requested
+	Comment     string   // Optional disassembly comment
+	Raw         string   // Full raw disassembly line
+}
+
+// An Encoding is the raw hardware encoding of one SASS instruction, as
+// nvdisasm prints it under [Options.PrintHex].
+//
+// An instruction on the architectures nvdisasm still disassembles occupies two
+// 64-bit words. Lo is the word nvdisasm prints on the instruction's own line;
+// Hi is the word it prints alone on the line below. In instruction memory the
+// two appear in that order, each little-endian, which is what [Encoding.Bytes]
+// returns and what nvdisasm's --binary mode reads back.
+//
+// The zero Encoding means no encoding was captured, not an instruction whose
+// encoding is zero: an all-zero 128-bit word is not a legal instruction, and
+// nvdisasm rejects one with "Illegal instruction found".
+type Encoding struct {
+	Lo, Hi uint64
+}
+
+// Present reports whether an encoding was captured. See [Encoding] for why the
+// zero value cannot be a real instruction.
+func (e Encoding) Present() bool { return e != Encoding{} }
+
+// Bytes returns the encoding as it occupies instruction memory: Lo then Hi,
+// each little-endian. The result is accepted by nvdisasm --binary, which reads
+// a bare sequence of such encodings.
+func (e Encoding) Bytes() [16]byte {
+	var b [16]byte
+	binary.LittleEndian.PutUint64(b[0:8], e.Lo)
+	binary.LittleEndian.PutUint64(b[8:16], e.Hi)
+	return b
+}
+
+// String formats both words in the order nvdisasm prints them.
+func (e Encoding) String() string {
+	return fmt.Sprintf("0x%016x 0x%016x", e.Lo, e.Hi)
 }
 
 // Pressure returns the live register pressure at this instruction.
@@ -78,12 +116,28 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	var curInlinedFile string
 	var curInlinedLine int
 	var curPTXLine int
+	// Instruction awaiting the high word of its encoding, identified by
+	// position because appending to Instructions may move the slice.
+	pendingFn, pendingIdx := (*Function)(nil), 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
 
 		if trimmed == "" {
+			continue
+		}
+
+		// The high word of an instruction encoding is printed alone on the
+		// line below the instruction it belongs to, so it attaches only to an
+		// instruction parsed from the immediately preceding line.
+		word, isEncoding := encodingWord(trimmed)
+		fn, idx := pendingFn, pendingIdx
+		pendingFn = nil
+		if isEncoding {
+			if fn != nil {
+				fn.Instructions[idx].Encoding.Hi = word
+			}
 			continue
 		}
 
@@ -146,6 +200,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				curFn.BaseAddress = inst.Address
 			}
 			curFn.Instructions = append(curFn.Instructions, inst)
+			if inst.Encoding.Lo != 0 {
+				pendingFn, pendingIdx = curFn, len(curFn.Instructions)-1
+			}
 		}
 	}
 
@@ -207,6 +264,11 @@ func extractFunctionName(line string) string {
 //
 //	/* 0x7f001230 */   LDG.E.CONSTANT.F32 R4, [R2.64] ;   // comment
 //	/*0030*/                   LDG.E.CONSTANT.F32 R4, [R2.64];
+//
+// A trailing encoding comment written by --print-instruction-encoding sets
+// [Instruction.Encoding].Lo. The matching high word is on the next line, which
+// is not an instruction line; only [Parse] sees it, so an instruction parsed
+// through this function alone carries a half encoding.
 func ParseInstructionLine(line string) (Instruction, bool) {
 	trimmed := strings.TrimSpace(line)
 	if !strings.HasPrefix(trimmed, "/*") {
@@ -231,12 +293,15 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 		comment = strings.TrimSpace(rest[commentIdx+2:])
 		rest = strings.TrimSpace(rest[:commentIdx])
 	}
+	var encoding Encoding
 	if encodingIdx := strings.Index(rest, "/*"); encodingIdx != -1 {
-		encoding := strings.TrimSpace(rest[encodingIdx:])
-		if comment == "" {
-			comment = encoding
+		trailing := strings.TrimSpace(rest[encodingIdx:])
+		if word, ok := encodingWord(trailing); ok {
+			encoding.Lo = word
+		} else if comment == "" {
+			comment = trailing
 		} else {
-			comment = encoding + " " + comment
+			comment = trailing + " " + comment
 		}
 		rest = strings.TrimSpace(rest[:encodingIdx])
 	}
@@ -269,7 +334,31 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 		Predicate: predicate,
 		Opcode:    opcode,
 		Operands:  operands,
+		Encoding:  encoding,
 		Comment:   comment,
 		Raw:       line,
 	}, true
+}
+
+// encodingWord reports the 64-bit word in a bare /* 0x... */ encoding comment.
+// nvdisasm writes exactly sixteen hexadecimal digits there, which distinguishes
+// an encoding from the shorter instruction-offset comment that opens each line.
+func encodingWord(s string) (uint64, bool) {
+	s, ok := strings.CutPrefix(s, "/*")
+	if !ok {
+		return 0, false
+	}
+	s, ok = strings.CutSuffix(strings.TrimSpace(s), "*/")
+	if !ok {
+		return 0, false
+	}
+	s, ok = strings.CutPrefix(strings.TrimSpace(s), "0x")
+	if !ok || len(s) != 16 {
+		return 0, false
+	}
+	word, err := strconv.ParseUint(s, 16, 64)
+	if err != nil {
+		return 0, false
+	}
+	return word, true
 }
