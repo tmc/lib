@@ -15,19 +15,29 @@ LOG := $(REPO)/api/nvidia.log
 # is noisy but keeps apidiff's exit status from being hidden behind a pipe.
 FILTER := grep -v '^Ignoring internal package '
 
-.PHONY: regen version-check api-update api-added provenance-check clean
+.PHONY: regen regen-check version-check api-update api-added provenance-check clean
 
 # Regenerate every binding package, then check what the regeneration did to
 # the API. The check runs here rather than in a person's memory: a rename
 # that leaves constant values alone is invisible to every other gate.
 #
-# regen.sh is excluded from the repository by .git/info/exclude, so it is
-# present in this working copy and in no clone. Say that rather than let
-# make report a missing file.
+# The recipes live in generate.go, which every clone has. They replace
+# regen.sh, which was excluded by .git/info/exclude and so was present in
+# one working copy and in no clone.
 regen:
-	@test -f regen.sh || { 		echo "regen: regen.sh is not in this tree." >&2; 		echo "It is untracked and excluded by .git/info/exclude, so a" >&2; 		echo "clone does not have it. Commit it before relying on this." >&2; 		exit 1; 	}
-	sh regen.sh
+	@command -v nvgen >/dev/null || { \
+		echo "regen: nvgen is not installed." >&2; \
+		echo "It lives in the generator repository, which this module does" >&2; \
+		echo "not depend on: (cd ../../libgen && go install ./cmd/nvgen)" >&2; \
+		exit 1; \
+	}
+	go generate .
 	$(MAKE) version-check
+
+# Report what a regeneration would change without writing to the tree. This
+# is the check to run in CI; neither regen nor go generate runs it.
+regen-check:
+	nvgen -diff -output .
 
 # Fail if the module's incompatible-change set against $(TAG) differs from
 # the committed report. An entry is reviewed when it is in that report.
