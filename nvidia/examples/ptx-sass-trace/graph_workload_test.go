@@ -87,7 +87,7 @@ func TestStepToKernelParams(t *testing.T) {
 			Args:     []any{dptr, n, scale},
 		}
 
-		params, err := stepToKernelParams(step)
+		params, _, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
@@ -128,7 +128,7 @@ func TestStepToKernelParams(t *testing.T) {
 			Launcher: launcher,
 		}
 
-		params, err := stepToKernelParams(step)
+		params, _, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
@@ -156,7 +156,7 @@ func TestStepToKernelParams(t *testing.T) {
 			SharedMemBytes: 256,
 		}
 
-		params, err := stepToKernelParams(step)
+		params, _, err := stepToKernelParams(step)
 		if err != nil {
 			t.Fatalf("stepToKernelParams: %v", err)
 		}
@@ -177,7 +177,7 @@ func TestStepToKernelParams(t *testing.T) {
 
 	t.Run("null function error", func(t *testing.T) {
 		step := PipelineStep{Name: "null_step"}
-		_, err := stepToKernelParams(step)
+		_, _, err := stepToKernelParams(step)
 		if err == nil {
 			t.Fatal("expected error for null function, got nil")
 		}
@@ -192,7 +192,7 @@ func TestStepToKernelParams(t *testing.T) {
 			Func: fn,
 			Args: []any{nil},
 		}
-		_, err := stepToKernelParams(step)
+		_, _, err := stepToKernelParams(step)
 		if err == nil {
 			t.Fatal("expected error for nil arg, got nil")
 		}

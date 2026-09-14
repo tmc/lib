@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -109,10 +110,15 @@ func inspectLauncher(l *cudalaunch.Launcher) (driver.Function, cudalaunch.Dim3, 
 }
 
 // stepToKernelParams converts a PipelineStep into driver.KernelNodeParams for cudagraph.AddKernelNode.
-func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, error) {
+//
+// KernelNodeParams.KernelParams is a uintptr, which the garbage collector does
+// not trace, so the packed argument array is returned alongside it. The caller
+// must keep that slice alive until the driver has read through the params,
+// which happens when the node is added to the graph.
+func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, []unsafe.Pointer, error) {
 	kernelParams, err := cudalaunch.PackArgs(step.Args...)
 	if err != nil {
-		return nil, fmt.Errorf("pack args: %w", err)
+		return nil, nil, fmt.Errorf("pack args: %w", err)
 	}
 
 	var kparamsPtr uintptr
@@ -132,7 +138,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, error) {
 	if step.Launcher != nil {
 		lFn, lGrid, lBlock, lShmem, err := inspectLauncher(step.Launcher)
 		if err != nil && fn == 0 {
-			return nil, err
+			return nil, nil, err
 		}
 		if fn == 0 {
 			fn = lFn
@@ -149,7 +155,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, error) {
 	}
 
 	if fn == 0 {
-		return nil, errors.New("kernel function is null")
+		return nil, nil, errors.New("kernel function is null")
 	}
 
 	if gridX == 0 {
@@ -182,7 +188,7 @@ func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, error) {
 		SharedMemBytes: shmem,
 		KernelParams:   kparamsPtr,
 	}
-	return params, nil
+	return params, kernelParams, nil
 }
 
 // runWorkloadInGraph executes the DeepSeek-V4 pipeline inside a captured CUDA Graph
@@ -255,11 +261,14 @@ func runWorkloadInGraph(
 		// Create kernel nodes for each pipeline step and connect them with ProgrammaticEdgeData
 		nodes := make([]*cudagraph.Node, len(steps))
 		for i, step := range steps {
-			params, err := stepToKernelParams(step)
+			params, packed, err := stepToKernelParams(step)
 			if err != nil {
 				return nil, nil, fmt.Errorf("step %d (%s) kernel params: %w", i, step.Name, err)
 			}
 			n, err := g.AddKernelNode(params)
+			// AddKernelNode copies the argument array into the node, so the
+			// packed slice must stay reachable until it returns.
+			runtime.KeepAlive(packed)
 			if err != nil {
 				return nil, nil, fmt.Errorf("add kernel node %d (%s): %w", i, step.Name, err)
 			}
