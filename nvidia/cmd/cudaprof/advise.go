@@ -2102,6 +2102,14 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 					ActionableRecommendation: "Ensure target workload executes cleanly and does not exceed journal record capacity before analyzing performance.",
 				})
 			}
+			if dropped, ok := status["dropped_records"].(float64); ok && uint64(dropped) > 0 {
+				report.Items = append(report.Items, AdviceItem{
+					Severity:                 SeverityWarning,
+					Category:                 CategoryArchitecture,
+					Finding:                  fmt.Sprintf("Lossy capture: %d records dropped due to CUPTI buffer pressure", uint64(dropped)),
+					ActionableRecommendation: "Whole-run totals and aggregate launch counts are incomplete (a lower bound). Increase buffer pool or reduce profiling overhead to capture a complete trace.",
+				})
+			}
 		}
 	}
 }

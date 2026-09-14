@@ -2080,3 +2080,26 @@ func TestAdvice_DeviceProvenanceDisclosure(t *testing.T) {
 	}
 }
 
+func TestAdvise_WarnsOnDroppedRecords(t *testing.T) {
+	statusBytes := []byte(`{"capture_success":true,"run_completeness":"partial","activity_records":36504,"dropped_records":48161}`)
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{
+			"capture-status.json": statusBytes,
+		},
+	}
+	report := &AdviceReport{}
+	auditCaptureStatus(cap, report)
+
+	var found bool
+	for _, item := range report.Items {
+		if item.Severity == SeverityWarning && strings.Contains(item.Finding, "Lossy capture: 48161 records dropped") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected warning for dropped records, got items: %+v", report.Items)
+	}
+}
+
+

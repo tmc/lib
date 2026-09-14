@@ -49,10 +49,11 @@ const (
 // retained records is not a fault: a finalized generation that ran no GPU work
 // is complete, and nothing here infers lost or unobserved work from a count.
 const (
-	// runComplete means every observed generation qualified.
+	// runComplete means every observed generation qualified and no records
+	// were dropped.
 	runComplete = "complete"
 	// runPartial means the target finalized but at least one generation did
-	// not qualify. Totals are a floor, never a run total.
+	// not qualify or records were lost. Totals are a floor, never a run total.
 	runPartial = "partial"
 	// runFailed means the target generation itself never finalized, so no
 	// generation in the run can be qualified from this capture.
@@ -443,9 +444,6 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if o.Deep || o.Exhaustive || len(o.Collect) > 0 || len(o.Exclude) > 0 || o.FollowChildren {
 		return captureResult{}, errors.New("requested collector policy is not implemented")
 	}
-	if o.RequireComplete {
-		return captureResult{}, errors.New("capture cannot require complete data before a collector is configured")
-	}
 	if o.DrainTimeout <= 0 {
 		o.DrainTimeout = 2 * time.Second
 	}
@@ -507,6 +505,18 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	}
 	result.State = captureStateFinalized
 	result = observeCaptureSession(result, dir, session, observeOptions{injectionRequested: o.Inject != "", recoverUnfinalized: o.RecoverUnfinalized, maxJournalRecords: o.MaxJournalRecords})
+	if o.RequireComplete && result.RunCompleteness != runComplete {
+		result.CaptureSuccess = false
+		if result.CaptureError == "" {
+			if result.DroppedRecords > 0 {
+				result.CaptureError = fmt.Sprintf("dropped %d records", result.DroppedRecords)
+			} else if result.UnqualifiedGenerations > 0 {
+				result.CaptureError = fmt.Sprintf("%d unqualified worker generation(s)", result.UnqualifiedGenerations)
+			} else {
+				result.CaptureError = fmt.Sprintf("run completeness is %s", result.RunCompleteness)
+			}
+		}
+	}
 	if waitErr == nil {
 		result.TargetExitCode = 0
 		if result.Cancelled {

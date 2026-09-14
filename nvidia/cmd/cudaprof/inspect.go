@@ -208,9 +208,11 @@ func addCoverageDetails(coverage *inspectCoverage, status []byte) {
 	// dispositions but no verdict. Deriving it here, by the same rule the
 	// writer uses, keeps a target-qualified capture_success from standing
 	// alone in this output for those artifacts.
-	if coverage.RunCompleteness == "" && len(coverage.Workers) != 0 {
-		coverage.UnqualifiedGenerations = unqualifiedGenerations(workerDispositions(coverage.Workers))
-		coverage.RunCompleteness = runCompletenessOf(coverage.TransportReady, coverage.CollectorFinalized, coverage.UnqualifiedGenerations)
+	if coverage.RunCompleteness == "" {
+		if len(coverage.Workers) != 0 {
+			coverage.UnqualifiedGenerations = unqualifiedGenerations(workerDispositions(coverage.Workers))
+		}
+		coverage.RunCompleteness = runCompletenessOf(coverage.TransportReady, coverage.CollectorFinalized, coverage.UnqualifiedGenerations, coverage.DroppedRecords)
 	}
 }
 
