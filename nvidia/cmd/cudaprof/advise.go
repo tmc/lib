@@ -616,6 +616,49 @@ func queryLiveDeviceSMCount() int {
 	return count
 }
 
+// queryLiveDeviceArch attempts to query the compute capability from a live CUDA device.
+func queryLiveDeviceArch() string {
+	defer func() {
+		_ = recover()
+	}()
+	dev, err := cuda.NewDevice(0)
+	if err != nil || dev == nil {
+		return ""
+	}
+	defer dev.Close()
+	major, minor, err := dev.ComputeCapability()
+	if err != nil || major <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("sm_%d%d", major, minor)
+}
+
+// determineArch determines the GPU architecture/compute capability by inspecting capture
+// metadata/PTX, querying a live device if available, or returning empty string if unknown.
+func determineArch(cap *cudacapture.Capture) string {
+	if cap != nil {
+		if arch := parseArchFromCapture(cap); arch != "" {
+			return arch
+		}
+	}
+	if arch := queryLiveDeviceArch(); arch != "" {
+		return arch
+	}
+	return ""
+}
+
+// determineDeviceLimits looks up the physical max warps per SM and max blocks per SM
+// keyed by compute capability via x/cudaoccupancy. Returns ok=false if architecture is unknown.
+func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, ok bool) {
+	arch := determineArch(cap)
+	if arch != "" {
+		if dev, err := cudaoccupancy.LookupDevice(arch); err == nil && dev.MaxWarpsPerSM > 0 {
+			return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, true
+		}
+	}
+	return 0, 0, false
+}
+
 // determineSMCount determines the device SM count by inspecting capture metadata,
 // querying a live device if available, looking up device architecture tables,
 // or defaulting to modern architecture SM counts (132/136).
@@ -914,47 +957,72 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 	}
 
 	smCount := determineSMCount(cap)
+	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
 
 	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
-	seenSingleWarp := make(map[string]bool)
+	if hasLimits {
+		seenSingleWarp := make(map[string]bool)
+		for _, launch := range launches {
+			if launch.BlockThreads > 0 && launch.BlockThreads <= 32 {
+				if seenSingleWarp[launch.Kernel] {
+					continue
+				}
+				// Gating: suppress single-block launches (Grid(1)), which are whole-GPU
+				// starvation issues rather than CTA-geometry issues.
+				if launch.GridBlocks == 1 {
+					continue
+				}
+
+				warpsPerBlock := (launch.BlockThreads + 31) / 32
+				if warpsPerBlock <= 0 {
+					warpsPerBlock = 1
+				}
+				blocksPerSM := maxBlocksPerSM
+				if maxWarpsPerSM/warpsPerBlock < blocksPerSM {
+					blocksPerSM = maxWarpsPerSM / warpsPerBlock
+				}
+				residentWarpsPerSM := blocksPerSM * warpsPerBlock
+				occupancyPct := (residentWarpsPerSM * 100) / maxWarpsPerSM
+
+				// Gating: fire only when the launch's geometry leaves the SM underfilled
+				// (i.e. capped by maxBlocksPerSM below the hardware's warp limit).
+				if residentWarpsPerSM >= maxWarpsPerSM {
+					continue
+				}
+				seenSingleWarp[launch.Kernel] = true
+
+				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM",
+					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM)
+
+				report.Items = append(report.Items, AdviceItem{
+					Severity:                 SeverityWarning,
+					Category:                 CategoryArchitectureCompute,
+					Location:                 launch.Location,
+					Finding:                  finding,
+					ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding (worth testing if kernel is latency-bound; note bandwidth-bound streaming kernels may see no speedup).",
+				})
+			}
+		}
+	}
+
+	// Multi-Warp Sequential Reduction Starvation (e.g. ds4_f16_pair_ordered_chunks)
+	seenChunkReduction := make(map[string]bool)
 	for _, launch := range launches {
-		if launch.BlockThreads > 0 && launch.BlockThreads <= 32 {
-			if seenSingleWarp[launch.Kernel] {
-				continue
+		if launch.BlockThreads >= 128 {
+			kLower := strings.ToLower(launch.Kernel)
+			if strings.Contains(kLower, "ordered_chunks") || strings.Contains(kLower, "pair_ordered") || (strings.Contains(kLower, "chunk") && strings.Contains(kLower, "reduce")) {
+				if seenChunkReduction[launch.Kernel] {
+					continue
+				}
+				seenChunkReduction[launch.Kernel] = true
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryArchitectureCompute,
+					Location: launch.Location,
+					Finding:  fmt.Sprintf("Multi-warp thread block underutilization in row reduction: kernel %q launched with %d threads/block (>= 4 warps) executes sequential chunk reductions with idle warps during accumulation", launch.Kernel, launch.BlockThreads),
+					ActionableRecommendation: "Group multiple rows per thread block (e.g. 4 rows per 128-thread block so warp i computes row 4k+i) to maintain 100% warp utilization during chunk accumulation.",
+				})
 			}
-			seenSingleWarp[launch.Kernel] = true
-
-			warpsPerBlock := (launch.BlockThreads + 31) / 32
-			if warpsPerBlock <= 0 {
-				warpsPerBlock = 1
-			}
-			maxWarpsPerSM := 48
-			maxBlocksPerSM := 24
-			if smCount > 48 {
-				maxWarpsPerSM = 64
-				maxBlocksPerSM = 32
-			}
-			blocksPerSM := maxBlocksPerSM
-			if maxWarpsPerSM/warpsPerBlock < blocksPerSM {
-				blocksPerSM = maxWarpsPerSM / warpsPerBlock
-			}
-			residentWarpsPerSM := blocksPerSM * warpsPerBlock
-			occupancyPct := (residentWarpsPerSM * 100) / maxWarpsPerSM
-
-			severity := SeverityWarning
-			finding := fmt.Sprintf("Single-warp thread blocks cannot hide arithmetic or memory latency; threads stall on memory round-trips without alternate warps to issue (kernel %q launched with %d block threads <= 32: %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM)",
-				launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM)
-			if launch.GridBlocks == 1 {
-				finding = fmt.Sprintf("GPU-wide thread starvation: Single-warp thread blocks cannot hide arithmetic or memory latency (kernel %q launched with Grid(1).Block(%d) leaves the entire %d-SM GPU idle)", launch.Kernel, launch.BlockThreads, smCount)
-			}
-
-			report.Items = append(report.Items, AdviceItem{
-				Severity:                 severity,
-				Category:                 CategoryArchitectureCompute,
-				Location:                 launch.Location,
-				Finding:                  finding,
-				ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding (worth testing if kernel is latency-bound; note bandwidth-bound streaming kernels may see no speedup).",
-			})
 		}
 	}
 
@@ -1514,6 +1582,19 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 			continue
 		}
 
+		// Stream-wide micro-kernel telemetry (< 10 µs)
+		var streamMicroCount int
+		var streamMicroTotalNs uint64
+		streamMicroKernelCounts := make(map[string]int)
+		for _, ev := range events {
+			sub := strings.ToLower(ev.Subtype)
+			if (sub == "kernel" || sub == "") && ev.DurationNs < 10000 && ev.DurationNs > 0 {
+				streamMicroCount++
+				streamMicroTotalNs += ev.DurationNs
+				streamMicroKernelCounts[cleanKernelName(ev.Name)]++
+			}
+		}
+
 		// 1. Heuristic 4: CUDA Graph Launch Sequence Candidates
 		var kernelSeq []streamEvent
 		checkGraphCandidate := func() {
@@ -1536,13 +1617,33 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					if median >= 5000 {
 						sev = SeverityInfo
 					}
+					finding := fmt.Sprintf("Driver submission overhead dominates short kernel execution: sequence of %d consecutive kernels on stream %d has median duration %.2f µs (< 10 µs)", len(kernelSeq), streamID, float64(median)/1000.0)
+					if streamMicroCount >= 5 {
+						finding += fmt.Sprintf(" (stream totals %d micro-kernels accumulating %.2f ms)", streamMicroCount, float64(streamMicroTotalNs)/1e6)
+					}
+					if streamMicroCount >= 10 {
+						type kCount struct {
+							name  string
+							count int
+						}
+						var sortedK []kCount
+						for k, c := range streamMicroKernelCounts {
+							sortedK = append(sortedK, kCount{name: k, count: c})
+						}
+						sort.Slice(sortedK, func(i, j int) bool { return sortedK[i].count > sortedK[j].count })
+						var topList []string
+						for i := 0; i < len(sortedK) && i < 3; i++ {
+							topList = append(topList, fmt.Sprintf("%s (%dx)", sortedK[i].name, sortedK[i].count))
+						}
+						finding += fmt.Sprintf(" [top micro-kernels: %s]", strings.Join(topList, ", "))
+					}
 					report.Items = append(report.Items, AdviceItem{
 						Severity: sev,
 						Category: CategoryArchitectureDispatch,
 						Location: Location{
 							Kernel: kernelSeq[0].Name,
 						},
-						Finding:                  fmt.Sprintf("Driver submission overhead dominates short kernel execution: sequence of %d consecutive kernels on stream %d has median duration %.2f µs (< 10 µs)", len(kernelSeq), streamID, float64(median)/1000.0),
+						Finding:                  finding,
 						ActionableRecommendation: "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency.",
 					})
 				}
@@ -1564,7 +1665,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		}
 		checkGraphCandidate()
 
-		// 2. Heuristic 5: Pointwise Producer-Consumer Fusion
+		// 2. Heuristic 5: Pointwise Producer-Consumer Fusion & Sequential Misses
 		seenFusion := make(map[string]bool)
 		for i := 0; i < len(events)-1; i++ {
 			ev1 := events[i]
@@ -1574,6 +1675,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 			if (sub1 != "kernel" && sub1 != "") || (sub2 != "kernel" && sub2 != "") {
 				continue
 			}
+
+			// Elementwise producer-consumer fusion
 			if isElementwise(ev1) && isElementwise(ev2) {
 				if matchingShapesOrBuffers(ev1, ev2) {
 					key := fmt.Sprintf("%s->%s:%d", ev1.Name, ev2.Name, streamID)
@@ -1597,6 +1700,53 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					})
 				}
 			}
+
+			// Sequential RMSNorm -> Block Quantization Fusion
+			if isNormKernel(ev1.Name) && isQuantKernel(ev2.Name) {
+				key := fmt.Sprintf("norm_quant:%s->%s:%d", ev1.Name, ev2.Name, streamID)
+				if !seenFusion[key] {
+					seenFusion[key] = true
+					cleanName1 := cleanKernelName(ev1.Name)
+					cleanName2 := cleanKernelName(ev2.Name)
+					report.Items = append(report.Items, AdviceItem{
+						Severity: SeverityWarning,
+						Category: CategoryMemoryCompute,
+						Location: Location{
+							Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
+						},
+						Finding:                  fmt.Sprintf("Redundant global memory round-trips for normalized activations: %s writes normalized activations to DRAM and %s immediately reads them back for quantization on stream %d", ev1.Name, ev2.Name, streamID),
+						ActionableRecommendation: fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks.", cleanName1, cleanName2),
+					})
+				}
+			}
+
+			// Dual-GEMV Paired Projections
+			if isGEMVKernel(ev1.Name) && isGEMVKernel(ev2.Name) {
+				n1 := strings.ToLower(ev1.Name)
+				n2 := strings.ToLower(ev2.Name)
+				isPaired := (ev1.Buffer != "" && ev1.Buffer == ev2.Buffer) ||
+					(ev1.Shape != "" && ev1.Shape == ev2.Shape) ||
+					(strings.Contains(n1, "qa") && strings.Contains(n2, "kv")) ||
+					(strings.Contains(n1, "gate") && strings.Contains(n2, "up")) ||
+					(strings.Contains(n1, "q_proj") && strings.Contains(n2, "k_proj"))
+				if isPaired {
+					key := fmt.Sprintf("dual_gemv:%s+%s:%d", ev1.Name, ev2.Name, streamID)
+					if !seenFusion[key] {
+						seenFusion[key] = true
+						cleanName1 := cleanKernelName(ev1.Name)
+						cleanName2 := cleanKernelName(ev2.Name)
+						report.Items = append(report.Items, AdviceItem{
+							Severity: SeverityInfo,
+							Category: CategoryMemoryCompute,
+							Location: Location{
+								Kernel: fmt.Sprintf("%s + %s", ev1.Name, ev2.Name),
+							},
+							Finding:                  fmt.Sprintf("Redundant activation DRAM traffic: sequential GEMVs (%s and %s) on stream %d independently load the identical input activation vector", ev1.Name, ev2.Name, streamID),
+							ActionableRecommendation: fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2),
+						})
+					}
+				}
+			}
 		}
 	}
 }
@@ -1604,8 +1754,12 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 func isElementwise(ev streamEvent) bool {
 	name := strings.ToLower(ev.Name)
 	if strings.Contains(name, "gemm") || strings.Contains(name, "matmul") ||
+		strings.Contains(name, "matvec") || strings.Contains(name, "gemv") ||
 		strings.Contains(name, "attention") || strings.Contains(name, "conv") ||
-		strings.Contains(name, "allreduce") || strings.Contains(name, "reduce") {
+		strings.Contains(name, "allreduce") || strings.Contains(name, "reduce") ||
+		strings.Contains(name, "reduction") || strings.Contains(name, "norm") ||
+		strings.Contains(name, "softmax") || strings.Contains(name, "gather") ||
+		strings.Contains(name, "scatter") || strings.Contains(name, "scan") {
 		return false
 	}
 	keywords := []string{
@@ -1621,6 +1775,27 @@ func isElementwise(ev streamEvent) bool {
 	return false
 }
 
+func isNormKernel(name string) bool {
+	n := strings.ToLower(name)
+	if strings.Contains(n, "gemm") || strings.Contains(n, "gemv") || strings.Contains(n, "matvec") || strings.Contains(n, "matmul") {
+		return false
+	}
+	return strings.Contains(n, "rms") || strings.Contains(n, "layernorm") || strings.Contains(n, "norm")
+}
+
+func isQuantKernel(name string) bool {
+	n := strings.ToLower(name)
+	if strings.Contains(n, "gemm") || strings.Contains(n, "gemv") || strings.Contains(n, "matvec") || strings.Contains(n, "matmul") {
+		return false
+	}
+	return strings.Contains(n, "quant") || strings.Contains(n, "quantize")
+}
+
+func isGEMVKernel(name string) bool {
+	n := strings.ToLower(name)
+	return strings.Contains(n, "matvec") || strings.Contains(n, "gemv")
+}
+
 func matchingShapesOrBuffers(ev1, ev2 streamEvent) bool {
 	if ev1.Shape != "" && ev2.Shape != "" {
 		return ev1.Shape == ev2.Shape
@@ -1629,11 +1804,6 @@ func matchingShapesOrBuffers(ev1, ev2 streamEvent) bool {
 		return ev1.Buffer == ev2.Buffer
 	}
 	if ev1.Grid != [3]int{} && ev1.Grid == ev2.Grid && ev1.Block != [3]int{} && ev1.Block == ev2.Block {
-		return true
-	}
-	n1 := strings.ToLower(ev1.Name)
-	n2 := strings.ToLower(ev2.Name)
-	if strings.Contains(n1, "swiglu") && strings.Contains(n2, "quant") {
 		return true
 	}
 	return false
@@ -1655,7 +1825,7 @@ func cleanKernelName(name string) string {
 		return "SiLU"
 	case strings.Contains(nameLower, "relu"):
 		return "ReLU"
-	case strings.Contains(nameLower, "rmsnorm"):
+	case strings.Contains(nameLower, "rmsnorm") || strings.Contains(nameLower, "rms"):
 		return "RMSNorm"
 	case strings.Contains(nameLower, "layernorm"):
 		return "LayerNorm"
