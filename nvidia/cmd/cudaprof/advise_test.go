@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -75,6 +76,41 @@ Args:
   - Shape:       '[1, 1, 1]'
 ...
 `
+
+// microKernelSample builds one short kernel activity sample carrying device
+// timestamps and a launch correlation ID. extraValues pads the sample to a
+// profile with more than one sample type.
+func microKernelSample(name string, stream int, start, end uint64, correlation int, extraValues ...int64) *profile.Sample {
+	value := append([]int64{int64(end - start)}, extraValues...)
+	return &profile.Sample{
+		Value: value,
+		Label: map[string][]string{
+			"name":    {name},
+			"subtype": {"kernel"},
+			"stream":  {strconv.Itoa(stream)},
+		},
+		NumLabel: map[string][]int64{
+			"start":       {int64(start)},
+			"end":         {int64(end)},
+			"correlation": {int64(correlation)},
+		},
+	}
+}
+
+// apiRecordsFile renders host launch API records, keyed by correlation ID, into
+// the capture-status.json form advise reads them from.
+func apiRecordsFile(t *testing.T, starts map[int]uint64) []byte {
+	t.Helper()
+	records := make([]map[string]any, 0, len(starts))
+	for corr, start := range starts {
+		records = append(records, map[string]any{"domain": "driver", "correlation": corr, "start": start, "end": start + 500})
+	}
+	data, err := json.Marshal(map[string]any{"api_records": records})
+	if err != nil {
+		t.Fatalf("marshal api records: %v", err)
+	}
+	return data
+}
 
 func TestAdvice_HighRegisterPressure(t *testing.T) {
 	tests := []struct {
@@ -1054,18 +1090,23 @@ func TestAdvice_CUDAGraphCandidate(t *testing.T) {
 		wantRec      string
 	}{
 		{
-			name: "5_consecutive_short_kernels_under_10us",
+			// 26.5% duty cycle and every launch issued after the previous
+			// kernel had already retired.
+			name: "short_kernels_idle_device_host_behind",
 			cap: &cudacapture.Capture{
+				Files: map[string][]byte{
+					"capture-status.json": apiRecordsFile(t, map[int]uint64{2: 10000, 3: 30000, 4: 50000, 5: 70000}),
+				},
 				Profile: &profile.Profile{
 					SampleType: []*profile.ValueType{
 						{Type: "kernel_time", Unit: "nanoseconds"},
 					},
 					Sample: []*profile.Sample{
-						{Value: []int64{3000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
-						{Value: []int64{4000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
-						{Value: []int64{5000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
-						{Value: []int64{6000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
-						{Value: []int64{4000}, Label: map[string][]string{"name": {"k5"}, "subtype": {"kernel"}, "stream": {"1"}}},
+						microKernelSample("k1", 1, 1000, 4000, 1),
+						microKernelSample("k2", 1, 20000, 24000, 2),
+						microKernelSample("k3", 1, 40000, 45000, 3),
+						microKernelSample("k4", 1, 60000, 66000, 4),
+						microKernelSample("k5", 1, 80000, 84000, 5),
 					},
 				},
 			},
@@ -1074,6 +1115,53 @@ func TestAdvice_CUDAGraphCandidate(t *testing.T) {
 			wantSeverity: SeverityWarning,
 			wantFinding:  "Driver submission overhead dominates short kernel execution",
 			wantRec:      "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency",
+		},
+		{
+			// Same short kernels, but back to back: the device is 98% busy, so
+			// per-launch host cost is costing it nothing.
+			name: "short_kernels_high_duty_cycle",
+			cap: &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						microKernelSample("k1", 1, 1000, 4000, 1),
+						microKernelSample("k2", 1, 4100, 8100, 2),
+						microKernelSample("k3", 1, 8200, 13200, 3),
+						microKernelSample("k4", 1, 13300, 19300, 4),
+						microKernelSample("k5", 1, 19400, 23400, 5),
+					},
+				},
+			},
+			// No dispatch finding of any kind belongs on a busy device.
+			wantWarning:  false,
+			wantCategory: CategoryArchitectureDispatch,
+		},
+		{
+			// Idle device, but every launch was already issued before the
+			// preceding kernel retired: the host is not the cause.
+			name: "short_kernels_idle_device_host_ahead",
+			cap: &cudacapture.Capture{
+				Files: map[string][]byte{
+					"capture-status.json": apiRecordsFile(t, map[int]uint64{2: 1500, 3: 21000, 4: 41000, 5: 61000}),
+				},
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{
+						{Type: "kernel_time", Unit: "nanoseconds"},
+					},
+					Sample: []*profile.Sample{
+						microKernelSample("k1", 1, 1000, 4000, 1),
+						microKernelSample("k2", 1, 20000, 24000, 2),
+						microKernelSample("k3", 1, 40000, 45000, 3),
+						microKernelSample("k4", 1, 60000, 66000, 4),
+						microKernelSample("k5", 1, 80000, 84000, 5),
+					},
+				},
+			},
+			wantWarning:  false,
+			wantCategory: CategoryArchitectureDispatch,
+			wantFinding:  "Driver submission overhead dominates short kernel execution",
 		},
 		{
 			name: "broken_sequence_by_memcpy",
@@ -1389,7 +1477,8 @@ deepseek_decode:
 			SASS: "kernels.sass",
 		},
 		Files: map[string][]byte{
-			"kernels.sass": []byte(sass),
+			"kernels.sass":        []byte(sass),
+			"capture-status.json": apiRecordsFile(t, map[int]uint64{102: 10000, 103: 30000, 104: 50000, 105: 70000}),
 		},
 		Profile: &profile.Profile{
 			SampleType: []*profile.ValueType{
@@ -1420,12 +1509,14 @@ deepseek_decode:
 						"kernel": {"deepseek_decode"},
 					},
 				},
-				// 4. CUDA Graph candidates: 5 consecutive short kernels on stream 1 (< 10 µs)
-				{Value: []int64{2000, 0, 0}, Label: map[string][]string{"name": {"rms_norm"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{4000, 0, 0}, Label: map[string][]string{"name": {"q_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{3000, 0, 0}, Label: map[string][]string{"name": {"k_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{3000, 0, 0}, Label: map[string][]string{"name": {"v_proj"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{5000, 0, 0}, Label: map[string][]string{"name": {"rope_embed"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				// 4. CUDA Graph candidates: 5 consecutive short kernels on stream 1
+				// (< 10 µs) on an idle device, each launched after the previous
+				// kernel had retired.
+				microKernelSample("rms_norm", 1, 1000, 3000, 101, 0, 0),
+				microKernelSample("q_proj", 1, 20000, 24000, 102, 0, 0),
+				microKernelSample("k_proj", 1, 40000, 43000, 103, 0, 0),
+				microKernelSample("v_proj", 1, 60000, 63000, 104, 0, 0),
+				microKernelSample("rope_embed", 1, 80000, 85000, 105, 0, 0),
 				// 5. Pointwise fusion: SwiGLU followed by quantization on stream 2
 				{
 					Value: []int64{45000, 0, 0},
@@ -1892,23 +1983,29 @@ func TestAdvice_MultiWarpReductionStarvation(t *testing.T) {
 
 func TestAdvice_CumulativeDriverSubmissionOverhead(t *testing.T) {
 	// Verifies that a stream with multiple micro-kernels reports cumulative statistics and top contributors.
+	// Kernels are spaced 20 µs apart on an idle stream, and every launch is
+	// issued 5 µs after the previous kernel retired.
+	names := []string{"ds4_rms", "ds4_rms", "ds4_quant_q8_1", "ds4_quant_q8_1", "ds4_router_biased", "ds4_rms", "ds4_quant_q8_1", "ds4_rms", "ds4_router_biased", "ds4_rms"}
+	durations := []uint64{2000, 2000, 2500, 2500, 3000, 2000, 2500, 2000, 3000, 2000}
+	samples := make([]*profile.Sample, 0, len(names))
+	apiStarts := make(map[int]uint64, len(names))
+	var prevEnd uint64
+	for i, name := range names {
+		start := uint64(1000 + i*20000)
+		samples = append(samples, microKernelSample(name, 1, start, start+durations[i], i+1))
+		if i > 0 {
+			apiStarts[i+1] = prevEnd + 5000
+		}
+		prevEnd = start + durations[i]
+	}
+
 	cap := &cudacapture.Capture{
+		Files: map[string][]byte{"capture-status.json": apiRecordsFile(t, apiStarts)},
 		Profile: &profile.Profile{
 			SampleType: []*profile.ValueType{
 				{Type: "kernel_time", Unit: "nanoseconds"},
 			},
-			Sample: []*profile.Sample{
-				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{3000}, Label: map[string][]string{"name": {"ds4_router_biased"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2500}, Label: map[string][]string{"name": {"ds4_quant_q8_1"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{3000}, Label: map[string][]string{"name": {"ds4_router_biased"}, "subtype": {"kernel"}, "stream": {"1"}}},
-				{Value: []int64{2000}, Label: map[string][]string{"name": {"ds4_rms"}, "subtype": {"kernel"}, "stream": {"1"}}},
-			},
+			Sample: samples,
 		},
 	}
 
@@ -1976,6 +2073,205 @@ func TestAdvice_MicroKernelDeterministicTieBreaking(t *testing.T) {
 		if !found {
 			t.Fatalf("run %d: expected finding with top micro-kernels not found", repeat)
 		}
+	}
+}
+
+// geometrySample builds one kernel activity sample with launch geometry labels.
+func geometrySample(name, grid, block string, durationNs int64) *profile.Sample {
+	return &profile.Sample{
+		Value: []int64{durationNs},
+		Label: map[string][]string{
+			"name":    {name},
+			"subtype": {"kernel"},
+			"stream":  {"1"},
+			"grid":    {grid},
+			"block":   {block},
+		},
+	}
+}
+
+func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
+	const gb10Metadata = `{"arch":"sm_121a","sm_count":48,"device":"NVIDIA GB10"}`
+	// 48 SMs x 32 threads per warp.
+	const warpPerSM = 1536
+
+	tests := []struct {
+		name         string
+		metadata     string
+		samples      []*profile.Sample
+		wantSeverity Severity
+		wantFindings []string
+		wantRec      string
+		wantAbsent   []string
+	}{
+		{
+			name:     "single_threaded_launches",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_hc_cached_split", "1,1,1", "1,1,1", 15200),
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+			},
+			wantSeverity: SeverityCritical,
+			wantFindings: []string{
+				"Single-threaded kernel launches leave the device idle",
+				"5 of 6 captured launches (83.3%) ran one thread (grid 1 x block 1)",
+				"consuming 0.77 ms of device time",
+				"ds4_compressor_attention (1 thread, 2 launches, 361.3 µs mean, 0.72 ms total)",
+			},
+			wantRec: "Parallelize these kernels across threads and blocks",
+		},
+		{
+			name:     "cannot_fill_one_warp_per_sm",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+			},
+			wantSeverity: SeverityWarning,
+			wantFindings: []string{
+				"Launch geometry cannot fill one warp per SM",
+				"2 of 3 captured launches (66.7%) ran fewer than 1536 total threads (48 SMs x 32 threads per warp)",
+				"ds4_compressor_indexer (128 threads, 2 launches, 78.8 µs mean, 0.16 ms total)",
+			},
+			wantRec:    "Grow the grid so at least one warp is resident per SM (>= 1536 total threads)",
+			wantAbsent: []string{"Single-threaded kernel launches leave the device idle"},
+		},
+		{
+			name:     "fully_subscribed_launches",
+			metadata: gb10Metadata,
+			samples: []*profile.Sample{
+				geometrySample("ds4_moe_gemm", "96,1,1", "256,1,1", 100000),
+				geometrySample("ds4_attention", "48,2,1", "128,1,1", 200000),
+			},
+			wantAbsent: []string{
+				"Single-threaded kernel launches leave the device idle",
+				"Launch geometry cannot fill one warp per SM",
+			},
+		},
+	}
+
+	if warpPerSM != 48*32 {
+		t.Fatalf("warpPerSM constant %d does not match 48 SMs x 32 threads", warpPerSM)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := &cudacapture.Capture{
+				Metadata: []byte(tt.metadata),
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+					Sample:     tt.samples,
+				},
+			}
+			report := &AdviceReport{}
+			auditUnderSubscribedLaunches(cap, report)
+
+			for _, want := range tt.wantFindings {
+				var found bool
+				for _, item := range report.Items {
+					if strings.Contains(item.Finding, want) {
+						found = true
+						if item.Severity != tt.wantSeverity {
+							t.Errorf("severity = %q, want %q", item.Severity, tt.wantSeverity)
+						}
+						if item.Category != CategoryArchitectureCompute {
+							t.Errorf("category = %q, want %q", item.Category, CategoryArchitectureCompute)
+						}
+						if tt.wantRec != "" && !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
+							t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+						}
+						break
+					}
+				}
+				if !found {
+					t.Errorf("finding containing %q not found; items: %+v", want, report.Items)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				for _, item := range report.Items {
+					if strings.Contains(item.Finding, absent) {
+						t.Errorf("unexpected finding containing %q: %+v", absent, item)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
+	// Without a recorded SM count the one-warp-per-SM rule cannot run, and the
+	// single-thread finding has to say so.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				geometrySample("ds4_compressor_attention", "1,1,1", "1,1,1", 361300),
+				geometrySample("ds4_compressor_indexer", "4,1,1", "32,1,1", 78800),
+			},
+		},
+	}
+
+	// A CUDA host answers determineSMCount from the live device; this case only
+	// exists where nothing can.
+	if _, _, hasSMCount := determineSMCount(cap); hasSMCount {
+		t.Skip("local CUDA device supplies an SM count; degraded path not reachable here")
+	}
+
+	report := &AdviceReport{}
+	auditUnderSubscribedLaunches(cap, report)
+
+	var found bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Single-threaded kernel launches leave the device idle") {
+			found = true
+			if !strings.Contains(item.Finding, "one-warp-per-SM rule was skipped") {
+				t.Errorf("finding = %q, want it to disclose the skipped one-warp-per-SM rule", item.Finding)
+			}
+		}
+		if strings.Contains(item.Finding, "Launch geometry cannot fill one warp per SM") {
+			t.Errorf("warp-per-SM finding emitted without an SM count: %+v", item)
+		}
+	}
+	if !found {
+		t.Fatalf("expected single-threaded launch finding; items: %+v", report.Items)
+	}
+}
+
+func TestAdvice_ShortKernelSequenceWithoutTimestamps(t *testing.T) {
+	// A capture with no activity timestamps cannot support any statement about
+	// device idle time or host submission.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				{Value: []int64{3000}, Label: map[string][]string{"name": {"k1"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{4000}, Label: map[string][]string{"name": {"k2"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{5000}, Label: map[string][]string{"name": {"k3"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{6000}, Label: map[string][]string{"name": {"k4"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{4000}, Label: map[string][]string{"name": {"k5"}, "subtype": {"kernel"}, "stream": {"1"}}},
+			},
+		},
+	}
+
+	report := &AdviceReport{}
+	auditStreamKernelSequences(cap, report)
+
+	var found bool
+	for _, item := range report.Items {
+		if strings.Contains(item.Finding, "Driver submission overhead") || strings.Contains(item.Finding, "Low GPU duty cycle") {
+			t.Errorf("asserted an unmeasured cause: %+v", item)
+		}
+		if item.Severity == SeverityInfo && strings.Contains(item.Finding, "Short-kernel dispatch sequence with unmeasured GPU duty cycle") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected the unmeasured-duty-cycle Info finding; items: %+v", report.Items)
 	}
 }
 

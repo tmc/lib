@@ -485,13 +485,16 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
 
-	// 5. Uncoalesced Memory Access Audit (SASS & PC Sampling & Remarks)
+	// 5. Under-subscribed Launch Audit (Single-Threaded & Sub-Warp-Per-SM Grids)
+	auditUnderSubscribedLaunches(cap, report)
+
+	// 6. Uncoalesced Memory Access Audit (SASS & PC Sampling & Remarks)
 	auditUncoalescedMemory(cap, report)
 
-	// 6. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
+	// 7. Stream Kernel Sequences (CUDA Graph Candidates & Pointwise Fusion)
 	auditStreamKernelSequences(cap, report)
 
-	// 7. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
+	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
 	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime)
 
@@ -1048,10 +1051,10 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				}
 				seenChunkReduction[launch.Kernel] = true
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryArchitectureCompute,
-					Location: launch.Location,
-					Finding:  fmt.Sprintf("Multi-warp thread block underutilization in row reduction: kernel %q launched with %d threads/block (>= 4 warps) executes sequential chunk reductions with idle warps during accumulation", launch.Kernel, launch.BlockThreads),
+					Severity:                 SeverityWarning,
+					Category:                 CategoryArchitectureCompute,
+					Location:                 launch.Location,
+					Finding:                  fmt.Sprintf("Multi-warp thread block underutilization in row reduction: kernel %q launched with %d threads/block (>= 4 warps) executes sequential chunk reductions with idle warps during accumulation", launch.Kernel, launch.BlockThreads),
 					ActionableRecommendation: "Group multiple rows per thread block (e.g. 4 rows per 128-thread block so warp i computes row 4k+i) to maintain 100% warp utilization during chunk accumulation.",
 				})
 			}
@@ -1081,6 +1084,169 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				})
 			}
 		}
+	}
+}
+
+// dim3Threads returns the product of a launch dimension, or 0 when any
+// component is unset, which means the capture did not record the geometry.
+func dim3Threads(d [3]int) int {
+	n := 1
+	for _, v := range d {
+		if v <= 0 {
+			return 0
+		}
+		n *= v
+	}
+	return n
+}
+
+// underSubscribedStat accumulates the launches of one kernel that cannot
+// occupy the device.
+type underSubscribedStat struct {
+	kernel  string
+	threads int
+	count   int
+	totalNs uint64
+}
+
+// formatUnderSubscribed names the worst offenders by accumulated device time.
+func formatUnderSubscribed(stats map[string]*underSubscribedStat) string {
+	ordered := make([]*underSubscribedStat, 0, len(stats))
+	for _, st := range stats {
+		ordered = append(ordered, st)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].totalNs != ordered[j].totalNs {
+			return ordered[i].totalNs > ordered[j].totalNs
+		}
+		return ordered[i].kernel < ordered[j].kernel
+	})
+	var parts []string
+	for i := 0; i < len(ordered) && i < 3; i++ {
+		st := ordered[i]
+		meanUs := float64(st.totalNs) / float64(st.count) / 1000.0
+		threadWord := "threads"
+		if st.threads == 1 {
+			threadWord = "thread"
+		}
+		parts = append(parts, fmt.Sprintf("%s (%d %s, %d launches, %.1f µs mean, %.2f ms total)", cleanKernelName(st.kernel), st.threads, threadWord, st.count, meanUs, float64(st.totalNs)/1e6))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// worstKernel returns the kernel holding the most device time in stats.
+func worstKernel(stats map[string]*underSubscribedStat) (string, uint64) {
+	var name string
+	var best uint64
+	for _, st := range stats {
+		if st.totalNs > best || (st.totalNs == best && (name == "" || st.kernel < name)) {
+			name, best = st.kernel, st.totalNs
+		}
+	}
+	return name, best
+}
+
+// auditUnderSubscribedLaunches reports launches whose total thread count cannot
+// occupy the device: single-threaded launches, and launches that cannot supply
+// one warp per SM. The per-SM rule needs the device SM count; when the capture
+// does not record it and no local device answers, only the single-thread rule
+// runs and the finding says so.
+func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport) {
+	if cap == nil {
+		return
+	}
+	streamEvents := extractStreamEvents(cap)
+	if len(streamEvents) == 0 {
+		return
+	}
+
+	smCount, smSrc, hasSMCount := determineSMCount(cap)
+	warpPerSMThreads := 0
+	if hasSMCount {
+		warpPerSMThreads = smCount * warpSize
+	}
+
+	single := make(map[string]*underSubscribedStat)
+	subWarp := make(map[string]*underSubscribedStat)
+	var singleCount, subWarpCount, geometryLaunches int
+	var singleNs, subWarpNs uint64
+
+	accumulate := func(stats map[string]*underSubscribedStat, ev streamEvent, threads int) {
+		st := stats[ev.Name]
+		if st == nil {
+			st = &underSubscribedStat{kernel: ev.Name, threads: threads}
+			stats[ev.Name] = st
+		}
+		if threads < st.threads {
+			st.threads = threads
+		}
+		st.count++
+		st.totalNs += ev.DurationNs
+	}
+
+	for _, events := range streamEvents {
+		for _, ev := range events {
+			sub := strings.ToLower(ev.Subtype)
+			if sub != "kernel" && sub != "" {
+				continue
+			}
+			threads := dim3Threads(ev.Grid) * dim3Threads(ev.Block)
+			if threads <= 0 || ev.Name == "" {
+				continue
+			}
+			geometryLaunches++
+			switch {
+			case threads == 1:
+				singleCount++
+				singleNs += ev.DurationNs
+				accumulate(single, ev, threads)
+			case warpPerSMThreads > 0 && threads < warpPerSMThreads:
+				subWarpCount++
+				subWarpNs += ev.DurationNs
+				accumulate(subWarp, ev, threads)
+			}
+		}
+	}
+	if geometryLaunches == 0 {
+		return
+	}
+
+	if singleCount > 0 {
+		finding := fmt.Sprintf("Single-threaded kernel launches leave the device idle: %d of %d captured launches (%.1f%%) ran one thread (grid 1 x block 1), consuming %.2f ms of device time; worst offenders: %s",
+			singleCount, geometryLaunches, float64(singleCount)*100.0/float64(geometryLaunches), float64(singleNs)/1e6, formatUnderSubscribed(single))
+		if !hasSMCount {
+			finding += " (device SM count is not recorded in this capture and no local CUDA device answered, so the one-warp-per-SM rule was skipped)"
+		}
+		kernel, _ := worstKernel(single)
+		report.Items = append(report.Items, AdviceItem{
+			Severity:        SeverityCritical,
+			Category:        CategoryArchitectureCompute,
+			DeviceTimeNanos: int64(singleNs),
+			Location: Location{
+				Kernel: kernel,
+			},
+			Finding:                  finding,
+			ActionableRecommendation: "Parallelize these kernels across threads and blocks, or fold their work into an adjacent kernel: a single-thread launch occupies one lane of one warp on one SM and leaves the rest of the device idle for its whole duration.",
+		})
+	}
+
+	if subWarpCount > 0 {
+		provSuffix := ""
+		if smSrc == sourceLiveDevice {
+			provSuffix = " (SM count inferred from local host device, not recorded in capture)"
+		}
+		kernel, _ := worstKernel(subWarp)
+		report.Items = append(report.Items, AdviceItem{
+			Severity:        SeverityWarning,
+			Category:        CategoryArchitectureCompute,
+			DeviceTimeNanos: int64(subWarpNs),
+			Location: Location{
+				Kernel: kernel,
+			},
+			Finding: fmt.Sprintf("Launch geometry cannot fill one warp per SM: %d of %d captured launches (%.1f%%) ran fewer than %d total threads (%d SMs x %d threads per warp), consuming %.2f ms of device time; worst offenders: %s%s",
+				subWarpCount, geometryLaunches, float64(subWarpCount)*100.0/float64(geometryLaunches), warpPerSMThreads, smCount, warpSize, float64(subWarpNs)/1e6, formatUnderSubscribed(subWarp), provSuffix),
+			ActionableRecommendation: fmt.Sprintf("Grow the grid so at least one warp is resident per SM (>= %d total threads), or batch the independent launches of this kernel into a single dispatch.", warpPerSMThreads),
+		})
 	}
 }
 
@@ -1592,10 +1758,133 @@ type streamEvent struct {
 	Name       string
 	Stream     uint32
 	DurationNs uint64
-	Shape      string
-	Buffer     string
-	Grid       [3]int
-	Block      [3]int
+	// Start and End are device timestamps. They are zero when the capture does
+	// not carry per-activity timestamps.
+	Start       uint64
+	End         uint64
+	Correlation uint32
+	Shape       string
+	Buffer      string
+	Grid        [3]int
+	Block       [3]int
+}
+
+const (
+	// microKernelMedianNs is the median kernel duration below which a sequence
+	// is short enough for per-launch host cost to be worth testing for.
+	microKernelMedianNs = 10000
+	// lowDutyCyclePct is the GPU duty cycle below which a sequence's device
+	// span is mostly idle.
+	lowDutyCyclePct = 75.0
+	// hostBehindFraction is the share of a sequence's measured launches that
+	// must start after the preceding kernel ended before the host counts as
+	// persistently behind the device.
+	hostBehindFraction = 0.75
+	// warpSize is the hardware warp width, constant across every CUDA
+	// architecture cudaprof supports.
+	warpSize = 32
+)
+
+// apiCall is a host driver or runtime API call. Its timestamps describe the
+// host call, not the GPU work it launched.
+type apiCall struct {
+	Start uint64
+	End   uint64
+}
+
+// extractAPIRecords indexes host launch API records by correlation ID. Captures
+// written through compactCaptureStatus omit the per-record array, so the result
+// is empty unless the capture retains api_records.
+func extractAPIRecords(cap *cudacapture.Capture) map[uint32]apiCall {
+	res := make(map[uint32]apiCall)
+	if cap == nil {
+		return res
+	}
+	for _, name := range []string{"capture-status.json", "status.json", "activities.json", "trace.json"} {
+		data, ok := cap.Files[name]
+		if !ok || len(data) == 0 {
+			continue
+		}
+		var raw map[string]any
+		if json.Unmarshal(data, &raw) != nil {
+			continue
+		}
+		items, _ := raw["api_records"].([]any)
+		if items == nil {
+			if nested, ok := raw["status"].(map[string]any); ok {
+				items, _ = nested["api_records"].([]any)
+			}
+		}
+		for _, item := range items {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			corr, ok := m["correlation"].(float64)
+			if !ok || corr <= 0 {
+				continue
+			}
+			start, _ := m["start"].(float64)
+			if start <= 0 {
+				continue
+			}
+			end, _ := m["end"].(float64)
+			res[uint32(corr)] = apiCall{Start: uint64(start), End: uint64(end)}
+		}
+		if len(res) > 0 {
+			return res
+		}
+	}
+	return res
+}
+
+// sequenceDutyCycle returns the percentage of the sequence's device span spent
+// executing its kernels. ok is false when the capture does not carry usable
+// timestamps for every kernel in the sequence.
+func sequenceDutyCycle(seq []streamEvent) (pct float64, ok bool) {
+	if len(seq) == 0 {
+		return 0, false
+	}
+	var busy, first, last uint64
+	for _, ev := range seq {
+		if ev.Start == 0 || ev.End < ev.Start {
+			return 0, false
+		}
+		busy += ev.DurationNs
+		if first == 0 || ev.Start < first {
+			first = ev.Start
+		}
+		if ev.End > last {
+			last = ev.End
+		}
+	}
+	span := last - first
+	if span == 0 {
+		return 0, false
+	}
+	return float64(busy) * 100.0 / float64(span), true
+}
+
+// hostBehindLaunches counts the sequence launches whose host API call started
+// only after the preceding kernel had already finished on the device, i.e. the
+// launches for which the device waited on the host. measured counts the
+// launches for which both timestamps were available.
+func hostBehindLaunches(seq []streamEvent, apis map[uint32]apiCall) (behind, measured int) {
+	if len(apis) == 0 {
+		return 0, 0
+	}
+	for i := 1; i < len(seq); i++ {
+		prevEnd := seq[i-1].End
+		call, ok := apis[seq[i].Correlation]
+		if !ok || prevEnd == 0 || call.Start == 0 {
+			continue
+		}
+		measured++
+		if call.Start > prevEnd {
+			behind++
+		}
+	}
+	return behind, measured
 }
 
 func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) {
@@ -1607,6 +1896,8 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 	if len(streamEvents) == 0 {
 		return
 	}
+	apis := extractAPIRecords(cap)
+	seenDutyUnmeasured := make(map[uint32]bool)
 
 	streams := make([]uint32, 0, len(streamEvents))
 	for s := range streamEvents {
@@ -1626,7 +1917,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		streamMicroKernelCounts := make(map[string]int)
 		for _, ev := range events {
 			sub := strings.ToLower(ev.Subtype)
-			if (sub == "kernel" || sub == "") && ev.DurationNs < 10000 && ev.DurationNs > 0 {
+			if (sub == "kernel" || sub == "") && ev.DurationNs < microKernelMedianNs && ev.DurationNs > 0 {
 				streamMicroCount++
 				streamMicroTotalNs += ev.DurationNs
 				streamMicroKernelCounts[cleanKernelName(ev.Name)]++
@@ -1650,14 +1941,10 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					median = (durations[n/2-1] + durations[n/2]) / 2
 				}
 
-				if median < 10000 {
-					sev := SeverityWarning
-					if median >= 5000 {
-						sev = SeverityInfo
-					}
-					finding := fmt.Sprintf("Driver submission overhead dominates short kernel execution: sequence of %d consecutive kernels on stream %d has median duration %.2f µs (< 10 µs)", len(kernelSeq), streamID, float64(median)/1000.0)
+				if median < microKernelMedianNs {
+					detail := fmt.Sprintf("sequence of %d consecutive kernels on stream %d has median duration %.2f µs (< %d µs)", len(kernelSeq), streamID, float64(median)/1000.0, microKernelMedianNs/1000)
 					if streamMicroCount >= 5 {
-						finding += fmt.Sprintf(" (stream totals %d micro-kernels accumulating %.2f ms)", streamMicroCount, float64(streamMicroTotalNs)/1e6)
+						detail += fmt.Sprintf(" (stream totals %d micro-kernels accumulating %.2f ms)", streamMicroCount, float64(streamMicroTotalNs)/1e6)
 					}
 					if streamMicroCount >= 10 {
 						type kCount struct {
@@ -1678,17 +1965,54 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						for i := 0; i < len(sortedK) && i < 3; i++ {
 							topList = append(topList, fmt.Sprintf("%s (%dx)", sortedK[i].name, sortedK[i].count))
 						}
-						finding += fmt.Sprintf(" [top micro-kernels: %s]", strings.Join(topList, ", "))
+						detail += fmt.Sprintf(" [top micro-kernels: %s]", strings.Join(topList, ", "))
 					}
-					report.Items = append(report.Items, AdviceItem{
-						Severity: sev,
-						Category: CategoryArchitectureDispatch,
-						Location: Location{
-							Kernel: kernelSeq[0].Name,
-						},
-						Finding:                  finding,
-						ActionableRecommendation: "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency.",
-					})
+
+					// A short kernel does not imply that the host cannot keep the
+					// device fed. Report submission overhead only where the device
+					// is measurably idle and the host is measurably behind it.
+					duty, dutyOK := sequenceDutyCycle(kernelSeq)
+					switch {
+					case !dutyOK:
+						if !seenDutyUnmeasured[streamID] {
+							seenDutyUnmeasured[streamID] = true
+							report.Items = append(report.Items, AdviceItem{
+								Severity: SeverityInfo,
+								Category: CategoryArchitectureDispatch,
+								Location: Location{
+									Kernel: kernelSeq[0].Name,
+								},
+								Finding:                  fmt.Sprintf("Short-kernel dispatch sequence with unmeasured GPU duty cycle: %s, but this capture carries no activity start/end timestamps, so neither device idle time nor host submission was measured", detail),
+								ActionableRecommendation: "Re-capture with activity timestamps and host launch API records so duty cycle and submission latency can be measured before restructuring dispatch.",
+							})
+						}
+					case duty >= lowDutyCyclePct:
+						// The device is busy across the sequence span; per-launch
+						// host cost is not costing device time here.
+					default:
+						behind, measured := hostBehindLaunches(kernelSeq, apis)
+						sev := SeverityInfo
+						finding := fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%); host launch timestamps are absent from this capture, so the cause of the idle time was not measured", detail, duty, lowDutyCyclePct)
+						rec := "Capture host launch API records (correlation-matched) to test whether host submission is behind the device before restructuring dispatch."
+						switch {
+						case measured > 0 && float64(behind) >= hostBehindFraction*float64(measured):
+							sev = SeverityWarning
+							finding = fmt.Sprintf("Driver submission overhead dominates short kernel execution: %s, its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), and %d of %d measured launches (%.1f%%) began only after the preceding kernel had already finished", detail, duty, lowDutyCyclePct, behind, measured, float64(behind)*100.0/float64(measured))
+							rec = "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency."
+						case measured > 0:
+							finding = fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), but only %d of %d measured launches began after the preceding kernel had finished, so the host was not behind the device for most of the sequence", detail, duty, lowDutyCyclePct, behind, measured)
+							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
+						}
+						report.Items = append(report.Items, AdviceItem{
+							Severity: sev,
+							Category: CategoryArchitectureDispatch,
+							Location: Location{
+								Kernel: kernelSeq[0].Name,
+							},
+							Finding:                  finding,
+							ActionableRecommendation: rec,
+						})
+					}
 				}
 			}
 			kernelSeq = kernelSeq[:0]
@@ -1950,6 +2274,30 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 				durationNs, _ = strconv.ParseUint(s.Label["duration_ns"][0], 10, 64)
 			}
 
+			var startNs, endNs uint64
+			if len(s.NumLabel["start"]) > 0 && s.NumLabel["start"][0] > 0 {
+				startNs = uint64(s.NumLabel["start"][0])
+			} else if len(s.Label["start"]) > 0 {
+				startNs, _ = strconv.ParseUint(s.Label["start"][0], 10, 64)
+			}
+			if len(s.NumLabel["end"]) > 0 && s.NumLabel["end"][0] > 0 {
+				endNs = uint64(s.NumLabel["end"][0])
+			} else if len(s.Label["end"]) > 0 {
+				endNs, _ = strconv.ParseUint(s.Label["end"][0], 10, 64)
+			}
+			if endNs == 0 && startNs > 0 && durationNs > 0 {
+				endNs = startNs + durationNs
+			}
+
+			var correlation uint32
+			if len(s.NumLabel["correlation"]) > 0 && s.NumLabel["correlation"][0] > 0 {
+				correlation = uint32(s.NumLabel["correlation"][0])
+			} else if len(s.Label["correlation"]) > 0 {
+				if n, err := strconv.ParseUint(s.Label["correlation"][0], 10, 32); err == nil {
+					correlation = uint32(n)
+				}
+			}
+
 			shape := ""
 			if len(s.Label["shape"]) > 0 {
 				shape = s.Label["shape"][0]
@@ -1972,14 +2320,17 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 
 			if name != "" || subtype != "" {
 				res[streamID] = append(res[streamID], streamEvent{
-					Subtype:    subtype,
-					Name:       name,
-					Stream:     streamID,
-					DurationNs: durationNs,
-					Shape:      shape,
-					Buffer:     buffer,
-					Grid:       grid,
-					Block:      block,
+					Subtype:     subtype,
+					Name:        name,
+					Stream:      streamID,
+					DurationNs:  durationNs,
+					Start:       startNs,
+					End:         endNs,
+					Correlation: correlation,
+					Shape:       shape,
+					Buffer:      buffer,
+					Grid:        grid,
+					Block:       block,
 				})
 			}
 		}
@@ -2052,6 +2403,10 @@ func parseStreamEventsFromJSON(data []byte) []streamEvent {
 		}
 		if end >= start && start > 0 {
 			ev.DurationNs = end - start
+			ev.Start, ev.End = start, end
+		}
+		if c, ok := m["correlation"].(float64); ok && c > 0 {
+			ev.Correlation = uint32(c)
 		}
 		if d, ok := m["duration"].(float64); ok && d > 0 {
 			ev.DurationNs = uint64(d)
