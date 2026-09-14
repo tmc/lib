@@ -1631,7 +1631,12 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						for k, c := range streamMicroKernelCounts {
 							sortedK = append(sortedK, kCount{name: k, count: c})
 						}
-						sort.Slice(sortedK, func(i, j int) bool { return sortedK[i].count > sortedK[j].count })
+						sort.Slice(sortedK, func(i, j int) bool {
+							if sortedK[i].count != sortedK[j].count {
+								return sortedK[i].count > sortedK[j].count
+							}
+							return sortedK[i].name < sortedK[j].name
+						})
 						var topList []string
 						for i := 0; i < len(sortedK) && i < 3; i++ {
 							topList = append(topList, fmt.Sprintf("%s (%dx)", sortedK[i].name, sortedK[i].count))

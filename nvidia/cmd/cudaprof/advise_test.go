@@ -1933,3 +1933,48 @@ func TestAdvice_CumulativeDriverSubmissionOverhead(t *testing.T) {
 		t.Fatalf("expected Cumulative driver submission advisory not found; items: %+v", report.Items)
 	}
 }
+
+func TestAdvice_MicroKernelDeterministicTieBreaking(t *testing.T) {
+	// Verifies that micro-kernels with identical counts sort deterministically (alphabetically by name).
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "kernel_time", Unit: "nanoseconds"},
+			},
+			Sample: []*profile.Sample{
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_z"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_a"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_z"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_a"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_m"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_m"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_b"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_b"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_c"}, "subtype": {"kernel"}, "stream": {"1"}}},
+				{Value: []int64{2000}, Label: map[string][]string{"name": {"kernel_c"}, "subtype": {"kernel"}, "stream": {"1"}}},
+			},
+		},
+	}
+
+	for repeat := 0; repeat < 5; repeat++ {
+		report, err := AnalyzeCapture(cap)
+		if err != nil {
+			t.Fatalf("AnalyzeCapture failed: %v", err)
+		}
+		var found bool
+		for _, item := range report.Items {
+			if strings.Contains(item.Finding, "top micro-kernels") {
+				found = true
+				want := "[top micro-kernels: kernel_a (2x), kernel_b (2x), kernel_c (2x)]"
+				if !strings.Contains(item.Finding, want) {
+					t.Fatalf("run %d: finding = %q, want containing %q", repeat, item.Finding, want)
+				}
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("run %d: expected finding with top micro-kernels not found", repeat)
+		}
+	}
+}
+
