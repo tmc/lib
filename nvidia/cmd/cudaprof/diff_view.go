@@ -742,8 +742,15 @@ func computeTopStallShifts(bStalls, tStalls map[string]int64) []StallShiftSummar
 		})
 	}
 
+	// shifts came out of a map, so equal deltas must be broken by name or
+	// the top five are a different five on every run and two diffs of the
+	// same pair of profiles disagree.
 	sort.Slice(shifts, func(i, j int) bool {
-		return math.Abs(float64(shifts[i].Delta)) > math.Abs(float64(shifts[j].Delta))
+		di, dj := math.Abs(float64(shifts[i].Delta)), math.Abs(float64(shifts[j].Delta))
+		if di != dj {
+			return di > dj
+		}
+		return shifts[i].Reason < shifts[j].Reason
 	})
 
 	if len(shifts) > 5 {

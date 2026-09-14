@@ -107,9 +107,15 @@ func TestConvertInstruction(t *testing.T) {
 }
 
 func TestComputeTopStallShifts(t *testing.T) {
-	got := computeTopStallShifts(map[string]int64{"stall_mem": 10, "stall_tex": 10}, map[string]int64{"stall_mem": 15, "stall_tex": 15})
-	if len(got) != 2 || got[0].Reason != "stall_mem" || got[0].Delta != 5 {
-		t.Fatalf("computeTopStallShifts = %#v", got)
+	// Equal deltas: the order must come from the reason name, not from map
+	// iteration, or the same pair of profiles diffs differently each run.
+	base := map[string]int64{"stall_mem": 10, "stall_tex": 10}
+	target := map[string]int64{"stall_mem": 15, "stall_tex": 15}
+	for range 20 {
+		got := computeTopStallShifts(base, target)
+		if len(got) != 2 || got[0].Reason != "stall_mem" || got[0].Delta != 5 {
+			t.Fatalf("computeTopStallShifts = %#v", got)
+		}
 	}
 	if got := computeTopStallShifts(nil, nil); got != nil {
 		t.Fatalf("empty shifts = %#v, want nil", got)
