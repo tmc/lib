@@ -15,12 +15,17 @@ LOG := $(REPO)/api/nvidia.log
 # is noisy but keeps apidiff's exit status from being hidden behind a pipe.
 FILTER := grep -v '^Ignoring internal package '
 
-.PHONY: regen version-check api-update clean
+.PHONY: regen version-check api-update api-added clean
 
 # Regenerate every binding package, then check what the regeneration did to
 # the API. The check runs here rather than in a person's memory: a rename
 # that leaves constant values alone is invisible to every other gate.
+#
+# regen.sh is excluded from the repository by .git/info/exclude, so it is
+# present in this working copy and in no clone. Say that rather than let
+# make report a missing file.
 regen:
+	@test -f regen.sh || { 		echo "regen: regen.sh is not in this tree." >&2; 		echo "It is untracked and excluded by .git/info/exclude, so a" >&2; 		echo "clone does not have it. Commit it before relying on this." >&2; 		exit 1; 	}
 	sh regen.sh
 	$(MAKE) version-check
 
@@ -32,7 +37,22 @@ regen:
 # reports a difference on every invocation. Sorting separates the warning's
 # continuation lines from their entry, which makes the diff a set difference
 # and not a readable report; read api/nvidia.log itself for that.
+# A verdict has to name a revision, so a dirty tree fails: this working copy
+# is shared, and a gate that reads uncommitted work reports on a state no tag
+# will ever have. Set ALLOW_DIRTY=1 to check anyway; the verdict then says so.
 version-check: $(WORK)/old.api $(WORK)/new.api
+	@rev=$$(git -C $(REPO) rev-parse --short HEAD); \
+	if [ -n "$$(git -C $(REPO) status --porcelain)" ]; then \
+		if [ "$(ALLOW_DIRTY)" = 1 ]; then \
+			echo "version-check: DIRTY TREE at $$rev; this verdict names no revision"; \
+		else \
+			echo "version-check: working tree is dirty at $$rev." >&2; \
+			echo "Commit, or set ALLOW_DIRTY=1 to check the tree as it is." >&2; \
+			exit 1; \
+		fi; \
+	else \
+		echo "version-check: clean tree at $$rev"; \
+	fi
 	@GOWORK=off apidiff -m -incompatible $(WORK)/old.api $(WORK)/new.api \
 		> $(WORK)/raw.log
 	@$(FILTER) < $(WORK)/raw.log | sort > $(WORK)/current.log
@@ -66,6 +86,19 @@ $(WORK)/old.api:
 $(WORK)/new.api:
 	@mkdir -p $(WORK)
 	GOWORK=off apidiff -m -w $@ github.com/tmc/lib/nvidia
+
+# What the incompatible set cannot show. api/nvidia.log is -incompatible
+# output, so every addition is missing from it -- and this release is mostly
+# additions. Print the other half so a changelog written from the log alone
+# does not silently omit the larger story.
+api-added: $(WORK)/old.api $(WORK)/new.api
+	@GOWORK=off apidiff -m $(WORK)/old.api $(WORK)/new.api > $(WORK)/full.log
+	@echo "compatible entries: $$(awk '/^Compatible changes:/{f=1;next} f' \
+		$(WORK)/full.log | grep -c '^- ')"
+	@echo "packages added:"
+	@awk '/^Compatible changes:/{f=1;next} f' $(WORK)/full.log \
+		| sed -n 's|^- package github.com/tmc/lib/nvidia/\([^:]*\): added$$|  \1|p' \
+		| sort
 
 clean:
 	git -C $(REPO) worktree remove --force $(WORK)/tag 2>/dev/null || true
