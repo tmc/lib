@@ -40,15 +40,15 @@ Two consequences follow:
   that regenerate nothing" -- is retired because it cannot fire. One
   nvidia tag has ever been cut, so no tag has been forced by anything,
   and the predicate stays false however large the churn gets. Split
-  `nvidia/x` into its own module at the next train, so that "changes at
-  will" becomes something a version can say. A module-path change is
-  breaking, but it is breaking for nobody until the first public tag, so
-  the split is cheapest now and never cheaper later. Until then the
-  exemption is carried by this file alone. It is not carried by
-  `x/DESIGN.md`, which is excluded by `.git/info/exclude`, is in no
-  clone, and does not discuss API stability in any case; nor by the x/
-  package docs, 0 of the 49 importable ones stating it. See "Release
-  trains".
+  `nvidia/x` into its own module before the first public tag, so that
+  "changes at will" becomes something a version can say. A module-path
+  change is breaking, but it is breaking for nobody until that tag, so
+  the split is cheapest now and never cheaper later. It is decided: x/
+  is a staging area and goes. Until it does, the exemption is carried
+  by this file alone. It is not carried by `x/DESIGN.md`, which is
+  excluded by `.git/info/exclude`, is in no clone, and does not discuss
+  API stability in any case; nor by the x/ package docs, 0 of the 49
+  importable ones stating it. See "Release trains".
 
 ## Problems in the current pipeline
 
@@ -468,11 +468,17 @@ Consequences that make this manageable for one maintainer:
   and `may change`, which matches an `nccltest` comment about
   successive samples.
 
-  **Prerequisite for the tag:** every x/ package doc states the
-  exemption, so that a consumer reading the package learns it without
-  reading this file. That is 49 documents, of which four are rewrites
-  rather than additions, since their existing "experimental" sentence
-  is what makes them look done.
+  **Superseded by the split.** The prerequisite recorded here was 49
+  package docs, each stating the exemption so that a consumer reading
+  the package learns it without reading this file. It does not bind.
+  x/ is a staging area and leaves the published module before the
+  first public tag, so no x/ package is importable from
+  `github.com/tmc/lib/nvidia` at that tag and the promise is owed to
+  none of them; the 49 close by deletion, as do the 38 of 196 apidiff
+  entries under x/. The measurements above stay, because they are what
+  decided it: the exemption had no home in any document a consumer
+  reads, and writing it into 49 of them was the alternative to moving
+  the code.
 
 Promotion to `v1.0.0` happens when a train regenerates with no
 incompatible diff for two consecutive trains and the generator's
