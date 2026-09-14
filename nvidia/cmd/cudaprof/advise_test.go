@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1975,6 +1976,107 @@ func TestAdvice_MicroKernelDeterministicTieBreaking(t *testing.T) {
 		if !found {
 			t.Fatalf("run %d: expected finding with top micro-kernels not found", repeat)
 		}
+	}
+}
+
+func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
+	// 1. Explicit SM count from capture-provenance.json takes highest precedence.
+	capExplicit := &cudacapture.Capture{
+		Files: map[string][]byte{
+			"capture-provenance.json": []byte(`{"device":"NVIDIA GB10","arch":"sm_121a","sm_count":48}`),
+			"kernels.ptx":             []byte(".version 8.0\n.target sm_90\n"),
+		},
+	}
+	count, src, ok := determineSMCount(capExplicit)
+	if !ok || count != 48 || src != sourceCapture {
+		t.Fatalf("determineSMCount(capExplicit) = (%d, %v, %v), want (48, sourceCapture, true)", count, src, ok)
+	}
+
+	// 2. SM count derived from target arch takes precedence over missing explicit count.
+	capArchOnly := &cudacapture.Capture{
+		Files: map[string][]byte{
+			"kernels.ptx": []byte(".version 8.0\n.target sm_90\n"),
+		},
+	}
+	count, src, ok = determineSMCount(capArchOnly)
+	if !ok || count != 132 || src != sourceCapture {
+		t.Fatalf("determineSMCount(capArchOnly) = (%d, %v, %v), want (132, sourceCapture, true)", count, src, ok)
+	}
+}
+
+func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
+	// Profile has launches with grid and block dimensions, but no device identity or target arch.
+	cap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{100000},
+					Label: map[string][]string{
+						"name":    {"my_kernel"},
+						"subtype": {"kernel"},
+						"grid":    {"16,1,1"},
+						"block":   {"32,1,1"},
+					},
+				},
+			},
+		},
+	}
+
+	report := &AdviceReport{}
+	auditLaunchGeometry(cap, report)
+
+	// If no live device is available (e.g. non-CUDA host), an Info finding must be emitted.
+	_, _, _, hasLimits := determineDeviceLimits(cap)
+	_, _, hasSMCount := determineSMCount(cap)
+	if !hasLimits && !hasSMCount {
+		var found bool
+		for _, item := range report.Items {
+			if item.Severity == SeverityInfo && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected Info finding for missing device provenance, got items: %+v", report.Items)
+		}
+	}
+}
+
+func TestAdvice_DeviceProvenanceDisclosure(t *testing.T) {
+	// When SM count or hardware limits are inferred from local device, finding text must disclose it.
+	launches := []launchRecord{
+		{Kernel: "starved_kernel", GridBlocks: 16, BlockThreads: 256},
+		{Kernel: "single_warp_kernel", GridBlocks: 100, BlockThreads: 32},
+	}
+
+	// Emulate live device source
+	smCount := 48
+	smSrc := sourceLiveDevice
+	maxWarpsPerSM := 48
+	maxBlocksPerSM := 24
+	limitSrc := sourceLiveDevice
+
+	// Single warp check
+	provSuffixLimit := ""
+	if limitSrc == sourceLiveDevice {
+		provSuffixLimit = " (hardware limits inferred from local host device, not recorded in capture)"
+	}
+	f1 := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches 50%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
+		launches[1].Kernel, launches[1].BlockThreads, maxBlocksPerSM*1, maxWarpsPerSM, maxBlocksPerSM, provSuffixLimit)
+	if !strings.Contains(f1, "(hardware limits inferred from local host device, not recorded in capture)") {
+		t.Errorf("f1 missing live device disclosure: %s", f1)
+	}
+
+	// Starvation check
+	provSuffixSM := ""
+	if smSrc == sourceLiveDevice {
+		provSuffixSM = " (SM count inferred from local host device, not recorded in capture)"
+	}
+	f2 := fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves 66%% of SMs idle%s",
+		launches[0].Kernel, launches[0].GridBlocks, smCount, provSuffixSM)
+	if !strings.Contains(f2, "(SM count inferred from local host device, not recorded in capture)") {
+		t.Errorf("f2 missing live device disclosure: %s", f2)
 	}
 }
 
