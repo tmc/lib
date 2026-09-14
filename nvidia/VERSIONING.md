@@ -47,8 +47,8 @@ Two consequences follow:
   exemption is carried by this file alone. It is not carried by
   `x/DESIGN.md`, which is excluded by `.git/info/exclude`, is in no
   clone, and does not discuss API stability in any case; nor by the x/
-  package docs, 45 of the 49 importable ones saying nothing about it.
-  See "Release trains".
+  package docs, 0 of the 49 importable ones stating it. See "Release
+  trains".
 
 ## Problems in the current pipeline
 
@@ -443,20 +443,32 @@ Consequences that make this manageable for one maintainer:
   tag rather than a citation to make. Two earlier authorities for it do
   not hold: `x/DESIGN.md` is a package map, ownership rules and
   validation rules, and says nothing about API stability, so "by
-  charter" cited a document that does not contain the charter; and of
-  the 49 importable x/ packages, 45 say nothing about stability in any
-  .go file, while the four that use the word "experimental"
-  (`cudagraph`, `cudalayer`, `cudamlx`, `mxfp4`) apply it to
-  implementation maturity, not to compatibility. The denominator is
-  every directory under `x/` holding .go files, at any depth, less
-  `cmd/`, `testdata/` and `internal/`; internal packages are excluded
-  because no consumer can import them, so no promise about them is
-  owed. Both counts survive a wider search than "experimental" --
-  `changes at will`, `semver`, `patch release`, `breaking change` and
-  `unstable` add no genuine hit in either the packages or
-  `x/DESIGN.md`. **Prerequisite for the tag:** every x/ package doc
-  states the exemption, so that a consumer reading the package learns
-  it without reading this file.
+  charter" cited a document that does not contain the charter; and
+  **0 of the 49 importable x/ packages state the exemption.** Four
+  (`cudagraph`, `cudalayer`, `cudamlx`, `mxfp4`) call themselves
+  experimental, but of the implementation -- "an experimental Go
+  interface", "has no production consumer" -- which is a different
+  claim. A reader of `cudamlx` learns the conversion is unfinished;
+  they do not learn the package may be renamed or removed in a patch
+  release. Counting those four as partial credit would read as if the
+  question had been addressed somewhere, and it has not been addressed
+  anywhere.
+
+  The denominator is every directory under `x/` holding .go files, at
+  any depth, less `cmd/`, `testdata/` and `internal/`: the promise is
+  owed to what a consumer can import. The zero holds against a net
+  keyed on the promise rather than on one word -- `changes at will`,
+  `patch release`, `no API stability`, `API unstable`, `without
+  notice`, `may be removed`, `not covered by`, `no compatibility` --
+  over all 49, and the same net finds nothing in `x/DESIGN.md`. Note
+  that `compatibility` alone is the wrong probe here: it appears in six
+  more packages and means ABI or toolkit compatibility in every one.
+
+  **Prerequisite for the tag:** every x/ package doc states the
+  exemption, so that a consumer reading the package learns it without
+  reading this file. That is 49 documents, of which four are rewrites
+  rather than additions, since their existing "experimental" sentence
+  is what makes them look done.
 
 Promotion to `v1.0.0` happens when a train regenerates with no
 incompatible diff for two consecutive trains and the generator's
