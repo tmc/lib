@@ -1883,3 +1883,96 @@ sum_b += ds4_half_to_float(s_b[tid][k]) * xk[k];
 A binary carries the kernel it will actually run. When a tree is gone, or is merely
 *claimed* to correspond to a binary, that embedded text is the stronger evidence
 anyway — and it is available for any capture in this document.
+
+## Weight residency: the C oracle's device-resident repack, ablated, DGX spark-31db, 2026-09-14
+
+The largest-looking parity lever we have had was weight residency, and it is
+refuted. Recording it in full, because the refutation validates the bandwidth
+harness even as it kills the inference drawn from it.
+
+`ds4-min` hands its kernels the GGUF mmap address itself. `modelRange()`
+(`examples/ds4-min/cuda_runtime_linux.go:279-294`) returns
+`driver.DevicePtr(uintptr(unsafe.Pointer(&r.model[fileOffset])))` when `r.hmm`,
+which on GB10 is true because both `pageableMemoryAccess` and
+`usesHostPageTables` probe as 1. So every streamed weight byte is read through
+host page tables, with neither registration nor a CUDA allocation.
+
+The ds4.c oracle does something we do not. At load it builds
+
+    ds4: built 474 aligned CUDA artifacts (78.71 GiB) in 16.1s; expert raw residency replaced
+
+— four `cudaMalloc` builders in `cuda/mmq/ds4_repack.cu`, called from
+`ds4_cuda.cu:4475-4483`, covering exactly the four families of the per-token
+byte budget: Q8_0 aligned dense, Q8_0→F16 colmajor, IQ2_XXS MoE, Q2_K MoE. The
+three gates are `NO_*` opt-outs, so absent means enabled, and the build is gated
+on `cudaDevAttrIntegrated` — it exists specifically for this machine. C's *raw*
+spans take the same HMM-direct path we do (`ds4_cuda.cu:722-726`), so the repack
+is the only residency difference between the two implementations, and therefore
+cleanly ablatable.
+
+Setting all three opt-outs pushes C's decode back onto raw host-page-table
+spans — ds4-min's exact regime. Six arms, ABBA, with a positive control on every
+arm: the artifact stderr line must be present in P and absent in N. All six
+agreed with their label.
+
+    arm  repack   decode steady t/s   prefill t/s
+    r1P    ON           18.01            815.82
+    r2N    OFF          16.95            464.06
+    r3N    OFF          16.99            463.46
+    r4P    ON           18.03            863.58
+    r5P    ON           18.14            866.52
+    r6N    OFF          16.96            464.08
+
+    P mean 18.060   N mean 16.967   delta +1.093 t/s = +6.44%
+    perfect separation (min P 18.01 > max N 16.99); exact permutation p = 0.050
+    prefill 848.6 vs 463.9 = 1.829x
+
+Prefill nearly doubles even though the Q8_0 builder's comment says "only the
+`n_tokens==1` decode GEMV dispatches on the artifact". That comment scopes one
+builder; the MoE artifacts replace expert raw residency for every phase.
+
+**The conclusion is the 6.44%.** With residency held identical — both
+implementations reading through host page tables — C still runs
+16.967 / 12.37 = **1.372x** ahead of ds4-min. Device residency accounts for
+roughly six points of the 45.9% gap. It is not the gap.
+
+### What the bandwidth harness got right, and what the inference got wrong
+
+The projection this ablation refutes came from the 2×2 of
+{`cudaMalloc`, pre-faulted `mmap`} × {grid-stride `float4`, Q8_0 34-byte narrow},
+bracketed by four unmodified-`bw2` controls at 239.6 / 239.0 / 239.4 / 238.8
+(0.33% spread, no drift):
+
+                   float4 grid-str   Q8_0 narrow x34
+     cudaMalloc       232.4 GB/s        218.9 GB/s
+     mmap file        161.8 GB/s        162.4 GB/s
+
+Reading 232/162 as ~1.43x on the dominant term projected ~11.6 ms/token of the
+~25 needed. That projection is dead. But the *ceiling* it rests on is now
+confirmed end-to-end: C ablated to host page tables decodes at 58.94 ms/token,
+which against 9.559 GB/token is **162.2 GB/s** — inside the synthetic
+161.8–162.4 band, to 0.2%. A microbenchmark that reproduces a full workload's
+aggregate that closely has earned the right to be quoted as a ceiling.
+
+The error was the inference, not the ceiling. C *with* the repack runs at
+172.6 GB/s, well below its own 218.9 narrow-`cudaMalloc` ceiling: decode is not
+bandwidth-saturated once the weights are resident, so the roofline ratio bounds
+the transformation without predicting it.
+
+**This retires the per-family "% of 238" figures in this document.** For mmap'd
+weights the denominator is ~162 GB/s, not 238. Restating the census rows against
+the ceiling that actually applies to them:
+
+    family                ms/tok   GB/tok    GB/s   % of ~162 mmap roofline
+    Q8_0 matvecs (3)      40.031    6.599   164.8        ~101%
+    routed experts (2)    11.971    1.826   152.5         ~94%
+    F16 (2)               13.204    1.132    85.7         ~53%
+
+The Q8_0 row has no kernel-level bandwidth headroom at all — it is at its
+ceiling, which is the mechanism behind the null result when those loads were
+moved from global to shared. Only the F16 row has real distance left, and by
+elimination the surviving 1.372x lives there and in the 15.86 ms/token of
+residual non-bandwidth kernels.
+
+Harness `/home/tmc/tmp/df69-repack-abba.sh`, log `df69-repack-abba.log`, binary
+`ds4-bench.pristine` `d519e11128fe5a94`.
