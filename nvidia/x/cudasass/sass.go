@@ -182,7 +182,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		}
 
 		// Parse instruction line
-		if inst, ok := ParseInstructionLine(line); ok {
+		if inst, sawEncoding, ok := parseInstructionLine(line); ok {
 			inst.SourceFile = curSourceFile
 			inst.SourceLine = curSourceLine
 			inst.InlinedFile = curInlinedFile
@@ -200,7 +200,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				curFn.BaseAddress = inst.Address
 			}
 			curFn.Instructions = append(curFn.Instructions, inst)
-			if inst.Encoding.Lo != 0 {
+			if sawEncoding {
 				pendingFn, pendingIdx = curFn, len(curFn.Instructions)-1
 			}
 		}
@@ -270,21 +270,31 @@ func extractFunctionName(line string) string {
 // is not an instruction line; only [Parse] sees it, so an instruction parsed
 // through this function alone carries a half encoding.
 func ParseInstructionLine(line string) (Instruction, bool) {
+	inst, _, ok := parseInstructionLine(line)
+	return inst, ok
+}
+
+// parseInstructionLine also reports whether the line carried a trailing encoding
+// comment. [Parse] needs that to decide whether a following bare encoding word
+// belongs to this instruction; the low word alone cannot answer it, because a
+// legal instruction with a zero low word would be indistinguishable from a line
+// that carried no encoding at all.
+func parseInstructionLine(line string) (Instruction, bool, bool) {
 	trimmed := strings.TrimSpace(line)
 	if !strings.HasPrefix(trimmed, "/*") {
-		return Instruction{}, false
+		return Instruction{}, false, false
 	}
 
 	closeIdx := strings.Index(trimmed, "*/")
 	if closeIdx == -1 {
-		return Instruction{}, false
+		return Instruction{}, false, false
 	}
 
 	addrStr := strings.TrimSpace(trimmed[2:closeIdx])
 	addrStr = strings.TrimPrefix(addrStr, "0x")
 	addr, err := strconv.ParseUint(addrStr, 16, 64)
 	if err != nil {
-		return Instruction{}, false
+		return Instruction{}, false, false
 	}
 
 	rest := strings.TrimSpace(trimmed[closeIdx+2:])
@@ -294,10 +304,12 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 		rest = strings.TrimSpace(rest[:commentIdx])
 	}
 	var encoding Encoding
+	var sawEncoding bool
 	if encodingIdx := strings.Index(rest, "/*"); encodingIdx != -1 {
 		trailing := strings.TrimSpace(rest[encodingIdx:])
 		if word, ok := encodingWord(trailing); ok {
 			encoding.Lo = word
+			sawEncoding = true
 		} else if comment == "" {
 			comment = trailing
 		} else {
@@ -319,13 +331,13 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 
 	fields := strings.Fields(rest)
 	if len(fields) == 0 {
-		return Instruction{}, false
+		return Instruction{}, false, false
 	}
 
 	opcode := fields[0]
 	// nvdisasm also prefixes data directives with byte-offset comments.
 	if strings.HasPrefix(opcode, ".") {
-		return Instruction{}, false
+		return Instruction{}, false, false
 	}
 	operands := strings.TrimSpace(strings.TrimPrefix(rest, opcode))
 
@@ -337,7 +349,7 @@ func ParseInstructionLine(line string) (Instruction, bool) {
 		Encoding:  encoding,
 		Comment:   comment,
 		Raw:       line,
-	}, true
+	}, sawEncoding, true
 }
 
 // encodingWord reports the 64-bit word in a bare /* 0x... */ encoding comment.

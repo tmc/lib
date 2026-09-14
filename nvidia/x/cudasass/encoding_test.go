@@ -217,3 +217,37 @@ func runBinaryMode(t *testing.T, tool string, raw []byte) ([]byte, error) {
 }
 
 func sliceOf(b [16]byte) []byte { return b[:] }
+
+// A legal instruction may in principle encode to a zero low word. Parse must
+// attach the high word on the strength of having seen an encoding comment, not
+// on the low word being nonzero, or such an instruction silently loses half its
+// encoding and the orphaned high word attaches to nothing.
+func TestZeroLowWordStillTakesHighWord(t *testing.T) {
+	const src = `		.headerflags	@"EF_CUDA_SM121"
+		.text.k:
+        /*0000*/                   MOV R1, c[0x0][0x28] ;    /* 0x0000000000000000 */
+                                                             /* 0x000fc40000000f00 */
+        /*0010*/                   EXIT ;                    /* 0x000000000000794d */
+                                                             /* 0x000fea0003800000 */
+`
+	d, err := cudasass.ParseString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []cudasass.Encoding
+	for _, fn := range d.Functions {
+		for _, inst := range fn.Instructions {
+			got = append(got, inst.Encoding)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("parsed %d instructions, want 2", len(got))
+	}
+	want := cudasass.Encoding{Lo: 0, Hi: 0x000fc40000000f00}
+	if got[0] != want {
+		t.Errorf("zero-low-word instruction: got %v, want %v", got[0], want)
+	}
+	if !got[1].Present() {
+		t.Errorf("second instruction lost its encoding: %v", got[1])
+	}
+}
