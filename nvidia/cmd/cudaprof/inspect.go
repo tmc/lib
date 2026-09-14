@@ -83,6 +83,17 @@ type inspectCoverage struct {
 	ProcessIDs             []int             `json:"process_ids,omitempty"`
 	Devices                []uint32          `json:"devices,omitempty"`
 	ActivityKinds          map[string]uint64 `json:"activity_kinds,omitempty"`
+	// OmittedFiles republishes the artifacts the writer left out of this
+	// capture. ArtifactCompleteness is the verdict over them: it says whether
+	// this artifact carries the raw per-record detail, which RunCompleteness
+	// above does not, because a run may be observed in full and still be
+	// published without the journals that hold its records.
+	OmittedFiles         []captureOmittedFile `json:"omitted_files,omitempty"`
+	ArtifactCompleteness string               `json:"artifact_completeness,omitempty"`
+	// MissingJournals names the omitted capture journals, the critical
+	// diagnostic artifact whose absence leaves a downstream timeline analysis
+	// with no raw records at all.
+	MissingJournals []string `json:"missing_capture_journals,omitempty"`
 }
 
 // inspectWorker republishes the per-generation disposition the capture
@@ -152,6 +163,13 @@ func runInspectCommand(args []string) error {
 			report.Coverage = &envelope.Status
 		}
 	}
+	// An omitted journal leaves the capture with no raw records at all, which
+	// every other field here reports as healthy. Say so where it cannot be
+	// scrolled past, in addition to the verdict in the report.
+	if report.Coverage != nil && report.Coverage.ArtifactCompleteness == artifactPartial {
+		fmt.Fprintf(os.Stderr, "cudaprof: warning: artifact_completeness is %s: capture journal(s) %s were omitted from this artifact, so it carries no raw records (see omitted_files for exact size and sha256)\n",
+			artifactPartial, strings.Join(report.Coverage.MissingJournals, ", "))
+	}
 	report.TileIR = inspectTileIR(cap)
 	report.Remarks = inspectRemarks(cap)
 	report.PTX = inspectPTX(cap)
@@ -214,6 +232,34 @@ func addCoverageDetails(coverage *inspectCoverage, status []byte) {
 		}
 		coverage.RunCompleteness = runCompletenessOf(coverage.TransportReady, coverage.CollectorFinalized, coverage.UnqualifiedGenerations, coverage.DroppedRecords)
 	}
+	coverage.MissingJournals = missingJournals(coverage.OmittedFiles)
+	coverage.ArtifactCompleteness = artifactComplete
+	if len(coverage.MissingJournals) != 0 {
+		coverage.ArtifactCompleteness = artifactPartial
+	}
+}
+
+// Artifact verdicts. They are deliberately separate from the run verdicts in
+// capture_launcher.go: run completeness states what the capture observed, and
+// artifact completeness states what this file carries. A run whose records
+// were all observed can still be published without them.
+const (
+	artifactComplete = "complete"
+	artifactPartial  = "partial"
+)
+
+// missingJournals names the omitted capture journals, sorted. A journal is the
+// only artifact whose omission removes the raw per-record detail from the
+// capture, so it is the one an inspection must not report as a footnote.
+func missingJournals(omitted []captureOmittedFile) []string {
+	var names []string
+	for _, f := range omitted {
+		if cudacapture.IsJournalName(f.Name) {
+			names = append(names, f.Name)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 func workerDispositions(workers []inspectWorker) []captureWorker {
