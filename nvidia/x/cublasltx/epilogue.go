@@ -3,6 +3,7 @@ package cublasltx
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublaslt"
@@ -38,6 +39,8 @@ func (e *Engine) MatMulWithGELUBias(
 	}
 
 	return e.dev.WithContext(func() error {
+		var pin runtime.Pinner
+		defer pin.Unpin()
 		opDesc, err := cublaslt.NewMatmulDesc(cublaslt.Compute32F, cublaslt.R32F)
 		if err != nil {
 			return fmt.Errorf("create matmul desc: %w", err)
@@ -46,11 +49,13 @@ func (e *Engine) MatMulWithGELUBias(
 
 		// Configure Epilogue: GELU + Bias Fusion
 		epilogue := cublaslt.EpilogueGeluBias
+		pin.Pin(&epilogue)
 		if err := opDesc.SetAttribute(cublaslt.MatmulDescEpilogue, uintptr(unsafe.Pointer(&epilogue)), uint(unsafe.Sizeof(epilogue))); err != nil {
 			return fmt.Errorf("set epilogue gelu+bias: %w", err)
 		}
 
 		biasPtr := bias.Ptr()
+		pin.Pin(&biasPtr)
 		if err := opDesc.SetAttribute(cublaslt.MatmulDescBiasPointer, uintptr(unsafe.Pointer(&biasPtr)), uint(unsafe.Sizeof(biasPtr))); err != nil {
 			return fmt.Errorf("set bias pointer: %w", err)
 		}
@@ -75,6 +80,8 @@ func (e *Engine) MatMulWithGELUBias(
 
 		alpha := float32(1.0)
 		beta := float32(0.0)
+		pin.Pin(&alpha)
+		pin.Pin(&beta)
 
 		return withStream(s, func(streamHandle cublaslt.Stream) error {
 			return e.handle.Matmul(

@@ -3,6 +3,7 @@ package cublasltx
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -133,6 +134,9 @@ func (e *Engine) MatMul(
 		if err == nil {
 			defer pref.Destroy()
 			wsBytes := uint64(e.workspaceSize)
+			var pin runtime.Pinner
+			pin.Pin(&wsBytes)
+			defer pin.Unpin()
 			_ = pref.SetAttribute(cublaslt.MatmulPrefMaxWorkspaceBytes, uintptr(unsafe.Pointer(&wsBytes)), uint(unsafe.Sizeof(wsBytes)))
 		}
 
@@ -146,6 +150,10 @@ func (e *Engine) MatMul(
 
 		alpha := float32(1.0)
 		beta := float32(0.0)
+		var pin runtime.Pinner
+		pin.Pin(&alpha)
+		pin.Pin(&beta)
+		defer pin.Unpin()
 
 		err = withStream(s, func(streamHandle cublaslt.Stream) error {
 			return e.handle.Matmul(
