@@ -685,9 +685,12 @@ func TestObserveCaptureSessionSurfacesCUPTIVersionMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Real agent sequence when CUPTI version mismatch occurs in init():
+	// The agent records the failure immediately, never emits bootstrap/capability,
+	// and emits an initialized_no_activity finalized record at process exit.
 	records := []wire.Record{
-		{Kind: recordBootstrap, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"kind":"bootstrap"}`)},
-		{Kind: recordFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"state":"cupti_unavailable","error":"CUPTI runtime/header version mismatch"}`)},
+		{Kind: recordFailure, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 1, Payload: []byte(`{"state":"cupti_unavailable","error":"CUPTI runtime/header version mismatch"}`)},
+		{Kind: recordFinalized, Identity: wire.Identity{Session: sid, Process: 41, Generation: 2}, Sequence: 2, Payload: []byte(`{"state":"initialized_no_activity","trigger":"exit"}`)},
 	}
 	for _, r := range records {
 		if err := j.Append(r); err != nil {
@@ -705,10 +708,14 @@ func TestObserveCaptureSessionSurfacesCUPTIVersionMismatch(t *testing.T) {
 	if !strings.Contains(got.CaptureError, "CUPTI runtime/header version mismatch") {
 		t.Fatalf("captureError = %q, want containing version mismatch", got.CaptureError)
 	}
+	if strings.Contains(got.CaptureError, "invalid finalized ordering") {
+		t.Fatalf("captureError falsely reported decode ordering error: %q", got.CaptureError)
+	}
 	if strings.Contains(got.CaptureError, "no identity-matching target handshake") {
 		t.Fatalf("captureError falsely reported handshake missing: %q", got.CaptureError)
 	}
 }
+
 
 func TestObserveCaptureSessionSurfacesInvalidActivityFailure(t *testing.T) {
 	dir := t.TempDir()

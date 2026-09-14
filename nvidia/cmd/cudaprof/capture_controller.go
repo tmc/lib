@@ -228,6 +228,12 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 				}
 			} else {
 				worker.Failure = err.Error()
+				if state.failure != "" {
+					worker.Failure = state.failure
+					if state.failureError != "" {
+						worker.Failure += ": " + state.failureError
+					}
+				}
 			}
 			workers = append(workers, worker)
 			continue
@@ -396,9 +402,10 @@ var errJournalNotFinalized = errors.New("capture journal missing finalized recor
 const controllerMaxJournalRecords = 1 << 20
 
 func observeJournal(path, session string, targetPID int, maxRecords int64) (wire.Stats, journalState, journalMetrics, []captureActivity, []captureAPI, []captureWorker, error) {
+	state, metrics := journalState{}, journalMetrics{}
 	raw, err := hex.DecodeString(session)
 	if err != nil || len(raw) != 16 {
-		return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("invalid capture session nonce")
+		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid capture session nonce")
 	}
 	var id [16]byte
 	copy(id[:], raw)
@@ -413,14 +420,13 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 	recovered, err := journal.Recover(path, wire.Limits{MaxRecords: limitsMaxRecords})
 	if err != nil {
 		if strings.Contains(err.Error(), "record count exceeds limit") {
-			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal exceeded limit of %d records (re-run with --max-records=N or reduce workload size): %w", maxBound, err)
+			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, fmt.Errorf("capture journal exceeded limit of %d records (re-run with --max-records=N or reduce workload size): %w", maxBound, err)
 		}
-		return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, err
+		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, err
 	}
 	if !recovered.Complete {
-		return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("capture journal is truncated or incomplete")
+		return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("capture journal is truncated or incomplete")
 	}
-	state, metrics := journalState{}, journalMetrics{}
 	activities := make([]captureActivity, 0)
 	apis := make([]captureAPI, 0)
 	workers := make(map[[2]uint64]*captureWorker)
@@ -429,7 +435,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 	for _, record := range recovered.Records {
 		state.records++
 		if record.Session != id || record.Generation == 0 {
-			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, wire.ErrSession
+			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, wire.ErrSession
 		}
 		if int(record.Process) != targetPID {
 			key := [2]uint64{record.Process, record.Generation}
@@ -474,7 +480,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			// stream as a worker disposition and qualify only the finalized
 			// generation; never merge identities by PID alone.
 			if state.finalized {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("capture journal contains multiple finalized target generations")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("capture journal contains multiple finalized target generations")
 			}
 			worker := &captureWorker{Process: uint64(targetPID), Generation: generation, Records: targetRecordCount, ActivityRecords: activity, Finalized: state.finalized, Failure: state.failure, Disposition: "incomplete"}
 			workers[[2]uint64{worker.Process, worker.Generation}] = worker
@@ -487,26 +493,26 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 		targetRecordCount++
 		var payload captureRecordPayload
 		if len(record.Payload) > 0 && json.Unmarshal(record.Payload, &payload) != nil {
-			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("capture journal contains invalid typed record")
+			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("capture journal contains invalid typed record")
 		}
 		switch record.Kind {
 		case recordBootstrap:
 			if terminal || state.bootstrap || payload.Kind != "bootstrap" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("invalid bootstrap ordering")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid bootstrap ordering")
 			}
 			state.bootstrap = true
 		case recordCapability:
 			if terminal || !state.bootstrap || state.capability || payload.Kind != "capability" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("invalid capability ordering")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid capability ordering")
 			}
 			state.capability = true
 			state.capabilityData = append(json.RawMessage(nil), record.Payload...)
 		case recordActivity:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "activity" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order activity")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order activity")
 			}
 			if payload.Subtype != "kernel" && payload.Subtype != "memcpy" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("unknown activity subtype")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown activity subtype")
 			}
 			valid := payload.Valid && payload.Start != 0 && payload.End >= payload.Start && payload.End-payload.Start <= math.MaxInt64
 			activity++
@@ -560,32 +566,32 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			}
 			if payload.Subtype == "memcpy" {
 				if math.MaxUint64-metrics.copyBytes < payload.Bytes {
-					return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("copy byte count overflows")
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("copy byte count overflows")
 				}
 				metrics.copyBytes += payload.Bytes
 			} else {
 				d := payload.End - payload.Start
 				if math.MaxUint64-metrics.duration < d {
-					return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("activity duration overflows")
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("activity duration overflows")
 				}
 				metrics.duration += d
 			}
 		case recordExternal:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "external_correlation" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order external correlation")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order external correlation")
 			}
 			metrics.external++
 		case recordAPI:
 			if terminal || !state.bootstrap || !state.capability || payload.Kind != "api" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("untyped or out-of-order API record")
 			}
 			if payload.Domain != "driver" && payload.Domain != "runtime" {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown API domain")
 			}
 			apis = append(apis, captureAPI{Domain: payload.Domain, CallbackID: payload.CallbackID, Start: payload.Start, End: payload.End, ProcessID: payload.ProcessID, ThreadID: payload.ThreadID, Correlation: payload.Correlation, ReturnValue: payload.ReturnValue})
 		case recordFinalized:
 			if terminal || !state.bootstrap || !state.capability {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("invalid finalized ordering")
 			}
 			terminal, state.finalized = true, true
 			switch payload.State {
@@ -595,16 +601,18 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				state.initializedNoActivity = true
 			case "collected":
 				if validActivity == 0 {
-					return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("collected finalization without valid activity")
+					return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("collected finalization without valid activity")
 				}
 			case "producer_failure":
-				state.failure = payload.State
+				if state.failure == "" {
+					state.failure = payload.State
+				}
 			default:
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("unknown finalized state")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown finalized state")
 			}
 		case recordFailure:
 			if terminal {
-				return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("failure after finalized record")
+				return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("failure after finalized record")
 			}
 			state.failure = payload.State
 			if state.failure == "" {
@@ -620,7 +628,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				}
 			}
 		default:
-			return wire.Stats{}, journalState{}, journalMetrics{}, nil, nil, nil, errors.New("unknown record kind")
+			return wire.Stats{}, state, journalMetrics{}, nil, nil, nil, errors.New("unknown record kind")
 		}
 	}
 	recovered.Stats.Records = activity
