@@ -75,6 +75,9 @@ func runCaptureCommand(args []string) error {
 		return &exitCodeError{Code: result.TargetExitCode, Err: fmt.Errorf("target exited with status %d", result.TargetExitCode)}
 	}
 	if !result.CaptureSuccess {
+		if opts.NoInject && result.TargetExitCode == 0 {
+			return nil
+		}
 		msg := "capture incomplete"
 		if result.CaptureError != "" {
 			msg = fmt.Sprintf("capture incomplete: %s", result.CaptureError)
