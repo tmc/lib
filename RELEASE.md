@@ -231,11 +231,12 @@ current surfaces instead:
 - `nvdec.SymbolError.Err`, `nvdec.(*SymbolError).Unwrap`, `nvdec.BindFailure`,
   and `nvdec.BindFailures` exist only on unix. The Windows layer comes from an
   older generator lineage that predates them.
-- Thirteen `nvdec.DecodeCreateInfo` and `nvdec.SourceDataPacket` fields are
-  `uint32` on Windows and `uint64` elsewhere. The generator models C
-  `unsigned long`, which is 32 bits under LLP64; `layout_windows_test.go` and
-  `windows_abi_test.go` hold that layout. Portable consumer code cannot assume
-  either width.
+- Seventeen fields are `uint32` on Windows and `uint64` elsewhere: fifteen in
+  `nvdec.DecodeCreateInfo` and two in `nvdec.SourceDataPacket`. One of them,
+  `DecodeCreateInfo.Reserved2`, is `[3]uint64` against `[3]uint32`. The
+  generator models C `unsigned long`, which is 32 bits under LLP64;
+  `layout_windows_test.go` and `windows_abi_test.go` hold that layout.
+  Portable consumer code cannot assume either width.
 
 On `windows/arm64` the `nvdec` bindings are absent entirely: `init_windows.gen.go`
 and its siblings are `windows && amd64`, so the package compiles down to its

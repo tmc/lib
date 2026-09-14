@@ -27,9 +27,24 @@ Two consequences follow:
 
 - The Go version says how the Go API moved. The manifest says which
   NVIDIA release each package was generated from. They are independent.
-- `x/` (hand-written, 62 of 78 nvidia commits to date) lives in the same
-  tag line. If its churn starts forcing tags that regenerate nothing,
-  split `nvidia/x` into its own module then; not before.
+- `x/` (hand-written; 457 of 755 nvidia commits at `fd350702` touch only
+  files under `nvidia/x/`) lives in the same tag line, while "Release
+  trains" below exempts it from the compatibility promise. Those two
+  facts do not sit together: a consumer reading `nvidia/v0.2.0` cannot
+  tell from the version whether a break reaches them, because the tag
+  covers a surface the tag promises nothing about. The 38 `x/` entries in
+  `../api/nvidia.log` are the first time that had to be argued out of a
+  bump by hand, and the first draft of that argument got it backwards.
+
+  The earlier trigger for splitting -- "if its churn starts forcing tags
+  that regenerate nothing" -- is retired because it cannot fire. One
+  nvidia tag has ever been cut, so no tag has been forced by anything,
+  and the predicate stays false however large the churn gets. Split
+  `nvidia/x` into its own module at the next train, so that "changes at
+  will" becomes something a version can say. Until then the exemption is
+  carried by prose, and by a charter document that is not in the
+  repository: `x/DESIGN.md` is excluded by `.git/info/exclude` and does
+  not exist in a clone.
 
 ## Problems in the current pipeline
 
@@ -39,18 +54,21 @@ Two consequences follow:
    is a richer named manifest and a per-directory record of which
    archive produced which directory. The checked-out tree is still a
    mix (cudart 13.3.29 beside cupti 13.3.75 beside cccl 13.2.86).
-2. `nvidia/upstream.json` exists and declares itself
-   `partial-provenance`: a generation command is recorded for 30 of
-   the 35 packages. The five without one -- cuBLAS, cuBLASLt,
-   cuSOLVER, cuTENSOR and driver -- carry an explicit
-   `generation-unrecorded` status and a null argv, so they are named
-   gaps rather than reconstructed recipes; every package, including
-   those five, records the SHA-256 of each generated output. The
-   problem is incomplete coverage and non-uniform stamping, not
-   absence: cupti, cusparse, nvcomp and nvml now emit a
-   `provenance.gen.go` carrying the full header list and an input
-   SHA-256, while the other 31 packages still stamp only the header
-   basename ("from cufft.h").
+2. `nvidia/upstream.json` still declares itself `partial-provenance`,
+   but the coverage gap it was written about is closed. Measured at
+   `fd350702`: all 35 packages carry a recorded generation argv,
+   `coverage.missing_argv` is empty, and none carries
+   `generation-unrecorded`. 31 are `generation-reproduced`; 4 are
+   `generation-partially-reproduced` -- cupti, driver, nvjitlink and
+   nvml, whose recorded recipes do not reproduce the committed bytes.
+
+   What remains is non-uniform stamping in the generated code. 27
+   packages emit a `provenance.gen.go` carrying the full header list and
+   an input SHA-256. Eight do not, and still stamp only the header
+   basename ("from cufft.h"): cuBLAS, cuBLASLt, cuSOLVER, cuTENSOR,
+   driver, ncclep, ncclm2n and vpi. Five of those eight are the packages
+   this item used to name as the argv gaps, so the same generators are
+   behind both; fixing their emitter closes this item.
 3. `codegen/docs/*.json` carries `"version": ""`; the scraped docs are
    unpinned and undated.
 4. There is no pre-tag API gate. `apidiff` is installed but not wired in.
@@ -441,8 +459,41 @@ consumers ask by CUDA name.
 
 ### Deciding the bump, mechanically
 
-`make -C nvidia release-check` computes the next version from three
-inputs and prints the tag commands:
+`make -C nvidia version-check` computes the next version from three
+inputs and prints the tag commands. The name is deliberately not
+`release-check`: that target exists at the repository root, means
+something else, and is owned by `../RELEASE.md` -- it gates license,
+module paths, replacements, placeholder versions, declared platforms and
+tagged test packages, and says of itself that it "does not prove
+dependency availability or ABI compatibility". `version-check` is the
+API-and-version gate for this module alone. Neither subsumes the other,
+and a release runs both. Every `version-check` named below is the
+nvidia-local gate; where a repo-wide CI job is meant, the root
+`release-check` runs alongside it.
+
+`version-check` is specified by what it must read:
+
+- It fails when the working tree is dirty, so a verdict always names a
+  revision. This tree is shared; a gate that reads uncommitted work
+  reports on a state no tag will ever have.
+- It runs apidiff against the retained export data of the last tag and
+  keeps both halves. The incompatible set decides the bump; the
+  compatible set feeds the changelog. `../api/nvidia.log` was taken with
+  `-incompatible` alone, which is why it cannot show the 1139 compatible
+  entries this release also carries.
+- It writes the new export data (`apidiff -m -w`) as a release artifact
+  beside the tag, so the next run's baseline does not depend on a scratch
+  directory surviving.
+- It diffs the bound-symbol table, which apidiff cannot see.
+- It is advisory on `x/`: those entries print under their own heading and
+  are excluded from the bump decision, per the exemption above.
+
+`nvidia/Makefile` exists now and implements the first clause and the
+incompatible half of the second; the rest is still done by hand, so each
+verdict in this document should be read with the revision it was taken
+at.
+
+The three inputs:
 
 | Signal | Result |
 |---|---|
@@ -473,12 +524,22 @@ the 13.3.1 profile renames two exported Go identifiers,
 `ActivityAttrEnableMultiSubscriberGraphLevelTrace` and
 `ActivityAttrCigMode`, and changes what `String()` returns for both.
 Nothing in this repository names either identifier, so no build anywhere
-fails. Both are in the shipped surface, though: `nvidia/v0.1.0` is the
-only nvidia tag and its `cupti/enums.gen.go` carries both names, as
-declarations and as `String()` literals. This is a real break against a
-released API, not a hypothetical one. Because the values stay 20 and 23,
-a constant-drift check passes before and after — apidiff, which compares
+fails. Both are in the tagged surface: `nvidia/v0.1.0` is the only nvidia
+tag and its `cupti/enums.gen.go` carries both names, as declarations and
+as `String()` literals. Because the values stay 20 and 23, a
+constant-drift check passes before and after — apidiff, which compares
 names, is the only check that reports it.
+
+Nothing is published, which decides how much this costs. `git ls-remote
+--tags origin` returns nothing, and `proxy.golang.org` answers 404 for
+both `github.com/tmc/lib/nvidia/@v/list` and `v0.1.0.info`. The tag does
+exist on the private `dgx` remote, at the same commit, alongside 15 other
+module tags, so it is not local-only and rewriting it means force-pushing
+there — but no consumer can have fetched it through the module proxy. So
+this is a break against a tag, not against a released API, and the
+bridge-tag apparatus in "Release trains" is not owed to anyone for this
+transition. That stays true only until the first push to a public
+remote.
 
 Follow the header: the bindings mirror the C API, and holding a
 superseded spelling would misreport what 13.3 and later expose. Ship the
@@ -707,14 +768,14 @@ Order, because the proxy is immutable and dependents pin by tag:
    (Same name as lib's branch on purpose: one CUDA name, two repos.)
 2. codegen: any generator changes, commit, push. Record the commit in
    `upstream.json`.
-3. lib: regeneration commit, `release-check`, tag `nvidia/v0.X.Y`, push
+3. lib: regeneration commit, `version-check`, tag `nvidia/v0.X.Y`, push
    the commit and the tag together.
 4. lib: bump `gonccl` (and `mgccl` transitively) to require the new
    nvidia tag, `go mod tidy`, tag them, push.
 5. `go work sync` at the lib root only after step 3's tag is fetchable.
 
 A CI job on lib runs `make check`, per-module build and test, and
-`release-check` against the last tag on every push to main, so the
+`version-check` against the last tag on every push to main, so the
 API-diff verdict is visible before anyone tags.
 
 ## Changelog
@@ -734,7 +795,7 @@ Commit subjects are appended as an "Other" section filtered to the
 
 A small Go program in codegen, `cmd/nvidia-changelog`, takes two tags
 (or one tag and the working tree), does the three diffs, and prints
-Markdown. `release-check` runs it and inserts the result under an
+Markdown. `version-check` runs it and inserts the result under an
 `## Unreleased` heading; tagging renames the heading. This is the
 optional piece; everything above stands without it.
 
@@ -750,13 +811,13 @@ git -C ../cuda-headers commit -am 'cuda 13.4' && git -C ../cuda-headers tag cuda
 # 2. lib/nvidia: regenerate, test, and check.
 make -C nvidia regen HEADERS=../cuda-headers   # go generate + gofmt + vet + host tests
 make -C nvidia test-gpu                        # runs go test on dgx
-make -C nvidia release-check                   # apidiff + symbol diff + changelog draft
+make -C nvidia version-check                   # apidiff + symbol diff + changelog draft
 
-# 3. Commit and tag what release-check printed.
+# 3. Commit and tag what version-check printed.
 git commit -am 'nvidia: regenerate from CUDA 13.4'
 git tag nvidia/v0.2.0 && git branch cuda-13.4 && git push origin main cuda-13.4 --tags
 
-# 4. Only if release-check said "bridge required":
+# 4. Only if version-check said "bridge required":
 git checkout cuda-13.3                         # the previous train's branch
 make -C nvidia bridge FROM=nvidia/v0.1.3       # emits legacy.gen.go against v0.2.0
 git commit -am 'nvidia: v0.1.4 migration bridge' && git tag nvidia/v0.1.4 && git push --tags
@@ -766,7 +827,7 @@ make -C gonccl bump NVIDIA=v0.2.0 && git tag gonccl/v0.x.y
 ```
 
 A patch release is steps 2, 3 with no header change. CI runs `regen`
-in diff mode and `release-check` on every push to main, so the verdict
+in diff mode and `version-check` on every push to main, so the verdict
 is known before tagging and a stale regeneration cannot land unnoticed.
 
 Time budget per train, once the tooling exists: under an hour when
@@ -781,7 +842,7 @@ tooling is measured against.
 2. gen-nvidia: emit `upstream.json` and the per-package Source line.
 3. lib/nvidia: add `generate.go` and the two Makefile targets.
 4. Regenerate onto CUDA 13.3 (consolidating the 13.2/13.3 mix that
-   `v0.1.0` was built from), run `release-check` against `nvidia/v0.1.0`,
+   `v0.1.0` was built from), run `version-check` against `nvidia/v0.1.0`,
    tag `nvidia/v0.1.1` if additive, branch `cuda-13.3`, bump gonccl.
    `v0.1` is the CUDA 13.3 train; `v0.2.0` is reserved for CUDA 13.4 or
    for an incompatible diff, whichever comes first.
