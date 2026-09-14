@@ -1,0 +1,30 @@
+# Build platforms claimed by each module in go.work, one module per line:
+#
+#	<module directory> <GOOS/GOARCH>...
+#
+# "make platform-check" builds each module for exactly these targets, so a
+# target listed here is one the repository promises to keep compiling. The
+# list must name every module in go.work and no others.
+#
+# These are build targets, not runtime qualification. A module that compiles
+# for a target does not thereby have a tested runtime on it; RELEASE.md
+# records which platforms were exercised against real hardware.
+#
+# Modules limited to darwin bind Apple frameworks. Modules that omit windows
+# ship no windows source at all and have never claimed it.
+
+apple		darwin/arm64 darwin/amd64
+examples	darwin/arm64 darwin/amd64
+hfsync		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+libgit2		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+lldb		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+lm		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+nvidia		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+openxla		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+rocm		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+tpu		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+treesitter	darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+x/gomlx		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
+x/hftokenizer	darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+x/stablehlo	darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
+x/xla		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64

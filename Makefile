@@ -48,9 +48,17 @@ check:
 gate-selftest:
 	@sh scripts/gate-selftest.sh
 
-# Metadata only; see RELEASE.md for consumer and runtime verification.
+# Cross-compiles every module for the platforms scripts/platforms.txt claims.
+# Build-tagged files are invisible to a single-platform build, so this is the
+# only gate that compiles them.
+.PHONY: platform-check
+platform-check:
+	@sh scripts/check-platforms.sh
+
+# Metadata and cross-platform builds; see RELEASE.md for consumer and runtime
+# verification.
 .PHONY: release-check release-selftest
-release-check: check
+release-check: check platform-check
 	@python3 scripts/check-release.py
 
 release-selftest:

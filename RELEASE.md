@@ -17,7 +17,7 @@ Receipts below are local files under `~/tmp/lib-release/`.
 | NVIDIA parallel test reliability | One burst run lost a record; an earlier missing-library child timed out | Retain both failures and resolve the concurrency-sensitive qualification boundary |
 | Final archives | Draft archive checks exist; license and final revision are not fixed | Recheck immutable final artifacts after license/version preparation |
 | API/version review | Darwin export-data comparison completed for the four modules with local tags; candidates below | Confirm final versions and recheck platform-specific APIs on the final revision |
-| Native platform coverage | Local source tests and CPU control harnesses are not full CUDA/TPU/platform qualification | Record supported platforms, named runtime tests, library versions, and skips |
+| Native platform coverage | Build targets are declared in `scripts/platforms.txt` and gated by `make platform-check`; runtime qualification remains Darwin/arm64 plus named CUDA hosts | Record named runtime tests, library versions, and skips for each claimed platform |
 
 Origin HEAD was `d26d4c225ffc` (May 19); it predates the `openxla`,
 `x/stablehlo`, and `x/xla` modules. Go version queries at that revision failed
@@ -41,6 +41,15 @@ before publication; do not silently move existing local tags.
   placeholder versions, empty workspaces, and external workspace members.
   This Python 3/Go metadata gate does not prove dependency availability or ABI
   compatibility. `make release-selftest` exercises seven acceptance/rejection cases.
+- `nvidia/x/cupticheckpoint` called `purego.Dlopen` and `purego.Dlsym`, which
+  exist only on unix, so the `nvidia` module did not compile for Windows. The
+  two calls now go through the same `openDynamicLibrary`/`lookupLibrarySymbol`
+  seam `nvidia/cupti` already used. It was the module's only Windows break,
+  and no darwin or linux build could see it.
+- `make platform-check` cross-builds every workspace module for the targets it
+  claims in `scripts/platforms.txt`, and `release-check` now requires it. The
+  claim list must name exactly the modules in `go.work`, so a new module cannot
+  join the workspace without declaring its platforms.
 
 ## Evidence and limits
 
@@ -59,6 +68,7 @@ before publication; do not silently move existing local tags.
 | NVIDIA missing-library failure | Child exceeded ten-second parent deadline; focused repeats and later broad run passed | `proxy-check.fcq6a4id/nvidia.log`, `cusparse-subprocess-repeat.log` |
 | Burst and deliberate-loss controls | Five repetitions each passed, with full retention in normal runs and reconciled drops in zero-wait controls | `burst-focused.log` |
 | Full NVIDIA suite, serialized packages | Passed with unchanged test set, queue, deadlines, and assertions | `nvidia-serial.log` |
+| Declared platform builds | 66 of 66 passed at `1584e1c6`; the gate was checked against a false claim and a missing module and rejected both | `make platform-check` output |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
 `x/hftokenizer`, `x/stablehlo`, `hfsync`, `nvidia`, and the pre-repair Apple archive.
@@ -79,11 +89,6 @@ version `v0.1.1`. This run seeded the local proxy with the exact cached
 accessibility, TPU execution, or final release versions. Its checksums remain
 only in the fixture. Receipt: `proxy-check.fcq6a4id/xla-results.json`.
 
-All 13 non-Apple library modules cross-build with `GOOS=linux`,
-`CGO_ENABLED=0`, and each of `GOARCH=amd64` and `GOARCH=arm64`: 26 successful
-builds. These used the workspace, so local dependency resolution still applies.
-They do not execute Linux/native code. Receipt: `linux-builds/results.json`.
-
 The final metadata audit still rejects the absent license and internal
 replacements/placeholders (`final-metadata.log`). A fresh public-proxy request
 for the pinned `ffi` version still returns HTTP 404 (`ffi-public-final.txt`).
@@ -91,6 +96,30 @@ License selection has remained pending since the user asked about existing
 project licenses. Final licensed archives and publishable dependency manifests
 cannot be finalized from the currently available inputs. No commits or tags
 were created during this release-readiness pass, and no publication occurred.
+
+## Supported platforms
+
+`scripts/platforms.txt` is the declaration; the table below restates it. Every
+entry builds at `1584e1c6` under `make platform-check`, 66 builds in 39 seconds.
+
+| Modules | darwin | linux | windows |
+|---|---|---|---|
+| `apple`, `examples` | amd64, arm64 | - | - |
+| `hfsync`, `lm`, `nvidia`, `x/hftokenizer`, `x/stablehlo` | amd64, arm64 | amd64, arm64 | amd64, arm64 |
+| `libgit2`, `lldb`, `openxla`, `rocm`, `tpu`, `treesitter`, `x/gomlx`, `x/xla` | amd64, arm64 | amd64, arm64 | - |
+
+The darwin-only modules bind Apple frameworks. The eight modules in the last
+row ship no windows source at all and have never claimed it; that is an
+undeclared platform set now declared, not a defect left unfixed.
+
+These are build targets. Compiling for a target is not a tested runtime on it:
+native execution evidence in this document is Darwin/arm64 plus the named CUDA
+hosts, and every other row is source-level only. The builds use the workspace,
+so local dependency resolution still applies.
+
+An earlier pass recorded 26 linux builds with `CGO_ENABLED=0`
+(`linux-builds/results.json`); `platform-check` supersedes it and covers
+windows, which nothing had built before.
 
 ## Proposed versions
 
@@ -130,7 +159,8 @@ candidate as a compatible patch update.
 3. Review exported API changes against prior module tags. Record each module's
    version, commit, dependency versions, and validation receipts. No root tag.
 4. Run `make`, `make gate-selftest`, `make release-selftest`, and
-   `make release-check`. Preserve failures and native-test skips.
+   `make release-check`, which now includes `make platform-check`. Preserve
+   failures and native-test skips.
 5. Test immutable module archives from independent consumer modules with
    `GOWORK=off`, no local replacements, and an initially empty module cache.
    Before publication, a local proxy can prove packaging and ordering; label
