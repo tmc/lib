@@ -55,9 +55,9 @@ func TestTMEMPipelineConfigurations(t *testing.T) {
 			wantMinShared: 24,    // 3 mbarriers * 8 bytes
 		},
 		{
-			name: "quad_buffering_sm121a_tf32",
+			name: "quad_buffering_sm100_tf32",
 			cfg: cudapipeline.PipelineConfig{
-				TargetArch:  cudapipeline.ArchSM121a,
+				TargetArch:  cudapipeline.ArchSM100,
 				NumStages:   4,
 				MemorySpace: cudapipeline.MemorySpaceTMEM,
 				Box: cudapipeline.TMABox{

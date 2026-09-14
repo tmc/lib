@@ -57,7 +57,7 @@ var knownProfiles = map[string]ArchProfile{
 		Name:                 ArchSM90,
 		SupportsTMA:          true,
 		SupportsMBarrier:     true,
-		SupportsMultimem:     false,
+		SupportsMultimem:     true, // ptxas accepts multimem at sm_90 and rejects it at sm_80
 		SupportsWGMMA:        true,
 		SupportsTCGen05:      false,
 		SupportsTMEM:         false,
@@ -94,15 +94,15 @@ var knownProfiles = map[string]ArchProfile{
 		SupportsMultimem:     true,
 		SupportsWGMMA:        false, // Blackwell sm_121a rejects wgmma
 		SupportsTCGen05:      false, // Blackwell sm_121a rejects tcgen05
-		SupportsTMEM:         true,
+		SupportsTMEM:         false, // TMEM is addressable only via tcgen05
 		MinBufferAlignBytes:  16,
 		MinBarrierAlignBytes: 8,
 		MaxBoxWidthBytes:     128,
-		MaxTMEMCapacityBytes: BlackwellTMEMCapacityBytes,
-		MinTMEMAlignBytes:    BlackwellTMEMMinAlignBytes,
-		TMEMBytesPerColumn:   BlackwellTMEMBytesPerCol,
-		TMEMColumnsPerSM:     BlackwellTMEMColumns,
-		TMEMAllocColUnit:     BlackwellTMEMAllocUnitCols,
+		MaxTMEMCapacityBytes: 0,
+		MinTMEMAlignBytes:    0,
+		TMEMBytesPerColumn:   0,
+		TMEMColumnsPerSM:     0,
+		TMEMAllocColUnit:     0,
 	},
 }
 
@@ -155,7 +155,7 @@ func (p ArchProfile) ValidateFeature(feature string) error {
 	}
 	switch feat {
 	case FeatureTMEM:
-		return fmt.Errorf("target %s does not support tmem: Tensor Memory requires Blackwell sm_100 or sm_121a", p.Name)
+		return fmt.Errorf("target %s does not support tmem: Tensor Memory is addressable only via tcgen05, which requires sm_100", p.Name)
 	case FeatureWGMMA:
 		if p.Name == ArchSM121a {
 			return fmt.Errorf("target %s rejects wgmma: Hopper warp-group MMA instructions are not supported on Blackwell sm_121a", p.Name)
@@ -167,7 +167,7 @@ func (p ArchProfile) ValidateFeature(feature string) error {
 		}
 		return fmt.Errorf("target %s does not support tcgen05", p.Name)
 	case FeatureMultimem:
-		return fmt.Errorf("target %s does not support multimem: multimem requires sm_100 or sm_121a", p.Name)
+		return fmt.Errorf("target %s does not support multimem: multimem requires sm_90 or higher", p.Name)
 	default:
 		return fmt.Errorf("target %s does not support feature %q", p.Name, feature)
 	}
