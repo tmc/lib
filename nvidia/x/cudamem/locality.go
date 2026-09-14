@@ -44,16 +44,18 @@ type MemLocation struct {
 	ID   int // Device ordinal or NUMA node ID
 }
 
-// locationInfoHook is the pluggable implementation of LocationInfo.
-var locationInfoHook = defaultLocationInfo
+// errLocationInfoUnavailable reports that the driver entry point backing
+// [LocationInfo] is not bound.
+var errLocationInfoUnavailable = fmt.Errorf("cudamem: page locality query requires cuMemGetLocationInfo, which package driver does not bind: %w", errors.ErrUnsupported)
 
-// LocationInfo queries zero-copy and managed memory page locality using CUDA 13.4
-// cuMemGetLocationInfo semantics.
+// LocationInfo reports the physical residency of the pages backing
+// [ptr, ptr+size), as one [MemLocation] per summaryGranularity-byte region.
+// samplingGranularity is the intended sampling step within each region.
 //
-// It partitions [ptr, ptr+size) into summary regions of summaryGranularity bytes,
-// sampling every samplingGranularity bytes within each region to determine the
-// dominant physical memory residency (GPU device, host CPU, or host NUMA node).
-// It returns a slice of [MemLocation], one entry per summary region.
+// The query is not implemented. It requires cuMemGetLocationInfo, which
+// package driver does not bind, so LocationInfo validates its arguments and
+// then returns an error wrapping [errors.ErrUnsupported]. It never reports a
+// residency it has not measured.
 func LocationInfo(ptr uintptr, size, summaryGranularity, samplingGranularity uint64) ([]MemLocation, error) {
 	if ptr == 0 {
 		return nil, errors.New("cudamem: nil pointer for location query")
@@ -67,24 +69,12 @@ func LocationInfo(ptr uintptr, size, summaryGranularity, samplingGranularity uin
 	if samplingGranularity > summaryGranularity {
 		return nil, errors.New("cudamem: sampling granularity exceeds summary granularity")
 	}
-
-	return locationInfoHook(ptr, size, summaryGranularity, samplingGranularity)
+	return nil, errLocationInfoUnavailable
 }
 
-func defaultLocationInfo(ptr uintptr, size, summaryGranularity, samplingGranularity uint64) ([]MemLocation, error) {
-	numRegions := int((size + summaryGranularity - 1) / summaryGranularity)
-	locations := make([]MemLocation, numRegions)
-	for i := 0; i < numRegions; i++ {
-		// Default residency for valid allocations
-		locations[i] = MemLocation{
-			Type: LocationTypeDevice,
-			ID:   0,
-		}
-	}
-	return locations, nil
-}
-
-// LocationInfo queries the page locality of the device slice across its address range.
+// LocationInfo reports the page locality of the device slice across its address
+// range. See [LocationInfo]: the query is not implemented and returns an error
+// wrapping [errors.ErrUnsupported] for any non-empty slice.
 func (s Slice[T]) LocationInfo(summaryGranularity, samplingGranularity uint64) ([]MemLocation, error) {
 	if s.len == 0 {
 		return nil, nil
@@ -93,7 +83,9 @@ func (s Slice[T]) LocationInfo(summaryGranularity, samplingGranularity uint64) (
 	return LocationInfo(uintptr(s.ptr), totalBytes, summaryGranularity, samplingGranularity)
 }
 
-// LocationInfo queries the page locality of the host-allocated page-locked memory.
+// LocationInfo reports the page locality of the host-allocated page-locked
+// memory. See [LocationInfo]: the query is not implemented and returns an error
+// wrapping [errors.ErrUnsupported] for any non-empty allocation.
 func (h HostAllocation[T]) LocationInfo(summaryGranularity, samplingGranularity uint64) ([]MemLocation, error) {
 	if h.len == 0 {
 		return nil, nil
@@ -104,17 +96,7 @@ func (h HostAllocation[T]) LocationInfo(summaryGranularity, samplingGranularity 
 		elemSize = 1
 	}
 	totalBytes := uint64(h.len) * uint64(elemSize)
-	locs, err := LocationInfo(h.ptr, totalBytes, summaryGranularity, samplingGranularity)
-	if err != nil {
-		return nil, err
-	}
-	// For host allocations, update reported residency to host if using default
-	for i := range locs {
-		if locs[i].Type == LocationTypeDevice && locs[i].ID == 0 {
-			locs[i].Type = LocationTypeHost
-		}
-	}
-	return locs, nil
+	return LocationInfo(h.ptr, totalBytes, summaryGranularity, samplingGranularity)
 }
 
 // FormatLocationSummary returns a human-readable string summarizing the page locality distribution.
