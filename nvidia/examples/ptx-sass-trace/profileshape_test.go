@@ -33,6 +33,11 @@ func TestSampleTypes(t *testing.T) {
 		}
 	}
 
+	// The predicate below is the stall_ prefix, which is a proxy for "a type
+	// the bridge fills" and not the same claim: PCSamples and InstExecuted are
+	// filled too and carry no prefix. Both are selected above, so there is no
+	// live gap, but a new unprefixed metric would not be caught here.
+	//
 	// The stall types are NOT restated here. An earlier version listed them,
 	// which made this test a second hand-written copy of the literal it was
 	// checking: both written by one author, agreeing by construction, and
@@ -50,8 +55,9 @@ func TestSampleTypes(t *testing.T) {
 		}
 	}
 	if len(missing) > 0 {
-		t.Errorf("sampleTypes(true) omits stall types %v; a metric the bridge fills and this "+
-			"list does not select is written nowhere", missing)
+		t.Errorf("sampleTypes(true) omits stall types %v; SetSampleTypes writes only "+
+			"what this list selects, so a type the bridge fills and this list omits "+
+			"is written nowhere", missing)
 	}
 }
 
