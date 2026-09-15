@@ -25,7 +25,7 @@ func TestLayoutShapes(t *testing.T) {
 		{version: 130400, qualified: true, singlePass: true, scoped: true},
 		{version: 0},
 		{version: 25},
-		{version: 27},
+		{version: 27, qualified: true},
 		{version: 29},
 		{version: 120901},
 		{version: 130002},

@@ -16,11 +16,15 @@ import (
 // CUpti_SynchronizeData is 16 bytes, CUpti_NvtxData is 24 bytes, and
 // CUpti_StreamAttrData is 24 bytes across all toolkits.
 //
+// D304CF8D's 2026-09-15 L4 report measured the same seven sizes against CUDA
+// 12.9.41 headers, with CUPTI_API_VERSION and runtime version both 27. This
+// admits that observed build; toolkit release names alone do not select a layout.
+//
 // 130200 is admitted on a different witness: it is [cupti.ApiVersion], the version
 // the Go types in nvidia/cupti were generated from.
 func qualifiedVersion(v uint32) bool {
 	switch v {
-	case 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400:
+	case 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400:
 		return true
 	}
 	return false

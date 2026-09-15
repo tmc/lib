@@ -9,6 +9,7 @@ package cuptirange
 //	CUPTI   Initialize_Params ends at  GetMetricProperties_Params ends at
 //	24      pHostObject                metricType
 //	26      pHostObject                metricType
+//	27      pHostObject                metricType
 //	28      pHostObject                metricType
 //	130001  pHostObject                metricType
 //	130101  pHostObject                metricCollectionScope
@@ -29,17 +30,17 @@ package cuptirange
 // library on the hosts measured here reports it; the 13.2 toolkit installed
 // reports 130202, with the same two shapes.
 //
-// 24, 26 and 28 are the CUDA 12 encodings, reported by the 12.6, 12.8 and 12.9
-// libraries; their cupti_profiler_host.h is one file, md5 6d969e3b2341, holding
-// the base shape. They replace CUPTI 27, which this table called "the legacy
-// CUDA 12 encoding": no library on any host measured reports 27, and the
-// version CUDA 12.9 reports is 28.
+// The GB10 host's CUDA 12 libraries reported 24, 26 and 28. D304CF8D's
+// 2026-09-15 L4 report independently measured CUDA 12.9.41 reporting 27, with
+// cupti_profiler_host.h MD5 6d969e3b23411a1c39c9804f4182b6e0, identical to the
+// measured 24/26/28 header. All four use the base shapes. These are observed
+// builds, not a universal mapping from toolkit releases to API versions.
 //
 // Every version absent from the table fails closed: a struct size inferred from
 // a version number has no witness.
 func qualifiedLayout(version uint32) bool {
 	switch version {
-	case 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400:
+	case 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400:
 		return true
 	}
 	return false
