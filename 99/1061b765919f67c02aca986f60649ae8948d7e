@@ -1,0 +1,35 @@
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+Survey is rank 2 throughout: every encoder in metal_batch_darwin.go,
+metal_matmul*_darwin.go and the kernels they dispatch in metal_ops_darwin.go
+were read directly. The one rank-1 element is the element-wise class, where
+TestMetalElementwiseTokenIndependence at f9d11ce9 runs on the device and each
+of its four kernels was mutated to confirm it fails.
+
+Deliberately not claimed: any throughput number, and any statement that the
+compressor scan is or is not on the critical path. The scan's cost has not
+been measured, only its byte class argued.
+
+commit: fdb51cc1e49f86fab5d8e141b4485ab05ae74307
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 991061b765919f67c02aca986f60649ae8948d7e
+commit date: 2026-09-15T00:43:57-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
