@@ -21,7 +21,9 @@ type Manifest struct {
 	OverlapSpanNs     int64     `json:"overlap_span_ns"`
 	GPURecords        int       `json:"gpu_records"`
 	GPUDropped        int64     `json:"gpu_dropped"`
-	GoTraceBytes      int64     `json:"go_trace_bytes"`
+	// GPUOutsideWindow counts retained records excluded by the snapshot cutoff.
+	GPUOutsideWindow int   `json:"gpu_outside_window"`
+	GoTraceBytes     int64 `json:"go_trace_bytes"`
 	// ClockUncertaintyNs is the alignment uncertainty in nanoseconds; -1 means unavailable.
 	ClockUncertaintyNs int64 `json:"clock_uncertainty_ns"`
 	// ClockUncertaintySource is measured, configured, or unavailable.

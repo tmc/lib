@@ -561,3 +561,114 @@ func TestPushSASSMetric_And_PushPMSample(t *testing.T) {
 		t.Errorf("gpu_records.txt does not contain device.pm_sampling: %s", gpuRecs)
 	}
 }
+
+// TestOutsideWindowIsCounted pins that records excluded by the window cutoff are
+// accounted for rather than vanishing between GPURecords and GPUDropped.
+func TestOutsideWindowIsCounted(t *testing.T) {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   time.Second,
+		Capacity: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Stop()
+
+	now := time.Now()
+	rec.Push(cudaflightrecorder.Record{TimestampNs: now.Add(-time.Hour).UnixNano(), KernelName: "stale"})
+	rec.Push(cudaflightrecorder.Record{TimestampNs: now.UnixNano(), KernelName: "fresh"})
+
+	var buf bytes.Buffer
+	manifest, err := rec.Snapshot(context.Background(), &buf, "window")
+	if err != nil {
+		t.Fatalf("Snapshot failed: %v", err)
+	}
+	if manifest.GPURecords != 1 {
+		t.Errorf("GPURecords = %d, want 1", manifest.GPURecords)
+	}
+	if manifest.GPUOutsideWindow != 1 {
+		t.Errorf("GPUOutsideWindow = %d, want 1", manifest.GPUOutsideWindow)
+	}
+}
+
+// TestNewConfigValidation pins that New validates the one Config value that has
+// no reading. A non-positive Window or Capacity is not invalid:
+// it selects the documented default.
+func TestNewConfigValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     cudaflightrecorder.Config
+		wantErr bool
+	}{
+		{name: "zero config takes defaults", cfg: cudaflightrecorder.Config{}},
+		{name: "negative window takes default", cfg: cudaflightrecorder.Config{Window: -time.Second}},
+		{name: "negative capacity takes default", cfg: cudaflightrecorder.Config{Capacity: -1}},
+		{name: "zero clock uncertainty means unknown", cfg: cudaflightrecorder.Config{ClockUncertaintyNs: 0}},
+		{name: "positive clock uncertainty", cfg: cudaflightrecorder.Config{ClockUncertaintyNs: 12000}},
+		{name: "negative clock uncertainty", cfg: cudaflightrecorder.Config{ClockUncertaintyNs: -1}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, err := cudaflightrecorder.New(tt.cfg)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("New(%+v) succeeded; want error", tt.cfg)
+				}
+				if rec != nil {
+					t.Error("New returned a non-nil recorder alongside an error; want nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("New(%+v) failed: %v", tt.cfg, err)
+			}
+			if rec == nil {
+				t.Fatal("New returned a nil recorder and a nil error")
+			}
+		})
+	}
+}
+
+// TestRecorderIsSingleUse pins the lifecycle the package documents: Stop is
+// final, so Start afterwards reports an error rather than silently recording
+// nothing, while Snapshot keeps working on the retained records.
+func TestRecorderIsSingleUse(t *testing.T) {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   time.Hour,
+		Capacity: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	if err := rec.Start(); err == nil {
+		t.Error("second Start while running = nil, want error")
+	}
+
+	rec.Push(cudaflightrecorder.Record{TimestampNs: time.Now().UnixNano(), KernelName: "k"})
+	rec.Stop()
+	rec.Stop() // idempotent
+
+	if err := rec.Start(); err == nil {
+		t.Error("Start after Stop = nil, want error")
+	}
+
+	rec.Push(cudaflightrecorder.Record{TimestampNs: time.Now().UnixNano(), KernelName: "after_stop"})
+
+	var buf bytes.Buffer
+	manifest, err := rec.Snapshot(context.Background(), &buf, "after_stop")
+	if err != nil {
+		t.Fatalf("Snapshot after Stop failed: %v", err)
+	}
+	if manifest.GPURecords != 1 {
+		t.Errorf("GPURecords = %d, want 1", manifest.GPURecords)
+	}
+	if manifest.GPUDropped != 1 {
+		t.Errorf("GPUDropped = %d, want 1", manifest.GPUDropped)
+	}
+}

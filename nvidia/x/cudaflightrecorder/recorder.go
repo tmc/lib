@@ -74,6 +74,9 @@ type Recorder struct {
 
 // New creates a new flight recorder with the supplied configuration.
 func New(cfg Config) (*Recorder, error) {
+	if cfg.ClockUncertaintyNs < 0 {
+		return nil, errors.New("cudaflightrecorder: negative clock uncertainty")
+	}
 	if cfg.Window <= 0 {
 		cfg.Window = DefaultWindow
 	}
@@ -171,7 +174,8 @@ func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
 	return bracketNs + int64(elapsed)*clockDriftPPM/1e6
 }
 
-// Stop halts flight recording.
+// Stop halts flight recording permanently. Later starts fail and pushes are
+// counted as dropped. Repeated stops are harmless; snapshots remain available.
 func (r *Recorder) Stop() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -191,6 +195,7 @@ func (r *Recorder) Push(rec Record) {
 	defer r.mu.Unlock()
 
 	if !r.running {
+		r.dropped++
 		return
 	}
 
@@ -312,12 +317,15 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 	windowNs := r.cfg.Window.Nanoseconds()
 	cutoffNs := nowNs - windowNs
 
+	outsideWindow := 0
 	startIdx := (r.head - r.count + capacity) % capacity
 	for i := 0; i < r.count; i++ {
 		idx := (startIdx + i) % capacity
 		rec := r.records[idx]
 		if rec.TimestampNs >= cutoffNs {
 			records = append(records, rec)
+		} else {
+			outsideWindow++
 		}
 	}
 	dropped := r.dropped
@@ -421,6 +429,7 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 		OverlapSpanNs:          overlapSpanNs,
 		GPURecords:             len(records),
 		GPUDropped:             dropped,
+		GPUOutsideWindow:       outsideWindow,
 		GoTraceBytes:           goTraceBytes,
 		ClockUncertaintyNs:     clockUncertaintyNs,
 		ClockUncertaintySource: clockUncertaintySource,
