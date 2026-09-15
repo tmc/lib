@@ -229,6 +229,9 @@ func run() error {
 	}
 	var limits cudacapture.Limits
 	fetch := &fetcher{path: path, dir: extractDir, cap: cap, tool: tool, limits: limits}
+	if handled, err := retainedDisasm(os.Stdout, os.Args[1:], cap.Profile, tool); handled {
+		return err
+	}
 	return driver.PProf(&driver.Options{Obj: tool, Fetch: fetch})
 }
 
@@ -397,7 +400,7 @@ func (f *fetcher) Fetch(src string, duration, timeout time.Duration) (*profile.P
 			"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
 	} else {
 		p.Comments = append(p.Comments,
-			"CUDA event intervals measure whole launches. SASS entry and PTX source rows are navigation anchors, not instruction costs or PC samples.",
+			"Profile values describe recorded scopes. SASS entry and PTX source rows, when present, are navigation anchors, not instruction costs or PC samples.",
 			"SASS comes from the captured CUBIN's nvdisasm output. SASS coordinates are CUBIN file offsets; PTX coordinates are text byte offsets, not device PCs.")
 	}
 	return p, "", nil
