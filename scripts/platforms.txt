@@ -25,6 +25,5 @@ openxla		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 rocm		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 tpu		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 treesitter	darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
-x/gomlx		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
 x/stablehlo	darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 x/xla		darwin/arm64 darwin/amd64 linux/amd64 linux/arm64
