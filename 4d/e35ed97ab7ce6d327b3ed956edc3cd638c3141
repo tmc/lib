@@ -1,0 +1,20 @@
+commit: a607030039151e7a419a46d49b75a6b49f705938
+date: 2026-09-06T20:00:28-07:00
+codex: codex-cli 0.153.4
+model: gpt-6-astra
+tty: not-a-tty
+pid: 11406
+ITERM_SESSION_ID: 2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+runtime.Pinner: three post-fix 181-file captures byte-identical to warmed baseline; current production hash PASS.
+Receipt index: /Users/tmc/tmp/agent-collab/ds4-lib-workflow/20260906-DF6906F6-receipts-and-metal-p1.md. Independent audit/ledger: /Users/tmc/tmp/ds4-lib-workflow/GOAL-PARITY-TOOLING.md.
+
+commit: 4de35ed97ab7ce6d327b3ed956edc3cd638c3141
+commit date: 2026-09-15T00:30:10-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
