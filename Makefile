@@ -44,6 +44,14 @@ check:
 		fi; \
 	done || exit 1; \
 	echo "All Go files belong to a module."
+	@shadowed=$$(git ls-files --ignored --cached --exclude-standard) || exit 1; \
+	if [ -n "$$shadowed" ]; then \
+		echo "error: .gitignore claims files that are tracked:"; \
+		printf '%s\n' "$$shadowed" | sed 's/^/  /'; \
+		echo "a bare pattern matches directories too; anchor it to the path it means"; \
+		exit 1; \
+	fi; \
+	echo "No tracked file is ignored."
 
 gate-selftest:
 	@sh scripts/gate-selftest.sh
