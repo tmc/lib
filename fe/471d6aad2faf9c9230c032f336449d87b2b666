@@ -2,8 +2,7 @@ commit: fe471d6aad2faf9c9230c032f336449d87b2b666
 date: 2026-09-15T10:37:13-07:00
 claude-code: 2.1.257
 model: Opus 5 (claude-opus-5)
-tty: not a tty
-none
+tty: none (non-interactive)
 pid: 81668
 ITERM_SESSION_ID: w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
 session: 2b9497cd-7408-4e8b-a617-38b19820dab9
