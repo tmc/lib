@@ -1,0 +1,32 @@
+{
+  "commit": "84f33a6596083ddc30751925f5c4436744ff58f9",
+  "date_utc": "2026-09-05T05:23:27.359578+00:00",
+  "agent": "Codex",
+  "model": "GPT-6",
+  "codex_version": "codex-cli 0.153.3",
+  "claude_code_version": "2.1.257 (Claude Code)",
+  "tty": "unavailable: Command '['tty']' returned non-zero exit status 1.",
+  "note_writer_pid": 48010,
+  "ITERM_SESSION_ID": "w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3",
+  "provenance": "Metal observer capture harness; CPU semantic/schema/failure tests and combined01 pass; no full model run; manual commit fallback after automatic helper API-key failures"
+}
+
+commit: cefaa07152b097407a1da5a760430b3f56512df8
+commit date: 2026-09-15T00:29:04-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 688c9367c85fc72df2dbc250e9f94b160235b3d6
+commit date: 2026-09-15T00:43:51-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
