@@ -132,10 +132,11 @@ func allocFromSlice[T any](dev *applemetal.Device, data []T, tracker *Tracker) (
 // AllocMMapZeroCopy maps length elements of f starting at offset and wraps the
 // mapping in a Metal buffer. [Slice.Free] unmaps it.
 //
-// The buffer holds a copy of the mapping rather than aliasing it: the Metal
-// call that would alias host pages requires a page-aligned pointer and length
-// and a deallocator, which this does not yet use. Writes through
-// [Slice.HostSlice] therefore do not reach the file.
+// The private mapping leaves the file unchanged if a caller or kernel writes
+// through the buffer. Offset need not be page aligned: the mapping begins at
+// the preceding page and the returned Slice carries the logical byte offset.
+// Offset must be aligned for T. [Slice.Free] releases the buffer before
+// unmapping it.
 func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, length int) (Slice[T], error) {
 	if dev == nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: nil device")
@@ -151,18 +152,42 @@ func AllocMMapZeroCopy[T any](dev *applemetal.Device, f *os.File, offset int64, 
 	if f == nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: nil mmap file")
 	}
+	if offset < 0 {
+		return Slice[T]{}, fmt.Errorf("metalmem: negative mmap offset %d", offset)
+	}
+	if offset%int64(elemSize) != 0 {
+		return Slice[T]{}, fmt.Errorf("metalmem: mmap offset %d is not aligned for element size %d", offset, elemSize)
+	}
+	page := os.Getpagesize()
+	mapOffset := offset &^ int64(page-1)
+	delta := int(offset - mapOffset)
+	maxInt := int(^uint(0) >> 1)
+	if totalBytes > maxInt-delta-(page-1) {
+		return Slice[T]{}, fmt.Errorf("metalmem: mmap length overflows int")
+	}
+	mappedBytes := (delta + totalBytes + page - 1) &^ (page - 1)
+	if uint64(mappedBytes) > uint64(dev.Raw().MaxBufferLength()) {
+		return Slice[T]{}, fmt.Errorf("metalmem: mapped length %d exceeds Metal maximum %d", mappedBytes, dev.Raw().MaxBufferLength())
+	}
 
-	data, err := syscall.Mmap(int(f.Fd()), offset, totalBytes, syscall.PROT_READ, syscall.MAP_SHARED)
+	data, err := syscall.Mmap(int(f.Fd()), mapOffset, mappedBytes, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE)
 	if err != nil {
 		return Slice[T]{}, fmt.Errorf("metalmem: mmap file: %w", err)
 	}
 
-	buf := dev.Raw().NewBufferWithBytesLengthOptions(unsafe.Pointer(&data[0]), uint(totalBytes), metal.MTLResourceStorageModeShared)
+	buf := dev.Raw().NewBufferWithBytesNoCopyLengthOptionsDeallocator(unsafe.Pointer(&data[0]), uint(mappedBytes), metal.MTLResourceStorageModeShared, nil)
 	if buf == nil || buf.GetID() == 0 {
 		_ = syscall.Munmap(data)
 		return Slice[T]{}, fmt.Errorf("metalmem: create Metal buffer from mapping of %d bytes failed", totalBytes)
 	}
-	return newSlice[T](buf, length, elemSize, data, nil), nil
+	if buf.Contents() != unsafe.Pointer(&data[0]) {
+		objectivec.ObjectFromID(buf.GetID()).Release()
+		_ = syscall.Munmap(data)
+		return Slice[T]{}, fmt.Errorf("metalmem: Metal buffer does not alias mapping")
+	}
+	s := newSlice[T](buf, length, elemSize, data, nil)
+	s.off = delta / int(elemSize)
+	return s, nil
 }
 
 // newSlice wraps a freshly created buffer, which the returned Slice owns.
