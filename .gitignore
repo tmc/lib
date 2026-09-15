@@ -16,9 +16,10 @@
 # Every pattern is an anchored path, never a bare name: "cudaprof" alone would
 # also match nvidia/cmd/cudaprof, the package directory, and a gitignore pattern
 # that claims a directory silently ignores the tracked sources inside it. The
-# gate for that direction is `git ls-files -i -c --exclude-standard`, which asks
-# which TRACKED files gitignore claims and must stay empty -- a question that
-# checking a pattern you just added does not answer.
+# gate for that direction is `git ls-files --ignored --cached
+# --exclude-standard` (make check runs it), which asks which TRACKED files
+# gitignore claims and must stay empty -- a question that checking a pattern
+# you just added does not answer.
 /apple/cmd/metalprof/metalprof
 /apple/examples/metal-trace/metal-trace
 /apple/x/metal/metalmlx/metalmlx
