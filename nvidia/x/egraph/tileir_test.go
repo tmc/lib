@@ -115,11 +115,12 @@ func TestGenerateTileIR_RMSNormGEMVSwiGLU(t *testing.T) {
 		t.Fatalf("decoded %d functions, want 1", len(decoded.Functions))
 	}
 
-	// 9. Assemble on sm_121 architecture via tileiras
+	// 9. Assemble the bytecode on sm_121 architecture via tileiras.
+	// tileiras accepts Tile IR bytecode only, so bc is the input here.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	res, err := tileiras.Assemble(ctx, []byte(textIR),
+	res, err := tileiras.Assemble(ctx, bc,
 		tileiras.WithGPUName("sm_121"),
 		tileiras.WithOptLevel(3),
 		tileiras.WithRemarks("all"),
@@ -290,11 +291,12 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 				t.Errorf("output does not have valid Tile IR bytecode magic for %s", tt.op)
 			}
 
-			// Test assembly with tileiras on sm_121
-			res, err := tileiras.Assemble(ctx, []byte(textIR), tileiras.WithGPUName("sm_121"))
+			// Test assembly with tileiras on sm_121. tileiras accepts Tile IR
+			// bytecode only; textIR is reported for diagnostics on failure.
+			res, err := tileiras.Assemble(ctx, bc, tileiras.WithGPUName("sm_121"))
 			if err != nil {
 				if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") {
-					return // clean skip when CUDA tooling absent
+					t.Skipf("skipping tileiras assembly (tooling absent): %v", err)
 				}
 				t.Fatalf("tileiras assembly failed for %s: %v\n%s", tt.op, err, textIR)
 			}

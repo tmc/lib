@@ -2,7 +2,6 @@ package egraph
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -407,9 +406,15 @@ func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 	return NewLowerer(opts).Lower(expr)
 }
 
-// AssembleTileIR lowers expr and assembles its bytecode when tileiras is available.
-// If the external assembler is unavailable, the verified Tile IR bytecode is returned.
-func AssembleTileIR(expr *Expr, opts CodegenOptions) ([]byte, error) {
+// AssembleTileIR lowers expr to Tile IR bytecode and assembles it into a device
+// CUBIN with the external tileiras assembler. The asm options are passed through
+// to tileiras; use tileiras.WithGPUName to select the target architecture.
+//
+// The returned bytes are always a CUBIN. If the assembler is not installed,
+// AssembleTileIR returns an error wrapping [tileiras.ErrNotFound]; callers that
+// want the unassembled bytecode in that case must ask for it explicitly with
+// [ToTileIR] and Module.EncodeBytecode.
+func AssembleTileIR(ctx context.Context, expr *Expr, opts CodegenOptions, asm ...tileiras.Option) ([]byte, error) {
 	mod, err := ToTileIR(expr, opts)
 	if err != nil {
 		return nil, fmt.Errorf("egraph: lower tile ir: %w", err)
@@ -418,17 +423,14 @@ func AssembleTileIR(expr *Expr, opts CodegenOptions) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("egraph: encode tile ir bytecode: %w", err)
 	}
-	result, err := tileiras.Assemble(context.Background(), bytecode)
-	if errors.Is(err, tileiras.ErrNotFound) {
-		return bytecode, nil
-	}
+	result, err := tileiras.Assemble(ctx, bytecode, asm...)
 	if err != nil {
 		return nil, fmt.Errorf("egraph: assemble tile ir: %w", err)
 	}
-	if len(result.CUBIN) > 0 {
-		return result.CUBIN, nil
+	if len(result.CUBIN) == 0 {
+		return nil, fmt.Errorf("egraph: assemble tile ir: assembler produced an empty cubin")
 	}
-	return bytecode, nil
+	return result.CUBIN, nil
 }
 
 // Generate translates an egraph expression AST into valid Tile IR textual assembly syntax.
