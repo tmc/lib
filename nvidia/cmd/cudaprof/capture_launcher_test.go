@@ -215,4 +215,3 @@ func TestParseCaptureArgsRequireComplete(t *testing.T) {
 		t.Fatal("RequireComplete was not set")
 	}
 }
-
