@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "config": {
+    "goos": "linux",
+    "goarch": "arm64",
+    "pkg": "example.com/decode"
+  },
+  "samples": [
+    {
+      "name": "BenchmarkDecode/full-8",
+      "sample_id": "synthetic-1",
+      "source": "synthetic-c.json",
+      "operations": 100,
+      "scope": "full",
+      "provenance": {
+        "evidence": "synthetic parser fixture; no hardware execution",
+        "operation": "one illustrative decode pass",
+        "timing": "illustrative completed device interval"
+      },
+      "measurements": [
+        {
+          "unit": "gpu-ns/op",
+          "value": 200000,
+          "basis": "total",
+          "kind": "device-elapsed"
+        }
+      ]
+    }
+  ]
+}
