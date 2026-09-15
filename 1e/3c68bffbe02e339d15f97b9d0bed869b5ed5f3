@@ -1,0 +1,28 @@
+Commit: f4577d6
+Date: 2026-09-07T03:38:05Z
+Agent: Codex GPT-5
+TTY: not a tty
+PID: 52785
+iTerm session: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/prefill-dense-n64-20260907 (manifest 62181ad7e4937b7fd4a54f62ffd6f04cc9986d4a172c09127e7e55c68a2ba491)
+Rebased from the physically tested isolated commit; production files are unchanged by the rebase.
+
+commit: 24086edb92bd10256e24018e681c7bfa18602822
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 1e3c68bffbe02e339d15f97b9d0bed869b5ed5f3
+commit date: 2026-09-15T00:43:53-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
