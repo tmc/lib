@@ -29,7 +29,7 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Cache semantics are explicit | CachePolicy admission, documented no-reset metadata, cold/warm raw-sector fixture compiled for Linux AMD64/ARM64 | Native cold/warm and two-pass controls pass |
 | Faithful C benchmark formatting | Versioned JSON decoder, 64 MiB input bound, normalization and injection tests, CLI tests | Source-specific reader and checked comparison are separate proposed work |
 | C family mapping is qualified independently of formatting | Adapter alternatives spec includes coverage and mapping gates | Retained Nsight mapping is known wrong and remains format-only |
-| Cross-collector exclusion | Device lease integration for Range, PM and SASS; conflict and failed teardown/retry race tests pass | Native qualification; external and PC collection remain caller-controlled |
+| Cross-collector exclusion | Device lease integration for Range, PM, SASS and PC; conflict and failed teardown/retry race tests pass | Native qualification pending for PC exclusion and timing ownership; external collection remains caller-controlled |
 
 ## Local checks
 
@@ -129,3 +129,29 @@ contains neither NVRTC nor nvrtcx. D304CF8D reports using NVRTC 13.0.88 to run
 these fixtures and rejecting newer emitted PTX on that driver. This establishes
 a fixture/toolchain prerequisite, not a universal CUDA 13 requirement for
 cuptibench workloads using precompiled kernels.
+
+## Completion follow-up: collector ownership (2026-09-15)
+
+PC sampling now shares device exclusion with Range, PM and SASS collection,
+including the standalone reason-inventory enable path. Failed native disable
+retains ownership for retry. If startup fails before a full session exists and
+cleanup also fails, Start returns a session whose Close retries that cleanup.
+The standalone Enable helper likewise returns a cleanup function alongside an
+error when a successful native enable returns malformed parameter storage.
+
+Benchmark event timing also holds device exclusion until timer cleanup succeeds.
+This prevents cooperating collectors from instrumenting the supposedly
+uninstrumented timing interval. It does not exclude external profilers.
+
+Focused race tests cover competing ownership, constructor failures, partial
+construction, cleanup retry and concurrent standalone disable. An early-release
+mutation fails both startup-cleanup cases with "failed cleanup released device".
+The native PC exclusion fixture enables sampling once in a fresh process and
+queries a nonempty reason inventory before releasing ownership.
+
+Hardware execution of these additions remains pending: the 2026-09-15 attempt
+waited 45 seconds for the directory lease and exited 75 while DF6906F6 held it
+for the T2 census. No GPU test ran in that attempt. Local logs and prepared
+binaries are retained in `~/tmp/cuptibench-completion-receipts`. The earlier
+DS4 native Stop failure, later-position correctness and L4 AutoRange gates
+remain open; these ownership fixes do not resolve them.
