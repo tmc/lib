@@ -17,6 +17,30 @@ var bytecodeMagic = []byte{0x7F, 'T', 'i', 'l', 'e', 'I', 'R', 0x00}
 // ErrNotFound is returned when the tileiras executable cannot be located in PATH or standard CUDA directories.
 var ErrNotFound = errors.New("tileiras: executable not found in PATH or standard CUDA directories")
 
+// ErrArchSuffix is returned when a GPU name carries an architecture-specific suffix,
+// such as "sm_121a". tileiras --gpu-name rejects the suffixed spelling even though
+// ptxas and nvdisasm require it; drop the suffix ("sm_121").
+var ErrArchSuffix = errors.New("tileiras: --gpu-name does not accept an architecture-specific suffix")
+
+// archSuffix reports whether name is an "sm_" architecture name carrying a
+// trailing feature suffix, e.g. "sm_121a", and returns the unsuffixed name.
+// Such names are rejected by tileiras --gpu-name, and their numeric part is
+// also what buildFatbinary passes to fatbinary as sm=.
+func archSuffix(name string) (base string, ok bool) {
+	digits, ok := strings.CutPrefix(name, "sm_")
+	if !ok {
+		return "", false
+	}
+	n := 0
+	for n < len(digits) && digits[n] >= '0' && digits[n] <= '9' {
+		n++
+	}
+	if n == 0 || n == len(digits) {
+		return "", false
+	}
+	return name[:len("sm_")+n], true
+}
+
 // IsBytecode reports whether data starts with the Tile IR bytecode magic number.
 func IsBytecode(data []byte) bool {
 	return bytes.HasPrefix(data, bytecodeMagic)
@@ -42,6 +66,10 @@ type config struct {
 }
 
 // WithGPUName specifies the target GPU architecture name, e.g. "sm_90", "sm_100", "sm_121".
+//
+// The name must be unsuffixed. tileiras rejects the architecture-specific
+// spelling "sm_121a" that ptxas and nvdisasm require; Assemble reports
+// ErrArchSuffix for such a name rather than invoking the assembler.
 func WithGPUName(name string) Option {
 	return func(c *config) {
 		c.gpuName = name
@@ -188,6 +216,10 @@ func Assemble(ctx context.Context, input []byte, opts ...Option) (*Result, error
 	}
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+
+	if base, ok := archSuffix(cfg.gpuName); ok {
+		return nil, fmt.Errorf("%w: %q; use %q", ErrArchSuffix, cfg.gpuName, base)
 	}
 
 	tileirasBin := findTileiras(cfg.tileirasPath)

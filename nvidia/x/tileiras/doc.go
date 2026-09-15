@@ -20,4 +20,11 @@
 //	for _, fail := range res.TMAFailures() {
 //		log.Printf("TMA bottleneck at %s:%d: %s", fail.File, fail.Line, fail.Remark)
 //	}
+//
+// # GPU names
+//
+// tileiras --gpu-name takes an unsuffixed architecture name such as "sm_121".
+// It rejects the architecture-specific spelling "sm_121a", which is the spelling
+// ptxas and nvdisasm require for the same target. Assemble reports ErrArchSuffix
+// for a suffixed name instead of invoking the assembler.
 package tileiras
