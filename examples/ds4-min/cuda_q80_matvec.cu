@@ -106,6 +106,69 @@ extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag(
   if (lane == 0) out[(unsigned long long)diag * rows + row] = sum;
 }
 
+// DS4_Q80_BLOCKDIAG_MAX_BATCH is the compile-time maximum batch width of
+// ds4_q8_0_matvec_quantized_blockdiag_batch. cudaQ80BlockDiagMaxBatch in
+// cuda_q80_linux.go must hold the same value;
+// TestCUDAQualificationQ80BlockDiagMaxBatchConstantSync asserts it.
+#define DS4_Q80_BLOCKDIAG_MAX_BATCH 8
+
+// ds4_q8_0_matvec_quantized_blockdiag_batch is
+// ds4_q8_0_matvec_quantized_blockdiag with the weight load hoisted out of a
+// token loop. The weight row a warp reads is addressed by (diag, row) alone, so
+// every token in a batch reads the same weight bytes; the batch streams the
+// block-diagonal weight tensor once instead of once per token.
+//
+// Each token keeps its own accumulator, its own lane-strided walk over b, and
+// its own shfl_down reduction, so no term moves within any sum and the float32
+// results are bit-identical to one blockdiag launch per token. Activations and
+// outputs are token major: token t's activations start at t * diags * blocks
+// blocks, and its outputs at t * diags * rows.
+extern "C" __global__ void ds4_q8_0_matvec_quantized_blockdiag_batch(
+    const unsigned char *weights, const ds4_q8_activation *x, float *out,
+    unsigned blocks, unsigned rows, unsigned diags, unsigned batch) {
+  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
+  const unsigned row = blockIdx.x * 8 + warp_id, diag = blockIdx.y;
+  if (row >= rows) return;
+  const unsigned char *weight_row = weights + ((unsigned long long)diag * rows + row) * blocks * 34;
+  const ds4_q8_activation *xb = x + (unsigned long long)diag * blocks;
+  const unsigned long long token_blocks = (unsigned long long)diags * blocks;
+  float sum[DS4_Q80_BLOCKDIAG_MAX_BATCH] = {0.0f};
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    int w4[8];
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      w4[i] = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+    }
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+    #pragma unroll
+    for (unsigned t = 0; t < DS4_Q80_BLOCKDIAG_MAX_BATCH; t++) {
+      if (t < batch) {
+        const ds4_q8_activation *tx = xb + (unsigned long long)t * token_blocks;
+        const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
+        int dot = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+          dot = __dp4a(w4[i], x4[i], dot);
+        }
+        sum[t] += d * tx[b].d * float(dot);
+      }
+    }
+  }
+  #pragma unroll
+  for (unsigned t = 0; t < DS4_Q80_BLOCKDIAG_MAX_BATCH; t++) {
+    if (t < batch) {
+      float s = sum[t];
+      #pragma unroll
+      for (unsigned stride = 16; stride; stride >>= 1)
+        s += __shfl_down_sync(0xffffffff, s, stride);
+      if (lane == 0)
+        out[((unsigned long long)t * diags + diag) * rows + row] = s;
+    }
+  }
+}
+
 extern "C" __global__ void ds4_swiglu_quant_q8_0(
     const float *gate, const float *up, ds4_q8_activation *out,
     unsigned int blocks, float weight) {
