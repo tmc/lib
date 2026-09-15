@@ -12,11 +12,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
-// ptxBase is the logical image base for the PTX text. It is the same constant
-// cmd/cudaprof uses when it annotates the profile, so a statement has one
-// address whether it is written at capture time or synthesized at view time.
-const ptxBase = cudaprof.PTXMappingStart
-
 // sampleTypes reports the profile's value types. Stall counters exist only
 // under PC sampling, which measures them.
 func sampleTypes(pcSampling bool) []string {
@@ -70,16 +65,6 @@ func numericLabelUnits() map[string]string {
 	}
 }
 
-// ptxAddress returns the logical address of a one-based PTX line, or zero when
-// the line is outside the text. Zero leaves the frame unmapped, which is the
-// correct representation of an address the capture cannot establish.
-func ptxAddress(offsets []uint64, line int) uint64 {
-	if line < 1 || line >= len(offsets) {
-		return 0
-	}
-	return ptxBase + offsets[line]
-}
-
 // goFrames reports the Go call stack above the caller, outermost last, as pprof
 // expects. It skips its own frame and its caller's, so the leaf is the launch
 // site rather than the code that asked for the stack.
@@ -125,58 +110,4 @@ func trimPath(path string) string {
 		return path[i+1:]
 	}
 	return path
-}
-
-// rewriteSASSSourcePath replaces absolute source paths nvdisasm embeds in
-// SASS line directives (including inline annotations) with relative bundle names.
-// The compiler records build host paths that do not match the sources the capture
-// bundles, so directives must be rewritten to match bundle names.
-func rewriteSASSSourcePath(sass []byte, name string) []byte {
-	const marker = `//## File "`
-	const inlineMarker = ` inlined at "`
-	out := make([]byte, 0, len(sass))
-	for _, line := range strings.SplitAfter(string(sass), "\n") {
-		i := strings.Index(line, marker)
-		if i < 0 {
-			out = append(out, line...)
-			continue
-		}
-		rest := line[i+len(marker):]
-		j := strings.IndexByte(rest, '"')
-		if j < 0 {
-			out = append(out, line...)
-			continue
-		}
-		out = append(out, line[:i+len(marker)]...)
-		filePath := rest[:j]
-		if filePath == ".nv_debug_ptx_txt" {
-			out = append(out, filePath...)
-		} else {
-			out = append(out, name...)
-		}
-
-		remaining := rest[j:]
-		for {
-			k := strings.Index(remaining, inlineMarker)
-			if k < 0 {
-				out = append(out, remaining...)
-				break
-			}
-			out = append(out, remaining[:k+len(inlineMarker)]...)
-			inlineRest := remaining[k+len(inlineMarker):]
-			endQuote := strings.IndexByte(inlineRest, '"')
-			if endQuote < 0 {
-				out = append(out, inlineRest...)
-				break
-			}
-			inlinePath := inlineRest[:endQuote]
-			if inlinePath == ".nv_debug_ptx_txt" {
-				out = append(out, inlinePath...)
-			} else {
-				out = append(out, name...)
-			}
-			remaining = inlineRest[endQuote:]
-		}
-	}
-	return out
 }

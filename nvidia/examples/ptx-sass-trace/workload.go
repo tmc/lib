@@ -37,7 +37,8 @@ type workloadResult struct {
 // is the only host stack that says anything about the device work.
 type launchRecorder struct {
 	prof     *cudaprof.Session
-	ptxLines []uint64
+	ptxAddrs *cudacapture.PTXAddresses
+	frames   *cudacapture.FrameBuilder
 
 	mu     sync.Mutex
 	stacks map[string][]cudaprof.Frame
@@ -52,10 +53,11 @@ type launchRecorder struct {
 	tileIRLines map[string]int
 }
 
-func newLaunchRecorder(prof *cudaprof.Session, ptxLines []uint64) *launchRecorder {
+func newLaunchRecorder(prof *cudaprof.Session, ptxAddrs *cudacapture.PTXAddresses) *launchRecorder {
 	return &launchRecorder{
 		prof:        prof,
-		ptxLines:    ptxLines,
+		ptxAddrs:    ptxAddrs,
+		frames:      cudacapture.NewFrameBuilder(artifacts, ptxAddrs),
 		stacks:      make(map[string][]cudaprof.Frame),
 		ambiguous:   make(map[string]bool),
 		labels:      make(map[string]map[string]string),
@@ -843,22 +845,26 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 				Samples:  1,
 				GPUNanos: elapsed.Nanoseconds(),
 			}
-			sassLine := 1
-			if len(k.Instructions) > 0 {
-				sassLine = k.Instructions[0].SASSLine
+			// Leaf first: the machine instruction, then each representation
+			// it was lowered from. The tile IR sits between PTX and the source
+			// because that is where this workload lowers through it.
+			var frames []cudaprof.Frame
+			if f, ok := rec.frames.SASSKernelFrame(k); ok {
+				frames = append(frames, f)
 			}
-			frames := []cudaprof.Frame{
-				{FunctionName: k.Name + ".SASS", FileName: "kernels.sass", Line: int64(sassLine), Address: cudaprof.DefaultMappingStart + k.Offset},
-				{FunctionName: k.Name + ".PTX", FileName: "kernels.ptx", Line: int64(k.PTXLine), Address: ptxAddress(rec.ptxLines, k.PTXLine)},
+			if f, ok := rec.frames.PTXFrame(k, k.PTXLine); ok {
+				frames = append(frames, f)
 			}
 			if tileLine > 0 {
 				frames = append(frames, cudaprof.Frame{
 					FunctionName: k.Name + ".TileIR",
-					FileName:     "kernels.tileir",
+					FileName:     tileIRArtifact,
 					Line:         int64(tileLine),
 				})
 			}
-			frames = append(frames, cudaprof.Frame{FunctionName: k.Name, FileName: "kernels.cu", Line: int64(k.SourceLine)})
+			if f, ok := rec.frames.SourceFrame(k, k.SourceLine); ok {
+				frames = append(frames, f)
+			}
 			rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
 		}
 		if hotspotsActive && len(k.Instructions) > 0 {

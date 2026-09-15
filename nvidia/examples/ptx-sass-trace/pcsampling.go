@@ -166,7 +166,7 @@ func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.
 		Session:    rec.prof,
 		Inventory:  inv,
 		Resolver:   resolver,
-		PTXOffsets: rec.ptxLines,
+		PTXOffsets: rec.ptxAddrs.Offsets(),
 		HostFrames: func(loc cuptipcsampling.CodeLocation) []cudaprof.Frame {
 			return rec.launchStack(loc.KernelName)
 		},

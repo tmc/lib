@@ -52,8 +52,9 @@ func TestRecordInstructionHotspots(t *testing.T) {
 		t.Fatalf("SetSampleTypes: %v", err)
 	}
 
-	ptxLines := []uint64{0, 0, 10, 20}
-	rec := newLaunchRecorder(prof, ptxLines)
+	// Two ten-byte lines, so PTX line 2 is ten bytes into the text and line 3
+	// is the sentinel past its end.
+	rec := newLaunchRecorder(prof, cudacapture.NewPTXAddresses("// aaaaaa\n// bbbbbb\n"))
 
 	// Offset is nonzero because that is the case the addresses have to survive:
 	// cudacapture enforces Instructions[0].Offset == 0, so a kernel-relative

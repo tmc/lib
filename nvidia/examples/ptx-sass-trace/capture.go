@@ -32,6 +32,21 @@ import (
 //go:embed main.go capture.go workload.go kernels.cu bundle.README.md nccl_oracle.go nccl_workload.go profileshape.go pcsampling.go kernels.tileir tileiras-remarks.yaml intermediate_ptx.go hotspots.go graph_workload.go cupti_metrics.go
 var sources embed.FS
 
+// artifacts names the files this capture bundles its retained code under. The
+// capture's declared CodeFiles and the frames the profile carries must agree on
+// them, so both are written from here: a frame naming a file the bundle does
+// not hold resolves to nothing in every source view.
+var artifacts = cudacapture.Artifacts{
+	Source: "kernels.cu",
+	PTX:    "kernels.ptx",
+	SASS:   "kernels.sass",
+}
+
+// tileIRArtifact names the bundled tile IR. It is this workload's own level,
+// not one cudacapture identifies: the line numbers come from the lowering
+// remarks this example generates, so the frames for it are built here.
+const tileIRArtifact = "kernels.tileir"
+
 type captureMetadata struct {
 	Created      string             `json:"created"`
 	Device       string             `json:"device"`
@@ -172,12 +187,20 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		return nil, fmt.Errorf("generate basic block flow graph: %w", err)
 	}
 
-	tileIRData := captureFiles["kernels.tileir"]
+	tileIRData := captureFiles[tileIRArtifact]
 	ptx = injectTileIRLocations(ptx, string(tileIRData))
 
-	captureFiles["kernels.ptx"] = []byte(ptx)
+	captureFiles[artifacts.PTX] = []byte(ptx)
 	captureFiles["kernels.cubin"] = disassemblyInput
-	captureFiles["kernels.sass"] = rewriteSASSSourcePath(assembly.Stdout, "kernels.cu")
+	// nvrtc records the path it compiled through, which is a temporary
+	// directory this process does not choose, so the old path is read back out
+	// of the disassembly rather than assumed. Only kernels.cu is bundled, so
+	// every other file nvdisasm names keeps its recorded path.
+	sourceMap, err := cudacapture.SourceMapByBase(assembly.Stdout, artifacts.Source)
+	if err != nil {
+		return nil, fmt.Errorf("map disassembly sources: %w", err)
+	}
+	captureFiles[artifacts.SASS] = cudacapture.RewriteSASSSources(assembly.Stdout, sourceMap)
 	captureFiles["kernels.cfg.dot"] = cfgOut.Stdout
 	captureFiles["kernels.bbcfg.dot"] = bbcfgOut.Stdout
 	captureFiles["nvdisasm.txt"] = version.Stdout
@@ -185,13 +208,13 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	cap := &cudacapture.Capture{
 		Files: captureFiles,
 		Code: cudacapture.CodeFiles{
-			Source: "kernels.cu",
-			PTX:    "kernels.ptx",
+			Source: artifacts.Source,
+			PTX:    artifacts.PTX,
 			CUBIN:  "kernels.cubin",
-			SASS:   "kernels.sass",
+			SASS:   artifacts.SASS,
 			CFG:    "kernels.cfg.dot",
 			BBCFG:  "kernels.bbcfg.dot",
-			TileIR: "kernels.tileir",
+			TileIR: tileIRArtifact,
 		},
 	}
 
@@ -289,11 +312,11 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	// The PTX text is a second logical image, so PTX frames carry real
 	// addresses in the shipped file rather than only when cmd/cudaprof
 	// synthesizes the mapping at view time.
-	ptxLines := cudaprof.PTXLineOffsets(ptx)
-	rec := newLaunchRecorder(prof, ptxLines)
+	ptxAddrs := cudacapture.NewPTXAddresses(ptx)
+	rec := newLaunchRecorder(prof, ptxAddrs)
 	rec.SetHotspots(cfg.hotspots)
 	rec.SetTileIRLines(kernelTileIRLines(string(tileIRData)))
-	prof.AddMapping("kernels.ptx", fmt.Sprintf("%x", sha256.Sum256([]byte(ptx))), ptxBase, ptxBase+uint64(len(ptx)))
+	prof.AddMapping(artifacts.PTX, fmt.Sprintf("%x", sha256.Sum256([]byte(ptx))), cudaprof.PTXMappingStart, cudaprof.PTXMappingStart+uint64(len(ptx)))
 	var wRes workloadResult
 	workloadStart := time.Now()
 	runMeasured := func(ctx context.Context) {
