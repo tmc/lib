@@ -1,0 +1,3 @@
+{"kind":"span","name":"prefill","start_ns":1788203907055270226,"end_ns":1788203908417456492,"clock":"unix","labels":{"phase":"prefill","prompt_tokens":"9"}}
+{"kind":"span","name":"token","start_ns":1788203908417456492,"end_ns":1788203908420635694,"clock":"unix","eval_seq":1,"labels":{"phase":"decode"}}
+{"kind":"span","name":"decode","start_ns":1788203908417456492,"end_ns":1788203908453486596,"clock":"unix","labels":{"phase":"decode","tokens":"8"}}
