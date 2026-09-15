@@ -85,20 +85,21 @@ type collector interface {
 // Plan owns a retained CUDA context and metric configuration. Its zero value is
 // not usable. Calls must be sequential; concurrent calls fail immediately.
 type Plan struct {
-	dev             *cuda.Device
-	config          Config
-	context         planContext
-	checkContext    func() error
-	backend         collector
-	units           []string
-	additive        []bool
-	metadata        map[string]string
-	busy            atomic.Bool
-	exportStatus    atomic.Uint32
-	closed          bool
-	pending         *cuptirange.Capture
-	pendingTimer    interface{ Close() error }
-	pendingOverride *Plan
+	dev                 *cuda.Device
+	config              Config
+	configurationPasses uint
+	context             planContext
+	checkContext        func() error
+	backend             collector
+	units               []string
+	additive            []bool
+	metadata            map[string]string
+	busy                atomic.Bool
+	exportStatus        atomic.Uint32
+	closed              bool
+	pending             *cuptirange.Capture
+	pendingTimer        interface{ Close() error }
+	pendingOverride     *Plan
 }
 
 // New configures collection on dev's primary context. The device and workload
@@ -154,9 +155,10 @@ func New(dev *cuda.Device, c Config) (p *Plan, err error) {
 			return e
 		}
 		_, passes := backend.Configuration()
+		p.configurationPasses = passes
 		p.metadata["configuration_passes"] = fmt.Sprint(passes)
-		if passes > c.Limits.MaxPasses {
-			return fmt.Errorf("cuptibench: configuration requires %d passes, limit is %d", passes, c.Limits.MaxPasses)
+		if err := c.checkPassBudget(passes); err != nil {
+			return err
 		}
 		p.metadata["chip"] = chip
 		uuid, e := dev.Raw().GetUuid()
@@ -280,4 +282,15 @@ func (p *Plan) call(fn func() error) (err error) {
 		defer func() { err = errors.Join(err, p.checkContext()) }()
 	}
 	return fn()
+}
+
+// checkPassBudget rejects a known insufficient host replay budget. CUPTI handles
+// kernel replay internally. For user replay the configuration count is only a
+// lower bound: nested ranges can require additional host passes, whose exact
+// count is not exposed by ProfilerHostGetNumOfPasses.
+func (c Config) checkPassBudget(passes uint) error {
+	if c.ReplayMode != cuptirange.KernelReplay && passes > c.Limits.MaxPasses {
+		return fmt.Errorf("cuptibench: configuration requires %d passes, limit is %d", passes, c.Limits.MaxPasses)
+	}
+	return nil
 }

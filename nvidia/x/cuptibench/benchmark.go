@@ -27,6 +27,9 @@ type timerFactory func(*Plan, Workload) (benchmarkTimer, error)
 // values describe the separately replayed sequence; profile-ops names its size.
 // Setup, preparation, and profiling are excluded from the timed loop. Errors
 // fail the benchmark. Use Plan.Collect for counter assertions in ordinary tests.
+// In Kernels mode, a separate Whole/UserReplay capture supplies aggregate
+// counters. MaxPasses applies to each capture; it must cover the aggregate's
+// configuration passes even when KernelReplay needs only one host pass.
 func Benchmark(b *testing.B, p *Plan, w Workload) *Result {
 	b.Helper()
 	selected, owned, err := benchmarkPlan(p)
@@ -129,6 +132,9 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 	}()
 	if err = p.validateWorkload(w); err != nil {
 		return nil, err
+	}
+	if p.config.Mode == Kernels && p.configurationPasses > p.config.Limits.MaxPasses {
+		return nil, fmt.Errorf("cuptibench: whole benchmark aggregate requires %d host passes, limit is %d", p.configurationPasses, p.config.Limits.MaxPasses)
 	}
 	w.Streams = append([]*cuda.Stream(nil), w.Streams...)
 	w.Graphs = append([]*cudagraph.Exec(nil), w.Graphs...)
