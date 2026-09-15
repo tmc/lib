@@ -3,11 +3,82 @@
 # reported the tracked main.go inside it as ignored. Anchored to the binary.
 /examples/nvidia/simple-addition/simple-addition
 
-# go build output left in the tree. Each name is the command's own directory
-# name, so the patterns are anchored paths: a bare "cudaprof" would also match
-# nvidia/cmd/cudaprof, the package directory. 100 MB of executables are
-# currently one "git add -A" from the history.
+# go build output left in the tree. `go build` in a command's own directory
+# writes an executable named after that directory, so the ignorable name is a
+# property of every main package, not of the four that happened to exist when
+# this list was first written. Enumerated rather than sampled:
+#
+#	for d in $(git ls-files '*.go' | xargs -n1 dirname | sort -u); do
+#		grep -lq '^package main' $d/*.go 2>/dev/null && echo "/$d/$(basename $d)"
+#	done
+#
+# Every pattern is an anchored path, never a bare name: "cudaprof" alone would
+# also match nvidia/cmd/cudaprof, the package directory, and a gitignore pattern
+# that claims a directory silently ignores the tracked sources inside it. The
+# gate for that direction is `git ls-files -i -c --exclude-standard`, which asks
+# which TRACKED files gitignore claims and must stay empty -- a question that
+# checking a pattern you just added does not answer.
+/apple/cmd/metalprof/metalprof
+/apple/examples/metal-trace/metal-trace
+/apple/x/metal/metalmlx/metalmlx
+/examples/cmd/inferbenchcheck/inferbenchcheck
+/examples/cmd/inferbenchhash/inferbenchhash
+/examples/cmd/inferbenchluminal/inferbenchluminal
+/examples/llama-infer/llama-infer
+/examples/modelir-run/modelir-run
+/examples/nvidia/cublas-sgemm/cublas-sgemm
+/examples/nvidia/cublaslt-layout/cublaslt-layout
+/examples/nvidia/cuda-attention-compile/cuda-attention-compile
+/examples/nvidia/cuda-kv-cache/cuda-kv-cache
+/examples/nvidia/cuda-safetensors/cuda-safetensors
+/examples/nvidia/cuda-token-sampling/cuda-token-sampling
+/examples/nvidia/cuda-trace/cuda-trace
+/examples/nvidia/cudnn-tensor/cudnn-tensor
+/examples/nvidia/cufft-impulse/cufft-impulse
+/examples/nvidia/cufile-status/cufile-status
+/examples/nvidia/cupti-version/cupti-version
+/examples/nvidia/curand-host/curand-host
+/examples/nvidia/cusolver-version/cusolver-version
+/examples/nvidia/cusparse-version/cusparse-version
+/examples/nvidia/cutensor-version/cutensor-version
+/examples/nvidia/driver-info/driver-info
+/examples/nvidia/egraph-fusion/egraph-fusion
+/examples/nvidia/fabricmanager-status/fabricmanager-status
+/examples/nvidia/features/features
+/examples/nvidia/gemm-allreduce/gemm-allreduce
+/examples/nvidia/jit-vector-add/jit-vector-add
+/examples/nvidia/llama-infer/llama-infer
+/examples/nvidia/moonep-layout/moonep-layout
+/examples/nvidia/nccl-allreduce/nccl-allreduce
+/examples/nvidia/nvlshm-capabilities/nvlshm-capabilities
+/examples/nvidia/nvml-info/nvml-info
+/examples/nvidia/nvrtc-compile/nvrtc-compile
+/examples/nvidia/qwen-egraph-infer/qwen-egraph-infer
+/examples/nvidia/simple-addition/simple-addition
+/examples/nvidia/tcpboot-roundtrip/tcpboot-roundtrip
+/nvidia/cmd/cudaprof/cudaprof
+/nvidia/examples/ptx-sass-trace/ptx-sass-trace
+/nvidia/examples/subgrid-overlap/subgrid-overlap
+/nvidia/internal/cmd/provenancecheck/provenancecheck
+/nvidia/internal/cmd/xinventory/xinventory
+/nvidia/internal/cudainject/journalstat/journalstat
+/nvidia/x/cudamlx/cudamlx
+/nvidia/x/cudaptx/internal/genptxtables/genptxtables
+/nvidia/x/cudasanitizer/cudasanitizer
+/nvidia/x/nccltest/cmd/ncclcompare/ncclcompare
+/nvidia/x/nccltest/cmd/nccltest/nccltest
+/nvidia/x/nvrtcx/testdata/cacheprobe/cacheprobe
+/treesitter/grammars/grammars
+
+# Built from a PARENT directory, so the name lands beside the parent rather than
+# in the package. Where the output lands is a property of the invocation, not of
+# the package, so the sweep above cannot predict these: they are observed.
+#
+# These three cannot be anchored any further, because the leaf is the whole
+# name. If a directory ever appears at one of these paths, gitignore will claim
+# its contents; gitignore can say "directory only" with a trailing slash and has
+# no way to say "file only". The residual risk is stated rather than hidden, and
+# the ls-files gate above is what catches it.
 /cudaprof
 /nvidia/cudaprof
-/nvidia/cmd/cudaprof/cudaprof
 /nvidia/ptx-sass-trace
