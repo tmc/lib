@@ -43,6 +43,9 @@ type Capture struct {
 	// It may contain only initialization or partial data. Retain it for diagnostics,
 	// never evaluate it as a completed image. Its size is bounded by MaxCounterBytes.
 	DiagnosticImage []byte
+	// DiagnosticTrace retains bounded observed launches after a failed capture.
+	// Nil means no launch observer was available, not that no kernels ran.
+	DiagnosticTrace *LaunchTrace
 	lease           *cuptiowner.Lease
 	mu              sync.Mutex
 	context         captureContext
@@ -187,7 +190,7 @@ func (p *Plan) captureReplay(dev *cuda.Device, limits Limits, options CaptureOpt
 	if err != nil {
 		return result, errors.Join(err, result.Close())
 	}
-	defer func() { err = errors.Join(err, result.Close()) }()
+	defer func() { err = result.finishCollection(err) }()
 	err = ctx.Run(func() error {
 		store, err := newCounterStore(cupti.Context(ctx.Raw()), metrics, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes,
 			counterAPI{cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
@@ -220,9 +223,22 @@ func (p *Plan) captureReplay(dev *cuda.Device, limits Limits, options CaptureOpt
 func (c *Capture) retainCollection(store *counterStore, ranges uint, err error) {
 	c.Quality = store.quality
 	if err != nil {
+		c.Image = nil
+		c.Ranges = 0
+		c.RangeInfo = nil
 		c.DiagnosticImage = append([]byte(nil), store.image...)
+		c.DiagnosticTrace = store.kernelNames.diagnosticTrace()
 		return
 	}
 	c.Image = append([]byte(nil), store.image...)
 	c.Ranges = ranges
+}
+
+func (c *Capture) finishCollection(err error) error {
+	store := c.store
+	err = errors.Join(err, c.Close())
+	if err != nil && store != nil && c.DiagnosticImage == nil {
+		c.retainCollection(store, 0, err)
+	}
+	return err
 }
