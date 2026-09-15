@@ -1,0 +1,22 @@
+{
+  "commit": "dd3e8df45fbfba65f6a8f13bb0ff357cc13c7580",
+  "date_utc": "2026-09-05T05:23:27.327777+00:00",
+  "agent": "Codex",
+  "model": "GPT-6",
+  "codex_version": "codex-cli 0.153.3",
+  "claude_code_version": "2.1.257 (Claude Code)",
+  "tty": "unavailable: Command '['tty']' returned non-zero exit status 1.",
+  "note_writer_pid": 48010,
+  "ITERM_SESSION_ID": "w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3",
+  "provenance": "Metal file-close error propagation; regression and combined01 pass; manual commit fallback after automatic helper API-key failures"
+}
+
+commit: 4c6e959681ecfa17919ebce5f40cc1605d3fb967
+commit date: 2026-09-15T00:29:04-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
