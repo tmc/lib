@@ -70,6 +70,9 @@ type PipelineViewData struct {
 	TileIRAudit   string                    `json:"tileir_audit,omitempty"`
 	TileIROpcodes map[string]int            `json:"tileir_opcodes,omitempty"`
 	CFGDot        string                    `json:"cfg_dot,omitempty"`
+	// Recompile carries the CUDA C++ source the NVRTC panel recompiles. It is
+	// nil when the capture retained no source.
+	Recompile *recompileSource `json:"recompile,omitempty"`
 }
 
 func runViewCommand(rawArgs []string) error {
@@ -164,8 +167,10 @@ func runViewCommand(rawArgs []string) error {
 		return fmt.Errorf("view: build pipeline data: %w", err)
 	}
 
-	// Static HTML export mode
+	// Static HTML export mode. The NVRTC panel needs the live server to
+	// compile, so the exported page does not offer it.
 	if htmlOut != "" {
+		data.Recompile = nil
 		var buf bytes.Buffer
 		if err := renderPipelineHTML(&buf, data); err != nil {
 			return fmt.Errorf("view: render HTML: %w", err)
@@ -214,15 +219,18 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		ActiveKernel: activeKernel,
 	}
 
-	// 1. Extract metadata (device, arch)
+	// 1. Extract metadata (device, arch, compile options)
+	var nvrtcOptions []string
 	if len(cap.Metadata) > 0 {
 		var meta struct {
-			Device string `json:"device"`
-			Arch   string `json:"architecture"`
+			Device string   `json:"device"`
+			Arch   string   `json:"architecture"`
+			NVRTC  []string `json:"nvrtc_options"`
 		}
 		if json.Unmarshal(cap.Metadata, &meta) == nil {
 			data.Device = meta.Device
 			data.Architecture = meta.Arch
+			nvrtcOptions = meta.NVRTC
 		}
 	}
 
@@ -280,6 +288,23 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		sassFileName = "kernels.sass"
 	}
 	sassContent := string(cap.Files[sassFileName])
+
+	if strings.TrimSpace(cuContent) != "" {
+		src := &recompileSource{
+			File:     cuFileName,
+			Arch:     data.Architecture,
+			Options:  nvrtcOptions,
+			Recorded: len(nvrtcOptions) > 0,
+			Source:   cuContent,
+			PTX:      ptxContent,
+			SASS:     sassContent,
+		}
+		if !src.Recorded {
+			src.Options = defaultRecompileOptions(src.Arch)
+		}
+		src.Suggested = append(append([]string(nil), src.Options...), "--use_fast_math")
+		data.Recompile = src
+	}
 
 	// Remarks & CFG if present
 	var remarksList []tileiras.Remark
@@ -1059,6 +1084,10 @@ func newPipelineServerHandler(data *PipelineViewData) http.Handler {
 		json.NewEncoder(w).Encode(data)
 	})
 
+	if data.Recompile != nil {
+		mux.HandleFunc("/api/recompile", newRecompileHandler(data.Recompile, compileNVRTCVariant))
+	}
+
 	mux.HandleFunc("/api/kernel", func(w http.ResponseWriter, r *http.Request) {
 		kName := r.URL.Query().Get("name")
 		w.Header().Set("Content-Type", "application/json")
@@ -1074,6 +1103,7 @@ func newPipelineServerHandler(data *PipelineViewData) http.Handler {
 
 func renderPipelineHTML(w io.Writer, data *PipelineViewData) error {
 	tmpl, err := template.New("pipeline").Funcs(template.FuncMap{
+		"join": strings.Join,
 		"stallWidth": func(pct float64) string {
 			if pct <= 0 {
 				return "0"
@@ -1430,6 +1460,79 @@ select:focus, input[type="text"]:focus {
 .stall-text.stall-low {
   color: #2ed573;
 }
+.nvrtc-panel {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.nvrtc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvrtc-row label {
+  width: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.nvrtc-row input[type="text"] {
+  flex: 1;
+  min-width: 260px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+.nvrtc-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.nvrtc-caveat {
+  color: #f39c12;
+  font-size: 11px;
+  border-left: 2px solid var(--accent-tile);
+  padding-left: 8px;
+}
+.nvrtc-table {
+  border-collapse: collapse;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 11px;
+  width: 100%;
+}
+.nvrtc-table th, .nvrtc-table td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 2px 8px;
+  text-align: right;
+  color: var(--text-primary);
+}
+.nvrtc-table th:first-child, .nvrtc-table td:first-child,
+.nvrtc-table th:nth-child(2), .nvrtc-table td:nth-child(2) {
+  text-align: left;
+}
+.nvrtc-delta-down { color: #2ed573; }
+.nvrtc-delta-up { color: #ff6b81; }
+.nvrtc-code {
+  display: flex;
+  gap: 8px;
+}
+.nvrtc-code pre {
+  flex: 1;
+  min-width: 0;
+  max-height: 32vh;
+  overflow: auto;
+  background: var(--bg-tier);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text-primary);
+}
 .tab-bar {
   display: none;
   background-color: var(--bg-secondary);
@@ -1465,8 +1568,51 @@ select:focus, input[type="text"]:focus {
     </select>
 
     <button class="btn" id="syncScrollBtn" onclick="toggleSyncScroll()">Sync Scroll: ON</button>
+    {{if .Recompile}}<button class="btn" id="nvrtcToggleBtn" onclick="toggleNVRTCPanel()">NVRTC Flags</button>{{end}}
   </div>
 </header>
+
+{{if .Recompile}}
+<section class="nvrtc-panel" id="nvrtcPanel" hidden>
+  <div class="nvrtc-row">
+    <span class="nvrtc-hint">Recompile <b>{{.Recompile.File}}</b> with NVRTC and compare against the capture. Each side is an option list, or the word <b>capture</b> for the artifacts this capture already holds.</span>
+  </div>
+  <div class="nvrtc-row">
+    <label>A</label>
+    <input type="text" id="nvrtcA" value="capture" spellcheck="false">
+    <span class="nvrtc-hint">{{if .Recompile.Recorded}}capture recorded: {{join .Recompile.Options " "}}{{else}}capture did not record its NVRTC options; assumed {{join .Recompile.Options " "}}{{end}}</span>
+  </div>
+  <div class="nvrtc-row">
+    <label>B</label>
+    <input type="text" id="nvrtcB" value="{{join .Recompile.Suggested " "}}" spellcheck="false">
+  </div>
+  <div class="nvrtc-row">
+    <span class="nvrtc-hint">toggle on B:</span>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--use_fast_math')">--use_fast_math</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--ftz=true')">--ftz=true</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-div=false')">--prec-div=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-sqrt=false')">--prec-sqrt=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--fmad=false')">--fmad=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--extra-device-vectorization')">--extra-device-vectorization</button>
+  </div>
+  <div class="nvrtc-row">
+    <button class="btn active" onclick="runRecompile()">Compare A/B</button>
+    <button class="btn" id="nvrtcTierBtn" onclick="toggleRecompileTier()">Showing: SASS</button>
+    <span class="nvrtc-hint" id="nvrtcStatus"></span>
+  </div>
+  <div class="nvrtc-caveat" id="nvrtcCaveat" hidden></div>
+  <div id="nvrtcResults" hidden>
+    <table class="nvrtc-table">
+      <thead><tr><th>group</th><th>count</th><th>A</th><th>B</th><th>B-A</th></tr></thead>
+      <tbody id="nvrtcTableBody"></tbody>
+    </table>
+    <div class="nvrtc-code">
+      <pre id="nvrtcCodeA"></pre>
+      <pre id="nvrtcCodeB"></pre>
+    </div>
+  </div>
+</section>
+{{end}}
 
 <div class="tab-bar" id="tabBar">
   {{range $idx, $tier := .Tiers}}
@@ -1597,6 +1743,86 @@ function onKernelChange(kernelName) {
       });
     })
     .catch(err => console.error('Failed to load kernel:', err));
+}
+
+let recompileResult = null;
+let recompileTier = 'sass';
+
+function toggleNVRTCPanel() {
+  const panel = document.getElementById('nvrtcPanel');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  document.getElementById('nvrtcToggleBtn').classList.toggle('active', !panel.hidden);
+}
+
+function toggleFlag(inputId, flag) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const parts = input.value.split(/\s+/).filter(p => p !== '' && p !== 'capture');
+  const at = parts.indexOf(flag);
+  if (at === -1) {
+    parts.push(flag);
+  } else {
+    parts.splice(at, 1);
+  }
+  input.value = parts.join(' ');
+}
+
+function toggleRecompileTier() {
+  recompileTier = recompileTier === 'sass' ? 'ptx' : 'sass';
+  document.getElementById('nvrtcTierBtn').textContent = 'Showing: ' + recompileTier.toUpperCase();
+  renderRecompileCode();
+}
+
+function runRecompile() {
+  const a = document.getElementById('nvrtcA').value;
+  const b = document.getElementById('nvrtcB').value;
+  const status = document.getElementById('nvrtcStatus');
+  status.textContent = 'compiling...';
+  fetch('/api/recompile?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
+    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t.trim()); }))
+    .then(res => {
+      recompileResult = res;
+      status.textContent = res.elapsed ? 'compiled in ' + res.elapsed : '';
+      const caveat = document.getElementById('nvrtcCaveat');
+      caveat.textContent = res.caveat;
+      caveat.hidden = false;
+      document.getElementById('nvrtcResults').hidden = false;
+      renderRecompileTable();
+      renderRecompileCode();
+    })
+    .catch(err => {
+      status.textContent = 'failed: ' + err.message;
+    });
+}
+
+function renderRecompileTable() {
+  const body = document.getElementById('nvrtcTableBody');
+  const res = recompileResult;
+  let html = '';
+  ['a', 'b'].forEach(side => {
+    const v = res[side];
+    if (v && v.error) {
+      html += '<tr><td>' + side.toUpperCase() + '</td><td colspan="4" class="nvrtc-delta-up">' + escapeHtml(v.error) + '</td></tr>';
+    }
+  });
+  (res.deltas || []).forEach(d => {
+    const cls = d.delta < 0 ? 'nvrtc-delta-down' : (d.delta > 0 ? 'nvrtc-delta-up' : '');
+    const sign = d.delta > 0 ? '+' : '';
+    html += '<tr><td>' + escapeHtml(d.group) + '</td><td>' + escapeHtml(d.name) + '</td><td>' + d.a + '</td><td>' + d.b +
+      '</td><td class="' + cls + '">' + sign + d.delta + '</td></tr>';
+  });
+  body.innerHTML = html || '<tr><td colspan="5">no differences</td></tr>';
+}
+
+function renderRecompileCode() {
+  if (!recompileResult) return;
+  ['a', 'b'].forEach(side => {
+    const v = recompileResult[side] || {};
+    const text = recompileTier === 'ptx' ? (v.ptx || '') : (v.sass || '');
+    const pane = document.getElementById(side === 'a' ? 'nvrtcCodeA' : 'nvrtcCodeB');
+    pane.textContent = (v.label || side) + '\n\n' + (text || v.log || v.error || '(no ' + recompileTier.toUpperCase() + ')');
+  });
 }
 
 function escapeHtml(text) {
