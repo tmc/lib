@@ -271,9 +271,19 @@ func (f *FunctionType) String() string {
 	return fmt.Sprintf("(%s) -> (%s)", inPart, strings.Join(resStrs, ", "))
 }
 
+// DynamicDim is the shape and stride extent standing for a dynamic ("?")
+// dimension. It matches MLIR's ShapedType::kDynamic, which the Tile IR
+// bytecode stores verbatim as a little-endian int64.
+const DynamicDim int64 = -1 << 63
+
 // TensorViewType models an N-dimensional view into a global memory tensor.
+//
+// Strides has the same length as Shape when present; a nil Strides encodes as
+// an empty stride list, which the assembler accepts only for a rank-0 view.
+// Dynamic extents are represented by DynamicDim.
 type TensorViewType struct {
 	Shape       []int64
+	Strides     []int64
 	ElementType Type
 }
 
