@@ -20,18 +20,20 @@ type counterAPI struct {
 // counterStore owns the target object and all memory it can reference. Methods
 // must execute with the owning CUDA context current. Failed disable retains pins.
 type counterStore struct {
-	mu      sync.Mutex
-	api     counterAPI
-	host    uintptr
-	names   *metricNames
-	image   []byte
-	config  []byte
-	quality CollectionQuality
-	pin     runtime.Pinner
+	mu          sync.Mutex
+	api         counterAPI
+	host        uintptr
+	names       *metricNames
+	image       []byte
+	config      []byte
+	rangeNames  map[string][]byte
+	kernelNames *kernelNames
+	quality     CollectionQuality
+	pin         runtime.Pinner
 }
 
 func newCounterStore(context cupti.Context, metrics []string, maxRanges uint, maxNodes uint32, maxBytes int, api counterAPI) (store *counterStore, err error) {
-	if context == 0 || maxRanges == 0 || maxNodes == 0 || maxBytes <= 0 {
+	if context == 0 || maxRanges == 0 || uint64(maxNodes) < uint64(maxRanges) || maxBytes <= 0 {
 		return nil, errors.New("cuptirange: invalid counter limits or context")
 	}
 	names, err := newMetricNames(metrics)
@@ -92,6 +94,7 @@ func (c *counterStore) close() error {
 		c.host = 0
 	}
 	c.pin.Unpin()
+	c.rangeNames = nil
 	if c.names != nil {
 		c.names.close()
 		c.names = nil

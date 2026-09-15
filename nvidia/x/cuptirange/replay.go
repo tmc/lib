@@ -11,10 +11,19 @@ import (
 // completion; an expected pass count alone is not a completion receipt. run
 // must restore the same workload state and synchronize its work on each pass.
 func replayRuns(limit uint, start func() error, run func(uint) error, stop func() (cupti.RangeProfilerStopParams, error)) error {
+	return replayPrepared(limit, nil, start, run, stop)
+}
+
+func replayPrepared(limit uint, prepare func(uint) error, start func() error, run func(uint) error, stop func() (cupti.RangeProfilerStopParams, error)) error {
 	if limit == 0 || start == nil || run == nil || stop == nil {
 		return errors.New("cuptirange: invalid replay configuration")
 	}
 	for pass := uint(0); pass < limit; pass++ {
+		if prepare != nil {
+			if err := prepare(pass); err != nil {
+				return fmt.Errorf("cuptirange: prepare pass %d: %w", pass, err)
+			}
+		}
 		if err := start(); err != nil {
 			return fmt.Errorf("cuptirange: start pass %d: %w", pass, err)
 		}

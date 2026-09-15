@@ -21,6 +21,9 @@ type Plan struct {
 	pin                        runtime.Pinner
 	chip, availability, config []byte
 	passes                     uint
+	version                    uint32
+	active                     bool
+	pending                    *Capture
 }
 
 type hostAPI struct {
@@ -71,6 +74,7 @@ func newPlan(chip string, availability []byte, metrics []string, maxConfigBytes 
 	if err != nil {
 		return nil, fmt.Errorf("cuptirange: query CUPTI version: %w", err)
 	}
+	p.version = version
 	if err := p.initializeHost(version); err != nil {
 		return nil, err
 	}
@@ -106,13 +110,24 @@ func newPlan(chip string, availability []byte, metrics []string, maxConfigBytes 
 	return p, nil
 }
 
-// Close releases the native host object. Failed cleanup is retryable.
+// Close retries any retained capture cleanup and releases the native host object.
+// Failed cleanup is retryable. Close rejects an active capture, including when
+// called from its callbacks. A workload panic does not abandon cleanup ownership.
 func (p *Plan) Close() error {
 	if p == nil {
 		return nil
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.active {
+		return errors.New("cuptirange: capture active")
+	}
+	if p.pending != nil {
+		if err := p.pending.Close(); err != nil {
+			return err
+		}
+		p.pending = nil
+	}
 	if p.host != 0 {
 		params := cupti.ProfilerHostDeinitializeParams{PHostObject: p.host}
 		params.StructSize = uint(unsafe.Offsetof(params.PHostObject) + unsafe.Sizeof(params.PHostObject))
