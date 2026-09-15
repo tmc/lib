@@ -55,6 +55,19 @@ GOWORK=off go test ./examples/cuptibench-capture \
 GOWORK=off go run ./cmd/cudaprof "$capture_dir/device.pprof.capture"
 ```
 
+Inspect the retained capture without a GPU:
+
+```sh
+GOWORK=off go run ./cmd/cudaprof -top "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./cmd/cudaprof -list=compute "$capture_dir/device.pprof.capture"
+GOWORK=off go run ./cmd/cudaprof -disasm=compute "$capture_dir/device.pprof.capture"
+```
+
+The disassembly view shows retained PTX and SASS without instruction costs.
+These counters measure a region; they contain no sampled instruction addresses.
+For this unannotated view, use `-disasm` and the capture path alone; measurement
+filters do not apply to the retained code listing.
+
 The benchmark skips without a device, NVRTC or nvdisasm. Check for a
 `BenchmarkComposeFromDevice` result line; a zero exit status alone does not
 prove it ran. The single iteration checks composition, not performance.
