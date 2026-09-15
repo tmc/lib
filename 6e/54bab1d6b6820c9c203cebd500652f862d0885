@@ -1,0 +1,18 @@
+session=2b9497cd-7408-4e8b-a617-38b19820dab9 date=2026-09-06
+model=claude-opus-5[1m] claude-code pid=89910 iterm=w12t0p14:DF6906F6-C2E9-4396-8D42-90A88213125C
+Mutation check for 3f60bba, run on dgx (spark-31db, NVIDIA GB10 sm_121, driver
+580.173.02, CUDA 12.0, go1.26.7 linux/arm64), model-free suite only:
+  3f60bba + old test  -> 1 FAIL (TestCUDARawZeroPrefixPrecision value+score)
+  3f60bba + new test  -> 201 PASS / 0 FAIL / 14 SKIP (all skips DS4_MODEL-gated)
+The failure delta was exactly f16(1.0007)*weight, confirming the kernel now
+attends over the rounded cache row. Tolerance not touched.
+
+commit: 6e54bab1d6b6820c9c203cebd500652f862d0885
+commit date: 2026-09-15T00:29:05-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
