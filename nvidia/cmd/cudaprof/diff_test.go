@@ -12,22 +12,43 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
-// TestStallFixtureNamesAreReal keeps the diff fixtures inside the vocabulary
-// x/cudaprof emits. A fixture is free to invent a sample type, and one that
-// does makes the test exercise a shape no capture can have: that is how four
-// stall narratives in diff.go stayed green while never firing on real data.
-// Builder.SetSampleTypes is the producer's own validator, so it answers this
-// without duplicating the list here.
-func TestStallFixtureNamesAreReal(t *testing.T) {
-	for _, name := range []string{"stall_mem", "stall_wait", "stall_scoreboard"} {
-		if err := cudaprof.NewBuilder().SetSampleTypes(name); err != nil {
-			t.Errorf("SetSampleTypes(%q) = %v, want a name the producer emits", name, err)
+// sampleTypeIsReal reports whether some producer this command reads can emit
+// name. cmd/cudaprof reads two: x/cudaprof writes the counter and stall types,
+// and x/cudacapture.BuildActivityProfile writes the activity ones. Asking only
+// the first calls kernel_time invented when advise.go consumes it. Both halves
+// are asked at runtime rather than transcribed, so neither list can drift from
+// the producer that owns it.
+func sampleTypeIsReal(name string) bool {
+	if err := cudaprof.NewBuilder().SetSampleTypes(name); err == nil {
+		return true
+	}
+	for _, st := range cudacapture.BuildActivityProfile("", 0, nil).SampleType {
+		if st.Type == name {
+			return true
 		}
 	}
-	// Negative control: if the validator ever stopped rejecting, every check
-	// above would pass without checking anything.
-	if err := cudaprof.NewBuilder().SetSampleTypes("stall_memory_throttle"); err == nil {
-		t.Error("SetSampleTypes(\"stall_memory_throttle\") = nil, so this test proves nothing")
+	return false
+}
+
+// TestStallFixtureNamesAreReal keeps this file's fixtures inside the vocabulary
+// the producers actually emit. A fixture is free to invent a sample type, and
+// one that does makes the test exercise a shape no capture can have: that is
+// how four stall narratives in diff.go stayed green while never firing on real
+// data. TestFixtureSampleTypesAreReal sweeps every fixture in the package; this
+// one carries the negative control that keeps the oracle honest.
+func TestStallFixtureNamesAreReal(t *testing.T) {
+	// kernel_time is here on purpose: it is real only through the activity
+	// producer, so it fails if the oracle narrows back to one of the two.
+	for _, name := range []string{"stall_mem", "stall_wait", "stall_scoreboard", "kernel_time"} {
+		if !sampleTypeIsReal(name) {
+			t.Errorf("sampleTypeIsReal(%q) = false, want a name some producer emits", name)
+		}
+	}
+	// Negative control: an oracle that accepts everything would pass every
+	// check above without checking anything. stall_memory_throttle is a
+	// plausible-looking name neither producer writes.
+	if sampleTypeIsReal("stall_memory_throttle") {
+		t.Error("sampleTypeIsReal(\"stall_memory_throttle\") = true, so this test proves nothing")
 	}
 }
 
