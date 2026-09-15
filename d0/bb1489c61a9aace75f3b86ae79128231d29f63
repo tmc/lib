@@ -1,0 +1,21 @@
+2026-09-07 Codex GPT-6; session 6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9. Documentation-only correction against retained CUDA timeout receipts and source-inspected devicequalify contract. No model run. Automatic commit helper failed missing API key; manual fallback used. claude-code version not applicable; noninteractive tool TTY unavailable.
+
+commit: ae75617c9f6a52d71495f994462e8d13d546348e
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: d0bb1489c61a9aace75f3b86ae79128231d29f63
+commit date: 2026-09-15T00:43:54-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
