@@ -291,7 +291,7 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 
 	// 4. Type Section
 	if typePayload, ok := payloads[SectionType]; ok {
-		types, err := parseTypeSection(typePayload)
+		types, err := parseTypeSection(typePayload, bm.Version)
 		if err != nil {
 			return nil, fmt.Errorf("parsing type section: %w", err)
 		}
@@ -434,7 +434,7 @@ func parseConstantSection(payload []byte) ([][]byte, error) {
 	return constants, nil
 }
 
-func parseTypeSection(payload []byte) ([]Type, error) {
+func parseTypeSection(payload []byte, ver BytecodeVersion) ([]Type, error) {
 	if len(payload) == 0 {
 		return nil, nil
 	}
@@ -476,13 +476,43 @@ func parseTypeSection(payload []byte) ([]Type, error) {
 			continue
 		}
 		tag, tn := readVarInt(raw)
-		types[i] = decodeType(tag, raw[tn:], types)
+		types[i] = decodeType(tag, raw[tn:], types, ver)
 	}
 
 	return types, nil
 }
 
-func decodeType(tag uint64, payload []byte, typePool []Type) Type {
+// skipOptionalParamFlags consumes the unified optional-parameter bitfield that
+// precedes the parameters of a type introduced at version since, when a file of
+// version ver carries one.
+func skipOptionalParamFlags(payload []byte, ver, since BytecodeVersion) []byte {
+	if !hasOptionalParamFlags(ver, since) {
+		return payload
+	}
+	_, n := readVarInt(payload)
+	if n <= 0 || n > len(payload) {
+		return nil
+	}
+	return payload[n:]
+}
+
+// readLEVarSize reads a varint element count followed by that many
+// little-endian int64s, returning the values and the unread remainder.
+func readLEVarSize(payload []byte) ([]int64, []byte) {
+	count, n := readVarInt(payload)
+	if n <= 0 || n > len(payload) {
+		return nil, nil
+	}
+	off := n
+	var vals []int64
+	for i := uint64(0); i < count && off+8 <= len(payload); i++ {
+		vals = append(vals, int64(binary.LittleEndian.Uint64(payload[off:off+8])))
+		off += 8
+	}
+	return vals, payload[off:]
+}
+
+func decodeType(tag uint64, payload []byte, typePool []Type, ver BytecodeVersion) Type {
 	switch TypeKind(tag) {
 	case KindInt1:
 		return Int1
@@ -519,6 +549,7 @@ func decodeType(tag uint64, payload []byte, typePool []Type) Type {
 	case KindToken:
 		return Token
 	case KindPointer:
+		payload = skipOptionalParamFlags(payload, ver, ptrAttrSinceVersion)
 		if len(payload) > 0 {
 			pointeeIdx, _ := readVarInt(payload)
 			var pointee Type = Float32
@@ -539,29 +570,21 @@ func decodeType(tag uint64, payload []byte, typePool []Type) Type {
 		if int(elemIdx) < len(typePool) && typePool[elemIdx] != nil {
 			elem = typePool[elemIdx]
 		}
-		off := n
-		if off < len(payload) {
-			rank, rn := readVarInt(payload[off:])
-			off += rn
-			var shape []int64
-			for r := uint64(0); r < rank && off+8 <= len(payload); r++ {
-				dim := int64(binary.LittleEndian.Uint64(payload[off : off+8]))
-				shape = append(shape, dim)
-				off += 8
-			}
-			return &TileType{Shape: shape, ElementType: elem}
-		}
-		return &TileType{ElementType: elem}
+		shape, _ := readLEVarSize(payload[n:])
+		return &TileType{Shape: shape, ElementType: elem}
 	case KindTensorView:
+		payload = skipOptionalParamFlags(payload, ver, ptrAttrSinceVersion)
 		if len(payload) == 0 {
 			return &TensorViewType{ElementType: Float32}
 		}
-		elemIdx, _ := readVarInt(payload)
+		elemIdx, n := readVarInt(payload)
 		var elem Type = Float32
 		if int(elemIdx) < len(typePool) && typePool[elemIdx] != nil {
 			elem = typePool[elemIdx]
 		}
-		return &TensorViewType{ElementType: elem}
+		shape, rest := readLEVarSize(payload[n:])
+		strides, _ := readLEVarSize(rest)
+		return &TensorViewType{Shape: shape, Strides: strides, ElementType: elem}
 	case KindFunction:
 		// Function type: inputs array, results array
 		off := 0
@@ -765,6 +788,10 @@ func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 		major = 13
 		minor = 4
 	}
+	// fileVersion is the version actually written to the header; the type
+	// encoder must gate optional-parameter bitfields on it, not on the
+	// possibly-zero version the caller supplied.
+	fileVersion := BytecodeVersion{Major: major, Minor: minor, Tag: tag}
 	buf.WriteByte(major)
 	buf.WriteByte(minor)
 	var tagBytes [2]byte
@@ -803,7 +830,7 @@ func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 
 	// 5. Type section (SectionType = 0x05)
 	if len(bm.Types) > 0 {
-		typePayload, err := encodeTypeSection(bm.Types)
+		typePayload, err := encodeTypeSection(bm.Types, fileVersion)
 		if err != nil {
 			return nil, fmt.Errorf("encoding type section: %w", err)
 		}
@@ -883,7 +910,7 @@ func encodeConstantSection(constants [][]byte) []byte {
 	return payload
 }
 
-func encodeTypeSection(types []Type) ([]byte, error) {
+func encodeTypeSection(types []Type, ver BytecodeVersion) ([]byte, error) {
 	numTypes := uint64(len(types))
 	payload := appendVarInt(nil, numTypes)
 
@@ -898,7 +925,7 @@ func encodeTypeSection(types []Type) ([]byte, error) {
 	var typeData []byte
 	for i, t := range types {
 		binary.LittleEndian.PutUint32(offsets[i*4:], uint32(len(typeData)))
-		raw := encodeSingleType(t, types)
+		raw := encodeSingleType(t, types, ver)
 		typeData = append(typeData, raw...)
 	}
 
@@ -907,7 +934,58 @@ func encodeTypeSection(types []Type) ([]byte, error) {
 	return payload, nil
 }
 
-func encodeSingleType(t Type, pool []Type) []byte {
+// Versions at which a parametric type first gained an optional parameter.
+// A type carrying optional parameters writes a unified presence bitfield as a
+// varint immediately after its type tag, ahead of every parameter. The
+// bitfield exists only from the unified-bitfield version (13.3) onward, and
+// only once the file version reaches the version that introduced the type's
+// first optional parameter.
+//
+// Derived from NVIDIA/cuda-tile
+// tools/cuda-tile-tblgen/BytecodeTypeCodeGen.cpp:536 (generateOptionalParamFlags,
+// emitted between the type tag and the parameters) and the parameter versions in
+// include/cuda_tile/Dialect/CudaTile/IR/Types.td:119 and :295.
+var (
+	unifiedBitfieldVersion = BytecodeVersion{Major: 13, Minor: 3}
+	ptrAttrSinceVersion    = BytecodeVersion{Major: 13, Minor: 4}
+)
+
+// versionAtLeast reports whether v is at or past want, ignoring the tag.
+func versionAtLeast(v, want BytecodeVersion) bool {
+	if v.Major != want.Major {
+		return v.Major > want.Major
+	}
+	return v.Minor >= want.Minor
+}
+
+// hasOptionalParamFlags reports whether a type whose first optional parameter
+// arrived in since writes its presence bitfield in a file of version ver.
+func hasOptionalParamFlags(ver, since BytecodeVersion) bool {
+	return versionAtLeast(ver, unifiedBitfieldVersion) && versionAtLeast(ver, since)
+}
+
+// appendOptionalParamFlags appends the unified optional-parameter bitfield, if
+// a file of version ver carries one for a type introduced at version since.
+func appendOptionalParamFlags(b []byte, ver, since BytecodeVersion, flags uint64) []byte {
+	if !hasOptionalParamFlags(ver, since) {
+		return b
+	}
+	return appendVarInt(b, flags)
+}
+
+// appendLEVarSize appends an int64 array in the vendor's writeLEVarSize form:
+// an element count as a varint followed by that many little-endian int64s.
+func appendLEVarSize(b []byte, vals []int64) []byte {
+	b = appendVarInt(b, uint64(len(vals)))
+	for _, v := range vals {
+		var buf [8]byte
+		binary.LittleEndian.PutUint64(buf[:], uint64(v))
+		b = append(b, buf[:]...)
+	}
+	return b
+}
+
+func encodeSingleType(t Type, pool []Type, ver BytecodeVersion) []byte {
 	if t == nil {
 		return appendVarInt(nil, uint64(KindInt32))
 	}
@@ -919,22 +997,20 @@ func encodeSingleType(t Type, pool []Type) []byte {
 	case *PointerType:
 		pIdx := findTypeIndex(pool, pt.Pointee)
 		b := appendVarInt(nil, uint64(KindPointer))
+		b = appendOptionalParamFlags(b, ver, ptrAttrSinceVersion, 0)
 		return appendVarInt(b, uint64(pIdx))
 	case *TileType:
 		eIdx := findTypeIndex(pool, pt.ElementType)
 		b := appendVarInt(nil, uint64(KindTile))
 		b = appendVarInt(b, uint64(eIdx))
-		b = appendVarInt(b, uint64(len(pt.Shape)))
-		for _, dim := range pt.Shape {
-			var dimBytes [8]byte
-			binary.LittleEndian.PutUint64(dimBytes[:], uint64(dim))
-			b = append(b, dimBytes[:]...)
-		}
-		return b
+		return appendLEVarSize(b, pt.Shape)
 	case *TensorViewType:
 		eIdx := findTypeIndex(pool, pt.ElementType)
 		b := appendVarInt(nil, uint64(KindTensorView))
-		return appendVarInt(b, uint64(eIdx))
+		b = appendOptionalParamFlags(b, ver, ptrAttrSinceVersion, 0)
+		b = appendVarInt(b, uint64(eIdx))
+		b = appendLEVarSize(b, pt.Shape)
+		return appendLEVarSize(b, pt.Strides)
 	case *FunctionType:
 		b := appendVarInt(nil, uint64(KindFunction))
 		b = appendVarInt(b, uint64(len(pt.Inputs)))
