@@ -51,6 +51,9 @@ func validateExportResult(r *Result) error {
 	if r == nil || r.Operations <= 0 {
 		return fmt.Errorf("cuptibench: invalid profile result")
 	}
+	if r.Diagnostics != nil {
+		return fmt.Errorf("cuptibench: diagnostic capture cannot be exported")
+	}
 	if r.Aggregate != nil {
 		a := r.Aggregate
 		if a.Aggregate != nil {

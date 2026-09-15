@@ -487,7 +487,17 @@ func TestPhysicalCuptibenchInsufficientRangeCapacity(t *testing.T) {
 	if rejected != nil && len(rejected.Ranges) != 0 {
 		t.Fatalf("failed collection retained admissible counters: %+v", rejected)
 	}
-	t.Logf("capacity rejection=%v diagnostic result=%+v", err, rejected)
+	if rejected == nil || rejected.Diagnostics == nil {
+		t.Fatal("capacity rejection lost diagnostic evidence")
+	}
+	d := rejected.Diagnostics
+	if len(d.Image) == 0 || len(d.Image) > 32<<20 || d.Trace == nil || len(d.Trace.Launches) != 1 {
+		t.Fatalf("diagnostic image bytes=%d trace=%+v", len(d.Image), d.Trace)
+	}
+	if d.Trace.CompletedPasses != 0 || !strings.Contains(d.Trace.Launches[0].Symbol, "fixture_project") {
+		t.Fatalf("bounded partial trace=%+v", d.Trace)
+	}
+	t.Logf("capacity rejection=%v image bytes=%d sha256=%x trace=%+v", err, len(d.Image), sha256.Sum256(d.Image), d.Trace)
 }
 
 func TestPhysicalCuptibenchProfile(t *testing.T) {
