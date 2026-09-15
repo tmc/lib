@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"log"
 	"net/http"
 	"os"
@@ -17,40 +18,12 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-// A recompileSource is one module's CUDA C++ source, together with the
-// artifacts the capture retained for it. The viewer recompiles the source
-// under caller-chosen NVRTC options and compares the result against those
-// artifacts, so a capture taken without --use_fast_math can be read beside the
-// same source compiled with it.
-//
-// A capture holds one of these per module, because a program compiles modules
-// separately and need not pass NVRTC the same options for each: ds4-min
-// compiles its math module without --use_fast_math and its Q8_0 quantizer with
-// it, and its probe modules target a virtual architecture rather than a
-// physical one. One option list per capture would describe at most one module
-// and silently misreport the rest.
-type recompileSource struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	File     string   `json:"file"`
-	Arch     string   `json:"arch,omitempty"`
-	Options  []string `json:"options,omitempty"`
-	Recorded bool     `json:"recorded"`
-	// Suggested is the option list the panel offers for the second side:
-	// Options plus --use_fast_math.
-	Suggested []string `json:"suggested,omitempty"`
-
-	Source string `json:"-"`
-	PTX    string `json:"-"`
-	SASS   string `json:"-"`
-}
-
 // recompileSources reports one source per module the capture retained, falling
 // back to the capture's top-level artifacts when it records no modules.
 // recorded supplies the options a module was built with, keyed by module ID and
 // then by module name; a capture that records none leaves every module's
 // options assumed.
-func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string][]string) []*recompileSource {
+func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string][]string) []*cudaview.RecompileSource {
 	if cap == nil {
 		return nil
 	}
@@ -60,12 +33,12 @@ func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string
 		}
 		return string(cap.Files[name])
 	}
-	build := func(id, name string, code cudacapture.CodeFiles) *recompileSource {
+	build := func(id, name string, code cudacapture.CodeFiles) *cudaview.RecompileSource {
 		source := text(code.Source)
 		if strings.TrimSpace(source) == "" {
 			return nil
 		}
-		src := &recompileSource{
+		src := &cudaview.RecompileSource{
 			ID:     id,
 			Name:   name,
 			File:   code.Source,
@@ -90,7 +63,7 @@ func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string
 		return src
 	}
 
-	var sources []*recompileSource
+	var sources []*cudaview.RecompileSource
 	for _, mod := range cap.Modules {
 		if src := build(mod.ID, mod.Name, mod.Code); src != nil {
 			sources = append(sources, src)
@@ -110,7 +83,7 @@ func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string
 		code.SASS = "kernels.sass"
 	}
 	if src := build("", code.Source, code); src != nil {
-		return []*recompileSource{src}
+		return []*cudaview.RecompileSource{src}
 	}
 	return nil
 }
@@ -130,7 +103,7 @@ func suggestedOptions(options []string) []string {
 
 // find reports the source with the given module ID or name, or the first one
 // when id is empty.
-func findRecompileSource(sources []*recompileSource, id string) *recompileSource {
+func findRecompileSource(sources []*cudaview.RecompileSource, id string) *cudaview.RecompileSource {
 	if len(sources) == 0 {
 		return nil
 	}
@@ -212,7 +185,15 @@ func compileNVRTCVariant(name, src string, options []string) *nvrtcVariant {
 	if v.Label == "" {
 		v.Label = "(no options)"
 	}
-	opts := []nvrtcx.Option{nvrtcx.WithName(name)}
+	// WithNoCache: the cache disagrees with a fresh compile. Measured against
+	// NVRTC 13.0 on ds4_math.cu, --ftz=true, --prec-div=false, --prec-sqrt=false
+	// and --extra-device-vectorization each produce a CUBIN bit-identical to the
+	// one compiled without them, reproducibly across processes -- they are
+	// no-ops on that source. Served from the cache they instead returned a CUBIN
+	// no fresh compile produces, and the panel reported them removing 24 FCHK
+	// and 8 MUFU.RCP. A comparison that invents a difference is worse than a
+	// slow one, so every variant here is compiled.
+	opts := []nvrtcx.Option{nvrtcx.WithName(name), nvrtcx.WithNoCache()}
 	for _, flag := range options {
 		opts = append(opts, nvrtcx.WithFlag(flag))
 	}
@@ -239,7 +220,7 @@ func compileNVRTCVariant(name, src string, options []string) *nvrtcVariant {
 }
 
 // captureVariant reports the capture's own artifacts as a variant.
-func captureVariant(src *recompileSource) *nvrtcVariant {
+func captureVariant(src *cudaview.RecompileSource) *nvrtcVariant {
 	v := &nvrtcVariant{Label: captureVariantLabel, PTX: src.PTX, SASS: src.SASS}
 	if src.Recorded {
 		v.Options = src.Options
@@ -406,7 +387,7 @@ func parseVariantOptions(s string) (options []string, recompile bool) {
 // the capture's modules to recompile; parameters a and b each hold a
 // space-separated NVRTC option list, or "capture" for the capture's own
 // artifacts.
-func newRecompileHandler(sources []*recompileSource, compile variantCompiler) http.HandlerFunc {
+func newRecompileHandler(sources []*cudaview.RecompileSource, compile variantCompiler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		src := findRecompileSource(sources, r.URL.Query().Get("module"))

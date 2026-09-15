@@ -154,8 +154,8 @@ func TestRunDiffPprofCaptures(t *testing.T) {
 	targetSASS := `
 --- Kernel: kernelA ---
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
-/*0020*/ STS.32 [R1+0x10], R4 ;
-/*0030*/ LDS.32 R4, [R1+0x10] ;
+/*0020*/ STL.32 [R1+0x10], R4 ;
+/*0030*/ LDL.32 R4, [R1+0x10] ;
 /*0040*/ FFMA R0, R4, R5, R0 ;
 /*0050*/ EXIT ;
 `
@@ -173,13 +173,13 @@ func TestRunDiffPprofCaptures(t *testing.T) {
 	if !strings.Contains(out, "=== Kernel: kernelA ===") {
 		t.Errorf("output missing kernel header: %s", out)
 	}
-	if !strings.Contains(out, "+ /*0020*/ STS.32 [R1+0x10], R4") {
-		t.Errorf("output missing + STS addition: %s", out)
+	if !strings.Contains(out, "+ /*0020*/ STL.32 [R1+0x10], R4") {
+		t.Errorf("output missing + STL addition: %s", out)
 	}
-	if !strings.Contains(out, "+ /*0030*/ LDS.32 R4, [R1+0x10]") {
-		t.Errorf("output missing + LDS addition: %s", out)
+	if !strings.Contains(out, "+ /*0030*/ LDL.32 R4, [R1+0x10]") {
+		t.Errorf("output missing + LDL addition: %s", out)
 	}
-	if !strings.Contains(out, "Spill operations: +2") {
+	if !strings.Contains(out, "Local-memory accesses: +2") {
 		t.Errorf("output missing spill operation count: %s", out)
 	}
 }

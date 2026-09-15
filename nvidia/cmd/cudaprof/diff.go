@@ -253,7 +253,7 @@ func printDiff(w io.Writer, diff *cudasass.DisassemblyDiff, kernelFilter string,
 		hasArch := false
 		if fd.Spills.TotalAdded > 0 || fd.Spills.TotalRemoved > 0 {
 			hasArch = true
-			fmt.Fprintf(w, "    Spill operations: %+d (+%d STS, +%d LDS, -%d STS, -%d LDS)\n",
+			fmt.Fprintf(w, "    Local-memory accesses: %+d (+%d STL, +%d LDL, -%d STL, -%d LDL)\n",
 				fd.Spills.Delta(), fd.Spills.AddedSTS, fd.Spills.AddedLDS, fd.Spills.RemovedSTS, fd.Spills.RemovedLDS)
 		}
 		if len(fd.Architecture.Substitutions) > 0 {
@@ -293,7 +293,7 @@ func printDiff(w io.Writer, diff *cudasass.DisassemblyDiff, kernelFilter string,
 		fmt.Fprintf(w, "  Total branches:     %d -> %d (%+d)\n",
 			diff.Architecture.BaseBranches, diff.Architecture.TargetBranches, diff.Architecture.BranchDelta)
 		if diff.Spills.TotalAdded > 0 || diff.Spills.TotalRemoved > 0 {
-			fmt.Fprintf(w, "  Spill operations:   +%d / -%d (net %+d)\n",
+			fmt.Fprintf(w, "  Local-memory accesses:   +%d / -%d (net %+d)\n",
 				diff.Spills.TotalAdded, diff.Spills.TotalRemoved, diff.Spills.Delta())
 		}
 		if diff.Architecture.ScalarDelta != 0 || diff.Architecture.SIMDDelta != 0 {
@@ -478,7 +478,7 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 			sb.WriteString(fmt.Sprintf("- **Branch Instructions**: %d -> %d (%+d)\n",
 				diff.Architecture.BaseBranches, diff.Architecture.TargetBranches, diff.Architecture.BranchDelta))
 			if diff.Spills.TotalAdded > 0 || diff.Spills.TotalRemoved > 0 {
-				sb.WriteString(fmt.Sprintf("- **Register Spills**:    +%d / -%d (net %+d)\n",
+				sb.WriteString(fmt.Sprintf("- **Local-memory accesses**:    +%d / -%d (net %+d)\n",
 					diff.Spills.TotalAdded, diff.Spills.TotalRemoved, diff.Spills.Delta()))
 			}
 			if len(diff.Architecture.Substitutions) > 0 {
