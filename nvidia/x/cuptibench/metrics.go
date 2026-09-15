@@ -8,30 +8,16 @@ import (
 	"strings"
 )
 
-// Curated sets name event counts, not rates or per-instance averages.
-// NVIDIA's metric transition table identifies inst_executed and l2_read_transactions:
-// https://docs.nvidia.com/cuda/archive/10.2/nsight-compute/docs/NsightComputeCli/index.html
-// The L2 count retains its TEX read filter and sector unit; no DRAM or byte
-// conversion is implied. Native Type and Dimension must also match.
-//
-// DefaultSet spans the three things a launch is usually judged by: how much
-// work was scheduled, how many instructions ran, and how much the memory
-// system moved. It is deliberately small, since every metric costs replay
-// passes.
+// DefaultSet names a set of launch, instruction, and memory-sector counters.
+// Native metric availability, types, and dimensions are checked by New.
+// Requested counters and range nesting determine the replay requirements;
+// inspect the configuration and collection progress for each run.
 const DefaultSet = "default"
 
-// The default set is sized to one replay pass, which on GB20B holds these
-// seven: adding l1tex__t_requests.sum to them costs four. The pass count
-// follows the hardware units a combination touches rather than its size, so a
-// different seven can cost more and these seven must be measured again on a
-// new chip, not assumed.
-//
-// Each member answers a question in combination with another, which is what
-// earns a slot: thread instructions over warp instructions times 32 is warp
-// efficiency, L1 sectors over L2 sectors is the hit rate, and read and write
-// are both present because a write-heavy kernel would otherwise report no
-// memory traffic at all. There is no DRAM counter on this part to fall back
-// on, so L2 is the last measurable level before the fabric.
+// These are raw counts, not derived efficiency or cache-hit-rate measurements.
+// The L1 and L2 counters have different filters; their quotient is not a hit
+// fraction. L2 counts retain their TEX-source and read/write filters and sector
+// units. No DRAM traffic or byte conversion is implied.
 var metricSets = map[string][]string{
 	DefaultSet: {
 		"sm__ctas_launched.sum",
