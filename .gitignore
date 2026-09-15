@@ -1,5 +1,7 @@
 .claude/
-simple-addition
+# The bare name matched the examples/nvidia/simple-addition DIRECTORY, so git
+# reported the tracked main.go inside it as ignored. Anchored to the binary.
+/examples/nvidia/simple-addition/simple-addition
 
 # go build output left in the tree. Each name is the command's own directory
 # name, so the patterns are anchored paths: a bare "cudaprof" would also match
