@@ -151,7 +151,20 @@ type gapStatus struct {
 	DetailedRecords string               `json:"detailed_records"`
 	RunCompleteness string               `json:"run_completeness"`
 	DroppedRecords  uint64               `json:"dropped_records"`
+	ActivityRecords uint64               `json:"activity_records"`
 	ActivitySamples int                  `json:"activity_samples"`
+	// RecordLoss is the producer's own breakdown of what it never wrote. It
+	// names the mechanism, which is what a refusal has to report: the one
+	// remedy a reader can reach for, --max-records, addresses none of them.
+	RecordLoss *captureLoss `json:"record_loss"`
+	// UnqualifiedGenerations counts generations that never finalized. Their
+	// activities are absent from the journal entirely, so a timeline built
+	// from what remains has holes no drop count reports.
+	UnqualifiedGenerations uint64 `json:"unqualified_generations"`
+	// Capability is the agent's own configuration block. It decides which
+	// remedy the truncation message may offer, because the largest one --
+	// dropping API attribution -- is only available to a run that collected it.
+	Capability json.RawMessage `json:"capability"`
 }
 
 func readGapStatus(cap *cudacapture.Capture) (gapStatus, bool) {
@@ -182,8 +195,8 @@ func requireJournals(cap *cudacapture.Capture) (map[string][]byte, gapStatus, er
 	}
 	if len(omitted) != 0 {
 		sort.Strings(omitted)
-		return nil, status, fmt.Errorf("capture omits the per-record journal, so the device timeline cannot be reconstructed: %s; capture-status.json reports run_completeness=%q and detailed_records=%q, and gap analysis needs the omitted journal itself, not the pprof projection",
-			strings.Join(omitted, ", "), status.RunCompleteness, status.DetailedRecords)
+		return nil, status, fmt.Errorf("capture omits the per-record journal, so the device timeline cannot be reconstructed: %s; capture-status.json reports run_completeness=%q and detailed_records=%q, and gap analysis needs the omitted journal itself, not the pprof projection%s",
+			strings.Join(omitted, ", "), status.RunCompleteness, status.DetailedRecords, budgetRemedy(status.OmittedFiles))
 	}
 	journals := make(map[string][]byte)
 	for name, data := range cap.Files {
@@ -199,9 +212,35 @@ func requireJournals(cap *cudacapture.Capture) (map[string][]byte, gapStatus, er
 		return nil, status, fmt.Errorf("capture contains no capture.journal member, so the device timeline cannot be reconstructed: %s; pprof samples are aggregates and carry no timestamps", detail)
 	}
 	if status.DroppedRecords > 0 {
-		return nil, status, fmt.Errorf("capture dropped %d record(s), so the journal is missing activities the gaps would span: a duty cycle computed from the remainder would be wrong, not approximate", status.DroppedRecords)
+		return nil, status, fmt.Errorf("capture dropped %d record(s) and retained %d, so the journal is missing activities the gaps would span: a duty cycle computed from the remainder would be wrong, not approximate%s", status.DroppedRecords, status.ActivityRecords, truncationRemedy(status))
+	}
+	// A run can lose whole generations without dropping a record: a generation
+	// that never finalized contributes nothing, and its absence is invisible in
+	// a drop count. capture_success qualifies the target generation alone and
+	// stays true through both, which is why this reads run_completeness.
+	if status.RunCompleteness == runPartial {
+		return nil, status, fmt.Errorf("capture reports run_completeness=%q with %d unqualified generation(s), so activities the idle gaps would span were never recorded: capture_success qualifies the target generation alone and does not report this", status.RunCompleteness, status.UnqualifiedGenerations)
 	}
 	return journals, status, nil
+}
+
+// truncationRemedy names the mechanism that lost the records and what would
+// actually address it. --max-records is deliberately not offered: it bounds
+// how many journal frames this reader decodes and cannot recover a record the
+// producer never wrote.
+func truncationRemedy(status gapStatus) string {
+	if status.RecordLoss == nil {
+		return "; the producer reported no loss breakdown" + volumeRemedy(status.Capability) + "; --max-records bounds decoding only and cannot recover an unwritten record"
+	}
+	var b strings.Builder
+	if pct, ok := status.RecordLoss.retainedFraction(); ok {
+		fmt.Fprintf(&b, "; retained %.2f%% of the %d records the producer offered", pct, status.RecordLoss.Offered)
+	}
+	if why := status.RecordLoss.dominant(status.Capability); why != "" {
+		fmt.Fprintf(&b, "; %s", why)
+	}
+	b.WriteString("; --max-records is not the remedy here: it bounds how many already-written frames this reader decodes, and a journal that exceeds it fails outright with \"capture journal exceeded limit\" rather than dropping silently")
+	return b.String()
 }
 
 // gapRecords is everything gap analysis reads out of the journals.

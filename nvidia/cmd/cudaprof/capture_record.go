@@ -52,8 +52,7 @@ func runCaptureCommand(args []string) error {
 		}
 	} else {
 		if result.CaptureSuccess {
-			fmt.Fprintf(os.Stdout, "capture complete: %d records, %d dropped, run_completeness: %s\n",
-				result.ActivityRecords, result.DroppedRecords, result.RunCompleteness)
+			fmt.Fprint(os.Stdout, captureHeadline(result))
 			if opts.Output != "" {
 				if fi, err := os.Stat(opts.Output); err == nil {
 					fmt.Fprintf(os.Stdout, "wrote %s (%s)\n", opts.Output, formatByteSize(fi.Size()))
@@ -85,6 +84,49 @@ func runCaptureCommand(args []string) error {
 		return &exitCodeError{Code: 2, Err: errors.New(msg)}
 	}
 	return nil
+}
+
+// captureHeadline is the one line a caller reads after a capture. It must not
+// call a run complete that is not: CaptureSuccess qualifies the target
+// generation alone, and a run that finalized cleanly while losing 28.5 million
+// records to producer backpressure satisfies it. Printing "capture complete"
+// there is what let a 0.2%-retained capture read as a good one, and two such
+// captures of the same workload retained wildly different fractions while both
+// announcing success. The word follows RunCompleteness, which is the field
+// that answers the question the word asks.
+func captureHeadline(result captureResult) string {
+	if result.RunCompleteness == runComplete {
+		head := fmt.Sprintf("capture complete: %d records, 0 dropped, run_completeness: %s\n",
+			result.ActivityRecords, result.RunCompleteness)
+		// A run that dropped nothing can still produce an artifact with no raw
+		// records in it, because the journal did not fit the budget. Every
+		// count above reports that capture as healthy, and it is unusable for
+		// any question about the device timeline.
+		if missing := missingJournals(result.OmittedFiles); len(missing) != 0 {
+			head += fmt.Sprintf("  but the journal was NOT attached: %s exceeded the artifact budget, so this capture carries no raw records and cudaprof gaps will refuse it%s\n",
+				strings.Join(missing, ", "), budgetRemedy(result.OmittedFiles))
+		}
+		return head
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "capture TRUNCATED: %d records retained, %d dropped, run_completeness: %s\n",
+		result.ActivityRecords, result.DroppedRecords, result.RunCompleteness)
+	if result.RecordLoss != nil {
+		if pct, ok := result.RecordLoss.retainedFraction(); ok {
+			fmt.Fprintf(&b, "  retained %.2f%% of the %d records the producer offered\n", pct, result.RecordLoss.Offered)
+		}
+		if why := result.RecordLoss.dominant(result.Capability); why != "" {
+			fmt.Fprintf(&b, "  %s\n", why)
+		}
+	}
+	b.WriteString("  totals from this capture are a floor, not a run total, and two captures of one workload can retain different fractions\n")
+	b.WriteString("  these records were never written, so --max-records does not apply: it bounds how many already-written frames the reader decodes, and a journal that exceeds it fails outright rather than dropping silently\n")
+	b.WriteString("  analyses needing the whole device timeline (cudaprof gaps) refuse this capture; pass --require-complete to make truncation fail the capture itself\n")
+	if missing := missingJournals(result.OmittedFiles); len(missing) != 0 {
+		fmt.Fprintf(&b, "  the journal was also NOT attached: %s exceeded the artifact budget%s\n",
+			strings.Join(missing, ", "), budgetRemedy(result.OmittedFiles))
+	}
+	return b.String()
 }
 
 // captureStatus is the compact projection published as capture-status.json.
@@ -135,6 +177,46 @@ func compactCaptureStatus(result captureResult) captureStatus {
 	return status
 }
 
+// budgetRemedy names the flag that would have kept an omitted artifact, and
+// bounds the value it needs. The budget is the one refusal in this tool with a
+// remedy the caller can actually reach -- unlike a producer-side drop, nothing
+// was lost here, the journal simply did not fit -- so saying nothing wastes the
+// one case where advice is possible.
+//
+// The number is stated as a bound rather than a target on purpose. A journal is
+// measured against the budget compressed, but CompressJournal abandons the
+// encode the moment it passes the limit, so the compressed size is never
+// learned and the size reported in omitted_files is the raw file. Naming that
+// figure as the value to set would overshoot by the compression ratio; naming
+// it as a ceiling is true.
+func budgetRemedy(omitted []captureOmittedFile) string {
+	file, total := false, false
+	var largest int64
+	for _, f := range omitted {
+		if !cudacapture.IsJournalName(f.Name) {
+			continue
+		}
+		switch {
+		case strings.Contains(f.Reason, "total budget"):
+			total = true
+		case strings.Contains(f.Reason, "file budget"):
+			file = true
+		}
+		if f.Bytes > largest {
+			largest = f.Bytes
+		}
+	}
+	switch {
+	case file && total:
+		return fmt.Sprintf("; raise both --capture-file-bytes (default %d) and --capture-total-bytes (default %d) on the capture that writes it", cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes)
+	case total:
+		return fmt.Sprintf("; raise --capture-total-bytes (default %d) on the capture that writes it, to at most %d for this journal", cudacapture.MaxCaptureTotalBytes, largest)
+	case file:
+		return fmt.Sprintf("; raise --capture-file-bytes (default %d) on the capture that writes it -- the journal is compared against the budget compressed, so it needs more than the budget and at most %d, the uncompressed size reported above", cudacapture.MaxCaptureFileBytes, largest)
+	}
+	return ""
+}
+
 // detailedRecordsDisposition states where this capture's per-record detail
 // lives, including when a journal holding it was omitted.
 func detailedRecordsDisposition(result captureResult) string {
@@ -148,6 +230,12 @@ func detailedRecordsDisposition(result captureResult) string {
 	if journals == 0 {
 		return projected + " and the raw records remain in the attached capture journals, embedded gzip-compressed under a " + cudacapture.JournalGzipSuffix + " member name"
 	}
+	// The remedy deliberately does not go here. This string is embedded in
+	// capture-status.json, which is generated, always written, and governed by
+	// the same per-file budget -- padding it with advice makes the status more
+	// likely to exceed the budget in exactly the case the advice is about.
+	// omitted_files already carries name, size, sha256 and reason for a
+	// consumer; the remedy belongs on the surfaces a person reads.
 	return fmt.Sprintf("%s; %d capture journal(s) exceeded the artifact budget and were not attached, so their raw records are not in this artifact (see omitted_files for exact size and sha256)", projected, journals)
 }
 
@@ -414,15 +502,32 @@ func formatByteSize(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
+// printCaptureHelp documents the capture flags. The budget defaults are
+// interpolated from the constants that enforce them rather than transcribed,
+// so help that disagrees with behaviour cannot be written.
 func printCaptureHelp() {
-	fmt.Println(`Usage: cudaprof capture [options] -- command [args...]
+	fmt.Print(captureHelp())
+}
+
+// captureHelp is the help text itself, separated from printing it so a test can
+// read it without swapping os.Stdout for a pipe.
+func captureHelp() string {
+	return fmt.Sprintf(`Usage: cudaprof capture [options] -- command [args...]
 
 Options:
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT)
   --no-inject                   run target uninstrumented without injection library
   --json                        write JSON status summary to stdout
   -o <path>                     write capture output to file or directory
-  --max-records <N>             maximum journal records to retain (default 1048576)
+  --max-records <N>             maximum journal records the reader decodes (default %d);
+                                bounds decoding only -- it cannot recover a record the
+                                producer never wrote, and a journal that exceeds it fails
+                                the capture rather than being silently truncated
+  --capture-file-bytes <N>      maximum bytes for one embedded artifact (default %d);
+                                a journal is measured against this compressed, and one that
+                                does not fit is omitted, which makes the capture unusable
+                                for cudaprof gaps
+  --capture-total-bytes <N>     maximum bytes for the whole capture artifact (default %d)
   --trace                       enable CUDA activity tracing (default true)
   --deep                        enable deep tracing (API calls and activities)
   --exhaustive                  enable exhaustive tracing
@@ -431,7 +536,8 @@ Options:
   --timeout <duration>          execution timeout
   --drain-timeout <duration>    drain timeout after target completion
   --require-complete            require complete capture without dropped records
-  --follow-children             follow spawned child processes`)
+  --follow-children             follow spawned child processes
+`, controllerMaxJournalRecords, cudacapture.MaxCaptureFileBytes, cudacapture.MaxCaptureTotalBytes)
 }
 
 type deviceProvenance struct {

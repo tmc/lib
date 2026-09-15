@@ -151,12 +151,21 @@ func (b *FlightRecorderBundle) ToCapture() (*cudacapture.Capture, error) {
 	}
 
 	if _, ok := cap.Files["capture-status.json"]; !ok {
+		// capture_success qualifies the target generation, so it stays true
+		// here for the same reason the live writer leaves it true on a lossy
+		// run. run_completeness is the field that answers whether the run
+		// itself qualified, and publishing it by the shared rule is what keeps
+		// a bundle's success boolean from standing alone: without it a bundle
+		// that dropped every record but one read exactly like a clean one.
+		dropped := uint64(b.Manifest.GPUDropped)
 		statusData, _ := json.Marshal(map[string]any{
 			"status": map[string]any{
 				"capture_success":     true,
 				"collector_finalized": true,
+				"transport_ready":     true,
 				"activity_records":    uint64(b.Manifest.GPURecords),
-				"dropped_records":     uint64(b.Manifest.GPUDropped),
+				"dropped_records":     dropped,
+				"run_completeness":    runCompletenessOf(true, true, 0, dropped),
 				"outcome":             b.Manifest.Reason,
 			},
 		})
