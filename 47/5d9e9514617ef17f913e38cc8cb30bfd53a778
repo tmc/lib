@@ -1,0 +1,37 @@
+commit 8c3cf6ca  2026-09-11
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Measured, not argued: all seven production Q8_0 shapes bit-identical to
+matvec_q8_0 at T of 1, 3, 7, 8, 13, 32 and 64. Model-free, no model slot.
+
+Mutation check: reversing the inner dot-product accumulation
+(for i = 8; i-- > 0) turned the test red at 4096x1024, 4096x512,
+4096x8192, 8192x4096, 4096x2048 and 2048x4096; kernel file restored and
+verified byte-identical to the pre-mutation copy by sha256.
+
+1024x32768 passes the assertion but its reversed twin is the identity --
+cols/32 = 32 blocks against a simdgroups*8 = 32 stride leaves one block
+per thread. Named in the test rather than dropped.
+
+commit: ba493822595534ca138ecde21fe09bf793920376
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 475d9e9514617ef17f913e38cc8cb30bfd53a778
+commit date: 2026-09-15T00:43:56-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
