@@ -70,6 +70,37 @@ func (r *cudaFoundation) encodeQ80MatvecQuantized(t cudaModelTensor, in cudamem.
 	})
 }
 
+// cudaQ80MaxBatch is the compile-time maximum batch width supported by
+// ds4_q8_0_matvec_quantized_batch in cuda_q80_matvec.cu.
+const cudaQ80MaxBatch = 8
+
+// encodeQ80MatvecQuantizedBatch projects batch adjacent Q8_0 activation rows
+// against one weight matrix with a single launch. Input and output are
+// token-major: in holds batch consecutive quantized rows of cols/32 blocks and
+// out holds batch consecutive rows of rows floats. A batch wider than
+// cudaQ80MaxBatch is rejected, never truncated.
+func (r *cudaFoundation) encodeQ80MatvecQuantizedBatch(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], batch int) error {
+	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || batch <= 0 || batch > cudaQ80MaxBatch {
+		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid tensor or batch %d (max %d)", t.name, batch, cudaQ80MaxBatch)
+	}
+	cols, rows := t.dimensions[0], t.dimensions[1]
+	if cols == 0 || cols%32 != 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 ||
+		uint64(in.Len()) != uint64(batch)*cols/32*36 || uint64(out.Len()) != uint64(batch)*rows || rows > t.bytes/(cols/32*34) {
+		return fmt.Errorf("cuda: batched quantized Q8_0 matvec %q: invalid shape or extent", t.name)
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		gridRows := (uint32(rows) + 7) / 8
+		if err := cudalaunch.Kernel(r.q80QuantizedBatchFn).Grid(gridRows).Block(256).On(r.stream()).Launch(
+			t.device, in, out, uint32(cols/32), uint32(rows), uint32(batch)); err != nil {
+			return fmt.Errorf("cuda: launch batched quantized Q8_0 matvec %q: %w", t.name, err)
+		}
+		return nil
+	})
+}
+
 // encodeQ80MatvecQuantizedBlockDiag projects block-diagonal Q8_0 weights using quantized activations.
 func (r *cudaFoundation) encodeQ80MatvecQuantizedBlockDiag(t cudaModelTensor, in cudamem.Slice[byte], out cudamem.Slice[float32], diag int) error {
 	if t.typeID != 8 || len(t.dimensions) != 2 || t.device == 0 || diag <= 0 {
