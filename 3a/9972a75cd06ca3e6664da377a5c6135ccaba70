@@ -1,0 +1,32 @@
+commit: a89560ab3f672b8cfc61c3c86893d56558c359a9
+date: 2026-09-06T19:55:48-07:00
+codex: codex-cli 0.153.4
+model: gpt-6-astra
+tty: not a tty
+not-a-tty
+pid: 7889
+ITERM_SESSION_ID: 2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+Physical gate: PASS_PRODUCTION_IDENTITY on spark-31db. Production Eval(0,0) before and after Reset both yielded e1500b2e69ab4a58fc16c2a37c29d736e7ac1c9075cccee8bb3257c6428ae761; runtime close and test exit 0. Evidence: evidence/worker-BABFB352/cuda-production-hash/RESULT-20260907.md (sha256 3f6531cb4636c376b21ea7f83a80adf8840831e000cf0372ec9d097ddf50259a). Reviewed immutable candidate manifest: edde6d4837ada87babec02f8e2614b939371990b71c528bf10a56f9d0fab3811.
+
+Correction after independent source-binding audit: the first physical run used an older one-warp staged source and is historical-source evidence only. Current-source rerun at a89560a plus the three CUDA working-tree files frozen by hash includes cuda_experts_q81_linux.go SHA-256 391c0f23030a84ca0c8ba579dcef512ea78ef81bbad7328f23f3286e95784fbe. Both production Eval runs still yielded e1500b2e69ab4a58fc16c2a37c29d736e7ac1c9075cccee8bb3257c6428ae761; test/reach/source closure/runtime close PASS. Corrected result SHA-256: 478a63bf1b08da6c92a2851db27826b434851bcb670d89ce1daf030b8ab7387b. Current compact receipt manifest: a94691ca6538c2aac9eeebaa97702e4c26717179b2c37a541f3697649853f341.
+
+commit: cbc16f5be558be591a77d41e14d249d9c4da7001
+commit date: 2026-09-15T00:30:10-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 3a9972a75cd06ca3e6664da377a5c6135ccaba70
+commit date: 2026-09-15T00:43:53-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
