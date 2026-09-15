@@ -35,9 +35,14 @@ func (g *Graph) AddLauncher(l *cudalaunch.Launcher, args []any, dependencies ...
 
 // AddLaunch adds a kernel node executing desc with args, and returns it.
 //
-// The graph owns the packed arguments and desc's module for as long as the
-// graph or an Exec instantiated from it is reachable, so the caller need not
-// retain anything. AddLaunch reports an error for any launch attribute a
+// The graph owns the packed arguments and keeps desc's module reachable for as
+// long as the graph or an Exec instantiated from it is reachable, so the caller
+// need not retain either against the collector. It is not a lease on the
+// module: [cuda.Module.Close] unloads it regardless, and the node's function
+// handle then names nothing loaded. The caller must not close the module until
+// every graph and Exec built from desc is done with it.
+//
+// AddLaunch reports an error for any launch attribute a
 // kernel node cannot express, rather than dropping it: attributes on a graph
 // launch are carried by edges and by instantiation options, not by the node.
 // See AddProgrammaticDependency for programmatic dependent launch and
