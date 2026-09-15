@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 const testVariantPTX = `//
@@ -129,6 +131,7 @@ func TestNewVariantStats(t *testing.T) {
 
 func TestRecompileHandler(t *testing.T) {
 	src := &recompileSource{
+		Name:    "ds4_math.cu",
 		File:    "ds4_math.cu",
 		Arch:    "sm_121a",
 		Options: []string{"--gpu-architecture=sm_121a", "--generate-line-info"},
@@ -151,7 +154,7 @@ func TestRecompileHandler(t *testing.T) {
 		}
 	}
 
-	handler := newRecompileHandler(src, compile)
+	handler := newRecompileHandler([]*recompileSource{src}, compile)
 	req := httptest.NewRequest("GET", "/api/recompile?a=capture&b=--gpu-architecture%3Dsm_121a+--use_fast_math", nil)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -195,11 +198,11 @@ func TestPipelineServerServesNVRTCPanel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildPipelineViewData: %v", err)
 	}
-	if data.Recompile == nil || data.Recompile.Source == "" {
-		t.Fatal("capture with CUDA C++ source produced no recompile source")
+	if len(data.Recompile) != 1 || data.Recompile[0].Source == "" {
+		t.Fatalf("capture with CUDA C++ source produced %d recompile sources, want 1", len(data.Recompile))
 	}
-	if want := []string{"--gpu-architecture=sm_121a", "--generate-line-info", "--use_fast_math"}; !reflect.DeepEqual(data.Recompile.Suggested, want) {
-		t.Errorf("Suggested = %v, want %v", data.Recompile.Suggested, want)
+	if want := []string{"--gpu-architecture=sm_121a", "--generate-line-info", "--use_fast_math"}; !reflect.DeepEqual(data.Recompile[0].Suggested, want) {
+		t.Errorf("Suggested = %v, want %v", data.Recompile[0].Suggested, want)
 	}
 
 	handler := newPipelineServerHandler(data)
@@ -225,7 +228,7 @@ func TestPipelineServerServesNVRTCPanel(t *testing.T) {
 }
 
 func TestRecompileHandlerWithoutSource(t *testing.T) {
-	handler := newRecompileHandler(&recompileSource{File: "kernels.cu"}, func(string, string, []string) *nvrtcVariant {
+	handler := newRecompileHandler([]*recompileSource{{Name: "kernels.cu", File: "kernels.cu"}}, func(string, string, []string) *nvrtcVariant {
 		t.Error("compiled a capture that retained no source")
 		return nil
 	})
@@ -236,11 +239,104 @@ func TestRecompileHandlerWithoutSource(t *testing.T) {
 	}
 }
 
-func TestDefaultRecompileOptions(t *testing.T) {
-	if got, want := defaultRecompileOptions("sm_121a"), []string{"--gpu-architecture=sm_121a", "--generate-line-info"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("defaultRecompileOptions(sm_121a) = %v, want %v", got, want)
+func TestAssumedOptions(t *testing.T) {
+	const headerless = "extern \"C\" __global__ void k() {}"
+	if got, want := assumedOptions("sm_121a", headerless), []string{"--gpu-architecture=sm_121a", "--generate-line-info"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("assumedOptions(sm_121a, headerless) = %v, want %v", got, want)
 	}
-	if got, want := defaultRecompileOptions(""), []string{"--generate-line-info"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("defaultRecompileOptions(\"\") = %v, want %v", got, want)
+	if got, want := assumedOptions("", headerless), []string{"--generate-line-info"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("assumedOptions(\"\", headerless) = %v, want %v", got, want)
+	}
+
+	// A source that includes a header needs an include path: NVRTC searches no
+	// directory unless told to. The option appears only where a toolkit is
+	// installed, so the assertion follows cudaIncludeDir.
+	got := assumedOptions("sm_121a", "#include <cuda_fp16.h>\n"+headerless)
+	var havePath bool
+	for _, opt := range got {
+		havePath = havePath || strings.HasPrefix(opt, "--include-path=")
+	}
+	if want := cudaIncludeDir() != ""; havePath != want {
+		t.Errorf("assumedOptions with a header = %v, include path present = %v, want %v", got, havePath, want)
+	}
+}
+
+func TestMissingIncludeHint(t *testing.T) {
+	// The log NVRTC 13.0 writes on the DGX for a source including cuda_fp16.h
+	// with no include path. nvcc compiles the same source, because it knows its
+	// own toolkit include directory.
+	const log = `fp16.cu(1): catastrophic error: could not open source file "cuda_fp16.h" (no directories in search list)`
+	hint := missingIncludeHint(log)
+	if !strings.Contains(hint, "--include-path=") {
+		t.Errorf("missingIncludeHint(%q) = %q, want an --include-path= remedy", log, hint)
+	}
+	if got := missingIncludeHint("error: identifier \"foo\" is undefined"); got != "" {
+		t.Errorf("missingIncludeHint(unrelated error) = %q, want \"\"", got)
+	}
+}
+
+func TestRecompileSourcesPerModule(t *testing.T) {
+	// A capture of a program like ds4-min: modules compiled separately, with
+	// different options, only some of them recorded.
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{
+			"ds4_math.cu":       []byte("extern \"C\" __global__ void ds4_rms(float *x) {}"),
+			"ds4_math.sass":     []byte(testVariantSASS),
+			"ds4_quant_q8_0.cu": []byte("extern \"C\" __global__ void ds4_quant(float *x) {}"),
+			"ds4_probe.cu":      []byte(""),
+		},
+		Modules: []cudacapture.Module{
+			{ID: "1", Name: "ds4_math", Code: cudacapture.CodeFiles{Source: "ds4_math.cu", SASS: "ds4_math.sass"}},
+			{ID: "2", Name: "ds4_quant_q8_0", Code: cudacapture.CodeFiles{Source: "ds4_quant_q8_0.cu"}},
+			{ID: "3", Name: "ds4_probe", Code: cudacapture.CodeFiles{Source: "ds4_probe.cu"}},
+		},
+	}
+	recorded := map[string][]string{
+		"ds4_quant_q8_0": {"--gpu-architecture=sm_121a", "--generate-line-info", "--use_fast_math"},
+	}
+
+	got := recompileSources(cap, "sm_121a", recorded)
+	if len(got) != 2 {
+		t.Fatalf("recompileSources() returned %d sources, want 2 (the empty module is dropped)", len(got))
+	}
+	if got[0].Name != "ds4_math" || got[0].Recorded {
+		t.Errorf("first source = %+v, want ds4_math with assumed options", got[0])
+	}
+	if got[0].SASS != testVariantSASS {
+		t.Error("first source did not pick up its own module's SASS")
+	}
+	if !got[1].Recorded || !reflect.DeepEqual(got[1].Options, recorded["ds4_quant_q8_0"]) {
+		t.Errorf("second source = %+v, want the recorded --use_fast_math options", got[1])
+	}
+	// The recorded module already compiles with fast math, so the panel must
+	// not suggest it again: that would compare a variant against itself.
+	if !reflect.DeepEqual(got[1].Suggested, got[1].Options) {
+		t.Errorf("suggested for a fast-math module = %v, want its own options %v", got[1].Suggested, got[1].Options)
+	}
+	if n := strings.Count(strings.Join(got[0].Suggested, " "), "--use_fast_math"); n != 1 {
+		t.Errorf("suggested for a plain module = %v, want one --use_fast_math", got[0].Suggested)
+	}
+
+	if src := findRecompileSource(got, "ds4_quant_q8_0"); src != got[1] {
+		t.Errorf("findRecompileSource(name) = %+v, want the second source", src)
+	}
+	if src := findRecompileSource(got, "1"); src != got[0] {
+		t.Errorf("findRecompileSource(id) = %+v, want the first source", src)
+	}
+	if src := findRecompileSource(got, "absent"); src != nil {
+		t.Errorf("findRecompileSource(absent) = %+v, want nil", src)
+	}
+}
+
+func TestRecompileSourcesFallsBackToCaptureCode(t *testing.T) {
+	cap := &cudacapture.Capture{
+		Files: map[string][]byte{"kernels.cu": []byte("extern \"C\" __global__ void k() {}")},
+	}
+	got := recompileSources(cap, "sm_121a", nil)
+	if len(got) != 1 || got[0].File != "kernels.cu" {
+		t.Fatalf("recompileSources() = %+v, want one source from kernels.cu", got)
+	}
+	if got[0].Recorded {
+		t.Error("a capture that records no options reported recorded options")
 	}
 }

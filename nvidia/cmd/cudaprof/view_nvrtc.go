@@ -5,20 +5,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
-// A recompileSource is the CUDA C++ source a capture retained, together with
-// the artifacts the capture itself holds. The viewer recompiles the source
+// A recompileSource is one module's CUDA C++ source, together with the
+// artifacts the capture retained for it. The viewer recompiles the source
 // under caller-chosen NVRTC options and compares the result against those
 // artifacts, so a capture taken without --use_fast_math can be read beside the
 // same source compiled with it.
+//
+// A capture holds one of these per module, because a program compiles modules
+// separately and need not pass NVRTC the same options for each: ds4-min
+// compiles its math module without --use_fast_math and its Q8_0 quantizer with
+// it, and its probe modules target a virtual architecture rather than a
+// physical one. One option list per capture would describe at most one module
+// and silently misreport the rest.
 type recompileSource struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
 	File     string   `json:"file"`
 	Arch     string   `json:"arch,omitempty"`
 	Options  []string `json:"options,omitempty"`
@@ -30,6 +42,106 @@ type recompileSource struct {
 	Source string `json:"-"`
 	PTX    string `json:"-"`
 	SASS   string `json:"-"`
+}
+
+// recompileSources reports one source per module the capture retained, falling
+// back to the capture's top-level artifacts when it records no modules.
+// recorded supplies the options a module was built with, keyed by module ID and
+// then by module name; a capture that records none leaves every module's
+// options assumed.
+func recompileSources(cap *cudacapture.Capture, arch string, recorded map[string][]string) []*recompileSource {
+	if cap == nil {
+		return nil
+	}
+	text := func(name string) string {
+		if name == "" {
+			return ""
+		}
+		return string(cap.Files[name])
+	}
+	build := func(id, name string, code cudacapture.CodeFiles) *recompileSource {
+		source := text(code.Source)
+		if strings.TrimSpace(source) == "" {
+			return nil
+		}
+		src := &recompileSource{
+			ID:     id,
+			Name:   name,
+			File:   code.Source,
+			Arch:   arch,
+			Source: source,
+			PTX:    text(code.PTX),
+			SASS:   text(code.SASS),
+		}
+		if src.Name == "" {
+			src.Name = code.Source
+		}
+		for _, key := range []string{id, name, code.Source} {
+			if options, ok := recorded[key]; ok && key != "" {
+				src.Options, src.Recorded = options, true
+				break
+			}
+		}
+		if !src.Recorded {
+			src.Options = assumedOptions(arch, source)
+		}
+		src.Suggested = suggestedOptions(src.Options)
+		return src
+	}
+
+	var sources []*recompileSource
+	for _, mod := range cap.Modules {
+		if src := build(mod.ID, mod.Name, mod.Code); src != nil {
+			sources = append(sources, src)
+		}
+	}
+	if len(sources) > 0 {
+		return sources
+	}
+	code := cap.Code
+	if code.Source == "" {
+		code.Source = "kernels.cu"
+	}
+	if code.PTX == "" {
+		code.PTX = "kernels.ptx"
+	}
+	if code.SASS == "" {
+		code.SASS = "kernels.sass"
+	}
+	if src := build("", code.Source, code); src != nil {
+		return []*recompileSource{src}
+	}
+	return nil
+}
+
+// suggestedOptions is what the panel offers for the second side: the module's
+// own options plus --use_fast_math, except where the module already compiles
+// with it, which would compare a variant against itself.
+func suggestedOptions(options []string) []string {
+	suggested := append([]string(nil), options...)
+	for _, opt := range options {
+		if opt == "--use_fast_math" {
+			return suggested
+		}
+	}
+	return append(suggested, "--use_fast_math")
+}
+
+// find reports the source with the given module ID or name, or the first one
+// when id is empty.
+func findRecompileSource(sources []*recompileSource, id string) *recompileSource {
+	if len(sources) == 0 {
+		return nil
+	}
+	if id == "" {
+		return sources[0]
+	}
+	for _, src := range sources {
+		if src.ID == id || src.Name == id {
+			return src
+		}
+	}
+	return nil
 }
 
 // captureVariantLabel names the variant built from the capture's own artifacts
@@ -46,6 +158,7 @@ type nvrtcVariant struct {
 	SASS    string       `json:"sass,omitempty"`
 	Log     string       `json:"log,omitempty"`
 	Error   string       `json:"error,omitempty"`
+	Hint    string       `json:"hint,omitempty"`
 	Stats   variantStats `json:"stats"`
 }
 
@@ -73,6 +186,7 @@ type variantDelta struct {
 
 // recompileResponse is the body of /api/recompile.
 type recompileResponse struct {
+	Module  string         `json:"module,omitempty"`
 	A       *nvrtcVariant  `json:"a"`
 	B       *nvrtcVariant  `json:"b"`
 	Deltas  []variantDelta `json:"deltas,omitempty"`
@@ -103,6 +217,7 @@ func compileNVRTCVariant(name, src string, options []string) *nvrtcVariant {
 	mod, err := nvrtcx.Compile(src, opts...)
 	if err != nil {
 		v.Error = err.Error()
+		v.Hint = missingIncludeHint(v.Error)
 		return v
 	}
 	v.PTX = mod.PTX()
@@ -266,14 +381,16 @@ func parseVariantOptions(s string) (options []string, recompile bool) {
 	return strings.Fields(s), true
 }
 
-// newRecompileHandler serves /api/recompile. Parameters a and b each hold a
+// newRecompileHandler serves /api/recompile. Parameter module selects which of
+// the capture's modules to recompile; parameters a and b each hold a
 // space-separated NVRTC option list, or "capture" for the capture's own
 // artifacts.
-func newRecompileHandler(src *recompileSource, compile variantCompiler) http.HandlerFunc {
+func newRecompileHandler(sources []*recompileSource, compile variantCompiler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		src := findRecompileSource(sources, r.URL.Query().Get("module"))
 		if src == nil || src.Source == "" {
-			http.Error(w, "recompile: capture retained no CUDA C++ source", http.StatusNotFound)
+			http.Error(w, "recompile: capture retained no CUDA C++ source for this module", http.StatusNotFound)
 			return
 		}
 		start := time.Now()
@@ -284,19 +401,65 @@ func newRecompileHandler(src *recompileSource, compile variantCompiler) http.Han
 			}
 			return compile(src.File, src.Source, options)
 		}
-		resp := recompileResponse{A: side("a"), B: side("b"), Caveat: staticCountCaveat}
+		resp := recompileResponse{Module: src.Name, A: side("a"), B: side("b"), Caveat: staticCountCaveat}
 		resp.Deltas = diffVariants(resp.A, resp.B)
 		resp.Elapsed = time.Since(start).Round(time.Millisecond).String()
 		json.NewEncoder(w).Encode(resp)
 	}
 }
 
-// defaultRecompileOptions are the options the panel starts from when the
-// capture did not record the ones it was built with. They mirror the options
-// ds4-min passes today; the panel marks them as assumed.
-func defaultRecompileOptions(arch string) []string {
-	if arch == "" {
-		return []string{"--generate-line-info"}
+// assumedOptions are the options the panel starts from for a module whose real
+// ones the capture did not record. They mirror what ds4-min passes, plus an
+// include path when the source includes a header: NVRTC searches no directory
+// unless told to, and reports "no directories in search list" for a source nvcc
+// compiles without complaint, because nvcc knows its own toolkit include
+// directory and NVRTC does not.
+func assumedOptions(arch, source string) []string {
+	var options []string
+	if arch != "" {
+		options = append(options, "--gpu-architecture="+arch)
 	}
-	return []string{"--gpu-architecture=" + arch, "--generate-line-info"}
+	options = append(options, "--generate-line-info")
+	if strings.Contains(source, "#include") {
+		if dir := cudaIncludeDir(); dir != "" {
+			options = append(options, "--include-path="+dir)
+		}
+	}
+	return options
+}
+
+// missingIncludeHint explains an NVRTC failure whose only cause is that no
+// include path was passed.
+func missingIncludeHint(log string) string {
+	if !strings.Contains(log, "no directories in search list") {
+		return ""
+	}
+	hint := "NVRTC searches no directory by default. Add --include-path=<CUDA toolkit include dir>"
+	if dir := cudaIncludeDir(); dir != "" {
+		hint = "NVRTC searches no directory by default. Add --include-path=" + dir
+	}
+	return hint
+}
+
+// cudaIncludeDir reports a CUDA toolkit include directory on this host, or the
+// empty string when none is found. It prefers the toolkit the environment
+// names.
+func cudaIncludeDir() string {
+	var roots []string
+	for _, env := range []string{"CUDA_HOME", "CUDA_PATH"} {
+		if root := os.Getenv(env); root != "" {
+			roots = append(roots, root)
+		}
+	}
+	roots = append(roots, "/usr/local/cuda")
+	for _, root := range roots {
+		candidates, _ := filepath.Glob(filepath.Join(root, "targets", "*", "include"))
+		candidates = append(candidates, filepath.Join(root, "include"))
+		for _, dir := range candidates {
+			if _, err := os.Stat(filepath.Join(dir, "cuda_runtime.h")); err == nil {
+				return dir
+			}
+		}
+	}
+	return ""
 }
