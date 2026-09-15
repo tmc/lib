@@ -9,6 +9,7 @@ import (
 )
 
 type samplingControlAPI struct {
+	device   func(cupti.Context) (uint32, error)
 	version  func() (uint32, error)
 	set, get func(*cupti.PCSamplingConfigurationInfoParams) error
 	enable   func(*cupti.PCSamplingEnableParams) error
@@ -19,6 +20,7 @@ type samplingControlAPI struct {
 
 func nativeSamplingControlAPI() samplingControlAPI {
 	return samplingControlAPI{
+		device:  cupti.GetDeviceId,
 		version: cupti.GetVersion,
 		set:     cupti.PCSamplingSetConfigurationAttribute,
 		get:     cupti.PCSamplingGetConfigurationAttribute,
@@ -37,37 +39,66 @@ func nativeSamplingControlAPI() samplingControlAPI {
 // enables the context itself; [Start] enables the context it is given, so a
 // caller with no inventory of its own never calls this.
 //
-// The returned function disables sampling once and reports the native error;
-// later calls report the same result without calling CUPTI again.
+// The returned function retries failed native cleanup. After successful cleanup,
+// further calls are harmless. A nonnil function returned with an error still owns
+// cleanup and must be called before the context is destroyed.
 func Enable(ctx cupti.Context) (disable func() error, err error) {
 	return enableSampling(ctx, nativeSamplingControlAPI())
 }
 
 func enableSampling(ctx cupti.Context, api samplingControlAPI) (func() error, error) {
-	if ctx == 0 || api.enable == nil || api.disable == nil {
+	if ctx == 0 || api.device == nil || api.enable == nil || api.disable == nil {
 		return nil, errors.New("cuptipcsampling: invalid enable request")
 	}
+	device, err := api.device(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("cuptipcsampling: identify device: %w", err)
+	}
+	_, release, err := reserveOwner(device)
+	if err != nil {
+		return nil, err
+	}
+	disable, err := enableSamplingNative(ctx, api)
+	if disable == nil {
+		release()
+		return nil, err
+	}
+	return func() error {
+		if err := disable(); err != nil {
+			return err
+		}
+		release()
+		return nil
+	}, err
+}
+
+// enableSamplingNative leaves ownership to the caller, including on malformed
+// successful output. A failed enable did not acquire native sampling state.
+func enableSamplingNative(ctx cupti.Context, api samplingControlAPI) (func() error, error) {
 	size := enableParamsSize()
 	p := cupti.PCSamplingEnableParams{Size: size, Ctx: ctx}
 	if err := api.enable(&p); err != nil {
 		return nil, fmt.Errorf("cuptipcsampling: enable sampling: %w", err)
 	}
-	if p.Size != size || p.PPriv != 0 || p.Ctx != ctx {
-		return nil, errors.New("cuptipcsampling: enable changed input storage")
+	var mu sync.Mutex
+	closed := false
+	disable := func() error {
+		mu.Lock()
+		defer mu.Unlock()
+		if closed {
+			return nil
+		}
+		d := cupti.PCSamplingDisableParams{Size: disableParamsSize(), Ctx: ctx}
+		if err := api.disable(&d); err != nil {
+			return fmt.Errorf("cuptipcsampling: disable sampling: %w", err)
+		}
+		closed = true
+		return nil
 	}
-	var (
-		once sync.Once
-		err  error
-	)
-	return func() error {
-		once.Do(func() {
-			d := cupti.PCSamplingDisableParams{Size: disableParamsSize(), Ctx: ctx}
-			if e := api.disable(&d); e != nil {
-				err = fmt.Errorf("cuptipcsampling: disable sampling: %w", e)
-			}
-		})
-		return err
-	}, nil
+	if p.Size != size || p.PPriv != 0 || p.Ctx != ctx {
+		return disable, errors.New("cuptipcsampling: enable changed input storage")
+	}
+	return disable, nil
 }
 
 // samplingControl owns profiling state, never the workload or CUDA context.

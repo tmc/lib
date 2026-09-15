@@ -535,6 +535,7 @@ func TestSessionRingBufferConcurrent(t *testing.T) {
 				saved         []cupti.PCSamplingConfigurationInfo
 			)
 			api := samplingControlAPI{
+				device:  func(cupti.Context) (uint32, error) { return 0, nil },
 				version: func() (uint32, error) { return version, nil },
 				set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 					attrs := unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes))

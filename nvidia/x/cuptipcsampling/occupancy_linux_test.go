@@ -659,10 +659,12 @@ func sweepBudget(reasons int) (cuptipcsampling.Config, error) {
 
 func readInventory(ctx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(ctx)
+	if disable != nil {
+		defer func() { err = errors.Join(err, disable()) }()
+	}
 	if err != nil {
 		return cuptipcsampling.ReasonInventory{}, err
 	}
-	defer func() { err = errors.Join(err, disable()) }()
 	return cuptipcsampling.StallReasons(ctx, 1<<10)
 }
 
