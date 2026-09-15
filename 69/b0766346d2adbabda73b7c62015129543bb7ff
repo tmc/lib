@@ -1,0 +1,13 @@
+commit: 69b0766346d2adbabda73b7c62015129543bb7ff
+date: 2026-09-14T15:57:53-0700
+agent: Claude Code 2.1.257, model Opus 5 (claude-opus-5)
+tty: n/a
+pid: 57248
+ITERM_SESSION_ID: w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session: 2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url: n/a
+note: generator not yet run on real hardware; devices.json seeded from the
+2026-09-14 info.cu probe on the dgx. Next step is running cmd/cudadevicetable
+on the DGX to widen the probed set, which widens the cudaoccupancy cross-check
+automatically. Mutations verified RED: hand value disagreeing with probe;
+DeviceProperties stamped with another architecture; probed overlap emptied.
