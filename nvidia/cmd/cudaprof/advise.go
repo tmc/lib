@@ -1923,6 +1923,64 @@ func hostBehindLaunches(seq []streamEvent, apis map[uint32]apiCall) (behind, mea
 	return behind, measured
 }
 
+// sampleCorrelation returns the CUPTI correlation ID recorded on a sample, or
+// zero when the capture carries none.
+func sampleCorrelation(s *profile.Sample) uint32 {
+	if s == nil {
+		return 0
+	}
+	if len(s.NumLabel["correlation"]) > 0 && s.NumLabel["correlation"][0] > 0 {
+		return uint32(s.NumLabel["correlation"][0])
+	}
+	if len(s.Label["correlation"]) > 0 {
+		if n, err := strconv.ParseUint(s.Label["correlation"][0], 10, 32); err == nil {
+			return uint32(n)
+		}
+	}
+	return 0
+}
+
+// capturedGraphReplays counts correlation IDs shared by more than one kernel
+// activity record. Under CUDA graph replay every node of a replay carries the
+// correlation ID of the single cudaGraphLaunch that issued it, so a correlation
+// appearing on several distinct kernels is the device-side signature of a graph
+// launch. A capture with no graph work gives every kernel its own correlation
+// and this returns zero.
+//
+// Measured on GB10 (sm_121), one kernel, identical geometry, 20 executions per
+// arm: launched 20 times directly the capture held 20 kernel records with 20
+// distinct correlation IDs; a four-node graph replayed five times held 20
+// kernel records with 5 correlation IDs, four records each, and each of those
+// five resolved to a runtime cudaGraphLaunch API record.
+//
+// This is indirect evidence and it is used only to suppress advice, never to
+// raise it. The direct evidence is CUPTI's graphId and graphNodeId, which the
+// injected agent does not collect: nvidia/internal/cudainject/native/cupti_agent.c
+// casts each record to CUpti_ActivityKernel9/10, both of which carry the two
+// fields, and forwards neither. Until it does, correlation multiplicity is the
+// only graph evidence a capture carries.
+func capturedGraphReplays(cap *cudacapture.Capture) int {
+	if cap == nil || cap.Profile == nil {
+		return 0
+	}
+	counts := make(map[uint32]int)
+	for _, s := range cap.Profile.Sample {
+		if extractKernelNameFromSample(s) == "" {
+			continue
+		}
+		if corr := sampleCorrelation(s); corr != 0 {
+			counts[corr]++
+		}
+	}
+	shared := 0
+	for _, n := range counts {
+		if n > 1 {
+			shared++
+		}
+	}
+	return shared
+}
+
 func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) {
 	if cap == nil {
 		return
@@ -1933,6 +1991,7 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		return
 	}
 	apis := extractAPIRecords(cap)
+	graphReplays := capturedGraphReplays(cap)
 	seenDutyUnmeasured := make(map[uint32]bool)
 
 	streams := make([]uint32, 0, len(streamEvents))
@@ -2035,6 +2094,9 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 							sev = SeverityWarning
 							finding = fmt.Sprintf("Driver submission overhead dominates short kernel execution: %s, its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), and %d of %d measured launches (%.1f%%) began only after the preceding kernel had already finished", detail, duty, lowDutyCyclePct, behind, measured, float64(behind)*100.0/float64(measured))
 							rec = "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency."
+							if graphReplays > 0 {
+								rec = "This sequence already runs as a CUDA graph replay, so submission latency is not removable by graph capture; look for host work between replays."
+							}
 						case measured > 0:
 							finding = fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), but only %d of %d measured launches began after the preceding kernel had finished, so the host was not behind the device for most of the sequence", detail, duty, lowDutyCyclePct, behind, measured)
 							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
@@ -2325,14 +2387,7 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 				endNs = startNs + durationNs
 			}
 
-			var correlation uint32
-			if len(s.NumLabel["correlation"]) > 0 && s.NumLabel["correlation"][0] > 0 {
-				correlation = uint32(s.NumLabel["correlation"][0])
-			} else if len(s.Label["correlation"]) > 0 {
-				if n, err := strconv.ParseUint(s.Label["correlation"][0], 10, 32); err == nil {
-					correlation = uint32(n)
-				}
-			}
+			correlation := sampleCorrelation(s)
 
 			shape := ""
 			if len(s.Label["shape"]) > 0 {
@@ -2537,10 +2592,22 @@ func computeProfileTimes(cap *cudacapture.Capture) (map[string]int64, int64) {
 	return kernelTimes, totalTime
 }
 
+// dominanceRecommendation words the dominance advisory for what the capture
+// shows. Recommending a CUDA Graph to a workload already running as one is
+// advice its author cannot act on, so that clause is dropped whenever the
+// capture carries graph replays.
+func dominanceRecommendation(graphReplays int) string {
+	if graphReplays > 0 {
+		return "Restructure per-row dispatches into batched GEMM / GEMV operations. This capture already replays CUDA graphs, so graph capture is not available as a further remedy here."
+	}
+	return "Restructure per-row dispatches into batched GEMM / GEMV operations or capture the entire layer sequence into a CUDA Graph."
+}
+
 func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
 	if totalTime <= 0 || len(kernelTimes) == 0 {
 		return
 	}
+	graphReplays := capturedGraphReplays(cap)
 	familyTimes := make(map[string]int64)
 	familyCounts := make(map[string]int)
 
@@ -2581,7 +2648,7 @@ func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, 
 				},
 				Finding: fmt.Sprintf("Kernel family %q dominates GPU execution, consuming %.1f%% of total device time (%.2f ms across %d dispatches). Fine-grained per-row dispatches incur massive submission and launch overhead.",
 					family, pct, fTimeMs, cnt),
-				ActionableRecommendation: "Restructure per-row dispatches into batched GEMM / GEMV operations or capture the entire layer sequence into a CUDA Graph.",
+				ActionableRecommendation: dominanceRecommendation(graphReplays),
 			})
 		}
 	}
