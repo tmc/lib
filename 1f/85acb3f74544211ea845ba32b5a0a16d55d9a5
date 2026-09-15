@@ -1,0 +1,16 @@
+Commit 884fb2ce5fe635ae5bf44053d60fb120f3facb03; date 2026-09-09T19:31:28.869298+00:00
+Agent Codex; model not exposed by runtime; Claude Code version not applicable; pid 72418; tty unavailable (tool pipes); ITERM_SESSION_ID w14t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+
+Physical CUDA production hash and128/129 exact receipt e7813b07385c70a882c844df9fe183cf6738308b12b3608a4fb70c4fccd7ec05; synthetic positive/mutations55d7a63e624b10702c91c3075f506ea771143e45a24aee5c9b4b7cd478d73ecd. Named test reach checked, selected104source closure; binary802aabdd. Independent source review current/cuda-wave4.md. Linuxarm64 compile andvet pass after integration. No2048completion/performanceclaim.
+
+Commit helper failed twice earlier in this conversation due missingAPIkey; manual fallback perAGENTS. Only five CUDAfiles staged; Metal dirt preserved.
+
+commit: 1f85acb3f74544211ea845ba32b5a0a16d55d9a5
+commit date: 2026-09-15T00:30:58-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
