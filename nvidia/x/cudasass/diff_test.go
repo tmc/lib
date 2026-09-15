@@ -28,7 +28,7 @@ func TestNormalizeOperands(t *testing.T) {
 		},
 		{
 			name:     "strip memory offset with decimal",
-			opcode:   "STS.32",
+			opcode:   "STL.32",
 			operands: "[R1 + 16], R4",
 			want:     "[R1], R4",
 		},
@@ -218,13 +218,13 @@ func TestDiffFunctions(t *testing.T) {
 			targetSASS: `
 --- Kernel: spill_kernel ---
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
-/*0020*/ STS.32 [R1+0x10], R4 ;
-/*0030*/ LDS.32 R4, [R1+0x10] ;
+/*0020*/ STL.32 [R1+0x10], R4 ;
+/*0030*/ LDL.32 R4, [R1+0x10] ;
 /*0040*/ FFMA R0, R4, R5, R0 ;
 /*0050*/ EXIT ;
 `,
 			wantMatched:      3, // LDG, FFMA, EXIT match
-			wantAdded:        2, // STS + LDS
+			wantAdded:        2, // STL + LDL
 			wantDeleted:      0,
 			wantInstDelta:    2,
 			wantSpillAdded:   2,
@@ -236,8 +236,8 @@ func TestDiffFunctions(t *testing.T) {
 			baseSASS: `
 --- Kernel: unspill_kernel ---
 /*0010*/ LDG.E.F32 R4, [R2.64] ;
-/*0020*/ STS.32 [R1+0x10], R4 ;
-/*0030*/ LDS.32 R4, [R1+0x10] ;
+/*0020*/ STL.32 [R1+0x10], R4 ;
+/*0030*/ LDL.32 R4, [R1+0x10] ;
 /*0040*/ FFMA R0, R4, R5, R0 ;
 /*0050*/ EXIT ;
 `,
@@ -249,7 +249,7 @@ func TestDiffFunctions(t *testing.T) {
 `,
 			wantMatched:      3,
 			wantAdded:        0,
-			wantDeleted:      2, // STS + LDS removed
+			wantDeleted:      2, // STL + LDL removed
 			wantInstDelta:    -2,
 			wantSpillAdded:   0,
 			wantSpillRemoved: 2,
@@ -437,4 +437,20 @@ func ExampleDiff() {
 	// Output:
 	// SIMD delta: +1
 	// Substituted: IMAD -> IDP4A
+}
+
+func TestSharedMemoryIsNotLocal(t *testing.T) {
+	for _, tt := range []struct {
+		opcode string
+		want   int
+	}{
+		{"LDS", 0}, {"STS.128", 0}, {"LDL", 1}, {"STL.64", 1},
+	} {
+		t.Run(tt.opcode, func(t *testing.T) {
+			result := cudasass.DiffFunctions(cudasass.Function{Name: "k"}, cudasass.Function{Name: "k", Instructions: []cudasass.Instruction{{Opcode: tt.opcode}}})
+			if result.Spills.TotalAdded != tt.want {
+				t.Fatalf("local accesses = %d, want %d", result.Spills.TotalAdded, tt.want)
+			}
+		})
+	}
 }
