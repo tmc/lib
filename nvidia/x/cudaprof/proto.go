@@ -118,15 +118,16 @@ type SampleValues struct {
 
 // Builder constructs a pprof profile containing GPU kernel, PTX, and SASS samples.
 type Builder struct {
-	st          *stringTable
-	mappings    []mapping
-	locations   []location
-	functions   []function
-	funcMap     map[string]uint64
-	binaryPath  string
-	samples     []sample
-	sampleTypes []int
-	locMap      map[locationKey]uint64
+	st            *stringTable
+	mappings      []mapping
+	locations     []location
+	functions     []function
+	funcMap       map[string]uint64
+	binaryPath    string
+	samples       []sample
+	sampleTypes   []int
+	declaredTypes []SampleType
+	locMap        map[locationKey]uint64
 
 	timeNanos     int64
 	durationNanos int64
@@ -186,6 +187,9 @@ var profileSampleTypes = []struct{ name, unit string }{
 // duplicate names leave the selection unchanged. Selection applies to all
 // recorded samples.
 func (b *Builder) SetSampleTypes(names ...string) error {
+	if len(b.declaredTypes) != 0 {
+		return fmt.Errorf("cudaprof: declared sample schema cannot use builtin selection")
+	}
 	var selected []int
 	for _, name := range names {
 		i := slices.IndexFunc(profileSampleTypes, func(t struct{ name, unit string }) bool { return t.name == name })
@@ -239,6 +243,7 @@ type Frame struct {
 }
 
 type sample struct {
+	declared    bool
 	locationIDs []uint64
 	values      []int64
 	labels      map[string]string
@@ -360,6 +365,15 @@ func SampleTypeNames() []string {
 // first type need not be the one carrying data. The name must be one of the
 // configured sample types.
 func (b *Builder) SetDefaultSampleType(name string) error {
+	if len(b.declaredTypes) != 0 {
+		for _, t := range b.declaredTypes {
+			if t.Name == name {
+				b.defaultType = name
+				return nil
+			}
+		}
+		return fmt.Errorf("cudaprof: default sample type %q is not declared", name)
+	}
 	for _, i := range b.selectedTypes() {
 		if profileSampleTypes[i].name == name {
 			b.defaultType = name
@@ -385,6 +399,9 @@ func (b *Builder) SetDefaultSampleType(name string) error {
 func (b *Builder) resolvedDefaultType() string {
 	if b.defaultType != "" {
 		return b.defaultType
+	}
+	if len(b.declaredTypes) != 0 {
+		return b.declaredTypes[0].Name
 	}
 	selected := b.selectedTypes()
 	for _, want := range []string{"gpu_time", "samples"} {
@@ -643,15 +660,31 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 		return fmt.Errorf("cudaprof: generated ELF sidecars are not captured code; use SetMappingFile with a retained native artifact")
 	}
 
+	for _, s := range b.samples {
+		if s.declared != (len(b.declaredTypes) != 0) {
+			return fmt.Errorf("cudaprof: mixed builtin and declared samples")
+		}
+	}
 	var body []byte
 
 	// 1. Sample types. Keep the same selection for each sample's values.
 	selected := b.selectedTypes()
+	if len(b.declaredTypes) != 0 {
+		selected = make([]int, len(b.declaredTypes))
+		for i := range selected {
+			selected[i] = i
+		}
+	}
 	for _, i := range selected {
-		st := profileSampleTypes[i]
+		var name, unit string
+		if len(b.declaredTypes) != 0 {
+			name, unit = b.declaredTypes[i].Name, b.declaredTypes[i].Unit
+		} else {
+			name, unit = profileSampleTypes[i].name, profileSampleTypes[i].unit
+		}
 		var stBody []byte
-		stBody = append(stBody, encodeVarint(1, uint64(b.st.Index(st.name)))...)
-		stBody = append(stBody, encodeVarint(2, uint64(b.st.Index(st.unit)))...)
+		stBody = append(stBody, encodeVarint(1, uint64(b.st.Index(name)))...)
+		stBody = append(stBody, encodeVarint(2, uint64(b.st.Index(unit)))...)
 		body = append(body, encodeLengthDelimited(1, stBody)...)
 	}
 
