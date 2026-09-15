@@ -1,0 +1,54 @@
+committed 2026-09-11 by claude-code 2.1.257 (model claude-opus-5)
+tty=ttys392 pid=33094 ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Receipts (standalone transcription of the loop, no Metal, no model, 16 CPUs,
+host load ~7.5 so the parallel arm is a floor):
+  nComp=513    serial   5.27 ms  parallel  1.11 ms (4.7x)  select  0.44 ms
+  nComp=4096   serial  41.92 ms  parallel  5.55 ms (7.6x)  select  3.59 ms
+  nComp=16418  serial 168.63 ms  parallel 20.47 ms (8.2x)  select 14.47 ms
+  x22 even layers: 125.7 -> 34.2 ms/token at 513; 4028 -> 769 ms/token at 16,418.
+Every trial's parallel scores were bit-identical to the serial ones under
+math.Float32bits; a mismatch panics the program.
+
+Note the select loop is untouched and is now the larger remaining term at high
+counts (14.47 ms/layer at 16,418 = 318 ms/token). It is a serial top-512 pass
+whose tie-break is lowest-index-wins; parallelising it needs a selection that
+preserves that, which is a separate change with its own gate.
+
+Tests: TestMetalIndexerScoresAreBitIdenticalToSerial,
+TestMetalIndexerScoreComparisonSeesReassociation (logs 463/513 moved),
+TestMetalSelectIndexerRowsBreaksTiesByLowestIndex -- all PASS.
+git-auto-commit-message was not used: cgpt is missing its Anthropic API key
+on this host (verified twice this session), so the message is hand-written.
+
+CORRECTION (same session, after the commit landed): the indexer runs on 21
+layers, not 22. Both runtimes skip layers 0 and 1 entirely --
+metal_runtime_darwin.go:451 'if i < 2 { continue }' allocates no compressed
+state, and metal_runtime_darwin.go:696 guards the unbatched block with
+'i >= 2'; cuda_session_linux.go:173 is the identical 'if i < 2 { continue }'.
+Even layers 2..42 inclusive is 21, not the 22 the commit message and the
+receipts above say. Per-layer figures are unaffected; every per-token total
+in this note and in the commit message is 4.8% high. Corrected per-token:
+120.0 -> 32.6 ms at nComp 513, 3844 -> 734 ms at nComp 16,418.
+
+commit: cad6a2d897a0d122a022261620a37aea7379d05f
+commit date: 2026-09-15T00:31:00-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 870c3cee6f6ddc87cb106361bae63338f82726a4
+commit date: 2026-09-15T00:43:57-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
