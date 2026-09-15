@@ -1,0 +1,19 @@
+commit ed2bf798dff21580b7c01f58865a4b50e0dda375
+date: 2026-09-12T18:10:18-07:00
+claude-code: 2.1.257
+model: claude-opus-5
+tty: ttys392
+pid: 33094
+ITERM_SESSION_ID: DF6906F6-C2E9-4396-8D42-90A88213125C
+session: 2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url: https://claude.ai/code/session_01QWBWoGrAo3vBG8BFrd9YBy
+
+commit: 0f9df55502dc7cea932113e2621e97d8479b9e9d
+commit date: 2026-09-15T00:31:26-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
