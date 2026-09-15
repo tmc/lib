@@ -67,8 +67,13 @@ type cudaSessionLayer struct {
 
 type cudaBatchDense struct {
 	attnPre, qLora, qHeads, kvRaw, kvCur cudamem.Slice[float32]
-	sharedGate, sharedUp                 cudamem.Slice[float32]
+	attnNorm                             cudamem.Slice[float32]
+	compressorKV, compressorGate         cudamem.Slice[float32]
+	indexerKV, indexerGate               cudamem.Slice[float32]
+	attnLow, attnOut                     cudamem.Slice[float32]
+	sharedGate, sharedUp, sharedOut      cudamem.Slice[float32]
 	q81Attn, q81QLora, q81FFN            cudamem.Slice[byte]
+	q80Heads, q80Low, q80Shared          cudamem.Slice[byte]
 }
 
 // cudaSharedFFNWidth is the shared expert's intermediate width, matching the
@@ -88,6 +93,15 @@ type cudaBatchResources struct {
 // cudaPrefillBatchWidth matches the compile-time maximum batch width of the
 // batched matvec kernel (cudaQ81MaxBatch).
 const cudaPrefillBatchWidth = cudaQ81MaxBatch
+
+// The group also runs the Q8_0, block-diagonal and F16 pair batch kernels at
+// this width. Each declaration below fails to compile if that kernel's maximum
+// ever falls below it, which a wider group would otherwise truncate.
+const (
+	_ = uint(cudaQ80MaxBatch - cudaPrefillBatchWidth)
+	_ = uint(cudaQ80BlockDiagMaxBatch - cudaPrefillBatchWidth)
+	_ = uint(cudaF16PairMaxBatch - cudaPrefillBatchWidth)
+)
 
 var (
 	_ sessionBackend = (*cudaRuntime)(nil)
@@ -469,16 +483,27 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		return cudamem.AllocIn[float32](b.denseArena, name, n)
 	}
 	b.dense = cudaBatchDense{
-		attnPre:    alloc("batch-dense-attention-pre", width*2*cudaWidth),
-		qLora:      alloc("batch-dense-query-lora", width*1024),
-		qHeads:     alloc("batch-dense-query-heads", width*64*cudaKVWidth),
-		kvRaw:      alloc("batch-dense-kv-raw", width*cudaKVWidth),
-		kvCur:      alloc("batch-dense-kv-current", width*cudaKVWidth),
-		sharedGate: alloc("batch-dense-shared-gate", width*cudaSharedFFNWidth),
-		sharedUp:   alloc("batch-dense-shared-up", width*cudaSharedFFNWidth),
-		q81Attn:    cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-attention", width*cudaWidth/32*36),
-		q81QLora:   cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-query-lora", width*1024/32*36),
-		q81FFN:     cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-ffn", width*cudaWidth/32*36),
+		attnPre:        alloc("batch-dense-attention-pre", width*2*cudaWidth),
+		qLora:          alloc("batch-dense-query-lora", width*1024),
+		qHeads:         alloc("batch-dense-query-heads", width*64*cudaKVWidth),
+		kvRaw:          alloc("batch-dense-kv-raw", width*cudaKVWidth),
+		kvCur:          alloc("batch-dense-kv-current", width*cudaKVWidth),
+		attnNorm:       alloc("batch-dense-attention-norm", width*cudaWidth),
+		compressorKV:   alloc("batch-dense-compressor-kv", width*1024),
+		compressorGate: alloc("batch-dense-compressor-gate", width*1024),
+		indexerKV:      alloc("batch-dense-indexer-kv", width*256),
+		indexerGate:    alloc("batch-dense-indexer-gate", width*256),
+		attnLow:        alloc("batch-dense-attention-low", width*8192),
+		attnOut:        alloc("batch-dense-attention-output", width*cudaWidth),
+		sharedGate:     alloc("batch-dense-shared-gate", width*cudaSharedFFNWidth),
+		sharedUp:       alloc("batch-dense-shared-up", width*cudaSharedFFNWidth),
+		sharedOut:      alloc("batch-dense-shared-output", width*cudaWidth),
+		q81Attn:        cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-attention", width*cudaWidth/32*36),
+		q81QLora:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-query-lora", width*1024/32*36),
+		q81FFN:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q81-ffn", width*cudaWidth/32*36),
+		q80Heads:       cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-heads", width*32768/32*36),
+		q80Low:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-low", width*8192/32*36),
+		q80Shared:      cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-shared", width*cudaSharedFFNWidth/32*36),
 	}
 	if err := errors.Join(b.arena.Err(), b.denseArena.Err()); err != nil {
 		return nil, fmt.Errorf("cuda runtime: allocate batch rows: %w", err)
@@ -531,6 +556,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		return errors.New("cuda runtime: dense batch has invalid length")
 	}
 	l := &r.model.layers[index]
+	state := &r.state.layers[index]
 	d := &r.batch.dense
 	if err := r.markCUDAPhase("dense-front", position, index); err != nil {
 		return err
@@ -544,11 +570,27 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		rows[i].qHeads = d.qHeads.Slice(i*64*cudaKVWidth, (i+1)*64*cudaKVWidth)
 		rows[i].kvRaw = d.kvRaw.Slice(i*cudaKVWidth, (i+1)*cudaKVWidth)
 		rows[i].kvCur = d.kvCur.Slice(i*cudaKVWidth, (i+1)*cudaKVWidth)
-		// The shared FFN's activation and its two outputs move into token-major
-		// group storage so the group projects them with one launch per weight.
+		// The attention output, the shared FFN's activation and the shared
+		// projections move into token-major group storage so the group projects
+		// them with one launch per weight.
+		rows[i].attnLow = d.attnLow.Slice(i*8192, (i+1)*8192)
+		rows[i].attnOut = d.attnOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 		rows[i].q81Input = d.q81FFN.Slice(i*cudaWidth/32*36, (i+1)*cudaWidth/32*36)
 		rows[i].sharedGate = d.sharedGate.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
 		rows[i].sharedUp = d.sharedUp.Slice(i*cudaSharedFFNWidth, (i+1)*cudaSharedFFNWidth)
+		rows[i].sharedOut = d.sharedOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
+		// Compressor rows are adjacent at the layer's own compressor width, the
+		// layout the batched pair kernel writes. Layers 0 and 1 have none.
+		if index >= 2 {
+			w := state.attn.width
+			rows[i].compressorKV = d.compressorKV.Slice(i*w, (i+1)*w)
+			rows[i].compressorGate = d.compressorGate.Slice(i*w, (i+1)*w)
+			if state.indexer.cap != 0 {
+				iw := state.indexer.width
+				rows[i].indexerKV = d.indexerKV.Slice(i*iw, (i+1)*iw)
+				rows[i].indexerGate = d.indexerGate.Slice(i*iw, (i+1)*iw)
+			}
+		}
 		if err := hc[i].pre(rows[i].hc[0], l.hcAttnFn, l.hcAttnScale, l.hcAttnBase, l.attnNorm, rows[i].attnPre, false); err != nil {
 			return fmt.Errorf("token %d attention pre: %w", i, err)
 		}
@@ -580,9 +622,18 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	if err := r.encodeQ80MatvecQ81Batch(l.attnKV, q81Attn, kvRaw, n); err != nil {
 		return err
 	}
+	// The compressor projections read only each token's attnNorm, so the group
+	// streams both weight pairs once; the pooling that consumes them stays in
+	// the token-ordered loop below.
+	if index >= 2 {
+		if err := r.evalBatchCompressor(rows, index); err != nil {
+			return err
+		}
+	}
 	// Attention is token ordered: compress mutates the compressor caches that the
-	// following tokens read. Everything up to the shared FFN's activation
-	// quantization stays in this loop for that reason.
+	// following tokens read. Only the head outputs leave this loop, each in its
+	// own token's buffer, so the projections that consume them batch below.
+	heads := make([]cudamem.Slice[float32], n)
 	for i := range rows {
 		if err := r.markCUDAPhase("qkv-normalization", position+i, index); err != nil {
 			return err
@@ -593,11 +644,22 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		if err := r.encodeRMS(rows[i].kvRaw, l.attnKVNorm, rows[i].kvCur, 1, true); err != nil {
 			return fmt.Errorf("token %d key/value norm: %w", i, err)
 		}
-		heads, err := r.evalLayerAttention(&rows[i], &r.state.layers[index], index, position+i)
-		if err != nil {
+		var err error
+		if heads[i], err = r.evalLayerAttention(&rows[i], state, index, position+i, true); err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
 		}
-		if err := r.evalLayerFFNPre(hc[i], &rows[i], index, tokens[i], position+i, heads); err != nil {
+	}
+	// The attention output weights do not depend on the token either. The
+	// qualification fallback keeps its per-token kernels, which is the whole
+	// point of that switch, so the group projects with it token by token.
+	projected := !r.disableBlockDiagAttnOut
+	if projected {
+		if err := r.evalBatchAttnOut(rows, heads, index, position); err != nil {
+			return err
+		}
+	}
+	for i := range rows {
+		if err := r.evalLayerFFNPre(hc[i], &rows[i], index, tokens[i], position+i, heads[i], projected); err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
 		}
 	}
@@ -612,12 +674,98 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 	if err := r.encodeQ80MatvecQ81Batch(l.sharedUp, q81FFN, d.sharedUp.Slice(0, n*cudaSharedFFNWidth), n); err != nil {
 		return err
 	}
+	// The shared expert's down projection reads only this token's activation for
+	// the same reason, so it streams sharedDown once as well.
+	if err := r.evalBatchSharedDown(rows, index, position); err != nil {
+		return err
+	}
 	for i := range rows {
-		if err := r.evalLayerFFNPost(hc[i], &rows[i], index, position+i); err != nil {
+		if err := r.evalLayerFFNPost(hc[i], &rows[i], index, position+i, true); err != nil {
 			return fmt.Errorf("token %d: %w", i, err)
 		}
 	}
 	return nil
+}
+
+// evalBatchCompressor projects the group's compressor activations with one
+// launch per weight pair. The batched kernel reads the group's activation rows
+// adjacent, and pre writes each token's norm into the second half of its own
+// attnPre block, so the rows are gathered first; the gather moves one token's
+// activation where the launch it replaces reads the whole weight pair again.
+func (r *cudaRuntime) evalBatchCompressor(rows []cudaTokenState, index int) error {
+	l, state, d := &r.model.layers[index], &r.state.layers[index], &r.batch.dense
+	n := len(rows)
+	for i := range rows {
+		if err := d.attnNorm.Slice(i*cudaWidth, (i+1)*cudaWidth).CopyDeviceToDeviceAsync(rows[i].attnNorm, r.stream()); err != nil {
+			return fmt.Errorf("token %d compressor activation: %w", i, err)
+		}
+	}
+	in := d.attnNorm.Slice(0, n*cudaWidth)
+	w := state.attn.width
+	if err := r.encodeF16PairOrderedBatch(l.attnCompressorKV, l.attnCompressorGate, in,
+		d.compressorKV.Slice(0, n*w), d.compressorGate.Slice(0, n*w), n); err != nil {
+		return err
+	}
+	if state.indexer.cap == 0 {
+		return nil
+	}
+	w = state.indexer.width
+	return r.encodeF16PairOrderedBatch(l.indexerCompressorKV, l.indexerCompressorGate, in,
+		d.indexerKV.Slice(0, n*w), d.indexerGate.Slice(0, n*w), n)
+}
+
+// evalBatchAttnOut projects the group's attention outputs. Each token reads only
+// its own head outputs, so the group streams attnOutA and attnOutB once instead
+// of once per token.
+func (r *cudaRuntime) evalBatchAttnOut(rows []cudaTokenState, heads []cudamem.Slice[float32], index, position int) error {
+	l, d := &r.model.layers[index], &r.batch.dense
+	n := len(rows)
+	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
+		return err
+	}
+	// The head outputs stay in each token's own attention buffer, so they are
+	// quantized one token at a time, as the per-token path does. A token whose
+	// width disagrees fails here rather than shifting the rows that follow.
+	width := heads[0].Len()
+	stride := width / 32 * 36
+	for i := range rows {
+		if err := r.encodeQuantQ80(heads[i], d.q80Heads.Slice(i*stride, (i+1)*stride), width); err != nil {
+			return fmt.Errorf("token %d attention output quantization: %w", i, err)
+		}
+	}
+	lowWidth := rows[0].attnLow.Len()
+	low := d.attnLow.Slice(0, n*lowWidth)
+	if err := r.encodeQ80MatvecQuantizedBlockDiagBatch(l.attnOutA, d.q80Heads.Slice(0, n*stride), low, 8, n); err != nil {
+		return err
+	}
+	// The pinned attention-output/HC fusion uses native float32 Q8_0 scales.
+	// These rows are adjacent and each 32-element quantization block is
+	// independent, so one launch writes the bytes n per-token launches would.
+	q := d.q80Low.Slice(0, n*lowWidth/32*36)
+	if err := r.encodeQuantQ80(low, q, lowWidth); err != nil {
+		return err
+	}
+	return r.encodeQ80MatvecQuantizedBatch(l.attnOutB, q, d.attnOut.Slice(0, n*cudaWidth), n)
+}
+
+// evalBatchSharedDown projects the group through the shared expert's down
+// matrix. The SwiGLU activation reads only each token's own shared gate and up
+// rows, which the group already holds token major, so one quantization launch
+// feeds one pass over sharedDown.
+func (r *cudaRuntime) evalBatchSharedDown(rows []cudaTokenState, index, position int) error {
+	l, d := &r.model.layers[index], &r.batch.dense
+	n := len(rows)
+	// The mark opens the group's second half, where the per-token form opens
+	// each token's; it precedes the projection it measures either way.
+	if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {
+		return err
+	}
+	width := n * cudaSharedFFNWidth
+	q := d.q80Shared.Slice(0, width/32*36)
+	if err := r.encodeSwiGLUQuantQ80(d.sharedGate.Slice(0, width), d.sharedUp.Slice(0, width), q, width, 1); err != nil {
+		return err
+	}
+	return r.encodeQ80MatvecQuantizedBatch(l.sharedDown, q, d.sharedOut.Slice(0, n*cudaWidth), n)
 }
 
 func (r *cudaRuntime) evalPosition(token, position int, logits bool) (err error) {
@@ -751,41 +899,45 @@ func (r *cudaRuntime) evalLayerState(s *cudaTokenState, state *cudaSessionLayer,
 // projections in evalLayerFFNShared read only this token's ffnNorm, so a caller
 // holding several tokens may hoist them into one batched launch instead.
 func (r *cudaRuntime) evalLayerFFN(hc *cudaHC, s *cudaTokenState, index, token, position int, heads cudamem.Slice[float32]) error {
-	if err := r.evalLayerFFNPre(hc, s, index, token, position, heads); err != nil {
+	if err := r.evalLayerFFNPre(hc, s, index, token, position, heads, false); err != nil {
 		return err
 	}
 	if err := r.evalLayerFFNShared(s, index); err != nil {
 		return err
 	}
-	return r.evalLayerFFNPost(hc, s, index, position)
+	return r.evalLayerFFNPost(hc, s, index, position, false)
 }
 
 // evalLayerFFNPre encodes the attention output projection, the FFN norm and the
 // router, ending with this token's Q8_1 activation quantization. It writes only
-// this token's state; nothing here reads another token in the group.
-func (r *cudaRuntime) evalLayerFFNPre(hc *cudaHC, s *cudaTokenState, index, token, position int, heads cudamem.Slice[float32]) error {
+// this token's state; nothing here reads another token in the group. projected
+// reports that the caller already encoded this token's attention output, which
+// the batched front end hoists into one launch per weight matrix.
+func (r *cudaRuntime) evalLayerFFNPre(hc *cudaHC, s *cudaTokenState, index, token, position int, heads cudamem.Slice[float32], projected bool) error {
 	l := &r.model.layers[index]
-	if err := r.markCUDAPhase("attention-output", position, index); err != nil {
-		return err
-	}
-	if !r.disableBlockDiagAttnOut {
-		if err := r.encodeQ80NativeBlockDiag(l.attnOutA, heads, s.attnLow, 8); err != nil {
+	if !projected {
+		if err := r.markCUDAPhase("attention-output", position, index); err != nil {
 			return err
 		}
-	} else {
-		for group := range 8 {
-			rows, err := cudaTensorRows(l.attnOutA, group*1024, 1024)
-			if err != nil {
+		if !r.disableBlockDiagAttnOut {
+			if err := r.encodeQ80NativeBlockDiag(l.attnOutA, heads, s.attnLow, 8); err != nil {
 				return err
 			}
-			if err := r.encodeQ80Native(rows, heads.Slice(group*4096, (group+1)*4096), s.attnLow.Slice(group*1024, (group+1)*1024)); err != nil {
-				return err
+		} else {
+			for group := range 8 {
+				rows, err := cudaTensorRows(l.attnOutA, group*1024, 1024)
+				if err != nil {
+					return err
+				}
+				if err := r.encodeQ80Native(rows, heads.Slice(group*4096, (group+1)*4096), s.attnLow.Slice(group*1024, (group+1)*1024)); err != nil {
+					return err
+				}
 			}
 		}
-	}
-	// The pinned attention-output/HC fusion uses native float32 Q8_0 scales.
-	if err := r.encodeQ80Native(l.attnOutB, s.attnLow, s.attnOut); err != nil {
-		return err
+		// The pinned attention-output/HC fusion uses native float32 Q8_0 scales.
+		if err := r.encodeQ80Native(l.attnOutB, s.attnLow, s.attnOut); err != nil {
+			return err
+		}
 	}
 	if err := hc.post(s.hc[0], s.attnOut, s.hc[1]); err != nil {
 		return err
@@ -827,22 +979,26 @@ func (r *cudaRuntime) evalLayerFFNShared(s *cudaTokenState, index int) error {
 }
 
 // evalLayerFFNPost consumes the shared projections and encodes the routed
-// experts and the residual. It reads only this token's state.
-func (r *cudaRuntime) evalLayerFFNPost(hc *cudaHC, s *cudaTokenState, index, position int) error {
+// experts and the residual. It reads only this token's state. projected reports
+// that the caller already encoded this token's shared-down projection, which the
+// batched front end hoists into one launch for the group.
+func (r *cudaRuntime) evalLayerFFNPost(hc *cudaHC, s *cudaTokenState, index, position int, projected bool) error {
 	l := &r.model.layers[index]
-	// The mark opens this token's second half. It precedes the shared-down
-	// projection so that no interval spans two tokens once a batched caller
-	// interleaves the halves; the shared-down launch is measured here.
-	if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {
-		return err
-	}
-	// Fused SwiGLU activation + Q8_0 quantization into q80Input for shared-down projection.
-	q := r.state.q80Input.Slice(0, s.sharedGate.Len()/32*36)
-	if err := r.encodeSwiGLUQuantQ80(s.sharedGate, s.sharedUp, q, s.sharedGate.Len(), 1); err != nil {
-		return err
-	}
-	if err := r.encodeQ80MatvecQuantized(l.sharedDown, q, s.sharedOut); err != nil {
-		return err
+	if !projected {
+		// The mark opens this token's second half. It precedes the shared-down
+		// projection so that no interval spans two tokens once a batched caller
+		// interleaves the halves; the shared-down launch is measured here.
+		if err := r.markCUDAPhase("expert-ffn", position, index); err != nil {
+			return err
+		}
+		// Fused SwiGLU activation + Q8_0 quantization into q80Input for shared-down projection.
+		q := r.state.q80Input.Slice(0, s.sharedGate.Len()/32*36)
+		if err := r.encodeSwiGLUQuantQ80(s.sharedGate, s.sharedUp, q, s.sharedGate.Len(), 1); err != nil {
+			return err
+		}
+		if err := r.encodeQ80MatvecQuantized(l.sharedDown, q, s.sharedOut); err != nil {
+			return err
+		}
 	}
 	if !r.disableSIMDExperts {
 		if err := r.encodeMatvecIQ2SelectedQ81(l.expertGate, l.expertUp, s.expertIDs, s.q81Input, s.expertGate, s.expertUp); err != nil {
@@ -878,8 +1034,9 @@ func (r *cudaRuntime) evalLayerFFNPost(hc *cudaHC, s *cudaTokenState, index, pos
 // the head outputs the feed-forward block projects. compress mutates the layer's
 // compressor caches that this token's own attention then reads, and that the
 // next token's attention reads in turn, so callers MUST keep this token ordered;
-// it is the sequential core a batched front end cannot hoist.
-func (r *cudaRuntime) evalLayerAttention(s *cudaTokenState, state *cudaSessionLayer, index, position int) (cudamem.Slice[float32], error) {
+// it is the sequential core a batched front end cannot hoist. Only the
+// compressor projections can be, and projected says the caller already has.
+func (r *cudaRuntime) evalLayerAttention(s *cudaTokenState, state *cudaSessionLayer, index, position int, projected bool) (cudamem.Slice[float32], error) {
 	l := &r.model.layers[index]
 	var heads cudamem.Slice[float32]
 	if index < 2 {
@@ -897,7 +1054,7 @@ func (r *cudaRuntime) evalLayerAttention(s *cudaTokenState, state *cudaSessionLa
 	if err := r.markCUDAPhase("compression", position, index); err != nil {
 		return heads, err
 	}
-	if err := r.compress(l, state, s, position, index); err != nil {
+	if err := r.compress(l, state, s, position, index, projected); err != nil {
 		return heads, err
 	}
 	if err := r.markCUDAPhase("attention", position, index); err != nil {
@@ -910,7 +1067,7 @@ func (r *cudaRuntime) evalLayerAttention(s *cudaTokenState, state *cudaSessionLa
 }
 
 func (r *cudaRuntime) evalLayerProjected(hc *cudaHC, s *cudaTokenState, state *cudaSessionLayer, index, token, position int) error {
-	heads, err := r.evalLayerAttention(s, state, index, position)
+	heads, err := r.evalLayerAttention(s, state, index, position, false)
 	if err != nil {
 		return err
 	}
@@ -956,10 +1113,16 @@ func (r *cudaRuntime) evalLayer(index, token, position int) error {
 	return r.evalLayerState(&r.state.cudaTokenState, &r.state.layers[index], index, token, position)
 }
 
-func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position, index int) error {
+// compress pools this token's compressor activations into the layer's caches.
+// projected reports that the caller already projected them, which the batched
+// front end does for the whole group: the projections read only attnNorm, while
+// the pooling below is what forces the token order.
+func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTokenState, position, index int, projected bool) error {
 	kv, gate := s.compressorKV.Slice(0, state.attn.width), s.compressorGate.Slice(0, state.attn.width)
-	if err := r.encodeF16PairOrdered(l.attnCompressorKV, l.attnCompressorGate, s.attnNorm, kv, gate); err != nil {
-		return err
+	if !projected {
+		if err := r.encodeF16PairOrdered(l.attnCompressorKV, l.attnCompressorGate, s.attnNorm, kv, gate); err != nil {
+			return err
+		}
 	}
 	emit, err := r.encodeCompressor(kv, gate, l.attnCompressorAPE, l.attnCompressorNorm, &state.attn, position, false)
 	if err != nil {
@@ -967,8 +1130,10 @@ func (r *cudaRuntime) compress(l *cudaLayer, state *cudaSessionLayer, s *cudaTok
 	}
 	indexEmit := false
 	if state.indexer.cap != 0 {
-		if err := r.encodeF16PairOrdered(l.indexerCompressorKV, l.indexerCompressorGate, s.attnNorm, s.indexerKV, s.indexerGate); err != nil {
-			return err
+		if !projected {
+			if err := r.encodeF16PairOrdered(l.indexerCompressorKV, l.indexerCompressorGate, s.attnNorm, s.indexerKV, s.indexerGate); err != nil {
+				return err
+			}
 		}
 		indexEmit, err = r.encodeCompressor(s.indexerKV, s.indexerGate, l.indexerCompressorAPE, l.indexerCompressorNorm, &state.indexer, position, true)
 		if err != nil {

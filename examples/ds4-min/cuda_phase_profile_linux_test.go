@@ -92,15 +92,19 @@ func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
 	if tokens < cudaPrefillBatchWidth || tokens%cudaPrefillBatchWidth != 0 {
 		return fmt.Errorf("cuda phase profile: token count %d is not a positive multiple of batch width %d", tokens, cudaPrefillBatchWidth)
 	}
+	// attention-output and expert-ffn are group phases, like dense-front: the
+	// projections they measure are one batched launch per weight for the whole
+	// group, so marking them per token would leave seven empty intervals and
+	// charge one token with the group's work.
 	want := map[string]int{
 		"dense-front":       (tokens / cudaPrefillBatchWidth) * cudaLayers,
 		"compression-raw":   tokens * 2,
 		"compression":       tokens * (cudaLayers - 2),
 		"attention":         tokens * cudaLayers,
-		"attention-output":  tokens * cudaLayers,
+		"attention-output":  (tokens / cudaPrefillBatchWidth) * cudaLayers,
 		"ffn-pre":           tokens * cudaLayers,
 		"shared-ffn":        tokens * cudaLayers,
-		"expert-ffn":        tokens * cudaLayers,
+		"expert-ffn":        (tokens / cudaPrefillBatchWidth) * cudaLayers,
 		"ffn-post":          tokens * cudaLayers,
 		"qkv-normalization": tokens * cudaLayers,
 		"group-tail":        tokens / cudaPrefillBatchWidth,
@@ -139,9 +143,11 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 	for base := 0; base < tokens; base += cudaPrefillBatchWidth {
 		for layer := range cudaLayers {
 			add("dense-front", base, layer)
-			// The batched front end runs each layer in two token-ordered passes:
-			// everything through the shared FFN's activation quantization, then
-			// the group's two batched shared projections, then the second half.
+			// The batched front end runs each layer in token-ordered passes
+			// separated by the group's batched projections: the attention the
+			// compressor caches order, then the attention output, then the
+			// router and the shared FFN's activation, then the shared
+			// projections, then the routed experts.
 			for position := base; position < base+cudaPrefillBatchWidth; position++ {
 				add("qkv-normalization", position, layer)
 				if layer < 2 {
@@ -149,12 +155,15 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 				} else {
 					add("compression", position, layer)
 				}
-				for _, name := range []string{"attention", "attention-output", "ffn-pre", "shared-ffn"} {
-					add(name, position, layer)
-				}
+				add("attention", position, layer)
 			}
+			add("attention-output", base, layer)
 			for position := base; position < base+cudaPrefillBatchWidth; position++ {
-				add("expert-ffn", position, layer)
+				add("ffn-pre", position, layer)
+				add("shared-ffn", position, layer)
+			}
+			add("expert-ffn", base, layer)
+			for position := base; position < base+cudaPrefillBatchWidth; position++ {
 				add("ffn-post", position, layer)
 			}
 		}
@@ -314,7 +323,7 @@ func TestCUDAPhaseProfile(t *testing.T) {
 		Intervals:       intervals,
 		LogitsSHA256:    logitsHash,
 		ReferenceSHA256: referenceHash,
-		Scope:           "warmed CUDA positions 0..63 only; default-stream elapsed intervals include device idle time and instrumentation; group-tail spans each synchronized batch return and the next batch embedding, with the last interval also including the output head; compression-raw measures marker overhead on raw layers 0 and 1; this is phase attribution, not kernel busy time or throughput",
+		Scope:           "warmed CUDA positions 0..63 only; attention-output and expert-ffn are group phases covering one batched projection per weight for the whole group; default-stream elapsed intervals include device idle time and instrumentation; group-tail spans each synchronized batch return and the next batch embedding, with the last interval also including the output head; compression-raw measures marker overhead on raw layers 0 and 1; this is phase attribution, not kernel busy time or throughput",
 	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
@@ -340,8 +349,11 @@ func TestValidateCUDAPhaseCounts(t *testing.T) {
 		"compression-raw": tokens * 2,
 		"compression":     tokens * (cudaLayers - 2),
 	}
-	for _, name := range []string{"qkv-normalization", "attention", "attention-output", "ffn-pre", "shared-ffn", "expert-ffn", "ffn-post"} {
+	for _, name := range []string{"qkv-normalization", "attention", "ffn-pre", "shared-ffn", "ffn-post"} {
 		want[name] = tokens * cudaLayers
+	}
+	for _, name := range []string{"attention-output", "expert-ffn"} {
+		want[name] = (tokens / cudaPrefillBatchWidth) * cudaLayers
 	}
 	want["group-tail"] = tokens / cudaPrefillBatchWidth
 	if err := validateCUDAPhaseCounts(tokens, want); err != nil {
