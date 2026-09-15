@@ -69,10 +69,28 @@ func testCUDAQualificationF16PairOrderedBatch(t *testing.T, r *cudaFoundation, c
 	in := cudaSynthUpload(t, r, x)
 
 	batchedA, batchedB := cudaTestAlloc(t, r, batch*rows), cudaTestAlloc(t, r, batch*rows)
-	sequentialA, sequentialB := cudaTestAlloc(t, r, batch*rows), cudaTestAlloc(t, r, batch*rows)
-	for _, out := range []cudamem.Slice[float32]{batchedA, batchedB, sequentialA, sequentialB} {
+	for _, out := range []cudamem.Slice[float32]{batchedA, batchedB} {
 		if err := out.CopyFromHost(makeNaNs(batch * rows)); err != nil {
 			t.Fatal(err)
+		}
+	}
+
+	// The reference side launches one token at a time, and each launch gets
+	// its own buffers rather than a sub-slice of a batch-wide one: a
+	// sub-slice starting at an odd multiple of four bytes is not an
+	// 8-byte-aligned device pointer, and cudalaunch rejects those before the
+	// kernel runs. That bound belongs to the argument packer, not to the
+	// kernel under test, and slicing here would let it pick which column
+	// widths this test is allowed to cover.
+	tokenIn := make([]cudamem.Slice[float32], batch)
+	tokenA, tokenB := make([]cudamem.Slice[float32], batch), make([]cudamem.Slice[float32], batch)
+	for token := range batch {
+		tokenIn[token] = cudaSynthUpload(t, r, x[token*cols:(token+1)*cols])
+		tokenA[token], tokenB[token] = cudaTestAlloc(t, r, rows), cudaTestAlloc(t, r, rows)
+		for _, out := range []cudamem.Slice[float32]{tokenA[token], tokenB[token]} {
+			if err := out.CopyFromHost(makeNaNs(rows)); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 
@@ -81,10 +99,7 @@ func testCUDAQualificationF16PairOrderedBatch(t *testing.T, r *cudaFoundation, c
 	})
 	cudaQualificationMeasure(t, r, func() error {
 		for token := range batch {
-			if err := r.encodeF16PairOrdered(ta, tb,
-				in.Slice(token*cols, (token+1)*cols),
-				sequentialA.Slice(token*rows, (token+1)*rows),
-				sequentialB.Slice(token*rows, (token+1)*rows)); err != nil {
+			if err := r.encodeF16PairOrdered(ta, tb, tokenIn[token], tokenA[token], tokenB[token]); err != nil {
 				return err
 			}
 		}
@@ -92,7 +107,11 @@ func testCUDAQualificationF16PairOrderedBatch(t *testing.T, r *cudaFoundation, c
 	})
 
 	gotA, gotB := cudaTestRead(t, batchedA), cudaTestRead(t, batchedB)
-	wantA, wantB := cudaTestRead(t, sequentialA), cudaTestRead(t, sequentialB)
+	wantA, wantB := make([]float32, 0, batch*rows), make([]float32, 0, batch*rows)
+	for token := range batch {
+		wantA = append(wantA, cudaTestRead(t, tokenA[token])...)
+		wantB = append(wantB, cudaTestRead(t, tokenB[token])...)
+	}
 	if err := exactFloat32Bits(gotA, wantA); err != nil {
 		t.Fatalf("batched A differs from single-token launches: %v", err)
 	}
