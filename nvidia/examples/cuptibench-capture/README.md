@@ -48,10 +48,20 @@ directory, on an exclusively owned CUDA device with NVRTC, nvdisasm and CUPTI
 counter permission:
 
 ```sh
-GOWORK=off go test ./examples/cuptibench-capture -run TestComposeFromDevice -count=1 -v
+capture_dir=$(mktemp -d "$HOME/tmp/cuptibench-capture.XXXXXX")
+GOWORK=off go test ./examples/cuptibench-capture \
+  -run '^$' -bench '^BenchmarkComposeFromDevice$' -benchtime=1x -count=1 -v \
+  -cuptiprofile="$capture_dir/device.pprof"
+GOWORK=off go run ./cmd/cudaprof "$capture_dir/device.pprof.capture"
 ```
 
-The test skips without a device, NVRTC or nvdisasm. A skip is not a pass.
+The benchmark skips without a device, NVRTC or nvdisasm. Check for a
+`BenchmarkComposeFromDevice` result line; a zero exit status alone does not
+prove it ran. The single iteration checks composition, not performance.
+
+An explicit `-cuptiprofile` retains the profile, its `.json` results, and a
+`.capture` directory containing the portable capture. Without it, the outputs
+are temporary and are removed when the benchmark exits.
 
 To compose from a run of another benchmark, export it first and pass the two
 files it wrote together with the artifacts that benchmark compiled:

@@ -205,8 +205,10 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		b.Fatalf("Compose: %v", err)
 	}
 
-	// Publish unpacked and read it back the way cmd/cudaprof opens a directory.
-	unpacked := filepath.Join(dir, "capture")
+	// Keep the portable capture beside the profile. An explicit profile path
+	// therefore retains both outputs after the benchmark exits.
+	// Read it back the way cmd/cudaprof opens a directory.
+	unpacked := profile + ".capture"
 	if err := cudacapture.WriteDir(unpacked, c); err != nil {
 		b.Fatalf("WriteDir: %v", err)
 	}
