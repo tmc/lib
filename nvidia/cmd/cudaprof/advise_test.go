@@ -2461,6 +2461,7 @@ func TestCapturedGraphReplays(t *testing.T) {
 	tests := []struct {
 		name        string
 		correlation func(i int) int
+		graphID     func(i int) int // 0 means the capture carries no graph ID
 		want        int
 	}{
 		{
@@ -2478,6 +2479,41 @@ func TestCapturedGraphReplays(t *testing.T) {
 			correlation: func(int) int { return 0 },
 			want:        0,
 		},
+		{
+			// The agent now forwards graphId, so the same four-node graph is
+			// read directly rather than inferred from shared correlations.
+			name:        "graph ID counts replays directly",
+			correlation: func(i int) int { return 100 + i/4 },
+			graphID:     func(int) int { return 42 },
+			want:        5,
+		},
+		{
+			// The case correlation multiplicity cannot see: every replay of a
+			// one-node graph has its own correlation and exactly one kernel
+			// record, which is indistinguishable from an ordinary launch.
+			name:        "single-node graph replay is invisible without a graph ID",
+			correlation: func(i int) int { return 100 + i },
+			want:        0,
+		},
+		{
+			name:        "single-node graph replay is counted with a graph ID",
+			correlation: func(i int) int { return 100 + i },
+			graphID:     func(int) int { return 42 },
+			want:        20,
+		},
+		{
+			// A graph ID on some kernels and not others: only the graph nodes
+			// witness replays, and the plain launches must not inflate them.
+			name:        "mixed graph and non-graph work counts only the graph launches",
+			correlation: func(i int) int { return 100 + i },
+			graphID: func(i int) int {
+				if i < 8 {
+					return 42
+				}
+				return 0
+			},
+			want: 8,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2485,7 +2521,13 @@ func TestCapturedGraphReplays(t *testing.T) {
 			var samples []*profile.Sample
 			for i := range 20 {
 				start := uint64(1000 + i*10000)
-				samples = append(samples, microKernelSample("bump", 7, start, start+6800, tt.correlation(i)))
+				sample := microKernelSample("bump", 7, start, start+6800, tt.correlation(i))
+				if tt.graphID != nil {
+					if id := tt.graphID(i); id != 0 {
+						sample.NumLabel["graph_id"] = []int64{int64(id)}
+					}
+				}
+				samples = append(samples, sample)
 			}
 			cap := &cudacapture.Capture{Profile: &profile.Profile{Sample: samples}}
 			if got := capturedGraphReplays(cap); got != tt.want {

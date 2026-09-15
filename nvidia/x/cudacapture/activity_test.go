@@ -313,3 +313,64 @@ func TestBuildActivityProfileDefaultSampleType(t *testing.T) {
 		t.Errorf("CheckValid: %v", err)
 	}
 }
+
+// A kernel that ran as a graph node carries graph attribution into its labels,
+// and one that did not carries none. The distinction matters because a
+// zero-valued graph_id label would make every ordinary launch look graph-like
+// to a consumer that tests for the label's presence.
+func TestAttachKernelLabelsGraphAttribution(t *testing.T) {
+	tests := []struct {
+		name       string
+		record     cudacapture.ActivityRecord
+		wantLabels map[string]string
+		wantAbsent []string
+	}{
+		{
+			name: "graph node carries both identifiers",
+			record: cudacapture.ActivityRecord{
+				Subtype: "kernel", Name: "bump", GraphID: 42, GraphNodeID: 987654321,
+			},
+			wantLabels: map[string]string{"graph_id": "42", "graph_node_id": "987654321"},
+		},
+		{
+			name:       "ordinary launch carries neither",
+			record:     cudacapture.ActivityRecord{Subtype: "kernel", Name: "bump"},
+			wantAbsent: []string{"graph_id", "graph_node_id"},
+		},
+		{
+			name: "a node ID without a graph ID still records what it has",
+			record: cudacapture.ActivityRecord{
+				Subtype: "kernel", Name: "bump", GraphNodeID: 7,
+			},
+			wantLabels: map[string]string{"graph_node_id": "7"},
+			wantAbsent: []string{"graph_id"},
+		},
+		{
+			name:       "memcpy is not a kernel and gets no kernel labels",
+			record:     cudacapture.ActivityRecord{Subtype: "memcpy", GraphID: 42},
+			wantAbsent: []string{"graph_id", "graph_node_id", "registers", "smem"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels := map[string][]string{}
+			cudacapture.AttachKernelLabels(labels, tt.record)
+			for key, want := range tt.wantLabels {
+				got, ok := labels[key]
+				if !ok {
+					t.Errorf("label %q missing, want %q", key, want)
+					continue
+				}
+				if len(got) != 1 || got[0] != want {
+					t.Errorf("label %q = %v, want [%q]", key, got, want)
+				}
+			}
+			for _, key := range tt.wantAbsent {
+				if got, ok := labels[key]; ok {
+					t.Errorf("label %q = %v, want it absent", key, got)
+				}
+			}
+		})
+	}
+}

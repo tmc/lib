@@ -1940,37 +1940,74 @@ func sampleCorrelation(s *profile.Sample) uint32 {
 	return 0
 }
 
-// capturedGraphReplays counts correlation IDs shared by more than one kernel
-// activity record. Under CUDA graph replay every node of a replay carries the
-// correlation ID of the single cudaGraphLaunch that issued it, so a correlation
-// appearing on several distinct kernels is the device-side signature of a graph
-// launch. A capture with no graph work gives every kernel its own correlation
-// and this returns zero.
+// sampleGraphID returns the CUDA graph ID recorded on a kernel sample, or zero
+// when the sample carries none. CUPTI reports graphId zero for a kernel that is
+// not a graph node, and cudacapture omits the label entirely in that case, so
+// absence and zero mean the same thing and both answer "not a graph node".
+func sampleGraphID(s *profile.Sample) uint32 {
+	if s == nil {
+		return 0
+	}
+	if len(s.NumLabel["graph_id"]) > 0 && s.NumLabel["graph_id"][0] > 0 {
+		return uint32(s.NumLabel["graph_id"][0])
+	}
+	if len(s.Label["graph_id"]) > 0 {
+		if n, err := strconv.ParseUint(s.Label["graph_id"][0], 10, 32); err == nil {
+			return uint32(n)
+		}
+	}
+	return 0
+}
+
+// capturedGraphReplays reports how many CUDA graph launches a capture holds.
+// It answers zero for a capture with no graph work, and the callers use it only
+// to suppress advice that recommends graph capture, never to raise advice.
+//
+// Two sources of evidence, in order of strength:
+//
+// Direct. CUPTI records graphId and graphNodeId on every kernel activity record
+// that ran as a node of a graph. Each replay is one cudaGraphLaunch and so one
+// correlation ID, so counting the distinct correlations among kernel samples
+// that carry a graph ID counts replays.
+//
+// Indirect, for captures taken before the agent forwarded graphId. Under replay
+// every node inherits the correlation ID of the single launch that issued it,
+// so one correlation spread across several distinct kernel records is the
+// device-side signature of a graph launch.
+//
+// The indirect form has a false negative the direct form does not: a graph of a
+// SINGLE node gives each replay one kernel record with its own correlation,
+// which is indistinguishable from an ordinary launch by multiplicity alone.
+// Captures that carry graphId are not subject to this.
 //
 // Measured on GB10 (sm_121), one kernel, identical geometry, 20 executions per
 // arm: launched 20 times directly the capture held 20 kernel records with 20
 // distinct correlation IDs; a four-node graph replayed five times held 20
 // kernel records with 5 correlation IDs, four records each, and each of those
 // five resolved to a runtime cudaGraphLaunch API record.
-//
-// This is indirect evidence and it is used only to suppress advice, never to
-// raise it. The direct evidence is CUPTI's graphId and graphNodeId, which the
-// injected agent does not collect: nvidia/internal/cudainject/native/cupti_agent.c
-// casts each record to CUpti_ActivityKernel9/10, both of which carry the two
-// fields, and forwards neither. Until it does, correlation multiplicity is the
-// only graph evidence a capture carries.
 func capturedGraphReplays(cap *cudacapture.Capture) int {
 	if cap == nil || cap.Profile == nil {
 		return 0
 	}
+	graphLaunches := make(map[uint32]struct{})
 	counts := make(map[uint32]int)
 	for _, s := range cap.Profile.Sample {
 		if extractKernelNameFromSample(s) == "" {
 			continue
 		}
-		if corr := sampleCorrelation(s); corr != 0 {
+		corr := sampleCorrelation(s)
+		if sampleGraphID(s) != 0 {
+			// A graph node with no correlation still witnesses a replay; it
+			// just cannot be told apart from another replay of the same graph.
+			graphLaunches[corr] = struct{}{}
+			continue
+		}
+		if corr != 0 {
 			counts[corr]++
 		}
+	}
+	if len(graphLaunches) > 0 {
+		return len(graphLaunches)
 	}
 	shared := 0
 	for _, n := range counts {

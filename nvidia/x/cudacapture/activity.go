@@ -30,6 +30,8 @@ type ActivityRecord struct {
 	BlockDim            [3]uint32 `json:"block,omitempty"`
 	RegistersPerThread  uint32    `json:"registers_per_thread,omitempty"`
 	DynamicSharedMemory uint32    `json:"dynamic_shared_memory,omitempty"`
+	GraphID             uint32    `json:"graph_id,omitempty"`
+	GraphNodeID         uint64    `json:"graph_node_id,omitempty"`
 }
 
 // UnmarshalJSON unmarshals an ActivityRecord from JSON. It supports array
@@ -105,11 +107,22 @@ func AttachKernelLabels(labels map[string][]string, rec ActivityRecord) {
 	labels["block"] = []string{fmt.Sprintf("%d,%d,%d", rec.BlockDim[0], rec.BlockDim[1], rec.BlockDim[2])}
 	labels["registers"] = []string{strconv.FormatUint(uint64(rec.RegistersPerThread), 10)}
 	labels["smem"] = []string{strconv.FormatUint(uint64(rec.DynamicSharedMemory), 10)}
+	// Graph attribution is present only for kernels that ran as nodes of a
+	// CUDA graph. A zero graphId is CUPTI's "not a graph node", so the labels
+	// are omitted entirely rather than set to zero: their presence is the
+	// signal, and a zero-valued label would make every launch look graph-like.
+	if rec.GraphID != 0 {
+		labels["graph_id"] = []string{strconv.FormatUint(uint64(rec.GraphID), 10)}
+	}
+	if rec.GraphNodeID != 0 {
+		labels["graph_node_id"] = []string{strconv.FormatUint(rec.GraphNodeID, 10)}
+	}
 }
 
 // BuildActivityProfile converts a slice of ActivityRecord entries into a pprof Profile.
 // Kernel samples are annotated with launch geometry and register labels
-// ('grid', 'block', 'registers', 'smem').
+// ('grid', 'block', 'registers', 'smem'), and with 'graph_id' and
+// 'graph_node_id' when the kernel ran as a node of a CUDA graph.
 func BuildActivityProfile(session string, targetPID uint64, activities []ActivityRecord) *profile.Profile {
 	p := &profile.Profile{
 		SampleType: []*profile.ValueType{
