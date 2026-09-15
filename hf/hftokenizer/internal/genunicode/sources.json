@@ -1,0 +1,14 @@
+{
+  "16.0.0/UnicodeData.txt": {
+    "url": "https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt",
+    "sha256": "ff58e5823bd095166564a006e47d111130813dcf8bf234ef79fa51a870edb48f"
+  },
+  "9.0.0/UnicodeData.txt": {
+    "url": "https://www.unicode.org/Public/9.0.0/ucd/UnicodeData.txt",
+    "sha256": "68dfc414d28257b9b5d6ddbb8b466c768c00ebdf6cbf7784364a9b6cad55ee8f"
+  },
+  "9.0.0/DerivedNormalizationProps.txt": {
+    "url": "https://www.unicode.org/Public/9.0.0/ucd/DerivedNormalizationProps.txt",
+    "sha256": "02d8e12cea7c61a9f3cc5fbf8eaceadf8da23fe83d60c64cf647088830b810cc"
+  }
+}
