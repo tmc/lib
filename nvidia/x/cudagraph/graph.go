@@ -87,6 +87,10 @@ type InstantiateOptions struct {
 	DeviceLaunch     bool
 	// UseNodePriority uses kernel-node priorities instead of stream priority.
 	UseNodePriority bool
+	// RetainKernelOrder records native symbols only when completion dependencies
+	// prove a unique kernel order. Unsupported nodes or parallel kernels fail
+	// before instantiation.
+	RetainKernelOrder bool
 }
 
 func (o InstantiateOptions) flags() (uint64, error) {
@@ -117,6 +121,20 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 	if err != nil {
 		return nil, err
 	}
+	var order []string
+	if options.RetainKernelOrder {
+		if options.DeviceLaunch {
+			return nil, errors.New("cudagraph: kernel order does not support device launch")
+		}
+		err = g.withContext(func() error {
+			var err error
+			order, err = snapshotKernelOrder(g.raw)
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("cudagraph: retain kernel order: %w", err)
+		}
+	}
 	var rawExec driver.GraphExec
 	err = g.withContext(func() error {
 		var err error
@@ -126,7 +144,7 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
 	}
-	return &Exec{raw: rawExec, device: g.device}, nil
+	return &Exec{raw: rawExec, device: g.device, kernelOrder: order}, nil
 }
 
 // Raw returns the underlying driver.Graph handle.
@@ -151,8 +169,9 @@ func (g *Graph) Destroy() error {
 
 // Exec represents an instantiated, executable CUDA graph.
 type Exec struct {
-	raw    driver.GraphExec
-	device *cuda.Device
+	raw         driver.GraphExec
+	device      *cuda.Device
+	kernelOrder []string
 }
 
 // Launch enqueues execution of the instantiated graph on stream.
@@ -190,6 +209,7 @@ func (e *Exec) Update(g *Graph) error {
 	if g.raw == 0 {
 		return errors.New("cudagraph: graph is closed")
 	}
+	e.kernelOrder = nil
 	var result driver.GraphExecUpdateResultInfo
 	if err := e.withContext(func() error { return e.raw.Update(g.raw, &result) }); err != nil {
 		return fmt.Errorf("cudagraph: update graph (result=%v%s): %w", result.Result, updateErrorNodes(result), err)
@@ -220,6 +240,7 @@ func (e *Exec) Destroy() error {
 	if e == nil || e.raw == 0 {
 		return nil
 	}
+	e.kernelOrder = nil
 	if err := e.withContext(e.raw.Destroy); err != nil {
 		return fmt.Errorf("cudagraph: destroy exec graph: %w", err)
 	}
