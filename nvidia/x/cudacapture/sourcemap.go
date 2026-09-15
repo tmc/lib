@@ -125,12 +125,17 @@ func SASSSourcePaths(sass []byte) []string {
 // not identify a source file: two directories can each hold a kernels.cu, and a
 // rewrite that merged them would attribute one file's instructions to the
 // other. SourceMapByBase reports an error rather than choosing between two
-// recorded paths with the same base name, so a caller that cannot tell them
-// apart gets no map instead of a wrong one.
+// paths with the same base name, so a caller that cannot tell them apart gets
+// no map instead of a wrong one. It checks both sides: two recorded sources
+// sharing a base name is an error, and so is two artifacts sharing one.
 func SourceMapByBase(sass []byte, artifacts ...string) (SourceMap, error) {
 	want := make(map[string]string, len(artifacts))
 	for _, a := range artifacts {
-		want[path.Base(a)] = a
+		base := path.Base(a)
+		if other, dup := want[base]; dup && other != a {
+			return nil, fmt.Errorf("cudacapture: base name %q names two artifacts %q and %q", base, other, a)
+		}
+		want[base] = a
 	}
 	m := make(SourceMap)
 	claimed := make(map[string]string)

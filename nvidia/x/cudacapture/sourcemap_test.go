@@ -121,3 +121,36 @@ func TestSourceMapByBaseRefusesAmbiguousBaseName(t *testing.T) {
 		}
 	}
 }
+
+// The recorded side and the artifact side are separate ambiguities. One
+// recorded kernels.cu with two bundled files of that name is just as
+// undecidable as two recorded sources, and indexing the artifacts by base name
+// silently kept whichever came last.
+func TestSourceMapByBaseRefusesAmbiguousArtifact(t *testing.T) {
+	const sass = "//## File \"/build/kernels.cu\", line 1\n"
+	m, err := cudacapture.SourceMapByBase([]byte(sass), "a/kernels.cu", "b/kernels.cu")
+	if err == nil {
+		t.Fatalf("SourceMapByBase = %v, want an error for two artifacts named kernels.cu", m)
+	}
+	if m != nil {
+		t.Errorf("SourceMapByBase returned map %v beside its error", m)
+	}
+	for _, want := range []string{"a/kernels.cu", "b/kernels.cu"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name the conflicting artifact %q", err, want)
+		}
+	}
+}
+
+// The artifact check must not reject a caller that names the same file twice,
+// which is unambiguous.
+func TestSourceMapByBaseAcceptsRepeatedArtifact(t *testing.T) {
+	const sass = "//## File \"/build/kernels.cu\", line 1\n"
+	m, err := cudacapture.SourceMapByBase([]byte(sass), "a/kernels.cu", "a/kernels.cu")
+	if err != nil {
+		t.Fatalf("SourceMapByBase: %v", err)
+	}
+	if got := m["/build/kernels.cu"]; got != "a/kernels.cu" {
+		t.Errorf("map[/build/kernels.cu] = %q, want a/kernels.cu", got)
+	}
+}
