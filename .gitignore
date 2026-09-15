@@ -1,8 +1,9 @@
 .claude/
-# The bare name matched the examples/nvidia/simple-addition DIRECTORY, so git
-# reported the tracked main.go inside it as ignored. Anchored to the binary.
-/examples/nvidia/simple-addition/simple-addition
-
+# The bare name "simple-addition" used to be here, and it matched the
+# examples/nvidia/simple-addition DIRECTORY, so git reported the tracked main.go
+# inside it as ignored. That is the defect the anchoring below exists to avoid;
+# the generated sweep emits the anchored pattern for it like any other command.
+#
 # go build output left in the tree. `go build` in a command's own directory
 # writes an executable named after that directory, so the ignorable name is a
 # property of every main package, not of the four that happened to exist when
