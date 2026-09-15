@@ -79,4 +79,4 @@ spots and stalls; this capture records whole-launch CUDA event intervals.
 
 For `go test -bench`, full and isolated subbenchmarks, and `-cuptiprofile`, see
 [the cuptibench example](../cuptibench/README.md). It demonstrates the benchmark
-and replay lifecycle with a two-kernel workload.
+and replay lifecycle with normalization, dense projection, and activation.
