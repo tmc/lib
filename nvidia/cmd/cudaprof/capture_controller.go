@@ -75,6 +75,8 @@ type captureRecordPayload struct {
 	Registers           uint32     `json:"registers"`
 	DynamicSharedMemory uint32     `json:"dynamic_shared_memory"`
 	Smem                uint32     `json:"smem"`
+	GraphID             uint32     `json:"graph_id"`
+	GraphNodeID         uint64     `json:"graph_node_id"`
 	Dropped             uint64     `json:"dropped"`
 }
 
@@ -568,6 +570,8 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				BlockDim:            block,
 				RegistersPerThread:  regs,
 				DynamicSharedMemory: smem,
+				GraphID:             payload.GraphID,
+				GraphNodeID:         payload.GraphNodeID,
 			})
 			if !valid {
 				continue

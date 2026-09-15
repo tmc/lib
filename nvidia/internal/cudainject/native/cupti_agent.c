@@ -77,6 +77,8 @@
 #define CUDAPROF_KERNEL_LAYOUT "Kernel9"
 #endif
 
+_Static_assert(sizeof(((CUDAPROF_KERNEL_TYPE *)0)->graphId) == 4, "unexpected graph id width");
+_Static_assert(sizeof(((CUDAPROF_KERNEL_TYPE *)0)->graphNodeId) == 8, "unexpected graph node id width");
 _Static_assert(sizeof(CUpti_ActivityExternalCorrelation) == 24, "unexpected external correlation size");
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, kind) == 0, "unexpected external kind offset");
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, externalKind) == 4, "unexpected external API offset");
@@ -442,7 +444,8 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 	uint32_t runtime_correlation, uint32_t device, uint32_t context, uint32_t stream, uint32_t correlation,
 	uint32_t grid_x, uint32_t grid_y, uint32_t grid_z,
 	uint32_t block_x, uint32_t block_y, uint32_t block_z,
-	uint32_t registers_per_thread, uint32_t dynamic_shared_memory) {
+	uint32_t registers_per_thread, uint32_t dynamic_shared_memory,
+	uint32_t graph_id, uint64_t graph_node_id) {
 	char payload[MAX_PAYLOAD];
 	int n = snprintf(payload, sizeof(payload), "{\"kind\":\"activity\",\"subtype\":\"%s\",\"name\":\"", kind);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
@@ -458,11 +461,11 @@ static int append_activity(const char *kind, const char *name, uint64_t start, u
 	}
 	int valid = start != CUPTI_TIMESTAMP_UNKNOWN && end != CUPTI_TIMESTAMP_UNKNOWN && end >= start;
 	n += snprintf(payload + n, sizeof(payload) - (size_t)n,
-		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u}",
+		"\",\"valid\":%s,\"start\":%" PRIu64 ",\"end\":%" PRIu64 ",\"bytes\":%" PRIu64 ",\"queued\":%" PRIu64 ",\"submitted\":%" PRIu64 ",\"copy_kind\":%u,\"runtime_correlation\":%u,\"device\":%u,\"context\":%u,\"stream\":%u,\"correlation\":%u,\"grid\":[%u,%u,%u],\"block\":[%u,%u,%u],\"grid_x\":%u,\"grid_y\":%u,\"grid_z\":%u,\"block_x\":%u,\"block_y\":%u,\"block_z\":%u,\"registers_per_thread\":%u,\"dynamic_shared_memory\":%u,\"graph_id\":%u,\"graph_node_id\":%" PRIu64 "}",
 		valid ? "true" : "false", start, end, bytes, queued, submitted, copy_kind, runtime_correlation, device, context, stream, correlation,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
 		grid_x, grid_y, grid_z, block_x, block_y, block_z,
-		registers_per_thread, dynamic_shared_memory);
+		registers_per_thread, dynamic_shared_memory, graph_id, graph_node_id);
 	if (n < 0 || n >= (int)sizeof(payload)) return -1;
 	return queue_pending(KIND_ACTIVITY, start, payload, (size_t)n);
 }
@@ -560,12 +563,13 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 				(uint32_t)(k->blockY > 0 ? k->blockY : 0),
 				(uint32_t)(k->blockZ > 0 ? k->blockZ : 0),
 				(uint32_t)k->registersPerThread,
-				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0));
+				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0),
+				(uint32_t)k->graphId, (uint64_t)k->graphNodeId);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;
 			(void)append_activity("memcpy", "", m6->start, m6->end, m6->bytes, 0, 0, m6->copyKind, m6->runtimeCorrelationId, m6->deviceId, m6->contextId, m6->streamId, m6->correlationId,
-				0, 0, 0, 0, 0, 0, 0, 0);
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_DRIVER || record->kind == CUPTI_ACTIVITY_KIND_RUNTIME) {
 			if (rp + sizeof(CUpti_ActivityAPI) < rp || rp + sizeof(CUpti_ActivityAPI) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short API record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityAPI *api = (const CUpti_ActivityAPI *)record;
