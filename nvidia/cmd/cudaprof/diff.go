@@ -176,7 +176,7 @@ func loadDisassembly(path string, limits cudacapture.Limits) (*cudasass.Disassem
 				return disasm, nil
 			}
 		}
-		return nil, fmt.Errorf("capture does not contain SASS disassembly")
+		return nil, fmt.Errorf("capture %s holds no .sass member and no .cubin to disassemble: cudaprof capture embeds the journal and handshake artifacts only, never device code, so SASS reaches a capture from the workload -- write kernels.cubin and kernels.sass into the capture directory as nvidia/examples/ptx-sass-trace/capture.go does with nvdisasm, then embed that directory with \"cudaprof -pack out.pprof dir/gpu.pprof\"; to diff assembly you already have on disk, pass the files themselves: cudaprof diff base.sass target.sass", absPath)
 	}
 
 	// 3. Fallback: try reading raw file as SASS text
