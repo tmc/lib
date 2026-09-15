@@ -7,45 +7,47 @@ build:
 	[ -n "$$mods" ] || { echo "error: no modules found" >&2; exit 1; }; \
 	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
 	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
-	[ "$$total" = "$$head_total" ] || \
-		echo "note: go.work lists $$total modules here and $$head_total at HEAD; this run covers the $$total in the working tree" >&2; \
+	scope=""; \
+	[ "$$total" = "$$head_total" ] || scope=" ($$head_total at HEAD)"; \
 	done_n=0; \
 	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
 	for dir in $$mods; do \
 		echo "==> Building $$dir"; \
 		(cd "$$dir" && go build ./...) || { \
-			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules did not run" >&2; \
+			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules$$scope did not run" >&2; \
 			exit 1; \
 		}; \
 		done_n=$$((done_n + 1)); \
 	done; \
-	echo "Built $$total modules."
+	echo "Built $$total modules$$scope."
 
 # The module list comes from go.work, which is itself a tracked file that a
 # restructuring edits, so a green run here is green over whatever go.work says
 # today -- 13 modules in a tree with two deleted, 15 at HEAD. Printing the count
 # is not enough on its own: a stated number reads as more authoritative than a
 # bare green, so the number is compared against HEAD's and the difference is
-# said out loud. The loop also stops at the first failing module, so a red run
-# withholds the verdict on the rest and has to say how many.
+# said out loud -- on the same line as the count, because a separate note prints
+# before 66 build lines and everyone reads this through "tail". The loop also
+# stops at the first failing module, so a red run withholds the verdict on the
+# rest and has to say how many.
 test:
 	@mods=$$(go list -m -f '{{.Dir}}') || exit 1; \
 	[ -n "$$mods" ] || { echo "error: no modules found" >&2; exit 1; }; \
 	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
 	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
-	[ "$$total" = "$$head_total" ] || \
-		echo "note: go.work lists $$total modules here and $$head_total at HEAD; this run covers the $$total in the working tree" >&2; \
+	scope=""; \
+	[ "$$total" = "$$head_total" ] || scope=" ($$head_total at HEAD)"; \
 	done_n=0; \
 	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
 	for dir in $$mods; do \
 		echo "==> Testing $$dir"; \
 		(cd "$$dir" && go test ./...) || { \
-			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules did not run" >&2; \
+			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules$$scope did not run" >&2; \
 			exit 1; \
 		}; \
 		done_n=$$((done_n + 1)); \
 	done; \
-	echo "Tested $$total modules."
+	echo "Tested $$total modules$$scope."
 
 check:
 	@absent=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
