@@ -1,0 +1,7 @@
+claude-code 2.1.257
+model=claude-opus-5[1m]
+agent=moonep subagent (commit re-made as 8749eef8; agent's c6372a9a also staged 6 files from other lanes, unstaged and left dirty)
+session=bc9e48ad-b246-47ea-97c8-9ae5685b8376
+session_url=https://claude.ai/code/session_017SP6brAXu6EirbthCEA9bv
+oracle=github.com/MoonshotAI/MoonEP 51e64aa
+date=2026-09-15T04:06:40Z
