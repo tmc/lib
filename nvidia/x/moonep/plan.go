@@ -35,8 +35,6 @@ type CommPlan struct {
 	closed bool
 }
 
-func round4(n int) int { return (n + 3) &^ 3 }
-
 // AllocatePlan allocates a plan's device tensors for l. Contents are
 // uninitialized: fresh planning fills them on device.
 func AllocatePlan(l *Layout) (*CommPlan, error) {
@@ -55,7 +53,7 @@ func AllocatePlan(l *Layout) (*CommPlan, error) {
 		{&p.DupCounts, 2},
 	}
 	for _, a := range allocs {
-		ptr, err := driver.MemAlloc(uint(round4(a.elems) * int32Bytes))
+		ptr, err := driver.MemAlloc(uint(alignUp(a.elems, 4) * int32Bytes))
 		if err != nil {
 			p.Close()
 			return nil, fmt.Errorf("moonep: allocate plan (%d elems): %w", a.elems, err)

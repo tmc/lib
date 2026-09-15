@@ -86,6 +86,8 @@ func (l *Layout) MetaChunkBytes() uintptr {
 	return uintptr(l.MetaChunkPadded) * int32Bytes
 }
 
+// alignUp rounds n up to a multiple of a, mirroring MoonEP's _align_up
+// (moonep/api.py). It is the package's one spelling of that rounding.
 func alignUp(n, a int) int { return (n + a - 1) / a * a }
 
 // NewLayout computes the buffer layout for cfg given the device's VMM
