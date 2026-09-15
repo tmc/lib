@@ -8,17 +8,40 @@ build:
 	printf '%s\n' "$$mods" | while IFS= read -r dir; do \
 		echo "==> Building $$dir"; \
 		(cd "$$dir" && go build ./...) || exit 1; \
-	done
+	done; \
+	echo "Built $$(printf '%s\n' "$$mods" | wc -l | tr -d ' ') modules."
 
+# The module list comes from go.work, which is itself a tracked file that a
+# restructuring edits, so a green run here is green over whatever go.work says
+# today -- 13 modules in a tree with two deleted, 15 at HEAD. And the loop stops
+# at the first failing module, so a red run withholds the verdict on the rest.
+# Both are why the count is printed: a result without its denominator is not a
+# result.
 test:
 	@mods=$$(go list -m -f '{{.Dir}}') || exit 1; \
 	[ -n "$$mods" ] || { echo "error: no modules found" >&2; exit 1; }; \
-	printf '%s\n' "$$mods" | while IFS= read -r dir; do \
+	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
+	done_n=0; \
+	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
+	for dir in $$mods; do \
 		echo "==> Testing $$dir"; \
-		(cd "$$dir" && go test ./...) || exit 1; \
-	done
+		(cd "$$dir" && go test ./...) || { \
+			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules did not run" >&2; \
+			exit 1; \
+		}; \
+		done_n=$$((done_n + 1)); \
+	done; \
+	echo "Tested $$total modules."
 
 check:
+	@absent=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
+		[ -f "$$f" ] || dirname "$$f"; \
+	done); \
+	if [ -n "$$absent" ]; then \
+		echo "note: module(s) tracked at HEAD but absent from the working tree, so every"; \
+		echo "      check below skipped them -- this run covers less than the repository:"; \
+		printf '%s\n' "$$absent" | sed 's/^/        /'; \
+	fi
 	@files=$$(git ls-files --cached --others --exclude-standard '*/go.mod') || exit 1; \
 	printf '%s\n' "$$files" | while IFS= read -r f; do \
 		[ -f "$$f" ] || continue; \
