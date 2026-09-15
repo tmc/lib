@@ -1,0 +1,11 @@
+commit 08890623 date 2026-09-14T09:12:33-0700
+claude-code 2.1.257
+model claude-opus-5
+tty n/a
+pid 81764
+ITERM_SESSION_ID w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=n/a
+Measurement: F16 ABBA, DGX spark-31db, 2026-09-14, six arms A B B A A B.
+Arms identified from embedded CUDA source in the binaries (trees gone).
+Attribution: Claude Code
