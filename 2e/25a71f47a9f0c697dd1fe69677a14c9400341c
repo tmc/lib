@@ -1,0 +1,11 @@
+commit: 2e25a71f47a9f0c697dd1fe69677a14c9400341c
+date: 2026-09-15T19:08:26Z
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty (background Bash tool)
+ITERM_SESSION_ID: w19t0p0:154F7EA1-A987-4C0B-944A-0FC8FB91A24F
+session: 2b6d6b1f-7424-4bd2-93ae-b90691afac17
+session_url: https://claude.ai/code/session_012r4B8wL7gmk8fgJhAZWcT7
+co-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>
+patch: 20260915-7B69B184-gentest-renames-v4.patch, authored by session 7B69B184
+supersedes: note on 78d10261 (rebased onto main 2a92cc4b)
