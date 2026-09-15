@@ -1,0 +1,21 @@
+commit 470481e0 2026-09-14T16:36:08-0700
+claude-code 2.1.257, model Opus 5 (claude-opus-5)
+tty=n/a pid=88704
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+
+Verified independently of the agent that wrote it: GOWORK=off go build ./... rc=0,
+go vet ./x/moonep/ rc=0, go test -count=1 -p 1 -v ./x/moonep/ -> 16 PASS, 1 SKIP
+(TestBufferGPU, no libcuda on darwin, pre-existing).
+
+Mutation check: restoring 'if cfg.NumSMs == 0 { cfg.NumSMs = 32 }' BUILDS (so the
+mutation is not compiler-absorbed) and turns TestNewLayoutErrors/zero-NumSMs and
+TestNumSMsHasNoDefault RED, the second reporting 'got NumSMs=32, want an error'.
+
+README citation checked at source: README.md:34-37 states the kernels are
+JIT-specialized on (S, K, E, R, H, B, num_sms) constexprs and that 'a cubin is
+valid only for the exact Layout it was compiled for'. Layout embeds Config, so
+NumSMs is part of the record a cubin is validated against -- which is why the
+field was kept rather than deleted. LaunchCooperative referenced by the doc
+comment exists at kernels.go:79; the doc link is not dangling. No callers of
+moonep.Config outside the package.
