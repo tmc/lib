@@ -1,0 +1,7 @@
+commit: 3cbcc54f  date: 2026-09-15T12:51:00-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty  pid: 15402
+ITERM_SESSION_ID: FE9C2856-3582-4573-899B-332048F9D406
+session: d56928ce-d6c4-4edb-bd73-c2762257b8f8
+origin: defects found by codex validator D971672B via cdp; report /Users/tmc/tmp/nvrtc-cdp-validation/report.md
