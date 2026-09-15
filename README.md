@@ -21,7 +21,6 @@ its own release tags (`<dir>/vX.Y.Z`).
 | `openxla` | `github.com/tmc/lib/openxla` | Purego bindings for the PJRT C API |
 | `x/xla` | `github.com/tmc/lib/x/xla` | XLA client, compilation, and execution over `openxla` |
 | `x/stablehlo` | `github.com/tmc/lib/x/stablehlo` | StableHLO module construction and serialization |
-| `x/gomlx` | `github.com/tmc/lib/x/gomlx` | GoMLX backend over `x/xla` |
 | `hf/hftokenizer` | `github.com/tmc/lib/hf/hftokenizer` | HuggingFace tokenizer.json loading and encoding |
 | `tpu` | `github.com/tmc/lib/tpu` | PJRT TPU plugin discovery and loading |
 | `lm` | `github.com/tmc/lib/lm` | Language model loading and sampling helpers |

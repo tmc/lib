@@ -22,7 +22,6 @@ use (
 	./rocm
 	./tpu
 	./treesitter
-	./x/gomlx
 	./x/stablehlo
 	./x/xla
 )
