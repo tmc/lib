@@ -1,0 +1,27 @@
+Commit bceeefab2e6bd00abdf7e7ca35ab3dd66e152d73
+Date 2026-09-09T20:10:07.523495+00:00
+Codex agent; model not exposed by runtime; Claude Code version not applicable; tty noninteractive; writer pid 64075; ITERM_SESSION_ID=w14t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+
+Production source exactly matches captured candidate ops3bf4d139 and batch03e239cf. Full-model receipt metal-split-model-128-129-20260909 manifest05acc90018f9da1aaad1f2cd9bbe90bfa8a3a69779897acc71ec3e0a760569e6: both named tests reach/close0, four full finite vectors exact. Synthetic retained split-rotation receipt manifest57fc4291,24 direct/batch coordinates with mutation controls. New test tag aligned to darwin&&arm64, test-only difference from prior synthetic source. Current package and vet pass. No2048/parity/throughput claim.
+
+Patch originated in DF6906F6 lane; root integrated after independent review and bound physical comparison. Existing unrelated dirt preserved. Manual commit fallback: git-auto-commit-message had already failed twice earlier in this session for missing API key; no repeated attempts.
+
+commit: c304456c577bb4b33b411ac63045f2e4a5e2cc73
+commit date: 2026-09-15T00:30:58-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 9f5e23ca237f5df3b846497f8515f5b6b2186c0c
+commit date: 2026-09-15T00:43:55-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
