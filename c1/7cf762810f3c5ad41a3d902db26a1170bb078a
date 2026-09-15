@@ -1,0 +1,10 @@
+commit: c17cf762810f3c5ad41a3d902db26a1170bb078a
+date: 2026-09-14T06:46:56Z
+agent: antigravity
+model: gemini
+ds4_rms: 4224 launches, 37.12ms (8.79us/launch) -> 14.89ms (3.53us/launch) (2.49x kernel speedup)
+cupti_agent: Kernel10 layout verified, 130400 runtime
+tty: not a tty
+unknown
+pid: 16184
+iterm_session_id: w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
