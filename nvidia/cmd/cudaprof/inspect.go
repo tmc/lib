@@ -167,8 +167,8 @@ func runInspectCommand(args []string) error {
 	// every other field here reports as healthy. Say so where it cannot be
 	// scrolled past, in addition to the verdict in the report.
 	if report.Coverage != nil && report.Coverage.ArtifactCompleteness == artifactPartial {
-		fmt.Fprintf(os.Stderr, "cudaprof: warning: artifact_completeness is %s: capture journal(s) %s were omitted from this artifact, so it carries no raw records (see omitted_files for exact size and sha256)\n",
-			artifactPartial, strings.Join(report.Coverage.MissingJournals, ", "))
+		fmt.Fprintf(os.Stderr, "cudaprof: warning: artifact_completeness is %s: capture journal(s) %s were omitted from this artifact, so it carries no raw records (see omitted_files for exact size and sha256)%s\n",
+			artifactPartial, strings.Join(report.Coverage.MissingJournals, ", "), budgetRemedy(report.Coverage.OmittedFiles))
 	}
 	report.TileIR = inspectTileIR(cap)
 	report.Remarks = inspectRemarks(cap)
