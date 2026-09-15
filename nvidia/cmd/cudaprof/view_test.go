@@ -329,14 +329,16 @@ func Run() {}`
 	// Sample with stall metrics breakdown:
 	// PC 0x0000 (LDG): stall_mem=50
 	// PC 0x0010 (FADD): stall_scoreboard=30
-	// PC 0x0020 (BAR.SYNC): stall_barrier=15
+	// PC 0x0020 (BAR.SYNC): stall_wait=15. A barrier wait is stall_wait in a
+	// real capture; stall_barrier is the reason name ClassifyPipelineStall
+	// returns, not a sample type any producer writes.
 	// PC 0x0030 (DEPBAR): stall_drain=5
 	// Total stalls = 100
 	p := &profile.Profile{
 		SampleType: []*profile.ValueType{
 			{Type: "stall_mem", Unit: "count"},
 			{Type: "stall_scoreboard", Unit: "count"},
-			{Type: "stall_barrier", Unit: "count"},
+			{Type: "stall_wait", Unit: "count"},
 			{Type: "stall_drain", Unit: "count"},
 		},
 		Sample: []*profile.Sample{
