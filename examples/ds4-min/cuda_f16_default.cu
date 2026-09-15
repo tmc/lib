@@ -103,16 +103,18 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
       out_b[row] = total_b;
     }
   } else {
-    unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
-    unsigned long long start = tid * chunk, end = start + chunk;
-    if (end > cols) end = cols;
-    float sum_a = 0.0f, sum_b = 0.0f;
-    for (unsigned long long i = start; i < end; i++) {
-      sum_a += ds4_half_to_float(a[offset + i]) * x[i];
-      sum_b += ds4_half_to_float(b[offset + i]) * x[i];
+    if (tid < 32) {
+      unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
+      unsigned long long start = tid * chunk, end = start + chunk;
+      if (end > cols) end = cols;
+      float sum_a = 0.0f, sum_b = 0.0f;
+      for (unsigned long long i = start; i < end; i++) {
+        sum_a += ds4_half_to_float(a[offset + i]) * x[i];
+        sum_b += ds4_half_to_float(b[offset + i]) * x[i];
+      }
+      partial_a[tid] = sum_a;
+      partial_b[tid] = sum_b;
     }
-    partial_a[tid] = sum_a;
-    partial_b[tid] = sum_b;
     __syncthreads();
 
     if (tid == 0) {
@@ -261,28 +263,30 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
       }
     }
   } else {
-    unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
-    unsigned long long start = tid * chunk, end = start + chunk;
-    if (end > cols) end = cols;
-    float sum_a[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
-    float sum_b[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
-    for (unsigned long long i = start; i < end; i++) {
-      const float wa = ds4_half_to_float(a[offset + i]);
-      const float wb = ds4_half_to_float(b[offset + i]);
+    if (tid < 32) {
+      unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
+      unsigned long long start = tid * chunk, end = start + chunk;
+      if (end > cols) end = cols;
+      float sum_a[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      float sum_b[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      for (unsigned long long i = start; i < end; i++) {
+        const float wa = ds4_half_to_float(a[offset + i]);
+        const float wb = ds4_half_to_float(b[offset + i]);
+        #pragma unroll
+        for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+          if (t < batch) {
+            const float xv = x[(unsigned long long)t * cols + i];
+            sum_a[t] += wa * xv;
+            sum_b[t] += wb * xv;
+          }
+        }
+      }
       #pragma unroll
       for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
         if (t < batch) {
-          const float xv = x[(unsigned long long)t * cols + i];
-          sum_a[t] += wa * xv;
-          sum_b[t] += wb * xv;
+          partial_a[t][tid] = sum_a[t];
+          partial_b[t][tid] = sum_b[t];
         }
-      }
-    }
-    #pragma unroll
-    for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
-      if (t < batch) {
-        partial_a[t][tid] = sum_a[t];
-        partial_b[t][tid] = sum_b[t];
       }
     }
     __syncthreads();
