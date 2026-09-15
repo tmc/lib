@@ -1,0 +1,11 @@
+claude-code opus-5; session=2b9497cd-7408-4e8b-a617-38b19820dab9; date 2026-09-07T07:35:58Z
+
+commit: 3bb4b06e240d192038c2753e6aa8fbf768314970
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
