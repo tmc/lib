@@ -1680,6 +1680,30 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		},
 	}
 
+	for _, arch := range []string{"", "sm_120", "unrecognized"} {
+		t.Run("unsupported/"+arch, func(t *testing.T) {
+			cap := &cudacapture.Capture{
+				Metadata: []byte(`{"architecture":"` + arch + `"}`),
+				Code:     cudacapture.CodeFiles{CUBIN: "kernels.cubin"},
+				Files:    map[string][]byte{"kernels.cubin": cubinBytes},
+			}
+			var report AdviceReport
+			auditCUBINResourceOccupancy(cap, &report, nil)
+			var frameFound bool
+			for _, item := range report.Items {
+				if strings.Contains(item.Finding, "Microarchitecture theoretical occupancy") {
+					t.Errorf("unknown architecture produced occupancy advice: %s", item.Finding)
+				}
+				if strings.Contains(item.Finding, "allocates 256 bytes of local stack frame") {
+					frameFound = true
+				}
+			}
+			if !frameFound {
+				t.Error("unknown architecture suppressed the observed stack frame")
+			}
+		})
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cap := &cudacapture.Capture{

@@ -1284,13 +1284,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 	}
 
 	arch := parseArchFromCapture(cap)
-	if arch == "" {
-		arch = "sm_121a"
-	}
-	dev, err := cudaoccupancy.LookupDevice(arch)
-	if err != nil {
-		dev = cudaoccupancy.SM121
-	}
+	dev, deviceErr := cudaoccupancy.LookupDevice(arch)
 
 	for _, k := range infos {
 		threadsPerBlock := 128
@@ -1325,6 +1319,10 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 		}
 
 		// 3. Analytical occupancy & hardware limiting factor
+		// Unknown hardware cannot borrow another architecture's resource limits.
+		if deviceErr != nil {
+			continue
+		}
 		kRes := cudaoccupancy.KernelResource{
 			Registers:       k.Registers,
 			StaticSharedMem: k.SharedMemBytes,
