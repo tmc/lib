@@ -294,6 +294,7 @@ func (e *Exec) SetKernelNodeParams(node *Node, params *driver.KernelNodeParams) 
 	if params == nil {
 		return errors.New("cudagraph: nil kernel node params")
 	}
+	e.kernelOrder = nil
 	err := e.withContext(func() error {
 		return e.raw.KernelNodeSetParams(node.raw, params)
 	})
