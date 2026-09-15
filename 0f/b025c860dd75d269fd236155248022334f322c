@@ -1,0 +1,35 @@
+Kernels and their first sweep authored by session 094936CE (agy).
+Adjudicated at rank 1 by DF6906F6: both batched kernels read against
+metal_ops_darwin.go:1470 and :1537; dispatch geometry differs only in the
+Depth axis. Mutations run, all red with naming messages: M1 IQ2 forward
+bound to the reversed pipeline; M2 same for Q2_K; M3 both reversed twins
+bound to specialize(..., false); M4 global_slot collapsed to slot;
+M5 an extra committed command buffer; M6/M7 either expert-id bound
+widened by 4; M9b the Q2_K threadgroup width unclamped. M8 (dropping the
+expert < 0 clause) stayed green: uint(expert) >= experts already covers
+it, in this kernel and in the production kernel it transcribes.
+
+Shape coverage extended by DF6906F6 over agy's sweep: IQ2 at cols=768
+(the missing parts%32 residue), cols=4096 (the real K), rows=1, slots=1
+and 3, experts=256 with ids reaching 255; Q2_K at rows=300, 512 and 1100
+across the threadgroup-width boundary, rows=1, experts=256. Host-side
+validation gets a rejection table. Q2_K slots stays 6 because the
+production encoder requires exactly 6, so MulQ2K's wider slot generality
+is unprovable against a reference.
+
+No benchmark was run: df69-hostqualify -max-load 8.00 last read 30.80.
+
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094,
+ITERM_SESSION_ID=$ITERM_SESSION_ID
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+commit: 0fb025c860dd75d269fd236155248022334f322c
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
