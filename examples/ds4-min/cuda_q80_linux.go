@@ -177,6 +177,23 @@ func (r *cudaFoundation) loadQ80Quantizer() error {
 		return nil
 	}
 	if r.quantQ80Mod == 0 {
+		// --use_fast_math here is load-bearing and asymmetric: this is the
+		// only module in ds4-min that carries it, and ds4_quant_q8_0 produces
+		// the q8_1 input every Q8_0 matvec reads. The flag is not decoration.
+		// Measured through NVRTC 13.0 on this source family: it drives FCHK to
+		// zero, rewrites every FFMA to FFMA.FTZ, and cuts MUFU.RCP, so the
+		// emitted SASS flushes denormals and takes approximate division.
+		// Moving it in either direction -- adding it to the other modules or
+		// dropping it from this one -- moves the registered logits digests and
+		// invalidates every gate that leans on them, so it is not a tidy-up.
+		//
+		// It also cannot simply be matched elsewhere. NVRTC 13.0 accepts
+		// --ftz=true and friends and applies them to the PTX it returns, then
+		// emits a CUBIN byte-identical to the unflagged one; --use_fast_math
+		// is the only one of those flags that reaches SASS through NVRTC.
+		// The C oracle compiles with nvcc, which honors all of them. The two
+		// implementations therefore differ in which configurations they can
+		// reach, not merely in which they chose.
 		compiled, err := nvrtcx.Compile(cudaQ80QuantSource,
 			nvrtcx.WithName("ds4_quant_q8_0.cu"),
 			nvrtcx.WithFlag(fmt.Sprintf("--gpu-architecture=sm_%d%d", r.major, r.minor)),
