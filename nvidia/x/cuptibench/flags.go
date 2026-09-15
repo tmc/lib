@@ -44,7 +44,7 @@ func (p *processExport) init(fs *flag.FlagSet) {
 		}
 	}
 	fs.StringVar(&p.path, "cuptiprofile", "", "write CUPTI profiles and JSON results; use {package} for multiple test packages")
-	fs.StringVar(&p.metrics, "cuptimetrics", "", "replace benchmark metrics with comma-separated named metric sets")
+	fs.StringVar(&p.metrics, "cuptimetrics", "", "replace benchmark metrics with a comma-separated list of metric set names or native metric names")
 }
 
 func benchmarkMetricOverride() (string, error) {

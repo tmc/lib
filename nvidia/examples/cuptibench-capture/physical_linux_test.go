@@ -137,7 +137,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 			})
 		},
 	}
-	metrics, err := cuptibench.Resolve("launches", "instructions", "l2-read")
+	metrics, err := cuptibench.Resolve(cuptibench.DefaultSet)
 	if err != nil {
 		b.Fatalf("resolve metrics: %v", err)
 	}
