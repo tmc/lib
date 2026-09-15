@@ -3,6 +3,7 @@ package cuptibenchexample
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"os"
 	"testing"
 
@@ -40,7 +41,7 @@ func check(b *testing.B, err error) {
 // Each leaf owns its resources, so selecting an isolated stage never needs a
 // sibling benchmark to run first. The full leaf measures both stages together.
 func BenchmarkPipeline(b *testing.B) {
-	for _, view := range []string{"full", "isolated/project", "isolated/scale"} {
+	for _, view := range []string{"full", "isolated/rmsnorm", "isolated/project", "isolated/silu"} {
 		b.Run(view, func(b *testing.B) { benchmarkPipeline(b, view) })
 	}
 }
@@ -67,75 +68,92 @@ func benchmarkPipeline(b *testing.B, view string) {
 	stream, err := dev.NewStreamWithFlags(uint32(driver.StreamNonBlocking))
 	check(b, err)
 	cleanup(stream.Destroy)
-	const blocks, threads = 4, 128
-	const n = blocks * threads
-	input, err := cudamem.Alloc[uint32](dev, n)
+	const width, rows = 1024, 256
+	input, err := cudamem.Alloc[float32](dev, width)
 	check(b, err)
 	cleanup(input.Free)
-	mid, err := cudamem.Alloc[uint32](dev, n)
+	weights, err := cudamem.Alloc[float32](dev, width*rows)
 	check(b, err)
-	cleanup(mid.Free)
-	output, err := cudamem.Alloc[uint32](dev, n)
+	cleanup(weights.Free)
+	norm, err := cudamem.Alloc[float32](dev, width)
+	check(b, err)
+	cleanup(norm.Free)
+	projection, err := cudamem.Alloc[float32](dev, rows)
+	check(b, err)
+	cleanup(projection.Free)
+	output, err := cudamem.Alloc[float32](dev, rows)
 	check(b, err)
 	cleanup(output.Free)
-	host := make([]uint32, n)
-	for i := range host {
-		host[i] = uint32(i)
-	}
-	check(b, input.CopyFromHost(host))
+	hostInput, hostWeights, wantNorm, wantProjection, wantOutput := reference(width, rows)
+	check(b, input.CopyFromHost(hostInput))
+	check(b, weights.CopyFromHost(hostWeights))
 
 	compiled, err := nvrtcx.Compile(source, nvrtcx.WithDeviceArch(dev))
 	check(b, err)
 	module, err := compiled.Load(dev)
 	check(b, err)
 	cleanup(func() error { return dev.WithContext(module.Unload) })
-	var project, scale driver.Function
-	check(b, dev.WithContext(func() error {
-		var err error
-		project, err = module.GetFunction("project")
-		if err != nil {
-			return err
+	var kernels struct {
+		Norm    driver.Function `cuda:"rmsnorm"`
+		Project driver.Function `cuda:"project"`
+		SiLU    driver.Function `cuda:"silu"`
+	}
+	check(b, dev.WithContext(func() error { return cudalaunch.Bind(module, &kernels) }))
+	stages := []struct {
+		name string
+		run  func() error
+	}{
+		{"rmsnorm", func() error {
+			return cudalaunch.Kernel(kernels.Norm).Grid(1).Block(256).On(stream).Launch(input, norm, int32(width))
+		}},
+		{"project", func() error {
+			return cudalaunch.Kernel(kernels.Project).Grid(rows).Block(128).On(stream).Launch(weights, norm, projection, int32(width))
+		}},
+		{"silu", func() error {
+			return cudalaunch.Kernel(kernels.SiLU).Grid(1).Block(rows).On(stream).Launch(projection, output)
+		}},
+	}
+	selected := -1
+	for i, stage := range stages {
+		if view == "isolated/"+stage.name {
+			selected = i
 		}
-		scale, err = module.GetFunction("scale")
-		return err
-	}))
-	projectStage := func() error {
-		return cudalaunch.Kernel(project).Grid(blocks).Block(threads).On(stream).Launch(input, mid)
 	}
-	scaleStage := func() error {
-		return cudalaunch.Kernel(scale).Grid(blocks).Block(threads).On(stream).Launch(mid, output)
-	}
-	zero := make([]uint32, n)
+	zeroNorm, zeroOutput := make([]float32, width), make([]float32, rows)
 	workload := cuptibench.Workload{
 		View:        "full",
 		Streams:     []*cuda.Stream{stream},
 		Synchronize: func() error { return stream.Synchronize(nil) },
-		Preparation: "immutable input; clear intermediate and output before each sequence; isolated scale prepares its project prefix; caches uncontrolled",
+		Preparation: "immutable input and dense weights; clear scratch; isolated stages run their GPU prefix before timing and profiling; caches uncontrolled",
 		Prepare: func() error {
-			if err := mid.CopyFromHost(zero); err != nil {
+			if err := norm.CopyFromHost(zeroNorm); err != nil {
 				return err
 			}
-			if err := output.CopyFromHost(zero); err != nil {
+			if err := projection.CopyFromHost(zeroOutput); err != nil {
 				return err
 			}
-			if view == "isolated/scale" {
-				return projectStage()
+			if err := output.CopyFromHost(zeroOutput); err != nil {
+				return err
+			}
+			for i := 0; i < selected; i++ {
+				if err := stages[i].run(); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
 		Run: func(s *cuptibench.Scope) error {
-			if view != "isolated/scale" {
-				if err := s.Region("project", projectStage); err != nil {
-					return err
+			for i, stage := range stages {
+				if selected < 0 || selected == i {
+					if err := s.Region(stage.name, stage.run); err != nil {
+						return err
+					}
 				}
-			}
-			if view != "isolated/project" {
-				return s.Region("scale", scaleStage)
 			}
 			return nil
 		},
 	}
-	if view != "full" {
+	if selected >= 0 {
 		workload.View = "isolated"
 	}
 	metrics, err := cuptibench.Resolve("launches") // Counts thread blocks, not kernel calls.
@@ -150,23 +168,38 @@ func benchmarkPipeline(b *testing.B, view string) {
 	}
 	check(b, err)
 
+	// Warm the selected work once before timing, including any isolated prefix.
+	check(b, workload.Prepare())
+	for i, stage := range stages {
+		if selected < 0 || selected == i {
+			check(b, stage.run())
+		}
+	}
+	check(b, workload.Synchronize())
+
 	// Benchmark owns b.Loop. Timing and counter replay are separate executions.
 	cuptibench.Benchmark(b, plan, workload)
 
-	// Validate the final replay before TestMain may publish a profile.
-	got := make([]uint32, n)
-	if view == "isolated/project" {
-		check(b, mid.CopyToHost(got))
-	} else {
-		check(b, output.CopyToHost(got))
+	// Validate every executed stage, including the isolated prefix, before
+	// TestMain may publish a profile. GPU reductions need a numeric tolerance.
+	checks := []struct {
+		name   string
+		device cudamem.Slice[float32]
+		want   []float32
+	}{
+		{"rmsnorm", norm, wantNorm}, {"project", projection, wantProjection}, {"silu", output, wantOutput},
 	}
-	for i, v := range got {
-		want := uint32(i) + 3
-		if view != "isolated/project" {
-			want *= 2
+	for i, item := range checks {
+		if selected >= 0 && i > selected {
+			break
 		}
-		if v != want {
-			b.Fatalf("element %d: got %d, want %d", i, v, want)
+		got := make([]float32, len(item.want))
+		check(b, item.device.CopyToHost(got))
+		for j, value := range got {
+			want := float64(item.want[j])
+			if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) || math.Abs(float64(value)-want) > 2e-5+2e-4*math.Abs(want) {
+				b.Fatalf("%s element %d: got %g, want %g", item.name, j, value, want)
+			}
 		}
 	}
 }
