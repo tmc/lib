@@ -1,0 +1,18 @@
+commit: dd66409da2b7a6bad7813d95da41862e0d29b62c
+date: 2026-09-13T05:33:27Z
+agent: antigravity
+model: gemini-2.5-pro
+tty: not a tty
+none
+pid: 72418
+iterm_session_id: w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+
+commit: 2daa8200cf5bd6ecbc26e0c0ab26e9cfd1a4a5c3
+commit date: 2026-09-15T00:31:27-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
