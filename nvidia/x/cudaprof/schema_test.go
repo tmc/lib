@@ -68,7 +68,8 @@ func TestSelectedSampleTypes(t *testing.T) {
 			{"stall_fetch", "count"}, {"stall_drain", "count"}, {"stall_dispatch", "count"},
 			{"stall_not_selected", "count"}, {"launch_delay", "nanoseconds"},
 			{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
-		}, []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23}, false},
+			{"modeled_cost", "count"}, {"stall_other", "count"},
+		}, []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23, 30, 31}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
@@ -85,6 +86,7 @@ func TestSelectedSampleTypes(t *testing.T) {
 				StallBranch: 25, StallFetch: 26, StallDrain: 27, StallDispatch: 28,
 				StallNotSelected: 29,
 				LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
+				ModeledCost: 30, StallOther: 31,
 			})
 			if err := s.SetSampleTypes(tt.names...); (err != nil) != tt.wantErr {
 				t.Fatalf("SetSampleTypes = %v, want error %v", err, tt.wantErr)
@@ -132,6 +134,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		StallBranch: 25, StallFetch: 26, StallDrain: 27, StallDispatch: 28,
 		StallNotSelected: 29,
 		LaunchDelayNanos: 21, QueueDelayNanos: 22, GPUNanos: 23,
+		ModeledCost: 30, StallOther: 31,
 	}, nil)
 	var buf bytes.Buffer
 	if err := b.WriteGzip(&buf); err != nil {
@@ -158,6 +161,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		{"stall_fetch", "count"}, {"stall_drain", "count"}, {"stall_dispatch", "count"},
 		{"stall_not_selected", "count"}, {"launch_delay", "nanoseconds"},
 		{"queue_delay", "nanoseconds"}, {"gpu_time", "nanoseconds"},
+		{"modeled_cost", "count"}, {"stall_other", "count"},
 	}
 	var got [][2]string
 	for _, data := range fields[1] {
@@ -171,7 +175,7 @@ func TestProfileSampleSchema(t *testing.T) {
 		t.Fatalf("got %d samples, want 1", len(fields[2]))
 	}
 	v, _ := profileFields(t, fields[2][0])
-	if !reflect.DeepEqual(v[2], []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23}) {
+	if !reflect.DeepEqual(v[2], []uint64{1, 24, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29, 21, 22, 23, 30, 31}) {
 		t.Fatalf("sample values = %v", v[2])
 	}
 }
@@ -266,6 +270,55 @@ func TestRecordSASSMetric(t *testing.T) {
 			}
 			if v[2][9] != tt.wantTensorWarps {
 				t.Errorf("tensor_warps = %d, want %d", v[2][9], tt.wantTensorWarps)
+			}
+		})
+	}
+}
+
+// A profile that names no default sample type must still name one. pprof opens
+// on the LAST type when the field is absent, so the opening view would be
+// decided by position in an append-only list rather than by the capture. That
+// has already happened twice -- modeled_cost and stall_other were each appended
+// and each became the default view for every caller that set none -- and both
+// are zero in essentially every capture, so the profile opens empty and reads
+// as a failed capture.
+func TestDefaultSampleTypeIsNeverLastByAccident(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		types []string
+		want  string
+	}{
+		{"measured first", []string{"gpu_time", "samples", "stall_other"}, "gpu_time"},
+		{"declared last", []string{"samples", "stall_other", "gpu_time"}, "gpu_time"},
+		{"no gpu_time", []string{"samples", "stall_other"}, "samples"},
+		{"neither", []string{"stall_mem", "stall_other"}, "stall_mem"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			s := cudaprof.NewSession(&buf)
+			if err := s.SetSampleTypes(tt.types...); err != nil {
+				t.Fatalf("SetSampleTypes: %v", err)
+			}
+			s.RecordDetailedSample(context.Background(), "kernel", "kernel.cu", 1, 0,
+				cudaprof.SampleValues{Samples: 1, GPUNanos: 5})
+			if err := s.Close(); err != nil {
+				t.Fatalf("Close: %v", err)
+			}
+			r, err := gzip.NewReader(&buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.Close()
+			data, err := io.ReadAll(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ints, blobs := profileFields(t, data)
+			if len(ints[14]) != 1 {
+				t.Fatalf("profile names %d default sample types, want 1: pprof opens on the last type when the field is absent", len(ints[14]))
+			}
+			if got := string(blobs[6][ints[14][0]]); got != tt.want {
+				t.Errorf("default sample type = %q, want %q", got, tt.want)
 			}
 		})
 	}

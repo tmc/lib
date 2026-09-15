@@ -600,9 +600,9 @@ func TestReasonInventoryRouting(t *testing.T) {
 
 // Routing says where a reason would be counted and the identity says nothing was
 // lost; neither says how much of a bucket came from which reason. Without that
-// the long_scoreboard half of stall_scoreboard -- warps waiting on memory data,
-// the answer to "is this kernel memory bound" -- cannot be recovered from the
-// capture at all.
+// the long_scoreboard share of stall_mem -- warps waiting on load data, as
+// against lg_throttle's full queue -- cannot be recovered from the capture at
+// all, and those two call for opposite fixes.
 func TestProfileBridgeReasonSamples(t *testing.T) {
 	const prefix = "smsp__pcsamp_warps_issue_stalled_"
 	inv := cuptipcsampling.ReasonInventory{
@@ -654,8 +654,11 @@ func TestProfileBridgeReasonSamples(t *testing.T) {
 	if !maps.Equal(bridge.ReasonSamples, want) {
 		t.Errorf("ReasonSamples = %v, want %v", bridge.ReasonSamples, want)
 	}
-	// The split is the point: stall_scoreboard is the sum of the two, and only
-	// ReasonSamples says which half it came from.
+	// The split is the point, and it is now visible in the sample types: the
+	// memory half reaches stall_mem and the execution half stays in
+	// stall_scoreboard, so a reader no longer has to consult ReasonSamples to
+	// tell a load wait from a register dependency. The fixture carries no
+	// throttle, so stall_mem here is exactly long_scoreboard.
 	p, err := profile.ParseData(buf.Bytes())
 	if err != nil {
 		t.Fatalf("ParseData: %v", err)
@@ -664,13 +667,20 @@ func TestProfileBridgeReasonSamples(t *testing.T) {
 	for i, st := range p.SampleType {
 		types[st.Type] = i
 	}
-	var scoreboard int64
+	var scoreboard, mem int64
 	for _, s := range p.Sample {
 		scoreboard += s.Value[types["stall_scoreboard"]]
+		mem += s.Value[types["stall_mem"]]
 	}
-	if got := want[prefix+"long_scoreboard"] + want[prefix+"short_scoreboard"]; scoreboard != got {
-		t.Errorf("stall_scoreboard = %d, want %d", scoreboard, got)
+	if got := want[prefix+"short_scoreboard"]; scoreboard != got {
+		t.Errorf("stall_scoreboard = %d, want %d (short_scoreboard alone)", scoreboard, got)
 	}
+	if got := want[prefix+"long_scoreboard"]; mem != got {
+		t.Errorf("stall_mem = %d, want %d (long_scoreboard alone)", mem, got)
+	}
+	// ReasonSamples still earns its place, one distinction further in:
+	// stall_mem now merges the wait on load data with the throttles, and that
+	// separation survives only under the native names.
 }
 
 // reasonVocabularies returns every reason name whose routing is asserted, from
@@ -680,9 +690,13 @@ func TestProfileBridgeReasonSamples(t *testing.T) {
 // universe as much as of the switch, so a name added here joins that check too.
 func reasonVocabularies() map[string]string {
 	want := map[string]string{
-		"selected":         "inst_executed",
-		"not_selected":     "stall_not_selected",
-		"long_scoreboard":  "stall_scoreboard",
+		"selected":     "inst_executed",
+		"not_selected": "stall_not_selected",
+		// long_scoreboard is a wait on load data: StallCategoryMemory, and so
+		// counted as stall_mem. short_scoreboard is a wait on a fixed-latency
+		// result: StallCategoryExecution, and stays in stall_scoreboard, which
+		// after this split holds nothing else.
+		"long_scoreboard":  "stall_mem",
 		"short_scoreboard": "stall_scoreboard",
 		"wait":             "stall_wait",
 		"barrier":          "stall_wait",
@@ -718,7 +732,7 @@ func reasonVocabularies() map[string]string {
 	// reading of the name.
 	absentFromGB10 := map[string]string{
 		"imc_miss":                   "stall_mem",
-		"memory_dependency":          "stall_scoreboard",
+		"memory_dependency":          "stall_mem",
 		"exec_dependency":            "stall_wait",
 		"constant_memory_dependency": "stall_mem",
 		"texture":                    "stall_mem",
@@ -774,6 +788,12 @@ func TestArmCollisionsArePinned(t *testing.T) {
 		"membar":                     {"membar", "mem"},
 		"memory_dependency":          {"memory_dependency", "mem"},
 		"constant_memory_dependency": {"constant", "memory_dependency", "mem"},
+		// short_scoreboard is a deliberate collision, not drift: it is the one
+		// execution reason whose name contains "scoreboard", and the general
+		// scoreboard arm behind it now counts memory. If the two are ever
+		// reordered, a fixed-latency arithmetic wait starts inflating
+		// stall_mem, which is exactly the confusion the split was made to end.
+		"short_scoreboard": {"short_scoreboard", "scoreboard"},
 	}
 	if len(got) != len(want) {
 		t.Errorf("collisions = %v, want %v", got, want)
@@ -830,4 +850,148 @@ func classifyStallArms(t *testing.T) [][]string {
 		})
 	}
 	return arms
+}
+
+// A reason's diagnostic category and the sample type it is counted under are
+// two independent statements about the same name, written in two files, and
+// nothing made them agree. They disagreed: ClassifyPipelineStall called
+// long_scoreboard StallCategoryMemory while classifyStall counted it as
+// stall_scoreboard, so the one type a reader consults for "am I memory bound"
+// excluded the reason the package itself calls the memory one. A memory-bound
+// GB10 capture read stall_scoreboard 1861 against stall_mem 51, with 1387 of
+// the 1861 long_scoreboard.
+//
+// The disagreement is mechanical, so the check is too. It is not a claim about
+// which vocabulary is right -- it is the weaker and more durable claim that the
+// two must not contradict each other, which holds however either is revised.
+func TestRoutingAgreesWithCategory(t *testing.T) {
+	const prefix = "smsp__pcsamp_warps_issue_stalled_"
+	// Sample types that are memory statements, and the categories that are.
+	memoryTypes := map[string]bool{"stall_mem": true}
+	var inv cuptipcsampling.ReasonInventory
+	vocab := reasonVocabularies()
+	for reason := range vocab {
+		inv.Reasons = append(inv.Reasons, cuptipcsampling.StallReason{Name: prefix + reason})
+	}
+	routing := inv.Routing()
+
+	checked := 0
+	for _, reason := range slices.Sorted(maps.Keys(vocab)) {
+		gotType := routing[prefix+reason]
+		// unmapped reasons reach no sample type, so there is no routing to
+		// agree or disagree with a category.
+		if gotType == "unmapped" || gotType == "" {
+			continue
+		}
+		_, cat, _, _ := cuptipcsampling.ClassifyPipelineStall(prefix + reason)
+		checked++
+
+		isMemType := memoryTypes[gotType]
+		isMemCat := cat == cuptipcsampling.StallCategoryMemory
+		if isMemType && !isMemCat {
+			t.Errorf("%s: counted as %s but ClassifyPipelineStall says %s; "+
+				"a non-memory reason inflates the memory headline", reason, gotType, cat)
+		}
+		if isMemCat && !isMemType {
+			t.Errorf("%s: ClassifyPipelineStall says %s but it is counted as %s; "+
+				"a memory reason outside stall_mem is invisible to the question stall_mem answers",
+				reason, cat, gotType)
+		}
+	}
+	// Both conjuncts are satisfied vacuously by an empty vocabulary, and this
+	// test's universe is a table another test owns.
+	if checked == 0 {
+		t.Fatal("no reason had both a category and a sample type; the check proved nothing")
+	}
+}
+
+// Two code paths file stall reasons into one profile: cuptipcsampling routes the
+// PC-sampling names, and cudaprof.RecordSASSMetric routes the canonical names
+// ClassifyPipelineStall produces for the same phenomena. They must agree, or the
+// same wait reaches two different sample types depending on which API produced
+// it -- the failure the routing comment named.
+//
+// The spelling of the SASS-side name is DERIVED here, not written down. An
+// earlier version of this test hand-wrote it as "stall_long_scoreboard" and
+// passed green over a vocabulary the producer cannot emit: ClassifyPipelineStall
+// returns "long_scoreboard" bare, so the arm matching the prefixed spelling was
+// unreachable and the warps were discarded rather than misrouted. Expectation
+// and code shared one source -- this file's assumption -- so the test could only
+// confirm it. Taking the name from the classifier is what makes the two sources
+// independent.
+func TestSASSAndPCSamplingAgreeOnStallType(t *testing.T) {
+	const prefix = "smsp__pcsamp_warps_issue_stalled_"
+	// Raw reasons only; the canonical spelling comes from the classifier.
+	raw := []string{
+		"long_scoreboard", "short_scoreboard", "wait", "barrier", "membar",
+		"math_pipe_throttle", "lg_throttle", "mio_throttle", "tex_throttle",
+		"branch_resolving", "no_instructions", "drain", "dispatch_stall",
+		// The classifier's fallback arm passes these through under their full
+		// CUPTI metric name, a third naming convention. They are not
+		// hypothetical: misc was measured at 14 base samples in a ds4 decode
+		// capture, and sleeping is a live candidate in the tex_throttle
+		// elimination. An earlier version of this test skipped exactly these,
+		// which is why their warps could go missing unnoticed.
+		"misc", "sleeping",
+	}
+	var inv cuptipcsampling.ReasonInventory
+	for _, r := range raw {
+		inv.Reasons = append(inv.Reasons, cuptipcsampling.StallReason{Name: prefix + r})
+	}
+	routing := inv.Routing()
+
+	for _, r := range raw {
+		t.Run(r, func(t *testing.T) {
+			wantType := routing[prefix+r]
+			if wantType == "" || wantType == "unmapped" {
+				// Not routed to a named type by the PC-sampling path, which
+				// makes it the open-membership case rather than an exemption:
+				// the warps must still be counted somewhere, or a reason
+				// nobody has classified yet disappears from the profile while
+				// samples keeps counting its instruction.
+				wantType = "stall_other"
+			}
+			canonical, _, _, _ := cuptipcsampling.ClassifyPipelineStall(prefix + r)
+			if canonical == "" {
+				t.Fatalf("%s has no canonical name", r)
+			}
+
+			var buf bytes.Buffer
+			session := cudaprof.NewSession(&buf)
+			session.SetMappingFile("kernels.cubin", "")
+			session.RecordSASSMetric(context.Background(), "k", "kernels.sass", 1, cudaprof.SASSMetric{
+				Opcode:      "LDG",
+				StallReason: canonical,
+				StallWarps:  7,
+			})
+			if err := session.Close(); err != nil {
+				t.Fatalf("Close: %v", err)
+			}
+			prof, err := profile.ParseData(buf.Bytes())
+			if err != nil {
+				t.Fatalf("ParseData: %v", err)
+			}
+			var got []string
+			for i, st := range prof.SampleType {
+				var sum int64
+				for _, sm := range prof.Sample {
+					sum += sm.Value[i]
+				}
+				if sum == 7 && strings.HasPrefix(st.Type, "stall_") {
+					got = append(got, st.Type)
+				}
+			}
+			// An empty landing is the failure that hid here for so long: the
+			// warps reach no stall type while Samples still counts the
+			// instruction, so no total develops a hole.
+			if len(got) == 0 {
+				t.Fatalf("canonical %q reached no stall sample type; its %d warps are discarded, "+
+					"and the PC-sampling path routes %s to %s", canonical, 7, r, wantType)
+			}
+			if !slices.Contains(got, wantType) {
+				t.Errorf("canonical %q landed in %v; the PC-sampling path routes %s to %s",
+					canonical, got, r, wantType)
+			}
+		})
+	}
 }
