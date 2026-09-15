@@ -2476,3 +2476,69 @@ func TestFixtureSampleTypesAreReal(t *testing.T) {
 		t.Errorf("fixture sample type %q (%v) is emitted by no producer this command reads", name, where)
 	}
 }
+
+// TestCapturedGraphReplays measures the correlation-multiplicity signature that
+// stands in for CUPTI's dropped graphId. The two cases are the two arms of the
+// GB10 measurement the detector is derived from: the same kernel executed 20
+// times, once as 20 direct launches and once as a four-node graph replayed five
+// times.
+func TestCapturedGraphReplays(t *testing.T) {
+	tests := []struct {
+		name        string
+		correlation func(i int) int
+		want        int
+	}{
+		{
+			name:        "direct launches give every kernel its own correlation",
+			correlation: func(i int) int { return 100 + i },
+			want:        0,
+		},
+		{
+			name:        "graph replay shares one correlation per cudaGraphLaunch",
+			correlation: func(i int) int { return 100 + i/4 },
+			want:        5,
+		},
+		{
+			name:        "captures without correlation IDs claim nothing",
+			correlation: func(int) int { return 0 },
+			want:        0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var samples []*profile.Sample
+			for i := range 20 {
+				start := uint64(1000 + i*10000)
+				samples = append(samples, microKernelSample("bump", 7, start, start+6800, tt.correlation(i)))
+			}
+			cap := &cudacapture.Capture{Profile: &profile.Profile{Sample: samples}}
+			if got := capturedGraphReplays(cap); got != tt.want {
+				t.Errorf("capturedGraphReplays = %d, want %d", got, tt.want)
+			}
+		})
+	}
+
+	if got := capturedGraphReplays(nil); got != 0 {
+		t.Errorf("capturedGraphReplays(nil) = %d, want 0", got)
+	}
+}
+
+// TestDominanceRecommendationDropsGraphAdviceUnderReplay pins the defect
+// measured on GB10: the dominance advisory told a workload that was already a
+// CUDA graph replay to capture itself into a CUDA graph, at Critical severity,
+// because graphId never reaches the advisor.
+func TestDominanceRecommendationDropsGraphAdviceUnderReplay(t *testing.T) {
+	const graphClause = "capture the entire layer sequence into a CUDA Graph"
+
+	if rec := dominanceRecommendation(0); !strings.Contains(rec, graphClause) {
+		t.Errorf("without graph replays the advisory must still offer graph capture; got %q", rec)
+	}
+	rec := dominanceRecommendation(5)
+	if strings.Contains(rec, graphClause) {
+		t.Errorf("under graph replay the advisory must not recommend graph capture; got %q", rec)
+	}
+	if !strings.Contains(rec, "already replays CUDA graphs") {
+		t.Errorf("suppressed advisory must say why it was suppressed; got %q", rec)
+	}
+}
