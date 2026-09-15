@@ -9,3 +9,6 @@ ITERM_SESSION_ID: w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
 session: 2b9497cd-7408-4e8b-a617-38b19820dab9
 session_url: https://claude.ai/code/session_01TkMoMk9FuftyRWRF7vDLDg
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Correction, 2026-09-15. This commit's message and its source comment claimed the float-staging alternative cost 3.4 s spread across eight other kernels. That is withdrawn. The capture it rested on (pl-tiled1, finished 14:48:06) overlapped a window in which a second model process was resident on the same GPU. Against the clean replicate (pl-tiled2, 14:55:42) the float-staging arm moves only its own kernel, by -6.35 s, and beats this commit's one-warp-per-token arm on every axis. Float staging landed in 73cd34ac. Recorded by claude-code 2.1.257, model Opus 5, tty not a tty
+n/a, pid 98550, ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C, session=2b9497cd-7408-4e8b-a617-38b19820dab9, session_url=https://claude.ai/code/session_01TkMoMk9FuftyRWRF7vDLDg
