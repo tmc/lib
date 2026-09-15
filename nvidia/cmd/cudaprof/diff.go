@@ -408,6 +408,11 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 		sb.WriteString("No execution duration samples recorded in profiles.\n\n")
 	}
 
+	// The duration delta above is summed per-kernel device time, which is
+	// blind to inter-kernel idle. Decompose the same pair of runs into span,
+	// active and idle so that sum can never stand alone as the headline.
+	sb.WriteString(gapDecompositionMarkdown(baseCap, targetCap, basePath, targetPath))
+
 	// 2. PC Stall Reason Shifts
 	baseStalls := collectStallCounts(baseCap.Profile, kernelFilter)
 	targetStalls := collectStallCounts(targetCap.Profile, kernelFilter)
