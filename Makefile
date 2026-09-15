@@ -8,7 +8,7 @@ build:
 	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
 	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
 	[ "$$total" = "$$head_total" ] || \
-		echo "note: go.work lists $$total modules here, $$head_total at HEAD; this run covers the smaller set" >&2; \
+		echo "note: go.work lists $$total modules here and $$head_total at HEAD; this run covers the $$total in the working tree" >&2; \
 	done_n=0; \
 	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
 	for dir in $$mods; do \
@@ -34,7 +34,7 @@ test:
 	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
 	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
 	[ "$$total" = "$$head_total" ] || \
-		echo "note: go.work lists $$total modules here, $$head_total at HEAD; this run covers the smaller set" >&2; \
+		echo "note: go.work lists $$total modules here and $$head_total at HEAD; this run covers the $$total in the working tree" >&2; \
 	done_n=0; \
 	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
 	for dir in $$mods; do \
