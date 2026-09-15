@@ -1,2 +1,11 @@
 .claude/
 simple-addition
+
+# go build output left in the tree. Each name is the command's own directory
+# name, so the patterns are anchored paths: a bare "cudaprof" would also match
+# nvidia/cmd/cudaprof, the package directory. 100 MB of executables are
+# currently one "git add -A" from the history.
+/cudaprof
+/nvidia/cudaprof
+/nvidia/cmd/cudaprof/cudaprof
+/nvidia/ptx-sass-trace
