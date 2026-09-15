@@ -73,16 +73,17 @@ func (m *Model) RenderSVG(w io.Writer, points []KernelPoint) error {
     .pt-memory { fill: #0284c7; stroke: #0369a1; stroke-width: 1.5px; }
     .pt-compute { fill: #dc2626; stroke: #b91c1c; stroke-width: 1.5px; }
     .pt-unconstrained { fill: #d97706; stroke: #b45309; stroke-width: 1.5px; }
+    .pt-above-ceiling { fill: #7c3aed; stroke: #5b21b6; stroke-width: 2px; }
     .pt-label { font-size: 11px; fill: #1f2937; font-weight: 500; }
     .legend-text { font-size: 11px; fill: #374151; }
   </style>
 
   <!-- Title -->
-  <text x="%f" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#111827">Roofline Model (%s)</text>
+  <text x="%f" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#111827">Roofline Model (%s, %s memory)</text>
 
   <!-- Background Plot Area -->
   <rect x="%f" y="%f" width="%f" height="%f" fill="#fafafa" stroke="#d1d5db" stroke-width="1"/>
-`, svgWidth, svgHeight, svgWidth, svgHeight, float64(svgWidth)/2.0, m.Ceiling.Architecture, padLeft, padTop, plotWidth, plotHeight)
+`, svgWidth, svgHeight, svgWidth, svgHeight, float64(svgWidth)/2.0, m.Ceiling.Architecture, m.Ceiling.Residency, padLeft, padTop, plotWidth, plotHeight)
 
 	// Horizontal grid lines (Y: 0.1, 1, 10, 100, 1000)
 	for yExp := minLogY; yExp <= maxLogY; yExp += 1.0 {
@@ -112,29 +113,45 @@ func (m *Model) RenderSVG(w io.Writer, points []KernelPoint) error {
 	xMin := math.Pow(10, minLogX)
 	xMax := math.Pow(10, maxLogX)
 
+	// Start the memory slope at the intensity where it enters the plot rather
+	// than at xMin: clamping the y coordinate instead would draw a segment
+	// whose slope is not the memory slope.
+	xStart := xMin
+	if slope := m.Ceiling.PeakMemoryGBps / 1000.0; slope > 0 {
+		if x := math.Pow(10, minLogY) / slope; x > xStart {
+			xStart = x
+		}
+	}
+
 	// Points on roofline:
-	pStart := [2]float64{xToPixel(xMin), yToPixel(m.CeilingAt(xMin))}
+	pStart := [2]float64{xToPixel(xStart), yToPixel(m.CeilingAt(xStart))}
 	pKnee := [2]float64{xToPixel(knee), yToPixel(m.Ceiling.PeakTFLOPS)}
 	pEnd := [2]float64{xToPixel(xMax), yToPixel(m.Ceiling.PeakTFLOPS)}
 
 	// Optional L2 Roofline
 	if m.Ceiling.L2BandwidthGBps > m.Ceiling.PeakMemoryGBps {
 		l2Knee := (m.Ceiling.PeakTFLOPS * 1000.0) / m.Ceiling.L2BandwidthGBps
-		l2AtMin := xMin * (m.Ceiling.L2BandwidthGBps / 1000.0)
+		l2Start := xMin
+		if slope := m.Ceiling.L2BandwidthGBps / 1000.0; slope > 0 {
+			if x := math.Pow(10, minLogY) / slope; x > l2Start {
+				l2Start = x
+			}
+		}
+		l2AtStart := l2Start * (m.Ceiling.L2BandwidthGBps / 1000.0)
 		fmt.Fprintf(w, `  <!-- L2 Cache Ceiling -->
   <polyline points="%f,%f %f,%f" class="l2-roofline"/>
   <text x="%f" y="%f" fill="#60a5fa" font-size="10" font-weight="600">L2: %.0f GB/s</text>
-`, xToPixel(xMin), yToPixel(l2AtMin), xToPixel(l2Knee), yToPixel(m.Ceiling.PeakTFLOPS), xToPixel(xMin)+5, yToPixel(l2AtMin)-5, m.Ceiling.L2BandwidthGBps)
+`, xToPixel(l2Start), yToPixel(l2AtStart), xToPixel(l2Knee), yToPixel(m.Ceiling.PeakTFLOPS), xToPixel(l2Start)+5, yToPixel(l2AtStart)-5, m.Ceiling.L2BandwidthGBps)
 	}
 
 	// DRAM Roofline
 	fmt.Fprintf(w, `  <!-- DRAM Ceiling & Peak Compute -->
   <polyline points="%f,%f %f,%f %f,%f" class="roofline"/>
-  <text x="%f" y="%f" fill="#1d4ed8" font-size="11" font-weight="600">DRAM: %.0f GB/s</text>
-  <text x="%f" y="%f" fill="#1d4ed8" font-size="11" font-weight="600">Peak: %.1f TFLOPS</text>
+  <text x="%f" y="%f" fill="#1d4ed8" font-size="11" font-weight="600">DRAM: %.1f GB/s (%s)</text>
+  <text x="%f" y="%f" fill="#1d4ed8" font-size="11" font-weight="600">Peak: %.1f TFLOPS (%s)</text>
 `, pStart[0], pStart[1], pKnee[0], pKnee[1], pEnd[0], pEnd[1],
-		pStart[0]+5, pStart[1]-6, m.Ceiling.PeakMemoryGBps,
-		pKnee[0]+15, pKnee[1]-8, m.Ceiling.PeakTFLOPS)
+		pStart[0]+5, pStart[1]-6, m.Ceiling.PeakMemoryGBps, m.Ceiling.MemoryProvenance,
+		pKnee[0]+15, pKnee[1]-8, m.Ceiling.PeakTFLOPS, m.Ceiling.ComputeProvenance)
 
 	// Plot Kernel Points
 	for _, pt := range points {
@@ -150,33 +167,38 @@ func (m *Model) RenderSVG(w io.Writer, points []KernelPoint) error {
 			classStyle = "pt-memory"
 		case ClassComputeBound:
 			classStyle = "pt-compute"
+		case ClassAboveCeiling:
+			classStyle = "pt-above-ceiling"
 		}
 
 		fmt.Fprintf(w, `  <g>
     <circle cx="%f" cy="%f" r="5" class="%s">
-      <title>%s&#10;Intensity: %.2f FLOP/B&#10;Attained: %.2f TFLOPS (%.1f GB/s)&#10;Efficiency: %.1f%%%%&#10;Class: %s</title>
+      <title>%s&#10;Intensity: %.2f FLOP/B&#10;Attained: %.2f TFLOPS (%.1f GB/s)&#10;Efficiency: %.1f%%%% of the %s ceiling (%s)&#10;Class: %s</title>
     </circle>
     <text x="%f" y="%f" class="pt-label">%s</text>
   </g>
-`, cx, cy, classStyle, pt.Name, pt.Intensity, pt.AttainedTFLOPS, pt.AttainedGBps, pt.Efficiency*100.0, pt.Classification, cx+8.0, cy+4.0, pt.Name)
+`, cx, cy, classStyle, pt.Name, pt.Intensity, pt.AttainedTFLOPS, pt.AttainedGBps, pt.Efficiency*100.0, pt.LimitingAxis, pt.CeilingProvenance, pt.Classification, cx+8.0, cy+4.0, pt.Name)
 	}
 
 	// Legend
 	legX := padLeft + plotWidth - 210.0
-	legY := padTop + plotHeight - 80.0
+	legY := padTop + plotHeight - 100.0
 	fmt.Fprintf(w, `  <!-- Legend -->
-  <rect x="%f" y="%f" width="200" height="70" fill="#ffffff" stroke="#d1d5db" rx="4" opacity="0.95"/>
+  <rect x="%f" y="%f" width="200" height="90" fill="#ffffff" stroke="#d1d5db" rx="4" opacity="0.95"/>
   <circle cx="%f" cy="%f" r="4.5" class="pt-memory"/>
   <text x="%f" y="%f" class="legend-text">Memory Bound</text>
   <circle cx="%f" cy="%f" r="4.5" class="pt-compute"/>
   <text x="%f" y="%f" class="legend-text">Compute Bound</text>
   <circle cx="%f" cy="%f" r="4.5" class="pt-unconstrained"/>
   <text x="%f" y="%f" class="legend-text">Unconstrained / Latency</text>
+  <circle cx="%f" cy="%f" r="4.5" class="pt-above-ceiling"/>
+  <text x="%f" y="%f" class="legend-text">Above Ceiling (refutes it)</text>
 </svg>
 `, legX, legY,
 		legX+15, legY+18, legX+30, legY+22,
 		legX+15, legY+38, legX+30, legY+42,
-		legX+15, legY+58, legX+30, legY+62)
+		legX+15, legY+58, legX+30, legY+62,
+		legX+15, legY+78, legX+30, legY+82)
 
 	return nil
 }
