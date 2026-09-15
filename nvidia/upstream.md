@@ -1,14 +1,14 @@
 # NVIDIA input provenance
 
-[upstream.json](upstream.json) records a generation command for 30 of the 35
-packages in this module. The five without one -- cuBLAS, cuBLASLt, cuSOLVER,
-cuTENSOR and the driver bindings -- carry an explicit `generation-unrecorded`
-status and a null argv rather than a reconstructed recipe; the current header
-basename is not evidence of the original inputs or command. Every package,
-including those five, records the SHA-256 of each generated output, so the
-outputs are pinned even where the recipe is not. This is partial provenance,
-not release readiness, complete API coverage, a runtime support matrix, or a
-claim that the build is hermetic.
+At revision `ecf390d5`, [upstream.json](upstream.json) records a generation
+command for all 35 packages. Its recorded status is `generation-reproduced`
+for 31 packages and `generation-partially-reproduced` for cupti, driver,
+nvjitlink, and nvml. Every package records SHA-256 hashes of its generated
+outputs. These are statements about the committed manifest, not a new
+regeneration run; inspect each entry's comparison before relying on its status.
+
+This is partial provenance, not release readiness, complete API coverage, a
+runtime support matrix, or a claim that the build is hermetic.
 
 Schema version 1 contains package entries with repository commits and Git tree
 identifiers, vendor archive and header hashes, documentation inputs, the generator
