@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -131,7 +133,7 @@ func TestNewVariantStats(t *testing.T) {
 }
 
 func TestRecompileHandler(t *testing.T) {
-	src := &recompileSource{
+	src := &cudaview.RecompileSource{
 		Name:    "ds4_math.cu",
 		File:    "ds4_math.cu",
 		Arch:    "sm_121a",
@@ -155,7 +157,7 @@ func TestRecompileHandler(t *testing.T) {
 		}
 	}
 
-	handler := newRecompileHandler([]*recompileSource{src}, compile)
+	handler := newRecompileHandler([]*cudaview.RecompileSource{src}, compile)
 	req := httptest.NewRequest("GET", "/api/recompile?a=capture&b=--gpu-architecture%3Dsm_121a+--use_fast_math", nil)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -229,7 +231,7 @@ func TestPipelineServerServesNVRTCPanel(t *testing.T) {
 }
 
 func TestRecompileHandlerWithoutSource(t *testing.T) {
-	handler := newRecompileHandler([]*recompileSource{{Name: "kernels.cu", File: "kernels.cu"}}, func(string, string, []string) *nvrtcVariant {
+	handler := newRecompileHandler([]*cudaview.RecompileSource{{Name: "kernels.cu", File: "kernels.cu"}}, func(string, string, []string) *nvrtcVariant {
 		t.Error("compiled a capture that retained no source")
 		return nil
 	})
@@ -347,7 +349,7 @@ func TestRecompileSourcesFallsBackToCaptureCode(t *testing.T) {
 // renders the failure as every instruction disappearing, the largest
 // improvement the table can show.
 func TestRecompileHandlerFailedVariant(t *testing.T) {
-	src := &recompileSource{
+	src := &cudaview.RecompileSource{
 		Name:   "ds4_math.cu",
 		File:   "ds4_math.cu",
 		Source: "extern \"C\" __global__ void ds4_rms(float *x) {}",
@@ -361,7 +363,7 @@ func TestRecompileHandlerFailedVariant(t *testing.T) {
 			Error:   "nvrtc: NVRTC_ERROR_INVALID_OPTION",
 		}
 	}
-	handler := newRecompileHandler([]*recompileSource{src}, compile)
+	handler := newRecompileHandler([]*cudaview.RecompileSource{src}, compile)
 	rec := httptest.NewRecorder()
 	handler(rec, httptest.NewRequest("GET", "/api/recompile?a=capture&b=--not-a-flag", nil))
 	if rec.Code != http.StatusOK {
@@ -415,14 +417,14 @@ func TestIncomparable(t *testing.T) {
 // the panel. The panel needs the live server to compile, so a static page that
 // mentions it at all is offering something it cannot do.
 func TestStaticExportOmitsNVRTC(t *testing.T) {
-	data := &PipelineViewData{
+	data := &cudaview.PipelineViewData{
 		CaptureFile:  "static.pprof",
 		Architecture: "sm_121",
 		Recompile:    nil,
 	}
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 	for _, s := range []string{"nvrtcPanel", "nvrtcModule", "runRecompile", "/api/recompile"} {
 		if bytes.Contains(buf.Bytes(), []byte(s)) {
@@ -436,10 +438,10 @@ func TestStaticExportOmitsNVRTC(t *testing.T) {
 // populated with a choice. Each option has to carry its own options, because
 // modules in one capture need not have been compiled alike.
 func TestRenderMultipleRecompileModules(t *testing.T) {
-	data := &PipelineViewData{
+	data := &cudaview.PipelineViewData{
 		CaptureFile:  "two.pprof",
 		Architecture: "sm_121",
-		Recompile: []*recompileSource{
+		Recompile: []*cudaview.RecompileSource{
 			{ID: "m0", Name: "ds4_math.cu", File: "ds4_math.cu", Recorded: true,
 				Options:   []string{"--gpu-architecture=sm_121", "--generate-line-info"},
 				Suggested: []string{"--gpu-architecture=sm_121", "--generate-line-info", "--use_fast_math"},
@@ -451,8 +453,8 @@ func TestRenderMultipleRecompileModules(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	if err := renderPipelineHTML(&buf, data); err != nil {
-		t.Fatalf("renderPipelineHTML: %v", err)
+	if err := cudaview.Render(&buf, data); err != nil {
+		t.Fatalf("cudaview.Render: %v", err)
 	}
 	html := buf.String()
 	if got := strings.Count(html, `<option value="m`); got != 2 {
@@ -469,5 +471,41 @@ func TestRenderMultipleRecompileModules(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered HTML lacks %s", want)
 		}
+	}
+}
+
+// The handler must compare both outputs, including identical-option controls.
+func TestRecompileControls(t *testing.T) {
+	for _, tt := range []struct {
+		name, a, b string
+		wantChange bool
+	}{
+		{"identical", "--fmad=false", "--fmad=false", false},
+		{"distinct", "--fmad=false", "--use_fast_math", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			compile := func(_, _ string, options []string) *nvrtcVariant {
+				sass := "Function : k\n/*0000*/ FADD R0, R1, R2;\n"
+				if strings.Join(options, " ") == "--use_fast_math" {
+					sass = "Function : k\n/*0000*/ FFMA R0, R1, R2, R3;\n"
+				}
+				return &nvrtcVariant{SASS: sass, Stats: newVariantStats("", sass)}
+			}
+			h := newRecompileHandler([]*cudaview.RecompileSource{{ID: "m", Name: "m", Source: "kernel source"}}, compile)
+			r := httptest.NewRequest("GET", "/api/recompile?module=m&a="+url.QueryEscape(tt.a)+"&b="+url.QueryEscape(tt.b), nil)
+			w := httptest.NewRecorder()
+			h(w, r)
+			var result recompileResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			changed := false
+			for _, d := range result.Deltas {
+				changed = changed || d.Delta != 0
+			}
+			if changed != tt.wantChange {
+				t.Fatalf("changed = %v, want %v: %s", changed, tt.wantChange, w.Body.String())
+			}
+		})
 	}
 }

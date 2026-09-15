@@ -2,22 +2,23 @@ package main
 
 import (
 	"bytes"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-func TestIsSpillOpcode(t *testing.T) {
+func TestIsLocalMemoryOpcode(t *testing.T) {
 	for _, tt := range []struct {
 		in, wantType string
 		want         bool
 	}{
-		{"STS [R1], R2;", "STS", true}, {"@P0 LDS R2, [R1];", "LDS", true}, {"LDG.E R2, [R1];", "", false},
+		{"STL [R1], R2;", "STL", true}, {"@P0 LDL R2, [R1];", "LDL", true}, {"LDG.E R2, [R1];", "", false},
 	} {
-		got, typ := isSpillOpcode(tt.in)
+		got, typ := isLocalMemoryOpcode(tt.in)
 		if got != tt.want || typ != tt.wantType {
-			t.Errorf("isSpillOpcode(%q) = %t, %q; want %t, %q", tt.in, got, typ, tt.want, tt.wantType)
+			t.Errorf("isLocalMemoryOpcode(%q) = %t, %q; want %t, %q", tt.in, got, typ, tt.want, tt.wantType)
 		}
 	}
 }
@@ -35,14 +36,14 @@ func TestShortStallReason(t *testing.T) {
 func TestComputeStallDelta(t *testing.T) {
 	tests := []struct {
 		name                    string
-		base, cand              *DiffInstruction
+		base, cand              *cudaview.DiffInstruction
 		wantDelta               float64
 		wantReason, wantSummary string
 	}{
-		{"both", &DiffInstruction{StallPct: 10, StallBreakdown: map[string]float64{"stall_mem": 10}}, &DiffInstruction{StallPct: 25, StallBreakdown: map[string]float64{"stall_mem": 25}}, 15, "mem", "mem +15.0%"},
-		{"tie", &DiffInstruction{StallPct: 10, StallBreakdown: map[string]float64{"stall_tex": 5, "stall_mem": 5}}, &DiffInstruction{StallPct: 20, StallBreakdown: map[string]float64{"stall_tex": 10, "stall_mem": 10}}, 10, "mem", "mem +10.0%"},
-		{"base_nil", nil, &DiffInstruction{StallPct: 5, StallBreakdown: map[string]float64{"stall_math": 5}}, 5, "math", "math +5.0%"},
-		{"cand_nil", &DiffInstruction{StallPct: 5, StallBreakdown: map[string]float64{"stall_math": 5}}, nil, -5, "math", "math -5.0%"},
+		{"both", &cudaview.DiffInstruction{StallPct: 10, StallBreakdown: map[string]float64{"stall_mem": 10}}, &cudaview.DiffInstruction{StallPct: 25, StallBreakdown: map[string]float64{"stall_mem": 25}}, 15, "mem", "mem +15.0%"},
+		{"tie", &cudaview.DiffInstruction{StallPct: 10, StallBreakdown: map[string]float64{"stall_tex": 5, "stall_mem": 5}}, &cudaview.DiffInstruction{StallPct: 20, StallBreakdown: map[string]float64{"stall_tex": 10, "stall_mem": 10}}, 10, "mem", "mem +10.0%"},
+		{"base_nil", nil, &cudaview.DiffInstruction{StallPct: 5, StallBreakdown: map[string]float64{"stall_math": 5}}, 5, "math", "math +5.0%"},
+		{"cand_nil", &cudaview.DiffInstruction{StallPct: 5, StallBreakdown: map[string]float64{"stall_math": 5}}, nil, -5, "math", "math -5.0%"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -60,28 +61,28 @@ func TestComputeStallDelta(t *testing.T) {
 func TestAlignInstructions(t *testing.T) {
 	fd := cudasass.FunctionDiff{Name: "kernel", Changes: []cudasass.InstructionDiff{
 		{Op: cudasass.DiffMatch, Base: &cudasass.Instruction{Opcode: "LDG.E"}, Target: &cudasass.Instruction{Opcode: "LDG.E"}},
-		{Op: cudasass.DiffDelete, Base: &cudasass.Instruction{Opcode: "STS"}},
-		{Op: cudasass.DiffAdd, Target: &cudasass.Instruction{Opcode: "LDS"}},
+		{Op: cudasass.DiffDelete, Base: &cudasass.Instruction{Opcode: "STL"}},
+		{Op: cudasass.DiffAdd, Target: &cudasass.Instruction{Opcode: "LDL"}},
 	}}
 	rows := alignInstructions(fd, nil, nil, nil, nil)
-	if len(rows) != 2 || rows[0].Type != DiffRowMatch || rows[1].Type != DiffRowModify || !rows[1].HasSpill {
+	if len(rows) != 2 || rows[0].Type != cudaview.DiffRowMatch || rows[1].Type != cudaview.DiffRowModify || !rows[1].HasLocalMemory {
 		t.Fatalf("alignInstructions = %#v", rows)
 	}
 }
 
 func TestRenderDiffHTML(t *testing.T) {
-	data := &DiffViewData{
+	data := &cudaview.DiffViewData{
 		Title:         "baseline vs candidate",
 		BaseCapture:   "base.pprof",
 		TargetCapture: "candidate.pprof",
 		Kernels:       []string{"kernel"},
 		ActiveKernel:  "kernel",
-		ActiveRows: []DiffRow{{Num: 1, Type: DiffRowModify,
-			Base: &DiffInstruction{Opcode: "LDG.E"}, Candidate: &DiffInstruction{Opcode: "LDG.E.128"}}},
+		ActiveRows: []cudaview.DiffRow{{Num: 1, Type: cudaview.DiffRowModify,
+			Base: &cudaview.DiffInstruction{Opcode: "LDG.E"}, Candidate: &cudaview.DiffInstruction{Opcode: "LDG.E.128"}}},
 	}
 	var buf bytes.Buffer
-	if err := renderDiffHTML(&buf, data); err != nil {
-		t.Fatalf("renderDiffHTML: %v", err)
+	if err := cudaview.RenderDiff(&buf, data); err != nil {
+		t.Fatalf("cudaview.RenderDiff: %v", err)
 	}
 	for _, want := range []string{"<!DOCTYPE html>", "baseline vs candidate", "base.pprof", "LDG.E.128"} {
 		if !strings.Contains(buf.String(), want) {
@@ -100,8 +101,8 @@ func TestConvertInstruction(t *testing.T) {
 	if got.Offset != "0020" || got.Text != "@P0 LDG.E.128 R1, [R2]" || got.SemanticTag != "memory" {
 		t.Fatalf("convertInstruction = %#v", got)
 	}
-	got = convertInstruction(&cudasass.Instruction{Opcode: "STS"}, "", nil, nil)
-	if !got.IsSpill || got.SpillType != "STS" {
+	got = convertInstruction(&cudasass.Instruction{Opcode: "STL"}, "", nil, nil)
+	if !got.IsLocalMemory || got.LocalMemoryType != "STL" {
 		t.Fatalf("spill conversion = %#v", got)
 	}
 }

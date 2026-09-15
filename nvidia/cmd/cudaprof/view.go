@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
-	"io"
+	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"net"
 	"net/http"
 	"os"
@@ -26,54 +25,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
-
-// PipelineTier represents one stage in the Go -> CUDA C++ -> Tile IR -> PTX -> SASS compilation hierarchy.
-type PipelineTier struct {
-	Name     string         `json:"name"`
-	FileName string         `json:"file_name"`
-	Language string         `json:"language"`
-	Lines    []PipelineLine `json:"lines"`
-}
-
-// PipelineLine represents an annotated line in a pipeline tier.
-type PipelineLine struct {
-	Num             int                `json:"num"`
-	Text            string             `json:"text"`
-	Opcode          string             `json:"opcode,omitempty"`
-	Category        string             `json:"category,omitempty"`
-	Offset          string             `json:"offset,omitempty"`
-	StallPct        float64            `json:"stall_pct,omitempty"`
-	StallBreakdown  map[string]float64 `json:"stall_breakdown,omitempty"`
-	StallTooltip    string             `json:"stall_tooltip,omitempty"`
-	HoverDoc        string             `json:"hover_doc,omitempty"`
-	RemarkBadge     string             `json:"remark_badge,omitempty"`
-	RemarkTooltip   string             `json:"remark_tooltip,omitempty"`
-	LaunchKernel    string             `json:"launch_kernel,omitempty"`
-	SemanticTag     string             `json:"semantic_tag,omitempty"`
-	SourceLine      int                `json:"source_line,omitempty"`
-	Pressure        string             `json:"pressure,omitempty"`
-	PressureTooltip string             `json:"pressure_tooltip,omitempty"`
-}
-
-// PipelineViewData is the data model passed to the web template and API endpoints.
-type PipelineViewData struct {
-	Title         string                    `json:"title"`
-	Device        string                    `json:"device"`
-	Architecture  string                    `json:"architecture"`
-	CaptureFile   string                    `json:"capture_file"`
-	Kernels       []string                  `json:"kernels"`
-	ActiveKernel  string                    `json:"active_kernel"`
-	Tiers         []PipelineTier            `json:"tiers"`
-	KernelTiers   map[string][]PipelineTier `json:"kernel_tiers"`
-	Remarks       string                    `json:"remarks,omitempty"`
-	RemarksCount  int                       `json:"remarks_count,omitempty"`
-	TileIRAudit   string                    `json:"tileir_audit,omitempty"`
-	TileIROpcodes map[string]int            `json:"tileir_opcodes,omitempty"`
-	CFGDot        string                    `json:"cfg_dot,omitempty"`
-	// Recompile carries one entry per module the NVRTC panel can recompile.
-	// It is empty when the capture retained no CUDA C++ source.
-	Recompile []*recompileSource `json:"recompile,omitempty"`
-}
 
 func runViewCommand(rawArgs []string) error {
 	args, limits, err := parseReadLimits(rawArgs)
@@ -172,7 +123,7 @@ func runViewCommand(rawArgs []string) error {
 	if htmlOut != "" {
 		data.Recompile = nil
 		var buf bytes.Buffer
-		if err := renderPipelineHTML(&buf, data); err != nil {
+		if err := cudaview.Render(&buf, data); err != nil {
 			return fmt.Errorf("view: render HTML: %w", err)
 		}
 		if err := os.WriteFile(htmlOut, buf.Bytes(), 0644); err != nil {
@@ -211,11 +162,11 @@ func runViewCommand(rawArgs []string) error {
 	return server.Serve(listener)
 }
 
-func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel string) (*PipelineViewData, error) {
-	data := &PipelineViewData{
+func buildSinglePipelineViewData(cap *cudacapture.Capture, capName, activeKernel string) (*cudaview.PipelineViewData, error) {
+	data := &cudaview.PipelineViewData{
 		Title:        "5-Tier GPU Compilation Pipeline: Go -> CUDA C++ -> Tile IR -> PTX -> SASS",
 		CaptureFile:  capName,
-		KernelTiers:  make(map[string][]PipelineTier),
+		KernelTiers:  make(map[string][]cudaview.PipelineTier),
 		ActiveKernel: activeKernel,
 	}
 
@@ -340,12 +291,12 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 
 	// 5. Extract live register pressure if available
 	var pressureMap map[string]map[uint64]cudasass.RegisterPressure
-	if disasmWithPressure, err := loadDisassemblyWithPressure(cap); err == nil && disasmWithPressure != nil {
+	if disasmWithPressure, err := extractPreJoinedPressure(cap); err == nil && disasmWithPressure != nil {
 		pressureMap = extractPressureMap(disasmWithPressure)
 	}
 
 	// Build full tiers
-	data.Tiers = []PipelineTier{
+	data.Tiers = []cudaview.PipelineTier{
 		buildTier("Go", goFileName, "go", goContent, nil, "", nil, kernelNames, nil),
 		buildTier("CUDA C++", cuFileName, "cuda", cuContent, nil, "", nil, kernelNames, nil),
 		buildTier("Tile IR", tileFileName, "mlir", tileContent, nil, "", remarksList, kernelNames, nil),
@@ -353,27 +304,34 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 		buildTier("SASS", sassFileName, "sass", sassContent, stallMap, activeKernel, nil, kernelNames, pressureMap),
 	}
 
-	// 6. Build per-kernel slice views
+	// Kernel listings select existing annotated lines; source and annotations
+	// are built once per module.
+	contents := []string{goContent, cuContent, tileContent, ptxContent, sassContent}
+	languages := []string{"go", "cuda", "tileir", "ptx", "sass"}
 	for _, kName := range kernelNames {
-		kGo := extractKernelSection(goContent, kName, "go")
-		kCu := extractKernelSection(cuContent, kName, "cuda")
-		kTile := extractKernelSection(tileContent, kName, "tileir")
-		kPtx := extractKernelSection(ptxContent, kName, "ptx")
-		kSass := extractKernelSection(sassContent, kName, "sass")
-
-		data.KernelTiers[kName] = []PipelineTier{
-			buildTier("Go", goFileName, "go", kGo, nil, kName, nil, kernelNames, nil),
-			buildTier("CUDA C++", cuFileName, "cuda", kCu, nil, kName, nil, kernelNames, nil),
-			buildTier("Tile IR", tileFileName, "mlir", kTile, nil, kName, remarksList, kernelNames, nil),
-			buildTier("PTX", ptxFileName, "ptx", kPtx, nil, kName, nil, kernelNames, nil),
-			buildTier("SASS", sassFileName, "sass", kSass, stallMap, kName, nil, kernelNames, pressureMap),
+		tiers := make([]cudaview.PipelineTier, len(data.Tiers))
+		for i, full := range data.Tiers {
+			tiers[i] = full
+			section := extractKernelSection(contents[i], kName, languages[i])
+			if section == contents[i] {
+				continue
+			}
+			if i == 0 {
+				tiers[i].Lines = nil
+				for _, line := range full.Lines {
+					if strings.Contains(strings.ToLower(line.Text), strings.ToLower(kName)) {
+						tiers[i].Lines = append(tiers[i].Lines, line)
+					}
+				}
+				continue
+			}
+			if offset := strings.Index(contents[i], section); offset >= 0 {
+				start := strings.Count(contents[i][:offset], "\n")
+				end := start + strings.Count(section, "\n") + 1
+				tiers[i].Lines = full.Lines[start:end]
+			}
 		}
-	}
-
-	if activeKernel != "" {
-		if kTiers, ok := data.KernelTiers[activeKernel]; ok {
-			data.Tiers = kTiers
-		}
+		data.KernelTiers[kName] = tiers
 	}
 
 	return data, nil
@@ -503,32 +461,10 @@ func extractSASSStallMap(cap *cudacapture.Capture, knownKernels []string) *sassS
 }
 
 func (m *sassStallMap) lookup(kernel string, pc uint64) (*pcStallInfo, int64) {
-	if m == nil || !m.hasStalls {
+	if m == nil || !m.hasStalls || kernel == "" {
 		return nil, 0
 	}
-	if kernel != "" {
-		if pcMap, ok := m.byKernelPC[kernel]; ok {
-			return pcMap[pc], m.kernelTotals[kernel]
-		}
-		for k, pcMap := range m.byKernelPC {
-			if strings.EqualFold(k, kernel) || strings.Contains(k, kernel) || strings.Contains(kernel, k) {
-				return pcMap[pc], m.kernelTotals[k]
-			}
-		}
-	}
-	if len(m.byKernelPC) == 1 {
-		for k, pcMap := range m.byKernelPC {
-			return pcMap[pc], m.kernelTotals[k]
-		}
-	}
-	if m.totalStalls > 0 {
-		for _, pcMap := range m.byKernelPC {
-			if info, ok := pcMap[pc]; ok {
-				return info, m.totalStalls
-			}
-		}
-	}
-	return nil, 0
+	return m.byKernelPC[kernel][pc], m.kernelTotals[kernel]
 }
 
 func formatStallTooltip(pct float64, breakdown map[string]float64, totalCount int64) string {
@@ -599,15 +535,15 @@ func extractPressureMap(disasm *cudasass.Disassembly) map[string]map[uint64]cuda
 	return res
 }
 
-func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark, knownKernels []string, pressureMap map[string]map[uint64]cudasass.RegisterPressure) PipelineTier {
+func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, activeKernel string, remarks []tileiras.Remark, knownKernels []string, pressureMap map[string]map[uint64]cudasass.RegisterPressure) cudaview.PipelineTier {
 	rawLines := strings.Split(content, "\n")
-	lines := make([]PipelineLine, len(rawLines))
+	lines := make([]cudaview.PipelineLine, len(rawLines))
 
 	currentKernel := activeKernel
 	currentSourceLine := 0
 
 	for i, text := range rawLines {
-		line := PipelineLine{
+		line := cudaview.PipelineLine{
 			Num:  i + 1,
 			Text: text,
 		}
@@ -932,12 +868,14 @@ func buildTier(name, fileName, lang, content string, stallMap *sassStallMap, act
 		lines[i] = line
 	}
 
-	return PipelineTier{
+	tier := cudaview.PipelineTier{
 		Name:     name,
 		FileName: fileName,
 		Language: lang,
 		Lines:    lines,
 	}
+	cudaview.Annotate(&tier)
+	return tier
 }
 
 func discoverKernelNames(ptxText, sassText, cuText, tileText string) []string {
@@ -1058,61 +996,6 @@ func extractKernelSection(content, kernelName, lang string) string {
 	return strings.Join(result, "\n")
 }
 
-func newPipelineServerHandler(data *PipelineViewData) http.Handler {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := renderPipelineHTML(w, data); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
-	mux.HandleFunc("/api/pipeline", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(data)
-	})
-
-	if len(data.Recompile) > 0 {
-		mux.HandleFunc("/api/recompile", newRecompileHandler(data.Recompile, compileNVRTCVariant))
-	}
-
-	mux.HandleFunc("/api/kernel", func(w http.ResponseWriter, r *http.Request) {
-		kName := r.URL.Query().Get("name")
-		w.Header().Set("Content-Type", "application/json")
-		if tiers, ok := data.KernelTiers[kName]; ok {
-			json.NewEncoder(w).Encode(tiers)
-		} else {
-			json.NewEncoder(w).Encode(data.Tiers)
-		}
-	})
-
-	return mux
-}
-
-func renderPipelineHTML(w io.Writer, data *PipelineViewData) error {
-	tmpl, err := template.New("pipeline").Funcs(template.FuncMap{
-		"join": strings.Join,
-		"stallWidth": func(pct float64) string {
-			if pct <= 0 {
-				return "0"
-			}
-			w := pct
-			if w < 4 {
-				w = 4
-			}
-			if w > 100 {
-				w = 100
-			}
-			return fmt.Sprintf("%.1f", w)
-		},
-	}).Parse(pipelineHTMLTemplate)
-	if err != nil {
-		return fmt.Errorf("parse template: %w", err)
-	}
-	return tmpl.Execute(w, data)
-}
-
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
@@ -1125,752 +1008,3 @@ func openBrowser(url string) {
 	}
 	_ = cmd.Start()
 }
-
-const pipelineHTMLTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{.Title}}</title>
-<style>
-:root {
-  --bg-primary: #0f141c;
-  --bg-secondary: #18202c;
-  --bg-tier: #131b26;
-  --border-color: #2b384e;
-  --text-primary: #e6edf3;
-  --text-muted: #8b949e;
-  --accent-go: #00add8;
-  --accent-cuda: #76b900;
-  --accent-tile: #f39c12;
-  --accent-ptx: #9b59b6;
-  --accent-sass: #e74c3c;
-  --line-num-color: #48566a;
-  --hover-bg: #1f2d3f;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.4;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-header {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.header-title h1 {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-.badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background-color: rgba(118, 185, 0, 0.15);
-  color: #76b900;
-  border: 1px solid rgba(118, 185, 0, 0.3);
-  font-weight: 500;
-}
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-select, input[type="text"] {
-  background-color: var(--bg-tier);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  outline: none;
-}
-select:focus, input[type="text"]:focus {
-  border-color: #76b900;
-}
-.btn {
-  background-color: var(--bg-tier);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.btn:hover {
-  background-color: var(--hover-bg);
-}
-.btn.active {
-  background-color: #76b900;
-  color: #000;
-  font-weight: 600;
-  border-color: #76b900;
-}
-.pipeline-container {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-.tier-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 240px;
-  border-right: 1px solid var(--border-color);
-  background-color: var(--bg-tier);
-  overflow: hidden;
-}
-.tier-column:last-child {
-  border-right: none;
-}
-.tier-header {
-  padding: 8px 12px;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
-}
-.tier-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.dot-go { background-color: var(--accent-go); }
-.dot-cuda { background-color: var(--accent-cuda); }
-.dot-tile { background-color: var(--accent-tile); }
-.dot-ptx { background-color: var(--accent-ptx); }
-.dot-sass { background-color: var(--accent-sass); }
-.tier-filename {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-family: monospace;
-}
-.code-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 11px;
-  line-height: 18px;
-}
-.code-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.code-row {
-  display: flex;
-}
-.code-row:hover {
-  background-color: var(--hover-bg);
-}
-.line-num {
-  width: 44px;
-  padding: 0 8px;
-  text-align: right;
-  color: var(--line-num-color);
-  user-select: none;
-  font-size: 10px;
-  flex-shrink: 0;
-}
-.line-content {
-  padding: 0 8px;
-  white-space: pre;
-  color: var(--text-primary);
-  flex-grow: 1;
-}
-.opcode-hover {
-  cursor: help;
-  text-decoration: underline dotted var(--accent-ptx);
-}
-.opcode-hover-tile {
-  cursor: help;
-  text-decoration: underline dotted var(--accent-tile);
-  color: #f6b93b;
-  font-weight: 500;
-}
-.badge-category {
-  font-size: 9px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(155, 89, 182, 0.18);
-  color: #c084fc;
-  border: 1px solid rgba(155, 89, 182, 0.35);
-  margin-right: 6px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  display: inline-block;
-  vertical-align: middle;
-}
-.badge-remark {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(243, 156, 18, 0.15);
-  color: #f39c12;
-  border: 1px solid rgba(243, 156, 18, 0.35);
-  margin-left: 8px;
-  cursor: help;
-  font-weight: 500;
-  display: inline-block;
-  vertical-align: middle;
-}
-.badge-audit {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: rgba(243, 156, 18, 0.15);
-  color: #f39c12;
-  border: 1px solid rgba(243, 156, 18, 0.35);
-  font-weight: 500;
-}
-.highlight-match {
-  background-color: rgba(243, 156, 18, 0.22) !important;
-  border-left: 2px solid var(--accent-tile);
-}
-.highlight-srcline {
-  background-color: rgba(56, 189, 248, 0.18) !important;
-  border-left: 2px solid #38bdf8 !important;
-}
-.highlight-semtag {
-  background-color: rgba(245, 158, 11, 0.16) !important;
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.4) !important;
-}
-.badge-reg {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 700;
-  color: #c7d2fe;
-  background: #312e81;
-  border: 1px solid rgba(165, 180, 252, 0.3);
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-right: 5px;
-  cursor: help;
-  vertical-align: middle;
-}
-.badge-launch {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  color: #6ee7b7;
-  background: rgba(6, 78, 59, 0.6);
-  border: 1px solid #059669;
-  padding: 1px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-right: 6px;
-  vertical-align: middle;
-  transition: all 0.15s ease;
-}
-.badge-launch:hover {
-  background: #047857;
-  color: #ffffff;
-  border-color: #10b981;
-}
-.badge-offset {
-  color: var(--text-muted);
-  font-size: 10px;
-  margin-right: 4px;
-}
-.stall-heat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 6px;
-  cursor: help;
-  vertical-align: middle;
-}
-.stall-bar-bg {
-  width: 44px;
-  height: 7px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  overflow: hidden;
-  display: inline-block;
-  vertical-align: middle;
-}
-.stall-bar {
-  height: 100%;
-  border-radius: 2px;
-  display: block;
-}
-.stall-bar.stall-high {
-  background: #ff4757;
-}
-.stall-bar.stall-med {
-  background: #ffa502;
-}
-.stall-bar.stall-low {
-  background: #2ed573;
-}
-.stall-text {
-  font-size: 10px;
-  font-family: monospace;
-  color: var(--text-muted);
-  min-width: 36px;
-  text-align: right;
-}
-.stall-text.stall-high {
-  color: #ff6b81;
-  font-weight: 600;
-}
-.stall-text.stall-med {
-  color: #ffa502;
-}
-.stall-text.stall-low {
-  color: #2ed573;
-}
-.nvrtc-panel {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  padding: 10px 16px;
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-.nvrtc-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.nvrtc-row label {
-  width: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.nvrtc-row input[type="text"] {
-  flex: 1;
-  min-width: 260px;
-  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-}
-.nvrtc-hint {
-  color: var(--text-muted);
-  font-size: 11px;
-}
-.nvrtc-caveat {
-  color: #f39c12;
-  font-size: 11px;
-  border-left: 2px solid var(--accent-tile);
-  padding-left: 8px;
-}
-.nvrtc-table {
-  border-collapse: collapse;
-  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-  font-size: 11px;
-  width: 100%;
-}
-.nvrtc-table th, .nvrtc-table td {
-  border-bottom: 1px solid var(--border-color);
-  padding: 2px 8px;
-  text-align: right;
-  color: var(--text-primary);
-}
-.nvrtc-table th:first-child, .nvrtc-table td:first-child,
-.nvrtc-table th:nth-child(2), .nvrtc-table td:nth-child(2) {
-  text-align: left;
-}
-.nvrtc-delta-down { color: #2ed573; }
-.nvrtc-delta-up { color: #ff6b81; }
-.nvrtc-code {
-  display: flex;
-  gap: 8px;
-}
-.nvrtc-code pre {
-  flex: 1;
-  min-width: 0;
-  max-height: 32vh;
-  overflow: auto;
-  background: var(--bg-tier);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-  font-size: 10px;
-  line-height: 14px;
-  color: var(--text-primary);
-}
-.tab-bar {
-  display: none;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 8px;
-}
-@media (max-width: 1000px) {
-  .pipeline-container { flex-direction: column; }
-  .tab-bar { display: flex; gap: 4px; }
-  .tier-column { display: none; }
-  .tier-column.tab-active { display: flex; }
-}
-</style>
-</head>
-<body>
-
-<header>
-  <div class="header-title">
-    <h1>{{.Title}}</h1>
-    {{if .Device}}<span class="badge">{{.Device}} ({{.Architecture}})</span>{{end}}
-    <span class="badge" style="border-color: #2b384e; color: #8b949e;">{{.CaptureFile}}</span>
-    {{if .TileIRAudit}}<span class="badge-audit" title="Static Verification & Linearity Audit">{{.TileIRAudit}}</span>{{end}}
-    {{if gt .RemarksCount 0}}<span class="badge" style="border-color: rgba(46, 213, 115, 0.4); color: #2ed573;">✓ {{.RemarksCount}} Remarks</span>{{end}}
-  </div>
-
-  <div class="controls">
-    <label for="kernelSelect" style="font-size: 12px; color: var(--text-muted);">Kernel:</label>
-    <select id="kernelSelect" onchange="onKernelChange(this.value)">
-      <option value="">All Kernels (Full Bundle)</option>
-      {{range .Kernels}}
-      <option value="{{.}}" {{if eq . $.ActiveKernel}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-
-    <button class="btn" id="syncScrollBtn" onclick="toggleSyncScroll()">Sync Scroll: ON</button>
-    {{if .Recompile}}<button class="btn" id="nvrtcToggleBtn" onclick="toggleNVRTCPanel()">NVRTC Flags</button>{{end}}
-  </div>
-</header>
-
-{{if .Recompile}}
-<section class="nvrtc-panel" id="nvrtcPanel" hidden>
-  <div class="nvrtc-row">
-    <span class="nvrtc-hint">Recompile one module with NVRTC and compare against the capture. Each side is an option list, or the word <b>capture</b> for the artifacts this capture already holds. Modules are compiled separately and need not share options.</span>
-  </div>
-  <div class="nvrtc-row">
-    <label>M</label>
-    <select id="nvrtcModule" onchange="onRecompileModuleChange()">
-      {{range $idx, $src := .Recompile}}
-      <option value="{{if $src.ID}}{{$src.ID}}{{else}}{{$src.Name}}{{end}}" data-options="{{join $src.Options " "}}" data-suggested="{{join $src.Suggested " "}}" data-recorded="{{$src.Recorded}}" data-file="{{$src.File}}">{{$src.Name}}</option>
-      {{end}}
-    </select>
-    <span class="nvrtc-hint" id="nvrtcModuleHint"></span>
-  </div>
-  <div class="nvrtc-row">
-    <label>A</label>
-    <input type="text" id="nvrtcA" value="capture" spellcheck="false">
-  </div>
-  <div class="nvrtc-row">
-    <label>B</label>
-    <input type="text" id="nvrtcB" value="" spellcheck="false">
-  </div>
-  <div class="nvrtc-row">
-    <span class="nvrtc-hint">toggle on B:</span>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--use_fast_math')">--use_fast_math</button>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--ftz=true')">--ftz=true</button>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-div=false')">--prec-div=false</button>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-sqrt=false')">--prec-sqrt=false</button>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--fmad=false')">--fmad=false</button>
-    <button class="btn" onclick="toggleFlag('nvrtcB', '--extra-device-vectorization')">--extra-device-vectorization</button>
-  </div>
-  <div class="nvrtc-row">
-    <button class="btn active" onclick="runRecompile()">Compare A/B</button>
-    <button class="btn" id="nvrtcTierBtn" onclick="toggleRecompileTier()">Showing: SASS</button>
-    <span class="nvrtc-hint" id="nvrtcStatus"></span>
-  </div>
-  <div class="nvrtc-caveat" id="nvrtcCaveat" hidden></div>
-  <div id="nvrtcResults" hidden>
-    <table class="nvrtc-table">
-      <thead><tr><th>group</th><th>count</th><th>A</th><th>B</th><th>B-A</th></tr></thead>
-      <tbody id="nvrtcTableBody"></tbody>
-    </table>
-    <div class="nvrtc-code">
-      <pre id="nvrtcCodeA"></pre>
-      <pre id="nvrtcCodeB"></pre>
-    </div>
-  </div>
-</section>
-{{end}}
-
-<div class="tab-bar" id="tabBar">
-  {{range $idx, $tier := .Tiers}}
-  <button class="btn {{if eq $idx 0}}active{{end}}" onclick="showTab({{$idx}})">{{$tier.Name}}</button>
-  {{end}}
-</div>
-
-<main class="pipeline-container" id="pipelineGrid">
-  {{range $idx, $tier := .Tiers}}
-  <div class="tier-column {{if eq $idx 0}}tab-active{{end}}" id="tier-col-{{$idx}}">
-    <div class="tier-header">
-      <div class="tier-name">
-        <span class="dot {{if eq $tier.Language "go"}}dot-go{{else if eq $tier.Language "cuda"}}dot-cuda{{else if eq $tier.Language "mlir"}}dot-tile{{else if eq $tier.Language "ptx"}}dot-ptx{{else}}dot-sass{{end}}"></span>
-        {{$tier.Name}}
-      </div>
-      <div class="tier-filename">{{$tier.FileName}}</div>
-    </div>
-    <div class="code-container" id="code-scroll-{{$idx}}">
-      <div class="code-table">
-        {{range $tier.Lines}}
-        <div class="code-row" id="line-{{$idx}}-{{.Num}}" data-tier="{{$idx}}" data-opcode="{{.Opcode}}" data-sem-tag="{{.SemanticTag}}" data-source-line="{{.SourceLine}}">
-          <div class="line-num">{{.Num}}</div>
-          <div class="line-content">{{if .LaunchKernel}}<button class="badge-launch" onclick="onKernelChange('{{.LaunchKernel}}')" title="Switch view to {{.LaunchKernel}}">▶ Launch: {{.LaunchKernel}}</button>{{end}}{{if .Offset}}<span class="badge-offset">/*{{.Offset}}*/</span>{{end}}{{if .Pressure}}<span class="badge-reg" title="{{.PressureTooltip}}">{{.Pressure}}</span>{{end}}{{if gt .StallPct 0.0}}<span class="stall-heat" title="{{.StallTooltip}}"><span class="stall-bar-bg"><span class="stall-bar {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}" style="width: {{stallWidth .StallPct}}%;"></span></span><span class="stall-text {{if ge .StallPct 30.0}}stall-high{{else if ge .StallPct 10.0}}stall-med{{else}}stall-low{{end}}">{{printf "%.1f" .StallPct}}%</span></span>{{end}}{{if .Category}}<span class="badge-category" title="{{$tier.Name}} Category: {{.Category}}">{{.Category}}</span>{{end}}{{if .HoverDoc}}<span class="{{if eq $tier.Language "mlir"}}opcode-hover-tile{{else}}opcode-hover{{end}}" title="{{.HoverDoc}}">{{.Text}}</span>{{else}}{{.Text}}{{end}}{{if .RemarkBadge}}<span class="badge-remark" title="{{.RemarkTooltip}}">✓ {{.RemarkBadge}}</span>{{end}}</div>
-        </div>
-        {{end}}
-      </div>
-    </div>
-  </div>
-  {{end}}
-</main>
-
-<script>
-let syncScroll = true;
-const scrollContainers = [0, 1, 2, 3, 4].map(i => document.getElementById('code-scroll-' + i));
-
-function toggleSyncScroll() {
-  syncScroll = !syncScroll;
-  const btn = document.getElementById('syncScrollBtn');
-  btn.textContent = 'Sync Scroll: ' + (syncScroll ? 'ON' : 'OFF');
-  btn.classList.toggle('active', syncScroll);
-}
-
-scrollContainers.forEach((c, idx) => {
-  if (!c) return;
-  c.addEventListener('scroll', () => {
-    if (!syncScroll) return;
-    const ratio = c.scrollTop / (c.scrollHeight - c.clientHeight || 1);
-    scrollContainers.forEach((other, otherIdx) => {
-      if (other && otherIdx !== idx) {
-        other.scrollTop = ratio * (other.scrollHeight - other.clientHeight);
-      }
-    });
-  });
-});
-
-{{if .Recompile}}
-onRecompileModuleChange();
-{{end}}
-
-document.addEventListener('mouseover', e => {
-  const row = e.target.closest('.code-row');
-  if (!row) return;
-  const opcode = row.getAttribute('data-opcode');
-  if (opcode && opcode !== '') {
-    document.querySelectorAll('.code-row[data-opcode="' + opcode + '"]').forEach(r => r.classList.add('highlight-match'));
-  }
-  const semTag = row.getAttribute('data-sem-tag');
-  if (semTag && semTag !== '') {
-    document.querySelectorAll('.code-row[data-sem-tag="' + semTag + '"]').forEach(r => r.classList.add('highlight-semtag'));
-  }
-  const srcLine = row.getAttribute('data-source-line');
-  if (srcLine && srcLine !== '' && srcLine !== '0') {
-    document.querySelectorAll('.code-row[data-source-line="' + srcLine + '"]').forEach(r => r.classList.add('highlight-srcline'));
-  }
-});
-document.addEventListener('mouseout', e => {
-  const row = e.target.closest('.code-row');
-  if (!row) return;
-  document.querySelectorAll('.highlight-match').forEach(r => r.classList.remove('highlight-match'));
-  document.querySelectorAll('.highlight-semtag').forEach(r => r.classList.remove('highlight-semtag'));
-  document.querySelectorAll('.highlight-srcline').forEach(r => r.classList.remove('highlight-srcline'));
-});
-
-function showTab(tabIndex) {
-  document.querySelectorAll('.tab-bar .btn').forEach((b, idx) => {
-    b.classList.toggle('active', idx === tabIndex);
-  });
-  document.querySelectorAll('.tier-column').forEach((col, idx) => {
-    col.classList.toggle('tab-active', idx === tabIndex);
-  });
-}
-
-function onKernelChange(kernelName) {
-  if (!kernelName) {
-    window.location.href = window.location.pathname;
-    return;
-  }
-  const sel = document.getElementById('kernelSelect');
-  if (sel && sel.value !== kernelName) {
-    sel.value = kernelName;
-  }
-  fetch('/api/kernel?name=' + encodeURIComponent(kernelName))
-    .then(r => r.json())
-    .then(tiers => {
-      tiers.forEach((tier, idx) => {
-        const container = document.getElementById('code-scroll-' + idx);
-        if (!container) return;
-        const table = container.querySelector('.code-table');
-        if (!table) return;
-        let html = '';
-        tier.lines.forEach(l => {
-          const launchBtn = l.launch_kernel ? '<button class="badge-launch" onclick="onKernelChange(\'' + escapeHtml(l.launch_kernel) + '\')">▶ Launch: ' + escapeHtml(l.launch_kernel) + '</button>' : '';
-          const offsetSpan = l.offset ? '<span class="badge-offset">/*' + l.offset + '*/</span>' : '';
-          const presSpan = l.pressure ? '<span class="badge-reg" title="' + escapeHtml(l.pressure_tooltip || '') + '">' + escapeHtml(l.pressure) + '</span>' : '';
-          let stallSpan = '';
-          if (l.stall_pct && l.stall_pct > 0) {
-            const intensity = l.stall_pct >= 30 ? 'stall-high' : (l.stall_pct >= 10 ? 'stall-med' : 'stall-low');
-            const tooltip = l.stall_tooltip ? escapeHtml(l.stall_tooltip) : (l.stall_pct.toFixed(1) + '% stall');
-            const width = Math.min(100, Math.max(4, l.stall_pct));
-            stallSpan = '<span class="stall-heat" title="' + tooltip + '">' +
-              '<span class="stall-bar-bg"><span class="stall-bar ' + intensity + '" style="width: ' + width + '%;"></span></span>' +
-              '<span class="stall-text ' + intensity + '">' + l.stall_pct.toFixed(1) + '%</span>' +
-              '</span>';
-          }
-          const catSpan = l.category ? '<span class="badge-category" title="' + escapeHtml(tier.name) + ' Category: ' + escapeHtml(l.category) + '">' + escapeHtml(l.category) + '</span>' : '';
-          const hoverClass = tier.language === 'mlir' ? 'opcode-hover-tile' : 'opcode-hover';
-          const textSpan = l.hover_doc ? '<span class="' + hoverClass + '" title="' + escapeHtml(l.hover_doc) + '">' + escapeHtml(l.text) + '</span>' : escapeHtml(l.text);
-          const remarkSpan = l.remark_badge ? '<span class="badge-remark" title="' + escapeHtml(l.remark_tooltip) + '">✓ ' + escapeHtml(l.remark_badge) + '</span>' : '';
-          html += '<div class="code-row" data-tier="' + idx + '" data-opcode="' + (l.opcode || '') + '" data-sem-tag="' + (l.semantic_tag || '') + '" data-source-line="' + (l.source_line || '') + '"><div class="line-num">' + l.num + '</div><div class="line-content">' + launchBtn + offsetSpan + presSpan + stallSpan + catSpan + textSpan + remarkSpan + '</div></div>';
-        });
-        table.innerHTML = html;
-      });
-    })
-    .catch(err => console.error('Failed to load kernel:', err));
-}
-
-{{if .Recompile}}
-let recompileResult = null;
-let recompileTier = 'sass';
-
-function toggleNVRTCPanel() {
-  const panel = document.getElementById('nvrtcPanel');
-  if (!panel) return;
-  panel.hidden = !panel.hidden;
-  document.getElementById('nvrtcToggleBtn').classList.toggle('active', !panel.hidden);
-}
-
-function onRecompileModuleChange() {
-  const sel = document.getElementById('nvrtcModule');
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
-  document.getElementById('nvrtcA').value = 'capture';
-  document.getElementById('nvrtcB').value = opt.dataset.suggested || '';
-  document.getElementById('nvrtcModuleHint').textContent = opt.dataset.recorded === 'true'
-    ? opt.dataset.file + ', capture recorded: ' + opt.dataset.options
-    : opt.dataset.file + ', capture did not record its NVRTC options; assumed ' + opt.dataset.options;
-  document.getElementById('nvrtcResults').hidden = true;
-  document.getElementById('nvrtcStatus').textContent = '';
-}
-
-function toggleFlag(inputId, flag) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  const parts = input.value.split(/\s+/).filter(p => p !== '' && p !== 'capture');
-  const at = parts.indexOf(flag);
-  if (at === -1) {
-    parts.push(flag);
-  } else {
-    parts.splice(at, 1);
-  }
-  input.value = parts.join(' ');
-}
-
-function toggleRecompileTier() {
-  recompileTier = recompileTier === 'sass' ? 'ptx' : 'sass';
-  document.getElementById('nvrtcTierBtn').textContent = 'Showing: ' + recompileTier.toUpperCase();
-  renderRecompileCode();
-}
-
-function runRecompile() {
-  const a = document.getElementById('nvrtcA').value;
-  const b = document.getElementById('nvrtcB').value;
-  const sel = document.getElementById('nvrtcModule');
-  const status = document.getElementById('nvrtcStatus');
-  status.textContent = 'compiling...';
-  clearRecompileResults();
-  fetch('/api/recompile?module=' + encodeURIComponent(sel.value) +
-        '&a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
-    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t.trim()); }))
-    .then(res => {
-      recompileResult = res;
-      // A variant that failed to compile is not a comparison. The server sends
-      // no deltas for one; say so rather than let "compiled in 55ms" stand.
-      status.textContent = res.note ? 'no comparison: ' + res.note
-        : (res.elapsed ? 'compiled in ' + res.elapsed : '');
-      const caveat = document.getElementById('nvrtcCaveat');
-      caveat.textContent = res.note ? '' : res.caveat;
-      caveat.hidden = !caveat.textContent;
-      document.getElementById('nvrtcResults').hidden = false;
-      renderRecompileTable();
-      renderRecompileCode();
-    })
-    .catch(err => {
-      status.textContent = 'failed: ' + err.message;
-      clearRecompileResults();
-    });
-}
-
-// clearRecompileResults drops the previous comparison. A stale table left
-// standing under a new request's status line reads as that request's result.
-function clearRecompileResults() {
-  recompileResult = null;
-  document.getElementById('nvrtcResults').hidden = true;
-  document.getElementById('nvrtcTableBody').innerHTML = '';
-  document.getElementById('nvrtcCodeA').textContent = '';
-  document.getElementById('nvrtcCodeB').textContent = '';
-  const caveat = document.getElementById('nvrtcCaveat');
-  caveat.textContent = '';
-  caveat.hidden = true;
-}
-
-function renderRecompileTable() {
-  const body = document.getElementById('nvrtcTableBody');
-  const res = recompileResult;
-  let html = '';
-  ['a', 'b'].forEach(side => {
-    const v = res[side];
-    if (v && v.error) {
-      html += '<tr><td>' + side.toUpperCase() + '</td><td colspan="4" class="nvrtc-delta-up">' + escapeHtml(v.error) + '</td></tr>';
-      if (v.hint) {
-        html += '<tr><td></td><td colspan="4">' + escapeHtml(v.hint) + '</td></tr>';
-      }
-    }
-  });
-  if (res.note) {
-    html += '<tr><td>note</td><td colspan="4">' + escapeHtml(res.note) + '</td></tr>';
-  }
-  (res.deltas || []).forEach(d => {
-    const cls = d.delta < 0 ? 'nvrtc-delta-down' : (d.delta > 0 ? 'nvrtc-delta-up' : '');
-    const sign = d.delta > 0 ? '+' : '';
-    html += '<tr><td>' + escapeHtml(d.group) + '</td><td>' + escapeHtml(d.name) + '</td><td>' + d.a + '</td><td>' + d.b +
-      '</td><td class="' + cls + '">' + sign + d.delta + '</td></tr>';
-  });
-  body.innerHTML = html || '<tr><td colspan="5">no differences</td></tr>';
-}
-
-function renderRecompileCode() {
-  if (!recompileResult) return;
-  ['a', 'b'].forEach(side => {
-    const v = recompileResult[side] || {};
-    const text = recompileTier === 'ptx' ? (v.ptx || '') : (v.sass || '');
-    const pane = document.getElementById(side === 'a' ? 'nvrtcCodeA' : 'nvrtcCodeB');
-    pane.textContent = (v.label || side) + '\n\n' + (text || v.log || v.error || '(no ' + recompileTier.toUpperCase() + ')');
-  });
-}
-{{end}}
-
-function escapeHtml(text) {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-</script>
-</body>
-</html>
-`

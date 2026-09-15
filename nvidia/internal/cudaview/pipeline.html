@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{.Title}}</title>
+<style>
+:root {
+  --bg-primary: #0f141c;
+  --bg-secondary: #18202c;
+  --bg-tier: #131b26;
+  --border-color: #2b384e;
+  --text-primary: #e6edf3;
+  --text-muted: #8b949e;
+  --accent-go: #00add8;
+  --accent-cuda: #76b900;
+  --accent-tile: #f39c12;
+  --accent-ptx: #9b59b6;
+  --accent-sass: #e74c3c;
+  --line-num-color: #48566a;
+  --hover-bg: #1f2d3f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.4;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+header {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-title h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: rgba(118, 185, 0, 0.15);
+  color: #76b900;
+  border: 1px solid rgba(118, 185, 0, 0.3);
+  font-weight: 500;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+select, input[type="text"] {
+  background-color: var(--bg-tier);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+select:focus, input[type="text"]:focus {
+  border-color: #76b900;
+}
+.btn {
+  background-color: var(--bg-tier);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover {
+  background-color: var(--hover-bg);
+}
+.btn.active {
+  background-color: #76b900;
+  color: #000;
+  font-weight: 600;
+  border-color: #76b900;
+}
+.pipeline-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.tier-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-tier);
+  overflow: hidden;
+}
+.tier-column:last-child {
+  border-right: none;
+}
+.tier-header {
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tier-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-go { background-color: var(--accent-go); }
+.dot-cuda { background-color: var(--accent-cuda); }
+.dot-tile { background-color: var(--accent-tile); }
+.dot-ptx { background-color: var(--accent-ptx); }
+.dot-sass { background-color: var(--accent-sass); }
+.tier-filename {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+.code-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+  line-height: 18px;
+}
+.code-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.code-row {
+  display: flex;
+}
+.code-row:hover {
+  background-color: var(--hover-bg);
+}
+.line-num {
+  width: 44px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--line-num-color);
+  user-select: none;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.line-content {
+  padding: 0 8px;
+  white-space: pre;
+  color: var(--text-primary);
+  flex-grow: 1;
+}
+.opcode-hover {
+  cursor: help;
+  text-decoration: underline dotted var(--accent-ptx);
+}
+.opcode-hover-tile {
+  cursor: help;
+  text-decoration: underline dotted var(--accent-tile);
+  color: #f6b93b;
+  font-weight: 500;
+}
+.badge-category {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(155, 89, 182, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(155, 89, 182, 0.35);
+  margin-right: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-remark {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, 0.35);
+  margin-left: 8px;
+  cursor: help;
+  font-weight: 500;
+  display: inline-block;
+  vertical-align: middle;
+}
+.badge-audit {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+  border: 1px solid rgba(243, 156, 18, 0.35);
+  font-weight: 500;
+}
+.highlight-match {
+  background-color: rgba(243, 156, 18, 0.22) !important;
+  border-left: 2px solid var(--accent-tile);
+}
+.highlight-srcline {
+  background-color: rgba(56, 189, 248, 0.18) !important;
+  border-left: 2px solid #38bdf8 !important;
+}
+.highlight-semtag {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.4) !important;
+}
+.badge-reg {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  color: #c7d2fe;
+  background: #312e81;
+  border: 1px solid rgba(165, 180, 252, 0.3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 5px;
+  cursor: help;
+  vertical-align: middle;
+}
+.badge-launch {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #6ee7b7;
+  background: rgba(6, 78, 59, 0.6);
+  border: 1px solid #059669;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 6px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+.badge-launch:hover {
+  background: #047857;
+  color: #ffffff;
+  border-color: #10b981;
+}
+.badge-offset {
+  color: var(--text-muted);
+  font-size: 10px;
+  margin-right: 4px;
+}
+.stall-heat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  cursor: help;
+  vertical-align: middle;
+}
+.stall-bar-bg {
+  width: 44px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+.stall-bar {
+  height: 100%;
+  border-radius: 2px;
+  display: block;
+}
+.stall-bar.stall-high {
+  background: #ff4757;
+}
+.stall-bar.stall-med {
+  background: #ffa502;
+}
+.stall-bar.stall-low {
+  background: #2ed573;
+}
+.stall-text {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--text-muted);
+  min-width: 36px;
+  text-align: right;
+}
+.stall-text.stall-high {
+  color: #ff6b81;
+  font-weight: 600;
+}
+.stall-text.stall-med {
+  color: #ffa502;
+}
+.stall-text.stall-low {
+  color: #2ed573;
+}
+.nvrtc-panel {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.nvrtc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nvrtc-row label {
+  width: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.nvrtc-row input[type="text"] {
+  flex: 1;
+  min-width: 260px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+.nvrtc-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.nvrtc-caveat {
+  color: #f39c12;
+  font-size: 11px;
+  border-left: 2px solid var(--accent-tile);
+  padding-left: 8px;
+}
+.nvrtc-table {
+  border-collapse: collapse;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 11px;
+  width: 100%;
+}
+.nvrtc-table th, .nvrtc-table td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 2px 8px;
+  text-align: right;
+  color: var(--text-primary);
+}
+.nvrtc-table th:first-child, .nvrtc-table td:first-child,
+.nvrtc-table th:nth-child(2), .nvrtc-table td:nth-child(2) {
+  text-align: left;
+}
+.nvrtc-delta-down { color: #2ed573; }
+.nvrtc-delta-up { color: #ff6b81; }
+.nvrtc-code {
+  display: flex;
+  gap: 8px;
+}
+.nvrtc-code pre {
+  flex: 1;
+  min-width: 0;
+  height: 32vh;
+  max-height: 32vh;
+  overflow: auto;
+  background: var(--bg-tier);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text-primary);
+}
+.tab-bar {
+  display: none;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 8px;
+}
+@media (max-width: 1000px) {
+  .pipeline-container { flex-direction: column; }
+  .tab-bar { display: flex; gap: 4px; }
+  .tier-column { display: none; }
+  .tier-column.tab-active { display: flex; }
+}
+.code-table {position:relative; min-width:100%;}
+.code-row {position:absolute; height:18px; line-height:18px; width:100%; white-space:pre;}
+.code-row.selected {background:#244363;}
+.viewer-tools input,.viewer-tools button {background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:4px;}
+.viewer-tools {padding:6px; display:flex; flex-wrap:wrap; gap:6px;}
+#inspector {white-space:pre-wrap; max-height:160px; overflow:auto;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>{{.Title}}</h1>
+    {{if .Device}}<span class="badge">{{.Device}} ({{.Architecture}})</span>{{end}}
+    <span class="badge" style="border-color: #2b384e; color: #8b949e;">{{.CaptureFile}}</span>
+    {{if .TileIRAudit}}<span class="badge-audit" title="Static Verification & Linearity Audit">{{.TileIRAudit}}</span>{{end}}
+    {{if gt .RemarksCount 0}}<span class="badge" style="border-color: rgba(46, 213, 115, 0.4); color: #2ed573;">✓ {{.RemarksCount}} Remarks</span>{{end}}
+  </div>
+
+  <div class="controls">
+    {{if .Modules}}<label for="moduleSelect">Module:</label><select id="moduleSelect" onchange="onModuleChange(this.selectedIndex)">{{range .Modules}}<option>{{.Name}} ({{.ID}})</option>{{end}}</select>{{end}}
+    <label for="kernelSelect" style="font-size: 12px; color: var(--text-muted);">Kernel:</label>
+    <select id="kernelSelect" onchange="onKernelChange(this.value)">
+      <option value="">All Kernels (Full Bundle)</option>
+      {{range .Kernels}}
+      <option value="{{.}}" {{if eq . $.ActiveKernel}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+
+    <button class="btn" id="syncScrollBtn" onclick="toggleSyncScroll()">Sync Scroll: ON</button>
+    {{if .Recompile}}<button class="btn" id="nvrtcToggleBtn" onclick="toggleNVRTCPanel()">NVRTC Flags</button>{{end}}
+  </div>
+</header>
+
+{{if .Recompile}}
+<section class="nvrtc-panel" id="nvrtcPanel" hidden>
+  <div class="nvrtc-row">
+    <span class="nvrtc-hint">Recompile one module with NVRTC and compare against the capture. Each side is an option list, or the word <b>capture</b> for the artifacts this capture already holds. Modules are compiled separately and need not share options.</span>
+  </div>
+  <div class="nvrtc-row">
+    <label>M</label>
+    <select id="nvrtcModule" onchange="onRecompileModuleChange()">
+      {{range $idx, $src := .Recompile}}
+      <option value="{{if $src.ID}}{{$src.ID}}{{else}}{{$src.Name}}{{end}}" data-options="{{join $src.Options " "}}" data-suggested="{{join $src.Suggested " "}}" data-recorded="{{$src.Recorded}}" data-file="{{$src.File}}">{{$src.Name}}</option>
+      {{end}}
+    </select>
+    <span class="nvrtc-hint" id="nvrtcModuleHint"></span>
+  </div>
+  <div class="nvrtc-row">
+    <label>A</label>
+    <input type="text" id="nvrtcA" value="capture" spellcheck="false">
+  </div>
+  <div class="nvrtc-row">
+    <label>B</label>
+    <input type="text" id="nvrtcB" value="" spellcheck="false">
+  </div>
+  <div class="nvrtc-row">
+    <span class="nvrtc-hint">toggle on B:</span>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--use_fast_math')">--use_fast_math</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--ftz=true')">--ftz=true</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-div=false')">--prec-div=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--prec-sqrt=false')">--prec-sqrt=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--fmad=false')">--fmad=false</button>
+    <button class="btn" onclick="toggleFlag('nvrtcB', '--extra-device-vectorization')">--extra-device-vectorization</button>
+  </div>
+  <div class="nvrtc-row">
+    <button class="btn active" onclick="runRecompile()">Compare A/B</button>
+    <button class="btn" id="nvrtcTierBtn" onclick="toggleRecompileTier()">Showing: SASS</button>
+    <span class="nvrtc-hint" id="nvrtcStatus"></span>
+  </div>
+  <div class="nvrtc-caveat" id="nvrtcCaveat" hidden></div>
+  <div id="nvrtcResults" hidden>
+    <table class="nvrtc-table">
+      <thead><tr><th>group</th><th>count</th><th>A</th><th>B</th><th>B-A</th></tr></thead>
+      <tbody id="nvrtcTableBody"></tbody>
+    </table>
+    <div class="nvrtc-code">
+      <pre id="nvrtcCodeA"></pre>
+      <pre id="nvrtcCodeB"></pre>
+    </div>
+  </div>
+</section>
+{{end}}
+
+<div class="tab-bar" id="tabBar">
+  {{range $idx, $tier := .Tiers}}
+  <button class="btn {{if eq $idx 0}}active{{end}}" onclick="showTab({{$idx}})">{{$tier.Name}}</button>
+  {{end}}
+</div>
+
+<div class="viewer-tools">
+<input id="search" aria-label="Search all lines" placeholder="Search all lines"><button onclick="searchListings()">Search</button><button onclick="nextSearch(1)">Next</button>
+<select id="listingSelect" aria-label="Listing">{{range $i, $t := .Tiers}}<option value="{{$i}}">{{$t.Name}}</option>{{end}}</select>
+<input id="location" aria-label="Line or address" placeholder="Line or 0x address"><button onclick="goToLine()">Go</button>
+<input id="rangeFrom" aria-label="First line" type="number" value="1" style="width:65px"><input id="rangeTo" aria-label="Last line" type="number" value="10" style="width:65px"><button onclick="copyRange()">Copy range</button><span id="searchStatus" role="status"></span>
+</div>
+<div id="analysisStatus" role="status">{{range .Diagnostics}}{{.}} {{end}}</div>
+<details><summary>Instruction inspector</summary><pre id="inspector">Select an instruction</pre></details>
+<main class="pipeline-container" id="pipelineGrid">
+  {{range $idx, $tier := .Tiers}}
+  <div class="tier-column {{if eq $idx 0}}tab-active{{end}}" id="tier-col-{{$idx}}">
+    <div class="tier-header">
+      <div class="tier-name">
+        <span class="dot {{if eq $tier.Language "go"}}dot-go{{else if eq $tier.Language "cuda"}}dot-cuda{{else if eq $tier.Language "mlir"}}dot-tile{{else if eq $tier.Language "ptx"}}dot-ptx{{else}}dot-sass{{end}}"></span>
+        {{$tier.Name}}
+      </div>
+      <div class="tier-filename">{{$tier.FileName}}</div>
+    </div>
+    <div class="code-container" id="code-scroll-{{$idx}}">
+      <div class="code-table">
+      </div>
+    </div>
+  </div>
+  {{end}}
+</main>
+
+<script>
+const viewData = {{.Snapshot}};
+{{coreJS}}
+{{listingJS}}
+{{if .Recompile}}
+let recompileResult = null;
+let recompileTier = 'sass';
+let recompileGeneration = 0;
+const variantListings = {};
+onRecompileModuleChange();
+
+function toggleNVRTCPanel() {
+  const panel = document.getElementById('nvrtcPanel');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  document.getElementById('nvrtcToggleBtn').classList.toggle('active', !panel.hidden);
+}
+
+function onRecompileModuleChange() {
+  recompileGeneration++;
+  clearRecompileResults();
+  const sel = document.getElementById('nvrtcModule');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  document.getElementById('nvrtcA').value = 'capture';
+  document.getElementById('nvrtcB').value = opt.dataset.suggested || '';
+  document.getElementById('nvrtcModuleHint').textContent = opt.dataset.recorded === 'true'
+    ? opt.dataset.file + ', capture recorded: ' + opt.dataset.options
+    : opt.dataset.file + ', capture did not record its NVRTC options; assumed ' + opt.dataset.options;
+  document.getElementById('nvrtcResults').hidden = true;
+  document.getElementById('nvrtcStatus').textContent = '';
+}
+
+function toggleFlag(inputId, flag) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const parts = input.value.split(/\s+/).filter(p => p !== '' && p !== 'capture');
+  const at = parts.indexOf(flag);
+  if (at === -1) {
+    parts.push(flag);
+  } else {
+    parts.splice(at, 1);
+  }
+  input.value = parts.join(' ');
+}
+
+function toggleRecompileTier() {
+  recompileTier = recompileTier === 'sass' ? 'ptx' : 'sass';
+  document.getElementById('nvrtcTierBtn').textContent = 'Showing: ' + recompileTier.toUpperCase();
+  renderRecompileCode();
+}
+
+function runRecompile() {
+  const generation = ++recompileGeneration;
+  const a = document.getElementById('nvrtcA').value;
+  const b = document.getElementById('nvrtcB').value;
+  const sel = document.getElementById('nvrtcModule');
+  const status = document.getElementById('nvrtcStatus');
+  status.textContent = 'compiling...';
+  clearRecompileResults();
+  fetch('/api/recompile?module=' + encodeURIComponent(sel.value) +
+        '&a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
+    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t.trim()); }))
+    .then(res => {
+      if (generation !== recompileGeneration) return;
+      recompileResult = res;
+      // A variant that failed to compile is not a comparison. The server sends
+      // no deltas for one; say so rather than let "compiled in 55ms" stand.
+      status.textContent = res.note ? 'no comparison: ' + res.note
+        : (res.elapsed ? 'compiled in ' + res.elapsed : '');
+      const caveat = document.getElementById('nvrtcCaveat');
+      caveat.textContent = res.note ? '' : res.caveat;
+      caveat.hidden = !caveat.textContent;
+      document.getElementById('nvrtcResults').hidden = false;
+      renderRecompileTable();
+      renderRecompileCode();
+    })
+    .catch(err => {
+      if (generation !== recompileGeneration) return;
+      status.textContent = 'failed: ' + err.message;
+      clearRecompileResults();
+    });
+}
+
+// clearRecompileResults drops the previous comparison. A stale table left
+// standing under a new request's status line reads as that request's result.
+function clearRecompileResults() {
+  recompileResult = null;
+  document.getElementById('nvrtcResults').hidden = true;
+  document.getElementById('nvrtcTableBody').innerHTML = '';
+  for (const view of Object.values(variantListings)) view.set({lines:[]});
+  const caveat = document.getElementById('nvrtcCaveat');
+  caveat.textContent = '';
+  caveat.hidden = true;
+}
+
+function renderRecompileTable() {
+  const body = document.getElementById('nvrtcTableBody');
+  const res = recompileResult;
+  let html = '';
+  ['a', 'b'].forEach(side => {
+    const v = res[side];
+    if (v && v.error) {
+      html += '<tr><td>' + side.toUpperCase() + '</td><td colspan="4" class="nvrtc-delta-up">' + escapeHtml(v.error) + '</td></tr>';
+      if (v.hint) {
+        html += '<tr><td></td><td colspan="4">' + escapeHtml(v.hint) + '</td></tr>';
+      }
+    }
+  });
+  if (res.note) {
+    html += '<tr><td>note</td><td colspan="4">' + escapeHtml(res.note) + '</td></tr>';
+  }
+  (res.deltas || []).forEach(d => {
+    const cls = d.delta < 0 ? 'nvrtc-delta-down' : (d.delta > 0 ? 'nvrtc-delta-up' : '');
+    const sign = d.delta > 0 ? '+' : '';
+    html += '<tr><td>' + escapeHtml(d.group) + '</td><td>' + escapeHtml(d.name) + '</td><td>' + d.a + '</td><td>' + d.b +
+      '</td><td class="' + cls + '">' + sign + d.delta + '</td></tr>';
+  });
+  body.innerHTML = html || '<tr><td colspan="5">no differences</td></tr>';
+}
+
+function renderRecompileCode() {
+  if (!recompileResult) return;
+  ['a', 'b'].forEach(side => {
+    const v = recompileResult[side] || {};
+    const text = recompileTier === 'ptx' ? (v.ptx || '') : (v.sass || '');
+    const pane = document.getElementById(side === 'a' ? 'nvrtcCodeA' : 'nvrtcCodeB');
+    if (!variantListings[side]) variantListings[side] = new Listing(pane, 'variants');
+    variantListings[side].set({file_name:v.label || side, lines:(text || v.log || v.error || '(unavailable)').split('\n').map((text,i) => ({num:i+1,text}))});
+  });
+}
+{{end}}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>
