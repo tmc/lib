@@ -1,6 +1,7 @@
 package cudamem_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -80,5 +81,49 @@ func TestVariedSequenceLengthBucketing(t *testing.T) {
 
 	if b3 != b4 {
 		t.Errorf("seqLen 3 and seqLen 4 should share same bucket for zero-fragmentation reuse")
+	}
+}
+
+// TestBucketSizeNeverUndersizes pins the one property of BucketSize that is a
+// correctness constraint rather than a tuning choice: the bucket handed to the
+// allocator is never smaller than the request. Rounding a request up to the
+// tier-3 quantum overflows uint near the top of the range, and an undersized
+// bucket does not fail the allocation, it silently backs a Slice whose length
+// exceeds its allocation.
+func TestBucketSizeNeverUndersizes(t *testing.T) {
+	const largeQuantum = 2 * 1024 * 1024
+	sizes := []uint{
+		0, 1, 255, 256, 257, 1024, 1025, 1 << 20, 1<<20 + 1,
+		largeQuantum, largeQuantum + 1,
+		math.MaxUint / 2,
+		math.MaxUint - largeQuantum,
+		math.MaxUint - largeQuantum + 1,
+		math.MaxUint - (largeQuantum - 1),
+		math.MaxUint - (largeQuantum - 1) + 1,
+		math.MaxUint - 1024,
+		math.MaxUint - 1,
+		math.MaxUint,
+	}
+	for _, n := range sizes {
+		if got := cudamem.BucketSize(n); got < n {
+			t.Errorf("BucketSize(%d) = %d, which is smaller than the request", n, got)
+		}
+	}
+}
+
+// TestBucketSizeMonotonic checks that a larger request never lands in a smaller
+// bucket, across each tier boundary and the overflow guard.
+func TestBucketSizeMonotonic(t *testing.T) {
+	const largeQuantum = 2 * 1024 * 1024
+	prev := cudamem.BucketSize(0)
+	for _, base := range []uint{0, 1024, 1 << 20, largeQuantum, math.MaxUint - (largeQuantum - 1) - 2} {
+		for d := uint(0); d <= 2; d++ {
+			n := base + d
+			got := cudamem.BucketSize(n)
+			if got < prev {
+				t.Errorf("BucketSize(%d) = %d, less than the bucket for a smaller request (%d)", n, got, prev)
+			}
+			prev = got
+		}
 	}
 }
