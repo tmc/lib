@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,10 @@ const deviceSource = `extern "C" __global__ void compute(float *out, int n) {
 // because it consumes the exported files in the same run. Finish is process
 // wide and runs once, so no other benchmark in this package may export.
 func BenchmarkComposeFromDevice(b *testing.B) {
+	profile := flag.CommandLine.Lookup("cuptiprofile").Value.String()
+	if strings.Contains(profile, "{package}") {
+		b.Fatal("this single-package example needs a literal -cuptiprofile path")
+	}
 	dev := cudatest.Require(b)
 	b.Cleanup(func() {
 		if err := dev.Close(); err != nil {
@@ -163,7 +168,6 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 	dir := b.TempDir()
 	// Honor an explicit -cuptiprofile so the exported profile can be kept;
 	// otherwise export into the temp dir, which is discarded with the run.
-	profile := flag.CommandLine.Lookup("cuptiprofile").Value.String()
 	if profile == "" {
 		profile = filepath.Join(dir, "device.pprof")
 		if err := flag.CommandLine.Set("cuptiprofile", profile); err != nil {
@@ -171,6 +175,17 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		}
 	}
 	cuptibench.Benchmark(b, plan, workload)
+	// Prepare clears every element before the last profiling sequence, which
+	// applies the affine transform once. Check the result before publishing.
+	got := make([]float32, n)
+	if err := out.CopyToHost(got); err != nil {
+		b.Fatalf("read output: %v", err)
+	}
+	for i, value := range got {
+		if value != 1 {
+			b.Fatalf("output[%d] = %g, want 1", i, value)
+		}
+	}
 	// Finish refuses results from a plan that did not close cleanly, so the
 	// plan closes before the export rather than in a cleanup function.
 	if err := plan.Close(); err != nil {
@@ -212,6 +227,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 	if err := cudacapture.WriteDir(unpacked, c); err != nil {
 		b.Fatalf("WriteDir: %v", err)
 	}
+	b.Logf("capture: %s", unpacked)
 	read, err := cudacapture.ReadDir(unpacked)
 	if err != nil {
 		b.Fatalf("ReadDir: %v", err)

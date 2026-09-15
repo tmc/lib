@@ -61,7 +61,11 @@ prove it ran. The single iteration checks composition, not performance.
 
 An explicit `-cuptiprofile` retains the profile, its `.json` results, and a
 `.capture` directory containing the portable capture. Without it, the outputs
-are temporary and are removed when the benchmark exits.
+are temporary and are removed when the benchmark exits. Use a literal path;
+this example does not expand `{package}`. Run it once per process (`-count=1`
+and one `-cpu` value), because it calls the process-wide `cuptibench.Finish`
+before reading the exported files. It checks all 1,024 output values before
+publishing.
 
 To compose from a run of another benchmark, export it first and pass the two
 files it wrote together with the artifacts that benchmark compiled:
