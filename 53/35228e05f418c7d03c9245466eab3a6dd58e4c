@@ -1,0 +1,30 @@
+commit 7b0075034b5db5b3ca5ba3523b5d361c5632aa1a
+committed 2026-09-06
+agent Codex
+model GPT-5
+tty not-a-tty
+pid 56105
+ITERM_SESSION_ID w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+gates: TestCompareLogits PASS; package PASS; vet PASS; exact capture pair PASS; Metal-vs-CUDA-oracle capture pair FAIL with 129138-129216 violations per state; planted disabled-limit mutation FAIL
+
+additional gates: GOWORK=off go test -race -count=1 ./ds4-min PASS; TestFixtureRegeneration count=2 PASS; TestOracleGates PASS with 0/30 set, explicitly not parity evidence
+
+commit: d865d7d16f1771322b8ee2cf77640d10bdc715f9
+commit date: 2026-09-15T00:30:10-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 5335228e05f418c7d03c9245466eab3a6dd58e4c
+commit date: 2026-09-15T00:43:52-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
