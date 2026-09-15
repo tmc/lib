@@ -1,0 +1,22 @@
+{
+  "commit": "b42d95edc75ee818e833d34bc1096f258cbdec14",
+  "date_utc": "2026-09-05T05:23:27.386571+00:00",
+  "agent": "Codex",
+  "model": "GPT-6",
+  "codex_version": "codex-cli 0.153.3",
+  "claude_code_version": "2.1.257 (Claude Code)",
+  "tty": "unavailable: Command '['tty']' returned non-zero exit status 1.",
+  "note_writer_pid": 48010,
+  "ITERM_SESSION_ID": "w15t0p3:2379D0C3-4A19-4DFE-B700-027B990C0AA3",
+  "provenance": "CUDA token runtime and diagnostics preserved; full-model repeatability and equivalence remain open; historical failure receipts retained; manual commit fallback after automatic helper API-key failures"
+}
+
+commit: 67aa15aa2f4bb05bf407daa5dbb912a4a67e6083
+commit date: 2026-09-15T00:29:04-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
