@@ -11,11 +11,12 @@ __device__ float ds4_compressed_theta(unsigned int position,unsigned int r) {
  const float ramp=1-fminf(1.0f,fmaxf(0.0f,y));
  return float(position)*powf(160000.0f,-float(r)/64)*(.0625f*(1-ramp)+ramp);
 }
-__device__ void ds4_compressed_rope(float *row,unsigned int width,unsigned int position,bool inverse) {
- for(unsigned int r=0;r<64;r+=2) {
-  const unsigned int i=width-64+r;const float theta=ds4_compressed_theta(position,r),c=cosf(theta),s=(inverse?-1.0f:1.0f)*sinf(theta),a=row[i],b=row[i+1];
-  row[i]=a*c-b*s;row[i+1]=a*s+b*c;
- }
+// ds4_compressed_rope_pair rotates the single (i,i+1) pair at offset r. The 64
+// wide rotation is 32 disjoint pairs, so a lane per pair reads and writes the
+// same two floats one iteration of a serial walk would have.
+__device__ void ds4_compressed_rope_pair(float *row,unsigned int width,unsigned int position,bool inverse,unsigned int r) {
+ const unsigned int i=width-64+r;const float theta=ds4_compressed_theta(position,r),c=cosf(theta),s=(inverse?-1.0f:1.0f)*sinf(theta),a=row[i],b=row[i+1];
+ row[i]=a*c-b*s;row[i+1]=a*s+b*c;
 }
 __device__ float ds4_e2m1_round(float value) {
  const float levels[8]={0,.5f,1,1.5f,2,3,4,6};
@@ -23,16 +24,24 @@ __device__ float ds4_e2m1_round(float value) {
  for(int i=1;i<8;i++) { const float d=fabsf(x-levels[i]),b=fabsf(x-levels[best]);if(d<b || (d==b && i%2==0 && best%2!=0))best=i; }
  return value<0?-levels[best]:levels[best];
 }
-__device__ void ds4_indexer_qat(float *x) {
- for(unsigned int stride=1;stride<128;stride*=2)
-  for(unsigned int base=0;base<128;base+=2*stride)
-   for(unsigned int i=0;i<stride;i++) { const float a=x[base+i],b=x[base+stride+i];x[base+i]=a+b;x[base+stride+i]=a-b; }
- for(unsigned int i=0;i<128;i++)x[i]*=.08838834764831845f;
- for(unsigned int off=0;off<128;off+=32) {
-  float amax=7.052966104933725e-38f;for(unsigned int i=0;i<32;i++)amax=fmaxf(amax,fabsf(x[off+i]));
-  const float scale=exp2f(ceilf(log2f(amax/6)));
-  for(unsigned int i=0;i<32;i++)x[off+i]=ds4_e2m1_round(x[off+i]/scale)*scale;
+// ds4_indexer_qat_block quantizes one 128-wide indexer row with 128 lanes.
+// A Hadamard stage partitions the row into 64 disjoint pairs, so lane p owns
+// both halves of pair p and performs the same add and subtract the serial walk
+// did. The four 32-wide amax scans keep their serial fmaxf order in one lane
+// each. x is block-shared; the caller supplies 128 lanes.
+__device__ void ds4_indexer_qat_block(float *x,unsigned int t) {
+ __shared__ float amax[4];
+ for(unsigned int stride=1;stride<128;stride*=2) {
+  if(t<64) { const unsigned int base=(t/stride)*2*stride,i=t%stride,lo=base+i,hi=base+stride+i;const float a=x[lo],b=x[hi];x[lo]=a+b;x[hi]=a-b; }
+  __syncthreads();
  }
+ x[t]*=.08838834764831845f;
+ __syncthreads();
+ if(t<4) { float m=7.052966104933725e-38f;for(unsigned int i=0;i<32;i++)m=fmaxf(m,fabsf(x[t*32+i]));amax[t]=m; }
+ __syncthreads();
+ const float scale=exp2f(ceilf(log2f(amax[t/32]/6)));
+ x[t]=ds4_e2m1_round(x[t]/scale)*scale;
+ __syncthreads();
 }
 extern "C" __global__ void ds4_compressor_pool(const float *kv,const float *gate,float *state_kv,float *state_score,float *pooled,const unsigned short *ape,unsigned int head,unsigned int width,unsigned int ratio,unsigned int position) {
  const unsigned int j=threadIdx.x;if(blockIdx.x || j>=head)return;
@@ -55,29 +64,58 @@ extern "C" __global__ void ds4_compressor_pool(const float *kv,const float *gate
   const unsigned int i=lane*head+j;state_kv[r*width+i]=state_kv[(ratio+r)*width+i];state_score[r*width+i]=state_score[(ratio+r)*width+i];
  }
 }
+// ds4_compressor_attention finishes one compressed attention row with one lane
+// per element. The 512-term double sum of squares is order bound and stays in
+// lane 0; the normalization, the rotation pairs and the seven 64-wide
+// quantization groups are disjoint per lane. Requires 512 lanes.
 extern "C" __global__ void ds4_compressor_attention(float *pooled,const float *weight,float *cache,unsigned int row,unsigned int position) {
- if(blockIdx.x || threadIdx.x)return;
- double ss=0;for(unsigned int i=0;i<512;i++)ss+=double(pooled[i])*pooled[i];
- const float inv=1.0f/sqrtf(float(ss/512)+1e-6f);for(unsigned int i=0;i<512;i++)pooled[i]=pooled[i]*inv*weight[i];
- ds4_compressed_rope(pooled,512,position,false);
- for(unsigned int off=0;off<448;off+=64) {
-  float amax=1e-4f;for(unsigned int i=0;i<64;i++)amax=fmaxf(amax,fabsf(pooled[off+i]));
-  const float scale=exp2f(ceilf(log2f(amax/448)));
-  for(unsigned int i=0;i<64;i++)pooled[off+i]=ds4_e4m3fn_round(pooled[off+i]/scale)*scale;
- }
- for(unsigned int i=0;i<512;i++)cache[row*512+i]=ds4_half_round(pooled[i]);
+ if(blockIdx.x)return;
+ const unsigned int t=threadIdx.x;
+ __shared__ float x[512];
+ __shared__ float inv;
+ __shared__ float amax[7];
+ x[t]=pooled[t];
+ __syncthreads();
+ if(!t) { double ss=0;for(unsigned int i=0;i<512;i++)ss+=double(x[i])*x[i];inv=1.0f/sqrtf(float(ss/512)+1e-6f); }
+ __syncthreads();
+ x[t]=x[t]*inv*weight[t];
+ __syncthreads();
+ if(t<32)ds4_compressed_rope_pair(x,512,position,false,2*t);
+ if(t<7) { float m=1e-4f;for(unsigned int i=0;i<64;i++)m=fmaxf(m,fabsf(x[t*64+i]));amax[t]=m; }
+ __syncthreads();
+ if(t<448) { const float scale=exp2f(ceilf(log2f(amax[t/64]/448)));x[t]=ds4_e4m3fn_round(x[t]/scale)*scale; }
+ __syncthreads();
+ pooled[t]=x[t];cache[row*512+t]=ds4_half_round(x[t]);
 }
+// ds4_compressor_indexer finishes one compressed indexer row. The 128-term
+// double sum of squares stays in lane 0 for the same reason. Requires 128 lanes.
 extern "C" __global__ void ds4_compressor_indexer(float *pooled,const float *weight,float *cache,unsigned int row,unsigned int position) {
- if(blockIdx.x || threadIdx.x)return;
- double ss=0;for(unsigned int i=0;i<128;i++)ss+=double(pooled[i])*pooled[i];
- const float inv=1.0f/sqrtf(float(ss/128)+1e-6f);for(unsigned int i=0;i<128;i++)pooled[i]=pooled[i]*inv*weight[i];
- ds4_compressed_rope(pooled,128,position,false);ds4_indexer_qat(pooled);
- for(unsigned int i=0;i<128;i++)cache[row*128+i]=ds4_half_round(pooled[i]);
+ if(blockIdx.x)return;
+ const unsigned int t=threadIdx.x;
+ __shared__ float x[128];
+ __shared__ float inv;
+ x[t]=pooled[t];
+ __syncthreads();
+ if(!t) { double ss=0;for(unsigned int i=0;i<128;i++)ss+=double(x[i])*x[i];inv=1.0f/sqrtf(float(ss/128)+1e-6f); }
+ __syncthreads();
+ x[t]=x[t]*inv*weight[t];
+ __syncthreads();
+ if(t<32)ds4_compressed_rope_pair(x,128,position,false,2*t);
+ __syncthreads();
+ ds4_indexer_qat_block(x,t);
+ pooled[t]=x[t];cache[row*128+t]=ds4_half_round(x[t]);
 }
+// ds4_indexer_query rotates and quantizes one query head per block. The body
+// carries no accumulation, so every lane is independent. Requires 128 lanes.
 extern "C" __global__ void ds4_indexer_query(const float *q,float *out,unsigned int position) {
- if(threadIdx.x)return;float *row=out+blockIdx.x*128;
- for(unsigned int i=0;i<128;i++)row[i]=q[blockIdx.x*128+i];
- ds4_compressed_rope(row,128,position,false);ds4_indexer_qat(row);
+ const unsigned int t=threadIdx.x;
+ __shared__ float x[128];
+ x[t]=q[blockIdx.x*128+t];
+ __syncthreads();
+ if(t<32)ds4_compressed_rope_pair(x,128,position,false,2*t);
+ __syncthreads();
+ ds4_indexer_qat_block(x,t);
+ out[blockIdx.x*128+t]=x[t];
 }
 extern "C" __global__ void ds4_indexer_score(const float *q,const float *weights,const float *cache,float *scores,unsigned int count) {
   __shared__ float s_cache[64 * 128];

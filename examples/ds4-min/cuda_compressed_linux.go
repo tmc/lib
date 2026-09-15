@@ -52,7 +52,7 @@ func (r *cudaFoundation) encodeCompressor(kv, gate cudamem.Slice[float32], ape, 
 		if indexer {
 			fn = r.compressorIndexerFn
 		}
-		if err := cudalaunch.Kernel(fn).Grid(1).Block(1).On(r.stream()).Launch(state.pooled, norm.device, state.cache, uint32(state.n), uint32(position+1-state.ratio)); err != nil {
+		if err := cudalaunch.Kernel(fn).Grid(1).Block(uint32(head)).On(r.stream()).Launch(state.pooled, norm.device, state.cache, uint32(state.n), uint32(position+1-state.ratio)); err != nil {
 			return fmt.Errorf("cuda: launch compressor finish: %w", err)
 		}
 		return nil
@@ -150,7 +150,7 @@ func (r *cudaFoundation) encodeIndexer(q, weights, cache cudamem.Slice[float32],
 		if err := r.markCUDAPhase("indexer-query", position, layerIdx); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(1).On(r.stream()).Launch(q, qScratch, uint32(position)); err != nil {
+		if err := cudalaunch.Kernel(r.indexerQueryFn).Grid(64).Block(128).On(r.stream()).Launch(q, qScratch, uint32(position)); err != nil {
 			return fmt.Errorf("cuda: launch indexer query: %w", err)
 		}
 		if err := r.markCUDAPhase("indexer-score", position, layerIdx); err != nil {
