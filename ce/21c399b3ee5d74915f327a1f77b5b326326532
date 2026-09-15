@@ -1,0 +1,8 @@
+commit ce21c399, 2026-09-12
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_01QWBWoGrAo3vBG8BFrd9YBy
+Acceptance identity derived at rank 2 from nvidia/x/cuptipcsampling/bridge.go
+RecordBatch (base vs _not_issued companion) and cudaprof/proto.go sample type
+table, not from the peer assertion that prompted it.
