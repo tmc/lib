@@ -1,0 +1,11 @@
+commit: bd6c5b3b8f51b79c2c46ccb776450c1fac86d89e
+date: 2026-09-14T06:36:07-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+unknown
+pid: 53479
+ITERM_SESSION_ID: w20t0p2:C2706282-CA28-4256-A4C9-719CE9FD3D88
+session: 214f4c56-968e-4eb2-ad6a-3088c7813b73
+session_url: https://claude.ai/code/session_01EogqhV28G9yGQmYA7cFmBr
+note: rescued from a detached HEAD in worktree df69-cudaprof-gaps; commits 626b703f and 79bfc78e were reachable only via reflog before branch cudaprof-gaps-journal was created.
