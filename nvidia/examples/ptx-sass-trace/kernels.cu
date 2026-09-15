@@ -1,12 +1,15 @@
-// CUDA micro-workload representative of DeepSeek-V4 (ds4) inference patterns.
 // NVRTC compiles device code without system headers, so under NVRTC the
 // fixed-width types used below are defined here. Offline nvcc builds of this
 // file, which the capture bundle supports, still get the real <stdint.h>.
 #if defined(__CUDACC_RTC__)
+typedef unsigned char uint8_t;
 typedef signed char int8_t;
 typedef unsigned short uint16_t;
+typedef short int16_t;
 typedef unsigned int uint32_t;
+typedef int int32_t;
 typedef long long int64_t;
+typedef unsigned long long uint64_t;
 #else
 #include <stdint.h>
 #endif
