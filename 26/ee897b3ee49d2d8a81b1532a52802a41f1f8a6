@@ -1,0 +1,29 @@
+commit cf0bc5c8  2026-09-11
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Third and last of the three matmul sweeps to be checked against the shapes
+the GGUF actually holds. Model-free; shapes read from the tensor index, not
+from a weight load.
+
+Mutation check: reversing the four-element sub-block accumulation
+(for l = 4; l-- > 0) turned exactly 24 subtests red -- the full cross of
+the two new shapes with T in {1,3,7,13} and the three id patterns
+(shared, disjoint, high). Kernel file restored and verified byte-identical
+to the pre-mutation copy by sha256.
+
+With 8c3cf6ca this closes the coverage question on 88% of the per-token
+weight bytes (Q8_0 68%, selected experts 20%) before those call sites are
+wired token-major. The F16 5% remains open on the user's numerics decision.
+
+commit: 26ee897b3ee49d2d8a81b1532a52802a41f1f8a6
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
