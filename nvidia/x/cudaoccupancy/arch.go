@@ -149,6 +149,13 @@ var (
 	}
 )
 
+// knownArchitectures maps an architecture string to its properties. A key may
+// only name the architecture its value describes: "sm_90a" reaches SM90
+// because a feature suffix does not change SM geometry, but no key reaches a
+// different part. sm_120 (GB20x) was once aliased to SM121; LookupDevice now reports an
+// error for that part rather than returning a neighbour's geometry.
+// SM100 has its own explicit properties. Add an entry when the part has been measured, not when a caller asks
+// for it. TestEveryAliasNamesItsOwnArchitecture enforces this.
 var knownArchitectures = map[string]DeviceProperties{
 	"sm_70":   SM70,
 	"sm70":    SM70,
@@ -169,8 +176,6 @@ var knownArchitectures = map[string]DeviceProperties{
 	"sm_100a": SM100,
 	"sm100a":  SM100,
 	"gb200":   SM100,
-	"sm_120":  SM121,
-	"sm120":   SM121,
 	"sm_121":  SM121,
 	"sm121":   SM121,
 	"sm_121a": SM121,
