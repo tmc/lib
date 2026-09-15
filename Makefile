@@ -49,15 +49,11 @@ test:
 	done; \
 	echo "Tested $$total modules$$scope."
 
+# Each claim below is made over the modules present on disk. A module tracked at
+# HEAD but deleted in the working tree is skipped by every one of them, so the
+# last line says how many were checked and names what was missed -- on the last
+# line because a caveat printed above the claims is the part that scrolls away.
 check:
-	@absent=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
-		[ -f "$$f" ] || dirname "$$f"; \
-	done); \
-	if [ -n "$$absent" ]; then \
-		echo "note: module(s) tracked at HEAD but absent from the working tree, so every"; \
-		echo "      check below skipped them -- this run covers less than the repository:"; \
-		printf '%s\n' "$$absent" | sed 's/^/        /'; \
-	fi
 	@files=$$(git ls-files --cached --others --exclude-standard '*/go.mod') || exit 1; \
 	printf '%s\n' "$$files" | while IFS= read -r f; do \
 		[ -f "$$f" ] || continue; \
@@ -91,6 +87,17 @@ check:
 		exit 1; \
 	fi; \
 	echo "No tracked file is ignored."
+	@absent=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
+		[ -f "$$f" ] || dirname "$$f"; \
+	done); \
+	present=$$(git ls-files --cached --others --exclude-standard '*/go.mod' | while IFS= read -r f; do \
+		[ -f "$$f" ] && echo "$$f"; \
+	done | wc -l | tr -d ' '); \
+	if [ -n "$$absent" ]; then \
+		echo "Checked $$present modules; $$(printf '%s\n' "$$absent" | wc -l | tr -d ' ') tracked at HEAD absent here and skipped: $$(echo $$absent)"; \
+	else \
+		echo "Checked $$present modules."; \
+	fi
 
 gate-selftest:
 	@sh scripts/gate-selftest.sh
