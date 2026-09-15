@@ -70,9 +70,9 @@ type PipelineViewData struct {
 	TileIRAudit   string                    `json:"tileir_audit,omitempty"`
 	TileIROpcodes map[string]int            `json:"tileir_opcodes,omitempty"`
 	CFGDot        string                    `json:"cfg_dot,omitempty"`
-	// Recompile carries the CUDA C++ source the NVRTC panel recompiles. It is
-	// nil when the capture retained no source.
-	Recompile *recompileSource `json:"recompile,omitempty"`
+	// Recompile carries one entry per module the NVRTC panel can recompile.
+	// It is empty when the capture retained no CUDA C++ source.
+	Recompile []*recompileSource `json:"recompile,omitempty"`
 }
 
 func runViewCommand(rawArgs []string) error {
@@ -220,17 +220,21 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 	}
 
 	// 1. Extract metadata (device, arch, compile options)
-	var nvrtcOptions []string
+	var nvrtcOptions map[string][]string
 	if len(cap.Metadata) > 0 {
 		var meta struct {
-			Device string   `json:"device"`
-			Arch   string   `json:"architecture"`
-			NVRTC  []string `json:"nvrtc_options"`
+			Device string `json:"device"`
+			Arch   string `json:"architecture"`
+			// NVRTCOptions records the options each module was compiled
+			// with, keyed by module ID or name. A program compiles its
+			// modules separately and need not pass NVRTC the same options
+			// for each, so there is no single list to record.
+			NVRTCOptions map[string][]string `json:"nvrtc_options"`
 		}
 		if json.Unmarshal(cap.Metadata, &meta) == nil {
 			data.Device = meta.Device
 			data.Architecture = meta.Arch
-			nvrtcOptions = meta.NVRTC
+			nvrtcOptions = meta.NVRTCOptions
 		}
 	}
 
@@ -289,22 +293,7 @@ func buildPipelineViewData(cap *cudacapture.Capture, capName, activeKernel strin
 	}
 	sassContent := string(cap.Files[sassFileName])
 
-	if strings.TrimSpace(cuContent) != "" {
-		src := &recompileSource{
-			File:     cuFileName,
-			Arch:     data.Architecture,
-			Options:  nvrtcOptions,
-			Recorded: len(nvrtcOptions) > 0,
-			Source:   cuContent,
-			PTX:      ptxContent,
-			SASS:     sassContent,
-		}
-		if !src.Recorded {
-			src.Options = defaultRecompileOptions(src.Arch)
-		}
-		src.Suggested = append(append([]string(nil), src.Options...), "--use_fast_math")
-		data.Recompile = src
-	}
+	data.Recompile = recompileSources(cap, data.Architecture, nvrtcOptions)
 
 	// Remarks & CFG if present
 	var remarksList []tileiras.Remark
@@ -1084,7 +1073,7 @@ func newPipelineServerHandler(data *PipelineViewData) http.Handler {
 		json.NewEncoder(w).Encode(data)
 	})
 
-	if data.Recompile != nil {
+	if len(data.Recompile) > 0 {
 		mux.HandleFunc("/api/recompile", newRecompileHandler(data.Recompile, compileNVRTCVariant))
 	}
 
@@ -1575,16 +1564,24 @@ select:focus, input[type="text"]:focus {
 {{if .Recompile}}
 <section class="nvrtc-panel" id="nvrtcPanel" hidden>
   <div class="nvrtc-row">
-    <span class="nvrtc-hint">Recompile <b>{{.Recompile.File}}</b> with NVRTC and compare against the capture. Each side is an option list, or the word <b>capture</b> for the artifacts this capture already holds.</span>
+    <span class="nvrtc-hint">Recompile one module with NVRTC and compare against the capture. Each side is an option list, or the word <b>capture</b> for the artifacts this capture already holds. Modules are compiled separately and need not share options.</span>
+  </div>
+  <div class="nvrtc-row">
+    <label>M</label>
+    <select id="nvrtcModule" onchange="onRecompileModuleChange()">
+      {{range $idx, $src := .Recompile}}
+      <option value="{{if $src.ID}}{{$src.ID}}{{else}}{{$src.Name}}{{end}}" data-options="{{join $src.Options " "}}" data-suggested="{{join $src.Suggested " "}}" data-recorded="{{$src.Recorded}}" data-file="{{$src.File}}">{{$src.Name}}</option>
+      {{end}}
+    </select>
+    <span class="nvrtc-hint" id="nvrtcModuleHint"></span>
   </div>
   <div class="nvrtc-row">
     <label>A</label>
     <input type="text" id="nvrtcA" value="capture" spellcheck="false">
-    <span class="nvrtc-hint">{{if .Recompile.Recorded}}capture recorded: {{join .Recompile.Options " "}}{{else}}capture did not record its NVRTC options; assumed {{join .Recompile.Options " "}}{{end}}</span>
   </div>
   <div class="nvrtc-row">
     <label>B</label>
-    <input type="text" id="nvrtcB" value="{{join .Recompile.Suggested " "}}" spellcheck="false">
+    <input type="text" id="nvrtcB" value="" spellcheck="false">
   </div>
   <div class="nvrtc-row">
     <span class="nvrtc-hint">toggle on B:</span>
@@ -1667,6 +1664,10 @@ scrollContainers.forEach((c, idx) => {
     });
   });
 });
+
+if (document.getElementById('nvrtcModule')) {
+  onRecompileModuleChange();
+}
 
 document.addEventListener('mouseover', e => {
   const row = e.target.closest('.code-row');
@@ -1755,6 +1756,19 @@ function toggleNVRTCPanel() {
   document.getElementById('nvrtcToggleBtn').classList.toggle('active', !panel.hidden);
 }
 
+function onRecompileModuleChange() {
+  const sel = document.getElementById('nvrtcModule');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
+  document.getElementById('nvrtcA').value = 'capture';
+  document.getElementById('nvrtcB').value = opt.dataset.suggested || '';
+  document.getElementById('nvrtcModuleHint').textContent = opt.dataset.recorded === 'true'
+    ? opt.dataset.file + ', capture recorded: ' + opt.dataset.options
+    : opt.dataset.file + ', capture did not record its NVRTC options; assumed ' + opt.dataset.options;
+  document.getElementById('nvrtcResults').hidden = true;
+  document.getElementById('nvrtcStatus').textContent = '';
+}
+
 function toggleFlag(inputId, flag) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -1777,9 +1791,11 @@ function toggleRecompileTier() {
 function runRecompile() {
   const a = document.getElementById('nvrtcA').value;
   const b = document.getElementById('nvrtcB').value;
+  const sel = document.getElementById('nvrtcModule');
   const status = document.getElementById('nvrtcStatus');
   status.textContent = 'compiling...';
-  fetch('/api/recompile?a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
+  fetch('/api/recompile?module=' + encodeURIComponent(sel.value) +
+        '&a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
     .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t.trim()); }))
     .then(res => {
       recompileResult = res;
@@ -1804,6 +1820,9 @@ function renderRecompileTable() {
     const v = res[side];
     if (v && v.error) {
       html += '<tr><td>' + side.toUpperCase() + '</td><td colspan="4" class="nvrtc-delta-up">' + escapeHtml(v.error) + '</td></tr>';
+      if (v.hint) {
+        html += '<tr><td></td><td colspan="4">' + escapeHtml(v.hint) + '</td></tr>';
+      }
     }
   });
   (res.deltas || []).forEach(d => {
