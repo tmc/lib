@@ -7,6 +7,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuptirange"
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -219,9 +220,12 @@ func TestConfigAndMetricSemantics(t *testing.T) {
 	if _, err := resolveSets([]string{"missing"}); err == nil {
 		t.Fatal("unknown set accepted")
 	}
+	// A repeated selector contributes its metrics once: a duplicate metric is
+	// rejected by Config.validate, so resolution must not produce one.
 	names, err := resolveSets([]string{"instructions", "l2-read", "instructions"})
-	if err != nil || len(names) != 2 {
-		t.Fatalf("%v %v", names, err)
+	want := []string{"smsp__inst_executed.sum", "smsp__thread_inst_executed.sum", "lts__t_sectors_srcunit_tex_op_read.sum"}
+	if err != nil || !slices.Equal(names, want) {
+		t.Fatalf("got %v %v, want %v", names, err, want)
 	}
 }
 
