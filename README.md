@@ -25,7 +25,6 @@ its own release tags (`<dir>/vX.Y.Z`).
 | `tpu` | `github.com/tmc/lib/tpu` | PJRT TPU plugin discovery and loading |
 | `lm` | `github.com/tmc/lib/lm` | Language model loading and sampling helpers |
 | `hf/hfsync` | `github.com/tmc/lib/hf/hfsync` | HuggingFace repository mirroring |
-| `libgit2` | `github.com/tmc/lib/libgit2` | Purego libgit2 bindings |
 | `lldb` | `github.com/tmc/lib/lldb` | Purego LLDB C API bindings |
 | `treesitter` | `github.com/tmc/lib/treesitter` | Purego tree-sitter parsing bindings |
 | `examples` | `github.com/tmc/lib/examples` | Runnable programs that exercise the modules above |
