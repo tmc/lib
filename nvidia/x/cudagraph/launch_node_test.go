@@ -106,3 +106,29 @@ func TestGraphLaunchStorageSnapshot(t *testing.T) {
 		t.Errorf("after release, launchStorage = %v, want only the remaining entry", got)
 	}
 }
+
+func TestAddLaunchZeroDimension(t *testing.T) {
+	base := describeOrFatal(t, cudalaunch.Kernel(0x1000))
+	for _, tt := range []struct {
+		name string
+		desc cudalaunch.Description
+	}{
+		{"grid", cudalaunch.Description{Function: base.Function, Grid: cudalaunch.Dim3{}, Block: base.Block}},
+		{"block", cudalaunch.Description{Function: base.Function, Grid: base.Grid, Block: cudalaunch.Dim3{X: 1}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &Graph{raw: 1}
+			_, err := g.AddLaunch(tt.desc, nil)
+			if err == nil || !strings.Contains(err.Error(), "zero extent") {
+				t.Errorf("AddLaunch = %v, want a zero-extent error", err)
+			}
+		})
+	}
+}
+
+func TestAddLauncherRejectsNoKernel(t *testing.T) {
+	g := &Graph{raw: 1}
+	if _, err := g.AddLauncher(cudalaunch.Kernel(0), nil); err == nil {
+		t.Error("AddLauncher with no kernel succeeded, want error")
+	}
+}

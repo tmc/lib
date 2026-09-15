@@ -22,6 +22,17 @@ type launchArgs struct {
 	desc   cudalaunch.Description
 }
 
+// AddLauncher adds a kernel node running what l is configured to launch. It is
+// the common case of AddLaunch: a caller holding a Launcher needs no
+// intermediate value.
+func (g *Graph) AddLauncher(l *cudalaunch.Launcher, args []any, dependencies ...*Node) (*Node, error) {
+	desc, err := l.Describe()
+	if err != nil {
+		return nil, err
+	}
+	return g.AddLaunch(desc, args, dependencies...)
+}
+
 // AddLaunch adds a kernel node executing desc with args, and returns it.
 //
 // The graph owns the packed arguments and desc's module for as long as the
@@ -38,6 +49,12 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 	if desc.Function == 0 {
 		return nil, fmt.Errorf("cudagraph: launch description has no kernel function")
 	}
+	if err := checkDim("grid", desc.Grid); err != nil {
+		return nil, err
+	}
+	if err := checkDim("block", desc.Block); err != nil {
+		return nil, err
+	}
 	for _, attr := range desc.Attrs {
 		if attr.Id == driver.LaunchAttributeIgnore {
 			continue
@@ -53,12 +70,12 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 
 	node := driver.KernelNodeParams{
 		Func:           desc.Function,
-		GridDimX:       atLeastOne(desc.Grid.X),
-		GridDimY:       atLeastOne(desc.Grid.Y),
-		GridDimZ:       atLeastOne(desc.Grid.Z),
-		BlockDimX:      atLeastOne(desc.Block.X),
-		BlockDimY:      atLeastOne(desc.Block.Y),
-		BlockDimZ:      atLeastOne(desc.Block.Z),
+		GridDimX:       desc.Grid.X,
+		GridDimY:       desc.Grid.Y,
+		GridDimZ:       desc.Grid.Z,
+		BlockDimX:      desc.Block.X,
+		BlockDimY:      desc.Block.Y,
+		BlockDimZ:      desc.Block.Z,
 		SharedMemBytes: desc.SharedMem,
 	}
 	if len(params) > 0 {
@@ -79,11 +96,14 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 	return added, nil
 }
 
-func atLeastOne(v uint32) uint32 {
-	if v == 0 {
-		return 1
+// checkDim rejects a zero extent. A Launcher starts at one block of one
+// thread, so a zero here is an explicit configuration, not an unset field, and
+// substituting one for it would run a launch nobody asked for.
+func checkDim(what string, d cudalaunch.Dim3) error {
+	if d.X == 0 || d.Y == 0 || d.Z == 0 {
+		return fmt.Errorf("cudagraph: %s dimension %dx%dx%d has a zero extent", what, d.X, d.Y, d.Z)
 	}
-	return v
+	return nil
 }
 
 func (g *Graph) retain(a *launchArgs) {
