@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,23 +121,38 @@ func inspectCapturePath(t *testing.T, path string) (inspectReport, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Drain both pipes while the command runs. Reading them afterwards
+	// deadlocks as soon as either exceeds its pipe buffer, and draining them
+	// one after the other would deadlock on stderr filling while stdout is
+	// still being read.
+	outC, errC := make(chan string, 1), make(chan string, 1)
+	for _, d := range []struct {
+		r *os.File
+		c chan string
+	}{{outR, outC}, {errR, errC}} {
+		go func() {
+			var buf bytes.Buffer
+			buf.ReadFrom(d.r)
+			d.c <- buf.String()
+		}()
+	}
 	origOut, origErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = outW, errW
 	runErr := runInspectCommand([]string{"--coverage", path})
+	os.Stdout, os.Stderr = origOut, origErr
 	outW.Close()
 	errW.Close()
-	os.Stdout, os.Stderr = origOut, origErr
-	var outBuf, errBuf bytes.Buffer
-	io.Copy(&outBuf, outR)
-	io.Copy(&errBuf, errR)
+	out, errOut := <-outC, <-errC
+	outR.Close()
+	errR.Close()
 	if runErr != nil {
 		t.Fatalf("inspect: %v", runErr)
 	}
 	var report inspectReport
-	if err := json.Unmarshal(outBuf.Bytes(), &report); err != nil {
-		t.Fatalf("unmarshal inspect report: %v, raw:\n%s", err, outBuf.String())
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatalf("unmarshal inspect report: %v, raw:\n%s", err, out)
 	}
-	return report, errBuf.String()
+	return report, errOut
 }
 
 // TestInspectFlagsOmittedJournal is the F2 control: a capture published

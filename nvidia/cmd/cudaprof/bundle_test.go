@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,24 +157,7 @@ func TestFlightRecorderBundle_InspectCommand(t *testing.T) {
 	bundlePath, _ := createTestFlightRecorderBundle(t, true)
 
 	// Test: cudaprof inspect bundle.tar.gz (single arg, prints full report)
-	origStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-
-	err = runInspectCommand([]string{bundlePath})
-	w.Close()
-	os.Stdout = origStdout
-
-	if err != nil {
-		t.Fatalf("runInspectCommand(bundle.tar.gz): %v", err)
-	}
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	out := buf.String()
+	out := captureStdout(t, func() error { return runInspectCommand([]string{bundlePath}) })
 
 	var report inspectReport
 	if err := json.Unmarshal([]byte(out), &report); err != nil {
@@ -201,19 +183,9 @@ func TestFlightRecorderBundle_InspectCommand(t *testing.T) {
 	}
 
 	// Also test inspect --coverage bundle.tar.gz
-	r2, w2, _ := os.Pipe()
-	os.Stdout = w2
-	err = runInspectCommand([]string{"--coverage", bundlePath})
-	w2.Close()
-	os.Stdout = origStdout
-
-	if err != nil {
-		t.Fatalf("runInspectCommand(--coverage bundle.tar.gz): %v", err)
-	}
-	var buf2 bytes.Buffer
-	io.Copy(&buf2, r2)
+	out2 := captureStdout(t, func() error { return runInspectCommand([]string{"--coverage", bundlePath}) })
 	var covReport inspectReport
-	if err := json.Unmarshal(buf2.Bytes(), &covReport); err != nil {
+	if err := json.Unmarshal([]byte(out2), &covReport); err != nil {
 		t.Fatalf("unmarshal covReport: %v", err)
 	}
 	if covReport.Coverage == nil || covReport.Coverage.ActivityRecords != 42 {

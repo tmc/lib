@@ -526,18 +526,7 @@ func TestAdvice_CLI(t *testing.T) {
 	f.Close()
 
 	// 1. Test 'cudaprof advise capture.pprof'
-	origStdout := os.Stdout
-	r1, w1, _ := os.Pipe()
-	os.Stdout = w1
-	err = runAdviseCommand([]string{capPath})
-	w1.Close()
-	os.Stdout = origStdout
-	if err != nil {
-		t.Fatalf("runAdviseCommand failed: %v", err)
-	}
-	var buf1 bytes.Buffer
-	buf1.ReadFrom(r1)
-	out1 := buf1.String()
+	out1 := captureStdout(t, func() error { return runAdviseCommand([]string{capPath}) })
 	if !strings.Contains(out1, "CUDA Kernel Advice Report") {
 		t.Errorf("advise output missing report header: %s", out1)
 	}
@@ -546,16 +535,9 @@ func TestAdvice_CLI(t *testing.T) {
 	}
 
 	// 2. Test 'cudaprof advise --format=json capture.pprof'
-	r2, w2, _ := os.Pipe()
-	os.Stdout = w2
-	err = runAdviseCommand([]string{"--format=json", capPath})
-	w2.Close()
-	os.Stdout = origStdout
-	if err != nil {
-		t.Fatalf("runAdviseCommand(--format=json) failed: %v", err)
-	}
+	out2 := captureStdout(t, func() error { return runAdviseCommand([]string{"--format=json", capPath}) })
 	var reportJSON AdviceReport
-	if err := json.NewDecoder(r2).Decode(&reportJSON); err != nil {
+	if err := json.NewDecoder(strings.NewReader(out2)).Decode(&reportJSON); err != nil {
 		t.Fatalf("decode advise json failed: %v", err)
 	}
 	if len(reportJSON.Items) == 0 {
@@ -563,16 +545,9 @@ func TestAdvice_CLI(t *testing.T) {
 	}
 
 	// 3. Test 'cudaprof inspect --advise capture.pprof'
-	r3, w3, _ := os.Pipe()
-	os.Stdout = w3
-	err = runInspectCommand([]string{"--advise", capPath})
-	w3.Close()
-	os.Stdout = origStdout
-	if err != nil {
-		t.Fatalf("runInspectCommand(--advise) failed: %v", err)
-	}
+	out3 := captureStdout(t, func() error { return runInspectCommand([]string{"--advise", capPath}) })
 	var inspectAdv AdviceReport
-	if err := json.NewDecoder(r3).Decode(&inspectAdv); err != nil {
+	if err := json.NewDecoder(strings.NewReader(out3)).Decode(&inspectAdv); err != nil {
 		t.Fatalf("decode inspect --advise failed: %v", err)
 	}
 	if len(inspectAdv.Items) == 0 {
