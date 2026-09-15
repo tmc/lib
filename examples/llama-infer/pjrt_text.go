@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tmc/lib/x/hftokenizer"
+	"github.com/tmc/lib/hf/hftokenizer"
 )
 
 // loadPJRTTokenizer validates the pipeline before it can produce model inputs.

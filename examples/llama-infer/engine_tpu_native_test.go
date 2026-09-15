@@ -140,7 +140,7 @@ func TestNativeTPUCheckpointTextWithCPU(t *testing.T) {
 	if err := eng.Generate(context.Background(), Config{}, "hi", 1, func(int32, string) bool { return true }); err == nil {
 		t.Fatal("missing tokenizer accepted")
 	}
-	data, err := os.ReadFile("../../x/hftokenizer/testdata/llama.json")
+	data, err := os.ReadFile("../../hf/hftokenizer/testdata/llama.json")
 	if err != nil {
 		t.Fatal(err)
 	}
