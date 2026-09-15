@@ -1,0 +1,19 @@
+commit 64eb46585159d93afd0641a6f7c872b22fc111c0
+date 2026-09-07T05:54:40Z
+agent Codex
+model GPT-5
+pid 6012
+tty not a tty
+iterm_session_id w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+Documents measured n64 exact identity and stream.sync 580 to 6, plus the retained 2048 FAIL_TIMEOUT on the compressor-defer successor. No throughput or stack attribution claim. Receipts are named in the document.
+
+commit: a94eb54e4eff149b1280724955dc84e4f732048f
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
