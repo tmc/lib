@@ -1665,9 +1665,9 @@ scrollContainers.forEach((c, idx) => {
   });
 });
 
-if (document.getElementById('nvrtcModule')) {
-  onRecompileModuleChange();
-}
+{{if .Recompile}}
+onRecompileModuleChange();
+{{end}}
 
 document.addEventListener('mouseover', e => {
   const row = e.target.closest('.code-row');
@@ -1746,6 +1746,7 @@ function onKernelChange(kernelName) {
     .catch(err => console.error('Failed to load kernel:', err));
 }
 
+{{if .Recompile}}
 let recompileResult = null;
 let recompileTier = 'sass';
 
@@ -1794,22 +1795,40 @@ function runRecompile() {
   const sel = document.getElementById('nvrtcModule');
   const status = document.getElementById('nvrtcStatus');
   status.textContent = 'compiling...';
+  clearRecompileResults();
   fetch('/api/recompile?module=' + encodeURIComponent(sel.value) +
         '&a=' + encodeURIComponent(a) + '&b=' + encodeURIComponent(b))
     .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(t.trim()); }))
     .then(res => {
       recompileResult = res;
-      status.textContent = res.elapsed ? 'compiled in ' + res.elapsed : '';
+      // A variant that failed to compile is not a comparison. The server sends
+      // no deltas for one; say so rather than let "compiled in 55ms" stand.
+      status.textContent = res.note ? 'no comparison: ' + res.note
+        : (res.elapsed ? 'compiled in ' + res.elapsed : '');
       const caveat = document.getElementById('nvrtcCaveat');
-      caveat.textContent = res.caveat;
-      caveat.hidden = false;
+      caveat.textContent = res.note ? '' : res.caveat;
+      caveat.hidden = !caveat.textContent;
       document.getElementById('nvrtcResults').hidden = false;
       renderRecompileTable();
       renderRecompileCode();
     })
     .catch(err => {
       status.textContent = 'failed: ' + err.message;
+      clearRecompileResults();
     });
+}
+
+// clearRecompileResults drops the previous comparison. A stale table left
+// standing under a new request's status line reads as that request's result.
+function clearRecompileResults() {
+  recompileResult = null;
+  document.getElementById('nvrtcResults').hidden = true;
+  document.getElementById('nvrtcTableBody').innerHTML = '';
+  document.getElementById('nvrtcCodeA').textContent = '';
+  document.getElementById('nvrtcCodeB').textContent = '';
+  const caveat = document.getElementById('nvrtcCaveat');
+  caveat.textContent = '';
+  caveat.hidden = true;
 }
 
 function renderRecompileTable() {
@@ -1825,6 +1844,9 @@ function renderRecompileTable() {
       }
     }
   });
+  if (res.note) {
+    html += '<tr><td>note</td><td colspan="4">' + escapeHtml(res.note) + '</td></tr>';
+  }
   (res.deltas || []).forEach(d => {
     const cls = d.delta < 0 ? 'nvrtc-delta-down' : (d.delta > 0 ? 'nvrtc-delta-up' : '');
     const sign = d.delta > 0 ? '+' : '';
@@ -1843,6 +1865,7 @@ function renderRecompileCode() {
     pane.textContent = (v.label || side) + '\n\n' + (text || v.log || v.error || '(no ' + recompileTier.toUpperCase() + ')');
   });
 }
+{{end}}
 
 function escapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
