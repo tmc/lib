@@ -437,12 +437,14 @@ func TestEndToEndTileIRLowering(t *testing.T) {
 		t.Errorf("decoded function IsEntry = false, want true")
 	}
 
-	// 7. Verify tileiras assembly when tileiras (CUDA 13.4+) is available on the system.
+	// 7. Verify tileiras assembly of the bytecode when tileiras (CUDA 13.4+) is
+	// available on the system. tileiras accepts Tile IR bytecode only, so the
+	// bytecode encoded above is what is handed to it, never the textual IR.
 	// Skips cleanly if tileiras is absent or on systems without CUDA 13.4.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	res, err := tileiras.Assemble(ctx, []byte(textIR), tileiras.WithGPUName("sm_90"))
+	res, err := tileiras.Assemble(ctx, bytecode, tileiras.WithGPUName("sm_90"))
 	if err != nil {
 		if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") {
 			t.Skipf("skipping tileiras assembly: %v", err)
@@ -493,7 +495,16 @@ func TestGeneratedTileIRAssemblesWithTileiras(t *testing.T) {
 			}
 
 			textIR := mod.String()
-			res, err := tileiras.Assemble(ctx, []byte(textIR), tileiras.WithGPUName("sm_90"))
+			bytecode, err := mod.EncodeBytecode()
+			if err != nil {
+				t.Fatalf("EncodeBytecode(%s): %v", op, err)
+			}
+			if !tileiras.IsBytecode(bytecode) {
+				t.Fatalf("EncodeBytecode(%s) output lacks the Tile IR bytecode magic", op)
+			}
+
+			// tileiras accepts Tile IR bytecode only; textIR is kept for diagnostics.
+			res, err := tileiras.Assemble(ctx, bytecode, tileiras.WithGPUName("sm_90"))
 			if err != nil {
 				if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") {
 					t.Skipf("skipping tileiras assembly: %v", err)
