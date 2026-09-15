@@ -1,0 +1,34 @@
+commit 23439d79, 2026-09-15
+
+Authored with Claude Code 2.1.257, model Opus 5.
+tty=not-a-tty pid=agent ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_01TkMoMk9FuftyRWRF7vDLDg
+
+Qualified on the DGX (GB10, sm_121) under the GPU lock, matched A/B against
+a base arm built from a0271468 with the three files restored:
+
+  prefill   18.76/18.79 -> 31.42/30.72 t/s
+  device    100.70 s -> 59.93 s prefill kernel time
+  decode    12.68/12.93 -> 12.80/12.92 t/s (unchanged)
+  launches  3,522,832 -> 3,026,448
+
+  ds4_q8_0_matvec_quantized            176,128 -> 0  (_batch 22,016)
+  ds4_q8_0_matvec_quantized_blockdiag   88,064 -> 0  (_batch 11,008)
+  ds4_f16_pair_ordered_chunks          126,976 -> 0  (_batch 15,872)
+  ds4_quant_q8_0                       176,128 -> 99,072
+  ds4_swiglu_quant_q8_0                 88,064 -> 11,008
+  memcpy D2D                                 0 -> 83,968 (87.1 ms)
+
+TestPrefillCapture n=2,64,65,66,128,129,2048: 14/14 captures byte identical
+across arms (cmp on the raw .f32le, 517,120 B each), n2048 prefill digest
+3c190c73..., n64 prefill dce853cb... corroborated by TestCUDAPhaseProfile's
+logits_sha256 on a different harness. Production path -expect-prefill-logits
+accepted the same digest on both arms, with an all-zeros negative control
+confirming the flag rejects.
+
+Pre-existing and NOT caused by this change: TestCUDAProductionHash fails
+identically on both arms, measured 32d7c227..., registered e1500b2e...
+The registered constant needs adjudication on its own.
+
+Artifacts: dgx ~/tmp/df69-batchwire/{out,census}/
