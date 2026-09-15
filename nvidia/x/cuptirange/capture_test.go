@@ -161,3 +161,23 @@ func TestPlanRetainsCaptureCleanup(t *testing.T) {
 		t.Fatalf("retry failed: %v", err)
 	}
 }
+
+func TestCaptureKernelReplayBudgetCountsHostPasses(t *testing.T) {
+	names, err := newMetricNames([]string{"metric"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer names.close()
+	// An unqualified version stops at the next preflight gate, before native
+	// context acquisition. Reaching that gate proves the single host pass was
+	// admitted despite the configuration's four internal metric passes.
+	p := &Plan{host: 1, names: names, passes: 4, version: 130001}
+	result, err := p.CaptureReplay(new(cuda.Device), Limits{MaxPasses: 1, MaxRanges: 1, MaxRangeTreeNodes: 1, MaxCounterBytes: 1024}, CaptureOptions{Mode: Kernels, ReplayMode: KernelReplay}, Replay{
+		Prepare:     func(uint) error { t.Fatal("prepare executed during preflight"); return nil },
+		Run:         func(uint, *Scope) error { t.Fatal("workload executed during preflight"); return nil },
+		Synchronize: func() error { t.Fatal("synchronize executed during preflight"); return nil },
+	})
+	if result != nil || err == nil || !strings.Contains(err.Error(), "kernel replay is not qualified") {
+		t.Fatalf("capture=%v error=%v", result, err)
+	}
+}

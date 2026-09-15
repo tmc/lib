@@ -163,3 +163,28 @@ func ExampleBenchmark() {
 	// BenchmarkDecode/full
 	// BenchmarkDecode/isolated/layer00/attention
 }
+
+func TestBenchmarkRejectsInsufficientAggregateBudget(t *testing.T) {
+	p, w, collector, prepared, runs := benchmarkFixture()
+	p.config.Mode = Kernels
+	p.config.ReplayMode = cuptirange.KernelReplay
+	p.config.Limits.MaxPasses = 1
+	p.configurationPasses = 4
+	if err := p.config.checkPassBudget(p.configurationPasses); err != nil {
+		t.Fatalf("standalone kernel collection rejected: %v", err)
+	}
+	synchronized, timers := 0, 0
+	w.Synchronize = func() error { synchronized++; return nil }
+	out := testing.Benchmark(func(b *testing.B) {
+		r, err := benchmark(b, p, w, func(*Plan, Workload) (benchmarkTimer, error) {
+			timers++
+			return nil, errors.New("unexpected timer creation")
+		})
+		if r != nil || err == nil || !strings.Contains(err.Error(), "whole benchmark aggregate requires 4 host passes, limit is 1") {
+			t.Errorf("result=%v error=%v", r, err)
+		}
+	})
+	if *prepared != 0 || *runs != 0 || synchronized != 0 || timers != 0 || collector.captures != 0 || len(out.Extra) != 0 {
+		t.Fatalf("preflight submitted work or metrics: prepare=%d run=%d sync=%d timer=%d captures=%d metrics=%v", *prepared, *runs, synchronized, timers, collector.captures, out.Extra)
+	}
+}

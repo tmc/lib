@@ -16,7 +16,10 @@ type Limits struct {
 	MaxRanges         uint
 	MaxRangeTreeNodes uint32
 	MaxCounterBytes   int
-	MaxPasses         uint
+	// MaxPasses bounds host Start/Stop calls, not internal kernel replays.
+	// Configuration passes are a lower bound for user replay; nesting may need
+	// additional passes. Native completion is checked within this bound.
+	MaxPasses uint
 }
 
 // CollectionQuality retains native collection progress independently of capture
@@ -155,7 +158,7 @@ func (p *Plan) captureReplay(dev *cuda.Device, limits Limits, options CaptureOpt
 		p.mu.Unlock()
 		return nil, errors.New("cuptirange: closed plan")
 	}
-	if p.passes > limits.MaxPasses {
+	if options.ReplayMode != KernelReplay && p.passes > limits.MaxPasses {
 		p.mu.Unlock()
 		return nil, fmt.Errorf("cuptirange: configuration requires %d passes, limit is %d", p.passes, limits.MaxPasses)
 	}
