@@ -22,3 +22,29 @@ shows 81 changed PTX opcodes (fma.rn.f32 1421->0, fma.rn.ftz.f32 0->1498) and
 zero changed SASS rows.
 
 Found and fixed by: claude-code model=Opus 5 (1M context) session=d56928ce-d6c4-4edb-bd73-c2762257b8f8 iterm_session_id=FE9C2856-3582-4573-899B-332048F9D406 date=2026-09-15
+
+CORRECTION (same author, later the same day) to the paragraph above.
+
+The claim that those four flags 'are no-ops on that source' is WRONG, and so is
+treating the fresh compile as ground truth. Compiling the same 83695 bytes with
+nvcc -arch=sm_121: base FFMA=2686 FFMA.FTZ=0 FCHK=190; --ftz=true FFMA=996
+FFMA.FTZ=1850 FCHK=166. nvcc rewrites 1850 instructions.
+
+NVRTC 13.0 does not. It accepts --ftz=true, applies it to the PTX it returns
+(fma.rn.ftz.f32 1498, fma.rn.f32 0), and returns a CUBIN byte-identical to the
+unflagged one. NVRTC's PTX and its own CUBIN disagree on the same compile.
+Reproduced with a bare nvrtc.CreateProgram probe, no nvrtcx and no cache, so it
+is NVRTC behavior, not a wrapper or cache artifact. --use_fast_math is honored
+all the way to SASS (FFMA.FTZ 1743, FCHK 190->0); the individual flags it
+implies are not.
+
+What survives: the cache defect is real and independent. The cached path served
+ONE shared CUBIN for four distinct option sets while base got another. Four
+unrelated flags cannot agree to the instruction -- that is a keying bug, and
+WithNoCache is a correct mitigation for it. What does not survive is the
+inference that the fresh result is therefore correct; it is only self-consistent.
+
+Consequence for the viewer: for a flag NVRTC honors only in PTX, the SASS tier
+shows zero changed rows and reads as 'this flag does nothing' when nvcc says
+otherwise. PTX differing while SASS does not is the signature of a flag NVRTC
+dropped, not evidence that the flag is inert.
