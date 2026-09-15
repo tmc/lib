@@ -9,7 +9,27 @@ import (
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
+
+// TestStallFixtureNamesAreReal keeps the diff fixtures inside the vocabulary
+// x/cudaprof emits. A fixture is free to invent a sample type, and one that
+// does makes the test exercise a shape no capture can have: that is how four
+// stall narratives in diff.go stayed green while never firing on real data.
+// Builder.SetSampleTypes is the producer's own validator, so it answers this
+// without duplicating the list here.
+func TestStallFixtureNamesAreReal(t *testing.T) {
+	for _, name := range []string{"stall_mem", "stall_wait", "stall_scoreboard"} {
+		if err := cudaprof.NewBuilder().SetSampleTypes(name); err != nil {
+			t.Errorf("SetSampleTypes(%q) = %v, want a name the producer emits", name, err)
+		}
+	}
+	// Negative control: if the validator ever stopped rejecting, every check
+	// above would pass without checking anything.
+	if err := cudaprof.NewBuilder().SetSampleTypes("stall_memory_throttle"); err == nil {
+		t.Error("SetSampleTypes(\"stall_memory_throttle\") = nil, so this test proves nothing")
+	}
+}
 
 func createTestCapture(t *testing.T, kernelName, sassText string) string {
 	t.Helper()
@@ -227,9 +247,13 @@ func TestRunDiffExplain(t *testing.T) {
 		loc := &profile.Location{ID: 1, Line: []profile.Line{{Function: fn, Line: 1}}}
 		p := &profile.Profile{
 			SampleType: []*profile.ValueType{
+				// These must be names x/cudaprof actually emits. The fixture
+				// used to declare stall_memory_throttle and stall_barrier,
+				// which it does not, so this test exercised a shape no capture
+				// can have and asserted a narrative only that shape reached.
 				{Type: "gpu_time", Unit: "nanoseconds"},
-				{Type: "stall_memory_throttle", Unit: "samples"},
-				{Type: "stall_barrier", Unit: "samples"},
+				{Type: "stall_mem", Unit: "samples"},
+				{Type: "stall_wait", Unit: "samples"},
 			},
 			Sample: []*profile.Sample{
 				{
@@ -286,11 +310,13 @@ func TestRunDiffExplain(t *testing.T) {
 	if !strings.Contains(out, "Execution Duration Delta") {
 		t.Errorf("output missing duration delta section: %s", out)
 	}
-	if !strings.Contains(out, "stall_memory_throttle") {
-		t.Errorf("output missing stall_memory_throttle: %s", out)
+	if !strings.Contains(out, "stall_mem") {
+		t.Errorf("output missing stall_mem: %s", out)
 	}
-	if !strings.Contains(out, "Memory Pipeline Efficiency") {
-		t.Errorf("output missing architectural explanation: %s", out)
+	// The stall table is the part that works on real captures: 5000 -> 2000
+	// samples is a 60% drop, and the row has to carry it.
+	if !strings.Contains(out, "-60.0%") {
+		t.Errorf("output missing the stall_mem shift: %s", out)
 	}
 	if !strings.Contains(out, "1.33×") && !strings.Contains(out, "1.33x") {
 		t.Errorf("output missing expected speedup calculation: %s", out)
