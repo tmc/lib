@@ -1,0 +1,49 @@
+commit c22fdb9b  2026-09-11
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Written by a subagent in an isolated worktree based on f1b7fbf6, merged
+here after adjudication rather than taken on report. What I checked myself
+rather than accepting:
+
+rank 2 -- router_hash and router_biased (metal_ops_darwin.go:1274, :1288)
+do take no thread position; both are one-thread kernels with 256 hardcoded,
+so the encode-side-only widening is forced, not a shortcut. router_hash
+does declare constant uint &token [[buffer(5)]], so the buffer binding is
+legitimate. sum_vectors reduces across row at stride width, so the axis fix
+is the right one.
+
+rank 1 -- the batch tests pass with MTL_DEBUG_LAYER=1 and
+MTL_SHADER_VALIDATION=1, which the agent had not run; the 4-byte-granular
+constant-buffer offsets draw no complaint from either validator. The full
+model-free package suite passes on the merged tree under API validation,
+a combination neither agent could test alone.
+
+The sha256 of all four merged files matches what each agent reported after
+restoring its mutations, which is independent evidence the restores were
+real.
+
+undetermined -- the HC RMS-norm sqrt/rsqrt branch. The comment appeals to
+kernel_rms_norm_fuse_impl; no copy of it exists in this repo and no
+llama.cpp checkout is reachable, so it could not be settled at rank 2 and
+is recorded as undetermined at the site.
+
+corrected -- I first read the agent's once-per-call b.encoded++ as
+undercounting. It is not: metal_batch_darwin.go:237 already establishes
+that the counter counts operations at the API level. The real defect was
+the label, fixed separately in f8b6bd51.
+
+Neither commit changes a runtime call site; the ...Tokens forms are
+exercised only by the new tests so far.
+
+commit: 6e993516b305897c51ad4ca9eda5e0d526beb2d5
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
