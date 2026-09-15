@@ -243,6 +243,19 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 
 			// Group enqueue on locked OS thread
 			t0 := time.Now()
+			// The line the collective was actually issued from, captured at the
+			// call rather than at the recording site below: the two are in
+			// different closures, and a profile frame that names the recorder
+			// sends a reader to the code that wrote the sample.
+			//
+			// runtime.Caller(0) still reports its own line, which is the
+			// statement immediately above the collective rather than the
+			// collective itself. The mechanism is unchanged; only the distance
+			// is, from the recording site roughly ninety lines away to one.
+			// Naming the call exactly would mean hardcoding a line number,
+			// which goes stale silently, so a frame one line high is the better
+			// trade -- but it is a trade, not a fix.
+			var collectiveLine int
 			enqueueErr := func() error {
 				runtime.LockOSThread()
 				defer runtime.UnlockOSThread()
@@ -262,6 +275,7 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 					_ = rc.dev.WithContext(func() error {
 						var err error
 						if op == "allreduce" {
+							_, _, collectiveLine, _ = runtime.Caller(0)
 							err = comms[r].AllReduce(
 								nccl.Buffer(rc.sendPtr),
 								nccl.Buffer(rc.recvPtr),
@@ -271,6 +285,7 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 								nccl.Stream(rc.stream.Raw()),
 							)
 						} else {
+							_, _, collectiveLine, _ = runtime.Caller(0)
 							err = comms[r].AllGather(
 								nccl.Buffer(rc.sendPtr),
 								nccl.Buffer(rc.recvPtr),
@@ -350,14 +365,29 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 					res.Verified[op][r] += numExpected
 					// Record pprof sample
 					if prof != nil {
+						// Samples counts launches everywhere in this profile,
+						// collectives included; recording gpu_time without it
+						// would leave these rows invisible to -sample_index=samples
+						// while they contribute to the time.
 						vals := cudaprof.SampleValues{
+							Samples:  1,
 							GPUNanos: elapsed.Nanoseconds(),
 						}
-						_, _, callerLine, _ := runtime.Caller(0)
-						prof.RecordStackSample(ctx, vals, []cudaprof.Frame{
-							{FunctionName: "nccl." + op, FileName: "x/nccl/nccl.go", Line: 0},
-							{FunctionName: "main.runNCCLWorkload", FileName: "nccl_workload.go", Line: int64(callerLine)},
-						})
+						// The file is a bundle base name, not a build-host
+						// path: the capture ships its own sources and a reader
+						// resolves frames against those. x/nccl is not among
+						// them, so naming it would point every source view at a
+						// file no reader has.
+						//
+						// goFrames supplies the Go stack, as the CUDA launch
+						// path does. Without it these rows are a second root:
+						// collective time floating beside the launches, which
+						// no -focus on the launch path can reach and no flame
+						// graph can attribute.
+						frames := []cudaprof.Frame{
+							{FunctionName: "nccl." + op, FileName: "nccl_workload.go", Line: int64(collectiveLine)},
+						}
+						prof.RecordStackSample(ctx, vals, append(frames, goFrames(1)...))
 					}
 				}
 			}

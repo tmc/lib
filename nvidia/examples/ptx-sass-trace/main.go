@@ -42,7 +42,7 @@ func main() {
 	ncclFlag := flag.String("nccl", "off", "optional NCCL collective mode: off, allreduce, allgather, both")
 	flag.BoolVar(&cfg.pcSampling, "pcsampling", false, "collect hardware PC samples; perturbs the CUDA event intervals and requires Linux with CUPTI 130001 or 130400")
 	flag.UintVar(&cfg.pcPeriod, "pcsampling-period", 10, "PC sampling period exponent: 2^n GPU cycles, 5 through 31")
-	flag.BoolVar(&cfg.hotspots, "hotspots", false, "synthesize instruction-level hotspot and stall attribution across PTX and SASS instructions")
+	flag.BoolVar(&cfg.hotspots, "hotspots", false, "model per-instruction cost from a static opcode table; reported as modeled_cost, never as a measured counter, and not combinable with -pcsampling")
 	graphFlag := flag.String("graph", "off", "CUDA graph execution mode: off, capture, or pdl")
 	flag.BoolVar(&cfg.sassMetrics, "sass-metrics", false, "collect CUPTI SASS metrics instrumentation")
 	flag.BoolVar(&cfg.pmSampling, "pmsampling", false, "collect CUPTI Performance Monitor (PM) counter availability")
@@ -65,6 +65,14 @@ func main() {
 	case "off", "allreduce", "allgather", "both":
 	default:
 		log.Fatalf("unknown -nccl mode %q; allowed: off, allreduce, allgather, both", *ncclFlag)
+	}
+
+	// Both modes write a per-instruction row, one measured by the device and
+	// one computed from an opcode table. Allowing both would put the two kinds
+	// of number in one profile, where a reader has nothing to separate them by:
+	// the sample types are the only provenance a pprof file carries.
+	if cfg.pcSampling && cfg.hotspots {
+		log.Fatalf("-pcsampling and -hotspots are mutually exclusive: -pcsampling measures per-instruction cost, -hotspots models it")
 	}
 
 	if cfg.ncclMode == "off" {
@@ -160,6 +168,11 @@ func run(dir string, cfg config) error {
 		fmt.Printf("cupti pm sampling: status=%s (%d bytes availability image)\n",
 			m.PMSampling.Status, m.PMSampling.AvailabilitySize)
 	}
+	// The interior count is printed beside the divergence count because it is
+	// what makes the divergence count meaningful: with no interior NOPs, a
+	// Padding divergence is unreachable and the zero says nothing.
+	fmt.Printf("ptx->sass: %d divergences, %d NOPs of ptxas padding (%d interior; see lowering.txt)\n",
+		m.Divergences, m.PaddingNOPs, m.InteriorNOPs)
 	fmt.Printf("capture: %s\n", dir)
 	if m.PCSampling != nil {
 		fmt.Printf("Hardware PC sampling active: %d samples collected across %d PCs, %.1f%% resolved to PTX.\n",

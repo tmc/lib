@@ -26,15 +26,32 @@ func TestSampleTypes(t *testing.T) {
 	// pc_samples is separate from samples because samples counts launches.
 	on := sampleTypes(true)
 	for _, want := range []string{
-		"samples", "pc_samples", "inst_executed",
-		"stall_mem", "stall_wait", "stall_scoreboard", "stall_math",
-		"stall_branch", "stall_fetch", "stall_drain", "stall_dispatch",
-		"stall_not_selected",
-		"gpu_time",
+		"samples", "pc_samples", "inst_executed", "gpu_time",
 	} {
 		if !slices.Contains(on, want) {
 			t.Errorf("sampleTypes(true) = %v, missing %q", on, want)
 		}
+	}
+
+	// The stall types are NOT restated here. An earlier version listed them,
+	// which made this test a second hand-written copy of the literal it was
+	// checking: both written by one author, agreeing by construction, and
+	// unable to notice a type neither copy mentioned. That is how stall_other
+	// came to be counted upstream and absent from every capture this example
+	// produced. Deriving the set from cudaprof is what makes the two
+	// independent.
+	var missing []string
+	for _, name := range cudaprof.SampleTypeNames() {
+		if !strings.HasPrefix(name, "stall_") {
+			continue
+		}
+		if !slices.Contains(on, name) {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		t.Errorf("sampleTypes(true) omits stall types %v; a metric the bridge fills and this "+
+			"list does not select is written nowhere", missing)
 	}
 }
 

@@ -17,21 +17,43 @@ import (
 // address whether it is written at capture time or synthesized at view time.
 const ptxBase = cudaprof.PTXMappingStart
 
-// sampleTypes reports the profile's value types. Stall counters exist under
-// PC sampling or when instruction hotspot attribution is active.
+// sampleTypes reports the profile's value types. Stall counters exist only
+// under PC sampling, which measures them.
 func sampleTypes(pcSampling bool) []string {
 	return sampleTypesWithHotspots(pcSampling, false)
 }
 
+// sampleTypesWithHotspots reports the value types for a run. The two modes get
+// disjoint sets, and -pcsampling and -hotspots are rejected together, so a
+// profile never carries both a measured and a modeled value.
+//
+// Hotspot attribution derives its numbers from a static opcode table, not from
+// the device. Writing them as pc_samples, inst_executed, stall_* or gpu_time
+// would name a model's output after a hardware counter, and nothing downstream
+// could tell the two apart: pprof shows a sample type, not its lineage. They
+// are reported as modeled_cost, which no measurement writes.
+//
+// samples and gpu_time mean the same thing in all three modes: one row per
+// launch, holding that launch's measured CUDA event interval. The modeled rows
+// under -hotspots add modeled_cost and leave both of those zero.
 func sampleTypesWithHotspots(pcSampling, hotspots bool) []string {
-	if pcSampling || hotspots {
+	if pcSampling {
 		return []string{
 			"samples", "pc_samples", "inst_executed",
 			"stall_mem", "stall_wait", "stall_scoreboard", "stall_math",
 			"stall_branch", "stall_fetch", "stall_drain", "stall_dispatch",
 			"stall_not_selected",
+			// A reason the classifier does not recognize is counted here
+			// rather than dropped. Selecting the type is what puts it in the
+			// capture: SetSampleTypes writes only what this list names, so a
+			// default arm upstream counts into a column the artifact does not
+			// carry unless the column is asked for.
+			"stall_other",
 			"gpu_time",
 		}
+	}
+	if hotspots {
+		return []string{"samples", "modeled_cost", "gpu_time"}
 	}
 	return []string{"samples", "gpu_time"}
 }

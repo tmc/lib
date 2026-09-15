@@ -1,0 +1,90 @@
+padding.{ptx,sass}: one compiled kernel that makes cudalowering.Compare
+report a Padding divergence, for TestLoweringDetectsPadding.
+ds4_math.cu: the source both were compiled from.
+
+Why it is here
+--------------
+The kernels this example compiles pad only after their last real
+instruction, so on its own captures InteriorNOPs is zero for every
+kernel and Padding is unreachable. Spill needs local memory and there is
+none; Erased and Unsourced do not fire either. Every divergence kind is
+empty by construction, which makes "0 divergences" the same output a
+Compare that had stopped working would produce. This fixture is the
+input where the check has to speak.
+
+What it is
+----------
+One kernel, ds4_iq2_xxs_pair_selected_f32: 480 PTX instructions, 1088
+SASS instructions, 187 NOPs, 172 of them interior. That is 15.8%
+interior, above cudalowering.DefaultMaxNOPFraction (0.10), so Compare
+reports one Padding divergence. Nobody on this thread chose where those
+172 NOPs went, which is the point -- a hand-written pair would have the
+same author for the input and the expectation.
+
+ds4_math.cu is the whole translation unit: 52 kernels, with the fixture
+kernel at line 699. It has no #include, so it compiles standalone
+without the ds4 tree.
+
+Toolchain, as stamped by the artifacts themselves
+-------------------------------------------------
+padding.ptx header:  Cuda compilation tools, release 13.0, V13.0.88
+                     Compiler Build ID: CL-36424714
+                     Based on NVVM 20.0.0
+                     .version 9.0 (PTX ISA), .address_size 64
+padding.sass:        .target sm_121
+
+The original nvcc command line was NOT recorded, and none is asserted
+here. What the artifacts establish is the toolkit version, the PTX ISA
+version and the target architecture above; the remaining flags
+(optimization level, -lineinfo and so on) are not recoverable from what
+was kept.
+
+Regenerating
+------------
+Compiling ds4_math.cu reproduces the PARENT artifacts, not these files:
+all 52 kernels, tens of thousands of lines. The extraction below must be
+reapplied to the result before it can be compared with padding.ptx and
+padding.sass -- diffing the compiler's output against these files
+directly will differ in everything, from a completely correct run.
+
+    nvcc -arch=sm_121 -cubin -o ds4_math.cubin ds4_math.cu
+    nvcc -arch=sm_121 -ptx   -o ds4_math.ptx   ds4_math.cu
+    nvdisasm -c -g ds4_math.cubin > ds4_math.sass
+    # then extract, as below, and compare counts rather than bytes
+
+Expect the debug sections and possibly the scheduling to differ, since
+the original flags are unknown: the counts asserted by the test (1088
+SASS instructions, 187 NOPs, 172 interior) are the comparison that
+means something, not byte identity.
+
+Extraction
+----------
+padding.ptx is ds4_math.ptx's header (everything before the first
+.visible .entry) followed by the .visible .entry
+ds4_iq2_xxs_pair_selected_f32 block up to its closing brace at column 0.
+padding.sass is ds4_math.sass's header (everything before the first
+.section) followed by the .section
+.text.ds4_iq2_xxs_pair_selected_f32 block up to the next .section.
+Compare's verdict and all three counts are identical on the extracted
+pair and on the 41469-line original, which is what makes the extraction
+sound.
+
+sha256
+------
+1e74331d589959d3bb0b3fe731d2943a25a3f68268ae5026d43843cee32dae91  ds4_math.cu
+26c763cb240202f8b601f24329b1a4a95a24d2bfef3cea0412c4ee16a68d7481  padding.ptx
+90b711f87a0579397ce28e7401eb8ca8f49b64b5a56375d61e3babbfb8422bc1  padding.sass
+
+Provenance
+----------
+ds4_math.cu is a verbatim copy of the file of that name from a cudaprof
+capture directory, ~/tmp/cudaprof-1551522163, written 2026-09-12. It is
+vendored rather than referenced because that directory is scratch: a
+digest of a file that may not exist later is attributable but not
+reproducible, and the point of the fixture is that a reader can
+regenerate and diff rather than trust it. The parent artifacts in that
+directory were:
+
+454efa7169107f5c32fcf6e828b8c92f59dd5145d6cca6b3cb4ad7e7026503c1  ds4_math.ptx
+62bc1d9d6d31336a0ce6df4a5ed09113ffb5f09d9296536ac68aaa3b72fcd04e  ds4_math.sass
+6462dbf1239599477646022e85dbbb332a4efef0e29f2e3ac6222bb95495df16  ds4_math.cubin

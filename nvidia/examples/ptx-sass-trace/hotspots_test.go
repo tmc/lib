@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/google/pprof/profile"
@@ -54,8 +55,13 @@ func TestRecordInstructionHotspots(t *testing.T) {
 	ptxLines := []uint64{0, 0, 10, 20}
 	rec := newLaunchRecorder(prof, ptxLines)
 
+	// Offset is nonzero because that is the case the addresses have to survive:
+	// cudacapture enforces Instructions[0].Offset == 0, so a kernel-relative
+	// address is indistinguishable from a correct one on the first kernel in
+	// the CUBIN and wrong on every other.
 	k := &cudacapture.Kernel{
 		Name:       "test_kernel",
+		Offset:     0xd900,
 		PTXLine:    2,
 		SourceLine: 40,
 		Instructions: []cudacapture.Instruction{
@@ -65,7 +71,7 @@ func TestRecordInstructionHotspots(t *testing.T) {
 		},
 	}
 
-	attributed := recordInstructionHotspots(context.Background(), rec, k, 5, 1000000, nil)
+	attributed := recordInstructionHotspots(context.Background(), rec, k, 5, nil)
 	if attributed != 3 {
 		t.Errorf("attributed %d instructions, want 3", attributed)
 	}
@@ -87,6 +93,70 @@ func TestRecordInstructionHotspots(t *testing.T) {
 	for i, s := range p.Sample {
 		if len(s.Location) != 4 {
 			t.Errorf("sample %d: expected 4 locations (SASS, PTX, TileIR, Source), got %d", i, len(s.Location))
+		}
+	}
+
+	// A modeled run must not write a sample type a measurement writes. pprof
+	// carries no lineage beyond these names, so a reader who sees pc_samples
+	// has no way to learn nothing was sampled.
+	var names []string
+	for _, st := range p.SampleType {
+		names = append(names, st.Type)
+	}
+	for _, measured := range []string{
+		"pc_samples", "inst_executed", "stall_mem", "stall_wait",
+		"stall_scoreboard", "stall_math", "stall_branch",
+	} {
+		if slices.Contains(names, measured) {
+			t.Errorf("modeled profile declares measured sample type %q; types = %v", measured, names)
+		}
+	}
+	costIndex := slices.Index(names, "modeled_cost")
+	if costIndex < 0 {
+		t.Fatalf("modeled profile has no modeled_cost sample type; types = %v", names)
+	}
+
+	// The weights are the opcode table's, so they are the assertion: LDG and
+	// STG cost 60, FFMA costs 4. Reading them back proves the model's output
+	// reached the profile as a model rather than as a counter.
+	want := []int64{60, 4, 60}
+	for i, s := range p.Sample {
+		if got := s.Value[costIndex]; got != want[i] {
+			t.Errorf("sample %d: modeled_cost = %d, want %d", i, got, want[i])
+		}
+	}
+
+	// Excluding the measured type names is not enough on its own: dividing the
+	// launch duration by weight and writing it to gpu_time passes every check
+	// above, and gpu_time means a measured CUDA event interval in the other two
+	// modes. A modeled row must leave every measured value at zero and let the
+	// caller's launch-level row carry the real one.
+	for _, measured := range []string{"gpu_time", "samples"} {
+		i := slices.Index(names, measured)
+		if i < 0 {
+			continue
+		}
+		for j, s := range p.Sample {
+			if s.Value[i] != 0 {
+				t.Errorf("modeled sample %d has nonzero %s = %d; only the launch row may carry it", j, measured, s.Value[i])
+			}
+		}
+	}
+
+	// pprof addresses are DefaultMappingStart plus a CUBIN file offset, which
+	// is the kernel's offset plus the instruction's offset within it. Dropping
+	// the kernel term puts every kernel's entry on one address and makes their
+	// ranges alias; nothing in a line-oriented view shows it, and
+	// -granularity=addresses, peek and weblist are all keyed on it.
+	wantAddr := []uint64{
+		cudaprof.DefaultMappingStart + 0xd900 + 0x00,
+		cudaprof.DefaultMappingStart + 0xd900 + 0x10,
+		cudaprof.DefaultMappingStart + 0xd900 + 0x20,
+	}
+	for i, s := range p.Sample {
+		leaf := s.Location[0]
+		if leaf.Address != wantAddr[i] {
+			t.Errorf("sample %d: SASS address = %#x, want %#x", i, leaf.Address, wantAddr[i])
 		}
 	}
 }

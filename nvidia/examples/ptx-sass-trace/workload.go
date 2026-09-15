@@ -834,11 +834,11 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 		tileLine := rec.tileIRLines[k.Name]
 		rec.mu.Unlock()
 
-		if hotspotsActive && len(k.Instructions) > 0 {
-			recordInstructionHotspots(ctx, rec, k, tileLine, elapsed.Nanoseconds(), stack)
-		} else {
-			// One launch per sample, so -sample_index=samples reports launch counts
-			// instead of an empty report.
+		// The launch-level row is recorded in every mode, including -hotspots.
+		// It is the only row carrying gpu_time, so that type holds measured CUDA
+		// event intervals and nothing else, and samples counts launches whatever
+		// the mode. The modeled rows below add modeled_cost beside it.
+		{
 			vals := cudaprof.SampleValues{
 				Samples:  1,
 				GPUNanos: elapsed.Nanoseconds(),
@@ -860,6 +860,9 @@ func runKernel(ctx context.Context, launcher *cudalaunch.Launcher, args []any, s
 			}
 			frames = append(frames, cudaprof.Frame{FunctionName: k.Name, FileName: "kernels.cu", Line: int64(k.SourceLine)})
 			rec.prof.RecordStackSample(ctx, vals, append(frames, stack...))
+		}
+		if hotspotsActive && len(k.Instructions) > 0 {
+			recordInstructionHotspots(ctx, rec, k, tileLine, stack)
 		}
 	}
 	return elapsed.Nanoseconds(), nil

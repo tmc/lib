@@ -22,6 +22,7 @@ import (
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
@@ -46,6 +47,9 @@ type captureMetadata struct {
 	NCCL         *ncclResult        `json:"nccl,omitempty"`
 	PCSampling   *pcSamplingResult  `json:"pc_sampling,omitempty"`
 	Hotspots     bool               `json:"instruction_hotspots,omitempty"`
+	Divergences  int                `json:"ptx_sass_divergences"`
+	PaddingNOPs  int                `json:"sass_padding_nops"`
+	InteriorNOPs int                `json:"sass_interior_nops"`
 	Graph        *graphResult       `json:"cuda_graph,omitempty"`
 	SassMetrics  *sassMetricsResult `json:"sass_metrics,omitempty"`
 	PMSampling   *pmSamplingResult  `json:"pm_sampling,omitempty"`
@@ -199,6 +203,34 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse virtual ptx: %w", err)
 	}
+	parsedSASS, err := cudasass.Parse(bytes.NewReader(assembly.Stdout))
+	if err != nil {
+		return nil, fmt.Errorf("parse sass: %w", err)
+	}
+
+	// The PTX says what the compiler was asked for and the SASS says what the
+	// hardware was given; shipping both without comparing them leaves the
+	// reader to do it by eye. Compare names the places ptxas did something the
+	// PTX does not predict: work erased, instructions introduced, registers
+	// spilled, and the NOP padding that displaces any instruction mix a
+	// prediction was made from.
+	lowering, err := cudalowering.Compare(virtual, parsedSASS, nil)
+	if err != nil {
+		return nil, fmt.Errorf("compare ptx to sass: %w", err)
+	}
+	//
+	// A zero here is reported with the reason it is zero. Every divergence kind
+	// has a structural precondition -- Padding needs interior NOPs, Spill needs
+	// local memory -- and on a capture that meets none of them, "0 divergences"
+	// is produced by the same code path as a Compare that silently stopped
+	// working. The preconditions this input actually meets are written into the
+	// file, so a reader can tell a clean lowering from an inert check.
+	captureFiles["lowering.txt"] = []byte(lowering.String() + loweringCoverage(lowering))
+	meta.Divergences = len(lowering.Divergences)
+	for _, st := range lowering.Stats {
+		meta.PaddingNOPs += st.NOPs
+		meta.InteriorNOPs += st.InteriorNOPs
+	}
 	discovered, err := discoverKernels(disassemblyInput)
 	if err != nil {
 		return nil, fmt.Errorf("discover kernels from cubin: %w", err)
@@ -237,9 +269,17 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	if err := prof.SetSampleTypes(sampleTypesWithHotspots(cfg.pcSampling, cfg.hotspots)...); err != nil {
 		return nil, fmt.Errorf("set sample types: %w", err)
 	}
-	// gpu_time is the type that always carries data; a consumer defaulting to
-	// index 0 would otherwise render an empty profile.
-	if err := prof.SetDefaultSampleType("gpu_time"); err != nil {
+	// The view a consumer opens, which is the number most readers will ever
+	// see. gpu_time is measured in every mode and always carries data, so it is
+	// the default -- except under -hotspots, where the per-instruction rows the
+	// user asked for carry only modeled_cost and defaulting to gpu_time would
+	// open on the launch rows instead. modeled_cost is named for what it is, so
+	// opening on it cannot be mistaken for a measurement.
+	defaultType := "gpu_time"
+	if cfg.hotspots {
+		defaultType = "modeled_cost"
+	}
+	if err := prof.SetDefaultSampleType(defaultType); err != nil {
 		return nil, fmt.Errorf("set default sample type: %w", err)
 	}
 	prof.SetPeriod("gpu_time", "nanoseconds", 1)
@@ -260,11 +300,14 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 		wRes, err = runWorkload(ctx, dev, mod, rec, code, cfg)
 	}
 
+	// This comment is the file's own account of where its numbers came from,
+	// and it travels with the capture. The two modes are rejected together in
+	// main, so exactly one of these is true of any profile.
 	attribution := "whole launch at entry; no PC sampling"
 	if cfg.pcSampling {
 		attribution = "hardware PC samples attributed to SASS, PTX and source"
 	} else if cfg.hotspots {
-		attribution = "instruction-level hotspot attribution across SASS, PTX, and TileIR"
+		attribution = "modeled_cost from a static opcode table across SASS, PTX and TileIR; no value in this profile was sampled"
 	}
 	// These three are constant for the whole run, so they are comments rather
 	// than labels: a label with one value across every sample splits nothing,
@@ -315,8 +358,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 	}
 
 	if cfg.sassMetrics {
-		parsedDis, _ := cudasass.Parse(bytes.NewReader(assembly.Stdout))
-		sRes, sData, sErr := collectSassMetrics(dev, parsedDis)
+		sRes, sData, sErr := collectSassMetrics(dev, parsedSASS)
 		if sErr != nil {
 			return nil, fmt.Errorf("collect sass metrics: %w", sErr)
 		}
@@ -456,4 +498,36 @@ func isArithmeticOpcode(op string) bool {
 		}
 	}
 	return false
+}
+
+// loweringCoverage reports which divergence kinds the compared input could have
+// produced. Compare reporting nothing is the same output whether the lowering
+// was clean or the comparison was inert, and the kinds are not symmetric: a
+// kernel whose NOPs are all trailing cannot report Padding however broken or
+// correct Compare is. Stating the preconditions separates the two readings.
+func loweringCoverage(res *cudalowering.Report) string {
+	var kernels, interior, nops int
+	for _, st := range res.Stats {
+		kernels++
+		nops += st.NOPs
+		interior += st.InteriorNOPs
+	}
+	var b strings.Builder
+	b.WriteString("\ncoverage\n")
+	fmt.Fprintf(&b, "\tkernels compared: %d\n", kernels)
+	fmt.Fprintf(&b, "\tNOPs: %d, of which interior: %d\n", nops, interior)
+	if len(res.Divergences) > 0 {
+		return b.String()
+	}
+	b.WriteString("\tno divergences reported.")
+	if interior == 0 {
+		b.WriteString(" Every NOP in this capture is trailing alignment\n" +
+			"\tpadding, so Padding cannot fire on this input regardless of the\n" +
+			"\tcomparison's health; the zero above is not evidence that the check\n" +
+			"\truns. The check is exercised against a kernel that does pad interior\n" +
+			"\tby TestLoweringDetectsPadding.\n")
+	} else {
+		b.WriteString(" Interior NOPs are present, so Padding was\n\treachable and did not fire.\n")
+	}
+	return b.String()
 }

@@ -58,15 +58,27 @@ func instructionOpcode(text string) string {
 	return strings.TrimSuffix(s, ";")
 }
 
-// recordInstructionHotspots distributes the measured launch duration across the
-// kernel's disassembled instructions according to an opcode cost model, turning
-// navigation anchors into genuine instruction-level hotspots with stall attribution.
+// recordInstructionHotspots records a static opcode cost for each of the
+// kernel's disassembled instructions, as modeled_cost and as nothing else.
+//
+// The result is a model, not a measurement: the weights come from the opcode
+// name alone, so they are identical for every launch, block size and input
+// size. It is useful for finding which instructions a kernel is made of, and
+// useless for deciding which one is slow. -pcsampling answers that by sampling
+// the program counter, and the two modes are mutually exclusive so that no
+// profile mixes the two kinds of number.
+//
+// These rows carry no samples and no gpu_time. An earlier version divided the
+// launch's measured duration among the instructions by weight, which put the
+// cost table, rescaled, under a type name that means a measured CUDA event
+// interval in every other mode -- and it was the profile's default view, so a
+// -hotspots capture opened on it. The launch's real duration is recorded once
+// by the caller, on its own row.
 func recordInstructionHotspots(
 	ctx context.Context,
 	rec *launchRecorder,
 	k *cudacapture.Kernel,
 	tileIRLine int,
-	elapsedNanos int64,
 	stack []cudaprof.Frame,
 ) int {
 	if rec == nil || rec.prof == nil || k == nil || len(k.Instructions) == 0 {
@@ -76,46 +88,26 @@ func recordInstructionHotspots(
 	type instWeight struct {
 		inst   cudacapture.Instruction
 		weight int64
-		stall  string
 	}
 
+	// The stall class the cost table assigns is deliberately dropped. Stall
+	// attribution is a measurement -pcsampling makes; asserting one from an
+	// opcode name would put a guess in the same counters the hardware fills.
 	weights := make([]instWeight, len(k.Instructions))
-	var totalWeight int64
 	for i, inst := range k.Instructions {
 		op := instructionOpcode(inst.Text)
-		w, stall := instructionCost(op)
-		weights[i] = instWeight{inst: inst, weight: w, stall: stall}
-		totalWeight += w
-	}
-	if totalWeight <= 0 {
-		totalWeight = 1
+		w, _ := instructionCost(op)
+		weights[i] = instWeight{inst: inst, weight: w}
 	}
 
 	attributed := 0
 	for _, iw := range weights {
-		instNanos := (elapsedNanos * iw.weight) / totalWeight
-		if instNanos <= 0 {
-			instNanos = 1
-		}
-
-		vals := cudaprof.SampleValues{
-			Samples:      iw.weight,
-			PCSamples:    iw.weight,
-			InstExecuted: iw.weight,
-			GPUNanos:     instNanos,
-		}
-
-		switch iw.stall {
-		case "stall_scoreboard":
-			vals.StallScoreboard = iw.weight
-			vals.StallMem = iw.weight / 2
-		case "stall_wait":
-			vals.StallWait = iw.weight
-		case "stall_math":
-			vals.StallMath = iw.weight
-		case "stall_branch":
-			vals.StallBranch = iw.weight
-		}
+		// The weight is the opcode table's, which is a model, so it goes to
+		// ModeledCost: it is not a PC sample, not an instruction count, and not
+		// a stall counter, and naming it after any of those would make a table
+		// lookup indistinguishable from a device measurement in the shared
+		// profile.
+		vals := cudaprof.SampleValues{ModeledCost: iw.weight}
 
 		ptxLine := iw.inst.PTXLine
 		if ptxLine <= 0 {
@@ -131,7 +123,14 @@ func recordInstructionHotspots(
 				FunctionName: k.Name + ".SASS",
 				FileName:     "kernels.sass",
 				Line:         int64(iw.inst.SASSLine),
-				Address:      cudaprof.DefaultMappingStart + iw.inst.Offset,
+				// Instruction.Offset is relative to the kernel's own .text
+				// section, and cudacapture enforces that the first is zero, so
+				// the kernel's own offset has to be added to reach the CUBIN
+				// file offset the profile's addresses are defined as. Without
+				// it every kernel's entry is 0x7f000000 and their ranges alias
+				// each other -- invisible in the line-oriented views, wrong in
+				// exactly the address-keyed ones a SASS profile is for.
+				Address: cudaprof.DefaultMappingStart + k.Offset + iw.inst.Offset,
 			},
 			{
 				FunctionName: k.Name + ".PTX",
