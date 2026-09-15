@@ -1,0 +1,5 @@
+# Synthetic parser fixture; no hardware execution or performance claim.
+goos: linux
+goarch: arm64
+pkg: example.com/decode
+BenchmarkDecode/full-8 100 3000 gpu-ns/op
