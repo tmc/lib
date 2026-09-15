@@ -78,6 +78,18 @@ type captureRecordPayload struct {
 	GraphID             uint32     `json:"graph_id"`
 	GraphNodeID         uint64     `json:"graph_node_id"`
 	Dropped             uint64     `json:"dropped"`
+	// The finalized record carries the breakdown of what the producer lost.
+	// Dropped above is their sum, and a sum cannot be acted on: the mechanisms
+	// have different remedies and one of them is not a remedy the reader has.
+	NativeDropped        uint64 `json:"native_dropped"`
+	QueueDropped         uint64 `json:"queue_dropped"`
+	QueueOversize        uint64 `json:"queue_oversize_dropped"`
+	QueueContention      uint64 `json:"queue_contention_dropped"`
+	QueueCapacity        uint64 `json:"queue_capacity_dropped"`
+	Offered              uint64 `json:"offered"`
+	Retained             uint64 `json:"retained"`
+	BackpressureMaxNanos uint64 `json:"backpressure_max_nanos"`
+	DrainWriteMaxNanos   uint64 `json:"drain_write_max_nanos"`
 }
 
 // observeOptions carries the caller's explicit choices into journal
@@ -319,6 +331,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	result.BootstrapSeen, result.CollectorFinalized = selectedState.bootstrap, selectedState.finalized
 	result.ActivityRecords, result.DroppedRecords = selectedRecords.Records, selectedRecords.Dropped
 	result.ExternalRecords = selectedMetrics.external
+	result.RecordLoss = selectedMetrics.loss.orNil()
 	result.ActivityNanos, result.CopyBytes, result.Activities = selectedMetrics.duration, selectedMetrics.copyBytes, selectedActivities
 	result.APIRecords = selectedAPIs
 	if len(workerActivities) != 0 {
@@ -398,7 +411,10 @@ type journalState struct {
 	failure                                                         string
 	failureError                                                    string
 }
-type journalMetrics struct{ duration, copyBytes, external uint64 }
+type journalMetrics struct {
+	duration, copyBytes, external uint64
+	loss                          captureLoss
+}
 
 // errJournalNotFinalized reports a journal that decoded completely but whose
 // producer never wrote a finalized record, as happens when a serving framework
@@ -608,6 +624,18 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 			terminal, state.finalized = true, true
 			if payload.Dropped > recovered.Stats.Dropped {
 				recovered.Stats.Dropped = payload.Dropped
+			}
+			metrics.loss = captureLoss{
+				Native:          payload.NativeDropped,
+				Queue:           payload.QueueDropped,
+				QueueOversize:   payload.QueueOversize,
+				QueueContention: payload.QueueContention,
+				QueueCapacity:   payload.QueueCapacity,
+				Offered:         payload.Offered,
+				Retained:        payload.Retained,
+
+				BackpressureMaxNanos: payload.BackpressureMaxNanos,
+				DrainWriteMaxNanos:   payload.DrainWriteMaxNanos,
 			}
 			switch payload.State {
 			case "no_cuda_observed":

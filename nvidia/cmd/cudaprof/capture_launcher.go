@@ -63,6 +63,127 @@ const (
 	runUnknown = "unknown"
 )
 
+// captureLoss is the breakdown of records the producer never wrote, as the
+// agent's finalized record already reports it. A single dropped_records total
+// says a capture is truncated but not by which mechanism, and the mechanisms
+// do not share a remedy: CUPTI discarding records before the agent sees them
+// is not the agent's pending ring overflowing. Neither is addressed by
+// --max-records, which bounds how many journal frames the reader decodes and
+// cannot recover a record that was never written.
+type captureLoss struct {
+	Native          uint64 `json:"native_dropped,omitempty"`
+	Queue           uint64 `json:"queue_dropped,omitempty"`
+	QueueOversize   uint64 `json:"queue_oversize_dropped,omitempty"`
+	QueueContention uint64 `json:"queue_contention_dropped,omitempty"`
+	QueueCapacity   uint64 `json:"queue_capacity_dropped,omitempty"`
+	Offered         uint64 `json:"offered_records,omitempty"`
+	Retained        uint64 `json:"retained_records,omitempty"`
+	// BackpressureMaxNanos and DrainWriteMaxNanos are the longest admission
+	// wait and the longest batch write the producer saw. A capacity drop is an
+	// admission that waited out ADMIT_WAIT_NANOS, and the wait ends only when
+	// a batch write returns, so these two are what say whether the loss was
+	// journal write latency. The agent records them for that purpose; without
+	// them a capacity drop is a count with no cause.
+	BackpressureMaxNanos uint64 `json:"backpressure_max_nanos,omitempty"`
+	DrainWriteMaxNanos   uint64 `json:"drain_write_max_nanos,omitempty"`
+}
+
+// admitWaitNanos mirrors ADMIT_WAIT_NANOS in cupti_agent.c: how long admission
+// waits for a freed slot before charging the record to queue_capacity_dropped.
+const admitWaitNanos = 100 * 1000 * 1000
+
+// writeLatencyNote reports whether the producer's own timings say the loss was
+// journal write latency, which is the question a capacity drop count raises and
+// cannot answer.
+func (l captureLoss) writeLatencyNote() string {
+	if l.BackpressureMaxNanos == 0 && l.DrainWriteMaxNanos == 0 {
+		return ""
+	}
+	note := fmt.Sprintf(" (longest admission wait %s, longest batch write %s",
+		time.Duration(l.BackpressureMaxNanos), time.Duration(l.DrainWriteMaxNanos))
+	if l.BackpressureMaxNanos >= admitWaitNanos {
+		note += fmt.Sprintf(", at the %s admission deadline: the journal writes, not the record count, are what lost these", time.Duration(admitWaitNanos))
+	}
+	return note + ")"
+}
+
+// orNil drops an all-zero breakdown so a capture that lost nothing, and one
+// from a producer that reports no breakdown, publish no field rather than a
+// row of zeros that reads like a measurement.
+func (l captureLoss) orNil() *captureLoss {
+	if l == (captureLoss{}) {
+		return nil
+	}
+	c := l
+	return &c
+}
+
+// dominant names the mechanism that lost the most records, and what to do
+// about it. It is the sentence a caller can act on; the counts alone are not.
+// The capability block decides the remedy rather than decorating it: the
+// lever below only exists for a run that collected API attribution, and
+// offering it to a run that already declined it would be wrong advice.
+func (l captureLoss) dominant(capability json.RawMessage) string {
+	switch {
+	case l == captureLoss{}:
+		return ""
+	case l.QueueCapacity >= l.Native && l.QueueCapacity >= l.Queue:
+		return fmt.Sprintf("%d lost to the agent's pending ring filling up: the producer outran the drain%s%s", l.QueueCapacity, l.writeLatencyNote(), volumeRemedy(capability))
+	case l.Native >= l.Queue:
+		return fmt.Sprintf("%d dropped by CUPTI before the agent saw them: the device outran the activity buffers%s", l.Native, volumeRemedy(capability))
+	default:
+		return fmt.Sprintf("%d refused by the agent queue (%d oversize, %d contention, %d capacity)", l.Queue, l.QueueOversize, l.QueueContention, l.QueueCapacity)
+	}
+}
+
+// volumeRemedy names the one lever that reduces journal volume by an order of
+// magnitude. Runtime and driver API attribution dominates the record stream --
+// the agent's note at cupti_agent.c:880 puts it at 92% of the measured
+// journals, and ds4 captures put it at 87% -- and a kernel timeline does not
+// need it. Nothing outside the C source says so, which leaves a caller staring
+// at a drop count with no reachable action.
+//
+// It stops short of promising fewer drops, because that does not follow and
+// has been measured not to hold. A capacity drop is admission finding the ring
+// full, and the wait ends only when the drain publishes a freed tail after its
+// batch write returns, so the deadline at cupti_agent.c:50 is really a bound on
+// journal write latency: "a write slower than this deadline is what a capacity
+// drop is made of". Total volume does not set that latency. Six measured runs
+// agree -- cutting volume eightfold left retention anywhere from 1% to 77%,
+// a spread wider than the difference between the configurations.
+func volumeRemedy(capability json.RawMessage) string {
+	if !apiRecordsEnabled(capability) {
+		return ", and this run already collected no API attribution, so the remaining levers are a shorter workload or fewer captured generations"
+	}
+	return ", so re-run with CUDAPROF_API_ACTIVITY=0 for a journal roughly an order of magnitude smaller (API attribution is ~87-92% of records and a kernel timeline does not need it); that buys smaller inputs, not fewer drops, which on this path track journal write latency rather than record count"
+}
+
+// apiRecordsEnabled reports whether the agent collected runtime and driver API
+// records. A producer that reports no capability block is treated as having
+// collected them, which is the agent's default when the variable is unset.
+func apiRecordsEnabled(capability json.RawMessage) bool {
+	if len(capability) == 0 {
+		return true
+	}
+	var c struct {
+		APIRecords *bool `json:"api_records"`
+	}
+	if err := json.Unmarshal(capability, &c); err != nil || c.APIRecords == nil {
+		return true
+	}
+	return *c.APIRecords
+}
+
+// retainedFraction is the share of offered records that reached the journal.
+// It is the number that says how truncated a capture is; a raw drop count
+// beside an unknown total does not.
+func (l captureLoss) retainedFraction() (float64, bool) {
+	if l.Offered == 0 {
+		return 0, false
+	}
+	return float64(l.Retained) / float64(l.Offered) * 100, true
+}
+
 // captureOptions is the policy for one capture invocation. command contains
 // the target argv after the -- separator and is never interpreted by a shell.
 type captureOptions struct {
@@ -117,6 +238,10 @@ type captureResult struct {
 	ExternalRecords    uint64          `json:"external_records,omitempty"`
 	APIRecords         []captureAPI    `json:"api_records,omitempty"`
 	WorkerGenerations  []captureWorker `json:"worker_generations,omitempty"`
+	// RecordLoss breaks down what the producer never wrote, when the agent
+	// reported it. It is nil when nothing was lost or when the capture came
+	// from a producer that does not publish the breakdown.
+	RecordLoss *captureLoss `json:"record_loss,omitempty"`
 	// RunCompleteness reports whole-run qualification independently of
 	// CaptureSuccess, and UnqualifiedGenerations counts the generations that
 	// cost it. Per-generation detail stays in WorkerGenerations.
