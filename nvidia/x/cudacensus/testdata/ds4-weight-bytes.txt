@@ -1,0 +1,113 @@
+Per-token weight bytes for the ds4-min decode workload.
+
+This file is the example of where a cost model's numbers come from. Every line
+is computed from a tensor's shape and element format as the GGUF records them,
+multiplied by how many times a token reads it. Nothing here was measured by a
+profiler, and nothing here could have been: a capture records no shapes.
+
+Model: DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731
+Layers: 43. Even layers (21) carry the compressor and indexer paths.
+
+Block sizes, bytes per block, elements per block:
+  Q8_0      34 bytes / 32 elements
+  Q2_K      84 bytes / 256 elements
+  IQ2_XXS   66 bytes / 256 elements
+  F16        2 bytes / element
+  F32        4 bytes / element
+
+So for a [cols,rows] tensor:
+  Q8_0(cols,rows)    = (cols/32)*34  * rows
+  Q2_K(cols,rows,n)  = (cols/256)*84 * rows * n
+  IQ2_XXS(cols,rows,n) = (cols/256)*66 * rows * n
+  F16(cols,rows)     = cols*rows*2
+
+bytes/token      share  family    tensor
+1,533,018,112   15.97%  Q8_0      attn_q_b.weight [1024,32768] x43
+1,533,018,112   15.97%  Q8_0      attn_output_a.weight [4096,8192] x43 (block-diag 8)
+1,533,018,112   15.97%  Q8_0      attn_output_b.weight [8192,4096] x43
+1,149,763,584   11.97%  Q8_0      ffn_{gate,up,down}_shexp [4096,2048]/[2048,4096] x43
+  710,148,096    7.40%  Q2_K      ffn_down_exps [2048,4096,256], 6 experts of 256, x43
+  562,626,560    5.86%  Q8_0      output.weight [4096,129280]
+  557,973,504    5.81%  IQ2_XXS   ffn_gate_exps [4096,2048,256], 6 experts of 256, x43
+  557,973,504    5.81%  IQ2_XXS   ffn_up_exps [4096,2048,256], 6 experts of 256, x43
+  520,093,696    5.42%  F16       attn_compressor_{kv,gate} (even [4096,1024], odd [4096,512])
+  352,321,536    3.67%  F16       indexer.attn_q_b [1024,8192] x21 even, only at pos>=2051
+  191,627,264    2.00%  Q8_0      attn_q_a.weight [4096,1024] x43
+   95,813,632    1.00%  Q8_0      attn_kv.weight [4096,512] x43
+   90,177,536    0.94%  F16       ffn_gate_inp router [4096,256] x43
+   88,080,384    0.92%  F16       indexer_compressor_{kv,gate} [4096,256] x21 even
+   67,633,152    0.70%  F16       hc_attn_fn + hc_ffn_fn [16384,24] x43
+   39,452,672    0.41%  F32       KV/compressed-cache activation reads, pos 2048-2175
+   11,010,048    0.11%  F16       indexer.proj [4096,64] x21 even
+    5,629,952    0.06%  F16       attn_compressor_ape + indexer ape
+    1,879,368    0.02%  F32       per-layer norms, sinks, bias
+      180,224    0.00%  mixed     output hc_fn[16384,4] F16, output_norm F32, token_embd row x4
+
+9,601,439,048   TOTAL   = 9.6014 GB = 8.9420 GiB per token
+
+By family:
+  Q8_0     6,598,885,376  68.73%
+  F16      1,134,946,304  11.82%
+  IQ2_XXS  1,115,947,008  11.62%
+  Q2_K       710,148,096   7.40%
+  F32         41,332,040   0.43%
+  mixed          180,224   0.00%
+
+Each of the totals above is the indexer-ACTIVE figure (pos >= 2051). With the
+indexer inactive, drop indexer.attn_q_b (352,321,536) and indexer.proj
+(11,010,048):
+
+  weight families  9,196,595,200   vs  9,559,926,784 active
+  TOTAL            9,238,107,464   vs  9,601,439,048 active
+
+Any of these four numbers quoted without its position regime is one of the other
+three 3.8% of the time.
+
+RESIDENCY
+
+Everything read out of the mmap'd GGUF is host-page-table resident: the GPU
+reads those pages through host page tables and nothing copies them to device
+memory. The KV/compressed-cache activation line is the sole exception -- those
+buffers are cudaMalloc'd and device-resident. So the residency partition is:
+
+  host page table  9,561,986,376   everything except the KV line
+  device              39,452,672   KV/compressed-cache activation reads
+  TOTAL            9,601,439,048
+
+The residency partition is not the weight/activation split, and this is the
+trap this file exists to demonstrate. Host-page-table bytes are 9,561,986,376;
+the four weight families are 9,559,926,784. They differ by 2,059,592 bytes -- the
+per-layer norms/sinks/bias and the mixed line, which are mmap'd like every other
+weight but are not one of the four quantized families. 0.022% apart, and
+distinguishable by nothing except knowing which question was asked.
+
+That matters because these bytes get divided by a measured time to cross-check a
+ceiling, and only one of the three plausible numerators is the right population:
+
+  numerator (bytes / 0.05894 s, the ablated-C end-to-end decode time)
+  weights only                  162.20 GB/s      inside -- but by coincidence of size
+  host-page-table resident      162.23 GB/s      inside -- and the correct population
+  all bytes                     162.90 GB/s      OUTSIDE, because it charges
+                                                 device-resident KV reads to a
+                                                 host-page-table ceiling
+
+Use the host-page-table figure. "Weights" agrees with it to 0.02% here only
+because the two non-family mmap'd lines are small; nothing makes that stable, and
+a model that reaches for "weights" is right by accident.
+
+A Table splitting this file per kernel must therefore charge the KV line to a
+separate DeviceResident entry. Give every line one residency stamp and the
+contamination is inside an aggregate, where EvaluatedCoverage cannot see it.
+
+WHAT THIS FILE IS NOT
+
+It is keyed by weight family, not by kernel symbol, so it is not directly a
+Table: nothing here says which kernel reads attn_q_b. Turning it into a Table
+requires a second mapping, from kernel symbol to the tensors that kernel reads,
+which likewise is not in any capture and has to come from the code that
+launches the kernel.
+
+It also double-counts nothing and deduplicates nothing across kernels: if two
+kernels read the same weight in one token, attributing the full bytes to both
+would overstate the total. A per-kernel Table must decide where each read is
+charged.

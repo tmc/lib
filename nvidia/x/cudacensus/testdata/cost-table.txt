@@ -1,0 +1,19 @@
+# Illustrative cost table for the capture in testdata/capture.
+#
+# THESE NUMBERS ARE NOT MEASURED AND NOT DERIVED. They exist to exercise the
+# table format and the census join, and they are wrong as a description of what
+# these MLX kernels move. Nobody here has the operand shapes for this capture,
+# and a capture does not record them, so no honest byte count can be written.
+# A real table cites, per line, the tensor shapes and element format the number
+# came from; see ds4-weight-bytes.txt for what that looks like.
+#
+# The residency column is "unknown" here for the same reason: nobody here knows
+# whether this MLX run's operands were cudaMalloc'd or mapped, and the capture
+# cannot say. "unknown" is the honest entry, and Points will refuse these rather
+# than judge them against a ceiling that may be 1.43x wrong.
+#
+# symbol  residency  bytes-per-launch  [flops-per-launch]
+
+_ZN3mlx4core2cu14rms_norm_smallI13__nv_bfloat16Li128ELi2ELb1ELi8EEEvPKT_S6_PS4_fjjl unknown 8192 4096
+_ZN3mlx4core2cu9binary_vvINS1_3AddE13__nv_bfloat16S4_jLi8EEEvPKT0_S7_PT1_T2_ unknown 12288 2048
+_ZN3mlx4core2cu11rope_singleI13__nv_bfloat16Lb0ELb1EEEvPKT_PS4_PKiffl5uint2 unknown 4096 3072
