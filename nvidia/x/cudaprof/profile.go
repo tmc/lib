@@ -265,16 +265,52 @@ func (s *Session) RecordSASSMetric(ctx context.Context, kernelName, filename str
 		vals.TensorWarps = m.ExecutedWarps
 	}
 	// Stall reasons must only account for stalled warps/cycles, never issued warps.
+	//
+	// StallReason arrives as a producer's canonical name, and that vocabulary
+	// is not consistently prefixed: cuptipcsampling's ClassifyPipelineStall
+	// returns "long_scoreboard" and "short_scoreboard" bare beside
+	// "stall_lg_throttle" and "stall_drain". Matching the prefixed spellings
+	// alone silently discarded ten of its thirteen names -- the warps were not
+	// misrouted, they reached no sample type at all, while Samples still
+	// counted the instruction, so the loss did not show up as a hole in any
+	// total. Normalizing the prefix is what makes the arms match what a
+	// producer actually emits rather than what this file assumed it emits.
 	if m.StallWarps > 0 {
-		switch m.StallReason {
-		case "stall_scoreboard", "stall_long_scoreboard", "stall_short_scoreboard":
+		switch strings.TrimPrefix(m.StallReason, "stall_") {
+		// A long scoreboard wait is a wait on load data, counted as memory to
+		// match how cuptipcsampling routes the PC-sampling reason of the same
+		// name; short_scoreboard is a fixed-latency arithmetic or shared-memory
+		// wait and stays out of it.
+		case "short_scoreboard":
 			vals.StallScoreboard = m.StallWarps
-		case "stall_wait", "stall_barrier":
-			vals.StallWait = m.StallWarps
-		case "stall_math_pipe_throttle", "stall_math":
-			vals.StallMath = m.StallWarps
-		case "stall_mem_throttle", "stall_mem":
+		case "long_scoreboard", "scoreboard", "memory_dependency",
+			"mem", "mem_throttle", "lg_throttle", "mio_throttle",
+			"tex_throttle", "constant_mem", "imc_miss":
 			vals.StallMem = m.StallWarps
+		case "wait", "barrier", "sync", "membar":
+			vals.StallWait = m.StallWarps
+		case "math", "math_pipe_throttle":
+			vals.StallMath = m.StallWarps
+		case "branch", "branch_resolving":
+			vals.StallBranch = m.StallWarps
+		case "no_instruction", "no_instructions", "inst_fetch":
+			vals.StallFetch = m.StallWarps
+		case "drain":
+			vals.StallDrain = m.StallWarps
+		case "dispatch", "dispatch_stall":
+			vals.StallDispatch = m.StallWarps
+		case "not_selected":
+			vals.StallNotSelected = m.StallWarps
+		default:
+			// The classifier's fallback arm passes an unrecognized reason
+			// through under its full CUPTI metric name, so this arm catches a
+			// third naming convention as well as genuinely new reasons. It is
+			// reached by misc and sleeping today, both of which a real capture
+			// produces. Counting them keeps the stall types summing to the
+			// stalled warps; the earlier version named the loss in a comment
+			// and left the warps dropped, which documents a hole rather than
+			// closing it.
+			vals.StallOther = m.StallWarps
 		}
 	}
 

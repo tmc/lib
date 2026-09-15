@@ -62,9 +62,9 @@ type ProfileBridge struct {
 	// modelled or not. Routing says where a reason would be counted;
 	// ReasonSamples says how much was, which is what makes the routing
 	// falsifiable against the same capture. It is also the only place the
-	// long_scoreboard and short_scoreboard split survives, and that split is
-	// the difference between "waiting on memory data" and a register
-	// dependency, which stall_scoreboard alone cannot tell apart.
+	// long_scoreboard and lg_throttle split survives, and that split is the
+	// difference between waiting on load data and a full memory queue, which
+	// stall_mem alone cannot tell apart though they call for opposite fixes.
 	ReasonSamples map[string]int64
 }
 
@@ -115,6 +115,18 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 				continue
 			}
 			if !classifyStall(name, count, &vals) {
+				// Counted twice on purpose, because the two records answer
+				// different questions and neither substitutes for the other:
+				// stall_other puts the warps in the profile, where a reader
+				// sees that the breakdown is not complete, and UnmappedStalls
+				// keeps the per-name detail in the manifest, which is the only
+				// place the reason's name survives at all.
+				//
+				// Without the sample type, the same reason's presence depended
+				// on which API produced the capture -- the SASS path counted it
+				// and this one did not -- which is the asymmetry the routing
+				// was supposed to have removed.
+				vals.StallOther += count
 				if b.UnmappedStalls == nil {
 					b.UnmappedStalls = make(map[string]int64)
 				}
@@ -376,15 +388,36 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 		vals.StallMem += count
 		return true
 
-	// Register scoreboard dependencies: a result whose latency is not known at
-	// compile time, so the warp waits on a scoreboard slot. memory_dependency
-	// is the legacy activity-API name for the same wait long_scoreboard
-	// reports, and is matched here rather than by the memory arm below on
-	// purpose -- filing a wait on load data under stall_mem would make the
-	// bucket depend on which API produced the capture rather than on what the
-	// warp was doing.
-	case strings.Contains(name, "scoreboard") || strings.Contains(name, "memory_dependency"):
+	// short_scoreboard is a wait on a fixed-latency arithmetic or shared-memory
+	// result, which ClassifyPipelineStall calls StallCategoryExecution. It has
+	// to be peeled off before the general arm below, because it contains
+	// "scoreboard" and would otherwise be routed to memory along with the
+	// reasons that really are memory. TestArmCollisionsArePinned pins this
+	// order; do not reorder these two arms.
+	case strings.Contains(name, "short_scoreboard"):
 		vals.StallScoreboard += count
+		return true
+
+	// Register scoreboard dependencies on a result whose latency is not known
+	// at compile time: the warp is blocked waiting for load data. This is
+	// StallCategoryMemory in ClassifyPipelineStall, so it is counted as memory
+	// here. memory_dependency is the legacy activity-API name for the same
+	// wait long_scoreboard reports, and lands in the same bucket, so the
+	// breakdown does not depend on which API produced the capture.
+	//
+	// Both named long_scoreboard and generic scoreboard waits used to be
+	// counted as stall_scoreboard together with short_scoreboard, which merged
+	// a memory reason with an execution one and left stall_mem holding only
+	// the throttles. On a memory-bound GB10 capture that read
+	// stall_scoreboard 1861 against stall_mem 51 -- 1387 of the 1861 were
+	// long_scoreboard, so the number a reader consults for "am I memory bound"
+	// carried 1.8% of the mass on a workload that is nothing but memory.
+	//
+	// The cost is that a data wait and a full queue (lg_throttle) now share a
+	// sample type, and that distinction is real. It survives per reason in
+	// ReasonSamples, which is where to read it.
+	case strings.Contains(name, "scoreboard") || strings.Contains(name, "memory_dependency"):
+		vals.StallMem += count
 		return true
 
 	// Arithmetic and math pipeline throttle

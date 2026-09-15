@@ -97,6 +97,23 @@ type SampleValues struct {
 	LaunchDelayNanos    int64 // Host enqueue to device launch delay (nanoseconds)
 	QueueDelayNanos     int64 // Stream queue latency (nanoseconds)
 	GPUNanos            int64 // Observed device timeline interval (nanoseconds)
+
+	// ModeledCost is a cost a caller computed rather than measured. It is kept
+	// apart from every field above, which hold counts a device reported, so
+	// that a reader cannot mistake a model's output for an observation. A
+	// profile carrying this value should not also select the measured types.
+	ModeledCost int64 // Caller-modeled cost (unitless weight)
+
+	// StallOther holds stalled warps whose reason reached no other stall type.
+	// A producer's reason vocabulary is open -- cuptipcsampling's classifier
+	// has a fallback arm that passes an unrecognized CUPTI metric name through
+	// whole -- so a consumer that matches only the names it knows drops the
+	// rest. Those warps used to vanish while Samples still counted the
+	// instruction, which left no total with a hole in it and nothing to notice.
+	// This is the bucket whose membership is unknown by construction, so losing
+	// it silently is worse than losing a named one: it is where a reason nobody
+	// has classified yet arrives.
+	StallOther int64 // Warps stalled for a reason no other type claims
 }
 
 // Builder constructs a pprof profile containing GPU kernel, PTX, and SASS samples.
@@ -160,6 +177,8 @@ var profileSampleTypes = []struct{ name, unit string }{
 	{"launch_delay", "nanoseconds"},
 	{"queue_delay", "nanoseconds"},
 	{"gpu_time", "nanoseconds"},
+	{"modeled_cost", "count"},
+	{"stall_other", "count"},
 }
 
 // SetSampleTypes selects the metrics to write, in order. The last metric is
@@ -320,6 +339,22 @@ func (b *Builder) SetPeriod(name, unit string, period int64) {
 	b.period = period
 }
 
+// SampleTypeNames returns the names of every sample type a profile can carry,
+// in the order SetSampleTypes selects them.
+//
+// It exists so a caller that maintains its own list of types to select can
+// check that list against this one instead of restating it. A hand-written
+// list and a hand-written test of that list are two copies by one author and
+// agree with each other by construction; only a comparison against this
+// function can notice a type neither copy mentions.
+func SampleTypeNames() []string {
+	names := make([]string, len(profileSampleTypes))
+	for i, st := range profileSampleTypes {
+		names[i] = st.name
+	}
+	return names
+}
+
 // SetDefaultSampleType names the sample type a viewer should open. Without it
 // a consumer that defaults to index 0 may render an empty profile, because the
 // first type need not be the one carrying data. The name must be one of the
@@ -332,6 +367,37 @@ func (b *Builder) SetDefaultSampleType(name string) error {
 		}
 	}
 	return fmt.Errorf("cudaprof: default sample type %q is not among the configured types", name)
+}
+
+// resolvedDefaultType reports the sample type to write as the profile's default
+// view, falling back to a measured type when the caller named none.
+//
+// Omitting the field is not neutral: pprof then opens on the LAST sample type,
+// so the default view is decided by position in profileSampleTypes rather than
+// by anything about the capture. That list is append-only, which makes every
+// append a silent change of default view for every caller that did not set one
+// -- and there is one such caller in this tree, so "every caller" is nearly all
+// of them. It has now happened twice, with modeled_cost and with stall_other,
+// both of which are zero in essentially every capture.
+//
+// Preferring gpu_time and then samples keeps the opening view on something a
+// capture actually measures. A caller that wants a different one says so.
+func (b *Builder) resolvedDefaultType() string {
+	if b.defaultType != "" {
+		return b.defaultType
+	}
+	selected := b.selectedTypes()
+	for _, want := range []string{"gpu_time", "samples"} {
+		for _, i := range selected {
+			if profileSampleTypes[i].name == want {
+				return want
+			}
+		}
+	}
+	if len(selected) > 0 {
+		return profileSampleTypes[selected[0]].name
+	}
+	return ""
 }
 
 // AddComment records a line of free text on the profile. It is the home for a
@@ -510,6 +576,8 @@ func (b *Builder) AddStackSample(vals SampleValues, frames []Frame, labels map[s
 		vals.LaunchDelayNanos,
 		vals.QueueDelayNanos,
 		vals.GPUNanos,
+		vals.ModeledCost,
+		vals.StallOther,
 	}
 
 	b.samples = append(b.samples, sample{
@@ -691,8 +759,8 @@ func (b *Builder) WriteGzip(w io.Writer) error {
 	for _, c := range b.comments {
 		header = append(header, encodeVarint(13, uint64(b.st.Index(c)))...)
 	}
-	if b.defaultType != "" {
-		header = append(header, encodeVarint(14, uint64(b.st.Index(b.defaultType)))...)
+	if dt := b.resolvedDefaultType(); dt != "" {
+		header = append(header, encodeVarint(14, uint64(b.st.Index(dt)))...)
 	}
 	if b.docURL != "" {
 		header = append(header, encodeVarint(15, uint64(b.st.Index(b.docURL)))...)
