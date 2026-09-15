@@ -2,6 +2,7 @@ package cudamemtrack_test
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 
@@ -11,8 +12,8 @@ import (
 func TestTrackerLifecycle(t *testing.T) {
 	tr := cudamemtrack.New()
 
-	tr.Alloc(0x1000, 1024, "tensor_a")
-	tr.Alloc(0x2000, 2048, "tensor_b")
+	mustAlloc(t, tr, 0x1000, 1024, "tensor_a")
+	mustAlloc(t, tr, 0x2000, 2048, "tensor_b")
 
 	s := tr.Summary()
 	if s.ActiveAllocations != 2 {
@@ -57,7 +58,7 @@ func TestTrackerLifecycle(t *testing.T) {
 
 func TestLeakDetection(t *testing.T) {
 	tr := cudamemtrack.New()
-	tr.Alloc(0x5000, 4096, "leaked_kv_cache")
+	mustAlloc(t, tr, 0x5000, 4096, "leaked_kv_cache")
 
 	err := tr.CheckLeaks()
 	if err == nil {
@@ -79,14 +80,20 @@ func TestFragmentation(t *testing.T) {
 		{"unfragmented_single_block", 1000, 1000, 0.0},
 		{"equal_halves", 1000, 500, 0.5},
 		{"ten_percent_largest", 1000, 100, 0.9},
-		{"largest_exceeds_total_sanity", 1000, 1200, 0.0},
+		// An inconsistent pair is not a healthy heap: it must not read as 0.0.
+		{"largest_exceeds_total_is_nan", 1000, 1200, math.NaN()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := cudamemtrack.Fragmentation(tt.totalFree, tt.largestFree)
-			diff := got - tt.wantFrag
-			if diff < -0.001 || diff > 0.001 {
+			if math.IsNaN(tt.wantFrag) {
+				if !math.IsNaN(got) {
+					t.Errorf("Fragmentation(%d, %d) = %f, want NaN", tt.totalFree, tt.largestFree, got)
+				}
+				return
+			}
+			if diff := got - tt.wantFrag; diff < -0.001 || diff > 0.001 {
 				t.Errorf("Fragmentation(%d, %d) = %f, want %f", tt.totalFree, tt.largestFree, got, tt.wantFrag)
 			}
 		})
@@ -111,7 +118,7 @@ func TestComputeFragmentationBlocks(t *testing.T) {
 
 func TestWriteReport(t *testing.T) {
 	tr := cudamemtrack.New()
-	tr.Alloc(0x8000, 512, "weights")
+	mustAlloc(t, tr, 0x8000, 512, "weights")
 
 	var buf bytes.Buffer
 	if err := tr.WriteReport(&buf); err != nil {
@@ -128,5 +135,71 @@ func TestWriteReport(t *testing.T) {
 		if !strings.Contains(out, expected) {
 			t.Errorf("report missing expected substring: %q", expected)
 		}
+	}
+}
+
+func mustAlloc(t *testing.T, tr *cudamemtrack.Tracker, addr uintptr, size uint64, tag string) {
+	t.Helper()
+	if err := tr.Alloc(addr, size, tag); err != nil {
+		t.Fatalf("Alloc(0x%x, %d, %q): %v", addr, size, tag, err)
+	}
+}
+
+// TestAllocRejectsLiveAddress pins that re-allocating a live address is refused.
+//
+// An earlier version silently retired the first block: it left Live and CheckLeaks,
+// and its bytes were added to TotalFreedBytes, so a missed Free was reported as
+// freed memory and the leak disappeared.
+func TestAllocRejectsLiveAddress(t *testing.T) {
+	tr := cudamemtrack.New()
+	mustAlloc(t, tr, 0x1000, 1024, "first")
+
+	err := tr.Alloc(0x1000, 2048, "second")
+	if err == nil {
+		t.Fatal("Alloc on a live address returned nil, want error")
+	}
+	if !strings.Contains(err.Error(), "already tracked") {
+		t.Errorf("unexpected error string: %v", err)
+	}
+
+	s := tr.Summary()
+	if s.ActiveAllocations != 1 {
+		t.Errorf("ActiveAllocations = %d, want 1", s.ActiveAllocations)
+	}
+	if s.ActiveBytes != 1024 {
+		t.Errorf("ActiveBytes = %d, want 1024", s.ActiveBytes)
+	}
+	if s.TotalFreedBytes != 0 {
+		t.Errorf("TotalFreedBytes = %d, want 0: nothing was freed", s.TotalFreedBytes)
+	}
+	if s.TotalAllocations != 1 {
+		t.Errorf("TotalAllocations = %d, want 1: the refused call recorded nothing", s.TotalAllocations)
+	}
+
+	// The first block is still a leak; it must not have been erased.
+	if err := tr.CheckLeaks(); err == nil {
+		t.Error("CheckLeaks returned nil, want the unfreed first block reported")
+	}
+}
+
+func TestAllocRejectsDegenerateArguments(t *testing.T) {
+	tests := []struct {
+		name string
+		addr uintptr
+		size uint64
+	}{
+		{"zero_address", 0, 1024},
+		{"zero_size", 0x1000, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := cudamemtrack.New()
+			if err := tr.Alloc(tt.addr, tt.size, "x"); err == nil {
+				t.Fatalf("Alloc(0x%x, %d) = nil, want error", tt.addr, tt.size)
+			}
+			if s := tr.Summary(); s.TotalAllocations != 0 {
+				t.Errorf("TotalAllocations = %d, want 0", s.TotalAllocations)
+			}
+		})
 	}
 }

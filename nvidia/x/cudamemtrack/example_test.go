@@ -11,8 +11,12 @@ func Example() {
 	tracker := cudamemtrack.New()
 
 	// Track device allocations
-	tracker.Alloc(0x7f10000000, 1024*1024, "weights")
-	tracker.Alloc(0x7f20000000, 2048*1024, "activation")
+	if err := tracker.Alloc(0x7f10000000, 1024*1024, "weights"); err != nil {
+		log.Fatal(err)
+	}
+	if err := tracker.Alloc(0x7f20000000, 2048*1024, "activation"); err != nil {
+		log.Fatal(err)
+	}
 
 	s := tracker.Summary()
 	fmt.Printf("Active: %d allocations (%d bytes)\n", s.ActiveAllocations, s.ActiveBytes)

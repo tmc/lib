@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"runtime"
 	"sort"
 	"strings"
@@ -80,10 +81,20 @@ func New(opts ...Option) *Tracker {
 	return t
 }
 
-// Alloc records a newly allocated device memory block at addr with the given byte size and tag.
-func (t *Tracker) Alloc(addr uintptr, size uint64, tag string) {
-	if addr == 0 || size == 0 {
-		return
+// Alloc records a newly allocated device memory block at addr with the given byte
+// size and tag. It returns an error, having recorded nothing, when addr or size is
+// zero, or when addr is already live in the tracker.
+//
+// A live address cannot be handed out by a second allocation, so a repeat means a
+// Free went unrecorded. Alloc refuses it rather than silently retiring the first
+// block: retiring it would drop that block from Live, clear it from CheckLeaks, and
+// add its bytes to Summary.TotalFreedBytes, reporting a leak as freed memory.
+func (t *Tracker) Alloc(addr uintptr, size uint64, tag string) error {
+	if addr == 0 {
+		return errors.New("cudamemtrack: allocation at address 0")
+	}
+	if size == 0 {
+		return fmt.Errorf("cudamemtrack: zero-size allocation at 0x%x", addr)
 	}
 
 	var callers []uintptr
@@ -104,21 +115,20 @@ func (t *Tracker) Alloc(addr uintptr, size uint64, tag string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// If there was an existing allocation at this address, deduct it first
 	if prev, exists := t.allocations[addr]; exists {
-		t.summary.ActiveBytes -= prev.Size
-		t.summary.TotalFreedBytes += prev.Size
-	} else {
-		t.summary.ActiveAllocations++
+		return fmt.Errorf("cudamemtrack: address 0x%x is already tracked (%d bytes, tag %q); a Free was missed",
+			addr, prev.Size, prev.Tag)
 	}
 
 	t.allocations[addr] = alloc
+	t.summary.ActiveAllocations++
 	t.summary.TotalAllocations++
 	t.summary.TotalAllocatedBytes += size
 	t.summary.ActiveBytes += size
 	if t.summary.ActiveBytes > t.summary.PeakBytes {
 		t.summary.PeakBytes = t.summary.ActiveBytes
 	}
+	return nil
 }
 
 // Free marks the device memory block at addr as freed.
@@ -220,8 +230,18 @@ type Block struct {
 //
 // A value of 0.0 indicates zero fragmentation (all free memory is in one contiguous block).
 // A value approaching 1.0 indicates severe fragmentation (free memory is split into tiny disjoint islands).
+//
+// Fragmentation returns NaN when largestFree exceeds totalFree. The largest contiguous
+// free block is a part of the free memory, so that input is self-contradictory and says
+// the caller's block accounting is wrong. Returning 0.0 for it would be indistinguishable
+// from a perfectly unfragmented heap.
+//
+// When totalFree is 0 there is no free memory to fragment and the ratio is 0.0.
 func Fragmentation(totalFree, largestFree uint64) float64 {
-	if totalFree == 0 || largestFree >= totalFree {
+	if largestFree > totalFree {
+		return math.NaN()
+	}
+	if totalFree == 0 {
 		return 0.0
 	}
 	return 1.0 - (float64(largestFree) / float64(totalFree))
