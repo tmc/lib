@@ -55,12 +55,18 @@ func Match(m *cudaptx.Module, d *cudasass.Disassembly) *Matching {
 	takenSASS := make(map[*cudasass.Function]bool, len(funcs))
 
 	byName := make(map[string]*cudasass.Function, len(funcs))
+	sassNames := make(map[string]int)
+	ptxNames := make(map[string]int)
+	for _, k := range kernels {
+		ptxNames[k.Name]++
+	}
 	for _, fn := range funcs {
 		byName[fn.Name] = fn
+		sassNames[fn.Name]++
 	}
 	for _, k := range kernels {
 		fn := byName[k.Name]
-		if fn == nil || takenSASS[fn] {
+		if fn == nil || takenSASS[fn] || sassNames[k.Name] != 1 || ptxNames[k.Name] != 1 {
 			continue
 		}
 		res.Pairs = append(res.Pairs, Pair{PTX: k, SASS: fn})
