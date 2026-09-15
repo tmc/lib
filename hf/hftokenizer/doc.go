@@ -7,4 +7,6 @@
 // Encode applies the file's post-processor, including any declared BOS tokens.
 // Decode and DecodeBytes omit added tokens marked special. No token IDs or
 // vocabulary conventions are inferred from model names.
+//
+// This package is experimental. Its API may change in any release.
 package hftokenizer

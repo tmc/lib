@@ -43,7 +43,7 @@ A request resets prior logical history. A zero token limit performs no inference
 A full-capacity prompt can still predict one token without appending it.
 
 `Generate` and `GenerateTokenIDs` load the checkpoint's `tokenizer.json` using
-`x/hftokenizer`. Supported byte-level BPE pipelines supply their own BOS template;
+`hf/hftokenizer`. Supported byte-level BPE pipelines supply their own BOS template;
 per-call BOS and EOS defaults do not override checkpoint metadata. Supply rendered
 text: chat templates in `tokenizer_config.json` are not interpreted. Unsupported
 pipelines and token IDs outside the model vocabulary return errors.

@@ -10,9 +10,9 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/apple/x/metal/metalprof"
+	"github.com/tmc/lib/hf/hftokenizer"
 	"github.com/tmc/lib/openxla"
 	"github.com/tmc/lib/tpu"
-	"github.com/tmc/lib/x/hftokenizer"
 	"github.com/tmc/lib/x/xla"
 )
 

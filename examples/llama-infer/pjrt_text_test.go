@@ -9,7 +9,7 @@ import (
 )
 
 func TestPJRTTextPreflight(t *testing.T) {
-	data, err := os.ReadFile("../../x/hftokenizer/testdata/llama.json")
+	data, err := os.ReadFile("../../hf/hftokenizer/testdata/llama.json")
 	if err != nil {
 		t.Fatal(err)
 	}

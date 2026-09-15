@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/lib/x/hftokenizer"
+	"github.com/tmc/lib/hf/hftokenizer"
 )
 
 func exampleTokenizer() (*hftokenizer.Tokenizer, error) {
