@@ -1,0 +1,27 @@
+session=2b9497cd-7408-4e8b-a617-38b19820dab9 date=2026-09-05
+model=claude-opus-5[1m] claude-code tty=not a tty
+n/a pid=81015 iterm=w12t0p14:DF6906F6-C2E9-4396-8D42-90A88213125C
+D02 adjudicated at rank 2: ds4.c:13199 (kv_cache_push_raw unconditional f16 round)
+and the push/attend ordering at ds4.c:13915/13968. Corroborated by the pure-Go
+reference (cuda_reference_test.go cudaTestRawAttention) which reads cache[] in
+both loops. NOT mutation-checked: no CUDA device on this darwin host.
+
+commit: 780b87b538f4324b91d629911b26658be80dd7ad
+commit date: 2026-09-15T00:29:05-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 4c35e1feda5009b1f924cacf0b1713f2b48b9cde
+commit date: 2026-09-15T00:43:52-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
