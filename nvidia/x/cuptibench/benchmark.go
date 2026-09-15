@@ -44,7 +44,11 @@ func Benchmark(b *testing.B, p *Plan, w Workload) *Result {
 			}
 		}()
 	}
-	result, err := benchmark(b, selected, w, func(p *Plan, w Workload) (benchmarkTimer, error) { return cuda.NewEventTimer(p.dev, w.Streams) })
+	result, err := benchmark(b, selected, w, func(p *Plan, w Workload) (benchmarkTimer, error) {
+		return newOwnedTimer(uint32(p.dev.Ordinal()), func() (benchmarkTimer, error) {
+			return cuda.NewEventTimer(p.dev, w.Streams)
+		})
+	})
 	if err != nil {
 		b.Fatal(err)
 		return nil
