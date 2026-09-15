@@ -144,17 +144,23 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
 // partition the single-token kernel gives thread l, walked in the same
 // ascending order and reduced by the same ascending sum of 32 partials. The
 // batch therefore spreads across warps instead of serializing inside one, and
-// the block stages each weight element once for every warp to read.
+// the weights each warp reads are staged once for the whole block.
 //
-// Staging the weights as halves and converting per lane is deliberate. Staging
-// them as floats instead halves the reads of this kernel but doubles the
-// shared-memory footprint, and the extra residency pressure showed up as 3.4 s
-// spread across eight other kernels that never changed -- most of it on the
-// two expert kernels, which already run at the memory ceiling. The win here is
-// warps sharing one staging pass, not a wider staging buffer.
+// The launcher passes Block(32*batch), so warp t owns token t. Grid is one
+// block per row, so gridDim.x is the row count; out_a and out_b are
+// token-major, row-minor.
 //
-// The launcher passes Grid(rows) with Block(32*batch), so warp t owns token t
-// and gridDim.x is the row count; out_a and out_b are token-major, row-minor.
+// Measured on GB10 over the 2048-token prefill, nsys kernel summary, matched
+// ABBA census of this exact body against the single-warp baseline, 15872
+// launches in every arm: 11.07 s -> 4.68 s, 697.4 -> 294.9 us/launch. One warp
+// per token without the float tiles gets only to ~6.5 s, because sharing the
+// weight LOAD across warps makes each warp repeat the software half-to-float
+// conversion over the same halves. No other kernel clears the 0.15 s
+// threshold; the non-target deltas sum to -0.15 s and -0.02 s across two clean
+// captures. Whole program: 30.5 t/s prefill and 59.8 s of device time at the
+// baseline, 33.9 t/s and 53.2 s here. Bit-exactness is not a digest comparison
+// but a byte-for-byte one: diff -r over the retained prefill capture trees for
+// n=2,64,65,66,128,129,2048 differs only in identity.json.
 extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
     const unsigned short *a, const unsigned short *b, const float *x,
     float *out_a, float *out_b, unsigned cols, unsigned batch) {
@@ -165,38 +171,47 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
   const unsigned long long rows = gridDim.x;
   const unsigned long long token_off = (unsigned long long)token * cols;
 
-  __shared__ unsigned short s_a[32][130];
-  __shared__ unsigned short s_b[32][130];
+  // One shared buffer per matrix, aliased two ways. The cols <= 4096 branches
+  // stage raw halves through it; the cols == 4096 branch stages a tile of
+  // already-converted floats through the same bytes. Sharing the storage is
+  // what keeps the float tiles free: ptxas reports 18688 bytes of smem and 40
+  // registers for this kernel either way, so residency per SM is unchanged and
+  // the surrounding kernels are untouched.
+  __shared__ float s_raw_a[32 * 130 / 2], s_raw_b[32 * 130 / 2];
+  unsigned short (*s_a)[130] = (unsigned short (*)[130])s_raw_a;
+  unsigned short (*s_b)[130] = (unsigned short (*)[130])s_raw_b;
+  float (*s_af)[33] = (float (*)[33])s_raw_a;
+  float (*s_bf)[33] = (float (*)[33])s_raw_b;
   __shared__ float partial_a[DS4_F16_PAIR_MAX_BATCH][32];
   __shared__ float partial_b[DS4_F16_PAIR_MAX_BATCH][32];
 
   if (cols == 4096) {
-    const uint4 *a_vec = (const uint4 *)(a + offset);
-    const uint4 *b_vec = (const uint4 *)(b + offset);
-    for (unsigned idx = tid; idx < 512; idx += blockDim.x) {
-      uint4 va = a_vec[idx];
-      uint4 vb = b_vec[idx];
-      unsigned elem = idx << 3;
-      unsigned c = elem >> 7;
-      unsigned k = elem & 127;
-      *(unsigned int *)&s_a[c][k]     = va.x;
-      *(unsigned int *)&s_a[c][k + 2] = va.y;
-      *(unsigned int *)&s_a[c][k + 4] = va.z;
-      *(unsigned int *)&s_a[c][k + 6] = va.w;
-      *(unsigned int *)&s_b[c][k]     = vb.x;
-      *(unsigned int *)&s_b[c][k + 2] = vb.y;
-      *(unsigned int *)&s_b[c][k + 4] = vb.z;
-      *(unsigned int *)&s_b[c][k + 6] = vb.w;
-    }
-    __syncthreads();
-
-    if (token < batch) {
-      const float *xk = x + token_off + (lane << 7);
-      float sum_a = 0.0f, sum_b = 0.0f;
-      for (unsigned k = 0; k < 128; k++) {
-        sum_a += ds4_half_to_float(s_a[lane][k]) * xk[k];
-        sum_b += ds4_half_to_float(s_b[lane][k]) * xk[k];
+    // Hot path. Each weight element is converted to float ONCE per block and
+    // staged as float, so the warps share the software half-to-float
+    // conversion rather than each of them repeating it. Staging walks a tile
+    // of 32 elements per chunk at a time so the float tile fits inside the
+    // buffer the half staging already used.
+    // Each lane still walks its own 128-element chunk in ascending order: the
+    // tiles split that walk, they do not reorder it.
+    float sum_a = 0.0f, sum_b = 0.0f;
+    const float *xk = x + token_off + (lane << 7);
+    for (unsigned t0 = 0; t0 < 128; t0 += 32) {
+      __syncthreads();
+      for (unsigned idx = tid; idx < 32 * 32; idx += blockDim.x) {
+        const unsigned c = idx >> 5, j = idx & 31;
+        const unsigned long long e = offset + ((unsigned long long)c << 7) + t0 + j;
+        s_af[c][j] = ds4_half_to_float(a[e]);
+        s_bf[c][j] = ds4_half_to_float(b[e]);
       }
+      __syncthreads();
+      if (token < batch) {
+        for (unsigned j = 0; j < 32; j++) {
+          sum_a += s_af[lane][j] * xk[t0 + j];
+          sum_b += s_bf[lane][j] * xk[t0 + j];
+        }
+      }
+    }
+    if (token < batch) {
       partial_a[warp][lane] = sum_a;
       partial_b[warp][lane] = sum_b;
     }
