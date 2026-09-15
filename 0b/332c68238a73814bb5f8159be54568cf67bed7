@@ -1,0 +1,18 @@
+Commit: 6fbaef7
+Date: 2026-09-07T03:38:05Z
+Agent: Codex GPT-5
+TTY: not a tty
+PID: 52785
+iTerm session: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/cuda-q81-quant-batch-20260907 (manifest c472910bf9302eb9ebbdf7ce38750029edff66436a6b68a6216ad79974d7fbb2)
+Rebased from the physically tested isolated commit; production files are unchanged by the rebase.
+
+commit: 0b332c68238a73814bb5f8159be54568cf67bed7
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
