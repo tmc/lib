@@ -49,10 +49,15 @@ test:
 	done; \
 	echo "Tested $$total modules$$scope."
 
-# Each claim below is made over the modules present on disk. A module tracked at
-# HEAD but deleted in the working tree is skipped by every one of them, so the
-# last line says how many were checked and names what was missed -- on the last
-# line because a caveat printed above the claims is the part that scrolls away.
+# Each claim below is made over the modules present on disk, so the last line
+# says how many those were -- on the last line, because a caveat printed above
+# the claims is the part a reader loses to "tail". Two other counts go with it
+# and neither is the first one's complement: a module path tracked at HEAD can
+# be gone from the tree, and a go.mod on disk can be untracked. A rename is
+# both at once, so "gone" is not "uncovered" -- during the hf/ move, hfsync and
+# x/hftokenizer were gone while their code was checked under hf/. The line
+# reports the three counts it can compute exactly and names the members, rather
+# than guessing which absence is a loss and which is a new path.
 check:
 	@files=$$(git ls-files --cached --others --exclude-standard '*/go.mod') || exit 1; \
 	printf '%s\n' "$$files" | while IFS= read -r f; do \
@@ -87,16 +92,21 @@ check:
 		exit 1; \
 	fi; \
 	echo "No tracked file is ignored."
-	@absent=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
+	@gone=$$(git ls-files --cached '*/go.mod' | while IFS= read -r f; do \
 		[ -f "$$f" ] || dirname "$$f"; \
+	done); \
+	new=$$(git ls-files --others --exclude-standard '*/go.mod' | while IFS= read -r f; do \
+		[ -f "$$f" ] && dirname "$$f"; \
 	done); \
 	present=$$(git ls-files --cached --others --exclude-standard '*/go.mod' | while IFS= read -r f; do \
 		[ -f "$$f" ] && echo "$$f"; \
 	done | wc -l | tr -d ' '); \
-	if [ -n "$$absent" ]; then \
-		echo "Checked $$present modules; $$(printf '%s\n' "$$absent" | wc -l | tr -d ' ') tracked at HEAD absent here and skipped: $$(echo $$absent)"; \
+	line="Checked $$present modules"; \
+	[ -z "$$new" ] || line="$$line ($$(printf '%s\n' "$$new" | wc -l | tr -d ' ') not tracked yet: $$(echo $$new))"; \
+	if [ -n "$$gone" ]; then \
+		echo "$$line; $$(printf '%s\n' "$$gone" | wc -l | tr -d ' ') tracked at HEAD gone from the tree: $$(echo $$gone)"; \
 	else \
-		echo "Checked $$present modules."; \
+		echo "$$line."; \
 	fi
 
 gate-selftest:
