@@ -127,3 +127,176 @@ extern "C" __global__ void ds4_f16_pair_ordered_chunks(
   }
 }
 
+
+// DS4_F16_PAIR_MAX_BATCH bounds the batched pair kernel below. The Go side
+// mirrors it as cudaF16PairMaxBatch; a test asserts the two agree.
+#define DS4_F16_PAIR_MAX_BATCH 8
+
+// ds4_f16_pair_ordered_chunks_batch projects batch token-major activation rows
+// against the same weight pair with one launch, reading each weight element
+// once for all tokens. Every token keeps the chunk partition, the ascending
+// within-chunk order, and the ascending chunk-partial sum of the single-token
+// kernel above, so each output is bit-identical to a single-token launch.
+// Grid is one block per row, so gridDim.x is the row count; out_a and out_b are
+// token-major, row-minor.
+extern "C" __global__ void ds4_f16_pair_ordered_chunks_batch(
+    const unsigned short *a, const unsigned short *b, const float *x,
+    float *out_a, float *out_b, unsigned cols, unsigned batch) {
+  unsigned row = blockIdx.x, tid = threadIdx.x;
+  unsigned long long offset = (unsigned long long)row * cols;
+  const unsigned long long rows = gridDim.x;
+
+  __shared__ unsigned short s_a[32][130];
+  __shared__ unsigned short s_b[32][130];
+  __shared__ float partial_a[DS4_F16_PAIR_MAX_BATCH][32];
+  __shared__ float partial_b[DS4_F16_PAIR_MAX_BATCH][32];
+
+  if (cols == 4096) {
+    const uint4 *a_vec = (const uint4 *)(a + offset);
+    const uint4 *b_vec = (const uint4 *)(b + offset);
+    for (unsigned idx = tid; idx < 512; idx += blockDim.x) {
+      uint4 va = a_vec[idx];
+      uint4 vb = b_vec[idx];
+      unsigned elem = idx << 3;
+      unsigned c = elem >> 7;
+      unsigned k = elem & 127;
+      *(unsigned int *)&s_a[c][k]     = va.x;
+      *(unsigned int *)&s_a[c][k + 2] = va.y;
+      *(unsigned int *)&s_a[c][k + 4] = va.z;
+      *(unsigned int *)&s_a[c][k + 6] = va.w;
+      *(unsigned int *)&s_b[c][k]     = vb.x;
+      *(unsigned int *)&s_b[c][k + 2] = vb.y;
+      *(unsigned int *)&s_b[c][k + 4] = vb.z;
+      *(unsigned int *)&s_b[c][k + 6] = vb.w;
+    }
+    __syncthreads();
+
+    if (tid < 32) {
+      const float *xk = x + (tid << 7);
+      float sum_a[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      float sum_b[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      for (unsigned k = 0; k < 128; k++) {
+        const float wa = ds4_half_to_float(s_a[tid][k]);
+        const float wb = ds4_half_to_float(s_b[tid][k]);
+        #pragma unroll
+        for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+          if (t < batch) {
+            const float xv = xk[(unsigned long long)t * cols + k];
+            sum_a[t] += wa * xv;
+            sum_b[t] += wb * xv;
+          }
+        }
+      }
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+        if (t < batch) {
+          partial_a[t][tid] = sum_a[t];
+          partial_b[t][tid] = sum_b[t];
+        }
+      }
+    }
+    __syncthreads();
+
+    if (tid == 0) {
+      for (unsigned t = 0; t < batch; t++) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[t][i];
+          total_b += partial_b[t][i];
+        }
+        out_a[(unsigned long long)t * rows + row] = total_a;
+        out_b[(unsigned long long)t * rows + row] = total_b;
+      }
+    }
+  } else if (cols <= 4096) {
+    const unsigned chunk = (cols + 31) / 32;
+    for (unsigned i = tid; i < cols; i += blockDim.x) {
+      unsigned c = i / chunk;
+      unsigned k = i - c * chunk;
+      if (c < 32 && k < 130) {
+        s_a[c][k] = a[offset + i];
+        s_b[c][k] = b[offset + i];
+      }
+    }
+    __syncthreads();
+
+    if (tid < 32) {
+      unsigned start = tid * chunk;
+      unsigned count = (cols > start) ? (cols - start) : 0;
+      if (count > chunk) count = chunk;
+      const float *xk = x + start;
+      float sum_a[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      float sum_b[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+      for (unsigned k = 0; k < count; k++) {
+        const float wa = ds4_half_to_float(s_a[tid][k]);
+        const float wb = ds4_half_to_float(s_b[tid][k]);
+        #pragma unroll
+        for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+          if (t < batch) {
+            const float xv = xk[(unsigned long long)t * cols + k];
+            sum_a[t] += wa * xv;
+            sum_b[t] += wb * xv;
+          }
+        }
+      }
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+        if (t < batch) {
+          partial_a[t][tid] = sum_a[t];
+          partial_b[t][tid] = sum_b[t];
+        }
+      }
+    }
+    __syncthreads();
+
+    if (tid == 0) {
+      for (unsigned t = 0; t < batch; t++) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[t][i];
+          total_b += partial_b[t][i];
+        }
+        out_a[(unsigned long long)t * rows + row] = total_a;
+        out_b[(unsigned long long)t * rows + row] = total_b;
+      }
+    }
+  } else {
+    unsigned long long chunk = ((unsigned long long)cols + 31) / 32;
+    unsigned long long start = tid * chunk, end = start + chunk;
+    if (end > cols) end = cols;
+    float sum_a[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+    float sum_b[DS4_F16_PAIR_MAX_BATCH] = {0.0f};
+    for (unsigned long long i = start; i < end; i++) {
+      const float wa = ds4_half_to_float(a[offset + i]);
+      const float wb = ds4_half_to_float(b[offset + i]);
+      #pragma unroll
+      for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+        if (t < batch) {
+          const float xv = x[(unsigned long long)t * cols + i];
+          sum_a[t] += wa * xv;
+          sum_b[t] += wb * xv;
+        }
+      }
+    }
+    #pragma unroll
+    for (unsigned t = 0; t < DS4_F16_PAIR_MAX_BATCH; t++) {
+      if (t < batch) {
+        partial_a[t][tid] = sum_a[t];
+        partial_b[t][tid] = sum_b[t];
+      }
+    }
+    __syncthreads();
+
+    if (tid == 0) {
+      for (unsigned t = 0; t < batch; t++) {
+        float total_a = 0.0f, total_b = 0.0f;
+        for (unsigned i = 0; i < 32; i++) {
+          total_a += partial_a[t][i];
+          total_b += partial_b[t][i];
+        }
+        out_a[(unsigned long long)t * rows + row] = total_a;
+        out_b[(unsigned long long)t * rows + row] = total_b;
+      }
+    }
+  }
+}

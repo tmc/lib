@@ -87,6 +87,7 @@ type cudaFoundation struct {
 	f16Fn                   driver.Function
 	f16DefaultFn            driver.Function
 	f16PairOrderedFn        driver.Function
+	f16PairOrderedBatchFn   driver.Function
 	hcPreFn                 driver.Function
 	hcHalfFn                driver.Function
 	hcSplitFn               driver.Function
@@ -917,6 +918,7 @@ func (r *cudaFoundation) cudaKernels() []struct {
 		{"ds4_f16_matvec", &r.f16Fn},
 		{"ds4_f16_matvec_half_input", &r.f16DefaultFn},
 		{"ds4_f16_pair_ordered_chunks", &r.f16PairOrderedFn},
+		{"ds4_f16_pair_ordered_chunks_batch", &r.f16PairOrderedBatchFn},
 		{"ds4_hc_pre", &r.hcPreFn},
 		{"ds4_hc_half_input", &r.hcHalfFn},
 		{"ds4_hc_cached_split", &r.hcSplitFn},

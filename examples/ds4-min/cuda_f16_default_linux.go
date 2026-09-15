@@ -59,3 +59,35 @@ func (r *cudaFoundation) encodeF16PairOrdered(a, b cudaModelTensor, in, outA, ou
 		return nil
 	})
 }
+
+// cudaF16PairMaxBatch is the compile-time maximum batch width supported by
+// ds4_f16_pair_ordered_chunks_batch in cuda_f16_default.cu.
+const cudaF16PairMaxBatch = 8
+
+// encodeF16PairOrderedBatch projects batch token-major activation rows against
+// one weight pair with a single launch, reading the weights once for all
+// tokens. Each token keeps the chunk partition and summation order of
+// encodeF16PairOrdered, so the outputs are bit-identical to one launch per
+// token. Input is batch adjacent rows of cols elements; the outputs are batch
+// adjacent rows of rows elements.
+func (r *cudaFoundation) encodeF16PairOrderedBatch(a, b cudaModelTensor, in, outA, outB cudamem.Slice[float32], batch int) error {
+	if a.typeID != 1 || b.typeID != 1 || len(a.dimensions) != 2 || len(b.dimensions) != 2 || a.device == 0 || b.device == 0 || batch <= 0 || batch > cudaF16PairMaxBatch {
+		return fmt.Errorf("cuda: batched ordered F16 pair: invalid tensor or batch %d (max %d)", batch, cudaF16PairMaxBatch)
+	}
+	cols, rows := a.dimensions[0], a.dimensions[1]
+	if cols == 0 || cols > math.MaxUint32 || rows == 0 || rows > math.MaxInt32 || b.dimensions[0] != cols || b.dimensions[1] != rows ||
+		uint64(in.Len()) != uint64(batch)*cols || uint64(outA.Len()) != uint64(batch)*rows || outB.Len() != outA.Len() ||
+		rows > a.bytes/(cols*2) || rows > b.bytes/(cols*2) {
+		return fmt.Errorf("cuda: batched ordered F16 pair: invalid shape or extent")
+	}
+	return r.device.WithContext(func() error {
+		if err := r.loadMathKernels(); err != nil {
+			return err
+		}
+		if err := cudalaunch.Kernel(r.f16PairOrderedBatchFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(
+			a.device, b.device, in, outA, outB, uint32(cols), uint32(batch)); err != nil {
+			return fmt.Errorf("cuda: launch batched ordered F16 pair: %w", err)
+		}
+		return nil
+	})
+}
