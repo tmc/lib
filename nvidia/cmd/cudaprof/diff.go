@@ -442,36 +442,15 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 				shift := float64(delta) / float64(b) * 100.0
 				shiftStr = fmt.Sprintf("%+.1f%%", shift)
 
-				// Analyze shifts
-				if r == "stall_memory_throttle" || r == "stall_mem_throttle" {
-					if shift <= -15.0 {
-						explanations = append(explanations, fmt.Sprintf(
-							"**Memory Pipeline Efficiency**: `%s` decreased by %.1f%% (%d -> %d samples), indicating successful memory prefetching, prologue hoisting, or contiguous TMA alignment.",
-							r, -shift, b, t))
-					} else if shift >= 15.0 {
-						explanations = append(explanations, fmt.Sprintf(
-							"**Memory Bottleneck**: `%s` increased by +%.1f%% (%d -> %d samples), indicating DRAM/L2 bandwidth pressure or uncoalesced memory accesses.",
-							r, shift, b, t))
-					}
-				}
-				if r == "stall_barrier" {
-					if shift <= -15.0 {
-						explanations = append(explanations, fmt.Sprintf(
-							"**Synchronization Overhead Reduction**: `stall_barrier` decreased by %.1f%% (%d -> %d samples), indicating reduced thread-block sync wait times.",
-							-shift, b, t))
-					} else if shift >= 15.0 {
-						explanations = append(explanations, fmt.Sprintf(
-							"**Barrier Waiting Overhead**: `stall_barrier` increased by +%.1f%% (%d -> %d samples), indicating CTA load imbalance or barrier latency.",
-							shift, b, t))
-					}
-				}
-				if r == "stall_short_scoreboard" {
-					if shift <= -15.0 {
-						explanations = append(explanations, fmt.Sprintf(
-							"**Instruction-Level Parallelism**: `stall_short_scoreboard` decreased by %.1f%% (%d -> %d samples), indicating better register dependency spacing and pipeline utilization.",
-							-shift, b, t))
-					}
-				}
+				// No narrative here on purpose. The four names this block used
+				// to test for -- stall_barrier, stall_mem_throttle,
+				// stall_memory_throttle, stall_short_scoreboard -- are none of
+				// the ten x/cudaprof emits, so none of them ever fired. Writing
+				// the narrative against the real names is a judgement call and
+				// not a rename: stall_wait merges barrier, wait and membar, so
+				// a barrier claim over-reaches, and stall_mem carries latency
+				// waits, so a throttle claim names the wrong mechanism. The
+				// table below reports every real reason and is what works.
 			} else if t > 0 {
 				shiftStr = "+inf"
 			}
