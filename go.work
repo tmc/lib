@@ -11,6 +11,7 @@ go 1.27.0
 use (
 	./apple
 	./examples
+	./gguf
 	./hfsync
 	./libgit2
 	./lldb
