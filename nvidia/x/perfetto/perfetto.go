@@ -41,9 +41,13 @@ const (
 	FieldProcessDescPID  = 1
 	FieldProcessDescName = 6
 
-	FieldThreadDescTID  = 1
+	// ThreadDescriptor field numbers, per
+	// protos/perfetto/trace/track_event/thread_descriptor.proto:
+	// "optional int32 pid = 1", "optional int64 tid = 2",
+	// "optional string thread_name = 5".
+	FieldThreadDescPID  = 1
 	FieldThreadDescName = 5
-	FieldThreadDescPID  = 2
+	FieldThreadDescTID  = 2
 
 	FieldTrackEventCategories       = 22
 	FieldTrackEventName             = 23
