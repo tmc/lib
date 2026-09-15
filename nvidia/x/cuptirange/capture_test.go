@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
@@ -118,5 +119,45 @@ func TestCaptureRetainsCollectionEvidence(t *testing.T) {
 		if failed && c.DiagnosticImage[0] != 1 || !failed && c.Image[0] != 1 {
 			t.Fatal("capture borrows counter buffer")
 		}
+	}
+}
+
+func TestCaptureLeaseSurvivesCleanupFailure(t *testing.T) {
+	lease, err := cuptiowner.AcquireDevice(98765)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lease.Release()
+	c := &Capture{context: &testCaptureContext{releaseError: errors.New("release")}, lease: lease}
+	if err := c.Close(); err == nil {
+		t.Fatal("cleanup failure missing")
+	}
+	if another, err := cuptiowner.AcquireDevice(98765); err == nil {
+		another.Release()
+		t.Fatal("cleanup relinquished ownership")
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	another, err := cuptiowner.AcquireDevice(98765)
+	if err != nil {
+		t.Fatal(err)
+	}
+	another.Release()
+}
+
+func TestPlanRetainsCaptureCleanup(t *testing.T) {
+	p := &Plan{active: true}
+	if err := p.Close(); err == nil {
+		t.Fatal("closed active plan")
+	}
+	p.active = false
+	ctx := &testCaptureContext{releaseError: errors.New("release")}
+	p.pending = &Capture{context: ctx}
+	if err := p.Close(); err == nil || p.pending == nil {
+		t.Fatal("lost cleanup owner")
+	}
+	if err := p.Close(); err != nil || p.pending != nil {
+		t.Fatalf("retry failed: %v", err)
 	}
 }
