@@ -1,0 +1,39 @@
+commit 7d6588800ac3be073c85b08772c5da210988fcad
+date 2026-09-14
+claude-code 2.1.257
+model claude-opus-5
+tty not a tty (workflow subagent)
+pid 65869
+ITERM_SESSION_ID w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session 2b9497cd-7408-4e8b-a617-38b19820dab9
+worktree /Volumes/tmc/go/src/github.com/tmc/lib/.claude/worktrees/wf_69623f6c-a66-6
+branch wf-q80-load-width (from codex/ds4-min fd719c7d)
+
+Candidate q80-weight-load-width, first form. Compile-level verification only;
+never built with nvcc and never run on the GB10.
+
+ABBA verdict 2026-09-14: REFUTED. This commit's premise (collapsing 18
+narrow Q8_0 weight loads to 3 wide ones relieves issue-slot/MIO pressure) does not hold
+end-to-end. ABBA n=6 under one host lease, arms verified by grepping the built tree for
+DS4_Q80_STAGE_UINT4: A(baseline) mean 12.340 t/s, B(staged) mean 12.360 t/s = +0.16%,
+inside the 0.73% all-draw spread. A tie.
+
+The SASS prediction was met exactly -- per-loop census, base 140 ins LDG=27 LDS=0
+{LDG.E.U16:16, LDG.E.U8:2}; staged 144 ins LDG=12 LDS=17 {LDG.E.128:3, STS.128:3,
+LDS.U16:17}. But total weight memory instructions ROSE 18 -> 23 and the loop gained two
+__syncwarp() per iteration: the staging copies the 34-byte interleave into shared memory
+instead of repacking it. Load count fell; instruction count did not.
+
+Caveats on the measurement: both cudaprof captures failed rc=2 (capture journal exceeded
+limit of 1048576 records; this workload needs --max-records=8000000), so the per-kernel
+device time of ds4_q8_0_matvec_quantized was never obtained -- only the end-to-end bound
+that it moved less than ~10%. The bit-identity gate printed one arm's prefill sha256 with
+no counterpart to compare against, so it gated nothing.
+
+Two claims in this commit's message and in cuda_q80_layout.cu:6-8 are WITHDRAWN by their
+author: (1) the 34-byte stride does not 'spread each load across the whole run' -- 1088
+bytes requires 34 sectors as an arithmetic floor, so there is no amplification; (2) the
+alignment holds for ODD b, not even (34b+2 = 2(17b+1)).
+
+Do not merge this branch as an optimization. Its value is the null result.
+session=2b9497cd-7408-4e8b-a617-38b19820dab9 recorded-by=DF6906F6
