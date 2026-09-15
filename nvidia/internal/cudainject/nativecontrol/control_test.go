@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -437,6 +438,41 @@ func TestSustained(t *testing.T) {
 
 // TestBurst offers whole activity buffers back to back from several threads,
 // which is the shape CUPTI delivers under a real serving load. The gate is
+// loadAverage reports the host's one-minute load average, or "unknown" if it
+// cannot be read. The admission deadline below is wall-clock, so the same code
+// retains every record on an idle host and drops records on a busy one. Without
+// the load, a pass taken under contention and a pass taken on a quiet machine
+// are the same line in a log, and only one of them is evidence.
+//
+// The standard library exposes no load average and x/sys is outside this
+// repository's dependencies, so read what each kernel already publishes as
+// text. Never report an empty string: it reads as a quiet host, which is the
+// one misreading this exists to prevent.
+func loadAverage() string {
+	const unknown = "unknown"
+	switch runtime.GOOS {
+	case "darwin":
+		// sysctl -n vm.loadavg prints "{ 1.23 4.56 7.89 }".
+		out, err := exec.Command("sysctl", "-n", "vm.loadavg").Output()
+		if err != nil {
+			return unknown
+		}
+		if f := strings.Fields(string(out)); len(f) > 1 {
+			return f[1]
+		}
+	case "linux":
+		// /proc/loadavg starts "1.23 4.56 7.89".
+		out, err := os.ReadFile("/proc/loadavg")
+		if err != nil {
+			return unknown
+		}
+		if f := strings.Fields(string(out)); len(f) > 0 {
+			return f[0]
+		}
+	}
+	return unknown
+}
+
 // that the batched drain plus bounded backpressure retains everything.
 func TestBurst(t *testing.T) {
 	result, status, captures := run(t, "burst", "4", "8", "20000", "0")
@@ -452,10 +488,10 @@ func TestBurst(t *testing.T) {
 		// admission deadline. Report both maxima: the longest wait says how
 		// far past that deadline admission went, and the longest batch write
 		// says whether the drain was the reason.
-		t.Errorf("burst lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms)",
+		t.Errorf("burst lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms load1=%s)",
 			fin.Offered-fin.Retained, fin.Offered,
 			fin.QueueCapacityDropped, fin.QueueContentionDrop, fin.QueueOversizeDropped,
-			fin.BackpressureMaxNanos/1e6, fin.DrainWriteMaxNanos/1e6)
+			fin.BackpressureMaxNanos/1e6, fin.DrainWriteMaxNanos/1e6, loadAverage())
 	}
 	if fin.DrainMaxBatch < 2 {
 		t.Errorf("drain wrote one record per batch under burst: %+v", fin)
@@ -466,11 +502,11 @@ func TestBurst(t *testing.T) {
 	if !status.Exited() || status.ExitStatus() != 0 {
 		t.Errorf("status = %v, want a clean exit", status)
 	}
-	t.Logf("burst offered=%d retained=%d batches=%d max_batch=%d backpressure_waits=%d backpressure_ms=%d longest_wait_ms=%d longest_write_ms=%d callback_max_us=%d",
+	t.Logf("burst offered=%d retained=%d batches=%d max_batch=%d backpressure_waits=%d backpressure_ms=%d longest_wait_ms=%d longest_write_ms=%d callback_max_us=%d load1=%s",
 		fin.Offered, fin.Retained, fin.DrainBatches, fin.DrainMaxBatch,
 		fin.BackpressureWaits, fin.BackpressureNanos/1e6,
 		fin.BackpressureMaxNanos/1e6, fin.DrainWriteMaxNanos/1e6,
-		fin.CallbackMaxNanos/1e3)
+		fin.CallbackMaxNanos/1e3, loadAverage())
 }
 
 // TestTerminationRace signals SIGTERM while callbacks are still offering. The
@@ -578,10 +614,10 @@ func TestActivityOnlyConfiguration(t *testing.T) {
 	}
 	checkReconciles(t, c, result.Offered)
 	if c.finalized.Retained != c.finalized.Offered {
-		t.Errorf("activity-only run lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms)",
+		t.Errorf("activity-only run lost %d of %d offered records (capacity=%d contention=%d oversize=%d longest_wait=%dms longest_write=%dms load1=%s)",
 			c.finalized.Offered-c.finalized.Retained, c.finalized.Offered,
 			c.finalized.QueueCapacityDropped, c.finalized.QueueContentionDrop, c.finalized.QueueOversizeDropped,
-			c.finalized.BackpressureMaxNanos/1e6, c.finalized.DrainWriteMaxNanos/1e6)
+			c.finalized.BackpressureMaxNanos/1e6, c.finalized.DrainWriteMaxNanos/1e6, loadAverage())
 	}
 }
 
