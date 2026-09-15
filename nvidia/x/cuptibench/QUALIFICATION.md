@@ -29,7 +29,7 @@ rerun of the main integration is claimed. Local integration checks are separate.
 | Cache semantics are explicit | CachePolicy admission, documented no-reset metadata, cold/warm raw-sector fixture compiled for Linux AMD64/ARM64 | Native cold/warm and two-pass controls pass |
 | Faithful C benchmark formatting | Versioned JSON decoder, 64 MiB input bound, normalization and injection tests, CLI tests | Source-specific reader and checked comparison are separate proposed work |
 | C family mapping is qualified independently of formatting | Adapter alternatives spec includes coverage and mapping gates | Retained Nsight mapping is known wrong and remains format-only |
-| Cross-collector exclusion | Device lease integration for Range, PM, SASS and PC; conflict and failed teardown/retry race tests pass | Native qualification pending for PC exclusion and timing ownership; external collection remains caller-controlled |
+| Cross-collector exclusion | Device lease integration for Range, PM, SASS and PC; conflict and failed teardown/retry race tests pass | PC exclusion and benchmark timing/export pass on GB20B; physical failure injection remains open; external collection remains caller-controlled |
 
 ## Local checks
 
@@ -149,9 +149,29 @@ mutation fails both startup-cleanup cases with "failed cleanup released device".
 The native PC exclusion fixture enables sampling once in a fresh process and
 queries a nonempty reason inventory before releasing ownership.
 
-Hardware execution of these additions remains pending: the 2026-09-15 attempt
-waited 45 seconds for the directory lease and exited 75 while DF6906F6 held it
-for the T2 census. No GPU test ran in that attempt. Local logs and prepared
-binaries are retained in `~/tmp/cuptibench-completion-receipts`. The earlier
-DS4 native Stop failure, later-position correctness and L4 AutoRange gates
-remain open; these ownership fixes do not resolve them.
+The initial hardware attempt waited 45 seconds for the directory lease and
+exited 75 while DF6906F6 held it for the T2 census; no GPU test ran in that
+attempt. After the lease became available, revision
+`375de4ea98b76ddb130e43254935a2e942b60375` passed all six selected top-level tests
+on NVIDIA GB10 / CUPTI chip GB20B, CUPTI 130202, driver 580.173.02:
+
+- Native PC exclusion, nonempty reason inventory (36 reasons), and release.
+- Counter-volume control (12 versus 24 CTAs).
+- Multistream event timing: overlapping 20.06 ms, dependent 40.02 ms.
+- Insufficient range capacity rejected by independent launch evidence.
+- Actual benchmark full/isolated profile export and pprof validation.
+- Actual host 1/2/4-pass replay through nesting, with invariant root CTA count 24.
+
+Both test processes exited zero. The PC test enabled sampling once in a fresh
+process; it did not sample a model workload or inject a native Disable failure.
+The timing/profile check executes the new owned timer through Benchmark.
+Lease pid 1461350, label `FC0AB720-cuptibench-375de4ea`, was acquired at
+2026-09-15T15:51:59Z and released after the checks. Toolchain pins were NVRTC
+13.0 and the CUDA 13.2 CUPTI library directory. No clocks were changed.
+
+Receipt: `~/tmp/cuptibench-completion-receipts/375de4ea/`, including verified
+binary/source hashes, source manifest, before/after device snapshots, lease,
+exit statuses, test logs and the exported profile. These are synthetic physical
+controls, not DS4 or performance-parity qualification. The earlier DS4 native
+Stop failure, later-position correctness, native cleanup-failure injection and
+L4 AutoRange gates remain open.
