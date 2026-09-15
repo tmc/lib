@@ -194,7 +194,13 @@ func TestConfigAndMetricSemantics(t *testing.T) {
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "l2_sector", cupti.MetricTypeCounter, true},
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "byte", cupti.MetricTypeCounter, false},
 		{"lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum", "l2_sector", cupti.MetricTypeRatio, false},
-		{"arbitrary.sum", "count", cupti.MetricTypeCounter, false},
+		// A discovered counter rollup is additive: nothing curated expects a
+		// particular dimension for it, but ".sum" still totals events.
+		{"arbitrary.sum", "count", cupti.MetricTypeCounter, true},
+		{"arbitrary.sum", "unknown", cupti.MetricTypeCounter, false},
+		{"arbitrary.avg", "count", cupti.MetricTypeCounter, false},
+		{"arbitrary.peak_sustained", "count", cupti.MetricTypeCounter, false},
+		{"arbitrary.sum", "count", cupti.MetricTypeThroughput, false},
 		{"smsp__inst_executed.sum", "unknown", cupti.MetricTypeCounter, false},
 		{"smsp__inst_executed.sum", "inst", cupti.MetricTypeRatio, false},
 	} {
