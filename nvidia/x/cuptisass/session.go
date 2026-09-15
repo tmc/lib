@@ -8,10 +8,26 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 )
 
-// Session manages a CUPTI SASS metrics data collection lifecycle on a CUDA context.
+type sessionAPI struct {
+	version    func() error
+	initialize func() error
+	device     func(uintptr) (uint32, error)
+	config     func(*cupti.SassMetricsSetConfigParams) error
+	unset      func(*cupti.SassMetricsUnsetConfigParams) error
+	enable     func(*cupti.SassMetricsEnableParams) error
+	disable    func(*cupti.SassMetricsDisableParams) error
+}
+
+// Session manages a CUPTI SASS metrics data collection lifecycle on a CUDA context. Its zero value is not usable.
+// Do not discard the session until Close succeeds.
 type Session struct {
+	api        sessionAPI
+	lease      *cuptiowner.Lease
+	closing    bool
 	mu         sync.Mutex
 	ctx        uintptr
 	device     uint32
@@ -21,8 +37,17 @@ type Session struct {
 	closed     bool
 }
 
-// NewSession configures and creates a new SASS metrics collection session for the device and context.
+// NewSession reserves the device and configures SASS collection on ctx. The
+// context must belong to cfg.DeviceIndex and stay live until Close succeeds.
+// Cooperating range and PM collectors are excluded until Close succeeds. A
+// nonnil session returned with an error retains cleanup ownership; retry Close.
 func NewSession(ctx uintptr, cfg Config) (*Session, error) {
+	return newSession(ctx, cfg, sessionAPI{CheckVersion, initProfiler, contextDevice, cupti.SassMetricsSetConfig, cupti.SassMetricsUnsetConfig, cupti.SassMetricsEnable, cupti.SassMetricsDisable})
+}
+func newSession(ctx uintptr, cfg Config, api sessionAPI) (result *Session, err error) {
+	if ctx == 0 {
+		return nil, errors.New("cuptisass: nil context")
+	}
 	if len(cfg.Metrics) == 0 {
 		return nil, errors.New("cuptisass: at least one metric must be configured")
 	}
@@ -32,10 +57,32 @@ func NewSession(ctx uintptr, cfg Config) (*Session, error) {
 		}
 	}
 
-	if err := CheckVersion(); err != nil {
+	if err := api.version(); err != nil {
 		return nil, err
 	}
-	if err := initProfiler(); err != nil {
+	device, err := api.device(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if device != cfg.DeviceIndex {
+		return nil, errors.New("cuptisass: context belongs to a different device")
+	}
+	lease, err := cuptiowner.AcquireDevice(device)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Metrics = append([]MetricConfig(nil), cfg.Metrics...)
+	sess := &Session{api: api, lease: lease, ctx: ctx, device: device, cfg: cfg}
+	defer func() {
+		if err != nil {
+			cleanup := sess.Close()
+			if cleanup != nil {
+				result = sess
+				err = errors.Join(err, cleanup)
+			}
+		}
+	}()
+	if err := api.initialize(); err != nil {
 		return nil, err
 	}
 
@@ -47,24 +94,23 @@ func NewSession(ctx uintptr, cfg Config) (*Session, error) {
 		}
 	}
 
+	var configPin runtime.Pinner
+	configPin.Pin(&pConfigs[0])
+	defer configPin.Unpin()
 	var setParams cupti.SassMetricsSetConfigParams
 	setParams.StructSize = uint(unsafe.Offsetof(setParams.DeviceIndex) + unsafe.Sizeof(setParams.DeviceIndex))
 	setParams.NumOfMetricConfig = uint(len(pConfigs))
 	setParams.PConfigs = uintptr(unsafe.Pointer(&pConfigs[0]))
 	setParams.DeviceIndex = cfg.DeviceIndex
 
-	if err := cupti.SassMetricsSetConfig(&setParams); err != nil {
+	if err := api.config(&setParams); err != nil {
 		runtime.KeepAlive(pConfigs)
 		return nil, fmt.Errorf("cuptisass: set config: %w", err)
 	}
 	runtime.KeepAlive(pConfigs)
 
-	return &Session{
-		ctx:        ctx,
-		device:     cfg.DeviceIndex,
-		cfg:        cfg,
-		configured: true,
-	}, nil
+	sess.configured = true
+	return sess, nil
 }
 
 // Enable starts SASS metric profiling. Subsequent kernel launches on the context
@@ -73,7 +119,7 @@ func (s *Session) Enable() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.closed {
+	if s.closed || s.closing {
 		return errors.New("cuptisass: session is closed")
 	}
 	if !s.configured {
@@ -90,7 +136,8 @@ func (s *Session) Enable() error {
 		enableParams.EnableLazyPatching = 1
 	}
 
-	if err := cupti.SassMetricsEnable(&enableParams); err != nil {
+	if err := s.api.enable(&enableParams); err != nil {
+		s.closing = true
 		return fmt.Errorf("cuptisass: enable: %w", err)
 	}
 	s.enabled = true
@@ -111,7 +158,7 @@ func (s *Session) Disable() (uint, error) {
 	disableParams.StructSize = uint(unsafe.Offsetof(disableParams.NumOfDroppedRecords) + unsafe.Sizeof(disableParams.NumOfDroppedRecords))
 	disableParams.Ctx = cupti.Context(s.ctx)
 
-	if err := cupti.SassMetricsDisable(&disableParams); err != nil {
+	if err := s.api.disable(&disableParams); err != nil {
 		return 0, fmt.Errorf("cuptisass: disable: %w", err)
 	}
 	s.enabled = false
@@ -123,7 +170,7 @@ func (s *Session) DataProperties() (numPatchedRecords, numInstances uint, err er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.closed {
+	if s.closed || s.closing {
 		return 0, 0, errors.New("cuptisass: session is closed")
 	}
 
@@ -142,7 +189,7 @@ func (s *Session) Flush() ([]Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.closed {
+	if s.closed || s.closing {
 		return nil, errors.New("cuptisass: session is closed")
 	}
 
@@ -211,36 +258,56 @@ func (s *Session) Flush() ([]Record, error) {
 }
 
 // Close disables SASS metrics collection if active, resets the device configuration,
-// and releases all associated session state.
+// and releases the device lease. Failed disable or unset retains ownership for
+// retry; after a Close attempt only cleanup methods may be called.
 func (s *Session) Close() error {
+	if s == nil {
+		return nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if s.closed {
 		return nil
 	}
-	s.closed = true
-
-	var firstErr error
+	s.closing = true
 	if s.enabled {
-		var disableParams cupti.SassMetricsDisableParams
-		disableParams.StructSize = uint(unsafe.Offsetof(disableParams.NumOfDroppedRecords) + unsafe.Sizeof(disableParams.NumOfDroppedRecords))
-		disableParams.Ctx = cupti.Context(s.ctx)
-		if err := cupti.SassMetricsDisable(&disableParams); err != nil {
-			firstErr = fmt.Errorf("cuptisass: close disable: %w", err)
+		p := cupti.SassMetricsDisableParams{Ctx: cupti.Context(s.ctx)}
+		p.StructSize = uint(unsafe.Offsetof(p.NumOfDroppedRecords) + unsafe.Sizeof(p.NumOfDroppedRecords))
+		if err := s.api.disable(&p); err != nil {
+			return fmt.Errorf("cuptisass: close disable: %w", err)
 		}
 		s.enabled = false
 	}
-
 	if s.configured {
-		var unsetParams cupti.SassMetricsUnsetConfigParams
-		unsetParams.StructSize = uint(unsafe.Offsetof(unsetParams.DeviceIndex) + unsafe.Sizeof(unsetParams.DeviceIndex))
-		unsetParams.DeviceIndex = s.device
-		if err := cupti.SassMetricsUnsetConfig(&unsetParams); err != nil && firstErr == nil {
-			firstErr = fmt.Errorf("cuptisass: close unset config: %w", err)
+		p := cupti.SassMetricsUnsetConfigParams{DeviceIndex: s.device}
+		p.StructSize = uint(unsafe.Offsetof(p.DeviceIndex) + unsafe.Sizeof(p.DeviceIndex))
+		if err := s.api.unset(&p); err != nil {
+			return fmt.Errorf("cuptisass: close unset config: %w", err)
 		}
 		s.configured = false
 	}
+	s.lease.Release()
+	s.lease = nil
+	s.closed = true
+	return nil
+}
 
-	return firstErr
+// contextDevice verifies the configured ordinal against the actual context,
+// using the longstanding current-context API without requiring cuCtxGetDevice_v2.
+func contextDevice(ctx uintptr) (device uint32, err error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	previous, err := driver.NewContextGetCurrent()
+	if err != nil {
+		return 0, err
+	}
+	if err := driver.Context(ctx).SetCurrent(); err != nil {
+		return 0, err
+	}
+	defer func() { err = errors.Join(err, previous.SetCurrent()) }()
+	raw, err := driver.CtxGetDevice()
+	if err != nil {
+		return 0, err
+	}
+	return uint32(raw), nil
 }
