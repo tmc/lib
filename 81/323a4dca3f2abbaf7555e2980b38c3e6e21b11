@@ -1,0 +1,31 @@
+commit: f1cc45fdb2efff24362463f23a4c09ccaf6b5a40
+date: 2026-09-06T20:02:24.656472-07:00
+agent: codex-cli 0.153.4
+claude-code version: not applicable
+model: GPT-6 family
+tty: not a tty
+pid: 12915
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+validation: source and physical receipts independently reviewed; git diff --check passed
+commit helper: one attempt failed missing ANTHROPIC_API_KEY; permitted manual fallback
+scope: docs only; no new throughput claim
+
+commit: e1f82b7ab9c58b6648f9883006be878c45178841
+commit date: 2026-09-15T00:30:10-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 81323a4dca3f2abbaf7555e2980b38c3e6e21b11
+commit date: 2026-09-15T00:43:53-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
