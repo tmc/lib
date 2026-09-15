@@ -185,14 +185,19 @@ func compileNVRTCVariant(name, src string, options []string) *nvrtcVariant {
 	if v.Label == "" {
 		v.Label = "(no options)"
 	}
-	// WithNoCache: the cache disagrees with a fresh compile. Measured against
-	// NVRTC 13.0 on ds4_math.cu, --ftz=true, --prec-div=false, --prec-sqrt=false
-	// and --extra-device-vectorization each produce a CUBIN bit-identical to the
-	// one compiled without them, reproducibly across processes -- they are
-	// no-ops on that source. Served from the cache they instead returned a CUBIN
-	// no fresh compile produces, and the panel reported them removing 24 FCHK
-	// and 8 MUFU.RCP. A comparison that invents a difference is worse than a
-	// slow one, so every variant here is compiled.
+	// WithNoCache: the cache collapses distinct option sets. Measured against
+	// NVRTC 13.0 on ds4_math.cu, --ftz=true, --prec-div=false, --prec-sqrt=false,
+	// and --extra-device-vectorization were served one shared CUBIN while the
+	// base options got another, and the panel reported them removing 24 FCHK and
+	// 8 MUFU.RCP. Four unrelated flags cannot agree to the instruction; that is a
+	// keying bug, so every variant here is compiled.
+	//
+	// Compiling fresh does not make the SASS authoritative. NVRTC applies
+	// --ftz=true to the PTX it returns and then returns a CUBIN byte-identical to
+	// the unflagged one; nvcc on the same source rewrites 1850 FFMA to FFMA.FTZ.
+	// A flag can therefore change the PTX tier and leave the SASS tier untouched
+	// here while changing machine code under nvcc. --use_fast_math does survive
+	// to NVRTC's SASS (FCHK 190->0); the individual flags it implies do not.
 	opts := []nvrtcx.Option{nvrtcx.WithName(name), nvrtcx.WithNoCache()}
 	for _, flag := range options {
 		opts = append(opts, nvrtcx.WithFlag(flag))
