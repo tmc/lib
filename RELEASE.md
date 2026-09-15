@@ -4,8 +4,10 @@ Status: blocked on license selection and dependency publication; not ready. Scop
 built and tested for development but is not tagged. There is no root module.
 
 The audit began at `75377ee0` on September 12, 2026, with Go 1.27.0 on
-Darwin/arm64 (Apple M4 Max). The last revision it built and tested was
-`fa28c9c4`; any commit after that one changes only this document. The repairs it found are
+Darwin/arm64 (Apple M4 Max). Every figure below was measured at `fa28c9c4`
+unless the row names another revision. `main` has moved since -- this is a
+shared tree with concurrent sessions in it -- so re-run the gates rather than
+quoting these numbers for a tag. The repairs the audit found are
 committed; see the "Verified changes" section for what each one was. No tags
 were created and no publication occurred. Receipts below are local files under
 `~/tmp/lib-release/` and `~/tmp/lib-release-current/`.
@@ -107,6 +109,7 @@ before publication; do not silently move existing local tags.
 | Burst admission failure observed directly | A full `make test` run lost 87 of 640,000 with `longest_wait=113ms longest_write=431ms`: the predicted mechanism, measured on a real failure rather than inferred | `make-test-head.log` |
 | Full workspace test at the final revision | All 15 modules, 144 packages passed at `fa28c9c4`; `check`, `gate-selftest`, `release-selftest`, `platform-check` and `testtag-check` all clean | `make-test-f3a541fe.log` and the gate logs beside it |
 | Release metadata at the final revision | Fails on the missing license and on `tpu`, `x/xla`, `x/gomlx` replacements and placeholders; nothing else | `release-check-fa28c9c4.log` |
+| No tracked file is ignored | `make check` now requires `git ls-files --ignored --cached --exclude-standard` to be empty; it found one bare `.gitignore` pattern that matched a directory and claimed the tracked `main.go` inside it | `e088e6df`, `723762bb`; the gate names the file and exits non-zero when the bare pattern is restored |
 | Pinned `tmc/ffi` availability | Still 404; `git ls-remote` fails authentication, so the repository is private rather than unpublished | `proxy.golang.org` `.info` and `.zip`, rechecked September 13, 2026 |
 
 The draft archive passes cover `libgit2`, `lldb`, `lm`, `rocm`, `treesitter`,
