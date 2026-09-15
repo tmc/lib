@@ -1,0 +1,27 @@
+Commit: 0c60e0729e22ad871cb2e0afe8ab093943b5582a
+Date: 2026-09-12T04:18:28.365743+00:00
+Agent: Codex API; Claude Code version not applicable; exact model identifier not exposed
+TTY: not exposed
+Note-writer PID: 92425
+ITERM_SESSION_ID: w14t0p15:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Evidence: cuda-gate-scanner-fix-6e6a manifest703e51364034a285a1ac5c22b888a4394532159aa07d08ec2e43406dd5868c25; independent scanner review in cuda-raw-integration-test-inventory-6e6a. Corrected host package exit0; unanchored-regex mutant exit1; no CUDA kernel change. git-auto-commit-message failed once because Anthropic API key missing; manual fallback used without retrying unchanged credentials.
+
+commit: 369e40fd09b2e4e1ddd411d7e89d96a99cda74bd
+commit date: 2026-09-15T00:31:26-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 0bc4822dd4db2ec2b5730fd68fef7230485e3ee9
+commit date: 2026-09-15T00:43:58-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
