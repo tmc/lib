@@ -10,9 +10,13 @@
 // Track allocations and assert no memory is leaked at test teardown:
 //
 //	tracker := cudamemtrack.New()
-//	tracker.Alloc(0x1000, 1024*1024, "weights")
+//	if err := tracker.Alloc(0x1000, 1024*1024, "weights"); err != nil {
+//		log.Fatal(err)
+//	}
 //	// ... run workload ...
-//	tracker.Free(0x1000)
+//	if err := tracker.Free(0x1000); err != nil {
+//		log.Fatal(err)
+//	}
 //	if err := tracker.CheckLeaks(); err != nil {
 //		log.Fatal(err)
 //	}
