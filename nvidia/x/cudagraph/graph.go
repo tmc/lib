@@ -14,6 +14,12 @@ import (
 type Graph struct {
 	raw    driver.Graph
 	device *cuda.Device
+
+	// mu guards retained, which owns the kernel argument storage and module
+	// references that graph nodes reach only through an untraced uintptr.
+	// See AddLaunch.
+	mu       sync.Mutex
+	retained []*launchArgs
 }
 
 // New creates an empty CUDA graph.
@@ -144,7 +150,7 @@ func (g *Graph) InstantiateWithOptions(options InstantiateOptions) (*Exec, error
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: instantiate graph: %w", err)
 	}
-	return &Exec{raw: rawExec, device: g.device, kernelOrder: order}, nil
+	return &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage()}, nil
 }
 
 // Raw returns the underlying driver.Graph handle.
@@ -172,6 +178,10 @@ type Exec struct {
 	raw         driver.GraphExec
 	device      *cuda.Device
 	kernelOrder []string
+
+	// retained holds the argument storage of the graph this Exec came from,
+	// so an Exec stays valid after the graph is destroyed. See AddLaunch.
+	retained []*launchArgs
 }
 
 // Launch enqueues execution of the instantiated graph on stream.
