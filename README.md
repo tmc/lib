@@ -4,9 +4,8 @@ Purego bindings and tooling for GPU compute: NVIDIA CUDA, Apple Metal, and the
 OpenXLA/PJRT runtimes that sit on top of them. No cgo, no vendor SDK headers at
 build time.
 
-Experimental and not-yet-ready modules live in
-[github.com/tmc/libexp](https://github.com/tmc/libexp). Everything in this
-repository is listed in `go.work` and is built and tested by `make`.
+Everything in this repository is listed in `go.work` and is built and tested
+by `make`.
 
 ## Repository layout
 
