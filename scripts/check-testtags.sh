@@ -65,6 +65,18 @@ while IFS= read -r tag; do
 			echo "skip $tag $dir ($mod does not claim $goos)"
 			continue
 		fi
+
+		# A constraint that also requires cgo selects nothing when cgo is off,
+		# and cgo is off whenever we cross-compile: "go test" then compiles a
+		# package with none of the tagged files in it and exits 0. That is a
+		# pass the gate did not earn, so say so instead of claiming it.
+		if awk -F'\t' -v d="$dir/" '$1 ~ "^"d {print $2}' "$work/lines" |
+			grep -qE "(^|[^A-Za-z0-9_!])cgo([^A-Za-z0-9_]|$)"; then
+			if [ "$(GOOS="$goos" go env CGO_ENABLED)" = 0 ]; then
+				echo "skip $tag $dir (needs cgo; unavailable for $goos here)"
+				continue
+			fi
+		fi
 		# The workspace resolves the modules that still carry replacements,
 		# the same way "make build" and "make test" do.
 		if (cd "$mod" && GOOS="$goos" go test -tags "$tag" -run '^$' -count=1 "./$rel") >"$work/out" 2>&1; then

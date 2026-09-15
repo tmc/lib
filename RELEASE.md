@@ -65,6 +65,17 @@ before publication; do not silently move existing local tags.
   The tag list is discovered, not declared, so a new tag is covered the day it
   appears; a tag whose GOOS the owning module does not claim in
   `scripts/platforms.txt` is skipped with that reason rather than failed.
+- Both cross-platform gates run with cgo off, because Go disables cgo whenever
+  it cross-compiles and no linux or windows C toolchain is installed here. This
+  bounds what either gate can claim, and the first version of `testtag-check`
+  did not respect the bound: the three `linux && cgo && nvidiampi` test files
+  are deselected when cgo is off, so `go test` compiled a package containing
+  none of them and exited 0. The gate printed `ok` for three packages it had
+  not built -- the same "an empty package compiles" trap this document records
+  for `nvdec` on `windows/arm64`, reproduced in the gate meant to catch it.
+  Verified by appending raw non-Go text to `cudensitymat/distributed_physical_test.go`
+  and watching the gate still print `ok`. It now reports those three as skips
+  naming the reason. Compiling them needs a linux host or a cross-toolchain.
 - `cudaprof diff` ranked stall shifts by absolute delta alone over a slice built
   by ranging a map, so tied reasons permuted per run and the top-five truncation
   could drop a different reason each time: two diffs of the same pair of
@@ -92,7 +103,7 @@ before publication; do not silently move existing local tags.
 | Burst admission under host I/O | Three runs with 4.8 GB of concurrent writes; both maxima rose together to 99 ms against the 100 ms deadline and still retained everything | same test with a concurrent `dd` load |
 | NVIDIA Linux API comparison | 195 incompatible entries plus one type-mismatch warning, identical to the Darwin set in both directions | `api/nvidia-linux.log` |
 | NVIDIA Windows API comparison | Not possible: `nvidia/v0.1.0` does not compile for Windows, so the tag has no export data | `api/nvidia-darwin-vs-windows.log` compares current surfaces instead |
-| Tagged test packages | 22 built, 1 skipped for an unclaimed GOOS; the gate was checked against an injected signature error in `nvml/physical_test.go` and rejected it | `make testtag-check` output |
+| Tagged test packages | 19 built, 4 skipped with a stated reason; mutation-checked in both directions -- it rejects an injected error in a compiled file and refuses to claim a pass for one it cannot compile | `make testtag-check` output |
 | Burst admission failure observed directly | A full `make test` run lost 87 of 640,000 with `longest_wait=113ms longest_write=431ms`: the predicted mechanism, measured on a real failure rather than inferred | `make-test-head.log` |
 | Full workspace test at the final revision | All 15 modules, 144 packages passed at `fa28c9c4`; `check`, `gate-selftest`, `release-selftest`, `platform-check` and `testtag-check` all clean | `make-test-f3a541fe.log` and the gate logs beside it |
 | Release metadata at the final revision | Fails on the missing license and on `tpu`, `x/xla`, `x/gomlx` replacements and placeholders; nothing else | `release-check-fa28c9c4.log` |
@@ -157,6 +168,8 @@ on nothing else.
 
 `scripts/platforms.txt` is the declaration; the table below restates it. Every
 entry builds at `1584e1c6` under `make platform-check`, 66 builds in 39 seconds.
+Those builds run with cgo off for every non-host target, so files behind a
+`cgo` constraint are not covered by this gate on this host.
 
 | Modules | darwin | linux | windows |
 |---|---|---|---|
