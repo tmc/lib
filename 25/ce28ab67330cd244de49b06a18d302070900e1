@@ -1,0 +1,31 @@
+Commit: 2203504a864c1f05d9629781c2826e6684ebe978
+Date: 2026-09-07T03:59:45.920043+00:00
+Agent: Codex GPT-6; Claude Code version not applicable
+TTY: not a tty
+PID: 65024
+ITERM_SESSION_ID: w15t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/oracle-workload-gate
+Commit helper missing API key; manual fallback used. Model-free validation only.
+Integrated-As: 67b557cf3a612542d7c7a40987ed7631635bbde7
+Integrated-By: 2379D0C3
+Integrated-Date: 2026-09-07T04:13:06Z
+
+commit: b2445f8231ddc749b338626ef5b8798c763acb64
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 25ce28ab67330cd244de49b06a18d302070900e1
+commit date: 2026-09-15T00:43:53-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
