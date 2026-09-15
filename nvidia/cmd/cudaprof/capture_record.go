@@ -530,4 +530,3 @@ func determineCaptureProvenance(agentCapability []byte) []byte {
 	}
 	return liveProv
 }
-

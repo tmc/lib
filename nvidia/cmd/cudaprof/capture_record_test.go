@@ -716,7 +716,6 @@ func TestObserveCaptureSessionSurfacesCUPTIVersionMismatch(t *testing.T) {
 	}
 }
 
-
 func TestObserveCaptureSessionSurfacesInvalidActivityFailure(t *testing.T) {
 	dir := t.TempDir()
 	session := "00112233445566778899aabbccddeeff"
@@ -795,5 +794,3 @@ func TestRunCaptureCommandOutputsCompactStatusWithoutRecordArrays(t *testing.T) 
 		t.Errorf("compact status JSON missing activity_samples count: %s", str)
 	}
 }
-
-

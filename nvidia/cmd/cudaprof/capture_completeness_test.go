@@ -390,4 +390,3 @@ func TestInspectDerivesPartialWhenRecordsDropped(t *testing.T) {
 		t.Fatalf("run_completeness = %q, want %q", coverage.RunCompleteness, runPartial)
 	}
 }
-
