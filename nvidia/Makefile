@@ -120,3 +120,9 @@ api-added: $(WORK)/old.api $(WORK)/new.api
 clean:
 	git -C $(REPO) worktree remove --force $(WORK)/tag 2>/dev/null || true
 	rm -rf $(WORK)
+
+.PHONY: apidiff
+
+# Compare the exported API on both supported target platforms.
+apidiff:
+	@sh scripts/apidiff.sh

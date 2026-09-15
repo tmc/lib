@@ -75,7 +75,11 @@ Two consequences follow:
    behind both; fixing their emitter closes this item.
 3. `codegen/docs/*.json` carries `"version": ""`; the scraped docs are
    unpinned and undated.
-4. There is no pre-tag API gate. `apidiff` is installed but not wired in.
+4. `make -C nvidia apidiff` compares the current API with the newest
+   `nvidia/v*` tag on linux/amd64 and darwin/arm64. It rejects incompatible
+   changes unless `ALLOW_INCOMPATIBLE=1` is explicit. The existing
+   `version-check` target instead compares against the reviewed API report;
+   both targets remain available. Neither is a hardware qualification gate.
 
 ## Pinned inputs
 
