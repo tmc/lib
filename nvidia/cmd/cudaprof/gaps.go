@@ -32,6 +32,7 @@ import (
 // gapOptions are the parsed arguments of the gaps command.
 type gapOptions struct {
 	capturePath string
+	diffBase    string
 	warmupMS    float64
 	maxRecords  int64
 	json        bool
@@ -51,6 +52,9 @@ func runGapsCommand(rawArgs []string) error {
 			return nil
 		}
 		return err
+	}
+	if opts.diffBase != "" {
+		return runGapsDiff(opts)
 	}
 	path, err := filepath.Abs(opts.capturePath)
 	if err != nil {
@@ -74,6 +78,32 @@ func runGapsCommand(rawArgs []string) error {
 	return nil
 }
 
+// runGapsDiff implements "cudaprof gaps --diff_base=base.pprof target.pprof".
+// Both captures are analyzed under the same options, so the steady-state
+// windows are cut at the same warmup and the deltas below subtract like
+// windows.
+func runGapsDiff(opts gapOptions) error {
+	base, err := gapReportForPath(opts.diffBase, opts)
+	if err != nil {
+		return err
+	}
+	target, err := gapReportForPath(opts.capturePath, opts)
+	if err != nil {
+		return err
+	}
+	diff, err := diffGapReports(base, target)
+	if err != nil {
+		return err
+	}
+	if opts.json {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(diff)
+	}
+	fmt.Fprint(os.Stdout, diff.text())
+	return nil
+}
+
 var errGapsHelp = errors.New("gaps: help requested")
 
 func parseGapsArgs(rawArgs []string) (gapOptions, error) {
@@ -94,6 +124,11 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 				return gapOptions{}, fmt.Errorf("invalid warmup: %s", arg)
 			}
 			opts.warmupMS = v
+		case strings.HasPrefix(arg, "--diff_base=") || strings.HasPrefix(arg, "-diff_base="):
+			opts.diffBase = arg[strings.IndexByte(arg, '=')+1:]
+			if opts.diffBase == "" {
+				return gapOptions{}, fmt.Errorf("invalid diff base: %s", arg)
+			}
 		case strings.HasPrefix(arg, "--max-records=") || strings.HasPrefix(arg, "-max-records="):
 			v, err := strconv.ParseInt(arg[strings.IndexByte(arg, '=')+1:], 10, 64)
 			if err != nil || v <= 0 {
@@ -109,13 +144,14 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 		}
 	}
 	if opts.capturePath == "" {
-		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N] [--max-records=N] [--json] capture.pprof")
+		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N] [--max-records=N] [--diff_base=base.pprof] [--json] capture.pprof")
 	}
 	return opts, nil
 }
 
 func printGapsHelp() {
 	fmt.Fprint(os.Stdout, `Usage: cudaprof gaps [options] capture.pprof
+       cudaprof gaps --diff_base=base.pprof [options] target.pprof
 
 Reconstructs the device timeline from the capture journals attached to a
 capture, merges kernel and memcpy intervals across streams per device, and
@@ -126,7 +162,16 @@ The analysis needs the per-record journal. pprof samples are aggregates and
 carry no timestamps, so a capture whose journal was omitted by the artifact
 budget, truncated, or lossy is refused instead of analyzed.
 
+With --diff_base the two captures are compared instead: span, active, idle,
+duty cycle, gap count and every gap percentile are reported as a delta. Both
+captures are analyzed under the same options, so the two steady-state windows
+are cut at the same warmup. This is the form to use for a before/after test.
+Summed per-kernel device time cannot see this axis: a change that moves work
+out of inter-kernel idle and into the kernels raises device-active time while
+the run gets faster, and a device-time-only diff scores that as a regression.
+
 Options:
+  --diff_base=FILE  compare against this capture and report deltas
   --warmup-ms=N     warmup window excluded from the steady-state section (default 200)
   --max-records=N   maximum journal records to decode (default 1048576)
   --json            write the report as JSON
