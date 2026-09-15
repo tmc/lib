@@ -200,7 +200,7 @@ func TestCUDAPrefillQ81LaunchBudget(t *testing.T) {
 	if eliminated := 2 * cudaLayers; eliminated != 86 {
 		t.Errorf("the shared FFN is %d launches per token but the census pinned 86.00; re-measure before trusting this budget", eliminated)
 	}
-	if per := float64(len(cudaQ81BatchTensors)*cudaLayers) / float64(cudaPrefillBatchWidth); per != 26.875 {
+	if per := float64(len(cudaQ81BatchTensors)*cudaLayers) / float64(cudaPrefillQ81Chunk); per != 26.875 {
 		t.Errorf("batched Q8_1 launches per prefill token %g, want 26.875", per)
 	}
 }

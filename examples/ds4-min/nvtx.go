@@ -197,7 +197,7 @@ type interiorCalibrator struct {
 	runID string
 	// every is the batch stride. A marker is taken when the batch
 	// ordinal is a multiple of it, so a 2048-token prefill at
-	// cudaPrefillBatchWidth 8 and every=64 marks ordinals 64, 128, 192
+	// cudaPrefillGroupWidth 8 and every=64 marks ordinals 64, 128, 192
 	// and 256.
 	every int
 

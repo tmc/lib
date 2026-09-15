@@ -224,7 +224,7 @@ func (b *metalBatch) EncodeRopeAttentionRaw(q, kv metalmem.Slice[float32], sinks
 // So batching prefill does not collapse the attention compressor, only the
 // matmuls around it. That bounds the shape of a widening but not its value:
 // the scan moves state buffers, not weights, so it is not what the streaming
-// cost is made of. CUDA's cudaPrefillBatchWidth of 8 is two window steps.
+// cost is made of. CUDA's cudaPrefillGroupWidth of 8 is two window steps.
 //
 // One difference from the CUDA port, noted and deliberately not changed here.
 // ds4_compressor_pool does the down-shift alone; compressor_pool follows it

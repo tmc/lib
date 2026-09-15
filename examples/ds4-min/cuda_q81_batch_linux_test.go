@@ -19,7 +19,7 @@ func TestCUDAQualificationQ81BatchQuantize(t *testing.T) {
 		cols   = 64
 		stride = 96
 	)
-	for batch := 2; batch <= cudaPrefillBatchWidth; batch++ {
+	for batch := 2; batch <= cudaQ81MaxBatch; batch++ {
 		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
 			host := make([]float32, (batch-1)*stride+cols)
 			for token := range batch {
@@ -52,7 +52,7 @@ func TestCUDAQualificationQ81BatchQuantize(t *testing.T) {
 			}
 		})
 	}
-	batch := cudaPrefillBatchWidth
+	batch := cudaQ81MaxBatch
 	host := make([]float32, (batch-1)*stride+cols)
 	in := cudaSynthUpload(t, r, host)
 	out := cudaExpertAllocBytes(t, r, batch*cols/32*36)
@@ -83,7 +83,7 @@ func TestCUDAQualificationQ81BatchMatvec(t *testing.T) {
 	)
 	weights := cudaSynthQ80(rand.New(rand.NewSource(81)), rows, cols, -8)
 	tensor := cudaSynthTensor(t, r, "batched Q8_0 fixture", 8, []uint64{cols, rows}, weights)
-	for batch := 2; batch <= cudaPrefillBatchWidth; batch++ {
+	for batch := 2; batch <= cudaQ81MaxBatch; batch++ {
 		t.Run(fmt.Sprintf("batch-%d", batch), func(t *testing.T) {
 			testCUDAQualificationQ81BatchMatvec(t, r, tensor, weights, batch, cols, rows)
 		})

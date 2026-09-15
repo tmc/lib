@@ -60,7 +60,7 @@ func TestCUDADeepDecodeBenchmark(t *testing.T) {
 	stream := r.device.DefaultStream()
 
 	// 3. Prefill the 2,048 tokens
-	t.Logf("prefilling %d tokens in chunks of %d...", len(prefillTokens), cudaPrefillBatchWidth)
+	t.Logf("prefilling %d tokens in chunks of %d...", len(prefillTokens), cudaPrefillGroupWidth)
 	prefillStart := time.Now()
 	if err := r.EvalBatch(prefillTokens, 0); err != nil {
 		t.Fatalf("prefill failed: %v", err)

@@ -89,25 +89,25 @@ func (p *cudaPhaseProfile) finish() (map[string]int64, map[string]int, []cudaPha
 }
 
 func validateCUDAPhaseCounts(tokens int, counts map[string]int) error {
-	if tokens < cudaPrefillBatchWidth || tokens%cudaPrefillBatchWidth != 0 {
-		return fmt.Errorf("cuda phase profile: token count %d is not a positive multiple of batch width %d", tokens, cudaPrefillBatchWidth)
+	if tokens < cudaPrefillGroupWidth || tokens%cudaPrefillGroupWidth != 0 {
+		return fmt.Errorf("cuda phase profile: token count %d is not a positive multiple of batch width %d", tokens, cudaPrefillGroupWidth)
 	}
 	// attention-output and expert-ffn are group phases, like dense-front: the
 	// projections they measure are one batched launch per weight for the whole
 	// group, so marking them per token would leave seven empty intervals and
 	// charge one token with the group's work.
 	want := map[string]int{
-		"dense-front":       (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"dense-front":       (tokens / cudaPrefillGroupWidth) * cudaLayers,
 		"compression-raw":   tokens * 2,
 		"compression":       tokens * (cudaLayers - 2),
 		"attention":         tokens * cudaLayers,
-		"attention-output":  (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"attention-output":  (tokens / cudaPrefillGroupWidth) * cudaLayers,
 		"ffn-pre":           tokens * cudaLayers,
 		"shared-ffn":        tokens * cudaLayers,
-		"expert-ffn":        (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"expert-ffn":        (tokens / cudaPrefillGroupWidth) * cudaLayers,
 		"ffn-post":          tokens * cudaLayers,
 		"qkv-normalization": tokens * cudaLayers,
-		"group-tail":        tokens / cudaPrefillBatchWidth,
+		"group-tail":        tokens / cudaPrefillGroupWidth,
 	}
 	if len(counts) != len(want) {
 		return fmt.Errorf("cuda phase profile: got %d phase names, want %d", len(counts), len(want))
@@ -133,14 +133,14 @@ func validateCUDAPhaseTokens(tokens []int) error {
 }
 
 func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
-	if tokens < cudaPrefillBatchWidth || tokens%cudaPrefillBatchWidth != 0 {
+	if tokens < cudaPrefillGroupWidth || tokens%cudaPrefillGroupWidth != 0 {
 		return nil
 	}
-	intervals := make([]cudaPhaseInterval, 0, (tokens/cudaPrefillBatchWidth)*(cudaLayers+1)+tokens*cudaLayers*8)
+	intervals := make([]cudaPhaseInterval, 0, (tokens/cudaPrefillGroupWidth)*(cudaLayers+1)+tokens*cudaLayers*8)
 	add := func(name string, position, layer int) {
 		intervals = append(intervals, cudaPhaseInterval{Name: name, Position: position, Layer: layer})
 	}
-	for base := 0; base < tokens; base += cudaPrefillBatchWidth {
+	for base := 0; base < tokens; base += cudaPrefillGroupWidth {
 		for layer := range cudaLayers {
 			add("dense-front", base, layer)
 			// The batched front end runs each layer in token-ordered passes
@@ -148,7 +148,7 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 			// compressor caches order, then the attention output, then the
 			// router and the shared FFN's activation, then the shared
 			// projections, then the routed experts.
-			for position := base; position < base+cudaPrefillBatchWidth; position++ {
+			for position := base; position < base+cudaPrefillGroupWidth; position++ {
 				add("qkv-normalization", position, layer)
 				if layer < 2 {
 					add("compression-raw", position, layer)
@@ -158,16 +158,16 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 				add("attention", position, layer)
 			}
 			add("attention-output", base, layer)
-			for position := base; position < base+cudaPrefillBatchWidth; position++ {
+			for position := base; position < base+cudaPrefillGroupWidth; position++ {
 				add("ffn-pre", position, layer)
 				add("shared-ffn", position, layer)
 			}
 			add("expert-ffn", base, layer)
-			for position := base; position < base+cudaPrefillBatchWidth; position++ {
+			for position := base; position < base+cudaPrefillGroupWidth; position++ {
 				add("ffn-post", position, layer)
 			}
 		}
-		add("group-tail", base+cudaPrefillBatchWidth-1, -1)
+		add("group-tail", base+cudaPrefillGroupWidth-1, -1)
 	}
 	return intervals
 }
@@ -345,7 +345,7 @@ func TestCUDAPhaseProfile(t *testing.T) {
 func TestValidateCUDAPhaseCounts(t *testing.T) {
 	const tokens = 64
 	want := map[string]int{
-		"dense-front":     (tokens / cudaPrefillBatchWidth) * cudaLayers,
+		"dense-front":     (tokens / cudaPrefillGroupWidth) * cudaLayers,
 		"compression-raw": tokens * 2,
 		"compression":     tokens * (cudaLayers - 2),
 	}
@@ -353,9 +353,9 @@ func TestValidateCUDAPhaseCounts(t *testing.T) {
 		want[name] = tokens * cudaLayers
 	}
 	for _, name := range []string{"attention-output", "expert-ffn"} {
-		want[name] = (tokens / cudaPrefillBatchWidth) * cudaLayers
+		want[name] = (tokens / cudaPrefillGroupWidth) * cudaLayers
 	}
-	want["group-tail"] = tokens / cudaPrefillBatchWidth
+	want["group-tail"] = tokens / cudaPrefillGroupWidth
 	if err := validateCUDAPhaseCounts(tokens, want); err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,7 @@ func TestInteriorCalibratorStride(t *testing.T) {
 	}{
 		{
 			// The production shape: 2048 tokens at
-			// cudaPrefillBatchWidth 8 is 256 batches.
+			// cudaPrefillGroupWidth 8 is 256 batches.
 			name: "production", batches: 256, every: 64,
 			want: []string{"batch-64", "batch-128", "batch-192", "batch-256"},
 		},

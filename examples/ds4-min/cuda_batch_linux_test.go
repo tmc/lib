@@ -18,8 +18,8 @@ func TestEnsureBatchRetriesAfterAllocationFailure(t *testing.T) {
 			return &cudaBatchResources{hc: []*cudaHC{failedHC}}, wantErr
 		}
 		return &cudaBatchResources{
-			rows: make([]cudaTokenState, cudaPrefillBatchWidth-1),
-			hc:   make([]*cudaHC, cudaPrefillBatchWidth-1),
+			rows: make([]cudaTokenState, cudaPrefillGroupWidth-1),
+			hc:   make([]*cudaHC, cudaPrefillGroupWidth-1),
 		}, nil
 	}
 	if err := r.ensureBatch(allocate); !errors.Is(err, wantErr) {
@@ -55,8 +55,8 @@ func TestEnsureBatchRejectsIncompleteResources(t *testing.T) {
 	}
 	err = r.ensureBatch(func() (*cudaBatchResources, error) {
 		return &cudaBatchResources{
-			rows: make([]cudaTokenState, cudaPrefillBatchWidth-2),
-			hc:   make([]*cudaHC, cudaPrefillBatchWidth-1),
+			rows: make([]cudaTokenState, cudaPrefillGroupWidth-2),
+			hc:   make([]*cudaHC, cudaPrefillGroupWidth-1),
 		}, nil
 	})
 	if err == nil || r.batch != nil {
@@ -69,7 +69,7 @@ func TestCUDARejectsInvalidInternalBatchLengths(t *testing.T) {
 	if err := r.evalBatch([]int{1}, 0, false); err == nil {
 		t.Fatal("evalBatch accepted one token")
 	}
-	if err := r.evalBatch(make([]int, cudaPrefillBatchWidth+1), 0, false); err == nil {
+	if err := r.evalBatch(make([]int, cudaPrefillGroupWidth+1), 0, false); err == nil {
 		t.Fatal("evalBatch accepted too many tokens")
 	}
 	if err := r.evalLayerBatch(nil, nil, 0, nil, 0); err == nil {
