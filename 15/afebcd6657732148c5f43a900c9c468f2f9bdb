@@ -1,0 +1,42 @@
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+Adjudication rank 2, both dispatch paths read line by line:
+  metal_batch_darwin.go:113 EncodeMatvecQ80 vs metal_ops_darwin.go:1011
+    same kernels.MatvecQ80, grid (rows+1)/2 x 1 x 1, threads 32x4,
+    threadgroup 2*32*4, scalars in.Len()/out.Len(). Submission differs only.
+  metal_ops_darwin.go:1038 MatvecIQ2Selected and :1079 MatvecQ2KSelected
+    both call the batch encoder rather than restating it.
+  metal_batch_darwin.go:94 EncodeMatvecF16 vs metal_ops_darwin.go:1132
+    also identical -- the F16 defect is EncodeMatmulF16 cloning the head
+    kernel, not a disagreement between these two.
+
+grep -c EncodeMatvecF16 metal_runtime_darwin.go = 5, which is what makes
+the grep a sound replacement for the five stale line numbers.
+
+Not established: that EncodeMatvecQ2K has a runtime call site. It has
+none, so Q2K is off the swap path entirely and is not counted among the
+four.
+
+commit: d3293d85c4677b0f4d8d69cd304783a9f26b39e0
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 15afebcd6657732148c5f43a900c9c468f2f9bdb
+commit date: 2026-09-15T00:43:57-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
