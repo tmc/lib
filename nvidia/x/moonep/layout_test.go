@@ -5,6 +5,7 @@ package moonep
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -76,7 +77,7 @@ func TestNewLayoutGolden(t *testing.T) {
 			c := tt.Config
 			l, err := NewLayout(Config{
 				S: c.S, H: c.H, K: c.K, E: c.E, R: c.R,
-				B: c.B, TokenPadding: c.TokenPadding,
+				B: c.B, NumSMs: tt.Want.NumSMs, TokenPadding: c.TokenPadding,
 			}, tt.VMMGranularity, tt.McGranularity)
 			if err != nil {
 				t.Fatal(err)
@@ -121,7 +122,7 @@ func TestNewLayoutGolden(t *testing.T) {
 }
 
 func TestNewLayoutInvariants(t *testing.T) {
-	l, err := NewLayout(Config{S: 1000, H: 1536, K: 6, E: 96, R: 8}, 1<<21, 1<<22)
+	l, err := NewLayout(Config{S: 1000, H: 1536, K: 6, E: 96, R: 8, NumSMs: 32}, 1<<21, 1<<22)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,13 +166,13 @@ func TestNewLayoutErrors(t *testing.T) {
 		cfg     Config
 		vmm, mc uintptr
 	}{
-		{"E-not-divisible", Config{S: 8, H: 8, K: 1, E: 7, R: 2}, 4096, 4096},
-		{"zero-S", Config{S: 0, H: 8, K: 1, E: 4, R: 2}, 4096, 4096},
-		{"zero-gran", Config{S: 8, H: 8, K: 1, E: 4, R: 2}, 0, 4096},
-		{"K-too-large", Config{S: 8, H: 8, K: 33, E: 66, R: 2}, 4096, 4096},
-		{"R-too-large", Config{S: 8, H: 8, K: 1, E: 258, R: 129}, 4096, 4096},
+		{"E-not-divisible", Config{S: 8, H: 8, K: 1, E: 7, R: 2, NumSMs: 32}, 4096, 4096},
+		{"zero-S", Config{S: 0, H: 8, K: 1, E: 4, R: 2, NumSMs: 32}, 4096, 4096},
+		{"zero-gran", Config{S: 8, H: 8, K: 1, E: 4, R: 2, NumSMs: 32}, 0, 4096},
+		{"K-too-large", Config{S: 8, H: 8, K: 33, E: 66, R: 2, NumSMs: 32}, 4096, 4096},
+		{"R-too-large", Config{S: 8, H: 8, K: 1, E: 258, R: 129, NumSMs: 32}, 4096, 4096},
 		// (R-1)*MetaChunkPadded overflows int32.
-		{"meta-overflow", Config{S: 1 << 22, H: 128, K: 8, E: 128, R: 64}, 1 << 21, 1 << 21},
+		{"meta-overflow", Config{S: 1 << 22, H: 128, K: 8, E: 128, R: 64, NumSMs: 32}, 1 << 21, 1 << 21},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -189,6 +190,38 @@ func TestAlignUp(t *testing.T) {
 	} {
 		if got := alignUp(tt.n, tt.a); got != tt.want {
 			t.Errorf("alignUp(%d, %d) = %d, want %d", tt.n, tt.a, got, tt.want)
+		}
+	}
+}
+
+// TestNumSMsHasNoDefault pins the absence of a default for NumSMs. The
+// field names the cooperative grid size the kernels were built for; the
+// package cannot know it, so a zero value must be reported rather than
+// filled in. The failure a default causes is silent (a grid smaller than
+// the resident capacity idles the rest of the device and still computes
+// the right answer), so only a test keeps it from coming back.
+func TestNumSMsHasNoDefault(t *testing.T) {
+	base := Config{S: 1000, H: 1536, K: 6, E: 96, R: 8}
+
+	l, err := NewLayout(base, 1<<21, 1<<22)
+	if err == nil {
+		t.Fatalf("NewLayout with NumSMs unset: got NumSMs=%d, want an error", l.NumSMs)
+	}
+	if !strings.Contains(err.Error(), "NumSMs") {
+		t.Errorf("error does not name the field: %v", err)
+	}
+
+	// Every positive value is carried through untouched: none is special,
+	// and in particular no value is substituted for another.
+	for _, n := range []int{1, 32, 48, 132} {
+		cfg := base
+		cfg.NumSMs = n
+		l, err := NewLayout(cfg, 1<<21, 1<<22)
+		if err != nil {
+			t.Fatalf("NumSMs=%d: %v", n, err)
+		}
+		if l.NumSMs != n {
+			t.Errorf("NumSMs=%d carried through as %d", n, l.NumSMs)
 		}
 	}
 }

@@ -41,8 +41,21 @@ type Config struct {
 
 	// B is the number of prefetch slots; 0 means E/R.
 	B int
-	// NumSMs is the SM count used by the cooperative kernels; 0 means 32.
+
+	// NumSMs is the cooperative grid size the kernels were built for.
+	// It is required; there is no default, because no value this package
+	// could invent would be right. MoonEP's kernels are JIT-specialized
+	// on num_sms (see the export procedure in the README), so the correct
+	// value is the one the loaded cubins were compiled with, and only the
+	// caller knows that. Nor is it necessarily the device's SM count:
+	// reading that attribute would produce a second invention, one that
+	// can disagree with the cubin. The kernels launch cooperatively (see
+	// [LaunchCooperative]), so a value above the resident capacity is
+	// rejected by the driver at launch while one below it silently idles
+	// the rest of the device; that quiet direction is why this field may
+	// not be guessed.
 	NumSMs int
+
 	// TokenPadding pads each expert segment to a multiple of this many
 	// token slots; 0 means 128.
 	TokenPadding int
@@ -111,11 +124,8 @@ func NewLayout(cfg Config, vmmGran, mcGran uintptr) (*Layout, error) {
 	if cfg.B < 0 {
 		return nil, fmt.Errorf("moonep: B must be positive, got %d", cfg.B)
 	}
-	if cfg.NumSMs == 0 {
-		cfg.NumSMs = 32
-	}
-	if cfg.NumSMs < 0 {
-		return nil, fmt.Errorf("moonep: NumSMs must be positive, got %d", cfg.NumSMs)
+	if cfg.NumSMs <= 0 {
+		return nil, fmt.Errorf("moonep: NumSMs must be set to the cooperative grid size the kernels were built for, got %d", cfg.NumSMs)
 	}
 	if cfg.TokenPadding == 0 {
 		cfg.TokenPadding = 128

@@ -103,7 +103,9 @@ func bufferChildMain() int {
 	}
 	defer b.Close()
 
-	cfg := Config{S: 512, H: 1024, K: 4, E: world * 4, R: world}
+	// NumSMs is the cooperative grid size the kernels are built for;
+	// this test launches none, so any positive value serves.
+	cfg := Config{S: 512, H: 1024, K: 4, E: world * 4, R: world, NumSMs: 32}
 	buf, err := NewBuffer(b, dev, cfg)
 	if err != nil {
 		return fail("NewBuffer: %v", err)

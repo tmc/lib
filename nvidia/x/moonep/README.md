@@ -48,6 +48,7 @@ per iteration.
 b, _ := tcpboot.New(rank, world, addr) // any nvlshm.Bootstrap
 buf, err := moonep.NewBuffer(b, dev, moonep.Config{
     S: 4096, H: 7168, K: 8, E: 256, R: world,
+    NumSMs: 32, // required: the num_sms the loaded cubins were built for
 })
 if err != nil { ... }
 defer buf.Close() // collective
