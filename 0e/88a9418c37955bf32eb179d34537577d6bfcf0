@@ -1,0 +1,36 @@
+commit 3ddc97c7 on 2026-09-11T23:05:08Z
+
+Agent: Claude Code 2.1.257, model claude-opus-5
+tty: ttys392  pid: 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Comment-only change; gofmt clean, go vet ./... clean (GOWORK=off).
+
+Derivation, verified by reading both runtimes this session:
+  metal_runtime_darwin.go:635  batchedCompressed := i >= 2 && (i%2 != 0 ||
+      state.indexer.n < 512 || state.indexer.n == 512 && !indexerWillEmit)
+  metal_runtime_darwin.go:634  indexerWillEmit := ... (position+1)%ratio == 0
+  cuda_session_linux.go:801    state.indexer.n++
+  cuda_session_linux.go:804    if state.indexer.n > 512
+  cuda_compressed_linux.go:36  emit := (position+1)%state.ratio == 0
+  cuda_session_linux.go:176-182 ratio 4 on even layers (22 of 43), 128 on odd
+
+At ratio 4 the emits fall on positions 3, 7, ..., 4k-1. The 513th is at
+4*513-1 = 2051, which is the first position where n > 512 holds on CUDA and
+where an even layer is unbatched on Metal.
+
+Sent to 094936CE as a correction: I had first told them the CUDA boundary was
+2048, having read the threshold without the post-increment ordering. It is
+2051 on both backends.
+
+commit: 0e88a9418c37955bf32eb179d34537577d6bfcf0
+commit date: 2026-09-15T00:31:00-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
