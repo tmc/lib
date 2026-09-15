@@ -1,0 +1,31 @@
+commit: d6e25f787a4bc3a749b5dad34d080d41dbbf16f2
+commit_date: 2026-09-12T15:25:03-07:00
+agent: Codex
+model: GPT-6 (runtime family; exact variant not exposed)
+claude-code_version: not applicable (Codex session)
+codex_version: codex-cli 0.154.0
+tty: not a tty
+note_writer_pid: 13484
+ITERM_SESSION_ID: w14t0p16:6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+session: 6AED315C-57B1-440B-B1E9-BBCCBFBFFA52
+validation: focused admission/digest/session tests, ds4-min vet and build passed with GOWORK=off; no GPU execution
+
+commit: e08f3071a8cf796094849e70800b28f8a1915c0d
+commit date: 2026-09-15T00:31:26-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 5c023bf373a4f47877fb67789285d1450a097757
+commit date: 2026-09-15T00:43:58-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
