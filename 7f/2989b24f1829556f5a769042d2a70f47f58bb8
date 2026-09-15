@@ -1,0 +1,72 @@
+723e429 2026-09-10
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Kernel and initial test authored by peer session 094936CE (Gemini 3.8 Flash).
+Reviewed, extended and landed by DF6906F6. Peer report preserved at
+~/tmp/agent-collab/ds4-lib-workflow/20260910-094936CE-batched-matmul-q2k-report.md;
+as-received files at ~/tmp/claude-tmp/agy-q2k/ (kernel sha256
+827604833096f8e1bdea72d5e6be87ab50bcc19a0673e82c253c7351dba6bd9b).
+
+Adjudication of the peer's claim (rank 4, checked at rank 1):
+
+- CONFIRMED. Reproduced the peer's order-reversal mutation independently
+  (for (uint block = 0; block < nb; block++) -> reversed) and got the same
+  failing values it reported: T=1 token 0 row 0 got 0x499da64d, want
+  0x499da64b. The peer ran the mutation that negates its own claim this time,
+  which the F16 round did not.
+- The inner group and element loops were NOT mutated by the peer and do not
+  need to be: both accumulate into int, which is associative. The per-block
+  float total is the only order-sensitive accumulation in the kernel.
+- No overflow in the integer path: dotv <= 16*3*127 = 6096, isum <= 16*15*6096
+  = 1.46e6, |summs| <= 16*32767*15 = 7.86e6, all well inside int32.
+- Verified the peer's centralization claim: one commandBuffer() call, one
+  record() call, quantization and matmul as two encoders on the SAME command
+  buffer. TestCommandBufferCreationIsCentralized stays green.
+
+Added by DF6906F6:
+- requireOrderSensitiveQ2K, a permanent fail-closed order-sensitivity guard.
+  The kernel is specialized twice from one source via the kReverseBlocks
+  function constant; the guard fails unless the reversed twin disagrees.
+  This replaces a mutation someone must remember to re-run. Confirmed the
+  constant does not perturb the forward path: bit-identity against
+  ops.MatvecQ2K still holds with it present.
+- An assertion that a batch of any T costs exactly one command buffer.
+
+Mutation-checked, each red with its naming message, then restored:
+  A. m.specialize(true) -> m.specialize(false) for the twin:
+     'test inputs are order-insensitive: reversing the block accumulation
+     leaves all 16 outputs bit-identical'
+  B. an extra ops.commandBuffer() per Mul:
+     'batched matmul over 32 tokens used 2 command buffers, want 1'
+My first attempt at control B was malformed -- it inserted a second
+EndEncoding and aborted in AGXG16XFamilyComputeContext rather than reaching
+the assertion. A crashing mutation is not a red gate; redone correctly.
+
+Kernel restored byte-identical after each mutation
+(edebec55b6f15cb30a4d7c291c59737546a4526e4846ceb1d69a7ec3fb1e4d6b).
+go vet clean; full suite green at this commit.
+
+Still not wired into the runtime, and no measurement on real shapes yet.
+
+commit: 3e4cc865512063ac17e2e5547c68cfef13abe2a8
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 7f2989b24f1829556f5a769042d2a70f47f58bb8
+commit date: 2026-09-15T00:43:56-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
