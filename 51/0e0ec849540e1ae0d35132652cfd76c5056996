@@ -1,0 +1,21 @@
+Commit recorded 2026-09-07. Codex model GPT-6; claude-code version not applicable. Session 6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9. Isolated validator handoff; 14 tests pass and five assertion-deletion controls fail in retained validator-v2 receipt. Independent review by DF6906F6. Automatic message tool failed with missing ANTHROPIC_API_KEY; manual fallback per AGENTS.md. TTY/pid not recorded by this noninteractive tool invocation.
+
+commit: d80a98f5d6219d3cde2aac2c37203abf27bb27e4
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 510e0ec849540e1ae0d35132652cfd76c5056996
+commit date: 2026-09-15T00:43:54-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
