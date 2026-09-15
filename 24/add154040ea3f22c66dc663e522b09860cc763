@@ -1,0 +1,21 @@
+commit: 970f5e19
+date: 2026-09-11T23:52:13Z
+agent: antigravity
+tty: not a tty
+none
+pid: 39500
+iterm_session_id: w14t0p14:094936CE-AF76-4637-B0BA-AD136810CF11
+
+Correction on sentinel floor:
+The commit message states "Scores at or below the -1e30 sentinel and NaNs are strictly excluded ... matching reference scan behavior."
+Historically, the pre-970f5e19 CUDA scan in ds4_indexer_select floored at -__int_as_float(0x7f800000) = -inf, whereas Metal floored at -1e30 (selectIndexerSentinel in metal_ops_darwin.go). Commit 970f5e19 deliberately aligned CUDA with Metal's -1e30 sentinel, rather than preserving the legacy -inf floor.
+
+commit: 24add154040ea3f22c66dc663e522b09860cc763
+commit date: 2026-09-15T00:31:00-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
