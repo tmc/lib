@@ -1,0 +1,19 @@
+commit bc8e37e5d2f97988cbc584d52ba99419f957335a
+committed 2026-09-06
+agent Codex
+model GPT-5
+tty not-a-tty
+pid 50998
+ITERM_SESSION_ID w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+local gate: cd examples && GOWORK=off go test ./ds4-min
+linux compile binary sha256 829de0d41b440cad9111203ce218efbe6b504fbbc8ed53a4e261ef444050a0ea
+
+commit: 8539ea4448a84352a192250cbca3e6ba87504e94
+commit date: 2026-09-15T00:30:10-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
