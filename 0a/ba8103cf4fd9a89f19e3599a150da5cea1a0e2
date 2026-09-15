@@ -1,0 +1,11 @@
+commit: 0aba8103cf4fd9a89f19e3599a150da5cea1a0e2
+date: 2026-09-14T16:07:12-0700
+agent: Claude Code 2.1.257, model Opus 5 (claude-opus-5)
+tty: n/a
+pid: 90080
+ITERM_SESSION_ID: w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session: 2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url: n/a
+note: latent bug in my own code from 69b07663, found while clearing a stray
+build artifact from the shared worktree. Not hit by the dgx run because the
+path there did end in /devices.json.
