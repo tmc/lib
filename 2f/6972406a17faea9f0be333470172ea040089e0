@@ -1,0 +1,30 @@
+Commit 82e2013ea045cc7c935b5e3d5461de688544e908
+Date 2026-09-09T21:01:03.102553+00:00
+Codex version: codex-cli 0.153.4
+Model: not exposed
+TTY: not exposed
+Recorder PID: 16953
+ITERM_SESSION_ID: w14t0p12:6E6A46AB-C9A0-4455-B66B-E5D3E4EC97A9
+
+Three source files exactly match physically captured score-v2 candidate619a41948c7fbc3bc5f474be665928799e3d192552036b3e7a05644c45020d07. Synthetic receipt cuda-score-parallel-synthetic-20260909 MANIFEST2c4bd722: wrapper/output/cache and intermediate scores/weights/denominators exact across15fixtures; candidate-only dot-index mutantactual1 scores assertion. Full-model receipt cuda-score-model-20260909 MANIFEST453d4fe1424e7a0b3cc158e0de5b867096e1dc2564513768bbc0134ffe7152e9,113members rootverified: productionEvale1500 twice aroundReset, four128129prefill/continuationvectors EXACT vs802aabdd value-reference. Device/source/binary/model/token/process closure retained.
+PackagePASS5.641s; Linuxarm64vetPASS; stageddiffcheckclean. No rate, full2048exactness ororacleparity claim. Separate current-oracle gate still fails. Manual commit fallback follows previously exhausted helper attempts; no attribution trailer.
+
+commit: 2367768155551d6cbd5ec1dba9d7dff8e38eacac
+commit date: 2026-09-15T00:30:58-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 2f6972406a17faea9f0be333470172ea040089e0
+commit date: 2026-09-15T00:43:55-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
