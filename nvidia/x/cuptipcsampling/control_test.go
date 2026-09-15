@@ -19,6 +19,7 @@ func testSamplingControl(t *testing.T) (*samplingControl, *[]string) {
 	t.Cleanup(c.release)
 	var calls []string
 	a := samplingControlAPI{
+		device:  func(cupti.Context) (uint32, error) { return 0, nil },
 		version: func() (uint32, error) { calls = append(calls, "version"); return 130001, nil },
 		set: func(*cupti.PCSamplingConfigurationInfoParams) error {
 			calls = append(calls, "set")

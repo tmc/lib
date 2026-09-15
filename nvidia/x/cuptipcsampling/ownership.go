@@ -3,10 +3,12 @@ package cuptipcsampling
 import (
 	"errors"
 	"sync"
+
+	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 )
 
-// This protects sessions created by this package, not registrations by other
-// libraries. The caller must still arrange exclusive external collector use.
+// PC sampling keeps one process-wide session and shares device exclusion with
+// the other cooperating metric collectors. External tools remain caller-owned.
 var samplingOwner struct {
 	sync.Mutex
 	session     *samplingSession
@@ -32,6 +34,13 @@ func (s *samplingSession) acquire() error {
 	if samplingOwner.session != nil && samplingOwner.session != s {
 		return errors.New("cuptipcsampling: another session owns PC sampling")
 	}
+	if samplingOwner.session != s {
+		lease, err := cuptiowner.AcquireDevice(s.device)
+		if err != nil {
+			return err
+		}
+		s.lease = lease
+	}
 	samplingOwner.session = s
 	return nil
 }
@@ -40,19 +49,25 @@ func (s *samplingSession) acquire() error {
 // rejected for exclusivity never enables sampling or applies a configuration.
 // adopt transfers the claim to the session that will own the cleanup; release
 // gives it back, and both are no-ops once the other has run.
-func reserveOwner() (adopt func(*samplingSession), release func(), err error) {
+func reserveOwner(device uint32) (adopt func(*samplingSession), release func(), err error) {
 	samplingOwner.Lock()
 	defer samplingOwner.Unlock()
 	if samplingOwner.session != nil {
 		return nil, nil, errors.New("cuptipcsampling: another session owns PC sampling")
 	}
+	lease, err := cuptiowner.AcquireDevice(device)
+	if err != nil {
+		return nil, nil, err
+	}
 	samplingOwner.sessionRuns++
-	claim := new(samplingSession)
+	claim := &samplingSession{device: device, lease: lease}
 	samplingOwner.session = claim
 	adopt = func(s *samplingSession) {
 		samplingOwner.Lock()
 		defer samplingOwner.Unlock()
 		if samplingOwner.session == claim {
+			s.device, s.lease = claim.device, claim.lease
+			claim.lease = nil
 			samplingOwner.session = s
 		}
 	}
@@ -60,6 +75,8 @@ func reserveOwner() (adopt func(*samplingSession), release func(), err error) {
 		samplingOwner.Lock()
 		defer samplingOwner.Unlock()
 		if samplingOwner.session == claim {
+			claim.lease.Release()
+			claim.lease = nil
 			samplingOwner.session = nil
 		}
 	}
@@ -70,6 +87,8 @@ func (s *samplingSession) releaseOwnership() {
 	samplingOwner.Lock()
 	defer samplingOwner.Unlock()
 	if samplingOwner.session == s {
+		s.lease.Release()
+		s.lease = nil
 		samplingOwner.session = nil
 	}
 }

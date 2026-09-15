@@ -23,14 +23,16 @@ func TestNativeStallReasons(t *testing.T) {
 		}
 		ctxHandle := cupti.Context(ctx)
 		disable, err := cuptipcsampling.Enable(ctxHandle)
+		if disable != nil {
+			defer func() {
+				if disErr := disable(); disErr != nil {
+					t.Errorf("disable: %v", disErr)
+				}
+			}()
+		}
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if disErr := disable(); disErr != nil {
-				t.Errorf("disable: %v", disErr)
-			}
-		}()
 		inventory, err := cuptipcsampling.StallReasons(ctxHandle, 1024)
 		if err != nil {
 			return err

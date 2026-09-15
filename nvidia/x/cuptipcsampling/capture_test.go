@@ -49,6 +49,7 @@ func TestPublicStartCleanup(t *testing.T) {
 				var saved []cupti.PCSamplingConfigurationInfo
 				failure := errors.New("configure failed")
 				api := samplingControlAPI{
+					device:  func(cupti.Context) (uint32, error) { return 0, nil },
 					version: func() (uint32, error) { return version, nil },
 					set: func(p *cupti.PCSamplingConfigurationInfoParams) error {
 						if failConfig {

@@ -5,12 +5,15 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cuptiowner"
 )
 
 // samplingSession joins control, configured output, and a distinct drain
 // buffer. Its owner serializes access and records each returned batch with
 // range/process/module identity. It does not synchronize or replay a workload.
 type samplingSession struct {
+	device          uint32
+	lease           *cuptiowner.Lease
 	control         *samplingControl
 	drain           *samplingBuffer
 	ring            *RingBuffer

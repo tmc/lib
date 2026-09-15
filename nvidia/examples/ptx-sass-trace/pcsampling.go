@@ -112,10 +112,12 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 // for the duration of the query and disabling it again.
 func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(cuCtx)
+	if disable != nil {
+		defer func() { err = errors.Join(err, disable()) }()
+	}
 	if err != nil {
 		return cuptipcsampling.ReasonInventory{}, err
 	}
-	defer func() { err = errors.Join(err, disable()) }()
 	return cuptipcsampling.StallReasons(cuCtx, 1<<10)
 }
 
