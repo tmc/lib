@@ -1,0 +1,9 @@
+commit: 66843f6e92d0f3e71d554bb2fb1d2f07c2a4e69b
+commit date: 2026-09-15T00:31:27-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
