@@ -610,14 +610,22 @@ func captureStdout(t *testing.T, fn func() error) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Drain the pipe while fn runs. Output larger than the pipe buffer would
+	// otherwise block fn's write forever, because a read that starts only
+	// after fn returns never empties the buffer fn is waiting on.
+	done := make(chan string, 1)
+	go func() {
+		data, _ := io.ReadAll(r)
+		done <- string(data)
+	}()
 	os.Stdout = w
 	runErr := fn()
-	w.Close()
 	os.Stdout = orig
-	data, _ := io.ReadAll(r)
+	w.Close()
+	out := <-done
 	r.Close()
 	if runErr != nil {
 		t.Fatalf("command: %v", runErr)
 	}
-	return string(data)
+	return out
 }

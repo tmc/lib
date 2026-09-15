@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,24 +81,11 @@ Args:
 
 	// 1. Test inspect --tileir
 	t.Run("inspect_--tileir", func(t *testing.T) {
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		err := runInspectCommand([]string{"--tileir", capPath})
-		w.Close()
-		os.Stdout = oldStdout
-
-		if err != nil {
-			t.Fatalf("runInspectCommand(--tileir) failed: %v", err)
-		}
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
+		out := captureStdout(t, func() error { return runInspectCommand([]string{"--tileir", capPath}) })
 
 		var summary inspectTileIRSummary
-		if err := json.Unmarshal(buf.Bytes(), &summary); err != nil {
-			t.Fatalf("unmarshal tileir summary: %v\nOutput: %s", err, buf.String())
+		if err := json.Unmarshal([]byte(out), &summary); err != nil {
+			t.Fatalf("unmarshal tileir summary: %v\nOutput: %s", err, out)
 		}
 
 		if summary.File != "gemm.tileir" {
@@ -119,24 +104,11 @@ Args:
 
 	// 2. Test inspect --remarks
 	t.Run("inspect_--remarks", func(t *testing.T) {
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		err := runInspectCommand([]string{"--remarks", capPath})
-		w.Close()
-		os.Stdout = oldStdout
-
-		if err != nil {
-			t.Fatalf("runInspectCommand(--remarks) failed: %v", err)
-		}
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
+		out := captureStdout(t, func() error { return runInspectCommand([]string{"--remarks", capPath}) })
 
 		var summary inspectRemarksSummary
-		if err := json.Unmarshal(buf.Bytes(), &summary); err != nil {
-			t.Fatalf("unmarshal remarks summary: %v\nOutput: %s", err, buf.String())
+		if err := json.Unmarshal([]byte(out), &summary); err != nil {
+			t.Fatalf("unmarshal remarks summary: %v\nOutput: %s", err, out)
 		}
 
 		if summary.Total != 2 {
@@ -152,24 +124,11 @@ Args:
 
 	// 3. Test inspect full report contains TileIR and Remarks
 	t.Run("inspect_full_report", func(t *testing.T) {
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		err := runInspectCommand([]string{"--profiles", capPath})
-		w.Close()
-		os.Stdout = oldStdout
-
-		if err != nil {
-			t.Fatalf("runInspectCommand(--profiles) failed: %v", err)
-		}
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
+		out := captureStdout(t, func() error { return runInspectCommand([]string{"--profiles", capPath}) })
 
 		var report inspectReport
-		if err := json.Unmarshal(buf.Bytes(), &report); err != nil {
-			t.Fatalf("unmarshal report: %v\nOutput: %s", err, buf.String())
+		if err := json.Unmarshal([]byte(out), &report); err != nil {
+			t.Fatalf("unmarshal report: %v\nOutput: %s", err, out)
 		}
 
 		if report.TileIR == nil {

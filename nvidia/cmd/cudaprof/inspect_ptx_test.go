@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,24 +12,9 @@ import (
 )
 
 func TestExplainCommand(t *testing.T) {
-	// Capture stdout
-	origStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-
-	err = runExplainCommand([]string{"@%p1", "fma.rn.ftz.f32", "%f1,", "%f2,", "%f3,", "%f4;"})
-	w.Close()
-	os.Stdout = origStdout
-	if err != nil {
-		t.Fatalf("runExplainCommand: %v", err)
-	}
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	out := buf.String()
+	out := captureStdout(t, func() error {
+		return runExplainCommand([]string{"@%p1", "fma.rn.ftz.f32", "%f1,", "%f2,", "%f3,", "%f4;"})
+	})
 
 	if !strings.Contains(out, "### `fma`") {
 		t.Errorf("output missing `fma` header:\n%s", out)
@@ -93,18 +76,10 @@ func TestInspectPTX(t *testing.T) {
 	f.Close()
 
 	// Test inspect --ptx
-	origStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	err = runInspectCommand([]string{"--ptx", capPath})
-	w.Close()
-	os.Stdout = origStdout
-	if err != nil {
-		t.Fatalf("inspect --ptx: %v", err)
-	}
+	out := captureStdout(t, func() error { return runInspectCommand([]string{"--ptx", capPath}) })
 
 	var ptxSum inspectPTXSummary
-	if err := json.NewDecoder(r).Decode(&ptxSum); err != nil {
+	if err := json.NewDecoder(strings.NewReader(out)).Decode(&ptxSum); err != nil {
 		t.Fatalf("decode inspectPTXSummary: %v", err)
 	}
 	if ptxSum.Target != "sm_90" {
