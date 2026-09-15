@@ -1,0 +1,34 @@
+Commit: 8379fae54291866737239e2fc14f575f133d5a9c
+Date: 2026-09-07T04:09:56Z
+Agent: Codex
+Model: GPT-5 Codex
+TTY: not a tty
+PID: 71178
+ITERM_SESSION_ID: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+Evidence: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-BABFB352/cuda-width8-ragged-20260907
+Manifest: 2a27547b25da91f10472f5294a841fe295cd3a256e564f16609cf52729846946
+Payload: b22b42cc28ab2010ba152c2f53e560adb72b9fd91afa61645226cf3efef59dc3
+Review: DF6906F6 PASS
+Rebase: captured 95-file ds4-min Go source inventory is byte-identical at this commit.
+
+Independent review: 6E6A46AB reconstructed baseline, candidate.patch, and mutation.patch; all 95 recorded files match; manifest/payload and all positive/mutation outcomes verified. Review: /Users/tmc/tmp/ds4-lib-workflow/evidence/worker-CODEX6E6A/width8-review/review.json
+
+commit: d769ffde78f757f04a44275886a494a8ba5dfc47
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: a79ac57f83d9395691abd39399239c148825e1eb
+commit date: 2026-09-15T00:43:53-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
