@@ -1,0 +1,51 @@
+commit 1dfb8740 on 2026-09-11
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094
+ITERM_SESSION_ID=w14t0p11:DF6906F6-C2E9-4396-8D42-90A88213125C
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+Run 1 (the only run that produced a result):
+  PASS 607.64s, memguard peak wired 90.49 GiB
+  command buffers per token: shallow 2.50, deep 232.50
+  waits per token: shallow 1.00, deep 42.00
+  logits sha256=63ec0d489328c0426f400eeb33f7e94ffb13229e402f1456b05f4877ef2f17e8
+    (tokens=2060, context=4096)
+  deepRegimeAnchorLogitsSHA256 unset, so the run recorded the digest rather
+  than asserting it.
+
+Run 2 produced no result. It qualified at load 5.41 and was killed by memguard
+ten minutes in at compressor 0.473 against the registered 0.350 limit. That is
+the watchdog working, not a test failure, and the limit was not touched. The
+launch gate had sampled a genuinely quiet host; load average says nothing about
+memory pressure and a launch sample says nothing about minute nine.
+
+That is why df69-modelrun now exists alongside df69-hostqualify: it adds memory
+preconditions in front of the registered gate (compressor share and available
+memory, not just load) and logs every check so a long wait is visible rather
+than silent. It does not widen the gate -- hostqualify still has the final say
+at -max-load 8.00.
+
+A mislabeled log line was fixed before this landed: 'waits per token' had been
+printing a window total rather than a per-token figure.
+
+Not yet registered: the logits digest, pending a second agreeing run.
+
+commit: 2c3038451323bdafcce1a24776353b29e0f413fc
+commit date: 2026-09-15T00:31:00-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 34e4fa0f2adf8fb9edcdc51f43f0e53f390d9afe
+commit date: 2026-09-15T00:43:57-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
