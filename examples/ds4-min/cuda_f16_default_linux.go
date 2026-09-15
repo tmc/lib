@@ -84,7 +84,9 @@ func (r *cudaFoundation) encodeF16PairOrderedBatch(a, b cudaModelTensor, in, out
 		if err := r.loadMathKernels(); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(r.f16PairOrderedBatchFn).Grid(uint32(rows)).Block(32).On(r.stream()).Launch(
+		// One warp per token: warp t of the block projects token t, so the
+		// batch runs across warps instead of serializing inside one.
+		if err := cudalaunch.Kernel(r.f16PairOrderedBatchFn).Grid(uint32(rows)).Block(32 * uint32(batch)).On(r.stream()).Launch(
 			a.device, b.device, in, outA, outB, uint32(cols), uint32(batch)); err != nil {
 			return fmt.Errorf("cuda: launch batched ordered F16 pair: %w", err)
 		}
