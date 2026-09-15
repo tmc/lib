@@ -51,7 +51,21 @@ func additiveMetric(name, unit string, kind cupti.MetricType) bool {
 	if want, curated := additiveUnits[name]; curated {
 		return want[unit]
 	}
-	return unit != "" && unit != "unknown"
+	return unit != "" && unit != "unknown" && !timeDimension(unit)
+}
+
+// timeDimension reports whether a CUPTI dimension measures time. CUPTI writes a
+// dimension as its unit tokens concatenated, so "gpc_cyclewarp" is warps times
+// GPC cycles and a substring test is the available test.
+//
+// A time-dimensioned ".sum" is not additive across ranges. gpu__time_start.sum
+// is a timestamp, and adding two timestamps means nothing; gpu__time_active.sum
+// and the *_cycles_elapsed.sum family are durations summed over hardware units,
+// so adding them across ranges counts overlapping wall-clock twice. On GB10 this
+// excludes 222 of the 3271 counter rollups that would otherwise qualify,
+// leaving 3049.
+func timeDimension(unit string) bool {
+	return strings.Contains(unit, "cycle") || strings.Contains(unit, "second")
 }
 
 // Sets returns the curated set names in sorted order.
