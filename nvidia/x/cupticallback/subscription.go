@@ -157,11 +157,11 @@ func goString(p *byte) string {
 
 // Subscription represents an active CUPTI callback subscription.
 type Subscription struct {
-	mu   sync.Mutex
-	sub  cupti.Subscriber
-	opts Options
-	once sync.Once
-	err  error
+	mu          sync.Mutex
+	sub         cupti.Subscriber
+	opts        Options
+	closed      bool
+	unsubscribe func() error
 }
 
 // Subscribe initializes and registers a CUPTI callback subscriber with the given options and handler.
@@ -194,8 +194,9 @@ func Subscribe(opts Options, handler Handler) (*Subscription, error) {
 	}
 
 	s := &Subscription{
-		sub:  sub,
-		opts: opts,
+		sub:         sub,
+		unsubscribe: sub.Unsubscribe,
+		opts:        opts,
 	}
 
 	handlerSlot.Store(&handlerState{
@@ -294,17 +295,25 @@ func (s *Subscription) EnabledCallbacks(domain cupti.CallbackDomain) ([]uint32, 
 }
 
 // Unsubscribe removes the subscriber and drops the callback handler.
-// Unsubscribe is idempotent.
+// Unsubscribe is idempotent after success. Failure retains the subscription
+// and callback handler so cleanup can be retried.
 func (s *Subscription) Unsubscribe() error {
-	s.once.Do(func() {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-
-		s.err = s.sub.Unsubscribe()
-		handlerSlot.Store(nil)
-	})
-	if s.err != nil {
-		return fmt.Errorf("cupticallback: unsubscribe: %w", s.err)
+	if s == nil {
+		return nil
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil
+	}
+	unsubscribe := s.unsubscribe
+	if unsubscribe == nil {
+		unsubscribe = s.sub.Unsubscribe
+	}
+	if err := unsubscribe(); err != nil {
+		return fmt.Errorf("cupticallback: unsubscribe: %w", err)
+	}
+	handlerSlot.Store(nil)
+	s.closed = true
 	return nil
 }
