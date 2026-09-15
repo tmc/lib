@@ -37,6 +37,10 @@ const (
 // each base metric into the submetrics CUPTI reports for it rather than
 // appending rollup suffixes, because not every base supports the same ones.
 //
+// It is expensive: it reads properties for every metric the chip defines, which
+// on GB10 is 144771 metrics in roughly 210 seconds. Call it once and filter the
+// result rather than calling it per query.
+//
 // The result is an inventory for choosing metrics, not a collectable set:
 // asking for all of them at once would exceed any sane pass budget, since each
 // scheduling group costs a replay pass. Pass the names you want to Config, or
