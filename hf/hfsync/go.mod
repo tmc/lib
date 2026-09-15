@@ -1,4 +1,4 @@
-module github.com/tmc/lib/hfsync
+module github.com/tmc/lib/hf/hfsync
 
 go 1.27.0
 

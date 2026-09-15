@@ -12,7 +12,8 @@ use (
 	./apple
 	./examples
 	./gguf
-	./hfsync
+	./hf/hfsync
+	./hf/hftokenizer
 	./libgit2
 	./lldb
 	./lm
@@ -22,7 +23,6 @@ use (
 	./tpu
 	./treesitter
 	./x/gomlx
-	./x/hftokenizer
 	./x/stablehlo
 	./x/xla
 )

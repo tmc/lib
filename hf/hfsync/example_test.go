@@ -12,7 +12,7 @@ import (
 	"github.com/tmc/go-iroh/key"
 	"github.com/tmc/go-iroh/netaddr"
 	"github.com/tmc/go-iroh/relay"
-	"github.com/tmc/lib/hfsync"
+	"github.com/tmc/lib/hf/hfsync"
 )
 
 func Example() {

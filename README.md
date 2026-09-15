@@ -22,17 +22,18 @@ its own release tags (`<dir>/vX.Y.Z`).
 | `x/xla` | `github.com/tmc/lib/x/xla` | XLA client, compilation, and execution over `openxla` |
 | `x/stablehlo` | `github.com/tmc/lib/x/stablehlo` | StableHLO module construction and serialization |
 | `x/gomlx` | `github.com/tmc/lib/x/gomlx` | GoMLX backend over `x/xla` |
-| `x/hftokenizer` | `github.com/tmc/lib/x/hftokenizer` | HuggingFace tokenizer.json loading and encoding |
+| `hf/hftokenizer` | `github.com/tmc/lib/hf/hftokenizer` | HuggingFace tokenizer.json loading and encoding |
 | `tpu` | `github.com/tmc/lib/tpu` | PJRT TPU plugin discovery and loading |
 | `lm` | `github.com/tmc/lib/lm` | Language model loading and sampling helpers |
-| `hfsync` | `github.com/tmc/lib/hfsync` | HuggingFace repository mirroring |
+| `hf/hfsync` | `github.com/tmc/lib/hf/hfsync` | HuggingFace repository mirroring |
 | `libgit2` | `github.com/tmc/lib/libgit2` | Purego libgit2 bindings |
 | `lldb` | `github.com/tmc/lib/lldb` | Purego LLDB C API bindings |
 | `treesitter` | `github.com/tmc/lib/treesitter` | Purego tree-sitter parsing bindings |
 | `examples` | `github.com/tmc/lib/examples` | Runnable programs that exercise the modules above |
 
 The `x/` prefix marks a module whose API is still moving. It will change without
-a major version bump.
+a major version bump. `hf/hftokenizer` carries the same notice in its package
+documentation.
 
 ## Usage
 
