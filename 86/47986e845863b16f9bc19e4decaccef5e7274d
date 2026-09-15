@@ -1,0 +1,24 @@
+Byte identity of both shader sources verified before and after the
+splice with a throwaway sha256 dumper, not by eye:
+  metalPinnedMSL                len=50721 sha=dec89c82fae850e74ac3503dd72ce7837e794b97dd06d9aa0aac6ff209475bdb
+  metalMatmulExpertPreservedMSL len=11114 sha=7e6e30b294a34a13bd81072cc27aec349d5b5de0d0ee055fccf4048e7387ac19
+Unchanged across the change; the dumper was removed afterwards.
+
+Duplication found by a review agent auditing the routed-expert kernels
+committed in fcad4c7. gofmt on metal_matmul_expert_darwin.go in this
+commit is a pre-existing doc-comment reflow, not the splice.
+
+claude-code 2.1.257, model claude-opus-5, tty ttys392, pid 33094,
+ITERM_SESSION_ID=$ITERM_SESSION_ID
+session=2b9497cd-7408-4e8b-a617-38b19820dab9
+session_url=https://claude.ai/code/session_018gHrUBp7F2hpytXxzrcSAK
+
+commit: 8647986e845863b16f9bc19e4decaccef5e7274d
+commit date: 2026-09-15T00:30:59-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
