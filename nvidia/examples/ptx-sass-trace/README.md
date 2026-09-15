@@ -74,3 +74,9 @@ are CUBIN file offsets for SASS and text byte offsets for PTX, with separate
 logical image bases. Neither is a sampled GPU address. PC sampling would
 record instruction addresses during execution to identify instruction hot
 spots and stalls; this capture records whole-launch CUDA event intervals.
+
+## Go benchmark metrics
+
+For `go test -bench`, full and isolated subbenchmarks, and `-cuptiprofile`, see
+[the cuptibench example](../cuptibench/README.md). It demonstrates the benchmark
+and replay lifecycle with a two-kernel workload.
