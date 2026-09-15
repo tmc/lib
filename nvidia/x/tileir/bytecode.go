@@ -23,6 +23,23 @@ const (
 	SectionProducer      uint8 = 0x07
 )
 
+// sectionAlignFlag marks a section header whose length is followed by a
+// varint alignment. alignByte is the filler the writer emits to reach it.
+const (
+	sectionAlignFlag uint8 = 0x80
+	alignByte        byte  = 0xCB
+)
+
+// sectionAlign gives the alignment each section is written with. Sections
+// absent from the map carry no alignment flag.
+var sectionAlign = map[uint8]uint64{
+	SectionString:   4,
+	SectionFunc:     8,
+	SectionDebug:    8,
+	SectionConstant: 8,
+	SectionType:     4,
+}
+
 // Function entry flags.
 const (
 	FuncVisibilityPrivate uint8 = 0x01
@@ -212,7 +229,7 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 		idAndAlign := data[offset]
 		offset++
 		secID := idAndAlign & 0x7F
-		hasAlign := (idAndAlign & 0x80) != 0
+		hasAlign := (idAndAlign & sectionAlignFlag) != 0
 
 		if secID == SectionEndOfBytecode {
 			break
@@ -756,18 +773,44 @@ func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 
 	// Helper to write a section
 	writeSection := func(secID uint8, payload []byte) {
-		buf.WriteByte(secID) // no alignment flag
+		align, aligned := sectionAlign[secID]
+		if !aligned {
+			buf.WriteByte(secID)
+			buf.Write(appendVarInt(nil, uint64(len(payload))))
+			buf.Write(payload)
+			return
+		}
+		buf.WriteByte(secID | sectionAlignFlag)
 		buf.Write(appendVarInt(nil, uint64(len(payload))))
+		buf.Write(appendVarInt(nil, align))
+		for pad := (align - uint64(buf.Len())%align) % align; pad > 0; pad-- {
+			buf.WriteByte(alignByte)
+		}
 		buf.Write(payload)
 	}
 
-	// 3. String section (SectionString = 0x01)
-	if len(bm.Strings) > 0 {
-		strPayload := encodeStringSection(bm.Strings)
-		writeSection(SectionString, strPayload)
+	// 3. Function section (SectionFunc = 0x02)
+	if len(bm.Functions) > 0 {
+		funcPayload := encodeFunctionSection(bm.Functions, bm.Strings, bm.Types)
+		writeSection(SectionFunc, funcPayload)
 	}
 
-	// 4. Producer section (SectionProducer = 0x07)
+	// 4. Constant section (SectionConstant = 0x04)
+	if len(bm.Constants) > 0 {
+		constPayload := encodeConstantSection(bm.Constants)
+		writeSection(SectionConstant, constPayload)
+	}
+
+	// 5. Type section (SectionType = 0x05)
+	if len(bm.Types) > 0 {
+		typePayload, err := encodeTypeSection(bm.Types)
+		if err != nil {
+			return nil, fmt.Errorf("encoding type section: %w", err)
+		}
+		writeSection(SectionType, typePayload)
+	}
+
+	// 6. Producer section (SectionProducer = 0x07)
 	if bm.Producer != "" {
 		prodIdx := -1
 		for i, s := range bm.Strings {
@@ -782,25 +825,10 @@ func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 		}
 	}
 
-	// 5. Constant section (SectionConstant = 0x04)
-	if len(bm.Constants) > 0 {
-		constPayload := encodeConstantSection(bm.Constants)
-		writeSection(SectionConstant, constPayload)
-	}
-
-	// 6. Type section (SectionType = 0x05)
-	if len(bm.Types) > 0 {
-		typePayload, err := encodeTypeSection(bm.Types)
-		if err != nil {
-			return nil, fmt.Errorf("encoding type section: %w", err)
-		}
-		writeSection(SectionType, typePayload)
-	}
-
-	// 7. Function section (SectionFunc = 0x02)
-	if len(bm.Functions) > 0 {
-		funcPayload := encodeFunctionSection(bm.Functions, bm.Strings, bm.Types)
-		writeSection(SectionFunc, funcPayload)
+	// 7. String section (SectionString = 0x01)
+	if len(bm.Strings) > 0 {
+		strPayload := encodeStringSection(bm.Strings)
+		writeSection(SectionString, strPayload)
 	}
 
 	// 8. End of bytecode (SectionEndOfBytecode = 0x00)
@@ -817,7 +845,7 @@ func encodeStringSection(strs []string) []byte {
 	rem := len(payload) % 4
 	pad := (4 - rem) % 4
 	for i := 0; i < pad; i++ {
-		payload = append(payload, 0)
+		payload = append(payload, alignByte)
 	}
 
 	offsets := make([]byte, numStrings*4)
@@ -840,7 +868,7 @@ func encodeConstantSection(constants [][]byte) []byte {
 	rem := len(payload) % 8
 	pad := (8 - rem) % 8
 	for i := 0; i < pad; i++ {
-		payload = append(payload, 0)
+		payload = append(payload, alignByte)
 	}
 
 	offsets := make([]byte, numConstants*8)
@@ -863,7 +891,7 @@ func encodeTypeSection(types []Type) ([]byte, error) {
 	rem := len(payload) % 4
 	pad := (4 - rem) % 4
 	for i := 0; i < pad; i++ {
-		payload = append(payload, 0)
+		payload = append(payload, alignByte)
 	}
 
 	offsets := make([]byte, numTypes*4)
@@ -1031,6 +1059,10 @@ func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable
 
 		payload = appendVarInt(payload, uint64(len(bodyBytes)))
 		payload = append(payload, bodyBytes...)
+	}
+	// The function section payload is padded to its section alignment.
+	for pad := (8 - len(payload)%8) % 8; pad > 0; pad-- {
+		payload = append(payload, alignByte)
 	}
 	return payload
 }
