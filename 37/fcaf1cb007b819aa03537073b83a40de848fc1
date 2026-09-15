@@ -1,0 +1,27 @@
+commit 00263d9c9b6961e8eeac1d2d8147365e6c9e17ac
+date 2026-09-07T05:48:20Z
+agent Codex
+model GPT-5
+pid 3931
+tty not a tty
+iterm_session_id w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+
+Evidence:
+- n64 exact full-logit identity and queued-arm mutation rejection
+- stream.sync 580 to 6, exact delta 574 = 14 evaluated tokens x 41 compressed layers, zero dropped spans
+- ratio-4 and ratio-128 queued-vs-synchronized GPU exact controls plus following-token reuse
+- device fill positive and value-mutation controls
+- 2048 matched workload remains FAIL_TIMEOUT at 29m; no throughput claim
+Receipts:
+- evidence/worker-BABFB352/cuda-compressor-defer-n64-20260907 (manifest 5ae88094d8ea3a84942e2c90581f9a531b93f3eeaf62c4bfe5f06d69944891c0)
+- evidence/worker-BABFB352/cuda-compressor-defer-workload-20260907 (manifest 2961cec8ccb2d5da394099c34b6bd9fa25b172d76b86b9e6244ed62887fd3671)
+
+commit: 37fcaf1cb007b819aa03537073b83a40de848fc1
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
