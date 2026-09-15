@@ -1005,4 +1005,3 @@ func TestShortMemcpyActivityLayoutIsRejected(t *testing.T) {
 		t.Errorf("status = %v, want clean exit", status)
 	}
 }
-
