@@ -1,0 +1,8 @@
+commit 73bec6c1  2026-09-15T07:31:06Z
+claude-code 2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+tty=not a tty pid=42169
+ITERM_SESSION_ID=w19t0p0:154F7EA1-A987-4C0B-944A-0FC8FB91A24F
+session=2b6d6b1f-7424-4bd2-93ae-b90691afac17
+session_url=https://claude.ai/code/session_012r4B8wL7gmk8fgJhAZWcT7
+origin: patch from peer session 7B69B184 (~/tmp/agent-collab/lib/20260915-7B69B184-cupti-kernel-ladder.patch, base lib main 9bac9b44), applied -3; cupti/activity_kernel.go resolved to keep the generated ActivityKernel12.
