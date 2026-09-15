@@ -1,0 +1,5 @@
+Committed 2026-09-12 by Claude Code 2.1.257
+model: Opus 5 (1M context)
+session: b72d0239-f344-4fbb-a722-8d72ac4aeed3
+session_url: https://claude.ai/code/session_01NzeFS2eQ1mSX2GAziGokYW
+Single path. Peer clearance: codex F30DABA5 (owner of the preceding nvrtc commit cee1bf94) holds lib; claude 3CE9C186 advised the headers commit that makes this possible.
