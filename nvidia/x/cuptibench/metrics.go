@@ -20,10 +20,31 @@ import (
 // passes.
 const DefaultSet = "default"
 
+// The default set is sized to one replay pass, which on GB20B holds these
+// seven: adding l1tex__t_requests.sum to them costs four. The pass count
+// follows the hardware units a combination touches rather than its size, so a
+// different seven can cost more and these seven must be measured again on a
+// new chip, not assumed.
+//
+// Each member answers a question in combination with another, which is what
+// earns a slot: thread instructions over warp instructions times 32 is warp
+// efficiency, L1 sectors over L2 sectors is the hit rate, and read and write
+// are both present because a write-heavy kernel would otherwise report no
+// memory traffic at all. There is no DRAM counter on this part to fall back
+// on, so L2 is the last measurable level before the fabric.
 var metricSets = map[string][]string{
-	DefaultSet:     {"sm__ctas_launched.sum", "smsp__inst_executed.sum", "lts__t_sectors_srcunit_tex_op_read.sum"},
-	"instructions": {"smsp__inst_executed.sum"},
-	"launches":     {"sm__ctas_launched.sum"},
+	DefaultSet: {
+		"sm__ctas_launched.sum",
+		"sm__warps_launched.sum",
+		"smsp__inst_executed.sum",
+		"smsp__thread_inst_executed.sum",
+		"l1tex__t_sectors.sum",
+		"lts__t_sectors_srcunit_tex_op_read.sum",
+		"lts__t_sectors_srcunit_tex_op_write.sum",
+	},
+	"instructions": {"smsp__inst_executed.sum", "smsp__thread_inst_executed.sum"},
+	"launches":     {"sm__ctas_launched.sum", "sm__warps_launched.sum"},
+	"l2":           {"lts__t_sectors_srcunit_tex_op_read.sum", "lts__t_sectors_srcunit_tex_op_write.sum"},
 	"l2-read":      {"lts__t_sectors_srcunit_tex_op_read.sum"},
 }
 
