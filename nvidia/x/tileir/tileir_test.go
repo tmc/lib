@@ -1,6 +1,8 @@
 package tileir_test
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -189,12 +191,22 @@ cuda_tile.module @gemm_kernels {
 	}
 }
 
-func TestBytecodeGoldens(t *testing.T) {
-	goldenDir := "/Users/tmc/go/src/github.com/NVIDIA/cuda-tile/test/Bytecode/encoding_stability/goldens"
-	files, err := filepath.Glob(filepath.Join(goldenDir, "*.golden.tileirbc"))
+// bytecodeGoldenDir holds the CUDA 13.4 bytecode files produced by NVIDIA's
+// own writer. It is a checkout of github.com/NVIDIA/cuda-tile, not part of this
+// repository, so tests that use it skip when it is absent.
+const bytecodeGoldenDir = "/Users/tmc/go/src/github.com/NVIDIA/cuda-tile/test/Bytecode/encoding_stability/goldens"
+
+func bytecodeGoldens(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(bytecodeGoldenDir, "*.golden.tileirbc"))
 	if err != nil || len(files) == 0 {
 		t.Skip("cuda-tile golden files not found, skipping")
 	}
+	return files
+}
+
+func TestBytecodeGoldens(t *testing.T) {
+	files := bytecodeGoldens(t)
 
 	for _, file := range files {
 		name := filepath.Base(file)
@@ -308,4 +320,51 @@ func TestEncodeBytecodeRoundTrip(t *testing.T) {
 	if !fn.IsEntry {
 		t.Errorf("fn.IsEntry = false, want true")
 	}
+}
+
+// TestBytecodeGoldenReencode decodes each vendor golden and re-encodes it,
+// requiring the result to be byte-for-byte identical to the input. The goldens
+// were written by NVIDIA's toolchain, so this is the only coverage in the
+// package that checks the encoder against something we did not author; the
+// round-trip test below only checks the encoder against our own decoder.
+//
+// What it does not check: the goldens carry only the string (0x01), function
+// (0x02), constant (0x04) and type (0x05) sections. Nothing here exercises the
+// debug (0x03), global (0x06) or producer (0x07) sections, and the decoder
+// keeps no payload for debug or global at all, so a module holding those loses
+// them on re-encode. Nor does identity here prove NVIDIA's assembler accepts
+// bytecode we author from scratch; it proves only that we reproduce bytes it
+// produced.
+func TestBytecodeGoldenReencode(t *testing.T) {
+	for _, file := range bytecodeGoldens(t) {
+		t.Run(filepath.Base(file), func(t *testing.T) {
+			want, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("reading golden: %v", err)
+			}
+			bm, err := tileir.DecodeBytecodeBytes(want)
+			if err != nil {
+				t.Fatalf("DecodeBytecodeBytes: %v", err)
+			}
+			got, err := tileir.EncodeBytecode(bm)
+			if err != nil {
+				t.Fatalf("EncodeBytecode: %v", err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Errorf("re-encoded bytes differ from golden:\n%s", firstDiff(got, want))
+			}
+		})
+	}
+}
+
+// firstDiff describes the first byte at which got and want disagree.
+func firstDiff(got, want []byte) string {
+	for i := 0; i < len(got) && i < len(want); i++ {
+		if got[i] != want[i] {
+			lo := max(i-8, 0)
+			return fmt.Sprintf("offset %d\n want % x\n got  % x",
+				i, want[lo:min(lo+24, len(want))], got[lo:min(lo+24, len(got))])
+		}
+	}
+	return fmt.Sprintf("length got %d, want %d", len(got), len(want))
 }
