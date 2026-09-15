@@ -201,6 +201,14 @@ func TestConfigAndMetricSemantics(t *testing.T) {
 		{"arbitrary.avg", "count", cupti.MetricTypeCounter, false},
 		{"arbitrary.peak_sustained", "count", cupti.MetricTypeCounter, false},
 		{"arbitrary.sum", "count", cupti.MetricTypeThroughput, false},
+		// Time is not additive across ranges however the rollup is spelled.
+		// gpu__time_start.sum is a timestamp; the cycle families are durations
+		// summed over hardware units, so ranges that overlap count twice.
+		{"gpu__time_start.sum", "nanosecond", cupti.MetricTypeCounter, false},
+		{"gpu__time_active.sum", "nanosecond", cupti.MetricTypeCounter, false},
+		{"fe__cycles_elapsed.sum", "sys_cycle", cupti.MetricTypeCounter, false},
+		{"sm__warps_active.sum", "gpc_cyclewarp", cupti.MetricTypeCounter, false},
+		{"tpc__l1tex_sram_bytes_mem_tagged_realtime.sum", "bytegpc_cycle", cupti.MetricTypeCounter, false},
 		{"smsp__inst_executed.sum", "unknown", cupti.MetricTypeCounter, false},
 		{"smsp__inst_executed.sum", "inst", cupti.MetricTypeRatio, false},
 	} {
