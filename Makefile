@@ -5,22 +5,36 @@ all: check build test
 build:
 	@mods=$$(go list -m -f '{{.Dir}}') || exit 1; \
 	[ -n "$$mods" ] || { echo "error: no modules found" >&2; exit 1; }; \
-	printf '%s\n' "$$mods" | while IFS= read -r dir; do \
+	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
+	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
+	[ "$$total" = "$$head_total" ] || \
+		echo "note: go.work lists $$total modules here, $$head_total at HEAD; this run covers the smaller set" >&2; \
+	done_n=0; \
+	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
+	for dir in $$mods; do \
 		echo "==> Building $$dir"; \
-		(cd "$$dir" && go build ./...) || exit 1; \
+		(cd "$$dir" && go build ./...) || { \
+			echo "error: failed in $$dir; $$((total - done_n - 1)) of $$total modules did not run" >&2; \
+			exit 1; \
+		}; \
+		done_n=$$((done_n + 1)); \
 	done; \
-	echo "Built $$(printf '%s\n' "$$mods" | wc -l | tr -d ' ') modules."
+	echo "Built $$total modules."
 
 # The module list comes from go.work, which is itself a tracked file that a
 # restructuring edits, so a green run here is green over whatever go.work says
-# today -- 13 modules in a tree with two deleted, 15 at HEAD. And the loop stops
-# at the first failing module, so a red run withholds the verdict on the rest.
-# Both are why the count is printed: a result without its denominator is not a
-# result.
+# today -- 13 modules in a tree with two deleted, 15 at HEAD. Printing the count
+# is not enough on its own: a stated number reads as more authoritative than a
+# bare green, so the number is compared against HEAD's and the difference is
+# said out loud. The loop also stops at the first failing module, so a red run
+# withholds the verdict on the rest and has to say how many.
 test:
 	@mods=$$(go list -m -f '{{.Dir}}') || exit 1; \
 	[ -n "$$mods" ] || { echo "error: no modules found" >&2; exit 1; }; \
 	total=$$(printf '%s\n' "$$mods" | wc -l | tr -d ' '); \
+	head_total=$$(git show HEAD:go.work 2>/dev/null | grep -cE '^[[:space:]]*(use[[:space:]]+)?\./') || head_total=$$total; \
+	[ "$$total" = "$$head_total" ] || \
+		echo "note: go.work lists $$total modules here, $$head_total at HEAD; this run covers the smaller set" >&2; \
 	done_n=0; \
 	IFS=$$(printf '\nx'); IFS=$${IFS%x}; \
 	for dir in $$mods; do \
