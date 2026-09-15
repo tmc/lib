@@ -239,17 +239,19 @@ func TestGapsDiffJSON(t *testing.T) {
 
 func TestParseGapsArgsDiffBase(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		wantBase string
-		wantErr  string
+		name      string
+		args      []string
+		wantBase  string
+		wantBytes int64
+		wantErr   string
 	}{
-		{"long form", []string{"--diff_base=base.pprof", "target.pprof"}, "base.pprof", ""},
-		{"single dash", []string{"-diff_base=base.pprof", "target.pprof"}, "base.pprof", ""},
-		{"absent", []string{"target.pprof"}, "", ""},
-		{"empty value", []string{"--diff_base=", "target.pprof"}, "", "invalid diff base"},
-		{"hyphen spelling is not accepted", []string{"--diff-base=base.pprof", "target.pprof"}, "", "unknown flag"},
-		{"no target", []string{"--diff_base=base.pprof"}, "", "usage"},
+		{"long form", []string{"--diff_base=base.pprof", "target.pprof"}, "base.pprof", 0, ""},
+		{"base and target limit", []string{"--diff_base=base.pprof", "--journal-bytes=123", "target.pprof"}, "base.pprof", 123, ""},
+		{"single dash", []string{"-diff_base=base.pprof", "target.pprof"}, "base.pprof", 0, ""},
+		{"absent", []string{"target.pprof"}, "", 0, ""},
+		{"empty value", []string{"--diff_base=", "target.pprof"}, "", 0, "invalid diff base"},
+		{"hyphen spelling is not accepted", []string{"--diff-base=base.pprof", "target.pprof"}, "", 0, "unknown flag"},
+		{"no target", []string{"--diff_base=base.pprof"}, "", 0, "usage"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -263,8 +265,8 @@ func TestParseGapsArgsDiffBase(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if opts.diffBase != tt.wantBase {
-				t.Errorf("diffBase = %q, want %q", opts.diffBase, tt.wantBase)
+			if opts.diffBase != tt.wantBase || (tt.wantBytes != 0 && opts.journalBytes != tt.wantBytes) {
+				t.Errorf("options = %+v, want base %q and journal bytes %d", opts, tt.wantBase, tt.wantBytes)
 			}
 		})
 	}

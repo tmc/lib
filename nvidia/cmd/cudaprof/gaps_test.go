@@ -532,6 +532,8 @@ func TestGapsParseArgs(t *testing.T) {
 		{name: "json", args: []string{"--json", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: controllerMaxJournalRecords, json: true}},
 		{name: "warmup", args: []string{"--warmup-ms=12.5", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 12.5, maxRecords: controllerMaxJournalRecords}},
 		{name: "max records", args: []string{"--max-records=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: 7}},
+		{name: "journal bytes", args: []string{"--journal-bytes=7", "c.pprof"}, want: gapOptions{capturePath: "c.pprof", warmupMS: 200, maxRecords: controllerMaxJournalRecords, journalBytes: 7}},
+		{name: "bad journal bytes", args: []string{"--journal-bytes=0", "c.pprof"}, wantErr: "invalid journal bytes"},
 		{name: "unknown flag", args: []string{"--nope", "c.pprof"}, wantErr: "unknown flag"},
 		{name: "bad warmup", args: []string{"--warmup-ms=x", "c.pprof"}, wantErr: "invalid warmup"},
 		{name: "two captures", args: []string{"a.pprof", "b.pprof"}, wantErr: "multiple capture files"},
@@ -550,8 +552,54 @@ func TestGapsParseArgs(t *testing.T) {
 				t.Fatal(err)
 			}
 			if got.capturePath != tt.want.capturePath || got.warmupMS != tt.want.warmupMS ||
-				got.maxRecords != tt.want.maxRecords || got.json != tt.want.json {
+				got.maxRecords != tt.want.maxRecords || got.json != tt.want.json ||
+				(tt.want.journalBytes != 0 && got.journalBytes != tt.want.journalBytes) {
 				t.Errorf("options = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecompressJournalLimit(t *testing.T) {
+	raw := []byte("12345678")
+	var compressed bytes.Buffer
+	zw := gzip.NewWriter(&compressed)
+	if _, err := zw.Write(raw); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name  string
+		data  []byte
+		limit int64
+		want  string
+	}{
+		{"plain exact", raw, int64(len(raw)), string(raw)},
+		{"gzip exact", compressed.Bytes(), int64(len(raw)), string(raw)},
+		{"plain over", raw, int64(len(raw) - 1), "journal exceeds"},
+		{"gzip over", compressed.Bytes(), int64(len(raw) - 1), "journal exceeds"},
+		{"invalid", raw, 0, "invalid journal byte limit"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _, err := decompressJournal(tt.data, tt.limit)
+			var got []byte
+			if err == nil {
+				got, err = io.ReadAll(r)
+				_ = r.Close()
+			}
+			if strings.Contains(tt.want, "journal exceeds") || strings.Contains(tt.want, "invalid") {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("error = %v, want %q", err, tt.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("journal = %q, want %q", got, tt.want)
 			}
 		})
 	}

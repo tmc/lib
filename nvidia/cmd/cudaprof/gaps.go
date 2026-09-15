@@ -31,12 +31,13 @@ import (
 
 // gapOptions are the parsed arguments of the gaps command.
 type gapOptions struct {
-	capturePath string
-	diffBase    string
-	warmupMS    float64
-	maxRecords  int64
-	json        bool
-	limits      cudacapture.Limits
+	capturePath  string
+	diffBase     string
+	warmupMS     float64
+	maxRecords   int64
+	journalBytes int64
+	json         bool
+	limits       cudacapture.Limits
 }
 
 // runGapsCommand implements "cudaprof gaps".
@@ -111,7 +112,7 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 	if err != nil {
 		return gapOptions{}, err
 	}
-	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords, limits: limits}
+	opts := gapOptions{warmupMS: 200, maxRecords: controllerMaxJournalRecords, journalBytes: cudacapture.MaxCaptureInputBytes, limits: limits}
 	for _, arg := range args {
 		switch {
 		case arg == "-h" || arg == "-help" || arg == "--help":
@@ -135,6 +136,12 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 				return gapOptions{}, fmt.Errorf("invalid max records: %s", arg)
 			}
 			opts.maxRecords = v
+		case strings.HasPrefix(arg, "--journal-bytes=") || strings.HasPrefix(arg, "-journal-bytes="):
+			v, err := strconv.ParseInt(arg[strings.IndexByte(arg, '=')+1:], 10, 64)
+			if err != nil || v <= 0 {
+				return gapOptions{}, fmt.Errorf("invalid journal bytes: %s", arg)
+			}
+			opts.journalBytes = v
 		case strings.HasPrefix(arg, "-"):
 			return gapOptions{}, fmt.Errorf("unknown flag: %s", arg)
 		case opts.capturePath == "":
@@ -144,7 +151,7 @@ func parseGapsArgs(rawArgs []string) (gapOptions, error) {
 		}
 	}
 	if opts.capturePath == "" {
-		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N] [--max-records=N] [--diff_base=base.pprof] [--json] capture.pprof")
+		return gapOptions{}, errors.New("usage: cudaprof gaps [--warmup-ms=N] [--max-records=N] [--journal-bytes=N] [--diff_base=base.pprof] [--json] capture.pprof")
 	}
 	return opts, nil
 }
@@ -174,6 +181,7 @@ Options:
   --diff_base=FILE  compare against this capture and report deltas
   --warmup-ms=N     warmup window excluded from the steady-state section (default 200)
   --max-records=N   maximum journal records to decode (default 1048576)
+  --journal-bytes=N maximum decompressed bytes per journal (default 536870912)
   --json            write the report as JSON
 `)
 }
@@ -321,7 +329,7 @@ type gapPayload struct {
 // decode to completion, or that never finalized, is refused: both leave a
 // timeline whose end is unknown, and a truncated prefix is indistinguishable
 // from a short run once the records are counted.
-func decodeJournals(journals map[string][]byte, maxRecords int64) (gapRecords, error) {
+func decodeJournals(journals map[string][]byte, maxRecords, maxBytes int64) (gapRecords, error) {
 	out := gapRecords{apis: make(map[uint32]gapAPI)}
 	names := make([]string, 0, len(journals))
 	for name := range journals {
@@ -329,16 +337,21 @@ func decodeJournals(journals map[string][]byte, maxRecords int64) (gapRecords, e
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		data, compressed, err := decompressJournal(journals[name])
+		reader, compressed, err := decompressJournal(journals[name], maxBytes)
 		if err != nil {
 			return gapRecords{}, fmt.Errorf("read journal %s: %w", name, err)
 		}
-		if len(data) == 0 {
-			return gapRecords{}, fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
-		}
-		summary := gapJournal{Name: name, Compressed: compressed, Bytes: len(data)}
-		if err := decodeJournal(name, data, maxRecords, &out, &summary); err != nil {
+		summary := gapJournal{Name: name, Compressed: compressed}
+		if err := decodeJournal(name, reader, maxRecords, &out, &summary); err != nil {
+			_ = reader.Close()
 			return gapRecords{}, err
+		}
+		if err := reader.Close(); err != nil {
+			return gapRecords{}, fmt.Errorf("close journal %s: %w", name, err)
+		}
+		summary.Bytes = int(reader.n)
+		if summary.Bytes == 0 {
+			return gapRecords{}, fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
 		}
 		out.journals = append(out.journals, summary)
 	}
@@ -351,40 +364,66 @@ func decodeJournals(journals map[string][]byte, maxRecords int64) (gapRecords, e
 // decompressJournal returns the journal frames, transparently decompressing a
 // gzip-stored member. Detection is by content, so a journal is read the same
 // way whether or not its name carries the .gz suffix.
-func decompressJournal(data []byte) ([]byte, bool, error) {
+func decompressJournal(data []byte, maxBytes int64) (*boundedJournalReader, bool, error) {
+	if maxBytes <= 0 {
+		return nil, false, fmt.Errorf("invalid journal byte limit %d", maxBytes)
+	}
 	if len(data) < 2 || data[0] != 0x1f || data[1] != 0x8b {
-		return data, false, nil
+		return newBoundedJournalReader(io.NopCloser(bytes.NewReader(data)), maxBytes), false, nil
 	}
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, true, fmt.Errorf("open gzip journal: %w", err)
 	}
-	defer zr.Close()
-	// The decompressed size is not bounded by the embedded size, so cap it at
-	// the bound cudacapture applies to any single decoded input rather than
-	// letting a malformed or hostile member expand without limit.
-	plain, err := io.ReadAll(io.LimitReader(zr, cudacapture.MaxCaptureInputBytes+1))
-	if err != nil {
-		return nil, true, fmt.Errorf("decompress journal: %w", err)
-	}
-	if int64(len(plain)) > cudacapture.MaxCaptureInputBytes {
-		return nil, true, fmt.Errorf("journal exceeds %d bytes decompressed", int64(cudacapture.MaxCaptureInputBytes))
-	}
-	return plain, true, nil
+	return newBoundedJournalReader(zr, maxBytes), true, nil
 }
 
-func decodeJournal(name string, data []byte, maxRecords int64, out *gapRecords, summary *gapJournal) error {
+type boundedJournalReader struct {
+	io.ReadCloser
+	limit int64
+	n     int64
+}
+
+func newBoundedJournalReader(r io.ReadCloser, limit int64) *boundedJournalReader {
+	return &boundedJournalReader{ReadCloser: r, limit: limit}
+}
+
+func (r *boundedJournalReader) Read(p []byte) (int, error) {
+	remaining := r.limit - r.n
+	if remaining < 0 {
+		return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
+	}
+	if remaining == 0 {
+		var one [1]byte
+		n, err := r.ReadCloser.Read(one[:])
+		if n > 0 {
+			return 0, fmt.Errorf("journal exceeds %d bytes decompressed", r.limit)
+		}
+		return 0, err
+	}
+	if int64(len(p)) > remaining {
+		p = p[:remaining]
+	}
+	n, err := r.ReadCloser.Read(p)
+	r.n += int64(n)
+	return n, err
+}
+
+func decodeJournal(name string, reader io.Reader, maxRecords int64, out *gapRecords, summary *gapJournal) error {
 	limitsMaxRecords := uint32(math.MaxUint32)
 	if maxRecords > 0 && maxRecords < math.MaxUint32 {
 		limitsMaxRecords = uint32(maxRecords)
 	}
-	d := wire.NewDecoder(bytes.NewReader(data), wire.Limits{MaxRecords: limitsMaxRecords})
+	d := wire.NewDecoder(reader, wire.Limits{MaxRecords: limitsMaxRecords})
 	first, finalized := true, false
 	for {
 		r, err := d.Next()
 		if err != nil {
 			switch {
 			case errors.Is(err, io.EOF):
+				if summary.Records == 0 {
+					return fmt.Errorf("journal %s is empty, so no device timeline was recorded", name)
+				}
 				if !finalized {
 					return fmt.Errorf("journal %s decoded %d record(s) but never finalized, so the recorded timeline has no known end", name, summary.Records)
 				}
@@ -525,7 +564,11 @@ func analyzeGaps(cap *cudacapture.Capture, opts gapOptions) (*GapReport, error) 
 	if err != nil {
 		return nil, err
 	}
-	records, err := decodeJournals(journals, opts.maxRecords)
+	journalBytes := opts.journalBytes
+	if journalBytes == 0 {
+		journalBytes = cudacapture.MaxCaptureInputBytes
+	}
+	records, err := decodeJournals(journals, opts.maxRecords, journalBytes)
 	if err != nil {
 		return nil, err
 	}
