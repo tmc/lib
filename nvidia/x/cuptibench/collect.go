@@ -67,6 +67,7 @@ func (p *Plan) collectMode(w Workload, mode Mode) (result *Result, err error) {
 	if w.View == "" {
 		result.Metadata["view"] = "unspecified"
 	}
+	var retained *cuptirange.Capture
 	err = p.context.Run(func() error {
 		capture, e := p.backend.CaptureReplay(p.dev, p.config.Limits, cuptirange.CaptureOptions{ReplayMode: replayMode, Graphs: w.Graphs, CachePolicy: p.config.CachePolicy, Mode: cuptirange.Mode(mode), MaxDepth: captureDepth(mode, p.config.MaxDepth)}, cuptirange.Replay{
 			Prepare: func(uint) error {
@@ -87,6 +88,7 @@ func (p *Plan) collectMode(w Workload, mode Mode) (result *Result, err error) {
 			},
 			Synchronize: func() error { return p.call(w.Synchronize) },
 		})
+		retained = capture
 		if capture != nil {
 			result.Quality = capture.Quality
 			if cleanup := capture.Close(); cleanup != nil {
@@ -143,6 +145,16 @@ func (p *Plan) collectMode(w Workload, mode Mode) (result *Result, err error) {
 	})
 	if err != nil {
 		result.Ranges = nil
+		if retained != nil {
+			image := retained.DiagnosticImage
+			if image == nil {
+				image = retained.Image
+			}
+			result.Diagnostics = &Diagnostics{Image: append([]byte(nil), image...)}
+			if trace := retained.DiagnosticTrace; trace != nil {
+				result.Diagnostics.Trace = &cuptirange.LaunchTrace{CompletedPasses: trace.CompletedPasses, Launches: append([]cuptirange.ObservedLaunch(nil), trace.Launches...)}
+			}
+		}
 	}
 	return result, err
 }

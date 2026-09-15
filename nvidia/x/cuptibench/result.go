@@ -36,11 +36,16 @@ type Timing struct {
 	Method     string
 }
 
-// Result retains one counter capture. On collection error only Quality and
-// Metadata are diagnostic; Ranges is empty. Timing is nil for Collect.
+// Result retains one counter capture. On collection error, Quality, Metadata
+// and Diagnostics retain diagnostic evidence; Ranges is empty. Timing is nil
+// for Collect.
 // Reserved metadata keys include chip, device_uuid, cuda_driver_version,
 // cupti_version, metrics, mode, preparation, capture_id, benchmark, and run_id.
 type Result struct {
+	// Diagnostics retains failure-only evidence in memory. It is omitted from
+	// JSON and cannot be exported as profile data. Nil on successful collection.
+	Diagnostics *Diagnostics `json:"-"`
+
 	// Aggregate is a separately identified whole-operation capture acquired by
 	// Benchmark in Kernels mode. It is retained for aggregate columns, never added
 	// to the individual kernel samples in a profile. Collect leaves it nil.
@@ -50,4 +55,13 @@ type Result struct {
 	Timing     *Timing
 	Quality    cuptirange.CollectionQuality
 	Metadata   map[string]string
+}
+
+// Diagnostics contains rejected collection evidence, never admissible metrics.
+// Image is bounded by Config.Limits.MaxCounterBytes. Do not evaluate it: it may
+// be initialized or partial data. Trace may be incomplete; nil means no observer
+// evidence was available. Callers may explicitly retain these bytes for debugging.
+type Diagnostics struct {
+	Image []byte
+	Trace *cuptirange.LaunchTrace
 }

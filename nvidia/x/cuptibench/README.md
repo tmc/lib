@@ -291,6 +291,13 @@ running them. They test exact CTA counts, workload changes, reset contamination,
 isolated preparation, range capacity, stream timing, and profile round trips.
 The tests preserve failed receipts and do not establish support on another host.
 
+A failed `Collect` may return `Result.Diagnostics` with a copied counter image
+and the latest bounded launch-observer window. The window may be partial;
+observed launches do not prove execution or counter attribution. These fields
+are omitted from result JSON and rejected by profile export. Retain them
+explicitly for debugging if needed. Failed benchmarks log the image size and
+hash and the observed launch count when available.
+
 Native cleanup failures invalidate the measurement and retain ownership for retry.
 Always check `Close` and `Finish` errors. Hardware tests skipped on this host are
 not successful hardware qualification.

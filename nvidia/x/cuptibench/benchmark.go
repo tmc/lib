@@ -50,6 +50,9 @@ func Benchmark(b *testing.B, p *Plan, w Workload) *Result {
 		})
 	})
 	if err != nil {
+		if result != nil && result.Diagnostics != nil {
+			b.Log(diagnosticSummary(result.Diagnostics))
+		}
 		b.Fatal(err)
 		return nil
 	}
@@ -137,7 +140,7 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 				err = errors.Join(err, cleanup)
 			}
 		}
-		if err != nil {
+		if err != nil && (result == nil || result.Diagnostics == nil) {
 			result = nil
 		}
 	}()
@@ -194,7 +197,7 @@ func benchmark(b *testing.B, p *Plan, w Workload, newTimer timerFactory) (result
 	if p.config.Mode == Kernels {
 		aggregate, collectErr := p.collectMode(w, Whole)
 		if collectErr != nil {
-			return nil, fmt.Errorf("cuptibench: aggregate capture: %w", collectErr)
+			return aggregate, fmt.Errorf("cuptibench: aggregate capture: %w", collectErr)
 		}
 		result.Aggregate = aggregate
 		result.Metadata["aggregate_capture_id"] = aggregate.Metadata["capture_id"]
