@@ -1,0 +1,9 @@
+commit 6697bdcd  2026-09-15T08:03:52Z
+claude-code 2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+tty=not a tty pid=59055
+ITERM_SESSION_ID=w19t0p0:154F7EA1-A987-4C0B-944A-0FC8FB91A24F
+session=2b6d6b1f-7424-4bd2-93ae-b90691afac17
+session_url=https://claude.ai/code/session_012r4B8wL7gmk8fgJhAZWcT7
+6697bdcd applies peer session 7B69B184's patch ~/tmp/agent-collab/lib/20260915-7B69B184-apiversion-assertions.patch (base dcb2d026); its control rerun here.
+95d44570 prose is mine, from an md5 sweep of cuda-headers-profiles/linux-x86_64 against the legacy cuda-headers tree.
