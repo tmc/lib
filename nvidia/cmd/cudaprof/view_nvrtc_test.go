@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -338,5 +339,135 @@ func TestRecompileSourcesFallsBackToCaptureCode(t *testing.T) {
 	}
 	if got[0].Recorded {
 		t.Error("a capture that records no options reported recorded options")
+	}
+}
+
+// TestRecompileHandlerFailedVariant is the defect a bogus flag exposed: a
+// variant that fails to compile has zero counts, and diffing against them
+// renders the failure as every instruction disappearing, the largest
+// improvement the table can show.
+func TestRecompileHandlerFailedVariant(t *testing.T) {
+	src := &recompileSource{
+		Name:   "ds4_math.cu",
+		File:   "ds4_math.cu",
+		Source: "extern \"C\" __global__ void ds4_rms(float *x) {}",
+		PTX:    testVariantPTX,
+		SASS:   testVariantSASS,
+	}
+	compile := func(name, source string, options []string) *nvrtcVariant {
+		return &nvrtcVariant{
+			Label:   strings.Join(options, " "),
+			Options: options,
+			Error:   "nvrtc: NVRTC_ERROR_INVALID_OPTION",
+		}
+	}
+	handler := newRecompileHandler([]*recompileSource{src}, compile)
+	rec := httptest.NewRecorder()
+	handler(rec, httptest.NewRequest("GET", "/api/recompile?a=capture&b=--not-a-flag", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var resp recompileResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Deltas) != 0 {
+		t.Errorf("failed variant produced %d deltas, want none: %+v", len(resp.Deltas), resp.Deltas)
+	}
+	if resp.Note == "" {
+		t.Error("response carries no note saying why there is no comparison")
+	}
+	if !strings.Contains(resp.Note, "NVRTC_ERROR_INVALID_OPTION") {
+		t.Errorf("note = %q, want it to carry the compiler error", resp.Note)
+	}
+	if resp.B.Error == "" {
+		t.Error("B reports no error")
+	}
+}
+
+func TestIncomparable(t *testing.T) {
+	ok := &nvrtcVariant{Label: "capture", Stats: newVariantStats(testVariantPTX, testVariantSASS)}
+	bad := &nvrtcVariant{Label: "--not-a-flag", Error: "boom"}
+	tests := []struct {
+		name string
+		a, b *nvrtcVariant
+		want bool // want a comparison
+	}{
+		{"both ok", ok, ok, true},
+		{"a failed", bad, ok, false},
+		{"b failed", ok, bad, false},
+		{"b missing", ok, nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := incomparable(tt.a, tt.b) == ""
+			if got != tt.want {
+				t.Errorf("comparable = %v, want %v (%q)", got, tt.want, incomparable(tt.a, tt.b))
+			}
+			if deltas := diffVariants(tt.a, tt.b); (len(deltas) > 0) != tt.want {
+				t.Errorf("diffVariants returned %d rows, want comparable=%v", len(deltas), tt.want)
+			}
+		})
+	}
+}
+
+// TestStaticExportOmitsNVRTC checks that an exported page carries no trace of
+// the panel. The panel needs the live server to compile, so a static page that
+// mentions it at all is offering something it cannot do.
+func TestStaticExportOmitsNVRTC(t *testing.T) {
+	data := &PipelineViewData{
+		CaptureFile:  "static.pprof",
+		Architecture: "sm_121",
+		Recompile:    nil,
+	}
+	var buf bytes.Buffer
+	if err := renderPipelineHTML(&buf, data); err != nil {
+		t.Fatalf("renderPipelineHTML: %v", err)
+	}
+	for _, s := range []string{"nvrtcPanel", "nvrtcModule", "runRecompile", "/api/recompile"} {
+		if bytes.Contains(buf.Bytes(), []byte(s)) {
+			t.Errorf("static export mentions %q", s)
+		}
+	}
+}
+
+// TestRenderMultipleRecompileModules covers the shape the live capture cannot
+// exercise: it holds one module, so the panel's module select is never really
+// populated with a choice. Each option has to carry its own options, because
+// modules in one capture need not have been compiled alike.
+func TestRenderMultipleRecompileModules(t *testing.T) {
+	data := &PipelineViewData{
+		CaptureFile:  "two.pprof",
+		Architecture: "sm_121",
+		Recompile: []*recompileSource{
+			{ID: "m0", Name: "ds4_math.cu", File: "ds4_math.cu", Recorded: true,
+				Options:   []string{"--gpu-architecture=sm_121", "--generate-line-info"},
+				Suggested: []string{"--gpu-architecture=sm_121", "--generate-line-info", "--use_fast_math"},
+				Source:    "extern \"C\" __global__ void a() {}"},
+			{ID: "m1", Name: "ds4_probe.cu", File: "ds4_probe.cu", Recorded: false,
+				Options:   []string{"--gpu-architecture=compute_121"},
+				Suggested: []string{"--gpu-architecture=compute_121", "--use_fast_math"},
+				Source:    "extern \"C\" __global__ void b() {}"},
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderPipelineHTML(&buf, data); err != nil {
+		t.Fatalf("renderPipelineHTML: %v", err)
+	}
+	html := buf.String()
+	if got := strings.Count(html, `<option value="m`); got != 2 {
+		t.Errorf("rendered %d module options, want 2", got)
+	}
+	// The two differ in target kind, virtual against physical. An option that
+	// carried the other module's flags would recompile the wrong thing.
+	for _, want := range []string{
+		`value="m0" data-options="--gpu-architecture=sm_121 --generate-line-info"`,
+		`value="m1" data-options="--gpu-architecture=compute_121"`,
+		`data-recorded="true"`,
+		`data-recorded="false"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML lacks %s", want)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -190,6 +191,7 @@ type recompileResponse struct {
 	A       *nvrtcVariant  `json:"a"`
 	B       *nvrtcVariant  `json:"b"`
 	Deltas  []variantDelta `json:"deltas,omitempty"`
+	Note    string         `json:"note,omitempty"`
 	Caveat  string         `json:"caveat"`
 	Elapsed string         `json:"elapsed,omitempty"`
 }
@@ -316,11 +318,30 @@ func countSASSOpcodes(sass string) (opcodes, kernels map[string]int) {
 	return opcodes, kernels
 }
 
+// incomparable reports why two variants cannot be compared, or "" if they can.
+// A variant that failed to compile has no instructions, not zero of them: every
+// count would read as a decrease, and a compile error would render as the
+// largest improvement the panel can show.
+func incomparable(a, b *nvrtcVariant) string {
+	if a == nil || b == nil {
+		return "recompile produced no result"
+	}
+	for _, side := range []struct {
+		name string
+		v    *nvrtcVariant
+	}{{"A", a}, {"B", b}} {
+		if side.v.Error != "" {
+			return side.name + " did not compile, so there is nothing to compare: " + side.v.Error
+		}
+	}
+	return ""
+}
+
 // diffVariants reports the counts that differ between two variants, totals
 // first, then per-kernel SASS instructions, then opcodes ordered by the size of
 // the change. Counts equal on both sides are left out.
 func diffVariants(a, b *nvrtcVariant) []variantDelta {
-	if a == nil || b == nil {
+	if incomparable(a, b) != "" {
 		return nil
 	}
 	rows := []variantDelta{
@@ -402,9 +423,20 @@ func newRecompileHandler(sources []*recompileSource, compile variantCompiler) ht
 			return compile(src.File, src.Source, options)
 		}
 		resp := recompileResponse{Module: src.Name, A: side("a"), B: side("b"), Caveat: staticCountCaveat}
-		resp.Deltas = diffVariants(resp.A, resp.B)
+		if resp.Note = incomparable(resp.A, resp.B); resp.Note == "" {
+			resp.Deltas = diffVariants(resp.A, resp.B)
+		}
 		resp.Elapsed = time.Since(start).Round(time.Millisecond).String()
-		json.NewEncoder(w).Encode(resp)
+		// A comparison carries the full PTX and SASS of both variants, tens of
+		// megabytes, and a slow reader takes longer to drain it than the
+		// server's ordinary write timeout allows. Without this the client sees
+		// a truncated body under a 200.
+		if rc := http.NewResponseController(w); rc != nil {
+			rc.SetWriteDeadline(time.Now().Add(10 * time.Minute))
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Printf("recompile: write response: %v", err)
+		}
 	}
 }
 
