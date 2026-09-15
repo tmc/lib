@@ -36,6 +36,22 @@ type graphResult struct {
 	PDLEdges  int    `json:"pdl_edges,omitempty"`
 }
 
+// stepDim reads a step's explicit dimension fields, where an omitted Y or Z
+// means one, as elsewhere in this example's flags.
+func stepDim(x, y, z uint32) cudalaunch.Dim3 {
+	d := cudalaunch.Dim3{X: x, Y: y, Z: z}
+	if d.X == 0 {
+		d.X = 1
+	}
+	if d.Y == 0 {
+		d.Y = 1
+	}
+	if d.Z == 0 {
+		d.Z = 1
+	}
+	return d
+}
+
 // stepDescription resolves the launch a PipelineStep performs. Explicit step
 // fields override the launcher's configuration; zero fields defer to it.
 func stepDescription(step PipelineStep) (cudalaunch.Description, error) {
@@ -51,10 +67,10 @@ func stepDescription(step PipelineStep) (cudalaunch.Description, error) {
 		desc.Function = step.Func
 	}
 	if step.GridDimX != 0 || step.GridDimY != 0 || step.GridDimZ != 0 {
-		desc.Grid = cudalaunch.Dim3{X: step.GridDimX, Y: step.GridDimY, Z: step.GridDimZ}
+		desc.Grid = stepDim(step.GridDimX, step.GridDimY, step.GridDimZ)
 	}
 	if step.BlockDimX != 0 || step.BlockDimY != 0 || step.BlockDimZ != 0 {
-		desc.Block = cudalaunch.Dim3{X: step.BlockDimX, Y: step.BlockDimY, Z: step.BlockDimZ}
+		desc.Block = stepDim(step.BlockDimX, step.BlockDimY, step.BlockDimZ)
 	}
 	if step.SharedMemBytes != 0 {
 		desc.SharedMem = step.SharedMemBytes
