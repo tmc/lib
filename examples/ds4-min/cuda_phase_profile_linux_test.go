@@ -139,6 +139,9 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 	for base := 0; base < tokens; base += cudaPrefillBatchWidth {
 		for layer := range cudaLayers {
 			add("dense-front", base, layer)
+			// The batched front end runs each layer in two token-ordered passes:
+			// everything through the shared FFN's activation quantization, then
+			// the group's two batched shared projections, then the second half.
 			for position := base; position < base+cudaPrefillBatchWidth; position++ {
 				add("qkv-normalization", position, layer)
 				if layer < 2 {
@@ -146,9 +149,13 @@ func expectedCUDAPhaseCoordinates(tokens int) []cudaPhaseInterval {
 				} else {
 					add("compression", position, layer)
 				}
-				for _, name := range []string{"attention", "attention-output", "ffn-pre", "shared-ffn", "expert-ffn", "ffn-post"} {
+				for _, name := range []string{"attention", "attention-output", "ffn-pre", "shared-ffn"} {
 					add(name, position, layer)
 				}
+			}
+			for position := base; position < base+cudaPrefillBatchWidth; position++ {
+				add("expert-ffn", position, layer)
+				add("ffn-post", position, layer)
 			}
 		}
 		add("group-tail", base+cudaPrefillBatchWidth-1, -1)
