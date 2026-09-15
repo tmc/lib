@@ -18,6 +18,22 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
+// occupancyCaveat qualifies every recommendation derived from an occupancy or
+// register-residency figure. Occupancy states what a kernel CAN keep resident,
+// never what it is waiting on. Raising it pays only when the kernel is
+// latency-bound, and it can run backwards when the transformation that frees the
+// resource costs something else: deleting the shared-memory staging in
+// ds4_f16_pair_ordered_chunks raised occupancy from 10.4% to 100% and measured
+// 2.84% slower end to end, because the staging was buying coalescing. Advice
+// built on a capacity figure is a hypothesis to A/B, not an instruction.
+//
+// It replaces three ad-hoc hedges that said less in four different spellings.
+// Sites where the figure is NOT capacity-read-as-throughput are deliberately
+// left bare and are pinned bare by tests: a hardware legality maximum (block
+// size > 1024), grid starvation (SMs are literally idle, which is an occupancy
+// figure read AS occupancy), and register spills (real work, not residency).
+const occupancyCaveat = " Occupancy bounds residency, not throughput: A/B this. It pays only if the kernel is latency-bound (a bandwidth-bound streaming kernel will see no speedup), and it can regress when freeing the resource costs coalescing."
+
 // Severity denotes the impact of an advice finding.
 type Severity string
 
@@ -332,7 +348,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					Category:                 CategoryRegisterPressure,
 					Location:                 locGPR,
 					Finding:                  finding,
-					ActionableRecommendation: "Optimize register reuse, hoist expressions, or use __launch_bounds__ to keep register pressure at or below 128 GPRs for higher occupancy.",
+					ActionableRecommendation: "Optimize register reuse, hoist expressions, or use __launch_bounds__ to keep register pressure at or below 128 GPRs for higher occupancy." + occupancyCaveat,
 				})
 			} else if peakGPR > 64 {
 				finding := fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name)
@@ -345,7 +361,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					Category:                 CategoryRegisterPressure,
 					Location:                 locGPR,
 					Finding:                  finding,
-					ActionableRecommendation: "Evaluate whether limiting register usage to <= 64 GPRs with __launch_bounds__ improves throughput via higher warp occupancy.",
+					ActionableRecommendation: "Evaluate whether limiting register usage to <= 64 GPRs with __launch_bounds__ raises warp occupancy." + occupancyCaveat,
 				})
 			}
 
@@ -1034,7 +1050,7 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 					Category:                 CategoryArchitectureCompute,
 					Location:                 launch.Location,
 					Finding:                  finding,
-					ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding (worth testing if kernel is latency-bound; note bandwidth-bound streaming kernels may see no speedup).",
+					ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding." + occupancyCaveat,
 				})
 			}
 		}
@@ -1055,7 +1071,7 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 					Category:                 CategoryArchitectureCompute,
 					Location:                 launch.Location,
 					Finding:                  fmt.Sprintf("Multi-warp thread block underutilization in row reduction: kernel %q launched with %d threads/block (>= 4 warps) executes sequential chunk reductions with idle warps during accumulation", launch.Kernel, launch.BlockThreads),
-					ActionableRecommendation: "Group multiple rows per thread block (e.g. 4 rows per 128-thread block so warp i computes row 4k+i) to maintain 100% warp utilization during chunk accumulation.",
+					ActionableRecommendation: "Group multiple rows per thread block (e.g. 4 rows per 128-thread block so warp i computes row 4k+i) to maintain 100% warp utilization during chunk accumulation." + occupancyCaveat,
 				})
 			}
 		}
@@ -1337,18 +1353,18 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 				maxRegsTarget := regsPerWarpTarget / dev.WarpSize
 				targetWarps := targetBlocks * warpsPerBlock
 				targetOcc := (float64(targetWarps) / float64(dev.MaxWarpsPerSM)) * 100
-				rec = fmt.Sprintf("Register file capacity (%d regs/SM) limits residency to %d blocks/SM. Reducing registers from %d to <=%d GPRs would allow %d blocks/SM (%d warps, %.1f%% occupancy). Test with __launch_bounds__ or -maxrregcount=%d if latency-bound.",
-					dev.MaxRegistersPerSM, rep.ActiveBlocks, k.Registers, maxRegsTarget, targetBlocks, targetWarps, targetOcc, maxRegsTarget)
+				rec = fmt.Sprintf("Register file capacity (%d regs/SM) limits residency to %d blocks/SM. Reducing registers from %d to <=%d GPRs would allow %d blocks/SM (%d warps, %.1f%% occupancy). Test with __launch_bounds__ or -maxrregcount=%d.",
+					dev.MaxRegistersPerSM, rep.ActiveBlocks, k.Registers, maxRegsTarget, targetBlocks, targetWarps, targetOcc, maxRegsTarget) + occupancyCaveat
 			case cudaoccupancy.LimitSharedMemory:
 				rec = fmt.Sprintf("Static shared memory (%d bytes/block) limits residency to %d blocks/SM on %s (%d bytes/SM). Reduce shared memory or dynamically allocate to allow higher CTA residency.",
-					k.SharedMemBytes, rep.ActiveBlocks, dev.Architecture, dev.MaxSharedMemoryPerSM)
+					k.SharedMemBytes, rep.ActiveBlocks, dev.Architecture, dev.MaxSharedMemoryPerSM) + occupancyCaveat
 			case cudaoccupancy.LimitBlocks:
-				rec = fmt.Sprintf("Maximum thread blocks per SM (%d on %s) limits occupancy because block size (%d threads) is small. Restructure thread block geometry to >=128 or 256 threads to reach higher occupancy (worth testing if latency-bound).",
-					dev.MaxBlocksPerSM, dev.Architecture, threadsPerBlock)
+				rec = fmt.Sprintf("Maximum thread blocks per SM (%d on %s) limits occupancy because block size (%d threads) is small. Restructure thread block geometry to >=128 or 256 threads to reach higher occupancy.",
+					dev.MaxBlocksPerSM, dev.Architecture, threadsPerBlock) + occupancyCaveat
 			case cudaoccupancy.LimitBlockSize:
 				rec = "Restructure thread block geometry to fit within hardware block size limits (<= 1024 threads per block)."
 			default:
-				rec = "Tune thread block dimensions and resource consumption to maximize concurrent warp execution."
+				rec = "Tune thread block dimensions and resource consumption to maximize concurrent warp execution." + occupancyCaveat
 			}
 
 			report.Items = append(report.Items, AdviceItem{
@@ -1528,6 +1544,12 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 	if cap.Profile != nil && len(cap.Profile.Sample) > 0 {
 		var stallIndices []int
 		var memThrottleIndices []int
+		// memThrottleNames records which sample types the ratio is actually
+		// computed from, because the finding below has to cite them by name.
+		// The disjunction is historical: only "stall_mem" exists in a profile
+		// this tree produces, and a finding that named one of the other two
+		// would cite a counter no capture contains.
+		var memThrottleNames []string
 		for i, st := range cap.Profile.SampleType {
 			if strings.HasPrefix(st.Type, "stall_") {
 				stallIndices = append(stallIndices, i)
@@ -1535,7 +1557,12 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			tLower := strings.ToLower(st.Type)
 			if tLower == "stall_memory_throttle" || tLower == "stall_mem_throttle" || tLower == "stall_mem" {
 				memThrottleIndices = append(memThrottleIndices, i)
+				memThrottleNames = append(memThrottleNames, st.Type)
 			}
+		}
+		memSource := strings.Join(memThrottleNames, "+")
+		if memSource == "" {
+			memSource = "sass.stall labels"
 		}
 
 		type pcStats struct {
@@ -1675,8 +1702,17 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 							File:   file,
 							Line:   line,
 						},
-						Finding:                  fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (stall_memory_throttle %.1f%% exceeds 35%% on %s at PC 0x%04x in kernel %q)", ratio*100, opcode, pc, kName),
-						ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+						// The measurement is a share of stalls, so that is what
+						// the finding says. It used to assert 32 cache
+						// transactions per instruction, a number nothing here
+						// counts, and it cited stall_memory_throttle, a counter
+						// no capture carries. The share also does not separate a
+						// throttle from a latency wait: stall_mem holds both, and
+						// on a coalesced but bandwidth-bound kernel it is the
+						// latency half that is large. Uncoalesced access is one
+						// cause to check, not the reading.
+						Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, ratio*100, opcode, pc, kName),
+						ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
 					})
 				}
 			}

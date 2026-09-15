@@ -12,6 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	"maps"
+	"regexp"
+	"slices"
+
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
@@ -119,6 +123,7 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 		wantCategory Category
 		wantSeverity Severity
 		wantFinding  string
+		wantCaveat   bool // recommendation is derived from an occupancy figure
 	}{
 		{
 			name:         "high_gpr_cliff",
@@ -126,6 +131,7 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 			wantCategory: CategoryRegisterPressure,
 			wantSeverity: SeverityWarning,
 			wantFinding:  "140 GPRs",
+			wantCaveat:   true,
 		},
 		{
 			name:         "local_spill_points",
@@ -133,6 +139,7 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 			wantCategory: CategoryRegisterPressure,
 			wantSeverity: SeverityCritical,
 			wantFinding:  "spill point",
+			wantCaveat:   false, // a spill is real work, not a residency figure
 		},
 		{
 			name:         "high_ugpr",
@@ -140,6 +147,7 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 			wantCategory: CategoryRegisterPressure,
 			wantSeverity: SeverityWarning,
 			wantFinding:  "70 UGPRs",
+			wantCaveat:   false, // uniform-register spills are real work, not a residency figure
 		},
 	}
 
@@ -166,6 +174,9 @@ func TestAdvice_HighRegisterPressure(t *testing.T) {
 					found = true
 					if item.ActionableRecommendation == "" {
 						t.Errorf("item recommendation is empty for %s", item.Finding)
+					}
+					if got := strings.Contains(item.ActionableRecommendation, occupancyCaveat); got != tt.wantCaveat {
+						t.Errorf("occupancyCaveat present = %v, want %v in %q", got, tt.wantCaveat, item.ActionableRecommendation)
 					}
 					break
 				}
@@ -935,7 +946,7 @@ uncoalesced_load:
 				Profile: &profile.Profile{
 					SampleType: []*profile.ValueType{
 						{Type: "stall_scoreboard", Unit: "count"},
-						{Type: "stall_memory_throttle", Unit: "count"},
+						{Type: "stall_mem", Unit: "count"},
 					},
 					Function: []*profile.Function{
 						{ID: 1, Name: "uncoalesced_load", Filename: "uncoalesced.cu"},
@@ -959,8 +970,8 @@ uncoalesced_load:
 			wantWarning:  true,
 			wantCategory: CategoryMemory,
 			wantSeverity: SeverityWarning,
-			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
-			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+			wantFinding:  "Memory stalls dominate this load: stall_mem is 45.0% of stalls",
+			wantRec:      "Check whether adjacent lane IDs access contiguous bytes",
 		},
 		{
 			name: "uncoalesced_critical_high_mem_stalls_60pct",
@@ -996,8 +1007,8 @@ uncoalesced_load:
 			wantWarning:  true,
 			wantCategory: CategoryMemory,
 			wantSeverity: SeverityCritical,
-			wantFinding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
-			wantRec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+			wantFinding:  "Memory stalls dominate this load: stall_mem is 60.0% of stalls",
+			wantRec:      "Check whether adjacent lane IDs access contiguous bytes",
 		},
 		{
 			name: "coalesced_ldg_low_mem_stalls_15pct",
@@ -1009,7 +1020,7 @@ uncoalesced_load:
 				Profile: &profile.Profile{
 					SampleType: []*profile.ValueType{
 						{Type: "stall_scoreboard", Unit: "count"},
-						{Type: "stall_memory_throttle", Unit: "count"},
+						{Type: "stall_mem", Unit: "count"},
 					},
 					Location: []*profile.Location{
 						{ID: 1, Address: 0x0010},
@@ -1484,7 +1495,7 @@ deepseek_decode:
 			SampleType: []*profile.ValueType{
 				{Type: "kernel_time", Unit: "nanoseconds"},
 				{Type: "stall_scoreboard", Unit: "count"},
-				{Type: "stall_memory_throttle", Unit: "count"},
+				{Type: "stall_mem", Unit: "count"},
 			},
 			Location: []*profile.Location{
 				{ID: 1, Address: 0x0010},
@@ -1501,7 +1512,10 @@ deepseek_decode:
 						"grid":    {"64,1,1"},
 					},
 				},
-				// 3. Uncoalesced memory access at PC 0x0010 (LDG.E with 45% stall_memory_throttle)
+				// 3. Memory-dominated LDG.E at PC 0x0010, 45% of stalls in stall_mem.
+				// The counter is stall_mem: this comment used to say
+				// stall_memory_throttle, which the profile does not declare and no
+				// producer emits, and the finding string said so too.
 				{
 					Location: []*profile.Location{{ID: 1, Address: 0x0010}},
 					Value:    []int64{0, 55, 45}, // 45 / 100 = 45% > 35%
@@ -1564,10 +1578,10 @@ deepseek_decode:
 			rec:      "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol)",
 		},
 		{
-			name:     "heuristic_3_uncoalesced_memory",
+			name:     "heuristic_3_memory_dominated_load",
 			category: CategoryMemory,
-			finding:  "Threads within the warp generate strided or disparate 128-byte cache line requests",
-			rec:      "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line",
+			finding:  "Memory stalls dominate this load: stall_mem is 45.0% of stalls",
+			rec:      "Check whether adjacent lane IDs access contiguous bytes",
 		},
 		{
 			name:     "heuristic_4_cuda_graph",
@@ -1651,6 +1665,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		wantFinding  string
 		wantRec      string
 		wantSeverity Severity
+		wantCaveat   bool // recommendation is derived from an occupancy figure
 	}{
 		{
 			name:         "frame_size_spill_detection",
@@ -1659,6 +1674,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "allocates 256 bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE)",
 			wantRec:      "eliminate local memory stack frame spills",
 			wantSeverity: SeverityCritical,
+			wantCaveat:   false, // a local stack frame spill is real work, not a residency figure
 		},
 		{
 			name:         "blackwell_sm121_reg_cliff",
@@ -1667,6 +1683,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_121 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
 			wantSeverity: SeverityWarning,
+			wantCaveat:   true,
 		},
 		{
 			name:         "hopper_sm90_target_disambiguation",
@@ -1675,6 +1692,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_90 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
 			wantSeverity: SeverityWarning,
+			wantCaveat:   true,
 		},
 		{
 			name:         "smem_capacity_limit",
@@ -1683,6 +1701,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "constrained by shared_memory",
 			wantRec:      "Static shared memory (65536 bytes/block) limits residency",
 			wantSeverity: SeverityCritical,
+			wantCaveat:   true,
 		},
 	}
 
@@ -1711,6 +1730,9 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 					found = true
 					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
 						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+					}
+					if got := strings.Contains(item.ActionableRecommendation, occupancyCaveat); got != tt.wantCaveat {
+						t.Errorf("occupancyCaveat present = %v, want %v in %q", got, tt.wantCaveat, item.ActionableRecommendation)
 					}
 					break
 				}
@@ -1973,6 +1995,12 @@ func TestAdvice_MultiWarpReductionStarvation(t *testing.T) {
 			if !strings.Contains(item.ActionableRecommendation, "Group multiple rows per thread block") {
 				t.Errorf("recommendation = %q, want containing Group multiple rows per thread block", item.ActionableRecommendation)
 			}
+			// This advisory names ds4_f16_pair_ordered_chunks, the one kernel where
+			// the transformation it recommends was measured 2.84% slower. It must
+			// not issue that as an instruction.
+			if !strings.Contains(item.ActionableRecommendation, occupancyCaveat) {
+				t.Errorf("recommendation = %q, want occupancyCaveat appended", item.ActionableRecommendation)
+			}
 			break
 		}
 	}
@@ -2103,6 +2131,11 @@ func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
 		wantFindings []string
 		wantRec      string
 		wantAbsent   []string
+		// wantCaveat is false for every row here on purpose: grid starvation
+		// leaves SMs literally idle, so its advice is not a capacity figure being
+		// read as throughput. This pins those sites bare against a later sweep
+		// that appends occupancyCaveat to everything mentioning occupancy.
+		wantCaveat bool
 	}{
 		{
 			name:     "single_threaded_launches",
@@ -2184,6 +2217,9 @@ func TestAdvice_UnderSubscribedLaunchGeometry(t *testing.T) {
 						}
 						if tt.wantRec != "" && !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
 							t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
+						}
+						if got := strings.Contains(item.ActionableRecommendation, occupancyCaveat); got != tt.wantCaveat {
+							t.Errorf("occupancyCaveat present = %v, want %v in %q", got, tt.wantCaveat, item.ActionableRecommendation)
 						}
 						break
 					}
@@ -2402,4 +2438,41 @@ func TestAdvise_WarnsOnDroppedRecords(t *testing.T) {
 	}
 }
 
-
+// TestFixtureSampleTypesAreReal is the sweep behind TestStallFixtureNamesAreReal
+// in diff_test.go. That test names four types and carries the negative control;
+// this one finds every sample type any fixture in the package declares and
+// checks them all, so a fixture added later cannot invent a counter and quietly
+// take its narrative with it. The names come out of the test sources rather
+// than a list here, because a list here would be a third copy of the same
+// assumption, and the oracle is sampleTypeIsReal so there is only one.
+func TestFixtureSampleTypesAreReal(t *testing.T) {
+	files, err := filepath.Glob("*_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`\{Type:\s*"([a-z0-9_]+)"`)
+	seen := make(map[string]map[string]bool)
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range re.FindAllSubmatch(src, -1) {
+			name := string(m[1])
+			if seen[name] == nil {
+				seen[name] = make(map[string]bool)
+			}
+			seen[name][f] = true
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("found no sample types in the package fixtures; the pattern no longer matches anything")
+	}
+	for name, files := range seen {
+		if sampleTypeIsReal(name) {
+			continue
+		}
+		where := slices.Sorted(maps.Keys(files))
+		t.Errorf("fixture sample type %q (%v) is emitted by no producer this command reads", name, where)
+	}
+}
