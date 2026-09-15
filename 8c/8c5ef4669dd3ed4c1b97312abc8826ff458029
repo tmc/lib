@@ -1,0 +1,28 @@
+commit: a771f8bc55e6e6ab8e9c2e48fb5a66be5d8e7c9c
+date: 2026-09-07
+agent: Codex
+model: GPT-5
+tty: not a tty
+pid: 34160
+iterm_session_id: w15t0p11:2379D0C3-4A19-4DFE-B700-027B990C0AA3
+evidence: cuda-phase-split-n64-v4-run-20260907 MANIFEST 2816f92296e3dce43606aa3f67d217ec577dbd7fa7570594c41119fe6e1266eb
+
+commit: d74db59cbc1c3942d2369ca47f79e2b81018fe61
+commit date: 2026-09-15T00:30:11-07:00
+operation: rebase DS4 after generic core extraction
+original DS4 backup: backup/ds4-before-core-20260915
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 49283
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+
+commit: 8c8c5ef4669dd3ed4c1b97312abc8826ff458029
+commit date: 2026-09-15T00:43:54-07:00
+operation: rebase DS4 onto reviewed core fixes
+prior backup: backup/ds4-before-review-fixes
+agent: Codex; model: GPT-6
+claude-code version installed: 2.1.257 (not used for authoring)
+tty: no tty
+pid: 85840
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
