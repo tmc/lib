@@ -60,10 +60,9 @@ Before implementation, from the repository root:
 ```sh
 git status --short
 git diff --stat 06c7378..HEAD -- nvidia/examples/ptx-sass-trace nvidia/internal/profilebundle nvidia/cmd/cudaprof nvidia/x/cudaprof
-shasum -a 256 -c plans/001-ptx-sass-trace.baseline.sha256
 ```
 
-The hash file covers the inspected example, bundle, viewer, and relevant public source. HEAD alone is insufficient because the example, bundle, and viewer were untracked. A mismatch means reconcile the changed source and revise the affected plan step before editing. The viewer's object tests changed during review; this plan uses the updated SASS and PTX tests, not the earlier test shape.
+This plan once carried a `.baseline.sha256` of the inspected example, bundle, viewer and relevant public source, to be checked with `shasum -a 256 -c`. It was removed on 2026-09-14: 14 of its 22 rows no longer matched, nothing in the repository ran the check, and a hash file that is mostly stale reads like a gate without being one. Use the `git diff --stat` above to see what has moved instead. The viewer's object tests changed during review; this plan uses the updated SASS and PTX tests, not the earlier test shape.
 
 Observed on this Mac, with Go `go1.27.0 darwin/arm64` and NVIDIA module directive `go 1.26.2`:
 

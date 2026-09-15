@@ -37,16 +37,19 @@ Paths are relative to `nvidia/` unless noted otherwise:
   OS thread. `x/cuda/stream.go` and `event.go` provide completion queries.
 - `examples/ptx-sass-trace/`: current capture, validation, and timing behavior.
 
-Before implementation, check git state and both source baselines from the
-repository root. Plan 001 will intentionally change some recorded files;
-review those differences and record a new implementation baseline without
-replacing the historical hash files.
+Before implementation, check git state and this plan's source baseline from
+the repository root. Review any differences and record a new implementation
+baseline without replacing the historical hash file.
 
 ```sh
 git status --short
-shasum -a 256 -c plans/001-ptx-sass-trace.baseline.sha256
 shasum -a 256 -c plans/002-optional-nccl-capture.baseline.sha256
 ```
+
+Plan 001's baseline was removed on 2026-09-14, having drifted in 14 of 22
+rows with nothing running it. This one was checked the same day and 3 of its
+11 rows had drifted -- `nccl/init.gen.go`, `nccl/initall_physical_test.go`
+and `x/cuda/device.go` -- so treat it as a dated snapshot, not a gate.
 
 NVIDIA documents that each communicator rank maps to a distinct CUDA device;
 `CommInitAll` initializes local communicators in one process. See
