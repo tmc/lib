@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "architectures": {
+    "sm_121": {
+      "architecture": "sm_121",
+      "probe": {
+        "device": "NVIDIA GB10",
+        "computeCapability": "12.1",
+        "driverVersion": "580.173.02",
+        "host": "dgx",
+        "probedAt": "2026-09-14",
+        "tool": "cmd/cudadevicetable"
+      },
+      "attributes": {
+        "clockRate": {
+          "value": 2418000,
+          "source": "probed",
+          "instrument": "DevAttrClockRate"
+        },
+        "globalMemoryBusWidth": {
+          "value": 256,
+          "source": "probed",
+          "instrument": "DevAttrGlobalMemoryBusWidth"
+        },
+        "l2CacheSize": {
+          "value": 25165824,
+          "source": "probed",
+          "instrument": "cudaDeviceProp.l2CacheSize",
+          "note": "24 MiB. No driver.DevAttr in this module's bindings exposes L2 cache size, so this is a runtime-property read rather than an attribute read -- and it was taken by a different tool than the record's probe names: info.cu in ~/tmp/df69-bw on dgx, 2026-09-14. cmd/cudadevicetable does not read it and leaves it alone on regeneration."
+        },
+        "maxBlocksPerMultiprocessor": {
+          "value": 24,
+          "source": "probed",
+          "instrument": "DevAttrMaxBlocksPerMultiprocessor"
+        },
+        "maxRegistersPerBlock": {
+          "value": 65536,
+          "source": "probed",
+          "instrument": "DevAttrMaxRegistersPerBlock"
+        },
+        "maxRegistersPerMultiprocessor": {
+          "value": 65536,
+          "source": "probed",
+          "instrument": "DevAttrMaxRegistersPerMultiprocessor"
+        },
+        "maxSharedMemoryPerBlock": {
+          "value": 49152,
+          "source": "probed",
+          "instrument": "DevAttrMaxSharedMemoryPerBlock"
+        },
+        "maxSharedMemoryPerBlockOptin": {
+          "value": 101376,
+          "source": "probed",
+          "instrument": "DevAttrMaxSharedMemoryPerBlockOptin"
+        },
+        "maxSharedMemoryPerMultiprocessor": {
+          "value": 102400,
+          "source": "probed",
+          "instrument": "DevAttrMaxSharedMemoryPerMultiprocessor"
+        },
+        "maxThreadsPerBlock": {
+          "value": 1024,
+          "source": "probed",
+          "instrument": "DevAttrMaxThreadsPerBlock"
+        },
+        "maxThreadsPerMultiprocessor": {
+          "value": 1536,
+          "source": "probed",
+          "instrument": "DevAttrMaxThreadsPerMultiprocessor"
+        },
+        "memoryClockRate": {
+          "value": 8533000,
+          "source": "probed",
+          "instrument": "DevAttrMemoryClockRate"
+        },
+        "multiprocessorCount": {
+          "value": 48,
+          "source": "probed",
+          "instrument": "DevAttrMultiprocessorCount"
+        },
+        "pageableMemoryAccess": {
+          "value": 1,
+          "source": "probed",
+          "instrument": "DevAttrPageableMemoryAccess"
+        },
+        "pageableMemoryAccessUsesHostPageTables": {
+          "value": 1,
+          "source": "probed",
+          "instrument": "DevAttrPageableMemoryAccessUsesHostPageTables"
+        },
+        "regAllocationUnit": {
+          "value": 256,
+          "source": "unverified",
+          "note": "register allocation granularity is a ptxas/driver internal; no driver attribute or runtime property exposes it. Copied from x/cudaoccupancy/arch.go SM121, itself hand-entered. Verified unequal to the probed reservedSharedMemoryPerBlock; they are different quantities that both happen to be small powers of two"
+        },
+        "reservedSharedMemoryPerBlock": {
+          "value": 1024,
+          "source": "probed",
+          "instrument": "DevAttrReservedSharedMemoryPerBlock"
+        },
+        "smemAllocationUnit": {
+          "value": 128,
+          "source": "unverified",
+          "note": "shared memory allocation granularity is a driver internal; no attribute exposes it. Copied from x/cudaoccupancy/arch.go SM121, itself hand-entered"
+        },
+        "totalConstantMemory": {
+          "value": 65536,
+          "source": "probed",
+          "instrument": "DevAttrTotalConstantMemory"
+        },
+        "warpSize": {
+          "value": 32,
+          "source": "probed",
+          "instrument": "DevAttrWarpSize"
+        }
+      }
+    }
+  }
+}
