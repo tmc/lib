@@ -7,6 +7,11 @@ regions, and individual kernel ranges. `Collect` also works in ordinary tests.
 The implementation has unit, race, real Go-runner, and profile round-trip tests.
 Physical GPU tests are opt-in. Cross-compilation does not qualify GPU behavior.
 
+For runnable workloads, see [cuptibench](../../examples/cuptibench), a three-stage
+pipeline with full and isolated benchmarks, and
+[cuptibench-capture](../../examples/cuptibench-capture), which retains source,
+PTX, CUBIN and SASS with the counter profile for offline viewing in cudaprof.
+
 ## Workloads and sub-benchmarks
 
 A workload supplies its streams, a preparation callback, the operation to execute,
