@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"runtime"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -39,156 +36,33 @@ type graphResult struct {
 	PDLEdges  int    `json:"pdl_edges,omitempty"`
 }
 
-var (
-	launcherType          = reflect.TypeOf(cudalaunch.Launcher{})
-	fnOffset, hasFn       = launcherFieldOffset("fn")
-	ownedOffset, hasOwned = launcherFieldOffset("owned")
-	gridOffset, hasGrid   = launcherFieldOffset("grid")
-	blockOffset, hasBlock = launcherFieldOffset("block")
-	shmemOffset, hasShmem = launcherFieldOffset("shmem")
-)
-
-func launcherFieldOffset(name string) (uintptr, bool) {
-	if f, ok := launcherType.FieldByName(name); ok {
-		return f.Offset, true
-	}
-	return 0, false
-}
-
-func inspectLauncher(l *cudalaunch.Launcher) (driver.Function, cudalaunch.Dim3, cudalaunch.Dim3, uint32, error) {
-	if l == nil {
-		return 0, cudalaunch.Dim3{}, cudalaunch.Dim3{}, 0, errors.New("nil launcher")
-	}
-
-	var fn driver.Function
-	var grid cudalaunch.Dim3
-	var block cudalaunch.Dim3
-	var shmem uint32
-
-	// Check interface methods if present
-	if p, ok := any(l).(interface{ Function() driver.Function }); ok {
-		fn = p.Function()
-	} else if p, ok := any(l).(interface{ Function() *driver.Function }); ok {
-		if ptr := p.Function(); ptr != nil {
-			fn = *ptr
-		}
-	} else if p, ok := any(l).(interface{ Raw() driver.Function }); ok {
-		fn = p.Raw()
-	}
-
-	if p, ok := any(l).(interface{ Grid() cudalaunch.Dim3 }); ok {
-		grid = p.Grid()
-	}
-	if p, ok := any(l).(interface{ Block() cudalaunch.Dim3 }); ok {
-		block = p.Block()
-	}
-	if p, ok := any(l).(interface{ SharedMem() uint32 }); ok {
-		shmem = p.SharedMem()
-	}
-
-	p := unsafe.Pointer(l)
-	if fn == 0 && hasOwned {
-		owned := *(**cuda.Kernel)(unsafe.Add(p, ownedOffset))
-		if owned != nil {
-			fn = owned.Raw()
-		}
-	}
-	if fn == 0 && hasFn {
-		fn = *(*driver.Function)(unsafe.Add(p, fnOffset))
-	}
-	if grid == (cudalaunch.Dim3{}) && hasGrid {
-		grid = *(*cudalaunch.Dim3)(unsafe.Add(p, gridOffset))
-	}
-	if block == (cudalaunch.Dim3{}) && hasBlock {
-		block = *(*cudalaunch.Dim3)(unsafe.Add(p, blockOffset))
-	}
-	if shmem == 0 && hasShmem {
-		shmem = *(*uint32)(unsafe.Add(p, shmemOffset))
-	}
-
-	return fn, grid, block, shmem, nil
-}
-
-// stepToKernelParams converts a PipelineStep into driver.KernelNodeParams for cudagraph.AddKernelNode.
-//
-// KernelNodeParams.KernelParams is a uintptr, which the garbage collector does
-// not trace, so the packed argument array is returned alongside it. The caller
-// must keep that slice alive until the driver has read through the params,
-// which happens when the node is added to the graph.
-func stepToKernelParams(step PipelineStep) (*driver.KernelNodeParams, []unsafe.Pointer, error) {
-	kernelParams, err := cudalaunch.PackArgs(step.Args...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("pack args: %w", err)
-	}
-
-	var kparamsPtr uintptr
-	if len(kernelParams) > 0 {
-		kparamsPtr = uintptr(unsafe.Pointer(&kernelParams[0]))
-	}
-
-	fn := step.Func
-	gridX := step.GridDimX
-	gridY := step.GridDimY
-	gridZ := step.GridDimZ
-	blockX := step.BlockDimX
-	blockY := step.BlockDimY
-	blockZ := step.BlockDimZ
-	shmem := step.SharedMemBytes
-
+// stepDescription resolves the launch a PipelineStep performs. Explicit step
+// fields override the launcher's configuration; zero fields defer to it.
+func stepDescription(step PipelineStep) (cudalaunch.Description, error) {
+	var desc cudalaunch.Description
 	if step.Launcher != nil {
-		lFn, lGrid, lBlock, lShmem, err := inspectLauncher(step.Launcher)
-		if err != nil && fn == 0 {
-			return nil, nil, err
+		d, err := step.Launcher.Describe()
+		if err != nil && step.Func == 0 {
+			return cudalaunch.Description{}, err
 		}
-		if fn == 0 {
-			fn = lFn
-		}
-		if gridX == 0 && gridY == 0 && gridZ == 0 {
-			gridX, gridY, gridZ = lGrid.X, lGrid.Y, lGrid.Z
-		}
-		if blockX == 0 && blockY == 0 && blockZ == 0 {
-			blockX, blockY, blockZ = lBlock.X, lBlock.Y, lBlock.Z
-		}
-		if shmem == 0 {
-			shmem = lShmem
-		}
+		desc = d
 	}
-
-	if fn == 0 {
-		return nil, nil, errors.New("kernel function is null")
+	if step.Func != 0 {
+		desc.Function = step.Func
 	}
-
-	if gridX == 0 {
-		gridX = 1
+	if step.GridDimX != 0 || step.GridDimY != 0 || step.GridDimZ != 0 {
+		desc.Grid = cudalaunch.Dim3{X: step.GridDimX, Y: step.GridDimY, Z: step.GridDimZ}
 	}
-	if gridY == 0 {
-		gridY = 1
+	if step.BlockDimX != 0 || step.BlockDimY != 0 || step.BlockDimZ != 0 {
+		desc.Block = cudalaunch.Dim3{X: step.BlockDimX, Y: step.BlockDimY, Z: step.BlockDimZ}
 	}
-	if gridZ == 0 {
-		gridZ = 1
+	if step.SharedMemBytes != 0 {
+		desc.SharedMem = step.SharedMemBytes
 	}
-	if blockX == 0 {
-		blockX = 1
+	if desc.Function == 0 {
+		return cudalaunch.Description{}, errors.New("kernel function is null")
 	}
-	if blockY == 0 {
-		blockY = 1
-	}
-	if blockZ == 0 {
-		blockZ = 1
-	}
-
-	params := &driver.KernelNodeParams{
-		Func:           fn,
-		GridDimX:       gridX,
-		GridDimY:       gridY,
-		GridDimZ:       gridZ,
-		BlockDimX:      blockX,
-		BlockDimY:      blockY,
-		BlockDimZ:      blockZ,
-		SharedMemBytes: shmem,
-		KernelParams:   kparamsPtr,
-	}
-	return params, kernelParams, nil
+	return desc, nil
 }
 
 // runWorkloadInGraph executes the DeepSeek-V4 pipeline inside a captured CUDA Graph
@@ -200,7 +74,14 @@ func runWorkloadInGraph(
 	mode string,
 	passes int,
 	steps []PipelineStep,
-) (*graphResult, []int64, error) {
+) (_ *graphResult, _ []int64, err error) {
+	// retainCleanup keeps a failed teardown visible: a leaked event, graph or
+	// executable graph is a real error even when the workload itself ran.
+	retainCleanup := func(what string, closeErr error) {
+		if closeErr != nil && err == nil {
+			err = fmt.Errorf("destroy %s: %w", what, closeErr)
+		}
+	}
 	if mode != "capture" && mode != "pdl" {
 		return nil, nil, fmt.Errorf("unsupported graph mode: %q", mode)
 	}
@@ -215,18 +96,18 @@ func runWorkloadInGraph(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { _ = start.Destroy() }()
+	defer func() { retainCleanup("start event", start.Destroy()) }()
 
 	end, err := dev.NewEvent()
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { _ = end.Destroy() }()
+	defer func() { retainCleanup("end event", end.Destroy()) }()
 
 	var g *cudagraph.Graph
 	defer func() {
 		if g != nil {
-			_ = g.Destroy()
+			retainCleanup("graph", g.Destroy())
 		}
 	}()
 
@@ -261,14 +142,13 @@ func runWorkloadInGraph(
 		// Create kernel nodes for each pipeline step and connect them with ProgrammaticEdgeData
 		nodes := make([]*cudagraph.Node, len(steps))
 		for i, step := range steps {
-			params, packed, err := stepToKernelParams(step)
+			desc, err := stepDescription(step)
 			if err != nil {
-				return nil, nil, fmt.Errorf("step %d (%s) kernel params: %w", i, step.Name, err)
+				return nil, nil, fmt.Errorf("step %d (%s) launch description: %w", i, step.Name, err)
 			}
-			n, err := g.AddKernelNode(params)
-			// AddKernelNode copies the argument array into the node, so the
-			// packed slice must stay reachable until it returns.
-			runtime.KeepAlive(packed)
+			// AddLaunch retains the packed arguments and the module for the
+			// node's native lifetime, so nothing here has to stay reachable.
+			n, err := g.AddLaunch(desc, step.Args)
 			if err != nil {
 				return nil, nil, fmt.Errorf("add kernel node %d (%s): %w", i, step.Name, err)
 			}
@@ -290,7 +170,7 @@ func runWorkloadInGraph(
 	if err != nil {
 		return nil, nil, fmt.Errorf("instantiate graph: %w", err)
 	}
-	defer func() { _ = exec.Destroy() }()
+	defer func() { retainCleanup("executable graph", exec.Destroy()) }()
 
 	// Warmup execution
 	if err := exec.Launch(stream); err != nil {
