@@ -98,7 +98,11 @@ func Compose(e Export, a Artifacts) (*cudacapture.Capture, error) {
 			return nil, err
 		}
 	}
-	if err := checkProfileCaptures(prof, captures); err != nil {
+	byCapture, err := indexResults(results)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkProfileCaptures(prof, captures, byCapture); err != nil {
 		return nil, err
 	}
 
@@ -193,9 +197,54 @@ func checkComplete(r *cuptibench.Result) error {
 	return nil
 }
 
-// checkProfileCaptures requires every sample to name a capture the results
-// describe, so the packaged profile and the packaged provenance are one run.
-func checkProfileCaptures(p *profile.Profile, captures []string) error {
+// indexResults maps each capture identity to the record that carries it.
+// cuptibench gives a result and its aggregate distinct identities and rejects a
+// repeat (x/cuptibench/export.go:62 and :170), so a repeat here is a
+// disagreement rather than a shape this composition should silently collapse.
+func indexResults(results benchResults) (map[string]*cuptibench.Result, error) {
+	byCapture := make(map[string]*cuptibench.Result)
+	add := func(r *cuptibench.Result) error {
+		id := r.Metadata["capture_id"]
+		if _, dup := byCapture[id]; dup {
+			return fmt.Errorf("cuptibenchcapture: two results carry capture identity %q", id)
+		}
+		byCapture[id] = r
+		return nil
+	}
+	for _, r := range results.Results {
+		if err := add(r); err != nil {
+			return nil, err
+		}
+		if r.Aggregate != nil {
+			if err := add(r.Aggregate); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return byCapture, nil
+}
+
+// checkProfileCaptures requires every capture the manifest lists, and every
+// capture a sample names, to resolve to a result record, so the packaged
+// profile and the packaged provenance are one run. Every record in byCapture
+// has already passed checkComplete, so resolving is what makes an identity
+// real rather than merely listed.
+//
+// Checking the manifest list alone was not enough. An export whose Results
+// array was empty still listed its captures in the manifest, so the
+// completeness loop above ran over nothing and every sample matched the list:
+// the counters were published with no checked quality or provenance behind
+// them. Samples are a subset of the manifest list, which is a subset of the
+// records, so the two checks below settle both.
+func checkProfileCaptures(p *profile.Profile, captures []string, byCapture map[string]*cuptibench.Result) error {
+	if len(captures) == 0 {
+		return errors.New("cuptibenchcapture: results list no captures for this profile")
+	}
+	for _, id := range captures {
+		if byCapture[id] == nil {
+			return fmt.Errorf("cuptibenchcapture: results list capture %q for this profile, which no result record describes", id)
+		}
+	}
 	for _, s := range p.Sample {
 		values := s.Label["capture_id"]
 		if len(values) == 0 {

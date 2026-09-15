@@ -270,6 +270,23 @@ func TestComposeRefusesDisagreement(t *testing.T) {
 		{name: "unknown export schema", export: func(e *cuptibenchcapture.Export) {
 			e.Results = bytes.Replace(e.Results, []byte(`"Version": 1`), []byte(`"Version": 2`), 1)
 		}, want: "unsupported cuptibench export version"},
+		// The manifest still lists the captures, so every sample resolves
+		// against the list. Only resolving against the records themselves
+		// catches an export that describes none of them.
+		{name: "no result records", export: func(e *cuptibenchcapture.Export) {
+			editResults(e, func([]*cuptibench.Result) []*cuptibench.Result { return nil })
+		}, want: "which no result record describes"},
+		{name: "duplicate result records", export: func(e *cuptibenchcapture.Export) {
+			editResults(e, func(rs []*cuptibench.Result) []*cuptibench.Result {
+				return append(rs, rs[0])
+			})
+		}, want: "two results carry capture identity"},
+		{name: "result identity is not the listed one", export: func(e *cuptibenchcapture.Export) {
+			editResults(e, func(rs []*cuptibench.Result) []*cuptibench.Result {
+				rs[0].Metadata["capture_id"] = "00000000000000000000000000000000"
+				return rs
+			})
+		}, want: "which no result record describes"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -307,4 +324,104 @@ func ExampleCompose() {
 	fmt.Println(err)
 	// Output:
 	// cuptibenchcapture: missing source artifact
+}
+
+// editResults rewrites the Results array of an exported sidecar, leaving the
+// Profiles manifest alone. A fault injected here is exactly the disagreement
+// the composition has to catch: the manifest still lists the captures it
+// always did, and only the records behind them have changed.
+func editResults(e *cuptibenchcapture.Export, edit func([]*cuptibench.Result) []*cuptibench.Result) {
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(e.Results, &doc); err != nil {
+		panic(err)
+	}
+	var results []*cuptibench.Result
+	if err := json.Unmarshal(doc["Results"], &results); err != nil {
+		panic(err)
+	}
+	edited, err := json.Marshal(edit(results))
+	if err != nil {
+		panic(err)
+	}
+	doc["Results"] = edited
+	if e.Results, err = json.Marshal(doc); err != nil {
+		panic(err)
+	}
+}
+
+// TestComposeKeepsMultipleProfiles covers the export shape cuptibench actually
+// writes for a benchmark with several leaf views: one sidecar naming several
+// profile files, each with its own captures. Composing one partition must not
+// require the records of another, and must still refuse a capture the sidecar
+// lists for a different profile.
+func TestComposeKeepsMultipleProfiles(t *testing.T) {
+	other := result()
+	other.Metadata["capture_id"] = "ffffffffffffffffffffffffffffffff"
+	other.Metadata["view"] = "isolated"
+
+	e := export(t, []*cuptibench.Result{result()})
+	addProfile(t, &e, "other.pprof", other)
+
+	c, err := cuptibenchcapture.Compose(e, readArtifacts(t))
+	if err != nil {
+		t.Fatalf("Compose: %v", err)
+	}
+	// The composed partition carries its own capture, not the other one.
+	samples := 0
+	for _, sample := range c.Profile.Sample {
+		for _, id := range sample.Label["capture_id"] {
+			samples++
+			if id != fixtureCapture {
+				t.Errorf("composed sample carries capture %q, want only %q", id, fixtureCapture)
+			}
+		}
+	}
+	if samples == 0 {
+		t.Fatal("composed capture has no counter samples to check")
+	}
+
+	// Naming the other partition's profile selects the other captures, which
+	// this profile's samples do not carry.
+	e.Name = "other.pprof"
+	if _, err := cuptibenchcapture.Compose(e, readArtifacts(t)); err == nil {
+		t.Fatal("Compose accepted samples belonging to the other partition")
+	} else if !strings.Contains(err.Error(), "do not list for this profile") {
+		t.Errorf("Compose error = %v, want it to name the capture the results do not list", err)
+	}
+}
+
+// addProfile appends a second partition to an exported sidecar: one more entry
+// in the Profiles manifest, and the record its captures resolve to.
+func addProfile(t *testing.T, e *cuptibenchcapture.Export, path string, r *cuptibench.Result) {
+	t.Helper()
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal(e.Results, &doc); err != nil {
+		t.Fatal(err)
+	}
+	var profiles []struct {
+		Path     string
+		Captures []string
+	}
+	if err := json.Unmarshal(doc["Profiles"], &profiles); err != nil {
+		t.Fatal(err)
+	}
+	profiles = append(profiles, struct {
+		Path     string
+		Captures []string
+	}{Path: path, Captures: []string{r.Metadata["capture_id"]}})
+	var results []*cuptibench.Result
+	if err := json.Unmarshal(doc["Results"], &results); err != nil {
+		t.Fatal(err)
+	}
+	results = append(results, r)
+	var err error
+	if doc["Profiles"], err = json.Marshal(profiles); err != nil {
+		t.Fatal(err)
+	}
+	if doc["Results"], err = json.Marshal(results); err != nil {
+		t.Fatal(err)
+	}
+	if e.Results, err = json.Marshal(doc); err != nil {
+		t.Fatal(err)
+	}
 }
