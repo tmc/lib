@@ -100,7 +100,7 @@ type cudaBatchResources struct {
 // the group's rows into chunks of the relevant kernel's own compile-time
 // maximum, so the group may be widened without touching a kernel. Widening it
 // raises the resident per-token state proportionally; see allocTokenState.
-const cudaPrefillGroupWidth = 8
+const cudaPrefillGroupWidth = 256
 
 // The chunk width each batched kernel is fed. A group narrower than a kernel's
 // maximum runs in one short chunk, which is the batch a group of that width
