@@ -403,10 +403,16 @@ select:focus, input[type="text"]:focus {
     <span class="summary-val">+{{$s.LocalMemoryAdded}} / -{{$s.LocalMemoryRemoved}} ({{if lt $s.LocalMemoryDelta 0}}<span class="val-green">{{$s.LocalMemoryDelta}}</span>{{else if gt $s.LocalMemoryDelta 0}}<span class="val-red">+{{$s.LocalMemoryDelta}}</span>{{else}}0{{end}})</span>
   </div>
   {{end}}
-  {{if gt $s.Speedup 0.0}}
+  {{if and $s.HasDurationMetric (gt $s.Speedup 0.0)}}
   <div class="summary-item">
     <span class="summary-label">Runtime:</span>
     <span class="summary-val">{{printf "%.2f" $s.BaseRuntimeUs}}µs → {{printf "%.2f" $s.TargetRuntimeUs}}µs ({{if lt $s.DurationDeltaUs 0.0}}<span class="val-green">{{printf "%.2f" $s.DurationDeltaUs}}µs, {{printf "%.2f" $s.Speedup}}× speedup</span>{{else}}<span class="val-red">+{{printf "%.2f" $s.DurationDeltaUs}}µs</span>{{end}})</span>
+  </div>
+  {{end}}
+  {{if $s.HasSampleMetric}}
+  <div class="summary-item">
+    <span class="summary-label">Sample Count Shift:</span>
+    <span class="summary-val">{{$s.BaseSamples}} → {{$s.TargetSamples}} ({{if lt $s.SampleDelta 0}}<span class="val-green">{{$s.SampleShiftSummary}}</span>{{else if gt $s.SampleDelta 0}}<span class="val-red">{{$s.SampleShiftSummary}}</span>{{else}}{{$s.SampleShiftSummary}}{{end}}{{if or (gt $s.BaseSampleShare 0.0) (gt $s.TargetSampleShare 0.0)}}, {{printf "%.1f%%" $s.BaseSampleShare}} → {{printf "%.1f%%" $s.TargetSampleShare}} ({{printf "%+.1f pp" $s.ShareShift}}){{end}})</span>
   </div>
   {{end}}
   {{if gt (len $s.TopStallShifts) 0}}
@@ -431,7 +437,7 @@ select:focus, input[type="text"]:focus {
         <span class="panel-tag tag-base">BASELINE</span>
         <span class="panel-title">{{.BaseCapture}}</span>
       </div>
-      <span class="panel-stats" id="stats-base">{{$s.BaseInstructions}} instructions</span>
+      <span class="panel-stats" id="stats-base">{{$s.BaseInstructions}} instructions{{if $s.HasSampleMetric}}, {{$s.BaseSamples}} samples{{end}}</span>
     </div>
     <div class="code-viewport" id="viewport-base">
 
@@ -447,7 +453,7 @@ select:focus, input[type="text"]:focus {
         <span class="panel-tag tag-candidate">CANDIDATE</span>
         <span class="panel-title">{{.TargetCapture}}</span>
       </div>
-      <span class="panel-stats" id="stats-candidate">{{$s.TargetInstructions}} instructions</span>
+      <span class="panel-stats" id="stats-candidate">{{$s.TargetInstructions}} instructions{{if $s.HasSampleMetric}}, {{$s.TargetSamples}} samples{{end}}</span>
     </div>
     <div class="code-viewport" id="viewport-candidate">
 
@@ -466,7 +472,21 @@ let activeRows=diffData.kernel_rows?.[diffData.active_kernel]||diffData.active_r
 function inspectLine(l,t){document.getElementById('inspector').textContent=t.name+' '+l.text+'\n'+[l.pressure_tooltip,l.stall_tooltip].filter(Boolean).join('\n');for(const v of mainListings)v.selected=v.lines.findIndex(x=>x.num===l.num);}
 function toggleChangesOnly(){changesOnly=!changesOnly;applyRowFilters();}
 function onFilterChange(q){filterQuery=q.toLowerCase().trim();applyRowFilters();}
-function onKernelChange(k){activeRows=diffData.kernel_rows[k]||[];applyRowFilters();const s=diffData.kernel_summaries?.[k];if(s){document.getElementById('stats-base').textContent=s.base_instructions+' instructions';document.getElementById('stats-candidate').textContent=s.target_instructions+' instructions';}}
+function onKernelChange(k){
+  activeRows=diffData.kernel_rows[k]||[];
+  applyRowFilters();
+  const s=diffData.kernel_summaries?.[k];
+  if(s){
+    let bText=s.base_instructions+' instructions';
+    let cText=s.target_instructions+' instructions';
+    if(s.has_sample_metric){
+      bText+=', '+s.base_samples+' samples';
+      cText+=', '+s.target_samples+' samples';
+    }
+    document.getElementById('stats-base').textContent=bText;
+    document.getElementById('stats-candidate').textContent=cText;
+  }
+}
 function renderKernelRows(rows){activeRows=rows;applyRowFilters();}
 function applyRowFilters(){
  const rows=activeRows.filter(r=>(!changesOnly||r.type!=='match')&&(!filterQuery||(r.base?.text||'').toLowerCase().includes(filterQuery)||(r.candidate?.text||'').toLowerCase().includes(filterQuery)));

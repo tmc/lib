@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -327,91 +328,25 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 	var sb strings.Builder
 	sb.WriteString("# CUDA Profile Diff & Optimization Explanation\n\n")
 
-	// 1. Performance Duration Delta
-	var baseTotalNs, targetTotalNs int64
-	baseKernelNs := make(map[string]int64)
-	targetKernelNs := make(map[string]int64)
-
-	baseTimeIdx := findTimeIndex(baseCap.Profile)
-	if baseCap.Profile != nil && baseTimeIdx >= 0 {
-		for _, s := range baseCap.Profile.Sample {
-			kName := sampleKernelName(s)
-			if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
-				continue
-			}
-			val := s.Value[baseTimeIdx]
-			baseTotalNs += val
-			baseKernelNs[kName] += val
-		}
+	// 1. Metric comparison: duration or PC-sampling
+	durComp, pcComp, compMsg := compareProfiles(profileOrNil(baseCap), profileOrNil(targetCap), kernelFilter)
+	if durComp != nil {
+		durComp.WriteMarkdown(&sb)
 	}
-
-	targetTimeIdx := findTimeIndex(targetCap.Profile)
-	if targetCap.Profile != nil && targetTimeIdx >= 0 {
-		for _, s := range targetCap.Profile.Sample {
-			kName := sampleKernelName(s)
-			if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
-				continue
-			}
-			val := s.Value[targetTimeIdx]
-			targetTotalNs += val
-			targetKernelNs[kName] += val
-		}
+	if pcComp != nil {
+		pcComp.WriteMarkdown(&sb)
 	}
-
-	sb.WriteString("## Execution Duration Delta\n\n")
-	if baseTotalNs > 0 || targetTotalNs > 0 {
-		baseUs := float64(baseTotalNs) / 1000.0
-		targetUs := float64(targetTotalNs) / 1000.0
-		deltaUs := targetUs - baseUs
-		speedup := 1.0
-		if targetTotalNs > 0 {
-			speedup = float64(baseTotalNs) / float64(targetTotalNs)
-		}
-		pctSaved := 0.0
-		if baseTotalNs > 0 {
-			pctSaved = float64(baseTotalNs-targetTotalNs) / float64(baseTotalNs) * 100.0
-		}
-
-		sb.WriteString(fmt.Sprintf("- **Base Runtime**:   %.2f µs\n", baseUs))
-		sb.WriteString(fmt.Sprintf("- **Target Runtime**: %.2f µs\n", targetUs))
-		sb.WriteString(fmt.Sprintf("- **Duration Delta**: %+.2f µs (%.1f%% reduction, %.2f× speedup)\n\n", deltaUs, pctSaved, speedup))
-
-		// Per-kernel breakdown if multiple kernels
-		allKernels := make(map[string]bool)
-		for k := range baseKernelNs {
-			allKernels[k] = true
-		}
-		for k := range targetKernelNs {
-			allKernels[k] = true
-		}
-		if len(allKernels) > 1 {
-			sb.WriteString("| Kernel | Base (µs) | Target (µs) | Delta (µs) | Speedup |\n")
-			sb.WriteString("|---|---|---|---|---|\n")
-			sortedKernels := make([]string, 0, len(allKernels))
-			for k := range allKernels {
-				sortedKernels = append(sortedKernels, k)
-			}
-			sort.Strings(sortedKernels)
-			for _, k := range sortedKernels {
-				bUs := float64(baseKernelNs[k]) / 1000.0
-				tUs := float64(targetKernelNs[k]) / 1000.0
-				dUs := tUs - bUs
-				sp := 1.0
-				if tUs > 0 {
-					sp = bUs / tUs
-				}
-				sb.WriteString(fmt.Sprintf("| `%s` | %.2f | %.2f | %+.2f | %.2f× |\n", k, bUs, tUs, dUs, sp))
-			}
-			sb.WriteString("\n")
-		}
-	} else {
-		sb.WriteString("No execution duration samples recorded in profiles.\n\n")
+	if durComp == nil && pcComp == nil {
+		sb.WriteString("## Execution Metric Comparison\n\n")
+		sb.WriteString(compMsg + "\n\n")
 	}
 
 	// The duration delta above is summed per-kernel device time, which is
 	// blind to inter-kernel idle. Decompose the same pair of runs into span,
 	// active and idle so that sum can never stand alone as the headline.
-	sb.WriteString(gapDecompositionMarkdown(baseCap, targetCap, basePath, targetPath))
+	if durComp != nil || hasJournal(baseCap) || hasJournal(targetCap) {
+		sb.WriteString(gapDecompositionMarkdown(baseCap, targetCap, basePath, targetPath))
+	}
 
 	// 2. PC Stall Reason Shifts
 	baseStalls := collectStallCounts(baseCap.Profile, kernelFilter)
@@ -497,8 +432,16 @@ func runDiffExplain(w io.Writer, basePath, targetPath, kernelFilter string, limi
 		for _, exp := range explanations {
 			sb.WriteString(fmt.Sprintf("- %s\n", exp))
 		}
-	} else if baseTotalNs > targetTotalNs {
+	} else if durComp != nil && durComp.BaseTotalNs > durComp.TargetTotalNs {
 		sb.WriteString("- Performance improvement observed across kernel execution with maintained pipeline balance.\n")
+	} else if pcComp != nil {
+		if pcComp.RawDelta < 0 {
+			sb.WriteString(fmt.Sprintf("- Target run observed %d fewer PC samples (%+.1f pp shift).\n", -pcComp.RawDelta, pcComp.ShareShift))
+		} else if pcComp.RawDelta > 0 {
+			sb.WriteString(fmt.Sprintf("- Target run observed %d more PC samples (%+.1f pp shift).\n", pcComp.RawDelta, pcComp.ShareShift))
+		} else {
+			sb.WriteString("- Identical PC sample count between base and target runs.\n")
+		}
 	} else {
 		sb.WriteString("- No significant architectural bottlenecks or shifts identified between runs.\n")
 	}
@@ -526,21 +469,388 @@ func sampleKernelName(s *profile.Sample) string {
 	return "unknown"
 }
 
+// findTimeIndex returns the sample index of a genuine native duration metric in p,
+// or -1 if no duration metric is present. It recognizes metrics such as gpu_time,
+// kernel_time, time, duration_ns, cpu, or duration with nanosecond units.
+// It never falls back to sample type 0.
 func findTimeIndex(p *profile.Profile) int {
 	if p == nil {
 		return -1
 	}
 	for i, st := range p.SampleType {
-		tLower := strings.ToLower(st.Type)
-		uLower := strings.ToLower(st.Unit)
-		if strings.Contains(tLower, "time") || strings.Contains(uLower, "nanosecond") || strings.Contains(uLower, "ns") {
+		if isGenuineTimeMetric(st) {
 			return i
 		}
 	}
-	if len(p.SampleType) > 0 && !strings.HasPrefix(p.SampleType[0].Type, "stall_") {
-		return 0
+	return -1
+}
+
+func isGenuineTimeMetric(st *profile.ValueType) bool {
+	if st == nil {
+		return false
+	}
+	t := strings.ToLower(st.Type)
+	u := strings.ToLower(st.Unit)
+	isNs := u == "nanoseconds" || u == "nanosecond" || u == "ns"
+
+	switch t {
+	case "gpu_time", "kernel_time", "time", "cpu", "duration":
+		return isNs
+	case "duration_ns":
+		return isNs || u == ""
+	}
+	return false
+}
+
+// findSampleIndex returns the sample index of PC-sampling observations (such as
+// pc_samples or samples) in p, or -1 if no PC-sampling metric is present.
+func findSampleIndex(p *profile.Profile) int {
+	if p == nil {
+		return -1
+	}
+	for i, st := range p.SampleType {
+		if strings.EqualFold(st.Type, "pc_samples") {
+			return i
+		}
+	}
+	for i, st := range p.SampleType {
+		if strings.EqualFold(st.Type, "samples") {
+			return i
+		}
 	}
 	return -1
+}
+
+// DurationComparison compares genuine native elapsed duration metrics between two profiles.
+type DurationComparison struct {
+	BaseTotalNs   int64
+	TargetTotalNs int64
+	DeltaNs       int64
+	PctSaved      float64
+	Speedup       float64
+	Kernels       []DurationKernelDiff
+}
+
+// DurationKernelDiff holds per-kernel duration comparison data.
+type DurationKernelDiff struct {
+	Name     string
+	BaseNs   int64
+	TargetNs int64
+	DeltaNs  int64
+	PctSaved float64
+	Speedup  float64
+}
+
+// PCSampleComparison compares PC-sampling counts and shares between two profiles.
+type PCSampleComparison struct {
+	BaseTotalSamples   int64
+	TargetTotalSamples int64
+	RawDelta           int64
+	BaseCaptureTotal   int64
+	TargetCaptureTotal int64
+	BaseShare          float64
+	TargetShare        float64
+	ShareShift         float64 // percentage points (TargetShare - BaseShare)
+	Kernels            []PCSampleKernelShift
+}
+
+// PCSampleKernelShift holds per-kernel PC sample counts and share shifts.
+type PCSampleKernelShift struct {
+	Name          string
+	BaseSamples   int64
+	TargetSamples int64
+	RawDelta      int64
+	BaseShare     float64
+	TargetShare   float64
+	ShareShift    float64 // percentage points
+}
+
+func (c *DurationComparison) WriteMarkdown(sb *strings.Builder) {
+	sb.WriteString("## Execution Duration Delta\n\n")
+	if c.BaseTotalNs > 0 || c.TargetTotalNs > 0 {
+		baseUs := float64(c.BaseTotalNs) / 1000.0
+		targetUs := float64(c.TargetTotalNs) / 1000.0
+		deltaUs := float64(c.DeltaNs) / 1000.0
+
+		sb.WriteString(fmt.Sprintf("- **Base Runtime**:   %s\n", formatRuntime(baseUs)))
+		sb.WriteString(fmt.Sprintf("- **Target Runtime**: %s\n", formatRuntime(targetUs)))
+		sb.WriteString(fmt.Sprintf("- **Duration Delta**: %s (%.1f%% reduction, %.2f× speedup)\n\n",
+			formatDeltaUs(deltaUs), c.PctSaved, c.Speedup))
+
+		if len(c.Kernels) > 1 {
+			sb.WriteString("| Kernel | Base (µs) | Target (µs) | Delta (µs) | Speedup |\n")
+			sb.WriteString("|---|---|---|---|---|\n")
+			for _, k := range c.Kernels {
+				bUs := float64(k.BaseNs) / 1000.0
+				tUs := float64(k.TargetNs) / 1000.0
+				dUs := float64(k.DeltaNs) / 1000.0
+				sb.WriteString(fmt.Sprintf("| `%s` | %.2f | %.2f | %+.2f | %.2f× |\n", k.Name, bUs, tUs, dUs, k.Speedup))
+			}
+			sb.WriteString("\n")
+		}
+	} else {
+		sb.WriteString("No execution duration samples recorded in profiles.\n\n")
+	}
+}
+
+func (c *PCSampleComparison) WriteMarkdown(sb *strings.Builder) {
+	sb.WriteString("## Sample Count Shift\n\n")
+	if c.BaseTotalSamples > 0 || c.TargetTotalSamples > 0 {
+		sb.WriteString(fmt.Sprintf("- **Base Sample Count**:   %d (%.1f%% share)\n", c.BaseTotalSamples, c.BaseShare))
+		sb.WriteString(fmt.Sprintf("- **Target Sample Count**: %d (%.1f%% share)\n", c.TargetTotalSamples, c.TargetShare))
+		shiftDesc := "no shift"
+		if c.RawDelta > 0 {
+			shiftDesc = fmt.Sprintf("%d more PC samples", c.RawDelta)
+		} else if c.RawDelta < 0 {
+			shiftDesc = fmt.Sprintf("%d fewer PC samples", -c.RawDelta)
+		}
+		sb.WriteString(fmt.Sprintf("- **Sample Count Shift**:  %+d (%s, %+.1f pp)\n\n", c.RawDelta, shiftDesc, c.ShareShift))
+
+		if len(c.Kernels) > 1 {
+			sb.WriteString("| Kernel | Base Samples | Base Share | Target Samples | Target Share | Sample Count Shift | Percentage-Point Shift |\n")
+			sb.WriteString("|---|---|---|---|---|---|---|\n")
+			for _, k := range c.Kernels {
+				kDesc := "0 (no shift)"
+				if k.RawDelta > 0 {
+					kDesc = fmt.Sprintf("+%d (%d more PC samples)", k.RawDelta, k.RawDelta)
+				} else if k.RawDelta < 0 {
+					kDesc = fmt.Sprintf("%d (%d fewer PC samples)", k.RawDelta, -k.RawDelta)
+				}
+				sb.WriteString(fmt.Sprintf("| `%s` | %d | %.1f%% | %d | %.1f%% | %s | %+.1f pp |\n",
+					k.Name, k.BaseSamples, k.BaseShare, k.TargetSamples, k.TargetShare, kDesc, k.ShareShift))
+			}
+			sb.WriteString("\n")
+		}
+	} else {
+		sb.WriteString("No PC samples recorded in profiles.\n\n")
+	}
+}
+
+func formatRuntime(us float64) string {
+	if math.Abs(us) >= 1000.0 {
+		return fmt.Sprintf("%.2f ms (%.2f µs)", us/1000.0, us)
+	}
+	return fmt.Sprintf("%.2f µs", us)
+}
+
+func formatDeltaUs(us float64) string {
+	if math.Abs(us) >= 1000.0 {
+		return fmt.Sprintf("%+.2f ms (%+.2f µs)", us/1000.0, us)
+	}
+	return fmt.Sprintf("%+.2f µs", us)
+}
+
+func primarySampleTypeName(p *profile.Profile) string {
+	if p == nil || len(p.SampleType) == 0 {
+		return "none"
+	}
+	return p.SampleType[0].Type
+}
+
+func compareProfiles(baseProf, targetProf *profile.Profile, kernelFilter string) (*DurationComparison, *PCSampleComparison, string) {
+	if baseProf == nil && targetProf == nil {
+		return nil, nil, "No profile data available."
+	}
+
+	bTimeIdx := findTimeIndex(baseProf)
+	tTimeIdx := findTimeIndex(targetProf)
+	bSampleIdx := findSampleIndex(baseProf)
+	tSampleIdx := findSampleIndex(targetProf)
+
+	var dur *DurationComparison
+	if bTimeIdx >= 0 && tTimeIdx >= 0 {
+		dur = computeDurationComparison(baseProf, targetProf, bTimeIdx, tTimeIdx, kernelFilter)
+	}
+
+	var pc *PCSampleComparison
+	if bSampleIdx >= 0 && tSampleIdx >= 0 {
+		pc = computePCSampleComparison(baseProf, targetProf, bSampleIdx, tSampleIdx, kernelFilter)
+	}
+
+	if dur != nil || pc != nil {
+		return dur, pc, ""
+	}
+
+	if baseProf == nil || targetProf == nil {
+		return nil, nil, "Profile data is missing on one side."
+	}
+
+	if bTimeIdx >= 0 && tTimeIdx < 0 {
+		tName := primarySampleTypeName(targetProf)
+		return nil, nil, fmt.Sprintf("Mismatched sample types: base has duration metric %q, target has %q (cannot compare execution metrics).", baseProf.SampleType[bTimeIdx].Type, tName)
+	}
+	if bTimeIdx < 0 && tTimeIdx >= 0 {
+		bName := primarySampleTypeName(baseProf)
+		return nil, nil, fmt.Sprintf("Mismatched sample types: base has %q, target has duration metric %q (cannot compare execution metrics).", bName, targetProf.SampleType[tTimeIdx].Type)
+	}
+	if bSampleIdx >= 0 && tSampleIdx < 0 {
+		tName := primarySampleTypeName(targetProf)
+		return nil, nil, fmt.Sprintf("Mismatched sample types: base has sample metric %q, target has %q (cannot compare execution metrics).", baseProf.SampleType[bSampleIdx].Type, tName)
+	}
+	if bSampleIdx < 0 && tSampleIdx >= 0 {
+		bName := primarySampleTypeName(baseProf)
+		return nil, nil, fmt.Sprintf("Mismatched sample types: base has %q, target has sample metric %q (cannot compare execution metrics).", bName, targetProf.SampleType[tSampleIdx].Type)
+	}
+
+	return nil, nil, "No comparable execution duration or PC sampling metrics found in profiles."
+}
+
+func computeDurationComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx int, kernelFilter string) *DurationComparison {
+	comp := &DurationComparison{}
+	baseKernelNs := make(map[string]int64)
+	targetKernelNs := make(map[string]int64)
+
+	for _, s := range baseProf.Sample {
+		kName := sampleKernelName(s)
+		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+			continue
+		}
+		val := s.Value[bIdx]
+		comp.BaseTotalNs += val
+		baseKernelNs[kName] += val
+	}
+
+	for _, s := range targetProf.Sample {
+		kName := sampleKernelName(s)
+		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+			continue
+		}
+		val := s.Value[tIdx]
+		comp.TargetTotalNs += val
+		targetKernelNs[kName] += val
+	}
+
+	comp.DeltaNs = comp.TargetTotalNs - comp.BaseTotalNs
+	if comp.TargetTotalNs > 0 {
+		comp.Speedup = float64(comp.BaseTotalNs) / float64(comp.TargetTotalNs)
+	} else {
+		comp.Speedup = 1.0
+	}
+	if comp.BaseTotalNs > 0 {
+		comp.PctSaved = float64(comp.BaseTotalNs-comp.TargetTotalNs) / float64(comp.BaseTotalNs) * 100.0
+	}
+
+	allKernels := make(map[string]bool)
+	for k := range baseKernelNs {
+		allKernels[k] = true
+	}
+	for k := range targetKernelNs {
+		allKernels[k] = true
+	}
+	if len(allKernels) > 1 {
+		sortedKernels := make([]string, 0, len(allKernels))
+		for k := range allKernels {
+			sortedKernels = append(sortedKernels, k)
+		}
+		sort.Strings(sortedKernels)
+		for _, k := range sortedKernels {
+			bNs := baseKernelNs[k]
+			tNs := targetKernelNs[k]
+			dNs := tNs - bNs
+			sp := 1.0
+			if tNs > 0 {
+				sp = float64(bNs) / float64(tNs)
+			}
+			pct := 0.0
+			if bNs > 0 {
+				pct = float64(bNs-tNs) / float64(bNs) * 100.0
+			}
+			comp.Kernels = append(comp.Kernels, DurationKernelDiff{
+				Name:     k,
+				BaseNs:   bNs,
+				TargetNs: tNs,
+				DeltaNs:  dNs,
+				PctSaved: pct,
+				Speedup:  sp,
+			})
+		}
+	}
+
+	return comp
+}
+
+func computePCSampleComparison(baseProf, targetProf *profile.Profile, bIdx, tIdx int, kernelFilter string) *PCSampleComparison {
+	comp := &PCSampleComparison{}
+
+	for _, s := range baseProf.Sample {
+		comp.BaseCaptureTotal += s.Value[bIdx]
+	}
+	for _, s := range targetProf.Sample {
+		comp.TargetCaptureTotal += s.Value[tIdx]
+	}
+
+	baseKernelSamples := make(map[string]int64)
+	targetKernelSamples := make(map[string]int64)
+
+	for _, s := range baseProf.Sample {
+		kName := sampleKernelName(s)
+		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+			continue
+		}
+		val := s.Value[bIdx]
+		comp.BaseTotalSamples += val
+		baseKernelSamples[kName] += val
+	}
+
+	for _, s := range targetProf.Sample {
+		kName := sampleKernelName(s)
+		if kernelFilter != "" && !strings.Contains(kName, kernelFilter) {
+			continue
+		}
+		val := s.Value[tIdx]
+		comp.TargetTotalSamples += val
+		targetKernelSamples[kName] += val
+	}
+
+	comp.RawDelta = comp.TargetTotalSamples - comp.BaseTotalSamples
+	if comp.BaseCaptureTotal > 0 {
+		comp.BaseShare = float64(comp.BaseTotalSamples) / float64(comp.BaseCaptureTotal) * 100.0
+	}
+	if comp.TargetCaptureTotal > 0 {
+		comp.TargetShare = float64(comp.TargetTotalSamples) / float64(comp.TargetCaptureTotal) * 100.0
+	}
+	comp.ShareShift = comp.TargetShare - comp.BaseShare
+
+	allKernels := make(map[string]bool)
+	for k := range baseKernelSamples {
+		allKernels[k] = true
+	}
+	for k := range targetKernelSamples {
+		allKernels[k] = true
+	}
+
+	for k := range allKernels {
+		bCount := baseKernelSamples[k]
+		tCount := targetKernelSamples[k]
+		dCount := tCount - bCount
+		bShare := 0.0
+		if comp.BaseCaptureTotal > 0 {
+			bShare = float64(bCount) / float64(comp.BaseCaptureTotal) * 100.0
+		}
+		tShare := 0.0
+		if comp.TargetCaptureTotal > 0 {
+			tShare = float64(tCount) / float64(comp.TargetCaptureTotal) * 100.0
+		}
+		comp.Kernels = append(comp.Kernels, PCSampleKernelShift{
+			Name:          k,
+			BaseSamples:   bCount,
+			TargetSamples: tCount,
+			RawDelta:      dCount,
+			BaseShare:     bShare,
+			TargetShare:   tShare,
+			ShareShift:    tShare - bShare,
+		})
+	}
+
+	sort.Slice(comp.Kernels, func(i, j int) bool {
+		ai, aj := math.Abs(float64(comp.Kernels[i].RawDelta)), math.Abs(float64(comp.Kernels[j].RawDelta))
+		if ai != aj {
+			return ai > aj
+		}
+		return comp.Kernels[i].Name < comp.Kernels[j].Name
+	})
+
+	return comp
 }
 
 func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int64 {
@@ -567,4 +877,8 @@ func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int6
 		}
 	}
 	return counts
+}
+
+func hasJournal(cap *cudacapture.Capture) bool {
+	return cap != nil && len(cap.JournalNames()) > 0
 }
