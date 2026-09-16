@@ -1,0 +1,24 @@
+-arch value
+-maxrregcount value
+-time bare
+-verbose bare
+-lto bare
+-ptx bare
+-O0 bare
+-O3 bare
+-g bare
+-lineinfo bare
+-ftz value values=0,1
+-prec-div value values=0,1
+-prec-sqrt value values=0,1
+-fma value values=0,1
+-kernels-used value
+-variables-used value
+-optimize-unused-variables bare
+-Xptxas value
+-split-compile value
+-split-compile-extended value
+-jump-table-density value
+-no-cache bare
+-device-stack-protector bare
+-r bare

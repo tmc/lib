@@ -55,7 +55,7 @@ func main() {
 		dataDirFlag = flag.String("data", "", "directory containing optiondata text files")
 		outFile     = flag.String("out", "tables.gen.go", "output Go file")
 		pkgName     = flag.String("pkg", "", "package name (defaults to target name)")
-		target      = flag.String("target", "cudatool", "generation target: cudatool or nvrtc")
+		target      = flag.String("target", "cudatool", "generation target: cudatool, nvrtc, or nvjitlink")
 	)
 	flag.Parse()
 
@@ -131,8 +131,14 @@ func main() {
 			pkg = "nvrtc"
 		}
 		generateNvrtcFlags(*outFile, pkg, allData)
+	case "nvjitlink":
+		pkg := *pkgName
+		if pkg == "" {
+			pkg = "nvjitlink"
+		}
+		generateNVJITLinkFlags(*outFile, pkg, allData)
 	default:
-		log.Fatalf("genoptions: unknown target %q (must be cudatool or nvrtc)", *target)
+		log.Fatalf("genoptions: unknown target %q (must be cudatool, nvrtc, or nvjitlink)", *target)
 	}
 }
 
