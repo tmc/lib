@@ -1,0 +1,1 @@
+commit=796f79c017e1563b927f5174f8db070dd9f873b7; date=2026-09-16T23:38:11Z; agent=antigravity; model=gemini; tty=/dev/ttys004; pid=8907; ITERM_SESSION_ID=; Validation: go test ./nvidia/cmd/cudaprof passed, verified advise default limit and -e flag
