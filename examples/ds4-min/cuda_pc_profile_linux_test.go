@@ -122,6 +122,31 @@ func queryStallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory
 }
 
 func TestCUDAPCProfile(t *testing.T) {
+	phase := os.Getenv("DS4_CUDA_PC_PROFILE_PHASE")
+	if phase == "" {
+		phase = "decode"
+	}
+	if phase != "decode" && phase != "prefill" {
+		t.Fatalf("unknown PC profile phase %q", phase)
+	}
+	var tokens []int
+	if phase == "prefill" {
+		path := os.Getenv("DS4_CUDA_PREFILL_TOKENS")
+		if path == "" {
+			t.Fatal("DS4_CUDA_PREFILL_TOKENS is required for prefill")
+		}
+		input, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tokens, err = parsePrefillTokens(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(tokens) != 2048 {
+			t.Fatalf("prefill input has %d tokens, want 2048", len(tokens))
+		}
+	}
 	modelPath := os.Getenv("DS4_MODEL")
 	if modelPath == "" {
 		modelPath = "/home/tmc/ds4-models/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf"
@@ -166,10 +191,16 @@ func TestCUDAPCProfile(t *testing.T) {
 	// NonUsrKernelsTotalSamples instead, with no PC records delivered. An
 	// earlier ordering started sampling after the warmup and attributed 364
 	// of 478168 samples.
-	period := uint32(16) // 2^16 = 65,536 cycles, suited for full multi-layer inference
+	period := uint32(16) // 2^16 = 65,536 cycles for decode
+	if phase == "prefill" {
+		period = 20 // Limit sample volume during the 2048-token batch.
+	}
 	config, err := pcSamplingBudget(len(inv.Reasons), period)
 	if err != nil {
 		t.Fatalf("pc sampling budget: %v", err)
+	}
+	if phase == "prefill" {
+		config.MaxReads = 1 << 17
 	}
 	for _, reason := range inv.Reasons {
 		config.ReasonIDs = append(config.ReasonIDs, reason.Index)
@@ -181,7 +212,11 @@ func TestCUDAPCProfile(t *testing.T) {
 
 	// Instantiate runtime
 	t.Logf("loading DS4 model from %s...", modelPath)
-	r, err := newCUDARuntime(modelPath, 1024)
+	contextSize := 1024
+	if phase == "prefill" {
+		contextSize = 4096
+	}
+	r, err := newCUDARuntime(modelPath, contextSize)
 	if err != nil {
 		t.Fatalf("newCUDARuntime: %v", err)
 	}
@@ -194,6 +229,15 @@ func TestCUDAPCProfile(t *testing.T) {
 	}
 	if err := r.Reset(); err != nil {
 		t.Fatalf("reset: %v", err)
+	}
+	if phase == "prefill" {
+		// Compile the batch path while sampling is active, then discard its samples.
+		if err := r.EvalBatch(tokens[:2], 0); err != nil {
+			t.Fatalf("prefill warmup: %v", err)
+		}
+		if err := r.Reset(); err != nil {
+			t.Fatalf("reset after prefill warmup: %v", err)
+		}
 	}
 
 	compiled := r.MathCompiled()
@@ -387,7 +431,7 @@ func TestCUDAPCProfile(t *testing.T) {
 
 	// Sampling has been running since before the model load, so everything
 	// collected up to here belongs to load, JIT and warmup. Discard it: the
-	// profile below is the decode arm, and these batches would otherwise be
+	// profile below is the selected phase, and these batches would otherwise be
 	// recorded into it by the first inter-step drain.
 	preDecodeBatches, preDecodeSamples := 0, uint64(0)
 	for {
@@ -401,35 +445,81 @@ func TestCUDAPCProfile(t *testing.T) {
 			break
 		}
 	}
-	t.Logf("discarded %d pre-decode batches (%d samples: load, JIT, warmup)",
-		preDecodeBatches, preDecodeSamples)
+	t.Logf("discarded %d pre-%s batches (%d samples: load, JIT, warmup)",
+		preDecodeBatches, phase, preDecodeSamples)
 
 	const numTokens = 4
-	t.Logf("running %d decode steps under hardware PC sampling (period exponent %d)...", numTokens, period)
+	t.Logf("running %s under hardware PC sampling (period exponent %d)...", phase, period)
+	var stopDrain chan struct{}
+	var drainResult chan error
+	if phase == "prefill" {
+		// A full prefill outlives the native sampling buffers. Drain while
+		// EvalBatch runs; Read does not synchronize the device.
+		stopDrain = make(chan struct{})
+		drainResult = make(chan error, 1)
+		go func() {
+			ticker := time.NewTicker(20 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopDrain:
+					drainResult <- nil
+					return
+				case <-ticker.C:
+					for {
+						b, err := session.Read()
+						if err != nil {
+							drainResult <- err
+							return
+						}
+						if !b.Valid {
+							break
+						}
+						drainBatch(b)
+						if b.RemainingPCs == 0 {
+							break
+						}
+					}
+				}
+			}
+		}()
+	}
 	workloadStart := time.Now()
 
-	for step := 0; step < numTokens; step++ {
-		tok := 1000 + step*17
-		if err := r.Eval(tok, step); err != nil {
-			t.Fatalf("eval step %d: %v", step, err)
+	if phase == "prefill" {
+		if err := r.EvalBatch(tokens, 0); err != nil {
+			t.Fatalf("prefill: %v", err)
 		}
-		// Drain any ready batches between steps
-		for {
-			b, readErr := session.Read()
-			if readErr != nil || !b.Valid {
-				break
+	} else {
+		for step := 0; step < numTokens; step++ {
+			tok := 1000 + step*17
+			if err := r.Eval(tok, step); err != nil {
+				t.Fatalf("eval step %d: %v", step, err)
 			}
-			drainBatch(b)
-			if b.RemainingPCs == 0 {
-				break
+			// Drain any ready batches between steps
+			for {
+				b, readErr := session.Read()
+				if readErr != nil || !b.Valid {
+					break
+				}
+				drainBatch(b)
+				if b.RemainingPCs == 0 {
+					break
+				}
 			}
 		}
 	}
 	if err := r.device.WithContext(func() error { return driver.CtxSynchronize() }); err != nil {
 		t.Fatalf("synchronize: %v", err)
 	}
+	if stopDrain != nil {
+		close(stopDrain)
+		if err := <-drainResult; err != nil {
+			t.Fatalf("drain prefill samples: %v", err)
+		}
+	}
 	workloadDur := time.Since(workloadStart)
-	t.Logf("decode completed in %v (%.2f ms/token)", workloadDur, float64(workloadDur.Milliseconds())/float64(numTokens))
+	t.Logf("%s completed in %v", phase, workloadDur)
 
 	// Stop sampling and drain
 	if err := session.Stop(); err != nil {
@@ -447,6 +537,10 @@ func TestCUDAPCProfile(t *testing.T) {
 		}
 	}
 	if err := session.Close(); err != nil {
+		if final, ok := session.Final(); ok {
+			t.Logf("final sampling diagnostics: dropped=%d remaining=%d hardware_full=%d", final.DroppedSamples, final.RemainingPCs, final.HardwareBufferFull)
+		}
+		t.Logf("collected sampling diagnostics: dropped=%d hardware_full=%v", droppedSamples, hardwareBufferFull)
 		t.Fatalf("close session: %v", err)
 	}
 	if final, ok := session.Final(); ok {
@@ -585,7 +679,7 @@ func TestCUDAPCProfile(t *testing.T) {
 	}
 	accepted := stallSum + byType["inst_executed"] + unmappedBase
 
-	t.Logf("acceptance identity (decode arm, %d steps):", numTokens)
+	t.Logf("acceptance identity (%s arm):", phase)
 	for _, name := range stallTypes {
 		t.Logf("  %-22s %d", name, byType[name])
 	}
@@ -602,11 +696,16 @@ func TestCUDAPCProfile(t *testing.T) {
 			accepted, byType["pc_samples"], accepted-byType["pc_samples"])
 	}
 
+	profileTokens := numTokens
+	if phase == "prefill" {
+		profileTokens = len(tokens)
+	}
 	meta := map[string]any{
+		"phase":                          phase,
 		"created":                        time.Now().UTC().Format(time.RFC3339),
 		"device":                         devName,
 		"architecture":                   fmt.Sprintf("sm_%d%d", major, minor),
-		"tokens":                         numTokens,
+		"tokens":                         profileTokens,
 		"duration_ms":                    workloadDur.Milliseconds(),
 		"total_samples":                  totalSamples,
 		"unique_pcs":                     totalPCs,
@@ -629,7 +728,7 @@ func TestCUDAPCProfile(t *testing.T) {
 	// Write to destination
 	outDir := filepath.Join(os.Getenv("HOME"), "tmp")
 	_ = os.MkdirAll(outDir, 0755)
-	outFile := filepath.Join(outDir, "ds4-decode-pcsampled.pprof")
+	outFile := filepath.Join(outDir, "ds4-"+phase+"-pcsampled.pprof")
 
 	fOut, err := os.Create(outFile)
 	if err != nil {
