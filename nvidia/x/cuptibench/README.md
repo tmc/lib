@@ -142,6 +142,12 @@ does not qualify arbitrary graphs or the full DS4 workload. A separate native
 allocation/kernel/free graph control also passed exact range-count and output
 checks.
 
+Four-kernel sequential graphs remain unqualified on GB20B with CUPTI 130202
+and driver 580.173.02: both a Go fixture and a native C sample failed at
+`cuptiRangeProfilerStop`, while their two-kernel controls passed. The native
+C sample uses neither Go bindings nor cuBLAS. These observations do not establish
+a universal kernel-count limit. Failed captures provide diagnostics, not metrics.
+
 CUPTI returns numeric automatic-range names. `Range.NativeName` preserves that
 ordinal; `Range.Name` is associated through the observed launch sequence and,
 for registered graphs, the retained native order. A decoded range-count mismatch
