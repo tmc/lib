@@ -37,3 +37,23 @@ func Example() {
 	// sm_121: 48/48 warps (100%) limited by none
 	// sm_121 (+32KB smem): 24/48 warps (50%) limited by shared_memory
 }
+
+func ExampleKernelResource_Evidence() {
+	kernel := cudaoccupancy.KernelResource{
+		Name:            "gemv_q8",
+		Registers:       48,
+		StaticSharedMem: 2048,
+		StackFrameBytes: 0,
+	}
+
+	ev, err := kernel.Evidence("sm_121", 256, 1024)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s: %d regs, %d bytes local, %d warps/SM\n",
+		ev.Kernel, ev.Registers, ev.LocalMemory, ev.Occupancy.TheoreticalWarps)
+	// Output:
+	// gemv_q8: 48 regs, 0 bytes local, 40 warps/SM
+}
+

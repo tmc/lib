@@ -312,3 +312,43 @@ func BenchmarkCalculate(b *testing.B) {
 		_ = kernel.CalculateDevice(dev, 256, 16384)
 	}
 }
+
+func TestKernelResource_Evidence(t *testing.T) {
+	kernel := cudaoccupancy.KernelResource{
+		Name:            "test_evidence_kernel",
+		Registers:       32,
+		StaticSharedMem: 2048,
+		StackFrameBytes: 64,
+	}
+
+	ev, err := kernel.Evidence("sm_121", 128, 4096)
+	if err != nil {
+		t.Fatalf("kernel.Evidence: %v", err)
+	}
+
+	if ev.Kernel != "test_evidence_kernel" {
+		t.Errorf("Kernel = %q, want %q", ev.Kernel, "test_evidence_kernel")
+	}
+	if ev.Registers != 32 {
+		t.Errorf("Registers = %d, want 32", ev.Registers)
+	}
+	if ev.StaticShared != 2048 {
+		t.Errorf("StaticShared = %d, want 2048", ev.StaticShared)
+	}
+	if ev.DynamicShared != 4096 {
+		t.Errorf("DynamicShared = %d, want 4096", ev.DynamicShared)
+	}
+	if ev.LocalMemory != 64 {
+		t.Errorf("LocalMemory = %d, want 64", ev.LocalMemory)
+	}
+	if ev.ThreadsPerBlock != 128 {
+		t.Errorf("ThreadsPerBlock = %d, want 128", ev.ThreadsPerBlock)
+	}
+	if ev.Occupancy.Architecture != "sm_121" {
+		t.Errorf("Occupancy.Architecture = %q, want sm_121", ev.Occupancy.Architecture)
+	}
+	if ev.Occupancy.Occupancy <= 0 {
+		t.Errorf("Occupancy.Occupancy = %f, want > 0", ev.Occupancy.Occupancy)
+	}
+}
+
