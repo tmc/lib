@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -455,6 +456,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				}
 
 				// 2. Scalar fallbacks check on target architecture (sm_90, sm_100, sm_121a, or modern SM)
+				// If SASS disassembly is available for this kernel, prefer SASS analysis
+				// and skip redundant PTX-level scalar fallback warnings.
+				if disasm != nil && disasm.Function(k.Name) != nil {
+					continue
+				}
 				isModern := parseSM(target) >= 90
 				if isModern {
 					var scalarLoads []cudaptx.Instruction
@@ -1627,6 +1633,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 		// this tree produces, and a finding that named one of the other two
 		// would cite a counter no capture contains.
 		var memThrottleNames []string
+		var scoreboardIndices []int
+		var branchIndices []int
+		var waitIndices []int
 		for i, st := range cap.Profile.SampleType {
 			if strings.HasPrefix(st.Type, "stall_") {
 				stallIndices = append(stallIndices, i)
@@ -1635,6 +1644,12 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			if tLower == "stall_memory_throttle" || tLower == "stall_mem_throttle" || tLower == "stall_mem" {
 				memThrottleIndices = append(memThrottleIndices, i)
 				memThrottleNames = append(memThrottleNames, st.Type)
+			} else if tLower == "stall_scoreboard" {
+				scoreboardIndices = append(scoreboardIndices, i)
+			} else if tLower == "stall_branch" {
+				branchIndices = append(branchIndices, i)
+			} else if tLower == "stall_wait" || tLower == "stall_barrier" {
+				waitIndices = append(waitIndices, i)
 			}
 		}
 		memSource := strings.Join(memThrottleNames, "+")
@@ -1643,24 +1658,36 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 		}
 
 		type pcStats struct {
-			totalStalls int64
-			memStalls   int64
-			opcode      string
-			file        string
-			line        int
+			totalStalls      int64
+			memStalls        int64
+			scoreboardStalls int64
+			branchStalls     int64
+			waitStalls       int64
+			opcode           string
+			file             string
+			line             int
 		}
 		byKernelPC := make(map[string]map[uint64]*pcStats)
 
 		for _, s := range cap.Profile.Sample {
-			var totalStall, memStall int64
+			var totalStall, memStall, scoreboardStall, branchStall, waitStall int64
 			for _, idx := range stallIndices {
 				totalStall += s.Value[idx]
 			}
 			for _, idx := range memThrottleIndices {
 				memStall += s.Value[idx]
 			}
+			for _, idx := range scoreboardIndices {
+				scoreboardStall += s.Value[idx]
+			}
+			for _, idx := range branchIndices {
+				branchStall += s.Value[idx]
+			}
+			for _, idx := range waitIndices {
+				waitStall += s.Value[idx]
+			}
 
-			if memStall == 0 && s.Label != nil {
+			if memStall == 0 && scoreboardStall == 0 && branchStall == 0 && waitStall == 0 && s.Label != nil {
 				stallReason := ""
 				if len(s.Label["sass.stall"]) > 0 {
 					stallReason = s.Label["sass.stall"][0]
@@ -1671,14 +1698,26 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 				if strings.Contains(rLower, "memory_throttle") || strings.Contains(rLower, "mem_throttle") || strings.Contains(rLower, "stall_mem") {
 					if len(s.Value) > 0 {
 						memStall = s.Value[0]
-						if totalStall == 0 {
-							totalStall = s.Value[0]
-						}
 					}
+				} else if strings.Contains(rLower, "scoreboard") {
+					if len(s.Value) > 0 {
+						scoreboardStall = s.Value[0]
+					}
+				} else if strings.Contains(rLower, "branch") {
+					if len(s.Value) > 0 {
+						branchStall = s.Value[0]
+					}
+				} else if strings.Contains(rLower, "wait") || strings.Contains(rLower, "barrier") {
+					if len(s.Value) > 0 {
+						waitStall = s.Value[0]
+					}
+				}
+				if totalStall == 0 && (memStall > 0 || scoreboardStall > 0 || branchStall > 0 || waitStall > 0) && len(s.Value) > 0 {
+					totalStall = s.Value[0]
 				}
 			}
 
-			if totalStall == 0 && memStall == 0 {
+			if totalStall == 0 && memStall == 0 && scoreboardStall == 0 && branchStall == 0 && waitStall == 0 {
 				continue
 			}
 
@@ -1722,6 +1761,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 			stat.totalStalls += totalStall
 			stat.memStalls += memStall
+			stat.scoreboardStalls += scoreboardStall
+			stat.branchStalls += branchStall
+			stat.waitStalls += waitStall
 			if stat.opcode == "" && opcode != "" {
 				stat.opcode = opcode
 			}
@@ -1736,12 +1778,22 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 				}
 			}
 
+			type stallCand struct {
+				pc     uint64
+				opcode string
+				file   string
+				line   int
+				ratio  float64
+				stalls int64
+				sev    Severity
+			}
+			var memCands []stallCand
+			var sbCands []stallCand
+			var brCands []stallCand
+			var wtCands []stallCand
+
 			for pc, stat := range pcMap {
 				if stat.totalStalls <= 0 {
-					continue
-				}
-				ratio := float64(stat.memStalls) / float64(stat.totalStalls)
-				if ratio <= 0.35 {
 					continue
 				}
 
@@ -1761,37 +1813,169 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					}
 				}
 
-				opUpper := strings.ToUpper(opcode)
-				if strings.HasPrefix(opUpper, "LDG.E") || strings.HasPrefix(opUpper, "LDG") || strings.Contains(opUpper, "LDG") {
-					sev := SeverityWarning
-					if ratio >= 0.50 {
-						sev = SeverityCritical
+				// Memory stalls
+				if stat.memStalls > 0 {
+					ratio := float64(stat.memStalls) / float64(stat.totalStalls)
+					if ratio > 0.35 {
+						opUpper := strings.ToUpper(opcode)
+						if strings.HasPrefix(opUpper, "LDG.E") || strings.HasPrefix(opUpper, "LDG") || strings.Contains(opUpper, "LDG") {
+							sev := SeverityWarning
+							if ratio >= 0.50 {
+								sev = SeverityCritical
+							}
+							memCands = append(memCands, stallCand{
+								pc: pc, opcode: opcode, file: file, line: line,
+								ratio: ratio, stalls: stat.memStalls, sev: sev,
+							})
+						}
 					}
-					locKey := fmt.Sprintf("%s:0x%x", kName, pc)
-					reportedLocations[locKey] = true
-
-					report.Items = append(report.Items, AdviceItem{
-						Severity: sev,
-						Category: CategoryMemory,
-						Location: Location{
-							Kernel: kName,
-							PC:     pc,
-							File:   file,
-							Line:   line,
-						},
-						// The measurement is a share of stalls, so that is what
-						// the finding says. It used to assert 32 cache
-						// transactions per instruction, a number nothing here
-						// counts, and it cited stall_memory_throttle, a counter
-						// no capture carries. The share also does not separate a
-						// throttle from a latency wait: stall_mem holds both, and
-						// on a coalesced but bandwidth-bound kernel it is the
-						// latency half that is large. Uncoalesced access is one
-						// cause to check, not the reading.
-						Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, ratio*100, opcode, pc, kName),
-						ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
-					})
 				}
+
+				// Scoreboard dependency stalls
+				if stat.scoreboardStalls > 0 {
+					sbRatio := float64(stat.scoreboardStalls) / float64(stat.totalStalls)
+					if sbRatio >= 0.25 && stat.scoreboardStalls >= 50 {
+						sev := SeverityWarning
+						if sbRatio >= 0.50 {
+							sev = SeverityCritical
+						}
+						sbCands = append(sbCands, stallCand{
+							pc: pc, opcode: opcode, file: file, line: line,
+							ratio: sbRatio, stalls: stat.scoreboardStalls, sev: sev,
+						})
+					}
+				}
+
+				// Branch divergence stalls
+				if stat.branchStalls > 0 {
+					brRatio := float64(stat.branchStalls) / float64(stat.totalStalls)
+					if brRatio >= 0.20 && stat.branchStalls >= 50 {
+						sev := SeverityWarning
+						if brRatio >= 0.50 {
+							sev = SeverityCritical
+						}
+						brCands = append(brCands, stallCand{
+							pc: pc, opcode: opcode, file: file, line: line,
+							ratio: brRatio, stalls: stat.branchStalls, sev: sev,
+						})
+					}
+				}
+
+				// Barrier wait stalls
+				if stat.waitStalls > 0 {
+					wtRatio := float64(stat.waitStalls) / float64(stat.totalStalls)
+					if wtRatio >= 0.35 && stat.waitStalls >= 50 {
+						wtCands = append(wtCands, stallCand{
+							pc: pc, opcode: opcode, file: file, line: line,
+							ratio: wtRatio, stalls: stat.waitStalls, sev: SeverityWarning,
+						})
+					}
+				}
+			}
+
+			// Report Memory Stalls (capped to 3 individual locations + 1 summary)
+			sort.Slice(memCands, func(i, j int) bool { return memCands[i].stalls > memCands[j].stalls })
+			limit := len(memCands)
+			if limit > 3 {
+				limit = 3
+			}
+			for _, c := range memCands[:limit] {
+				locKey := fmt.Sprintf("%s:0x%x", kName, c.pc)
+				reportedLocations[locKey] = true
+				report.Items = append(report.Items, AdviceItem{
+					Severity: c.sev,
+					Category: CategoryMemory,
+					Location: Location{
+						Kernel: kName,
+						PC:     c.pc,
+						File:   c.file,
+						Line:   c.line,
+					},
+					Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, c.ratio*100, c.opcode, c.pc, kName),
+					ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
+				})
+			}
+			if len(memCands) > 3 {
+				var remainingStalls int64
+				var maxRatio float64
+				for _, c := range memCands[3:] {
+					remainingStalls += c.stalls
+					if c.ratio > maxRatio {
+						maxRatio = c.ratio
+					}
+				}
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryMemory,
+					Location: Location{
+						Kernel: kName,
+					},
+					Finding:                  fmt.Sprintf("Memory stalls dominate %d additional load instructions in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", len(memCands)-3, kName, maxRatio*100, remainingStalls),
+					ActionableRecommendation: "Vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency.",
+				})
+			}
+
+			// Report Scoreboard Dependency Stalls (capped to 3)
+			sort.Slice(sbCands, func(i, j int) bool { return sbCands[i].stalls > sbCands[j].stalls })
+			sbLimit := len(sbCands)
+			if sbLimit > 3 {
+				sbLimit = 3
+			}
+			for _, c := range sbCands[:sbLimit] {
+				report.Items = append(report.Items, AdviceItem{
+					Severity: c.sev,
+					Category: CategoryMemoryCompute,
+					Location: Location{
+						Kernel: kName,
+						PC:     c.pc,
+						File:   c.file,
+						Line:   c.line,
+					},
+					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					ActionableRecommendation: "Instruction is stalled waiting for register data from a pending memory load or high-latency operation. Increase instruction-level parallelism (ILP), hoist memory loads further ahead of first use, or use double buffering / software pipelining.",
+				})
+			}
+
+			// Report Branch Divergence Stalls (capped to 3)
+			sort.Slice(brCands, func(i, j int) bool { return brCands[i].stalls > brCands[j].stalls })
+			brLimit := len(brCands)
+			if brLimit > 3 {
+				brLimit = 3
+			}
+			for _, c := range brCands[:brLimit] {
+				report.Items = append(report.Items, AdviceItem{
+					Severity: c.sev,
+					Category: CategoryArchitectureCompute,
+					Location: Location{
+						Kernel: kName,
+						PC:     c.pc,
+						File:   c.file,
+						Line:   c.line,
+					},
+					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					ActionableRecommendation: "Warp execution path divergence detected. Replace conditional branches with branchless predicated selects (e.g. SELP / fmaxf) or ensure branch conditions are uniform across threads in each warp.",
+				})
+			}
+
+			// Report Barrier Synchronization Stalls (capped to 3)
+			sort.Slice(wtCands, func(i, j int) bool { return wtCands[i].stalls > wtCands[j].stalls })
+			wtLimit := len(wtCands)
+			if wtLimit > 3 {
+				wtLimit = 3
+			}
+			for _, c := range wtCands[:wtLimit] {
+				report.Items = append(report.Items, AdviceItem{
+					Severity: c.sev,
+					Category: CategoryArchitectureDispatch,
+					Location: Location{
+						Kernel: kName,
+						PC:     c.pc,
+						File:   c.file,
+						Line:   c.line,
+					},
+					Finding:                  fmt.Sprintf("Barrier synchronization latency: stall_wait is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
+					ActionableRecommendation: "Threads are stalled waiting at a block barrier (__syncthreads / BAR.SYNC). Check for workload imbalance across warps before the barrier, or reduce barrier synchronization frequency.",
+				})
 			}
 		}
 	}
@@ -2286,7 +2470,14 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 		}
 
 		// 2. Heuristic 5: Pointwise Producer-Consumer Fusion & Sequential Misses
-		seenFusion := make(map[string]bool)
+		type pairStat struct {
+			count    int
+			totalDur uint64
+			ev1      streamEvent
+			ev2      streamEvent
+		}
+		var pairKeys []string
+		pairStats := make(map[string]*pairStat)
 		for i := 0; i < len(events)-1; i++ {
 			ev1 := events[i]
 			ev2 := events[i+1]
@@ -2295,49 +2486,73 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 			if (sub1 != "kernel" && sub1 != "") || (sub2 != "kernel" && sub2 != "") {
 				continue
 			}
+			k1 := cleanKernelName(ev1.Name)
+			k2 := cleanKernelName(ev2.Name)
+			key := fmt.Sprintf("%s->%s:%d", k1, k2, streamID)
+			ps := pairStats[key]
+			if ps == nil {
+				ps = &pairStat{ev1: ev1, ev2: ev2}
+				pairStats[key] = ps
+				pairKeys = append(pairKeys, key)
+			}
+			ps.count++
+			ps.totalDur += ev1.DurationNs + ev2.DurationNs
+		}
+
+		seenFusion := make(map[string]bool)
+		for _, key := range pairKeys {
+			ps := pairStats[key]
+			ev1 := ps.ev1
+			ev2 := ps.ev2
+			cleanName1 := cleanKernelName(ev1.Name)
+			cleanName2 := cleanKernelName(ev2.Name)
 
 			// Elementwise producer-consumer fusion
-			if isElementwise(ev1) && isElementwise(ev2) {
-				if matchingShapesOrBuffers(ev1, ev2) {
-					key := fmt.Sprintf("%s->%s:%d", ev1.Name, ev2.Name, streamID)
-					if seenFusion[key] {
-						continue
+			if isElementwise(ev1) && isElementwise(ev2) && matchingShapesOrBuffers(ev1, ev2) {
+				seenFusion[key] = true
+				finding := fmt.Sprintf("Redundant global memory round-trips for intermediate tensors: sequential back-to-back elementwise kernels (%s followed by %s) on stream %d operate on matching tensors", ev1.Name, ev2.Name, streamID)
+				if ps.count > 1 {
+					finding += fmt.Sprintf(" (occurred %d times", ps.count)
+					if ps.totalDur > 0 {
+						finding += fmt.Sprintf(", accumulating %s", time.Duration(ps.totalDur).String())
 					}
-					seenFusion[key] = true
-
-					cleanName1 := cleanKernelName(ev1.Name)
-					cleanName2 := cleanKernelName(ev2.Name)
-					rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s).", cleanName1, cleanName2)
-
-					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityWarning,
-						Category: CategoryMemoryCompute,
-						Location: Location{
-							Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
-						},
-						Finding:                  fmt.Sprintf("Redundant global memory round-trips for intermediate tensors: sequential back-to-back elementwise kernels (%s followed by %s) on stream %d operate on matching tensors", ev1.Name, ev2.Name, streamID),
-						ActionableRecommendation: rec,
-					})
+					finding += ")"
 				}
+				rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s) to eliminate intermediate DRAM round-trips.", cleanName1, cleanName2)
+
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryMemoryCompute,
+					Location: Location{
+						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
+					},
+					Finding:                  finding,
+					ActionableRecommendation: rec,
+				})
 			}
 
 			// Sequential RMSNorm -> Block Quantization Fusion
 			if isNormKernel(ev1.Name) && isQuantKernel(ev2.Name) {
-				key := fmt.Sprintf("norm_quant:%s->%s:%d", ev1.Name, ev2.Name, streamID)
-				if !seenFusion[key] {
-					seenFusion[key] = true
-					cleanName1 := cleanKernelName(ev1.Name)
-					cleanName2 := cleanKernelName(ev2.Name)
-					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityWarning,
-						Category: CategoryMemoryCompute,
-						Location: Location{
-							Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
-						},
-						Finding:                  fmt.Sprintf("Redundant global memory round-trips for normalized activations: %s writes normalized activations to DRAM and %s immediately reads them back for quantization on stream %d", ev1.Name, ev2.Name, streamID),
-						ActionableRecommendation: fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks.", cleanName1, cleanName2),
-					})
+				seenFusion[key] = true
+				finding := fmt.Sprintf("Redundant global memory round-trips for normalized activations: %s writes normalized activations to DRAM and %s immediately reads them back for quantization on stream %d", ev1.Name, ev2.Name, streamID)
+				if ps.count > 1 {
+					finding += fmt.Sprintf(" (occurred %d times", ps.count)
+					if ps.totalDur > 0 {
+						finding += fmt.Sprintf(", accumulating %s", time.Duration(ps.totalDur).String())
+					}
+					finding += ")"
 				}
+				rec := fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks to eliminate %d DRAM round-trips.", cleanName1, cleanName2, ps.count)
+
+				report.Items = append(report.Items, AdviceItem{
+					Severity: SeverityWarning,
+					Category: CategoryMemoryCompute,
+					Location: Location{
+						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
+					},
+					Finding:                  finding,
+					ActionableRecommendation: rec,
+				})
 			}
 
 			// Dual-GEMV Paired Projections
@@ -2350,21 +2565,52 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					(strings.Contains(n1, "gate") && strings.Contains(n2, "up")) ||
 					(strings.Contains(n1, "q_proj") && strings.Contains(n2, "k_proj"))
 				if isPaired {
-					key := fmt.Sprintf("dual_gemv:%s+%s:%d", ev1.Name, ev2.Name, streamID)
-					if !seenFusion[key] {
-						seenFusion[key] = true
-						cleanName1 := cleanKernelName(ev1.Name)
-						cleanName2 := cleanKernelName(ev2.Name)
-						report.Items = append(report.Items, AdviceItem{
-							Severity: SeverityInfo,
-							Category: CategoryMemoryCompute,
-							Location: Location{
-								Kernel: fmt.Sprintf("%s + %s", ev1.Name, ev2.Name),
-							},
-							Finding:                  fmt.Sprintf("Redundant activation DRAM traffic: sequential GEMVs (%s and %s) on stream %d independently load the identical input activation vector", ev1.Name, ev2.Name, streamID),
-							ActionableRecommendation: fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2),
-						})
+					seenFusion[key] = true
+					finding := fmt.Sprintf("Redundant activation DRAM traffic: sequential GEMVs (%s and %s) on stream %d independently load the identical input activation vector", ev1.Name, ev2.Name, streamID)
+					if ps.count > 1 {
+						finding += fmt.Sprintf(" (occurred %d times", ps.count)
+						if ps.totalDur > 0 {
+							finding += fmt.Sprintf(", accumulating %s", time.Duration(ps.totalDur).String())
+						}
+						finding += ")"
 					}
+					rec := fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2)
+
+					report.Items = append(report.Items, AdviceItem{
+						Severity: SeverityInfo,
+						Category: CategoryMemoryCompute,
+						Location: Location{
+							Kernel: fmt.Sprintf("%s + %s", ev1.Name, ev2.Name),
+						},
+						Finding:                  finding,
+						ActionableRecommendation: rec,
+					})
+				}
+			}
+
+			// Pointwise Fusion Opportunity for generic short kernel pairs
+			if !seenFusion[key] && ps.count >= 20 && cleanName1 != cleanName2 {
+				avgDur := uint64(0)
+				if ps.totalDur > 0 {
+					avgDur = ps.totalDur / uint64(ps.count*2)
+				}
+				if avgDur == 0 || avgDur < 30000 {
+					seenFusion[key] = true
+					finding := fmt.Sprintf("Pointwise kernel fusion opportunity: sequential kernel pair (%s followed by %s) was launched %d times on stream %d", cleanName1, cleanName2, ps.count, streamID)
+					if ps.totalDur > 0 {
+						finding += fmt.Sprintf(" (accumulating %s)", time.Duration(ps.totalDur).String())
+					}
+					rec := fmt.Sprintf("Fuse %s and %s into a single kernel to keep intermediate activations in registers/shared memory, eliminating %d kernel launches and DRAM traffic.", cleanName1, cleanName2, ps.count)
+
+					report.Items = append(report.Items, AdviceItem{
+						Severity: SeverityWarning,
+						Category: CategoryMemoryCompute,
+						Location: Location{
+							Kernel: fmt.Sprintf("%s -> %s", cleanName1, cleanName2),
+						},
+						Finding:                  finding,
+						ActionableRecommendation: rec,
+					})
 				}
 			}
 		}
@@ -2540,6 +2786,13 @@ func extractStreamEvents(cap *cudacapture.Capture) map[uint32][]streamEvent {
 			}
 			if endNs == 0 && startNs > 0 && durationNs > 0 {
 				endNs = startNs + durationNs
+			}
+
+			hasStream := len(s.NumLabel["stream"]) > 0 || len(s.NumLabel["stream_id"]) > 0 || len(s.Label["stream"]) > 0
+			hasTiming := durationNs > 0 || startNs > 0 || endNs > 0
+			hasActivity := len(s.Label["subtype"]) > 0 || len(s.NumLabel["correlation"]) > 0 || len(s.Label["correlation_id"]) > 0 || len(s.Label["grid"]) > 0
+			if !hasStream && !hasTiming && !hasActivity {
+				continue
 			}
 
 			correlation := sampleCorrelation(s)
@@ -2722,6 +2975,9 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 func parseDurationNanosFromCapture(cap *cudacapture.Capture) int64 {
 	if cap == nil {
 		return 0
+	}
+	if cap.Profile != nil && cap.Profile.DurationNanos > 0 {
+		return cap.Profile.DurationNanos
 	}
 	parseMap := func(m map[string]any) int64 {
 		for _, k := range []string{"duration_ns", "duration_nanos", "durationNs"} {
@@ -2928,11 +3184,11 @@ func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64,
 
 	sort.SliceStable(report.Items, func(i, j int) bool {
 		a, b := report.Items[i], report.Items[j]
-		if a.DeviceTimeNanos != b.DeviceTimeNanos {
-			return a.DeviceTimeNanos > b.DeviceTimeNanos
-		}
 		if a.Severity != b.Severity {
 			return severityRank(a.Severity) < severityRank(b.Severity)
+		}
+		if a.DeviceTimeNanos != b.DeviceTimeNanos {
+			return a.DeviceTimeNanos > b.DeviceTimeNanos
 		}
 		if a.Category != b.Category {
 			return a.Category < b.Category
