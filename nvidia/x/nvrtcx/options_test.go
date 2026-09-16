@@ -231,7 +231,9 @@ func TestSimpleOptions(t *testing.T) {
 	}{
 		{"FastMath", WithFastMath(), "--use_fast_math"},
 		{"DefaultDevice", WithDefaultDevice(), "--device-as-default-execution-space"},
+		{"DefaultExecutionSpace", WithDefaultExecutionSpace(), "--device-as-default-execution-space"},
 		{"ExtraDeviceVectorization", WithExtraDeviceVectorization(), "--extra-device-vectorization"},
+		{"DeviceVectorization", WithDeviceVectorization(), "--extra-device-vectorization"},
 		{"WarningsAsErrors", WithWarningsAsErrors(), "--warning-as-error"},
 		{"DisableWarnings", WithDisableWarnings(), "-w"},
 		{"DeviceDebug", WithDeviceDebug(), "--device-debug"},
@@ -250,6 +252,40 @@ func TestSimpleOptions(t *testing.T) {
 				t.Fatalf("got duplicate flags %v, want [%s]", cfg.flags, tt.want)
 			}
 		})
+	}
+}
+
+func TestCompileFlags(t *testing.T) {
+	flags, err := CompileFlags(
+		WithArch(8, 0),
+		WithStandard("17"),
+		WithFastMath(),
+		WithDeviceVectorization(),
+		WithOptimizationLevel(3),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"--gpu-architecture=compute_80",
+		"-std=c++17",
+		"--use_fast_math",
+		"--extra-device-vectorization",
+		"-O3",
+		"--generate-line-info",
+	}
+	if !slices.Equal(flags, want) {
+		t.Fatalf("CompileFlags = %v, want %v", flags, want)
+	}
+
+	// Test CompileFlags with invalid option
+	if _, err := CompileFlags(WithStandard("c++98")); err == nil {
+		t.Fatal("expected error on invalid standard")
+	}
+
+	// Test CompileFlags with nil option
+	if _, err := CompileFlags(nil); err == nil {
+		t.Fatal("expected error on nil option")
 	}
 }
 
