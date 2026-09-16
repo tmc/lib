@@ -22,7 +22,7 @@ var cudaExpertGatherSource string
 
 // cudaMoEGatherTile mirrors DS4_MOE_GATHER_TILE in cuda_experts_gather.cu.
 // TestCUDAMoEGatherConstants fails if the two drift apart.
-const cudaMoEGatherTile = 8
+const cudaMoEGatherTile = 16
 
 // cudaMoEMaxExperts mirrors DS4_MOE_MAX_EXPERTS, the counting sort's bin bound.
 const cudaMoEMaxExperts = 256

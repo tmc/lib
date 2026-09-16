@@ -11,7 +11,7 @@
 // cudaMoEGatherTile mirrors this and TestCUDAMoEGatherTileConstant fails if
 // the two drift apart.
 #ifndef DS4_MOE_GATHER_TILE
-#define DS4_MOE_GATHER_TILE 8
+#define DS4_MOE_GATHER_TILE 16
 #endif
 
 // ds4_moe_group_csr groups a token group's selected expert ids by expert.
