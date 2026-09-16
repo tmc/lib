@@ -76,6 +76,7 @@ type cudaBatchDense struct {
 	q81Attn, q81QLora, q81FFN            cudamem.Slice[byte]
 	q80Heads, q80Low, q80Shared          cudamem.Slice[byte]
 	expertIDs                          cudamem.Slice[int32]
+	expertW                            cudamem.Slice[float32]
 	expertGate, expertUp, expertDown    cudamem.Slice[float32]
 	q81Experts                         cudamem.Slice[byte]
 }
@@ -551,6 +552,7 @@ func newCUDABatchResources(r *cudaRuntime, width int) (_ *cudaBatchResources, er
 		q80Low:         cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-attention-low", width*8192/32*36),
 		q80Shared:      cudamem.AllocIn[byte](b.denseArena, "batch-dense-q80-shared", width*cudaSharedFFNWidth/32*36),
 		expertIDs:      cudamem.AllocIn[int32](b.denseArena, "batch-expert-ids", width*6),
+		expertW:        alloc("batch-expert-weights", width*6),
 		expertGate:     alloc("batch-expert-gate", width*6*2048),
 		expertUp:       alloc("batch-expert-up", width*6*2048),
 		expertDown:     alloc("batch-expert-down", width*6*cudaWidth),
@@ -637,6 +639,7 @@ func (r *cudaRuntime) evalLayerBatch(base []*cudaTokenState, hc []*cudaHC, index
 		rows[i].sharedOut = d.sharedOut.Slice(i*cudaWidth, (i+1)*cudaWidth)
 		if gather {
 			rows[i].expertIDs = d.expertIDs.Slice(i*6, (i+1)*6)
+			rows[i].expertW = d.expertW.Slice(i*6, (i+1)*6)
 			rows[i].expertGate = d.expertGate.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertUp = d.expertUp.Slice(i*6*2048, (i+1)*6*2048)
 			rows[i].expertDown = d.expertDown.Slice(i*6*cudaWidth, (i+1)*6*cudaWidth)
@@ -787,11 +790,13 @@ func (r *cudaRuntime) evalBatchExperts(rows []cudaTokenState, index int) error {
 		d.q81FFN.Slice(0, n*cudaWidth/32*36), d.expertGate.Slice(0, n*6*2048), d.expertUp.Slice(0, n*6*2048)); err != nil {
 		return err
 	}
-	for i := range rows {
-		s := &rows[i]
-		if err := r.encodeSwiGLUQuantQ81(s.expertGate, s.expertUp, s.expertW, s.q81Experts, 2048, 6); err != nil {
-			return fmt.Errorf("token %d expert activation: %w", i, err)
-		}
+	if err := r.encodeSwiGLUQuantQ81(
+		d.expertGate.Slice(0, n*6*2048),
+		d.expertUp.Slice(0, n*6*2048),
+		d.expertW.Slice(0, n*6),
+		d.q81Experts.Slice(0, n*6*2048/32*36),
+		2048, n*6); err != nil {
+		return fmt.Errorf("batch expert activation: %w", err)
 	}
 	return r.encodeMatvecQ2KSelectedQ81Gather(l.expertDown, &g,
 		d.q81Experts.Slice(0, n*6*2048/32*36), d.expertDown.Slice(0, n*6*cudaWidth))
