@@ -101,8 +101,14 @@ func buildDiffViewData(baseFile, targetFile, kernelFilter string, limits cudacap
 		return nil, fmt.Errorf("resolve target path: %w", err)
 	}
 
-	baseCap, _ := readCapturePathLimits(baseAbs, limits)
-	targetCap, _ := readCapturePathLimits(targetAbs, limits)
+	baseCap, baseCapErr := readCapturePathLimits(baseAbs, limits)
+	targetCap, targetCapErr := readCapturePathLimits(targetAbs, limits)
+	if strings.HasSuffix(baseAbs, ".pprof") && baseCapErr != nil {
+		return nil, fmt.Errorf("read base capture %s: %w", baseFile, baseCapErr)
+	}
+	if strings.HasSuffix(targetAbs, ".pprof") && targetCapErr != nil {
+		return nil, fmt.Errorf("read target capture %s: %w", targetFile, targetCapErr)
+	}
 
 	var baseDisasm *cudasass.Disassembly
 	if baseCap != nil {
@@ -510,42 +516,76 @@ func buildKernelSummary(fd cudasass.FunctionDiff, baseCap, targetCap *cudacaptur
 		Substitutions:      fd.Architecture.Substitutions,
 	}
 
-	// Execution duration delta if profile samples exist
-	var bNs, tNs int64
-	if baseCap != nil && baseCap.Profile != nil {
-		bIdx := findTimeIndex(baseCap.Profile)
-		if bIdx >= 0 {
-			for _, s := range baseCap.Profile.Sample {
-				if sampleKernelName(s) == fd.Name {
-					bNs += s.Value[bIdx]
-				}
-			}
-		}
-	}
-	if targetCap != nil && targetCap.Profile != nil {
-		tIdx := findTimeIndex(targetCap.Profile)
-		if tIdx >= 0 {
-			for _, s := range targetCap.Profile.Sample {
-				if sampleKernelName(s) == fd.Name {
-					tNs += s.Value[tIdx]
-				}
-			}
-		}
-	}
+	baseProf := profileOrNil(baseCap)
+	targetProf := profileOrNil(targetCap)
 
-	if bNs > 0 || tNs > 0 {
-		sum.BaseRuntimeUs = float64(bNs) / 1000.0
-		sum.TargetRuntimeUs = float64(tNs) / 1000.0
-		sum.DurationDeltaUs = sum.TargetRuntimeUs - sum.BaseRuntimeUs
-		if tNs > 0 {
-			sum.Speedup = float64(bNs) / float64(tNs)
+	if baseProf != nil && targetProf != nil {
+		bTimeIdx := findTimeIndex(baseProf)
+		tTimeIdx := findTimeIndex(targetProf)
+		if bTimeIdx >= 0 && tTimeIdx >= 0 {
+			var bNs, tNs int64
+			for _, s := range baseProf.Sample {
+				if sampleKernelName(s) == fd.Name {
+					bNs += s.Value[bTimeIdx]
+				}
+			}
+			for _, s := range targetProf.Sample {
+				if sampleKernelName(s) == fd.Name {
+					tNs += s.Value[tTimeIdx]
+				}
+			}
+			if bNs > 0 || tNs > 0 {
+				sum.HasDurationMetric = true
+				sum.BaseRuntimeUs = float64(bNs) / 1000.0
+				sum.TargetRuntimeUs = float64(tNs) / 1000.0
+				sum.DurationDeltaUs = sum.TargetRuntimeUs - sum.BaseRuntimeUs
+				if tNs > 0 {
+					sum.Speedup = float64(bNs) / float64(tNs)
+				}
+			}
+		}
+
+		bSampleIdx := findSampleIndex(baseProf)
+		tSampleIdx := findSampleIndex(targetProf)
+		if bSampleIdx >= 0 && tSampleIdx >= 0 {
+			var bSamples, tSamples, bTotal, tTotal int64
+			for _, s := range baseProf.Sample {
+				bTotal += s.Value[bSampleIdx]
+				if sampleKernelName(s) == fd.Name {
+					bSamples += s.Value[bSampleIdx]
+				}
+			}
+			for _, s := range targetProf.Sample {
+				tTotal += s.Value[tSampleIdx]
+				if sampleKernelName(s) == fd.Name {
+					tSamples += s.Value[tSampleIdx]
+				}
+			}
+			sum.HasSampleMetric = true
+			sum.BaseSamples = bSamples
+			sum.TargetSamples = tSamples
+			sum.SampleDelta = tSamples - bSamples
+			if bTotal > 0 {
+				sum.BaseSampleShare = float64(bSamples) / float64(bTotal) * 100.0
+			}
+			if tTotal > 0 {
+				sum.TargetSampleShare = float64(tSamples) / float64(tTotal) * 100.0
+			}
+			sum.ShareShift = sum.TargetSampleShare - sum.BaseSampleShare
+			if sum.SampleDelta > 0 {
+				sum.SampleShiftSummary = fmt.Sprintf("+%d (%d more PC samples)", sum.SampleDelta, sum.SampleDelta)
+			} else if sum.SampleDelta < 0 {
+				sum.SampleShiftSummary = fmt.Sprintf("%d (%d fewer PC samples)", sum.SampleDelta, -sum.SampleDelta)
+			} else {
+				sum.SampleShiftSummary = "0 (no shift)"
+			}
 		}
 	}
 
 	// Top stall shifts for this kernel
 	if baseCap != nil || targetCap != nil {
-		bStalls := collectStallCounts(profileOrNil(baseCap), fd.Name)
-		tStalls := collectStallCounts(profileOrNil(targetCap), fd.Name)
+		bStalls := collectStallCounts(baseProf, fd.Name)
+		tStalls := collectStallCounts(targetProf, fd.Name)
 		sum.TopStallShifts = computeTopStallShifts(bStalls, tStalls)
 	}
 
@@ -569,30 +609,52 @@ func buildOverallSummary(diff *cudasass.DisassemblyDiff, baseCap, targetCap *cud
 		Substitutions:      diff.Architecture.Substitutions,
 	}
 
-	var bNs, tNs int64
-	if baseCap != nil && baseCap.Profile != nil {
-		bIdx := findTimeIndex(baseCap.Profile)
-		if bIdx >= 0 {
-			for _, s := range baseCap.Profile.Sample {
-				bNs += s.Value[bIdx]
-			}
-		}
-	}
-	if targetCap != nil && targetCap.Profile != nil {
-		tIdx := findTimeIndex(targetCap.Profile)
-		if tIdx >= 0 {
-			for _, s := range targetCap.Profile.Sample {
-				tNs += s.Value[tIdx]
-			}
-		}
-	}
+	baseProf := profileOrNil(baseCap)
+	targetProf := profileOrNil(targetCap)
 
-	if bNs > 0 || tNs > 0 {
-		sum.BaseRuntimeUs = float64(bNs) / 1000.0
-		sum.TargetRuntimeUs = float64(tNs) / 1000.0
-		sum.DurationDeltaUs = sum.TargetRuntimeUs - sum.BaseRuntimeUs
-		if tNs > 0 {
-			sum.Speedup = float64(bNs) / float64(tNs)
+	if baseProf != nil && targetProf != nil {
+		bTimeIdx := findTimeIndex(baseProf)
+		tTimeIdx := findTimeIndex(targetProf)
+		if bTimeIdx >= 0 && tTimeIdx >= 0 {
+			var bNs, tNs int64
+			for _, s := range baseProf.Sample {
+				bNs += s.Value[bTimeIdx]
+			}
+			for _, s := range targetProf.Sample {
+				tNs += s.Value[tTimeIdx]
+			}
+			if bNs > 0 || tNs > 0 {
+				sum.HasDurationMetric = true
+				sum.BaseRuntimeUs = float64(bNs) / 1000.0
+				sum.TargetRuntimeUs = float64(tNs) / 1000.0
+				sum.DurationDeltaUs = sum.TargetRuntimeUs - sum.BaseRuntimeUs
+				if tNs > 0 {
+					sum.Speedup = float64(bNs) / float64(tNs)
+				}
+			}
+		}
+
+		bSampleIdx := findSampleIndex(baseProf)
+		tSampleIdx := findSampleIndex(targetProf)
+		if bSampleIdx >= 0 && tSampleIdx >= 0 {
+			var bSamples, tSamples int64
+			for _, s := range baseProf.Sample {
+				bSamples += s.Value[bSampleIdx]
+			}
+			for _, s := range targetProf.Sample {
+				tSamples += s.Value[tSampleIdx]
+			}
+			sum.HasSampleMetric = true
+			sum.BaseSamples = bSamples
+			sum.TargetSamples = tSamples
+			sum.SampleDelta = tSamples - bSamples
+			if sum.SampleDelta > 0 {
+				sum.SampleShiftSummary = fmt.Sprintf("+%d (%d more PC samples)", sum.SampleDelta, sum.SampleDelta)
+			} else if sum.SampleDelta < 0 {
+				sum.SampleShiftSummary = fmt.Sprintf("%d (%d fewer PC samples)", sum.SampleDelta, -sum.SampleDelta)
+			} else {
+				sum.SampleShiftSummary = "0 (no shift)"
+			}
 		}
 	}
 

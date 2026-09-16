@@ -44,6 +44,18 @@ const (
 	SeverityInfo     Severity = "Info"
 )
 
+// EvidenceLevel classifies the empirical basis of an advice finding.
+type EvidenceLevel string
+
+const (
+	// EvidenceObserved indicates direct native hardware metrics, compiler diagnostics, or measured timings.
+	EvidenceObserved EvidenceLevel = "observed"
+	// EvidenceSuspected indicates static opcode heuristics, correlated PC samples without deciding transaction counters, or resource capacity bounds.
+	EvidenceSuspected EvidenceLevel = "suspected"
+	// EvidenceUnmeasured indicates missing required telemetry or skipped audits due to absent data.
+	EvidenceUnmeasured EvidenceLevel = "unmeasured"
+)
+
 // Category classifies the optimization or architecture area of an advice finding.
 type Category string
 
@@ -86,13 +98,15 @@ func (l Location) String() string {
 
 // AdviceItem represents a single diagnosis or performance recommendation.
 type AdviceItem struct {
-	Severity                 Severity `json:"severity"`
-	Category                 Category `json:"category"`
-	Location                 Location `json:"location"`
-	Finding                  string   `json:"finding"`
-	ActionableRecommendation string   `json:"actionable_recommendation"`
-	DeviceTimeNanos          int64    `json:"device_time_nanos,omitempty"`
-	ShareOfProfile           float64  `json:"share_of_profile,omitempty"`
+	Severity                 Severity      `json:"severity"`
+	Category                 Category      `json:"category"`
+	EvidenceLevel            EvidenceLevel `json:"evidence_level,omitempty"`
+	Location                 Location      `json:"location"`
+	Finding                  string        `json:"finding"`
+	ActionableRecommendation string        `json:"actionable_recommendation"`
+	NextMeasurement          string        `json:"next_measurement,omitempty"`
+	DeviceTimeNanos          int64         `json:"device_time_nanos,omitempty"`
+	ShareOfProfile           float64       `json:"share_of_profile,omitempty"`
 }
 
 // AdviceReport contains all recommendations resulting from analyzing a capture.
@@ -143,15 +157,26 @@ func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 		item := r.Items[i]
 		header := fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding)
 		if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
-			durMs := float64(item.DeviceTimeNanos) / 1e6
-			header = fmt.Sprintf("### %d. [%s] (%.2f%% of GPU time, %.2f ms) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, durMs, item.Category, item.Finding)
+			if item.DeviceTimeNanos > 0 {
+				durMs := float64(item.DeviceTimeNanos) / 1e6
+				header = fmt.Sprintf("### %d. [%s] (%.2f%% of GPU time, %.2f ms) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, durMs, item.Category, item.Finding)
+			} else {
+				header = fmt.Sprintf("### %d. [%s] (%.2f%% of observed samples) %s: %s\n\n", i+1, item.Severity, item.ShareOfProfile, item.Category, item.Finding)
+			}
 		}
 		sb.WriteString(header)
+		if item.EvidenceLevel != "" {
+			sb.WriteString(fmt.Sprintf("- **Evidence**: %s\n", item.EvidenceLevel))
+		}
 		locStr := item.Location.String()
 		if locStr != "" {
 			sb.WriteString(fmt.Sprintf("- **Location**: %s\n", locStr))
 		}
-		sb.WriteString(fmt.Sprintf("- **Recommendation**: %s\n\n", item.ActionableRecommendation))
+		sb.WriteString(fmt.Sprintf("- **Recommendation**: %s\n", item.ActionableRecommendation))
+		if item.NextMeasurement != "" {
+			sb.WriteString(fmt.Sprintf("- **Next Measurement**: %s\n", item.NextMeasurement))
+		}
+		sb.WriteString("\n")
 	}
 
 	if limit > 0 && len(r.Items) > limit {
@@ -209,8 +234,9 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			}
 
 			report.Items = append(report.Items, AdviceItem{
-				Severity: SeverityWarning,
-				Category: CategoryMemory,
+				Severity:      SeverityWarning,
+				Category:      CategoryMemory,
+				EvidenceLevel: EvidenceObserved,
 				Location: Location{
 					Kernel: rmk.Function,
 					File:   rmk.File,
@@ -218,6 +244,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				},
 				Finding:                  finding,
 				ActionableRecommendation: rec,
+				NextMeasurement:          "verify tensor tile dimensions and 16-byte alignment or inspect SASS for cp.async.bulk.tensor",
 			})
 		}
 
@@ -234,8 +261,9 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			}
 
 			report.Items = append(report.Items, AdviceItem{
-				Severity: SeverityWarning,
-				Category: CategoryCompute,
+				Severity:      SeverityWarning,
+				Category:      CategoryCompute,
+				EvidenceLevel: EvidenceObserved,
 				Location: Location{
 					Kernel: rmk.Function,
 					File:   rmk.File,
@@ -243,6 +271,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				},
 				Finding:                  finding,
 				ActionableRecommendation: "Pad matrix dimensions to multiples of 8 or 16 and use supported precision types (e.g. FP16, BF16, TF32) to enable hardware Tensor Core acceleration.",
+				NextMeasurement:          "inspect SASS for HMMA/IMMA instructions or measure wall-clock latency",
 			})
 		}
 	}
@@ -307,19 +336,22 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			for i, inst := range imadWides {
 				if i >= 3 {
 					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityWarning,
-						Category: CategoryArchitecture,
+						Severity:      SeverityWarning,
+						Category:      CategoryArchitecture,
+						EvidenceLevel: EvidenceSuspected,
 						Location: Location{
 							Kernel: fn.Name,
 						},
 						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback: kernel %q has %d instructions (%s) on target architecture", fn.Name, len(imadWides), inst.Opcode),
-						ActionableRecommendation: "Use vectorized 128-bit memory addressing or hardware TMA descriptors to eliminate scalar 64-bit integer address multiplications.",
+						ActionableRecommendation: "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
+						NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
 					})
 					break
 				}
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryArchitecture,
+					Severity:      SeverityWarning,
+					Category:      CategoryArchitecture,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: fn.Name,
 						PC:     inst.Address,
@@ -327,7 +359,8 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						Line:   inst.SourceLine,
 					},
 					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected at PC 0x%04x", inst.Opcode, inst.Address),
-					ActionableRecommendation: "Use vectorized 128-bit memory addressing or hardware TMA descriptors to eliminate scalar 64-bit integer address multiplications.",
+					ActionableRecommendation: "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
+					NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
 				})
 			}
 
@@ -335,8 +368,9 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			if len(fchkInsts) > 0 {
 				first := fchkInsts[0]
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryArchitectureCompute,
+					Severity:      SeverityWarning,
+					Category:      CategoryArchitectureCompute,
+					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
 						PC:     first.Address,
@@ -345,6 +379,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					},
 					Finding:                  fmt.Sprintf("Kernel %q appears compiled without --use_fast_math: %d IEEE compliance check instructions (FCHK) detected in arithmetic paths", fn.Name, len(fchkInsts)),
 					ActionableRecommendation: "If strict IEEE 754 bit-exact rounding is not required, compile with --use_fast_math to substitute hardware approximations (e.g. MUFU.RCP) and eliminate FCHK branches. If bit-exact zero-drift invariants are required, keep IEEE math and enable --extra-device-vectorization.",
+					NextMeasurement:          "A/B wall-clock timing with --use_fast_math",
 				})
 			}
 
@@ -352,19 +387,22 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 			for i, spill := range spills {
 				if i >= 5 {
 					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityCritical,
-						Category: CategoryRegisterPressure,
+						Severity:      SeverityCritical,
+						Category:      CategoryRegisterPressure,
+						EvidenceLevel: EvidenceObserved,
 						Location: Location{
 							Kernel: fn.Name,
 						},
 						Finding:                  fmt.Sprintf("Kernel %q has %d total register spill instructions to local memory", fn.Name, len(spills)),
 						ActionableRecommendation: "Reduce live variable ranges or specify __launch_bounds__ to eliminate register spills.",
+						NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 					})
 					break
 				}
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityCritical,
-					Category: CategoryRegisterPressure,
+					Severity:      SeverityCritical,
+					Category:      CategoryRegisterPressure,
+					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
 						PC:     spill.Address,
@@ -373,6 +411,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					},
 					Finding:                  fmt.Sprintf("Register spill point detected at PC 0x%04x (%s): memory spilled to local stack", spill.Address, formatInstruction(spill)),
 					ActionableRecommendation: "Reduce register lifetimes or apply __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor) to eliminate spills to slow local memory.",
+					NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 				})
 			}
 
@@ -393,9 +432,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityCritical,
 					Category:                 CategoryRegisterPressure,
+					EvidenceLevel:            EvidenceObserved,
 					Location:                 locGPR,
 					Finding:                  fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q exceeds hardware register limit (255 GPRs), forcing spilling to local memory", peakGPR, fn.Name),
 					ActionableRecommendation: "Reduce register consumption below 255 using compiler flags (-maxrregcount=255 or __launch_bounds__) to prevent excessive local memory spills.",
+					NextMeasurement:          "compile with -maxrregcount=255 and check for spills with cuobjdump -res-usage",
 				})
 			} else if peakGPR > 128 {
 				finding := fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>128 GPRs, capping SM occupancy at <= 16 warps)", peakGPR, fn.Name)
@@ -406,9 +447,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryRegisterPressure,
+					EvidenceLevel:            EvidenceSuspected,
 					Location:                 locGPR,
 					Finding:                  finding,
 					ActionableRecommendation: "Optimize register reuse, hoist expressions, or use __launch_bounds__ to keep register pressure at or below 128 GPRs for higher occupancy." + occupancyCaveat,
+					NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
 				})
 			} else if peakGPR > 64 {
 				finding := fmt.Sprintf("Peak register pressure of %d GPRs in kernel %q crosses occupancy cliff (>64 GPRs, capping SM occupancy at <= 32 warps)", peakGPR, fn.Name)
@@ -419,17 +462,20 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryRegisterPressure,
+					EvidenceLevel:            EvidenceSuspected,
 					Location:                 locGPR,
 					Finding:                  finding,
 					ActionableRecommendation: "Evaluate whether limiting register usage to <= 64 GPRs with __launch_bounds__ raises warp occupancy." + occupancyCaveat,
+					NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
 				})
 			}
 
 			// Peak UGPR
 			if peakUGPR > 63 {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryRegisterPressure,
+					Severity:      SeverityWarning,
+					Category:      CategoryRegisterPressure,
+					EvidenceLevel: EvidenceObserved,
 					Location: Location{
 						Kernel: fn.Name,
 						PC:     peakUGPRAddr,
@@ -438,6 +484,7 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					},
 					Finding:                  fmt.Sprintf("Peak uniform register pressure of %d UGPRs in kernel %q exceeds architecture limit of 63 UGPRs", peakUGPR, fn.Name),
 					ActionableRecommendation: "Reduce warp-uniform temporary variables to prevent uniform register spills.",
+					NextMeasurement:          "inspect SASS for UR spills or compile with fewer uniform variables",
 				})
 			}
 		}
@@ -466,9 +513,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						report.Items = append(report.Items, AdviceItem{
 							Severity:                 SeverityCritical,
 							Category:                 CategoryArchitecture,
+							EvidenceLevel:            EvidenceObserved,
 							Location:                 loc,
 							Finding:                  fmt.Sprintf("Instruction %q (%s) requires architecture %s, but module targets %s", inst.Opcode, inst.Mnemonic, req, target),
 							ActionableRecommendation: fmt.Sprintf("Compile with target architecture >= %s or replace with instructions compatible with %s.", req, target),
+							NextMeasurement:          "recompile targeting supported compute capability",
 						})
 					}
 				}
@@ -502,13 +551,15 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 					for i, sLoad := range scalarLoads {
 						if i >= 3 {
 							report.Items = append(report.Items, AdviceItem{
-								Severity: SeverityWarning,
-								Category: CategoryArchitecture,
+								Severity:      SeverityWarning,
+								Category:      CategoryArchitecture,
+								EvidenceLevel: EvidenceSuspected,
 								Location: Location{
 									Kernel: k.Name,
 								},
 								Finding:                  fmt.Sprintf("Kernel %q has %d scalar global load instructions on target %s", k.Name, len(scalarLoads), target),
-								ActionableRecommendation: "Vectorize memory accesses using 128-bit vector loads (e.g. ld.global.v4) or Tensor Memory Accelerator (TMA) asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures.",
+								ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, vectorize memory accesses using 128-bit vector loads (e.g. ld.global.v4) or, for multidimensional tensor tiles, Tensor Memory Accelerator (TMA) asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures.",
+								NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or A/B wall-clock timing",
 							})
 							break
 						}
@@ -524,9 +575,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						report.Items = append(report.Items, AdviceItem{
 							Severity:                 SeverityWarning,
 							Category:                 CategoryArchitecture,
+							EvidenceLevel:            EvidenceSuspected,
 							Location:                 loc,
 							Finding:                  fmt.Sprintf("Scalar global load (%s) detected on target %s without vectorized or TMA path", sLoad.Opcode, target),
-							ActionableRecommendation: "Upgrade memory loads to 128-bit vector accesses (e.g. ld.global.v4) or use TMA asynchronous copies (cp.async.bulk.tensor) on sm_90+ architectures to maximize memory bandwidth utilization.",
+							ActionableRecommendation: "If memory access is contiguous and 16-byte aligned, upgrade memory loads to 128-bit vector accesses (e.g. ld.global.v4) or, for multidimensional tensor tiles on sm_90+ architectures, use TMA asynchronous copies (cp.async.bulk.tensor) to maximize memory bandwidth utilization.",
+							NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or A/B wall-clock timing",
 						})
 					}
 
@@ -547,9 +600,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 						report.Items = append(report.Items, AdviceItem{
 							Severity:                 SeverityWarning,
 							Category:                 CategoryArchitecture,
+							EvidenceLevel:            EvidenceSuspected,
 							Location:                 loc,
 							Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
-							ActionableRecommendation: "Use vectorized pointer indexing or TMA multidimensional tensor descriptors to eliminate scalar 64-bit integer address multiplications.",
+							ActionableRecommendation: "If indexing into contiguous arrays or structured tensors, use vectorized pointer indexing or TMA multidimensional tensor descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
+							NextMeasurement:          "A/B wall-clock timing",
 						})
 					}
 				}
@@ -577,10 +632,11 @@ func AnalyzeCapture(cap *cudacapture.Capture) (*AdviceReport, error) {
 
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
-	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime)
+	hasTiming := hasProfileDurationOrTime(cap)
+	auditKernelFamilyDominance(cap, report, kernelTimes, totalTime, hasTiming)
 
 	// Finalize device times and rank findings by device time
-	finalizeAndRankFindings(report, kernelTimes, totalTime)
+	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
 
 	return report, nil
 }
@@ -1129,8 +1185,10 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 		report.Items = append(report.Items, AdviceItem{
 			Severity:                 SeverityInfo,
 			Category:                 CategoryArchitecture,
+			EvidenceLevel:            EvidenceUnmeasured,
 			Finding:                  "Launch geometry labels ('grid', 'block') are absent in this profile (requires profiling with updated cupti_agent); launch geometry and SM occupancy audits skipped.",
 			ActionableRecommendation: "Re-capture the profile using an updated libcupti_agent that serializes kernel launch dimensions.",
+			NextMeasurement:          "launch geometry attributes ('grid', 'block') in profile samples",
 		})
 		return
 	}
@@ -1142,8 +1200,10 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 		report.Items = append(report.Items, AdviceItem{
 			Severity:                 SeverityInfo,
 			Category:                 CategoryArchitecture,
+			EvidenceLevel:            EvidenceUnmeasured,
 			Finding:                  "Device architecture and SM count metadata are not recorded in this capture, and no local CUDA device is available; theoretical SM occupancy and SM grid starvation audits were skipped.",
 			ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json) or run advise on a host equipped with the target GPU architecture.",
+			NextMeasurement:          "capture-provenance.json with device compute capability and SM count",
 		})
 	}
 
@@ -1189,9 +1249,11 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitectureCompute,
+					EvidenceLevel:            EvidenceSuspected,
 					Location:                 launch.Location,
 					Finding:                  finding,
 					ActionableRecommendation: "Restructure thread block geometry to >=128 threads (4 warps) to enable warp-level latency hiding." + occupancyCaveat,
+					NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
 				})
 			}
 		}
@@ -1210,9 +1272,11 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitectureCompute,
+					EvidenceLevel:            EvidenceSuspected,
 					Location:                 launch.Location,
 					Finding:                  fmt.Sprintf("Multi-warp thread block underutilization in row reduction: kernel %q launched with %d threads/block (>= 4 warps) executes sequential chunk reductions with idle warps during accumulation", launch.Kernel, launch.BlockThreads),
 					ActionableRecommendation: "Group multiple rows per thread block (e.g. 4 rows per 128-thread block so warp i computes row 4k+i) to maintain 100% warp utilization during chunk accumulation." + occupancyCaveat,
+					NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
 				})
 			}
 		}
@@ -1235,9 +1299,11 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *AdviceReport) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitecture,
+					EvidenceLevel:            EvidenceSuspected,
 					Location:                 launch.Location,
 					Finding:                  fmt.Sprintf("Grid size leaves physical SMs completely idle: kernel %q launched with %d grid blocks on a %d-SM GPU leaves %d%% of SMs idle%s", launch.Kernel, launch.GridBlocks, smCount, idlePct, provSuffix),
 					ActionableRecommendation: "Decompose grid using 2D tiling, split-K reduction, or sub-grid pipelining (griddepcontrol).",
+					NextMeasurement:          "A/B wall-clock timing with increased grid blocks",
 				})
 			}
 		}
@@ -1378,12 +1444,14 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 		report.Items = append(report.Items, AdviceItem{
 			Severity:        SeverityCritical,
 			Category:        CategoryArchitectureCompute,
+			EvidenceLevel:   EvidenceObserved,
 			DeviceTimeNanos: int64(singleNs),
 			Location: Location{
 				Kernel: kernel,
 			},
 			Finding:                  finding,
 			ActionableRecommendation: "Parallelize these kernels across threads and blocks, or fold their work into an adjacent kernel: a single-thread launch occupies one lane of one warp on one SM and leaves the rest of the device idle for its whole duration.",
+			NextMeasurement:          "A/B wall-clock timing with parallelized kernel",
 		})
 	}
 
@@ -1396,6 +1464,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 		report.Items = append(report.Items, AdviceItem{
 			Severity:        SeverityWarning,
 			Category:        CategoryArchitectureCompute,
+			EvidenceLevel:   EvidenceSuspected,
 			DeviceTimeNanos: int64(subWarpNs),
 			Location: Location{
 				Kernel: kernel,
@@ -1403,6 +1472,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *AdviceReport
 			Finding: fmt.Sprintf("Launch geometry cannot fill one warp per SM: %d of %d captured launches (%.1f%%) ran fewer than %d total threads (%d SMs x %d threads per warp), consuming %.2f ms of device time; worst offenders: %s%s",
 				subWarpCount, geometryLaunches, float64(subWarpCount)*100.0/float64(geometryLaunches), warpPerSMThreads, smCount, warpSize, float64(subWarpNs)/1e6, formatUnderSubscribed(subWarp), provSuffix),
 			ActionableRecommendation: fmt.Sprintf("Grow the grid so at least one warp is resident per SM (>= %d total threads), or batch the independent launches of this kernel into a single dispatch.", warpPerSMThreads),
+			NextMeasurement:          "A/B wall-clock timing with increased grid size",
 		})
 	}
 }
@@ -1438,24 +1508,28 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
 		if k.FrameSizeBytes > 0 {
 			report.Items = append(report.Items, AdviceItem{
-				Severity: SeverityCritical,
-				Category: CategoryRegisterPressure,
-				Location: Location{Kernel: k.Name},
+				Severity:      SeverityCritical,
+				Category:      CategoryRegisterPressure,
+				EvidenceLevel: EvidenceObserved,
+				Location:      Location{Kernel: k.Name},
 				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
 					k.Name, k.FrameSizeBytes),
 				ActionableRecommendation: "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills.",
+				NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
 			})
 		}
 
 		// 2. Compiler register limit (EIATTR_MAXREG_COUNT)
 		if k.MaxRegCount > 0 && k.Registers >= k.MaxRegCount {
 			report.Items = append(report.Items, AdviceItem{
-				Severity: SeverityWarning,
-				Category: CategoryRegisterPressure,
-				Location: Location{Kernel: k.Name},
+				Severity:      SeverityWarning,
+				Category:      CategoryRegisterPressure,
+				EvidenceLevel: EvidenceObserved,
+				Location:      Location{Kernel: k.Name},
 				Finding: fmt.Sprintf("Kernel %q reached the compiler register limit of %d GPRs (EIATTR_MAXREG_COUNT), which may force register spilling or sub-optimal instruction scheduling",
 					k.Name, k.MaxRegCount),
 				ActionableRecommendation: "Raise compiler register budget (-maxrregcount) or restructure compute loops to reduce register demand.",
+				NextMeasurement:          "inspect SASS for spills or verify -maxrregcount with cuobjdump -res-usage",
 			})
 		}
 
@@ -1476,9 +1550,6 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 			}
 
 			severity := SeverityWarning
-			if rep.Occupancy <= 0.25 {
-				severity = SeverityCritical
-			}
 
 			finding := fmt.Sprintf("Microarchitecture theoretical occupancy on %s for kernel %q is %.1f%% (%d/%d active warps, %d blocks/SM) constrained by %s (limits: %d blocks from registers, %d from smem, %d from block count, %d from block size)",
 				dev.Architecture, k.Name, rep.Occupancy*100, rep.TheoreticalWarps, rep.MaxWarps, rep.ActiveBlocks, rep.LimitingFactor, rep.RegLimit, rep.SmemLimit, rep.BlockLimit, rep.WarpLimit)
@@ -1509,9 +1580,11 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *AdviceReport,
 			report.Items = append(report.Items, AdviceItem{
 				Severity:                 severity,
 				Category:                 CategoryRegisterPressure,
+				EvidenceLevel:            EvidenceSuspected,
 				Location:                 Location{Kernel: k.Name},
 				Finding:                  finding,
 				ActionableRecommendation: rec,
+				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
 			})
 		}
 	}
@@ -1943,8 +2016,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 				locKey := fmt.Sprintf("%s:0x%x", kName, c.pc)
 				reportedLocations[locKey] = true
 				report.Items = append(report.Items, AdviceItem{
-					Severity: c.sev,
-					Category: CategoryMemory,
+					Severity:      c.sev,
+					Category:      CategoryMemory,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
 						PC:     c.pc,
@@ -1953,6 +2027,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					},
 					Finding:                  fmt.Sprintf("Memory stalls dominate this load: %s is %.1f%% of stalls (over 35%%) on %s at PC 0x%04x in kernel %q", memSource, c.ratio*100, c.opcode, c.pc, kName),
 					ActionableRecommendation: "Check whether adjacent lane IDs access contiguous bytes within a single 128B cache line; if they already do, the stall is memory latency or bandwidth rather than transaction count, and the fix is reuse or a wider access, not realignment.",
+					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
 			}
 			if len(memCands) > 3 {
@@ -1965,13 +2040,15 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					}
 				}
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryMemory,
+					Severity:      SeverityWarning,
+					Category:      CategoryMemory,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
 					},
 					Finding:                  fmt.Sprintf("Memory stalls dominate %d additional load instructions in kernel %q (up to %.1f%% of stalls, %d total stall cycles)", len(memCands)-3, kName, maxRatio*100, remainingStalls),
-					ActionableRecommendation: "Vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency.",
+					ActionableRecommendation: "If memory access is contiguous and aligned, vectorize memory loads to 128-bit (uint4/v4), unroll loops, and pipeline global memory loads across iterations to overlap transfer latency.",
+					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
 			}
 
@@ -1983,8 +2060,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 			for _, c := range sbCands[:sbLimit] {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: c.sev,
-					Category: CategoryMemoryCompute,
+					Severity:      c.sev,
+					Category:      CategoryMemoryCompute,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
 						PC:     c.pc,
@@ -1993,6 +2071,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					},
 					Finding:                  fmt.Sprintf("Register scoreboard latency stall: stall_scoreboard is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
 					ActionableRecommendation: "Instruction is stalled waiting for register data from a pending memory load or high-latency operation. Increase instruction-level parallelism (ILP), hoist memory loads further ahead of first use, or use double buffering / software pipelining.",
+					NextMeasurement:          "stall_scoreboard sample reduction or A/B wall-clock timing",
 				})
 			}
 
@@ -2004,8 +2083,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 			for _, c := range brCands[:brLimit] {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: c.sev,
-					Category: CategoryArchitectureCompute,
+					Severity:      c.sev,
+					Category:      CategoryArchitectureCompute,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
 						PC:     c.pc,
@@ -2014,6 +2094,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					},
 					Finding:                  fmt.Sprintf("Warp branch divergence: stall_branch is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
 					ActionableRecommendation: "Warp execution path divergence detected. Replace conditional branches with branchless predicated selects (e.g. SELP / fmaxf) or ensure branch conditions are uniform across threads in each warp.",
+					NextMeasurement:          "sm__branch_targets_threads_divergent.sum or A/B wall-clock timing",
 				})
 			}
 
@@ -2025,8 +2106,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 			}
 			for _, c := range wtCands[:wtLimit] {
 				report.Items = append(report.Items, AdviceItem{
-					Severity: c.sev,
-					Category: CategoryArchitectureDispatch,
+					Severity:      c.sev,
+					Category:      CategoryArchitectureDispatch,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: kName,
 						PC:     c.pc,
@@ -2035,6 +2117,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					},
 					Finding:                  fmt.Sprintf("Barrier synchronization latency: stall_wait is %.1f%% of stalls on %s at PC 0x%04x in kernel %q (%d stall cycles)", c.ratio*100, c.opcode, c.pc, kName, c.stalls),
 					ActionableRecommendation: "Threads are stalled waiting at a block barrier (__syncthreads / BAR.SYNC). Check for workload imbalance across warps before the barrier, or reduce barrier synchronization frequency.",
+					NextMeasurement:          "A/B wall-clock timing with reduced barrier synchronization",
 				})
 			}
 		}
@@ -2057,8 +2140,9 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					finding += fmt.Sprintf(" (reason: %s)", rmk.Reason)
 				}
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryMemory,
+					Severity:      SeverityWarning,
+					Category:      CategoryMemory,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: rmk.Function,
 						File:   rmk.File,
@@ -2066,6 +2150,7 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 					},
 					Finding:                  finding,
 					ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+					NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 				})
 			}
 		}
@@ -2096,13 +2181,15 @@ func auditUncoalescedMemory(cap *cudacapture.Capture, report *AdviceReport) {
 						finding = fmt.Sprintf("Threads within the warp generate strided or disparate 128-byte cache line requests, generating up to 32 cache transactions per instruction (stride %s in kernel %q)", strideVal, kName)
 					}
 					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityWarning,
-						Category: CategoryMemory,
+						Severity:      SeverityWarning,
+						Category:      CategoryMemory,
+						EvidenceLevel: EvidenceSuspected,
 						Location: Location{
 							Kernel: kName,
 						},
 						Finding:                  finding,
 						ActionableRecommendation: "Align and coalesce thread access so adjacent lane IDs access contiguous bytes within a single 128B cache line.",
+						NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
 					})
 				}
 			}
@@ -2430,13 +2517,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						if !seenDutyUnmeasured[streamID] {
 							seenDutyUnmeasured[streamID] = true
 							report.Items = append(report.Items, AdviceItem{
-								Severity: SeverityInfo,
-								Category: CategoryArchitectureDispatch,
+								Severity:      SeverityInfo,
+								Category:      CategoryArchitectureDispatch,
+								EvidenceLevel: EvidenceUnmeasured,
 								Location: Location{
 									Kernel: kernelSeq[0].Name,
 								},
 								Finding:                  fmt.Sprintf("Short-kernel dispatch sequence with unmeasured GPU duty cycle: %s, but this capture carries no activity start/end timestamps, so neither device idle time nor host submission was measured", detail),
 								ActionableRecommendation: "Re-capture with activity timestamps and host launch API records so duty cycle and submission latency can be measured before restructuring dispatch.",
+								NextMeasurement:          "activity start/end timestamps in profile or capture-status.json",
 							})
 						}
 					case duty >= lowDutyCyclePct:
@@ -2447,26 +2536,31 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 						sev := SeverityInfo
 						finding := fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%); host launch timestamps are absent from this capture, so the cause of the idle time was not measured", detail, duty, lowDutyCyclePct)
 						rec := "Capture host launch API records (correlation-matched) to test whether host submission is behind the device before restructuring dispatch."
-						switch {
-						case measured > 0 && float64(behind) >= hostBehindFraction*float64(measured):
+						evLevel := EvidenceSuspected
+						if measured == 0 {
+							evLevel = EvidenceUnmeasured
+						} else if float64(behind) >= hostBehindFraction*float64(measured) {
 							sev = SeverityWarning
+							evLevel = EvidenceObserved
 							finding = fmt.Sprintf("Driver submission overhead dominates short kernel execution: %s, its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), and %d of %d measured launches (%.1f%%) began only after the preceding kernel had already finished", detail, duty, lowDutyCyclePct, behind, measured, float64(behind)*100.0/float64(measured))
 							rec = "Capture sequence into a CUDA Graph (cudaGraphLaunch) to eliminate host submission latency."
 							if graphReplays > 0 {
 								rec = "This sequence already runs as a CUDA graph replay, so submission latency is not removable by graph capture; look for host work between replays."
 							}
-						case measured > 0:
+						} else if measured > 0 {
 							finding = fmt.Sprintf("Low GPU duty cycle across a short-kernel sequence: %s and its kernels occupy only %.1f%% of the sequence device span (< %.0f%%), but only %d of %d measured launches began after the preceding kernel had finished, so the host was not behind the device for most of the sequence", detail, duty, lowDutyCyclePct, behind, measured)
 							rec = "Idle device time here is not explained by host launch submission; look for stream dependencies, synchronization, or concurrent work on other streams."
 						}
 						report.Items = append(report.Items, AdviceItem{
-							Severity: sev,
-							Category: CategoryArchitectureDispatch,
+							Severity:                 sev,
+							Category:                 CategoryArchitectureDispatch,
+							EvidenceLevel:            evLevel,
 							Location: Location{
 								Kernel: kernelSeq[0].Name,
 							},
 							Finding:                  finding,
 							ActionableRecommendation: rec,
+							NextMeasurement:          "host launch API records (cudaLaunchKernel) with correlation timestamps or A/B wall-clock timing",
 						})
 					}
 				}
@@ -2519,13 +2613,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 
 		if maxConsecutive >= 50 && maxKernel != "" {
 			report.Items = append(report.Items, AdviceItem{
-				Severity: SeverityWarning,
-				Category: CategoryArchitectureDispatch,
+				Severity:      SeverityWarning,
+				Category:      CategoryArchitectureDispatch,
+				EvidenceLevel: EvidenceObserved,
 				Location: Location{
 					Kernel: maxKernel,
 				},
 				Finding:                  fmt.Sprintf("Repeated fine-grained host loop dispatch: kernel %q was launched %d consecutive times on stream %d. This indicates an unbatched host-side token or row loop.", maxKernel, maxConsecutive, streamID),
 				ActionableRecommendation: "Restructure caller to batch loop iterations into a single multi-row or multi-token cooperative grid launch, or capture the host loop into a CUDA Graph.",
+				NextMeasurement:          "A/B wall-clock timing with batched dispatches or CUDA Graph",
 			})
 		}
 
@@ -2581,13 +2677,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 				rec := fmt.Sprintf("Fuse into a single kernel (e.g. fused %s + %s) to eliminate intermediate DRAM round-trips.", cleanName1, cleanName2)
 
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryMemoryCompute,
+					Severity:      SeverityWarning,
+					Category:      CategoryMemoryCompute,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
 					Finding:                  finding,
 					ActionableRecommendation: rec,
+					NextMeasurement:          "A/B wall-clock timing with fused kernel",
 				})
 			}
 
@@ -2605,13 +2703,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 				rec := fmt.Sprintf("Fuse normalization and quantization into a single kernel (e.g. fused %s_%s) that normalizes in shared memory/registers and directly stores quantized blocks to eliminate %d DRAM round-trips.", cleanName1, cleanName2, ps.count)
 
 				report.Items = append(report.Items, AdviceItem{
-					Severity: SeverityWarning,
-					Category: CategoryMemoryCompute,
+					Severity:      SeverityWarning,
+					Category:      CategoryMemoryCompute,
+					EvidenceLevel: EvidenceSuspected,
 					Location: Location{
 						Kernel: fmt.Sprintf("%s -> %s", ev1.Name, ev2.Name),
 					},
 					Finding:                  finding,
 					ActionableRecommendation: rec,
+					NextMeasurement:          "A/B wall-clock timing with fused kernel",
 				})
 			}
 
@@ -2637,13 +2737,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					rec := fmt.Sprintf("Fuse into a paired dual-GEMV dispatch (e.g. fused %s + %s) that loads the activation vector into shared memory once and accumulates dual projection outputs.", cleanName1, cleanName2)
 
 					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityInfo,
-						Category: CategoryMemoryCompute,
+						Severity:      SeverityInfo,
+						Category:      CategoryMemoryCompute,
+						EvidenceLevel: EvidenceSuspected,
 						Location: Location{
 							Kernel: fmt.Sprintf("%s + %s", ev1.Name, ev2.Name),
 						},
 						Finding:                  finding,
 						ActionableRecommendation: rec,
+						NextMeasurement:          "A/B wall-clock timing with paired GEMV dispatch",
 					})
 				}
 			}
@@ -2663,13 +2765,15 @@ func auditStreamKernelSequences(cap *cudacapture.Capture, report *AdviceReport) 
 					rec := fmt.Sprintf("Fuse %s and %s into a single kernel to keep intermediate activations in registers/shared memory, eliminating %d kernel launches and DRAM traffic.", cleanName1, cleanName2, ps.count)
 
 					report.Items = append(report.Items, AdviceItem{
-						Severity: SeverityWarning,
-						Category: CategoryMemoryCompute,
+						Severity:      SeverityWarning,
+						Category:      CategoryMemoryCompute,
+						EvidenceLevel: EvidenceSuspected,
 						Location: Location{
 							Kernel: fmt.Sprintf("%s -> %s", cleanName1, cleanName2),
 						},
 						Finding:                  finding,
 						ActionableRecommendation: rec,
+						NextMeasurement:          "A/B wall-clock timing with fused kernel",
 					})
 				}
 			}
@@ -3016,20 +3120,45 @@ func auditCaptureStatus(cap *cudacapture.Capture, report *AdviceReport) {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityCritical,
 					Category:                 CategoryArchitecture,
+					EvidenceLevel:            EvidenceObserved,
 					Finding:                  fmt.Sprintf("Incomplete or failed profile capture: %s", errMsg),
 					ActionableRecommendation: "Ensure target workload executes cleanly and does not exceed journal record capacity before analyzing performance.",
+					NextMeasurement:          "Re-run capture with increased buffer size or filtered kernel scope to confirm clean execution",
 				})
 			}
 			if dropped, ok := status["dropped_records"].(float64); ok && uint64(dropped) > 0 {
 				report.Items = append(report.Items, AdviceItem{
 					Severity:                 SeverityWarning,
 					Category:                 CategoryArchitecture,
+					EvidenceLevel:            EvidenceObserved,
 					Finding:                  fmt.Sprintf("Lossy capture: %d records dropped due to buffer pressure", uint64(dropped)),
 					ActionableRecommendation: "Whole-run totals and aggregate launch counts are incomplete (a lower bound). Increase buffer pool or reduce profiling overhead to capture a complete trace.",
+					NextMeasurement:          "Increase trace buffer pool capacity and re-verify zero dropped records",
 				})
 			}
 		}
 	}
+}
+
+func hasProfileDurationOrTime(cap *cudacapture.Capture) bool {
+	if cap == nil {
+		return false
+	}
+	if parseDurationNanosFromCapture(cap) > 0 {
+		return true
+	}
+	if cap.Profile != nil {
+		for i, vt := range cap.Profile.SampleType {
+			if vt.Type == "kernel_time" || vt.Type == "gpu_time" {
+				for _, s := range cap.Profile.Sample {
+					if i < len(s.Value) && s.Value[i] > 0 {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func parseDurationNanosFromCapture(cap *cudacapture.Capture) int64 {
@@ -3164,7 +3293,7 @@ func dominanceRecommendation(graphReplays int) string {
 	return "Restructure per-row dispatches into batched GEMM / GEMV operations or capture the entire layer sequence into a CUDA Graph."
 }
 
-func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
+func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
 	if totalTime <= 0 || len(kernelTimes) == 0 {
 		return
 	}
@@ -3198,19 +3327,40 @@ func auditKernelFamilyDominance(cap *cudacapture.Capture, report *AdviceReport, 
 		pct := float64(fTime) / float64(totalTime) * 100.0
 		cnt := familyCounts[family]
 		if pct >= 50.0 && cnt >= 10 {
-			fTimeMs := float64(fTime) / 1e6
-			report.Items = append(report.Items, AdviceItem{
-				Severity:        SeverityCritical,
-				Category:        CategoryArchitecture,
-				DeviceTimeNanos: fTime,
-				ShareOfProfile:  pct,
-				Location: Location{
-					Kernel: family,
-				},
-				Finding: fmt.Sprintf("Kernel family %q dominates GPU execution, consuming %.1f%% of total device time (%.2f ms across %d dispatches). Fine-grained per-row dispatches incur massive submission and launch overhead.",
-					family, pct, fTimeMs, cnt),
-				ActionableRecommendation: dominanceRecommendation(graphReplays),
-			})
+			var item AdviceItem
+			if hasTiming {
+				fTimeMs := float64(fTime) / 1e6
+				item = AdviceItem{
+					Severity:        SeverityCritical,
+					Category:        CategoryArchitecture,
+					EvidenceLevel:   EvidenceObserved,
+					DeviceTimeNanos: fTime,
+					ShareOfProfile:  pct,
+					Location: Location{
+						Kernel: family,
+					},
+					Finding: fmt.Sprintf("Kernel family %q dominates GPU execution, consuming %.1f%% of total device time (%.2f ms across %d dispatches). Fine-grained per-row dispatches incur massive submission and launch overhead.",
+						family, pct, fTimeMs, cnt),
+					ActionableRecommendation: dominanceRecommendation(graphReplays),
+					NextMeasurement:          "Measure wall-clock latency improvement with CUDA graph or batched GEMM/GEMV",
+				}
+			} else {
+				item = AdviceItem{
+					Severity:        SeverityCritical,
+					Category:        CategoryArchitecture,
+					EvidenceLevel:   EvidenceObserved,
+					DeviceTimeNanos: 0,
+					ShareOfProfile:  pct,
+					Location: Location{
+						Kernel: family,
+					},
+					Finding: fmt.Sprintf("Kernel family %q dominates GPU execution, consuming %.1f%% of observed samples (%d samples across %d dispatches). Fine-grained per-row dispatches incur massive submission and launch overhead.",
+						family, pct, fTime, cnt),
+					ActionableRecommendation: dominanceRecommendation(graphReplays),
+					NextMeasurement:          "Measure wall-clock latency improvement with CUDA graph or batched GEMM/GEMV",
+				}
+			}
+			report.Items = append(report.Items, item)
 		}
 	}
 }
@@ -3229,16 +3379,31 @@ func severityRank(s Severity) int {
 }
 
 func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64, totalTime int64) {
+	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, true)
+}
+
+func finalizeAndRankFindingsWithTiming(report *AdviceReport, kernelTimes map[string]int64, totalTime int64, hasTiming bool) {
 	if report == nil || len(report.Items) == 0 {
 		return
 	}
 	for i := range report.Items {
 		item := &report.Items[i]
-		if item.DeviceTimeNanos == 0 && item.Location.Kernel != "" {
-			item.DeviceTimeNanos = kernelTimes[item.Location.Kernel]
-		}
-		if totalTime > 0 && item.DeviceTimeNanos > 0 && item.ShareOfProfile == 0 {
-			item.ShareOfProfile = float64(item.DeviceTimeNanos) / float64(totalTime) * 100.0
+		if hasTiming {
+			if item.DeviceTimeNanos == 0 && item.Location.Kernel != "" {
+				item.DeviceTimeNanos = kernelTimes[item.Location.Kernel]
+			}
+			if totalTime > 0 && item.DeviceTimeNanos > 0 && item.ShareOfProfile == 0 {
+				item.ShareOfProfile = float64(item.DeviceTimeNanos) / float64(totalTime) * 100.0
+			}
+		} else {
+			// Pure PC-sample or sample profile: do not assign sample counts to DeviceTimeNanos!
+			// DeviceTimeNanos remains 0.
+			if totalTime > 0 && item.ShareOfProfile == 0 && item.Location.Kernel != "" {
+				kSamples := kernelTimes[item.Location.Kernel]
+				if kSamples > 0 {
+					item.ShareOfProfile = float64(kSamples) / float64(totalTime) * 100.0
+				}
+			}
 		}
 	}
 
@@ -3249,6 +3414,9 @@ func finalizeAndRankFindings(report *AdviceReport, kernelTimes map[string]int64,
 		}
 		if a.DeviceTimeNanos != b.DeviceTimeNanos {
 			return a.DeviceTimeNanos > b.DeviceTimeNanos
+		}
+		if a.ShareOfProfile != b.ShareOfProfile {
+			return a.ShareOfProfile > b.ShareOfProfile
 		}
 		if a.Category != b.Category {
 			return a.Category < b.Category

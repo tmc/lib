@@ -2,10 +2,11 @@ package main
 
 import (
 	"bytes"
-	"github.com/tmc/lib/nvidia/internal/cudaview"
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudaview"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
@@ -130,5 +131,124 @@ func TestBuildKernelSummaryEmptyCaptures(t *testing.T) {
 	}
 	if profileOrNil(nil) != nil {
 		t.Fatal("profileOrNil(nil) returned a profile")
+	}
+}
+
+func TestRenderDiffHTMLPCSamples(t *testing.T) {
+	data := &cudaview.DiffViewData{
+		Title:         "PC samples diff",
+		BaseCapture:   "base.pprof",
+		TargetCapture: "target.pprof",
+		Kernels:       []string{"kernel"},
+		ActiveKernel:  "kernel",
+		Summary: cudaview.DiffSummary{
+			HasSampleMetric:    true,
+			BaseSamples:        1000,
+			TargetSamples:      800,
+			SampleDelta:        -200,
+			SampleShiftSummary: "-200 (200 fewer PC samples)",
+			BaseSampleShare:    60.0,
+			TargetSampleShare:  40.0,
+			ShareShift:         -20.0,
+		},
+	}
+	var buf bytes.Buffer
+	if err := cudaview.RenderDiff(&buf, data); err != nil {
+		t.Fatalf("RenderDiff: %v", err)
+	}
+	html := buf.String()
+
+	for _, want := range []string{
+		"Sample Count Shift:",
+		"1000 → 800",
+		"-200 (200 fewer PC samples)",
+		"60.0% → 40.0%",
+		"-20.0 pp",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing expected PC sample string %q", want)
+		}
+	}
+
+	for _, forbidden := range []string{
+		"Runtime:",
+		"speedup",
+	} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("rendered HTML erroneously contains %q when comparing PC samples", forbidden)
+		}
+	}
+}
+
+func TestRenderDiffHTMLDuration(t *testing.T) {
+	data := &cudaview.DiffViewData{
+		Title:         "Duration diff",
+		BaseCapture:   "base.pprof",
+		TargetCapture: "target.pprof",
+		Kernels:       []string{"kernel"},
+		ActiveKernel:  "kernel",
+		Summary: cudaview.DiffSummary{
+			HasDurationMetric: true,
+			BaseRuntimeUs:     100.0,
+			TargetRuntimeUs:   50.0,
+			DurationDeltaUs:   -50.0,
+			Speedup:           2.0,
+		},
+	}
+	var buf bytes.Buffer
+	if err := cudaview.RenderDiff(&buf, data); err != nil {
+		t.Fatalf("RenderDiff: %v", err)
+	}
+	html := buf.String()
+
+	for _, want := range []string{
+		"Runtime:",
+		"100.00µs → 50.00µs",
+		"2.00× speedup",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing expected duration string %q", want)
+		}
+	}
+}
+
+func TestBuildDiffViewDataPCSamples(t *testing.T) {
+	basePath := createMultiKernelCapture(t, "pc_samples", "count", map[string]int64{"gemv": 500})
+	targetPath := createMultiKernelCapture(t, "pc_samples", "count", map[string]int64{"gemv": 400})
+
+	data, err := buildDiffViewData(basePath, targetPath, "", cudacapture.Limits{})
+	if err != nil {
+		t.Fatalf("buildDiffViewData: %v", err)
+	}
+
+	if !data.Summary.HasSampleMetric {
+		t.Error("expected HasSampleMetric = true")
+	}
+	if data.Summary.HasDurationMetric {
+		t.Error("expected HasDurationMetric = false for PC samples")
+	}
+	if data.Summary.BaseSamples != 500 {
+		t.Errorf("BaseSamples = %d, want 500", data.Summary.BaseSamples)
+	}
+	if data.Summary.TargetSamples != 400 {
+		t.Errorf("TargetSamples = %d, want 400", data.Summary.TargetSamples)
+	}
+	if data.Summary.SampleDelta != -100 {
+		t.Errorf("SampleDelta = %d, want -100", data.Summary.SampleDelta)
+	}
+
+	var buf bytes.Buffer
+	if err := cudaview.RenderDiff(&buf, data); err != nil {
+		t.Fatalf("RenderDiff: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Sample Count Shift:") {
+		t.Errorf("missing Sample Count Shift in rendered HTML: %s", out)
+	}
+	if strings.Contains(out, "Runtime:") {
+		t.Errorf("rendered HTML erroneously contains Runtime: for PC samples: %s", out)
+	}
+	if strings.Contains(out, "speedup") {
+		t.Errorf("rendered HTML erroneously contains speedup for PC samples: %s", out)
 	}
 }
