@@ -1,0 +1,1 @@
+commit=ee7f41fcf2d063260fb136afb1dc0b8ee3856ba8; date=2026-09-16T14:09:37-07:00; agent=antigravity; model=gemini; tty=/dev/ttys497; pid=75126; ITERM_SESSION_ID=. Validation: TestCUDAExpertsQ81GatherDifferential passed bit-exact across all adversary routings. TestCUDAPrefillGather/2048 passed with canonical digest 3c190c73110cec7aed9f22916a1c84216eb7338071040846cc1d0bd992456aa5.
