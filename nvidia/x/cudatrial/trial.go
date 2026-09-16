@@ -202,16 +202,23 @@ func FormatSummary(receipts []Receipt) string {
 	sort.Strings(names)
 
 	var sb strings.Builder
-	sb.WriteString("ARM                  ROUNDS  COMPLETE  MEAN_DUR      MEDIAN_DUR    DIGESTS\n")
+	sb.WriteString("ARM                  ROUNDS  COMPLETE  CLOCK  MEAN_DUR      MEDIAN_DUR    DIGESTS\n")
 	for _, name := range names {
 		rs := byArm[name]
 		completeCount := 0
 		var totalDur time.Duration
 		var durs []time.Duration
 		digestSet := make(map[string]bool)
+		hasDevice := false
+		hasWall := false
 		for _, r := range rs {
 			if r.Complete {
 				completeCount++
+			}
+			if r.DeviceDuration > 0 {
+				hasDevice = true
+			} else {
+				hasWall = true
 			}
 			d := r.Duration()
 			totalDur += d
@@ -220,6 +227,13 @@ func FormatSummary(receipts []Receipt) string {
 				digestSet[r.Digest] = true
 			}
 		}
+		clock := "wall"
+		if hasDevice && hasWall {
+			clock = "mix"
+		} else if hasDevice {
+			clock = "dev"
+		}
+
 		var meanDur time.Duration
 		var medianDur time.Duration
 		if len(durs) > 0 {
@@ -238,10 +252,11 @@ func FormatSummary(receipts []Receipt) string {
 			digestsStr = digestsStr[:21] + "..."
 		}
 
-		fmt.Fprintf(&sb, "%-20s %-7d %-9s %-13s %-13s %s\n",
+		fmt.Fprintf(&sb, "%-20s %-7d %-9s %-6s %-13s %-13s %s\n",
 			name,
 			len(rs),
 			fmt.Sprintf("%d/%d", completeCount, len(rs)),
+			clock,
 			meanDur.Round(time.Microsecond),
 			medianDur.Round(time.Microsecond),
 			digestsStr,

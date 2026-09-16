@@ -303,7 +303,7 @@ func TestDurationPreferenceAndSummary(t *testing.T) {
 	}
 
 	summary := FormatSummary(receipts)
-	if !strings.Contains(summary, "MEDIAN_DUR") || !strings.Contains(summary, "a_arm") || !strings.Contains(summary, "b_arm") {
+	if !strings.Contains(summary, "MEDIAN_DUR") || !strings.Contains(summary, "CLOCK") || !strings.Contains(summary, "a_arm") || !strings.Contains(summary, "b_arm") {
 		t.Errorf("summary missing headers or arms:\n%s", summary)
 	}
 
