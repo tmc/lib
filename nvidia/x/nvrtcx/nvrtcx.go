@@ -14,6 +14,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 )
 
 // CompiledModule represents the compiled output of an NVRTC JIT compilation.
@@ -308,6 +309,60 @@ func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.
 		return 0, fmt.Errorf("nvrtcx: output %d is unavailable", kind)
 	}
 	return selected.Load(dev)
+}
+
+// LoadModule loads the compiled module into the CUDA driver on dev and wraps it
+// in a managed Module. If wrapping fails, it unloads the driver module. If
+// unloading also fails, the error implements io.Closer for a cleanup retry.
+func (cm *CompiledModule) LoadModule(dev *cuda.Device) (*cuda.Module, error) {
+	raw, err := cm.Load(dev)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := cuda.OwnModule(dev, raw)
+	if err == nil {
+		return mod, nil
+	}
+	_, err = finishModuleLoad(raw, err, func() error {
+		return dev.WithContext(raw.Unload)
+	})
+	return nil, err
+}
+
+// LoadOutputModule loads one selected artifact into the CUDA driver on dev and
+// wraps it in a managed Module. If wrapping fails, it unloads the driver module.
+// If unloading also fails, the error implements io.Closer for a cleanup retry.
+func (cm *CompiledModule) LoadOutputModule(dev *cuda.Device, kind OutputKind) (*cuda.Module, error) {
+	raw, err := cm.LoadOutput(dev, kind)
+	if err != nil {
+		return nil, err
+	}
+	mod, err := cuda.OwnModule(dev, raw)
+	if err == nil {
+		return mod, nil
+	}
+	_, err = finishModuleLoad(raw, err, func() error {
+		return dev.WithContext(raw.Unload)
+	})
+	return nil, err
+}
+
+// Bind loads the compiled module onto dev and binds its exported kernels to
+// fields in kernels using [cudalaunch.BindOwned]. If binding fails, the loaded
+// module is closed before returning the error. If closing fails, Bind returns
+// both the module and the error so the caller can retry Close.
+func (cm *CompiledModule) Bind(dev *cuda.Device, kernels any) (*cuda.Module, error) {
+	mod, err := cm.LoadModule(dev)
+	if err != nil {
+		return nil, err
+	}
+	if err := cudalaunch.BindOwned(mod, kernels); err != nil {
+		if closeErr := mod.Close(); closeErr != nil {
+			return mod, errors.Join(err, closeErr)
+		}
+		return nil, err
+	}
+	return mod, nil
 }
 
 // CompileContext compiles the given CUDA C++ source code with context cancellation support.

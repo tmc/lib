@@ -89,6 +89,38 @@ type Kernel struct {
 	raw    driver.Function
 }
 
+// Device returns the device whose context owns the kernel.
+func (k *Kernel) Device() *Device {
+	if k == nil || k.module == nil {
+		return nil
+	}
+	m := k.module
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.ctx == nil {
+		return nil
+	}
+	return m.ctx.device
+}
+
+// PotentialBlockSize suggests a block size with reasonable occupancy for a
+// constant dynamic shared-memory allocation. It holds the module open while
+// querying the driver.
+func (k *Kernel) PotentialBlockSize(dynamicSMemBytes uint, blockSizeLimit int) (minGridSize, blockSize int, err error) {
+	if blockSizeLimit < 0 || blockSizeLimit > math.MaxInt32 {
+		return 0, 0, fmt.Errorf("cuda: invalid block size limit %d", blockSizeLimit)
+	}
+	err = k.run(func() error {
+		grid, block, err := k.raw.MaxPotentialBlockSize(0, dynamicSMemBytes, int32(blockSizeLimit))
+		minGridSize, blockSize = int(grid), int(block)
+		return err
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("cuda: potential block size: %w", err)
+	}
+	return minGridSize, blockSize, nil
+}
+
 // Function resolves a kernel and retains its module owner. Names must be
 // nonempty and contain no NUL byte. Closing the module invalidates its kernels.
 func (m *Module) Function(name string) (*Kernel, error) {

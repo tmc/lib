@@ -100,8 +100,16 @@ type AdviceReport struct {
 	Items []AdviceItem `json:"items"`
 }
 
-// Markdown formats the advice report as human-readable Markdown.
+const defaultAdviceLimit = 10
+
+// Markdown formats the advice report as human-readable Markdown with the default limit of findings.
 func (r *AdviceReport) Markdown() string {
+	return r.MarkdownWithLimit(defaultAdviceLimit)
+}
+
+// MarkdownWithLimit formats up to limit findings as human-readable Markdown.
+// If limit <= 0, all findings are printed without truncation.
+func (r *AdviceReport) MarkdownWithLimit(limit int) string {
 	if r == nil || len(r.Items) == 0 {
 		return "# CUDA Kernel Advice Report\n\nNo optimization issues or architecture fallbacks identified.\n"
 	}
@@ -127,7 +135,12 @@ func (r *AdviceReport) Markdown() string {
 	sb.WriteString(fmt.Sprintf("- **Info**: %d\n\n", infos))
 
 	sb.WriteString("## Findings\n\n")
-	for i, item := range r.Items {
+	count := len(r.Items)
+	if limit > 0 && limit < count {
+		count = limit
+	}
+	for i := 0; i < count; i++ {
+		item := r.Items[i]
 		header := fmt.Sprintf("### %d. [%s] %s: %s\n\n", i+1, item.Severity, item.Category, item.Finding)
 		if item.ShareOfProfile > 0 || item.DeviceTimeNanos > 0 {
 			durMs := float64(item.DeviceTimeNanos) / 1e6
@@ -139,6 +152,11 @@ func (r *AdviceReport) Markdown() string {
 			sb.WriteString(fmt.Sprintf("- **Location**: %s\n", locStr))
 		}
 		sb.WriteString(fmt.Sprintf("- **Recommendation**: %s\n\n", item.ActionableRecommendation))
+	}
+
+	if limit > 0 && len(r.Items) > limit {
+		omitted := len(r.Items) - limit
+		sb.WriteString(fmt.Sprintf("*... %d additional findings omitted (use -e to show all, or -limit=N).*\n", omitted))
 	}
 
 	return sb.String()
@@ -574,11 +592,49 @@ func runAdviseCommand(rawArgs []string) error {
 	}
 	var format string
 	var capturePath string
-	for _, arg := range args {
+	limit := defaultAdviceLimit
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		if arg == "-json" || arg == "--json" || arg == "--format=json" {
 			format = "json"
 		} else if arg == "-markdown" || arg == "--markdown" || arg == "--format=markdown" {
 			format = "markdown"
+		} else if arg == "-e" || arg == "--e" || arg == "-all" || arg == "--all" {
+			limit = 0
+		} else if strings.HasPrefix(arg, "-limit=") || strings.HasPrefix(arg, "--limit=") {
+			val := strings.TrimPrefix(strings.TrimPrefix(arg, "--limit="), "-limit=")
+			n, err := strconv.Atoi(val)
+			if err != nil {
+				return fmt.Errorf("invalid -limit value: %s", val)
+			}
+			limit = n
+		} else if arg == "-limit" || arg == "--limit" {
+			if i+1 >= len(args) {
+				return errors.New("flag -limit requires an argument")
+			}
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("invalid -limit value: %s", args[i])
+			}
+			limit = n
+		} else if strings.HasPrefix(arg, "-n=") || strings.HasPrefix(arg, "--n=") {
+			val := strings.TrimPrefix(strings.TrimPrefix(arg, "--n="), "-n=")
+			n, err := strconv.Atoi(val)
+			if err != nil {
+				return fmt.Errorf("invalid -n value: %s", val)
+			}
+			limit = n
+		} else if arg == "-n" {
+			if i+1 >= len(args) {
+				return errors.New("flag -n requires an argument")
+			}
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("invalid -n value: %s", args[i])
+			}
+			limit = n
 		} else if strings.HasPrefix(arg, "-") {
 			return fmt.Errorf("unknown flag: %s", arg)
 		} else if capturePath == "" {
@@ -588,7 +644,7 @@ func runAdviseCommand(rawArgs []string) error {
 		}
 	}
 	if capturePath == "" {
-		return errors.New("usage: cudaprof advise [--format=json|markdown] capture.pprof")
+		return errors.New("usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] capture.pprof")
 	}
 
 	path, err := filepath.Abs(capturePath)
@@ -606,7 +662,11 @@ func runAdviseCommand(rawArgs []string) error {
 	}
 
 	if format == "json" {
-		out, err := report.JSON()
+		rep := report
+		if limit > 0 && len(report.Items) > limit {
+			rep = &AdviceReport{Items: report.Items[:limit]}
+		}
+		out, err := rep.JSON()
 		if err != nil {
 			return err
 		}
@@ -614,7 +674,7 @@ func runAdviseCommand(rawArgs []string) error {
 		return nil
 	}
 
-	fmt.Print(report.Markdown())
+	fmt.Print(report.MarkdownWithLimit(limit))
 	return nil
 }
 

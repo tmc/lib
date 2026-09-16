@@ -67,18 +67,23 @@
 #define KIND_EXTERNAL 6
 #define KIND_API 7
 
-/* CUDA 12.9 exposes Kernel9; CUDA 13 exposes the compatible Kernel10
+/* CUDA 12.x exposes Kernel9; CUDA 13.0 exposes the compatible Kernel10
    extension. Keep the decoder tied to the headers used for this build. */
-#if CUPTI_API_VERSION >= 28
+#if CUPTI_API_VERSION >= 130000
 #define CUDAPROF_KERNEL_TYPE CUpti_ActivityKernel10
 #define CUDAPROF_KERNEL_LAYOUT "Kernel10"
-#else
-#define CUDAPROF_KERNEL_TYPE CUpti_ActivityKernel9
-#define CUDAPROF_KERNEL_LAYOUT "Kernel9"
-#endif
+#define CUDAPROF_GRAPH_ID(k) ((uint32_t)(k)->graphId)
+#define CUDAPROF_GRAPH_NODE_ID(k) ((uint64_t)(k)->graphNodeId)
 
 _Static_assert(sizeof(((CUDAPROF_KERNEL_TYPE *)0)->graphId) == 4, "unexpected graph id width");
 _Static_assert(sizeof(((CUDAPROF_KERNEL_TYPE *)0)->graphNodeId) == 8, "unexpected graph node id width");
+#else
+#define CUDAPROF_KERNEL_TYPE CUpti_ActivityKernel9
+#define CUDAPROF_KERNEL_LAYOUT "Kernel9"
+#define CUDAPROF_GRAPH_ID(k) ((uint32_t)0)
+#define CUDAPROF_GRAPH_NODE_ID(k) ((uint64_t)0)
+#endif
+
 _Static_assert(sizeof(CUpti_ActivityExternalCorrelation) == 24, "unexpected external correlation size");
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, kind) == 0, "unexpected external kind offset");
 _Static_assert(offsetof(CUpti_ActivityExternalCorrelation, externalKind) == 4, "unexpected external API offset");
@@ -564,7 +569,7 @@ static void CUPTIAPI buffer_completed(CUcontext context, uint32_t stream_id, uin
 				(uint32_t)(k->blockZ > 0 ? k->blockZ : 0),
 				(uint32_t)k->registersPerThread,
 				(uint32_t)(k->dynamicSharedMemory > 0 ? k->dynamicSharedMemory : 0),
-				(uint32_t)k->graphId, (uint64_t)k->graphNodeId);
+				CUDAPROF_GRAPH_ID(k), CUDAPROF_GRAPH_NODE_ID(k));
 		} else if (record->kind == CUPTI_ACTIVITY_KIND_MEMCPY) {
 			if (rp + sizeof(CUpti_ActivityMemcpy6) < rp || rp + sizeof(CUpti_ActivityMemcpy6) > end) { const char *failure = "{\"state\":\"producer_failure\",\"error\":\"short Memcpy6 record\"}"; (void)queue_pending(KIND_FAILURE, now_ns(), failure, strlen(failure)); break; }
 			const CUpti_ActivityMemcpy6 *m6 = (const CUpti_ActivityMemcpy6 *)record;

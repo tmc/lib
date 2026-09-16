@@ -18,6 +18,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
+| [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
@@ -30,6 +31,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalaunch](cudalaunch/) | Package cudalaunch configures CUDA kernel launches and marshals Go values as kernel parameters. |
 | [cudalayer](cudalayer/) | Package cudalayer provides experimental CUDA decoder-layer kernels and JIT compilation for the llama inference example. |
 | [cudalmvet](cudalmvet/) | Package cudalmvet validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
+| [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
 | [cudamega](cudamega/) | Instead of dispatching hundreds of short-lived individual CUDA kernels from the host CPU, cudamega launches a single persistent grid of thread blocks that stay resident on GPU SMs, popping dynamic work items from a ring buffer queue in device memory with atomic synchronization. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
@@ -56,6 +58,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudatensor](cudatensor/) | Package cudatensor provides a high-level fluent mathematical tensor DSL that constructs, optimizes, and executes fused CUDA mega-kernel graphs. |
 | [cudatest](cudatest/) | Package cudatest provides CUDA hardware requirements and scoped device-memory checks for tests. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
+| [cudatrial](cudatrial/) | Package cudatrial runs interleaved, provenance-bearing multi-arm evaluation trials across rounds. |
 | [cuptiactivity](cuptiactivity/) | Package cuptiactivity collects bounded CUPTI activity records and exports complete records to Perfetto. |
 | [cuptibench](cuptibench/) | Package cuptibench collects CUPTI hardware metrics for replayable CUDA workloads. |
 | [cupticallback](cupticallback/) | Package cupticallback provides managed lifecycle ownership, thread safety, reentrancy control, and typed event dispatch for NVIDIA CUPTI callbacks. |

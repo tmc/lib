@@ -11,7 +11,7 @@ import (
 
 func TestCorpusLoads(t *testing.T) {
 	tools := Tools()
-	want := []string{"compute-sanitizer", "cuobjdump", "nvcc", "nvdisasm", "nvlink", "nvprune", "ptxas"}
+	want := []string{"compute-sanitizer", "cuobjdump", "nvcc", "nvdisasm", "nvjitlink", "nvlink", "nvprune", "ptxas"}
 	if !slices.Equal(tools, want) {
 		t.Fatalf("Tools() = %q, want %q", tools, want)
 	}
