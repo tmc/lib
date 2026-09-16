@@ -1,0 +1,1 @@
+commit=ddffedc694ba9dfe6199b91b9e5e03403b8fa6ba; date=2026-09-16T22:01:15Z; agent=antigravity; model=gemini; tty=/dev/ttys503; pid=89239; ITERM_SESSION_ID=; Validation: go test ./cmd/cudaprof passed, binary installed and verified against decode profile
