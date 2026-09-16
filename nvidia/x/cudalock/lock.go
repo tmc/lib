@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -33,6 +34,7 @@ var (
 	processMu       sync.Mutex
 	processHoldCount int
 	processActiveDir string
+	processHolderPID int
 )
 
 // DefaultDir returns the default lock directory.
@@ -104,6 +106,12 @@ func (h *Handle) Owner() Owner {
 	return h.owner
 }
 
+// IsNested returns true if this handle was acquired re-entrantly within the
+// same process or inherited from an ancestor process holding GPU_LOCK_HELD.
+func (h *Handle) IsNested() bool {
+	return h.isNested
+}
+
 // Release releases the lock. Release must fail toward stuck: if removing the
 // lock directory fails, the directory remains and an error is returned.
 func (h *Handle) Release() error {
@@ -119,6 +127,10 @@ func (h *Handle) Release() error {
 
 	if h.isNested {
 		processHoldCount--
+		if processHoldCount == 0 {
+			processActiveDir = ""
+			processHolderPID = 0
+		}
 		h.released = true
 		return nil
 	}
@@ -138,6 +150,7 @@ func (h *Handle) Release() error {
 
 	_ = os.Unsetenv("GPU_LOCK_HELD")
 	processActiveDir = ""
+	processHolderPID = 0
 	h.released = true
 	return nil
 }
@@ -164,7 +177,6 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 
 	// Check reentrancy within this process or inherited from parent gpu-lock.
 	processMu.Lock()
-	currentPID := strconv.Itoa(os.Getpid())
 	envHeld := os.Getenv("GPU_LOCK_HELD")
 	if processHoldCount > 0 && processActiveDir == cfg.dir {
 		processHoldCount++
@@ -173,26 +185,38 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			dir:      cfg.dir,
 			isNested: true,
 			owner: Owner{
-				PID:   os.Getpid(),
+				PID:   processHolderPID,
 				Host:  shortHostname(),
 				Label: cfg.label,
 			},
 		}, nil
 	}
-	if envHeld == currentPID && processActiveDir == "" {
-		// Inherited from an ancestor process that ran us under gpu-lock
-		processHoldCount++
-		processActiveDir = cfg.dir
-		processMu.Unlock()
-		return &Handle{
-			dir:      cfg.dir,
-			isNested: true,
-			owner: Owner{
-				PID:   os.Getpid(),
-				Host:  shortHostname(),
-				Label: cfg.label,
-			},
-		}, nil
+	if envHeld != "" && processActiveDir == "" && cfg.dir == DefaultDir() {
+		if heldPID, err := strconv.Atoi(strings.TrimSpace(envHeld)); err == nil && heldPID > 0 {
+			if isAlive(heldPID) {
+				// Inherited from an ancestor process that ran us under gpu-lock
+				processHoldCount++
+				processActiveDir = cfg.dir
+				processHolderPID = heldPID
+				processMu.Unlock()
+
+				owner := Owner{
+					PID:   heldPID,
+					Host:  shortHostname(),
+					Label: cfg.label,
+				}
+				if data, err := os.ReadFile(filepath.Join(cfg.dir, "owner")); err == nil {
+					if parsed, err := ParseOwner(data); err == nil {
+						owner = parsed
+					}
+				}
+				return &Handle{
+					dir:      cfg.dir,
+					isNested: true,
+					owner:    owner,
+				}, nil
+			}
+		}
 	}
 	processMu.Unlock()
 
@@ -240,6 +264,7 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			processMu.Lock()
 			processHoldCount = 1
 			processActiveDir = cfg.dir
+			processHolderPID = myPID
 			processMu.Unlock()
 
 			return &Handle{
@@ -321,6 +346,9 @@ func Run(ctx context.Context, args []string, opts ...Option) (int, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), fmt.Sprintf("GPU_LOCK_HELD=%d", os.Getpid()))
+	if handle.dir != DefaultDir() {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("GPU_LOCKDIR=%s", handle.dir))
+	}
 
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
