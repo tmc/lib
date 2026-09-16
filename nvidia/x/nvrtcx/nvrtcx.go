@@ -114,15 +114,20 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 }
 
 type options struct {
-	expressions  []string
-	output       OutputKind
-	outputSet    bool
-	physicalArch bool
-	name         string
-	flags        []string
-	headers      map[string]string
-	useCache     bool
-	err          error
+	expressions       []string
+	output            OutputKind
+	outputSet         bool
+	physicalArch      bool
+	name              string
+	flags             []string
+	headers           map[string]string
+	useCache          bool
+	err               error
+	lineInfo          bool
+	noLineInfo        bool
+	deviceDebug       bool
+	toolkitIncludes   bool
+	noToolkitIncludes bool
 }
 
 // Option configures JIT compilation.
@@ -300,6 +305,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	cfg := options{
 		name:     "jit_program.cu",
 		useCache: true,
+		lineInfo: true,
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -313,6 +319,31 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if cfg.physicalArch && cfg.outputSet && (cfg.output == OutputLTOIR || cfg.output == OutputTileIR || cfg.output == OutputPTXTileIR) {
 		return nil, fmt.Errorf("nvrtcx: physical architecture cannot combine with WithOutput(%s)", outputKindName(cfg.output))
 	}
+
+	// Apply line info default: on by default for profilers and debuggers,
+	// unless WithNoLineInfo was requested, device debug is active (-G),
+	// or line info is already passed explicitly in custom flags.
+	if cfg.lineInfo && !cfg.noLineInfo && !cfg.deviceDebug && !hasLineInfoFlag(cfg.flags) {
+		cfg.flags = append(cfg.flags, "--generate-line-info")
+	}
+
+	// Apply toolkit includes: if explicitly requested via WithToolkitIncludes(),
+	// or if source includes a header and automatic inclusion is not disabled.
+	if !cfg.noToolkitIncludes {
+		needToolkit := cfg.toolkitIncludes || (strings.Contains(src, "#include") && !hasIncludeFlag(cfg.flags))
+		if needToolkit {
+			dir := ToolkitIncludeDir()
+			if dir != "" {
+				flag := "--include-path=" + dir
+				if !hasFlag(cfg.flags, flag) {
+					cfg.flags = append(cfg.flags, flag)
+				}
+			} else if cfg.toolkitIncludes {
+				return nil, fmt.Errorf("nvrtcx: CUDA toolkit include directory not found")
+			}
+		}
+	}
+
 	flags, err := outputFlags(cfg.output, cfg.flags)
 	if err != nil {
 		return nil, err
