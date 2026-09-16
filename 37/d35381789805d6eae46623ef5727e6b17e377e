@@ -1,0 +1,1 @@
+commit=37d35381ce029ba51817cf1375d03837dc11bb81; date=2026-09-16T06:07:58-07:00; agent=antigravity; model=gemini; tty=/dev/ttys423; pid=35851; ITERM_SESSION_ID=w20t4p9:415BFE25-96B3-415F-887F-2861B125A76C. Validation: TestCUDAQualificationQ80BatchMatvec passed for batches 2..256. BenchmarkCUDAPrefill confirmed 4.53% geomean speedup and accurate host-launches/op tracking.
