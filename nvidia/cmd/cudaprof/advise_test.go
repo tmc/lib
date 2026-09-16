@@ -2955,5 +2955,53 @@ func TestAdvice_PointwiseKernelPairFusion(t *testing.T) {
 	}
 }
 
+func TestAdvice_OutputLimitAndFlags(t *testing.T) {
+	// Build a report with 15 findings
+	items := make([]AdviceItem, 15)
+	for i := 0; i < 15; i++ {
+		items[i] = AdviceItem{
+			Severity:                 SeverityWarning,
+			Category:                 CategoryArchitecture,
+			Finding:                  fmt.Sprintf("Finding number %d", i+1),
+			ActionableRecommendation: fmt.Sprintf("Fix number %d", i+1),
+		}
+	}
+	rep := &AdviceReport{Items: items}
+
+	// 1. Default Markdown() should truncate to 10 findings and show omission note
+	mdDefault := rep.Markdown()
+	if !strings.Contains(mdDefault, "### 10. [Warning]") {
+		t.Errorf("expected finding #10 in default output: %s", mdDefault)
+	}
+	if strings.Contains(mdDefault, "### 11. [Warning]") {
+		t.Errorf("finding #11 should be truncated in default output: %s", mdDefault)
+	}
+	if !strings.Contains(mdDefault, "*... 5 additional findings omitted (use -e to show all, or -limit=N).*") {
+		t.Errorf("missing truncation notice: %s", mdDefault)
+	}
+
+	// 2. MarkdownWithLimit(0) should print all 15 findings
+	mdAll := rep.MarkdownWithLimit(0)
+	if !strings.Contains(mdAll, "### 15. [Warning]") {
+		t.Errorf("expected finding #15 in unlimited output: %s", mdAll)
+	}
+	if strings.Contains(mdAll, "additional findings omitted") {
+		t.Errorf("unexpected truncation notice in unlimited output: %s", mdAll)
+	}
+
+	// 3. MarkdownWithLimit(5) should print exactly 5 findings
+	md5 := rep.MarkdownWithLimit(5)
+	if !strings.Contains(md5, "### 5. [Warning]") {
+		t.Errorf("expected finding #5 in limit 5 output: %s", md5)
+	}
+	if strings.Contains(md5, "### 6. [Warning]") {
+		t.Errorf("finding #6 should be truncated in limit 5 output: %s", md5)
+	}
+	if !strings.Contains(md5, "*... 10 additional findings omitted (use -e to show all, or -limit=N).*") {
+		t.Errorf("missing 10 omitted notice in limit 5 output: %s", md5)
+	}
+}
+
+
 
 
