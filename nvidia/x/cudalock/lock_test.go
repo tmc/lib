@@ -2,8 +2,11 @@ package cudalock
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -257,5 +260,153 @@ func TestStatusReporting(t *testing.T) {
 	s := rep2.String()
 	if !strings.Contains(s, "FILESYSTEM MUTEX") || !strings.Contains(s, "PHYSICAL DEVICE ACTIVITY") {
 		t.Errorf("Status string missing required section headers:\n%s", s)
+	}
+}
+
+func TestAncestorInheritedLock(t *testing.T) {
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+
+	// Set up lock directory as if held by parent process
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+	parentPID := os.Getppid()
+	ancestorOwner := Owner{
+		PID:   parentPID,
+		Host:  shortHostname(),
+		Label: "ancestor-bash",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+	if err := os.WriteFile(filepath.Join(lockDir, "owner"), []byte(ancestorOwner.String()), 0644); err != nil {
+		t.Fatalf("write owner failed: %v", err)
+	}
+
+	t.Setenv("GPU_LOCKDIR", lockDir)
+	t.Setenv("GPU_LOCK_HELD", strconv.Itoa(parentPID))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	h, err := Acquire(ctx)
+	if err != nil {
+		t.Fatalf("Acquire failed with ancestor GPU_LOCK_HELD: %v", err)
+	}
+	if !h.IsNested() {
+		t.Errorf("expected handle to be nested, got false")
+	}
+	if h.Owner().PID != parentPID {
+		t.Errorf("expected owner PID %d, got %d", parentPID, h.Owner().PID)
+	}
+	if h.Owner().Label != "ancestor-bash" {
+		t.Errorf("expected owner label 'ancestor-bash', got %q", h.Owner().Label)
+	}
+
+	if err := h.Release(); err != nil {
+		t.Fatalf("Release failed: %v", err)
+	}
+
+	// Lock dir and owner file should remain untouched because ancestor owns it
+	if _, err := os.Stat(lockDir); err != nil {
+		t.Errorf("ancestor lock directory was removed by descendant release: %v", err)
+	}
+
+	// Re-acquisition after release within descendant should also succeed
+	h2, err := Acquire(ctx)
+	if err != nil {
+		t.Fatalf("second Acquire failed: %v", err)
+	}
+	if !h2.IsNested() {
+		t.Errorf("expected second handle to be nested, got false")
+	}
+	_ = h2.Release()
+}
+
+func TestAncestorInheritedStaleDeadPID(t *testing.T) {
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+
+	deadPID := 99999999
+	for isAlive(deadPID) {
+		deadPID++
+	}
+
+	t.Setenv("GPU_LOCKDIR", lockDir)
+	t.Setenv("GPU_LOCK_HELD", strconv.Itoa(deadPID))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	h, err := Acquire(ctx)
+	if err != nil {
+		t.Fatalf("Acquire failed: %v", err)
+	}
+	if h.IsNested() {
+		t.Errorf("expected handle to NOT be nested when ancestor PID is dead, got nested")
+	}
+	if h.Owner().PID != os.Getpid() {
+		t.Errorf("expected owner PID %d (our PID), got %d", os.Getpid(), h.Owner().PID)
+	}
+
+	if err := h.Release(); err != nil {
+		t.Fatalf("Release failed: %v", err)
+	}
+	if _, err := os.Stat(lockDir); !os.IsNotExist(err) {
+		t.Errorf("lock directory not removed after root release")
+	}
+}
+
+func TestChildProcessAncestorLock(t *testing.T) {
+	if os.Getenv("GO_WANT_CUDALOCK_CHILD_TEST") == "1" {
+		// Inside child process: Acquire should succeed immediately without deadlocking
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		h, err := Acquire(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "child Acquire failed: %v\n", err)
+			os.Exit(1)
+		}
+		if !h.IsNested() {
+			fmt.Fprintf(os.Stderr, "child handle is not nested\n")
+			os.Exit(2)
+		}
+		if err := h.Release(); err != nil {
+			fmt.Fprintf(os.Stderr, "child Release failed: %v\n", err)
+			os.Exit(3)
+		}
+		os.Exit(0)
+	}
+
+	tmp := t.TempDir()
+	lockDir := filepath.Join(tmp, "lock")
+
+	// Parent process creates and holds lock
+	if err := os.MkdirAll(lockDir, 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+	myPID := os.Getpid()
+	owner := Owner{
+		PID:   myPID,
+		Host:  shortHostname(),
+		Label: "parent-test",
+		Epoch: time.Now().Unix(),
+		At:    time.Now(),
+	}
+	if err := os.WriteFile(filepath.Join(lockDir, "owner"), []byte(owner.String()), 0644); err != nil {
+		t.Fatalf("write owner failed: %v", err)
+	}
+
+	// Spawn child process with GPU_LOCK_HELD set to our PID (which is a different live PID for the child)
+	cmd := exec.Command(os.Args[0], "-test.run=TestChildProcessAncestorLock")
+	cmd.Env = append(os.Environ(),
+		"GO_WANT_CUDALOCK_CHILD_TEST=1",
+		"GPU_LOCKDIR="+lockDir,
+		fmt.Sprintf("GPU_LOCK_HELD=%d", myPID),
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("child process failed: %v\noutput: %s", err, string(out))
 	}
 }
