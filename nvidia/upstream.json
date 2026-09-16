@@ -7359,10 +7359,6 @@
           {
             "path": "nvidia/nvjitlink/result.gen.go",
             "sha256": "c0b4724858473da0bf4232b99c19ae43a1fbf0101f8d420dc1e2e6ab3dfd2fa6"
-          },
-          {
-            "path": "nvidia/nvjitlink/flags.gen.go",
-            "sha256": "ae8b9ec5dac5f58f6d42b424c42e94bbf96e070e5fbc1a3a1c4160ef22186039"
           }
         ],
         "source_state": "clean codegen checkout recorded after generation",
