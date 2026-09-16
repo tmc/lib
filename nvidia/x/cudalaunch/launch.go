@@ -108,6 +108,42 @@ func (l *Launcher) SharedMem(bytes uint32) *Launcher {
 	return l
 }
 
+// OptimalBlockSize asks the CUDA driver for a block size with reasonable
+// occupancy and the minimum grid size needed to occupy the device.
+// It is a resource estimate, not a throughput measurement.
+func OptimalBlockSize(dev *cuda.Device, fn *cuda.Kernel, dynamicSMem int) (blockSize, minGridSize int, err error) {
+	var owner *cuda.Device
+	if fn != nil {
+		owner = fn.Device()
+	}
+	if dev == nil || owner == nil || owner.Raw() != dev.Raw() {
+		return 0, 0, fmt.Errorf("cudalaunch: kernel does not belong to device")
+	}
+	if dynamicSMem < 0 || uint64(dynamicSMem) > uint64(^uint32(0)) {
+		return 0, 0, fmt.Errorf("cudalaunch: invalid dynamic shared memory size %d", dynamicSMem)
+	}
+	grid, block, err := fn.PotentialBlockSize(uint(dynamicSMem), 0)
+	if err != nil {
+		return 0, 0, fmt.Errorf("cudalaunch: choose block size: %w", err)
+	}
+	return block, grid, nil
+}
+
+// AutoBlock sets a one-dimensional block size selected by the driver.
+// The caller still chooses the grid size based on its work count.
+func (l *Launcher) AutoBlock(dev *cuda.Device, dynamicSMem int) error {
+	if l == nil || l.owned == nil {
+		return fmt.Errorf("cudalaunch: AutoBlock requires an owned kernel")
+	}
+	block, _, err := OptimalBlockSize(dev, l.owned, dynamicSMem)
+	if err != nil {
+		return err
+	}
+	l.block = Dims(uint32(block))
+	l.shmem = uint32(dynamicSMem)
+	return nil
+}
+
 // On assigns the CUDA stream for asynchronous execution.
 func (l *Launcher) On(s *cuda.Stream) *Launcher {
 	l.stream = s
@@ -396,8 +432,8 @@ func packArgs(args []any) ([]unsafe.Pointer, error) {
 	return params, nil
 }
 
-// OccupancyMaxPotentialBlockSize calculates the maximum potential block size and minimum
-// number of blocks per SM for a kernel function.
+// OccupancyMaxPotentialBlockSize suggests a block size and the minimum grid
+// size needed to reach the driver's occupancy estimate.
 func OccupancyMaxPotentialBlockSize(fn driver.Function, dynamicSMemBytes uint, blockSizeLimit int) (minGridSize, blockSize int, err error) {
 	minGrid, block, err := fn.MaxPotentialBlockSize(0, dynamicSMemBytes, int32(blockSizeLimit))
 	if err != nil {
