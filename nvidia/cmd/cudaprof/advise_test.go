@@ -1640,6 +1640,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		wantFinding  string
 		wantRec      string
 		wantSeverity Severity
+		wantEvidence EvidenceLevel
 		wantCaveat   bool // recommendation is derived from an occupancy figure
 	}{
 		{
@@ -1649,6 +1650,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "allocates 256 bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE)",
 			wantRec:      "eliminate local memory stack frame spills",
 			wantSeverity: SeverityCritical,
+			wantEvidence: EvidenceObserved,
 			wantCaveat:   false, // a local stack frame spill is real work, not a residency figure
 		},
 		{
@@ -1658,6 +1660,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_121 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
 			wantSeverity: SeverityWarning,
+			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
 		{
@@ -1667,6 +1670,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantFinding:  "Microarchitecture theoretical occupancy on sm_90 for kernel \"reg_limited_kernel\"",
 			wantRec:      "Register file capacity (65536 regs/SM) limits residency",
 			wantSeverity: SeverityWarning,
+			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
 		{
@@ -1675,7 +1679,8 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 			wantKernel:   "smem_limited_kernel",
 			wantFinding:  "constrained by shared_memory",
 			wantRec:      "Static shared memory (65536 bytes/block) limits residency",
-			wantSeverity: SeverityCritical,
+			wantSeverity: SeverityWarning,
+			wantEvidence: EvidenceSuspected,
 			wantCaveat:   true,
 		},
 	}
@@ -1727,6 +1732,9 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 					item.Severity == tt.wantSeverity &&
 					strings.Contains(item.Finding, tt.wantFinding) {
 					found = true
+					if tt.wantEvidence != "" && item.EvidenceLevel != tt.wantEvidence {
+						t.Errorf("evidence = %q, want %q", item.EvidenceLevel, tt.wantEvidence)
+					}
 					if !strings.Contains(item.ActionableRecommendation, tt.wantRec) {
 						t.Errorf("recommendation = %q, want containing %q", item.ActionableRecommendation, tt.wantRec)
 					}
@@ -3002,6 +3010,370 @@ func TestAdvice_OutputLimitAndFlags(t *testing.T) {
 	}
 }
 
+func TestAdvice_EvidenceLevels(t *testing.T) {
+	rep := &AdviceReport{
+		Items: []AdviceItem{
+			{
+				Severity:                 SeverityCritical,
+				Category:                 CategoryArchitecture,
+				EvidenceLevel:            EvidenceObserved,
+				Finding:                  "Observed hardware violation",
+				ActionableRecommendation: "Fix code",
+				NextMeasurement:          "Verify with hardware timer",
+			},
+			{
+				Severity:                 SeverityWarning,
+				Category:                 CategoryMemory,
+				EvidenceLevel:            EvidenceSuspected,
+				Finding:                  "Suspected memory stall",
+				ActionableRecommendation: "Check access pattern",
+				NextMeasurement:          "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
+			},
+			{
+				Severity:                 SeverityInfo,
+				Category:                 CategoryArchitecture,
+				EvidenceLevel:            EvidenceUnmeasured,
+				Finding:                  "Unmeasured launch telemetry",
+				ActionableRecommendation: "Enable metrics",
+				NextMeasurement:          "Capture with CUPTI activity records enabled",
+			},
+		},
+	}
 
+	md := rep.Markdown()
+	for _, want := range []string{
+		"- **Evidence**: observed",
+		"- **Evidence**: suspected",
+		"- **Evidence**: unmeasured",
+		"- **Next Measurement**: Verify with hardware timer",
+		"- **Next Measurement**: l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions",
+		"- **Next Measurement**: Capture with CUPTI activity records enabled",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("Markdown output missing %q:\n%s", want, md)
+		}
+	}
+
+	jsonStr, err := rep.JSON()
+	if err != nil {
+		t.Fatalf("JSON serialization failed: %v", err)
+	}
+	for _, want := range []string{
+		`"evidence_level": "observed"`,
+		`"evidence_level": "suspected"`,
+		`"evidence_level": "unmeasured"`,
+		`"next_measurement": "Verify with hardware timer"`,
+		`"next_measurement": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions"`,
+	} {
+		if !strings.Contains(jsonStr, want) {
+			t.Errorf("JSON output missing %q:\n%s", want, jsonStr)
+		}
+	}
+}
+
+func TestAdvice_PurePCSampleProfileShareFormatting(t *testing.T) {
+	// Pure PC-sample capture: no duration metadata, sample type is pc_samples.
+	purePCCap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{
+				{Type: "pc_samples", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{800},
+					Label: map[string][]string{
+						"kernel": {"heavy_kernel"},
+					},
+				},
+				{
+					Value: []int64{200},
+					Label: map[string][]string{
+						"kernel": {"light_kernel"},
+					},
+				},
+			},
+		},
+	}
+
+	times, totalTime := computeProfileTimes(purePCCap)
+	if hasProfileDurationOrTime(purePCCap) {
+		t.Fatal("hasProfileDurationOrTime returned true for pure PC-sample capture")
+	}
+
+	report := &AdviceReport{
+		Items: []AdviceItem{
+			{
+				Severity: SeverityWarning,
+				Category: CategoryMemory,
+				Location: Location{Kernel: "heavy_kernel"},
+				Finding:  "Heavy load finding",
+			},
+			{
+				Severity: SeverityInfo,
+				Category: CategoryMemory,
+				Location: Location{Kernel: "light_kernel"},
+				Finding:  "Light load finding",
+			},
+		},
+	}
+
+	finalizeAndRankFindingsWithTiming(report, times, totalTime, false)
+
+	for _, it := range report.Items {
+		if it.DeviceTimeNanos != 0 {
+			t.Errorf("kernel %q assigned non-zero DeviceTimeNanos %d on pure PC-sample profile", it.Location.Kernel, it.DeviceTimeNanos)
+		}
+		if it.Location.Kernel == "heavy_kernel" && it.ShareOfProfile != 80.0 {
+			t.Errorf("heavy_kernel share = %.2f, want 80.0", it.ShareOfProfile)
+		}
+		if it.Location.Kernel == "light_kernel" && it.ShareOfProfile != 20.0 {
+			t.Errorf("light_kernel share = %.2f, want 20.0", it.ShareOfProfile)
+		}
+	}
+
+	md := report.Markdown()
+	if !strings.Contains(md, "(80.00% of observed samples)") {
+		t.Errorf("Markdown output missing '(80.00%% of observed samples)':\n%s", md)
+	}
+	if strings.Contains(md, "GPU time") {
+		t.Errorf("Markdown output improperly claims 'GPU time' on pure PC-sample profile:\n%s", md)
+	}
+	if strings.Contains(md, "0.00 ms") {
+		t.Errorf("Markdown output improperly claims '0.00 ms' on pure PC-sample profile:\n%s", md)
+	}
+
+	// Compare with profile with native duration.
+	durCap := &cudacapture.Capture{
+		Profile: &profile.Profile{
+			DurationNanos: 100_000_000, // 100 ms
+			SampleType: []*profile.ValueType{
+				{Type: "pc_samples", Unit: "count"},
+			},
+			Sample: []*profile.Sample{
+				{
+					Value: []int64{800},
+					Label: map[string][]string{
+						"kernel": {"heavy_kernel"},
+					},
+				},
+				{
+					Value: []int64{200},
+					Label: map[string][]string{
+						"kernel": {"light_kernel"},
+					},
+				},
+			},
+		},
+	}
+
+	if !hasProfileDurationOrTime(durCap) {
+		t.Fatal("hasProfileDurationOrTime returned false for capture with DurationNanos")
+	}
+
+	durTimes, durTotalTime := computeProfileTimes(durCap)
+	durReport := &AdviceReport{
+		Items: []AdviceItem{
+			{
+				Severity: SeverityWarning,
+				Category: CategoryMemory,
+				Location: Location{Kernel: "heavy_kernel"},
+				Finding:  "Heavy load finding",
+			},
+		},
+	}
+	finalizeAndRankFindingsWithTiming(durReport, durTimes, durTotalTime, true)
+
+	if durReport.Items[0].DeviceTimeNanos == 0 {
+		t.Errorf("expected non-zero DeviceTimeNanos on timed capture")
+	}
+	durMd := durReport.Markdown()
+	if !strings.Contains(durMd, "80.00% of GPU time") || !strings.Contains(durMd, "80.00 ms") {
+		t.Errorf("Markdown output missing duration formatting on timed capture:\n%s", durMd)
+	}
+}
+
+func TestAdvice_NegativeControls(t *testing.T) {
+	t.Run("scalar_load_severity_and_evidence", func(t *testing.T) {
+		ptxText := `.version 9.0
+.target sm_90
+.address_size 64
+.file 1 "saxpy.cu"
+.visible .entry saxpy(.param .u64 in1) {
+	.reg .f32 %f1;
+	.reg .u64 %rd1;
+	.loc 1 25 4
+	ld.global.f32 %f1, [%rd1];
+	ret;
+}`
+		cap := &cudacapture.Capture{
+			Files: map[string][]byte{"kernel.ptx": []byte(ptxText)},
+			Code:  cudacapture.CodeFiles{PTX: "kernel.ptx"},
+		}
+		rep, err := AnalyzeCapture(cap)
+		if err != nil {
+			t.Fatalf("AnalyzeCapture failed: %v", err)
+		}
+
+		var scalarItem *AdviceItem
+		for i := range rep.Items {
+			if strings.Contains(rep.Items[i].Finding, "Scalar global load") {
+				scalarItem = &rep.Items[i]
+				break
+			}
+		}
+		if scalarItem == nil {
+			t.Fatal("expected scalar global load finding, found none")
+		}
+
+		// Negative control: must NOT be SeverityCritical.
+		if scalarItem.Severity == SeverityCritical {
+			t.Errorf("scalar load finding severity is Critical, want Warning")
+		}
+		if scalarItem.Severity != SeverityWarning {
+			t.Errorf("scalar load finding severity = %v, want SeverityWarning", scalarItem.Severity)
+		}
+		// Negative control: must be EvidenceSuspected, not EvidenceObserved.
+		if scalarItem.EvidenceLevel != EvidenceSuspected {
+			t.Errorf("scalar load EvidenceLevel = %v, want %v", scalarItem.EvidenceLevel, EvidenceSuspected)
+		}
+		// Vectorization suggestion must be conditioned on access pattern and alignment.
+		if !strings.Contains(scalarItem.ActionableRecommendation, "contiguous") ||
+			!strings.Contains(scalarItem.ActionableRecommendation, "aligned") {
+			t.Errorf("recommendation is not conditioned on contiguous and aligned access: %q", scalarItem.ActionableRecommendation)
+		}
+		// Must name deciding hardware counter.
+		if !strings.Contains(scalarItem.NextMeasurement, "gld_transactions") &&
+			!strings.Contains(scalarItem.NextMeasurement, "sectors") {
+			t.Errorf("next measurement missing transaction counter: %q", scalarItem.NextMeasurement)
+		}
+	})
+
+	t.Run("pc_memory_stalls_do_not_assert_uncoalesced_transactions", func(t *testing.T) {
+		const sampleLDGSASS = `
+	.section	.text.uncoalesced_load,"ax",@progbits
+uncoalesced_load:
+.text.uncoalesced_load:
+        /*0000*/                   MOV R1, c[0x0][0x28] ;
+        /*0010*/                   LDG.E.128 R0, [R2] ;
+        /*0020*/                   EXIT ;
+`
+		cap := &cudacapture.Capture{
+			Code: cudacapture.CodeFiles{SASS: "kernels.sass"},
+			Files: map[string][]byte{
+				"kernels.sass": []byte(sampleLDGSASS),
+			},
+			Profile: &profile.Profile{
+				SampleType: []*profile.ValueType{
+					{Type: "stall_scoreboard", Unit: "count"},
+					{Type: "stall_mem", Unit: "count"},
+				},
+				Location: []*profile.Location{
+					{ID: 1, Address: 0x0010},
+				},
+				Sample: []*profile.Sample{
+					{
+						Location: []*profile.Location{{ID: 1, Address: 0x0010}},
+						Value:    []int64{30, 70}, // 70% memory stalls
+						Label: map[string][]string{
+							"kernel": {"uncoalesced_load"},
+						},
+					},
+				},
+			},
+		}
+
+		rep, err := AnalyzeCapture(cap)
+		if err != nil {
+			t.Fatalf("AnalyzeCapture failed: %v", err)
+		}
+
+		var memItem *AdviceItem
+		for i := range rep.Items {
+			if strings.Contains(rep.Items[i].Finding, "Memory stalls dominate this load") {
+				memItem = &rep.Items[i]
+				break
+			}
+		}
+		if memItem == nil {
+			t.Fatal("expected memory stall finding, found none")
+		}
+
+		// Evidence must be suspected because deciding hardware transaction counter is absent.
+		if memItem.EvidenceLevel != EvidenceSuspected {
+			t.Errorf("memory stall EvidenceLevel = %v, want %v", memItem.EvidenceLevel, EvidenceSuspected)
+		}
+		// Negative control: must NOT assert 32 uncoalesced cache transactions without hardware counters.
+		if strings.Contains(memItem.Finding, "32 cache transactions") {
+			t.Errorf("memory stall finding improperly asserted 32 cache transactions: %q", memItem.Finding)
+		}
+		// Recommendation must clarify that if access is already contiguous, stall is latency/bandwidth.
+		if !strings.Contains(memItem.ActionableRecommendation, "contiguous bytes") ||
+			!strings.Contains(memItem.ActionableRecommendation, "latency or bandwidth") {
+			t.Errorf("recommendation missing latency/bandwidth qualification: %q", memItem.ActionableRecommendation)
+		}
+		// Next measurement must specify deciding counters.
+		if !strings.Contains(memItem.NextMeasurement, "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum or gld_transactions") {
+			t.Errorf("next measurement missing deciding counter: %q", memItem.NextMeasurement)
+		}
+	})
+
+	t.Run("static_occupancy_cliff_is_not_critical", func(t *testing.T) {
+		var nv bytes.Buffer
+		nv.Write([]byte{0x04, cudaoccupancy.EIATTR_REGCOUNT, 0x04, 0x00})
+		binary.Write(&nv, binary.LittleEndian, uint32(24))
+		nv.Write([]byte{0x04, cudaoccupancy.EIATTR_REQ_NTID, 0x0c, 0x00})
+		binary.Write(&nv, binary.LittleEndian, uint32(256))
+		binary.Write(&nv, binary.LittleEndian, uint32(1))
+		binary.Write(&nv, binary.LittleEndian, uint32(1))
+		nv.Write([]byte{0x04, cudaoccupancy.EIATTR_SHARED_SIZE_SYSMEM, 0x04, 0x00})
+		binary.Write(&nv, binary.LittleEndian, uint32(65536))
+
+		sections := map[string][]byte{
+			".text.smem_limited_kernel":    make([]byte, 32),
+			".nv.info.smem_limited_kernel": nv.Bytes(),
+		}
+		cubinBytes := synthesizeTestELFForAdvise(sections)
+
+		cap := &cudacapture.Capture{
+			Metadata: []byte(`{"architecture":"sm_121a"}`),
+			Code: cudacapture.CodeFiles{
+				CUBIN: "kernels.cubin",
+			},
+			Files: map[string][]byte{
+				"kernels.cubin": cubinBytes,
+			},
+		}
+
+		rep, err := AnalyzeCapture(cap)
+		if err != nil {
+			t.Fatalf("AnalyzeCapture failed: %v", err)
+		}
+
+		var occItem *AdviceItem
+		for i := range rep.Items {
+			if strings.Contains(rep.Items[i].Finding, "constrained by shared_memory") {
+				occItem = &rep.Items[i]
+				break
+			}
+		}
+		if occItem == nil {
+			t.Fatal("expected theoretical occupancy finding, found none")
+		}
+
+		// Negative control: static occupancy limit bounds residency, not throughput; must not be Critical.
+		if occItem.Severity == SeverityCritical {
+			t.Errorf("theoretical occupancy finding is SeverityCritical, want SeverityWarning")
+		}
+		if occItem.Severity != SeverityWarning {
+			t.Errorf("theoretical occupancy finding severity = %v, want SeverityWarning", occItem.Severity)
+		}
+		if occItem.EvidenceLevel != EvidenceSuspected {
+			t.Errorf("theoretical occupancy finding EvidenceLevel = %v, want %v", occItem.EvidenceLevel, EvidenceSuspected)
+		}
+		if !strings.Contains(occItem.NextMeasurement, "active warps") && !strings.Contains(occItem.NextMeasurement, "A/B") {
+			t.Errorf("theoretical occupancy NextMeasurement missing active warps / A/B timing: %q", occItem.NextMeasurement)
+		}
+	})
+}
 
 
