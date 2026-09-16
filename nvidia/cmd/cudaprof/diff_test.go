@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -341,5 +342,278 @@ func TestRunDiffExplain(t *testing.T) {
 	}
 	if !strings.Contains(out, "1.33×") && !strings.Contains(out, "1.33x") {
 		t.Errorf("output missing expected speedup calculation: %s", out)
+	}
+}
+
+func TestFindTimeIndex(t *testing.T) {
+	makeVT := func(typ, unit string) *profile.ValueType {
+		return &profile.ValueType{Type: typ, Unit: unit}
+	}
+	tests := []struct {
+		name    string
+		types   []*profile.ValueType
+		wantIdx int
+	}{
+		{"gpu_time nanoseconds", []*profile.ValueType{makeVT("gpu_time", "nanoseconds")}, 0},
+		{"kernel_time nanoseconds", []*profile.ValueType{makeVT("kernel_time", "nanoseconds")}, 0},
+		{"duration_ns ns", []*profile.ValueType{makeVT("duration_ns", "ns")}, 0},
+		{"duration_ns empty unit", []*profile.ValueType{makeVT("duration_ns", "")}, 0},
+		{"duration nanoseconds", []*profile.ValueType{makeVT("duration", "nanoseconds")}, 0},
+		{"time nanoseconds", []*profile.ValueType{makeVT("time", "nanoseconds")}, 0},
+		{"cpu nanoseconds", []*profile.ValueType{makeVT("cpu", "nanoseconds")}, 0},
+		{"pc_samples count (never duration)", []*profile.ValueType{makeVT("pc_samples", "count")}, -1},
+		{"pc_samples samples (never duration)", []*profile.ValueType{makeVT("pc_samples", "samples")}, -1},
+		{"samples count (never duration)", []*profile.ValueType{makeVT("samples", "count")}, -1},
+		{"stall_mem samples (never duration)", []*profile.ValueType{makeVT("stall_mem", "samples")}, -1},
+		{"inst_executed count (never duration)", []*profile.ValueType{makeVT("inst_executed", "count")}, -1},
+		{"vram_alloc bytes", []*profile.ValueType{makeVT("vram_alloc", "bytes")}, -1},
+		{"pc_samples at index 0 must not fall back", []*profile.ValueType{
+			makeVT("pc_samples", "count"),
+			makeVT("gpu_time", "nanoseconds"),
+		}, 1},
+		{"empty sample types", []*profile.ValueType{}, -1},
+		{"nil profile", nil, -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p *profile.Profile
+			if tt.types != nil {
+				p = &profile.Profile{SampleType: tt.types}
+			}
+			got := findTimeIndex(p)
+			if got != tt.wantIdx {
+				t.Errorf("findTimeIndex() = %d, want %d", got, tt.wantIdx)
+			}
+		})
+	}
+}
+
+func TestFindSampleIndex(t *testing.T) {
+	makeVT := func(typ, unit string) *profile.ValueType {
+		return &profile.ValueType{Type: typ, Unit: unit}
+	}
+	tests := []struct {
+		name    string
+		types   []*profile.ValueType
+		wantIdx int
+	}{
+		{"pc_samples count", []*profile.ValueType{makeVT("pc_samples", "count")}, 0},
+		{"samples count", []*profile.ValueType{makeVT("samples", "count")}, 0},
+		{"pc_samples preferred over samples", []*profile.ValueType{
+			makeVT("samples", "count"),
+			makeVT("pc_samples", "count"),
+		}, 1},
+		{"duration metric has no sample index", []*profile.ValueType{makeVT("gpu_time", "nanoseconds")}, -1},
+		{"empty sample types", []*profile.ValueType{}, -1},
+		{"nil profile", nil, -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p *profile.Profile
+			if tt.types != nil {
+				p = &profile.Profile{SampleType: tt.types}
+			}
+			got := findSampleIndex(p)
+			if got != tt.wantIdx {
+				t.Errorf("findSampleIndex() = %d, want %d", got, tt.wantIdx)
+			}
+		})
+	}
+}
+
+func createMultiKernelCapture(t *testing.T, sampleType, sampleUnit string, kernels map[string]int64) string {
+	t.Helper()
+	p := &profile.Profile{
+		SampleType: []*profile.ValueType{{Type: sampleType, Unit: sampleUnit}},
+	}
+	var nextID uint64 = 1
+	var sassBuilder strings.Builder
+	for name, val := range kernels {
+		fn := &profile.Function{ID: nextID, Name: name, Filename: "kernels.cu"}
+		loc := &profile.Location{ID: nextID, Line: []profile.Line{{Function: fn, Line: 1}}}
+		nextID++
+		p.Function = append(p.Function, fn)
+		p.Location = append(p.Location, loc)
+		p.Sample = append(p.Sample, &profile.Sample{
+			Location: []*profile.Location{loc},
+			Value:    []int64{val},
+		})
+		sassBuilder.WriteString(fmt.Sprintf("--- Kernel: %s ---\n/*0000*/ NOP ;\n/*0010*/ EXIT ;\n", name))
+	}
+
+	cap := &cudacapture.Capture{
+		Profile: p,
+		Code: cudacapture.CodeFiles{
+			Source: "kernels.cu",
+			PTX:    "kernels.ptx",
+			CUBIN:  "kernels.cubin",
+			SASS:   "kernels.sass",
+		},
+		Files: map[string][]byte{
+			"kernels.cu":    []byte("void compute() {}\n"),
+			"kernels.ptx":   []byte("// PTX\n"),
+			"kernels.cubin": []byte("CUBIN_MOCK"),
+			"kernels.sass":  []byte(sassBuilder.String()),
+		},
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "capture.pprof")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := cudacapture.Write(f, cap); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestRunDiffExplainPCSamples(t *testing.T) {
+	basePath := createMultiKernelCapture(t, "pc_samples", "count", map[string]int64{
+		"q2_gather":  1338579,
+		"iq2_gather": 444134,
+	})
+	targetPath := createMultiKernelCapture(t, "pc_samples", "count", map[string]int64{
+		"q2_gather":  1083682,
+		"iq2_gather": 528815,
+	})
+
+	var buf bytes.Buffer
+	err := runDiff(&buf, []string{"--explain", basePath, targetPath})
+	if err != nil {
+		t.Fatalf("runDiff(--explain) failed: %v", err)
+	}
+
+	out := buf.String()
+
+	// Must contain PC sampling shift sections and statistics
+	for _, want := range []string{
+		"## Sample Count Shift",
+		"- **Base Sample Count**:   1782713",
+		"- **Target Sample Count**: 1612497",
+		"- **Sample Count Shift**:  -170216 (170216 fewer PC samples",
+		"q2_gather",
+		"-254897 (254897 fewer PC samples)",
+		"iq2_gather",
+		"+84681 (84681 more PC samples)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing expected PC-sample string %q\nGot:\n%s", want, out)
+		}
+	}
+
+	// Must NEVER claim runtime, µs, or speedup for PC sampling
+	for _, forbidden := range []string{
+		"Runtime",
+		"µs",
+		"speedup",
+		"×",
+	} {
+		if strings.Contains(out, forbidden) {
+			t.Errorf("output erroneously contains %q in PC-sample comparison\nGot:\n%s", forbidden, out)
+		}
+	}
+}
+
+func TestRunDiffExplainNativeDurationTable(t *testing.T) {
+	tests := []struct {
+		name       string
+		sampleType string
+		sampleUnit string
+		baseNs     int64
+		targetNs   int64
+		wantSpeed  string
+		wantSaved  string
+	}{
+		{"gpu_time", "gpu_time", "nanoseconds", 100000, 50000, "2.00×", "50.0%"},
+		{"kernel_time", "kernel_time", "nanoseconds", 200000, 150000, "1.33×", "25.0%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			basePath := createMultiKernelCapture(t, tt.sampleType, tt.sampleUnit, map[string]int64{"compute": tt.baseNs})
+			targetPath := createMultiKernelCapture(t, tt.sampleType, tt.sampleUnit, map[string]int64{"compute": tt.targetNs})
+
+			var buf bytes.Buffer
+			if err := runDiff(&buf, []string{"--explain", basePath, targetPath}); err != nil {
+				t.Fatalf("runDiff failed: %v", err)
+			}
+			out := buf.String()
+
+			if !strings.Contains(out, "## Execution Duration Delta") {
+				t.Errorf("missing Execution Duration Delta: %s", out)
+			}
+			if !strings.Contains(out, tt.wantSpeed) {
+				t.Errorf("missing speedup %s: %s", tt.wantSpeed, out)
+			}
+			if !strings.Contains(out, tt.wantSaved) {
+				t.Errorf("missing pct saved %s: %s", tt.wantSaved, out)
+			}
+			if !strings.Contains(out, "µs") {
+				t.Errorf("missing µs unit in duration diff: %s", out)
+			}
+		})
+	}
+}
+
+func TestRunDiffExplainMismatchedOrMissing(t *testing.T) {
+	tests := []struct {
+		name        string
+		baseType    string
+		baseUnit    string
+		targetType  string
+		targetUnit  string
+		wantMessage string
+	}{
+		{
+			name:        "duration vs pc_samples",
+			baseType:    "gpu_time",
+			baseUnit:    "nanoseconds",
+			targetType:  "pc_samples",
+			targetUnit:  "count",
+			wantMessage: "Mismatched sample types",
+		},
+		{
+			name:        "pc_samples vs duration",
+			baseType:    "pc_samples",
+			baseUnit:    "count",
+			targetType:  "gpu_time",
+			targetUnit:  "nanoseconds",
+			wantMessage: "Mismatched sample types",
+		},
+		{
+			name:        "both unrelated non-metrics",
+			baseType:    "vram_alloc",
+			baseUnit:    "bytes",
+			targetType:  "vram_alloc",
+			targetUnit:  "bytes",
+			wantMessage: "No comparable execution duration or PC sampling metrics found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			basePath := createMultiKernelCapture(t, tt.baseType, tt.baseUnit, map[string]int64{"k": 100})
+			targetPath := createMultiKernelCapture(t, tt.targetType, tt.targetUnit, map[string]int64{"k": 100})
+
+			var buf bytes.Buffer
+			if err := runDiff(&buf, []string{"--explain", basePath, targetPath}); err != nil {
+				t.Fatalf("runDiff failed: %v", err)
+			}
+			out := buf.String()
+
+			if !strings.Contains(out, tt.wantMessage) {
+				t.Errorf("output missing expected message %q: %s", tt.wantMessage, out)
+			}
+			for _, forbidden := range []string{"Runtime:", "speedup", "×"} {
+				if strings.Contains(out, forbidden) {
+					t.Errorf("output erroneously contains %q on mismatched/missing metrics: %s", forbidden, out)
+				}
+			}
+		})
 	}
 }

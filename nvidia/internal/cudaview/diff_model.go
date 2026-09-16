@@ -66,10 +66,19 @@ type DiffSummary struct {
 	LocalMemoryAdded   int                           `json:"local_memory_added"`
 	LocalMemoryRemoved int                           `json:"local_memory_removed"`
 	LocalMemoryDelta   int                           `json:"local_memory_delta"`
+	HasDurationMetric  bool                          `json:"has_duration_metric,omitempty"`
 	BaseRuntimeUs      float64                       `json:"base_runtime_us,omitempty"`
 	TargetRuntimeUs    float64                       `json:"target_runtime_us,omitempty"`
 	DurationDeltaUs    float64                       `json:"duration_delta_us,omitempty"`
 	Speedup            float64                       `json:"speedup,omitempty"`
+	HasSampleMetric    bool                          `json:"has_sample_metric,omitempty"`
+	BaseSamples        int64                         `json:"base_samples,omitempty"`
+	TargetSamples      int64                         `json:"target_samples,omitempty"`
+	SampleDelta        int64                         `json:"sample_delta,omitempty"`
+	BaseSampleShare    float64                       `json:"base_sample_share,omitempty"`
+	TargetSampleShare  float64                       `json:"target_sample_share,omitempty"`
+	ShareShift         float64                       `json:"share_shift,omitempty"`
+	SampleShiftSummary string                        `json:"sample_shift_summary,omitempty"`
 	Substitutions      []cudasass.OpcodeSubstitution `json:"substitutions,omitempty"`
 	TopStallShifts     []StallShiftSummary           `json:"top_stall_shifts,omitempty"`
 }
